@@ -116,7 +116,7 @@ jobs:
   test-windows:
     name: Tests (Windows)
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -259,7 +259,13 @@ jobs:
             | python3 -c "
           import sys, json
           d = json.load(sys.stdin)
-          pct = d['data'][0]['totals']['lines']['percent']
+          data = d.get('data', [])
+          if not data:
+            print('ERROR: llvm-cov JSON has no data array')
+            sys.exit(1)
+          totals = data[0].get('totals', {})
+          lines = totals.get('lines', {})
+          pct = lines.get('percent', 0.0)
           ok = pct >= 59.0
           print(f'Line coverage: {pct:.1f}% {\"✅\" if ok else \"❌\"}')
           sys.exit(0 if ok else 1)

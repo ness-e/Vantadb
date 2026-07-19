@@ -157,7 +157,7 @@ jobs:
             let body = `## ⚠️ Benchmark Regression Detected
 
             **Commit:** \`${context.sha}\`
-            **Workflow:** [${process.env.GITHUB_WORKFLOW}](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})
+            **Workflow:** [${context.workflow}](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})
             **Threshold:** ${report.threshold_pct}%
 
             ### Regressions
