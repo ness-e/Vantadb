@@ -441,6 +441,7 @@ impl CPIndex {
             node.bitset = bitset;
             node.vec_data = vec_data.clone();
             node.storage_offset = storage_offset;
+            (node.inv_cached_norm, node.norm_sq) = self.compute_cached_norms(&node.vec_data);
             return true;
         }
 
@@ -497,7 +498,10 @@ impl CPIndex {
 
         let (inv_cached_norm, norm_sq) = self.compute_cached_norms(&vec_data);
 
-        let query_f32 = vec_data.to_f32();
+        let query_f32 = match vec_data.to_f32() {
+            Some(v) => v,
+            None => return,
+        };
 
         let node = HnswNode {
             id,
@@ -523,11 +527,6 @@ impl CPIndex {
 
         self.nodes.insert(id, node);
         self.total_nodes.fetch_add(1, Ordering::Relaxed);
-
-        let query_f32 = match query_f32 {
-            Some(v) => v,
-            None => return,
-        };
 
         let (query_norm, query_inv_norm) = match self.config.distance_metric {
             DistanceMetric::Cosine => {

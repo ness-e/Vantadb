@@ -251,6 +251,8 @@ pub struct VantaDB {
     worker: Option<worker::OpfsWorkerProxy>,
 }
 
+const MAX_RECORDS: usize = 1_000_000;
+
 #[wasm_bindgen]
 impl VantaDB {
     /// Create a new VantaDB instance from an optional WASM config object.
@@ -412,6 +414,9 @@ impl VantaDB {
                 let page = self.inner.list(ns, opts).map_err(to_js_err)?;
                 for record in page.records {
                     if seen.insert((record.namespace.clone(), record.key.clone())) {
+                        if state.len() >= MAX_RECORDS {
+                            return Err(JsValue::from_str("too many records to export"));
+                        }
                         state.push(record);
                     }
                 }
@@ -617,9 +622,9 @@ impl VantaDB {
                     term.contribution = 0.0;
                 }
             }
-            let expl_js: JsValue =
-                serde_wasm_bindgen::to_value(&sanitized).expect("search explanation serialization");
-            js_sys::Reflect::set(&obj, &"explanation".into(), &expl_js).ok();
+            if let Ok(expl_js) = serde_wasm_bindgen::to_value(&sanitized) {
+                js_sys::Reflect::set(&obj, &"explanation".into(), &expl_js).ok();
+            }
         }
         obj.into()
     }
@@ -950,9 +955,9 @@ fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
                 }
             })
             .collect();
-        let v: JsValue =
-            serde_wasm_bindgen::to_value(&sanitized).expect("vector Vec<f32> serialization");
-        js_sys::Reflect::set(&obj, &"vector".into(), &v).ok();
+        if let Ok(v) = serde_wasm_bindgen::to_value(&sanitized) {
+            js_sys::Reflect::set(&obj, &"vector".into(), &v).ok();
+        }
     }
     if let Some(expires_at) = rec.expires_at_ms {
         js_sys::Reflect::set(
@@ -962,9 +967,9 @@ fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
         )
         .ok();
     }
-    let meta: JsValue =
-        serde_wasm_bindgen::to_value(&rec.metadata).expect("metadata serialization");
-    js_sys::Reflect::set(&obj, &"metadata".into(), &meta).ok();
+    if let Ok(meta) = serde_wasm_bindgen::to_value(&rec.metadata) {
+        js_sys::Reflect::set(&obj, &"metadata".into(), &meta).ok();
+    }
     JsValue::from(&obj)
 }
 

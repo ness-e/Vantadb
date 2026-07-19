@@ -69,18 +69,18 @@ impl WalShipper {
         config: WalShipConfig,
         wal_dir: impl AsRef<Path>,
         archive_dir: impl AsRef<Path>,
-    ) -> Self {
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let marker_path = wal_dir.as_ref().join(".wal_ship_marker");
-        Self {
-            client: reqwest::blocking::Client::builder()
-                .timeout(Duration::from_secs(30))
-                .build()
-                .expect("Failed to create reqwest blocking client"),
+        let client = reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .build()?;
+        Ok(Self {
+            client,
             config,
             wal_dir: wal_dir.as_ref().to_path_buf(),
             archive_dir: archive_dir.as_ref().to_path_buf(),
             marker_path,
-        }
+        })
     }
 
     /// Run one shipping cycle: discover unsent segments and ship all their records.
@@ -268,7 +268,7 @@ mod tests {
     fn test_discover_segments_empty() {
         let dir = tempdir().unwrap();
         let cfg = WalShipConfig::default();
-        let shipper = WalShipper::new(cfg, dir.path(), dir.path().join("archive"));
+        let shipper = WalShipper::new(cfg, dir.path(), dir.path().join("archive")).unwrap();
         let segments = shipper.discover_segments(&None).unwrap();
         assert!(segments.is_empty());
     }
@@ -283,7 +283,7 @@ mod tests {
         let _rotated = w.rotate(SyncMode::Periodic).unwrap();
 
         let cfg = WalShipConfig::default();
-        let shipper = WalShipper::new(cfg, dir.path(), dir.path().join("archive"));
+        let shipper = WalShipper::new(cfg, dir.path(), dir.path().join("archive")).unwrap();
         let segments = shipper.discover_segments(&None).unwrap();
         assert_eq!(segments.len(), 1);
     }
