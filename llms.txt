@@ -77,7 +77,7 @@ vanta-cli mcp  # Starts MCP server for AI agent integration
 - Release profile: thin LTO, opt-level=3
 
 ## Project Status
-- Version: 0.2.0
+- Version: 0.3.0
 - Pre-release, Phase 3 pre-launch (~95%)
 - License: Apache 2.0
 - Repository: https://github.com/ness-e/Vantadb

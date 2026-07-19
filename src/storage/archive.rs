@@ -210,6 +210,9 @@ pub(crate) fn rebuild_hnsw_from_vstore(
                                 0,
                                 "f32 vector must be 4-byte aligned"
                             );
+                            // SAFETY: slice is page-aligned via mmap, confirming
+                            // f32 alignment. The debug_assert_eq above verifies
+                            // the invariant. .to_vec() eliminates aliasing.
                             crate::node::VectorRepresentations::Full(
                                 unsafe {
                                     std::slice::from_raw_parts(

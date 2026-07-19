@@ -615,12 +615,17 @@ impl CPIndex {
         self.nodes = new_index.nodes;
         self.entry_point = new_index.entry_point;
 
-        if let IndexBackend::MMapFile { ref mut mmap, .. } = self.backend {
-            *mmap = Some(mapped);
-        }
-
+        // Drop mmap and file handle before rename (Windows requires the temp file
+        // to have no open handles for rename to succeed). Re-create after.
+        drop(mapped);
         drop(file);
         std::fs::rename(&temp_path, &path)?;
+
+        let file = OpenOptions::new().read(true).write(true).open(&path)?;
+        let new_mmap = unsafe { MmapMut::map_mut(&file)? };
+        if let IndexBackend::MMapFile { ref mut mmap, .. } = self.backend {
+            *mmap = Some(new_mmap);
+        }
 
         info!(path = %path.display(), node_count = self.nodes.len(), bytes = data.len(), "HNSW MMap synced & zero-copy pointers re-mapped via atomic rename");
         Ok(())

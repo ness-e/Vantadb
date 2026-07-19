@@ -128,7 +128,7 @@ impl OpfsStorage {
     pub async fn write_file(&self, path: &str, data: &[u8]) -> Result<(), JsValue> {
         let file = OpfsFile::open(&self.dir_handle, path, true)
             .await?
-            .expect("OpfsFile::open with create=true should succeed");
+            .ok_or_else(|| JsValue::from_str("OpfsFile::open returned None with create=true"))?;
         file.write(data).await
     }
 
@@ -161,7 +161,7 @@ impl OpfsStorage {
     pub async fn append_file(&self, path: &str, data: &[u8]) -> Result<(), JsValue> {
         let file = OpfsFile::open(&self.dir_handle, path, true)
             .await?
-            .expect("OpfsFile::open with create=true should succeed");
+            .ok_or_else(|| JsValue::from_str("OpfsFile::open returned None with create=true"))?;
         file.append(data).await
     }
 
