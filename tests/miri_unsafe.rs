@@ -40,11 +40,12 @@ fn miri_raw_ptr_mut_slice_roundtrip() {
 
 #[test]
 fn miri_send_ptr_across_threads() {
-    let data: [f32; 2] = [1.5, 2.5];
-    let ptr = SendPtr(&data as *const f32);
+    let data: Box<[f32; 2]> = Box::new([1.5, 2.5]);
+    let ptr = SendPtr(&*data as *const f32);
 
+    let raw = ptr.0;
     let handle = std::thread::spawn(move || {
-        let slice: &[f32] = unsafe { std::slice::from_raw_parts(ptr.0, 2) };
+        let slice: &[f32] = unsafe { std::slice::from_raw_parts(raw, 2) };
         assert_eq!(slice[0], 1.5);
     });
 
@@ -72,7 +73,7 @@ fn miri_raw_ptr_slice_from_nonnull() {
     let data: [f32; 5] = [0.0, -1.0, -2.0, -3.0, -4.0];
     let ptr = ptr::NonNull::from(&data).as_ptr();
 
-    let slice: &[f32] = unsafe { std::slice::from_raw_parts(ptr, 5) };
+    let slice: &[f32] = unsafe { std::slice::from_raw_parts(ptr as *const f32, 5) };
     assert_eq!(slice[4], -4.0);
 }
 
