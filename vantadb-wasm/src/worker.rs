@@ -169,7 +169,8 @@ const MAX_RETRIES: u32 = 2;
 const BASE_DELAY_MS: u32 = 1000;
 
 fn is_retryable(err: &JsValue) -> bool {
-    err.as_string().is_some_and(|s| s.contains("timeout"))
+    err.as_string()
+        .is_some_and(|s| s.contains("timeout") || s.contains("abort") || s.contains("try again"))
 }
 
 /// A proxy that communicates with an OPFS Web Worker.
@@ -199,10 +200,15 @@ impl OpfsWorkerProxy {
                     let p = Promise::new(&mut {
                         let d = delay;
                         move |r: js_sys::Function, _: js_sys::Function| {
-                            let code = format!("setTimeout(() => r(), {});", d);
-                            js_sys::Function::new_no_args(&code)
-                                .call0(&JsValue::undefined())
-                                .ok();
+                            let global = js_sys::global();
+                            if let Ok(set_timeout) =
+                                js_sys::Reflect::get(&global, &"setTimeout".into())
+                            {
+                                let args = js_sys::Array::new();
+                                args.push(&r);
+                                args.push(&JsValue::from_f64(d as f64));
+                                js_sys::Reflect::apply(&set_timeout, &global, &args).ok();
+                            }
                         }
                     });
                     JsFuture::from(p).await.ok();

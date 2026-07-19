@@ -96,6 +96,7 @@ pub(crate) fn compact_layout(
             let new_vec_offset = new_node_offset + header_size;
             let end = new_vec_offset + vec_size_aligned;
             if end > new_file_size {
+                let _ = tmp_mmap.flush();
                 drop(tmp_mmap);
                 tmp_file.set_len(end + 4096).map_err(VantaError::IoError)?;
                 // SAFETY: tmp_file was extended via set_len() before this call, so the

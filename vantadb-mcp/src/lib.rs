@@ -909,7 +909,9 @@ pub fn handle_tools_call(
     let p = params
         .as_ref()
         .ok_or_else(|| McpError::invalid_params("Missing params").to_json())?;
-    let name = p["name"].as_str().unwrap_or("");
+    let name = p["name"]
+        .as_str()
+        .ok_or_else(|| McpError::invalid_params("Missing 'name' in tool call").to_json())?;
     let args = &p["arguments"];
 
     match name {
