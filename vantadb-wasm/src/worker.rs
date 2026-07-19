@@ -17,7 +17,7 @@
 //!     │                           ├── open storage directory
 //! ```
 
-use js_sys::{Array, Reflect};
+use js_sys::{Array, Promise, Reflect};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;

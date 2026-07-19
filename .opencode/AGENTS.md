@@ -811,6 +811,8 @@ Como agente de IA asistiendo en VantaDB, DEBES auditar el código y las peticion
 
 NUNCA sugieras mergear a `main` o pushear código sin antes ejecutar el pipeline local de certificación.
 
+**Prohibido `--no-verify`**: si el pre-commit o pre-push hook falla (tests, clippy, fmt, deny), NO se puede usar `--no-verify` para saltarlo. Hay que arreglar el error y reintentar hasta que pase. Error → arreglar → reintentar, tantas veces como sea necesario. `--no-verify` solo se permite si el usuario lo ordena explícitamente.
+
 | Si el usuario hace... | Debes responder... |
 |---|---|
 | `git push` o `git merge` | "¿Ya ejecutaste `dev-tools/verify.ps1` (build sin warnings, `cargo nextest --profile audit`, `cargo clippy --deny warnings`, `cargo fmt --check`)?" |

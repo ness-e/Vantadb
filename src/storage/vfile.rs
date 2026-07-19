@@ -32,6 +32,7 @@ pub(crate) use memmap2::{Mmap, MmapMut, MmapOptions};
 /// Shim module providing Mmap/MmapMut when the memmap2 feature is disabled.
 #[cfg(not(feature = "memmap2"))]
 pub(crate) mod mmap_shim {
+    #![allow(dead_code)]
     use super::*;
     /// A read-only memory-mapped file backed by a `Vec<u8>`.
     #[derive(Debug)]
@@ -47,14 +48,14 @@ pub(crate) mod mmap_shim {
         pub fn new() -> Self {
             Self
         }
-        /// Map a file into read-only memory by reading its contents into a Vec.
+        /// Read a file's contents into a `Vec<u8>` — safe, no actual mmap.
         pub fn map(&self, file: &File) -> std::io::Result<Mmap> {
             let mut v = vec![0u8; file.metadata()?.len() as usize];
             let mut f = file.try_clone()?;
             f.read_exact(&mut v)?;
             Ok(Mmap(v))
         }
-        /// Map a file into read-write memory by reading its contents into a Vec.
+        /// Read a file's contents into a writable `Vec<u8>` — safe, no actual mmap.
         pub fn map_mut(&self, file: &File) -> std::io::Result<MmapMut> {
             let mut v = vec![0u8; file.metadata()?.len() as usize];
             let mut f = file.try_clone()?;
@@ -64,8 +65,11 @@ pub(crate) mod mmap_shim {
     }
     impl Mmap {
         /// Create a new read-only Mmap by reading the file contents.
-        pub fn map(file: &File) -> std::io::Result<Self> {
-            MmapOptions::new().map(file)
+        /// # Safety
+        /// Mirrors memmap2::Mmap::map's safety contract for API compatibility.
+        pub unsafe fn map(file: &File) -> std::io::Result<Self> {
+            // SAFETY: safe implementation, unsafe for API parity with memmap2
+            unsafe { MmapOptions::new().map(file) }
         }
         /// Return a raw pointer to the mapped memory.
         pub fn as_ptr(&self) -> *const u8 {
@@ -100,8 +104,11 @@ pub(crate) mod mmap_shim {
     }
     impl MmapMut {
         /// Create a new read-write MmapMut by reading the file contents.
-        pub fn map_mut(file: &File) -> std::io::Result<Self> {
-            MmapOptions::new().map_mut(file)
+        /// # Safety
+        /// Mirrors memmap2::MmapMut::map_mut's safety contract for API compatibility.
+        pub unsafe fn map_mut(file: &File) -> std::io::Result<Self> {
+            // SAFETY: safe implementation, unsafe for API parity with memmap2
+            unsafe { MmapOptions::new().map_mut(file) }
         }
         /// Return a raw pointer to the mapped memory.
         pub fn as_ptr(&self) -> *const u8 {

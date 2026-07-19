@@ -547,9 +547,11 @@ impl StorageEngine {
         }
 
         let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
-        // SAFETY: `vec_end > vstore.size as usize` guard above ensures the
-        // slice is within mmap bounds. `vec_start` is 64-byte aligned per
-        // VantaFile layout, guaranteeing f32 (4-byte) alignment.
+        debug_assert_eq!(
+            vec_bytes.as_ptr().align_offset(4),
+            0,
+            "f32 vector must be 4-byte aligned"
+        );
         let f32_vec: &[f32] = unsafe {
             std::slice::from_raw_parts(vec_bytes.as_ptr() as *const f32, header.vector_len as usize)
         };
@@ -667,8 +669,11 @@ impl StorageEngine {
             }
 
             let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
-            // SAFETY: bounds verified above (`vec_end > vstore.size` guard).
-            // Same alignment guarantees as the get_node path above.
+            debug_assert_eq!(
+                vec_bytes.as_ptr().align_offset(4),
+                0,
+                "f32 vector must be 4-byte aligned"
+            );
             let f32_vec: &[f32] = unsafe {
                 std::slice::from_raw_parts(
                     vec_bytes.as_ptr() as *const f32,
@@ -989,8 +994,11 @@ impl StorageEngine {
                 }
 
                 let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
-                // SAFETY: bounds verified above. Same alignment guarantees as
-                // the other `from_raw_parts` paths in this module.
+                debug_assert_eq!(
+                    vec_bytes.as_ptr().align_offset(4),
+                    0,
+                    "f32 vector must be 4-byte aligned"
+                );
                 let f32_vec: Vec<f32> = unsafe {
                     std::slice::from_raw_parts(
                         vec_bytes.as_ptr() as *const f32,

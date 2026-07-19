@@ -376,6 +376,11 @@ impl CPIndex {
                                 "MmapFull: null pointer from vec_bytes",
                             ));
                         }
+                        debug_assert_eq!(
+                            vec_bytes.as_ptr().align_offset(4),
+                            0,
+                            "MmapFull: vec_bytes not 4-byte aligned"
+                        );
                         if vec_len == 0 || vec_len > graph::MAX_VEC_F32_LEN {
                             return Err(Error::new(
                                 ErrorKind::InvalidData,

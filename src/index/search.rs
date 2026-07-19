@@ -44,6 +44,11 @@ impl CPIndex {
                             // is valid and the alignment cast to `f32` is safe (mmap pages are
                             // aligned, and HNSW stores vectors with 4-byte alignment in the
                             // memory-mapped file).
+                            debug_assert_eq!(
+                                vec_data.as_ptr().align_offset(4),
+                                0,
+                                "f32 vector must be 4-byte aligned"
+                            );
                             let f32_vec: &[f32] = unsafe {
                                 std::slice::from_raw_parts(
                                     vec_data.as_ptr() as *const f32,
@@ -163,6 +168,11 @@ impl CPIndex {
                                         // SAFETY: `vec_end > vs.mmap_bytes().len()` guard above
                                         // ensures `h.vector_len * 4` does not exceed the mmap
                                         // region. Pointer is derived from the mmap byte slice.
+                                        debug_assert_eq!(
+                                            v_data.as_ptr().align_offset(4),
+                                            0,
+                                            "f32 neighbor vector must be 4-byte aligned"
+                                        );
                                         let f32_v: &[f32] = unsafe {
                                             std::slice::from_raw_parts(
                                                 v_data.as_ptr() as *const f32,

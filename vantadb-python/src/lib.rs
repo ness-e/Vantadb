@@ -3,6 +3,7 @@
 //! This crate exposes the [`VantaDB`] class and a [`connect`] function
 //! for in-process, zero-network-overhead access to VantaDB from Python.
 #![warn(missing_docs)]
+#![allow(deprecated)]
 
 use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::{
@@ -827,6 +828,7 @@ impl VantaDB {
     #[deprecated(
         note = "use keyword arguments (keys=..., vectors=..., payloads=..., metadatas=..., namespace=..., ttls=...) instead"
     )]
+    #[allow(deprecated)]
     #[pyo3(signature = (entries, keys=None, vectors=None, payloads=None, metadatas=None, namespace=None, ttls=None))]
     fn put_batch(
         &self,

@@ -5,14 +5,7 @@ ignore = [
     # Upstream: postcard 2.0 migrates to heapless 0.9+ which uses portable-atomic.
     # VantaDB already has portable-atomic as a direct dependency.
     "RUSTSEC-2023-0089",
-    # RUSTSEC-2024-0436: paste is no longer maintained.
-    # Transitive via tikv-jemalloc-ctl -> tikv-jemalloc-sys (cfg: linux/macos).
-    # Moving to cargo audit CLI would break cross-platform verify.
-    "RUSTSEC-2024-0436",
-    # RUSTSEC-2025-0134: rustls-pemfile is unmaintained.
-    # Transitive via axum-server (feature: tls).
-    # Moving to cargo audit CLI would break cross-platform verify.
-    "RUSTSEC-2025-0134",
+
 ]
 
 [licenses]
