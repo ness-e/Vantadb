@@ -20,6 +20,13 @@ use tracing::warn;
 
 const DEFAULT_RSS_THRESHOLD: f64 = 0.80;
 
+/// Maximum entries in text_stats_cache before watermark eviction.
+pub(crate) const MAX_TEXT_STATS_CACHE: usize = 100_000;
+/// Maximum entries in text_ns_cache before watermark eviction.
+pub(crate) const MAX_TEXT_NS_CACHE: usize = 1_000;
+/// Maximum field→value pairs in cardinality_stats before eviction.
+pub(crate) const MAX_CARDINALITY_PAIRS: usize = 10_000;
+
 /// Log output format for the VantaDB server.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LogFormat {

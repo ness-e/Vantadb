@@ -190,23 +190,29 @@ impl StorageBackend for FjallBackend {
         Ok(result)
     }
 
-    fn scan_prefix(
-        &self,
+    fn scan_prefix_iter<'a>(
+        &'a self,
         partition: BackendPartition,
-        prefix: &[u8],
-    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        prefix: &'a [u8],
+    ) -> Result<Box<dyn Iterator<Item = Result<(Vec<u8>, Vec<u8>)>> + 'a>> {
         let ks = self.keyspace(partition);
-        let mut result = Vec::new();
-        for item in ks.range(prefix..) {
-            let kv = item
-                .into_inner()
-                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
-            if !kv.0.starts_with(prefix) {
-                break;
+        let prefix = prefix.to_vec();
+        let mut range = ks.range(prefix.as_slice()..);
+        Ok(Box::new(std::iter::from_fn(move || {
+            let guard = range.next()?;
+            let (key, value) = match guard.into_inner() {
+                Ok(kv) => kv,
+                Err(e) => {
+                    return Some(Err(VantaError::IoError(std::io::Error::other(
+                        e.to_string(),
+                    ))));
+                }
+            };
+            if !key.starts_with(&prefix) {
+                return None;
             }
-            result.push((kv.0.to_vec(), kv.1.to_vec()));
-        }
-        Ok(result)
+            Some(Ok((key.to_vec(), value.to_vec())))
+        })))
     }
 
     /// Flush pending writes to durable storage.

@@ -1,5 +1,6 @@
 #[cfg(not(feature = "memmap2"))]
 use crate::storage::vfile::MmapMut;
+use ahash::RandomState;
 use dashmap::DashMap;
 #[cfg(feature = "memmap2")]
 use memmap2::MmapMut;
@@ -9,10 +10,8 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::collections::BinaryHeap;
 use std::fs::File;
-use std::hash::BuildHasherDefault;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use twox_hash::XxHash64;
 
 pub type NeighborVec = SmallVec<[u128; 32]>;
 
@@ -20,7 +19,7 @@ pub(crate) const ENTRY_POINT_NONE: u128 = u128::MAX;
 pub(crate) const MAX_VEC_F32_LEN: usize = 10_000_000;
 
 use super::distance::*;
-pub use crate::node::{DistanceMetric, FilterBitset, SendPtr, VectorRepresentations};
+pub use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
 
 #[inline(always)]
 #[allow(unused_variables)]
@@ -130,6 +129,13 @@ pub struct HnswNode {
     pub inv_cached_norm: f32,
     pub norm_sq: f32,
     pub flags: u32,
+}
+
+impl HnswNode {
+    /// Returns a zero-copy borrow of the vector data as `&[f32]`.
+    pub fn vector_slice(&self) -> Option<&[f32]> {
+        self.vec_data.as_f32_slice()
+    }
 }
 
 #[derive(Debug)]
@@ -275,7 +281,7 @@ impl Ord for NodeSimMin {
 }
 
 pub struct CPIndex {
-    pub nodes: DashMap<u128, HnswNode, BuildHasherDefault<XxHash64>>,
+    pub nodes: DashMap<u128, HnswNode>,
     pub max_layer: AtomicUsize,
     pub entry_point: AtomicU128,
     pub backend: IndexBackend,
@@ -339,7 +345,7 @@ impl CPIndex {
             let node = r.value();
             match &node.vec_data {
                 VectorRepresentations::Full(v) => total += v.len() * std::mem::size_of::<f32>(),
-                VectorRepresentations::MmapFull(_, _) => {}
+                VectorRepresentations::MmapFull(_) => {}
                 VectorRepresentations::Binary(b) => total += b.len() * std::mem::size_of::<u64>(),
                 VectorRepresentations::Turbo(t) => total += t.len(),
                 VectorRepresentations::SQ8(d, _) => total += d.len() + 4,
@@ -545,9 +551,12 @@ impl CPIndex {
         };
 
         let mut curr_entry_points = vec![ep];
+        let mut visited: std::collections::HashSet<u128, RandomState> =
+            std::collections::HashSet::with_capacity_and_hasher(ef_cons * 2, RandomState::new());
         let top_layer = self.max_layer.load(Ordering::Acquire);
 
         for layer in (level + 1..=top_layer).rev() {
+            visited.clear();
             let mut w = self.search_layer(
                 &query_f32,
                 query_norm,
@@ -558,6 +567,7 @@ impl CPIndex {
                 &crate::node::ALL_BITSET,
                 None,
                 self.config.distance_metric,
+                &mut visited,
             );
             if let Some(NodeSimMin(_, best_id)) = w.pop() {
                 curr_entry_points = vec![best_id];
@@ -566,6 +576,7 @@ impl CPIndex {
 
         let start_layer = std::cmp::min(level, top_layer);
         for layer in (0..=start_layer).rev() {
+            visited.clear();
             let w = self.search_layer(
                 &query_f32,
                 query_norm,
@@ -576,6 +587,7 @@ impl CPIndex {
                 &crate::node::ALL_BITSET,
                 None,
                 self.config.distance_metric,
+                &mut visited,
             );
 
             let m_max = if layer == 0 {

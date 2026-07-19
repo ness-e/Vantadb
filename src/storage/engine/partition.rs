@@ -31,12 +31,25 @@ impl StorageEngine {
     }
 
     /// Scan key-value pairs matching the given prefix in the given backend partition.
+    #[allow(dead_code)]
     pub(crate) fn scan_partition_prefix(
         &self,
         partition: BackendPartition,
         prefix: &[u8],
     ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         self.backend.scan_prefix(partition, prefix)
+    }
+
+    /// Streaming variant of `scan_partition_prefix`.
+    ///
+    /// Returns a `Box<dyn Iterator>` so callers that only iterate once
+    /// can avoid materializing the full result set.
+    pub(crate) fn scan_partition_prefix_iter<'a>(
+        &'a self,
+        partition: BackendPartition,
+        prefix: &'a [u8],
+    ) -> Result<Box<dyn Iterator<Item = Result<(Vec<u8>, Vec<u8>)>> + 'a>> {
+        self.backend.scan_prefix_iter(partition, prefix)
     }
 
     /// Retrieve a single value from the given backend partition.

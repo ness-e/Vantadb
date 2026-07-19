@@ -192,6 +192,17 @@ impl StorageEngine {
                 }
             }
         }
+        // ponytail: drop the field with fewest entries if total pairs > global cap
+        let total: usize = stats.values().map(|m| m.len()).sum();
+        if total > crate::config::MAX_CARDINALITY_PAIRS {
+            if let Some(min_field) = stats
+                .iter()
+                .min_by_key(|(_, m)| m.len())
+                .map(|(k, _)| k.clone())
+            {
+                stats.remove(&min_field);
+            }
+        }
         stats
     }
 

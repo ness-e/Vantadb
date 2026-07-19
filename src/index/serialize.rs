@@ -13,7 +13,7 @@ use rand::SeedableRng;
 use crate::index::graph::{
     self, CPIndex, HnswNode, IndexBackend, NeighborVec, VECTOR_INDEX_VERSION,
 };
-use crate::node::{DistanceMetric, FilterBitset, SendPtr, VectorRepresentations};
+use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
 
 impl CPIndex {
     pub fn serialize_to_bytes(&self) -> Vec<u8> {
@@ -115,28 +115,31 @@ impl CPIndex {
                         pos += b.len();
                     }
                 }
-                VectorRepresentations::MmapFull(ptr, len) => {
+                VectorRepresentations::MmapFull(mmap_opt) => {
+                    let slice = if let Some(mmap) = mmap_opt {
+                        let len = mmap.len() / 4;
+                        if len == 0 || len > graph::MAX_VEC_F32_LEN {
+                            return Err(std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                format!("MmapFull invalid len in serialize: len={len}"),
+                            ));
+                        }
+                        // SAFETY: len bounded by MAX_VEC_F32_LEN above.
+                        unsafe { std::slice::from_raw_parts(mmap.as_ptr() as *const f32, len) }
+                    } else {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "MmapFull variant is None — cannot serialize",
+                        ));
+                    };
                     w.write_all(&[1])?;
-                    w.write_all(&(*len as u64).to_le_bytes())?;
+                    w.write_all(&(slice.len() as u64).to_le_bytes())?;
                     pos += 9;
                     let padding = (4 - (pos % 4)) % 4;
                     if padding > 0 {
                         w.write_all(&[0u8; 4][..padding])?;
                         pos += padding;
                     }
-                    if ptr.0.is_null() || *len == 0 || *len > graph::MAX_VEC_F32_LEN {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            format!(
-                                "MmapFull invalid ptr/len in serialize: ptr={:p} len={}",
-                                ptr.0, *len
-                            ),
-                        ));
-                    }
-                    // SAFETY: null/zero/overflow guard above ensures `ptr.0` is non-null,
-                    // `*len` is bounded by `MAX_VEC_F32_LEN`, and the resulting slice
-                    // length is valid for the serialized representation.
-                    let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
                     for &val in slice {
                         let b = val.to_le_bytes();
                         w.write_all(&b)?;
@@ -199,13 +202,13 @@ impl CPIndex {
         Ok(())
     }
 
-    pub fn deserialize_from_bytes(data: &[u8], force_copy: bool) -> std::io::Result<Self> {
+    pub fn deserialize_from_bytes(data: &[u8], _force_copy: bool) -> std::io::Result<Self> {
         use std::io::{Error, ErrorKind};
 
         use crate::index::graph::{HnswConfig, ENTRY_POINT_NONE};
         use dashmap::DashMap;
         use portable_atomic::AtomicU128;
-        use std::hash::BuildHasherDefault;
+
         use std::sync::atomic::{AtomicU64, AtomicUsize};
 
         #[inline]
@@ -328,7 +331,7 @@ impl CPIndex {
             ));
         }
 
-        let nodes = DashMap::with_capacity_and_hasher(node_count, BuildHasherDefault::default());
+        let nodes: DashMap<u128, HnswNode> = DashMap::with_capacity(node_count);
 
         for _ in 0..node_count {
             let id = read_le_u128(data, &mut pos, "node id")?;
@@ -352,43 +355,19 @@ impl CPIndex {
                         pos += padding;
                     }
                     let vec_bytes = take_bytes(data, &mut pos, byte_len, "f32 vec")?;
-                    if force_copy {
-                        let mut v = Vec::with_capacity(vec_len);
-                        for i in 0..vec_len {
-                            let start = i * 4;
-                            v.push(f32::from_le_bytes(
-                                vec_bytes[start..start + 4].try_into().map_err(|e| {
-                                    std::io::Error::new(
-                                        std::io::ErrorKind::InvalidData,
-                                        format!(
-                                            "f32 vec chunk at byte {start} expected 4 bytes: {e}"
-                                        ),
-                                    )
-                                })?,
-                            ));
-                        }
-                        VectorRepresentations::Full(v)
-                    } else {
-                        let ptr = vec_bytes.as_ptr() as *const f32;
-                        if ptr.is_null() {
-                            return Err(Error::new(
-                                ErrorKind::InvalidData,
-                                "MmapFull: null pointer from vec_bytes",
-                            ));
-                        }
-                        debug_assert_eq!(
-                            vec_bytes.as_ptr().align_offset(4),
-                            0,
-                            "MmapFull: vec_bytes not 4-byte aligned"
-                        );
-                        if vec_len == 0 || vec_len > graph::MAX_VEC_F32_LEN {
-                            return Err(Error::new(
-                                ErrorKind::InvalidData,
-                                format!("MmapFull: invalid vec_len {vec_len}"),
-                            ));
-                        }
-                        VectorRepresentations::MmapFull(SendPtr(ptr), vec_len)
+                    let mut v = Vec::with_capacity(vec_len);
+                    for i in 0..vec_len {
+                        let start = i * 4;
+                        v.push(f32::from_le_bytes(
+                            vec_bytes[start..start + 4].try_into().map_err(|e| {
+                                std::io::Error::new(
+                                    std::io::ErrorKind::InvalidData,
+                                    format!("f32 vec chunk at byte {start} expected 4 bytes: {e}"),
+                                )
+                            })?,
+                        ));
                     }
+                    VectorRepresentations::Full(v)
                 }
                 2 => {
                     let byte_len = vec_len.checked_mul(8).ok_or_else(|| {

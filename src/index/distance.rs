@@ -477,14 +477,17 @@ pub fn calculate_similarity(
             },
             DistanceMetric::Euclidean => -euclidean_distance_squared_f32(raw_query, f),
         },
-        VectorRepresentations::MmapFull(ptr, len) => {
-            if ptr.0.is_null() || *len == 0 || *len > MAX_VEC_F32_LEN {
+        VectorRepresentations::MmapFull(mmap_opt) => {
+            let mmap = match mmap_opt {
+                Some(m) => m,
+                None => return 0.0,
+            };
+            let len = mmap.len() / 4;
+            if len == 0 || len > MAX_VEC_F32_LEN {
                 return 0.0;
             }
-            // SAFETY: ptr.0 is non-null and len is bounded by MAX_VEC_F32_LEN (10M).
-            // The SendPtr is only constructed from valid mmap regions that are
-            // protected by the engine's read locks for the duration of the search.
-            let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
+            // SAFETY: len bounded by MAX_VEC_F32_LEN; mmap kept alive by Arc.
+            let slice = unsafe { std::slice::from_raw_parts(mmap.as_ptr() as *const f32, len) };
             match metric {
                 DistanceMetric::Cosine => match query_norm {
                     Some(norm) => cosine_sim_with_query_norm(raw_query, norm, slice),

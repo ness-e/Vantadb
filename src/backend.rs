@@ -166,11 +166,25 @@ pub(crate) trait StorageBackend: Send + Sync {
     ///
     /// This is intended for derived indexes and should avoid materializing
     /// unrelated entries from the same partition.
+    fn scan_prefix_iter<'a>(
+        &'a self,
+        partition: BackendPartition,
+        prefix: &'a [u8],
+    ) -> Result<Box<dyn Iterator<Item = Result<(Vec<u8>, Vec<u8>)>> + 'a>>;
+
+    /// Materialized version of [`scan_prefix_iter`].
+    ///
+    /// The default implementation collects from the streaming iterator.
+    /// Backends may override if a more efficient materialization exists.
+    #[allow(dead_code)]
     fn scan_prefix(
         &self,
         partition: BackendPartition,
         prefix: &[u8],
-    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>>;
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        self.scan_prefix_iter(partition, prefix)?
+            .collect::<Result<Vec<_>>>()
+    }
 
     /// Flush all pending writes to durable storage.
     /// Default implementation is a no-op for backends without persistence.

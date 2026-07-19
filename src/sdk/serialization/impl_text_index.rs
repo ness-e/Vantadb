@@ -122,7 +122,7 @@ impl VantaEmbedded {
         let mut namespaces = BTreeSet::new();
 
         for node in nodes {
-            if let Some(record) = memory_record_from_node(node.clone()) {
+            if let Some(record) = memory_record_from_node(node) {
                 counts.record_count += 1;
                 counts.posting_entries += crate::text_index::posting_count(&record.payload);
                 counts.doc_stats_entries += 1;
@@ -164,26 +164,48 @@ impl VantaEmbedded {
         namespace: &str,
         token: &str,
     ) -> Result<Option<crate::text_index::TextTermStats>> {
+        // Cache-aside: check in-memory cache first
+        if let Some(stats) = engine
+            .text_stats_cache
+            .read()
+            .get(&(namespace.to_string(), token.to_string()))
+        {
+            return Ok(Some(stats.clone()));
+        }
         let key = crate::text_index::term_stats_key(namespace, token);
         let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &key)? else {
             return Ok(None);
         };
-        crate::text_index::decode_term_stats(&bytes)
-            .map(Some)
-            .map_err(VantaError::serialization)
+        let stats =
+            crate::text_index::decode_term_stats(&bytes).map_err(VantaError::serialization)?;
+        // Populate cache on miss
+        engine
+            .text_stats_cache
+            .write()
+            .insert((namespace.to_string(), token.to_string()), stats.clone());
+        Ok(Some(stats))
     }
 
     pub(crate) fn load_text_namespace_stats(
         engine: &StorageEngine,
         namespace: &str,
     ) -> Result<Option<crate::text_index::TextNamespaceStats>> {
+        // Cache-aside: check in-memory cache first
+        if let Some(stats) = engine.text_ns_cache.read().get(namespace) {
+            return Ok(Some(stats.clone()));
+        }
         let key = crate::text_index::namespace_stats_key(namespace);
         let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &key)? else {
             return Ok(None);
         };
-        crate::text_index::decode_namespace_stats(&bytes)
-            .map(Some)
-            .map_err(VantaError::serialization)
+        let stats =
+            crate::text_index::decode_namespace_stats(&bytes).map_err(VantaError::serialization)?;
+        // Populate cache on miss
+        engine
+            .text_ns_cache
+            .write()
+            .insert(namespace.to_string(), stats.clone());
+        Ok(Some(stats))
     }
 
     pub(crate) fn load_text_doc_stats(
@@ -441,7 +463,7 @@ impl VantaEmbedded {
     pub(crate) fn count_memory_records_from(nodes: &[UnifiedNode]) -> u64 {
         let mut count = 0u64;
         for node in nodes {
-            if memory_record_from_node(node.clone()).is_some() {
+            if memory_record_from_node(node).is_some() {
                 count += 1;
             }
         }

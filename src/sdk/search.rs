@@ -187,9 +187,8 @@ impl VantaEmbedded {
             let df = term_stats.df as f32;
             let idf = (1.0 + ((doc_count - df + 0.5) / (df + 0.5))).ln();
             let prefix = crate::text_index::posting_prefix(namespace, &token);
-            for (posting_key, posting_value) in
-                engine.scan_partition_prefix(BackendPartition::TextIndex, &prefix)?
-            {
+            for entry in engine.scan_partition_prefix_iter(BackendPartition::TextIndex, &prefix)? {
+                let (posting_key, posting_value) = entry?;
                 if crate::text_index::is_internal_key(&posting_key) {
                     continue;
                 }
@@ -243,11 +242,11 @@ impl VantaEmbedded {
 
         let mut hits = Vec::new();
         let node_ids: Vec<u128> = scores.keys().copied().collect();
-        let node_map: std::collections::HashMap<u128, UnifiedNode> = engine
-            .get_many(&node_ids)?
-            .into_iter()
-            .map(|n| (n.id, n))
-            .collect();
+        let mut node_map: std::collections::HashMap<u128, UnifiedNode> =
+            std::collections::HashMap::with_capacity(node_ids.len());
+        for n in engine.get_many(&node_ids)? {
+            node_map.insert(n.id, n);
+        }
         for (node_id, score) in scores {
             let positions_match = candidate_positions
                 .get(&node_id)
@@ -257,7 +256,7 @@ impl VantaEmbedded {
                 continue;
             }
             if let Some(node) = node_map.get(&node_id) {
-                if let Some(record) = memory_record_from_node(node.clone()) {
+                if let Some(record) = memory_record_from_node(node) {
                     if record.namespace == namespace && matches_memory_filters(&record, filters) {
                         hits.push(VantaMemorySearchHit {
                             record,
@@ -315,17 +314,17 @@ impl VantaEmbedded {
         let mut hits = Vec::with_capacity(top_k);
         {
             let candidate_ids: Vec<u128> = candidates.iter().map(|(id, _)| *id).collect();
-            let node_map: std::collections::HashMap<u128, UnifiedNode> = engine
-                .get_many(&candidate_ids)?
-                .into_iter()
-                .map(|n| (n.id, n))
-                .collect();
+            let mut node_map: std::collections::HashMap<u128, UnifiedNode> =
+                std::collections::HashMap::with_capacity(candidate_ids.len());
+            for n in engine.get_many(&candidate_ids)? {
+                node_map.insert(n.id, n);
+            }
             for (node_id, raw_score) in candidates {
                 if hits.len() >= top_k {
                     break;
                 }
                 if let Some(node) = node_map.get(&node_id) {
-                    if let Some(record) = memory_record_from_node(node.clone()) {
+                    if let Some(record) = memory_record_from_node(node) {
                         if record.namespace == namespace && matches_memory_filters(&record, filters)
                         {
                             let score = raw_score;

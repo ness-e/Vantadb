@@ -71,7 +71,7 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
         let node_id = memory_node_id(&input.namespace, &input.key);
         let existing = match engine.get(node_id)? {
-            Some(node) => match memory_record_from_node(node) {
+            Some(node) => match memory_record_from_node(&node) {
                 Some(record) if record.namespace == input.namespace && record.key == input.key => {
                     Some(record)
                 }
@@ -144,7 +144,7 @@ impl VantaEmbedded {
                 let engine = self.engine_handle()?;
                 let node_id = memory_node_id(&input.namespace, &input.key);
                 let existing = match engine.get(node_id)? {
-                    Some(node) => match memory_record_from_node(node) {
+                    Some(node) => match memory_record_from_node(&node) {
                         Some(record)
                             if record.namespace == input.namespace && record.key == input.key =>
                         {
@@ -207,7 +207,7 @@ impl VantaEmbedded {
             return Ok(None);
         };
 
-        match memory_record_from_node(node) {
+        match memory_record_from_node(&node) {
             Some(record) if record.namespace == namespace && record.key == key => Ok(Some(record)),
             Some(_record) => Err(VantaError::NodeIdCollision(memory_node_id(namespace, key))),
             None => Ok(None),
@@ -248,7 +248,7 @@ impl VantaEmbedded {
 
         let engine = self.engine_handle()?;
         let previous = match engine.get(record.node_id)? {
-            Some(node) => match memory_record_from_node(node) {
+            Some(node) => match memory_record_from_node(&node) {
                 Some(previous)
                     if previous.namespace == record.namespace && previous.key == record.key =>
                 {
@@ -277,7 +277,7 @@ impl VantaEmbedded {
 
         if entries.is_empty() {
             for node in engine.scan_nodes()? {
-                if let Some(record) = memory_record_from_node(node) {
+                if let Some(record) = memory_record_from_node(&node) {
                     namespaces.insert(record.namespace);
                 }
             }
@@ -530,6 +530,14 @@ impl VantaEmbedded {
                             if let Ok(stats) = crate::text_index::decode_term_stats(value) {
                                 let mut cache = engine.text_stats_cache.write();
                                 cache.insert((ns, token), stats);
+                                // ponytail: watermark eviction — drop first half if over limit
+                                if cache.len() > crate::config::MAX_TEXT_STATS_CACHE {
+                                    let keys: Vec<_> =
+                                        cache.keys().take(cache.len() / 2).cloned().collect();
+                                    for k in keys {
+                                        cache.remove(&k);
+                                    }
+                                }
                             }
                         }
                     } else if crate::text_index::is_namespace_stats_key(key) {
@@ -537,6 +545,14 @@ impl VantaEmbedded {
                             if let Ok(stats) = crate::text_index::decode_namespace_stats(value) {
                                 let mut cache = engine.text_ns_cache.write();
                                 cache.insert(ns, stats);
+                                // ponytail: watermark eviction — drop first half if over limit
+                                if cache.len() > crate::config::MAX_TEXT_NS_CACHE {
+                                    let keys: Vec<_> =
+                                        cache.keys().take(cache.len() / 2).cloned().collect();
+                                    for k in keys {
+                                        cache.remove(&k);
+                                    }
+                                }
                             }
                         }
                     }

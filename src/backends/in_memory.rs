@@ -112,24 +112,25 @@ impl StorageBackend for InMemoryBackend {
             .unwrap_or_default())
     }
 
-    fn scan_prefix(
-        &self,
+    fn scan_prefix_iter<'a>(
+        &'a self,
         partition: BackendPartition,
-        prefix: &[u8],
-    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        prefix: &'a [u8],
+    ) -> Result<Box<dyn Iterator<Item = Result<(Vec<u8>, Vec<u8>)>> + 'a>> {
+        // InMemory materializes: data is already in the BTreeMap, and the
+        // RwLock guard can't be held across a returned Iterator. Collect
+        // while the lock is held, then stream the owned results.
         let parts = self.partitions.read();
         let Some(btree) = parts.get(&partition) else {
-            return Ok(Vec::new());
+            return Ok(Box::new(std::iter::empty()));
         };
-
-        let mut result = Vec::new();
-        for (key, value) in btree.range(prefix.to_vec()..) {
-            if !key.starts_with(prefix) {
-                break;
-            }
-            result.push((key.clone(), value.clone()));
-        }
-        Ok(result)
+        let prefix = prefix.to_vec();
+        let collected: Vec<(Vec<u8>, Vec<u8>)> = btree
+            .range(prefix.clone()..)
+            .take_while(|(k, _)| k.starts_with(&prefix))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        Ok(Box::new(collected.into_iter().map(Ok)))
     }
 
     fn checkpoint(&self, _path: &Path) -> Result<()> {

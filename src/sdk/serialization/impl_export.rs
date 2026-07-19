@@ -21,13 +21,15 @@ impl VantaEmbedded {
         namespace: &str,
     ) -> Result<(Vec<u128>, bool)> {
         let prefix = namespace_index_prefix(namespace);
-        let entries = engine.scan_partition_prefix(BackendPartition::NamespaceIndex, &prefix)?;
+        let entries =
+            engine.scan_partition_prefix_iter(BackendPartition::NamespaceIndex, &prefix)?;
         let mut ids = Vec::new();
         let has_index_entries =
             super::super::VantaEmbedded::load_derived_index_state(engine)?.is_some();
         crate::metrics::record_derived_prefix_scan();
 
-        for (_key, value) in entries {
+        for entry in entries {
+            let (_key, value) = entry?;
             if let Some(node_id) = decode_node_id(&value) {
                 ids.push(node_id);
             }
@@ -44,13 +46,14 @@ impl VantaEmbedded {
         value: &super::super::types::VantaValue,
     ) -> Result<(Vec<u128>, bool)> {
         let prefix = payload_index_prefix(namespace, field, value)?;
-        let entries = engine.scan_partition_prefix(BackendPartition::PayloadIndex, &prefix)?;
+        let entries = engine.scan_partition_prefix_iter(BackendPartition::PayloadIndex, &prefix)?;
         let mut ids = Vec::new();
         let has_index_entries =
             super::super::VantaEmbedded::load_derived_index_state(engine)?.is_some();
         crate::metrics::record_derived_prefix_scan();
 
-        for (_key, value) in entries {
+        for entry in entries {
+            let (_key, value) = entry?;
             if let Some(node_id) = decode_node_id(&value) {
                 ids.push(node_id);
             }
@@ -81,7 +84,7 @@ impl VantaEmbedded {
             .collect();
 
         for node in engine.get_many(&unique_ids)? {
-            if let Some(record) = memory_record_from_node(node) {
+            if let Some(record) = memory_record_from_node(&node) {
                 if record.namespace == namespace && matches_memory_filters(&record, filters) {
                     records.push(record);
                 }
@@ -91,7 +94,7 @@ impl VantaEmbedded {
         if records.is_empty() && !has_index_entries {
             crate::metrics::record_derived_full_scan_fallback();
             for node in engine.scan_nodes()? {
-                if let Some(record) = memory_record_from_node(node) {
+                if let Some(record) = memory_record_from_node(&node) {
                     if record.namespace == namespace && matches_memory_filters(&record, filters) {
                         records.push(record);
                     }

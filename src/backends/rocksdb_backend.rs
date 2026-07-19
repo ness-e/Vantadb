@@ -275,25 +275,31 @@ impl StorageBackend for RocksDbBackend {
         Ok(result)
     }
 
-    fn scan_prefix(
-        &self,
+    fn scan_prefix_iter<'a>(
+        &'a self,
         partition: BackendPartition,
-        prefix: &[u8],
-    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        prefix: &'a [u8],
+    ) -> Result<Box<dyn Iterator<Item = Result<(Vec<u8>, Vec<u8>)>> + 'a>> {
         let cf = self.cf_handle(partition)?;
-        let mut result = Vec::new();
-        for item in self
+        let prefix = prefix.to_vec();
+        let mut iter = self
             .db
-            .iterator_cf(&cf, IteratorMode::From(prefix, Direction::Forward))
-        {
-            let (k, v) =
-                item.map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
-            if !k.starts_with(prefix) {
-                break;
+            .iterator_cf(&cf, IteratorMode::From(&prefix, Direction::Forward));
+        Ok(Box::new(std::iter::from_fn(move || {
+            let item = iter.next()?;
+            let (k, v) = match item {
+                Ok(kv) => kv,
+                Err(e) => {
+                    return Some(Err(VantaError::IoError(std::io::Error::other(
+                        e.to_string(),
+                    ))));
+                }
+            };
+            if !k.starts_with(&prefix) {
+                return None;
             }
-            result.push((k.to_vec(), v.to_vec()));
-        }
-        Ok(result)
+            Some(Ok((k.to_vec(), v.to_vec())))
+        })))
     }
 
     fn flush(&self) -> Result<()> {

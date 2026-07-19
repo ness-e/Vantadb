@@ -31,7 +31,7 @@ impl VantaEmbedded {
             });
         }
         for node in engine.scan_nodes()? {
-            if let Some(record) = memory_record_from_node(node) {
+            if let Some(record) = memory_record_from_node(&node) {
                 record_count += 1;
                 namespace_entries += 1;
                 payload_entries += record.metadata.len() as u64;
@@ -95,7 +95,7 @@ impl VantaEmbedded {
         }
 
         for node in engine.scan_nodes()? {
-            if let Some(record) = memory_record_from_node(node) {
+            if let Some(record) = memory_record_from_node(&node) {
                 counts.record_count += 1;
                 let posting_ops = crate::text_index::posting_put_ops(
                     &record.namespace,
@@ -172,7 +172,7 @@ impl VantaEmbedded {
 
         for node in engine.scan_nodes()? {
             audit.records_scanned += 1;
-            if let Some(record) = memory_record_from_node(node) {
+            if let Some(record) = memory_record_from_node(&node) {
                 if matches!(namespace_filter, Some(namespace) if record.namespace != namespace) {
                     continue;
                 }
