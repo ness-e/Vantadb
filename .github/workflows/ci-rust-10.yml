@@ -98,6 +98,7 @@ jobs:
           swap-mb: 8192
 
       - name: Cache benchmark dataset (GloVe 100d)
+        id: cache-benchmark
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: data/benchmark/glove.6B.100d.txt
@@ -225,6 +226,7 @@ jobs:
           swap-mb: 6144
 
       - name: Cache benchmark dataset (GloVe 100d)
+        id: cache-benchmark
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: data/benchmark/glove.6B.100d.txt

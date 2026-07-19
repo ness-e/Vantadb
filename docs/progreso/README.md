@@ -289,6 +289,19 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-19 — Deferred Fixes Post-RC (DEF-01 → DEF-05) ✅
+
+**Fuente:** Investigación de sub-agentes (vanta-tuner, vanta-engine, vanta-worker, vanta-audit) sobre 7 items diferidos post-feature-freeze. Item 3 (WAL) skipped, item 7 (missing_docs) verificado como non-issue.
+
+**5 fixes implementados y verificados (commit `aee17f9`):**
+- **DEF-01 (SendPtr → `Arc<Mmap>`):** Reemplazado `*const f32` wrapper por `Option<Arc<Mmap>>` en `VectorRepresentations::MmapFull`. Elimina UB cuando mmap se re-mappea. Archivos: `src/node.rs`, `src/index/graph.rs`, `src/index/serialize.rs`, `src/index/distance.rs`, `src/storage/engine/maintenance.rs`.
+- **DEF-02 (text_stats_cache bounds + read path):** Cache-aside en `load_text_term_stats` y `load_text_namespace_stats`. Watermark eviction al 100% del límite. 3 constantes globales en `src/config.rs` (`MAX_TEXT_STATS_CACHE=100k`, `MAX_TEXT_NS_CACHE=1k`, `MAX_CARDINALITY_PAIRS=10k`). Archivos: `src/config.rs`, `src/sdk/serialization/impl_text_index.rs`, `src/sdk/api.rs`, `src/sdk/serialization/impl_index.rs`, `src/storage/engine/ops.rs`, `src/storage/engine/stats.rs`.
+- **DEF-03 (scan_prefix streaming):** Nuevo método `scan_prefix_iter` en `Backend` trait que retorna `Box<dyn Iterator>`. Implementado en fjall, rocksdb, in_memory. 3 callers migrados. Elimina materialización `Vec<(Vec<u8>,Vec<u8>)>`. Archivos: `src/backend.rs`, `src/backends/fjall_backend.rs`, `src/backends/rocksdb_backend.rs`, `src/backends/in_memory.rs`, `src/storage/engine/partition.rs`, `src/sdk/serialization/impl_export.rs`, `src/sdk/search.rs`.
+- **DEF-04 (HNSW ahash + pre-alloc):** XxHash64 (~30-50ns) → ahash (~5-10ns) en `search_layer`. HashSet pre-allocado con `with_capacity_and_hasher`. `ahash` agregado a `Cargo.toml`. Archivos: `src/Cargo.toml`, `src/index/search.rs`, `src/index/graph.rs`, `src/index/flat.rs`, `src/index/serialize.rs`.
+- **DEF-05 (lexical_search with_capacity):** `HashMap::new()` → `with_capacity(safe_estimate)`. `node.clone()` → `&UnifiedNode` en `memory_record_from_node`. 12+ callers actualizados. Archivos: `src/sdk/search.rs`, `src/sdk/serialization/mod.rs`, `src/sdk/api.rs`, `src/sdk/serialization/impl_export.rs`, `src/sdk/serialization/impl_rebuild.rs`, `src/sdk/serialization/impl_text_index.rs`.
+
+**Verificación:** `cargo check --workspace` ✅, `cargo clippy -D warnings` ✅, `cargo fmt --check` ✅, `cargo nextest run --profile audit --workspace` ✅ (550/550 tests).
+
 ### 2026-07-07 — Reorganización Masiva del Backlog (24 eliminaciones, 21 adiciones, 11 prioridades)
 
 **Fuente:** Análisis completo del proyecto (`docs/research/VantaDB_ANALISIS_COMPLETO.md`) que evaluó cada item del backlog contra: impacto real, esfuerzo, timing, alineación con visión estratégica.

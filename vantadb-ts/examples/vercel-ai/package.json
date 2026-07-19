@@ -6,7 +6,7 @@
     "start": "tsx index.ts"
   },
   "dependencies": {
-    "ai": "^4.0.0",
+    "ai": "^5.0.0",
     "vantadb": "file:../.."
   },
   "devDependencies": {
