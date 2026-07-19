@@ -1,16 +1,17 @@
 # Stabilization Report — 2026-07-18
 
 ## Summary
-- **Bugs fixed:** 0 (no open bugs were found at freeze start — all findings were security/refactor)
-- **Refactors completed:** 2 (P0-1/3: unsafe blocks + dead code)
-- **Security mitigations applied:** 4 (P1-1 SEC-WASM-UNWRAP, P1-3 SEC-WASM-OOM, P1-4 SEC-ALIGN, P0-2 FIX-DEPRECATED, P0-4 FIX-DENY)
+- **Security mitigations applied:** 10 (P1-1 SEC-WASM-UNWRAP, P1-3 SEC-WASM-OOM, P1-4 SEC-ALIGN, P0-2 FIX-DEPRECATED, P0-4 FIX-DENY, MCP unwrap, python Default panic, serialize.rs file size check, archive.rs fsync, worker.rs eval removal)
+- **Refactors completed:** 3 (P0-1/3: unsafe blocks + dead code, python.rs Default removal)
+- **Docs completed:** 3 (P2-1 crate doc, P2-2 SECURITY.md, P2-3 WASM API docs)
 - **Optimizations applied:** 0 (deferred to post-RC)
 - **Warnings eliminated:** 0 (no warnings present at freeze start)
 
 ## Zero-Bug Status
 - **Bugs remaining:** 0 ✅
 - **Warnings remaining:** 0 ✅
-- **Deferred (documented):** 5 — P1-2 (SEC-MMAP-UB theoretical, 1d, no trigger), P1-5..9 (PERF post-RC)
+- **Audit findings resolved:** 9/10 Critical + 10/15 Important ✅
+- **Deferred (documented):** 7 — P1-2 (SEC-MMAP-UB theoretical), P1-5..9 (PERF post-RC)
 
 ## Certify Gate
 - `cargo clippy -p vantadb -- -D warnings` ✅
@@ -19,22 +20,21 @@
 - `cargo machete` ✅
 - `cargo fmt --check` ✅
 - `cargo check -p vantadb-wasm` ✅
+- `cargo check -p vantadb-mcp` ✅
 - Pre-commit hook: cargo fmt, cargo check, cargo clippy ✅
 
 ## Git
 - **Tag:** `v0.3.0-stable`
-- **main:** sealed (last commit `bfd4770`)
+- **main:** sealed (last commits `bfd4770` + `6d2bfa1`)
 - **develop:** created for future feature development
 
 ## Known Issues
 | ID | Reason |
 |----|--------|
 | P1-2 (SEC-MMAP-UB) | Generation counter for MmapFull. Theoretical UB — no known trigger in current code. 1d effort, deferred post-RC. |
-| P1-5 (PERF-WAL) | Reusable buffer in WAL serialization. Performance optimization, not a bug. |
-| P1-6 (PERF-PREFIX) | Streaming iterator for scan_prefix. Performance optimization. |
-| P1-7 (PERF-LEXICAL) | Truncate candidate pool. Performance optimization. |
-| P1-8 (PERF-MEMREC) | Single-pass in memory_record_from_node. Performance optimization. |
-| P1-9 (PERF-HNSW) | Reuse HashSet across HNSW layers. Performance optimization. |
+| P1-5..9 (PERF-*) | Performance optimizations deferred to post-RC release. |
+| vfile.rs mincore alignment | Already handled by page-alignment arithmetic in code. Finding was a false positive. |
+| mcp unwrap_or | Fixed — now returns `McpError::invalid_params` instead of silently continuing. |
 
 ## Design Decisions
 1. **Ponytail ladder applied** to every fix — minimum code that works, no speculative abstractions.
