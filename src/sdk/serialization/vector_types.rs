@@ -1,6 +1,8 @@
 //! Vector-related SDK types: search requests, hits, and search results.
 
-use super::super::types::{VantaMemoryMetadata, VantaMemoryRecord, VantaSearchExplanationHit};
+use super::super::types::{
+    u128_serde, VantaMemoryMetadata, VantaMemoryRecord, VantaSearchExplanationHit,
+};
 use crate::node::DistanceMetric;
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +43,7 @@ impl Default for VantaMemorySearchRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaSearchHit {
     /// Numeric node identifier of the matched node.
+    #[serde(with = "u128_serde")]
     pub node_id: u128,
     /// Distance from the query vector (lower is more similar for cosine/euclidean).
     pub distance: f32,

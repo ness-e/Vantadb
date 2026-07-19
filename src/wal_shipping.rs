@@ -69,7 +69,7 @@ impl WalShipper {
         config: WalShipConfig,
         wal_dir: impl AsRef<Path>,
         archive_dir: impl AsRef<Path>,
-    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> std::result::Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let marker_path = wal_dir.as_ref().join(".wal_ship_marker");
         let client = reqwest::blocking::Client::builder()
             .timeout(Duration::from_secs(30))

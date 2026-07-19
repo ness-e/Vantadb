@@ -1,6 +1,6 @@
 //! Graph-related SDK types: nodes, edges, and input/record views.
 
-use super::super::types::{VantaFields, VantaStorageTier};
+use super::super::types::{u128_serde, VantaFields, VantaStorageTier};
 use crate::node::{UnifiedNode, VectorRepresentations};
 use serde::{Deserialize, Serialize};
 
@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaEdgeRecord {
     /// Target node id this edge points to.
+    #[serde(with = "u128_serde")]
     pub target: u128,
     /// Edge label describing the relationship.
     pub label: String,
@@ -45,6 +46,7 @@ impl VantaNodeInput {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaNodeRecord {
     /// Numeric node identifier.
+    #[serde(with = "u128_serde")]
     pub id: u128,
     /// Relational fields key-value pairs.
     pub fields: VantaFields,
