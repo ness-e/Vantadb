@@ -12,11 +12,17 @@
 //! 7. **Múltiples vectores**: con N vectores insertados, top_k ≤ N respeta el límite
 
 use proptest::prelude::*;
+
+#[cfg(not(target_os = "windows"))]
 use tempfile::TempDir;
+#[cfg(not(target_os = "windows"))]
 use vantadb::config::VantaConfig;
+#[cfg(not(target_os = "windows"))]
 use vantadb::BackendKind;
+#[cfg(not(target_os = "windows"))]
 use vantadb::{VantaEmbedded, VantaMemoryInput};
 
+#[cfg(not(target_os = "windows"))]
 const VEC_DIM: usize = 4;
 
 fn vec_strategy() -> impl Strategy<Value = Vec<f32>> {
@@ -27,6 +33,7 @@ fn multi_vec_strategy() -> impl Strategy<Value = Vec<Vec<f32>>> {
     proptest::collection::vec(vec_strategy(), 1..=10)
 }
 
+#[cfg(not(target_os = "windows"))]
 fn setup_db() -> (TempDir, VantaEmbedded) {
     let dir = TempDir::new().unwrap();
     let config = VantaConfig {
@@ -38,10 +45,12 @@ fn setup_db() -> (TempDir, VantaEmbedded) {
     (dir, db)
 }
 
+#[cfg(not(target_os = "windows"))]
 fn l2_norm_sq(v: &[f32]) -> f32 {
     v.iter().map(|x| x * x).sum()
 }
 
+#[cfg(not(target_os = "windows"))]
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(32))]
 
@@ -238,6 +247,7 @@ proptest! {
 /// magnitudes no debe causar errores ni resultados NaN/Inf.
 /// (Test fuera del macro proptest! porque usa lógica condicional
 /// con vectores fijos.)
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn prop_hnsw_mixed_normalization() {
     let (_dir, db) = setup_db();
@@ -301,4 +311,10 @@ fn prop_hnsw_mixed_normalization() {
         "at least one collinear vector should have score near 1.0, got {} close matches",
         close_matches.len()
     );
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn proptest_hnsw_search_skipped_on_windows() {
+    eprintln!("Skipping HNSW proptests on Windows due to pagefile error 1455");
 }

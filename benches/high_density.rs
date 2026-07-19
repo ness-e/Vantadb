@@ -93,7 +93,8 @@ fn high_density_benchmark(c: &mut Criterion) {
 
     // Sub-Task 2: Spam Mutations Collision (Logarithmic Friction Validation)
     let mut spam_group = c.benchmark_group("logarithmic_spam_friction");
-    spam_group.sample_size(10); // Very intensive, 10 samples
+    let spam_samples = if is_ci { 3 } else { 10 }; // ponytail: CI 6h timeout, 3 samples sufficient for throughput magnitude check
+    spam_group.sample_size(spam_samples);
 
     spam_group.bench_function("50k_spam_mutations", |b: &mut criterion::Bencher| {
         b.iter_batched(

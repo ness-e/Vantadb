@@ -6,6 +6,16 @@ ignore = [
     # VantaDB already has portable-atomic as a direct dependency.
     "RUSTSEC-2023-0089",
 
+    # RUSTSEC-2024-0436: paste is unmaintained.
+    # Transitive via tikv-jemalloc-ctl -> paste (build-time proc macro, no runtime risk).
+    # Upstream: tikv-jemalloc-ctl 0.7 still depends on paste. No replacement needed.
+    "RUSTSEC-2024-0436",
+
+    # RUSTSEC-2025-0134: rustls-pemfile is unmaintained.
+    # Transitive via axum-server -> rustls-pemfile (TLS cert loading, startup only).
+    # Fix: upgrade axum-server to 0.8 which replaces PEM parsing with rustls-pki-types.
+    "RUSTSEC-2025-0134",
+
 ]
 
 [licenses]
