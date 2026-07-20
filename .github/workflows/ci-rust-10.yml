@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
-      group: lint-${{ github.ref }}
+      group: fmt-${{ github.ref }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
@@ -121,7 +121,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Rust (Windows)
-        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
         with:
           toolchain: stable
           components: clippy
@@ -292,7 +292,7 @@ jobs:
           install-system-deps: false
 
       - name: Install cargo-audit
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853
+        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a
         with:
           tool: cargo-audit
 
@@ -307,7 +307,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Rust (Nightly + Miri)
-        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
         with:
           toolchain: nightly
           components: miri
@@ -348,7 +348,7 @@ jobs:
           install-system-deps: false
 
       - name: Install cargo-deny
-        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853
+        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a
         with:
           tool: cargo-deny
 
@@ -364,7 +364,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install nightly
-        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
         with:
           toolchain: nightly
           components: rust-src
@@ -396,7 +396,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install nightly
-        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
         with:
           toolchain: nightly
 
