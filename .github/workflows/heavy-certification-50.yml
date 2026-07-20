@@ -166,6 +166,7 @@ jobs:
         timeout-minutes: 85
         run: >
           cargo test --release
+          --features rocksdb
           --test memory_brutality
           --test memory_export_import
           --test concurrency_parity
