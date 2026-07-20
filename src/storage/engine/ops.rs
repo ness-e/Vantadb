@@ -224,28 +224,32 @@ impl StorageEngine {
             sharded.append(&crate::wal::WalRecord::Insert(active_node.clone()))?;
         }
 
-        let mut vstore = self.vector_store.write();
-        let storage_offset = Self::write_node_to_vstore(&mut vstore, &active_node)?;
+        let storage_offset = {
+            let mut vstore = self.vector_store.write();
+            let offset = Self::write_node_to_vstore(&mut vstore, &active_node)?;
 
-        let key = active_node.id.to_le_bytes();
-        let metadata = NodeMetadata {
-            relational: active_node.relational.clone(),
-            edges: active_node.edges.clone(),
-        };
-        let metadata_val =
-            postcard::to_allocvec(&metadata).map_err(crate::error::VantaError::serialization)?;
-        // P4: if KV backend write fails after VantaFile write, tombstone the entry
-        // to prevent orphan vectors in the vector store.
-        if let Err(e) = self
-            .backend
-            .put(BackendPartition::Default, &key, &metadata_val)
-        {
-            if let Some(mut hdr) = vstore.read_header(storage_offset) {
-                hdr.flags |= FLAG_TOMBSTONE;
-                let _ = vstore.write_header(storage_offset, &hdr);
+            let key = active_node.id.to_le_bytes();
+            let metadata = NodeMetadata {
+                relational: active_node.relational.clone(),
+                edges: active_node.edges.clone(),
+            };
+            let metadata_val = postcard::to_allocvec(&metadata)
+                .map_err(crate::error::VantaError::serialization)?;
+            // P4: if KV backend write fails after VantaFile write, tombstone the entry
+            // to prevent orphan vectors in the vector store.
+            if let Err(e) = self
+                .backend
+                .put(BackendPartition::Default, &key, &metadata_val)
+            {
+                if let Some(mut hdr) = vstore.read_header(offset) {
+                    hdr.flags |= FLAG_TOMBSTONE;
+                    let _ = vstore.write_header(offset, &hdr);
+                }
+                return Err(e);
             }
-            return Err(e);
-        }
+
+            offset
+        }; // vstore guard dropped here — readers can proceed
 
         self.try_push_pending_hnsw(PendingHnswOp {
             id: active_node.id,
