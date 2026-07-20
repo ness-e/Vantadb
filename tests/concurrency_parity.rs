@@ -143,33 +143,55 @@ fn test_interleaved_read_write_parity() {
         dir.path().to_str().unwrap(),
         BackendKind::Fjall,
     ));
+    eprintln!("[{}] engine opened", humantime(Instant::now()));
 
     session.step("Starting interleaved R/W workload");
     let e_write: Arc<StorageEngine> = Arc::clone(&engine);
     let writer = thread::spawn(move || {
         for i in 0..500 {
+            if i % 100 == 0 {
+                eprintln!("[{}] writer {}/500", humantime(Instant::now()), i);
+            }
             let node = UnifiedNode::new(i);
             e_write.insert(&node).unwrap();
             thread::yield_now();
         }
+        eprintln!("[{}] writer DONE", humantime(Instant::now()));
     });
 
     let e_read: Arc<StorageEngine> = Arc::clone(&engine);
     let reader = thread::spawn(move || {
         let mut found = 0;
-        for _ in 0..200 {
+        for i in 0..200 {
+            if i % 50 == 0 {
+                eprintln!("[{}] reader {}/200", humantime(Instant::now()), i);
+            }
             if e_read.get(0).unwrap().is_some() {
                 found += 1;
             }
             thread::yield_now();
         }
+        eprintln!(
+            "[{}] reader DONE (found {})",
+            humantime(Instant::now()),
+            found
+        );
         found
     });
 
+    eprintln!("[{}] waiting for writer...", humantime(Instant::now()));
     writer.join().unwrap();
+    eprintln!(
+        "[{}] writer joined, waiting for reader...",
+        humantime(Instant::now())
+    );
     let read_hits = reader.join().unwrap();
+    eprintln!(
+        "[{}] reader joined (hits: {})",
+        humantime(Instant::now()),
+        read_hits
+    );
 
-    // Fix: Using step instead of info
     session.step(&format!(
         "Interleaved reads completed with {} hits",
         read_hits
