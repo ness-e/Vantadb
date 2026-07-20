@@ -573,6 +573,7 @@ proptest! {
 
 // ── VantaQueryResult (postcard) ─────────────────────────────────────────
 
+#[expect(dead_code)]
 fn arb_query_result_full() -> impl Strategy<Value = VantaQueryResult> {
     prop_oneof![
         prop::collection::vec(arb_node_record_full(), 0..5).prop_map(VantaQueryResult::Read),
