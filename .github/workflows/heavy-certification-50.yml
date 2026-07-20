@@ -156,25 +156,35 @@ jobs:
   memory-concurrency:
     name: "Certification: memory_concurrency"
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust-setup
         with:
           swap-mb: 4096
-      - name: Run memory & concurrency heavy tests
-        timeout-minutes: 85
+          free-disk: true
+      - name: Run memory & concurrency heavy tests (batch 1 — fast)
+        timeout-minutes: 30
+        run: >
+          cargo test --release
+          --features rocksdb
+          --test concurrency_parity
+          --test edge_cases
+          --
+          --test-threads=1
+          --nocapture
+      - name: Run memory & concurrency heavy tests (batch 2 — memory)
+        timeout-minutes: 90
         run: >
           cargo test --release
           --features rocksdb
           --test memory_brutality
           --test memory_export_import
-          --test concurrency_parity
           --test memory_api
           --test memory_telemetry
-          --test edge_cases
           --
           --test-threads=1
+          --nocapture
       - name: Run fuzz proptest
         timeout-minutes: 30
         run: >
