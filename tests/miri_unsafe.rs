@@ -6,6 +6,12 @@ struct SendPtr(*const f32);
 unsafe impl Send for SendPtr {}
 unsafe impl Sync for SendPtr {}
 
+impl SendPtr {
+    fn get(&self) -> *const f32 {
+        self.0
+    }
+}
+
 #[test]
 fn miri_raw_ptr_slice_roundtrip() {
     let data: [f32; 4] = [1.0, 2.0, 3.0, 4.0];
@@ -43,12 +49,12 @@ fn miri_send_ptr_across_threads() {
     let data: Box<[f32; 2]> = Box::new([1.5, 2.5]);
     let ptr = SendPtr(&*data as *const f32);
 
-    std::thread::scope(|s| {
-        s.spawn(|| {
-            let slice: &[f32] = unsafe { std::slice::from_raw_parts(ptr.0, 2) };
-            assert_eq!(slice[0], 1.5);
-        });
+    let handle = std::thread::spawn(move || {
+        let slice: &[f32] = unsafe { std::slice::from_raw_parts(ptr.get(), 2) };
+        assert_eq!(slice[0], 1.5);
     });
+
+    handle.join().unwrap();
 }
 
 #[test]
