@@ -218,7 +218,7 @@ impl CPIndex {
             n: usize,
             field: &str,
         ) -> std::io::Result<&'a [u8]> {
-            if *pos + n > data.len() {
+            if *pos > data.len() || n > data.len() - *pos {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::UnexpectedEof,
                     format!("Truncated {field}"),
