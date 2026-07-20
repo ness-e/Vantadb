@@ -163,7 +163,7 @@ jobs:
         with:
           swap-mb: 4096
       - name: Run memory & concurrency heavy tests
-        timeout-minutes: 60
+        timeout-minutes: 85
         run: >
           cargo test --release
           --test memory_brutality

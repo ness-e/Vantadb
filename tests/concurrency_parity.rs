@@ -9,6 +9,7 @@ mod common;
 use common::{TerminalReporter, VantaSession};
 use std::sync::Arc;
 use std::thread;
+use std::time::Instant;
 use tempfile::tempdir;
 use vantadb::config::VantaConfig;
 use vantadb::node::UnifiedNode;
@@ -28,6 +29,10 @@ fn open_engine(path: &str, kind: BackendKind) -> StorageEngine {
 
 #[test]
 fn test_triple_backend_parity_validation() {
+    eprintln!(
+        "[{}] test_triple_backend_parity_validation START",
+        humantime(Instant::now())
+    );
     TerminalReporter::suite_banner("BACKEND PARITY & CONCURRENCY CERTIFICATION", 3);
     let mut session = VantaSession::begin("Triple Backend Parity");
 
@@ -83,6 +88,10 @@ fn test_triple_backend_parity_validation() {
 
 #[test]
 fn test_high_concurrency_fjall_stress() {
+    eprintln!(
+        "[{}] test_high_concurrency_fjall_stress START",
+        humantime(Instant::now())
+    );
     let mut session = VantaSession::begin("Fjall Concurrency Stress");
     let dir = tempdir().unwrap();
     let engine = Arc::new(open_engine(
@@ -124,6 +133,10 @@ fn test_high_concurrency_fjall_stress() {
 
 #[test]
 fn test_interleaved_read_write_parity() {
+    eprintln!(
+        "[{}] test_interleaved_read_write_parity START",
+        humantime(Instant::now())
+    );
     let mut session = VantaSession::begin("Interleaved R/W Chaos");
     let dir = tempdir().unwrap();
     let engine = Arc::new(open_engine(
@@ -169,6 +182,10 @@ fn test_interleaved_read_write_parity() {
 
 #[test]
 fn test_concurrency_rebuild_rcu() {
+    eprintln!(
+        "[{}] test_concurrency_rebuild_rcu START",
+        humantime(Instant::now())
+    );
     let mut session = VantaSession::begin("RCU Index Rebuild Concurrency");
     let dir = tempdir().unwrap();
     let engine = Arc::new(open_engine(
@@ -241,6 +258,18 @@ fn test_concurrency_rebuild_rcu() {
 
     session.success("RCU rebuild lock-free swap and consistency certified successfully.");
     session.finish(true);
+}
+
+// ─── TIMING HELPER ────────────────────────────────────────────
+
+fn humantime(start: Instant) -> String {
+    let d = start.elapsed();
+    let secs = d.as_secs();
+    if secs < 60 {
+        format!("{:2}.{:03}s", secs, d.subsec_millis())
+    } else {
+        format!("{:2}m{:02}s", secs / 60, secs % 60)
+    }
 }
 
 // ─── SUMMARY ──────────────────────────────────────────────────
