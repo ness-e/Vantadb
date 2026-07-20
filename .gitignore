@@ -204,3 +204,4 @@ traces/
 
 # Campaign executor budget state (auto-generated)
 .opencode/task-system/mcp/*.budget.json
+.github/workflows-dl/
