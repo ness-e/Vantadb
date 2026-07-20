@@ -46,11 +46,18 @@ jobs:
         with:
           shared-key: release-${{ matrix.target }}
 
+      - name: Install system deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev llvm-dev
+
       - name: Install system deps (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install llvm
           echo "LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> $GITHUB_ENV
+          echo "DYLD_LIBRARY_PATH=$(brew --prefix llvm)/lib" >> $GITHUB_ENV
 
       - name: Install cross-compilation deps (aarch64-linux)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -76,12 +83,14 @@ jobs:
 
       - name: Package binaries (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           mkdir -p release
           cp target/${{ matrix.target }}/release/vanta-cli.exe release/
           cp target/${{ matrix.target }}/release/vantadb-server.exe release/
           cp target/${{ matrix.target }}/release/vantadb-mcp.exe release/
           7z a vantadb-${{ matrix.target }}.zip .\release\*
+          if ($LASTEXITCODE -gt 1) { throw "7z failed with exit $LASTEXITCODE" }
 
       - name: Upload release asset
         if: github.event_name == 'release'
