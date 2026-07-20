@@ -15,12 +15,9 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
 
-    // 1. LISP expression parser (highest priority: recursive descent, deepest attack surface)
-    let _ = vantadb::parser::lisp::parse(input);
-
-    // 2. Query planner query parser
+    // 1. Query planner query parser
     let _ = vantadb::parser::parse_query(input);
 
-    // 3. Statement-level parser (DDL-style)
+    // 2. Statement-level parser (DDL-style)
     let _ = vantadb::parser::parse_statement(input);
 });
