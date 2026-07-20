@@ -70,7 +70,6 @@ jobs:
         run: |
           cargo build --release --target ${{ matrix.target }} --package vantadb --bin vanta-cli
           cargo build --release --target ${{ matrix.target }} --package vantadb-server
-          cargo build --release --target ${{ matrix.target }} --package vantadb-mcp
 
       - name: Package binaries (Unix)
         if: runner.os != 'Windows'
@@ -78,8 +77,7 @@ jobs:
           mkdir -p release
           cp target/${{ matrix.target }}/release/vanta-cli release/
           cp target/${{ matrix.target }}/release/vantadb-server release/
-          cp target/${{ matrix.target }}/release/vantadb-mcp release/
-          tar czf vantadb-${{ matrix.target }}.tar.gz -C release vanta-cli vantadb-server vantadb-mcp
+          tar czf vantadb-${{ matrix.target }}.tar.gz -C release vanta-cli vantadb-server
 
       - name: Package binaries (Windows)
         if: runner.os == 'Windows'
@@ -88,7 +86,6 @@ jobs:
           mkdir -p release
           cp target/${{ matrix.target }}/release/vanta-cli.exe release/
           cp target/${{ matrix.target }}/release/vantadb-server.exe release/
-          cp target/${{ matrix.target }}/release/vantadb-mcp.exe release/
           7z a vantadb-${{ matrix.target }}.zip .\release\*
           if ($LASTEXITCODE -gt 1) { throw "7z failed with exit $LASTEXITCODE" }
 
