@@ -120,6 +120,9 @@ impl FilterBitset {
         buf
     }
 
+    /// Maximum sane number of filter words (256K bits = 32KB).
+    const MAX_WORDS: usize = 4096;
+
     /// Deserialize from length-prefixed bytes. Returns `(Self, bytes_consumed)`.
     pub fn from_bytes(data: &[u8]) -> std::io::Result<(Self, usize)> {
         use std::io::{Error, ErrorKind};
@@ -130,7 +133,18 @@ impl FilterBitset {
             ));
         }
         let word_count = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
-        let needed = 4 + word_count * 8;
+        if word_count > Self::MAX_WORDS {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "FilterBitset: word_count exceeds maximum",
+            ));
+        }
+        let needed = word_count
+            .checked_mul(8)
+            .and_then(|v| v.checked_add(4))
+            .ok_or_else(|| {
+                Error::new(ErrorKind::InvalidData, "FilterBitset: word_count overflow")
+            })?;
         if data.len() < needed {
             return Err(Error::new(
                 ErrorKind::UnexpectedEof,

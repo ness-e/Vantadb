@@ -77,10 +77,13 @@ jobs:
           restore-keys: |
             fuzz-corpus-${{ matrix.target }}-
 
+      - name: Clean stale crash artifacts
+        run: rm -rf fuzz/artifacts/${{ matrix.target }}/
+
       - name: Install cargo-fuzz
         uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a
         with:
           tool: cargo-fuzz
 
       - name: Run ${{ matrix.target }}
-        run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.target }} -- -max_total_time=${{ inputs.max_seconds || '60' }}
+        run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.target }} -- -max_total_time=${{ inputs.max_seconds || '60' }} -max_len=8192
