@@ -16,6 +16,7 @@ pub(crate) fn flat_search(
             let node = entry.value();
             (node.flags & FLAG_TOMBSTONE) == 0
                 && (query_mask.is_all_set() || node.bitset.matches_mask(query_mask))
+                && !node.vec_data.is_none()
         })
         .map(|entry| {
             let id = *entry.key();
