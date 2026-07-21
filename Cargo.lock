@@ -4636,7 +4636,7 @@ checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "vantadb"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "aes-gcm",
  "ahash",
@@ -4705,7 +4705,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-crewai"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "pyo3",
  "vantadb",
@@ -4713,7 +4713,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-dspy"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "pyo3",
  "vantadb",
@@ -4721,7 +4721,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-haystack"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "pyo3",
  "vantadb",
@@ -4729,7 +4729,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-langchain"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "pyo3",
  "vantadb",
@@ -4737,7 +4737,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-letta"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "pyo3",
  "vantadb",
@@ -4745,7 +4745,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-litellm"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "pyo3",
  "vantadb",
@@ -4753,7 +4753,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-llamaindex"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "pyo3",
  "vantadb",
@@ -4761,7 +4761,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-mcp"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4773,7 +4773,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-mem0"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "pyo3",
  "vantadb",
@@ -4781,7 +4781,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-ollama"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "pyo3",
  "vantadb",
@@ -4789,7 +4789,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-openai"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "pyo3",
  "vantadb",
@@ -4797,7 +4797,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "axum",
  "axum-server",
@@ -4825,7 +4825,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-wasm"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.3.4",
@@ -4842,7 +4842,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb_py"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "chrono",
  "pyo3",
