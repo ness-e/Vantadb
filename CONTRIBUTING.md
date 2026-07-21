@@ -9,7 +9,7 @@ workflow, testing requirements, and specialized tooling like fuzzing.
 
 - **Rust stable** (see `rust-toolchain.toml`)
 - **cargo-nextest**: `cargo install cargo-nextest`
-- **Python 3.8+** with `venv` support
+- **Python 3.11+** with `venv` support
 
 ### Python SDK (hermetic audit venv)
 
@@ -128,8 +128,19 @@ docs/             ← project documentation
 
 ## Release Checklist
 
-1. `cargo fmt --check` — zero formatting issues
-2. `cargo clippy --workspace --all-targets -- -D warnings` — zero warnings
-3. `cargo nextest run --profile audit --workspace` — all tests pass
-4. `dev-tools/setup_venv.ps1` then `dev-tools/scripts/validate_python_sdk.ps1` (Windows) or `validate_python_sdk.sh` (Linux/macOS)
-5. Update `CHANGELOG.md` and bump version in `Cargo.toml`
+> ⚠️ Version bumps and publish are automated via **release-plz**. Never manually edit `Cargo.toml` version, `CHANGELOG.md`, or git tags.
+
+1. Merge `develop` into `main` — trigger `release-plz` via Release PR
+2. Wait for release-plz CI to pass and merge the auto-generated Release PR
+3. Verify the release on crates.io, PyPI (`vantadb-py`), and npm (`vantadb`)
+4. Confirm the new git tag `v{{ version }}` is published on GitHub
+
+### Pre-merge validation (run before merging to main)
+
+```bash
+cargo fmt --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo nextest run --profile audit --workspace
+dev-tools/setup_venv.ps1  # or setup_venv.sh on Unix
+dev-tools/scripts/validate_python_sdk.ps1  # or validate_python_sdk.sh
+```

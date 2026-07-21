@@ -34,7 +34,7 @@ aliases: []
 | ID | Tarea | Justificación |
 |----|-------|---------------|
 | `MKT-06` | **Logo y branding** (SVG, palette, favicon) | Sin identidad visual no se puede lanzar. El logo aparece en GitHub, npm, PyPI, docs, web. Es la primera impresión del proyecto. |
-| `REL-01` | **Bump v0.1.5 → v0.2.0** | 340+ commits desde v0.1.5, nuevas APIs públicas, 4 plataformas de build. SemVer exige major bump cuando hay cambios de API. Sin esto no se puede publicar a producción. |
+| `REL-01` | **Bump v0.2.0 → v0.4.0** ✅ (completado) | El workspace se ha bumpdeado a 0.4.0. SemVer exige major bump cuando hay cambios de API públicos. Reflejar en todos los Cargo.toml del workspace. |
 | `LEG-01` | **Registrar trademark "VantaDB"** (USPTO + EUIPO) | Riesgo real: alguien puede reclamar el nombre antes del Show HN. Perder el nombre destruiría el proyecto. |
 | `LEG-02` | **Contributor License Agreement (CLA)** | Sin CLA no se puede relicenciar ni usar contribuciones comercialmente. Necesario antes de aceptar PRs externos post-lanzamiento. |
 
@@ -167,7 +167,7 @@ aliases: []
 | `DOC-09` 🔴 | **Crear `.github/` con SECURITY.md, SUPPORT.md, CODE_OF_CONDUCT.md** | README.md referencea estos archivos pero `.github/` NO EXISTE. Todos los links devuelven 404. Esto se ve en GitHub como "proyecto abandonado". |
 | `DOC-10` 🔴 | **Fix broken links en README.md y README_ES.md** | Múltiples 404s. Mala primera impresión. |
 | `DOC-11` 🟡 | **Fix errores factuales en blog** | License: MIT→Apache 2.0, GitHub URL: `vantadb/vantadb`→`ness-e/Vantadb`. El blog es la cara pública del proyecto. |
-| `DOC-12` 🟡 | **Update `llms.txt`** | Dice v0.4.0→v0.6.0, el proyecto está en v0.2.0. Importante para AI-SEO (cómo nos ven los LLMs). |
+| `DOC-12` 🟡 | **Update `llms.txt`** | Dice v0.4.0→v0.6.0, el proyecto ahora está en v0.4.0. Ajustar rango a v0.2.0→v0.4.0. Importante para AI-SEO. |
 | `DOC-13` 🟡 | **Crear ADRs faltantes** | Solo 3 ADRs para todo el proyecto. Faltan: Fjall vs RocksDB, HNSW params, RRF k, PyO3 architecture, WASM strategy, governance. |
 | `DOC-14` 🟡 | **Performance Tuning Guide** | Guía oficial para ajustar HNSW params, memory limits, backend selection, sync modes. Los devs esperan esto. |
 | `DOC-15` 🟡 | **OpenAPI/Swagger spec** | HTTP_API.md tiene 149L (vs 428L de EMBEDDED_SDK). Sin spec OpenAPI no hay tooling, no hay client generation. |

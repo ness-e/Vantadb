@@ -205,8 +205,8 @@ response = llm.generate(prompt + "\n\nContext:\n" + format_results(context))
 
 | Metric | Target (6mo) | Current |
 |--------|-------------|---------|
-| GitHub Stars | 1,000+ | ~150 |
-| PyPI Downloads/mo | 10,000+ | ~500 |
+| GitHub Stars | 1,000+ | 3 |
+| PyPI Downloads/mo | 10,000+ | 347 |
 | Discord Members | 500+ | ~50 |
 | Contributors | 20+ | 3 |
 

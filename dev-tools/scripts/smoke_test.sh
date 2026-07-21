@@ -27,9 +27,9 @@ rm -rf "$VANTADB_STORAGE_PATH"
 
 # ── 1. Build & Start ──
 echo "[1/7] Building & starting server..."
-cargo build --release --bin vanta-server
+cargo build --release --bin vantadb-server
 
-./target/release/vanta-server &
+./target/release/vantadb-server &
 SERVER_PID=$!
 echo "       Server PID: $SERVER_PID"
 
@@ -70,7 +70,7 @@ kill "$SERVER_PID" 2>/dev/null || true
 wait "$SERVER_PID" 2>/dev/null || true
 sleep 2
 
-./target/release/vanta-server &
+./target/release/vantadb-server &
 SERVER_PID=$!
 echo "       Restarted with PID: $SERVER_PID"
 sleep 5

@@ -4,8 +4,9 @@
 
 | Version | Supported          |
 |---------|--------------------|
-| 0.2.x   | ✅ Active development |
-| < 0.2   | ❌ Not maintained   |
+| 0.4.x   | ✅ Active development |
+| 0.3.x   | ⚠️ Security patches only |
+| < 0.3   | ❌ Not maintained   |
 
 Patch releases are published for the latest minor version. Upgrade to the newest release to receive security fixes.
 

@@ -32,9 +32,9 @@ try {
 
     # 1. Build & Start
     Write-Host "[1/7] Building & starting server..."
-    cargo build --release --bin vanta-server
+    cargo build --release --bin vantadb-server
 
-    $SERVER_PROCESS = Start-Process -FilePath "./target/release/vanta-server.exe" -PassThru -NoNewWindow
+    $SERVER_PROCESS = Start-Process -FilePath "./target/release/vantadb-server.exe" -PassThru -NoNewWindow
     Write-Host "       Server PID: $($SERVER_PROCESS.Id)"
 
     # Wait for server to boot
@@ -84,7 +84,7 @@ try {
     Stop-Process -Id $SERVER_PROCESS.Id -Force
     Start-Sleep -Seconds 2
 
-    $SERVER_PROCESS = Start-Process -FilePath "./target/release/vanta-server.exe" -PassThru -NoNewWindow
+    $SERVER_PROCESS = Start-Process -FilePath "./target/release/vantadb-server.exe" -PassThru -NoNewWindow
     Write-Host "       Restarted with PID: $($SERVER_PROCESS.Id)"
     Start-Sleep -Seconds 5
 

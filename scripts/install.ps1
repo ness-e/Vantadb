@@ -1,5 +1,5 @@
 # VantaDB installer for Windows PowerShell.
-# Downloads the precompiled vanta-cli binary and puts it in $HOME/.vanta/bin
+# Downloads the release zip and extracts vanta-cli.exe to $HOME/.vanta/bin
 
 $ErrorActionPreference = "Stop"
 
@@ -15,27 +15,53 @@ Write-Host "🔍 Fetching latest VantaDB release version..." -ForegroundColor Cy
 
 $latestRelease = $null
 try {
-    # Resolve security protocol issues for old PowerShell versions
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/ness-e/Vantadb/releases/latest" -UseBasicParsing
     $latestRelease = $releases.tag_name
 } catch {
-    $latestRelease = "v0.1.4"
-    Write-Host "⚠️ Could not fetch latest release via API. Falling back to default version $latestRelease" -ForegroundColor Yellow
+    $latestRelease = "v0.4.0"
+    Write-Host "⚠️ Could not fetch latest release via API. Falling back to v0.4.0" -ForegroundColor Yellow
 }
 
-$downloadUrl = "https://github.com/ness-e/Vantadb/releases/download/$latestRelease/vanta-cli-windows-amd64.exe"
-$destPath = Join-Path $installDir $binaryName
+$zipName = "vantadb-x86_64-pc-windows-msvc.zip"
+$downloadUrl = "https://github.com/ness-e/Vantadb/releases/download/$latestRelease/$zipName"
+$checksumUrl = "$downloadUrl.sha256"
 
 Write-Host "📥 Downloading VantaDB CLI ($latestRelease) for Windows..." -ForegroundColor Cyan
+
+$tmpDir = [System.IO.Path]::GetTempPath() + [System.Guid]::NewGuid().ToString()
+New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
+$zipPath = Join-Path $tmpDir $zipName
+
 try {
-    Invoke-WebRequest -Uri $downloadUrl -OutFile $destPath -UseBasicParsing
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath -UseBasicParsing
 } catch {
-    Write-Host "❌ Failed to download binary from $downloadUrl" -ForegroundColor Red
+    Write-Host "❌ Failed to download from $downloadUrl" -ForegroundColor Red
+    Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
     Exit 1
 }
 
-Write-Host "✨ VantaDB CLI successfully installed to $destPath" -ForegroundColor Green
+# Verify checksum
+try {
+    $expected = (Invoke-RestMethod -Uri $checksumUrl -UseBasicParsing).Split()[0]
+    $computed = (Get-FileHash $zipPath -Algorithm SHA256).Hash.ToLower()
+    if ($expected -ne $computed) {
+        Write-Host "❌ Checksum mismatch!" -ForegroundColor Red
+        Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
+        Exit 1
+    }
+    Write-Host "✅ Checksum verified" -ForegroundColor Green
+} catch {
+    Write-Host "⚠️ No checksum file at $checksumUrl — skipping verification" -ForegroundColor Yellow
+}
+
+# Extract vanta-cli.exe from zip
+Expand-Archive -Path $zipPath -DestinationPath $tmpDir -Force
+Copy-Item (Join-Path $tmpDir "release\$binaryName") $installDir -Force
+
+Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
+
+Write-Host "✨ VantaDB CLI successfully installed to $installDir\$binaryName" -ForegroundColor Green
 Write-Host ""
 Write-Host "💡 To use it immediately, add it to your PATH for this session:" -ForegroundColor Cyan
 Write-Host "   `$env:Path += ';$installDir'" -ForegroundColor Yellow

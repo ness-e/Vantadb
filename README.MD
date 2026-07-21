@@ -73,8 +73,8 @@ VantaDB is a local-first, embedded database engine designed for AI agents, local
 | Read the FAQ | [FAQ](docs/FAQ.md) |
 | Read architecture docs | [Documentation](#documentation) |
 | Contribute safely | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Report a vulnerability | [SECURITY.md](.github/SECURITY.md) |
-| Get support | [SUPPORT.md](.github/SUPPORT.md) |
+<!-- | Report a vulnerability | SECURITY.md (planned) | -->
+<!-- | Get support | SUPPORT.md (planned) | -->
 
 ---
 
@@ -98,7 +98,7 @@ For Rust-native integration, add the crate to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-vantadb = "0.1"
+vantadb = { git = "https://github.com/ness-e/Vantadb" }
 ```
 
 ---
@@ -123,10 +123,10 @@ record = db.put(
 )
 
 # 3. Retrieve exact record by key
-stored = db.get("agent/main", "memory-001")
+stored = db.get_memory("agent/main", "memory-001")
 
 # 4. Hybrid Search (BM25 + Cosine Similarity fused via RRF)
-hits = db.search("agent/main", vector=[0.11, 0.89, 0.55], top_k=5)
+hits = db.search_memory("agent/main", query_vector=[0.11, 0.89, 0.55], top_k=5)
 
 # 5. Operational Telemetry & Safe Shutdown
 caps = db.hardware_profile()
@@ -176,7 +176,7 @@ VantaDB should be understood as: embedded-first, local-first, durable memory wit
 | Classification | Surface |
 | :--- | :--- |
 | **Production-facing** | Embedded SDK/CLI, memory CRUD/search, WAL/recovery, namespaces, metadata indexes, HNSW vector retrieval, BM25, Hybrid Retrieval v1, phrase filtering, rebuild/audit/repair, JSONL export/import |
-| **Optional wrapper** | Local `vanta-server` around the embedded core |
+| **Optional wrapper** | Local `vantadb-server` binary around the embedded core |
 | **Experimental / not MVP** | IQL/LISP/DQL, MCP, LLM/Ollama integration, governance and maintenance semantics, graph traversal beyond stored local edges |
 | **Deferred** | Cloud/enterprise platform, HA/replication, distributed clustering, SQL/OLTP/warehouse/time-series, advanced ranking/snippets/tokenization, RBAC, multi-tenancy |
 
@@ -241,11 +241,12 @@ vanta-cli repair-text-index --db ./vanta_data
 
 For local development or network exposure without Python, you can run the standalone binary. This wraps the embedded core; it is not the primary product identity.
 
-1. Download `vantadb-server-*` for your platform from [GitHub Releases](https://github.com/ness-e/Vantadb/releases).
-2. Run the binary:
+1. Download the tarball for your platform from [GitHub Releases](https://github.com/ness-e/Vantadb/releases) (e.g. `vantadb-x86_64-unknown-linux-gnu.tar.gz`).
+2. Extract and run the binary:
 
    ```bash
-   ./vantadb-server-linux-amd64
+   tar xzf vantadb-x86_64-unknown-linux-gnu.tar.gz
+   ./vantadb-server
    ```
 
 **Defaults:**
@@ -257,11 +258,11 @@ For local development or network exposure without Python, you can run the standa
 
 ```bash
 export VANTADB_HOST=0.0.0.0
-./vantadb-server-linux-amd64
+./vantadb-server
 ```
 
 > [!WARNING]
-> **Windows SmartScreen Note (Unsigned Binary):** When launching the Windows binary, SmartScreen may show an "Unrecognized Publisher" warning. This is expected because the current release binaries are not yet digitally signed. Only execute binaries downloaded from the official [GitHub Releases](https://github.com/ness-e/Vantadb/releases).
+> **Windows SmartScreen Note (Unsigned Binary):** When launching the Windows binary (`vantadb-server.exe`), SmartScreen may show an "Unrecognized Publisher" warning. This is expected because the current release binaries are not yet digitally signed. Only execute binaries downloaded from the official [GitHub Releases](https://github.com/ness-e/Vantadb/releases).
 
 ---
 
@@ -304,7 +305,7 @@ To measure performance baseline on your local hardware:
 
    ```bash
    pip install maturin
-   maturin develop --release
+   maturin develop --release --manifest-path vantadb-python/Cargo.toml
    ```
 
 2. **Execute the benchmark script:**
@@ -339,8 +340,6 @@ Results will be printed directly to the console and written to `vanta_benchmark_
 ## Contributing & Security
 
 - Contributions must follow [CONTRIBUTING.md](CONTRIBUTING.md).
-- Security reports must follow [SECURITY.md](.github/SECURITY.md).
-- Support and triage channels are described in [SUPPORT.md](.github/SUPPORT.md).
 
 ---
 

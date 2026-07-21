@@ -14,7 +14,7 @@ tags: [vantadb, documentation, index, master-index]
 > Index of all documentation, architecture decisions, protocol definitions, and operational references for the VantaDB project.
 
 - **Project**: VantaDB — cross-platform memory layer for AI agents
-- **Version**: 0.2.0
+- **Version**: 0.4.0
 - **Last Updated**: 2026-07-13
 - **Repository**: `https://github.com/ness-e/Vantadb`
 - **Owner**: Eros
@@ -93,19 +93,22 @@ tags: [vantadb, documentation, index, master-index]
 | 7 | [[operations/COMMUNITY_GOVERNANCE.md\|COMMUNITY_GOVERNANCE.md]] | Community guidelines and governance model | Done |
 | 8 | [[operations/DURABILITY_GUARANTEES.md\|DURABILITY_GUARANTEES.md]] | WAL durability and crash guarantees | Done |
 | 9 | [[operations/EDITOR_INTEGRATIONS.md\|EDITOR_INTEGRATIONS.md]] | IDE / editor integration notes | Done |
-| 10 | [[archive/EXECUTIVE_TECHNICAL_AUDIT.md\|EXECUTIVE_TECHNICAL_AUDIT.md]] | Full technical audit report (Archived) | Archived |
-| 11 | [[operations/EXPERIMENTAL_FEATURES.md\|EXPERIMENTAL_FEATURES.md]] | Feature flags and experimental functionality | Done |
-| 12 | [[operations/FUZZING.md\|FUZZING.md]] | Fuzzing strategy and results | Done |
-| 13 | [[operations/GRAFANA_SETUP.md\|GRAFANA_SETUP.md]] | Grafana dashboard setup for metrics | Done |
-| 14 | [[archive/MILESTONE_V0.2.0.md\|MILESTONE_V0.2.0.md]] | V0.2.0 milestone plan and tracking (Archived) | Done |
-| 15 | [[operations/PILOT_PROGRAM.md\|PILOT_PROGRAM.md]] | Early access pilot program docs | Done |
-| 16 | [[operations/PUBLIC_ISSUE_DRAFTS.md\|PUBLIC_ISSUE_DRAFTS.md]] | Public issue templates and drafts | Done |
-| 17 | [[operations/PYTHON_RELEASE_POLICY.md\|PYTHON_RELEASE_POLICY.md]] | Python SDK release and publishing policy | Done |
-| 18 | [[archive/RELEASE_V0.1.1.md\|RELEASE_V0.1.1.md]] | V0.1.1 release notes and tracking (Archived) | Done |
-| 19 | [[operations/RELIABILITY_GATE.md\|RELIABILITY_GATE.md]] | Reliability gate criteria and sign-off | Done |
-| 20 | [[operations/REPO_CHECKLIST.md\|REPO_CHECKLIST.md]] | Repository setup and maintenance checklist | Done |
-| 21 | [[strategy/SHOW_HN_PREP.md\|SHOW_HN_PREP.md]] | Hacker News launch preparation | Done |
-| 22 | [[archive/TEXT_INDEX_PHASE_1_CLOSEOUT.md\|TEXT_INDEX_PHASE_1_CLOSEOUT.md]] | Text index phase 1 closeout report (Archived) | Done |
+| 10 | [[operations/EXPERIMENTAL_FEATURES.md\|EXPERIMENTAL_FEATURES.md]] | Feature flags and experimental functionality | Done |
+| 11 | [[operations/FUZZING.md\|FUZZING.md]] | Fuzzing strategy and results | Done |
+| 12 | [[operations/GRAFANA_SETUP.md\|GRAFANA_SETUP.md]] | Grafana dashboard setup for metrics | Done |
+| 13 | [[operations/GC_TTL.md\|GC_TTL.md]] | GC and TTL eviction policy | Done |
+| 14 | [[operations/PILOT_PROGRAM.md\|PILOT_PROGRAM.md]] | Early access pilot program docs | Done |
+| 15 | [[operations/PUBLIC_ISSUE_DRAFTS.md\|PUBLIC_ISSUE_DRAFTS.md]] | Public issue templates and drafts | Done |
+| 16 | [[operations/PYTHON_RELEASE_POLICY.md\|PYTHON_RELEASE_POLICY.md]] | Python SDK release and publishing policy | Done |
+| 17 | [[operations/RELIABILITY_GATE.md\|RELIABILITY_GATE.md]] | Reliability gate criteria and sign-off | Done |
+| 18 | [[operations/REPO_CHECKLIST.md\|REPO_CHECKLIST.md]] | Repository setup and maintenance checklist | Done |
+| 19 | [[operations/PERFORMANCE_GUIDE.md\|PERFORMANCE_GUIDE.md]] | Performance tuning guide | Done |
+| 20 | [[operations/PERFORMANCE_TUNING.md\|PERFORMANCE_TUNING.md]] | Advanced performance tuning | Done |
+| 21 | [[operations/DEPLOYMENT_GUIDE.md\|DEPLOYMENT_GUIDE.md]] | Deployment configurations | Done |
+| 22 | [[operations/DISASTER_RECOVERY_RUNBOOK.md\|DISASTER_RECOVERY_RUNBOOK.md]] | Disaster recovery runbook | Done |
+| 23 | [[operations/SECURITY.md\|SECURITY.md]] | Security policy and best practices | Done |
+| 24 | [[operations/SQLITE_MIGRATION_GUIDE.md\|SQLITE_MIGRATION_GUIDE.md]] | SQLite migration guide | Done |
+| 25 | [[strategy/SHOW_HN_PREP.md\|SHOW_HN_PREP.md]] | Hacker News launch preparation | Done |
 
 ---
 
@@ -214,11 +217,7 @@ See [[CHANGELOG.md]] for version history, [[Backlog.md]] for active tasks, and [
 
 | # | Document | Description | Status |
 |---|----------|-------------|--------|
-| 1 | [[reviews/FINAL-REVIEW.md\|Final Review]] | Skills ecosystem evaluation and cleanup plan | Active |
-| 2 | [[archive/FULL_CODEBASE_AUDIT_2026-07-09.md\|Codebase Audit (Jul 9)]] | Full Rust core + bindings + web audit (Archived, superseded) | Archived |
-| 3 | [[reviews/FULL_CODEBASE_AUDIT_2026-07-11.md\|Codebase Audit (Jul 11)]] | Updated full codebase audit (replaces Jul 9) | Active |
-| 4 | [[reviews/2026-07-13-full-review.md\|Full Review (Jul 13)]] | Latest comprehensive review | Active |
-| 5 | [[reviews/analisis_proyecto.md\|Project Analysis]] | Architecture, security, concurrency, code quality | Active |
+| 1 | [[reviews/review.md\|Review]] | Project review | Active |
 
 ---
 
@@ -232,21 +231,7 @@ See [[CHANGELOG.md]] for version history, [[Backlog.md]] for active tasks, and [
 
 ---
 
-## Research
-
-| # | Document | Description |
-|---|----------|-------------|
-| 1 | [[research/VantaDB_RESEARCH_UNIFIED.md\|Unified Research]] | Consolidated cross-agent research report |
-| 2 | [[research/VantaDB_ANALISIS_COMPLETO.md\|Complete Analysis]] | Full project analysis and decisions |
-| 3 | [[research/ACID_TRANSACTIONS.md\|ACID Transactions]] | ACID compliance research |
-| 4 | [[research/SIGNED_RELEASES.md\|Signed Releases]] | Sigstore/SLSA release signing research |
-| 5 | [[research/VantaDB_RESEARCH_VALIDADO.md\|Validated Research]] | Validated and cross-checked research findings |
-| 6 | [[archive/DOCS_TOOLS_RESEARCH.md\|Docs Tools Research]] | Documentation tool evaluation (Archived) |
-| 7 | [[archive/DOCS_AUDIT_REPORT.md\|Docs Audit Report]] | Comprehensive documentation audit (Archived) |
-| 8 | [[archive/COGNEE_EVALUATION.md\|Cognée Evaluation]] | Evaluation of the Cognée project (Archived) |
-| 9 | [[archive/SQL_ANALYSIS.md\|SQL Analysis]] | SQL-based query language analysis (Archived) |
-
----
+<!-- Research section removed — all files were archived/deleted. -->
 
 ## Meta / Configuration
 

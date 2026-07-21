@@ -3,7 +3,7 @@
 # https://vantadb.dev
 ARG RUST_VERSION=1.94.0
 ARG BINARY=vantadb-server
-ARG APP_VERSION=0.3.0
+ARG APP_VERSION=0.4.0
 
 # ───────────────────────────────────────────────────────
 # Stage 1 — Build the Rust binary

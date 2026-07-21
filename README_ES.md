@@ -34,7 +34,7 @@
   <a href="https://github.com/ness-e/Vantadb/releases"><img src="https://img.shields.io/github/v/release/ness-e/Vantadb?label=Release&logo=github&logoColor=white&color=181717" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-181717" alt="License"></a>
   <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/pypi/v/vantadb-py?label=PyPI&logo=pypi&logoColor=white&color=3775A9" alt="PyPI"></a>
-  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white" alt="Python"></a>
+  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python"></a>
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.94.1%2B-000000?logo=rust&logoColor=white" alt="Rust"></a>
   <a href="https://discord.gg/g8nqB3NtXt"><img src="https://img.shields.io/badge/Discord-VantaDB_Community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
 </div>
@@ -61,15 +61,17 @@ VantaDB es un motor de base de datos embebido y local-first diseñado para agent
 
 | Necesidad | Empieza aquí |
 | :--- | :--- |
-| Entender el límite del producto | [Límite del Producto](#límite-del-producto) |
+| Entender el límite del producto | [Límite del Producto](#limite-del-producto) |
 | Probar el MVP en cinco minutos | [Quickstart de 5 Minutos](docs/QUICKSTART.md) |
 | Instalar vía pip | [Instalación](#instalación) |
 | Usar la CLI embebida | [Referencia de CLI](#cli-embebido) |
 | Ejecutar como servidor local | [Modo Servidor](#modo-servidor-opcional) |
+| Seguir un tutorial | [Tutoriales](docs/tutorials/) |
+| Leer la FAQ | [FAQ](docs/FAQ.md) |
 | Leer documentación de arquitectura | [Documentación](#documentación) |
 | Contribuir de forma segura | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Reportar una vulnerabilidad | [SECURITY.md](.github/SECURITY.md) |
-| Obtener soporte | [SUPPORT.md](.github/SUPPORT.md) |
+<!-- | Reportar una vulnerabilidad | SECURITY.md (planned) | -->
+<!-- | Obtener soporte | SUPPORT.md (planned) | -->
 
 ---
 
@@ -93,7 +95,7 @@ Para integración nativa en Rust, agrega el crate a tu `Cargo.toml`:
 
 ```toml
 [dependencies]
-vantadb = "0.1"
+vantadb = { git = "https://github.com/ness-e/Vantadb" }
 ```
 
 ---
@@ -118,10 +120,10 @@ record = db.put(
 )
 
 # 3. Recupera el registro exacto por clave
-stored = db.get("agent/main", "memory-001")
+stored = db.get_memory("agent/main", "memory-001")
 
 # 4. busqueda-hibrida (BM25 + Similitud Coseno fusionada vía RRF)
-hits = db.search("agent/main", query_vector=[0.11, 0.89, 0.55], top_k=5)
+hits = db.search_memory("agent/main", query_vector=[0.11, 0.89, 0.55], top_k=5)
 
 # 5. Telemetría Operacional y Cierre Seguro
 caps = db.hardware_profile()
@@ -171,7 +173,7 @@ VantaDB debe entenderse como: embebido-first, local-first, memoria duradera con 
 | Clasificación | Superficie |
 | :--- | :--- |
 | **Orientado a Producción** | SDK/CLI embebido, CRUD/búsqueda de memoria, WAL/recuperación, namespaces, índices de metadata, recuperación vectorial HNSW, BM25, Recuperación Híbrida v1, filtrado de frases, rebuild/auditoría/reparación, export/import JSONL |
-| **Wrapper Opcional** | Servidor local `vanta-server` alrededor del núcleo embebido |
+| **Wrapper Opcional** | Servidor local `vantadb-server` alrededor del núcleo embebido |
 | **Experimental / no MVP** | IQL/LISP/DQL, MCP, integración LLM/Ollama, semánticas de gobernanza y mantenimiento, recorrido de grafos más allá de aristas locales almacenadas |
 | **Diferido** | Plataforma cloud/enterprise, HA/replicación, clustering distribuido, SQL/OLAP/datawarehouse/time-series, ranking avanzado/snippets/tokenización, RBAC, multi-tenancy |
 
@@ -236,11 +238,12 @@ vanta-cli repair-text-index --db ./vanta_data
 
 Para desarrollo local o exposición de red sin Python, puedes ejecutar el binario standalone. Esto envuelve el núcleo embebido; no es la identidad principal del producto.
 
-1. Descarga `vantadb-server-*` para tu plataforma desde [GitHub Releases](https://github.com/ness-e/Vantadb/releases).
-2. Ejecuta el binario:
+1. Descarga el tarball para tu plataforma desde [GitHub Releases](https://github.com/ness-e/Vantadb/releases) (ej. `vantadb-x86_64-unknown-linux-gnu.tar.gz`).
+2. Extrae y ejecuta el binario:
 
    ```bash
-   ./vantadb-server-linux-amd64
+   tar xzf vantadb-x86_64-unknown-linux-gnu.tar.gz
+   ./vantadb-server
    ```
 
 **Valores por Defecto:**
@@ -252,11 +255,11 @@ Para desarrollo local o exposición de red sin Python, puedes ejecutar el binari
 
 ```bash
 export VANTADB_HOST=0.0.0.0
-./vantadb-server-linux-amd64
+./vantadb-server
 ```
 
 > [!WARNING]
-> **Nota de SmartScreen de Windows (Binario Sin Firmar):** Al lanzar el binario de Windows, SmartScreen puede mostrar una advertencia de "Editor No Reconocido". Esto es esperado porque los binarios de release actuales aún no están firmados digitalmente. Solo ejecuta binarios descargados desde los [GitHub Releases](https://github.com/ness-e/Vantadb/releases) oficiales.
+> **Nota de SmartScreen de Windows (Binario Sin Firmar):** Al lanzar el binario de Windows (`vantadb-server.exe`), SmartScreen puede mostrar una advertencia de "Editor No Reconocido". Esto es esperado porque los binarios de release actuales aún no están firmados digitalmente. Solo ejecuta binarios descargados desde los [GitHub Releases](https://github.com/ness-e/Vantadb/releases) oficiales.
 
 ---
 
@@ -299,7 +302,7 @@ Para medir la línea de base de rendimiento en tu hardware local:
 
    ```bash
    pip install maturin
-   maturin develop --release
+   maturin develop --release --manifest-path vantadb-python/Cargo.toml
    ```
 
 2. **Ejecuta el script de benchmark:**
@@ -334,8 +337,6 @@ Los resultados se imprimirán directamente en la consola y se escribirán en `va
 ## Contribución y Seguridad
 
 - Las contribuciones deben seguir [CONTRIBUTING.md](CONTRIBUTING.md).
-- Los reportes de seguridad deben seguir [SECURITY.md](.github/SECURITY.md).
-- Los canales de soporte y triaje se describen en [SUPPORT.md](.github/SUPPORT.md).
 
 ---
 
