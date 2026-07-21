@@ -3,7 +3,7 @@ title: "ADR 008: WASM Support Strategy and Browser Deployment"
 type: adr
 status: active
 tags: [vantadb, architecture, adr]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-07-21
 aliases: []
 ---
 

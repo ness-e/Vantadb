@@ -3,7 +3,7 @@ title: "ADR 002: WAL Physical Resilience, CRC32C Validation, and Auto-Healing Me
 type: adr
 status: active
 tags: [vantadb, architecture, adr]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-21
 aliases: []
 ---
 

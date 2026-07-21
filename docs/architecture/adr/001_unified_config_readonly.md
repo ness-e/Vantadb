@@ -3,7 +3,7 @@ title: "ADR 001: Unified Configuration Architecture and Read-Only Barrier"
 type: adr
 status: active
 tags: [vantadb, architecture, adr]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-21
 aliases: []
 ---
 

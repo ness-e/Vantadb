@@ -3,7 +3,7 @@ title: "ADR 007: PyO3 Binding Architecture for Python SDK"
 type: adr
 status: active
 tags: [vantadb, architecture, adr]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-07-21
 aliases: []
 ---
 

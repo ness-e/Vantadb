@@ -3,7 +3,7 @@ title: "ADR 005: HNSW Graph Parameters (M, M_max0, ef_construction, ef_search, m
 type: adr
 status: active
 tags: [vantadb, architecture, adr]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-07-21
 aliases: []
 ---
 

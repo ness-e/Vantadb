@@ -3,7 +3,7 @@ title: Mutation and Recovery Protocol
 type: architecture
 status: active
 tags: [vantadb, architecture]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-21
 aliases: []
 ---
 

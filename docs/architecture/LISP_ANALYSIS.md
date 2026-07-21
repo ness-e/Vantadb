@@ -4,7 +4,7 @@ type: architecture
 status: draft
 tags: [vantadb, architecture, query-language, lisp, experimental]
 links: "[[EXPERIMENTAL_GOVERNANCE_DESIGN]], [[Backlog]]"
-last_reviewed: 2026-07-04
+last_reviewed: 2026-07-21
 aliases: [lisp-analysis]
 ---
 

@@ -3,7 +3,7 @@ title: "ADR 006: RRF Constant (k=60) for Reciprocal Rank Fusion"
 type: adr
 status: active
 tags: [vantadb, architecture, adr]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-07-21
 aliases: []
 ---
 
