@@ -223,7 +223,7 @@ jobs:
           install-nextest: true
           install-llvm-cov: true
           install-system-deps: true
-          swap-mb: 6144
+          swap-mb: 8192
 
       - name: Cache benchmark dataset (GloVe 100d)
         id: cache-benchmark
