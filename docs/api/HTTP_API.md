@@ -3,7 +3,7 @@ title: VantaDB HTTP API
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-21
 aliases: []
 ---
 
@@ -49,7 +49,7 @@ curl http://127.0.0.1:8080/health
 
 Prometheus-formatted metrics text. Exposes operational metrics at `/metrics` for scraping by Prometheus or any OpenMetrics-compatible collector.
 
-**Auth:** None
+**Auth:** Bearer token (if `api_key` configured; passes through in dev mode)
 
 **Content-Type:** `text/plain; version=0.0.4`
 
@@ -134,7 +134,7 @@ vanta-cli server --http --port 443 --db ./vanta_data
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `GET` | `/health` | No | Liveness check |
-| `GET` | `/metrics` | No | Prometheus metrics (OpenMetrics format) |
+| `GET` | `/metrics` | Bearer (if configured) | Prometheus metrics (OpenMetrics format) |
 | `POST` | `/api/v2/query` | Bearer | Execute IQL query |
 
 ## Rate Limiting
