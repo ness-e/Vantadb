@@ -2,14 +2,14 @@
 title: "Physical Storage Format Versioning Strategy"
 status: draft
 tags: [vantadb, architecture, storage]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-07-21
 aliases: []
 ---
 
 # Physical Storage Format Versioning Strategy
 
 **Status:** Draft  
-**Last Updated:** 2026-07-03  
+**Last Updated:** 2026-07-21  
 **Related:** `ARCHITECTURE.md`, `DURABILITY_GUARANTEES.md`, `src/binary_header.rs`, `src/schema.rs`
 
 ---
@@ -23,7 +23,7 @@ VantaDB persists data across four distinct physical formats, each with its own m
 | Format | File(s) | Magic | Current Version | Version Type | Defined In |
 |---|---|---|---|---|---|
 | **VantaFile** | `vector_store.vanta` | `b"VFLE"` | `1` | `u16` format_version | `src/storage/vfile.rs` |
-| **Vector Index (HNSW)** | `index.bin` | `b"VNDX"` | `4` | `u16` format_version | `src/index/core.rs` (const `VECTOR_INDEX_VERSION`) |
+| **Vector Index (HNSW)** | `index.bin` | `b"VNDX"` | `7` | `u16` format_version | `src/index/graph.rs` (const `VECTOR_INDEX_VERSION`) |
 | **WAL** | `wal.log`, segments | `b"VWAL"` | `1` | `u32` (cast from `u16`) | `src/wal.rs` (`WalHeader`) |
 | **Schema** | `.vanta.schema` | `b"VTDBv001"` | `1` | `u32` schema_version | `src/schema.rs` (`StorageHeader`) |
 
@@ -75,8 +75,8 @@ Total: 72 bytes
 
 Two error variants exist for version incompatibility:
 
-- **`IncompatibleFormat`** (`src/error.rs:32`): magic or version mismatch on any `VantaHeader`-based file. Returns expected vs. found magic/version pairs plus a hint string.
-- **`WALVersionMismatch`** (`src/error.rs:19`): WAL-specific version error. Returns expected vs. found `u32` version plus a hint.
+- **`IncompatibleFormat`** (`src/error.rs:134`): magic or version mismatch on any `VantaHeader`-based file. Returns expected vs. found magic/version pairs plus a hint string.
+- **`WALVersionMismatch`** (`src/error.rs:115`): WAL-specific version error. Returns expected vs. found `u32` version plus a hint.
 
 ---
 
@@ -232,19 +232,26 @@ pub fn validate_compat(
 
 ### 4.1 `vanta-cli migrate` Command Design
 
-The existing `cmd_migrate` needs to be extended from schema-only to a **format-level migration runner**.
+The existing `cmd_migrate` has been extended from schema-only to a **format-level migration runner** with a subcommand interface.
 
 **Command interface:**
 
 ```
-vanta-cli migrate --target <path> [--format <format>] [--dry-run] [--force]
+vanta-cli migrate plan   <target>
+vanta-cli migrate run    <target> [--format <format>] [--dry-run] [--force]
+vanta-cli migrate check  <target>
 ```
 
-| Flag | Purpose |
+| Subcommand | Purpose |
 |---|---|
-| `--target` | Database directory path |
-| `--format` | Specific format to migrate (vfile, index, wal, schema, all) |
-| `--dry-run` | Report what would be migrated without writing |
+| `plan` | Preview migrations without modifying files |
+| `run` | Execute migrations to bring formats up to date |
+| `check` | Verify storage integrity across all formats |
+
+| `run` flag | Purpose |
+|---|---|
+| `--format` | Specific format to migrate (vfile, index, wal, schema, all); default: all |
+| `--dry-run` | Preview changes without writing |
 | `--force` | Skip confirmation prompts |
 
 **Internal flow:**
@@ -274,9 +281,9 @@ vanta-cli migrate --target <path> [--format <format>] [--dry-run] [--force]
 | Add payload checksum footer | Rewrite each record block with appended CRC32C |
 | Optional field support | Scan all nodes; fill missing optionals with default sentinel |
 
-**Vector Index v1→v2→v3→v4 (already versioned):**
+**Vector Index v1→v2→v3→v4→v5→v6→v7 (already versioned):**
 
-The vector index already tracks `VECTOR_INDEX_VERSION = 4`. Each version increment should document:
+The vector index already tracks `VECTOR_INDEX_VERSION = 7`. Each version increment should document:
 - What changed (e.g., V3 added distance metric byte, V4 added zero-copy aligned vector paging)
 - Migration cost (full rebuild vs. in-place header update)
 
