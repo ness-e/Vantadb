@@ -2,6 +2,14 @@
 
 > **🛡️ Validation Rule:** Si no estás 100% seguro de una respuesta, análisis o decisión técnica, DEBES validar contra internet (`websearch`/`webfetch`). Para herramientas, librerías o APIs, la fuente de verdad es su documentación oficial o GitHub. No confíes en conocimiento interno del modelo si hay duda.
 
+## Manual de Operación
+
+Todo el detalle del sistema de tareas, agentes, skills, MCP servers, y su integración está en:
+
+📖 **`.opencode/VANTADB-OPERATING-MANUAL.md`** — Manual de Operación completo (948 líneas, 14 secciones)
+
+Consultar para: entender cómo se relacionan los componentes del sistema, flujos de integración, troubleshooting, y reglas avanzadas.
+
 ## Pipeline & Command System
 
 El sistema de pipeline vive en `.opencode/` y se activa cuando el usuario envía un comando.
