@@ -99,7 +99,7 @@ jobs:
 
       - name: Cache benchmark dataset (GloVe 100d)
         id: cache-benchmark
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: data/benchmark/glove.6B.100d.txt
           key: glove-100d-${{ hashFiles('scripts/download_benchmark_datasets.sh') }}
@@ -227,7 +227,7 @@ jobs:
 
       - name: Cache benchmark dataset (GloVe 100d)
         id: cache-benchmark
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: data/benchmark/glove.6B.100d.txt
           key: glove-100d-${{ hashFiles('scripts/download_benchmark_datasets.sh') }}
