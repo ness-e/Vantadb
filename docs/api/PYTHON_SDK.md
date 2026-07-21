@@ -3,7 +3,7 @@ title: Python SDK Documentation
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-21
 aliases: []
 ---
 
@@ -28,7 +28,7 @@ db.put(
     namespace="agent/main",
     key="memory-1",
     payload="The user prefers dark mode in all applications.",
-    vector=[0.1] * 384, # Dummy vector for example
+    vector=[0.1] * 384,  # VectorInput: List[float], VantaVector, or np.ndarray
 )
 
 # Hybrid search (memory API)
@@ -73,17 +73,17 @@ db.put(
     key: str,
     payload: str,
     metadata: Optional[dict] = None,
-    vector: Optional[List[float]] = None,
+    vector: Optional[VectorInput] = None,
     ttl_ms: Optional[int] = None,
-) -> dict
+) -> VantaMemoryRecord
 ```
 Insert or update a memory record. The `metadata` is a dict of scalar fields.
 
 #### `put_batch()`
 ```python
 db.put_batch(
-    entries: List[Tuple[str, str, str, Optional[dict], Optional[List[float]], Optional[int]]]
-) -> List[dict]
+    entries: List[Tuple[str, str, str, Optional[dict], Optional[VectorInput], Optional[int]]]
+) -> List[VantaMemoryRecord]
 ```
 Insert or update multiple records in parallel. Each entry is `(namespace, key, payload, metadata, vector, ttl_ms)`.
 
@@ -118,13 +118,13 @@ Returns `{"records": [...], "next_cursor": Optional[int]}`.
 ```python
 db.search_memory(
     namespace: str,
-    query_vector: List[float],
+    query_vector: VectorInput,
     filters: Optional[dict] = None,
     text_query: Optional[str] = None,
     top_k: int = 10,
     distance_metric: Optional[str] = None,
     explain: bool = False,
-) -> dict
+) -> List[VantaSearchHit]
 ```
 Search namespace-scoped persistent memory records by vector + filters + text_query.
 
@@ -132,7 +132,7 @@ Search namespace-scoped persistent memory records by vector + filters + text_que
 ```python
 db.explain_memory_search(
     namespace: str,
-    query_vector: List[float],
+    query_vector: VectorInput,
     filters: Optional[dict] = None,
     text_query: Optional[str] = None,
     top_k: int = 10,
@@ -148,7 +148,7 @@ Returns a detailed breakdown of how a memory search arrives at its results.
 db.insert(
     id: int,
     content: str,
-    vector: List[float],
+    vector: VectorInput,
     fields: Optional[dict] = None,
 ) -> None
 ```
@@ -171,7 +171,7 @@ db.delete(
 #### `search()`
 ```python
 db.search(
-    vector: List[float],
+    vector: VectorInput,
     top_k: int = 10,
 ) -> List[Tuple[int, float]]
 ```
@@ -180,7 +180,7 @@ Pure vector K-NN search.
 #### `search_batch()`
 ```python
 db.search_batch(
-    vectors: List[List[float]],
+    vectors: List[VectorInput],
     top_k: int = 10,
 ) -> List[List[Tuple[int, float]]]
 ```
@@ -335,13 +335,13 @@ db.close() -> None
 #### `put_batch_raw()`
 ```python
 db.put_batch_raw(
-    namespace: str,
+    vectors: VectorInput,
     keys: List[str],
-    payloads: List[str],
-    vectors: Optional[List[List[float]]] = None,
-    metadata_list: Optional[List[dict]] = None,
-    ttl_ms_list: Optional[List[Optional[int]]] = None,
-) -> List[dict]
+    payloads: Optional[List[str]] = None,
+    metadatas: Optional[List[Optional[dict]]] = None,
+    namespaces: Optional[List[str]] = None,
+    ttls: Optional[List[Optional[int]]] = None,
+) -> List[VantaMemoryRecord]
 ```
 Batch insert with raw arrays (no tuple wrapping). Optimized for large batches.
 
@@ -370,7 +370,28 @@ db.__getstate__() -> dict    # pickle serialization
 db.__setstate__(state) -> None  # pickle deserialization
 ```
 
+## Type Aliases
+
+```python
+VectorInput = Union[List[float], VantaVector, numpy.ndarray, memoryview]
+```
+Accepts plain Python lists, `VantaVector`, NumPy arrays, or any buffer-protocol object (zero-copy when possible).
+
 ## Data Types
+
+### `VantaVector`
+
+```python
+vantadb_py.VantaVector(data: List[float]) -> VantaVector
+```
+Zero-copy vector wrapper backed by a `Box<[f32]>`. Exposes NumPy's `__array_interface__` for zero-copy `np.asarray()` conversion, and supports Python sequence iteration, indexing, and pickle serialization.
+
+```python
+vec = VantaVector([0.1, 0.2, 0.3])
+arr = np.asarray(vec)  # zero-copy view
+len(vec)               # 3
+vec[0]                 # 0.1
+```
 
 ### Memory Record
 Each memory record is a dict with keys:
