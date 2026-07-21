@@ -26,12 +26,16 @@ js-sys = "0.3"
 wasm-bindgen-futures = "0.4"
 getrandom = { version = "0.3", features = ["wasm_js"] }
 
+# getrandom 0.4+ is pulled in transitively and needs wasm_js for WASM
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom_04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
+
 [features]
 default = ["tracing-wasm"]
 opfs = []
 
 [package.metadata.cargo-machete]
-ignored = ["getrandom"]
+ignored = ["getrandom", "getrandom_04"]
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
