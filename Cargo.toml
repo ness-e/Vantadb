@@ -78,7 +78,7 @@ tantivy = { version = "0.26", optional = true, features = ["stopwords"] }
 web-time = "1.1.0"
 # ── Encryption (optional, behind feature = "encryption") ──
 aes-gcm = { version = "0.10", optional = true }
-sha2 = { version = "0.10", optional = true }
+sha2 = { version = "0.11", optional = true }
 ahash = "0.8.12"
 
 [features]
