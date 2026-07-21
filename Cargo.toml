@@ -1,6 +1,6 @@
 [package]
 name = "vantadb"
-version = "0.3.0"
+version.workspace = true
 edition = "2021"
 rust-version = "1.94.1"
 description = "VantaDB: An embedded persistent memory and vector retrieval engine for local-first AI applications."
@@ -555,7 +555,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 rust-version = "1.94.1"
 exclude = ["fuzz"]
