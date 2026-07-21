@@ -338,6 +338,6 @@ for r in results:
 - [Model Context Protocol (MCP)](../api/MCP.md) — AI agent integration
 - [Agent Local Memory with Ollama](../case_studies/agent_local_memory_ollama.md) — GraphRAG case study
 - [RAG on Edge Devices](../case_studies/rag_edge_device.md) — Edge deployment patterns
-- [Experimental IQL](../experimental/IQL.md) — Graph-constrained query language
+- [IQL Reference](../api/IQL.md) — Graph-constrained query language
 - [Benchmarks & Performance](../operations/BENCHMARKS.md) — Performance comparisons
 - [Configuration Schema](../operations/CONFIGURATION.md) — Full config reference

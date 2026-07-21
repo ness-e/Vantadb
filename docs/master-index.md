@@ -170,7 +170,7 @@ Migrated from `migration/` to `tutorials/` (consolidated into the tutorial serie
 
 | # | Document | Description | Status |
 |---|----------|-------------|--------|
-| 1 | [[experimental/IQL.md\|IQL — Interactive Query Language]] | Experimental query language for VantaDB | Draft |
+| 1 | [[api/IQL.md\|IQL — Interactive Query Language]] | Query language reference for VantaDB | Published |
 | 2 | [[graphrag/README.md\|GraphRAG]] | Graph-based RAG integration research | Research |
 
 ---
