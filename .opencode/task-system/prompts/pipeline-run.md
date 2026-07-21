@@ -14,7 +14,7 @@ Procesás TODAS las tareas del plan file en una sola sesión.
 Usás sub-agentes para mantener contexto fresco.
 
 Parámetros:
-- FAIL_MODE: `stop` | `skip` | `parallel` (default: `stop`)
+- FAIL_MODE: `stop` | `skip` | `parallel` (default: `parallel`)
   - `stop`: se para ante la primera falla
   - `skip`: registra fallo y sigue
   - `parallel`: ejecuta tareas independientes en paralelo vía waves

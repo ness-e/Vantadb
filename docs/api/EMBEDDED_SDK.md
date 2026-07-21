@@ -94,7 +94,7 @@ pub struct VantaMemoryRecord {
     pub created_at_ms: u64,
     pub updated_at_ms: u64,
     pub version: u64,
-    pub node_id: u64,
+    pub node_id: u128,
     pub vector: Option<Vec<f32>>,
     pub expires_at_ms: Option<u64>,
 }
@@ -107,7 +107,7 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 | Method | Description |
 |--------|-------------|
 | `insert_node(input: VantaNodeInput)` | Insert a graph node with content, vector, and fields |
-| `get_node(id: u64)` | Retrieve a node by numeric ID. Returns `Option<VantaNodeRecord>` |
+| `get_node(id: u128)` | Retrieve a node by numeric ID. Returns `Option<VantaNodeRecord>` |
 | `delete_node(id, reason)` | Delete a node with auditable reason (tombstone) |
 | `add_edge(source_id, target_id, label, weight)` | Add a directed edge between two nodes |
 | `graph_bfs(roots, max_depth)` | BFS traversal. Returns `Vec<u64>` |
@@ -121,7 +121,7 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 
 ```rust
 pub struct VantaNodeInput {
-    pub id: u64,
+    pub id: u128,
     pub content: Option<String>,
     pub vector: Option<Vec<f32>>,
     pub fields: VantaFields,  // BTreeMap<String, VantaValue>
@@ -132,7 +132,7 @@ pub struct VantaNodeInput {
 
 ```rust
 pub struct VantaNodeRecord {
-    pub id: u64,
+    pub id: u128,
     pub fields: VantaFields,
     pub vector: Option<Vec<f32>>,
     pub vector_dimensions: usize,

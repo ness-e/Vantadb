@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: VantaDB HTTP API
-  version: "1.0.0"
+  version: "0.4.0"
   description: |
     REST interface for the VantaDB HTTP server.
 
@@ -229,13 +229,19 @@ components:
             data: "Read 1 nodes."
             node_id: null
             nodes:
-              - id: 1
-                semantic_cluster: 0
-                relational:
+              - id: "1"
+                fields:
                   key: memory-1
                   namespace: agent/main
-                hits: 3
+                vector_dimensions: 0
+                edges: []
                 confidence_score: 0.95
+                importance: 0.5
+                hits: 3
+                last_accessed: 1700000000000
+                epoch: 1
+                tier: Hot
+                is_alive: true
         - summary: Write response
           value:
             success: true
@@ -252,40 +258,93 @@ components:
     # ── DTOs ──
 
     NodeDTO:
-      description: A single node returned from a read query.
+      description: A single node returned from a read query, matching VantaNodeRecord.
       type: object
       required:
         - id
-        - semantic_cluster
-        - relational
-        - hits
+        - fields
+        - vector_dimensions
+        - edges
         - confidence_score
+        - importance
+        - hits
+        - last_accessed
+        - epoch
+        - tier
+        - is_alive
       properties:
         id:
-          type: integer
-          minimum: 0
-          description: Unique node identifier
-        semantic_cluster:
-          type: integer
-          minimum: 0
-          description: Semantic cluster ID assigned during embedding
-        relational:
+          type: string
+          description: Unique node identifier (u128 serialized as string)
+        fields:
           type: object
-          description: Key-value map of relational (structured) fields
+          description: Structured field key-value map
           additionalProperties:
             $ref: "#/components/schemas/FieldValue"
-        hits:
+        vector:
+          type: array
+          nullable: true
+          items:
+            type: number
+            format: float
+          description: Optional embedding vector
+        vector_dimensions:
           type: integer
           minimum: 0
-          description: Access frequency / hit count
+          description: Dimension count of the vector (0 if no vector)
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/EdgeDTO"
+          description: Outgoing graph edges
         confidence_score:
           type: number
           format: float
           minimum: 0.0
           maximum: 1.0
-          description: |
-            Semantic confidence score. Values below 0.4 on SemanticSummary
-            nodes trigger supervised filtering.
+          description: Telemetry confidence score (0.0–1.0)
+        importance:
+          type: number
+          format: float
+          description: Telemetry importance score
+        hits:
+          type: integer
+          minimum: 0
+          description: Number of access hits recorded
+        last_accessed:
+          type: integer
+          minimum: 0
+          description: Unix-ms timestamp of last access
+        epoch:
+          type: integer
+          minimum: 0
+          description: Telemetry epoch counter
+        tier:
+          type: string
+          enum: [Hot, Cold]
+          description: Storage tier
+        is_alive:
+          type: boolean
+          description: Whether the node is alive (not tombstoned)
+
+    EdgeDTO:
+      description: A weighted directed edge to a target node.
+      type: object
+      required:
+        - target
+        - label
+        - weight
+      properties:
+        target:
+          type: string
+          description: Target node id (u128 serialized as string)
+        label:
+          type: string
+          description: Edge label describing the relationship
+        weight:
+          type: number
+          format: float
+          description: Edge weight for weighted graph algorithms
 
     FieldValue:
       oneOf:
