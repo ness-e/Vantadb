@@ -22,7 +22,7 @@ This checklist defines the immediate repository cut after the initial technical 
 ## 2. Naming and technical consistency
 
 - [x] Major legacy naming remnants removed from tests and public descriptions.
-- [x] The stable SDK boundary is documented as `src/sdk.rs`.
+- [x] The stable SDK boundary is documented as `src/sdk/`.
 - [x] The Python package has CI for wheels/TestPyPI prepared, but does not promise production PyPI.
 
 ## 3. Observability and metrics
@@ -83,13 +83,13 @@ This checklist defines the immediate repository cut after the initial technical 
 
 ## 10. Hybrid v1 operational closeout
 
-- [x] Restore source-of-truth tracker in `seguimiento de proyecto.csv`.
-- [x] Document phase closeout in `docs/archive/TEXT_INDEX_PHASE_1_CLOSEOUT.md`.
+- [x] Restore source-of-truth tracker in `docs/progreso/README.md`.
+- [x] Document phase closeout in `docs/progreso/bitacora.md`.
 - [x] Enable `text_query` text-only and hybrid v1 with minimal RRF/planner.
 - [x] Harden Hybrid v1 with certification, deterministic corpus, and internal planner/RRF debug.
 - [x] Add text positions v3, basic phrase query, explain/snippet debug-only, wheel CI, and hybrid benchmark on real embedded corpus.
 - [x] Expose read-only structural audit of text index in Rust/Python SDK and CLI.
-- [x] Create `docs/operations/ROADMAP.md` as the operational process roadmap.
+- [x] Create `docs/strategy/ROADMAP.md` as the operational process roadmap.
 
 ## 11. Next operational hardening
 

@@ -3,7 +3,7 @@ title: Beta Pilot Program and Onboarding Guide
 type: operations
 status: active
 tags: [vantadb, operations, pilot]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-21
 aliases: []
 ---
 

@@ -20,12 +20,12 @@ VantaDB reports memory usage at the host level (total hardware) and at the proce
 | Metric | Code Source | Unit | Purpose / Scope |
 | :--- | :--- | :--- | :--- |
 | `HardwareCapabilities::total_memory` | `sysinfo::System::total_memory()` | Bytes | Host total memory capacity. |
-| `process_rss_bytes` | `sysinfo::Process::memory()` | Bytes | Physical resident memory of the process. |
-| `process_virtual_bytes` | `sysinfo::Process::virtual_memory()` | Bytes | Virtual memory allocated to the process. |
-| `hnsw_nodes_count` | `CPIndex::nodes.len()` | Count | Nodes loaded in the vector index. |
-| `hnsw_logical_bytes` | `CPIndex::estimate_memory_bytes()` | Bytes | Deterministic logical estimation of the graph. |
-| `mmap_resident_bytes` | Syscalls `mincore` (Unix) / `QueryWorkingSetEx` (Win) | Bytes | Resident pages of mapped files. |
-| `volatile_cache_entries` | `volatile_cache.len()` | Count | Active entries in the LRU cache. |
+| `vanta_process_rss_bytes` | `sysinfo::Process::memory()` | Bytes | Physical resident memory of the process. |
+| `vanta_process_virtual_bytes` | `sysinfo::Process::virtual_memory()` | Bytes | Virtual memory allocated to the process. |
+| `vanta_hnsw_nodes_count` | `CPIndex::nodes.len()` | Count | Nodes loaded in the vector index. |
+| `vanta_hnsw_logical_bytes` | `CPIndex::estimate_memory_bytes()` | Bytes | Deterministic logical estimation of the graph. |
+| `vanta_mmap_resident_bytes` | Syscalls `mincore` (Unix) / `QueryWorkingSetEx` (Win) | Bytes | Resident pages of mapped files. |
+| `vanta_volatile_cache_entries` | `volatile_cache.len()` | Count | Active entries in the LRU cache. |
 
 ### Prometheus Metrics
 
@@ -35,6 +35,8 @@ The following gauges are registered in `METRICS_REGISTRY` and exposed at `/metri
 * `vanta_hnsw_nodes_count`
 * `vanta_hnsw_logical_bytes`
 * `vanta_mmap_resident_bytes`
+* `vanta_volatile_cache_entries`
+* `vanta_volatile_cache_cap_bytes`
 
 ---
 

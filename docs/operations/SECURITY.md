@@ -89,6 +89,7 @@ Authorization: Bearer <token>
 
 - Uses constant-time comparison (`subtle::ConstantTimeEq`) to prevent timing attacks
 - When no key is configured, the server runs without authentication (development mode)
+- When `VANTADB_REQUIRE_AUTH=true` is set and no key is configured, the server fails to start, preventing accidental unauthenticated exposure.
 - Token authentication is required for all endpoints except `/health`
 
 ### RBAC (Role-Based Access Control)
@@ -134,8 +135,8 @@ General HTTP rate limiting is configured via `VANTADB_RATE_LIMIT_RPM`:
 
 | Setting | Behavior |
 |---------|----------|
-| `0` (default) | Rate limiting disabled |
-| `> 0` | Burst-aware token bucket limiter at N requests/minute |
+| `100` (default) | Burst-aware token bucket limiter at N requests/minute |
+| `0` | Rate limiting disabled |
 
 ## Deployment Security Best Practices
 
@@ -149,7 +150,7 @@ General HTTP rate limiting is configured via `VANTADB_RATE_LIMIT_RPM`:
 
 ## Reporting a Vulnerability
 
-See [`.github/SECURITY.md`](../../.github/SECURITY.md) for the full disclosure policy.
+See the [GitHub Security Advisories](https://github.com/ness-e/Vantadb/security/advisories) page for the full disclosure policy.
 
 - **Email:** security@vantadb.dev
 - **GitHub:** https://github.com/ness-e/Vantadb/security/advisories

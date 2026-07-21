@@ -43,14 +43,14 @@ vanta-cli doctor -d /var/lib/vantadb/data/
 vanta-cli status -d /var/lib/vantadb/data/
 
 # Check system logs
-journalctl -u vantadb --since "1 hour ago" --no-pager
+journalctl -u vantadb-server --since "1 hour ago" --no-pager
 ```
 
 **Recovery:**
 
 1. **Stop the service immediately** to prevent further writes:
    ```bash
-   sudo systemctl stop vantadb
+   sudo systemctl stop vantadb-server
    ```
 
 2. **Create a forensic copy** of the damaged directory:
@@ -71,7 +71,7 @@ journalctl -u vantadb --since "1 hour ago" --no-pager
 
 5. **Restart the service:**
    ```bash
-   sudo systemctl start vantadb
+   sudo systemctl start vantadb-server
    ```
 
 **If no backup exists (total loss):**
@@ -92,7 +92,7 @@ journalctl -u vantadb --since "1 hour ago" --no-pager
 **Diagnosis:**
 ```bash
 # Check recent logs
-journalctl -u vantadb --since "1 hour ago" --no-pager | tail -100
+journalctl -u vantadb-server --since "1 hour ago" --no-pager | tail -100
 
 # Attempt manual startup to see error
 sudo -u vantadb vanta-cli server --http -d /var/lib/vantadb/data/
@@ -121,7 +121,7 @@ sudo -u vantadb vanta-cli server --http -d /var/lib/vantadb/data/
    ```
 4. Verify with `doctor` and restart:
    ```bash
-   sudo systemctl start vantadb
+   sudo systemctl start vantadb-server
    ```
 
 ---
@@ -136,7 +136,7 @@ sudo -u vantadb vanta-cli server --http -d /var/lib/vantadb/data/
 **Recovery:**
 ```bash
 # Stop service
-sudo systemctl stop vantadb
+sudo systemctl stop vantadb-server
 
 # Run WAL repair
 vanta-cli doctor -d /var/lib/vantadb/data/ --fix
@@ -149,7 +149,7 @@ mv /var/lib/vantadb/data/*.wal /tmp/wal-corrupted/
 vanta-cli doctor -d /var/lib/vantadb/data/
 
 # 3. Restart
-sudo systemctl start vantadb
+sudo systemctl start vantadb-server
 ```
 
 **Post-recovery:**
@@ -245,9 +245,9 @@ vanta-cli restore --dry-run --from /backups/vantadb-latest
    ```
 3. For the Fjall backend, backup requires a quiet moment — stop writes temporarily:
    ```bash
-   sudo systemctl stop vantadb
+   sudo systemctl stop vantadb-server
    vanta-cli backup --out /backups/vantadb-$(date +%F)
-   sudo systemctl start vantadb
+   sudo systemctl start vantadb-server
    ```
 4. Update backup automation (see [BACKUP_POLICY.md](BACKUP_POLICY.md))
 
@@ -389,7 +389,7 @@ log() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG"; }
 
 log "=== VantaDB DR Recovery ==="
 log "Stopping service..."
-sudo systemctl stop vantadb || true
+sudo systemctl stop vantadb-server || true
 
 log "Creating forensic copy..."
 cp -a "$DATA_DIR" "${DATA_DIR}.corrupted-$(date +%F-%H%M)" || true
@@ -409,8 +409,8 @@ vanta-cli doctor -d "$DATA_DIR"
 echo "ok" | vanta-cli count -d "$DATA_DIR"
 
 log "Starting service..."
-sudo systemctl start vantadb
-sudo systemctl status vantadb --no-pager
+sudo systemctl start vantadb-server
+sudo systemctl status vantadb-server --no-pager
 
 log "=== Recovery complete ==="
 ```

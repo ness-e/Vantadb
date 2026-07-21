@@ -25,11 +25,11 @@ This guide covers three deployment models:
 
 ### Option A: GitHub Releases (recommended)
 
-Download the latest release from [GitHub Releases](https://github.com/vantadb/vantadb/releases):
+Download the latest release from [GitHub Releases](https://github.com/ness-e/Vantadb/releases):
 
 ```bash
 # Linux x86_64
-curl -LO https://github.com/vantadb/vantadb/releases/latest/download/vantadb-linux-x86_64.tar.gz
+curl -LO https://github.com/ness-e/Vantadb/releases/latest/download/vantadb-linux-x86_64.tar.gz
 tar xzf vantadb-linux-x86_64.tar.gz
 sudo install vantadb /usr/local/bin/
 ```
@@ -38,7 +38,7 @@ sudo install vantadb /usr/local/bin/
 
 ```bash
 # Clone
-git clone https://github.com/vantadb/vantadb.git
+git clone https://github.com/ness-e/Vantadb.git
 cd vantadb
 
 # Build release binary (includes default features: CLI, HTTP server, Fjall backend)
@@ -146,7 +146,7 @@ ExecStart=/usr/local/bin/vanta-cli server --http --port 8081 -d /var/lib/vantadb
 FROM alpine:3.21 AS build
 RUN apk add --no-cache curl
 ARG VANTADB_VERSION=0.6.9
-RUN curl -L "https://github.com/vantadb/vantadb/releases/download/v${VANTADB_VERSION}/vantadb-linux-x86_64.tar.gz" \
+RUN curl -L "https://github.com/ness-e/Vantadb/releases/download/v${VANTADB_VERSION}/vantadb-linux-x86_64.tar.gz" \
   | tar xz -C /usr/local/bin/
 
 FROM alpine:3.21

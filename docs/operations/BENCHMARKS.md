@@ -3,7 +3,7 @@ title: VantaDB — HNSW & Lexical Engine Performance Benchmarks
 type: operations
 status: active
 tags: [vantadb, operations, benchmarks]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-21
 aliases: []
 ---
 

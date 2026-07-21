@@ -2,8 +2,8 @@
 title: Grafana Dashboard Setup
 type: operations
 status: active
-tags: [vantadb, operations]
-last_reviewed: 2026-07-01
+tags: [vanta, operations]
+last_reviewed: 2026-07-21
 aliases: []
 ---
 
@@ -33,24 +33,32 @@ scrape_configs:
 
 | Panel | Metrics | Description |
 |---|---|---|
-| Memory & RSS | `process_resident_memory_bytes`, `vantadb_rss_bytes` | OS vs VantaDB-tracked RSS |
-| Memory Pressure | `vantadb_memory_pressure_ratio` | Ratio vs 80% backpressure threshold |
-| Vector Ops/sec | `rate(vantadb_vector_ops_total[1m])` | Quantized vs full-precision ops |
-| Query Latency | `vantadb_query_duration_seconds_bucket` | P50/P95/P99 from histograms |
-| Disk Usage | `vantadb_storage_bytes` | Per-backend storage size |
-| Index Memory | `vantadb_index_memory_bytes` | Per-layer (L1/L2/L2.5/L3) memory breakdown |
+| Process Memory | `vanta_process_rss_bytes`, `vanta_process_virtual_bytes` | RSS and virtual memory for the VantaDB process |
+| Jemalloc Allocation | `vanta_jemalloc_allocated_bytes`, `vanta_jemalloc_active_bytes`, `vanta_jemalloc_resident_bytes`, `vanta_jemalloc_mapped_bytes`, `vanta_jemalloc_retained_bytes`, `vanta_jemalloc_metadata_bytes` | Per-component jemalloc heap breakdown |
+| HNSW Index | `vanta_hnsw_nodes_count`, `vanta_hnsw_logical_bytes` | HNSW graph node count and estimated logical memory |
+| Page Cache | `vanta_volatile_cache_entries`, `vanta_volatile_cache_cap_bytes` | Hot-node cache utilisation vs capacity |
+| MMAP Resident | `vanta_mmap_resident_bytes` | OS-resident bytes for memory-mapped files |
+| Query Latency | `vanta_query_latency_ms_bucket` | P50/P95/P99 from histograms |
+| HTTP Request Rate | `rate(vanta_http_requests_total[1m])` | Requests/sec by method, route, and status |
+| Query Planner | `vanta_planner_hybrid_queries_total`, `vanta_planner_text_only_queries_total`, `vanta_planner_vector_only_queries_total` | Query routing distribution (hybrid vs text-only vs vector-only) |
 
 ## 4. Enabling on existing instances
 
-Add `--metrics-addr 0.0.0.0:8080` (or the standard port 9090) to the server startup:
+VantaDB serves metrics on the same HTTP port as the API (`/metrics`). Use `--port` (or `VANTADB_PORT`) to control the bind address:
 
 ```bash
-vantadb-server --metrics-addr 0.0.0.0:9090
+vantadb-server --port 9090 --host 0.0.0.0
 ```
 
-For embedded use, ensure `VantaConfig` has:
+For embedded use, set `port` and `host` on `VantaConfig`:
 ```rust
-config.with_metrics(Some("0.0.0.0:9090".parse().unwrap()))
+config.port = 9090;
+config.host = "0.0.0.0".into();
 ```
 
-> **Note:** The `L2.5` layer corresponds to [[sq8|SQ8]] quantization. It will appear only after upgrading to v0.1.5+ ([[sq8|SQ8]] is not available in earlier versions).
+Override via environment:
+```bash
+export VANTADB_PORT=9090
+export VANTADB_HOST=0.0.0.0
+vantadb-server
+```

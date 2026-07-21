@@ -362,16 +362,51 @@ DX-04 introduced two key zero-copy optimizations in the Python bindings:
 
 ### 7.1 Buffer Protocol Vector Extraction (`extract_vector`)
 
-**File:** `vantadb-python/src/lib.rs:199-243`
+**File:** `vantadb-python/src/lib.rs:234-278`
 
 ```rust
-// Attempt zero-copy via buffer protocol (requires Python 3.11+)
-if let Ok(buf) = pyo3::buffer::PyBuffer::<f32>::get(obj) {
-    if buf.is_c_contiguous() {
-        if let Some(slice) = buf.as_slice(py) {
-            return Ok(slice.iter().map(|cell| cell.get()).collect());
+fn extract_vector<'py>(obj: &Bound<'py, PyAny>, py: Python<'py>) -> PyResult<Vec<f32>> {
+    // Attempt zero-copy via buffer protocol (requires Python 3.11+)
+    if let Ok(buf) = pyo3::buffer::PyBuffer::<f32>::get(obj) {
+        if buf.is_c_contiguous() {
+            if let Some(slice) = buf.as_slice(py) {
+                return Ok(slice.iter().map(|cell| cell.get()).collect());
+            }
+        }
+        // Non-contiguous or as_slice failed: use to_vec as fallback
+        if let Ok(v) = buf.to_vec(py) {
+            return Ok(v);
         }
     }
+    // Try f64 buffer (common in NumPy) and downcast to f32
+    if let Ok(buf) = pyo3::buffer::PyBuffer::<f64>::get(obj) {
+        if buf.is_c_contiguous() {
+            if let Ok(v) = buf.to_vec(py) {
+                let len = v.len();
+                let mut result = Vec::with_capacity(len);
+                for x in v {
+                    let cast = x as f32;
+                    if (cast as f64 - x).abs() > 1e-7 {
+                        tracing::debug!(
+                            "Precision loss casting f64 {} to f32: delta={}",
+                            x,
+                            (cast as f64 - x).abs()
+                        );
+                    }
+                    result.push(cast);
+                }
+                return Ok(result);
+            }
+        }
+    }
+    // Fallback: PyO3 native Vec<f32> extraction
+    let result: Vec<f32> = obj.extract().map_err(|e| {
+        PyTypeError::new_err(format!(
+            "Expected a list of floats or a NumPy array (buffer protocol). Got: {}",
+            e
+        ))
+    })?;
+    Ok(result)
 }
 ```
 
@@ -383,18 +418,36 @@ if let Ok(buf) = pyo3::buffer::PyBuffer::<f32>::get(obj) {
 
 ### 7.2 `VantaVector` Wrapper (`__array_interface__`)
 
-**File:** `vantadb-python/src/lib.rs:1485-1552`
+**File:** `vantadb-python/src/lib.rs:1768-1838`
 
 ```rust
-fn __array_interface__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-    let dict = PyDict::new(py);
-    let shape = PyTuple::new(py, &[self.data.len()])?;
-    dict.set_item("shape", shape)?;
-    dict.set_item("typestr", "<f4")?;
-    let ptr = self.data.as_ptr() as usize;
-    let data: Py<PyAny> = (ptr as u64, true).into_py(py);
-    dict.set_item("data", data)?;
-    // ...
+#[pyclass(name = "VantaVector")]
+pub(crate) struct VantaVector {
+    data: Box<[f32]>,
+}
+
+#[pymethods]
+impl VantaVector {
+    #[new]
+    fn new(data: Vec<f32>) -> Self {
+        VantaVector { data: data.into_boxed_slice() }
+    }
+
+    fn __len__(&self) -> usize { self.data.len() }
+
+    /// NumPy ``__array_interface__`` protocol — exposes the internal f32 buffer
+    /// directly so ``np.asarray(vector_obj)`` creates a zero-copy view.
+    #[getter(__array_interface__)]
+    fn get_array_interface(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let dict = PyDict::new(py);
+        let shape = PyTuple::new(py, [self.data.len()])?;
+        dict.set_item("shape", shape)?;
+        dict.set_item("typestr", "<f4")?;
+        let data = (self.data.as_ptr() as usize, true);
+        dict.set_item("data", data)?;
+        dict.set_item("version", 3)?;
+        Ok(dict.unbind().into())
+    }
 }
 ```
 

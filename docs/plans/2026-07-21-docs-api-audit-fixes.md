@@ -35,7 +35,7 @@ Este plan cubre las correcciones priorizadas para llevar la documentación a ~8.
 - **Gate Justificación:** Error de tipo que causa bugs en producción. `node_id: u64` vs código real `u128`. `Edge.target: u64` vs `u128`.
 - **Contrato:** "grep 'u64' en EMBEDDED_SDK.md solo encuentra referencias válidas (sin falsos positivos para node/edge)"
 - **Task file:** `tasks/DOC-API-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-07-21T00:00
 
 ---
@@ -46,7 +46,7 @@ Este plan cubre las correcciones priorizadas para llevar la documentación a ~8.
 - **Gate Justificación:** `semantic_cluster`, `relational`, `hits`, `confidence_score` no existen en `VantaNodeRecord` real. `version: 1.0.0` debería coincidir con MCP.md `0.1.5`.
 - **Contrato:** "NodeDTO en openapi.yaml coincide con campos de VantaNodeRecord real (src/sdk/types.rs)"
 - **Task file:** `tasks/DOC-API-02.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-07-21T00:00
 
 ---
@@ -57,7 +57,7 @@ Este plan cubre las correcciones priorizadas para llevar la documentación a ~8.
 - **Gate Justificación:** `cargo install vantadb-cli` falla (el crate no existe). `query_lisp` ya no existe, es `query`. last_reviewed desactualizado.
 - **Contrato:** "MCP.md no contiene referencias a `vantadb-cli` ni `query_lisp`"
 - **Task file:** `tasks/DOC-API-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-07-21T00:00
 
 ---
@@ -68,7 +68,7 @@ Este plan cubre las correcciones priorizadas para llevar la documentación a ~8.
 - **Gate Justificación:** 6 métodos existentes sin documentar. `vector: List[float]` incorrecto (acepta VantaVector/np.ndarray/buffer). last_reviewed desactualizado.
 - **Contrato:** "PYTHON_SDK.md documenta search_batch, flush, VantaVector, delete_by_filter, similar_to_key, count con firmas correctas"
 - **Task file:** `tasks/DOC-API-04.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-07-21T00:00
 
 ---
@@ -79,7 +79,7 @@ Este plan cubre las correcciones priorizadas para llevar la documentación a ~8.
 - **Gate Justificación:** `connect(path)` no existe en WASM — es `new()`, `open()`, `connect_idb()`. `searchVector()` es en realidad `search_vector` (el TS wrapper lo camelCasa). u128 serialización a string no documentada.
 - **Contrato:** "TS_SDK.md menciona connect_idb() y usa searchVector/search_vector correctamente según código real"
 - **Task file:** `tasks/DOC-API-05.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-07-21T00:00
 
 ---
@@ -90,7 +90,7 @@ Este plan cubre las correcciones priorizadas para llevar la documentación a ~8.
 - **Gate Justificación:** IQL no tiene documentación standalone. HTTP_API.md solo cubre 3 endpoints — verificar contra código real si hay más. Bump last_reviewed en todos los archivos restantes.
 - **Contrato:** "docs/api/IQL.md existe con sintaxis básica. HTTP_API.md verificado contra cli_server.rs."
 - **Task file:** `tasks/DOC-API-06.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-07-21T00:00
 
 ---

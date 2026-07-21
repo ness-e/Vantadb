@@ -58,7 +58,7 @@ def run_stress_test(duration_minutes=30):
     while time.time() < end_time:
         for i in range(1000):
             vector = [1.0] * 128
-            db.insert(count, f"content_{count}", vector)
+            db.put("ns", str(count), f"content_{count}", vector=vector)
             count += 1
             
         db.flush()
@@ -116,6 +116,12 @@ For rapid chaos testing in CI or pre-push environments:
 
 ```powershell
 cargo nextest run --profile chaos --features failpoints
+```
+
+If nextest is not installed, use `cargo test` as fallback:
+
+```powershell
+cargo test --test chaos_integrity --features failpoints -- chaos_integrity_failpoints_certification
 ```
 
 #### B. Manual Chaos Loop Certification (Sustained Resilience)

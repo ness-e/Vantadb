@@ -1,7 +1,9 @@
+> ⚠️ **ARCHIVED** — This document is preserved for reference. The fuzzing strategy applies to legacy/archived parser targets; active development fuzzing is maintained inline in per-crate tests.
+
 ---
 title: Fuzzing Guide for VantaDB
 type: operations
-status: active
+status: archived
 tags: [vantadb, operations, testing, fuzzing]
 last_reviewed: 2026-07-01
 aliases: []
@@ -60,7 +62,7 @@ cd fuzz/
 # Deserialization fuzzing (WAL + Nodes)
 cargo +nightly fuzz run fuzz_node_deserialize -- -max_total_time=300
 
-# LISP/query parser fuzzing
+# LISP/query parser fuzzing (legacy — LISP parser archived per [`EXPERIMENTAL_FEATURES.md`](EXPERIMENTAL_FEATURES.md))
 cargo +nightly fuzz run fuzz_parser -- -max_total_time=300
 ```
 

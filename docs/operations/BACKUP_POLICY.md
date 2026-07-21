@@ -32,7 +32,6 @@ Instead, use one of the following strategies:
 2. **Cold Backups:** Safely shut down the VantaDB process and create a standard copy/tarball of the data directory.
 
 Cold-copy restore is now part of the fast validation suite for the default
-Cold-copy restore is now part of the fast validation suite for the default
 [[fjall|Fjall]] path. The restore check reopens the copied directory and verifies
 canonical memory records, [[bm25|BM25]]/phrase text search, and Hybrid Retrieval v1.
 

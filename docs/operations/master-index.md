@@ -1,0 +1,37 @@
+# Operations Master Index
+
+**last_reviewed:** 2026-07-21
+
+## docs/operations/
+
+| File | Description |
+|------|-------------|
+| [AGENT_INSTRUCTIONS.md](AGENT_INSTRUCTIONS.md) | Instructions for AI agents working in this repo |
+| [BACKUP_POLICY.md](BACKUP_POLICY.md) | Database and file backup procedures |
+| [BENCHMARKS.md](BENCHMARKS.md) | Performance benchmark results and methodology |
+| [CI_POLICY.md](CI_POLICY.md) | Continuous integration policies |
+| [COMMUNITY_GOVERNANCE.md](COMMUNITY_GOVERNANCE.md) | Community guidelines and governance model |
+| [CONFIGURATION.md](CONFIGURATION.md) | System configuration reference |
+| [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | Deployment procedures and checklist |
+| [DISASTER_RECOVERY_RUNBOOK.md](DISASTER_RECOVERY_RUNBOOK.md) | Disaster recovery runbook |
+| [DURABILITY_GUARANTEES.md](DURABILITY_GUARANTEES.md) | Data durability guarantees and SLAs |
+| [EDITOR_INTEGRATIONS.md](EDITOR_INTEGRATIONS.md) | Editor/IDE integration setup |
+| [EXPERIMENTAL_FEATURES.md](EXPERIMENTAL_FEATURES.md) | Experimental features documentation |
+| [FUZZING.md](FUZZING.md) | Fuzzing setup and results |
+| [GC_TTL.md](GC_TTL.md) | Garbage collection TTL configuration |
+| [GRAFANA_SETUP.md](GRAFANA_SETUP.md) | Grafana dashboard setup |
+| [grafana-dashboard.json](grafana-dashboard.json) | Grafana dashboard JSON definition |
+| [MEMORY_TELEMETRY.md](MEMORY_TELEMETRY.md) | Memory telemetry and monitoring |
+| [PERFORMANCE_GUIDE.md](PERFORMANCE_GUIDE.md) | Performance optimization guide |
+| [PERFORMANCE_TUNING.md](PERFORMANCE_TUNING.md) | Performance tuning parameters |
+| [PILOT_PROGRAM.md](PILOT_PROGRAM.md) | Pilot program documentation |
+| [PUBLIC_ISSUE_DRAFTS.md](PUBLIC_ISSUE_DRAFTS.md) | Public issue draft templates |
+| [PYTHON_RELEASE_POLICY.md](PYTHON_RELEASE_POLICY.md) | Python SDK release policy |
+| [RELIABILITY_GATE.md](RELIABILITY_GATE.md) | Reliability gate criteria |
+| [REPO_CHECKLIST.md](REPO_CHECKLIST.md) | Repository maintenance checklist |
+| [SECURITY.md](SECURITY.md) | Security policies and procedures |
+| [SQLITE_MIGRATION_GUIDE.md](SQLITE_MIGRATION_GUIDE.md) | SQLite migration guide |
+
+## docs/archive/
+
+*No archived files currently.*

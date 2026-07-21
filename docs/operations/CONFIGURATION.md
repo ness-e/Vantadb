@@ -34,7 +34,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `backend_kind` | `BackendKind` | `Fjall` | `VANTA_BACKEND` | KV backend: `[[fjall]]`, `[[rocksdb]]`, `memory` |
 | `max_blocking_threads` | `usize` | `16` | `VANTADB_MAX_BLOCKING_THREADS` | Max threads for blocking thread pool |
 | `sync_mode` | `SyncMode` | `Periodic` | — | [[wal\|WAL]] sync: `Always`, `Periodic`, `Never` |
-| `insert_lock_timeout_ms` | `u64` | `2000` | `VANTADB_INSERT_LOCK_TIMEOUT_MS` | [[hnsw\|HNSW]] insert lock timeout in ms |
+| `insert_lock_timeout_ms` | `u64` | `5000` | `VANTADB_INSERT_LOCK_TIMEOUT_MS` | [[hnsw\|HNSW]] insert lock timeout in ms |
 | `file_lock_timeout_ms` | `u64` | `1000` | `VANTADB_FILE_LOCK_TIMEOUT_MS` | .vanta.lock file lock timeout in ms |
 | `api_key` | `Option<String>` | `None` | `VANTADB_API_KEY` | Bearer token for HTTP auth |
 | `rate_limit_rpm` | `u32` | `100` | `VANTADB_RATE_LIMIT_RPM` | Rate limit in requests per minute |
@@ -49,9 +49,9 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `flush_threshold` | `Option<usize>` | `10000` | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
 | `advanced_tokenizer_config` | `Option<...>` | `None` | — | Advanced tokenizer config (feature-gated) |
 | `batch_size` | `Option<usize>` | `None` (1000) | `VANTADB_BATCH_SIZE` | Max nodes per batch ingestion operation |
-| `encryption_key` | `Option<String>` | `None` | `VANTADB_ENCRYPTION_KEY` | AES-256-GCM key (hex 32-byte) for at-rest encryption (feature-gated) |
+| `encryption_key` | `Option<String>` | `None` | `VANTADB_ENCRYPTION_KEY` | AES-256-GCM key (hex 32-byte) for at-rest encryption (feature-gated: `encryption`) |
 | `flat_threshold` | `Option<usize>` | `10000` | `VANTADB_FLAT_THRESHOLD` | Brute-force flat scan threshold; ≤ this many nodes skips HNSW |
-| `hot_reload_config` | `Arc<RwLock<...>>` | — | — | Hot-reloadable config snapshot (feature-gated) |
+| `hot_reload_config` | `Arc<RwLock<...>>` | — | — | Hot-reloadable config snapshot (feature-gated: `hot-reload`) |
 | `rbac_config` | `RbacConfig` | `{ token_role_map: {} }` | — | RBAC config mapping API tokens to roles |
 | `require_auth` | `bool` | `false` | `VANTADB_REQUIRE_AUTH` | Refuse to start unless `api_key` is configured |
 | `token_role_map` | `HashMap<String, String>` | `{}` | — | `RbacConfig` field: token → role name mapping |
@@ -195,10 +195,10 @@ Build-time feature flags in `Cargo.toml`:
 
 | Feature | Deps Enabled | Description |
 |---------|-------------|-------------|
-| `default` | `cli`, `arrow`, `rocksdb`, `fjall`, `sysinfo`, `memmap2`, `fs2`, `prometheus`, `rayon` | Default feature set for production |
-| `cli` | `indicatif`, `console`, `clap`, `clap_complete`, `rustyline`, `strsim`, `color-eyre` | CLI binary + console UX |
+| `default` | `cli`, `arrow`, `fjall`, `sysinfo`, `memmap2`, `fs2`, `prometheus`, `rayon`, `advanced-tokenizer` | Default feature set for production |
+| `cli` | `indicatif`, `console`, `clap`, `clap_complete` | CLI binary + console UX |
 | `server` | `cli` + `tokio`, `axum`, `tower`, `tower_governor`, `tower-http` | HTTP/MCP server |
-| `tls` | `axum-server`, `rustls-pemfile` | TLS for HTTP server |
+| `tls` | `axum-server`, `rustls` | TLS for HTTP server |
 | `python_sdk` | `pyo3` | Python bindings via PyO3 |
 | `wasm` | *(none — shim-based)* | WASM build support (wasm32-wasip1 / wasm32-unknown-unknown) |
 | `advanced-tokenizer` | `tantivy` | Multilingual tokenizer with stemming/stopwords |
@@ -211,7 +211,7 @@ Build-time feature flags in `Cargo.toml`:
 | `failpoints` | `fail` | Fault-injection testing |
 | `custom-allocator` | `mimalloc` | mimalloc global allocator |
 
-## 9. OpenTelemetry Tracing Environment
+## 8. OpenTelemetry Tracing Environment
 
 Activated by building with `--features opentelemetry`. All spans are exported via OTLP (gRPC) to a collector.
 
@@ -226,6 +226,6 @@ Span coverage includes:
 - All CLI command handlers (`cmd_put`, `cmd_get`, etc.) — `src/cli_handlers/`
 - HTTP route handlers (`/health`, `/metrics`, `/api/v2/query`) — `src/cli_server.rs`
 
-## 10. SIMD and Build Behavior
+## 9. SIMD and Build Behavior
 
 VantaDB still uses the runtime hardware profile to choose fast paths where available, but public claims should stay tied to validated behavior rather than to a specific SIMD tier alone.

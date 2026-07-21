@@ -24,7 +24,7 @@ exposes five core parameters:
 |-----------|---------|-------|--------|
 | `m` | 32 | 4–128 | Max connections per node (inner layers) |
 | `m_max0` | 64 | 8–256 | Max connections per node (layer 0) |
-| `ef_construction` | 200 | 64–800 | Search breadth during index build |
+| `ef_construction` | 400 | 64–800 | Search breadth during index build |
 | `ef_search` | 100 | 32–500 | Search breadth during queries |
 | `ml` | 1/ln(32) | — | Layer normalization factor (auto-computed) |
 
@@ -53,9 +53,9 @@ exposes five core parameters:
 - Controls how many candidates are evaluated per node during insertion.
   Higher values produce a higher-quality graph (better recall) but slow
   down index construction significantly — O(N × log N × ef_construction).
-- **Low-latency builds** (one-shot indexing): 64–100.
-- **Production builds** (background rebuild): 200 (default).
-- **Maximum recall**: 400–800 (build time increases 2–4×).
+- **Low-latency builds** (one-shot indexing): 64–200.
+- **Production builds** (background rebuild): 400 (default).
+- **Maximum recall**: 600–800 (build time increases up to 2× over default).
 
 **`ef_search` (query quality)**
 
@@ -99,10 +99,14 @@ D hash-map overhead and SmallVec capacity.
 
 ## 2. Memory Limits
 
-### `VANTADB_MEMORY_LIMIT`
+### `VANTADB_MEMORY_LIMIT` (⚠️ no verificada)
 
-Set via `VantaConfig::memory_limit` or the Python SDK's
-`memory_limit_bytes`. This is a **budget hint** — it influences:
+> ⚠️ `VANTADB_MEMORY_LIMIT` **no se parsea como env var** en `VantaConfig::default()`.  
+> `memory_limit` solo se configura por constructor (`VantaConfig::with_memory_limit()`) o
+> mediante el argumento `memory_limit_bytes` del constructor Python.
+> La env var `VANTADB_MEMORY_LIMIT` no tiene efecto en el engine actual.
+
+This is a **budget hint** — it influences:
 
 - Whether `mmap_hnsw` is enabled (auto-enabled on systems with < 16 GB RAM).
 - Backpressure thresholds (combined with `rss_threshold`).
@@ -150,7 +154,7 @@ Beyond the governor's auto-tiering, vectors can be stored pre-quantized:
 | RaBitQ | 1-bit (POPCNT) | 0.015 | Ultra-fast pruning / pre-filter |
 
 Quantization is selected automatically at the node level. The
-`VectorRepresentations` enum (`src/node.rs:30`) supports all four schemes.
+`VectorRepresentations` enum (`src/node.rs:209`) supports all four schemes.
 
 ### Eviction Scoring
 
@@ -285,7 +289,7 @@ results = db.search(query="...", bitset_filter=0b0001)
 ```
 
 Bitset filtering is evaluated **during HNSW traversal** (inside the hot
-loop in `search_layer` at `src/index/core.rs:768`), so filtered-out nodes
+loop in `search_layer` at `src/index/search.rs:11`), so filtered-out nodes
 are never returned. This is far more efficient than post-filtering.
 
 **Performance impact**: Near-zero when the filter is selective. The bitset

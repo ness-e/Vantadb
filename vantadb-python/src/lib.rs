@@ -672,9 +672,9 @@ fn py_dict_to_metadata(
 /// Usage:
 ///     import vantadb_py as vanta
 ///     db = vanta.VantaDB("./my_brain", memory_limit_bytes=256 * 1024 * 1024)
-///     db.insert(1, "Hello world", [0.1] * 384)
-///     node = db.get(1)
-///     results = db.search([0.1] * 384, top_k=5)
+///     db.put("default", "greeting", "Hello world", vector=[0.1] * 384)
+///     node = db.get_memory("default", "greeting")
+///     results = db.search_memory("default", [0.1] * 384, top_k=5)
 ///     db.flush()
 /// Map a VantaError to the appropriate Python exception type for ergonomic
 /// error handling on the Python side.

@@ -29,7 +29,7 @@ Add to your Cursor configuration file (`~/.cursor/config.json`):
 {
   "mcpServers": {
     "vantadb": {
-      "command": "vanta-server",
+      "command": "vantadb-server",
       "args": ["--mcp", "--path", "~/.vantadb"],
       "env": {
         "VANTADB_PATH": "~/.vantadb"
@@ -64,7 +64,7 @@ Configure the MCP client extension:
 {
   "mcpServers": {
     "vantadb": {
-      "command": "vanta-server",
+      "command": "vantadb-server",
       "args": ["--mcp", "--path", "${workspaceFolder}/.vantadb"],
       "cwd": "${workspaceFolder}"
     }
@@ -80,7 +80,7 @@ For workspace-specific VantaDB instances:
 {
   "mcpServers": {
     "vantadb-workspace": {
-      "command": "vanta-server",
+      "command": "vantadb-server",
       "args": ["--mcp", "--path", "${workspaceFolder}/.vantadb"],
       "cwd": "${workspaceFolder}"
     }
@@ -99,7 +99,7 @@ OpenCode supports MCP through its AI assistant features.
   "mcp": {
     "servers": {
       "vantadb": {
-        "command": "vanta-server",
+        "command": "vantadb-server",
         "args": ["--mcp", "--path", "~/.vantadb"],
         "enabled": true
       }
@@ -110,6 +110,8 @@ OpenCode supports MCP through its AI assistant features.
 
 ### OpenClaw
 
+> **⚠️ DRAFT** — Esta sección está pendiente de verificación contra el código real. OpenClaw no es un editor verificado.
+
 OpenClaw integrates with MCP for AI-powered development.
 
 #### Configuration
@@ -118,7 +120,7 @@ OpenClaw integrates with MCP for AI-powered development.
 mcp:
   servers:
     vantadb:
-      command: vanta-server
+      command: vantadb-server
       args:
         - --mcp
         - --path
@@ -137,7 +139,7 @@ Devin (AI-powered IDE) supports MCP for persistent memory.
     "memory": {
       "backend": "vantadb",
       "mcp": {
-        "command": "vanta-server",
+        "command": "vantadb-server",
         "args": ["--mcp", "--path", "~/.vantadb"]
       }
     }
@@ -147,6 +149,8 @@ Devin (AI-powered IDE) supports MCP for persistent memory.
 
 ### Antigravity
 
+> **⚠️ DRAFT** — Esta sección está pendiente de verificación contra el código real. "Antigravity" no es un editor conocido.
+
 Antigravity editor with AI features supports MCP.
 
 #### Configuration
@@ -155,7 +159,7 @@ Antigravity editor with AI features supports MCP.
 [mcp]
 [mcp.servers](Glosario/mcp.servers.md)
 name = "vantadb"
-command = "vanta-server"
+command = "vantadb-server"
 args = ["--mcp", "--path", "~/.vantadb"]
 ```
 
@@ -169,7 +173,7 @@ Configure VantaDB to store memory per project:
 {
   "mcpServers": {
     "vantadb-project": {
-      "command": "vanta-server",
+      "command": "vantadb-server",
       "args": ["--mcp", "--path", "${workspaceFolder}/.vantadb"],
       "cwd": "${workspaceFolder}",
       "env": {
@@ -188,7 +192,7 @@ Use a single global VantaDB instance across all projects:
 {
   "mcpServers": {
     "vantadb-global": {
-      "command": "vanta-server",
+      "command": "vantadb-server",
       "args": ["--mcp", "--path", "~/.vantadb/global"],
       "env": {
         "VANTADB_NAMESPACE": "global"
@@ -206,13 +210,13 @@ Configure separate VantaDB instances for different workspaces:
 {
   "mcpServers": {
     "vantadb-workspace-1": {
-      "command": "vanta-server",
+      "command": "vantadb-server",
       "args": ["--mcp", "--path", "${workspaceFolder}/.vantadb"],
       "cwd": "${workspaceFolder}",
       "condition": "workspaceFolder =~ /project1/"
     },
     "vantadb-workspace-2": {
-      "command": "vanta-server",
+      "command": "vantadb-server",
       "args": ["--mcp", "--path", "${workspaceFolder}/.vantadb"],
       "cwd": "${workspaceFolder}",
       "condition": "workspaceFolder =~ /project2/"
@@ -227,29 +231,34 @@ When VantaDB is connected via MCP, the following tools are available to AI assis
 
 ### Memory Operations
 
-- `memory_put` - Store memory with optional vector and metadata
-- `memory_get` - Retrieve memory by key
-- `memory_delete` - Delete memory
-- `memory_list` - List memories with pagination
-- `memory_list_namespaces` - List all namespaces
+- `memory_put` - Inserts or updates a memory record with payload, vector, and optional metadata
+- `memory_get` - Retrieves a memory record by namespace and key
+- `memory_delete` - Deletes a memory record by namespace and key
+- `memory_list` - Lists memory records with optional pagination and metadata filters
+- `memory_list_namespaces` - Lists all available namespaces
 
 ### Search Operations
 
-- `search_memory` - Hybrid vector + text search
-- `search_semantic` - Pure vector search
+- `search_memory` - Hybrid vector + text search with optional filters, distance metric, and explain
+- `search_semantic` - Raw semantic vector search directly in the HNSW index
 
 ### Graph Operations
 
-- `query_lisp` - Execute VantaLISP queries
-- `get_node_neighbors` - Inspect graph relationships
-- `inject_context` - Inject context into threads
-- `read_axioms` - Read system axioms
+- `query_lisp` - Executes VantaLISP code (read structures, insert/mutate nodes providing semantic context)
+- `get_node_neighbors` - Inspect neighbors or lineage of a node
+- `inject_context` - Injects external state connecting it to a specific thread for subsequent consolidation
+- `read_axioms` - Returns the active Devil's Advocate Axioms (Iron Axioms)
+
+### Collection Operations
+
+- `collection_stats` - Returns statistics for a namespace: record count, byte size, vector index info, creation time
+- `collection_list` - Lists all collections with metadata including record count, vector index status, and creation time
+- `collection_delete` - Deletes an entire namespace/collection and all its records (requires `confirm: "yes"`)
 
 ### Resources
 
-- `metrics://` - Operational metrics
-- `schema://` - Database schema information
-- `memory://{namespace}/{key}` - Individual memory records
+- `metrics://` - Operational metrics (memory usage, HNSW stats, storage info)
+- `memory://{namespace}/{key}` - Individual memory record
 - `namespace://{namespace}` - Namespace contents
 
 ## Example Workflows
@@ -285,7 +294,7 @@ AI assistant can:
 **Problem**: Editor cannot connect to VantaDB MCP server
 
 **Solutions**:
-1. Verify VantaDB server is installed: `vanta-server --version`
+1. Verify VantaDB server is installed: `vantadb-server --version`
 2. Check the command path in configuration
 3. Ensure the database path is writable
 4. Check editor logs for connection errors
@@ -371,6 +380,8 @@ Implement access control at the editor level:
 
 ### Custom Tokenizer
 
+> **⚠️ DRAFT** — Esta sección está pendiente de verificación contra el código real. No existe una API `advanced_tokenizer` en el MCP server.
+
 Configure advanced tokenizer for better text search:
 
 ```json
@@ -384,6 +395,8 @@ Configure advanced tokenizer for better text search:
 ```
 
 ### Custom Metrics
+
+> **⚠️ DRAFT** — Esta sección está pendiente de verificación contra el código real. No existen las opciones `enable_hnsw_stats`, `enable_storage_stats`, `enable_query_stats` en el MCP server real.
 
 Configure custom operational metrics:
 

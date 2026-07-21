@@ -46,7 +46,7 @@ These surfaces may exist in the repository, but they are not stable product clai
 
 | Area | Boundary |
 | --- | --- |
-| IQL/LISP/DQL parser, evaluator, and executor paths | **Archived (2024-06-10)** - Runtime LISP evaluation abandoned due to borrow checker issues and GIL blocking. See `archive/experimental-quarantine-2024-06/` |
+| IQL/LISP/DQL parser, evaluator, and executor paths | **Archived (2024-06-10)** - Runtime LISP evaluation abandoned due to borrow checker issues and GIL blocking. See `archive/experimental-quarantine-2024-06/`. Legacy fuzz target for LISP parser preserved in [`FUZZING.md`](FUZZING.md) |
 | MCP API | Experimental integration surface |
 | LLM/Ollama integration | External optional integration, not core dependency |
 | Governance and maintenance semantics | **Archived (2024-06-10)** - Runtime governance framework incompatible with compile-time governance via IQL AST Pass. Useful utilities extracted to `src/utils/` |
@@ -85,3 +85,10 @@ The following are explicitly outside the v0.1.x MVP:
 | Production PyPI publication and signed installers | Deferred |
 | Advanced ranking, snippets, highlighting, Unicode folding, stopwords, stemming | Deferred |
 | SQL, general OLTP, warehouse, and time-series workloads | Deferred |
+
+---
+
+### Cross-References
+
+- [FUZZING.md](FUZZING.md) — Fuzzing strategy for legacy LISP parser (archived) and core deserialization paths
+- [BENCHMARKS.md](BENCHMARKS.md) — Published performance benchmarks for production-facing features
