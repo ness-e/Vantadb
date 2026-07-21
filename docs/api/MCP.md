@@ -3,7 +3,7 @@ title: VantaDB Model Context Protocol (MCP) Server
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-21
 aliases: []
 ---
 
@@ -53,7 +53,7 @@ The MCP server exposes the following tools for memory operations:
 
 #### Graph Operations
 
-- **`query_lisp`** - Execute VantaLISP code
+- **`query`** - Execute VantaLISP/IQL code
   - Parameters: `query`
   - Returns: Query results or execution status
 
@@ -197,7 +197,7 @@ Configure in VS Code settings (`settings.json`):
 
 ### Notes
 
-- **First time?** Install the CLI: `cargo install vantadb-cli` or download the binary from [releases](https://github.com/ness-e/Vantadb/releases).
+- **First time?** Install the CLI: `cargo install vanta-cli` or download the binary from [releases](https://github.com/ness-e/Vantadb/releases).
 - **Cross-IDE:** VantaDB's MCP server can run simultaneously across multiple IDEs — each connects independently to the same database path.
 - **Custom binary path:** If `vanta-cli` is not in PATH, replace with the full path (e.g., `~/.cargo/bin/vanta-cli`).
 - **Windows:** Use forward slashes or escaped backslashes for paths (e.g., `C:/Users/me/.vantadb`).
