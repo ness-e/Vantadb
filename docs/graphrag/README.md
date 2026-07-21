@@ -3,7 +3,7 @@ title: GraphRAG README
 type: guide
 status: active
 tags: [vantadb, graphrag]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-21
 aliases: []
 ---
 
@@ -151,7 +151,7 @@ Access Count: 47
 
 ## Graph Traversal + Vector Search
 
-VantaDB uniquely combines graph traversal with vector similarity. The experimental IQL query language supports graph-constrained vector search:
+VantaDB uniquely combines graph traversal with vector similarity. The IQL query language supports graph-constrained vector search:
 
 ```lisp
 (IQL
@@ -179,15 +179,12 @@ results = db.search_memory("namespace", query_vector, top_k=10)
 
 ## Multi-Agent GraphRAG
 
-VantaDB's confidence metrics module (`src/utils/confidence_metrics.rs`) tracks origin-based confidence for multi-agent scenarios:
+VantaDB's confidence metrics module (`src/utils/confidence_metrics.rs`) tracks origin-based collision metrics for multi-agent scenarios:
 
 ```rust
-struct OriginConfidence {
-    origin: String,       // agent identifier
-    confidence: f64,      // smoothed confidence score
-    session_count: u64,   // number of sessions observed
-    friction: f64,        // collision rate (exponential moving average)
-    updated_at: SystemTime,
+pub struct OriginCollisionTracker {
+    /// Map: owner_role → (collision_count, confidence_score_of_origin)
+    origins: HashMap<String, (u64, f32)>,
 }
 ```
 
