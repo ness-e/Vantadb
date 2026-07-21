@@ -4828,7 +4828,7 @@ name = "vantadb-wasm"
 version = "0.4.0"
 dependencies = [
  "console_error_panic_hook",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "js-sys",
  "serde",
  "serde-wasm-bindgen",
