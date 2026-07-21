@@ -3,7 +3,7 @@ title: TypeScript SDK Documentation
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-07-04
+last_reviewed: 2026-07-21
 aliases: []
 ---
 
@@ -84,6 +84,21 @@ static open(path: string): VantaDB
 ```
 
 Always opens a persistent database at the given filesystem path. Prefer `connect()` for portability.
+
+#### `VantaDB.connect_idb(path)`
+
+```ts
+static connect_idb(path: string): Promise<VantaDB>
+```
+
+Opens a VantaDB instance with IndexedDB-backed persistence for browser environments. This is an async method available directly on the underlying WASM import. Use this when OPFS is unavailable or when a simpler persistence model is preferred.
+
+**Browser note:** The WASM build exposes `connect_idb` on the raw `VantaDB` constructor from `vantadb-wasm`. The TypeScript wrapper does not re-export this method — access it directly when needed:
+
+```ts
+import { VantaDB as WasmVantaDB } from "vantadb-wasm";
+const db = await WasmVantaDB.connect_idb("./my_brain");
+```
 
 #### `close()`
 
@@ -201,6 +216,8 @@ searchVector(vector: number[], topK?: number): { node_id: string; distance: numb
 ```
 
 Pure HNSW vector search against the low-level node graph. Returns distance-ranked results where lower distance = more similar.
+
+**WASM note:** `searchVector()` is the TypeScript wrapper name. It delegates to `search_vector()` on the WASM binding (`vantadb-wasm`), which in turn calls the Rust core `VantaDB::search_vector`.
 
 #### `explainSearch()`
 
@@ -430,7 +447,7 @@ try {
 
 | Feature | WASM (browser / Bun / Deno) | Node.js with `connect()` |
 |---------|-----------------------------|---------------------------|
-| Persistence | In-memory only (`storage_path` ignored, CODE-089) | On-disk at given path |
+| Persistence | In-memory by default (`storage_path` ignored, CODE-089). Use `WasmVantaDB.connect_idb()` for IndexedDB persistence in browsers | On-disk at given path |
 | Threading | Single-threaded | Multi-threaded (Tokio) |
 | File I/O | Limited (export/import works via JS APIs) | Full filesystem access |
 | Memory | WebAssembly heap (limited) | Native heap |
