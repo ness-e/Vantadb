@@ -8,6 +8,10 @@ For OpenCode, `.opencode/AGENTS.md` is the single source of truth for agent inst
 
 Documenta todo el sistema de tareas, agentes, skills, comandos, y MCP servers.
 
+Skills Manifest — `SKILLS-MANIFEST.md`
+
+Catálogo completo de las 154 skills del proyecto.
+
 ## Release Workflow (Regla 7)
 
 **main → releases, develop → trabajo diario.** Release-plz automatiza versionado y publicación.

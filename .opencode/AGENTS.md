@@ -8,6 +8,8 @@ Todo el detalle del sistema de tareas, agentes, skills, MCP servers, y su integr
 
 📖 **`.opencode/VANTADB-OPERATING-MANUAL.md`** — Manual de Operación completo (948 líneas, 14 secciones)
 
+📖 **`SKILLS-MANIFEST.md`** — Catálogo completo de las 154 skills del proyecto (raíz)
+
 Consultar para: entender cómo se relacionan los componentes del sistema, flujos de integración, troubleshooting, y reglas avanzadas.
 
 ## Pipeline & Command System
