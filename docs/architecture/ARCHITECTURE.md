@@ -9,7 +9,7 @@ aliases: []
 
 # VantaDB Internal Architecture
 
-This document reflects the current repo truth for `v0.2.0`. It describes the embedded core, the durability path, the current retrieval model, and the limits that still matter for product claims.
+This document reflects the current repo truth for `v0.4.0`. It describes the embedded core, the durability path, the current retrieval model, and the limits that still matter for product claims.
 
 ---
 
@@ -17,14 +17,14 @@ This document reflects the current repo truth for `v0.2.0`. It describes the emb
 
 ### 1. Embedded-First
 
-VantaDB is an **embedded library**, not a service. The core (`vantadb-core`) has zero network dependencies. The HTTP server lives in `vanta-cli server` (in-process, behind `server` feature flag).
+VantaDB is an **embedded library**, not a service. The core (`vantadb`) has zero network dependencies. The HTTP server lives in `vanta-cli server` (in-process, behind `server` feature flag).
 
 ```
 ┌─────────────────────────────────────────┐
 │         Application (Python/Rust)        │
 │                                          │
 │  ┌────────────────────────────────────┐ │
-│  │     vantadb-core (linked library)   │ │
+│  │     vantadb (linked library)        │ │
 │  │  ┌──────┐  ┌──────┐  ┌──────────┐ │ │
 │  │  │ WAL  │  │ HNSW │  │ Storage  │ │ │
 │  │  └──────┘  └──────┘  └──────────┘ │ │
@@ -76,24 +76,40 @@ The Write-Ahead Log guarantees durability before any mutation is applied to stor
 ### Record Structure
 
 ```
+┌──────────────────────────────────────────────┐
+│         WAL File Layout                       │
+├──────────────────────────────────────────────┤
+│ WalHeader (20 bytes)                         │
+│ ├── VantaHeader (16 bytes)                   │
+│ │   ├── Magic: [u8; 4]  (b"VWAL")           │
+│ │   ├── Format version: u16 LE               │
+│ │   ├── Schema version: u16 LE               │
+│ │   └── Timestamp: u64 LE (epoch ms)         │
+│ └── CRC32C of base header: u32 LE            │
+├──────────────────────────────────────────────┤
+│ Record 1: [len:u32 LE][postcard payload][CRC]│
+│ Record 2: [len:u32 LE][postcard payload][CRC]│
+│ ...                                          │
+└──────────────────────────────────────────────┘
+
+Per-record format:
 ┌─────────────────────────────────────┐
 │         WAL Record                   │
 ├─────────────────────────────────────┤
-│ Header (8 bytes)                    │
-│ ├── Length: u32                     │
-│ ├── Type: u8 (Insert/Delete/Update) │
-│ └── Flags: u8                       │
+│ Length: u32 LE                       │
 ├─────────────────────────────────────┤
-│ Payload (variable)                  │
-│ ├── Key: [u8]                       │
-│ ├── Vector: [f32]                   │
-│ ├── Text: [u8]                      │
-│ └── Metadata: [u8]                  │
+│ Payload (postcard-serialized)        │
+│   WalRecord enum:                    │
+│   ├── Insert(UnifiedNode)            │
+│   ├── Update { id, node }           │
+│   ├── Delete { id }                 │
+│   └── Checkpoint { node_count,      │
+│       index_checksum, timestamp }    │
 ├─────────────────────────────────────┤
-│ Checksum: u32 (CRC32C)              │
+│ CRC32C of payload: u32 LE           │
 └─────────────────────────────────────┘
 ```
-*Verification:* [[crc32c|CRC32C]] Checksum
+*Verification:* CRC32C per-record + header integrity
 
 ### Write Flow
 
@@ -110,7 +126,7 @@ The Write-Ahead Log guarantees durability before any mutation is applied to stor
 
 ### WAL Compaction
 
-Automatic when accumulated size exceeds 256 MB (`compact_wal()`):
+Manual via `compact_wal()`:
 - Flushes all pending data + saves `checkpoint_seq`
 - Rotates all N shard files atomically
 - Exposed via `vanta-cli wal compact`
@@ -280,11 +296,11 @@ Client: db.search(vector, text, top_k=10)
 | **WalWriter** | `src/storage/wal.rs` | Write-ahead log |
 | **WalSharded** | `src/wal_sharded.rs` | Sharded WAL writer |
 | **HnswIndex** | `src/index/core.rs` | Vector ANN index |
-| **VantaFile** | `src/vfile.rs` | Memory-mapped vector storage |
+| **VantaFile** | `src/storage/vfile.rs` | Memory-mapped vector storage |
 | **Bm25Index** | `src/text_index.rs` | Lexical search index |
 | **FjallBackend** | `src/backends/fjall_backend.rs` | LSM-tree backend |
 | **UnifiedNode** | `src/node.rs` | Unified data model |
-| **FilterBitset** | `src/bitset.rs` | Dynamic bitset for filtering |
+| **FilterBitset** | `src/node.rs` | Dynamic bitset for filtering |
 | **Metrics** | `src/metrics/mod.rs` | Operational metrics + snapshots |
 
 ---
@@ -307,8 +323,8 @@ Layer 0 (densest, all vectors):
 ```
 
 **Parameters:**
-- **M:** Max connections per node (default: 16)
-- **ef_construction:** Candidates during construction (default: 200)
+- **M:** Max connections per node (default: 32)
+- **ef_construction:** Candidates during construction (default: 400)
 - **ef_search:** Candidates during search (default: 100)
 
 **Persistence:** Full graph memory-mapped (mmap) → instant load.
@@ -360,7 +376,7 @@ The core compiles for `wasm32-wasip1` via conditional compilation:
 | Dependency | Native | WASM | Strategy |
 |-----------|--------|------|----------|
 | **sysinfo** | Real | Stub | Optional feature |
-| **memmap2** | mmap | Vec-backed shim | Optional, shim in `src/wasm/mmap.rs` |
+| **memmap2** | mmap | Vec-backed shim | Optional, shim in `src/storage/vfile.rs` |
 | **fs2** | File locking | Ok stub | Optional, empty stub |
 | **prometheus** | Real metrics | cfg-gated statics | `#[cfg(feature = "prometheus")]` |
 | **rayon** | Thread pool | Sequential fallback | Optional, `iter().map().collect()` |
@@ -372,7 +388,7 @@ Browser target (`wasm32-unknown-unknown`) uses `web_time::SystemTime` to avoid p
 VantaDB is currently an **embedded persistent memory engine** with:
 
 - a local Rust core
-- a stable embedded SDK boundary in `src/sdk.rs`
+- a stable embedded SDK boundary in `src/sdk/types.rs`
 - an optional server wrapper around the same core
 
 The current release should not be read as a universal multimodel platform, an enterprise control plane, or a competitive full-text search platform. Graph edges and structured metadata are part of the internal record model, but the primary product boundary today is embedded persistent memory with vector, BM25 text-only, and Hybrid Retrieval v1.
@@ -390,7 +406,7 @@ The internal core data model is `UnifiedNode` in `src/node.rs`. Each node can ho
 
 This model allows the engine to keep vector, metadata, and edge information in a single logical record. It does **not** imply that every feature is equally productized in the current SDK surface.
 
-The product-level memory model is separate and lives in `src/sdk.rs`:
+The product-level memory model is separate and lives in `src/sdk/types.rs`:
 
 - `VantaMemoryInput`
 - `VantaMemoryRecord`
@@ -438,7 +454,7 @@ Any mention of hybrid search in the current repo should therefore be read as **H
 
 ## 5. Embedded SDK Boundary
 
-The stable embedded boundary now lives in `src/sdk.rs`. It exists to keep external consumers away from:
+The stable embedded boundary now lives in `src/sdk/types.rs`. It exists to keep external consumers away from:
 
 - `StorageEngine`
 - `Executor`
@@ -461,7 +477,7 @@ The Python binding routes through this boundary and currently exposes:
 - capabilities
 
 Distribution hardening now has wheel CI, version-coherence checks, a manual
-TestPyPI gate, tag-gated production publishing, and Sigstore signing. Actual
+TestPyPI gate, tag-gated production publishing, and Sigstore signing (planned, DEVOPS-12 pending). Actual
 PyPI publication remains a release-manager action outside normal development
 tasks.
 
