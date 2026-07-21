@@ -4,6 +4,10 @@ Project-level instructions are in `.opencode/AGENTS.md` — this file exists for
 
 For OpenCode, `.opencode/AGENTS.md` is the single source of truth for agent instructions, including CodeGraph usage.
 
+## Manual de Operación — `.opencode/VANTADB-OPERATING-MANUAL.md`
+
+Documenta todo el sistema de tareas, agentes, skills, comandos, y MCP servers.
+
 ## Release Workflow (Regla 7)
 
 **main → releases, develop → trabajo diario.** Release-plz automatiza versionado y publicación.
