@@ -11,10 +11,14 @@ homepage = "https://vantadb.dev"
 documentation = "https://docs.rs/vantadb"
 keywords = ["database", "vector", "graph", "embedded", "rust"]
 categories = ["database-implementations"]
-exclude = ["test/"]
+exclude = [
+    "test/",
+    "benchmarks/data_comp_bench/",
+    ".opencode/references/",
+]
+
 [badges]
 maintenance = { status = "actively-developed" }
-
 [lints]
 workspace = true
 
