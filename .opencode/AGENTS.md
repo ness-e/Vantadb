@@ -884,6 +884,78 @@ El saldo neto de deuda técnica por PR debe ser **cero o negativo**.
 | P2-7 | `lib.rs:895-901` | Serialización completa sin zero-copy path | 🟡 4-8 hr |
 | P2-8 | `lib.rs:394-413` | `collect_all_deduped()` O(n) en memoria | 🟡 2-4 hr |
 
+### Regla 7: Release Workflow — main/develop + Conventional Commits
+
+El proyecto usa el modelo **main como rama de releases**, develop como rama de trabajo, y **release-plz** para automatizar versionado y publicación.
+
+#### Ramas
+
+| Rama | Propósito | Regla |
+|------|-----------|-------|
+| `main` | Releases únicamente | Nunca commitear directo. Solo PRs desde develop. |
+| `develop` | Trabajo diario | Toda modificación arranca acá. |
+
+#### Flujo de Release
+
+```
+cambiar código en develop → commit → push → PR a main → merge a main
+                                                         ↓
+                     release-plz detecta push a main (GitHub Actions)
+                     → analiza conventional commits desde el último tag
+                     → bump automático (major/minor/patch según commits)
+                     → actualiza docs/CHANGELOG.md
+                     → crea Release PR (ej: "chore: release v0.4.1")
+                     → vos revisás el PR y lo mergeás
+                     → release-plz taguea y publica en crates.io
+                     → los workflows RELEASE Wheels/NPM/Binaries se disparan
+```
+
+#### Conventional Commits (obligatorio para release-plz)
+
+release-plz usa el mensaje del commit para determinar el bump semver:
+
+| Commit | Bump | Ejemplo |
+|--------|------|---------|
+| `feat:` | minor | `feat: add cosine distance metric` |
+| `fix:` | patch | `fix: overflow in take_bytes bounds` |
+| `docs:` | patch | `docs: update QUICKSTART.md` |
+| `test:` | patch | `test: add edge case for empty index` |
+| `perf:` | patch | `perf: reduce clone in hot path` |
+| `refactor:` | patch | `refactor: extract hnsw builder` |
+| `ci:` | no release | `ci: fix timeout in fuzz workflow` |
+| `chore:` | no release | `chore: bump getrandom to 0.4` |
+| `feat!:` o `feat:` + `BREAKING CHANGE:` | major | `feat!: redesign search API` |
+
+**Reglas estrictas:**
+- `feat:` siempre implica minor (puede haber breaking changes hasta 1.0.0)
+- Si un cambio es breaking aunque sea `0.x`, usar `feat!:` igual
+- Commits sin conventional commit → release-plz los ignora
+- **NUNCA** tocar version en Cargo.toml manualmente — release-plz lo hace solo
+- **NUNCA** tocar `docs/CHANGELOG.md` manualmente — release-plz lo actualiza
+- **NUNCA** crear tags manualmente — release-plz los crea
+
+#### Hacer un Release (sin esperar a release-plz)
+
+Si el usuario necesita un release inmediato sin pasar por el ciclo de release-plz:
+
+1. Verificar que develop tiene los cambios deseados
+2. Hacer PR de develop → main, mergear
+3. El workflow `RELEASE Automated` va a crear un Release PR automáticamente
+4. Si el usuario quiere publicar YA sin esperar: seguir el flujo manual de `cargo publish`, `maturin publish`, `npm publish`
+
+#### Secrets de CI necesarios
+
+| Secret | Dónde está | Propósito |
+|--------|-----------|-----------|
+| `CARGO_REGISTRY_TOKEN` | GitHub Secrets | Publicar en crates.io |
+| `NPM_TOKEN` | GitHub Secrets | Publicar en npm |
+| `TEST_PYPI_API_TOKEN` | GitHub Secrets | PyPI test registry |
+
+#### Pre-push Gate
+
+El pre-push hook corre: `cargo fmt → cargo check → cargo clippy → cargo deny check → cargo nextest run`.
+Si el hook tarda mucho, usar `git push --no-verify` SOLO si el cambio es trivial y CI lo va a validar igual.
+
 <!-- Learnings: P1-2 — 2026-07-17 -->
 - `nextest.toml` está en `.config/` (no en raíz). Buscar con `Get-ChildItem -Filter` si `Read` falla.
 - Cambios CI-only no necesitan `cargo check`/`clippy`/`nextest` para verify — el diff es suficiente.
