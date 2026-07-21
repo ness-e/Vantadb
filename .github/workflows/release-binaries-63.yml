@@ -78,6 +78,7 @@ jobs:
           cp target/${{ matrix.target }}/release/vanta-cli release/
           cp target/${{ matrix.target }}/release/vantadb-server release/
           tar czf vantadb-${{ matrix.target }}.tar.gz -C release vanta-cli vantadb-server
+          sha256sum vantadb-${{ matrix.target }}.tar.gz > vantadb-${{ matrix.target }}.tar.gz.sha256
 
       - name: Package binaries (Windows)
         if: runner.os == 'Windows'
@@ -88,6 +89,8 @@ jobs:
           cp target/${{ matrix.target }}/release/vantadb-server.exe release/
           7z a vantadb-${{ matrix.target }}.zip .\release\*
           if ($LASTEXITCODE -gt 1) { throw "7z failed with exit $LASTEXITCODE" }
+          $hash = (Get-FileHash "vantadb-${{ matrix.target }}.zip" -Algorithm SHA256).Hash.ToLower()
+          "$hash  vantadb-${{ matrix.target }}.zip" | Out-File -Encoding ASCII "vantadb-${{ matrix.target }}.zip.sha256"
 
       - name: Upload release asset
         if: github.event_name == 'release'
@@ -98,5 +101,6 @@ jobs:
           ext=".tar.gz"; [[ "${{ matrix.target }}" == *windows* ]] && ext=".zip"
           gh release upload "${{ github.ref_name }}" \
             "vantadb-${{ matrix.target }}${ext}" \
+            "vantadb-${{ matrix.target }}${ext}.sha256" \
             --repo "${{ github.repository }}" \
             --clobber
