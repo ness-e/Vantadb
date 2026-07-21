@@ -1,3 +1,11 @@
+---
+title: "VantaDB Discord Server — Documentation"
+type: discord
+status: active
+tags: [vantadb, discord]
+last_reviewed: 2026-07-21
+---
+
 # VantaDB Discord Server — Documentation
 
 **Server:** VantaDB Community
@@ -12,8 +20,8 @@ This document covers the complete configuration of the VantaDB Community Discord
 ### Quick Stats
 
 - **Members:** 3 (owner + VantaDB bot + Carl-bot)
-- **Categories:** 8
-- **Channels:** 24
+- **Categories:** 4
+- **Channels:** 16 (8 text + 4 forum + 4 category headers)
 - **Roles:** 14
 - **Features:** COMMUNITY, NEWS, WELCOME_SCREEN_ENABLED, MEMBER_VERIFICATION_GATE_ENABLED
 - **Verification Level:** LOW (email required)
@@ -22,5 +30,5 @@ This document covers the complete configuration of the VantaDB Community Discord
 ## Table of Contents
 
 1. [Server Configuration](./server-config.md) — Full channel/category/role/permission layout
-2. [Bilingual Strategy](./bilingual-strategy.md) — English/Spanish language architecture
+2. [Bilingual Strategy](./bilingual-strategy.md) — English/Spanish language architecture (single-channel)
 3. [Pending Tasks](./todo.md) — What needs manual setup

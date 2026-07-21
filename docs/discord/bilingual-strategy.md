@@ -1,19 +1,37 @@
+---
+title: "Bilingual Strategy — Single-Channel Model"
+type: discord
+status: active
+tags: [vantadb, discord, bilingual]
+last_reviewed: 2026-07-21
+---
+
 # Bilingual Strategy — English / Spanish
 
-## Architecture: Option A — Separate Language Channels
+## Model: Single-Channel Bilingual (current)
 
-The server uses **separate channels per language** within dedicated categories.
+The server uses a **single set of shared channels** where English and Spanish coexist. No language-gated categories.
 
 ### How It Works
 
-1. **New members** arrive and see only 📋 INFO and 👋 WELCOME (shared English content)
-2. **Community Onboarding** asks: *"What language do you prefer?"*
-3. They pick **English** or **Spanish**, which auto-assigns the corresponding role
-4. The role grants access to that language's category with dedicated channels
-5. **Shared channels** (#general-chat, #dev-chat, etc.) remain language-neutral for cross-language interaction
-6. **Carl-bot reaction roles** allow changing language at any time in #🎭roles
+1. **All members** share the same channels: #🌐general, #💻dev-chat, #🗣️off-topic
+2. **Anyone** can write in English or Spanish — both are welcome
+3. **Language roles** (English Speaker 🇬🇧, Spanish Speaker 🇪🇸) exist as **identity badges only** — they don't gate access to any channel
+4. **No translation bot** is installed — members self-manage language choice
+5. **Future expansion** to separate channels is possible if the server grows past the point where a single channel becomes noisy
 
-### Channel Structure
+### Why Single-Channel?
+
+| Razón | Detalle |
+|-------|---------|
+| **Simplicidad** | 3 members, 1 active. No necesita separación. |
+| **Visibilidad** | Todo el contenido visible para todos sin cambiar de categoría. |
+| **Bajo overhead** | Sin bots de traducción, sin permisos por rol, sin onboarding complejo. |
+| **Fomenta bilingualismo** | Developers ven ambos idiomas naturalmente. |
+
+### If the server grows (future option)
+
+If member count increases and language segregation becomes necessary, the setup would migrate to:
 
 ```
 🇬🇧 ENGLISH (requires English Speaker role)
@@ -27,34 +45,31 @@ The server uses **separate channels per language** within dedicated categories.
 └── #off-topic
 ```
 
-### Setup Requirements (manual via Carl-bot dashboard)
-
-1. Create reaction roles in #🎭roles for English/Spanish
-2. Configure Community Onboarding with language selection question
-3. Set up autorole to grant Member role after verification
-4. Optional: Set up auto-translation bot (Kiki/TradLinker) if cross-language conversation is desired in shared channels
+This migration requires:
+1. Changing language roles from cosmetic to permission-gated
+2. Restricting @everyone ViewChannel on current shared channels
+3. Creating new EN/ES category permissions
 
 ### Roles
 
 | Role | Color | Purpose |
-|---|---|---|
-| English Speaker | `#3b82f6` (blue) | Grants access to 🇬🇧 ENGLISH category |
-| Spanish Speaker | `#eab308` (yellow/gold) | Grants access to 🇪🇸 SPANISH category |
+|------|-------|---------|
+| English Speaker | `#3b82f6` (blue) | Identity badge — no channel gating |
+| Spanish Speaker | `#eab308` (yellow/gold) | Identity badge — no channel gating |
 
 ### New Member Flow
 
 1. User joins via invite
 2. Accepts Membership Screening (6 rules)
-3. Sees Welcome Screen with 5 channels
-4. Completes Community Onboarding — picks language
-5. Gets English Speaker or Spanish Speaker role + sees their channels
-6. Can also pick language/tech roles in #🎭roles
-7. Carl-bot autorole promotes to Member after N hours → unlocks COMMUNITY + DEV + VOICE
+3. Sees Welcome Screen with 5 channels (#📜rules, #🎭roles, #📢announcements, #🌐general, #💻dev-chat)
+4. Picks language and tech roles in #🎭roles (via Carl-bot reaction roles)
+5. Carl-bot autorole promotes to Member after N hours → unlocks full channel access
 
 ### Future Expansion
 
 To add more languages (e.g., French, German, Japanese):
 1. Create new role (e.g., "French Speaker")
-2. Create new category (🇫🇷 FRENCH) with channels
-3. Add reaction role in #🎭roles
-4. Update Community Onboarding with new language option
+2. If using separate channels: create new category with channel copies + permission gates
+3. If staying single-channel: just add the role as cosmetic identity
+4. Add reaction role in #🎭roles
+5. Update Community Onboarding with new language option
