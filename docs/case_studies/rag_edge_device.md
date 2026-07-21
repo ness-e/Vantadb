@@ -3,7 +3,7 @@ title: "Case Study 2: Fast Hybrid RAG on Edge Devices (Raspberry Pi & Intel NUC)
 type: case-study
 status: active
 tags: [vantadb, case-studies]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-21
 aliases: []
 ---
 
@@ -33,7 +33,7 @@ The agent collects real-time telemetry log entries, parses them, and runs a loca
 VantaDB was selected because of its embedded nature, pure Rust implementation, and low-level resource management.
 
 ### Zero-Copy Graph Traversal via MMap
-Instead of loading the entire vector graph into memory, VantaDB maps the index files directly into the process virtual memory space using `memmap2`.
+Instead of loading the entire vector graph into memory, VantaDB maps the index files directly into the process virtual memory space using `memmap2` — see [[architecture/ARCHITECTURE#Memory-Mapped Storage|Memory-Mapped Storage architecture]].
 The OS handles page loading. Because the vectors are stored in a raw byte layout, VantaDB references them using zero-copy byte slice conversions, consuming zero additional heap allocation during search.
 
 ### Predicate Pushdown and Cost-Based Planner (CBO)
@@ -43,7 +43,7 @@ Industrial telemetry queries are heavily filtered by source, time, and severity.
 
 runs vector search first, then filters the results. If `turbine_04` is only $1\%$ of the dataset, this post-filtering returns zero results or requires high search depth.
 
-VantaDB's Volcano engine CBO solves this. The planner estimates the selectivity of the metadata predicate `machine_id = 'turbine_04'`. Since the selectivity is low ($<10\%$), the planner overrides HNSW graph traversal and executes a **physical scan of the LSM index matching the machine ID, then calculates vector distances only for the matching candidates**. This reduces query CPU execution time by up to **80%** on the Raspberry Pi.
+VantaDB's [[architecture/ARCHITECTURE#Volcano Planner and Cost-Based Optimizer CBO|Volcano engine CBO]] solves this. The planner estimates the selectivity of the metadata predicate `machine_id = 'turbine_04'`. Since the selectivity is low ($<10\%$), the planner overrides HNSW graph traversal and executes a **physical scan of the LSM index matching the machine ID, then calculates vector distances only for the matching candidates**. This reduces query CPU execution time by up to **80%** on the Raspberry Pi.
 
 ```
        [AST Query: Vector Search + strict metadata filter]
@@ -75,16 +75,16 @@ The EdgeSense team evaluated VantaDB against ChromaDB and LanceDB on a dataset o
 | **Base RAM Footprint (RSS)** | 257.8 MB | 328.5 MB | **242.4 MB** | 🟢 Lowest RAM usage |
 | **Ingestion Speed (PUT)** | 4,611 QPS | 94,487 QPS | **542.2 QPS** | 🟡 Slower but meets telemetry limits |
 | **Query Latency (p50)** | 0.93 ms | 2.84 ms | **36.56 ms** | 🟢 Extremely fast for 50ms agent loop |
-| **Recall@10 Accuracy** | 81.60% | 15.00% | **100.00%** | 🟢 Highest diagnostic precision |
+| **Recall@10 Accuracy** | 81.60% | 15.00% | **100.00%** ([[architecture/adr/ADR-006-RRF-CONSTANT|RRF]]) | 🟢 Highest diagnostic precision |
 | **Post-Crash Recovery Time** | N/A (Corrupts) | ~5s | **~1.2s** | 🟢 Auto-healing WAL Parity |
 
 ### Power-Cut Durability Validation
 To test durability, the EdgeSense team ran a chaos loop injecting hard power cuts during write bursts. 
 ChromaDB's HNSW files became corrupted on restart 3 times out of 10, requiring a clean database rebuild. 
-VantaDB recovered to the last transaction boundary in **100%** of the test iterations. On reboot, the engine replayed the append-only WAL, validated CRC32C signatures, and repaired the HNSW graph file in under **1.2 seconds**.
+VantaDB recovered to the last transaction boundary in **100%** of the test iterations. On reboot, the engine replayed the append-only [[architecture/adr/ADR-002-WAL-CRC32C-AUTOHEALING|WAL]], validated CRC32C signatures, and repaired the HNSW graph file in under **1.2 seconds**.
 
 ---
 
 ## 💡 4. Conclusion
 
-VantaDB proved that you can run highly accurate, durable hybrid RAG queries on low-cost, resource-constrained edge hardware. By utilizing memory-mapped zero-copy vector files, topological BFS layout alignment, and cost-based plan routing, VantaDB respects the memory constraints of edge devices while guaranteeing transactional crash safety.
+VantaDB proved that you can run highly accurate, durable hybrid RAG queries on low-cost, resource-constrained edge hardware. By utilizing [[architecture/ARCHITECTURE#Memory-Mapped Storage|memory-mapped zero-copy vector files]], [[architecture/ARCHITECTURE#Topological Re-layout|topological BFS layout alignment]], and [[architecture/ARCHITECTURE#Volcano Planner and Cost-Based Optimizer CBO|cost-based plan routing]], VantaDB respects the memory constraints of edge devices while guaranteeing transactional crash safety.
