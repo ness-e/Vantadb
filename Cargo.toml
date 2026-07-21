@@ -566,7 +566,8 @@ exclude = ["fuzz"]
 debug = 1
 opt-level = 0
 
-[profile.release.package.vantadb-wasm]
+# Optimizaciones específicas para WASM (solo aplica cuando se compila para wasm32)
+[target.wasm32-unknown-unknown.profile.release]
 opt-level = "s"
 strip = true
 codegen-units = 1
