@@ -6,8 +6,37 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use vantadb::config::VantaConfig;
 use vantadb::error::VantaError;
 use vantadb::sdk::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest, VantaValue,
+    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryRecord,
+    VantaMemorySearchRequest, VantaValue,
 };
+
+fn record_to_pydict(py: Python<'_>, r: VantaMemoryRecord) -> PyResult<Py<PyAny>> {
+    let d = PyDict::new(py);
+    d.set_item("namespace", &r.namespace)?;
+    d.set_item("key", &r.key)?;
+    d.set_item("text", &r.payload)?;
+    let meta = PyDict::new(py);
+    for (mk, mv) in &r.metadata {
+        match mv {
+            VantaValue::String(s) => meta.set_item(mk, s)?,
+            VantaValue::Int(i) => meta.set_item(mk, i)?,
+            VantaValue::Float(f) => meta.set_item(mk, f)?,
+            VantaValue::Bool(b) => meta.set_item(mk, b)?,
+            other => meta.set_item(mk, format!("{:?}", other))?,
+        };
+    }
+    d.set_item("metadata", meta)?;
+    d.set_item("created_at_ms", r.created_at_ms)?;
+    d.set_item("updated_at_ms", r.updated_at_ms)?;
+    d.set_item("version", r.version)?;
+    if let Some(ref v) = r.vector {
+        d.set_item("vector", v.clone())?;
+    }
+    if let Some(exp) = r.expires_at_ms {
+        d.set_item("expires_at_ms", exp)?;
+    }
+    Ok(d.unbind().into())
+}
 
 fn err_to_py(e: VantaError) -> PyErr {
     match e {
@@ -40,6 +69,7 @@ pub struct VantaDBOpenAI {
     model: String,
     namespace: String,
     #[allow(dead_code)]
+    // ponytail: timeout passed to OpenAI client constructor, verified at client level
     timeout: Option<f64>,
 }
 
@@ -106,7 +136,12 @@ impl VantaDBOpenAI {
             .getattr("embeddings")
             .and_then(|e| e.getattr("create"))
             .and_then(|func| func.call((), Some(&kwargs)))
-            .map_err(|e| PyRuntimeError::new_err(format!("embed API error: {:?}", e)))?;
+            .map_err(|e| {
+                PyRuntimeError::new_err(format!(
+                    "OpenAI embed API error: model={}, detail={:?}",
+                    self.model, e
+                ))
+            })?;
 
         let data = response
             .get_item("data")
@@ -163,11 +198,10 @@ impl VantaDBOpenAI {
 
         let mut results = Vec::with_capacity(hits.len());
         for hit in hits {
-            let d = PyDict::new(py);
-            d.set_item("id", format!("{}:{}", hit.record.namespace, hit.record.key))?;
-            d.set_item("text", &hit.record.payload)?;
-            d.set_item("score", hit.score)?;
-            results.push(d.unbind().into());
+            let d = record_to_pydict(py, hit.record)?;
+            let bound: &Bound<'_, PyDict> = d.bind(py).cast()?;
+            bound.set_item("score", hit.score)?;
+            results.push(d);
         }
         Ok(results)
     }
@@ -243,25 +277,7 @@ impl VantaDBOpenAI {
         let ns = namespace.to_string();
         let k = key.to_string();
         let result = py.detach(move || engine.get(&ns, &k).map_err(err_to_py))?;
-        match result {
-            Some(record) => {
-                let d = PyDict::new(py);
-                d.set_item("namespace", &record.namespace)?;
-                d.set_item("key", &record.key)?;
-                d.set_item("text", &record.payload)?;
-                d.set_item("created_at_ms", record.created_at_ms)?;
-                d.set_item("updated_at_ms", record.updated_at_ms)?;
-                d.set_item("version", record.version)?;
-                if let Some(ref vector) = record.vector {
-                    d.set_item("vector", vector)?;
-                }
-                if let Some(expires) = record.expires_at_ms {
-                    d.set_item("expires_at_ms", expires)?;
-                }
-                Ok(Some(d.unbind().into()))
-            }
-            None => Ok(None),
-        }
+        result.map(|r| record_to_pydict(py, r)).transpose()
     }
 
     /// List records in a namespace with cursor-based pagination.
@@ -284,23 +300,11 @@ impl VantaDBOpenAI {
         let page = py.detach(move || engine.list(&ns, options).map_err(err_to_py))?;
 
         let d = PyDict::new(py);
-        let records = PyList::empty(py);
-        for record in &page.records {
-            let rd = PyDict::new(py);
-            rd.set_item("namespace", &record.namespace)?;
-            rd.set_item("key", &record.key)?;
-            rd.set_item("text", &record.payload)?;
-            rd.set_item("created_at_ms", record.created_at_ms)?;
-            rd.set_item("updated_at_ms", record.updated_at_ms)?;
-            rd.set_item("version", record.version)?;
-            if let Some(ref vector) = record.vector {
-                rd.set_item("vector", vector)?;
-            }
-            if let Some(expires) = record.expires_at_ms {
-                rd.set_item("expires_at_ms", expires)?;
-            }
-            records.append(rd)?;
-        }
+        let records: Vec<Py<PyAny>> = page
+            .records
+            .into_iter()
+            .map(|r| record_to_pydict(py, r))
+            .collect::<PyResult<_>>()?;
         d.set_item("records", records)?;
         d.set_item("next_cursor", page.next_cursor.map(|c| c as i32))?;
         Ok(d.unbind())

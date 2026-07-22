@@ -125,6 +125,7 @@ class VantaDBDocumentStore:
             backend: Optional backend identifier for VantaDB.
         """
         self.embedding = embedding
+        self.embedding_fn = embedding
         self.namespace = namespace
         self._db_path = db_path
         self._memory_limit_bytes = memory_limit_bytes
@@ -354,6 +355,7 @@ class VantaDBDocumentStore:
         # Backward compat: delete_documents(filters={"id": "x"})
         filters = kwargs.get("filters", {})
         if isinstance(filters, dict):
+            filters = dict(filters)  # copy before mutating
             doc_id = filters.pop("id", None)
             if doc_id:
                 self._db.delete_memory(self.namespace, str(doc_id))
@@ -388,6 +390,11 @@ class VantaDBDocumentStore:
         Returns:
             A dictionary with ``"type"`` and ``"init_parameters"``
             keys suitable for ``from_dict()`` round-tripping.
+
+        Note:
+            The ``embedding_fn`` callback is **not** serialized.
+            After calling ``from_dict()``, use ``set_embedding()``
+            to restore the embedding function.
         """
         params: Dict[str, Any] = {
             "db_path": self._db_path,
@@ -419,6 +426,19 @@ class VantaDBDocumentStore:
             A new ``VantaDBDocumentStore`` instance.
         """
         return cls(**data.get("init_parameters", {}))
+
+    def set_embedding(self, embedding_fn: Callable) -> None:
+        """Set the embedding function after deserialization.
+
+        Use this after ``from_dict()`` to restore the embedding
+        callback that ``to_dict()`` intentionally omits.
+
+        Args:
+            embedding_fn: A callable that converts text to an
+                embedding vector list.
+        """
+        self.embedding = embedding_fn
+        self.embedding_fn = embedding_fn
 
     # ── Vector search (extra — not in protocol) ───────────
 

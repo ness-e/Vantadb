@@ -104,18 +104,13 @@ class VantaDBVectorStore:
         """
         if k <= 0:
             raise ValueError("k must be > 0")
-        if self.embedding is not None:
-            vector = self.embedding(query)
-            results = self._db.search_memory(self.namespace, vector, top_k=k, distance_metric="cosine")
-            return [
-                {"key": hit.key, "text": hit.payload, "metadata": dict(hit.metadata), "score": hit.score}
-                for hit in results
-            ]
-        # fallback: list all
-        results = self._db.list_memory(self.namespace, limit=k)
+        if self.embedding is None:
+            raise ValueError("embedding function is not set. Call set_embedding() first.")
+        vector = self.embedding(query)
+        results = self._db.search_memory(self.namespace, vector, top_k=k, distance_metric="cosine")
         return [
-            {"key": r.key, "text": r.payload, "metadata": dict(r.metadata), "score": 1.0}
-            for r in results.records
+            {"key": hit.key, "text": hit.payload, "metadata": dict(hit.metadata), "score": hit.score}
+            for hit in results
         ]
 
     def delete(self, key: str) -> bool:
@@ -156,8 +151,21 @@ class VantaDBVectorStore:
             for r in results.records
         ]
 
+    def set_embedding(self, embedding_fn: Callable) -> None:
+        """Set the embedding function.
+
+        Call after ``from_dict()`` to restore embedding capability
+        that was lost during serialization (callables are not
+        serializable).
+        """
+        self.embedding = embedding_fn
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize the store configuration to a dictionary.
+
+        The ``embedding`` callable is explicitly set to ``None``
+        because callables are not serializable.  After deserializing
+        with ``from_dict()`` call ``set_embedding()`` to restore it.
 
         Returns:
             A dictionary with all constructor parameters

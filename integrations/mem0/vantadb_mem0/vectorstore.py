@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any, Dict, List, Optional, Callable
 
@@ -119,13 +120,18 @@ class VantaDBVectorStore(VectorStoreBase):
     #  VectorStoreBase abstract methods  (11 methods)
     # ------------------------------------------------------------------
 
-    def create_col(self, name: str, vector_size: int, distance: str = "cosine") -> None:
+    def create_col(self, name: str, vector_size: Optional[int] = None, distance: str = "cosine") -> None:
         """Create a collection (namespace in VantaDB).
 
         VantaDB is schemaless — namespaces are created lazily on first
-        write.  This is a no-op for compatibility.
+        write.  Logged for observability; actual creation happens on
+        first insert.
         """
-        pass
+        import logging
+        logging.getLogger(__name__).info(
+            f"create_col({name}): VantaDB auto-creates on first insert; "
+            f"vector_size={vector_size}, distance={distance} ignored"
+        )
 
     def insert(
         self,
@@ -137,10 +143,11 @@ class VantaDBVectorStore(VectorStoreBase):
         for i, vec in enumerate(vectors):
             key = ids[i] if ids else str(uuid.uuid4())
             p = payloads[i] if payloads else {}
+            text = p.get("data") or p.get("text") or p.get("content") or json.dumps(p)
             self._db.put(
                 self.namespace,
                 key,
-                p.get("data", ""),
+                text,
                 metadata=dict(p),
                 vector=vec,
             )
@@ -181,14 +188,25 @@ class VantaDBVectorStore(VectorStoreBase):
     ) -> None:
         """Replace the vector and/or payload of an existing record.
 
-        Uses VantaDB's upsert semantics (put-with-existing-key).
+        First verifies the record exists, then attempts an atomic
+        ``update_memory`` call.  Falls back to delete + insert if the
+        underlying VantaDB version does not provide ``update_memory``.
         """
         existing = self.get(vector_id)
-        cur = dict(existing.payload) if existing else {}
+        if existing is None:
+            raise ValueError(f"Record {vector_id} not found")
+        cur = dict(existing.payload)
         if payload:
             cur.update(payload)
-        text = cur.get("data", "")
-        self._db.put(self.namespace, vector_id, text, metadata=cur, vector=vector)
+        text = cur.get("data") or cur.get("text") or cur.get("content") or ""
+        try:
+            self._db.update_memory(self.namespace, vector_id, text)
+        except AttributeError:
+            # Fallback: delete + insert
+            self._db.delete_memory(self.namespace, vector_id)
+            self._db.put(
+                self.namespace, vector_id, text, metadata=cur, vector=vector,
+            )
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """Retrieve a single record by its id."""
@@ -215,13 +233,14 @@ class VantaDBVectorStore(VectorStoreBase):
         """Remove the current collection (namespace)."""
         try:
             self._db.delete_namespace(self.namespace)
-        except Exception:
-            # Best-effort: remove every item individually
-            for item in self.list():
-                try:
-                    self.delete(item.id)
-                except Exception:
-                    pass
+        except Exception as e:
+            # Fallback: delete individual records
+            try:
+                records = self._db.list_memory(self.namespace, limit=10000)
+                for r in records.records if hasattr(records, 'records') else records:
+                    self._db.delete_memory(self.namespace, r.key)
+            except Exception as e2:
+                raise RuntimeError(f"Failed to delete collection {self.namespace}: {e2}") from e
 
     def col_info(self) -> Dict[str, Any]:
         """Return basic metadata about the collection."""

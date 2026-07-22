@@ -11,11 +11,23 @@ try:
 except ImportError:
     CrewAIBaseTool = object  # fallback si crewai no está instalado
 
+try:
+    from pydantic import PrivateAttr
+except ImportError:
+    PrivateAttr = None  # fallback si pydantic no está como dependencia directa
+
 DEFAULT_NAMESPACE = "crewai"
 DEFAULT_TOP_K = 4
 
 
 class VantaDBTool(CrewAIBaseTool):
+    # Declared as Pydantic fields so normal assignment works with extra='forbid'.
+    namespace: str = DEFAULT_NAMESPACE
+    embedding: Optional[Any] = None
+    db_path: str = "./vantadb_data"
+    if PrivateAttr is not None:
+        _db: Any = PrivateAttr()
+
     def __init__(
         self,
         embedding: Optional[Callable[[str], List[float]]] = None,
@@ -46,17 +58,15 @@ class VantaDBTool(CrewAIBaseTool):
             backend: Optional backend identifier for VantaDB.
         """
         super().__init__(name=name, description=description)
-        # CrewAI BaseTool is a Pydantic v2 model with extra='forbid';
-        # use object.__setattr__ to bypass Pydantic field validation.
-        object.__setattr__(self, "namespace", namespace)
-        object.__setattr__(self, "embedding", embedding)
-        object.__setattr__(self, "db_path", db_path)
-        object.__setattr__(self, "_db", vanta.VantaDB(
+        self.namespace = namespace
+        self.embedding = embedding
+        self.db_path = db_path
+        self._db = vanta.VantaDB(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
             read_only=read_only,
             backend=backend,
-        ))
+        )
 
     def _run(self, query: str, **kwargs: Any) -> str:
         """Execute a search query against the VantaDB store.
@@ -210,71 +220,74 @@ class VantaDBTool(CrewAIBaseTool):
             namespace=data.get("namespace", DEFAULT_NAMESPACE),
         )
 
-    def categorize(self, text: str) -> str:
-        """Classify text into a predefined category based on keywords.
-
-        Uses simple keyword matching to categorise the input as one of:
-        ``"question"``, ``"technical"``, ``"greeting"``, or
-        ``"informational"``.
-
-        Args:
-            text: The text to categorise.
-
-        Returns:
-            One of ``"empty"`` (if text is blank), ``"question"``,
-            ``"technical"``, ``"greeting"``, or ``"informational"``.
-        """
-        if not text or not text.strip():
-            return "empty"
-
-        # Keyword-based categorization
-        text_lower = text.lower()
-
-        question_words = {
-            "what",
-            "how",
-            "why",
-            "when",
-            "where",
-            "who",
-            "which",
-            "can",
-            "could",
-            "would",
-            "should",
-        }
-        if (
-            any(text_lower.startswith(w) for w in question_words)
-            or text_lower.endswith("?")
-        ):
-            return "question"
-
-        technical_indicators = {
-            "code",
-            "error",
-            "bug",
-            "function",
-            "api",
-            "syntax",
-            "compile",
-            "debug",
-            "exception",
-        }
-        if any(w in text_lower for w in technical_indicators):
-            return "technical"
-
-        greeting_indicators = {
-            "hello",
-            "hi",
-            "hey",
-            "greetings",
-            "good morning",
-            "good afternoon",
-        }
-        if any(text_lower.startswith(w) for w in greeting_indicators):
-            return "greeting"
-
-        return "informational"
-
     def __call__(self, *args: Any, **kwargs: Any) -> str:
         return self._run(*args, **kwargs)
+
+
+# DEPRECATED: categorize() was domain logic, not adapter responsibility.
+# Will be removed in next major version.
+def categorize(text: str) -> str:
+    """Classify text into a predefined category based on keywords.
+
+    Uses simple keyword matching to categorise the input as one of:
+    ``"question"``, ``"technical"``, ``"greeting"``, or
+    ``"informational"``.
+
+    Args:
+        text: The text to categorise.
+
+    Returns:
+        One of ``"empty"`` (if text is blank), ``"question"``,
+        ``"technical"``, ``"greeting"``, or ``"informational"``.
+    """
+    if not text or not text.strip():
+        return "empty"
+
+    # Keyword-based categorization
+    text_lower = text.lower()
+
+    question_words = {
+        "what",
+        "how",
+        "why",
+        "when",
+        "where",
+        "who",
+        "which",
+        "can",
+        "could",
+        "would",
+        "should",
+    }
+    if (
+        any(text_lower.startswith(w) for w in question_words)
+        or text_lower.endswith("?")
+    ):
+        return "question"
+
+    technical_indicators = {
+        "code",
+        "error",
+        "bug",
+        "function",
+        "api",
+        "syntax",
+        "compile",
+        "debug",
+        "exception",
+    }
+    if any(w in text_lower for w in technical_indicators):
+        return "technical"
+
+    greeting_indicators = {
+        "hello",
+        "hi",
+        "hey",
+        "greetings",
+        "good morning",
+        "good afternoon",
+    }
+    if any(text_lower.startswith(w) for w in greeting_indicators):
+        return "greeting"
+
+    return "informational"

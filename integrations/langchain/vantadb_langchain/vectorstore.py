@@ -493,6 +493,9 @@ class VantaDBVectorStore(VectorStore):
     def delete_by_filter(self, filter_key: str, filter_val: Any) -> int:
         """Delete all documents matching a metadata filter.
 
+        Paginates through all matching records to avoid the previous
+        hard-coded ``limit=10000`` cap.
+
         Args:
             filter_key: The metadata field name to match.
             filter_val: The value that the field must equal.
@@ -502,13 +505,25 @@ class VantaDBVectorStore(VectorStore):
         """
         if not filter_key:
             raise ValueError("filter_key must be a non-empty string")
-        page = self._db.list_memory(self.namespace, filters={filter_key: filter_val}, limit=10000)
         count = 0
-        for rec in page.records:
-            key = rec.key
-            if key:
-                self._db.delete_memory(self.namespace, key)
-                count += 1
+        cursor: Optional[int] = None
+        while True:
+            page = self._db.list_memory(
+                self.namespace,
+                filters={filter_key: filter_val},
+                limit=1000,
+                cursor=cursor,
+            )
+            if not page or not page.records:
+                break
+            for rec in page.records:
+                key = rec.key
+                if key:
+                    self._db.delete_memory(self.namespace, key)
+                    count += 1
+            cursor = page.next_cursor
+            if cursor is None:
+                break
         return count
 
     @staticmethod

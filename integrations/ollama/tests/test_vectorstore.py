@@ -62,3 +62,17 @@ def test_add_empty_texts(store):
 def test_add_none_metadata(store):
     ids = store.add_texts(["doc1"], metadatas=None)
     assert len(ids) == 1
+
+
+def test_add_empty_string(store):
+    """Empty strings should not crash."""
+    ids = store.add_texts([""])
+    assert len(ids) == 1
+
+
+@pytest.mark.asyncio
+async def test_aadd_and_asearch(store):
+    ids = await store.aadd_texts(["async doc1", "async doc2"])
+    assert len(ids) == 2
+    results = await store.asimilarity_search("async", k=5)
+    assert len(results) >= 1

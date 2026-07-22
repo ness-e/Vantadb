@@ -39,7 +39,7 @@ pub struct VantaDBOllama {
     client: Py<PyAny>,
     model: String,
     namespace: String,
-    #[allow(dead_code)]
+    #[allow(dead_code)] // ponytail: passed to ollama.Client constructor, verified at client level
     timeout: Option<f64>,
 }
 
@@ -281,13 +281,12 @@ impl VantaDBOllama {
         py: Python,
         namespace: &str,
         limit: usize,
-        cursor: Option<&str>,
+        cursor: Option<usize>,
     ) -> PyResult<Py<PyAny>> {
-        let parsed_cursor: Option<usize> = cursor.and_then(|c| c.parse().ok());
         let options = VantaMemoryListOptions {
             filters: vantadb::sdk::VantaMemoryMetadata::new(),
             limit,
-            cursor: parsed_cursor,
+            cursor,
         };
 
         let engine = self.engine.clone();

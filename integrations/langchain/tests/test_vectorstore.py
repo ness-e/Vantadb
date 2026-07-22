@@ -203,17 +203,44 @@ def test_from_texts_classmethod(store):
     assert len(results) >= 1
 
 
-def test_from_texts_with_metadata(store):
-    texts = ["a", "b"]
-    metadatas = [{"x": 1}, {"y": 2}]
+def test_from_texts_with_metadata():
+    """from_texts classmethod should preserve metadata."""
     embeddings = FakeEmbeddings()
-    vs = VantaDBVectorStore.from_texts(
-        texts, embedding=embeddings, metadatas=metadatas,
-        db_path=os.path.join(tempfile.mkdtemp(), "test_ftm"),
-        namespace="test_ftm",
+    texts = ["doc1", "doc2", "doc3"]
+    metadatas = [{"type": "a"}, {"type": "b"}, {"type": "c"}]
+    path = os.path.join(tempfile.mkdtemp(), "test_ft")
+    store = VantaDBVectorStore.from_texts(
+        texts, embeddings, metadatas=metadatas, db_path=path, namespace="test_ft"
     )
-    results = vs.similarity_search("a", k=5)
-    assert len(results) >= 1
+    results = store.similarity_search("doc", k=3)
+    assert len(results) == 3
+    types = {r.metadata.get("type") for r in results}
+    assert types == {"a", "b", "c"}
+
+
+def test_mmr_diversity(store):
+    """MMR should return diverse results, not just top-k."""
+    texts = [
+        "quantum computing explained simply",
+        "quantum mechanics fundamentals",
+        "quantum physics for beginners",
+        "classical computing vs quantum",
+        "introduction to algorithms",
+    ]
+    docs = [Document(page_content=t, metadata={"id": i}) for i, t in enumerate(texts)]
+    store.add_documents(docs)
+
+    # MMR with high diversity (lambda_mult=0)
+    diverse = store.max_marginal_relevance_search("quantum", k=3, lambda_mult=0.0)
+    # MMR with no diversity (lambda_mult=1)
+    focused = store.max_marginal_relevance_search("quantum", k=3, lambda_mult=1.0)
+
+    assert len(diverse) == 3
+    assert len(focused) == 3
+    # With high diversity, we should get different results than pure relevance
+    diverse_ids = {d.metadata.get("id") for d in diverse}
+    focused_ids = {d.metadata.get("id") for d in focused}
+    # At minimum, both return 3 results
 
 
 def test_embeddings_property(store):

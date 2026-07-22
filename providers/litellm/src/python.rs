@@ -10,7 +10,7 @@ use vantadb::sdk::{
     VantaMemorySearchRequest, VantaValue,
 };
 
-fn record_to_pydict(py: Python<'_>, r: VantaMemoryRecord) -> PyResult<Py<PyAny>> {
+fn record_to_pydict<'py>(py: Python<'py>, r: VantaMemoryRecord) -> PyResult<Bound<'py, PyDict>> {
     let d = PyDict::new(py);
     d.set_item("namespace", &r.namespace)?;
     d.set_item("key", &r.key)?;
@@ -36,7 +36,7 @@ fn record_to_pydict(py: Python<'_>, r: VantaMemoryRecord) -> PyResult<Py<PyAny>>
     if let Some(exp) = r.expires_at_ms {
         d.set_item("expires_at_ms", exp)?;
     }
-    Ok(d.unbind().into())
+    Ok(d)
 }
 
 fn err_to_py(e: VantaError) -> PyErr {
@@ -159,7 +159,9 @@ impl VantaDBLiteLLM {
         let key = key.to_string();
         let engine = self.engine.clone();
         let record = py.detach(move || engine.get(&namespace, &key).map_err(err_to_py))?;
-        record.map(|r| record_to_pydict(py, r)).transpose()
+        record
+            .map(|r| record_to_pydict(py, r).map(|d| d.unbind().into()))
+            .transpose()
     }
 
     /// List memory records in a namespace with cursor-based pagination.
@@ -188,7 +190,7 @@ impl VantaDBLiteLLM {
         let records: Vec<Py<PyAny>> = page
             .records
             .into_iter()
-            .map(|r| record_to_pydict(py, r))
+            .map(|r| record_to_pydict(py, r).map(|d| d.unbind().into()))
             .collect::<PyResult<_>>()?;
         let result = PyDict::new(py);
         result.set_item("records", records)?;
@@ -243,9 +245,8 @@ impl VantaDBLiteLLM {
         let mut results = Vec::with_capacity(hits.len());
         for hit in hits {
             let d = record_to_pydict(py, hit.record)?;
-            let dict: &Bound<'_, PyDict> = d.bind(py).cast()?;
-            dict.set_item("score", hit.score)?;
-            results.push(d);
+            d.set_item("score", hit.score)?;
+            results.push(d.unbind().into());
         }
         Ok(results)
     }

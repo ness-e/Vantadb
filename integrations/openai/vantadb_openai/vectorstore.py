@@ -1,7 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
-from typing import Any, Iterable, List, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, Iterable, List, Optional
+
+
+@dataclass
+class Document:
+    """Lightweight document-like object for search results."""
+    page_content: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 import openai
 import vantadb_py as vanta
@@ -105,24 +114,28 @@ class VantaDBOpenAI:
 
     async def aadd_texts(
         self,
-        texts: Iterable[str],
+        texts: List[str],
         metadatas: Optional[List[dict]] = None,
         **kwargs: Any,
     ) -> List[str]:
         """Async version of ``add_texts``.
 
-        Delegates to the synchronous implementation. Provided for
-        compatibility with async LangChain / framework pipelines.
+        Materializes the input list, then delegates to the synchronous
+        implementation in a thread executor. Provided for compatibility
+        with async LangChain / framework pipelines.
 
         Args:
-            texts: Iterable of text strings to add.
+            texts: List of text strings to add.
             metadatas: Optional list of metadata dicts, one per text.
             **kwargs: Passed through to ``add_texts``.
 
         Returns:
             A list of assigned IDs, one per input text.
         """
-        return self.add_texts(texts, metadatas, **kwargs)
+        texts = list(texts)  # materialize in case it's a generator
+        return await asyncio.get_event_loop().run_in_executor(
+            None, self.add_texts, texts, metadatas
+        )
 
     def similarity_search(self, query: str, k: int = DEFAULT_TOP_K) -> List[Any]:
         """Search for documents similar to the query text.
@@ -150,10 +163,10 @@ class VantaDBOpenAI:
         results = self._db.search_memory(self.namespace, vector, top_k=k, distance_metric="cosine")
         hits = []
         for hit in results:
-            hits.append(type("Document", (), {
-                "page_content": hit.payload,
-                "metadata": dict(hit.metadata),
-            })())
+            hits.append(Document(
+                page_content=str(hit.payload),
+                metadata=dict(hit.metadata) if hasattr(hit, 'metadata') else {},
+            ))
         return hits[:k]
 
     async def asimilarity_search(self, query: str, k: int = 4, **kwargs: Any) -> List[Any]:

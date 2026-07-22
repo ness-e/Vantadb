@@ -208,3 +208,102 @@ def test_search_with_embedding():
     results = store.search("hello", k=5)
     assert len(results) >= 1
     assert results[0].content is not None
+
+
+# ── Edge case: filter DSL ──
+
+def test_filter_or(store):
+    """OR filter with two conditions."""
+    store.write_documents([
+        {"id": "1", "content": "cat", "meta": {"kind": "animal"}},
+        {"id": "2", "content": "car", "meta": {"kind": "vehicle"}},
+        {"id": "3", "content": "tree", "meta": {"kind": "plant"}},
+    ])
+    filters = {
+        "operator": "OR",
+        "conditions": [
+            {"field": "meta.kind", "operator": "==", "value": "animal"},
+            {"field": "meta.kind", "operator": "==", "value": "vehicle"},
+        ],
+    }
+    results = store.filter_documents(filters=filters)
+    assert len(results) >= 2
+    ids = {r.id for r in results}
+    assert "1" in ids
+    assert "2" in ids
+    assert "3" not in ids
+
+
+def test_filter_not(store):
+    """NOT filter excludes documents matching the inner condition."""
+    store.write_documents([
+        {"id": "x", "content": "alpha", "meta": {"keep": False}},
+        {"id": "y", "content": "beta", "meta": {"keep": True}},
+        {"id": "z", "content": "gamma", "meta": {"keep": True}},
+    ])
+    filters = {
+        "operator": "NOT",
+        "conditions": [
+            {"field": "meta.keep", "operator": "==", "value": False},
+        ],
+    }
+    results = store.filter_documents(filters=filters)
+    assert all(r.meta.get("keep") is True for r in results)
+    assert "x" not in {r.id for r in results}
+
+
+def test_filter_comparison(store):
+    """Comparison operators (>, <) on metadata values."""
+    store.write_documents([
+        {"id": "a", "content": "low", "meta": {"score": 1}},
+        {"id": "b", "content": "mid", "meta": {"score": 5}},
+        {"id": "c", "content": "high", "meta": {"score": 10}},
+    ])
+    gt = store.filter_documents(filters={
+        "field": "meta.score", "operator": ">", "value": 3,
+    })
+    assert {r.id for r in gt} == {"b", "c"}
+
+    lt = store.filter_documents(filters={
+        "field": "meta.score", "operator": "<", "value": 5,
+    })
+    assert {r.id for r in lt} == {"a"}
+
+
+def test_delete_by_filter(store):
+    """Delete documents matching a metadata filter."""
+    store.write_documents([
+        {"id": "a", "content": "keep", "meta": {"group": "retain"}},
+        {"id": "b", "content": "delete", "meta": {"group": "remove"}},
+        {"id": "c", "content": "also keep", "meta": {"group": "retain"}},
+    ])
+    store.delete_documents(filters={"group": "remove"})
+    remaining = store.filter_documents()
+    ids = {r.id for r in remaining}
+    assert "b" not in ids
+    assert "a" in ids
+    assert "c" in ids
+
+
+def test_delete_by_id_over_filter(store):
+    """Delete by explicit ID even when a filters dict is passed."""
+    store.write_documents([
+        {"id": "x", "content": "delete via id", "meta": {"env": "test"}},
+        {"id": "y", "content": "keep", "meta": {"env": "test"}},
+    ])
+    store.delete_documents(filters={"id": "x"})
+    remaining = store.filter_documents()
+    ids = {r.id for r in remaining}
+    assert "x" not in ids
+    assert "y" in ids
+
+
+def test_delete_pop_does_not_mutate_caller_dict(store):
+    """delete_documents must not mutate the caller's filters dict."""
+    store.write_documents([
+        {"id": "m", "content": "mutable?", "meta": {"tag": "x"}},
+    ])
+    filters = {"id": "m", "meta": {"tag": "x"}}
+    original = dict(filters)  # snapshot
+    store.delete_documents(filters=filters)
+    assert filters == original, "caller's dict was mutated"

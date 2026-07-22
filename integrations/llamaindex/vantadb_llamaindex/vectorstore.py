@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import vantadb_py as vanta
 from llama_index.core.bridge.pydantic import PrivateAttr
@@ -127,15 +127,23 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         return ids
 
     def delete(self, ref_doc_id: str, **delete_kwargs: Any) -> None:
-        page = self._client.list_memory(
-            self._namespace,
-            filters={"ref_doc_id": ref_doc_id},
-            limit=10000,
-        )
-        for rec in page.records:
-            key = rec.key
-            if key:
-                self._client.delete_memory(self._namespace, key)
+        cursor = None
+        while True:
+            page = self._client.list_memory(
+                self._namespace,
+                filters={"ref_doc_id": ref_doc_id},
+                limit=1000,
+                cursor=cursor,
+            )
+            if not page or not page.records:
+                break
+            for rec in page.records:
+                key = rec.key
+                if key:
+                    self._client.delete_memory(self._namespace, key)
+            cursor = page.next_cursor
+            if cursor is None:
+                break
 
     def _hybrid_search(
         self,
@@ -218,6 +226,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
             return VectorStoreQueryResult(nodes=[], similarities=[], ids=[])
 
         # 2. Load embeddings for each candidate
+        # VantaSearchHit includes .vector, so no extra get_memory call needed
         cand_embs: List[List[float]] = []
         nodes: List[TextNode] = []
         similarities: List[float] = []
@@ -227,14 +236,12 @@ class VantaDBVectorStore(BasePydanticVectorStore):
             nodes.append(node)
             similarities.append(1.0 - hit.score / 2.0)
 
-            rec = self._client.get_memory(self._namespace, hit.key)
             vec: List[float] = []
-            if rec is not None:
-                try:
-                    v = rec.vector
-                    vec = list(v) if v is not None else []
-                except (ValueError, TypeError, RuntimeError):
-                    vec = []
+            try:
+                v = hit.vector
+                vec = list(v) if v is not None else []
+            except (ValueError, TypeError, RuntimeError):
+                vec = []
             if not vec:
                 vec = query_embedding
             cand_embs.append(vec)
@@ -286,7 +293,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         if query_embedding is None:
             return VectorStoreQueryResult(nodes=[], similarities=[], ids=[])
 
-        filters = self._build_vanta_filters(query.filters)
+        filters, complex_filters = self._build_vanta_filters(query.filters)
 
         # MMR mode — balance relevance and diversity
         if kwargs.get("mmr") or query.mode.value.lower() == "mmr":
@@ -333,17 +340,86 @@ class VantaDBVectorStore(BasePydanticVectorStore):
             similarities.append(1.0 - hit.score / 2.0)
             ids.append(hit.key)
 
+        # Post-filter complex operators (NE, GT, LT, IN) client-side
+        if complex_filters:
+            nodes = self._post_filter(nodes, complex_filters)
+
         return VectorStoreQueryResult(nodes=nodes, similarities=similarities, ids=ids)
 
-    def _build_vanta_filters(self, filters: Optional[MetadataFilters]) -> Optional[Dict[str, Any]]:
-        if filters is None or not filters.filters:
-            return None
+    def _build_vanta_filters(
+        self, filters: Optional[MetadataFilters]
+    ) -> Tuple[Optional[Dict[str, Any]], List[MetadataFilter]]:
+        """Separate EQ filters (native) from complex operators (post-filtered).
 
-        result: Dict[str, Any] = {}
+        VantaDB string-key filters support exact-match natively.
+        NE, GT, LT, GTE, LTE, IN are returned for client-side post-filtering.
+        """
+        if filters is None or not filters.filters:
+            return None, []
+
+        vanta_filters: Dict[str, Any] = {}
+        complex_filters: List[MetadataFilter] = []
+
         for f in filters.filters:
-            if hasattr(f, "key") and hasattr(f, "value"):
-                result[f.key] = f.value
-        return result if result else None
+            if not hasattr(f, "key") or not hasattr(f, "value") or not hasattr(f, "operator"):
+                continue
+            if f.operator == FilterOperator.EQ:
+                vanta_filters[f.key] = str(f.value)
+            else:
+                # ponytail: only EQ sent to VantaDB; NE, GT, LT, GTE, LTE, IN post-filtered
+                complex_filters.append(f)
+
+        return vanta_filters if vanta_filters else None, complex_filters
+
+    @staticmethod
+    def _post_filter(
+        nodes: List[TextNode], complex_filters: List[MetadataFilter]
+    ) -> List[TextNode]:
+        """Client-side post-filter for operators VantaDB doesn't support natively."""
+        if not complex_filters:
+            return nodes
+
+        result: List[TextNode] = []
+        for node in nodes:
+            meta = node.metadata if hasattr(node, "metadata") else {}
+            match = True
+            for f in complex_filters:
+                val = meta.get(f.key)
+                if val is None:
+                    match = False
+                    break
+                try:
+                    val_s = str(val)
+                    if f.operator == FilterOperator.NE:
+                        if val_s == str(f.value):
+                            match = False
+                            break
+                    elif f.operator == FilterOperator.GT:
+                        if not (float(val) > float(f.value)):
+                            match = False
+                            break
+                    elif f.operator == FilterOperator.GTE:
+                        if not (float(val) >= float(f.value)):
+                            match = False
+                            break
+                    elif f.operator == FilterOperator.LT:
+                        if not (float(val) < float(f.value)):
+                            match = False
+                            break
+                    elif f.operator == FilterOperator.LTE:
+                        if not (float(val) <= float(f.value)):
+                            match = False
+                            break
+                    elif f.operator == FilterOperator.IN:
+                        if val_s not in [str(v) for v in f.value]:
+                            match = False
+                            break
+                except (ValueError, TypeError, AttributeError):
+                    match = False
+                    break
+            if match:
+                result.append(node)
+        return result
 
     # ── Optional methods ─────────────────────────────────────
 
@@ -371,8 +447,16 @@ class VantaDBVectorStore(BasePydanticVectorStore):
                 self._client.delete_memory(self._namespace, node_id)
 
     def clear(self) -> None:
-        all_records = self._client.list_memory(self._namespace, limit=10000)
-        for rec in all_records.records:
-            key = rec.key
-            if key:
-                self._client.delete_memory(self._namespace, key)
+        """Remove all documents from the namespace."""
+        cursor = None
+        while True:
+            page = self._client.list_memory(self._namespace, limit=1000, cursor=cursor)
+            if not page or not page.records:
+                break
+            for rec in page.records:
+                key = rec.key
+                if key:
+                    self._client.delete_memory(self._namespace, key)
+            cursor = page.next_cursor
+            if cursor is None:
+                break

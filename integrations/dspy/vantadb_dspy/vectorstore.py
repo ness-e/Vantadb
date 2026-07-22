@@ -7,7 +7,16 @@ import vantadb_py as vanta
 try:
     import dspy
 except ImportError:
-    dspy = None  # type: ignore[assignment]
+    # Fallback Prediction so forward() always returns the same shape.
+    class _Prediction:
+        def __init__(self, passages=None):
+            self.passages = passages or []
+        def __getitem__(self, key):
+            return getattr(self, key)
+        def __setitem__(self, key, value):
+            setattr(self, key, value)
+
+    dspy = type("dspy", (), {"Prediction": _Prediction})()  # type: ignore[assignment]
 
 try:
     from dspy import Retrieve as DSPyRetrieve
@@ -52,7 +61,6 @@ class VantaDBRetriever(DSPyRetrieve):
         """
         super().__init__(k=k)
         self.embedding = embedding
-        self.k = k
         self.namespace = namespace
         self.db_path = db_path
         self.memory_limit_bytes = memory_limit_bytes
@@ -65,7 +73,7 @@ class VantaDBRetriever(DSPyRetrieve):
             backend=backend,
         )
 
-    def forward(self, query: str, **kwargs: Any) -> List[str]:
+    def forward(self, query: str, **kwargs: Any) -> Any:
         """Execute retrieval and return results as a DSPy Prediction.
 
         Implements the DSPy ``Retrieve.forward()`` protocol. When an
@@ -79,13 +87,10 @@ class VantaDBRetriever(DSPyRetrieve):
 
         Returns:
             A ``dspy.Prediction`` with a ``passages`` attribute
-            containing the result text list, or a plain list if DSPy
-            is not installed.
+            containing the result text list.
         """
         if not query or not query.strip():
-            if dspy is not None:
-                return dspy.Prediction(passages=[])
-            return []
+            return dspy.Prediction(passages=[])
 
         k = kwargs.get("k", self.k)
         if self.embedding is not None:
@@ -101,9 +106,7 @@ class VantaDBRetriever(DSPyRetrieve):
                 r.payload for r in results.records
                 if r.payload and query.lower() in r.payload.lower()
             ]
-        if dspy is not None:
-            return dspy.Prediction(passages=passages)
-        return passages
+        return dspy.Prediction(passages=passages)
 
     def __call__(self, query: str, **kwargs: Any) -> Any:
         return self.forward(query, **kwargs)
@@ -170,5 +173,7 @@ class VantaDBRetriever(DSPyRetrieve):
         return dict(self._db.list_memory(self.namespace, limit=limit, cursor=cursor_int))
 
     def _add(self, text: str, key: str, metadata: Optional[dict] = None) -> None:
+        if not key or not key.strip():
+            raise ValueError("key must be a non-empty string")
         vector = self.embedding(text) if self.embedding else None
         self._db.put(self.namespace, key, text, metadata=metadata, vector=vector)
