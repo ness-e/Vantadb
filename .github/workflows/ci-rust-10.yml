@@ -379,9 +379,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libclang-dev clang librocksdb-dev
 
-      # CATEGORY: BEST-EFFORT (step-level, redundant with job-level continue-on-error)
+      # CATEGORY: BEST-EFFORT — job-level continue-on-error covers this
       - name: Test with AddressSanitizer
-        continue-on-error: true
         run: |
           cargo +nightly test \
             --target x86_64-unknown-linux-gnu \
@@ -413,9 +412,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libclang-dev clang librocksdb-dev
 
-      # CATEGORY: BEST-EFFORT (step-level, redundant with job-level continue-on-error)
+      # CATEGORY: BEST-EFFORT — job-level continue-on-error covers this
       - name: Test with ThreadSanitizer
-        continue-on-error: true
         run: |
           cargo +nightly test \
             --target x86_64-unknown-linux-gnu \
