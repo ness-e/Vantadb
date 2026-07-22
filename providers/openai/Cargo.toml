@@ -1,22 +1,22 @@
 [package]
-name = "vantadb-dspy"
+name = "vantadb-openai"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license = "Apache-2.0"
-description = "DSPy retrieval module adapter for VantaDB — use VantaDB as a RetrieverModel for DSPy programs"
+description = "OpenAI embedding API wrapper + VantaDB storage — generate embeddings via OpenAI and store/search them in VantaDB"
 publish = false
 
 [lib]
-name = "vantadb_dspy"
-crate-type = ["cdylib"]
+name = "vantadb_openai"
+crate-type = ["cdylib", "rlib"]
 
 [features]
 default = ["python"]
 python = ["pyo3"]
 
 [dependencies]
-vantadb = { path = "..", default-features = false, features = ["fjall", "memmap2"] }
+vantadb = { path = "../..", default-features = false, features = ["fjall", "memmap2"] }
 pyo3 = { version = "0.29", optional = true, features = ["extension-module"] }
 
 [lints]

@@ -1,14 +1,14 @@
 [package]
-name = "vantadb-llamaindex"
+name = "vantadb-ollama"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license = "Apache-2.0"
-description = "LlamaIndex vector store adapter for VantaDB — use VantaDB as a drop-in VectorStore for LlamaIndex"
+description = "Ollama local embedding API wrapper + VantaDB storage — generate embeddings via Ollama and store/search them in VantaDB"
 publish = false
 
 [lib]
-name = "vantadb_llamaindex"
+name = "vantadb_ollama"
 crate-type = ["cdylib"]
 
 [features]
@@ -16,7 +16,7 @@ default = ["python"]
 python = ["pyo3"]
 
 [dependencies]
-vantadb = { path = "..", default-features = false, features = ["fjall", "memmap2"] }
+vantadb = { path = "../..", default-features = false, features = ["fjall", "memmap2"] }
 pyo3 = { version = "0.29", optional = true, features = ["extension-module"] }
 
 [lints]

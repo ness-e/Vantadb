@@ -4704,55 +4704,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "vantadb-crewai"
-version = "0.4.0"
-dependencies = [
- "pyo3",
- "vantadb",
-]
-
-[[package]]
-name = "vantadb-dspy"
-version = "0.4.0"
-dependencies = [
- "pyo3",
- "vantadb",
-]
-
-[[package]]
-name = "vantadb-haystack"
-version = "0.4.0"
-dependencies = [
- "pyo3",
- "vantadb",
-]
-
-[[package]]
-name = "vantadb-langchain"
-version = "0.4.0"
-dependencies = [
- "pyo3",
- "vantadb",
-]
-
-[[package]]
-name = "vantadb-letta"
-version = "0.4.0"
-dependencies = [
- "pyo3",
- "vantadb",
-]
-
-[[package]]
 name = "vantadb-litellm"
-version = "0.4.0"
-dependencies = [
- "pyo3",
- "vantadb",
-]
-
-[[package]]
-name = "vantadb-llamaindex"
 version = "0.4.0"
 dependencies = [
  "pyo3",
@@ -4768,14 +4720,6 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
- "vantadb",
-]
-
-[[package]]
-name = "vantadb-mem0"
-version = "0.4.0"
-dependencies = [
- "pyo3",
  "vantadb",
 ]
 
