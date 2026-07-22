@@ -1,7 +1,7 @@
 ---
 title: "ADR 010: Adapter Language Classification and Directory Structure"
 type: adr
-status: active
+status: updated
 tags: [vantadb, architecture, adr, adapters, python, rust]
 last_reviewed: 2026-07-22
 aliases: []
@@ -30,8 +30,8 @@ Research revealed:
    native engine.
 
 3. 7 of 9 Python wrappers were **functionally broken** — they used keyword substring
-   matching instead of real vector search. Only `langchain` and `llamaindex` had proper
-   `vantadb_py.search_memory()` calls. Fixing these is tracked separately.
+   matching instead of real vector search. This was fixed in July 2026 (commit pending):
+   all 9 Python wrappers now use real vector search via `vantadb_py.search_memory()`.
 
 ## Decision
 
@@ -97,9 +97,16 @@ Active.
 - Clear convention: `integrations/` = Python, `providers/` = Rust
 
 **Negative:**
-- 7 Python wrappers need vector search fixes (separate effort)
+- The July 2026 fixes resolved vector search in all 9 Python wrappers, wrote vectors
+  on insert for 5 wrappers that were missing them, and fixed framework inheritance
+  (Haystack → DocumentStore, CrewAI → BaseTool, DSPy → dspy.Retrieve). Remaining:
+  LlamaIndex hybrid mode stub (minor).
 - No Rust crate for LiteLLM standalone use (but LiteLLM Proxy covers this via HTTP)
 
 **Migration:**
 - Old `vantadb-{name}` root paths will 404 in git history after cleanup
 - CI workflows unchanged because they target `integrations/` via matrix
+
+## Changelog
+
+- 2026-07-22: Updated to reflect completed Python wrapper fixes (vector search, vector writes, framework inheritance)

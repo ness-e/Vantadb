@@ -29,7 +29,7 @@ pip install vantadb-py
 
 **Features:**
 - Precompiled wheels for Linux, macOS, Windows
-- Python 3.8+ support
+- Python 3.11+ support
 - Automatic publishing via GitHub Actions + [[oidc|OIDC]]
 - Signed with [[sigstore|Sigstore]]
 

@@ -24,6 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "vantadb-py>=0.2",
+    "mem0ai>=0.1.0",
 ]
 
 [project.urls]

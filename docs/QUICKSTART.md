@@ -19,7 +19,7 @@ required.
 ## 1. Prerequisites
 
 - Rust stable toolchain
-- Python 3.8 or newer
+- Python 3.11 or newer
 - `pip`
 - Platform build tools needed by Rust dependencies
 

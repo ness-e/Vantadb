@@ -125,6 +125,7 @@ job*_logs/
 *logs/
 *db/
 tests_*/
+test_*/
 
 # Local run artifacts and scratch scripts
 chaos_results.json
