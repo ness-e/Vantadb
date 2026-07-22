@@ -1,4 +1,5 @@
 use js_sys::{Function, Promise, Reflect, Uint8Array};
+use std::sync::OnceLock;
 use wasm_bindgen::prelude::*;
 
 /// A handle to an open OPFS file, wrapping a JS `FileSystemFileHandle`.
@@ -84,6 +85,15 @@ impl OpfsFile {
         js_call(&self.handle, "remove", &js_sys::Array::new()).await?;
         Ok(true)
     }
+
+    /// Atomically rename this file within its OPFS directory.
+    /// The handle remains valid and points to the new name.
+    pub async fn move_to(&self, new_name: &str) -> Result<(), JsValue> {
+        let args = js_sys::Array::new();
+        args.push(&new_name.into());
+        js_call(&self.handle, "move", &args).await?;
+        Ok(())
+    }
 }
 
 fn get_fn(obj: &JsValue, method: &str) -> Result<Function, JsValue> {
@@ -98,6 +108,36 @@ async fn js_call(obj: &JsValue, method: &str, args: &js_sys::Array) -> Result<Js
         .dyn_into::<Promise>()
         .map_err(|_| JsValue::from_str("expected Promise from OPFS API"))?;
     wasm_bindgen_futures::JsFuture::from(promise).await
+}
+
+/// CRC-32 checksum table, computed once and cached.
+fn crc32_table() -> &'static [u32; 256] {
+    static TABLE: OnceLock<[u32; 256]> = OnceLock::new();
+    TABLE.get_or_init(|| {
+        let mut table = [0u32; 256];
+        for i in 0..256u32 {
+            let mut crc = i;
+            for _ in 0..8 {
+                crc = if crc & 1 == 1 {
+                    crc >> 1 ^ 0xEDB88320
+                } else {
+                    crc >> 1
+                };
+            }
+            table[i as usize] = crc;
+        }
+        table
+    })
+}
+
+/// Compute CRC-32 checksum over `data` using the standard IEEE polynomial.
+fn crc32(data: &[u8]) -> u32 {
+    let table = crc32_table();
+    let mut crc = !0u32;
+    for &byte in data {
+        crc = table[((crc as u8) ^ byte) as usize] ^ (crc >> 8);
+    }
+    !crc
 }
 
 /// OPFS-based persistent storage for VantaDB in browser environments.
@@ -125,20 +165,52 @@ impl OpfsStorage {
     }
 
     /// Write data to a file at the given path in OPFS.
+    ///
+    /// Uses an atomic write strategy: writes to a temp file first, then
+    /// renames to the final path. Appends a CRC-32 footer to detect
+    /// corruption on read.
     pub async fn write_file(&self, path: &str, data: &[u8]) -> Result<(), JsValue> {
-        let file = OpfsFile::open(&self.dir_handle, path, true)
+        // Append CRC-32 footer so read_file can detect corruption.
+        let checksum = crc32(data);
+        let mut buf = Vec::with_capacity(data.len() + 4);
+        buf.extend_from_slice(data);
+        buf.extend_from_slice(&checksum.to_le_bytes());
+
+        // Write to a temp file, then atomically rename to the final path.
+        let tmp_path = format!("{}.tmp", path);
+        let file = OpfsFile::open(&self.dir_handle, &tmp_path, true)
             .await?
             .ok_or_else(|| JsValue::from_str("OpfsFile::open returned None with create=true"))?;
-        file.write(data).await
+        file.write(&buf).await?;
+        file.move_to(path).await
     }
 
     /// Read a file from OPFS, returning None if it does not exist.
+    ///
+    /// Verifies the CRC-32 footer appended by `write_file`. If the footer
+    /// is absent or doesn't match (e.g. legacy files), the raw data is
+    /// returned as-is for backward compatibility.
     pub async fn read_file(&self, path: &str) -> Result<Option<Vec<u8>>, JsValue> {
         let file = match OpfsFile::open(&self.dir_handle, path, false).await? {
             Some(f) => f,
             None => return Ok(None),
         };
-        file.read().await.map(Some)
+        let data = file.read().await?;
+        // Try to verify CRC-32 footer: last 4 bytes are the checksum.
+        if data.len() >= 4 {
+            let stored = u32::from_le_bytes([
+                data[data.len() - 4],
+                data[data.len() - 3],
+                data[data.len() - 2],
+                data[data.len() - 1],
+            ]);
+            let actual = crc32(&data[..data.len() - 4]);
+            if stored == actual {
+                return Ok(Some(data[..data.len() - 4].to_vec()));
+            }
+            // Checksum mismatch or legacy file — fall through to raw.
+        }
+        Ok(Some(data))
     }
 
     /// Delete a file at the given path from OPFS.

@@ -103,7 +103,7 @@ export class VantaDB {
   static create(config?: VantaConfig): VantaDB {
     if (config?.storage_path) {
       console.warn(
-        "VantaDB.create(): storage_path is ignored in WASM mode — the WASM backend always uses an in-memory engine.",
+        "VantaDB.create(): storage_path is ignored unless a persistent backend is connected via connect_persistent(), connect_idb(), or connect_worker().",
       );
     }
     try {

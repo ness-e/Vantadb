@@ -4,7 +4,7 @@
 //! not run in a standard Rust test runner. Use `wasm-pack test --chrome` (or
 //! `--firefox` / `--safari`) to execute them.
 
-use vantadb_wasm::{OpfsStorage, VantaDB};
+use vantadb_wasm::{IdbStorage, OpfsStorage, VantaDB};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
 
@@ -44,6 +44,11 @@ fn record_payload(record: &JsValue) -> String {
 
 async fn try_opfs(name: &str) -> Option<OpfsStorage> {
     OpfsStorage::open(name).await.ok()
+}
+
+/// Returns `true` if IndexedDB is available in this browser context.
+async fn try_idb() -> bool {
+    IdbStorage::is_available()
 }
 
 // ── OPFS Storage Tests ───────────────────────────────────────────────
@@ -748,4 +753,183 @@ fn test_import_records_round_trip() {
         let got = db.get("import_test", &format!("import_{}", i)).unwrap();
         assert!(!got.is_null());
     }
+}
+
+// ── IndexedDB (IdbStorage) Storage Tests ─────────────────────────────
+
+#[wasm_bindgen_test]
+async fn test_idb_read_write_cycle() {
+    if !try_idb().await {
+        return;
+    }
+
+    let data: &[u8] = b"hello idb world";
+    IdbStorage::write_file("test_idb_file", data).await.unwrap();
+
+    let read_back = IdbStorage::read_file("test_idb_file")
+        .await
+        .unwrap()
+        .expect("file should exist");
+    assert_eq!(read_back, data);
+
+    IdbStorage::delete_file("test_idb_file").await.unwrap();
+
+    let after_delete = IdbStorage::read_file("test_idb_file").await.unwrap();
+    assert!(after_delete.is_none());
+}
+
+#[wasm_bindgen_test]
+async fn test_idb_overwrite() {
+    if !try_idb().await {
+        return;
+    }
+
+    IdbStorage::write_file("test_idb_over", b"version 1")
+        .await
+        .unwrap();
+    IdbStorage::write_file("test_idb_over", b"version 2")
+        .await
+        .unwrap();
+
+    let read_back = IdbStorage::read_file("test_idb_over")
+        .await
+        .unwrap()
+        .expect("file should exist after overwrite");
+    assert_eq!(read_back, b"version 2");
+
+    IdbStorage::delete_file("test_idb_over").await.unwrap();
+}
+
+#[wasm_bindgen_test]
+async fn test_idb_nonexistent_read() {
+    if !try_idb().await {
+        return;
+    }
+
+    let result = IdbStorage::read_file("nonexistent_idb_key_xyz")
+        .await
+        .unwrap();
+    assert!(result.is_none());
+}
+
+#[wasm_bindgen_test]
+async fn test_idb_nonexistent_delete() {
+    if !try_idb().await {
+        return;
+    }
+
+    // Delete of a non-existent key must not error (IndexedDB delete is idempotent).
+    IdbStorage::delete_file("nonexistent_idb_del")
+        .await
+        .unwrap();
+}
+
+#[wasm_bindgen_test]
+async fn test_idb_subscribe() {
+    if !try_idb().await {
+        return;
+    }
+
+    // Set up a global flag that the callback will toggle.
+    js_sys::eval("window.__idb_sub_fired = false; window.__idb_sub_key = null;").unwrap();
+
+    let cb = js_sys::Function::new_with_args(
+        "key",
+        "window.__idb_sub_fired = true; window.__idb_sub_key = key;",
+    );
+    let _unsub = IdbStorage::subscribe(&cb).unwrap();
+
+    // Write triggers BroadcastChannel postMessage → callback.
+    IdbStorage::write_file("sub_test_key", b"subscribe data")
+        .await
+        .unwrap();
+
+    // Yield so the queued BroadcastChannel message is delivered.
+    wasm_bindgen_futures::JsFuture::from(js_sys::Promise::resolve(&JsValue::undefined()))
+        .await
+        .unwrap();
+
+    let fired = js_sys::eval("window.__idb_sub_fired").unwrap();
+    assert!(
+        fired.is_truthy(),
+        "subscribe callback should have fired after write"
+    );
+
+    let key = js_sys::eval("window.__idb_sub_key").unwrap();
+    assert_eq!(key.as_string(), Some("sub_test_key".to_string()));
+
+    IdbStorage::delete_file("sub_test_key").await.unwrap();
+}
+
+#[wasm_bindgen_test]
+async fn test_idb_binary_data() {
+    if !try_idb().await {
+        return;
+    }
+
+    let binary: Vec<u8> = (0..255).collect();
+    IdbStorage::write_file("test_idb_binary", &binary)
+        .await
+        .unwrap();
+
+    let read_back = IdbStorage::read_file("test_idb_binary")
+        .await
+        .unwrap()
+        .expect("binary file should exist");
+    assert_eq!(read_back.len(), 255);
+    assert_eq!(read_back, binary);
+
+    IdbStorage::delete_file("test_idb_binary").await.unwrap();
+}
+
+// ── WASM Persistence Round-Trip Tests ────────────────────────────────
+
+#[wasm_bindgen_test]
+async fn test_wasm_persistence_roundtrip() {
+    if !try_idb().await {
+        return;
+    }
+
+    let db = VantaDB::new(None).unwrap();
+    db.put(make_put("persist_ns", "k1", "data1")).unwrap();
+    db.put(make_put("persist_ns", "k2", "data2")).unwrap();
+
+    // Save to IDB
+    db.save_idb().await.unwrap();
+
+    // Load into a new DB
+    let db2 = VantaDB::new(None).unwrap();
+    db2.load_idb().await.unwrap();
+
+    // Verify records survived
+    let result1 = db2.get("persist_ns", "k1").unwrap();
+    assert!(!result1.is_null());
+    assert_eq!(record_payload(&result1), "data1");
+
+    let result2 = db2.get("persist_ns", "k2").unwrap();
+    assert!(!result2.is_null());
+    assert_eq!(record_payload(&result2), "data2");
+
+    // Clean up IDB state
+    db2.delete_idb().await.unwrap();
+}
+
+#[wasm_bindgen_test]
+async fn test_wasm_persistence_roundtrip_empty() {
+    if !try_idb().await {
+        return;
+    }
+
+    // Save and load an empty database — must not error.
+    let db = VantaDB::new(None).unwrap();
+    db.save_idb().await.unwrap();
+
+    let db2 = VantaDB::new(None).unwrap();
+    db2.load_idb().await.unwrap();
+
+    // No state persisted, so get returns null.
+    let result = db2.get("persist_empty", "anything").unwrap();
+    assert!(result.is_null());
+
+    db2.delete_idb().await.unwrap();
 }

@@ -31,18 +31,42 @@ use wasm_bindgen::prelude::*;
         },
         write(key, data) {
             return openDB().then((db) => new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NAME, "readwrite");
-                tx.objectStore(STORE_NAME).put(data, key);
-                tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); };
-                tx.onerror = () => reject(tx.error);
+                function doWrite() {
+                    const tx = db.transaction(STORE_NAME, "readwrite");
+                    tx.objectStore(STORE_NAME).put(data, key);
+                    tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); };
+                    tx.onerror = () => reject(tx.error);
+                }
+                if (typeof navigator !== "undefined" && navigator.locks) {
+                    navigator.locks.request("vantadb-write", () => new Promise((resolveTx, rejectTx) => {
+                        const tx = db.transaction(STORE_NAME, "readwrite");
+                        tx.objectStore(STORE_NAME).put(data, key);
+                        tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); resolveTx(); };
+                        tx.onerror = () => rejectTx(tx.error);
+                    })).catch((err) => reject(err));
+                } else {
+                    doWrite();
+                }
             }));
         },
         del(key) {
             return openDB().then((db) => new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NAME, "readwrite");
-                tx.objectStore(STORE_NAME).delete(key);
-                tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); };
-                tx.onerror = () => reject(tx.error);
+                function doDel() {
+                    const tx = db.transaction(STORE_NAME, "readwrite");
+                    tx.objectStore(STORE_NAME).delete(key);
+                    tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); };
+                    tx.onerror = () => reject(tx.error);
+                }
+                if (typeof navigator !== "undefined" && navigator.locks) {
+                    navigator.locks.request("vantadb-write", () => new Promise((resolveTx, rejectTx) => {
+                        const tx = db.transaction(STORE_NAME, "readwrite");
+                        tx.objectStore(STORE_NAME).delete(key);
+                        tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); resolveTx(); };
+                        tx.onerror = () => rejectTx(tx.error);
+                    })).catch((err) => reject(err));
+                } else {
+                    doDel();
+                }
             }));
         },
         subscribe(fn) { listeners.push(fn); return () => { listeners.splice(listeners.indexOf(fn), 1); }; },
@@ -97,6 +121,18 @@ impl IdbStorage {
     pub fn has_broadcast_channel() -> bool {
         let global = js_sys::global();
         Reflect::get(&global, &"BroadcastChannel".into())
+            .ok()
+            .is_some_and(|v| !v.is_undefined())
+    }
+
+    /// Check if the Web Locks API is available for multi-tab write coordination.
+    pub fn has_web_locks() -> bool {
+        let global = js_sys::global();
+        let nav = match Reflect::get(&global, &"navigator".into()).ok() {
+            Some(v) => v,
+            None => return false,
+        };
+        Reflect::get(&nav, &"locks".into())
             .ok()
             .is_some_and(|v| !v.is_undefined())
     }
