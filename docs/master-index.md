@@ -2,240 +2,217 @@
 title: VantaDB Master Index
 type: master-index
 status: active
-last_reviewed: 2026-07-13
-review_interval_days: 90
-language: en
-aliases: [Index, Documentation Index, Master Index]
+last_reviewed: 2026-07-21
 tags: [vantadb, documentation, index, master-index]
 ---
 
 # VantaDB Master Index
 
-> Index of all documentation, architecture decisions, protocol definitions, and operational references for the VantaDB project.
+> Global index of all documentation, architecture decisions, API references, and operational guides.
 
-- **Project**: VantaDB — cross-platform memory layer for AI agents
-- **Version**: 0.4.0
-- **Last Updated**: 2026-07-13
-- **Repository**: `https://github.com/ness-e/Vantadb`
-- **Owner**: Eros
+- **Project:** VantaDB — cross-platform memory layer for AI agents
+- **Repository:** `https://github.com/vantadb/vantadb`
+- **Owner:** Eros
 
 ---
 
 ## Navigation
 
-- [[#Vision|Vision]]
-- [[#Strategy|Strategy]]
-- [[#Architecture Docs|Architecture Docs]]
-- [[#API Reference|API Reference]]
-- [[#Operations & Configuration|Operations & Configuration]]
-- [[#Architecture Decision Records (ADR)|Architecture Decision Records (ADR)]]
-- [[#Glossary (glosario)|Glossary (glosario)]]
-- [[#Articles & Publications|Articles & Publications]]
-- [[#Case Studies|Case Studies]]
-- [[#Migration Guides|Migration Guides]]
-- [[#Experimental / Research|Experimental / Research]]
-- [[#Other Documents|Other Documents]]
-- [[#Progress|Progress]]
-- [[#Meta / Configuration|Meta / Configuration]]
-
----
-
-## Vision
-
-| # | Document | Description | Status |
-|---|----------|-------------|--------|
-| 1 | [[vision/VISION.md\|VISION.md]] | UVP, ICP personas, competitive matrix, positioning, moat strategy, success metrics | Done |
-
----
-
-## Strategy
-
-| # | Document | Description | Status |
-|---|----------|-------------|--------|
-| 1 | [[strategy/ROADMAP.md\|ROADMAP.md]] | Engineering phases (Phase 3-5), exit criteria, architectural decisions pending, Q3 2026–Q2 2027 timeline | Done |
-| 2 | [[strategy/GO_TO_MARKET.md\|GO_TO_MARKET.md]] | Distribution channels, integration tiers, 3-vertical market segmentation, business model, pricing tables, community/DevRel plan, GTM roadmap | Done |
+- [Architecture Docs](#architecture-docs)
+- [API Reference](#api-reference)
+- [Architecture Decision Records (ADR)](#architecture-decision-records-adr)
+- [Operations & Configuration](#operations--configuration)
+- [Strategy & Vision](#strategy--vision)
+- [Tutorials & Migration](#tutorials--migration)
+- [Case Studies](#case-studies)
+- [Glossary](#glossary)
+- [Articles & Blog](#articles--blog)
+- [GraphRAG](#graphrag)
+- [Audit Reports](#audit-reports)
+- [Plans](#plans)
+- [Progress](#progress)
+- [Other Documents](#other-documents)
 
 ---
 
 ## Architecture Docs
 
-| # | Document | Description | Status |
-|---|----------|-------------|--------|
-| 1 | [[architecture/ARCHITECTURE.md\|ARCHITECTURE.md]] | High-level system architecture overview | Done |
-| 2 | [[architecture/TEXT_INDEX_DESIGN.md\|TEXT_INDEX_DESIGN.md]] | Tantivy-based text index implementation | Done |
-| 3 | [[architecture/MUTATION_RECOVERY_PROTOCOL.md\|MUTATION_RECOVERY_PROTOCOL.md]] | Mutation recovery and derived index rebuild protocol | Done |
-| 4 | [[architecture/ADVANCED_TOKENIZER.md\|ADVANCED_TOKENIZER.md]] | Multilingual text tokenizer with stemming and stopwords | Done |
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](architecture/ARCHITECTURE.md) | High-level system architecture overview |
+| [TEXT_INDEX_DESIGN.md](architecture/TEXT_INDEX_DESIGN.md) | Tantivy-based text index implementation |
+| [MUTATION_RECOVERY_PROTOCOL.md](architecture/MUTATION_RECOVERY_PROTOCOL.md) | Mutation recovery and derived index rebuild protocol |
+| [ADVANCED_TOKENIZER.md](architecture/ADVANCED_TOKENIZER.md) | Multilingual text tokenizer with stemming and stopwords |
+| [STORAGE_VERSIONING.md](architecture/STORAGE_VERSIONING.md) | Storage versioning strategy |
+| [EXPERIMENTAL_GOVERNANCE_DESIGN.md](architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md) | Experimental governance design |
+| [LISP_ANALYSIS.md](architecture/LISP_ANALYSIS.md) | LISP query language analysis |
 
 ---
 
 ## API Reference
 
-| # | Document | Description | Status |
-|---|----------|-------------|--------|
-| 1 | [[api/EMBEDDED_SDK.md\|EMBEDDED_SDK.md]] | Core Rust SDK reference — `VantaEmbedded` (~45 public methods, all types) | Done |
-| 2 | [[api/PYTHON_SDK.md\|PYTHON_SDK.md]] | Python bindings — `vantadb-py` | Done |
-| 3 | [[api/HTTP_API.md\|HTTP_API.md]] | REST / HTTP server specification — `GET /health`, `GET /metrics`, `POST /api/v2/query` | Done |
-| 4 | [[api/MCP.md\|MCP.md]] | MCP (Model Context Protocol) server specification | Done |
-| 5 | [[api/TS_SDK.md\|TS_SDK.md]] | TypeScript SDK — `vantadb-ts` (WASM bindings) | Done |
-
----
-
-## Operations & Configuration
-
-| # | Document | Description | Status |
-|---|----------|-------------|--------|
-| 1 | [[operations/CONFIGURATION.md\|CONFIGURATION.md]] | All runtime configuration knobs, env vars, CLI commands | Done |
-| 2 | [[operations/MEMORY_TELEMETRY.md\|MEMORY_TELEMETRY.md]] | Memory footprint telemetry design | Done |
-| 3 | [[operations/BENCHMARKS.md\|BENCHMARKS.md]] | Benchmark results and methodology | Done |
-| 4 | [[operations/AGENT_INSTRUCTIONS.md\|AGENT_INSTRUCTIONS.md]] | Instructions for AI coding agents working with VantaDB | Done |
-| 5 | [[operations/BACKUP_POLICY.md\|BACKUP_POLICY.md]] | Backup and restore procedures | Done |
-| 6 | [[operations/CI_POLICY.md\|CI_POLICY.md]] | CI pipeline configuration and policy | Done |
-| 7 | [[operations/COMMUNITY_GOVERNANCE.md\|COMMUNITY_GOVERNANCE.md]] | Community guidelines and governance model | Done |
-| 8 | [[operations/DURABILITY_GUARANTEES.md\|DURABILITY_GUARANTEES.md]] | WAL durability and crash guarantees | Done |
-| 9 | [[operations/EDITOR_INTEGRATIONS.md\|EDITOR_INTEGRATIONS.md]] | IDE / editor integration notes | Done |
-| 10 | [[operations/EXPERIMENTAL_FEATURES.md\|EXPERIMENTAL_FEATURES.md]] | Feature flags and experimental functionality | Done |
-| 11 | [[operations/FUZZING.md\|FUZZING.md]] | Fuzzing strategy and results | Done |
-| 12 | [[operations/GRAFANA_SETUP.md\|GRAFANA_SETUP.md]] | Grafana dashboard setup for metrics | Done |
-| 13 | [[operations/GC_TTL.md\|GC_TTL.md]] | GC and TTL eviction policy | Done |
-| 14 | [[operations/PILOT_PROGRAM.md\|PILOT_PROGRAM.md]] | Early access pilot program docs | Done |
-| 15 | [[operations/PUBLIC_ISSUE_DRAFTS.md\|PUBLIC_ISSUE_DRAFTS.md]] | Public issue templates and drafts | Done |
-| 16 | [[operations/PYTHON_RELEASE_POLICY.md\|PYTHON_RELEASE_POLICY.md]] | Python SDK release and publishing policy | Done |
-| 17 | [[operations/RELIABILITY_GATE.md\|RELIABILITY_GATE.md]] | Reliability gate criteria and sign-off | Done |
-| 18 | [[operations/REPO_CHECKLIST.md\|REPO_CHECKLIST.md]] | Repository setup and maintenance checklist | Done |
-| 19 | [[operations/PERFORMANCE_GUIDE.md\|PERFORMANCE_GUIDE.md]] | Performance tuning guide | Done |
-| 20 | [[operations/PERFORMANCE_TUNING.md\|PERFORMANCE_TUNING.md]] | Advanced performance tuning | Done |
-| 21 | [[operations/DEPLOYMENT_GUIDE.md\|DEPLOYMENT_GUIDE.md]] | Deployment configurations | Done |
-| 22 | [[operations/DISASTER_RECOVERY_RUNBOOK.md\|DISASTER_RECOVERY_RUNBOOK.md]] | Disaster recovery runbook | Done |
-| 23 | [[operations/SECURITY.md\|SECURITY.md]] | Security policy and best practices | Done |
-| 24 | [[operations/SQLITE_MIGRATION_GUIDE.md\|SQLITE_MIGRATION_GUIDE.md]] | SQLite migration guide | Done |
-| 25 | [[strategy/SHOW_HN_PREP.md\|SHOW_HN_PREP.md]] | Hacker News launch preparation | Done |
+| Document | Description |
+|----------|-------------|
+| [Embedded SDK](api/EMBEDDED_SDK.md) | Core Rust SDK reference — `VantaEmbedded` (~45 public methods, all types) |
+| [Python SDK](api/PYTHON_SDK.md) | Python bindings — `vantadb-py` |
+| [HTTP API](api/HTTP_API.md) | REST / HTTP server specification |
+| [MCP API](api/MCP.md) | MCP (Model Context Protocol) server specification |
+| [TypeScript SDK](api/TS_SDK.md) | TypeScript / WASM bindings — `vantadb-ts` |
+| [IQL](api/IQL.md) | Interactive Query Language reference |
 
 ---
 
 ## Architecture Decision Records (ADR)
 
-| # | Document | Description | Status |
-|---|----------|-------------|--------|
-| 1 | [[architecture/adr/001_unified_config_readonly.md\|ADR-001: Unified Configuration]] | Unified config + read-only barrier architecture | Done |
-| 2 | [[architecture/adr/002_wal_crc32c_autohealing.md\|ADR-002: WAL Physical Resilience]] | WAL physical resilience, CRC32C validation, self-healing | Done |
-| 3 | [[architecture/adr/003_sync_async_decoupling.md\|ADR-003: Sync/Async Decoupling]] | Concurrent execution isolation architecture | Done |
-| 4 | [[architecture/adr/004_storage_backend.md\|ADR-004: Storage Backend]] | Fjall vs RocksDB storage backend selection | Done |
-| 5 | [[architecture/adr/005_hnsw_parameters.md\|ADR-005: HNSW Parameters]] | HNSW graph parameters M, M_max0, ef_construction, ef_search, ml | Done |
-| 6 | [[architecture/adr/006_rrf_constant.md\|ADR-006: RRF Constant]] | RRF constant k=60 for Reciprocal Rank Fusion | Done |
-| 7 | [[architecture/adr/007_pyo3_binding_architecture.md\|ADR-007: PyO3 Binding]] | PyO3 binding architecture for Python SDK | Done |
-| 8 | [[architecture/adr/008_wasm_support_strategy.md\|ADR-008: WASM Strategy]] | WASM support strategy and browser deployment | Done |
-| 9 | [[architecture/adr/009_community_governance_model.md\|ADR-009: Community Governance]] | Community governance model and contribution process | Done |
-
----
-
-## Glossary (`glosario`)
-
-The glossary lives in two complementary locations:
-
-| Location | Description |
+| Document | Description |
 |----------|-------------|
-| [[glosario/README.md\|Glossary Index]] | Categorized index with quick descriptions and cross-concept relationships |
-| [[glosario/\|Glossary Folder]] | Directory containing individual term files with definitions, usage, and examples |
+| [ADR-001: Configuración Unificada](architecture/adr/001_unified_config_readonly.md) | Unified config + read-only barrier architecture |
+| [ADR-002: WAL CRC32C + Auto-Healing](architecture/adr/002_wal_crc32c_autohealing.md) | WAL physical resilience, CRC32C validation, self-healing |
+| [ADR-003: Sync/Async Decoupling](architecture/adr/003_sync_async_decoupling.md) | Concurrent execution isolation architecture |
+| [ADR-004: Storage Backend](architecture/adr/004_storage_backend.md) | Storage backend abstraction |
+| [ADR-005: HNSW Parameters](architecture/adr/005_hnsw_parameters.md) | HNSW parameter configuration |
+| [ADR-006: RRF Constant](architecture/adr/006_rrf_constant.md) | Reciprocal Rank Fusion constant decision |
+| [ADR-007: PyO3 Binding Architecture](architecture/adr/007_pyo3_binding_architecture.md) | Python binding architecture |
+| [ADR-008: WASM Support Strategy](architecture/adr/008_wasm_support_strategy.md) | WASM build and support strategy |
+| [ADR-009: Community Governance Model](architecture/adr/009_community_governance_model.md) | Community governance model |
+| [ADR-0001: Adoptamos ADRs](architecture/adr/ADR-0001-ADOPTAMOS-ADRS.md) | Decision to adopt ADR process |
 
 ---
 
-## Articles & Publications
+## Operations & Configuration
 
-| # | Document | Description | Status |
-|---|----------|-------------|--------|
-| 1 | Blog: Why I Built VantaDB | Motivation and design philosophy — URL TBD | Draft |
-| 2 | Blog: SQLite for AI Agents | Comparing embedded databases — URL TBD | Draft |
-| 3 | Blog: How Hybrid Search Works | Technical deep-dive on BM25 + vector fusion — URL TBD | Draft |
+Full listing in [Operations Master Index](operations/master-index.md).
+
+Key documents:
+
+| Document | Description |
+|----------|-------------|
+| [CONFIGURATION.md](operations/CONFIGURATION.md) | All runtime configuration knobs, env vars, CLI commands |
+| [BENCHMARKS.md](operations/BENCHMARKS.md) | Benchmark results and methodology |
+| [DURABILITY_GUARANTEES.md](operations/DURABILITY_GUARANTEES.md) | WAL durability and crash guarantees |
+| [PERFORMANCE_GUIDE.md](operations/PERFORMANCE_GUIDE.md) | Performance optimization guide |
+| [PERFORMANCE_TUNING.md](operations/PERFORMANCE_TUNING.md) | Performance tuning parameters |
+| [SECURITY.md](operations/SECURITY.md) | Security policies and procedures |
+| [RELIABILITY_GATE.md](operations/RELIABILITY_GATE.md) | Reliability gate criteria and sign-off |
+| [CI_POLICY.md](operations/CI_POLICY.md) | CI pipeline configuration and policy |
+| [FUZZING.md](operations/FUZZING.md) | Fuzzing strategy and results |
+| [BACKUP_POLICY.md](operations/BACKUP_POLICY.md) | Backup and restore procedures |
+| [DEPLOYMENT_GUIDE.md](operations/DEPLOYMENT_GUIDE.md) | Deployment procedures and checklist |
+| [DISASTER_RECOVERY_RUNBOOK.md](operations/DISASTER_RECOVERY_RUNBOOK.md) | Disaster recovery runbook |
+| [GRAFANA_SETUP.md](operations/GRAFANA_SETUP.md) | Grafana dashboard setup for metrics |
+| [MEMORY_TELEMETRY.md](operations/MEMORY_TELEMETRY.md) | Memory footprint telemetry design |
+| [PYTHON_RELEASE_POLICY.md](operations/PYTHON_RELEASE_POLICY.md) | Python SDK release and publishing policy |
+| [SQLITE_MIGRATION_GUIDE.md](operations/SQLITE_MIGRATION_GUIDE.md) | SQLite migration guide |
+| [GC_TTL.md](operations/GC_TTL.md) | Garbage collection TTL configuration |
+
+---
+
+## Strategy & Vision
+
+| Document | Description |
+|----------|-------------|
+| [ROADMAP.md](strategy/ROADMAP.md) | Engineering roadmap, phases, and execution plan |
+| [GO_TO_MARKET.md](strategy/GO_TO_MARKET.md) | Go-to-market and ecosystem strategy |
+| [VISION.md](vision/VISION.md) | Product vision and strategic positioning |
+| [SHOW_HN_PREP.md](strategy/SHOW_HN_PREP.md) | Hacker News launch preparation |
+
+---
+
+## Tutorials & Migration
+
+| Document | Description |
+|----------|-------------|
+| [01: AI Agent Memory](tutorials/01-ai-agent-memory.md) | Building AI agent memory with VantaDB |
+| [02: Local RAG Pipeline](tutorials/02-local-rag-pipeline.md) | Local RAG pipeline tutorial |
+| [03: Migrating from ChromaDB](tutorials/03-migrating-from-chromadb.md) | Migration guide from ChromaDB to VantaDB |
+| [Migrating from LanceDB](tutorials/migration-from-lancedb.md) | Migration guide from LanceDB to VantaDB |
 
 ---
 
 ## Case Studies
 
-| # | Document | Description | Status |
-|---|----------|-------------|--------|
-| 1 | [[case_studies/rag_edge_device.md\|RAG on Edge Devices]] | Running VantaDB on resource-constrained hardware | Draft |
-| 2 | [[case_studies/agent_local_memory_ollama.md\|Agent Local Memory with Ollama]] | AI agent using VantaDB with local Ollama inference | Draft |
+| Document | Description |
+|----------|-------------|
+| [RAG on Edge Devices](case_studies/rag_edge_device.md) | Running VantaDB on resource-constrained hardware |
+| [Agent Local Memory with Ollama](case_studies/agent_local_memory_ollama.md) | AI agent using VantaDB with local Ollama inference |
 
 ---
 
-## Migration Guides
+## Glossary
 
-Migrated from `migration/` to `tutorials/` (consolidated into the tutorial series).
+The glossary lives in two complementary locations:
 
-| # | Document | Description |
-|---|----------|-------------|
-| 1 | [[tutorials/03-migrating-from-chromadb.md\|From ChromaDB]] | Migrating from ChromaDB to VantaDB |
-| 2 | [[tutorials/migration-from-lancedb.md\|From LanceDB]] | Migrating from LanceDB to VantaDB |
-
----
-
-## Experimental / Research
-
-| # | Document | Description | Status |
-|---|----------|-------------|--------|
-| 1 | [[api/IQL.md\|IQL — Interactive Query Language]] | Query language reference for VantaDB | Published |
-| 2 | [[graphrag/README.md\|GraphRAG]] | Graph-based RAG integration research | Research |
+| Location | Description |
+|----------|-------------|
+| [glosario/](glosario/) | 57 individual term files with detailed definitions (English) |
+| [glosario/README.md](glosario/README.md) | Categorized index with quick descriptions |
 
 ---
 
-## Web Site
+## Articles & Blog
 
-| # | Document | Description | Status |
-|---|----------|-------------|--------|
-| 1 | [[web/README.md\|Web Site Overview]] | Documentation index for the VantaDB website project | Active |
-| 2 | [[web/design/REDESIGN_V2_PLAN.md\|Design System]] | Master design specification (Swiss+Neubrutalism) | Active |
-| 3 | [[web/design/TOKEN_SYSTEM.md\|Token System]] | Design tokens: typography, color, spacing, shadows | Active |
-| 4 | [[web/design/COMPONENT_SPEC.md\|Component Spec]] | Component library specification (Nb system) | Active |
-| 5 | [[web/product/PRODUCT.md\|Product]] | Product purpose, users, and personality | Active |
-| 6 | [[web/product/SITE_MAP.md\|Site Map]] | Complete route inventory with status | Active |
+Published blog posts (in `web/content/blog/`):
+
+| Article | Description |
+|---------|-------------|
+| [Why I Built a Local Memory Engine for AI Agents in Rust](../web/content/blog/why-i-built-vantadb-local-memory-engine.md) | Motivation and design philosophy |
+| [How Hybrid Search Works: BM25 + HNSW + RRF](../web/content/blog/how-hybrid-search-works.md) | Technical deep-dive on hybrid search |
+| [SQLite for AI Agents: Benchmarks and Architecture](../web/content/blog/sqlite-for-ai-agents.md) | Comparing embedded databases for agent memory |
+| [Introducing VantaDB](../web/content/blog/introducing-vantadb.md) | Product announcement |
 
 ---
 
-## Other Documents
+## GraphRAG
 
-| # | Document | Description |
-|---|----------|-------------|
-| 1 | [[Backlog.md\|Backlog]] | Full project backlog and feature tracking |
-| 2 | [[CHANGELOG.md\|CHANGELOG]] | Release history and version changelog |
-| 3 | [[QUICKSTART.md\|QUICKSTART]] | Quickstart guide for new users |
-| 4 | [[README.md\|Documentation Overview]] | Docs landing page and reading guide |
-| 5 | [[progreso/bitacora.md\|Devlog (Bitacora)]] | Development log and daily notes |
-| 6 | [[FAQ.md\|FAQ]] | Frequently Asked Questions |
-| 7 | [[DESIGN_RULES.md\|Design Rules]] | Swiss + Neubrutalism visual design rules |
-| 8 | [[backlog-guide.md\|Backlog Guide]] | Backlog management conventions |
-| 9 | [[ci-cd-guide.md\|CI/CD Guide]] | CI/CD pipeline guide for contributors |
+| Document | Description |
+|----------|-------------|
+| [GraphRAG README](graphrag/README.md) | Graph-based RAG integration research |
+
+---
+
+## Audit Reports
+
+| Document | Description |
+|----------|-------------|
+| [Full Audit 2026-07-18](audit-reports/audit-full-2026-07-18.md) | Comprehensive codebase audit |
+
+---
+
+## Plans
+
+| Document | Description |
+|----------|-------------|
+| [PROMPT-MAESTRO-FREEZE.md](plans/PROMPT-MAESTRO-FREEZE.md) | Prompt maestro freeze plan |
+| [ACTION_PLAN.md](strategy/ACTION_PLAN.md) | Archived — superseded by ROADMAP.md v2.0 |
 
 ---
 
 ## Progress
 
-See [[CHANGELOG.md]] for version history, [[Backlog.md]] for active tasks, and [[progreso/README.md\|Progress Dashboard]] for a complete checklist of completed tasks.
+| Document | Description |
+|----------|-------------|
+| [progreso/README.md](progreso/README.md) | Unified progress log and development history |
+| [Backlog.md](Backlog.md) | Full project backlog and feature tracking |
+| [backlog-guide.md](backlog-guide.md) | Backlog management guide |
+| [CHANGELOG.md](CHANGELOG.md) | Release history and version changelog |
+| [stabilization-report.md](stabilization-report.md) | Stability report |
 
 ---
 
-## Reviews & Audits
+## Other Documents
 
-| # | Document | Description | Status |
-|---|----------|-------------|--------|
-| 1 | [[reviews/review.md\|Review]] | Project review | Active |
-
----
-
-## References & Troubleshooting
-
-| # | Document | Description |
-|---|----------|-------------|
-| 1 | [[references/troubleshooting.md\|Troubleshooting]] | Common Windows build/runtime issues |
-| 2 | [[references/bug-workflow.md\|Bug Workflow]] | Bug reporting and triage process |
-| 3 | [[references/reading-nextest-output.md\|Nextest Output]] | How to read cargo-nextest test results |
+| Document | Description |
+|----------|-------------|
+| [QUICKSTART.md](QUICKSTART.md) | Quickstart guide for new users |
+| [FAQ.md](FAQ.md) | Frequently asked questions |
+| [ci-cd-guide.md](ci-cd-guide.md) | CI/CD setup and operations guide |
+| [DESIGN_RULES.md](DESIGN_RULES.md) | Design rules and conventions |
+| [README.md](README.md) | Documentation landing page and reading guide |
 
 ---
 
-<!-- Research section removed — all files were archived/deleted. -->
+## See Also
 
-## Meta / Configuration
-
-| File | Description |
-|------|-------------|
-| `Cargo.toml` | Rust project manifest |
-| `opencode.jsonc` | OpenCode agent configuration |
+- [Operations Master Index](operations/master-index.md) — Detailed operations document listing
+- [GitHub Repository](https://github.com/vantadb/vantadb) — Source code and issues
+- [CHANGELOG](CHANGELOG.md) — Version history

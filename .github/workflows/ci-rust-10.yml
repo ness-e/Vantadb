@@ -197,6 +197,8 @@ jobs:
     name: Minimal Versions Check (-Zminimal-versions)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # CATEGORY: EXPERIMENTAL — nightly-only -Zminimal-versions is unstable.
+    # Failure does not indicate a regression in default builds.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -297,7 +299,8 @@ jobs:
           tool: cargo-audit
 
       - name: Security Audit
-        run: cargo audit --ignore RUSTSEC-2026-0176 --ignore RUSTSEC-2026-0177
+        # Ignores managed in .cargo/audit.toml + deny.toml [advisories]
+        run: cargo audit
 
   miri:
     name: Miri (UB Detection)
@@ -359,6 +362,8 @@ jobs:
     name: ASan (AddressSanitizer)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # CATEGORY: BEST-EFFORT — nightly ASan can produce false positives.
+    # Failures are reviewed manually. Does not gate releases.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -374,6 +379,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libclang-dev clang librocksdb-dev
 
+      # CATEGORY: BEST-EFFORT (step-level, redundant with job-level continue-on-error)
       - name: Test with AddressSanitizer
         continue-on-error: true
         run: |
@@ -391,6 +397,8 @@ jobs:
     name: TSan (ThreadSanitizer)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # CATEGORY: BEST-EFFORT — nightly TSan is unstable.
+    # Failures are reviewed manually. Does not gate releases.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -405,6 +413,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libclang-dev clang librocksdb-dev
 
+      # CATEGORY: BEST-EFFORT (step-level, redundant with job-level continue-on-error)
       - name: Test with ThreadSanitizer
         continue-on-error: true
         run: |

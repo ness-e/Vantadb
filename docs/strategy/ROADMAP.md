@@ -34,6 +34,8 @@ aliases: [Roadmap, Milestones, Engineering Plan, Timeline, Plan de Acción]
    - [Fase 4 — Ecosystem & Madurez (Sem 13-16)](#fase-4--ecosystem--madurez-sem-13-16)
 4. [Mapa de Dependencias](#4-mapa-de-dependencias)
 5. [Items del Backlog por Fase](#5-items-del-backlog-por-fase)
+6. [Decisiones Arquitectónicas Pendientes](#6-decisiones-arquitectónicas-pendientes)
+7. [Recomendaciones Inmediatas (Checklist)](#7-recomendaciones-inmediatas-checklist)
 
 ---
 
@@ -424,7 +426,40 @@ Sem 13-16: FASE 4 — MADUREZ
 
 ---
 
-## 6. Recomendaciones Inmediatas (Checklist)
+## 6. Decisiones Arquitectónicas Pendientes
+
+> Estas decisiones fueron postergadas intencionalmente durante FASE 3-4. Se documentan aquí los trade-offs para cuando se retomen.
+
+### 6.1 Query Language
+
+| Opción | Pros | Contras |
+|--------|------|---------|
+| **A:** Solo API programática | ✅ Simplicidad, cero overhead de parsing | ❌ Power users limitados, sin modo exploratorio |
+| **B:** DSL simple (Mongo-like) | ✅ Más flexible que API, serializable como JSON | ❌ Complejidad media, otro lenguaje que aprender |
+| **C:** SQL subset | ✅ Familiar para desarrolladores, integrable con BI tools | ❌ No encaja naturalmente con vectores/graph, RRF difícil de expresar |
+| **Decisión:** Postergada a post-Show HN. Evaluar feedback de usuarios antes de diseñar. |
+
+### 6.2 Distributed Mode
+
+| Opción | Pros | Contras |
+|--------|------|---------|
+| **A:** Permanecer single-node | ✅ Coherencia embedded, simplicidad operativa | ❌ Límite enterprise, sin HA |
+| **B:** Replicación asíncrona master-slave | ✅ Read scalability, failover manual | ❌ Consistencia eventual, conflictos de escritura |
+| **C:** Sharding + Raft | ✅ Full scale, consistencia fuerte | ❌ Complejidad masiva, desarrollo >6 meses |
+| **Decisión:** Postergada a FASE 5+. WAL shipping (BIZ-02) como paso intermedio viable. |
+
+### 6.3 Licensing
+
+| Opción | Pros | Contras |
+|--------|------|---------|
+| **A:** Apache 2.0 (actual) | ✅ Adopción máxima, compatible con Rust ecosystem | ❌ Monetización difícil, competidores pueden copiar |
+| **B:** Open Core (Apache + BSL enterprise) | ✅ Balance entre adopción y monetización | ❌ Complejidad legal, confusión en comunidad |
+| **C:** AGPL | ✅ Protección contra cloud providers | ❌ Limita adopción enterprise, incompatible con muchas licencias |
+| **Decisión:** Apache 2.0 por ahora. Reevaluar en FASE 5 cuando haya tracción. |
+
+---
+
+## 7. Recomendaciones Inmediatas (Checklist)
 
 - [ ] **Hoy:** Freeze backlog. No agregar COMP-031+ ni nuevos items hasta reducir a ≤100
 - [ ] **Sem 1:** Arreglar CI (R1) — es la tarea más importante, todo lo demás depende
@@ -439,4 +474,4 @@ Sem 13-16: FASE 4 — MADUREZ
 ---
 
 > **Próxima revisión:** 2026-07-23 o al completar Fase 0, lo que ocurra primero.
-> **Ver también:** [`docs/Backlog.md`](../Backlog.md) para detalle de cada item, [`docs/strategy/ACTION_PLAN.md`](ACTION_PLAN.md) (plan de acción v1.0, Jul 3 — supercedido por este documento).
+> **Ver también:** [`docs/Backlog.md`](../Backlog.md) para detalle de cada item, [`docs/strategy/ACTION_PLAN.md`](ACTION_PLAN.md) (plan de acción v1.0, Jul 3 — supercedido por este documento), [`docs/master-index.md`](../master-index.md) (índice global de documentación).

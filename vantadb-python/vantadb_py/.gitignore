@@ -1,2 +1,4 @@
+# Build artifacts (Windows .pyd, Linux/Mac .so)
 *.pyd
+*.so
 __pycache__/

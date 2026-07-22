@@ -121,6 +121,8 @@ jobs:
             --criterion-root target/criterion \
             --output benchmark_report_criterion.json
 
+      # CATEGORY: INFORMATIONAL — regression comparison may fail when no
+      # baseline exists (first run) or baseline format changes. Non-blocking.
       - name: Compare against baseline
         id: compare
         continue-on-error: true

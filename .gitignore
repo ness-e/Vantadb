@@ -149,6 +149,11 @@ lcov.info
 # Backups
 *_BACKUP_*/
 
+# Fuzz lockfile — intentionally ignored.
+# Decision: fuzz/ is a secondary concern; lockfile churn adds PR noise.
+# Revisit if reproducible fuzz builds become a CI requirement.
+fuzz/Cargo.lock
+
 # Vector index binary
 vector_index.bin
 
@@ -205,3 +210,6 @@ traces/
 # Campaign executor budget state (auto-generated)
 .opencode/task-system/mcp/*.budget.json
 .github/workflows-dl/
+
+# Random build artifacts
+*.rar
