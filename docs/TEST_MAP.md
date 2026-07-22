@@ -1,4 +1,4 @@
-# Test Map — 2026-07-21
+# Test Map — 2026-07-22
 
 > If you change X, which test suite do you run? Quick reference for contributors.
 
@@ -14,7 +14,7 @@
 | **Python bindings** (`vantadb-python/`) | `cd vantadb-python && cargo test` | `maturin develop && pytest tests/` | ci-rust-10 (via workspace) |
 | **Python integrations** (`integrations/*/`) | `pytest integrations/<name>/tests/` | — | — (no CI gate) |
 | **Integration adapters** (`vantadb-{openai,langchain,…}/`) | `cargo test -p vantadb-<name>` | `pytest` if Python-side tests exist | ci-rust-10 (compilation) |
-| **WASM crate** (`vantadb-wasm/`) | `cargo check -p vantadb-wasm` | `wasm-pack test` | ci-rust-10 (check only) |
+| **WASM crate** (`vantadb-wasm/`) | `cargo check -p vantadb-wasm` | `wasm-pack test --chrome --headless` | ci-rust-10 (check + wasm job) |
 | **TS SDK** (`vantadb-ts/`) | `cd vantadb-ts && npx vitest run` | `cd vantadb-ts && npm run build` | — (no CI gate for TS SDK) |
 | **Web frontend** (`web/`) | `cd web && npx vitest run` | `cd web && npx playwright test` | ci-web-11 |
 | **Server** (`vantadb-server/`) | `cargo nextest run -p vantadb-server` | `cargo test --release -p vantadb-server --test e2e` | heavy-certification-50 (other-heavy) |
@@ -68,7 +68,7 @@
 | `vantadb-python` | `cargo test -p vantadb-python && maturin develop && pytest tests/` | Requires Python venv; `--features pyo3/extension-module` |
 | `vantadb-server` | `cargo nextest run -p vantadb-server` | Tests: `server`, `e2e`, `benchmarks`, `mcp_integration` |
 | `vantadb-mcp` | `cargo nextest run -p vantadb-mcp` | Test: `mcp_tests` |
-| `vantadb-wasm` | `cargo check -p vantadb-wasm --target wasm32-unknown-unknown` | No tests in CI; `wasm-pack test` for local |
+| `vantadb-wasm` | `cargo check -p vantadb-wasm --target wasm32-unknown-unknown` | WASM CI job: `wasm-pack test --chrome --headless` (best-effort, non-blocking) |
 | `vantadb-{openai,langchain,…}` | `cargo test -p vantadb-<name>` | Thin integration adapters, compilation-only in CI |
 
 ## Test Binary Quick Reference
@@ -116,9 +116,39 @@ Tests are organized in `tests/` (core crate) by category:
 ## Nextest Profiles (`.config/nextest.toml`)
 
 | Profile | Filter | Use case |
-|---|---|---|
+|---|---|---|---|
 | `default` | Excludes ~50 heavy/slow test binaries | Local dev quick check |
 | `audit` | No filter (runs everything except default-excluded); fail-fast=false, 60s timeout | **CI default** |
 | `ci-windows` | Extends `audit`; test-threads=2 | Windows CI (page file limit) |
 | `experimental` | Only: integration, parser, executor, governor, columnar, graph, mcp_integration, structured_api_v2 | During query engine work |
 | `chaos` | Only: `chaos_integrity_failpoints`; test-threads=1 | Failpoint validation |
+
+---
+
+## Adapter Tier Classification (ADR-001)
+
+See `docs/archived-decisions/ADR-001-ADAPTER-TIERS.md` for full rationale.
+
+| Tier | Label | Adapters | Score range | CI gate |
+|---|---|---|---|---|
+| 🟢 **Tier 1** | Core | `vantadb-openai`/`ollama`/`litellm` (Rust), `vantadb-haystack`/`llamaindex`/`langchain`/`openai`/`ollama` (Python), `vantadb-python` (SDK) | 10/10 | ci-rust-10 (Rust), manual (Python) |
+| 🟡 **Tier 2** | Community | `vantadb-letta`, `vantadb-mem0`, `vantadb-crewai`, `vantadb-dspy` | 9–10/10 | manual |
+| 🟠 **Tier 3** | Experimental | `vantadb-wasm`, `vantadb-mcp`, `vantadb-server`, `vantadb-ts` | varies | check/build only |
+| 🏗️ **Tier 4** | Platform | `web/` | — | ci-web-11 |
+
+### Per-Adapter Test Status (Python Rust adapters only)
+
+| Adapter | Rust tests | Python tests | Score | Tier |
+|---|---|---|---|---|
+| `vantadb-openai` (Rust) | `cargo test -p vantadb-openai` | `pytest providers/openai/tests/` | 10/10 | 🟢 |
+| `vantadb-ollama` (Rust) | `cargo test -p vantadb-ollama` | `pytest providers/ollama/tests/` | 10/10 | 🟢 |
+| `vantadb-litellm` (Rust) | `cargo test -p vantadb-litellm` | `pytest providers/litellm/tests/` | 10/10 | 🟢 |
+| `vantadb-haystack` | — | `pytest integrations/haystack/tests/` | 10/10 | 🟢 |
+| `vantadb-llamaindex` | — | `pytest integrations/llamaindex/tests/` | 10/10 | 🟢 |
+| `vantadb-langchain` | — | `pytest integrations/langchain/tests/` | 10/10 | 🟢 |
+| `vantadb-openai` (Python) | — | `pytest integrations/openai/tests/` | 10/10 | 🟢 |
+| `vantadb-ollama` (Python) | — | `pytest integrations/ollama/tests/` | 10/10 | 🟢 |
+| `vantadb-letta` | — | `pytest integrations/letta/tests/` | 10/10 | 🟡 |
+| `vantadb-mem0` | — | `pytest integrations/mem0/tests/` | 10/10 | 🟡 |
+| `vantadb-crewai` | — | `pytest integrations/crewai/tests/` | 9/10 | 🟡 |
+| `vantadb-dspy` | — | `pytest integrations/dspy/tests/` | 9/10 | 🟡 |

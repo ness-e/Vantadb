@@ -280,6 +280,27 @@ jobs:
           path: lcov.info
           if-no-files-found: warn
 
+  wasm-test:
+    name: WASM (wasm-pack browser tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # CATEGORY: BEST-EFFORT — WASM is Tier 3 Experimental.
+    # Browser tests require wasm-pack + Chrome. Failures are non-blocking.
+    continue-on-error: true
+    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.modified, 'vantadb-wasm/') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+
+      - name: Install wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Run browser tests (Chrome)
+        working-directory: vantadb-wasm
+        run: wasm-pack test --chrome --headless
+
   audit:
     name: Security Audit
     runs-on: ubuntu-latest
