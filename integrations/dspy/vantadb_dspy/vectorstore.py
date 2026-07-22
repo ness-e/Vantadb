@@ -82,6 +82,11 @@ class VantaDBRetriever(DSPyRetrieve):
             containing the result text list, or a plain list if DSPy
             is not installed.
         """
+        if not query or not query.strip():
+            if dspy is not None:
+                return dspy.Prediction(passages=[])
+            return []
+
         k = kwargs.get("k", self.k)
         if self.embedding is not None:
             vector = self.embedding(query)
@@ -138,6 +143,31 @@ class VantaDBRetriever(DSPyRetrieve):
         self.db_path = state.get("db_path", self.db_path)
         self.k = state.get("k", self.k)
         self.backend = state.get("backend", self.backend)
+
+    def delete(self, key: str) -> bool:
+        """Delete a record by key.
+
+        Args:
+            key: The record key to delete.
+
+        Returns:
+            True if the record was deleted, False otherwise.
+        """
+        return self._db.delete_memory(self.namespace, key)
+
+    def list(self, limit: int = 100, cursor: Optional[str] = None) -> dict:
+        """List records with cursor pagination.
+
+        Args:
+            limit: Maximum number of records to return. Defaults to 100.
+            cursor: Optional cursor string for pagination.
+
+        Returns:
+            A dict with a ``records`` list and optionally a ``next_cursor``
+            (int) for the next page.
+        """
+        cursor_int: Optional[int] = int(cursor) if cursor is not None else None
+        return dict(self._db.list_memory(self.namespace, limit=limit, cursor=cursor_int))
 
     def _add(self, text: str, key: str, metadata: Optional[dict] = None) -> None:
         vector = self.embedding(text) if self.embedding else None

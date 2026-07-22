@@ -35,21 +35,21 @@ Overall rating: **7.8 / 10** for an alpha-stage systems project.
 
 1. **CI policy mismatch around best-effort failures.** Several workflows contain `continue-on-error: true`, including minimal versions, sanitizers, and release attestation paths. That may be intentional for nightly/toolchain instability, but it conflicts with the repository’s strict agent policy and should be explicitly documented or tightened.
 2. **Security-advisory ignores need a lifecycle.** `cargo audit` currently ignores two 2026 advisories. Each ignored advisory should have an owner, reason, affected dependency path, expiry date, and issue link.
-3. **Generated binary artifact is present in the working tree.** `vantadb-python/vantadb_py/vantadb_py.abi3.so` is untracked locally. Native build artifacts should stay ignored and outside reviewable source diffs.
+3. **Generated binary artifact is present in the working tree.** ~~`vantadb-python/vantadb_py/vantadb_py.abi3.so` is untracked locally. Native build artifacts should stay ignored and outside reviewable source diffs.~~ ✅ **Fixed 2026-07-22** (`*.abi3.so` added to `.gitignore`)
 
 ### P1 — High-priority reliability and maintainability work
 
 1. **Surface-area expansion is ahead of stabilization.** The repo includes core engine, server, WASM, MCP, TS SDK, Python SDK, web app, and many adapter crates/packages. The MVP boundary is documented, but release gates should ensure experimental surfaces cannot block or silently weaken core quality.
-2. **Docs drift exists.** The English README states Python 3.11+, while the Spanish README badge says Python 3.8+. The Python package metadata requires Python >=3.11, so Spanish docs should be corrected.
+2. **Docs drift exists.** ~~The English README states Python 3.11+, while the Spanish README badge says Python 3.8+.~~ ✅ **Fixed 2026-07-22** (QUICKSTART.md + GO_TO_MARKET.md corregidos)
 3. **WASM storage needs continued scrutiny.** OPFS/IndexedDB abstractions are useful, but browser storage semantics differ from filesystem storage. Delete, append, multi-tab coordination, and crash consistency should keep dedicated tests and docs.
 4. **Adapter matrix cost may become high.** Thin adapters are valuable, but each framework integration adds release/version churn. Consider classifying adapters into tier-1 supported, community-maintained, and experimental.
 
 ### P2 — Medium-priority cleanup
 
-1. **Root README filename casing is inconsistent.** The package metadata references `README.md`, while the repository contains `README.MD`. This works on case-insensitive systems but is fragile on Linux and package tooling.
-2. **Large docs/test corpus needs navigability.** The project has extensive docs and tests; a concise maintainer map for “which checks protect which claim” would help contributors avoid running the wrong suite.
-3. **Todo/unsafe/unwrap inventory should be baselined.** Rather than treating all occurrences as bad, create a tracked debt inventory for public API/FFI/storage hot paths first.
-4. **Workspace lockfile hygiene needs attention.** The working tree currently shows a modified root `Cargo.lock` and an untracked `fuzz/Cargo.lock`. Decide whether fuzz lockfiles are committed or ignored, then enforce consistently.
+1. **Root README filename casing is inconsistent.** ~~The package metadata references `README.md`, while the repository contains `README.MD`.~~ ✅ **Fixed** (commit 8e3bfe6)
+2. **Large docs/test corpus needs navigability.** The project has extensive docs and tests; a concise maintainer map for "which checks protect which claim" would help contributors avoid running the wrong suite.
+3. **Todo/unsafe/unwrap inventory should be baselined.** ~~Rather than treating all occurrences as bad, create a tracked debt inventory for public API/FFI/storage hot paths first.~~ ✅ **Fixed** (commit 8e3bfe6 — `docs/UNSAFE_INVENTORY.md` creado)
+4. **Workspace lockfile hygiene needs attention.** ~~The working tree currently shows a modified root `Cargo.lock` and an untracked `fuzz/Cargo.lock`.~~ ✅ **Fixed** (commit 8e3bfe6 — fuzz/Cargo.lock ignorado, decisión documentada)
 
 ## Recommended roadmap
 

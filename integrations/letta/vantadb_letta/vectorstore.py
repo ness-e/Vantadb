@@ -37,6 +37,9 @@ class VantaDBVectorStore:
         self.embedding = embedding
         self.namespace = namespace
         self.path = db_path
+        self.memory_limit_bytes = memory_limit_bytes
+        self.read_only = read_only
+        self.backend = backend
         self._db = vanta.VantaDB(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
@@ -157,12 +160,16 @@ class VantaDBVectorStore:
         """Serialize the store configuration to a dictionary.
 
         Returns:
-            A dictionary with ``"path"`` and ``"namespace"`` keys
+            A dictionary with all constructor parameters
             for round-tripping via ``from_dict()``.
         """
         return {
-            "path": self.path,
+            "db_path": self.path,
             "namespace": self.namespace,
+            "embedding": None,  # callable is not serializable
+            "memory_limit_bytes": self.memory_limit_bytes,
+            "read_only": self.read_only,
+            "backend": self.backend,
         }
 
     @classmethod
@@ -170,13 +177,17 @@ class VantaDBVectorStore:
         """Deserialize store configuration from a dictionary.
 
         Args:
-            data: Dictionary with ``"path"`` and optionally
-                ``"namespace"`` keys, as produced by ``to_dict()``.
+            data: Dictionary with constructor parameters,
+                as produced by ``to_dict()``.
 
         Returns:
             A new ``VantaDBVectorStore`` instance.
         """
         return cls(
-            db_path=data["path"],
+            db_path=data["db_path"],
             namespace=data.get("namespace", DEFAULT_NAMESPACE),
+            embedding=data.get("embedding"),  # None if not present
+            memory_limit_bytes=data.get("memory_limit_bytes"),
+            read_only=data.get("read_only", False),
+            backend=data.get("backend"),
         )

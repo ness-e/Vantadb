@@ -35,6 +35,7 @@ tests_server_db/
 job_log.txt
 
 # Python bindings and general Python artifacts
+*.abi3.so
 vantadb-python/target/
 .release-venv/
 *.py[cod]

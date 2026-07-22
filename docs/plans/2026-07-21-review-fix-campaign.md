@@ -19,7 +19,7 @@
 
 | ID | Hallazgo | Esfuerzo | Sub-Agente | Verificación | Estado |
 |----|----------|----------|------------|-------------|--------|
-| P0-3 | `vantadb-python/vantadb_py/vantadb_py.abi3.so` suelto en tree → añadir a `.gitignore` + verificar otros artefactos build | 🟢 15min | vanta-lead | `git status` limpio para build artifacts | ⬜ PENDING |
+| P0-3 | `vantadb-python/vantadb_py/vantadb_py.abi3.so` suelto en tree → añadir a `.gitignore` + verificar otros artefactos build | 🟢 15min | vanta-lead | `git status` limpio para build artifacts | ✅ DONE 2026-07-22 |
 | P0-2 | Advisory-ignore register: cada advisory ignorado en `cargo audit` necesita owner + razón + expiry + issue link | 🟡 1-2h | vanta-audit | `cargo audit` report con register documentado | ⬜ PENDING |
 | P0-1 | `continue-on-error: true` en workflows — auditar cada instancia, dividir en hard gates vs experimental documentado | 🟡 1-2h | vanta-lead | Cada instancia auditada, documentada, decidida | ⬜ PENDING |
 
@@ -34,10 +34,10 @@
 
 | ID | Hallazgo | Esfuerzo | Sub-Agente | Verificación | Estado |
 |----|----------|----------|------------|-------------|--------|
-| P2-1 | Renombrar `README.MD` → `README.md` en git index (casing) | 🟢 5min | vanta-lead | `git ls-files README*` muestra `README.md` | ⬜ PENDING |
-| P2-4 | Política para `fuzz/Cargo.lock` — commit o gitignore + enforce en `.gitignore` | 🟢 15min | vanta-lead | Decisión documentada + `.gitignore` actualizado | ⬜ PENDING |
+| P2-1 | Renombrar `README.MD` → `README.md` en git index (casing) | 🟢 5min | vanta-lead | `git ls-files README*` muestra `README.md` | ✅ DONE (commit 8e3bfe6) |
+| P2-4 | Política para `fuzz/Cargo.lock` — commit o gitignore + enforce en `.gitignore` | 🟢 15min | vanta-lead | Decisión documentada + `.gitignore` actualizado | ✅ DONE (commit 8e3bfe6, fuzz/Cargo.lock en .gitignore) |
 | P2-2 | Mapa contribuidor: "qué test corre para qué claim" — archivo conciso | 🟡 1-2h | vanta-docs | `docs/TEST_MAP.md` creado | ⬜ PENDING |
-| P2-3 | Inventario de unsafe/unwrap en APIs públicas y storage hot paths | 🟡 1-2h | vanta-audit | Inventario en `docs/UNSAFE_INVENTORY.md` | ⬜ PENDING |
+| P2-3 | Inventario de unsafe/unwrap en APIs públicas y storage hot paths | 🟡 1-2h | vanta-audit | Inventario en `docs/UNSAFE_INVENTORY.md` | ✅ DONE (commit 8e3bfe6) |
 
 ### Estratégico — Discusión + ADR
 

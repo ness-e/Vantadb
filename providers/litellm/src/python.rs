@@ -101,7 +101,8 @@ impl VantaDBLiteLLM {
             ..Default::default()
         };
         let engine = VantaEmbedded::open_with_config(config).map_err(err_to_py)?;
-        let litellm = PyModule::import(py, "litellm")?;
+        let litellm = PyModule::import(py, "litellm")
+            .map_err(|e| PyRuntimeError::new_err(format!("litellm import error: {:?}", e)))?;
         let embed_fn = Some(litellm.getattr("embedding")?.unbind());
         Ok(Self {
             engine,
@@ -203,10 +204,11 @@ impl VantaDBLiteLLM {
     ///     text_query: Optional text query for BM25 lexical search.
     ///     filters: Optional metadata filters (string key-value pairs).
     ///     distance_metric: Distance metric ("cosine" or "euclidean"/"l2").
+    ///     top_k: Number of results to return (default: 10).
     ///
     /// Returns:
-    ///     A list of dicts with ``id``, ``text``, and ``score`` keys.
-    #[pyo3(signature = (namespace, query_embedding, text_query = None, filters = None, distance_metric = None))]
+    ///     A list of dicts with full record fields plus ``score``.
+    #[pyo3(signature = (namespace, query_embedding, text_query = None, filters = None, distance_metric = None, top_k = 10))]
     fn search(
         &self,
         py: Python,
@@ -215,6 +217,7 @@ impl VantaDBLiteLLM {
         text_query: Option<String>,
         filters: Option<HashMap<String, String>>,
         distance_metric: Option<String>,
+        top_k: usize,
     ) -> PyResult<Vec<Py<PyAny>>> {
         let request = VantaMemorySearchRequest {
             namespace: namespace.to_string(),
@@ -225,7 +228,7 @@ impl VantaDBLiteLLM {
                 .map(|(k, v)| (k, VantaValue::String(v)))
                 .collect(),
             text_query,
-            top_k: 10,
+            top_k,
             distance_metric: match distance_metric.as_deref() {
                 Some("euclidean" | "l2") => vantadb::DistanceMetric::Euclidean,
                 _ => vantadb::DistanceMetric::Cosine,
@@ -239,11 +242,10 @@ impl VantaDBLiteLLM {
 
         let mut results = Vec::with_capacity(hits.len());
         for hit in hits {
-            let d = PyDict::new(py);
-            d.set_item("id", format!("{}:{}", hit.record.namespace, hit.record.key))?;
-            d.set_item("text", &hit.record.payload)?;
-            d.set_item("score", hit.score)?;
-            results.push(d.unbind().into());
+            let d = record_to_pydict(py, hit.record)?;
+            let dict: &Bound<'_, PyDict> = d.bind(py).cast()?;
+            dict.set_item("score", hit.score)?;
+            results.push(d);
         }
         Ok(results)
     }
@@ -296,15 +298,17 @@ impl VantaDBLiteLLM {
         Ok(format!("{}:{}", record.namespace, record.key))
     }
 
-    /// Delete a record by its key from the default namespace.
+    /// Delete a record by its key, optionally specifying a namespace.
     ///
     /// Args:
     ///     key: The record key to delete.
+    ///     namespace: Optional namespace override (defaults to the instance namespace).
     ///
     /// Returns:
     ///     True if the record was deleted, False if not found.
-    fn delete(&self, py: Python, key: &str) -> PyResult<bool> {
-        let namespace = self.namespace.clone();
+    #[pyo3(signature = (key, namespace = None))]
+    fn delete(&self, py: Python, key: &str, namespace: Option<String>) -> PyResult<bool> {
+        let namespace = namespace.unwrap_or(self.namespace.clone());
         let engine = self.engine.clone();
         py.detach(move || engine.delete(&namespace, key).map_err(err_to_py))
     }

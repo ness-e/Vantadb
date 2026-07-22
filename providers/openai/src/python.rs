@@ -129,7 +129,7 @@ impl VantaDBOpenAI {
     ///
     /// Returns:
     ///     A list of dicts with ``id``, ``text``, and ``score`` keys.
-    #[pyo3(signature = (namespace, query_embedding, text_query = None, filters = None, distance_metric = None))]
+    #[pyo3(signature = (namespace, query_embedding, text_query = None, filters = None, distance_metric = None, top_k = 10))]
     fn search(
         &self,
         py: Python,
@@ -138,6 +138,7 @@ impl VantaDBOpenAI {
         text_query: Option<String>,
         filters: Option<HashMap<String, String>>,
         distance_metric: Option<String>,
+        top_k: usize,
     ) -> PyResult<Vec<Py<PyAny>>> {
         let request = VantaMemorySearchRequest {
             namespace: namespace.to_string(),
@@ -148,7 +149,7 @@ impl VantaDBOpenAI {
                 .map(|(k, v)| (k, VantaValue::String(v)))
                 .collect(),
             text_query,
-            top_k: 10,
+            top_k,
             distance_metric: match distance_metric.as_deref() {
                 Some("euclidean" | "l2") => vantadb::DistanceMetric::Euclidean,
                 _ => vantadb::DistanceMetric::Cosine,
@@ -219,23 +220,25 @@ impl VantaDBOpenAI {
         Ok(format!("{}:{}", record.namespace, record.key))
     }
 
-    /// Delete a record by its key from the default namespace.
+    /// Delete a record by its key, optionally specifying a namespace.
     ///
     /// Args:
     ///     key: The record key to delete.
+    ///     namespace: Optional namespace override. Defaults to the instance namespace.
     ///
     /// Returns:
     ///     True if the record was deleted, False if not found.
-    fn delete(&self, py: Python, key: &str) -> PyResult<bool> {
-        let namespace = self.namespace.clone();
+    #[pyo3(signature = (key, namespace = None))]
+    fn delete(&self, py: Python, key: &str, namespace: Option<String>) -> PyResult<bool> {
+        let namespace = namespace.unwrap_or(self.namespace.clone());
         let engine = self.engine.clone();
         py.detach(move || engine.delete(&namespace, key).map_err(err_to_py))
     }
 
     /// Retrieve a single record by namespace and key.
-    /// Returns a dict with `id` and `text`, or `None` if not found.
+    /// Returns a dict with full record fields, or `None` if not found.
     #[pyo3(signature = (namespace, key))]
-    fn get(&self, py: Python, namespace: &str, key: &str) -> PyResult<Option<Py<PyDict>>> {
+    fn get(&self, py: Python, namespace: &str, key: &str) -> PyResult<Option<Py<PyAny>>> {
         let engine = self.engine.clone();
         let ns = namespace.to_string();
         let k = key.to_string();
@@ -243,16 +246,26 @@ impl VantaDBOpenAI {
         match result {
             Some(record) => {
                 let d = PyDict::new(py);
-                d.set_item("id", format!("{}:{}", record.namespace, record.key))?;
-                d.set_item("text", record.payload.as_str())?;
-                Ok(Some(d.unbind()))
+                d.set_item("namespace", &record.namespace)?;
+                d.set_item("key", &record.key)?;
+                d.set_item("text", &record.payload)?;
+                d.set_item("created_at_ms", record.created_at_ms)?;
+                d.set_item("updated_at_ms", record.updated_at_ms)?;
+                d.set_item("version", record.version)?;
+                if let Some(ref vector) = record.vector {
+                    d.set_item("vector", vector)?;
+                }
+                if let Some(expires) = record.expires_at_ms {
+                    d.set_item("expires_at_ms", expires)?;
+                }
+                Ok(Some(d.unbind().into()))
             }
             None => Ok(None),
         }
     }
 
     /// List records in a namespace with cursor-based pagination.
-    /// Returns a dict with `records` (list of dicts with `id` and `text`) and `next_cursor`.
+    /// Returns a dict with `records` (list of dicts with full record fields) and `next_cursor`.
     #[pyo3(signature = (namespace, limit = 100, cursor = None))]
     fn list(
         &self,
@@ -274,8 +287,18 @@ impl VantaDBOpenAI {
         let records = PyList::empty(py);
         for record in &page.records {
             let rd = PyDict::new(py);
-            rd.set_item("id", format!("{}:{}", record.namespace, record.key))?;
-            rd.set_item("text", record.payload.as_str())?;
+            rd.set_item("namespace", &record.namespace)?;
+            rd.set_item("key", &record.key)?;
+            rd.set_item("text", &record.payload)?;
+            rd.set_item("created_at_ms", record.created_at_ms)?;
+            rd.set_item("updated_at_ms", record.updated_at_ms)?;
+            rd.set_item("version", record.version)?;
+            if let Some(ref vector) = record.vector {
+                rd.set_item("vector", vector)?;
+            }
+            if let Some(expires) = record.expires_at_ms {
+                rd.set_item("expires_at_ms", expires)?;
+            }
             records.append(rd)?;
         }
         d.set_item("records", records)?;

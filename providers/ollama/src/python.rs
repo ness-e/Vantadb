@@ -124,7 +124,7 @@ impl VantaDBOllama {
     ///
     /// Returns:
     ///     A list of dicts with ``id``, ``text``, and ``score`` keys.
-    #[pyo3(signature = (namespace, query_embedding, text_query = None, filters = None, distance_metric = None))]
+    #[pyo3(signature = (namespace, query_embedding, text_query = None, filters = None, distance_metric = None, top_k = 10))]
     fn search(
         &self,
         py: Python,
@@ -133,6 +133,7 @@ impl VantaDBOllama {
         text_query: Option<String>,
         filters: Option<HashMap<String, String>>,
         distance_metric: Option<String>,
+        top_k: usize,
     ) -> PyResult<Vec<Py<PyAny>>> {
         let request = VantaMemorySearchRequest {
             namespace: namespace.to_string(),
@@ -143,7 +144,7 @@ impl VantaDBOllama {
                 .map(|(k, v)| (k, VantaValue::String(v)))
                 .collect(),
             text_query,
-            top_k: 10,
+            top_k,
             distance_metric: match distance_metric.as_deref() {
                 Some("euclidean" | "l2") => vantadb::DistanceMetric::Euclidean,
                 _ => vantadb::DistanceMetric::Cosine,
@@ -214,17 +215,19 @@ impl VantaDBOllama {
         Ok(format!("{}:{}", record.namespace, record.key))
     }
 
-    /// Delete a record by its key from the default namespace.
+    /// Delete a record by its key, optionally in a specific namespace.
     ///
     /// Args:
     ///     key: The record key to delete.
+    ///     namespace: Optional namespace override. Uses the default namespace if not provided.
     ///
     /// Returns:
     ///     True if the record was deleted, False if not found.
-    fn delete(&self, py: Python, key: &str) -> PyResult<bool> {
-        let namespace = self.namespace.clone();
+    #[pyo3(signature = (key, namespace = None))]
+    fn delete(&self, py: Python, key: &str, namespace: Option<String>) -> PyResult<bool> {
+        let ns = namespace.unwrap_or(self.namespace.clone());
         let engine = self.engine.clone();
-        py.detach(move || engine.delete(&namespace, key).map_err(err_to_py))
+        py.detach(move || engine.delete(&ns, key).map_err(err_to_py))
     }
 
     /// Retrieve a memory record by namespace and key.
@@ -298,6 +301,17 @@ impl VantaDBOllama {
             rd.set_item("namespace", &record.namespace)?;
             rd.set_item("key", &record.key)?;
             rd.set_item("text", &record.payload)?;
+            let meta = PyDict::new(py);
+            for (mk, mv) in &record.metadata {
+                match mv {
+                    vantadb::sdk::VantaValue::String(s) => meta.set_item(mk, s)?,
+                    vantadb::sdk::VantaValue::Int(i) => meta.set_item(mk, i)?,
+                    vantadb::sdk::VantaValue::Float(f) => meta.set_item(mk, f)?,
+                    vantadb::sdk::VantaValue::Bool(b) => meta.set_item(mk, b)?,
+                    other => meta.set_item(mk, format!("{:?}", other))?,
+                };
+            }
+            rd.set_item("metadata", meta)?;
             records_list.append(rd)?;
         }
         d.set_item("records", records_list)?;

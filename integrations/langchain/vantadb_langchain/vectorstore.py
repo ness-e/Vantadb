@@ -107,7 +107,7 @@ class VantaDBVectorStore(VectorStore):
         if not query:
             raise ValueError("query must be a non-empty string")
         if k <= 0:
-            raise ValueError(f"k must be positive, got {k}")
+            return []
         if self.embedding is None:
             raise ValueError("embedding function is not set")
         embedding_vector = self.embedding.embed_query(query)
@@ -165,7 +165,7 @@ class VantaDBVectorStore(VectorStore):
         if not query:
             raise ValueError("query must be a non-empty string")
         if k <= 0:
-            raise ValueError(f"k must be positive, got {k}")
+            return []
         if self.embedding is None:
             raise ValueError("embedding function is not set")
         embedded_query = self.embedding.embed_query(query)
@@ -185,7 +185,7 @@ class VantaDBVectorStore(VectorStore):
         if not embedding:
             raise ValueError("embedding vector must be a non-empty list")
         if k <= 0:
-            raise ValueError(f"k must be positive, got {k}")
+            return []
         # 1. Fetch fetch_k candidates
         docs_with_scores = self.similarity_search_with_vector_score(
             embedding, k=fetch_k, **kwargs
@@ -267,7 +267,7 @@ class VantaDBVectorStore(VectorStore):
         if not query:
             raise ValueError("query must be a non-empty string")
         if k <= 0:
-            raise ValueError(f"k must be positive, got {k}")
+            return []
         if self.embedding is None:
             raise ValueError("embedding function is not set")
         embedding_vector = self.embedding.embed_query(query)
@@ -321,7 +321,7 @@ class VantaDBVectorStore(VectorStore):
         if not embedding:
             raise ValueError("embedding vector must be a non-empty list")
         if k <= 0:
-            raise ValueError(f"k must be positive, got {k}")
+            return []
         docs_with_scores = self.similarity_search_with_vector_score(
             embedding, k=k, **kwargs
         )
@@ -346,7 +346,7 @@ class VantaDBVectorStore(VectorStore):
         if not embedding:
             raise ValueError("embedding vector must be a non-empty list")
         if k <= 0:
-            raise ValueError(f"k must be positive, got {k}")
+            return []
         text_query = kwargs.get("text_query")
         filter_key = kwargs.get("filter_key")
         filter_val = kwargs.get("filter_val")

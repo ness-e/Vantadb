@@ -134,12 +134,12 @@ class VantaDBOllama:
             and ``metadata`` attributes.
 
         Raises:
-            ValueError: If ``query`` is empty or ``k`` is not positive.
+            ValueError: If ``query`` is empty.
         """
         if not query:
             raise ValueError("query must be a non-empty string")
         if k <= 0:
-            k = 4
+            return []
         vector = self._embed(query)
         results = self._db.search_memory(self.namespace, vector, top_k=k, distance_metric="cosine")
         hits = []

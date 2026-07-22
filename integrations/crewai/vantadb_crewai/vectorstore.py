@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, List, Optional
 
+import uuid
+
 import vantadb_py as vanta
 
 try:
@@ -48,6 +50,7 @@ class VantaDBTool(CrewAIBaseTool):
         # use object.__setattr__ to bypass Pydantic field validation.
         object.__setattr__(self, "namespace", namespace)
         object.__setattr__(self, "embedding", embedding)
+        object.__setattr__(self, "db_path", db_path)
         object.__setattr__(self, "_db", vanta.VantaDB(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
@@ -125,8 +128,6 @@ class VantaDBTool(CrewAIBaseTool):
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")
 
-        import uuid
-
         vector = None
         if self.embedding:
             vector = self.embedding(text)
@@ -136,6 +137,77 @@ class VantaDBTool(CrewAIBaseTool):
             text,
             metadata=metadata or {},
             vector=vector,
+        )
+
+    def delete(self, key: str) -> bool:
+        """Delete a record by key from the store.
+
+        Args:
+            key: The unique key of the record to delete.
+
+        Returns:
+            True if the deletion succeeded.
+        """
+        self._db.delete_memory(self.namespace, key)
+        return True
+
+    def list(self, limit: int = 100, cursor: Optional[str] = None) -> dict:
+        """List records with optional pagination.
+
+        Args:
+            limit: Maximum number of records to return. Default 100.
+            cursor: Optional pagination cursor from a previous ``list`` call.
+
+        Returns:
+            A dict with ``records`` and, if more are available, a ``cursor``.
+        """
+        results = self._db.list_memory(
+            namespace=self.namespace, limit=limit, cursor=cursor,
+        )
+        records = (
+            results.records
+            if hasattr(results, "records")
+            else list(results)
+        )
+        next_cursor = getattr(results, "cursor", None)
+        out: dict[str, Any] = {"records": records}
+        if next_cursor:
+            out["cursor"] = next_cursor
+        return out
+
+    def to_dict(self) -> dict:
+        """Serialize tool configuration to a dict.
+
+        Returns:
+            A dict with ``db_path``, ``namespace``, ``k``, and
+            ``embedding_model`` keys.
+        """
+        return {
+            "db_path": self.db_path,
+            "namespace": self.namespace,
+            "k": getattr(self, "top_k", DEFAULT_TOP_K),
+            "embedding_model": (
+                str(type(self.embedding).__name__)
+                if self.embedding is not None
+                else None
+            ),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> VantaDBTool:
+        """Create a VantaDBTool from a configuration dict.
+
+        Args:
+            data: Dict with tool configuration. Keys match ``to_dict``:
+                ``db_path``, ``namespace``, ``k``, ``embedding_model``.
+
+        Returns:
+            A new ``VantaDBTool`` instance.
+        """
+        return cls(
+            embedding=data.get("embedding_model"),
+            db_path=data.get("db_path", "./vantadb_data"),
+            namespace=data.get("namespace", DEFAULT_NAMESPACE),
         )
 
     def categorize(self, text: str) -> str:
