@@ -49,6 +49,16 @@
       "enabled": true,
       "type": "local",
       "description": "Plan de campaña: get_next_task, update_task_state, verify_cmd."
+    },
+    "lottiefiles-creator": {
+      "command": [
+        "npx",
+        "-y",
+        "@lottiefiles/creator-mcp@latest"
+      ],
+      "enabled": true,
+      "type": "local",
+      "description": "LottieFiles Creator MCP — crear y editar animaciones Lottie via IA."
     }
   }
 }
