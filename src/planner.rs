@@ -419,4 +419,290 @@ mod tests {
         assert_eq!(SearchRoute::VectorOnly.label(), "vector-only");
         assert_eq!(SearchRoute::Empty.label(), "empty");
     }
+
+    // ── trimmed_text_query ───────────────────────────────────────────────
+
+    #[test]
+    fn trimmed_text_query_none() {
+        let req = VantaMemorySearchRequest {
+            text_query: None,
+            ..Default::default()
+        };
+        assert_eq!(trimmed_text_query(&req), None);
+    }
+
+    #[test]
+    fn trimmed_text_query_empty() {
+        let req = VantaMemorySearchRequest {
+            text_query: Some(String::new()),
+            ..Default::default()
+        };
+        assert_eq!(trimmed_text_query(&req), None);
+    }
+
+    #[test]
+    fn trimmed_text_query_whitespace() {
+        let req = VantaMemorySearchRequest {
+            text_query: Some("   ".into()),
+            ..Default::default()
+        };
+        assert_eq!(trimmed_text_query(&req), None);
+    }
+
+    #[test]
+    fn trimmed_text_query_valid() {
+        let req = VantaMemorySearchRequest {
+            text_query: Some("hello world".into()),
+            ..Default::default()
+        };
+        assert_eq!(trimmed_text_query(&req), Some("hello world"));
+    }
+
+    #[test]
+    fn trimmed_text_query_trims_input() {
+        let req = VantaMemorySearchRequest {
+            text_query: Some("  query  ".into()),
+            ..Default::default()
+        };
+        assert_eq!(trimmed_text_query(&req), Some("query"));
+    }
+
+    // ── fuse_rrf_with_report ────────────────────────────────────────────
+
+    #[test]
+    fn fuse_rrf_with_report_counts() {
+        let lex = vec![make_hit("ns", "a", 0.9, 1)];
+        let vec = vec![make_hit("ns", "b", 0.8, 2)];
+        let (_hits, report) = fuse_rrf_with_report(lex.clone(), vec.clone());
+        assert_eq!(report.text_candidates, 1);
+        assert_eq!(report.vector_candidates, 1);
+        assert_eq!(report.rrf_k, RRF_K as usize);
+    }
+
+    #[test]
+    fn fuse_rrf_with_report_fused_results() {
+        let lex = vec![make_hit("ns", "a", 0.9, 1)];
+        let vec = vec![make_hit("ns", "a", 0.8, 1)];
+        let (hits, _report) = fuse_rrf_with_report(lex, vec);
+        assert_eq!(hits.len(), 1, "same key merged into one");
+        let expected = 2.0 / (RRF_K + 1.0);
+        assert!((hits[0].score - expected).abs() < 1e-6);
+    }
+
+    // ── sort_hits edge cases ────────────────────────────────────────────
+
+    #[test]
+    fn sort_hits_descending_order() {
+        let mut hits = vec![
+            make_hit("ns", "a", 0.3, 1),
+            make_hit("ns", "b", 0.9, 2),
+            make_hit("ns", "c", 0.5, 3),
+        ];
+        sort_hits(&mut hits);
+        assert_eq!(hits[0].record.key, "b", "highest score first");
+        assert_eq!(hits[1].record.key, "c", "middle score second");
+        assert_eq!(hits[2].record.key, "a", "lowest score last");
+    }
+
+    #[test]
+    fn sort_hits_ties_broken_by_key_then_node_id() {
+        let mut hits = vec![
+            make_hit("ns", "c", 0.5, 3),
+            make_hit("ns", "a", 0.5, 1),
+            make_hit("ns", "b", 0.5, 2),
+        ];
+        sort_hits(&mut hits);
+        assert_eq!(hits[0].record.key, "a", "ties broken alphabetically");
+        assert_eq!(hits[1].record.key, "b");
+        assert_eq!(hits[2].record.key, "c");
+    }
+
+    #[test]
+    fn sort_hits_ties_same_key_different_node_id() {
+        let mut hits = vec![make_hit("ns", "x", 0.5, 2), make_hit("ns", "x", 0.5, 1)];
+        sort_hits(&mut hits);
+        assert_eq!(hits[0].record.node_id, 1, "lower node_id first on tie");
+        assert_eq!(hits[1].record.node_id, 2);
+    }
+
+    #[test]
+    fn sort_hits_empty_list() {
+        let mut hits: Vec<VantaMemorySearchHit> = vec![];
+        sort_hits(&mut hits);
+        assert!(hits.is_empty());
+    }
+
+    // ── optimize_and_compile ─────────────────────────────────────────────
+
+    use crate::query::{LogicalOperator, LogicalPlan};
+
+    #[test]
+    fn optimize_and_compile_scan_only_produces_working_operator() {
+        use crate::config::VantaConfig;
+        use crate::storage::{BackendKind, StorageEngine};
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+            .expect("Failed to open StorageEngine");
+
+        let plan = LogicalPlan {
+            operators: vec![LogicalOperator::Scan { entity: "*".into() }],
+            temperature: 0.0,
+            enforce_role: None,
+        };
+
+        let mut op = optimize_and_compile(&plan, &storage).unwrap();
+        op.open().unwrap();
+        assert!(op.next().unwrap().is_none(), "empty storage yields no rows");
+        op.close().unwrap();
+    }
+
+    #[test]
+    fn optimize_and_compile_scan_with_filter() {
+        use crate::config::VantaConfig;
+        use crate::node::{FieldValue, UnifiedNode};
+        use crate::query::RelOp;
+        use crate::storage::{BackendKind, StorageEngine};
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+            .expect("Failed to open StorageEngine");
+
+        let mut node = UnifiedNode::new(1);
+        node.relational
+            .insert("type".into(), FieldValue::String("doc".into()));
+        storage.insert(&node).unwrap();
+
+        let plan = LogicalPlan {
+            operators: vec![
+                LogicalOperator::Scan { entity: "*".into() },
+                LogicalOperator::FilterRelational {
+                    field: "type".into(),
+                    op: RelOp::Eq,
+                    value: FieldValue::String("doc".into()),
+                },
+            ],
+            temperature: 0.0,
+            enforce_role: None,
+        };
+
+        let mut op = optimize_and_compile(&plan, &storage).unwrap();
+        op.open().unwrap();
+        let result = op.next().unwrap();
+        assert!(result.is_some(), "filter matching node should be returned");
+        assert_eq!(result.unwrap().id, 1);
+        assert!(op.next().unwrap().is_none(), "no more rows");
+        op.close().unwrap();
+    }
+
+    #[test]
+    fn optimize_and_compile_scan_filter_no_match() {
+        use crate::config::VantaConfig;
+        use crate::node::{FieldValue, UnifiedNode};
+        use crate::query::RelOp;
+        use crate::storage::{BackendKind, StorageEngine};
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+            .expect("Failed to open StorageEngine");
+
+        let mut node = UnifiedNode::new(1);
+        node.relational
+            .insert("type".into(), FieldValue::String("doc".into()));
+        storage.insert(&node).unwrap();
+
+        let plan = LogicalPlan {
+            operators: vec![
+                LogicalOperator::Scan { entity: "*".into() },
+                LogicalOperator::FilterRelational {
+                    field: "type".into(),
+                    op: RelOp::Eq,
+                    value: FieldValue::String("note".into()),
+                },
+            ],
+            temperature: 0.0,
+            enforce_role: None,
+        };
+
+        let mut op = optimize_and_compile(&plan, &storage).unwrap();
+        op.open().unwrap();
+        assert!(
+            op.next().unwrap().is_none(),
+            "filter excludes the only node"
+        );
+        op.close().unwrap();
+    }
+
+    #[test]
+    fn optimize_and_compile_with_sort_limit_project() {
+        use crate::config::VantaConfig;
+        use crate::node::{FieldValue, UnifiedNode};
+        use crate::storage::{BackendKind, StorageEngine};
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+            .expect("Failed to open StorageEngine");
+
+        for i in 0..5 {
+            let mut node = UnifiedNode::new(i);
+            node.relational
+                .insert("val".into(), FieldValue::Int(i as i64));
+            node.relational
+                .insert("name".into(), FieldValue::String(format!("n_{}", i)));
+            storage.insert(&node).unwrap();
+        }
+
+        let plan = LogicalPlan {
+            operators: vec![
+                LogicalOperator::Scan { entity: "*".into() },
+                LogicalOperator::Sort {
+                    field: "val".into(),
+                    desc: true,
+                },
+                LogicalOperator::Project {
+                    fields: vec!["val".into()],
+                },
+                LogicalOperator::Limit { top_k: 3 },
+            ],
+            temperature: 0.0,
+            enforce_role: None,
+        };
+
+        let mut op = optimize_and_compile(&plan, &storage).unwrap();
+        op.open().unwrap();
+        let mut values = Vec::new();
+        while let Some(node) = op.next().unwrap() {
+            values.push(node.relational.get("val").cloned());
+            // Project should remove the "name" field
+            assert!(
+                node.relational.get("name").is_none(),
+                "project should remove non-projected fields"
+            );
+        }
+        assert_eq!(values.len(), 3, "limit caps to 3");
+        assert_eq!(values[0], Some(FieldValue::Int(4)), "highest first (desc)");
+        assert_eq!(values[1], Some(FieldValue::Int(3)));
+        assert_eq!(values[2], Some(FieldValue::Int(2)));
+        op.close().unwrap();
+    }
 }

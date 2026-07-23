@@ -752,3 +752,362 @@ pub fn record_http_request(method: &str, route: &str, status: u16, start: Instan
 /// Record an HTTP request (no-op when the `prometheus` feature is disabled).
 #[cfg(not(feature = "prometheus"))]
 pub fn record_http_request(_method: &str, _route: &str, _status: u16, _start: Instant) {}
+
+// ── Tests ──────────────────────────────────────────────────────────
+
+#[cfg(test)]
+#[cfg(feature = "prometheus")]
+mod tests {
+    use super::*;
+    use web_time::Instant;
+
+    /// Helper: deref a LazyLock<Option<M>> and return &M.
+    fn init_metric<M>(lazy: &std::sync::LazyLock<Option<M>>) -> &M {
+        lazy.as_ref()
+            .as_ref()
+            .expect("metric handle should be Some — registration must succeed")
+    }
+
+    #[test]
+    fn test_metrics_registry_created() {
+        // The global registry must be constructable and collectable.
+        let _registry = &*METRICS_REGISTRY;
+        let families = METRICS_REGISTRY.gather();
+        // At minimum the statics above register their metrics.
+        assert!(
+            !families.is_empty(),
+            "registry should contain at least one metric family"
+        );
+    }
+
+    #[test]
+    fn test_query_latency_histogram_init() {
+        let h = init_metric(&QUERY_LATENCY);
+        h.observe(42.0);
+        h.observe(100.0);
+        // The histogram has default buckets; just verify it collected samples.
+        assert!(h.get_sample_count() >= 2, "expected >= 2 observations");
+    }
+
+    #[test]
+    fn test_oom_trips_counter_ops() {
+        let c = init_metric(&OOM_TRIPS);
+        let before = c.get();
+        c.inc();
+        assert!(c.get() > before, "counter should have incremented");
+    }
+
+    #[test]
+    fn test_cache_hits_counter_ops() {
+        let c = init_metric(&CACHE_HITS);
+        let before = c.get();
+        c.inc_by(5);
+        assert!(
+            c.get() >= before + 5,
+            "counter should have incremented by 5"
+        );
+    }
+
+    #[test]
+    fn test_startup_latency_histogram_init() {
+        let h = init_metric(&STARTUP_LATENCY_MS);
+        h.observe(200.0);
+        assert!(h.get_sample_count() >= 1);
+    }
+
+    #[test]
+    fn test_wal_replay_latency_histogram_init() {
+        let h = init_metric(&WAL_REPLAY_LATENCY_MS);
+        h.observe(50.0);
+        assert!(h.get_sample_count() >= 1);
+    }
+
+    #[test]
+    fn test_ann_rebuild_latency_histogram_init() {
+        let h = init_metric(&ANN_REBUILD_LATENCY_MS);
+        h.observe(500.0);
+        assert!(h.get_sample_count() >= 1);
+    }
+
+    #[test]
+    fn test_derived_rebuild_latency_histogram_init() {
+        let h = init_metric(&DERIVED_REBUILD_LATENCY_MS);
+        h.observe(300.0);
+        assert!(h.get_sample_count() >= 1);
+    }
+
+    #[test]
+    fn test_text_index_rebuild_latency_histogram_init() {
+        let h = init_metric(&TEXT_INDEX_REBUILD_LATENCY_MS);
+        h.observe(150.0);
+        assert!(h.get_sample_count() >= 1);
+    }
+
+    #[test]
+    fn test_records_exported_imported_and_errors_counters() {
+        let exported = init_metric(&RECORDS_EXPORTED);
+        let imported = init_metric(&RECORDS_IMPORTED);
+        let errors = init_metric(&IMPORT_ERRORS);
+
+        exported.inc_by(10);
+        imported.inc_by(5);
+        errors.inc_by(2);
+
+        assert!(exported.get() >= 10);
+        assert!(imported.get() >= 5);
+        assert!(errors.get() >= 2);
+    }
+
+    #[test]
+    fn test_text_postings_written_counter() {
+        let c = init_metric(&TEXT_POSTINGS_WRITTEN);
+        c.inc_by(100);
+        assert!(c.get() >= 100);
+    }
+
+    #[test]
+    fn test_text_index_repairs_counter() {
+        let c = init_metric(&TEXT_INDEX_REPAIRS);
+        c.inc();
+        assert!(c.get() >= 1);
+    }
+
+    #[test]
+    fn test_text_lexical_metrics_init() {
+        let hist = init_metric(&TEXT_LEXICAL_QUERY_LATENCY_MS);
+        let queries = init_metric(&TEXT_LEXICAL_QUERIES);
+        let scored = init_metric(&TEXT_CANDIDATES_SCORED);
+
+        hist.observe(10.0);
+        queries.inc_by(3);
+        scored.inc_by(50);
+
+        assert!(hist.get_sample_count() >= 1);
+        assert!(queries.get() >= 3);
+        assert!(scored.get() >= 50);
+    }
+
+    #[test]
+    fn test_text_consistency_audits_init() {
+        let audits = init_metric(&TEXT_CONSISTENCY_AUDITS);
+        let failures = init_metric(&TEXT_CONSISTENCY_AUDIT_FAILURES);
+
+        audits.inc_by(5);
+        failures.inc();
+
+        assert!(audits.get() >= 5);
+        assert!(failures.get() >= 1);
+    }
+
+    #[test]
+    fn test_hybrid_metrics_init() {
+        let hist = init_metric(&HYBRID_QUERY_LATENCY_MS);
+        let fused = init_metric(&HYBRID_CANDIDATES_FUSED);
+        hist.observe(80.0);
+        fused.inc_by(15);
+        assert!(hist.get_sample_count() >= 1);
+        assert!(fused.get() >= 15);
+    }
+
+    #[test]
+    fn test_planner_route_counters_init() {
+        let hybrid = init_metric(&PLANNER_HYBRID_QUERIES);
+        let text = init_metric(&PLANNER_TEXT_ONLY_QUERIES);
+        let vector = init_metric(&PLANNER_VECTOR_ONLY_QUERIES);
+
+        hybrid.inc_by(7);
+        text.inc();
+        vector.inc_by(3);
+
+        assert!(hybrid.get() >= 7);
+        assert!(text.get() >= 1);
+        assert!(vector.get() >= 3);
+    }
+
+    // ── Gauge registration tests ──────────────────────────────
+
+    #[test]
+    fn test_process_rss_gauge_init() {
+        let g = init_metric(&PROCESS_RSS_BYTES);
+        g.set(4_000_000);
+        assert_eq!(g.get(), 4_000_000);
+    }
+
+    #[test]
+    fn test_process_virtual_gauge_init() {
+        let g = init_metric(&PROCESS_VIRTUAL_BYTES);
+        g.set(8_000_000);
+        assert!(g.get() >= 8_000_000);
+    }
+
+    #[test]
+    fn test_hnsw_gauges_init() {
+        let nodes = init_metric(&HNSW_NODES_COUNT);
+        let logical = init_metric(&HNSW_LOGICAL_BYTES);
+        nodes.set(100);
+        logical.set(1_000_000);
+        assert_eq!(nodes.get(), 100);
+        assert_eq!(logical.get(), 1_000_000);
+    }
+
+    #[test]
+    fn test_mmap_resident_gauge_init() {
+        let g = init_metric(&MMAP_RESIDENT_BYTES);
+        g.set(2_000_000);
+        assert_eq!(g.get(), 2_000_000);
+    }
+
+    #[test]
+    fn test_volatile_cache_gauges_init() {
+        let entries = init_metric(&VOLATILE_CACHE_ENTRIES);
+        let cap = init_metric(&VOLATILE_CACHE_CAP_BYTES);
+        entries.set(50);
+        cap.set(10_000_000);
+        assert_eq!(entries.get(), 50);
+        assert_eq!(cap.get(), 10_000_000);
+    }
+
+    #[test]
+    fn test_jemalloc_gauges_init() {
+        let allocated = init_metric(&JEMALLOC_ALLOCATED_BYTES);
+        let active = init_metric(&JEMALLOC_ACTIVE_BYTES);
+        let metadata = init_metric(&JEMALLOC_METADATA_BYTES);
+        let resident = init_metric(&JEMALLOC_RESIDENT_BYTES);
+        let mapped = init_metric(&JEMALLOC_MAPPED_BYTES);
+        let retained = init_metric(&JEMALLOC_RETAINED_BYTES);
+
+        allocated.set(1_000_000);
+        active.set(800_000);
+        metadata.set(100_000);
+        resident.set(900_000);
+        mapped.set(1_100_000);
+        retained.set(50_000);
+
+        assert_eq!(allocated.get(), 1_000_000);
+        assert_eq!(active.get(), 800_000);
+        assert_eq!(metadata.get(), 100_000);
+        assert_eq!(resident.get(), 900_000);
+        assert_eq!(mapped.get(), 1_100_000);
+        assert_eq!(retained.get(), 50_000);
+    }
+
+    // ── HTTP metrics ──────────────────────────────────────────
+
+    #[test]
+    fn test_http_buckets_returns_valid_buckets() {
+        let buckets = http_buckets().expect("http_buckets should succeed");
+        assert_eq!(buckets.len(), 12, "expected 12 exponential buckets");
+        // First bucket should be 0.5, last should be 0.5 * 2^11
+        assert!((buckets[0] - 0.5).abs() < 1e-6);
+        assert!((buckets[11] - 0.5 * 2.0f64.powi(11)).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_http_request_duration_histogram_init() {
+        let hist_vec = init_metric(&HTTP_REQUEST_DURATION_MS);
+        hist_vec
+            .with_label_values(&["GET", "/api/search"])
+            .observe(15.0);
+        hist_vec
+            .with_label_values(&["POST", "/api/insert"])
+            .observe(42.0);
+        // Should not panic; we rely on the histogram having collected samples.
+    }
+
+    #[test]
+    fn test_http_requests_total_counter_init() {
+        let counter_vec = init_metric(&HTTP_REQUESTS_TOTAL);
+        counter_vec
+            .with_label_values(&["GET", "/api/search", "200"])
+            .inc_by(3);
+        counter_vec
+            .with_label_values(&["POST", "/api/insert", "201"])
+            .inc();
+        let get_total = counter_vec
+            .with_label_values(&["GET", "/api/search", "200"])
+            .get();
+        assert!(get_total >= 3, "GET requests should be >= 3");
+    }
+
+    #[test]
+    fn test_record_http_request_no_panic() {
+        let start = Instant::now();
+        // Normal request
+        record_http_request("GET", "/api/query", 200, start);
+        // POST request
+        let start2 = Instant::now();
+        record_http_request("POST", "/api/insert", 201, start2);
+        // Edge cases: empty method/route
+        let start3 = Instant::now();
+        record_http_request("", "", 0, start3);
+        let start4 = Instant::now();
+        record_http_request("GET", "/api/query", 200, start4);
+    }
+
+    #[test]
+    fn test_record_http_request_various_statuses() {
+        let start = Instant::now();
+        record_http_request("GET", "/api/status", 200, start);
+        let start2 = Instant::now();
+        record_http_request("GET", "/api/status", 404, start2);
+        let start3 = Instant::now();
+        record_http_request("POST", "/api/data", 500, start3);
+        // No assertion — just verifying no panic with varied inputs
+    }
+
+    // ── All metric handles should be Some ─────────────────────
+
+    #[test]
+    fn test_all_counter_handles_some() {
+        assert!(OOM_TRIPS.as_ref().is_some());
+        assert!(CACHE_HITS.as_ref().is_some());
+        assert!(RECORDS_EXPORTED.as_ref().is_some());
+        assert!(RECORDS_IMPORTED.as_ref().is_some());
+        assert!(IMPORT_ERRORS.as_ref().is_some());
+        assert!(TEXT_POSTINGS_WRITTEN.as_ref().is_some());
+        assert!(TEXT_INDEX_REPAIRS.as_ref().is_some());
+        assert!(TEXT_LEXICAL_QUERIES.as_ref().is_some());
+        assert!(TEXT_CANDIDATES_SCORED.as_ref().is_some());
+        assert!(TEXT_CONSISTENCY_AUDITS.as_ref().is_some());
+        assert!(TEXT_CONSISTENCY_AUDIT_FAILURES.as_ref().is_some());
+        assert!(HYBRID_CANDIDATES_FUSED.as_ref().is_some());
+        assert!(PLANNER_HYBRID_QUERIES.as_ref().is_some());
+        assert!(PLANNER_TEXT_ONLY_QUERIES.as_ref().is_some());
+        assert!(PLANNER_VECTOR_ONLY_QUERIES.as_ref().is_some());
+    }
+
+    #[test]
+    fn test_all_histogram_handles_some() {
+        assert!(QUERY_LATENCY.as_ref().is_some());
+        assert!(STARTUP_LATENCY_MS.as_ref().is_some());
+        assert!(WAL_REPLAY_LATENCY_MS.as_ref().is_some());
+        assert!(ANN_REBUILD_LATENCY_MS.as_ref().is_some());
+        assert!(DERIVED_REBUILD_LATENCY_MS.as_ref().is_some());
+        assert!(TEXT_INDEX_REBUILD_LATENCY_MS.as_ref().is_some());
+        assert!(TEXT_LEXICAL_QUERY_LATENCY_MS.as_ref().is_some());
+        assert!(HYBRID_QUERY_LATENCY_MS.as_ref().is_some());
+    }
+
+    #[test]
+    fn test_all_gauge_handles_some() {
+        assert!(PROCESS_RSS_BYTES.as_ref().is_some());
+        assert!(PROCESS_VIRTUAL_BYTES.as_ref().is_some());
+        assert!(HNSW_NODES_COUNT.as_ref().is_some());
+        assert!(HNSW_LOGICAL_BYTES.as_ref().is_some());
+        assert!(MMAP_RESIDENT_BYTES.as_ref().is_some());
+        assert!(VOLATILE_CACHE_ENTRIES.as_ref().is_some());
+        assert!(VOLATILE_CACHE_CAP_BYTES.as_ref().is_some());
+        assert!(JEMALLOC_ALLOCATED_BYTES.as_ref().is_some());
+        assert!(JEMALLOC_ACTIVE_BYTES.as_ref().is_some());
+        assert!(JEMALLOC_METADATA_BYTES.as_ref().is_some());
+        assert!(JEMALLOC_RESIDENT_BYTES.as_ref().is_some());
+        assert!(JEMALLOC_MAPPED_BYTES.as_ref().is_some());
+        assert!(JEMALLOC_RETAINED_BYTES.as_ref().is_some());
+    }
+
+    #[test]
+    fn test_http_vec_handles_some() {
+        assert!(HTTP_REQUEST_DURATION_MS.as_ref().is_some());
+        assert!(HTTP_REQUESTS_TOTAL.as_ref().is_some());
+    }
+}

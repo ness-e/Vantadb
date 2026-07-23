@@ -943,4 +943,611 @@ mod tests {
         assert_eq!(node.get_field("active"), Some(&FieldValue::Bool(true)));
         assert_eq!(node.get_field("missing"), None);
     }
+
+    // ── FilterBitset comprehensive tests ──
+
+    #[test]
+    fn test_filter_bitset_with_capacity() {
+        let bs = FilterBitset::with_capacity(128);
+        assert!(bs.is_empty());
+        assert_eq!(bs.word_count(), 0);
+        let mut bs = FilterBitset::with_capacity(128);
+        bs.set_bit(0);
+        assert_eq!(bs.word_count(), 1);
+        bs.set_bit(64);
+        assert_eq!(bs.word_count(), 2);
+    }
+
+    #[test]
+    fn test_filter_bitset_all_set() {
+        let all = FilterBitset::all_set();
+        assert!(all.is_all_set());
+        assert!(!all.is_empty());
+        assert_eq!(all.word_count(), 1);
+    }
+
+    #[test]
+    fn test_filter_bitset_is_empty() {
+        assert!(FilterBitset::new().is_empty());
+        let mut bs = FilterBitset::new();
+        bs.set_bit(0);
+        assert!(!bs.is_empty());
+    }
+
+    #[test]
+    fn test_filter_bitset_word_count() {
+        assert_eq!(FilterBitset::new().word_count(), 0);
+        let mut bs = FilterBitset::new();
+        bs.set_bit(63);
+        assert_eq!(bs.word_count(), 1);
+        bs.set_bit(64);
+        assert_eq!(bs.word_count(), 2);
+    }
+
+    #[test]
+    fn test_filter_bitset_set_bit_growth() {
+        let mut bs = FilterBitset::new();
+        bs.set_bit(0);
+        assert!(bs.has_bit(0));
+        assert_eq!(bs.word_count(), 1);
+
+        bs.set_bit(64);
+        assert!(bs.has_bit(64));
+        assert_eq!(bs.word_count(), 2);
+
+        bs.set_bit(128);
+        assert!(bs.has_bit(128));
+        assert_eq!(bs.word_count(), 3);
+    }
+
+    #[test]
+    fn test_filter_bitset_has_bit_out_of_range() {
+        assert!(!FilterBitset::new().has_bit(0));
+        assert!(!FilterBitset::new().has_bit(1000));
+    }
+
+    #[test]
+    fn test_filter_bitset_matches_mask_all_set() {
+        let mut bs = FilterBitset::new();
+        bs.set_bit(5);
+        assert!(bs.matches_mask(&FilterBitset::all_set()));
+    }
+
+    #[test]
+    fn test_filter_bitset_matches_mask_self_longer() {
+        let mut bs = FilterBitset::new();
+        bs.set_bit(0);
+        bs.set_bit(100);
+        let mut mask = FilterBitset::new();
+        mask.set_bit(0);
+        assert!(bs.matches_mask(&mask));
+    }
+
+    #[test]
+    fn test_filter_bitset_matches_mask_mask_longer_nonzero() {
+        let mut bs = FilterBitset::new();
+        bs.set_bit(0);
+        let mut mask = FilterBitset::new();
+        mask.set_bit(0);
+        mask.set_bit(64);
+        assert!(!bs.matches_mask(&mask));
+    }
+
+    #[test]
+    fn test_filter_bitset_matches_mask_mask_longer_with_zeros() {
+        let mut bs = FilterBitset::new();
+        bs.set_bit(0);
+        let mask = FilterBitset(vec![1, 0]);
+        assert!(bs.matches_mask(&mask));
+    }
+
+    #[test]
+    fn test_filter_bitset_matches_mask_empty() {
+        let mut bs = FilterBitset::new();
+        bs.set_bit(5);
+        let mask = FilterBitset::new();
+        assert!(bs.matches_mask(&mask));
+    }
+
+    #[test]
+    fn test_filter_bitset_u128_roundtrip() {
+        let val: u128 = 0xDEAD_BEEF_CAFE_F00D;
+        let bs = FilterBitset::from(val);
+        let back: u128 = bs.into();
+        assert_eq!(back, val);
+        let bs2 = FilterBitset::from_u128(val);
+        assert_eq!(bs2.to_u128(), val);
+    }
+
+    #[test]
+    fn test_filter_bitset_u128_high_bits() {
+        let high = 0xCAFE_F00D_0000_0000_0000_0000_0000_0000u128;
+        let bs = FilterBitset::from_u128(high);
+        assert_eq!(bs.to_u128(), high);
+        assert_eq!(bs.word_count(), 2);
+    }
+
+    #[test]
+    fn test_filter_bitset_u128_zero() {
+        let bs = FilterBitset::from_u128(0);
+        assert!(bs.is_empty());
+        assert_eq!(bs.to_u128(), 0);
+    }
+
+    #[test]
+    fn test_filter_bitset_bytes_roundtrip() {
+        let mut bs = FilterBitset::new();
+        bs.set_bit(0);
+        bs.set_bit(63);
+        bs.set_bit(64);
+        bs.set_bit(128);
+        let bytes = bs.to_bytes();
+        let (restored, consumed) = FilterBitset::from_bytes(&bytes).unwrap();
+        assert_eq!(consumed, bytes.len());
+        assert_eq!(restored, bs);
+    }
+
+    #[test]
+    fn test_filter_bitset_bytes_truncated() {
+        assert!(FilterBitset::from_bytes(&[0x00]).is_err());
+        assert!(FilterBitset::from_bytes(&[]).is_err());
+    }
+
+    #[test]
+    fn test_filter_bitset_bytes_exceeds_max_words() {
+        let mut data = Vec::new();
+        data.extend_from_slice(&5000u32.to_le_bytes());
+        assert!(FilterBitset::from_bytes(&data).is_err());
+    }
+
+    #[test]
+    fn test_filter_bitset_default() {
+        let bs: FilterBitset = Default::default();
+        assert!(bs.is_empty());
+        assert_eq!(bs.word_count(), 0);
+    }
+
+    #[test]
+    fn test_filter_bitset_clone_eq() {
+        let mut a = FilterBitset::new();
+        a.set_bit(1);
+        a.set_bit(2);
+        let b = a.clone();
+        assert_eq!(a, b);
+        let mut c = FilterBitset::new();
+        c.set_bit(1);
+        assert_ne!(a, c);
+    }
+
+    // ── VectorRepresentations tests ──
+
+    #[test]
+    fn test_vector_dimensions() {
+        assert_eq!(
+            VectorRepresentations::Full(vec![1.0, 2.0, 3.0]).dimensions(),
+            3
+        );
+        assert_eq!(
+            VectorRepresentations::Binary(vec![0u64; 4].into()).dimensions(),
+            256
+        );
+        assert_eq!(
+            VectorRepresentations::Turbo(vec![0u8; 10].into()).dimensions(),
+            20
+        );
+        assert_eq!(
+            VectorRepresentations::SQ8(vec![0i8; 8].into(), 1.0).dimensions(),
+            8
+        );
+        assert_eq!(VectorRepresentations::None.dimensions(), 0);
+        assert_eq!(VectorRepresentations::MmapFull(None).dimensions(), 0);
+    }
+
+    #[test]
+    fn test_vector_is_none() {
+        assert!(VectorRepresentations::None.is_none());
+        assert!(!VectorRepresentations::Full(vec![1.0]).is_none());
+        assert!(!VectorRepresentations::Binary(vec![0u64].into()).is_none());
+        assert!(!VectorRepresentations::Turbo(vec![0u8; 2].into()).is_none());
+        assert!(!VectorRepresentations::SQ8(vec![0i8; 2].into(), 1.0).is_none());
+    }
+
+    #[test]
+    fn test_vector_to_f32() {
+        assert_eq!(
+            VectorRepresentations::Full(vec![1.0, 2.0, 3.0]).to_f32(),
+            Some(vec![1.0, 2.0, 3.0])
+        );
+        let inv = 127.0 / 127.0;
+        let sq8 = VectorRepresentations::SQ8(vec![0i8, 64, 127].into(), 127.0);
+        let decoded = sq8.to_f32().unwrap();
+        assert!((decoded[0] - 0.0).abs() < 0.001);
+        assert!((decoded[1] - 64.0 * inv).abs() < 0.001);
+        assert!((decoded[2] - 127.0 * inv).abs() < 0.001);
+        assert!(VectorRepresentations::Binary(vec![0u64].into())
+            .to_f32()
+            .is_none());
+        assert!(VectorRepresentations::None.to_f32().is_none());
+    }
+
+    #[test]
+    fn test_vector_as_f32_slice() {
+        assert_eq!(
+            VectorRepresentations::Full(vec![1.0, 2.0, 3.0]).as_f32_slice(),
+            Some(&[1.0, 2.0, 3.0][..])
+        );
+        assert!(VectorRepresentations::None.as_f32_slice().is_none());
+        assert!(VectorRepresentations::Binary(vec![0u64].into())
+            .as_f32_slice()
+            .is_none());
+    }
+
+    #[test]
+    fn test_vector_memory_size() {
+        assert_eq!(VectorRepresentations::Full(vec![0.0; 10]).memory_size(), 40);
+        assert_eq!(VectorRepresentations::None.memory_size(), 0);
+        assert_eq!(VectorRepresentations::MmapFull(None).memory_size(), 0);
+        assert_eq!(
+            VectorRepresentations::Binary(vec![0u64; 4].into()).memory_size(),
+            32
+        );
+        assert_eq!(
+            VectorRepresentations::Turbo(vec![0u8; 100].into()).memory_size(),
+            100
+        );
+        assert_eq!(
+            VectorRepresentations::SQ8(vec![0i8; 16].into(), 2.0).memory_size(),
+            20
+        );
+    }
+
+    #[test]
+    fn test_vector_cosine_similarity_basic() {
+        let a = VectorRepresentations::Full(vec![1.0, 0.0]);
+        let b = VectorRepresentations::Full(vec![0.0, 1.0]);
+        let sim = a.cosine_similarity(&b);
+        assert!(sim.is_some());
+        assert!((sim.unwrap() - 0.0).abs() < 1e-6);
+        assert!((a.cosine_similarity(&a).unwrap() - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_vector_cosine_similarity_incompatible() {
+        let a = VectorRepresentations::Full(vec![1.0, 2.0, 3.0]);
+        let b = VectorRepresentations::Full(vec![1.0, 2.0]);
+        assert!(a.cosine_similarity(&b).is_none());
+        assert!(VectorRepresentations::None.cosine_similarity(&a).is_none());
+        assert!(a.cosine_similarity(&VectorRepresentations::None).is_none());
+    }
+
+    #[test]
+    fn test_vector_cosine_similarity_zero() {
+        let zero = VectorRepresentations::Full(vec![0.0, 0.0]);
+        let a = VectorRepresentations::Full(vec![1.0, 0.0]);
+        assert!(zero.cosine_similarity(&a).is_none());
+        assert!(a.cosine_similarity(&zero).is_none());
+    }
+
+    #[test]
+    fn test_vector_partial_eq() {
+        assert_eq!(VectorRepresentations::None, VectorRepresentations::None);
+        assert_eq!(
+            VectorRepresentations::Full(vec![1.0, 2.0]),
+            VectorRepresentations::Full(vec![1.0, 2.0])
+        );
+        assert_ne!(
+            VectorRepresentations::Full(vec![1.0]),
+            VectorRepresentations::Full(vec![2.0])
+        );
+        assert_eq!(
+            VectorRepresentations::MmapFull(None),
+            VectorRepresentations::MmapFull(None)
+        );
+    }
+
+    // ── NodeFlags tests ──
+
+    #[test]
+    fn test_node_flags_new() {
+        let flags = NodeFlags::new();
+        assert!(flags.is_active());
+        assert!(!flags.is_tombstone());
+        assert!(!flags.is_set(NodeFlags::DIRTY));
+    }
+
+    #[test]
+    fn test_node_flags_set_clear() {
+        let mut flags = NodeFlags::new();
+        flags.set(NodeFlags::DIRTY);
+        assert!(flags.is_set(NodeFlags::DIRTY));
+        flags.clear(NodeFlags::DIRTY);
+        assert!(!flags.is_set(NodeFlags::DIRTY));
+    }
+
+    #[test]
+    fn test_node_flags_all_constants() {
+        let mut flags = NodeFlags(0);
+        flags.set(NodeFlags::INDEXED);
+        assert!(flags.is_set(NodeFlags::INDEXED));
+        flags.clear(NodeFlags::INDEXED);
+        assert!(!flags.is_set(NodeFlags::INDEXED));
+        flags.set(NodeFlags::HAS_VECTOR);
+        assert!(flags.is_set(NodeFlags::HAS_VECTOR));
+        flags.set(NodeFlags::HAS_EDGES);
+        assert!(flags.is_set(NodeFlags::HAS_EDGES));
+        flags.set(NodeFlags::PINNED);
+        assert!(flags.is_set(NodeFlags::PINNED));
+        flags.set(NodeFlags::RECOVERED);
+        assert!(flags.is_set(NodeFlags::RECOVERED));
+        flags.set(NodeFlags::INVALIDATED);
+        assert!(flags.is_set(NodeFlags::INVALIDATED));
+        flags.set(NodeFlags::CONFLICT_RESOLVED);
+        assert!(flags.is_set(NodeFlags::CONFLICT_RESOLVED));
+    }
+
+    #[test]
+    fn test_node_flags_tombstone() {
+        let mut flags = NodeFlags::new();
+        assert!(flags.is_active());
+        assert!(!flags.is_tombstone());
+        flags.clear(NodeFlags::ACTIVE);
+        assert!(!flags.is_active());
+        flags.set(NodeFlags::TOMBSTONE);
+        assert!(flags.is_tombstone());
+    }
+
+    // ── Edge tests ──
+
+    #[test]
+    fn test_edge_new() {
+        let edge = Edge::new(42, "knows");
+        assert_eq!(edge.target, 42);
+        assert_eq!(edge.label, "knows");
+        assert!((edge.weight - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_edge_with_weight() {
+        let edge = Edge::with_weight(99, "likes", 0.5);
+        assert_eq!(edge.target, 99);
+        assert_eq!(edge.label, "likes");
+        assert!((edge.weight - 0.5).abs() < f32::EPSILON);
+    }
+
+    // ── UnifiedNode additional tests ──
+
+    #[test]
+    fn test_node_with_vector() {
+        let node = UnifiedNode::with_vector(42, vec![1.0, 2.0, 3.0]);
+        assert_eq!(node.id, 42);
+        assert!(node.flags.is_set(NodeFlags::HAS_VECTOR));
+        assert!(!node.vector.is_none());
+        assert_eq!(node.vector.dimensions(), 3);
+    }
+
+    #[test]
+    fn test_node_add_edge() {
+        let mut node = UnifiedNode::new(1);
+        node.add_edge(2, "friend");
+        assert_eq!(node.edges.len(), 1);
+        assert!(node.flags.is_set(NodeFlags::HAS_EDGES));
+        assert_eq!(node.edges[0].target, 2);
+        assert_eq!(node.edges[0].label, "friend");
+    }
+
+    #[test]
+    fn test_node_add_weighted_edge() {
+        let mut node = UnifiedNode::new(1);
+        node.add_weighted_edge(3, "colleague", 2.5);
+        assert_eq!(node.edges.len(), 1);
+        assert_eq!(node.edges[0].weight, 2.5);
+        assert_eq!(node.edges[0].target, 3);
+    }
+
+    #[test]
+    fn test_node_memory_size() {
+        let node = UnifiedNode::new(1);
+        assert!(node.memory_size() >= std::mem::size_of::<UnifiedNode>());
+        let mut node2 = UnifiedNode::with_vector(2, vec![0.0; 100]);
+        node2.add_edge(3, "test");
+        node2.set_field("key", FieldValue::String("val".into()));
+        assert!(node2.memory_size() > node.memory_size());
+    }
+
+    #[test]
+    fn test_node_eviction_score() {
+        let weights = EvictionWeights {
+            hits: 1.0,
+            confidence: 1.0,
+            importance: 1.0,
+            recency: 1.0,
+        };
+        let node = UnifiedNode::new(1);
+        let score = node.eviction_score(&weights);
+        assert!(score.is_finite());
+        assert!(score > 0.0);
+        let mut node2 = UnifiedNode::new(2);
+        node2.hits = 100;
+        assert!(node2.eviction_score(&weights) > score);
+        let zero = EvictionWeights {
+            hits: 0.0,
+            confidence: 0.0,
+            importance: 0.0,
+            recency: 0.0,
+        };
+        assert!((node.eviction_score(&zero) - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_node_pin_unpin() {
+        let mut node = UnifiedNode::new(1);
+        assert!(!node.is_pinned());
+        node.pin();
+        assert!(node.is_pinned());
+        assert!(node.flags.is_set(NodeFlags::PINNED));
+        node.unpin();
+        assert!(!node.is_pinned());
+    }
+
+    #[test]
+    fn test_node_default() {
+        let node: UnifiedNode = Default::default();
+        assert_eq!(node.id, 0);
+        assert!(node.is_alive());
+        assert_eq!(node.epoch, 0);
+    }
+
+    #[test]
+    fn test_node_matches_mask_edge_cases() {
+        let mut node = UnifiedNode::new(1);
+        assert!(node.matches_mask(&FilterBitset::new()));
+        node.set_bit(10);
+        assert!(node.matches_mask(&FilterBitset::all_set()));
+        let mut mask = FilterBitset::new();
+        mask.set_bit(10);
+        assert!(node.matches_mask(&mask));
+        let mut mask2 = FilterBitset::new();
+        mask2.set_bit(200);
+        assert!(!node.matches_mask(&mask2));
+    }
+
+    #[test]
+    fn test_node_access_tracker() {
+        let mut node = UnifiedNode::new(1);
+        assert_eq!(node.hits(), 0);
+        assert_eq!(node.confidence_score(), 0.5);
+        assert!(node.last_accessed() > 0);
+        node.pin();
+        assert!(node.is_pinned());
+        node.unpin();
+        assert!(!node.is_pinned());
+    }
+
+    #[test]
+    fn test_node_fields_override() {
+        let mut node = UnifiedNode::new(1);
+        node.set_field("key", FieldValue::Int(1));
+        assert_eq!(node.get_field("key"), Some(&FieldValue::Int(1)));
+        node.set_field("key", FieldValue::Int(2));
+        assert_eq!(node.get_field("key"), Some(&FieldValue::Int(2)));
+    }
+
+    #[test]
+    fn test_node_has_vector_flag() {
+        assert!(!UnifiedNode::new(1).flags.is_set(NodeFlags::HAS_VECTOR));
+        assert!(UnifiedNode::with_vector(2, vec![1.0, 2.0])
+            .flags
+            .is_set(NodeFlags::HAS_VECTOR));
+    }
+
+    // ── FieldValue tests ──
+
+    #[test]
+    fn test_field_value_as_str() {
+        assert_eq!(FieldValue::String("hello".into()).as_str(), Some("hello"));
+        assert_eq!(FieldValue::Int(42).as_str(), None);
+        assert_eq!(FieldValue::Null.as_str(), None);
+    }
+
+    #[test]
+    fn test_field_value_as_int() {
+        assert_eq!(FieldValue::Int(42).as_int(), Some(42));
+        assert_eq!(FieldValue::String("x".into()).as_int(), None);
+    }
+
+    #[test]
+    fn test_field_value_as_bool() {
+        assert_eq!(FieldValue::Bool(true).as_bool(), Some(true));
+        assert_eq!(FieldValue::Int(0).as_bool(), None);
+    }
+
+    #[test]
+    fn test_field_value_cardinality_keys() {
+        assert_eq!(
+            FieldValue::String("test".into()).to_cardinality_keys(),
+            vec!["test"]
+        );
+        assert_eq!(FieldValue::Int(42).to_cardinality_keys(), vec!["42"]);
+        assert_eq!(FieldValue::Float(3.14).to_cardinality_keys(), vec!["3.14"]);
+        assert_eq!(FieldValue::Bool(true).to_cardinality_keys(), vec!["true"]);
+        assert_eq!(FieldValue::Null.to_cardinality_keys(), vec!["null"]);
+        let dt = chrono::DateTime::parse_from_rfc3339("2024-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        assert!(FieldValue::DateTime(dt).to_cardinality_keys()[0].contains("2024"));
+        assert_eq!(
+            FieldValue::ListString(vec!["a".into()]).to_cardinality_keys(),
+            vec!["a"]
+        );
+        assert_eq!(
+            FieldValue::ListInt(vec![1, 2]).to_cardinality_keys(),
+            vec!["1", "2"]
+        );
+        assert_eq!(
+            FieldValue::ListBool(vec![true]).to_cardinality_keys(),
+            vec!["true"]
+        );
+    }
+
+    #[test]
+    fn test_field_value_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        set.insert(FieldValue::Int(42));
+        assert!(set.contains(&FieldValue::Int(42)));
+        assert!(!set.contains(&FieldValue::Int(43)));
+        set.insert(FieldValue::String("hello".into()));
+        assert!(set.contains(&FieldValue::String("hello".into())));
+        set.insert(FieldValue::Bool(true));
+        assert!(set.contains(&FieldValue::Bool(true)));
+        set.insert(FieldValue::Null);
+        assert!(set.contains(&FieldValue::Null));
+    }
+
+    // ── DiskNodeHeader tests ──
+
+    #[test]
+    fn test_disk_node_header_new() {
+        let header = DiskNodeHeader::new(999);
+        assert_eq!(header.id, 999);
+        assert_eq!(header.bitset, 0);
+        assert_eq!(header.vector_offset, 0);
+        assert!((header.confidence_score - 0.5).abs() < f32::EPSILON);
+        assert!((header.importance - 0.1).abs() < f32::EPSILON);
+        assert_eq!(header.relational_len, 0);
+        assert_eq!(header.vector_len, 0);
+        assert_eq!(header.flags, 0);
+        assert_eq!(header.edge_count, 0);
+        assert_eq!(header.tier, 0);
+    }
+
+    // ── Misc tests ──
+
+    #[test]
+    fn test_node_tier_default() {
+        assert_eq!(NodeTier::default(), NodeTier::Cold);
+    }
+
+    #[test]
+    fn test_distance_metric_default() {
+        assert_eq!(DistanceMetric::default(), DistanceMetric::Cosine);
+    }
+
+    #[test]
+    fn test_distance_metric_eq() {
+        assert_ne!(DistanceMetric::Cosine, DistanceMetric::Euclidean);
+    }
+
+    #[test]
+    fn test_eviction_score_recency() {
+        let weights = EvictionWeights {
+            hits: 0.0,
+            confidence: 0.0,
+            importance: 0.0,
+            recency: 1.0,
+        };
+        let score = UnifiedNode::new(1).eviction_score(&weights);
+        let expected = 1.0 / (2.0f64).ln();
+        assert!((score - expected).abs() < 1e-6);
+    }
 }

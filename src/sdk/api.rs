@@ -690,3 +690,242 @@ impl VantaEmbedded {
             .collect())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::VantaConfig;
+
+    fn make_embedded(read_only: bool) -> VantaEmbedded {
+        let config = VantaConfig {
+            storage_path: ":memory:".into(),
+            read_only,
+            ..Default::default()
+        };
+        VantaEmbedded::test_empty(config)
+    }
+
+    // ── capabilities ──
+
+    #[test]
+    fn test_capabilities_default() {
+        let e = make_embedded(false);
+        let caps = e.capabilities();
+        assert_eq!(caps.runtime_profile, VantaRuntimeProfile::Performance);
+        assert!(caps.persistence);
+        assert!(caps.vector_search);
+        assert!(caps.iql_queries);
+        assert!(!caps.read_only);
+    }
+
+    #[test]
+    fn test_capabilities_read_only() {
+        let e = make_embedded(true);
+        let caps = e.capabilities();
+        assert!(caps.read_only);
+    }
+
+    #[test]
+    fn test_capabilities_clone() {
+        let e = make_embedded(false);
+        let caps = e.capabilities();
+        let cloned = caps.clone();
+        assert_eq!(caps, cloned);
+    }
+
+    // ── check_read_only ──
+
+    #[test]
+    fn test_check_read_only_passes() {
+        let e = make_embedded(false);
+        assert!(e.check_read_only().is_ok());
+    }
+
+    #[test]
+    fn test_check_read_only_errors() {
+        let e = make_embedded(true);
+        let err = e.check_read_only().unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("read-only") || msg.contains("read_only"),
+            "got: {msg}"
+        );
+    }
+
+    // ── search_vector (early returns) ──
+
+    #[test]
+    fn test_search_vector_empty_input() {
+        let e = make_embedded(false);
+        let result = e.search_vector(&[], 10).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_search_vector_zero_topk() {
+        let e = make_embedded(false);
+        let result = e.search_vector(&[0.1, 0.2], 0).unwrap();
+        assert!(result.is_empty());
+    }
+
+    // ── engine-dependent methods return NotInitialized ──
+
+    #[test]
+    fn test_insert_node_no_engine() {
+        let e = make_embedded(false);
+        let input = VantaNodeInput {
+            id: 1,
+            content: Some("test".into()),
+            vector: None,
+            fields: VantaFields::new(),
+        };
+        let err = e.insert_node(input).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_get_node_no_engine() {
+        let e = make_embedded(false);
+        let err = e.get_node(42).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_delete_node_no_engine() {
+        let e = make_embedded(false);
+        let err = e.delete_node(42, "test").unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_put_no_engine() {
+        let e = make_embedded(false);
+        let input = VantaMemoryInput::new("ns", "k", "payload");
+        let err = e.put(input).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_put_batch_no_engine() {
+        let e = make_embedded(false);
+        let inputs = vec![VantaMemoryInput::new("ns", "k", "payload")];
+        let err = e.put_batch(inputs).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_get_no_engine() {
+        let e = make_embedded(false);
+        let err = e.get("ns", "k").unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_delete_memory_no_engine() {
+        let e = make_embedded(false);
+        let err = e.delete("ns", "k").unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_list_namespaces_no_engine() {
+        let e = make_embedded(false);
+        let err = e.list_namespaces().unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_list_no_engine() {
+        let e = make_embedded(false);
+        let opts = VantaMemoryListOptions::default();
+        let err = e.list("ns", opts).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_rebuild_index_no_engine() {
+        let e = make_embedded(false);
+        let err = e.rebuild_index().unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_compact_layout_no_engine() {
+        let e = make_embedded(false);
+        let err = e.compact_layout().unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_flush_no_engine() {
+        let e = make_embedded(false);
+        let err = e.flush().unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_compact_wal_no_engine() {
+        let e = make_embedded(false);
+        let err = e.compact_wal().unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_purge_expired_no_engine() {
+        let e = make_embedded(false);
+        let err = e.purge_expired().unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_add_edge_no_engine() {
+        let e = make_embedded(false);
+        let err = e.add_edge(1, 2, "label", None).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_query_no_engine() {
+        let e = make_embedded(false);
+        let err = e.query("GET *").unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_operational_metrics_default() {
+        let e = make_embedded(false);
+        let m = e.operational_metrics();
+        // No engine handle available, metrics are a snapshot with defaults
+        assert_eq!(m.hnsw_nodes_count, 0);
+    }
+
+    // ── VantaNodeInput helpers (via serialization re-export) ──
+
+    #[test]
+    fn test_node_input_default_fields() {
+        let input = VantaNodeInput {
+            id: 1,
+            content: None,
+            vector: Some(vec![1.0, 2.0]),
+            fields: VantaFields::new(),
+        };
+        assert_eq!(input.id, 1);
+        assert!(input.content.is_none());
+        assert_eq!(input.vector.as_ref().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_node_input_with_content() {
+        let input = VantaNodeInput {
+            id: 99,
+            content: Some("hello".into()),
+            vector: None,
+            fields: [("lang".into(), VantaValue::String("en".into()))].into(),
+        };
+        assert_eq!(input.content.as_deref(), Some("hello"));
+        assert_eq!(
+            input.fields.get("lang").unwrap(),
+            &VantaValue::String("en".into())
+        );
+    }
+}

@@ -268,7 +268,7 @@ jobs:
           totals = data[0].get('totals', {})
           lines = totals.get('lines', {})
           pct = lines.get('percent', 0.0)
-          ok = pct >= 70.0
+          ok = pct >= 80.0
           print(f'Line coverage: {pct:.1f}% {\"✅\" if ok else \"❌\"}')
           sys.exit(0 if ok else 1)
           "

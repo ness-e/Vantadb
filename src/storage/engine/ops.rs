@@ -590,6 +590,13 @@ impl StorageEngine {
         let mut node = UnifiedNode::new(id);
         node.bitset = FilterBitset::from_u128(header.bitset);
         node.vector = VectorRepresentations::Full(f32_vec.to_vec());
+        // Preserve quantization format from HNSW — get() reads f32 from vstore
+        // but the HNSW may track a quantized (SQ8) representation instead.
+        // Without this, run_quantization_maintenance Promote can never match
+        // the SQ8 arm because self.get() always returns Full.
+        if let crate::node::VectorRepresentations::SQ8(data, scale) = &index_node.value().vec_data {
+            node.vector = crate::node::VectorRepresentations::SQ8(data.clone(), *scale);
+        }
         node.relational = metadata.relational;
         node.edges = metadata.edges;
         node.confidence_score = header.confidence_score;

@@ -663,4 +663,774 @@ mod tests {
             results[2].1
         );
     }
+
+    // ── Unit tests for distance computation functions ────────────────
+
+    #[test]
+    fn test_euclidean_distance_squared_identical() {
+        let v = vec![3.0, 4.0, 5.0];
+        let d = euclidean_distance_squared_f32(&v, &v);
+        assert!(
+            d.abs() < 1e-6,
+            "identical vectors should have distance 0, got {}",
+            d
+        );
+    }
+
+    #[test]
+    fn test_euclidean_distance_squared_known() {
+        let a = vec![0.0, 0.0];
+        let b = vec![3.0, 4.0];
+        let d = euclidean_distance_squared_f32(&a, &b);
+        assert!(
+            (d - 25.0).abs() < 1e-5,
+            "distance between (0,0) and (3,4) should be 25, got {}",
+            d
+        );
+    }
+
+    #[test]
+    fn test_euclidean_distance_squared_empty() {
+        let d = euclidean_distance_squared_f32(&[], &[]);
+        assert!(
+            d.abs() < 1e-6,
+            "empty vectors should have distance 0, got {}",
+            d
+        );
+    }
+
+    #[test]
+    fn test_euclidean_distance_squared_mismatched_length() {
+        let a = vec![1.0, 2.0, 3.0];
+        let b = vec![1.0, 2.0];
+        let d = euclidean_distance_squared_f32(&a, &b);
+        assert!(
+            d.abs() < 1e-6,
+            "mismatched lengths should return 0, got {}",
+            d
+        );
+    }
+
+    #[test]
+    fn test_euclidean_distance_sq_with_norms_matches_direct() {
+        let a = vec![2.0, 3.0, 4.0];
+        let b = vec![1.0, -1.0, 2.0];
+        let direct = euclidean_distance_squared_f32(&a, &b);
+        let a_norm_sq = f32_l2_norm(&a);
+        let a_norm_sq = a_norm_sq * a_norm_sq;
+        let b_norm_sq = f32_l2_norm(&b);
+        let b_norm_sq = b_norm_sq * b_norm_sq;
+        let with_norms = euclidean_distance_sq_with_norms(&a, a_norm_sq, &b, b_norm_sq);
+        assert!(
+            (direct - with_norms).abs() < 1e-5,
+            "norms-based formula should match direct: direct={}, with_norms={}",
+            direct,
+            with_norms
+        );
+    }
+
+    #[test]
+    fn test_f32_l2_norm_known() {
+        let v = vec![3.0, 4.0];
+        let n = f32_l2_norm(&v);
+        assert!(
+            (n - 5.0).abs() < 1e-6,
+            "norm of (3,4) should be 5, got {}",
+            n
+        );
+    }
+
+    #[test]
+    fn test_f32_l2_norm_zero() {
+        let v = vec![0.0, 0.0, 0.0];
+        let n = f32_l2_norm(&v);
+        assert!(n.abs() < 1e-6, "norm of zero vector should be 0, got {}", n);
+    }
+
+    #[test]
+    fn test_f32_l2_norm_empty() {
+        let n = f32_l2_norm(&[]);
+        assert!(
+            n.abs() < 1e-6,
+            "norm of empty vector should be 0, got {}",
+            n
+        );
+    }
+
+    #[test]
+    fn test_cosine_sim_parallel() {
+        let a = vec![2.0, 0.0, 0.0];
+        let b = vec![5.0, 0.0, 0.0];
+        let sim = cosine_sim_f32(&a, &b);
+        assert!(
+            (sim - 1.0).abs() < 1e-6,
+            "parallel vectors should have cosine ~1.0, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_cosine_sim_opposite() {
+        let a = vec![1.0, 0.0];
+        let b = vec![-1.0, 0.0];
+        let sim = cosine_sim_f32(&a, &b);
+        assert!(
+            (sim - (-1.0)).abs() < 1e-6,
+            "opposite vectors should have cosine ~-1.0, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_cosine_sim_orthogonal() {
+        let a = vec![1.0, 0.0];
+        let b = vec![0.0, 1.0];
+        let sim = cosine_sim_f32(&a, &b);
+        assert!(
+            sim.abs() < 1e-6,
+            "orthogonal vectors should have cosine ~0.0, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_cosine_sim_zero_norm() {
+        let a = vec![0.0, 0.0];
+        let b = vec![1.0, 0.0];
+        let sim = cosine_sim_f32(&a, &b);
+        assert!(
+            sim.abs() < 1e-6,
+            "cosine with zero-norm query should return 0, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_cosine_sim_mismatched_length() {
+        let a = vec![1.0, 2.0, 3.0];
+        let b = vec![1.0, 2.0];
+        let sim = cosine_sim_f32(&a, &b);
+        assert!(
+            sim.abs() < 1e-6,
+            "mismatched lengths should return 0, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_cosine_sim_empty() {
+        let sim = cosine_sim_f32(&[], &[]);
+        assert!(
+            sim.abs() < 1e-6,
+            "empty vectors should return 0, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_cosine_sim_cached_norms_matches_direct() {
+        let a = vec![3.0, 4.0, 0.0];
+        let b = vec![1.0, 2.0, 3.0];
+        let direct = cosine_sim_f32(&a, &b);
+        let inv_norm_a = 1.0 / f32_l2_norm(&a);
+        let inv_norm_b = 1.0 / f32_l2_norm(&b);
+        let cached = cosine_sim_cached_norms(&a, inv_norm_a, &b, inv_norm_b);
+        assert!(
+            (direct - cached).abs() < 1e-5,
+            "cached norms path should match direct: direct={}, cached={}",
+            direct,
+            cached
+        );
+    }
+
+    #[test]
+    fn test_cosine_sim_cached_norms_zero_inv_norm() {
+        let a = vec![0.0, 0.0];
+        let b = vec![1.0, 2.0];
+        let sim = cosine_sim_cached_norms(&a, 0.0, &b, 0.5);
+        assert!(
+            sim.abs() < 1e-6,
+            "zero inv_norm should return 0, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_cosine_sim_with_query_norm_basic() {
+        let a = vec![1.0, 0.0, 0.0];
+        let b = vec![0.5, 0.5, 0.0];
+        let norm_a = f32_l2_norm(&a);
+        let sim = cosine_sim_with_query_norm(&a, norm_a, &b);
+        let expected = cosine_sim_f32(&a, &b);
+        assert!(
+            (sim - expected).abs() < 1e-6,
+            "query-norm path should match: {} vs {}",
+            sim,
+            expected
+        );
+    }
+
+    #[test]
+    fn test_cosine_sim_with_query_norm_zero_norm() {
+        let a = vec![0.0, 0.0];
+        let b = vec![1.0, 0.0];
+        let sim = cosine_sim_with_query_norm(&a, 0.0, &b);
+        assert!(
+            sim.abs() < 1e-6,
+            "zero query norm should return 0, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_metric_mapper_cosine_to_euclidean_sq() {
+        // euclidean_sq = 2 * (1 - cosine)
+        assert!(
+            (MetricMapper::cosine_to_euclidean_sq(1.0) - 0.0).abs() < 1e-6,
+            "cosine=1 → euclidean_sq=0"
+        );
+        assert!(
+            (MetricMapper::cosine_to_euclidean_sq(0.0) - 2.0).abs() < 1e-6,
+            "cosine=0 → euclidean_sq=2"
+        );
+        assert!(
+            (MetricMapper::cosine_to_euclidean_sq(-1.0) - 4.0).abs() < 1e-6,
+            "cosine=-1 → euclidean_sq=4"
+        );
+        assert!(
+            (MetricMapper::cosine_to_euclidean_sq(0.5) - 1.0).abs() < 1e-6,
+            "cosine=0.5 → euclidean_sq=1"
+        );
+    }
+
+    #[test]
+    fn test_calculate_similarity_full_cosine() {
+        let a = vec![1.0, 0.0, 0.0];
+        let b = vec![1.0, 0.0, 0.0];
+        let sim = calculate_similarity(
+            &a,
+            None,
+            None,
+            None,
+            &VectorRepresentations::Full(b),
+            DistanceMetric::Cosine,
+        );
+        assert!(
+            (sim - 1.0).abs() < 1e-6,
+            "identical vectors cosine should be 1, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_calculate_similarity_full_euclidean() {
+        let a = vec![0.0, 0.0];
+        let b = vec![3.0, 4.0];
+        let sim = calculate_similarity(
+            &a,
+            None,
+            None,
+            None,
+            &VectorRepresentations::Full(b),
+            DistanceMetric::Euclidean,
+        );
+        // Euclidean similarity = -squared_distance → -(9 + 16) = -25
+        assert!(
+            (sim - (-25.0)).abs() < 1e-5,
+            "euclidean similarity should be -25, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_calculate_similarity_none() {
+        let a = vec![1.0, 2.0];
+        let sim = calculate_similarity(
+            &a,
+            None,
+            None,
+            None,
+            &VectorRepresentations::None,
+            DistanceMetric::Cosine,
+        );
+        assert!(
+            sim.abs() < 1e-6,
+            "None representation should return 0, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_f32_slice_similarity_cosine() {
+        let q = vec![1.0, 0.0, 0.0];
+        let c = vec![0.9, 0.1, 0.0];
+        let sim = f32_slice_similarity(&q, None, &c, DistanceMetric::Cosine);
+        assert!(
+            sim > 0.9,
+            "close vectors should have high cosine similarity, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_f32_slice_similarity_euclidean() {
+        let q = vec![0.0, 0.0];
+        let c = vec![3.0, 4.0];
+        let sim = f32_slice_similarity(&q, None, &c, DistanceMetric::Euclidean);
+        // Euclidean similarity = -squared_distance → -(9 + 16) = -25
+        assert!(
+            (sim - (-25.0)).abs() < 1e-5,
+            "euclidean similarity should be -25, got {}",
+            sim
+        );
+    }
+
+    // ── SQ8 similarity (via calculate_similarity) ────────────────────────
+
+    fn sq8_encode(v: &[f32]) -> (Box<[i8]>, f32) {
+        let max_abs = v
+            .iter()
+            .map(|x| x.abs())
+            .fold(f32::EPSILON.max(0.0_f32), f32::max);
+        let scale = max_abs;
+        let inv = scale / 127.0;
+        let data: Vec<i8> = v
+            .iter()
+            .map(|&x| (x / inv).round().clamp(-128.0, 127.0) as i8)
+            .collect();
+        (data.into_boxed_slice(), scale)
+    }
+
+    #[test]
+    fn test_sq8_similarity_cosine_self() {
+        let v = vec![3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let (data, scale) = sq8_encode(&v);
+        let sim = calculate_similarity(
+            &v,
+            Some(5.0),
+            None,
+            None,
+            &VectorRepresentations::SQ8(data, scale),
+            DistanceMetric::Cosine,
+        );
+        assert!(sim > 0.95, "SQ8 self-cosine should be ~1.0, got {}", sim);
+    }
+
+    #[test]
+    fn test_sq8_similarity_cosine_orthogonal() {
+        let q = vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let b = vec![0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let (data_b, scale_b) = sq8_encode(&b);
+        let sim = calculate_similarity(
+            &q,
+            None,
+            None,
+            None,
+            &VectorRepresentations::SQ8(data_b, scale_b),
+            DistanceMetric::Cosine,
+        );
+        assert!(
+            sim.abs() < 0.15,
+            "SQ8 orthogonal cosine should be ~0.0, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_sq8_similarity_euclidean_self() {
+        let v = vec![3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let (data, scale) = sq8_encode(&v);
+        let sim = calculate_similarity(
+            &v,
+            Some(5.0),
+            None,
+            None,
+            &VectorRepresentations::SQ8(data, scale),
+            DistanceMetric::Euclidean,
+        );
+        assert!(
+            sim.abs() < 0.1,
+            "SQ8 self-Euclidean should be ~0.0, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_sq8_similarity_euclidean_negative() {
+        let q = vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let b = vec![10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let (data_b, scale_b) = sq8_encode(&b);
+        let sim = calculate_similarity(
+            &q,
+            Some(0.0),
+            None,
+            None,
+            &VectorRepresentations::SQ8(data_b, scale_b),
+            DistanceMetric::Euclidean,
+        );
+        assert!(
+            sim < 0.0,
+            "SQ8 Euclidean similarity should be negative, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_sq8_zero_query_norm() {
+        let q = vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let b = vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let (data_b, scale_b) = sq8_encode(&b);
+        let sim = calculate_similarity(
+            &q,
+            None,
+            None,
+            None,
+            &VectorRepresentations::SQ8(data_b, scale_b),
+            DistanceMetric::Cosine,
+        );
+        assert!(
+            sim.abs() < 1e-6,
+            "zero-norm query for SQ8 should return 0, got {}",
+            sim
+        );
+    }
+
+    // ── calculate_similarity: Binary variant ─────────────────────────────
+
+    #[test]
+    fn test_calculate_similarity_binary_with_query() {
+        use crate::vector::quantization::rabitq_quantize;
+        let v = vec![1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0];
+        let data = rabitq_quantize(&v);
+        let sim = calculate_similarity(
+            &v,
+            None,
+            Some(&data),
+            None,
+            &VectorRepresentations::Binary(data.clone()),
+            DistanceMetric::Cosine,
+        );
+        assert!(
+            (sim - 1.0).abs() < 1e-6,
+            "identical binary should return 1, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_calculate_similarity_binary_no_quantized_query() {
+        let v = vec![1.0, 2.0, 3.0];
+        let data: Box<[u64]> = vec![0u64; 1].into_boxed_slice();
+        let sim = calculate_similarity(
+            &v,
+            None,
+            None,
+            None,
+            &VectorRepresentations::Binary(data),
+            DistanceMetric::Cosine,
+        );
+        assert!(
+            sim.abs() < 1e-6,
+            "no quantized query should return 0 for Binary, got {}",
+            sim
+        );
+    }
+
+    // ── calculate_similarity: Turbo variant ──────────────────────────────
+
+    #[test]
+    fn test_calculate_similarity_turbo_with_query() {
+        use crate::vector::quantization::turbo_quant_quantize;
+        let v = vec![1.0, 2.0, 3.0, 4.0];
+        let (data, max_abs) = turbo_quant_quantize(&v);
+        let sim = calculate_similarity(
+            &v,
+            None,
+            None,
+            Some((&data, max_abs)),
+            &VectorRepresentations::Turbo(data.clone()),
+            DistanceMetric::Cosine,
+        );
+        assert!(
+            sim > 0.0,
+            "turbo self should return positive similarity, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_calculate_similarity_turbo_no_quantized_query() {
+        let data: Box<[u8]> = vec![0u8; 4].into_boxed_slice();
+        let sim = calculate_similarity(
+            &[1.0, 2.0],
+            None,
+            None,
+            None,
+            &VectorRepresentations::Turbo(data),
+            DistanceMetric::Cosine,
+        );
+        assert!(
+            sim.abs() < 1e-6,
+            "no quantized query should return 0 for Turbo, got {}",
+            sim
+        );
+    }
+
+    // ── calculate_similarity: MmapFull(None) branch ──────────────────────
+
+    #[test]
+    fn test_calculate_similarity_mmap_none() {
+        let sim = calculate_similarity(
+            &[1.0, 2.0],
+            None,
+            None,
+            None,
+            &VectorRepresentations::MmapFull(None),
+            DistanceMetric::Cosine,
+        );
+        assert!(
+            sim.abs() < 1e-6,
+            "MmapFull(None) should return 0, got {}",
+            sim
+        );
+    }
+
+    // ── Full + Euclidean + query_norm branches ───────────────────────────
+
+    #[test]
+    fn test_calculate_similarity_full_euclidean_zero_norm() {
+        let q = vec![0.0, 0.0];
+        let node = vec![3.0, 4.0];
+        let sim = calculate_similarity(
+            &q,
+            Some(0.0),
+            None,
+            None,
+            &VectorRepresentations::Full(node),
+            DistanceMetric::Euclidean,
+        );
+        assert!(
+            (sim - (-25.0)).abs() < 1e-5,
+            "Euclidean similarity should be -25, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_calculate_similarity_full_euclidean_nonzero_norm() {
+        let q = vec![1.0, 0.0];
+        let node = vec![4.0, 0.0];
+        let query_norm = f32_l2_norm(&q);
+        let sim = calculate_similarity(
+            &q,
+            Some(query_norm),
+            None,
+            None,
+            &VectorRepresentations::Full(node),
+            DistanceMetric::Euclidean,
+        );
+        assert!(
+            (sim - (-9.0)).abs() < 1e-5,
+            "Euclidean similarity should be -9, got {}",
+            sim
+        );
+    }
+
+    // ── f32x16 kernels (AVX-512 path) ────────────────────────────────────
+
+    fn vec16(val: f32) -> Vec<f32> {
+        vec![val; 16]
+    }
+
+    fn vec32(val: f32) -> Vec<f32> {
+        vec![val; 32]
+    }
+
+    #[test]
+    fn test_euclidean_distance_sq_f32x16_identical() {
+        let v = vec32(3.0);
+        let d = euclidean_distance_sq_f32x16(&v, &v);
+        assert!(d.abs() < 1e-6, "identical f32x16 should be 0, got {}", d);
+    }
+
+    #[test]
+    fn test_euclidean_distance_sq_f32x16_known() {
+        let a = vec![0.0_f32; 16];
+        let mut b = vec![0.0_f32; 16];
+        b[0] = 3.0;
+        b[1] = 4.0;
+        let d = euclidean_distance_sq_f32x16(&a, &b);
+        assert!((d - 25.0).abs() < 1e-5, "expected 25, got {}", d);
+    }
+
+    #[test]
+    fn test_euclidean_distance_sq_f32x16_mismatched() {
+        let a = vec32(1.0);
+        let b = vec16(1.0);
+        let d = euclidean_distance_sq_f32x16(&a, &b);
+        assert!(d.abs() < 1e-6, "mismatched should return 0, got {}", d);
+    }
+
+    #[test]
+    fn test_euclidean_distance_sq_f32x16_empty() {
+        let d = euclidean_distance_sq_f32x16(&[], &[]);
+        assert!(d.abs() < 1e-6, "empty should return 0, got {}", d);
+    }
+
+    #[test]
+    fn test_euclidean_distance_sq_f32x16_multi_chunk() {
+        let a = vec![0.0_f32; 32];
+        let mut b = vec![0.0_f32; 32];
+        b[0] = 3.0;
+        b[16] = 4.0;
+        let d = euclidean_distance_sq_f32x16(&a, &b);
+        assert!((d - 25.0).abs() < 1e-5, "expected 25, got {}", d);
+    }
+
+    #[test]
+    fn test_f32_dot_product_f32x16_known() {
+        let a = vec16(1.0);
+        let b = vec16(2.0);
+        let dot = f32_dot_product_f32x16(&a, &b);
+        assert!((dot - 32.0).abs() < 1e-5, "expected 32, got {}", dot);
+    }
+
+    #[test]
+    fn test_f32_dot_product_f32x16_mismatched() {
+        let a = vec32(1.0);
+        let b = vec16(1.0);
+        let dot = f32_dot_product_f32x16(&a, &b);
+        assert!(dot.abs() < 1e-6, "mismatched should return 0, got {}", dot);
+    }
+
+    #[test]
+    fn test_f32_dot_product_f32x16_empty() {
+        let dot = f32_dot_product_f32x16(&[], &[]);
+        assert!(dot.abs() < 1e-6, "empty should return 0, got {}", dot);
+    }
+
+    #[test]
+    fn test_f32_dot_and_norm_b_sq_f32x16_known() {
+        let a = vec16(2.0);
+        let b = vec16(3.0);
+        let (dot, norm_b_sq) = f32_dot_and_norm_b_sq_f32x16(&a, &b);
+        assert!((dot - 96.0).abs() < 1e-5, "expected dot=96, got {}", dot);
+        assert!(
+            (norm_b_sq - 144.0).abs() < 1e-5,
+            "expected norm_b_sq=144, got {}",
+            norm_b_sq
+        );
+    }
+
+    #[test]
+    fn test_f32_dot_and_norm_b_sq_f32x16_mismatched() {
+        let a = vec32(2.0);
+        let b = vec16(3.0);
+        let (dot, norm_b_sq) = f32_dot_and_norm_b_sq_f32x16(&a, &b);
+        assert!(dot.abs() < 1e-6, "mismatched dot should be 0");
+        assert!(norm_b_sq.abs() < 1e-6, "mismatched norm should be 0");
+    }
+
+    // ── Edge cases ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_euclidean_distance_sq_with_norms_known() {
+        let a = vec![1.0, 2.0, 3.0];
+        let b = vec![4.0, 5.0, 6.0];
+        let a_norm_sq = 1.0 + 4.0 + 9.0; // 14
+        let b_norm_sq = 16.0 + 25.0 + 36.0; // 77
+                                            // euclidean_sq = a_norm_sq + b_norm_sq - 2*dot = 14 + 77 - 2*(4+10+18) = 91 - 64 = 27
+        let d = euclidean_distance_sq_with_norms(&a, a_norm_sq, &b, b_norm_sq);
+        assert!((d - 27.0).abs() < 1e-5, "expected 27, got {}", d);
+    }
+
+    #[test]
+    fn test_cosine_sim_cached_norms_zero_target_norm() {
+        let a = vec![1.0, 2.0];
+        let b = vec![1.0, 2.0];
+        let sim = cosine_sim_cached_norms(&a, 0.5, &b, 0.0);
+        assert!(
+            sim.abs() < 1e-6,
+            "zero target inv_norm should return 0, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_cosine_sim_many_dims() {
+        let a: Vec<f32> = (0..128).map(|i| (i as f32).sin()).collect();
+        let b: Vec<f32> = (0..128).map(|i| (i as f32).cos()).collect();
+        let sim = cosine_sim_f32(&a, &b);
+        assert!(sim.is_finite(), "similarity should be finite");
+        assert!(
+            sim >= -1.0 && sim <= 1.0,
+            "similarity should be in [-1, 1], got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_euclidean_distance_sq_many_dims() {
+        let a: Vec<f32> = (0..100).map(|i| i as f32).collect();
+        let b: Vec<f32> = (0..100).map(|i| (i as f32) * 2.0).collect();
+        let d = euclidean_distance_squared_f32(&a, &b);
+        assert!(d > 0.0, "distance should be positive, got {}", d);
+        assert!(d.is_finite(), "distance should be finite");
+    }
+
+    #[test]
+    fn test_cosine_sim_negative_values() {
+        let a = vec![-1.0, -2.0, -3.0];
+        let b = vec![1.0, 2.0, 3.0];
+        let sim = cosine_sim_f32(&a, &b);
+        assert!(
+            (sim - (-1.0)).abs() < 1e-6,
+            "opposite vectors should give -1, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_f32_slice_similarity_euclidean_with_norm() {
+        let q = vec![0.0, 0.0];
+        let c = vec![3.0, 4.0];
+        let sim = f32_slice_similarity(&q, Some(0.0), &c, DistanceMetric::Euclidean);
+        assert!((sim - (-25.0)).abs() < 1e-5, "expected -25, got {}", sim);
+    }
+
+    #[test]
+    fn test_f32_slice_similarity_cosine_with_norm() {
+        let q = vec![1.0, 0.0, 0.0];
+        let c = vec![0.9, 0.1, 0.0];
+        let norm_q = f32_l2_norm(&q);
+        let sim = f32_slice_similarity(&q, Some(norm_q), &c, DistanceMetric::Cosine);
+        assert!(
+            sim > 0.9,
+            "close vectors should have high cosine, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_cosine_sim_with_query_norm_zero_target() {
+        let q = vec![1.0, 0.0];
+        let b = vec![0.0, 0.0];
+        let sim = cosine_sim_with_query_norm(&q, 1.0, &b);
+        assert!(
+            sim.abs() < 1e-6,
+            "zero-norm target should return 0, got {}",
+            sim
+        );
+    }
+
+    #[test]
+    fn test_f32_l2_norm_single_element() {
+        let v = vec![-3.0];
+        let n = f32_l2_norm(&v);
+        assert!(
+            (n - 3.0).abs() < 1e-6,
+            "norm of [-3] should be 3, got {}",
+            n
+        );
+    }
 }

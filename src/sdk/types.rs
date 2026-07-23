@@ -608,3 +608,910 @@ pub struct VantaCapabilities {
     /// Whether the database is in read-only mode.
     pub read_only: bool,
 }
+
+#[cfg(test)]
+#[allow(missing_docs)]
+mod tests {
+    use super::*;
+
+    // ── VantaRuntimeProfile ──
+
+    #[test]
+    fn test_runtime_profile_variants() {
+        assert_ne!(
+            VantaRuntimeProfile::Enterprise,
+            VantaRuntimeProfile::Performance
+        );
+        assert_ne!(
+            VantaRuntimeProfile::LowResource,
+            VantaRuntimeProfile::Enterprise
+        );
+    }
+
+    #[test]
+    fn test_runtime_profile_clone_copy() {
+        let p = VantaRuntimeProfile::Performance;
+        let copied = p;
+        assert_eq!(p, copied);
+    }
+
+    #[test]
+    fn test_runtime_profile_debug() {
+        let d = format!("{:?}", VantaRuntimeProfile::LowResource);
+        assert_eq!(d, "LowResource");
+    }
+
+    // ── VantaStorageTier ──
+
+    #[test]
+    fn test_storage_tier_variants() {
+        assert_ne!(VantaStorageTier::Hot, VantaStorageTier::Cold);
+    }
+
+    #[test]
+    fn test_storage_tier_debug() {
+        let h = format!("{:?}", VantaStorageTier::Hot);
+        assert_eq!(h, "Hot");
+    }
+
+    // ── VantaValue ──
+
+    #[test]
+    fn test_vanta_value_string() {
+        let v = VantaValue::String("hello".into());
+        assert_eq!(
+            v.to_index_values(),
+            vec![VantaValue::String("hello".into())]
+        );
+    }
+
+    #[test]
+    fn test_vanta_value_int() {
+        let v = VantaValue::Int(42);
+        assert_eq!(v.to_index_values(), vec![VantaValue::Int(42)]);
+    }
+
+    #[test]
+    fn test_vanta_value_float() {
+        let v = VantaValue::Float(3.14);
+        assert_eq!(v.to_index_values(), vec![VantaValue::Float(3.14)]);
+    }
+
+    #[test]
+    fn test_vanta_value_bool() {
+        let v = VantaValue::Bool(true);
+        assert_eq!(v.to_index_values(), vec![VantaValue::Bool(true)]);
+    }
+
+    #[test]
+    fn test_vanta_value_null() {
+        let v = VantaValue::Null;
+        assert_eq!(v.to_index_values(), vec![VantaValue::Null]);
+    }
+
+    #[test]
+    fn test_vanta_value_datetime() {
+        let dt: chrono::DateTime<chrono::Utc> = "2025-01-01T00:00:00Z".parse().unwrap();
+        let v = VantaValue::DateTime(dt);
+        let values = v.to_index_values();
+        assert_eq!(values.len(), 1);
+        assert_eq!(values[0], VantaValue::DateTime(dt));
+    }
+
+    #[test]
+    fn test_vanta_value_to_index_list_string() {
+        let v = VantaValue::ListString(vec!["a".into(), "b".into(), "c".into()]);
+        let values = v.to_index_values();
+        assert_eq!(values.len(), 3);
+        assert_eq!(values[0], VantaValue::String("a".into()));
+        assert_eq!(values[2], VantaValue::String("c".into()));
+    }
+
+    #[test]
+    fn test_vanta_value_to_index_list_int() {
+        let v = VantaValue::ListInt(vec![1, 2, 3]);
+        let values = v.to_index_values();
+        assert_eq!(values.len(), 3);
+        assert_eq!(values[1], VantaValue::Int(2));
+    }
+
+    #[test]
+    fn test_vanta_value_to_index_list_float() {
+        let v = VantaValue::ListFloat(vec![1.0, 2.0]);
+        let values = v.to_index_values();
+        assert_eq!(values.len(), 2);
+    }
+
+    #[test]
+    fn test_vanta_value_to_index_list_bool() {
+        let v = VantaValue::ListBool(vec![true, false, true]);
+        let values = v.to_index_values();
+        assert_eq!(values.len(), 3);
+    }
+
+    #[test]
+    fn test_vanta_value_to_index_list_datetime() {
+        let dt: chrono::DateTime<chrono::Utc> = "2025-06-15T12:00:00Z".parse().unwrap();
+        let v = VantaValue::ListDateTime(vec![dt]);
+        let values = v.to_index_values();
+        assert_eq!(values.len(), 1);
+        assert_eq!(values[0], VantaValue::DateTime(dt));
+    }
+
+    #[test]
+    fn test_vanta_value_to_index_empty_list() {
+        let v = VantaValue::ListString(vec![]);
+        let values = v.to_index_values();
+        assert!(values.is_empty());
+    }
+
+    #[test]
+    fn test_vanta_value_clone() {
+        let v = VantaValue::String("test".into());
+        let cloned = v.clone();
+        assert_eq!(v, cloned);
+    }
+
+    #[test]
+    fn test_vanta_value_debug() {
+        let d = format!("{:?}", VantaValue::Bool(false));
+        assert!(d.contains("Bool") || d.contains("false"));
+    }
+
+    // ── VantaMemoryInput ──
+
+    #[test]
+    fn test_memory_input_new() {
+        let input = VantaMemoryInput::new("ns1", "key1", "payload text");
+        assert_eq!(input.namespace, "ns1");
+        assert_eq!(input.key, "key1");
+        assert_eq!(input.payload, "payload text");
+        assert!(input.metadata.is_empty());
+        assert!(input.vector.is_none());
+        assert!(input.ttl_ms.is_none());
+    }
+
+    #[test]
+    fn test_memory_input_clone() {
+        let input = VantaMemoryInput::new("ns", "k", "p");
+        let cloned = input.clone();
+        assert_eq!(input, cloned);
+    }
+
+    // ── VantaMemoryListOptions ──
+
+    #[test]
+    fn test_memory_list_options_default() {
+        let opts = VantaMemoryListOptions::default();
+        assert!(opts.filters.is_empty());
+        assert_eq!(opts.limit, 100);
+        assert!(opts.cursor.is_none());
+    }
+
+    // ── VantaMemoryListPage ──
+
+    #[test]
+    fn test_memory_list_page_empty() {
+        let page = VantaMemoryListPage {
+            records: vec![],
+            next_cursor: None,
+        };
+        assert!(page.records.is_empty());
+        assert!(page.next_cursor.is_none());
+    }
+
+    // ── VantaCapabilities ──
+
+    #[test]
+    fn test_capabilities_default() {
+        let caps = VantaCapabilities {
+            runtime_profile: VantaRuntimeProfile::Performance,
+            persistence: true,
+            vector_search: true,
+            iql_queries: false,
+            read_only: false,
+        };
+        assert_eq!(caps.runtime_profile, VantaRuntimeProfile::Performance);
+        assert!(caps.persistence);
+        assert!(caps.vector_search);
+        assert!(!caps.iql_queries);
+        assert!(!caps.read_only);
+    }
+
+    // ── Reports ──
+
+    #[test]
+    fn test_index_rebuild_report() {
+        let r = VantaIndexRebuildReport {
+            scanned_nodes: 1000,
+            indexed_vectors: 900,
+            skipped_tombstones: 50,
+            duration_ms: 500,
+            derived_rebuild_ms: 100,
+            index_path: "/tmp/index".into(),
+            success: true,
+        };
+        assert_eq!(r.scanned_nodes, 1000);
+        assert_eq!(r.indexed_vectors, 900);
+        assert!(r.success);
+    }
+
+    #[test]
+    fn test_export_report() {
+        let r = VantaExportReport {
+            records_exported: 500,
+            namespaces: vec!["ns1".into()],
+            path: "/tmp/export.jsonl".into(),
+            duration_ms: 250,
+        };
+        assert_eq!(r.records_exported, 500);
+        assert_eq!(r.namespaces, vec!["ns1"]);
+    }
+
+    #[test]
+    fn test_import_report() {
+        let r = VantaImportReport {
+            inserted: 100,
+            updated: 10,
+            skipped: 2,
+            errors: 1,
+            duration_ms: 300,
+        };
+        assert_eq!(r.inserted, 100);
+        assert_eq!(r.updated, 10);
+        assert_eq!(r.errors, 1);
+    }
+
+    #[test]
+    fn test_text_index_repair_report() {
+        let r = VantaTextIndexRepairReport {
+            record_count: 200,
+            posting_entries: 1500,
+            doc_stats_entries: 200,
+            term_stats_entries: 400,
+            namespace_stats_entries: 5,
+            duration_ms: 600,
+            success: true,
+        };
+        assert_eq!(r.record_count, 200);
+        assert!(r.success);
+    }
+
+    // ── VantaQueryResult ──
+
+    #[test]
+    fn test_query_result_read() {
+        let result = VantaQueryResult::Read(vec![]);
+        match result {
+            VantaQueryResult::Read(nodes) => assert!(nodes.is_empty()),
+            _ => panic!("expected Read"),
+        }
+    }
+
+    #[test]
+    fn test_query_result_write() {
+        let result = VantaQueryResult::Write {
+            affected_nodes: 1,
+            message: "created".into(),
+            node_id: Some(42),
+        };
+        match result {
+            VantaQueryResult::Write {
+                affected_nodes,
+                message,
+                node_id,
+            } => {
+                assert_eq!(affected_nodes, 1);
+                assert_eq!(message, "created");
+                assert_eq!(node_id, Some(42));
+            }
+            _ => panic!("expected Write"),
+        }
+    }
+
+    #[test]
+    fn test_query_result_stale_context() {
+        let result = VantaQueryResult::StaleContext { node_id: 99 };
+        match result {
+            VantaQueryResult::StaleContext { node_id } => {
+                assert_eq!(node_id, 99);
+            }
+            _ => panic!("expected StaleContext"),
+        }
+    }
+
+    // ── VantaMemoryRecord ──
+
+    #[test]
+    fn test_memory_record_fields() {
+        let rec = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "text".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 1,
+            node_id: 42,
+            vector: None,
+            expires_at_ms: None,
+        };
+        assert_eq!(rec.namespace, "ns");
+        assert_eq!(rec.node_id, 42);
+        assert_eq!(rec.version, 1);
+    }
+
+    // ── VantaMemoryExportLine ──
+
+    #[test]
+    fn test_export_line() {
+        let line = VantaMemoryExportLine {
+            schema_version: 1,
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "text".into(),
+            metadata: VantaMemoryMetadata::new(),
+            vector: None,
+            created_at_ms: 1000,
+            updated_at_ms: 1000,
+            version: 1,
+            expires_at_ms: None,
+        };
+        assert_eq!(line.schema_version, 1);
+        assert_eq!(line.namespace, "ns");
+    }
+
+    // ── VantaHybridFusionReport ──
+
+    #[test]
+    fn test_hybrid_fusion_report() {
+        let r = VantaHybridFusionReport {
+            text_candidates: 50,
+            vector_candidates: 30,
+            fused_candidates: 70,
+            rrf_k: 60,
+        };
+        assert_eq!(r.rrf_k, 60);
+        assert_eq!(r.fused_candidates, 70);
+    }
+
+    // ── VantaBm25TermContribution ──
+
+    #[test]
+    fn test_bm25_term_contribution() {
+        let c = VantaBm25TermContribution {
+            token: "rust".into(),
+            tf: 3,
+            df: 10,
+            doc_len: 100,
+            contribution: 2.5,
+        };
+        assert_eq!(c.token, "rust");
+        assert_eq!(c.tf, 3);
+    }
+
+    // ── VantaSearchExplanation ──
+
+    #[test]
+    fn test_search_explanation_empty() {
+        let expl = VantaSearchExplanation {
+            route: "empty".into(),
+            hits: vec![],
+            fusion_report: None,
+        };
+        assert!(expl.hits.is_empty());
+        assert!(expl.fusion_report.is_none());
+    }
+
+    // ── VantaSearchExplanationHit ──
+
+    #[test]
+    fn test_search_explanation_hit() {
+        let hit = VantaSearchExplanationHit {
+            identity: "ns\0k".into(),
+            score: 0.95,
+            snippet: Some("...hello world...".into()),
+            matched_tokens: vec!["hello".into()],
+            matched_phrases: vec![],
+            bm25_terms: vec![],
+            rrf_text_rank: Some(1),
+            rrf_vector_rank: Some(3),
+        };
+        assert_eq!(hit.identity, "ns\0k");
+        assert_eq!(hit.score, 0.95);
+        assert!(hit.rrf_text_rank.is_some());
+    }
+
+    // ── VantaTextIndexAuditReport ──
+
+    #[test]
+    fn test_text_index_audit_report_ok() {
+        let r = VantaTextIndexAuditReport {
+            schema_version: 1,
+            tokenizer: "default".into(),
+            tokenizer_version: 1,
+            key_format: "v1".into(),
+            namespace_filter: None,
+            namespaces_audited: vec!["ns".into()],
+            records_scanned: 100,
+            expected_entries: 500,
+            actual_entries: 500,
+            missing_entries: 0,
+            unexpected_entries: 0,
+            value_mismatches: 0,
+            unreadable_entries: 0,
+            mismatches: 0,
+            deep_audit: true,
+            position_errors: 0,
+            tf_errors: 0,
+            df_errors: 0,
+            doc_len_errors: 0,
+            logical_corruptions: 0,
+            state_valid: true,
+            state_status: "healthy".into(),
+            duration_ms: 100,
+            passed: true,
+            status: "ok".into(),
+        };
+        assert!(r.passed);
+        assert_eq!(r.status, "ok");
+    }
+
+    // ── VantaOperationalMetrics ──
+
+    #[test]
+    fn test_operational_metrics_defaults() {
+        let m = VantaOperationalMetrics {
+            startup_ms: 100,
+            wal_replay_ms: 50,
+            wal_records_replayed: 200,
+            ann_rebuild_ms: 300,
+            ann_rebuild_scanned_nodes: 1000,
+            derived_rebuild_ms: 80,
+            text_index_rebuild_ms: 150,
+            text_postings_written: 5000,
+            text_index_repairs: 1,
+            text_lexical_queries: 42,
+            text_lexical_query_ms: 120,
+            text_candidates_scored: 10000,
+            text_consistency_audits: 3,
+            text_consistency_audit_failures: 0,
+            hybrid_query_ms: 200,
+            hybrid_candidates_fused: 500,
+            planner_hybrid_queries: 10,
+            planner_text_only_queries: 5,
+            planner_vector_only_queries: 8,
+            records_exported: 100,
+            records_imported: 50,
+            import_errors: 2,
+            derived_prefix_scans: 30,
+            derived_full_scan_fallbacks: 1,
+            process_rss_bytes: 1_000_000,
+            process_virtual_bytes: 2_000_000,
+            hnsw_nodes_count: 500,
+            hnsw_logical_bytes: 10_000_000,
+            mmap_resident_bytes: Some(500_000),
+            volatile_cache_entries: 100,
+            volatile_cache_cap_bytes: 1_000_000,
+            jemalloc_allocated_bytes: Some(2_000_000),
+            jemalloc_active_bytes: Some(1_500_000),
+            jemalloc_metadata_bytes: Some(100_000),
+            jemalloc_resident_bytes: Some(1_800_000),
+            jemalloc_mapped_bytes: Some(3_000_000),
+            jemalloc_retained_bytes: Some(500_000),
+        };
+        assert_eq!(m.startup_ms, 100);
+        assert_eq!(m.hnsw_nodes_count, 500);
+        assert_eq!(m.jemalloc_allocated_bytes, Some(2_000_000));
+    }
+
+    #[test]
+    fn test_operational_metrics_clone_debug() {
+        let m = VantaOperationalMetrics {
+            startup_ms: 1,
+            wal_replay_ms: 2,
+            wal_records_replayed: 3,
+            ann_rebuild_ms: 4,
+            ann_rebuild_scanned_nodes: 5,
+            derived_rebuild_ms: 6,
+            text_index_rebuild_ms: 7,
+            text_postings_written: 8,
+            text_index_repairs: 9,
+            text_lexical_queries: 10,
+            text_lexical_query_ms: 11,
+            text_candidates_scored: 12,
+            text_consistency_audits: 13,
+            text_consistency_audit_failures: 14,
+            hybrid_query_ms: 15,
+            hybrid_candidates_fused: 16,
+            planner_hybrid_queries: 17,
+            planner_text_only_queries: 18,
+            planner_vector_only_queries: 19,
+            records_exported: 20,
+            records_imported: 21,
+            import_errors: 22,
+            derived_prefix_scans: 23,
+            derived_full_scan_fallbacks: 24,
+            process_rss_bytes: 25,
+            process_virtual_bytes: 26,
+            hnsw_nodes_count: 27,
+            hnsw_logical_bytes: 28,
+            mmap_resident_bytes: None,
+            volatile_cache_entries: 29,
+            volatile_cache_cap_bytes: 30,
+            jemalloc_allocated_bytes: None,
+            jemalloc_active_bytes: None,
+            jemalloc_metadata_bytes: None,
+            jemalloc_resident_bytes: None,
+            jemalloc_mapped_bytes: None,
+            jemalloc_retained_bytes: None,
+        };
+        let cloned = m.clone();
+        assert_eq!(m, cloned);
+        let dbg = format!("{:?}", m);
+        assert!(dbg.contains("startup_ms"));
+    }
+
+    // ── VantaMemoryInput with vector and ttl ──
+
+    #[test]
+    fn test_memory_input_with_vector_ttl() {
+        let input = VantaMemoryInput {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "text".into(),
+            metadata: [("lang".into(), VantaValue::String("en".into()))].into(),
+            vector: Some(vec![0.1, 0.2, 0.3]),
+            ttl_ms: Some(60000),
+        };
+        assert_eq!(input.namespace, "ns");
+        assert!(input.vector.is_some());
+        assert_eq!(input.vector.as_ref().unwrap().len(), 3);
+        assert_eq!(input.ttl_ms, Some(60000));
+        assert_eq!(
+            input.metadata.get("lang").unwrap(),
+            &VantaValue::String("en".into())
+        );
+    }
+
+    // ── VantaMemoryRecord with expiry ──
+
+    #[test]
+    fn test_memory_record_with_expiry() {
+        let rec = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "text".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 5,
+            node_id: 42,
+            vector: Some(vec![0.5, 0.6]),
+            expires_at_ms: Some(99999),
+        };
+        assert_eq!(rec.version, 5);
+        assert_eq!(rec.expires_at_ms, Some(99999));
+        assert_eq!(rec.vector.as_ref().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_memory_record_clone() {
+        let rec = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "text".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 1,
+            node_id: 42,
+            vector: None,
+            expires_at_ms: None,
+        };
+        let cloned = rec.clone();
+        assert_eq!(rec, cloned);
+    }
+
+    // ── VantaCapabilities clone/debug ──
+
+    #[test]
+    fn test_capabilities_clone() {
+        let caps = VantaCapabilities {
+            runtime_profile: VantaRuntimeProfile::Enterprise,
+            persistence: true,
+            vector_search: false,
+            iql_queries: true,
+            read_only: false,
+        };
+        let cloned = caps.clone();
+        assert_eq!(caps, cloned);
+    }
+
+    #[test]
+    fn test_capabilities_debug() {
+        let caps = VantaCapabilities {
+            runtime_profile: VantaRuntimeProfile::Performance,
+            persistence: false,
+            vector_search: true,
+            iql_queries: false,
+            read_only: true,
+        };
+        let dbg = format!("{:?}", caps);
+        assert!(dbg.contains("Performance"));
+        assert!(dbg.contains("read_only"));
+    }
+
+    // ── VantaMemoryListOptions custom ──
+
+    #[test]
+    fn test_memory_list_options_custom() {
+        let opts = VantaMemoryListOptions {
+            filters: [("type".into(), VantaValue::String("doc".into()))].into(),
+            limit: 50,
+            cursor: Some(10),
+        };
+        assert_eq!(opts.limit, 50);
+        assert_eq!(opts.cursor, Some(10));
+        assert_eq!(
+            opts.filters.get("type").unwrap(),
+            &VantaValue::String("doc".into())
+        );
+    }
+
+    // ── VantaQueryResult clone/debug ──
+
+    #[test]
+    fn test_query_result_clone_read() {
+        let r = VantaQueryResult::Read(vec![]);
+        let cloned = r.clone();
+        assert_eq!(r, cloned);
+    }
+
+    #[test]
+    fn test_query_result_clone_write() {
+        let r = VantaQueryResult::Write {
+            affected_nodes: 3,
+            message: "done".into(),
+            node_id: None,
+        };
+        let cloned = r.clone();
+        assert_eq!(r, cloned);
+    }
+
+    #[test]
+    fn test_query_result_debug() {
+        let r = VantaQueryResult::Write {
+            affected_nodes: 1,
+            message: "ok".into(),
+            node_id: Some(7),
+        };
+        let dbg = format!("{:?}", r);
+        assert!(dbg.contains("Write") || dbg.contains("affected_nodes"));
+    }
+
+    // ── VantaHybridFusionReport clone/debug ──
+
+    #[test]
+    fn test_hybrid_fusion_report_clone_debug() {
+        let r = VantaHybridFusionReport {
+            text_candidates: 10,
+            vector_candidates: 20,
+            fused_candidates: 25,
+            rrf_k: 60,
+        };
+        let cloned = r.clone();
+        assert_eq!(r, cloned);
+        let dbg = format!("{:?}", r);
+        assert!(dbg.contains("rrf_k"));
+    }
+
+    // ── VantaBm25TermContribution clone ──
+
+    #[test]
+    fn test_bm25_term_contribution_clone() {
+        let c = VantaBm25TermContribution {
+            token: "test".into(),
+            tf: 2,
+            df: 5,
+            doc_len: 50,
+            contribution: 1.5,
+        };
+        let cloned = c.clone();
+        assert_eq!(c, cloned);
+    }
+
+    // ── VantaSearchExplanationHit clone ──
+
+    #[test]
+    fn test_search_explanation_hit_clone() {
+        let hit = VantaSearchExplanationHit {
+            identity: "ns\0k".into(),
+            score: 0.9,
+            snippet: None,
+            matched_tokens: vec!["hi".into()],
+            matched_phrases: vec![],
+            bm25_terms: vec![],
+            rrf_text_rank: None,
+            rrf_vector_rank: None,
+        };
+        let cloned = hit.clone();
+        assert_eq!(hit, cloned);
+    }
+
+    // ── VantaSearchExplanation with fusion ──
+
+    #[test]
+    fn test_search_explanation_with_fusion() {
+        let expl = VantaSearchExplanation {
+            route: "hybrid".into(),
+            hits: vec![],
+            fusion_report: Some(VantaHybridFusionReport {
+                text_candidates: 10,
+                vector_candidates: 5,
+                fused_candidates: 12,
+                rrf_k: 60,
+            }),
+        };
+        assert_eq!(expl.route, "hybrid");
+        assert!(expl.fusion_report.is_some());
+        assert_eq!(expl.fusion_report.unwrap().fused_candidates, 12);
+    }
+
+    // ── VantaExportReport clone ──
+
+    #[test]
+    fn test_export_report_clone() {
+        let r = VantaExportReport {
+            records_exported: 100,
+            namespaces: vec!["ns1".into()],
+            path: "/tmp/x.jsonl".into(),
+            duration_ms: 50,
+        };
+        let cloned = r.clone();
+        assert_eq!(r, cloned);
+    }
+
+    // ── VantaImportReport clone ──
+
+    #[test]
+    fn test_import_report_clone() {
+        let r = VantaImportReport {
+            inserted: 10,
+            updated: 5,
+            skipped: 1,
+            errors: 0,
+            duration_ms: 100,
+        };
+        let cloned = r.clone();
+        assert_eq!(r, cloned);
+    }
+
+    // ── VantaIndexRebuildReport clone ──
+
+    #[test]
+    fn test_index_rebuild_report_clone() {
+        let r = VantaIndexRebuildReport {
+            scanned_nodes: 100,
+            indexed_vectors: 90,
+            skipped_tombstones: 5,
+            duration_ms: 200,
+            derived_rebuild_ms: 50,
+            index_path: "/tmp/idx".into(),
+            success: true,
+        };
+        let cloned = r.clone();
+        assert_eq!(r, cloned);
+    }
+
+    // ── VantaTextIndexRepairReport clone ──
+
+    #[test]
+    fn test_text_index_repair_report_clone() {
+        let r = VantaTextIndexRepairReport {
+            record_count: 50,
+            posting_entries: 200,
+            doc_stats_entries: 50,
+            term_stats_entries: 100,
+            namespace_stats_entries: 3,
+            duration_ms: 150,
+            success: true,
+        };
+        let cloned = r.clone();
+        assert_eq!(r, cloned);
+    }
+
+    // ── VantaMemoryExportLine all fields ──
+
+    #[test]
+    fn test_export_line_full() {
+        let line = VantaMemoryExportLine {
+            schema_version: 2,
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "text".into(),
+            metadata: [("score".into(), VantaValue::Float(9.5))].into(),
+            vector: Some(vec![0.1, 0.2]),
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 3,
+            expires_at_ms: Some(99999),
+        };
+        assert_eq!(line.schema_version, 2);
+        assert_eq!(line.version, 3);
+        assert!(line.vector.is_some());
+        assert!(line.expires_at_ms.is_some());
+    }
+
+    // ── VantaValue Debug variant coverage ──
+
+    #[test]
+    fn test_vanta_value_debug_variants() {
+        assert!(format!("{:?}", VantaValue::String("a".into())).contains("String"));
+        assert!(format!("{:?}", VantaValue::Int(1)).contains("Int"));
+        assert!(format!("{:?}", VantaValue::Float(1.0)).contains("Float"));
+        assert!(format!("{:?}", VantaValue::Null).contains("Null"));
+        assert!(format!("{:?}", VantaValue::ListString(vec!["a".into()])).contains("List"));
+    }
+
+    // ── VantaTextIndexAuditReport failure ──
+
+    #[test]
+    fn test_text_index_audit_report_failure() {
+        let r = VantaTextIndexAuditReport {
+            schema_version: 1,
+            tokenizer: "default".into(),
+            tokenizer_version: 1,
+            key_format: "v1".into(),
+            namespace_filter: Some("ns".into()),
+            namespaces_audited: vec!["ns".into()],
+            records_scanned: 50,
+            expected_entries: 300,
+            actual_entries: 280,
+            missing_entries: 20,
+            unexpected_entries: 5,
+            value_mismatches: 3,
+            unreadable_entries: 1,
+            mismatches: 29,
+            deep_audit: true,
+            position_errors: 2,
+            tf_errors: 1,
+            df_errors: 0,
+            doc_len_errors: 0,
+            logical_corruptions: 0,
+            state_valid: true,
+            state_status: "healthy".into(),
+            duration_ms: 80,
+            passed: false,
+            status: "repair_recommended".into(),
+        };
+        assert!(!r.passed);
+        assert_eq!(r.missing_entries, 20);
+        assert_eq!(r.position_errors, 2);
+        assert_eq!(r.status, "repair_recommended");
+    }
+
+    // ── VantaMemoryListPage with data ──
+
+    #[test]
+    fn test_memory_list_page_with_data() {
+        let rec = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "p".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 1,
+            updated_at_ms: 2,
+            version: 1,
+            node_id: 1,
+            vector: None,
+            expires_at_ms: None,
+        };
+        let page = VantaMemoryListPage {
+            records: vec![rec],
+            next_cursor: Some(1),
+        };
+        assert_eq!(page.records.len(), 1);
+        assert_eq!(page.next_cursor, Some(1));
+    }
+}

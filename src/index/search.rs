@@ -460,3 +460,549 @@ impl CPIndex {
         final_results
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::index::graph::HnswConfig;
+    use crate::node::{VectorRepresentations, ALL_BITSET};
+
+    fn make_index(metric: DistanceMetric) -> CPIndex {
+        CPIndex::new_with_config(HnswConfig {
+            m: 8,
+            m_max0: 16,
+            ef_construction: 50,
+            ef_search: 50,
+            ml: 1.0 / (8_f64).ln(),
+            distance_metric: metric,
+            ..HnswConfig::default()
+        })
+    }
+
+    fn add_node(index: &CPIndex, id: u128, vec: Vec<f32>) {
+        index.add(id, FilterBitset::new(), VectorRepresentations::Full(vec), 0);
+    }
+
+    // ── search_nearest ──────────────────────────────────────────────
+
+    #[test]
+    fn test_search_nearest_empty_index() {
+        let index = make_index(DistanceMetric::Cosine);
+        let results = index.search_nearest(&[1.0, 0.0], None, None, &ALL_BITSET, 5, None);
+        assert!(results.is_empty(), "empty index should return no results");
+    }
+
+    #[test]
+    fn test_search_nearest_single_node_cosine() {
+        let index = make_index(DistanceMetric::Cosine);
+        add_node(&index, 42, vec![1.0, 0.0, 0.0]);
+        let results = index.search_nearest(&[1.0, 0.0, 0.0], None, None, &ALL_BITSET, 5, None);
+        assert_eq!(results.len(), 1, "single node should be found");
+        assert_eq!(results[0].0, 42, "id should match");
+        assert!(
+            results[0].1 > 0.99,
+            "self-similarity should be ~1.0, got {}",
+            results[0].1
+        );
+    }
+
+    #[test]
+    fn test_search_nearest_single_node_euclidean() {
+        let index = make_index(DistanceMetric::Euclidean);
+        add_node(&index, 7, vec![3.0, 4.0]);
+        let results = index.search_nearest(&[3.0, 4.0], None, None, &ALL_BITSET, 5, None);
+        assert_eq!(results.len(), 1, "single node should be found");
+        assert_eq!(results[0].0, 7, "id should match");
+        assert!(
+            results[0].1.abs() < 0.01,
+            "self-distance should be ~0.0, got {}",
+            results[0].1
+        );
+    }
+
+    #[test]
+    fn test_search_nearest_ordering_cosine() {
+        let index = make_index(DistanceMetric::Cosine);
+        add_node(&index, 0, vec![1.0, 0.0, 0.0]);
+        add_node(&index, 1, vec![0.9, 0.1, 0.0]);
+        add_node(&index, 2, vec![-1.0, 0.0, 0.0]);
+        let results = index.search_nearest(&[1.0, 0.0, 0.0], None, None, &ALL_BITSET, 3, None);
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0].0, 0, "identical vector should be first");
+        for win in results.windows(2) {
+            assert!(
+                win[0].1 >= win[1].1 - 1e-6,
+                "scores should be descending: {} < {}",
+                win[0].1,
+                win[1].1
+            );
+        }
+    }
+
+    #[test]
+    fn test_search_nearest_top_k_limits() {
+        let index = make_index(DistanceMetric::Cosine);
+        for i in 0..10u128 {
+            add_node(&index, i, vec![i as f32, 0.0, 0.0]);
+        }
+        let results = index.search_nearest(&[0.0, 0.0, 0.0], None, None, &ALL_BITSET, 3, None);
+        assert!(
+            results.len() <= 3,
+            "should not exceed top_k, got {}",
+            results.len()
+        );
+    }
+
+    #[test]
+    fn test_search_nearest_zero_top_k() {
+        let index = make_index(DistanceMetric::Cosine);
+        add_node(&index, 1, vec![1.0, 0.0]);
+        let results = index.search_nearest(&[1.0, 0.0], None, None, &ALL_BITSET, 0, None);
+        assert!(
+            results.is_empty(),
+            "top_k=0 should return empty, got {}",
+            results.len()
+        );
+    }
+
+    #[test]
+    fn test_search_nearest_scores_not_nan() {
+        let index = make_index(DistanceMetric::Cosine);
+        for i in 0..5u128 {
+            add_node(&index, i, vec![(i as f32) * 0.5, 0.3, -0.1]);
+        }
+        let results = index.search_nearest(&[0.5, -0.2, 0.1], None, None, &ALL_BITSET, 5, None);
+        for &(id, score) in &results {
+            assert!(
+                score.is_finite(),
+                "score for id={} should be finite, got {}",
+                id,
+                score
+            );
+        }
+    }
+
+    #[test]
+    fn test_search_nearest_euclidean_negative_scores() {
+        let index = make_index(DistanceMetric::Euclidean);
+        add_node(&index, 0, vec![0.0, 0.0]);
+        add_node(&index, 1, vec![10.0, 10.0]);
+        let results = index.search_nearest(&[0.0, 0.0], None, None, &ALL_BITSET, 2, None);
+        for &(_, score) in &results {
+            assert!(
+                score <= 0.0,
+                "Euclidean scores should be <= 0, got {}",
+                score
+            );
+        }
+    }
+
+    #[test]
+    fn test_search_nearest_closer_first_euclidean() {
+        let index = make_index(DistanceMetric::Euclidean);
+        add_node(&index, 0, vec![0.0, 0.0]);
+        add_node(&index, 1, vec![1.0, 1.0]);
+        add_node(&index, 2, vec![10.0, 10.0]);
+        let results = index.search_nearest(&[0.0, 0.0], None, None, &ALL_BITSET, 3, None);
+        assert_eq!(results[0].0, 0, "closest vector (id=0) should be first");
+        assert_eq!(results[2].0, 2, "farthest (id=2) should be last");
+    }
+
+    // ── select_neighbors ────────────────────────────────────────────
+
+    #[test]
+    fn test_select_neighbors_empty_candidates() {
+        let index = make_index(DistanceMetric::Cosine);
+        let heap = BinaryHeap::new();
+        let selected = index.select_neighbors(heap, 5);
+        assert!(
+            selected.is_empty(),
+            "empty candidates should produce empty selection"
+        );
+    }
+
+    #[test]
+    fn test_select_neighbors_returns_top_m() {
+        let index = make_index(DistanceMetric::Cosine);
+        for i in 0..6u128 {
+            add_node(&index, i, vec![(i as f32) * 0.2, 0.0, 0.0]);
+        }
+        let mut heap = BinaryHeap::new();
+        for i in 0..6u128 {
+            // node compared with itself has sim=1.0
+            if let Some(node) = index.nodes.get(&i) {
+                if let Some(slice) = node.vec_data.as_f32_slice() {
+                    let sim = cosine_sim_f32(slice, slice);
+                    heap.push(NodeSimMin(sim, i));
+                }
+            }
+        }
+        let selected = index.select_neighbors(heap, 3);
+        assert_eq!(selected.len(), 3, "should select top 3 from 6 candidates");
+    }
+
+    #[test]
+    fn test_select_neighbors_with_tombstone_skipped() {
+        let index = make_index(DistanceMetric::Cosine);
+        add_node(&index, 0, vec![1.0, 0.0, 0.0]);
+        add_node(&index, 1, vec![0.0, 1.0, 0.0]);
+        // Mark node 0 as tombstone
+        if let Some(mut n) = index.nodes.get_mut(&0) {
+            n.flags |= FLAG_TOMBSTONE;
+        }
+        let mut heap = BinaryHeap::new();
+        heap.push(NodeSimMin(1.0, 0));
+        heap.push(NodeSimMin(0.5, 1));
+        let selected = index.select_neighbors(heap, 5);
+        assert!(
+            !selected.contains(&0),
+            "tombstone node should not be selected"
+        );
+        assert!(
+            selected.contains(&1),
+            "non-tombstone node should be selected"
+        );
+    }
+
+    // ── use_flat_search ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_use_flat_search_none_threshold() {
+        let index = CPIndex::new_with_config(HnswConfig {
+            flat_threshold: None,
+            ..HnswConfig::default()
+        });
+        assert!(
+            !index.use_flat_search(),
+            "None threshold should always return false"
+        );
+    }
+
+    #[test]
+    fn test_use_flat_search_some_zero_threshold() {
+        let index = CPIndex::new_with_config(HnswConfig {
+            flat_threshold: Some(0),
+            ..HnswConfig::default()
+        });
+        // Empty index: 0 <= 0 → true
+        assert!(
+            index.use_flat_search(),
+            "empty + 0 threshold should be true"
+        );
+        // Add node: 1 <= 0 → false
+        add_node(&index, 1, vec![1.0, 0.0]);
+        assert!(
+            !index.use_flat_search(),
+            "1 node + 0 threshold should be false"
+        );
+    }
+
+    #[test]
+    fn test_use_flat_search_default_threshold() {
+        let index = make_index(DistanceMetric::Cosine);
+        // Default threshold = Some(10000), small indexes are below it
+        assert!(
+            index.use_flat_search(),
+            "small index should use flat search by default"
+        );
+    }
+
+    // ── search_nearest via HNSW path (flat_threshold = None) ────────────
+
+    fn make_hnsw_index(metric: DistanceMetric) -> CPIndex {
+        CPIndex::new_with_config(HnswConfig {
+            m: 8,
+            m_max0: 16,
+            ef_construction: 50,
+            ef_search: 50,
+            ml: 1.0 / (8_f64).ln(),
+            distance_metric: metric,
+            flat_threshold: None,
+        })
+    }
+
+    #[test]
+    fn test_search_nearest_hnsw_empty_index() {
+        let index = make_hnsw_index(DistanceMetric::Cosine);
+        let results = index.search_nearest(&[1.0, 0.0], None, None, &ALL_BITSET, 5, None);
+        assert!(
+            results.is_empty(),
+            "empty index via HNSW should return empty"
+        );
+    }
+
+    #[test]
+    fn test_search_nearest_hnsw_cosine() {
+        let index = make_hnsw_index(DistanceMetric::Cosine);
+        add_node(&index, 0, vec![1.0, 0.0, 0.0]);
+        add_node(&index, 1, vec![0.9, 0.1, 0.0]);
+        add_node(&index, 2, vec![-1.0, 0.0, 0.0]);
+        let results = index.search_nearest(&[1.0, 0.0, 0.0], None, None, &ALL_BITSET, 3, None);
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0].0, 0, "identical vector should be first via HNSW");
+        for win in results.windows(2) {
+            assert!(
+                win[0].1 >= win[1].1 - 1e-6,
+                "scores should be descending via HNSW: {} < {}",
+                win[0].1,
+                win[1].1
+            );
+        }
+        for &(_, score) in &results {
+            assert!(
+                score.is_finite(),
+                "HNSW score should be finite, got {}",
+                score
+            );
+        }
+    }
+
+    #[test]
+    fn test_search_nearest_hnsw_euclidean() {
+        let index = make_hnsw_index(DistanceMetric::Euclidean);
+        add_node(&index, 0, vec![0.0, 0.0]);
+        add_node(&index, 1, vec![3.0, 4.0]);
+        add_node(&index, 2, vec![-5.0, -5.0]);
+        let results = index.search_nearest(&[0.0, 0.0], None, None, &ALL_BITSET, 3, None);
+        assert_eq!(results.len(), 3);
+        assert_eq!(
+            results[0].0, 0,
+            "self-vector should be first via HNSW Euclidean"
+        );
+        for &(_, score) in &results {
+            assert!(
+                score <= 0.0,
+                "Euclidean score should be <= 0, got {}",
+                score
+            );
+        }
+    }
+
+    // ── search_layer direct tests ───────────────────────────────────────
+
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_search_layer_empty_entry_points() {
+        let index = make_index(DistanceMetric::Cosine);
+        add_node(&index, 0, vec![1.0, 0.0, 0.0]);
+        let mut visited: HashSet<u128, RandomState> =
+            HashSet::with_capacity_and_hasher(100, RandomState::new());
+        let results = index.search_layer(
+            &[1.0, 0.0, 0.0],
+            Some(1.0),
+            Some(1.0),
+            &[],
+            10,
+            0,
+            &ALL_BITSET,
+            None,
+            DistanceMetric::Cosine,
+            &mut visited,
+        );
+        assert!(
+            results.is_empty(),
+            "empty entry points should return empty results"
+        );
+    }
+
+    #[test]
+    fn test_search_layer_cosine_ordered() {
+        let index = make_index(DistanceMetric::Cosine);
+        add_node(&index, 0, vec![1.0, 0.0, 0.0]);
+        add_node(&index, 1, vec![0.8, 0.6, 0.0]);
+        // For search_layer to traverse to node 1, node 0 must have it as neighbor.
+        // insert_hnsw with ef_construction=50 should connect them.
+        let mut visited: HashSet<u128, RandomState> =
+            HashSet::with_capacity_and_hasher(100, RandomState::new());
+        let results = index.search_layer(
+            &[1.0, 0.0, 0.0],
+            Some(1.0),
+            Some(1.0),
+            &[0],
+            10,
+            0,
+            &ALL_BITSET,
+            None,
+            DistanceMetric::Cosine,
+            &mut visited,
+        );
+        assert!(!results.is_empty(), "search_layer should find results");
+        let sorted = results.into_sorted_vec();
+        assert!(
+            sorted[0].1 == 0,
+            "node 0 should be best match, got id={}",
+            sorted[0].1
+        );
+    }
+
+    #[test]
+    fn test_search_layer_tombstone_not_returned() {
+        let index = make_index(DistanceMetric::Cosine);
+        add_node(&index, 0, vec![1.0, 0.0, 0.0]);
+        add_node(&index, 1, vec![0.9, 0.1, 0.0]);
+        // Mark node 0 as tombstone
+        if let Some(mut n) = index.nodes.get_mut(&0) {
+            n.flags |= FLAG_TOMBSTONE;
+        }
+        let mut visited: HashSet<u128, RandomState> =
+            HashSet::with_capacity_and_hasher(100, RandomState::new());
+        let results = index.search_layer(
+            &[1.0, 0.0, 0.0],
+            Some(1.0),
+            Some(1.0),
+            &[0, 1],
+            10,
+            0,
+            &ALL_BITSET,
+            None,
+            DistanceMetric::Cosine,
+            &mut visited,
+        );
+        // The already-visited tombstone should be filtered from results
+        let sorted = results.into_sorted_vec();
+        for ns in &sorted {
+            assert!(ns.1 != 0, "tombstone node 0 should not appear in results");
+        }
+    }
+
+    #[test]
+    fn test_search_layer_euclidean_metric() {
+        let index = make_index(DistanceMetric::Euclidean);
+        add_node(&index, 0, vec![1.0, 0.0]);
+        add_node(&index, 1, vec![10.0, 10.0]);
+        let mut visited: HashSet<u128, RandomState> =
+            HashSet::with_capacity_and_hasher(100, RandomState::new());
+        let results = index.search_layer(
+            &[1.0, 0.0],
+            Some(1.0),
+            None,
+            &[0],
+            10,
+            0,
+            &ALL_BITSET,
+            None,
+            DistanceMetric::Euclidean,
+            &mut visited,
+        );
+        assert!(
+            !results.is_empty(),
+            "search_layer Euclidean should find results"
+        );
+        let sorted = results.into_sorted_vec();
+        // Euclidean scores should be negative
+        for ns in &sorted {
+            assert!(ns.0 <= 0.0, "Euclidean score should be <= 0");
+        }
+    }
+
+    // ── select_neighbors: diversity pruning ─────────────────────────────
+
+    #[test]
+    fn test_select_neighbors_diversity_prunes_similar() {
+        let index = make_index(DistanceMetric::Cosine);
+        // Node 0, 1 are close to each other; node 2 is in opposite direction.
+        add_node(&index, 0, vec![1.0, 0.0]);
+        add_node(&index, 1, vec![0.99, 0.01]);
+        add_node(&index, 2, vec![-1.0, 0.0]);
+
+        let mut heap = BinaryHeap::new();
+        // Lower scores so diversity check (sim_cand_sel > sim_q_cand) triggers
+        // Node 0: score 0.9  Node 1: score 0.85  Node 2: score 0.1
+        heap.push(NodeSimMin(0.9, 0));
+        heap.push(NodeSimMin(0.85, 1));
+        heap.push(NodeSimMin(0.1, 2));
+
+        // select_neighbors sorts descending: [0 (0.9), 1 (0.85), 2 (0.1)]
+        // Selects 0 first. Then checks 1: sim(1,0) ≈ 0.99 > 0.85 → not diverse → discard.
+        // Then checks 2: sim(2,0) ≈ -1.0 < 0.1 → diverse → select.
+        let selected = index.select_neighbors(heap, 2);
+        assert_eq!(selected.len(), 2);
+        assert!(selected.contains(&0), "best candidate should be selected");
+        assert!(
+            !selected.contains(&1),
+            "redundant candidate should be pruned"
+        );
+        assert!(
+            selected.contains(&2),
+            "diverse candidate should be selected"
+        );
+    }
+
+    #[test]
+    fn test_select_neighbors_diversity_with_euclidean() {
+        let index = make_index(DistanceMetric::Euclidean);
+        add_node(&index, 0, vec![1.0, 0.0]);
+        add_node(&index, 1, vec![1.1, 0.0]); // close to 0
+        add_node(&index, 2, vec![-1.0, 0.0]);
+
+        let mut heap = BinaryHeap::new();
+        // Euclidean scores are negative (similarity = -distance)
+        // Distance(0, self) = 0, so similarity = 0
+        // But we use arbitrary scores for selection
+        heap.push(NodeSimMin(0.0, 0));
+        heap.push(NodeSimMin(-0.01, 1)); // slightly worse
+        heap.push(NodeSimMin(-2.0, 2)); // much worse
+
+        let selected = index.select_neighbors(heap, 2);
+        assert_eq!(selected.len(), 2);
+        assert!(selected.contains(&0), "best should be selected");
+        // node 1 is close to 0 so it may or may not be pruned depending on distances
+        assert!(
+            selected.contains(&1) || selected.contains(&2),
+            "should pick at least one more candidate"
+        );
+    }
+
+    #[test]
+    fn test_select_neighbors_m_zero() {
+        let index = make_index(DistanceMetric::Cosine);
+        add_node(&index, 0, vec![1.0, 0.0]);
+
+        let mut heap = BinaryHeap::new();
+        heap.push(NodeSimMin(1.0, 0));
+        let selected = index.select_neighbors(heap, 0);
+        assert!(selected.is_empty(), "m=0 should return empty selection");
+    }
+
+    #[test]
+    fn test_select_neighbors_missing_node_skipped() {
+        let index = make_index(DistanceMetric::Cosine);
+        add_node(&index, 0, vec![1.0, 0.0]);
+
+        let mut heap = BinaryHeap::new();
+        // Node 999 doesn't exist
+        heap.push(NodeSimMin(1.0, 999));
+        heap.push(NodeSimMin(0.5, 0));
+
+        let selected = index.select_neighbors(heap, 5);
+        assert!(
+            !selected.contains(&999),
+            "non-existent node should be skipped"
+        );
+        assert!(selected.contains(&0), "existing node should be selected");
+    }
+
+    #[test]
+    fn test_select_neighbors_discarded_fills_remaining() {
+        let index = make_index(DistanceMetric::Cosine);
+        // 3 nodes where some may be pruned for diversity
+        add_node(&index, 0, vec![1.0, 0.0, 0.0]);
+        add_node(&index, 1, vec![0.98, 0.02, 0.0]);
+        add_node(&index, 2, vec![-0.5, 0.5, 0.0]);
+
+        let mut heap = BinaryHeap::new();
+        // Node 0 and 1 are close, node 2 is different
+        heap.push(NodeSimMin(0.9, 0));
+        heap.push(NodeSimMin(0.8, 1));
+        heap.push(NodeSimMin(0.3, 2));
+
+        // select_neighbors with m=3 should try to return 3, even if pruning happens
+        let selected = index.select_neighbors(heap, 3);
+        assert_eq!(
+            selected.len(),
+            3,
+            "should fill remaining slots with discarded candidates"
+        );
+    }
+}

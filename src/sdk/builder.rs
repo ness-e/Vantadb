@@ -70,6 +70,16 @@ impl VantaEmbedded {
         self.engine.read().clone().ok_or(VantaError::NotInitialized)
     }
 
+    /// Create an empty handle (no engine) for tests.
+    /// Produces `NotInitialized` errors on any engine-dependent operation.
+    #[doc(hidden)]
+    pub fn test_empty(config: VantaConfig) -> Self {
+        Self {
+            engine: Arc::new(RwLock::new(None)),
+            config,
+        }
+    }
+
     /// Flush and close the embedded engine handle.
     #[tracing::instrument(skip(self), err)]
     pub fn close(&self) -> Result<()> {
@@ -79,5 +89,72 @@ impl VantaEmbedded {
         let mut guard = self.engine.write();
         *guard = None;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_empty_embedded() -> VantaEmbedded {
+        VantaEmbedded::test_empty(VantaConfig::default())
+    }
+
+    // ── Debug ──
+
+    #[test]
+    fn test_debug_impl_closed() {
+        let e = make_empty_embedded();
+        let d = format!("{:?}", e);
+        assert!(d.contains("VantaEmbedded"), "got: {d}");
+        assert!(d.contains("is_open"), "got: {d}");
+        assert!(d.contains("false"), "got: {d}");
+    }
+
+    #[test]
+    fn test_debug_impl_contains_config() {
+        let e = make_empty_embedded();
+        let d = format!("{:?}", e);
+        assert!(d.contains("config"), "got: {d}");
+    }
+
+    // ── engine_handle ──
+
+    #[test]
+    fn test_engine_handle_none_errors() {
+        let e = make_empty_embedded();
+        let result = e.engine_handle();
+        assert!(result.is_err());
+        let err = result.err().unwrap();
+        assert!(err.to_string().contains("initialized"), "got: {err}");
+    }
+
+    // ── close ──
+
+    #[test]
+    fn test_close_on_empty_ok() {
+        let e = make_empty_embedded();
+        // close on an already-None engine should not panic
+        assert!(e.close().is_ok());
+    }
+
+    #[test]
+    fn test_close_then_engine_handle_fails() {
+        let e = make_empty_embedded();
+        let _ = e.close();
+        let result = e.engine_handle();
+        assert!(result.is_err());
+        let err = result.err().unwrap();
+        assert!(err.to_string().contains("initialized"), "got: {err}");
+    }
+
+    // ── VantaConfig defaults used by builder ──
+
+    #[test]
+    fn test_default_config_values() {
+        let cfg = VantaConfig::default();
+        assert!(!cfg.read_only);
+        assert_eq!(cfg.port, 8080);
+        assert_eq!(cfg.host, "127.0.0.1");
     }
 }

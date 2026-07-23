@@ -38,3 +38,54 @@ impl VantaEmbedded {
         traverser.is_dag(roots)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn no_engine_embedded() -> VantaEmbedded {
+        VantaEmbedded::test_empty(crate::config::VantaConfig::default())
+    }
+
+    #[test]
+    fn test_graph_bfs_no_engine() {
+        let e = no_engine_embedded();
+        let err = e.graph_bfs(&[1], 5).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_graph_dfs_no_engine() {
+        let e = no_engine_embedded();
+        let err = e.graph_dfs(&[1], 5).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_graph_topological_sort_no_engine() {
+        let e = no_engine_embedded();
+        let err = e.graph_topological_sort(&[1]).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_graph_is_dag_no_engine() {
+        let e = no_engine_embedded();
+        let err = e.graph_is_dag(&[1]).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_graph_bfs_empty_roots_no_engine() {
+        let e = no_engine_embedded();
+        let err = e.graph_bfs(&[], 0).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_graph_dfs_empty_roots_no_engine() {
+        let e = no_engine_embedded();
+        let err = e.graph_dfs(&[], 0).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+}

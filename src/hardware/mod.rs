@@ -296,3 +296,319 @@ impl HardwareScout {
         );
     }
 }
+
+#[cfg(test)]
+#[allow(missing_docs, clippy::module_inception)]
+mod tests {
+    use super::*;
+
+    // ─── InstructionSet ───────────────────────────────────────
+
+    #[test]
+    fn test_instruction_set_equality() {
+        assert_eq!(InstructionSet::Avx512, InstructionSet::Avx512);
+        assert_eq!(InstructionSet::Avx2, InstructionSet::Avx2);
+        assert_eq!(InstructionSet::Neon, InstructionSet::Neon);
+        assert_eq!(InstructionSet::Fallback, InstructionSet::Fallback);
+        assert_ne!(InstructionSet::Avx512, InstructionSet::Avx2);
+        assert_ne!(InstructionSet::Avx512, InstructionSet::Fallback);
+        assert_ne!(InstructionSet::Neon, InstructionSet::Avx2);
+    }
+
+    #[test]
+    fn test_instruction_set_debug() {
+        let variants = [
+            InstructionSet::Avx512,
+            InstructionSet::Avx2,
+            InstructionSet::Neon,
+            InstructionSet::Fallback,
+        ];
+        for variant in &variants {
+            let s = format!("{variant:?}");
+            assert!(!s.is_empty());
+        }
+        assert_eq!(format!("{:?}", InstructionSet::Avx512), "Avx512");
+    }
+
+    // ─── HardwareProfile ──────────────────────────────────────
+
+    #[test]
+    fn test_hardware_profile_equality() {
+        assert_eq!(HardwareProfile::Enterprise, HardwareProfile::Enterprise);
+        assert_eq!(HardwareProfile::Performance, HardwareProfile::Performance);
+        assert_eq!(HardwareProfile::LowResource, HardwareProfile::LowResource);
+        assert_ne!(HardwareProfile::Enterprise, HardwareProfile::Performance);
+        assert_ne!(HardwareProfile::LowResource, HardwareProfile::Enterprise);
+    }
+
+    #[test]
+    fn test_hardware_profile_debug() {
+        assert_eq!(format!("{:?}", HardwareProfile::Enterprise), "Enterprise");
+        assert_eq!(format!("{:?}", HardwareProfile::Performance), "Performance");
+        assert_eq!(format!("{:?}", HardwareProfile::LowResource), "LowResource");
+    }
+
+    // ─── HardwareCapabilities ─────────────────────────────────
+
+    #[test]
+    fn test_hardware_capabilities_creation_enterprise() {
+        let caps = HardwareCapabilities {
+            instructions: InstructionSet::Avx512,
+            profile: HardwareProfile::Enterprise,
+            logical_cores: 32,
+            total_memory: 64 * GIB,
+            resource_score: 170,
+            env_hash: 0xDEAD,
+        };
+        assert_eq!(caps.instructions, InstructionSet::Avx512);
+        assert_eq!(caps.profile, HardwareProfile::Enterprise);
+        assert_eq!(caps.logical_cores, 32);
+        assert_eq!(caps.total_memory, 64 * GIB);
+        assert_eq!(caps.resource_score, 170);
+        assert_eq!(caps.env_hash, 0xDEAD);
+    }
+
+    #[test]
+    fn test_hardware_capabilities_creation_performance() {
+        let caps = HardwareCapabilities {
+            instructions: InstructionSet::Neon,
+            profile: HardwareProfile::Performance,
+            logical_cores: 8,
+            total_memory: 8 * GIB,
+            resource_score: 29,
+            env_hash: 0,
+        };
+        assert_eq!(caps.instructions, InstructionSet::Neon);
+        assert_eq!(caps.profile, HardwareProfile::Performance);
+        assert_eq!(caps.logical_cores, 8);
+        assert_eq!(caps.total_memory, 8 * GIB);
+        assert_eq!(caps.resource_score, 29);
+    }
+
+    #[test]
+    fn test_hardware_capabilities_creation_low_resource() {
+        let caps = HardwareCapabilities {
+            instructions: InstructionSet::Fallback,
+            profile: HardwareProfile::LowResource,
+            logical_cores: 1,
+            total_memory: GIB,
+            resource_score: 4,
+            env_hash: 42,
+        };
+        assert_eq!(caps.instructions, InstructionSet::Fallback);
+        assert_eq!(caps.profile, HardwareProfile::LowResource);
+        assert_eq!(caps.logical_cores, 1);
+        assert_eq!(caps.total_memory, GIB);
+        assert_eq!(caps.resource_score, 4);
+    }
+
+    // ─── HardwareScout::determine_profile ─────────────────────
+
+    #[test]
+    fn test_determine_profile_enterprise() {
+        assert_eq!(
+            HardwareScout::determine_profile(16 * GIB, InstructionSet::Avx512),
+            HardwareProfile::Enterprise,
+            "16GB + Avx512 → Enterprise"
+        );
+        assert_eq!(
+            HardwareScout::determine_profile(32 * GIB, InstructionSet::Avx512),
+            HardwareProfile::Enterprise,
+            "32GB + Avx512 → Enterprise"
+        );
+    }
+
+    #[test]
+    fn test_determine_profile_performance() {
+        assert_eq!(
+            HardwareScout::determine_profile(4 * GIB, InstructionSet::Avx2),
+            HardwareProfile::Performance,
+            "4GB + AVX2 → Performance"
+        );
+        assert_eq!(
+            HardwareScout::determine_profile(8 * GIB, InstructionSet::Neon),
+            HardwareProfile::Performance,
+            "8GB + NEON → Performance"
+        );
+        assert_eq!(
+            HardwareScout::determine_profile(16 * GIB, InstructionSet::Avx2),
+            HardwareProfile::Performance,
+            "16GB + AVX2 → Performance (no Avx512)"
+        );
+    }
+
+    #[test]
+    fn test_determine_profile_low_resource_due_to_ram() {
+        assert_eq!(
+            HardwareScout::determine_profile(2 * GIB, InstructionSet::Avx2),
+            HardwareProfile::LowResource,
+            "2GB + AVX2 → LowResource"
+        );
+        assert_eq!(
+            HardwareScout::determine_profile(GIB, InstructionSet::Neon),
+            HardwareProfile::LowResource,
+            "1GB + NEON → LowResource"
+        );
+        assert_eq!(
+            HardwareScout::determine_profile(0, InstructionSet::Avx512),
+            HardwareProfile::LowResource,
+            "0GB + AVX512 → LowResource"
+        );
+    }
+
+    #[test]
+    fn test_determine_profile_low_resource_due_to_fallback() {
+        assert_eq!(
+            HardwareScout::determine_profile(8 * GIB, InstructionSet::Fallback),
+            HardwareProfile::LowResource,
+            "8GB + Fallback → LowResource"
+        );
+        assert_eq!(
+            HardwareScout::determine_profile(64 * GIB, InstructionSet::Fallback),
+            HardwareProfile::LowResource,
+            "64GB + Fallback → LowResource"
+        );
+    }
+
+    // ─── HardwareScout::calculate_resource_score ──────────────
+
+    #[test]
+    fn test_resource_score_avx512() {
+        // mem_score = 64 / 1 = 64, core_score = 32, instr_score = 10
+        // total = 64*2 + 32 + 10 = 170
+        assert_eq!(
+            HardwareScout::calculate_resource_score(64 * GIB, 32, InstructionSet::Avx512),
+            170
+        );
+    }
+
+    #[test]
+    fn test_resource_score_avx2() {
+        // mem_score = 8, core_score = 8, instr_score = 5
+        // total = 8*2 + 8 + 5 = 29
+        assert_eq!(
+            HardwareScout::calculate_resource_score(8 * GIB, 8, InstructionSet::Avx2),
+            29
+        );
+    }
+
+    #[test]
+    fn test_resource_score_neon() {
+        // mem_score = 4, core_score = 4, instr_score = 5
+        // total = 4*2 + 4 + 5 = 17
+        assert_eq!(
+            HardwareScout::calculate_resource_score(4 * GIB, 4, InstructionSet::Neon),
+            17
+        );
+    }
+
+    #[test]
+    fn test_resource_score_fallback() {
+        // mem_score = 1, core_score = 1, instr_score = 1
+        // total = 1*2 + 1 + 1 = 4
+        assert_eq!(
+            HardwareScout::calculate_resource_score(GIB, 1, InstructionSet::Fallback),
+            4
+        );
+    }
+
+    #[test]
+    fn test_resource_score_zero_memory() {
+        // mem_score = 0, core_score = 1, instr_score = 1
+        // total = 0*2 + 1 + 1 = 2
+        assert_eq!(
+            HardwareScout::calculate_resource_score(0, 1, InstructionSet::Fallback),
+            2
+        );
+    }
+
+    // ─── HardwareScout::detect_instructions ───────────────────
+
+    #[test]
+    fn test_detect_instructions_returns_valid_variant() {
+        let instr = HardwareScout::detect_instructions();
+        match instr {
+            InstructionSet::Avx512
+            | InstructionSet::Avx2
+            | InstructionSet::Neon
+            | InstructionSet::Fallback => {}
+        }
+    }
+
+    // ─── HardwareScout::detect (fallback path) ────────────────
+
+    #[test]
+    fn test_detect_returns_valid_caps() {
+        let caps = HardwareScout::detect();
+        // Without sysinfo: 1 core, 1GB default; with sysinfo: real values
+        assert!(caps.logical_cores >= 1, "at least 1 core");
+        assert!(caps.total_memory >= GIB, "at least 1GB RAM");
+        match caps.instructions {
+            InstructionSet::Avx512
+            | InstructionSet::Avx2
+            | InstructionSet::Neon
+            | InstructionSet::Fallback => {}
+        }
+        match caps.profile {
+            HardwareProfile::Enterprise
+            | HardwareProfile::Performance
+            | HardwareProfile::LowResource => {}
+        }
+    }
+
+    // ─── HardwareCapabilities::global ─────────────────────────
+
+    #[test]
+    fn test_global_caps_is_singleton() {
+        let a = HardwareCapabilities::global() as *const _ as usize;
+        let b = HardwareCapabilities::global() as *const _ as usize;
+        assert_eq!(a, b, "global() should return the same static reference");
+    }
+
+    #[test]
+    fn test_global_caps_has_reasonable_values() {
+        let caps = HardwareCapabilities::global();
+        assert!(caps.logical_cores >= 1);
+        assert!(caps.total_memory >= GIB);
+        assert!(caps.resource_score >= 1);
+    }
+
+    // ─── HardwareScout::log_adaptive_status (non-cli) ─────────
+
+    #[test]
+    fn test_log_adaptive_status_does_not_panic() {
+        let caps = HardwareCapabilities {
+            instructions: InstructionSet::Avx2,
+            profile: HardwareProfile::Performance,
+            logical_cores: 8,
+            total_memory: 16 * GIB,
+            resource_score: 50,
+            env_hash: 0,
+        };
+        // Should not panic, just log via tracing
+        HardwareScout::log_adaptive_status(&caps, false);
+        HardwareScout::log_adaptive_status(&caps, true);
+    }
+
+    // ─── Serialization round-trip ─────────────────────────────
+
+    #[test]
+    fn test_hardware_capabilities_serialization() {
+        let caps = HardwareCapabilities {
+            instructions: InstructionSet::Avx2,
+            profile: HardwareProfile::Performance,
+            logical_cores: 8,
+            total_memory: 16 * GIB,
+            resource_score: 50,
+            env_hash: 42,
+        };
+        let json = serde_json::to_string(&caps).expect("serialize");
+        let deserialized: HardwareCapabilities = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deserialized.instructions, InstructionSet::Avx2);
+        assert_eq!(deserialized.profile, HardwareProfile::Performance);
+        assert_eq!(deserialized.logical_cores, 8);
+        assert_eq!(deserialized.total_memory, 16 * GIB);
+        assert_eq!(deserialized.resource_score, 50);
+        assert_eq!(deserialized.env_hash, 42);
+    }
+}

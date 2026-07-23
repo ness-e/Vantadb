@@ -196,4 +196,122 @@ mod tests {
         assert_eq!(count, 5);
         assert!(worker.index_ttl.is_empty());
     }
+
+    #[test]
+    fn test_purge_ttl_for_deleted_removes_stale_entries() {
+        let (storage, _dir) = setup_storage();
+        let mut worker = GcWorker::new(&storage);
+        worker.register_ttl(1, 100);
+        worker.register_ttl(2, 100);
+        worker.register_ttl(3, 200);
+
+        // Only IDs 1 and 3 are still active (2 was manually deleted)
+        let active: HashSet<u128> = [1, 3].into();
+        worker.purge_ttl_for_deleted(&active);
+
+        // Entry for expiry 200 still has id=3 → kept
+        // Entry for expiry 100 now only has id=1 (id=2 removed) → kept
+        assert_eq!(worker.index_ttl.len(), 2);
+        assert_eq!(worker.index_ttl.get(&100).unwrap(), &vec![1]);
+        assert_eq!(worker.index_ttl.get(&200).unwrap(), &vec![3]);
+    }
+
+    #[test]
+    fn test_purge_ttl_for_deleted_removes_empty_expiry_keys() {
+        let (storage, _dir) = setup_storage();
+        let mut worker = GcWorker::new(&storage);
+        worker.register_ttl(1, 100);
+        worker.register_ttl(2, 100);
+
+        // Neither 1 nor 2 is active anymore
+        let active: HashSet<u128> = HashSet::new();
+        worker.purge_ttl_for_deleted(&active);
+
+        // Expiry 100 should be removed entirely (all IDs removed)
+        assert!(worker.index_ttl.is_empty());
+    }
+
+    #[test]
+    fn test_sweep_with_mixed_expired_and_future() {
+        let (storage, _dir) = setup_storage();
+        let node = UnifiedNode::new(42);
+        storage.insert(&node).unwrap();
+
+        let mut worker = GcWorker::new(&storage);
+        let past = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            - 10;
+        let future = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 100_000;
+
+        worker.register_ttl(42, past);
+        worker.register_ttl(99, future);
+
+        let count = worker.sweep().unwrap();
+        // 42 expired and was deleted; 99 is future and kept
+        assert_eq!(count, 1);
+        assert_eq!(worker.index_ttl.len(), 1);
+        assert!(worker.index_ttl.contains_key(&future));
+    }
+
+    #[test]
+    fn test_sweep_skips_non_expired_keys() {
+        let (storage, _dir) = setup_storage();
+        for i in 0..3 {
+            let node = UnifiedNode::new(i);
+            storage.insert(&node).unwrap();
+        }
+        let mut worker = GcWorker::new(&storage);
+        let far_future = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 1_000_000;
+        // All registered with the same future expiry
+        for i in 0..3 {
+            worker.register_ttl(i, far_future);
+        }
+        let count = worker.sweep().unwrap();
+        assert_eq!(count, 0, "no nodes should be expired yet");
+        assert_eq!(worker.index_ttl.len(), 1, "one expiry key remains");
+        assert_eq!(
+            worker.index_ttl.get(&far_future).unwrap().len(),
+            3,
+            "all 3 IDs still tracked"
+        );
+    }
+
+    #[test]
+    fn test_sweep_node_already_deleted_by_user() {
+        let (storage, _dir) = setup_storage();
+        let node = UnifiedNode::new(42);
+        storage.insert(&node).unwrap();
+
+        let mut worker = GcWorker::new(&storage);
+        let past = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            - 1;
+        worker.register_ttl(42, past);
+
+        // User manually deletes the node before GC runs
+        storage.delete(42, "manual").unwrap();
+
+        // GC sweep: delete(42) returns Ok(()) even for already-deleted nodes,
+        // so the sweep succeeds and counts it as expired
+        let count = worker.sweep().unwrap();
+        // The delete returns Ok(()) for already-deleted nodes → expired_count incremented
+        // (StorageEngine::delete does NOT return NodeNotFound for nonexistent nodes)
+        assert_eq!(count, 1, "GC should process the expired entry");
+        assert!(
+            worker.index_ttl.is_empty(),
+            "TTL entry should be cleaned up"
+        );
+    }
 }

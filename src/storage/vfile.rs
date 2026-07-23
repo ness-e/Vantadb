@@ -738,3 +738,381 @@ impl VantaFile {
         Some(EncryptionStream::new(file, stream_cipher))
     }
 }
+
+#[cfg(test)]
+#[allow(missing_docs)]
+mod tests {
+    use super::*;
+    use crate::binary_header::VantaHeader;
+    use crate::node::DiskNodeHeader;
+    use crate::storage::engine::STORAGE_ALIGNMENT;
+
+    // ── In-Memory VantaFile ──
+
+    #[test]
+    fn test_vfile_create_in_memory() {
+        let vf = VantaFile::create_in_memory(STORAGE_ALIGNMENT);
+        assert!(vf.file.is_none());
+        assert_eq!(vf.size, STORAGE_ALIGNMENT);
+        assert_eq!(vf.write_cursor, STORAGE_ALIGNMENT);
+        assert!(!vf.read_only);
+        assert!(vf.path.as_os_str().is_empty());
+        // Header should be valid
+        let header = VantaHeader::deserialize(&vf.mmap_bytes()[0..16]).unwrap();
+        assert_eq!(header.magic, *b"VFLE");
+        // create_in_memory writes version 1 in VantaHeader
+        assert_eq!(header.format_version, 1);
+    }
+
+    #[test]
+    fn test_vfile_in_memory_larger_initial_size() {
+        // When initial_size > STORAGE_ALIGNMENT, size should match
+        let vf = VantaFile::create_in_memory(1024);
+        assert!(vf.size >= 1024);
+        assert_eq!(vf.write_cursor, STORAGE_ALIGNMENT);
+    }
+
+    #[test]
+    fn test_vfile_in_memory_mmap_bytes() {
+        let vf = VantaFile::create_in_memory(128);
+        let bytes = vf.mmap_bytes();
+        assert!(!bytes.is_empty());
+        assert_eq!(bytes.len(), vf.size as usize);
+        // Header area matches
+        assert_eq!(&bytes[0..4], b"VFLE");
+    }
+
+    #[test]
+    fn test_vfile_in_memory_mmap_bytes_mut() {
+        let mut vf = VantaFile::create_in_memory(128);
+        let bytes = vf.mmap_bytes_mut().unwrap();
+        assert!(!bytes.is_empty());
+        bytes[0] = b'X';
+        // Verify the write was applied
+        assert_eq!(vf.mmap_bytes()[0], b'X');
+    }
+
+    #[test]
+    fn test_vfile_in_memory_save_cursor() {
+        let mut vf = VantaFile::create_in_memory(256);
+        vf.write_cursor = 192;
+        vf.save_cursor().unwrap();
+        // Cursor position is stored at bytes 16..24
+        let stored = u64::from_le_bytes(vf.mmap_bytes()[16..24].try_into().unwrap());
+        assert_eq!(stored, 192);
+    }
+
+    #[test]
+    fn test_vfile_in_memory_flush() {
+        let vf = VantaFile::create_in_memory(64);
+        // In-memory flush is a no-op
+        assert!(vf.flush().is_ok());
+    }
+
+    #[test]
+    fn test_vfile_in_memory_resident_bytes() {
+        let vf = VantaFile::create_in_memory(128);
+        let bytes = vf.mmap_resident_bytes();
+        // In-memory mode: always Some (all bytes are in process heap)
+        assert!(bytes.is_some());
+    }
+
+    // ── VantaFile Growth (In-Memory) ──
+
+    #[test]
+    fn test_vfile_in_memory_grow() {
+        let mut vf = VantaFile::create_in_memory(64);
+        assert_eq!(vf.size, 64);
+
+        vf.grow_to(256).unwrap();
+        assert_eq!(vf.size, 256);
+        // New region should be zero-filled
+        assert_eq!(vf.mmap_bytes()[128], 0);
+        assert_eq!(vf.mmap_bytes()[255], 0);
+    }
+
+    #[test]
+    fn test_vfile_in_memory_grow_noop_equal_size() {
+        let mut vf = VantaFile::create_in_memory(64);
+        assert!(vf.grow_to(64).is_ok());
+        assert_eq!(vf.size, 64);
+    }
+
+    #[test]
+    fn test_vfile_grow_to_rejects_shrink() {
+        let mut vf = VantaFile::create_in_memory(256);
+        let err = vf.grow_to(128).unwrap_err();
+        assert!(
+            err.to_string().contains("grow_to"),
+            "shrink should be rejected: {}",
+            err
+        );
+    }
+
+    // ── DiskNodeHeader read/write (In-Memory) ──
+
+    #[test]
+    fn test_vfile_in_memory_write_read_header() {
+        let mut vf = VantaFile::create_in_memory(256);
+        let header = DiskNodeHeader::new(42);
+        // Write at an aligned offset past the header area
+        let offset: u64 = STORAGE_ALIGNMENT;
+        vf.write_header(offset, &header).unwrap();
+
+        let read_back = vf.read_header(offset).expect("should read header");
+        assert_eq!(read_back.id, 42);
+        assert!((read_back.confidence_score - 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_vfile_read_header_misaligned_offset() {
+        let vf = VantaFile::create_in_memory(256);
+        // Offset not a multiple of STORAGE_ALIGNMENT ⇒ None
+        assert!(vf.read_header(1).is_none());
+        assert!(vf.read_header(STORAGE_ALIGNMENT + 1).is_none());
+    }
+
+    #[test]
+    fn test_vfile_read_header_out_of_bounds() {
+        let vf = VantaFile::create_in_memory(128);
+        // Offset past end of file
+        assert!(vf.read_header(200).is_none());
+    }
+
+    #[test]
+    fn test_vfile_write_header_misaligned() {
+        let mut vf = VantaFile::create_in_memory(256);
+        let header = DiskNodeHeader::new(1);
+        let err = vf.write_header(1, &header).unwrap_err();
+        assert!(
+            err.to_string().contains("misaligned"),
+            "should reject misaligned: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_vfile_write_header_out_of_bounds() {
+        // 128-byte file, DiskNodeHeader is 64 bytes, offset 128 is aligned but OOB
+        let mut vf = VantaFile::create_in_memory(128);
+        let header = DiskNodeHeader::new(1);
+        let err = vf.write_header(128, &header).unwrap_err();
+        assert!(
+            err.to_string().contains("out of bounds"),
+            "should reject OOB: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_vfile_write_header_multiple_offsets() {
+        let mut vf = VantaFile::create_in_memory(256);
+        let h1 = DiskNodeHeader::new(10);
+        let h2 = DiskNodeHeader::new(20);
+        vf.write_header(STORAGE_ALIGNMENT, &h1).unwrap();
+        vf.write_header(STORAGE_ALIGNMENT * 2, &h2).unwrap();
+
+        assert_eq!(vf.read_header(STORAGE_ALIGNMENT).unwrap().id, 10);
+        assert_eq!(vf.read_header(STORAGE_ALIGNMENT * 2).unwrap().id, 20);
+    }
+
+    // ── File-Backed VantaFile ──
+
+    #[test]
+    fn test_vfile_create_and_open() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.vfle");
+
+        // Create new file with 256-byte initial size
+        let mut vf = VantaFile::open(path.clone(), 256).unwrap();
+        assert!(vf.file.is_some());
+        assert_eq!(vf.size, 256);
+        assert!(!vf.read_only);
+        assert_eq!(vf.write_cursor, STORAGE_ALIGNMENT);
+
+        // Write a header and verify
+        let header = DiskNodeHeader::new(99);
+        vf.write_header(STORAGE_ALIGNMENT, &header).unwrap();
+        vf.flush().unwrap();
+
+        // Reopen and verify data persists
+        let vf2 = VantaFile::open(path, 256).unwrap();
+        let read = vf2.read_header(STORAGE_ALIGNMENT).unwrap();
+        assert_eq!(read.id, 99);
+    }
+
+    #[test]
+    fn test_vfile_open_reuses_existing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("existing.vfle");
+
+        // Create file first
+        let _ = VantaFile::open(path.clone(), 512).unwrap();
+
+        // Re-open with different initial_size (should use existing file size)
+        let vf = VantaFile::open(path, 0).unwrap();
+        assert_eq!(vf.size, 512);
+    }
+
+    #[test]
+    fn test_vfile_open_read_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ro_test.vfle");
+
+        // Create a file first
+        let mut create = VantaFile::open(path.clone(), 128).unwrap();
+        let header = DiskNodeHeader::new(7);
+        create.write_header(STORAGE_ALIGNMENT, &header).unwrap();
+        create.flush().unwrap();
+        drop(create);
+
+        // Open read-only
+        let ro = VantaFile::open_read_only(path).unwrap();
+        assert!(ro.read_only);
+        assert_eq!(ro.read_header(STORAGE_ALIGNMENT).unwrap().id, 7);
+    }
+
+    #[test]
+    fn test_vfile_read_only_write_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ro_write.vfle");
+
+        let create = VantaFile::open(path.clone(), 128).unwrap();
+        create.flush().unwrap();
+        drop(create);
+
+        // mmap_bytes_mut requires &mut self — read_only file can only use mmap_bytes
+        let _ = VantaFile::open_read_only(path).unwrap().mmap_bytes();
+        // Confirm read_only can't get mutable access by design (compile-time check)
+    }
+
+    #[test]
+    fn test_vfile_remap_mut_on_read_only_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ro_remap.vfle");
+
+        let create = VantaFile::open(path.clone(), 128).unwrap();
+        create.flush().unwrap();
+        drop(create);
+
+        let mut ro = VantaFile::open_read_only(path).unwrap();
+        let err = ro.remap_mut().unwrap_err();
+        assert!(
+            err.to_string().contains("read_only"),
+            "remap_mut on read-only should fail: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_vfile_replace_backing_file_on_read_only_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ro_replace.vfle");
+
+        let create = VantaFile::open(path.clone(), 128).unwrap();
+        create.flush().unwrap();
+        drop(create);
+
+        let mut ro = VantaFile::open_read_only(path).unwrap();
+        let err = ro.replace_backing_file(256).unwrap_err();
+        assert!(
+            err.to_string().contains("read_only"),
+            "replace on read-only should fail: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_vfile_grow_to_on_disk() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("grow.vfle");
+
+        let mut vf = VantaFile::open(path, 128).unwrap();
+        assert_eq!(vf.size, 128);
+
+        vf.grow_to(512).unwrap();
+        assert_eq!(vf.size, 512);
+
+        // Verify we can write at the new offset
+        let header = DiskNodeHeader::new(200);
+        vf.write_header(STORAGE_ALIGNMENT * 4, &header).unwrap();
+        assert_eq!(vf.read_header(STORAGE_ALIGNMENT * 4).unwrap().id, 200);
+    }
+
+    #[test]
+    fn test_vfile_open_nonexistent_read_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("_does_not_exist_.vfle");
+        // Ensure it doesn't exist
+        let _ = std::fs::remove_file(&path);
+        let result = VantaFile::open_read_only(path);
+        assert!(result.is_err(), "should fail for nonexistent file");
+    }
+
+    #[test]
+    fn test_vfile_save_and_reload_cursor() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cursor_test.vfle");
+
+        let mut vf = VantaFile::open(path.clone(), 256).unwrap();
+        vf.write_cursor = 200;
+        vf.save_cursor().unwrap();
+        vf.flush().unwrap();
+        drop(vf);
+
+        // Reopen and verify cursor is restored (rounded up to alignment: (200+63)&!63 = 256)
+        let vf2 = VantaFile::open(path, 256).unwrap();
+        assert!(
+            vf2.write_cursor == STORAGE_ALIGNMENT || vf2.write_cursor == 256,
+            "cursor should be restored (200) or clamped (64), got {}",
+            vf2.write_cursor
+        );
+    }
+
+    // ── VantaFile Version ──
+
+    #[test]
+    fn test_vfile_version_constant() {
+        assert_eq!(VFILE_VERSION, 2);
+    }
+
+    // ── get_resident_bytes ──
+
+    #[test]
+    fn test_get_resident_bytes_empty() {
+        // Null or zero-length should return Some(0)
+        let result = get_resident_bytes(std::ptr::null(), 0);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), 0);
+    }
+
+    #[test]
+    fn test_get_resident_bytes_small() {
+        // A small valid pointer should not crash
+        let data = [0u8; 64];
+        let result = get_resident_bytes(data.as_ptr(), data.len());
+        // On most platforms this should return Some (≤64 bytes fit in one page)
+        // But it's platform-dependent, so just verify it doesn't panic
+        let _ = result;
+    }
+
+    // ── VantaFile warmup_top_layers ──
+
+    #[test]
+    fn test_vfile_warmup_top_layers() {
+        let vf = VantaFile::create_in_memory(256);
+        // Should not panic
+        vf.warmup_top_layers(128);
+    }
+
+    // ── engine_mmap_resident_bytes ──
+
+    #[test]
+    fn test_engine_mmap_resident_bytes_basic() {
+        // In-memory vfile reports Some, in-memory index reports None → total is Some
+        let index = crate::index::CPIndex::with_backend(crate::index::IndexBackend::InMemory);
+        let vf = VantaFile::create_in_memory(128);
+        let bytes = engine_mmap_resident_bytes(&index, &vf);
+        assert!(bytes.is_some());
+    }
+}

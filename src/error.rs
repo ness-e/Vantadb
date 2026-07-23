@@ -542,4 +542,434 @@ mod tests {
         let e = VantaError::serialization(inner);
         assert!(e.source().is_some());
     }
+
+    // ── Remaining Display variants ──
+
+    #[test]
+    fn display_search_error() {
+        let e = VantaError::SearchError(ChainedError::msg("query failed"));
+        assert_eq!(e.to_string(), "Search error: query failed");
+    }
+
+    #[test]
+    fn display_runtime_error() {
+        let e = VantaError::RuntimeError(ChainedError::msg("unexpected crash"));
+        assert_eq!(e.to_string(), "Runtime error: unexpected crash");
+    }
+
+    #[test]
+    fn display_restore_error() {
+        let e = VantaError::RestoreError(ChainedError::msg("checksum mismatch"));
+        assert_eq!(e.to_string(), "Restore error: checksum mismatch");
+    }
+
+    #[test]
+    fn display_backup_error() {
+        let e = VantaError::BackupError(ChainedError::msg("disk full"));
+        assert_eq!(e.to_string(), "Backup error: disk full");
+    }
+
+    #[test]
+    fn display_backend_error() {
+        let e = VantaError::BackendError(ChainedError::msg("rocksdb corruption"));
+        assert_eq!(e.to_string(), "Backend error: rocksdb corruption");
+    }
+
+    #[test]
+    fn display_generic_error() {
+        let e = VantaError::Generic(ChainedError::msg("something broke"));
+        assert_eq!(e.to_string(), "Generic error: something broke");
+    }
+
+    #[test]
+    fn display_cli_error() {
+        let e = VantaError::CliError(ChainedError::msg("bad flag"));
+        assert_eq!(e.to_string(), "CLI error: bad flag");
+    }
+
+    #[test]
+    fn display_iql_error() {
+        let e = VantaError::IqlError(ChainedError::msg("invalid syntax"));
+        assert_eq!(e.to_string(), "IQL error: invalid syntax");
+    }
+
+    #[test]
+    fn display_invalid_input() {
+        let e = VantaError::InvalidInput("null not allowed".into());
+        assert_eq!(e.to_string(), "Invalid input: null not allowed");
+    }
+
+    #[test]
+    fn display_schema_error() {
+        let e = VantaError::SchemaError("missing field".into());
+        assert_eq!(e.to_string(), "Schema error: missing field");
+    }
+
+    #[test]
+    fn display_unsupported_operation() {
+        let e = VantaError::UnsupportedOperation {
+            operation: "pivot".into(),
+            detail: "not implemented yet".into(),
+        };
+        assert_eq!(
+            e.to_string(),
+            "Unsupported operation: pivot — not implemented yet"
+        );
+    }
+
+    #[test]
+    fn display_execution_conflict() {
+        let e = VantaError::ExecutionConflict {
+            resource: "node_42".into(),
+            detail: "concurrent write detected".into(),
+        };
+        assert_eq!(
+            e.to_string(),
+            "Execution conflict on node_42: concurrent write detected"
+        );
+    }
+
+    #[test]
+    fn display_wal_version_mismatch() {
+        let e = VantaError::WALVersionMismatch {
+            expected: 3,
+            found: 1,
+            hint: "upgrade required".into(),
+        };
+        let s = e.to_string();
+        assert!(s.contains("expected 3"));
+        assert!(s.contains("found 1"));
+        assert!(s.contains("upgrade required"));
+    }
+
+    // ── is_retriable ──
+
+    #[test]
+    fn is_retriable_true_for_busy() {
+        let e = VantaError::DatabaseBusy("locked".into());
+        assert!(e.is_retriable());
+    }
+
+    #[test]
+    fn is_retriable_true_for_timeout() {
+        let e = VantaError::Timeout {
+            operation: "search".into(),
+            duration_ms: 5000,
+        };
+        assert!(e.is_retriable());
+    }
+
+    #[test]
+    fn is_retriable_true_for_resource_limit() {
+        let e = VantaError::ResourceLimit("memory".into());
+        assert!(e.is_retriable());
+    }
+
+    #[test]
+    fn is_retriable_true_for_backend_error() {
+        let e = VantaError::BackendError(ChainedError::msg("io error"));
+        assert!(e.is_retriable());
+    }
+
+    #[test]
+    fn is_retriable_true_for_wal_error() {
+        let e = VantaError::WalError(ChainedError::msg("crc fail"));
+        assert!(e.is_retriable());
+    }
+
+    #[test]
+    fn is_retriable_false_for_node_not_found() {
+        let e = VantaError::NodeNotFound(42);
+        assert!(!e.is_retriable());
+    }
+
+    #[test]
+    fn is_retriable_false_for_validation() {
+        let e = VantaError::ValidationError {
+            field: "name".into(),
+            reason: "empty".into(),
+        };
+        assert!(!e.is_retriable());
+    }
+
+    #[test]
+    fn is_retriable_false_for_not_initialized() {
+        let e = VantaError::NotInitialized;
+        assert!(!e.is_retriable());
+    }
+
+    // ── recovery_hint ──
+
+    #[test]
+    fn recovery_hint_for_database_busy() {
+        let e = VantaError::DatabaseBusy("lock".into());
+        assert!(e.recovery_hint().unwrap().contains("Wait for the lock"));
+    }
+
+    #[test]
+    fn recovery_hint_for_timeout() {
+        let e = VantaError::Timeout {
+            operation: "x".into(),
+            duration_ms: 1,
+        };
+        assert!(e.recovery_hint().unwrap().contains("Increase the timeout"));
+    }
+
+    #[test]
+    fn recovery_hint_for_incompatible_format() {
+        let e = VantaError::IncompatibleFormat {
+            expected_magic: *b"VWAL",
+            expected_version: 2,
+            found_magic: *b"VNDX",
+            found_version: 1,
+            hint: "".into(),
+        };
+        assert!(e.recovery_hint().unwrap().contains("Delete the WAL"));
+    }
+
+    #[test]
+    fn recovery_hint_for_node_not_found() {
+        let e = VantaError::NodeNotFound(1);
+        assert!(e.recovery_hint().unwrap().contains("may have been deleted"));
+    }
+
+    #[test]
+    fn recovery_hint_for_not_found() {
+        let e = VantaError::NotFound {
+            kind: "ns".into(),
+            id: "x".into(),
+        };
+        assert!(e.recovery_hint().unwrap().contains("Verify"));
+    }
+
+    #[test]
+    fn recovery_hint_none_for_not_initialized() {
+        let e = VantaError::NotInitialized;
+        assert!(e.recovery_hint().is_none());
+    }
+
+    #[test]
+    fn recovery_hint_none_for_cycle_detected() {
+        let e = VantaError::CycleDetected;
+        assert!(e.recovery_hint().is_none());
+    }
+
+    // ── ChainedError ──
+
+    #[test]
+    fn chained_error_msg_only() {
+        let e = ChainedError::msg("something went wrong");
+        assert_eq!(e.to_string(), "something went wrong");
+        assert!(e.source().is_none());
+    }
+
+    #[test]
+    fn chained_error_with_source() {
+        let inner = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let e = ChainedError::with_source("read config", inner);
+        // Display includes both context and source
+        assert!(e.to_string().contains("read config"));
+        assert!(e.to_string().contains("file not found"));
+        // Source is accessible
+        let src = e.source().unwrap();
+        assert_eq!(src.to_string(), "file not found");
+    }
+
+    #[test]
+    fn chained_error_debug() {
+        let inner = std::io::Error::new(std::io::ErrorKind::Other, "disk error");
+        let e = ChainedError::with_source("write failed", inner);
+        let dbg = format!("{:?}", e);
+        assert!(dbg.contains("ChainedError"));
+    }
+
+    #[test]
+    fn chained_error_source_none_after_msg() {
+        let e = ChainedError::msg("just a message");
+        assert!(e.source().is_none());
+    }
+
+    // ── Helper constructors ──
+
+    #[test]
+    fn wal_error_sourced() {
+        let inner = std::io::Error::new(std::io::ErrorKind::InvalidData, "crc mismatch");
+        let e = VantaError::wal_error_sourced("WAL segment 3", inner);
+        assert!(e.to_string().contains("WAL error"));
+        assert!(e.to_string().contains("WAL segment 3"));
+        assert!(e.to_string().contains("crc mismatch"));
+        assert!(e.is_retriable());
+    }
+
+    #[test]
+    fn generic_error_sourced() {
+        let inner = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
+        let e = VantaError::generic_error_sourced("init failed", inner);
+        assert!(e.to_string().contains("Generic error"));
+        assert!(e.to_string().contains("init failed"));
+        assert!(e.to_string().contains("access denied"));
+    }
+
+    #[test]
+    fn backend_error_constructor() {
+        let e = VantaError::backend_error("rocksdb closed");
+        assert_eq!(e.to_string(), "Backend error: rocksdb closed");
+    }
+
+    #[test]
+    fn restore_error_constructor() {
+        let e = VantaError::restore_error("backup not found");
+        assert_eq!(e.to_string(), "Restore error: backup not found");
+    }
+
+    #[test]
+    fn restore_error_sourced() {
+        let inner = std::io::Error::new(std::io::ErrorKind::NotFound, "no file");
+        let e = VantaError::restore_error_sourced("restore snapshot", inner);
+        assert!(e.to_string().contains("Restore error"));
+        assert!(e.to_string().contains("restore snapshot"));
+        assert!(e.to_string().contains("no file"));
+    }
+
+    #[test]
+    fn backup_error_constructor() {
+        let e = VantaError::backup_error("disk full");
+        assert_eq!(e.to_string(), "Backup error: disk full");
+    }
+
+    #[test]
+    fn backup_error_sourced() {
+        let inner = std::io::Error::new(std::io::ErrorKind::StorageFull, "no space");
+        let e = VantaError::backup_error_sourced("create backup", inner);
+        assert!(e.to_string().contains("Backup error"));
+        assert!(e.to_string().contains("create backup"));
+    }
+
+    // ── Std Error source chain ──
+
+    #[test]
+    fn vanta_error_source_for_serialization() {
+        let inner = std::io::Error::new(std::io::ErrorKind::InvalidData, "bad bytes");
+        let e = VantaError::SerializationError(Box::new(inner));
+        let src = e.source();
+        assert!(src.is_some());
+        assert_eq!(src.unwrap().to_string(), "bad bytes");
+    }
+
+    #[test]
+    fn vanta_error_source_none_for_simple_variants() {
+        let e = VantaError::NotInitialized;
+        assert!(e.source().is_none());
+    }
+
+    #[test]
+    fn serde_msg_error_std_error_trait() {
+        let inner = std::io::Error::new(std::io::ErrorKind::InvalidData, "utf8 error");
+        let e = SerdeMsgError::new("decode", inner);
+        // std::error::Error trait
+        let err: &dyn StdError = &e;
+        assert_eq!(err.to_string(), "decode");
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn io_error_from_trait() {
+        let io = std::io::Error::new(std::io::ErrorKind::TimedOut, "timeout");
+        let e: VantaError = io.into();
+        assert_eq!(e.to_string(), "IO error: timeout");
+    }
+
+    // ── recovery_hint for remaining branches ──
+
+    #[test]
+    fn recovery_hint_for_resource_limit() {
+        let e = VantaError::ResourceLimit("memory".into());
+        let hint = e.recovery_hint();
+        assert!(hint.is_some());
+        assert!(hint.unwrap().contains("Reduce memory pressure"));
+    }
+
+    #[test]
+    fn recovery_hint_for_schema_error() {
+        let e = VantaError::SchemaError("migration failed".into());
+        let hint = e.recovery_hint();
+        assert!(hint.is_some());
+        assert!(hint.unwrap().contains("Reinitialize"));
+    }
+
+    #[test]
+    fn recovery_hint_for_wal_version_mismatch() {
+        let e = VantaError::WALVersionMismatch {
+            expected: 2,
+            found: 1,
+            hint: "upgrade".into(),
+        };
+        let hint = e.recovery_hint();
+        assert!(hint.is_some());
+        assert!(hint.unwrap().contains("written by a different version"));
+    }
+
+    #[test]
+    fn recovery_hint_for_restore_error() {
+        let e = VantaError::RestoreError(ChainedError::msg("checksum fail"));
+        let hint = e.recovery_hint();
+        assert!(hint.is_some());
+        assert!(hint.unwrap().contains("backup file exists"));
+    }
+
+    #[test]
+    fn recovery_hint_for_backup_error() {
+        let e = VantaError::BackupError(ChainedError::msg("disk full"));
+        let hint = e.recovery_hint();
+        assert!(hint.is_some());
+        assert!(hint.unwrap().contains("writable"));
+    }
+
+    // ── More helper constructors ──
+
+    #[test]
+    fn generic_error_constructor() {
+        let e = VantaError::generic_error("something broke");
+        assert_eq!(e.to_string(), "Generic error: something broke");
+    }
+
+    #[test]
+    fn generic_error_sourced_display() {
+        let inner = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
+        let e = VantaError::generic_error_sourced("init db", inner);
+        assert!(e.to_string().contains("Generic error"));
+        assert!(e.to_string().contains("init db"));
+        assert!(e.to_string().contains("access denied"));
+    }
+
+    // ── SerializationError display ──
+
+    #[test]
+    fn display_serialization_error_with_serde_msg() {
+        let inner = std::io::Error::new(std::io::ErrorKind::InvalidData, "bad data");
+        let serde_err = SerdeMsgError::new("decode error", inner);
+        let e = VantaError::SerializationError(Box::new(serde_err));
+        assert_eq!(e.to_string(), "Serialization error: decode error");
+        let source = e.source().unwrap();
+        assert_eq!(source.to_string(), "decode error");
+    }
+
+    // ── Result type alias ──
+
+    #[test]
+    fn result_type_alias() {
+        let ok: Result<i32> = Ok(42);
+        assert_eq!(ok.unwrap(), 42);
+        let err: Result<i32> = Err(VantaError::NotInitialized);
+        assert!(err.is_err());
+    }
+
+    // ── Display for SerializationError with plain error ──
+
+    #[test]
+    fn display_serialization_error_plain() {
+        let inner = std::io::Error::new(std::io::ErrorKind::Other, "plain fail");
+        let e = VantaError::SerializationError(Box::new(inner));
+        assert_eq!(e.to_string(), "Serialization error: plain fail");
+    }
 }
