@@ -1,6 +1,6 @@
 # VantaDB Skills Manifest
 
-**Location:** `.agents/skills/` (project-local, 116 essential skills, 85 moved to global)
+**Location:** `.agents/skills/` (project-local, 104 essential skills, 85 moved to global)
 **Updated:** 2026-07-10
 **Purpose:** Reference for AI agents to know which skills are available and when to use them.
 
@@ -270,6 +270,7 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | using-agent-skills | 8 | KEEP | Meta-skill for skill discovery. |
 | design-audit-orchestrator | 7 | KEEP | Audit-first design review pipeline. |
 | vantadb-full-review | 10 | KEEP | **NUEVA** — Full project review orchestrator. 8 capas: Rust, Python, Web, TS, CI/CD, Docs, Design, Architecture. Corre todos los tools disponibles y produce reporte estructurado. |
+| backlog-executor | 7 | KEEP | Autonomous task execution loop for backlog-driven development. One task per iteration: triage → eval gate → implement → verify → commit → update. |
 
 ### Content / Writing
 
@@ -328,6 +329,8 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | understand-explain | 7 | KEEP | Análisis narrativo de archivo/módulo. |
 | understand-knowledge | 6 | KEEP | Analiza wikis Markdown → grafo. |
 | understand-onboard | 6 | KEEP | Guía interactiva de onboarding. |
+| coordinated-web-search | 7 | KEEP | Orchestrates MetaSearchMCP + Argus for coordinated web search and validation across multiple providers. |
+| web-research | 6 | KEEP | Orchestrates MCP search servers for comprehensive web research and content extraction. |
 
 ---
 
@@ -416,5 +419,5 @@ The following skills were removed during cleanup (158 total):
 
 ## Source Locations
 
-All skills are now consolidated in `.agents/skills/` (project-local, 116 essential skills). 85 skills returned to `~/.agents/skills/` as not relevant to VantaDB.
+All skills are now consolidated in `.agents/skills/` (project-local, 104 essential skills). 85 skills returned to `~/.agents/skills/` as not relevant to VantaDB.
 The global `.agents/skills/` and `.claude/skills/` locations still exist but are secondary — prefer the project-local copy.
