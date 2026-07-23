@@ -964,7 +964,6 @@ Si el usuario necesita un release inmediato sin pasar por el ciclo de release-pl
 #### Pre-push Gate
 
 El pre-push hook corre: `cargo fmt → cargo check → cargo clippy → cargo deny check → cargo nextest run`.
-Si el hook tarda mucho, usar `git push --no-verify` SOLO si el cambio es trivial y CI lo va a validar igual.
 
 <!-- Learnings: P1-2 — 2026-07-17 -->
 - `nextest.toml` está en `.config/` (no en raíz). Buscar con `Get-ChildItem -Filter` si `Read` falla.
