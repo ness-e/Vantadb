@@ -339,6 +339,21 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
         }
     });
 
+    // Periodic metrics logging (every 30 s) — makes active_requests observable at runtime.
+    let metrics_logger = metrics.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(30));
+        loop {
+            interval.tick().await;
+            info!(
+                active = metrics_logger.active_requests.load(Ordering::Relaxed),
+                total = metrics_logger.requests_total.load(Ordering::Relaxed),
+                errors = metrics_logger.errors_total.load(Ordering::Relaxed),
+                "MCP server metrics",
+            );
+        }
+    });
+
     info!(
         max_concurrency = config.max_concurrency,
         request_timeout_ms = config.request_timeout.as_millis(),
@@ -420,12 +435,19 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
             break;
         }
 
-        if let Ok(out) = serde_json::to_string(&response) {
-            let _ = stdout.write_all(out.as_bytes()).await;
-            let _ = stdout.write_all(b"\n").await;
-            let _ = stdout.flush().await;
-        } else {
-            error!("Failed to serialize JSON-RPC response body");
+        match serde_json::to_string(&response) {
+            Ok(out) => {
+                if let Err(e) = stdout.write_all(out.as_bytes()).await {
+                    error!(error = %e, "Failed to write response to stdout");
+                } else if let Err(e) = stdout.write_all(b"\n").await {
+                    error!(error = %e, "Failed to write newline to stdout");
+                } else if let Err(e) = stdout.flush().await {
+                    error!(error = %e, "Failed to flush stdout");
+                }
+            }
+            Err(e) => {
+                error!(error = %e, "Failed to serialize JSON-RPC response body");
+            }
         }
     }
 
@@ -436,12 +458,21 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
     );
 }
 
-/// Write a JSON value to stdout, swallowing I/O errors.
+/// Write a JSON value to stdout, logging I/O errors instead of swallowing them.
 async fn write_json(stdout: &mut tokio::io::Stdout, value: &Value) {
-    if let Ok(out) = serde_json::to_string(value) {
-        let _ = stdout.write_all(out.as_bytes()).await;
-        let _ = stdout.write_all(b"\n").await;
-        let _ = stdout.flush().await;
+    match serde_json::to_string(value) {
+        Ok(out) => {
+            if let Err(e) = stdout.write_all(out.as_bytes()).await {
+                error!(error = %e, "write_json: failed to write to stdout");
+            } else if let Err(e) = stdout.write_all(b"\n").await {
+                error!(error = %e, "write_json: failed to write newline to stdout");
+            } else if let Err(e) = stdout.flush().await {
+                error!(error = %e, "write_json: failed to flush stdout");
+            }
+        }
+        Err(e) => {
+            error!(error = %e, "write_json: serialization failed");
+        }
     }
 }
 
@@ -1341,7 +1372,9 @@ pub fn handle_tools_call(
             let records = match collect_all_records(&embedded, namespace, config) {
                 Ok(r) => r,
                 Err(e) => {
-                    let _ = storage.commit_transaction(txn_id);
+                    if let Err(abort_err) = storage.abort_transaction(txn_id) {
+                        warn!(error = %abort_err, "Failed to abort transaction after collection error");
+                    }
                     return Ok(error_content(format!("Collection delete error: {}", e)));
                 }
             };
@@ -1358,22 +1391,25 @@ pub fn handle_tools_call(
                 }
             }
 
+            if failures > 0 {
+                if let Err(abort_err) = storage.abort_transaction(txn_id) {
+                    warn!(error = %abort_err, "Failed to abort transaction after partial delete");
+                }
+                return Ok(error_content(format!(
+                    "Partial delete: {}/{} removed, last error: {}",
+                    total - failures,
+                    total,
+                    last_error
+                )));
+            }
+
             storage.commit_transaction(txn_id).map_err(|e| {
                 McpError::internal_error(format!("Failed to commit transaction: {}", e)).to_json()
             })?;
 
-            let records_removed = total - failures;
-
-            if failures > 0 {
-                return Ok(error_content(format!(
-                    "Partial delete: {}/{} removed, last error: {}",
-                    records_removed, total, last_error
-                )));
-            }
-
             let result = json!({
                 "deleted": true,
-                "records_removed": records_removed,
+                "records_removed": records.len(),
             });
             Ok(text_content(serialize_content(&result)))
         }

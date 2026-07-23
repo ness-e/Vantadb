@@ -539,10 +539,10 @@ members = [
     "vantadb-server",
     "vantadb-mcp",
     "vantadb-wasm",
-    "providers/openai",
-    "providers/ollama",
-    "providers/litellm",
 ]
+# NOTE: providers/openai, providers/ollama, providers/litellm are NOT workspace members.
+# They use pyo3 + cdylib which triggers MSVC linker crash on Windows during workspace
+# builds. Build individually with `cargo build -p vantadb-openai` etc. on non-Windows.
 default-members = [
     ".",
     "vantadb-python",

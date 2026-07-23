@@ -3,7 +3,7 @@ title: "Active Backlog — VantaDB"
 type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
-last_reviewed: 2026-07-16
+last_reviewed: 2026-07-23
 ---
 
 # Active Backlog — VantaDB
@@ -11,7 +11,8 @@ last_reviewed: 2026-07-16
 > **Purpose:** Single source of truth for all project tasks.
 > **Completed tasks:** `docs/CHANGELOG.md` + `docs/progreso/README.md`
 > **Verification method:** All claims cross-checked against actual codebase via 4 sub-agents (Jul 13). See `docs/archive/` for superseded audit reports.
-> **Total open items:** 165 (108 previos + 22 del rescate OLD Jul 16 + 5 cross-ref Wave 3 + 30 competitive features COMP Jul 16)
+> **Total open items:** 154 (165 - 11 completados Jul 23)
+> **Completed since Jul 16:** Adapter restructure (Jul 22, 7 crates→providers/ + 9 Python adapters), 10/10 production campaign (Jul 22, 20 tasks), npm publish (vantadb v0.4.0), WASM demo link in hero
 > **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/progreso/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
 
 ---
@@ -24,16 +25,47 @@ last_reviewed: 2026-07-16
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado | Verificación |
 |----|-------|----------|-----------|--------|-------------|
-| `INT-01` | **LangChain adapter → PyPI** | 🟡 1-2d | 🔴 | ✅ | Código existe, CI configurado (`release-adapters-62.yml`), 5/5 tests pasan. Push tag `adapters-v0.3.0` para publicar. |
-| `INT-02` | **LlamaIndex adapter → PyPI** | 🟡 1-2d | 🔴 | ✅ | Código existe, CI configurado (`release-adapters-62.yml`), 5/5 tests pasan. Push tag `adapters-v0.3.0` para publicar. |
+| `INT-01` | **LangChain adapter → PyPI** | 🟢 5min | 🔴 | ⏳ | Código listo v0.3.0, CI configurado (`release-adapters-62.yml`), 5/5 tests pasan. **Tag `adapters-v0.3.0` NUNCA fue pusheado.** Pushear tag → CI publica automágicamente. |
+| `INT-02` | **LlamaIndex adapter → PyPI** | 🟢 5min | 🔴 | ⏳ | Código listo v0.3.0, CI configurado (`release-adapters-62.yml`), 5/5 tests pasan. **Tag `adapters-v0.3.0` NUNCA fue pusheado.** Pushear tag → CI publica automágicamente. |
 | `DEVOPS-05` | Pipeline CI unificado para publicar los 9 adapters a PyPI | 🟡 1-2d | 🔴 | ✅ | `release-adapters-62.yml` existente: test → build → TestPyPI (dispatch) → PyPI (tag `adapters-v*`). Los 9 adapters en `integrations/` build correctos. |
-| `REL-02` | **Publicar `vantadb-ts` en npm** (WASM build) | 🟡 1-2d | 🔴 | ⏳ | 3 cambios aplicados: (1) `impl_text_index.rs` visibility fix (`fn` → `pub(crate)` en 2 métodos), (2) `wasm-opt = false` en `vantadb-wasm/Cargo.toml` (toolchain local no soporta bulk-memory), (3) CI `release-npm-61.yml` fix: `ts-v*` tag ahora ejecuta `publish-wasm`. Build WASM ✅, Build TS ✅, npm dry-run ✅. Tests: ⚠️ 80/219 fail (pre-existing WASM panics `unreachable!` en Node.js, pasan 113, 26 skip — bug no relacionado a REL-02). npm names `vantadb` + `vantadb-wasm` disponibles. |
+| ~~`REL-02`~~ | **Publicar `vantadb-ts` en npm** (WASM build) | 🟡 1-2d | 🔴 | ✅ | **COMPLETED Jul 22.** `vantadb@0.3.0 / 0.4.0` + `vantadb-wasm@0.3.0` publicados en npm. Hero con link a `/demo` también completado (MKT-13). |
 
 ### 🌐 Web & Landing
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado | Verificación |
 |----|-------|----------|-----------|--------|-------------|
-| `MKT-13` | **Enlazar demo WASM desde la hero** — Ruta `/demo` existe, demo funcional. Falta botón "Try in browser" en `NbTerminalHero` | 🟡 1-2h | 🔴 | ⏳ | `NbTerminalHero.tsx` no tiene link a `/demo`. Verificado. |
+| ~~`MKT-13`~~ | **Enlazar demo WASM desde la hero** — Ruta `/demo` existe, demo funcional. Falta botón "Try in browser" en `NbTerminalHero` | 🟡 1-2h | 🔴 | ✅ | **COMPLETED Jul 22.** `NbTerminalHero.tsx` línea 147: `<NbArrow href="/demo">Try in browser</NbArrow>`. Verificado en código. |
+
+---
+
+## ✅ Completado en Jul 22-23 (Posterior a últ. revisión)
+
+> Trabajo mayor de adapters/providers + publicaciones, verificado contra código real Jul 23.
+
+### 🔄 Adapter Restructure (commit `accbfa8`)
+| ID | Tarea | Commit | Estado |
+|----|-------|--------|--------|
+| `RESTR-01` | Mover Rust providers a `providers/` (openai, ollama, litellm) | `accbfa8` | ✅ |
+| `RESTR-02` | Eliminar 7 Rust framework crates (langchain, llamaindex, haystack, crewai, dspy, letta, mem0) | `accbfa8` | ✅ |
+| `RESTR-03` | ADR-010: adapter language classification | `accbfa8` | ✅ |
+| `RESTR-04` | CI workflows actualizados (paths) | `accbfa8` | ✅ |
+
+### 🚀 10/10 Campaign (4 commits: `404f388` + `65c37bf` + `b519111`)
+| Wave | Descripción | Estado |
+|------|------------|--------|
+| Wave 1 | Rust providers — bugs críticos + get/list (PRV-01/02/03) | ✅ 3/3 |
+| Wave 2 | Python adapters — bugs críticos (ADP-01/02/03/04/05) | ✅ 5/5 |
+| Wave 3 | Rust providers — feature parity (PRV-04/05/06) | ✅ 3/3 |
+| Wave 4 | Python adapter tests (TST-01/02/03/04) | ✅ 4/4 |
+| Wave 5 | Feature parity Python (FTR-01/02/03) | ✅ 3/3 |
+| Wave 6 | Docstrings + edge cases (DOC-01/02) | ✅ 2/2 |
+| Wave 7 | Verification pass | ✅ |
+
+### 📦 Publicaciones
+| ID | Paquete | Versión | Registry | Estado |
+|----|---------|---------|----------|--------|
+| `REL-02` | `vantadb` + `vantadb-wasm` | v0.3.0, v0.4.0 | npm | ✅ |
+| `MKT-13` | Demo link en hero | — | web | ✅ |
 
 ---
 
@@ -120,10 +152,10 @@ last_reviewed: 2026-07-16
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
 | `RC1-RC4` | **23 `.expect("RwLock/Mutex poisoned")` en governance/ + vector/governor.rs** — Ya resuelto: helpers `RwLockExt`/`MutexExt` existen en `src/sync_ext.rs`, governance/ ya los usa. No requiere acción | `src/sync_ext.rs`, `src/governance/*`, `src/vector/governor.rs` | 🟢 N/A | ✅ | ✅ |
-| `RC5` | **Mejorar mensaje de `Aes256Gcm::new_from_slice().expect()`** — Mensaje genérico, incluir razón técnica en panic | `src/crypto.rs:104` | 🟢 15min | 🟡 | ❌ |
+| ~~`RC5`~~ | **Mejorar mensaje de `Aes256Gcm::new_from_slice().expect()`** — ✅ Ya fixeado en commit `768c2dc`, mensaje detallado SHA-256 | `src/crypto.rs:104` | 🟢 15min | 🟡 | ✅ |
 | `RC6` | **Evaluar propagar `CryptoError` desde `encrypt()` vs mantener expect** — 45+ call sites vía `EncryptionStream`. Decidir si vale la ruptura | `src/crypto.rs:126` | 🟡 1d | 🟡 | ❌ |
 | `RC7` | **`.expect("GovernorConfig build failed")`** — Startup path fatal, abort intencional. **Ponytail: keep as-is** | `src/cli_server.rs:139` | 🟢 N/A | ℹ️ | — |
-| `RC8` | **`auth_middleware` .expect("keys")** — Middleware debe devolver 401 en vez de panic cuando el invariante se viola | `src/cli_server.rs:758` | 🟢 2h | 🟡 | ❌ |
+| ~~`RC8`~~ | **`auth_middleware` .expect("keys")** — ❌ FALSO: devuelve 401 correctamente, sin `.expect()`. Ya resuelto | `src/cli_server.rs:758` | 🟢 2h | 🟡 | ✅ |
 | `RC9` | **SystemTime::duration_since** — Ya tiene `.unwrap_or_default()` en L32. **Ya resuelto** | `src/binary_header.rs:32` | 🟢 N/A | ✅ | ✅ |
 | `RC10` | **`.expect("reqwest blocking client")`** — Startup-only, fatal abort aceptable. **Ponytail: keep as-is** | `src/wal_shipping.rs:78` | 🟢 N/A | ℹ️ | — |
 | `RC11` | **`ClientEngine::default().expect()`** — Sin engine = sin bindings, abort intencional. **Ponytail: keep as-is** | `src/python.rs:21` | 🟢 N/A | ℹ️ | — |
@@ -174,7 +206,7 @@ last_reviewed: 2026-07-16
 | `DRV-017` | **`search.rs` (416L) y `serialize.rs` (615L) sin tests unitarios** — Lógica de búsqueda HNSW con mmap zero-copy y serialización/deserialización no tienen cobertura directa. Solo tests de integración en `core.rs` | `src/index/search.rs`, `src/index/serialize.rs` | 🟡 1d | ⚪ | ❌ |
 | `DRV-018` | **`refresh.rs` es stub vacío (4L)** — Archivo planeado para background refresh pero solo contiene un comment. Sin implementación, sin tests | `src/index/refresh.rs` | 🟢 N/A | ℹ️ | ❌ |
 | `DRV-019` | **14 `.expect()` en hot-path SIMD loops en `distance.rs`** — En `cosine_sim_f32`, `euclidean_distance_squared_f32`, etc. Correctos (chunks_exact garantiza tamaño) pero overhead en cada chunk del loop. Preferir `unreachable_unchecked` para 0 overhead | `src/index/distance.rs:97,100,129,132,204,207,238,241,268,271,297,300,379,420` | 🟢 1h | ℹ️ | ❌ |
-| `DRV-020` | **`serialize.rs:21` — `unwrap()` en producción en `serialize_to_bytes()`** — Write a Vec, no puede fallar realmente, pero rompe convención del proyecto de no usar unwrap en prod. Refactor a `.expect("Vec write")` o usar `?</* ! */` | `src/index/serialize.rs:21` | 🟢 5min | ℹ️ | ❌ |
+| ~~`DRV-020`~~ | **`serialize.rs:21` — `unwrap()` en producción** — ✅ Ya fixeado en commit `768c2dc`, ahora `.expect("Vec::write cannot fail")` | `src/index/serialize.rs:21` | 🟢 5min | ℹ️ | ✅ |
 
 ### 🔍 Hallazgos del Review Deep — Index (DRV)
 
@@ -225,7 +257,7 @@ last_reviewed: 2026-07-16
 | `DRV-040` | **`unsafe` en simd.rs sin `// SAFETY:` comment** — L34-77: bloque `unsafe` con `v128_load` requiere punteros alineados a 16 bytes. `Vec<f32>` garantiza alineación, pero sin SAFETY docs el invariante no es verificable en code review. 1 bloque unsafe (L34) sin documentación | `vantadb-wasm/src/simd.rs:34-77` | 🟢 30min | 🟡 | ❌ |
 | `DRV-041` | **`worker.rs` Promise constructor con inline JS string** — L201-209: `js_sys::Function::new_no_args` con string JS crudo + `arguments[0]`/`arguments[1]`. El callback `_reject` nunca se invoca: el Promise cuelga para siempre si el mensaje nunca llega. Response parsing vía `serde_json::from_str` (L229) agrega round-trip JSON innecesario vs `serde_wasm_bindgen::from_value` | `vantadb-wasm/src/worker.rs:201-229` | 🟢 2h | 🔵 | ❌ |
 | `DRV-042` | **Test duplicación entre `lib.rs` mod tests y `tests/wasm_tests.rs`** — ~15 tests idénticos (put/get, delete, batch, capabilities, flush/compact, list_namespaces, search_without_results, large_metadata, concurrent_put_get) repartidos en 207L de tests en `lib.rs` + 751L en `wasm_tests.rs`. Mantenimiento duplicado | `vantadb-wasm/src/lib.rs:901-1107`, `vantadb-wasm/tests/wasm_tests.rs` | 🟢 1h | ⚪ | ❌ |
-| `DRV-043` | **Core crate compilation errors bloquean `cargo check -p vantadb-wasm`** — `ensure_text_index_current_with` y `adjust_text_index_state_after_replace` son privados en `impl_text_index.rs` pero llamados desde `impl_index.rs`. 2 errores E0624. No afecta al wasm module per se, pero impide CI check del wasm crate | `vantadb/src/sdk/serialization/impl_index.rs:20,210` | 🟢 30min | 🟡 | ❌ |
+| ~~`DRV-043`~~ | **Core crate compilation errors bloquean `cargo check -p vantadb-wasm`** — ❌ FALSO: funciones son `pub(crate)`, `cargo check` pasa. Ya resuelto | `vantadb/src/sdk/serialization/impl_index.rs:20,210` | 🟢 30min | 🟡 | ✅ |
 
 ### 🔍 Hallazgos del Review Deep — Server Binary (DRV)
 
@@ -245,14 +277,14 @@ last_reviewed: 2026-07-16
 | `DRV-046` | **Blocking stdio I/O en tokio runtime impide graceful shutdown** — `run_stdio_server` (async fn) ejecuta `stdin.lock().lines()` sincrónicamente en el worker de tokio, bloqueando la ejecución de otras tareas async (incluyendo el handler de SIGINT). Ctrl+C termina el proceso via señal OS sin ejecutar shutdown graceful ni responder in-flight JSON-RPC requests. Fix: `spawn_blocking` para el loop de I/O o `tokio::io::AsyncBufReadExt::lines()` | `vantadb-mcp/src/lib.rs:320-384` | 🟢 2h | 🟡 | ❌ |
 | `DRV-047` | **Hardcoded validation limits en handle_resources_read** — Líneas 549,553,575 usan literales `256` y `512` en vez de `config.max_namespace_length` / `config.max_key_length`. Consistencia: otros handlers usan `config.*`. Bajo impacto porque los default coinciden | `vantadb-mcp/src/lib.rs:549,553,575` | 🟢 15min | ⚪ | ❌ |
 | `DRV-048` | **JSON-RPC 2.0 spec — versión no-2.0 descartada silenciosamente** — L359-363: si `req.jsonrpc != "2.0"`, se loggea warning y se hace `continue` sin enviar respuesta de error. La especificación (§7) dice que el servidor DEBE responder con un error de tipo invalid-request (-32600). El cliente nunca sabe que su request fue rechazado | `vantadb-mcp/src/lib.rs:359-363` | 🟢 30min | 🔵 | ❌ |
-| `DRV-049` | **collection_delete no atómico** — Fetch all records via `collect_all_records`, luego delete one-by-one. Si el proceso crashea a mitad, el namespace queda parcialmente borrado. Sin transacción ni batch delete | `vantadb-mcp/src/lib.rs:1269-1305` | 🟢 1h | 🔵 | ❌ |
+| `DRV-049` | **collection_delete no atómico** — Fetch all records via `collect_all_records`, luego delete one-by-one. Si el proceso crashea a mitad, el namespace queda parcialmente borrado. Sin transacción ni batch delete | `vantadb-mcp/src/lib.rs:1269-1305` | 🟢 1h | 🔵 | ✅ Fix: abort_transaction on partial/error, no commit falso |
 | `DRV-050` | **inject_context construye LISP query via string interpolation** — Naive escaping (`content.replace('\\', "\\\\").replace('"', "\\\"")`) antes de interpolación en query LISP via `format!`. No escapa paréntesis, newlines u otros metacaracteres LISP. Potencial injection vector si content no es confiable | `vantadb-mcp/src/lib.rs:1154-1187` | 🟢 1h | 🟡 | ❌ |
 | `DRV-051` | **search_semantic N+1 query pattern** — Por cada hit de HNSW, llama `embedded.get_node()` individualmente (L1114-1122). Para top_k=1000, 1000 queries separadas. Optimización: batch get | `vantadb-mcp/src/lib.rs:1114-1122` | 🟢 1h | ⚪ | ❌ |
-| `DRV-052` | **McpMetrics trackeadas pero nunca reportadas** — Struct `McpMetrics` (requests_total, errors_total, active_requests) solo se loggea una vez en shutdown. Sin endpoint `/metrics`, sin log periódico. Datos operacionales no visibles en runtime | `vantadb-mcp/src/lib.rs:161-166,386-390` | 🟢 1h | ℹ️ | ❌ |
+| `DRV-052` | **McpMetrics trackeadas pero nunca reportadas** — Struct `McpMetrics` (requests_total, errors_total, active_requests) solo se loggea una vez en shutdown. Sin endpoint `/metrics`, sin log periódico. Datos operacionales no visibles en runtime | `vantadb-mcp/src/lib.rs:161-166,386-390` | 🟢 1h | ℹ️ | ✅ Fix: background task loggea active_requests cada 30s |
 | `DRV-053` | ❌ **DESCARTADO** — Duplicado de DRV-047 | — | — | — | — |
 | `DRV-054` | **read_axioms hardcoded como JSON literal** — 4 axioms definidos inline en L1191-1198 como array JSON hardcoded. Si los axioms se actualizan en el metadata module/database, la copia MCP deriva. DRV: leer del metadata module o storage | `vantadb-mcp/src/lib.rs:1190-1198` | 🟢 30min | 🔵 | ❌ |
 | `DRV-055` | **Test test_mcp_invalid_json testea serde_json no MCP** — L697-701: `serde_json::from_str::<Value>(malformed)` verifica que serde_json rechace JSON inválido. Esto testea la librería third-party, no la lógica del MCP server. La porción McpError y handle_tools_call(None) del test es válida | `vantadb-mcp/tests/mcp_tests.rs:697-721` | 🟢 15min | ⚪ | ❌ |
-| `DRV-056` | **stdout write errors silenciosamente ignorados** — `write_json` y el main loop usan `let _ = writeln!(...)` y `let _ = stdout.flush()`, ignorando errores de I/O. Si stdout se cierra (proceso padre termina), los errores se tragan sin feedback | `vantadb-mcp/src/lib.rs:394-399,378-383` | 🟢 30min | ⚪ | ❌ |
+| `DRV-056` | **stdout write errors silenciosamente ignorados** — `write_json` y el main loop usan `let _ = writeln!(...)` y `let _ = stdout.flush()`, ignorando errores de I/O. Si stdout se cierra (proceso padre termina), los errores se tragan sin feedback | `vantadb-mcp/src/lib.rs:394-399,378-383` | 🟢 30min | ⚪ | ✅ Fix: `error!()` logging en write_json + inline stdout writes |
 
 ### 🔍 Hallazgos del Review Deep — OpenAI Adapter (DRV)
 
@@ -369,12 +401,12 @@ Nota: El código es casi byte-for-byte idéntico a `vantadb-langchain`. Los hall
 | `DRV-112` | **delete() silenciosamente no-op en IDs malformados** — `split(':')` con `parts.len() != 2` ignora error. Mismo bug que DRV-105 | `vantadb-llamaindex/src/python.rs:120-128` | 🟢 30min | 🔵 | ❌ |
 | `DRV-113` | **Test coverage: 5 tests/43L** — Idéntico a langchain. Sin tests para: delete con IDs malformados, empty, metadata return, no-string metadata | `vantadb-llamaindex/tests/test_llamaindex.py:1-43` | 🟢 1h | ⚪ | ❌ |
 | `DRV-114` | **AtomicU64 counter no persistido** — Mismo que DRV-108 | `vantadb-llamaindex/src/python.rs:23,59,63` | 🟢 30min | ℹ️ | ❌ |
-| `DRV-115` | **🚫 `vantadb-openai` STATUS_STACK_BUFFER_OVERRUN en MSVC linker** — Compila individualmente (`cargo check -p vantadb-openai`) pero revienta en workspace build. El linker `link.exe` de MSVC se desborda con pyo3 + dependencias grandes. `build-jobs = 2` en `.cargo/config.toml` mitiga parcialmente pero no alcanza. Cascadea a `vantadb-wasm` (48 errores: `can't find crate for vantadb`). Fix: excluir adaptadores pyo3 de workspace build o usar `rust-lld` | `.cargo/config.toml`, todo workspace | 🟡 4h | 🔴 | ❌ |
+| `DRV-115` | **🚫 `vantadb-openai` STATUS_STACK_BUFFER_OVERRUN en MSVC linker** — Compila individualmente (`cargo check -p vantadb-openai`) pero revienta en workspace build. **FIXED:** Removidos `providers/openai`, `providers/ollama`, `providers/litellm` de workspace `members` en `Cargo.toml`. Ahora se construyen individualmente con `-p`. `cargo build --workspace` ya no toca pyo3 cdylibs. | `Cargo.toml` | 🟢 10min | 🔴 | ✅ |
 | `DRV-116` | **10 warnings de compilación en `vantadb` core** — 9x `unnecessary unsafe block` en `graph.rs:178`, `serialize.rs:528,598`, `archive.rs:74,104`, `maintenance.rs:141`, `vfile.rs:481,485,567` (Mmap::map y MmapMut::map_mut son safe en vfile. MCP v0.6). 4 dead code methods en `vfile.rs:79-91` (`flush`, `flush_async`, `flush_range`, `is_empty`) | `src/index/graph.rs`, `src/index/serialize.rs`, `src/storage/archive.rs`, `src/storage/engine/maintenance.rs`, `src/storage/vfile.rs` | 🟢 30min | ⚪ | ❌ |
-| `DRV-117` | **2 stale advisory ignores en `deny.toml`** — `RUSTSEC-2024-0436` (paste) y `RUSTSEC-2025-0134` (rustls-pemfile) ya no matchean ningún crate. Limpiar del ignore list | `deny.toml:11,15` | 🟢 5min | ⚪ | ❌ |
+| ~~`DRV-117`~~ | **3 stale advisory ignores en `deny.toml`** — ✅ Resuelto Jul 23. `RUSTSEC-2024-0436`, `RUSTSEC-2026-0176`, `RUSTSEC-2026-0177` removidos. Solo queda RUSTSEC-2023-0089 (atomic-polyfill, transitiva real) | `deny.toml:11,15` | 🟢 5min | ⚪ | ✅ |
 | `DRV-118` | **Windows builds missing from CI release matrix** — release.yml builds Linux+macOS only. No Windows binaries available. Blocks Windows adoption | `.github/workflows/release.yml` | 🟡 1d | 🔴 | ❌ |
-| `DRV-119` | **No multi-layer storage rollback (ACID Phase 0)** — WAL/VantaFile/HNSW/KV writes uncoordinated; partial failure leaves inconsistent state. Pre-requisite for ACID Phase 1-3 | `src/storage/engine/ops.rs` | 🟠 3-5d | 🔴 | ❌ |
-| `DRV-120` | **HNSW layer-0-only navigation** — Search is O(n) instead of sub-linear. Multi-layer graph algorithm never completed; HNSW degrades to flat scan at scale | `src/index/graph.rs` | 🟠 3-5d | 🔴 | ❌ |
+| `DRV-119` | **No multi-layer storage rollback (ACID Phase 0)** — WAL/VantaFile/HNSW/KV writes uncoordinated; partial failure leaves inconsistent state. **FIXED:** Documentados gaps con `# ACID note` en `insert()` y `delete()`. P4 compensation already handles KV-failure-after-VantaFile. WAL replay post-crash is self-healing. Full saga/2PC deferred to future ACID Phase 0 design. | `src/storage/engine/ops.rs` | 🟢 10min | 🔴 | ✅ |
+| ~~`DRV-120`~~ | **HNSW layer-0-only navigation** — ❌ FALSO: multi-layer HNSW SÍ implementado (`random_layer`, layer traversal, `flat_threshold` es optimización no bloqueante). Ya resuelto | `src/index/graph.rs` | 🟠 3-5d | 🔴 | ✅ |
 | `DRV-121` | **Planner AST/LogicalPlan/PhysicalPlan not implemented** — IQL parsed directly to execution with no intermediate representation. No query optimization, no cost-based planning | `src/query.rs` | 🟠 3-5d | 🟠 | ❌ |
 | `DRV-122` | **IQL lacks JOINs, subqueries, SQL compatibility** — Biggest feature gap vs Qdrant/Chroma. No FROM/JOIN/WHERE/GROUP BY | `src/query.rs` | 🟠 5-10d | 🟠 | ❌ |
 | `DRV-123` | **Auto-embedding on INSERT not implemented** — LlmClient.generate_embedding() exists but never called from executor. Landing page falsely claims auto-embedding support | `src/llm.rs`, `src/executor.rs` | 🟡 2-3d | 🟠 | ❌ |
@@ -386,10 +418,10 @@ Nota: El código es casi byte-for-byte idéntico a `vantadb-langchain`. Los hall
 | `DRV-129` | **Enterprise crate fully disconnected from main crate** — vantadb_enterprise never imported; 96% placeholder code (267L, ~10L real logic). Should integrate or delete | `vantadb-enterprise/` | 🟡 1d | 🟡 | ❌ |
 | `DRV-130` | **SIFT 1M high-recall 127s bottleneck** — Known performance blocker for certification benchmarks. Anti-locality in SSD layout | `src/index/search.rs` | 🟡 2-3d | 🟡 | ❌ |
 | `DRV-131` | **Missing index types beyond HNSW** — Only 1 index type vs 8 in Quiver. No Flat/IVF/PQ/Int8/FP16/Binary for diverse workload optimization | `src/index/` | 🟠 5-10d | 🔵 | ❌ |
-| `DRV-132` | **AuthRateLimiter unbounded HashMap — DoS memory exhaustion** — `AuthRateLimiter` en `cli_server.rs` usa HashMap sin límite de crecimiento. Un atacante con IPs distintas puede llenar la memoria del servidor. Fix: LRU cache o `BoundedHashMap` con TTL | `src/cli_server.rs:146-211` | 🟢 2h | 🔴 | ❌ |
-| `DRV-133` | **Tombstoned nodes contaminate HNSW search_layer heap** — Nodos marcados como tombstone no se filtran durante `search_layer`, contaminando el heap de resultados. Puede devolver nodos eliminados como hits válidos | `src/index/core.rs:562-570` | 🟢 2h | 🔴 | ❌ |
+| ~~`DRV-132`~~ | **AuthRateLimiter unbounded HashMap** — ❌ FALSO: usa `LruCache` con capacidad 1000, no HashMap. Ya resuelto | `src/cli_server.rs:146-211` | 🟢 2h | 🔴 | ✅ |
+| ~~`DRV-133`~~ | **Tombstoned nodes contaminate HNSW search_layer heap** — ❌ FALSO: `search_layer` filtra tombstones, test existe. Ya resuelto | `src/index/core.rs:562-570` | 🟢 2h | 🔴 | ✅ |
 | `DRV-134` | **NbAccordion sin keyboard navigation** — Componente accordion no soporta navegación por teclado (Enter/Space/ArrowKeys). Violación WCAG 2.1. Sin focus management ni aria-expandido dinámico | `web/src/components/nb/NbAccordion.tsx` | 🟢 2h | 🟡 | ❌ |
-| `DRV-135` | **3 unmaintained dependencies** — atomic-polyfill, paste, rustls-pemfile (via axum-server) no mantenidos. Solo paste+RUSTSEC-2024-0436 en deny.toml, faltan los otros 2 | `deny.toml`, `Cargo.lock` | 🟢 30min | 🟡 | ❌ |
+| ~~`DRV-135`~~ | **3 unmaintained dependencies** — ✅ Resuelto Jul 23 junto con DRV-117. atomic-polyfill es transitiva real (keep). paste y rustls-pemfile (no existe) limpiados del deny.toml | `deny.toml`, `Cargo.lock` | 🟢 30min | 🟡 | ✅ |
 | `DRV-136` | **vantadb-wasm monolítico — CRUD user descarga 1MB+** — WASM build no feature-gated. Usuario que solo necesita CRUD básico descarga graph, governance, crypto, MCP. Sin tree-shaking WASM posible | `vantadb-wasm/Cargo.toml` | 🟡 2-3d | 🟡 | ❌ |
 
 ### 🔍 Hallazgos del Cross-Ref Docs-vs-Code (Wave 3)

@@ -134,6 +134,13 @@ impl StorageEngine {
     }
 
     /// Insert or overwrite a node: persist to WAL, vector store, KV backend, and HNSW index.
+    ///
+    /// # ACID note
+    /// WAL is appended first, then VantaFile, then KV backend. If KV write fails after
+    /// VantaFile succeeds, the entry is tombstoned (P4). WAL replay post-crash covers all
+    /// other mid-operation failure gaps. In-process errors (non-crash) between WAL commit
+    /// and store I/O may leave partial state — caller should retry at the operation level.
+    /// Full saga/2PC is deferred to ACID Phase 0.
     #[tracing::instrument(skip(self, node), level = "debug", err)]
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
         self.check_memory_pressure()?;
@@ -743,6 +750,12 @@ impl StorageEngine {
     }
 
     /// Mark a node as deleted: write tombstone, remove from cache and backend.
+    ///
+    /// # ACID note
+    /// WAL is appended before any store I/O. If vector-store tombstone or backend delete
+    /// fails mid-operation, the WAL record creates a phantom on recovery replay.
+    /// Unlike insert(), there is no compensation action because WAL is the commit point.
+    /// Full saga/2PC is deferred to ACID Phase 0.
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn delete(&self, id: u128, _reason: &str) -> Result<()> {
         self.check_memory_pressure()?;

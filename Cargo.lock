@@ -4704,14 +4704,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "vantadb-litellm"
-version = "0.4.0"
-dependencies = [
- "pyo3",
- "vantadb",
-]
-
-[[package]]
 name = "vantadb-mcp"
 version = "0.4.0"
 dependencies = [
@@ -4720,22 +4712,6 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
- "vantadb",
-]
-
-[[package]]
-name = "vantadb-ollama"
-version = "0.4.0"
-dependencies = [
- "pyo3",
- "vantadb",
-]
-
-[[package]]
-name = "vantadb-openai"
-version = "0.4.0"
-dependencies = [
- "pyo3",
  "vantadb",
 ]
 
