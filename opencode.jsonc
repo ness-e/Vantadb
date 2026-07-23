@@ -1,8 +1,13 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "model": "deepseek-v4-flash-free",
+  "small_model": "deepseek-v4-flash-free",
   "plugin": [
     "C:\\Users\\Eros\\.agents\\ponytail\\.opencode\\plugins\\ponytail.mjs"
   ],
+  "experimental": {
+    "disable_paste_summary": true
+  },
   "mcp": {
     "codegraph": {
       "type": "local",

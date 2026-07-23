@@ -1,0 +1,10 @@
+{
+  "mcp": {
+    "codegraph": { "enabled": true },
+    "discord": { "enabled": false },
+    "metasearchmcp": { "enabled": false },
+    "argus": { "enabled": false },
+    "campaign": { "enabled": true },
+    "lottiefiles-creator": { "enabled": false }
+  }
+}

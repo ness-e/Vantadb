@@ -272,10 +272,28 @@ function Write-Log {
   $logStream.Flush()
 }
 
+function Write-JsonlEvent {
+  param(
+    [string]$Event,
+    [hashtable]$Data = @{}
+  )
+  $eventObj = @{
+    event = $Event
+    ts = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ss')
+    campaign_id = $CampaignId
+    pid = $PID
+    data = $Data
+  }
+  $jsonLine = $eventObj | ConvertTo-Json -Compress -Depth 3
+  $jsonlStream.WriteLine($jsonLine)
+  $jsonlStream.Flush()
+}
+
 function Stop-HarnessLog {
   param([int]$ExitCode = 0)
   $logStream.WriteLine("=== Harness $CampaignId exited ($ExitCode) at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ===")
   $logStream.Close()
+  if ($jsonlStream) { $jsonlStream.Close() }
 }
 
 # ---- main ----
@@ -312,6 +330,24 @@ if ($currentContent -notmatch 'Harness PID') {
   Set-Content $planFile $currentContent
 }
 
+# ---- JSONL traces ----
+$tracesDir = Join-Path $projectRoot ".opencode" "task-system" "traces"
+if (-not (Test-Path $tracesDir)) { New-Item -ItemType Directory -Path $tracesDir -Force | Out-Null }
+$jsonlFile = Join-Path $tracesDir "$CampaignId.jsonl"
+$jsonlStream = [System.IO.StreamWriter]::new($jsonlFile, $true)
+Write-Host "  → Traces: $jsonlFile" -ForegroundColor DarkGray
+
+Write-JsonlEvent -Event "harness.started" -Data @{
+  plan = $planFileName
+  model = $Model
+  parallel = [bool]$Parallel
+  singleTask = $SingleTask
+  maxParallel = $MaxParallel
+  timeout = $Timeout
+  interval = $Interval
+  stallThreshold = $StallThreshold
+}
+
 $iteration = 0
 $stallCount = @{}
 $taskLastState = @{}
@@ -327,6 +363,11 @@ while ($true) {
 
   Write-Host ""
   Write-Log "Iteration $($iteration): $($pendingTasks.Count) pending"
+  Write-JsonlEvent -Event "iteration.started" -Data @{
+    iteration = $iteration
+    pending = $pendingTasks.Count
+    total = $allTasks.Count
+  }
   Write-Host "═══ Iteración $iteration | $($pendingTasks.Count) pendientes ═══" -ForegroundColor Yellow
 
   if ($pendingTasks.Count -eq 0) {
@@ -350,6 +391,17 @@ while ($true) {
     Write-Host "║  Gate: $($counts.DO) DO · $($counts.DEFER) DEFER · $($counts.SKIP) SKIP · $($counts.BLOQUEADO) BLOQUEADO" -ForegroundColor Gray
     Write-Host "║  $(Get-Date -Format 'yyyy-MM-dd HH:mm')" -ForegroundColor Gray
     Write-Host "╚══════════════════════════════════════════════════╝" -ForegroundColor Green
+
+    Write-JsonlEvent -Event "harness.completed" -Data @{
+      completed = $completed
+      failed = $failed
+      pending = $pending
+      doGate = $counts.DO
+      deferGate = $counts.DEFER
+      skipGate = $counts.SKIP
+      bloqueado = $counts.BLOQUEADO
+      totalIterations = $iteration
+    }
 
     # Limpiar PID del plan file
     $content = Get-Content $planFile -Raw
@@ -418,6 +470,12 @@ while ($true) {
   Write-Host "  → Próxima: $taskId ($($nextTask.Name))" -ForegroundColor Cyan
   Write-Host "  → Estado: $(Get-StatusLine $planFile)" -ForegroundColor Gray
   Write-Log "Next: $taskId ($($nextTask.Name))"
+  Write-JsonlEvent -Event "task.started" -Data @{
+    taskId = $taskId
+    name = $nextTask.Name
+    state = $nextTask.State
+    iteration = $iteration
+  }
 
   # Detectar stall (compara solo estado, no bloque completo)
   $currentState = $nextTask.State
@@ -427,6 +485,13 @@ while ($true) {
   } elseif ($taskLastState[$taskId] -eq $currentState) {
     $stallCount[$taskId]++
     Write-Host "  ⚠️ Stall: intento $($stallCount[$taskId]) sin cambios de estado" -ForegroundColor Yellow
+    Write-JsonlEvent -Event "stall.detected" -Data @{
+      taskId = $taskId
+      name = $nextTask.Name
+      stallCount = $stallCount[$taskId]
+      threshold = $StallThreshold
+      iteration = $iteration
+    }
     if ($stallCount[$taskId] -ge $StallThreshold) {
       if ($Yes) {
         Write-Host "  → Stall, abortando (-Yes)." -ForegroundColor Red
