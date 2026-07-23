@@ -848,6 +848,8 @@ server.tool(
   },
 )
 
+const SERVER_START_TIME = Date.now()
+
 // ---------- Tool 9: campaign_health_status ----------
 
 server.tool(
@@ -855,7 +857,13 @@ server.tool(
   {},
   async () => {
     const health = getHealth(PROJECT_ROOT)
-    return { content: [{ type: "text", text: JSON.stringify(health, null, 2) }] }
+    const uptime = Date.now() - SERVER_START_TIME
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({ ...health, serverLiveness: true, serverStartTime: SERVER_START_TIME, uptime }, null, 2),
+      }],
+    }
   },
 )
 
@@ -1214,7 +1222,20 @@ server.tool(
   },
 )
 
+process.on('uncaughtException', (err) => {
+  console.error('[campaign-server] Uncaught exception:', err)
+})
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[campaign-server] Unhandled rejection:', reason)
+})
+
 // ---------- start ----------
 
-const transport = new StdioServerTransport()
-await server.connect(transport)
+try {
+  const transport = new StdioServerTransport()
+  await server.connect(transport)
+} catch (error) {
+  console.error("[campaign-server] Fatal: Failed to connect transport:", error)
+  process.exit(1)
+}
