@@ -37,7 +37,7 @@
       },
       "accept": {
         "allowed_tools": ["read", "bash"],
-        "instructions": "RATCHETED DOD v${dod_version}. Leer dod_version del workflow. V1: contrato ✅, output validado ✅, blast radius verificado ✅, deuda técnica identificada ✅, documentación actualizada ✅. V2+: +ponytail-review sin findings, +test-coverage. V3+: +no secrets en diff, +conventional-commit validado. Si todas ✅ → ACCEPTED.",
+        "instructions": "RATCHETED DOD v1. Leer dod_version del workflow. V1: contrato ✅, output validado ✅, blast radius verificado ✅, deuda técnica identificada ✅, documentación actualizada ✅. V2+: +ponytail-review sin findings, +test-coverage. V3+: +no secrets en diff, +conventional-commit validado. Si todas ✅ → ACCEPTED.",
         "max_iterations": 2,
         "on": { "ACCEPTED": "close", "REJECTED": "migrate", "FAIL": "failed" }
       },

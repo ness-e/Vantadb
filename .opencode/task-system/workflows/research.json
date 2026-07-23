@@ -13,7 +13,7 @@
     },
     "states": {
       "scoping": {
-        "allowed_tools": ["Read", "Grep", "Glob", "Bash"],
+        "allowed_tools": ["read", "grep", "glob", "bash"],
         "instructions": "Break the research question into 3-5 specific sub-queries. List them clearly. Do NOT search yet. The campaign executor tracks scope in the recitation block.",
         "max_iterations": 3,
         "thinking_level": "medium",
@@ -71,7 +71,7 @@
       },
       "accept": {
         "allowed_tools": ["read", "bash"],
-        "instructions": "RATCHETED DOD v${dod_version}. Leer dod_version del workflow. V1: todas las afirmaciones citadas ✅, sin alucinaciones ✅, formato estructurado ✅, gaps documentados ✅, fuentes verificables ✅. V2+: +ponytail-review, +no secrets. V3+: +citas con URL verificada. Si todas ✅ → ACCEPTED.",
+        "instructions": "RATCHETED DOD v1. Leer dod_version del workflow. V1: todas las afirmaciones citadas ✅, sin alucinaciones ✅, formato estructurado ✅, gaps documentados ✅, fuentes verificables ✅. V2+: +ponytail-review, +no secrets. V3+: +citas con URL verificada. Si todas ✅ → ACCEPTED.",
         "max_iterations": 2,
         "on": { "ACCEPTED": "close", "REJECTED": "synthesizing", "FAIL": "failed" }
       },
