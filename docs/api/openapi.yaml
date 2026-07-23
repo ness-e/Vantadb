@@ -233,6 +233,7 @@ components:
                 fields:
                   key: memory-1
                   namespace: agent/main
+                vector: null
                 vector_dimensions: 0
                 edges: []
                 confidence_score: 0.95
@@ -326,7 +327,6 @@ components:
         is_alive:
           type: boolean
           description: Whether the node is alive (not tombstoned)
-
     EdgeDTO:
       description: A weighted directed edge to a target node.
       type: object

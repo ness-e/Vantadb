@@ -3,7 +3,7 @@ title: TypeScript SDK Documentation
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-07-21
+last_reviewed: 2026-07-22
 aliases: []
 ---
 
@@ -85,20 +85,108 @@ static open(path: string): VantaDB
 
 Always opens a persistent database at the given filesystem path. Prefer `connect()` for portability.
 
-#### `VantaDB.connect_idb(path)`
+#### `connect_idb(path)`
 
 ```ts
 static connect_idb(path: string): Promise<VantaDB>
 ```
 
-Opens a VantaDB instance with IndexedDB-backed persistence for browser environments. This is an async method available directly on the underlying WASM import. Use this when OPFS is unavailable or when a simpler persistence model is preferred.
+Open a VantaDB instance with **IndexedDB-backed persistence** for browser environments. This is the recommended persistence backend when OPFS (the Origin Private File System) is unavailable, or when you need cross-tab coordination via `BroadcastChannel`.
 
-**Browser note:** The WASM build exposes `connect_idb` on the raw `VantaDB` constructor from `vantadb-wasm`. The TypeScript wrapper does not re-export this method — access it directly when needed:
+**Availability:** `connect_idb` is exposed on the raw WASM constructor from `vantadb-wasm`. It is **not** re-exported by the high-level `vantadb` wrapper — access it directly via the WASM import.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `path` | `string` | — | Storage path / database identifier used as the IndexedDB object-store key prefix |
+
+**Returns:** `Promise<VantaDB>` — a fully loaded VantaDB instance with all previously saved records restored into memory.
+
+**How it works:**
+1. An inline JavaScript bridge (registered at wasm-bindgen time) connects to the `"VantaDB"` IndexedDB database with a `"state"` object store
+2. On open, `load_idb()` reads the `db_state.json` key from IndexedDB and imports all stored records into memory
+3. All mutations (`put`, `delete`, etc.) run in-memory — call `save_idb()` explicitly to persist changes to IndexedDB
+4. Uses `web-locks` (`navigator.locks.request("vantadb-write")`) when available for multi-tab write coordination
+
+**Full example:**
 
 ```ts
 import { VantaDB as WasmVantaDB } from "vantadb-wasm";
+
+// Open or create an IndexedDB-backed database
 const db = await WasmVantaDB.connect_idb("./my_brain");
+
+// Insert records (in-memory — not yet persisted)
+db.put({
+  namespace: "notes",
+  key: "note-1",
+  payload: "IndexedDB persists VantaDB state in the browser.",
+  metadata: { source: { type: "String", value: "docs" } },
+  vector: [0.1, 0.2, 0.3],
+});
+
+db.put({
+  namespace: "notes",
+  key: "note-2",
+  payload: "Use save_idb() to write in-memory state to IndexedDB.",
+  metadata: { source: { type: "String", value: "docs" } },
+  vector: [0.4, 0.5, 0.6],
+});
+
+// Persist to IndexedDB
+await db.save_idb();
+
+// Hybrid search
+const hits = db.search({
+  namespace: "notes",
+  query_vector: [0.1, 0.2, 0.3],
+  text_query: "IndexedDB",
+  top_k: 10,
+});
+
+console.log(hits[0].record.payload);
+
+// Delete persisted state from IndexedDB
+await db.delete_idb();
+
+db.close();
 ```
+
+**IndexedDB vs OPFS:**
+
+| Feature | IndexedDB (`connect_idb`) | OPFS (`connect_persistent` / `connect_worker`) |
+|---------|--------------------------|------------------------------------------------|
+| Browser support | Universal (all modern browsers) | Requires Chromium-based browsers (Chrome, Edge, Opera) |
+| Cross-tab sync | ✅ `BroadcastChannel("vantadb-sync")` — sends `data-changed` notifications. Use `IdbStorage.subscribe()` to listen | ❌ None — two tabs writing to the same OPFS storage **silently corrupt** each other's data |
+| Write coordination | ✅ `navigator.locks.request("vantadb-write")` (Web Locks API) when available | ❌ No locking |
+| Write atomicity | ✅ IDB transactions are atomic per `put` | ❌ `createWritable` + `write` + `close` is not atomic — crash between write and close leaves indeterminate state |
+| Storage limits | Larger quota (~50% of disk), shared with other origin data | Same origin quota, shared with OPFS |
+| Incremental append | ❌ Not supported — full-dump only | ✅ `OpfsFile::append()` with `{keepExistingData: true}` |
+
+**When to use `connect_idb`:**
+- You need cross-tab consistency (multiple tabs writing to the same VantaDB)
+- You need broader browser support (Safari, Firefox, mobile browsers)
+- OPFS is unavailable or you prefer a simpler persistence model
+- You want write atomicity guarantees via IDB transactions
+
+**When to use OPFS (`connect_persistent` / `connect_worker`):**
+- Single-tab Chromium-based applications
+- You need incremental append capability
+- You are working with very large datasets where full-dump overhead matters
+
+**Related methods:**
+
+| Method | Description |
+|--------|-------------|
+| `save_idb()` | Persist all in-memory records to IndexedDB. Serializes all records to `db_state.json` in the IDB object store |
+| `load_idb()` | Restore all records from IndexedDB into memory (called automatically on `connect_idb`) |
+| `delete_idb()` | Delete all persisted state from IndexedDB (`db_state.json` key) |
+
+**Multi-tab notes:**
+- The `BroadcastChannel` is named `"vantadb-sync"`. On every write or delete, a `{type: "data-changed", key}` message is broadcast to all other tabs
+- Use `IdbStorage.subscribe(callback)` to listen for cross-tab changes. The callback receives the changed key as a `JsValue`
+- Web Locks API (`navigator.locks`) provides best-effort write coordination, but last-write-wins semantics apply — there is no merge or conflict detection
 
 #### `close()`
 
@@ -447,7 +535,7 @@ try {
 
 | Feature | WASM (browser / Bun / Deno) | Node.js with `connect()` |
 |---------|-----------------------------|---------------------------|
-| Persistence | In-memory by default (`storage_path` ignored, CODE-089). Use `WasmVantaDB.connect_idb()` for IndexedDB persistence in browsers | On-disk at given path |
+| Persistence | In-memory by default (`storage_path` ignored, CODE-089). Use `connect_idb()` for IndexedDB persistence in browsers, or `connect_persistent()` / `connect_worker()` for OPFS in Chromium | On-disk at given path |
 | Threading | Single-threaded | Multi-threaded (Tokio) |
 | File I/O | Limited (export/import works via JS APIs) | Full filesystem access |
 | Memory | WebAssembly heap (limited) | Native heap |

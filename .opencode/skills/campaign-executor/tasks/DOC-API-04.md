@@ -3,7 +3,7 @@
 ## Metadata
 - **Plan file:** `docs/plans/2026-07-21-docs-api-audit-fixes.md`
 - **Creado:** 2026-07-21T00:00
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ## Blast Radius
 **Callers:** Ninguno. Doc-only.
@@ -22,31 +22,31 @@
 - **Archivos:** `docs/api/PYTHON_SDK.md`
 - **Acción:** Identificar qué métodos están documentados actualmente. Mapear lagunas.
 - **Verify:** Lista de métodos documentados vs no documentados
-- **Estado:** ⬜ PENDING
+- **Nota:** Todos los 37 métodos públicos existen con firma. Faltan descripciones y ejemplos en ~20 métodos.
+- **Estado:** ✅ COMPLETED
 
 ### Step 2: Leer código real PyO3
 - **Archivos:** `vantadb-python/src/lib.rs`
 - **Acción:** Extraer firmas completas de: `search_batch` (L1432), `flush`, `VantaVector` (class export), `delete_by_filter`, `similar_to_key`, `count`. Verificar firmas exactas (parámetros, tipos, defaults).
-- **Verify:** Lista de firmas correctas extraídas
-- **Estado:** ⬜ PENDING
+- **Verify:** Firmas verificadas. `search_batch` / `flush` / `VantaVector` existen. `delete_by_filter`, `similar_to_key`, `count` NO existen en el código Rust.
+- **Nota:** `vector` acepta `List[float]`, `VantaVector`, `np.ndarray`, o cualquier buffer protocol. Documentado como `VectorInput`.
+- **Estado:** ✅ COMPLETED
 
 ### Step 3: Verificar tipo vector parameter
 - **Archivos:** `vantadb-python/src/lib.rs`
-- **Acción:** Encontrar `extract_vector()` helper o el parámetro `vector` en `insert`. Confirmar qué tipos acepta (List[float], VantaVector, np.ndarray, buffer protocol).
-- **Verify:** Documentación del parámetro vector actualizada
-- **Estado:** ⬜ PENDING
+- **Acción:** Confirmar qué tipos acepta (List[float], VantaVector, np.ndarray, buffer protocol) vía `extract_vector()`.
+- **Verify:** Documentación del parámetro vector actualizada a `VectorInput` correcta.
+- **Estado:** ✅ COMPLETED
 
-### Step 4: Agregar métodos faltantes a PYTHON_SDK.md
+### Step 4: Agregar métodos/contenido faltante a PYTHON_SDK.md
 - **Archivos:** `docs/api/PYTHON_SDK.md`
-- **Acción:** Agregar secciones para `search_batch(vectors, top_k, ...)`, `flush()`, `VantaVector` class reference, `delete_by_filter(filter_expr)`, `similar_to_key(key)`, `count()`. Actualizar firma de `insert` para vector correcto.
-- **Verify:** Las 6 funciones están documentadas con firma correcta
-- **Estado:** ⬜ PENDING
+- **Acción:** Agregar descripciones y ejemplos a: `insert`, `get`, `delete`, `search`, `search_batch`, `add_edge`, `graph_bfs`, `graph_dfs`, `graph_topological_sort`, `graph_is_dag`, `flush`, `compact_wal`, `purge_expired`, `rebuild_index`, `compact_layout`, `list_namespaces`, `export_namespace`, `export_all`, `import_file`, `audit_text_index`, `repair_text_index`, `operational_metrics`, `capabilities`, `hardware_profile`, `generate_snippet`, `close`, `put_batch_raw`.
+- **Nota:** `delete_by_filter`, `similar_to_key`, `count` no existen en el código. Se mantienen como "(not yet exposed)".
+- **Estado:** ✅ COMPLETED
 
-### Step 5: Bump last_reviewed
+### Step 5: last_reviewed actualizado
 - **Archivos:** `docs/api/PYTHON_SDK.md`
-- **Acción:** Cambiar `last_reviewed: 2026-07-01` → `2026-07-21`
-- **Verify:** grep "last_reviewed" muestra 2026-07-21
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ (ya estaba en `2026-07-21`)
 
 ## Dependencias
 - Ninguna (independiente)

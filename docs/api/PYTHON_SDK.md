@@ -64,6 +64,29 @@ vantadb.VantaDB(
 ) -> VantaDB
 ```
 
+### Module-Level Functions
+
+#### `connect()`
+
+```python
+vantadb.connect(
+    path: str,
+    memory_limit: Optional[int] = None,
+) -> VantaDB
+```
+
+Alternative constructor. Accepts a filesystem path, empty string `""`, or `":memory:"` for an in-memory database. This is equivalent to `VantaDB(db_path=path, memory_limit_bytes=memory_limit)`.
+
+```python
+import vantadb_py as vanta
+
+# In-memory database
+db = vanta.connect(":memory:")
+
+# Persistent database with memory limit
+db = vanta.connect("./my_brain", memory_limit=256 * 1024 * 1024)
+```
+
 ### Memory API (Namespace-Scoped)
 
 #### `put()`
@@ -82,17 +105,47 @@ Insert or update a memory record. The `metadata` is a dict of scalar fields.
 #### `put_batch()`
 ```python
 db.put_batch(
-    entries: List[Tuple[str, str, str, Optional[dict], Optional[VectorInput], Optional[int]]]
+    entries: Optional[List[Tuple[str, str, str, Optional[dict], Optional[VectorInput], Optional[int]]]] = None,
+    *,
+    keys: Optional[List[str]] = None,
+    vectors: Optional[List[VectorInput]] = None,
+    payloads: Optional[List[str]] = None,
+    metadatas: Optional[List[Optional[dict]]] = None,
+    namespace: Optional[str] = None,
+    ttls: Optional[List[Optional[int]]] = None,
 ) -> List[VantaMemoryRecord]
 ```
-Insert or update multiple records in parallel. Each entry is `(namespace, key, payload, metadata, vector, ttl_ms)`.
+Insert or update multiple records in parallel.
+
+> **Deprecated:** The positional `entries` (tuple list) API is deprecated. Use keyword arguments instead.
+
+**Keyword API** (preferred):
+```python
+db.put_batch(
+    keys=["k1", "k2"],
+    vectors=[[0.1]*384, [0.2]*384],
+    payloads=["payload1", "payload2"],
+    metadatas=[{"f": "v"}, None],
+    namespace="agent/default",
+    ttls=[None, 1000],
+)
+```
+
+**Positional API** (deprecated):
+```python
+db.put_batch([
+    ("ns", "k1", "payload1", {"f": "v"}, [0.1]*384, None),
+    ("ns", "k2", "payload2", None, [0.2]*384, 1000),
+])
+```
+Each entry is `(namespace, key, payload, metadata, vector, ttl_ms)`.
 
 #### `get_memory()`
 ```python
 db.get_memory(
     namespace: str,
     key: str,
-) -> Optional[dict]
+) -> Optional[VantaMemoryRecord]
 ```
 
 #### `delete_memory()`
@@ -110,9 +163,19 @@ db.list_memory(
     filters: Optional[dict] = None,
     limit: int = 100,
     cursor: Optional[int] = None,
-) -> dict
+) -> VantaListResult
 ```
-Returns `{"records": [...], "next_cursor": Optional[int]}`.
+Returns a `VantaListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration.
+
+```python
+page = db.list_memory("ns", limit=10)
+for record in page:
+    print(record.key, record.payload)
+
+# Dict-style access
+records = page["records"]
+next_cursor = page["next_cursor"]
+```
 
 #### `search_memory()`
 ```python
@@ -152,12 +215,29 @@ db.insert(
     fields: Optional[dict] = None,
 ) -> None
 ```
+Insert a graph node with text content and an optional embedding vector. `fields` can contain additional metadata key-value pairs (supports `str`, `int`, `float`, `bool`, `datetime`, and homogeneous lists). GIL-released — allows Python threads to run during the insert.
+
+```python
+db.insert(
+    id=42,
+    content="VantaDB is a vector-graph database.",
+    vector=[0.1] * 384,
+    fields={"source": "docs", "year": 2026},
+)
+```
 
 #### `get()`
 ```python
 db.get(
     id: int,
 ) -> Optional[dict]
+```
+Retrieve a graph node by its numeric ID. Returns a dict with `id`, `vector`, `vector_dims`, `fields`, `edges`, `confidence_score`, `importance`, `hits`, `tier`, and `is_alive`, or `None` if not found. GIL-released.
+
+```python
+node = db.get(id=42)
+if node:
+    print(node["fields"], node["vector_dims"])
 ```
 
 #### `delete()`
@@ -167,6 +247,11 @@ db.delete(
     reason: str = "manual deletion",
 ) -> None
 ```
+Delete a graph node by ID with an auditable reason (recorded as a tombstone). GIL-released.
+
+```python
+db.delete(id=42, reason="stale training data cleaned up")
+```
 
 #### `search()`
 ```python
@@ -175,7 +260,13 @@ db.search(
     top_k: int = 10,
 ) -> List[Tuple[int, float]]
 ```
-Pure vector K-NN search.
+Pure vector K-NN search over all graph nodes. Returns a list of `(node_id, distance)` tuples sorted by ascending distance. GIL-released — HNSW traversal runs in Rust without blocking the Python thread.
+
+```python
+hits = db.search(vector=[0.1] * 384, top_k=5)
+for node_id, distance in hits:
+    print(f"node {node_id}: distance {distance:.4f}")
+```
 
 #### `search_batch()`
 ```python
@@ -183,6 +274,14 @@ db.search_batch(
     vectors: List[VectorInput],
     top_k: int = 10,
 ) -> List[List[Tuple[int, float]]]
+```
+Batch K-NN search over multiple query vectors. Each query returns its own list of `(node_id, distance)` tuples. Internally parallelized via Rayon for concurrent HNSW traversal. GIL-released.
+
+```python
+queries = [[0.1] * 384, [0.5] * 384, [0.9] * 384]
+results = db.search_batch(vectors=queries, top_k=3)
+for i, hits in enumerate(results):
+    print(f"Query {i}: {len(hits)} hits")
 ```
 
 #### `add_edge()`
@@ -194,56 +293,81 @@ db.add_edge(
     weight: Optional[float] = None,
 ) -> None
 ```
+Add a labeled, optionally weighted edge between two graph nodes. Useful for building knowledge graphs, relationships between entities, or graph-based RAG pipelines. GIL-released.
+
+```python
+# Connect two nodes with a relationship edge
+db.add_edge(source_id=42, target_id=17, label="references", weight=0.95)
+```
 
 #### `graph_bfs()`
 ```python
 db.graph_bfs(roots: List[int], max_depth: int = 999999) -> List[int]
+```
+Breadth-First Search from root node IDs, up to `max_depth`. Returns discovered distinct node IDs. GIL-released.
+
+```python
+reachable = db.graph_bfs(roots=[42, 17], max_depth=3)
+print(f"Reachable nodes: {reachable}")
 ```
 
 #### `graph_dfs()`
 ```python
 db.graph_dfs(roots: List[int], max_depth: int = 999999) -> List[int]
 ```
+Depth-First Search from root node IDs, up to `max_depth`. Returns discovered distinct node IDs. GIL-released.
+
+```python
+reachable = db.graph_dfs(roots=[42], max_depth=5)
+print(f"DFS reachable nodes: {reachable}")
+```
 
 #### `graph_topological_sort()`
 ```python
 db.graph_topological_sort(roots: List[int]) -> List[int]
+```
+Topological sort of the subgraph reachable from the given roots. Raises `ValueError` if a cycle is detected. GIL-released.
+
+```python
+sorted_nodes = db.graph_topological_sort(roots=[1, 2, 3])
+print(f"Topological order: {sorted_nodes}")
 ```
 
 #### `graph_is_dag()`
 ```python
 db.graph_is_dag(roots: List[int]) -> bool
 ```
+Check whether the subgraph reachable from the given roots is a Directed Acyclic Graph (DAG). GIL-released.
+
+```python
+if db.graph_is_dag(roots=[1, 2]):
+    print("Subgraph is a DAG — safe for topological sort")
+```
 
 ### Advanced Operations
 
-#### `delete_by_filter()`
+#### `query()`
 ```python
-db.delete_by_filter(
-    namespace: str,
-    filters: dict,
-) -> int
+db.query(
+    iql_query: str,
+) -> str
 ```
-Delete all records matching metadata filters in a namespace. Returns count deleted.
+Execute an IQL (Interactive Query Language) or LISP-style query string against the graph database. Returns a formatted result string describing the query outcome.
 
-#### `similar_to_key()`
 ```python
-db.similar_to_key(
-    namespace: str,
-    key: str,
-    top_k: int = 10,
-) -> List[dict]
+# IQL query example
+result = db.query("(match (node :content \"rust\") (return node))")
+print(result)
 ```
-Search by vector similarity from an existing key.
 
-#### `count()`
-```python
-db.count(
-    namespace: Optional[str] = None,
-    filters: Optional[dict] = None,
-) -> int
-```
-Count records, optionally filtered by namespace and metadata.
+#### `delete_by_filter()` (not yet exposed)
+Delete all records matching metadata filters in a namespace. *Not yet available in the Python SDK — tracked for future release.*
+
+#### `similar_to_key()` (not yet exposed)
+Search by vector similarity from an existing key. *Not yet available in the Python SDK — tracked for future release.*
+
+#### `count()` (not yet exposed)
+Count records, optionally filtered by namespace and metadata. *Not yet available in the Python SDK — tracked for future release.*
 
 ### Maintenance & Diagnostics
 
@@ -251,70 +375,157 @@ Count records, optionally filtered by namespace and metadata.
 ```python
 db.flush() -> None
 ```
+Flush the Write-Ahead Log (WAL) and HNSW index to disk for durability. Recommended before shutdown or after a batch of writes. GIL-released.
+
+```python
+db.put("ns", "k", "critical data", vector=[0.1]*384)
+db.flush()  # ensure data is durably on disk
+```
 
 #### `compact_wal()`
 ```python
 db.compact_wal() -> None
+```
+Flush, archive the current WAL as `vanta.wal.<timestamp>`, and start a fresh WAL. Prevents unbounded WAL growth under heavy write load. GIL-released.
+
+```python
+db.compact_wal()  # archive the current WAL
 ```
 
 #### `purge_expired()`
 ```python
 db.purge_expired() -> int
 ```
+Scan all memory records and physically delete entries whose TTL has expired. Returns the number of records purged. GIL-released.
+
+```python
+purged = db.purge_expired()
+print(f"Cleaned up {purged} expired records")
+```
 
 #### `rebuild_index()`
 ```python
 db.rebuild_index() -> dict
+```
+Rebuild the ANN (HNSW) and all derived memory indexes from canonical storage. Useful after large bulk imports or data recovery. Returns a report dict with `scanned_nodes`, `indexed_vectors`, `duration_ms`, and `success`. GIL-released.
+
+```python
+report = db.rebuild_index()
+print(f"Rebuilt {report['indexed_vectors']} vectors in {report['duration_ms']}ms")
 ```
 
 #### `compact_layout()`
 ```python
 db.compact_layout() -> int
 ```
+Compact the storage layout by reordering nodes in BFS order to improve locality and free unused pages. Returns the number of nodes compacted. GIL-released.
+
+```python
+compacted = db.compact_layout()
+print(f"Compacted {compacted} nodes")
+```
 
 #### `list_namespaces()`
 ```python
 db.list_namespaces() -> List[str]
+```
+List all namespaces currently registered in the database.
+
+```python
+namespaces = db.list_namespaces()
+print(f"Active namespaces: {namespaces}")
 ```
 
 #### `export_namespace()`
 ```python
 db.export_namespace(path: str, namespace: str) -> dict
 ```
+Export a single namespace as a JSONL file. Returns a report dict with `records_exported`, `path`, and `duration_ms`. GIL-released.
+
+```python
+report = db.export_namespace("/tmp/export.jsonl", "agent/main")
+print(f"Exported {report['records_exported']} records")
+```
 
 #### `export_all()`
 ```python
 db.export_all(path: str) -> dict
+```
+Export all namespaces as a single JSONL file. Returns a report dict with `records_exported`, `namespaces`, and `duration_ms`. GIL-released.
+
+```python
+report = db.export_all("/tmp/full_backup.jsonl")
+print(f"All-namespace export: {report}")
 ```
 
 #### `import_file()`
 ```python
 db.import_file(path: str) -> dict
 ```
+Import records from a VantaDB memory JSONL export file. Returns a report dict with `inserted`, `updated`, `skipped`, `errors`, and `duration_ms`. GIL-released.
+
+```python
+report = db.import_file("/tmp/export.jsonl")
+print(f"Imported: {report['inserted']} new, {report['updated']} updated")
+```
 
 #### `audit_text_index()`
 ```python
 db.audit_text_index(namespace: Optional[str] = None, deep: bool = False) -> dict
+```
+Run a read-only structural audit of the derived text (BM25) index. With `deep=True`, also validates individual posting entries for positional and term-frequency consistency. Returns a detailed audit report. GIL-released.
+
+```python
+report = db.audit_text_index(namespace="agent/main", deep=False)
+print(f"Text index audit: {report['status']}")
+if not report['passed']:
+    print(f"Mismatches: {report['mismatches']}")
 ```
 
 #### `repair_text_index()`
 ```python
 db.repair_text_index() -> dict
 ```
+Rebuild the text index from canonical storage as a repair primitive. Useful when the audit report indicates corruption. Returns a report dict with `record_count`, `posting_entries`, and `duration_ms`. GIL-released.
+
+```python
+report = db.repair_text_index()
+print(f"Repaired text index: {report['record_count']} records, {report['posting_entries']} postings")
+```
 
 #### `operational_metrics()`
 ```python
 db.operational_metrics() -> dict
+```
+Return operational metrics: startup timing, WAL replay stats, ANN/text index rebuild times, query counts, memory breakdown (jemalloc, HNSW, mmap, cache). GIL-released.
+
+```python
+metrics = db.operational_metrics()
+print(f"Process RSS: {metrics['process_rss_bytes'] / 1024**2:.1f} MB")
+print(f"HNSW nodes: {metrics['hnsw_nodes_count']}")
 ```
 
 #### `capabilities()`
 ```python
 db.capabilities() -> dict
 ```
+Introspect the stable runtime capabilities exposed by the SDK. Returns a dict with `profile` (`ENTERPRISE`, `PERFORMANCE`, or `LOW_RESOURCE`), `read_only`, `persistence`, `vector_search`, and `iql_queries`.
+
+```python
+caps = db.capabilities()
+print(f"Runtime profile: {caps['profile']}")
+print(f"Read-only: {caps['read_only']}")
+```
 
 #### `hardware_profile()`
 ```python
 db.hardware_profile() -> dict
+```
+Return capabilities merged with system memory telemetry. Combines the `capabilities()` dict with memory metrics from `operational_metrics()` (RSS, HNSW, mmap, cache, jemalloc). Useful for deployment diagnostics.
+
+```python
+profile = db.hardware_profile()
+print(f"Profile: {profile['profile']}, RSS: {profile.get('process_rss_bytes', 'N/A')}")
 ```
 
 #### `generate_snippet()`
@@ -325,11 +536,25 @@ db.generate_snippet(
     with_highlighting: bool = False,
 ) -> Optional[str]
 ```
-Generate a text snippet from a payload, highlighting matched query terms.
+Generate a text snippet from a payload, highlighting matched query terms. Returns a context window around the best-matching passage, or `None` if no terms match.
+
+```python
+snippet = db.generate_snippet(
+    payload="VantaDB is a high-performance vector database written in Rust.",
+    text_query="vector database",
+    with_highlighting=True,
+)
+print(snippet)  # e.g. "...**VantaDB** is a high-performance **vector database**..."
+```
 
 #### `close()`
 ```python
 db.close() -> None
+```
+Flush and close the embedded engine handle, releasing all resources. The database can be re-opened by creating a new `VantaDB` instance. GIL-released.
+
+```python
+db.close()
 ```
 
 #### `put_batch_raw()`
@@ -343,7 +568,18 @@ db.put_batch_raw(
     ttls: Optional[List[Optional[int]]] = None,
 ) -> List[VantaMemoryRecord]
 ```
-Batch insert with raw arrays (no tuple wrapping). Optimized for large batches.
+Batch insert with raw arrays (no tuple wrapping). Accepts `vectors` as a 2D NumPy array (shape `[N, D]`) for zero-copy buffer protocol input. Optimized for large batches with homogeneous vector dimensions. GIL-released.
+
+```python
+import numpy as np
+vectors = np.array([[0.1]*384, [0.2]*384], dtype=np.float32)
+records = db.put_batch_raw(
+    vectors=vectors,
+    keys=["k1", "k2"],
+    payloads=["payload1", "payload2"],
+    namespaces=["ns1", "ns2"],
+)
+```
 
 #### `new()`
 ```python
@@ -393,24 +629,73 @@ len(vec)               # 3
 vec[0]                 # 0.1
 ```
 
-### Memory Record
-Each memory record is a dict with keys:
-- `namespace`
-- `key`
-- `payload`
-- `metadata`
-- `vector`
-- `created_at_ms`
-- `updated_at_ms`
-- `version`
-- `node_id`
-- `expires_at_ms`
+### `VantaMemoryRecord`
+
+```python
+vantadb.VantaMemoryRecord
+```
+
+Each memory record is a typed object with property access and `__getitem__` support:
+
+| Property | Type | Description |
+|---|---|---|
+| `namespace` | `str` | Namespace scope |
+| `key` | `str` | Unique record key |
+| `payload` | `str` | Record payload text |
+| `metadata` | `dict` | Metadata key-value dict |
+| `vector` | `Optional[numpy.ndarray \| VantaVector]` | Embedding vector |
+| `created_at_ms` | `int` | Creation timestamp (ms) |
+| `updated_at_ms` | `int` | Last update timestamp (ms) |
+| `version` | `int` | Monotonic version counter |
+| `node_id` | `int` | Internal node ID |
+| `expires_at_ms` | `Optional[int]` | TTL expiration timestamp (ms) |
+
+```python
+record = db.put("ns", "k", "payload", vector=[0.1]*384)
+
+# Property access
+print(record.namespace, record.key, record.payload)
+
+# Dict-style access (via __getitem__)
+print(record["namespace"], record["key"], record["version"])
+```
 
 ### Search Result
-Each result is a dict with keys:
-- `score`
-- `record`
-- `explanation`
+Each result is a `VantaSearchHit` object with properties:
+- `namespace` — namespace of the matched record
+- `key` — key of the matched record
+- `payload` — payload text
+- `metadata` — metadata dict
+- `vector` — `VantaVector` or NumPy array
+- `score` — relevance score (BM25, cosine similarity, or RRF fused)
+- `id` / `node_id` — numeric node identifier
+- `created_at_ms`, `updated_at_ms`, `version`, `expires_at_ms`
+
+### `VantaListResult`
+
+```python
+vantadb.VantaListResult
+```
+
+Returned by `list_memory()`. Typed page of memory records with pagination.
+
+| Property | Type | Description |
+|---|---|---|
+| `records` | `List[VantaMemoryRecord]` | Records in this page |
+| `total_count` | `int` | Number of records in this page |
+| `next_cursor` | `Optional[int]` | Cursor for the next page, or `None` |
+
+Supports iteration, indexing, and dict-style access:
+
+```python
+page = db.list_memory("ns")
+len(page)                  # total_count
+for r in page:             # iterate records
+    print(r.key)
+page[0]                    # first record
+page["records"]            # same as page.records
+page["next_cursor"]        # same as page.next_cursor
+```
 
 ## Async Support
 
@@ -422,7 +707,13 @@ from vantadb_py import AsyncVantaDB
 async with AsyncVantaDB("./my_brain") as db:
     record = await db.get_memory("ns", "key")
     results = await db.search_memory("ns", [1.0, 0.0, 0.0], top_k=5)
+    # Query, diagnostics, and mutations are also async
+    query_result = await db.query("(match (node :content \"rust\") (return node))")
+    metrics = await db.operational_metrics()
+    count = await db.purge_expired()
 ```
+
+All VantaDB methods are available on `AsyncVantaDB` with `async/await`, including `put()`, `put_batch()`, `insert()`, `delete_memory()`, `get_memory()`, `list_memory()`, `search_memory()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, and `explain_memory_search()`.
 
 ## Error Handling
 

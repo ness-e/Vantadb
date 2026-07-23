@@ -3,7 +3,7 @@
 ## Metadata
 - **Plan file:** `docs/plans/2026-07-21-docs-api-audit-fixes.md`
 - **Creado:** 2026-07-21T00:00
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ## Blast Radius
 **Callers:** EMBEDDED_SDK.md (línea 118 referencia IQL), openapi.yaml (referencia IQL syntax)
