@@ -28,8 +28,13 @@ permission:
   websearch: allow
   todowrite: allow
   task:
-    "vanta-engine": allow
     "vanta-arch": allow
+    "vanta-worker": allow
+    "vanta-engine": allow
+    "vanta-audit": allow
+    "vanta-chaos": allow
+    "vanta-tuner": allow
+    "vanta-docs": allow
     "*": deny
 ---
 

@@ -19,6 +19,8 @@ permission:
     "cargo clippy*": allow
     "*": ask
   task:
+    "vanta-audit": allow
+    "vanta-chaos": allow
     "vanta-tuner": allow
     "*": deny
   lsp: allow
