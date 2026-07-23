@@ -26,7 +26,7 @@ HARNESS (PowerShell)                AGENTE (por turno)
 |------------|-----------|-----------|
 | **plan.md** | `prompts/plan.md` → `.opencode/task-system/prompts/plan.md` | Crear plan desde backlog |
 | **task.md** | `prompts/task.md` → `.opencode/task-system/prompts/task.md` | Definir tarea individual |
-| **iter.md** | `prompts/iter.md` → `.opencode/task-system/prompts/iter.md` | Prompt único del harness (1 iteración) |
+| **iter-loop-tools.md** | `prompts/iter-loop-tools.md` → `.opencode/task-system/prompts/iter-loop-tools.md` | Prompt único del harness (1 iteración) |
 | **pipeline.md** | `.opencode/commands/pipeline.md` | Entry point: backlog / task ID / run |
 | **harness-executor.ps1** | `.opencode/task-system/harness/harness-executor.ps1` | Loop PowerShell (timeout, git check, sync) |
 | **Plan file** | `docs/plans/<fecha>-<nombre>.md` | Orquestación: qué tasks, en qué estado |
@@ -52,7 +52,7 @@ HARNESS (PowerShell)                AGENTE (por turno)
 
 ### Fase 1: Discovery (por tarea, una vez)
 
-1. Harness encuentra tarea ⬜ PENDING, inyecta `.opencode/task-system/prompts/iter.md`
+1. Harness encuentra tarea ⬜ PENDING, inyecta `.opencode/task-system/prompts/iter-loop-tools.md`
 2. Agente detecta que el task file no existe
 3. Auto-detecta tipo de tarea (Rust / Frontend / Python / ...)
 4. `codegraph_explore` para blast radius
@@ -65,7 +65,7 @@ HARNESS (PowerShell)                AGENTE (por turno)
 ### Fase 2: Ejecución (un step por iteración)
 
 ```
-States válidos (C0 — Statewright pattern, iter.md canonical):
+States válidos (C0 — Statewright pattern, iter-loop-tools.md canonical):
 
   PLAN     → ACT
   ACT      → VERIFY
@@ -84,7 +84,7 @@ States válidos (C0 — Statewright pattern, iter.md canonical):
   STALL → ❌ FAILED (agotado)
 ```
 
-1. Harness re-inyecta `.opencode/task-system/prompts/iter.md`
+1. Harness re-inyecta `.opencode/task-system/prompts/iter-loop-tools.md`
 2. Agente lee el próximo step del task file
 3. PLAN → ACT → VERIFY (con Agente de Diagnóstico si falla)
 4. Retry ladder: 1 retry → 2 fresh context → 3 different strategy → 4 escalate
@@ -263,7 +263,7 @@ campaign-executor es el núcleo del sistema de tareas. Se relaciona con:
 | `AGENTS.md` | Path resolution: `tasks/<ID>.md` → `.opencode/skills/campaign-executor/tasks/<ID>.md` |
 | `pipeline.md` (command) | Entry point: `/pipeline plan\|task\|run` → invoca campaign-executor |
 | `plan.md` (prompt) | Crea plan file desde Backlog, delega a campaign-executor |
-| `iter.md` (prompt) | State machine ejecución — per-state tool enforcement vía MCP |
+| `iter-loop-tools.md` (prompt) | State machine ejecución — per-state tool enforcement vía MCP |
 | `progreso` | Post-commit: migra tarea completada de Backlog a progreso |
 | `vantadb-certify` | Verify pre-push: certificación completa |
 | `ponytail` | Siempre activo: escalera YAGNI en cada step |
@@ -274,7 +274,7 @@ campaign-executor es el núcleo del sistema de tareas. Se relaciona con:
 ```
 /pipeline plan docs/Backlog.md   → plan.md → docs/plans/<file>.md
 /pipeline task DRV-NN            → task.md → tasks/<ID>.md
-/pipeline run                    → .opencode/task-system/harness/harness-executor.ps1 + iter.md
+/pipeline run                    → .opencode/task-system/harness/harness-executor.ps1 + iter-loop-tools.md
 ```
 
 ## Apéndice A: Comandos rápidos VantaDB
@@ -310,17 +310,17 @@ la recitation. No avances sin haber completado verificación, commit, progreso."
 | Innovación | Fuente | Dónde |
 |------------|--------|-------|
 | **VISION.md (north star)** | Steinberger | RULES.md |
-| **Stagnation detection** | Anthropic: no-progress detection | iter.md, harness |
+| **Stagnation detection** | Anthropic: no-progress detection | iter-loop-tools.md, harness |
 | **Budget ceilings** | explainx.ai | SKILL.md, harness |
-| **Evaluator-optimizer** | Lilian Weng: agent self-review | iter.md MODO CIERRE |
-| **State machine guardrails** | Statewright (415⭐) | iter.md State Machine C0 |
-| **Self-Harness propose-evaluate-accept** | Self-Harness (Anthropic) | iter.md Self-Harness Gate |
+| **Evaluator-optimizer** | Lilian Weng: agent self-review | iter-loop-tools.md MODO CIERRE |
+| **State machine guardrails** | Statewright (415⭐) | iter-loop-tools.md State Machine C0 |
+| **Self-Harness propose-evaluate-accept** | Self-Harness (Anthropic) | iter-loop-tools.md Self-Harness Gate |
 | **Parallel orchestrator workers** | Anthropic: building effective agents | pipeline-run.md waves |
-| **Auto-type discovery** | TaskWeaver (9k⭐) | iter.md MODO DISCOVERY |
-| **Ponytail (shortest path)** | awesome-harness-engineering | RULES.md, iter.md |
-| **Zero-code planning** | task-executor hybrid-prompt | iter.md MODO DISCOVERY step 4 |
+| **Auto-type discovery** | TaskWeaver (9k⭐) | iter-loop-tools.md MODO DISCOVERY |
+| **Ponytail (shortest path)** | awesome-harness-engineering | RULES.md, iter-loop-tools.md |
+| **Zero-code planning** | task-executor hybrid-prompt | iter-loop-tools.md MODO DISCOVERY step 4 |
 | **Revisión cada N tareas** | backlog-executor loop-prompt | pipeline-run.md step 5.f |
-| **Context Save Point** | backlog-executor §7 | task file format, iter.md Cierre |
+| **Context Save Point** | backlog-executor §7 | task file format, iter-loop-tools.md Cierre |
 | **FAIL_MODE triple (stop/skip/parallel)** | task-executor batch-prompt | pipeline-run.md |
 | **Parallel DAG + waves** | task-executor batch-prompt §1.5 | pipeline-run.md step 6 |
 | **Probes de integridad** | backlog-executor §8 | SKILL.md, pipeline-run.md step 3 |

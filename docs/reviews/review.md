@@ -84,3 +84,4 @@ Overall rating: **7.8 / 10** for an alpha-stage systems project.
 ## Bottom line
 
 VantaDB has the shape of a serious embedded AI-memory engine rather than a toy vector-store wrapper. The project’s biggest advantage is that durability, local-first operation, and product-boundary discipline are already visible. The biggest threat is overextension: too many SDKs, adapters, workflows, and experimental modules can create quality ambiguity unless support tiers and CI gates are made explicit. If the next development cycle focuses on documentation drift, CI policy hardening, advisory hygiene, and support-tier clarity, the project can move from promising alpha to credible beta.
+

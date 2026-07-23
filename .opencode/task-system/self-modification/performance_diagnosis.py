@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import json
 import asyncio
+import sys
 
 
 @dataclass
@@ -25,6 +26,20 @@ class PipelineReport:
     recitation_issues: List[str] = field(default_factory=list)
     high_priority_areas: List[str] = field(default_factory=list)
     detailed_results: Optional[Dict[str, Any]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dict for JSON output."""
+        return {
+            "overall_score": self.overall_score,
+            "benchmark_scores": self.benchmark_scores,
+            "improvement_suggestions": self.improvement_suggestions,
+            "pipeline_health_issues": self.pipeline_health_issues,
+            "budget_issues": self.budget_issues,
+            "stagnation_patterns": self.stagnation_patterns,
+            "error_rate_issues": self.error_rate_issues,
+            "recitation_issues": self.recitation_issues,
+            "high_priority_areas": self.high_priority_areas,
+        }
 
 
 class PipelineDiagnosis:
@@ -93,7 +108,7 @@ class PipelineDiagnosis:
                 )
             else:
                 for plan_file in plan_files:
-                    content = plan_file.read_text()
+                    content = plan_file.read_text(encoding="utf-8")
 
                     # Check recitation completeness
                     if "recitation" not in content.lower():
@@ -260,3 +275,15 @@ class PipelineDiagnosis:
                 report.improvement_suggestions.append(
                     f"Focus on improving {benchmark} performance (current: {score:.2f})"
                 )
+
+if __name__ == "__main__":
+    try:
+        pipeline_path = sys.argv[1] if len(sys.argv) > 1 else "."
+        diagnoser = PipelineDiagnosis()
+        report = asyncio.run(diagnoser.diagnose_performance(
+            pipeline_path,
+            {"overall_score": 0.0, "benchmark_scores": {}, "detailed_results": {}}
+        ))
+        print(json.dumps(report.to_dict(), indent=2))
+    except Exception as e:
+        print(json.dumps({"error": str(e), "hint": "Diagnosis script encountered an error"}))

@@ -113,7 +113,7 @@ Nunca referenciar `.tasks/` (no existe — error legacy corregido).
 
 **Flujo `run`:**
 1. Inicia `.opencode/task-system/harness/harness-executor.ps1` (loop PowerShell)
-2. Por cada tarea: inyecta `iter.md` → agente ejecuta un step → verifica
+2. Por cada tarea: inyecta `iter-loop-tools.md` → agente ejecuta un step → verifica
 3. Al completar: commit + `skill progreso`
 
 ### 3.2 Audit — `/audit`
@@ -153,7 +153,7 @@ Cada ejecución de `/audit` crea un plan file (`docs/plans/plan-audit-*.md`) con
 |------------|-----------|-----------|
 | **plan.md** | `.opencode/task-system/prompts/plan.md` | Crear plan desde backlog |
 | **task.md** | `.opencode/task-system/prompts/task.md` | Definir tarea individual |
-| **iter.md** | `.opencode/task-system/prompts/iter.md` | Una iteración del harness |
+| **iter-loop-tools.md** | `.opencode/task-system/prompts/iter-loop-tools.md` | Una iteración del harness |
 | **pipeline.md** | `.opencode/commands/pipeline.md` | Entry point |
 | **harness-executor.ps1** | `.opencode/task-system/harness/harness-executor.ps1` | Loop PowerShell |
 | **SKILL.md** | `.opencode/skills/campaign-executor/SKILL.md` | Referencia completa |
@@ -305,7 +305,7 @@ last-synced: YYYY-MM-DDTHH:MM
 La state machine es el **corazón de la ejecución**. Gobierna cada iteración del agente.
 
 ```
-States válidos (Statewright pattern, iter.md canonical):
+States válidos (Statewright pattern, iter-loop-tools.md canonical):
 
   PLAN     → ACT
   ACT      → VERIFY
@@ -531,7 +531,7 @@ if ($LASTEXITCODE -ne 0) { exit 1 }
 | `AGENTS.md` | Path resolution: `tasks/<ID>.md` → `.opencode/skills/campaign-executor/tasks/<ID>.md` |
 | `pipeline.md` | Entry point: `/pipeline plan\|task\|run` |
 | `plan.md` (prompt) | Crea plan file desde Backlog |
-| `iter.md` (prompt) | State machine ejecución |
+| `iter-loop-tools.md` (prompt) | State machine ejecución |
 | `progreso` | Post-commit: migra tarea completada |
 | `vantadb-certify` | Verify pre-push |
 | `ponytail` | Siempre activo: escalera YAGNI |
@@ -702,7 +702,7 @@ COMMAND pipeline.md
   → Muestra comando para harness
 
 HARNESS ejecuta:
-  → Inyecta iter.md
+  → Inyecta iter-loop-tools.md
   → AGENTE lee task file
   → AGENTE carga skills según tipo (Rust → source-driven-development)
   → AGENTE implementa step
@@ -894,7 +894,7 @@ Después de completar: skill progreso
     prompts/
       plan.md                        ← Crear plan desde backlog
       task.md                        ← Definir tarea individual
-      iter.md                        ← Una iteración del harness
+      iter-loop-tools.md                        ← Una iteración del harness
       iter-loop-tools.md             ← Loop de herramientas
       pipeline-full.md               ← Pipeline completo
       pipeline-run.md                ← Pipeline run mode

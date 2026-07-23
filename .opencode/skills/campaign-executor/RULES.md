@@ -83,7 +83,7 @@ encargadas y volver a encontrar todo hecho, verificado y comiteado.
 RULES.md / VISION.md          ← north star (este archivo, no se modifica)
 .opencode/task-system/prompts/plan.md               ← crear plan desde backlog (triage gate)
 .opencode/task-system/prompts/task.md               ← definir tarea a profundidad
-.opencode/task-system/prompts/iter.md               ← ejecutar una iteración del harness
+.opencode/task-system/prompts/iter-loop-tools.md               ← ejecutar una iteración del harness
 .opencode/commands/pipeline.md                      ← entry point: plan | task | run | interactive
 .opencode/task-system/harness/harness-executor.ps1   ← loop externo PowerShell
 SKILL.md                      ← referencia completa del skill
@@ -202,7 +202,7 @@ actual.
 
 | Capa | Dimensión | Implementación |
 |------|-----------|----------------|
-| **Control** | State machine | C0 en iter.md: 10 estados, guards, per-state tool enforcement |
+| **Control** | State machine | C0 en iter-loop-tools.md: 10 estados, guards, per-state tool enforcement |
 | | Budgets | 15 tool calls, 40 sub-agents, 5 fails, 120min por tarea |
 | | DoD | 4 versiones ratcheted (v1 baseline → v4 enterprise) |
 | | Capa determinista | 6 barreras infranqueables (clippy, fmt, tests, miri, fuzz, output validation) |
@@ -226,3 +226,188 @@ actual.
 Una tarea completa + commiteada → sesión cerrada mentalmente.
 La siguiente tarea arranca con contexto fresco. No arrastres estado entre tareas.
 Si necesitás continuar algo, dejalo en la recitation o en Context Save Point.
+
+### Rule 12 — Bounded Memory (Context Budget)
+
+Fuente: awesome-harness-engineering (OpenHands, Anthropic context engineering)
+
+El contexto no es un dumping ground. Solo se preserva entre iteraciones:
+
+| Qué se guarda | Qué se descarta |
+|---------------|-----------------|
+| Goals activos | Tool outputs cerrados |
+| Progreso del step actual | Logs de builds pasados |
+| Archivos críticos modificados | Diffs completos (git los tiene) |
+| Tests que fallan | Mensajes de éxito |
+| Recitation block | Conversación previa |
+
+Reglas:
+1. Si el contexto crece >20% del límite del modelo, usar sub-agentes vía task tool para aislar investigación
+2. Antes de cada iteración, evaluar: "¿esto es necesario para el próximo paso?"
+3. Useful failures se mantienen en contexto (lo que salió mal es diagnóstico, no ruido)
+4. Backpressure on low-value work: si una tarea genera ruido sin progreso >3 iteraciones, abortar
+
+### Rule 13 — 12-Factor Agents (Production Discipline)
+
+Fuente: awesome-harness-engineering (HumanLayer: 12-Factor Agents)
+
+| Factor | Aplicación en Campaign Executor |
+|--------|---------------------------------|
+| 1. Explicit prompts | Cada tarea tiene un prompt completo (plan.md, task.md, iter-loop-tools.md) |
+| 2. State ownership | Plan file + task file son la única fuente de verdad. No confiar en contexto de sesión. |
+| 3. Clean pause-resume | Recitation block permite retomar exactamente donde se quedó |
+| 4. Logs as event streams | harness.ps1 emite eventos JSONL a traces/<campaign-id>.jsonl |
+| 5. Disposable agents | Cada iteración arranca contexto fresco. Sin estado en memoria del agente. |
+| 6. Backward compatibility | Nunca romper el formato de plan file — otros scripts lo leen |
+| 7. Fail fast, fail visibly | Stagnation detection + MoM ladder. No reintentar con el mismo modelo. |
+| 8. Runtime verification | campaign_verify_cmd — nunca auto-reporte |
+| 9. Bounded resources | Budget: 15 tool calls, 40 sub-agents, 5 fails, 120min por tarea |
+| 10. Observable | JSONL logs + correlation ID + structured recitation |
+
+### Rule 14 — Correlation ID Tracing
+
+Fuente: REFERENCE-SYNTHESIS.md (prioridad #1: alta)
+
+Cada campaña genera un UUID al inicio (CampaignId). Este ID se propaga a:
+
+| Destino | Dónde se escribe |
+|---------|------------------|
+| Plan file | `> **Campaign ID:** <uuid>` en el header |
+| JSONL log | Cada línea: `{"event":"...", "campaign_id":"<uuid>", ...}` |
+| Recitation | Bloque RECITATION en cada iteración |
+| Git commits | `Campaign: <uuid>` en el footer del commit message |
+| Task files | `campaign_id: <uuid>` en el header |
+
+El correlation ID permite conectar:
+- Una iteración de harness → su log JSONL → el commit → el task file
+- Sin correlation ID, cada componente es un silo aislado
+
+### Rule 15 — init.sh Pattern (Bootstrap Harness)
+
+Fuente: Anthropic — "Effective harnesses for long-running agents"
+
+Cada tarea importante debería tener un `init.sh` (o `init.ps1` en Windows) que:
+
+1. Verifica el entorno (herramientas instaladas, versiones, variables de entorno)
+2. Limpia estado residual de ejecuciones anteriores
+3. Prepara directorios temporales si es necesario
+4. Establece el correlation ID de la ejecución
+5. Imprime un resumen del estado inicial
+
+```powershell
+# Ejemplo de init.ps1 para tarea de campaña
+param([string]$CampaignId)
+Write-Host "=== init.ps1 — Campaign $CampaignId ==="
+# 1. Verificar herramientas
+@("cargo", "git", "python") | ForEach-Object {
+    if (-not (Get-Command $_ -ErrorAction SilentlyContinue)) {
+        Write-Error "Missing: $_"; exit 1
+    }
+}
+# 2. Limpiar estado residual
+Remove-Item -Path ".campaign/temp/*" -Recurse -ErrorAction SilentlyContinue
+# 3. Correlation ID
+$env:CAMPAIGN_ID = $CampaignId
+Write-Host "Ready: Campaign $CampaignId"
+```
+
+Reglas:
+- `init.sh`/`init.ps1` se ejecuta UNA vez al inicio de la campaña, no por iteración
+- Si falla, la campaña no arranca — error es mejor que ejecución en entorno roto
+- Debe ser idempotente (ejecutar dos veces no rompe nada)
+
+### Rule 16 — While-Loop Harness (Ralph Pattern)
+
+Fuente: Geoffrey Huntley — "Ralph Wiggum as a Software Engineer"
+
+El patrón más simple de harness que funciona:
+
+```bash
+while :; do cat PROMPT.md | agent; done
+```
+
+En nuestro contexto (OpenCode + campaign system):
+
+| Elemento | Cómo se aplica |
+|----------|---------------|
+| **PROMPT.md** | `iter-loop-tools.md` — el prompt de iteración |
+| **agent** | OpenCode con los MCP tools de campaign |
+| **loop externo** | `harness-executor.ps1` — iteración PowerShell |
+| **determinismo** | Cada iteración arranca contexto fresco (Disposable Agents) |
+| **handoff** | Recitation block en el plan file |
+
+La versión VantaDB del while-loop:
+
+```powershell
+# harness-executor.ps1 -IterationCount $count
+while ($true) {
+    $task = Get-NextTask
+    if (-not $task) { break }
+    Invoke-OpenCode -Prompt "iter-loop-tools.md" -Task $task
+    if (-not (Test-Contract $task)) { break }
+}
+```
+
+Este patrón es la base conceptual de todo el campaign executor — no agregar complejidad innecesaria al loop.
+
+### Rule 17 — Lurkr Scanner (CI Gate for Agent Risks)
+
+Fuente: [agentveil-protocol/lurkr](https://github.com/agentveil-protocol/lurkr)
+
+El Lurkr scanner se ejecuta en CI y detecta riesgos de agentes de IA:
+
+| Riesgo | Detecta |
+|--------|---------|
+| Shadow capabilities | Código no explicitado en el prompt del agente |
+| Credentials en contexto LLM | API keys, tokens, secrets en archivos que el agente leería |
+| eval/subprocess en @tool | Código que ejecuta comandos sin sanitización |
+| Prompt interpolation directa | Strings armadas con ${} en prompts |
+| MCP endpoints no verificados | Llamadas a MCP URLs sin validación |
+
+**Gate de CI** (agregar al workflow de CI):
+```yaml
+- name: Lurkr scanner
+  run: npx lurkr scan .opencode/ --report-format json
+```
+
+Por ahora: no bloqueante, solo informativo. Cuando el ecosistema madure, el Lurkr gate será obligatorio antes de deploy.
+
+### Rule 18 — Context Condensation (OpenHands Pattern)
+
+Fuente: OpenHands — "Context Condensation for More Efficient AI Agents"
+
+Entre iteraciones del harness, condensar el contexto preservando solo:
+
+| Preservar | Descartar |
+|-----------|----------|
+| Goals activos | Logs de builds pasados |
+| Archivos modificados en este step | Output de tool calls previas |
+| Tests que fallan actualmente | Mensajes de éxito |
+| Recitation block | Conversación completa previa |
+| Correlation ID | Errores ya resueltos |
+
+En la práctica:
+1. El harness escribe el recitation block al final de cada iteración
+2. La próxima iteración LEE el plan file + recitation — eso ES la condensación
+3. No necesita lógica extra: el recitation block es nuestro mecanismo de condensación
+4. Si una tarea excede 15 tool calls sin progreso, fork a sub-agente vía `task` tool para aislar investigación
+
+Límite práctico: si el plan file supera 200 líneas, hay que archivarlo y empezar uno nuevo (clean state).
+
+### Rule 19 — AgentKit Patterns (Event-Driven Durable Agents)
+
+Fuente: Inngest AgentKit
+
+Para tareas que requieren durabilidad (continuar después de crash):
+
+| Patrón | Descripción |
+|--------|-------------|
+| **Workflow-aware** | Cada paso registra estado en JSON durable (`.campaign/budget.json`) |
+| **Event-driven** | Las transiciones del state machine C0 son eventos |
+| **Idempotency** | Cada paso puede re-ejecutarse sin side effects |
+| **Retry with backoff** | Si un paso falla, esperar 2^retry segundos antes de reintentar |
+
+No implementar como dependency — implementar como convention en el harness existente.
+- Budget tracking via JSON es el estado durable
+- C0 state machine en iter-loop-tools.md maneja transiciones
+- Retry con backoff: `Start-Sleep -Seconds [Math]::Pow(2, $retryCount)`

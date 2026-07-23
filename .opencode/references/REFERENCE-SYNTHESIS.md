@@ -488,7 +488,7 @@ Proxy en `localhost:3200` que intercepta API calls y permite cambiar backend mid
 
 | # | Mejora | Explicación | Referenciado en | Esfuerzo | Valor | Ya cubierto | Lo que falta | Patrón | Aplicación |
 |---|--------|-------------|-----------------|----------|-------|-------------|--------------|--------|------------|
-| 1 | **Correlation ID por campaña** | Generar un UUID al inicio de cada campaña y propagarlo en logs, recitation, commits y traces | Observability Checklist, awesome-harness-engineering (12-Factor Agents) | Bajo | Alto | Recitation block existe | No hay correlation ID trazable entre iteraciones | 12-Factor Agents: logs como event streams | `harness.ps1` genera GUID → inyecta en iter.md → recitation → commit message |
+| 1 | **Correlation ID por campaña** | Generar un UUID al inicio de cada campaña y propagarlo en logs, recitation, commits y traces | Observability Checklist, awesome-harness-engineering (12-Factor Agents) | Bajo | Alto | Recitation block existe | No hay correlation ID trazable entre iteraciones | 12-Factor Agents: logs como event streams | `harness.ps1` genera GUID → inyecta en iter-loop-tools.md → recitation → commit message |
 | 2 | **Validación de output generado (LLM05)** | Sanitizar HTML, SQL, shell commands, file paths generados por el agente antes de ejecutarlos | Security Checklist (AI/LLM Security: "model output is untrusted", "prompt injection assumed") | Medio | Alto | Capa Determinista en RULES.md | No hay validación de output del agente; se confía en lo que genera | OWASP LLM05: Improper Output Handling | Nueva capa de verificación en RULES.md: sanitizar output antes de write |
 | 3 | **Rate limiting + Budget tracking real** | Limitar tool calls por tarea, tokens consumidos, tiempo de ejecución. Trackear contra presupuesto | Security Checklist (LLM10: unbounded consumption), awesome-harness-engineering (Inngest: state/retries/traces) | Medio | Alto | Budget table en SKILL.md (iteraciones, sub-agentes, fails) | Los límites son declarativos, no se enforcean en runtime; no hay tracking de tokens real | Token bucket / rate limiter pattern | `harness.ps1` trackea tool calls y tiempo; MCP server enforcea hard limits |
 | 4 | **Output untrusted — sandbox execution** | Ejecutar código generado en entorno aislado (Docker sin red) antes de aplicarlo al proyecto real | Security Checklist, darwin-godel-machine (sandbox Docker), awesome-harness-engineering (SWE-ReX, sandboxing) | Alto | Alto | No hay sandbox | No hay aislamiento de ejecución | Sandbox pattern (DGM: sandbox sin red, staged-project con sync-back) | Nuevo `sandbox/` script: Docker sin red → stage → validate → sync-back |
@@ -502,11 +502,11 @@ Proxy en `localhost:3200` que intercepta API calls y permite cambiar backend mid
 | 7 | **Research isolation pattern** | Para tareas que requieren ingerir mucho contexto: spawn sub-agente que lee y devuelve digest | Orchestration Patterns (Pattern 5: research isolation), awesome-harness-engineering | Bajo | Medio | Sub-agentes existen en pipeline-run.md | No hay sub-agente específico de "research" | Pattern 5: Research isolation | Agregar modo RESEARCH a pipeline-run.md: sub-agente lee → digest → tarea principal |
 | 8 | **Ratcheted Definition of Done** | Los thresholds de calidad suben con el tiempo, nunca bajan. Cada release exige más | awesome-harness-engineering (Greenfield/Brownfield: ratcheted pre-commit hooks) | Medio | Medio | DoD versionado en cada workflow JSON + accept state con checks condicionales | ✅ 2026-07-15: dod_version en 5 workflows; accept state referencia versión y aplica checks progresivos (V1: 5 checks base; V2: +ponytail-review+test-coverage; V3: +no secrets+conventional-commit) | Ratcheted quality gates | workfows/*.json: `dod_version: 1` en cada definition; accept state ejecuta según versión |
 | 9 | **Model traits registry** | Registry de traits por modelo (context window, tool mode, response field, etc.) | statewright (model-compatibility.md, model-traits.md) | Medio | Alto | No hay | No hay configuración por modelo; el harness trata todos igual | Model traits per-model | Nuevo `config/model-traits.yaml` con traits por modelo; harness resuelve según `-m` |
-| 10 | **Mixture of Models (MoM) ladder** | Escalar a modelo más caro cuando el actual falla: Tier 1 (barato) → Tier 2 (medio) → Tier 3 (frontier) | statewright (MoM escalation, per-state model routing) | Alto | Alto | Retry ladder (4 escalones) en iter.md | Los escalones usan el mismo modelo, no escalan a uno mejor | MoM: per-state model routing | Agregar tiers de modelo al retry ladder; MCP enforcea cambio de modelo |
-| 11 | **Per-state tool enforcement** | En cada estado de la state machine C0, restringir tools a solo las permitidas para ese estado | statewright (core concept: "agents are suggestions, states are laws") | Alto | Muy alto | State machine C0 en iter.md con 12 estados y 4 transiciones inválidas | Las tools no están restringidas por estado; el agente ve todas siempre | Per-state tool enforcement | Agregar `allowed_tools` por estado en la state machine; MCP gateways enforcean |
+| 10 | **Mixture of Models (MoM) ladder** | Escalar a modelo más caro cuando el actual falla: Tier 1 (barato) → Tier 2 (medio) → Tier 3 (frontier) | statewright (MoM escalation, per-state model routing) | Alto | Alto | Retry ladder (4 escalones) en iter-loop-tools.md | Los escalones usan el mismo modelo, no escalan a uno mejor | MoM: per-state model routing | Agregar tiers de modelo al retry ladder; MCP enforcea cambio de modelo |
+| 11 | **Per-state tool enforcement** | En cada estado de la state machine C0, restringir tools a solo las permitidas para ese estado | statewright (core concept: "agents are suggestions, states are laws") | Alto | Muy alto | State machine C0 en iter-loop-tools.md con 12 estados y 4 transiciones inválidas | Las tools no están restringidas por estado; el agente ve todas siempre | Per-state tool enforcement | Agregar `allowed_tools` por estado en la state machine; MCP gateways enforcean |
 | 12 | **Static scanning con Lurkr** | CI-time scan de shadow capabilities, credenciales en prompts, MCP endpoints no verificados | awesome-harness-engineering (Lurkr scanner) | Bajo | Medio | Security checklist menciona "no secrets in code" | No hay scanning automatizado de riesgos de agente | Lurkr static scanning | Agregar paso a CI: `npx lurkr scan .opencode/` |
 | 13 | **Fork/Join para tareas independientes** | Lint + test + docs en paralelo en vez de secuencial | statewright (fork-join.md: max 8 branches, join all/any) | Medio | Medio | Parallel mode en harness.ps1 (waves, 4 sub-agentes) | No hay fork/join dentro de una tarea; solo paralelismo entre tareas | Fork/Join pattern | pipeline-run.md: detectar sub-tareas independientes → fork ear |
-| 14 | **Symptom-based alerting** | Alertar basado en síntomas (error rate, p99 latency) no en causas (CPU). Thresholds justificados por SLO | Observability Checklist (symptom-based, actionable, runbook-linked) | Bajo | Medio | Stagnation detection en iter.md | No hay alerting de salud del pipeline | Symptom-based alerting | harness.ps1: emitir métricas RED; alertar si campaign.error_rate > 5% |
+| 14 | **Symptom-based alerting** | Alertar basado en síntomas (error rate, p99 latency) no en causas (CPU). Thresholds justificados por SLO | Observability Checklist (symptom-based, actionable, runbook-linked) | Bajo | Medio | Stagnation detection en iter-loop-tools.md | No hay alerting de salud del pipeline | Symptom-based alerting | harness.ps1: emitir métricas RED; alertar si campaign.error_rate > 5% |
 
 ### 🟢 BAJA PRIORIDAD
 
@@ -515,7 +515,7 @@ Proxy en `localhost:3200` que intercepta API calls y permite cambiar backend mid
 | 15 | **HarnessCard** | Documentar el pipeline usando CAR (Control-Agency-Runtime): qué controla, qué decide, cómo ejecuta | awesome-harness-engineering (CAR decomposition, HarnessCard) | Bajo | Medio | SKILL.md describe arquitectura | No está estructurado como CAR Card | CAR Decomposition | Nuevo apéndice en SKILL.md con HarnessCard formal |
 | 16 | **Score movement rehearsal** | Probar cambios de pipeline en modo "rehearsal" antes de hacerlos default | darwin-godel-machine (score movement rehearsal) | Medio | Medio | No hay | No hay forma de A/B testear cambios de pipeline | Score movement rehearsal | Nuevo modo `--rehearsal` en harness: ejecuta con nuevo config sin modificar producción |
 | 17 | **Parent selection para pipeline versions** | Elegir versión del pipeline basado en rendimiento × novelty | darwin-godel-machine (sigmoid parent selection) | Alto | Bajo | No hay | No hay versionado del pipeline ni evolución | Evolutionary parent selection | Sistema de versionado de pipeline con selección evolutiva |
-| 18 | **gen_sm → llm_solve pipeline** | Generar state machine específica de la tarea con modelo frontier, ejecutar con modelo commodity | statewright (gen_sm → llm_solve: state-machine-pipeline.md) | Muy alto | Muy alto | State machine C0 fija en iter.md | La state machine es fija, no se genera por tarea | gen_sm → llm_solve | Generar workflow JSON por tipo de tarea en DISCOVERY |
+| 18 | **gen_sm → llm_solve pipeline** | Generar state machine específica de la tarea con modelo frontier, ejecutar con modelo commodity | statewright (gen_sm → llm_solve: state-machine-pipeline.md) | Muy alto | Muy alto | State machine C0 fija en iter-loop-tools.md | La state machine es fija, no se genera por tarea | gen_sm → llm_solve | Generar workflow JSON por tipo de tarea en DISCOVERY |
 | 19 | **Template library de state machines** | 10-20 templates de state machine por tipo de tarea (bug_fix, feature_add, refactor, deploy) | statewright (Phase 1: template library) | Medio | Alto | No hay | Templates de workflow no existen | Template library | `.opencode/task-system/workflows/` con templates; keyword classifier selecciona |
 | 20 | **Training data collection** | Recolectar triples (task, state_machine, outcome) para fine-tuning de planner | statewright (Phase 3: training data) | Alto | Bajo | No hay | No hay recolección de datos de ejecución | Training triple collection | Instrumentar cada tarea para emitir JSON de training |
 | 21 | **Dynamic model switching (proxy)** | Poder cambiar de modelo mid-session sin reiniciar el harness | deepclaude (proxy model-switching) | Medio | Medio | -m flag en harness | No hay switching mid-session | Model proxy pattern | Agregar proxy ligero o endpoint MCP para cambiar modelo en caliente |
@@ -544,14 +544,14 @@ Proxy en `localhost:3200` que intercepta API calls y permite cambiar backend mid
 
 | Patrón | Archivo destino actual | Referencia |
 |--------|-----------------------|------------|
-| State machine C0 | `iter.md:105-125` | Statewright |
-| Recitation / handoff | `iter.md:recitation block` | Anthropic handoff artifacts |
-| Retry ladder | `iter.md:4 escalones` | Karpathy self-repair loop |
-| Evaluator-optimizer | `iter.md:198-199` | Lilian Weng |
-| Self-Harness Gate | `iter.md:208-218` | Anthropic self-harness |
-| Pre-commit gate | `iter.md:220-227` | Greenfield/Brownfield ratchet |
+| State machine C0 | `iter-loop-tools.md:105-125` | Statewright |
+| Recitation / handoff | `iter-loop-tools.md:recitation block` | Anthropic handoff artifacts |
+| Retry ladder | `iter-loop-tools.md:4 escalones` | Karpathy self-repair loop |
+| Evaluator-optimizer | `iter-loop-tools.md:198-199` | Lilian Weng |
+| Self-Harness Gate | `iter-loop-tools.md:208-218` | Anthropic self-harness |
+| Pre-commit gate | `iter-loop-tools.md:220-227` | Greenfield/Brownfield ratchet |
 | Budget controls | `SKILL.md:216-226` | explainx.ai |
-| Stagnation detection | `iter.md | harness.ps1` | Anthropic no-progress |
+| Stagnation detection | `iter-loop-tools.md | harness.ps1` | Anthropic no-progress |
 | Parallel waves | `pipeline-run.md:waves` | Anthropic parallel workers |
 | Capa Determinista | `RULES.md:124-139` | Propia |
 | Rust safety rules | `RULES.md:124-129` | Propia |
@@ -561,14 +561,14 @@ Proxy en `localhost:3200` que intercepta API calls y permite cambiar backend mid
 
 | Concepto statewright | Aplicación en Campaign Executor v2 | Archivo candidato |
 |---------------------|-----------------------------------|-------------------|
-| Per-state `allowed_tools` | Cada estado C0 (PLAN, ACT, VERIFY, etc.) define qué tools permite | `iter.md` state machine |
+| Per-state `allowed_tools` | Cada estado C0 (PLAN, ACT, VERIFY, etc.) define qué tools permite | `iter-loop-tools.md` state machine |
 | `num_ctx` configuración | Pasar `--num-ctx 32768` en llamadas Ollama vía MCP | `harness.ps1` o MCP server |
 | Raw JSON mode default | Forzar raw JSON tool calling para todos los modelos | MCP server |
 | `response_field` parsing | Si el modelo outputea en `reasoning` field, parsear de ahí | MCP server |
 | Fork/join para sub-tareas | Cuando lint + test + docs son independientes, fork ear | `pipeline-run.md` |
-| Bash command allow-lists | Solo comandos prefix-matching permitidos en VERIFY | `iter.md` VERIFY state |
-| Approval gates | Estados que requieren confirmación humana (CLOSE, DEPLOY) | `iter.md` ACCEPT→CLOSE |
-| Per-state model routing | PLAN usa Haiku, ACT usa Sonnet, REVIEW usa Opus | `iter.md` + MCP server |
+| Bash command allow-lists | Solo comandos prefix-matching permitidos en VERIFY | `iter-loop-tools.md` VERIFY state |
+| Approval gates | Estados que requieren confirmación humana (CLOSE, DEPLOY) | `iter-loop-tools.md` ACCEPT→CLOSE |
+| Per-state model routing | PLAN usa Haiku, ACT usa Sonnet, REVIEW usa Opus | `iter-loop-tools.md` + MCP server |
 
 ---
 
