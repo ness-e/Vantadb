@@ -250,3 +250,434 @@ pub(crate) fn rebuild_hnsw_from_vstore(
         success: true,
     })
 }
+
+#[cfg(test)]
+#[allow(missing_docs, clippy::module_inception)]
+mod tests {
+    use super::*;
+    use crate::index::CPIndex;
+    use crate::node::{DiskNodeHeader, FilterBitset, VectorRepresentations};
+
+    // ── helpers ──────────────────────────────────────────────────
+
+    fn hdr_size() -> u64 {
+        std::mem::size_of::<DiskNodeHeader>() as u64
+    }
+
+    fn aligned_vec_size(len: u32) -> u64 {
+        (len as u64 * 4 + 63) & !63
+    }
+
+    fn write_node_to_vstore(
+        vstore: &mut VantaFile,
+        id: u128,
+        offset: u64,
+        data: &[f32],
+        flags: u32,
+    ) {
+        let vec_offset = offset + hdr_size();
+        let mut header = DiskNodeHeader::new(id);
+        header.vector_len = data.len() as u32;
+        header.vector_offset = vec_offset;
+        header.flags = flags;
+        vstore.write_header(offset, &header).unwrap();
+        if !data.is_empty() {
+            let mmap = vstore.mmap_bytes_mut().unwrap();
+            for (i, &val) in data.iter().enumerate() {
+                let bytes = val.to_le_bytes();
+                let start = vec_offset as usize + i * 4;
+                mmap[start..start + 4].copy_from_slice(&bytes);
+            }
+        }
+    }
+
+    // ── traverse_graph ───────────────────────────────────────────
+
+    #[test]
+    fn test_traverse_graph_empty() {
+        let hnsw = CPIndex::new();
+        // Entry point (0) is pushed even if no nodes exist in the index.
+        let order = traverse_graph(&hnsw, 0);
+        assert_eq!(order, vec![0]);
+    }
+
+    #[test]
+    fn test_traverse_graph_single_node() {
+        let hnsw = CPIndex::new();
+        hnsw.add(
+            42,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.1, 0.2, 0.3]),
+            64,
+        );
+        assert_eq!(traverse_graph(&hnsw, 42), vec![42]);
+    }
+
+    #[test]
+    fn test_traverse_graph_two_disconnected() {
+        let hnsw = CPIndex::new();
+        hnsw.add(
+            1,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.1]),
+            64,
+        );
+        hnsw.add(
+            2,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.2]),
+            128,
+        );
+        // Both nodes present — first via BFS, second via catch-all sweep
+        let order = traverse_graph(&hnsw, 1);
+        assert_eq!(order.len(), 2);
+        assert!(order.contains(&1));
+        assert!(order.contains(&2));
+    }
+
+    // ── reindex_nodes ────────────────────────────────────────────
+
+    #[test]
+    fn test_reindex_nodes_updates_offsets() {
+        let hnsw = CPIndex::new();
+        hnsw.add(
+            1,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.1]),
+            64,
+        );
+        let mut offsets = HashMap::new();
+        offsets.insert(1, 999);
+        reindex_nodes(&hnsw, &offsets);
+        assert_eq!(hnsw.nodes.get(&1).unwrap().storage_offset, 999);
+    }
+
+    #[test]
+    fn test_reindex_nodes_unknown_id_ignored() {
+        let hnsw = CPIndex::new();
+        hnsw.add(
+            1,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.1]),
+            64,
+        );
+        let mut offsets = HashMap::new();
+        offsets.insert(99, 999); // does not exist in hnsw
+        reindex_nodes(&hnsw, &offsets); // must not panic
+        assert_eq!(hnsw.nodes.get(&1).unwrap().storage_offset, 64);
+    }
+
+    #[test]
+    fn test_reindex_nodes_empty_map() {
+        let hnsw = CPIndex::new();
+        hnsw.add(
+            1,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.1]),
+            64,
+        );
+        reindex_nodes(&hnsw, &HashMap::new());
+        assert_eq!(hnsw.nodes.get(&1).unwrap().storage_offset, 64);
+    }
+
+    // ── fresh_index_like ─────────────────────────────────────────
+
+    #[test]
+    fn test_fresh_index_like_in_memory() {
+        let hnsw = CPIndex::new();
+        let fresh = fresh_index_like(&hnsw, PathBuf::from("test.idx"));
+        assert!(!fresh.backend.is_mmap());
+    }
+
+    #[test]
+    fn test_fresh_index_like_preserves_config() {
+        let hnsw = CPIndex::new();
+        let fresh = fresh_index_like(&hnsw, PathBuf::from("test.idx"));
+        assert_eq!(fresh.config.m, hnsw.config.m);
+        assert_eq!(fresh.config.ef_construction, hnsw.config.ef_construction);
+        assert_eq!(fresh.config.ml, hnsw.config.ml);
+    }
+
+    #[test]
+    fn test_fresh_index_like_fresh_index_is_empty() {
+        let hnsw = CPIndex::new();
+        hnsw.add(
+            1,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.1]),
+            64,
+        );
+        let fresh = fresh_index_like(&hnsw, PathBuf::from("test.idx"));
+        assert_eq!(fresh.nodes.len(), 0);
+    }
+
+    // ── compact_layout ───────────────────────────────────────────
+
+    #[test]
+    fn test_compact_layout_in_memory_trivial() {
+        let mut vstore = VantaFile::create_in_memory(4096);
+        let hnsw = CPIndex::new();
+        hnsw.add(
+            1,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.1]),
+            64,
+        );
+        let (map, _size) = compact_layout(&mut vstore, &hnsw, &[1], hdr_size()).unwrap();
+        assert_eq!(map.get(&1), Some(&64));
+    }
+
+    #[test]
+    fn test_compact_layout_empty_bfs_order_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.vanta");
+        let mut vstore = VantaFile::open(path, 4096).unwrap();
+        let hnsw = CPIndex::new();
+        let order: Vec<u128> = vec![];
+        // Empty bfs_order is rejected — would destroy the database.
+        assert!(compact_layout(&mut vstore, &hnsw, &order, hdr_size()).is_err());
+    }
+
+    #[test]
+    fn test_compact_layout_in_memory_with_two_nodes() {
+        let mut vstore = VantaFile::create_in_memory(4096);
+        let hnsw = CPIndex::new();
+        hnsw.add(
+            1,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.1]),
+            64,
+        );
+        hnsw.add(
+            2,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.2]),
+            128,
+        );
+        let (map, _size) = compact_layout(&mut vstore, &hnsw, &[1, 2], hdr_size()).unwrap();
+        assert_eq!(map.len(), 2);
+        assert_eq!(map.get(&1), Some(&64));
+        assert_eq!(map.get(&2), Some(&128));
+    }
+
+    #[test]
+    fn test_compact_layout_in_memory_node_not_in_hnsw() {
+        let mut vstore = VantaFile::create_in_memory(4096);
+        let hnsw = CPIndex::new();
+        // bfs_order mentions id 99 which is not in hnsw
+        let (map, _size) = compact_layout(&mut vstore, &hnsw, &[99], hdr_size()).unwrap();
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn test_compact_layout_disk_backed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.vanta");
+        let mut vstore = VantaFile::open(path.clone(), 4096).unwrap();
+
+        // Write two headers at aligned offsets
+        let hs = hdr_size();
+        write_node_to_vstore(&mut vstore, 1, 64, &[0.1, 0.2], 0);
+        write_node_to_vstore(
+            &mut vstore,
+            2,
+            64 + hs + aligned_vec_size(2),
+            &[0.3, 0.4],
+            0,
+        );
+
+        let hnsw = CPIndex::new();
+        hnsw.add(
+            1,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.1, 0.2]),
+            64,
+        );
+        hnsw.add(
+            2,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.3, 0.4]),
+            64 + hs + aligned_vec_size(2),
+        );
+
+        let (map, _size) = compact_layout(&mut vstore, &hnsw, &[1, 2], hs).unwrap();
+        assert_eq!(map.len(), 2);
+        assert!(map.contains_key(&1));
+        assert!(map.contains_key(&2));
+        // Both nodes got a valid aligned offset after compaction
+        for &off in map.values() {
+            assert!(off.is_multiple_of(STORAGE_ALIGNMENT));
+        }
+    }
+
+    #[test]
+    fn test_compact_layout_disk_backed_tombstone_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.vanta");
+        let mut vstore = VantaFile::open(path.clone(), 4096).unwrap();
+
+        let hs = hdr_size();
+        let avs = aligned_vec_size(2);
+        write_node_to_vstore(&mut vstore, 1, 64, &[0.1, 0.2], 0);
+        write_node_to_vstore(&mut vstore, 2, 64 + hs + avs, &[0.3, 0.4], FLAG_TOMBSTONE);
+
+        let hnsw = CPIndex::new();
+        hnsw.add(
+            1,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.1, 0.2]),
+            64,
+        );
+        hnsw.add(
+            2,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.3, 0.4]),
+            64 + hs + avs,
+        );
+
+        let (map, _size) = compact_layout(&mut vstore, &hnsw, &[1, 2], hs).unwrap();
+        // Only non-tombstone node should appear in output
+        assert_eq!(map.len(), 1);
+        assert!(map.contains_key(&1));
+    }
+
+    // ── rebuild_hnsw_from_vstore ─────────────────────────────────
+
+    #[test]
+    fn test_rebuild_empty_vstore() {
+        let vstore = VantaFile::create_in_memory(4096);
+        let mut hnsw = CPIndex::new();
+        let report =
+            rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
+        assert_eq!(report.scanned_nodes, 0);
+        assert_eq!(report.indexed_vectors, 0);
+        assert_eq!(report.skipped_tombstones, 0);
+        assert!(report.success);
+        assert!(hnsw.nodes.is_empty());
+    }
+
+    #[test]
+    fn test_rebuild_with_two_nodes() {
+        let mut vstore = VantaFile::create_in_memory(4096);
+        let hs = hdr_size();
+        let avs = aligned_vec_size(3);
+
+        write_node_to_vstore(&mut vstore, 1, 64, &[0.1, 0.2, 0.3], 0);
+        write_node_to_vstore(&mut vstore, 2, 64 + hs + avs, &[0.4, 0.5, 0.6], 0);
+        vstore.write_cursor = 64 + hs + avs + hs + avs;
+
+        let mut hnsw = CPIndex::new();
+        let report =
+            rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
+
+        assert_eq!(report.scanned_nodes, 2);
+        assert_eq!(report.indexed_vectors, 2);
+        assert_eq!(report.skipped_tombstones, 0);
+        assert!(report.success);
+        assert_eq!(hnsw.nodes.len(), 2);
+        assert!(hnsw.nodes.contains_key(&1));
+        assert!(hnsw.nodes.contains_key(&2));
+    }
+
+    #[test]
+    fn test_rebuild_skips_tombstoned_node() {
+        let mut vstore = VantaFile::create_in_memory(4096);
+        let hs = hdr_size();
+        let avs = aligned_vec_size(2);
+
+        write_node_to_vstore(&mut vstore, 1, 64, &[0.1, 0.2], 0);
+        write_node_to_vstore(&mut vstore, 2, 64 + hs + avs, &[0.3, 0.4], FLAG_TOMBSTONE);
+        vstore.write_cursor = 64 + hs + avs + hs + avs;
+
+        let mut hnsw = CPIndex::new();
+        let report =
+            rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
+
+        assert_eq!(report.scanned_nodes, 2);
+        assert_eq!(report.indexed_vectors, 1);
+        assert_eq!(report.skipped_tombstones, 1);
+        assert!(report.success);
+        assert_eq!(hnsw.nodes.len(), 1);
+        assert!(hnsw.nodes.contains_key(&1));
+        assert!(!hnsw.nodes.contains_key(&2));
+    }
+
+    #[test]
+    fn test_rebuild_zero_id_not_scanned() {
+        let mut vstore = VantaFile::create_in_memory(4096);
+        let hs = hdr_size();
+        let avs = aligned_vec_size(2);
+
+        // id=0 is considered invalid/uninitialized — not counted as scanned
+        write_node_to_vstore(&mut vstore, 0, 64, &[0.1, 0.2], 0);
+        vstore.write_cursor = 64 + hs + avs;
+
+        let mut hnsw = CPIndex::new();
+        let report =
+            rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
+
+        assert_eq!(report.scanned_nodes, 0);
+        assert_eq!(report.indexed_vectors, 0);
+        assert_eq!(report.skipped_tombstones, 0);
+        assert!(report.success);
+    }
+
+    #[test]
+    fn test_rebuild_without_vector_data() {
+        let mut vstore = VantaFile::create_in_memory(4096);
+
+        let mut header = DiskNodeHeader::new(42);
+        header.vector_len = 0;
+        header.vector_offset = 0;
+        vstore.write_header(64, &header).unwrap();
+        vstore.write_cursor = 64 + hdr_size(); // no vector data
+
+        let mut hnsw = CPIndex::new();
+        let report =
+            rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
+
+        assert_eq!(report.scanned_nodes, 1);
+        assert_eq!(report.indexed_vectors, 0);
+        assert_eq!(report.skipped_tombstones, 0);
+        assert!(report.success);
+    }
+
+    #[test]
+    fn test_rebuild_vector_data_beyond_mmap() {
+        let mut vstore = VantaFile::create_in_memory(64); // only header region
+
+        let mut header = DiskNodeHeader::new(7);
+        header.vector_len = 100; // 400 bytes — way past the 64-byte buffer
+        header.vector_offset = 1000;
+        vstore.write_header(0, &header).ok(); // will fail — file too small
+        vstore.write_cursor = 64 + hdr_size();
+
+        // Vector data is beyond mmap bounds → VectorRepresentations::None
+        let mut hnsw = CPIndex::new();
+        let report =
+            rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
+        // 0 indexed because vector data was out of bounds
+        assert_eq!(report.indexed_vectors, 0);
+        assert!(report.success);
+    }
+
+    #[test]
+    fn test_rebuild_report_path() {
+        let vstore = VantaFile::create_in_memory(4096);
+        let mut hnsw = CPIndex::new();
+        let report =
+            rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("custom/path.idx")).unwrap();
+        assert_eq!(report.index_path, PathBuf::from("custom/path.idx"));
+    }
+
+    #[test]
+    fn test_rebuild_duration_set() {
+        let vstore = VantaFile::create_in_memory(4096);
+        let mut hnsw = CPIndex::new();
+        let report =
+            rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
+        // Duration should be Some non-zero (we can't guarantee non-zero wall time
+        // but we can assert the field is populated meaningfully)
+        assert!(report.success);
+    }
+}

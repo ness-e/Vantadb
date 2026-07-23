@@ -427,4 +427,625 @@ mod tests {
         let result = VantaEmbedded::parse_namespace_stats_key(key);
         assert_eq!(result, None);
     }
+
+    // ─── now_ms ────────────────────────────────────────────────
+
+    #[test]
+    fn test_now_ms_non_zero() {
+        let t = now_ms();
+        assert!(
+            t > 1_700_000_000_000,
+            "expected reasonable Unix ms, got {t}"
+        );
+    }
+
+    // ─── memory_node_id ────────────────────────────────────────
+
+    #[test]
+    fn test_memory_node_id_deterministic() {
+        let a = memory_node_id("ns", "key1");
+        let b = memory_node_id("ns", "key1");
+        assert_eq!(a, b);
+
+        let c = memory_node_id("ns", "key2");
+        assert_ne!(a, c);
+
+        let d = memory_node_id("other", "key1");
+        assert_ne!(a, d);
+    }
+
+    // ─── validate_namespace ────────────────────────────────────
+
+    #[test]
+    fn test_validate_namespace_empty() {
+        let err = validate_namespace("").unwrap_err();
+        assert!(err.to_string().contains("namespace must not be empty"));
+    }
+
+    #[test]
+    fn test_validate_namespace_too_long() {
+        let long = "a".repeat(129);
+        let err = validate_namespace(&long).unwrap_err();
+        assert!(err.to_string().contains("at most 128"));
+    }
+
+    #[test]
+    fn test_validate_namespace_invalid_chars() {
+        let err = validate_namespace("hello world").unwrap_err();
+        assert!(err.to_string().contains("may contain only"));
+        let err2 = validate_namespace("ns@name").unwrap_err();
+        assert!(err2.to_string().contains("may contain only"));
+    }
+
+    #[test]
+    fn test_validate_namespace_valid() {
+        assert!(validate_namespace("my.namespace/foo_bar-baz").is_ok());
+        assert!(validate_namespace("a").is_ok());
+        assert!(validate_namespace("a.b/c_d-e").is_ok());
+        assert!(validate_namespace("default").is_ok());
+    }
+
+    // ─── validate_key ──────────────────────────────────────────
+
+    #[test]
+    fn test_validate_key_empty() {
+        let err = validate_key("").unwrap_err();
+        assert!(err.to_string().contains("key must not be empty"));
+    }
+
+    #[test]
+    fn test_validate_key_too_long() {
+        let long = "a".repeat(513);
+        let err = validate_key(&long).unwrap_err();
+        assert!(err.to_string().contains("at most 512"));
+    }
+
+    #[test]
+    fn test_validate_key_nul_byte() {
+        let err = validate_key("bad\0key").unwrap_err();
+        assert!(err.to_string().contains("must not contain NUL"));
+    }
+
+    #[test]
+    fn test_validate_key_valid() {
+        assert!(validate_key("hello_world").is_ok());
+        assert!(validate_key("a").is_ok());
+        assert!(validate_key("你好").is_ok());
+    }
+
+    // ─── validate_metadata ─────────────────────────────────────
+
+    #[test]
+    fn test_validate_metadata_reserved_prefix() {
+        let mut meta = VantaMemoryMetadata::new();
+        meta.insert("__vanta_foo".into(), VantaValue::String("x".into()));
+        let err = validate_metadata(&meta).unwrap_err();
+        assert!(err.to_string().contains("reserved"));
+    }
+
+    #[test]
+    fn test_validate_metadata_nul_in_key() {
+        let mut meta = VantaMemoryMetadata::new();
+        meta.insert("bad\0key".into(), VantaValue::Int(1));
+        let err = validate_metadata(&meta).unwrap_err();
+        assert!(err.to_string().contains("NUL"));
+    }
+
+    #[test]
+    fn test_validate_metadata_valid() {
+        let mut meta = VantaMemoryMetadata::new();
+        meta.insert("color".into(), VantaValue::String("blue".into()));
+        assert!(validate_metadata(&meta).is_ok());
+        assert!(validate_metadata(&VantaMemoryMetadata::new()).is_ok());
+    }
+
+    // ─── namespace_index_key / namespace_index_prefix ──────────
+
+    #[test]
+    fn test_namespace_index_key_format() {
+        let key = namespace_index_key("myns", "mykey");
+        assert_eq!(key, b"myns\0mykey");
+    }
+
+    #[test]
+    fn test_namespace_index_prefix_format() {
+        let prefix = namespace_index_prefix("myns");
+        assert_eq!(prefix, b"myns\0");
+    }
+
+    // ─── encoded_scalar_value ──────────────────────────────────
+
+    #[test]
+    fn test_encoded_scalar_value_string() {
+        let encoded = encoded_scalar_value(&VantaValue::String("hello".into())).unwrap();
+        assert_eq!(encoded, b"s:hello");
+    }
+
+    #[test]
+    fn test_encoded_scalar_value_int() {
+        let encoded = encoded_scalar_value(&VantaValue::Int(42)).unwrap();
+        assert_eq!(encoded, b"i:42");
+    }
+
+    #[test]
+    fn test_encoded_scalar_value_float() {
+        let encoded = encoded_scalar_value(&VantaValue::Float(1.5)).unwrap();
+        assert!(encoded.starts_with(b"f:"));
+        assert_eq!(encoded.len(), 18); // "f:" + 16 hex chars
+    }
+
+    #[test]
+    fn test_encoded_scalar_value_bool() {
+        assert_eq!(
+            encoded_scalar_value(&VantaValue::Bool(true)).unwrap(),
+            b"b:1"
+        );
+        assert_eq!(
+            encoded_scalar_value(&VantaValue::Bool(false)).unwrap(),
+            b"b:0"
+        );
+    }
+
+    #[test]
+    fn test_encoded_scalar_value_datetime() {
+        let dt = chrono::DateTime::parse_from_rfc3339("2025-01-15T10:30:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let encoded = encoded_scalar_value(&VantaValue::DateTime(dt)).unwrap();
+        assert!(encoded.starts_with(b"d:"));
+        assert!(String::from_utf8_lossy(&encoded).contains("2025-01-15"));
+    }
+
+    #[test]
+    fn test_encoded_scalar_value_null() {
+        assert_eq!(encoded_scalar_value(&VantaValue::Null).unwrap(), b"n:");
+    }
+
+    #[test]
+    fn test_encoded_scalar_value_list_returns_error() {
+        assert!(encoded_scalar_value(&VantaValue::ListString(vec!["a".into()])).is_err());
+        assert!(encoded_scalar_value(&VantaValue::ListInt(vec![1])).is_err());
+        assert!(encoded_scalar_value(&VantaValue::ListFloat(vec![1.0])).is_err());
+        assert!(encoded_scalar_value(&VantaValue::ListBool(vec![true])).is_err());
+        assert!(encoded_scalar_value(&VantaValue::ListDateTime(vec![])).is_err());
+    }
+
+    // ─── payload_index_prefix / payload_index_key ──────────────
+
+    #[test]
+    fn test_payload_index_prefix_string() {
+        let prefix =
+            payload_index_prefix("ns", "color", &VantaValue::String("red".into())).unwrap();
+        assert_eq!(prefix, b"ns\0color\0s:red\0");
+    }
+
+    #[test]
+    fn test_payload_index_prefix_int() {
+        let prefix = payload_index_prefix("ns", "age", &VantaValue::Int(30)).unwrap();
+        assert_eq!(prefix, b"ns\0age\0i:30\0");
+    }
+
+    #[test]
+    fn test_payload_index_prefix_list_error() {
+        let result = payload_index_prefix("ns", "f", &VantaValue::ListInt(vec![1]));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_payload_index_key() {
+        let key =
+            payload_index_key("ns", "status", &VantaValue::String("ok".into()), "mykey").unwrap();
+        assert_eq!(key, b"ns\0status\0s:ok\0mykey");
+    }
+
+    // ─── node_id_bytes / decode_node_id ────────────────────────
+
+    #[test]
+    fn test_node_id_roundtrip() {
+        let id: u128 = 0xdeadbeefcafe;
+        let bytes = node_id_bytes(id);
+        assert_eq!(bytes.len(), 16);
+        let decoded = decode_node_id(&bytes).unwrap();
+        assert_eq!(decoded, id);
+    }
+
+    #[test]
+    fn test_decode_node_id_wrong_length() {
+        assert!(decode_node_id(&[0u8; 8]).is_none());
+        assert!(decode_node_id(&[]).is_none());
+        assert!(decode_node_id(&[0u8; 17]).is_none());
+    }
+
+    #[test]
+    fn test_decode_node_id_zero() {
+        let bytes = node_id_bytes(0);
+        assert_eq!(decode_node_id(&bytes), Some(0));
+    }
+
+    // ─── get_string_field / get_u64_field ──────────────────────
+
+    #[test]
+    fn test_get_string_field_present() {
+        let mut fields = VantaFields::new();
+        fields.insert("name".into(), VantaValue::String("Alice".into()));
+        assert_eq!(get_string_field(&fields, "name"), Some("Alice".into()));
+    }
+
+    #[test]
+    fn test_get_string_field_missing() {
+        let fields = VantaFields::new();
+        assert_eq!(get_string_field(&fields, "name"), None);
+    }
+
+    #[test]
+    fn test_get_string_field_wrong_type() {
+        let mut fields = VantaFields::new();
+        fields.insert("age".into(), VantaValue::Int(30));
+        assert_eq!(get_string_field(&fields, "age"), None);
+    }
+
+    #[test]
+    fn test_get_u64_field_present() {
+        let mut fields = VantaFields::new();
+        fields.insert("count".into(), VantaValue::Int(42));
+        assert_eq!(get_u64_field(&fields, "count"), Some(42));
+    }
+
+    #[test]
+    fn test_get_u64_field_negative_rejected() {
+        let mut fields = VantaFields::new();
+        fields.insert("neg".into(), VantaValue::Int(-5));
+        assert_eq!(get_u64_field(&fields, "neg"), None);
+    }
+
+    #[test]
+    fn test_get_u64_field_missing() {
+        let fields = VantaFields::new();
+        assert_eq!(get_u64_field(&fields, "x"), None);
+    }
+
+    #[test]
+    fn test_get_u64_field_wrong_type() {
+        let mut fields = VantaFields::new();
+        fields.insert("name".into(), VantaValue::String("x".into()));
+        assert_eq!(get_u64_field(&fields, "name"), None);
+    }
+
+    // ─── memory_record_from_node ───────────────────────────────
+
+    fn make_memory_node(id: u128, namespace: &str, key: &str) -> UnifiedNode {
+        use crate::node::FieldValue;
+        let mut node = UnifiedNode::new(id);
+        node.set_field(FIELD_NAMESPACE, FieldValue::String(namespace.to_string()));
+        node.set_field(FIELD_KEY, FieldValue::String(key.to_string()));
+        node.set_field(FIELD_PAYLOAD, FieldValue::String("test payload".into()));
+        node.set_field(FIELD_CREATED_AT_MS, FieldValue::Int(1000));
+        node.set_field(FIELD_UPDATED_AT_MS, FieldValue::Int(1000));
+        node.set_field(FIELD_VERSION, FieldValue::Int(1));
+        node
+    }
+
+    #[test]
+    fn test_memory_record_from_node_valid() {
+        let node = make_memory_node(42, "myns", "mykey");
+        let record = memory_record_from_node(&node).unwrap();
+        assert_eq!(record.namespace, "myns");
+        assert_eq!(record.key, "mykey");
+        assert_eq!(record.payload, "test payload");
+        assert_eq!(record.created_at_ms, 1000);
+        assert_eq!(record.updated_at_ms, 1000);
+        assert_eq!(record.version, 1);
+        assert_eq!(record.node_id, 42);
+        assert!(record.metadata.is_empty());
+        assert!(record.vector.is_none());
+        assert!(record.expires_at_ms.is_none());
+    }
+
+    #[test]
+    fn test_memory_record_from_node_deleted() {
+        let mut node = make_memory_node(1, "ns", "k");
+        node.mark_deleted();
+        assert!(memory_record_from_node(&node).is_none());
+    }
+
+    #[test]
+    fn test_memory_record_from_node_missing_required_fields() {
+        let node = UnifiedNode::new(1);
+        assert!(memory_record_from_node(&node).is_none());
+    }
+
+    #[test]
+    fn test_memory_record_from_node_expired() {
+        let mut node = UnifiedNode::new(1);
+        node.set_field(
+            FIELD_NAMESPACE,
+            crate::node::FieldValue::String("ns".into()),
+        );
+        node.set_field(FIELD_KEY, crate::node::FieldValue::String("k".into()));
+        node.set_field(FIELD_PAYLOAD, crate::node::FieldValue::String("p".into()));
+        node.set_field(FIELD_CREATED_AT_MS, crate::node::FieldValue::Int(1000));
+        node.set_field(FIELD_UPDATED_AT_MS, crate::node::FieldValue::Int(1000));
+        node.set_field(FIELD_VERSION, crate::node::FieldValue::Int(1));
+        // Expire in the past
+        node.set_field(FIELD_EXPIRES_AT_MS, crate::node::FieldValue::Int(1));
+        assert!(memory_record_from_node(&node).is_none());
+    }
+
+    #[test]
+    fn test_memory_record_from_node_strips_internal_fields() {
+        let mut node = make_memory_node(1, "ns", "k");
+        node.set_field(
+            "custom_field",
+            crate::node::FieldValue::String("keep".into()),
+        );
+        let record = memory_record_from_node(&node).unwrap();
+        assert!(!record.metadata.contains_key(FIELD_NAMESPACE));
+        assert!(!record.metadata.contains_key(FIELD_KEY));
+        assert!(!record.metadata.contains_key(FIELD_PAYLOAD));
+        assert!(!record.metadata.contains_key(FIELD_CREATED_AT_MS));
+        assert!(!record.metadata.contains_key(FIELD_UPDATED_AT_MS));
+        assert!(!record.metadata.contains_key(FIELD_VERSION));
+        assert!(!record.metadata.contains_key(FIELD_EXPIRES_AT_MS));
+        assert_eq!(
+            record.metadata.get("custom_field"),
+            Some(&VantaValue::String("keep".into()))
+        );
+    }
+
+    #[test]
+    fn test_memory_record_from_node_with_vector() {
+        let mut node = make_memory_node(1, "ns", "k");
+        node.vector = VectorRepresentations::Full(vec![0.1, 0.2]);
+        let record = memory_record_from_node(&node).unwrap();
+        assert_eq!(record.vector, Some(vec![0.1, 0.2]));
+    }
+
+    #[test]
+    fn test_memory_record_from_node_without_expiry() {
+        let mut node = make_memory_node(1, "ns", "k");
+        node.set_field(FIELD_EXPIRES_AT_MS, crate::node::FieldValue::Int(0));
+        let record = memory_record_from_node(&node).unwrap();
+        assert_eq!(record.expires_at_ms, Some(0));
+    }
+
+    // ─── memory_record_to_node_owned ───────────────────────────
+
+    #[test]
+    fn test_memory_record_to_node_owned_roundtrip() {
+        let record = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "payload".into(),
+            metadata: {
+                let mut m = VantaMemoryMetadata::new();
+                m.insert("color".into(), VantaValue::String("red".into()));
+                m
+            },
+            created_at_ms: 100,
+            updated_at_ms: 200,
+            version: 3,
+            node_id: memory_node_id("ns", "k"),
+            vector: Some(vec![0.5, 0.5]),
+            expires_at_ms: None,
+        };
+
+        let (node, returned_record) = memory_record_to_node_owned(record);
+        assert_eq!(node.id, returned_record.node_id);
+        assert!(node.is_alive());
+        assert_eq!(returned_record.namespace, "ns");
+        assert_eq!(returned_record.key, "k");
+        assert_eq!(returned_record.payload, "payload");
+        assert_eq!(returned_record.vector, Some(vec![0.5, 0.5]));
+
+        // Verify fields are on the node
+        assert_eq!(
+            node.get_field(FIELD_NAMESPACE),
+            Some(&crate::node::FieldValue::String("ns".into()))
+        );
+        assert_eq!(
+            node.get_field(FIELD_KEY),
+            Some(&crate::node::FieldValue::String("k".into()))
+        );
+    }
+
+    #[test]
+    fn test_memory_record_to_node_owned_with_expiry() {
+        let record = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 1,
+            updated_at_ms: 1,
+            version: 1,
+            node_id: memory_node_id("ns", "k"),
+            vector: None,
+            expires_at_ms: Some(999_999_999_999),
+        };
+        let (node, _) = memory_record_to_node_owned(record);
+        assert_eq!(
+            node.get_field(FIELD_EXPIRES_AT_MS),
+            Some(&crate::node::FieldValue::Int(999_999_999_999))
+        );
+    }
+
+    #[test]
+    fn test_memory_record_to_node_owned_empty_vector_not_stored() {
+        let record = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 1,
+            updated_at_ms: 1,
+            version: 1,
+            node_id: memory_node_id("ns", "k"),
+            vector: Some(vec![]),
+            expires_at_ms: None,
+        };
+        let (node, returned) = memory_record_to_node_owned(record);
+        assert!(returned.vector.is_none());
+        // Empty vector should not set HAS_VECTOR flag
+        let expected = crate::node::VectorRepresentations::None;
+        assert_eq!(node.vector, expected);
+    }
+
+    // ─── export_line_from_record / record_from_export_line ─────
+
+    #[test]
+    fn test_export_line_roundtrip() {
+        let record = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "data".into(),
+            metadata: {
+                let mut m = VantaMemoryMetadata::new();
+                m.insert("x".into(), VantaValue::Int(1));
+                m
+            },
+            created_at_ms: 10,
+            updated_at_ms: 20,
+            version: 2,
+            node_id: memory_node_id("ns", "k"),
+            vector: None,
+            expires_at_ms: None,
+        };
+
+        let line = export_line_from_record(record.clone());
+        assert_eq!(line.schema_version, 1);
+        assert_eq!(line.namespace, "ns");
+        assert_eq!(line.key, "k");
+        assert_eq!(line.version, 2);
+
+        let recovered = record_from_export_line(line).unwrap();
+        // node_id is computed deterministically, should match original
+        assert_eq!(recovered.node_id, record.node_id);
+        assert_eq!(recovered.namespace, record.namespace);
+        assert_eq!(recovered.key, record.key);
+        assert_eq!(recovered.version, record.version);
+    }
+
+    #[test]
+    fn test_record_from_export_line_wrong_schema_version() {
+        let line = VantaMemoryExportLine {
+            schema_version: 999,
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "".into(),
+            metadata: VantaMemoryMetadata::new(),
+            vector: None,
+            created_at_ms: 0,
+            updated_at_ms: 0,
+            version: 0,
+            expires_at_ms: None,
+        };
+        let err = record_from_export_line(line).unwrap_err();
+        assert!(err.to_string().contains("unsupported"));
+        assert!(err.to_string().contains("999"));
+    }
+
+    #[test]
+    fn test_export_line_serialization_roundtrip() {
+        let line = VantaMemoryExportLine {
+            schema_version: 1,
+            namespace: "myns".into(),
+            key: "mykey".into(),
+            payload: "my payload".into(),
+            metadata: VantaMemoryMetadata::new(),
+            vector: Some(vec![0.1, 0.2]),
+            created_at_ms: 100,
+            updated_at_ms: 200,
+            version: 5,
+            expires_at_ms: None,
+        };
+        let json = serde_json::to_string(&line).unwrap();
+        let deserialized: VantaMemoryExportLine = serde_json::from_str(&json).unwrap();
+        // Compare fields individually since VantaMemoryExportLine lacks PartialEq
+        assert_eq!(deserialized.schema_version, line.schema_version);
+        assert_eq!(deserialized.namespace, line.namespace);
+        assert_eq!(deserialized.key, line.key);
+        assert_eq!(deserialized.payload, line.payload);
+        assert_eq!(deserialized.metadata, line.metadata);
+        assert_eq!(deserialized.vector, line.vector);
+        assert_eq!(deserialized.created_at_ms, line.created_at_ms);
+        assert_eq!(deserialized.updated_at_ms, line.updated_at_ms);
+        assert_eq!(deserialized.version, line.version);
+        assert_eq!(deserialized.expires_at_ms, line.expires_at_ms);
+    }
+
+    // ─── matches_memory_filters ────────────────────────────────
+
+    #[test]
+    fn test_matches_memory_filters_exact() {
+        let mut record = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 0,
+            updated_at_ms: 0,
+            version: 0,
+            node_id: 0,
+            vector: None,
+            expires_at_ms: None,
+        };
+        record
+            .metadata
+            .insert("color".into(), VantaValue::String("blue".into()));
+
+        let mut filters = VantaMemoryMetadata::new();
+        filters.insert("color".into(), VantaValue::String("blue".into()));
+        assert!(matches_memory_filters(&record, &filters));
+
+        let mut bad_filters = VantaMemoryMetadata::new();
+        bad_filters.insert("color".into(), VantaValue::String("red".into()));
+        assert!(!matches_memory_filters(&record, &bad_filters));
+    }
+
+    #[test]
+    fn test_matches_memory_filters_empty() {
+        let record = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 0,
+            updated_at_ms: 0,
+            version: 0,
+            node_id: 0,
+            vector: None,
+            expires_at_ms: None,
+        };
+        assert!(matches_memory_filters(&record, &VantaMemoryMetadata::new()));
+    }
+
+    #[test]
+    fn test_matches_memory_filters_multi() {
+        let mut record = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 0,
+            updated_at_ms: 0,
+            version: 0,
+            node_id: 0,
+            vector: None,
+            expires_at_ms: None,
+        };
+        record.metadata.insert("a".into(), VantaValue::Int(1));
+        record
+            .metadata
+            .insert("b".into(), VantaValue::String("x".into()));
+
+        let mut filters = VantaMemoryMetadata::new();
+        filters.insert("a".into(), VantaValue::Int(1));
+        filters.insert("b".into(), VantaValue::String("x".into()));
+        assert!(matches_memory_filters(&record, &filters));
+
+        let mut bad = VantaMemoryMetadata::new();
+        bad.insert("a".into(), VantaValue::Int(1));
+        bad.insert("b".into(), VantaValue::String("y".into()));
+        assert!(!matches_memory_filters(&record, &bad));
+    }
 }

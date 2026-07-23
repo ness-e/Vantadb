@@ -121,3 +121,136 @@ impl From<UnifiedNode> for VantaNodeRecord {
         }
     }
 }
+
+#[cfg(test)]
+#[allow(missing_docs)]
+mod tests {
+    use super::*;
+    use crate::node::UnifiedNode;
+    use crate::sdk::types::VantaValue;
+
+    #[test]
+    fn test_node_input_new() {
+        let input = VantaNodeInput::new(42);
+        assert_eq!(input.id, 42);
+        assert!(input.content.is_none());
+        assert!(input.vector.is_none());
+        assert!(input.fields.is_empty());
+    }
+
+    #[test]
+    fn test_node_record_from_unified_node_with_vector() {
+        let mut node = UnifiedNode::with_vector(7, vec![0.1, 0.2, 0.3]);
+        node.set_field("name", crate::node::FieldValue::String("test".into()));
+        node.set_field("count", crate::node::FieldValue::Int(10));
+        node.add_weighted_edge(42, "knows", 0.9);
+
+        let record: VantaNodeRecord = node.into();
+        assert_eq!(record.id, 7);
+        assert_eq!(record.vector, Some(vec![0.1, 0.2, 0.3]));
+        assert_eq!(record.vector_dimensions, 3);
+        assert_eq!(record.edges.len(), 1);
+        assert_eq!(record.edges[0].target, 42);
+        assert_eq!(record.edges[0].label, "knows");
+        assert_eq!(record.edges[0].weight, 0.9);
+        assert_eq!(
+            record.fields.get("name"),
+            Some(&VantaValue::String("test".into()))
+        );
+        assert_eq!(record.fields.get("count"), Some(&VantaValue::Int(10)));
+        assert!(record.is_alive);
+        assert_eq!(record.tier, VantaStorageTier::Cold);
+        assert_eq!(record.confidence_score, 0.5);
+        assert_eq!(record.importance, 0.1);
+    }
+
+    #[test]
+    fn test_node_record_from_unified_node_without_vector() {
+        let node = UnifiedNode::new(99);
+        let record: VantaNodeRecord = node.into();
+        assert_eq!(record.id, 99);
+        assert!(record.vector.is_none());
+        assert_eq!(record.vector_dimensions, 0);
+        assert!(record.edges.is_empty());
+        assert!(record.fields.is_empty());
+    }
+
+    #[test]
+    fn test_node_record_from_deleted_node() {
+        let mut node = UnifiedNode::new(5);
+        node.mark_deleted();
+        let record: VantaNodeRecord = node.into();
+        assert!(!record.is_alive);
+    }
+
+    #[test]
+    fn test_node_record_from_unified_node_with_multiple_edges() {
+        let mut node = UnifiedNode::new(1);
+        node.add_weighted_edge(10, "friend", 1.0);
+        node.add_weighted_edge(20, "colleague", 0.5);
+        let record: VantaNodeRecord = node.into();
+        assert_eq!(record.edges.len(), 2);
+        assert_eq!(record.edges[0].target, 10);
+        assert_eq!(record.edges[1].target, 20);
+    }
+
+    #[test]
+    fn test_edge_record_serialization_roundtrip() {
+        let edge = VantaEdgeRecord {
+            target: 100,
+            label: "connected_to".into(),
+            weight: 0.75,
+        };
+        let json = serde_json::to_string(&edge).unwrap();
+        let deserialized: VantaEdgeRecord = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, edge);
+        // verify u128 is serialized as string
+        assert!(json.contains("\"100\""));
+    }
+
+    #[test]
+    fn test_node_record_serialization_roundtrip() {
+        let record = VantaNodeRecord {
+            id: 42,
+            fields: {
+                let mut f = VantaFields::new();
+                f.insert("key".into(), VantaValue::String("val".into()));
+                f
+            },
+            vector: Some(vec![0.5, 0.5]),
+            vector_dimensions: 2,
+            edges: vec![VantaEdgeRecord {
+                target: 1,
+                label: "edge".into(),
+                weight: 1.0,
+            }],
+            confidence_score: 0.8,
+            importance: 0.3,
+            hits: 5,
+            last_accessed: 1000,
+            epoch: 1,
+            tier: VantaStorageTier::Hot,
+            is_alive: true,
+        };
+        let json = serde_json::to_string(&record).unwrap();
+        let deserialized: VantaNodeRecord = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, record);
+    }
+
+    #[test]
+    fn test_node_input_serialization_roundtrip() {
+        let input = VantaNodeInput {
+            id: 100,
+            content: Some("hello".into()),
+            vector: Some(vec![0.1, 0.2]),
+            fields: {
+                let mut f = VantaFields::new();
+                f.insert("tag".into(), VantaValue::String("important".into()));
+                f
+            },
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        let deserialized: VantaNodeInput = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, input);
+    }
+}

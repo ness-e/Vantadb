@@ -253,7 +253,7 @@ jobs:
           cargo llvm-cov report \
             --ignore-filename-regex '(tests/|benches/|packages/experimental)'
 
-      - name: Enforce coverage threshold (>=59%)
+      - name: Enforce coverage threshold (>=70%)
         shell: bash
         run: |
           cargo llvm-cov report --json \
@@ -268,7 +268,7 @@ jobs:
           totals = data[0].get('totals', {})
           lines = totals.get('lines', {})
           pct = lines.get('percent', 0.0)
-          ok = pct >= 60.0
+          ok = pct >= 70.0
           print(f'Line coverage: {pct:.1f}% {\"✅\" if ok else \"❌\"}')
           sys.exit(0 if ok else 1)
           "

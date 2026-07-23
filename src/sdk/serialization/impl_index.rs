@@ -267,3 +267,209 @@ impl VantaEmbedded {
         Self::write_derived_index_state(engine, &state)
     }
 }
+
+#[cfg(test)]
+#[allow(missing_docs)]
+mod tests {
+    use crate::backend::{BackendPartition, BackendWriteOp};
+    use crate::sdk::serialization::{namespace_index_key, node_id_bytes};
+    use crate::sdk::types::*;
+    use crate::sdk::VantaEmbedded;
+
+    fn sample_record(namespace: &str, key: &str) -> VantaMemoryRecord {
+        VantaMemoryRecord {
+            namespace: namespace.into(),
+            key: key.into(),
+            payload: "test".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 100,
+            updated_at_ms: 100,
+            version: 1,
+            node_id: crate::sdk::serialization::memory_node_id(namespace, key),
+            vector: None,
+            expires_at_ms: None,
+        }
+    }
+
+    fn record_with_metadata(namespace: &str, key: &str) -> VantaMemoryRecord {
+        let mut meta = VantaMemoryMetadata::new();
+        meta.insert("color".into(), VantaValue::String("blue".into()));
+        meta.insert("size".into(), VantaValue::Int(42));
+        VantaMemoryRecord {
+            metadata: meta,
+            ..sample_record(namespace, key)
+        }
+    }
+
+    // ─── derived_put_ops ───────────────────────────────────────
+
+    #[test]
+    fn test_derived_put_ops_no_metadata() {
+        let record = sample_record("ns", "k");
+        let ops = VantaEmbedded::derived_put_ops(&record).unwrap();
+
+        assert_eq!(ops.len(), 1);
+        match &ops[0] {
+            BackendWriteOp::Put {
+                partition,
+                key,
+                value,
+            } => {
+                assert_eq!(*partition, BackendPartition::NamespaceIndex);
+                assert_eq!(key, &namespace_index_key("ns", "k"));
+                assert_eq!(value, &node_id_bytes(record.node_id));
+            }
+            _ => panic!("expected Put op"),
+        }
+    }
+
+    #[test]
+    fn test_derived_put_ops_with_metadata() {
+        let record = record_with_metadata("ns", "k");
+        let ops = VantaEmbedded::derived_put_ops(&record).unwrap();
+
+        // 1 namespace + 2 payload entries
+        assert_eq!(ops.len(), 3);
+
+        // Verify namespace entry
+        match &ops[0] {
+            BackendWriteOp::Put { partition, .. } => {
+                assert_eq!(*partition, BackendPartition::NamespaceIndex);
+            }
+            _ => panic!("first op should be namespace Put"),
+        }
+
+        // Verify payload entries: both should be PayloadIndex partition
+        for op in &ops[1..] {
+            match op {
+                BackendWriteOp::Put { partition, .. } => {
+                    assert_eq!(*partition, BackendPartition::PayloadIndex);
+                }
+                _ => panic!("payload ops should be Put"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_derived_put_ops_list_metadata() {
+        let mut meta = VantaMemoryMetadata::new();
+        meta.insert(
+            "tags".into(),
+            VantaValue::ListString(vec!["a".into(), "b".into()]),
+        );
+        let record = VantaMemoryRecord {
+            metadata: meta,
+            ..sample_record("ns", "k")
+        };
+        let ops = VantaEmbedded::derived_put_ops(&record).unwrap();
+        // 1 namespace + 2 flattened list entries
+        assert_eq!(ops.len(), 3);
+    }
+
+    // ─── derived_delete_ops ────────────────────────────────────
+
+    #[test]
+    fn test_derived_delete_ops_no_metadata() {
+        let record = sample_record("ns", "k");
+        let ops = VantaEmbedded::derived_delete_ops(&record).unwrap();
+
+        assert_eq!(ops.len(), 1);
+        match &ops[0] {
+            BackendWriteOp::Delete { partition, key } => {
+                assert_eq!(*partition, BackendPartition::NamespaceIndex);
+                assert_eq!(key, &namespace_index_key("ns", "k"));
+            }
+            _ => panic!("expected Delete op"),
+        }
+    }
+
+    #[test]
+    fn test_derived_delete_ops_with_metadata() {
+        let record = record_with_metadata("ns", "k");
+        let ops = VantaEmbedded::derived_delete_ops(&record).unwrap();
+
+        assert_eq!(ops.len(), 3);
+        match &ops[0] {
+            BackendWriteOp::Delete { partition, .. } => {
+                assert_eq!(*partition, BackendPartition::NamespaceIndex);
+            }
+            _ => panic!("first op should be namespace Delete"),
+        }
+        for op in &ops[1..] {
+            match op {
+                BackendWriteOp::Delete { partition, .. } => {
+                    assert_eq!(*partition, BackendPartition::PayloadIndex);
+                }
+                _ => panic!("payload ops should be Delete"),
+            }
+        }
+    }
+
+    // ─── derived index state (load/write) ──────────────────────
+
+    #[test]
+    fn test_load_derived_index_state_none() {
+        let engine = crate::storage::StorageEngine::open_with_config(
+            ":memory:",
+            Some(crate::config::VantaConfig {
+                backend_kind: crate::backend::BackendKind::InMemory,
+                ..Default::default()
+            }),
+        )
+        .unwrap();
+        let state = VantaEmbedded::load_derived_index_state(&engine).unwrap();
+        assert!(state.is_none());
+    }
+
+    #[test]
+    fn test_write_then_load_derived_index_state() {
+        let engine = crate::storage::StorageEngine::open_with_config(
+            ":memory:",
+            Some(crate::config::VantaConfig {
+                backend_kind: crate::backend::BackendKind::InMemory,
+                ..Default::default()
+            }),
+        )
+        .unwrap();
+        let state = DerivedIndexState {
+            schema_version: 1,
+            rebuilt_at_ms: 1234,
+            record_count: 10,
+            namespace_entries: 10,
+            payload_entries: 25,
+        };
+        VantaEmbedded::write_derived_index_state(&engine, &state).unwrap();
+        let loaded = VantaEmbedded::load_derived_index_state(&engine).unwrap();
+        assert_eq!(loaded, Some(state));
+    }
+
+    #[test]
+    fn test_overwrite_derived_index_state() {
+        let engine = crate::storage::StorageEngine::open_with_config(
+            ":memory:",
+            Some(crate::config::VantaConfig {
+                backend_kind: crate::backend::BackendKind::InMemory,
+                ..Default::default()
+            }),
+        )
+        .unwrap();
+        let state1 = DerivedIndexState {
+            schema_version: 1,
+            rebuilt_at_ms: 100,
+            record_count: 5,
+            namespace_entries: 5,
+            payload_entries: 5,
+        };
+        let state2 = DerivedIndexState {
+            schema_version: 1,
+            rebuilt_at_ms: 200,
+            record_count: 20,
+            namespace_entries: 20,
+            payload_entries: 50,
+        };
+        VantaEmbedded::write_derived_index_state(&engine, &state1).unwrap();
+        VantaEmbedded::write_derived_index_state(&engine, &state2).unwrap();
+        let loaded = VantaEmbedded::load_derived_index_state(&engine).unwrap();
+        assert_eq!(loaded, Some(state2));
+    }
+}

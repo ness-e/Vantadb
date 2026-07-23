@@ -250,3 +250,334 @@ impl VantaEmbedded {
         Ok(report)
     }
 }
+
+#[cfg(test)]
+#[allow(missing_docs)]
+mod tests {
+    use super::super::super::connect::connect;
+    use super::super::super::types::*;
+    use crate::backend::BackendKind;
+    use crate::config::VantaConfig;
+    use crate::sdk::builder::VantaEmbedded;
+
+    fn in_memory_db() -> VantaEmbedded {
+        connect(":memory:").expect("in-memory db")
+    }
+
+    fn sample_input(namespace: &str, key: &str) -> VantaMemoryInput {
+        VantaMemoryInput {
+            namespace: namespace.into(),
+            key: key.into(),
+            payload: format!("payload for {key}"),
+            metadata: VantaMemoryMetadata::new(),
+            vector: None,
+            ttl_ms: None,
+        }
+    }
+
+    fn sample_input_with_meta(namespace: &str, key: &str, color: &str) -> VantaMemoryInput {
+        let mut metadata = VantaMemoryMetadata::new();
+        metadata.insert("color".into(), VantaValue::String(color.into()));
+        VantaMemoryInput {
+            namespace: namespace.into(),
+            key: key.into(),
+            payload: format!("payload for {key}"),
+            metadata,
+            vector: None,
+            ttl_ms: None,
+        }
+    }
+
+    // ─── export_namespace ──────────────────────────────────────
+
+    #[test]
+    fn test_export_namespace_happy_path() {
+        let db = in_memory_db();
+        db.put(sample_input("myns", "key1")).unwrap();
+        db.put(sample_input("myns", "key2")).unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("export.jsonl");
+        let report = db.export_namespace(&path, "myns").unwrap();
+
+        assert_eq!(report.records_exported, 2);
+        assert_eq!(report.namespaces, vec!["myns"]);
+        assert!(path.exists());
+
+        // Verify file contains two JSON lines
+        let content = std::fs::read_to_string(&path).unwrap();
+        let lines: Vec<&str> = content.lines().collect();
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].contains("key1"));
+        assert!(lines[1].contains("key2"));
+    }
+
+    #[test]
+    fn test_export_namespace_empty() {
+        let db = in_memory_db();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty.jsonl");
+        let report = db.export_namespace(&path, "nonexistent").unwrap();
+        assert_eq!(report.records_exported, 0);
+    }
+
+    #[test]
+    fn test_export_namespace_invalid_name() {
+        let db = in_memory_db();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("x.jsonl");
+        let err = db.export_namespace(&path, "").unwrap_err();
+        assert!(err.to_string().contains("namespace must not be empty"));
+    }
+
+    // ─── export_all ────────────────────────────────────────────
+
+    #[test]
+    fn test_export_all_happy_path() {
+        let db = in_memory_db();
+        db.put(sample_input("ns1", "a")).unwrap();
+        db.put(sample_input("ns1", "b")).unwrap();
+        db.put(sample_input("ns2", "c")).unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("all.jsonl");
+        let report = db.export_all(&path).unwrap();
+
+        assert_eq!(report.records_exported, 3);
+        assert!(report.namespaces.contains(&"ns1".to_string()));
+        assert!(report.namespaces.contains(&"ns2".to_string()));
+    }
+
+    #[test]
+    fn test_export_all_empty_db() {
+        let db = in_memory_db();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("all.jsonl");
+        let report = db.export_all(&path).unwrap();
+        assert_eq!(report.records_exported, 0);
+        assert!(report.namespaces.is_empty());
+    }
+
+    // ─── import_records ────────────────────────────────────────
+
+    #[test]
+    fn test_import_records_insert() {
+        let db = in_memory_db();
+        let record = VantaMemoryRecord {
+            namespace: "imp".into(),
+            key: "k1".into(),
+            payload: "imported".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 100,
+            updated_at_ms: 100,
+            version: 1,
+            node_id: crate::sdk::serialization::memory_node_id("imp", "k1"),
+            vector: None,
+            expires_at_ms: None,
+        };
+        let report = db.import_records(vec![record]).unwrap();
+        assert_eq!(report.inserted, 1);
+        assert_eq!(report.updated, 0);
+        assert_eq!(report.errors, 0);
+
+        // Verify it was stored
+        let result = db.get("imp", "k1").unwrap();
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().payload, "imported");
+    }
+
+    #[test]
+    fn test_import_records_update() {
+        let db = in_memory_db();
+        db.put(sample_input("upd", "k1")).unwrap();
+
+        // Generate the same node_id by using same namespace+key
+        let record = VantaMemoryRecord {
+            namespace: "upd".into(),
+            key: "k1".into(),
+            payload: "updated".into(),
+            metadata: {
+                let mut m = VantaMemoryMetadata::new();
+                m.insert("new".into(), VantaValue::String("field".into()));
+                m
+            },
+            created_at_ms: 100,
+            updated_at_ms: 200,
+            version: 2,
+            node_id: crate::sdk::serialization::memory_node_id("upd", "k1"),
+            vector: None,
+            expires_at_ms: None,
+        };
+        let report = db.import_records(vec![record]).unwrap();
+        assert_eq!(report.updated, 1);
+
+        let retrieved = db.get("upd", "k1").unwrap().unwrap();
+        assert_eq!(retrieved.payload, "updated");
+    }
+
+    #[test]
+    fn test_import_records_rejects_wrong_node_id() {
+        let db = in_memory_db();
+        let record = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "bad".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 0,
+            updated_at_ms: 0,
+            version: 1,
+            node_id: 999, // wrong — doesn't match hash of "ns"/"k"
+            vector: None,
+            expires_at_ms: None,
+        };
+        let report = db.import_records(vec![record]).unwrap();
+        assert_eq!(report.errors, 1);
+    }
+
+    // ─── import_file ───────────────────────────────────────────
+
+    #[test]
+    fn test_import_file_happy_path() {
+        let db = in_memory_db();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("import.jsonl");
+
+        let record = VantaMemoryRecord {
+            namespace: "file".into(),
+            key: "k1".into(),
+            payload: "from file".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 10,
+            updated_at_ms: 10,
+            version: 1,
+            node_id: crate::sdk::serialization::memory_node_id("file", "k1"),
+            vector: None,
+            expires_at_ms: None,
+        };
+        let line = super::super::export_line_from_record(record);
+        let json = serde_json::to_string(&line).unwrap();
+        std::fs::write(&path, json + "\n").unwrap();
+
+        let report = db.import_file(&path).unwrap();
+        assert_eq!(report.inserted, 1);
+        assert_eq!(report.errors, 0);
+
+        let result = db.get("file", "k1").unwrap();
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_import_file_skips_empty_lines() {
+        let db = in_memory_db();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty_lines.jsonl");
+
+        let mut content = String::new();
+        // One valid record
+        let record = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "p".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 1,
+            updated_at_ms: 1,
+            version: 1,
+            node_id: crate::sdk::serialization::memory_node_id("ns", "k"),
+            vector: None,
+            expires_at_ms: None,
+        };
+        let line = super::super::export_line_from_record(record);
+        content.push_str(&serde_json::to_string(&line).unwrap());
+        content.push('\n');
+        content.push('\n'); // empty line
+        content.push('\n'); // another empty line
+        std::fs::write(&path, content).unwrap();
+
+        let report = db.import_file(&path).unwrap();
+        assert_eq!(report.inserted, 1);
+        assert_eq!(report.skipped, 2);
+    }
+
+    #[test]
+    fn test_import_file_handles_malformed_lines() {
+        let db = in_memory_db();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("bad.jsonl");
+        std::fs::write(&path, "not json\n{\"bad\": true}\n").unwrap();
+
+        let report = db.import_file(&path).unwrap();
+        assert_eq!(report.errors, 2);
+    }
+
+    #[test]
+    fn test_import_file_read_only_rejected() {
+        let config = VantaConfig {
+            storage_path: ":memory:".to_string(),
+            backend_kind: BackendKind::InMemory,
+            read_only: true,
+            ..Default::default()
+        };
+        let db = VantaEmbedded::open_with_config(config).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("x.jsonl");
+        std::fs::write(&path, "").unwrap();
+        let err = db.import_file(&path).unwrap_err();
+        assert!(err.to_string().contains("read-only"));
+    }
+
+    // ─── records_for_namespace ─────────────────────────────────
+
+    #[test]
+    fn test_records_for_namespace_with_filter() {
+        let db = in_memory_db();
+        db.put(sample_input_with_meta("ns", "red", "red")).unwrap();
+        db.put(sample_input_with_meta("ns", "blue", "blue"))
+            .unwrap();
+        db.put(sample_input("ns", "nocolor")).unwrap();
+
+        let mut filters = VantaMemoryMetadata::new();
+        filters.insert("color".into(), VantaValue::String("red".into()));
+        let records = db
+            .records_for_namespace("ns", &filters)
+            .expect("filtered records");
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].key, "red");
+    }
+
+    #[test]
+    fn test_records_for_namespace_no_filter() {
+        let db = in_memory_db();
+        db.put(sample_input("ns", "a")).unwrap();
+        db.put(sample_input("ns", "b")).unwrap();
+
+        let records = db
+            .records_for_namespace("ns", &VantaMemoryMetadata::new())
+            .expect("all records");
+        assert_eq!(records.len(), 2);
+    }
+
+    // ─── export/import roundtrip ───────────────────────────────
+
+    #[test]
+    fn test_export_import_roundtrip() {
+        let db1 = in_memory_db();
+        db1.put(sample_input_with_meta("rt", "k1", "green"))
+            .unwrap();
+        db1.put(sample_input_with_meta("rt", "k2", "blue")).unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("rt.jsonl");
+        let report = db1.export_namespace(&path, "rt").unwrap();
+        assert_eq!(report.records_exported, 2);
+
+        let db2 = in_memory_db();
+        let import_report = db2.import_file(&path).unwrap();
+        assert_eq!(import_report.inserted, 2);
+
+        // Verify content
+        let r1 = db2.get("rt", "k1").unwrap().unwrap();
+        assert_eq!(r1.payload, "payload for k1");
+        let r2 = db2.get("rt", "k2").unwrap().unwrap();
+        assert_eq!(r2.payload, "payload for k2");
+    }
+}

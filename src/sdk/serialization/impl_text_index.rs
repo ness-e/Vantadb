@@ -470,3 +470,203 @@ impl VantaEmbedded {
         count
     }
 }
+
+#[cfg(test)]
+#[allow(missing_docs)]
+mod tests {
+    use super::super::super::builder::VantaEmbedded;
+    use crate::node::UnifiedNode;
+    use crate::sdk::serialization::{
+        FIELD_CREATED_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS,
+        FIELD_VERSION,
+    };
+    use crate::sdk::types::*;
+
+    // ─── apply_u64_delta ───────────────────────────────────────
+
+    #[test]
+    fn test_apply_u64_delta_positive() {
+        assert_eq!(VantaEmbedded::apply_u64_delta(10, 5), 15);
+    }
+
+    #[test]
+    fn test_apply_u64_delta_negative() {
+        assert_eq!(VantaEmbedded::apply_u64_delta(10, -3), 7);
+    }
+
+    #[test]
+    fn test_apply_u64_delta_saturating_positive() {
+        assert_eq!(VantaEmbedded::apply_u64_delta(u64::MAX, 100), u64::MAX);
+    }
+
+    #[test]
+    fn test_apply_u64_delta_saturating_negative() {
+        assert_eq!(VantaEmbedded::apply_u64_delta(2, -5), 0);
+    }
+
+    #[test]
+    fn test_apply_u64_delta_zero() {
+        assert_eq!(VantaEmbedded::apply_u64_delta(42, 0), 42);
+    }
+
+    // ─── checked_stats_value ───────────────────────────────────
+
+    #[test]
+    fn test_checked_stats_value_positive() {
+        assert_eq!(VantaEmbedded::checked_stats_value(42, "test").unwrap(), 42);
+    }
+
+    #[test]
+    fn test_checked_stats_value_zero() {
+        assert_eq!(VantaEmbedded::checked_stats_value(0, "test").unwrap(), 0);
+    }
+
+    #[test]
+    fn test_checked_stats_value_negative() {
+        let err = VantaEmbedded::checked_stats_value(-1, "df").unwrap_err();
+        assert!(err.to_string().contains("would go negative"));
+    }
+
+    #[test]
+    fn test_checked_stats_value_i128_max_as_u64() {
+        let val = i128::from(u64::MAX);
+        assert_eq!(
+            VantaEmbedded::checked_stats_value(val, "test").unwrap(),
+            u64::MAX
+        );
+    }
+
+    // ─── parse_term_stats_key ──────────────────────────────────
+
+    #[test]
+    fn test_parse_term_stats_key_valid() {
+        let key = b"\xffvanta_text_v3\0term\0myns\0mytoken";
+        assert_eq!(
+            VantaEmbedded::parse_term_stats_key(key),
+            Some(("myns".into(), "mytoken".into()))
+        );
+    }
+
+    #[test]
+    fn test_parse_term_stats_key_invalid_utf8() {
+        let key = b"\xffvanta_text_v3\0term\0myns\0\xff\xfe";
+        assert_eq!(VantaEmbedded::parse_term_stats_key(key), None);
+    }
+
+    #[test]
+    fn test_parse_term_stats_key_truncated() {
+        assert_eq!(
+            VantaEmbedded::parse_term_stats_key(b"\xffvanta_text_v3\0term"),
+            None
+        );
+    }
+
+    #[test]
+    fn test_parse_term_stats_key_no_match() {
+        assert_eq!(VantaEmbedded::parse_term_stats_key(b"not_a_text_key"), None);
+    }
+
+    // ─── parse_namespace_stats_key ─────────────────────────────
+
+    #[test]
+    fn test_parse_namespace_stats_key_valid() {
+        assert_eq!(
+            VantaEmbedded::parse_namespace_stats_key(b"\xffvanta_text_v3\0ns\0myns"),
+            Some("myns".into())
+        );
+    }
+
+    #[test]
+    fn test_parse_namespace_stats_key_invalid_utf8() {
+        assert_eq!(
+            VantaEmbedded::parse_namespace_stats_key(b"\xffvanta_text_v3\0ns\0\xff\xfe"),
+            None
+        );
+    }
+
+    #[test]
+    fn test_parse_namespace_stats_key_truncated() {
+        assert_eq!(
+            VantaEmbedded::parse_namespace_stats_key(b"\xffvanta_text_v3\0ns"),
+            None
+        );
+    }
+
+    // ─── count_memory_records_from ─────────────────────────────
+
+    #[test]
+    fn test_count_memory_records_from_empty() {
+        assert_eq!(VantaEmbedded::count_memory_records_from(&[]), 0);
+    }
+
+    fn make_memory_node(id: u128, namespace: &str, key: &str) -> UnifiedNode {
+        use crate::node::FieldValue;
+        let mut node = UnifiedNode::new(id);
+        node.set_field(FIELD_NAMESPACE, FieldValue::String(namespace.to_string()));
+        node.set_field(FIELD_KEY, FieldValue::String(key.to_string()));
+        node.set_field(FIELD_PAYLOAD, FieldValue::String("payload".into()));
+        node.set_field(FIELD_CREATED_AT_MS, FieldValue::Int(1000));
+        node.set_field(FIELD_UPDATED_AT_MS, FieldValue::Int(1000));
+        node.set_field(FIELD_VERSION, FieldValue::Int(1));
+        node
+    }
+
+    #[test]
+    fn test_count_memory_records_from_valid() {
+        let nodes = vec![
+            make_memory_node(1, "ns1", "k1"),
+            make_memory_node(2, "ns1", "k2"),
+        ];
+        assert_eq!(VantaEmbedded::count_memory_records_from(&nodes), 2);
+    }
+
+    #[test]
+    fn test_count_memory_records_from_mixed() {
+        let mut dead = make_memory_node(2, "ns1", "k2");
+        dead.mark_deleted();
+        let nodes = vec![
+            make_memory_node(1, "ns1", "k1"),
+            dead,
+            make_memory_node(3, "ns2", "k3"),
+        ];
+        assert_eq!(VantaEmbedded::count_memory_records_from(&nodes), 2);
+    }
+
+    // ─── fresh_text_index_state ────────────────────────────────
+
+    #[test]
+    fn test_fresh_text_index_state() {
+        let counts = TextIndexCounts {
+            record_count: 5,
+            posting_entries: 20,
+            doc_stats_entries: 5,
+            term_stats_entries: 3,
+            namespace_stats_entries: 2,
+            ..Default::default()
+        };
+        let state = VantaEmbedded::fresh_text_index_state(counts);
+        assert_eq!(state.record_count, 5);
+        assert_eq!(state.posting_entries, 20);
+        assert_eq!(state.doc_stats_entries, 5);
+        assert_eq!(state.term_stats_entries, 3);
+        assert_eq!(state.namespace_stats_entries, 2);
+        assert!(state.rebuilt_at_ms > 0);
+    }
+
+    // ─── text_index_state_matches_spec ─────────────────────────
+
+    #[test]
+    fn test_text_index_state_matches_spec_true() {
+        let counts = TextIndexCounts::default();
+        let state = VantaEmbedded::fresh_text_index_state(counts);
+        assert!(VantaEmbedded::text_index_state_matches_spec(&state));
+    }
+
+    #[test]
+    fn test_text_index_state_matches_spec_bad_schema() {
+        let counts = TextIndexCounts::default();
+        let mut state = VantaEmbedded::fresh_text_index_state(counts);
+        state.schema_version = 999;
+        assert!(!VantaEmbedded::text_index_state_matches_spec(&state));
+    }
+}
