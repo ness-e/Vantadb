@@ -400,7 +400,6 @@ Nota: El código es casi byte-for-byte idéntico a `vantadb-langchain`. Los hall
 |----|-------|---------|----------|-----------|--------|
 | `REV-001` | **CI: Rust fails on main — TSan ABI mismatch** — `-Zsanitizer=thread` incompatible con toolchain 1.94.1 | `.github/workflows/ci-rust-10.yml` → H05-ERROR-001 | 🟢 2h | 🔴 | ✅ |
 | `REV-002` | **CI: Web fails on main — 21 lint issues** — 14 ESLint errors + 7 warnings rompen build | `.github/workflows/ci-web-11.yml` → H05-ERROR-002 | 🟢 2h | 🔴 | ✅ |
-| `REV-003` | **No code coverage measurement** — CII Silver requiere ≥80%, sin herramienta configurada | CI config → H05-MISSING-001 | 🟡 1d | 🔴 | ✅ |
 | `REV-004` | **`tantivy` rlib not found** — Test builds de `vantadb-openai` fallan por dependencia faltante | `vantadb-openai/Cargo.toml` → H08-ARCH-001 | 🟡 1d | 🟡 | ✅ |
 | `REV-005` | **14 ESLint errors en web frontend** — 6x `no-explicit-any`, 8x prettier en `demo.lazy.tsx` + `why-vantadb.tsx` | `web/src/routes/demo.lazy.tsx`, `web/src/routes/why-vantadb.tsx` → H03-CODE-001 | 🟢 1h | 🟡 | ✅ |
 | `REV-006` | **No workspace-level clippy en CI** — Solo `-p vantadb`, adapters excluded | `.github/workflows/ci-rust-10.yml` → H05-MISSING-002 | 🟢 2h | 🟡 | ✅ |

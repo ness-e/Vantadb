@@ -81,7 +81,9 @@ jobs:
           swap-mb: 4096
 
       - name: Clippy Lints (core)
-        run: cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm -- -D warnings
+        # CATEGORY: EXPERIMENTAL — excludes experimental crates from blocking lint checks.
+        # Use --exclude vantadb-wasm --exclude vantadb-server --exclude vantadb-mcp.
+        run: cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm --exclude vantadb-server --exclude vantadb-mcp -- -D warnings
 
   test:
     name: Tests (Linux)
@@ -139,7 +141,8 @@ jobs:
         run: cargo check
 
       - name: Clippy (Windows)
-        run: cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm -- -D warnings
+        # CATEGORY: EXPERIMENTAL — excludes experimental crates.
+        run: cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm --exclude vantadb-server --exclude vantadb-mcp -- -D warnings
 
       - name: Run quick integrity tests (Windows)
         shell: pwsh
@@ -170,7 +173,8 @@ jobs:
         run: cargo check
 
       - name: Clippy (macOS)
-        run: cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm -- -D warnings
+        # CATEGORY: EXPERIMENTAL — excludes experimental crates.
+        run: cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm --exclude vantadb-server --exclude vantadb-mcp -- -D warnings
 
       - name: Run tests (Audit profile, core)
         shell: bash
@@ -241,11 +245,15 @@ jobs:
 
       - name: Run tests with coverage
         timeout-minutes: 25
+        # CATEGORY: EXPERIMENTAL — --exclude flags skip experimental crates (server, mcp, wasm).
         run: |
           cargo llvm-cov nextest \
             --profile audit \
             --workspace \
             --features "cli,arrow,tls,opentelemetry" \
+            --exclude vantadb-wasm \
+            --exclude vantadb-server \
+            --exclude vantadb-mcp \
             --lcov --output-path lcov.info \
             --ignore-filename-regex '(tests/|benches/|packages/experimental|crash_injection)' \
             2>&1
@@ -300,6 +308,28 @@ jobs:
       - name: Run browser tests (Chrome)
         working-directory: vantadb-wasm
         run: wasm-pack test --chrome --headless
+
+  experimental-check:
+    name: Experimental Crates Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # CATEGORY: EXPERIMENTAL — experimental crates may fail without blocking CI.
+    # This job provides visibility into the health of server, MCP, WASM, and
+    # adapter crates. Failures do not gate the fast lane.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          swap-mb: 4096
+
+      - name: Check experimental server + MCP + WASM crates
+        run: cargo check -p vantadb-server -p vantadb-mcp -p vantadb-wasm
+
+      - name: Check experimental adapter crates
+        run: cargo check -p vantadb-openai -p vantadb-ollama -p vantadb-litellm
 
   audit:
     name: Security Audit

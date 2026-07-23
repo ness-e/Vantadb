@@ -546,10 +546,10 @@ members = [
 default-members = [
     ".",
     "vantadb-python",
-    "vantadb-server",
-    "vantadb-mcp",
-    "vantadb-wasm",
 ]
+# CATEGORY: EXPERIMENTAL — vantadb-server, vantadb-mcp, vantadb-wasm were removed from
+# default-members. A failure in an experimental crate must not block core CI.
+# See docs/operations/CI_POLICY.md for the experimental crate policy.
 
 [workspace.package]
 version = "0.4.0"

@@ -2,13 +2,13 @@
 title: "General Progress of VantaDB Project"
 status: active
 tags: [vantadb, progress, documentation]
-last_reviewed: 2026-07-14
+last_reviewed: 2026-07-23
 aliases: []
 ---
 
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-21
+> **Last updated:** 2026-07-23
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -27,7 +27,7 @@ VantaDB is a vector database in Rust focused on high performance, hybrid HNSW, G
 | API/Servidor | 9 | 9 | ✅ |
 | Observability | 6 | 6 | ✅ |
 | **Documentation** | 🟢 Consolidated (Wikilinks, Glossary, Unicode normalized) | 95% | ✅ |
-| **Testing** | 🟢 Complete (Compiles clean, 444/444 tests passing) | 90% | ✅ |
+| **Testing** | 🟢 Coverage CII Silver (80.55% line, 1492 tests) | 100% | ✅ |
 | DX Tools | 15 | 15 | ✅ |
 | CLI | 7 | 7 | ✅ |
 | Infraestructura & CI | 2 | 2 | ✅ |
@@ -1760,13 +1760,25 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `cargo check` ✅, `cargo nextest run` 576/577 pass (1 pre-existing), `cargo fmt --check` clean.
 
-### 2026-07-14 — REV-003: Coverage threshold gate in CI (CII Silver)
+### 2026-07-23 — REV-003: Coverage campaign 53.85% → 80.55% (CII Silver)
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| REV-003 | Coverage gate >=80% | Added `Enforce coverage threshold (>=80%)` step to `ci-rust-10.yml` coverage job. Uses `cargo llvm-cov report --json` + python3 to parse line coverage and fail if <80%. | ✅ |
+| REV-003 | Coverage gate + push to ≥80% | 14 batches, +728 tests (764→1492). Line coverage 53.85%→80.55% (region 82.16%, function 88.18%). CI threshold 76%→80%. Fix: SQ8 format bug in ops.rs get(). CLOSED. | ✅ |
 
-**Verificación:** YAML syntax valid. Existing coverage job was already present; added enforcement gate for CII Silver ≥80% requirement.
+**Cobertura por módulo (post-campaña):**
+- parser/mod.rs: 13% → 97%
+- error.rs: 70% → 100%
+- sdk/graph.rs: 0% → 100%
+- columnar.rs: 0% → 99%
+- metrics/core/registry.rs: 46% → 78%
+- index/distance.rs: 50% → 67%
+- index/search.rs: 0% → 60%
+- Todos los archivos SDK <80 → ≥80% (api 83%, builder 87%, graph 100%, types 99%)
+- storage/engine/ init 73%, ops 77%, stats 76%, maintenance 77%
+
+**Archivos tocados:** 23 (10.4K líneas agregadas, 13 borradas)
+**Verificación:** `cargo llvm-cov test --lib -p vantadb` → 80.55%, `just verify` → fmt+check+clippy+actionlint ✅
 
 ### 2026-07-14 — REV-004: tantivy rlib fix in vantadb-openai
 

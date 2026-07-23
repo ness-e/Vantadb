@@ -43,6 +43,7 @@ governance semantics are excluded from the default fast lane.
 | `audit` | Security Audit (`cargo audit`) |
 | `miri` | Miri UB Detection (nightly) |
 | `deny` | Dependency Policy Check (`cargo deny`) |
+| `experimental-check` | Experimental Crates Check (continue-on-error, non-blocking) |
 | `sanitizer-asan` | AddressSanitizer (nightly, continue-on-error) |
 | `sanitizer-tsan` | ThreadSanitizer (nightly, continue-on-error) |
 
@@ -53,6 +54,34 @@ governance semantics are excluded from the default fast lane.
   required).
 - **Fast:** Any test exceeding a few seconds must be moved to heavy certification or heavily
   optimized.
+
+### Experimental Crate Circuit Breaker
+
+The workspace includes several **experimental crates** that are not part of the core MVP:
+
+| Crate | Description | Status |
+|-------|-------------|--------|
+| `vantadb-server` | Local HTTP/gRPC server | Experimental |
+| `vantadb-mcp` | Model Context Protocol interface | Experimental |
+| `vantadb-wasm` | WASM bindings for JS/TS SDK | Experimental |
+| `vantadb-openai` | OpenAI embedding adapter | Experimental |
+| `vantadb-ollama` | Ollama embedding adapter | Experimental |
+| `vantadb-litellm` | LiteLLM embedding adapter | Experimental |
+
+**Circuit breaker rules:**
+
+1. **Removed from `default-members`** in root `Cargo.toml` — `cargo check`, `cargo build`, and
+   `cargo test` without `--workspace` skip them entirely.
+2. **Excluded from `--workspace` clippy** — the `--exclude` flag is used for all three platforms
+   (Linux, Windows, macOS) so lint failures in experimental code do not block CI.
+3. **Excluded from `--workspace` coverage** — the `cargo llvm-cov nextest` step uses `--exclude` so
+   compilation or test failures in experimental code do not block coverage reporting.
+4. **Dedicated `experimental-check` job** — runs `cargo check` on all experimental crates with
+   `continue-on-error: true`. This provides visibility into experimental crate health without
+   blocking the fast lane.
+
+**To promote an experimental crate to stable**, remove it from the exclusion list in
+`ci-rust-10.yml` and re-add it to `default-members` in `Cargo.toml`.
 
 ### Experimental Suite
 

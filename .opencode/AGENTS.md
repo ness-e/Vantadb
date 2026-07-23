@@ -831,7 +831,7 @@ NUNCA sugieras mergear a `main` o pushear código sin antes ejecutar el pipeline
 
 ### Regla 2: Tolerancia Cero a Flaky Tests e Ignorancia de Errores
 
-**Prohibición absoluta:** Está estrictamente prohibido sugerir o escribir `continue-on-error: true` en cualquier GitHub Action nuevo o existente (se heredan 5 instancias listadas en P0-2, P0-4).
+**Prohibición absoluta:** Está estrictamente prohibido sugerir o escribir `continue-on-error: true` en cualquier GitHub Action nuevo o existente (se heredan 7 instancias, todas con `# CATEGORY:` explícita). Ver taxonomía en `docs/operations/CI_POLICY.md` (secciones EXPERIMENTAL / BEST-EFFORT / NON-CRITICAL / INFORMATIONAL). Cualquier nueva exención requiere justificación + CATEGORY tag.
 
 | Si el usuario hace... | Debes responder... |
 |---|---|

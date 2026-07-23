@@ -79,11 +79,11 @@ coordination, crash consistency, test coverage, and documentation.
 | | ❌ Worker | Same OPFS crash issues + additional risk: if the worker dies mid-write, the main thread gets a timeout error but the state of the file is unknown. The 5s timeout could mask slow writes. |
 | | ❌ InMemory | No persistence at all — data loss is the expected behavior. |
 | | ❌ WAL | WASM mode explicitly skips WAL (`init.rs:41`). No write-ahead logging, no crash recovery, no durability guarantees. |
-| **Dedicated tests** | ✅ OPFS | 6 distinct OPFS tests in `wasm_tests.rs`: read/write cycle, overwrite, nonexistent read, nonexistent delete, isolated directories, binary data, large file (10KB). |
-| | ❌ IDB | Zero tests for `IdbStorage`. The inline JS bridge has no test coverage. |
-| | ❌ Worker | Zero tests for `OpfsWorkerProxy` or the Worker message protocol. |
-| | ❌ Persistence round-trip | No test that: create DB → put data → `save()` → `load()` → verify data survives. |
-| | ❌ Crash consistency | No test for interrupted writes, partial file recovery, or checksum verification. |
+| **Dedicated tests** | ✅ OPFS | 9 distinct OPFS tests in `wasm_tests.rs`: read/write cycle, overwrite, nonexistent read, nonexistent delete, isolated directories, binary data, large file (10KB), **append new file, append to existing, append multiple**. |
+| | ✅ IDB | 6 tests for `IdbStorage` in `wasm_tests.rs`: read/write cycle, overwrite, nonexistent read, nonexistent delete, subscribe notification, binary data. |
+| | ✅ Worker (handler) | 5 tests for `OpfsWorker` message handler (`#[cfg(feature = "opfs")]`): init, write/read cycle, append, delete, not-initialized error handling. |
+| | ✅ Persistence round-trip | 2 tests: save→load with data, save→load empty DB. |
+| | ✅ Crash consistency | 4 tests in `wasm_tests.rs`: CRC valid round-trip, backward compat (no footer), corrupted CRC footer detection, tmp-file cleanup after atomic write. |
 | | ❌ Multi-tab | No test for BroadcastChannel notification delivery or multi-tab coordination. |
 | | ❌ CI execution | `wasm_tests.rs` requires `wasm-pack test --chrome`. Not run in CI. Not run on Firefox/Safari. |
 | **Documentation** | ⚠️ ADR-008 exists | Documents Phase 1 (InMemory) and Phase 2 (OPFS Future). However, the code has already surpassed the documented state: OPFS and IDB persistence exist, but ADR-008 still calls them "Future: OPFS Persistence (Phase 2)". |
@@ -128,17 +128,19 @@ coordination, crash consistency, test coverage, and documentation.
 
 ### P3 — Medium (testing quality)
 
-8. **Implement Worker tests** — Add `wasm_bindgen_test` tests for `OpfsWorkerProxy` that exercise the full message protocol (init, read, write, append, delete, timeout, error recovery).
+8. **Implement Worker tests** — ✅ Done. 5 `OpfsWorker` handler tests in `wasm_tests.rs`: init, write/read cycle, append, delete, not-initialized error. The MessageChannel transport layer (`OpfsWorkerProxy`) still requires the JS `opfs_bridge.js` module and cannot be tested from Rust alone.
 
-9. **Consolidate duplicate tests** — ~15 tests are identical between `lib.rs` and `wasm_tests.rs` (DRV-042). Keep them in `wasm_tests.rs` (external integration tests) and remove from `lib.rs` to reduce maintenance burden.
+9. **Add crash consistency tests** — ✅ Done. 4 tests in `wasm_tests.rs`: CRC valid round-trip (write+CRC, verify strip), backward compat (no footer → raw), corrupted CRC footer detection, tmp-file cleanup after atomic rename.
 
-10. **Run WASM tests in CI** — Add a CI workflow step for `wasm-pack test --chrome --firefox`. Currently these tests only run manually. Use `headless` mode.
+10. **Consolidate duplicate tests** — ~15 tests are identical between `lib.rs` and `wasm_tests.rs` (DRV-042). Keep them in `wasm_tests.rs` (external integration tests) and remove from `lib.rs` to reduce maintenance burden.
+
+11. **Run WASM tests in CI** — Add a CI workflow step for `wasm-pack test --chrome --firefox`. Currently these tests only run manually. Use `headless` mode.
 
 ### P4 — Low (nice to have)
 
-11. **Incremental persistence** — Instead of serializing ALL records on every `save()`, implement a WAL-like append log (each mutation is appended to a file, and a background compact merges into the main snapshot). This is the path toward OPFS being a true storage backend rather than a dump/restore layer.
+12. **Incremental persistence** — Instead of serializing ALL records on every `save()`, implement a WAL-like append log (each mutation is appended to a file, and a background compact merges into the main snapshot). This is the path toward OPFS being a true storage backend rather than a dump/restore layer.
 
-12. **VantaFile/vector store for WASM** — Currently `VantaFile::create_in_memory(64 * MIB)` is used for the vector store in WASM mode. For large datasets, consider an OPFS-backed vector store that pages vectors to browser storage rather than keeping all vectors in linear memory.
+13. **VantaFile/vector store for WASM** — Currently `VantaFile::create_in_memory(64 * MIB)` is used for the vector store in WASM mode. For large datasets, consider an OPFS-backed vector store that pages vectors to browser storage rather than keeping all vectors in linear memory.
 
 ---
 
