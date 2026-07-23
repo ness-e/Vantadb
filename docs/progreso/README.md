@@ -289,6 +289,24 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-23 — DRV-001: Refactor search.rs god file (1162L → 845L, 5 sub-modules) ✅
+
+**Fuente:** Backlog DRV Hallazgos — SDK, `review-deep` Wave 0
+
+**Objetivo:** Dividir `src/sdk/search.rs` (1162L, 4+ responsabilidades) en sub-módulos con responsabilidad única, agregando tests unitarios donde sea viable.
+
+**6 pasos completados:**
+- **Step 1 (phrase.rs):** `text_positions_match_phrase`, `text_positions_match_phrases` → free fns + 13 tests
+- **Step 2 (snippet.rs):** `generate_snippet_with_highlighting`, `highlight_terms` → free fns + 9 tests
+- **Step 3 (debug.rs):** 5 debug helpers extraídos del impl block (rank_map, explain_hit, identities, bm25_terms, matched_phrases). 15 call sites actualizados.
+- **Step 4 (text_index.rs):** 4 helpers de audit/repair/ensure_text_index extraídos. mod.rs solo retiene 4 wrappers de delegación (1-6 líneas c/u).
+- **Step 5:** 22 unit tests totales (phrase + snippet). debug.rs y text_index.rs requieren StorageEngine mock — cubiertos por tests de integración.
+- **Step 6:** fmt, clippy --deny, nextest (1598/1599 ✅) — 1 pre-existing flaky. Sin breaking changes en API pública.
+
+**Estructura final:** `src/sdk/search/{mod,phrase,snippet,debug,text_index}.rs`
+
+**Ids:** `DRV-001`
+
 ### 2026-07-19 — Deferred Fixes Post-RC (DEF-01 → DEF-05) ✅
 
 **Fuente:** Investigación de sub-agentes (vanta-tuner, vanta-engine, vanta-worker, vanta-audit) sobre 7 items diferidos post-feature-freeze. Item 3 (WAL) skipped, item 7 (missing_docs) verificado como non-issue.
@@ -673,6 +691,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `AUD-06` | Fix referencia caída en DURABILITY_GUARANTEES.md | → ✅ `chaos_testing.rs` → `chaos_integrity.rs` en `DURABILITY_GUARANTEES.md:287` | 🔴 | ✅ |
 | `AUD-07` | Fix `README.MD` uppercase en README_ES.md | → ✅ `README.MD` → `README.md` en `README_ES.md:24` | 🔴 | ✅ |
 | `AUD-WORK` | Fix de CI y Auditoría de Workflows | → ✅ Corregidas exclusiones de nextest a nivel workspace, declaración de tests en Cargo.toml, clasificación de mcp_tests/tokenizer y features en CI. | 🔴 | ✅ |
+| `DRV-001` | Refactor search.rs god file (1162L→845L, 5 sub-modules). phrase.rs + snippet.rs + debug.rs + text_index.rs. 22 unit tests nuevos. | 🟡 | ✅ |
 | `AUD-08` | Auditar 33 bloques `unsafe` | Auditoría completada: 39 ítems unsafe (33 bloques, 4 impls, 1 pub fn, 1 extern fn). → ✅ 77% low-risk (mmap/FFI), 20.5% medium (from_raw_parts), 2.6% high (`pub unsafe fn release_mmap_vector`). Reporte completo en artifact del agente. | 🟡 | ✅ |
 | `AUD-09` | Eliminar estado mutable global en tests | → ✅ `static TEST_RESULTS` eliminado, `static MULTI_PROGRESS` migrado a `thread_local!` + `RefCell`. Compilación limpia. | 🟡 | ✅ |
 | `AUD-10` | Fix `set_var`/`remove_var` sin restore | → ✅ Variables de entorno se guardan/restauran en prefetch_benchmark.rs usando `var_os()` + `set_var`/`remove_var`. | 🟡 | ✅ |

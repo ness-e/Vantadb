@@ -11,8 +11,12 @@ use crate::backend::BackendWriteOp;
 use crate::error::{ChainedError, Result, VantaError};
 use crate::index::cosine_sim_f32;
 use crate::node::UnifiedNode;
-use crate::storage::StorageEngine;
-use std::collections::{BTreeMap, BTreeSet};
+pub(crate) mod debug;
+pub(crate) mod phrase;
+pub(crate) mod snippet;
+pub(crate) mod text_index;
+
+use std::collections::BTreeMap;
 use tracing;
 use web_time::Instant;
 
@@ -35,7 +39,7 @@ impl VantaEmbedded {
             let engine = self.engine_handle()?;
             let (hits, text_ranks, vector_ranks) = match (text_query, has_vector) {
                 (Some(text_query), true) => {
-                    let budget = Self::hybrid_candidate_budget(request.top_k);
+                    let budget = crate::planner::hybrid_candidate_budget(request.top_k);
                     let lexical_hits = self.lexical_search(
                         &request.namespace,
                         text_query,
@@ -49,8 +53,8 @@ impl VantaEmbedded {
                         budget,
                         request.distance_metric,
                     )?;
-                    let text_ranks = Self::debug_rank_map(&lexical_hits);
-                    let vector_ranks = Self::debug_rank_map(&vector_hits);
+                    let text_ranks = debug::rank_map(&lexical_hits);
+                    let vector_ranks = debug::rank_map(&vector_hits);
                     let (mut hits, _report) =
                         crate::planner::fuse_rrf_with_report(lexical_hits, vector_hits);
                     hits.truncate(request.top_k);
@@ -63,7 +67,7 @@ impl VantaEmbedded {
                         &request.filters,
                         request.top_k,
                     )?;
-                    let text_ranks = Self::debug_rank_map(&hits);
+                    let text_ranks = debug::rank_map(&hits);
                     (hits, text_ranks, BTreeMap::new())
                 }
                 (None, true) => {
@@ -74,7 +78,7 @@ impl VantaEmbedded {
                         request.top_k,
                         request.distance_metric,
                     )?;
-                    let vector_ranks = Self::debug_rank_map(&hits);
+                    let vector_ranks = debug::rank_map(&hits);
                     (hits, BTreeMap::new(), vector_ranks)
                 }
                 (None, false) => (Vec::new(), BTreeMap::new(), BTreeMap::new()),
@@ -83,7 +87,7 @@ impl VantaEmbedded {
             let explained_hits = hits
                 .into_iter()
                 .map(|mut hit| {
-                    let explanation = Self::debug_explain_hit(
+                    let explanation = debug::explain_hit(
                         &engine,
                         hit.clone(),
                         text_query,
@@ -142,7 +146,7 @@ impl VantaEmbedded {
     ) -> Result<Vec<VantaMemorySearchHit>> {
         let started = Instant::now();
         let engine = self.engine_handle()?;
-        Self::ensure_text_index_query_ready(&engine)?;
+        text_index::ensure_text_index_query_ready(&engine)?;
 
         if top_k == 0 {
             crate::metrics::record_text_lexical_query(0, 0);
@@ -250,7 +254,9 @@ impl VantaEmbedded {
         for (node_id, score) in scores {
             let positions_match = candidate_positions
                 .get(&node_id)
-                .map(|positions| Self::text_positions_match_phrases(positions, &query_plan.phrases))
+                .map(|positions| {
+                    phrase::text_positions_match_phrases(positions, &query_plan.phrases)
+                })
                 .unwrap_or(query_plan.phrases.is_empty());
             if !positions_match {
                 continue;
@@ -360,7 +366,7 @@ impl VantaEmbedded {
                     explanation: None,
                 });
             }
-            Self::sort_memory_hits(&mut hits);
+            crate::planner::sort_hits(&mut hits);
             hits.truncate(top_k);
             if distance_metric == crate::node::DistanceMetric::Euclidean {
                 for hit in hits.iter_mut() {
@@ -372,14 +378,6 @@ impl VantaEmbedded {
         }
 
         Ok(hits)
-    }
-
-    fn sort_memory_hits(hits: &mut [VantaMemorySearchHit]) {
-        crate::planner::sort_hits(hits);
-    }
-
-    fn hybrid_candidate_budget(top_k: usize) -> usize {
-        crate::planner::hybrid_candidate_budget(top_k)
     }
 
     fn hybrid_search(
@@ -397,87 +395,22 @@ impl VantaEmbedded {
             return Ok(Vec::new());
         }
 
-        let budget = Self::hybrid_candidate_budget(top_k);
+        let budget = crate::planner::hybrid_candidate_budget(top_k);
         let lexical_hits = self.lexical_search(namespace, text_query, filters, budget)?;
         let vector_hits =
             self.vector_memory_search(namespace, query_vector, filters, budget, distance_metric)?;
-        let mut hits = Self::fuse_rrf(lexical_hits, vector_hits);
+        let mut hits = crate::planner::fuse_rrf(lexical_hits, vector_hits);
         let candidates_fused = hits.len() as u64;
         hits.truncate(top_k);
         crate::metrics::record_hybrid_query(started.elapsed().as_millis() as u64, candidates_fused);
         Ok(hits)
     }
 
-    fn fuse_rrf(
-        lexical_hits: Vec<VantaMemorySearchHit>,
-        vector_hits: Vec<VantaMemorySearchHit>,
-    ) -> Vec<VantaMemorySearchHit> {
-        crate::planner::fuse_rrf(lexical_hits, vector_hits)
-    }
-
-    fn ensure_text_index_query_ready(engine: &StorageEngine) -> Result<TextIndexState> {
-        let state = Self::load_text_index_state(engine).map_err(|_| VantaError::NotFound {
-            kind: "text_index_state".into(),
-            id: "bm25".into(),
-        })?;
-        let Some(state) = state else {
-            return Err(VantaError::NotFound {
-                kind: "text_index".into(),
-                id: "bm25".into(),
-            });
-        };
-        if !Self::text_index_state_matches_spec(&state) {
-            return Err(VantaError::ValidationError {
-                field: "text_index_schema".into(),
-                reason:
-                    "text_query requires text_index schema v3; reopen writable or run rebuild_index"
-                        .into(),
-            });
-        }
-        Ok(state)
-    }
-
-    fn text_positions_match_phrases(
-        term_positions: &BTreeMap<String, Vec<u32>>,
-        phrases: &[Vec<String>],
-    ) -> bool {
-        phrases
-            .iter()
-            .all(|phrase| Self::text_positions_match_phrase(term_positions, phrase))
-    }
-
-    fn text_positions_match_phrase(
-        term_positions: &BTreeMap<String, Vec<u32>>,
-        phrase: &[String],
-    ) -> bool {
-        let Some(first_token) = phrase.first() else {
-            return true;
-        };
-        let Some(first_positions) = term_positions.get(first_token) else {
-            return false;
-        };
-        if phrase.len() == 1 {
-            return !first_positions.is_empty();
-        }
-
-        first_positions.iter().any(|start| {
-            phrase.iter().enumerate().skip(1).all(|(offset, token)| {
-                let Some(positions) = term_positions.get(token) else {
-                    return false;
-                };
-                positions.contains(&start.saturating_add(offset as u32))
-            })
-        })
-    }
-
     /// Run a read-only structural audit of the derived persistent text index.
     #[tracing::instrument(skip(self), err)]
     pub fn audit_text_index(&self, namespace: Option<&str>) -> Result<VantaTextIndexAuditReport> {
-        if let Some(namespace) = namespace {
-            validate_namespace(namespace)?;
-        }
         let engine = self.engine_handle()?;
-        Self::build_text_index_audit_report_shallow(&engine, namespace)
+        text_index::run_audit(&engine, namespace)
     }
 
     /// Run a deep structural audit of the derived persistent text index.
@@ -486,11 +419,8 @@ impl VantaEmbedded {
         &self,
         namespace: Option<&str>,
     ) -> Result<VantaTextIndexAuditReport> {
-        if let Some(namespace) = namespace {
-            validate_namespace(namespace)?;
-        }
         let engine = self.engine_handle()?;
-        Self::build_text_index_audit_report_deep(&engine, namespace)
+        text_index::run_audit_deep(&engine, namespace)
     }
 
     /// Public repair primitive for the text index.
@@ -505,15 +435,7 @@ impl VantaEmbedded {
         }
         crate::metrics::record_text_index_repair();
         let report = self.rebuild_text_index_with_report()?;
-        Ok(VantaTextIndexRepairReport {
-            record_count: report.record_count,
-            posting_entries: report.posting_entries,
-            doc_stats_entries: report.doc_stats_entries,
-            term_stats_entries: report.term_stats_entries,
-            namespace_stats_entries: report.namespace_stats_entries,
-            duration_ms: report.duration_ms,
-            success: true,
-        })
+        Ok(text_index::run_repair(report))
     }
 
     /// Generate a text snippet with optional highlighting of matched terms.
@@ -524,95 +446,10 @@ impl VantaEmbedded {
         text_query: &str,
         with_highlighting: bool,
     ) -> Option<String> {
-        Self::generate_snippet_with_highlighting(payload, text_query, with_highlighting)
+        snippet::generate_snippet_with_highlighting(payload, text_query, with_highlighting)
     }
 
-    fn generate_snippet_with_highlighting(
-        payload: &str,
-        text_query: &str,
-        with_highlighting: bool,
-    ) -> Option<String> {
-        let query_plan = crate::text_index::query_plan(text_query);
-        let first_token = query_plan.terms.iter().next()?;
-
-        if payload.len() <= 120 {
-            if with_highlighting {
-                return Some(Self::highlight_terms(payload, &query_plan.terms));
-            }
-            return Some(payload.to_string());
-        }
-
-        let lower_payload = payload.to_ascii_lowercase();
-        let match_at = lower_payload.find(first_token).unwrap_or(0);
-        let mut start = match_at.saturating_sub(48);
-        let mut end = match_at
-            .saturating_add(first_token.len())
-            .saturating_add(72)
-            .min(payload.len());
-        while start > 0 && !payload.is_char_boundary(start) {
-            start -= 1;
-        }
-        while end < payload.len() && !payload.is_char_boundary(end) {
-            end += 1;
-        }
-
-        let snippet_text = payload[start..end].trim();
-
-        if with_highlighting {
-            let highlighted = Self::highlight_terms(snippet_text, &query_plan.terms);
-            let mut snippet = String::new();
-            if start > 0 {
-                snippet.push_str("...");
-            }
-            snippet.push_str(&highlighted);
-            if end < payload.len() {
-                snippet.push_str("...");
-            }
-            Some(snippet)
-        } else {
-            let mut snippet = String::new();
-            if start > 0 {
-                snippet.push_str("...");
-            }
-            snippet.push_str(snippet_text);
-            if end < payload.len() {
-                snippet.push_str("...");
-            }
-            Some(snippet)
-        }
-    }
-
-    fn highlight_terms(text: &str, terms: &BTreeSet<String>) -> String {
-        let mut result = String::new();
-        let mut i = 0;
-        let chars: Vec<char> = text.chars().collect();
-
-        while i < chars.len() {
-            let mut matched = false;
-
-            for term in terms {
-                let term_chars: Vec<char> = term.chars().collect();
-                if i + term_chars.len() <= chars.len() {
-                    let slice: String = chars[i..i + term_chars.len()].iter().collect();
-                    if slice.eq_ignore_ascii_case(term) {
-                        result.push_str("<strong>");
-                        result.push_str(&slice);
-                        result.push_str("</strong>");
-                        i += term_chars.len();
-                        matched = true;
-                        break;
-                    }
-                }
-            }
-
-            if !matched {
-                result.push(chars[i]);
-                i += 1;
-            }
-        }
-
-        result
-    }
+    // highlight_terms, generate_snippet_with_highlighting moved to snippet.rs
 
     /// Explain the search plan for a memory search request without executing it.
     #[tracing::instrument(skip(self, request), err)]
@@ -647,7 +484,7 @@ impl VantaEmbedded {
             Option<VantaHybridFusionReport>,
         ) = match (text_query, has_vector) {
             (Some(text_query), true) => {
-                let budget = Self::hybrid_candidate_budget(request.top_k);
+                let budget = crate::planner::hybrid_candidate_budget(request.top_k);
                 let lexical_hits =
                     self.lexical_search(&request.namespace, text_query, &request.filters, budget)?;
                 let vector_hits = self.vector_memory_search(
@@ -657,8 +494,8 @@ impl VantaEmbedded {
                     budget,
                     request.distance_metric,
                 )?;
-                let text_ranks = Self::debug_rank_map(&lexical_hits);
-                let vector_ranks = Self::debug_rank_map(&vector_hits);
+                let text_ranks = debug::rank_map(&lexical_hits);
+                let vector_ranks = debug::rank_map(&vector_hits);
                 let (mut hits, report) =
                     crate::planner::fuse_rrf_with_report(lexical_hits, vector_hits);
                 hits.truncate(request.top_k);
@@ -677,7 +514,7 @@ impl VantaEmbedded {
                     &request.filters,
                     request.top_k,
                 )?;
-                let text_ranks = Self::debug_rank_map(&hits);
+                let text_ranks = debug::rank_map(&hits);
                 (
                     "text-only".to_string(),
                     hits,
@@ -694,7 +531,7 @@ impl VantaEmbedded {
                     request.top_k,
                     request.distance_metric,
                 )?;
-                let vector_ranks = Self::debug_rank_map(&hits);
+                let vector_ranks = debug::rank_map(&hits);
                 (
                     "vector-only".to_string(),
                     hits,
@@ -714,9 +551,7 @@ impl VantaEmbedded {
 
         let explained_hits = hits
             .into_iter()
-            .map(|hit| {
-                Self::debug_explain_hit(&engine, hit, text_query, &text_ranks, &vector_ranks)
-            })
+            .map(|hit| debug::explain_hit(&engine, hit, text_query, &text_ranks, &vector_ranks))
             .collect::<Result<Vec<_>>>()?;
 
         Ok(VantaSearchExplanation {
@@ -940,7 +775,7 @@ impl VantaEmbedded {
 
         match (text_query, has_vector) {
             (Some(text_query), true) => {
-                let budget = Self::hybrid_candidate_budget(request.top_k);
+                let budget = crate::planner::hybrid_candidate_budget(request.top_k);
                 let lexical_hits =
                     self.lexical_search(&request.namespace, text_query, &request.filters, budget)?;
                 let vector_hits = self.vector_memory_search(
@@ -952,7 +787,7 @@ impl VantaEmbedded {
                 )?;
                 let text_candidates = lexical_hits.len();
                 let vector_candidates = vector_hits.len();
-                let mut fused_hits = Self::fuse_rrf(lexical_hits, vector_hits);
+                let mut fused_hits = crate::planner::fuse_rrf(lexical_hits, vector_hits);
                 let fused_candidates = fused_hits.len();
                 fused_hits.truncate(request.top_k);
                 Ok(VantaMemorySearchDebugReport {
@@ -961,7 +796,7 @@ impl VantaEmbedded {
                     text_candidates,
                     vector_candidates,
                     fused_candidates,
-                    top_identities: Self::debug_hit_identities(&fused_hits),
+                    top_identities: debug::hit_identities(&fused_hits),
                 })
             }
             (Some(text_query), false) => {
@@ -977,7 +812,7 @@ impl VantaEmbedded {
                     text_candidates: hits.len(),
                     vector_candidates: 0,
                     fused_candidates: hits.len(),
-                    top_identities: Self::debug_hit_identities(&hits),
+                    top_identities: debug::hit_identities(&hits),
                 })
             }
             (None, true) => {
@@ -994,7 +829,7 @@ impl VantaEmbedded {
                     text_candidates: 0,
                     vector_candidates: hits.len(),
                     fused_candidates: hits.len(),
-                    top_identities: Self::debug_hit_identities(&hits),
+                    top_identities: debug::hit_identities(&hits),
                 })
             }
             (None, false) => Ok(VantaMemorySearchDebugReport {
@@ -1006,157 +841,5 @@ impl VantaEmbedded {
                 top_identities: Vec::new(),
             }),
         }
-    }
-
-    #[cfg(debug_assertions)]
-    fn debug_hit_identities(hits: &[VantaMemorySearchHit]) -> Vec<String> {
-        hits.iter()
-            .map(|hit| format!("{}\0{}", hit.record.namespace, hit.record.key))
-            .collect()
-    }
-
-    fn debug_rank_map(hits: &[VantaMemorySearchHit]) -> BTreeMap<(String, String), usize> {
-        hits.iter()
-            .enumerate()
-            .map(|(index, hit)| {
-                (
-                    (hit.record.namespace.clone(), hit.record.key.clone()),
-                    index + 1,
-                )
-            })
-            .collect()
-    }
-
-    fn debug_explain_hit(
-        engine: &StorageEngine,
-        hit: VantaMemorySearchHit,
-        text_query: Option<&str>,
-        text_ranks: &BTreeMap<(String, String), usize>,
-        vector_ranks: &BTreeMap<(String, String), usize>,
-    ) -> Result<VantaSearchExplanationHit> {
-        let identity_tuple = (hit.record.namespace.clone(), hit.record.key.clone());
-        let identity = format!("{}\0{}", hit.record.namespace, hit.record.key);
-        let bm25_terms = if let Some(text_query) = text_query {
-            Self::debug_bm25_terms_for_record(engine, &hit.record, text_query)?
-        } else {
-            Vec::new()
-        };
-        let matched_tokens = bm25_terms
-            .iter()
-            .map(|term| term.token.clone())
-            .collect::<Vec<_>>();
-        let matched_phrases = if let Some(text_query) = text_query {
-            Self::debug_matched_phrases_for_record(engine, &hit.record, text_query)?
-        } else {
-            Vec::new()
-        };
-        let snippet = text_query.and_then(|query| Self::debug_snippet(&hit.record.payload, query));
-
-        Ok(VantaSearchExplanationHit {
-            identity,
-            score: hit.score,
-            snippet,
-            matched_tokens,
-            matched_phrases,
-            bm25_terms,
-            rrf_text_rank: text_ranks.get(&identity_tuple).copied(),
-            rrf_vector_rank: vector_ranks.get(&identity_tuple).copied(),
-        })
-    }
-
-    fn debug_bm25_terms_for_record(
-        engine: &StorageEngine,
-        record: &VantaMemoryRecord,
-        text_query: &str,
-    ) -> Result<Vec<VantaBm25TermContribution>> {
-        let query_plan = crate::text_index::query_plan(text_query);
-        if query_plan.terms.is_empty() {
-            return Ok(Vec::new());
-        }
-        let Some(namespace_stats) = Self::load_text_namespace_stats(engine, &record.namespace)?
-        else {
-            return Ok(Vec::new());
-        };
-        let Some(doc_stats) = Self::load_text_doc_stats(engine, &record.namespace, &record.key)?
-        else {
-            return Ok(Vec::new());
-        };
-        if namespace_stats.doc_count == 0 {
-            return Ok(Vec::new());
-        }
-
-        let doc_count = namespace_stats.doc_count as f32;
-        let avg_doc_len = if namespace_stats.total_doc_len == 0 {
-            1.0
-        } else {
-            namespace_stats.total_doc_len as f32 / doc_count
-        };
-        let doc_len = doc_stats.doc_len as f32;
-        let mut terms = Vec::new();
-
-        for token in query_plan.terms {
-            let Some(term_stats) = Self::load_text_term_stats(engine, &record.namespace, &token)?
-            else {
-                continue;
-            };
-            let Some(posting_value) = engine.get_from_partition(
-                BackendPartition::TextIndex,
-                &crate::text_index::posting_key(&record.namespace, &token, &record.key),
-            )?
-            else {
-                continue;
-            };
-            let posting = crate::text_index::decode_posting(&posting_value)?;
-            let df = term_stats.df as f32;
-            let idf = (1.0 + ((doc_count - df + 0.5) / (df + 0.5))).ln();
-            let tf = posting.tf as f32;
-            let denominator = tf
-                + crate::text_index::BM25_K1
-                    * (1.0 - crate::text_index::BM25_B
-                        + crate::text_index::BM25_B * (doc_len / avg_doc_len));
-            let contribution = idf * ((tf * (crate::text_index::BM25_K1 + 1.0)) / denominator);
-            terms.push(VantaBm25TermContribution {
-                token,
-                tf: posting.tf,
-                df: term_stats.df,
-                doc_len: doc_stats.doc_len,
-                contribution,
-            });
-        }
-
-        Ok(terms)
-    }
-
-    fn debug_matched_phrases_for_record(
-        engine: &StorageEngine,
-        record: &VantaMemoryRecord,
-        text_query: &str,
-    ) -> Result<Vec<String>> {
-        let query_plan = crate::text_index::query_plan(text_query);
-        if query_plan.phrases.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let mut term_positions = BTreeMap::new();
-        for token in query_plan.terms {
-            if let Some(value) = engine.get_from_partition(
-                BackendPartition::TextIndex,
-                &crate::text_index::posting_key(&record.namespace, &token, &record.key),
-            )? {
-                let posting = crate::text_index::decode_posting(&value)?;
-                term_positions.insert(token, posting.positions);
-            }
-        }
-
-        Ok(query_plan
-            .phrases
-            .into_iter()
-            .filter(|phrase| Self::text_positions_match_phrase(&term_positions, phrase))
-            .map(|phrase| phrase.join(" "))
-            .collect())
-    }
-
-    fn debug_snippet(payload: &str, text_query: &str) -> Option<String> {
-        Self::generate_snippet_with_highlighting(payload, text_query, false)
     }
 }
