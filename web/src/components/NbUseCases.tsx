@@ -5,7 +5,7 @@ const CASES = [
   {
     id: "01",
     title: "AI Agent Memory",
-    desc: "Persistent context windows for distributed agent swarms without network overhead. Local execution means zero API latency.",
+    desc: "Persistent context windows for multi-agent systems without network overhead. Local execution means zero network latency.",
     tags: ["AGENTS", "MEMORY", "LOCAL"],
     signal: "LIVE",
   },

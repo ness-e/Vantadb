@@ -14,7 +14,7 @@ const CONTACTS = [
   {
     channel: "Enterprise",
     detail: "enterprise@vantadb.dev",
-    sub: "Licensing, SLA, custom deployments",
+    sub: "Licensing, custom deployments",
     type: "email",
   },
   {

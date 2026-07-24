@@ -5,7 +5,7 @@ const TIERS = [
   {
     id: "free",
     name: "FREE",
-    tag: "MIT License",
+    tag: "Apache 2.0",
     price: "$0",
     specs: [
       { code: "NODES", val: "1", note: "Single-node" },
@@ -19,13 +19,13 @@ const TIERS = [
   {
     id: "enterprise",
     name: "ENTERPRISE",
-    tag: "Custom SLA",
+    tag: "Custom License",
     price: "Custom",
     specs: [
       { code: "DEPLOY", val: "ON-PREM", note: "On-prem deploy" },
       { code: "AUTH", val: "SSO", note: "SSO / SAML" },
       { code: "AUDIT", val: "YES", note: "Audit trails" },
-      { code: "SLA", val: "4H", note: "Priority SLA" },
+      { code: "SUPPORT", val: "PRIORITY", note: "Priority maintenance" },
     ],
     cta: "CONTACT SALES",
     ctaHref: "/about/contact",

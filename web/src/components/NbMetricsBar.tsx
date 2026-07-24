@@ -35,7 +35,7 @@ const COMPETITION = [
 const SPEEDUPS = [
   { value: "2.8x", label: "Index Build (L2)" },
   { value: "4.01x", label: "Batch Search" },
-  { value: "100%", label: "Crash Survival" },
+  { value: "WAL", label: "Crash Recovery" },
 ];
 
 export const NbMetricsBar = memo(function NbMetricsBar() {

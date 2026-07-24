@@ -22,17 +22,17 @@ export const tiers: PricingCardTier[] = [
   },
   {
     name: "Enterprise",
-    tagline: "Custom licensing and dedicated support available.",
+    tagline: "Custom licensing for production deployments.",
     price: "Custom",
     period: "tailored pricing",
     features: [
       "Unlimited vectors, namespaces & storage",
       "On-premises deployment",
-      "Dedicated SLA support with 24/7/365 coverage",
+      "Custom licensing terms",
       "Enterprise security: RBAC & custom keys",
       "Enterprise compliance: SOC 2 & HIPAA (coming soon)",
       "Custom query hooks & raw hardware access",
-      "Dedicated systems architect support",
+      "Priority maintenance window",
       "Flexible custom licensing options",
     ],
     cta: "Contact Sales",
@@ -88,7 +88,7 @@ export const comparisonRows: ComparisonRow[] = [
   {
     feature: "Support",
     os: "Community (Discord)",
-    ent: "Dedicated 24/7 SLA",
+    ent: "Custom terms",
   },
   {
     feature: "License",
@@ -113,7 +113,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   },
   {
     q: "Do you offer custom SLAs?",
-    a: "Yes, our Enterprise plan includes dedicated support SLAs with up to 24/7/365 availability. We also assist with specialized hardware configuration, on-premises isolation, and security compliance (SOC 2, HIPAA).",
+    a: "Yes, our Enterprise plan includes custom licensing and priority support windows. We also assist with specialized hardware configuration, on-premises isolation, and security compliance (SOC 2, HIPAA). Enterprise SLA terms are negotiated per-contract.",
   },
   {
     q: "How is VantaDB different from Pinecone, Weaviate, or Qdrant?",

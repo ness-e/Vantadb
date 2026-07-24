@@ -17,7 +17,7 @@ export const NbFooter = memo(function NbFooter() {
           <div className="sc-col-brand">
             <VantaDBLogo variant="full" size="sm" />
             <span className="sc-tagline">Embedded Cognitive Memory for AI Agents</span>
-            <span className="sc-badge">MIT LICENSE</span>
+            <span className="sc-badge">APACHE 2.0</span>
             <span className="sc-badge sc-badge--amber">v0.1.0</span>
           </div>
         </div>
@@ -102,7 +102,7 @@ export const NbFooter = memo(function NbFooter() {
         <div className="sc-bottom-left">
           <span className="sc-copyright">&copy; {new Date().getFullYear()} VANTADB</span>
           <span className="sc-status">
-            SYSTEM v0.1.0 &middot; BUILT WITH RUST &middot; MIT LICENSE
+            SYSTEM v0.1.0 &middot; BUILT WITH RUST &middot; APACHE 2.0
           </span>
         </div>
         <div className="sc-social">

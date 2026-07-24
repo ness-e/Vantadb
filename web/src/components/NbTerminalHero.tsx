@@ -100,7 +100,7 @@ export const NbTerminalHero = memo(function NbTerminalHero() {
             <span className="nb-osc-pill">OPEN SOURCE</span>
             <span className="nb-osc-pill">RUST-NATIVE</span>
             <span className="nb-osc-pill">IN-PROCESS</span>
-            <span className="nb-osc-pill">MIT</span>
+            <span className="nb-osc-pill">APACHE 2.0</span>
           </div>
 
           <h1 className="nb-osc-title">

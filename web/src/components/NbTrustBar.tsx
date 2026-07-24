@@ -11,7 +11,7 @@ const TICKER_DATA = [
   { value: "12", label: "CONTRIBUTORS" },
   { value: "RUST", label: "CORE" },
   { value: "PYTHON", label: "SDK" },
-  { value: "MIT", label: "LICENSE" },
+  { value: "APACHE 2.0", label: "LICENSE" },
   { value: "2MB", label: "BINARY" },
   { value: "0", label: "SERVERS" },
 ];

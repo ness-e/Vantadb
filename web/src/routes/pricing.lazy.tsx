@@ -57,7 +57,7 @@ function PricingPage() {
           <NbSectionHeader
             monoLabel="[PLANS]"
             headline="Four tiers. One free."
-            sub="Self-hosted is free forever under Apache 2.0. Enterprise adds custom licensing and dedicated support."
+            sub="Self-hosted is free forever under Apache 2.0. Enterprise adds custom licensing and priority maintenance."
           />
 
           <div className="nc-price-board nc-price-part">
