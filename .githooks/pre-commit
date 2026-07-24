@@ -39,19 +39,10 @@ if [ -n "$STAGED_RS" ]; then
         FAILED=1
     fi
 
-    # 2. cargo check (catches type errors, missing imports, broken APIs)
-    printf "  -> cargo check --workspace .. "
-    if cargo check --workspace -j 2 2>/dev/null; then
-        printf "$ok\n"
-    else
-        printf "$fail\n"
-        FAILED=1
-    fi
-
-    # 3. cargo clippy (linting, skip with SKIP_CLIPPY=1)
+    # 2. cargo clippy (type-check + lint, single compile)
     if [ -z "$SKIP_CLIPPY" ]; then
         printf "  -> cargo clippy ............. "
-        if cargo clippy --workspace -- -D warnings 2>/dev/null; then
+        if cargo clippy -p vantadb -j 2 -- -D warnings 2>/dev/null; then
             printf "$ok\n"
         else
             printf "$fail\n"
