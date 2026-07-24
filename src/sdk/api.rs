@@ -1,16 +1,16 @@
 use super::builder::VantaEmbedded;
 use super::serialization::{
-    memory_node_id, memory_record_from_node, memory_record_to_node_owned, now_ms, validate_key,
-    validate_metadata, validate_namespace, DERIVED_INDEX_SCHEMA_VERSION, FIELD_CREATED_AT_MS,
-    FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS,
-    FIELD_VERSION,
+    matches_memory_filters, memory_node_id, memory_record_from_node, memory_record_to_node_owned,
+    now_ms, validate_key, validate_metadata, validate_namespace, DERIVED_INDEX_SCHEMA_VERSION,
+    FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD,
+    FIELD_UPDATED_AT_MS, FIELD_VERSION,
 };
 use super::types::*;
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::{Result, VantaError};
 use crate::executor::Executor;
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use tracing;
 
 impl VantaEmbedded {
@@ -254,6 +254,10 @@ impl VantaEmbedded {
     }
 
     /// List memory records in a namespace with optional filters, cursor-based pagination, and limit.
+    ///
+    /// Paginates directly over candidate IDs instead of loading all records into memory,
+    /// preventing OOM on namespaces with 100K+ records. Records are returned in
+    /// namespace-index order (stable by insertion/ID), not key-sorted.
     #[tracing::instrument(skip(self), err)]
     pub fn list(
         &self,
@@ -263,15 +267,69 @@ impl VantaEmbedded {
         validate_namespace(namespace)?;
         validate_metadata(&options.filters)?;
 
-        let records = self.records_for_namespace(namespace, &options.filters)?;
-
-        let start = options.cursor.unwrap_or(0).min(records.len());
+        let engine = self.engine_handle()?;
         let limit = options.limit.max(1);
-        let end = start.saturating_add(limit).min(records.len());
-        let next_cursor = (end < records.len()).then_some(end);
+        let cursor = options.cursor.unwrap_or(0);
+
+        let (candidate_ids, has_index_entries) =
+            if let Some((field, value)) = options.filters.iter().next() {
+                self.indexed_ids_by_filter(&engine, namespace, field, value)?
+            } else {
+                self.indexed_ids_by_namespace(&engine, namespace)?
+            };
+
+        // Deduplicate IDs (prefix scan may return duplicates)
+        let mut seen = BTreeSet::new();
+        let unique_ids: Vec<u128> = candidate_ids
+            .into_iter()
+            .filter(|id| seen.insert(*id))
+            .collect();
+
+        // Fetch only the window of IDs for this page — not all records
+        let window_ids: Vec<u128> = unique_ids
+            .iter()
+            .skip(cursor)
+            .take(limit)
+            .copied()
+            .collect();
+        let mut records: Vec<VantaMemoryRecord> = Vec::with_capacity(window_ids.len());
+        for node in engine.get_many(&window_ids)? {
+            if let Some(record) = memory_record_from_node(&node) {
+                if record.namespace == namespace
+                    && matches_memory_filters(&record, &options.filters)
+                {
+                    records.push(record);
+                }
+            }
+        }
+
+        // Fallback: full scan when no derived index exists (paginated — skip to cursor)
+        if records.is_empty() && !has_index_entries {
+            crate::metrics::record_derived_full_scan_fallback();
+            let mut skipped = 0usize;
+            for node in engine.scan_nodes()? {
+                if let Some(record) = memory_record_from_node(&node) {
+                    if record.namespace == namespace
+                        && matches_memory_filters(&record, &options.filters)
+                    {
+                        if skipped < cursor {
+                            skipped += 1;
+                            continue;
+                        }
+                        records.push(record);
+                        if records.len() >= limit {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        let end_cursor = cursor.saturating_add(limit);
+        let next_cursor = (end_cursor < unique_ids.len()).then_some(end_cursor);
 
         Ok(VantaMemoryListPage {
-            records: records[start..end].to_vec(),
+            records,
             next_cursor,
         })
     }
