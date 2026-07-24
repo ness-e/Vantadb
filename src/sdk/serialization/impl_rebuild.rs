@@ -926,7 +926,7 @@ mod tests {
         db.rebuild_text_index_with_report().unwrap();
 
         let engine = db.engine_handle().unwrap();
-        let report = VantaEmbedded::build_text_index_audit_report_deep(&*engine, None).unwrap();
+        let report = VantaEmbedded::build_text_index_audit_report_deep(&engine, None).unwrap();
         assert!(
             report.passed,
             "expected passed, got status: {}",
@@ -951,7 +951,7 @@ mod tests {
         db.rebuild_text_index_with_report().unwrap();
         let engine = db.engine_handle().unwrap();
         let report =
-            VantaEmbedded::build_text_index_audit_report_deep(&*engine, Some("ns1")).unwrap();
+            VantaEmbedded::build_text_index_audit_report_deep(&engine, Some("ns1")).unwrap();
         // With namespace_filter count check is skipped → state stays valid
         assert!(
             report.passed,
@@ -994,7 +994,7 @@ mod tests {
 
         db.rebuild_text_index_with_report().unwrap();
         let engine = db.engine_handle().unwrap();
-        let report = VantaEmbedded::build_text_index_audit_report_shallow(&*engine, None).unwrap();
+        let report = VantaEmbedded::build_text_index_audit_report_shallow(&engine, None).unwrap();
         assert!(
             report.passed,
             "expected passed, got status: {}",

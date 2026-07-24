@@ -673,8 +673,8 @@ mod tests {
 
     #[test]
     fn test_vanta_value_float() {
-        let v = VantaValue::Float(3.14);
-        assert_eq!(v.to_index_values(), vec![VantaValue::Float(3.14)]);
+        let v = VantaValue::Float(42.5);
+        assert_eq!(v.to_index_values(), vec![VantaValue::Float(42.5)]);
     }
 
     #[test]

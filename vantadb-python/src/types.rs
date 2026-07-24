@@ -2,14 +2,13 @@
 //! Avoids per-result PyDict allocations in hot paths.
 
 use pyo3::buffer::ReadOnlyCell;
-use pyo3::exceptions::PyStopIteration;
+use pyo3::exceptions::{PyRuntimeError, PyStopIteration};
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyTuple};
 use vantadb::sdk::VantaMemoryRecord;
 
-use crate::set_python_value;
-use crate::try_numpy_array;
-use crate::VantaVector;
+use crate::convert::{set_python_value, try_numpy_array};
+use crate::vector::VantaVector;
 
 /// A zero-copy view over a 2D PyBuffer (NumPy ndarray) of f32 data.
 ///
@@ -264,6 +263,119 @@ impl VantaListResultIter {
             Ok(Some(val))
         } else {
             Err(PyStopIteration::new_err("end of iteration"))
+        }
+    }
+}
+
+/// A Python-accessible search hit returned by `search_memory`.
+///
+/// Wraps a `VantaMemoryRecord` plus the relevance score as typed getters,
+/// avoiding per-hit PyDict allocation in the hot path.
+#[pyclass(name = "VantaSearchHit")]
+pub(crate) struct VantaPySearchHit {
+    pub(crate) inner: VantaMemoryRecord,
+    pub(crate) score: f32,
+}
+
+#[pymethods]
+impl VantaPySearchHit {
+    #[getter]
+    fn namespace(&self) -> &str {
+        &self.inner.namespace
+    }
+
+    #[getter]
+    fn key(&self) -> &str {
+        &self.inner.key
+    }
+
+    #[getter]
+    fn payload(&self) -> &str {
+        &self.inner.payload
+    }
+
+    #[getter]
+    fn metadata(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+        let dict = PyDict::new(py);
+        for (k, v) in &self.inner.metadata {
+            set_python_value(py, &dict, k, v)?;
+        }
+        Ok(dict.unbind())
+    }
+
+    #[getter]
+    fn vector(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        // PERF-31: try numpy array first; fall back to VantaVector (backward compat)
+        match &self.inner.vector {
+            Some(v) => match try_numpy_array(py, v)? {
+                Some(arr) => Ok(Some(arr)),
+                None => Ok(Some(
+                    py.get_type::<VantaVector>().call1((v.clone(),))?.unbind(),
+                )),
+            },
+            None => Ok(None),
+        }
+    }
+
+    #[getter]
+    fn score(&self) -> f32 {
+        self.score
+    }
+
+    #[getter]
+    fn id(&self) -> u128 {
+        self.inner.node_id
+    }
+
+    #[getter]
+    fn created_at_ms(&self) -> u64 {
+        self.inner.created_at_ms
+    }
+
+    #[getter]
+    fn updated_at_ms(&self) -> u64 {
+        self.inner.updated_at_ms
+    }
+
+    #[getter]
+    fn version(&self) -> u64 {
+        self.inner.version
+    }
+
+    #[getter]
+    fn node_id(&self) -> u128 {
+        self.inner.node_id
+    }
+
+    #[getter]
+    fn expires_at_ms(&self) -> Option<u64> {
+        self.inner.expires_at_ms
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VantaSearchHit(namespace={}, key={}, score={:.4}, dim={})",
+            self.inner.namespace,
+            self.inner.key,
+            self.score,
+            self.inner.vector.as_ref().map(|v| v.len()).unwrap_or(0),
+        )
+    }
+
+    #[getter(__array_interface__)]
+    fn get_search_hit_array_interface(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        match &self.inner.vector {
+            Some(v) => {
+                let dict = PyDict::new(py);
+                let shape = PyTuple::new(py, [v.len()])?;
+                dict.set_item("shape", shape)?;
+                dict.set_item("typestr", "<f4")?;
+                let data = (v.as_ptr() as usize, true);
+                dict.set_item("data", data)?;
+                dict.set_item("version", 3)?;
+                Ok(dict.unbind().into())
+            }
+            None => Err(PyRuntimeError::new_err("VantaSearchHit has no vector")),
         }
     }
 }

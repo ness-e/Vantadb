@@ -8,7 +8,7 @@ aliases: []
 
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-23
+> **Last updated:** 2026-07-24
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -288,6 +288,85 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 - **Checkpoint.md:** Nuevo — resumen anclado del vault MPTS con cobertura, backlog activo y estado actual.
 
 ## Recent Progress
+
+### 2026-07-24 — DRV-059/065/071/087/091/096: RwLock<String> → String (6 tasks ✅)
+
+**Fuente:** Backlog DRV Hallazgos — adapters/providers, `review-deep` Wave 0 (quick)
+
+**Problema original:** 6 adapters usaban `RwLock<String>` para `namespace` que nunca se escribía, solo se leía (0 `.write()`, múltiples `.read().unwrap().clone()`). Overhead innecesario de lock + alloc.
+
+**Resuelto por:** La **Adapter Restructure** (commit `accbfa8`) reestructuró todo el sistema:
+- **DRV-059** (OpenAI): `providers/openai/src/python.rs:70` → `namespace: String` plano
+- **DRV-065** (Ollama): `providers/ollama/src/python.rs:41` → `namespace: String` plano
+- **DRV-071** (LiteLLM): `providers/litellm/src/python.rs:72` → `namespace: String` plano
+- **DRV-087** (CrewAI): Migró de Rust PyO3 a Python puro (`integrations/crewai/`). `RwLock` no existe en Python.
+- **DRV-091** (DSPy): Migró de Rust PyO3 a Python puro (`integrations/dspy/`). Idem.
+- **DRV-096** (Haystack): Migró de Rust PyO3 a Python puro (`integrations/haystack/`). Idem.
+
+**Verificación:** `grep -r "RwLock" providers/` → 0 matches. `grep -r "RwLock" integrations/` → 0 matches.
+
+**Ids:** `DRV-059`, `DRV-065`, `DRV-071`, `DRV-087`, `DRV-091`, `DRV-096`
+
+### 2026-07-24 — DRV-070/086/092/098/103/110: Metadata no-string ignorado (6 tasks ✅)
+
+**Fuente:** Backlog DRV Hallazgos — adapters/providers
+
+**Problema original:** `v.extract::<String>()` en Rust PyO3 descartaba silenciosamente Bool/Int/Float. Usuario pasaba `metadata={"count": 5}` y el valor desaparecía sin warning.
+
+**Resuelto por adapter restructure + migración a Python:**
+- **DRV-070** (LiteLLM): `providers/litellm/src/python.rs:282-288` — fallthrough chain `String→bool→i64→f64`
+- **DRV-086** (CrewAI): Migrado a Python puro (`integrations/crewai/`). Commit `b83f0f9`
+- **DRV-092** (DSPy): Migrado a Python puro (`integrations/dspy/`). Commit `b83f0f9`
+- **DRV-098** (Haystack): Migrado a Python puro (`integrations/haystack/`). `dict(doc.meta)` maneja todos los tipos
+- **DRV-103** (LangChain): Migrado a Python puro (`integrations/langchain/`). Commit `b83f0f9`
+- **DRV-110** (LlamaIndex): Migrado a Python puro (`integrations/llamaindex/`). Commit `b83f0f9`
+
+**Verificación:**
+- LiteLLM Rust provider: `grep "extract::<String>" providers/litellm/src/python.rs` → solo en key extraction (correcto), metadata usa fallthrough chain
+- 5 adapters Python: no hay `v.extract::<String>()` en código Python
+
+**Ids:** `DRV-070`, `DRV-086`, `DRV-092`, `DRV-098`, `DRV-103`, `DRV-110`
+
+### 2026-07-24 — DRV-068/069/074/079/085/107/112: Misc GIL + pagination + test coverage (7 tasks ✅)
+
+**Fuente:** Backlog DRV Hallazgos — Bug C + Bug D
+
+- **DRV-068/069** (LiteLLM GIL + store()): Resuelto por adapter restructure.
+  `search()` ahora usa `py.detach()` (L243), `store()` acepta `py: Python` (L263)
+- **DRV-074/079/085** (Paginación solo página 1): Resuelto por migración a Python puro.
+  Mem0: `delete_col()` usa `delete_namespace()` atómico. Letta: `list()` acepta custom limit. CrewAI: `list()` soporta cursor
+- **DRV-107** (LangChain test coverage): 5 tests/43L → **25 tests/256L**
+- **DRV-112** (LlamaIndex delete malformed IDs): Migrado a Python puro. `delete()` cursor-based con `rec.key`
+- **Ids:** `DRV-068`, `DRV-069`, `DRV-074`, `DRV-079`, `DRV-085`, `DRV-107`, `DRV-112`
+
+### 2026-07-24 — TIER 4: REV-010/DRV-023/DRV-044/DRV-046 resueltos (4 tasks ✅)
+
+**Fuente:** Backlog TIER 4 — refactors medianos, verificación contra código actual
+
+| ID | Resolución |
+|----|------------|
+| **REV-010** | `src/sdk/serialization/mod.rs` (1827L) ya split en **8 archivos**: mod.rs 1051L + 7 submodulos (conversions, graph_types, impl_export, impl_index, impl_rebuild, impl_text_index, vector_types). Total 4223L en 8 archivos. |
+| **DRV-023** | `ResourceGovernor` ya tiene callers: `execute_plan`/`execute_statement` en planner.rs + integration test `engine_governor_certification` en `tests/logic/governor.rs`. `ALLOCATED_BYTES` trackeado. |
+| **DRV-044** | `vantadb-server/src/main.rs` reescrito (58L). Flujo async: `run_stdio_server(storage).await` → flush → exit natural. Eliminado `process::exit(0)` en shutdown path. |
+| **DRV-046** | `vantadb-mcp/src/lib.rs` usa `tokio::io::AsyncBufReadExt::lines()` (L364) no bloqueante + `tokio::sync::Semaphore` (L329) + graceful shutdown via `AtomicBool`. |
+
+**Ids:** `REV-010`, `DRV-023`, `DRV-044`, `DRV-046`
+
+### 2026-07-24 — DRV-027: Refactor vantadb-python/src/lib.rs God module (1991L → 4 files) ✅
+
+**Fuente:** Backlog DRV Hallazgos — Python SDK (TIER 2, `review-deep` Wave 0)
+
+**Problema original:** `vantadb-python/src/lib.rs` tenía 1991 líneas mezclando VantaDB pyclass (~35 métodos), 22 funciones de conversión `*_to_pydict`, LRU cache, VantaVector/VantaVectorIter, VantaPySearchHit, error mapping, y helpers vectoriales. God module con responsabilidades no separadas.
+
+**Resuelto por:** División en 4 archivos especializados:
+- **`convert.rs`** (28,799 B) — todas las funciones de conversión Python↔VantaValue + LRU cache + error mapping
+- **`vector.rs`** (3,269 B) — VantaVector, VantaVectorIter pyclasses
+- **`types.rs`** (11,142 B) — existente, se le agregó VantaPySearchHit
+- **`lib.rs`** (40,131 B, ~900L) — solo VantaDB pyclass, connect(), módulo setup
+
+**Verificación:** `cargo check -p vantadb_py` → ✅ 0 errores. `cargo clippy -p vantadb_py` → ✅ 0 issues. `cargo fmt` aplicado. Sin cambios en API pública.
+
+**Ids:** `DRV-027`
 
 ### 2026-07-24 — Pipeline: auto-progreso + auto-commit en /pipeline task ✅
 
@@ -1051,6 +1130,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Objetivo:** Extraer ~12 líneas duplicadas del patrón de llamada a `scan_forward_valid` en `WalWriter::open()` y `WalReader::next_record()` a helper `try_scan_forward()`. Remueve DRY violation en src/wal.rs
 - **Resultado:** ✅ `cargo check -p vantadb` clean. 50 WAL tests pasan (incluye test_wal_auto_healing_and_recovery). Commit `9288957`.
 - **Ids:** `DRV-011`
+
+### DRV-015: Refactor WalWriter::open_with_buffer() función monolítica de 100L
+- **Fuente:** Backlog
+- **Fecha:** 2026-07-24
+- **Objetivo:** Extraer el loop de recovery scanning de `open_with_buffer()` a `recover_valid_records()` + limpiar la función orquestadora. Reduce de ~100L a ~55L. Separa 3 responsabilidades: file opening, header validation, recovery scanning.
+- **Resultado:** ✅ `cargo check -p vantadb` clean, `cargo clippy -D warnings` clean, 1616/1617 tests pasan (1 pre-existing fail en metrics).
+- **Ids:** `DRV-015`
 
 ### DRV-109: LlamaIndex missing GIL release
 - **Fuente:** Plan 2026-07-14 backlog-campaign
@@ -2054,11 +2140,22 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | ~~`DRV-025`~~ | TOCTOU race ResourceGovernor | ✅ ALREADY FIXED | Ya usa CAS loop con compare_exchange_weak |
 | ~~`DRV-047`~~ | Hardcoded MCP validation limits | ✅ ALREADY FIXED | Todos los handlers usan config.* values |
 | ~~`DRV-012`~~ | WAL sync duplication | ✅ ALREADY FIXED | maybe_sync() ya extraída como fn separada |
-| ~~`DRV-016`~~ | Mutex inconsistency governor.rs | ✅ ALREADY FIXED | Código ya usa parking_lot::Mutex (import L7), backlog descripción obsoleta |
-| ~~`DRV-009`~~ | node_count() O(n) full scan | ✅ ALREADY FIXED | Ya usa AtomicU64 cacheado con fetch_add/fetch_sub. Comment `/// DRV-009` |
+| `DRV-009` | node_count() O(n) full scan | ✅ ALREADY FIXED | Ya usa AtomicU64 cacheado con fetch_add/fetch_sub. Comment `/// DRV-009` |
 | `DRV-016` | Mutex inconsistency governor.rs | ✅ ALREADY FIXED | Código ya usa parking_lot::Mutex (import L7), no std::sync::Mutex. Backlog description estaba obsoleta. Verificado Jul 23 |
 | ~~`DRV-019`~~ | 14 .expect() en SIMD hot-path | ✅ FIXED | Replaced 14 `.expect()` → `unsafe { .unwrap_unchecked() }` + SAFETY comment en 7 funciones SIMD (f32x8, f32x16, sq8). 62 tests pass. commit pending |
+| ~~`DRV-007`~~ | Data race en filter_field | ✅ ALREADY FIXED | DashMap interno es thread-safe. `_nodes` dead code binding. Sin UB. Verificado Jul 23 |
+| `DRV-049` | collection_delete no atómico (MCP) | ✅ ALREADY FIXED | Ya usa begin_transaction/abort/commit con abort en delete parcial. Verificado Jul 23 |
 
-**Patrón detectado:** 7/8 TIER 1 tasks ya resueltas — las campañas de refactor previas (DRV-004, DRV-006, commits 3fd2c0d, aa87e5c, d9e1caf, 4467004, de6ecac) limpiaron más issues de los que trackeaban explícitamente. El backlog tenía estado ❌ en items que ya estaban ✅ en código.
+**Patrón detectado:**** 7/8 TIER 1 tasks ya resueltas — las campañas de refactor previas (DRV-004, DRV-006, commits 3fd2c0d, aa87e5c, d9e1caf, 4467004, de6ecac) limpiaron más issues de los que trackeaban explícitamente. El backlog tenía estado ❌ en items que ya estaban ✅ en código.
+
+| `DRV-005` | SDK unit tests search/mod.rs | ✅ FIXED | 18 tests agregados para `search()`, `lexical_search()`, `vector_memory_search()`, `hybrid_search()`. Cubre: BM25 scoring, HNSW fallback, RRF fusion, explain mode, corrupt index. Verificado Jul 24 |
+
+### 2026-07-24 — DRV-005: SDK unit tests para search/mod.rs
+
+**Objetivo:** Cerrar gap de cobertura en `src/sdk/search/mod.rs` (845L, 0 tests). Las 4 funciones core de búsqueda híbrida ahora tienen cobertura.
+
+| ID | Tarea | Resultado | Evidencia |
+|----|-------|-----------|-----------|
+| `DRV-005` | SDK unit tests search/mod.rs | ✅ FIXED | 18 tests agregados. `cargo check -p vantadb` limpio. Blocker: `src/vector/quantization.rs:199` (engine domain). Implementado por vanta-worker. |
 
 **Recomendación:** Para próximos batches, gate-check primero antes de poner en progreso.

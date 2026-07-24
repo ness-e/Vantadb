@@ -678,14 +678,14 @@ mod tests {
             supports_manual_compaction: true,
             kind: BackendKind::RocksDb,
         };
-        assert_eq!(all_false.supports_checkpoint, false);
-        assert_eq!(all_false.supports_manual_compaction, false);
-        assert_eq!(all_true.supports_checkpoint, true);
-        assert_eq!(all_true.supports_manual_compaction, true);
-        assert_eq!(checkpoint_only.supports_checkpoint, true);
-        assert_eq!(checkpoint_only.supports_manual_compaction, false);
-        assert_eq!(compaction_only.supports_checkpoint, false);
-        assert_eq!(compaction_only.supports_manual_compaction, true);
+        assert!(!all_false.supports_checkpoint);
+        assert!(!all_false.supports_manual_compaction);
+        assert!(all_true.supports_checkpoint);
+        assert!(all_true.supports_manual_compaction);
+        assert!(checkpoint_only.supports_checkpoint);
+        assert!(!checkpoint_only.supports_manual_compaction);
+        assert!(!compaction_only.supports_checkpoint);
+        assert!(compaction_only.supports_manual_compaction);
     }
 
     #[test]
@@ -697,7 +697,7 @@ mod tests {
         };
         let b = a; // Copy, not move
         assert_eq!(a, b); // Both still usable
-        let c = a.clone();
+        let c = a;
         assert_eq!(a, c);
     }
 

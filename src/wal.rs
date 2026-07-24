@@ -213,14 +213,11 @@ impl WalWriter {
             .open(&path)?;
 
         let file_len = file.metadata()?.len();
-        let bytes_written;
-        let mut record_count = 0u64;
-
-        if file_len == 0 {
+        let (bytes_written, record_count) = if file_len == 0 {
             let header = WalHeader::new(1);
             file.write_all(&header.serialize())?;
             file.flush()?;
-            bytes_written = WalHeader::SIZE as u64;
+            (WalHeader::SIZE as u64, 0u64)
         } else {
             // Read the existing header
             let mut header_bytes = [0u8; WalHeader::SIZE];
@@ -228,70 +225,21 @@ impl WalWriter {
             file.read_exact(&mut header_bytes)?;
             let _header = WalHeader::deserialize(&header_bytes)?;
 
-            // Scan to count valid records and detect tail or mid-file corruption (Scan-Forward Auto-healing)
-            let mut valid_bytes_limit = WalHeader::SIZE as u64;
-            {
-                let mut file_handle = File::open(&path)?;
-                let mut current_offset = WalHeader::SIZE as u64;
+            let (valid_end, count) = recover_valid_records(&path, file_len)?;
 
-                loop {
-                    if current_offset >= file_len {
-                        break;
-                    }
-                    if file_handle.seek(SeekFrom::Start(current_offset)).is_err() {
-                        break;
-                    }
-                    let mut len_buf = [0u8; 4];
-                    if file_handle.read_exact(&mut len_buf).is_err() {
-                        break;
-                    }
-                    let len = u32::from_le_bytes(len_buf) as u64;
-
-                    let is_valid = check_record_at(&mut file_handle, current_offset, file_len);
-
-                    if is_valid {
-                        record_count += 1;
-                        current_offset += 4 + len + 4;
-                        valid_bytes_limit = current_offset;
-                    } else {
-                        // Entering Scan-Forward mode (scan forward byte by byte)
-                        warn!(
-                            path = %path.display(),
-                            offset = current_offset,
-                            "Corrupt record detected in WAL. Entering Scan-Forward mode to locate next valid transaction..."
-                        );
-
-                        if let Some(found) =
-                            scan_forward_valid(&mut file_handle, file_len, current_offset)
-                        {
-                            warn!(
-                                path = %path.display(),
-                                skipped_corrupt_bytes = found - current_offset,
-                                recovered_offset = found,
-                                "Successfully bypassed corrupt segment and recovered next transaction."
-                            );
-                            current_offset = found;
-                        } else {
-                            // No more valid records in the file. Corruption is tail/truncated.
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if file_len > valid_bytes_limit {
+            if file_len > valid_end {
                 warn!(
                     path = %path.display(),
                     expected_len = file_len,
-                    valid_len = valid_bytes_limit,
+                    valid_len = valid_end,
                     "Truncating corrupt or incomplete records at the end of WAL"
                 );
-                file.set_len(valid_bytes_limit)?;
+                file.set_len(valid_end)?;
             }
 
-            bytes_written = valid_bytes_limit;
-            file.seek(SeekFrom::Start(bytes_written))?;
-        }
+            file.seek(SeekFrom::Start(valid_end))?;
+            (valid_end, count as u64)
+        };
 
         let buffer_size = buffer_size.clamp(KIB, 32 * 1024 * KIB);
 
@@ -476,6 +424,67 @@ fn scan_forward_valid<R: Read + Seek>(
     None
 }
 
+/// Try to scan forward past corruption. Logs a warning and returns the found position,
+/// or `None` if no valid record remains in the file.
+fn try_scan_forward<R: Read + Seek>(
+    reader: &mut R,
+    file_len: u64,
+    current_pos: u64,
+) -> Option<u64> {
+    let found = scan_forward_valid(reader, file_len, current_pos)?;
+    warn!(
+        corrupt_bytes_skipped = found - current_pos,
+        recovered_offset = found,
+        "Scan-forward bypassed corrupt bytes and recovered next transaction."
+    );
+    Some(found)
+}
+
+/// Scan an existing WAL file to find the end of valid records and count them.
+/// Handles mid-file corruption via Scan-Forward recovery. Returns `(valid_bytes_end, record_count)`.
+fn recover_valid_records(path: &Path, file_len: u64) -> Result<(u64, usize)> {
+    let mut file_handle = File::open(path)?;
+    let mut valid_bytes_limit = WalHeader::SIZE as u64;
+    let mut record_count = 0usize;
+    let mut current_offset = WalHeader::SIZE as u64;
+
+    loop {
+        if current_offset >= file_len {
+            break;
+        }
+        if file_handle.seek(SeekFrom::Start(current_offset)).is_err() {
+            break;
+        }
+        let mut len_buf = [0u8; 4];
+        if file_handle.read_exact(&mut len_buf).is_err() {
+            break;
+        }
+        let len = u32::from_le_bytes(len_buf) as u64;
+
+        let is_valid = check_record_at(&mut file_handle, current_offset, file_len);
+
+        if is_valid {
+            record_count += 1;
+            current_offset += 4 + len + 4;
+            valid_bytes_limit = current_offset;
+        } else {
+            warn!(
+                path = %path.display(),
+                offset = current_offset,
+                "Corrupt record detected in WAL. Entering Scan-Forward mode to locate next valid transaction..."
+            );
+
+            if let Some(found) = try_scan_forward(&mut file_handle, file_len, current_offset) {
+                current_offset = found;
+            } else {
+                break;
+            }
+        }
+    }
+
+    Ok((valid_bytes_limit, record_count))
+}
+
 // ─── WAL Reader ────────────────────────────────────────────
 
 /// Sequential WAL reader for crash recovery.
@@ -579,15 +588,9 @@ impl WalReader {
                     "WalReader detected corrupt record. Scanning forward to recover next valid transaction..."
                 );
 
-                if let Some(found) = scan_forward_valid(&mut self.reader, file_len, current_pos) {
-                    warn!(
-                        corrupt_bytes_skipped = found - current_pos,
-                        recovered_offset = found,
-                        "WalReader successfully bypassed corrupt bytes and resumed recovery."
-                    );
+                if let Some(found) = try_scan_forward(&mut self.reader, file_len, current_pos) {
                     self.reader.seek(SeekFrom::Start(found))?;
                 } else {
-                    // No more valid records in the entire file, actual end of stream
                     return Ok(None);
                 }
             }

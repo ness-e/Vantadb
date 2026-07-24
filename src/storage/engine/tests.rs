@@ -722,7 +722,7 @@ mod tests {
     #[test]
     fn test_batch_insert_multiple() {
         let engine = in_memory_engine();
-        let nodes: Vec<UnifiedNode> = (1..=5).map(|i| sample_node(i)).collect();
+        let nodes: Vec<UnifiedNode> = (1..=5).map(sample_node).collect();
         engine.batch_insert(&nodes).expect("batch_insert multiple");
         for i in 1..=5 {
             let retrieved = engine.get(i).expect("get").unwrap();
@@ -1821,10 +1821,7 @@ mod tests {
         let stats = engine.get_memory_stats();
         assert!(stats.logical_bytes > 0, "logical bytes should be > 0");
         // Node count should still be > 0 (persisted in HNSW backend)
-        assert!(
-            stats.node_count > 0 || stats.node_count == 0,
-            "node_count valid"
-        );
+        assert!(stats.node_count >= 0, "node_count valid");
         // The evicted node is removed from volatile cache
         assert_eq!(
             stats.cache_entries, 0,
@@ -2107,7 +2104,7 @@ mod tests {
             ..VantaConfig::default()
         };
         let result = StorageEngine::guard_write_allowed(&config);
-        let err = result.err().expect("should error");
+        let err = result.expect_err("should error");
         let msg = err.to_string();
         assert!(
             msg.contains("read-only") || msg.contains("read_only"),
@@ -2271,7 +2268,7 @@ mod tests {
         let a = EvictionReason::Watermark;
         let b = a;
         assert_eq!(a, b);
-        let c = a.clone();
+        let c = a;
         assert_eq!(a, c);
     }
 
@@ -2298,7 +2295,7 @@ mod tests {
         };
         let b = a;
         assert_eq!(a.evicted, b.evicted);
-        let c = a.clone();
+        let c = a;
         assert_eq!(a.reason, c.reason);
     }
 
@@ -2636,12 +2633,12 @@ mod tests {
         assert_eq!(FLAG_TOMBSTONE, 0x8);
         assert_eq!(MIB, 1024 * 1024);
         assert_eq!(GIB, 1024 * 1024 * 1024);
-        assert!(STORAGE_ALIGNMENT >= 1);
+        const { assert!(STORAGE_ALIGNMENT >= 1) };
     }
 
     #[test]
     fn test_hnsw_batch_size_default() {
-        assert!(HNSW_BATCH_SIZE > 0);
+        const { assert!(HNSW_BATCH_SIZE > 0) };
     }
 
     // ─── OPS.RS edge cases: get() ────────────────────────────
@@ -3092,7 +3089,7 @@ mod tests {
     #[test]
     fn test_batch_insert_preserves_data_after_flush() {
         let engine = in_memory_engine();
-        let nodes: Vec<UnifiedNode> = (1..=3).map(|i| sample_node(i)).collect();
+        let nodes: Vec<UnifiedNode> = (1..=3).map(sample_node).collect();
         engine.batch_insert(&nodes).expect("batch_insert");
         engine.flush().expect("flush");
         for i in 1..=3 {
@@ -3875,7 +3872,7 @@ mod tests {
         let report = engine
             .evict_cold_nodes_with_reason(1.0, EvictionReason::Oom)
             .expect("evict OOM");
-        assert!(report.evicted > 0 || report.evicted == 0);
+        assert!(report.evicted >= 0);
         assert_eq!(report.reason, EvictionReason::Oom);
 
         // Verify the governor is still intact after the call
@@ -3942,7 +3939,7 @@ mod tests {
 
     #[test]
     fn test_storage_alignment_sane_value() {
-        assert!(STORAGE_ALIGNMENT >= 1);
+        const { assert!(STORAGE_ALIGNMENT >= 1) };
         assert_eq!(
             STORAGE_ALIGNMENT % 8,
             0,

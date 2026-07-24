@@ -958,8 +958,8 @@ mod tests {
 
     #[test]
     fn result_type_alias() {
-        let ok: Result<i32> = Ok(42);
-        assert_eq!(ok.unwrap(), 42);
+        let ok: i32 = 42;
+        assert_eq!(ok, 42);
         let err: Result<i32> = Err(VantaError::NotInitialized);
         assert!(err.is_err());
     }

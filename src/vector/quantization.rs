@@ -196,7 +196,7 @@ mod tests {
         // bits for indices 0, 2, 5 → 0b_10_0101 = 37
         let packed = rabitq_quantize(&data);
         assert_eq!(packed.len(), 1);
-        assert_eq!(packed[0], 0b_10_0101);
+        assert_eq!(packed[0], 0b100101u64);
     }
 
     #[test]
@@ -686,7 +686,7 @@ mod tests {
         // For binary quantization, the similarity approximates angular cosine.
         // It should be in [0, 1] and directionally consistent.
         assert!(
-            sim_q >= 0.0 && sim_q <= 1.0,
+            (0.0..=1.0).contains(&sim_q),
             "RaBitQ similarity should be in [0, 1], got {sim_q}"
         );
     }
@@ -716,7 +716,7 @@ mod tests {
 
         // Manual reconstruction from packed nibbles
         let mut reconstructed = Vec::with_capacity(original.len());
-        for (_i, &byte) in packed.iter().enumerate() {
+        for &byte in packed.iter() {
             if reconstructed.len() >= original.len() {
                 break;
             }

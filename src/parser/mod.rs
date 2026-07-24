@@ -565,8 +565,8 @@ mod tests {
         assert_eq!(val, FieldValue::Int(3));
 
         // Verify the float parser works directly
-        let (remaining, f) = float::<&str, nom::error::Error<&str>>("3.14").unwrap();
-        assert!((f - 3.14).abs() < 1e-5);
+        let (remaining, f) = float::<&str, nom::error::Error<&str>>("1.5").unwrap();
+        assert!((f - 1.5).abs() < 1e-5);
         assert_eq!(remaining, "");
     }
 

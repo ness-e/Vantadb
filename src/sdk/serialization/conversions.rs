@@ -245,9 +245,9 @@ mod tests {
 
     #[test]
     fn test_vanta_value_to_field_value_float() {
-        let vv = VantaValue::Float(3.14);
+        let vv = VantaValue::Float(1.5);
         let fv: FieldValue = vv.into();
-        assert_eq!(fv, FieldValue::Float(3.14));
+        assert_eq!(fv, FieldValue::Float(1.5));
     }
 
     #[test]
@@ -326,9 +326,9 @@ mod tests {
 
     #[test]
     fn test_field_value_to_vanta_value_float() {
-        let fv = FieldValue::Float(2.718);
+        let fv = FieldValue::Float(1.5);
         let vv: VantaValue = fv.into();
-        assert_eq!(vv, VantaValue::Float(2.718));
+        assert_eq!(vv, VantaValue::Float(1.5));
     }
 
     #[test]

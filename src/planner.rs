@@ -695,7 +695,7 @@ mod tests {
             values.push(node.relational.get("val").cloned());
             // Project should remove the "name" field
             assert!(
-                node.relational.get("name").is_none(),
+                !node.relational.contains_key("name"),
                 "project should remove non-projected fields"
             );
         }

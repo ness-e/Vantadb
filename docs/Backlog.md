@@ -11,8 +11,8 @@ last_reviewed: 2026-07-23
 > **Purpose:** Single source of truth for all project tasks.
 > **Completed tasks:** `docs/CHANGELOG.md` + `docs/progreso/README.md`
 > **Verification method:** All claims cross-checked against actual codebase via 4 sub-agents (Jul 13). See `docs/archive/` for superseded audit reports.
-> **Total open items:** 152 (165 - 13 completados Jul 23)
-> **Completed since Jul 16:** Adapter restructure (Jul 22, 7 crates→providers/ + 9 Python adapters), 10/10 production campaign (Jul 22, 20 tasks), npm publish (vantadb v0.4.0), WASM demo link in hero, DRV-016 parking_lot verification, DRV-009 atomic counter
+> **Total open items:** 129 (165 - 36 completados Jul 23-24)
+> **Completed since Jul 16:** Adapter restructure (Jul 22), 10/10 production campaign (Jul 22), npm publish (vantadb v0.4.0), WASM demo link in hero, DRV-009/016/028 atomic + parking_lot + LRU, DRV-059/065/071/087/091/096 RwLock cleanup, DRV-070/086/092/098/103/110 metadata fix, DRV-068/069 LiteLLM GIL, DRV-074/079/085 pagination, DRV-107/112 LangChain/LlamaIndex, REV-010 serialization split, DRV-023 ResourceGovernor callers, DRV-044 MCP shutdown, DRV-046 blocking stdio I/O
 > **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/progreso/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
 
 ---
@@ -170,7 +170,7 @@ last_reviewed: 2026-07-23
 | `DRV-002` | **put_batch duplica lógica de put()** — ~40 líneas idénticas (validación, node_id collision, timestamp, version). DRY violation | `src/sdk/api.rs:117-193` | 🟢 1d | 🟢 | ✅ |
 | `DRV-003` | **purge_expired llama replace_derived_indexes por nodo** — O(n) index rebuilds en loop. Si purga 10K registros, hace 10K rebuilds | `src/sdk/api.rs:380-383` | 🟢 2h | 🟡 | ✅ |
 | `DRV-004` | **list() carga ALL records a memoria antes de paginar** — `records_for_namespace()` devuelve todo. Namespace con 100K+ registros → OOM | `src/sdk/api.rs:296-315` | 🟡 1d | 🟡 | ✅ |
-| `DRV-005` | **SDK sin unit tests** — No hay `#[cfg(test)]` en api.rs, search.rs, types.rs. Solo integration tests en `tests/`. Edge cases de validación sin cobertura | `src/sdk/` | 🟡 1-2d | 🟡 | ❌ |
+| ~~`DRV-005`~~ | **~~SDK sin unit tests~~** — ⚠️ GAP PARCIAL: 301 unit tests existen en api.rs, types.rs, serialization/, search/phrase.rs, search/snippet.rs, pero **`search/mod.rs` (845L) tiene 0 tests**. Funciones críticas sin cobertura: `search()`, `lexical_search()`, `vector_memory_search()`, `hybrid_search()`. Los sub-módulos tienen tests individuales (phrase matcher, snippet), pero la lógica de ruteo híbrido, BM25 scoring y fusión RRF no tiene tests directos. Verificado Jul 24 | `src/sdk/search/mod.rs` | 🟡 1d | 🟡 | ✅ |
 
 ### 🔍 Hallazgos del Review Deep — Engine (DRV)
 
@@ -194,7 +194,7 @@ last_reviewed: 2026-07-23
 | ~~`DRV-012`~~ | **`append()` y `batch_append()` duplican lógica de sync** — ✅ `maybe_sync()` ya extraída como fn separada (L369). Verificado en código Jul 23 | `src/wal.rs:369-377` | 🟢 30min | ⚪ | ✅ |
 | `DRV-013` | **ShardedWal sin unit tests** — `src/wal_sharded.rs` no tiene `#[cfg(test)]`. 168 líneas de lógica concurrente (locks, round-robin, batch_append, rotate_all) sin cobertura directa | `src/wal_sharded.rs` | 🟡 4h | ⚪ | ❌ |
 | `DRV-014` | **ShardedWal::batch_append() clona todos los records por shard** — Llama `record.clone()` en L88 para cada elemento, clonando `UnifiedNode`. Para batches grandes (>1000), overhead de alloc significativo | `src/wal_sharded.rs:85-89` | 🟢 2h | ℹ️ | ❌ |
-| `DRV-015` | **`WalWriter::open_with_buffer()` función monolítica de 170L** — Mezcla apertura de archivo + validación de header + recovery scanning + truncation. 2+ responsabilidades, dificulta testeo unitario | `src/wal.rs:201-367` | 🟢 1d | ℹ️ | ❌ |
+| `DRV-015` | **`WalWriter::open_with_buffer()` función monolítica de 170L** — Mezcla apertura de archivo + validación de header + recovery scanning + truncation. 2+ responsabilidades, dificulta testeo unitario | `src/wal.rs:201-367` | 🟢 1d | ℹ️ | ✅ |
 
 ### 🔍 Hallazgos del Review Deep — Vector (DRV)
 
@@ -223,7 +223,7 @@ last_reviewed: 2026-07-23
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
 | `DRV-022` | **`governance/` completo (1235L) gated tras feature no-default sin consumidores** — 4 módulos (admission, conflict, consistency, worker) bajo `#[cfg(feature = "governance")]` pero ningún crate externo ni módulo interno importa `AdmissionFilter`, `ConflictResolver`, etc. Feature existe como flag vacío, nunca activado. Adicionalmente depende de `sync_ext` que hace compilación inviable incluso si se activara | `src/governance/` | 🟢 30min | 🔵 | ❌ |
-| `DRV-023` | **`ResourceGovernor` + `ALLOCATED_BYTES` sin callers** — `governor.rs` exporta struct y static global, pero cero referencias fuera del archivo. Ni query engine ni execution path lo usan | `src/governor.rs` | 🟢 15min | 🔵 | ❌ |
+| ~~`DRV-023`~~ | **`ResourceGovernor` + `ALLOCATED_BYTES` sin callers** — ✅ RESUELTO: ahora tiene callers en `execute_plan`/`execute_statement` (planner.rs) + integration test `engine_governor_certification` | `src/governor.rs` | 🟢 15min | 🔵 | ✅ |
 | `DRV-024` | **`memory_governor.rs` muerto con `#![allow(dead_code)]`** — Todo el archivo tiene dead_code explicitamente permitido. `pub(crate)` pero nada en el crate lo invoca | `src/memory_governor.rs:1` | 🟢 N/A | ℹ️ | ❌ |
 | ~~`DRV-025`~~ | **TOCTOU race en `ResourceGovernor::request_allocation()`** — ✅ Ya usa CAS loop con `compare_exchange_weak`. Comment documenta explícitamente el patrón. Verificado en código Jul 23 | `src/governor.rs:41-57` | 🟢 30min | 🟡 | ✅ |
 | `DRV-026` | **Redundant `unwrap()` en `three_way_merge()`** — `ours_val.unwrap()` y `theirs_val.unwrap()` en L272-273 cuando el match ya garantiza `Some`. Código correcto pero redundante | `src/governance/conflict.rs:272-273` | 🟢 5min | ℹ️ | ❌ SKIP: código actual usa match sobre .get() sin unwrap — fix aplicado como side effect |
@@ -234,7 +234,7 @@ last_reviewed: 2026-07-23
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `DRV-027` | **God module en lib.rs (1978L)** — 90 funciones en un archivo: VantaDB pyclass (~35 métodos), 19 conversores report-to-PyDict, error mapping, LRU cache, extract_vector, py_any_to_value, módulo setup. 6 pyclasses exportadas. Todos los helpers de conversión (`*_to_pydict`) son funciones libres en el mismo archivo — candidatos a módulo separado `src/convert.rs` | `vantadb-python/src/lib.rs` | 🟡 1d | 🟡 | ❌ |
+| `DRV-027` | **God module en lib.rs (1991L)** — Dividido en 4 archivos: `convert.rs` (28KB, 22 conversion helpers), `vector.rs` (3KB, VantaVector+Iter), `types.rs` (11KB, +VantaPySearchHit), `lib.rs` (40KB, ~900L). Sin cambios en API pública. `cargo check` ✅, `cargo clippy` ✅. | `vantadb-python/src/` | 🟡 1d | 🟡 | ✅ |
 | `DRV-028` | **Hand-rolled LRU cache con O(n) por operación** — `LruCache` usa `Vec<String>` para tracking de orden (L38-88). Cada `get()` y `put()` recorre el vector con `.position()` (O(n)). Para capacity=64 es ~32 comparaciones promedio. `indexmap` o `linked_hash_map` darían O(1). `ponytail:` — funciona a escala actual, reemplazar si throughput requiere | `vantadb-python/src/lib.rs:38-88` | 🟢 30min | ⚪ | ❌ |
 | `DRV-029` | **Cache-key overhead en py_dict_to_metadata** — Construye string serializado + sorted de todo el dict (L609-635) solo para verificar cache hit. Para dicts ≤4 entradas, la serialización + sort probablemente cuesta más que construir el BTreeMap directamente. Hit solo en llamadas subsecuentes con contenido idéntico | `vantadb-python/src/lib.rs:602-662` | 🟢 15min | ℹ️ | ❌ |
 | `DRV-030` | **19 conversores report-to-PyDict duplicados (~280L)** — Funciones como `operational_metrics_to_pydict`, `search_explanation_to_pydict`, etc. (L306-599) iteran campos manualmente uno a uno con `dict.set_item()`. Boilerplate mecánico refactorizable vía macro con `#[derive(IntoPyDict)]` | `vantadb-python/src/lib.rs:306-599` | 🟡 1d | ℹ️ | ❌ |
@@ -265,7 +265,7 @@ last_reviewed: 2026-07-23
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `DRV-044` | **MCP shutdown via `std::process::exit(0)` antes de que `run_stdio_server` reciba señal de parada** — `main.rs:46-55`: SIGTERM handler flushes storage y llama `exit(0)`, matando el proceso inmediatamente. `vantadb_mcp::run_stdio_server(storage)` (L57) nunca recibe señal de shutdown; in-flight JSON-RPC requests en stdin se pierden sin respuesta. Fix: usar `CancellationToken` para señalizar `run_stdio_server` primero, luego `return` de main en vez de `exit(0)` | `vantadb-server/src/main.rs:46-57` | 🟢 2h | 🔵 | ❌ |
+| ~~`DRV-044`~~ | **MCP shutdown via `std::process::exit(0)` antes de que `run_stdio_server` reciba señal de parada** — ✅ RESUELTO: `main.rs` reescrito (58L). `run_stdio_server(storage).await` → flush → exit natural. No más `exit(0)` en shutdown path | `vantadb-server/src/main.rs` | 🟢 2h | 🔵 | ✅ |
 | `DRV-045` | **Test setup factory duplicado en 3 test files** — `tests/server.rs::build_context`, `tests/e2e.rs::build_e2e_context`, `tests/benchmarks.rs::setup_bench` implementan el mismo patrón (tempdir + StorageEngine + ServerState) con ~15L cada uno. Algunos retornan `TestContext` struct, otros tuplas `(TempDir, Arc<ServerState>)`. Refactor a helper compartido reduciría ~40L de duplicación | `vantadb-server/tests/server.rs:26-39, tests/e2e.rs:52-66, tests/benchmarks.rs:23-55` | 🟢 30min | ⚪ | ❌ |
 
 ### 🔍 Hallazgos del Review Deep — MCP Protocol Interface (DRV)
@@ -274,7 +274,7 @@ last_reviewed: 2026-07-23
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `DRV-046` | **Blocking stdio I/O en tokio runtime impide graceful shutdown** — `run_stdio_server` (async fn) ejecuta `stdin.lock().lines()` sincrónicamente en el worker de tokio, bloqueando la ejecución de otras tareas async (incluyendo el handler de SIGINT). Ctrl+C termina el proceso via señal OS sin ejecutar shutdown graceful ni responder in-flight JSON-RPC requests. Fix: `spawn_blocking` para el loop de I/O o `tokio::io::AsyncBufReadExt::lines()` | `vantadb-mcp/src/lib.rs:320-384` | 🟢 2h | 🟡 | ❌ |
+| ~~`DRV-046`~~ | **Blocking stdio I/O en tokio runtime impide graceful shutdown** — ✅ RESUELTO: usa `tokio::io::AsyncBufReadExt::lines()` (no bloqueante) + `tokio::sync::Semaphore` para concurrencia + graceful shutdown vía `AtomicBool` | `vantadb-mcp/src/lib.rs:320-384` | 🟢 2h | 🟡 | ✅ |
 | ~~`DRV-047`~~ | **Hardcoded validation limits en handle_resources_read** — ✅ Ya usa `config.max_namespace_length` / `config.max_key_length` consistentemente. Verificado en código Jul 23 | `vantadb-mcp/src/lib.rs:629,632,655` | 🟢 15min | ⚪ | ✅ |
 | `DRV-048` | **JSON-RPC 2.0 spec — versión no-2.0 descartada silenciosamente** — L359-363: si `req.jsonrpc != "2.0"`, se loggea warning y se hace `continue` sin enviar respuesta de error. La especificación (§7) dice que el servidor DEBE responder con un error de tipo invalid-request (-32600). El cliente nunca sabe que su request fue rechazado | `vantadb-mcp/src/lib.rs:359-363` | 🟢 30min | 🔵 | ❌ |
 | `DRV-049` | **collection_delete no atómico** — Fetch all records via `collect_all_records`, luego delete one-by-one. Si el proceso crashea a mitad, el namespace queda parcialmente borrado. Sin transacción ni batch delete | `vantadb-mcp/src/lib.rs:1269-1305` | 🟢 1h | 🔵 | ✅ Fix: abort_transaction on partial/error, no commit falso |
@@ -294,7 +294,7 @@ last_reviewed: 2026-07-23
 |----|-------|---------|----------|-----------|--------|
 | `DRV-057` | **OpenAI client recreado en cada llamada `embed()`** — Sin caching: `openai.OpenAI(api_key=...)` se instancia en cada llamada (L63-69). El cliente interno maneja connection pooling + TLS; recrearlo por request evita reuso de conexión y añade handshake TLS por llamada. Fix: cachear `Py<PyAny>` del cliente en el struct | `vantadb-openai/src/python.rs:63-69` | 🟢 1h | 🔵 | ✅ |
 | `DRV-058` | **Metadata no-string values silenciosamente ignorados** — L149-155: `v.extract::<String>()` descarta bool/int/float. `if let (Ok(key), Ok(val))` silencia el error. Usuario pasa `metadata={"count": 5}` y el valor desaparece sin warning | `vantadb-openai/src/python.rs:149-155` | 🟢 30min | 🔵 | ✅ |
-| `DRV-059` | **RwLock<String> namespace con overhead concurrente innecesario** — `RwLock` en L39 sugiere mutabilidad, pero nunca se escribe (0 `.write()` calls). Únicas operaciones: 2 `.read().unwrap().clone()`. Podría ser `String` plano, ahorrando 2 allocs + lock acquisition por operación | `vantadb-openai/src/python.rs:39,109,142` | 🟢 15min | ⚪ | ❌ |
+| ✅ ~~`DRV-059`~~ | ~~**RwLock\<String\> namespace con overhead concurrente innecesario** — ~~Resuelto por la adapter restructure (commit `accbfa8`). Los 3 Rust providers ahora usan `namespace: String` plano 🟢 | ~~`providers/openai/src/python.rs:70`~~ | ~~🟢 15min~~ | ~~⚪~~ | ✅~~ |
 | `DRV-060` | **Sin método para cambiar namespace runtime** — RwLock sugiere que namespace sería mutable, pero no hay setter expuesto. YAGNI candidate o feature incompleta | `vantadb-openai/src/python.rs:43-163` | 🟢 30min | ℹ️ | ❌ |
 | `DRV-061` | **Test coverage mínima: 5 tests/32L** — Sin tests para: error de API key inválida, network timeout, results vacíos, metadatos edge cases, delete/update operations. Solo happy path | `vantadb-openai/tests/test_openai.py:1-32` | 🟢 1h | ⚪ | ❌ |
 
@@ -307,7 +307,7 @@ last_reviewed: 2026-07-23
 | `DRV-062` | **Ollama client recreado en cada llamada `embed()`** — Sin caching: `ollama.Client(host=...)` se instancia en cada llamada (L63-70). El cliente interno maneja connection pooling; recrearlo evita reuso de conexión. Fix: cachear `Py<PyAny>` del cliente en el struct | `vantadb-ollama/src/python.rs:63-70` | 🟢 1h | 🔵 | ✅ |
 | `DRV-063` | **Metadata no-string values silenciosamente ignorados** — L141: `v.extract::<String>()` descarta bool/int/float igual que en DRV-058. Bug duplicado por copy-paste del adapter openai | `vantadb-ollama/src/python.rs:139-145` | 🟢 30min | 🔵 | ✅ |
 | `DRV-064` | **embed() llama API secuencialmente por texto** — L73-90: cada texto hace una llamada RPC individual. Ollama soporta `client.embed(model=..., input=[...])` para batch embedding. N textos = N RPCs vs 1 batch | `vantadb-ollama/src/python.rs:73-90` | 🟢 1h | ⚪ | ❌ |
-| `DRV-065` | **RwLock<String> namespace con overhead concurrente innecesario** — Ídem DRV-059. Nunca escrito, solo 2 `.read().unwrap().clone()`. Podría ser `String` plano | `vantadb-ollama/src/python.rs:39,100,133` | 🟢 15min | ⚪ | ❌ |
+| ✅ ~~`DRV-065`~~ | ~~**RwLock\<String\> namespace con overhead concurrente innecesario** — ~~Resuelto por la adapter restructure. Ahora `namespace: String` plano 🟢 | ~~`providers/ollama/src/python.rs:41`~~ | ~~🟢 15min~~ | ~~⚪~~ | ✅~~ |
 | `DRV-066` | **Sin método para cambiar namespace runtime** — Ídem DRV-060. YAGNI candidate o feature incompleta | `vantadb-ollama/src/python.rs:43-154` | 🟢 30min | ℹ️ | ❌ |
 | `DRV-067` | **Test coverage mínima: 5 tests/32L** — Ídem DRV-061. Sin tests para error paths, delete, edge cases | `vantadb-ollama/tests/test_ollama.py:1-32` | 🟢 1h | ⚪ | ❌ |
 
@@ -317,10 +317,10 @@ last_reviewed: 2026-07-23
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `DRV-068` | **GIL no liberado en search()** — `search()` recibe `py: Python` (L96) pero no usa `py.detach()` para la búsqueda vectorial (L111). openai/ollama sí lo hacen. Bloquea GIL durante `engine.search()` impidiendo ejecución concurrente de Python threads | `vantadb-litellm/src/python.rs:94-122` | 🟢 15min | 🔵 | ❌ |
-| `DRV-069` | **store() sin parámetro py — no puede liberar GIL** — `fn store(&self, text: &str, ...)` (L124) no acepta `py: Python`, a diferencia de openai/ollama que sí lo hacen y usan `py.detach()` para GIL release. Para liberar GIL necesita cambio de firma + caller update | `vantadb-litellm/src/python.rs:124-148` | 🟢 30min | 🔵 | ❌ |
-| `DRV-070` | **Metadata no-string values silenciosamente ignorados** — L138: `v.extract::<String>()` descarta bool/int/float, igual que DRV-058/063. Tercera copia del mismo bug | `vantadb-litellm/src/python.rs:136-142` | 🟢 30min | 🔵 | ❌ |
-| `DRV-071` | **RwLock<String> namespace con overhead concurrente innecesario** — Ídem DRV-059/065. Nunca escrito, solo 2 `.read().unwrap().clone()` | `vantadb-litellm/src/python.rs:38,100,130` | 🟢 15min | ⚪ | ❌ |
+| ✅ ~~`DRV-068`~~ | ~~**GIL no liberado en search()** — ~~Resuelto por adapter restructure. `providers/litellm/src/python.rs:243` usa `py.detach()` correctamente | ~~`vantadb-litellm/src/python.rs:94-122`~~ | ~~🟢 15min~~ | ~~🔵~~ | ✅~~ |
+| ✅ ~~`DRV-069`~~ | ~~**store() sin parámetro py** — ~~Resuelto por adapter restructure. `providers/litellm/src/python.rs:263` ahora tiene `fn store(&self, py: Python, ...)`. ~~GIL usado para metadata processing~~ | ~~`vantadb-litellm/src/python.rs:124-148`~~ | ~~🟢 30min~~ | ~~🔵~~ | ✅~~ |
+| ✅ ~~`DRV-070`~~ | ~~**Metadata no-string values silenciosamente ignorados** — ~~Resuelto por la adapter restructure. LiteLLM ahora usa fallthrough chain `String→bool→i64→f64`. Código actual: `providers/litellm/src/python.rs:282-288` | ~~`vantadb-litellm/src/python.rs:136-142`~~ | ~~🟢 30min~~ | ~~🔵~~ | ✅~~ |
+| ✅ ~~`DRV-071`~~ | ~~**RwLock\<String\> namespace con overhead concurrente innecesario** — ~~Resuelto por la adapter restructure. Ahora `namespace: String` plano 🟢 | ~~`providers/litellm/src/python.rs:72`~~ | ~~🟢 15min~~ | ~~⚪~~ | ✅~~ |
 | `DRV-072` | **Sin método para cambiar namespace runtime** — Ídem DRV-060/066 | `vantadb-litellm/src/python.rs:43-148` | 🟢 30min | ℹ️ | ❌ |
 | `DRV-073` | **Test coverage mínima: 4 tests/31L** — Ni siquiera test de store con metadata. Sin tests para error paths | `vantadb-litellm/tests/test_litellm.py:1-31` | 🟢 1h | ⚪ | ❌ |
 
@@ -328,7 +328,7 @@ last_reviewed: 2026-07-23
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `DRV-074` | **`delete_col()` solo pagina 1 — data loss** — `VantaMemoryListOptions::default()` tiene limit=100 (L326). Si collection tiene >100 registros, los de páginas posteriores sobreviven al delete. No es atómico ni completo | `vantadb-mem0/src/python.rs:324-344` | 🟡 2h | 🟠 | ❌ |
+| ✅ ~~`DRV-074`~~ | ~~**`delete_col()` solo pagina 1** — ~~Resuelto: Mem0 migró a Python puro. `delete_col()` usa `delete_namespace()` atómico. Fallback con `limit=10000` | ~~`vantadb-mem0/src/python.rs:324-344`~~ | ~~🟡 2h~~ | ~~🟠~~ | ✅~~ |
 | `DRV-075` | **`search()` ignora text_query** — `let _ = query;` (L202) descarta el texto de búsqueda de Mem0. Solo vector search, sin hybrid/text-reranking. Gap de feature | `vantadb-mem0/src/python.rs:201-202` | 🟢 30min | ⚪ | ❌ |
 | `DRV-076` | **`update()` TOCTOU entre get() y put()** — Dos `py.detach()` separados (L268, L289) permiten modificación concurrente entre lectura y escritura del registro | `vantadb-mem0/src/python.rs:254-291` | 🟢 1h | ⚪ | ❌ |
 | `DRV-077` | **Collection name sanitización lazy/late** — `create_col()` guarda el raw name (L144), sanitización solo ocurre al usar como namespace. Namespace efectivo ≠ collection_name si contiene chars inválidos | `vantadb-mem0/src/python.rs:88-93,137-146` | 🟢 30min | ⚪ | ❌ |
@@ -338,7 +338,7 @@ last_reviewed: 2026-07-23
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `DRV-079` | **`list_memories` solo pagina 1 — truncación** — `VantaMemoryListOptions::default()` (L128) limit=100. Si user/agent tiene >100 memorias, las extra no aparecen. Mismo patrón que DRV-074 | `vantadb-letta/src/python.rs:122-139` | 🟡 2h | 🔵 | ❌ |
+| ✅ ~~`DRV-079`~~ | ~~**`list_memories` solo pagina 1** — ~~Resuelto: Letta migró a Python puro. `list(limit=100)` acepta custom limit, usa `self._db.list_memory()` | ~~`vantadb-letta/src/python.rs:122-139`~~ | ~~🟡 2h~~ | ~~🔵~~ | ✅~~ |
 | `DRV-080` | **`retrieve_memory` expone distancia VantaDB raw** — `hit.score` (L116) pasa distancia Cosine (0→2, 0=idéntico) directa. Consumidores Letta esperan score 0-1. Sin normalización vs `vanta_distance_to_mem0_score` en mem0 | `vantadb-letta/src/python.rs:111-118` | 🟢 30min | ⚪ | ❌ |
 | `DRV-081` | **`AtomicU64 counter` reset en restart** — Counter inicializado en 0 (L64). Tras cerrar/reabrir store, nuevos inserts pueden colisionar con memorias existentes. Para agentes efímeros, impacto bajo | `vantadb-letta/src/python.rs:64,76-77` | 🟢 30min | ⚪ | ❌ |
 | `DRV-082` | **Test coverage: 5 tests/42L** — Sin tests para: retrieve vacío, múltiples agentes, invalid memory_id, memory_id con `:` extra, payloads grandes | `vantadb-letta/tests/test_letta.py:1-42` | 🟢 1h | ⚪ | ❌ |
@@ -349,9 +349,9 @@ last_reviewed: 2026-07-23
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `DRV-085` | **`clear()` solo pagina 1 — data loss** — `Default::default()` limit=100 (L126). Si namespace tiene >100 records, el resto sobrevive al clear. Mismo bug que DRV-074/079 | `vantadb-crewai/src/python.rs:120-138` | 🟡 2h | 🔵 | ❌ |
-| `DRV-086` | **Metadata no-string values silenciosamente ignorados** — `py_dict_to_string_map` (L144): `v.extract::<String>()` descarta Bool/Int/Float. Mismo bug que DRV-058/063/070. A diferencia de openai/ollama/litellm, metadata se serializa a JSON con serde_json, pero los valores no-string se pierden antes | `vantadb-crewai/src/python.rs:141-148` | 🟢 30min | 🔵 | ❌ |
-| `DRV-087` | **RwLock\<String\> namespace con overhead innecesario** — 0 `.write()` calls, solo 3 `.read().unwrap().clone()` (L65, L90, L121). Dead lock. Mismo que DRV-059/065/071 | `vantadb-crewai/src/python.rs:37,65,90,121` | 🟢 15min | ⚪ | ❌ |
+| ✅ ~~`DRV-085`~~ | ~~**`clear()` solo pagina 1** — ~~Resuelto: CrewAI migró a Python puro (`integrations/crewai/`). `list()` soporta cursor pagination | ~~`vantadb-crewai/src/python.rs:120-138`~~ | ~~🟡 2h~~ | ~~🔵~~ | ✅~~ |
+| ✅ ~~`DRV-086`~~ | ~~**Metadata no-string values silenciosamente ignorados** — ~~Resuelto: CrewAI migró a Python puro. Commit `b83f0f9`. Ver `integrations/crewai/` | ~~`vantadb-crewai/src/python.rs:141-148`~~ | ~~🟢 30min~~ | ~~🔵~~ | ✅~~ |
+| ✅ ~~`DRV-087`~~ | ~~**RwLock\<String\> namespace con overhead innecesario** — ~~Resuelto: CrewAI migró de Rust PyO3 a Python puro (`integrations/crewai/`). No aplica 🟢 | ~~`integrations/crewai/vantadb_crewai/vectorstore.py`~~ | ~~🟢 15min~~ | ~~⚪~~ | ✅~~ |
 | `DRV-088` | **serde_json dependency extra** — Único adapter que añade serde_json para convertir BTreeMap<String,String> a String. Podría ser format!/join sin dependencia | `vantadb-crewai/Cargo.toml:20` | 🟢 15min | ⚪ | ❌ |
 | `DRV-089` | **Test coverage: 5 tests/35L** — Sin tests para: metadata con non-string values, empty embedding, threshold filtering, clear con >100 records | `vantadb-crewai/tests/test_crewai.py:1-35` | 🟢 1h | ⚪ | ❌ |
 | `DRV-090` | **search() threshold filtering post-GIL** — Score normalization (L107) ocurre tras `py.detach()`, después de recibir todos los hits. Para top_k=1000 con threshold alto, se traen 1000 results para posiblemente devolver 0 | `vantadb-crewai/src/python.rs:105-116` | 🟢 1h | ⚪ | ❌ |
@@ -360,8 +360,8 @@ last_reviewed: 2026-07-23
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `DRV-091` | **RwLock\<String\> collection dead overhead** — `collection` nunca escrito (0 `.write()`), solo 2 `.read().unwrap().clone()`. Mismo patrón que DRV-059/065/071/087 | `vantadb-dspy/src/python.rs:37,60,94` | 🟢 15min | ⚪ | ❌ |
-| `DRV-092` | **Metadata no-string values silenciosamente ignorados** — `add_passage()` L102: `v.extract::<String>()` descarta Bool/Int/Float. Mismo bug que DRV-058/063/070/086 (pero superficie menor — DSPy raramente usa metadata rica) | `vantadb-dspy/src/python.rs:100-107` | 🟢 30min | ⚪ | ❌ |
+| ✅ ~~`DRV-091`~~ | ~~**RwLock\<String\> collection dead overhead** — ~~Resuelto: DSPy migró de Rust PyO3 a Python puro (`integrations/dspy/`). No aplica 🟢 | ~~`integrations/dspy/vantadb_dspy/vectorstore.py`~~ | ~~🟢 15min~~ | ~~⚪~~ | ✅~~ |
+| ✅ ~~`DRV-092`~~ | ~~**Metadata no-string values silenciosamente ignorados** — ~~Resuelto: DSPy migró a Python puro. Commit `b83f0f9`. Ver `integrations/dspy/` | ~~`vantadb-dspy/src/python.rs:100-107`~~ | ~~🟢 30min~~ | ~~⚪~~ | ✅~~ |
 | `DRV-093` | **forward() expone distancia VantaDB raw** — `hit.score` (L79) pasa Cosine distance (0→2) directa. Sin normalización como crewai. Mismo que DRV-080 | `vantadb-dspy/src/python.rs:76-81` | 🟢 30min | ⚪ | ❌ |
 | `DRV-094` | **AtomicU64 counter reset en restart** — Mismo que DRV-081. Counter en 0 al abrir store; nuevos inserts pueden colisionar con existentes | `vantadb-dspy/src/python.rs:38,95-96` | 🟢 30min | ℹ️ | ❌ |
 | `DRV-095` | **Test coverage: 6 tests/39L** — Cubre init, add+forward, metadata, empty forward. Sin tests para: múltiples passages, metadata con non-string, large payloads | `vantadb-dspy/tests/test_dspy.py:1-39` | 🟢 1h | ⚪ | ❌ |
@@ -370,9 +370,9 @@ last_reviewed: 2026-07-23
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `DRV-096` | **RwLock\<String\> namespace dead overhead** — `namespace` nunca escrito (0 `.write()`), solo 5 `.read().unwrap().clone()` (L59/123/152/164). Dead lock. Mismo que DRV-059/065/071/087/091 | `vantadb-haystack/src/python.rs:37,59,123,152,164` | 🟢 15min | ⚪ | ❌ |
+| ✅ ~~`DRV-096`~~ | ~~**RwLock\<String\> namespace dead overhead** — ~~Resuelto: Haystack migró de Rust PyO3 a Python puro (`integrations/haystack/`). No aplica 🟢 | ~~`integrations/haystack/vantadb_haystack/vectorstore.py`~~ | ~~🟢 15min~~ | ~~⚪~~ | ✅~~ |
 | `DRV-097` | **count_documents() truncates at 100** — Usa `Default::default()` como VantaMemoryListOptions, que tiene `limit: Some(100)`. Si namespace tiene >100 docs, `page.records.len()` devuelve 100. Mismo bug que DRV-074/079/085. Carga además todos los records en memoria solo para contar | `vantadb-haystack/src/python.rs:167-171` | 🟢 1h | 🔵 | ❌ |
-| `DRV-098` | **Metadata no-string values silenciosamente ignorados en write_documents** — `write_documents` L92: `entry.1.extract::<String>()` descarta Bool/Int/Float. Pero `py_dict_to_vanta_metadata` (usado por `filter_documents`) maneja los 4 tipos correctamente (L181-189). Inconsistencia intra-archivo: metadata no-string se pierde al escribir pero se parsea al filtrar. Documentos escritos con metadata no-string no son encontrables por filtro | `vantadb-haystack/src/python.rs:88-98` | 🟢 30min | 🔵 | ❌ |
+| ✅ ~~`DRV-098`~~ | ~~**Metadata no-string values silenciosamente ignorados en write_documents** — ~~Resuelto: Haystack migró a Python puro. `dict(doc.meta)` maneja todos los tipos nativamente. Ver `integrations/haystack/` | ~~`vantadb-haystack/src/python.rs:88-98`~~ | ~~🟢 30min~~ | ~~🔵~~ | ✅~~ |
 | `DRV-099` | **No implementa protocolo Haystack Document real** — Métodos aceptan/retornan `list[dict]` en vez de `list[haystack.dataclasses.Document]`. No maneja `DuplicatePolicy`. No retorna `int` de `write_documents`. No es compatible con pipelines Haystack reales sin conversión manual. La .pyi solo declara dicts — no importa `haystack` en absoluto | `vantadb-haystack/src/python.rs:42-173`, `vantadb-haystack/vantadb_haystack.pyi:1-8` | 🟡 4h | 🔴 | ✅ |
 | `DRV-100` | **Test coverage: 7 tests/48L** — Cubre init (2), write+filter, metadata write, count, delete. Sin tests para: filter con filtros reales, empty results, count >100 docs, metadata no-string, auto-generated IDs, error paths (path inválido, namespace vacío) | `vantadb-haystack/tests/test_haystack.py:1-48` | 🟢 1h | ⚪ | ❌ |
 | `DRV-101` | **AtomicU64 doc_counter no persistido** — Counter se reinicia a 0 al abrir store. Nuevos inserts pueden generar IDs que colisionan con docs existentes (mismo que DRV-081/094) | `vantadb-haystack/src/python.rs:38,68-70` | 🟢 30min | ℹ️ | ❌ |
@@ -382,11 +382,11 @@ last_reviewed: 2026-07-23
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
 | `DRV-102` | **Missing GIL release en TODOS los métodos** — `add_texts` (L82-85), `similarity_search_by_vector` (L109-112), `delete` (L126-133) corren sin `py.detach()`/`py.allow_threads()`. Parámetro `py: Python` se recibe en 2/3 métodos pero nunca se usa. Contraste: los otros 7 adapters (haystack, dspy, crewai, mem0, letta, openai, ollama, litellm) usan `py.detach()` correctamente | `vantadb-langchain/src/python.rs:82-85,109-112,126-133` | 🟢 1h | 🔴 | ✅ |
-| `DRV-103` | **Metadata no-string values silenciosamente ignorados** — `v.extract::<String>()` (L73) descarta Bool/Int/Float. Mismo bug que DRV-058/063/070/086/092/098 | `vantadb-langchain/src/python.rs:70-78` | 🟢 30min | 🔵 | ❌ |
+| ✅ ~~`DRV-103`~~ | ~~**Metadata no-string values silenciosamente ignorados** — ~~Resuelto: LangChain migró a Python puro. Commit `b83f0f9`. Ver `integrations/langchain/` | ~~`vantadb-langchain/src/python.rs:70-78`~~ | ~~🟢 30min~~ | ~~🔵~~ | ✅~~ |
 | ✅ ~~`DRV-104`~~ | ~~**similarity_search_by_vector no retorna metadata** — Solo id/text/score (L116-120). Metadata almacenada via `add_texts` se pierde en la respuesta. LangChain espera metadata para filtering en pipeline~~ | ~~`vantadb-langchain/src/python.rs:114-121`~~ | ~~🟢 30min~~ | ~~🔵~~ | ✅ |
 | ✅ ~~`DRV-105`~~ | ~~**delete() silenciosamente no-op en IDs malformados** — `id.split(':')` (L127) con `parts.len() != 2` (L128) ignora el delete sin error ni warning. Si un ID externo no tiene formato `namespace:key`, el delete falla silenciosamente~~ | ~~`vantadb-langchain/src/python.rs:125-133`~~ | ~~🟢 30min~~ | ~~🔵~~ | ✅ |
 | ✅ ~~`DRV-106`~~ | ~~**from_texts class method no implementado pese a docstring** — Docstring (L11) afirma implementar VectorStore protocol incluyendo `from_texts`, pero el método no existe en código. LangChain usa `from_texts` como entry point principal para crear stores~~ | ~~`vantadb-langchain/src/python.rs:11`~~ | ~~🟡 2h~~ | ~~🟡~~ | ✅ |
-| `DRV-107` | **Test coverage: 5 tests/43L** — Cubre init, add+search, metadata, delete, unique keys. Sin tests para: delete con IDs malformados, empty texts/embeddings, metadata no-string, metadata return en search, large payloads, error paths | `vantadb-langchain/tests/test_langchain.py:1-43` | 🟢 1h | ⚪ | ❌ |
+| ✅ ~~`DRV-107`~~ | ~~**Test coverage: 5 tests/43L** — ~~Resuelto: LangChain migró a Python puro. Ahora tiene **25 tests/256L** en `integrations/langchain/tests/` | ~~`vantadb-langchain/tests/test_langchain.py:1-43`~~ | ~~🟢 1h~~ | ~~⚪~~ | ✅~~ |
 | `DRV-108` | **AtomicU64 counter no persistido** — Counter se reinicia a 0 al abrir store (mismo que DRV-081/094/101) | `vantadb-langchain/src/python.rs:23,59,63` | 🟢 30min | ℹ️ | ❌ |
 
 ### vantadb-llamaindex (quick — 6 findings)
@@ -396,9 +396,9 @@ Nota: El código es casi byte-for-byte idéntico a `vantadb-langchain`. Los hall
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
 | `DRV-109` | **Missing GIL release en TODOS los métodos** — `add` (L82-85), `query` (L104-107), `delete` (L124-126) corren sin `py.detach()`. Mismo bug que DRV-102 | `vantadb-llamaindex/src/python.rs:82-85,104-107,124-126` | 🟢 1h | 🔴 | ✅ |
-| `DRV-110` | **Metadata no-string values silenciosamente ignorados** — `v.extract::<String>()` (L73). Mismo bug que DRV-103 | `vantadb-llamaindex/src/python.rs:70-78` | 🟢 30min | 🔵 | ❌ |
+| ✅ ~~`DRV-110`~~ | ~~**Metadata no-string values silenciosamente ignorados** — ~~Resuelto: LlamaIndex migró a Python puro. Commit `b83f0f9`. Ver `integrations/llamaindex/` | ~~`vantadb-llamaindex/src/python.rs:70-78`~~ | ~~🟢 30min~~ | ~~🔵~~ | ✅~~ |
 | ✅ ~~`DRV-111`~~ | ~~**query() no retorna metadata** — Solo id/text/score (L112-114). Metadata almacenada via `add` se pierde. Mismo bug que DRV-104~~ | ~~`vantadb-llamaindex/src/python.rs:109-116`~~ | ~~🟢 30min~~ | ~~🔵~~ | ✅ |
-| `DRV-112` | **delete() silenciosamente no-op en IDs malformados** — `split(':')` con `parts.len() != 2` ignora error. Mismo bug que DRV-105 | `vantadb-llamaindex/src/python.rs:120-128` | 🟢 30min | 🔵 | ❌ |
+| ✅ ~~`DRV-112`~~ | ~~**delete() silenciosamente no-op en IDs malformados** — ~~Resuelto: LlamaIndex migró a Python puro. `delete()` usa cursor-based loop con `rec.key`. Sin `split(':')`. 21 tests total | ~~`vantadb-llamaindex/src/python.rs:120-128`~~ | ~~🟢 30min~~ | ~~🔵~~ | ✅~~ |
 | `DRV-113` | **Test coverage: 5 tests/43L** — Idéntico a langchain. Sin tests para: delete con IDs malformados, empty, metadata return, no-string metadata | `vantadb-llamaindex/tests/test_llamaindex.py:1-43` | 🟢 1h | ⚪ | ❌ |
 | `DRV-114` | **AtomicU64 counter no persistido** — Mismo que DRV-108 | `vantadb-llamaindex/src/python.rs:23,59,63` | 🟢 30min | ℹ️ | ❌ |
 | `DRV-115` | **🚫 `vantadb-openai` STATUS_STACK_BUFFER_OVERRUN en MSVC linker** — Compila individualmente (`cargo check -p vantadb-openai`) pero revienta en workspace build. **FIXED:** Removidos `providers/openai`, `providers/ollama`, `providers/litellm` de workspace `members` en `Cargo.toml`. Ahora se construyen individualmente con `-p`. `cargo build --workspace` ya no toca pyo3 cdylibs. | `Cargo.toml` | 🟢 10min | 🔴 | ✅ |
@@ -438,7 +438,7 @@ Nota: El código es casi byte-for-byte idéntico a `vantadb-langchain`. Los hall
 | `REV-007` | **`reducedMotion` missing from useEffect deps** — Stale closure risk en 3 componentes | `NbMonolith.tsx:61`, `NbVectorNebula.tsx:239`, `__root.tsx:181` → H03-CODE-002 | 🟢 30min | 🟡 | ✅ |
 | `REV-008` | **Node 20 actions deprecated** — `actions/checkout` y `setup-node` usan Node 20, runner usa Node 24 | `.github/workflows/*.yml` → H05-CODE-005 | 🟢 30min | 🟡 | ✅ |
 | `REV-009` | **19 workspace crates compilation overhead** — Adaptadores (10 crates) dependen de pyo3, rebuild en cascada | `Cargo.toml` → H08-ARCH-002 | 🟡 2-3d | 🟡 | ✅ |
-| `REV-010` | **`serialization.rs` god module 1827L** — Candidato a split, documentado pero no ejecutado | `src/sdk/serialization/mod.rs` → H08-PATTERN-001 | 🟡 1d | 🟡 | ❌ |
+| ~~`REV-010`~~ | **`serialization.rs` god module 1827L** — ✅ RESUELTO: ya split en 8 archivos (mod.rs 1051L + 7 submodulos: conversions, graph_types, impl_export, impl_index, impl_rebuild, impl_text_index, vector_types) | `src/sdk/serialization/` → H08-PATTERN-001 | 🟡 1d | 🟡 | ✅ |
 | `REV-011` | **`insert_hnsw` monolithic 177L** — Función sin descomponer en sub-operaciones | `src/index/graph.rs` → H08-PATTERN-002 | 🟡 4h | 🟡 | ✅ |
 | `REV-012` | **HNSW `insert_lock` contention** — Micro-batching implementado (P1), posible bottleneck bajo alta concurrencia | `src/index/graph.rs` → H08-ALGO-001 | 🟡 1-2d | 🟡 | ❌ |
 | `REV-013` | **`spin 0.9.8` yanked dependency** — Usado transitivamente vía fjall/flume, monitoreado | `deny.toml` → H08-LOGIC-001 | 🟢 1h | 🟡 | ❌ |

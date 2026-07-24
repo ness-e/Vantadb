@@ -1468,7 +1468,7 @@ mod tests {
             vec!["test"]
         );
         assert_eq!(FieldValue::Int(42).to_cardinality_keys(), vec!["42"]);
-        assert_eq!(FieldValue::Float(3.14).to_cardinality_keys(), vec!["3.14"]);
+        assert_eq!(FieldValue::Float(42.5).to_cardinality_keys(), vec!["42.5"]);
         assert_eq!(FieldValue::Bool(true).to_cardinality_keys(), vec!["true"]);
         assert_eq!(FieldValue::Null.to_cardinality_keys(), vec!["null"]);
         let dt = chrono::DateTime::parse_from_rfc3339("2024-01-01T00:00:00Z")

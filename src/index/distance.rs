@@ -94,10 +94,12 @@ fn f32_dot_and_norm_b_sq_f32x8(a: &[f32], b: &[f32]) -> (f32, f32) {
     let rem_b = chunks_b.remainder();
     for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
         let va = f32x8::from(
-            *<&[f32; 8]>::try_from(a_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+            // SAFETY: chunks_exact(8) guarantees chunk.len() == 8
+            *unsafe { <&[f32; 8]>::try_from(a_chunk).unwrap_unchecked() },
         );
         let vb = f32x8::from(
-            *<&[f32; 8]>::try_from(b_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+            // SAFETY: chunks_exact(8) guarantees chunk.len() == 8
+            *unsafe { <&[f32; 8]>::try_from(b_chunk).unwrap_unchecked() },
         );
         dot_v += va * vb;
         norm_b_v += vb * vb;
@@ -126,10 +128,12 @@ fn f32_dot_product_f32x8(a: &[f32], b: &[f32]) -> f32 {
     let rem_b = chunks_b.remainder();
     for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
         let va = f32x8::from(
-            *<&[f32; 8]>::try_from(a_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+            // SAFETY: chunks_exact(8) guarantees chunk.len() == 8
+            *unsafe { <&[f32; 8]>::try_from(a_chunk).unwrap_unchecked() },
         );
         let vb = f32x8::from(
-            *<&[f32; 8]>::try_from(b_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+            // SAFETY: chunks_exact(8) guarantees chunk.len() == 8
+            *unsafe { <&[f32; 8]>::try_from(b_chunk).unwrap_unchecked() },
         );
         dot_v += va * vb;
     }
@@ -201,10 +205,12 @@ fn euclidean_distance_sq_f32x8(a: &[f32], b: &[f32]) -> f32 {
     let rem_b = chunks_b.remainder();
     for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
         let va = f32x8::from(
-            *<&[f32; 8]>::try_from(a_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+            // SAFETY: chunks_exact(8) guarantees chunk.len() == 8
+            *unsafe { <&[f32; 8]>::try_from(a_chunk).unwrap_unchecked() },
         );
         let vb = f32x8::from(
-            *<&[f32; 8]>::try_from(b_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+            // SAFETY: chunks_exact(8) guarantees chunk.len() == 8
+            *unsafe { <&[f32; 8]>::try_from(b_chunk).unwrap_unchecked() },
         );
         let diff = va - vb;
         sum_v += diff * diff;
@@ -235,10 +241,12 @@ fn euclidean_distance_sq_f32x16(a: &[f32], b: &[f32]) -> f32 {
     let rem_b = chunks_b.remainder();
     for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
         let va = f32x16::from(
-            *<&[f32; 16]>::try_from(a_chunk).expect("chunks_exact(16) yields 16-element chunks"),
+            // SAFETY: chunks_exact(16) guarantees chunk.len() == 16
+            *unsafe { <&[f32; 16]>::try_from(a_chunk).unwrap_unchecked() },
         );
         let vb = f32x16::from(
-            *<&[f32; 16]>::try_from(b_chunk).expect("chunks_exact(16) yields 16-element chunks"),
+            // SAFETY: chunks_exact(16) guarantees chunk.len() == 16
+            *unsafe { <&[f32; 16]>::try_from(b_chunk).unwrap_unchecked() },
         );
         let diff = va - vb;
         sum_v += diff * diff;
@@ -265,10 +273,12 @@ fn f32_dot_product_f32x16(a: &[f32], b: &[f32]) -> f32 {
     let rem_b = chunks_b.remainder();
     for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
         let va = f32x16::from(
-            *<&[f32; 16]>::try_from(a_chunk).expect("chunks_exact(16) yields 16-element chunks"),
+            // SAFETY: chunks_exact(16) guarantees chunk.len() == 16
+            *unsafe { <&[f32; 16]>::try_from(a_chunk).unwrap_unchecked() },
         );
         let vb = f32x16::from(
-            *<&[f32; 16]>::try_from(b_chunk).expect("chunks_exact(16) yields 16-element chunks"),
+            // SAFETY: chunks_exact(16) guarantees chunk.len() == 16
+            *unsafe { <&[f32; 16]>::try_from(b_chunk).unwrap_unchecked() },
         );
         dot_v += va * vb;
     }
@@ -294,10 +304,12 @@ fn f32_dot_and_norm_b_sq_f32x16(a: &[f32], b: &[f32]) -> (f32, f32) {
     let rem_b = chunks_b.remainder();
     for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
         let va = f32x16::from(
-            *<&[f32; 16]>::try_from(a_chunk).expect("chunks_exact(16) yields 16-element chunks"),
+            // SAFETY: chunks_exact(16) guarantees chunk.len() == 16
+            *unsafe { <&[f32; 16]>::try_from(a_chunk).unwrap_unchecked() },
         );
         let vb = f32x16::from(
-            *<&[f32; 16]>::try_from(b_chunk).expect("chunks_exact(16) yields 16-element chunks"),
+            // SAFETY: chunks_exact(16) guarantees chunk.len() == 16
+            *unsafe { <&[f32; 16]>::try_from(b_chunk).unwrap_unchecked() },
         );
         dot_v += va * vb;
         norm_b_v += vb * vb;
@@ -375,8 +387,8 @@ fn sq8_similarity(
             let rem_s = chunks_s.remainder();
             for (q_chunk, s_chunk) in chunks_q.zip(chunks_s) {
                 let vq = f32x8::from(
-                    *<&[f32; 8]>::try_from(q_chunk)
-                        .expect("chunks_exact(8) yields 8-element chunks"),
+                    // SAFETY: chunks_exact(8) guarantees chunk.len() == 8
+                    *unsafe { <&[f32; 8]>::try_from(q_chunk).unwrap_unchecked() },
                 );
                 let decoded = [
                     (s_chunk[0] as f32) * inv_scale,
@@ -416,8 +428,8 @@ fn sq8_similarity(
             let rem_s = chunks_s.remainder();
             for (q_chunk, s_chunk) in chunks_q.zip(chunks_s) {
                 let vq = f32x8::from(
-                    *<&[f32; 8]>::try_from(q_chunk)
-                        .expect("chunks_exact(8) yields 8-element chunks"),
+                    // SAFETY: chunks_exact(8) guarantees chunk.len() == 8
+                    *unsafe { <&[f32; 8]>::try_from(q_chunk).unwrap_unchecked() },
                 );
                 let decoded = [
                     (s_chunk[0] as f32) * inv_scale,
@@ -1363,7 +1375,7 @@ mod tests {
         let sim = cosine_sim_f32(&a, &b);
         assert!(sim.is_finite(), "similarity should be finite");
         assert!(
-            sim >= -1.0 && sim <= 1.0,
+            (-1.0..=1.0).contains(&sim),
             "similarity should be in [-1, 1], got {}",
             sim
         );

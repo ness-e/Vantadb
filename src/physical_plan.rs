@@ -1019,7 +1019,7 @@ mod tests {
         project.open().unwrap();
         let result = project.next().unwrap().unwrap();
         assert_eq!(result.relational.get("keep"), Some(&FieldValue::Int(42)));
-        assert!(result.relational.get("drop").is_none());
+        assert!(!result.relational.contains_key("drop"));
         project.close().unwrap();
     }
 

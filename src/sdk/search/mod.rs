@@ -843,3 +843,624 @@ impl VantaEmbedded {
         }
     }
 }
+
+#[cfg(test)]
+#[allow(missing_docs)]
+mod tests {
+    use super::*;
+    use crate::node::DistanceMetric;
+    use crate::sdk::connect::connect;
+
+    /// Open an in-memory VantaDB for testing.
+    fn setup() -> VantaEmbedded {
+        connect(":memory:").expect("in-memory db open")
+    }
+
+    /// Insert a single record with optional vector and metadata.
+    fn insert(
+        db: &VantaEmbedded,
+        namespace: &str,
+        key: &str,
+        payload: &str,
+        vector: Option<Vec<f32>>,
+        metadata: VantaMemoryMetadata,
+    ) -> VantaMemoryRecord {
+        let input = VantaMemoryInput {
+            namespace: namespace.into(),
+            key: key.into(),
+            payload: payload.into(),
+            metadata,
+            vector,
+            ttl_ms: None,
+        };
+        db.put(input).expect("put should succeed")
+    }
+
+    // ── empty / edge cases ─────────────────────────────────────
+
+    #[test]
+    fn test_search_empty_no_text_no_vector() {
+        let db = setup();
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            ..Default::default()
+        };
+        let results = db.search(req).expect("search should succeed");
+        assert!(results.is_empty(), "expected empty results");
+    }
+
+    #[test]
+    fn test_search_top_k_zero() {
+        let db = setup();
+        // Even with matching data, top_k=0 short-circuits
+        insert(
+            &db,
+            "test",
+            "k1",
+            "hello world",
+            Some(vec![0.1, 0.2, 0.3]),
+            VantaMemoryMetadata::new(),
+        );
+
+        // Text-only with top_k=0
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            text_query: Some("hello".into()),
+            top_k: 0,
+            ..Default::default()
+        };
+        assert!(db.search(req).unwrap().is_empty());
+
+        // Vector-only with top_k=0
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            query_vector: vec![0.1, 0.2, 0.3],
+            top_k: 0,
+            ..Default::default()
+        };
+        assert!(db.search(req).unwrap().is_empty());
+
+        // Hybrid with top_k=0
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            text_query: Some("hello".into()),
+            query_vector: vec![0.1, 0.2, 0.3],
+            top_k: 0,
+            ..Default::default()
+        };
+        assert!(db.search(req).unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_search_invalid_namespace() {
+        let db = setup();
+        let req = VantaMemorySearchRequest {
+            namespace: "".into(),
+            text_query: Some("hello".into()),
+            ..Default::default()
+        };
+        let err = db.search(req).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("namespace"),
+            "expected namespace error, got: {msg}"
+        );
+    }
+
+    // ── text-only lexical search ───────────────────────────────
+
+    #[test]
+    fn test_search_text_only_matching() {
+        let db = setup();
+        insert(
+            &db,
+            "test",
+            "k1",
+            "hello world welcome",
+            None,
+            VantaMemoryMetadata::new(),
+        );
+        insert(
+            &db,
+            "test",
+            "k2",
+            "hello earth",
+            None,
+            VantaMemoryMetadata::new(),
+        );
+
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            text_query: Some("hello".into()),
+            top_k: 10,
+            ..Default::default()
+        };
+        let results = db.search(req).expect("text search");
+        assert!(!results.is_empty(), "expected hits for 'hello'");
+        // Both records contain "hello"
+        assert_eq!(results.len(), 2, "both records match 'hello'");
+        // BM25 scores should be positive
+        for hit in &results {
+            assert!(
+                hit.score > 0.0,
+                "expected positive BM25 score, got {}",
+                hit.score
+            );
+        }
+    }
+
+    #[test]
+    fn test_search_text_only_no_matches() {
+        let db = setup();
+        insert(
+            &db,
+            "test",
+            "k1",
+            "hello world",
+            None,
+            VantaMemoryMetadata::new(),
+        );
+
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            text_query: Some("goodbye".into()),
+            top_k: 10,
+            ..Default::default()
+        };
+        let results = db.search(req).expect("text search");
+        assert!(results.is_empty(), "expected no hits for 'goodbye'");
+    }
+
+    #[test]
+    fn test_search_text_only_with_filters() {
+        let db = setup();
+        let mut meta_a = VantaMemoryMetadata::new();
+        meta_a.insert("lang".into(), VantaValue::String("en".into()));
+        insert(&db, "test", "k1", "hello world", None, meta_a);
+
+        let mut meta_b = VantaMemoryMetadata::new();
+        meta_b.insert("lang".into(), VantaValue::String("es".into()));
+        insert(&db, "test", "k2", "hola mundo", None, meta_b);
+
+        // Search with filter for lang=en
+        let mut filters = VantaMemoryMetadata::new();
+        filters.insert("lang".into(), VantaValue::String("en".into()));
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            text_query: Some("hello".into()),
+            filters,
+            top_k: 10,
+            ..Default::default()
+        };
+        let results = db.search(req).expect("text search with filter");
+        assert_eq!(results.len(), 1, "expected one hit matching lang=en");
+        assert_eq!(results[0].record.key, "k1");
+    }
+
+    #[test]
+    fn test_search_text_only_filter_no_match() {
+        let db = setup();
+        let mut meta = VantaMemoryMetadata::new();
+        meta.insert("lang".into(), VantaValue::String("en".into()));
+        insert(&db, "test", "k1", "hello world", None, meta);
+
+        let mut filters = VantaMemoryMetadata::new();
+        filters.insert("lang".into(), VantaValue::String("de".into()));
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            text_query: Some("hello".into()),
+            filters,
+            top_k: 10,
+            ..Default::default()
+        };
+        let results = db
+            .search(req)
+            .expect("text search with non-matching filter");
+        assert!(
+            results.is_empty(),
+            "expected no hits with non-matching filter"
+        );
+    }
+
+    // ── vector-only HNSW search ────────────────────────────────
+
+    #[test]
+    fn test_search_vector_only_hnsw() {
+        let db = setup();
+        insert(
+            &db,
+            "test",
+            "k1",
+            "some text",
+            Some(vec![0.1, 0.2, 0.3]),
+            VantaMemoryMetadata::new(),
+        );
+
+        // Search with exact same vector → cosine similarity = 1.0
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            query_vector: vec![0.1, 0.2, 0.3],
+            top_k: 10,
+            distance_metric: DistanceMetric::Cosine,
+            ..Default::default()
+        };
+        let results = db.search(req).expect("vector search");
+        assert_eq!(results.len(), 1, "expected one hit");
+        assert!(
+            results[0].score > 0.99,
+            "expected near-perfect cosine score, got {}",
+            results[0].score
+        );
+    }
+
+    #[test]
+    fn test_search_vector_only_different_ns_no_match() {
+        let db = setup();
+        insert(
+            &db,
+            "ns1",
+            "k1",
+            "some text",
+            Some(vec![0.1, 0.2, 0.3]),
+            VantaMemoryMetadata::new(),
+        );
+
+        // Search in a different namespace → no matches
+        let req = VantaMemorySearchRequest {
+            namespace: "other".into(),
+            query_vector: vec![0.1, 0.2, 0.3],
+            top_k: 10,
+            ..Default::default()
+        };
+        let results = db.search(req).expect("vector search different ns");
+        assert!(
+            results.is_empty(),
+            "expected no hits in different namespace"
+        );
+    }
+
+    #[test]
+    fn test_search_vector_only_with_filters() {
+        let db = setup();
+        let mut meta_a = VantaMemoryMetadata::new();
+        meta_a.insert("type".into(), VantaValue::String("doc".into()));
+        insert(
+            &db,
+            "test",
+            "k1",
+            "text a",
+            Some(vec![0.1, 0.2, 0.3]),
+            meta_a,
+        );
+
+        let mut meta_b = VantaMemoryMetadata::new();
+        meta_b.insert("type".into(), VantaValue::String("image".into()));
+        insert(
+            &db,
+            "test",
+            "k2",
+            "text b",
+            Some(vec![0.1, 0.2, 0.3]),
+            meta_b,
+        );
+
+        let mut filters = VantaMemoryMetadata::new();
+        filters.insert("type".into(), VantaValue::String("doc".into()));
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            query_vector: vec![0.1, 0.2, 0.3],
+            filters,
+            top_k: 10,
+            ..Default::default()
+        };
+        let results = db.search(req).expect("vector search with filter");
+        assert_eq!(results.len(), 1, "expected one hit matching type=doc");
+        assert_eq!(results[0].record.key, "k1");
+    }
+
+    #[test]
+    fn test_search_vector_only_no_matches() {
+        let db = setup();
+        insert(
+            &db,
+            "test",
+            "k1",
+            "text",
+            Some(vec![0.9, 0.8, 0.7]),
+            VantaMemoryMetadata::new(),
+        );
+
+        // Search with a very different vector in an empty namespace
+        let req = VantaMemorySearchRequest {
+            namespace: "empty_ns".into(),
+            query_vector: vec![0.1, 0.2, 0.3],
+            top_k: 10,
+            ..Default::default()
+        };
+        let results = db.search(req).expect("vector search no matches");
+        assert!(results.is_empty(), "expected no hits in empty namespace");
+    }
+
+    // ── hybrid search ──────────────────────────────────────────
+
+    #[test]
+    fn test_search_hybrid_both_text_and_vector() {
+        let db = setup();
+        // Two records, both containing "hello" and having similar vectors
+        insert(
+            &db,
+            "test",
+            "k1",
+            "hello world",
+            Some(vec![0.1, 0.2, 0.3]),
+            VantaMemoryMetadata::new(),
+        );
+        insert(
+            &db,
+            "test",
+            "k2",
+            "hello there",
+            Some(vec![0.11, 0.21, 0.31]),
+            VantaMemoryMetadata::new(),
+        );
+        insert(
+            &db,
+            "test",
+            "k3",
+            "goodbye world",
+            Some(vec![0.9, 0.8, 0.7]),
+            VantaMemoryMetadata::new(),
+        );
+
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            text_query: Some("hello".into()),
+            query_vector: vec![0.1, 0.2, 0.3],
+            top_k: 5,
+            ..Default::default()
+        };
+        let results = db.search(req).expect("hybrid search");
+        assert!(!results.is_empty(), "expected hybrid results");
+        // k1 and k2 match "hello" AND similar vector; k3 only has similar-ish vector
+        assert!(results.len() >= 2, "expected at least 2 hits");
+        // Scores should be positive (RRF and BM25 combine)
+        for hit in &results {
+            assert!(
+                hit.score > 0.0,
+                "expected positive score, got {}",
+                hit.score
+            );
+        }
+        // Top result should be k1 (exact vector match + "hello")
+        assert_eq!(results[0].record.key, "k1");
+    }
+
+    // ── explain mode ───────────────────────────────────────────
+
+    #[test]
+    fn test_search_explain_mode() {
+        let db = setup();
+        insert(
+            &db,
+            "test",
+            "k1",
+            "hello world",
+            Some(vec![0.1, 0.2, 0.3]),
+            VantaMemoryMetadata::new(),
+        );
+
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            text_query: Some("hello".into()),
+            query_vector: vec![0.1, 0.2, 0.3],
+            top_k: 5,
+            explain: true,
+            ..Default::default()
+        };
+        let results = db.search(req).expect("explain search");
+        assert_eq!(results.len(), 1, "expected one hit");
+        let hit = &results[0];
+        assert!(
+            hit.explanation.is_some(),
+            "expected explanation field in explain mode"
+        );
+        if let Some(explanation) = &hit.explanation {
+            assert_eq!(explanation.identity, "test\0k1");
+            assert!(!explanation.matched_tokens.is_empty());
+        }
+    }
+
+    // ── BM25 scoring correctness ───────────────────────────────
+
+    /// BM25 scoring follows the standard formula:
+    ///   IDF = ln(1 + (N - df + 0.5) / (df + 0.5))
+    ///   score = IDF * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * doc_len / avg_doc_len))
+    #[test]
+    fn test_search_bm25_scoring_correctness() {
+        let db = setup();
+        // Insert two records in the same namespace to get N=2
+        insert(
+            &db,
+            "test",
+            "k1",
+            "hello hello world", // "hello" appears twice in k1
+            None,
+            VantaMemoryMetadata::new(),
+        );
+        insert(
+            &db,
+            "test",
+            "k2",
+            "hello foo bar", // "hello" appears once in k2
+            None,
+            VantaMemoryMetadata::new(),
+        );
+
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            text_query: Some("hello".into()),
+            top_k: 10,
+            ..Default::default()
+        };
+        let results = db.search(req).expect("bm25 search");
+        assert_eq!(results.len(), 2, "expected both records");
+
+        // Both hits have positive BM25 scores
+        for hit in &results {
+            assert!(
+                hit.score > 0.0,
+                "expected positive BM25 score, got {}",
+                hit.score
+            );
+        }
+
+        // k1 has "hello" twice and "world" once (3 tokens), k2 has "hello" once and "foo","bar" (3 tokens)
+        // "hello" appears in both documents → df=2 → IDF contributes equally
+        // k1 has tf=2, k2 has tf=1 → k1 should score higher
+        assert_eq!(
+            results[0].record.key, "k1",
+            "k1 has higher tf=2, should rank first"
+        );
+        assert!(
+            results[0].score > results[1].score,
+            "k1 (tf=2) should score higher than k2 (tf=1): {} vs {}",
+            results[0].score,
+            results[1].score
+        );
+    }
+
+    // ── corrupt text index (debug only) ────────────────────────
+
+    #[cfg(debug_assertions)]
+    #[test]
+    fn test_search_corrupt_text_index_state() {
+        let db = setup();
+        insert(
+            &db,
+            "test",
+            "k1",
+            "hello world",
+            None,
+            VantaMemoryMetadata::new(),
+        );
+
+        // Corrupt the text index state so ensure_text_index_query_ready fails
+        db.debug_corrupt_text_index_state_for_tests()
+            .expect("corrupt state");
+
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            text_query: Some("hello".into()),
+            top_k: 10,
+            ..Default::default()
+        };
+        let err = db.search(req).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("text_index") || msg.contains("rebuild_index") || msg.contains("search"),
+            "expected error from corrupt text index, got: {msg}"
+        );
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    fn test_search_cleared_text_index_returns_empty() {
+        let db = setup();
+        insert(
+            &db,
+            "test",
+            "k1",
+            "hello world",
+            None,
+            VantaMemoryMetadata::new(),
+        );
+
+        // Verify text search works before clearing
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            text_query: Some("hello".into()),
+            top_k: 10,
+            ..Default::default()
+        };
+        let before = db.search(req.clone()).expect("search before clear");
+        assert!(
+            !before.is_empty(),
+            "search should work before clearing index"
+        );
+
+        // Clear all text index entries (postings, stats)
+        db.debug_clear_text_index_for_tests()
+            .expect("clear text index");
+
+        // After clearing, lexical search should return empty (no namespace stats)
+        let after = db.search(req).expect("search after clear");
+        assert!(after.is_empty(), "expected empty after clearing text index");
+    }
+
+    // ── empty query_vector (vector path, but empty) ────────────
+
+    #[test]
+    fn test_search_empty_query_vector_with_text() {
+        let db = setup();
+        insert(
+            &db,
+            "test",
+            "k1",
+            "hello world",
+            None,
+            VantaMemoryMetadata::new(),
+        );
+
+        // text_query + empty query_vector → text-only path
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            text_query: Some("hello".into()),
+            query_vector: vec![], // explicitly empty
+            top_k: 10,
+            ..Default::default()
+        };
+        let results = db.search(req).expect("text-only with empty query vector");
+        assert!(!results.is_empty(), "text-only should still work");
+    }
+
+    // ── euclidean distance ─────────────────────────────────────
+
+    #[test]
+    fn test_search_vector_only_euclidean() {
+        let db = setup();
+        insert(
+            &db,
+            "test",
+            "k1",
+            "text",
+            Some(vec![0.1, 0.2, 0.3]),
+            VantaMemoryMetadata::new(),
+        );
+        insert(
+            &db,
+            "test",
+            "k2",
+            "text",
+            Some(vec![0.9, 0.8, 0.7]),
+            VantaMemoryMetadata::new(),
+        );
+
+        let req = VantaMemorySearchRequest {
+            namespace: "test".into(),
+            query_vector: vec![0.1, 0.2, 0.3],
+            top_k: 5,
+            distance_metric: DistanceMetric::Euclidean,
+            ..Default::default()
+        };
+        let results = db.search(req).expect("euclidean search");
+        // HNSW internally uses Cosine; Euclidean metric conversion only
+        // applies in the brute-force fallback path. At minimum verify that
+        // results are returned and ordered correctly.
+        assert!(!results.is_empty(), "expected hits for euclidean");
+        // k1 vector [0.1,0.2,0.3] is identical to query, k2 is further
+        assert_eq!(
+            results[0].record.key, "k1",
+            "k1 has identical vector to query"
+        );
+    }
+}

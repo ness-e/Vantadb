@@ -1069,16 +1069,20 @@ mod tests {
 
     #[test]
     fn flat_threshold_roundtrip() {
-        let mut config = HnswConfig::default();
-        config.flat_threshold = Some(5000);
+        let config = HnswConfig {
+            flat_threshold: Some(5000),
+            ..Default::default()
+        };
         let index = CPIndex::new_with_config(config);
         let data = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&data, true).unwrap();
         assert_eq!(deser.config.flat_threshold, Some(5000));
 
         // None roundtrip
-        let mut config2 = HnswConfig::default();
-        config2.flat_threshold = None;
+        let config2 = HnswConfig {
+            flat_threshold: None,
+            ..Default::default()
+        };
         let index2 = CPIndex::new_with_config(config2);
         let data2 = index2.serialize_to_bytes();
         let deser2 = CPIndex::deserialize_from_bytes(&data2, true).unwrap();
@@ -1091,7 +1095,7 @@ mod tests {
             std::env::temp_dir().join(format!("vantadb_ser_test_corrupt_{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join("corrupt.bin");
-        std::fs::write(&path, &[0u8; 32]).unwrap();
+        std::fs::write(&path, [0u8; 32]).unwrap();
         let result = CPIndex::load_from_file(&path, false);
         assert!(result.is_none());
         let _ = std::fs::remove_dir_all(&dir);
@@ -1108,12 +1112,14 @@ mod tests {
 
     #[test]
     fn config_preserved_after_roundtrip() {
-        let mut config = HnswConfig::default();
-        config.m = 16;
-        config.m_max0 = 32;
-        config.ef_construction = 200;
-        config.ef_search = 50;
-        config.ml = 0.5;
+        let config = HnswConfig {
+            m: 16,
+            m_max0: 32,
+            ef_construction: 200,
+            ef_search: 50,
+            ml: 0.5,
+            ..Default::default()
+        };
         let index = CPIndex::new_with_config(config.clone());
         let data = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&data, true).unwrap();

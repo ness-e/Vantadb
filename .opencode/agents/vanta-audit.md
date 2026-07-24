@@ -26,7 +26,7 @@ permission:
   skill: allow
   todowrite: allow
   task:
-    "*": deny
+    "*": allow
   webfetch: allow
   websearch: allow
 ---

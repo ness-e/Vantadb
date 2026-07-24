@@ -340,7 +340,7 @@ mod tests {
         let path = test_wal_path();
         let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
 
-        let records: Vec<WalRecord> = (0..10).map(|i| make_record(i)).collect();
+        let records: Vec<WalRecord> = (0..10).map(make_record).collect();
         sw.batch_append(&records).unwrap();
         assert_eq!(sw.total_record_count(), 10);
         clean_shards(&path, 2);

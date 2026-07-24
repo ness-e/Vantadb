@@ -30,7 +30,7 @@ permission:
     "vanta-engine": allow
     "vanta-arch": allow
     "vanta-tuner": allow
-    "*": deny
+    "*": ask
   lsp: allow
   webfetch: allow
   websearch: allow

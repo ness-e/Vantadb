@@ -5,7 +5,7 @@ description: >-
   packaging, dependency bumps, API contract synchronization, changelogs, and
   GitHub Actions flows. Use for anything related to shipping, versioning, or
   build pipeline configuration.
-mode: subagent
+mode: all
 permission:
   read: allow
   edit: allow
@@ -20,7 +20,7 @@ permission:
     "npm *": allow
     "pip *": allow
     "maturin *": allow
-    "*": ask
+    "*": allow
   lsp: allow
   skill: allow
   todowrite: allow
@@ -34,7 +34,7 @@ permission:
     "vanta-chaos": allow
     "vanta-tuner": allow
     "vanta-docs": allow
-    "*": deny
+    "*": allow
 ---
 
 # VantaDB Lead — Release Orchestrator

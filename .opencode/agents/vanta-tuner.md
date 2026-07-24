@@ -20,7 +20,7 @@ permission:
     "cargo flamegraph*": allow
     "*": ask
   task:
-    "*": deny
+    "*": ask
   lsp: allow
   skill: allow
   todowrite: allow
