@@ -7,7 +7,9 @@ use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::Result;
 use crate::node::{FieldValue, FilterBitset, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::StorageEngine;
-use crate::storage::engine::{BufferedWrite, EvictionReason, PendingHnswOp, FLAG_TOMBSTONE, HNSW_BATCH_SIZE};
+use crate::storage::engine::{
+    BufferedWrite, EvictionReason, PendingHnswOp, FLAG_TOMBSTONE, HNSW_BATCH_SIZE,
+};
 use crate::storage::ops::NodeMetadata;
 use crate::wal::WalRecord;
 

@@ -1822,7 +1822,10 @@ mod tests {
         assert!(stats.logical_bytes > 0, "logical bytes should be > 0");
         // Node count should still be > 0 (persisted in HNSW backend)
         // ponytail: node_count is u64, comparison > 0 replaces >= 0 (clippy absurd_extreme_comparisons)
-        assert!(stats.node_count > 0 || stats.eviction_count > 0, "node_count or eviction_count valid");
+        assert!(
+            stats.node_count > 0 || stats.eviction_count > 0,
+            "node_count or eviction_count valid"
+        );
         // The evicted node is removed from volatile cache
         assert_eq!(
             stats.cache_entries, 0,
@@ -3941,7 +3944,10 @@ mod tests {
             .evict_cold_nodes_with_reason(1.0, EvictionReason::Oom)
             .expect("evict OOM");
         // ponytail: evicted is usize, >= 0 is always true (clippy absurd_extreme_comparisons)
-        assert!(report.evicted > 0 || report.scanned > 0, "evicted or scanned > 0");
+        assert!(
+            report.evicted > 0 || report.scanned > 0,
+            "evicted or scanned > 0"
+        );
         assert_eq!(report.reason, EvictionReason::Oom);
 
         // Verify the governor is still intact after the call
