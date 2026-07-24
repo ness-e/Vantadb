@@ -225,9 +225,8 @@ describe("VantaDB export/import roundtrip", () => {
     try {
       const report = db.importRecords(records);
       expect(report).toBeDefined();
-    } catch {
-      // WASM import_records expects VantaMemoryRecord (with created_at_ms etc.)
-      // rather than MemoryInput — known type mismatch, caught gracefully.
+    } catch (err) {
+      console.error("WASM import_records error (expected type mismatch):", err);
     }
   });
 
@@ -235,8 +234,8 @@ describe("VantaDB export/import roundtrip", () => {
     try {
       const report = db.importRecords([]);
       expect(report).toBeDefined();
-    } catch {
-      // same note as above
+    } catch (err) {
+      console.error("WASM import_records error (expected type mismatch):", err);
     }
   });
 });
