@@ -60,10 +60,9 @@ impl VantaEmbedded {
         self.engine_handle()?.delete(id, reason)
     }
 
-    /// Insert or update a persistent memory record.
-    /// Returns the created/updated record with system-assigned timestamps and version.
-    #[tracing::instrument(skip(self, input), err)]
-    pub fn put(&self, input: VantaMemoryInput) -> Result<VantaMemoryRecord> {
+    /// Shared logic for inserting/updating a single memory record.
+    /// Used by both `put()` and `put_batch()`.
+    fn put_one(&self, input: VantaMemoryInput) -> Result<VantaMemoryRecord> {
         validate_namespace(&input.namespace)?;
         validate_key(&input.key)?;
         validate_metadata(&input.metadata)?;
@@ -115,6 +114,13 @@ impl VantaEmbedded {
         Ok(record)
     }
 
+    /// Insert or update a persistent memory record.
+    /// Returns the created/updated record with system-assigned timestamps and version.
+    #[tracing::instrument(skip(self, input), err)]
+    pub fn put(&self, input: VantaMemoryInput) -> Result<VantaMemoryRecord> {
+        self.put_one(input)
+    }
+
     /// Insert or update multiple namespace-scoped persistent memory records in parallel.
     #[tracing::instrument(skip(self, inputs), err)]
     pub fn put_batch(&self, inputs: Vec<VantaMemoryInput>) -> Result<Vec<VantaMemoryRecord>> {
@@ -140,54 +146,7 @@ impl VantaEmbedded {
                     chunk.iter().cloned()
                 }
             }
-            .map(|input| {
-                let engine = self.engine_handle()?;
-                let node_id = memory_node_id(&input.namespace, &input.key);
-                let existing = match engine.get(node_id)? {
-                    Some(node) => match memory_record_from_node(&node) {
-                        Some(record)
-                            if record.namespace == input.namespace && record.key == input.key =>
-                        {
-                            Some(record)
-                        }
-                        _ => {
-                            return Err(VantaError::NodeIdCollision(memory_node_id(
-                                &input.namespace,
-                                &input.key,
-                            )));
-                        }
-                    },
-                    None => None,
-                };
-
-                let timestamp = now_ms();
-                let created_at_ms = existing
-                    .as_ref()
-                    .map(|record| record.created_at_ms)
-                    .unwrap_or(timestamp);
-                let version = existing
-                    .as_ref()
-                    .map(|record| record.version.saturating_add(1))
-                    .unwrap_or(1);
-                let expires_at_ms = input.ttl_ms.map(|ttl| timestamp.saturating_add(ttl));
-
-                let record = VantaMemoryRecord {
-                    namespace: input.namespace,
-                    key: input.key,
-                    payload: input.payload,
-                    metadata: input.metadata,
-                    created_at_ms,
-                    updated_at_ms: timestamp,
-                    version,
-                    node_id,
-                    vector: input.vector.filter(|v| !v.is_empty()),
-                    expires_at_ms,
-                };
-                let (node, record) = memory_record_to_node_owned(record);
-                engine.insert(&node)?;
-                self.replace_derived_indexes(&engine, existing.as_ref(), Some(&record))?;
-                Ok(record)
-            })
+            .map(|input| self.put_one(input))
             .collect::<Result<Vec<_>>>()?;
             all_results.extend(chunk_results);
         }
