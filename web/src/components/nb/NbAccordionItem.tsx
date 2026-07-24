@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { memo } from "react";
+import { memo, useId, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 
 interface NbAccordionItemProps {
@@ -25,13 +24,19 @@ export const NbAccordionItem = memo(function NbAccordionItem({
   toggleClassName,
   contentClassName,
 }: NbAccordionItemProps) {
+  const id = useId();
+  const buttonId = `nb-accordion-btn-${id}`;
+  const panelId = `nb-accordion-panel-${id}`;
+
   return (
     <div className="nb-faq-item">
       <button
         type="button"
+        id={buttonId}
         className={cn("nb-faq-q", titleClassName)}
         onClick={onToggle}
         aria-expanded={isOpen}
+        aria-controls={panelId}
       >
         <span className={cn("nb-mono-label", labelClassName)}>{label}</span>
         <span className="nb-section-headline">{title}</span>
@@ -39,7 +44,16 @@ export const NbAccordionItem = memo(function NbAccordionItem({
           {isOpen ? "−" : "+"}
         </span>
       </button>
-      {isOpen && <div className={cn("nb-faq-a", contentClassName)}>{children}</div>}
+      {isOpen && (
+        <div
+          id={panelId}
+          role="region"
+          aria-labelledby={buttonId}
+          className={cn("nb-faq-a", contentClassName)}
+        >
+          {children}
+        </div>
+      )}
     </div>
   );
 });
