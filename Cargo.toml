@@ -563,8 +563,7 @@ exclude = ["fuzz"]
 debug = 1
 opt-level = 0
 
-# Optimizaciones específicas para WASM (solo aplica cuando se compila para wasm32)
-[target.wasm32-unknown-unknown.profile.release]
-opt-level = "s"
-strip = true
-codegen-units = 1
+# ponytail: removed invalid [target.wasm32-unknown-unknown.profile.release]
+# Cargo.toml does not support per-target profile overrides — Cargo silently
+# ignored opt-level, strip, and codegen-units here. WASM builds use default
+# release settings. Add back via .cargo/config.toml if size becomes critical.
