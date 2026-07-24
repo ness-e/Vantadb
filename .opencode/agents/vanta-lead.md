@@ -26,7 +26,6 @@ permission:
   todowrite: allow
   webfetch: allow
   websearch: allow
-  todowrite: allow
   task:
     "vanta-arch": allow
     "vanta-worker": allow
@@ -108,8 +107,17 @@ Si falta información de estado actual, solicítala antes de proponer cambios.
 
 ## 5. Composition
 
-- **Invoke when:** el usuario pide release, changelog, CI/CD, dependencias, packaging, versión, GitHub Actions
-- **Do not invoke when:** el usuario está desarrollando lógica core, escribiendo docs, o debugando un bug en runtime
+- **Invoke when:** el usuario pide release, changelog, CI/CD, dependencias, packaging, versión, GitHub Actions, o cualquier tarea vía `/pipeline task`, `/build`, `/audit`, `/ship`
+- **Do not invoke when:** el usuario está desarrollando lógica core (ahí invoca vanta-worker directamente), o pide específicamente a otro agente
+
+### Cómo ejecutar los /commands
+
+1. **Detectar:** el usuario manda un comando (`/pipeline task DRV-002`, `/audit quick`, `/build`, etc.)
+2. **Leer entry point:** leer el archivo de comando correspondiente en `.opencode/commands/` si existe
+3. **Rutear según el modo:** para `/pipeline task`, seguir el flujo de la sección 8
+4. **Cargar skills:** según tipo de tarea, cargar skills relevantes (progreso, planning-and-task-breakdown, systematic-debugging, etc.)
+5. **Ejecutar o delegar:** seguir el flujo de delegación automática (sección 8)
+6. **Handoff:** al finalizar, escribir recitation de la tarea y detenerse — no continuar sin que el usuario lo pida
 
 ## 6. Relevant Skills & References
 
@@ -128,6 +136,7 @@ Si falta información de estado actual, solicítala antes de proponer cambios.
 
 **Commands:**
 - `/pipeline` — pipeline unificado: plan, task, run (interactive/auto/pipeline/ejecución)
+- `/pipeline task <ID>` — lookup + task file + delegación automática a sub-agente según tipo de tarea (ver tabla en sección 8)
 - `/audit` — audit pipeline: full, quick, certify, review
 - `/ship` — pre-launch checklist con fan-out a audit/tuner/docs
 - `/build` — implementar tareas (RED→GREEN→refactor) o `/build prove` para bugs
@@ -161,3 +170,41 @@ MCP servers disponibles según el tipo de tarea:
 | **lottiefiles-creator** | ❌ | Lottie animation (no relevante para este agente) |
 
 > **Nota:** OpenCode no soporta filtrado nativo de MCP por agente. Usa solo los servidores marcados como ✅; ignora (no invoques) los marcados como ❌ para ahorrar contexto.
+
+## 8. Delegación Automática a Sub-Agentes (pipeline task / build)
+
+Cuando el usuario invoca `/pipeline task <ID>` o `/build <ID>`, **NO** implemento la tarea yo mismo. En vez de eso:
+
+1. **Lookup** — busco la tarea en `docs/Backlog.md` o `docs/plans/`
+2. **Analizar tipo** — uso `campaign_detect_task_type` + `campaign_classify_workflow` para determinar el tipo
+3. **Cargar skills** — `campaign_load_skills` según archivos clave de la tarea
+4. **Crear task file** — `.opencode/skills/campaign-executor/tasks/<ID>.md` con instrucciones precisas
+5. **Delegar** — lanzo `task(description, prompt, subagent_type)` al agente correcto
+
+### Tabla de Routing
+
+| Tipo de tarea | Sub-agente | Ejemplos |
+|---|---|---|
+| Rust core (engine, storage, WAL, index) | `vanta-worker` | DRV-002, DRV-012, OLD-004 |
+| Bindings (PyO3, WASM, TS) | `vanta-worker` | DRV-016, VFY-002 |
+| Arquitectura, concurrencia, storage design | `vanta-arch` | DRV-119 (ACID), COMP-001 |
+| Seguridad, unsafe review, supply chain | `vanta-audit` | SEC-001, FFI audit, deny.toml |
+| Performance, profiling, flamegraphs | `vanta-tuner` | VFY-004, hot path optimizations |
+| Documentación, API specs, ejemplos | `vanta-docs` | VFY-011, docs/api/ updates |
+| Fuzzing, crash recovery, corrupción | `vanta-chaos` | DRV-133, chaos test |
+| Release, CI/CD, packaging, dependencias | **yo mismo** | deny.toml, changelog, CI workflows |
+| Spec/planning (no código) | `vanta-lead` (harness) | /pipeline plan |
+| Multi-agente (certify, full audit) | pipeline multi-step | /ship, /audit, certify |
+
+### Flujo de revisión post-delegación
+
+Después de que el sub-agente termina, YO (vanta-lead) hago:
+
+1. `codegraph_explore` de los archivos modificados para entender el cambio
+2. Verificar que el cambio cumple con el objetivo de la tarea
+3. Si es código: `cargo check -p <crate>` o `just verify-quick` (dependiendo de la tarea)
+4. Reportar resultado al usuario
+
+### Paralelismo
+
+Múltiples tareas independientes en un solo comando (`/pipeline task DRV-002 DRV-012 DRV-016`) las lanzo **en paralelo** con 3 `task()` calls simultáneas y espero todos los resultados antes de reportar.

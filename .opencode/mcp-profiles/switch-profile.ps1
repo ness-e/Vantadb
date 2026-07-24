@@ -6,7 +6,7 @@
     Changes which MCP servers are enabled in opencode.jsonc based on profile.
     Restart OpenCode after switching for changes to take effect.
 .PARAMETER Profile
-    Profile name: core, design, full, social
+    Profile name: core, design, full
 .PARAMETER Status
     Show current MCP status
 .PARAMETER List
@@ -56,7 +56,7 @@ if ($Status) {
 
 if (-not $Profile) {
     Write-Host "Uso: switch-profile.ps1 -Profile <nombre> | -Status | -List" -ForegroundColor Yellow
-    Write-Host "Perfiles: core, design, full, social" -ForegroundColor Gray
+    Write-Host "Perfiles: core, design, full" -ForegroundColor Gray
     exit 1
 }
 

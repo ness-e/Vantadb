@@ -167,8 +167,8 @@ last_reviewed: 2026-07-23
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
 | `DRV-001` | **search.rs: 1085L god file** — Contiene BM25 scoring, snippet generation, hybrid fusion, RRF, debug explain. 4+ responsabilidades en un solo impl block. `#[allow(clippy::type_complexity)]` en L642 | `src/sdk/search.rs:1-1085` | 🟡 2-3d | 🟡 | ✅ |
-| `DRV-002` | **put_batch duplica lógica de put()** — ~40 líneas idénticas (validación, node_id collision, timestamp, version). DRY violation | `src/sdk/api.rs:117-193` | 🟢 1d | 🟢 | ❌ |
-| `DRV-003` | **purge_expired llama replace_derived_indexes por nodo** — O(n) index rebuilds en loop. Si purga 10K registros, hace 10K rebuilds | `src/sdk/api.rs:380-383` | 🟢 2h | 🟡 | ❌ |
+| `DRV-002` | **put_batch duplica lógica de put()** — ~40 líneas idénticas (validación, node_id collision, timestamp, version). DRY violation | `src/sdk/api.rs:117-193` | 🟢 1d | 🟢 | ✅ |
+| `DRV-003` | **purge_expired llama replace_derived_indexes por nodo** — O(n) index rebuilds en loop. Si purga 10K registros, hace 10K rebuilds | `src/sdk/api.rs:380-383` | 🟢 2h | 🟡 | ✅ |
 | `DRV-004` | **list() carga ALL records a memoria antes de paginar** — `records_for_namespace()` devuelve todo. Namespace con 100K+ registros → OOM | `src/sdk/api.rs:296-315` | 🟡 1d | 🟡 | ❌ |
 | `DRV-005` | **SDK sin unit tests** — No hay `#[cfg(test)]` en api.rs, search.rs, types.rs. Solo integration tests en `tests/`. Edge cases de validación sin cobertura | `src/sdk/` | 🟡 1-2d | 🟡 | ❌ |
 

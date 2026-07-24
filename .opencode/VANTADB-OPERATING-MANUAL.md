@@ -894,8 +894,7 @@ Después de completar: skill progreso
     prompts/
       plan.md                        ← Crear plan desde backlog
       task.md                        ← Definir tarea individual
-      iter-loop-tools.md                        ← Una iteración del harness
-      iter-loop-tools.md             ← Loop de herramientas
+      iter-loop-tools.md             ← Una iteración del harness / Loop de herramientas
       pipeline-full.md               ← Pipeline completo
       pipeline-run.md                ← Pipeline run mode
       research-agent.md              ← Research agent prompt

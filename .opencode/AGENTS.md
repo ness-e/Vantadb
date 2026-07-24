@@ -499,7 +499,7 @@ Skills de ingeniería instaladas desde [addyosmani/agent-skills](https://github.
 
 **Personas especializadas** (`.opencode/agents/`): `vanta-audit` (Security + Code Review), `vanta-chaos` (Fuzzing + Resilience), `vanta-tuner` (Performance + Observability). Legacy `code-reviewer`, `security-auditor`, `test-engineer` eliminados — reemplazados por vanta-*.
 
-**Referencias** (`.opencode/references/`): `definition-of-done.md`, `testing-patterns.md`, `security-checklist.md`, `performance-checklist.md`, `accessibility-checklist.md`, `observability-checklist.md`.
+**Referencias** (`.opencode/references/`, **12 total**): `definition-of-done.md`, `testing-patterns.md`, `security-checklist.md`, `performance-checklist.md`, `accessibility-checklist.md`, `observability-checklist.md`, `orchestration-patterns.md`, `REFERENCE-SYNTHESIS.md`, `awesome-harness-engineering/`, `darwin-godel-machine/`, `deepclaude/`, `statewright/`.
 
 ### Anti-Rationalization (MUST)
 
@@ -800,6 +800,11 @@ Configurados globalmente en `%USERPROFILE%\.config\opencode\opencode.json`.
 | **CodeGraph** | `codegraph serve --mcp` | Grafo de conocimiento del código (7.3K símbolos). Resuelve símbolos, flujos, blast radius |
 | **Pencil** | `mcp-server-windows-x64.exe` | Editor de archivos `.pen` — diseño UI visual, reemplazo de Figma |
 | **Playwright** | `@playwright/mcp` | Automatización de navegador: navegar, click, screenshot, snapshot, redes |
+| **Campaign** | `node .opencode/task-system/mcp/campaign-server.mjs` | Task system: 30+ tools para plan, task, verify, state machine |
+| **MetaSearchMCP** | `metasearchmcp-mcp` | Búsqueda multi-provider: web, GitHub, académico, código. DuckDuckGo gratis |
+| **Argus** | `argus mcp serve` | 14 providers, extracción 12-step, dead URL recovery |
+| **Discord** | `discord-mcp` | Gestión de servidor Discord: canales, roles, moderación |
+| **LottieFiles Creator** | `@lottiefiles/creator-mcp` | Crear y editar animaciones Lottie vía IA |
 | ~~**Recraft**~~ | ~~`@recraft-ai/mcp-recraft-server`~~ | ❌ Eliminado — sin API key |
 | **cargo-mcp** | `cargo-mcp serve` | Ejecutar comandos Cargo: `check`, `clippy`, `test`, `build`, `fmt`, `add`, `remove`, `bench`, `run` |
 | **rust-analyzer-mcp** | `rust-analyzer-mcp` | LSP completo: goto def, hover, references, completions, diagnostics, rename, format |

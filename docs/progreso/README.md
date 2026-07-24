@@ -307,6 +307,15 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `DRV-001`
 
+### 2026-07-19 — DRV-002 + DRV-003: SDK duplication removal & perf fix ✅
+
+**Fuente:** Backlog DRV Hallazgos — SDK, `review-deep` Wave 0
+
+- **DRV-002:** `put_batch` duplicaba ~50 líneas de `put()`. Se extrajo método privado `put_one()` — ambos métodos delegan a él. [`f029d42`](`fix: Bug Fix Phase 1`)
+- **DRV-003:** `purge_expired` llamaba `replace_derived_indexes` O(n) veces por nodo → reemplazado por `derived_delete_ops` (selectivo). [`d9e1caf`](`perf(DRV-003)`)
+
+**Ids:** `DRV-002`, `DRV-003`
+
 ### 2026-07-19 — Deferred Fixes Post-RC (DEF-01 → DEF-05) ✅
 
 **Fuente:** Investigación de sub-agentes (vanta-tuner, vanta-engine, vanta-worker, vanta-audit) sobre 7 items diferidos post-feature-freeze. Item 3 (WAL) skipped, item 7 (missing_docs) verificado como non-issue.

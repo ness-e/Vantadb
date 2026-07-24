@@ -21,8 +21,8 @@ Si no se especificó entrada, usá `docs/Backlog.md` en modo plan.
 
 - Si el argumento es `plan` + ruta → **MODO PLAN**: creá plan desde backlog.
 
-**Agents:** Pipeline no spawns agentes directamente — delega a `/build` (que usa vanta-worker/vanta-engine) y `/audit` (que usa vanta-audit/vanta-tuner) para tareas concretas. El plan se ejecuta vía sub-agentes genéricos o prompts, no agentes especializados.
-- Si el argumento empieza con `task ` → **MODO TAREA**: extraé el ID y definí/ejecutá esa tarea.
+**Agents:** Pipeline delega automáticamente a sub-agentes según el tipo de tarea (ver Modo Tarea → Routing). `/pipeline task <ID>` detecta el área que toca el task ID y rutea al agente especializado (vanta-worker, vanta-engine, vanta-arch, vanta-audit, vanta-tuner, vanta-docs, vanta-chaos, o vanta-lead para CI/CD/release).
+- Si el argumento empieza con `task ` → **MODO TAREA**: extraé el ID y definí/ejecutá esa tarea con delegación automática a sub-agente.
 - Si el argumento es `run` + plan opcional → **MODO RUN**: ejecutá backlog completo sin parar.
 - Si el argumento es `pipeline` → **MODO PIPELINE**: ejecutá una tarea completa por iteración vía `/loop-goal`.
 - Si el argumento es `ejecución` o `mcp` → **MODO EJECUCIÓN**: paso a paso con MCP tools o harness PowerShell.
@@ -106,13 +106,32 @@ Task ID: {id extraído después de "task "}
 2. Si no existe task file → cargá `prompts/task.md` y ejecutá sus 4 fases:
    - Auto-detect type → codegraph_explore → blast radius → web research → atomic steps
    - Creá `.opencode/skills/campaign-executor/tasks/<ID>.md`
-3. Si ya existe task file → ejecutá la tarea usando `pipeline-full.md` internamente
-4. Si el usuario quiere ejecutar AHORA → cargá `prompts/pipeline-full.md` y ejecutá la tarea completa
+3. **Routing automático a sub-agente** — determiná el área del task ID y delega:
+
+   | Área (por ID/tipo) | Sub-agente | Ejemplos |
+   |---|---|---|
+   | Rust core (engine, storage, wal, vector, node) | `vanta-worker` | DRV-*, VFY-00*, P*-* |
+   | Arquitectura, concurrencia, lock-free, RCU | `vanta-arch` | ARC-*, CON-* |
+   | Seguridad, FFI, unsafe, UB, supply chain | `vanta-audit` | SEC-*, AVD-* |
+   | Performance, profiling, RAM, telemetría | `vanta-tuner` | PERF-*, OBS-* |
+   | Documentación, API specs, ADRs | `vanta-docs` | DOC-*, ADR-* |
+   | Fuzzing, chaos, recovery, corrupción | `vanta-chaos` | CHAOS-*, FUZZ-* |
+   | CI/CD, releases, packaging, build pipeline | `vanta-lead` | CI-*, RELEASE-* |
+
+   **Flujo:**
+   1. Lookup: identificá el área según el task ID prefix o descripción
+   2. Analyze: `campaign_detect_task_type` con archivos clave del plan/backlog
+   3. Load skills: `campaign_load_skills` con archivos clave + skills extra según área
+   4. Delegate: `task(subagent_type="vanta-<area>", prompt="...")` con entry point, acceptance criteria, y verification command
+   5. Review: el sub-agente devuelve resultado, revisalo y actualizá el plan file
+   - Para comandos multi-tarea (ej: `/pipeline run` con FAIL_MODE=parallel): múltiples sub-agentes en paralelo
+4. Si el usuario quiere ejecutar AHORA sin esperar task file → cargá `prompts/pipeline-full.md` y delegá al sub-agente según el routing de (3)
 
 **Al finalizar, mostrá:**
 ```
 Task file creado: .opencode/skills/campaign-executor/tasks/<ID>.md
-Para ejecutar:
+Delegado a: vanta-<area>
+Para ejecutar más:
   /pipeline run                      → backlog completo
   /build                             → implementar (RED→GREEN→refactor)
   /build prove                       → si es un bug (reproducir→fix)
