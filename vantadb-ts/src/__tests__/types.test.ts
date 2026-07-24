@@ -10,7 +10,7 @@ describe("TypeScript types are correctly defined", () => {
       metadata: {},
       created_at_ms: "1000",
       updated_at_ms: "2000",
-      version: 1,
+      version: "1",
       node_id: "42",
     };
     expect(record.namespace).toBe("test");
@@ -26,7 +26,7 @@ describe("TypeScript types are correctly defined", () => {
         metadata: {},
         created_at_ms: "0",
         updated_at_ms: "0",
-        version: 1,
+        version: "1",
         node_id: "1",
       },
       score: 0.95,
@@ -48,23 +48,23 @@ describe("TypeScript types are correctly defined", () => {
 
   it("NodeRecord has edges array", () => {
     const edges: EdgeRecord[] = [
-      { target: 2, label: "related", weight: 0.8 },
+      { target: "2", label: "related", weight: 0.8 },
     ];
     const node: NodeRecord = {
-      id: 1,
+      id: "1",
       fields: {},
       vector_dimensions: 3,
       edges,
       confidence_score: 0.9,
       importance: 0.5,
       hits: 10,
-      last_accessed: 1000,
+      last_accessed: "1000",
       epoch: 0,
       tier: "Hot",
       is_alive: true,
     };
     expect(node.edges.length).toBe(1);
-    expect(node.edges[0].target).toBe(2);
+    expect(node.edges[0].target).toBe("2");
   });
 
   it("VantaValue variants work as discriminated union", () => {
