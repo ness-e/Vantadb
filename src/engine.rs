@@ -106,6 +106,21 @@ fn build_query_result_from_scored(
     }
 }
 
+fn collect_scores<'a>(
+    candidates: impl Iterator<Item = &'a UnifiedNode> + 'a,
+    query_vec: &'a VectorRepresentations,
+    min_score: f32,
+) -> Vec<(u128, f32)> {
+    candidates
+        .filter_map(|n| {
+            n.vector
+                .cosine_similarity(query_vec)
+                .filter(|&s| s >= min_score)
+                .map(|s| (n.id, s))
+        })
+        .collect()
+}
+
 impl InMemoryEngine {
     /// Create engine (in-memory only, no persistence)
     pub fn new() -> Self {
@@ -296,20 +311,15 @@ impl InMemoryEngine {
         let query_vec = VectorRepresentations::Full(query.to_vec());
         let nodes = self.nodes.read();
 
-        let mut scored: Vec<(u128, f32)> = nodes
-            .values()
-            .filter(|n| {
+        let mut scored = collect_scores(
+            nodes.values().filter(|n| {
                 n.is_alive()
                     && !n.vector.is_none()
                     && bitset_filter.is_none_or(|m| n.matches_mask(m))
-            })
-            .filter_map(|n| {
-                n.vector
-                    .cosine_similarity(&query_vec)
-                    .filter(|&s| s >= min_score)
-                    .map(|s| (n.id, s))
-            })
-            .collect();
+            }),
+            &query_vec,
+            min_score,
+        );
 
         let source_type = if bitset_filter.is_some() {
             SourceType::Hybrid
@@ -383,33 +393,26 @@ impl InMemoryEngine {
         let query_vec = VectorRepresentations::Full(query_vector.to_vec());
         let nodes = self.nodes.read();
 
-        let mut scored: Vec<(u128, f32)> = nodes
-            .values()
-            .filter(|n| {
+        let mut scored = collect_scores(
+            nodes.values().filter(|n| {
                 if !n.is_alive() || n.vector.is_none() {
                     return false;
                 }
-                // Bitset first (cheapest: single AND)
                 if let Some(mask) = bitset_mask {
                     if !n.matches_mask(mask) {
                         return false;
                     }
                 }
-                // Relational second
                 for (field, value) in field_filters {
                     if n.get_field(field) != Some(value) {
                         return false;
                     }
                 }
                 true
-            })
-            .filter_map(|n| {
-                n.vector
-                    .cosine_similarity(&query_vec)
-                    .filter(|&s| s >= min_score)
-                    .map(|s| (n.id, s))
-            })
-            .collect();
+            }),
+            &query_vec,
+            min_score,
+        );
 
         build_query_result_from_scored(&mut scored, &nodes, top_k, SourceType::Hybrid)
     }

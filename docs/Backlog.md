@@ -11,8 +11,8 @@ last_reviewed: 2026-07-23
 > **Purpose:** Single source of truth for all project tasks.
 > **Completed tasks:** `docs/CHANGELOG.md` + `docs/progreso/README.md`
 > **Verification method:** All claims cross-checked against actual codebase via 4 sub-agents (Jul 13). See `docs/archive/` for superseded audit reports.
-> **Total open items:** 154 (165 - 11 completados Jul 23)
-> **Completed since Jul 16:** Adapter restructure (Jul 22, 7 crates→providers/ + 9 Python adapters), 10/10 production campaign (Jul 22, 20 tasks), npm publish (vantadb v0.4.0), WASM demo link in hero
+> **Total open items:** 153 (165 - 12 completados Jul 23)
+> **Completed since Jul 16:** Adapter restructure (Jul 22, 7 crates→providers/ + 9 Python adapters), 10/10 production campaign (Jul 22, 20 tasks), npm publish (vantadb v0.4.0), WASM demo link in hero, DRV-016 parking_lot verification
 > **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/progreso/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
 
 ---
@@ -180,7 +180,7 @@ last_reviewed: 2026-07-23
 |----|-------|---------|----------|-----------|--------|
 | `DRV-006` | **Race condition en `delete()`: write lock dropped antes de index cleanup** — `drop(nodes)` libera `nodes.write()` L241, luego actualiza `edge_index` y `scalar_index` sin protección. Ventana donde un `insert` concurrente con mismo ID target puede interleaver, corrompiendo índices | `src/engine.rs:235-248` | 🟢 30min | 🔴 | ✅ |
 | `DRV-007` | **Data race en `filter_field()`: accede `scalar_index` sin lock** — No adquiere el `nodes` RwLock. Mutaciones concurrentes (insert/update/delete) acceden a `scalar_index` bajo `nodes.write()`, pero `filter_field` no. Comportamiento indefinido | `src/engine.rs:354` | 🟢 30min | 🟡 | ✅ |
-| `DRV-008` | **Duplicate scoring pipeline en `vector_search()` y `hybrid_search()`** — ~25 líneas idénticas (sort_by, truncate, collect, QueryResult build). DRY violation entre L288-305 y L399-413 | `src/engine.rs:288-305,399-413` | 🟢 1h | 🔵 | ❌ |
+| `DRV-008` | **Duplicate scoring pipeline en `vector_search()` y `hybrid_search()`** — ~25 líneas idénticas (sort_by, truncate, collect, QueryResult build). DRY violation entre L288-305 y L399-413 | `src/engine.rs:288-305,399-413` | 🟢 1h | 🔵 | ✅ |
 | `DRV-009` | **`node_count()` O(n) full scan bajo read lock** — itera todos los nodos vivos cada vez. 1M nodos → 1M iteraciones por cada `node_count()`. Sin contador cacheado | `src/engine.rs:424-426` | 🟢 1h | ⚪ | ❌ |
 | `DRV-010` | **63 `unwrap()` en tests** — Todos en `#[cfg(test)]`, aceptable para test helpers. Solo documentar como deuda de estilo | `src/engine.rs:460-932` | 🟢 N/A | ℹ️ | ❌ |
 
@@ -202,7 +202,7 @@ last_reviewed: 2026-07-23
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `DRV-016` | **Inconsistencia de Mutex: `governor.rs` usa `std::sync::Mutex` en vez de `parking_lot`** — Usa std Mutex + `MutexExt` (auto-unwrap). 💡 Cosmético: poison solo ocurre si hay panic en sección crítica. 🔵 estilo, no bug. Mantener como deuda de consistencia | `src/vector/governor.rs:94,111,147,160` | 🟢 30min | 🔵 | ℹ️ |
+| ~~`DRV-016`~~ | **~~Inconsistencia de Mutex: `governor.rs` usa `std::sync::Mutex` en vez de `parking_lot`~~** — ✅ ALREADY FIXED: `src/vector/governor.rs:7` ya importa `parking_lot::Mutex`, no `std::sync::Mutex`. `.lock()` devuelve `MutexGuard` directo (sin Result). Verificado en código Jul 23 | `src/vector/governor.rs:7,94,111,147,160` | 🟢 30min | 🔵 | ✅ |
 | `DRV-017` | **`search.rs` (416L) y `serialize.rs` (615L) sin tests unitarios** — Lógica de búsqueda HNSW con mmap zero-copy y serialización/deserialización no tienen cobertura directa. Solo tests de integración en `core.rs` | `src/index/search.rs`, `src/index/serialize.rs` | 🟡 1d | ⚪ | ❌ |
 | `DRV-018` | **`refresh.rs` es stub vacío (4L)** — Archivo planeado para background refresh pero solo contiene un comment. Sin implementación, sin tests | `src/index/refresh.rs` | 🟢 N/A | ℹ️ | ❌ |
 | `DRV-019` | **14 `.expect()` en hot-path SIMD loops en `distance.rs`** — En `cosine_sim_f32`, `euclidean_distance_squared_f32`, etc. Correctos (chunks_exact garantiza tamaño) pero overhead en cada chunk del loop. Preferir `unreachable_unchecked` para 0 overhead | `src/index/distance.rs:97,100,129,132,204,207,238,241,268,271,297,300,379,420` | 🟢 1h | ℹ️ | ❌ |

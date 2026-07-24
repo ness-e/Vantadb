@@ -1038,6 +1038,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ `cargo check` clean, 210/211 tests pass, clippy clean. Commit `de6ecac`.
 - **Ids:** `DRV-006`
 
+### DRV-008: Duplicate scoring pipeline en vector_search() y hybrid_search()
+- **Fuente:** Backlog
+- **Fecha:** 2026-07-23
+- **Objetivo:** Extraer ~14 líneas duplicadas de filter_map + scoring chain en `vector_search()` y `hybrid_search()` a helper `collect_scores()`. Remueve DRY violation entre engine.rs:288-305 y :399-413
+- **Resultado:** ✅ `cargo check -p vantadb` clean.
+- **Ids:** `DRV-008`
+
 ### DRV-109: LlamaIndex missing GIL release
 - **Fuente:** Plan 2026-07-14 backlog-campaign
 - **Fecha:** 2026-07-14
@@ -2026,3 +2033,22 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 **Ids:** `DOC-API-01`, `DOC-API-02`, `DOC-API-03`, `DOC-API-04`, `DOC-API-05`, `DOC-API-06`
 
 **Verificación:** `cargo check` en `vantadb-python/` — 0 errores.
+
+### 2026-07-23 — Batch TIER 1 Gate Check (8 tasks completadas)
+
+**Objetivo:** Verificar estado real de TIER 1 backlog tasks contra código antes de implementar, porque 3 de 4 primeras ya estaban fixeadas como side effects.
+
+| ID | Tarea | Resultado | Evidencia |
+|----|-------|-----------|-----------|
+| ~~`DRV-031`~~ | Doc comment duplicado | ✅ SKIP | Side effect de refactor previo, doc existe 1 vez |
+| ~~`DRV-026`~~ | Redundant unwrap en three_way_merge | ✅ SKIP | Código usa match sobre .get(), sin unwrap |
+| ~~`DRV-116`~~ | 10 warnings compilación | ✅ SKIP | `cargo check -p vantadb` + `-p vantadb-mcp` = 0 warnings |
+| ~~`DRV-040`~~ | unsafe sin SAFETY en simd.rs | ✅ SKIP | No existe archivo simd.rs en el proyecto |
+| ~~`DRV-025`~~ | TOCTOU race ResourceGovernor | ✅ ALREADY FIXED | Ya usa CAS loop con compare_exchange_weak |
+| ~~`DRV-047`~~ | Hardcoded MCP validation limits | ✅ ALREADY FIXED | Todos los handlers usan config.* values |
+| ~~`DRV-012`~~ | WAL sync duplication | ✅ ALREADY FIXED | maybe_sync() ya extraída como fn separada |
+| `DRV-016` | Mutex inconsistency governor.rs | ✅ ALREADY FIXED | Código ya usa parking_lot::Mutex (import L7), no std::sync::Mutex. Backlog description estaba obsoleta. Verificado Jul 23 |
+
+**Patrón detectado:** 7/8 TIER 1 tasks ya resueltas — las campañas de refactor previas (DRV-004, DRV-006, commits 3fd2c0d, aa87e5c, d9e1caf, 4467004, de6ecac) limpiaron más issues de los que trackeaban explícitamente. El backlog tenía estado ❌ en items que ya estaban ✅ en código.
+
+**Recomendación:** Para próximos batches, gate-check primero antes de poner en progreso.
