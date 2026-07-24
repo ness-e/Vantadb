@@ -63,7 +63,7 @@ and not binary(security_audit) \
 
 [profile.ci-windows]
 # Windows-specific override: limit to 2 threads to avoid os error 1455 (page file)
-extends = "audit"
+inherits = "audit"
 test-threads = 2
 
 [profile.audit]

@@ -15,7 +15,7 @@ postprocess = ""
 conventional_commits = false
 commit_parsers = [
   # Breaking changes
-  { message = "^.*!:", group = "<!-- highlight -->Breaking changes", default_scope = "core" },
+  { message = "^.*!:|^.*\\(.*\\)!:", group = "<!-- highlight -->Breaking changes", default_scope = "core" },
   { message = "^(feat|feature)\\(.*breaking", group = "<!-- highlight -->Breaking changes" },
   # Features
   { message = "^feat\\(([^)]+)\\)", group = "### 🚀 Features", scope = "$1" },
@@ -54,12 +54,7 @@ commit_parsers = [
   { message = ".*", group = "### Other", default_scope = "core" },
 ]
 
-[git.filter_commits]
 exclude_paths = [
   "docs/oldHistory/",
   "docs/snapshots/",
 ]
-
-[git.conventional]
-# Not using conventional commits — use commit_parsers instead
-skip_conventional = true

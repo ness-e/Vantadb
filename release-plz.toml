@@ -7,11 +7,7 @@ publish = true
 # Don't publish these crates (no public API)
 publish_allow_dirty = false
 
-# Changelog strategy
-changelog_merge = "keep_last"
-
 # Git
-git_release = true
 git_tag_enable = true
 git_tag_name = "v{{ version }}"
 
@@ -20,7 +16,6 @@ git_release_enable = true
 
 # Changelog
 changelog_update = true
-changelog_path = "docs/CHANGELOG.md"
 
 [[package]]
 name = "vantadb"

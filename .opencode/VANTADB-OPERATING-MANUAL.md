@@ -48,7 +48,7 @@ USUARIO
 | **Entry** | 9 commands en `.opencode/commands/` | Detectan el intento del usuario, resuelven rutas, orquestan |
 | **Pipeline** | `task-system/prompts/` (8 prompts) | Instrucciones detalladas para el agente por fase |
 | **Ejecución** | `campaign-executor` (SKILL + RULES + harness) | Loop externo, state machine, recitation |
-| **Skills** | 24 skills engineering + 4 skills VantaDB | Workflows especializados obligatorios |
+| **Skills** | 31 skills engineering + 4 skills VantaDB | Workflows especializados obligatorios |
 | **Agents** | 8 vanta-* agents | Roles con perspectiva y herramientas restringidas |
 | **MCP** | CodeGraph, Playwright, cargo-mcp, rust-analyzer-mcp | Tools de infraestructura |
 | **Dev Tools** | Justfile, cargo-*, dev-tools/scripts/ | Automatización local |
@@ -336,7 +336,7 @@ States válidos (Statewright pattern, iter-loop-tools.md canonical):
 
 ### 6.1 Lifecycle Mapping
 
-Las 24 skills de ingeniería se asignan automáticamente según la fase del trabajo:
+Las 31 skills de ingeniería se asignan automáticamente según la fase del trabajo:
 
 | Fase | Skill | Disparador |
 |------|-------|-----------|
@@ -891,6 +891,11 @@ Después de completar: skill progreso
     webperf.md                       ← /webperf
     code-simplify.md                 ← /code-simplify
   task-system/
+    config/                          ← Configuración del sistema
+    enforcement/                     ← Reglas de enforcement C0
+    harness/                         ← Harness executor loop
+    mcp/                             ← MCP server del task system
+    memory/                          ← Memoria persistente del agente
     prompts/
       plan.md                        ← Crear plan desde backlog
       task.md                        ← Definir tarea individual
@@ -899,6 +904,11 @@ Después de completar: skill progreso
       pipeline-run.md                ← Pipeline run mode
       research-agent.md              ← Research agent prompt
       audit-full.md                  ← Audit full prompt
+    sandbox/                         ← Sandbox de ejecución
+    self-modification/               ← Auto-modificación del sistema
+    traces/                          ← Trazas de ejecución
+    validation/                      ← Validación de salidas
+    workflows/                       ← Workflow definitions (bug-fix, feature-add, etc.)
   skills/
     campaign-executor/               ← Núcleo del task system
       SKILL.md (334L)                ← Referencia completa
@@ -927,9 +937,9 @@ Después de completar: skill progreso
     accessibility-checklist.md       ← Accessibility patterns
     observability-checklist.md       ← Observability patterns
     orchestration-patterns.md        ← Orchestration patterns
-    awesome-harness-engineering/     ← Repositorio clonado
-    statewright/                     ← State machine patterns
-    deepclaude/                      ← Loop engine
+    awesome-harness-engineering/     ← Repositorio clonado (3,648 ★)
+    statewright/                     ← State machine patterns (417 ★)
+    deepclaude/                      ← Cost-saving proxy (Claude Code → DeepSeek/OpenRouter, 2,212 ★)
     darwin-godel-machine/            ← Harness evolution
 
 raíz/
