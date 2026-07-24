@@ -289,6 +289,15 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-24 — Pipeline: auto-progreso + auto-commit en /pipeline task ✅
+
+**Proceso:** Se detectó que `skill progreso` (Trigger 1 — migración de tareas completadas) y el commit automático no se ejecutaban al final del pipeline MODO TAREA.
+
+**Fix:**
+- `pipeline.md` pasos 6-7 agregados después del Review: `skill progreso` + auto-commit
+- Aplica a ambos modos: MODO TAREA y MODO RUN
+- Decisión registrada en campaign_memory como policy
+
 ### 2026-07-23 — DRV-001: Refactor search.rs god file (1162L → 845L, 5 sub-modules) ✅
 
 **Fuente:** Backlog DRV Hallazgos — SDK, `review-deep` Wave 0

@@ -123,7 +123,14 @@ Task ID: {id extraído después de "task "}
    2. Analyze: `campaign_detect_task_type` con archivos clave del plan/backlog
    3. Load skills: `campaign_load_skills` con archivos clave + skills extra según área
    4. Delegate: `task(subagent_type="vanta-<area>", prompt="...")` con entry point, acceptance criteria, y verification command
-   5. Review: el sub-agente devuelve resultado, revisalo y actualizá el plan file
+   5. Review: el sub-agente devuelve resultado, revisalo
+   6. **Progreso**: ejecutá `skill progreso` (Trigger 1 — Complete a task) para:
+      - Marcar la tarea como ✅ en Backlog.md
+      - Migrar a progreso/README.md (sin duplicados)
+      - Actualizar el plan file si existe
+      - Validar doc coverage con `scripts/validate-docs-coverage.ps1`
+      - Registrar en `campaign_memory_write` si aplica
+   7. **Auto-commit**: creá commit con conventional commit + task ID (sin preguntar)
    - Para comandos multi-tarea (ej: `/pipeline run` con FAIL_MODE=parallel): múltiples sub-agentes en paralelo
 4. Si el usuario quiere ejecutar AHORA sin esperar task file → cargá `prompts/pipeline-full.md` y delegá al sub-agente según el routing de (3)
 
@@ -166,7 +173,8 @@ Por defecto, el pipeline se detiene al primer error. Se puede modificar:
 6. Cada tarea paralela es su propio sub-agente (contexto fresco)
 7. Si una tarea de una wave falla, las tareas dependientes en waves posteriores quedan BLOQUEADAS
 
-Al terminar todas las tareas, ejecutá `skill progreso` y reportá campaña completada.
+Al terminar cada tarea: auto-commit con conventional commit + task ID.
+Al terminar todas las tareas: ejecutá `skill progreso` (Trigger 1) y reportá campaña completada.
 
 ---
 
