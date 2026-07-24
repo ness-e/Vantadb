@@ -71,6 +71,7 @@ VantaDB is a local-first, embedded database engine designed for AI agents, local
 | Run as a local server | [Server Mode](#optional-server-mode) |
 | Follow a tutorial | [Tutorials](docs/tutorials/) |
 | Read the FAQ | [FAQ](docs/FAQ.md) |
+| Read the blog | [Blog Posts](docs/blog/) |
 | Read architecture docs | [Documentation](#documentation) |
 | Contribute safely | [CONTRIBUTING.md](CONTRIBUTING.md) |
 <!-- | Report a vulnerability | SECURITY.md (planned) | -->
@@ -334,6 +335,9 @@ Results will be printed directly to the console and written to `vanta_benchmark_
 | [CI Policy](docs/operations/CI_POLICY.md) | Continuous integration strategy, profiles, and certification gates. |
 | [Benchmarks](docs/operations/BENCHMARKS.md) | Performance benchmark methodology and results. |
 | [Changelog](docs/CHANGELOG.md) | Version history and release notes. |
+| [Blog: Hybrid Search](docs/blog/how_hybrid_search_works.md) | How BM25 + HNSW + RRF work together in VantaDB's query engine. |
+| [Blog: SQLite for AI Agents](docs/blog/sqlite_for_ai_agents.md) | Benchmarks and architecture decisions behind VantaDB's LSM storage. |
+| [Blog: Why I Built VantaDB](docs/blog/why_i_built.md) | The motivation for a local memory engine for AI agents in Rust. |
 
 ---
 
