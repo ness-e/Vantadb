@@ -1045,6 +1045,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ `cargo check -p vantadb` clean.
 - **Ids:** `DRV-008`
 
+### DRV-011: Scan-forward recovery duplicado en WalWriter y WalReader
+- **Fuente:** Backlog
+- **Fecha:** 2026-07-23
+- **Objetivo:** Extraer ~12 líneas duplicadas del patrón de llamada a `scan_forward_valid` en `WalWriter::open()` y `WalReader::next_record()` a helper `try_scan_forward()`. Remueve DRY violation en src/wal.rs
+- **Resultado:** ✅ `cargo check -p vantadb` clean. 50 WAL tests pasan (incluye test_wal_auto_healing_and_recovery). Commit `9288957`.
+- **Ids:** `DRV-011`
+
 ### DRV-109: LlamaIndex missing GIL release
 - **Fuente:** Plan 2026-07-14 backlog-campaign
 - **Fecha:** 2026-07-14
@@ -2047,7 +2054,10 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | ~~`DRV-025`~~ | TOCTOU race ResourceGovernor | ✅ ALREADY FIXED | Ya usa CAS loop con compare_exchange_weak |
 | ~~`DRV-047`~~ | Hardcoded MCP validation limits | ✅ ALREADY FIXED | Todos los handlers usan config.* values |
 | ~~`DRV-012`~~ | WAL sync duplication | ✅ ALREADY FIXED | maybe_sync() ya extraída como fn separada |
+| ~~`DRV-016`~~ | Mutex inconsistency governor.rs | ✅ ALREADY FIXED | Código ya usa parking_lot::Mutex (import L7), backlog descripción obsoleta |
+| ~~`DRV-009`~~ | node_count() O(n) full scan | ✅ ALREADY FIXED | Ya usa AtomicU64 cacheado con fetch_add/fetch_sub. Comment `/// DRV-009` |
 | `DRV-016` | Mutex inconsistency governor.rs | ✅ ALREADY FIXED | Código ya usa parking_lot::Mutex (import L7), no std::sync::Mutex. Backlog description estaba obsoleta. Verificado Jul 23 |
+| ~~`DRV-019`~~ | 14 .expect() en SIMD hot-path | ✅ FIXED | Replaced 14 `.expect()` → `unsafe { .unwrap_unchecked() }` + SAFETY comment en 7 funciones SIMD (f32x8, f32x16, sq8). 62 tests pass. commit pending |
 
 **Patrón detectado:** 7/8 TIER 1 tasks ya resueltas — las campañas de refactor previas (DRV-004, DRV-006, commits 3fd2c0d, aa87e5c, d9e1caf, 4467004, de6ecac) limpiaron más issues de los que trackeaban explícitamente. El backlog tenía estado ❌ en items que ya estaban ✅ en código.
 
