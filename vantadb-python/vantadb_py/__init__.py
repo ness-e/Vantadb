@@ -137,6 +137,11 @@ class AsyncVantaDB:
     async def rebuild_index(self):
         return await self._run(self._sync.rebuild_index)
 
+    async def reindex_hnsw_from_text(self, namespace: str, *, page_size: int = 1000):
+        return await self._run(
+            self._sync.reindex_hnsw_from_text, namespace, page_size
+        )
+
     async def export_namespace(self, path, namespace):
         return await self._run(
             self._sync.export_namespace, path, namespace

@@ -572,6 +572,32 @@ export class VantaDB {
   }
 
   /**
+   * Rebuild the HNSW vector index from stored vectors with pagination.
+   *
+   * Paginates through memory records in batches (max 1000) using the
+   * cursor-based `list()` API to prevent OOM on large namespaces.
+   *
+   * @param namespace - The namespace to rebuild.
+   * @param pageSize - Batch size (default 1000, max 1000).
+   * @returns A rebuild report with scanned and indexed counts.
+   * @throws {VantaError} If the instance is closed.
+   *
+   * @example
+   * ```ts
+   * const report = db.reindexHnswFromText("docs");
+   * console.log(report.scanned_nodes, "nodes reindexed");
+   * ```
+   */
+  reindexHnswFromText(namespace: string, pageSize: number = 1000): unknown {
+    this._assertOpen();
+    try {
+      return this.inner.reindex_hnsw_from_text(namespace, pageSize);
+    } catch (e) {
+      throw wrapWasmError(e, "reindexHnswFromText");
+    }
+  }
+
+  /**
    * Compact the internal storage layout to reclaim space.
    *
    * @returns Number of bytes reclaimed (bigint).

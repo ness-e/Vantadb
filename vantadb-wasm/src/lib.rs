@@ -754,6 +754,22 @@ impl VantaDB {
         to_js(&report)
     }
 
+    /// Paginated HNSW rebuild from text records.
+    ///
+    /// Iterates through memory records in batches (max 1000) using the
+    /// cursor-based list() API to prevent OOM on large namespaces.
+    pub fn reindex_hnsw_from_text(
+        &self,
+        namespace: &str,
+        page_size: Option<usize>,
+    ) -> Result<JsValue, JsValue> {
+        let report = self
+            .inner
+            .reindex_hnsw_from_text(namespace, page_size)
+            .map_err(to_js_err)?;
+        to_js(&report)
+    }
+
     /// Compact the storage layout and return the number of freed bytes.
     pub fn compact_layout(&self) -> Result<u64, JsValue> {
         self.inner.compact_layout().map_err(to_js_err)

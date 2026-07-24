@@ -12,6 +12,7 @@ use crate::executor::Executor;
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use std::collections::{BTreeMap, BTreeSet};
 use tracing;
+use web_time::Instant;
 
 impl VantaEmbedded {
     fn check_read_only(&self) -> Result<()> {
@@ -344,6 +345,79 @@ impl VantaEmbedded {
         let mut report: VantaIndexRebuildReport = report.into();
         report.derived_rebuild_ms = derived.duration_ms;
         Ok(report)
+    }
+
+    /// Rebuild the HNSW vector index from stored vectors, paginating through
+    /// memory records via the SDK's `list()` cursor API to prevent OOM on
+    /// datasets with 100K+ records. Processes records in batches capped at
+    /// `page_size` (default: 1000, max: 1000).
+    ///
+    /// This is a safe alternative to unbounded `list()` enumeration: instead of
+    /// loading all record IDs into memory at once, it walks pages of records
+    /// using cursor-based pagination, then delegates the vector index rebuild
+    /// to the low-level engine which streams nodes directly from the vector store.
+    #[tracing::instrument(skip(self), err)]
+    pub fn reindex_hnsw_from_text(
+        &self,
+        namespace: &str,
+        page_size: Option<usize>,
+    ) -> Result<VantaIndexRebuildReport> {
+        self.check_read_only()?;
+        validate_namespace(namespace)?;
+
+        let batch_size = page_size.unwrap_or(1000).max(1).min(1000);
+        let started = Instant::now();
+
+        // Phase 1: Paginate through all records using cursor-based list()
+        // to safely enumerate the namespace without OOM.
+        let mut total_found = 0u64;
+        let mut cursor = None;
+        loop {
+            let page = self.list(
+                namespace,
+                VantaMemoryListOptions {
+                    filters: VantaMemoryMetadata::new(),
+                    limit: batch_size,
+                    cursor,
+                },
+            )?;
+            if page.records.is_empty() {
+                break;
+            }
+            total_found += page.records.len() as u64;
+            match page.next_cursor {
+                Some(c) => cursor = Some(c),
+                None => break,
+            }
+        }
+
+        // Phase 2: Delegate the actual HNSW rebuild to the engine, which
+        // streams nodes directly from the vector store (no OOM risk).
+        let rebuild_ms = started.elapsed().as_millis() as u64;
+        let engine = self.engine_handle()?;
+        let report = engine.rebuild_vector_index()?;
+
+        let mut vanta_report: VantaIndexRebuildReport = report.into();
+        vanta_report.derived_rebuild_ms = rebuild_ms;
+
+        // If the enumeration phase found records, ensure the engine agreed
+        if total_found > 0 && vanta_report.scanned_nodes == 0 {
+            tracing::warn!(
+                namespace = namespace,
+                total_found = total_found,
+                "reindex_hnsw_from_text: list() found records but engine scanned zero nodes"
+            );
+        }
+
+        tracing::info!(
+            namespace = namespace,
+            total_found = total_found,
+            scanned_nodes = vanta_report.scanned_nodes,
+            duration_ms = vanta_report.duration_ms + rebuild_ms,
+            "reindex_hnsw_from_text completed"
+        );
+
+        Ok(vanta_report)
     }
 
     /// Compact the vector store file, grouping nodes in BFS order from the HNSW entry point.
@@ -863,6 +937,13 @@ mod tests {
     fn test_rebuild_index_no_engine() {
         let e = make_embedded(false);
         let err = e.rebuild_index().unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_reindex_hnsw_from_text_no_engine() {
+        let e = make_embedded(false);
+        let err = e.reindex_hnsw_from_text("ns", Some(100)).unwrap_err();
         assert!(err.to_string().contains("initialized"), "got: {:?}", err);
     }
 

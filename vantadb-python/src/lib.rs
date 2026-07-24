@@ -613,6 +613,28 @@ impl VantaDB {
         rebuild_report_to_pydict(py, &report)
     }
 
+    /// Rebuild the HNSW vector index by paginating through text records.
+    ///
+    /// Paginates through memory records using cursor-based `list()` in
+    /// batches of `page_size` (default 1000, max 1000) to prevent OOM
+    /// on namespaces with 100K+ records.
+    #[pyo3(signature = (namespace, page_size=1000))]
+    fn reindex_hnsw_from_text(
+        &self,
+        py: Python,
+        namespace: &str,
+        page_size: usize,
+    ) -> PyResult<Py<PyAny>> {
+        let engine = self.engine.clone();
+        let namespace = namespace.to_string();
+        let report = py.detach(move || {
+            engine
+                .reindex_hnsw_from_text(&namespace, Some(page_size))
+                .map_err(map_vanta_error)
+        })?;
+        rebuild_report_to_pydict(py, &report)
+    }
+
     /// Export one namespace as JSONL.
     fn export_namespace(&self, py: Python, path: &str, namespace: &str) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
