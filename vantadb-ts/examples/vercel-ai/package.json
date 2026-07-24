@@ -2,6 +2,7 @@
   "name": "vantadb-vercel-ai-example",
   "type": "module",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "start": "tsx index.ts"
   },
