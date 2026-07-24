@@ -107,7 +107,6 @@ opentelemetry = [
     "dep:opentelemetry-otlp",
     "opentelemetry_sdk/rt-tokio",
 ]
-governance = []
 hot-reload = ["dep:notify"]
 encryption = ["dep:aes-gcm", "dep:sha2"]
 wal-shipping = ["dep:reqwest"]

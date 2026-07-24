@@ -131,7 +131,7 @@
 - **Gate Result:** ✅ DO
 - **Contrato:** Feature `governance` removida de Cargo.toml, `src/governance/` eliminado. `cargo check --workspace` ✅.
 - **Task file:** `skills/campaign-executor/tasks/DRV-022.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 #### Task 12: DRV-024 — Remove dead memory_governor.rs
 - **Esfuerzo:** 🟢 15min

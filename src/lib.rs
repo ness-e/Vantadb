@@ -30,7 +30,6 @@
 //! | `wal-shipping` | Async WAL shipping to replicas |
 //! | `pitr` | Point-in-time recovery from WAL archives |
 //! | `async-ingestion` | Background ingestion worker pool |
-//! | `governance` | Governance policy engine |
 //! | `remote-inference` | Remote LLM inference integration |
 //!
 //! ## Quick Example
@@ -79,8 +78,6 @@ pub mod engine;
 pub mod error;
 pub mod executor;
 pub mod gc;
-#[cfg(feature = "governance")]
-pub mod governance;
 pub mod governor;
 pub mod graph;
 pub mod hardware;

@@ -289,6 +289,18 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-24 — DRV-022: Eliminado governance/ dead code (1235L) ✅
+
+**Fuente:** Backlog stabilization plan — Phase 2, Task 11
+
+**Problema original:** `src/governance/` contenía 5 archivos (1235L total) con `#![allow(dead_code)]`, gated tras feature `governance` no-default sin consumidores. Feature nunca activada, dependía de `sync_ext` que hacía compilación inviable incluso si se activara.
+
+**Resuelto por:** Eliminación completa del directorio `src/governance/` y feature `governance` de `Cargo.toml`. Conservados: `DuplicatePreventionFilter`, `OriginCollisionTracker`, `compute_confidence_friction` — ya extraídos en `src/utils/` como production-ready, re-exportados vía `pub use utils::compute_confidence_friction`.
+
+**Verificación:** `cargo check -p vantadb` ✅ (0 errores). `cargo clippy -p vantadb -- -D warnings` ✅.
+
+**Ids:** `DRV-022`
+
 ### 2026-07-24 — DRV-059/065/071/087/091/096: RwLock<String> → String (6 tasks ✅)
 
 **Fuente:** Backlog DRV Hallazgos — adapters/providers, `review-deep` Wave 0 (quick)
