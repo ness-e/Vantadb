@@ -54,7 +54,7 @@ try {
     run "fmt" ("cargo", "fmt", "--all", "--", "--check")
     run "check" (("cargo", "check", "-p", "vantadb", "-j", "$Jobs") + $feats)
     run "clippy" (("cargo", "clippy", "-p", "vantadb", "-j", "$Jobs") + $feats + @("--", "-D", "warnings"))
-    run "audit" ("cargo", "audit", "--ignore", "RUSTSEC-2026-0176", "--ignore", "RUSTSEC-2026-0177")
+    run "audit" ("cargo", "audit")   # ignores managed in .cargo/audit.toml
     run "deny" ("cargo", "deny", "check")
     if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
         run "nextest" (("cargo", "nextest", "run", "--profile", "audit", "-p", "vantadb") + $feats + @("--build-jobs", "1", "-E", "not test(/deserialize_absurd_node_count/) and not test(/test_search_with_bizarre_text_query/) and not test(/test_malformed_payload_extremely_large/)"))
