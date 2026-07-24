@@ -36,7 +36,7 @@
     "@tanstack/react-router": "^1.168.25",
     "@tanstack/router-plugin": "^1.167.28",
     "clsx": "^2.1.1",
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.12",
     "marked": "^18.0.5",
     "motion": "^12.42.2",
     "react": "^19.2.0",
