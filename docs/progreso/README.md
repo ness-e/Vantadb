@@ -389,6 +389,24 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 - Aplica a ambos modos: MODO TAREA y MODO RUN
 - Decisión registrada en campaign_memory como policy
 
+### 2026-07-24 — VFY-010: ACID Phase 2 — Buffered Write Transactions ✅
+
+**Fuente:** Backlog (VFY Hallazgos)
+
+**Problema original:** Cada `insert()`/`delete()` escribía a stores y WAL inmediatamente — N fsyncs por transacción. Sin buffer, `abort()` no podía descartar writes ya enviados a stores.
+
+**Resuelto por:** Buffer writes in-memory durante la transacción. I/O a stores y WAL diferido hasta `commit()`. En `abort()` los buffers se descartan sin escribir nada.
+
+**Cambios:**
+- `src/storage/engine/mod.rs` — `BufferedWrite` enum (Insert/Delete), `active_txn_id`, `txn_buffers`
+- `src/storage/engine/init.rs` — inicialización de nuevos campos
+- `src/storage/engine/ops.rs` — `begin_transaction()` setea txn_id (sin WAL); `insert()`/`delete()` bufferan si hay txn activa; `commit_transaction()` drena buffer → WAL batch → apply stores; `abort_transaction()` descarta buffer; `get()` chequea buffer primero (read-your-writes)
+- `src/storage/engine/tests.rs` — 6 tests nuevos (commit_persists, abort_rolls_back, delete_abort, read_your_writes, empty_commit, double_commit_error)
+
+**Verificación:** `cargo check -p vantadb` ✅. 3 tests existentes ✅. 6 tests nuevos ✅. Cero regresiones.
+
+**Ids:** `VFY-010`
+
 ### 2026-07-23 — DRV-001: Refactor search.rs god file (1162L → 845L, 5 sub-modules) ✅
 
 **Fuente:** Backlog DRV Hallazgos — SDK, `review-deep` Wave 0

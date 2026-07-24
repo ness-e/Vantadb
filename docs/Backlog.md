@@ -141,7 +141,7 @@ last_reviewed: 2026-07-23
 | `VFY-007` | **`remove_node` O(n²) neighbor fixup** — Deletes costosos | `src/index/core.rs` | 🟡 1-2d | 🟢 | ❌ |
 | `VFY-008` | **WAL fsync por escritura** — Write amplification | `src/storage/wal.rs` | 🟡 1-2d | 🟡 | ❌ |
 | `VFY-009` | **637 inline styles no migrados a Tailwind** | `web/src/` | 🟡 3-5d | 🟢 | ❌ |
-| `VFY-010` | **ACID Phase 2: Buffered write transactions** — No implementado | `src/wal.rs` | 🟡 2-3d | 🔵 | ❌ |
+| `VFY-010` | **ACID Phase 2: Buffered write transactions** — Implementado | `src/storage/engine/{mod,ops,init}.rs` | 🟡 2-3d | 🔵 | ✅ |
 | `VFY-011` | **ACID Phase 3: Snapshot isolation / MVCC** | — | 🟠 3-5d | 🔵 | ❌ |
 | `VFY-012` | **DEVOPS-03: musllinux target gap** — Algunos targets sin soporte | CI config | 🟢 4h | 🟢 | ❌ |
 

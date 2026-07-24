@@ -116,6 +116,14 @@ pub struct QuantizationMaintenanceReport {
     pub promoted: u64,
 }
 
+/// An operation buffered inside an uncommitted transaction.
+/// Written to WAL + stores atomically at commit time.
+#[derive(Clone)]
+pub(crate) enum BufferedWrite {
+    Insert(UnifiedNode),
+    Delete(u128),
+}
+
 /// A pending HNSW mutation awaiting batch flush.
 #[derive(Clone)]
 pub(crate) struct PendingHnswOp {
@@ -168,6 +176,12 @@ pub struct StorageEngine {
     pub last_query_timestamp: AtomicU64,
     /// Monotonic transaction ID counter (P3 Phase 1).
     pub(crate) next_txn_id: AtomicU64,
+    /// Active transaction ID (single-slot: one active txn at a time).
+    /// `None` = no active transaction → insert/delete go direct.
+    pub(crate) active_txn_id: parking_lot::Mutex<Option<u64>>,
+    /// Per-transaction write buffer. Keyed by txn_id.
+    /// Only the active txn's buffer is meaningful.
+    pub(crate) txn_buffers: parking_lot::Mutex<std::collections::HashMap<u64, Vec<BufferedWrite>>>,
     /// Flag signalling emergency maintenance (e.g. cache pressure).
     pub emergency_maintenance_trigger: AtomicBool,
     /// Path to the data directory.

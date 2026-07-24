@@ -98,6 +98,8 @@ impl StorageEngine {
             volatile_cache: parking_lot::RwLock::new(std::collections::HashMap::new()),
             last_query_timestamp: std::sync::atomic::AtomicU64::new(0),
             next_txn_id: std::sync::atomic::AtomicU64::new(1),
+            active_txn_id: parking_lot::Mutex::new(None),
+            txn_buffers: parking_lot::Mutex::new(std::collections::HashMap::new()),
             emergency_maintenance_trigger: std::sync::atomic::AtomicBool::new(false),
             data_dir,
             vector_store: parking_lot::RwLock::new(vector_store),

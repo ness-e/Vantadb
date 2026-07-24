@@ -1821,7 +1821,8 @@ mod tests {
         let stats = engine.get_memory_stats();
         assert!(stats.logical_bytes > 0, "logical bytes should be > 0");
         // Node count should still be > 0 (persisted in HNSW backend)
-        assert!(stats.node_count >= 0, "node_count valid");
+        // ponytail: node_count is u64, comparison > 0 replaces >= 0 (clippy absurd_extreme_comparisons)
+        assert!(stats.node_count > 0 || stats.eviction_count > 0, "node_count or eviction_count valid");
         // The evicted node is removed from volatile cache
         assert_eq!(
             stats.cache_entries, 0,
@@ -3839,6 +3840,73 @@ mod tests {
         assert!(result.is_err() || result.is_ok());
     }
 
+    #[test]
+    fn test_txn_insert_commit_persists() {
+        let engine = in_memory_engine();
+        let txn_id = engine.begin_transaction().expect("begin");
+        engine.insert(&sample_node(42)).expect("insert in txn");
+        engine.commit_transaction(txn_id).expect("commit");
+        let retrieved = engine.get(42).expect("get");
+        assert_eq!(retrieved.unwrap().id, 42);
+    }
+
+    #[test]
+    fn test_txn_insert_abort_rolls_back() {
+        let engine = in_memory_engine();
+        let txn_id = engine.begin_transaction().expect("begin");
+        engine.insert(&sample_node(42)).expect("insert in txn");
+        engine.abort_transaction(txn_id).expect("abort");
+        let retrieved = engine.get(42).expect("get");
+        assert!(retrieved.is_none(), "aborted txn should roll back insert");
+    }
+
+    #[test]
+    fn test_txn_delete_abort_rolls_back() {
+        let engine = in_memory_engine();
+        engine.insert(&sample_node(42)).expect("insert outside txn");
+        let txn_id = engine.begin_transaction().expect("begin");
+        engine.delete(42, "test").expect("delete in txn");
+        engine.abort_transaction(txn_id).expect("abort");
+        let retrieved = engine.get(42).expect("get");
+        assert_eq!(
+            retrieved.unwrap().id,
+            42,
+            "aborted delete should be rolled back"
+        );
+    }
+
+    #[test]
+    fn test_txn_read_your_writes_insert_then_get() {
+        let engine = in_memory_engine();
+        let txn_id = engine.begin_transaction().expect("begin");
+        engine.insert(&sample_node(42)).expect("insert in txn");
+        // read-your-writes: get should see the buffered insert
+        let retrieved = engine.get(42).expect("get inside txn");
+        assert_eq!(retrieved.unwrap().id, 42);
+        engine.abort_transaction(txn_id).expect("abort");
+        // After abort, should not see it
+        let after = engine.get(42).expect("get after abort");
+        assert!(after.is_none());
+    }
+
+    #[test]
+    fn test_txn_empty_commit() {
+        let engine = in_memory_engine();
+        let txn_id = engine.begin_transaction().expect("begin");
+        engine.commit_transaction(txn_id).expect("commit empty txn");
+    }
+
+    #[test]
+    fn test_txn_commit_after_commit_errors() {
+        let engine = in_memory_engine();
+        let txn_id = engine.begin_transaction().expect("begin");
+        engine.insert(&sample_node(1)).expect("insert in txn");
+        engine.commit_transaction(txn_id).expect("first commit");
+        // Second commit with same txn_id should not panic
+        let result = engine.commit_transaction(txn_id);
+        let _ = result;
+    }
+
     // ─── OPS.RS: delete with cascade ────────────────────────────
 
     #[test]
@@ -3872,7 +3940,8 @@ mod tests {
         let report = engine
             .evict_cold_nodes_with_reason(1.0, EvictionReason::Oom)
             .expect("evict OOM");
-        assert!(report.evicted >= 0);
+        // ponytail: evicted is usize, >= 0 is always true (clippy absurd_extreme_comparisons)
+        assert!(report.evicted > 0 || report.scanned > 0, "evicted or scanned > 0");
         assert_eq!(report.reason, EvictionReason::Oom);
 
         // Verify the governor is still intact after the call
