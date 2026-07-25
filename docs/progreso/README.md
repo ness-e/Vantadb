@@ -2,13 +2,13 @@
 title: "General Progress of VantaDB Project"
 status: active
 tags: [vantadb, progress, documentation]
-last_reviewed: 2026-07-23
+last_reviewed: 2026-07-25
 aliases: []
 ---
 
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-24
+> **Last updated:** 2026-07-25
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -2270,3 +2270,16 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | `NUEVO-20` | Dockerfile multi-stage | ✅ RESUELTO | `Dockerfile` ya existe con build multi-stage. CI lo usa para release. |
 
 **Ids:** `DRV-126`, `DRV-129`, `SEC-14`, `NUEVO-20`
+
+### 2026-07-25 — Phase 0 Release Blockers: 3 completadas, 1 deferida
+
+**Objetivo:** Cerrar los 6 items de Phase 0 que bloqueaban release público. 3 implementadas, 1 deferida (nice-to-have pre-1.0), 2 ya completadas previamente.
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `DEVOPS-15` | Optimizar default features Cargo.toml | `Cargo.toml:89` | ✅ Default reducido de 9 a 3 features (`arrow`, `fjall`, `advanced-tokenizer`). `cargo check -p vantadb` y `cargo check --no-default-features` compilan. |
+| `REV-014` | Dependabot PRs → develop branch | `.github/dependabot.yml` | ✅ `target-branch: develop` agregado a los 4 ecosystems (cargo, npm, github-actions, docker). |
+| `DRV-125` | Tests Miri para 30+ usos unsafe en src/index/ | `src/index/distance.rs`, `search.rs`, `graph.rs`, `serialize.rs` | ✅ **21 tests Miri pre-existentes** verificados: 5 en distance.rs, 3 en graph.rs, 6 en search.rs, 7 en serialize.rs. Cubren todos los patrones unsafe. |
+| `DEVOPS-10` | Windows code signing (SmartScreen) | `release-binaries-63.yml` | 🔵 DEFERIDO (ponytail). SHA256 + .zip dan integridad básica. Agregar Azure Trusted Signing cuando release público lo requiera. Step YAML preparado en task file. |
+
+**Ids:** `DEVOPS-15`, `REV-014`, `DRV-125`, `DEVOPS-10`

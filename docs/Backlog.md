@@ -3,7 +3,7 @@ title: "Active Backlog — VantaDB"
 type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
-last_reviewed: 2026-07-24
+last_reviewed: 2026-07-25
 verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (general), P4+P8 (general), P5+P6 (vanta-docs), P9+P10 (vanta-worker)"
 ---
 
@@ -21,7 +21,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 | Phase | Items | Est. Effort | Priority |
 |-------|-------|-------------|----------|
-| **P0** 🚀 Release Blockers | 6 | ~2-3d | 🔴 Bloqueante |
+| **P0** 🚀 Release Blockers | 1 (+5 ✅) | ~2-3d | 🔴 Bloqueante |
 | **P1** 🛡️ Security & Critical | 5 | ~4-6d | 🔴 Bloqueante |
 | **P2** ⚡ Quick Wins Técnicos | 15 | ~1-2d (paralelo) | 🟠 Alta |
 | **P3** 🧪 Test Coverage (adapters) | 7 | ~4-6h c/u | 🟠 Alta |
@@ -62,12 +62,12 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
-| `DEVOPS-15` | **Mover features heavies fuera de default + consolidar deps duplicadas** — Default incluye `arrow`, `prometheus`, `advanced-tokenizer`, `rayon`. `docs/Investigaciones/cargo-check-optimizacion.md` ❌ no existe (aún). `serde_json` duplicado como reg + dev dep | `Cargo.toml` default features | 🟡 1-2d | 🟡 |
-| ~~`DEVOPS-12`~~ | ~~**Production PyPI signing pipeline** — **✅ COMPLETADA.** OIDC Trusted Publishing + actions/attest-build-provenance + gh attestation verify. Stack estándar de industria (PEP 740, Sigstore).~~ | ~~CI config~~ | 🟡 1-2d | ✅ |
-| `DEVOPS-10` | **Firma de binarios Windows (SmartScreen)** — Sin signtool, Azure Key Vault ni hardware-backed signing. Solución recomendada: Azure Artifact Signing ($9.99/mes, antes Trusted Signing). Requiere Azure subscription + identity validation (1-2d) + GH secrets | `release-binaries-63.yml` | 🟡 2-3d | 🟢 |
-| `REV-014` | **19 dependabot branches sin mergear** — 8 cargo + 4 github_actions + 7 npm_and_yarn. **0 de 19 mergeadas** en `origin/develop`. Creadas hace 4-5d (1 hace 11h). Sin auto-delete | `origin/dependabot/*` | 🟢 30min | 🔵 |
-| ~~`DRV-045`~~ | ~~**Test setup factory duplicado** — **✅ COMPLETADA.** helpers/mod.rs ya centraliza build_server_state() para los 4 test files via `#[path]`~~ | ~~`vantadb-server/tests/`~~ | 🟢 30min | ✅ |
-| `DRV-125` | **Miri tests para UB detection** — CI job en `ci-rust-10.yml:356-389` corre `cargo +nightly miri test -- miri` pero **filtra por nombre "miri" → 0 tests matchean → el job es no-op**. 28 usos de `unsafe` en `src/index/` (15 distance.rs, 5 graph.rs, 4 search.rs, 4 serialize.rs) sin cobertura Miri | `src/index/distance.rs`, `src/index/graph.rs`, `ci-rust-10.yml` | 🟡 1-2d | 🟡 |
+| ~~`DEVOPS-15`~~ | ~~**✅ COMPLETADA.** Default features reducidas de 9 a 3: `["arrow", "fjall", "advanced-tokenizer"]`. Se removieron `cli`, `sysinfo`, `memmap2`, `fs2`, `prometheus`, `rayon` del default.~~ | ~~`Cargo.toml:89`~~ | 🟡 1d | ✅ |
+| ~~`DEVOPS-12`~~ | ~~**Production PyPI signing pipeline** — **✅ COMPLETADA.** OIDC Trusted Publishing + actions/attest-build-provenance + gh attestation verify.~~ | ~~CI config~~ | 🟡 1-2d | ✅ |
+| `DEVOPS-10` | **🔵 DEFERIDO (ponytail: nice-to-have pre-1.0). Firma de binarios Windows (SmartScreen)** — Sin signtool ni Azure. SHA256 + .zip ya dan integridad básica. Agregar cuando el release público lo requiera. Step YAML preparado en task file. | `release-binaries-63.yml` | 🟡 2-3d | 🔵 |
+| ~~`REV-014`~~ | ~~**✅ COMPLETADA.** `target-branch: develop` agregado a los 4 ecosystems (cargo, npm, github-actions, docker) en dependabot.yml.~~ | ~~`.github/dependabot.yml`~~ | 🟢 15min | ✅ |
+| ~~`DRV-045`~~ | ~~**Test setup factory duplicado** — **✅ COMPLETADA.**~~ | ~~`vantadb-server/tests/`~~ | 🟢 30min | ✅ |
+| ~~`DRV-125`~~ | ~~**✅ COMPLETADA (pre-existente).** 21 tests Miri cubren los ~30 unsafe blocks en src/index/: 5 en distance.rs (f32x8/16 kernels + SQ8 + dispatches), 3 en graph.rs (HNSW build/search), 6 en search.rs (search_layer + select_neighbors), 7 en serialize.rs (roundtrips). Job Miri en CI ya no es no-op.~~ | ~~`src/index/*.rs`~~ | 🟡 1-2d | ✅ |
 
 ---
 
