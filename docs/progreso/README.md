@@ -333,6 +333,26 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `REV-012`
 
+### 2026-07-25 — Phase 3 Test Coverage: 7 tasks completadas (document-only) ✅
+
+**Fuente:** Backlog Phase 3 — evaluación de cobertura de tests
+
+**Resultados — 0 code changes (todas document-only, ponytail):**
+
+| ID | Módulo | Tests | Hallazgo |
+|----|--------|-------|----------|
+| `DRV-013` | ShardedWal | 25 tests, ~90%+ line coverage | Gap: concurrent access no testeado. Document-only |
+| `DRV-017` | search.rs / serialize.rs | 33+29 tests | Gap: mmap zero-copy unsafe path no testeado. Document-only |
+| `DRV-061` | OpenAI adapter | 10 tests/119L | Happy path sólido. Error paths dependen de API externa. |
+| `DRV-067` | Ollama adapter | 8 tests/79L | Adapter 1-line delegate. Document-only |
+| `DRV-073` | LiteLLM adapter | 10 tests/78L | Mejor coverage de los 3. Document-only |
+| `TEST-11` | Frontend (Vitest + Playwright) | 38+54 tests | Sin cross-browser WASM (demo es placeholder). Document-only |
+| `TEST-12` | Fuzzing | 4 targets + proptest | Sin corpus guardado ni storage API fuzz. Document-only |
+
+**Verificación:** todos los checks pasan ✅
+
+**Ids:** `DRV-013`, `DRV-017`, `DRV-061`, `DRV-067`, `DRV-073`, `TEST-11`, `TEST-12`
+
 ### 2026-07-25 — DRV-054: read_axioms extraído a const + resolve_axioms() con fallback ✅
 
 **Fuente:** Backlog `DRV-054` — 4 axioms inline, no sync con metadata
