@@ -454,6 +454,38 @@ fn test_mcp_tool_query_iql() {
 }
 
 #[test]
+fn test_mcp_query_lisp_sanitization() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Test empty query rejection
+    let empty_query = Some(json!({
+        "name": "query_lisp",
+        "arguments": {
+            "query": "   "
+        }
+    }));
+    let res_empty = handle_tools_call(&empty_query, &executor, &storage, &default_config());
+    assert!(res_empty.is_ok());
+    let val_empty = res_empty.unwrap();
+    let text_empty = val_empty["content"][0]["text"].as_str().unwrap();
+    assert!(text_empty.contains("cannot be empty"));
+
+    // Test null byte injection rejection
+    let null_byte_query = Some(json!({
+        "name": "query_lisp",
+        "arguments": {
+            "query": "FROM NODE#1\0; DROP TABLE"
+        }
+    }));
+    let res_null = handle_tools_call(&null_byte_query, &executor, &storage, &default_config());
+    assert!(res_null.is_ok());
+    let val_null = res_null.unwrap();
+    let text_null = val_null["content"][0]["text"].as_str().unwrap();
+    assert!(text_null.contains("invalid null bytes"));
+}
+
+#[test]
 fn test_mcp_tool_search() {
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);

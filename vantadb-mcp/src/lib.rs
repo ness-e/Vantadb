@@ -1079,6 +1079,15 @@ pub fn handle_tools_call(
                 .as_str()
                 .ok_or_else(|| McpError::invalid_params("Missing 'query'").to_json())?;
 
+            let trimmed = query.trim();
+            if trimmed.is_empty() {
+                return Ok(error_content("Query cannot be empty"));
+            }
+
+            if query.contains('\0') {
+                return Ok(error_content("Query contains invalid null bytes"));
+            }
+
             if query.len() > config.max_query_length {
                 return Ok(error_content(format!(
                     "Query exceeds maximum length of {} bytes",
@@ -1086,7 +1095,7 @@ pub fn handle_tools_call(
                 )));
             }
 
-            match executor.execute_hybrid(query) {
+            match executor.execute_hybrid(trimmed) {
                 Ok(ExecutionResult::Read(nodes)) => {
                     let records: Vec<vantadb::sdk::VantaNodeRecord> =
                         nodes.into_iter().map(Into::into).collect();
