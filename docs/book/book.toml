@@ -1,0 +1,12 @@
+[book]
+title = "VantaDB Documentation"
+authors = ["VantaDB Team"]
+description = "VantaDB — Local-first memory engine for AI agents"
+language = "en"
+
+[build]
+create-missing = false
+
+[output.html]
+smart-punctuation = true
+no-section-label = true
