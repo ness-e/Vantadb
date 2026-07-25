@@ -1,7 +1,10 @@
 {
-  "timestamp": "2026-07-18T17:19:45-04:00",
+  "timestamp": "2026-07-24T18:00:00Z",
   "mode": "full",
   "veredicto": "FAIL",
-  "findings_critical": 10,
-  "report_file": "docs/audit-reports/audit-full-2026-07-18.md"
+  "findings_critical": 3,
+  "findings_high": 14,
+  "findings_medium": 7,
+  "findings_low": 7,
+  "report_file": "docs/audit-reports/audit-full-2026-07-24.md"
 }
