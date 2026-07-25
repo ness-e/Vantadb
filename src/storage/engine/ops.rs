@@ -222,6 +222,28 @@ impl StorageEngine {
                 }
             }
 
+            // ── increment new-node cardinality stats (same lock) ──
+            for (field, value) in &node.relational {
+                let val_keys = value.to_cardinality_keys();
+                let val_map = stats.entry(field.clone()).or_default();
+                for val_key in val_keys {
+                    if val_map.len() < 100 || val_map.contains_key(&val_key) {
+                        *val_map.entry(val_key).or_default() += 1;
+                    }
+                }
+            }
+            // ponytail: drop the field with fewest entries if total pairs > global cap
+            let total: usize = stats.values().map(|m| m.len()).sum();
+            if total > crate::config::MAX_CARDINALITY_PAIRS {
+                if let Some(min_field) = stats
+                    .iter()
+                    .min_by_key(|(_, m)| m.len())
+                    .map(|(k, _)| k.clone())
+                {
+                    stats.remove(&min_field);
+                }
+            }
+
             // PERF-07: remove old edges from global index
             if let Some(ref ei) = self.edge_index {
                 for edge in &existing_node.edges {
@@ -234,9 +256,8 @@ impl StorageEngine {
                     si.remove(field, value, node.id);
                 }
             }
-        }
-
-        {
+        } else {
+            // ── insert-only: increment cardinality stats ──
             let mut stats = self.cardinality_stats.write();
             for (field, value) in &node.relational {
                 let val_keys = value.to_cardinality_keys();
@@ -283,8 +304,7 @@ impl StorageEngine {
 
         self.touch_activity();
 
-        let mut active_node = node.clone();
-        active_node.last_accessed = SystemTime::now()
+        let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64;
@@ -294,19 +314,25 @@ impl StorageEngine {
             let active = self.active_txn_id.lock();
             if let Some(txn_id) = *active {
                 let mut buffers = self.txn_buffers.lock();
+                let mut buffered = node.clone();
+                buffered.last_accessed = now_ms;
                 buffers
                     .entry(txn_id)
                     .or_default()
-                    .push(BufferedWrite::Insert(active_node));
+                    .push(BufferedWrite::Insert(buffered));
                 return Ok(());
             }
         }
 
         // Non-transaction path: WAL + apply immediately
         if let Some(ref sharded) = self.wal {
-            sharded.append(&crate::wal::WalRecord::Insert(active_node.clone()))?;
+            let mut wal_node = node.clone();
+            wal_node.last_accessed = now_ms;
+            // moved (not cloned again) — eliminates the 2nd clone
+            sharded.append(&crate::wal::WalRecord::Insert(wal_node))?;
         }
-        self.apply_insert(&active_node)
+        // Pass &node directly — no active_node intermediate needed
+        self.apply_insert(node)
     }
 
     /// Apply an insert to the stores (vstore, KV backend, HNSW, cache).
@@ -353,6 +379,11 @@ impl StorageEngine {
         if node.tier == crate::node::NodeTier::Hot {
             let mut cache = self.volatile_cache.write();
             cache.insert(node.id, node.clone());
+            // ponytail: cache clone is ~3KB/insert with 768d f32 vec.
+            // Switching volatile_cache to HashMap<u128, Arc<UnifiedNode>>
+            // would share allocations across get() reads and avoid the
+            // per-insert clone. Deferred until cache write throughput is
+            // a measured bottleneck.
 
             let caps = crate::hardware::HardwareCapabilities::global();
             let cache_cap_bytes = caps.total_memory / 4;
