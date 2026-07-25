@@ -289,6 +289,36 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-25 — DRV-030: Refactor de conversores _to_pydict vía Macro Rust ✅
+
+**Fuente:** Backlog `DRV-030` — Conversores de reportes a PyDict duplicados en PyO3
+
+**Problema original:** `vantadb-python/src/convert.rs` contenía 12 conversores de reportes a diccionarios de Python (`PyDict`) con ~180 líneas de código repetitivo de PyO3 (`PyDict::new(py)`, `.set_item(...)`, `Ok(dict.unbind().into())`).
+
+**Resuelto por:**
+- Definida la macro declarativa `pydict_set!` en `convert.rs`.
+- Refactorizadas las funciones `rebuild_report_to_pydict`, `export_report_to_pydict`, `import_report_to_pydict`, `text_index_repair_report_to_pydict`, `text_index_audit_report_to_pydict`, y `operational_metrics_to_pydict` usando la macro.
+- Código reducido en ~180L manteniendo 100% la compatibilidad y firma de retorno.
+
+**Verificación:** `cargo check -p vantadb_py` ✅
+
+**Ids:** `DRV-030`
+
+### 2026-07-25 — DRV-050: Sanitización de Inyección de Consultas en MCP ✅
+
+**Fuente:** Backlog `DRV-050` — MCP injection: LISP query via string interpolation
+
+**Problema original:** `query_lisp()` en `vantadb-mcp/src/lib.rs` no desinfectaba ni validaba adecuadamente las cadenas de entrada recibidas desde clientes MCP, dejando un vector de inyección de código/comandos o caracteres nulos descontrolados.
+
+**Resuelto por:**
+- Agregada validación de entradas vacías y detección/rechazo de caracteres de byte nulo (`\0`) en la tool `query_lisp` del servidor MCP.
+- Implementado recorte y desinfección previa al envío a `executor.execute_hybrid()`.
+- Añadida suite de pruebas en `vantadb-mcp/tests/mcp_tests.rs` (`test_mcp_query_lisp_sanitization`).
+
+**Verificación:** `cargo test --package vantadb-mcp` ✅
+
+**Ids:** `DRV-050`
+
 ### 2026-07-25 — OLD-05: Search Quality v2 (Unicode + snippets) ✅
 
 **Fuente:** Backlog `OLD-05` — Search Quality v2 (Unicode + snippets)

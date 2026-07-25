@@ -454,153 +454,147 @@ pub(crate) fn search_explanation_to_pydict(
     Ok(dict.unbind().into())
 }
 
+macro_rules! pydict_set {
+    ($py:expr, $( $key:expr => $val:expr ),* $(,)?) => {{
+        let dict = PyDict::new($py);
+        $(
+            dict.set_item($key, $val)?;
+        )*
+        Ok::<Py<PyAny>, pyo3::PyErr>(dict.unbind().into())
+    }};
+}
+
 pub(crate) fn rebuild_report_to_pydict(
     py: Python,
     report: &VantaIndexRebuildReport,
 ) -> PyResult<Py<PyAny>> {
-    let dict = PyDict::new(py);
-    dict.set_item("scanned_nodes", report.scanned_nodes)?;
-    dict.set_item("indexed_vectors", report.indexed_vectors)?;
-    dict.set_item("skipped_tombstones", report.skipped_tombstones)?;
-    dict.set_item("duration_ms", report.duration_ms)?;
-    dict.set_item("derived_rebuild_ms", report.derived_rebuild_ms)?;
-    dict.set_item("index_path", &report.index_path)?;
-    dict.set_item("success", report.success)?;
-    Ok(dict.unbind().into())
+    pydict_set!(py,
+        "scanned_nodes" => report.scanned_nodes,
+        "indexed_vectors" => report.indexed_vectors,
+        "skipped_tombstones" => report.skipped_tombstones,
+        "duration_ms" => report.duration_ms,
+        "derived_rebuild_ms" => report.derived_rebuild_ms,
+        "index_path" => &report.index_path,
+        "success" => report.success,
+    )
 }
 
 pub(crate) fn export_report_to_pydict(
     py: Python,
     report: &VantaExportReport,
 ) -> PyResult<Py<PyAny>> {
-    let dict = PyDict::new(py);
-    dict.set_item("records_exported", report.records_exported)?;
-    dict.set_item("namespaces", report.namespaces.clone())?;
-    dict.set_item("path", &report.path)?;
-    dict.set_item("duration_ms", report.duration_ms)?;
-    Ok(dict.unbind().into())
+    pydict_set!(py,
+        "records_exported" => report.records_exported,
+        "namespaces" => report.namespaces.clone(),
+        "path" => &report.path,
+        "duration_ms" => report.duration_ms,
+    )
 }
 
 pub(crate) fn import_report_to_pydict(
     py: Python,
     report: &VantaImportReport,
 ) -> PyResult<Py<PyAny>> {
-    let dict = PyDict::new(py);
-    dict.set_item("inserted", report.inserted)?;
-    dict.set_item("updated", report.updated)?;
-    dict.set_item("skipped", report.skipped)?;
-    dict.set_item("errors", report.errors)?;
-    dict.set_item("duration_ms", report.duration_ms)?;
-    Ok(dict.unbind().into())
+    pydict_set!(py,
+        "inserted" => report.inserted,
+        "updated" => report.updated,
+        "skipped" => report.skipped,
+        "errors" => report.errors,
+        "duration_ms" => report.duration_ms,
+    )
 }
 
 pub(crate) fn text_index_repair_report_to_pydict(
     py: Python,
     report: &VantaTextIndexRepairReport,
 ) -> PyResult<Py<PyAny>> {
-    let dict = PyDict::new(py);
-    dict.set_item("record_count", report.record_count)?;
-    dict.set_item("posting_entries", report.posting_entries)?;
-    dict.set_item("doc_stats_entries", report.doc_stats_entries)?;
-    dict.set_item("term_stats_entries", report.term_stats_entries)?;
-    dict.set_item("namespace_stats_entries", report.namespace_stats_entries)?;
-    dict.set_item("duration_ms", report.duration_ms)?;
-    dict.set_item("success", report.success)?;
-    Ok(dict.unbind().into())
+    pydict_set!(py,
+        "record_count" => report.record_count,
+        "posting_entries" => report.posting_entries,
+        "doc_stats_entries" => report.doc_stats_entries,
+        "term_stats_entries" => report.term_stats_entries,
+        "namespace_stats_entries" => report.namespace_stats_entries,
+        "duration_ms" => report.duration_ms,
+        "success" => report.success,
+    )
 }
 
 pub(crate) fn text_index_audit_report_to_pydict(
     py: Python,
     report: &VantaTextIndexAuditReport,
 ) -> PyResult<Py<PyAny>> {
-    let dict = PyDict::new(py);
-    dict.set_item("schema_version", report.schema_version)?;
-    dict.set_item("tokenizer", &report.tokenizer)?;
-    dict.set_item("tokenizer_version", report.tokenizer_version)?;
-    dict.set_item("key_format", &report.key_format)?;
-    dict.set_item("namespace_filter", report.namespace_filter.clone())?;
-    dict.set_item("namespaces_audited", report.namespaces_audited.clone())?;
-    dict.set_item("records_scanned", report.records_scanned)?;
-    dict.set_item("expected_entries", report.expected_entries)?;
-    dict.set_item("actual_entries", report.actual_entries)?;
-    dict.set_item("missing_entries", report.missing_entries)?;
-    dict.set_item("unexpected_entries", report.unexpected_entries)?;
-    dict.set_item("value_mismatches", report.value_mismatches)?;
-    dict.set_item("unreadable_entries", report.unreadable_entries)?;
-    dict.set_item("mismatches", report.mismatches)?;
-    dict.set_item("deep_audit", report.deep_audit)?;
-    dict.set_item("position_errors", report.position_errors)?;
-    dict.set_item("tf_errors", report.tf_errors)?;
-    dict.set_item("df_errors", report.df_errors)?;
-    dict.set_item("doc_len_errors", report.doc_len_errors)?;
-    dict.set_item("logical_corruptions", report.logical_corruptions)?;
-    dict.set_item("state_valid", report.state_valid)?;
-    dict.set_item("state_status", &report.state_status)?;
-    dict.set_item("duration_ms", report.duration_ms)?;
-    dict.set_item("passed", report.passed)?;
-    dict.set_item("status", &report.status)?;
-    Ok(dict.unbind().into())
+    pydict_set!(py,
+        "schema_version" => report.schema_version,
+        "tokenizer" => &report.tokenizer,
+        "tokenizer_version" => report.tokenizer_version,
+        "key_format" => &report.key_format,
+        "namespace_filter" => report.namespace_filter.clone(),
+        "namespaces_audited" => report.namespaces_audited.clone(),
+        "records_scanned" => report.records_scanned,
+        "expected_entries" => report.expected_entries,
+        "actual_entries" => report.actual_entries,
+        "missing_entries" => report.missing_entries,
+        "unexpected_entries" => report.unexpected_entries,
+        "value_mismatches" => report.value_mismatches,
+        "unreadable_entries" => report.unreadable_entries,
+        "mismatches" => report.mismatches,
+        "deep_audit" => report.deep_audit,
+        "position_errors" => report.position_errors,
+        "tf_errors" => report.tf_errors,
+        "df_errors" => report.df_errors,
+        "doc_len_errors" => report.doc_len_errors,
+        "logical_corruptions" => report.logical_corruptions,
+        "state_valid" => report.state_valid,
+        "state_status" => &report.state_status,
+        "duration_ms" => report.duration_ms,
+        "passed" => report.passed,
+        "status" => &report.status,
+    )
 }
 
 pub(crate) fn operational_metrics_to_pydict(
     py: Python,
     metrics: &VantaOperationalMetrics,
 ) -> PyResult<Py<PyAny>> {
-    let dict = PyDict::new(py);
-    dict.set_item("startup_ms", metrics.startup_ms)?;
-    dict.set_item("wal_replay_ms", metrics.wal_replay_ms)?;
-    dict.set_item("wal_records_replayed", metrics.wal_records_replayed)?;
-    dict.set_item("ann_rebuild_ms", metrics.ann_rebuild_ms)?;
-    dict.set_item(
-        "ann_rebuild_scanned_nodes",
-        metrics.ann_rebuild_scanned_nodes,
-    )?;
-    dict.set_item("derived_rebuild_ms", metrics.derived_rebuild_ms)?;
-    dict.set_item("text_index_rebuild_ms", metrics.text_index_rebuild_ms)?;
-    dict.set_item("text_postings_written", metrics.text_postings_written)?;
-    dict.set_item("text_index_repairs", metrics.text_index_repairs)?;
-    dict.set_item("text_lexical_queries", metrics.text_lexical_queries)?;
-    dict.set_item("text_lexical_query_ms", metrics.text_lexical_query_ms)?;
-    dict.set_item("text_candidates_scored", metrics.text_candidates_scored)?;
-    dict.set_item("text_consistency_audits", metrics.text_consistency_audits)?;
-    dict.set_item(
-        "text_consistency_audit_failures",
-        metrics.text_consistency_audit_failures,
-    )?;
-    dict.set_item("hybrid_query_ms", metrics.hybrid_query_ms)?;
-    dict.set_item("hybrid_candidates_fused", metrics.hybrid_candidates_fused)?;
-    dict.set_item("planner_hybrid_queries", metrics.planner_hybrid_queries)?;
-    dict.set_item(
-        "planner_text_only_queries",
-        metrics.planner_text_only_queries,
-    )?;
-    dict.set_item(
-        "planner_vector_only_queries",
-        metrics.planner_vector_only_queries,
-    )?;
-    dict.set_item("records_exported", metrics.records_exported)?;
-    dict.set_item("records_imported", metrics.records_imported)?;
-    dict.set_item("import_errors", metrics.import_errors)?;
-    dict.set_item("derived_prefix_scans", metrics.derived_prefix_scans)?;
-    dict.set_item(
-        "derived_full_scan_fallbacks",
-        metrics.derived_full_scan_fallbacks,
-    )?;
-    // Per-subsystem memory breakdown
-    dict.set_item("process_rss_bytes", metrics.process_rss_bytes)?;
-    dict.set_item("process_virtual_bytes", metrics.process_virtual_bytes)?;
-    dict.set_item("hnsw_nodes_count", metrics.hnsw_nodes_count)?;
-    dict.set_item("hnsw_logical_bytes", metrics.hnsw_logical_bytes)?;
-    dict.set_item("mmap_resident_bytes", metrics.mmap_resident_bytes)?;
-    dict.set_item("volatile_cache_entries", metrics.volatile_cache_entries)?;
-    dict.set_item("volatile_cache_cap_bytes", metrics.volatile_cache_cap_bytes)?;
-    dict.set_item("jemalloc_allocated_bytes", metrics.jemalloc_allocated_bytes)?;
-    dict.set_item("jemalloc_active_bytes", metrics.jemalloc_active_bytes)?;
-    dict.set_item("jemalloc_metadata_bytes", metrics.jemalloc_metadata_bytes)?;
-    dict.set_item("jemalloc_resident_bytes", metrics.jemalloc_resident_bytes)?;
-    dict.set_item("jemalloc_mapped_bytes", metrics.jemalloc_mapped_bytes)?;
-    dict.set_item("jemalloc_retained_bytes", metrics.jemalloc_retained_bytes)?;
-    Ok(dict.unbind().into())
+    pydict_set!(py,
+        "startup_ms" => metrics.startup_ms,
+        "wal_replay_ms" => metrics.wal_replay_ms,
+        "wal_records_replayed" => metrics.wal_records_replayed,
+        "ann_rebuild_ms" => metrics.ann_rebuild_ms,
+        "ann_rebuild_scanned_nodes" => metrics.ann_rebuild_scanned_nodes,
+        "derived_rebuild_ms" => metrics.derived_rebuild_ms,
+        "text_index_rebuild_ms" => metrics.text_index_rebuild_ms,
+        "text_postings_written" => metrics.text_postings_written,
+        "text_index_repairs" => metrics.text_index_repairs,
+        "text_lexical_queries" => metrics.text_lexical_queries,
+        "text_lexical_query_ms" => metrics.text_lexical_query_ms,
+        "text_candidates_scored" => metrics.text_candidates_scored,
+        "text_consistency_audits" => metrics.text_consistency_audits,
+        "text_consistency_audit_failures" => metrics.text_consistency_audit_failures,
+        "hybrid_query_ms" => metrics.hybrid_query_ms,
+        "hybrid_candidates_fused" => metrics.hybrid_candidates_fused,
+        "planner_hybrid_queries" => metrics.planner_hybrid_queries,
+        "planner_text_only_queries" => metrics.planner_text_only_queries,
+        "planner_vector_only_queries" => metrics.planner_vector_only_queries,
+        "records_exported" => metrics.records_exported,
+        "records_imported" => metrics.records_imported,
+        "import_errors" => metrics.import_errors,
+        "derived_prefix_scans" => metrics.derived_prefix_scans,
+        "derived_full_scan_fallbacks" => metrics.derived_full_scan_fallbacks,
+        "process_rss_bytes" => metrics.process_rss_bytes,
+        "process_virtual_bytes" => metrics.process_virtual_bytes,
+        "hnsw_nodes_count" => metrics.hnsw_nodes_count,
+        "hnsw_logical_bytes" => metrics.hnsw_logical_bytes,
+        "mmap_resident_bytes" => metrics.mmap_resident_bytes,
+        "volatile_cache_entries" => metrics.volatile_cache_entries,
+        "volatile_cache_cap_bytes" => metrics.volatile_cache_cap_bytes,
+        "jemalloc_allocated_bytes" => metrics.jemalloc_allocated_bytes,
+        "jemalloc_active_bytes" => metrics.jemalloc_active_bytes,
+        "jemalloc_metadata_bytes" => metrics.jemalloc_metadata_bytes,
+        "jemalloc_resident_bytes" => metrics.jemalloc_resident_bytes,
+        "jemalloc_mapped_bytes" => metrics.jemalloc_mapped_bytes,
+        "jemalloc_retained_bytes" => metrics.jemalloc_retained_bytes,
+    )
 }
 
 pub(crate) fn py_dict_to_metadata(

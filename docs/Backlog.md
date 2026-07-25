@@ -62,12 +62,12 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
-| `DEVOPS-15` | **Mover features heavies fuera de default + consolidar deps duplicadas** — Optimización compilación workspace. Nota: archivo `docs/Investigaciones/cargo-check-optimizacion.md` no existe (referencia perdida) | `Cargo.toml` default features | 🟡 1-2d | 🟡 |
-| `DEVOPS-12` | **Production PyPI signing pipeline** (OIDC + GitHub Attestations) — Validado: OIDC presente, Sigstore directo ausente (usa GitHub Attestations como alternativa) | CI config | 🟡 1-2d | 🟡 |
-| `DEVOPS-10` | **Firma de binarios Windows (SmartScreen)** — Windows code signing ausente. Sin signtool, Azure Key Vault ni hardware-backed signing | CI config | 🟡 2-3d | 🟢 |
-| `REV-014` | **19 stale dependabot branches** (8 cargo + 4 github_actions + 7 npm_and_yarn) — No auto-delete después de merge | `origin/dependabot/*` → H05-DIRECTION-001 | 🟢 30min | 🔵 |
-| `DRV-045` | **Test setup factory duplicado en test files** — ~20L de setup duplicado entre wrappers | `vantadb-server/tests/` | 🟢 30min | ⚪ |
-| `DRV-125` | **No Miri tests for UB detection** — CI Miri job existe pero corre sin tests específicos en `distance.rs`/`graph.rs` (26+ usos de `unsafe` cada uno) | `src/index/distance.rs`, `src/index/graph.rs` | 🟡 1-2d | 🟡 |
+| `DEVOPS-15` | **Mover features heavies fuera de default + consolidar deps duplicadas** — Default incluye `arrow`, `prometheus`, `advanced-tokenizer`, `rayon`. `docs/Investigaciones/cargo-check-optimizacion.md` ❌ no existe (aún). `serde_json` duplicado como reg + dev dep | `Cargo.toml` default features | 🟡 1-2d | 🟡 |
+| ~~`DEVOPS-12`~~ | ~~**Production PyPI signing pipeline** — **✅ COMPLETADA.** OIDC Trusted Publishing + actions/attest-build-provenance + gh attestation verify. Stack estándar de industria (PEP 740, Sigstore).~~ | ~~CI config~~ | 🟡 1-2d | ✅ |
+| `DEVOPS-10` | **Firma de binarios Windows (SmartScreen)** — Sin signtool, Azure Key Vault ni hardware-backed signing. Solución recomendada: Azure Artifact Signing ($9.99/mes, antes Trusted Signing). Requiere Azure subscription + identity validation (1-2d) + GH secrets | `release-binaries-63.yml` | 🟡 2-3d | 🟢 |
+| `REV-014` | **19 dependabot branches sin mergear** — 8 cargo + 4 github_actions + 7 npm_and_yarn. **0 de 19 mergeadas** en `origin/develop`. Creadas hace 4-5d (1 hace 11h). Sin auto-delete | `origin/dependabot/*` | 🟢 30min | 🔵 |
+| ~~`DRV-045`~~ | ~~**Test setup factory duplicado** — **✅ COMPLETADA.** helpers/mod.rs ya centraliza build_server_state() para los 4 test files via `#[path]`~~ | ~~`vantadb-server/tests/`~~ | 🟢 30min | ✅ |
+| `DRV-125` | **Miri tests para UB detection** — CI job en `ci-rust-10.yml:356-389` corre `cargo +nightly miri test -- miri` pero **filtra por nombre "miri" → 0 tests matchean → el job es no-op**. 28 usos de `unsafe` en `src/index/` (15 distance.rs, 5 graph.rs, 4 search.rs, 4 serialize.rs) sin cobertura Miri | `src/index/distance.rs`, `src/index/graph.rs`, `ci-rust-10.yml` | 🟡 1-2d | 🟡 |
 
 ---
 
@@ -75,9 +75,6 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 > Items que protegen la integridad del sistema y permiten despliegue seguro en producción.
 
-| ID | Descripción | Archivos | Esfuerzo | Prio |
-|----|-------------|----------|----------|------|
-| `DRV-050` | **MCP injection: LISP query via string interpolation** — `query_lisp()` pasa query cruda desde JSON a `execute_hybrid()` sin sanitización (solo length check). Línea real: 1077-1113 (no 1154-1187 como indicaba) | `vantadb-mcp/src/lib.rs:1077-1113` | 🟢 1h | 🟡 |
 | `DRV-054` | **read_axioms hardcoded como JSON literal** — 4 axioms inline, no sync con metadata | `vantadb-mcp/src/lib.rs:77-82` | 🟢 30min | 🔵 |
 | `DRV-124` | **macOS code signing/notarization missing** — Sin Apple Developer Account, Gatekeeper warnings | CI config | 🟡 2-3d | 🟡 |
 | `DRV-127` | **WAL encryption no-op** — Enterprise encryption (crate eliminado). WAL no tiene encrypt. `vfile.rs` sí tiene `#[cfg(feature = "encryption")]` con aes-gcm pero WAL no lo usa | `src/storage/wal.rs`, `src/storage/vfile.rs` | 🟡 2-3d | 🟡 |
@@ -94,7 +91,6 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | `DRV-014` | **ShardedWal::batch_append() clona todos los records por shard** — Overhead de alloc en batches grandes | `src/wal_sharded.rs:85-89` | 🟢 2h | ℹ️ |
 | `DRV-028` | ~~**Hand-rolled LRU cache con O(n) por operación**~~ — **✅ COMPLETADA** (`convert.rs:21-77` optimizada de O(n) Vec<String> a O(1) HashMap + u64 tick) | `vantadb-python/src/convert.rs:21-70` | 🟢 30min | ✅ |
 | `DRV-029` | **Cache-key overhead en py_dict_to_metadata** — Serializa + sort del dict solo para cache hit | `vantadb-python/src/convert.rs:619-669` | 🟢 15min | ℹ️ |
-| `DRV-030` | **12 conversores report-to-PyDict duplicados (~180L)** — Boilerplate refactorizable vía macro. **Corregido:** 12 funciones en `convert.rs` (no 19/~280L en lib.rs) | `vantadb-python/src/convert.rs` | 🟡 1d | ℹ️ |
 | `DRV-032` | **4 métodos con `#[allow(clippy::too_many_arguments)]`** — put_batch 8 params. **Corregido:** líneas reales 303, 469, 560, 1000 (no 976,1143,1234,1652) | `vantadb-python/src/lib.rs:303,469,560,1000` | 🟢 2h | ℹ️ |
 | `DRV-034` | **76 try-catch blocks repetidos** — Patrón idéntico en cada método público TS (76 bloques en 1020 líneas) | `vantadb-ts/src/vantadb.ts` | 🟡 1d | ⚪ ponytail: refactor si crece |
 | `DRV-036` | **`_mapRecord` valida 3 campos pero retorna `as MemoryRecord`** — Sin validación del resto | `vantadb-ts/src/vantadb.ts:25-52` | 🟢 1h | ⚪ |
