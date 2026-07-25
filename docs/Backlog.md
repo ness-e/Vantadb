@@ -92,7 +92,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | `DRV-028` | ~~**Hand-rolled LRU cache con O(n) por operación**~~ — **✅ COMPLETADA** (`convert.rs:21-77` optimizada de O(n) Vec<String> a O(1) HashMap + u64 tick) | `vantadb-python/src/convert.rs:21-70` | 🟢 30min | ✅ |
 | `DRV-029` | **Cache-key overhead en py_dict_to_metadata** — Serializa + sort del dict solo para cache hit | `vantadb-python/src/convert.rs:619-669` | 🟢 15min | ℹ️ |
 | `DRV-032` | **4 métodos con `#[allow(clippy::too_many_arguments)]`** — put_batch 8 params. **Corregido:** líneas reales 303, 469, 560, 1000 (no 976,1143,1234,1652) | `vantadb-python/src/lib.rs:303,469,560,1000` | 🟢 2h | ℹ️ |
-| `DRV-034` | **76 try-catch blocks repetidos** — Patrón idéntico en cada método público TS (76 bloques en 1020 líneas) | `vantadb-ts/src/vantadb.ts` | 🟡 1d | ⚪ ponytail: refactor si crece |
+
 | `DRV-036` | **`_mapRecord` valida 3 campos pero retorna `as MemoryRecord`** — Sin validación del resto | `vantadb-ts/src/vantadb.ts:25-52` | 🟢 1h | ⚪ |
 | `DRV-038` | **TS numeric fields tipados como `string`** — Inconsistentes con Rust/Python (u64) | `vantadb-ts/src/types.ts:28-31` | 🟢 1h | ℹ️ |
 | `DRV-041` | **worker.rs Promise con serde_wasm_bindgen** — **Corregido:** _reject SÍ se invoca (línea 254). No hay serde_json round-trip (usa serde_wasm_bindgen). Descripción original no coincide | `vantadb-wasm/src/worker.rs:201-254` | 🟢 1h | 🔵 |

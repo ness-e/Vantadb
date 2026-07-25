@@ -289,6 +289,23 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-25 — DRV-034: Refactorización de bloques try-catch en TypeScript SDK ✅
+
+**Fuente:** Backlog `DRV-034` — 38 bloques try-catch repetidos en `vantadb-ts/src/vantadb.ts`
+
+**Problema original:** Cada método de instancia de la clase `VantaDB` en el SDK TypeScript contenía un bloque try-catch idéntico `try { ... } catch(e) { throw wrapWasmError(e, "X"); }`, generando ~200 líneas de boilerplate sin valor.
+
+**Resuelto por:**
+- Introducido método privado genérico `_wasm<T>(method: string, fn: () => T): T` en la clase `VantaDB`.
+- Refactorizados 35 bloques try-catch en métodos de instancia a llamadas `_wasm()`.
+- 3 factory methods estáticos (`connect`, `create`, `open`) conservan su try-catch propio (no tienen `this`).
+- `close()` preserva su `try/finally` por el side-effect crítico de `_closed = true`.
+- Hallazgo colateral: `reindex_hnsw_from_text` no estaba en el binario WASM instalado — se documentó con `VantaError` explícito hasta que el WASM sea actualizado.
+
+**Verificación:** `npx tsc --noEmit` ✅ 0 errores.
+
+**Ids:** `DRV-034`
+
 ### 2026-07-25 — DRV-030: Refactor de conversores _to_pydict vía Macro Rust ✅
 
 **Fuente:** Backlog `DRV-030` — Conversores de reportes a PyDict duplicados en PyO3
