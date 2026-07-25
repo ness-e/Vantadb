@@ -25,12 +25,12 @@ export interface MemoryRecord {
   key: string;
   payload: string;
   metadata: VantaMetadata;
-  created_at_ms: string;
-  updated_at_ms: string;
-  version: string;
-  node_id: string;
+  created_at_ms: string | number;
+  updated_at_ms: string | number;
+  version: string | number;
+  node_id: string | number;
   vector?: number[];
-  expires_at_ms?: string;
+  expires_at_ms?: string | number;
 }
 
 export interface ListOptions {

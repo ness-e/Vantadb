@@ -602,32 +602,37 @@ pub(crate) fn py_dict_to_metadata(
 ) -> PyResult<std::collections::BTreeMap<String, VantaValue>> {
     let mut metadata = std::collections::BTreeMap::new();
     if let Some(extra) = fields {
-        // Build value-aware cache key for small/common dicts
+        if extra.is_empty() {
+            return Ok(metadata);
+        }
+
+        // Build value-aware cache key for small/common dicts (1..=4 entries)
         let mut use_cache = extra.len() <= 4;
         let cache_key = if use_cache {
-            let mut buf = String::with_capacity(64);
             let mut entries: Vec<(String, String)> = Vec::with_capacity(extra.len());
             for (key, value) in extra.iter() {
-                let k: Result<String, _> = key.extract();
-                let v = value.repr().map(|r| r.to_string());
-                match (k, v) {
-                    (Ok(k), Ok(v)) => entries.push((k, v)),
-                    _ => {
-                        use_cache = false;
-                        break;
+                if let (Ok(k), Ok(repr)) = (key.extract::<String>(), value.repr()) {
+                    if let Ok(v) = repr.to_str() {
+                        entries.push((k, v.to_string()));
+                        continue;
                     }
                 }
+                use_cache = false;
+                break;
             }
             if use_cache {
-                entries.sort_by(|a, b| a.0.cmp(&b.0));
-                for (k, v) in &entries {
-                    buf.push_str(k);
+                entries.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+                let mut buf = String::with_capacity(64);
+                for (k, v) in entries {
+                    buf.push_str(&k);
                     buf.push('=');
-                    buf.push_str(v);
+                    buf.push_str(&v);
                     buf.push('\n');
                 }
+                buf
+            } else {
+                String::new()
             }
-            buf
         } else {
             String::new()
         };

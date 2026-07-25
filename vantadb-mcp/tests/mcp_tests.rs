@@ -728,12 +728,7 @@ fn test_collection_delete() {
 
 #[test]
 fn test_mcp_invalid_json() {
-    // Test that serde_json rejects malformed input
-    let malformed = "{invalid json here";
-    let parse_result = serde_json::from_str::<Value>(malformed);
-    assert!(parse_result.is_err(), "malformed JSON should fail to parse");
-
-    // Test McpError::parse_error produces correct JSON-RPC structure
+    // Test McpError::parse_error produces correct JSON-RPC structure (-32700)
     let err = McpError::parse_error("Expected value at line 1 column 2");
     assert_eq!(err.code, -32700);
     let err_json = err.to_json();
@@ -743,8 +738,7 @@ fn test_mcp_invalid_json() {
         .unwrap()
         .contains("Parse error"));
 
-    // Verify that handle_tools_call with None params fails with invalid params,
-    // confirming that the dispatch correctly catches malformed input at the handler level
+    // Verify that handle_tools_call with None params returns invalid params error (-32602)
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
     let res = handle_tools_call(&None, &executor, &storage, &default_config());

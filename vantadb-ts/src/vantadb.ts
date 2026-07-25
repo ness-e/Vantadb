@@ -1,6 +1,7 @@
 import { VantaDB as WasmVantaDB } from "vantadb-wasm";
 
 import { VantaError, wrapWasmError } from "./errors.js";
+import { isMemoryRecord } from "./guards.js";
 
 import type {
   Capabilities,
@@ -29,26 +30,13 @@ function _mapRecord(r: unknown): MemoryRecord {
       "_mapRecord: expected an object, got " + typeof r,
     );
   }
-  const obj = r as Record<string, unknown>;
-  if (typeof obj.namespace !== "string") {
+  if (!isMemoryRecord(r)) {
     throw new VantaError(
       "VALIDATION_ERROR",
-      "_mapRecord: record missing required string field 'namespace'",
+      "_mapRecord: invalid MemoryRecord structure or missing required fields",
     );
   }
-  if (typeof obj.key !== "string") {
-    throw new VantaError(
-      "VALIDATION_ERROR",
-      "_mapRecord: record missing required string field 'key'",
-    );
-  }
-  if (typeof obj.payload !== "string") {
-    throw new VantaError(
-      "VALIDATION_ERROR",
-      "_mapRecord: record missing required string field 'payload'",
-    );
-  }
-  return r as MemoryRecord;
+  return r;
 }
 
 export class VantaDB {

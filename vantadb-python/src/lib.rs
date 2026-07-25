@@ -300,6 +300,7 @@ impl VantaDB {
     /// All Vecs must have length N matching ``vectors.shape[0]``.
     ///
     /// Returns a list of record dicts in the same order as inputs.
+    // PyO3 keyword argument binding requires matching function parameters in Rust.
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (vectors, keys, payloads = None, metadatas = None, namespaces = None, ttls = None))]
     fn put_batch_raw(
@@ -466,6 +467,7 @@ impl VantaDB {
 
     /// Put or update a namespace-scoped persistent memory record.
 
+    // PyO3 keyword argument binding requires matching function parameters in Rust.
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (namespace, key, payload, metadata=None, vector=None, ttl_ms=None))]
     fn put(
@@ -556,6 +558,7 @@ impl VantaDB {
     }
 
     /// Search namespace-scoped persistent memory records by vector + filters.
+    // PyO3 keyword argument binding requires matching function parameters in Rust.
     #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, explain=false))]
     #[allow(clippy::too_many_arguments)]
     fn search_memory(
@@ -997,6 +1000,7 @@ impl VantaDB {
 
     /// Explain how a memory search arrives at its results — returns a detailed
     /// breakdown of the search route, fusion, and per-hit explanation.
+    // PyO3 keyword argument binding requires matching function parameters in Rust.
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None))]
     fn explain_memory_search(

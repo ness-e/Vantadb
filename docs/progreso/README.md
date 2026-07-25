@@ -289,6 +289,21 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-25 — Refactor Batch: DRV-036, DRV-038, DRV-029, DRV-032, DRV-055 ✅
+
+**Fuente:** Backlog `DRV-036`, `DRV-038`, `DRV-029`, `DRV-032`, `DRV-055`
+
+**Resuelto por:**
+- **`DRV-036` (TypeScript SDK):** `_mapRecord` actualizado para usar `isMemoryRecord(r)` de `guards.ts` para validación de tipo exhaustiva.
+- **`DRV-038` (TypeScript SDK):** `MemoryRecord` actualizado para permitir `string | number` en campos de tiempo/versión/ID para paridad total con Rust/Python `u64`.
+- **`DRV-029` (Python SDK):** `py_dict_to_metadata` optimizado con retorno inmediato en diccionarios vacíos y generación de cache-key sin allocs de strings intermedios.
+- **`DRV-032` (Python SDK):** Documentación explícita y estructura limpia para las firmas PyO3 con `too_many_arguments`.
+- **`DRV-055` (MCP):** `test_mcp_invalid_json` refactorizado para testear estrictamente la respuesta del protocolo MCP JSON-RPC (`-32700` y `-32602`) en vez de `serde_json` interno.
+
+**Verificaciones:** `npx tsc --noEmit` ✅ | `cargo check -p vantadb_py` ✅ | `cargo test --package vantadb-mcp` ✅ (25/25 passed)
+
+**Ids:** `DRV-036`, `DRV-038`, `DRV-029`, `DRV-032`, `DRV-055`
+
 ### 2026-07-25 — DRV-034: Refactorización de bloques try-catch en TypeScript SDK ✅
 
 **Fuente:** Backlog `DRV-034` — 38 bloques try-catch repetidos en `vantadb-ts/src/vantadb.ts`
