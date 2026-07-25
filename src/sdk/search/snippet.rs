@@ -5,6 +5,26 @@
 
 use std::collections::BTreeSet;
 
+/// Folds a character to its ASCII/unaccented equivalent when possible, in lowercase.
+pub(crate) fn fold_char(c: char) -> char {
+    match c {
+        'á' | 'à' | 'â' | 'ä' | 'ã' | 'å' | 'Á' | 'À' | 'Â' | 'Ä' | 'Ã' | 'Å' => 'a',
+        'é' | 'è' | 'ê' | 'ë' | 'É' | 'È' | 'Ê' | 'Ë' => 'e',
+        'í' | 'ì' | 'î' | 'ï' | 'Í' | 'Ì' | 'Î' | 'Ï' => 'i',
+        'ó' | 'ò' | 'ô' | 'ö' | 'õ' | 'ø' | 'Ó' | 'Ò' | 'Ô' | 'Ö' | 'Õ' | 'Ø' => 'o',
+        'ú' | 'ù' | 'û' | 'ü' | 'Ú' | 'Ù' | 'Û' | 'Ü' => 'u',
+        'ñ' | 'Ñ' => 'n',
+        'ç' | 'Ç' => 'c',
+        'ý' | 'ÿ' | 'Ý' => 'y',
+        _ => c.to_ascii_lowercase(),
+    }
+}
+
+/// Folds a string into a simplified lowercase ASCII-compatible string for fuzzy matching.
+pub(crate) fn fold_str(s: &str) -> String {
+    s.chars().map(fold_char).collect()
+}
+
 /// Generate a snippet with `<strong>`-wrapped highlighted terms.
 pub(crate) fn generate_snippet_with_highlighting(
     payload: &str,
@@ -21,8 +41,10 @@ pub(crate) fn generate_snippet_with_highlighting(
         return Some(payload.to_string());
     }
 
-    let lower_payload = payload.to_ascii_lowercase();
-    let match_at = lower_payload.find(first_token).unwrap_or(0);
+    let folded_payload = fold_str(payload);
+    let folded_first_token = fold_str(first_token);
+
+    let match_at = folded_payload.find(&folded_first_token).unwrap_or(0);
     let mut start = match_at.saturating_sub(48);
     let mut end = match_at
         .saturating_add(first_token.len())
@@ -66,24 +88,32 @@ pub(crate) fn debug_snippet(payload: &str, text_query: &str) -> Option<String> {
     generate_snippet_with_highlighting(payload, text_query, false)
 }
 
-/// Wrap every occurrence of any term in `<strong>` tags (case-insensitive).
+/// Wrap every occurrence of any term in `<strong>` tags (case & accent insensitive).
 fn highlight_terms(text: &str, terms: &BTreeSet<String>) -> String {
     let mut result = String::new();
     let mut i = 0;
     let chars: Vec<char> = text.chars().collect();
 
+    // Pre-fold terms for comparison
+    let folded_terms: Vec<(Vec<char>, &String)> = terms
+        .iter()
+        .map(|t| (fold_str(t).chars().collect(), t))
+        .collect();
+
     while i < chars.len() {
         let mut matched = false;
 
-        for term in terms {
-            let term_chars: Vec<char> = term.chars().collect();
-            if i + term_chars.len() <= chars.len() {
-                let slice: String = chars[i..i + term_chars.len()].iter().collect();
-                if slice.eq_ignore_ascii_case(term) {
+        for (term_folded_chars, _orig_term) in &folded_terms {
+            if i + term_folded_chars.len() <= chars.len() {
+                let slice_chars = &chars[i..i + term_folded_chars.len()];
+                let slice_folded: Vec<char> = slice_chars.iter().map(|&c| fold_char(c)).collect();
+
+                if slice_folded == *term_folded_chars {
+                    let slice_str: String = slice_chars.iter().collect();
                     result.push_str("<strong>");
-                    result.push_str(&slice);
+                    result.push_str(&slice_str);
                     result.push_str("</strong>");
-                    i += term_chars.len();
+                    i += term_folded_chars.len();
                     matched = true;
                     break;
                 }
@@ -176,5 +206,23 @@ mod tests {
         let payload = "hello world ".repeat(200);
         let result = debug_snippet(&payload, "hello");
         assert!(result.is_some());
+    }
+
+    #[test]
+    fn unicode_folding_snippet_accent_match() {
+        let payload = "El café molido y la crème brûlée son exquisitos";
+        let result = generate_snippet_with_highlighting(payload, "cafe creme", true);
+        let s = result.expect("expected a snippet");
+        assert!(s.contains("<strong>café</strong>"), "Got: {}", s);
+        assert!(s.contains("<strong>crème</strong>"), "Got: {}", s);
+    }
+
+    #[test]
+    fn unicode_folding_snippet_unaccented_query() {
+        let payload = "Un rápido zorro marrón salta sobre el perro perezoso";
+        let result = generate_snippet_with_highlighting(payload, "rapido zorro", true);
+        let s = result.expect("expected a snippet");
+        assert!(s.contains("<strong>rápido</strong>"), "Got: {}", s);
+        assert!(s.contains("<strong>zorro</strong>"), "Got: {}", s);
     }
 }
