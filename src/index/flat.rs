@@ -1,6 +1,9 @@
 use crate::index::distance::calculate_similarity;
 use crate::node::FilterBitset;
 
+/// ponytail: full DashMap O(n) scan is by design — only called when
+/// `flat_threshold` (default 10000) bounds the node count. For larger
+/// datasets the HNSW path handles search without iterating all nodes.
 pub(crate) fn flat_search(
     nodes: &dashmap::DashMap<u128, super::graph::HnswNode>,
     query_vec: &[f32],
