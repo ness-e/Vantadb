@@ -414,6 +414,17 @@ report = db.rebuild_index()
 print(f"Rebuilt {report['indexed_vectors']} vectors in {report['duration_ms']}ms")
 ```
 
+#### `reindex_hnsw_from_text()`
+```python
+db.reindex_hnsw_from_text(namespace: str, page_size: int = 1000) -> None
+```
+Rebuild the HNSW vector index using the text content of all memory records in a namespace. Iterates through records in paginated batches (default 1000 per page) to prevent OOM on large databases. Each record's text is re-embedded and the vector index is reconstructed from canonical storage.
+
+```python
+db.reindex_hnsw_from_text("my-namespace", page_size=500)
+print("Vector index rebuilt from text records")
+```
+
 #### `compact_layout()`
 ```python
 db.compact_layout() -> int
