@@ -17,9 +17,7 @@ export function NbAccordion<T>({ items, renderItem, className }: NbAccordionProp
     if (target.tagName !== "BUTTON" || !containerRef.current) return;
 
     const buttons = Array.from(
-      containerRef.current.querySelectorAll<HTMLButtonElement>(
-        ":scope > .nb-faq-item > button",
-      ),
+      containerRef.current.querySelectorAll<HTMLButtonElement>(":scope > .nb-faq-item > button"),
     );
     const idx = buttons.indexOf(target as HTMLButtonElement);
     if (idx === -1) return;
