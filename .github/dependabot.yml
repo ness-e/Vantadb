@@ -5,6 +5,7 @@ version: 2
 updates:
   - package-ecosystem: "cargo"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -32,6 +33,7 @@ updates:
 
   - package-ecosystem: "npm"
     directory: "/web"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -47,6 +49,7 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -61,6 +64,7 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
