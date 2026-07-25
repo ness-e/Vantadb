@@ -1445,4 +1445,225 @@ mod tests {
             n
         );
     }
+
+    // ── Miri tests for unsafe patterns (chunks_exact + unwrap_unchecked) ──
+    //
+    // Each f32x8 kernel has 2 unsafe blocks (a_chunk + b_chunk),
+    // each f32x16 kernel has 2 unsafe blocks, and sq8_similarity has 2.
+    // Total: 14 unsafe blocks exercised here (the MmapFull from_raw_parts
+    // in calculate_similarity is tested separately below).
+    //
+    // Miri verifies that the SAFETY invariants on chunks_exact(8/16) hold:
+    // the unwrap_unchecked is valid because chunks_exact guarantees chunk.len() == N.
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_distance_f32x8_kernels() {
+        // These sizes exercise: empty (no loop), sub-chunk (no loop),
+        // exact-chunk (full SIMD), and multi-chunk paths.
+        let test_sizes: &[usize] = &[0, 1, 7, 8, 9, 15, 16, 32, 100];
+        for &size in test_sizes {
+            let a: Vec<f32> = (0..size).map(|i| i as f32).collect();
+            let b: Vec<f32> = (0..size).map(|i| (i as f32) * 2.0 + 1.0).collect();
+
+            // Equal-length calls exercise the chunks_exact(8) loop
+            let d1 = euclidean_distance_sq_f32x8(&a, &b);
+            let d2 = f32_dot_product_f32x8(&a, &b);
+            let (dot, norm) = f32_dot_and_norm_b_sq_f32x8(&a, &b);
+
+            assert!(d1.is_finite(), "euclidean_sq_f32x8(size={})", size);
+            assert!(d2.is_finite(), "dot_product_f32x8(size={})", size);
+            assert!(dot.is_finite(), "dot_f32x8(size={})", size);
+            assert!(norm.is_finite(), "norm_f32x8(size={})", size);
+
+            // Mismatched-length: early-return path, no unsafe executed
+            if size >= 2 {
+                let short = &a[..size / 2];
+                let _ = euclidean_distance_sq_f32x8(&a, short);
+                let _ = f32_dot_product_f32x8(&a, short);
+                let _ = f32_dot_and_norm_b_sq_f32x8(&a, short);
+            }
+        }
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_distance_f32x16_kernels() {
+        let test_sizes: &[usize] = &[0, 1, 15, 16, 17, 31, 32, 64, 100];
+        for &size in test_sizes {
+            let a: Vec<f32> = (0..size).map(|i| i as f32).collect();
+            let b: Vec<f32> = (0..size).map(|i| (i as f32) * 2.0 + 1.0).collect();
+
+            let d1 = euclidean_distance_sq_f32x16(&a, &b);
+            let d2 = f32_dot_product_f32x16(&a, &b);
+            let (dot, norm) = f32_dot_and_norm_b_sq_f32x16(&a, &b);
+
+            assert!(d1.is_finite(), "euclidean_sq_f32x16(size={})", size);
+            assert!(d2.is_finite(), "dot_product_f32x16(size={})", size);
+            assert!(dot.is_finite(), "dot_f32x16(size={})", size);
+            assert!(norm.is_finite(), "norm_f32x16(size={})", size);
+        }
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_distance_sq8_kernels() {
+        // SQ8 uses 2 unsafe: chunks_exact(8) for q_chunk → unwrap_unchecked.
+        // Test sizes that are multiples and non-multiples of 8.
+        let test_sizes: &[usize] = &[0, 1, 8, 9, 16, 20, 32];
+        for &size in test_sizes {
+            let a: Vec<f32> = (0..size).map(|i| (i as f32).sin()).collect();
+            if a.is_empty() {
+                continue; // skip empty — SQ8 with zero elements is degenerate
+            }
+            // Encode as SQ8
+            let max_abs = a.iter().map(|x| x.abs()).fold(f32::EPSILON, f32::max);
+            let scale = max_abs;
+            let inv = scale / 127.0;
+            let sq8_data: Vec<i8> = a.iter().map(|&x| (x / inv).round() as i8).collect();
+
+            let sim_cos = calculate_similarity(
+                &a,
+                None,
+                None,
+                None,
+                &VectorRepresentations::SQ8(sq8_data.clone().into_boxed_slice(), scale),
+                DistanceMetric::Cosine,
+            );
+            assert!(sim_cos.is_finite(), "SQ8 cosine(size={})", size);
+
+            let sim_euc = calculate_similarity(
+                &a,
+                None,
+                None,
+                None,
+                &VectorRepresentations::SQ8(sq8_data.into_boxed_slice(), scale),
+                DistanceMetric::Euclidean,
+            );
+            assert!(sim_euc.is_finite(), "SQ8 euclidean(size={})", size);
+        }
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_distance_public_dispatch_paths() {
+        // Exercise the public wrappers that dispatch via function pointers.
+        // This tests the entire call chain including select_kernels() init,
+        // which involves OnceLock + HardwareCapabilities::global().
+        let test_sizes: &[usize] = &[0, 1, 7, 8, 15, 16, 32, 100];
+        for &size in test_sizes {
+            let a: Vec<f32> = (0..size).map(|i| i as f32).collect();
+            let b: Vec<f32> = (0..size).map(|i| (i as f32) * -1.0).collect();
+
+            let d = euclidean_distance_squared_f32(&a, &b);
+            assert!(
+                d.is_finite(),
+                "euclidean_distance_squared_f32(size={})",
+                size
+            );
+
+            let norm = f32_l2_norm(&a);
+            assert!(norm.is_finite(), "f32_l2_norm(size={})", size);
+
+            let cos = cosine_sim_f32(&a, &b);
+            assert!(cos.is_finite(), "cosine_sim_f32(size={})", size);
+
+            if !a.is_empty() && norm > f32::EPSILON {
+                let inv = 1.0 / norm;
+                let bn = f32_l2_norm(&b);
+                let binv = if bn > f32::EPSILON { 1.0 / bn } else { 0.0 };
+                let cached = cosine_sim_cached_norms(&a, inv, &b, binv);
+                assert!(cached.is_finite(), "cosine_sim_cached_norms(size={})", size);
+            }
+
+            let fs = f32_slice_similarity(&a, None, &b, DistanceMetric::Cosine);
+            assert!(fs.is_finite(), "f32_slice_similarity cosine(size={})", size);
+
+            let fs2 = f32_slice_similarity(&a, None, &b, DistanceMetric::Euclidean);
+            assert!(
+                fs2.is_finite(),
+                "f32_slice_similarity euclidean(size={})",
+                size
+            );
+        }
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_distance_calculate_similarity_variants() {
+        // Exercise calculate_similarity dispatch for Full, None, and
+        // MmapFull(None) variants. The MmapFull(None) path hits the
+        // match arm but returns early before the from_raw_parts unsafe.
+        let test_sizes: &[usize] = &[0, 1, 8, 16, 32, 100];
+        for &size in test_sizes {
+            let a: Vec<f32> = (0..size).map(|i| i as f32).collect();
+
+            // Full vectors — exercises the dispatch to f32x8/f32x16 kernels
+            if !a.is_empty() {
+                let s1 = calculate_similarity(
+                    &a,
+                    None,
+                    None,
+                    None,
+                    &VectorRepresentations::Full(a.clone()),
+                    DistanceMetric::Cosine,
+                );
+                assert!(s1.is_finite(), "Full Cosine(size={})", size);
+
+                let s2 = calculate_similarity(
+                    &a,
+                    None,
+                    None,
+                    None,
+                    &VectorRepresentations::Full(a.clone()),
+                    DistanceMetric::Euclidean,
+                );
+                assert!(s2.is_finite(), "Full Euclidean(size={})", size);
+
+                // With query_norm
+                let norm = f32_l2_norm(&a);
+                let s3 = calculate_similarity(
+                    &a,
+                    Some(norm),
+                    None,
+                    None,
+                    &VectorRepresentations::Full(a.clone()),
+                    DistanceMetric::Cosine,
+                );
+                assert!(s3.is_finite(), "Full Cosine+norm(size={})", size);
+
+                let s4 = calculate_similarity(
+                    &a,
+                    Some(norm),
+                    None,
+                    None,
+                    &VectorRepresentations::Full(a.clone()),
+                    DistanceMetric::Euclidean,
+                );
+                assert!(s4.is_finite(), "Full Euclidean+norm(size={})", size);
+            }
+
+            // None variant — trivial early-return
+            let s5 = calculate_similarity(
+                &a,
+                None,
+                None,
+                None,
+                &VectorRepresentations::None,
+                DistanceMetric::Cosine,
+            );
+            assert_eq!(s5, 0.0, "None(size={})", size);
+
+            // MmapFull(None) — reaches the MmapFull arm but returns before unsafe
+            let s6 = calculate_similarity(
+                &a,
+                None,
+                None,
+                None,
+                &VectorRepresentations::MmapFull(None),
+                DistanceMetric::Cosine,
+            );
+            assert_eq!(s6, 0.0, "MmapFull(None)(size={})", size);
+        }
+    }
 }

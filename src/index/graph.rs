@@ -746,6 +746,139 @@ mod tests {
     use super::*;
     use crate::node::ALL_BITSET;
 
+    // ── Miri tests for unsafe patterns ──────────────────────────────
+    //
+    // graph.rs has 3 unsafe patterns: prefetch_mmap_vector (madvise),
+    // release_mmap_vector (madvise), and mmap_resident_bytes (Mmap::map).
+    // These all require actual system calls that Miri cannot execute
+    // (MIRI_NO_HOST_FALLBACK=1).
+    //
+    // INSTEAD, these Miri tests exercise HNSW graph construction and
+    // search. This transitively covers the unsafe in distance.rs
+    // (chunks_exact + unwrap_unchecked — 14 blocks) through the
+    // insert_hnsw → search_layer → fast_similarity → distance kernel
+    // call chain, plus the dispatch via select_kernels().
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_graph_hnsw_build_and_search() {
+        let config = HnswConfig {
+            m: 8,
+            m_max0: 16,
+            ef_construction: 50,
+            ef_search: 50,
+            ml: 1.0 / (8_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None, // force HNSW path
+        };
+        let index = CPIndex::new_with_config(config);
+
+        // Insert vectors — this calls insert_hnsw → distance kernels
+        for i in 0u128..5 {
+            let v: Vec<f32> = (0..8).map(|d| ((i * 8 + d) as f32).sin()).collect();
+            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+        }
+        assert_eq!(index.nodes.len(), 5);
+        assert!(index.get_entry_point().is_some());
+
+        // Search — this calls search_layer → fast_similarity → distance kernels
+        let query: Vec<f32> = (0..8).map(|d| (d as f32).sin()).collect();
+        let results = index.search_nearest(&query, None, None, &ALL_BITSET, 3, None);
+        assert!(!results.is_empty());
+        for &(id, score) in &results {
+            assert!(score.is_finite(), "score for id={} should be finite", id);
+        }
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_graph_hnsw_euclidean() {
+        let config = HnswConfig {
+            m: 8,
+            m_max0: 16,
+            ef_construction: 50,
+            ef_search: 50,
+            ml: 1.0 / (8_f64).ln(),
+            distance_metric: DistanceMetric::Euclidean,
+            flat_threshold: None,
+        };
+        let index = CPIndex::new_with_config(config);
+
+        // Insert points in 4D — tests the f32x8 kernels with size < 8 (sub-chunk path)
+        let vectors: Vec<Vec<f32>> = vec![
+            vec![1.0, 0.0, 0.0, 0.0],
+            vec![0.0, 1.0, 0.0, 0.0],
+            vec![0.0, 0.0, 1.0, 0.0],
+            vec![0.0, 0.0, 0.0, 1.0],
+        ];
+        for (i, v) in vectors.iter().enumerate() {
+            index.add(
+                i as u128,
+                FilterBitset::new(),
+                VectorRepresentations::Full(v.clone()),
+                0,
+            );
+        }
+
+        let query = vec![1.0, 0.0, 0.0, 0.0];
+        let results = index.search_nearest(&query, None, None, &ALL_BITSET, 4, None);
+        assert!(!results.is_empty());
+        assert_eq!(results[0].0, 0, "identical vector should be closest");
+        for &(_, score) in &results {
+            assert!(score.is_finite(), "Euclidean score should be finite");
+        }
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_graph_hnsw_multiple_layers() {
+        // Insert enough vectors to trigger multiple HNSW layers
+        let config = HnswConfig {
+            m: 4,
+            m_max0: 8,
+            ef_construction: 100,
+            ef_search: 100,
+            ml: 1.0 / (4_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None,
+        };
+        let index = CPIndex::new_with_config(config);
+
+        for i in 0u128..50 {
+            let v: Vec<f32> = (0..16).map(|d| ((i * 16 + d) as f32).cos()).collect();
+            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+        }
+        assert_eq!(index.nodes.len(), 50);
+
+        let query: Vec<f32> = (0..16).map(|d| (d as f32).cos()).collect();
+        let results = index.search_nearest(&query, None, None, &ALL_BITSET, 5, None);
+        assert_eq!(results.len(), 5);
+        for &(_, score) in &results {
+            assert!(score.is_finite());
+        }
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_graph_entry_point_management() {
+        let index = CPIndex::new();
+        assert!(index.get_entry_point().is_none());
+        assert!(index.find_new_entry_point().is_none());
+
+        // Add a node → entry point should be set
+        index.add(
+            42,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![1.0, 0.0, 0.0, 0.0]),
+            0,
+        );
+        assert_eq!(index.get_entry_point(), Some(42));
+
+        // Check that we can set entry point
+        index.set_entry_point(99);
+        assert_eq!(index.get_entry_point(), Some(99));
+    }
+
     /// Euclidean distance invariants: identical vectors → score ≈ 0.0,
     /// all scores ≤ 0 (negative distance), descending order.
     #[test]

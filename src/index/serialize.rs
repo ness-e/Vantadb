@@ -1129,4 +1129,253 @@ mod tests {
         assert_eq!(deser.config.ef_search, config.ef_search);
         assert!((deser.config.ml - config.ml).abs() < f64::EPSILON);
     }
+
+    // ── Miri tests for serialize/deserialize paths ──────────────────────
+    //
+    // The unsafe blocks in serialize.rs are in `load_from_file` and
+    // `sync_to_mmap` (MmapMut::map_mut) and the MmapFull serialize path
+    // (from_raw_parts). Miri cannot execute actual file I/O (MIRI_NO_HOST_FALLBACK=1),
+    // so these tests cover the safe serialize/deserialize paths. The unsafe
+    // patterns in distance.rs (chunks_exact + unwrap_unchecked) that are
+    // exercised through HNSW operations are tested via graph.rs Miri tests.
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_serialize_roundtrip_empty() {
+        let index = CPIndex::new();
+        let bytes = index.serialize_to_bytes();
+        let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
+        assert_eq!(deser.nodes.len(), 0);
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_serialize_roundtrip_full_vector() {
+        let index = single_full_node_index();
+        let bytes = index.serialize_to_bytes();
+        let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
+        assert_eq!(deser.nodes.len(), 2);
+        let node = deser.nodes.get(&42).unwrap();
+        match &node.vec_data {
+            VectorRepresentations::Full(v) => assert_eq!(v.as_slice(), &[0.1, 0.2, 0.3, 0.4]),
+            _ => panic!("expected Full"),
+        }
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_serialize_roundtrip_binary() {
+        let nodes = dashmap::DashMap::new();
+        nodes.insert(
+            1u128,
+            HnswNode {
+                id: 1,
+                bitset: FilterBitset::new(),
+                vec_data: VectorRepresentations::Binary(vec![0xDEADBEEFCAFEu64].into_boxed_slice()),
+                neighbors: vec![smallvec::smallvec![]],
+                storage_offset: 0,
+                inv_cached_norm: 0.0,
+                norm_sq: 0.0,
+                flags: 0,
+            },
+        );
+        let index = CPIndex {
+            nodes,
+            max_layer: AtomicUsize::new(0),
+            entry_point: AtomicU128::new(ENTRY_POINT_NONE),
+            backend: IndexBackend::InMemory,
+            config: HnswConfig::default(),
+            total_nodes: AtomicU64::new(1),
+            rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+        };
+        let bytes = index.serialize_to_bytes();
+        let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
+        let node = deser.nodes.get(&1).unwrap();
+        match &node.vec_data {
+            VectorRepresentations::Binary(b) => assert_eq!(b.as_ref(), &[0xDEADBEEFCAFEu64]),
+            _ => panic!("expected Binary"),
+        }
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_serialize_roundtrip_turbo() {
+        let nodes = dashmap::DashMap::new();
+        nodes.insert(
+            1u128,
+            HnswNode {
+                id: 1,
+                bitset: FilterBitset::new(),
+                vec_data: VectorRepresentations::Turbo(vec![0xAB, 0xCD].into_boxed_slice()),
+                neighbors: vec![smallvec::smallvec![]],
+                storage_offset: 0,
+                inv_cached_norm: 0.0,
+                norm_sq: 0.0,
+                flags: 0,
+            },
+        );
+        let index = CPIndex {
+            nodes,
+            max_layer: AtomicUsize::new(0),
+            entry_point: AtomicU128::new(ENTRY_POINT_NONE),
+            backend: IndexBackend::InMemory,
+            config: HnswConfig::default(),
+            total_nodes: AtomicU64::new(1),
+            rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+        };
+        let bytes = index.serialize_to_bytes();
+        let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
+        let node = deser.nodes.get(&1).unwrap();
+        match &node.vec_data {
+            VectorRepresentations::Turbo(t) => assert_eq!(t.as_ref(), &[0xAB, 0xCD]),
+            _ => panic!("expected Turbo"),
+        }
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_serialize_roundtrip_sq8() {
+        let nodes = dashmap::DashMap::new();
+        nodes.insert(
+            1u128,
+            HnswNode {
+                id: 1,
+                bitset: FilterBitset::new(),
+                vec_data: VectorRepresentations::SQ8(
+                    vec![10i8, -20, 30, -40].into_boxed_slice(),
+                    2.5,
+                ),
+                neighbors: vec![smallvec::smallvec![]],
+                storage_offset: 0,
+                inv_cached_norm: 0.0,
+                norm_sq: 0.0,
+                flags: 0,
+            },
+        );
+        let index = CPIndex {
+            nodes,
+            max_layer: AtomicUsize::new(0),
+            entry_point: AtomicU128::new(ENTRY_POINT_NONE),
+            backend: IndexBackend::InMemory,
+            config: HnswConfig::default(),
+            total_nodes: AtomicU64::new(1),
+            rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+        };
+        let bytes = index.serialize_to_bytes();
+        let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
+        let node = deser.nodes.get(&1).unwrap();
+        match &node.vec_data {
+            VectorRepresentations::SQ8(d, scale) => {
+                assert_eq!(d.as_ref(), &[10i8, -20, 30, -40]);
+                assert!((scale - 2.5).abs() < f32::EPSILON);
+            }
+            _ => panic!("expected SQ8"),
+        }
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_serialize_roundtrip_none() {
+        let nodes = dashmap::DashMap::new();
+        nodes.insert(
+            1u128,
+            HnswNode {
+                id: 1,
+                bitset: FilterBitset::new(),
+                vec_data: VectorRepresentations::None,
+                neighbors: vec![smallvec::smallvec![]],
+                storage_offset: 0,
+                inv_cached_norm: 0.0,
+                norm_sq: 0.0,
+                flags: 0,
+            },
+        );
+        let index = CPIndex {
+            nodes,
+            max_layer: AtomicUsize::new(0),
+            entry_point: AtomicU128::new(ENTRY_POINT_NONE),
+            backend: IndexBackend::InMemory,
+            config: HnswConfig::default(),
+            total_nodes: AtomicU64::new(1),
+            rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+        };
+        let bytes = index.serialize_to_bytes();
+        let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
+        let node = deser.nodes.get(&1).unwrap();
+        assert!(node.vec_data.is_none());
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_serialize_roundtrip_all_variants_together() {
+        // Build an index with all vector variants to test mixed serialization.
+        let mut index = CPIndex::new();
+        // Clear default empty state
+        index.nodes.clear();
+
+        // Full
+        index.nodes.insert(
+            1,
+            HnswNode {
+                id: 1,
+                bitset: FilterBitset::new(),
+                vec_data: VectorRepresentations::Full(vec![0.1, 0.2, 0.3, 0.4]),
+                neighbors: vec![smallvec::smallvec![2, 3]],
+                storage_offset: 0,
+                inv_cached_norm: 1.0,
+                norm_sq: 1.0,
+                flags: 0,
+            },
+        );
+        // Binary
+        index.nodes.insert(
+            2,
+            HnswNode {
+                id: 2,
+                bitset: FilterBitset::new(),
+                vec_data: VectorRepresentations::Binary(vec![0xAA, 0xBB].into_boxed_slice()),
+                neighbors: vec![smallvec::smallvec![1, 3]],
+                storage_offset: 0,
+                inv_cached_norm: 0.0,
+                norm_sq: 0.0,
+                flags: 0,
+            },
+        );
+        // Turbo
+        index.nodes.insert(
+            3,
+            HnswNode {
+                id: 3,
+                bitset: FilterBitset::new(),
+                vec_data: VectorRepresentations::Turbo(vec![0x10, 0x20].into_boxed_slice()),
+                neighbors: vec![smallvec::smallvec![1, 2]],
+                storage_offset: 0,
+                inv_cached_norm: 0.0,
+                norm_sq: 0.0,
+                flags: 0,
+            },
+        );
+        // None
+        index.nodes.insert(
+            4,
+            HnswNode {
+                id: 4,
+                bitset: FilterBitset::new(),
+                vec_data: VectorRepresentations::None,
+                neighbors: vec![smallvec::smallvec![]],
+                storage_offset: 0,
+                inv_cached_norm: 0.0,
+                norm_sq: 0.0,
+                flags: 0,
+            },
+        );
+
+        index.max_layer = AtomicUsize::new(0);
+        index.entry_point = AtomicU128::new(1);
+        index.total_nodes = AtomicU64::new(4);
+
+        let bytes = index.serialize_to_bytes();
+        let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
+        assert_eq!(deser.nodes.len(), 4);
+    }
 }

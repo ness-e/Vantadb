@@ -1005,4 +1005,164 @@ mod tests {
             "should fill remaining slots with discarded candidates"
         );
     }
+
+    // ── Miri tests for unsafe patterns ──────────────────────────────
+    //
+    // search.rs has 4 unsafe blocks: `from_raw_parts` in search_layer
+    // for mmap-backed vector access (2 blocks in the entry_point loop,
+    // 2 in the neighbor evaluation loop). These require an actual
+    // VantaFile with mmap data which Miri cannot provide.
+    //
+    // These Miri tests exercise search_layer and the HNSW search path
+    // with `vector_store = None`, which routes through fast_similarity
+    // → distance kernels (unsafe blocks in distance.rs, already tested
+    // by the distance.rs and graph.rs Miri tests).
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_search_layer_empty_entry_points() {
+        let index = make_index(DistanceMetric::Cosine);
+        add_node(&index, 0, vec![1.0, 0.0, 0.0]);
+        let mut visited: HashSet<u128, RandomState> =
+            HashSet::with_capacity_and_hasher(100, RandomState::new());
+        let results = index.search_layer(
+            &[1.0, 0.0, 0.0],
+            Some(1.0),
+            Some(1.0),
+            &[],
+            10,
+            0,
+            &ALL_BITSET,
+            None,
+            DistanceMetric::Cosine,
+            &mut visited,
+        );
+        assert!(results.is_empty(), "empty entry points → empty results");
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_search_layer_cosine_small() {
+        let index = make_index(DistanceMetric::Cosine);
+        add_node(&index, 0, vec![1.0, 0.0, 0.0]);
+        add_node(&index, 1, vec![0.9, 0.1, 0.0]);
+        let mut visited: HashSet<u128, RandomState> =
+            HashSet::with_capacity_and_hasher(100, RandomState::new());
+        let results = index.search_layer(
+            &[1.0, 0.0, 0.0],
+            Some(1.0),
+            Some(1.0),
+            &[0],
+            10,
+            0,
+            &ALL_BITSET,
+            None,
+            DistanceMetric::Cosine,
+            &mut visited,
+        );
+        assert!(!results.is_empty(), "should find results");
+        let sorted = results.into_sorted_vec();
+        assert!(
+            sorted[0].1 == 0 || sorted[0].1 == 1,
+            "top result should be 0 or 1"
+        );
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_search_layer_euclidean() {
+        let index = make_index(DistanceMetric::Euclidean);
+        add_node(&index, 0, vec![1.0, 0.0]);
+        add_node(&index, 1, vec![10.0, 10.0]);
+        let mut visited: HashSet<u128, RandomState> =
+            HashSet::with_capacity_and_hasher(100, RandomState::new());
+        let results = index.search_layer(
+            &[1.0, 0.0],
+            Some(1.0),
+            None,
+            &[0],
+            10,
+            0,
+            &ALL_BITSET,
+            None,
+            DistanceMetric::Euclidean,
+            &mut visited,
+        );
+        assert!(!results.is_empty(), "should find results");
+        let sorted = results.into_sorted_vec();
+        for ns in &sorted {
+            assert!(ns.0 <= 0.0, "Euclidean scores ≤ 0");
+        }
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_search_nearest_hnsw_path() {
+        // Force HNSW path (flat_threshold = None)
+        let index = make_hnsw_index(DistanceMetric::Cosine);
+        for i in 0u128..10 {
+            add_node(&index, i, vec![(i as f32) * 0.2, 0.0, 0.0]);
+        }
+        let results = index.search_nearest(&[0.0, 0.0, 0.0], None, None, &ALL_BITSET, 5, None);
+        assert_eq!(results.len(), 5);
+        for &(_, score) in &results {
+            assert!(score.is_finite());
+        }
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_search_nearest_hnsw_euclidean() {
+        let index = make_hnsw_index(DistanceMetric::Euclidean);
+        for i in 0u128..10 {
+            add_node(&index, i, vec![(i as f32) * 0.5, 0.0]);
+        }
+        let results = index.search_nearest(&[0.0, 0.0], None, None, &ALL_BITSET, 5, None);
+        assert_eq!(results.len(), 5);
+        for &(_, score) in &results {
+            assert!(score.is_finite());
+            assert!(score <= 0.0);
+        }
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_select_neighbors_basic() {
+        let index = make_index(DistanceMetric::Cosine);
+        for i in 0u128..6 {
+            add_node(&index, i, vec![(i as f32) * 0.2, 0.0, 0.0]);
+        }
+        let mut heap = BinaryHeap::new();
+        for i in 0u128..6 {
+            if let Some(node) = index.nodes.get(&i) {
+                if let Some(slice) = node.vec_data.as_f32_slice() {
+                    let sim = cosine_sim_f32(slice, slice);
+                    heap.push(NodeSimMin(sim, i));
+                }
+            }
+        }
+        let selected = index.select_neighbors(heap, 3);
+        assert_eq!(selected.len(), 3);
+    }
+
+    #[cfg(miri)]
+    #[test]
+    fn miri_select_neighbors_euclidean() {
+        let index = make_index(DistanceMetric::Euclidean);
+        for i in 0u128..4 {
+            add_node(&index, i, vec![(i as f32) * 2.0, 0.0]);
+        }
+        let mut heap = BinaryHeap::new();
+        for i in 0u128..4 {
+            if let Some(node) = index.nodes.get(&i) {
+                if let Some(slice) = node.vec_data.as_f32_slice() {
+                    // self-distance is 0 → score = 0
+                    let sim = -euclidean_distance_squared_f32(slice, slice);
+                    heap.push(NodeSimMin(sim, i));
+                }
+            }
+        }
+        let selected = index.select_neighbors(heap, 2);
+        assert_eq!(selected.len(), 2);
+    }
 }
