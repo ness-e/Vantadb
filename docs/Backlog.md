@@ -237,7 +237,6 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | `OLD-02` | **GraphRAG pipeline formal** — seed → expand → retrieve → generate context. Ejemplo en `examples/rust/graphrag.rs`, no pipeline formal | 🟡 1-2 sem | ⚠️ Parcial (ejemplo existe) | DRV-123 (auto-embedding) recomendado | 🗺️ Roadmap |
 | `OLD-03` | **Chaos testing (Jepsen/Maelstrom)** — `chaos_test_wal.sh` + failpoint tests CI existen, no Jepsen formal | 🟡 2-3 sem | ⚠️ Parcial (scripts existen) | Docker. WAL shipping existente | 🗺️ Roadmap |
 | `OLD-04` | **OpenTelemetry tracing** — ✅ Implementado. `src/cli_server.rs` con feature flag `opentelemetry`, OTLP exporter | 🟡 1 sem | ✅ Implementado | Feature flag independiente | 🗺️ Roadmap |
-| `OLD-05` | **Search Quality v2 (Unicode + snippets)** — Tokenizer avanzado, Unicode folding y snippet generation insensibles a diacríticos/acentos en el core y SDKs | 🟡 3-4d | ✅ COMPLETED | Ninguna. Continuación de TSK-123 | 🗺️ Roadmap |
 
 ### 🟡 Medio — Valor moderado
 

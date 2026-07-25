@@ -9,7 +9,7 @@
 - **Turns estimados:** 15
 - **Creado:** 2026-07-25T03:55:00Z
 - **last-synced:** 2026-07-25T03:55:00Z
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED
 
 ## Blast Radius
 
@@ -40,13 +40,13 @@
 - **Archivos:** `src/sdk/search/snippet.rs`
 - **Acción:** Agregar función de fold/normalización Unicode para comparación de términos y actualizar `highlight_terms` y `generate_snippet_with_highlighting`.
 - **Verify:** `cargo test --package vantadb --lib sdk::search::snippet::tests`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 2: Añadir tests para Unicode Snippeting en `snippet.rs` y verificar workspace
 - **Archivos:** `src/sdk/search/snippet.rs`
 - **Acción:** Añadir tests unitarios para casos acentuados/multilingües.
 - **Verify:** `cargo test --workspace`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 - Ninguna.

@@ -289,6 +289,21 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-25 — OLD-05: Search Quality v2 (Unicode + snippets) ✅
+
+**Fuente:** Backlog `OLD-05` — Search Quality v2 (Unicode + snippets)
+
+**Problema original:** La extracción de snippets y el resaltado de términos (`generate_snippet_with_highlighting` y `highlight_terms`) en el core dependían de `to_ascii_lowercase()` y `eq_ignore_ascii_case()`, fallando al buscar o resaltar coincidencias insensibles a diacríticos/acentos (`café` vs `cafe`, `rápido` vs `rapido`).
+
+**Resuelto por:**
+- Implementado Unicode accent folding (`fold_char` y `fold_str`) en `src/sdk/search/snippet.rs` para insensibilidad a diacríticos en la búsqueda de posición de snippet y resaltado `<strong>`.
+- Preservados los caracteres y diacríticos originales del texto fuente dentro de las etiquetas `<strong>`.
+- Añadidos unit tests `unicode_folding_snippet_accent_match` y `unicode_folding_snippet_unaccented_query`.
+
+**Verificación:** `cargo test --package vantadb --lib sdk::search::snippet::tests` ✅
+
+**Ids:** `OLD-05`
+
 ### 2026-07-24 — DRV-022: Eliminado governance/ dead code (1235L) ✅
 
 **Fuente:** Backlog stabilization plan — Phase 2, Task 11
