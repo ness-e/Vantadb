@@ -133,7 +133,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | `DRV-123` | **Auto-embedding on INSERT (tras feature flag `remote-inference`)** — Implementado en `executor.rs:228-242` + `:353-360` bajo `#[cfg(feature = "remote-inference")]`. No es default | `src/llm.rs`, `src/executor.rs` | 🟡 2-3d | 🟠 |
 | `DRV-130` | **SIFT 1M high-recall 127s bottleneck** — Anti-locality en SSD layout. `search_nearest` usa HNSW estándar sin optimización SSD-locality | `src/index/search.rs:365` | 🟡 2-3d | 🟡 |
 | `DRV-131` | **Missing index types beyond HNSW** — Solo `graph.rs` (HNSW) + `flat.rs` (brute-force). Quiver tiene 8 tipos | `src/index/` | 🟠 5-10d | 🔵 |
-| `DOC-20` | **mdBook adoption for docs site** — Docs fragmentados, sin search unificado. No existe `book.toml` ni `docs/book/` | bitacora D1, D6 | 🟡 2-3d | 🟡 |
+| ✅ `DOC-20` | **mdBook adoption for docs site** — Docs fragmentados, sin search unificado. `docs/book/` creado con `book.toml`, `SUMMARY.md`, `{{#include}}` stubs. **Completado** `1f9f681d` | bitacora D1, D6 | ✅ 1d | 🟡 |
 
 ---
 

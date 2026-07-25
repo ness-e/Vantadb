@@ -2396,3 +2396,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | `DEVOPS-10` | Windows code signing (SmartScreen) | `release-binaries-63.yml` | 🔵 DEFERIDO (ponytail). SHA256 + .zip dan integridad básica. Agregar Azure Trusted Signing cuando release público lo requiera. Step YAML preparado en task file. |
 
 **Ids:** `DEVOPS-15`, `REV-014`, `DRV-125`, `DEVOPS-10`
+
+### 2026-07-25 — P4 Engineering Health Wave 0: DOC-20 (mdBook docs site)
+
+**Objetivo:** Unificar docs fragmentados en un mdBook con search integrado.
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `DOC-20` | mdBook adoption for docs site | `docs/book/book.toml`, `docs/book/src/SUMMARY.md`, 73 `{{#include}}` stubs | ✅ `1f9f681d` — mdBook con 9 secciones (User Guides, API, Architecture, Operations, Strategy, Reference, Blog, Case Studies, Project). Cero duplicación de contenido existente. 83 páginas HTML generadas. |
+
+**Verificación:** `mdbook build docs/book/` ✅ — 83 archivos en `docs/book/book/`, `index.html` funcional.
