@@ -23,56 +23,48 @@ thread_local! {
 }
 
 struct LruCache {
-    map: HashMap<String, std::collections::BTreeMap<String, VantaValue>>,
-    order: Vec<String>,
+    map: HashMap<String, (std::collections::BTreeMap<String, VantaValue>, u64)>,
     capacity: usize,
+    tick: u64,
 }
-// ponytail: O(n) scan on Vec order (capacity=64). Add lru crate iff >256 entries are ever cached.
 
 impl LruCache {
     fn new(capacity: usize) -> Self {
         Self {
             map: HashMap::with_capacity(capacity),
-            order: Vec::with_capacity(capacity),
             capacity,
+            tick: 0,
         }
     }
 
     /// Retrieve a cached metadata map by key.
-    /// Moves the entry to the most-recently-used position on access.
+    /// Moves the entry to the most-recently-used position on access in O(1).
     fn get(&mut self, key: &str) -> Option<std::collections::BTreeMap<String, VantaValue>> {
-        if let Some(value) = self.map.get(key) {
-            // Move to back (most recently used)
-            if let Some(pos) = self.order.iter().position(|k| k == key) {
-                self.order.remove(pos);
-                self.order.push(key.to_string());
-            }
+        if let Some((value, last_used)) = self.map.get_mut(key) {
+            self.tick = self.tick.wrapping_add(1);
+            *last_used = self.tick;
             Some(value.clone())
         } else {
             None
         }
     }
 
-    /// Insert or update a metadata cache entry.
+    /// Insert or update a metadata cache entry in O(1).
     /// Evicts the least recently used entry when at capacity.
-    /// Refreshes access order on update (CODE-038).
     fn put(&mut self, key: String, value: std::collections::BTreeMap<String, VantaValue>) {
+        self.tick = self.tick.wrapping_add(1);
         if self.map.len() >= self.capacity && !self.map.contains_key(&key) {
-            if let Some(lru_key) = self.order.first().cloned() {
+            // Evict least recently used entry (minimum tick)
+            if let Some(lru_key) = self
+                .map
+                .iter()
+                .min_by_key(|(_, (_, last_used))| *last_used)
+                .map(|(k, _)| k.clone())
+            {
                 self.map.remove(&lru_key);
-                self.order.remove(0);
             }
         }
-        if !self.map.contains_key(&key) {
-            self.order.push(key.clone());
-        } else {
-            // CODE-038: refresh order on update
-            if let Some(pos) = self.order.iter().position(|k| *k == key) {
-                self.order.remove(pos);
-                self.order.push(key.clone());
-            }
-        }
-        self.map.insert(key, value);
+        self.map.insert(key, (value, self.tick));
     }
 }
 
