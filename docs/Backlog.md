@@ -88,7 +88,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
-| `DRV-014` | **ShardedWal::batch_append() clona todos los records por shard** — Overhead de alloc en batches grandes | `src/wal_sharded.rs:85-89` | 🟢 2h | ℹ️ |
+| `DRV-014` | ~~**ShardedWal::batch_append() clona todos los records por shard**~~ — **✅ COMPLETADA** (`wal_sharded.rs`: reemplazado `Vec<Vec<WalRecord>>` + `record.clone()` por `append()` directo round-robin, -10 lines, 0 allocs intermedios) | `src/wal_sharded.rs:85-89` | 🟢 2h | ✅ |
 | `DRV-028` | ~~**Hand-rolled LRU cache con O(n) por operación**~~ — **✅ COMPLETADA** (`convert.rs:21-77` optimizada de O(n) Vec<String> a O(1) HashMap + u64 tick) | `vantadb-python/src/convert.rs:21-70` | 🟢 30min | ✅ |
 | `DRV-041` | **worker.rs Promise con serde_wasm_bindgen** — **Corregido:** _reject SÍ se invoca (línea 254). No hay serde_json round-trip (usa serde_wasm_bindgen). Descripción original no coincide | `vantadb-wasm/src/worker.rs:201-254` | 🟢 1h | 🔵 |
 | `VFY-006` | **`add_node` y `remove_node` — lock contention** — **Corregido:** usa `DashMap` (locking por shard) + `AtomicUsize`/`AtomicU128` (lock-free). El único `Mutex` es `rng` para random. No bloquea lecturas como describía originalmente | `src/index/graph.rs:476-490` | 🟡 1-2d | 🟡 |

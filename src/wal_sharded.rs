@@ -82,15 +82,9 @@ impl ShardedWal {
         if records.is_empty() || self.num_shards == 0 {
             return Ok(());
         }
-        let mut batches: Vec<Vec<WalRecord>> = (0..self.num_shards).map(|_| Vec::new()).collect();
         for record in records {
             let idx = self.next_shard.fetch_add(1, Ordering::Relaxed) % self.num_shards;
-            batches[idx].push(record.clone());
-        }
-        for (idx, batch) in batches.iter().enumerate() {
-            if !batch.is_empty() {
-                self.shards[idx].lock().batch_append(batch)?;
-            }
+            self.shards[idx].lock().append(record)?;
         }
         Ok(())
     }

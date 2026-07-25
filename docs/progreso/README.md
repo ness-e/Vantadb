@@ -289,6 +289,21 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-25 — DRV-014: ShardedWal::batch_append sin clonación de WalRecords ✅
+
+**Fuente:** Backlog Phase 2 `DRV-014`
+
+**Problema original:** `batch_append()` creaba `Vec<Vec<WalRecord>>` por shard y clonaba cada record con `record.clone()` — overhead de alloc en batches grandes.
+
+**Resuelto por (vanta-worker, ponytail):**
+- Eliminado el batch vector intermedio y `record.clone()` por completo
+- Reemplazado con loop directo `append()` round-robin por shard
+- -10 líneas de código, 0 allocs intermedios, misma semántica
+
+**Verificación:** `cargo check -p vantadb` ✅ | 25/25 tests wal_sharded ✅
+
+**Ids:** `DRV-014`
+
 ### 2026-07-25 — DRV-054: read_axioms extraído a const + resolve_axioms() con fallback ✅
 
 **Fuente:** Backlog `DRV-054` — 4 axioms inline, no sync con metadata
