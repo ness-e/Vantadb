@@ -1,0 +1,9 @@
+{
+  "engine": "antigravity",
+  "version": "1.0.0",
+  "agents_config": ".antigravity/AGENTS.md",
+  "operating_manual": ".antigravity/VANTADB-OPERATING-MANUAL.md",
+  "interactive_mode": true,
+  "image_generation_require_approval": true,
+  "command_execution_policy": "explicit_user_approval"
+}

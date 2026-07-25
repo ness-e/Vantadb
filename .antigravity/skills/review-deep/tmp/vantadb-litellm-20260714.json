@@ -1,0 +1,17 @@
+{
+  "module": "vantadb-litellm",
+  "duration": "1 iteration (quick)",
+  "findings": {
+    "critical": 0,
+    "high": 0,
+    "medium": 3,
+    "low": 2,
+    "info": 1
+  },
+  "fixed_now": 0,
+  "to_backlog": 6,
+  "discarded": 0,
+  "research_urls": 0,
+  "pre_existing_compilation_errors": 2,
+  "note": "DEPTH=quick. Thin PyO3 wrapper (156L). 2 regresiones GIL vs openai/ollama: search() tiene py pero no detach, store() no acepta py. 0 unsafe/expect/allow/TODO."
+}
