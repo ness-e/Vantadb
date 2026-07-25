@@ -314,6 +314,11 @@ pub struct VantaConfig {
     /// of index nodes is at or below this threshold. Default: 10000.
     /// Set to 0 to disable (always use HNSW). Configured via `VANTADB_FLAT_THRESHOLD`.
     pub flat_threshold: Option<usize>,
+    /// Base directory for export/import operations. When set, export and import
+    /// paths are validated against this directory using canonical path resolution
+    /// (including symlink protection). When `None`, only `..` traversal is checked.
+    /// Configured via `VANTADB_EXPORT_BASE_DIR`.
+    pub export_base_dir: Option<std::path::PathBuf>,
     /// Hot-reloadable config snapshot.
     ///
     /// When `cfg(feature = "hot-reload")` is enabled, a background watcher
@@ -553,6 +558,11 @@ impl Default for VantaConfig {
                 } else {
                     Some(v as usize)
                 }
+            },
+            export_base_dir: {
+                env::var("VANTADB_EXPORT_BASE_DIR")
+                    .ok()
+                    .map(std::path::PathBuf::from)
             },
             rbac_config: RbacConfig::default(),
             #[cfg(feature = "hot-reload")]

@@ -10,11 +10,22 @@ use crate::error::{Result, VantaError};
 use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracing;
 use web_time::Instant;
 
 impl VantaEmbedded {
+    /// Validate a path against the configured export base dir, falling back to
+    /// bare `..` traversal protection when no base dir is configured.
+    fn resolve_export_path(&self, path: &Path) -> Result<PathBuf> {
+        match self.config.export_base_dir.as_ref() {
+            Some(base) => crate::storage::ops::resolve_against_base(base, path),
+            None => {
+                crate::storage::ops::prevent_path_traversal(&path.to_string_lossy())?;
+                Ok(path.to_path_buf())
+            }
+        }
+    }
     pub(crate) fn indexed_ids_by_namespace(
         &self,
         engine: &crate::storage::StorageEngine,
@@ -113,11 +124,11 @@ impl VantaEmbedded {
         namespace: &str,
     ) -> Result<super::super::types::VantaExportReport> {
         validate_namespace(namespace)?;
-        crate::storage::ops::prevent_path_traversal(&path.as_ref().to_string_lossy())?;
+        let resolved = self.resolve_export_path(path.as_ref())?;
         let started = Instant::now();
         let records = self
             .records_for_namespace(namespace, &super::super::types::VantaMemoryMetadata::new())?;
-        self.write_export_file(path.as_ref(), records, vec![namespace.to_string()], started)
+        self.write_export_file(&resolved, records, vec![namespace.to_string()], started)
     }
 
     #[tracing::instrument(skip(self, path), err)]
@@ -125,7 +136,7 @@ impl VantaEmbedded {
         &self,
         path: impl AsRef<Path>,
     ) -> Result<super::super::types::VantaExportReport> {
-        crate::storage::ops::prevent_path_traversal(&path.as_ref().to_string_lossy())?;
+        let resolved = self.resolve_export_path(path.as_ref())?;
         let started = Instant::now();
         let namespaces = self.list_namespaces()?;
         let mut records = Vec::new();
@@ -135,7 +146,7 @@ impl VantaEmbedded {
                 &super::super::types::VantaMemoryMetadata::new(),
             )?);
         }
-        self.write_export_file(path.as_ref(), records, namespaces, started)
+        self.write_export_file(&resolved, records, namespaces, started)
     }
 
     fn write_export_file(
@@ -210,7 +221,7 @@ impl VantaEmbedded {
         &self,
         path: impl AsRef<Path>,
     ) -> Result<super::super::types::VantaImportReport> {
-        crate::storage::ops::prevent_path_traversal(&path.as_ref().to_string_lossy())?;
+        let resolved = self.resolve_export_path(path.as_ref())?;
         if self.config.read_only {
             return Err(VantaError::ValidationError {
                 field: "read_only".into(),
@@ -218,7 +229,7 @@ impl VantaEmbedded {
             });
         }
         let started = Instant::now();
-        let file = File::open(path.as_ref()).map_err(VantaError::IoError)?;
+        let file = File::open(&resolved).map_err(VantaError::IoError)?;
         let reader = BufReader::new(file);
         let mut records = Vec::new();
         let mut skipped = 0u64;

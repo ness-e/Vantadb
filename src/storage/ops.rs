@@ -4,6 +4,7 @@ use crate::backend::BackendPartition;
 use crate::error::{Result, VantaError};
 use crate::node::{DiskNodeHeader, UnifiedNode};
 use crate::storage::vfile::VantaFile;
+use std::path::Path;
 use zerocopy::IntoBytes;
 
 /// Serialized metadata stored per node in the KV backend.
@@ -67,6 +68,67 @@ pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Resolve a user-supplied path against a trusted base directory and verify
+/// the final resolved path stays within the base.  This prevents:
+///
+/// * `..` traversal (already rejected by `prevent_path_traversal`)
+/// * Absolute paths that escape the base directory
+/// * Symlink-based escapes inside the base directory
+///
+/// For paths that do not yet exist (e.g. export to a new file), the parent
+/// directory is canonicalized and the filename appended — the containment
+/// check still applies to the parent.
+///
+/// # Errors
+///
+/// Returns `ValidationError` if the resolved path falls outside the base
+/// directory, or `IoError` on filesystem canonicalization failure.
+pub(crate) fn resolve_against_base(base: &Path, user_path: &Path) -> Result<std::path::PathBuf> {
+    // ── 1. reject `..` components ──────────────────────────────────────
+    prevent_path_traversal(&user_path.to_string_lossy())?;
+
+    // ── 2. combine with base (relative → join; absolute → use as-is) ──
+    let combined = if user_path.is_relative() {
+        base.join(user_path)
+    } else {
+        user_path.to_path_buf()
+    };
+
+    // ── 3. canonicalize ────────────────────────────────────────────────
+    let canonical = if combined.exists() {
+        combined.canonicalize().map_err(VantaError::IoError)?
+    } else {
+        let parent = combined.parent().unwrap_or(Path::new("."));
+        let file_name = combined
+            .file_name()
+            .ok_or_else(|| VantaError::ValidationError {
+                field: "path".into(),
+                reason: format!(
+                    "Path '{}' has no filename component — cannot resolve against base",
+                    user_path.display(),
+                ),
+            })?;
+        let canonical_parent = parent.canonicalize().map_err(VantaError::IoError)?;
+        canonical_parent.join(file_name)
+    };
+
+    // ── 4. verify containment ─────────────────────────────────────────
+    let canonical_base = base.canonicalize().map_err(VantaError::IoError)?;
+    if canonical.starts_with(&canonical_base) {
+        Ok(canonical)
+    } else {
+        Err(VantaError::ValidationError {
+            field: "path".into(),
+            reason: format!(
+                "Path '{}' resolves to '{}' which is outside the allowed directory '{}'",
+                user_path.display(),
+                canonical.display(),
+                canonical_base.display(),
+            ),
+        })
+    }
 }
 
 /// Map a column family name string to its `BackendPartition` variant.
