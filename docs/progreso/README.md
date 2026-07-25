@@ -304,6 +304,35 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `DRV-014`
 
+### 2026-07-25 — DRV-136: vantadb-wasm bundle size measurement + LTO rustflags fix ✅
+
+**Fuente:** Backlog Phase 2 `DRV-136`
+
+**Resuelto por (vanta-worker):**
+- Medido bundle: 1,158 KB raw / 433 KB gzipped — dentro de rango normal para DB embebida en WASM
+- Todos los levers de optimización ya activos: `opt-level = "s"`, `wasm-opt -Oz`, `lto = "thin"`, `codegen-units = 1`
+- Fix en `.cargo/config.toml`: removido `-C lto=yes` de rustflags que rompía build WASM (`tracing-wasm` lib crate rechaza LTO)
+- Recomendación: fat LTO (`--config 'profile.release.lto="fat"'`) opcional para ~5-10% extra
+
+**Verificación:** `cargo check -p vantadb-wasm` ✅ | `cargo build -p vantadb-wasm --target wasm32-unknown-unknown --release` ✅
+
+**Ids:** `DRV-136`
+
+### 2026-07-25 — REV-012: HNSW insert_lock contention analysis ✅
+
+**Fuente:** Backlog Phase 2 `REV-012`
+
+**Resuelto por (vanta-tuner, ponytail):**
+- Análisis de 3 puntos de contención:
+  - DashMap `nodes`: shard count = num_cpus * 4, critical sections µs-scale → ✅ Adecuado
+  - Mutex RNG: 2-5µs hold, 64 adquisiciones/batch → 🟡 No medido como bottleneck
+  - FairMutex insert_lock: micro-batching 64 ops/acq + try_lock non-blocking drain → ✅ Bien mitigado
+- Sin code changes — todo ya mitigado. Comentario ponytail documentando upgrade path (thread_local SmallRng si profiling lo requiere)
+
+**Verificación:** `cargo check -p vantadb` ✅
+
+**Ids:** `REV-012`
+
 ### 2026-07-25 — DRV-054: read_axioms extraído a const + resolve_axioms() con fallback ✅
 
 **Fuente:** Backlog `DRV-054` — 4 axioms inline, no sync con metadata

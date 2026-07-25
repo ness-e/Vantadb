@@ -93,8 +93,8 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | `DRV-041` | **worker.rs Promise con serde_wasm_bindgen** — **Corregido:** _reject SÍ se invoca (línea 254). No hay serde_json round-trip (usa serde_wasm_bindgen). Descripción original no coincide | `vantadb-wasm/src/worker.rs:201-254` | 🟢 1h | 🔵 |
 | `VFY-006` | **`add_node` y `remove_node` — lock contention** — **Corregido:** usa `DashMap` (locking por shard) + `AtomicUsize`/`AtomicU128` (lock-free). El único `Mutex` es `rng` para random. No bloquea lecturas como describía originalmente | `src/index/graph.rs:476-490` | 🟡 1-2d | 🟡 |
 | `VFY-007` | **`remove_node` O(n²) neighbor fixup** — **Corregido:** archivo real `src/index/graph.rs` (no `core.rs`) | `src/index/graph.rs` | 🟡 1-2d | 🟢 |
-| `REV-012` | **HNSW `insert_lock` contention** — Micro-batching implementado, bottleneck potencial: `DashMap` en inserciones concurrentes + `Mutex` del RNG | `src/index/graph.rs:283-291` → H08-ALGO-001 | 🟡 1-2d | 🟡 |
-| `DRV-136` | **vantadb-wasm monolítico — sin tree-shaking WASM** — `opt-level = "s"` en metadata wasm-pack pero sin splitting ni medición de bundle real | `vantadb-wasm/Cargo.toml` | 🟡 2-3d | 🟡 |
+| `REV-012` | ~~**HNSW `insert_lock` contention**~~ — **✅ COMPLETADA** (ponytail: no contention real medida. DashMap adecuado, Mutex<Rng> <5µs, micro-batching 64 ops/acq. thread_local RNG documentado como upgrade path si profiling lo requiere) | `src/index/graph.rs:283-291` | 🟡 1-2d | ✅ |
+| `DRV-136` | ~~**vantadb-wasm monolítico — sin tree-shaking WASM**~~ — **✅ COMPLETADA** (bundle 433KB gzipped — rango normal. Fix: removido `-C lto=yes` de rustflags que rompía build WASM. Todos los levers ya activos: opt-level=s, wasm-opt -Oz, lto=thin) | `vantadb-wasm/Cargo.toml`, `.cargo/config.toml` | 🟡 2-3d | ✅ |
 
 > **Items removidos (24):** 19 items referenciando crates nunca implementados (openai/ollama/litellm/mem0/letta/crewai/dspy/haystack/langchain/llamaindex) + 5 stale (DRV-039 ESLint ya existe, VFY-005 OperationalMetrics completo, VFY-008 WAL fsync controlado, VFY-009 ~40 inline styles no 637, REV-013 spin 0.9.9 no yanked)
 

@@ -12,7 +12,10 @@ license = "Apache-2.0"
 crate-type = ["cdylib", "lib"]
 
 [package.metadata.wasm-pack.profile.release]
-# wasm-opt defaults to true (-Os) since binaryen v121+ supports bulk-memory-opt
+# Explicit -Oz over default -Os: more aggressive binaryen size pass.
+# wasm-opt defaults to true (-Os) since binaryen v121+ supports bulk-memory-opt;
+# -Oz adds another size-reduction pass on top.
+wasm-opt = ["-Oz"]
 
 [dependencies]
 vantadb = { path = "../", default-features = false, features = ["wasm"] }

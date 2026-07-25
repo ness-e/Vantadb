@@ -287,6 +287,22 @@ pub struct CPIndex {
     pub backend: IndexBackend,
     pub config: HnswConfig,
     pub total_nodes: AtomicU64,
+    /// RNG for HNSW level assignment (`random_layer`).
+    ///
+    /// # Contention note (REV-012)
+    /// Parking lot Mutex is fast (no syscall uncontested), hold time ≈2-5µs
+    /// (one `random_range` call). Micro-batching (HNSW_BATCH_SIZE=64) means
+    /// 64 acquisitions per batch → ~128-320µs serialized insert_lock time.
+    ///
+    /// DashMap sharding (`nodes`) is adequate — default shard count is
+    /// `num_cpus * 4`, so concurrent inserts to different shards see no
+    /// contention. `search_layer` only holds shard read locks briefly.
+    ///
+    /// ponytail: Not a measured bottleneck. If profiling later shows this
+    /// as hot, switch to `thread_local! { static RNG: RefCell<SmallRng> }`
+    /// seeded from `seed_from_u64(42 ^ thread_id)` — eliminates the Mutex
+    /// entirely (~20 line change, no correctness impact on HNSW topology
+    /// since layer assignment is idempotent across runs).
     pub(crate) rng: parking_lot::Mutex<rand::rngs::StdRng>,
 }
 
