@@ -245,3 +245,14 @@ Usá `campaign_memory_write` para persistir el reporte y la decisión de freeze 
 ---
 
 **Ejecutá. No preguntes. Solo ejecutá.** Si algo no está claro, usá default (ponytail ladder) y anotá en `campaign_memory_write`. Si encontrás un bug fuera del plan, registralo pero no lo toques hasta que el plan lo incluya. Zero-Bug Policy significa arreglar bugs, no cazar fantasmas.
+
+=== RECITATION ===
+Campaign ID: 357cbbcf-7909-4d8f-90ca-5db03d976e55
+Objetivo activo: Windows signing CI
+Estado: completed
+Última acción: Análisis complete: requiere Azure Trusted Signing ($10/mes). Deferido por ponytail — SHA256 + .zip son suficientes para integridad básica pre-1.0.
+Resultado: ✅ (deferred)
+Próxima acción: Agregar cuando release público lo requiera
+Contrato: Task file DEVOPS-10.md preparado con step YAML + secrets documentation
+Próxima tarea si completa: N/A
+=== END RECITATION ===

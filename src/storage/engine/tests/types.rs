@@ -203,17 +203,17 @@ fn test_constants() {
     assert_eq!(FLAG_TOMBSTONE, 0x8);
     assert_eq!(MIB, 1024 * 1024);
     assert_eq!(GIB, 1024 * 1024 * 1024);
-    assert!(STORAGE_ALIGNMENT >= 1);
+    const { assert!(STORAGE_ALIGNMENT >= 1) };
 }
 
 #[test]
 fn test_hnsw_batch_size_default() {
-    assert!(HNSW_BATCH_SIZE > 0);
+    const { assert!(HNSW_BATCH_SIZE > 0) };
 }
 
 #[test]
 fn test_storage_alignment_sane_value() {
-    assert!(STORAGE_ALIGNMENT >= 1);
+    const { assert!(STORAGE_ALIGNMENT >= 1) };
     assert_eq!(
         STORAGE_ALIGNMENT % 8,
         0,

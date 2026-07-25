@@ -21,8 +21,8 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 | Phase | Items | Est. Effort | Priority |
 |-------|-------|-------------|----------|
-| **P0** 🚀 Release Blockers | 1 (+5 ✅) | ~2-3d | 🔴 Bloqueante |
-| **P1** 🛡️ Security & Critical | 5 | ~4-6d | 🔴 Bloqueante |
+| **P0** 🚀 Release Blockers | 1 (+6 ✅) | ~2-3d | 🔴 Bloqueante |
+| **P1** 🛡️ Security & Critical | 0 (+1✅ 2🔵 1❌) | ~4-6d | 🔴 Bloqueante |
 | **P2** ⚡ Quick Wins Técnicos | 15 | ~1-2d (paralelo) | 🟠 Alta |
 | **P3** 🧪 Test Coverage (adapters) | 7 | ~4-6h c/u | 🟠 Alta |
 | **P4** 🔧 Engineering Health | 10 | ~2-4 semanas | 🟡 Media |
@@ -75,10 +75,10 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 > Items que protegen la integridad del sistema y permiten despliegue seguro en producción.
 
-| `DRV-054` | **read_axioms hardcoded como JSON literal** — 4 axioms inline, no sync con metadata | `vantadb-mcp/src/lib.rs:77-82` | 🟢 30min | 🔵 |
-| `DRV-124` | **macOS code signing/notarization missing** — Sin Apple Developer Account, Gatekeeper warnings | CI config | 🟡 2-3d | 🟡 |
-| `DRV-127` | **WAL encryption no-op** — Enterprise encryption (crate eliminado). WAL no tiene encrypt. `vfile.rs` sí tiene `#[cfg(feature = "encryption")]` con aes-gcm pero WAL no lo usa | `src/storage/wal.rs`, `src/storage/vfile.rs` | 🟡 2-3d | 🟡 |
-| `RC6` | **Evaluar propagar `CryptoError` desde `encrypt()` vs mantener expect** — 6 call sites reales (no 45+). Diseño intencional y documentado como infalible | `src/crypto.rs:124-146` | 🟡 1d | 🟡 |
+| ~~`DRV-054`~~ | ~~**✅ COMPLETADA.** read_axioms extraído a const + `resolve_axioms()` con fallback a storage.~~ | ~~`vantadb-mcp/src/lib.rs:77-82`~~ | 🟢 30min | ✅ |
+| ~~`DRV-124`~~ | ~~**🔵 DEFERIDO** (triage: bloqueado por Apple Developer Account $99/yr, no verificable). macOS code signing/notarization missing~~ | CI config | 🟡 2-3d | 🔵 |
+| ~~`DRV-127`~~ | ~~**🔵 DEFERIDO** (ponytail: WAL funciona sin encrypt, enterprise feature pre-1.0). WAL encryption~~ | ~~`src/storage/wal.rs`, `src/storage/vfile.rs`~~ | 🟡 2-3d | 🔵 |
+| ~~`RC6`~~ | ~~**❌ SKIP** (triage: diseño intencional documentado como infalible L122-146). CryptoError propagation~~ | ~~`src/crypto.rs:124-146`~~ | 🟡 1d | ❌ |
 
 ---
 

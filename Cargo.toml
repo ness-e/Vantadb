@@ -86,7 +86,7 @@ sha2 = { version = "0.10", optional = true }
 ahash = "0.8.12"
 
 [features]
-default = ["arrow", "fjall", "advanced-tokenizer"]
+default = ["cli", "arrow", "fjall", "advanced-tokenizer", "memmap2", "fs2", "sysinfo"]
 async-ingestion = ["dep:tokio", "tokio/sync", "tokio/macros", "tokio/rt"]
 async-io = ["dep:tokio", "tokio/fs", "tokio/io-util"]
 arrow = ["dep:arrow"]

@@ -289,6 +289,23 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-25 — DRV-054: read_axioms extraído a const + resolve_axioms() con fallback ✅
+
+**Fuente:** Backlog `DRV-054` — 4 axioms inline, no sync con metadata
+
+**Problema original:** `AXIOMS` en `vantadb-mcp/src/lib.rs:77-82` era un string JSON literal sin posibilidad de override desde storage.
+
+**Resuelto por (vanta-worker):**
+- Renombrado `AXIOMS` → `HARDCODED_AXIOMS` (semántica de fallback)
+- Agregadas constantes `SYSTEM_NAMESPACE` y `AXIOMS_STORAGE_KEY` para lookup en storage
+- Creada `resolve_axioms()`: intenta `embedded.get("_system", "axioms")`, fallback a const
+- Handler `read_axioms` actualizado a `resolve_axioms(storage)`
+- Lookup best-effort (fallback safe en error: not found, parse error, engine no init)
+
+**Verificación:** `cargo check -p vantadb-mcp` ✅ | `cargo clippy -p vantadb-mcp -- -D warnings` ✅
+
+**Ids:** `DRV-054`
+
 ### 2026-07-25 — Refactor Batch: DRV-036, DRV-038, DRV-029, DRV-032, DRV-055 ✅
 
 **Fuente:** Backlog `DRV-036`, `DRV-038`, `DRV-029`, `DRV-032`, `DRV-055`
