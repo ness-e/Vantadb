@@ -119,12 +119,24 @@ impl ShardedWal {
         Ok(())
     }
 
-    /// Flush (sync) all shards to disk.
+    /// Flush (sync) all shards to disk in parallel.
     pub fn flush_all(&self) -> Result<()> {
-        for shard in &self.shards {
-            shard.lock().sync()?;
+        if self.shards.len() == 1 {
+            return self.shards[0].lock().sync();
         }
-        Ok(())
+        let handles: Vec<_> = self
+            .shards
+            .iter()
+            .map(|shard| {
+                let shard = Arc::clone(shard);
+                std::thread::spawn(move || shard.lock().sync())
+            })
+            .collect();
+
+        handles.into_iter().try_for_each(|h| {
+            h.join()
+                .map_err(|_| VantaError::wal_error("flush thread panicked"))?
+        })
     }
 
     /// Rotate all shards (flush, archive, and start fresh WAL files).
