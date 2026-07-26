@@ -667,6 +667,16 @@ pub static JEMALLOC_RETAINED_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|
     )
 });
 
+/// Current HNSW ef_search value set by the auto-tuner.
+#[cfg(feature = "prometheus")]
+pub static AUTO_TUNE_EF: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
+        "vantadb_auto_tune_ef",
+        "Current HNSW ef_search setting managed by the heuristic auto-tuner",
+        AUTO_TUNE_EF
+    )
+});
+
 // ── HTTP request metrics (middleware in cli_server) ─────────────────────
 
 #[cfg(feature = "prometheus")]
@@ -1101,6 +1111,7 @@ mod tests {
         assert!(JEMALLOC_RESIDENT_BYTES.as_ref().is_some());
         assert!(JEMALLOC_MAPPED_BYTES.as_ref().is_some());
         assert!(JEMALLOC_RETAINED_BYTES.as_ref().is_some());
+        assert!(AUTO_TUNE_EF.as_ref().is_some());
     }
 
     #[test]

@@ -223,6 +223,13 @@ pub fn record_derived_full_scan_fallback() {
 
 // ── PERF-10: Eviction recording ──────────────────────────────
 
+/// Record the current auto-tuned ef_search value for Prometheus gauge.
+pub fn record_auto_tune_ef(ef: usize) {
+    #[cfg(not(feature = "prometheus"))]
+    let _ = ef;
+    set_gauge!(AUTO_TUNE_EF, ef);
+}
+
 /// Record an eviction cycle result: nodes evicted, scanned, bytes freed.
 pub fn record_eviction(evicted: u64, scanned: u64, bytes_freed: u64) {
     EVICTIONS_TOTAL.fetch_add(evicted, Ordering::Relaxed);

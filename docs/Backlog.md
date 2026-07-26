@@ -180,7 +180,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
-| `NUEVO-13` | **HNSW ef_search auto-tuning (heuristic doubling)** — No PID loop real. Sin términos integral/derivativo/setpoint | `src/index/auto_tune.rs` | 🟡 3-5d | 🟡 |
+| ~~`NUEVO-13`~~ | ~~**✅ COMPLETADA.** HNSW ef_search auto-tuning con dampening 1.5x, gauge `vantadb_auto_tune_ef`, integration test `repeated_fallbacks_increase_ef`.~~ | ~~`src/index/auto_tune.rs`, `src/metrics/core/{mod,registry}.rs`~~ | ~~🟡 3-5d~~ | ✅ |
 | `NUEVO-14` | **WASM bundle size <500KB gzip** — Sin medición de bundle actual ni flags de optimización en Cargo.toml más allá de `opt-level = "s"` | `vantadb-wasm/Cargo.toml` | 🟡 1-2d | 🟡 |
 
 > **Items removidos (4):** NUEVO-11/12 (WASM IndexedDB + multi-tab coordinación — ✅ implementados), NUEVO-19 (SourceDesign/ no existe), BENCH-01 (solo mención en backlog, sin script ni dataset)

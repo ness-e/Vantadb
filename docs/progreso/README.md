@@ -2496,3 +2496,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | `VFY-011` | ACID Phase 3 — Snapshot isolation / MVCC | `src/storage/engine/ops.rs`, `src/storage/engine/mod.rs`, `src/storage/engine/init.rs`, `src/storage/ops.rs` | `Snapshot { txn_id: u64 }` struct + `get_with_snapshot()` filtrado MVCC. `active_txns: HashSet<u64>` reemplaza `active_txn_id: Mutex`. Write-write conflict detection via `check_write_conflict()`. 7 new tests: snapshot lifecycle, committed/uncommitted/deleted visibility, concurrent txns, write-write conflicts. `created_by_txn`/`deleted_by_txn` en NodeMetadata. |
 
 **Verificación:** `cargo check -p vantadb` ✅ | `cargo test -p vantadb --lib storage::engine::tests::ops` 62 passed ✅
+
+### 2026-07-26 — Phase 7: NUEVO-13 HNSW ef_search auto-tuning
+
+**Objetivo:** Mejorar auto-tuning heuristic doubling de HNSW ef_search con dampening factor 1.5x, gauge métrica, y test de integración.
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `NUEVO-13` | HNSW ef_search auto-tuning (heuristic doubling) | `src/index/auto_tune.rs`, `src/metrics/core/mod.rs`, `src/metrics/core/registry.rs` | ✅ +66/-9 — Dampening 2.0→1.5x, gauge `vantadb_auto_tune_ef`, integration test `repeated_fallbacks_increase_ef`. Tests actualizados con nueva curva. |
+
+**Verificación:** `cargo nextest run --profile audit -p vantadb` ✅ | 4 auto_tune tests + gauge test ✅
