@@ -6,6 +6,45 @@ use crate::index::graph::{self, CPIndex, NeighborVec, NodeSim, NodeSimMin};
 use crate::node::{DistanceMetric, FilterBitset};
 use crate::storage::engine::FLAG_TOMBSTONE;
 
+pub(crate) struct SearchProfile {
+    vfile_reads: u64,
+    unique_pages: std::collections::HashSet<u64>,
+    compute_ns: u64,
+    candidates_seen: u64,
+    start: std::time::Instant,
+}
+
+impl SearchProfile {
+    pub(crate) fn new() -> Self {
+        Self {
+            vfile_reads: 0,
+            unique_pages: std::collections::HashSet::new(),
+            compute_ns: 0,
+            candidates_seen: 0,
+            start: std::time::Instant::now(),
+        }
+    }
+
+    fn log(&self, ef_search: usize, top_k: usize) {
+        let elapsed = self.start.elapsed();
+        let elapsed_ms = elapsed.as_secs_f64() * 1000.0;
+        let compute_ms = self.compute_ns as f64 / 1_000_000.0;
+        let io_ms = (elapsed_ms - compute_ms).max(0.0);
+        tracing::debug!(
+            "search_profile: ef={} top_k={} {:.2}ms total ({:.2}ms compute, {:.2}ms io), \
+             {} vfile_reads, {} unique_pages, {} candidates",
+            ef_search,
+            top_k,
+            elapsed_ms,
+            compute_ms,
+            io_ms,
+            self.vfile_reads,
+            self.unique_pages.len(),
+            self.candidates_seen,
+        );
+    }
+}
+
 impl CPIndex {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn search_layer(
@@ -20,14 +59,23 @@ impl CPIndex {
         vector_store: Option<&crate::storage::vfile::VantaFile>,
         metric: DistanceMetric,
         visited: &mut std::collections::HashSet<u128, RandomState>,
+        profile: &mut SearchProfile,
     ) -> BinaryHeap<NodeSimMin> {
         let mut candidates = BinaryHeap::new();
         let mut results = BinaryHeap::new();
 
+        const PAGE_SHIFT: u64 = 12;
         for &ep in entry_points {
             if let Some(node) = self.nodes.get(&ep) {
+                if vector_store.is_some() {
+                    profile.vfile_reads += 1;
+                    profile
+                        .unique_pages
+                        .insert(node.storage_offset >> PAGE_SHIFT);
+                }
                 let d = if let Some(vs) = vector_store {
-                    if let Some(header) = vs.read_header(node.storage_offset) {
+                    let compute_start = std::time::Instant::now();
+                    let result = if let Some(header) = vs.read_header(node.storage_offset) {
                         let vec_start = header.vector_offset as usize;
                         let vec_end = vec_start + (header.vector_len as usize * 4);
                         if vec_end > vs.mmap_bytes().len() {
@@ -77,11 +125,16 @@ impl CPIndex {
                         }
                     } else {
                         0.0
-                    }
+                    };
+                    profile.compute_ns += compute_start.elapsed().as_nanos() as u64;
+                    result
                 } else {
                     self.fast_similarity(query_vec, query_norm, query_inv_norm, &node, metric)
                 };
 
+                if vector_store.is_some() {
+                    profile.vfile_reads += 1;
+                }
                 let eligible = if let Some(vs) = vector_store {
                     vs.read_header(node.storage_offset)
                         .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
@@ -152,8 +205,18 @@ impl CPIndex {
                         visited.insert(neighbor_id);
 
                         if let Some(neighbor) = self.nodes.get(&neighbor_id) {
+                            if vector_store.is_some() {
+                                profile.candidates_seen += 1;
+                                profile.vfile_reads += 1;
+                                profile
+                                    .unique_pages
+                                    .insert(neighbor.storage_offset >> PAGE_SHIFT);
+                            }
                             let d = if let Some(vs) = vector_store {
-                                if let Some(h) = vs.read_header(neighbor.storage_offset) {
+                                let compute_start = std::time::Instant::now();
+                                let result = if let Some(h) =
+                                    vs.read_header(neighbor.storage_offset)
+                                {
                                     let vec_start = h.vector_offset as usize;
                                     let vec_end = vec_start + (h.vector_len as usize * 4);
                                     if vec_end > vs.mmap_bytes().len() {
@@ -204,7 +267,9 @@ impl CPIndex {
                                     }
                                 } else {
                                     0.0
-                                }
+                                };
+                                profile.compute_ns += compute_start.elapsed().as_nanos() as u64;
+                                result
                             } else {
                                 self.fast_similarity(
                                     query_vec,
@@ -215,6 +280,9 @@ impl CPIndex {
                                 )
                             };
 
+                            if vector_store.is_some() {
+                                profile.vfile_reads += 1;
+                            }
                             let eligible = if let Some(vs) = vector_store {
                                 vs.read_header(neighbor.storage_offset)
                                     .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
@@ -410,6 +478,7 @@ impl CPIndex {
                 RandomState::new(),
             );
 
+        let mut profile = SearchProfile::new();
         let max_l = self.max_layer.load(std::sync::atomic::Ordering::Acquire);
         for layer in (1..=max_l).rev() {
             visited.clear();
@@ -424,6 +493,7 @@ impl CPIndex {
                 vector_store,
                 effective_metric,
                 &mut visited,
+                &mut profile,
             );
             if let Some(NodeSimMin(_, best_id)) = w.pop() {
                 curr_entry_points = vec![best_id];
@@ -442,7 +512,10 @@ impl CPIndex {
             vector_store,
             effective_metric,
             &mut visited,
+            &mut profile,
         );
+
+        profile.log(ef_search, top_k);
 
         let mut result: Vec<NodeSimMin> = w.into_sorted_vec();
         result.retain(|ns| !ns.0.is_nan());
@@ -799,6 +872,7 @@ mod tests {
             None,
             DistanceMetric::Cosine,
             &mut visited,
+            &mut SearchProfile::new(),
         );
         assert!(
             results.is_empty(),
@@ -826,6 +900,7 @@ mod tests {
             None,
             DistanceMetric::Cosine,
             &mut visited,
+            &mut SearchProfile::new(),
         );
         assert!(!results.is_empty(), "search_layer should find results");
         let sorted = results.into_sorted_vec();
@@ -858,6 +933,7 @@ mod tests {
             None,
             DistanceMetric::Cosine,
             &mut visited,
+            &mut SearchProfile::new(),
         );
         // The already-visited tombstone should be filtered from results
         let sorted = results.into_sorted_vec();
@@ -884,6 +960,7 @@ mod tests {
             None,
             DistanceMetric::Euclidean,
             &mut visited,
+            &mut SearchProfile::new(),
         );
         assert!(
             !results.is_empty(),
@@ -1036,6 +1113,7 @@ mod tests {
             None,
             DistanceMetric::Cosine,
             &mut visited,
+            &mut SearchProfile::new(),
         );
         assert!(results.is_empty(), "empty entry points → empty results");
     }
@@ -1059,6 +1137,7 @@ mod tests {
             None,
             DistanceMetric::Cosine,
             &mut visited,
+            &mut SearchProfile::new(),
         );
         assert!(!results.is_empty(), "should find results");
         let sorted = results.into_sorted_vec();
@@ -1087,6 +1166,7 @@ mod tests {
             None,
             DistanceMetric::Euclidean,
             &mut visited,
+            &mut SearchProfile::new(),
         );
         assert!(!results.is_empty(), "should find results");
         let sorted = results.into_sorted_vec();
