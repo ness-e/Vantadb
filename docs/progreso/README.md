@@ -289,6 +289,51 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-26 — OLD-09: Olvido Bayesiano (Bayesian Hit Decay) ✅
+
+**Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-09`
+
+**Problema original:** `EvictionPolicy` tenía hit counts + recency weights pero sin modelo probabilístico formal para decidir qué nodos evictar.
+
+**Resuelto por (vanta-worker, ponytail):**
+- `BayesianDecay` struct con modelo Beta-Binomial: `score = α/(α+β)` donde α = prior_alpha + hits, β = prior_beta + seconds_since_last_hit
+- `EvictionPolicy` enum que envuelve `Weighted` (legacy) o `Bayesian` (nuevo)
+- Threshold configurable (default 0.3) — scores por debajo → eviction candidate
+- Feature-gated `bayesian_decay`
+- 31 tests (boundary, param clamping, enum round-trip, weighted compat)
+
+**Verificación:** `cargo check --features bayesian_decay` ✅ | `cargo test --features bayesian_decay -- eviction` ✅ 31/31 | `cargo clippy` ✅
+
+### 2026-07-26 — OLD-11: CLI/TUI Interactivo ✅
+
+**Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-11`
+
+**Problema original:** CLI completo existía (46 tests), TUI con spec de 1106 líneas no implementado.
+
+**Resuelto por (vanta-worker):**
+- `vantadb tui` subcomando con ratatui + crossterm, feature-gated `tui`
+- 3 modos: Dashboard (node count, memory %, cache, evictions, backend type), Monitor (live queries scaffold listo para hookear tracing), REPL (input con historial up/down, scroll, `.help`/`.clear`/`.stats`, ejecución IQL)
+- 744 líneas en 5 archivos nuevos: `src/tui/mod.rs`, `src/tui/dashboard.rs`, `src/tui/monitor.rs`, `src/tui/repl.rs`
+- Abre DB en read-only safe
+
+**Verificación:** `cargo check --features tui` ✅ | `cargo test --test cli_tests --features cli` ✅ 46/46
+
+**Ids:** `OLD-11`
+
+### 2026-07-26 — OLD-12: Pilot Program Formal ✅
+
+**Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-12`
+
+**Problema original:** `docs/operations/PILOT_PROGRAM.md` existía como spec de 3 secciones, no como programa ejecutable.
+
+**Resuelto por (vanta-docs):**
+- `docs/operations/PILOT_PROGRAM.md` actualizado de 3→9 secciones: overview, early adopter profile, mutual commitments, timeline 8 semanas con milestones, KPI table (retention/NPS/benchmarks)
+- +3 templates: `pilot-agreement-template.md` (10 secciones, NDA 2 años), `pilot-feedback-template.md` (7 secciones, severity P0-P2, NPS), `pilot-onboarding-checklist.md` (6 fases con verification commands)
+
+**Verificación:** 4/4 archivos OK
+
+**Ids:** `OLD-12`
+
 ### 2026-07-26 — OLD-19: Rehidratación desde Shadow Archive ✅
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-19`

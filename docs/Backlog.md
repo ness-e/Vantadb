@@ -156,7 +156,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 ## Phase 9: 📚 Old Docs Rescue — Reference Catalog
 
 > Recuperado de `VANTADB DOC OLD` (~280 archivos .md analizados vía 21 sub-agentes).
-> **Total:** 21 items, **13 activos** (8 ✅ removidos a progreso). **Estado:** 7 ⚠️ parcial, 4 ❌ pendiente.
+> **Total:** 21 items, **13 activos** (8 ✅ removidos a progreso). **Estado:** 2 ⚠️ parcial, 4 ❌ pendiente.
 > **Referencia completa:** `docs/REPORTE_EVALUACION_COMPLETO.md` secciones 6 y 7.
 > **Batch file map:** ver `docs/Backlog.md` sección Tier 5 original para archivos por batch.
 
@@ -172,10 +172,10 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | ~~`OLD-02`~~ | ~~**GraphRAG pipeline formal** — seed → expand → retrieve → generate context. Ejemplo en `examples/rust/graphrag.rs`, no pipeline formal~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | DRV-123 (auto-embedding) recomendado | 🗺️ Roadmap |
 | `OLD-03` | **Chaos testing (Jepsen/Maelstrom)** — `chaos_test_wal.sh` + failpoint tests CI existen, no Jepsen formal | 🟡 2-3 sem | ⚠️ Parcial (scripts existen) | Docker. WAL shipping existente | 🗺️ Roadmap |
 | `OLD-08` | Life Insurance / snapshots hard-link — `snapshot_certification.rs` existe, hard-link pattern no | 🟡 3-4d | ⚠️ Parcial | Ninguna. Solo syscalls POSIX |
-| `OLD-09` | Olvido Bayesiano (hit decay) — `EvictionPolicy` con hit counts + recency weights, sin decay bayesiano formal | 🟡 3-4d | ⚠️ Parcial | Ninguna. `EvictionPolicy` existe |
+| ~~`OLD-09`~~ | ~~Olvido Bayesiano (hit decay) — `EvictionPolicy` ahora soporta `BayesianDecay`: score Beta-Binomial α/(α+β), threshold configurable, 31 tests. Feature-gated `bayesian_decay`.~~ | ~~🟡 3-4d~~ | ~~✅ COMPLETADA~~ | Ninguna. `EvictionPolicy` existe |
 | `OLD-10` | Sinapsis eléctrica (index-free adjacency) — `edge_index.rs` usa DashSet, no index-free adjacency nativa | 🟡 1 sem | ❌ No implementado | Post-HNSW multi-capa |
-| `OLD-11` | CLI/TUI interactivo (spec 1106 líneas escrito) — CLI completo, TUI no implementado | 🟡 1-2 sem | ⚠️ Parcial (CLI OK, TUI no) | Ninguna. Proyecto aparte |
-| `OLD-12` | Pilot program formal (early adopters) — `docs/operations/PILOT_PROGRAM.md` existe (solo spec) | 🟡 1 sem | ⚠️ Parcial (doc existe) | PyPI publicado |
+| ~~`OLD-11`~~ | ~~**CLI/TUI interactivo** — `vantadb tui` con ratatui + crossterm. 3 modos: Dashboard (stats engine), Monitor (queries live), REPL (queries interactivas con historial). Feature-gated `tui`.~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | Ninguna. Proyecto aparte |
+| ~~`OLD-12`~~ | ~~**Pilot program formal** — `docs/operations/PILOT_PROGRAM.md` actualizado (9 secciones), +3 templates: agreement, feedback, onboarding checklist.~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | PyPI publicado |
 | ~~`OLD-14`~~ | ~~MessageThread / GcWorker para agentic chat — `GcWorker` en `src/gc.rs` existe, MessageThread no~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | Ninguna. `GcWorker` existe |
 | ~~`OLD-16`~~ | ~~**WAL rotation a 256MB** — `WalWriter::try_auto_rotate()` en `append()`/`batch_append()`. 3 tests (trigger, no-trigger, data preservation). 52/52 WAL tests pass.~~ | ~~🟢 1d~~ | ~~✅ COMPLETADA~~ |
 | ~~`OLD-19`~~ | ~~**Rehidratación desde shadow archive** — `VantaEmbedded::recover_archived_nodes()`, MCP tool `rehydrate`, Python binding. Conecta `StorageEngine::recover_archived_nodes()` (6 tests existentes) a SDK público.~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | OLD-07 (AutoHot/Cold tiering) |

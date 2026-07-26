@@ -140,6 +140,12 @@ fn main() -> Result<()> {
             host,
             require_auth,
         } => cli_handlers::cmd_server(&args.db, http, mcp, port, host, require_auth, args.verbose)?,
+
+        #[cfg(feature = "tui")]
+        Commands::Tui => {
+            let engine = std::sync::Arc::new(cli_handlers::open_database(&args.db, true)?);
+            vantadb::tui::run_tui(engine)?
+        }
     }
 
     Ok(())

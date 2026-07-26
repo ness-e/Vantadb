@@ -70,6 +70,8 @@ indicatif = { version = "0.18", optional = true }
 console = { version = "0.16", optional = true }
 clap = { version = "4.4", features = ["derive", "env"], optional = true }
 clap_complete = { version = "4.4", optional = true }
+ratatui = { version = "0.28", optional = true }
+crossterm = { version = "0.28", optional = true }
 rayon = { version = "1.12", optional = true }
 tracing = "0.1"
 notify = { version = "8", optional = true }
@@ -111,6 +113,7 @@ hot-reload = ["dep:notify"]
 encryption = ["dep:aes-gcm", "dep:sha2"]
 wal-shipping = ["dep:reqwest"]
 pitr = []
+bayesian_decay = []
 server = [
     "cli",
     "dep:tokio",
@@ -120,6 +123,7 @@ server = [
 ]
 tls = ["dep:axum-server", "dep:rustls"]
 sysinfo = ["dep:sysinfo"]
+tui = ["dep:ratatui", "dep:crossterm", "cli"]
 
 [dependencies.mimalloc]
 version = "0.1"

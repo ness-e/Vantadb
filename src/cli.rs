@@ -151,6 +151,10 @@ pub enum Commands {
         json: bool,
     },
 
+    /// Launch the interactive TUI (requires `tui` feature)
+    #[cfg(feature = "tui")]
+    Tui,
+
     /// Generate shell completion scripts
     Completions {
         /// Shell type for the completion script

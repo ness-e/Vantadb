@@ -77,6 +77,8 @@ pub(crate) mod edge_index;
 pub mod engine;
 /// Core error types for all VantaDB operations.
 pub mod error;
+/// Eviction policies: weighted scoring and Bayesian Beta-Binomial decay.
+pub mod eviction;
 pub mod executor;
 pub mod gc;
 pub mod governor;
@@ -112,6 +114,8 @@ pub mod storage;
 pub(crate) mod text_index;
 #[cfg(feature = "advanced-tokenizer")]
 pub mod tokenizer;
+#[cfg(feature = "tui")]
+pub mod tui;
 pub mod utils;
 pub mod vector;
 /// Write-ahead log reader, writer, and record types.
