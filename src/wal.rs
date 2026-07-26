@@ -8,10 +8,13 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Result, VantaError};
 use crate::node::UnifiedNode;
 
+/// Current WAL format version.
+pub const WAL_FORMAT_VERSION: u16 = 1;
+
 /// Tracks the postcard wire format version used for WAL record serialization.
 /// Increment this when upgrading postcard to a potentially incompatible version.
 /// Stored in VantaHeader.schema_version for forward-compatibility detection.
-pub(crate) const WAL_POSTCARD_VERSION: u16 = 1;
+pub const WAL_POSTCARD_VERSION: u16 = 1;
 
 const KIB: usize = 1024;
 use crc32c::crc32c; // ← Import specific function to avoid namespace conflict
@@ -125,18 +128,22 @@ impl WalHeader {
         }
 
         let base = crate::binary_header::VantaHeader::deserialize(&bytes[0..16])?;
-        if &base.magic != b"VWAL" {
-            return Err(VantaError::IncompatibleFormat {
-                expected_magic: *b"VWAL",
-                expected_version: 1,
-                found_magic: base.magic,
-                found_version: base.format_version,
+
+        // Range-based compatibility check: accepts any format_version ≤ WAL_FORMAT_VERSION
+        // with matching magic. Future-format files (version > current) are rejected;
+        // older files with matching magic are accepted for forward-compatible reads.
+        base.validate_compat(*b"VWAL", WAL_FORMAT_VERSION, "WAL format")?;
+
+        // Version 0 WAL was never a valid format — reject explicitly
+        if base.format_version < 1 {
+            return Err(VantaError::WALVersionMismatch {
+                expected: WAL_FORMAT_VERSION as u32,
+                found: base.format_version as u32,
                 hint: "Delete WAL dir or run dump/restore before upgrading.".to_string(),
             });
         }
 
         let crc = u32::from_le_bytes([bytes[16], bytes[17], bytes[18], bytes[19]]);
-
         let header = Self { base, crc };
 
         let computed_crc = header.compute_crc();
@@ -145,14 +152,6 @@ impl WalHeader {
                 "WAL header CRC mismatch: stored={:#x}, computed={:#x}",
                 crc, computed_crc
             )));
-        }
-
-        if header.base.format_version < 1 {
-            return Err(VantaError::WALVersionMismatch {
-                expected: 1,
-                found: header.base.format_version as u32,
-                hint: "Delete WAL dir or run dump/restore before upgrading.".to_string(),
-            });
         }
 
         let recorded_pc = header.postcard_version();
@@ -214,7 +213,7 @@ impl WalWriter {
 
         let file_len = file.metadata()?.len();
         let (bytes_written, record_count) = if file_len == 0 {
-            let header = WalHeader::new(1);
+            let header = WalHeader::new(WAL_FORMAT_VERSION as u32);
             file.write_all(&header.serialize())?;
             file.flush()?;
             (WalHeader::SIZE as u64, 0u64)

@@ -281,7 +281,9 @@ impl CPIndex {
         };
         pos += crate::binary_header::VantaHeader::SIZE;
 
-        if let Err(e) = header.validate(*b"VNDX", VECTOR_INDEX_VERSION, "Index format mismatch") {
+        if let Err(e) =
+            header.validate_compat(*b"VNDX", VECTOR_INDEX_VERSION, "Index format mismatch")
+        {
             return Err(Error::new(ErrorKind::InvalidData, format!("{}", e)));
         }
 

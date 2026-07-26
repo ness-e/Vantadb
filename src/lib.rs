@@ -135,6 +135,7 @@ pub mod transcript;
 pub use binary_header::VantaHeader;
 pub use engine::{EngineStats, InMemoryEngine, QueryResult, SourceType};
 pub use error::{Result, VantaError};
+pub use index::graph::VECTOR_INDEX_VERSION;
 pub use node::{
     DistanceMetric, Edge, FieldValue, NodeFlags, RelFields, UnifiedNode, VectorRepresentations,
 };
@@ -147,9 +148,11 @@ pub use sdk::{
     VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit, VantaSearchHit,
     VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
 };
+pub use storage::vfile::VFILE_VERSION;
 pub use storage::BackendKind;
 pub use utils::compute_confidence_friction;
 pub use wal::{WalReader, WalRecord, WalWriter};
+pub use wal::{WAL_FORMAT_VERSION, WAL_POSTCARD_VERSION};
 
 #[cfg(feature = "failpoints")]
 pub use fail::FailScenario;

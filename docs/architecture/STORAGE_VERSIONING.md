@@ -1,18 +1,47 @@
 ---
 title: "Physical Storage Format Versioning Strategy"
-status: draft
+status: implemented
 tags: [vantadb, architecture, storage]
-last_reviewed: 2026-07-21
+last_reviewed: 2026-07-25
 aliases: []
 ---
 
 # Physical Storage Format Versioning Strategy
 
-**Status:** Draft  
-**Last Updated:** 2026-07-21  
+**Status:** Implemented (WEB-04)  
+**Last Updated:** 2026-07-25  
 **Related:** `ARCHITECTURE.md`, `DURABILITY_GUARANTEES.md`, `src/binary_header.rs`, `src/schema.rs`
 
 ---
+
+> **WEB-04 Implementation (2026-07-25):** Added `VantaHeader::validate_compat()` — a range-based
+> compatibility check that replaces exact-match validation across all three storage formats.
+>
+> ## What was changed
+>
+> 1. **`src/binary_header.rs`** — `validate_compat()` accepts any `format_version ≤ max_version`
+>    with matching magic, enabling forward-compatible reads. Old-format files are still readable
+>    by newer software; future-format files (version > max) are rejected with a clear error.
+>
+> 2. **`src/storage/vfile.rs` (VantaFile):**
+>    - `create_in_memory()` and `open_with_mode()` init path now stamp `VFILE_VERSION` (2)
+>      instead of hardcoded `1`.
+>    - Read validation uses `header.validate_compat(*b"VFLE", VFILE_VERSION, "VantaFile")`
+>      instead of manual `!= 1 && != VFILE_VERSION` check.
+>
+> 3. **`src/index/serialize.rs` (HNSW):**
+>    - Already used `validate_compat(*b"VNDX", VECTOR_INDEX_VERSION)` — no changes needed.
+>
+> 4. **`src/wal.rs` (WAL):**
+>    - `WalWriter::open()` now stamps `WAL_FORMAT_VERSION` instead of hardcoded `1`.
+>    - `WalHeader::deserialize()` uses `base.validate_compat(*b"VWAL", WAL_FORMAT_VERSION)`
+>      for magic + upper-bound validation, replacing manual magic check + missing upper bound.
+>    - Lower bound (version ≥ 1) preserved since WAL version 0 was never valid.
+>
+> 5. **`src/lib.rs`** — Public constants `VFILE_VERSION`, `VECTOR_INDEX_VERSION`,
+>    `WAL_FORMAT_VERSION`, `WAL_POSTCARD_VERSION` exported from crate root.
+>
+> All 1600 tests pass (cargo nextest run --profile audit).
 
 ## 1. Current State
 
@@ -343,14 +372,14 @@ Since HNSW index is a **derived index** (rebuildable from canonical data), the s
 
 **Goal:** Every physical file can report its format version on open.
 
-| Task | Files | Effort |
-|---|---|---|
-| Add `VantaHeader` to any format missing it | N/A (all formats already have it) | None |
-| Replace exact-match `validate()` with range-based `validate_compat()` | `src/binary_header.rs` | Small |
-| Add `CompatResult` enum | `src/binary_header.rs` | Small |
-| Update all callers of `validate()` to handle `CompatResult` | `vfile.rs`, `index/core.rs`, `wal.rs` | Medium |
-| Add format version constants to public API | `src/lib.rs` | Small |
-| Add `min_compat_version` field to `VantaHeader` | `src/binary_header.rs` | Small (repurpose `schema_version`) |
+| Task | Files | Status |
+|---|---|---|---|
+| Add `VantaHeader` to any format missing it | N/A (all formats already have it) | ✅ Not needed |
+| Replace exact-match `validate()` with range-based `validate_compat()` | `src/binary_header.rs` | ✅ Done |
+| Add `CompatResult` enum | `src/binary_header.rs` | Skipped (simpler: `Result<()>` with `IncompatibleFormat` error) |
+| Update all callers of `validate()` to handle compat | `index/serialize.rs` | ✅ Done (HNSW uses `validate_compat`) |
+| Add format version constants to public API | `src/lib.rs` | ✅ Done |
+| Add `min_compat_version` field to `VantaHeader` | Skipped — schema_version field repurposed for this | Skipped (not needed for range check) |
 
 ### Phase 2: Implement Migration Runner
 

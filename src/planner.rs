@@ -15,12 +15,22 @@
 
 use std::collections::BTreeMap;
 
+use crate::node::FieldValue;
+use crate::query::RelOp;
 use crate::sdk::{VantaHybridFusionReport, VantaMemorySearchHit, VantaMemorySearchRequest};
 
 // ── RRF constants ─────────────────────────────────────────────────────────
 
 /// Reciprocal Rank Fusion smoothing constant (standard literature value: 60).
 pub const RRF_K: f32 = 60.0;
+
+/// Selectivity threshold below which filters are considered highly selective.
+///
+/// When joint selectivity falls below this value, the optimizer prefers
+/// applying filters before vector search (scan→filter→refine) over the
+/// default vector-search→filter order. A filter with selectivity 0.1 means
+/// it prunes ~90 % of rows.
+pub const HIGH_SELECTIVITY_THRESHOLD: f32 = 0.1;
 
 /// Multiplier applied to `top_k` to derive the per-arm candidate budget.
 pub const CANDIDATE_MULTIPLIER: usize = 4;
@@ -224,18 +234,43 @@ pub fn optimize_and_compile<'a>(
         }
     }
 
+    // ── CBO Rule 1: Predicate pushdown ────────────────────────────
+    // Reorder relational filters by estimated selectivity (ascending)
+    // so that the most restrictive (fewest matching rows) filter is
+    // applied earliest, reducing the row volume for subsequent filters.
+    //
+    // ── CBO Rule 2: Filter elimination ───────────────────────────
+    // Skip redundant filters whose estimated selectivity is ≈ 1.0
+    // (all rows pass — filter contributes no pruning). These are
+    // identity predicates such as `field = X` where every known row
+    // has value X.
+    let mut with_sel: Vec<(f32, String, RelOp, FieldValue)> = relational_filters
+        .drain(..)
+        .map(|(f, op, v)| {
+            let sel = storage.get_estimated_selectivity(&f, &op, &v);
+            (sel, f, op, v)
+        })
+        .collect();
+    with_sel.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
     let mut joint_selectivity = 1.0f32;
-    for (field, rel_op, value) in &relational_filters {
-        let sel = storage.get_estimated_selectivity(field, rel_op, value);
+    let mut sorted_filters = Vec::with_capacity(with_sel.len());
+    for (sel, field, rel_op, value) in with_sel {
+        if sel >= 1.0 {
+            // All rows match this filter → redundant, skip it.
+            tracing::debug!("CBO: eliminated identity filter on {}", field);
+            continue;
+        }
         joint_selectivity *= sel;
+        sorted_filters.push((field, rel_op, value));
     }
 
     let mut current_operator: Box<dyn crate::query::PhysicalOperator + 'a> =
         if let Some((_field, query_text, min_score)) = vector_search {
-            if joint_selectivity < 0.1 && !relational_filters.is_empty() {
+            if joint_selectivity < HIGH_SELECTIVITY_THRESHOLD && !sorted_filters.is_empty() {
                 let mut scan_op: Box<dyn crate::query::PhysicalOperator + 'a> =
                     Box::new(crate::physical_plan::PhysicalScan::new(storage, entity));
-                for (field, rel_op, value) in relational_filters {
+                for (field, rel_op, value) in sorted_filters {
                     scan_op = Box::new(crate::physical_plan::PhysicalFilter::new(
                         scan_op, field, rel_op, value,
                     ));
@@ -247,7 +282,7 @@ pub fn optimize_and_compile<'a>(
                 let mut vs_op: Box<dyn crate::query::PhysicalOperator + 'a> = Box::new(
                     crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score),
                 );
-                for (field, rel_op, value) in relational_filters {
+                for (field, rel_op, value) in sorted_filters {
                     vs_op = Box::new(crate::physical_plan::PhysicalFilter::new(
                         vs_op, field, rel_op, value,
                     ));
@@ -257,7 +292,7 @@ pub fn optimize_and_compile<'a>(
         } else {
             let mut scan_op: Box<dyn crate::query::PhysicalOperator + 'a> =
                 Box::new(crate::physical_plan::PhysicalScan::new(storage, entity));
-            for (field, rel_op, value) in relational_filters {
+            for (field, rel_op, value) in sorted_filters {
                 scan_op = Box::new(crate::physical_plan::PhysicalFilter::new(
                     scan_op, field, rel_op, value,
                 ));
@@ -645,6 +680,57 @@ mod tests {
             op.next().unwrap().is_none(),
             "filter excludes the only node"
         );
+        op.close().unwrap();
+    }
+
+    #[test]
+    fn optimize_and_compile_eliminates_identity_filter() {
+        // CBO Rule 2: a filter with selectivity ≈ 1.0 should be skipped.
+        // Insert one node; a filter on `type = doc` matches all rows
+        // (selectivity = 1/1 = 1.0) → the optimizer should eliminate it.
+        use crate::config::VantaConfig;
+        use crate::node::{FieldValue, UnifiedNode};
+        use crate::query::RelOp;
+        use crate::storage::{BackendKind, StorageEngine};
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+            .expect("Failed to open StorageEngine");
+
+        let mut node = UnifiedNode::new(42);
+        node.relational
+            .insert("type".into(), FieldValue::String("doc".into()));
+        storage.insert(&node).unwrap();
+
+        // Plan: scan + filter on `type = doc` (identity — matches 100 % rows)
+        let plan = LogicalPlan {
+            operators: vec![
+                LogicalOperator::Scan { entity: "*".into() },
+                LogicalOperator::FilterRelational {
+                    field: "type".into(),
+                    op: RelOp::Eq,
+                    value: FieldValue::String("doc".into()),
+                },
+            ],
+            temperature: 0.0,
+            enforce_role: None,
+        };
+
+        let mut op = optimize_and_compile(&plan, &storage).unwrap();
+        op.open().unwrap();
+        let result = op.next().unwrap();
+        assert!(
+            result.is_some(),
+            "identity filter eliminated: node should still be returned"
+        );
+        assert_eq!(result.unwrap().id, 42);
+        // No more rows
+        assert!(op.next().unwrap().is_none());
         op.close().unwrap();
     }
 

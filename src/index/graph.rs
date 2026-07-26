@@ -118,7 +118,8 @@ pub(crate) fn should_prefetch() -> bool {
     }
 }
 
-pub(crate) const VECTOR_INDEX_VERSION: u16 = 7;
+/// Current HNSW vector index format version.
+pub const VECTOR_INDEX_VERSION: u16 = 7;
 
 pub struct HnswNode {
     pub id: u128,

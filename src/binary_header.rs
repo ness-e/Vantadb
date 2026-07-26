@@ -93,6 +93,48 @@ impl VantaHeader {
         }
         Ok(())
     }
+
+    /// Range-based compatibility check: accepts any `format_version <= expected_version`
+    /// with matching magic. Returns `Ok(())` if the file version is within the range
+    /// the current software can read.
+    ///
+    /// This enables forward-compatible reads: old-format files are still readable
+    /// by newer software. Future-format files (version > expected) are rejected.
+    ///
+    /// Use this instead of [`validate`](Self::validate) for hot paths where
+    /// backward compatibility is required (VantaFile, HNSW index, WAL).
+    pub fn validate_compat(
+        &self,
+        expected_magic: [u8; 4],
+        max_version: u16,
+        hint: &str,
+    ) -> Result<()> {
+        if self.magic != expected_magic {
+            return Err(VantaError::IncompatibleFormat {
+                expected_magic,
+                expected_version: max_version,
+                found_magic: self.magic,
+                found_version: self.format_version,
+                hint: format!(
+                    "{}: expected magic {:?}, found {:?}",
+                    hint, expected_magic, self.magic
+                ),
+            });
+        }
+        if self.format_version > max_version {
+            return Err(VantaError::IncompatibleFormat {
+                expected_magic,
+                expected_version: max_version,
+                found_magic: self.magic,
+                found_version: self.format_version,
+                hint: format!(
+                    "{}: file version {} is newer than this software (max {})",
+                    hint, self.format_version, max_version
+                ),
+            });
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -165,5 +207,45 @@ mod tests {
             h.timestamp <= now + 5000,
             "timestamp should not be in the future"
         );
+    }
+
+    // ── validate_compat ──
+
+    #[test]
+    fn validate_compat_accepts_exact() {
+        let h = VantaHeader::new(*b"VFLE", 2, 0);
+        assert!(h.validate_compat(*b"VFLE", 2, "").is_ok());
+    }
+
+    #[test]
+    fn validate_compat_accepts_older() {
+        let h = VantaHeader::new(*b"VFLE", 1, 0);
+        assert!(h.validate_compat(*b"VFLE", 2, "vfile").is_ok());
+    }
+
+    #[test]
+    fn validate_compat_rejects_newer() {
+        let h = VantaHeader::new(*b"VFLE", 3, 0);
+        let err = h.validate_compat(*b"VFLE", 2, "vfile").unwrap_err();
+        assert!(
+            err.to_string().contains("version 3"),
+            "should mention actual version: {err}"
+        );
+    }
+
+    #[test]
+    fn validate_compat_rejects_wrong_magic() {
+        let h = VantaHeader::new(*b"VFLE", 1, 0);
+        let err = h.validate_compat(*b"VWAL", 1, "wal").unwrap_err();
+        assert!(
+            err.to_string().contains("magic"),
+            "should mention magic: {err}"
+        );
+    }
+
+    #[test]
+    fn validate_compat_accepts_same_version() {
+        let h = VantaHeader::new(*b"VNDX", 7, 0);
+        assert!(h.validate_compat(*b"VNDX", 7, "").is_ok());
     }
 }

@@ -24,7 +24,7 @@ use crate::storage::engine::STORAGE_ALIGNMENT;
 /// Version history:
 ///   - v1: initial format
 ///   - v2: migrated (bumped header only, data layout identical to v1)
-pub(crate) const VFILE_VERSION: u16 = 2;
+pub const VFILE_VERSION: u16 = 2;
 
 #[cfg(feature = "memmap2")]
 pub(crate) use memmap2::{Mmap, MmapMut, MmapOptions};
@@ -438,7 +438,7 @@ impl VantaFile {
     pub fn create_in_memory(initial_size: u64) -> Self {
         let size = initial_size.max(STORAGE_ALIGNMENT);
         let mut data = vec![0u8; size as usize];
-        let header = VantaHeader::new(*b"VFLE", 1, 0);
+        let header = VantaHeader::new(*b"VFLE", VFILE_VERSION, 0);
         data[0..16].copy_from_slice(&header.serialize());
         data[16..24].copy_from_slice(&STORAGE_ALIGNMENT.to_le_bytes());
         Self {
@@ -496,7 +496,7 @@ impl VantaFile {
             })
         };
         if !read_only && current_size >= min_header_size && &mmap.as_slice()[0..4] != b"VFLE" {
-            let header = VantaHeader::new(*b"VFLE", 1, 0);
+            let header = VantaHeader::new(*b"VFLE", VFILE_VERSION, 0);
             mmap.as_mut_slice()?[0..16].copy_from_slice(&header.serialize());
             mmap.as_mut_slice()?[16..24].copy_from_slice(&STORAGE_ALIGNMENT.to_le_bytes());
             // Zero-fill the remainder of the header block (bytes 24..64) to
@@ -505,18 +505,7 @@ impl VantaFile {
             mmap.flush()?;
         }
         let header = VantaHeader::deserialize(&mmap.as_slice()[0..16])?;
-        if header.format_version != 1 && header.format_version != VFILE_VERSION {
-            return Err(VantaError::IncompatibleFormat {
-                expected_magic: *b"VFLE",
-                expected_version: VFILE_VERSION,
-                found_magic: header.magic,
-                found_version: header.format_version,
-                hint: format!(
-                    "VantaFile version {} is not supported (expected 1 or {})",
-                    header.format_version, VFILE_VERSION
-                ),
-            });
-        }
+        header.validate_compat(*b"VFLE", VFILE_VERSION, "VantaFile")?;
         let cursor = u64::from_le_bytes(mmap.as_slice()[16..24].try_into().map_err(|e| {
             VantaError::IoError(std::io::Error::new(std::io::ErrorKind::InvalidData, e))
         })?);
@@ -760,8 +749,8 @@ mod tests {
         // Header should be valid
         let header = VantaHeader::deserialize(&vf.mmap_bytes()[0..16]).unwrap();
         assert_eq!(header.magic, *b"VFLE");
-        // create_in_memory writes version 1 in VantaHeader
-        assert_eq!(header.format_version, 1);
+        // create_in_memory writes current VFILE_VERSION
+        assert_eq!(header.format_version, VFILE_VERSION);
     }
 
     #[test]
