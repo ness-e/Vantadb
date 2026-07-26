@@ -149,6 +149,21 @@ impl VantaEmbedded {
         store.purge_expired_threads()
     }
 
+    /// Recover archived (shadow-archived) nodes that belonged to a summary node.
+    ///
+    /// Scans the TombstoneStorage partition for nodes with a `belonged_to`
+    /// edge targeting `summary_id`, re-activates them, and inserts them
+    /// back into the active store.
+    #[tracing::instrument(skip(self), err)]
+    pub fn recover_archived_nodes(
+        &self,
+        summary_id: u128,
+    ) -> Result<Vec<crate::sdk::VantaNodeRecord>> {
+        let engine = self.engine_handle()?;
+        let nodes = engine.recover_archived_nodes(summary_id)?;
+        Ok(nodes.into_iter().map(Into::into).collect())
+    }
+
     /// Flush and close the embedded engine handle.
     #[tracing::instrument(skip(self), err)]
     pub fn close(&self) -> Result<()> {
@@ -225,5 +240,50 @@ mod tests {
         assert!(!cfg.read_only);
         assert_eq!(cfg.port, 8080);
         assert_eq!(cfg.host, "127.0.0.1");
+    }
+
+    // ── recover_archived_nodes ──
+
+    #[test]
+    fn test_recover_archived_nodes_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let embedded = VantaEmbedded::open(dir.path()).unwrap();
+        let result = embedded.recover_archived_nodes(42);
+        assert!(
+            result.is_ok(),
+            "recover_archived_nodes should succeed on empty DB"
+        );
+        let nodes = result.unwrap();
+        assert!(nodes.is_empty(), "no archived nodes to recover");
+    }
+
+    #[test]
+    fn test_recover_archived_nodes_with_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let embedded = VantaEmbedded::open(dir.path()).unwrap();
+        let engine = embedded.engine_handle().unwrap();
+
+        // Insert an archived node directly into TombstoneStorage
+        let mut archived = crate::node::UnifiedNode::new(100);
+        archived.edges.push(crate::node::Edge {
+            target: 1,
+            label: "belonged_to".to_string(),
+            weight: 1.0,
+        });
+        let data = postcard::to_allocvec(&archived)
+            .map_err(|e| format!("serialization: {e}"))
+            .unwrap();
+        engine
+            .put_to_partition(
+                crate::storage::BackendPartition::TombstoneStorage,
+                b"archived_100",
+                &data,
+            )
+            .expect("put archived node");
+
+        // Recover via the SDK method
+        let nodes = embedded.recover_archived_nodes(1).unwrap();
+        assert_eq!(nodes.len(), 1, "should recover 1 node");
+        assert_eq!(nodes[0].id, 100, "recovered node id should match");
     }
 }

@@ -43,7 +43,7 @@
 - **Estado: completed
 - **Backlog:** Line 128 — Sin migration path para VantaFile/HNSW/WAL. 4 formatos catalogados
 - **Archivos clave:** `docs/architecture/STORAGE_VERSIONING.md`
-- **Contrato: Sin code changes — tareas ya corregidas en código, solo documentación de backlog
+- **Contrato: Pipeline flow cumplido: lookup -> task file -> delegación -> verificación -> progreso
 - **Routing:** vanta-arch (arquitectura de almacenamiento, formatos)
 
 ### DRV-121: Planner CBO optimization
@@ -69,7 +69,7 @@
 - **Archivos clave:** `src/index/ivf.rs` (NEW, 836L), `src/index/mod.rs`, `src/index/graph.rs`, `src/index/search.rs`, `src/index/serialize.rs`
 - **Contrato:** IVF implementado con k-means manual (Forgy + Lloyd, max 20 iter), búsqueda con nprobe, serialización v8 backwards compat v7. 16 tests IVF. 1547 tests lib pass. ✅
 - **Routing:** vanta-engine (sub-agente delegado y completó)
-- **Resultado: ✅ DRV-041: Backlog actualizado, entrada creada en progreso ✅ VFY-006: idem ✅ VFY-007: idem
+- **Resultado: ✅
 
 ### DOC-20: mdBook docs site ✅
 
@@ -81,11 +81,11 @@
 - **Resultado:** `docs/book/book.toml`, `docs/book/src/SUMMARY.md` (9 secciones), 73 `{{#include}}` stubs. Cero duplicación.
 
 === RECITATION ===
-Campaign ID: 2317cb07-a977-412b-ac92-338cd9f1acd7
-Objetivo activo: Completar backlog housekeeping DRV-041, VFY-006, VFY-007
+Campaign ID: 88a5aa06-4873-408d-b08c-5c9a718eebac
+Objetivo activo: OLD-19 rehidratación shadow archive
 Estado: completed
-Última acción: Actualizar Backlog.md: marcar tareas como completadas ✅, bajar P2 counter 15→12; migrar a progreso/README.md
+Última acción: Delegué OLD-19 a vanta-worker que implementó VantaEmbedded method + MCP tool + Python binding
 Resultado: ✅
-Próxima acción: git add, commit, push, y actualizar estados en campaign
+Próxima acción: Auto-commit + handoff
 Contrato: 1547 tests pass, clippy limpio, commit 9aaf9b7f
-Próxima tarea si completa: 
+Próxima tarea si completa: ninguno

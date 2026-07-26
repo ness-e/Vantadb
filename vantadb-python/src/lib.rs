@@ -974,6 +974,31 @@ impl VantaDB {
         py.detach(move || engine.compact_layout().map_err(map_vanta_error))
     }
 
+    /// Recover shadow-archived nodes that belonged to a summary node.
+    ///
+    /// Scans TombstoneStorage for nodes with a `belonged_to` edge targeting
+    /// `summary_id`, re-activates them, and inserts them back into the active store.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during tombstone scan.
+    ///
+    /// Args:
+    ///     summary_id: The summary node ID as a decimal string (u128).
+    ///
+    /// Returns:
+    ///     A list of recovered node dictionaries.
+    #[pyo3(signature = (summary_id))]
+    fn recover_archived_nodes(&self, py: Python, summary_id: &str) -> PyResult<Vec<Py<PyAny>>> {
+        let sid: u128 = summary_id.parse().map_err(|_| {
+            map_vanta_error(vantadb::VantaError::InvalidInput(format!(
+                "Invalid summary_id: {summary_id}"
+            )))
+        })?;
+        let engine = self.engine.clone();
+        let nodes =
+            py.detach(move || engine.recover_archived_nodes(sid).map_err(map_vanta_error))?;
+        nodes.into_iter().map(|n| node_to_pydict(py, &n)).collect()
+    }
+
     /// List all namespaces currently registered in the database.
     fn list_namespaces(&self, py: Python) -> PyResult<Vec<String>> {
         let engine = self.engine.clone();

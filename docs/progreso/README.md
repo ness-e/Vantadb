@@ -289,6 +289,22 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-26 — OLD-19: Rehidratación desde Shadow Archive ✅
+
+**Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-19`
+
+**Problema original:** `StorageEngine::recover_archived_nodes(summary_id)` existía en `maintenance.rs` con 6 tests, pero no estaba expuesto al SDK público, MCP, ni Python. El MCP ya retornaba `rehydration_available: true` en respuestas `StaleContext`, pero no había tool para ejecutar la rehidratación.
+
+**Resuelto por (vanta-worker, ponytail):**
+- `VantaEmbedded::recover_archived_nodes(summary_id: u128)` en `src/sdk/builder.rs` — delega al engine, convierte `UnifiedNode` → `VantaNodeRecord`
+- MCP tool `rehydrate` en `vantadb-mcp/src/lib.rs` — toma `summary_id` string, retorna `recovered_count` + `rehydration_complete: true`
+- Python binding `recover_archived_nodes(summary_id: &str)` en `vantadb-python/src/lib.rs` — parsea u128, llama con GIL detach, retorna lista de dicts
+- 2 tests SDK adicionales
+
+**Verificación:** `cargo check -p vantadb && cargo check -p vantadb-mcp && cargo check -p vantadb_py` ✅ | `cargo nextest run --profile audit -p vantadb -- test_recover_archived` ✅ 7/7 | `cargo clippy` todos ✅
+
+**Ids:** `OLD-19`
+
 ### 2026-07-26 — OLD-16: WAL Rotation at 256MB ✅
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-16`

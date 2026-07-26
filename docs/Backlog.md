@@ -156,7 +156,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 ## Phase 9: 📚 Old Docs Rescue — Reference Catalog
 
 > Recuperado de `VANTADB DOC OLD` (~280 archivos .md analizados vía 21 sub-agentes).
-> **Total:** 21 items, **13 activos** (8 ✅ removidos a progreso). **Estado:** 8 ⚠️ parcial, 4 ❌ pendiente.
+> **Total:** 21 items, **13 activos** (8 ✅ removidos a progreso). **Estado:** 7 ⚠️ parcial, 4 ❌ pendiente.
 > **Referencia completa:** `docs/REPORTE_EVALUACION_COMPLETO.md` secciones 6 y 7.
 > **Batch file map:** ver `docs/Backlog.md` sección Tier 5 original para archivos por batch.
 
@@ -178,7 +178,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | `OLD-12` | Pilot program formal (early adopters) — `docs/operations/PILOT_PROGRAM.md` existe (solo spec) | 🟡 1 sem | ⚠️ Parcial (doc existe) | PyPI publicado |
 | ~~`OLD-14`~~ | ~~MessageThread / GcWorker para agentic chat — `GcWorker` en `src/gc.rs` existe, MessageThread no~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | Ninguna. `GcWorker` existe |
 | ~~`OLD-16`~~ | ~~**WAL rotation a 256MB** — `WalWriter::try_auto_rotate()` en `append()`/`batch_append()`. 3 tests (trigger, no-trigger, data preservation). 52/52 WAL tests pass.~~ | ~~🟢 1d~~ | ~~✅ COMPLETADA~~ |
-| `OLD-19` | Rehidratación desde shadow archive — `rehydration_available` en MCP, `rehydration_required` en Python SDK | 🟡 1 sem | ⚠️ Parcial | OLD-07 (AutoHot/Cold tiering) |
+| ~~`OLD-19`~~ | ~~**Rehidratación desde shadow archive** — `VantaEmbedded::recover_archived_nodes()`, MCP tool `rehydrate`, Python binding. Conecta `StorageEngine::recover_archived_nodes()` (6 tests existentes) a SDK público.~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | OLD-07 (AutoHot/Cold tiering) |
 | `OLD-20` | Contextual Priming (cache warming predictivo) — Sin código de warming predictivo | 🟢 2-3d | ❌ No implementado | Ninguna |
 | `OLD-21` | CP-Index formal (query routing inteligente) — `CPIndex` existe como struct HNSW, no query routing formal | 🟡 1 sem | ❌ No implementado | DRV-121/122 (Planner AST + IQL) |
 

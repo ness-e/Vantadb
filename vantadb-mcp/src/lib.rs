@@ -943,6 +943,17 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                     },
                     "required": ["namespace", "confirm"]
                 }
+            },
+            {
+                "name": "rehydrate",
+                "description": "Recover shadow-archived nodes that belonged to a summary node from TombstoneStorage.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "summary_id": { "type": "string", "description": "Summary node ID (u128 as string) whose archived nodes to recover" }
+                    },
+                    "required": ["summary_id"]
+                }
             }
         ]
     }))
@@ -1369,6 +1380,24 @@ pub fn handle_tools_call(
             }
 
             Ok(text_content(serialize_content(&collections)))
+        }
+
+        "rehydrate" => {
+            let summary_id = args["summary_id"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'summary_id'").to_json())?;
+            let sid: u128 = summary_id.parse().map_err(|_| {
+                McpError::invalid_params("summary_id must be a valid integer (u128)").to_json()
+            })?;
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let recovered = embedded
+                .recover_archived_nodes(sid)
+                .map_err(|e| McpError::internal_error(e.to_string()).to_json())?;
+            Ok(text_content(serialize_content(&json!({
+                "recovered_count": recovered.len(),
+                "summary_id": summary_id,
+                "rehydration_complete": true,
+            }))))
         }
 
         "collection_delete" => {
