@@ -3,7 +3,7 @@ title: "Active Backlog — VantaDB"
 type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
-last_reviewed: 2026-07-25
+last_reviewed: 2026-07-26
 verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (general), P4+P8 (general), P5+P6 (vanta-docs), P9+P10 (vanta-worker)"
 ---
 
@@ -131,7 +131,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | ✅ `DRV-121` | **Planner CBO optimization** — Predicate pushdown (sort by selectivity) + filter elimination (identity filter sel≥1.0 skipped). **Completado** `21432104` | `src/planner.rs` | ✅ 3d | 🟠 |
 | `DRV-122` | **IQL lacks JOINs, subqueries, SQL compatibility** — Gap vs Qdrant/Chroma. `Query` struct no soporta JOIN/subquery | `src/query.rs` | 🟠 5-10d | 🟠 |
 | ✅ `DRV-123` | **Auto-embedding on INSERT (remote-inference)** — Error handling polish: `match` instead of `if let Ok`, empty text guard, `tracing::warn!` on failure. Test added. **Completado** `21432104` | `src/llm.rs`, `src/executor.rs` | ✅ 2d | 🟠 |
-| 🟡 `DRV-130` | **SIFT 1M high-recall 127s bottleneck** — T1 (SearchProfile) ✅, T2 (prefetch) ✅ WONTFIX. **T3 (node reordering) ❌ WONTFIX** — Phase 1 benchmark: BFS compaction gave ~9% improvement, below 20% threshold. Root cause: search follows greedy distance-guided path, not BFS order. Overhead is function call overhead, not page misses. | `src/index/search.rs`, `benches/vfile_search.rs` | 🟡 2-3d | 🟡 |
+| ~~`DRV-130`~~ | ~~**SIFT 1M high-recall 127s bottleneck** — **✅ COMPLETADA.** T1 (SearchProfile) ✅ + fix cfg-gate. T2 (prefetch) ✅ WONTFIX. T3 (node reordering) ❌ WONTFIX.~~ | ~~`src/index/search.rs`, `benches/vfile_search.rs`~~ | ~~🟡 2-3d~~ | ✅ |
 | `DRV-131` | **Missing index types beyond HNSW** — Solo `graph.rs` (HNSW) + `flat.rs` (brute-force). Quiver tiene 8 tipos | `src/index/` | 🟠 5-10d | 🔵 |
 | ✅ `DOC-20` | **mdBook adoption for docs site** — Docs fragmentados, sin search unificado. `docs/book/` creado con `book.toml`, `SUMMARY.md`, `{{#include}}` stubs. **Completado** `1f9f681d` | bitacora D1, D6 | ✅ 1d | 🟡 |
 

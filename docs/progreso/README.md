@@ -2,13 +2,13 @@
 title: "General Progress of VantaDB Project"
 status: active
 tags: [vantadb, progress, documentation]
-last_reviewed: 2026-07-25
+last_reviewed: 2026-07-26
 aliases: []
 ---
 
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-25
+> **Last updated:** 2026-07-26
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -446,6 +446,21 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 **Verificación:** `cargo test --package vantadb --lib sdk::search::snippet::tests` ✅
 
 **Ids:** `OLD-05`
+
+### 2026-07-26 — DRV-130 T1 fix: SearchProfile gated tras #[cfg(debug_assertions)] ✅
+
+**Fuente:** Backlog P4 `DRV-130` (refinimiento T1)
+
+**Problema:** SearchProfile original tenía `if vector_store.is_some()` inline en hot path. ThinLTO no podía especializar entre `None` vs `Some(vfile)`, causando 23% overhead solo por tener el parámetro (bench `pass_none`: 506ms vs in_memory 412ms).
+
+**Resuelto por:**
+- SearchProfile partido en dos: struct real con tracking (`#[cfg(debug_assertions)]`) y ZST no-op (`#[cfg(not(debug_assertions))]`)
+- Métodos extraídos: `record_vfile_entry`, `record_vfile_candidate`, `start_compute`/`end_compute`
+- `if vector_store.is_some()` eliminado del hot path — siempre se llama al método, en release es no-op
+
+**Resultado:** `pass_none` overhead eliminado (506ms → 282ms). `in_memory -26%`, `with_vfile -24%`. 1515 tests pasan.
+
+**Ids:** `DRV-130`
 
 ### 2026-07-25 — DRV-130: SIFT 1M search bottleneck — SearchProfile + prefetch audit ✅
 
