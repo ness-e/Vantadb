@@ -289,6 +289,23 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-26 — OLD-16: WAL Rotation at 256MB ✅
+
+**Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-16`
+
+**Problema original:** `WalWriter` tenía `rotate()` consumidor (toma `self`), pero no había auto-rotación por tamaño. ShardedWal heredaba el problema — los segmentos WAL no tenían límite.
+
+**Resuelto por (vanta-worker, ponytail):**
+- `WalWriter` ahora tiene `max_segment_size: u64` (hard-coded 256MB)
+- `try_auto_rotate(&mut self)` — flush → rename `vanta.wal` → `vanta.wal.<timestamp>` → fresh WAL con header → resetea contadores
+- Llamado al final de `append()` y `batch_append()` después de `maybe_sync()`
+- ShardedWal hereda gratis (sus métodos delegan a WalWriter)
+- 3 tests: trigger (archive existe + bytes_written reset), not-before-limit, data preservation (records verificables via WalReader)
+
+**Verificación:** `cargo nextest run --profile audit -p vantadb -- wal` ✅ 52/52 passed | `cargo check -p vantadb` ✅ | `cargo clippy -p vantadb -- -D warnings` ✅ | `cargo fmt --check` ✅
+
+**Ids:** `OLD-16`
+
 ### 2026-07-26 — OLD-14: MessageThread / GcWorker for Agentic Chat ✅
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-14`

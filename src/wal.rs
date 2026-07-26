@@ -185,6 +185,8 @@ pub struct WalWriter {
     records_since_sync: u64,
     /// If `Some(N)`, auto-sync after N records when sync_mode is Periodic.
     flush_threshold: Option<usize>,
+    /// Maximum segment size in bytes before auto-rotation (default: 256MB).
+    max_segment_size: u64,
 }
 
 impl WalWriter {
@@ -250,6 +252,7 @@ impl WalWriter {
             sync_mode,
             records_since_sync: 0,
             flush_threshold,
+            max_segment_size: 256 * 1024 * 1024,
         })
     }
 
@@ -275,6 +278,7 @@ impl WalWriter {
         self.records_since_sync += 1;
 
         self.maybe_sync()?;
+        self.try_auto_rotate()?;
         Ok(())
     }
 
@@ -309,6 +313,7 @@ impl WalWriter {
         self.records_since_sync += records.len() as u64;
 
         self.maybe_sync()?;
+        self.try_auto_rotate()?;
         Ok(())
     }
 
@@ -371,6 +376,58 @@ impl WalWriter {
         std::fs::rename(&old_path, &archive_path)?;
 
         Self::open(&old_path, sync_mode)
+    }
+
+    /// If bytes_written exceeds max_segment_size, flush + archive current
+    /// segment and start a fresh WAL at the same path.
+    ///
+    /// Returns `Ok(true)` if rotation occurred, `Ok(false)` otherwise.
+    fn try_auto_rotate(&mut self) -> Result<bool> {
+        if self.bytes_written < self.max_segment_size {
+            return Ok(false);
+        }
+
+        // Flush and sync current content
+        self.writer.flush()?;
+        self.writer.get_ref().sync_data()?;
+
+        let old_path = self.path.clone();
+        let now = web_time::SystemTime::now()
+            .duration_since(web_time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let archive_name = format!(
+            "{}.{}",
+            old_path.file_name().unwrap_or_default().to_string_lossy(),
+            now
+        );
+        let archive_path = old_path.with_file_name(&archive_name);
+
+        // Remove existing archive if present, then rename current WAL
+        if archive_path.exists() {
+            std::fs::remove_file(&archive_path)?;
+        }
+        std::fs::rename(&old_path, &archive_path)?;
+
+        // Open fresh WAL file at original path and write a new header
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&old_path)?;
+
+        let header = WalHeader::new(WAL_FORMAT_VERSION as u32);
+        file.write_all(&header.serialize())?;
+
+        // Reset writer and counters with the same buffer capacity
+        let capacity = self.writer.capacity();
+        self.writer = BufWriter::with_capacity(capacity, file);
+        self.bytes_written = WalHeader::SIZE as u64;
+        self.record_count = 0;
+        self.records_since_sync = 0;
+
+        Ok(true)
     }
 }
 
@@ -805,5 +862,116 @@ mod tests {
         }
 
         let _ = std::fs::remove_file(&dir);
+    }
+
+    #[test]
+    fn test_auto_rotate_triggers_at_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+
+        let mut w =
+            WalWriter::open_with_buffer(&path, crate::config::SyncMode::Periodic, 4096, None)
+                .unwrap();
+        // Tiny limit — any append triggers rotation
+        w.max_segment_size = 1;
+
+        w.append(&WalRecord::Insert(UnifiedNode::new(42))).unwrap();
+        w.sync().unwrap();
+
+        // An archived segment must exist
+        let entries: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .collect();
+        assert!(
+            entries
+                .iter()
+                .any(|e| e.file_name().to_string_lossy().contains("vanta.wal.")),
+            "Expected archived segment, got: {:?}",
+            entries
+                .iter()
+                .map(|e| e.file_name().to_string_lossy().to_string())
+                .collect::<Vec<_>>()
+        );
+
+        // bytes_written reset to header-only size
+        assert_eq!(w.bytes_written, WalHeader::SIZE as u64);
+        assert_eq!(w.record_count, 0);
+    }
+
+    #[test]
+    fn test_auto_rotate_not_before_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+
+        let mut w =
+            WalWriter::open_with_buffer(&path, crate::config::SyncMode::Periodic, 4096, None)
+                .unwrap();
+        // Default max_segment_size is 256MB — one small record won't trigger
+        w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+        w.sync().unwrap();
+
+        assert!(w.bytes_written > WalHeader::SIZE as u64);
+        assert_eq!(w.record_count, 1);
+
+        // No archived segment should exist
+        let entries: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .collect();
+        assert!(
+            !entries
+                .iter()
+                .any(|e| e.file_name().to_string_lossy().contains("vanta.wal.")),
+            "Unexpected archived segment found: {:?}",
+            entries
+        );
+    }
+
+    #[test]
+    fn test_auto_rotate_preserves_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+
+        let mut w =
+            WalWriter::open_with_buffer(&path, crate::config::SyncMode::Periodic, 4096, None)
+                .unwrap();
+        // Each 300-float record serializes to ~1260 bytes. With max_segment_size=3700,
+        // 3 records fill ~3780 bytes exceeding the limit at the 3rd append. This guarantees
+        // the archive contains exactly the 3 original records written before rotation.
+        w.max_segment_size = 3700;
+
+        let records = vec![
+            WalRecord::Insert(UnifiedNode::with_vector(1, vec![0.0; 300])),
+            WalRecord::Insert(UnifiedNode::with_vector(2, vec![0.0; 300])),
+            WalRecord::Insert(UnifiedNode::with_vector(3, vec![0.0; 300])),
+        ];
+        for rec in &records {
+            w.append(rec).unwrap();
+        }
+        w.sync().unwrap();
+
+        // Find the archived segment
+        let entries: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .collect();
+        let archive = entries
+            .iter()
+            .find(|e| e.file_name().to_string_lossy().contains("vanta.wal."))
+            .expect("Expected archived segment");
+        let archive_path = archive.path();
+
+        // Read the archived segment and verify records
+        let mut reader = WalReader::open(&archive_path).unwrap();
+        let mut recovered: Vec<WalRecord> = Vec::new();
+        while let Some(rec) = reader.next_record().unwrap() {
+            recovered.push(rec);
+        }
+
+        assert_eq!(recovered.len(), 3, "Archived segment should have 3 records");
+        assert!(matches!(&recovered[0], WalRecord::Insert(n) if n.id == 1));
+        assert!(matches!(&recovered[1], WalRecord::Insert(n) if n.id == 2));
+        assert!(matches!(&recovered[2], WalRecord::Insert(n) if n.id == 3));
     }
 }
