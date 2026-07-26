@@ -14,6 +14,46 @@ use crate::storage::ops::NodeMetadata;
 use crate::wal::WalRecord;
 
 impl StorageEngine {
+    /// Scan the backend and physically remove entries whose MVCC delete
+    /// stamp is older than `safe_cutoff`. A version is reclaimable when
+    /// `deleted_by_txn < safe_cutoff` because any snapshot created at or
+    /// after `safe_cutoff` will have `txn_id >= safe_cutoff` and cannot
+    /// see the deleted version.
+    ///
+    /// When `safe_cutoff` is `None`, the current `next_txn_id` is used.
+    /// Returns the number of entries physically removed.
+    #[tracing::instrument(skip(self), level = "debug", err)]
+    pub fn gc_mvcc_versions(&self, safe_cutoff: Option<u64>) -> Result<u64> {
+        let cutoff = safe_cutoff
+            .unwrap_or_else(|| self.next_txn_id.load(std::sync::atomic::Ordering::Acquire));
+
+        let backend = &*self.backend;
+        let entries = backend.scan(BackendPartition::Default)?;
+        let mut keys: Vec<Vec<u8>> = Vec::new();
+
+        for (key, val) in &entries {
+            if let Ok(meta) = postcard::from_bytes::<NodeMetadata>(val) {
+                if let Some(deleted_by) = meta.deleted_by_txn {
+                    if deleted_by < cutoff {
+                        keys.push(key.clone());
+                    }
+                }
+            }
+        }
+
+        if keys.is_empty() {
+            return Ok(0);
+        }
+
+        let len = keys.len() as u64;
+        for key in &keys {
+            backend.delete(BackendPartition::Default, key)?;
+        }
+
+        tracing::info!(removed = len, cutoff, "MVCC GC completed");
+        Ok(len)
+    }
+
     /// Drain the pending HNSW mutation batch and apply all operations
     /// under a single `insert_lock` acquisition (P1 — Rayon micro-batching).
     ///
@@ -129,6 +169,9 @@ impl StorageEngine {
     }
 
     /// Check if another active txn holds a buffered write for `node_id`.
+    // ponytail: O(N) linear scan over all buffered ops per txn.
+    // Add a HashMap<u64, HashSet<u128>> hot-set indexed by txn_id
+    // for O(1) conflict checks if contention becomes a bottleneck.
     fn check_write_conflict(&self, node_id: u128, my_txn_id: u64) -> Result<()> {
         let buffers = self.txn_buffers.lock();
         for (&other_id, ops) in buffers.iter() {
@@ -1204,15 +1247,23 @@ impl StorageEngine {
             }
         }
 
-        // Non-transaction path: WAL + apply immediately
+        // Non-transaction path: WAL + apply immediately + physically remove metadata
         self.ensure_writable()?;
         if let Some(ref sharded) = self.wal {
             sharded.append(&crate::wal::WalRecord::Delete { id })?;
         }
-        self.apply_delete(id)
+        self.apply_delete(id)?;
+        self.backend
+            .delete(BackendPartition::Default, &id.to_le_bytes())
     }
 
-    /// Apply a delete to the stores (vstore tombstone, HNSW, cache, backend).
+    /// Apply a delete to the stores (vstore tombstone, HNSW, cache).
+    ///
+    /// Does NOT remove the backend metadata entry — callers that need
+    /// physical removal (non-transactional deletes) must call
+    /// `backend.delete()` separately alongside `stamp_deleted_in_backend`.
+    /// Transactional deletes leave the metadata stamp so MVCC snapshots
+    /// can still read the tombstone, and GC can later reclaim it.
     ///
     /// Does NOT write to WAL — the caller is responsible for WAL logging.
     /// Does NOT check active_txns or ensure_writable.
@@ -1253,9 +1304,6 @@ impl StorageEngine {
         }
 
         self.volatile_cache.write().remove(&id);
-
-        let key = id.to_le_bytes();
-        self.backend.delete(BackendPartition::Default, &key)?;
 
         Ok(())
     }

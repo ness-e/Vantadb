@@ -183,6 +183,11 @@ impl<'a> Executor<'a> {
         }
 
         match statement {
+            Statement::Select(select) => {
+                let plan = select.into_logical_plan();
+                let nodes = self.execute_plan(plan)?;
+                Ok(ExecutionResult::Read(nodes))
+            }
             Statement::Query(query) => {
                 let plan = query.into_logical_plan();
                 let nodes = self.execute_plan(plan)?;

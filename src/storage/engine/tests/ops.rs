@@ -956,6 +956,45 @@ fn test_plain_insert_errors_with_multiple_active_txns() {
 }
 
 #[test]
+fn test_gc_mvcc_versions() {
+    let engine = in_memory_engine();
+
+    // Insert two nodes, then transactionally delete them
+    let txn = engine.begin_transaction().expect("begin");
+    engine
+        .insert_in_txn(&sample_node(700), txn)
+        .expect("insert in txn");
+    engine
+        .insert_in_txn(&sample_node(701), txn)
+        .expect("insert in txn");
+    engine.commit_transaction(txn).expect("commit");
+
+    let txn2 = engine.begin_transaction().expect("begin");
+    engine
+        .delete_in_txn(700, "gc-test", txn2)
+        .expect("delete in txn");
+    engine
+        .delete_in_txn(701, "gc-test", txn2)
+        .expect("delete in txn");
+    engine.commit_transaction(txn2).expect("commit");
+
+    // Both should be invisible via snapshot, but still in backend
+    let cutoff = engine
+        .next_txn_id
+        .load(std::sync::atomic::Ordering::Acquire);
+    assert!(engine.get(700).expect("get").is_none());
+    assert!(engine.get(701).expect("get").is_none());
+
+    // GC should reclaim both
+    let removed = engine.gc_mvcc_versions(Some(cutoff)).expect("gc");
+    assert!(removed >= 2, "expected >=2 removed, got {}", removed);
+
+    // GC again should be a no-op
+    let removed2 = engine.gc_mvcc_versions(Some(cutoff + 100)).expect("gc");
+    assert_eq!(removed2, 0, "expected 0 on second pass");
+}
+
+#[test]
 fn test_many_concurrent_txns_with_final_consistency() {
     let engine = in_memory_engine();
 
