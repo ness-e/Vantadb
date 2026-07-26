@@ -9,8 +9,10 @@ use std::collections::BTreeMap;
 /// Top-level statement type after parsing.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
-    /// A query statement.
+    /// A query statement (FROM/MATCH syntax).
     Query(Query),
+    /// A SELECT statement with optional JOIN/subquery.
+    Select(SelectStatement),
     /// An insert statement.
     Insert(InsertStatement),
     /// An update statement.
@@ -149,6 +151,169 @@ pub struct RankBy {
     pub desc: bool,
 }
 
+/// A JOIN clause within a SELECT statement.
+#[derive(Debug, Clone, PartialEq)]
+pub struct JoinClause {
+    /// Right-side entity type.
+    pub entity: String,
+    /// Alias for the right-side entity.
+    pub alias: String,
+    /// Left-side field in the ON condition (alias-qualified).
+    pub left_field: String,
+    /// Right-side field in the ON condition (alias-qualified).
+    pub right_field: String,
+}
+
+/// A scalar subquery condition in WHERE (e.g. `WHERE value > (SELECT AVG(...) FROM ...)`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubqueryCondition {
+    /// Left-side field (alias-qualified).
+    pub field: String,
+    /// Comparison operator.
+    pub op: RelOp,
+    /// The subquery SELECT statement.
+    pub subquery: Box<SelectStatement>,
+}
+
+/// A SELECT-style query with optional JOINs and subqueries.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SelectStatement {
+    /// Projected fields (SELECT clause).
+    pub projections: Vec<String>,
+    /// The FROM clause (single entity or JOIN chain).
+    pub from: FromClause,
+    /// Optional WHERE conditions on the outer query.
+    pub where_clause: Option<Vec<Condition>>,
+    /// Subquery conditions in WHERE (e.g. `field op (SELECT ...)`).
+    pub subquery_conditions: Vec<SubqueryCondition>,
+    /// Query temperature.
+    pub temperature: Option<f32>,
+}
+
+/// The FROM clause of a SELECT — either a single entity or a JOIN of two sub-clauses.
+#[derive(Debug, Clone, PartialEq)]
+pub enum FromClause {
+    /// Scan a single entity type with an alias.
+    Single {
+        /// Entity type.
+        entity: String,
+        /// Alias used in projections / conditions.
+        alias: String,
+    },
+    /// A JOIN between two FROM clauses.
+    Join {
+        /// Left side (another FROM clause).
+        left: Box<FromClause>,
+        /// Right side (another FROM clause).
+        right: Box<FromClause>,
+        /// The ON condition fields.
+        left_field: String,
+        right_field: String,
+    },
+}
+
+impl SelectStatement {
+    /// Convert a SELECT statement into a LogicalPlan.
+    pub fn into_logical_plan(self) -> LogicalPlan {
+        let mut ops = Vec::new();
+
+        match self.from {
+            FromClause::Single { entity, alias: _ } => {
+                ops.push(LogicalOperator::Scan { entity });
+            }
+            FromClause::Join {
+                left,
+                right,
+                left_field,
+                right_field,
+            } => {
+                let left_plan = SelectStatement::from_clause_to_plan(*left);
+                let right_plan = SelectStatement::from_clause_to_plan(*right);
+                ops.push(LogicalOperator::Join {
+                    left_plan: Box::new(left_plan),
+                    right_plan: Box::new(right_plan),
+                    left_field,
+                    right_field,
+                });
+            }
+        }
+
+        if let Some(mut conds) = self.where_clause {
+            for cond in conds.drain(..) {
+                match cond {
+                    Condition::Relational(f, op, v) => {
+                        ops.push(LogicalOperator::FilterRelational {
+                            field: f,
+                            op,
+                            value: v,
+                        });
+                    }
+                    Condition::VectorSim(f, text, min) => {
+                        ops.push(LogicalOperator::VectorSearch {
+                            field: f,
+                            query_vec: text,
+                            min_score: min,
+                        });
+                    }
+                }
+            }
+        }
+
+        for subq in self.subquery_conditions {
+            let subq_plan = subq.subquery.into_logical_plan();
+            ops.push(LogicalOperator::SubqueryFilter {
+                field: subq.field,
+                op: subq.op,
+                subquery_plan: Box::new(subq_plan),
+            });
+        }
+
+        if !self.projections.is_empty() {
+            ops.push(LogicalOperator::Project {
+                fields: self.projections,
+            });
+        }
+
+        LogicalPlan {
+            operators: ops,
+            temperature: self.temperature.unwrap_or(0.0),
+            enforce_role: None,
+        }
+    }
+
+    fn from_clause_to_plain_plan(clause: FromClause) -> LogicalPlan {
+        let ops = match clause {
+            FromClause::Single { entity, alias: _ } => {
+                vec![LogicalOperator::Scan { entity }]
+            }
+            FromClause::Join {
+                left,
+                right,
+                left_field,
+                right_field,
+            } => {
+                let left_plan = SelectStatement::from_clause_to_plain_plan(*left);
+                let right_plan = SelectStatement::from_clause_to_plain_plan(*right);
+                vec![LogicalOperator::Join {
+                    left_plan: Box::new(left_plan),
+                    right_plan: Box::new(right_plan),
+                    left_field,
+                    right_field,
+                }]
+            }
+        };
+        LogicalPlan {
+            operators: ops,
+            temperature: 0.0,
+            enforce_role: None,
+        }
+    }
+
+    fn from_clause_to_plan(clause: FromClause) -> LogicalPlan {
+        Self::from_clause_to_plain_plan(clause)
+    }
+}
+
 // ─── Logical Plan ──────────────────────────────────────────
 
 /// A logical operator node in the query plan.
@@ -203,10 +368,30 @@ pub enum LogicalOperator {
         /// Maximum rows.
         top_k: usize,
     },
+    /// A JOIN between two sub-plans.
+    Join {
+        /// Left-side sub-plan.
+        left_plan: Box<LogicalPlan>,
+        /// Right-side sub-plan.
+        right_plan: Box<LogicalPlan>,
+        /// Left-side join field (alias-qualified).
+        left_field: String,
+        /// Right-side join field (alias-qualified).
+        right_field: String,
+    },
+    /// A scalar subquery filter: `field op (SELECT ...)`.
+    SubqueryFilter {
+        /// Field to compare (alias-qualified).
+        field: String,
+        /// Comparison operator.
+        op: RelOp,
+        /// The subquery plan to execute.
+        subquery_plan: Box<LogicalPlan>,
+    },
 }
 
 /// A logical query plan containing an ordered list of operators.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LogicalPlan {
     /// Ordered list of logical operators.
     pub operators: Vec<LogicalOperator>,

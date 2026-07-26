@@ -334,6 +334,149 @@ fn parse_insert_message(i: &str) -> IResult<&str, InsertMessageStatement> {
     ))
 }
 
+// ─── SELECT / JOIN / Subquery ──────────────────────────────────
+
+fn parse_join_on(i: &str) -> IResult<&str, (String, String)> {
+    let (i, _) = ws(tag("ON"))(i)?;
+    let (i, left_field) = ws(ident)(i)?;
+    let (i, _) = ws(tag("="))(i)?;
+    let (i, right_field) = ws(ident)(i)?;
+    Ok((i, (left_field, right_field)))
+}
+
+fn parse_join_clause(i: &str) -> IResult<&str, JoinClause> {
+    let (i, _) = ws(tag("JOIN"))(i)?;
+    let (i, entity) = ws(ident)(i)?;
+    let (i, alias) = ws(ident)(i)?;
+    let (i, (left_field, right_field)) = parse_join_on(i)?;
+    Ok((
+        i,
+        JoinClause {
+            entity,
+            alias,
+            left_field,
+            right_field,
+        },
+    ))
+}
+
+fn parse_subquery_condition_inner(i: &str) -> IResult<&str, SubqueryCondition> {
+    let (i, field) = ws(ident)(i)?;
+    let (i, op) = ws(parse_rel_op)(i)?;
+    let (i, _) = ws(tag("("))(i)?;
+    let (i, subquery) = parse_select(i)?;
+    let (i, _) = ws(tag(")"))(i)?;
+    Ok((
+        i,
+        SubqueryCondition {
+            field,
+            op,
+            subquery: Box::new(subquery),
+        },
+    ))
+}
+
+/// Parse a single WHERE item — either a regular condition or a subquery condition.
+fn parse_where_item(i: &str) -> IResult<&str, WhereItem> {
+    // Peek ahead: if after field + op we see '(', it's a subquery.
+    // We try subquery first; if it fails, fall back to regular condition.
+    if let Ok((rest, subq)) = parse_subquery_condition_inner(i) {
+        return Ok((rest, WhereItem::Subquery(subq)));
+    }
+    let (rest, cond) = parse_condition(i)?;
+    Ok((rest, WhereItem::Condition(cond)))
+}
+
+/// A single WHERE item — either a relational/vector condition or a subquery comparison.
+#[derive(Debug, Clone, PartialEq)]
+pub enum WhereItem {
+    /// Regular condition (relational or vector).
+    Condition(Condition),
+    /// Subquery comparison (e.g. `field op (SELECT ...)`).
+    Subquery(SubqueryCondition),
+}
+
+/// Parse a `SELECT` query with optional JOINs and subqueries.
+pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
+    let (i, _) = ws(tag("SELECT"))(i)?;
+
+    // Projections: comma-separated identifiers, or "*" for all
+    let (i, projections) =
+        if let Ok((rest, _)) = ws(tag::<&str, &str, nom::error::Error<&str>>("*"))(i) {
+            (rest, Vec::new())
+        } else {
+            separated_list1(ws(char(',')), ws(ident))(i)?
+        };
+
+    let (i, _) = ws(tag("FROM"))(i)?;
+    let (i, from_entity) = ws(ident)(i)?;
+    let (i, from_alias) = opt(ws(ident))(i)?;
+    let from_alias = from_alias.unwrap_or_else(|| from_entity.clone());
+
+    // Parse zero or more JOIN clauses
+    let (i, join_clauses) = many0(parse_join_clause)(i)?;
+
+    // Build FromClause tree from JOINs
+    let from = if join_clauses.is_empty() {
+        FromClause::Single {
+            entity: from_entity,
+            alias: from_alias,
+        }
+    } else {
+        let mut current = FromClause::Single {
+            entity: from_entity,
+            alias: from_alias,
+        };
+        for jc in join_clauses {
+            current = FromClause::Join {
+                left: Box::new(current),
+                right: Box::new(FromClause::Single {
+                    entity: jc.entity,
+                    alias: jc.alias,
+                }),
+                left_field: jc.left_field,
+                right_field: jc.right_field,
+            };
+        }
+        current
+    };
+
+    // WHERE clause with mixed regular and subquery conditions
+    let (i, where_items) = opt(tuple((
+        ws(tag("WHERE")),
+        separated_list1(ws(tag("AND")), parse_where_item),
+    )))(i)?;
+
+    let (i, temperature) = opt(tuple((ws(tag("WITH")), ws(tag("TEMPERATURE")), ws(float))))(i)?;
+
+    // Split where_items into regular conditions and subquery conditions
+    let (where_conds, subq_conds) = match where_items {
+        Some((_, items)) => {
+            let mut conds = Vec::new();
+            let mut subqs = Vec::new();
+            for item in items {
+                match item {
+                    WhereItem::Condition(c) => conds.push(c),
+                    WhereItem::Subquery(s) => subqs.push(s),
+                }
+            }
+            (Some(conds), subqs)
+        }
+        None => (None, Vec::new()),
+    };
+
+    Ok((
+        i,
+        SelectStatement {
+            projections,
+            from,
+            where_clause: where_conds,
+            subquery_conditions: subq_conds,
+            temperature: temperature.map(|(_, _, t)| t),
+        },
+    ))
+}
+
 // ─── Entry Point ───────────────────────────────────────────────
 
 /// Parse any supported VantaQL statement (query, insert, update, delete, relate).
@@ -344,6 +487,7 @@ pub fn parse_statement(i: &str) -> IResult<&str, Statement> {
         map(parse_update, Statement::Update),
         map(parse_delete, Statement::Delete),
         map(parse_relate, Statement::Relate),
+        map(parse_select, Statement::Select), // Must be before parse_query (SELECT would match as alias)
         map(parse_query, Statement::Query),
     ))(i)
 }
@@ -1270,5 +1414,104 @@ mod tests {
         let stmt2 = parse_statement("DELETE NODE#2").unwrap().1;
         assert!(matches!(stmt1, Statement::Delete(_)));
         assert!(matches!(stmt2, Statement::Delete(_)));
+    }
+
+    // ─── SELECT / JOIN / Subquery ──────────────────────────────
+
+    #[test]
+    fn test_parse_select_basic() {
+        let input = r#"SELECT * FROM Person"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert!(sel.projections.is_empty());
+                assert!(matches!(sel.from, crate::query::FromClause::Single { .. }));
+                assert!(sel.where_clause.is_none());
+                assert!(sel.subquery_conditions.is_empty());
+            }
+            _ => panic!("expected Select"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_with_alias() {
+        let input = r#"SELECT name, age FROM Person p"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.projections, vec!["name", "age"]);
+                match &sel.from {
+                    crate::query::FromClause::Single { entity, alias } => {
+                        assert_eq!(entity, "Person");
+                        assert_eq!(alias, "p");
+                    }
+                    _ => panic!("expected Single from clause"),
+                }
+            }
+            _ => panic!("expected Select"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_single_field() {
+        let input = r#"SELECT name FROM Person"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.projections, vec!["name"]);
+            }
+            _ => panic!("expected Select"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_join() {
+        let input = r#"SELECT * FROM Person p JOIN Address a ON p.addr_id = a.id"#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                match &sel.from {
+                    crate::query::FromClause::Join { left, right, left_field, right_field } => {
+                        assert_eq!(left_field, "p.addr_id");
+                        assert_eq!(right_field, "a.id");
+                        match (&**left, &**right) {
+                            (crate::query::FromClause::Single { entity: e1, alias: a1 },
+                             crate::query::FromClause::Single { entity: e2, alias: a2 }) => {
+                                assert_eq!(e1, "Person");
+                                assert_eq!(a1, "p");
+                                assert_eq!(e2, "Address");
+                                assert_eq!(a2, "a");
+                            }
+                            _ => panic!("expected Single/Single join children"),
+                        }
+                    }
+                    _ => panic!("expected Join from clause"),
+                }
+            }
+            _ => panic!("expected Select"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_where_relational() {
+        let input = r#"SELECT * FROM Person p WHERE name = "Alice""#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                let conds = sel.where_clause.expect("expected WHERE conditions");
+                assert_eq!(conds.len(), 1);
+                assert!(
+                    matches!(&conds[0], crate::query::Condition::Relational(..)),
+                    "expected relational condition"
+                );
+            }
+            _ => panic!("expected Select"),
+        }
+    }
+
+    #[test]
+    fn test_parse_statement_select_is_dispatched() {
+        let (_, stmt) = parse_statement("SELECT * FROM Node").unwrap();
+        assert!(matches!(stmt, Statement::Select(_)));
     }
 }
