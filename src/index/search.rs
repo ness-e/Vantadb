@@ -6,14 +6,17 @@ use crate::index::graph::{self, CPIndex, NeighborVec, NodeSim, NodeSimMin};
 use crate::node::{DistanceMetric, FilterBitset};
 use crate::storage::engine::FLAG_TOMBSTONE;
 
+#[cfg(debug_assertions)]
 pub(crate) struct SearchProfile {
     vfile_reads: u64,
     unique_pages: std::collections::HashSet<u64>,
     compute_ns: u64,
     candidates_seen: u64,
     start: std::time::Instant,
+    compute_start: std::time::Instant,
 }
 
+#[cfg(debug_assertions)]
 impl SearchProfile {
     pub(crate) fn new() -> Self {
         Self {
@@ -22,7 +25,27 @@ impl SearchProfile {
             compute_ns: 0,
             candidates_seen: 0,
             start: std::time::Instant::now(),
+            compute_start: std::time::Instant::now(),
         }
+    }
+
+    fn start_compute(&mut self) {
+        self.compute_start = std::time::Instant::now();
+    }
+
+    fn end_compute(&mut self) {
+        self.compute_ns += self.compute_start.elapsed().as_nanos() as u64;
+    }
+
+    fn record_vfile_candidate(&mut self, storage_offset: u64) {
+        self.vfile_reads += 2;
+        self.candidates_seen += 1;
+        self.unique_pages.insert(storage_offset >> 12);
+    }
+
+    fn record_vfile_entry(&mut self, storage_offset: u64) {
+        self.vfile_reads += 1;
+        self.unique_pages.insert(storage_offset >> 12);
     }
 
     fn log(&self, ef_search: usize, top_k: usize) {
@@ -45,6 +68,21 @@ impl SearchProfile {
     }
 }
 
+#[cfg(not(debug_assertions))]
+pub(crate) struct SearchProfile;
+
+#[cfg(not(debug_assertions))]
+impl SearchProfile {
+    pub(crate) fn new() -> Self {
+        Self
+    }
+    fn start_compute(&mut self) {}
+    fn end_compute(&mut self) {}
+    fn record_vfile_candidate(&mut self, _storage_offset: u64) {}
+    fn record_vfile_entry(&mut self, _storage_offset: u64) {}
+    fn log(&self, _ef_search: usize, _top_k: usize) {}
+}
+
 impl CPIndex {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn search_layer(
@@ -64,17 +102,11 @@ impl CPIndex {
         let mut candidates = BinaryHeap::new();
         let mut results = BinaryHeap::new();
 
-        const PAGE_SHIFT: u64 = 12;
         for &ep in entry_points {
             if let Some(node) = self.nodes.get(&ep) {
-                if vector_store.is_some() {
-                    profile.vfile_reads += 1;
-                    profile
-                        .unique_pages
-                        .insert(node.storage_offset >> PAGE_SHIFT);
-                }
                 let d = if let Some(vs) = vector_store {
-                    let compute_start = std::time::Instant::now();
+                    profile.record_vfile_entry(node.storage_offset);
+                    profile.start_compute();
                     let result = if let Some(header) = vs.read_header(node.storage_offset) {
                         let vec_start = header.vector_offset as usize;
                         let vec_end = vec_start + (header.vector_len as usize * 4);
@@ -126,15 +158,12 @@ impl CPIndex {
                     } else {
                         0.0
                     };
-                    profile.compute_ns += compute_start.elapsed().as_nanos() as u64;
+                    profile.end_compute();
                     result
                 } else {
                     self.fast_similarity(query_vec, query_norm, query_inv_norm, &node, metric)
                 };
 
-                if vector_store.is_some() {
-                    profile.vfile_reads += 1;
-                }
                 let eligible = if let Some(vs) = vector_store {
                     vs.read_header(node.storage_offset)
                         .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
@@ -205,15 +234,9 @@ impl CPIndex {
                         visited.insert(neighbor_id);
 
                         if let Some(neighbor) = self.nodes.get(&neighbor_id) {
-                            if vector_store.is_some() {
-                                profile.candidates_seen += 1;
-                                profile.vfile_reads += 1;
-                                profile
-                                    .unique_pages
-                                    .insert(neighbor.storage_offset >> PAGE_SHIFT);
-                            }
                             let d = if let Some(vs) = vector_store {
-                                let compute_start = std::time::Instant::now();
+                                profile.record_vfile_candidate(neighbor.storage_offset);
+                                profile.start_compute();
                                 let result = if let Some(h) =
                                     vs.read_header(neighbor.storage_offset)
                                 {
@@ -268,7 +291,7 @@ impl CPIndex {
                                 } else {
                                     0.0
                                 };
-                                profile.compute_ns += compute_start.elapsed().as_nanos() as u64;
+                                profile.end_compute();
                                 result
                             } else {
                                 self.fast_similarity(
@@ -280,9 +303,6 @@ impl CPIndex {
                                 )
                             };
 
-                            if vector_store.is_some() {
-                                profile.vfile_reads += 1;
-                            }
                             let eligible = if let Some(vs) = vector_store {
                                 vs.read_header(neighbor.storage_offset)
                                     .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
@@ -514,7 +534,6 @@ impl CPIndex {
             &mut visited,
             &mut profile,
         );
-
         profile.log(ef_search, top_k);
 
         let mut result: Vec<NodeSimMin> = w.into_sorted_vec();

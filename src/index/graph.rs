@@ -1,3 +1,4 @@
+use crate::index::search::SearchProfile;
 #[cfg(not(feature = "memmap2"))]
 use crate::storage::vfile::MmapMut;
 use ahash::RandomState;
@@ -19,7 +20,6 @@ pub(crate) const ENTRY_POINT_NONE: u128 = u128::MAX;
 pub(crate) const MAX_VEC_F32_LEN: usize = 10_000_000;
 
 use super::distance::*;
-use crate::index::search::SearchProfile;
 pub use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
 
 #[inline(always)]
@@ -573,7 +573,6 @@ impl CPIndex {
             std::collections::HashSet::with_capacity_and_hasher(ef_cons * 2, RandomState::new());
         let top_layer = self.max_layer.load(Ordering::Acquire);
 
-        let mut profile = SearchProfile::new();
         for layer in (level + 1..=top_layer).rev() {
             visited.clear();
             let mut w = self.search_layer(
@@ -587,7 +586,7 @@ impl CPIndex {
                 None,
                 self.config.distance_metric,
                 &mut visited,
-                &mut profile,
+                &mut SearchProfile::new(),
             );
             if let Some(NodeSimMin(_, best_id)) = w.pop() {
                 curr_entry_points = vec![best_id];
@@ -608,7 +607,7 @@ impl CPIndex {
                 None,
                 self.config.distance_metric,
                 &mut visited,
-                &mut profile,
+                &mut SearchProfile::new(),
             );
 
             let m_max = if layer == 0 {
