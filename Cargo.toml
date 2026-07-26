@@ -484,6 +484,10 @@ path = "tests/security.rs"
 name = "sdk_serialization"
 path = "tests/sdk_serialization.rs"
 
+[[test]]
+name = "graphrag_test"
+path = "tests/graphrag_test.rs"
+
 # ── Examples ──
 [[example]]
 name = "basic"

@@ -80,6 +80,7 @@ pub mod executor;
 pub mod gc;
 pub mod governor;
 pub mod graph;
+pub mod graphrag;
 pub mod hardware;
 pub mod index;
 pub mod integrations;

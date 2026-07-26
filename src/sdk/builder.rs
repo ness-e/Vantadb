@@ -1,5 +1,6 @@
 use crate::config::VantaConfig;
 use crate::error::{Result, VantaError};
+use crate::graphrag::pipeline::{GraphRagPipeline, GraphRagResult};
 use crate::index::set_prefetch_mode;
 use crate::storage::StorageEngine;
 use parking_lot::RwLock;
@@ -78,6 +79,20 @@ impl VantaEmbedded {
             engine: Arc::new(RwLock::new(None)),
             config,
         }
+    }
+
+    /// Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+    ///
+    /// Uses the default pipeline configuration (seed_k=10, hops=2, max=100, top_k=20).
+    /// For custom settings, construct [`GraphRagPipeline`] directly.
+    pub fn graphrag_search(
+        &self,
+        namespace: &str,
+        query: Option<&str>,
+        query_vector: Option<&[f32]>,
+    ) -> Result<GraphRagResult> {
+        let pipeline = GraphRagPipeline::new();
+        pipeline.search(self, namespace, query, query_vector)
     }
 
     /// Flush and close the embedded engine handle.

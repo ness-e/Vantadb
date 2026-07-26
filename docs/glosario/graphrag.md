@@ -1,7 +1,7 @@
 ---
 title: "GraphRAG"
 type: glossary-entry
-status: stable
+status: implemented
 tags: [vantadb, glosario, rag, grafo, ia]
 last_refined: 2026-06
 links: "[Glosario](../Glosario.md)"

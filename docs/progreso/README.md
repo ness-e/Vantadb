@@ -289,6 +289,27 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-26 — OLD-02: GraphRAG Pipeline Formal — seed → expand → retrieve → generate context ✅
+
+**Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-02`
+
+**Problema original:** Existía un `examples/rust/graphrag.rs` que usaba la API raw de Node/Graph (insert manual → BFS), sin un pipeline formal con seed → expand → retrieve → context generation.
+
+**Resuelto por (vanta-lead, vanta-worker, ponytail):**
+- Pipeline completo en `src/graphrag/`: `mod.rs`, `pipeline.rs`, `seed.rs`, `expand.rs`, `retrieve.rs`, `context.rs`
+- `GraphRagPipeline` struct con defaults: `seed_k=10`, `hops=2`, `max_expansion_nodes=100`, `top_k=20`
+- `GraphRagResult` con campos: `nodes`, `edges`, `context_text`, `stats`
+- Método SDK `VantaEmbedded::graphrag_search(namespace, query, query_vector)` agregado
+- 4 tests en `tests/graphrag_test.rs` (simple_search, empty_result, hybrid_fallback, max_expansion) — **4/4 pass**
+- `docs/api/GRAPH_RAG.md` — API reference completa con Rust/Python usage
+- Task file creado en `.opencode/skills/campaign-executor/tasks/OLD-02.md`
+
+**Pendiente:** `examples/rust/graphrag.rs` aún usa API raw (no pipeline), falta `examples/python/graphrag_pipeline.py`
+
+**Verificación:** `cargo nextest run --test graphrag_test` ✅ 4/4 pass | `cargo check -p vantadb` ✅
+
+**Ids:** `OLD-02`
+
 ### 2026-07-25 — DRV-014: ShardedWal::batch_append sin clonación de WalRecords ✅
 
 **Fuente:** Backlog Phase 2 `DRV-014`
@@ -2554,3 +2575,22 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | `DEVEX-EXAMPLES` | **Rust examples** — 4 ejemplos existentes en `examples/rust/` | ✅ Document-only. basic, hybrid, graphrag, concurrent compilan clean. |
 
 **Verificación:** `cargo check` ✅ | Backlog.md P8 counter 13→8 | CLI 7→8 | Infra CI 2→4 | Total 90→95
+
+### 2026-07-26 — Backlog Cleanup: P0–P4, P7, P9–P10 — 53 items moved to progreso
+
+**Objetivo:** Limpiar backlog verificando cada item ✅ contra código real. Mover completados a progreso, re-abrir falsos positivos.
+
+| Fase | Acción | Items |
+|------|--------|-------|
+| **P0** | 6 stale removidos + 1 re-abierto (DEVOPS-15 default features) | `DEVOPS-10/12/14`, `NUEVO-09/10` removidos. `DEVOPS-15` re-abierto (código tiene 7 defaults, no 3) |
+| **P1** | Fase completa cerrada (9 items resueltos/deferidos) | `RC-06`, `SEC-13/15/16/17`, `VFY-010/14/15/16` |
+| **P2** | 7 ✅ + 24 stale a progreso | `DRV-014/028/041/136`, `VFY-006/007`, `REV-012` + 24 crates de integración nunca implementados |
+| **P3** | 7 ✅ + 7 stale a progreso | `DRV-013/017/061/067/073`, `TEST-11/12` + 7 stale |
+| **P4** | 10 ✅ a progreso | `WEB-03/04`, `VFY-004/011`, `DRV-121/122/123/130/131`, `DOC-20` |
+| **P7** | 1 ✅ a progreso | `NUEVO-13` (auto-tuning) |
+| **P9** | 7 ✅ a progreso | `OLD-04/07/13/15/17/18/22` |
+| **P10** | 10 ✅ a progreso | `COMP-001/002/003/004/005/007/011/015/020/030` |
+
+**Impacto:** Backlog total ~120→~65 items activos. 5 fases cerradas (P1–P4, P7). Exec Summary actualizado.
+
+**Verificación:** Cada item verificado contra código real antes de mover. `DEVOPS-15` re-abierto tras detectar discrepancia en `Cargo.toml:89`.
