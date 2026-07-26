@@ -9,10 +9,7 @@ use std::collections::BTreeMap;
 use vantadb::config::VantaConfig;
 use vantadb::executor::Executor;
 use vantadb::node::{FieldValue, UnifiedNode};
-use vantadb::query::{
-    Condition, FromClause, RelOp, SelectStatement,
-    Statement, SubqueryCondition,
-};
+use vantadb::query::{Condition, FromClause, RelOp, SelectStatement, Statement, SubqueryCondition};
 use vantadb::storage::{BackendKind, StorageEngine};
 
 fn setup() -> (StorageEngine, tempfile::TempDir) {
@@ -21,33 +18,41 @@ fn setup() -> (StorageEngine, tempfile::TempDir) {
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     };
-    let storage =
-        StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
-            .expect("Failed to open StorageEngine");
+    let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+        .expect("Failed to open StorageEngine");
     (storage, dir)
 }
 
 fn insert_person(storage: &StorageEngine, id: u128, name: &str, addr_id: u128) {
     let mut node = UnifiedNode::new(id);
-    node.relational.insert("type".into(), FieldValue::String("Person".into()));
-    node.relational.insert("name".into(), FieldValue::String(name.into()));
-    node.relational.insert("addr_id".into(), FieldValue::Int(addr_id as i64));
+    node.relational
+        .insert("type".into(), FieldValue::String("Person".into()));
+    node.relational
+        .insert("name".into(), FieldValue::String(name.into()));
+    node.relational
+        .insert("addr_id".into(), FieldValue::Int(addr_id as i64));
     storage.insert(&node).unwrap();
 }
 
 fn insert_address(storage: &StorageEngine, id: u128, city: &str) {
     let mut node = UnifiedNode::new(id);
-    node.relational.insert("type".into(), FieldValue::String("Address".into()));
-    node.relational.insert("city".into(), FieldValue::String(city.into()));
-    node.relational.insert("id".into(), FieldValue::Int(id as i64));
+    node.relational
+        .insert("type".into(), FieldValue::String("Address".into()));
+    node.relational
+        .insert("city".into(), FieldValue::String(city.into()));
+    node.relational
+        .insert("id".into(), FieldValue::Int(id as i64));
     storage.insert(&node).unwrap();
 }
 
 fn insert_product(storage: &StorageEngine, id: u128, name: &str, price: i64) {
     let mut node = UnifiedNode::new(id);
-    node.relational.insert("type".into(), FieldValue::String("Product".into()));
-    node.relational.insert("name".into(), FieldValue::String(name.into()));
-    node.relational.insert("price".into(), FieldValue::Int(price));
+    node.relational
+        .insert("type".into(), FieldValue::String("Product".into()));
+    node.relational
+        .insert("name".into(), FieldValue::String(name.into()));
+    node.relational
+        .insert("price".into(), FieldValue::Int(price));
     storage.insert(&node).unwrap();
 }
 
@@ -93,9 +98,10 @@ fn test_join_two_entities_returns_combined_results() {
             assert_eq!(nodes.len(), 2, "JOIN should produce 2 combined rows");
 
             // Each result should have fields from both sides
-            let alice_row = nodes.iter().find(|n| {
-                n.relational.get("name") == Some(&FieldValue::String("Alice".into()))
-            }).expect("Alice should be in results");
+            let alice_row = nodes
+                .iter()
+                .find(|n| n.relational.get("name") == Some(&FieldValue::String("Alice".into())))
+                .expect("Alice should be in results");
 
             assert_eq!(
                 alice_row.relational.get("city"),
@@ -103,9 +109,10 @@ fn test_join_two_entities_returns_combined_results() {
                 "Alice should be joined with New York"
             );
 
-            let bob_row = nodes.iter().find(|n| {
-                n.relational.get("name") == Some(&FieldValue::String("Bob".into()))
-            }).expect("Bob should be in results");
+            let bob_row = nodes
+                .iter()
+                .find(|n| n.relational.get("name") == Some(&FieldValue::String("Bob".into())))
+                .expect("Bob should be in results");
 
             assert_eq!(
                 bob_row.relational.get("city"),
@@ -254,10 +261,21 @@ fn test_subquery_where_scalar() {
         vantadb::executor::ExecutionResult::Read(nodes) => {
             // The subquery returns Priced Widget (price=25).
             // So outer query should return products with price >= 25.
-            assert_eq!(nodes.len(), 2, "Should match Priced Widget (25) and Expensive Widget (100)");
-            let prices: Vec<i64> = nodes.iter()
+            assert_eq!(
+                nodes.len(),
+                2,
+                "Should match Priced Widget (25) and Expensive Widget (100)"
+            );
+            let prices: Vec<i64> = nodes
+                .iter()
                 .filter_map(|n| n.relational.get("price"))
-                .filter_map(|v| if let FieldValue::Int(i) = v { Some(*i) } else { None })
+                .filter_map(|v| {
+                    if let FieldValue::Int(i) = v {
+                        Some(*i)
+                    } else {
+                        None
+                    }
+                })
                 .collect();
             assert!(prices.contains(&25), "Should include price 25");
             assert!(prices.contains(&100), "Should include price 100");
@@ -313,7 +331,10 @@ fn test_subquery_where_with_exact_match() {
             // Widget B (price=20) and Target (price=20) both match
             assert_eq!(nodes.len(), 2, "Two products with price=20");
             assert!(
-                nodes.iter().any(|n| n.relational.get("name") == Some(&FieldValue::String("Widget B".into()))),
+                nodes
+                    .iter()
+                    .any(|n| n.relational.get("name")
+                        == Some(&FieldValue::String("Widget B".into()))),
                 "Widget B should match"
             );
             assert!(
@@ -346,7 +367,8 @@ fn test_execute_join_through_hybrid_parser() {
             f
         },
         vector: None,
-    })).unwrap();
+    }))
+    .unwrap();
 
     ex.execute_statement(Statement::Insert(vantadb::query::InsertStatement {
         node_id: 10,
@@ -358,12 +380,13 @@ fn test_execute_join_through_hybrid_parser() {
             f
         },
         vector: None,
-    })).unwrap();
+    }))
+    .unwrap();
 
     // Execute SELECT with JOIN via the IQL parser
-    let result = ex.execute_hybrid(
-        "SELECT * FROM Entity p JOIN Entity a ON p.addr_id = a.id"
-    ).unwrap();
+    let result = ex
+        .execute_hybrid("SELECT * FROM Entity p JOIN Entity a ON p.addr_id = a.id")
+        .unwrap();
 
     match result {
         vantadb::executor::ExecutionResult::Read(nodes) => {
@@ -398,7 +421,8 @@ fn test_subquery_through_hybrid_parser() {
                 f
             },
             vector: None,
-        })).unwrap();
+        }))
+        .unwrap();
     }
 
     // Use "Item" as entity since the parser ident doesn't accept `*`.
@@ -411,9 +435,16 @@ fn test_subquery_through_hybrid_parser() {
         vantadb::executor::ExecutionResult::Read(nodes) => {
             // Scarf (25) and Coat (50) have price >= 25
             assert_eq!(nodes.len(), 2, "Two products with price >= 25");
-            let names: Vec<&str> = nodes.iter()
+            let names: Vec<&str> = nodes
+                .iter()
                 .filter_map(|n| n.relational.get("name"))
-                .filter_map(|v| if let FieldValue::String(s) = v { Some(s.as_str()) } else { None })
+                .filter_map(|v| {
+                    if let FieldValue::String(s) = v {
+                        Some(s.as_str())
+                    } else {
+                        None
+                    }
+                })
                 .collect();
             assert!(names.contains(&"Scarf"), "Scarf should match");
             assert!(names.contains(&"Coat"), "Coat should match");
@@ -436,10 +467,14 @@ fn test_join_self_join() {
     // must be set explicitly for ON condition matching.
     for (id, name, mgr_id) in [(1u128, "Alice", 0u128), (2, "Bob", 1)] {
         let mut node = UnifiedNode::new(id);
-        node.relational.insert("id".into(), FieldValue::Int(id as i64));
-        node.relational.insert("type".into(), FieldValue::String("Employee".into()));
-        node.relational.insert("name".into(), FieldValue::String(name.into()));
-        node.relational.insert("mgr_id".into(), FieldValue::Int(mgr_id as i64));
+        node.relational
+            .insert("id".into(), FieldValue::Int(id as i64));
+        node.relational
+            .insert("type".into(), FieldValue::String("Employee".into()));
+        node.relational
+            .insert("name".into(), FieldValue::String(name.into()));
+        node.relational
+            .insert("mgr_id".into(), FieldValue::Int(mgr_id as i64));
         storage.insert(&node).unwrap();
     }
 

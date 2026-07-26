@@ -238,11 +238,7 @@ pub fn optimize_and_compile<'a>(
                 op,
                 subquery_plan,
             } => {
-                subquery_filters.push((
-                    field.clone(),
-                    op.clone(),
-                    *subquery_plan.clone(),
-                ));
+                subquery_filters.push((field.clone(), op.clone(), *subquery_plan.clone()));
             }
             crate::query::LogicalOperator::FilterRelational {
                 field,
@@ -298,50 +294,27 @@ pub fn optimize_and_compile<'a>(
     // when alias is resolvable for better performance.
 
     // Determine the base operator (scan or join) and apply sorted_filters
-    let mut current_operator: Box<dyn crate::query::PhysicalOperator + 'a> =
-        if has_join {
-            let (left_plan, right_plan, left_field, right_field) = join_spec.unwrap();
-            let left_op = optimize_and_compile(&left_plan, storage)?;
-            let right_op = optimize_and_compile(&right_plan, storage)?;
-            let mut join_op: Box<dyn crate::query::PhysicalOperator + 'a> =
-                Box::new(crate::physical_plan::PhysicalNestedLoopJoin::new(
-                    left_op,
-                    right_op,
-                    left_field,
-                    right_field,
-                ));
-            // Apply post-join relational filters
-            for (field, rel_op, value) in sorted_filters {
-                join_op = Box::new(crate::physical_plan::PhysicalFilter::new(
-                    join_op, field, rel_op, value,
-                ));
-            }
-            join_op
-        } else if let Some((_field, query_text, min_score)) = vector_search {
-            // CBO: filter-before-vector vs vector-before-filter
-            if joint_selectivity < HIGH_SELECTIVITY_THRESHOLD && !sorted_filters.is_empty() {
-                let mut scan_op: Box<dyn crate::query::PhysicalOperator + 'a> =
-                    Box::new(crate::physical_plan::PhysicalScan::new(storage, entity));
-                for (field, rel_op, value) in sorted_filters {
-                    scan_op = Box::new(crate::physical_plan::PhysicalFilter::new(
-                        scan_op, field, rel_op, value,
-                    ));
-                }
-                Box::new(crate::physical_plan::PhysicalVectorRefine::new(
-                    scan_op, query_text, min_score,
-                ))
-            } else {
-                let mut vs_op: Box<dyn crate::query::PhysicalOperator + 'a> = Box::new(
-                    crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score),
-                );
-                for (field, rel_op, value) in sorted_filters {
-                    vs_op = Box::new(crate::physical_plan::PhysicalFilter::new(
-                        vs_op, field, rel_op, value,
-                    ));
-                }
-                vs_op
-            }
-        } else {
+    let mut current_operator: Box<dyn crate::query::PhysicalOperator + 'a> = if has_join {
+        let (left_plan, right_plan, left_field, right_field) = join_spec.unwrap();
+        let left_op = optimize_and_compile(&left_plan, storage)?;
+        let right_op = optimize_and_compile(&right_plan, storage)?;
+        let mut join_op: Box<dyn crate::query::PhysicalOperator + 'a> =
+            Box::new(crate::physical_plan::PhysicalNestedLoopJoin::new(
+                left_op,
+                right_op,
+                left_field,
+                right_field,
+            ));
+        // Apply post-join relational filters
+        for (field, rel_op, value) in sorted_filters {
+            join_op = Box::new(crate::physical_plan::PhysicalFilter::new(
+                join_op, field, rel_op, value,
+            ));
+        }
+        join_op
+    } else if let Some((_field, query_text, min_score)) = vector_search {
+        // CBO: filter-before-vector vs vector-before-filter
+        if joint_selectivity < HIGH_SELECTIVITY_THRESHOLD && !sorted_filters.is_empty() {
             let mut scan_op: Box<dyn crate::query::PhysicalOperator + 'a> =
                 Box::new(crate::physical_plan::PhysicalScan::new(storage, entity));
             for (field, rel_op, value) in sorted_filters {
@@ -349,20 +322,40 @@ pub fn optimize_and_compile<'a>(
                     scan_op, field, rel_op, value,
                 ));
             }
-            scan_op
-        };
+            Box::new(crate::physical_plan::PhysicalVectorRefine::new(
+                scan_op, query_text, min_score,
+            ))
+        } else {
+            let mut vs_op: Box<dyn crate::query::PhysicalOperator + 'a> = Box::new(
+                crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score),
+            );
+            for (field, rel_op, value) in sorted_filters {
+                vs_op = Box::new(crate::physical_plan::PhysicalFilter::new(
+                    vs_op, field, rel_op, value,
+                ));
+            }
+            vs_op
+        }
+    } else {
+        let mut scan_op: Box<dyn crate::query::PhysicalOperator + 'a> =
+            Box::new(crate::physical_plan::PhysicalScan::new(storage, entity));
+        for (field, rel_op, value) in sorted_filters {
+            scan_op = Box::new(crate::physical_plan::PhysicalFilter::new(
+                scan_op, field, rel_op, value,
+            ));
+        }
+        scan_op
+    };
 
     // Apply SubqueryFilter operators on top of the chain
     for (field, op, subq_plan) in subquery_filters {
         let subq_op = optimize_and_compile(&subq_plan, storage)?;
-        current_operator = Box::new(
-            crate::physical_plan::PhysicalSubqueryFilter::new(
-                current_operator,
-                subq_op,
-                field,
-                op,
-            ),
-        );
+        current_operator = Box::new(crate::physical_plan::PhysicalSubqueryFilter::new(
+            current_operator,
+            subq_op,
+            field,
+            op,
+        ));
     }
 
     if let Some((field, desc)) = sort {

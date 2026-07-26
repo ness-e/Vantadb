@@ -22,7 +22,7 @@ VantaDB is a vector database in Rust focused on high performance, hybrid HNSW, G
 
 | Category | Completed | Total | Status |
 |-----------|-------------|-------|--------|
-| Core/Index | 16 | 16 | ✅ |
+| Core/Index | 17 | 17 | ✅ |
 | Python Bindings | 5 | 5 | ✅ |
 | API/Servidor | 9 | 9 | ✅ |
 | Observability | 6 | 6 | ✅ |
@@ -32,7 +32,7 @@ VantaDB is a vector database in Rust focused on high performance, hybrid HNSW, G
 | CLI | 7 | 7 | ✅ |
 | Infraestructura & CI | 2 | 2 | ✅ |
 | Project Management | 6 | 6 | ✅ |
-| **Total** | **89** | **~89** | **✅** |
+| **Total** | **90** | **~90** | **✅** |
 
 ## Legend
 
@@ -2516,3 +2516,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | `NUEVO-13` | HNSW ef_search auto-tuning (heuristic doubling) | `src/index/auto_tune.rs`, `src/metrics/core/mod.rs`, `src/metrics/core/registry.rs` | ✅ +66/-9 — Dampening 2.0→1.5x, gauge `vantadb_auto_tune_ef`, integration test `repeated_fallbacks_increase_ef`. Tests actualizados con nueva curva. |
 
 **Verificación:** `cargo nextest run --profile audit -p vantadb` ✅ | 4 auto_tune tests + gauge test ✅
+
+### 2026-07-26 — DRV-131: Missing Index Types Beyond HNSW — IVF Flat
+
+**Objetivo:** Agregar nuevos tipos de índice vectorial más allá de HNSW. Implementado IVF Flat (inverted file con k-means, sin dependencias externas).
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `DRV-131` | IVF Flat index | `src/index/ivf.rs` (NEW, 836L), `src/index/mod.rs`, `src/index/graph.rs`, `src/index/search.rs`, `src/index/serialize.rs`, `src/index/core.rs`, 6 test/bench files | ✅ IVF implementado: `IvfIndex` con k-means (Forgy + Lloyd, max 20 iter), search con nprobe, serialización v8 con backwards compat v7. 16 tests IVF. 1547 tests lib pass. 0 clippy warnings nuevos. |
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo test -p vantadb --lib` 1547 passed ✅ | `cargo clippy -p vantadb` limpio ✅

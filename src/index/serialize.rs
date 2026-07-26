@@ -13,6 +13,7 @@ use rand::SeedableRng;
 use crate::index::graph::{
     self, CPIndex, HnswNode, IndexBackend, NeighborVec, VECTOR_INDEX_VERSION,
 };
+use crate::index::ivf::IvfIndex;
 use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
 
 impl CPIndex {
@@ -64,6 +65,14 @@ impl CPIndex {
                 pos += 1;
             }
         }
+
+        // v8: index_type
+        let index_type_byte: u8 = match self.config.index_type {
+            crate::index::IndexType::Ivf => 1,
+            _ => 0,
+        };
+        w.write_all(&[index_type_byte])?;
+        pos += 1;
 
         match self.get_entry_point() {
             Some(ep) => {
@@ -199,6 +208,23 @@ impl CPIndex {
             }
         }
 
+        // v8: optional IVF index data
+        {
+            let guard = self.ivf_index.lock();
+            match guard.as_ref() {
+                Some(ivf) => {
+                    w.write_all(&[1])?;
+                    let ivf_bytes = ivf.serialize_to_bytes();
+                    let len = ivf_bytes.len() as u64;
+                    w.write_all(&len.to_le_bytes())?;
+                    w.write_all(&ivf_bytes)?;
+                }
+                None => {
+                    w.write_all(&[0])?;
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -314,6 +340,14 @@ impl CPIndex {
             } else {
                 config.flat_threshold = None;
             }
+        }
+        // v8: index_type
+        if version >= 8 && pos < data.len() {
+            let it_byte = take_bytes(data, &mut pos, 1, "index_type")?[0];
+            config.index_type = match it_byte {
+                1 => crate::index::IndexType::Ivf,
+                _ => crate::index::IndexType::Hnsw,
+            };
         }
 
         let ep_exists = take_bytes(data, &mut pos, 1, "ep_exists")?[0];
@@ -457,6 +491,26 @@ impl CPIndex {
             );
         }
 
+        // v8: deserialize optional IVF index data
+        let ivf_index = if version >= 8 && pos < data.len() {
+            let ivf_present = take_bytes(data, &mut pos, 1, "ivf_present")?[0];
+            if ivf_present == 1 {
+                let ivf_len = read_le_u64(data, &mut pos, "ivf_len")? as usize;
+                let ivf_bytes = take_bytes(data, &mut pos, ivf_len, "ivf_data")?;
+                match IvfIndex::deserialize_from_bytes(ivf_bytes) {
+                    Some(ivf) => parking_lot::Mutex::new(Some(ivf)),
+                    None => {
+                        warn!("Failed to deserialize IVF index data, will rebuild on first search");
+                        parking_lot::Mutex::new(None)
+                    }
+                }
+            } else {
+                parking_lot::Mutex::new(None)
+            }
+        } else {
+            parking_lot::Mutex::new(None)
+        };
+
         let node_count = nodes.len() as u64;
         Ok(Self {
             nodes,
@@ -466,6 +520,7 @@ impl CPIndex {
             config,
             total_nodes: AtomicU64::new(node_count),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+            ivf_index,
         })
     }
 
@@ -662,6 +717,7 @@ mod tests {
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(2),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+            ivf_index: parking_lot::Mutex::new(None),
         }
     }
 
@@ -722,6 +778,7 @@ mod tests {
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(1),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+            ivf_index: parking_lot::Mutex::new(None),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -756,6 +813,7 @@ mod tests {
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(1),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+            ivf_index: parking_lot::Mutex::new(None),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -793,6 +851,7 @@ mod tests {
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(1),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+            ivf_index: parking_lot::Mutex::new(None),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -830,6 +889,7 @@ mod tests {
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(1),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+            ivf_index: parking_lot::Mutex::new(None),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -906,6 +966,7 @@ mod tests {
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(1),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+            ivf_index: parking_lot::Mutex::new(None),
         };
         let data = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&data, true).unwrap();
@@ -1002,6 +1063,7 @@ mod tests {
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(1),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+            ivf_index: parking_lot::Mutex::new(None),
         };
         let err = index
             .serialize_to_writer(&mut std::io::Cursor::new(Vec::new()))
@@ -1189,6 +1251,7 @@ mod tests {
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(1),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+            ivf_index: parking_lot::Mutex::new(None),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -1224,6 +1287,7 @@ mod tests {
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(1),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+            ivf_index: parking_lot::Mutex::new(None),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -1262,6 +1326,7 @@ mod tests {
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(1),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+            ivf_index: parking_lot::Mutex::new(None),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -1300,6 +1365,7 @@ mod tests {
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(1),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+            ivf_index: parking_lot::Mutex::new(None),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();

@@ -132,7 +132,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | ✅ `DRV-122` | **IQL JOINs/subqueries/SQL compatibility** — SELECT/JOIN/subquery parser, NestedLoopJoin, subquery filter, planner integration. **Completado** `6449469f` | `src/query.rs`, `src/parser/mod.rs`, `src/executor.rs`, `src/planner.rs`, `tests/logic/joins.rs` | ✅ 5-10d | 🟠 |
 | ✅ `DRV-123` | **Auto-embedding on INSERT (remote-inference)** — Error handling polish: `match` instead of `if let Ok`, empty text guard, `tracing::warn!` on failure. Test added. **Completado** `21432104` | `src/llm.rs`, `src/executor.rs` | ✅ 2d | 🟠 |
 | ~~`DRV-130`~~ | ~~**SIFT 1M high-recall 127s bottleneck** — **✅ COMPLETADA.** T1 (SearchProfile) ✅ + fix cfg-gate. T2 (prefetch) ✅ WONTFIX. T3 (node reordering) ❌ WONTFIX.~~ | ~~`src/index/search.rs`, `benches/vfile_search.rs`~~ | ~~🟡 2-3d~~ | ✅ |
-| `DRV-131` | **Missing index types beyond HNSW** — Solo `graph.rs` (HNSW) + `flat.rs` (brute-force). Quiver tiene 8 tipos | `src/index/` | 🟠 5-10d | 🔵 |
+| ✅ `DRV-131` | **Missing index types beyond HNSW** — Implementado IVF Flat index con k-means. **Completado** | `src/index/ivf.rs`, `src/index/search.rs`, `src/index/serialize.rs`, `src/index/graph.rs`, `src/index/mod.rs` | 🟠 5-10d | 🔵 |
 | ✅ `DOC-20` | **mdBook adoption for docs site** — Docs fragmentados, sin search unificado. `docs/book/` creado con `book.toml`, `SUMMARY.md`, `{{#include}}` stubs. **Completado** `1f9f681d` | bitacora D1, D6 | ✅ 1d | 🟡 |
 
 ---

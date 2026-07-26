@@ -25,7 +25,7 @@
 | VFY-011 | ✅ COMPLETED | MVCC implementado: snapshot isolation, concurrent txns, write-write conflict detection |
 | DRV-122 | ✅ COMPLETED | IQL JOINs/subqueries/SQL — 3 phases, 1559 tests pass. Commits: `de1898a6`, `345d1939`, `6449469f` |
 | DRV-130 | 🟡 DEFER | SIFT benchmark es validación externa. No bloquea nada ahora |
-| DRV-131 | 🟡 DEFER | More index types depende de DRV-121 para integración con planner |
+| DRV-131 | ✅ COMPLETED | IVF Flat index implementado con k-means. Dependía de DRV-121 (CBO). Commit: (pending) |
 
 ## Wave 0 (paralelo)
 

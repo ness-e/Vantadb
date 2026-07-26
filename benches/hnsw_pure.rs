@@ -31,6 +31,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
                     ml: 1.0 / (16_f64).ln(),
                     distance_metric: vantadb::node::DistanceMetric::Cosine,
                     flat_threshold: Some(10000),
+                    index_type: vantadb::index::IndexType::Hnsw,
                 };
                 let index = CPIndex::new_with_config(config);
 
@@ -59,6 +60,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
             ml: 1.0 / (16_f64).ln(),
             distance_metric: vantadb::node::DistanceMetric::Cosine,
             flat_threshold: Some(10000),
+            index_type: vantadb::index::IndexType::Hnsw,
         };
         let index = CPIndex::new_with_config(config);
 

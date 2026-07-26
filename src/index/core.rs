@@ -245,7 +245,12 @@ mod tests {
     fn deserialize_truncated_never_panics() {
         let index = build_small_test_index();
         let bytes = index.serialize_to_bytes();
-        for len in 0..bytes.len() {
+        // A version 8 index has an optional trailing 1-byte IVF presence flag
+        // (plus optional IVF payload). When truncation removes just that flag
+        // byte, the remaining data is a valid v7 index — so that point is Ok.
+        // Skip the last 1 byte to avoid false positive on optional IVF tail.
+        let truncate_len = bytes.len() - if bytes.len() > 64 { 1 } else { 0 };
+        for len in 0..truncate_len {
             let result = CPIndex::deserialize_from_bytes(&bytes[..len], true);
             assert!(
                 result.is_err(),

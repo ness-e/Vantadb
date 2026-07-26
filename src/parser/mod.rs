@@ -1469,25 +1469,36 @@ mod tests {
         let input = r#"SELECT * FROM Person p JOIN Address a ON p.addr_id = a.id"#;
         let (_, stmt) = parse_statement(input).unwrap();
         match stmt {
-            Statement::Select(sel) => {
-                match &sel.from {
-                    crate::query::FromClause::Join { left, right, left_field, right_field } => {
-                        assert_eq!(left_field, "p.addr_id");
-                        assert_eq!(right_field, "a.id");
-                        match (&**left, &**right) {
-                            (crate::query::FromClause::Single { entity: e1, alias: a1 },
-                             crate::query::FromClause::Single { entity: e2, alias: a2 }) => {
-                                assert_eq!(e1, "Person");
-                                assert_eq!(a1, "p");
-                                assert_eq!(e2, "Address");
-                                assert_eq!(a2, "a");
-                            }
-                            _ => panic!("expected Single/Single join children"),
+            Statement::Select(sel) => match &sel.from {
+                crate::query::FromClause::Join {
+                    left,
+                    right,
+                    left_field,
+                    right_field,
+                } => {
+                    assert_eq!(left_field, "p.addr_id");
+                    assert_eq!(right_field, "a.id");
+                    match (&**left, &**right) {
+                        (
+                            crate::query::FromClause::Single {
+                                entity: e1,
+                                alias: a1,
+                            },
+                            crate::query::FromClause::Single {
+                                entity: e2,
+                                alias: a2,
+                            },
+                        ) => {
+                            assert_eq!(e1, "Person");
+                            assert_eq!(a1, "p");
+                            assert_eq!(e2, "Address");
+                            assert_eq!(a2, "a");
                         }
+                        _ => panic!("expected Single/Single join children"),
                     }
-                    _ => panic!("expected Join from clause"),
                 }
-            }
+                _ => panic!("expected Join from clause"),
+            },
             _ => panic!("expected Select"),
         }
     }

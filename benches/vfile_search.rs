@@ -17,7 +17,7 @@ use std::hint::black_box;
 use std::path::PathBuf;
 use tempfile::tempdir;
 use vantadb::index::VectorRepresentations;
-use vantadb::index::{CPIndex, HnswConfig};
+use vantadb::index::{CPIndex, HnswConfig, IndexType};
 use vantadb::node::{DiskNodeHeader, DistanceMetric, FilterBitset};
 use vantadb::storage::archive::{compact_layout, reindex_nodes, traverse_graph};
 use vantadb::storage::vfile::VantaFile;
@@ -72,6 +72,7 @@ fn build_index(vectors: &[Vec<f32>]) -> CPIndex {
         ml: 1.0 / (32_f64).ln(),
         distance_metric: DistanceMetric::Cosine,
         flat_threshold: None,
+        index_type: IndexType::Hnsw,
     };
     let index = CPIndex::new_with_config(config);
     let align: u64 = 64;

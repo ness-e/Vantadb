@@ -120,7 +120,7 @@ pub(crate) fn should_prefetch() -> bool {
 }
 
 /// Current HNSW vector index format version.
-pub const VECTOR_INDEX_VERSION: u16 = 7;
+pub const VECTOR_INDEX_VERSION: u16 = 8;
 
 pub struct HnswNode {
     pub id: u128,
@@ -214,6 +214,10 @@ pub struct HnswConfig {
     /// Default: `Some(10000)`. Set to `None` to always use HNSW.
     #[serde(default = "default_flat_threshold")]
     pub flat_threshold: Option<usize>,
+    /// Index type: HNSW (default) or IVF.
+    /// IVF is rebuilt lazily on first search after load.
+    #[serde(default)]
+    pub index_type: crate::index::IndexType,
 }
 
 const fn default_flat_threshold() -> Option<usize> {
@@ -230,6 +234,7 @@ impl Default for HnswConfig {
             ml: 1.0 / (32_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: Some(10000),
+            index_type: crate::index::IndexType::Hnsw,
         }
     }
 }
@@ -306,6 +311,9 @@ pub struct CPIndex {
     /// entirely (~20 line change, no correctness impact on HNSW topology
     /// since layer assignment is idempotent across runs).
     pub(crate) rng: parking_lot::Mutex<rand::rngs::StdRng>,
+    /// Lazy-built IVF index. Will be `None` until first search with
+    /// `config.index_type == IndexType::Ivf`.
+    pub ivf_index: parking_lot::Mutex<Option<crate::index::ivf::IvfIndex>>,
 }
 
 use crate::index::distance::f32_l2_norm;
@@ -342,6 +350,7 @@ impl CPIndex {
             config,
             total_nodes: AtomicU64::new(0),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
+            ivf_index: parking_lot::Mutex::new(None),
         }
     }
 

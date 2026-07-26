@@ -11,7 +11,7 @@ use console::style;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::time::Instant;
-use vantadb::index::{CPIndex, HnswConfig, VectorRepresentations};
+use vantadb::index::{CPIndex, HnswConfig, IndexType, VectorRepresentations};
 use vantadb::node::DistanceMetric;
 use vantadb::node::FilterBitset;
 
@@ -76,6 +76,7 @@ fn recall_certification_runner() {
             ml: 1.0 / (24_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
+            index_type: IndexType::Hnsw,
         };
         let index = CPIndex::new_with_config(config);
 

@@ -108,6 +108,7 @@ fn hnsw_recall_snapshot_baseline() {
             ml: 1.0 / (24_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
+            index_type: vantadb::index::IndexType::Hnsw,
         };
         let index = CPIndex::new_with_config(config);
 

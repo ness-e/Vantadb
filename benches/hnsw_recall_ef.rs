@@ -12,7 +12,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::hint::black_box;
 use std::time::Instant;
-use vantadb::index::{cosine_sim_f32, CPIndex, HnswConfig, VectorRepresentations};
+use vantadb::index::{cosine_sim_f32, CPIndex, HnswConfig, IndexType, VectorRepresentations};
 use vantadb::node::DistanceMetric;
 use vantadb::node::FilterBitset;
 
@@ -101,6 +101,7 @@ fn bench_hnsw_recall_ef(c: &mut Criterion) {
         ml: 1.0 / (16_f64).ln(),
         distance_metric: DistanceMetric::Cosine,
         flat_threshold: Some(10000),
+        index_type: IndexType::Hnsw,
     };
 
     let raw_vectors = generate_vectors(N_VECTORS, DIMS, SEED);

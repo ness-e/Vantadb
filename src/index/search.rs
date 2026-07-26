@@ -3,6 +3,7 @@ use std::collections::BinaryHeap;
 
 use super::distance::*;
 use crate::index::graph::{self, CPIndex, NeighborVec, NodeSim, NodeSimMin};
+use crate::index::IndexType;
 use crate::node::{DistanceMetric, FilterBitset};
 use crate::storage::engine::FLAG_TOMBSTONE;
 
@@ -459,6 +460,21 @@ impl CPIndex {
         top_k: usize,
         vector_store: Option<&crate::storage::vfile::VantaFile>,
     ) -> Vec<(u128, f32)> {
+        // IVF path: lazy-build on first search, then search
+        if self.config.index_type == IndexType::Ivf {
+            let mut guard = self.ivf_index.lock();
+            if guard.is_none() {
+                let ivf_config = crate::index::ivf::IvfConfig {
+                    nlist: (self.nodes.len() as f64).sqrt() as usize + 1,
+                    nprobe: 10,
+                    distance_metric: self.config.distance_metric,
+                };
+                *guard = Some(crate::index::ivf::IvfIndex::build(&self.nodes, &ivf_config));
+            }
+            let ivf = guard.as_ref().unwrap();
+            return ivf.search(query_vec, top_k, query_mask);
+        }
+
         if self.use_flat_search() {
             return crate::index::flat::flat_search(
                 &self.nodes,
@@ -810,6 +826,7 @@ mod tests {
             ml: 1.0 / (8_f64).ln(),
             distance_metric: metric,
             flat_threshold: None,
+            index_type: crate::index::IndexType::Hnsw,
         })
     }
 

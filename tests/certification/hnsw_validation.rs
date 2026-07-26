@@ -14,7 +14,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
 use console::style;
-use vantadb::index::{cosine_sim_f32, CPIndex, HnswConfig, VectorRepresentations};
+use vantadb::index::{cosine_sim_f32, CPIndex, HnswConfig, IndexType, VectorRepresentations};
 use vantadb::node::DistanceMetric;
 use vantadb::node::FilterBitset;
 
@@ -128,6 +128,7 @@ fn hnsw_hard_validation_certification() {
             ml: 1.0 / (32_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
+            index_type: IndexType::Hnsw,
         };
         let index = build_index(&dataset, config, "Building");
         let recall = compute_recall(&index, &queries, &dataset, k, "Searching");
@@ -156,6 +157,7 @@ fn hnsw_hard_validation_certification() {
             ml: 1.0 / (32_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
+            index_type: IndexType::Hnsw,
         };
         let index = build_index(&dataset, config, "Building");
         let recall = compute_recall(&index, &queries, &dataset, k, "Searching");
@@ -184,6 +186,7 @@ fn hnsw_hard_validation_certification() {
             ml: 1.0 / (32_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
+            index_type: IndexType::Hnsw,
         };
         let index = build_index(&dataset, config, "Building");
         let recall = compute_recall(&index, &queries, &dataset, k, "Searching");
