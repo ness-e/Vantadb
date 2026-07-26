@@ -188,25 +188,62 @@ pub fn sort_hits(hits: &mut [VantaMemorySearchHit]) {
 // ── Cost-Based Optimizer (CBO) & Volcano Compiler ─────────────────────────
 
 /// Optimise a logical plan and compile it into a physical operator.
+///
+/// Handles two plan shapes:
+/// 1. **Traditional** (FROM/MATCH): Scan → filters → vector → sort → project → limit
+/// 2. **SELECT/JOIN**: Join(recursive) | Scan → post-join filters → subquery → project
 pub fn optimize_and_compile<'a>(
     plan: &crate::query::LogicalPlan,
     storage: &'a crate::storage::StorageEngine,
 ) -> crate::error::Result<Box<dyn crate::query::PhysicalOperator + 'a>> {
+    // ---- First pass: collect metadata and detect plan shape ----
     let mut entity = "*".to_string();
-    for op in &plan.operators {
-        if let crate::query::LogicalOperator::Scan { entity: ent } = op {
-            entity = ent.clone();
-        }
-    }
-
     let mut relational_filters = Vec::new();
     let mut vector_search = None;
     let mut limit = None;
     let mut project = None;
     let mut sort = None;
 
+    // JOIN and SubqueryFilter produce their own sub-plans that wrap the chain
+    let mut has_join = false;
+    let mut join_spec: Option<(
+        crate::query::LogicalPlan,
+        crate::query::LogicalPlan,
+        String,
+        String,
+    )> = None;
+    let mut subquery_filters: Vec<(String, RelOp, crate::query::LogicalPlan)> = Vec::new();
+
     for op in &plan.operators {
         match op {
+            crate::query::LogicalOperator::Scan { entity: ent } => {
+                entity = ent.clone();
+            }
+            crate::query::LogicalOperator::Join {
+                left_plan,
+                right_plan,
+                left_field,
+                right_field,
+            } => {
+                has_join = true;
+                join_spec = Some((
+                    *left_plan.clone(),
+                    *right_plan.clone(),
+                    left_field.clone(),
+                    right_field.clone(),
+                ));
+            }
+            crate::query::LogicalOperator::SubqueryFilter {
+                field,
+                op,
+                subquery_plan,
+            } => {
+                subquery_filters.push((
+                    field.clone(),
+                    op.clone(),
+                    *subquery_plan.clone(),
+                ));
+            }
             crate::query::LogicalOperator::FilterRelational {
                 field,
                 op: rel_op,
@@ -230,20 +267,11 @@ pub fn optimize_and_compile<'a>(
             crate::query::LogicalOperator::Sort { field, desc } => {
                 sort = Some((field.clone(), *desc));
             }
-            _ => {}
+            _ => {} // Traverse and other operators are handled by the executor cycle
         }
     }
 
-    // ── CBO Rule 1: Predicate pushdown ────────────────────────────
-    // Reorder relational filters by estimated selectivity (ascending)
-    // so that the most restrictive (fewest matching rows) filter is
-    // applied earliest, reducing the row volume for subsequent filters.
-    //
-    // ── CBO Rule 2: Filter elimination ───────────────────────────
-    // Skip redundant filters whose estimated selectivity is ≈ 1.0
-    // (all rows pass — filter contributes no pruning). These are
-    // identity predicates such as `field = X` where every known row
-    // has value X.
+    // ---- CBO filter reordering and elimination ----
     let mut with_sel: Vec<(f32, String, RelOp, FieldValue)> = relational_filters
         .drain(..)
         .map(|(f, op, v)| {
@@ -257,7 +285,6 @@ pub fn optimize_and_compile<'a>(
     let mut sorted_filters = Vec::with_capacity(with_sel.len());
     for (sel, field, rel_op, value) in with_sel {
         if sel >= 1.0 {
-            // All rows match this filter → redundant, skip it.
             tracing::debug!("CBO: eliminated identity filter on {}", field);
             continue;
         }
@@ -265,8 +292,33 @@ pub fn optimize_and_compile<'a>(
         sorted_filters.push((field, rel_op, value));
     }
 
+    // ---- Build the physical operator chain ----
+    // ponytail: predicate pushdown across joins not yet implemented.
+    // All WHERE filters apply post-join. Push filters into join children
+    // when alias is resolvable for better performance.
+
+    // Determine the base operator (scan or join) and apply sorted_filters
     let mut current_operator: Box<dyn crate::query::PhysicalOperator + 'a> =
-        if let Some((_field, query_text, min_score)) = vector_search {
+        if has_join {
+            let (left_plan, right_plan, left_field, right_field) = join_spec.unwrap();
+            let left_op = optimize_and_compile(&left_plan, storage)?;
+            let right_op = optimize_and_compile(&right_plan, storage)?;
+            let mut join_op: Box<dyn crate::query::PhysicalOperator + 'a> =
+                Box::new(crate::physical_plan::PhysicalNestedLoopJoin::new(
+                    left_op,
+                    right_op,
+                    left_field,
+                    right_field,
+                ));
+            // Apply post-join relational filters
+            for (field, rel_op, value) in sorted_filters {
+                join_op = Box::new(crate::physical_plan::PhysicalFilter::new(
+                    join_op, field, rel_op, value,
+                ));
+            }
+            join_op
+        } else if let Some((_field, query_text, min_score)) = vector_search {
+            // CBO: filter-before-vector vs vector-before-filter
             if joint_selectivity < HIGH_SELECTIVITY_THRESHOLD && !sorted_filters.is_empty() {
                 let mut scan_op: Box<dyn crate::query::PhysicalOperator + 'a> =
                     Box::new(crate::physical_plan::PhysicalScan::new(storage, entity));
@@ -299,6 +351,19 @@ pub fn optimize_and_compile<'a>(
             }
             scan_op
         };
+
+    // Apply SubqueryFilter operators on top of the chain
+    for (field, op, subq_plan) in subquery_filters {
+        let subq_op = optimize_and_compile(&subq_plan, storage)?;
+        current_operator = Box::new(
+            crate::physical_plan::PhysicalSubqueryFilter::new(
+                current_operator,
+                subq_op,
+                field,
+                op,
+            ),
+        );
+    }
 
     if let Some((field, desc)) = sort {
         current_operator = Box::new(crate::physical_plan::PhysicalSort::new(

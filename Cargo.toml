@@ -298,6 +298,10 @@ path = "tests/logic/columnar.rs"
 required-features = ["arrow"]
 
 [[test]]
+name = "joins"
+path = "tests/logic/joins.rs"
+
+[[test]]
 name = "mmap_index"
 path = "tests/storage/mmap_index.rs"
 
