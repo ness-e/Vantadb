@@ -39,6 +39,11 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Import records from a JSON file')
             [CompletionResult]::new('query', 'query', [CompletionResultType]::ParameterValue, 'Execute a structured query (IQL/hybrid)')
             [CompletionResult]::new('status', 'status', [CompletionResultType]::ParameterValue, 'Display database health diagnostics and system status')
+            [CompletionResult]::new('backup', 'backup', [CompletionResultType]::ParameterValue, 'Create a filesystem-level backup of the database directory')
+            [CompletionResult]::new('restore', 'restore', [CompletionResultType]::ParameterValue, 'Restore the database from a previously created backup directory')
+            [CompletionResult]::new('doctor', 'doctor', [CompletionResultType]::ParameterValue, 'Run comprehensive health diagnostics on the database')
+            [CompletionResult]::new('inspect', 'inspect', [CompletionResultType]::ParameterValue, 'Inspect a single record showing all fields, vectors, and metadata')
+            [CompletionResult]::new('stats', 'stats', [CompletionResultType]::ParameterValue, 'Display detailed database statistics in human-readable or JSON format')
             [CompletionResult]::new('completions', 'completions', [CompletionResultType]::ParameterValue, 'Generate shell completion scripts')
             [CompletionResult]::new('search', 'search', [CompletionResultType]::ParameterValue, 'Search records semantically across a namespace')
             [CompletionResult]::new('delete', 'delete', [CompletionResultType]::ParameterValue, 'Delete a record by namespace and key')
@@ -147,6 +152,58 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
         'vanta-cli;status' {
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
             [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'vanta-cli;backup' {
+            [CompletionResult]::new('--out', '--out', [CompletionResultType]::ParameterName, 'Output directory for the backup (default: vantadb_backups/backup_<timestamp>)')
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'vanta-cli;restore' {
+            [CompletionResult]::new('--input', '--input', [CompletionResultType]::ParameterName, 'Path to the backup directory')
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--force', '--force', [CompletionResultType]::ParameterName, 'Overwrite existing database directory if it exists')
+            [CompletionResult]::new('--rebuild', '--rebuild', [CompletionResultType]::ParameterName, 'Rebuild indexes after restore')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'vanta-cli;doctor' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'vanta-cli;inspect' {
+            [CompletionResult]::new('--namespace', '--namespace', [CompletionResultType]::ParameterName, 'Namespace of the record')
+            [CompletionResult]::new('--key', '--key', [CompletionResultType]::ParameterName, 'Key of the record to inspect')
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'vanta-cli;stats' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Output statistics as JSON')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
@@ -321,6 +378,11 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Import records from a JSON file')
             [CompletionResult]::new('query', 'query', [CompletionResultType]::ParameterValue, 'Execute a structured query (IQL/hybrid)')
             [CompletionResult]::new('status', 'status', [CompletionResultType]::ParameterValue, 'Display database health diagnostics and system status')
+            [CompletionResult]::new('backup', 'backup', [CompletionResultType]::ParameterValue, 'Create a filesystem-level backup of the database directory')
+            [CompletionResult]::new('restore', 'restore', [CompletionResultType]::ParameterValue, 'Restore the database from a previously created backup directory')
+            [CompletionResult]::new('doctor', 'doctor', [CompletionResultType]::ParameterValue, 'Run comprehensive health diagnostics on the database')
+            [CompletionResult]::new('inspect', 'inspect', [CompletionResultType]::ParameterValue, 'Inspect a single record showing all fields, vectors, and metadata')
+            [CompletionResult]::new('stats', 'stats', [CompletionResultType]::ParameterValue, 'Display detailed database statistics in human-readable or JSON format')
             [CompletionResult]::new('completions', 'completions', [CompletionResultType]::ParameterValue, 'Generate shell completion scripts')
             [CompletionResult]::new('search', 'search', [CompletionResultType]::ParameterValue, 'Search records semantically across a namespace')
             [CompletionResult]::new('delete', 'delete', [CompletionResultType]::ParameterValue, 'Delete a record by namespace and key')
@@ -358,6 +420,21 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             break
         }
         'vanta-cli;help;status' {
+            break
+        }
+        'vanta-cli;help;backup' {
+            break
+        }
+        'vanta-cli;help;restore' {
+            break
+        }
+        'vanta-cli;help;doctor' {
+            break
+        }
+        'vanta-cli;help;inspect' {
+            break
+        }
+        'vanta-cli;help;stats' {
             break
         }
         'vanta-cli;help;completions' {

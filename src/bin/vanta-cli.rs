@@ -113,6 +113,24 @@ fn main() -> Result<()> {
 
         Commands::Status => cli_handlers::cmd_status(&args.db, args.verbose)?,
 
+        Commands::Backup { out } => {
+            cli_handlers::cmd_backup(&args.db, out.as_deref(), args.verbose)?
+        }
+
+        Commands::Restore {
+            input,
+            force,
+            rebuild,
+        } => cli_handlers::cmd_restore(&args.db, &input, force, rebuild, args.verbose)?,
+
+        Commands::Doctor => cli_handlers::cmd_doctor(&args.db, args.verbose)?,
+
+        Commands::Inspect { namespace, key } => {
+            cli_handlers::cmd_inspect(&args.db, &namespace, &key, args.verbose)?
+        }
+
+        Commands::Stats { json } => cli_handlers::cmd_stats(&args.db, json, args.verbose)?,
+
         Commands::Completions { shell } => cli_handlers::cmd_completions(shell),
 
         Commands::Server {

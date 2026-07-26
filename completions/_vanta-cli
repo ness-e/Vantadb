@@ -148,6 +148,63 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(backup)
+_arguments "${_arguments_options[@]}" : \
+'--out=[Output directory for the backup (default\: vantadb_backups/backup_<timestamp>)]:OUT:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(restore)
+_arguments "${_arguments_options[@]}" : \
+'--input=[Path to the backup directory]:INPUT:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--force[Overwrite existing database directory if it exists]' \
+'--rebuild[Rebuild indexes after restore]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(doctor)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(inspect)
+_arguments "${_arguments_options[@]}" : \
+'--namespace=[Namespace of the record]:NAMESPACE:_default' \
+'--key=[Key of the record to inspect]:KEY:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(stats)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--json[Output statistics as JSON]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
 (completions)
 _arguments "${_arguments_options[@]}" : \
 '--shell=[Shell type for the completion script]:SHELL:((bash\:"Bash shell completions"
@@ -418,6 +475,26 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(backup)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(restore)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(doctor)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(inspect)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(stats)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (completions)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -512,6 +589,11 @@ _vanta-cli_commands() {
 'import:Import records from a JSON file' \
 'query:Execute a structured query (IQL/hybrid)' \
 'status:Display database health diagnostics and system status' \
+'backup:Create a filesystem-level backup of the database directory' \
+'restore:Restore the database from a previously created backup directory' \
+'doctor:Run comprehensive health diagnostics on the database' \
+'inspect:Inspect a single record showing all fields, vectors, and metadata' \
+'stats:Display detailed database statistics in human-readable or JSON format' \
 'completions:Generate shell completion scripts' \
 'search:Search records semantically across a namespace' \
 'delete:Delete a record by namespace and key' \
@@ -527,6 +609,11 @@ _vanta-cli__subcmd__audit-index_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli audit-index commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__backup_commands] )) ||
+_vanta-cli__subcmd__backup_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli backup commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__completions_commands] )) ||
 _vanta-cli__subcmd__completions_commands() {
     local commands; commands=()
@@ -536,6 +623,11 @@ _vanta-cli__subcmd__completions_commands() {
 _vanta-cli__subcmd__delete_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli delete commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__doctor_commands] )) ||
+_vanta-cli__subcmd__doctor_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli doctor commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__export_commands] )) ||
 _vanta-cli__subcmd__export_commands() {
@@ -560,6 +652,11 @@ _vanta-cli__subcmd__help_commands() {
 'import:Import records from a JSON file' \
 'query:Execute a structured query (IQL/hybrid)' \
 'status:Display database health diagnostics and system status' \
+'backup:Create a filesystem-level backup of the database directory' \
+'restore:Restore the database from a previously created backup directory' \
+'doctor:Run comprehensive health diagnostics on the database' \
+'inspect:Inspect a single record showing all fields, vectors, and metadata' \
+'stats:Display detailed database statistics in human-readable or JSON format' \
 'completions:Generate shell completion scripts' \
 'search:Search records semantically across a namespace' \
 'delete:Delete a record by namespace and key' \
@@ -575,6 +672,11 @@ _vanta-cli__subcmd__help__subcmd__audit-index_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help audit-index commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__help__subcmd__backup_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__backup_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help backup commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__help__subcmd__completions_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__completions_commands() {
     local commands; commands=()
@@ -584,6 +686,11 @@ _vanta-cli__subcmd__help__subcmd__completions_commands() {
 _vanta-cli__subcmd__help__subcmd__delete_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help delete commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__doctor_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__doctor_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help doctor commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__help__subcmd__export_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__export_commands() {
@@ -604,6 +711,11 @@ _vanta-cli__subcmd__help__subcmd__help_commands() {
 _vanta-cli__subcmd__help__subcmd__import_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help import commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__inspect_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__inspect_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help inspect commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__help__subcmd__list_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__list_commands() {
@@ -672,6 +784,11 @@ _vanta-cli__subcmd__help__subcmd__repair-text-index_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help repair-text-index commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__help__subcmd__restore_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__restore_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help restore commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__help__subcmd__search_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__search_commands() {
     local commands; commands=()
@@ -682,6 +799,11 @@ _vanta-cli__subcmd__help__subcmd__server_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help server commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__help__subcmd__stats_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__stats_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help stats commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__help__subcmd__status_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__status_commands() {
     local commands; commands=()
@@ -691,6 +813,11 @@ _vanta-cli__subcmd__help__subcmd__status_commands() {
 _vanta-cli__subcmd__import_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli import commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__inspect_commands] )) ||
+_vanta-cli__subcmd__inspect_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli inspect commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__list_commands] )) ||
 _vanta-cli__subcmd__list_commands() {
@@ -815,6 +942,11 @@ _vanta-cli__subcmd__repair-text-index_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli repair-text-index commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__restore_commands] )) ||
+_vanta-cli__subcmd__restore_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli restore commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__search_commands] )) ||
 _vanta-cli__subcmd__search_commands() {
     local commands; commands=()
@@ -824,6 +956,11 @@ _vanta-cli__subcmd__search_commands() {
 _vanta-cli__subcmd__server_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli server commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__stats_commands] )) ||
+_vanta-cli__subcmd__stats_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli stats commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__status_commands] )) ||
 _vanta-cli__subcmd__status_commands() {

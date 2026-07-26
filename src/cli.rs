@@ -111,6 +111,46 @@ pub enum Commands {
     /// Display database health diagnostics and system status
     Status,
 
+    /// Create a filesystem-level backup of the database directory
+    Backup {
+        /// Output directory for the backup (default: vantadb_backups/backup_<timestamp>)
+        #[arg(long)]
+        out: Option<String>,
+    },
+
+    /// Restore the database from a previously created backup directory
+    Restore {
+        /// Path to the backup directory
+        #[arg(long)]
+        input: String,
+        /// Overwrite existing database directory if it exists
+        #[arg(long)]
+        force: bool,
+        /// Rebuild indexes after restore
+        #[arg(long)]
+        rebuild: bool,
+    },
+
+    /// Run comprehensive health diagnostics on the database
+    Doctor,
+
+    /// Inspect a single record showing all fields, vectors, and metadata
+    Inspect {
+        /// Namespace of the record
+        #[arg(long)]
+        namespace: String,
+        /// Key of the record to inspect
+        #[arg(long)]
+        key: String,
+    },
+
+    /// Display detailed database statistics in human-readable or JSON format
+    Stats {
+        /// Output statistics as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Generate shell completion scripts
     Completions {
         /// Shell type for the completion script
