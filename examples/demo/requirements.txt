@@ -1,0 +1,4 @@
+vantadb-py>=0.4
+
+# Optional: uncomment for real embeddings (requires PyTorch)
+# sentence-transformers>=2.2,<4.0
