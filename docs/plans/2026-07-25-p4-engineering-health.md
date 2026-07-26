@@ -9,7 +9,8 @@
 | Estado | Cantidad |
 |--------|----------|
 | ✅ DO | 4 |
-| 🟡 DEFER | 4 |
+| ✅ COMPLETED | 2 (VFY-011, DRV-122) |
+| 🟡 DEFER | 2 (DRV-130, DRV-131) |
 | ❌ SKIP | 0 |
 | 🔴 BLOQUEADO | 0 |
 
@@ -22,7 +23,7 @@
 | DRV-123 | ✅ DO | Auto-embedding ya implementado parcialmente bajo `remote-inference`. Falta polish/feature flag |
 | DOC-20 | ✅ DO | Docs fragmentados sin search = onboarding pobre. mdBook es effort bajo (~2-3d) |
 | VFY-011 | ✅ COMPLETED | MVCC implementado: snapshot isolation, concurrent txns, write-write conflict detection |
-| DRV-122 | 🟡 DEFER | IQL JOINs dependen de DRV-121 (CBO) como prerequisito |
+| DRV-122 | ✅ COMPLETED | IQL JOINs/subqueries/SQL — 3 phases, 1559 tests pass. Commits: `de1898a6`, `345d1939`, `6449469f` |
 | DRV-130 | 🟡 DEFER | SIFT benchmark es validación externa. No bloquea nada ahora |
 | DRV-131 | 🟡 DEFER | More index types depende de DRV-121 para integración con planner |
 

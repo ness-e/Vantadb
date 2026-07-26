@@ -2497,6 +2497,16 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `cargo check -p vantadb` ✅ | `cargo test -p vantadb --lib storage::engine::tests::ops` 62 passed ✅
 
+### 2026-07-26 — DRV-122: IQL JOINs, Subqueries, and SQL Compatibility
+
+**Objetivo:** Implementar SELECT/JOIN/subquery parser, NestedLoopJoin physical operator, subquery filter, planner integration.
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `DRV-122` | IQL JOINs/subqueries/SQL compatibility | `src/query.rs`, `src/parser/mod.rs`, `src/executor.rs`, `src/planner.rs`, `tests/logic/joins.rs`, `Cargo.toml` | ✅ 3 fases: (1) SELECT/JOIN/subquery parser + plan types `de1898a6`, (2) NestedLoopJoin + SubqueryFilter physical operators `345d1939`, (3) planner integration + 10 new tests `6449469f`. 1559 tests pass (0 failed). |
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo test --package vantadb --lib parser::tests` 97 passed ✅ | `cargo test --package vantadb --lib joines` 10 new JOIN tests ✅
+
 ### 2026-07-26 — Phase 7: NUEVO-13 HNSW ef_search auto-tuning
 
 **Objetivo:** Mejorar auto-tuning heuristic doubling de HNSW ef_search con dampening factor 1.5x, gauge métrica, y test de integración.
