@@ -29,10 +29,10 @@ VantaDB is a vector database in Rust focused on high performance, hybrid HNSW, G
 | **Documentation** | 🟢 Consolidated (Wikilinks, Glossary, Unicode normalized) | 95% | ✅ |
 | **Testing** | 🟢 Coverage CII Silver (80.55% line, 1492 tests) | 100% | ✅ |
 | DX Tools | 15 | 15 | ✅ |
-| CLI | 7 | 7 | ✅ |
-| Infraestructura & CI | 2 | 2 | ✅ |
+| CLI | 8 | 8 | ✅ |
+| Infraestructura & CI | 4 | 4 | ✅ |
 | Project Management | 6 | 6 | ✅ |
-| **Total** | **90** | **~90** | **✅** |
+| **Total** | **95** | **~95** | **✅** |
 
 ## Legend
 
@@ -2540,3 +2540,17 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | `VFY-007` | **`remove_node` O(n²) neighbor fixup** — **Corregido:** archivo real `src/index/graph.rs` (no `core.rs`). | ✅ Document-only. Backlog actualizado. |
 
 **Verificación:** Backlog.md P2 counter 15→12. Sin code changes (ponytail — ya estaba corregido).
+
+### 2026-07-26 — P8 Post-Launch & Enterprise: CLI-01, DEVOPS-HOMEBREW, DEVOPS-PY313, DEVEX-DEMO, DEVEX-EXAMPLES ✅
+
+**Objetivo:** Pipeline paralelo de 5 tareas P8. 3 delegadas a `vanta-worker` (Rust/Python), 2 procesadas por `vanta-lead` (CI/CD).
+
+| ID | Tarea | Resultado |
+|----|-------|-----------|
+| `CLI-01` | **CLI handlers backup/restore/doctor/stats/inspect** — Conectar 5 handlers existentes al dispatcher CLI | ✅ `src/cli.rs` + `src/bin/vanta-cli.rs`. 5 commands nuevos conectados. 46 tests CLI pasan. Delegado a vanta-worker. |
+| `DEVOPS-HOMEBREW` | **Homebrew formula** — Ya implementada (`Formula/vantadb.rb`) | ✅ Document-only. Placeholder SHA256 — actualizar antes de publish. |
+| `DEVOPS-PY313` | **Python 3.13 wheels en CI matrix** — CI verify jobs actualizados a Python 3.13 | ✅ Verify-testpypi-install + verify-pypi-install ahora usan CPython 3.13. Build mantiene 3.11 con `abi3-py311`. |
+| `DEVEX-DEMO` | **Demo app** — `examples/demo/` con Python 239L + README + requirements | ✅ Delegado a vanta-worker. Syntax check clean. |
+| `DEVEX-EXAMPLES` | **Rust examples** — 4 ejemplos existentes en `examples/rust/` | ✅ Document-only. basic, hybrid, graphrag, concurrent compilan clean. |
+
+**Verificación:** `cargo check` ✅ | Backlog.md P8 counter 13→8 | CLI 7→8 | Infra CI 2→4 | Total 90→95

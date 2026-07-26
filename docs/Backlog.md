@@ -29,7 +29,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | **P5** 📖 Docs & Community | 11 | ~1-2 semanas | 🟡 Media |
 | **P6** 🚀 Launch Campaign | 10 | ~1-2 semanas | 🟡 Media |
 | **P7** 🌐 WASM & Performance | 2 | ~1 semana | 🟡 Media |
-| **P8** 🔮 Post-Launch & Enterprise | 13 | ~3-5 semanas | 🔵 Futuro |
+| **P8** 🔮 Post-Launch & Enterprise | 8 | ~3-5 semanas | 🔵 Futuro |
 | **P9** 📚 Old Docs Rescue (reference) | 21 | — | 📖 Referencia |
 | **P10** 🏗️ Competitive Features (catalog) | 30 | — | 🗺️ Roadmap |
 
@@ -193,11 +193,11 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 | ID | Descripción | Esfuerzo | Prio |
 |----|-------------|----------|------|
-| `CLI-01` | **CLI polish: handlers backup/restore/doctor/stats/inspect existen pero no conectados al binary. REPL/TUI no existen** | 🟡 2-3d | 🟡 |
-| `DEVOPS-HOMEBREW` | **Homebrew formula** | 🟢 4h | 🟡 |
-| `DEVOPS-PY313` | **Python 3.13 wheels en CI matrix** | 🟢 2h | 🟡 |
-| `DEVEX-DEMO` | **Demo app (Rust + Python)** — Phase 4.G | 🟡 2-3d | 🟡 |
-| `DEVEX-EXAMPLES` | **Rust examples en `examples/rust/`** (no `docs/examples/`) | 🟢 4-6h | 🟡 |
+| ~~`CLI-01`~~ | ~~**CLI polish: handlers backup/restore/doctor/stats/inspect existen pero no conectados al binary. REPL/TUI no existen**~~ — **✅ COMPLETADA** (5 handlers conectados: backup, restore, doctor, inspect, stats. 46 tests CLI pasan) | ~~🟡 2-3d~~ | ✅ |
+| ~~`DEVOPS-HOMEBREW`~~ | ~~**Homebrew formula**~~ — **✅ COMPLETADA** (`Formula/vantadb.rb` existe con livecheck, 4 plataformas, install + test. Placeholder SHA256 — actualizar antes de publish.) | ~~🟢 4h~~ | ✅ |
+| ~~`DEVOPS-PY313`~~ | ~~**Python 3.13 wheels en CI matrix**~~ — **✅ COMPLETADA** (`pyproject.toml` ya incluye `>=3.11` + classifier 3.13. CI verify jobs actualizados a Python 3.13 + build mantiene 3.11 con abi3) | ~~🟢 2h~~ | ✅ |
+| ~~`DEVEX-DEMO`~~ | ~~**Demo app (Rust + Python)** — Phase 4.G~~ — **✅ COMPLETADA** (`examples/demo/demo.py` 239L con create → insert → search → delete, README, requirements.txt) | ~~🟡 2-3d~~ | ✅ |
+| ~~`DEVEX-EXAMPLES`~~ | ~~**Rust examples en `examples/rust/`** (no `docs/examples/`)~~ — **✅ COMPLETADA** (4 ejemplos: basic, hybrid, graphrag, concurrent. Compilan clean.) | ~~🟢 4-6h~~ | ✅ |
 | `NUEVO-16` | **Product Quantization (PQ) 96x** — compresión para datasets >RAM. RabitQ + TurboQuant + SQ8 existen, PQ real no | Alto | 🔵 |
 | `NUEVO-17` | **Segment LSM-style** — hot/warm/cold tiers. Fjall tiene LSM interno, tiers no | Muy alto | 🔵 |
 | `NUEVO-18` | **Sparse vectors nativos** — hybrid search real. Solo mención en test | Alto | 🔵 |
