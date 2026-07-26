@@ -463,7 +463,7 @@ impl PhysicalOperator for PhysicalSort<'_> {
 
 /// Strip alias prefix from a qualified field reference (e.g. `"p.name"` → `"name"`).
 fn strip_alias(field_ref: &str) -> &str {
-    field_ref.split('.').last().unwrap_or(field_ref)
+    field_ref.split('.').next_back().unwrap_or(field_ref)
 }
 
 /// Physical nested-loop join operator that iterates left entities and,
