@@ -21,7 +21,7 @@
 | DRV-121 | ✅ DO | CBO incompleto = plans sub-óptimos. Base para DRV-131 (more indexes) |
 | DRV-123 | ✅ DO | Auto-embedding ya implementado parcialmente bajo `remote-inference`. Falta polish/feature flag |
 | DOC-20 | ✅ DO | Docs fragmentados sin search = onboarding pobre. mdBook es effort bajo (~2-3d) |
-| VFY-011 | 🟡 DEFER | MVCC es arquitectura pesada. Requiere diseño antes de implementación. Post-1.0 |
+| VFY-011 | ✅ COMPLETED | MVCC implementado: snapshot isolation, concurrent txns, write-write conflict detection |
 | DRV-122 | 🟡 DEFER | IQL JOINs dependen de DRV-121 (CBO) como prerequisito |
 | DRV-130 | 🟡 DEFER | SIFT benchmark es validación externa. No bloquea nada ahora |
 | DRV-131 | 🟡 DEFER | More index types depende de DRV-121 para integración con planner |

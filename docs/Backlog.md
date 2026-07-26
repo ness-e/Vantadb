@@ -127,7 +127,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | ✅ `WEB-03` | **Async WAL batching fsyncs** — `flush_all` spawns one thread per shard. **Completado** `c59e0f80` | `src/wal_sharded.rs` | ✅ 1d | 🟡 |
 | ✅ `WEB-04` | **Storage format versioning (draft→implement)** — `validate_compat()` range-based check for VantaFile/HNSW/WAL. Constants made pub. **Completado** `21432104` | `docs/architecture/STORAGE_VERSIONING.md` | ✅ 3d | 🔵 |
 | ✅ `VFY-004` | **`flat.rs` O(n²) en filter** — By design (DashMap scan bounded by `flat_threshold`). Comment-only. **Completado** `dd13b67d` | `src/index/flat.rs:32` | ✅ 1h | 🟡 |
-| `VFY-011` | **ACID Phase 3: Snapshot isolation / MVCC** — No implementado (0 resultados grep) | — | 🟠 3-5d | 🔵 |
+| ✅ `VFY-011` | **ACID Phase 3: Snapshot isolation / MVCC** — MVCC con snapshot isolation, write-write conflict detection, concurrent txns. **Completado** (working tree) | `src/storage/engine/ops.rs` | ✅ 3-5d | 🔵 |
 | ✅ `DRV-121` | **Planner CBO optimization** — Predicate pushdown (sort by selectivity) + filter elimination (identity filter sel≥1.0 skipped). **Completado** `21432104` | `src/planner.rs` | ✅ 3d | 🟠 |
 | `DRV-122` | **IQL lacks JOINs, subqueries, SQL compatibility** — Gap vs Qdrant/Chroma. `Query` struct no soporta JOIN/subquery | `src/query.rs` | 🟠 5-10d | 🟠 |
 | ✅ `DRV-123` | **Auto-embedding on INSERT (remote-inference)** — Error handling polish: `match` instead of `if let Ok`, empty text guard, `tracing::warn!` on failure. Test added. **Completado** `21432104` | `src/llm.rs`, `src/executor.rs` | ✅ 2d | 🟠 |

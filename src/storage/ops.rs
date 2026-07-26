@@ -14,6 +14,10 @@ pub(crate) struct NodeMetadata {
     pub relational: crate::node::RelFields,
     /// Graph edges originating from the node.
     pub edges: Vec<crate::node::Edge>,
+    /// Transaction ID that created/updated this version (0 = pre-MVCC).
+    pub created_by_txn: u64,
+    /// Transaction ID that deleted this version (None = alive).
+    pub deleted_by_txn: Option<u64>,
 }
 
 /// Write a node's header and vector data into the VantaFile at the current cursor position.

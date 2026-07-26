@@ -226,6 +226,8 @@ impl StorageEngine {
         let metadata = NodeMetadata {
             relational: persisted.relational.clone(),
             edges: persisted.edges.clone(),
+            created_by_txn: 0, // consolidation is pre-MVCC
+            deleted_by_txn: None,
         };
         let metadata_val = postcard::to_allocvec(&metadata).map_err(VantaError::serialization)?;
         self.backend

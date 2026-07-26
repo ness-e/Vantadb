@@ -124,6 +124,16 @@ pub(crate) enum BufferedWrite {
     Delete(u128),
 }
 
+/// A read snapshot capturing a consistent view of committed data.
+///
+/// Created via [`StorageEngine::begin_snapshot`]. All reads using this
+/// snapshot see only data committed at or before `txn_id`.
+#[derive(Debug, Clone, Copy)]
+pub struct Snapshot {
+    /// The transaction ID at which this snapshot was taken.
+    pub txn_id: u64,
+}
+
 /// A pending HNSW mutation awaiting batch flush.
 #[derive(Clone)]
 pub(crate) struct PendingHnswOp {
@@ -176,9 +186,10 @@ pub struct StorageEngine {
     pub last_query_timestamp: AtomicU64,
     /// Monotonic transaction ID counter (P3 Phase 1).
     pub(crate) next_txn_id: AtomicU64,
-    /// Active transaction ID (single-slot: one active txn at a time).
-    /// `None` = no active transaction → insert/delete go direct.
-    pub(crate) active_txn_id: parking_lot::Mutex<Option<u64>>,
+    /// Active transaction IDs (concurrent: multiple active txns allowed).
+    /// Empty = no active transaction → insert/delete go direct.
+    /// Used for: snapshot visibility, write-write conflict detection.
+    pub(crate) active_txns: parking_lot::Mutex<std::collections::HashSet<u64>>,
     /// Per-transaction write buffer. Keyed by txn_id.
     /// Only the active txn's buffer is meaningful.
     pub(crate) txn_buffers: parking_lot::Mutex<std::collections::HashMap<u64, Vec<BufferedWrite>>>,
@@ -242,6 +253,8 @@ impl StorageEngine {
         let metadata = NodeMetadata {
             relational: node.relational.clone(),
             edges: node.edges.clone(),
+            created_by_txn: 0, // recovery is pre-MVCC
+            deleted_by_txn: None,
         };
         let metadata_val =
             postcard::to_allocvec(&metadata).map_err(crate::error::VantaError::serialization)?;

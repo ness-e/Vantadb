@@ -43,3 +43,14 @@ See `docs/plans/2026-07-25-p4-drv130-t3-node-reordering.md` for full analysis.
 | Task 1 (Profile) | `vanta-tuner` | ✅ Done (self-implemented) |
 | Task 2 (Prefetch) | `vanta-tuner` | ✅ WONTFIX |
 | Task 3 (Reordering) | `vanta-engine` | ❌ WONTFIX |
+
+=== RECITATION ===
+Campaign ID: 0ec0c8c9-13ad-456d-bf5b-709d9688b910
+Objetivo activo: Implement ACID Phase 3 — Snapshot Isolation / MVCC
+Estado: completed
+Última acción: Ran full test suite — 1523 passed, 0 failed
+Resultado: ✅
+Próxima acción: None — task complete
+Contrato: All tests pass + snapshot isolation test passes
+Próxima tarea si completa: Next in backlog
+=== END RECITATION ===

@@ -8,7 +8,7 @@ use crate::error::Result;
 use crate::node::{FieldValue, FilterBitset, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::StorageEngine;
 use crate::storage::engine::{
-    BufferedWrite, EvictionReason, PendingHnswOp, FLAG_TOMBSTONE, HNSW_BATCH_SIZE,
+    BufferedWrite, EvictionReason, PendingHnswOp, Snapshot, FLAG_TOMBSTONE, HNSW_BATCH_SIZE,
 };
 use crate::storage::ops::NodeMetadata;
 use crate::wal::WalRecord;
@@ -97,38 +97,124 @@ impl StorageEngine {
         Ok(())
     }
 
-    /// Begin a serialized transaction.
+    // ─── Transaction Support ──────────────────────────────────
+
+    /// Begin a write transaction.
     ///
-    /// Phase 2: sets the active transaction ID so subsequent insert/delete ops
-    /// are buffered in memory instead of writing directly to stores.
-    /// WAL writes are deferred to commit.
+    /// Registers this txn_id in the active set so subsequent insert/delete
+    /// ops (via [`insert_in_txn`] / [`delete_in_txn`]) are buffered.
+    ///
+    /// Multiple concurrent transactions are supported. Plain `insert()` /
+    /// `delete()` route to the sole active txn if exactly one exists, or
+    /// error if >1 (use explicit `_in_txn` methods).
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn begin_transaction(&self) -> Result<u64> {
         let txn_id = self
             .next_txn_id
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        *self.active_txn_id.lock() = Some(txn_id);
+        self.active_txns.lock().insert(txn_id);
         Ok(txn_id)
     }
 
-    /// Commit a transaction: drain the buffered writes, flush them as an atomic WAL batch,
-    /// then apply to stores.
+    /// Create a read snapshot at the current transaction ID.
     ///
-    /// If the txn_id does not match the active transaction, falls back to appending
-    /// a `Commit` marker (Phase 1 compatibility).
+    /// The snapshot captures a point-in-time view of committed data.
+    /// Reads via [`get_with_snapshot`] see only data committed at or
+    /// before this txn_id — uncommitted and later-committed data is
+    /// invisible.
+    #[tracing::instrument(skip(self), level = "debug")]
+    pub fn begin_snapshot(&self) -> Snapshot {
+        let txn_id = self.next_txn_id.load(std::sync::atomic::Ordering::Relaxed);
+        Snapshot { txn_id }
+    }
+
+    /// Check if another active txn holds a buffered write for `node_id`.
+    fn check_write_conflict(&self, node_id: u128, my_txn_id: u64) -> Result<()> {
+        let buffers = self.txn_buffers.lock();
+        for (&other_id, ops) in buffers.iter() {
+            if other_id == my_txn_id {
+                continue;
+            }
+            for op in ops {
+                let conflicted = match op {
+                    BufferedWrite::Insert(n) => n.id == node_id,
+                    BufferedWrite::Delete(id) => *id == node_id,
+                };
+                if conflicted {
+                    return Err(crate::error::VantaError::InvalidInput(format!(
+                        "Write-write conflict: node {} is being modified by concurrent txn {}",
+                        node_id, other_id
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Insert inside an explicit transaction (concurrent-safe).
+    #[tracing::instrument(skip(self, node), level = "debug", err)]
+    pub fn insert_in_txn(&self, node: &UnifiedNode, txn_id: u64) -> Result<()> {
+        if !self.active_txns.lock().contains(&txn_id) {
+            return Err(crate::error::VantaError::InvalidInput(format!(
+                "Transaction {} is not active",
+                txn_id
+            )));
+        }
+        self.check_write_conflict(node.id, txn_id)?;
+
+        let now_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        let mut buffered = node.clone();
+        buffered.last_accessed = now_ms;
+        let mut buffers = self.txn_buffers.lock();
+        buffers
+            .entry(txn_id)
+            .or_default()
+            .push(BufferedWrite::Insert(buffered));
+        Ok(())
+    }
+
+    /// Delete inside an explicit transaction (concurrent-safe).
+    #[tracing::instrument(skip(self), level = "debug", err)]
+    pub fn delete_in_txn(&self, id: u128, reason: &str, txn_id: u64) -> Result<()> {
+        if !self.active_txns.lock().contains(&txn_id) {
+            return Err(crate::error::VantaError::InvalidInput(format!(
+                "Transaction {} is not active",
+                txn_id
+            )));
+        }
+        self.check_write_conflict(id, txn_id)?;
+
+        let _ = reason; // unused for now; reserved for audit log
+        let mut buffers = self.txn_buffers.lock();
+        buffers
+            .entry(txn_id)
+            .or_default()
+            .push(BufferedWrite::Delete(id));
+        Ok(())
+    }
+
+    /// Commit a transaction: drain the buffered writes, stamp them with
+    /// the txn_id for MVCC visibility, flush as an atomic WAL batch,
+    /// then apply to stores.
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn commit_transaction(&self, txn_id: u64) -> Result<()> {
-        // 1. Drain buffer for this txn
-        let buffer = {
-            let mut active = self.active_txn_id.lock();
-            if *active != Some(txn_id) {
+        // 1. Verify and unregister
+        {
+            let mut active = self.active_txns.lock();
+            if !active.remove(&txn_id) {
                 // Phase 1 fallback: if no buffering, just append Commit marker
                 if let Some(ref sharded) = self.wal {
                     sharded.append(&crate::wal::WalRecord::Commit(txn_id))?;
                 }
                 return Ok(());
             }
-            *active = None;
+        }
+
+        // 2. Drain buffer for this txn
+        let buffer = {
             let mut buffers = self.txn_buffers.lock();
             buffers.remove(&txn_id).unwrap_or_default()
         };
@@ -140,7 +226,7 @@ impl StorageEngine {
             return Ok(());
         }
 
-        // 2. Build WAL batch: Begin + all ops + Commit
+        // 3. Build WAL batch: Begin + all ops + Commit
         use crate::wal::WalRecord;
         let mut wal_records = Vec::with_capacity(buffer.len() + 2);
         wal_records.push(WalRecord::Begin(txn_id));
@@ -152,18 +238,27 @@ impl StorageEngine {
         }
         wal_records.push(WalRecord::Commit(txn_id));
 
-        // 3. Write WAL batch atomically
+        // 4. Write WAL batch atomically
         if let Some(ref sharded) = self.wal {
             sharded.batch_append(&wal_records)?;
         }
 
-        // 4. Apply buffered ops to stores
+        // 5. Apply buffered ops to stores with MVCC stamps
         for op in &buffer {
             match op {
                 BufferedWrite::Insert(node) => {
-                    self.apply_insert(node)?;
+                    // Remove old from HNSW/cache so the new insert can take its place
+                    {
+                        let hnsw = self.hnsw.load();
+                        hnsw.nodes.remove(&node.id);
+                    }
+                    self.volatile_cache.write().remove(&node.id);
+                    self.apply_insert_with_txn(node, txn_id)?;
                 }
                 BufferedWrite::Delete(id) => {
+                    // Stamp metadata as deleted_by this txn instead of removing
+                    self.stamp_deleted_in_backend(*id, txn_id)?;
+                    // Still tombstone vstore + remove from HNSW + cache
                     self.apply_delete(*id)?;
                 }
             }
@@ -172,27 +267,168 @@ impl StorageEngine {
         Ok(())
     }
 
-    /// Abort a transaction: clear the buffered writes for this txn and append an
-    /// `Abort(txn_id)` marker to the WAL.
+    /// Abort a transaction: clear the buffered writes for this txn and
+    /// append an `Abort(txn_id)` marker to the WAL.
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn abort_transaction(&self, txn_id: u64) -> Result<()> {
-        let was_active = {
-            let mut active = self.active_txn_id.lock();
-            let is_active = *active == Some(txn_id);
-            if is_active {
-                *active = None;
-            }
-            is_active
-        };
-
-        if was_active {
-            self.txn_buffers.lock().remove(&txn_id);
+        {
+            let mut active = self.active_txns.lock();
+            active.remove(&txn_id);
         }
+        self.txn_buffers.lock().remove(&txn_id);
 
         if let Some(ref sharded) = self.wal {
             sharded.append(&crate::wal::WalRecord::Abort(txn_id))?;
         }
         Ok(())
+    }
+
+    /// Stamp the backend metadata for `node_id` with `deleted_by_txn`.
+    fn stamp_deleted_in_backend(&self, node_id: u128, txn_id: u64) -> Result<()> {
+        use crate::storage::ops::NodeMetadata;
+        let key = node_id.to_le_bytes();
+        if let Some(existing) = self
+            .backend
+            .get(crate::backend::BackendPartition::Default, &key)?
+        {
+            if let Ok(mut meta) = postcard::from_bytes::<NodeMetadata>(&existing) {
+                meta.deleted_by_txn = Some(txn_id);
+                let val = postcard::to_allocvec(&meta)
+                    .map_err(crate::error::VantaError::serialization)?;
+                self.backend
+                    .put(crate::backend::BackendPartition::Default, &key, &val)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Apply an insert with explicit MVCC stamp.
+    fn apply_insert_with_txn(&self, node: &UnifiedNode, txn_id: u64) -> Result<()> {
+        let storage_offset = {
+            let mut vstore = self.vector_store.write();
+            let offset = Self::write_node_to_vstore(&mut vstore, node)?;
+
+            let key = node.id.to_le_bytes();
+            let metadata = crate::storage::ops::NodeMetadata {
+                relational: node.relational.clone(),
+                edges: node.edges.clone(),
+                created_by_txn: txn_id,
+                deleted_by_txn: None,
+            };
+            let metadata_val = postcard::to_allocvec(&metadata)
+                .map_err(crate::error::VantaError::serialization)?;
+            if let Err(e) = self.backend.put(
+                crate::backend::BackendPartition::Default,
+                &key,
+                &metadata_val,
+            ) {
+                // P4: tombstone on KV failure
+                if let Some(mut hdr) = vstore.read_header(offset) {
+                    hdr.flags |= FLAG_TOMBSTONE;
+                    let _ = vstore.write_header(offset, &hdr);
+                }
+                return Err(e);
+            }
+            offset
+        };
+
+        self.try_push_pending_hnsw(PendingHnswOp {
+            id: node.id,
+            bitset: node.bitset.clone(),
+            vector: node.vector.clone(),
+            storage_offset,
+            is_delete: false,
+        })?;
+
+        if node.tier == crate::node::NodeTier::Hot {
+            let mut cache = self.volatile_cache.write();
+            cache.insert(node.id, node.clone());
+        }
+        Ok(())
+    }
+
+    /// Retrieve a node using snapshot isolation.
+    ///
+    /// Only data committed before the snapshot's `txn_id` is visible.
+    /// Uncommitted and later-committed versions are filtered out.
+    #[tracing::instrument(skip(self), level = "debug", err)]
+    pub fn get_with_snapshot(&self, id: u128, snapshot: &Snapshot) -> Result<Option<UnifiedNode>> {
+        self.touch_activity();
+        self.quantization_governor.record_access(id);
+
+        // Read from committed store with MVCC filter
+        let key = id.to_le_bytes();
+        let metadata_res = match self
+            .backend
+            .get(crate::backend::BackendPartition::Default, &key)?
+        {
+            Some(res) => res,
+            None => return Ok(None),
+        };
+
+        use crate::storage::ops::NodeMetadata;
+        let metadata: NodeMetadata = match postcard::from_bytes(&metadata_res) {
+            Ok(m) => m,
+            Err(_) => return Ok(None),
+        };
+
+        // MVCC visibility: created_by_txn <= snapshot_id
+        // AND (deleted_by_txn IS NULL OR deleted_by_txn > snapshot_id)
+        if metadata.created_by_txn > snapshot.txn_id {
+            return Ok(None);
+        }
+        if let Some(deleted) = metadata.deleted_by_txn {
+            if deleted <= snapshot.txn_id {
+                return Ok(None);
+            }
+        }
+
+        let hnsw = self.hnsw.load();
+        let index_node = match hnsw.nodes.get(&id) {
+            Some(n) => n,
+            None => return Ok(None),
+        };
+        let storage_offset = index_node.storage_offset;
+
+        let vstore = self.vector_store.read();
+        let header = match vstore.read_header(storage_offset) {
+            Some(h) => h,
+            None => return Ok(None),
+        };
+
+        if (header.flags & FLAG_TOMBSTONE) != 0 {
+            return Ok(None);
+        }
+
+        let vec_start = header.vector_offset as usize;
+        let vec_end = vec_start + (header.vector_len as usize * 4);
+        if vec_end > vstore.size as usize {
+            return Ok(None);
+        }
+
+        let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
+        let f32_vec: &[f32] = unsafe {
+            std::slice::from_raw_parts(vec_bytes.as_ptr() as *const f32, header.vector_len as usize)
+        };
+
+        let mut node = UnifiedNode::new(id);
+        node.bitset = FilterBitset::from_u128(header.bitset);
+        node.vector = VectorRepresentations::Full(f32_vec.to_vec());
+        if let crate::node::VectorRepresentations::SQ8(data, scale) = &index_node.value().vec_data {
+            node.vector = crate::node::VectorRepresentations::SQ8(data.clone(), *scale);
+        }
+        node.relational = metadata.relational;
+        node.edges = metadata.edges;
+        node.confidence_score = header.confidence_score;
+        node.importance = header.importance;
+        node.tier = if header.tier == 1 {
+            crate::node::NodeTier::Hot
+        } else {
+            crate::node::NodeTier::Cold
+        };
+        node.flags = crate::node::NodeFlags(header.flags);
+
+        Ok(Some(node))
     }
 
     /// Insert or overwrite a node: persist to WAL, vector store, KV backend, and HNSW index.
@@ -311,16 +547,23 @@ impl StorageEngine {
 
         // Inside transaction → buffer instead of writing to stores
         {
-            let active = self.active_txn_id.lock();
-            if let Some(txn_id) = *active {
-                let mut buffers = self.txn_buffers.lock();
-                let mut buffered = node.clone();
-                buffered.last_accessed = now_ms;
-                buffers
-                    .entry(txn_id)
-                    .or_default()
-                    .push(BufferedWrite::Insert(buffered));
-                return Ok(());
+            let active = self.active_txns.lock();
+            if !active.is_empty() {
+                if active.len() == 1 {
+                    let txn_id = *active.iter().next().unwrap();
+                    drop(active);
+                    let mut buffers = self.txn_buffers.lock();
+                    let mut buffered = node.clone();
+                    buffered.last_accessed = now_ms;
+                    buffers
+                        .entry(txn_id)
+                        .or_default()
+                        .push(BufferedWrite::Insert(buffered));
+                    return Ok(());
+                }
+                return Err(crate::error::VantaError::InvalidInput(
+                    "Multiple active transactions; use insert_in_txn() instead".into(),
+                ));
             }
         }
 
@@ -338,7 +581,7 @@ impl StorageEngine {
     /// Apply an insert to the stores (vstore, KV backend, HNSW, cache).
     ///
     /// Does NOT write to WAL — the caller is responsible for WAL logging.
-    /// Does NOT check active_txn_id — only called outside the buffering path.
+    /// Does NOT check active_txns — only called outside the buffering path.
     #[tracing::instrument(skip(self, node), level = "debug", err)]
     pub(crate) fn apply_insert(&self, node: &UnifiedNode) -> Result<()> {
         let storage_offset = {
@@ -346,9 +589,13 @@ impl StorageEngine {
             let offset = Self::write_node_to_vstore(&mut vstore, node)?;
 
             let key = node.id.to_le_bytes();
+            // non-txn insert: use next_txn_id as pseudo-txn
+            let created_by = self.next_txn_id.load(std::sync::atomic::Ordering::Relaxed);
             let metadata = NodeMetadata {
                 relational: node.relational.clone(),
                 edges: node.edges.clone(),
+                created_by_txn: created_by,
+                deleted_by_txn: None,
             };
             let metadata_val = postcard::to_allocvec(&metadata)
                 .map_err(crate::error::VantaError::serialization)?;
@@ -524,9 +771,12 @@ impl StorageEngine {
             wal_records.push(WalRecord::Insert(active_node.clone()));
 
             let key = active_node.id.to_le_bytes();
+            let created_by = self.next_txn_id.load(std::sync::atomic::Ordering::Relaxed);
             let metadata = NodeMetadata {
                 relational: active_node.relational.clone(),
                 edges: active_node.edges.clone(),
+                created_by_txn: created_by,
+                deleted_by_txn: None,
             };
             let metadata_val = postcard::to_allocvec(&metadata)
                 .map_err(crate::error::VantaError::serialization)?;
@@ -649,8 +899,10 @@ impl StorageEngine {
 
         // Read-your-writes: check active txn buffer first
         {
-            let active = self.active_txn_id.lock();
-            if let Some(txn_id) = *active {
+            let active = self.active_txns.lock();
+            if active.len() == 1 {
+                let txn_id = *active.iter().next().unwrap();
+                drop(active);
                 let buffers = self.txn_buffers.lock();
                 if let Some(buffer) = buffers.get(&txn_id) {
                     for op in buffer.iter().rev() {
@@ -934,14 +1186,21 @@ impl StorageEngine {
 
         // Inside transaction → buffer instead of writing to stores
         {
-            let active = self.active_txn_id.lock();
-            if let Some(txn_id) = *active {
-                let mut buffers = self.txn_buffers.lock();
-                buffers
-                    .entry(txn_id)
-                    .or_default()
-                    .push(BufferedWrite::Delete(id));
-                return Ok(());
+            let active = self.active_txns.lock();
+            if !active.is_empty() {
+                if active.len() == 1 {
+                    let txn_id = *active.iter().next().unwrap();
+                    drop(active);
+                    let mut buffers = self.txn_buffers.lock();
+                    buffers
+                        .entry(txn_id)
+                        .or_default()
+                        .push(BufferedWrite::Delete(id));
+                    return Ok(());
+                }
+                return Err(crate::error::VantaError::InvalidInput(
+                    "Multiple active transactions; use delete_in_txn() instead".into(),
+                ));
             }
         }
 
@@ -956,7 +1215,7 @@ impl StorageEngine {
     /// Apply a delete to the stores (vstore tombstone, HNSW, cache, backend).
     ///
     /// Does NOT write to WAL — the caller is responsible for WAL logging.
-    /// Does NOT check active_txn_id or ensure_writable.
+    /// Does NOT check active_txns or ensure_writable.
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub(crate) fn apply_delete(&self, id: u128) -> Result<()> {
         let offset = {

@@ -2486,3 +2486,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | `DRV-123` | Auto-embedding INSERT polish | `src/llm.rs`, `src/executor.rs` | ✅ `21432104` — `match` replaces `if let Ok`, `tracing::warn!` on failure. Empty text guard `!text.trim().is_empty()`. Applied to both `node_id` and `InsertMessage` paths. Test `test_auto_embedding_graceful_degradation_on_insert` added. |
 
 **Verificación:** `cargo check -p vantadb` ✅ | `cargo test --package vantadb --lib executor` ✅
+
+### 2026-07-26 — P4 Engineering Health Wave 0: VFY-011 (ACID Phase 3 — MVCC/Snapshot Isolation)
+
+**Objetivo:** Snapshot isolation / MVCC para lecturas consistentes durante escrituras concurrentes.
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `VFY-011` | ACID Phase 3 — Snapshot isolation / MVCC | `src/storage/engine/ops.rs`, `src/storage/engine/mod.rs`, `src/storage/engine/init.rs`, `src/storage/ops.rs` | `Snapshot { txn_id: u64 }` struct + `get_with_snapshot()` filtrado MVCC. `active_txns: HashSet<u64>` reemplaza `active_txn_id: Mutex`. Write-write conflict detection via `check_write_conflict()`. 7 new tests: snapshot lifecycle, committed/uncommitted/deleted visibility, concurrent txns, write-write conflicts. `created_by_txn`/`deleted_by_txn` en NodeMetadata. |
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo test -p vantadb --lib storage::engine::tests::ops` 62 passed ✅

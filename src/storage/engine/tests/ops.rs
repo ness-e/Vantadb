@@ -709,6 +709,8 @@ fn test_scan_nodes_page_with_mixed_validity() {
     let metadata = crate::storage::ops::NodeMetadata {
         relational: std::collections::BTreeMap::new(),
         edges: Vec::new(),
+        created_by_txn: 0,
+        deleted_by_txn: None,
     };
     let val = postcard::to_allocvec(&metadata).unwrap();
     engine
@@ -813,4 +815,168 @@ fn test_emergency_shutdown_not_called() {
     let engine = in_memory_engine();
     let result = engine.ensure_writable();
     assert!(result.is_ok(), "engine should be writable");
+}
+
+// ─── Snapshot Isolation / MVCC ────────────────────────────────
+
+#[test]
+fn test_begin_snapshot_returns_valid_snapshot() {
+    let engine = in_memory_engine();
+    let snapshot = engine.begin_snapshot();
+    assert!(snapshot.txn_id > 0, "snapshot txn_id should be positive");
+}
+
+#[test]
+fn test_get_with_snapshot_sees_committed_data() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(42)).expect("insert outside txn");
+
+    let snapshot = engine.begin_snapshot();
+    let retrieved = engine
+        .get_with_snapshot(42, &snapshot)
+        .expect("get_with_snapshot");
+    assert_eq!(retrieved.unwrap().id, 42);
+}
+
+#[test]
+fn test_get_with_snapshot_does_not_see_uncommitted_data() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(42)).expect("insert base");
+
+    let snapshot = engine.begin_snapshot();
+
+    // Start a transaction and insert a different node
+    let txn_id = engine.begin_transaction().expect("begin txn");
+    engine
+        .insert_in_txn(&sample_node(99), txn_id)
+        .expect("insert in txn");
+
+    // Snapshot should NOT see the uncommitted node
+    let retrieved = engine
+        .get_with_snapshot(99, &snapshot)
+        .expect("get_with_snapshot");
+    assert!(
+        retrieved.is_none(),
+        "snapshot should not see uncommitted node"
+    );
+
+    engine.abort_transaction(txn_id).expect("abort txn");
+}
+
+#[test]
+fn test_get_with_snapshot_does_not_see_deleted_data() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(42)).expect("insert");
+
+    // Use a transaction so delete stamps deleted_by_txn (MVCC-friendly)
+    let txn_id = engine.begin_transaction().expect("begin txn");
+    engine
+        .delete_in_txn(42, "test", txn_id)
+        .expect("delete in txn");
+
+    // Snapshot taken before commit should still see the node
+    let snapshot = engine.begin_snapshot();
+    let retrieved = engine
+        .get_with_snapshot(42, &snapshot)
+        .expect("get_with_snapshot before commit");
+    assert!(
+        retrieved.is_some(),
+        "snapshot before commit should see node"
+    );
+
+    engine.commit_transaction(txn_id).expect("commit");
+
+    // Snapshot taken after commit should NOT see it
+    let later = engine.begin_snapshot();
+    let later_retrieved = engine
+        .get_with_snapshot(42, &later)
+        .expect("get_with_snapshot after commit");
+    assert!(
+        later_retrieved.is_none(),
+        "snapshot after commit should not see deleted node"
+    );
+}
+
+#[test]
+fn test_concurrent_txns_via_explicit_methods() {
+    let engine = in_memory_engine();
+
+    let t1 = engine.begin_transaction().expect("begin t1");
+    let t2 = engine.begin_transaction().expect("begin t2");
+
+    engine
+        .insert_in_txn(&sample_node(1), t1)
+        .expect("t1 inserts node 1");
+    engine
+        .insert_in_txn(&sample_node(2), t2)
+        .expect("t2 inserts node 2");
+
+    engine.commit_transaction(t1).expect("commit t1");
+    engine.commit_transaction(t2).expect("commit t2");
+
+    assert!(engine.get(1).expect("get node 1").is_some());
+    assert!(engine.get(2).expect("get node 2").is_some());
+}
+
+#[test]
+fn test_write_write_conflict_detected() {
+    let engine = in_memory_engine();
+
+    let t1 = engine.begin_transaction().expect("begin t1");
+    let t2 = engine.begin_transaction().expect("begin t2");
+
+    engine
+        .insert_in_txn(&sample_node(42), t1)
+        .expect("t1 inserts node 42");
+
+    let result = engine.insert_in_txn(&sample_node(42), t2);
+    assert!(
+        result.is_err(),
+        "t2 should conflict with t1 for the same node"
+    );
+
+    engine.abort_transaction(t2).expect("abort t2");
+    engine.commit_transaction(t1).expect("commit t1");
+}
+
+#[test]
+fn test_plain_insert_errors_with_multiple_active_txns() {
+    let engine = in_memory_engine();
+    let _t1 = engine.begin_transaction().expect("begin t1");
+    let _t2 = engine.begin_transaction().expect("begin t2");
+
+    let result = engine.insert(&sample_node(99));
+    assert!(
+        result.is_err(),
+        "plain insert with >1 active txn should error"
+    );
+
+    engine.abort_transaction(0).ok();
+    engine.abort_transaction(1).ok();
+}
+
+#[test]
+fn test_many_concurrent_txns_with_final_consistency() {
+    let engine = in_memory_engine();
+
+    let mut txns = Vec::new();
+    for i in 0..5u128 {
+        let txn_id = engine.begin_transaction().expect("begin");
+        engine
+            .insert_in_txn(&sample_node(100 + i), txn_id)
+            .expect("insert in txn");
+        txns.push(txn_id);
+    }
+
+    for txn_id in &txns {
+        engine.commit_transaction(*txn_id).expect("commit");
+    }
+
+    for i in 0..5u128 {
+        assert!(
+            engine.get(100 + i).expect("get").is_some(),
+            "node {} should exist after commit",
+            100 + i
+        );
+    }
 }
