@@ -176,7 +176,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | `OLD-10` | Sinapsis eléctrica (index-free adjacency) — `edge_index.rs` usa DashSet, no index-free adjacency nativa | 🟡 1 sem | ❌ No implementado | Post-HNSW multi-capa |
 | `OLD-11` | CLI/TUI interactivo (spec 1106 líneas escrito) — CLI completo, TUI no implementado | 🟡 1-2 sem | ⚠️ Parcial (CLI OK, TUI no) | Ninguna. Proyecto aparte |
 | `OLD-12` | Pilot program formal (early adopters) — `docs/operations/PILOT_PROGRAM.md` existe (solo spec) | 🟡 1 sem | ⚠️ Parcial (doc existe) | PyPI publicado |
-| `OLD-14` | MessageThread / GcWorker para agentic chat — `GcWorker` en `src/gc.rs` existe, MessageThread no | 🟡 1 sem | ⚠️ Parcial (GcWorker OK) | Ninguna. `GcWorker` existe |
+| ~~`OLD-14`~~ | ~~MessageThread / GcWorker para agentic chat — `GcWorker` en `src/gc.rs` existe, MessageThread no~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | Ninguna. `GcWorker` existe |
 | `OLD-16` | WAL rotation a 256MB — WAL segments existen (`wal_archiver.rs`), rotation por tamaño no | 🟢 1d | ❌ No implementado |
 | `OLD-19` | Rehidratación desde shadow archive — `rehydration_available` en MCP, `rehydration_required` en Python SDK | 🟡 1 sem | ⚠️ Parcial | OLD-07 (AutoHot/Cold tiering) |
 | `OLD-20` | Contextual Priming (cache warming predictivo) — Sin código de warming predictivo | 🟢 2-3d | ❌ No implementado | Ninguna |

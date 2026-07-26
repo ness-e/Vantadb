@@ -488,6 +488,10 @@ path = "tests/sdk_serialization.rs"
 name = "graphrag_test"
 path = "tests/graphrag_test.rs"
 
+[[test]]
+name = "message_thread_test"
+path = "tests/message_thread_test.rs"
+
 # ── Examples ──
 [[example]]
 name = "basic"

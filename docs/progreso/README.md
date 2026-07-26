@@ -289,6 +289,24 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-26 — OLD-14: MessageThread / GcWorker for Agentic Chat ✅
+
+**Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-14`
+
+**Problema original:** No existía una abstracción `MessageThread` para chats agentic. `GcWorker` existía en `src/gc.rs` (TTL GC) pero no se usaba para ciclos de vida de conversaciones.
+
+**Resuelto por (vanta-worker, ponytail):**
+- `src/agentic/` nuevo módulo con `mod.rs` + `thread.rs`
+- `MessageThread` struct: `thread_id`, `title`, `messages: Vec<Message>`, `created_at`, `updated_at`, `metadata`
+- `Message` struct: `role` (system/user/assistant/tool), `content`, `timestamp`, `metadata`
+- `ThreadStore` con CRUD completo sobre `StorageEngine` + opcional TTL via `GcWorker`
+- 6 métodos expuestos vía `VantaEmbedded`: `create_thread`, `send_message`, `get_thread`, `list_threads`, `delete_thread`, `purge_expired_threads`
+- 6 tests en `tests/message_thread_test.rs` incluyendo TTL expiry
+
+**Verificación:** `cargo nextest run --test message_thread_test` ✅ 6/6 pass | `cargo check -p vantadb` ✅ | `cargo clippy -p vantadb -- -D warnings` ✅
+
+**Ids:** `OLD-14`
+
 ### 2026-07-26 — OLD-02: GraphRAG Pipeline Formal — seed → expand → retrieve → generate context ✅
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-02`

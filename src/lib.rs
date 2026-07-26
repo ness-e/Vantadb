@@ -57,6 +57,7 @@
 #[cfg(feature = "encryption")]
 pub mod crypto;
 
+pub mod agentic;
 pub(crate) mod backend;
 pub(crate) mod backends;
 /// Binary header format for all persisted VantaDB files.

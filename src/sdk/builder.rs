@@ -1,9 +1,11 @@
+use crate::agentic::thread::ThreadStore;
 use crate::config::VantaConfig;
 use crate::error::{Result, VantaError};
 use crate::graphrag::pipeline::{GraphRagPipeline, GraphRagResult};
 use crate::index::set_prefetch_mode;
 use crate::storage::StorageEngine;
 use parking_lot::RwLock;
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use tracing;
@@ -93,6 +95,58 @@ impl VantaEmbedded {
     ) -> Result<GraphRagResult> {
         let pipeline = GraphRagPipeline::new();
         pipeline.search(self, namespace, query, query_vector)
+    }
+
+    // ── Agentic Threads ──
+
+    /// Create a new conversation thread.
+    ///
+    /// Returns the thread's numeric ID. Pass `ttl_secs` for auto-expiry.
+    pub fn create_thread(&self, title: &str, ttl_secs: Option<u64>) -> Result<u128> {
+        let engine = self.engine_handle()?;
+        let store = ThreadStore::new(&engine);
+        store.create_thread(title, HashMap::new(), ttl_secs, None)
+    }
+
+    /// Append a message to a thread.
+    pub fn send_message(&self, thread_id: u128, role: &str, content: &str) -> Result<()> {
+        let engine = self.engine_handle()?;
+        let store = ThreadStore::new(&engine);
+        store.send_message(thread_id, role, content, HashMap::new(), None)
+    }
+
+    /// Retrieve a thread by its ID.
+    pub fn get_thread(&self, thread_id: u128) -> Result<Option<crate::agentic::MessageThread>> {
+        let engine = self.engine_handle()?;
+        let store = ThreadStore::new(&engine);
+        store.get_thread(thread_id)
+    }
+
+    /// List threads with pagination.
+    pub fn list_threads(
+        &self,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<crate::agentic::MessageThread>> {
+        let engine = self.engine_handle()?;
+        let store = ThreadStore::new(&engine);
+        store.list_threads(limit, offset)
+    }
+
+    /// Delete a thread by its ID.
+    pub fn delete_thread(&self, thread_id: u128) -> Result<()> {
+        let engine = self.engine_handle()?;
+        let store = ThreadStore::new(&engine);
+        store.delete_thread(thread_id)
+    }
+
+    /// Purge threads whose TTL has expired.
+    ///
+    /// Returns the number of threads removed.
+    pub fn purge_expired_threads(&self) -> Result<usize> {
+        let engine = self.engine_handle()?;
+        let store = ThreadStore::new(&engine);
+        store.purge_expired_threads()
     }
 
     /// Flush and close the embedded engine handle.
