@@ -8,9 +8,9 @@
 
 | Estado | Cantidad |
 |--------|----------|
-| ✅ DO | 4 |
-| ✅ COMPLETED | 2 (VFY-011, DRV-122) |
-| 🟡 DEFER | 2 (DRV-130, DRV-131) |
+| ✅ DO | 2 |
+| ✅ COMPLETED | 3 (VFY-011, DRV-122, DRV-131) |
+| 🟡 DEFER | 1 (DRV-130) |
 | ❌ SKIP | 0 |
 | 🔴 BLOQUEADO | 0 |
 
@@ -25,14 +25,14 @@
 | VFY-011 | ✅ COMPLETED | MVCC implementado: snapshot isolation, concurrent txns, write-write conflict detection |
 | DRV-122 | ✅ COMPLETED | IQL JOINs/subqueries/SQL — 3 phases, 1559 tests pass. Commits: `de1898a6`, `345d1939`, `6449469f` |
 | DRV-130 | 🟡 DEFER | SIFT benchmark es validación externa. No bloquea nada ahora |
-| DRV-131 | ✅ COMPLETED | IVF Flat index implementado con k-means. Dependía de DRV-121 (CBO). Commit: (pending) |
+| DRV-131 | ✅ COMPLETED | IVF Flat index implementado con k-means. Dependía de DRV-121 (CBO). Commit: `9aaf9b7f` |
 
 ## Wave 0 (paralelo)
 
 | ID | Descripción | Archivos clave | Agente | Esfuerzo |
 |----|-------------|----------------|--------|----------|
 | WEB-04 | Storage format versioning (draft→implement) | `docs/architecture/STORAGE_VERSIONING.md` | vanta-arch | 🟠 3-5d |
-| DRV-121 | Planner CBO optimization | `src/query.rs`, `src/planner.rs` | vanta-engine | 🟠 3-5d |
+| DRV-121 | ✅ COMPLETED | `21432104` — Planner CBO optimization | `src/query.rs`, `src/planner.rs` | vanta-engine | 🟠 3-5d |
 | DRV-123 | Auto-embedding on INSERT (remote-inference) | `src/llm.rs`, `src/executor.rs` | vanta-worker | 🟡 2-3d |
 | DOC-20 | mdBook adoption for docs site | root `book.toml`, `docs/book/` | vanta-docs | 🟡 2-3d |
 
@@ -62,6 +62,15 @@
 - **Contrato:** `cargo check -p vantadb --features remote-inference` pasa + tests de auto-embedding corren
 - **Routing:** vanta-worker (Rust core, business logic)
 
+### DRV-131: IVF Flat index ✅
+
+- **Estado:** ✅ COMPLETED (`9aaf9b7f`)
+- **Backlog:** Line 135 — Solo HNSW + Flat. Quiver tiene 8 tipos. Dependía de DRV-121 (CBO)
+- **Archivos clave:** `src/index/ivf.rs` (NEW, 836L), `src/index/mod.rs`, `src/index/graph.rs`, `src/index/search.rs`, `src/index/serialize.rs`
+- **Contrato:** IVF implementado con k-means manual (Forgy + Lloyd, max 20 iter), búsqueda con nprobe, serialización v8 backwards compat v7. 16 tests IVF. 1547 tests lib pass. ✅
+- **Routing:** vanta-engine (sub-agente delegado y completó)
+- **Resultado:** `IvfIndex` struct + `IvfConfig` + k-means build + search + serialize. `IndexType::Ivf` enum variant. Lazy-build en primer search().
+
 ### DOC-20: mdBook docs site ✅
 
 - **Estado:** ✅ COMPLETED (`1f9f681d`)
@@ -70,3 +79,14 @@
 - **Contrato:** `mdbook build docs/book/` produce `docs/book/book/` con index.html funcional + search — ✅ build exitoso
 - **Routing:** vanta-docs (documentación, API specs)
 - **Resultado:** `docs/book/book.toml`, `docs/book/src/SUMMARY.md` (9 secciones), 73 `{{#include}}` stubs. Cero duplicación.
+
+=== RECITATION ===
+Campaign ID: 48153edb-9235-4a07-a85e-df25bf975493
+Objetivo activo: DRV-131: Missing Index Types Beyond HNSW
+Estado: completed
+Última acción: Implementar IVF Flat index con k-means
+Resultado: ✅
+Próxima acción: N/A — tarea completada
+Contrato: 1547 tests pass, clippy limpio, commit 9aaf9b7f
+Próxima tarea si completa: 
+=== END RECITATION ===
