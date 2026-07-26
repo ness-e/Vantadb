@@ -2406,3 +2406,53 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | `DOC-20` | mdBook adoption for docs site | `docs/book/book.toml`, `docs/book/src/SUMMARY.md`, 73 `{{#include}}` stubs | ✅ `1f9f681d` — mdBook con 9 secciones (User Guides, API, Architecture, Operations, Strategy, Reference, Blog, Case Studies, Project). Cero duplicación de contenido existente. 83 páginas HTML generadas. |
 
 **Verificación:** `mdbook build docs/book/` ✅ — 83 archivos en `docs/book/book/`, `index.html` funcional.
+
+### 2026-07-25 — P4 Engineering Health Wave 0: WEB-03 (Async WAL batching fsyncs)
+
+**Objetivo:** Parallel fsync for WAL shards — `flush_all` spawns one thread per shard.
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `WEB-03` | Async WAL batching fsyncs | `src/wal_sharded.rs` | ✅ `c59e0f80` — `flush_all` parallel per-shard fsync. Single-shard short-circuit. |
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo test --package vantadb --lib wal_sharded` ✅ (25/25)
+
+### 2026-07-25 — P4 Engineering Health Wave 0: VFY-004 (flat.rs O(n²) comment-only)
+
+**Objetivo:** Document that `flat.rs` filter O(n²) is by design (DashMap scan bounded by `flat_threshold`).
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `VFY-004` | flat.rs O(n²) en filter — comment-only | `src/index/flat.rs:32` | ✅ `dd13b67d` — 0 code logic changes. Comment explains bounded scan. |
+
+**Verificación:** `cargo check -p vantadb` ✅
+
+### 2026-07-25 — P4 Engineering Health Wave 0: WEB-04 (Storage format versioning)
+
+**Objetivo:** Implement draft `STORAGE_VERSIONING.md` — `validate_compat()` range-based check for VantaFile/HNSW/WAL.
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `WEB-04` | Storage format versioning | `src/binary_header.rs`, `src/lib.rs` | ✅ `21432104` — `VantaHeader::validate_compat()` range check. Magic + `format_version ≤ max_version`. Constants `VFILE_VERSION`, `VECTOR_INDEX_VERSION`, `WAL_FORMAT_VERSION` made pub. `STORAGE_VERSIONING.md` marked implemented. |
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo test --package vantadb --lib binary_header` ✅
+
+### 2026-07-25 — P4 Engineering Health Wave 0: DRV-121 (Planner CBO optimization)
+
+**Objetivo:** Predicate pushdown (sort by selectivity) + filter elimination (identity filter sel≥1.0 skipped).
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `DRV-121` | Planner CBO optimization | `src/planner.rs` | ✅ `21432104` — Filters sorted by estimated selectivity (ascending). Identity filters with sel ≥ 1.0 skipped. Constants `HIGH_SELECTIVITY_THRESHOLD`, imports `FieldValue`/`RelOp`. Test for identity filter elimination. |
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo test --package vantadb --lib planner` ✅
+
+### 2026-07-25 — P4 Engineering Health Wave 0: DRV-123 (Auto-embedding INSERT polish)
+
+**Objetivo:** Error handling polish for `remote-inference` auto-embedding on INSERT.
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `DRV-123` | Auto-embedding INSERT polish | `src/llm.rs`, `src/executor.rs` | ✅ `21432104` — `match` replaces `if let Ok`, `tracing::warn!` on failure. Empty text guard `!text.trim().is_empty()`. Applied to both `node_id` and `InsertMessage` paths. Test `test_auto_embedding_graceful_degradation_on_insert` added. |
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo test --package vantadb --lib executor` ✅
