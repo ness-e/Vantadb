@@ -196,6 +196,10 @@ harness = false
 name = "hnsw_recall_ef"
 harness = false
 
+[[bench]]
+name = "vfile_search"
+harness = false
+
 [[bin]]
 name = "vanta-cli"
 path = "src/bin/vanta-cli.rs"

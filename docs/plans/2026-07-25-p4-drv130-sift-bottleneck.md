@@ -20,7 +20,14 @@ Files: `src/index/search.rs` (+SearchProfile struct, instrumented search_layer, 
 
 Requires a benchmark that exercises the real VantaFile I/O path (`vector_store: Some(&vs)`). Current benchmarks all pass `None` (in-memory only). Without profiling data, cannot confirm I/O is the 127s bottleneck.
 
-**Prerequisite:** Create VantaFile-backed SIFT 1M benchmark. Then run with `RUST_LOG=debug` to collect profiling data.
+**Prerequisite:** VantaFile-backed benchmark created at `benches/vfile_search.rs`.
+
+**Benchmark results** (10K vectors, 128d, 200 queries, ef=100, top_k=10):
+- `in_memory`: **265 ms** (1.3 ms/q) — in-memory node data
+- `with_vfile`: **1.12 s** (5.6 ms/q) — VantaFile-backed, same data
+- **Overhead: ~4.2x** from VantaFile header read + byte slicing, even without real disk I/O (in-memory VantaFile)
+- `populate_vfile`: **2.6 ms** — vector store population
+- T3 remains deferred: node reordering is a large change. Prefetch already mitigates some I/O.
 
 ---
 

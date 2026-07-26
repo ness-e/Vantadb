@@ -14,7 +14,7 @@ use crate::storage::engine::{FLAG_TOMBSTONE, STORAGE_ALIGNMENT};
 const BFS_QUEUE_CAPACITY: usize = 1024;
 
 /// Rewrite the VantaFile with nodes in BFS order, returning the new offset map and file size.
-pub(crate) fn compact_layout(
+pub fn compact_layout(
     vstore: &mut VantaFile,
     hnsw: &CPIndex,
     bfs_order: &[u128],
@@ -131,7 +131,7 @@ pub(crate) fn compact_layout(
 }
 
 /// BFS traversal of the HNSW graph starting from the entry point, returning node IDs in visit order.
-pub(crate) fn traverse_graph(hnsw: &CPIndex, entry_point_id: u128) -> Vec<u128> {
+pub fn traverse_graph(hnsw: &CPIndex, entry_point_id: u128) -> Vec<u128> {
     let total_nodes = hnsw.nodes.len();
     let mut bfs_order: Vec<u128> = Vec::with_capacity(total_nodes);
     let mut visited: HashSet<u128> = HashSet::with_capacity(total_nodes);
@@ -159,7 +159,7 @@ pub(crate) fn traverse_graph(hnsw: &CPIndex, entry_point_id: u128) -> Vec<u128> 
 }
 
 /// Update each node's storage offset in the HNSW index after compaction.
-pub(crate) fn reindex_nodes(hnsw: &CPIndex, new_offsets: &HashMap<u128, u64>) {
+pub fn reindex_nodes(hnsw: &CPIndex, new_offsets: &HashMap<u128, u64>) {
     for (&node_id, &new_offset) in new_offsets {
         if let Some(mut node_ref) = hnsw.nodes.get_mut(&node_id) {
             node_ref.storage_offset = new_offset;

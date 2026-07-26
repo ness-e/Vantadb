@@ -536,7 +536,7 @@ impl VantaFile {
         self.mmap.as_slice()
     }
     /// Return a mutable byte slice over the entire mapped region.
-    pub(crate) fn mmap_bytes_mut(&mut self) -> Result<&mut [u8]> {
+    pub fn mmap_bytes_mut(&mut self) -> Result<&mut [u8]> {
         self.mmap.as_mut_slice()
     }
     /// Re-map the backing file into a new mutable memory mapping.

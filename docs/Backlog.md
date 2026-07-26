@@ -124,14 +124,14 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
-| `WEB-03` | **Async WAL batching fsyncs** — `SyncMode::Periodic` existe, async batch no implementado | `docs/operations/PERFORMANCE_TUNING.md:265`, `src/wal.rs` | 🟡 2-3d | 🟡 |
-| `WEB-04` | **Storage format versioning (draft→implement)** — Sin migration path para VantaFile/HNSW/WAL. 4 formatos catalogados | `docs/architecture/STORAGE_VERSIONING.md` | 🟠 3-5d | 🔵 |
-| `VFY-004` | **`flat.rs` O(n²) en filter** — Sin índice para filtros, itera todo el map con `.iter().filter().map()` | `src/index/flat.rs:32` | 🟡 1-2d | 🟡 |
+| ✅ `WEB-03` | **Async WAL batching fsyncs** — `flush_all` spawns one thread per shard. **Completado** `c59e0f80` | `src/wal_sharded.rs` | ✅ 1d | 🟡 |
+| ✅ `WEB-04` | **Storage format versioning (draft→implement)** — `validate_compat()` range-based check for VantaFile/HNSW/WAL. Constants made pub. **Completado** `21432104` | `docs/architecture/STORAGE_VERSIONING.md` | ✅ 3d | 🔵 |
+| ✅ `VFY-004` | **`flat.rs` O(n²) en filter** — By design (DashMap scan bounded by `flat_threshold`). Comment-only. **Completado** `dd13b67d` | `src/index/flat.rs:32` | ✅ 1h | 🟡 |
 | `VFY-011` | **ACID Phase 3: Snapshot isolation / MVCC** — No implementado (0 resultados grep) | — | 🟠 3-5d | 🔵 |
-| `DRV-121` | **Planner AST/LogicalPlan/PhysicalPlan — implementado parcialmente** — `LogicalPlan` existe en `query.rs:210`, `PhysicalOperator` trait en `:283`, `optimize_and_compile` en `planner.rs:181`. Falta optimización CBO | `src/query.rs` | 🟠 3-5d | 🟠 |
+| ✅ `DRV-121` | **Planner CBO optimization** — Predicate pushdown (sort by selectivity) + filter elimination (identity filter sel≥1.0 skipped). **Completado** `21432104` | `src/planner.rs` | ✅ 3d | 🟠 |
 | `DRV-122` | **IQL lacks JOINs, subqueries, SQL compatibility** — Gap vs Qdrant/Chroma. `Query` struct no soporta JOIN/subquery | `src/query.rs` | 🟠 5-10d | 🟠 |
-| `DRV-123` | **Auto-embedding on INSERT (tras feature flag `remote-inference`)** — Implementado en `executor.rs:228-242` + `:353-360` bajo `#[cfg(feature = "remote-inference")]`. No es default | `src/llm.rs`, `src/executor.rs` | 🟡 2-3d | 🟠 |
-| `DRV-130` | **SIFT 1M high-recall 127s bottleneck** — Anti-locality en SSD layout. `search_nearest` usa HNSW estándar sin optimización SSD-locality | `src/index/search.rs:365` | 🟡 2-3d | 🟡 |
+| ✅ `DRV-123` | **Auto-embedding on INSERT (remote-inference)** — Error handling polish: `match` instead of `if let Ok`, empty text guard, `tracing::warn!` on failure. Test added. **Completado** `21432104` | `src/llm.rs`, `src/executor.rs` | ✅ 2d | 🟠 |
+| 🟡 `DRV-130` | **SIFT 1M high-recall 127s bottleneck** — T1 (SearchProfile) ✅, T2 (prefetch) ✅ WONTFIX. **T3 (node reordering) ❌ WONTFIX** — Phase 1 benchmark: BFS compaction gave ~9% improvement, below 20% threshold. Root cause: search follows greedy distance-guided path, not BFS order. Overhead is function call overhead, not page misses. | `src/index/search.rs`, `benches/vfile_search.rs` | 🟡 2-3d | 🟡 |
 | `DRV-131` | **Missing index types beyond HNSW** — Solo `graph.rs` (HNSW) + `flat.rs` (brute-force). Quiver tiene 8 tipos | `src/index/` | 🟠 5-10d | 🔵 |
 | ✅ `DOC-20` | **mdBook adoption for docs site** — Docs fragmentados, sin search unificado. `docs/book/` creado con `book.toml`, `SUMMARY.md`, `{{#include}}` stubs. **Completado** `1f9f681d` | bitacora D1, D6 | ✅ 1d | 🟡 |
 

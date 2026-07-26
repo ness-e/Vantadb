@@ -447,6 +447,21 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `OLD-05`
 
+### 2026-07-25 — DRV-130: SIFT 1M search bottleneck — SearchProfile + prefetch audit ✅
+
+**Fuente:** Backlog P4 `DRV-130`
+
+**Problema original:** `search_nearest` usa HNSW sin optimización SSD-locality. SIFT 1M high-recall en 127s.
+
+**Resuelto por (vanta-tuner, ponytail):**
+- **T1 ✅ SearchProfile:** Nuevo `SearchProfile` struct en `src/index/search.rs` con `vfile_reads`, `unique_pages`, `compute_ns`, `candidates_seen`. Instrumentado en hot paths de `search_layer`.
+- **T2 ✅ WONTFIX:** `prefetch_mmap_vector` ya implementa `madvise(MADV_WILLNEED)` / `PrefetchVirtualMemory`. Prefetch ya activo.
+- **T3 ❌ WONTFIX:** Node reordering investigado y descartado. Benchmark con `compact_layout` (BFS reorder) mostró solo ~9% de mejora (2,440→2,221 ms). Search sigue greedy distance-guided path, no BFS order. Overhead es de function calls y bounds checks, no page misses. <20% threshold → cerrado como WONTFIX.
+
+**Verificación:** `cargo bench --bench vfile_search` — in_memory: 783ms, with_vfile: 2,440ms, with_vfile_compacted: 2,221ms (~9% improvement). `cargo check --benches` ✅.
+
+**Ids:** `DRV-130`
+
 ### 2026-07-24 — DRV-022: Eliminado governance/ dead code (1235L) ✅
 
 **Fuente:** Backlog stabilization plan — Phase 2, Task 11
