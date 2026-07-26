@@ -2526,3 +2526,17 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | `DRV-131` | IVF Flat index | `src/index/ivf.rs` (NEW, 836L), `src/index/mod.rs`, `src/index/graph.rs`, `src/index/search.rs`, `src/index/serialize.rs`, `src/index/core.rs`, 6 test/bench files | ✅ IVF implementado: `IvfIndex` con k-means (Forgy + Lloyd, max 20 iter), search con nprobe, serialización v8 con backwards compat v7. 16 tests IVF. 1547 tests lib pass. 0 clippy warnings nuevos. |
 
 **Verificación:** `cargo check -p vantadb` ✅ | `cargo test -p vantadb --lib` 1547 passed ✅ | `cargo clippy -p vantadb` limpio ✅
+
+**Ids:** `DRV-131`
+
+### 2026-07-26 — P2 Backlog Housekeeping: DRV-041, VFY-006, VFY-007 ✅
+
+**Fuente:** Backlog P2 Quick Wins — tareas triageadas como "ya corregidas" en pase de revisión anterior
+
+| ID | Tarea | Resultado |
+|----|-------|-----------|
+| `DRV-041` | **worker.rs Promise con serde_wasm_bindgen** — **Corregido:** _reject sí se invoca (línea 254). No hay serde_json round-trip (usa serde_wasm_bindgen). Descripción original no coincide con código real. | ✅ Document-only. Backlog actualizado. |
+| `VFY-006` | **`add_node` / `remove_node` lock contention** — **Corregido:** usa DashMap (locking por shard) + AtomicUsize/AtomicU128 (lock-free). Único Mutex es rng. | ✅ Document-only. Backlog actualizado. |
+| `VFY-007` | **`remove_node` O(n²) neighbor fixup** — **Corregido:** archivo real `src/index/graph.rs` (no `core.rs`). | ✅ Document-only. Backlog actualizado. |
+
+**Verificación:** Backlog.md P2 counter 15→12. Sin code changes (ponytail — ya estaba corregido).

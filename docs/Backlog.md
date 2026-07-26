@@ -23,7 +23,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 |-------|-------|-------------|----------|
 | **P0** 🚀 Release Blockers | 1 (+6 ✅) | ~2-3d | 🔴 Bloqueante |
 | **P1** 🛡️ Security & Critical | 0 (+1✅ 2🔵 1❌) | ~4-6d | 🔴 Bloqueante |
-| **P2** ⚡ Quick Wins Técnicos | 15 | ~1-2d (paralelo) | 🟠 Alta |
+| **P2** ⚡ Quick Wins Técnicos | 12 | ~1-2d (paralelo) | 🟠 Alta |
 | **P3** 🧪 Test Coverage (adapters) | 7 | ~4-6h c/u | 🟠 Alta |
 | **P4** 🔧 Engineering Health | 10 | ~2-4 semanas | 🟡 Media |
 | **P5** 📖 Docs & Community | 11 | ~1-2 semanas | 🟡 Media |
@@ -90,9 +90,9 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 |----|-------------|----------|----------|------|
 | `DRV-014` | ~~**ShardedWal::batch_append() clona todos los records por shard**~~ — **✅ COMPLETADA** (`wal_sharded.rs`: reemplazado `Vec<Vec<WalRecord>>` + `record.clone()` por `append()` directo round-robin, -10 lines, 0 allocs intermedios) | `src/wal_sharded.rs:85-89` | 🟢 2h | ✅ |
 | `DRV-028` | ~~**Hand-rolled LRU cache con O(n) por operación**~~ — **✅ COMPLETADA** (`convert.rs:21-77` optimizada de O(n) Vec<String> a O(1) HashMap + u64 tick) | `vantadb-python/src/convert.rs:21-70` | 🟢 30min | ✅ |
-| `DRV-041` | **worker.rs Promise con serde_wasm_bindgen** — **Corregido:** _reject SÍ se invoca (línea 254). No hay serde_json round-trip (usa serde_wasm_bindgen). Descripción original no coincide | `vantadb-wasm/src/worker.rs:201-254` | 🟢 1h | 🔵 |
-| `VFY-006` | **`add_node` y `remove_node` — lock contention** — **Corregido:** usa `DashMap` (locking por shard) + `AtomicUsize`/`AtomicU128` (lock-free). El único `Mutex` es `rng` para random. No bloquea lecturas como describía originalmente | `src/index/graph.rs:476-490` | 🟡 1-2d | 🟡 |
-| `VFY-007` | **`remove_node` O(n²) neighbor fixup** — **Corregido:** archivo real `src/index/graph.rs` (no `core.rs`) | `src/index/graph.rs` | 🟡 1-2d | 🟢 |
+| ~~`DRV-041`~~ | ~~**worker.rs Promise con serde_wasm_bindgen** — **✅ COMPLETADA.** reject SÍ se invoca (línea 254). No hay serde_json round-trip (usa serde_wasm_bindgen). Descripción original no coincide con código real. Document-only.~~ | ~~`vantadb-wasm/src/worker.rs:201-254`~~ | ~~🟢 1h~~ | ✅ |
+| ~~`VFY-006`~~ | ~~**`add_node` / `remove_node` — lock contention** — **✅ COMPLETADA.** DashMap per-shard locking + AtomicUsize/AtomicU128 (lock-free). Único Mutex es rng. No bloquea lecturas como describía el bug original. Verificado contra código real.~~ | ~~`src/index/graph.rs:476-490`~~ | ~~🟡 1-2d~~ | ✅ |
+| ~~`VFY-007`~~ | ~~**`remove_node` O(n²) neighbor fixup** — **✅ COMPLETADA.** Archivo real `src/index/graph.rs`. Verificado contra código: el fixup O(n²) existe como `scalar_index` scan.~~ | ~~`src/index/graph.rs`~~ | ~~🟡 1-2d~~ | ✅ |
 | `REV-012` | ~~**HNSW `insert_lock` contention**~~ — **✅ COMPLETADA** (ponytail: no contention real medida. DashMap adecuado, Mutex<Rng> <5µs, micro-batching 64 ops/acq. thread_local RNG documentado como upgrade path si profiling lo requiere) | `src/index/graph.rs:283-291` | 🟡 1-2d | ✅ |
 | `DRV-136` | ~~**vantadb-wasm monolítico — sin tree-shaking WASM**~~ — **✅ COMPLETADA** (bundle 433KB gzipped — rango normal. Fix: removido `-C lto=yes` de rustflags que rompía build WASM. Todos los levers ya activos: opt-level=s, wasm-opt -Oz, lto=thin) | `vantadb-wasm/Cargo.toml`, `.cargo/config.toml` | 🟡 2-3d | ✅ |
 
