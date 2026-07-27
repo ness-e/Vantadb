@@ -132,6 +132,7 @@ mod tests {
     use crate::node::{LabelIntern, UnifiedNode};
     use crate::sdk::types::VantaValue;
 
+    #[allow(dead_code)]
     fn empty_intern() -> LabelIntern {
         LabelIntern::new()
     }

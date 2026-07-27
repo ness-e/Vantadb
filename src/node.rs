@@ -429,10 +429,12 @@ impl LabelIntern {
         self.map.get(label).copied()
     }
 
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.strings.len()
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.strings.is_empty()
     }

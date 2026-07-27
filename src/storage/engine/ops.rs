@@ -1085,8 +1085,8 @@ impl StorageEngine {
             // This is safe because no locks are held at the call site.
             if let Ok(Some(node)) = self.get(warm_id) {
                 let mut cache = self.volatile_cache.write();
-                if !cache.contains_key(&warm_id) {
-                    cache.insert(warm_id, node);
+                if let std::collections::hash_map::Entry::Vacant(e) = cache.entry(warm_id) {
+                    e.insert(node);
                     self.cache_warmer.record_prefetch_hit();
                 }
             }
