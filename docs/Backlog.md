@@ -3,8 +3,8 @@ title: "Active Backlog — VantaDB"
 type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
-last_reviewed: 2026-07-26
-verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (general), P4+P8 (general), P5+P6 (vanta-docs), P9+P10 (vanta-worker)"
+last_reviewed: 2026-07-27
+verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (general), P4+P8 (general), P5+P6 (vanta-docs), P9+P10 (vanta-worker) + 2026-07-27: vanta-lead verificó 8 tareas web contra código real (web/ Next.js 16)"
 ---
 
 # Active Backlog — VantaDB
@@ -86,13 +86,13 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|----------|------|-------------|
-| `MKT-14` | **Publicar 2 case studies** + ruta `/case-studies/` | `docs/case_studies/` drafts + ruta web montada | 🟡 1-2d | 🔴 | ⚠️ Drafts + ruta OK, falta pulir |
+| `MKT-14` | **Publicar 3 case studies** + ruta `/case-studies/` + `/case-studies/[slug]` | `web/src/components/vanta/vanta-data.ts` (CASE_STUDIES, 3 items), `web/src/app/case-studies/` | 🟡 1-2d | 🔴 | ⚠️ 3 CS reales en `vanta-data.ts`, página completa. Falta pulir copy y métricas |
 | `TSK-106` | **Habilitar GitHub Discussions** | — | 🟢 1h | 🟠 | ❌ Desde cero |
 | `NUEVO-01` | **README hero** con readme-aura + benchmark gráfico + GIF demo WASM | `README.md` (PNG estática actual) | 🟡 2-3d | 🟠 | ❌ Desde cero |
 | `NUEVO-07` | **Migration tools: Chroma→Vanta, LanceDB→Vanta** | `docs/tutorials/` (guías existen), `src/migration.rs` (formatos internos) | 🟡 3-5d | 🟠 | ⚠️ Tutoriales OK, scripts ejecutables faltan |
 | `NUEVO-08` | **Learning path estructurado** en tutorials/ (5-7 ejemplos) | 4 tutoriales (2 draft, 1 active, 1 migration) | 🟡 2-3d | 🟠 | ⚠️ 4/7, algunos draft |
 | `NUEVO-10` | **Benchmark suite pública reproducible** | Benchmarks internos existen, sin script público standalone | 🟡 3-5d | 🟠 | ⚠️ Benchmarks OK, reproducibilidad no |
-| `TSK-107` | Community showcase page | Ruta web montada, probablemente vacía de proyectos reales | 🟢 4-6h | 🟡 | ⚠️ Página existe, sin data |
+| `TSK-107` | Community showcase page (`/showcase`, `/about/community`) | `web/src/app/showcase/page.tsx` (6 items mock), `web/src/app/about/community/page.tsx` | 🟢 4-6h | 🟡 | ⚠️ Página con 6 items mock (todos apuntan al repo raíz). Reemplazar con proyectos reales de comunidad |
 | `—` | Good first issues (20+ tagged) | GitHub Issues + drafts en `PUBLIC_ISSUE_DRAFTS.md` | 🟢 2-4h | 🟠 | 🎯 Estratégico (no verificable local) |
 | `COM-02` | **Configurar Discord: reaction roles, autorole, logging, welcome DM, onboarding** | `docs/discord/todo.md` + assets SVG + server activo | 🟡 2-3d | 🟢 | ⚠️ Docs + assets OK. Config pendiente |
 | `COM-03` | **Discord: AutoMod, stickers/emojis, forums seed** | — | 🟢 4-6h | 🟢 | ❌ Documentado, sin implementar |
@@ -111,10 +111,10 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | `MKT-04` | Reddit posts (r/rust, r/MachineLearning, r/LocalLLaMA) | 🟢 2-4h | 🟠 | ❌ Desde cero |
 | `MKT-05` | Technical blog posts (5+ pre-launch) — 4/5 posts escritos | 🟡 2-3d | 🟠 | ⚠️ 4/5 completados |
 | `MKT-10` | "AI Agent Memory" campaign | 🟡 2-3d | 🟠 | ❌ Desde cero |
-| `MKT-15` | **Página de benchmarks competitivos** (`/product/benchmarks`) — Ruta existe, sin comparación competitiva explícita | 🟡 2-3d | 🔴 | ⚠️ Página OK, contenido competitivo no |
+| `MKT-15` | **Página de benchmarks competitivos** (`/benchmarks`) — Ruta existe (BenchmarksView + BenchmarkRace, 444L), sin tabla competitiva VantaDB vs Pinecone/Weaviate/Chroma | 🟡 2-3d | 🔴 | ⚠️ BenchmarksView OK (BENCH01, SIFT1M, LatencyComparator). Falta tabla competitiva |
 | `MKT-16` | **Publicar metodología de benchmark GraphRAG** — Sin doc específico | 🟡 1-2d | 🟡 | ❌ Desde cero |
 | `MKT-17` | Página de comparación competitiva interactiva — Sin ruta `/compare` ni archivos | 🟡 2-3d | 🟢 | ❌ Desde cero |
-| `TSK-103` | Public benchmark site | 🟡 2-3d | 🟠 | ⚠️ `/product/benchmarks` existe |
+| `TSK-103` | Public benchmark site (`/benchmarks`) — BenchmarksView + BenchmarkRace existen (BENCH01, SIFT1M). Falta script público reproducible | 🟡 2-3d | 🟠 | ⚠️ `/benchmarks` existe con datos benchmark reales. Sin script standalone público |
 | `TSK-104` | Demo agent: LangChain + Ollama + VantaDB — Ejemplo experimental existe | 🟡 1-2d | 🟠 | ⚠️ Ejemplo OK, no demo pulido |
 
 ---
@@ -145,7 +145,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | `TSK-107b` | Audit logging enterprise (JSONL, timestamp + op) | 🟡 2-3d | 🟡 |
 | `ENT-04` | Connection pooling + circuit breaker (métrica existe, implementación no) | 🟡 2-3d | 🟡 |
 | `BIZ-01` | **Enterprise features: encryption + RBAC ya en crate principal. Audit/replication/enterprise crate separado no existen** | 🟡 3-5d | 🟡 ⏳ |
-| `WEB-001` | **Re-add interactive WASM demo page** — Tras publicar `@vantadb/wasm` | 🟢 30min | 🟡 |
+| `WEB-001` | **Implementar WASM demo en `/playground`** — El CodePlayground actual es un simulador, no corre WASM real. La demo WASM anterior estaba en `web_old/` (eliminada). Reconstruir requiere integrar `@vantadb/wasm` en el componente. | 🟡 1-2d | 🟡 | ❌ Desde cero — CodePlayground existe pero sin WASM real |
 | `WEB-18` | **⚠️ Definir pricing y estrategia de monetización** — El archivo `docs/web/standards/product-positioning.md` y `vanta-data.ts` tienen un plan "Team $49/mes por seat" que NO existe en `docs/strategy/GO_TO_MARKET.md`. Decidir: (a) agregar Team $49 a la estrategia GTM, (b) alinear vanta-data.ts con los planes reales de GO_TO_MARKET.md, o (c) eliminar pricing del sitio hasta definir. | 🟡 2-4h | 🔴 |
 
 > **Items removidos (1):** NUEVO-20 (Dockerfile ya existe en raíz del repo — multi-stage, Rust 1.94)
