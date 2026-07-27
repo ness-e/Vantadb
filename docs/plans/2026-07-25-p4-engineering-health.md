@@ -43,7 +43,7 @@
 - **Estado: completed
 - **Backlog:** Line 128 — Sin migration path para VantaFile/HNSW/WAL. 4 formatos catalogados
 - **Archivos clave:** `docs/architecture/STORAGE_VERSIONING.md`
-- **Contrato: All modified test suites pass — graph, basic_node, mutations, core_invariants, sdk_serialization, executor, edge_cases, memory_api, graphrag_test, plus 1561 lib unit tests
+- **Contrato: Pipeline de build/test en verde — cargo check, nextest, clippy -D warnings, fmt --check
 - **Routing:** vanta-arch (arquitectura de almacenamiento, formatos)
 
 ### DRV-121: Planner CBO optimization
@@ -69,7 +69,7 @@
 - **Archivos clave:** `src/index/ivf.rs` (NEW, 836L), `src/index/mod.rs`, `src/index/graph.rs`, `src/index/search.rs`, `src/index/serialize.rs`
 - **Contrato:** IVF implementado con k-means manual (Forgy + Lloyd, max 20 iter), búsqueda con nprobe, serialización v8 backwards compat v7. 16 tests IVF. 1547 tests lib pass. ✅
 - **Routing:** vanta-engine (sub-agente delegado y completó)
-- **Resultado: ✅
+- **Resultado: ✅ Task completada: clippy, fmt, y 1679 tests pasan
 
 ### DOC-20: mdBook docs site ✅
 
@@ -81,11 +81,11 @@
 - **Resultado:** `docs/book/book.toml`, `docs/book/src/SUMMARY.md` (9 secciones), 73 `{{#include}}` stubs. Cero duplicación.
 
 === RECITATION ===
-Campaign ID: b0128938-00f5-4ef5-95c2-fedf65cfb158
-Objetivo activo: Fix broken Edge.label references after label_id interning (DRV-069)
+Campaign ID: a6cc52ca-48a5-489b-92ce-20704fa00dce
+Objetivo activo: Implementar VecIndex trait + actualizar vector_memory_search
 Estado: completed
-Última acción: Fixed remaining test files: tests/core/basic_node.rs, tests/storage/core_invariants.rs
+Última acción: Fix fmt + clippy final verification
 Resultado: ✅
-Próxima acción: Report completion
+Próxima acción: Reportar completitud al usuario
 Contrato: 1547 tests pass, clippy limpio, commit 9aaf9b7f
-Próxima tarea si completa: Complete -> no next task
+Próxima tarea si completa: COMP-027

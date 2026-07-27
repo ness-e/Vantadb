@@ -10,6 +10,7 @@ use crate::backend::BackendPartition;
 use crate::backend::BackendWriteOp;
 use crate::error::{ChainedError, Result, VantaError};
 use crate::index::cosine_sim_f32;
+use crate::index::VecIndex;
 use crate::node::UnifiedNode;
 pub(crate) mod debug;
 pub(crate) mod phrase;
@@ -305,15 +306,14 @@ impl VantaEmbedded {
 
         let budget = (top_k.saturating_mul(10)).min(500).max(top_k);
         let candidates = {
-            let hnsw = engine.hnsw.load();
+            let index = engine.vec_index();
             let vs = engine.vector_store.read();
-            hnsw.search_nearest(
+            index.search(
                 query_vector,
-                None,
-                None,
                 &crate::node::ALL_BITSET,
                 budget,
                 Some(&*vs),
+                distance_metric,
             )
         };
 

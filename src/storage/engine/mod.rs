@@ -160,6 +160,92 @@ pub(crate) struct PendingHnswOp {
 /// Default batch size for HNSW micro-batching.
 pub(crate) const HNSW_BATCH_SIZE: usize = 64;
 
+/// Pipeline mode for the segment optimizer: chooses which maintenance
+/// operations to run in [`StorageEngine::run_pipeline`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PipelineMode {
+    /// Full pipeline: Vacuum → Merge → Reindex.
+    #[default]
+    Full,
+    /// Only purge tombstones from the HNSW index.
+    VacuumOnly,
+    /// Only compact fragmented segments via layout BFS.
+    MergeOnly,
+    /// Only rebuild the HNSW vector index from scratch.
+    IndexOnly,
+}
+
+/// Report from a single vacuum pass.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct VacuumReport {
+    /// Number of HNSW nodes scanned.
+    pub scanned_nodes: u64,
+    /// Number of tombstoned nodes removed from the HNSW index.
+    pub removed_nodes: u64,
+    /// Estimated bytes reclaimed by removing tombstoned nodes.
+    pub reclaimed_bytes: u64,
+    /// Duration of the vacuum pass in milliseconds.
+    pub duration_ms: u64,
+    /// Whether the pass completed successfully.
+    pub success: bool,
+}
+
+/// Report from a single merge (compaction) pass.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct MergeReport {
+    /// Number of segments before compaction (always 1 for single VantaFile).
+    pub segments_before: u64,
+    /// Number of segments after compaction (always 1 for single VantaFile).
+    pub segments_after: u64,
+    /// Estimated bytes saved by compaction.
+    pub saved_bytes: u64,
+    /// Duration of the merge pass in milliseconds.
+    pub duration_ms: u64,
+    /// Whether the pass completed successfully.
+    pub success: bool,
+}
+
+/// Report from a complete [`PipelineMode`] run.
+#[derive(Debug, Clone, Default)]
+pub struct PipelineReport {
+    /// Vacuum report, if that phase was executed.
+    pub vacuum: Option<VacuumReport>,
+    /// Merge report, if that phase was executed.
+    pub merge: Option<MergeReport>,
+    /// Index rebuild report, if that phase was executed.
+    pub index: Option<IndexRebuildReport>,
+    /// Total wall-clock duration of the pipeline.
+    pub total_duration_ms: u64,
+    /// Whether all executed phases succeeded.
+    pub success: bool,
+}
+
+/// Configuration for the segment optimizer pipeline.
+///
+/// Controls automatic vacuum, merge, and reindex behaviour.
+#[derive(Debug, Clone, Copy)]
+pub struct SegmentOptimizerConfig {
+    /// Master switch for the optimizer (default: true).
+    pub enabled: bool,
+    /// Tombstone fraction (as a percentage) that triggers vacuum (default: 15.0).
+    pub vacuum_threshold_pct: f32,
+    /// How often to auto-run the pipeline in seconds (default: 3600).
+    pub auto_run_interval_secs: u64,
+    /// Maximum wall-clock duration for one pipeline run (default: 300).
+    pub max_pipeline_duration_secs: u64,
+}
+
+impl Default for SegmentOptimizerConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            vacuum_threshold_pct: 15.0,
+            auto_run_interval_secs: 3600,
+            max_pipeline_duration_secs: 300,
+        }
+    }
+}
+
 /// Report returned by explicit ANN index rebuild operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndexRebuildReport {
@@ -298,6 +384,21 @@ impl StorageEngine {
     /// Convert a `UnifiedNode` to an SDK `VantaNodeRecord`, resolving edge labels.
     pub fn node_to_record(&self, node: crate::node::UnifiedNode) -> crate::sdk::VantaNodeRecord {
         crate::sdk::serialization::graph_types::unified_to_record(node, &self.label_intern.lock())
+    }
+}
+
+// ─── VecIndex accessor ─────────────────────────────────────
+
+impl StorageEngine {
+    /// Return a handle to the vector index (HNSW / IVF / flat) as a
+    /// [`VecIndex`](crate::index::VecIndex) trait object.
+    ///
+    /// The returned [`arc_swap::Guard`] auto-derefs to [`CPIndex`], which
+    /// implements [`VecIndex`](crate::index::VecIndex).  Callers invoke
+    /// trait methods (`.search()`, `.len()`, …) without binding to the
+    /// concrete index type.
+    pub fn vec_index(&self) -> arc_swap::Guard<Arc<CPIndex>> {
+        self.hnsw.load()
     }
 }
 

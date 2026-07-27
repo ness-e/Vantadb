@@ -429,6 +429,58 @@ impl IvfIndex {
     }
 }
 
+impl crate::index::VecIndex for IvfIndex {
+    fn search(
+        &self,
+        query_vec: &[f32],
+        query_mask: &crate::node::FilterBitset,
+        top_k: usize,
+        _vector_store: Option<&crate::storage::vfile::VantaFile>,
+        _distance_metric: crate::node::DistanceMetric,
+    ) -> Vec<(u128, f32)> {
+        // IvfIndex does its own distance computation from stored vectors;
+        // vector_store and distance_metric are unused here.
+        self.search(query_vec, top_k, query_mask)
+    }
+
+    fn add(
+        &self,
+        _id: u128,
+        _bitset: crate::node::FilterBitset,
+        _vec_data: crate::node::VectorRepresentations,
+        _storage_offset: u64,
+    ) {
+        // ponytail: IvfIndex is read-only after build; use IvfIndex::build().
+        // Panicking here is intentional — it signals a programming error at
+        // the integration level rather than silently dropping the add.
+        panic!("IvfIndex is read-only after build; rebuild via IvfIndex::build()");
+    }
+
+    fn estimate_memory_bytes(&self) -> usize {
+        let centroids_bytes: usize = self
+            .centroids
+            .iter()
+            .map(|c| c.len() * std::mem::size_of::<f32>())
+            .sum();
+        let lists_bytes: usize = self
+            .inverted_lists
+            .iter()
+            .map(|list| {
+                list.len()
+                    * (std::mem::size_of::<u128>()
+                        + std::mem::size_of::<crate::node::FilterBitset>()
+                        + std::mem::size_of::<Vec<f32>>())
+            })
+            .sum();
+        let config_size = std::mem::size_of::<crate::index::ivf::IvfConfig>();
+        centroids_bytes + lists_bytes + config_size
+    }
+
+    fn len(&self) -> usize {
+        self.inverted_lists.iter().map(|list| list.len()).sum()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

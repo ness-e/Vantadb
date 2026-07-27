@@ -2780,6 +2780,18 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `cargo check -p vantadb --features remote-inference` ✅ | `cargo test --package vantadb --lib executor` 26/26 ✅ | `cargo clippy -p vantadb --features remote-inference -- -D warnings` ✅ | `cargo fmt --check` ✅
 
+### 2026-07-27 — COMP-008: Pluggable Index Engine (VecIndex Trait)
+
+**Objetivo:** Abstraer operaciones de index vectorial (HNSW, IVF, flat scan) detrás de un trait `VecIndex` para desbloquear múltiples backends (COMP-027).
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `COMP-008` | Trait `VecIndex` con `search`/`add`/`len`/`estimate_memory_bytes`. Implementado para `CPIndex` (HNSW) e `IvfIndex`. `vector_memory_search` actualizado a `engine.vec_index()`. Fix a `vantadb-mcp` por rotura de COMP-006. | `src/index/mod.rs`, `src/index/search.rs`, `src/index/ivf.rs`, `src/sdk/search/mod.rs`, `src/storage/engine/mod.rs`, `vantadb-mcp/src/lib.rs` | ✅ Trait definido. Ambos backends implementan `VecIndex`. `vector_memory_search` usa trait object. Workspace completo compila con `-D warnings`. **1679 tests pasan.** |
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo check --benches -p vantadb` ✅ | `cargo clippy --workspace --all-targets -- -D warnings` ✅ | `cargo fmt --check` ✅ | `cargo nextest run --profile audit --workspace --build-jobs 2` ✅ 1679/1679 passed
+
+**Ids:** `COMP-008`
+
 ### 2026-07-27 — COMP-013: Segment Optimizer Pipeline (Vacuum/Merge/Index)
 
 **Objetivo:** Construir pipeline formal de optimización de segmentos en background (Vacuum → Merge → Index). Ya existían piezas sueltas (`compact_layout_bfs`, `trigger_compaction`, `rebuild_vector_index`) pero sin orquestación.
