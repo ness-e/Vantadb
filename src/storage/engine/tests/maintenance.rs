@@ -851,6 +851,134 @@ fn test_flush_pending_hnsw_with_multiple_ops() {
     assert!(result, "should report that ops were flushed");
 }
 
+// ─── Pipeline: Vacuum ──────────────────────────────────────────
+
+#[test]
+fn test_vacuum_no_tombstones() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(1)).expect("insert");
+    let report = engine.vacuum().expect("vacuum");
+    assert_eq!(report.removed_nodes, 0, "no tombstones to remove");
+    assert!(report.success);
+    assert!(
+        report.duration_ms > 0 || report.scanned_nodes > 0,
+        "should have scanned nodes"
+    );
+}
+
+#[test]
+fn test_vacuum_with_tombstone() {
+    let engine = in_memory_engine();
+    let mut node = sample_node(42);
+    node.tier = NodeTier::Hot;
+    engine.insert(&node).expect("insert");
+
+    // Manually flag the node as tombstoned
+    let offset = {
+        let hnsw = engine.hnsw.load();
+        hnsw.nodes.get(&42).map(|n| n.storage_offset).unwrap()
+    };
+    {
+        let mut vstore = engine.vector_store.write();
+        if let Some(mut header) = vstore.read_header(offset) {
+            header.flags |= FLAG_TOMBSTONE;
+            vstore.write_header(offset, &header).unwrap();
+        }
+    }
+
+    let report = engine.vacuum().expect("vacuum");
+    assert!(
+        report.removed_nodes > 0,
+        "should have removed the tombstoned node"
+    );
+    assert!(report.success);
+
+    // Verify the node is no longer in the HNSW index
+    let hnsw = engine.hnsw.load();
+    assert!(!hnsw.nodes.contains_key(&42), "node should be removed");
+}
+
+#[test]
+fn test_vacuum_read_only() {
+    let engine = in_memory_read_only();
+    let result = engine.vacuum();
+    assert!(result.is_err(), "read-only engine should reject vacuum");
+}
+
+// ─── Pipeline: Merge ───────────────────────────────────────────
+
+#[test]
+fn test_merge_segments_empty() {
+    let engine = in_memory_engine();
+    let report = engine.merge_segments().expect("merge");
+    assert!(report.success);
+    assert_eq!(report.segments_before, 1);
+    assert_eq!(report.segments_after, 1);
+}
+
+#[test]
+fn test_merge_segments_with_data() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(1)).expect("insert 1");
+    engine.insert(&sample_node(2)).expect("insert 2");
+    let report = engine.merge_segments().expect("merge");
+    assert!(report.success);
+}
+
+// ─── Pipeline: Full run ────────────────────────────────────────
+
+#[test]
+fn test_run_pipeline_empty() {
+    let engine = in_memory_engine();
+    let report = engine.run_pipeline(PipelineMode::Full).expect("pipeline");
+    assert!(report.success, "full pipeline on empty should succeed");
+    assert!(
+        report.total_duration_ms > 0 || report.vacuum.is_some(),
+        "pipeline should have produced at least a vacuum phase"
+    );
+}
+
+#[test]
+fn test_run_pipeline_with_data() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(10)).expect("insert 10");
+    engine.insert(&sample_node(20)).expect("insert 20");
+    let report = engine.run_pipeline(PipelineMode::Full).expect("pipeline");
+    assert!(report.success, "pipeline should succeed with data");
+    assert!(report.vacuum.is_some(), "vacuum phase should run");
+    assert!(report.merge.is_some(), "merge phase should run");
+    // reindex on in-memory may be a no-op; that's fine
+}
+
+#[test]
+fn test_run_pipeline_mode_vacuum_only() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(1)).expect("insert");
+    let report = engine
+        .run_pipeline(PipelineMode::VacuumOnly)
+        .expect("pipeline vacuum-only");
+    assert!(report.success);
+    assert!(report.vacuum.is_some(), "vacuum phase should be present");
+    assert!(
+        report.merge.is_none(),
+        "merge phase should not run in VacuumOnly mode"
+    );
+    assert!(
+        report.index.is_none(),
+        "reindex phase should not run in VacuumOnly mode"
+    );
+}
+
+#[test]
+fn test_run_pipeline_read_only() {
+    let engine = in_memory_read_only();
+    let result = engine.run_pipeline(PipelineMode::Full);
+    assert!(
+        result.is_err(),
+        "pipeline should be rejected on read-only engine"
+    );
+}
+
 #[test]
 fn test_flush_pending_hnsw_with_mixed_ops() {
     let engine = in_memory_engine();

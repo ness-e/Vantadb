@@ -62,6 +62,39 @@ impl VantaEmbedded {
         self.engine_handle()?.delete(id, reason)
     }
 
+    /// Purge tombstoned nodes from the HNSW index (vacuum).
+    ///
+    /// Scans all HNSW nodes and removes those flagged as tombstones.
+    /// Returns a [`VacuumReport`] with counts and timing.
+    pub fn vacuum(&self) -> Result<crate::storage::engine::VacuumReport> {
+        self.check_read_only()?;
+        self.engine_handle()?.vacuum()
+    }
+
+    /// Run the segment optimizer pipeline (vacuum → merge → reindex).
+    ///
+    /// Each phase is logged independently; a phase failure does not abort
+    /// subsequent phases.
+    pub fn pipeline(
+        &self,
+        mode: crate::storage::engine::PipelineMode,
+    ) -> Result<crate::storage::engine::PipelineReport> {
+        self.check_read_only()?;
+        self.engine_handle()?.run_pipeline(mode)
+    }
+
+    /// Return the current segment optimizer configuration.
+    pub fn optimizer_config(&self) -> crate::storage::engine::SegmentOptimizerConfig {
+        self.config.segment_optimizer
+    }
+
+    /// Override the segment optimizer configuration.
+    ///
+    /// The new config takes effect on the next pipeline invocation.
+    pub fn set_optimizer_config(&mut self, cfg: crate::storage::engine::SegmentOptimizerConfig) {
+        self.config.segment_optimizer = cfg;
+    }
+
     /// Shared logic for inserting/updating a single memory record.
     /// Used by both `put()` and `put_batch()`.
     fn put_one(&self, input: VantaMemoryInput) -> Result<VantaMemoryRecord> {

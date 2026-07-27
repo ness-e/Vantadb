@@ -8,6 +8,7 @@
 //! indirection without reducing real complexity. Leave as-is.
 
 use crate::backend::BackendKind;
+use crate::storage::engine::SegmentOptimizerConfig;
 #[cfg(feature = "advanced-tokenizer")]
 use crate::tokenizer::AdvancedTokenizerConfig;
 use std::collections::HashMap;
@@ -319,6 +320,11 @@ pub struct VantaConfig {
     /// (including symlink protection). When `None`, only `..` traversal is checked.
     /// Configured via `VANTADB_EXPORT_BASE_DIR`.
     pub export_base_dir: Option<std::path::PathBuf>,
+    /// Configuration for the segment optimizer pipeline (vacuum / merge / reindex).
+    ///
+    /// Controls automatic tombstone reclamation, segment compaction, and
+    /// index rebuild scheduling.
+    pub segment_optimizer: SegmentOptimizerConfig,
     /// Hot-reloadable config snapshot.
     ///
     /// When `cfg(feature = "hot-reload")` is enabled, a background watcher
@@ -565,6 +571,7 @@ impl Default for VantaConfig {
                     .map(std::path::PathBuf::from)
             },
             rbac_config: RbacConfig::default(),
+            segment_optimizer: SegmentOptimizerConfig::default(),
             #[cfg(feature = "hot-reload")]
             hot_reload_config: Arc::new(RwLock::new(HotReloadConfig::default())),
         }
