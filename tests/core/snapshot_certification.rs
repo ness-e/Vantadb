@@ -1151,7 +1151,7 @@ fn vantafile_export_golden_file() {
 fn seed_snapshot_data(db: &VantaEmbedded) {
     for i in 0..5 {
         let mut input =
-            VantaMemoryInput::new("ns/snap", &format!("key-{i}"), &format!("payload-{i}"));
+            VantaMemoryInput::new("ns/snap", format!("key-{i}"), format!("payload-{i}"));
         input.vector = Some(vec![i as f32, 0.0, 0.0]);
         db.put(input).expect("seed put");
     }
@@ -1275,7 +1275,7 @@ fn test_hardlink_snapshot_multiple() {
 
         // Phase 2: add more data and snapshot again
         for i in 5..10 {
-            let mut input = VantaMemoryInput::new("ns/snap", &format!("key-{i}"), &format!("payload-{i}"));
+            let mut input = VantaMemoryInput::new("ns/snap", format!("key-{i}"), format!("payload-{i}"));
             input.vector = Some(vec![i as f32, 0.0, 0.0]);
             db.put(input).expect("put phase 2");
         }

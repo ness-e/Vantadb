@@ -29,7 +29,7 @@ fn insert_vector_node(
 fn test_simple_graphrag_search() {
     let (db, _dir) = setup_test_db();
 
-    let node_data = vec![
+    let node_data = [
         (
             "VantaDB is an embedded vector database",
             vec![0.1_f32, 0.2, 0.3],
@@ -128,7 +128,7 @@ fn test_hybrid_fallback() {
 fn test_max_expansion() {
     let (db, _dir) = setup_test_db();
 
-    let chain = vec![
+    let chain = [
         ("root concept", vec![0.1_f32, 0.2, 0.3]),
         ("child A", vec![0.2, 0.3, 0.4]),
         ("child B", vec![0.3, 0.4, 0.5]),
