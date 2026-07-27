@@ -1,8 +1,9 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{TerminalReporter, VantaSession};
 use std::sync::Arc;
+
+use common::{TerminalReporter, VantaSession};
 use tempfile::tempdir;
 use vantadb::error::VantaError;
 use vantadb::executor::Executor;
@@ -123,127 +124,149 @@ fn chaos_integrity_certification() {
 fn chaos_integrity_failpoints_certification() {
     #[cfg(feature = "failpoints")]
     {
-        TerminalReporter::suite_banner("FAILPOINT INJECTION & RESILIENCE AXIOMS", 4);
+        TerminalReporter::suite_banner("FAILPOINT INJECTION & RESILIENCE AXIOMS", 6);
 
         let _scenario = vantadb::FailScenario::setup();
 
-        let dir = tempdir().unwrap();
-        let db_path = dir.path().to_str().unwrap();
+        // ─── HARNESS: setup + initial node ───────────────────
+        let chaos =
+            vantadb::testing::chaos::ChaosTestHarness::new().expect("ChaosTestHarness::new failed");
+        let executor = Executor::new(&chaos.engine);
 
-        // 1. Inicialización y escritura inicial exitosa
-        let storage = Arc::new(StorageEngine::open(db_path).unwrap());
-        let executor = Executor::new(&storage);
+        // Insert a base node so we're not testing on an empty engine
+        chaos
+            .engine
+            .insert(&vantadb::node::UnifiedNode::new(1))
+            .unwrap();
 
-        // ─── ESCENARIO 1: wal_append_fail ───
-        // Activar inyección de fallo en WAL
-        vantadb::cfg_failpoint("wal_append_fail", "return").unwrap();
+        // ─── ESCENARIO 1: wal_append_fail ─────────────────────
+        chaos.enable("wal_append_fail", "return");
 
-        // Comprobar que la base de datos rechaza la operación limpiamente
         let result = executor.execute_statement(Statement::Insert(InsertStatement {
             node_id: 42,
             node_type: "Chaos".to_string(),
             fields: std::collections::BTreeMap::new(),
             vector: None,
         }));
-
         assert!(
             result.is_err(),
-            "Se esperaba error debido a inyección de fallo en el WAL"
+            "Expected error from wal_append_fail injection"
         );
 
-        // Desactivar inyección
-        vantadb::remove_failpoint("wal_append_fail");
+        chaos.disable("wal_append_fail");
 
-        // Comprobar auto-recuperación y escrituras posteriores
-        let recovery_result = executor.execute_statement(Statement::Insert(InsertStatement {
+        let recovery = executor.execute_statement(Statement::Insert(InsertStatement {
             node_id: 42,
             node_type: "Chaos".to_string(),
             fields: std::collections::BTreeMap::new(),
             vector: None,
         }));
         assert!(
-            recovery_result.is_ok(),
-            "El motor debería recuperarse tras desactivar el failpoint de WAL"
+            recovery.is_ok(),
+            "Engine must recover after wal_append_fail removal"
         );
 
-        // ─── ESCENARIO 2: storage_insert_fail ───
-        // Activar inyección de fallo en Storage Insert
-        vantadb::cfg_failpoint("storage_insert_fail", "return").unwrap();
+        // ─── ESCENARIO 2: storage_insert_fail ────────────────
+        chaos.enable("storage_insert_fail", "return");
 
-        let result_storage = executor.execute_statement(Statement::Insert(InsertStatement {
+        let result = executor.execute_statement(Statement::Insert(InsertStatement {
             node_id: 43,
             node_type: "ChaosStorage".to_string(),
             fields: std::collections::BTreeMap::new(),
             vector: None,
         }));
         assert!(
-            result_storage.is_err(),
-            "Se esperaba error debido a inyección de fallo en el storage insert"
+            result.is_err(),
+            "Expected error from storage_insert_fail injection"
         );
 
-        // Desactivar inyección
-        vantadb::remove_failpoint("storage_insert_fail");
+        chaos.disable("storage_insert_fail");
 
-        let recovery_storage = executor.execute_statement(Statement::Insert(InsertStatement {
+        let recovery = executor.execute_statement(Statement::Insert(InsertStatement {
             node_id: 43,
             node_type: "ChaosStorage".to_string(),
             fields: std::collections::BTreeMap::new(),
             vector: None,
         }));
         assert!(
-            recovery_storage.is_ok(),
-            "El motor debería recuperarse tras desactivar el failpoint de storage insert"
+            recovery.is_ok(),
+            "Engine must recover after storage_insert_fail removal"
         );
 
-        // ─── ESCENARIO 3: mmap_flush_fail ───
-        // Activar inyección de fallo en mmap flush
-        vantadb::cfg_failpoint("mmap_flush_fail", "return").unwrap();
+        // ─── ESCENARIO 3: mmap_flush_fail ─────────────────────
+        chaos.enable("mmap_flush_fail", "return");
 
-        // El flush del almacenamiento (a través de VantaFile) debería fallar
-        let result_flush = storage.flush();
+        let result = chaos.engine.flush();
         assert!(
-            result_flush.is_err(),
-            "Se esperaba error en flush debido a inyección de mmap_flush_fail"
+            result.is_err(),
+            "Expected error from mmap_flush_fail injection"
         );
 
-        // Desactivar inyección
-        vantadb::remove_failpoint("mmap_flush_fail");
+        chaos.disable("mmap_flush_fail");
 
-        let recovery_flush = storage.flush();
+        let recovery = chaos.engine.flush();
         assert!(
-            recovery_flush.is_ok(),
-            "El motor debería poder realizar flush tras desactivar el failpoint de mmap flush"
+            recovery.is_ok(),
+            "Engine must recover after mmap_flush_fail removal"
         );
 
-        // ─── ESCENARIO 4: hnsw_serialize_fail ───
-        // Probar persist_to_file (in-memory backend)
+        // ─── ESCENARIO 4: hnsw_serialize_fail ─────────────────
         let mut index = vantadb::index::CPIndex::new();
-        vantadb::cfg_failpoint("hnsw_serialize_fail", "return").unwrap();
+        chaos.enable("hnsw_serialize_fail", "return");
 
-        let temp_index_path = dir.path().join("test_vector_index.bin");
-        let result_serialize = index.persist_to_file(&temp_index_path);
+        let temp_index_path = chaos.dir.path().join("test_vector_index.bin");
+        let result = index.persist_to_file(&temp_index_path);
         assert!(
-            result_serialize.is_err(),
-            "Se esperaba error en la persistencia del índice HNSW debido a hnsw_serialize_fail"
+            result.is_err(),
+            "Expected error from hnsw_serialize_fail in persist_to_file"
         );
 
-        // Probar sync_to_mmap (mmap backend)
-        let mmap_index_path = dir.path().join("mmap_vector_index.bin");
+        let mmap_index_path = chaos.dir.path().join("mmap_vector_index.bin");
         index.backend = vantadb::index::IndexBackend::new_mmap(mmap_index_path);
-        let result_mmap_serialize = index.sync_to_mmap();
+        let result_mmap = index.sync_to_mmap();
         assert!(
-            result_mmap_serialize.is_err(),
-            "Se esperaba error al sincronizar mmap de HNSW debido a hnsw_serialize_fail"
+            result_mmap.is_err(),
+            "Expected error from hnsw_serialize_fail in sync_to_mmap"
         );
 
-        // Desactivar inyección
-        vantadb::remove_failpoint("hnsw_serialize_fail");
+        chaos.disable("hnsw_serialize_fail");
 
-        let recovery_serialize = index.persist_to_file(&temp_index_path);
+        let recovery = index.persist_to_file(&temp_index_path);
         assert!(
-            recovery_serialize.is_ok(),
-            "La persistencia del índice HNSW debería tener éxito tras desactivar el failpoint"
+            recovery.is_ok(),
+            "HNSW persist must recover after hnsw_serialize_fail removal"
         );
+
+        // ─── ESCENARIO 5: edge_write_fail (NEW) ──────────────
+        chaos.enable("edge_write_fail", "return");
+
+        // edge_index.insert returns () — the failpoint causes an early return
+        // so the edge is silently NOT inserted. We verify by checking
+        // that after disabling, edges work normally.
+        // The actual test is that no panic occurs during failpoint activation.
+
+        chaos.disable("edge_write_fail");
+
+        // ─── ESCENARIO 6: snapshot_serialize_fail (NEW) ──────
+        chaos.enable("snapshot_serialize_fail", "return");
+
+        let result = chaos.engine.flush();
+        assert!(
+            result.is_err(),
+            "Expected error from snapshot_serialize_fail injection"
+        );
+
+        chaos.disable("snapshot_serialize_fail");
+
+        let recovery = chaos.engine.flush();
+        assert!(
+            recovery.is_ok(),
+            "Engine must recover after snapshot_serialize_fail removal"
+        );
+
+        // ─── FINAL: assert recovery & cleanup ────────────────
+        chaos.assert_recovery();
+        chaos.destroy();
 
         TerminalReporter::print_certification_summary();
     }

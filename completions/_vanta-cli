@@ -407,6 +407,77 @@ esac
     ;;
 esac
 ;;
+(snapshot)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_vanta-cli__subcmd__snapshot_commands" \
+"*::: :->snapshot" \
+&& ret=0
+
+    case $state in
+    (snapshot)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-snapshot-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':name -- Name for the snapshot:_default' \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_vanta-cli__subcmd__snapshot__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-snapshot-help-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
 (server)
 _arguments "${_arguments_options[@]}" : \
 '-p+[Port for the HTTP server]:PORT:_default' \
@@ -559,6 +630,30 @@ _arguments "${_arguments_options[@]}" : \
     ;;
 esac
 ;;
+(snapshot)
+_arguments "${_arguments_options[@]}" : \
+":: :_vanta-cli__subcmd__help__subcmd__snapshot_commands" \
+"*::: :->snapshot" \
+&& ret=0
+
+    case $state in
+    (snapshot)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-help-snapshot-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
 (server)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -599,6 +694,7 @@ _vanta-cli_commands() {
 'delete:Delete a record by namespace and key' \
 'migrate:Migrate a database to the latest storage schema version' \
 'namespace:Manage namespaces' \
+'snapshot:Manage instant filesystem snapshots' \
 'server:Start the HTTP or MCP server wrapper' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -662,6 +758,7 @@ _vanta-cli__subcmd__help_commands() {
 'delete:Delete a record by namespace and key' \
 'migrate:Migrate a database to the latest storage schema version' \
 'namespace:Manage namespaces' \
+'snapshot:Manage instant filesystem snapshots' \
 'server:Start the HTTP or MCP server wrapper' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -798,6 +895,24 @@ _vanta-cli__subcmd__help__subcmd__search_commands() {
 _vanta-cli__subcmd__help__subcmd__server_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help server commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__snapshot_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__snapshot_commands() {
+    local commands; commands=(
+'create:Create an instant filesystem snapshot by hard-linking all data files' \
+'list:List all existing snapshots' \
+    )
+    _describe -t commands 'vanta-cli help snapshot commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__snapshot__subcmd__create_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__snapshot__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help snapshot create commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__snapshot__subcmd__list_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__snapshot__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help snapshot list commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__help__subcmd__stats_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__stats_commands() {
@@ -956,6 +1071,49 @@ _vanta-cli__subcmd__search_commands() {
 _vanta-cli__subcmd__server_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli server commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__snapshot_commands] )) ||
+_vanta-cli__subcmd__snapshot_commands() {
+    local commands; commands=(
+'create:Create an instant filesystem snapshot by hard-linking all data files' \
+'list:List all existing snapshots' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'vanta-cli snapshot commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__snapshot__subcmd__create_commands] )) ||
+_vanta-cli__subcmd__snapshot__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli snapshot create commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__snapshot__subcmd__help_commands] )) ||
+_vanta-cli__subcmd__snapshot__subcmd__help_commands() {
+    local commands; commands=(
+'create:Create an instant filesystem snapshot by hard-linking all data files' \
+'list:List all existing snapshots' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'vanta-cli snapshot help commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__snapshot__subcmd__help__subcmd__create_commands] )) ||
+_vanta-cli__subcmd__snapshot__subcmd__help__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli snapshot help create commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__snapshot__subcmd__help__subcmd__help_commands] )) ||
+_vanta-cli__subcmd__snapshot__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli snapshot help help commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__snapshot__subcmd__help__subcmd__list_commands] )) ||
+_vanta-cli__subcmd__snapshot__subcmd__help__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli snapshot help list commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__snapshot__subcmd__list_commands] )) ||
+_vanta-cli__subcmd__snapshot__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli snapshot list commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__stats_commands] )) ||
 _vanta-cli__subcmd__stats_commands() {

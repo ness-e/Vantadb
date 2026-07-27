@@ -199,6 +199,10 @@ pub enum Commands {
     #[command(subcommand)]
     Namespace(NamespaceCommand),
 
+    /// Manage instant filesystem snapshots
+    #[command(subcommand)]
+    Snapshot(SnapshotCommand),
+
     /// Start the HTTP or MCP server wrapper
     Server {
         /// Start HTTP server wrapper (default)
@@ -233,6 +237,18 @@ pub enum NamespaceCommand {
         /// Namespace to inspect
         namespace: String,
     },
+}
+
+/// Subcommands for filesystem snapshots
+#[derive(Subcommand, Debug, Clone)]
+pub enum SnapshotCommand {
+    /// Create an instant filesystem snapshot by hard-linking all data files
+    Create {
+        /// Name for the snapshot
+        name: String,
+    },
+    /// List all existing snapshots
+    List,
 }
 
 /// Subcommands for database migration

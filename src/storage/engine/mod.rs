@@ -134,6 +134,19 @@ pub struct Snapshot {
     pub txn_id: u64,
 }
 
+/// A filesystem-level snapshot created via POSIX hard links (or copy on Windows).
+///
+/// Unlike the MVCC [`Snapshot`], this is a point-in-time copy of all data files
+/// in the storage directory — instant O(1) on Unix via hard links, O(n) on Windows
+/// via fallback copy.
+#[derive(Debug, Clone)]
+pub struct FsSnapshot {
+    /// Path to the snapshot directory.
+    pub path: PathBuf,
+    /// When the snapshot was created.
+    pub created_at: std::time::Instant,
+}
+
 /// A pending HNSW mutation awaiting batch flush.
 #[derive(Clone)]
 pub(crate) struct PendingHnswOp {
@@ -260,6 +273,90 @@ impl StorageEngine {
             postcard::to_allocvec(&metadata).map_err(crate::error::VantaError::serialization)?;
         backend.put(BackendPartition::Default, &key, &metadata_val)?;
         Ok(())
+    }
+}
+
+// ─── Filesystem Snapshots ──────────────────────────────────
+
+impl StorageEngine {
+    /// Create an instant filesystem snapshot by hard-linking all data files.
+    ///
+    /// On Unix, this is O(1) per file — the kernel creates directory entries
+    /// pointing at the same inode, so no data is copied. On Windows, falls
+    /// back to [`std::fs::copy`] (O(n) per file) since `CreateHardLinkA`
+    /// requires NTFS and may need admin rights.
+    #[cfg(unix)]
+    pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
+        let snap_dir = self.data_dir.join("snapshots").join(name);
+        std::fs::create_dir_all(&snap_dir)?;
+
+        #[cfg(feature = "failpoints")]
+        {
+            fail::fail_point!("snapshot_create_fail", |_| {
+                Err(crate::error::VantaError::IoError(std::io::Error::other(
+                    "Simulated snapshot create I/O failure",
+                )))
+            });
+        }
+
+        for entry in std::fs::read_dir(&self.data_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() {
+                let dest = snap_dir.join(entry.file_name());
+                std::os::unix::fs::link(&path, &dest)?;
+            }
+        }
+        Ok(FsSnapshot {
+            path: snap_dir,
+            created_at: std::time::Instant::now(),
+        })
+    }
+
+    /// Create a filesystem snapshot (Windows fallback using copy).
+    #[cfg(windows)]
+    pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
+        let snap_dir = self.data_dir.join("snapshots").join(name);
+        std::fs::create_dir_all(&snap_dir)?;
+
+        #[cfg(feature = "failpoints")]
+        {
+            fail::fail_point!("snapshot_create_fail", |_| {
+                Err(crate::error::VantaError::IoError(std::io::Error::other(
+                    "Simulated snapshot create I/O failure",
+                )))
+            });
+        }
+
+        for entry in std::fs::read_dir(&self.data_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() {
+                let dest = snap_dir.join(entry.file_name());
+                std::fs::copy(&path, &dest)?;
+            }
+        }
+        Ok(FsSnapshot {
+            path: snap_dir,
+            created_at: std::time::Instant::now(),
+        })
+    }
+
+    /// List existing snapshot names.
+    pub fn list_snapshots(&self) -> crate::error::Result<Vec<String>> {
+        let snap_dir = self.data_dir.join("snapshots");
+        if !snap_dir.exists() {
+            return Ok(Vec::new());
+        }
+        let mut names = Vec::new();
+        for entry in std::fs::read_dir(&snap_dir)? {
+            let entry = entry?;
+            if entry.file_type()?.is_dir() {
+                names.push(entry.file_name().to_string_lossy().into_owned());
+            }
+        }
+        names.sort();
+        Ok(names)
     }
 }
 

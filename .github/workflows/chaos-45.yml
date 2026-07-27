@@ -1,0 +1,46 @@
+name: 'Chaos: Failpoint Injection & Resilience Tests'
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.config/nextest.toml'
+      - '.github/workflows/chaos-45.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.config/nextest.toml'
+      - '.github/workflows/chaos-45.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+permissions:
+  contents: read
+
+jobs:
+  chaos:
+    name: Chaos Tests (failpoints)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-nextest: true
+          install-system-deps: true
+          swap-mb: 4096
+
+      - name: Run chaos tests (chaos nextest profile)
+        run: cargo nextest run --profile chaos --features failpoints -p vantadb

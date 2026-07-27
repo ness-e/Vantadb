@@ -18,6 +18,10 @@ impl EdgeIndex {
 
     /// Insert a directed edge from `from` to `to`.
     pub fn insert(&self, from: u128, to: u128) {
+        #[cfg(feature = "failpoints")]
+        {
+            fail::fail_point!("edge_write_fail");
+        }
         self.edges.insert((from, to));
     }
 

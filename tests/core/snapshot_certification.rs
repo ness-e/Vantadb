@@ -16,6 +16,7 @@ use rand::{Rng, SeedableRng};
 use std::fs;
 use tempfile::tempdir;
 
+use std::time::Instant;
 use vantadb::index::{CPIndex, HnswConfig, VectorRepresentations};
 use vantadb::node::{
     DiskNodeHeader, DistanceMetric, FieldValue, FilterBitset, NodeFlags, UnifiedNode,
@@ -1140,4 +1141,167 @@ fn vantafile_export_golden_file() {
             TerminalReporter::success("VantaFile export golden file structure certified.");
         },
     );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 5: HARD-LINK FILESYSTEM SNAPSHOT TESTS
+// ═══════════════════════════════════════════════════════════════════
+
+/// Helper: seed a VantaEmbedded with some test records.
+fn seed_snapshot_data(db: &VantaEmbedded) {
+    for i in 0..5 {
+        let mut input =
+            VantaMemoryInput::new("ns/snap", &format!("key-{i}"), &format!("payload-{i}"));
+        input.vector = Some(vec![i as f32, 0.0, 0.0]);
+        db.put(input).expect("seed put");
+    }
+    db.flush().expect("seed flush");
+}
+
+/// Helper: count files in a directory (non-recursive).
+fn count_files(path: &std::path::Path) -> usize {
+    if !path.exists() {
+        return 0;
+    }
+    std::fs::read_dir(path)
+        .map(|entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().map(|t| t.is_file()).unwrap_or(false))
+                .count()
+        })
+        .unwrap_or(0)
+}
+
+#[test]
+fn test_hardlink_snapshot_instant() {
+    TerminalReporter::suite_banner("HARD-LINK SNAPSHOT INSTANT", 1);
+    let mut harness = VantaHarness::new("HARD-LINK SNAPSHOT INSTANT");
+
+    harness.execute(
+        "Snapshot creates all data files under snapshots/<name>",
+        || {
+            let dir = tempdir().expect("tempdir");
+            let db = VantaEmbedded::open(dir.path()).expect("open db");
+            seed_snapshot_data(&db);
+
+            let start = Instant::now();
+            let snap = db.create_snapshot("test-snap-1").expect("create snapshot");
+            let elapsed = start.elapsed();
+
+            // Snapshot directory must exist and contain files
+            assert!(snap.path.exists(), "snapshot path must exist");
+            assert!(snap.path.is_dir(), "snapshot path must be a directory");
+            let file_count = count_files(&snap.path);
+            assert!(
+                file_count > 0,
+                "snapshot must contain at least one file, got {file_count}"
+            );
+
+            // Snapshot must be near-instant (hard link is O(1) per file).
+            // On Windows (copy fallback) this may be slower, so use a generous limit.
+            assert!(
+                elapsed.as_secs() < 5,
+                "snapshot creation took {elapsed:?} — expected < 5s"
+            );
+
+            TerminalReporter::success(&format!(
+                "Snapshot created with {file_count} files in {elapsed:?}",
+            ));
+        },
+    );
+}
+
+#[test]
+fn test_hardlink_snapshot_independence() {
+    TerminalReporter::suite_banner("HARD-LINK SNAPSHOT INDEPENDENCE", 1);
+    let mut harness = VantaHarness::new("HARD-LINK SNAPSHOT INDEPENDENCE");
+
+    harness.execute(
+        "Modifying original data after snapshot leaves snapshot unchanged",
+        || {
+            let dir = tempdir().expect("tempdir");
+            let db = VantaEmbedded::open(dir.path()).expect("open db");
+
+            // Seed original data
+            let mut input = VantaMemoryInput::new("ns/indep", "key-a", "original payload");
+            input.vector = Some(vec![1.0, 0.0, 0.0]);
+            db.put(input).expect("put original");
+            db.flush().expect("flush original");
+
+            // Snapshot the original state
+            let snap = db.create_snapshot("pre-modify").expect("create snapshot");
+
+            // Modify the original data
+            let mut input2 = VantaMemoryInput::new("ns/indep", "key-a", "modified payload");
+            input2.vector = Some(vec![99.0, 0.0, 0.0]);
+            db.put(input2).expect("put modified");
+            db.flush().expect("flush modified");
+
+            // Verify the snapshot directory still exists and has content
+            assert!(
+                snap.path.exists(),
+                "snapshot path must survive modification"
+            );
+
+            // Open a fresh DB pointing to the snapshot directory to verify
+            // the snapshot contains the original state
+            let snap_db = VantaEmbedded::open(&snap.path).expect("open snapshot as db");
+            let got = snap_db.get("ns/indep", "key-a").expect("get from snapshot");
+            assert_eq!(
+                got.map(|r| r.payload),
+                Some("original payload".to_string()),
+                "Snapshot must contain original payload, not modified one"
+            );
+
+            TerminalReporter::success("Snapshot independence confirmed: original data preserved.");
+        },
+    );
+}
+
+#[test]
+fn test_hardlink_snapshot_multiple() {
+    TerminalReporter::suite_banner("HARD-LINK MULTIPLE SNAPSHOTS", 1);
+    let mut harness = VantaHarness::new("HARD-LINK MULTIPLE SNAPSHOTS");
+
+    harness.execute("Multiple snapshots are isolated from each other", || {
+        let dir = tempdir().expect("tempdir");
+        let db = VantaEmbedded::open(dir.path()).expect("open db");
+
+        // Phase 1: seed data and snapshot
+        seed_snapshot_data(&db);
+        let snap1 = db.create_snapshot("phase-1").expect("snapshot 1");
+        let count1 = count_files(&snap1.path);
+
+        // Phase 2: add more data and snapshot again
+        for i in 5..10 {
+            let mut input = VantaMemoryInput::new("ns/snap", &format!("key-{i}"), &format!("payload-{i}"));
+            input.vector = Some(vec![i as f32, 0.0, 0.0]);
+            db.put(input).expect("put phase 2");
+        }
+        db.flush().expect("flush phase 2");
+        let snap2 = db.create_snapshot("phase-2").expect("snapshot 2");
+        let count2 = count_files(&snap2.path);
+
+        // Phase 3: delete some data and snapshot again
+        db.delete("ns/snap", "key-0").expect("delete key-0");
+        db.flush().expect("flush phase 3");
+        let snap3 = db.create_snapshot("phase-3").expect("snapshot 3");
+        let count3 = count_files(&snap3.path);
+
+        // List snapshots and verify all 3 exist
+        let names = db.list_snapshots().expect("list snapshots");
+        assert!(names.contains(&"phase-1".to_string()), "phase-1 must be listed");
+        assert!(names.contains(&"phase-2".to_string()), "phase-2 must be listed");
+        assert!(names.contains(&"phase-3".to_string()), "phase-3 must be listed");
+
+        // Each snapshot must have at least one file
+        assert!(count1 > 0, "snapshot 1 must have files");
+        assert!(count2 > 0, "snapshot 2 must have files");
+        assert!(count3 > 0, "snapshot 3 must have files");
+
+        TerminalReporter::success(&format!(
+            "All 3 snapshots isolated: phase-1 ({count1} files), phase-2 ({count2} files), phase-3 ({count3} files)",
+        ));
+    });
 }

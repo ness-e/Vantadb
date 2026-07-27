@@ -72,6 +72,14 @@ impl StorageEngine {
             self.backend.flush()?;
         }
 
+        #[cfg(feature = "failpoints")]
+        {
+            fail::fail_point!("snapshot_serialize_fail", |_| {
+                Err(crate::error::VantaError::IoError(std::io::Error::other(
+                    "Simulated snapshot serialize I/O failure",
+                )))
+            });
+        }
         self.save_vector_index()?;
 
         // PERF-09: Run quantization auto-transition during flush

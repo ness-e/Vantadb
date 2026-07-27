@@ -174,6 +174,23 @@ impl VantaEmbedded {
         *guard = None;
         Ok(())
     }
+
+    // ── Filesystem Snapshots ──
+
+    /// Create an instant filesystem snapshot via hard links (Unix) or copy (Windows).
+    ///
+    /// All data files in the storage directory are hard-linked into
+    /// `<data_dir>/snapshots/<name>`, giving an O(1) point-in-time image.
+    pub fn create_snapshot(&self, name: &str) -> Result<crate::storage::FsSnapshot> {
+        let engine = self.engine_handle()?;
+        engine.create_snapshot(name)
+    }
+
+    /// List all existing snapshot names.
+    pub fn list_snapshots(&self) -> Result<Vec<String>> {
+        let engine = self.engine_handle()?;
+        engine.list_snapshots()
+    }
 }
 
 #[cfg(test)]

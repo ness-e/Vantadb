@@ -11,6 +11,7 @@ pub mod migrate;
 pub mod namespace;
 pub mod search;
 pub mod server;
+pub mod snapshot;
 pub mod util;
 
 pub use backup::*;
@@ -24,6 +25,7 @@ pub use migrate::*;
 pub use namespace::*;
 pub use search::*;
 pub use server::*;
+pub use snapshot::*;
 pub use util::*;
 
 pub use crate::sdk::{

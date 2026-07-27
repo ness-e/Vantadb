@@ -174,3 +174,7 @@ pub fn cfg_failpoint(name: &str, actions: &str) -> std::result::Result<(), Strin
 pub fn remove_failpoint(name: &str) {
     fail::remove(name);
 }
+
+/// Testing utilities for failpoint-based chaos and resilience testing.
+#[cfg(feature = "failpoints")]
+pub mod testing;

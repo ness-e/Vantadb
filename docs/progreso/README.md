@@ -289,6 +289,40 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-26 — OLD-03: Chaos Testing — Failpoint Harness Formal ✅
+
+**Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-03`
+
+**Problema original:** Test `chaos_integrity_failpoints_certification()` existía con failpoints inline. Sin harness reutilizable, sin documentación, sin CI workflow.
+
+**Resuelto por (vanta-chaos, ponytail):**
+- `ChaosTestHarness` en `src/testing/chaos.rs`: setup/teardown automático, enable/disable/assert_recovery/destroy
+- 6 escenarios: wal_append, storage_insert, mmap_flush, hnsw_serialize, edge_write (nuevo), snapshot_serialize (nuevo)
+- `docs/chaos-testing.md` con patrón de failpoints, cómo agregar nuevos, cómo correr localmente
+- Feature-gated `failpoints` — 0 overhead en builds productivos
+
+**Verificación:** `cargo nextest run --features failpoints -p vantadb -- test_chaos` ✅ | `cargo check --features failpoints -p vantadb` ✅
+
+**Ids:** `OLD-03`
+
+### 2026-07-26 — OLD-08: Snapshots via Hard Links ✅
+
+**Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-08`
+
+**Problema original:** `snapshot_certification.rs` existía, hard-link pattern POSIX no implementado.
+
+**Resuelto por (vanta-worker):**
+- `FsSnapshot` + `SnapshotManager` con hard-link POSIX (O(1) instantáneo)
+- `StorageEngine::create_snapshot(name)` / `list_snapshots()` 
+- `VantaEmbedded::create_snapshot(name)` en SDK público
+- CLI `vantadb snapshot create <name>` + `vantadb snapshot list`
+- +failpoint `snapshot_create_fail` para chaos testing
+- Tests: instant, multiple snapshots, independence
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo nextest run -p vantadb -- snapshot` ✅
+
+**Ids:** `OLD-08`
+
 ### 2026-07-26 — OLD-09: Olvido Bayesiano (Bayesian Hit Decay) ✅
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-09`

@@ -131,6 +131,13 @@ fn main() -> Result<()> {
 
         Commands::Stats { json } => cli_handlers::cmd_stats(&args.db, json, args.verbose)?,
 
+        Commands::Snapshot(cmd) => match cmd {
+            vantadb::cli::SnapshotCommand::Create { name } => {
+                cli_handlers::cmd_snapshot_create(&args.db, &name, args.verbose)?
+            }
+            vantadb::cli::SnapshotCommand::List => cli_handlers::cmd_snapshot_list(&args.db)?,
+        },
+
         Commands::Completions { shell } => cli_handlers::cmd_completions(shell),
 
         Commands::Server {
