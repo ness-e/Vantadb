@@ -146,6 +146,10 @@ fn test_crash_injection_and_cold_recovery_loop() {
     session.finish(true);
 }
 
+#[cfg_attr(
+    target_os = "windows",
+    ignore = "memory allocation failure during crash_helper compilation on Windows"
+)]
 #[test]
 fn test_crash_during_active_writes_with_tight_loop() {
     TerminalReporter::suite_banner("ACTIVE-WRITE CRASH INJECTION & RECOVERY (AUD-03)", 1);
