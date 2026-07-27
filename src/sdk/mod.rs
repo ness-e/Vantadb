@@ -6,7 +6,7 @@ pub(crate) mod builder;
 pub mod connect;
 mod graph;
 mod search;
-mod serialization;
+pub(crate) mod serialization;
 pub(crate) mod types;
 
 pub use builder::VantaEmbedded;

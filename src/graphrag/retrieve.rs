@@ -93,7 +93,7 @@ pub fn collect_edges(
                 edges.push(GraphRagEdge {
                     source: node.id,
                     target: edge.target,
-                    label: edge.label.clone(),
+                    label: engine.resolve_label(edge.label_id).unwrap_or_default(),
                 });
             }
         }

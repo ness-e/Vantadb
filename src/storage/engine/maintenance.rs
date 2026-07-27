@@ -600,12 +600,13 @@ impl StorageEngine {
         let entries = self.backend.scan(BackendPartition::TombstoneStorage)?;
 
         let mut recovered = Vec::new();
+        let belonged_to_id = self.intern_label("belonged_to");
         for (_k, v) in &entries {
             if let Ok(mut node) = postcard::from_bytes::<UnifiedNode>(v) {
                 if node
                     .edges
                     .iter()
-                    .any(|e| e.target == summary_id && e.label == "belonged_to")
+                    .any(|e| e.target == summary_id && e.label_id == belonged_to_id)
                 {
                     node.flags.set(crate::node::NodeFlags::ACTIVE);
                     node.flags.set(crate::node::NodeFlags::RECOVERED);

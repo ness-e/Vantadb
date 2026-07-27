@@ -390,15 +390,72 @@ impl VectorRepresentations {
     }
 }
 
+// ─── Label Intern ──────────────────────────────────────────
+
+/// Bidirectional map: String ↔ u32 for edge labels.
+/// Cardinalidad típica: decenas/cientos, no miles. HashMap alcanza.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct LabelIntern {
+    map: HashMap<String, u32>,
+    strings: Vec<String>,
+}
+
+impl LabelIntern {
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+            strings: Vec::new(),
+        }
+    }
+
+    /// Get or create a label ID.
+    pub fn intern(&mut self, label: &str) -> u32 {
+        if let Some(&id) = self.map.get(label) {
+            return id;
+        }
+        let id = self.strings.len() as u32;
+        self.map.insert(label.to_string(), id);
+        self.strings.push(label.to_string());
+        id
+    }
+
+    /// Resolve an ID back to a label string.
+    pub fn resolve(&self, id: u32) -> Option<&str> {
+        self.strings.get(id as usize).map(|s| s.as_str())
+    }
+
+    /// Look up a label string without creating a new ID.
+    pub fn lookup(&self, label: &str) -> Option<u32> {
+        self.map.get(label).copied()
+    }
+
+    pub fn len(&self) -> usize {
+        self.strings.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.strings.is_empty()
+    }
+}
+
+impl Default for LabelIntern {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // ─── Edge ──────────────────────────────────────────────────
 
-/// Labeled directed edge with optional weight
+/// Labeled directed edge with optional weight.
+///
+/// Label stored as `label_id: u32` referencing a `LabelIntern` map.
+/// Saves ~20-28 bytes per edge vs storing a `String` inline.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Edge {
     /// Target node ID.
     pub target: u128,
-    /// Edge label string.
-    pub label: String,
+    /// Interned edge label (use LabelIntern to resolve).
+    pub label_id: u32,
     /// Edge weight (defaults to 1.0).
     pub weight: f32,
 }
@@ -420,19 +477,19 @@ pub struct EvictionWeights {
 
 impl Edge {
     /// Create an edge with default weight (1.0).
-    pub fn new(target: u128, label: impl Into<String>) -> Self {
+    pub fn new(target: u128, label_id: u32) -> Self {
         Self {
             target,
-            label: label.into(),
+            label_id,
             weight: 1.0,
         }
     }
 
     /// Create an edge with a custom weight.
-    pub fn with_weight(target: u128, label: impl Into<String>, weight: f32) -> Self {
+    pub fn with_weight(target: u128, label_id: u32, weight: f32) -> Self {
         Self {
             target,
-            label: label.into(),
+            label_id,
             weight,
         }
     }
@@ -806,15 +863,15 @@ impl UnifiedNode {
         node
     }
 
-    /// Add a labeled edge
-    pub fn add_edge(&mut self, target: u128, label: impl Into<String>) {
-        self.edges.push(Edge::new(target, label));
+    /// Add a labeled edge with an interned label_id.
+    pub fn add_edge(&mut self, target: u128, label_id: u32) {
+        self.edges.push(Edge::new(target, label_id));
         self.flags.set(NodeFlags::HAS_EDGES);
     }
 
-    /// Add weighted edge
-    pub fn add_weighted_edge(&mut self, target: u128, label: impl Into<String>, weight: f32) {
-        self.edges.push(Edge::with_weight(target, label, weight));
+    /// Add weighted edge with an interned label_id.
+    pub fn add_weighted_edge(&mut self, target: u128, label_id: u32, weight: f32) {
+        self.edges.push(Edge::with_weight(target, label_id, weight));
         self.flags.set(NodeFlags::HAS_EDGES);
     }
 
@@ -1300,17 +1357,17 @@ mod tests {
 
     #[test]
     fn test_edge_new() {
-        let edge = Edge::new(42, "knows");
+        let edge = Edge::new(42, 0);
         assert_eq!(edge.target, 42);
-        assert_eq!(edge.label, "knows");
+        assert_eq!(edge.label_id, 0);
         assert!((edge.weight - 1.0).abs() < f32::EPSILON);
     }
 
     #[test]
     fn test_edge_with_weight() {
-        let edge = Edge::with_weight(99, "likes", 0.5);
+        let edge = Edge::with_weight(99, 1, 0.5);
         assert_eq!(edge.target, 99);
-        assert_eq!(edge.label, "likes");
+        assert_eq!(edge.label_id, 1);
         assert!((edge.weight - 0.5).abs() < f32::EPSILON);
     }
 
@@ -1328,17 +1385,17 @@ mod tests {
     #[test]
     fn test_node_add_edge() {
         let mut node = UnifiedNode::new(1);
-        node.add_edge(2, "friend");
+        node.add_edge(2, 0);
         assert_eq!(node.edges.len(), 1);
         assert!(node.flags.is_set(NodeFlags::HAS_EDGES));
         assert_eq!(node.edges[0].target, 2);
-        assert_eq!(node.edges[0].label, "friend");
+        assert_eq!(node.edges[0].label_id, 0);
     }
 
     #[test]
     fn test_node_add_weighted_edge() {
         let mut node = UnifiedNode::new(1);
-        node.add_weighted_edge(3, "colleague", 2.5);
+        node.add_weighted_edge(3, 1, 2.5);
         assert_eq!(node.edges.len(), 1);
         assert_eq!(node.edges[0].weight, 2.5);
         assert_eq!(node.edges[0].target, 3);
@@ -1349,7 +1406,7 @@ mod tests {
         let node = UnifiedNode::new(1);
         assert!(node.memory_size() >= std::mem::size_of::<UnifiedNode>());
         let mut node2 = UnifiedNode::with_vector(2, vec![0.0; 100]);
-        node2.add_edge(3, "test");
+        node2.add_edge(3, 0);
         node2.set_field("key", FieldValue::String("val".into()));
         assert!(node2.memory_size() > node.memory_size());
     }

@@ -62,6 +62,7 @@ pub(crate) mod backend;
 pub(crate) mod backends;
 /// Binary header format for all persisted VantaDB files.
 pub mod binary_header;
+pub(crate) mod cache_warmer;
 #[cfg(feature = "cli")]
 pub mod cli;
 #[cfg(feature = "cli")]

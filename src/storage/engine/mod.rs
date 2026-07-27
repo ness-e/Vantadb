@@ -26,7 +26,7 @@ use crate::backend::StorageBackend;
 use crate::config::VantaConfig;
 use crate::error::Result;
 use crate::index::CPIndex;
-use crate::node::{FilterBitset, UnifiedNode, VectorRepresentations};
+use crate::node::{FilterBitset, LabelIntern, UnifiedNode, VectorRepresentations};
 use crate::storage::vfile::{engine_mmap_resident_bytes, VantaFile};
 
 // ─── Constants ──────────────────────────────────────────────────
@@ -240,6 +240,11 @@ pub struct StorageEngine {
     /// Lightweight cardinality statistics for query optimization.
     pub(crate) cardinality_stats:
         RwLock<std::collections::HashMap<String, std::collections::HashMap<String, usize>>>,
+    /// Predictive cache warmer for co-access tracking and prefetch (OLD-20).
+    pub(crate) cache_warmer: crate::cache_warmer::CacheWarmer,
+    /// Bidirectional edge label interner: String ↔ u32.
+    /// Reduces per-edge label overhead from ~24-32 bytes to 4 bytes.
+    pub(crate) label_intern: parking_lot::Mutex<LabelIntern>,
 }
 
 // ─── Internal helpers used across sub-modules ──────────────────
@@ -273,6 +278,26 @@ impl StorageEngine {
             postcard::to_allocvec(&metadata).map_err(crate::error::VantaError::serialization)?;
         backend.put(BackendPartition::Default, &key, &metadata_val)?;
         Ok(())
+    }
+}
+
+// ─── Label Interning ───────────────────────────────────────
+
+impl StorageEngine {
+    /// Intern a label string, returning a stable u32 ID.
+    /// Creates a new entry if the label hasn't been seen before.
+    pub fn intern_label(&self, label: &str) -> u32 {
+        self.label_intern.lock().intern(label)
+    }
+
+    /// Resolve a label_id back to its string, if known.
+    pub fn resolve_label(&self, id: u32) -> Option<String> {
+        self.label_intern.lock().resolve(id).map(|s| s.to_string())
+    }
+
+    /// Convert a `UnifiedNode` to an SDK `VantaNodeRecord`, resolving edge labels.
+    pub fn node_to_record(&self, node: crate::node::UnifiedNode) -> crate::sdk::VantaNodeRecord {
+        crate::sdk::serialization::graph_types::unified_to_record(node, &self.label_intern.lock())
     }
 }
 
@@ -313,8 +338,8 @@ impl StorageEngine {
         })
     }
 
-    /// Create a filesystem snapshot (Windows fallback using copy).
-    #[cfg(windows)]
+    /// Create a filesystem snapshot (Windows/WASM fallback using copy).
+    #[cfg(any(windows, target_arch = "wasm32"))]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
         let snap_dir = self.data_dir.join("snapshots").join(name);
         std::fs::create_dir_all(&snap_dir)?;

@@ -1046,7 +1046,51 @@ impl StorageEngine {
         };
         node.flags = crate::node::NodeFlags(header.flags);
 
+        // OLD-20: After a cache miss, proactively prefetch co-accessed nodes.
+        // No locks are held at this point, so get() can be called recursively.
+        self.prefetch_related(id);
+
         Ok(Some(node))
+    }
+
+    /// Warm HNSW top-layer nodes (entry point + highest-layer neighbors) into
+    /// the volatile cache so search queries don't cold-read them from disk.
+    pub(crate) fn warm_hnsw_top_layer(&self) {
+        let top_ids = {
+            let hnsw = self.hnsw.load();
+            crate::cache_warmer::CacheWarmer::hnsw_top_layer_ids(&hnsw)
+        };
+        if top_ids.is_empty() {
+            return;
+        }
+        // Use get() for each — it checks cache first and fetches from stores.
+        for &id in &top_ids {
+            let _ = self.get(id);
+        }
+    }
+
+    /// Prefetch nodes that are frequently co-accessed with the given ID.
+    #[inline]
+    fn prefetch_related(&self, id: u128) {
+        let to_fetch = {
+            let cache = self.volatile_cache.read();
+            self.cache_warmer
+                .suggest_warm_ids(id, |i| cache.contains_key(&i))
+        };
+        if to_fetch.is_empty() {
+            return;
+        }
+        for warm_id in to_fetch {
+            // Recursive call: checks cache first so no infinite loop.
+            // This is safe because no locks are held at the call site.
+            if let Ok(Some(node)) = self.get(warm_id) {
+                let mut cache = self.volatile_cache.write();
+                if !cache.contains_key(&warm_id) {
+                    cache.insert(warm_id, node);
+                    self.cache_warmer.record_prefetch_hit();
+                }
+            }
+        }
     }
 
     /// Retrieve multiple nodes by ID in a single batch operation.
@@ -1175,6 +1219,12 @@ impl StorageEngine {
             node.flags = crate::node::NodeFlags(header.flags);
 
             results.push(node);
+        }
+
+        // OLD-20: Record co-access patterns for all IDs fetched together.
+        if results.len() >= 2 {
+            let ids: Vec<u128> = results.iter().map(|n| n.id).collect();
+            self.cache_warmer.record_co_access(&ids);
         }
 
         Ok(results)

@@ -3,7 +3,7 @@ title: Show HN — VantaDB — Embedded, Persistent Memory & Hybrid Search Engin
 type: operations
 status: active
 tags: [vantadb, operations, launch, hn]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-27
 aliases: []
 ---
 
@@ -47,35 +47,36 @@ VantaDB was built from the ground up to solve this: a pure Rust library that exp
 import vantadb_py
 
 # Initialize database
-db = vantadb_py.VantaDB(db_path="./agent_memory", distance_metric="cosine")
+db = vantadb_py.VantaDB(db_path="./agent_memory")
 
 # Store memory with payload
-db.put(
+record = db.put(
     namespace="llm_interactions",
     key="mem_001",
-    vector=[0.1, -0.2, 0.9, ...], # your embedding
-    payload={
-        "topic": "Rust database optimization",
-        "text": "Using MMap with topological BFS graph layouts reduces major page faults."
-    }
+    vector=[0.1, -0.2, 0.9, ...],  # your embedding
+    payload="Using MMap with topological BFS graph layouts reduces major page faults.",
+    metadata={"topic": "Rust database optimization"}
 )
 
 # Search using hybrid retrieval (Lexical + Vector)
 results = db.search_memory(
     namespace="llm_interactions",
-    vector=[0.15, -0.18, 0.88, ...],
+    query_vector=[0.15, -0.18, 0.88, ...],
     text_query="topological BFS MMap",
-    top_k=5
+    top_k=5,
+    distance_metric="cosine"
 )
 
 for res in results:
-    print(f"Key: {res.key}, Score: {res.score}, Text: {res.payload['text']}")
+    print(f"Key: {res.key}, Score: {res.score}, Text: {res.payload}")
 ```
 
 ### Limitations & Current Status
-VantaDB is currently at version `0.1.4` (MVP). It is not designed to be a distributed database, a generic relational system of record, or a massive web-scale vector search engine. It is strictly optimized as an embedded, durable memory engine for edge AI agents.
+VantaDB is currently at version `0.4.0` (beta). It is not designed to be a distributed database, a generic relational system of record, or a massive web-scale vector search engine. It is strictly optimized as an embedded, durable memory engine for edge AI agents.
 
-The project is Apache-2.0. We have fully automated Python wheel builds for Linux, macOS, and Windows. I'd love to hear your feedback on the architecture, optimization choices, and how you manage local memory in your agent pipelines.
+The project is Apache-2.0. We have fully automated Python wheel builds for Linux (x86_64/aarch64), macOS (x86_64/arm64), and Windows (x86_64). I'd love to hear your feedback on the architecture, optimization choices, and how you manage local memory in your agent pipelines.
+
+**Links:** [GitHub](https://github.com/ness-e/Vantadb) · [Docs](https://github.com/ness-e/Vantadb#readme) · [PyPI](https://pypi.org/project/vantadb-py/)
 
 ---
 
@@ -179,6 +180,6 @@ To avoid panics from missing hardware support, we use the `cpufeatures` crate an
 > **Criticism:** The version is v0.1.4. This looks like another experimental vector database project that will be abandoned in six months.
 
 **Response:**
-We are honest about this: VantaDB is in **robust MVP** state.
-We have completed all local correctness and durability certifications (100% of unit and integration tests passing on Windows/Linux/macOS, GIL leak tests, deterministic precision benchmarks).
-The core is stabilized and documented. We are now entering the **controlled pilot program phase** (Phase 3.4) to validate the engine in real autonomous agent applications. The goal is to maintain a stable API and resolve issues with priority on our issue tracker (for which we already have draft community issues prepared).
+We are honest about this: VantaDB is in **active beta** (v0.4.0).
+We have completed all local correctness and durability certifications (100% of unit and integration tests passing on Windows/Linux/macOS, GIL leak tests, deterministic precision benchmarks, chaos-tested crash recovery with injected failpoints).
+The core is stabilized and documented. We are now launching the **controlled pilot program** to validate the engine in real autonomous agent applications. The goal is to maintain a stable API and resolve issues with priority on our issue tracker.

@@ -15,6 +15,7 @@ use crate::backends::rocksdb_backend::RocksDbBackend;
 use crate::config::VantaConfig;
 use crate::error::{Result, VantaError};
 use crate::index::{CPIndex, IndexBackend};
+use crate::node::LabelIntern;
 use crate::storage::engine::StorageEngine;
 use crate::storage::engine::{BackendKind, FLAG_TOMBSTONE, GIB, MIB};
 use crate::storage::ops;
@@ -117,9 +118,16 @@ impl StorageEngine {
                     crate::vector::governor::QuantizationConfig::default(),
                 ),
             ),
+            cache_warmer: crate::cache_warmer::CacheWarmer::new(),
             edge_index: Some(std::sync::Arc::new(crate::edge_index::EdgeIndex::new())),
             scalar_index: Some(std::sync::Arc::new(crate::scalar_index::ScalarIndex::new())),
+            label_intern: parking_lot::Mutex::new(LabelIntern::new()),
         };
+
+        // OLD-20: Warm HNSW top-layer nodes on startup so the first search
+        // doesn't pay a cold-start penalty reading entry-point nodes from disk.
+        engine.warm_hnsw_top_layer();
+
         Ok(engine)
     }
 

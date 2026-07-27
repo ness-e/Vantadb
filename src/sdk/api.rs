@@ -50,9 +50,10 @@ impl VantaEmbedded {
     /// Retrieve a node by its numeric id. Returns `None` if the id does not exist.
     #[tracing::instrument(skip(self), err)]
     pub fn get_node(&self, id: u128) -> Result<Option<VantaNodeRecord>> {
-        self.engine_handle()?
+        let engine = self.engine_handle()?;
+        engine
             .get(id)
-            .map(|node| node.map(Into::into))
+            .map(|node| node.map(|n| engine.node_to_record(n)))
     }
 
     /// Delete a node by its numeric id. The `reason` string is recorded for auditing.
@@ -723,9 +724,10 @@ impl VantaEmbedded {
         let mut node = engine
             .get(source_id)?
             .ok_or(VantaError::NodeNotFound(source_id))?;
+        let label_id = engine.intern_label(label);
         node.edges.push(crate::node::Edge {
             target: target_id,
-            label: label.to_string(),
+            label_id,
             weight: weight.unwrap_or(1.0),
         });
         engine.insert(&node)
@@ -737,7 +739,26 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
         let executor = Executor::new(&engine);
         let result = executor.execute_hybrid(query)?;
-        Ok(result.into())
+        Ok(match result {
+            crate::executor::ExecutionResult::Read(nodes) => VantaQueryResult::Read(
+                nodes
+                    .into_iter()
+                    .map(|n| engine.node_to_record(n))
+                    .collect(),
+            ),
+            crate::executor::ExecutionResult::Write {
+                affected_nodes,
+                message,
+                node_id,
+            } => VantaQueryResult::Write {
+                affected_nodes,
+                message,
+                node_id,
+            },
+            crate::executor::ExecutionResult::StaleContext(node_id) => {
+                VantaQueryResult::StaleContext { node_id }
+            }
+        })
     }
 
     /// Snapshot of current process-level operational metrics.

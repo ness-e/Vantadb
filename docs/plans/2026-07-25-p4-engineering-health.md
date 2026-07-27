@@ -43,7 +43,7 @@
 - **Estado: completed
 - **Backlog:** Line 128 — Sin migration path para VantaFile/HNSW/WAL. 4 formatos catalogados
 - **Archivos clave:** `docs/architecture/STORAGE_VERSIONING.md`
-- **Contrato: Pipeline flow cumplido: lookup -> task file -> delegación -> verificación -> progreso
+- **Contrato: All modified test suites pass — graph, basic_node, mutations, core_invariants, sdk_serialization, executor, edge_cases, memory_api, graphrag_test, plus 1561 lib unit tests
 - **Routing:** vanta-arch (arquitectura de almacenamiento, formatos)
 
 ### DRV-121: Planner CBO optimization
@@ -81,11 +81,11 @@
 - **Resultado:** `docs/book/book.toml`, `docs/book/src/SUMMARY.md` (9 secciones), 73 `{{#include}}` stubs. Cero duplicación.
 
 === RECITATION ===
-Campaign ID: 88a5aa06-4873-408d-b08c-5c9a718eebac
-Objetivo activo: OLD-19 rehidratación shadow archive
+Campaign ID: b0128938-00f5-4ef5-95c2-fedf65cfb158
+Objetivo activo: Fix broken Edge.label references after label_id interning (DRV-069)
 Estado: completed
-Última acción: Delegué OLD-19 a vanta-worker que implementó VantaEmbedded method + MCP tool + Python binding
+Última acción: Fixed remaining test files: tests/core/basic_node.rs, tests/storage/core_invariants.rs
 Resultado: ✅
-Próxima acción: Auto-commit + handoff
+Próxima acción: Report completion
 Contrato: 1547 tests pass, clippy limpio, commit 9aaf9b7f
-Próxima tarea si completa: ninguno
+Próxima tarea si completa: Complete -> no next task

@@ -69,7 +69,8 @@ fn dml_mutations_certification() {
 
         let node = storage.get(101).unwrap().unwrap();
         assert_eq!(node.edges.len(), 1);
-        assert_eq!(node.edges[0].label, "creo");
+        let creo_id = storage.intern_label("creo");
+        assert_eq!(node.edges[0].label_id, creo_id);
         TerminalReporter::success("Directed relation established through DML.");
     });
 

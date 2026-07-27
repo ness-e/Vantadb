@@ -193,7 +193,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 | ID | Feature | Esfuerzo | Estado | Dependencias |
 |----|---------|----------|--------|--------------|
-| `COMP-006` | **Edge Label Interning (u32 label_id)** — `edge_label` es `String`, no u32 internado | 🟢 ~2d | ❌ No implementado | Ninguna |
+| ~~`COMP-006`~~ | ~~**Edge Label Interning (u32 label_id)** — `edge_label` es `String`, no u32 internado~~ | ~~🟢 ~2d~~ | ~~✅ COMPLETADA~~ | ~~Ninguna~~ |
 
 ### 🟠 Media-Alta — Features competitivas importantes
 

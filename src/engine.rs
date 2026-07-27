@@ -13,7 +13,7 @@ const DEFAULT_INITIAL_CAPACITY: usize = 1024;
 
 use crate::edge_index::EdgeIndex;
 use crate::error::{Result, VantaError};
-use crate::node::{FieldValue, FilterBitset, UnifiedNode, VectorRepresentations};
+use crate::node::{FieldValue, FilterBitset, LabelIntern, UnifiedNode, VectorRepresentations};
 use crate::scalar_index::ScalarIndex;
 use crate::wal::WalRecord;
 use crate::wal_sharded::ShardedWal;
@@ -82,6 +82,8 @@ pub struct InMemoryEngine {
     scalar_index: ScalarIndex,
     /// Cached alive node count (avoids O(n) full scan — DRV-009).
     node_count: AtomicU64,
+    /// Edge label interner: String ↔ u32.
+    label_intern: parking_lot::Mutex<LabelIntern>,
 }
 
 fn build_query_result_from_scored(
@@ -131,6 +133,7 @@ impl InMemoryEngine {
             edge_index: EdgeIndex::new(),
             scalar_index: ScalarIndex::new(),
             node_count: AtomicU64::new(0),
+            label_intern: parking_lot::Mutex::new(LabelIntern::new()),
         }
     }
 
@@ -184,6 +187,7 @@ impl InMemoryEngine {
             edge_index,
             scalar_index,
             node_count: AtomicU64::new(alive_count),
+            label_intern: parking_lot::Mutex::new(LabelIntern::new()),
         })
     }
 
@@ -198,6 +202,18 @@ impl InMemoryEngine {
             sharded.append(record)?;
         }
         Ok(())
+    }
+
+    // ─── Label Interning ─────────────────────────────────────
+
+    /// Intern a label string, returning a stable u32 ID.
+    pub fn intern_label(&self, label: &str) -> u32 {
+        self.label_intern.lock().intern(label)
+    }
+
+    /// Resolve a label_id back to its string, if known.
+    pub fn resolve_label(&self, id: u32) -> Option<String> {
+        self.label_intern.lock().resolve(id).map(|s| s.to_string())
     }
 
     /// Insert a node. Auto-assigns ID if node.id == 0.
@@ -355,17 +371,20 @@ impl InMemoryEngine {
                 continue;
             }
             if let Some(node) = nodes.get(&current_id) {
-                for edge in &node.edges {
-                    if edge.label == label {
-                        if let std::collections::hash_map::Entry::Vacant(e) =
-                            visited.entry(edge.target)
-                        {
-                            let next_depth = depth + 1;
-                            e.insert(next_depth);
-                            if next_depth >= min_depth {
-                                results.push((edge.target, next_depth));
+                let label_id = self.label_intern.lock().lookup(label);
+                if let Some(lid) = label_id {
+                    for edge in &node.edges {
+                        if edge.label_id == lid {
+                            if let std::collections::hash_map::Entry::Vacant(e) =
+                                visited.entry(edge.target)
+                            {
+                                let next_depth = depth + 1;
+                                e.insert(next_depth);
+                                if next_depth >= min_depth {
+                                    results.push((edge.target, next_depth));
+                                }
+                                queue.push_back((edge.target, next_depth));
                             }
-                            queue.push_back((edge.target, next_depth));
                         }
                     }
                 }
@@ -717,12 +736,13 @@ mod tests {
     #[test]
     fn test_traverse_returns_neighbors() {
         let engine = InMemoryEngine::new();
+        let knows_id = engine.intern_label("knows");
         let mut n1 = create_node(1);
-        n1.add_edge(2, "knows");
-        n1.add_edge(3, "knows");
+        n1.add_edge(2, knows_id);
+        n1.add_edge(3, knows_id);
         engine.insert(n1).unwrap();
         let mut n2 = create_node(2);
-        n2.add_edge(4, "knows");
+        n2.add_edge(4, knows_id);
         engine.insert(n2).unwrap();
         engine.insert(create_node(3)).unwrap();
         engine.insert(create_node(4)).unwrap();
@@ -736,11 +756,12 @@ mod tests {
     #[test]
     fn test_traverse_respects_depth() {
         let engine = InMemoryEngine::new();
+        let edge_id = engine.intern_label("edge");
         let mut n1 = create_node(1);
-        n1.add_edge(2, String::from("edge"));
+        n1.add_edge(2, edge_id);
         engine.insert(n1).unwrap();
         let mut n2 = create_node(2);
-        n2.add_edge(3, String::from("edge"));
+        n2.add_edge(3, edge_id);
         engine.insert(n2).unwrap();
         engine.insert(create_node(3)).unwrap();
 
@@ -752,11 +773,12 @@ mod tests {
     #[test]
     fn test_traverse_min_depth_filters() {
         let engine = InMemoryEngine::new();
+        let edge_id = engine.intern_label("edge");
         let mut n1 = create_node(1);
-        n1.add_edge(2, String::from("edge"));
+        n1.add_edge(2, edge_id);
         engine.insert(n1).unwrap();
         let mut n2 = create_node(2);
-        n2.add_edge(3, String::from("edge"));
+        n2.add_edge(3, edge_id);
         engine.insert(n2).unwrap();
         engine.insert(create_node(3)).unwrap();
 
@@ -775,11 +797,12 @@ mod tests {
     #[test]
     fn test_traverse_correct_depth_values() {
         let engine = InMemoryEngine::new();
+        let e_id = engine.intern_label("e");
         let mut n1 = create_node(1);
-        n1.add_edge(2, String::from("e"));
+        n1.add_edge(2, e_id);
         engine.insert(n1).unwrap();
         let mut n2 = create_node(2);
-        n2.add_edge(3, String::from("e"));
+        n2.add_edge(3, e_id);
         engine.insert(n2).unwrap();
         engine.insert(create_node(3)).unwrap();
 
@@ -932,9 +955,10 @@ mod tests {
     #[test]
     fn test_stats_counts_edges() {
         let engine = InMemoryEngine::new();
+        let knows_id = engine.intern_label("knows");
         let mut n1 = create_node(1);
-        n1.add_edge(2, "knows");
-        n1.add_edge(3, "knows");
+        n1.add_edge(2, knows_id);
+        n1.add_edge(3, knows_id);
         engine.insert(n1).unwrap();
         engine.insert(create_node(2)).unwrap();
         let stats = engine.stats();

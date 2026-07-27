@@ -114,12 +114,13 @@ fn core_engine_certification() {
 
     harness.execute("Graph: Relation Traversal & Hops", || {
         let engine = InMemoryEngine::new();
+        let amigo_id = engine.intern_label("amigo");
         let mut n1 = UnifiedNode::new(1);
-        n1.add_edge(2, "amigo");
+        n1.add_edge(2, amigo_id);
         let mut n2 = UnifiedNode::new(2);
-        n2.add_edge(3, "amigo");
+        n2.add_edge(3, amigo_id);
         let mut n3 = UnifiedNode::new(3);
-        n3.add_edge(4, "amigo");
+        n3.add_edge(4, amigo_id);
         let n4 = UnifiedNode::new(4);
 
         engine.insert(n1).unwrap();
@@ -182,8 +183,9 @@ fn core_engine_certification() {
         engine
             .insert(UnifiedNode::with_vector(1, vec![1.0, 2.0, 3.0]))
             .unwrap();
+        let knows_id = engine.intern_label("knows");
         let mut n2 = UnifiedNode::new(2);
-        n2.add_edge(1, "knows");
+        n2.add_edge(1, knows_id);
         engine.insert(n2).unwrap();
         let stats = engine.stats();
         assert_eq!(stats.node_count, 2);

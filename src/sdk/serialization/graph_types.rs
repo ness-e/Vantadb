@@ -1,7 +1,7 @@
 //! Graph-related SDK types: nodes, edges, and input/record views.
 
 use super::super::types::{u128_serde, VantaFields, VantaStorageTier};
-use crate::node::{UnifiedNode, VectorRepresentations};
+use crate::node::{LabelIntern, UnifiedNode, VectorRepresentations};
 use serde::{Deserialize, Serialize};
 
 /// Stable graph edge representation for external SDKs.
@@ -72,53 +72,56 @@ pub struct VantaNodeRecord {
     pub is_alive: bool,
 }
 
-impl From<UnifiedNode> for VantaNodeRecord {
-    fn from(node: UnifiedNode) -> Self {
-        let is_alive = node.is_alive();
-        let (vector, vector_dimensions) = match node.vector {
-            VectorRepresentations::Full(vector) => {
-                let dims = vector.len();
-                (Some(vector), dims)
-            }
-            VectorRepresentations::None => (None, 0),
-            other => (None, other.dimensions()),
-        };
-
-        let tier = match node.tier {
-            crate::node::NodeTier::Hot => VantaStorageTier::Hot,
-            crate::node::NodeTier::Cold => VantaStorageTier::Cold,
-        };
-
-        let fields = node
-            .relational
-            .into_iter()
-            .map(|(key, value)| (key, value.into()))
-            .collect();
-
-        let edges = node
-            .edges
-            .into_iter()
-            .map(|edge| VantaEdgeRecord {
-                target: edge.target,
-                label: edge.label,
-                weight: edge.weight,
-            })
-            .collect();
-
-        Self {
-            id: node.id,
-            fields,
-            vector,
-            vector_dimensions,
-            edges,
-            confidence_score: node.confidence_score,
-            importance: node.importance,
-            hits: node.hits,
-            last_accessed: node.last_accessed,
-            epoch: node.epoch,
-            tier,
-            is_alive,
+/// Convert a `UnifiedNode` to an SDK `VantaNodeRecord`, resolving edge labels
+/// via the provided interner.
+pub(crate) fn unified_to_record(node: UnifiedNode, label_intern: &LabelIntern) -> VantaNodeRecord {
+    let is_alive = node.is_alive();
+    let (vector, vector_dimensions) = match node.vector {
+        VectorRepresentations::Full(vector) => {
+            let dims = vector.len();
+            (Some(vector), dims)
         }
+        VectorRepresentations::None => (None, 0),
+        other => (None, other.dimensions()),
+    };
+
+    let tier = match node.tier {
+        crate::node::NodeTier::Hot => VantaStorageTier::Hot,
+        crate::node::NodeTier::Cold => VantaStorageTier::Cold,
+    };
+
+    let fields = node
+        .relational
+        .into_iter()
+        .map(|(key, value)| (key, value.into()))
+        .collect();
+
+    let edges = node
+        .edges
+        .into_iter()
+        .map(|edge| VantaEdgeRecord {
+            target: edge.target,
+            label: label_intern
+                .resolve(edge.label_id)
+                .unwrap_or("<unknown>")
+                .to_string(),
+            weight: edge.weight,
+        })
+        .collect();
+
+    VantaNodeRecord {
+        id: node.id,
+        fields,
+        vector,
+        vector_dimensions,
+        edges,
+        confidence_score: node.confidence_score,
+        importance: node.importance,
+        hits: node.hits,
+        last_accessed: node.last_accessed,
+        epoch: node.epoch,
+        tier,
+        is_alive,
     }
 }
 
@@ -126,8 +129,12 @@ impl From<UnifiedNode> for VantaNodeRecord {
 #[allow(missing_docs)]
 mod tests {
     use super::*;
-    use crate::node::UnifiedNode;
+    use crate::node::{LabelIntern, UnifiedNode};
     use crate::sdk::types::VantaValue;
+
+    fn empty_intern() -> LabelIntern {
+        LabelIntern::new()
+    }
 
     #[test]
     fn test_node_input_new() {
@@ -140,12 +147,14 @@ mod tests {
 
     #[test]
     fn test_node_record_from_unified_node_with_vector() {
+        let mut intern = LabelIntern::new();
+        let knows_id = intern.intern("knows");
         let mut node = UnifiedNode::with_vector(7, vec![0.1, 0.2, 0.3]);
         node.set_field("name", crate::node::FieldValue::String("test".into()));
         node.set_field("count", crate::node::FieldValue::Int(10));
-        node.add_weighted_edge(42, "knows", 0.9);
+        node.add_weighted_edge(42, knows_id, 0.9);
 
-        let record: VantaNodeRecord = node.into();
+        let record = unified_to_record(node, &intern);
         assert_eq!(record.id, 7);
         assert_eq!(record.vector, Some(vec![0.1, 0.2, 0.3]));
         assert_eq!(record.vector_dimensions, 3);
@@ -166,8 +175,9 @@ mod tests {
 
     #[test]
     fn test_node_record_from_unified_node_without_vector() {
+        let intern = LabelIntern::new();
         let node = UnifiedNode::new(99);
-        let record: VantaNodeRecord = node.into();
+        let record = unified_to_record(node, &intern);
         assert_eq!(record.id, 99);
         assert!(record.vector.is_none());
         assert_eq!(record.vector_dimensions, 0);
@@ -177,18 +187,22 @@ mod tests {
 
     #[test]
     fn test_node_record_from_deleted_node() {
+        let intern = LabelIntern::new();
         let mut node = UnifiedNode::new(5);
         node.mark_deleted();
-        let record: VantaNodeRecord = node.into();
+        let record = unified_to_record(node, &intern);
         assert!(!record.is_alive);
     }
 
     #[test]
     fn test_node_record_from_unified_node_with_multiple_edges() {
+        let mut intern = LabelIntern::new();
+        let friend_id = intern.intern("friend");
+        let colleague_id = intern.intern("colleague");
         let mut node = UnifiedNode::new(1);
-        node.add_weighted_edge(10, "friend", 1.0);
-        node.add_weighted_edge(20, "colleague", 0.5);
-        let record: VantaNodeRecord = node.into();
+        node.add_weighted_edge(10, friend_id, 1.0);
+        node.add_weighted_edge(20, colleague_id, 0.5);
+        let record = unified_to_record(node, &intern);
         assert_eq!(record.edges.len(), 2);
         assert_eq!(record.edges[0].target, 10);
         assert_eq!(record.edges[1].target, 20);

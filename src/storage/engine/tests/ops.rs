@@ -733,6 +733,7 @@ fn test_scan_nodes_page_with_mixed_validity() {
 #[test]
 fn test_insert_to_cf_with_scalar_and_edge_indexes() {
     let engine = in_memory_engine();
+    let related_id = engine.intern_label("related");
     let mut node = sample_node(42);
     node.relational.insert(
         "color".to_string(),
@@ -740,7 +741,7 @@ fn test_insert_to_cf_with_scalar_and_edge_indexes() {
     );
     node.edges.push(crate::node::Edge {
         target: 1,
-        label: "related".to_string(),
+        label_id: related_id,
         weight: 1.0,
     });
     engine
@@ -779,10 +780,11 @@ fn test_purge_permanent_removes_all_traces() {
 #[test]
 fn test_delete_with_edge_index_removes_references() {
     let engine = in_memory_engine();
+    let refers_to_id = engine.intern_label("refers_to");
     let mut source = sample_node(1);
     source.edges.push(crate::node::Edge {
         target: 2,
-        label: "refers_to".to_string(),
+        label_id: refers_to_id,
         weight: 1.0,
     });
     engine.insert(&source).expect("insert source");

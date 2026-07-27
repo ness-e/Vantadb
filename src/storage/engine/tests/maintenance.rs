@@ -604,11 +604,12 @@ fn test_recover_archived_nodes_empty() {
 #[test]
 fn test_recover_archived_nodes_with_data() {
     let engine = in_memory_engine();
+    let belonged_to_id = engine.intern_label("belonged_to");
     let mut archived = UnifiedNode::new(100);
     archived.vector = crate::node::VectorRepresentations::Full(vec![0.1, 0.2]);
     archived.edges.push(crate::node::Edge {
         target: 1,
-        label: "belonged_to".to_string(),
+        label_id: belonged_to_id,
         weight: 1.0,
     });
     let data = postcard::to_allocvec(&archived)
@@ -635,10 +636,11 @@ fn test_recover_archived_nodes_with_data() {
 #[test]
 fn test_recover_archived_nodes_wrong_summary() {
     let engine = in_memory_engine();
+    let belonged_to_id = engine.intern_label("belonged_to");
     let mut archived = UnifiedNode::new(200);
     archived.edges.push(crate::node::Edge {
         target: 1,
-        label: "belonged_to".to_string(),
+        label_id: belonged_to_id,
         weight: 1.0,
     });
     let data = postcard::to_allocvec(&archived)
@@ -659,10 +661,12 @@ fn test_recover_archived_nodes_wrong_summary() {
 #[test]
 fn test_recover_archived_nodes_filter_by_label() {
     let engine = in_memory_engine();
+    let belonged_to_id = engine.intern_label("belonged_to");
+    let referenced_by_id = engine.intern_label("referenced_by");
     let mut matching = UnifiedNode::new(300);
     matching.edges.push(crate::node::Edge {
         target: 1,
-        label: "belonged_to".to_string(),
+        label_id: belonged_to_id,
         weight: 1.0,
     });
     let data = postcard::to_allocvec(&matching)
@@ -678,7 +682,7 @@ fn test_recover_archived_nodes_filter_by_label() {
     let mut other = UnifiedNode::new(301);
     other.edges.push(crate::node::Edge {
         target: 1,
-        label: "referenced_by".to_string(),
+        label_id: referenced_by_id,
         weight: 1.0,
     });
     let data2 = postcard::to_allocvec(&other)

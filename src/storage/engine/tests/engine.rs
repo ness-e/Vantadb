@@ -575,18 +575,20 @@ fn test_insert_overwrite_cardinality_removes_old_field() {
 #[test]
 fn test_insert_overwrite_removes_old_edges() {
     let engine = in_memory_engine();
+    let friend_id = engine.intern_label("friend");
     let mut node1 = sample_node(42);
     node1.edges.push(crate::node::Edge {
         target: 1,
-        label: "friend".to_string(),
+        label_id: friend_id,
         weight: 1.0,
     });
     engine.insert(&node1).expect("first insert");
 
+    let colleague_id = engine.intern_label("colleague");
     let mut node2 = sample_node(42);
     node2.edges.push(crate::node::Edge {
         target: 2,
-        label: "colleague".to_string(),
+        label_id: colleague_id,
         weight: 1.0,
     });
     engine.insert(&node2).expect("overwrite");

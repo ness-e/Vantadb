@@ -1,8 +1,10 @@
 //! `From` trait implementations for SDK types.
 
 use super::super::types::*;
+use super::graph_types::unified_to_record;
 use crate::executor::ExecutionResult;
 use crate::node::FieldValue;
+use crate::node::LabelIntern;
 
 impl From<crate::storage::IndexRebuildReport> for VantaIndexRebuildReport {
     fn from(report: crate::storage::IndexRebuildReport) -> Self {
@@ -100,10 +102,17 @@ impl From<FieldValue> for VantaValue {
 
 impl From<ExecutionResult> for VantaQueryResult {
     fn from(result: ExecutionResult) -> Self {
+        // Use an empty interner — labels in edge records will show as "<unknown>"
+        // when no interner context is available. The main code path (VantaEmbedded::query)
+        // converts with the engine's interner directly.
+        let fallback_intern = LabelIntern::new();
         match result {
-            ExecutionResult::Read(nodes) => {
-                VantaQueryResult::Read(nodes.into_iter().map(Into::into).collect())
-            }
+            ExecutionResult::Read(nodes) => VantaQueryResult::Read(
+                nodes
+                    .into_iter()
+                    .map(|n| unified_to_record(n, &fallback_intern))
+                    .collect(),
+            ),
             ExecutionResult::Write {
                 affected_nodes,
                 message,

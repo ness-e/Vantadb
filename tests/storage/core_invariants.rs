@@ -44,9 +44,10 @@ fn consolidate_node_keeps_metadata_readable() {
     };
     let engine = StorageEngine::open_with_config(db_path, Some(config)).unwrap();
 
+    let creo_id = engine.intern_label("creo");
     let mut node = UnifiedNode::with_vector(42, vec![0.1, 0.2, 0.3, 0.4]);
     node.set_field("nombre", FieldValue::String("Eros".to_string()));
-    node.add_edge(7, "creo");
+    node.add_edge(7, creo_id);
 
     engine.insert(&node).unwrap();
     engine.consolidate_node(&node).unwrap();
@@ -58,5 +59,5 @@ fn consolidate_node_keeps_metadata_readable() {
     );
     assert_eq!(roundtrip.edges.len(), 1);
     assert_eq!(roundtrip.edges[0].target, 7);
-    assert_eq!(roundtrip.edges[0].label, "creo");
+    assert_eq!(roundtrip.edges[0].label_id, creo_id);
 }

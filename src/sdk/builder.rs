@@ -161,7 +161,10 @@ impl VantaEmbedded {
     ) -> Result<Vec<crate::sdk::VantaNodeRecord>> {
         let engine = self.engine_handle()?;
         let nodes = engine.recover_archived_nodes(summary_id)?;
-        Ok(nodes.into_iter().map(Into::into).collect())
+        Ok(nodes
+            .into_iter()
+            .map(|n| engine.node_to_record(n))
+            .collect())
     }
 
     /// Flush and close the embedded engine handle.
@@ -281,10 +284,11 @@ mod tests {
         let engine = embedded.engine_handle().unwrap();
 
         // Insert an archived node directly into TombstoneStorage
+        let belonged_to_id = engine.intern_label("belonged_to");
         let mut archived = crate::node::UnifiedNode::new(100);
         archived.edges.push(crate::node::Edge {
             target: 1,
-            label: "belonged_to".to_string(),
+            label_id: belonged_to_id,
             weight: 1.0,
         });
         let data = postcard::to_allocvec(&archived)

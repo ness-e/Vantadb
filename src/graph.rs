@@ -244,7 +244,7 @@ mod tests {
             .map(|(target, weight)| Edge {
                 target,
                 weight,
-                label: String::new(),
+                label_id: 0,
             })
             .collect();
         storage.insert(&node).unwrap();

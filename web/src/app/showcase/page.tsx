@@ -29,70 +29,70 @@ export default function ShowcasePage() {
 
   const items: ShowcaseItem[] = [
     {
-      title: tt("showcasePage.items.0.title", "AI Agent Memory"),
+      title: tt("showcasePage.items.0.title", "LangGraph Checkpoint Store"),
       desc: tt(
         "showcasePage.items.0.desc",
-        "Capa de memoria persistente para agentes LangChain. Conversaciones, hechos, preferencias del usuario — todo en VantaDB, recall instantáneo sin cloud."
+        "Persistent checkpoint storage for LangGraph agents. Namespace-scoped memory with hybrid search, GIL-released batch queries, and sub-ms recall on conversation history."
       ),
       author: "@ness-e",
-      tags: ["agents", "langchain", "memory"],
-      url: "https://github.com/ness-e/Vantadb",
+      tags: ["agents", "langgraph", "memory"],
+      url: "https://github.com/ness-e/Vantadb/blob/main/examples/python/langgraph_checkpoint.py",
       emoji: "🧠",
     },
     {
-      title: tt("showcasePage.items.1.title", "Local RAG Chatbot"),
+      title: tt("showcasePage.items.1.title", "AutoGen Multi-Agent Memory"),
       desc: tt(
         "showcasePage.items.1.desc",
-        "Chatbot RAG 100% local con Ollama + VantaDB. Cargás PDFs, se indexan, queryás en lenguaje natural. Sin API key, sin data egress."
+        "Persistent memory backend for AutoGen conversational agents. Six agents, shared knowledge base, topic-scoped isolation via namespaces."
       ),
-      author: "@localfirst-dev",
-      tags: ["rag", "ollama", "pdf"],
-      url: "https://github.com/ness-e/Vantadb",
+      author: "@ness-e",
+      tags: ["agents", "autogen", "multi-agent"],
+      url: "https://github.com/ness-e/Vantadb/blob/main/examples/python/autogen_memory.py",
+      emoji: "🤖",
+    },
+    {
+      title: tt("showcasePage.items.2.title", "Haystack DocumentStore"),
+      desc: tt(
+        "showcasePage.items.2.desc",
+        "VantaDB as a DocumentStore for Haystack pipelines. Hybrid vector + text search backend for RAG pipelines with metadata filtering."
+      ),
+      author: "@ness-e",
+      tags: ["rag", "haystack", "pipeline"],
+      url: "https://github.com/ness-e/Vantadb/blob/main/examples/python/haystack_documentstore.py",
       emoji: "📚",
     },
     {
-      title: tt("showcasePage.items.2.title", "Edge Diagnostics"),
-      desc: tt(
-        "showcasePage.items.2.desc",
-        "Sistema de diagnóstico para dispositivos edge. Cada dispositivo mantiene su VantaDB local, sincroniza métricas cuando hay conexión. Resiliente a offline."
-      ),
-      author: "@edge-ops",
-      tags: ["edge", "iot", "offline"],
-      url: "https://github.com/ness-e/Vantadb",
-      emoji: "📡",
-    },
-    {
-      title: tt("showcasePage.items.3.title", "Code Search Tool"),
+      title: tt("showcasePage.items.3.title", "CrewAI Agent Memory"),
       desc: tt(
         "showcasePage.items.3.desc",
-        "Búsqueda semántica de código en repos grandes. Indexá tu monorepo, queryá \"donde valido permisos\" y obtené los 5 archivos relevantes en <2ms."
+        "Persistent memory for CrewAI agent crews. Shared context across tasks, role-scoped namespaces, automatic vector indexing of agent outputs."
       ),
-      author: "@code-explorer",
-      tags: ["devtools", "search", "code"],
-      url: "https://github.com/ness-e/Vantadb",
-      emoji: "🔍",
+      author: "@ness-e",
+      tags: ["agents", "crewai", "memory"],
+      url: "https://github.com/ness-e/Vantadb/blob/main/examples/python/crewai_memory.py",
+      emoji: "👥",
     },
     {
-      title: tt("showcasePage.items.4.title", "Research Notes Vault"),
+      title: tt("showcasePage.items.4.title", "Rust Hybrid Search"),
       desc: tt(
         "showcasePage.items.4.desc",
-        "Notas de investigación con hybrid search. BM25 encuentra keyword-exact, HNSW encuentra semantically-similar. RRF fusion da lo mejor de ambos."
+        "Core hybrid search engine: BM25 + HNSW + RRF fusion in native Rust. Full CBO planner pushing filters before graph traversal. Sub-ms search on 10k+ nodes."
       ),
-      author: "@phd-builder",
-      tags: ["research", "notes", "hybrid"],
-      url: "https://github.com/ness-e/Vantadb",
-      emoji: "🔬",
+      author: "@ness-e",
+      tags: ["rust", "hybrid", "engine"],
+      url: "https://github.com/ness-e/Vantadb/blob/main/examples/rust/hybrid.rs",
+      emoji: "⚙️",
     },
     {
-      title: tt("showcasePage.items.5.title", "CLI Knowledge Base"),
+      title: tt("showcasePage.items.5.title", "GraphRAG Pipeline"),
       desc: tt(
         "showcasePage.items.5.desc",
-        "Knowledge base en terminal para devs. `vantadb-ask \"como configuro TLS\"` → respuesta instantánea desde tu base de notas indexadas localmente."
+        "End-to-end GraphRAG in Rust: seed entities, expand relationships, retrieve subgraphs, generate context. KB construction with incremental indexing."
       ),
-      author: "@terminal-jockey",
-      tags: ["cli", "terminal", "knowledge"],
-      url: "https://github.com/ness-e/Vantadb",
-      emoji: "⚡",
+      author: "@ness-e",
+      tags: ["graphrag", "rust", "pipeline"],
+      url: "https://github.com/ness-e/Vantadb/blob/main/examples/rust/graphrag.rs",
+      emoji: "🔬",
     },
   ];
 
@@ -101,9 +101,9 @@ export default function ShowcasePage() {
       <PageHeader
         badge="§SHOWCASE"
         title={tt("showcasePage.title", "Community Showcase")}
-        subtitle={tt(
+          subtitle={tt(
           "showcasePage.subtitle",
-          "Proyectos construidos con VantaDB por la comunidad. Agentes, RAG, edge, devtools — todos local-first, todos sin cloud tax."
+          "Reference examples e integraciones con VantaDB. LangGraph, AutoGen, CrewAI, Haystack — todos local-first, todos open source."
         )}
         tag={tt("showcasePage.tag", "Community · local-first")}
       />
@@ -122,7 +122,7 @@ export default function ShowcasePage() {
               <p className="mt-2 max-w-2xl font-tech text-xs text-black/70 ">
                 {tt(
                   "showcasePage.gridSubtitle",
-                  "Cada proyecto es código abierto y corre en tu máquina. Click para ver el repo, cloná, ejecutá."
+                  "Cada ejemplo es código funcional. Click para ver el source, cloná, ejecutá con tu propia data."
                 )}
               </p>
             </div>
@@ -189,7 +189,7 @@ export default function ShowcasePage() {
                   <p className="mt-2 max-w-xl font-tech text-xs text-[#FBF9F5]/70">
                     {tt(
                       "showcasePage.ctaBody",
-                      "Mandanos un PR con tu proyecto al README, o abrí un issue con el link. Lo agregamos al showcase."
+                      "Open an issue or PR on GitHub with your project link. Community-built projects get featured here."
                     )}
                   </p>
                 </div>

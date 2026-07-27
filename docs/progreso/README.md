@@ -1355,6 +1355,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - `.github/workflows/python_wheels.yml` — pagefile/swap in CI/CD Windows/macOS
 ## Tareas Completadas (Migradas desde Backlog)
 
+### COMP-006: Edge Label Interning (u32 label_id)
+- **Fuente:** Backlog (Phase 10 — Competitive Features)
+- **Fecha:** 2026-07-27
+- **Objetivo:** `Edge.label: String` → `Edge.label_id: u32` con LabelIntern (HashMap<String, u32>). Reduce ~80MB heap para 1M edges.
+- **Resultado:** ✅ 1,618 tests pasan. SDK público inalterado (VantaEdgeRecord.label sigue String).
+- **Ids:** `COMP-006`
+
 ### REV-001: CI Rust TSan ABI mismatch
 - **Fuente:** Plan 2026-07-14 backlog-campaign
 - **Fecha:** 2026-07-14

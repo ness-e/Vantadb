@@ -32,6 +32,11 @@ last_reviewed: 2026-07-21
 | #💻dev-chat | Text | Technical development discussion |
 | #💡ideas | Forum | Feature suggestions |
 
+### 🎤 EVENTS (all members)
+| Channel | Type | Topic |
+|---|---|---|
+| #🎤 Stage | Voice | AMAs, presentations, community events |
+
 ### 🛡️ STAFF (Admin only)
 | Channel | Type |
 |---|---|

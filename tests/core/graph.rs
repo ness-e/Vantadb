@@ -19,11 +19,12 @@ fn graph_traversal_certification() {
         let storage = StorageEngine::open(db_path).unwrap();
 
         TerminalReporter::sub_step("Building system topology (1->2->3, 1->4)...");
+        let relates_id = storage.intern_label("relates_to");
         let mut node1 = UnifiedNode::new(1);
-        node1.add_edge(2, "relates_to");
-        node1.add_edge(4, "relates_to");
+        node1.add_edge(2, relates_id);
+        node1.add_edge(4, relates_id);
         let mut node2 = UnifiedNode::new(2);
-        node2.add_edge(3, "relates_to");
+        node2.add_edge(3, relates_id);
         let node3 = UnifiedNode::new(3);
         let node4 = UnifiedNode::new(4);
 

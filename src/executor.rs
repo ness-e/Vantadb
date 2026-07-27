@@ -326,10 +326,11 @@ impl<'a> Executor<'a> {
                     }
                 }
 
+                let label_id = self.storage.intern_label(&relate.label);
                 if let Some(w) = relate.weight {
-                    node.add_weighted_edge(relate.target_id, relate.label, w);
+                    node.add_weighted_edge(relate.target_id, label_id, w);
                 } else {
-                    node.add_edge(relate.target_id, relate.label);
+                    node.add_edge(relate.target_id, label_id);
                 }
                 self.storage.insert(&node)?;
                 Ok(ExecutionResult::Write {
@@ -380,7 +381,8 @@ impl<'a> Executor<'a> {
                 }
 
                 // Now create relationship: MESSAGE -> belongs_to -> THREAD
-                node.add_edge(msg.thread_id, "belongs_to_thread".to_string());
+                let belongs_to_id = self.storage.intern_label("belongs_to_thread");
+                node.add_edge(msg.thread_id, belongs_to_id);
 
                 // Node is saved (Atomic write for State + Edge)
                 self.storage.insert(&node)?;
@@ -783,7 +785,8 @@ mod tests {
         let node = storage.get(50).unwrap().unwrap();
         assert_eq!(node.edges.len(), 1);
         assert_eq!(node.edges[0].target, 51);
-        assert_eq!(node.edges[0].label, "knows");
+        let knows_id = storage.intern_label("knows");
+        assert_eq!(node.edges[0].label_id, knows_id);
         assert_eq!(node.edges[0].weight, 0.9);
     }
 
