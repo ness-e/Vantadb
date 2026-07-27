@@ -232,8 +232,8 @@ impl PhysicalOperator for PhysicalVectorSearch<'_> {
 
         #[cfg(feature = "remote-inference")]
         {
-            let llm = crate::llm::LlmClient::new();
-            if let Ok(vec) = llm.generate_embedding(&self.query_vec_text) {
+            let provider = crate::llm::get_embedding_provider();
+            if let Ok(vec) = provider.embed(&self.query_vec_text) {
                 vector = Some(vec);
             }
         }
@@ -743,8 +743,8 @@ impl PhysicalOperator for PhysicalVectorRefine<'_> {
 
         #[cfg(feature = "remote-inference")]
         {
-            let llm = crate::llm::LlmClient::new();
-            if let Ok(vec) = llm.generate_embedding(&self.query_vec_text) {
+            let provider = crate::llm::get_embedding_provider();
+            if let Ok(vec) = provider.embed(&self.query_vec_text) {
                 self.query_vector = Some(crate::node::VectorRepresentations::Full(vec));
             }
         }

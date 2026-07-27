@@ -234,8 +234,8 @@ impl<'a> Executor<'a> {
                 if insert.vector.is_none() {
                     if let Some(crate::node::FieldValue::String(text)) = insert.fields.get("text") {
                         if !text.trim().is_empty() {
-                            let llm = crate::llm::LlmClient::new();
-                            match llm.generate_embedding(text) {
+                            let provider = crate::llm::get_embedding_provider();
+                            match provider.embed(text) {
                                 Ok(vec) => {
                                     node.vector = VectorRepresentations::Full(vec);
                                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
@@ -366,8 +366,8 @@ impl<'a> Executor<'a> {
                 // Embed directly via LLM since it's a message
                 #[cfg(feature = "remote-inference")]
                 if !msg.content.trim().is_empty() {
-                    let llm = crate::llm::LlmClient::new();
-                    match llm.generate_embedding(&msg.content) {
+                    let provider = crate::llm::get_embedding_provider();
+                    match provider.embed(&msg.content) {
                         Ok(vec) => {
                             node.vector = VectorRepresentations::Full(vec);
                             node.flags.set(crate::node::NodeFlags::HAS_VECTOR);

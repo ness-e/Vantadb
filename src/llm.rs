@@ -2,11 +2,51 @@
 //!
 //! This module is not a core dependency of the v0.1.x MVP. Embedding generation and LLM runtime
 //! behavior remain external or experimental; the core stores and retrieves provided vectors.
+//!
+//! ## Embedding providers
+//!
+//! COMP-010: Abstract [`EmbeddingProvider`] trait with two implementations:
+//! - [`OllamaProvider`] — Ollama `/api/embeddings` (default)
+//! - [`OpenAIProvider`] — OpenAI `/v1/embeddings`
+//!
+//! Select the provider at runtime via `VANTA_EMBEDDING_PROVIDER` (ollama|openai).
 
 use crate::error::{Result, VantaError};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
+
+// ── EmbeddingProvider trait ────────────────────────────────────────────
+
+/// Abstract embedding provider.
+///
+/// Implementations convert text into a float vector suitable for HNSW
+/// similarity search. Each provider is responsible for its own HTTP
+/// transport and authentication.
+pub trait EmbeddingProvider: Send + Sync {
+    /// Embed `text` and return a dense `f32` vector.
+    fn embed(&self, text: &str) -> Result<Vec<f32>>;
+}
+
+// ── Factory ───────────────────────────────────────────────────────────
+
+/// Return the embedding provider selected by `VANTA_EMBEDDING_PROVIDER`.
+///
+/// | Value   | Provider                                          |
+/// |---------|---------------------------------------------------|
+/// | `openai`| [`OpenAIProvider`] — requires `VANTA_OPENAI_API_KEY` |
+/// | _any_   | [`OllamaProvider`] (default)                      |
+pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
+    match env::var("VANTA_EMBEDDING_PROVIDER")
+        .as_deref()
+        .unwrap_or("ollama")
+    {
+        "openai" => Box::new(OpenAIProvider::new()),
+        _ => Box::new(OllamaProvider::new()),
+    }
+}
+
+// ── OllamaProvider ─────────────────────────────────────────────────────
 
 #[derive(Serialize)]
 struct OllamaEmbeddingRequest<'a> {
@@ -19,29 +59,23 @@ struct OllamaEmbeddingResponse {
     embedding: Vec<f32>,
 }
 
-/// HTTP client for communicating with an Ollama inference server.
-pub struct LlmClient {
+/// Embedding provider backed by a local Ollama server.
+///
+/// Reads `VANTA_LLM_URL` (default `http://localhost:11434`) and
+/// `VANTA_LLM_MODEL` (default `all-minilm`).
+pub struct OllamaProvider {
     client: Client,
     base_url: String,
     default_model: String,
 }
 
-impl Default for LlmClient {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl LlmClient {
-    /// Create a new client reading `VANTA_LLM_URL` and `VANTA_LLM_MODEL` from the environment.
+impl OllamaProvider {
+    /// Create a new Ollama provider from environment variables.
     pub fn new() -> Self {
         let base_url =
             env::var("VANTA_LLM_URL").unwrap_or_else(|_| "http://localhost:11434".to_string());
-
-        // Ollama default for vector embeddings is nomic-embed-text or all-minilm
         let default_model =
             env::var("VANTA_LLM_MODEL").unwrap_or_else(|_| "all-minilm".to_string());
-
         Self {
             client: Client::builder()
                 .pool_idle_timeout(Some(std::time::Duration::from_secs(60)))
@@ -53,23 +87,27 @@ impl LlmClient {
             default_model,
         }
     }
+}
 
-    /// Communicates with the LLM to translate native text into an HNSW compatible vector.
-    pub fn generate_embedding(&self, text: &str) -> Result<Vec<f32>> {
+impl Default for OllamaProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl EmbeddingProvider for OllamaProvider {
+    fn embed(&self, text: &str) -> Result<Vec<f32>> {
         let url = format!("{}/api/embeddings", self.base_url);
-
         let req_body = OllamaEmbeddingRequest {
             model: &self.default_model,
             input: text,
         };
-
         let response = self.client.post(&url).json(&req_body).send().map_err(|e| {
             VantaError::generic_error(format!(
                 "Network error communicating with Inference Bridge: {}",
                 e
             ))
         })?;
-
         if !response.status().is_success() {
             let status = response.status();
             return Err(VantaError::generic_error(format!(
@@ -77,15 +115,141 @@ impl LlmClient {
                 status
             )));
         }
-
         let result: OllamaEmbeddingResponse = response.json().map_err(|e| {
             VantaError::generic_error(format!(
                 "Invalid response format from Inference Bridge: {}",
                 e
             ))
         })?;
-
         Ok(result.embedding)
+    }
+}
+
+// ── OpenAIProvider ─────────────────────────────────────────────────────
+
+/// Embedding provider backed by the OpenAI API.
+///
+/// Requires `VANTA_OPENAI_API_KEY`.  Reads `VANTA_OPENAI_MODEL`
+/// (default `text-embedding-3-small`).
+pub struct OpenAIProvider {
+    client: Client,
+    api_key: String,
+    model: String,
+}
+
+impl OpenAIProvider {
+    /// Create a new OpenAI provider from environment variables.
+    ///
+    /// Panics if `VANTA_OPENAI_API_KEY` is not set.
+    pub fn new() -> Self {
+        let api_key = env::var("VANTA_OPENAI_API_KEY").expect("VANTA_OPENAI_API_KEY must be set");
+        let model =
+            env::var("VANTA_OPENAI_MODEL").unwrap_or_else(|_| "text-embedding-3-small".to_string());
+        Self {
+            client: Client::builder()
+                .pool_idle_timeout(Some(std::time::Duration::from_secs(60)))
+                .connect_timeout(std::time::Duration::from_secs(10))
+                .timeout(std::time::Duration::from_secs(30))
+                .build()
+                .unwrap_or_else(|_| Client::new()),
+            api_key,
+            model,
+        }
+    }
+}
+
+impl Default for OpenAIProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl EmbeddingProvider for OpenAIProvider {
+    fn embed(&self, text: &str) -> Result<Vec<f32>> {
+        #[derive(Serialize)]
+        struct OpenAiRequest {
+            model: String,
+            input: String,
+        }
+        #[derive(Deserialize)]
+        struct OpenAiResponse {
+            data: Vec<OpenAiEmbedding>,
+        }
+        #[derive(Deserialize)]
+        struct OpenAiEmbedding {
+            embedding: Vec<f32>,
+        }
+
+        let url = "https://api.openai.com/v1/embeddings";
+        let req_body = OpenAiRequest {
+            model: self.model.clone(),
+            input: text.to_string(),
+        };
+
+        let response = self
+            .client
+            .post(url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&req_body)
+            .send()
+            .map_err(|e| {
+                VantaError::generic_error(format!("Network error communicating with OpenAI: {}", e))
+            })?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().unwrap_or_default();
+            return Err(VantaError::generic_error(format!(
+                "OpenAI returned error status {}: {}",
+                status, body
+            )));
+        }
+
+        let result: OpenAiResponse = response.json().map_err(|e| {
+            VantaError::generic_error(format!("Invalid response format from OpenAI: {}", e))
+        })?;
+
+        result
+            .data
+            .into_iter()
+            .next()
+            .map(|d| d.embedding)
+            .ok_or_else(|| VantaError::generic_error("OpenAI returned empty embeddings"))
+    }
+}
+
+// ── LlmClient (text generation only) ───────────────────────────────────
+
+/// HTTP client for communicating with an Ollama inference server.
+///
+/// Used exclusively for **text generation** (`summarize_context`).
+/// For embeddings see [`EmbeddingProvider`], [`OllamaProvider`], or
+/// [`OpenAIProvider`].
+pub struct LlmClient {
+    client: Client,
+    base_url: String,
+}
+
+impl Default for LlmClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LlmClient {
+    /// Create a new client reading `VANTA_LLM_URL` from the environment.
+    pub fn new() -> Self {
+        let base_url =
+            env::var("VANTA_LLM_URL").unwrap_or_else(|_| "http://localhost:11434".to_string());
+        Self {
+            client: Client::builder()
+                .pool_idle_timeout(Some(std::time::Duration::from_secs(60)))
+                .connect_timeout(std::time::Duration::from_secs(10))
+                .timeout(std::time::Duration::from_secs(30))
+                .build()
+                .unwrap_or_else(|_| Client::new()),
+            base_url,
+        }
     }
 
     /// Invoke the LLM to generate a semantic summary of a group of archived nodes.

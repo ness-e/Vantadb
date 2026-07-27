@@ -2,13 +2,13 @@
 title: "General Progress of VantaDB Project"
 status: active
 tags: [vantadb, progress, documentation]
-last_reviewed: 2026-07-26
+last_reviewed: 2026-07-27
 aliases: []
 ---
 
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-26
+> **Last updated:** 2026-07-27
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -2740,3 +2740,53 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 **Impacto:** Backlog total ~120→~65 items activos. 5 fases cerradas (P1–P4, P7). Exec Summary actualizado.
 
 **Verificación:** Cada item verificado contra código real antes de mover. `DEVOPS-15` re-abierto tras detectar discrepancia en `Cargo.toml:89`.
+
+### 2026-07-27 — P5/P6/P8 Quick Wins: 8 tareas ejecutadas
+
+**Fuente:** Backlog P5 (Docs & Community), P6 (Launch Campaign), P8 (Post-Launch)
+
+**Objetivo:** Ejecutar tareas rápidas de community, marketing y documentación en paralelo.
+
+| ID | Tarea | Resultado |
+|----|-------|-----------|
+| `TSK-106` | Habilitar GitHub Discussions | ✅ Ya estaba habilitado (`has_discussions: true`). Sin cambios. |
+| `MKT-03` | Show HN draft → v0.4.0 | ✅ Draft actualizado con APIs correctas (`put`, `search_memory`) y links a PyPI/docs |
+| `NUEVO-21` | Vectara competitive research | ✅ Reporte en `docs/audit-reports/vectara-competitive-research-2026-07-27.md`. Hallazgo: Vectara cerró self-service → gap para local-first |
+| `MKT-04` | Reddit posts (3 subreddits) | ✅ 3 drafts en `docs/strategy/REDDIT_POSTS.md` (r/rust, r/MachineLearning, r/LocalLLaMA) |
+| `TSK-107` | Community showcase page | ✅ 6 items actualizados: apuntan a ejemplos reales (LangGraph, AutoGen, Haystack, CrewAI, Rust hybrid, GraphRAG) |
+| `COM-03` | Discord forums + AutoMod | ⚠️ Parcial: 9 threads seedeados (FAQ/Showcase/Ideas/Bug). AutoMod/stickers/emojis requieren Discord UI manual |
+| `COM-04` | Discord stage + ticketing | ⚠️ Parcial: Stage channel creado. Ticketing, Server Discovery (1000+ miembros), Canny.io requieren pasos externos |
+| `—` | Good first issues (18 open) | ✅ 22 issues creados (#118-#142), 3 duplicados cerrados (#136-#138). Etiquetados `good first issue` en GitHub |
+
+**Archivos creados/modificados:**
+- `docs/audit-reports/vectara-competitive-research-2026-07-27.md` (nuevo)
+- `docs/strategy/SHOW_HN_PREP.md` (actualizado)
+- `docs/strategy/REDDIT_POSTS.md` (nuevo)
+- `web/src/app/showcase/page.tsx` (actualizado)
+- `docs/discord/todo.md` (actualizado)
+- `docs/discord/server-config.md` (actualizado)
+
+**Ids:** `TSK-106`, `MKT-03`, `NUEVO-21`, `MKT-04`, `TSK-107`, `COM-03`, `COM-04`
+
+---
+
+### 2026-07-27 — COMP-010: Auto-embedding function abstraction
+
+**Objetivo:** Refactorizar auto-embedding de `LlmClient` concreto (Ollama hardcodeado) a trait `EmbeddingProvider` abstracto con múltiples implementaciones.
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `COMP-010` | Trait `EmbeddingProvider` + `OllamaProvider` + `OpenAIProvider` + factory | `src/llm.rs`, `src/executor.rs`, `src/physical_plan.rs` | ✅ Trait definido. OllamaProvider (default, existente). OpenAIProvider (nuevo, `/v1/embeddings`). Factory `get_embedding_provider()` lee `VANTA_EMBEDDING_PROVIDER`. 4 call sites actualizados. `LlmClient` preservado para `summarize_context()`. |
+
+**Verificación:** `cargo check -p vantadb --features remote-inference` ✅ | `cargo test --package vantadb --lib executor` 26/26 ✅ | `cargo clippy -p vantadb --features remote-inference -- -D warnings` ✅ | `cargo fmt --check` ✅
+
+### 2026-07-27 — COMP-013: Segment Optimizer Pipeline (Vacuum/Merge/Index)
+
+**Objetivo:** Construir pipeline formal de optimización de segmentos en background (Vacuum → Merge → Index). Ya existían piezas sueltas (`compact_layout_bfs`, `trigger_compaction`, `rebuild_vector_index`) pero sin orquestación.
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `COMP-013` | Pipeline orquestado con `PipelineMode` (Full/VacuumOnly/MergeOnly/IndexOnly), `vacuum()` purga tombstones del HNSW, `merge_segments()` compactación BFS condicional, `run_pipeline()` orquestación secuencial con tolerancia a fallos por fase | `src/storage/engine/mod.rs`, `src/storage/engine/maintenance.rs`, `src/config.rs`, `src/sdk/api.rs`, `src/storage/engine/tests/maintenance.rs` | ✅ `PipelineMode`, `VacuumReport`, `MergeReport`, `PipelineReport`, `SegmentOptimizerConfig` en `VantaConfig`. SDK expone `vacuum()`, `pipeline()`, `optimizer_config()`, `set_optimizer_config()`. 77 tests de mantenimiento pasando. |
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo test -p vantadb -- maintenance` 77/77 ✅
+

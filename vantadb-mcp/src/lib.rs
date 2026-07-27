@@ -1126,8 +1126,10 @@ pub fn handle_tools_call(
 
             match executor.execute_hybrid(trimmed) {
                 Ok(ExecutionResult::Read(nodes)) => {
-                    let records: Vec<vantadb::sdk::VantaNodeRecord> =
-                        nodes.into_iter().map(Into::into).collect();
+                    let records: Vec<vantadb::sdk::VantaNodeRecord> = nodes
+                        .into_iter()
+                        .map(|n| storage.node_to_record(n))
+                        .collect();
                     Ok(text_content(serialize_content(&records)))
                 }
                 Ok(ExecutionResult::Write {

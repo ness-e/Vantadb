@@ -740,6 +740,10 @@ Items evaluados y decididos como no resolver:
 - **VFY-005**: `OperationalMetrics` en `types.ts` ya tiene 21 campos, no "3/10".
 - **NUEVO-19**: `SourceDesign/` no existe en el repo.
 
+### 2026-07-27 — COMP-013: Segment Optimizer Pipeline completado
+
+**Qué se hizo:** Verificación de COMP-013. El pipeline Segment Optimizer (Vacuum/Merge/Index) ya estaba implementado con `vacuum()`, `merge_segments()`, `run_pipeline()`, tipos `PipelineMode/VacuumReport/MergeReport/PipelineReport`, `SegmentOptimizerConfig` en `VantaConfig`, y SDK API completa. 77 tests de maintenance pasando. Backlog actualizado y migrado a progreso.
+
 ## Archivos Fuente de Referencia
 
 | Dominio | Archivos |
