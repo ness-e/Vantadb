@@ -66,7 +66,7 @@ impl CPIndex {
             }
         }
 
-        // v8: index_type
+        // v8: index_type (version >= 8)
         let index_type_byte: u8 = match self.config.index_type {
             crate::index::IndexType::Ivf => 1,
             _ => 0,
@@ -208,7 +208,7 @@ impl CPIndex {
             }
         }
 
-        // v8: optional IVF index data
+        // v8: optional IVF index data (version >= 8)
         {
             let guard = self.ivf_index.lock();
             match guard.as_ref() {
@@ -491,7 +491,7 @@ impl CPIndex {
             );
         }
 
-        // v8: deserialize optional IVF index data
+        // v8: deserialize optional IVF index data (version >= 8)
         let ivf_index = if version >= 8 && pos < data.len() {
             let ivf_present = take_bytes(data, &mut pos, 1, "ivf_present")?[0];
             if ivf_present == 1 {

@@ -9,9 +9,9 @@ use crate::error::{Result, VantaError};
 use crate::index::{CPIndex, IndexBackend};
 use crate::node::{NodeTier, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::{
-    engine_mmap_resident_bytes, EvictionReason, EvictionReport, IndexRebuildReport, MergeReport,
-    PipelineMode, PipelineReport, QuantizationMaintenanceReport, StorageEngine, VacuumReport,
-    FLAG_TOMBSTONE, STORAGE_ALIGNMENT,
+    engine_mmap_resident_bytes, EvictionReason, EvictionReport, FreshHnswReport,
+    IndexRebuildReport, MergeReport, PipelineMode, PipelineReport, QuantizationMaintenanceReport,
+    StorageEngine, VacuumReport, FLAG_TOMBSTONE, STORAGE_ALIGNMENT,
 };
 use crate::storage::ops::NodeMetadata;
 use crate::storage::vfile::MmapMut;
@@ -776,16 +776,43 @@ impl StorageEngine {
         })
     }
 
+    /// Scans all HNSW nodes and removes orphan links — neighbor IDs that
+    /// point to nodes that no longer exist in the index.
+    ///
+    /// This repairs the graph after delete operations, which remove a node
+    /// from `self.nodes` but leave references in the neighbor lists of
+    /// surviving nodes. Over time, orphan links degrade search quality.
+    #[tracing::instrument(skip(self), level = "info", err)]
+    pub fn fresh_hnsw(&self) -> Result<FreshHnswReport> {
+        self.ensure_writable()?;
+
+        let hnsw = self.hnsw.load();
+        let report = hnsw.repair_orphan_links();
+
+        tracing::info!(
+            scanned = report.scanned_nodes,
+            layers = report.total_layers,
+            repaired = report.repaired_links,
+            elapsed_ms = report.duration_ms,
+            "fresh_hnsw: orphan links repaired"
+        );
+
+        Ok(report)
+    }
+
     /// Run the segment optimizer pipeline according to `mode`.
     ///
-    /// Phases execute in order: Vacuum → Merge → Reindex.
-    /// A phase failure is logged but does **not** abort later phases.
+    /// Phases execute in order: Vacuum → FreshHNSW → Merge → Reindex.
+    /// A phase failure is logged but does **not** abort later phases. The
+    /// FreshHNSW phase places after Vacuum so that tombstoned nodes are
+    /// already purged — fewer orphan links to scan.
     #[tracing::instrument(skip(self), level = "info", err)]
     pub fn run_pipeline(&self, mode: PipelineMode) -> Result<PipelineReport> {
         self.ensure_writable()?;
 
         let pipeline_start = Instant::now();
         let mut vacuum_report: Option<VacuumReport> = None;
+        let mut fresh_hnsw_report: Option<FreshHnswReport> = None;
         let mut merge_report: Option<MergeReport> = None;
         let mut index_report: Option<IndexRebuildReport> = None;
         let mut all_ok = true;
@@ -802,6 +829,23 @@ impl StorageEngine {
                 }
                 Err(e) => {
                     tracing::error!(error = %e, "pipeline: vacuum failed");
+                    all_ok = false;
+                }
+            }
+        }
+
+        // Phase 1.5: FreshHNSW (after Vacuum, before Merge)
+        // Vacuum has already purged tombstoned nodes from the DashMap,
+        // so FreshHNSW finds fewer orphan links.
+        let run_fresh = matches!(mode, PipelineMode::Full | PipelineMode::FreshHnswOnly);
+        if run_fresh {
+            match self.fresh_hnsw() {
+                Ok(r) => {
+                    tracing::info!(repaired = r.repaired_links, "pipeline: fresh_hnsw ok");
+                    fresh_hnsw_report = Some(r);
+                }
+                Err(e) => {
+                    tracing::error!(error = %e, "pipeline: fresh_hnsw failed");
                     all_ok = false;
                 }
             }
@@ -847,6 +891,7 @@ impl StorageEngine {
 
         Ok(PipelineReport {
             vacuum: vacuum_report,
+            fresh_hnsw: fresh_hnsw_report,
             merge: merge_report,
             index: index_report,
             total_duration_ms,

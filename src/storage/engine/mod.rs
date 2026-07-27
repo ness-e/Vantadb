@@ -26,6 +26,7 @@ use crate::backend::StorageBackend;
 use crate::config::VantaConfig;
 use crate::error::Result;
 use crate::index::CPIndex;
+pub use crate::index::FreshHnswReport;
 use crate::node::{FilterBitset, LabelIntern, UnifiedNode, VectorRepresentations};
 use crate::storage::vfile::{engine_mmap_resident_bytes, VantaFile};
 
@@ -119,6 +120,7 @@ pub struct QuantizationMaintenanceReport {
 /// An operation buffered inside an uncommitted transaction.
 /// Written to WAL + stores atomically at commit time.
 #[derive(Clone)]
+#[allow(clippy::large_enum_variant)] // UnifiedNode is hot-path; boxing adds indirection per insert
 pub(crate) enum BufferedWrite {
     Insert(UnifiedNode),
     Delete(u128),
@@ -164,7 +166,7 @@ pub(crate) const HNSW_BATCH_SIZE: usize = 64;
 /// operations to run in [`StorageEngine::run_pipeline`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PipelineMode {
-    /// Full pipeline: Vacuum → Merge → Reindex.
+    /// Full pipeline: Vacuum → FreshHNSW → Merge → Reindex.
     #[default]
     Full,
     /// Only purge tombstones from the HNSW index.
@@ -173,6 +175,8 @@ pub enum PipelineMode {
     MergeOnly,
     /// Only rebuild the HNSW vector index from scratch.
     IndexOnly,
+    /// Only repair orphan links in the HNSW graph.
+    FreshHnswOnly,
 }
 
 /// Report from a single vacuum pass.
@@ -214,6 +218,8 @@ pub struct PipelineReport {
     pub merge: Option<MergeReport>,
     /// Index rebuild report, if that phase was executed.
     pub index: Option<IndexRebuildReport>,
+    /// FreshHNSW report, if that phase was executed.
+    pub fresh_hnsw: Option<FreshHnswReport>,
     /// Total wall-clock duration of the pipeline.
     pub total_duration_ms: u64,
     /// Whether all executed phases succeeded.

@@ -66,6 +66,95 @@ impl<'a> GraphTraverser<'a> {
         Ok(results)
     }
 
+    /// BFS with label filtering. When `labels` is non-empty, only edges whose
+    /// `label_id` is in the set are followed. Uses `UnifiedNode.label_index`
+    /// for O(1) per-label lookups when available.
+    pub fn bfs_traverse_filtered(
+        &self,
+        roots: &[u128],
+        max_depth: usize,
+        labels: &[u32],
+    ) -> Result<Vec<u128>> {
+        let mut visited = HashSet::new();
+        let mut results = Vec::new();
+        let mut current_level: Vec<u128> = roots.to_vec();
+
+        for depth in 0..=max_depth {
+            if current_level.is_empty() {
+                break;
+            }
+
+            // Deduplicate and filter already-visited nodes
+            let mut next_level = Vec::new();
+            let mut unvisited = Vec::new();
+            for &id in &current_level {
+                if visited.insert(id) {
+                    unvisited.push(id);
+                    results.push(id);
+                }
+            }
+
+            if depth == max_depth || unvisited.is_empty() {
+                continue;
+            }
+
+            // Batch-fetch all nodes at this depth
+            let nodes = self.storage.get_many(&unvisited)?;
+            for node in &nodes {
+                if !labels.is_empty() {
+                    // Use label_index if available for O(1) per-label lookups
+                    if !node.label_index.is_empty() {
+                        for &lid in labels {
+                            for &target in node.targets_by_label(lid) {
+                                if !visited.contains(&target) {
+                                    next_level.push(target);
+                                }
+                            }
+                        }
+                    } else {
+                        // Fallback: scan edges and filter by label_id
+                        for edge in &node.edges {
+                            if labels.contains(&edge.label_id) && !visited.contains(&edge.target) {
+                                next_level.push(edge.target);
+                            }
+                        }
+                    }
+                } else {
+                    // No label filter: follow all edges (same as regular bfs)
+                    for edge in &node.edges {
+                        if !visited.contains(&edge.target) {
+                            next_level.push(edge.target);
+                        }
+                    }
+                }
+            }
+
+            // Deduplicate next_level before next iteration
+            next_level.sort();
+            next_level.dedup();
+            current_level = next_level;
+        }
+
+        Ok(results)
+    }
+
+    /// DFS with label filtering. Discovers edges using label-aware discovery,
+    /// then traverses the cached subgraph to avoid N+1 storage lookups.
+    pub fn dfs_traverse_filtered(
+        &self,
+        roots: &[u128],
+        max_depth: usize,
+        labels: &[u32],
+    ) -> Result<Vec<u128>> {
+        let edges = self.discover_edges_filtered(roots, max_depth, labels)?;
+        let mut visited = HashSet::new();
+        let mut results = Vec::new();
+        for &root in roots {
+            dfs_from_cache(root, &mut visited, &mut results, &edges);
+        }
+        Ok(results)
+    }
+
     /// Evaluates a Depth-First-Search starting from a designated set of root IDs,
     /// up to a maximum depth, returning the discovered distinct Node IDs.
     ///
@@ -169,6 +258,84 @@ impl<'a> GraphTraverser<'a> {
 
         Ok(edges)
     }
+
+    /// BFS-style batched discovery with label filtering.
+    /// Only caches edges whose label_id is in `labels` (or all edges if `labels` is empty).
+    fn discover_edges_filtered(
+        &self,
+        roots: &[u128],
+        max_depth: usize,
+        labels: &[u32],
+    ) -> Result<HashMap<u128, Vec<crate::node::Edge>>> {
+        let mut edges: HashMap<u128, Vec<crate::node::Edge>> = HashMap::new();
+        let mut current_level: Vec<u128> = roots.to_vec();
+
+        for depth in 0..=max_depth {
+            if current_level.is_empty() {
+                break;
+            }
+
+            let mut unvisited = Vec::new();
+            for &id in &current_level {
+                if !edges.contains_key(&id) {
+                    unvisited.push(id);
+                }
+            }
+
+            if unvisited.is_empty() || depth == max_depth {
+                break;
+            }
+
+            let nodes = self.storage.get_many(&unvisited)?;
+            let mut next_level = Vec::new();
+            for node in &nodes {
+                // Collect only matching edges
+                if !labels.is_empty() {
+                    if !node.label_index.is_empty() {
+                        // Use label_index for O(1) per-label lookups
+                        let mut matching = Vec::new();
+                        for &lid in labels {
+                            for &target in node.targets_by_label(lid) {
+                                // Find the corresponding Edge for weight metadata
+                                if let Some(edge) = node
+                                    .edges
+                                    .iter()
+                                    .find(|e| e.target == target && e.label_id == lid)
+                                {
+                                    matching.push(edge.clone());
+                                }
+                            }
+                        }
+                        edges.insert(node.id, matching);
+                    } else {
+                        // Fallback: scan and filter
+                        let matching: Vec<crate::node::Edge> = node
+                            .edges
+                            .iter()
+                            .filter(|e| labels.contains(&e.label_id))
+                            .cloned()
+                            .collect();
+                        edges.insert(node.id, matching);
+                    }
+                } else {
+                    edges.insert(node.id, node.edges.clone());
+                }
+
+                // Queue unvisited targets
+                for edge in edges.get(&node.id).unwrap() {
+                    if !edges.contains_key(&edge.target) {
+                        next_level.push(edge.target);
+                    }
+                }
+            }
+
+            next_level.sort();
+            next_level.dedup();
+            current_level = next_level;
+        }
+
+        Ok(edges)
+    }
 }
 
 fn dfs_from_cache(
@@ -247,6 +414,18 @@ mod tests {
                 label_id: 0,
             })
             .collect();
+        storage.insert(&node).unwrap();
+    }
+
+    fn insert_node_with_labeled_edges(
+        storage: &StorageEngine,
+        id: u128,
+        edges: Vec<(u128, u32, f32)>,
+    ) {
+        let mut node = UnifiedNode::new(id);
+        for (target, label_id, weight) in edges {
+            node.add_weighted_edge(target, label_id, weight);
+        }
         storage.insert(&node).unwrap();
     }
 
@@ -432,5 +611,70 @@ mod tests {
         insert_node(traverser.storage, 0, vec![(0, 1.0)]);
         let result = traverser.bfs_traverse(&[0], 10).unwrap();
         assert_eq!(result, vec![0]);
+    }
+
+    #[test]
+    fn test_bfs_filtered_basic() {
+        let (storage, _dir) = setup_storage();
+        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        // 0 → 1 (label=1), 0 → 2 (label=2)
+        insert_node_with_labeled_edges(traverser.storage, 0, vec![(1, 1, 1.0), (2, 2, 1.0)]);
+        insert_node_with_labeled_edges(traverser.storage, 1, vec![]);
+        insert_node_with_labeled_edges(traverser.storage, 2, vec![]);
+
+        // BFS with label=1 should only reach node 1
+        let result = traverser.bfs_traverse_filtered(&[0], 10, &[1]).unwrap();
+        assert!(result.contains(&0));
+        assert!(result.contains(&1));
+        assert!(!result.contains(&2), "label=1 filter should exclude node 2");
+    }
+
+    #[test]
+    fn test_bfs_filtered_no_match() {
+        let (storage, _dir) = setup_storage();
+        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        insert_node_with_labeled_edges(traverser.storage, 0, vec![(1, 42, 1.0)]);
+        insert_node_with_labeled_edges(traverser.storage, 1, vec![]);
+
+        // Filter by label that doesn't exist → stops at root
+        let result = traverser.bfs_traverse_filtered(&[0], 10, &[99]).unwrap();
+        assert_eq!(
+            result,
+            vec![0],
+            "should only return root when no edges match"
+        );
+    }
+
+    #[test]
+    fn test_bfs_filtered_empty_labels() {
+        let (storage, _dir) = setup_storage();
+        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        insert_node_with_labeled_edges(traverser.storage, 0, vec![(1, 1, 1.0), (2, 2, 1.0)]);
+        insert_node_with_labeled_edges(traverser.storage, 1, vec![]);
+        insert_node_with_labeled_edges(traverser.storage, 2, vec![]);
+
+        // Empty label filter = no filter, should follow all edges
+        let result = traverser.bfs_traverse_filtered(&[0], 10, &[]).unwrap();
+        assert!(result.contains(&0));
+        assert!(result.contains(&1));
+        assert!(result.contains(&2));
+    }
+
+    #[test]
+    fn test_dfs_filtered_basic() {
+        let (storage, _dir) = setup_storage();
+        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        // 0 → 1 (label=1), 0 → 2 (label=2), 1 → 3 (label=1)
+        insert_node_with_labeled_edges(traverser.storage, 0, vec![(1, 1, 1.0), (2, 2, 1.0)]);
+        insert_node_with_labeled_edges(traverser.storage, 1, vec![(3, 1, 1.0)]);
+        insert_node_with_labeled_edges(traverser.storage, 2, vec![]);
+        insert_node_with_labeled_edges(traverser.storage, 3, vec![]);
+
+        // DFS with label=1 should reach 0,1,3 but NOT 2
+        let result = traverser.dfs_traverse_filtered(&[0], 10, &[1]).unwrap();
+        assert!(result.contains(&0));
+        assert!(result.contains(&1));
+        assert!(result.contains(&3));
+        assert!(!result.contains(&2), "label=1 filter should exclude node 2");
     }
 }

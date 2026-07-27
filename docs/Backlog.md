@@ -202,16 +202,16 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | ~~`COMP-008`~~ | ~~**Pluggable index engine (VecIndex trait)** — `VecIndex` trait definido con `search`/`add`/`len`/`estimate_memory_bytes`. Implementado para CPIndex (HNSW) e IvfIndex. `vector_memory_search` usa `engine.vec_index()`. 1679 tests ✅. 🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | ~~Pre-COMP-027~~ |
 | ~~`COMP-009`~~ | ~~**Binary bulk import (5-10x faster than INSERT)** — `bulk_import_stream()` + `bulk_import_file()` + `bulk_import_bytes()` en core Rust, Python, WASM. Formato `VDBJSON\n` header + serde_json body. Bypass per-record validation, batch commit, 3 tests. ✅ COMPLETADA~~ | ~~🟢 3-4d~~ | ✅ | Ninguna |
 | ~~`COMP-010`~~ | ~~**Auto-embedding (embedding function abstraction)** — Trait `EmbeddingProvider` + `OllamaProvider` + `OpenAIProvider`. Factory `get_embedding_provider()` vía `VANTA_EMBEDDING_PROVIDER`. ✅ COMPLETADA | 🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | ~~DRV-123~~ |
-| `COMP-012` | RoaringBitmaps for metadata indexing — `FilterBitset` custom, no `croaring` | 🟡 1 sem | ❌ No implementado | Pre-COMP-003 |
+| ~~`COMP-012`~~ | ~~**RoaringBitmaps for metadata indexing** — `FilterBitset` migrado a `croaring::Bitmap`. 19/19 tests ✅, serializado ~10× más pequeño. `DiskNodeHeader` intacto (u128).~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | Pre-COMP-003 ✅ |
 | ~~`COMP-013`~~ | ~~**Segment optimizer pipeline (Vacuum/Merge/Index)** — `PipelineMode`, `VacuumReport`, `MergeReport`, `PipelineReport`, `SegmentOptimizerConfig`, `vacuum()`, `merge_segments()`, `run_pipeline()` + SDK API + 77 tests. ✅ COMPLETADA~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | ~~COMP-004, COMP-011~~ |
-| `COMP-014` | FreshHNSW (background repair de enlaces huérfanos) — Sin repair background | 🟡 1 sem | ❌ No implementado | COMP-004, COMP-011 |
-| `COMP-016` | Supernode mitigation (indexed relationships) — Sin indexed relationships | 🟢 3-5d | ❌ No implementado | COMP-006 |
+| ~~`COMP-014`~~ | ~~**FreshHNSW (background repair de enlaces huérfanos)** — `repair_orphan_links()` en CPIndex (three-phase: snapshot → scan → repair). `FreshHnswReport`, `PipelineMode::FreshHnswOnly`, pipeline phase, 4 tests. Fix: deadlock DashMap. ✅ COMPLETADA~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | ~~COMP-004, COMP-011~~ |
+| ~~`COMP-016`~~ | ~~**Supernode mitigation (indexed relationships)** — `label_index: HashMap<u32, Vec<u128>>` en `UnifiedNode`. `bfs_traverse_filtered`/`dfs_traverse_filtered` en `GraphTraverser`. `graph_bfs_filtered`/`graph_dfs_filtered` en SDK, WASM, Python. 6 tests. ✅ COMPLETADA~~ | ~~🟢 3-5d~~ | ~~✅ COMPLETADA~~ | ~~COMP-006~~ |
 | `COMP-017` | Accumulators for parallel graph algorithms — Sin accumulators | 🟡 1-2 sem | ❌ No implementado | Ninguna |
 | `COMP-018` | Double-linked relationship chains — Relaciones dirigidas simples, sin doble enlace | 🟡 1-2 sem | ❌ No implementado | COMP-006 |
 | `COMP-019` | Binary protocol (rkyv/FlatBuffers over gRPC) — Solo HTTP JSON. rkyv usado internamente en serialización | 🟡 1-2 sem | ⚠️ Parcial (rkyv interno sí) | Ninguna |
 | `COMP-021` | Temporal edges (timestamp-aware relationships) — Sin timestamp-aware edges | 🟡 1 sem | ❌ No implementado | Ninguna |
 | `COMP-022` | Graph Data Science library (PageRank, centrality) — Solo BFS/DFS traversal | 🟡 2-3 sem | ❌ No implementado | COMP-017 |
-| `COMP-023` | 3 filtering strategies (pre/post/in-index) — Filtros en cost order (bitset → relational → vector), pre/post/in no formalizados | 🟡 1-2 sem | ⚠️ Parcial | COMP-003, COMP-012, COMP-028 |
+| ~~`COMP-023`~~ | ~~**3 filtering strategies (pre/post/in-index)** — `FilterStrategy::PreFilter/InFilter/PostFilter` con selector por joint selectivity. PreFilter (< 1%): scan+brute-force. InFilter (1-10%): query_mask via HNSW. PostFilter (≥ 10%): vector→filter. 1589 tests ✅.~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | COMP-003 ✅, COMP-012 ✅, COMP-028 (diferida) |
 | `COMP-024` | ACORN algorithm (second-hop filtered search) — Sin second-hop search | 🟡 1-2 sem | ❌ No implementado | COMP-003 |
 
 ### 🟡 Medio — Features de madurez y ecosistema
@@ -236,11 +236,11 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 === RECITATION ===
 Campaign ID: bd4aca29-11d5-4e4c-9c4d-3111135f58cc
-Objetivo activo: COMPLETAR COMP-013 — Segment Optimizer Pipeline
+Objetivo activo: COMPLETAR COMP-014 — FreshHNSW
 Estado: completed
-Última acción: Verificar implementación y tests
-Resultado: ✅ COMPLETADA — pipeline ya implementado con vacuum(), merge_segments(), run_pipeline(), PipelineMode, VacuumReport, MergeReport, PipelineReport, SegmentOptimizerConfig en config, SDK API, y 77 tests pasando
+Última acción: Delegar a vanta-worker: implementar repair_orphan_links() three-phase (snapshot→scan→repair), FreshHnswReport, PipelineMode::FreshHnswOnly, pipeline phase. Fix: DashMap deadlock en phase 2-3.
+Resultado: ✅ COMPLETADA — 4/4 tests pasan (0.49s), cargo check ok, backlog actualizado
 Próxima acción: Ninguna — tarea completada
-Contrato: 77 tests maintenance pasan, cargo check ok, backlog actualizado
-Próxima tarea si completa: COMP-014 (FreshHNSW) o COMP-026 (LSM compaction) según roadmap
+Contrato: 4 tests repair_orphan pasan, cargo check ok, backlog actualizado
+Próxima tarea si completa: COMP-016 (Supernode mitigation) o COMP-026 (LSM compaction) según roadmap
 === END RECITATION ===

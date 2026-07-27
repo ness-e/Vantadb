@@ -23,6 +23,7 @@ fn node_strategy() -> impl Strategy<Value = UnifiedNode> {
         vector: VectorRepresentations::None,
         relational: std::collections::BTreeMap::new(),
         edges: Vec::new(),
+        label_index: std::collections::HashMap::new(),
         epoch: 0,
         ext_metadata: std::collections::HashMap::new(),
         importance: 0.0,

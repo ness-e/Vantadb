@@ -107,7 +107,7 @@ impl CacheWarmer {
         }
 
         // Sort by co-access count descending, take top N
-        candidates.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+        candidates.sort_unstable_by_key(|b| std::cmp::Reverse(b.1));
         candidates
             .into_iter()
             .take(self.max_prefetch)

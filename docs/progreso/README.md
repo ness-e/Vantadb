@@ -2792,6 +2792,12 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Ids:** `COMP-008`
 
+### 2026-07-27 — COMP-014: FreshHNSW (Background Repair de Enlaces Huérfanos)
+
+| Tarea | Logro | Archivos | Estado |
+|-------|-------|----------|--------|
+| `COMP-014` | FreshHNSW: `repair_orphan_links()` three-phase (snapshot→scan→repair) evita deadlock de DashMap. `FreshHnswReport`, `PipelineMode::FreshHnswOnly`, pipeline phase entre Vacuum y Merge. 4 tests (empty, no-orphans, after-delete, multi-layer). | `src/index/graph.rs`, `src/storage/engine/mod.rs`, `src/storage/engine/maintenance.rs` | ✅ 4/4 tests (0.49s), cargo check ok |
+
 ### 2026-07-27 — COMP-013: Segment Optimizer Pipeline (Vacuum/Merge/Index)
 
 **Objetivo:** Construir pipeline formal de optimización de segmentos en background (Vacuum → Merge → Index). Ya existían piezas sueltas (`compact_layout_bfs`, `trigger_compaction`, `rebuild_vector_index`) pero sin orquestación.

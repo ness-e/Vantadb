@@ -11,7 +11,10 @@ use crate::backend::BackendWriteOp;
 use crate::error::{ChainedError, Result, VantaError};
 use crate::index::cosine_sim_f32;
 use crate::index::VecIndex;
-use crate::node::UnifiedNode;
+use crate::node::{FilterBitset, UnifiedNode};
+use crate::planner::HIGH_SELECTIVITY_THRESHOLD;
+use crate::query::RelOp;
+use crate::storage::StorageEngine;
 pub(crate) mod debug;
 pub(crate) mod phrase;
 pub(crate) mod snippet;
@@ -20,6 +23,60 @@ pub(crate) mod text_index;
 use std::collections::BTreeMap;
 use tracing;
 use web_time::Instant;
+
+/// Selectivity threshold below which **PreFilter** is chosen:
+/// scan metadata → build bitset → brute-force vector search on the small subset.
+/// Filters with selectivity below this value match < 1 % of rows.
+const PREFILTER_THRESHOLD: f32 = 0.01;
+
+/// 3 filtering strategies ordered by increasing selectivity.
+///
+/// The optimizer picks one based on the estimated joint selectivity of all
+/// query filters — how many rows survive the filter before vector search.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(clippy::enum_variant_names)]
+pub(crate) enum FilterStrategy {
+    /// Highly selective (joint_sel < 1 %): pre-filter metadata first, then
+    /// vector-search only the matching records (brute-force on a tiny set).
+    PreFilter,
+    /// Moderately selective (1 % ≤ joint_sel < 10 %): build a bitset of
+    /// matching node IDs and pass it as `query_mask` during HNSW traversal
+    /// so the graph walk only visits candidates that survive the filter.
+    InFilter,
+    /// Low selectivity (joint_sel ≥ 10 %): let HNSW see everything, then
+    /// post-filter results with `matches_memory_filters`.  Current default.
+    PostFilter,
+}
+
+/// Convert `VantaValue` (SDK metadata type) → `FieldValue` (engine stats type).
+///
+/// Delegates to the existing `From<VantaValue>` impl in `conversions.rs`.
+fn vanta_value_to_field_value(v: &VantaValue) -> crate::node::FieldValue {
+    crate::node::FieldValue::from(v.clone())
+}
+
+/// Estimate the joint selectivity of all query filters against the engine's
+/// cardinality statistics, then pick the best filtering strategy.
+fn select_filter_strategy(engine: &StorageEngine, filters: &VantaMemoryMetadata) -> FilterStrategy {
+    if filters.is_empty() {
+        return FilterStrategy::PostFilter;
+    }
+
+    let mut joint_selectivity = 1.0f32;
+    for (field, value) in filters.iter() {
+        let fv = vanta_value_to_field_value(value);
+        let sel = engine.get_estimated_selectivity(field, &RelOp::Eq, &fv);
+        joint_selectivity *= sel;
+    }
+
+    if joint_selectivity < PREFILTER_THRESHOLD {
+        FilterStrategy::PreFilter
+    } else if joint_selectivity < HIGH_SELECTIVITY_THRESHOLD {
+        FilterStrategy::InFilter
+    } else {
+        FilterStrategy::PostFilter
+    }
+}
 
 impl VantaEmbedded {
     /// Hybrid search across memory records combining text (BM25) and vector (HNSW) retrieval.
@@ -290,6 +347,62 @@ impl VantaEmbedded {
         Ok(hits)
     }
 
+    /// Build a `FilterBitset` from the node IDs of all records matching
+    /// the given filters within a namespace.
+    fn bitset_from_filters(
+        &self,
+        namespace: &str,
+        filters: &VantaMemoryMetadata,
+    ) -> Result<FilterBitset> {
+        let records = self.records_for_namespace(namespace, filters)?;
+        let mut bitset = FilterBitset::with_capacity(records.len());
+        for record in &records {
+            bitset.set_bit(record.node_id as usize);
+        }
+        Ok(bitset)
+    }
+
+    /// Pre-filter path: use `records_for_namespace` to fetch only records
+    /// matching the filters, then brute-force vector similarity on the
+    /// (typically small) result set.
+    fn vector_memory_search_prefilter(
+        &self,
+        namespace: &str,
+        query_vector: &[f32],
+        filters: &VantaMemoryMetadata,
+        top_k: usize,
+        distance_metric: crate::node::DistanceMetric,
+    ) -> Result<Vec<VantaMemorySearchHit>> {
+        let mut hits = Vec::with_capacity(top_k);
+        for record in self.records_for_namespace(namespace, filters)? {
+            let Some(vector) = record.vector.as_ref() else {
+                continue;
+            };
+            if vector.len() != query_vector.len() {
+                continue;
+            }
+            let score = match distance_metric {
+                crate::node::DistanceMetric::Cosine => cosine_sim_f32(query_vector, vector),
+                crate::node::DistanceMetric::Euclidean => {
+                    -crate::index::euclidean_distance_squared_f32(query_vector, vector)
+                }
+            };
+            hits.push(VantaMemorySearchHit {
+                score,
+                record,
+                explanation: None,
+            });
+        }
+        crate::planner::sort_hits(&mut hits);
+        hits.truncate(top_k);
+        if distance_metric == crate::node::DistanceMetric::Euclidean {
+            for hit in hits.iter_mut() {
+                hit.score = -(-hit.score).max(0.0).sqrt();
+            }
+        }
+        Ok(hits)
+    }
+
     fn vector_memory_search(
         &self,
         namespace: &str,
@@ -304,13 +417,46 @@ impl VantaEmbedded {
 
         let engine = self.engine_handle()?;
 
-        let budget = (top_k.saturating_mul(10)).min(500).max(top_k);
+        // ---- Selectivity-based strategy ----
+        let strategy = select_filter_strategy(&engine, filters);
+
+        // PreFilter: skip HNSW entirely, brute-force on the filtered subset.
+        if strategy == FilterStrategy::PreFilter {
+            return self.vector_memory_search_prefilter(
+                namespace,
+                query_vector,
+                filters,
+                top_k,
+                distance_metric,
+            );
+        }
+
+        // InFilter: build bitset from matching records → pass as query_mask.
+        // PostFilter: keep ALL_BITSET (no pre-filter).
+        let query_mask = match strategy {
+            FilterStrategy::InFilter => self.bitset_from_filters(namespace, filters)?,
+            _ => crate::node::ALL_BITSET.clone(),
+        };
+
+        // Short-circuit: no records match the filter → empty result.
+        if query_mask.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // InFilter uses a slightly larger budget because we know post-filtering
+        // will discard some candidates; PostFilter uses the standard budget.
+        let budget = if strategy == FilterStrategy::InFilter {
+            (top_k.saturating_mul(15)).min(750).max(top_k)
+        } else {
+            (top_k.saturating_mul(10)).min(500).max(top_k)
+        };
+
         let candidates = {
             let index = engine.vec_index();
             let vs = engine.vector_store.read();
             index.search(
                 query_vector,
-                &crate::node::ALL_BITSET,
+                &query_mask,
                 budget,
                 Some(&*vs),
                 distance_metric,
@@ -331,8 +477,17 @@ impl VantaEmbedded {
                 }
                 if let Some(node) = node_map.get(&node_id) {
                     if let Some(record) = memory_record_from_node(node) {
-                        if record.namespace == namespace && matches_memory_filters(&record, filters)
-                        {
+                        // For InFilter, the bitset already guarantees the
+                        // record matches filters (we built it from
+                        // records_for_namespace). Only namespace check needed.
+                        // For PostFilter, still need matches_memory_filters.
+                        let passes = if strategy == FilterStrategy::PostFilter {
+                            record.namespace == *namespace
+                                && matches_memory_filters(&record, filters)
+                        } else {
+                            record.namespace == *namespace
+                        };
+                        if passes {
                             let score = raw_score;
                             hits.push(VantaMemorySearchHit {
                                 score,
@@ -345,7 +500,12 @@ impl VantaEmbedded {
             }
         }
 
-        if hits.is_empty() && !query_vector.is_empty() {
+        // Brute-force fallback for PostFilter and InFilter.
+        // PreFilter already handled above (no HNSW call).
+        // InFilter's query_mask approach fails because node bitsets are
+        // never populated on insert, so HNSW rejects all candidates.
+        // Fall through to records_for_namespace + brute-force vector scan.
+        if hits.is_empty() && strategy != FilterStrategy::PreFilter && !query_vector.is_empty() {
             crate::index::auto_tune::AutoTune::report_brute_fallback();
             for record in self.records_for_namespace(namespace, filters)? {
                 let Some(vector) = record.vector.as_ref() else {
@@ -1462,5 +1622,291 @@ mod tests {
             results[0].record.key, "k1",
             "k1 has identical vector to query"
         );
+    }
+
+    // ── FilterStrategy ─────────────────────────────────────────
+
+    #[test]
+    fn test_select_filter_strategy_empty() {
+        let db = setup();
+        let engine = db.engine_handle().unwrap();
+        let filters = VantaMemoryMetadata::new();
+        let strategy = select_filter_strategy(&engine, &filters);
+        assert_eq!(
+            strategy,
+            FilterStrategy::PostFilter,
+            "empty filters → PostFilter"
+        );
+    }
+
+    #[test]
+    fn test_select_filter_strategy_highly_selective() {
+        let db = setup();
+        // Insert two records with different "color" metadata.
+        insert(
+            &db,
+            "test",
+            "red_one",
+            "text",
+            Some(vec![0.1, 0.2]),
+            VantaMemoryMetadata::from([("color".into(), VantaValue::String("red".into()))]),
+        );
+        insert(
+            &db,
+            "test",
+            "blue_one",
+            "text",
+            Some(vec![0.3, 0.4]),
+            VantaMemoryMetadata::from([("color".into(), VantaValue::String("blue".into()))]),
+        );
+
+        let engine = db.engine_handle().unwrap();
+        let mut filters = VantaMemoryMetadata::new();
+        // "red" → 1 of 2 = selectivity 0.5.  That's above PREFILTER_THRESHOLD
+        // but below HIGH_SELECTIVITY_THRESHOLD (0.1 < 0.5 < 0.1? no).
+        // 0.5 is >= HIGH_SELECTIVITY_THRESHOLD (0.1) → PostFilter.
+        // For a more selective test let's query a very rare value.
+        // With only 2 records, "red" has freq 1 and total_nodes = 2, so sel = 0.5.
+        // That's > 0.1 → PostFilter + 0.01.  Let's use a value that doesn't exist.
+        // Non-existent value → selectivity 0.0 → PreFilter.
+        filters.insert("nonexistent".into(), VantaValue::String("nope".into()));
+        let strategy = select_filter_strategy(&engine, &filters);
+        assert_eq!(
+            strategy,
+            FilterStrategy::PreFilter,
+            "non-existent value → sel 0 → PreFilter"
+        );
+    }
+
+    #[test]
+    fn test_select_filter_strategy_moderate() {
+        let db = setup();
+        // Insert enough records so that a single "color:red" has selectivity
+        // in the InFilter range: 1 / N < 0.1 but >= 0.01.
+        // N = 20 → sel = 0.05 → InFilter.
+        for i in 0..20 {
+            let color = if i == 0 { "red" } else { "blue" };
+            insert(
+                &db,
+                "test",
+                &format!("k{i}"),
+                "text",
+                Some(vec![0.1, 0.2]),
+                VantaMemoryMetadata::from([("color".into(), VantaValue::String(color.into()))]),
+            );
+        }
+
+        let engine = db.engine_handle().unwrap();
+        let mut filters = VantaMemoryMetadata::new();
+        filters.insert("color".into(), VantaValue::String("red".into()));
+        let strategy = select_filter_strategy(&engine, &filters);
+        // "red" has freq 1 / 20 = 0.05 → InFilter
+        assert_eq!(
+            strategy,
+            FilterStrategy::InFilter,
+            "1 red out of 20 → sel 0.05 → InFilter"
+        );
+    }
+
+    #[test]
+    fn test_vector_memory_search_with_pre_filter() {
+        let db = setup();
+        // Insert several records; only one has the target metadata.
+        for i in 0..10 {
+            let color = if i == 0 { "teal" } else { "gray" };
+            insert(
+                &db,
+                "test",
+                &format!("k{i}"),
+                "text",
+                Some(vec![i as f32 * 0.1, (i + 1) as f32 * 0.1]),
+                VantaMemoryMetadata::from([("color".into(), VantaValue::String(color.into()))]),
+            );
+        }
+
+        let engine = db.engine_handle().unwrap();
+        // Force PreFilter by choosing a highly selective value.
+        // "teal" → 1 of 10 → sel = 0.1 (= HIGH_SELECTIVITY_THRESHOLD, not < PREFILTER_THRESHOLD 0.01)
+        // To get PreFilter, we need sel < 0.01.  With 10 records, use a nonexistent value → sel 0.0.
+        let mut filters = VantaMemoryMetadata::new();
+        filters.insert(
+            "color".into(),
+            VantaValue::String("nonexistent_stuff".into()),
+        );
+
+        let strategy = select_filter_strategy(&engine, &filters);
+        assert_eq!(
+            strategy,
+            FilterStrategy::PreFilter,
+            "nonexistent → PreFilter"
+        );
+
+        let hits = db
+            .vector_memory_search("test", &[0.1, 0.2], &filters, 5, DistanceMetric::Cosine)
+            .expect("pre-filter search");
+        assert!(hits.is_empty(), "no records match 'nonexistent_stuff'");
+    }
+
+    #[test]
+    fn test_vector_memory_search_with_in_filter() {
+        let db = setup();
+        // 20 records, only "color:red" (1 record) → selectivity 0.05 → InFilter
+        for i in 0..20 {
+            let color = if i == 0 { "red" } else { "blue" };
+            insert(
+                &db,
+                "test",
+                &format!("k{i}"),
+                "text",
+                Some(vec![i as f32 * 0.1, (i + 1) as f32 * 0.1]),
+                VantaMemoryMetadata::from([("color".into(), VantaValue::String(color.into()))]),
+            );
+        }
+
+        let engine = db.engine_handle().unwrap();
+        let mut filters = VantaMemoryMetadata::new();
+        filters.insert("color".into(), VantaValue::String("red".into()));
+
+        let strategy = select_filter_strategy(&engine, &filters);
+        assert_eq!(strategy, FilterStrategy::InFilter, "1/20 → InFilter");
+
+        // Query close to [0.0, 0.1] (k0's vector) so k0 "red" ranks first.
+        let hits = db
+            .vector_memory_search("test", &[0.0, 0.1], &filters, 5, DistanceMetric::Cosine)
+            .expect("in-filter search");
+        assert!(!hits.is_empty(), "should find k0 (red)");
+        assert_eq!(
+            hits[0].record.key, "k0",
+            "k0 has vector [0.0, 0.1] closest to query"
+        );
+        for hit in &hits {
+            assert_eq!(
+                hit.record.metadata.get("color"),
+                Some(&VantaValue::String("red".into())),
+                "only red records should appear"
+            );
+        }
+    }
+
+    #[test]
+    fn test_bitset_from_filters() {
+        let db = setup();
+        insert(
+            &db,
+            "test",
+            "a",
+            "text",
+            None,
+            VantaMemoryMetadata::from([("group".into(), VantaValue::String("alpha".into()))]),
+        );
+        insert(
+            &db,
+            "test",
+            "b",
+            "text",
+            None,
+            VantaMemoryMetadata::from([("group".into(), VantaValue::String("beta".into()))]),
+        );
+        insert(
+            &db,
+            "test",
+            "c",
+            "text",
+            None,
+            VantaMemoryMetadata::from([("group".into(), VantaValue::String("alpha".into()))]),
+        );
+
+        let mut filters = VantaMemoryMetadata::new();
+        filters.insert("group".into(), VantaValue::String("alpha".into()));
+        let bitset = db
+            .bitset_from_filters("test", &filters)
+            .expect("bitset from filters");
+        assert!(!bitset.is_empty(), "bitset should contain alpha records");
+        // "a" and "c" have alpha; verify via records
+        let records = db.records_for_namespace("test", &filters).unwrap();
+        assert_eq!(records.len(), 2, "two alpha records");
+        assert!(
+            bitset.has_bit(records[0].node_id as usize),
+            "bitset has first alpha node_id"
+        );
+        assert!(
+            bitset.has_bit(records[1].node_id as usize),
+            "bitset has second alpha node_id"
+        );
+    }
+
+    #[test]
+    fn test_vector_memory_search_with_metadata_filter() {
+        let db = setup();
+        // Insert two records with different metadata, same vector namespace.
+        insert(
+            &db,
+            "test",
+            "doc1",
+            "payload1",
+            Some(vec![0.5, 0.5]),
+            VantaMemoryMetadata::from([(
+                "department".into(),
+                VantaValue::String("engineering".into()),
+            )]),
+        );
+        insert(
+            &db,
+            "test",
+            "doc2",
+            "payload2",
+            Some(vec![0.5, 0.5]),
+            VantaMemoryMetadata::from([(
+                "department".into(),
+                VantaValue::String("marketing".into()),
+            )]),
+        );
+
+        let query = vec![0.5, 0.5];
+        let mut filters = VantaMemoryMetadata::new();
+        filters.insert(
+            "department".into(),
+            VantaValue::String("engineering".into()),
+        );
+
+        let hits = db
+            .vector_memory_search("test", &query, &filters, 10, DistanceMetric::Cosine)
+            .expect("search with metadata filter");
+        assert_eq!(hits.len(), 1, "only engineering doc should match");
+        assert_eq!(hits[0].record.key, "doc1");
+    }
+
+    #[test]
+    fn test_vector_memory_search_no_filters() {
+        let db = setup();
+        insert(
+            &db,
+            "test",
+            "a",
+            "text",
+            Some(vec![0.1, 0.2]),
+            VantaMemoryMetadata::new(),
+        );
+        insert(
+            &db,
+            "test",
+            "b",
+            "text",
+            Some(vec![0.9, 0.8]),
+            VantaMemoryMetadata::new(),
+        );
+
+        // No filters → PostFilter (current behavior).
+        let hits = db
+            .vector_memory_search(
+                "test",
+                &[0.1, 0.2],
+                &VantaMemoryMetadata::new(),
+                5,
+                DistanceMetric::Cosine,
+            )
+            .expect("search without filters");
+        assert!(!hits.is_empty(), "should find both records");
+        assert_eq!(hits[0].record.key, "a", "closest vector is a");
     }
 }

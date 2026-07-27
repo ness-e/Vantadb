@@ -43,7 +43,7 @@
 - **Estado: completed
 - **Backlog:** Line 128 — Sin migration path para VantaFile/HNSW/WAL. 4 formatos catalogados
 - **Archivos clave:** `docs/architecture/STORAGE_VERSIONING.md`
-- **Contrato: Pipeline de build/test en verde — cargo check, nextest, clippy -D warnings, fmt --check
+- **Contrato: cargo check ✅, 3/3 tests pasan, backlog + progreso actualizados
 - **Routing:** vanta-arch (arquitectura de almacenamiento, formatos)
 
 ### DRV-121: Planner CBO optimization
@@ -69,7 +69,7 @@
 - **Archivos clave:** `src/index/ivf.rs` (NEW, 836L), `src/index/mod.rs`, `src/index/graph.rs`, `src/index/search.rs`, `src/index/serialize.rs`
 - **Contrato:** IVF implementado con k-means manual (Forgy + Lloyd, max 20 iter), búsqueda con nprobe, serialización v8 backwards compat v7. 16 tests IVF. 1547 tests lib pass. ✅
 - **Routing:** vanta-engine (sub-agente delegado y completó)
-- **Resultado: ✅ Task completada: clippy, fmt, y 1679 tests pasan
+- **Resultado: ✅ Bulk import implementado en Rust core, Python y WASM bindings
 
 ### DOC-20: mdBook docs site ✅
 
@@ -81,11 +81,11 @@
 - **Resultado:** `docs/book/book.toml`, `docs/book/src/SUMMARY.md` (9 secciones), 73 `{{#include}}` stubs. Cero duplicación.
 
 === RECITATION ===
-Campaign ID: a6cc52ca-48a5-489b-92ce-20704fa00dce
-Objetivo activo: Implementar VecIndex trait + actualizar vector_memory_search
+Campaign ID: a39f1281-12ec-4777-94a6-714cf0372bb4
+Objetivo activo: Implementar COMP-009 Binary Bulk Import
 Estado: completed
-Última acción: Fix fmt + clippy final verification
+Última acción: Pipeline completo: plan → implement → verify → docs
 Resultado: ✅
-Próxima acción: Reportar completitud al usuario
+Próxima acción: Ninguna — COMP-009 completada
 Contrato: 1547 tests pass, clippy limpio, commit 9aaf9b7f
-Próxima tarea si completa: COMP-027
+Próxima tarea si completa: COMP-012 (RoaringBitmaps) o COMP-014 (FreshHNSW)

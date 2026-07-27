@@ -21,6 +21,36 @@ impl VantaEmbedded {
         traverser.dfs_traverse(roots, max_depth)
     }
 
+    /// Breadth-first traversal with label filtering.
+    /// Only follows edges whose `label_id` is in `labels`.
+    /// When `labels` is empty, acts like `graph_bfs` (no filter).
+    #[tracing::instrument(skip(self), err)]
+    pub fn graph_bfs_filtered(
+        &self,
+        roots: &[u128],
+        max_depth: usize,
+        labels: &[u32],
+    ) -> Result<Vec<u128>> {
+        let engine = self.engine_handle()?;
+        let traverser = crate::graph::GraphTraverser::new(&engine);
+        traverser.bfs_traverse_filtered(roots, max_depth, labels)
+    }
+
+    /// Depth-first traversal with label filtering.
+    /// Only follows edges whose `label_id` is in `labels`.
+    /// When `labels` is empty, acts like `graph_dfs` (no filter).
+    #[tracing::instrument(skip(self), err)]
+    pub fn graph_dfs_filtered(
+        &self,
+        roots: &[u128],
+        max_depth: usize,
+        labels: &[u32],
+    ) -> Result<Vec<u128>> {
+        let engine = self.engine_handle()?;
+        let traverser = crate::graph::GraphTraverser::new(&engine);
+        traverser.dfs_traverse_filtered(roots, max_depth, labels)
+    }
+
     /// Topological sort starting from the given root nodes.
     /// Returns an error if the graph contains a cycle.
     #[tracing::instrument(skip(self), err)]
@@ -86,6 +116,20 @@ mod tests {
     fn test_graph_dfs_empty_roots_no_engine() {
         let e = no_engine_embedded();
         let err = e.graph_dfs(&[], 0).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_graph_bfs_filtered_no_engine() {
+        let e = no_engine_embedded();
+        let err = e.graph_bfs_filtered(&[1], 5, &[1]).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_graph_dfs_filtered_no_engine() {
+        let e = no_engine_embedded();
+        let err = e.graph_dfs_filtered(&[1], 5, &[1]).unwrap_err();
         assert!(err.to_string().contains("initialized"), "got: {:?}", err);
     }
 }

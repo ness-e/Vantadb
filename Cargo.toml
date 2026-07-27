@@ -87,6 +87,7 @@ web-time = "1.1.0"
 aes-gcm = { version = "0.10", optional = true }
 sha2 = { version = "0.10", optional = true }
 ahash = "0.8.12"
+croaring = "2.6.0"
 
 [features]
 default = ["cli", "arrow", "fjall", "advanced-tokenizer", "memmap2", "fs2", "sysinfo"]

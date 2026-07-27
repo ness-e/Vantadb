@@ -793,52 +793,66 @@ impl CPIndex {
     /// # ponytail
     /// O(n × m × layers) scan. For ~10M nodes with M=32, that is ~320M
     /// `contains_key` checks. Do not optimize prematuramente.
+    ///
+    /// # Deadlock avoidance
+    /// DashMap's `iter()` locks **all** shards. Calling `contains_key()` or
+    /// `get_mut()` while the iter lock is held would deadlock. This method
+    /// uses a three-phase approach:
+    ///   1. Snapshot all existing node IDs into a local HashSet.
+    ///   2. Scan neighbor lists under the iter lock (read-only, using the
+    ///      snapshot for existence checks). Record (node_id, layer) pairs
+    ///      that need repair.
+    ///   3. Repair each recorded pair with `get_mut()` — iter lock is
+    ///      released, so only one shard is locked at a time.
     pub fn repair_orphan_links(&self) -> FreshHnswReport {
-        let mut scanned_nodes: u64 = 0;
+        let started = web_time::Instant::now();
+
+        // Phase 1: snapshot all existing node IDs.
+        // This iter completes fully and releases the lock before Phase 2.
+        let existing: std::collections::HashSet<u128> =
+            self.nodes.iter().map(|e| *e.key()).collect();
+        let scanned_nodes = existing.len() as u64;
+
+        // Phase 2: scan for orphans under the iter lock (read-only).
         let mut total_layers: u64 = 0;
-        let mut repaired_links: u64 = 0;
+        let mut to_repair: Vec<(u128, usize)> = Vec::new();
+        {
+            let iter = self.nodes.iter();
+            for entry in iter {
+                let node_id = *entry.key();
+                let num_layers = entry.value().neighbors.len();
+                total_layers += num_layers as u64;
 
-        for entry in self.nodes.iter() {
-            let node_id = *entry.key();
-            scanned_nodes += 1;
-
-            // Collect the layers we can safely inspect under the read lock.
-            let num_layers = entry.value().neighbors.len();
-            total_layers += num_layers as u64;
-
-            for layer in 0..num_layers {
-                let mut needs_repair = false;
-                let mut orphan_count = 0usize;
-
-                {
-                    let node_ref = entry.value();
-                    let neighbors = &node_ref.neighbors[layer];
-                    for &nid in neighbors {
-                        if nid != node_id && !self.nodes.contains_key(&nid) {
-                            needs_repair = true;
-                            orphan_count += 1;
-                        }
-                    }
-                }
-
-                if needs_repair {
-                    if let Some(mut node_mut) = self.nodes.get_mut(&node_id) {
-                        let before = node_mut.neighbors[layer].len();
-                        node_mut.neighbors[layer].retain(|nid| {
-                            *nid == node_id || self.nodes.contains_key(nid)
-                        });
-                        let removed = before - node_mut.neighbors[layer].len();
-                        repaired_links += removed as u64;
+                for layer in 0..num_layers {
+                    let neighbors = &entry.value().neighbors[layer];
+                    if neighbors
+                        .iter()
+                        .any(|nid| *nid != node_id && !existing.contains(nid))
+                    {
+                        to_repair.push((node_id, layer));
                     }
                 }
             }
         }
 
+        // Phase 3: repair (no iter lock held — only one shard locked at a time).
+        let mut repaired_links: u64 = 0;
+        for (node_id, layer) in &to_repair {
+            if let Some(mut node) = self.nodes.get_mut(node_id) {
+                let before = node.neighbors[*layer].len();
+                node.neighbors[*layer].retain(|nid| *nid == *node_id || existing.contains(nid));
+                let removed = before - node.neighbors[*layer].len();
+                repaired_links += removed as u64;
+            }
+        }
+
+        let duration_ms = started.elapsed().as_millis() as u64;
+
         FreshHnswReport {
             scanned_nodes,
             total_layers,
             repaired_links,
-            duration_ms: 0, // filled by the caller
+            duration_ms,
             success: true,
         }
     }
@@ -1072,6 +1086,7 @@ mod tests {
             ml: 1.0 / (4_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
+            index_type: crate::index::IndexType::Hnsw,
         });
 
         // Insert nodes A, B, C — they form a connected graph with no orphans
@@ -1089,13 +1104,14 @@ mod tests {
     #[test]
     fn test_repair_orphan_links_after_delete() {
         let index = CPIndex::new_with_config(HnswConfig {
-            m: 4,
-            m_max0: 8,
+            m: 8,
+            m_max0: 16,
             ef_construction: 50,
             ef_search: 50,
-            ml: 1.0 / (4_f64).ln(),
+            ml: 1.0 / (8_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
+            index_type: crate::index::IndexType::Hnsw,
         });
 
         // Insert nodes 0, 1, 2 — they link to each other via HNSW
@@ -1137,13 +1153,13 @@ mod tests {
                 !node.neighbors[0].contains(&99),
                 "node 0 should no longer link to 99"
             );
-        }
+        };
         if let Some(node) = index.nodes.get(&1) {
             assert!(
                 !node.neighbors[0].contains(&999),
                 "node 1 should no longer link to 999"
             );
-        }
+        };
     }
 
     #[test]
@@ -1156,6 +1172,7 @@ mod tests {
             ml: 1.0 / (4_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
+            index_type: crate::index::IndexType::Hnsw,
         });
 
         // Insert enough nodes to create multi-layer graph
@@ -1185,7 +1202,10 @@ mod tests {
         let report = index.repair_orphan_links();
         assert!(report.scanned_nodes > 0, "should scan nodes");
         assert!(report.repaired_links > 0, "should repair orphan links");
-        assert!(report.total_layers >= report.scanned_nodes, "total layers >= scanned nodes");
+        assert!(
+            report.total_layers >= report.scanned_nodes,
+            "total layers >= scanned nodes"
+        );
         assert!(report.success);
 
         // Verify orphans are gone and legit links remain
@@ -1201,7 +1221,7 @@ mod tests {
                         "node {node_id} layer {layer} should not link to 200"
                     );
                 }
-            }
+            };
         }
     }
 }
