@@ -305,6 +305,15 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `OLD-03`
 
+**2026-07-27 — Post-certification fixes:**
+- **Bug:** Test binary no terminaba después de `ok` — proceso colgado en limpiza.
+- **Root cause 1:** `ChaosTestHarness` declaraba `dir: TempDir` antes que `engine: Arc<StorageEngine>`. Rust dropea struct fields en orden de declaración → `dir` se dropeaba primero e intentaba borrar el directorio temporal mientras el engine aún tenía archivos abiertos (Windows: no puede borrar archivos abiertos).
+- **Root cause 2:** `with_global_bar()` llamaba `pb.enable_steady_tick(100ms)` que spawnea un thread background con su propio `Arc` al estado del ProgressBar. Cuando el test terminaba y los thread-locals se limpiaban, el thread sobrevivía y prevenía la salida del proceso.
+- **Fix 1:** Reordenar campos `engine` → `dir` en struct (cambia orden de Drop).
+- **Fix 2:** Remover `enable_steady_tick` de `with_global_bar()` y `create_progress()`. Cambiar draw targets a `hidden()`.
+- **Commit:** `16e19434` (hang fix), `2812f9eb` (field order)
+- **Verificación:** 15 test binaries corridos (22 tests individuales). 0 hangs. 3 fallas pre-existentes no relacionadas. ✅
+
 ### 2026-07-26 — OLD-08: Snapshots via Hard Links ✅
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-08`
