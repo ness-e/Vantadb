@@ -1,66 +1,57 @@
----
-title: "VantaDB Web — Design System & Documentation"
-status: active
-tags: [vantadb, web, design-system]
-last_reviewed: 2026-07-04
-aliases: []
----
+# VantaDB Web Frontend
 
-# VantaDB Web — Design System & Documentation
+**Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · shadcn/ui (New York) · Framer Motion 12 · Anime.js 4
 
-> Estilo: **Swiss + Neubrutalism**
-> Filosofía: "Si el diseño corporativo es un sedán familiar, VantaDB es un coche de rally Grupo B"
-> Skills: `vanta-design-orchestrator`, `industrial-brutalist-ui`, `design-taste-frontend`
+**Status:** Active development — 30+ real routes, 47 custom components, 817 lines of CSS design system.
 
----
+## Purpose
 
-## Estructura
+Landing/marketing site for [VantaDB](https://github.com/ness-e/Vantadb).
+Showcases the engine's hybrid search (BM25 + HNSW via RRF), WAL durability, and in-process architecture.
+All pages are static — no backend data fetching.
 
-```
-docs/web/
-├── README.md                          ← Este archivo — índice maestro
-├── design/                            ← Especificación visual y técnica
-│   ├── TOKEN_SYSTEM.md                ← TODOS los tokens CSS del sistema
-│   ├── COMPONENT_SPEC.md              ← Especificación detallada de cada componente
-│   ├── ICON_SYSTEM.md                 ← Sistema de iconografía (nb-icon-box)
-│   ├── MOTION_CHOREOGRAPHY.md         ← Animación, easing, snap-fast mechanics
-│   └── SUB_PAGE_PATTERNS.md           ← Patrón común de subpáginas
-├── product/                           ← Producto y contenido
-│   ├── PRODUCT.md                     ← Product purpose, users, personality
-│   └── SITE_MAP.md                    ← Inventario completo de rutas con estado
-├── qa/                                ← Calidad, auditoría, accesibilidad
-│   ├── REPORTE-DE-REVISION.md         ← Auditoría visual vs diseño actual
-│   ├── NEUBRUTALIST_CHECKLIST.md      ← Pre-Flight Checklist neubrutalista
-│   └── ACCESSIBILITY_STATEMENT.md     ← Declaración de accesibilidad y cumplimiento
-└── strategy/                          ← Análisis competitivo
-    └── COMPETITIVE_ANALYSIS.md        ← Análisis competitivo
+## Quick Start
+
+```sh
+npm install     # install dependencies
+npm run dev     # next dev -p 3000
+npm run build   # next build (standalone output)
+npm start       # node .next/standalone/server.js
 ```
 
-## Convenciones de Nomenclatura
+Build ignores TypeScript errors (`ignoreBuildErrors: true`) and runs with `reactStrictMode: false`.
 
-| Tipo | Formato | Ejemplo |
-|:---|:---|:---|
-| Documentos fuente | `UPPER_SNAKE_CASE.md` | `BRAND_PLATFORM.md` |
-| Documentos técnicos | `UPPER_SNAKE_CASE.md` | `TOKEN_SYSTEM.md` |
-| Este archivo | `README.md` | — |
+## Docs Index
 
-## Documentos Clave
+| Document | Purpose |
+|---|---|
+| `README.md` | This file — overview, quick start, index |
+| `STACK.md` | Full tech stack — packages, versions, rationale |
+| `ARCHITECTURE.md` | Project structure, routing, component tree, data flow |
+| `DESIGN.md` | Design system — palette, typography, effects, CSS utilities |
+| `COMPONENTS.md` | Component catalog — every file in `src/components/vanta/` |
+| `ANIMATION.md` | Animation conventions — framer-motion, anime.js, CSS animations |
+| `QA.md` | Quality audit — known issues, dead code, unused deps, todos |
 
-| Documento | Propósito |
-|:---|:---|
-| `design/TOKEN_SYSTEM.md` | **Fuente de verdad** — todos los tokens CSS |
-| `design/COMPONENT_SPEC.md` | **Especificación de componentes** |
-| `qa/NEUBRUTALIST_CHECKLIST.md` | **Pre-flight** — verificación obligatoria antes de merge |
-| `qa/REPORTE-DE-REVISION.md` | **Auditoría** — estado actual vs especificación |
+## History
 
-## Estándares Transversales
+This frontend was rebuilt from an earlier SPA prototype (Swiss + Neubrutalism design docs archived in `docs/web_old/`).
+The active codebase uses Next.js 16 App Router with client-side rendering (`"use client"` everywhere) and a
+manga/linocut inspired aesthetic — rigid shadows, neon accents, ink textures.
 
-- **Hard offset shadows**: `--shadow-sm: 4px 4px 0px 0px #000000` — NUNCA sombras difusas
-- **Border-radius: 0px** en TODO el sistema — sin excepciones
-- **Sin gradientes decorativos**: cero permitido
-- **Bordes visibles de 2px**: `border: 2px solid var(--border-visible)`
-- **Color funcional**: Accent Rust `#ff5500` SOLO para señales activas y CTAs (regla 95/5)
-- **Tipografía**: Space Grotesk (display), Outfit (body), JetBrains Mono (código/datos)
-- **Animaciones**: 50-150ms, snap-fast, `--ease-brutal`, sin bounce/elastic
-- **Noise texture y dot grid** como fondos de textura
-- **Telemetría**: prefijos `>`, brackets ASCII, labels monospace
+## Key Files
+
+| File | Role |
+|---|---|
+| `src/app/layout.tsx` | Root layout — fonts, metadata, providers, SiteShell |
+| `src/app/globals.css` | Tailwind v4 theme — palette, effects, animations (~817 lines) |
+| `src/app/page.tsx` | Home route (`/`) |
+| `src/components/vanta/vanta-data.ts` | Centralized static content store (~1109 lines) |
+| `src/components/vanta/site-shell.tsx` | Shared layout wrapper — navbar, footer, modals |
+| `src/lib/language-provider.tsx` | Custom i18n context (ES/EN, not next-intl) |
+| `src/lib/dictionaries.ts` | ~880 ES/EN i18n keys |
+| `src/hooks/use-vanta-navigate.ts` | Legacy `View` → `router.push()` adapter |
+| `next.config.ts` | Standalone output, build config (12 lines) |
+| `Caddyfile` | Reverse proxy :81 → localhost:3000 |
+| `AUDIT.md` | 24-item quality audit (auto-generated) |
+| `AGENTS.md` | Agent instructions for this project |
