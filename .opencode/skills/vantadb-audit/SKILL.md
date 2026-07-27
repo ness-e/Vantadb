@@ -1,12 +1,19 @@
 ---
 name: vantadb-audit
 description: >
-  Orchestrador único de auditoría VantaDB. Unifica 3 skills de review,
-  5 skills de audit, y todas las herramientas CLI en un pipeline de 9 fases
-  automáticas. Ejecutá con /audit. No requiere args — detecta modo solo.
+  [DEPRECATED] Audit orchestrator for VantaDB. Replaced by unified-review
+  (the single skill that supersedes vantadb-full-review, vantadb-certify,
+  and vantadb-audit). This file kept only for git history.
+status: deprecated
+superseded_by: unified-review
 ---
 
-# VantaDB Audit Orchestrator
+# ⚠️ DEPRECATED — Replaced by unified-review
+
+> **Do not use.** This skill is superseded by `skill unified-review --mode full --profile vantadb`.
+> `/audit` remains as a legacy alias. Kept only for git history. No active references remain.
+
+# VantaDB Audit Orchestrator (Legacy)
 
 Pipeline de auditoría completo. Corre como `/audit` desde el slash command.
 
@@ -73,14 +80,14 @@ Iterativa. Solo en modo `full` o `review`.
 
 ### Phase 7: Full ISO 25010 Review
 ```
-skill vantadb-full-review       # comprehensive one-shot report
+# DEPRECATED — use unified-review --profile vantadb instead
 ```
 Produce reporte estructurado con scores. Solo en modo `full`.
 
 ### Phase 8: Certification Gate
 ```
 pwsh -NoProfile -File dev-tools/nocturnal_suite.ps1   # Heavy cert
-skill vantadb-certify                                   # Pre-push gate
+# DEPRECATED — use unified-review --mode certify --profile vantadb instead
 ```
 Solo en modo `certify` o `full`.
 

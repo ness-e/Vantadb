@@ -31,7 +31,7 @@
 USUARIO
   │
   ├─ /pipeline ...        → pipeline.md      → task-system/prompts/  → campaign-executor
-  ├─ /audit ...           → audit.md          → skills/vantadb-audit  → skills/vantadb-certify
+  ├─ /audit ...           → audit.md          → skills/unified-review  (replaces vantadb-audit + vantadb-certify + vantadb-full-review)
   ├─ /build ...           → build.md          → dev-tools/scripts/
   ├─ /ship                → ship.md           → campaign-executor + certify
   ├─ /rollback            → rollback.md       → git revert + docs
@@ -388,88 +388,46 @@ skill systematic-debugging
 
 Skills específicas del proyecto VantaDB. Cada una tiene un rol en el pipeline.
 
-### 7.1 `vantadb-certify` — Pre-push Gate
+### 7.1 `unified-review` — Review, Audit & Certification Unificado (replaces legacy skills)
 
-**Rol:** Última barrera antes de push. Verifica que todo compile, pase tests, y sea seguro.
+**Rol:** Único skill que reemplaza `vantadb-full-review`, `vantadb-certify` y `vantadb-audit`.
+Orquesta sub-agentes en paralelo, tiene sistema de perfiles YAML, y 4 modos de operación.
 
-**Ubicación:** `.opencode/skills/vantadb-certify/SKILL.md` (117 líneas)
+**Ubicación:** `.opencode/skills/unified-review/SKILL.md` (1084 líneas)
 
-**Layers:**
-| Layer | Check |
-|-------|-------|
-| L0 | `codegraph_explore` — impacto de cambios |
-| L1 | Rust: fmt + check + clippy + audit + deny + nextest + machete |
-| L2 | Python SDK: build + test |
-| L3 | Web: npm ci + lint + tsc + build |
-| L4 | TypeScript SDK: tsc + test |
-| L5 | Docs: validate-docs-coverage |
-| L6 | GitHub Actions YAML: actionlint |
-| L7 | Code Review: 5 skills en secuencia |
-| L8 | Commit Readiness |
+**Modos:**
+| Modo | Comando | Equivalente legacy |
+|------|---------|--------------------|
+| **quick** | `skill unified-review --mode quick` | — (nuevo) |
+| **certify** | `skill unified-review --mode certify --profile vantadb` | `vantadb-certify` |
+| **review** | `skill unified-review --profile vantadb` (default) | `vantadb-full-review` |
+| **full** | `skill unified-review --mode full --profile vantadb` | `vantadb-full-review` + extra |
+| **alias** | `/audit` | `vantadb-audit` (backwards compat) |
 
-**Comportamiento:**
-- Layers mecánicas (L1-L5): **stop en failure** — no tiene sentido revisar código que no compila
-- Layers cognitivas (L7): **continuar, reportar todo** — el dev decide qué vetos atender
-- Skills de L7 se cargan con `skill <nombre>` en orden
+**Fases (perfil VantaDB):**
+| Fase | Sub-agente | Contenido |
+|------|-----------|-----------|
+| L0 | — (directo) | Codegraph — impacto de cambios |
+| L1 | vanta-worker | Rust: fmt + check + clippy + semver-checks + audit + deny + nextest + machete |
+| L2 | vanta-worker | Bindings: Python + WASM + TypeScript SDK |
+| L3 | vanta-worker | Web: Next.js build + lint + tsc |
+| L4 | vanta-lead | CI/CD parity + dependencias |
+| L5 | vanta-docs | Documentación coverage |
+| L6 | vanta-arch | Arquitectura + codegraph layering |
+| L7 | vanta-audit | Seguridad (OWASP ASVS) |
+| L8 | vanta-tuner | Performance benchmarks |
+| L9 | vanta-audit | Code review multi-skill |
 
-**Pre-push hook (PowerShell):**
-```powershell
-# .git/hooks/pre-push.ps1
-cargo check --workspace --all-targets
-if ($LASTEXITCODE -ne 0) { exit 1 }
-cargo clippy --workspace --all-targets -- -D warnings
-if ($LASTEXITCODE -ne 0) { exit 1 }
-cargo nextest run --profile audit --workspace --build-jobs 2
-if ($LASTEXITCODE -ne 0) { exit 1 }
-```
+**Arquitectura:** Fan-out de sub-agentes paralelos con contratos JSON. El orquestador consolida findings, scores, y recomendaciones. Máximo 2 rounds de profundidad. Budget: 10 sub-agent calls en modo full.
 
-### 7.2 `vantadb-audit` — Auditoría Orchestrada
+**Perfiles:**
+- `profiles/default.yml` — genérico para cualquier proyecto Rust/TS/Python
+- `profiles/vantadb.yml` — hereda default + Rust workspace, bindings, web frontend, scoring
 
-**Rol:** Ejecuta `/audit` con 9 fases automáticas. Detecta modo solo (quick/certify/review/full).
+**Reportes:** `docs/reviews/review-<mode>-<timestamp>.md`
+**Pre-push hook:** PowerShell template en `templates/pre-push.ps1`
 
-**Ubicación:** `.opencode/skills/vantadb-audit/SKILL.md` (121 líneas)
-
-**Modos vs Fases:**
-| Fase | quick | certify | review | full |
-|------|-------|---------|--------|------|
-| 0. Pre-check | — | ✅ | ✅ | ✅ |
-| 1. CLI | ✅ | ✅ | — | ✅ |
-| 2. Security | — | ✅ | — | ✅ |
-| 3. Performance | — | ✅ | — | ✅ |
-| 4. Code Review | — | ✅ | ✅ | ✅ |
-| 5. Root Cause | — | — | ✅ | ✅ |
-| 6. Deep Module | — | — | ✅ | ✅ |
-| 7. Full ISO | — | — | — | ✅ |
-| 8. Certify | — | ✅ | — | ✅ |
-
-**Reportes:** `docs/audit-reports/audit-<mode>-<timestamp>.md`
-
-**Integración con task system:** Cada `/audit` crea plan file con task_id y resultados.
-
-### 7.3 `vantadb-full-review` — Revisión Integral
-
-**Rol:** Review one-shot de TODO el proyecto. 10 fases, 12 categorías de hallazgos.
-
-**Ubicación:** `.opencode/skills/vantadb-full-review/SKILL.md` (970 líneas)
-
-**Fases:**
-| Fase | Contenido |
-|------|-----------|
-| F0 | Setup + skills loading |
-| F1 | Rust Core (engine, storage, WAL, HNSW, seguridad) |
-| F2 | Python SDK (bindings, tests) |
-| F3 | Web Frontend (React, bundle, SEO, accesibilidad) |
-| F4 | TypeScript SDK |
-| F5 | CI/CD + Infra |
-| F6 | Docs + Coverage |
-| F7 | Design + UX |
-| F8 | Architecture |
-| F9 | Findings (taxonomía de 12 categorías) |
-| F10 | Reporte final |
-
-**Taxonomía de hallazgos (F9):** LOGIC, PATTERN, ARCH, DIRECTION, CLARITY, CODE, DESIGN, ERROR, MISSING, FEATURE, ALGO, ANY — con subcategorías, herramientas, priorización y formato de salida inline en SKILL.md.
-
-**Integración con task system:** Crea plan file con las 10 fases como tareas.
+**Verificación semver:** Incluye `cargo semver-checks check --workspace` en L1 como gate pre-publish obligatorio.
 
 ### 7.4 `review-deep` — Revisión por Módulo
 
@@ -533,7 +491,7 @@ if ($LASTEXITCODE -ne 0) { exit 1 }
 | `plan.md` (prompt) | Crea plan file desde Backlog |
 | `iter-loop-tools.md` (prompt) | State machine ejecución |
 | `progreso` | Post-commit: migra tarea completada |
-| `vantadb-certify` | Verify pre-push |
+| `unified-review --mode certify --profile vantadb` | Verify pre-push (replaces vantadb-certify) |
 | `ponytail` | Siempre activo: escalera YAGNI |
 | `RULES.md` | North star invariante |
 
@@ -648,7 +606,7 @@ Especialistas (audit, chaos, tuner, docs)
     ├─ iteración 4: close + commit + progreso
     └─ ... hasta completar todas las tasks
 
-skill vantadb-certify                 → pre-push gate
+skill unified-review --mode certify --profile vantadb   → pre-push gate (replaces vantadb-certify)
 git push                              → CI
 ```
 
@@ -660,17 +618,18 @@ git push                              → CI
 /audit full                           → todo: deep review + ISO + certify
 
 skill review-deep                     → loop por módulo (si se necesita profundo)
-skill vantadb-full-review             → one-shot report completo
+skill unified-review --profile vantadb             → one-shot report completo (replaces vantadb-full-review)
 ```
 
 ### 10.4 Pre-push / Ship
 
 ```
-skill vantadb-certify                 → 8 layers de verificación
-    ├─ Layer 0: codegraph impact
-    ├─ Layers 1-5: checks mecánicos
-    ├─ Layer 7: code review con skills
-    └─ Layer 8: commit readiness
+skill unified-review --mode certify --profile vantadb   → certificación completa (replaces vantadb-certify)
+    ├─ L0: codegraph impact
+    ├─ L1-L3: checks mecánicos (Rust, bindings, web)
+    ├─ L4-L6: CI/CD parity + docs + arquitectura
+    ├─ L7-L9: security audit + performance + code review
+    └─ L10: findings consolidation
 
 /ship                                 → fan-out GO/NO-GO
     ├─ Verifica certify pass
@@ -745,7 +704,7 @@ AL COMPLETAR:
 2. `ponytail (full)` está siempre activo
 3. `campaign-executor` se carga en modo task/run
 4. Las skills de audit/review crean plan files automáticamente
-5. `vantadb-certify` es el pre-push gate definitivo
+5. `unified-review --mode certify --profile vantadb` es el pre-push gate definitivo (replaces vantadb-certify)
 
 ### 11.4 Para el Task System
 
@@ -870,7 +829,7 @@ AL COMPLETAR:
             ├─ bug → skill systematic-debugging → TDD → fix
             └─ doc → skill documentation-and-adrs
 
-Antes de push: skill vantadb-certify
+Antes de push: skill unified-review --mode certify --profile vantadb
 Después de completar: skill progreso
 ```
 
@@ -915,9 +874,10 @@ Después de completar: skill progreso
       RULES.md (228L)                ← Reglas invariantes
       tasks/                         ← Task files (DRV-*, P0-*, P1-*, etc.)
     progreso/                        ← Migración de tareas
-    vantadb-certify/                 ← Pre-push gate
-    vantadb-audit/                   ← Auditoría orchestrator
-    vantadb-full-review/             ← Revisión integral
+    vantadb-certify/                 ← (deprecated, reemplazado por unified-review)
+    vantadb-audit/                   ← (deprecated, reemplazado por unified-review)
+    vantadb-full-review/             ← (deprecated, reemplazado por unified-review)
+    unified-review/                  ← Review, audit & certification unificado
     review-deep/                     ← Revisión por módulo
     (19 skills engineering más)
   agents/

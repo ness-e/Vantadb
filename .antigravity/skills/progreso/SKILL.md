@@ -133,7 +133,7 @@ Before generating a new plan:
 - [ ] Affected docs updated (see Trigger 1.A table)
 - [ ] MPTS cross-reference added if new technical feature
 - [ ] `scripts/validate-docs-coverage.ps1` passes clean
-- [ ] **Certify gate recomendado:** `skill vantadb-certify` para validación completa pre-push
+- [ ] **Certify gate recomendado:** `skill unified-review --mode certify --profile vantadb` para validación completa pre-push
   - Si no es posible (cambio chico): mínimo `just verify-quick`
 
 ## Campaign Memory Integration

@@ -265,7 +265,7 @@ campaign-executor es el núcleo del sistema de tareas. Se relaciona con:
 | `plan.md` (prompt) | Crea plan file desde Backlog, delega a campaign-executor |
 | `iter-loop-tools.md` (prompt) | State machine ejecución — per-state tool enforcement vía MCP |
 | `progreso` | Post-commit: migra tarea completada de Backlog a progreso |
-| `vantadb-certify` | Verify pre-push: certificación completa |
+| `unified-review --mode certify --profile vantadb` | Verify pre-push: certificación completa (replaces legacy vantadb-certify) |
 | `ponytail` | Siempre activo: escalera YAGNI en cada step |
 | `RULES.md` | North star invariante — no se edita durante ejecución |
 

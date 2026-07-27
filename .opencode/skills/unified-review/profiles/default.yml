@@ -1,0 +1,686 @@
+# =============================================================================
+# Profile: default
+# =============================================================================
+# Generic review/audit profile that works on ANY software project.
+# Auto-detects Rust, Python, TypeScript/JavaScript, Go, Java, C/C++, and mixed
+# workspaces. Ships with sensible defaults; override per-project by creating
+# profiles/<myproject>.yml with `profile.inherits: default`.
+#
+# This file is loaded by the unified-review skill at Phase 0. The orchestrator
+# deep-merges it with any project-specific profile (later wins, arrays replace
+# except `phases` which is merged by `id`).
+# =============================================================================
+
+profile:
+  name: default
+  description: >
+    Generic review profile for any software project. Auto-detects language,
+    bindings, web framework, CI/CD, and docs. Uses OpenCode built-in subagent
+    types (general, explore, scout) so no custom agent definitions are required.
+  inherits: ~  # root profile, no parent
+
+# -----------------------------------------------------------------------------
+# Project metadata (auto-detected at Phase 0; can be overridden here)
+# -----------------------------------------------------------------------------
+project:
+  type: ~              # library | service | monorepo | embedded | cli | sdk
+  languages: []        # auto-detected: rust, python, typescript, javascript, go, java, c, cpp, elixir, ruby
+  bindings: []         # auto-detected: python, wasm, typescript, java, c
+  web_framework: ~     # auto-detected: next, vite, astro, nuxt, remix, svelte, angular, static
+  ci_system: ~         # auto-detected: github-actions, gitlab-ci, circleci, azure-pipelines, jenkins, drone
+
+# -----------------------------------------------------------------------------
+# Phase definitions
+# -----------------------------------------------------------------------------
+# Each phase:
+#   id            — unique identifier (L0..L11)
+#   name          — human-readable
+#   description   — what the sub-agent does
+#   critical      — if true, abort pipeline on fail (only L1 by default)
+#   parallel      — if true, launched as sub-agent; if false, runs in orchestrator
+#   subagent_type — built-in (general|explore|scout) or custom
+#   detect        — conditions; phase runs only if all match (auto-detected at Phase 0)
+#   commands      — per-language shell commands
+#   skills_to_load — cross-cutting skills loaded INSIDE the sub-agent
+#   timeout_ms    — per-phase timeout
+#   score_max     — max score (used in report)
+#   quality_gates — list of conditions for pass/fail
+# -----------------------------------------------------------------------------
+
+phases:
+  # =========================================================================
+  # L0 — Diff Impact Analysis (runs in orchestrator, no sub-agent)
+  # =========================================================================
+  - id: L0
+    name: "Diff Impact Analysis"
+    description: >
+      Inspect git diff and identify affected modules. If codegraph is
+      available, query the knowledge graph for impacted tests. Always runs
+      in the orchestrator (no sub-agent) — must complete in < 10 seconds.
+    critical: false
+    parallel: false
+    subagent_type: ~
+    detect:
+      - always  # always runs
+    commands:
+      git:
+        - "git status --short"
+        - "git diff --name-only HEAD"
+        - "git log --oneline -10"
+    timeout_ms: 10000
+    score_max: ~  # L0 doesn't produce a score
+    quality_gates: []
+
+  # =========================================================================
+  # L1 — Core Language Check (CRITICAL — aborts pipeline on fail)
+  # =========================================================================
+  - id: L1
+    name: "Core Language Check"
+    description: >
+      Compile, lint, and unit-test the primary language(s). Critical phase:
+      if any command fails, the pipeline aborts (no point reviewing code
+      that doesn't compile).
+    critical: true
+    parallel: true
+    subagent_type: general
+    detect:
+      - any_language_detected
+    commands:
+      rust:
+        - "cargo fmt --all -- --check"
+        - "cargo check --workspace --all-targets"
+        - "cargo clippy --workspace --all-targets -- -D warnings"
+        - "cargo test --workspace"
+      python:
+        - "python -m pytest -x --tb=short"
+        - "python -m mypy src/  # if mypy installed"
+      typescript:
+        - "npx tsc --noEmit"
+        - "npx vitest run  # or: npm test"
+      javascript:
+        - "npm test"
+      go:
+        - "go vet ./..."
+        - "go test ./..."
+      java:
+        - "./mvnw verify  # or: ./gradlew build"
+      c:
+        - "cmake --build build && ctest --test-dir build"
+      cpp:
+        - "cmake --build build && ctest --test-dir build"
+      elixir:
+        - "mix test"
+      ruby:
+        - "bundle exec rake test"
+    skills_to_load: []
+    timeout_ms: 600000   # 10 min for large workspaces
+    score_max: 10
+    quality_gates:
+      - "All compile/lint commands exit 0"
+      - "All unit tests pass"
+      - "No new compiler warnings vs main branch"
+
+  # =========================================================================
+  # L2 — Bindings / SDKs (parallel, non-critical)
+  # =========================================================================
+  - id: L2
+    name: "Bindings / SDKs Check"
+    description: >
+      Build and test foreign-language bindings (Python via PyO3/maturin,
+      WASM via wasm-pack, TypeScript SDK via tsc, Java via JNI, etc.).
+      Skipped silently if no bindings detected.
+    critical: false
+    parallel: true
+    subagent_type: general
+    detect:
+      - bindings_detected
+    commands:
+      python_maturin:
+        - "maturin develop && python -m pytest tests/"
+      wasm_pack:
+        - "wasm-pack build --release"
+      typescript_sdk:
+        - "npm ci --ignore-scripts"
+        - "npx tsc --noEmit"
+        - "npm test"
+      java_jni:
+        - "./gradlew :bindings:java:test"
+    skills_to_load: []
+    timeout_ms: 300000
+    score_max: 10
+    quality_gates:
+      - "All bindings build successfully"
+      - "All bindings tests pass"
+
+  # =========================================================================
+  # L3 — Web Frontend (parallel, non-critical)
+  # =========================================================================
+  - id: L3
+    name: "Web Frontend Check"
+    description: >
+      Lint, type-check, and build the web frontend. Auto-detects framework
+      (Next.js, Vite, Astro, Nuxt, Remix, SvelteKit, Angular). Skipped
+      silently if no web framework detected.
+    critical: false
+    parallel: true
+    subagent_type: general
+    detect:
+      - web_framework_detected
+    commands:
+      next:
+        - "npm ci --ignore-scripts"
+        - "npm run lint"
+        - "npx tsc --noEmit"
+        - "npm run build"
+      vite:
+        - "npm ci --ignore-scripts"
+        - "npm run lint"
+        - "npx tsc --noEmit"
+        - "npm run build"
+      astro:
+        - "npm ci --ignore-scripts"
+        - "npm run build"
+      nuxt:
+        - "npm ci --ignore-scripts"
+        - "npx nuxi typecheck"
+        - "npm run build"
+      remix:
+        - "npm ci --ignore-scripts"
+        - "npm run build"
+      svelte:
+        - "npm ci --ignore-scripts"
+        - "npm run check"
+        - "npm run build"
+      angular:
+        - "npm ci --ignore-scripts"
+        - "npx ng lint"
+        - "npm run build"
+      static:
+        - "npm ci --ignore-scripts"
+        - "npm run build  # if defined"
+    skills_to_load: []
+    timeout_ms: 600000   # web builds can be slow
+    score_max: 10
+    quality_gates:
+      - "Lint passes with 0 errors"
+      - "TypeScript type-check passes"
+      - "Production build succeeds"
+
+  # =========================================================================
+  # L4 — CI/CD + Dependencies (parallel)
+  # =========================================================================
+  - id: L4
+    name: "CI/CD + Dependencies Check"
+    description: >
+      Validate CI workflow YAML, run dependency audits, and verify CI/CD
+      parity (every new dep in manifest has corresponding install step
+      in CI). Uses scout subagent for external supply-chain research.
+    critical: false
+    parallel: true
+    subagent_type: scout  # scout is read-only + external — perfect for dep research
+    detect:
+      - ci_system_detected
+    commands:
+      github_actions:
+        - "actionlint .github/workflows/*.yml  # if installed"
+        - "cargo deny check  # if Cargo.toml exists"
+        - "npm audit --audit-level=moderate  # if package.json exists"
+        - "pip-audit  # if pyproject.toml exists"
+      gitlab_ci:
+        - "gitlab-ci-lint .gitlab-ci.yml  # if installed"
+      generic:
+        - "check dep manifest freshness vs lockfile"
+    skills_to_load:
+      - ci-cd-and-automation
+    timeout_ms: 300000
+    score_max: 10
+    quality_gates:
+      - "All workflow YAML files parse and pass lint"
+      - "No new dependencies without CI install step"
+      - "No unmaintained or vulnerable dependencies introduced"
+
+  # =========================================================================
+  # L5 — Documentation (parallel)
+  # =========================================================================
+  - id: L5
+    name: "Documentation Check"
+    description: >
+      Verify docs coverage (every public API has docs), check for broken
+      links, and verify docs freshness (no stale references to removed
+      features).
+    critical: false
+    parallel: true
+    subagent_type: general
+    detect:
+      - docs_detected
+    commands:
+      rust:
+        - "cargo doc --no-deps --document-private-items 2>&1 | grep -E '^warning'"
+        - "cargo test --doc"
+      python:
+        - "pydocstyle src/  # if installed"
+        - "mkdocs build --strict  # if mkdocs"
+      typescript:
+        - "npx typedoc  # if installed"
+      generic:
+        - "check for broken links in docs/ (markdown-link-check if installed)"
+        - "verify README.md references match current API"
+    skills_to_load:
+      - documentation-and-adrs
+    timeout_ms: 180000
+    score_max: 10
+    quality_gates:
+      - "No rustdoc/pydoc/typedoc warnings"
+      - "No broken links in docs/"
+      - "README.md mentions match current API"
+
+  # =========================================================================
+  # L6 — Architecture Review (parallel, cognitive)
+  # =========================================================================
+  - id: L6
+    name: "Architecture Review"
+    description: >
+      Structural analysis: circular deps, layering violations, god objects,
+      feature leakage. Uses codegraph if available; otherwise uses static
+      import analysis. Cognitive phase — produces findings but cannot
+      abort the pipeline.
+    critical: false
+    parallel: true
+    subagent_type: explore  # read-only codebase exploration
+    detect:
+      - any_language_detected
+    commands:
+      generic:
+        - "static import analysis (Python: pydeps, Rust: cargo-modules, TS: madge)"
+        - "codegraph query if .codegraph/ exists"
+    skills_to_load:
+      - code-review-and-quality
+      # ponytail-audit is loaded conditionally by the orchestrator
+      # based on Ponytail mode (full/ultra only)
+    timeout_ms: 300000
+    score_max: 10
+    quality_gates:
+      - "No new circular dependencies introduced"
+      - "No new layering violations"
+      - "No new god objects (>1000 lines or >30 public exports)"
+
+  # =========================================================================
+  # L7 — Security Audit (optional, mode=full only)
+  # =========================================================================
+  - id: L7
+    name: "Security Audit"
+    description: >
+      Run security scanners and review unsafe code. Covers OWASP ASVS L1
+      checklist. Falls back to general subagent if vanta-audit not defined.
+    critical: false
+    parallel: true
+    subagent_type: general
+    detect:
+      - mode_is_full
+    commands:
+      rust:
+        - "cargo audit"
+        - "cargo deny check advisories"
+      python:
+        - "pip-audit"
+        - "bandit -r src/  # if installed"
+      typescript:
+        - "npm audit --audit-level=high"
+        - "npx eslint --ext .ts,.tsx --no-eslintrc -c .eslintrc.security.js  # if configured"
+      generic:
+        - "scan diff for new unsafe blocks / eval / innerHTML / SQL concatenation"
+    skills_to_load:
+      - security-and-hardening
+    timeout_ms: 300000
+    score_max: 10
+    quality_gates:
+      - "No new vulnerabilities in dependencies"
+      - "No new unsafe code without SAFETY comment"
+      - "No new input validation gaps"
+
+  # =========================================================================
+  # L8 — Performance Audit (optional, mode=full only)
+  # =========================================================================
+  - id: L8
+    name: "Performance Audit"
+    description: >
+      Run benchmarks, check bundle size, profile-guided review of hot paths.
+      Falls back to general subagent if vanta-tuner not defined.
+    critical: false
+    parallel: true
+    subagent_type: general
+    detect:
+      - mode_is_full
+    commands:
+      rust:
+        - "cargo bench --workspace  # if benchmarks exist"
+        - "cargo bloat --crates  # if installed"
+      python:
+        - "pytest --benchmark-only  # if pytest-benchmark installed"
+      typescript:
+        - "npm run build && du -sh dist/"
+      generic:
+        - "compare bundle/binary size vs main branch"
+    skills_to_load:
+      - performance-optimization
+    timeout_ms: 600000
+    score_max: 10
+    quality_gates:
+      - "No benchmark regression > 10% vs main"
+      - "No binary size regression > 5% vs main"
+      - "No new allocations in hot path (manual review)"
+
+  # =========================================================================
+  # L9 — Code Review (cognitive, can veto; mode=review/full)
+  # =========================================================================
+  - id: L9
+    name: "Code Review"
+    description: >
+      Multi-axis cognitive review: correctness, security, performance,
+      maintainability, clarity. Loads multiple cross-cutting skills.
+      Skills may veto (record objection, continue). Ponytail-aware.
+    critical: false
+    parallel: true
+    subagent_type: general
+    detect:
+      - mode_is_review_or_full
+    commands:
+      generic:
+        - "review staged diff (git diff) file by file"
+        - "for each file, apply skills in order; collect findings + vetoes"
+    skills_to_load:
+      - code-review-and-quality
+      - doubt-driven-development
+      - code-simplification
+      - deprecation-and-migration  # only if public API changed
+      - systematic-debugging        # only if known issues exist
+      # ponytail-review is loaded conditionally by the orchestrator
+      # based on Ponytail mode (full/ultra only)
+    timeout_ms: 600000
+    score_max: 10
+    quality_gates:
+      - "No unaddressed critical-severity findings"
+      - "Veto count < 3 (more than 3 vetoes suggests systematic issue)"
+
+  # =========================================================================
+  # L10 — Findings Consolidation (runs in orchestrator, no sub-agent)
+  # =========================================================================
+  - id: L10
+    name: "Findings Consolidation"
+    description: >
+      Aggregate, dedupe, and prioritize findings from all sub-agents.
+      Detect cross-cutting patterns. Always runs in orchestrator.
+    critical: false
+    parallel: false
+    subagent_type: ~
+    detect:
+      - always
+    timeout_ms: 30000
+    score_max: ~
+
+  # =========================================================================
+  # L11 — Final Report (runs in orchestrator, no sub-agent)
+  # =========================================================================
+  - id: L11
+    name: "Final Report"
+    description: >
+      Write the final markdown report to docs/reviews/review-<mode>-<timestamp>.md.
+      Always runs in orchestrator.
+    critical: false
+    parallel: false
+    subagent_type: ~
+    detect:
+      - always
+    timeout_ms: 30000
+    score_max: ~
+
+# -----------------------------------------------------------------------------
+# Modes — which phases run for each mode
+# -----------------------------------------------------------------------------
+# Phases not in the list are skipped. L0, L10, L11 always run regardless.
+# -----------------------------------------------------------------------------
+
+modes:
+  quick:
+    - L0
+    - L1
+    # minimal: just "did I break anything?"
+  certify:
+    - L0
+    - L1
+    - L2
+    - L3
+    - L4
+    - L5
+    - L6
+    # pre-push gate: mechanical + architecture; no cognitive review
+  review:
+    - L0
+    - L1
+    - L6
+    - L9
+    # PR review: core + architecture + cognitive
+  full:
+    - L0
+    - L1
+    - L2
+    - L3
+    - L4
+    - L5
+    - L6
+    - L7
+    - L8
+    - L9
+    # everything + scoring + security + performance
+
+# -----------------------------------------------------------------------------
+# Scoring (simplified by default; enable per-profile)
+# -----------------------------------------------------------------------------
+# When disabled, overall score = unweighted average of per-phase scores.
+# When enabled, the orchestrator computes ISO/Sonar/CII/OWASP/CodeClimate
+# per the weights below. Default profile disables extended scoring —
+# the VantaDB profile enables it.
+# -----------------------------------------------------------------------------
+
+scoring:
+  enabled: false
+  weights:
+    iso_25010: 20
+    sonarqube: 25
+    cii: 20
+    owasp: 15
+    codeclimate: 20
+  thresholds:
+    pass_score: 7
+    rating_bands:
+      A: 9
+      B: 7
+      C: 5
+      D: 3
+      E: 0
+
+# -----------------------------------------------------------------------------
+# Findings Taxonomy (12 categories)
+# -----------------------------------------------------------------------------
+# Same taxonomy as legacy vantadb-full-review, generalized. Profiles can
+# add project-specific subcategories by overriding the entry.
+# -----------------------------------------------------------------------------
+
+findings:
+  categories:
+    - id: LOGIC
+      name: "Logic failures"
+      subcategories:
+        - "Off-by-one"
+        - "Race condition"
+        - "Incorrect branching"
+        - "State management"
+        - "Edge case not handled"
+        - "Input validation"
+        - "Error handling"
+        - "Type confusion"
+        - "Incorrect serialization"
+        - "Async/sync mismatch"
+
+    - id: PATTERN
+      name: "Pattern failures"
+      subcategories:
+        - "GoF pattern violation"
+        - "Language anti-pattern"
+        - "Framework anti-pattern"
+        - "API design anti-pattern"
+        - "Database anti-pattern"
+
+    - id: ARCH
+      name: "Architecture failures"
+      subcategories:
+        - "Circular dependencies"
+        - "Layering violation"
+        - "God object / God module"
+        - "Feature leakage"
+        - "Tight coupling"
+        - "Missing abstraction"
+        - "Premature abstraction"
+        - "Leaky abstraction"
+        - "Incorrect module boundary"
+
+    - id: DIRECTION
+      name: "Project direction failures"
+      subcategories:
+        - "Scope creep"
+        - "Abandoned effort"
+        - "Tech debt not prioritized"
+        - "Strategic misalignment"
+        - "Missing validation"
+        - "Over-engineering"
+        - "Under-engineering"
+        - "Missing roadmap"
+
+    - id: CLARITY
+      name: "Clarity failures"
+      subcategories:
+        - "Naming confusing"
+        - "Magic numbers/strings"
+        - "Logic too nested"
+        - "Missing comments"
+        - "Dead code"
+        - "Test incomprehensible"
+        - "Doc outdated"
+        - "Error message confusing"
+        - "Config hidden"
+        - "Formatting inconsistent"
+
+    - id: CODE
+      name: "Code quality failures"
+      subcategories:
+        - "Compiler warnings"
+        - "Lints not fixed"
+        - "Lint suppressions unjustified"
+        - "Unsafe without SAFETY"
+        - "Unnecessary clone"
+        - "Unnecessary allocation"
+        - "Casting incorrect"
+        - "TOCTOU bugs"
+        - "Error swallowing"
+        - "Panic in library code"
+
+    - id: DESIGN
+      name: "Design / UX failures"
+      subcategories:
+        - "Visual inconsistency"
+        - "Accessibility"
+        - "Responsive broken"
+        - "Motion excessive"
+        - "AI slop"
+        - "Touch targets"
+        - "Loading states"
+        - "Empty states"
+        - "Error states"
+
+    - id: ERROR
+      name: "Concrete errors"
+      subcategories:
+        - "Compilation error"
+        - "Test failure"
+        - "Flaky test"
+        - "Build warning as error"
+        - "Runtime panic"
+        - "Deadlock"
+        - "Memory leak"
+        - "CI failure"
+        - "Security vulnerability"
+        - "Dependency conflict"
+
+    - id: MISSING
+      name: "Missing elements"
+      subcategories:
+        - "Missing test"
+        - "Missing validation"
+        - "Missing error handling"
+        - "Missing docs"
+        - "Missing CI gate"
+        - "Missing monitoring"
+        - "Missing recovery"
+        - "Missing migration"
+        - "Missing env config"
+
+    - id: FEATURE
+      name: "Missing features"
+      subcategories:
+        - "Feature gap vs competitor"
+        - "Missing integration"
+        - "Missing platform support"
+        - "Missing observability feature"
+
+    - id: ALGO
+      name: "Algorithmic failures"
+      subcategories:
+        - "Wrong complexity"
+        - "Incorrect data structure"
+        - "Numerical instability"
+        - "Algorithm off-by-one"
+
+    - id: ANY
+      name: "Catch-all (manual review)"
+      subcategories:
+        - "Uncategorized"
+
+# -----------------------------------------------------------------------------
+# Orchestration tuning
+# -----------------------------------------------------------------------------
+
+orchestration:
+  max_parallel: 4                # max simultaneous sub-agents
+  timeout_ms: 300000             # 5 min default per sub-agent
+  abort_on_critical_fail: true   # abort pipeline if L1 fails
+  retry_mechanical: true         # one retry on L1-L5 failure
+  keep_raw_logs: false           # if true, write per-phase logs to docs/reviews/logs/
+
+# -----------------------------------------------------------------------------
+# Pre-push hook generation (off by default; enable per-profile)
+# -----------------------------------------------------------------------------
+
+pre_push_hook:
+  enabled: false
+  platform: ~                     # powershell | bash
+  template_file: ~
+
+# -----------------------------------------------------------------------------
+# Integrations
+# -----------------------------------------------------------------------------
+
+integrations:
+  ponytail:
+    respect_mode: true
+    skip_phases_in_lite:
+      - L6                        # skip architecture review (most opinionated)
+    escalate_in_ultra:
+      - L6                        # escalate DIRECTION/Over-engineering findings
+    # in lite mode: drop DIRECTION/Over-engineering findings
+    # in ultra mode: escalate DIRECTION/Over-engineering findings by one severity
+  campaign:
+    enabled: auto                 # auto = use if available, skip silently otherwise
+    plan_file_pattern: "docs/plans/plan-review-<timestamp>.md"
+  codegraph:
+    use_if_available: true
+    phase: L0                     # which phase uses codegraph

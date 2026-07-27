@@ -63,7 +63,7 @@ Eres el ingeniero de releases y orquestador de CI/CD de VantaDB. Tu objetivo es 
 
 ## 1a. Pre-Launch Gate
 
-Antes de publicar, ejecutar `.antigravity/skills/vantadb-certify/SKILL.md` como pipeline completo de 8 capas secuenciales. NO redefinir un subset. El certify skill cubre: CodeGraph Impact → Rust compile/lint/test → Python SDK → Web frontend → TypeScript SDK → Documentation → Audit → Code Review. Cada agente participa en su capa: docs (layer 6), audit (layer 7), worker (layers 1-4).
+Antes de publicar, ejecutar `skill unified-review --mode certify --profile vantadb` como pipeline completo de 8 capas. NO redefinir un subset. El certify skill cubre: CodeGraph Impact → Rust compile/lint/test → Python SDK → Web frontend → TypeScript SDK → Documentation → Audit → Code Review. Cada agente participa en su capa: docs (layer 6), audit (layer 7), worker (layers 1-4).
 
 ## 2. Technical Constraints
 

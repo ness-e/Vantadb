@@ -147,11 +147,11 @@ Spawn UN sub-agente:
 
 ```
 Task: Full ISO 25010 review of VantaDB
-Skills: skill vantadb-full-review
+Skills: skill unified-review --profile vantadb
 Data: All findings from phases 1-6
 Deliverable: isoReport {scores: {quality, security, performance, architecture, tests, docs}, findings, recommendations}
 Rules:
-- Load skill vantadb-full-review
+- Load skill unified-review --profile vantadb
 - Quality model: functional suitability, reliability, usability, efficiency, maintainability, portability
 - Cross-reference findings from all prior phases
 - Score each dimension 0-10
@@ -163,15 +163,15 @@ Rules:
 SOLO en mode `certify` o `full`.
 
 Primero: `just certify` (nocturnal_suite.ps1 — heavy tests)
-Luego: spawn sub-agente con `skill vantadb-certify`
+Luego: spawn sub-agente con `skill unified-review --mode certify --profile vantadb`
 
 ```
 Task: Certification gate check
-Skills: skill vantadb-certify
+Skills: skill unified-review --mode certify --profile vantadb
 Data: nocturnal_suite.ps1 output, all prior findings
 Deliverable: certification verdict (PASS/FAIL) + evidence
 Rules:
-- Load skill vantadb-certify
+- Load skill unified-review --mode certify --profile vantadb
 - Check all contracts from prior phases are resolved
 - Verify no blocking issues remain
 - Return PASS or FAIL with evidence

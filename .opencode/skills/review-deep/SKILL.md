@@ -10,7 +10,7 @@ compatibility: opencode
 
 # Review Deep — Loop de Revisión Profunda
 
-> **Diferencia con vantadb-full-review:** no es un reporte one-shot.
+> **Diferencia con unified-review (legacy vantadb-full-review):** no es un reporte one-shot.
 > Es un **loop que itera módulo por módulo**, investiga cada hallazgo en internet,
 > compara con competidores, evalúa prioridad real, y lo agrega a Backlog.md.
 > Corre tantas iteraciones como módulos tenga el proyecto.

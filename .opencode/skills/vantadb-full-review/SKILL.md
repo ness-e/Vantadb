@@ -1,12 +1,18 @@
 ---
 name: vantadb-full-review
 description: >
-  Comprehensive multi-layer review of the entire VantaDB project.
-  Covers Rust core, Python SDK, web frontend, TypeScript SDK, CI/CD, docs,
-  security, performance, dependencies, architecture, design, and accessibility.
-  Runs ALL available diagnostic tools and produces a structured report.
+  [DEPRECATED] Comprehensive multi-layer review of the entire VantaDB project.
+  Replaced by unified-review --profile vantadb. This file kept only for
+  git history — do not load or invoke.
+status: deprecated
+superseded_by: unified-review
 compatibility: opencode
 ---
+
+# ⚠️ DEPRECATED — Replaced by unified-review
+
+> **Do not use.** This skill is superseded by `skill unified-review --profile vantadb`.
+> Kept only for git history. No active references remain.
 
 # VantaDB Full Project Review
 
@@ -1119,7 +1125,7 @@ OWASP ASVS v5.0, CodeClimate/Qlty maintainability scoring, y GitHub Actions CI s
 Cargá la skill y especificá la capa:
 
 ```
-skill vantadb-full-review
+# DEPRECATED — use skill unified-review --profile vantadb
 Revisá solo la capa Rust Core Layer del proyecto VantaDB.
 ```
 

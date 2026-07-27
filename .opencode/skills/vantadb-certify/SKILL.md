@@ -1,12 +1,19 @@
 ---
 name: vantadb-certify
 description: >
-  Pre-push certification gate for VantaDB. Runs ALL verification layers
-  sequentially: Rust compile/lint/test → Python SDK → Web → TypeScript SDK
-  → docs → audit + skill-based code review. Must pass 100% before pushing.
+  [DEPRECATED] Pre-push certification gate for VantaDB. Replaced by
+  unified-review --mode certify --profile vantadb. This file kept only
+  for git history — do not load or invoke.
+status: deprecated
+superseded_by: unified-review
 ---
 
-# VantaDB Certification Gate
+# ⚠️ DEPRECATED — Replaced by unified-review
+
+> **Do not use.** This skill is superseded by `skill unified-review --mode certify --profile vantadb`.
+> Kept only for git history. No active references remain.
+
+# VantaDB Certification Gate (Legacy)
 
 Certificación completa pre-push. El pipeline entero (CI) debe pasar localmente.
 

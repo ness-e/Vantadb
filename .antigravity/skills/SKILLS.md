@@ -1,18 +1,29 @@
 # Antigravity Adapted VantaDB Skills
 
-## 1. vantadb-certify (Pre-push Gate)
+> ⚠️ **Note:** The legacy skills `vantadb-certify`, `vantadb-audit`, and `vantadb-full-review`
+> are now **deprecated**. They are replaced by `unified-review` (`.opencode/skills/unified-review/`).
+> See `.opencode/skills/unified-review/SKILL.md` for the replacement.
+
+## 1. unified-review — Review, Audit & Certification (replaces legacy)
+* **Ubicación:** `.opencode/skills/unified-review/SKILL.md` (1084 líneas)
+* **Propósito:** Review, audit y certificación unificados. Reemplaza las 3 skills legacy. Modos: quick, certify, review, full. Perfiles YAML (default + vantadb).
+
+## 2. vantadb-certify (DEPRECATED — Pre-push Gate)
 * **Ubicación:** `.antigravity/skills/vantadb-certify/SKILL.md`
-* **Propósito:** Pre-flight gate con sugerencia de verificación de 8 capas (CodeGraph, fmt, check, clippy, deny, nextest, pyo3, web tsc).
+* **Estado:** ⛔ DEPRECATED — reemplazado por `unified-review --mode certify --profile vantadb`
+* **Propósito (histórico):** Pre-flight gate con verificación de 8 capas.
 
-## 2. vantadb-audit (Auditoría Orquestada)
+## 3. vantadb-audit (DEPRECATED — Auditoría)
 * **Ubicación:** `.antigravity/skills/vantadb-audit/SKILL.md`
-* **Propósito:** Auditoría multi-fase en paralelo utilizando `invoke_subagent` (`vanta-audit`, `vanta-tuner`).
+* **Estado:** ⛔ DEPRECATED — reemplazado por `unified-review --mode full --profile vantadb`
+* **Propósito (histórico):** Auditoría multi-fase en paralelo.
 
-## 3. vantadb-full-review (Revisión Integral)
+## 4. vantadb-full-review (DEPRECATED — Revisión Integral)
 * **Ubicación:** `.antigravity/skills/vantadb-full-review/SKILL.md`
-* **Propósito:** Revisión completa de las 8 capas del proyecto VantaDB.
+* **Estado:** ⛔ DEPRECATED — reemplazado por `unified-review --profile vantadb`
+* **Propósito (histórico):** Revisión completa de las 8 capas del proyecto.
 
-## 4. review-deep (Revisión por Módulo)
+## 5. review-deep (Revisión por Módulo)
 * **Ubicación:** `.antigravity/skills/review-deep/SKILL.md`
 * **Propósito:** Análisis estático detallado por módulo usando CodeGraph y web research.
 

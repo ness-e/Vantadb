@@ -58,7 +58,7 @@ Antes de release, tu participación es obligatoria:
 1. **Tú validas**: cobertura de API pública 100%, `#![deny(missing_docs)]` en crates públicos, ejemplos compilan
 2. `cargo test --doc` debe pasar
 3. ADRs actualizados, changelog revisado
-4. Lead ejecuta `cargo semver-checks` y certify skill completo (`vantadb-certify` layer 6: docs review)
+4. Lead ejecuta `cargo semver-checks` y certify skill completo (`unified-review --mode certify --profile vantadb` layer 6: docs review)
 
 ## 2. Technical Constraints
 

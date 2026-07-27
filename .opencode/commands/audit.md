@@ -37,10 +37,10 @@ El prompt define las 9 fases, waves paralelas, formato de output, y FODA estrat√
 | **4. Code Review** | sub-agente | `code-review-and-quality`, `ponytail-review` | Phase 1 |
 | **5. Root Cause** | sub-agente | `systematic-debugging` | failures previos |
 | **6. Deep Module** | sub-agente | `review-deep` | Waves 1-3 |
-| **7. Full ISO** | sub-agente | `vantadb-full-review` | Waves 1-3 |
+| **7. Full ISO** | sub-agente | `unified-review --profile vantadb` | Waves 1-3 |
 | **7a. CI/CD Parity** | directo | verificar que cambios en Cargo.toml/package.json/pyproject.toml se reflejen en `.github/workflows/*.yml` | Phase 1 |
 | **7b. Skills Review** | sub-agente | cargar skills de review una por una con `skill <nombre>`, cada skill puede vetar | Phase 1 |
-| **8. Certify** | sub-agente | `vantadb-certify` + `just certify` | Todas |
+| **8. Certify** | sub-agente | `unified-review --mode certify --profile vantadb` + `just certify` | Todas |
 
 ---
 
