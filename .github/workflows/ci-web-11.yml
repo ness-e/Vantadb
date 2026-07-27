@@ -1,4 +1,4 @@
-name: 'CI: Web — Build & Test'
+name: 'CI: Web — Build & Lint (Next.js)'
 
 on:
   push:
@@ -18,12 +18,12 @@ permissions:
 
 jobs:
   build:
-    name: Build & Test
+    name: Build & Lint
     defaults:
       run:
         working-directory: web
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,13 +36,3 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
       - run: npm run build
-      - run: npx vitest run
-      - name: Cache Playwright browsers
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-      - name: Run e2e tests
-        run: npx playwright test

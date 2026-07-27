@@ -49,7 +49,7 @@ Si el diff contiene `unsafe` → además:
 | Build + test | `pwsh dev-tools/setup_venv.ps1 && pwsh dev-tools/scripts/validate_python_sdk.ps1` |
 | Integration tests | Cargar `doubt-driven-development` y verificar tests de adapters tocados |
 
-### Layer 3: Web Frontend
+### Layer 3: Web Frontend (Next.js)
 
 Corresponde a `.github/workflows/ci-web-11.yml`.
 
@@ -58,7 +58,7 @@ cd web
 npm ci --ignore-scripts
 npm run lint          # 0 errors, 0 warnings
 npx tsc --noEmit      # 0 errors
-npm run build         # build exitoso
+npm run build         # next build exitoso
 cd ..
 ```
 

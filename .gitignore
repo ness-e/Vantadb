@@ -173,21 +173,17 @@ Cargo_test.toml
 # OpenCode loop session artifacts
 .opencode/opencode-loop/
 
-# TanStack Router generated file — committed so CI builds are deterministic
-!web/src/routeTree.gen.ts
-
 # VS Code canvas files
 *.canvas
 
-# Test runner artifacts (Playwright, E2E)
-web/playwright-report/
-web/test-results/
-web/e2e/reports/
+# Test runner artifacts (Playwright, E2E — old Vite web archive)
+web_old/playwright-report/
+web_old/test-results/
+web_old/e2e/reports/
 
 # Visual review screenshots & reports
 screenshots/
 *.page-*.png
-web/scripts/eval-screenshots.mjs
 /architecture.png
 /engine.png
 /engine-mobile.png

@@ -1,0 +1,51 @@
+{
+  "name": "VantaDB — Embedded Rust Hybrid Retrieval Engine",
+  "short_name": "VantaDB",
+  "description": "Embedded Rust engine for durable local memory and hybrid vector retrieval. BM25 + HNSW via RRF. Zero network. 1.2ms latency.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF9F5",
+  "theme_color": "#FF5500",
+  "orientation": "portrait-primary",
+  "categories": ["developer", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/assets/avatar_gato.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/avatar_gato.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/avatar_gato.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/avatar_gato.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Benchmarks",
+      "short_name": "Bench",
+      "url": "/?view=benchmarks",
+      "description": "Performance benchmarks"
+    },
+    {
+      "name": "Quickstart",
+      "short_name": "Docs",
+      "url": "/?view=docs",
+      "description": "Installation guide"
+    }
+  ]
+}
