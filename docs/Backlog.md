@@ -155,7 +155,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 ## Phase 9: 📚 Old Docs Rescue — Reference Catalog
 
 > Recuperado de `VANTADB DOC OLD` (~280 archivos .md analizados vía 21 sub-agentes).
-> **Total:** 21 items, **13 activos** (8 ✅ removidos a progreso). **Estado:** 0 ⚠️ parcial, 4 ❌ pendiente.
+> **Total:** 21 items, **13 activos** (8 ✅ removidos a progreso). **Estado:** 1 ⚠️ parcial, 1 ❌ pendiente, 2 ❌ justificado.
 > **Referencia completa:** `docs/REPORTE_EVALUACION_COMPLETO.md` secciones 6 y 7.
 > **Batch file map:** ver `docs/Backlog.md` sección Tier 5 original para archivos por batch.
 
@@ -172,14 +172,14 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | ~~`OLD-03`~~ | ~~**Chaos testing (Jepsen/Maelstrom)** — `ChaosTestHarness` reutilizable, 6 failpoints (wal_append, storage_insert, mmap_flush, hnsw_serialize, edge_write, snapshot_serialize), docs `docs/chaos-testing.md`.~~ | ~~🟡 2-3 sem~~ | ~~✅ COMPLETADA~~ | Docker. WAL shipping existente | 🗺️ Roadmap |
 | ~~`OLD-08`~~ | ~~Life Insurance / snapshots hard-link — `SnapshotManager` + `FsSnapshot` con hard-link POSIX, `StorageEngine::create_snapshot()`/`list_snapshots()`, CLI, VantaEmbedded API. +failpoint `snapshot_create_fail`. Tests: instant, multiple, independence.~~ | ~~🟡 3-4d~~ | ~~✅ COMPLETADA~~ | Ninguna. Solo syscalls POSIX |
 | ~~`OLD-09`~~ | ~~Olvido Bayesiano (hit decay) — `EvictionPolicy` ahora soporta `BayesianDecay`: score Beta-Binomial α/(α+β), threshold configurable, 31 tests. Feature-gated `bayesian_decay`.~~ | ~~🟡 3-4d~~ | ~~✅ COMPLETADA~~ | Ninguna. `EvictionPolicy` existe |
-| `OLD-10` | Sinapsis eléctrica (index-free adjacency) — `edge_index.rs` usa DashSet, no index-free adjacency nativa | 🟡 1 sem | ❌ No implementado | Post-HNSW multi-capa |
+| ~~`OLD-10`~~ | ~~Sinapsis eléctrica (index-free adjacency) — `edge_index.rs` usa DashSet, no index-free adjacency nativa~~ | ~~🟡 1 sem~~ | ~~❌ Ya existe: `UnifiedNode.edges: Vec<Edge>` es index-free adjacency nativa. EdgeIndex es auxiliar para cascade delete~~ | Post-HNSW multi-capa |
 | ~~`OLD-11`~~ | ~~**CLI/TUI interactivo** — `vantadb tui` con ratatui + crossterm. 3 modos: Dashboard (stats engine), Monitor (queries live), REPL (queries interactivas con historial). Feature-gated `tui`.~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | Ninguna. Proyecto aparte |
 | ~~`OLD-12`~~ | ~~**Pilot program formal** — `docs/operations/PILOT_PROGRAM.md` actualizado (9 secciones), +3 templates: agreement, feedback, onboarding checklist.~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | PyPI publicado |
 | ~~`OLD-14`~~ | ~~MessageThread / GcWorker para agentic chat — `GcWorker` en `src/gc.rs` existe, MessageThread no~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | Ninguna. `GcWorker` existe |
 | ~~`OLD-16`~~ | ~~**WAL rotation a 256MB** — `WalWriter::try_auto_rotate()` en `append()`/`batch_append()`. 3 tests (trigger, no-trigger, data preservation). 52/52 WAL tests pass.~~ | ~~🟢 1d~~ | ~~✅ COMPLETADA~~ |
 | ~~`OLD-19`~~ | ~~**Rehidratación desde shadow archive** — `VantaEmbedded::recover_archived_nodes()`, MCP tool `rehydrate`, Python binding. Conecta `StorageEngine::recover_archived_nodes()` (6 tests existentes) a SDK público.~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | OLD-07 (AutoHot/Cold tiering) |
-| `OLD-20` | Contextual Priming (cache warming predictivo) — Sin código de warming predictivo | 🟢 2-3d | ❌ No implementado | Ninguna |
-| `OLD-21` | CP-Index formal (query routing inteligente) — `CPIndex` existe como struct HNSW, no query routing formal | 🟡 1 sem | ❌ No implementado | DRV-121/122 (Planner AST + IQL) |
+| `OLD-20` | Contextual Priming (cache warming predictivo) — Sin código de warming predictivo | 🟢 2-3d | ⚠️ Parcial — `CacheWarner` existe en `src/cache_warner.rs` (70% completo). 3 gaps: decay inactivo, co-access tracking no conectado en hot path, métricas sin exportar | Ninguna |
+| `OLD-21` | CP-Index formal (query routing inteligente) — `CPIndex` existe como struct HNSW, no query routing formal | 🟡 1 sem | ⏳ Deferido — Routing texto/vector/híbrido ya existe en `planner.rs` (classify + CBO). Routing multi-índice (HNSW/IVF/Flat) depende de COMP-028 (Semantic Cost Estimator) | COMP-028 |
 
 ---
 
