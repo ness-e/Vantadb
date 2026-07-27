@@ -103,7 +103,7 @@ export default function ShowcasePage() {
         title={tt("showcasePage.title", "Community Showcase")}
           subtitle={tt(
           "showcasePage.subtitle",
-          "Reference examples e integraciones con VantaDB. LangGraph, AutoGen, CrewAI, Haystack — todos local-first, todos open source."
+          "Proyectos construidos con VantaDB por la comunidad. Agentes, RAG, devtools — todos local-first, todos sin cloud tax."
         )}
         tag={tt("showcasePage.tag", "Community · local-first")}
       />
@@ -122,7 +122,7 @@ export default function ShowcasePage() {
               <p className="mt-2 max-w-2xl font-tech text-xs text-black/70 ">
                 {tt(
                   "showcasePage.gridSubtitle",
-                  "Cada ejemplo es código funcional. Click para ver el source, cloná, ejecutá con tu propia data."
+                  "Cada proyecto es código abierto y corre en tu máquina. Click para ver el repo, cloná, ejecutá."
                 )}
               </p>
             </div>
@@ -189,7 +189,7 @@ export default function ShowcasePage() {
                   <p className="mt-2 max-w-xl font-tech text-xs text-[#FBF9F5]/70">
                     {tt(
                       "showcasePage.ctaBody",
-                      "Open an issue or PR on GitHub with your project link. Community-built projects get featured here."
+                      "Mandanos un PR con tu proyecto al README, o abrí un issue con el link. Lo agregamos al showcase."
                     )}
                   </p>
                 </div>
