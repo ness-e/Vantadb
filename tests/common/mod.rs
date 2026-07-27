@@ -75,7 +75,7 @@ where
             // Stderr IS a TTY under `cargo test --nocapture`, unlike stdout which
             // is captured. Routing here ensures indicatif can update lines in-place
             // instead of printing a new line on every tick / set_message call.
-            MultiProgress::with_draw_target(ProgressDrawTarget::stderr_with_hz(10))
+            MultiProgress::with_draw_target(ProgressDrawTarget::hidden())
         });
         f(mp)
     })
@@ -89,8 +89,7 @@ where
     GLOBAL_BAR.with(|cell| {
         let mut bar = cell.borrow_mut();
         let bar = bar.get_or_insert_with(|| {
-            let pb =
-                ProgressBar::with_draw_target(Some(10), ProgressDrawTarget::stderr_with_hz(10));
+            let pb = ProgressBar::with_draw_target(Some(10), ProgressDrawTarget::hidden());
             pb.set_style(
                 ProgressStyle::default_bar()
                     .template(
@@ -101,9 +100,9 @@ where
                     .expect("Invalid progress template")
                     .progress_chars("█▉▊▋▌▍▎▏  "),
             );
-            // steady_tick makes indicatif own the render loop; without it every
-            // .set_message() call triggers a fresh print when stdout isn't a TTY.
-            pb.enable_steady_tick(std::time::Duration::from_millis(100));
+            // NO enable_steady_tick — the background thread survives process exit
+            // even with ProgressDrawTarget::hidden(), preventing test binaries from
+            // terminating cleanly.
             with_multi_progress(|mp| mp.add(pb))
         });
         f(bar)
@@ -166,7 +165,7 @@ impl TerminalReporter {
     }
 
     pub fn create_progress(len: u64, msg: &str) -> ProgressBar {
-        let pb = ProgressBar::with_draw_target(Some(len), ProgressDrawTarget::stderr_with_hz(10));
+        let pb = ProgressBar::with_draw_target(Some(len), ProgressDrawTarget::hidden());
         pb.set_style(
             ProgressStyle::default_bar()
                 .template("  {spinner:.cyan} {msg:.white} [{bar:30.cyan/blue}] {pos}/{len} ({eta})")
@@ -174,7 +173,8 @@ impl TerminalReporter {
                 .progress_chars("█▉▊▋▌▍▎▏  "),
         );
         pb.set_message(msg.to_string());
-        pb.enable_steady_tick(std::time::Duration::from_millis(80));
+        // enable_steady_tick intentionally omitted — background thread survives
+        // even with hidden target, preventing test process exit (same as with_global_bar).
         with_multi_progress(|mp| mp.add(pb))
     }
 
