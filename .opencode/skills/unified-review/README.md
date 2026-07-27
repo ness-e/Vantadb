@@ -13,11 +13,31 @@ unified-review/
 ├── ARCHITECTURE.md               ← design doc (sub-agent flow, data contracts, failure handling)
 ├── README.md                     ← this file
 ├── profiles/
-│   ├── default.yml               ← generic profile (any project)
-│   └── vantadb.yml               ← VantaDB profile (inherits default, adds VantaDB specifics)
+│   ├── default.yml               ← generic profile (any project) — markdown reports
+│   └── vantadb.yml               ← VantaDB profile — both MD + HTML reports
 └── templates/
+    ├── report.html.tmpl          ← HTML report template (self-contained, print-friendly)
     └── pre-push.ps1.tmpl         ← PowerShell pre-push hook (referenced by vantadb.yml)
 ```
+
+## Report formats
+
+The skill writes reports to `docs/reviews/review-<mode>-<timestamp>.<ext>`:
+
+| Profile | Format | Files |
+|---------|--------|-------|
+| `default` | `markdown` | `.md` only (portable, git-diffable) |
+| `vantadb` | `both` | `.md` + `.html` (MD for git, HTML for stakeholders) |
+
+The HTML template is **self-contained**: inline CSS, no external CDN/fonts,
+works offline, dark-mode aware via `prefers-color-scheme`, print-friendly.
+See `SKILL.md → Report Format → HTML template` for the full placeholder
+reference (40+ placeholders, conditional blocks, HTML-escaping rules).
+
+To preview the HTML output, see `sample-report.html` (in the parent
+`download/` directory) which renders a sample `certify` run with 1 critical
+finding, ISO 25010 heatmap, SonarQube Quality Gate, and prioritized
+recommendations.
 
 ## Installation (OpenCode)
 
@@ -119,10 +139,8 @@ unified-review/
 | `/audit review` | `/review review` |
 | `/audit full` | `/review full` |
 
-The three legacy skills have been **removed from git tracking** (`git rm --cached`)
-but their files remain on disk in git history. All active references across
-`.opencode/` and `.antigravity/` have been migrated to use `unified-review`.
-The legacy files are kept only for history — do not load or invoke them.
+You can delete the three legacy skills once you've verified the unified
+skill produces equivalent (or better) output.
 
 ## What you get vs the legacy skills
 

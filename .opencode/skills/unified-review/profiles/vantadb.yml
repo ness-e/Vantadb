@@ -682,6 +682,18 @@ orchestration:
   raw_logs_dir: "docs/reviews/logs"
 
 # -----------------------------------------------------------------------------
+# Report format (VantaDB writes BOTH .md and .html — HTML for sharing with
+# stakeholders, MD for git diffs and code review comments)
+# -----------------------------------------------------------------------------
+
+report:
+  format: both                     # markdown | html | both
+  markdown_template: ~             # built-in
+  html_template: "templates/report.html.tmpl"
+  output_dir: "docs/reviews"
+  filename_pattern: "review-<mode>-<timestamp>"
+
+# -----------------------------------------------------------------------------
 # Pre-push hook (PowerShell for VantaDB on Windows dev machines)
 # -----------------------------------------------------------------------------
 

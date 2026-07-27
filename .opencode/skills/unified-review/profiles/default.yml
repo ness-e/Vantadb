@@ -657,6 +657,26 @@ orchestration:
   keep_raw_logs: false           # if true, write per-phase logs to docs/reviews/logs/
 
 # -----------------------------------------------------------------------------
+# Report format (which template to use at L11)
+# -----------------------------------------------------------------------------
+# The orchestrator fills the chosen template with ConsolidatedReport data
+# and writes it to docs/reviews/review-<mode>-<timestamp>.<ext>
+# Templates use {{PLACEHOLDER}} and {{#SECTION}}...{{/SECTION}} syntax that
+# the orchestrator substitutes via simple string replacement.
+# Options:
+#   markdown  — write only .md (default, portable)
+#   html      — write only .html (self-contained, shareable, print-friendly)
+#   both      — write both .md and .html
+# -----------------------------------------------------------------------------
+
+report:
+  format: markdown               # markdown | html | both
+  markdown_template: ~           # built-in, see SKILL.md Report Format section
+  html_template: "templates/report.html.tmpl"
+  output_dir: "docs/reviews"
+  filename_pattern: "review-<mode>-<timestamp>"
+
+# -----------------------------------------------------------------------------
 # Pre-push hook generation (off by default; enable per-profile)
 # -----------------------------------------------------------------------------
 
