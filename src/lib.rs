@@ -147,8 +147,8 @@ pub use node::{
     DistanceMetric, Edge, FieldValue, NodeFlags, RelFields, UnifiedNode, VectorRepresentations,
 };
 pub use sdk::{
-    connect, VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord, VantaEmbedded,
-    VantaExportReport, VantaFields, VantaHybridFusionReport, VantaImportReport,
+    connect, BulkImportReport, VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord,
+    VantaEmbedded, VantaExportReport, VantaFields, VantaHybridFusionReport, VantaImportReport,
     VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryListPage,
     VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest,
     VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult,

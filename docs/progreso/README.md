@@ -2735,7 +2735,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | **P4** | 10 ✅ a progreso | `WEB-03/04`, `VFY-004/011`, `DRV-121/122/123/130/131`, `DOC-20` |
 | **P7** | 2 ✅ a progreso | `NUEVO-13` (auto-tuning), `NUEVO-14` (WASM bundle 394KB gzip < 500KB) |
 | **P9** | 7 ✅ a progreso | `OLD-04/07/13/15/17/18/22` |
-| **P10** | 10 ✅ a progreso | `COMP-001/002/003/004/005/007/011/015/020/030` |
+| **P10** | 11 ✅ a progreso | `COMP-001/002/003/004/005/007/009/011/015/020/030` |
 
 **Impacto:** Backlog total ~120→~65 items activos. 5 fases cerradas (P1–P4, P7). Exec Summary actualizado.
 
@@ -2801,4 +2801,15 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | `COMP-013` | Pipeline orquestado con `PipelineMode` (Full/VacuumOnly/MergeOnly/IndexOnly), `vacuum()` purga tombstones del HNSW, `merge_segments()` compactación BFS condicional, `run_pipeline()` orquestación secuencial con tolerancia a fallos por fase | `src/storage/engine/mod.rs`, `src/storage/engine/maintenance.rs`, `src/config.rs`, `src/sdk/api.rs`, `src/storage/engine/tests/maintenance.rs` | ✅ `PipelineMode`, `VacuumReport`, `MergeReport`, `PipelineReport`, `SegmentOptimizerConfig` en `VantaConfig`. SDK expone `vacuum()`, `pipeline()`, `optimizer_config()`, `set_optimizer_config()`. 77 tests de mantenimiento pasando. |
 
 **Verificación:** `cargo check -p vantadb` ✅ | `cargo test -p vantadb -- maintenance` 77/77 ✅
+
+### 2026-07-27 — COMP-009: Binary Bulk Import
+
+**Objetivo:** Protocolo binario de importación masiva 5-10x más rápido que `put_batch()`, con bypass de validación por registro y batch commit.
+
+| ID | Tarea | Archivos | Resultado |
+|----|-------|----------|-----------|
+| `COMP-009` | Formato `.vdbdump` (magic `VDBJSON\n` + version + count + serde_json body), `bulk_import_stream()` bypass validación, `bulk_import_file()`, `bulk_commit_interval` en config. Python: `VantaDB.bulk_import()` + `VantaDB.bulk_import_bytes()`. WASM: `VantaDB.bulk_import()` + `VantaDB.bulk_import_bytes()` | `src/sdk/api.rs`, `src/config.rs`, `vantadb-python/src/lib.rs`, `vantadb-python/src/convert.rs`, `vantadb-python/vantadb_py/__init__.py`, `vantadb-wasm/src/lib.rs`, `docs/Backlog.md`, `.opencode/skills/campaign-executor/tasks/COMP-009.md` | ✅ `BulkImportReport` struct + bulk_import_stream + bulk_import_file. Python async wrappers. WASM Uint8Array binding. 3 tests pasando. `bulk_commit_interval` configurable |
+
+**Verificación:** `cargo check` (workspace completo) ✅ | `cargo test -p vantadb -- tests::test_bulk_` 3/3 ✅
+
 

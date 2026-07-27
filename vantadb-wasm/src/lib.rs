@@ -748,6 +748,24 @@ impl VantaDB {
         to_js(&report)
     }
 
+    /// Bulk-import records from a binary .vdbdump file.
+    /// Returns a report object with total_records, batches_committed, duration_ms.
+    pub fn bulk_import(&self, path: &str) -> Result<JsValue, JsValue> {
+        let report = self.inner.bulk_import_file(path).map_err(to_js_err)?;
+        to_js(&report)
+    }
+
+    /// Bulk-import records from binary bytes (.vdbdump format).
+    /// Accepts a Uint8Array and returns a report object.
+    pub fn bulk_import_bytes(&self, data: &[u8]) -> Result<JsValue, JsValue> {
+        let mut cursor = std::io::Cursor::new(data);
+        let report = self
+            .inner
+            .bulk_import_stream(&mut cursor)
+            .map_err(to_js_err)?;
+        to_js(&report)
+    }
+
     /// Rebuild the HNSW index and return a rebuild report.
     pub fn rebuild_index(&self) -> Result<JsValue, JsValue> {
         let report = self.inner.rebuild_index().map_err(to_js_err)?;

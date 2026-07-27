@@ -92,6 +92,25 @@ pub unsafe fn release_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize
 }
 
 use crate::config::PrefetchMode;
+
+/// Report from a single FreshHNSW repair pass.
+///
+/// FreshHNSW scans all nodes in the HNSW graph and removes
+/// neighbor links that point to node IDs no longer present in the index
+/// ("orphan links" left behind by delete operations).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct FreshHnswReport {
+    /// Number of HNSW nodes scanned.
+    pub scanned_nodes: u64,
+    /// Total number of layers (across all nodes) checked.
+    pub total_layers: u64,
+    /// Number of orphan neighbor links removed.
+    pub repaired_links: u64,
+    /// Duration of the repair pass in milliseconds.
+    pub duration_ms: u64,
+    /// Whether the pass completed successfully.
+    pub success: bool,
+}
 use std::sync::OnceLock;
 
 static PREFETCH_MODE: OnceLock<PrefetchMode> = OnceLock::new();
@@ -762,6 +781,67 @@ impl CPIndex {
         order.extend(orphans);
         order
     }
+
+    /// Scans all nodes in the graph and removes neighbor links that point
+    /// to node IDs that no longer exist in `self.nodes` (orphan links).
+    ///
+    /// Orphan links accumulate when nodes are removed via `apply_delete`
+    /// (which removes the node from `self.nodes` but does not update the
+    /// neighbor lists of surviving nodes). This degrades search quality
+    /// over time because the graph becomes less navigable.
+    ///
+    /// # ponytail
+    /// O(n × m × layers) scan. For ~10M nodes with M=32, that is ~320M
+    /// `contains_key` checks. Do not optimize prematuramente.
+    pub fn repair_orphan_links(&self) -> FreshHnswReport {
+        let mut scanned_nodes: u64 = 0;
+        let mut total_layers: u64 = 0;
+        let mut repaired_links: u64 = 0;
+
+        for entry in self.nodes.iter() {
+            let node_id = *entry.key();
+            scanned_nodes += 1;
+
+            // Collect the layers we can safely inspect under the read lock.
+            let num_layers = entry.value().neighbors.len();
+            total_layers += num_layers as u64;
+
+            for layer in 0..num_layers {
+                let mut needs_repair = false;
+                let mut orphan_count = 0usize;
+
+                {
+                    let node_ref = entry.value();
+                    let neighbors = &node_ref.neighbors[layer];
+                    for &nid in neighbors {
+                        if nid != node_id && !self.nodes.contains_key(&nid) {
+                            needs_repair = true;
+                            orphan_count += 1;
+                        }
+                    }
+                }
+
+                if needs_repair {
+                    if let Some(mut node_mut) = self.nodes.get_mut(&node_id) {
+                        let before = node_mut.neighbors[layer].len();
+                        node_mut.neighbors[layer].retain(|nid| {
+                            *nid == node_id || self.nodes.contains_key(nid)
+                        });
+                        let removed = before - node_mut.neighbors[layer].len();
+                        repaired_links += removed as u64;
+                    }
+                }
+            }
+        }
+
+        FreshHnswReport {
+            scanned_nodes,
+            total_layers,
+            repaired_links,
+            duration_ms: 0, // filled by the caller
+            success: true,
+        }
+    }
 }
 
 impl Default for CPIndex {
@@ -967,6 +1047,161 @@ mod tests {
                 window[0].1,
                 window[1].1
             );
+        }
+    }
+
+    // ── repair_orphan_links ─────────────────────────────────────────
+
+    #[test]
+    fn test_repair_orphan_links_empty_index() {
+        let index = CPIndex::new();
+        let report = index.repair_orphan_links();
+        assert_eq!(report.scanned_nodes, 0);
+        assert_eq!(report.total_layers, 0);
+        assert_eq!(report.repaired_links, 0);
+        assert!(report.success);
+    }
+
+    #[test]
+    fn test_repair_orphan_links_no_orphans() {
+        let index = CPIndex::new_with_config(HnswConfig {
+            m: 4,
+            m_max0: 8,
+            ef_construction: 50,
+            ef_search: 50,
+            ml: 1.0 / (4_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None,
+        });
+
+        // Insert nodes A, B, C — they form a connected graph with no orphans
+        for i in 0u128..5 {
+            let v: Vec<f32> = (0..8).map(|d| ((i * 8 + d) as f32).sin()).collect();
+            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+        }
+
+        let report = index.repair_orphan_links();
+        assert!(report.scanned_nodes > 0, "should scan at least one node");
+        assert_eq!(report.repaired_links, 0, "no orphans expected");
+        assert!(report.success);
+    }
+
+    #[test]
+    fn test_repair_orphan_links_after_delete() {
+        let index = CPIndex::new_with_config(HnswConfig {
+            m: 4,
+            m_max0: 8,
+            ef_construction: 50,
+            ef_search: 50,
+            ml: 1.0 / (4_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None,
+        });
+
+        // Insert nodes 0, 1, 2 — they link to each other via HNSW
+        for i in 0u128..5 {
+            let v: Vec<f32> = (0..8).map(|d| ((i * 8 + d) as f32).sin()).collect();
+            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+        }
+        assert_eq!(index.nodes.len(), 5);
+
+        // Manually add orphan links: give node 0 a link to node 99 (doesn't exist)
+        if let Some(mut node) = index.nodes.get_mut(&0) {
+            node.neighbors[0].push(99);
+        }
+        // Give node 1 a link to node 999 (doesn't exist)
+        if let Some(mut node) = index.nodes.get_mut(&1) {
+            node.neighbors[0].push(999);
+        }
+
+        // Remove node 2 from the index entirely (simulating delete)
+        let removed_node = index.nodes.remove(&2);
+        assert!(removed_node.is_some(), "node 2 should exist before removal");
+
+        // Now node 0 and node 1 both have orphan links to deleted/never-existing nodes.
+        // Node 2's neighbors (which we removed the node for) can't be checked since
+        // the node is gone, but other nodes that linked to node 2 now have orphan links.
+
+        let report = index.repair_orphan_links();
+        assert!(report.scanned_nodes > 0, "should scan nodes");
+        assert!(
+            report.repaired_links >= 2,
+            "should repair at least 2 orphan links (99, 999), got {}",
+            report.repaired_links
+        );
+        assert!(report.success);
+
+        // Verify the orphans were actually removed
+        if let Some(node) = index.nodes.get(&0) {
+            assert!(
+                !node.neighbors[0].contains(&99),
+                "node 0 should no longer link to 99"
+            );
+        }
+        if let Some(node) = index.nodes.get(&1) {
+            assert!(
+                !node.neighbors[0].contains(&999),
+                "node 1 should no longer link to 999"
+            );
+        }
+    }
+
+    #[test]
+    fn test_repair_orphan_links_multiple_layers() {
+        let index = CPIndex::new_with_config(HnswConfig {
+            m: 4,
+            m_max0: 8,
+            ef_construction: 100,
+            ef_search: 100,
+            ml: 1.0 / (4_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None,
+        });
+
+        // Insert enough nodes to create multi-layer graph
+        for i in 0u128..30 {
+            let v: Vec<f32> = (0..16).map(|d| ((i * 16 + d) as f32).cos()).collect();
+            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+        }
+        assert_eq!(index.nodes.len(), 30);
+
+        // Inject orphan links at layers 0 and 1
+        for node_id in [0u128, 5, 10] {
+            if let Some(mut node) = index.nodes.get_mut(&node_id) {
+                for layer in 0..node.neighbors.len() {
+                    // Add several fake orphan IDs
+                    node.neighbors[layer].push(100);
+                    node.neighbors[layer].push(200);
+                    node.neighbors[layer].push(300);
+                }
+            }
+        }
+
+        // Remove some nodes to create more orphans
+        for id in [15u128, 20, 25] {
+            index.nodes.remove(&id);
+        }
+
+        let report = index.repair_orphan_links();
+        assert!(report.scanned_nodes > 0, "should scan nodes");
+        assert!(report.repaired_links > 0, "should repair orphan links");
+        assert!(report.total_layers >= report.scanned_nodes, "total layers >= scanned nodes");
+        assert!(report.success);
+
+        // Verify orphans are gone and legit links remain
+        for node_id in [0u128, 5, 10] {
+            if let Some(node) = index.nodes.get(&node_id) {
+                for layer in 0..node.neighbors.len() {
+                    assert!(
+                        !node.neighbors[layer].contains(&100),
+                        "node {node_id} layer {layer} should not link to 100"
+                    );
+                    assert!(
+                        !node.neighbors[layer].contains(&200),
+                        "node {node_id} layer {layer} should not link to 200"
+                    );
+                }
+            }
         }
     }
 }

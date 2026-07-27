@@ -504,6 +504,17 @@ pub(crate) fn import_report_to_pydict(
     )
 }
 
+pub(crate) fn bulk_import_report_to_pydict(
+    py: Python,
+    report: &vantadb::sdk::BulkImportReport,
+) -> PyResult<Py<PyAny>> {
+    pydict_set!(py,
+        "total_records" => report.total_records,
+        "batches_committed" => report.batches_committed,
+        "duration_ms" => report.duration_ms,
+    )
+}
+
 pub(crate) fn text_index_repair_report_to_pydict(
     py: Python,
     report: &VantaTextIndexRepairReport,

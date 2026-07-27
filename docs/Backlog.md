@@ -200,7 +200,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | ID | Feature | Esfuerzo | Estado | Dependencias |
 |----|---------|----------|--------|--------------|
 | ~~`COMP-008`~~ | ~~**Pluggable index engine (VecIndex trait)** — `VecIndex` trait definido con `search`/`add`/`len`/`estimate_memory_bytes`. Implementado para CPIndex (HNSW) e IvfIndex. `vector_memory_search` usa `engine.vec_index()`. 1679 tests ✅. 🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | ~~Pre-COMP-027~~ |
-| `COMP-009` | Binary bulk import (5-10x faster than INSERT) — Solo `put_batch()`, no protocolo binario | 🟢 3-4d | ❌ No implementado | Ninguna |
+| ~~`COMP-009`~~ | ~~**Binary bulk import (5-10x faster than INSERT)** — `bulk_import_stream()` + `bulk_import_file()` + `bulk_import_bytes()` en core Rust, Python, WASM. Formato `VDBJSON\n` header + serde_json body. Bypass per-record validation, batch commit, 3 tests. ✅ COMPLETADA~~ | ~~🟢 3-4d~~ | ✅ | Ninguna |
 | ~~`COMP-010`~~ | ~~**Auto-embedding (embedding function abstraction)** — Trait `EmbeddingProvider` + `OllamaProvider` + `OpenAIProvider`. Factory `get_embedding_provider()` vía `VANTA_EMBEDDING_PROVIDER`. ✅ COMPLETADA | 🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | ~~DRV-123~~ |
 | `COMP-012` | RoaringBitmaps for metadata indexing — `FilterBitset` custom, no `croaring` | 🟡 1 sem | ❌ No implementado | Pre-COMP-003 |
 | ~~`COMP-013`~~ | ~~**Segment optimizer pipeline (Vacuum/Merge/Index)** — `PipelineMode`, `VacuumReport`, `MergeReport`, `PipelineReport`, `SegmentOptimizerConfig`, `vacuum()`, `merge_segments()`, `run_pipeline()` + SDK API + 77 tests. ✅ COMPLETADA~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | ~~COMP-004, COMP-011~~ |

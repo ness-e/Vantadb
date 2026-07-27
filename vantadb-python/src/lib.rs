@@ -27,8 +27,8 @@ use types::{FlatBufferView, VantaPyListResult, VantaPyMemoryRecord, VantaPySearc
 use vector::{VantaVector, VantaVectorIter};
 
 use crate::convert::{
-    capabilities_to_pydict, check_lens, export_report_to_pydict, extract_vector,
-    format_query_result, import_report_to_pydict, map_vanta_error, node_to_pydict,
+    bulk_import_report_to_pydict, capabilities_to_pydict, check_lens, export_report_to_pydict,
+    extract_vector, format_query_result, import_report_to_pydict, map_vanta_error, node_to_pydict,
     operational_metrics_to_pydict, py_any_to_value, py_dict_to_metadata, rebuild_report_to_pydict,
     runtime_profile_label, search_explanation_to_pydict, text_index_audit_report_to_pydict,
     text_index_repair_report_to_pydict,
@@ -665,6 +665,29 @@ impl VantaDB {
         let path = path.to_string();
         let report = py.detach(move || engine.import_file(&path).map_err(map_vanta_error))?;
         import_report_to_pydict(py, &report)
+    }
+
+    /// Bulk-import records from a binary .vdbdump file.
+    /// Returns a dict with total_records, batches_committed, duration_ms.
+    fn bulk_import(&self, py: Python, path: &str) -> PyResult<Py<PyAny>> {
+        let engine = self.engine.clone();
+        let path = path.to_string();
+        let report = py.detach(move || engine.bulk_import_file(&path).map_err(map_vanta_error))?;
+        bulk_import_report_to_pydict(py, &report)
+    }
+
+    /// Bulk-import records from binary bytes (.vdbdump format).
+    /// Returns a dict with total_records, batches_committed, duration_ms.
+    fn bulk_import_bytes(&self, py: Python, data: &[u8]) -> PyResult<Py<PyAny>> {
+        let engine = self.engine.clone();
+        let data = data.to_vec();
+        let report = py.detach(move || {
+            let mut cursor = std::io::Cursor::new(&data[..]);
+            engine
+                .bulk_import_stream(&mut cursor)
+                .map_err(map_vanta_error)
+        })?;
+        bulk_import_report_to_pydict(py, &report)
     }
 
     /// Run a read-only structural audit of the derived text index.

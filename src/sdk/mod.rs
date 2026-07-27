@@ -9,6 +9,7 @@ mod search;
 pub(crate) mod serialization;
 pub(crate) mod types;
 
+pub use api::BulkImportReport;
 pub use builder::VantaEmbedded;
 pub use connect::connect;
 pub use serialization::{

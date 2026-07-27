@@ -137,6 +137,12 @@ class AsyncVantaDB:
     async def rebuild_index(self):
         return await self._run(self._sync.rebuild_index)
 
+    async def bulk_import(self, path: str):
+        return await self._run(self._sync.bulk_import, path)
+
+    async def bulk_import_bytes(self, data: bytes):
+        return await self._run(self._sync.bulk_import_bytes, data)
+
     async def reindex_hnsw_from_text(self, namespace: str, *, page_size: int = 1000):
         return await self._run(
             self._sync.reindex_hnsw_from_text, namespace, page_size

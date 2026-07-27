@@ -10,6 +10,7 @@ use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::{Result, VantaError};
 use crate::executor::Executor;
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use tracing;
 use web_time::Instant;
@@ -836,6 +837,118 @@ impl VantaEmbedded {
     }
 }
 
+/// Report returned by bulk import operations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BulkImportReport {
+    pub total_records: usize,
+    pub batches_committed: usize,
+    pub duration_ms: u64,
+}
+
+impl VantaEmbedded {
+    /// Bulk-import records from a binary stream.
+    ///
+    /// Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`,
+    /// 8-byte LE record count, then serde_json-serialized `Vec<VantaMemoryInput>`.
+    ///
+    /// Bypasses per-record validation (`validate_namespace`, `validate_key`,
+    /// `validate_metadata`) for raw throughput. Commits to the engine in batches
+    /// sized by [`VantaConfig::bulk_commit_interval`] (default: 10 000).
+    pub fn bulk_import_stream<R: std::io::Read>(&self, reader: &mut R) -> Result<BulkImportReport> {
+        self.check_read_only()?;
+        let start = web_time::Instant::now();
+
+        // ── Header ──
+        let mut magic = [0u8; 8];
+        reader.read_exact(&mut magic)?;
+        if &magic != b"VDBJSON\n" {
+            return Err(VantaError::ValidationError {
+                field: "header".into(),
+                reason: format!(
+                    "invalid magic bytes: expected VDBJSON\\n, got {:?}",
+                    std::str::from_utf8(&magic).unwrap_or("??")
+                ),
+            });
+        }
+
+        let mut version = [0u8; 1];
+        reader.read_exact(&mut version)?;
+        if version[0] != 0x01 {
+            return Err(VantaError::ValidationError {
+                field: "version".into(),
+                reason: format!("unsupported format version: {}", version[0]),
+            });
+        }
+
+        let mut raw_count = [0u8; 8];
+        reader.read_exact(&mut raw_count)?;
+        let total = u64::from_le_bytes(raw_count) as usize;
+
+        // ── Body: serde_json-serialized Vec<VantaMemoryInput> ──
+        let mut buf = Vec::new();
+        reader.read_to_end(&mut buf)?;
+
+        let records: Vec<VantaMemoryInput> =
+            serde_json::from_slice(&buf).map_err(|e| VantaError::ValidationError {
+                field: "body".into(),
+                reason: format!("JSON deserialization failed: {}", e),
+            })?;
+
+        if records.len() != total {
+            return Err(VantaError::ValidationError {
+                field: "count".into(),
+                reason: format!("declared {} records but got {}", total, records.len()),
+            });
+        }
+
+        let engine = self.engine_handle()?;
+        let commit_interval = self.config.bulk_commit_interval.unwrap_or(10_000);
+        let mut batches = 0usize;
+
+        for chunk in records.chunks(commit_interval) {
+            for input in chunk {
+                let node_id = memory_node_id(&input.namespace, &input.key);
+                let mut node = UnifiedNode::new(node_id);
+                node.set_field("payload", FieldValue::String(input.payload.clone()));
+                if let Some(ref v) = input.vector {
+                    node.vector = VectorRepresentations::Full(v.clone());
+                    node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+                }
+                for (k, v) in &input.metadata {
+                    let fv = match v {
+                        VantaValue::String(s) => FieldValue::String(s.clone()),
+                        VantaValue::Int(i) => FieldValue::Int(*i),
+                        VantaValue::Float(f) => FieldValue::Float(*f),
+                        VantaValue::Bool(b) => FieldValue::Bool(*b),
+                        // DateTime and list variants are not supported in bulk import.
+                        _ => continue,
+                    };
+                    node.set_field(k, fv);
+                }
+                if let Some(ttl) = input.ttl_ms {
+                    let expires_at_ms = now_ms().saturating_add(ttl);
+                    node.set_field(FIELD_EXPIRES_AT_MS, FieldValue::Int(expires_at_ms as i64));
+                }
+                engine.insert(&node)?;
+            }
+            batches += 1;
+        }
+
+        let duration_ms = start.elapsed().as_millis() as u64;
+        Ok(BulkImportReport {
+            total_records: total,
+            batches_committed: batches,
+            duration_ms,
+        })
+    }
+
+    /// Convenience: bulk-import from a binary file in bulk format.
+    pub fn bulk_import_file(&self, path: &str) -> Result<BulkImportReport> {
+        let mut file = std::fs::File::open(path)?;
+        self.bulk_import_stream(&mut file)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1079,5 +1192,48 @@ mod tests {
             input.fields.get("lang").unwrap(),
             &VantaValue::String("en".into())
         );
+    }
+
+    // ── bulk_import ──
+
+    #[test]
+    fn test_bulk_import_stream_invalid_magic() {
+        let e = make_embedded(false);
+        // 8 bytes that don't match "VDBJSON\n"
+        let mut bad_data: &[u8] = b"BADMAGIC";
+        let err = e.bulk_import_stream(&mut bad_data).unwrap_err();
+        assert!(err.to_string().contains("magic"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_bulk_import_stream_empty_no_engine() {
+        // Valid header with count=0 but engine not initialized
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"VDBJSON\n");
+        buf.push(0x01);
+        buf.extend_from_slice(&0u64.to_le_bytes());
+        // Body: empty JSON array
+        buf.extend_from_slice(b"[]");
+
+        let e = make_embedded(false);
+        let mut cursor = std::io::Cursor::new(&buf);
+        let err = e.bulk_import_stream(&mut cursor).unwrap_err();
+        assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_bulk_import_stream_count_mismatch() {
+        // Write header claiming 5 records but body has 0 (empty JSON)
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"VDBJSON\n");
+        buf.push(0x01);
+        buf.extend_from_slice(&5u64.to_le_bytes()); // count = 5
+                                                    // Empty JSON array
+        buf.extend_from_slice(b"[]");
+
+        let e = make_embedded(false);
+        let mut cursor = std::io::Cursor::new(&buf);
+        let err = e.bulk_import_stream(&mut cursor).unwrap_err();
+        assert!(err.to_string().contains("count"), "got: {:?}", err);
     }
 }

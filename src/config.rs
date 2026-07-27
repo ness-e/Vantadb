@@ -269,6 +269,9 @@ pub struct VantaConfig {
     /// Batch size for batch ingestion operations (default: 1000).
     /// Configured via `VANTADB_BATCH_SIZE`.
     pub batch_size: Option<usize>,
+    /// Bulk import commit interval — number of records per batch commit (default: 10000).
+    /// Configured via `VANTADB_BULK_COMMIT_INTERVAL`.
+    pub bulk_commit_interval: Option<usize>,
     /// WAL buffer size in bytes (default: 65536 / 64KB).
     /// Configured via `VANTADB_WAL_BUFFER_SIZE`.
     pub wal_buffer_size: Option<usize>,
@@ -494,6 +497,14 @@ impl Default for VantaConfig {
                 debug!(val = ?v, "VANTADB_BATCH_SIZE");
                 v
             },
+            bulk_commit_interval: {
+                let v = parse_env_or::<u32>("VANTADB_BULK_COMMIT_INTERVAL", 0)
+                    .try_into()
+                    .ok()
+                    .filter(|&n: &usize| n > 0);
+                debug!(val = ?v, "VANTADB_BULK_COMMIT_INTERVAL");
+                v
+            },
             wal_buffer_size: {
                 let v = parse_env_or::<u32>("VANTADB_WAL_BUFFER_SIZE", 0)
                     .try_into()
@@ -697,6 +708,12 @@ impl VantaConfig {
     /// Sets the batch size for batch ingestion operations.
     pub fn with_batch_size(mut self, size: usize) -> Self {
         self.batch_size = Some(size);
+        self
+    }
+
+    /// Sets the bulk import commit interval (records per batch).
+    pub fn with_bulk_commit_interval(mut self, interval: usize) -> Self {
+        self.bulk_commit_interval = Some(interval);
         self
     }
 
@@ -1058,6 +1075,7 @@ mod tests {
         assert_eq!(cfg.api_key, None);
         assert_eq!(cfg.rate_limit_rpm, 100);
         assert_eq!(cfg.batch_size, None);
+        assert_eq!(cfg.bulk_commit_interval, None);
         assert_eq!(cfg.wal_buffer_size, None);
         assert_eq!(cfg.flush_threshold, None);
         assert_eq!(cfg.tls_cert_path, None);
@@ -1260,6 +1278,10 @@ mod tests {
         assert_eq!(cfg_default.log_format, cfg_from_env.log_format);
         assert_eq!(cfg_default.rate_limit_rpm, cfg_from_env.rate_limit_rpm);
         assert_eq!(cfg_default.batch_size, cfg_from_env.batch_size);
+        assert_eq!(
+            cfg_default.bulk_commit_interval,
+            cfg_from_env.bulk_commit_interval
+        );
         assert_eq!(cfg_default.wal_buffer_size, cfg_from_env.wal_buffer_size);
         assert_eq!(cfg_default.flush_threshold, cfg_from_env.flush_threshold);
         assert_eq!(cfg_default.flat_threshold, cfg_from_env.flat_threshold);
@@ -1284,6 +1306,7 @@ mod tests {
             .with_api_key(Some("sk-chained".into()))
             .with_rate_limit_rpm(200)
             .with_batch_size(500)
+            .with_bulk_commit_interval(10000)
             .with_wal_buffer_size(131072)
             .with_flush_threshold(5000)
             .with_tls("crt.pem".into(), "key.pem".into())
@@ -1305,6 +1328,7 @@ mod tests {
         assert_eq!(cfg.api_key, Some("sk-chained".into()));
         assert_eq!(cfg.rate_limit_rpm, 200);
         assert_eq!(cfg.batch_size, Some(500));
+        assert_eq!(cfg.bulk_commit_interval, Some(10000));
         assert_eq!(cfg.wal_buffer_size, Some(131072));
         assert_eq!(cfg.flush_threshold, Some(5000));
         assert_eq!(cfg.tls_cert_path, Some("crt.pem".into()));
