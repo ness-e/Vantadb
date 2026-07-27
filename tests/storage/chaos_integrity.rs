@@ -266,7 +266,6 @@ fn chaos_integrity_failpoints_certification() {
 
         // ─── FINAL: assert recovery & cleanup ────────────────
         chaos.assert_recovery();
-        chaos.destroy();
 
         TerminalReporter::print_certification_summary();
     }

@@ -40,10 +40,10 @@ use crate::storage::StorageEngine;
 /// failpoints simulate transient I/O failures, not permanent
 /// corruption.
 pub struct ChaosTestHarness {
-    /// Temporary directory backing the engine.
-    pub dir: TempDir,
     /// Shared storage engine under test.
     pub engine: Arc<StorageEngine>,
+    /// Temporary directory backing the engine.
+    pub dir: TempDir,
     /// Tracks activated failpoints so `disable_all()` can clean them up.
     failpoints: RefCell<Vec<String>>,
 }
@@ -60,8 +60,8 @@ impl ChaosTestHarness {
             .expect("ChaosTestHarness: non-UTF-8 temp dir path");
         let engine = Arc::new(StorageEngine::open(db_path)?);
         Ok(Self {
-            dir,
             engine,
+            dir,
             failpoints: RefCell::new(Vec::new()),
         })
     }
