@@ -2726,7 +2726,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | **P2** | 7 ✅ + 24 stale a progreso | `DRV-014/028/041/136`, `VFY-006/007`, `REV-012` + 24 crates de integración nunca implementados |
 | **P3** | 7 ✅ + 7 stale a progreso | `DRV-013/017/061/067/073`, `TEST-11/12` + 7 stale |
 | **P4** | 10 ✅ a progreso | `WEB-03/04`, `VFY-004/011`, `DRV-121/122/123/130/131`, `DOC-20` |
-| **P7** | 1 ✅ a progreso | `NUEVO-13` (auto-tuning) |
+| **P7** | 2 ✅ a progreso | `NUEVO-13` (auto-tuning), `NUEVO-14` (WASM bundle 394KB gzip < 500KB) |
 | **P9** | 7 ✅ a progreso | `OLD-04/07/13/15/17/18/22` |
 | **P10** | 10 ✅ a progreso | `COMP-001/002/003/004/005/007/011/015/020/030` |
 

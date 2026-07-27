@@ -28,7 +28,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | **P4** 🔧 Engineering Health | 0 (10 ✅ removidos a progreso) | — | ✅ Cerrado |
 | **P5** 📖 Docs & Community | 11 | ~1-2 semanas | 🟡 Media |
 | **P6** 🚀 Launch Campaign | 10 | ~1-2 semanas | 🟡 Media |
-| **P7** 🌐 WASM & Performance | 1 (NUEVO-14) | ~1 semana | 🟡 Media |
+| **P7** 🌐 WASM & Performance | 0 (todos completados) | — | ✅ Cerrado |
 | **P8** 🔮 Post-Launch & Enterprise | 8 | ~3-5 semanas | 🔵 Futuro |
 | **P9** 📚 Old Docs Rescue (reference) | 13 (7 ✅ progreso) | — | 📖 Referencia |
 | **P10** 🏗️ Competitive Features (catalog) | 20 (10 ✅ progreso) | — | 🗺️ Roadmap |
@@ -123,9 +123,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
-| `NUEVO-14` | **WASM bundle size <500KB gzip** — Sin medición de bundle actual ni flags de optimización en Cargo.toml más allá de `opt-level = "s"` | `vantadb-wasm/Cargo.toml` | 🟡 1-2d | 🟡 |
-
-> **Items removidos (4):** NUEVO-11/12 (WASM IndexedDB + multi-tab coordinación — ✅ implementados), NUEVO-19 (SourceDesign/ no existe), BENCH-01 (solo mención en backlog, sin script ni dataset)
+> **Items removidos (5):** NUEVO-11/12 (WASM IndexedDB + multi-tab coordinación — ✅ implementados), NUEVO-14 (bundle 394KB gzip < 500KB — ✅ en WASM-04), NUEVO-19 (SourceDesign/ no existe), BENCH-01 (solo mención en backlog, sin script ni dataset)
 
 ---
 
