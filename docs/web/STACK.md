@@ -16,7 +16,7 @@
 | Package | Purpose |
 |---|---|
 | `framer-motion` | Page transitions (`PageTransition`), section reveals |
-| `animejs` | SVG/Canvas interactive graph animation (`mark-classic.tsx`) |
+| `animejs` | Interactive SVG mark (`mark-classic.tsx`, `mark-cta.tsx`, `use-mark-interaction.ts`) |
 | `next-themes` | Theme provider (installed, dark mode broken — no dark CSS vars) |
 | `lucide-react` | Icons |
 | `sonner` | Toast notifications (bottom-right) |
@@ -24,10 +24,6 @@
 | `clsx` + `tailwind-merge` | `cn()` utility |
 | `tailwindcss-animate` | Animation utilities for Tailwind |
 | `tw-animate-css` | CSS-level Tailwind animation utilities |
-| `react-hook-form` | Form handling (unused — 0 imports) |
-| `recharts` | Charts (`benchmark-race.tsx`) |
-| `z-ai-web-dev-sdk` | AI SDK (unused) |
-| `zustand` | State management (installed, unused) |
 
 ## shadcn/ui Components Installed (`src/components/ui/`)
 
@@ -78,7 +74,9 @@ Custom `LanguageProvider` context (NOT `next-intl`):
 | Package | Status |
 |---|---|
 | `next-intl` | Installed but unused (custom i18n instead) |
-| `@dnd-kit/*` | Installed, 0 imports |
+| `recharts` | Only in `ui/chart.tsx` (shadcn/ui), zero consumers |
+| `react-hook-form` | Only in `ui/form.tsx` (shadcn/ui), zero consumers |
+| `@dnd-kit/*` (3 packages) | Installed, 0 imports |
 | `@tanstack/react-query` | Installed, 0 imports |
 | `@tanstack/react-table` | Installed, 0 imports |
 | `@mdxeditor/editor` | Installed, 0 imports (~500KB) |
@@ -89,6 +87,8 @@ Custom `LanguageProvider` context (NOT `next-intl`):
 | `sharp` | Installed, 0 imports (~30MB native) |
 | `uuid` | Installed, 0 imports |
 | `zustand` | Installed, 0 imports |
-| `taillwind.config.ts` | Inert — v3 syntax in v4 project |
+| `@reactuses/core` | Installed, 0 imports |
+| `z-ai-web-dev-sdk` | Installed, 0 imports |
+| `tailwind.config.ts` | Inert — v3 syntax in v4 project |
 
-17 dead dependencies total. See `docs/web/QA.md` or `web/AUDIT.md`.
+19 dead / zombie items total. See `docs/web/QA.md` or `web/AUDIT.md`.

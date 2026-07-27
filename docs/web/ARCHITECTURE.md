@@ -53,8 +53,9 @@ web/
 
 ## Routing
 
-All pages are `"use client"` — no React Server Components. Every `page.tsx` follows the pattern:
+All pages are `"use client"` — no React Server Components. Two patterns exist:
 
+**Pattern A (4 pages: `/`, `/benchmarks`, `/architecture`, `/docs`)** — wraps legacy view components:
 ```tsx
 "use client";
 import { ViewComponent } from "@/components/vanta/view-component";
@@ -63,6 +64,18 @@ import { useVantaNavigate } from "@/hooks/use-vanta-navigate";
 export default function Page() {
   const navigate = useVantaNavigate();
   return <ViewComponent onNavigate={navigate} />;
+}
+```
+
+**Pattern B (all other pages)** — standalone pages that use `useLanguage()` directly:
+```tsx
+"use client";
+import { PageHeader, PageSection } from "@/components/vanta/page-header";
+import { useLanguage } from "@/lib/language-provider";
+
+export default function Page() {
+  const { t } = useLanguage();
+  return <div className="animate-rise">...</div>;
 }
 ```
 

@@ -22,27 +22,29 @@ Source: `web/AUDIT.md` (auto-generated, 24 items). Full report at `web/AUDIT.md`
 | Hero block `{false && (...)}` | 30 | Never renders (dead mascot code) |
 | **Total dead lines** | **1,157** | |
 
-## Unused Dependencies (17)
+## Unused / Zombie Dependencies (19)
 
-| Package | Size | 
-|---|---|
-| `@dnd-kit/*` (3 packages) | ~130KB |
-| `@mdxeditor/editor` | ~500KB |
-| `@tanstack/react-query` | ~100KB |
-| `@tanstack/react-table` | ~120KB |
-| `@hookform/resolvers` | ~15KB |
-| `date-fns` | ~300KB |
-| `next-auth` | ~200KB |
-| `next-intl` | ~100KB |
-| `react-markdown` | ~50KB |
-| `react-syntax-highlighter` | ~800KB |
-| `sharp` | ~30MB (native) |
-| `uuid` | ~10KB |
-| `z-ai-web-dev-sdk` | ~50KB |
-| `zustand` | ~10KB |
-| `zod` | ~50KB |
-| `@reactuses/core` | ~50KB |
-| **Total waste** | **~150MB+ node_modules** |
+| Package | Status | Size |
+|---|---|---|
+| `@dnd-kit/*` (3 packages) | 0 imports | ~130KB |
+| `@mdxeditor/editor` | 0 imports | ~500KB |
+| `@tanstack/react-query` | 0 imports | ~100KB |
+| `@tanstack/react-table` | 0 imports | ~120KB |
+| `recharts` | Only in `ui/chart.tsx`, zero consumers | ~150KB |
+| `react-hook-form` | Only in `ui/form.tsx`, zero consumers | ~80KB |
+| `@hookform/resolvers` | 0 imports | ~15KB |
+| `date-fns` | 0 imports | ~300KB |
+| `next-auth` | 0 imports | ~200KB |
+| `next-intl` | 0 imports (custom i18n) | ~100KB |
+| `react-markdown` | 0 imports | ~50KB |
+| `react-syntax-highlighter` | 0 imports | ~800KB |
+| `sharp` | 0 imports | ~30MB (native) |
+| `uuid` | 0 imports | ~10KB |
+| `z-ai-web-dev-sdk` | 0 imports | ~50KB |
+| `zustand` | 0 imports | ~10KB |
+| `zod` | 0 imports | ~50KB |
+| `@reactuses/core` | 0 imports | ~50KB |
+| **Total waste** | | **~150MB+ node_modules** |
 
 ## i18n Issues
 
@@ -66,7 +68,7 @@ Source: `web/AUDIT.md` (auto-generated, 24 items). Full report at `web/AUDIT.md`
 
 | # | Issue | Detail |
 |---|---|---|
-| 13 | anime.js no cleanup on unmount | `mark-classic.tsx` — `useEffect` doesn't call `.kill()` |
+| 13 | anime.js no cleanup on unmount (`mark-classic.tsx`) | Ambient pulse animations (`loop: true`) in `useEffect` without cleanup — `use-mark-interaction.ts` handles cleanup correctly, but `mark-classic.tsx` does not |
 
 ## Build/Config Issues
 

@@ -48,10 +48,14 @@
 
 | Component | File | Purpose |
 |---|---|---|
-| `Mark` (dir) | `mark/` | Animated product mark — `index.tsx` delegates to `mark-classic.tsx` |
-| `MarkClassic` | `mark-classic.tsx` | SVG interactive graph with anime.js (274 lines) |
+| `Mark` (dir) | `mark/` | Animated product mark — see submodule below |
+| `MarkClassic` | `mark/mark-classic.tsx` | SVG interactive graph with anime.js (274 lines) |
+| `MarkCta` | `mark/mark-cta.tsx` | SVG mark for CTA section — eyes follow hovered button, unique click reactions per button (191 lines) |
+| `useMarkInteraction` | `mark/use-mark-interaction.ts` | Reusable hook: mouse tracking, eye/blink animation via anime.js, squint effect (225 lines) |
+| `MarkVariantName` | `mark/types.ts` | Types: `BlinkState`, `MarkInteractionState`, `MarkVariantProps`, `MARK_VARIANTS` |
 | `LogoMark` | `logo-mark.tsx` | VantaDB logotype/anchor |
-| `PageHeader` | `page-header.tsx` | Reusable page hero header |
+| `PageHeader` | `page-header.tsx` | Reusable page hero header — black panel, neon accent, rigid shadow |
+| `PageSection` | `page-header.tsx` | Reusable content wrapper — 3 variants: cream/paper/ink backgrounds |
 | `Reveal` | `reveal.tsx` | Scroll-triggered entrance animation (6 directions, 76 lines) |
 | `CountUpStat` | `count-up.tsx` | Animated number counter (134 lines, hook + component in same file) |
 | `WalSimulator` | `wal-simulator.tsx` | WAL visualization (interactive) |

@@ -61,18 +61,17 @@ All animations respect `prefers-reduced-motion: reduce` — durations collapse t
 
 ## Anime.js
 
-Used exclusively in `mark-classic.tsx` for the interactive SVG network graph.
+Used in three files for the interactive SVG product mark:
 
-| Animation | Elements | Description |
+| File | Usage | Cleanup |
 |---|---|---|
-| `shimmer` | SVG lines | Pulsing glow on edges |
-| `rotateRing` | SVG ring element | Continuous rotation |
+| `mark/use-mark-interaction.ts` (225 lines) | Mouse tracking → eye/sphere offset animation (rAF-throttled), blink cycle, squint effect | ✅ Explicit `.pause()` on unmount + before starting new animations |
+| `mark/mark-classic.tsx` | Node hover pulse (`.animate()` on circle radius), ambient stagger pulse on mount | ❌ **No cleanup on unmount** — ambient `loop: true` animations continue after component unmount |
+| `mark/mark-cta.tsx` | Click reactions per button: sphere pulse (install), spin (docs), bounce (github) | ✅ Single-shot animations, no loop |
 
 ### ⚠️ Known Issue
 
-Anime.js animations lack explicit cleanup — `useEffect` return does not call `.kill()` or `.pause()`.
-The commented reason ("Cleanup handled by anime.js on unmount") is incorrect; anime.js does not auto-cleanup.
-Risk of memory leaks and ghost animations on component remount.
+`mark-classic.tsx` line 76-93 starts ambient pulsing animations with `loop: true` inside a `useEffect(() => {...}, [])` with NO cleanup function. The comment on line 93 ("Cleanup handled by anime.js on unmount") is incorrect — anime.js does NOT auto-cleanup when a DOM element is removed. Risk of memory leaks and ghost animations on component remount. Fix: store animation instances in a ref and call `.kill()` in the effect's cleanup.
 
 ## Count-up Hook
 
