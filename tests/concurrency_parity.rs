@@ -27,6 +27,7 @@ fn open_engine(path: &str, kind: BackendKind) -> StorageEngine {
 
 // ─── TEST 1: Absolute Parity (RocksDB vs Fjall vs InMemory) ───
 
+#[cfg_attr(not(feature = "rocksdb"), ignore)]
 #[test]
 fn test_triple_backend_parity_validation() {
     eprintln!(
