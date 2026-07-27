@@ -138,6 +138,6 @@ Auto-estimar turns totales:
 | ❌ Vago | ✅ Verificable |
 |---------|----------------|
 | "Arreglar el bug de memoria" | "tests/test_memory.rs pasa, cargo machete 0 warnings, cargo nextest run pasa" |
-| "Mejorar la web" | "npx tsc --noEmit 0 errors, npm run lint 0 errors, vitest run --pass" |
+| "Mejorar la web" | "cd web && npx tsc --noEmit 0 errors, npm run lint 0 errors, npm run build éxito" |
 | "Refactorizar módulo" | "cargo check --workspace, clippy sin warnings nuevos, tests existentes pasan" |
 | "Funciona bien" | "cargo build && cargo nextest run pasa, y [comportamiento específico] funciona" |

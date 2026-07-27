@@ -119,8 +119,8 @@ npx lighthouse https://localhost:3000 --output json --output-path ./report.json
 
 # Bundle analysis
 npx webpack-bundle-analyzer stats.json
-# or for Vite:
-npx vite-bundle-visualizer
+# or for Next.js:
+npx @next/bundle-analyzer  # requires config in next.config.ts
 
 # Check bundle size
 npx bundlesize

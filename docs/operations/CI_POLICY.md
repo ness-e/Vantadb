@@ -123,9 +123,10 @@ certification checks. Running this on every PR would paralyze development veloci
 
 ### 3. Web CI (`ci-web-11.yml`)
 
-Builds and tests the web frontend (`web/` directory). Runs `npm ci`, `npm run build`, and
-`npm run check` via Vite on push/PR to `main` that touches `web/**`. Triggered by
-`workflow_dispatch` as well.
+Builds and lints the web frontend (`web/` directory — Next.js 16). Runs `npm ci`, `npm run lint`,
+`npx tsc --noEmit`, and `npm run build` on push/PR to `main` that touches `web/**`. No test infra
+— the Next.js SPA is client-only (`"use client"` everywhere). Triggered by `workflow_dispatch` as
+well.
 
 ### 4. Docs Gate (`gate-docs-21.yml`)
 

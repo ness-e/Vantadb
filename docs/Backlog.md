@@ -48,7 +48,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 ## ✅ Definition of Done (DoD)
 
 - [ ] Código compila (`cargo check` / `tsc --noEmit`)
-- [ ] Tests pasan (`cargo test` / `vitest run`)
+- [ ] Tests pasan (`cargo nextest run` / `pytest`)
 - [ ] Linters pasan (`cargo clippy` / `eslint`)
 - [ ] Docs actualizados si aplica
 - [ ] Tarea movida a `progreso/README.md`

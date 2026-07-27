@@ -1,37 +1,29 @@
-# `ci-web-11.yml` — CI: Web — Build & Test
+# `ci-web-11.yml` — CI: Web — Build & Lint (Next.js)
 
 ## ¿Qué hace?
 
-Pipeline de integración continua para el frontend web (React + Vite + Tailwind + TypeScript) del sitio de VantaDB.
+Pipeline de integración continua para el frontend web (Next.js 16 + React 19 + shadcn/ui + Tailwind v4) del sitio de VantaDB.
 
 ## ¿Cómo lo hace?
 
 Un solo job `build` con los siguientes pasos secuenciales:
 
 1. `npm ci` — instala dependencias exactas desde `package-lock.json`
-2. `npm run lint` — ESLint
+2. `npm run lint` — ESLint (34 reglas — muy permisivo)
 3. `npx tsc --noEmit` — type-checking de TypeScript
-4. `npm run build` — build de producción con Vite
-5. `npx vitest run` — tests unitarios con Vitest
-6. `npx playwright install --with-deps chromium` — instala navegador para E2E
-7. `npx playwright test` — tests end-to-end con Playwright
+4. `npm run build` — `next build` con standalone output
 
-## ¿Qué tests usa?
-
-- **Vitest**: tests unitarios definidos en `web/`
-- **Playwright**: tests E2E en `web/`
+> **Nota:** No hay tests unitarios ni E2E en `web/`. La nueva web es una Next.js App Router SPA (todo `"use client"`) sin infraestructura de tests aún.
 
 ## ¿Qué verifica?
 
 - No hay errores de linting
 - TypeScript compila sin errores
-- El build de producción es exitoso
-- Tests unitarios pasan
-- Tests end-to-end en Chromium pasan
+- El build de producción (`next build`) es exitoso
 
 ## Funcionalidad final
 
-Asegurar que la web/documentación del proyecto es funcional, no tiene errores de tipo, y pasa todas las pruebas antes de integrarse a `main`.
+Asegurar que la web del proyecto compila y no tiene errores de tipo antes de integrarse a `main`.
 
 ## ¿Cuándo se ejecuta?
 

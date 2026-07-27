@@ -16,7 +16,7 @@
 | **Integration adapters** (`vantadb-{openai,langchain,…}/`) | `cargo test -p vantadb-<name>` | `pytest` if Python-side tests exist | ci-rust-10 (compilation) |
 | **WASM crate** (`vantadb-wasm/`) | `cargo check -p vantadb-wasm` | `wasm-pack test --chrome --headless` | ci-rust-10 (check + wasm job) |
 | **TS SDK** (`vantadb-ts/`) | `cd vantadb-ts && npx vitest run` | `cd vantadb-ts && npm run build` | — (no CI gate for TS SDK) |
-| **Web frontend** (`web/`) | `cd web && npx vitest run` | `cd web && npx playwright test` | ci-web-11 |
+| **Web frontend** (`web/`) | `cd web && npx tsc --noEmit && npm run lint` | `cd web && npm run build` | ci-web-11 |
 | **Server** (`vantadb-server/`) | `cargo nextest run -p vantadb-server` | `cargo test --release -p vantadb-server --test e2e` | heavy-certification-50 (other-heavy) |
 | **MCP** (`vantadb-mcp/`) | `cargo nextest run -p vantadb-mcp` | `cargo test --release -p vantadb-mcp --test mcp_tests` | heavy-certification-50 (other-heavy) |
 | **Documentation** (`docs/`) | — | `npx markdownlint-cli2 "docs/**/*.md"` | gate-docs-21 |
@@ -52,7 +52,7 @@
 | Gate workflow | What it covers | Frequency | Required for merge |
 |---|---|---|---|
 | **ci-rust-10** | Build, clippy, nextest audit (Linux/Win/macOS), coverage ≥59%, cargo-deny, cargo-audit, miri (UB), MSRV, ASan/TSan | Every push/PR to main | **Yes** (fmt+clippy+test+deny+audit) |
-| **ci-web-11** | Web build, lint, tsc, vitest unit, playwright e2e | Every push/PR touching `web/` | **Yes** for web changes |
+| **ci-web-11** | Web build, lint, tsc | Every push/PR touching `web/` | **Yes** for web changes |
 | **heavy-certification-50** | Full test suite: stress, HNSW validation, storage persistence, failpoints, text index, memory concurrency, benchmarks | Weekly (Sun) + manual trigger | No (weekly quality signal) |
 | **heavy-bench-nightly-51** | Performance benchmarks | Nightly | No (regression signal) |
 | **gate-docs-21** | Markdown lint + frontmatter validation | Every push/PR touching `docs/` | **Yes** for doc changes |
@@ -111,7 +111,7 @@ Tests are organized in `tests/` (core crate) by category:
 | Project | Test runner | Config | Run command |
 |---|---|---|---|
 | **TypeScript SDK** (`vantadb-ts/`) | vitest | `vantadb-ts/vitest.config.ts` | `cd vantadb-ts && npx vitest run` |
-| **Web** (`web/`) | vitest + Playwright | `web/vitest.config.*` (local), `web/playwright.config.*` (e2e) | `cd web && npx vitest run && npx playwright test` |
+| **Web** (`web/`) | — (solo build) | `web/next.config.ts`, `web/tsconfig.json` | `cd web && npx tsc --noEmit && npm run build` |
 
 ## Nextest Profiles (`.config/nextest.toml`)
 

@@ -63,7 +63,7 @@ Infrastructure that is not an adapter per se but part of the product surface.
 
 | Component | Type | CI gate |
 |---|---|---|
-| `web/` | Frontend | ci-web-11 (vitest + Playwright) |
+| `web/` | Frontend | ci-web-11 (Next.js — build + lint + typecheck) |
 
 ### Surface-Area Governance Rules
 
