@@ -533,7 +533,11 @@ mod tests {
         })
         .unwrap();
 
-        assert_eq!(recovered.len(), 3, "checkpoint_seq=5 skips first 5 of 8 round-robin records, 3 remain");
+        assert_eq!(
+            recovered.len(),
+            3,
+            "checkpoint_seq=5 skips first 5 of 8 round-robin records, 3 remain"
+        );
         clean_shards(&path, 4);
     }
 
