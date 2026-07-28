@@ -350,7 +350,7 @@ impl StorageEngine {
     fn apply_insert_with_txn(&self, node: &UnifiedNode, txn_id: u64) -> Result<()> {
         let storage_offset = {
             let mut vstore = self.vector_store[0].write();
-            let local_off = crate::storage::ops::write_node_to_vstore(&mut *vstore, node)?;
+            let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, node)?;
             let offset = crate::lsm::pack_offset(0, local_off);
 
             let key = node.id.to_le_bytes();
@@ -632,7 +632,7 @@ impl StorageEngine {
     pub(crate) fn apply_insert(&self, node: &UnifiedNode) -> Result<()> {
         let storage_offset = {
             let mut vstore = self.vector_store[0].write();
-            let local_off = crate::storage::ops::write_node_to_vstore(&mut *vstore, node)?;
+            let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, node)?;
             let offset = crate::lsm::pack_offset(0, local_off);
 
             let key = node.id.to_le_bytes();
@@ -807,7 +807,7 @@ impl StorageEngine {
         for node in nodes {
             let mut active_node = node.clone();
             active_node.last_accessed = now_ms;
-            let local_off = crate::storage::ops::write_node_to_vstore(&mut *vstore, &active_node)?;
+            let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, &active_node)?;
             let storage_offset = crate::lsm::pack_offset(0, local_off);
             vstore_offsets.push(storage_offset);
             hnsw_entries.push((
@@ -1530,7 +1530,7 @@ impl StorageEngine {
         self.backend.put(partition, &key, &val)?;
 
         let mut vstore = self.vector_store[0].write();
-        let local_off = crate::storage::ops::write_node_to_vstore(&mut *vstore, node)?;
+        let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, node)?;
         let storage_offset = crate::lsm::pack_offset(0, local_off);
         self.refresh_index(node, storage_offset)?;
         Ok(())

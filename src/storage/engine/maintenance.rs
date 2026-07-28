@@ -14,7 +14,7 @@ use crate::storage::engine::{
     FLAG_TOMBSTONE, STORAGE_ALIGNMENT,
 };
 use crate::storage::ops::NodeMetadata;
-use crate::storage::vfile::{MmapMut, VantaFile};
+use crate::storage::vfile::MmapMut;
 use crate::vector::governor::QuantizationAction;
 
 impl StorageEngine {
@@ -886,26 +886,8 @@ impl StorageEngine {
         let started = Instant::now();
         let target_level = level + 1;
 
-        // Ensure target segment exists (register if first access)
-        if target_level as usize >= self.vector_store.len() {
-            let path = self
-                .data_dir
-                .join(format!("vstore_L{}.vanta", target_level));
-            let vf = VantaFile::open(path.clone(), 64 * 1024)?;
-            // SAFETY: only accessed from this compaction code path
-            unsafe {
-                let ptr = &self.vector_store as *const Vec<parking_lot::RwLock<VantaFile>>
-                    as *mut Vec<parking_lot::RwLock<VantaFile>>;
-                (*ptr).push(parking_lot::RwLock::new(vf));
-            }
-            // SAFETY: compact_level is called from the single-threaded pipeline
-            // so there's no concurrent access to segment_registry.
-            let seg_reg = &self.segment_registry as *const crate::lsm::SegmentRegistry
-                as *mut crate::lsm::SegmentRegistry;
-            unsafe {
-                (*seg_reg).register(target_level, target_level, path);
-            }
-        }
+        // All 4 LSM levels are pre-allocated at init (SegmentRegistry::open_or_create),
+        // so vector_store has entries for L0..L3 — no unsafe growth needed.
 
         let hnsw = self.hnsw.load();
 

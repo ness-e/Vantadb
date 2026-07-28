@@ -27,8 +27,8 @@ use crate::config::VantaConfig;
 use crate::error::Result;
 use crate::index::CPIndex;
 pub use crate::index::FreshHnswReport;
+use crate::lsm::pack_offset;
 pub(crate) use crate::lsm::SegmentRegistry;
-use crate::lsm::{pack_offset, unpack_offset};
 use crate::node::{FilterBitset, LabelIntern, UnifiedNode, VectorRepresentations};
 use crate::storage::vfile::VantaFile;
 
@@ -333,6 +333,7 @@ pub struct StorageEngine {
     /// All new writes go to index 0. Reads use unpack_offset() to select the correct file.
     pub vector_store: Vec<RwLock<VantaFile>>,
     /// Multi-level LSM segment registry tracking level metadata.
+    #[allow(dead_code)]
     pub(crate) segment_registry: SegmentRegistry,
     /// Sharded write-ahead log for crash durability with reduced mutex contention.
     pub(crate) wal: Option<std::sync::Arc<crate::wal_sharded::ShardedWal>>,
@@ -372,11 +373,6 @@ pub struct StorageEngine {
 // ─── Internal helpers used across sub-modules ──────────────────
 
 impl StorageEngine {
-    /// Write a node to the vector store and return its storage offset.
-    fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -> Result<u64> {
-        crate::storage::ops::write_node_to_vstore(vstore, node)
-    }
-
     /// Replay a single write operation during WAL recovery.
     /// Writes to L0 (always) and packs the segment_id into the offset.
     fn replay_write_node(
@@ -387,10 +383,10 @@ impl StorageEngine {
         node: &UnifiedNode,
     ) -> Result<()> {
         use crate::backend::BackendPartition;
-        use crate::lsm::pack_offset;
+
         use crate::storage::ops::NodeMetadata;
         let mut l0 = vector_store[0].write();
-        let local_off = crate::storage::ops::write_node_to_vstore(&mut *l0, node)?;
+        let local_off = crate::storage::ops::write_node_to_vstore(&mut l0, node)?;
         let packed = pack_offset(0, local_off);
         hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), packed);
         let key = node.id.to_le_bytes();
@@ -404,51 +400,6 @@ impl StorageEngine {
             postcard::to_allocvec(&metadata).map_err(crate::error::VantaError::serialization)?;
         backend.put(BackendPartition::Default, &key, &metadata_val)?;
         Ok(())
-    }
-}
-
-// ─── Multi-level segment helpers ──────────────────────────
-
-impl StorageEngine {
-    /// Read a header from the correct VantaFile level determined by unpacking the offset.
-    pub(crate) fn read_header_from_segment(
-        &self,
-        packed_offset: u64,
-    ) -> Option<crate::node::DiskNodeHeader> {
-        let (seg_id, local_off) = unpack_offset(packed_offset);
-        self.vector_store
-            .get(seg_id as usize)?
-            .read()
-            .read_header(local_off)
-    }
-
-    /// Read vector bytes from the correct VantaFile level.
-    pub(crate) fn read_vec_bytes_from_segment(
-        &self,
-        packed_offset: u64,
-        vec_offset: u64,
-        vec_len: u32,
-    ) -> Option<Vec<u8>> {
-        let (seg_id, local_off) = unpack_offset(packed_offset);
-        let vstore = self.vector_store.get(seg_id as usize)?.read();
-        let start = (local_off + vec_offset) as usize;
-        let end = start + (vec_len as usize * 4);
-        if end > vstore.size as usize {
-            return None;
-        }
-        Some(vstore.mmap_bytes()[start..end].to_vec())
-    }
-
-    /// Acquire a write lock on the L0 VantaFile for new node writes.
-    pub(crate) fn l0_write(&self) -> parking_lot::RwLockWriteGuard<'_, VantaFile> {
-        self.vector_store[0].write()
-    }
-
-    /// Write a node to L0 and return a packed storage offset (segment_id=0).
-    pub(crate) fn write_node_to_l0(&self, node: &UnifiedNode) -> Result<u64> {
-        let mut vstore = self.vector_store[0].write();
-        let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, node)?;
-        Ok(pack_offset(0, local_off))
     }
 }
 

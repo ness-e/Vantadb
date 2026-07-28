@@ -48,14 +48,14 @@ impl StorageEngine {
                 let wal_writer = None;
                 (hnsw, vstore, reg, wal_writer, 0u64, 0u64)
             } else {
-                let (mut hnsw, mut vector_store, segment_registry) =
+                let (mut hnsw, vector_store, segment_registry) =
                     Self::init_indexes(&data_dir, &config, caps, effective_memory)?;
                 let (wal_replay_ms, wal_records_replayed) = Self::recover_state(
                     &data_dir,
                     &config,
                     backend.as_ref(),
                     &mut hnsw,
-                    &mut vector_store,
+                    &vector_store,
                 )?;
                 let wal_writer = crate::storage::wal::init_wal(&data_dir, &config)?;
                 (
@@ -347,12 +347,17 @@ impl StorageEngine {
             hnsw.config.flat_threshold = Some(threshold);
         }
 
-        // Multi-level: open or create L0..L2 VantaFiles via SegmentRegistry
+        // Multi-level: open or create L0..L3 VantaFiles via SegmentRegistry
         let (segment_registry, vfiles) = if config.read_only {
             // Read-only: open each level if it exists
             let mut reg = crate::lsm::SegmentRegistry::new();
             let mut vfs = Vec::new();
-            for level in &[SegmentLevel::L0, SegmentLevel::L1, SegmentLevel::L2] {
+            for level in &[
+                SegmentLevel::L0,
+                SegmentLevel::L1,
+                SegmentLevel::L2,
+                SegmentLevel::L3,
+            ] {
                 let path = data_dir.join(level.file_name());
                 if path.exists() {
                     let vf = VantaFile::open_read_only(path.clone())?;
@@ -388,8 +393,8 @@ impl StorageEngine {
         if hnsw.nodes.is_empty() {
             // Rebuild from L0 (and eventually all levels) — for now L0 is primary
             let report = {
-                let mut l0_vf = vector_store[0].write();
-                crate::storage::archive::rebuild_hnsw_from_vstore(hnsw, &mut *l0_vf, index_path)?
+                let l0_vf = vector_store[0].write();
+                crate::storage::archive::rebuild_hnsw_from_vstore(hnsw, &l0_vf, index_path)?
             };
             crate::metrics::record_ann_rebuild(report.duration_ms, report.scanned_nodes);
             if report.scanned_nodes > 0 {

@@ -44,6 +44,7 @@ impl SegmentLevel {
         self as u8
     }
 
+    #[allow(dead_code)]
     pub fn from_u8(v: u8) -> Option<Self> {
         match v {
             0 => Some(Self::L0),
@@ -67,6 +68,7 @@ impl SegmentLevel {
 
 /// Info about one segment for SegmentRegistry.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub(crate) struct SegmentInfo {
     pub segment_id: u8,
     pub level: u8,
@@ -117,13 +119,15 @@ impl SegmentRegistry {
         Some(idx)
     }
 
-    /// Open or create multi-level VantaFiles for levels L0..=L2.
+    /// Open or create multi-level VantaFiles for levels L0..=L3.
     ///
     /// Detects legacy `vector_store.vanta` and renames to `vstore_L0.vanta`.
-    /// Returns `(Self, Vec<RwLock<VantaFile>>)` with a VantaFile per open/create level.
+    /// Pre-allocates all 4 LSM levels so `compact_level()` never needs to
+    /// grow `vector_store` dynamically (no `unsafe` needed).
+    /// Returns `(Self, Vec<RwLock<VantaFile>>)` with a VantaFile per level.
     pub fn open_or_create(
         data_dir: &std::path::Path,
-        config: &crate::storage::engine::SegmentOptimizerConfig,
+        _config: &crate::storage::engine::SegmentOptimizerConfig,
     ) -> crate::error::Result<(
         Self,
         Vec<parking_lot::RwLock<crate::storage::vfile::VantaFile>>,
@@ -142,8 +146,14 @@ impl SegmentRegistry {
             );
         }
 
-        // Open/create L0, L1, L2 — ponytail: L3 archive tier skipped
-        for level in &[SegmentLevel::L0, SegmentLevel::L1, SegmentLevel::L2] {
+        // Pre-allocate all 4 levels: L0 (hot), L1 (warm), L2 (cold), L3 (archive).
+        // Each VantaFile starts empty; unused levels cost only a file handle + mmap header.
+        for level in &[
+            SegmentLevel::L0,
+            SegmentLevel::L1,
+            SegmentLevel::L2,
+            SegmentLevel::L3,
+        ] {
             let path = data_dir.join(level.file_name());
             let vf = crate::storage::vfile::VantaFile::open(path.clone(), 64 * 1024 * 1024)?;
             registry.register(level.as_u8(), level.as_u8(), path);
@@ -154,15 +164,18 @@ impl SegmentRegistry {
     }
 
     /// How many levels are currently tracked (0-4).
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.segments.len()
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.segments.is_empty()
     }
 
     /// Get the segment_id for the given level.
+    #[allow(dead_code)]
     pub fn segment_id_for_level(&self, level: SegmentLevel) -> Option<u8> {
         self.segments
             .iter()
@@ -171,6 +184,7 @@ impl SegmentRegistry {
     }
 
     /// Get the level for the given segment_id.
+    #[allow(dead_code)]
     pub fn level_for_segment(&self, segment_id: u8) -> Option<u8> {
         self.by_id
             .get(segment_id as usize)
