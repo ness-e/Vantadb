@@ -42,7 +42,7 @@
 - **Estado: completed
 - **Backlog:** Line 128 — `src/migration.rs` MigrationEngine con plan_all, migrate_format (VantaFile, VectorIndex, WAL, Schema), check_integrity. CLI handler en `src/cli_handlers/migrate.rs`
 - **Archivos clave:** `src/migration.rs`, `src/cli_handlers/migrate.rs`
-- **Contrato: GraphDataScience with page_rank() (iterative power method, damping, dangling nodes) + degree_centrality(), SDK API, Python bindings, 7 lib tests, all passing
+- **Contrato: cargo test -p vantadb --lib -- shred::tests — 13/13 pass ✅
 - **Routing:** vanta-arch (arquitectura de almacenamiento, formatos)
 
 ### DRV-121: Planner CBO optimization ✅
@@ -68,7 +68,7 @@
 - **Archivos clave:** `src/index/ivf.rs` (NEW, 836L), `src/index/mod.rs`, `src/index/graph.rs`, `src/index/search.rs`, `src/index/serialize.rs`
 - **Contrato:** IVF implementado con k-means manual (Forgy + Lloyd, max 20 iter), búsqueda con nprobe, serialización v8 backwards compat v7. 16 tests IVF. 1547 tests lib pass. ✅
 - **Routing:** vanta-engine (sub-agente delegado y completó)
-- **Resultado: ✅ 7/7 GDS tests pass, cargo check ok, graph integration tests not broken
+- **Resultado: ✅ Phase 2 ya estaba implementada — 6 operadores, 5 tests de comparación, test de integración. 13/13 tests pasan.
 
 ### DOC-20: mdBook docs site ✅
 
@@ -80,14 +80,14 @@
 - **Resultado:** `docs/book/book.toml`, `docs/book/src/SUMMARY.md` (9 secciones), 73 `{{#include}}` stubs. Cero duplicación.
 
 === RECITATION ===
-Campaign ID: 8c782297-14ac-493b-afb7-53b3f61c1dce
-Objetivo activo: COMP-022 — Graph Data Science (PageRank, centrality)
+Campaign ID: 3f6adeeb-3b49-4092-b120-9d9f7c882c55
+Objetivo activo: Completar COMP-025 JSON Shredding Phase 2
 Estado: completed
-Última acción: Task file created, delegated to vanta-worker, verified implementation, fixed SDK lifetime issue
+Última acción: Verificar implementación existente de operadores de comparación en matches_shredded
 Resultado: ✅
-Próxima acción: Update Backlog.md to mark COMP-022 completed
+Próxima acción: Auto-commit con conventional commit
 Contrato: 1547 tests pass, clippy limpio, commit 9aaf9b7f
-Próxima tarea si completa: COMP-018 (double-linked relationship chains) or COMP-024 (ACORN — already partially done)
+Próxima tarea si completa: Ninguna — COMP-025 completada
 === RECITATION ===
 Campaign ID: 077f80e9-f682-4ef3-b463-bb6afb484951
 Objetivo activo: P4 Engineering Health — Wave 0 completada

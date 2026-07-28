@@ -24,7 +24,7 @@
         "pwsh",
         "-NoProfile",
         "-Command",
-        "$t = (Get-Content '.env.tokens' | Where-Object {$_ -match '^DISCORD_BOT_TOKEN=\"(.+)\"$'} | ForEach-Object {$Matches[1]}); $env:DISCORD_TOKEN = $t; npx --yes @rayenking/discord-mcp"
+        "$t = (Get-Content '.env.tokens' | Where-Object {$_ -match '^DISCORD_BOT_TOKEN=\"(.+)\"$'} | ForEach-Object {$Matches[1]}); $env:DISCORD_TOKEN = $t; bunx @rayenking/discord-mcp"
       ],
       "enabled": true
     },
@@ -48,7 +48,7 @@
     },
     "campaign": {
       "command": [
-        "node",
+        "bun",
         ".opencode/task-system/mcp/campaign-server.mjs"
       ],
       "enabled": true,
@@ -57,8 +57,7 @@
     },
     "lottiefiles-creator": {
       "command": [
-        "npx",
-        "-y",
+        "bunx",
         "@lottiefiles/creator-mcp@latest"
       ],
       "enabled": true,
