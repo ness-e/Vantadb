@@ -611,6 +611,7 @@ fn test_recover_archived_nodes_with_data() {
         target: 1,
         label_id: belonged_to_id,
         weight: 1.0,
+        reverse: false,
     });
     let data = postcard::to_allocvec(&archived)
         .map_err(|e| format!("serialization: {e}"))
@@ -642,6 +643,7 @@ fn test_recover_archived_nodes_wrong_summary() {
         target: 1,
         label_id: belonged_to_id,
         weight: 1.0,
+        reverse: false,
     });
     let data = postcard::to_allocvec(&archived)
         .map_err(|e| format!("serialization: {e}"))
@@ -668,6 +670,7 @@ fn test_recover_archived_nodes_filter_by_label() {
         target: 1,
         label_id: belonged_to_id,
         weight: 1.0,
+        reverse: false,
     });
     let data = postcard::to_allocvec(&matching)
         .map_err(|e| format!("serialization: {e}"))
@@ -684,6 +687,7 @@ fn test_recover_archived_nodes_filter_by_label() {
         target: 1,
         label_id: referenced_by_id,
         weight: 1.0,
+        reverse: false,
     });
     let data2 = postcard::to_allocvec(&other)
         .map_err(|e| format!("serialization: {e}"))

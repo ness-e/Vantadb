@@ -759,6 +759,9 @@ impl VantaEmbedded {
     }
 
     /// Add a directed edge between two nodes.
+    ///
+    /// Automatically creates a reverse edge on the target node, enabling
+    /// bidirectional traversal queries.
     #[tracing::instrument(skip(self), err)]
     pub fn add_edge(
         &self,
@@ -768,16 +771,53 @@ impl VantaEmbedded {
         weight: Option<f32>,
     ) -> Result<()> {
         let engine = self.engine_handle()?;
-        let mut node = engine
+        let label_id = engine.intern_label(label);
+        let w = weight.unwrap_or(1.0);
+
+        let mut source = engine
             .get(source_id)?
             .ok_or(VantaError::NodeNotFound(source_id))?;
-        let label_id = engine.intern_label(label);
-        node.edges.push(crate::node::Edge {
+        source.edges.push(crate::node::Edge {
             target: target_id,
             label_id,
-            weight: weight.unwrap_or(1.0),
+            weight: w,
+            reverse: false,
         });
-        engine.insert(&node)
+        engine.insert(&source)?;
+
+        let mut target = engine
+            .get(target_id)?
+            .ok_or(VantaError::NodeNotFound(target_id))?;
+        target.edges.push(crate::node::Edge {
+            target: source_id,
+            label_id,
+            weight: w,
+            reverse: true,
+        });
+        engine.insert(&target)
+    }
+
+    /// Remove all edges between two nodes with the given label (both directions).
+    #[tracing::instrument(skip(self), err)]
+    pub fn remove_edge(&self, source_id: u128, target_id: u128, label: &str) -> Result<()> {
+        let engine = self.engine_handle()?;
+        let label_id = engine.intern_label(label);
+
+        let mut source = engine
+            .get(source_id)?
+            .ok_or(VantaError::NodeNotFound(source_id))?;
+        source
+            .edges
+            .retain(|e| !(e.target == target_id && e.label_id == label_id));
+        engine.insert(&source)?;
+
+        let mut target = engine
+            .get(target_id)?
+            .ok_or(VantaError::NodeNotFound(target_id))?;
+        target
+            .edges
+            .retain(|e| !(e.target == source_id && e.label_id == label_id));
+        engine.insert(&target)
     }
 
     /// Execute an IQL query.

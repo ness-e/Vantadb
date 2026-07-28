@@ -239,6 +239,8 @@ pub struct SegmentOptimizerConfig {
     pub auto_run_interval_secs: u64,
     /// Maximum wall-clock duration for one pipeline run (default: 300).
     pub max_pipeline_duration_secs: u64,
+    /// Per-level LSM tree compaction and sizing configuration.
+    pub lsm: crate::lsm::LsmConfig,
 }
 
 impl Default for SegmentOptimizerConfig {
@@ -248,6 +250,7 @@ impl Default for SegmentOptimizerConfig {
             vacuum_threshold_pct: 15.0,
             auto_run_interval_secs: 3600,
             max_pipeline_duration_secs: 300,
+            lsm: crate::lsm::LsmConfig::default(),
         }
     }
 }

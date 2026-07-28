@@ -37,14 +37,18 @@ fn graph_traversal_certification() {
         let traverser = GraphTraverser::new(&storage);
 
         TerminalReporter::sub_step("Verifying Depth-1 coverage...");
-        let res_d1 = traverser.bfs_traverse(&[1], 1).unwrap();
+        let res_d1 = traverser
+            .bfs_traverse(&[1], 1, vantadb::graph::TraversalDirection::Forward)
+            .unwrap();
         assert!(res_d1.contains(&1));
         assert!(res_d1.contains(&2));
         assert!(res_d1.contains(&4));
         assert!(!res_d1.contains(&3));
 
         TerminalReporter::sub_step("Verifying Depth-2 coverage (reaching terminal nodes)...");
-        let res_d2 = traverser.bfs_traverse(&[1], 2).unwrap();
+        let res_d2 = traverser
+            .bfs_traverse(&[1], 2, vantadb::graph::TraversalDirection::Forward)
+            .unwrap();
         assert_eq!(res_d2.len(), 4);
         assert!(res_d2.contains(&3));
 
@@ -73,10 +77,16 @@ fn graph_traversal_certification() {
 
         TerminalReporter::sub_step("Traversing 3-node chain with accumulator...");
         let visited = traverser
-            .traverse_with_accumulator(&[1], 10, &acc, |_id, _edges, _acc| {
-                // Each discovered node contributes 1.0 per outgoing edge
-                _edges.len() as f64
-            })
+            .traverse_with_accumulator(
+                &[1],
+                10,
+                &acc,
+                |_id, _edges, _acc| {
+                    // Each discovered node contributes 1.0 per outgoing edge
+                    _edges.len() as f64
+                },
+                vantadb::graph::TraversalDirection::Forward,
+            )
             .unwrap();
 
         assert_eq!(visited.len(), 3, "should discover all 3 nodes");

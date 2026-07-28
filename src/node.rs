@@ -470,7 +470,7 @@ impl Default for LabelIntern {
 
 // ─── Edge ──────────────────────────────────────────────────
 
-/// Labeled directed edge with optional weight.
+/// Labeled directed edge with optional weight and reverse flag.
 ///
 /// Label stored as `label_id: u32` referencing a `LabelIntern` map.
 /// Saves ~20-28 bytes per edge vs storing a `String` inline.
@@ -482,6 +482,9 @@ pub struct Edge {
     pub label_id: u32,
     /// Edge weight (defaults to 1.0).
     pub weight: f32,
+    /// Whether this is a reverse edge.
+    #[serde(default)]
+    pub reverse: bool,
 }
 
 /// Weights for computing per-node eviction scores.
@@ -500,12 +503,13 @@ pub struct EvictionWeights {
 }
 
 impl Edge {
-    /// Create an edge with default weight (1.0).
+    /// Create an edge with default weight (1.0) and `reverse: false`.
     pub fn new(target: u128, label_id: u32) -> Self {
         Self {
             target,
             label_id,
             weight: 1.0,
+            reverse: false,
         }
     }
 
@@ -515,6 +519,17 @@ impl Edge {
             target,
             label_id,
             weight,
+            reverse: false,
+        }
+    }
+
+    /// Create a reverse edge (used for bidirectional traversal).
+    pub fn reverse(target: u128, label_id: u32) -> Self {
+        Self {
+            target,
+            label_id,
+            weight: 1.0,
+            reverse: true,
         }
     }
 }

@@ -48,7 +48,7 @@ impl VantaEmbedded {
     pub fn graph_bfs(&self, roots: &[u128], max_depth: usize) -> Result<Vec<u128>> {
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
-        traverser.bfs_traverse(roots, max_depth)
+        traverser.bfs_traverse(roots, max_depth, crate::graph::TraversalDirection::Forward)
     }
 
     /// Depth-first traversal from one or more root nodes up to `max_depth`.
@@ -57,7 +57,7 @@ impl VantaEmbedded {
     pub fn graph_dfs(&self, roots: &[u128], max_depth: usize) -> Result<Vec<u128>> {
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
-        traverser.dfs_traverse(roots, max_depth)
+        traverser.dfs_traverse(roots, max_depth, crate::graph::TraversalDirection::Forward)
     }
 
     /// Breadth-first traversal with label filtering.
@@ -72,7 +72,12 @@ impl VantaEmbedded {
     ) -> Result<Vec<u128>> {
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
-        traverser.bfs_traverse_filtered(roots, max_depth, labels)
+        traverser.bfs_traverse_filtered(
+            roots,
+            max_depth,
+            crate::graph::TraversalDirection::Forward,
+            labels,
+        )
     }
 
     /// Depth-first traversal with label filtering.
@@ -87,7 +92,12 @@ impl VantaEmbedded {
     ) -> Result<Vec<u128>> {
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
-        traverser.dfs_traverse_filtered(roots, max_depth, labels)
+        traverser.dfs_traverse_filtered(
+            roots,
+            max_depth,
+            labels,
+            crate::graph::TraversalDirection::Forward,
+        )
     }
 
     /// Topological sort starting from the given root nodes.

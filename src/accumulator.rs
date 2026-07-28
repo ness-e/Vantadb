@@ -254,9 +254,10 @@ mod tests {
             let mut node = UnifiedNode::new(i);
             if i < 3 {
                 node.edges = vec![Edge {
-                    target: i + 1,
+                    target: 1,
                     weight: 1.0,
                     label_id: 0,
+                    reverse: false,
                 }];
             }
             storage.insert(&node).unwrap();

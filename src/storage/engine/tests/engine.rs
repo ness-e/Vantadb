@@ -581,6 +581,7 @@ fn test_insert_overwrite_removes_old_edges() {
         target: 1,
         label_id: friend_id,
         weight: 1.0,
+        reverse: false,
     });
     engine.insert(&node1).expect("first insert");
 
@@ -590,6 +591,7 @@ fn test_insert_overwrite_removes_old_edges() {
         target: 2,
         label_id: colleague_id,
         weight: 1.0,
+        reverse: false,
     });
     engine.insert(&node2).expect("overwrite");
 

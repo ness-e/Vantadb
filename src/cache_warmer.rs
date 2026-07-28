@@ -69,11 +69,16 @@ impl CacheWarmer {
     ///
     /// Typically called after `get_many()` or when search results are returned.
     /// For each pair (A, B) in the slice, increments the co-access count.
+    /// Auto-decays old patterns every 1000 events to prevent stale data buildup.
     pub fn record_co_access(&self, ids: &[u128]) {
         if ids.len() < 2 {
             return;
         }
-        self.total_events.fetch_add(1, Ordering::Relaxed);
+        let prev = self.total_events.fetch_add(1, Ordering::Relaxed);
+        // Auto-decay every 1000 events — halves all counts to age out stale patterns
+        if prev > 0 && prev % 1000 == 0 {
+            self.decay();
+        }
         let mut table = self.co_access.write();
         for (i, &a) in ids.iter().enumerate() {
             let entry = table.entry(a).or_default();
@@ -163,7 +168,6 @@ impl CacheWarmer {
     }
 
     /// Read current metrics.
-    #[allow(dead_code)]
     pub fn metrics(&self) -> CacheWarmerMetrics {
         let table = self.co_access.read();
         let total_pairs: usize = table.values().map(|m| m.len()).sum();

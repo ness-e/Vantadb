@@ -743,6 +743,7 @@ fn test_insert_to_cf_with_scalar_and_edge_indexes() {
         target: 1,
         label_id: related_id,
         weight: 1.0,
+        reverse: false,
     });
     engine
         .insert_to_cf(&node, "default")
@@ -786,6 +787,7 @@ fn test_delete_with_edge_index_removes_references() {
         target: 2,
         label_id: refers_to_id,
         weight: 1.0,
+        reverse: false,
     });
     engine.insert(&source).expect("insert source");
     let target = sample_node(2);

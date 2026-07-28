@@ -92,6 +92,8 @@ pub mod index;
 pub mod integrations;
 #[cfg(feature = "remote-inference")]
 pub mod llm;
+/// LSM-tree segment types and offset packing.
+pub(crate) mod lsm;
 pub(crate) mod memory_governor;
 pub mod metadata;
 pub mod metrics;

@@ -43,7 +43,11 @@ impl<'a> GraphDataScience<'a> {
         tolerance: f64,
     ) -> Result<HashMap<u128, f64>> {
         let traverser = GraphTraverser::new(self.storage);
-        let edges = traverser.discover_edges(roots, usize::MAX)?;
+        let edges = traverser.discover_edges(
+            roots,
+            usize::MAX,
+            crate::graph::TraversalDirection::Forward,
+        )?;
 
         // Collect all unique nodes from edge keys + targets
         let mut all_nodes: Vec<u128> = edges.keys().copied().collect();
@@ -140,7 +144,11 @@ impl<'a> GraphDataScience<'a> {
     /// In-degree is the number of edges pointing to the node.
     pub fn degree_centrality(&self, roots: &[u128]) -> Result<HashMap<u128, (usize, usize)>> {
         let traverser = GraphTraverser::new(self.storage);
-        let edges = traverser.discover_edges(roots, usize::MAX)?;
+        let edges = traverser.discover_edges(
+            roots,
+            usize::MAX,
+            crate::graph::TraversalDirection::Forward,
+        )?;
 
         // Collect all unique nodes
         let mut all_nodes: Vec<u128> = edges.keys().copied().collect();
@@ -201,6 +209,7 @@ mod tests {
                 target,
                 weight,
                 label_id: 0,
+                reverse: false,
             })
             .collect();
         storage.insert(&node).unwrap();
