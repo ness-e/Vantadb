@@ -95,6 +95,7 @@ impl CPIndex {
         ef: usize,
         layer: usize,
         query_mask: &FilterBitset,
+        acorn_expansion: bool,
         vector_store: Option<&crate::storage::vfile::VantaFile>,
         metric: DistanceMetric,
         visited: &mut std::collections::HashSet<u128, RandomState>,
@@ -326,6 +327,68 @@ impl CPIndex {
                                         results.pop();
                                     }
                                 }
+
+                                // ── ACORN-1: second-hop expansion ──
+                                // When a neighbor fails the filter, immediately expand to its
+                                // neighbors to maintain filtered subgraph connectivity through
+                                // sparse non-matching regions.
+                                if acorn_expansion && !query_mask.is_all_set() {
+                                    let passes_filter = query_mask.is_all_set()
+                                        || neighbor.bitset.matches_mask(query_mask);
+                                    if !passes_filter {
+                                        let second_hop =
+                                            self.nodes.get(&neighbor_id).and_then(|n| {
+                                                if layer < n.neighbors.len() {
+                                                    Some(n.neighbors[layer].clone())
+                                                } else {
+                                                    None
+                                                }
+                                            });
+                                        if let Some(second_list) = second_hop {
+                                            let budget = ef.saturating_sub(results.len()).max(16);
+                                            for &second_id in second_list.iter().take(budget) {
+                                                if !visited.contains(&second_id) {
+                                                    visited.insert(second_id);
+                                                    if let Some(second_node) =
+                                                        self.nodes.get(&second_id)
+                                                    {
+                                                        let d2 = self.fast_similarity(
+                                                            query_vec,
+                                                            query_norm,
+                                                            query_inv_norm,
+                                                            &second_node,
+                                                            metric,
+                                                        );
+                                                        let eligible2 = (second_node.flags
+                                                            & FLAG_TOMBSTONE)
+                                                            == 0;
+                                                        if !eligible2 {
+                                                            continue;
+                                                        }
+                                                        if results.len() < ef
+                                                            || results
+                                                                .peek()
+                                                                .is_some_and(|worst| d2 > worst.0)
+                                                        {
+                                                            candidates.push(NodeSim(d2, second_id));
+                                                            if second_node
+                                                                .bitset
+                                                                .matches_mask(query_mask)
+                                                            {
+                                                                results.push(NodeSimMin(
+                                                                    d2, second_id,
+                                                                ));
+                                                                if results.len() > ef {
+                                                                    results.pop();
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -526,6 +589,7 @@ impl CPIndex {
                 1,
                 layer,
                 &crate::node::ALL_BITSET,
+                false, // no ACORN on coarse layers
                 vector_store,
                 effective_metric,
                 &mut visited,
@@ -545,6 +609,7 @@ impl CPIndex {
             ef_search,
             0,
             query_mask,
+            !query_mask.is_all_set(), // ACORN enabled for non-trivial masks
             vector_store,
             effective_metric,
             &mut visited,
@@ -939,6 +1004,7 @@ mod tests {
             10,
             0,
             &ALL_BITSET,
+            false, // no ACORN in existing tests
             None,
             DistanceMetric::Cosine,
             &mut visited,
@@ -967,6 +1033,7 @@ mod tests {
             10,
             0,
             &ALL_BITSET,
+            false, // no ACORN in existing tests
             None,
             DistanceMetric::Cosine,
             &mut visited,
@@ -1000,6 +1067,7 @@ mod tests {
             10,
             0,
             &ALL_BITSET,
+            false, // no ACORN in existing tests
             None,
             DistanceMetric::Cosine,
             &mut visited,
@@ -1027,6 +1095,7 @@ mod tests {
             10,
             0,
             &ALL_BITSET,
+            false, // no ACORN in existing tests
             None,
             DistanceMetric::Euclidean,
             &mut visited,
@@ -1180,6 +1249,7 @@ mod tests {
             10,
             0,
             &ALL_BITSET,
+            false, // no ACORN in existing tests
             None,
             DistanceMetric::Cosine,
             &mut visited,
@@ -1204,6 +1274,7 @@ mod tests {
             10,
             0,
             &ALL_BITSET,
+            false, // no ACORN in existing tests
             None,
             DistanceMetric::Cosine,
             &mut visited,
@@ -1233,6 +1304,7 @@ mod tests {
             10,
             0,
             &ALL_BITSET,
+            false, // no ACORN in existing tests
             None,
             DistanceMetric::Euclidean,
             &mut visited,
@@ -1314,5 +1386,280 @@ mod tests {
         }
         let selected = index.select_neighbors(heap, 2);
         assert_eq!(selected.len(), 2);
+    }
+
+    // ── ACORN-1: second-hop filtered search expansion ──────────────────
+
+    /// Helper to add a node with a custom bitset.
+    fn add_node_with_bitset(index: &CPIndex, id: u128, vec: Vec<f32>, bits: &[u32]) {
+        let mut bs = FilterBitset::new();
+        for &b in bits {
+            bs.set_bit(b as usize);
+        }
+        index.add(id, bs, VectorRepresentations::Full(vec), 0);
+    }
+
+    #[test]
+    fn test_acorn_expands_through_non_matching() {
+        // ACORN-1 scenario: a non-matching node N (blocks filter) is a neighbor of
+        // entry A. Without ACORN, N is never popped from the candidates heap because
+        // a competing matching node X (also a neighbor of A) pops first, discovers
+        // a very close node R (raising the "worst" threshold), and N then fails the
+        // break check (d_N < worst). ACORN pre-expands N's neighbors when N is first
+        // discovered as A's neighbor, finding S before N reaches the top of the heap.
+        //
+        // Euclidean, ef=2, single entry A:
+        //   A=[1,0,0], d=-1.00, matches {0}
+        //   X=[0.8,0,0], d=-0.64, matches {0} (competes with N for heap slot)
+        //   N=[0.95,0,0], d=-0.9025, FAILS {0} (has {1})
+        //   R=[0.3,0,0], d=-0.09, matches {0} (neighbor of X, raises threshold)
+        //   S=[0.2,0,0], d=-0.04, matches {0} (neighbor of N, only reachable via ACORN)
+        //
+        // Topology: A→{X,N}, X→{A,R}, N→{A,S}
+        //
+        // Without ACORN: A→X→R (raises worst)→N(d=-0.9025 < worst=-0.09) → break!
+        //   S never discovered.
+        // With ACORN: A→N ACORN-expands to S immediately, S enters results.
+
+        let index = CPIndex::new_with_config(HnswConfig {
+            m: 2,
+            m_max0: 2,
+            ef_construction: 10,
+            ef_search: 50,
+            ml: 1.0,
+            distance_metric: DistanceMetric::Euclidean,
+            flat_threshold: None,
+            index_type: crate::index::IndexType::Hnsw,
+        });
+
+        // Insert 5 nodes
+        add_node_with_bitset(&index, 0, vec![1.0, 0.0, 0.0], &[0]); // A
+        add_node_with_bitset(&index, 1, vec![0.95, 0.0, 0.0], &[1]); // N (non-matching)
+        add_node_with_bitset(&index, 2, vec![0.8, 0.0, 0.0], &[0]); // X
+        add_node_with_bitset(&index, 3, vec![0.3, 0.0, 0.0], &[0]); // R
+        add_node_with_bitset(&index, 4, vec![0.2, 0.0, 0.0], &[0]); // S
+
+        // Verify layer-0 neighbors exist
+        for id in 0u128..5 {
+            assert!(
+                !index.nodes.get(&id).unwrap().neighbors[0].is_empty(),
+                "node {id} should have at least one neighbor after HNSW insert"
+            );
+        }
+
+        // Force topology
+        // A → X, N
+        index.nodes.get_mut(&0).unwrap().neighbors[0].clear();
+        index.nodes.get_mut(&0).unwrap().neighbors[0].push(2); // X
+        index.nodes.get_mut(&0).unwrap().neighbors[0].push(1); // N
+
+        // X → A, R
+        index.nodes.get_mut(&2).unwrap().neighbors[0].clear();
+        index.nodes.get_mut(&2).unwrap().neighbors[0].push(0); // A
+        index.nodes.get_mut(&2).unwrap().neighbors[0].push(3); // R
+
+        // N → A, S
+        index.nodes.get_mut(&1).unwrap().neighbors[0].clear();
+        index.nodes.get_mut(&1).unwrap().neighbors[0].push(0); // A
+        index.nodes.get_mut(&1).unwrap().neighbors[0].push(4); // S
+
+        // R → X (backlink)
+        index.nodes.get_mut(&3).unwrap().neighbors[0].clear();
+        index.nodes.get_mut(&3).unwrap().neighbors[0].push(2);
+
+        // S → N (backlink)
+        index.nodes.get_mut(&4).unwrap().neighbors[0].clear();
+        index.nodes.get_mut(&4).unwrap().neighbors[0].push(1);
+
+        let mut mask = FilterBitset::new();
+        mask.set_bit(0);
+
+        // ── WITHOUT ACORN ──
+        let mut visited: HashSet<u128, RandomState> =
+            HashSet::with_capacity_and_hasher(100, RandomState::new());
+        let no_acorn = index.search_layer(
+            &[0.0, 0.0, 0.0],
+            Some(0.0),
+            None,
+            &[0], // entry A only
+            2,    // ef=2
+            0,
+            &mask,
+            false,
+            None,
+            DistanceMetric::Euclidean,
+            &mut visited,
+            &mut SearchProfile::new(),
+        );
+        let no_acorn_ids: Vec<u128> = no_acorn
+            .into_sorted_vec()
+            .into_iter()
+            .map(|ns| ns.1)
+            .collect();
+        assert!(
+            !no_acorn_ids.contains(&4),
+            "without ACORN, node 4 (S) should NOT be found (N never popped), got {:?}",
+            no_acorn_ids
+        );
+
+        // ── WITH ACORN ──
+        let mut visited: HashSet<u128, RandomState> =
+            HashSet::with_capacity_and_hasher(100, RandomState::new());
+        let with_acorn = index.search_layer(
+            &[0.0, 0.0, 0.0],
+            Some(0.0),
+            None,
+            &[0],
+            2,
+            0,
+            &mask,
+            true,
+            None,
+            DistanceMetric::Euclidean,
+            &mut visited,
+            &mut SearchProfile::new(),
+        );
+        let with_acorn_ids: Vec<u128> = with_acorn
+            .into_sorted_vec()
+            .into_iter()
+            .map(|ns| ns.1)
+            .collect();
+        assert!(
+            with_acorn_ids.contains(&4),
+            "with ACORN, node 4 (S) should be found via ACORN expansion through N, got {:?}",
+            with_acorn_ids
+        );
+    }
+
+    #[test]
+    fn test_acorn_no_regression_all_set() {
+        // When query_mask.is_all_set(), acorn=true should behave identically
+        // to acorn=false because the expansion is never triggered.
+        let index = CPIndex::new_with_config(HnswConfig {
+            m: 1,
+            m_max0: 1,
+            ef_construction: 10,
+            ef_search: 50,
+            ml: 1.0,
+            distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None,
+            index_type: crate::index::IndexType::Hnsw,
+        });
+
+        add_node_with_bitset(&index, 0, vec![1.0, 0.0, 0.0], &[0]);
+        add_node_with_bitset(&index, 1, vec![0.99, 0.01, 0.0], &[1]);
+
+        // Node 0's neighbor is node 1 (force it)
+        index.nodes.get_mut(&0).unwrap().neighbors[0].clear();
+        index.nodes.get_mut(&0).unwrap().neighbors[0].push(1);
+        index.nodes.get_mut(&1).unwrap().neighbors[0].clear();
+        index.nodes.get_mut(&1).unwrap().neighbors[0].push(0);
+
+        // With ALL_BITSET, acorn should never trigger because
+        // !query_mask.is_all_set() is false
+        let mut visited1: HashSet<u128, RandomState> =
+            HashSet::with_capacity_and_hasher(100, RandomState::new());
+        let r1 = index.search_layer(
+            &[1.0, 0.0, 0.0],
+            Some(1.0),
+            Some(1.0),
+            &[0],
+            10,
+            0,
+            &ALL_BITSET,
+            false,
+            None,
+            DistanceMetric::Cosine,
+            &mut visited1,
+            &mut SearchProfile::new(),
+        );
+
+        let mut visited2: HashSet<u128, RandomState> =
+            HashSet::with_capacity_and_hasher(100, RandomState::new());
+        let r2 = index.search_layer(
+            &[1.0, 0.0, 0.0],
+            Some(1.0),
+            Some(1.0),
+            &[0],
+            10,
+            0,
+            &ALL_BITSET,
+            true,
+            None,
+            DistanceMetric::Cosine,
+            &mut visited2,
+            &mut SearchProfile::new(),
+        );
+
+        // Both should return the same results when mask is all_set
+        let ids1: Vec<u128> = r1.into_sorted_vec().into_iter().map(|ns| ns.1).collect();
+        let ids2: Vec<u128> = r2.into_sorted_vec().into_iter().map(|ns| ns.1).collect();
+        assert_eq!(
+            ids1, ids2,
+            "ACORN should not change results when mask is ALL_BITSET"
+        );
+    }
+
+    #[test]
+    fn test_acorn_budget_respected() {
+        // Verify the ACORN budget formula: ef.saturating_sub(results.len()).max(16).
+        // Uses the same topology as test_acorn_expands_through_non_matching but
+        // with ef=1 so budget = (1-0).max(16) = 16, enough to explore all second-hops.
+        let index = make_hnsw_index(DistanceMetric::Euclidean);
+
+        // Insert 5 nodes as before
+        add_node_with_bitset(&index, 0, vec![1.0, 0.0, 0.0], &[0]); // A
+        add_node_with_bitset(&index, 1, vec![0.95, 0.0, 0.0], &[1]); // N (non-matching)
+        add_node_with_bitset(&index, 2, vec![0.8, 0.0, 0.0], &[0]); // X
+        add_node_with_bitset(&index, 3, vec![0.3, 0.0, 0.0], &[0]); // R
+        add_node_with_bitset(&index, 4, vec![0.2, 0.0, 0.0], &[0]); // S
+
+        // Force same topology: A→{X,N}, X→{A,R}, N→{A,S}
+        index.nodes.get_mut(&0).unwrap().neighbors[0].clear();
+        index.nodes.get_mut(&0).unwrap().neighbors[0].push(2);
+        index.nodes.get_mut(&0).unwrap().neighbors[0].push(1);
+
+        index.nodes.get_mut(&1).unwrap().neighbors[0].clear();
+        index.nodes.get_mut(&1).unwrap().neighbors[0].push(0);
+        index.nodes.get_mut(&1).unwrap().neighbors[0].push(4);
+
+        index.nodes.get_mut(&2).unwrap().neighbors[0].clear();
+        index.nodes.get_mut(&2).unwrap().neighbors[0].push(0);
+        index.nodes.get_mut(&2).unwrap().neighbors[0].push(3);
+
+        index.nodes.get_mut(&3).unwrap().neighbors[0].clear();
+        index.nodes.get_mut(&3).unwrap().neighbors[0].push(2);
+        index.nodes.get_mut(&4).unwrap().neighbors[0].clear();
+        index.nodes.get_mut(&4).unwrap().neighbors[0].push(1);
+
+        let mut mask = FilterBitset::new();
+        mask.set_bit(0);
+
+        let results = index.search_layer(
+            &[0.0, 0.0, 0.0],
+            Some(0.0),
+            None,
+            &[0],
+            2, // ef=2 → budget=(2-0).max(16)=16
+            0,
+            &mask,
+            true, // acorn_expansion = true
+            None,
+            DistanceMetric::Euclidean,
+            &mut HashSet::with_capacity_and_hasher(100, RandomState::new()),
+            &mut SearchProfile::new(),
+        );
+
+        let ids: Vec<u128> = results
+            .into_sorted_vec()
+            .into_iter()
+            .map(|ns| ns.1)
+            .collect();
+        // ACORN should find at least one second-hop node (S=4) through N
+        assert!(
+            ids.contains(&4),
+            "ACORN-expanded node (id=4) should be found with ef=1, got {:?}",
+            ids
+        );
     }
 }

@@ -611,6 +611,7 @@ impl CPIndex {
                 1,
                 layer,
                 &crate::node::ALL_BITSET,
+                false, // no ACORN during construction
                 None,
                 self.config.distance_metric,
                 &mut visited,
@@ -632,6 +633,7 @@ impl CPIndex {
                 ef_cons,
                 layer,
                 &crate::node::ALL_BITSET,
+                false, // no ACORN during construction
                 None,
                 self.config.distance_metric,
                 &mut visited,

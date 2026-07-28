@@ -144,7 +144,20 @@ impl VantaEmbedded {
             expires_at_ms,
         };
         let (node, record) = memory_record_to_node_owned(record);
+
+        // Persist the node first (WAL + KV + HNSW)
         engine.insert(&node)?;
+
+        // Best-effort JSON shredding — if this fails the record still works
+        // via the existing derived-index / PostFilter paths.
+        if !record.metadata.is_empty() {
+            let _ = crate::shred::ShreddedRowStore::put(
+                record.node_id,
+                &record.metadata,
+                &*engine.backend,
+            );
+        }
+
         self.replace_derived_indexes(&engine, existing.as_ref(), Some(&record))?;
 
         Ok(record)

@@ -57,6 +57,7 @@
 #[cfg(feature = "encryption")]
 pub mod crypto;
 
+pub mod accumulator;
 pub mod agentic;
 pub(crate) mod backend;
 pub(crate) mod backends;
@@ -82,6 +83,7 @@ pub mod error;
 pub mod eviction;
 pub mod executor;
 pub mod gc;
+pub mod gds;
 pub mod governor;
 pub mod graph;
 pub mod graphrag;
@@ -106,6 +108,8 @@ pub mod query;
 pub(crate) mod rbac;
 pub mod sdk;
 pub mod serialization;
+/// Typed columnar storage for metadata fields (JSON Shredding).
+pub mod shred;
 pub mod sync_ext;
 
 pub(crate) mod scalar_index;

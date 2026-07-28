@@ -3,6 +3,7 @@
 
 pub(crate) mod auto_tune;
 pub(crate) mod core; // tests only
+pub(crate) mod diskann;
 pub(crate) mod distance;
 pub(crate) mod flat;
 pub(crate) mod graph;
@@ -10,6 +11,7 @@ pub(crate) mod graph;
 pub(crate) mod ivf;
 
 pub(crate) mod refresh;
+pub(crate) mod scann;
 pub(crate) mod search;
 pub(crate) mod serialize;
 pub(crate) mod stats;
@@ -27,6 +29,12 @@ pub enum IndexType {
     Hnsw,
     /// Inverted File index with flat (brute-force) encoding.
     Ivf,
+    /// Brute-force flat scan — O(n) on every search.
+    Flat,
+    /// DiskANN-style Vamana graph (in-memory, no disk I/O).
+    DiskAnn,
+    /// SCANN-style scalar quantization (SQ8) with re-ranking.
+    Scann,
 }
 
 /// Pluggable trait for vector index backends.
@@ -73,5 +81,91 @@ pub(crate) trait VecIndex: Send + Sync {
     #[allow(dead_code)]
     fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+/// Create a vector index of the specified type.
+///
+/// Returns an `Arc<dyn VecIndex>` wrapping the concrete implementation.
+///
+/// # ponytail
+/// Default configuration for each type. Use `new_with_config` on the
+/// concrete structs for custom parameters.
+#[allow(dead_code)]
+pub(crate) fn create_index(
+    index_type: IndexType,
+    distance_metric: crate::node::DistanceMetric,
+) -> std::sync::Arc<dyn VecIndex> {
+    match index_type {
+        IndexType::Hnsw => {
+            use crate::index::graph::{CPIndex, HnswConfig};
+            std::sync::Arc::new(CPIndex::new_with_config(HnswConfig {
+                distance_metric,
+                ..HnswConfig::default()
+            }))
+        }
+        IndexType::Ivf => {
+            use crate::index::ivf::{IvfConfig, IvfIndex};
+            std::sync::Arc::new(IvfIndex {
+                centroids: Vec::new(),
+                inverted_lists: Vec::new(),
+                config: IvfConfig {
+                    distance_metric,
+                    ..IvfConfig::default()
+                },
+            })
+        }
+        IndexType::Flat => {
+            use crate::index::flat::FlatIndex;
+            std::sync::Arc::new(FlatIndex::new(distance_metric))
+        }
+        IndexType::DiskAnn => {
+            use crate::index::diskann::{DiskAnnConfig, DiskAnnIndex};
+            std::sync::Arc::new(DiskAnnIndex::new(DiskAnnConfig {
+                distance_metric,
+                ..DiskAnnConfig::default()
+            }))
+        }
+        IndexType::Scann => {
+            use crate::index::scann::ScannIndex;
+            std::sync::Arc::new(ScannIndex::new(distance_metric))
+        }
+    }
+}
+
+#[cfg(test)]
+mod index_type_tests {
+    use super::create_index;
+    use crate::node::DistanceMetric;
+
+    #[test]
+    fn test_create_hnsw_index() {
+        let idx = create_index(super::IndexType::Hnsw, DistanceMetric::Cosine);
+        assert_eq!(idx.len(), 0);
+        assert!(idx.is_empty());
+    }
+
+    #[test]
+    fn test_create_flat_index() {
+        let idx = create_index(super::IndexType::Flat, DistanceMetric::Cosine);
+        assert_eq!(idx.len(), 0);
+    }
+
+    #[test]
+    fn test_create_ivf_index() {
+        let idx = create_index(super::IndexType::Ivf, DistanceMetric::Cosine);
+        assert_eq!(idx.len(), 0);
+    }
+
+    #[test]
+    fn test_create_diskann_index() {
+        let idx = create_index(super::IndexType::DiskAnn, DistanceMetric::Cosine);
+        assert_eq!(idx.len(), 0);
+    }
+
+    #[test]
+    fn test_create_scann_index() {
+        let idx = create_index(super::IndexType::Scann, DistanceMetric::Cosine);
+        assert_eq!(idx.len(), 0);
     }
 }

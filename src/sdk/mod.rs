@@ -4,6 +4,7 @@
 mod api;
 pub(crate) mod builder;
 pub mod connect;
+mod gds;
 mod graph;
 mod search;
 pub(crate) mod serialization;

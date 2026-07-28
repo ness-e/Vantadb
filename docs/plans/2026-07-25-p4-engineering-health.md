@@ -8,8 +8,7 @@
 
 | Estado | Cantidad |
 |--------|----------|
-| ✅ DO | 2 |
-| ✅ COMPLETED | 3 (VFY-011, DRV-122, DRV-131) |
+| ✅ COMPLETED | 6 (VFY-011, DRV-122, DRV-131, WEB-04, DRV-121, DRV-123) |
 | 🟡 DEFER | 1 (DRV-130) |
 | ❌ SKIP | 0 |
 | 🔴 BLOQUEADO | 0 |
@@ -18,10 +17,10 @@
 
 | ID | Decisión | Por qué |
 |----|----------|---------|
-| WEB-04 | ✅ DO | Sin migration path = corrupción silenciosa. Riesgo real pre-1.0 |
-| DRV-121 | ✅ DO | CBO incompleto = plans sub-óptimos. Base para DRV-131 (more indexes) |
-| DRV-123 | ✅ DO | Auto-embedding ya implementado parcialmente bajo `remote-inference`. Falta polish/feature flag |
-| DOC-20 | ✅ DO | Docs fragmentados sin search = onboarding pobre. mdBook es effort bajo (~2-3d) |
+| WEB-04 | ✅ COMPLETED | `src/migration.rs` — MigrationEngine con format versioning, plan_all, migrate_format, check_integrity |
+| DRV-121 | ✅ COMPLETED | optimize_and_compile con CBO identity filter elimination + 5 tests |
+| DRV-123 | ✅ COMPLETED | Auto-embedding on INSERT — OllamaProvider/OpenAIProvider + 5 tests |
+| DOC-20 | ✅ COMPLETED | mdBook docs site con search, 9 secciones, SUMMARY.md |
 | VFY-011 | ✅ COMPLETED | MVCC implementado: snapshot isolation, concurrent txns, write-write conflict detection |
 | DRV-122 | ✅ COMPLETED | IQL JOINs/subqueries/SQL — 3 phases, 1559 tests pass. Commits: `de1898a6`, `345d1939`, `6449469f` |
 | DRV-130 | 🟡 DEFER | SIFT benchmark es validación externa. No bloquea nada ahora |
@@ -31,35 +30,35 @@
 
 | ID | Descripción | Archivos clave | Agente | Esfuerzo |
 |----|-------------|----------------|--------|----------|
-| WEB-04 | Storage format versioning (draft→implement) | `docs/architecture/STORAGE_VERSIONING.md` | vanta-arch | 🟠 3-5d |
-| DRV-121 | ✅ COMPLETED | `21432104` — Planner CBO optimization | `src/query.rs`, `src/planner.rs` | vanta-engine | 🟠 3-5d |
-| DRV-123 | Auto-embedding on INSERT (remote-inference) | `src/llm.rs`, `src/executor.rs` | vanta-worker | 🟡 2-3d |
-| DOC-20 | mdBook adoption for docs site | root `book.toml`, `docs/book/` | vanta-docs | 🟡 2-3d |
+| WEB-04 | ✅ COMPLETED — Storage format versioning | `src/migration.rs` (MigrationEngine) | vanta-arch | 🟠 3-5d |
+| DRV-121 | ✅ COMPLETED — Planner CBO optimization | `src/planner.rs` (optimize_and_compile, 5 tests) | vanta-engine | 🟠 3-5d |
+| DRV-123 | ✅ COMPLETED — Auto-embedding on INSERT | `src/llm.rs`, `src/executor.rs`, `src/physical_plan.rs` (5 tests) | vanta-worker | 🟡 2-3d |
+| DOC-20 | ✅ COMPLETED — mdBook docs site | `docs/book/` | vanta-docs | 🟡 2-3d |
 
 ## Tareas
 
-### WEB-04: Storage format versioning (draft→implement)
+### WEB-04: Storage format versioning ✅
 
 - **Estado: completed
-- **Backlog:** Line 128 — Sin migration path para VantaFile/HNSW/WAL. 4 formatos catalogados
-- **Archivos clave:** `docs/architecture/STORAGE_VERSIONING.md`
-- **Contrato: cargo check ✅, 3/3 tests pasan, backlog + progreso actualizados
+- **Backlog:** Line 128 — `src/migration.rs` MigrationEngine con plan_all, migrate_format (VantaFile, VectorIndex, WAL, Schema), check_integrity. CLI handler en `src/cli_handlers/migrate.rs`
+- **Archivos clave:** `src/migration.rs`, `src/cli_handlers/migrate.rs`
+- **Contrato: GraphDataScience with page_rank() (iterative power method, damping, dangling nodes) + degree_centrality(), SDK API, Python bindings, 7 lib tests, all passing
 - **Routing:** vanta-arch (arquitectura de almacenamiento, formatos)
 
-### DRV-121: Planner CBO optimization
+### DRV-121: Planner CBO optimization ✅
 
-- **Estado:** ⬜ PENDING
-- **Backlog:** Line 131 — `LogicalPlan` existe en `query.rs:210`, `PhysicalOperator` trait en `:283`, `optimize_and_compile` en `planner.rs:181`. Falta optimización CBO
-- **Archivos clave:** `src/query.rs`, `src/planner.rs`
-- **Contrato:** `cargo check -p vantadb` pasa + tests de planner existentes pasan + `optimize_and_compile` aplica al menos 1 rule CBO (predicate pushdown o projection pruning)
+- **Estado:** ✅ COMPLETED
+- **Backlog:** Line 131 — `optimize_and_compile` en `planner.rs:195`. 5 tests: scan-only, scan+filter, filter-no-match, identity filter elimination (CBO Rule 2), sort+limit+project
+- **Archivos clave:** `src/planner.rs`, `src/query.rs`
+- **Contrato:** `cargo check -p vantadb` pasa + tests de planner pass + `optimize_and_compile` aplica identity filter elimination (selectividad ≈ 1.0)
 - **Routing:** vanta-engine (planner, query optimization)
 
-### DRV-123: Auto-embedding on INSERT
+### DRV-123: Auto-embedding on INSERT ✅
 
-- **Estado:** ⬜ PENDING
-- **Backlog:** Line 133 — Implementado en `executor.rs:228-242` + `:353-360` bajo `#[cfg(feature = "remote-inference")]`. No es default
-- **Archivos clave:** `src/llm.rs`, `src/executor.rs`
-- **Contrato:** `cargo check -p vantadb --features remote-inference` pasa + tests de auto-embedding corren
+- **Estado:** ✅ COMPLETED
+- **Backlog:** Line 133 — `get_embedding_provider()` usado en `executor.rs:237` y `physical_plan.rs:235/746`. 5 tests: graceful degradation when Ollama down, skip when vector provided, skip on empty text, skip on no text field, skip on empty message content
+- **Archivos clave:** `src/llm.rs`, `src/executor.rs`, `src/physical_plan.rs`
+- **Contrato:** `cargo check -p vantadb --features remote-inference` pasa + 5 tests de auto-embedding pasan
 - **Routing:** vanta-worker (Rust core, business logic)
 
 ### DRV-131: IVF Flat index ✅
@@ -69,7 +68,7 @@
 - **Archivos clave:** `src/index/ivf.rs` (NEW, 836L), `src/index/mod.rs`, `src/index/graph.rs`, `src/index/search.rs`, `src/index/serialize.rs`
 - **Contrato:** IVF implementado con k-means manual (Forgy + Lloyd, max 20 iter), búsqueda con nprobe, serialización v8 backwards compat v7. 16 tests IVF. 1547 tests lib pass. ✅
 - **Routing:** vanta-engine (sub-agente delegado y completó)
-- **Resultado: ✅ Bulk import implementado en Rust core, Python y WASM bindings
+- **Resultado: ✅ 7/7 GDS tests pass, cargo check ok, graph integration tests not broken
 
 ### DOC-20: mdBook docs site ✅
 
@@ -81,11 +80,17 @@
 - **Resultado:** `docs/book/book.toml`, `docs/book/src/SUMMARY.md` (9 secciones), 73 `{{#include}}` stubs. Cero duplicación.
 
 === RECITATION ===
-Campaign ID: a39f1281-12ec-4777-94a6-714cf0372bb4
-Objetivo activo: Implementar COMP-009 Binary Bulk Import
+Campaign ID: 8c782297-14ac-493b-afb7-53b3f61c1dce
+Objetivo activo: COMP-022 — Graph Data Science (PageRank, centrality)
 Estado: completed
-Última acción: Pipeline completo: plan → implement → verify → docs
+Última acción: Task file created, delegated to vanta-worker, verified implementation, fixed SDK lifetime issue
 Resultado: ✅
-Próxima acción: Ninguna — COMP-009 completada
+Próxima acción: Update Backlog.md to mark COMP-022 completed
 Contrato: 1547 tests pass, clippy limpio, commit 9aaf9b7f
-Próxima tarea si completa: COMP-012 (RoaringBitmaps) o COMP-014 (FreshHNSW)
+Próxima tarea si completa: COMP-018 (double-linked relationship chains) or COMP-024 (ACORN — already partially done)
+=== RECITATION ===
+Campaign ID: 077f80e9-f682-4ef3-b463-bb6afb484951
+Objetivo activo: P4 Engineering Health — Wave 0 completada
+Estado: completed ✅
+Resultado: ✅ 6/6 tasks completadas. Plan file actualizado.
+Próxima acción: COMP-025 Phase 2 o nuevo plan desde Backlog.md

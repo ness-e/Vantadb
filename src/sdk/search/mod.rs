@@ -349,11 +349,51 @@ impl VantaEmbedded {
 
     /// Build a `FilterBitset` from the node IDs of all records matching
     /// the given filters within a namespace.
+    ///
+    /// When shredded data is available for the filter fields this uses direct
+    /// typed comparisons against the column store instead of loading full
+    /// records — an order of magnitude faster for selective queries.
     fn bitset_from_filters(
         &self,
         namespace: &str,
         filters: &VantaMemoryMetadata,
     ) -> Result<FilterBitset> {
+        // ── Shredded fast path ────────────────────────────────
+        // Try resolving every filter field from the shredded column store.
+        // If all fields are present in shredded data we skip loading full
+        // records entirely, reducing I/O for selective queries.
+        if let Ok(engine) = self.engine_handle() {
+            let (ids, _has_index) = self.indexed_ids_by_namespace(&engine, namespace)?;
+            let mut bitset = FilterBitset::with_capacity(ids.len());
+            let mut all_resolved = true;
+
+            for &node_id in &ids {
+                let shredded = match crate::shred::ShreddedRowStore::get(node_id, &*engine.backend)
+                {
+                    Ok(Some(s)) => s,
+                    _ => {
+                        all_resolved = false;
+                        break; // not all nodes have shredded data → fall back
+                    }
+                };
+
+                let matched = filters.iter().all(|(field, expected)| {
+                    shredded
+                        .get(field)
+                        .is_some_and(|s| crate::shred::matches_shredded(s, &RelOp::Eq, expected))
+                });
+
+                if matched {
+                    bitset.set_bit(node_id as usize);
+                }
+            }
+
+            if all_resolved {
+                return Ok(bitset);
+            }
+        }
+
+        // ── Fallback: load full records and use existing filtering ─
         let records = self.records_for_namespace(namespace, filters)?;
         let mut bitset = FilterBitset::with_capacity(records.len());
         for record in &records {

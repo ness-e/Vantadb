@@ -990,6 +990,58 @@ impl VantaDB {
         py.detach(move || engine.graph_is_dag(&roots).map_err(map_vanta_error))
     }
 
+    /// Compute PageRank for the subgraph reachable from the given roots.
+    ///
+    /// Args:
+    ///     roots: Starting node IDs for edge discovery.
+    ///     max_iterations: Maximum iterations (default: 100).
+    ///     damping: PageRank damping factor (default: 0.85).
+    ///     tolerance: Convergence threshold (default: 1e-6).
+    ///
+    /// Returns:
+    ///     A dict mapping node_id → rank.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during PageRank computation.
+    #[pyo3(signature = (roots, max_iterations=100, damping=0.85, tolerance=1e-6))]
+    fn graph_page_rank(
+        &self,
+        py: Python,
+        roots: Vec<u128>,
+        max_iterations: usize,
+        damping: f64,
+        tolerance: f64,
+    ) -> PyResult<HashMap<u128, f64>> {
+        let engine = self.engine.clone();
+        py.detach(move || {
+            engine
+                .graph_page_rank(&roots, max_iterations, damping, tolerance)
+                .map_err(map_vanta_error)
+        })
+    }
+
+    /// Compute degree centrality (in/out degree counts) for the subgraph
+    /// reachable from the given roots.
+    ///
+    /// Args:
+    ///     roots: Starting node IDs for edge discovery.
+    ///
+    /// Returns:
+    ///     A dict mapping node_id → (in_degree, out_degree).
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during centrality computation.
+    fn graph_degree_centrality(
+        &self,
+        py: Python,
+        roots: Vec<u128>,
+    ) -> PyResult<HashMap<u128, (usize, usize)>> {
+        let engine = self.engine.clone();
+        py.detach(move || {
+            engine
+                .graph_degree_centrality(&roots)
+                .map_err(map_vanta_error)
+        })
+    }
+
     /// Compact the storage layout: reorders nodes in BFS order to improve
     /// locality and free unused pages. Returns the number of nodes compacted.
     fn compact_layout(&self, py: Python) -> PyResult<u64> {

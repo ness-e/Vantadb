@@ -3,7 +3,9 @@
 //! VantaDB stores local edges in its internal node model, but v0.1.x does not claim to be a
 //! full-featured graph database or graph query engine.
 
+use crate::accumulator::GraphAccumulator;
 use crate::error::Result;
+use crate::node::Edge;
 use crate::storage::StorageEngine;
 use std::collections::{HashMap, HashSet};
 
@@ -210,9 +212,67 @@ impl<'a> GraphTraverser<'a> {
         }
     }
 
+    /// BFS traversal with an accumulator callback.
+    ///
+    /// For each discovered node, calls `apply_fn(node_id, edges, acc)` and
+    /// automatically adds the returned contribution to the accumulator via
+    /// `acc.add(node_id, contribution)`.
+    ///
+    /// Returns the list of visited node IDs in BFS order (same as `bfs_traverse`).
+    pub fn traverse_with_accumulator(
+        &self,
+        roots: &[u128],
+        max_depth: usize,
+        acc: &GraphAccumulator,
+        apply_fn: impl Fn(u128, &[Edge], &GraphAccumulator) -> f64,
+    ) -> Result<Vec<u128>> {
+        let mut visited = HashSet::new();
+        let mut results = Vec::new();
+        let mut current_level: Vec<u128> = roots.to_vec();
+
+        for depth in 0..=max_depth {
+            if current_level.is_empty() {
+                break;
+            }
+
+            let mut next_level = Vec::new();
+            let mut unvisited = Vec::new();
+            for &id in &current_level {
+                if visited.insert(id) {
+                    unvisited.push(id);
+                    results.push(id);
+                }
+            }
+
+            if depth == max_depth || unvisited.is_empty() {
+                continue;
+            }
+
+            // Batch-fetch all nodes at the current depth
+            let nodes = self.storage.get_many(&unvisited)?;
+            for node in &nodes {
+                let contribution = apply_fn(node.id, &node.edges, acc);
+                acc.add(node.id, contribution);
+
+                for edge in &node.edges {
+                    if !visited.contains(&edge.target) {
+                        next_level.push(edge.target);
+                    }
+                }
+            }
+
+            // Deduplicate next_level before the next iteration
+            next_level.sort();
+            next_level.dedup();
+            current_level = next_level;
+        }
+
+        Ok(results)
+    }
+
     /// BFS-style batched discovery: uses `get_many` at each level to build an
     /// edge cache, avoiding N+1 individual `get()` calls.
-    fn discover_edges(
+    pub(crate) fn discover_edges(
         &self,
         roots: &[u128],
         max_depth: usize,
@@ -261,7 +321,7 @@ impl<'a> GraphTraverser<'a> {
 
     /// BFS-style batched discovery with label filtering.
     /// Only caches edges whose label_id is in `labels` (or all edges if `labels` is empty).
-    fn discover_edges_filtered(
+    pub(crate) fn discover_edges_filtered(
         &self,
         roots: &[u128],
         max_depth: usize,

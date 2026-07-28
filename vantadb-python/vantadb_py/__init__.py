@@ -213,6 +213,20 @@ class AsyncVantaDB:
     async def graph_is_dag(self, roots):
         return await self._run(self._sync.graph_is_dag, roots)
 
+    async def graph_page_rank(
+        self, roots, max_iterations=100, damping=0.85, tolerance=1e-6
+    ):
+        return await self._run(
+            self._sync.graph_page_rank,
+            roots,
+            max_iterations,
+            damping,
+            tolerance,
+        )
+
+    async def graph_degree_centrality(self, roots):
+        return await self._run(self._sync.graph_degree_centrality, roots)
+
     async def compact_layout(self):
         return await self._run(self._sync.compact_layout)
 

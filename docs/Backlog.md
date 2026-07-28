@@ -206,21 +206,21 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | ~~`COMP-013`~~ | ~~**Segment optimizer pipeline (Vacuum/Merge/Index)** — `PipelineMode`, `VacuumReport`, `MergeReport`, `PipelineReport`, `SegmentOptimizerConfig`, `vacuum()`, `merge_segments()`, `run_pipeline()` + SDK API + 77 tests. ✅ COMPLETADA~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | ~~COMP-004, COMP-011~~ |
 | ~~`COMP-014`~~ | ~~**FreshHNSW (background repair de enlaces huérfanos)** — `repair_orphan_links()` en CPIndex (three-phase: snapshot → scan → repair). `FreshHnswReport`, `PipelineMode::FreshHnswOnly`, pipeline phase, 4 tests. Fix: deadlock DashMap. ✅ COMPLETADA~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | ~~COMP-004, COMP-011~~ |
 | ~~`COMP-016`~~ | ~~**Supernode mitigation (indexed relationships)** — `label_index: HashMap<u32, Vec<u128>>` en `UnifiedNode`. `bfs_traverse_filtered`/`dfs_traverse_filtered` en `GraphTraverser`. `graph_bfs_filtered`/`graph_dfs_filtered` en SDK, WASM, Python. 6 tests. ✅ COMPLETADA~~ | ~~🟢 3-5d~~ | ~~✅ COMPLETADA~~ | ~~COMP-006~~ |
-| `COMP-017` | Accumulators for parallel graph algorithms — Sin accumulators | 🟡 1-2 sem | ❌ No implementado | Ninguna |
+| ~~`COMP-017`~~ | ~~**Accumulators for parallel graph algorithms** — `GraphAccumulator` con `AtomicU64` lock-free, `traverse_with_accumulator` en `GraphTraverser`, SDK API, 6 tests. ✅ COMPLETADA~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | Ninguna |
 | `COMP-018` | Double-linked relationship chains — Relaciones dirigidas simples, sin doble enlace | 🟡 1-2 sem | ❌ No implementado | COMP-006 |
 | `COMP-019` | Binary protocol (rkyv/FlatBuffers over gRPC) — Solo HTTP JSON. rkyv usado internamente en serialización | 🟡 1-2 sem | ⚠️ Parcial (rkyv interno sí) | Ninguna |
 | `COMP-021` | Temporal edges (timestamp-aware relationships) — Sin timestamp-aware edges | 🟡 1 sem | ❌ No implementado | Ninguna |
-| `COMP-022` | Graph Data Science library (PageRank, centrality) — Solo BFS/DFS traversal | 🟡 2-3 sem | ❌ No implementado | COMP-017 |
+| ~~`COMP-022`~~ | ~~**Graph Data Science library (PageRank, centrality)** — `GraphDataScience` con `page_rank()` + `degree_centrality()`, SDK API, Python bindings, 7 tests. ✅ COMPLETADA~~ | ~~🟡 2-3 sem~~ | ~~✅ COMPLETADA~~ | ~~COMP-017~~ ✅ |
 | ~~`COMP-023`~~ | ~~**3 filtering strategies (pre/post/in-index)** — `FilterStrategy::PreFilter/InFilter/PostFilter` con selector por joint selectivity. PreFilter (< 1%): scan+brute-force. InFilter (1-10%): query_mask via HNSW. PostFilter (≥ 10%): vector→filter. 1589 tests ✅.~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | COMP-003 ✅, COMP-012 ✅, COMP-028 (diferida) |
-| `COMP-024` | ACORN algorithm (second-hop filtered search) — Sin second-hop search | 🟡 1-2 sem | ❌ No implementado | COMP-003 |
+| ~~`COMP-024`~~ | ~~**ACORN algorithm (second-hop filtered search)** — `acorn_expansion` param en + `search_layer()` con 2-hop expansion. 3 tests: exp | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | COMP-003 ✅, COMP-023 ✅, COMP-012 ✅ |
 
 ### 🟡 Medio — Features de madurez y ecosistema
 
 | ID | Feature | Esfuerzo | Estado | Dependencias |
 |----|---------|----------|--------|--------------|
-| `COMP-025` | JSON shredding (dynamic schema to columns) — Sin schema dinámico | 🟡 2-3 sem | ❌ No implementado | Ninguna |
+| `COMP-025` | JSON shredding (dynamic schema to columns) — ✅ Phase 1: schema inference + columnar storage + filter integration. Restante: Phase 2 (typed queries), Phase 3 (re-shred CLI) | 🟡 2-3 sem | ⏳ Parcial (Phase 1 ✅) | Ninguna |
 | `COMP-026` | Multi-level LSM compaction (L0→L1→L2→L3) — Sin tiers múltiples | 🟡 1-2 sem | ❌ No implementado | COMP-013 |
-| `COMP-027` | Multiple index types (IVF, DiskANN, SCANN) — Solo HNSW + brute-force flat | 🟠 5-10d | ❌ No implementado | COMP-008 |
+| ~~`COMP-027`~~ | ~~**Multiple index types (IVF, DiskANN, SCANN)** — FlatIndex (brute-force), DiskAnnIndex (Vamana graph + robust pruning), ScannIndex (SQ8 scalar quantization). IndexType enum extendido: `Flat`, `DiskAnn`, `Scann`. `create_index()` factory. 15 tests pasan.~~ | ~~🟠 5-10d~~ | ~~✅ COMPLETADA~~ | ~~COMP-008~~ |
 | `COMP-028` | Semantic Cost Estimator (SCE) — `governor.rs` tiene rate limiting, sin cost estimator | 🟡 2 sem | ❌ No implementado | DRV-121/122 |
 | `COMP-029` | Node.js/TS bindings via napi-rs — `vantadb-ts` usa WASM, no napi-rs nativo | 🟡 2-3 sem | ❌ No implementado | Ninguna |
 
@@ -236,11 +236,11 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 === RECITATION ===
 Campaign ID: bd4aca29-11d5-4e4c-9c4d-3111135f58cc
-Objetivo activo: COMPLETAR COMP-014 — FreshHNSW
+Objetivo activo: COMPLETAR COMP-025 Phase 1 — JSON Shredding
 Estado: completed
-Última acción: Delegar a vanta-worker: implementar repair_orphan_links() three-phase (snapshot→scan→repair), FreshHnswReport, PipelineMode::FreshHnswOnly, pipeline phase. Fix: DashMap deadlock en phase 2-3.
-Resultado: ✅ COMPLETADA — 4/4 tests pasan (0.49s), cargo check ok, backlog actualizado
-Próxima acción: Ninguna — tarea completada
-Contrato: 4 tests repair_orphan pasan, cargo check ok, backlog actualizado
-Próxima tarea si completa: COMP-016 (Supernode mitigation) o COMP-026 (LSM compaction) según roadmap
+Última acción: Delegar a vanta-worker: implementar ShreddedRowStore, schema inference, filter fast path
+Resultado: ✅ COMPLETADA Phase 1 — 8/8 tests shred pasan, cargo check ok, backlog actualizado
+Próxima acción: Evaluar próximos items — COMP-016 (Supernode mitigation) o COMP-026 (LSM compaction) o continuar COMP-025 Phase 2
+Contrato: shred::tests pasan, cargo check ok, backlog actualizado
+Próxima tarea si completa: COMP-016, COMP-026, o Phase 2 de COMP-025 según prioridad
 === END RECITATION ===
