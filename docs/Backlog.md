@@ -3,8 +3,8 @@ title: "Active Backlog — VantaDB"
 type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
-last_reviewed: 2026-07-27
-verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (general), P4+P8 (general), P5+P6 (vanta-docs), P9+P10 (vanta-worker) + 2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8"
+last_reviewed: 2026-07-28
+verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 5 sub-agentes explore validaron 69 items contra código real — ver docs/audit-reports/backlog-validation-2026-07-28.md"
 ---
 
 # Active Backlog — VantaDB
@@ -21,7 +21,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 | Phase | Items | Est. Effort | Priority |
 |-------|-------|-------------|----------|
-| **P0** 🚀 Release Blockers | 1 (+6 ✅ completados, +6 removidos) | ~2-3d | 🔴 Bloqueante |
+| **P0** 🚀 Release Blockers | 2 (+6 ✅ completados, +6 removidos) | ~3-5d | 🔴 Bloqueante |
 | **P1** 🛡️ Security & Critical | 0 (todos resueltos/deferidos) | — | ✅ Cerrado |
 | **P2** ⚡ Quick Wins Técnicos | 0 (7 ✅ + 24 stale removidos) | — | ✅ Cerrado |
 | **P3** 🧪 Test Coverage (adapters) | 0 (7 ✅ + 7 stale removidos) | — | ✅ Cerrado |
@@ -63,6 +63,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
 | `DEVOPS-15` | **Reducir default features de 7 a 3** — Código actual tiene 7 (`cli, arrow, fjall, advanced-tokenizer, memmap2, fs2, sysinfo`). La tarea original decía 9→3, pero solo `prometheus`/`rayon` fueron removidos. Pendiente: `cli, memmap2, fs2, sysinfo`. | `Cargo.toml:89` | 🟡 1d | 🔴 Bloqueante |
+| `META-001` | **🔍 Root Cause Analysis: Inconsistencias del Backlog** — Auditoría profunda de POR QUÉ 10+ items no se completaron, fueron diferidos/salteados, o tienen estado incorrecto en el backlog vs código real. Ver `docs/audit-reports/backlog-validation-2026-07-28.md` para datos completos. **Alcance:** (1) DEVOPS-15: por qué 7 features siguen presentes pese a tarea asignada. (2) LEG-01: por qué trademark nunca se inició (barrera legal/económica/técnica?). (3) WEB-001: por qué el playground es simulador en vez de WASM real. (4) COMP-019/021/025/026/028/029: por qué features competitivas críticas fueron diferidas o nunca arrancadas (¿dependencias no resueltas? ¿scope creep? ¿WONTFIX no documentado?). (5) Patrón de falsos negativos: por qué MKT-15, COMP-018, NUEVO-17, NUEVO-07 aparecen como "no implementado" cuando el código dice lo contrario (¿falta de sync post-implementación? ¿sub-agentes que no actualizan backlog?). (6) Por qué OLD-20 quedó parcial (CacheWarner 70% pero no conectado). (7) Por qué OLD-21 y COMP-026 están en estado "deferido" sin fecha ni trigger documentado. (8) Por qué 3 planes WONTFIX no tienen ADR formal documentando la decisión. **Entregable:** Reporte de hallazgos con causas raíz categorizadas, recomendaciones de proceso (automatización de verificación de backlog, gates de actualización post-implementación, política de deferimiento), y acciones correctivas priorizadas. | `docs/audit-reports/backlog-validation-2026-07-28.md`, `docs/Backlog.md`, `docs/plans/*.md`, `.opencode/tasks/COMP-010.md` | 🟠 2-3d | 🔴 Bloqueante |
 
 > **Items removidos (6):** DEVOPS-10 (deferido, no bloqueante), DEVOPS-12 (PyPI signing), DEVOPS-14 ✅, NUEVO-09 ✅, NUEVO-10 ✅, DEVOPS-15 re-opened tras verificación (código tiene 7 defaults, no 3).
 
@@ -178,7 +179,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | ~~`OLD-14`~~ | ~~MessageThread / GcWorker para agentic chat — `GcWorker` en `src/gc.rs` existe, MessageThread no~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | Ninguna. `GcWorker` existe |
 | ~~`OLD-16`~~ | ~~**WAL rotation a 256MB** — `WalWriter::try_auto_rotate()` en `append()`/`batch_append()`. 3 tests (trigger, no-trigger, data preservation). 52/52 WAL tests pass.~~ | ~~🟢 1d~~ | ~~✅ COMPLETADA~~ |
 | ~~`OLD-19`~~ | ~~**Rehidratación desde shadow archive** — `VantaEmbedded::recover_archived_nodes()`, MCP tool `rehydrate`, Python binding. Conecta `StorageEngine::recover_archived_nodes()` (6 tests existentes) a SDK público.~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | OLD-07 (AutoHot/Cold tiering) |
-| `OLD-20` | Contextual Priming (cache warming predictivo) — Sin código de warming predictivo | 🟢 2-3d | ⚠️ Parcial — `CacheWarner` existe en `src/cache_warner.rs` (70% completo). 3 gaps: decay inactivo, co-access tracking no conectado en hot path, métricas sin exportar | Ninguna |
+| ~~`OLD-20`~~ | ~~Contextual Priming (cache warming predictivo) — ✅ COMPLETADA. Auto-decay cada 1000 eventos, métricas exportables, co-access tracking ya conectado en hot path.~~ | ~~🟢 2-3d~~ | ~~✅ COMPLETADA~~ | ~~Ninguna~~ |
 | `OLD-21` | CP-Index formal (query routing inteligente) — `CPIndex` existe como struct HNSW, no query routing formal | 🟡 1 sem | ⏳ Deferido — Routing texto/vector/híbrido ya existe en `planner.rs` (classify + CBO). Routing multi-índice (HNSW/IVF/Flat) depende de COMP-028 (Semantic Cost Estimator) | COMP-028 |
 
 ---
@@ -207,7 +208,7 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 | ~~`COMP-014`~~ | ~~**FreshHNSW (background repair de enlaces huérfanos)** — `repair_orphan_links()` en CPIndex (three-phase: snapshot → scan → repair). `FreshHnswReport`, `PipelineMode::FreshHnswOnly`, pipeline phase, 4 tests. Fix: deadlock DashMap. ✅ COMPLETADA~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | ~~COMP-004, COMP-011~~ |
 | ~~`COMP-016`~~ | ~~**Supernode mitigation (indexed relationships)** — `label_index: HashMap<u32, Vec<u128>>` en `UnifiedNode`. `bfs_traverse_filtered`/`dfs_traverse_filtered` en `GraphTraverser`. `graph_bfs_filtered`/`graph_dfs_filtered` en SDK, WASM, Python. 6 tests. ✅ COMPLETADA~~ | ~~🟢 3-5d~~ | ~~✅ COMPLETADA~~ | ~~COMP-006~~ |
 | ~~`COMP-017`~~ | ~~**Accumulators for parallel graph algorithms** — `GraphAccumulator` con `AtomicU64` lock-free, `traverse_with_accumulator` en `GraphTraverser`, SDK API, 6 tests. ✅ COMPLETADA~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | Ninguna |
-| `COMP-018` | Double-linked relationship chains — Relaciones dirigidas simples, sin doble enlace | 🟡 1-2 sem | ❌ No implementado | COMP-006 |
+| `COMP-018` | Double-linked relationship chains — Relaciones dirigidas simples, sin doble enlace | 🟡 1-2 sem | ⚠️ Parcial (~80%) — Edge.reverse + add_edge/remove_edge bidireccional + TraversalDirection implementados. Faltan bindings WASM/Python para direction param y tests | COMP-006 |
 | `COMP-019` | Binary protocol (rkyv/FlatBuffers over gRPC) — Solo HTTP JSON. rkyv usado internamente en serialización | 🟡 1-2 sem | ⚠️ Parcial (rkyv interno sí) | Ninguna |
 | `COMP-021` | Temporal edges (timestamp-aware relationships) — Sin timestamp-aware edges | 🟡 1 sem | ❌ No implementado | Ninguna |
 | ~~`COMP-022`~~ | ~~**Graph Data Science library (PageRank, centrality)** — `GraphDataScience` con `page_rank()` + `degree_centrality()`, SDK API, Python bindings, 7 tests. ✅ COMPLETADA~~ | ~~🟡 2-3 sem~~ | ~~✅ COMPLETADA~~ | ~~COMP-017~~ ✅ |
@@ -236,11 +237,11 @@ verified_by: "6 sub-agentes: P0+P1 (vanta-lead), P2 (vanta-worker), P3+P7 (gener
 
 === RECITATION ===
 Campaign ID: bd4aca29-11d5-4e4c-9c4d-3111135f58cc
-Objetivo activo: COMPLETAR COMP-025 Phase 1 — JSON Shredding
+Objetivo activo: RESTAURAR cambios perdidos COMP-026 (lost changes) + actualizar backlog/progreso
 Estado: completed
-Última acción: Delegar a vanta-worker: implementar ShreddedRowStore, schema inference, filter fast path
-Resultado: ✅ COMPLETADA Phase 1 — 8/8 tests shred pasan, cargo check ok, backlog actualizado
-Próxima acción: Evaluar próximos items — COMP-016 (Supernode mitigation) o COMP-026 (LSM compaction) o continuar COMP-025 Phase 2
-Contrato: shred::tests pasan, cargo check ok, backlog actualizado
-Próxima tarea si completa: COMP-016, COMP-026, o Phase 2 de COMP-025 según prioridad
+Última acción: LsmConfig + Edge.reverse + add_edge/remove_edge + TraversalDirection restaurados. COMP-018 backlog actualizado a ⚠️ Parcial. Progreso entry creado.
+Resultado: ✅ cargo check, graph_traversal_certification, clippy pasan. Backlog COMP-018 actualizado.
+Próxima acción: Usuario decide — (a) completar bindings WASM/Python para COMP-018, (b) arrancar COMP-026 LSM multi-level, (c) otra tarea
+Contrato: COMP-018 updates: Edge.reverse + add_edge/remove_edge auto-reverse + TraversalDirection compilan y tests pasan
+Próxima tarea si continua: COMP-018 bindings WASM/Python o COMP-026 LSM compaction
 === END RECITATION ===

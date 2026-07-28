@@ -289,6 +289,27 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-28 — Lost Changes Restoration: LsmConfig + Edge.reverse + add_edge/remove_edge ✅
+
+**Contexto:** COMP-026 (lost changes del worker) — cambios que no se propagaron al merge original.
+**Fuente:** Sesión directa vanta-lead
+
+**Resuelto por (vanta-lead, ponytail)**
+- `LsmConfig`, `SegmentLevel`, `SegmentInfo`, `pack_offset` restaurados en `src/lsm.rs` + `pub(crate) mod lsm` en `lib.rs`
+- `LsmConfig` agregado a `SegmentOptimizerConfig` en `src/storage/engine/mod.rs`
+- `Edge.reverse: bool` field + constructor en `src/graph.rs`
+- `add_edge()` y `remove_edge()` en `src/sdk/api.rs` con auto-creación/eliminación de reverse edge
+- `TraversalDirection` enum con `Default` derive en `src/graph.rs`
+- `discover_edges()` en `src/gds.rs` con parámetro `direction`
+- ADR-0010 en `docs/adr/` documentando el modelo de edges
+- Fix clippy: `derivable_impls` para `TraversalDirection`
+
+**Solapamiento con backlog:** Este trabajo completa ~80% de `COMP-018` (Double-linked relationship chains — Edge.reverse + add_edge/remove_edge). `COMP-026` backlog (multi-level LSM compaction) sigue pendiente — solo LsmConfig infra fue restaurada.
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo nextest run -- test_graph_traversal_certification` ✅ | `cargo clippy` ✅ (0 warnings nuevos)
+
+**Ids:** `COMP-018` (parcial), `COMP-026` (parcial — solo infra)
+
 ### 2026-07-26 — OLD-03: Chaos Testing — Failpoint Harness Formal ✅
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-03`
