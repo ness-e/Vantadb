@@ -493,15 +493,11 @@ impl VantaEmbedded {
 
         let candidates = {
             let index = engine.vec_index();
-            // ponytail: search reads from L0 only.
-            let vs = engine.vector_store[0].read();
-            index.search(
-                query_vector,
-                &query_mask,
-                budget,
-                Some(&*vs),
-                distance_metric,
-            )
+            // After LSM compaction, nodes may reside on any level (L0..L3).
+            // Pass `None` to force HNSW to use inline vec_data for distance
+            // computation — this is correct for all levels since `get()` later
+            // resolves the packed offset to the right segment.
+            index.search(query_vector, &query_mask, budget, None, distance_metric)
         };
 
         let mut hits = Vec::with_capacity(top_k);
