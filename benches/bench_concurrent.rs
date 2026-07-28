@@ -109,7 +109,7 @@ fn run_read_only_bench(
                 // Perform query
                 {
                     let hnsw = storage.hnsw.load();
-                    let vstore = storage.vector_store.read();
+                    let vstore = storage.vector_store[0].read();
                     let _results = hnsw.search_nearest(
                         query,
                         None,
@@ -226,7 +226,7 @@ fn run_mixed_bench(
                 // Perform query
                 {
                     let hnsw = storage.hnsw.load();
-                    let vstore = storage.vector_store.read();
+                    let vstore = storage.vector_store[0].read();
                     let _results = hnsw.search_nearest(
                         query,
                         None,
