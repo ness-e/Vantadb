@@ -99,57 +99,24 @@ cargo check -p vantadb ✅
 cargo test -p vantadb --lib -- shred::tests — 8/8 pass ✅
 ```
 
-## Phase 2: Typed Comparison Filters (via shredded columns)
+## Phase 2 — ✅ COMPLETED (2026-07-28)
 
-> **Ponytail scope:** Extender `matches_shredded` para soportar operadores de comparación (>, <, >=, <=, !=).  
-> No construir un query builder ni un sistema de tipos complejo. Solo conectar lo que ya existe.
+Typed comparison filters already implemented — no code changes needed. `matches_shredded` ya aceptaba `op: &RelOp` y soportaba los 6 operadores. 13 tests en total (8 de Phase 1 + 5 de Phase 2). Verificado:
 
-### Step 1: Extend `matches_shredded` with RelOp
+```
+cargo test -p vantadb --lib -- shred::tests — 13/13 pass ✅
+cargo check -p vantadb ✅
+```
 
-- **Archivos:** `src/shred/mod.rs` (función `matches_shredded`)
-- **Acción:** Cambiar `matches_shredded(field: &ShreddedField, expected: &VantaValue) -> bool` a `matches_shredded(field: &ShreddedField, op: &RelOp, expected: &VantaValue) -> bool`
-  - Extender el match para usar `op`:
-    ```rust
-    (ShreddedField::I64(a), RelOp::Gt, VantaValue::Int(b)) => a > b,
-    (ShreddedField::I64(a), RelOp::Lt, VantaValue::Int(b)) => a < b,
-    (ShreddedField::I64(a), RelOp::Gte, VantaValue::Int(b)) => a >= b,
-    (ShreddedField::I64(a), RelOp::Lte, VantaValue::Int(b)) => a <= b,
-    (ShreddedField::I64(a), RelOp::Ne, VantaValue::Int(b)) => a != b,
-    ```
-  - Igual para F64 (gt, lt, gte, lte, eq, ne)
-  - Bool/String solo soportan Eq/Ne (no tiene sentido ordenarlos)
-  - El caso por defecto retorna false
-- **Verify:** `cargo check -p vantadb`
+### Resumen de implementación existente
+- `matches_shredded(field, op, expected)` en `src/shred/mod.rs:113-141` — match completo con 15 arms
+- RelOp enum en `src/query.rs:130-143` — 6 variantes (Eq, Neq, Gt, Lt, Gte, Lte)
+- `bitset_from_filters` en `src/sdk/search/mod.rs:383` pasa `&RelOp::Eq` (API pública usa equality)
+- 4 tests unitarios de comparación: `test_matches_shredded_i64_comparisons`, `test_matches_shredded_f64_comparisons`, `test_matches_shredded_bool_eq_ne`, `test_matches_shredded_string_eq_ne`
+- 1 test de integración: `test_shredded_comparison_filter_integration` (Gt/Lt/Gte con 3 nodes)
 
-### Step 2: Update caller bitset_from_filters
-
-- **Archivos:** `src/sdk/search/mod.rs` (en `bitset_from_filters`)
-- **Acción:** Pasar `op` a `matches_shredded` donde hoy solo pasa `expected`. El op viene del filter entry.
-- **Verify:** `cargo check -p vantadb`
-
-### Step 3: Tests for comparison filters
-
-- **Archivos:** `src/shred/mod.rs` (agregar en `#[cfg(test)]`)
-- **Acción:** 4 tests nuevos:
-  1. `test_matches_shredded_i64_comparisons()` — Eq, Ne, Gt, Lt, Gte, Lte en I64
-  2. `test_matches_shredded_f64_comparisons()` — Eq, Ne, Gt, Lt, Gte, Lte en F64
-  3. `test_matches_shredded_bool_eq_ne()` — Eq y Ne en Bool (Gt/Lt no aplican)
-  4. `test_matches_shredded_string_eq_ne()` — Eq y Ne en String
-- **Verify:** `cargo test -p vantadb --lib -- shred::tests`
-
-### Step 4: Integration test (bitset_from_filters with comparison)
-
-- **Archivos:** `src/shred/mod.rs` o `src/sdk/search/mod.rs` (test)
-- **Acción:** Test de integración: insertar node con metadata shreddeada, buscar con filtro de comparación, verificar que el shredded fast path devuelve el resultado correcto. Usar `RelOp::Gt` con metadata numérica.
-- **Verify:** `cargo test -p vantadb --lib -- shred::tests` o `cargo test -p vantadb --lib -- bitset_from_filters`
-
-## Dependencias
-- Phase 1 ✅ (ShreddedRowStore, shred module)
-- COMP-023 ✅ (FilterStrategy, bitset_from_filters) — ya usa shredded fast path
-- `query::RelOp` — ya existe en `src/query.rs`
+### Dependencias
+- Phase 1 ✅
+- COMP-023 ✅
+- `query::RelOp` ✅
 - Ninguna externa
-
-## Notas
-- **Ponytail:** No implementar range queries compuestas, OR de filtros, ni índices de rango. Solo operadores de comparación simples en el shredded fast path existente.
-- **Compatibilidad:** `bitset_from_filters` ya itera filters con `(field, expected)`. Cambia la firma a `(field, op, expected)` donde `op` ya existe en cada entry de filter.
-- **Performance:** Las comparaciones numéricas en shredded son O(1) por field — mucho más rápido que escanear metadata serializada.

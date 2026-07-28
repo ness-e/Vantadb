@@ -198,6 +198,10 @@ VantaDB is a vector database in Rust focused on high performance, hybrid HNSW, G
 - `MakeWriter` closure instead of direct `Box<dyn Write>`
 68. **`vantadb-mcp` ttl_ms: None** — ✅
 - `planner.rs:369` `expires_at_ms: Some(0)`
+69. **COMP-025: JSON shredding** — ✅
+- **Phase 1:** Schema inference + columnar storage + filter integration (equality fast path). `ShreddedSchema`, `ShreddedRowStore`, `infer_field_type`. 8 tests.
+- **Phase 2:** Typed comparison filters (Gt/Lt/Gte/Lte/Neq). `matches_shredded` con 6 operadores en I64/F64/Bool/String. 5 tests adicionales (13 total). Test de integración con 3 nodes.
+- **Total:** 13 tests, `src/shred/mod.rs`, commit TBD
 
 ### Infrastructure Issues
 
