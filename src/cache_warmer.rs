@@ -168,6 +168,7 @@ impl CacheWarmer {
     }
 
     /// Read current metrics.
+    #[allow(dead_code)]
     pub fn metrics(&self) -> CacheWarmerMetrics {
         let table = self.co_access.read();
         let total_pairs: usize = table.values().map(|m| m.len()).sum();

@@ -8,7 +8,6 @@ use crate::binary_header::VantaHeader;
 #[cfg(feature = "encryption")]
 use crate::crypto::{Cipher, EncryptionStream};
 use crate::error::{Result, VantaError};
-use crate::index::CPIndex;
 use crate::node::DiskNodeHeader;
 use std::fs::{File, OpenOptions};
 #[cfg(not(feature = "memmap2"))]
@@ -334,7 +333,12 @@ pub fn get_resident_bytes_impl(addr: *const u8, len: usize) -> Option<u64> {
 }
 
 /// Sum of resident mmap bytes across the HNSW index and vector store.
-pub(crate) fn engine_mmap_resident_bytes(hnsw: &CPIndex, vector_store: &VantaFile) -> Option<u64> {
+/// Only compiled for tests — production code uses per-VantaFile metrics directly.
+#[cfg(test)]
+pub(crate) fn engine_mmap_resident_bytes(
+    hnsw: &crate::index::CPIndex,
+    vector_store: &VantaFile,
+) -> Option<u64> {
     let mut total = None;
     for resident in [
         vector_store.mmap_resident_bytes(),
