@@ -142,7 +142,7 @@ fn test_vector_index_cold_recovery() {
         let engine = open_fjall(db_path);
 
         let hnsw = engine.hnsw.load();
-        let vs = engine.vector_store.read();
+        let vs = engine.vector_store[0].read();
 
         // Hacemos una búsqueda directamente contra el índice y VantaFile
         let results = hnsw.search_nearest(

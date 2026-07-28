@@ -83,19 +83,28 @@ fn memory_telemetry_contract() {
         engine.flush().unwrap();
 
         let total_bytes = dir_size_bytes(&data_dir);
-        let vector_store = data_dir.join("vector_store.vanta");
         let ann_index = data_dir.join("vector_index.bin");
+
+        // Sum bytes across all LSM levels (L0..L3). L1-L3 may be empty (0 bytes)
+        // but L0 always has data after flush.
+        let vanta_bytes: u64 = (0u8..=3)
+            .filter_map(|l| {
+                let path = data_dir.join(format!("vstore_L{}.vanta", l));
+                fs::metadata(&path).ok().map(|m| m.len())
+            })
+            .sum();
+        let l0_path = data_dir.join("vstore_L0.vanta");
 
         TerminalReporter::info(&format!(
             "Disk bytes after flush: total={}, vantafile={}, ann={}",
             total_bytes,
-            fs::metadata(&vector_store).map(|m| m.len()).unwrap_or(0),
+            vanta_bytes,
             fs::metadata(&ann_index).map(|m| m.len()).unwrap_or(0)
         ));
 
         assert!(
-            vector_store.exists(),
-            "vector_store.vanta must exist after flush"
+            l0_path.exists(),
+            "vstore_L0.vanta must exist after flush (L0 VantaFile)"
         );
         assert!(
             ann_index.exists(),
@@ -142,7 +151,7 @@ fn memory_telemetry_contract() {
             None,
             &vantadb::node::ALL_BITSET,
             5,
-            Some(&reopened.vector_store.read()),
+            Some(&reopened.vector_store[0].read()),
         );
 
         assert!(!results.is_empty(), "Reopened index must remain queryable");

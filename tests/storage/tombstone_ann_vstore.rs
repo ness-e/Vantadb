@@ -31,7 +31,7 @@ fn raw_ann_layers_from_vantafile_exclude_tombstoned_neighbors() {
     engine.flush().unwrap();
 
     let hnsw = engine.hnsw.load();
-    let vs = engine.vector_store.read();
+    let vs = engine.vector_store[0].read();
     let hits = hnsw.search_nearest(&query, None, None, &vantadb::node::ALL_BITSET, 8, Some(&vs));
 
     assert!(

@@ -234,7 +234,7 @@ fn test_concurrency_rebuild_rcu() {
         let query_vector = vec![0.5; 128];
         for _ in 0..100 {
             let hnsw = engine_read.hnsw.load();
-            let vs = engine_read.vector_store.read();
+            let vs = engine_read.vector_store[0].read();
             let results = hnsw.search_nearest(
                 &query_vector,
                 None,
