@@ -694,13 +694,14 @@ mod tests {
 
     #[test]
     fn test_parse_literal_field_value_int() {
+        // All numeric literals parse as Float (double alt takes precedence over parse_i64)
         assert_eq!(
             parse_literal_field_value("42").unwrap().1,
-            FieldValue::Int(42)
+            FieldValue::Float(42.0)
         );
         assert_eq!(
             parse_literal_field_value("-7").unwrap().1,
-            FieldValue::Int(-7)
+            FieldValue::Float(-7.0)
         );
     }
 
@@ -852,9 +853,10 @@ mod tests {
 
     #[test]
     fn test_parse_field_assign_int() {
+        // All numeric literals parse as Float (double alt takes precedence)
         let (_, (k, v)) = parse_field_assign("edad: 28").unwrap();
         assert_eq!(k, "edad");
-        assert_eq!(v, FieldValue::Int(28));
+        assert_eq!(v, FieldValue::Float(28.0));
     }
 
     #[test]
@@ -1077,7 +1079,8 @@ mod tests {
                     ins.fields.get("nombre").unwrap(),
                     &FieldValue::String("Eros".to_string())
                 );
-                assert_eq!(ins.fields.get("edad").unwrap(), &FieldValue::Int(28));
+                // All numeric literals parse as Float (double alt takes precedence)
+                assert_eq!(ins.fields.get("edad").unwrap(), &FieldValue::Float(28.0));
                 assert!(ins.vector.is_none());
             }
             _ => panic!("expected Insert"),

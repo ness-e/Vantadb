@@ -1,5 +1,9 @@
 /// Integration test that loads real benchmark datasets (GloVe-100)
 /// and runs basic HNSW insert + search to validate performance.
+///
+/// Requires: `data/benchmark/glove.6B.100d.txt` (download via `scripts/download_benchmark_datasets.ps1`)
+/// Skips gracefully if dataset is not present.
+use std::path::Path;
 use tempfile::TempDir;
 use vantadb::config::VantaConfig;
 use vantadb::node::{NodeTier, UnifiedNode};
@@ -7,6 +11,13 @@ use vantadb::storage::StorageEngine;
 
 #[test]
 fn test_glove100_hnsw_basic() {
+    let glove_path = Path::new("data/benchmark/glove.6B.100d.txt");
+    if !glove_path.exists() {
+        println!("GloVe-100 dataset not found at data/benchmark/glove.6B.100d.txt. Skipping.");
+        println!("Download via: scripts/download_benchmark_datasets.ps1");
+        return;
+    }
+
     let dir = TempDir::new().unwrap();
     let config = VantaConfig::default()
         .with_storage_path(dir.path().to_str().unwrap().to_string())
@@ -15,9 +26,7 @@ fn test_glove100_hnsw_basic() {
         StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
 
     // Load a small subset of GloVe for basic validation
-    // (Actual CI will use the full dataset via the download script)
-    let vectors = load_glove_sample("data/benchmark/glove.6B.100d.txt", 100);
-    assert!(!vectors.is_empty(), "Should load at least some vectors");
+    let vectors = load_glove_sample(glove_path.to_str().unwrap(), 100);
 
     // Insert and verify
     for (i, v) in vectors.iter().enumerate() {
