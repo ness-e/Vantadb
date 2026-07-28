@@ -5,6 +5,7 @@ use web_time::{SystemTime, UNIX_EPOCH};
 
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::Result;
+use crate::lsm::unpack_offset;
 use crate::node::{FieldValue, FilterBitset, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::StorageEngine;
 use crate::storage::engine::{
@@ -348,8 +349,9 @@ impl StorageEngine {
     /// Apply an insert with explicit MVCC stamp.
     fn apply_insert_with_txn(&self, node: &UnifiedNode, txn_id: u64) -> Result<()> {
         let storage_offset = {
-            let mut vstore = self.vector_store.write();
-            let offset = Self::write_node_to_vstore(&mut vstore, node)?;
+            let mut vstore = self.vector_store[0].write();
+            let local_off = crate::storage::ops::write_node_to_vstore(&mut *vstore, node)?;
+            let offset = crate::lsm::pack_offset(0, local_off);
 
             let key = node.id.to_le_bytes();
             let metadata = crate::storage::ops::NodeMetadata {
@@ -365,10 +367,10 @@ impl StorageEngine {
                 &key,
                 &metadata_val,
             ) {
-                // P4: tombstone on KV failure
-                if let Some(mut hdr) = vstore.read_header(offset) {
+                // P4: tombstone on KV failure — local_off works because segment 0
+                if let Some(mut hdr) = vstore.read_header(local_off) {
                     hdr.flags |= FLAG_TOMBSTONE;
-                    let _ = vstore.write_header(offset, &hdr);
+                    let _ = vstore.write_header(local_off, &hdr);
                 }
                 return Err(e);
             }
@@ -432,9 +434,10 @@ impl StorageEngine {
             None => return Ok(None),
         };
         let storage_offset = index_node.storage_offset;
+        let (seg_id, local_off) = unpack_offset(storage_offset);
 
-        let vstore = self.vector_store.read();
-        let header = match vstore.read_header(storage_offset) {
+        let vstore = self.vector_store[seg_id as usize].read();
+        let header = match vstore.read_header(local_off) {
             Some(h) => h,
             None => return Ok(None),
         };
@@ -628,8 +631,9 @@ impl StorageEngine {
     #[tracing::instrument(skip(self, node), level = "debug", err)]
     pub(crate) fn apply_insert(&self, node: &UnifiedNode) -> Result<()> {
         let storage_offset = {
-            let mut vstore = self.vector_store.write();
-            let offset = Self::write_node_to_vstore(&mut vstore, node)?;
+            let mut vstore = self.vector_store[0].write();
+            let local_off = crate::storage::ops::write_node_to_vstore(&mut *vstore, node)?;
+            let offset = crate::lsm::pack_offset(0, local_off);
 
             let key = node.id.to_le_bytes();
             // non-txn insert: use next_txn_id as pseudo-txn
@@ -648,9 +652,9 @@ impl StorageEngine {
                 .backend
                 .put(BackendPartition::Default, &key, &metadata_val)
             {
-                if let Some(mut hdr) = vstore.read_header(offset) {
+                if let Some(mut hdr) = vstore.read_header(local_off) {
                     hdr.flags |= FLAG_TOMBSTONE;
-                    let _ = vstore.write_header(offset, &hdr);
+                    let _ = vstore.write_header(local_off, &hdr);
                 }
                 return Err(e);
             }
@@ -736,7 +740,7 @@ impl StorageEngine {
             Vec::with_capacity(nodes.len());
         let mut vstore_offsets: Vec<u64> = Vec::with_capacity(nodes.len());
 
-        let mut vstore = self.vector_store.write();
+        let mut vstore = self.vector_store[0].write();
         {
             let mut stats = self.cardinality_stats.write();
             for node in nodes {
@@ -803,7 +807,8 @@ impl StorageEngine {
         for node in nodes {
             let mut active_node = node.clone();
             active_node.last_accessed = now_ms;
-            let storage_offset = Self::write_node_to_vstore(&mut vstore, &active_node)?;
+            let local_off = crate::storage::ops::write_node_to_vstore(&mut *vstore, &active_node)?;
+            let storage_offset = crate::lsm::pack_offset(0, local_off);
             vstore_offsets.push(storage_offset);
             hnsw_entries.push((
                 active_node.id,
@@ -838,11 +843,12 @@ impl StorageEngine {
         // P4: if KV batch write fails after VantaFile writes, tombstone all
         // entries to prevent orphan vectors in the vector store.
         if let Err(e) = self.backend.write_batch(kv_ops) {
-            let mut vstore = self.vector_store.write();
-            for &offset in &vstore_offsets {
-                if let Some(mut hdr) = vstore.read_header(offset) {
+            let mut vstore = self.vector_store[0].write();
+            for &packed in &vstore_offsets {
+                let (_seg_id, local_off) = crate::lsm::unpack_offset(packed);
+                if let Some(mut hdr) = vstore.read_header(local_off) {
                     hdr.flags |= FLAG_TOMBSTONE;
-                    let _ = vstore.write_header(offset, &hdr);
+                    let _ = vstore.write_header(local_off, &hdr);
                 }
             }
             return Err(e);
@@ -993,9 +999,10 @@ impl StorageEngine {
             None => return Ok(None),
         };
         let storage_offset = index_node.storage_offset;
+        let (seg_id, local_off) = unpack_offset(storage_offset);
 
-        let vstore = self.vector_store.read();
-        let header = match vstore.read_header(storage_offset) {
+        let vstore = self.vector_store[seg_id as usize].read();
+        let header = match vstore.read_header(local_off) {
             Some(h) => h,
             None => return Ok(None),
         };
@@ -1156,7 +1163,6 @@ impl StorageEngine {
         }
 
         let hnsw = self.hnsw.load();
-        let vstore = self.vector_store.read();
 
         for &i in &remaining_indices {
             let id = ids[i];
@@ -1173,8 +1179,10 @@ impl StorageEngine {
                 continue;
             };
             let storage_offset = index_node.storage_offset;
+            let (seg_id, local_off) = unpack_offset(storage_offset);
 
-            let Some(header) = vstore.read_header(storage_offset) else {
+            let vstore = self.vector_store[seg_id as usize].read();
+            let Some(header) = vstore.read_header(local_off) else {
                 continue;
             };
 
@@ -1319,17 +1327,20 @@ impl StorageEngine {
     /// Does NOT check active_txns or ensure_writable.
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub(crate) fn apply_delete(&self, id: u128) -> Result<()> {
-        let offset = {
+        let packed = {
             let hnsw = self.hnsw.load();
             hnsw.nodes.get(&id).map(|n| n.storage_offset)
         };
 
         // PERF-23: vector store tombstone
-        if let Some(offset) = offset {
-            let mut vstore = self.vector_store.write();
-            if let Some(mut header) = vstore.read_header(offset) {
-                header.flags |= FLAG_TOMBSTONE;
-                vstore.write_header(offset, &header)?;
+        if let Some(packed) = packed {
+            let (seg_id, local_off) = unpack_offset(packed);
+            if let Some(vs) = self.vector_store.get(seg_id as usize) {
+                let mut vstore = vs.write();
+                if let Some(mut header) = vstore.read_header(local_off) {
+                    header.flags |= FLAG_TOMBSTONE;
+                    vstore.write_header(local_off, &header)?;
+                }
             }
         }
 
@@ -1436,13 +1447,14 @@ impl StorageEngine {
                     duration_ms: self.config.insert_lock_timeout_ms,
                 })?;
             let hnsw = self.hnsw.load();
-            {
-                let mut vstore = self.vector_store.write();
-                for &id in ids {
-                    if let Some(offset) = hnsw.nodes.get(&id).map(|n| n.storage_offset) {
-                        if let Some(mut header) = vstore.read_header(offset) {
+            for &id in ids {
+                if let Some(packed) = hnsw.nodes.get(&id).map(|n| n.storage_offset) {
+                    let (seg_id, local_off) = unpack_offset(packed);
+                    if let Some(vs) = self.vector_store.get(seg_id as usize) {
+                        let mut vstore = vs.write();
+                        if let Some(mut header) = vstore.read_header(local_off) {
                             header.flags |= FLAG_TOMBSTONE;
-                            vstore.write_header(offset, &header)?;
+                            vstore.write_header(local_off, &header)?;
                         }
                     }
                 }
@@ -1517,8 +1529,9 @@ impl StorageEngine {
         let val = postcard::to_allocvec(node).map_err(crate::error::VantaError::serialization)?;
         self.backend.put(partition, &key, &val)?;
 
-        let mut vstore = self.vector_store.write();
-        let storage_offset = Self::write_node_to_vstore(&mut vstore, node)?;
+        let mut vstore = self.vector_store[0].write();
+        let local_off = crate::storage::ops::write_node_to_vstore(&mut *vstore, node)?;
+        let storage_offset = crate::lsm::pack_offset(0, local_off);
         self.refresh_index(node, storage_offset)?;
         Ok(())
     }
@@ -1540,7 +1553,6 @@ impl StorageEngine {
 
         let raw_nodes = {
             let hnsw = self.hnsw.load();
-            let vstore = self.vector_store.read();
 
             let mut collected = Vec::with_capacity(entries.len().min(limit));
             for (key, value) in entries {
@@ -1568,8 +1580,10 @@ impl StorageEngine {
                     None => continue,
                 };
                 let storage_offset = index_node.storage_offset;
+                let (seg_id, local_off) = unpack_offset(storage_offset);
+                let vstore = self.vector_store[seg_id as usize].read();
 
-                let header = match vstore.read_header(storage_offset) {
+                let header = match vstore.read_header(local_off) {
                     Some(h) => h,
                     None => continue,
                 };

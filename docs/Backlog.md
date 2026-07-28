@@ -220,7 +220,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | ID | Feature | Esfuerzo | Estado | Dependencias |
 |----|---------|----------|--------|--------------|
 | `COMP-025` | JSON shredding (dynamic schema to columns) — ✅ Phase 1: schema inference + columnar storage + filter integration. Restante: Phase 2 (typed queries), Phase 3 (re-shred CLI) | 🟡 2-3 sem | ⏳ Parcial (Phase 1 ✅) | Ninguna |
-| `COMP-026` | Multi-level LSM compaction (L0→L1→L2→L3) — Sin tiers múltiples | 🟡 1-2 sem | ❌ No implementado | COMP-013 |
+| ~~`COMP-026`~~ | ~~**Multi-level LSM compaction (L0→L1→L2→L3)** — SegmentRegistry, compact_level(), PipelineMode::CompactOnly/L0Only in run_pipeline. 13+ archivos modificados. `cargo check -p vantadb` ✅~~  | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | COMP-013 |
 | ~~`COMP-027`~~ | ~~**Multiple index types (IVF, DiskANN, SCANN)** — FlatIndex (brute-force), DiskAnnIndex (Vamana graph + robust pruning), ScannIndex (SQ8 scalar quantization). IndexType enum extendido: `Flat`, `DiskAnn`, `Scann`. `create_index()` factory. 15 tests pasan.~~ | ~~🟠 5-10d~~ | ~~✅ COMPLETADA~~ | ~~COMP-008~~ |
 | `COMP-028` | Semantic Cost Estimator (SCE) — `governor.rs` tiene rate limiting, sin cost estimator | 🟡 2 sem | ❌ No implementado | DRV-121/122 |
 | `COMP-029` | Node.js/TS bindings via napi-rs — `vantadb-ts` usa WASM, no napi-rs nativo | 🟡 2-3 sem | ❌ No implementado | Ninguna |

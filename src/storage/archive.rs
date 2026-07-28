@@ -180,10 +180,21 @@ pub(crate) fn fresh_index_like(existing: &CPIndex, index_path: PathBuf) -> CPInd
 }
 
 /// Rebuild the entire HNSW index by scanning all nodes from the VantaFile.
+/// If `segment_id` is Some(n), offsets are packed with the segment_id.
 pub(crate) fn rebuild_hnsw_from_vstore(
     hnsw: &mut CPIndex,
     vstore: &VantaFile,
     index_path: PathBuf,
+) -> Result<crate::storage::IndexRebuildReport> {
+    rebuild_hnsw_from_vstore_with_segment(hnsw, vstore, index_path, None)
+}
+
+/// Rebuild HNSW from a VantaFile, optionally packing offsets with a segment_id.
+pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
+    hnsw: &mut CPIndex,
+    vstore: &VantaFile,
+    index_path: PathBuf,
+    segment_id: Option<u8>,
 ) -> Result<crate::storage::IndexRebuildReport> {
     let started = Instant::now();
     let mut cursor = STORAGE_ALIGNMENT;
@@ -228,11 +239,15 @@ pub(crate) fn rebuild_hnsw_from_vstore(
                     } else {
                         crate::node::VectorRepresentations::None
                     };
+                    let storage_offset = match segment_id {
+                        Some(sid) => crate::lsm::pack_offset(sid, cursor),
+                        None => cursor,
+                    };
                     hnsw.add(
                         header.id,
                         FilterBitset::from_u128(header.bitset),
                         vec_data,
-                        cursor,
+                        storage_offset,
                     );
                 }
             }

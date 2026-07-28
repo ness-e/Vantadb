@@ -7,9 +7,7 @@ use crate::config::VantaConfig;
 use crate::error::{Result, VantaError};
 use crate::node::FieldValue;
 use crate::query::RelOp;
-use crate::storage::engine::{
-    engine_mmap_resident_bytes, EvictionReason, MemoryStats, StorageEngine,
-};
+use crate::storage::engine::{EvictionReason, MemoryStats, StorageEngine};
 use crate::storage::ops::NodeMetadata;
 
 impl StorageEngine {
@@ -55,13 +53,27 @@ impl StorageEngine {
     /// Returns detailed memory usage statistics for this engine instance.
     pub fn get_memory_stats(&self) -> MemoryStats {
         let hnsw = self.hnsw.load();
-        let vector_store = self.vector_store.read();
         let cache = self.volatile_cache.read();
 
-        let logical =
-            hnsw.estimate_memory_bytes() as u64 + vector_store.size + (cache.len() as u64 * 1536);
+        // ponytail: sum across all LSM levels
+        let total_vstore_size: u64 = self.vector_store.iter().map(|vs| vs.read().size).sum();
 
-        let physical = engine_mmap_resident_bytes(&hnsw, &vector_store);
+        let logical =
+            hnsw.estimate_memory_bytes() as u64 + total_vstore_size + (cache.len() as u64 * 1536);
+
+        let physical = {
+            let mut total: Option<u64> = None;
+            for vs in &self.vector_store {
+                let guard = vs.read();
+                if let Some(rb) = guard.mmap_resident_bytes() {
+                    total = Some(total.unwrap_or(0) + rb);
+                }
+            }
+            if let Some(rb) = hnsw.backend.mmap_resident_bytes() {
+                total = Some(total.unwrap_or(0) + rb);
+            }
+            total
+        };
 
         let memory_limit = self
             .config

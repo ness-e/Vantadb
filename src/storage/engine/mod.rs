@@ -27,8 +27,10 @@ use crate::config::VantaConfig;
 use crate::error::Result;
 use crate::index::CPIndex;
 pub use crate::index::FreshHnswReport;
+pub(crate) use crate::lsm::SegmentRegistry;
+use crate::lsm::{pack_offset, unpack_offset};
 use crate::node::{FilterBitset, LabelIntern, UnifiedNode, VectorRepresentations};
-use crate::storage::vfile::{engine_mmap_resident_bytes, VantaFile};
+use crate::storage::vfile::VantaFile;
 
 // ─── Constants ──────────────────────────────────────────────────
 
@@ -166,7 +168,7 @@ pub(crate) const HNSW_BATCH_SIZE: usize = 64;
 /// operations to run in [`StorageEngine::run_pipeline`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PipelineMode {
-    /// Full pipeline: Vacuum → FreshHNSW → Merge → Reindex.
+    /// Full pipeline: Vacuum → FreshHNSW → CompactL0 → CompactL1 → CompactL2 → Merge → Reindex.
     #[default]
     Full,
     /// Only purge tombstones from the HNSW index.
@@ -177,6 +179,10 @@ pub enum PipelineMode {
     IndexOnly,
     /// Only repair orphan links in the HNSW graph.
     FreshHnswOnly,
+    /// Pipeline: Vacuum → Compact all levels → FreshHNSW → Merge → Reindex.
+    CompactOnly,
+    /// Pipeline: Vacuum → CompactL0 only → FreshHNSW → Merge → Reindex.
+    CompactL0Only,
 }
 
 /// Report from a single vacuum pass.
@@ -209,6 +215,21 @@ pub struct MergeReport {
     pub success: bool,
 }
 
+/// Report from a single LSM level compaction pass.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LsmReport {
+    /// Which level was compacted (0 = L0, 1 = L1, 2 = L2).
+    pub level: u8,
+    /// Number of nodes promoted to the next level.
+    pub nodes_promoted: u64,
+    /// Bytes freed from the source level.
+    pub reclaimed_bytes: u64,
+    /// Duration of the compaction pass in milliseconds.
+    pub duration_ms: u64,
+    /// Whether the pass completed successfully.
+    pub success: bool,
+}
+
 /// Report from a complete [`PipelineMode`] run.
 #[derive(Debug, Clone, Default)]
 pub struct PipelineReport {
@@ -216,6 +237,8 @@ pub struct PipelineReport {
     pub vacuum: Option<VacuumReport>,
     /// Merge report, if that phase was executed.
     pub merge: Option<MergeReport>,
+    /// LSM compaction reports, one per compacted level.
+    pub lsm: Option<Vec<LsmReport>>,
     /// Index rebuild report, if that phase was executed.
     pub index: Option<IndexRebuildReport>,
     /// FreshHNSW report, if that phase was executed.
@@ -305,8 +328,12 @@ pub struct StorageEngine {
     pub emergency_maintenance_trigger: AtomicBool,
     /// Path to the data directory.
     pub data_dir: PathBuf,
-    /// Vector store file for persistent node vector data.
-    pub vector_store: RwLock<VantaFile>,
+    /// Vector store files for persistent node vector data — one per LSM level.
+    /// Index 0 = L0 (hot), 1 = L1 (warm), 2 = L2 (cold).
+    /// All new writes go to index 0. Reads use unpack_offset() to select the correct file.
+    pub vector_store: Vec<RwLock<VantaFile>>,
+    /// Multi-level LSM segment registry tracking level metadata.
+    pub(crate) segment_registry: SegmentRegistry,
     /// Sharded write-ahead log for crash durability with reduced mutex contention.
     pub(crate) wal: Option<std::sync::Arc<crate::wal_sharded::ShardedWal>>,
     /// Memory governor for adaptive eviction
@@ -351,17 +378,21 @@ impl StorageEngine {
     }
 
     /// Replay a single write operation during WAL recovery.
+    /// Writes to L0 (always) and packs the segment_id into the offset.
     fn replay_write_node(
-        vstore: &mut VantaFile,
+        vector_store: &[RwLock<VantaFile>],
         hnsw: &CPIndex,
         backend: &dyn StorageBackend,
         node_id: u128,
         node: &UnifiedNode,
     ) -> Result<()> {
         use crate::backend::BackendPartition;
+        use crate::lsm::pack_offset;
         use crate::storage::ops::NodeMetadata;
-        let offset = crate::storage::ops::write_node_to_vstore(vstore, node)?;
-        hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), offset);
+        let mut l0 = vector_store[0].write();
+        let local_off = crate::storage::ops::write_node_to_vstore(&mut *l0, node)?;
+        let packed = pack_offset(0, local_off);
+        hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), packed);
         let key = node.id.to_le_bytes();
         let metadata = NodeMetadata {
             relational: node.relational.clone(),
@@ -373,6 +404,51 @@ impl StorageEngine {
             postcard::to_allocvec(&metadata).map_err(crate::error::VantaError::serialization)?;
         backend.put(BackendPartition::Default, &key, &metadata_val)?;
         Ok(())
+    }
+}
+
+// ─── Multi-level segment helpers ──────────────────────────
+
+impl StorageEngine {
+    /// Read a header from the correct VantaFile level determined by unpacking the offset.
+    pub(crate) fn read_header_from_segment(
+        &self,
+        packed_offset: u64,
+    ) -> Option<crate::node::DiskNodeHeader> {
+        let (seg_id, local_off) = unpack_offset(packed_offset);
+        self.vector_store
+            .get(seg_id as usize)?
+            .read()
+            .read_header(local_off)
+    }
+
+    /// Read vector bytes from the correct VantaFile level.
+    pub(crate) fn read_vec_bytes_from_segment(
+        &self,
+        packed_offset: u64,
+        vec_offset: u64,
+        vec_len: u32,
+    ) -> Option<Vec<u8>> {
+        let (seg_id, local_off) = unpack_offset(packed_offset);
+        let vstore = self.vector_store.get(seg_id as usize)?.read();
+        let start = (local_off + vec_offset) as usize;
+        let end = start + (vec_len as usize * 4);
+        if end > vstore.size as usize {
+            return None;
+        }
+        Some(vstore.mmap_bytes()[start..end].to_vec())
+    }
+
+    /// Acquire a write lock on the L0 VantaFile for new node writes.
+    pub(crate) fn l0_write(&self) -> parking_lot::RwLockWriteGuard<'_, VantaFile> {
+        self.vector_store[0].write()
+    }
+
+    /// Write a node to L0 and return a packed storage offset (segment_id=0).
+    pub(crate) fn write_node_to_l0(&self, node: &UnifiedNode) -> Result<u64> {
+        let mut vstore = self.vector_store[0].write();
+        let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, node)?;
+        Ok(pack_offset(0, local_off))
     }
 }
 

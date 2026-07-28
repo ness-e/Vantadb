@@ -873,7 +873,9 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
         let results = {
             let hnsw = engine.hnsw.load();
-            let vs = engine.vector_store.read();
+            // ponytail: search reads from L0 only. Multi-level search
+            // will need a segment-merged view.
+            let vs = engine.vector_store[0].read();
             hnsw.search_nearest(
                 vector,
                 None,

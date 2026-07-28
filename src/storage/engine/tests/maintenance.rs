@@ -387,7 +387,7 @@ fn test_trigger_compaction_high_tombstone_fraction() {
         hnsw.nodes.get(&42).map(|n| n.storage_offset).unwrap()
     };
     {
-        let mut vstore = engine.vector_store.write();
+        let mut vstore = engine.vector_store[0].write();
         if let Some(mut header) = vstore.read_header(offset) {
             header.flags |= FLAG_TOMBSTONE;
             vstore.write_header(offset, &header).unwrap();
@@ -883,7 +883,7 @@ fn test_vacuum_with_tombstone() {
         hnsw.nodes.get(&42).map(|n| n.storage_offset).unwrap()
     };
     {
-        let mut vstore = engine.vector_store.write();
+        let mut vstore = engine.vector_store[0].write();
         if let Some(mut header) = vstore.read_header(offset) {
             header.flags |= FLAG_TOMBSTONE;
             vstore.write_header(offset, &header).unwrap();

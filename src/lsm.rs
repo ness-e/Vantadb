@@ -1,10 +1,10 @@
-//! LSM-tree segment types and offset packing.
+//! LSM-tree segment types, offset packing, and multi-level segment registry.
 //!
 //! Provides packed offsets (segment_id in low 6 bits, 64-aligned offset in upper bits),
-//! LSM level identifiers, per-level configuration, and segment metadata.
+//! LSM level identifiers, per-level configuration, segment metadata, and the
+//! [`SegmentRegistry`] which manages multi-level VantaFile lifecycle.
 //!
-//! ponytail: types + packing only — full compaction scheduling lives in Phase 2.
-#![allow(dead_code)]
+//! ponytail: L0 + L1 compaction only — L3 archive tier skipped.
 
 use std::path::PathBuf;
 use std::time::Instant;
@@ -74,6 +74,117 @@ pub(crate) struct SegmentInfo {
     pub size: u64,
     pub last_compacted: Option<Instant>,
     pub tombstone_ratio: f32,
+}
+
+/// Multi-level segment registry that manages the lifecycle of level VantaFiles.
+///
+/// Tracks which segments exist, their levels, and provides a compact
+/// `by_id` lookup (64 entries — 6-bit segment_id, more than enough for 4 levels).
+#[derive(Debug, Clone)]
+pub(crate) struct SegmentRegistry {
+    /// Ordered list of known segments (index is the canonical ordering).
+    pub segments: Vec<SegmentInfo>,
+    /// Fast segment_id → index lookup. `None` means the slot is unused.
+    pub by_id: [Option<usize>; 64],
+}
+
+impl SegmentRegistry {
+    /// Create a new empty registry (no segments).
+    pub fn new() -> Self {
+        Self {
+            segments: Vec::with_capacity(4),
+            by_id: [None; 64],
+        }
+    }
+
+    /// Register a segment by its id, level, and path.
+    /// Returns `None` if the slot is already taken.
+    pub fn register(&mut self, segment_id: u8, level: u8, path: PathBuf) -> Option<usize> {
+        let idx = self.by_id.get(segment_id as usize)?;
+        if idx.is_some() {
+            return None; // slot taken
+        }
+        let idx = self.segments.len();
+        self.segments.push(SegmentInfo {
+            segment_id,
+            level,
+            path,
+            size: 0,
+            last_compacted: None,
+            tombstone_ratio: 0.0,
+        });
+        self.by_id[segment_id as usize] = Some(idx);
+        Some(idx)
+    }
+
+    /// Open or create multi-level VantaFiles for levels L0..=L2.
+    ///
+    /// Detects legacy `vector_store.vanta` and renames to `vstore_L0.vanta`.
+    /// Returns `(Self, Vec<RwLock<VantaFile>>)` with a VantaFile per open/create level.
+    pub fn open_or_create(
+        data_dir: &std::path::Path,
+        config: &crate::storage::engine::SegmentOptimizerConfig,
+    ) -> crate::error::Result<(
+        Self,
+        Vec<parking_lot::RwLock<crate::storage::vfile::VantaFile>>,
+    )> {
+        let mut registry = Self::new();
+        let mut vfiles: Vec<parking_lot::RwLock<crate::storage::vfile::VantaFile>> = Vec::new();
+
+        // Legacy migration: detect vector_store.vanta → rename to vstore_L0.vanta
+        let legacy_path = data_dir.join("vector_store.vanta");
+        let l0_path = data_dir.join(SegmentLevel::L0.file_name());
+        if legacy_path.exists() && !l0_path.exists() {
+            std::fs::rename(&legacy_path, &l0_path).map_err(crate::error::VantaError::IoError)?;
+            tracing::info!(
+                "Migrated legacy vector_store.vanta → {}",
+                SegmentLevel::L0.file_name()
+            );
+        }
+
+        // Open/create L0, L1, L2 — ponytail: L3 archive tier skipped
+        for level in &[SegmentLevel::L0, SegmentLevel::L1, SegmentLevel::L2] {
+            let path = data_dir.join(level.file_name());
+            let vf = crate::storage::vfile::VantaFile::open(path.clone(), 64 * 1024 * 1024)?;
+            registry.register(level.as_u8(), level.as_u8(), path);
+            vfiles.push(parking_lot::RwLock::new(vf));
+        }
+
+        Ok((registry, vfiles))
+    }
+
+    /// How many levels are currently tracked (0-4).
+    pub fn len(&self) -> usize {
+        self.segments.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.segments.is_empty()
+    }
+
+    /// Get the segment_id for the given level.
+    pub fn segment_id_for_level(&self, level: SegmentLevel) -> Option<u8> {
+        self.segments
+            .iter()
+            .find(|s| s.level == level.as_u8())
+            .map(|s| s.segment_id)
+    }
+
+    /// Get the level for the given segment_id.
+    pub fn level_for_segment(&self, segment_id: u8) -> Option<u8> {
+        self.by_id
+            .get(segment_id as usize)
+            .copied()
+            .flatten()
+            .and_then(|idx| self.segments.get(idx))
+            .map(|s| s.level)
+    }
+}
+
+impl Default for SegmentRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Per-level LSM configuration.

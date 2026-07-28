@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added
 
 - IVF Flat index — inverted file with k-means clustering (no external deps). New `IndexType::Ivf` on `HnswConfig`. Lazy-built on first search, serialized in v8 format. ~50× faster than brute-force Flat on 1M vectors at ~90% recall.
+- Multi-level LSM compaction (L0→L1→L2→L3) — `StorageEngine.vector_store` splits into per-level VantaFiles. `SegmentRegistry` handles legacy migration. `compact_level()` promotes live nodes between tiers. New `PipelineMode::CompactOnly`/`CompactL0Only` variants. Write amplification reduced from O(all data) to O(L0 size).
 
 ## [v0.4.0] — 2026-07-20 — Inception Release
 

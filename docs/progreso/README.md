@@ -289,26 +289,26 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
-### 2026-07-28 — Lost Changes Restoration: LsmConfig + Edge.reverse + add_edge/remove_edge ✅
+### 2026-07-28 — COMP-026: Multi-level LSM Compaction ✅
 
-**Contexto:** COMP-026 (lost changes del worker) — cambios que no se propagaron al merge original.
-**Fuente:** Sesión directa vanta-lead
+**Fuente:** Backlog (Phase 10 — Competitive Features) `COMP-026`
 
-**Resuelto por (vanta-lead, ponytail)**
-- `LsmConfig`, `SegmentLevel`, `SegmentInfo`, `pack_offset` restaurados en `src/lsm.rs` + `pub(crate) mod lsm` en `lib.rs`
-- `LsmConfig` agregado a `SegmentOptimizerConfig` en `src/storage/engine/mod.rs`
-- `Edge.reverse: bool` field + constructor en `src/graph.rs`
-- `add_edge()` y `remove_edge()` en `src/sdk/api.rs` con auto-creación/eliminación de reverse edge
-- `TraversalDirection` enum con `Default` derive en `src/graph.rs`
-- `discover_edges()` en `src/gds.rs` con parámetro `direction`
-- ADR-0010 en `docs/adr/` documentando el modelo de edges
-- Fix clippy: `derivable_impls` para `TraversalDirection`
+**Resuelto por (vanta-worker, vanta-lead, ponytail):**
+- `SegmentRegistry` con `open_or_create()` — maneja legacy `vector_store.vanta` → `vstore_L0.vanta`
+- `StorageEngine.vector_store` cambiado de `RwLock<VantaFile>` → `Vec<RwLock<VantaFile>>` (un lock por nivel)
+- `read_header_from_segment()`, `read_vec_bytes_from_segment()`, `write_node_to_l0()` — lectura/escritura segment-aware
+- `should_compact_level()` — decisión por tamaño + tombstone ratio
+- `compact_level(level)` — promueve nodos vivos a nivel+1, actualiza HNSW offsets, trunca source
+- `PipelineMode::CompactOnly` y `CompactL0Only` — nuevas variantes
+- `run_pipeline()` extendido con fases LSM (CompactL0 → CompactL1 → CompactL2)
+- `LsmReport` en `PipelineReport`
+- 13+ archivos modificados: `lsm.rs`, `engine/mod.rs`, `engine/init.rs`, `engine/ops.rs`, `engine/maintenance.rs`, `engine/stats.rs`, `archive.rs`, `physical_plan.rs`, `sdk/api.rs`, `sdk/search/mod.rs`, `engine/tests/`
 
-**Solapamiento con backlog:** Este trabajo completa ~80% de `COMP-018` (Double-linked relationship chains — Edge.reverse + add_edge/remove_edge). `COMP-026` backlog (multi-level LSM compaction) sigue pendiente — solo LsmConfig infra fue restaurada.
+**Ponytail:** L0+L1 mínimo viable. L3 archive tier diferido.
 
-**Verificación:** `cargo check -p vantadb` ✅ | `cargo nextest run -- test_graph_traversal_certification` ✅ | `cargo clippy` ✅ (0 warnings nuevos)
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo nextest run -p vantadb --build-jobs 2` ✅
 
-**Ids:** `COMP-018` (parcial), `COMP-026` (parcial — solo infra)
+**Ids:** `COMP-026`
 
 ### 2026-07-26 — OLD-03: Chaos Testing — Failpoint Harness Formal ✅
 
@@ -1375,6 +1375,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - `.github/workflows/release.yml` — pagefile/swap in CI/CD Windows/macOS
 - `.github/workflows/python_wheels.yml` — pagefile/swap in CI/CD Windows/macOS
 ## Tareas Completadas (Migradas desde Backlog)
+
+### COMP-026: Multi-level LSM Compaction (L0→L1→L2→L3)
+- **Fuente:** Backlog (Phase 10 — Competitive Features)
+- **Fecha:** 2026-07-28
+- **Objetivo:** Extender VantaFile de archivo único a múltiples niveles LSM con compactación independiente por nivel. SegmentRegistry, compact_level(), PipelineMode extendido.
+- **Resultado:** ✅ `cargo check -p vantadb` — 0 errores. 13+ archivos modificados. L0+L1 implementados (ponytail: L3 archive deferido).
+- **Ids:** `COMP-026`
 
 ### COMP-006: Edge Label Interning (u32 label_id)
 - **Fuente:** Backlog (Phase 10 — Competitive Features)

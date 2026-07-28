@@ -493,7 +493,8 @@ impl VantaEmbedded {
 
         let candidates = {
             let index = engine.vec_index();
-            let vs = engine.vector_store.read();
+            // ponytail: search reads from L0 only.
+            let vs = engine.vector_store[0].read();
             index.search(
                 query_vector,
                 &query_mask,

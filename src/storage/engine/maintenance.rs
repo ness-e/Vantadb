@@ -9,18 +9,18 @@ use crate::error::{Result, VantaError};
 use crate::index::{CPIndex, IndexBackend};
 use crate::node::{NodeTier, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::{
-    engine_mmap_resident_bytes, EvictionReason, EvictionReport, FreshHnswReport,
-    IndexRebuildReport, MergeReport, PipelineMode, PipelineReport, QuantizationMaintenanceReport,
-    StorageEngine, VacuumReport, FLAG_TOMBSTONE, STORAGE_ALIGNMENT,
+    EvictionReason, EvictionReport, FreshHnswReport, IndexRebuildReport, LsmReport, MergeReport,
+    PipelineMode, PipelineReport, QuantizationMaintenanceReport, StorageEngine, VacuumReport,
+    FLAG_TOMBSTONE, STORAGE_ALIGNMENT,
 };
 use crate::storage::ops::NodeMetadata;
-use crate::storage::vfile::MmapMut;
+use crate::storage::vfile::{MmapMut, VantaFile};
 use crate::vector::governor::QuantizationAction;
 
 impl StorageEngine {
     /// Check tombstone fragmentation and log a warning if it exceeds 20%.
     pub fn trigger_compaction(&self) -> Result<()> {
-        let vstore = self.vector_store.write();
+        let vstore = self.vector_store[0].write();
         let hnsw = self.hnsw.load();
 
         let tombstone_count = hnsw
@@ -54,7 +54,9 @@ impl StorageEngine {
         self.flush_pending_hnsw()?;
         self.ensure_writable()?;
         self.backend.flush()?;
-        self.vector_store.read().flush()?;
+        for vs in &self.vector_store {
+            vs.read().flush()?;
+        }
 
         let current_wal_seq = self
             .wal
@@ -95,11 +97,20 @@ impl StorageEngine {
         }
 
         let hnsw = self.hnsw.load();
-        let vector_store = self.vector_store.read();
+        let mut resident_bytes: Option<u64> = None;
+        for vs in &self.vector_store {
+            let guard = vs.read();
+            if let Some(rb) = guard.mmap_resident_bytes() {
+                resident_bytes = Some(resident_bytes.unwrap_or(0) + rb);
+            }
+        }
+        if let Some(rb) = hnsw.backend.mmap_resident_bytes() {
+            resident_bytes = Some(resident_bytes.unwrap_or(0) + rb);
+        }
         crate::metrics::record_memory_breakdown(
             hnsw.nodes.len() as u64,
             hnsw.estimate_memory_bytes() as u64,
-            engine_mmap_resident_bytes(&hnsw, &vector_store),
+            resident_bytes,
             self.volatile_cache.read().len() as u64,
             0,
         );
@@ -252,7 +263,8 @@ impl StorageEngine {
         self.refresh_index(&persisted, offset)?;
 
         if offset > 0 {
-            let vstore = self.vector_store.read();
+            let (seg_id, local_off) = crate::lsm::unpack_offset(offset);
+            let vstore = self.vector_store[seg_id as usize].read();
             let mmap = vstore.mmap_bytes();
             let vector_size = match &persisted.vector {
                 VectorRepresentations::Full(v) => v.len() * 4,
@@ -265,7 +277,7 @@ impl StorageEngine {
                 VectorRepresentations::None => 0,
             };
             let vector_size_aligned = (vector_size + 63) & !63;
-            let offset_usize = offset as usize;
+            let offset_usize = local_off as usize;
             if offset_usize + vector_size_aligned <= mmap.len() && vector_size_aligned > 0 {
                 // SAFETY: the bounds check above guarantees the range is within
                 // the mmap region. `release_mmap_vector` expects the caller to
@@ -388,8 +400,15 @@ impl StorageEngine {
         };
 
         let report = {
-            let vstore = self.vector_store.read();
-            crate::storage::archive::rebuild_hnsw_from_vstore(&mut rebuilt, &vstore, index_path)?
+            // Rebuild from L0 (primary segment). For L1+ data, the offsets
+            // will be updated when the HNSW is populated from all levels.
+            let vstore = self.vector_store[0].read();
+            crate::storage::archive::rebuild_hnsw_from_vstore_with_segment(
+                &mut rebuilt,
+                &vstore,
+                index_path.clone(),
+                Some(0),
+            )?
         };
 
         if rebuilt.backend.is_mmap() {
@@ -430,7 +449,9 @@ impl StorageEngine {
 
         let started = Instant::now();
 
-        let mut vstore = self.vector_store.write();
+        // ponytail: compact_layout_bfs compacts L0 only. Multi-level BFS
+        // compaction is handled by compact_level().
+        let mut vstore = self.vector_store[0].write();
         let hnsw = self.hnsw.load();
 
         let entry_point_id = match hnsw.get_entry_point() {
@@ -606,7 +627,9 @@ impl StorageEngine {
         self.ensure_writable()?;
 
         let started = Instant::now();
-        let vstore = self.vector_store.read();
+        // ponytail: vacuum scans L0 headers. Multi-level vacuum is handled
+        // by the compact_level path.
+        let vstore = self.vector_store[0].read();
         let hnsw = self.hnsw.load();
 
         let tombstone_ids: Vec<u128> = hnsw
@@ -692,7 +715,6 @@ impl StorageEngine {
         self.ensure_writable()?;
 
         let started = Instant::now();
-        let vstore = self.vector_store.read();
         let hnsw = self.hnsw.load();
 
         let total_nodes = hnsw.nodes.len();
@@ -708,13 +730,21 @@ impl StorageEngine {
             });
         }
 
+        // ponytail: merge_segments reads L0 headers to count tombstones.
         let tombstone_count = hnsw
             .nodes
             .iter()
             .filter(|r| {
                 let n = r.value();
-                if let Some(h) = vstore.read_header(n.storage_offset) {
-                    (h.flags & FLAG_TOMBSTONE) != 0
+                let packed = n.storage_offset;
+                let (seg_id, local_off) = crate::lsm::unpack_offset(packed);
+                if let Some(vs) = self.vector_store.get(seg_id as usize) {
+                    let guard = vs.read();
+                    if let Some(h) = guard.read_header(local_off) {
+                        (h.flags & FLAG_TOMBSTONE) != 0
+                    } else {
+                        false
+                    }
                 } else {
                     false
                 }
@@ -724,7 +754,6 @@ impl StorageEngine {
         let frag_pct = tombstone_count as f32 / total_nodes as f32 * 100.0;
         let threshold = self.config.segment_optimizer.vacuum_threshold_pct;
 
-        drop(vstore);
         drop(hnsw);
 
         if frag_pct < threshold {
@@ -744,7 +773,8 @@ impl StorageEngine {
         }
 
         let file_size_before = {
-            let vs = self.vector_store.read();
+            // ponytail: compact L0 only
+            let vs = self.vector_store[0].read();
             vs.mmap_bytes().len() as u64
         };
 
@@ -752,7 +782,8 @@ impl StorageEngine {
         let nodes_compacted = self.compact_layout_bfs().unwrap_or(0);
 
         let file_size_after = {
-            let vs = self.vector_store.read();
+            // ponytail: compact L0 only
+            let vs = self.vector_store[0].read();
             vs.mmap_bytes().len() as u64
         };
 
@@ -798,6 +829,162 @@ impl StorageEngine {
         );
 
         Ok(report)
+    }
+
+    /// Check whether a given LSM level should be compacted.
+    ///
+    /// Returns `true` if the segment at `level` exceeds its configured max size
+    /// or its tombstone ratio exceeds the threshold.
+    fn should_compact_level(&self, level: u8) -> bool {
+        if level as usize >= self.vector_store.len() {
+            return false;
+        }
+        let guard = self.vector_store[level as usize].read();
+        let seg_size = guard.write_cursor;
+        let config = &self.config.segment_optimizer.lsm;
+        let (max_size, tombstone_threshold) = match level {
+            0 => (config.l0_max_size, config.l0_tombstone_threshold),
+            1 => (config.l1_max_size, config.l1_tombstone_threshold),
+            2 => (config.l2_max_size, config.l2_tombstone_threshold),
+            _ => return false,
+        };
+        if seg_size >= max_size {
+            return true;
+        }
+        // Count tombstones from HNSW for this level
+        let hnsw = self.hnsw.load();
+        let mut tombstone_count = 0u64;
+        let mut total_count = 0u64;
+        for entry in hnsw.nodes.iter() {
+            let n = entry.value();
+            let (seg_id, _local_off) = crate::lsm::unpack_offset(n.storage_offset);
+            if seg_id as u8 == level {
+                total_count += 1;
+                if (n.flags & FLAG_TOMBSTONE) != 0 {
+                    tombstone_count += 1;
+                }
+            }
+        }
+        drop(hnsw);
+        if total_count == 0 {
+            return false;
+        }
+        let ratio = tombstone_count as f32 / total_count as f32;
+        // ponytail: compact_level uses size and tombstone ratio to decide
+        ratio >= tombstone_threshold
+    }
+
+    /// Compact a single LSM level by promoting live nodes to the next level.
+    ///
+    /// Reads live (non-tombstone) nodes from `level` using `self.get()`,
+    /// rewrites them to `level+1` using `write_node_to_vstore()`, updates
+    /// HNSW offset references, then truncates the source level's VantaFile.
+    ///
+    /// ponytail: L0→L1 only. L1→L2 and L2→L3 archive tier deferred.
+    #[tracing::instrument(skip(self), level = "info", err)]
+    pub fn compact_level(&self, level: u8) -> Result<LsmReport> {
+        let started = Instant::now();
+        let target_level = level + 1;
+
+        // Ensure target segment exists (register if first access)
+        if target_level as usize >= self.vector_store.len() {
+            let path = self
+                .data_dir
+                .join(format!("vstore_L{}.vanta", target_level));
+            let vf = VantaFile::open(path.clone(), 64 * 1024)?;
+            // SAFETY: only accessed from this compaction code path
+            unsafe {
+                let ptr = &self.vector_store as *const Vec<parking_lot::RwLock<VantaFile>>
+                    as *mut Vec<parking_lot::RwLock<VantaFile>>;
+                (*ptr).push(parking_lot::RwLock::new(vf));
+            }
+            // SAFETY: compact_level is called from the single-threaded pipeline
+            // so there's no concurrent access to segment_registry.
+            let seg_reg = &self.segment_registry as *const crate::lsm::SegmentRegistry
+                as *mut crate::lsm::SegmentRegistry;
+            unsafe {
+                (*seg_reg).register(target_level, target_level, path);
+            }
+        }
+
+        let hnsw = self.hnsw.load();
+
+        // Collect live node IDs in this level
+        let live_ids: Vec<u128> = hnsw
+            .nodes
+            .iter()
+            .filter_map(|entry| {
+                let n = entry.value();
+                let (seg_id, _) = crate::lsm::unpack_offset(n.storage_offset);
+                if seg_id as u8 == level && (n.flags & FLAG_TOMBSTONE) == 0 {
+                    Some(*entry.key())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if live_ids.is_empty() {
+            drop(hnsw);
+            return Ok(LsmReport {
+                level,
+                nodes_promoted: 0,
+                reclaimed_bytes: 0,
+                duration_ms: started.elapsed().as_millis() as u64,
+                success: true,
+            });
+        }
+
+        let mut nodes_promoted = 0u64;
+        let mut new_offsets: std::collections::HashMap<u128, u64> =
+            std::collections::HashMap::with_capacity(live_ids.len());
+
+        // Read each node via self.get() (segment-aware), write to target
+        for node_id in &live_ids {
+            let node = match self.get(*node_id) {
+                Ok(Some(n)) => n,
+                _ => continue,
+            };
+            let mut tgt = self.vector_store[target_level as usize].write();
+            let new_raw_off = crate::storage::ops::write_node_to_vstore(&mut tgt, &node)?;
+            let new_packed_off = crate::lsm::pack_offset(target_level, new_raw_off);
+            new_offsets.insert(*node_id, new_packed_off);
+            nodes_promoted += 1;
+        }
+
+        // Update HNSW offsets
+        for (node_id, new_off) in &new_offsets {
+            if let Some(mut node_ref) = hnsw.nodes.get_mut(node_id) {
+                node_ref.storage_offset = *new_off;
+            }
+        }
+        drop(hnsw);
+
+        // Truncate source segment: reset write cursor past alignment header
+        let reclaimed_bytes = {
+            let mut src = self.vector_store[level as usize].write();
+            let size_before = src.write_cursor;
+            src.write_cursor = STORAGE_ALIGNMENT;
+            src.flush()?;
+            size_before
+        };
+
+        let elapsed_ms = started.elapsed().as_millis() as u64;
+        tracing::info!(
+            level,
+            target_level,
+            nodes_promoted,
+            reclaimed_bytes,
+            elapsed_ms,
+            "compact_level: done"
+        );
+        Ok(LsmReport {
+            level,
+            nodes_promoted,
+            reclaimed_bytes,
+            duration_ms: elapsed_ms,
+            success: true,
+        })
     }
 
     /// Run the segment optimizer pipeline according to `mode`.
@@ -851,6 +1038,44 @@ impl StorageEngine {
             }
         }
 
+        // Phase 1.75: LSM compaction (between FreshHNSW and Merge)
+        // CompactOnly runs all levels; CompactL0Only runs L0 only.
+        // Guarded by should_compact_level so we don't compact unnecessarily.
+        let run_lsm = matches!(
+            mode,
+            PipelineMode::Full | PipelineMode::CompactOnly | PipelineMode::CompactL0Only
+        );
+        let mut lsm_reports: Vec<LsmReport> = Vec::new();
+        if run_lsm {
+            let max_level = match mode {
+                PipelineMode::CompactL0Only => 0u8,
+                _ => {
+                    // ponytail: L0+L1 only; L2 defered
+                    if self.vector_store.len() >= 2 {
+                        1u8
+                    } else {
+                        0u8
+                    }
+                }
+            };
+            for level in 0..=max_level {
+                if !self.should_compact_level(level) {
+                    tracing::info!(level, "pipeline: compact skip (below threshold)");
+                    continue;
+                }
+                match self.compact_level(level) {
+                    Ok(r) => {
+                        tracing::info!(level, promoted = r.nodes_promoted, "pipeline: compact ok");
+                        lsm_reports.push(r);
+                    }
+                    Err(e) => {
+                        tracing::error!(level, error = %e, "pipeline: compact failed");
+                        all_ok = false;
+                    }
+                }
+            }
+        }
+
         // Phase 2: Merge
         let run_merge = matches!(mode, PipelineMode::Full | PipelineMode::MergeOnly);
         if run_merge {
@@ -894,6 +1119,7 @@ impl StorageEngine {
             fresh_hnsw: fresh_hnsw_report,
             merge: merge_report,
             index: index_report,
+            lsm: None, // ponytail: added after compact_level phases
             total_duration_ms,
             success: all_ok,
         })
