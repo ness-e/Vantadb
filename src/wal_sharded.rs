@@ -90,12 +90,19 @@ impl ShardedWal {
     }
 
     /// Replay all records across all shards, skipping those at or below
-    /// `checkpoint_seq` per shard.
+    /// `checkpoint_seq` (a global seq number across all shards).
+    ///
+    /// Since records are distributed round-robin across shards, each shard
+    /// skips at most `ceil(checkpoint_seq / num_shards)` of its own records,
+    /// with the first `checkpoint_seq % num_shards` shards skipping one extra.
     pub fn recover(
         &self,
         checkpoint_seq: u64,
         mut f: impl FnMut(WalRecord) -> Result<()>,
     ) -> Result<()> {
+        let skip_base = checkpoint_seq / self.num_shards as u64;
+        let extra_shards = checkpoint_seq % self.num_shards as u64;
+
         for (i, shard) in self.shards.iter().enumerate() {
             let path = {
                 let guard = shard.lock();
@@ -107,10 +114,12 @@ impl ShardedWal {
             let mut reader = WalReader::open(&path).map_err(|e| {
                 VantaError::wal_error(format!("Failed to open shard {} for recovery: {}", i, e))
             })?;
+
+            let shard_skip = skip_base + if (i as u64) < extra_shards { 1 } else { 0 };
             let mut current_seq = 0u64;
             while let Some(record) = reader.next_record()? {
                 current_seq += 1;
-                if current_seq <= checkpoint_seq {
+                if current_seq <= shard_skip {
                     continue;
                 }
                 f(record)?;
@@ -486,7 +495,8 @@ mod tests {
         sw.append(&make_record(20)).unwrap();
         sw.flush_all().unwrap();
 
-        // checkpoint_seq=5 → per-shard seq (1) ≤ 5 → all skipped
+        // checkpoint_seq=5, num_shards=2 → skip_base=2, extra=1
+        // shard0 skips 3, shard1 skips 2; both have 1 record → all skipped
         let mut recovered = Vec::new();
         sw.recover(5, |record| {
             recovered.push(record);
@@ -496,6 +506,35 @@ mod tests {
 
         assert!(recovered.is_empty());
         clean_shards(&path, 2);
+    }
+
+    #[test]
+    fn test_recover_checkpoint_global_seq_4_shards() {
+        let path = test_wal_path();
+        let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
+
+        // Write 8 records (2 per shard via round-robin)
+        for i in 1..=8 {
+            sw.append(&make_record(i)).unwrap();
+        }
+        sw.flush_all().unwrap();
+
+        // checkpoint_seq=5 → skip globally first 5 records
+        // skip_base=5/4=1, extra=1 → shard0 skips 2, shards1-3 skip 1 each
+        // shard0: seq 1,2 → skip both (0 records recovered)
+        // shard1: seq 1 → skip, seq 2 → recover (1 record: global #6)
+        // shard2: seq 1 → skip, seq 2 → recover (1 record: global #7)
+        // shard3: seq 1 → skip, seq 2 → recover (1 record: global #8)
+        // total recovered = 3 records (global #6, #7, #8)
+        let mut recovered = Vec::new();
+        sw.recover(5, |record| {
+            recovered.push(record);
+            Ok(())
+        })
+        .unwrap();
+
+        assert_eq!(recovered.len(), 3, "checkpoint_seq=5 skips first 5 of 8 round-robin records, 3 remain");
+        clean_shards(&path, 4);
     }
 
     #[test]

@@ -46,6 +46,8 @@ tags: [vantadb, documentation, index, master-index]
 | [STORAGE_VERSIONING.md](architecture/STORAGE_VERSIONING.md) | Storage versioning strategy |
 | [EXPERIMENTAL_GOVERNANCE_DESIGN.md](architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md) | Experimental governance design |
 | [LISP_ANALYSIS.md](architecture/LISP_ANALYSIS.md) | LISP query language analysis |
+| [WASM_STORAGE_REVIEW.md](architecture/WASM_STORAGE_REVIEW.md) | WASM storage backends review and audit |
+| [COMP-026: LSM Compaction](architecture/adr/COMP-026-lsm-compaction-design.md) | Multi-level LSM compaction design (proposed ADR) |
 
 ---
 

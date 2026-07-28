@@ -318,11 +318,19 @@ impl WalWriter {
     }
 
     /// Conditionally sync based on sync mode and flush threshold.
+    /// Default threshold for `Periodic` when none is configured: 1 (sync every write)
+    /// to avoid losing more than one record on crash.
+    const DEFAULT_PERIODIC_THRESHOLD: u64 = 1;
+
     fn maybe_sync(&mut self) -> Result<()> {
         if self.sync_mode == crate::config::SyncMode::Always {
             self.sync()?;
-        } else if let Some(threshold) = self.flush_threshold {
-            if self.records_since_sync >= threshold as u64 {
+        } else {
+            let threshold = self
+                .flush_threshold
+                .map(|t| t as u64)
+                .unwrap_or(Self::DEFAULT_PERIODIC_THRESHOLD);
+            if self.records_since_sync >= threshold {
                 self.sync()?;
             }
         }

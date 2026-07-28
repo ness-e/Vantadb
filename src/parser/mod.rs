@@ -8,7 +8,7 @@ use nom::{
     character::complete::{alpha1, alphanumeric1, char, digit1, multispace0},
     combinator::{map, map_res, opt, recognize},
     multi::{many0, separated_list1},
-    number::complete::float,
+    number::complete::{double, float},
     sequence::{delimited, tuple},
     IResult, Parser,
 };
@@ -91,8 +91,12 @@ fn parse_literal_field_value(i: &str) -> IResult<&str, FieldValue> {
         map(ws(tag("true")), |_| FieldValue::Bool(true)),
         map(ws(tag("false")), |_| FieldValue::Bool(false)),
         map(ws(tag("null")), |_| FieldValue::Null),
+        // double BEFORE parse_i64: "3.14" should be Float(3.14), not Int(3).
+        // double handles both integer and float literals; integer-only
+        // strings like "42" parse as Float(42.0) — semantically correct
+        // and no precision loss for values up to 2^53.
+        map(ws(double), FieldValue::Float),
         map(ws(parse_i64), FieldValue::Int),
-        map(ws(float), |f: f32| FieldValue::Float(f as f64)),
     ))(i)
 }
 
@@ -702,15 +706,17 @@ mod tests {
 
     #[test]
     fn test_parse_literal_field_value_float() {
-        // NOTE: digit1 in parse_i64 greedily matches before float gets a shot
-        // "3.14" parses as Int(3) not Float(3.14). Use float() directly to verify.
+        // double now comes BEFORE parse_i64 in alt(), so "3.14" → Float(3.14)
         let val = parse_literal_field_value("3.14").unwrap().1;
-        // parse_i64 matches first → Int(3), ".14" remaining
-        assert_eq!(val, FieldValue::Int(3));
+        assert_eq!(val, FieldValue::Float(3.14));
 
-        // Verify the float parser works directly
-        let (remaining, f) = float::<&str, nom::error::Error<&str>>("1.5").unwrap();
-        assert!((f - 1.5).abs() < 1e-5);
+        // Integer literals still parse via double → Float (e.g. 42 → Float(42.0))
+        let val2 = parse_literal_field_value("42").unwrap().1;
+        assert_eq!(val2, FieldValue::Float(42.0));
+
+        // Verify the double parser works directly
+        let (remaining, f) = double::<&str, nom::error::Error<&str>>("1.5").unwrap();
+        assert!((f - 1.5).abs() < 1e-10);
         assert_eq!(remaining, "");
     }
 
@@ -1368,10 +1374,10 @@ mod tests {
 
     #[test]
     fn test_parse_field_assign_float() {
-        // Same as literal: digit1 in parse_i64 consumes "3" before float reaches "3.14"
+        // double now comes before parse_i64: "3.14" → Float(3.14)
         let (_, (k, v)) = parse_field_assign("price: 3.14").unwrap();
         assert_eq!(k, "price");
-        assert_eq!(v, FieldValue::Int(3));
+        assert_eq!(v, FieldValue::Float(3.14));
     }
 
     #[test]
