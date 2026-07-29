@@ -21,7 +21,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 
 | Phase | Items | Est. Effort | Priority |
 |-------|-------|-------------|----------|
-| **P0** 🚀 Release Blockers | 2 (+6 ✅ completados, +6 removidos) | ~3-5d | 🔴 Bloqueante |
+| **P0** 🚀 Release Blockers | 1 (+6 ✅ completados, +7 removidos, 1 WONTFIX) | ~2-3d | 🔴 Bloqueante |
 | **P1** 🛡️ Security & Critical | 0 (todos resueltos/deferidos) | — | ✅ Cerrado |
 | **P2** ⚡ Quick Wins Técnicos | 0 (7 ✅ + 24 stale removidos) | — | ✅ Cerrado |
 | **P3** 🧪 Test Coverage (adapters) | 0 (7 ✅ + 7 stale removidos) | — | ✅ Cerrado |
@@ -61,11 +61,10 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 > Items que bloquean un release público seguro. Resolver antes de cualquier publicación.
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
-|----|-------------|----------|----------|------|
-| `DEVOPS-15` | **Reducir default features de 7 a 3** — Código actual tiene 7 (`cli, arrow, fjall, advanced-tokenizer, memmap2, fs2, sysinfo`). La tarea original decía 9→3, pero solo `prometheus`/`rayon` fueron removidos. Pendiente: `cli, memmap2, fs2, sysinfo`. | `Cargo.toml:89` | 🟡 1d | 🔴 Bloqueante |
-| `META-001` | **🔍 Root Cause Analysis: Inconsistencias del Backlog** — Auditoría profunda de POR QUÉ 10+ items no se completaron, fueron diferidos/salteados, o tienen estado incorrecto en el backlog vs código real. Ver `docs/audit-reports/backlog-validation-2026-07-28.md` para datos completos. **Alcance:** (1) DEVOPS-15: por qué 7 features siguen presentes pese a tarea asignada. (2) LEG-01: por qué trademark nunca se inició (barrera legal/económica/técnica?). (3) WEB-001: por qué el playground es simulador en vez de WASM real. (4) COMP-019/021/025/026/028/029: por qué features competitivas críticas fueron diferidas o nunca arrancadas (¿dependencias no resueltas? ¿scope creep? ¿WONTFIX no documentado?). (5) Patrón de falsos negativos: por qué MKT-15, COMP-018, NUEVO-17, NUEVO-07 aparecen como "no implementado" cuando el código dice lo contrario (¿falta de sync post-implementación? ¿sub-agentes que no actualizan backlog?). (6) Por qué OLD-20 quedó parcial (CacheWarner 70% pero no conectado). (7) Por qué OLD-21 y COMP-026 están en estado "deferido" sin fecha ni trigger documentado. (8) Por qué 3 planes WONTFIX no tienen ADR formal documentando la decisión. **Entregable:** Reporte de hallazgos con causas raíz categorizadas, recomendaciones de proceso (automatización de verificación de backlog, gates de actualización post-implementación, política de deferimiento), y acciones correctivas priorizadas. | `docs/audit-reports/backlog-validation-2026-07-28.md`, `docs/Backlog.md`, `docs/plans/*.md`, `.opencode/tasks/COMP-010.md` | 🟠 2-3d | 🔴 Bloqueante |
+| ~~`DEVOPS-15`~~ | ~~**Reducir default features de 7 a 3** — ❌ **WONTFIX**. Analizado: remover `cli, memmap2, fs2, sysinfo` rompe UX "it just works". Las 7 features mantienen experiencia completa. | `Cargo.toml:89` | 🟡 — | ✅ Cerrado |~~
+| `META-001` | **🔍 Root Cause Analysis: Inconsistencias del Backlog** — Auditoría profunda de POR QUÉ 10+ items no se completaron, fueron diferidos/salteados, o tienen estado incorrecto en el backlog vs código real. Ver `docs/audit-reports/backlog-validation-2026-07-28.md` para datos completos. **Alcance:** (1) ~~DEVOPS-15~~ ✅ DOCUMENTADO como WONTFIX en sesión Jul 29. (2) LEG-01: por qué trademark nunca se inició (barrera legal/económica/técnica?). (3) WEB-001: por qué el playground es simulador en vez de WASM real. (4) COMP-019/021/025/026/028/029: por qué features competitivas críticas fueron diferidas o nunca arrancadas (¿dependencias no resueltas? ¿scope creep? ¿WONTFIX no documentado?). (5) Patrón de falsos negativos: por qué MKT-15, COMP-018, NUEVO-17, NUEVO-07 aparecen como "no implementado" cuando el código dice lo contrario (¿falta de sync post-implementación? ¿sub-agentes que no actualizan backlog?). (6) Por qué OLD-20 quedó parcial (CacheWarner 70% pero no conectado). (7) Por qué OLD-21 y COMP-026 están en estado "deferido" sin fecha ni trigger documentado. (8) Por qué 3 planes WONTFIX no tienen ADR formal documentando la decisión. **Entregable:** Reporte de hallazgos con causas raíz categorizadas, recomendaciones de proceso (automatización de verificación de backlog, gates de actualización post-implementación, política de deferimiento), y acciones correctivas priorizadas. | `docs/audit-reports/backlog-validation-2026-07-28.md`, `docs/Backlog.md`, `docs/plans/*.md`, `.opencode/tasks/COMP-010.md` | 🟠 2-3d | 🔴 Bloqueante |
 
-> **Items removidos (6):** DEVOPS-10 (deferido, no bloqueante), DEVOPS-12 (PyPI signing), DEVOPS-14 ✅, NUEVO-09 ✅, NUEVO-10 ✅, DEVOPS-15 re-opened tras verificación (código tiene 7 defaults, no 3).
+> **Items removidos (7):** DEVOPS-10 (deferido), DEVOPS-12 (PyPI signing), DEVOPS-14 ✅, NUEVO-09 ✅, NUEVO-10 ✅, ~~DEVOPS-15 re-opened~~ → ❌ **WONTFIX** (7 features necesarias para UX completo), META-001 queda como único P0 activo.
 
 ---
 
@@ -223,7 +222,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | ~~`COMP-026`~~ | ~~**Multi-level LSM compaction (L0→L1→L2→L3)** — SegmentRegistry, compact_level(), PipelineMode::CompactOnly/L0Only in run_pipeline. 13+ archivos modificados. `cargo check -p vantadb` ✅~~  | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | COMP-013 |
 | ~~`COMP-027`~~ | ~~**Multiple index types (IVF, DiskANN, SCANN)** — FlatIndex (brute-force), DiskAnnIndex (Vamana graph + robust pruning), ScannIndex (SQ8 scalar quantization). IndexType enum extendido: `Flat`, `DiskAnn`, `Scann`. `create_index()` factory. 15 tests pasan.~~ | ~~🟠 5-10d~~ | ~~✅ COMPLETADA~~ | ~~COMP-008~~ |
 | `COMP-028` | Semantic Cost Estimator (SCE) — `governor.rs` tiene rate limiting, sin cost estimator | 🟡 2 sem | ❌ No implementado | DRV-121/122 |
-| `COMP-029` | Node.js/TS bindings via napi-rs — `vantadb-ts` usa WASM, no napi-rs nativo | 🟡 2-3 sem | ❌ No implementado | Ninguna |
+| `COMP-029` | **Node.js/TS bindings via napi-rs** — `vantadb-ts` usa WASM, no napi-rs nativo. **Investigación Jul 29:** ✅ Recomendado como backend ADICIONAL a WASM (no reemplazo). 80% reutilizable de `vantadb-python` (mismo patrón `VantaEmbedded.clone()`). Persistencia real (fjall/WAL/fsync) en Node.js — WASM no puede. Sin breaking changes en API pública. ~1500 líneas nuevas, ~2-3 sem. Browser se queda con WASM. | 🟡 2-3 sem | ⚠️ Investigado, listo para implementar | Ninguna |
 
 ---
 

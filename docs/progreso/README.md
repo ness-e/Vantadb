@@ -2641,7 +2641,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 | ID | Tarea | Archivos | Resultado |
 |----|-------|----------|-----------|
-| `DEVOPS-15` | Optimizar default features Cargo.toml | `Cargo.toml:89` | ✅ Default reducido de 9 a 3 features (`arrow`, `fjall`, `advanced-tokenizer`). `cargo check -p vantadb` y `cargo check --no-default-features` compilan. |
+| `DEVOPS-15` | Optimizar default features Cargo.toml | `Cargo.toml:89` | ❌ **WONTFIX** — Analizado y NO aplicado. Reducir de 7 a 3 features (`cli`, `memmap2`, `fs2`, `sysinfo`) rompe experiencia "it just works". 7 features mantienen UX completo. |
 | `REV-014` | Dependabot PRs → develop branch | `.github/dependabot.yml` | ✅ `target-branch: develop` agregado a los 4 ecosystems (cargo, npm, github-actions, docker). |
 | `DRV-125` | Tests Miri para 30+ usos unsafe en src/index/ | `src/index/distance.rs`, `search.rs`, `graph.rs`, `serialize.rs` | ✅ **21 tests Miri pre-existentes** verificados: 5 en distance.rs, 3 en graph.rs, 6 en search.rs, 7 en serialize.rs. Cubren todos los patrones unsafe. |
 | `DEVOPS-10` | Windows code signing (SmartScreen) | `release-binaries-63.yml` | 🔵 DEFERIDO (ponytail). SHA256 + .zip dan integridad básica. Agregar Azure Trusted Signing cuando release público lo requiera. Step YAML preparado en task file. |
@@ -2782,7 +2782,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 | Fase | Acción | Items |
 |------|--------|-------|
-| **P0** | 6 stale removidos + 1 re-abierto (DEVOPS-15 default features) | `DEVOPS-10/12/14`, `NUEVO-09/10` removidos. `DEVOPS-15` re-abierto (código tiene 7 defaults, no 3) |
+| **P0** | 6 stale removidos + 1 WONTFIX (DEVOPS-15) | `DEVOPS-10/12/14`, `NUEVO-09/10` removidos. `DEVOPS-15` WONTFIX — 7 features necesarias para experiencia "it just works" |
 | **P1** | Fase completa cerrada (9 items resueltos/deferidos) | `RC-06`, `SEC-13/15/16/17`, `VFY-010/14/15/16` |
 | **P2** | 7 ✅ + 24 stale a progreso | `DRV-014/028/041/136`, `VFY-006/007`, `REV-012` + 24 crates de integración nunca implementados |
 | **P3** | 7 ✅ + 7 stale a progreso | `DRV-013/017/061/067/073`, `TEST-11/12` + 7 stale |
@@ -2793,7 +2793,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Impacto:** Backlog total ~120→~65 items activos. 5 fases cerradas (P1–P4, P7). Exec Summary actualizado.
 
-**Verificación:** Cada item verificado contra código real antes de mover. `DEVOPS-15` re-abierto tras detectar discrepancia en `Cargo.toml:89`.
+**Verificación:** Cada item verificado contra código real antes de mover. `DEVOPS-15` re-abierto tras detectar discrepancia en `Cargo.toml:89`, luego marcado WONTFIX — reducir features rompe UX "it just works".
 
 ### 2026-07-27 — P5/P6/P8 Quick Wins: 8 tareas ejecutadas
 
@@ -2871,5 +2871,27 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | `COMP-009` | Formato `.vdbdump` (magic `VDBJSON\n` + version + count + serde_json body), `bulk_import_stream()` bypass validación, `bulk_import_file()`, `bulk_commit_interval` en config. Python: `VantaDB.bulk_import()` + `VantaDB.bulk_import_bytes()`. WASM: `VantaDB.bulk_import()` + `VantaDB.bulk_import_bytes()` | `src/sdk/api.rs`, `src/config.rs`, `vantadb-python/src/lib.rs`, `vantadb-python/src/convert.rs`, `vantadb-python/vantadb_py/__init__.py`, `vantadb-wasm/src/lib.rs`, `docs/Backlog.md`, `.opencode/skills/campaign-executor/tasks/COMP-009.md` | ✅ `BulkImportReport` struct + bulk_import_stream + bulk_import_file. Python async wrappers. WASM Uint8Array binding. 3 tests pasando. `bulk_commit_interval` configurable |
 
 **Verificación:** `cargo check` (workspace completo) ✅ | `cargo test -p vantadb -- tests::test_bulk_` 3/3 ✅
+
+---
+
+### 2026-07-28 — ECO-001: Remove dead Claude Code hooks
+
+**Objetivo:** Eliminar hooks muertos de Claude Code (`.opencode/hooks/hooks.json` y `session-start.sh`) que nunca se ejecutan en OpenCode/Windows.
+
+| ID | Tarea | Resultado | Evidencia |
+|----|-------|-----------|-----------|
+| `ECO-001` | Remove dead Claude Code hooks (C1) | ✅ COMPLETED | Commit `cf623e5c`. Archivos eliminados de `.opencode/hooks/`. Blast radius: cero. |
+
+**Verificación:** `Test-Path ".opencode/hooks"` → False ✅ | `git log --oneline -1` → `cf623e5c chore: remove dead Claude Code hooks (ECO-001)` ✅
+
+### 2026-07-28 — ECO-002: Fix --no-verify contradiction in AGENTS.md
+
+**Objetivo:** Eliminar contradicción en AGENTS.md donde Regla 1 prohibía `--no-verify` pero Regla 7 lo autorizaba para cambios triviales.
+
+| ID | Tarea | Resultado | Evidencia |
+|----|-------|-----------|-----------|
+| `ECO-002` | Fix --no-verify contradiction in AGENTS.md (C3) | ✅ COMPLETED | Regla B (línea 967 original) ya eliminada. Solo queda Regla A (`grep --no-verify .opencode/AGENTS.md` → 1 match: prohibición en línea 791). `.antigravity/AGENTS.md` idéntico. |
+
+**Verificación:** `grep "trivial.*CI\|no-verify.*trivial" .opencode/AGENTS.md` → 0 matches ✅ | `grep "trivial.*CI\|no-verify.*trivial" .antigravity/AGENTS.md` → 0 matches ✅
 
 

@@ -700,9 +700,9 @@ Items evaluados y decididos como no resolver:
 - NUEVO-10 ✅ benchmark suite ya existe con perf-bench-40.yml y resultados
 - NUEVO-20 ✅ Dockerfile multi-stage ya existe
 - TSK-106 ❌ SKIP (GitHub Discussions requiere humano)
-- NUEVO-01 ✅ benchmarks ya en README
+- NUEVO-01 ❌ RESET — Página web cambió, README hero reemplazado. Tarea desde cero en backlog.
 - NUEVO-07 ✅ migration scripts en `vantadb_py/migrate/`
-- MKT-14 ✅ scaffold de `/case-studies`
+- MKT-14 ❌ RESET — Página web cambió, case studies a rediseñar desde cero. Tarea en backlog.
 - TSK-107 ✅ scaffold de `/showcase`
 - Resto: learning path (NUEVO-08) o feature work (ACID Phase 2-3, PQ, LSM, sparse vectors, HNSW PID, enterprise crate, pooling)
 
