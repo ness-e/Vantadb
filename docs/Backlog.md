@@ -26,10 +26,10 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | **P2** ⚡ Quick Wins Técnicos | 0 (7 ✅ + 24 stale removidos) | — | ✅ Cerrado |
 | **P3** 🧪 Test Coverage (adapters) | 0 (7 ✅ + 7 stale removidos) | — | ✅ Cerrado |
 | **P4** 🔧 Engineering Health | 0 (10 ✅ removidos a progreso) | — | ✅ Cerrado |
-| **P5** 📖 Docs & Community | 6 (+3 ✅ completados, +2 ⚠️ parcial) | ~1-2 semanas | 🟡 Media |
+| **P5** 📖 Docs & Community | 8 (+2 ✅ completados) | ~1-2 semanas | 🟡 Media |
 | **P6** 🚀 Launch Campaign | 8 (+2 ✅ completados) | ~1-2 semanas | 🟡 Media |
 | **P7** 🌐 WASM & Performance | 0 (todos completados) | — | ✅ Cerrado |
-| **P8** 🔮 Post-Launch & Enterprise | 7 (+4 ✅ completados) | ~3-5 semanas | 🔵 Futuro |
+| **P8** 🔮 Post-Launch & Enterprise | 19 (+7 ✅ completados, 1 removido) | ~3-5 semanas | 🔵 Futuro |
 | **P9** 📚 Old Docs Rescue (reference) | 13 (7 ✅ progreso) | — | 📖 Referencia |
 | **P10** 🏗️ Competitive Features (catalog) | 20 (11 ✅ progreso) | — | 🗺️ Roadmap |
 
@@ -148,6 +148,19 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | `WEB-001` | **Implementar WASM demo en `/playground`** — El CodePlayground actual es un simulador, no corre WASM real. La demo WASM anterior estaba en `web_old/` (eliminada). Reconstruir requiere integrar `@vantadb/wasm` en el componente. | 🟡 1-2d | 🟡 | ❌ Desde cero — CodePlayground existe pero sin WASM real |
 | `WEB-18` | **⚠️ Definir pricing y estrategia de monetización** — El archivo `docs/web/standards/product-positioning.md` y `vanta-data.ts` tienen un plan "Team $49/mes por seat" que NO existe en `docs/strategy/GO_TO_MARKET.md`. Decidir: (a) agregar Team $49 a la estrategia GTM, (b) alinear vanta-data.ts con los planes reales de GO_TO_MARKET.md, o (c) eliminar pricing del sitio hasta definir. | 🟡 2-4h | 🔴 |
 
+| `DESKTOP-01` | **🔍 Investigar Tauri como plataforma desktop para VantaDB** — Análisis de propuesta: integración nativa Rust (`vantadb` como dependency directa en Cargo.toml de Tauri), casos de uso (desktop AI app privada con memoria local), comparativa vs Electron (requiere TS SDK), effort estimate para MVP desktop, y recomendación de arquitectura. **Origen:** investigación previa en `docs_backup_2026-06-30/Investigaciones/VantaDB_Investigacion_Contexto_GTM.md` (líneas 966-976, prioridad 🔴). | 🟡 3-5d | 🔵 |
+| `SDK-01` | **`delete_by_filter()` — Implementar desde cero** — Eliminar múltiples registros por metadata filter. Recuperar feature que existió como CLI handler (`cmd_delete_by_filter`) pero fue eliminado en AUD-09 (`e9371ea8`). **Nunca existió en el SDK programático.** Implementar `VantaEmbedded::delete_by_filter()` en `src/sdk/api.rs` + exponer vía PyO3 (`vantadb-python/src/lib.rs`) + WASM (`vantadb-wasm/src/lib.rs`) + CLI. | 🟡 3-5d | 🟠 |
+| `SDK-02` | **`similar_to_key()` — Implementar desde cero** — Búsqueda por similitud usando el vector de un registro existente (find similar by key). **Nunca implementado en ningún lenguaje.** Solo documentado en `docs/api/PYTHON_SDK.md` como "(not yet exposed)". Implementar `VantaEmbedded::similar_to_key()` en Rust SDK + CLI + Python + WASM. | 🟡 3-5d | 🟠 |
+| `SDK-03` | **`count()` con filtros — Implementar desde cero** — Contar registros en un namespace, opcionalmente filtrado por metadata. Recuperar feature que existió como CLI handler (`cmd_count`) eliminado en AUD-09. **Nunca fue SDK público.** Helper interno `count_memory_records_from()` existe en engine pero no es accesible vía SDK. | 🟡 1-2d | 🟠 |
+| `SDK-04` | **Multi-namespace search — Implementar desde cero** — Buscar en múltiples namespaces simultáneamente. **Nunca implementado.** `VantaMemorySearchRequest` siempre ha tenido `namespace: String` (singular). Diseñar e implementar: `namespaces: Vec<String>`, merge top_k por score, backward compat, CLI comma-separated, bindings Python/WASM. | 🟡 4-7d | 🟡 |
+| `SDK-05` | **Expanded metadata filters en SDK — Exponer 6 operadores** — Engine (`src/query.rs`, `src/physical_plan.rs`) ya tiene todos los operadores (`Eq, Neq, Gt, Lt, Gte, Lte`). El SDK (`src/sdk/serialization/mod.rs:368`) solo hace flat equality `==`. Implementar `FilterOperator` enum, `MemoryFilter` struct, `evaluate_filter_exprs()` en SDK layer + exponer en Python/WASM. **Tutoriales ya documentan estos filters como si existieran** (`docs/tutorials/01-ai-agent-memory.md:110`, `02-local-rag-pipeline.md:317`). **Depende de:** `REC-001` (VantaFilterOp types foundation). | 🟡 5-10d | 🟠 |
+| `REC-001` | **[Foundation] Definir `VantaFilterOp` + `VantaMemoryFilter` types** — Base para todos los filtros del SDK. `VantaFilterOp` enum con 6 variantes (Eq, Neq, Gt, Lt, Gte, Lte), `VantaMemoryFilterItem` struct, `VantaMemoryFilter = Vec<...>`. Desbloquea: SDK-01, SDK-03, SDK-05. **Nuevo — identificado en auditoría 2026-07-28.** | 🟢 2-3h | 🔴 |
+| `REC-007` | **WAL compaction + vacuum CLI** — Binding directo de funciones existentes (`VantaEmbedded::compact_wal()`, `VantaEmbedded::vacuum()`) a CLI. `vanta-cli wal compact` + `vanta-cli wal vacuum`. Sin lógica nueva. **Nuevo — identificado en auditoría 2026-07-28.** | 🟢 1-2h | 🟠 |
+| `REC-008` | **[Diseño] Incremental backup + PITR CLI** — Solo diseño. Documento de arquitectura para backup incremental usando WAL archiver existente como base. Conectar `PitrRestorer` (ya implementado, feature-gated `pitr`) a CLI. **Sin implementación — solo plan + ADR.** | 🟡 1d | 🟡 |
+| `REC-009` | **[Investigación] Analizar viabilidad PQ (Product Quantization)** — SQ8 + SCANN existen. PQ 96x no. Evaluar tradeoffs vs stack actual. Relacionado con `NUEVO-16` (PQ). **Sin implementación — solo análisis.** | 🟢 2-4h | 🟡 |
+| ~~`REC-010`~~ | ~~**py.typed marker + config maturin** — 2 `.pyi` stubs existían pero `py.typed` no. PEP 561 non-compliant. Creado `py.typed` + configurado `[tool.maturin] include` en `pyproject.toml`. **✅ COMPLETADA 2026-07-29.**~~ | ~~🟢 30min~~ | ✅ |
+| `REC-999` | **Corregir `docs/progreso/README.md`** — Tasks marcadas como ✅ que no existen o fueron eliminadas. Pasar a ⚠️/❌ según realidad verificada en auditoría 2026-07-28. | 🟢 30min | 🟢 |
+
 > **Items removidos (1):** NUEVO-20 (Dockerfile ya existe en raíz del repo — multi-stage, Rust 1.94)
 
 ---
@@ -235,12 +248,16 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 - **COMP items:** `docs/audit-reports/competitive-features-consolidated-report.md` + `docs/audit-reports/deep-analysis-{vector,graph,arch}.md` — 27 archivos, 172 features, top 30 priorizados
 
 === RECITATION ===
-Campaign ID: bd4aca29-11d5-4e4c-9c4d-3111135f58cc
-Objetivo activo: RESTAURAR cambios perdidos COMP-026 (lost changes) + actualizar backlog/progreso
-Estado: completed
-Última acción: LsmConfig + Edge.reverse + add_edge/remove_edge + TraversalDirection restaurados. COMP-018 backlog actualizado a ⚠️ Parcial. Progreso entry creado.
-Resultado: ✅ cargo check, graph_traversal_certification, clippy pasan. Backlog COMP-018 actualizado.
-Próxima acción: Usuario decide — (a) completar bindings WASM/Python para COMP-018, (b) arrancar COMP-026 LSM multi-level, (c) otra tarea
-Contrato: COMP-018 updates: Edge.reverse + add_edge/remove_edge auto-reverse + TraversalDirection compilan y tests pasan
-Próxima tarea si continua: COMP-018 bindings WASM/Python o COMP-026 LSM compaction
+Session: 2026-07-28 — SDK Gap Audit + Recovery Plan
+Campaign: auditoría-sdk-2026-07-28
+Objetivo: Investigar 12 puntos sobre SDK/CLI missing features contra código real y git history.
+Estado: ✅ COMPLETED
+Hallazgo clave: delete_by_filter(), count(), similar_to_key() NUNCA existieron como SDK — solo CLI handlers eliminados en AUD-09 (e9371ea8). Multi-namespace solo en tipos de output report.
+Outputs:
+- `docs/plans/2026-07-28-recovery-plan.md` — plan detallado (37KB, 11 tasks, 4 fases)
+- `docs/Backlog.md` Phase 8 — SDK-01 a SDK-05 existentes + REC-001, REC-007–010, REC-999 agregados (líneas 152-162)
+Corrección al plan: SDK-01/02/03/04/05 YA estaban en backlog (no REC-002/003/004/005/006).
+IDs finales: REC-001 (foundation types), REC-007 (WAL CLI), REC-008 (backup design), REC-009 (PQ analysis), REC-010 (py.typed), REC-999 (progreso fix)
+Próxima acción sugerida: Ejecutar REC-010 primero (🟢 30min), después REC-001 (foundation types)
+Contrato: Plan recuperación + backlog actualizados. Plan referencias REC IDs internas, backlog usa SDK-XX + REC-XX.
 === END RECITATION ===

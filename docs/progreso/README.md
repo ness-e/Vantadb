@@ -1106,54 +1106,68 @@ Se completan 25 tareas en una gran tanda pre-lanzamiento que abarca 7 áreas cr�
 - **Archivos creados:** `completions/_vanta-cli`, `completions/_vanta-cli.ps1`, `completions/vanta-cli.bash`, `completions/vanta-cli.fish`
 - **Tests:** 46 CLI tests, all pass
 
-### TSK-111 — Expanded Filter Operators (2026-06-21)
+### TSK-111 — Expanded Filter Operators (2026-06-21) — ❌ NUNCA IMPLEMENTADO
 
 - **Goal:** Extend the flat equality filter system (`VantaMemoryMetadata`) with comparison operators (`Eq, Neq, Gt, Gte, Lt, Lte, In, Exists`).
-- **Checklist completed:**
-  - [x] `FilterOperator` enum in `src/sdk.rs`
-  - [x] `MemoryFilter` struct with `field`, `operator`, `value`
-  - [x] `evaluate_filter()` and `compare_vanta_values()` for type-safe evaluation
-  - [x] `filter_exprs: Vec<MemoryFilter>` added to `VantaMemoryListOptions` and `VantaMemorySearchRequest`
-  - [x] Backward compat: flat filters still work like `Eq`
-  - [x] Prefix scan optimization: first `Eq` filter is used for scan, post-filter with all conditions
-- **Files modified:** `src/sdk.rs`, `src/lib.rs`
-- **Exports:** `FilterOperator`, `MemoryFilter` re-exported from `src/lib.rs`
+- **Realidad:** Engine layer (`src/query.rs`, `src/physical_plan.rs`) tiene los 6 operadores (`Eq, Neq, Gt, Lt, Gte, Lte`) para IQL queries. Pero el SDK layer (`src/sdk/serialization/mod.rs:368` — `matches_memory_filters()`) solo hace comparación plana `==`. **`FilterOperator`, `MemoryFilter`, `filter_exprs` nunca existieron en `src/sdk.rs`.** Este checklist documenta algo que debía hacerse pero no se completó.
+- **Checklist REAL:**
+  - [ ] `FilterOperator` enum en `src/sdk.rs`
+  - [ ] `MemoryFilter` struct con `field`, `operator`, `value`
+  - [ ] `evaluate_filter()` y `compare_vanta_values()`
+  - [ ] `filter_exprs` en `VantaMemoryListOptions` y `VantaMemorySearchRequest`
+  - [ ] Exposición a Python/WASM via PyO3/WASM bindings
+- **Causa raíz:** Feature documentada y diseñada pero nunca implementada en el SDK. Solo existe en el engine interno (IQL).
+- **Archivos que DEBERÍAN modificarse:** `src/sdk/serialization/mod.rs`, `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs`
 
-### TSK-119 — delete_by_filter (2026-06-21)
+### TSK-119 — delete_by_filter (2026-06-21) — ❌ NUNCA FUE SDK, ELIMINADO
 
 - **Goal:** Delete multiple records per metadata filter from SDK and CLI.
-- **Checklist completed:**
-  - [x] `VantaEmbedded::delete_by_filter()` — use `records_for_namespace()` + `matches_memory_filters()`, return count of deleted
-  - [x] `vanta-cli delete-by-filter --namespace <ns> --filter key=val`
-- **Files modified:** `src/cli.rs`, `src/cli_handlers.rs`, `src/bin/vanta-cli.rs`, `src/sdk.rs`
-- **Bindings updated:** `vantadb-wasm`, `vantadb-python`, `vantadb-mcp` added `filter_exprs: vec![]`
+- **Realidad:** Solo existió como CLI handler (`cmd_delete_by_filter` en `src/cli_handlers.rs`). **Nunca fue parte del SDK programático** (`VantaEmbedded`). El CLI handler fue eliminado en **commit `e9371ea8` (AUD-09)** como dead code: "4 CLI handlers (cmd_search_similar, cmd_count, cmd_delete_by_filter, cmd_repl, cmd_tui) + rustyline + strsim (~560 LOC)".
+- **Checklist REAL:**
+  - [ ] `VantaEmbedded::delete_by_filter()` en `src/sdk/api.rs`
+  - [ ] Exposición Python via PyO3
+  - [ ] Exposición WASM
+  - [ ] Tests
+- **Bindings:** Ningún binding fue actualizado (los `.pyi` stubs no lo listan, ni `vantadb-wasm/src/lib.rs` lo tiene).
+- **Archivos que DEBERÍAN modificarse:** `src/sdk/api.rs`, `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs`, `vantadb-python/vantadb_py/__init__.pyi`
 
-### TSK-86 — similar_to_key (2026-06-21)
+### TSK-86 — similar_to_key (2026-06-21) — ❌ NUNCA IMPLEMENTADO
 
 - **Goal:** Convenience: search for similar records using the vector of an existing record by its key.
-- **Checklist completed:**
-  - [x] `VantaEmbedded::similar_to_key(namespace, key, top_k)` — get record, extract vector, run search
-  - [x] `vanta-cli search-similar --namespace <ns> --key <key> [--limit <N>]`
-- **Files modified:** `src/cli.rs`, `src/cli_handlers.rs`, `src/bin/vanta-cli.rs`, `src/sdk.rs`
+- **Realidad:** `similar_to_key` **nunca se implementó** en ningún lenguaje. No existe en Rust SDK (`src/sdk/api.rs`), ni en Python, ni WASM, ni TS. Git history confirma: cero commits con código `.rs` o `.py` para esta función. Solo existe como concepto en documentación (`docs/api/PYTHON_SDK.md` la menciona como "(not yet exposed)").
+- **Checklist REAL:**
+  - [ ] `VantaEmbedded::similar_to_key(namespace, key, top_k)` en `src/sdk/api.rs`
+  - [ ] CLI handler `vanta-cli search-similar`
+  - [ ] Exposición Python/WASM/TS
+  - [ ] Tests
+- **Causa raíz:** Deuda de especificación — se documentó pero nunca se codificó.
+- **Archivos que DEBERÍAN modificarse:** `src/sdk/api.rs`, `src/cli_handlers/search.rs`, `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs`
 
-### TSK-87 — count with filters (2026-06-21)
+### TSK-87 — count with filters (2026-06-21) — ❌ NUNCA FUE SDK, ELIMINADO
 
 - **Goal:** Count records in a namespace, optionally filtered by metadata.
-- **Checklist completed:**
-  - [x] `VantaEmbedded::count(namespace, filters, filter_exprs)` — prefix scan without filters, scan + filter with filters
-  - [x] `vanta-cli count --namespace <ns> [--filter key=val]`
-- **Files modified:** `src/cli.rs`, `src/cli_handlers.rs`, `src/bin/vanta-cli.rs`, `src/sdk.rs`
+- **Realidad:** Solo existió como CLI handler (`cmd_count` en `src/cli_handlers.rs`). **Nunca fue parte del SDK programático** (`VantaEmbedded::count()`). El CLI handler fue eliminado en **commit `e9371ea8` (AUD-09)** como dead code junto con delete_by_filter y search-similar.
+- **Checklist REAL:**
+  - [ ] `VantaEmbedded::count(namespace, filters)` en `src/sdk/api.rs`
+  - [ ] CLI handler `vanta-cli count`
+  - [ ] Exposición Python/WASM/TS
+  - [ ] Tests
+- **Nota:** Existe un helper interno `fn count_memory_records_from()` en el engine, pero no es público.
+- **Archivos que DEBERÍAN modificarse:** `src/sdk/api.rs`, `src/cli_handlers/mod.rs`, `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs`
 
-### TSK-88 — Multi-namespace Search (2026-06-21)
+### TSK-88 — Multi-namespace Search (2026-06-21) — ❌ NUNCA IMPLEMENTADO
 
 - **Goal:** Search multiple namespaces simultaneously.
-- **Checklist completed:**
-  - [x] `namespaces: Vec<String>` in `VantaMemorySearchRequest`
-  - [x] Backward compat: if `namespaces` is empty, `namespace` is used
-  - [x] Implementation: iterate namespaces, run search for each one, merge top_k for score
-  - [x] CLI: `vanta-cli search --namespace ns1,ns2,... --query <q>` accepts comma separated list
-- **Files modified:** `src/cli.rs`, `src/cli_handlers.rs`, `src/bin/vanta-cli.rs`, `src/sdk.rs`
-- **Tests:** All existing ones updated with `namespaces: vec![]`
+- **Realidad:** `VantaMemorySearchRequest` siempre ha tenido `namespace: String` (singular). **`namespaces: Vec<String>` nunca existió.** El git history pre-refactor (`72d334c3^:src/sdk.rs`) confirma que siempre fue `namespace: &str`. El único `Vec<String>` de namespaces está en tipos de reporte (output: `VantaExportReport.namespaces`, `VantaTextIndexAuditReport.namespaces_audited`), no como parámetro de búsqueda.
+- **Checklist REAL:**
+  - [ ] `namespaces: Vec<String>` en `VantaMemorySearchRequest` (tipos)
+  - [ ] Backward compat: si `namespaces` vacío, usar `namespace`
+  - [ ] Implementación: iterar namespaces, merge top_k por score
+  - [ ] CLI: `vanta-cli search --namespace ns1,ns2,...`
+  - [ ] Exposición Python/WASM
+  - [ ] Tests
+- **Causa raíz:** Feature diseñada/documentada pero nunca implementada ni en tipos ni en lógica de búsqueda.
+- **Archivos que DEBERÍAN modificarse:** `src/sdk/serialization/vector_types.rs`, `src/sdk/search/mod.rs`, `src/sdk/api.rs`, `src/cli_handlers/search.rs`, `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs`
 
 ### TSK-120 — ARM64 CI Environment Correction (Exit Code 127) (2026-06-22)
 
@@ -1250,7 +1264,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `TSK-112` | TS SDK vía WASM (core→wasm32-wasi, wrapper, npm) | 🔴 | ✅ |
 | `TSK-113` | TS types + docs (intellisense, quickstart Node/Bun/Deno) | 🟠 | ✅ |
 | `TSK-118` | Ejemplos TS con LangChain.js, LlamaIndex.TS, Vercel AI SDK | 🟠 | ✅ |
-| `TSK-111` | Filtros metadata expandidos ($eq, $or, $in, $exists...) | 🟡 | ✅ |
+| `TSK-111` | Filtros metadata expandidos ($eq, $or, $in, $exists...) — ❌ Solo documentado, engine tiene operadores pero SDK no los expone | 🟡 | ❌ |
 | `WASM-02` | OPFS persistence for WASM browser storage | 🔴 | ✅ |
 | `WEB-07`  | Frontend test infra (Vitest + RTL + Playwright) | 🔴 | ✅ |
 | `TEST-01` | WASM test suite (45 tests, wasm_tests.rs) | 🔴 | ✅ |
@@ -1281,10 +1295,10 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `AUD-16` | 🟢 15 módulos sin tests unitarios (añadidos tests a error.rs y binary_header.rs: +19 tests) | 🟢 | ✅ |
 | `AUD-17` | 🟢 Dead code en `utils/` (`DuplicatePreventionFilter`, `OriginCollisionTracker` — removidos de re-exports públicos) | 🟢 | ✅ |
 | `AUD-18` | 🟢 `#[allow(dead_code)]` obsoleto en `physical_plan.rs:query_vec_text` (falso positivo: condicionado a `remote-inference`) | 🟢 | ✅ |
-| `TSK-119` | `delete_by_filter()` — eliminar por metadata | 🟡 | ✅ |
-| `TSK-86` | `similar_to_key()` — buscar similares a existente | 🟡 | ✅ |
-| `TSK-87` | `count()` con filtros | 🟡 | ✅ |
-| `TSK-88` | Multi-namespace search (buscar en N namespaces) | 🟡 | ✅ |
+| `TSK-119` | `delete_by_filter()` — eliminar por metadata — ❌ Era solo CLI handler, eliminado en AUD-09. Nunca fue SDK | 🟡 | ❌ |
+| `TSK-86` | `similar_to_key()` — buscar similares a existente — ❌ Nunca implementado en ningún lenguaje | 🟡 | ❌ |
+| `TSK-87` | `count()` con filtros — ❌ Era solo CLI handler, eliminado en AUD-09. Nunca fue SDK | 🟡 | ❌ |
+| `TSK-88` | Multi-namespace search (buscar en N namespaces) — ❌ Nunca implementado. Siempre fue `namespace: &str` singular | 🟡 | ❌ |
 | `COM-02` | CONTRIBUTING.md (entorno, tests, conventional commits) | 🔴 | ✅ (exists in `.github/`) |
 | `COM-03` | Code of Conduct (Contributor Covenant) | 🔴 | ✅ (exists in `.github/`) |
 | `CLI-EPIC` | CLI Polish completo | 🔴 | ✅ |
@@ -1401,6 +1415,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Objetivo:** Extender VantaFile de archivo único a múltiples niveles LSM con compactación independiente por nivel. SegmentRegistry, compact_level(), PipelineMode extendido.
 - **Resultado:** ✅ `cargo check -p vantadb` — 0 errores. 13+ archivos modificados. L0+L1 implementados (ponytail: L3 archive deferido).
 - **Ids:** `COMP-026`
+
+### REC-010: py.typed marker + maturin wheel inclusion
+- **Fuente:** Backlog (Phase 8 — Post-Launch & Enterprise)
+- **Fecha:** 2026-07-29
+- **Objetivo:** PEP 561 compliance — crear `py.typed` marker y configurar `[tool.maturin] include` en `pyproject.toml` para incluir stubs `.pyi` en el wheel.
+- **Resultado:** ✅ `py.typed` creado (vacio) en `vantadb_py/`. `pyproject.toml` incluye `include = ["vantadb_py/py.typed", "vantadb_py/*.pyi"]`. 2 archivos modificados.
+- **Ids:** `REC-010`
 
 ### COMP-006: Edge Label Interning (u32 label_id)
 - **Fuente:** Backlog (Phase 10 — Competitive Features)
