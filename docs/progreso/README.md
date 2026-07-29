@@ -308,6 +308,19 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `COMP-018`
 
+### 2026-07-29 — INV-001: RUSTSEC Advisory Audit ✅
+
+**Fuente:** Backlog (Investigaciones de Seguridad) `INV-001`
+
+**Resuelto por (vanta-audit, vanta-lead):**
+- Auditadas 3 RUSTSEC: `atomic-polyfill` (ya gestionada en deny.toml), `paste` y `rustls-pemfile` (no son dependencias activas — stale)
+- `cargo deny check advisories` pasa limpio
+- Reporte: `docs/audit-reports/inv-001-rustsec-2026-07-29.md`
+
+**Veredicto:** ✅ Sin acciones correctivas — 0 de 3 advisories son riesgo real.
+
+**Ids:** `INV-001`
+
 ### 2026-07-29 — REC-007: WAL Compaction + Vacuum CLI ✅
 
 **Fuente:** Backlog (Phase 8 — Post-Launch & Enterprise) `REC-007`
