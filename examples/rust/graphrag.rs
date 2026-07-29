@@ -4,6 +4,7 @@
 
 use std::error::Error;
 use vantadb::config::VantaConfig;
+use vantadb::graph::TraversalDirection;
 use vantadb::{VantaEmbedded, VantaFields, VantaNodeInput};
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -63,7 +64,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Inserted {} nodes with {} edges", nodes.len(), 5);
 
     // ── BFS traversal from VantaDB (node 1) ──
-    let visited = db.graph_bfs(&[1], 3)?;
+    let visited = db.graph_bfs(&[1], 3, TraversalDirection::Forward)?;
     println!("\nBFS from node 1 (max_depth=3):");
     for id in &visited {
         if let Some(record) = db.get_node(*id)? {

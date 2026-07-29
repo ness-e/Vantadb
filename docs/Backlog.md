@@ -31,9 +31,9 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | **P7** 🌐 WASM & Performance | 0 (todos completados) | — | ✅ Cerrado |
 | **P8** 🔮 Post-Launch & Enterprise | 7 (+4 ✅ completados) | ~3-5 semanas | 🔵 Futuro |
 | **P9** 📚 Old Docs Rescue (reference) | 13 (7 ✅ progreso) | — | 📖 Referencia |
-| **P10** 🏗️ Competitive Features (catalog) | 20 (10 ✅ progreso) | — | 🗺️ Roadmap |
+| **P10** 🏗️ Competitive Features (catalog) | 20 (11 ✅ progreso) | — | 🗺️ Roadmap |
 
-> **Items removidos (70+):** ~25 originales + 6 P0 stale + 9 P1 resueltos + 24 P2 stale + 7 P3 stale + 10 P4 completados + 7 P9 completados + 10 P10 completados + 1 P7 completado + 24 crates de integración nunca implementados
+> **Items removidos (71+):** ~25 originales + 6 P0 stale + 9 P1 resueltos + 24 P2 stale + 7 P3 stale + 10 P4 completados + 7 P9 completados + 11 P10 completados + 1 P7 completado + 24 crates de integración nunca implementados
 
 ---
 
@@ -187,7 +187,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 ## Phase 10: 🏗️ Competitive Features — Catalog
 
 > **Fuente:** Análisis de 27 archivos de `VANTADB DOC OLD/` (9 vector DBs + 8 graph DBs + 10 arquitectura).
-> **Total:** 30 items, **19 activos.** 11 ✅ implementados removidos a progreso: COMP-001 (SQ8/PQ), COMP-002 (HNSW persist), COMP-003 (in-filter), COMP-004 (bitset), COMP-005 (params), COMP-007 (inline u128), COMP-010 (auto-embedding), COMP-011 (CRUD tombstones), COMP-015 (hybrid pipeline), COMP-020 (RRF fusion), COMP-030 (survival mode).
+> **Total:** 30 items, **18 activos.** 12 ✅ implementados removidos a progreso: COMP-001 (SQ8/PQ), COMP-002 (HNSW persist), COMP-003 (in-filter), COMP-004 (bitset), COMP-005 (params), COMP-006 (Edge Label Interning), COMP-007 (inline u128), COMP-010 (auto-embedding), COMP-011 (CRUD tombstones), COMP-015 (hybrid pipeline), COMP-018 (Double-linked chains), COMP-020 (RRF fusion), COMP-030 (survival mode).
 > **Reportes completos:** `docs/audit-reports/competitive-features-consolidated-report.md`, `docs/audit-reports/deep-analysis-{vector,graph,arch}.md`
 
 ### 🔴 Alta — Features competitivas críticas para adopción
@@ -208,7 +208,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | ~~`COMP-014`~~ | ~~**FreshHNSW (background repair de enlaces huérfanos)** — `repair_orphan_links()` en CPIndex (three-phase: snapshot → scan → repair). `FreshHnswReport`, `PipelineMode::FreshHnswOnly`, pipeline phase, 4 tests. Fix: deadlock DashMap. ✅ COMPLETADA~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | ~~COMP-004, COMP-011~~ |
 | ~~`COMP-016`~~ | ~~**Supernode mitigation (indexed relationships)** — `label_index: HashMap<u32, Vec<u128>>` en `UnifiedNode`. `bfs_traverse_filtered`/`dfs_traverse_filtered` en `GraphTraverser`. `graph_bfs_filtered`/`graph_dfs_filtered` en SDK, WASM, Python. 6 tests. ✅ COMPLETADA~~ | ~~🟢 3-5d~~ | ~~✅ COMPLETADA~~ | ~~COMP-006~~ |
 | ~~`COMP-017`~~ | ~~**Accumulators for parallel graph algorithms** — `GraphAccumulator` con `AtomicU64` lock-free, `traverse_with_accumulator` en `GraphTraverser`, SDK API, 6 tests. ✅ COMPLETADA~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | Ninguna |
-| `COMP-018` | Double-linked relationship chains — Relaciones dirigidas simples, sin doble enlace | 🟡 1-2 sem | ⚠️ Parcial (~80%) — Edge.reverse + add_edge/remove_edge bidireccional + TraversalDirection implementados. Faltan bindings WASM/Python para direction param y tests | COMP-006 |
+| ~~`COMP-018`~~ | ~~Double-linked relationship chains — Relaciones dirigidas simples, sin doble enlace — **✅ COMPLETADA** — Rust SDK (4 métodos con direction param), bindings WASM + Python, 33 graph tests pasan~~ | ~~🟡 1-2 sem~~ | ~~✅~~ | COMP-006 |
 | `COMP-019` | Binary protocol (rkyv/FlatBuffers over gRPC) — Solo HTTP JSON. rkyv usado internamente en serialización | 🟡 1-2 sem | ⚠️ Parcial (rkyv interno sí) | Ninguna |
 | `COMP-021` | Temporal edges (timestamp-aware relationships) — Sin timestamp-aware edges | 🟡 1 sem | ❌ No implementado | Ninguna |
 | ~~`COMP-022`~~ | ~~**Graph Data Science library (PageRank, centrality)** — `GraphDataScience` con `page_rank()` + `degree_centrality()`, SDK API, Python bindings, 7 tests. ✅ COMPLETADA~~ | ~~🟡 2-3 sem~~ | ~~✅ COMPLETADA~~ | ~~COMP-017~~ ✅ |

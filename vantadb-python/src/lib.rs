@@ -19,6 +19,7 @@ use vantadb::sdk::{
 use vantadb::DistanceMetric;
 
 mod convert;
+use convert::parse_direction;
 mod types;
 mod vector;
 
@@ -953,20 +954,42 @@ impl VantaDB {
     /// up to a maximum depth, returning the discovered distinct Node IDs.
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during graph traversal.
-    #[pyo3(signature = (roots, max_depth=999999))]
-    fn graph_bfs(&self, py: Python, roots: Vec<u128>, max_depth: usize) -> PyResult<Vec<u128>> {
+    #[pyo3(signature = (roots, max_depth=999999, direction="Forward"))]
+    fn graph_bfs(
+        &self,
+        py: Python,
+        roots: Vec<u128>,
+        max_depth: usize,
+        direction: &str,
+    ) -> PyResult<Vec<u128>> {
+        let dir = parse_direction(direction)?;
         let engine = self.engine.clone();
-        py.detach(move || engine.graph_bfs(&roots, max_depth).map_err(map_vanta_error))
+        py.detach(move || {
+            engine
+                .graph_bfs(&roots, max_depth, dir)
+                .map_err(map_vanta_error)
+        })
     }
 
     /// Depth-First-Search starting from a designated set of root IDs,
     /// up to a maximum depth, returning the discovered distinct Node IDs.
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during graph traversal.
-    #[pyo3(signature = (roots, max_depth=999999))]
-    fn graph_dfs(&self, py: Python, roots: Vec<u128>, max_depth: usize) -> PyResult<Vec<u128>> {
+    #[pyo3(signature = (roots, max_depth=999999, direction="Forward"))]
+    fn graph_dfs(
+        &self,
+        py: Python,
+        roots: Vec<u128>,
+        max_depth: usize,
+        direction: &str,
+    ) -> PyResult<Vec<u128>> {
+        let dir = parse_direction(direction)?;
         let engine = self.engine.clone();
-        py.detach(move || engine.graph_dfs(&roots, max_depth).map_err(map_vanta_error))
+        py.detach(move || {
+            engine
+                .graph_dfs(&roots, max_depth, dir)
+                .map_err(map_vanta_error)
+        })
     }
 
     /// Performs a topological sort on the subgraph reachable from the given roots.

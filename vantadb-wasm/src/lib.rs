@@ -10,6 +10,7 @@
 use core::sync::atomic::{AtomicBool, Ordering};
 use serde::{Deserialize, Serialize};
 use vantadb::config::VantaConfig;
+use vantadb::graph::TraversalDirection;
 use vantadb::sdk::*;
 use vantadb::BackendKind;
 use vantadb::VantaError;
@@ -902,16 +903,52 @@ impl VantaDB {
     }
 
     /// Perform a breadth-first traversal from the given root node IDs.
-    pub fn graph_bfs(&self, roots: Vec<u64>, max_depth: usize) -> Result<JsValue, JsValue> {
+    pub fn graph_bfs(
+        &self,
+        roots: Vec<u64>,
+        max_depth: usize,
+        direction: String,
+    ) -> Result<JsValue, JsValue> {
+        let dir = match direction.as_str() {
+            "Forward" => TraversalDirection::Forward,
+            "Reverse" => TraversalDirection::Reverse,
+            "Both" => TraversalDirection::Both,
+            _ => {
+                return Err(JsValue::from_str(&format!(
+                    "invalid direction '{direction}': expected 'Forward', 'Reverse', or 'Both'"
+                )))
+            }
+        };
         let roots: Vec<u128> = roots.into_iter().map(|r| r.into()).collect();
-        let result = self.inner.graph_bfs(&roots, max_depth).map_err(to_js_err)?;
+        let result = self
+            .inner
+            .graph_bfs(&roots, max_depth, dir)
+            .map_err(to_js_err)?;
         to_js(&result)
     }
 
     /// Perform a depth-first traversal from the given root node IDs.
-    pub fn graph_dfs(&self, roots: Vec<u64>, max_depth: usize) -> Result<JsValue, JsValue> {
+    pub fn graph_dfs(
+        &self,
+        roots: Vec<u64>,
+        max_depth: usize,
+        direction: String,
+    ) -> Result<JsValue, JsValue> {
+        let dir = match direction.as_str() {
+            "Forward" => TraversalDirection::Forward,
+            "Reverse" => TraversalDirection::Reverse,
+            "Both" => TraversalDirection::Both,
+            _ => {
+                return Err(JsValue::from_str(&format!(
+                    "invalid direction '{direction}': expected 'Forward', 'Reverse', or 'Both'"
+                )))
+            }
+        };
         let roots: Vec<u128> = roots.into_iter().map(|r| r.into()).collect();
-        let result = self.inner.graph_dfs(&roots, max_depth).map_err(to_js_err)?;
+        let result = self
+            .inner
+            .graph_dfs(&roots, max_depth, dir)
+            .map_err(to_js_err)?;
         to_js(&result)
     }
 

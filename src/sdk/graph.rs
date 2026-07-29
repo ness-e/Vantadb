@@ -44,60 +44,70 @@ impl VantaEmbedded {
 
     /// Breadth-first traversal from one or more root nodes up to `max_depth`.
     /// Returns visited node ids in BFS order.
+    ///
+    /// `direction` controls whether edges are followed forward, reverse, or both.
     #[tracing::instrument(skip(self), err)]
-    pub fn graph_bfs(&self, roots: &[u128], max_depth: usize) -> Result<Vec<u128>> {
+    pub fn graph_bfs(
+        &self,
+        roots: &[u128],
+        max_depth: usize,
+        direction: crate::graph::TraversalDirection,
+    ) -> Result<Vec<u128>> {
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
-        traverser.bfs_traverse(roots, max_depth, crate::graph::TraversalDirection::Forward)
+        traverser.bfs_traverse(roots, max_depth, direction)
     }
 
     /// Depth-first traversal from one or more root nodes up to `max_depth`.
     /// Returns visited node ids in DFS order.
+    ///
+    /// `direction` controls whether edges are followed forward, reverse, or both.
     #[tracing::instrument(skip(self), err)]
-    pub fn graph_dfs(&self, roots: &[u128], max_depth: usize) -> Result<Vec<u128>> {
+    pub fn graph_dfs(
+        &self,
+        roots: &[u128],
+        max_depth: usize,
+        direction: crate::graph::TraversalDirection,
+    ) -> Result<Vec<u128>> {
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
-        traverser.dfs_traverse(roots, max_depth, crate::graph::TraversalDirection::Forward)
+        traverser.dfs_traverse(roots, max_depth, direction)
     }
 
     /// Breadth-first traversal with label filtering.
     /// Only follows edges whose `label_id` is in `labels`.
     /// When `labels` is empty, acts like `graph_bfs` (no filter).
+    ///
+    /// `direction` controls whether edges are followed forward, reverse, or both.
     #[tracing::instrument(skip(self), err)]
     pub fn graph_bfs_filtered(
         &self,
         roots: &[u128],
         max_depth: usize,
+        direction: crate::graph::TraversalDirection,
         labels: &[u32],
     ) -> Result<Vec<u128>> {
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
-        traverser.bfs_traverse_filtered(
-            roots,
-            max_depth,
-            crate::graph::TraversalDirection::Forward,
-            labels,
-        )
+        traverser.bfs_traverse_filtered(roots, max_depth, direction, labels)
     }
 
     /// Depth-first traversal with label filtering.
     /// Only follows edges whose `label_id` is in `labels`.
     /// When `labels` is empty, acts like `graph_dfs` (no filter).
+    ///
+    /// `direction` controls whether edges are followed forward, reverse, or both.
     #[tracing::instrument(skip(self), err)]
     pub fn graph_dfs_filtered(
         &self,
         roots: &[u128],
         max_depth: usize,
+        direction: crate::graph::TraversalDirection,
         labels: &[u32],
     ) -> Result<Vec<u128>> {
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
-        traverser.dfs_traverse_filtered(
-            roots,
-            max_depth,
-            labels,
-            crate::graph::TraversalDirection::Forward,
-        )
+        traverser.dfs_traverse_filtered(roots, max_depth, labels, direction)
     }
 
     /// Topological sort starting from the given root nodes.
@@ -129,14 +139,18 @@ mod tests {
     #[test]
     fn test_graph_bfs_no_engine() {
         let e = no_engine_embedded();
-        let err = e.graph_bfs(&[1], 5).unwrap_err();
+        let err = e
+            .graph_bfs(&[1], 5, crate::graph::TraversalDirection::Forward)
+            .unwrap_err();
         assert!(err.to_string().contains("initialized"), "got: {:?}", err);
     }
 
     #[test]
     fn test_graph_dfs_no_engine() {
         let e = no_engine_embedded();
-        let err = e.graph_dfs(&[1], 5).unwrap_err();
+        let err = e
+            .graph_dfs(&[1], 5, crate::graph::TraversalDirection::Forward)
+            .unwrap_err();
         assert!(err.to_string().contains("initialized"), "got: {:?}", err);
     }
 
@@ -157,28 +171,36 @@ mod tests {
     #[test]
     fn test_graph_bfs_empty_roots_no_engine() {
         let e = no_engine_embedded();
-        let err = e.graph_bfs(&[], 0).unwrap_err();
+        let err = e
+            .graph_bfs(&[], 0, crate::graph::TraversalDirection::Forward)
+            .unwrap_err();
         assert!(err.to_string().contains("initialized"), "got: {:?}", err);
     }
 
     #[test]
     fn test_graph_dfs_empty_roots_no_engine() {
         let e = no_engine_embedded();
-        let err = e.graph_dfs(&[], 0).unwrap_err();
+        let err = e
+            .graph_dfs(&[], 0, crate::graph::TraversalDirection::Forward)
+            .unwrap_err();
         assert!(err.to_string().contains("initialized"), "got: {:?}", err);
     }
 
     #[test]
     fn test_graph_bfs_filtered_no_engine() {
         let e = no_engine_embedded();
-        let err = e.graph_bfs_filtered(&[1], 5, &[1]).unwrap_err();
+        let err = e
+            .graph_bfs_filtered(&[1], 5, crate::graph::TraversalDirection::Forward, &[1])
+            .unwrap_err();
         assert!(err.to_string().contains("initialized"), "got: {:?}", err);
     }
 
     #[test]
     fn test_graph_dfs_filtered_no_engine() {
         let e = no_engine_embedded();
-        let err = e.graph_dfs_filtered(&[1], 5, &[1]).unwrap_err();
+        let err = e
+            .graph_dfs_filtered(&[1], 5, crate::graph::TraversalDirection::Forward, &[1])
+            .unwrap_err();
         assert!(err.to_string().contains("initialized"), "got: {:?}", err);
     }
 }

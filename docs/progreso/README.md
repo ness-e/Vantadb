@@ -293,6 +293,21 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-28 — COMP-018: Double-linked Relationship Chains ✅
+
+**Fuente:** Backlog (Phase 10 — Competitive Features) `COMP-018`
+
+**Resuelto por:**
+- Rust SDK: `graph_bfs()`, `graph_dfs()`, `graph_bfs_filtered()`, `graph_dfs_filtered()` — añadido parámetro `direction: TraversalDirection`
+- Python bindings: `graph_bfs()`, `graph_dfs()` — añadido `direction="Forward"` via PyO3 signature + `parse_direction()`
+- WASM bindings: `graph_bfs()`, `graph_dfs()` — añadido `direction: String` con parse
+- 5 archivos modificados: `src/sdk/graph.rs`, `vantadb-python/src/lib.rs`, `vantadb-python/src/convert.rs`, `vantadb-wasm/src/lib.rs`, `examples/rust/graphrag.rs`
+- Edge.reverse + add_edge/remove_edge bidireccional ya existían
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo check -p vantadb_py` ✅ | `cargo check -p vantadb-wasm` ✅ | 33 tests graph ✅
+
+**Ids:** `COMP-018`
+
 ### 2026-07-28 — COMP-026: Multi-level LSM Compaction ✅
 
 **Fuente:** Backlog (Phase 10 — Competitive Features) `COMP-026`
@@ -1393,6 +1408,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Objetivo:** `Edge.label: String` → `Edge.label_id: u32` con LabelIntern (HashMap<String, u32>). Reduce ~80MB heap para 1M edges.
 - **Resultado:** ✅ 1,618 tests pasan. SDK público inalterado (VantaEdgeRecord.label sigue String).
 - **Ids:** `COMP-006`
+
+### COMP-018: Double-linked Relationship Chains
+- **Fuente:** Backlog (Phase 10 — Competitive Features)
+- **Fecha:** 2026-07-28
+- **Objetivo:** Relations dirigidas con doble enlace. Edge.reverse + add_edge/remove_edge bidireccional + TraversalDirection + direction param en Rust SDK (4 métodos), bindings WASM y Python.
+- **Resultado:** ✅ `cargo check` en 3 crates. 33 graph tests pasan. Backward compatible (default Forward).
+- **Ids:** `COMP-018`
 
 ### REV-001: CI Rust TSan ABI mismatch
 - **Fuente:** Plan 2026-07-14 backlog-campaign
@@ -2767,7 +2789,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | **P4** | 10 ✅ a progreso | `WEB-03/04`, `VFY-004/011`, `DRV-121/122/123/130/131`, `DOC-20` |
 | **P7** | 2 ✅ a progreso | `NUEVO-13` (auto-tuning), `NUEVO-14` (WASM bundle 394KB gzip < 500KB) |
 | **P9** | 7 ✅ a progreso | `OLD-04/07/13/15/17/18/22` |
-| **P10** | 11 ✅ a progreso | `COMP-001/002/003/004/005/007/009/011/015/020/030` |
+| **P10** | 12 ✅ a progreso | `COMP-001/002/003/004/005/006/007/009/011/015/018/020/030` |
 
 **Impacto:** Backlog total ~120→~65 items activos. 5 fases cerradas (P1–P4, P7). Exec Summary actualizado.
 

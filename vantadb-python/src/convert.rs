@@ -9,6 +9,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use vantadb::graph::TraversalDirection;
 use vantadb::sdk::{
     VantaBm25TermContribution, VantaCapabilities, VantaExportReport, VantaHybridFusionReport,
     VantaImportReport, VantaIndexRebuildReport, VantaNodeRecord, VantaOperationalMetrics,
@@ -713,6 +714,18 @@ pub(crate) fn map_vanta_error(err: vantadb::error::VantaError) -> PyErr {
         | VantaError::IqlError(_) => PyValueError::new_err(err.to_string()),
         VantaError::Timeout { .. } => PyTimeoutError::new_err(err.to_string()),
         _ => PyRuntimeError::new_err(err.to_string()),
+    }
+}
+
+/// Parse a `TraversalDirection` from its Python string name.
+pub(crate) fn parse_direction(s: &str) -> PyResult<TraversalDirection> {
+    match s {
+        "Forward" => Ok(TraversalDirection::Forward),
+        "Reverse" => Ok(TraversalDirection::Reverse),
+        "Both" => Ok(TraversalDirection::Both),
+        _ => Err(PyValueError::new_err(format!(
+            "invalid direction '{s}': expected 'Forward', 'Reverse', or 'Both'"
+        ))),
     }
 }
 
