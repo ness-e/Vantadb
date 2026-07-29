@@ -50,6 +50,7 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('migrate', 'migrate', [CompletionResultType]::ParameterValue, 'Migrate a database to the latest storage schema version')
             [CompletionResult]::new('namespace', 'namespace', [CompletionResultType]::ParameterValue, 'Manage namespaces')
             [CompletionResult]::new('snapshot', 'snapshot', [CompletionResultType]::ParameterValue, 'Manage instant filesystem snapshots')
+            [CompletionResult]::new('wal', 'wal', [CompletionResultType]::ParameterValue, 'Manage the Write-Ahead Log (compact, vacuum)')
             [CompletionResult]::new('server', 'server', [CompletionResultType]::ParameterValue, 'Start the HTTP or MCP server wrapper')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
@@ -398,6 +399,51 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
         'vanta-cli;snapshot;help;help' {
             break
         }
+        'vanta-cli;wal' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('compact', 'compact', [CompletionResultType]::ParameterValue, 'Compact the WAL: flush all data, archive the current WAL file, and start a fresh one')
+            [CompletionResult]::new('vacuum', 'vacuum', [CompletionResultType]::ParameterValue, 'Remove tombstoned nodes from HNSW and reclaim space')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'vanta-cli;wal;compact' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'vanta-cli;wal;vacuum' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'vanta-cli;wal;help' {
+            [CompletionResult]::new('compact', 'compact', [CompletionResultType]::ParameterValue, 'Compact the WAL: flush all data, archive the current WAL file, and start a fresh one')
+            [CompletionResult]::new('vacuum', 'vacuum', [CompletionResultType]::ParameterValue, 'Remove tombstoned nodes from HNSW and reclaim space')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'vanta-cli;wal;help;compact' {
+            break
+        }
+        'vanta-cli;wal;help;vacuum' {
+            break
+        }
+        'vanta-cli;wal;help;help' {
+            break
+        }
         'vanta-cli;server' {
             [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Port for the HTTP server')
             [CompletionResult]::new('--port', '--port', [CompletionResultType]::ParameterName, 'Port for the HTTP server')
@@ -435,6 +481,7 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('migrate', 'migrate', [CompletionResultType]::ParameterValue, 'Migrate a database to the latest storage schema version')
             [CompletionResult]::new('namespace', 'namespace', [CompletionResultType]::ParameterValue, 'Manage namespaces')
             [CompletionResult]::new('snapshot', 'snapshot', [CompletionResultType]::ParameterValue, 'Manage instant filesystem snapshots')
+            [CompletionResult]::new('wal', 'wal', [CompletionResultType]::ParameterValue, 'Manage the Write-Ahead Log (compact, vacuum)')
             [CompletionResult]::new('server', 'server', [CompletionResultType]::ParameterValue, 'Start the HTTP or MCP server wrapper')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
@@ -528,6 +575,17 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             break
         }
         'vanta-cli;help;snapshot;list' {
+            break
+        }
+        'vanta-cli;help;wal' {
+            [CompletionResult]::new('compact', 'compact', [CompletionResultType]::ParameterValue, 'Compact the WAL: flush all data, archive the current WAL file, and start a fresh one')
+            [CompletionResult]::new('vacuum', 'vacuum', [CompletionResultType]::ParameterValue, 'Remove tombstoned nodes from HNSW and reclaim space')
+            break
+        }
+        'vanta-cli;help;wal;compact' {
+            break
+        }
+        'vanta-cli;help;wal;vacuum' {
             break
         }
         'vanta-cli;help;server' {

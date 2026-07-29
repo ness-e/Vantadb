@@ -138,6 +138,11 @@ fn main() -> Result<()> {
             vantadb::cli::SnapshotCommand::List => cli_handlers::cmd_snapshot_list(&args.db)?,
         },
 
+        Commands::Wal(cmd) => match cmd {
+            vantadb::cli::WalCommand::Compact => cli_handlers::cmd_wal_compact(&args.db)?,
+            vantadb::cli::WalCommand::Vacuum => cli_handlers::cmd_wal_vacuum(&args.db)?,
+        },
+
         Commands::Completions { shell } => cli_handlers::cmd_completions(shell),
 
         Commands::Server {

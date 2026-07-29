@@ -203,6 +203,10 @@ pub enum Commands {
     #[command(subcommand)]
     Snapshot(SnapshotCommand),
 
+    /// Manage the Write-Ahead Log (compact, vacuum)
+    #[command(subcommand)]
+    Wal(WalCommand),
+
     /// Start the HTTP or MCP server wrapper
     Server {
         /// Start HTTP server wrapper (default)
@@ -278,6 +282,15 @@ pub enum MigrateCommand {
         /// Path to the database directory
         target: String,
     },
+}
+
+/// Subcommands for Write-Ahead Log management
+#[derive(Subcommand, Debug, Clone)]
+pub enum WalCommand {
+    /// Compact the WAL: flush all data, archive the current WAL file, and start a fresh one
+    Compact,
+    /// Remove tombstoned nodes from HNSW and reclaim space
+    Vacuum,
 }
 
 /// Shell type for shell completion scripts

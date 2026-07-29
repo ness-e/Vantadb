@@ -308,6 +308,21 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `COMP-018`
 
+### 2026-07-29 — REC-007: WAL Compaction + Vacuum CLI ✅
+
+**Fuente:** Backlog (Phase 8 — Post-Launch & Enterprise) `REC-007`
+
+**Resuelto por (vanta-worker, ponytail):**
+- `src/cli.rs` — Nuevo `WalCommand` enum con variantes `Compact` / `Vacuum`
+- `src/cli_handlers/wal.rs` — Handlers `cmd_wal_compact()` / `cmd_wal_vacuum()` con box-drawing output
+- `src/cli_handlers/mod.rs` — `pub mod wal;` + `pub use wal::*;`
+- `src/bin/vanta-cli.rs` — Dispatch match arm
+- Binding directo de `VantaEmbedded::compact_wal()` y `VantaEmbedded::vacuum()` — sin lógica nueva
+
+**Verificación:** `cargo check -p vantadb --features cli` ✅ | `cargo clippy` ✅ | 4 archivos modificados
+
+**Ids:** `REC-007`
+
 ### 2026-07-29 — REC-001: Foundation Filter Types (VantaFilterOp + VantaMemoryFilterItem) ✅
 
 **Fuente:** Backlog (Phase 8 — Post-Launch & Enterprise) `REC-001`
@@ -1434,6 +1449,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Objetivo:** Extender VantaFile de archivo único a múltiples niveles LSM con compactación independiente por nivel. SegmentRegistry, compact_level(), PipelineMode extendido.
 - **Resultado:** ✅ `cargo check -p vantadb` — 0 errores. 13+ archivos modificados. L0+L1 implementados (ponytail: L3 archive deferido).
 - **Ids:** `COMP-026`
+
+### REC-007: WAL Compaction + Vacuum CLI
+- **Fuente:** Backlog (Phase 8 — Post-Launch & Enterprise)
+- **Fecha:** 2026-07-29
+- **Objetivo:** Exponer `VantaEmbedded::compact_wal()` y `VantaEmbedded::vacuum()` como comandos CLI `vanta-cli wal compact` / `vanta-cli wal vacuum`. Binding directo sin lógica nueva.
+- **Resultado:** ✅ `cargo check -p vantadb --features cli` — 0 errores. 4 archivos modificados.
+- **Ids:** `REC-007`
 
 ### REC-010: py.typed marker + maturin wheel inclusion
 - **Fuente:** Backlog (Phase 8 — Post-Launch & Enterprise)

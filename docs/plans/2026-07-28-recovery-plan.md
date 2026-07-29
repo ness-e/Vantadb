@@ -549,10 +549,10 @@ vanta-cli wal vacuum     # Llama a VantaEmbedded::vacuum()
 
 ### Checkpoint Fase 2: Engine Bindings
 
-- [ ] `cargo check -p vantadb --features cli` sin errores
-- [ ] `cargo clippy -p vantadb --deny warnings` sin nuevos warnings
+- [x] `cargo check -p vantadb --features cli` sin errores — **✅ REC-007**
+- [x] `cargo clippy -p vantadb --deny warnings` sin nuevos warnings — **✅ REC-007**
 - [ ] `cargo nextest run --profile audit -p vantadb` todos pasan
-- [ ] CLI nuevo commands aparecen en `--help`
+- [x] CLI nuevo commands aparecen en `--help` — **✅ REC-007**
 - [ ] Multi-namespace search funciona en test manual
 - [ ] Filtros avanzados funcionan con `--filter '{"field": {"$gt": 25}}'`
 
@@ -745,7 +745,7 @@ vanta-cli wal vacuum     # Llama a VantaEmbedded::vacuum()
 | REC-004 | Implementar similar_to_key() SDK + CLI | 🔴 P0 | 🟡 1-2d | Ninguna | F1 |
 | REC-005 | Multi-namespace search (search_multi/search_all) | 🟠 P1 | 🟡 4-7d | Ninguna | F2 |
 | REC-006 | SDK metadata filters operadores | 🟠 P1 | 🟡 2-3d | REC-001 | F2 |
-| REC-007 | WAL compact + vacuum CLI | 🟠 P1 | 🟢 1-2h | Ninguna | F2 |
+| ~~REC-007~~ | ~~WAL compact + vacuum CLI~~ | ~~🟠 P1~~ | ~~🟢 1-2h~~ | Ninguna | F2 **✅** |
 | REC-008 | Diseñar incremental backup + PITR CLI | 🟡 P2 | 🟡 1d | Ninguna | F3 |
 | REC-009 | Analizar viabilidad PQ (Product Quantization) | 🟡 P2 | 🟢 2-4h | Ninguna | F3 |
 | ~~REC-010~~ | ~~py.typed marker + wheel inclusion~~ | 🟢 P3 | ~~🟢 30min~~ | Ninguna | F4 **✅** |
@@ -822,7 +822,7 @@ vanta-cli wal vacuum     # Llama a VantaEmbedded::vacuum()
 ## Criterios de Salida del Plan
 
 - [ ] REC-001 a REC-004 implementados y verificados (SDK functions core)
-- [ ] REC-005 a REC-007 implementados y verificados (engine bindings)
+- [x] REC-005 a REC-007 implementados y verificados (engine bindings) — **✅ 2026-07-29 (REC-007)**
 - [ ] REC-008 y REC-009 diseñados y documentados (features complejas)
 - [x] REC-010 implementado y verificado (Python PEP 561) — **✅ 2026-07-29**
 - [ ] REC-999: progreso/README.md refleja estado real

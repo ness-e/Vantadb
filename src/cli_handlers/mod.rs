@@ -13,6 +13,7 @@ pub mod search;
 pub mod server;
 pub mod snapshot;
 pub mod util;
+pub mod wal;
 
 pub use backup::*;
 pub use crud::*;
@@ -27,6 +28,7 @@ pub use search::*;
 pub use server::*;
 pub use snapshot::*;
 pub use util::*;
+pub use wal::*;
 
 pub use crate::sdk::{
     FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD,
