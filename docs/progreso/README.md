@@ -308,6 +308,25 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `COMP-018`
 
+### 2026-07-29 — REC-001: Foundation Filter Types (VantaFilterOp + VantaMemoryFilterItem) ✅
+
+**Fuente:** Backlog (Phase 8 — Post-Launch & Enterprise) `REC-001`
+
+**Resuelto por (vanta-lead, vanta-worker, ponytail):**
+- `src/sdk/types.rs:106-126` — Tres nuevos tipos agregados:
+  - `VantaFilterOp` enum: `Eq`, `Neq`, `Gt`, `Lt`, `Gte`, `Lte`
+  - `VantaMemoryFilterItem` struct: `field: String`, `op: VantaFilterOp`, `value: VantaValue`
+  - `VantaMemoryFilter` type alias: `Vec<VantaMemoryFilterItem>` (AND semantics)
+- `src/sdk/mod.rs` — Re-exportados `VantaFilterOp`, `VantaMemoryFilterItem`, `VantaMemoryFilter`
+- Pure additive change — 0 existing types touched
+- desbloquea: SDK-01 (delete_by_filter), SDK-03 (count_with_filters), SDK-05 (expanded metadata filters)
+
+**Ponytail:** No implementar `evaluate_filter()` todavía — los tipos primero, el matching se añade con el primer consumidor.
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo clippy -p vantadb -- -D warnings` ✅ | 0 regresiones
+
+**Ids:** `REC-001`
+
 ### 2026-07-28 — COMP-026: Multi-level LSM Compaction ✅
 
 **Fuente:** Backlog (Phase 10 — Competitive Features) `COMP-026`

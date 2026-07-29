@@ -103,6 +103,28 @@ pub type VantaFields = BTreeMap<String, VantaValue>;
 /// Stable metadata map for persistent memory records.
 pub type VantaMemoryMetadata = VantaFields;
 
+/// Operadores de comparación para filtros de metadata.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum VantaFilterOp {
+    Eq,
+    Neq,
+    Gt,
+    Lt,
+    Gte,
+    Lte,
+}
+
+/// Un filtro individual: campo + operador + valor.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VantaMemoryFilterItem {
+    pub field: String,
+    pub op: VantaFilterOp,
+    pub value: VantaValue,
+}
+
+/// Lista de filtros combinados con AND lógico.
+pub type VantaMemoryFilter = Vec<VantaMemoryFilterItem>;
+
 /// Stable persistent memory payload accepted by external SDKs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaMemoryInput {

@@ -19,10 +19,11 @@ pub use serialization::{
 };
 pub use types::{
     VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord, VantaExportReport, VantaFields,
-    VantaHybridFusionReport, VantaImportReport, VantaIndexRebuildReport, VantaMemoryInput,
-    VantaMemoryListOptions, VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord,
-    VantaMemorySearchHit, VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord,
-    VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile, VantaSearchExplanation,
-    VantaSearchExplanationHit, VantaSearchHit, VantaStorageTier, VantaTextIndexAuditReport,
-    VantaTextIndexRepairReport, VantaValue,
+    VantaFilterOp, VantaHybridFusionReport, VantaImportReport, VantaIndexRebuildReport,
+    VantaMemoryFilter, VantaMemoryFilterItem, VantaMemoryInput, VantaMemoryListOptions,
+    VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit,
+    VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics,
+    VantaQueryResult, VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit,
+    VantaSearchHit, VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport,
+    VantaValue,
 };
