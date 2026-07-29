@@ -109,6 +109,13 @@ def load_dataset(dataset_name, dataset_dir, max_size, max_queries):
             
             metric = "cosine" if "glove" in dataset_name else "euclidean"
             
+            # Normalize vectors for cosine metric (ann-benchmarks HDF5 stores raw vectors)
+            if metric == "cosine":
+                train_norms = np.linalg.norm(train_vectors, axis=1, keepdims=True)
+                train_vectors = np.divide(train_vectors, train_norms, out=train_vectors, where=train_norms > 0)
+                test_norms = np.linalg.norm(test_vectors, axis=1, keepdims=True)
+                test_vectors = np.divide(test_vectors, test_norms, out=test_vectors, where=test_norms > 0)
+            
             # If we load a subset of vectors, we MUST compute exact ground truth because the HDF5 pre-computed
             # neighbors are based on the full 1M+ dataset, which might contain closest items that we didn't load.
             if n_train < len(train_all):
@@ -193,15 +200,18 @@ def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, to
     # The default distance metric on instantiation maps to cosine. Let's pass the parameter if supported
     # or rely on standard config.
     namespace = "bench"
-    for i, vec in enumerate(train_vectors):
-        db.put(
-            namespace=namespace,
-            key=f"doc-{i}",
-            payload=f"Payload metadata entry for vector number {i}",
-            metadata={"index": i},
-            vector=vec.tolist()
-        )
-    
+    # PERF: batch insert via put_batch_raw with zero-copy numpy array (~50-300x vs per-vector put())
+    n = len(train_vectors)
+    keys = [f"doc-{i}" for i in range(n)]
+    payloads = [f"Payload metadata entry for vector number {i}" for i in range(n)]
+    metadatas = [{"index": i} for i in range(n)]
+    db.put_batch_raw(
+        vectors=train_vectors,  # numpy float32 ndarray (zero-copy via PyBuffer)
+        keys=keys,
+        payloads=payloads,
+        metadatas=metadatas,
+        namespaces=[namespace] * n,
+    )
     db.flush()
     ingest_time = time.perf_counter() - start_time
     rss_after_ingest = get_current_rss()
@@ -227,12 +237,12 @@ def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, to
         duration = (time.perf_counter() - t_start) * 1000.0 # ms
         query_times.append(duration)
         
-        # Parse result indices
+        # Parse result indices — VantaSearchHit has `.key` / `.id`
         pred_ids = []
         for item in results:
             try:
-                # Key is formatted as "doc-i"
-                idx = int(item['record']['key'].split('-')[1])
+                key = item.key if hasattr(item, 'key') else item.get('key', '')
+                idx = int(key.split('-')[1])
                 pred_ids.append(idx)
             except Exception:
                 pass

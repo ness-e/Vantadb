@@ -14,6 +14,20 @@ use crate::storage::engine::{
 use crate::storage::ops::NodeMetadata;
 use crate::wal::WalRecord;
 
+/// Options that control batch-insert behaviour.
+///
+/// Use [`BatchInsertOptions::default()`] for standard behaviour
+/// (existing-node check enabled, WAL enabled).
+#[derive(Clone, Debug, Default)]
+pub struct BatchInsertOptions {
+    /// When `true`, skip the per-node `self.get()` existence check.
+    /// Safe when the caller guarantees all IDs are fresh.
+    pub skip_existing_check: bool,
+    /// When `true`, skip WAL record generation and `batch_append`.
+    /// Use for bulk load where the source data can be re-inserted on crash.
+    pub skip_wal: bool,
+}
+
 impl StorageEngine {
     /// Scan the backend and physically remove entries whose MVCC delete
     /// stamp is older than `safe_cutoff`. A version is reclaimable when
@@ -715,6 +729,19 @@ impl StorageEngine {
     /// Reduces I/O and lock contention by batching WAL records, KV backend writes,
     /// and acquiring the HNSW insert lock once for all nodes.
     pub fn batch_insert(&self, nodes: &[UnifiedNode]) -> Result<()> {
+        self.batch_insert_with_opts(nodes, BatchInsertOptions::default())
+    }
+
+    /// Insert multiple nodes with caller-supplied options.
+    ///
+    /// **P1** — `skip_existing_check` avoids per-node existence check.
+    /// **P3** — `skip_wal` skips WAL record generation + `batch_append`.
+    #[tracing::instrument(skip(self, nodes), level = "debug", err)]
+    pub fn batch_insert_with_opts(
+        &self,
+        nodes: &[UnifiedNode],
+        opts: BatchInsertOptions,
+    ) -> Result<()> {
         if nodes.is_empty() {
             return Ok(());
         }
@@ -734,17 +761,25 @@ impl StorageEngine {
             .unwrap_or_default()
             .as_millis() as u64;
 
-        let mut wal_records: Vec<WalRecord> = Vec::with_capacity(nodes.len());
         let mut kv_ops: Vec<BackendWriteOp> = Vec::with_capacity(nodes.len());
         let mut hnsw_entries: Vec<(u128, FilterBitset, VectorRepresentations, u64)> =
             Vec::with_capacity(nodes.len());
         let mut vstore_offsets: Vec<u64> = Vec::with_capacity(nodes.len());
 
-        let mut vstore = self.vector_store[0].write();
+        #[cfg(feature = "rayon")]
         {
+            use rayon::prelude::*;
+            let existing: Vec<Option<UnifiedNode>> = if opts.skip_existing_check {
+                vec![None; nodes.len()]
+            } else {
+                nodes
+                    .par_iter()
+                    .map(|n| self.get(n.id).unwrap_or(None))
+                    .collect()
+            };
             let mut stats = self.cardinality_stats.write();
-            for node in nodes {
-                if let Ok(Some(existing_node)) = self.get(node.id) {
+            for (i, node) in nodes.iter().enumerate() {
+                if let Some(ref existing_node) = existing[i] {
                     for (field, value) in &existing_node.relational {
                         let val_keys = value.to_cardinality_keys();
                         if let Some(val_map) = stats.get_mut(field.as_str()) {
@@ -766,6 +801,69 @@ impl StorageEngine {
                     if let Some(ref si) = self.scalar_index {
                         for (field, value) in &existing_node.relational {
                             si.remove(field, value, node.id);
+                        }
+                    }
+                }
+                for (field, value) in &node.relational {
+                    let val_keys = value.to_cardinality_keys();
+                    let val_map = stats.entry(field.clone()).or_default();
+                    for val_key in val_keys {
+                        if val_map.len() < 100 || val_map.contains_key(&val_key) {
+                            *val_map.entry(val_key).or_default() += 1;
+                        }
+                    }
+                }
+                if let Some(ref ei) = self.edge_index {
+                    for edge in &node.edges {
+                        ei.insert(node.id, edge.target);
+                    }
+                }
+                if let Some(ref si) = self.scalar_index {
+                    for (field, value) in &node.relational {
+                        si.insert(field, value, node.id);
+                    }
+                }
+            }
+            // ponytail: drop the field with fewest entries if total pairs > global cap
+            let total: usize = stats.values().map(|m| m.len()).sum();
+            if total > crate::config::MAX_CARDINALITY_PAIRS {
+                if let Some(min_field) = stats
+                    .iter()
+                    .min_by_key(|(_, m)| m.len())
+                    .map(|(k, _)| k.clone())
+                {
+                    stats.remove(&min_field);
+                }
+            }
+        }
+        #[cfg(not(feature = "rayon"))]
+        {
+            let mut stats = self.cardinality_stats.write();
+            for node in nodes {
+                if !opts.skip_existing_check {
+                    if let Ok(Some(existing_node)) = self.get(node.id) {
+                        for (field, value) in &existing_node.relational {
+                            let val_keys = value.to_cardinality_keys();
+                            if let Some(val_map) = stats.get_mut(field.as_str()) {
+                                for val_key in val_keys {
+                                    if let Some(count) = val_map.get_mut(&val_key) {
+                                        if *count > 0 {
+                                            *count -= 1;
+                                        }
+                                    }
+                                }
+                                val_map.retain(|_, &mut v| v > 0);
+                            }
+                        }
+                        if let Some(ref ei) = self.edge_index {
+                            for edge in &existing_node.edges {
+                                ei.remove_edge(node.id, edge.target);
+                            }
+                        }
+                        if let Some(ref si) = self.scalar_index {
+                            for (field, value) in &existing_node.relational {
+                                si.remove(field, value, node.id);
+                            }
                         }
                     }
                 }
@@ -804,6 +902,19 @@ impl StorageEngine {
             }
         }
 
+        // ── Phase 2: vstore writes + KV/HNSW entry prep ──────────
+        let mut vstore = self.vector_store[0].write();
+
+        // P4: pre-allocate batch space to avoid per-node grow_to syscalls
+        let approx_per_node: u64 = 1280; // ponytail: fixed estimate; tune if fragmentation appears
+        let batch_estimate = nodes.len() as u64 * approx_per_node;
+        let current_size = vstore.size;
+        let needed = vstore.write_cursor + batch_estimate;
+        if needed > current_size {
+            let new_size = std::cmp::max(current_size * 2, needed + 4096);
+            vstore.grow_to(new_size)?;
+        }
+
         for node in nodes {
             let mut active_node = node.clone();
             active_node.last_accessed = now_ms;
@@ -816,8 +927,6 @@ impl StorageEngine {
                 active_node.vector.clone(),
                 storage_offset,
             ));
-            wal_records.push(WalRecord::Insert(active_node.clone()));
-
             let key = active_node.id.to_le_bytes();
             let created_by = self.next_txn_id.load(std::sync::atomic::Ordering::Relaxed);
             let metadata = NodeMetadata {
@@ -836,12 +945,16 @@ impl StorageEngine {
         }
         drop(vstore);
 
-        if let Some(ref sharded) = self.wal {
-            sharded.batch_append(&wal_records)?;
+        // ── Phase 3: WAL (P3 — skip_wal flag) ────────────────────
+        if !opts.skip_wal {
+            if let Some(ref sharded) = self.wal {
+                let wal_records: Vec<WalRecord> =
+                    nodes.iter().map(|n| WalRecord::Insert(n.clone())).collect();
+                sharded.batch_append(&wal_records)?;
+            }
         }
 
-        // P4: if KV batch write fails after VantaFile writes, tombstone all
-        // entries to prevent orphan vectors in the vector store.
+        // ── Phase 4: KV batch write + tombstone on failure ────────
         if let Err(e) = self.backend.write_batch(kv_ops) {
             let mut vstore = self.vector_store[0].write();
             for &packed in &vstore_offsets {

@@ -33,7 +33,7 @@ pub(crate) struct CacheWarmer {
 
 /// Snapshot of cache warmer metrics for telemetry.
 #[derive(Debug, Clone, Copy, Default)]
-#[allow(dead_code)]
+#[cfg_attr(not(feature = "prometheus"), allow(dead_code))]
 pub(crate) struct CacheWarmerMetrics {
     /// Number of distinct nodes in the co-access table.
     pub tracked_nodes: usize,
@@ -128,7 +128,7 @@ impl CacheWarmer {
 
     /// Decay old co-access patterns by halving all counts.
     /// Entries that fall to 0 are removed.
-    #[allow(dead_code)]
+    /// Called by `record_co_access()` every 1000 events.
     pub fn decay(&self) {
         let mut table = self.co_access.write();
         table.retain(|_, related| {
@@ -167,20 +167,26 @@ impl CacheWarmer {
         ids
     }
 
-    /// Read current metrics.
+    /// Read current metrics and update Prometheus gauges.
+    /// ponytail: `#[allow(dead_code)]` — only called from tests; a periodic
+    /// metrics sampler should call this from the engine's tick loop.
     #[allow(dead_code)]
     pub fn metrics(&self) -> CacheWarmerMetrics {
         let table = self.co_access.read();
         let total_pairs: usize = table.values().map(|m| m.len()).sum();
-        CacheWarmerMetrics {
+        let m = CacheWarmerMetrics {
             tracked_nodes: table.len(),
             total_pairs,
             total_events: self.total_events.load(Ordering::Relaxed),
             prefetch_hits: self.prefetch_hits.load(Ordering::Relaxed),
-        }
+        };
+        crate::metrics::record_cache_warmer_metrics(m);
+        m
     }
 
     /// Clear all tracked co-access data.
+    /// ponytail: kept `#[allow(dead_code)]` — no external caller yet, added for
+    /// tests and manual reset; becomes live when cache warmer reset API is exposed.
     #[allow(dead_code)]
     pub fn clear(&self) {
         self.co_access.write().clear();

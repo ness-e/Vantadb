@@ -340,6 +340,13 @@ impl VantaEmbedded {
                 .then(a.record.node_id.cmp(&b.record.node_id))
         });
         hits.truncate(top_k);
+
+        // Feed search results into cache warmer co-access tracking
+        if hits.len() >= 2 {
+            let node_ids: Vec<u128> = hits.iter().map(|h| h.record.node_id).collect();
+            engine.cache_warmer.record_co_access(&node_ids);
+        }
+
         crate::metrics::record_text_lexical_query(
             started.elapsed().as_millis() as u64,
             candidates_scored,
@@ -435,6 +442,15 @@ impl VantaEmbedded {
         }
         crate::planner::sort_hits(&mut hits);
         hits.truncate(top_k);
+
+        // Feed search results into cache warmer co-access tracking
+        if hits.len() >= 2 {
+            let node_ids: Vec<u128> = hits.iter().map(|h| h.record.node_id).collect();
+            if let Ok(cw_engine) = self.engine_handle() {
+                cw_engine.cache_warmer.record_co_access(&node_ids);
+            }
+        }
+
         if distance_metric == crate::node::DistanceMetric::Euclidean {
             for hit in hits.iter_mut() {
                 hit.score = -(-hit.score).max(0.0).sqrt();
@@ -572,6 +588,12 @@ impl VantaEmbedded {
             }
         } else if !hits.is_empty() {
             crate::index::auto_tune::AutoTune::report_success();
+        }
+
+        // Feed search results into cache warmer co-access tracking
+        if hits.len() >= 2 {
+            let node_ids: Vec<u128> = hits.iter().map(|h| h.record.node_id).collect();
+            engine.cache_warmer.record_co_access(&node_ids);
         }
 
         Ok(hits)

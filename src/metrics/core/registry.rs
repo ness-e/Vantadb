@@ -677,6 +677,48 @@ pub static AUTO_TUNE_EF: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     )
 });
 
+// ── Cache warmer gauges ───────────────────────────────────────────
+
+/// Number of distinct nodes tracked in the co-access table.
+#[cfg(feature = "prometheus")]
+pub static CACHE_WARMER_TRACKED_NODES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
+        "vantadb_cache_warmer_tracked_nodes",
+        "Distinct nodes in the co-access table",
+        CACHE_WARMER_TRACKED_NODES
+    )
+});
+
+/// Total number of co-access pairs across all tracked nodes.
+#[cfg(feature = "prometheus")]
+pub static CACHE_WARMER_TOTAL_PAIRS: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
+        "vantadb_cache_warmer_total_pairs",
+        "Total co-access pairs tracked",
+        CACHE_WARMER_TOTAL_PAIRS
+    )
+});
+
+/// Total co-access recording events.
+#[cfg(feature = "prometheus")]
+pub static CACHE_WARMER_TOTAL_EVENTS: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
+        "vantadb_cache_warmer_total_events",
+        "Number of co-access recording events",
+        CACHE_WARMER_TOTAL_EVENTS
+    )
+});
+
+/// Successful prefetch predictions (prefetch → subsequent access).
+#[cfg(feature = "prometheus")]
+pub static CACHE_WARMER_PREFETCH_HITS: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
+        "vantadb_cache_warmer_prefetch_hits",
+        "Successful cache warmer prefetch predictions",
+        CACHE_WARMER_PREFETCH_HITS
+    )
+});
+
 // ── HTTP request metrics (middleware in cli_server) ─────────────────────
 
 #[cfg(feature = "prometheus")]
@@ -1112,6 +1154,10 @@ mod tests {
         assert!(JEMALLOC_MAPPED_BYTES.as_ref().is_some());
         assert!(JEMALLOC_RETAINED_BYTES.as_ref().is_some());
         assert!(AUTO_TUNE_EF.as_ref().is_some());
+        assert!(CACHE_WARMER_TRACKED_NODES.as_ref().is_some());
+        assert!(CACHE_WARMER_TOTAL_PAIRS.as_ref().is_some());
+        assert!(CACHE_WARMER_TOTAL_EVENTS.as_ref().is_some());
+        assert!(CACHE_WARMER_PREFETCH_HITS.as_ref().is_some());
     }
 
     #[test]

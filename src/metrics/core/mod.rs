@@ -252,6 +252,21 @@ pub fn record_promotion() {
     CURRENT_QUANTIZED_NODES.fetch_sub(1, Ordering::Relaxed);
 }
 
+// ── Cache warmer metrics ─────────────────────────────────────
+
+/// Snapshot cache warmer metrics into Prometheus gauges.
+/// ponytail: `#[allow(dead_code)]` — called from `CacheWarmer::metrics()` which
+/// is only called from tests; wire into a periodic tick when one exists.
+#[allow(dead_code)]
+pub(crate) fn record_cache_warmer_metrics(metrics: crate::cache_warmer::CacheWarmerMetrics) {
+    #[cfg(not(feature = "prometheus"))]
+    let _ = metrics;
+    set_gauge!(CACHE_WARMER_TRACKED_NODES, metrics.tracked_nodes);
+    set_gauge!(CACHE_WARMER_TOTAL_PAIRS, metrics.total_pairs);
+    set_gauge!(CACHE_WARMER_TOTAL_EVENTS, metrics.total_events);
+    set_gauge!(CACHE_WARMER_PREFETCH_HITS, metrics.prefetch_hits);
+}
+
 fn get_native_memory() -> Option<(u64, u64)> {
     #[cfg(target_os = "linux")]
     {

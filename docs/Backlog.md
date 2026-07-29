@@ -3,8 +3,8 @@ title: "Active Backlog — VantaDB"
 type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
-last_reviewed: 2026-07-28
-verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 5 sub-agentes explore validaron 69 items contra código real — ver docs/audit-reports/backlog-validation-2026-07-28.md"
+last_reviewed: 2026-07-29
+verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 5 sub-agentes explore validaron 69 items contra código real — ver docs/audit-reports/backlog-validation-2026-07-28.md. 2026-07-29: 19 items INVESTIGACION agregados (INV-001 a INV-017) tras verificación de consolidación de 4 sub-agentes vs código real."
 ---
 
 # Active Backlog — VantaDB
@@ -12,7 +12,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 > **Purpose:** Single source of truth for all project tasks — organized by execution order.
 > **Completed tasks moved to:** `docs/progreso/README.md`
 > **Verification method:** All items cross-checked against actual codebase (Jul 27, 2026). 8 tareas ejecutadas en sesión: TSK-106, MKT-03, NUEVO-21, MKT-04, TSK-107, COM-03, COM-04, Good first issues (18 creadas).
-> **Total open items:** ~60
+> **Total open items:** ~86 (60 anteriores + 19 investigaciones INV-001..INV-017 + INV-024, -2 items migrados a completado REC-001/REC-010)
 > **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/progreso/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
 
 ---
@@ -22,14 +22,14 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | Phase | Items | Est. Effort | Priority |
 |-------|-------|-------------|----------|
 | **P0** 🚀 Release Blockers | 1 (+6 ✅ completados, +7 removidos, 1 WONTFIX) | ~2-3d | 🔴 Bloqueante |
-| **P1** 🛡️ Security & Critical | 0 (todos resueltos/deferidos) | — | ✅ Cerrado |
+| **P1** 🛡️ Security & Critical | 2 (+2 INV investigación) | ~3-5d | 🟡 Media |
 | **P2** ⚡ Quick Wins Técnicos | 0 (7 ✅ + 24 stale removidos) | — | ✅ Cerrado |
 | **P3** 🧪 Test Coverage (adapters) | 0 (7 ✅ + 7 stale removidos) | — | ✅ Cerrado |
-| **P4** 🔧 Engineering Health | 0 (10 ✅ removidos a progreso) | — | ✅ Cerrado |
-| **P5** 📖 Docs & Community | 8 (+2 ✅ completados) | ~1-2 semanas | 🟡 Media |
-| **P6** 🚀 Launch Campaign | 8 (+2 ✅ completados) | ~1-2 semanas | 🟡 Media |
+| **P4** 🔧 Engineering Health | 4 (+4 INV investigación) | ~1-2 semanas | 🟡 Media |
+| **P5** 📖 Docs & Community | 9 (+1 INV investigación) | ~1-2 semanas | 🟡 Media |
+| **P6** 🚀 Launch Campaign | 9 (+1 INV investigación) | ~1-2 semanas | 🟡 Media |
 | **P7** 🌐 WASM & Performance | 0 (todos completados) | — | ✅ Cerrado |
-| **P8** 🔮 Post-Launch & Enterprise | 18 (+8 ✅ completados, 1 removido) | ~3-5 semanas | 🔵 Futuro |
+| **P8** 🔮 Post-Launch & Enterprise | 28 (+10 INV investigación) | ~3-5 semanas | 🔵 Futuro |
 | **P9** 📚 Old Docs Rescue (reference) | 13 (7 ✅ progreso) | — | 📖 Referencia |
 | **P10** 🏗️ Competitive Features (catalog) | 20 (11 ✅ progreso) | — | 🗺️ Roadmap |
 
@@ -68,6 +68,19 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 
 ---
 
+## Phase 1: 🛡️ Security & Critical
+
+> Investigaciones de seguridad y dependencias críticas.
+
+| ID | Descripción | Archivos | Esfuerzo | Prio |
+|----|-------------|----------|----------|------|
+| `INV-001` | **🔍 Investigar dependencias con RUSTSEC activas** — Auditar `Cargo.lock` contra advisories conocidos. 3 crates reportadas: `atomic-polyfill` (RUSTSEC-2023-0089), `paste` (RUSTSEC-2024-0436), `rustls-pemfile` (RUSTSEC-2025-0134). Verificar si siguen siendo dependencias activas o transitivas, evaluar riesgo real, y proponer reemplazos o fixes. **Alcance:** (1) Extraer árbol de dependencias de cada crate via `cargo tree -p <crate>`, (2) Verificar si RUSTSEC aplica al uso actual, (3) Identificar reemplazos (ej. `atomic-polyfill` → `core::sync::atomic` si MSRV lo permite), (4) Estimar breaking change si se remueve. **Sin implementación — solo reporte + propuesta.** | `Cargo.lock`, `deny.toml`, `cargo tree` | 🟢 2-4h | 🟠 |
+| `INV-024` | **🔍 Auditar bloqueos `unsafe` sin SAFETY docs** — Revisar todos los bloques `unsafe` en el código Rust (`src/node.rs`, `src/index/graph.rs`, `src/storage/vfile.rs`) que carecen de invariantes documentados. Verificar si hay UB potencial o si son seguros pero sin docs. Proponer: (a) agregar SAFETY comments documentando invariantes, o (b) reemplazar con alternativas seguras. **Sin implementación — solo auditoría + propuesta.** | `src/node.rs`, `src/index/graph.rs`, `src/storage/vfile.rs`, `src/index/search.rs` | 🟡 3-5d | 🟠 |
+
+> **Items previos resueltos (9):** Todos los items P1 originales resueltos/deferidos en campañas anteriores.
+
+---
+
 > **Phase 2: ⚡ Quick Wins Técnicos** — **31 items removidos:** DRV-014 ✅, DRV-028 ✅, DRV-041 ✅, VFY-006 ✅, VFY-007 ✅, REV-012 ✅, DRV-136 ✅ + 24 stale items de la auditoría original. No quedan items activos en P2.
 
 ---
@@ -76,7 +89,18 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 
 ---
 
-> **Phase 4: 🔧 Engineering Health & Architecture** — **10 items removidos:** WEB-03 ✅, WEB-04 ✅, VFY-004 ✅, VFY-011 ✅, DRV-121 ✅, DRV-122 ✅, DRV-123 ✅, DRV-130 ✅, DRV-131 ✅, DOC-20 ✅. No quedan items activos en P4.
+## Phase 4: 🔧 Engineering Health & Architecture
+
+> Investigaciones de salud de ingeniería — rendimiento, concurrencia, arquitectura.
+
+| ID | Descripción | Archivos | Esfuerzo | Prio |
+|----|-------------|----------|----------|------|
+| `INV-002` | **🔍 Memory Telemetry Correction — investigación** — El reporte de RAM actual es inconsistente (mezcla core RAM, index RAM, page cache, mmap, ingest buffers). Audit dice "hasta que arregles la telemetría, no hables de eficiencia de memoria". **Alcance:** (1) Mapear qué mide cada métrica actual vs qué debería medir, (2) Diseñar esquema de telemetría con categorías separadas (core, index, page cache, mmap, ingest), (3) Identificar qué estructuras contribuyen a cada categoría, (4) Proponer implementación con `tracing::metrics` + labels. **Sin implementación — solo diseño + propuesta.** | `src/metrics/`, `docs/operations/MEMORY_TELEMETRY.md`, `docs/operations/PERFORMANCE_TUNING.md` | 🟡 3-5d | 🟠 |
+| `INV-003` | **🔍 Sync Blocking en Tokio — auditoría** — `std::fs::*` y `std::sync::Mutex::lock()` pueden estar usándose en contexto async, bloqueando el runtime de Tokio. **Alcance:** (1) Escanear call sites de `std::fs::*` y `std::sync::Mutex::lock()` dentro de funciones `async`, (2) Identificar cuáles corren en contexto de Tokio (vs threads dedicados), (3) Proponer migración a `spawn_blocking` con semáforo `max_blocking_threads` para los bloqueantes, (4) Medir impacto si aplica. **Sin implementación — solo auditoría + propuesta.** | `src/`, `vantadb-server/`, `vantadb-mcp/` | 🟡 2-3d | 🟠 |
+| `INV-004` | **🔍 mimalloc como Global Allocator — investigación** — Evaluar si agregar feature flag `mimalloc-allocator` reduce fragmentación de heap. **Alcance:** (1) Investigar compatibilidad con plataformas target (Windows, macOS, Linux, WASM), (2) Medir RSS drift en stress test de 30 min con allocator actual vs mimalloc, (3) Diseñar feature gate minimal (`mimalloc-allocator` en Cargo features), (4) Evaluar impacto en binary size. **Sin implementación — solo investigación + propuesta.** | `Cargo.toml`, `src/lib.rs` | 🟢 4-6h | 🟡 |
+| `INV-005` | **🔍 ErrorBoundary en web frontend — investigación** — `react-error-boundary` está instalado (`package-lock.json`) pero no usado en la app Next.js. **Alcance:** (1) Verificar si Next.js App Router ya tiene manejo de errores nativo (`error.tsx` boundary), (2) Evaluar riesgo real: el sitio es marketing estático (no SPA), no hay lógica de runtime que pueda crashear, (3) Si aplica: proponer wrapper en `layout.tsx` con fallback UI y logging, (4) Desinstalar `react-error-boundary` si no se necesita. **Sin implementación — solo auditoría + propuesta.** | `web/src/app/layout.tsx`, `web/package.json`, `web/package-lock.json` | 🟢 2-4h | 🟢 |
+
+> **Items previos completados (10):** WEB-03 ✅, WEB-04 ✅, VFY-004 ✅, VFY-011 ✅, DRV-121 ✅, DRV-122 ✅, DRV-123 ✅, DRV-130 ✅, DRV-131 ✅, DOC-20 ✅ — movidos a `docs/progreso/README.md`.
 
 ---
 
@@ -94,6 +118,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | `NUEVO-10` | **Benchmark suite pública reproducible** | Benchmarks internos existen, sin script público standalone | 🟡 3-5d | 🟠 | ⚠️ Benchmarks OK, reproducibilidad no |
 | ~~`TSK-107`~~ | ~~Community showcase page (`/showcase`, `/about/community`)~~ | ~~`web/src/app/showcase/page.tsx` (6 items mock)~~ | ~~🟢 4-6h~~ | ~~🟡~~ | ✅ 6 items actualizados a ejemplos reales (LangGraph, AutoGen, Haystack, CrewAI, Rust hybrid, GraphRAG) |
 | `—` | Good first issues (18 open en GitHub) | GitHub Issues (#118-#145) | 🟢 2-4h | 🟠 | ✅ 18 issues creados (22 en total, 3 duplicados cerrados) |
+| `INV-006` | **🔍 Blog series completion — plan de finalización** — MKT-05 reporta 4/5 artículos escritos para el blog técnico. **Alcance:** (1) Identificar cuál de los 3 artículos planeados (`Why I Built a Local Memory Engine in Rust`, `How Hybrid Search Works`, `SQLite for AI Agents`) falta vs cuáles están completos, (2) Revisar drafts existentes en `docs/blog/`, (3) Plan de finalización con audiencia objetivo y keyword research, (4) Propuesta de calendario de publicación (Show HN + blog cadencia). **Sin implementación — solo plan + propuesta editorial.** | `docs/blog/`, `docs/strategy/SHOW_HN_PREP.md` | 🟢 2-4h | 🟡 |
 | `COM-02` | **Configurar Discord: reaction roles, autorole, logging, welcome DM, onboarding** | `docs/discord/todo.md` + assets SVG + server activo | 🟡 2-3d | 🟢 | ⚠️ Docs + assets OK. Config pendiente |
 | `COM-03` | **Discord: AutoMod, stickers/emojis, forums seed** | — | 🟢 4-6h | 🟢 | ⚠️ Forums seedeado (9 threads: FAQ/Showcase/Ideas/Bug). AutoMod/stickers/emojis requieren Discord UI manual — no API-accessible |
 | `COM-04` | **Discord: ticketing system, stage channel, Server Discovery, Canny.io** | — | 🟢 4-6h | 🟢 | ⚠️ Stage channel creado. Ticketing requiere bot auth (Ticket Tool/Helper.gg), Server Discovery necesita 1000+ miembros, Canny.io requiere cuenta externa — documentado en `docs/discord/todo.md` |
@@ -116,6 +141,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | `MKT-17` | Página de comparación competitiva interactiva — Sin ruta `/compare` ni archivos | 🟡 2-3d | 🟢 | ❌ Desde cero |
 | `TSK-103` | Public benchmark site (`/benchmarks`) — BenchmarksView + BenchmarkRace existen (BENCH01, SIFT1M). Falta script público reproducible | 🟡 2-3d | 🟠 | ⚠️ `/benchmarks` existe con datos benchmark reales. Sin script standalone público |
 | `TSK-104` | Demo agent: LangChain + Ollama + VantaDB — Ejemplo experimental existe | 🟡 1-2d | 🟠 | ⚠️ Ejemplo OK, no demo pulido |
+| `INV-007` | **🔍 Competitive benchmark vs LanceDB/Chroma — investigación y diseño** — El asset marketing #1 para audiencia técnica. **Alcance:** (1) Investigar `ann-benchmarks` y su conector para VantaDB, (2) Definir datasets: glove-100-angular + sift-128-euclidean, (3) Diseñar metodología: throughput, latencia p50/p95/p99, Recall@10, RAM, (4) Evaluar si benchmarks internos existentes (`/benchmarks`) pueden extenderse o si se necesita script standalone, (5) Proponer implementación mínima para página pública. **Sin implementación — solo diseño + propuesta.** | 🟡 2-3d | 🟠 |
 
 ---
 
@@ -160,6 +186,34 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | `REC-009` | **[Investigación] Analizar viabilidad PQ (Product Quantization)** — SQ8 + SCANN existen. PQ 96x no. Evaluar tradeoffs vs stack actual. Relacionado con `NUEVO-16` (PQ). **Sin implementación — solo análisis.** | 🟢 2-4h | 🟡 |
 | ~~`REC-010`~~ | ~~**py.typed marker + config maturin** — 2 `.pyi` stubs existían pero `py.typed` no. PEP 561 non-compliant. Creado `py.typed` + configurado `[tool.maturin] include` en `pyproject.toml`. **✅ COMPLETADA 2026-07-29.**~~ | ~~🟢 30min~~ | ✅ |
 | `REC-999` | **Corregir `docs/progreso/README.md`** — Tasks marcadas como ✅ que no existen o fueron eliminadas. Pasar a ⚠️/❌ según realidad verificada en auditoría 2026-07-28. | 🟢 30min | 🟢 |
+
+### 🔍 Investigaciones Post-Consolidación
+
+> Items agregados 2026-07-29 tras verificación de 19 hallazgos de 4 sub-agentes contra código actual. **Sin implementación — solo investigación + propuesta.**
+
+| ID | Descripción | Archivos | Esfuerzo | Prio |
+|----|-------------|----------|----------|------|
+| `INV-008` | **🔍 Batch Queries Python SDK — diseño** — `VantaDB.search_batch()` para ejecutar múltiples queries en paralelo vía Rayon. **Alcance:** (1) Definir API: `search_batch(queries: List[SearchRequest]) -> List[SearchResult]`, (2) Diseñar conversión eager a Rust types + `py.allow_threads` + Rayon parallel map, (3) Evaluar target: batch 10 queries < 3× single query latency, (4) Identificar si `VantaEmbedded` necesita método nuevo o wrapper. **Sin implementación — solo diseño.** | `vantadb-python/src/lib.rs`, `src/sdk/api.rs` | 🟡 1-2d | 🟡 |
+| `INV-009` | **🔍 Phrase Queries + Term Positions — diseño** — Implementar phrase query operator con almacenamiento de term positions para snippets destacados. **Alcance:** (1) Diseñar extensión del text index para almacenar term positions por documento, (2) Evaluar `tantivy` como backend vs storage custom en VantaFile, (3) Definir sintaxis de phrase query (comillas dobles en IQL), (4) Evaluar integración con `generate_snippet_with_highlighting` existente. **Sin implementación — solo diseño.** | `src/text_index.rs`, `src/sdk/search/snippet.rs`, `src/parser/` | 🟡 1-2d | 🟡 |
+| `INV-010` | **🔍 ACID rollback multi-capa completo — diseño** — VFY-010 y TASK-30 implementaron ACID Phase 1-2 (buffered writes + BEGIN/COMMIT/ABORT). Falta rollback coordinado entre WAL, VantaFile, HNSW y KV store. **Alcance:** (1) Mapear estado actual (qué capas tienen rollback y cuáles no), (2) Diseñar protocolo de two-phase rollback entre capas, (3) Evaluar Approach B del research `ACID_TRANSACTIONS.md` vs implementación actual, (4) Proponer plan de implementación por fases. **Sin implementación — solo diseño.** | `src/storage/engine/ops.rs`, `src/index/graph.rs`, `src/wal.rs` | 🟡 2-3d | 🟠 |
+| `INV-011` | **🔍 Core-Server Separation — auditoría** — Verificar si el core embebido (`VantaEmbedded`) tiene dependencias no deseadas del modo servidor (axum, tower, MCP). **Alcance:** (1) Escanear features de `Cargo.toml` que mezclan core vs server, (2) Identificar imports de server-only en `src/` (no en `vantadb-server/`), (3) Verificar si `default` features incluyen server deps, (4) Proponer separación limpia con feature gates. **Sin implementación — solo auditoría.** | `Cargo.toml`, `src/lib.rs`, `vantadb-server/Cargo.toml` | 🟡 1-2d | 🟡 |
+| `INV-012` | **🔍 Anti-Locality Disk Layout — re-evaluación** — DRV-130 T3 concluyó WONTFIX (~9% mejora, <20% threshold). Revisar si con los cambios recientes (LSM compaction, multi-level storage) el BFS relabeling tiene más impacto. **Alcance:** (1) Re-ejecutar benchmark con dataset SIFT 1M en la arquitectura actual (LSM + multi-level), (2) Comparar resultados con benchmark original de DRV-130 (2,440ms vs 2,221ms, ~9%), (3) Si mejora >15%, recomendar re-apertura. **Sin implementación — solo benchmark + recomendación.** | `src/index/graph.rs`, `tests/certification/`, `benches/` | 🟡 1-2d | 🟢 |
+| `INV-019` | **🔍 Advanced Tokenizer (Unicode + Stopwords) — investigación** — El tokenizer actual (`lowercase-ascii-alnum`) no soporta Unicode NFC, case folding no-ASCII, stopwords per-language, ni Snowball stemming. **Alcance:** (1) Evaluar integración de `tantivy-tokenizer` como backend opcional, (2) Investigar implementación custom lightweight con `unicode-segmentation` + stopword lists precompiladas, (3) Diseñar feature gate (`advanced-tokenizer`), (4) Estimar impacto en calidad de búsqueda (NDCG@10 con queries multilingües), (5) Comparar esfuerzo vs beneficio contra `unicode-normalization` + regex simple. **Sin implementación — solo investigación + propuesta.** | `src/text_index.rs`, `Cargo.toml`, `docs/api/ADVANCED_TOKENIZER.md` | 🟡 1-2d | 🟡 |
+
+### 🌐 Web Frontend — Auditorías
+
+| ID | Descripción | Archivos | Esfuerzo | Prio |
+|----|-------------|----------|----------|------|
+| `INV-013` | **🔍 JSON-LD structured data — auditoría** — Verificar si el sitio web tiene JSON-LD structured data para SEO. **Alcance:** (1) Revisar `layout.tsx` y `page.tsx` para `<script type="application/ld+json">`, (2) Verificar si Next.js Metadata API genera JSON-LD automáticamente, (3) Si falta: proponer schema.org/SoftwareApplication con keywords, description, author, (4) Evaluar herramientas de validación (Google Rich Results Test). **Sin implementación — solo auditoría + propuesta.** | `web/src/app/layout.tsx`, `web/src/app/page.tsx` | 🟢 2-4h | 🟡 |
+| `INV-014` | **🔍 Light mode (CSS muerto) — auditoría** — Verificar si el tema oscuro-only tiene CSS de light mode que no se usa. **Alcance:** (1) Revisar `globals.css` para variantes `light:` o `@media (prefers-color-scheme: light)`, (2) Verificar si `next-themes` está configurado con `attribute="class"` y si hay toggle funcional, (3) Si el CSS light mode existe pero es inaccesible: proponer eliminación o reactivación con theme toggle. **Sin implementación — solo auditoría + propuesta.** | `web/src/app/globals.css`, `web/src/components/vanta/theme-toggle.tsx`, `web/src/components/vanta/theme-provider.tsx` | 🟢 1-2h | 🟢 |
+| `INV-015` | **🔍 Touch targets < 44px — auditoría** — Verificar accesibilidad mobile: botones y enlaces deben tener mínimo 44×44px de área táctil. **Alcance:** (1) Inspeccionar componentes interactivos del sitio (botones, enlaces, icon buttons), (2) Medir tamaños actuales vs estándar WCAG 2.5.8 (44px), (3) Identificar componentes que no cumplen, (4) Proponer fixes con Tailwind `min-h-[44px] min-w-[44px]`. **Sin implementación — solo auditoría + propuesta.** | `web/src/components/vanta/*.tsx` | 🟢 2-4h | 🟡 |
+| `INV-016` | **🔍 Motion-duration tokens — auditoría** — Verificar si existe un sistema de tokens de animación consistente. **Alcance:** (1) Revisar `globals.css` para variables CSS de duración (`--duration-fast`, `--duration-normal`, etc.), (2) Revisar componentes que usan framer-motion para ver si las duraciones están hardcodeadas o usan tokens, (3) Si no hay sistema: proponer esquema de tokens (fast: 150ms, normal: 300ms, slow: 500ms) con CSS custom properties. **Sin implementación — solo auditoría + propuesta.** | `web/src/app/globals.css`, `web/src/components/vanta/page-transition.tsx`, `web/src/components/vanta/reveal.tsx` | 🟢 1-2h | 🟢 |
+
+### ⚙️ CI & Tooling — Auditorías
+
+| ID | Descripción | Archivos | Esfuerzo | Prio |
+|----|-------------|----------|----------|------|
+| `INV-017` | **🔍 sccache en CI — investigación** — Los builds Rust en CI compilan desde cero cada vez (~8-10 min). sccache podría cachear compilaciones entre runs. **Alcance:** (1) Investigar compatibilidad de `sccache` con GitHub Actions + `Swatinem/rust-cache`, (2) Evaluar si son complementarios o redundantes, (3) Diseñar integración mínima (instalar sccache + configurar `RUSTC_WRAPPER`), (4) Medir impacto estimado en tiempo de CI. **Sin implementación — solo investigación + propuesta.** | `.github/workflows/ci-rust-10.yml`, `.github/actions/rust-setup/` | 🟢 2-4h | 🟡 |
 
 > **Items removidos (1):** NUEVO-20 (Dockerfile ya existe en raíz del repo — multi-stage, Rust 1.94)
 
