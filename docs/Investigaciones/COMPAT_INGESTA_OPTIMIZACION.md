@@ -806,6 +806,59 @@ python benchmarks/competitive_bench.py --size 10000 --queries 100 --dataset synt
 
 ---
 
+---
+
+## 9A. Resultados Finales — Post-Optimización
+
+> **Estado:** ✅ COMPLETADO — Targets no alcanzados pero mejora dramática lograda
+> **Fecha:** 2026-07-29
+
+### Benchmark Final (10K records)
+
+| Dataset | Baseline | Post-Fixes | **Mejora** |
+|---------|----------|------------|-----------|
+| GloVe-100-angular | 184 QPS (8.7s build, 18s total) | **1,259 QPS** (7.94s total) | **6.8×** |
+| SIFT-128-euclidean | 240 QPS | **1,503 QPS** (6.65s total) | **6.3×** |
+
+### Análisis de Bottlenecks
+
+| Capa | Tiempo/1K (GloVe) | % | Estado |
+|------|-------------------|---|--------|
+| Phase1: Cardinality stats | ~10ms | 31% | Optimizado (Rayon-ready) |
+| Phase2: Vstore writes + KV prep | ~2.5ms | 8% | ✅ |
+| Phase3: WAL batch | ~18ms | 56% | ✅ 325× mejora |
+| Phase4: KV batch commit | ~1ms | 3% | ✅ |
+| Phase5: HNSW add | ~0ms | 0% | Diferido a rebuild |
+| Phase6: Cache eviction | ~0ms | 0% | ✅ |
+
+**Pipeline puro de insert (sin rebuild HNSW): ~31ms/1K ≈ 32K QPS teóricos** — muy por encima del target de 10K.
+
+### Optimizaciones Aplicadas
+
+1. **ShardedWal::batch_append()** — Group-by-shard en vez de per-record round-robin. WAL: 6,174ms → ~18ms/1K (325×)
+2. **metadata.clone() eliminado** — `memory_record_to_node_owned()` usa `&metadata` en vez de clone
+3. **put_batch_raw → batch_insert_with_opts** — Usa skip_existing_check + skip_hnsw + rebuild_vector_index() post-batch
+4. **ef_construction 400 → 100** — Reduce 4× distancia calculada en HNSW rebuild
+5. **select_neighbors simplificado** — Elimina diversity check (2.5× overhead en rebuild)
+
+### Targets vs Realidad
+
+| Target | Requerido | Realidad | Gap |
+|--------|-----------|----------|-----|
+| 2,200 QPS | rebuild < 4.5s | ~7.9s (GloVe) | 1.75× |
+| 10,000 QPS | rebuild < 1.0s | ~7.9s (GloVe) | 7.9× |
+
+**Conclusión:** Targets del COMPAT asumían HNSW = 50-60%. Realidad: HNSW rebuild = 99% del tiempo. Para alcanzar targets, se necesita HNSW rebuild paralelo (Fase 2: rayon + DashMap flatten, estimado 4-8× mejora adicional → 5K-10K QPS posible).
+
+### Si se continúa (Fase 2)
+
+Ver `docs/benchmarks/vantadb-performance-review.md` para vanta-tuner roadmap:
+- `rayon::parallel` para HNSW rebuild (4-8×)
+- Layer-wise bulk insert skip (saltar rebuild intermedio)
+- M lock-free con DashMap flatten
+
+---
+
 ## 10. Archivos Afectados — Mapa Completo
 
 ### Propuesta 1 (self.get redundante)

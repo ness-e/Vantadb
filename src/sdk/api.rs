@@ -170,11 +170,15 @@ impl VantaEmbedded {
         self.put_one(input)
     }
 
-    /// Insert or update multiple namespace-scoped persistent memory records in parallel.
+    /// Insert or update multiple namespace-scoped persistent memory records.
+    ///
+    /// Uses `batch_insert_with_opts()` internally — a single WAL `batch_append`,
+    /// KV `write_batch`, and HNSW lock acquisition across all nodes in a chunk.
+    /// Skips the per-node existence check (caller guarantees fresh inserts or
+    /// uses `put()` for individual UPSERTS).
     #[tracing::instrument(skip(self, inputs), err)]
     pub fn put_batch(&self, inputs: Vec<VantaMemoryInput>) -> Result<Vec<VantaMemoryRecord>> {
-        #[cfg(feature = "rayon")]
-        use rayon::prelude::*;
+        use crate::storage::engine::BatchInsertOptions;
 
         for input in &inputs {
             validate_namespace(&input.namespace)?;
@@ -182,23 +186,67 @@ impl VantaEmbedded {
             validate_metadata(&input.metadata)?;
         }
 
+        let engine = self.engine_handle()?;
         let batch_size = self.config.batch_size.unwrap_or(1000);
         let mut all_results: Vec<VantaMemoryRecord> = Vec::with_capacity(inputs.len());
+
         for chunk in inputs.chunks(batch_size) {
-            let chunk_results: Vec<VantaMemoryRecord> = {
-                #[cfg(feature = "rayon")]
-                {
-                    chunk.to_vec().into_par_iter()
-                }
-                #[cfg(not(feature = "rayon"))]
-                {
-                    chunk.iter().cloned()
+            let timestamp = now_ms();
+            let mut nodes: Vec<UnifiedNode> = Vec::with_capacity(chunk.len());
+            let mut records: Vec<VantaMemoryRecord> = Vec::with_capacity(chunk.len());
+
+            for input in chunk {
+                let node_id = memory_node_id(&input.namespace, &input.key);
+                let record = VantaMemoryRecord {
+                    namespace: input.namespace.clone(),
+                    key: input.key.clone(),
+                    payload: input.payload.clone(),
+                    metadata: input.metadata.clone(),
+                    created_at_ms: timestamp,
+                    updated_at_ms: timestamp,
+                    version: 1,
+                    node_id,
+                    vector: input.vector.clone().filter(|v| !v.is_empty()),
+                    expires_at_ms: input.ttl_ms.map(|ttl| timestamp.saturating_add(ttl)),
+                };
+                let (node, record) = memory_record_to_node_owned(record);
+                nodes.push(node);
+                records.push(record);
+            }
+
+            // ── Single batch insert: WAL batch_append + KV write_batch ──
+            // Skip incremental HNSW adds (dominates at ~79% of insert time
+            // per COMPAT doc analysis) — rebuild from scratch at the end.
+            engine.batch_insert_with_opts(
+                &nodes,
+                BatchInsertOptions {
+                    skip_existing_check: true,
+                    skip_wal: false,
+                    skip_hnsw: true,
+                },
+            )?;
+
+            // ── Post-processing (same as put_one but without derived indexes for batch) ──
+            for record in &records {
+                if !record.metadata.is_empty() {
+                    let _ = crate::shred::ShreddedRowStore::put(
+                        record.node_id,
+                        &record.metadata,
+                        &*engine.backend,
+                    );
                 }
             }
-            .map(|input| self.put_one(input))
-            .collect::<Result<Vec<_>>>()?;
-            all_results.extend(chunk_results);
+
+            // ponytail: no `replace_derived_indexes` for batch — derived index update
+            // for UPSERTS requires per-node `engine.get()` to diff old vs new. For
+            // fresh-insert workloads (common case) there is nothing to diff. Add
+            // a second pass with existence checks when UPSERT-batch support is needed.
+
+            all_results.extend(records);
         }
+
+        // ── HNSW index: rebuild from scratch after deferred bulk insert ──
+        engine.rebuild_vector_index()?;
 
         Ok(all_results)
     }

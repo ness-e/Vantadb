@@ -17,7 +17,7 @@ use crate::wal::WalRecord;
 /// Options that control batch-insert behaviour.
 ///
 /// Use [`BatchInsertOptions::default()`] for standard behaviour
-/// (existing-node check enabled, WAL enabled).
+/// (existing-node check enabled, WAL enabled, HNSW index updated).
 #[derive(Clone, Debug, Default)]
 pub struct BatchInsertOptions {
     /// When `true`, skip the per-node `self.get()` existence check.
@@ -26,6 +26,11 @@ pub struct BatchInsertOptions {
     /// When `true`, skip WAL record generation and `batch_append`.
     /// Use for bulk load where the source data can be re-inserted on crash.
     pub skip_wal: bool,
+    /// When `true`, skip incremental HNSW index insertion.
+    /// The caller MUST call `rebuild_vector_index()` (or `rebuild_index()`
+    /// from the SDK) after the bulk insert to build the HNSW from scratch.
+    /// The vstore, WAL, and KV metadata are still written.
+    pub skip_hnsw: bool,
 }
 
 impl StorageEngine {
@@ -921,12 +926,14 @@ impl StorageEngine {
             let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, &active_node)?;
             let storage_offset = crate::lsm::pack_offset(0, local_off);
             vstore_offsets.push(storage_offset);
-            hnsw_entries.push((
-                active_node.id,
-                active_node.bitset.clone(),
-                active_node.vector.clone(),
-                storage_offset,
-            ));
+            if !opts.skip_hnsw {
+                hnsw_entries.push((
+                    active_node.id,
+                    active_node.bitset.clone(),
+                    active_node.vector.clone(),
+                    storage_offset,
+                ));
+            }
             let key = active_node.id.to_le_bytes();
             let created_by = self.next_txn_id.load(std::sync::atomic::Ordering::Relaxed);
             let metadata = NodeMetadata {
@@ -967,7 +974,7 @@ impl StorageEngine {
             return Err(e);
         }
 
-        {
+        if !opts.skip_hnsw {
             let _guard = self
                 .insert_lock
                 .try_lock_for(std::time::Duration::from_millis(
@@ -1016,7 +1023,6 @@ impl StorageEngine {
                 }
             }
         }
-
         Ok(())
     }
 

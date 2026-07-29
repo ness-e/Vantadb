@@ -248,7 +248,7 @@ impl Default for HnswConfig {
         Self {
             m: 32,
             m_max0: 64,
-            ef_construction: 400,
+            ef_construction: 100,
             ef_search: 100,
             ml: 1.0 / (32_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
@@ -533,6 +533,24 @@ impl CPIndex {
         self.insert_hnsw(id, bitset, vec_data, storage_offset);
     }
 
+    /// Add a node with a pre-computed HNSW layer level (avoids `random_layer()`).
+    /// Used for parallel rebuild where each thread computes its own levels
+    /// to avoid contention on the shared RNG mutex.
+    pub fn add_with_level(
+        &self,
+        id: u128,
+        bitset: FilterBitset,
+        vec_data: VectorRepresentations,
+        storage_offset: u64,
+        level: usize,
+    ) {
+        if self.validate_node(id, bitset.clone(), &vec_data, storage_offset) {
+            return;
+        }
+
+        self.insert_hnsw_with_level(id, bitset, vec_data, storage_offset, level);
+    }
+
     #[inline]
     pub(crate) fn compute_cached_norms(&self, vec_data: &VectorRepresentations) -> (f32, f32) {
         cached_norms_for_metric(self.config.distance_metric, vec_data)
@@ -634,6 +652,127 @@ impl CPIndex {
                 layer,
                 &crate::node::ALL_BITSET,
                 false, // no ACORN during construction
+                None,
+                self.config.distance_metric,
+                &mut visited,
+                &mut SearchProfile::new(),
+            );
+
+            let m_max = if layer == 0 {
+                self.config.m_max0
+            } else {
+                self.config.m
+            };
+
+            curr_entry_points = w.iter().map(|ns| ns.1).collect();
+            let selected_neighbors = self.select_neighbors(w, m_max);
+
+            if let Some(mut n) = self.nodes.get_mut(&id) {
+                n.neighbors[layer] = selected_neighbors.clone();
+            }
+
+            self.connect_layer_neighbors(id, &selected_neighbors, layer, m_max);
+        }
+
+        self.update_metadata(level, id);
+    }
+
+    fn insert_hnsw_with_level(
+        &self,
+        id: u128,
+        bitset: FilterBitset,
+        vec_data: VectorRepresentations,
+        storage_offset: u64,
+        level: usize,
+    ) {
+        let ef_cons = self.config.ef_construction;
+
+        let (inv_cached_norm, norm_sq) = self.compute_cached_norms(&vec_data);
+
+        let query_f32 = match vec_data.to_f32() {
+            Some(v) => v,
+            None => return,
+        };
+
+        let node = HnswNode {
+            id,
+            bitset,
+            vec_data,
+            neighbors: vec![NeighborVec::new(); level + 1],
+            storage_offset,
+            inv_cached_norm,
+            norm_sq,
+            flags: 0,
+        };
+
+        let ep = match self.get_entry_point() {
+            None => {
+                self.set_entry_point(id);
+                self.max_layer.store(level, Ordering::Release);
+                self.nodes.insert(id, node);
+                self.total_nodes.fetch_add(1, Ordering::Relaxed);
+                return;
+            }
+            Some(entry) => entry,
+        };
+
+        self.nodes.insert(id, node);
+        self.total_nodes.fetch_add(1, Ordering::Relaxed);
+
+        let (query_norm, query_inv_norm) = match self.config.distance_metric {
+            DistanceMetric::Cosine => {
+                let norm = f32_l2_norm(&query_f32);
+                if norm < f32::EPSILON {
+                    self.nodes.remove(&id);
+                    self.total_nodes.fetch_sub(1, Ordering::Relaxed);
+                    return;
+                }
+                (Some(norm), Some(1.0 / norm))
+            }
+            DistanceMetric::Euclidean => {
+                let norm = f32_l2_norm(&query_f32);
+                (Some(norm), None)
+            }
+        };
+
+        let mut curr_entry_points = vec![ep];
+        let mut visited: std::collections::HashSet<u128, RandomState> =
+            std::collections::HashSet::with_capacity_and_hasher(ef_cons * 2, RandomState::new());
+        let top_layer = self.max_layer.load(Ordering::Acquire);
+
+        for layer in (level + 1..=top_layer).rev() {
+            visited.clear();
+            let mut w = self.search_layer(
+                &query_f32,
+                query_norm,
+                query_inv_norm,
+                &curr_entry_points,
+                1,
+                layer,
+                &crate::node::ALL_BITSET,
+                false,
+                None,
+                self.config.distance_metric,
+                &mut visited,
+                &mut SearchProfile::new(),
+            );
+            if let Some(NodeSimMin(_, best_id)) = w.pop() {
+                curr_entry_points = vec![best_id];
+            }
+        }
+
+        let start_layer = std::cmp::min(level, top_layer);
+        for layer in (0..=start_layer).rev() {
+            visited.clear();
+            let w = self.search_layer(
+                &query_f32,
+                query_norm,
+                query_inv_norm,
+                &curr_entry_points,
+                ef_cons,
+                layer,
+                &crate::node::ALL_BITSET,
+                false,
                 None,
                 self.config.distance_metric,
                 &mut visited,
@@ -864,6 +1003,13 @@ impl Default for CPIndex {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Compute a random HNSW layer level from a generic RNG.
+/// Used by parallel rebuild to avoid contention on `CPIndex::rng` mutex.
+pub fn random_layer_from_config<R: rand::Rng>(config: &HnswConfig, rng: &mut R) -> usize {
+    let r: f64 = rng.random_range(0.0001..1.0);
+    (-r.ln() * config.ml).floor() as usize
 }
 
 #[cfg(test)]

@@ -304,8 +304,9 @@ pub(crate) fn memory_record_to_node_owned(
         node.set_field(FIELD_EXPIRES_AT_MS, FieldValue::Int(expires_at as i64));
     }
 
-    for (k, v) in metadata.clone() {
-        node.set_field(k, v.into());
+    // ponytail: iterar por referencia, no clonar todo el HashMap solo para leerlo
+    for (k, v) in &metadata {
+        node.set_field(k.clone(), v.clone().into());
     }
 
     let vector = vector.filter(|v| !v.is_empty());

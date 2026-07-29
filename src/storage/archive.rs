@@ -2,7 +2,7 @@
 
 use crate::error::{Result, VantaError};
 use crate::index::CPIndex;
-use crate::node::{DiskNodeHeader, FilterBitset};
+use crate::node::DiskNodeHeader;
 use crate::storage::vfile::{MmapOptions, VantaFile};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::OpenOptions;
@@ -197,11 +197,22 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
     segment_id: Option<u8>,
 ) -> Result<crate::storage::IndexRebuildReport> {
     let started = Instant::now();
-    let mut cursor = STORAGE_ALIGNMENT;
+    let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
+
+    // Phase 1: scan vstore and collect all nodes into a buffer
+    // (sequential scan is I/O bound, not CPU bound)
+    struct HnswEntry {
+        id: u128,
+        bitset: u128,
+        vec_data: crate::node::VectorRepresentations,
+        storage_offset: u64,
+    }
+
+    let mut entries: Vec<HnswEntry> = Vec::new();
     let mut scanned_nodes = 0u64;
     let mut indexed_vectors = 0u64;
     let mut skipped_tombstones = 0u64;
-    let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
+    let mut cursor = STORAGE_ALIGNMENT;
 
     while cursor + header_size <= vstore.write_cursor {
         if let Some(header) = vstore.read_header(cursor) {
@@ -243,12 +254,12 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                         Some(sid) => crate::lsm::pack_offset(sid, cursor),
                         None => cursor,
                     };
-                    hnsw.add(
-                        header.id,
-                        FilterBitset::from_u128(header.bitset),
+                    entries.push(HnswEntry {
+                        id: header.id,
+                        bitset: header.bitset,
                         vec_data,
                         storage_offset,
-                    );
+                    });
                 }
             }
             cursor += header_size + ((header.vector_len as u64 * 4 + 63) & !63);
@@ -256,6 +267,36 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
             cursor += STORAGE_ALIGNMENT;
         }
     }
+
+    // Phase 2: add all nodes to HNSW graph
+    // When rayon is available, add in parallel with thread-local RNG
+    // to avoid contention on the shared `rng` mutex inside CPIndex.
+    #[cfg(feature = "rayon")]
+    {
+        use rand::Rng;
+        use rayon::prelude::*;
+
+        entries.into_par_iter().for_each(|entry| {
+            let bitset = crate::node::FilterBitset::from_u128(entry.bitset);
+            let level = crate::index::random_layer_from_config(&hnsw.config, &mut rand::rng());
+            hnsw.add_with_level(
+                entry.id,
+                bitset,
+                entry.vec_data,
+                entry.storage_offset,
+                level,
+            );
+        });
+    }
+
+    #[cfg(not(feature = "rayon"))]
+    {
+        for entry in entries {
+            let bitset = crate::node::FilterBitset::from_u128(entry.bitset);
+            hnsw.add(entry.id, bitset, entry.vec_data, entry.storage_offset);
+        }
+    }
+
     Ok(crate::storage::IndexRebuildReport {
         scanned_nodes,
         indexed_vectors,
