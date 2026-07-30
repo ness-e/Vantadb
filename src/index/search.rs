@@ -7,6 +7,23 @@ use crate::index::IndexType;
 use crate::node::{DistanceMetric, FilterBitset};
 use crate::storage::engine::FLAG_TOMBSTONE;
 
+// E2: Per-thread pool of `NeighborVec` for reuse in `search_layer`.
+// Reduces SmallVec heap allocations when neighbor lists exceed 32 elements.
+thread_local! {
+    static NL_POOL: std::cell::RefCell<Vec<NeighborVec>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Borrow a `NeighborVec` from the thread-local pool, or create a new one.
+fn take_nl() -> NeighborVec {
+    NL_POOL.with(|pool| pool.borrow_mut().pop().unwrap_or_default())
+}
+
+/// Return a `NeighborVec` to the pool for reuse. Clears contents first.
+fn give_nl(mut v: NeighborVec) {
+    v.clear();
+    NL_POOL.with(|pool| pool.borrow_mut().push(v));
+}
+
 #[cfg(debug_assertions)]
 pub(crate) struct SearchProfile {
     vfile_reads: u64,
@@ -199,6 +216,7 @@ impl CPIndex {
             // Only use inline cache if the list is non-empty — empty lists mean
             // the node hasn't had neighbors set yet (e.g. first node, or during
             // concurrent insert), so fall back to neighbor_index.
+            // E2: Use per-thread pool to reuse NeighborVec allocations.
             let neighbors = self
                 .nodes
                 .get(&cand_id)
@@ -206,7 +224,11 @@ impl CPIndex {
                     n.neighbor_lists
                         .get(layer)
                         .filter(|l| !l.is_empty())
-                        .cloned()
+                        .map(|l| {
+                            let mut v = take_nl();
+                            v.extend_from_slice(l);
+                            v
+                        })
                 })
                 .or_else(|| self.neighbor_index.get_neighbors(cand_id, layer));
 
@@ -348,7 +370,11 @@ impl CPIndex {
                                             .neighbor_lists
                                             .get(layer)
                                             .filter(|l| !l.is_empty())
-                                            .cloned()
+                                            .map(|l| {
+                                                let mut v = take_nl();
+                                                v.extend_from_slice(l);
+                                                v
+                                            })
                                             .or_else(|| {
                                                 self.neighbor_index
                                                     .get_neighbors(neighbor_id, layer)
@@ -395,6 +421,8 @@ impl CPIndex {
                                                     }
                                                 }
                                             }
+                                            // E2: Return second_hop to pool.
+                                            give_nl(second_list);
                                         }
                                     }
                                 }
@@ -402,6 +430,8 @@ impl CPIndex {
                         }
                     }
                 }
+                // E2: Return the NeighborVec to the thread-local pool for reuse.
+                give_nl(neighbors_list);
             }
         }
         results
