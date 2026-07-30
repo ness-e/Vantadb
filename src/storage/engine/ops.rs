@@ -14,10 +14,26 @@ use crate::storage::engine::{
 use crate::storage::ops::NodeMetadata;
 use crate::wal::WalRecord;
 
+/// Controls how a batch operation updates the HNSW vector index.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum InsertMode {
+    /// Insert each node into the HNSW index as it is written (no rebuild).
+    Incremental,
+    /// Skip HNSW insertion during the batch.
+    /// The caller MUST call `rebuild_vector_index()` afterward.
+    Rebuild,
+    /// Automatically choose based on batch size vs `incremental_threshold`.
+    /// Batches smaller than the threshold use `Incremental`;
+    /// batches at or above the threshold use `Rebuild`.
+    #[default]
+    Auto,
+}
+
 /// Options that control batch-insert behaviour.
 ///
 /// Use [`BatchInsertOptions::default()`] for standard behaviour
-/// (existing-node check enabled, WAL enabled, HNSW index updated).
+/// (existing-node check enabled, WAL enabled, HNSW index updated
+/// via `InsertMode::Auto` with a default threshold of 1000 nodes).
 #[derive(Clone, Debug, Default)]
 pub struct BatchInsertOptions {
     /// When `true`, skip the per-node `self.get()` existence check.
@@ -26,11 +42,28 @@ pub struct BatchInsertOptions {
     /// When `true`, skip WAL record generation and `batch_append`.
     /// Use for bulk load where the source data can be re-inserted on crash.
     pub skip_wal: bool,
-    /// When `true`, skip incremental HNSW index insertion.
-    /// The caller MUST call `rebuild_vector_index()` (or `rebuild_index()`
-    /// from the SDK) after the bulk insert to build the HNSW from scratch.
-    /// The vstore, WAL, and KV metadata are still written.
-    pub skip_hnsw: bool,
+    /// Controls how the HNSW index is updated during this batch.
+    /// Replaces the old `skip_hnsw: bool` field.
+    /// Default: `InsertMode::Auto` with `incremental_threshold = Some(1000)`.
+    pub insert_mode: InsertMode,
+    /// Batches smaller than this threshold use `Incremental` mode
+    /// when `insert_mode` is `Auto`. Default: `Some(1000)`.
+    pub incremental_threshold: Option<usize>,
+}
+
+impl BatchInsertOptions {
+    /// Returns `true` if this configuration implies a full rebuild is needed
+    /// for a batch of the given size (i.e. HNSW was NOT updated incrementally).
+    pub fn needs_rebuild(&self, batch_size: usize) -> bool {
+        match self.insert_mode {
+            InsertMode::Incremental => false,
+            InsertMode::Rebuild => true,
+            InsertMode::Auto => {
+                let threshold = self.incremental_threshold.unwrap_or(1000);
+                batch_size >= threshold
+            }
+        }
+    }
 }
 
 impl StorageEngine {
@@ -733,6 +766,10 @@ impl StorageEngine {
     ///
     /// Reduces I/O and lock contention by batching WAL records, KV backend writes,
     /// and acquiring the HNSW insert lock once for all nodes.
+    ///
+    /// HNSW behaviour follows `BatchInsertOptions::default()`, which uses
+    /// `InsertMode::Auto` — small batches insert incrementally, large batches
+    /// require a separate `rebuild_vector_index()` call.
     pub fn batch_insert(&self, nodes: &[UnifiedNode]) -> Result<()> {
         self.batch_insert_with_opts(nodes, BatchInsertOptions::default())
     }
@@ -741,6 +778,14 @@ impl StorageEngine {
     ///
     /// **P1** — `skip_existing_check` avoids per-node existence check.
     /// **P3** — `skip_wal` skips WAL record generation + `batch_append`.
+    ///
+    /// HNSW behavior is controlled by `InsertMode`:
+    /// - `InsertMode::Incremental` — inserts each node into the HNSW index
+    ///   as it is written. Good for small batches.
+    /// - `InsertMode::Rebuild` — skips HNSW insertion; caller must call
+    ///   `rebuild_vector_index()` afterward. Good for large batches.
+    /// - `InsertMode::Auto` (default) — chooses between the two above
+    ///   based on batch size vs `incremental_threshold` (default: 1000).
     #[tracing::instrument(skip(self, nodes), level = "debug", err)]
     pub fn batch_insert_with_opts(
         &self,
@@ -907,6 +952,16 @@ impl StorageEngine {
             }
         }
 
+        // Determine whether to insert nodes into the HNSW index incrementally
+        let should_insert_hnsw = match opts.insert_mode {
+            InsertMode::Incremental => true,
+            InsertMode::Rebuild => false,
+            InsertMode::Auto => {
+                let threshold = opts.incremental_threshold.unwrap_or(1000);
+                nodes.len() < threshold
+            }
+        };
+
         // ── Phase 2: vstore writes + KV/HNSW entry prep ──────────
         let mut vstore = self.vector_store[0].write();
 
@@ -926,7 +981,7 @@ impl StorageEngine {
             let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, &active_node)?;
             let storage_offset = crate::lsm::pack_offset(0, local_off);
             vstore_offsets.push(storage_offset);
-            if !opts.skip_hnsw {
+            if should_insert_hnsw {
                 hnsw_entries.push((
                     active_node.id,
                     active_node.bitset.clone(),
@@ -974,7 +1029,7 @@ impl StorageEngine {
             return Err(e);
         }
 
-        if !opts.skip_hnsw {
+        if should_insert_hnsw {
             let _guard = self
                 .insert_lock
                 .try_lock_for(std::time::Duration::from_millis(

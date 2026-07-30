@@ -45,7 +45,7 @@ pub(crate) const GIB: u64 = 1024 * 1024 * 1024;
 pub use crate::backend::BackendKind;
 
 /// Options passed to [`StorageEngine::batch_insert_with_opts`](crate::storage::engine::ops::StorageEngine::batch_insert_with_opts).
-pub use self::ops::BatchInsertOptions;
+pub use self::ops::{BatchInsertOptions, InsertMode};
 
 /// Memory usage statistics for a `StorageEngine` instance.
 #[derive(Debug, Clone, Copy)]

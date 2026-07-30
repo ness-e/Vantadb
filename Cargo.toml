@@ -206,6 +206,10 @@ harness = false
 name = "vfile_search"
 harness = false
 
+[[bench]]
+name = "incremental_bench"
+harness = false
+
 [[bin]]
 name = "vanta-cli"
 path = "src/bin/vanta-cli.rs"
