@@ -23,7 +23,7 @@
    - C1: Filtered search benchmarks ⏳
    - B1: Extraer branches search_layer ⏳
    - B4: Prefetch batch ⏳
-   - B2: visited capacity exacta ⏳
+    - B2: visited capacity exacta ✅
    - Profiling con samply ⏳
    - Descargar datasets reales ⏳
     - [profile.bench] ✅
@@ -467,23 +467,24 @@ cargo criterion --bench hnsw_recall_ef
 
 ---
 
-### ⏳ B2 — visited HashSet capacidad exacta
+### ✅ B2 — visited HashSet capacidad exacta
 
 **Tipo:** 🔧 Micro-optimización
-**Estado:** ⏳ PENDIENTE
+**Estado:** ✅ COMPLETADO (2026-07-30)
 
 #### Investigación
 - **Origen:** Análisis de hot paths — `search.rs:527`
 - **Hallazgo:** `HashSet::with_capacity(ef_search * 2)` puede ser insuficiente con M=32 (expande ~32 vecinos por candidato)
 
-#### Implementación Propuesta
+#### Implementación Realizada
 ```diff
-- let capacity = ef_search.max(top_k) * 2;
-+ let capacity = ef_search.max(top_k).saturating_mul(3);
+- ef_search.max(top_k) * 2,
++ ef_search.max(top_k).saturating_mul(3),
 ```
+Aplicado en `search.rs:534` (search_layer) y `graph.rs:633,766` (insert_hnsw).
 
 #### Decisión
-⏳ **DIFERIDO.** 1 línea, prioridad baja.
+✅ **COMPLETADO.** 3 líneas, riesgo 0, compilación correcta, pre-commit checks pasados.
 
 ---
 
