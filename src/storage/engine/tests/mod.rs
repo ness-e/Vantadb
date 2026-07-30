@@ -10,6 +10,7 @@ use crate::node::UnifiedNode;
 // ─── Sub-modules (one per source module) ──────────────────────
 
 mod engine;
+mod incremental;
 mod init;
 mod maintenance;
 mod ops;
