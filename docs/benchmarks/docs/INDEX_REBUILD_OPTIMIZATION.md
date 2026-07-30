@@ -1,8 +1,10 @@
 # INDEX REBUILD — Análisis de Optimización de Index Rebuild
 
-> **Estado:** ✅ COMPLETADO (Propuesta 1b + Propuesta 4 implementadas y benchmarkeadas)  
-> **Fecha:** 2026-07-29 (Propuesta 4 benchmarkeada)  
-> **Contexto:** Post-Fase 2 (parallel rebuild con rayon). VantaDB hace rebuild en 2.0-2.2s vs LanceDB 2.2-2.6s. **Propuesta 1b (InsertMode incremental) implementada: 4-10× en inserts pequeños con recall 100%. Propuesta 4 (flatten + RWLock neighbors) implementada y benchmarkeada: rebuild 1.4-2.5× más rápido, validando estimación.**
+> **Estado:** ✅ Camino A COMPLETADO (Propuesta 1b + 3 + 4 implementadas y benchmarkeadas)  
+> **Propuesta 1a:** ❌ Testeada — deferred shrink causa regresión (+53%). No recomendada.  
+> **Próximo:** Evaluar NN-Descent (Camino B) si se busca mayor rendimiento  
+> **Fecha:** 2026-07-30  
+> **Contexto:** Post-Fase 2 (parallel rebuild con rayon). VantaDB hace rebuild en 2.0-2.2s → hoy 760ms-2.2s. **Propuesta 1b (InsertMode incremental): 4-10× en inserts pequeños. Propuesta 4 (flatten + RWLock): rebuild 2.47× más rápido. Propuesta 3 (layer-wise): mejor calidad de entry points en batches.**
 
 ---
 
@@ -238,6 +240,19 @@ Fase 2: shrink_neighbors_final() en paralelo para todos los nodos
 ```
 
 **Beneficio:** Elimina ~20% del tiempo de rebuild. La poda final puede parallelizarse por shard.
+
+### Resultado Real (Jul 2026) — ❌ No recomendada
+
+Propuesta 1a fue implementada y benchmarkeada. Resultados:
+
+| Sub-item | Estado | Resultado |
+|----------|--------|-----------|
+| 1a.4 (deferred shrink) | ❌ Testeado | **Regresión +53%** (2.024s → 3.106s). Listas de vecinos crecen sin límite durante rebuild paralelo → shrink final O(m²) domina |
+| 1a.1 (layer ordering) | ✅ Ya cubierto | Propuesta 3 ordena por nivel en el path incremental. Rebuild path no se beneficia significativamente |
+| 1a.2 (batch connect) | 🟡 No implementado | Propuesta 4 (per-list RwLock) ya redujo la contención de escritura. Beneficio marginal restante |
+| 1a.3 (shard-aware) | 🟡 No implementado | Viabilidad baja sin profiling |
+
+**Conclusión:** Propuesta 1a no aporta beneficio neto. El camino correcto para mejoras adicionales es Camino B (NN-Descent).
 
 ### Esfuerzo
 
@@ -793,6 +808,7 @@ SPFresh (SOSP 2023) introduce **incremental in-place update** para grafos HNSW a
 ### Recomendación Final
 
 **Camino A: "Ship it incremental" ✅** (Completado — 1b + 3 + 4)
+> **Nota:** Propuesta 1a (Parallel Refinement) fue testada y **descartada**. El deferred shrink (1a.4) causa que las listas de vecinos crezcan sin límite durante rebuild paralelo, resultando en una regresión de +53% en tiempo total. Los otros sub-items (batch connect, layer ordering) ya están mayormente cubiertos por Propuesta 3 y 4. Ver sección 3 para más detalles.
 
 1. **✅ Propuesta 1b (incremental) — COMPLETADA** — Semana 1 (Jul 2026)
    - Threshold híbrido en `batch_insert_with_opts()` implementado
@@ -844,6 +860,12 @@ Semana 2-3: 3 (layer-wise auto-select) — en paralelo con 4  ✅ COMPLETADA
              → Ordena inserción por nivel descendente (mejores entry points primero)
              → Usa add_with_level con nivel pre-computado
              → ~25 líneas, impacto: mejor calidad de entry points en batches 100-1000
+
+Semana 4:   Propuesta 1a — test de concepto  ❌ DESCARTADA
+             → Deferred shrink implementado: regresión +53% (3.106s vs 2.024s)
+             → Listas de vecinos crecen sin límite en rebuild paralelo
+             → 1a.1 y 1a.2 ya cubiertos por Propuesta 3 y 4
+             → Conclusión: no implementar
 
 Semana 4:   Evaluar si se necesita NN-Descent (Camino B)
              → Si rebuild < 1.0s es suficiente → publicar
