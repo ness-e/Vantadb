@@ -1,6 +1,6 @@
 # VantaDB Competitive Analysis
 
-> Generado: 2026-07-29 (actualizado con Fase 2)  
+> Generado: 2026-07-29 (actualizado con Fase 2 + Propuesta 1b)  
 > Benchmark: `competitive_bench.py` — 3 motores, 2 datasets, 10K vectores, 100 queries, top-K=10  
 > **Versión evaluada:** v0.4.0 (local build, Fase 1 + Fase 2 optimizaciones activas)
 
@@ -66,6 +66,7 @@ De 184 QPS → **3,157 QPS** en GloVe, de 240 QPS → **3,358 QPS** en SIFT. El 
 | 6 | `BatchInsertOptions` con `skip_hnsw` + rebuild diferido | F1 | Pipeline puro ~32K QPS teóricos |
 | 7 | **HNSW rebuild paralelo con rayon** | **F2** | **3.5× index (GloVe 7.7s→2.2s)** |
 | 8 | **add_with_level + thread-local RNG** | **F2** | Evita contención Mutex RNG |
+| 9 | **InsertMode incremental (Propuesta 1b)** | **F3** | **4-10× en inserts <50 nodos, recall 100%** |
 
 ### ✅ Pipeline puro de insert: ~31ms/1K ≈ 32K QPS teóricos
 
@@ -237,8 +238,9 @@ GloVe 10K — Fase 1 (single-threaded):      GloVe 10K — Fase 2 (parallel rayo
 
 | Prioridad | Acción | Impacto |
 |-----------|--------|---------|
-| 🟢 P1 | Layer-wise bulk insert skip | **2-3×** en ingesta total |
-| 🟢 P2 | SIMD check AVX2/SSE en búsqueda coseno | **10-15%** query speed |
+| 🟢 P1 | **✅ InsertMode incremental completado** — Propuesta 1b | **4-10× en inserts <50 nodos** |
+| 🟢 P2 | Flatten + RWLock neighbor lists (Propuesta 4) | **1.5-2×** en rebuild paralelo |
+| 🟢 P3 | SIMD check AVX2/SSE en búsqueda coseno | **10-15%** query speed |
 
 ---
 
@@ -276,6 +278,7 @@ Benchmark definitivo con Fase 1 + Fase 2 optimizaciones activas: `put_batch_raw`
 | **Final Fase 1** | **Benchmark real GloVe 10K** | **1,187** | **6.5×** |
 | **Fase 2: parallel rebuild** | **rayon + thread-local RNG | **3,157** | **17.2×** |
 | **Pipeline puro (sin rebuild)** | **Solo insert** | **~32,000** | **174×** |
+| **Fase 3: InsertMode incremental** | **InsertMode::Auto, threshold 1000** | **4-10× (batches <50)** | **—** |
 
 *Estimaciones de vanta-tuner antes de benchmark real. La discrepancia se debe a que otros overheads (vstore, KV, metadata) limitan el QPS real.
 
