@@ -1,8 +1,10 @@
 # VantaDB Competitive Analysis
 
-> Generado: 2026-07-29 (actualizado con Fase 2 + Propuesta 1b)  
+> Generado: 2026-07-30  
 > Benchmark: `competitive_bench.py` — 3 motores, 2 datasets, 10K vectores, 100 queries, top-K=10  
-> **Versión evaluada:** v0.4.0 (local build, Fase 1 + Fase 2 optimizaciones activas)
+> **Versión evaluada:** v0.4.0 (local build, Fase 1 + Fase 2 + Propuesta 1b + Propuesta 4 activas)
+> 
+> ⚠️ **Regresión detectada vs baseline Jul 29:** VantaDB index time se duplicó (~2.2s → ~4.2s). Ingest QPS cayó ~34-44%. LanceDB/ChromaDB también cayeron ~5-13% (factor sistémico parcial), pero VantaDB es mucho mayor. Probable causa: diferencias en features del build (`maturin build --release` vs `maturin develop --release`), CPU throttling entre corridas, o cambios de código entre commits. Pendiente investigación en sección 3C.
 
 ---
 
@@ -10,35 +12,33 @@
 
 ### GloVe-100-angular (100d, Cosine)
 
-| Métrica | VantaDB | LanceDB | ChromaDB | Ganador |
-|---------|---------|---------|----------|---------|
-| **Ingest (QPS)** | **3,157.1** | 117,174 | 3,405.9 | LanceDB |
-| **Index (ms)** | **2,196.2** | 2,231.8 | N/A (Inc) | **VantaDB** |
-| **Query (QPS)** | 468.3 | 212.8 | **843.4** | ChromaDB |
-| **p50 (ms)** | 1.91 | 4.00 | **0.93** | ChromaDB |
-| **p99 (ms)** | 4.49 | 11.50 | **5.24** | ChromaDB |
-| **Recall@10** | **100.00%** | 23.70% | 95.90% | **VantaDB** |
-| **Peak RSS (MB)** | 285.6 | 338.1 | **237.1** | ChromaDB |
-| **Delta RSS (MB)** | 134.1 | — | **33.9** | ChromaDB |
+| Métrica | VantaDB (hoy) | VantaDB (baseline) | LanceDB | ChromaDB | Ganador |
+|---------|--------------|-------------------|---------|----------|---------|
+| **Ingest (QPS)** | **2,076.3** | 3,157.1 (-34%) | 116,678 | 3,198.8 | LanceDB |
+| **Index (ms)** | **4,157.9** | 2,196.2 (+89%) | 1,950.4 | N/A (Inc) | LanceDB |
+| **Query (QPS)** | 458.9 | 468.3 (~igual) | 200.9 | **727.9** | ChromaDB |
+| **p50 (ms)** | 1.94 | 1.91 (~igual) | 4.528 | **1.051** | ChromaDB |
+| **p99 (ms)** | **3.615** | 4.49 (-20%) | 8.936 | 5.839 | **VantaDB** |
+| **Recall@10** | **100.00%** | 100.00% | 23.70% | 95.80% | **VantaDB** |
+| **Peak RSS (MB)** | 279.1 | 285.6 | 360.5 | **238.4** | ChromaDB |
+| **Delta RSS (MB)** | 99.4 | 134.1 (-26%) | — | **38.2** | ChromaDB |
 
-> Mejora vs baseline: **17.2× ingesta** (184 → 3,157 QPS), **10.7× index** (23.6s → 2.2s)  
-> Mejora vs Fase 1: **2.7× ingesta** (1,187 → 3,157 QPS), **3.5× index** (7.7s → 2.2s)
+> ⚠️ **Regresión vs baseline:** Index +89%, Ingest -34%. Causa bajo investigación (ver §3C).
 
 ### SIFT-128-euclidean (128d, Euclidean)
 
-| Métrica | VantaDB | LanceDB | ChromaDB | Ganador |
-|---------|---------|---------|----------|---------|
-| **Ingest (QPS)** | **3,357.9** | 105,200 | 3,530.4 | LanceDB |
-| **Index (ms)** | **2,004.2** | 2,638.3 | N/A (Inc) | **VantaDB** |
-| **Query (QPS)** | 448.3 | 238.1 | **705.3** | ChromaDB |
-| **p50 (ms)** | 1.98 | 3.64 | **1.20** | ChromaDB |
-| **p99 (ms)** | 3.42 | 8.25 | **3.45** | ChromaDB |
-| **Recall@10** | 99.40% | 63.40% | **99.80%** | ChromaDB |
-| **Peak RSS (MB)** | **284.8** | 356.1 | 273.9 | ChromaDB |
-| **Delta RSS (MB)** | 134.4 | — | **38.4** | ChromaDB |
+| Métrica | VantaDB (hoy) | VantaDB (baseline) | LanceDB | ChromaDB | Ganador |
+|---------|--------------|-------------------|---------|----------|---------|
+| **Ingest (QPS)** | **1,888.1** | 3,357.9 (-44%) | 98,401 | 3,295.9 | LanceDB |
+| **Index (ms)** | **4,278.8** | 2,004.2 (+113%) | 2,436.7 | N/A (Inc) | LanceDB |
+| **Query (QPS)** | 396.6 | 448.3 (-12%) | 214.0 | **592.7** | ChromaDB |
+| **p50 (ms)** | 2.29 | 1.98 (+16%) | 4.047 | **1.423** | ChromaDB |
+| **p99 (ms)** | 4.751 | 3.42 (+39%) | 9.428 | **4.484** | ChromaDB |
+| **Recall@10** | 99.40% | 99.40% | 63.80% | **99.80%** | ChromaDB |
+| **Peak RSS (MB)** | **291.9** | 284.8 | 373.7 | 276.5 | ChromaDB |
+| **Delta RSS (MB)** | 99.8 | 134.4 (-26%) | — | **26.2** | ChromaDB |
 
-> Mejora vs baseline: **14.0× ingesta** (240 → 3,358 QPS), **10.4× index** (20.8s → 2.0s)  
-> Mejora vs Fase 1: **2.5× ingesta** (1,328 → 3,358 QPS), **3.2× index** (6.4s → 2.0s)
+> ⚠️ **Regresión vs baseline:** Index +113%, Ingest -44%. Causa bajo investigación (ver §3C).
 
 ---
 
@@ -67,6 +67,8 @@ De 184 QPS → **3,157 QPS** en GloVe, de 240 QPS → **3,358 QPS** en SIFT. El 
 | 7 | **HNSW rebuild paralelo con rayon** | **F2** | **3.5× index (GloVe 7.7s→2.2s)** |
 | 8 | **add_with_level + thread-local RNG** | **F2** | Evita contención Mutex RNG |
 | 9 | **InsertMode incremental (Propuesta 1b)** | **F3** | **4-10× en inserts <50 nodos, recall 100%** |
+| 10 | **NN-Descent (Propuesta 2)** | ❌ **REVERTIDA** | **Regresión catastrófica 7-1,332×** — revertida en commit f1b9ee03 |
+| 11 | **Propuesta 4: flat_threshold + index_type** | **P4** | Activa pero no afecta rebuild. Pendiente verificar. |
 
 ### ✅ Pipeline puro de insert: ~31ms/1K ≈ 32K QPS teóricos
 
@@ -161,21 +163,22 @@ Benchmarks ejecutados con build local (v0.4.0, Jul 2026) usando datasets reales 
 
 | Engine   | Ingest QPS | Index (ms) | Query QPS | p50 (ms) | p99 (ms) | Recall@10 | Peak RSS |
 |----------|-----------|------------|-----------|---------|---------|-----------|----------|
-| VantaDB  | **3,157.1** | **2,196.2** | 468.3 | 1.91 | 4.49 | **100.00%** | 285.6 MB |
-| LanceDB  | 117,174 | 2,231.8 | 212.8 | 4.00 | 11.50 | 23.70% | 338.1 MB |
-| ChromaDB | 3,405.9 | N/A (Inc) | **843.4** | **0.93** | **5.24** | 95.90% | **237.1 MB** |
+| VantaDB  | **2,076.3** | 4,157.9 | 458.9 | 1.940 | 3.615 | **100.00%** | 279.1 MB |
+| LanceDB  | 116,678 | **1,950.4** | 200.9 | 4.528 | 8.936 | 23.70% | 360.5 MB |
+| ChromaDB | 3,198.8 | N/A (Inc) | **727.9** | **1.051** | 5.839 | 95.80% | **238.4 MB** |
 
 ### SIFT-128-euclidean (128d, Euclidean)
 
 | Engine   | Ingest QPS | Index (ms) | Query QPS | p50 (ms) | p99 (ms) | Recall@10 | Peak RSS |
 |----------|-----------|------------|-----------|---------|---------|-----------|----------|
-| VantaDB  | **3,357.9** | **2,004.2** | 448.3 | 1.98 | 3.42 | 99.40% | 284.8 MB |
-| LanceDB  | 105,200 | 2,638.3 | 238.1 | 3.64 | 8.25 | 63.40% | 356.1 MB |
-| ChromaDB | 3,530.4 | N/A (Inc) | **705.3** | **1.20** | **3.45** | **99.80%** | **273.9 MB** |
+| VantaDB  | 1,888.1 | 4,278.8 | 396.6 | 2.290 | 4.751 | 99.40% | 291.9 MB |
+| LanceDB  | 98,401 | **2,436.7** | 214.0 | 4.047 | 9.428 | 63.80% | 373.7 MB |
+| ChromaDB | **3,295.9** | N/A (Inc) | **592.7** | **1.423** | **4.484** | **99.80%** | **276.5 MB** |
 
-> **Mejora agregada:** VantaDB pasó de 184 QPS → **3,157 QPS** (17.2×) en GloVe y de 240 QPS → **3,358 QPS** (14.0×) en SIFT.  
-> **VantaDB gana en index time:** supera a LanceDB en SIFT (2.0s vs 2.6s) y empata en GloVe (2.2s vs 2.2s).  
-> **VantaDB casi iguala a ChromaDB** en ingesta: 3,157 vs 3,406 QPS GloVe (7% gap), 3,358 vs 3,530 QPS SIFT (5% gap).
+> ⚠️ **Regresión detectada vs baseline Jul 29:** VantaDB index time se duplicó (~2.2s → ~4.2s).  
+> **VantaDB pierde liderazgo en index time:** LanceDB ahora es 2.1× más rápido en GloVe (1.95s vs 4.16s).  
+> **ChromaDB mantiene ventaja en queries** (~1.5-1.6× VantaDB).  
+> **Recall se mantiene:** 100% GloVe, 99.40% SIFT.
 
 ## 3B. Post-Mortem — Por Qué No Se Alcanzó el Factor 30-300x
 
@@ -224,20 +227,63 @@ GloVe 10K — Fase 1 (single-threaded):      GloVe 10K — Fase 2 (parallel rayo
 **ChromaDB (~3K QPS):** HNSWlib incremental (C++). Su rebuild es instantáneo porque no reconstruye — inserta incrementalmente. VantaDB podría emular esto con index worker thread (P5 del COMPAT original).
 
 ---
+## 3C. Post-Regresión — Benchmark Jul 30, 2026
+
+> **Contexto:** Tras revertir Propuesta 2 (NN-Descent, que causó regresión catastrófica de 7-1,332×), se rebuildéo `vantadb_py` con `maturin build --release` y se instaló el wheel local. Los benchmarks competitivos se ejecutaron para verificar el estado actual.
+
+### Delta vs Baseline (Jul 29, Fase 2)
+
+#### GloVe-100-angular
+
+| Métrica | Jul 29 (F2) | Jul 30 (hoy) | Δ | Diagnóstico |
+|---------|------------|-------------|---|-------------|
+| **Ingest QPS** | 3,157.1 | 2,076.3 | **-34%** 🔴 | Puede ser build flags, throttling |
+| **Index (ms)** | 2,196.2 | 4,157.9 | **+89%** 🔴 | **Principal preocupación** |
+| **Query QPS** | 468.3 | 458.9 | -2% 🟢 | Dentro de ruido |
+| **Recall@10** | 100.00% | 100.00% | 0% ✅ | Sin cambio |
+
+#### SIFT-128-euclidean
+
+| Métrica | Jul 29 (F2) | Jul 30 (hoy) | Δ | Diagnóstico |
+|---------|------------|-------------|---|-------------|
+| **Ingest QPS** | 3,357.9 | 1,888.1 | **-44%** 🔴 | Puede ser build flags, throttling |
+| **Index (ms)** | 2,004.2 | 4,278.8 | **+113%** 🔴 | **Se duplicó** |
+| **Query QPS** | 448.3 | 396.6 | -12% 🟡 | Leve, consistente con throttling |
+| **Recall@10** | 99.40% | 99.40% | 0% ✅ | Sin cambio |
+
+### Causas posibles
+
+| # | Hipótesis | Probabilidad | Explicación |
+|---|-----------|-------------|-------------|
+| 1 | **Build flags diferentes** | 🟠 Alta | El baseline usó `maturin develop --release` (link simbólico). Hoy usamos `maturin build --release` + copia manual del `.pyd`. Podría faltar feature flag `rayon`, `simd`, u optimización del compilador. |
+| 2 | **CPU throttling térmico** | 🟡 Media | Tras NN-Descent benchmarks (506s sostenidos a 100% CPU), el sistema puso los cores en throttling. LanceDB/ChromaDB también cayeron ~5-13% consistente con esto. VantaDB cae más porque rebuild es CPU-bound. |
+| 3 | **Background load** | 🟡 Media | Windows Update, antivirus, u otro proceso background compitiendo por CPU. |
+| 4 | **Feature flag desactivado** | 🟠 Alta | Si `rayon` no está activo en el build, el rebuild cae a single-threaded y explicaría el 2×. Verificar con `cargo metadata --features` o inspeccionar el Cargo.toml del wheel. |
+| 5 | **Cambio de código no contabilizado** | 🟢 Baja | No hubo cambios en rebuild/insert entre commits. La reversión de Propuesta 2 restauró `archive.rs` Phase 2 a parallel insert. |
+
+### Próximos pasos (investigación)
+
+1. Verificar features activas en el wheel instalado: `vantadb_py` Cargo.toml → `[features]`
+2. Comparar flags de compilación entre `maturin develop --release` y `maturin build --release`
+3. Re-ejecutar solo VantaDB (sin LanceDB/ChromaDB) para aislar ruido de otros motores
+4. Si se confirma feature faltante, rebuildear con flags correctos y re-benchmark
+
+---
 
 ## 4. Animales y Paredes (tl;dr)
 
-- **Fase 2 completada:** parallel rebuild con rayon logró **3.5× index time** (GloVe 7.7s→2.2s) y **17.2× sobre baseline** (184→3,157 QPS).
-- **VantaDB ahora iguala a LanceDB en index time** (2.2s vs 2.2s GloVe) y **supera en SIFT** (2.0s vs 2.6s).
-- **VantaDB está a 5-7% de ChromaDB en ingesta bruta** con **100% recall** vs ChromaDB 95-96%.
-- **Pipeline puro de insert:** ~31ms/1K = **~32K QPS** — muy por encima del target de 10K del COMPAT.
-- **Target 2,200 QPS ALCANZADO** ✅ (3,157 QPS). **Target 10,000 QPS aún lejano** — requiere más optimizaciones (layer-wise bulk insert, SIMD, index incremental).
-- **VantaDB gana en recall** (100% cosine vs 23.7% LanceDB, 95.9% ChromaDB) con index time competitivo.
+- **Regresión detectada en benchmark Jul 30:** index time **2× más lento** (4.2s vs 2.2s), ingest QPS **cayó 34-44%** vs baseline Fase 2.
+- **Causa más probable:** diferencias en build flags entre `maturin develop --release` (baseline) y `maturin build --release` (hoy). Posible feature faltante (rayon).
+- **LanceDB ahora lidera en index time** (1.95s vs 4.16s GloVe). ChromaDB mantiene liderazgo en queries.
+- **Recall se mantiene perfecto:** 100% cosine, 99.40% euclidean.
+- **Pipeline puro de insert:** ~32K QPS teóricos — **sin cambios estructurales**.
+- **Target 2,200 QPS ALCANZADO** en baseline ✅, pero **hoy estamos en 2,076** (justo debajo del target).
 
 ### Próximos pasos
 
 | Prioridad | Acción | Impacto |
 |-----------|--------|---------|
+| 🔴 P0 | **Investigar regresión index time 2×** — comparar build flags develop vs build, verificar feature `rayon` | Crítico — recuperar rendimiento perdido |
 | 🟢 P1 | **✅ InsertMode incremental completado** — Propuesta 1b | **4-10× en inserts <50 nodos** |
 | 🟢 P2 | Flatten + RWLock neighbor lists (Propuesta 4) | **1.5-2×** en rebuild paralelo |
 | 🟢 P3 | SIMD check AVX2/SSE en búsqueda coseno | **10-15%** query speed |
@@ -246,25 +292,36 @@ GloVe 10K — Fase 1 (single-threaded):      GloVe 10K — Fase 2 (parallel rayo
 
 ## 5. Datos Crudos
 
-### Benchmark 10K Final — Fase 2 (Jul 2026 — GloVe-100-angular + SIFT-128-euclidean)
+### Benchmark 10K — Fase 2 + Propuesta 1b + Propuesta 4 (Jul 30, 2026 — Post NN-Descent revert)
 
-Benchmark definitivo con Fase 1 + Fase 2 optimizaciones activas: `put_batch_raw` + `batch_insert_with_opts(skip_hnsw=true)` + `rebuild_index()` paralelo con rayon + `ef_construction=100` + `select_neighbors` simplificado + thread-local RNG.
+Benchmark con build `maturin build --release` tras revertir Propuesta 2 (NN-Descent). Features activas en build: verificables en `vantadb-python/Cargo.toml`.
 
 #### GloVe-100-angular
 
 | Engine | Ingest QPS | Index (ms) | Query QPS | p50 (ms) | p99 (ms) | Recall@10 | Peak RSS (MB) |
 |--------|-----------|------------|-----------|---------|---------|-----------|----------|
-| **VantaDB** | **3,157.1** | **2,196.2** | 468.3 | 1.91 | 4.49 | **100.00%** | 285.6 |
-| LanceDB | 117,174 | 2,231.8 | 212.8 | 4.00 | 11.50 | 23.70% | 338.1 |
-| ChromaDB | 3,405.9 | N/A (Inc) | **843.4** | **0.93** | **5.24** | 95.90% | **237.1** |
+| **VantaDB** | 2,076.3 | 4,157.9 | 458.9 | 1.940 | 3.615 | **100.00%** | 279.1 |
+| LanceDB | **116,678** | **1,950.4** | 200.9 | 4.528 | 8.936 | 23.70% | 360.5 |
+| ChromaDB | 3,198.8 | N/A (Inc) | **727.9** | **1.051** | 5.839 | 95.80% | **238.4** |
 
 #### SIFT-128-euclidean
 
 | Engine | Ingest QPS | Index (ms) | Query QPS | p50 (ms) | p99 (ms) | Recall@10 | Peak RSS (MB) |
 |--------|-----------|------------|-----------|---------|---------|-----------|----------|
-| **VantaDB** | **3,357.9** | **2,004.2** | 448.3 | 1.98 | 3.42 | 99.40% | 284.8 |
-| LanceDB | 105,200 | 2,638.3 | 238.1 | 3.64 | 8.25 | 63.40% | 356.1 |
-| ChromaDB | 3,530.4 | N/A (Inc) | **705.3** | **1.20** | **3.45** | **99.80%** | **273.9** |
+| VantaDB | 1,888.1 | 4,278.8 | 396.6 | 2.290 | 4.751 | 99.40% | 291.9 |
+| LanceDB | **98,401** | **2,436.7** | 214.0 | 4.047 | 9.428 | 63.80% | 373.7 |
+| ChromaDB | 3,295.9 | N/A (Inc) | **592.7** | **1.423** | **4.484** | **99.80%** | **276.5** |
+
+#### Delta vs Baseline Fase 2 (Jul 29)
+
+| Métrica | GloVe Δ | SIFT Δ |
+|---------|---------|--------|
+| **VantaDB Ingest QPS** | **-34%** 🔴 | **-44%** 🔴 |
+| **VantaDB Index (ms)** | **+89%** 🔴 | **+113%** 🔴 |
+| **VantaDB Query QPS** | -2% 🟢 | -12% 🟡 |
+| **VantaDB Recall** | 0% ✅ | 0% ✅ |
+| **LanceDB Index (ms)** | -13% 🟢 | -8% 🟢 |
+| **ChromaDB Ingest QPS** | -6% 🟡 | -7% 🟡 |
 
 ### Histórico de optimización (VantaDB ingesta, GloVe-100-angular 10K)
 
@@ -276,10 +333,11 @@ Benchmark definitivo con Fase 1 + Fase 2 optimizaciones activas: `put_batch_raw`
 | Post-ef_construction=100 | 4× rebuild más rápido | ~1,667* | 4.2× |
 | Post-select_neighbors simplificado | 2.5× rebuild más rápido | ~3,600** | 9× |
 | **Final Fase 1** | **Benchmark real GloVe 10K** | **1,187** | **6.5×** |
-| **Fase 2: parallel rebuild** | **rayon + thread-local RNG | **3,157** | **17.2×** |
+| **Fase 2: parallel rebuild** | **rayon + thread-local RNG** | **3,157** | **17.2×** |
 | **Pipeline puro (sin rebuild)** | **Solo insert** | **~32,000** | **174×** |
 | **Fase 3: InsertMode incremental** | **InsertMode::Auto, threshold 1000** | **4-10× (batches <50)** | **—** |
+| **Jul 30 (post revert)** | **Tras revertir NN-Descent** | **2,076** | **11.3×** 🔴 |
 
-*Estimaciones de vanta-tuner antes de benchmark real. La discrepancia se debe a que otros overheads (vstore, KV, metadata) limitan el QPS real.
+\*Estimaciones de vanta-tuner antes de benchmark real. La discrepancia se debe a que otros overheads (vstore, KV, metadata) limitan el QPS real.
 
-> **Condiciones:** Windows 11, SSD NVMe, 32GB RAM. Build local v0.4.0 con `maturin develop --release` + sync manual `.dll → .pyd`. Datasets de ann-benchmarks HDF5.
+> **Condiciones:** Windows 11, SSD NVMe, 32GB RAM. Build local v0.4.0 con `maturin build --release` + instalación del wheel. Datasets de ann-benchmarks HDF5.

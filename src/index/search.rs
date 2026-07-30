@@ -194,7 +194,21 @@ impl CPIndex {
                 }
             }
 
-            let neighbors = self.neighbor_index.get_neighbors(cand_id, layer);
+            // Inline neighbor cache: try the node's own neighbor_lists first
+            // (avoids a separate DashMap read on neighbor_index).
+            // Only use inline cache if the list is non-empty — empty lists mean
+            // the node hasn't had neighbors set yet (e.g. first node, or during
+            // concurrent insert), so fall back to neighbor_index.
+            let neighbors = self
+                .nodes
+                .get(&cand_id)
+                .and_then(|n| {
+                    n.neighbor_lists
+                        .get(layer)
+                        .filter(|l| !l.is_empty())
+                        .cloned()
+                })
+                .or_else(|| self.neighbor_index.get_neighbors(cand_id, layer));
 
             if let Some(neighbors_list) = neighbors {
                 if graph::should_prefetch() {
@@ -324,12 +338,21 @@ impl CPIndex {
                                 // When a neighbor fails the filter, immediately expand to its
                                 // neighbors to maintain filtered subgraph connectivity through
                                 // sparse non-matching regions.
+                                // Uses inline neighbor cache (neighbor is already loaded from
+                                // nodes.get above — no extra DashMap access).
                                 if acorn_expansion && !query_mask.is_all_set() {
                                     let passes_filter = query_mask.is_all_set()
                                         || neighbor.bitset.matches_mask(query_mask);
                                     if !passes_filter {
-                                        let second_hop =
-                                            self.neighbor_index.get_neighbors(neighbor_id, layer);
+                                        let second_hop = neighbor
+                                            .neighbor_lists
+                                            .get(layer)
+                                            .filter(|l| !l.is_empty())
+                                            .cloned()
+                                            .or_else(|| {
+                                                self.neighbor_index
+                                                    .get_neighbors(neighbor_id, layer)
+                                            });
                                         if let Some(second_list) = second_hop {
                                             let budget = ef.saturating_sub(results.len()).max(16);
                                             for &second_id in second_list.iter().take(budget) {
@@ -1287,6 +1310,19 @@ mod tests {
         index.add(id, bs, VectorRepresentations::Full(vec), 0);
     }
 
+    /// Force a node's neighbors in both neighbor_index AND inline cache.
+    /// Direct `neighbor_index.set_neighbors()` bypasses the inline cache on
+    /// HnswNode, causing ACORN expansion to read stale neighbors from the cache.
+    fn set_test_neighbors(index: &CPIndex, id: u128, layer: usize, neighbors: NeighborVec) {
+        let inline_cache = neighbors.clone();
+        index.neighbor_index.set_neighbors(id, layer, neighbors);
+        if let Some(mut node_ref) = index.nodes.get_mut(&id) {
+            if node_ref.neighbor_lists.len() > layer {
+                node_ref.neighbor_lists[layer] = inline_cache;
+            }
+        }
+    }
+
     #[test]
     fn test_acorn_expands_through_non_matching() {
         // ACORN-1 scenario: a non-matching node N (blocks filter) is a neighbor of
@@ -1339,31 +1375,17 @@ mod tests {
             );
         }
 
-        // Force topology
+        // Force topology (use set_test_neighbors to update both neighbor_index and inline cache)
         // A → X, N
-        index
-            .neighbor_index
-            .set_neighbors(0, 0, smallvec::smallvec![2u128, 1u128]); // X, N
-
-        // X → A, R
-        index
-            .neighbor_index
-            .set_neighbors(2, 0, smallvec::smallvec![0u128, 3u128]); // A, R
-
-        // N → A, S
-        index
-            .neighbor_index
-            .set_neighbors(1, 0, smallvec::smallvec![0u128, 4u128]); // A, S
-
-        // R → X (backlink)
-        index
-            .neighbor_index
-            .set_neighbors(3, 0, smallvec::smallvec![2u128]);
-
+        set_test_neighbors(&index, 0, 0, smallvec::smallvec![2u128, 1u128]); // X, N
+                                                                             // X → A, R
+        set_test_neighbors(&index, 2, 0, smallvec::smallvec![0u128, 3u128]); // A, R
+                                                                             // N → A, S
+        set_test_neighbors(&index, 1, 0, smallvec::smallvec![0u128, 4u128]); // A, S
+                                                                             // R → X (backlink)
+        set_test_neighbors(&index, 3, 0, smallvec::smallvec![2u128]);
         // S → N (backlink)
-        index
-            .neighbor_index
-            .set_neighbors(4, 0, smallvec::smallvec![1u128]);
+        set_test_neighbors(&index, 4, 0, smallvec::smallvec![1u128]);
 
         let mut mask = FilterBitset::new();
         mask.set_bit(0);
@@ -1510,22 +1532,12 @@ mod tests {
         add_node_with_bitset(&index, 3, vec![0.3, 0.0, 0.0], &[0]); // R
         add_node_with_bitset(&index, 4, vec![0.2, 0.0, 0.0], &[0]); // S
 
-        // Force same topology: A→{X,N}, X→{A,R}, N→{A,S}
-        index
-            .neighbor_index
-            .set_neighbors(0, 0, smallvec::smallvec![2u128, 1u128]);
-        index
-            .neighbor_index
-            .set_neighbors(1, 0, smallvec::smallvec![0u128, 4u128]);
-        index
-            .neighbor_index
-            .set_neighbors(2, 0, smallvec::smallvec![0u128, 3u128]);
-        index
-            .neighbor_index
-            .set_neighbors(3, 0, smallvec::smallvec![2u128]);
-        index
-            .neighbor_index
-            .set_neighbors(4, 0, smallvec::smallvec![1u128]);
+        // Force same topology (using set_test_neighbors for both caches)
+        set_test_neighbors(&index, 0, 0, smallvec::smallvec![2u128, 1u128]);
+        set_test_neighbors(&index, 1, 0, smallvec::smallvec![0u128, 4u128]);
+        set_test_neighbors(&index, 2, 0, smallvec::smallvec![0u128, 3u128]);
+        set_test_neighbors(&index, 3, 0, smallvec::smallvec![2u128]);
+        set_test_neighbors(&index, 4, 0, smallvec::smallvec![1u128]);
 
         let mut mask = FilterBitset::new();
         mask.set_bit(0);

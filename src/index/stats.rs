@@ -60,6 +60,15 @@ impl CPIndex {
         }
     }
 
+    /// Returns the total number of neighbor links across all nodes and layers.
+    pub fn total_neighbor_links(&self) -> usize {
+        self.neighbor_index
+            .collect_all()
+            .iter()
+            .map(|(_, layers)| layers.iter().map(|l| l.len()).sum::<usize>())
+            .sum()
+    }
+
     /// Validate the structural integrity of the HNSW graph.
     ///
     /// Checks:

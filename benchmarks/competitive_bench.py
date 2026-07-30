@@ -10,6 +10,7 @@ import gc
 import json
 import os
 import shutil
+import statistics
 import time
 import urllib.request
 import sys
@@ -135,6 +136,7 @@ def load_dataset(dataset_name, dataset_dir, max_size, max_queries):
 def generate_synthetic_data(dim, size, queries, metric):
     """Generates normalized synthetic vectors and calculates exact ground truth."""
     print(f"Generating synthetic dataset ({size} vectors, {dim}d, metric={metric})...")
+    np.random.seed(42)  # D2: fixed seed for reproducibility
     # Ingest vectors
     train_vectors = np.random.uniform(-1.0, 1.0, (size, dim)).astype(np.float32)
     # Query vectors
@@ -222,7 +224,17 @@ def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, to
     index_time = time.perf_counter() - start_index
     rss_after_index = get_current_rss()
 
-    # 3. Queries
+    # 3. Warm-up: 10 queries (not measured) — D3
+    warmup_count = min(10, len(test_vectors))
+    for q in test_vectors[:warmup_count]:
+        db.search_memory(
+            namespace=namespace,
+            query_vector=q.tolist(),
+            top_k=top_k,
+            distance_metric=metric
+        )
+
+    # 4. Queries
     query_times = []
     predictions = []
     
@@ -318,7 +330,12 @@ def bench_lancedb(db_path, train_vectors, test_vectors, ground_truth, metric, to
     index_time = time.perf_counter() - start_index
     rss_after_index = get_current_rss()
 
-    # 3. Queries
+    # 3. Warm-up: 10 queries (not measured) — D3
+    warmup_count = min(10, len(test_vectors))
+    for q in test_vectors[:warmup_count]:
+        tbl.search(q.tolist()).metric("cosine" if metric == "cosine" else "l2").nprobes(32).limit(top_k).to_list()
+
+    # 4. Queries
     query_times = []
     predictions = []
     
@@ -404,7 +421,15 @@ def bench_chromadb(db_path, train_vectors, test_vectors, ground_truth, metric, t
     index_time = 0.0 
     rss_after_index = get_current_rss()
 
-    # 3. Queries
+    # 3. Warm-up: 10 queries (not measured) — D3
+    warmup_count = min(10, len(test_vectors))
+    for q in test_vectors[:warmup_count]:
+        collection.query(
+            query_embeddings=[q.tolist()],
+            n_results=top_k
+        )
+
+    # 4. Queries
     query_times = []
     predictions = []
     
@@ -455,7 +480,68 @@ def bench_chromadb(db_path, train_vectors, test_vectors, ground_truth, metric, t
     }
 
 
-# 5. Main Execution Loop
+# 5. System Health Check (D1)
+def health_check(skip_prompt=False):
+    """Run system health checks before benchmark, optionally prompt user."""
+    print("\n" + "-" * 50)
+    print("System Health Check")
+    print("-" * 50)
+    ok = "  [OK]"
+    warn = "  [!]"
+
+    # Disk space
+    usage = psutil.disk_usage(".")
+    disk_free_pct = usage.free / usage.total * 100
+    if disk_free_pct > 15:
+        print(f"{ok} Disk space: {disk_free_pct:.1f}% free")
+    else:
+        print(f"{warn} Disk space: {disk_free_pct:.1f}% free (<15% WARNING)")
+
+    # RAM
+    ram = psutil.virtual_memory()
+    ram_free_gb = ram.available / (1024**3)
+    if ram_free_gb > 4:
+        print(f"{ok} RAM free: {ram_free_gb:.1f} GB")
+    else:
+        print(f"{warn} RAM free: {ram_free_gb:.1f} GB (<4 GB WARNING)")
+
+    # RAYON_NUM_THREADS
+    rayon_threads = os.environ.get("RAYON_NUM_THREADS")
+    if rayon_threads:
+        print(f"{ok} RAYON_NUM_THREADS={rayon_threads}")
+    else:
+        print(f"{warn} RAYON_NUM_THREADS not set (may over-subscribe)")
+
+    # CPU load (short sample)
+    cpu_load = psutil.cpu_percent(interval=0.5)
+    if cpu_load < 50:
+        print(f"{ok} CPU load: {cpu_load:.1f}%")
+    else:
+        print(f"{warn} CPU load: {cpu_load:.1f}% (>50% WARNING)")
+
+    # VS Code processes
+    vscode_count = 0
+    for proc in psutil.process_iter(["name"]):
+        try:
+            if proc.info["name"] and "code" in proc.info["name"].lower():
+                vscode_count += 1
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    if vscode_count > 3:
+        print(f"{warn} VS Code processes: {vscode_count} (>3 WARNING)")
+    else:
+        print(f"{ok} VS Code processes: {vscode_count}")
+
+    print("-" * 50)
+    if skip_prompt or not sys.stdin.isatty():
+        return
+    response = input("Continue with benchmark? [Y/n]: ").strip().lower()
+    if response and response not in ("y", "yes", ""):
+        print("Benchmark cancelled by user.")
+        sys.exit(0)
+
+
+# 6. Main Execution Loop
 def main():
     parser = argparse.ArgumentParser(description="VantaDB Competitive Benchmark Suite")
     parser.add_argument("--dataset", type=str, default="synthetic", help="glove-100-angular, sift-128-euclidean, or synthetic")
@@ -465,6 +551,7 @@ def main():
     parser.add_argument("--dataset-dir", type=str, default="./datasets", help="Path to HDF5 dataset folder")
     parser.add_argument("--db-dir", type=str, default="./benchmarks/competitive_data", help="Temporal folder for databases")
     parser.add_argument("--output", type=str, default="docs/BENCHMARKS.md", help="Path to docs/BENCHMARKS.md to append results")
+    parser.add_argument("--yes", action="store_true", help="Skip health check prompt")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -475,6 +562,9 @@ def main():
     print(f"Queries      : {args.queries}")
     print(f"Top-K        : {args.top_k}")
     print("=" * 60)
+
+    # D1: Health check before loading datasets
+    health_check(skip_prompt=args.yes)
 
     # Load vectors and ground truth
     train_vectors, test_vectors, ground_truth, metric = load_dataset(
@@ -487,29 +577,52 @@ def main():
 
     os.makedirs(args.db_dir, exist_ok=True)
 
-    results = []
-
-    # Run benchmarks with garbage collection in between
+    # D4: 3 iterations per engine, report median
     engines = [
         ("vanta", bench_vantadb, os.path.join(args.db_dir, "vanta_db")),
         ("lance", bench_lancedb, os.path.join(args.db_dir, "lance_db")),
         ("chroma", bench_chromadb, os.path.join(args.db_dir, "chroma_db")),
     ]
 
+    all_engine_results = []  # (name, [run1_dict, run2_dict, run3_dict])
+
     for name, bench_fn, path in engines:
-        gc.collect()
-        try:
-            res = bench_fn(path, train_vectors, test_vectors, ground_truth, metric, args.top_k)
-            results.append(res)
-        except Exception as e:
-            print(f"ERROR: Failed to benchmark {name}: {e}")
-            import traceback
-            traceback.print_exc()
+        print(f"\n--- Running {name.capitalize()} (3 iterations) ---")
+        runs = []
+        for i in range(3):
+            gc.collect()
+            try:
+                res = bench_fn(path, train_vectors, test_vectors, ground_truth, metric, args.top_k)
+                runs.append(res)
+            except Exception as e:
+                print(f"  ERROR: Failed to benchmark {name} (run {i+1}): {e}")
+                import traceback
+                traceback.print_exc()
+        all_engine_results.append((name, runs))
+
+        if runs:
+            qps_values = [r["qps"] for r in runs]
+            qps_str = " | ".join(f"run {i+1}: {r['qps']:.1f} QPS" for i, r in enumerate(runs))
+            median_qps = statistics.median(qps_values)
+            print(f"  {name.capitalize()} {qps_str} | Median: {median_qps:.1f} QPS")
+
+    # Build median results for the final table
+    results = []
+    for name, runs in all_engine_results:
+        if not runs:
+            continue
+        median_res = {}
+        for key in runs[0]:
+            if key == "engine":
+                median_res[key] = runs[0][key]
+            else:
+                median_res[key] = statistics.median(r[key] for r in runs)
+        results.append(median_res)
 
     # Clear temp database folder
     shutil.rmtree(args.db_dir, ignore_errors=True)
 
-    # 6. Format and Print Results
+    # 7. Format and Print Results
     headers = ["Engine", "Ingest QPS", "Index Time (ms)", "Query QPS", "Latency p50 (ms)", "Latency p99 (ms)", "Recall@10", "Peak RSS (MB)", "Delta RSS (MB)"]
     rows = []
     for r in results:

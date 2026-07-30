@@ -83,7 +83,7 @@ fn antilocality_layout_certification() {
         while let Some(node_id) = queue.pop_front() {
             bfs_order.push(node_id);
             if let Some(node_ref) = hnsw.nodes.get(&node_id) {
-                if let Some(layer0_neighbors) = node_ref.neighbors.first() {
+                if let Some(layer0_neighbors) = node_ref.neighbor_lists.first() {
                     for &neighbor_id in layer0_neighbors {
                         if visited.insert(neighbor_id) {
                             queue.push_back(neighbor_id);

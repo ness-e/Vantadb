@@ -398,28 +398,8 @@ fn hnsw_hard_validation_certification() {
             .map(|(i, v)| (i as u64, v))
             .collect::<Vec<_>>();
         let idx5 = build_index(&ds5, HnswConfig::default(), "Building 5K");
-        let links1: usize = idx1
-            .nodes
-            .iter()
-            .map(|r| {
-                r.value()
-                    .neighbors
-                    .iter()
-                    .map(|l: &smallvec::SmallVec<[u128; 32]>| l.len())
-                    .sum::<usize>()
-            })
-            .sum();
-        let links5: usize = idx5
-            .nodes
-            .iter()
-            .map(|r| {
-                r.value()
-                    .neighbors
-                    .iter()
-                    .map(|l: &smallvec::SmallVec<[u128; 32]>| l.len())
-                    .sum::<usize>()
-            })
-            .sum();
+        let links1: usize = idx1.total_neighbor_links();
+        let links5: usize = idx5.total_neighbor_links();
         let ratio = links5 as f64 / links1 as f64;
         TerminalReporter::info(&format!("Memory Growth Factor (5x N): {:.2}x links", ratio));
         assert!((3.0..=8.0).contains(&ratio));

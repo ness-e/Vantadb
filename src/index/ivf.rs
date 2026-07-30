@@ -505,6 +505,7 @@ mod tests {
                     inv_cached_norm: 0.0,
                     norm_sq: 0.0,
                     flags: 0,
+                    neighbor_lists: Vec::new(),
                 },
             );
         }
@@ -660,6 +661,7 @@ mod tests {
                     inv_cached_norm: 0.0,
                     norm_sq: 0.0,
                     flags: 0,
+                    neighbor_lists: Vec::new(),
                 },
             );
         }
@@ -756,6 +758,7 @@ mod tests {
                     inv_cached_norm: 0.0,
                     norm_sq: 0.0,
                     flags: 0,
+                    neighbor_lists: Vec::new(),
                 },
             );
         }

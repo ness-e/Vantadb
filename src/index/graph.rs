@@ -149,6 +149,11 @@ pub struct HnswNode {
     pub inv_cached_norm: f32,
     pub norm_sq: f32,
     pub flags: u32,
+    /// Inline neighbor lists per layer (index = layer number).
+    /// Populated during insert/shrink to avoid a separate `neighbor_index` DashMap
+    /// lookup in `search_layer`. Falls back to `neighbor_index` if empty.
+    /// Thread-safe because DashMap shard RwLock protects concurrent reads/writes.
+    pub neighbor_lists: Vec<NeighborVec>,
 }
 
 impl HnswNode {
@@ -403,10 +408,11 @@ impl CPIndex {
             total += std::mem::size_of::<HnswNode>();
         }
         total += self.total_nodes.load(Ordering::Relaxed) as usize * 60;
-        // Rough estimate for neighbor index storage
+        // Rough estimate for neighbor index storage (DashMap entries)
         for entry in self.neighbor_index.id_to_meta.iter() {
-            let (_, num_layers) = entry.value();
-            total += num_layers * std::mem::size_of::<parking_lot::RwLock<NeighborVec>>();
+            let num_layers = *entry.value();
+            total += num_layers
+                * (std::mem::size_of::<(u128, usize)>() + std::mem::size_of::<NeighborVec>());
         }
         total
     }
@@ -513,6 +519,7 @@ impl CPIndex {
                     inv_cached_norm: 0.0,
                     norm_sq: 0.0,
                     flags: 0,
+                    neighbor_lists: Vec::new(),
                 },
             );
             self.total_nodes.fetch_add(1, Ordering::Relaxed);
@@ -578,6 +585,7 @@ impl CPIndex {
         };
 
         self.neighbor_index.allocate(id, level + 1);
+        let empty_layers = vec![NeighborVec::new(); level + 1];
 
         let node = HnswNode {
             id,
@@ -587,6 +595,7 @@ impl CPIndex {
             inv_cached_norm,
             norm_sq,
             flags: 0,
+            neighbor_lists: empty_layers,
         };
 
         let ep = match self.get_entry_point() {
@@ -672,10 +681,19 @@ impl CPIndex {
             curr_entry_points = w.iter().map(|ns| ns.1).collect();
             let selected_neighbors = self.select_neighbors(w, m_max);
 
-            self.neighbor_index
-                .set_neighbors(id, layer, selected_neighbors.clone());
-
+            // Connect reverse links first (reads &selected_neighbors by ref),
+            // then store the pruned list — avoids cloning for set_neighbors.
             self.connect_layer_neighbors(id, &selected_neighbors, layer, m_max);
+
+            // Populate inline neighbor cache (cloned before the move into set_neighbors).
+            let inline_cache = selected_neighbors.clone();
+            self.neighbor_index
+                .set_neighbors(id, layer, selected_neighbors);
+            if let Some(mut node_ref) = self.nodes.get_mut(&id) {
+                if node_ref.neighbor_lists.len() > layer {
+                    node_ref.neighbor_lists[layer] = inline_cache;
+                }
+            }
         }
 
         self.update_metadata(level, id);
@@ -699,6 +717,7 @@ impl CPIndex {
         };
 
         self.neighbor_index.allocate(id, level + 1);
+        let empty_layers = vec![NeighborVec::new(); level + 1];
 
         let node = HnswNode {
             id,
@@ -708,6 +727,7 @@ impl CPIndex {
             inv_cached_norm,
             norm_sq,
             flags: 0,
+            neighbor_lists: empty_layers,
         };
 
         let ep = match self.get_entry_point() {
@@ -793,10 +813,19 @@ impl CPIndex {
             curr_entry_points = w.iter().map(|ns| ns.1).collect();
             let selected_neighbors = self.select_neighbors(w, m_max);
 
-            self.neighbor_index
-                .set_neighbors(id, layer, selected_neighbors.clone());
-
+            // Connect reverse links first (reads &selected_neighbors by ref),
+            // then store the pruned list — avoids cloning for set_neighbors.
             self.connect_layer_neighbors(id, &selected_neighbors, layer, m_max);
+
+            // Populate inline neighbor cache (cloned before the move into set_neighbors).
+            let inline_cache = selected_neighbors.clone();
+            self.neighbor_index
+                .set_neighbors(id, layer, selected_neighbors);
+            if let Some(mut node_ref) = self.nodes.get_mut(&id) {
+                if node_ref.neighbor_lists.len() > layer {
+                    node_ref.neighbor_lists[layer] = inline_cache;
+                }
+            }
         }
 
         self.update_metadata(level, id);
@@ -810,18 +839,14 @@ impl CPIndex {
         m_max: usize,
     ) {
         for &neighbor_id in selected_neighbors {
-            // 1. Add reverse link: push id to the neighbor's neighbor list (if not duplicate)
-            let added = self.neighbor_index.add_neighbor(neighbor_id, layer, id);
+            // Single DashMap access: try-add reverse link + check if shrink needed.
+            // Replaces the old 3-access pattern (add_neighbor + len_neighbors + get_neighbors).
+            let (_added, maybe_full_list) =
+                self.neighbor_index
+                    .try_add_and_get_if_full(neighbor_id, layer, id, m_max);
 
-            // 2. If added and the neighbor's list now exceeds m_max, shrink it
-            if added {
-                if let Some(current_neighbors) =
-                    self.neighbor_index.get_neighbors(neighbor_id, layer)
-                {
-                    if current_neighbors.len() > m_max {
-                        self.shrink_neighbors(neighbor_id, m_max, &current_neighbors, layer);
-                    }
-                }
+            if let Some(full_list) = maybe_full_list {
+                self.shrink_neighbors(neighbor_id, m_max, &full_list, layer);
             }
         }
     }
@@ -868,8 +893,15 @@ impl CPIndex {
                 }
             }
             let pruned = self.select_neighbors(cand_heap, m_max);
+            // Populate inline neighbor cache (cloned before the move into set_neighbors).
+            let inline_cache = pruned.clone();
             self.neighbor_index
                 .set_neighbors(neighbor_id, layer, pruned);
+            if let Some(mut node_ref) = self.nodes.get_mut(&neighbor_id) {
+                if node_ref.neighbor_lists.len() > layer {
+                    node_ref.neighbor_lists[layer] = inline_cache;
+                }
+            }
         }
     }
 

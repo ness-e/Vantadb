@@ -485,6 +485,9 @@ impl CPIndex {
 
             let (inv_cached_norm, norm_sq) =
                 graph::cached_norms_for_metric(config.distance_metric, &vec_data);
+            // Pre-allocate inline neighbor_lists — populated after neighbor_index build.
+            let num_layers = neighbors_data.get(&id).map(|l| l.len()).unwrap_or(0);
+            let neighbor_lists = vec![NeighborVec::new(); num_layers];
             nodes.insert(
                 id,
                 HnswNode {
@@ -495,6 +498,7 @@ impl CPIndex {
                     inv_cached_norm,
                     norm_sq,
                     flags: 0,
+                    neighbor_lists,
                 },
             );
         }
@@ -519,12 +523,17 @@ impl CPIndex {
             parking_lot::Mutex::new(None)
         };
 
-        // Build neighbor_index from the deserialized neighbors data.
+        // Build neighbor_index from the deserialized neighbors data,
+        // and populate inline neighbor_lists in each node.
         let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         for (nid, layers) in &neighbors_data {
             neighbor_index.allocate(*nid, layers.len());
             for (layer_idx, layer_neighbors) in layers.iter().enumerate() {
                 neighbor_index.set_neighbors(*nid, layer_idx, layer_neighbors.clone());
+            }
+            // Populate inline neighbor cache (used by search_layer hot path).
+            if let Some(mut node_ref) = nodes.get_mut(nid) {
+                node_ref.neighbor_lists = layers.clone();
             }
         }
 
@@ -711,6 +720,7 @@ mod tests {
                 inv_cached_norm: 1.0,
                 norm_sq: 1.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         // Also insert the neighbor so validation passes
@@ -724,6 +734,7 @@ mod tests {
                 inv_cached_norm: 1.0,
                 norm_sq: 1.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         // Populate neighbor_index
@@ -791,6 +802,7 @@ mod tests {
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(1, 1);
@@ -829,6 +841,7 @@ mod tests {
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(1, 1);
@@ -870,6 +883,7 @@ mod tests {
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(1, 1);
@@ -911,6 +925,7 @@ mod tests {
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(1, 1);
@@ -949,6 +964,7 @@ mod tests {
                     inv_cached_norm: 1.0,
                     norm_sq: 0.5,
                     flags: 0,
+                    neighbor_lists: Vec::new(),
                 },
             );
             neighbor_index.allocate(id, 1);
@@ -998,6 +1014,7 @@ mod tests {
                 inv_cached_norm: 1.0,
                 norm_sq: 1.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(1, 1);
@@ -1098,6 +1115,7 @@ mod tests {
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(1, 1);
@@ -1169,6 +1187,7 @@ mod tests {
                 inv_cached_norm: 1.0,
                 norm_sq: 0.25,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(1, 1);
@@ -1293,6 +1312,7 @@ mod tests {
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(1, 1);
@@ -1332,6 +1352,7 @@ mod tests {
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(1, 1);
@@ -1374,6 +1395,7 @@ mod tests {
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(1, 1);
@@ -1416,6 +1438,7 @@ mod tests {
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(1, 1);
@@ -1457,6 +1480,7 @@ mod tests {
                 inv_cached_norm: 1.0,
                 norm_sq: 1.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(1, 1);
@@ -1472,6 +1496,7 @@ mod tests {
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(2, 1);
@@ -1487,6 +1512,7 @@ mod tests {
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(3, 1);
@@ -1502,6 +1528,7 @@ mod tests {
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
+                neighbor_lists: Vec::new(),
             },
         );
         neighbor_index.allocate(4, 1);
