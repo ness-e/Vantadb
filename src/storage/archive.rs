@@ -140,12 +140,10 @@ pub fn traverse_graph(hnsw: &CPIndex, entry_point_id: u128) -> Vec<u128> {
     visited.insert(entry_point_id);
     while let Some(node_id) = queue.pop_front() {
         bfs_order.push(node_id);
-        if let Some(node_ref) = hnsw.nodes.get(&node_id) {
-            if let Some(layer0) = node_ref.neighbors.first() {
-                for &nid in layer0 {
-                    if visited.insert(nid) {
-                        queue.push_back(nid);
-                    }
+        if let Some(layer0) = hnsw.neighbor_index.get_neighbors(node_id, 0) {
+            for &nid in &layer0 {
+                if visited.insert(nid) {
+                    queue.push_back(nid);
                 }
             }
         }
@@ -273,7 +271,6 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
     // to avoid contention on the shared `rng` mutex inside CPIndex.
     #[cfg(feature = "rayon")]
     {
-        use rand::Rng;
         use rayon::prelude::*;
 
         entries.into_par_iter().for_each(|entry| {

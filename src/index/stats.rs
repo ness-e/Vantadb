@@ -28,12 +28,22 @@ impl CPIndex {
         let orphan_count = self
             .nodes
             .iter()
-            .filter(|r| r.value().neighbors.is_empty() || r.value().neighbors[0].is_empty())
+            .filter(|r| {
+                self.neighbor_index
+                    .get_neighbors(*r.key(), 0)
+                    .map(|n| n.is_empty())
+                    .unwrap_or(true)
+            })
             .count();
         let total_l0_connections: usize = self
             .nodes
             .iter()
-            .map(|r| r.value().neighbors.first().map(|l| l.len()).unwrap_or(0))
+            .map(|r| {
+                self.neighbor_index
+                    .get_neighbors(*r.key(), 0)
+                    .map(|n| n.len())
+                    .unwrap_or(0)
+            })
             .sum();
         let avg_connections_l0 = if node_count > 0 {
             total_l0_connections as f32 / node_count as f32
@@ -67,8 +77,8 @@ impl CPIndex {
 
         for r in self.nodes.iter() {
             let id = *r.key();
-            let node = r.value();
-            if node.neighbors.is_empty() {
+            let num_layers = self.neighbor_index.num_layers(id).unwrap_or(0);
+            if num_layers == 0 {
                 violations.push(format!(
                     "Node {} has empty neighbors array (expected ≥1 layer)",
                     id
@@ -76,8 +86,12 @@ impl CPIndex {
                 continue;
             }
 
-            for (layer_idx, layer) in node.neighbors.iter().enumerate() {
-                for &neighbor_id in layer {
+            for layer_idx in 0..num_layers {
+                let layer = self
+                    .neighbor_index
+                    .get_neighbors(id, layer_idx)
+                    .unwrap_or_default();
+                for &neighbor_id in &layer {
                     if neighbor_id == id {
                         violations.push(format!(
                             "Node {} has a self-loop at layer {}",

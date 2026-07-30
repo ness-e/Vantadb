@@ -9,6 +9,7 @@ pub(crate) mod flat;
 pub(crate) mod graph;
 
 pub(crate) mod ivf;
+pub(crate) mod neighbor_index;
 
 pub(crate) mod refresh;
 pub(crate) mod scann;

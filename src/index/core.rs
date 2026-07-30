@@ -194,12 +194,15 @@ mod tests {
         visited.insert(ep);
 
         while let Some(node_id) = queue.pop_front() {
-            if let Some(node) = hnsw.nodes.get(&node_id) {
-                for layer in &node.neighbors {
-                    for &neighbor in layer {
-                        if visited.insert(neighbor) {
-                            queue.push_back(neighbor);
-                        }
+            let nl = hnsw.neighbor_index.num_layers(node_id).unwrap_or(0);
+            for layer in 0..nl {
+                let neighbors = hnsw
+                    .neighbor_index
+                    .get_neighbors(node_id, layer)
+                    .unwrap_or_default();
+                for &neighbor in &neighbors {
+                    if visited.insert(neighbor) {
+                        queue.push_back(neighbor);
                     }
                 }
             }
@@ -347,9 +350,15 @@ mod tests {
         let first_id = *index.nodes.iter().next().unwrap().key();
         let second_id = *index.nodes.iter().nth(1).unwrap().key();
 
-        if let Some(mut node) = index.nodes.get_mut(&first_id) {
-            if !node.neighbors.is_empty() && !node.neighbors[0].is_empty() {
-                node.neighbors[0].push(second_id + 9999);
+        if index.neighbor_index.num_layers(first_id).unwrap_or(0) > 0 {
+            let l0 = index
+                .neighbor_index
+                .get_neighbors(first_id, 0)
+                .unwrap_or_default();
+            if !l0.is_empty() {
+                let mut new_l0 = l0.clone();
+                new_l0.push(second_id + 9999);
+                index.neighbor_index.set_neighbors(first_id, 0, new_l0);
             }
         }
 

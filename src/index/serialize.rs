@@ -92,6 +92,10 @@ impl CPIndex {
         w.write_all(&nc)?;
         pos += nc.len();
 
+        // Build lookup map once (O(N)) — not per-node.
+        let neighbor_map: std::collections::HashMap<u128, Vec<NeighborVec>> =
+            self.neighbor_index.collect_all().into_iter().collect();
+
         for node_id in self.serialization_order() {
             let Some(node) = self.nodes.get(&node_id) else {
                 continue;
@@ -191,19 +195,21 @@ impl CPIndex {
                 }
             }
 
-            let layer_count = node.neighbors.len() as u64;
-            let lc = layer_count.to_le_bytes();
-            w.write_all(&lc)?;
-            pos += lc.len();
-            for layer in &node.neighbors {
-                let neighbor_count = layer.len() as u64;
-                let nc = neighbor_count.to_le_bytes();
-                w.write_all(&nc)?;
-                pos += nc.len();
-                for &nid in layer {
-                    let nidb = nid.to_le_bytes();
-                    w.write_all(&nidb)?;
-                    pos += nidb.len();
+            if let Some(layers) = neighbor_map.get(&node.id) {
+                let layer_count = layers.len() as u64;
+                let lc = layer_count.to_le_bytes();
+                w.write_all(&lc)?;
+                pos += lc.len();
+                for layer in layers {
+                    let neighbor_count = layer.len() as u64;
+                    let nc = neighbor_count.to_le_bytes();
+                    w.write_all(&nc)?;
+                    pos += nc.len();
+                    for &nid in layer {
+                        let nidb = nid.to_le_bytes();
+                        w.write_all(&nidb)?;
+                        pos += nidb.len();
+                    }
                 }
             }
         }
@@ -368,6 +374,8 @@ impl CPIndex {
         }
 
         let nodes: DashMap<u128, HnswNode> = DashMap::with_capacity(node_count);
+        let mut neighbors_data: std::collections::HashMap<u128, Vec<NeighborVec>> =
+            std::collections::HashMap::with_capacity(node_count);
 
         for _ in 0..node_count {
             let id = read_le_u128(data, &mut pos, "node id")?;
@@ -451,7 +459,7 @@ impl CPIndex {
                 ));
             }
 
-            let mut neighbors = Vec::with_capacity(layer_count);
+            let mut layers = Vec::with_capacity(layer_count);
             for _ in 0..layer_count {
                 let neighbor_count = read_le_u64(data, &mut pos, "neighbor_count")? as usize;
 
@@ -471,8 +479,9 @@ impl CPIndex {
                         })?,
                     ));
                 }
-                neighbors.push(layer_neighbors);
+                layers.push(layer_neighbors);
             }
+            neighbors_data.insert(id, layers);
 
             let (inv_cached_norm, norm_sq) =
                 graph::cached_norms_for_metric(config.distance_metric, &vec_data);
@@ -482,7 +491,6 @@ impl CPIndex {
                     id,
                     bitset,
                     vec_data,
-                    neighbors,
                     storage_offset,
                     inv_cached_norm,
                     norm_sq,
@@ -511,9 +519,19 @@ impl CPIndex {
             parking_lot::Mutex::new(None)
         };
 
+        // Build neighbor_index from the deserialized neighbors data.
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
+        for (nid, layers) in &neighbors_data {
+            neighbor_index.allocate(*nid, layers.len());
+            for (layer_idx, layer_neighbors) in layers.iter().enumerate() {
+                neighbor_index.set_neighbors(*nid, layer_idx, layer_neighbors.clone());
+            }
+        }
+
         let node_count = nodes.len() as u64;
         Ok(Self {
             nodes,
+            neighbor_index,
             max_layer: AtomicUsize::new(max_layer),
             entry_point: AtomicU128::new(entry_point.unwrap_or(ENTRY_POINT_NONE)),
             backend: IndexBackend::InMemory,
@@ -681,6 +699,7 @@ mod tests {
     /// Helper: build a small CPIndex with a single Full vector node.
     fn single_full_node_index() -> CPIndex {
         let nodes = dashmap::DashMap::new();
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         let id = 42u128;
         nodes.insert(
             id,
@@ -688,7 +707,6 @@ mod tests {
                 id,
                 bitset: FilterBitset::new(),
                 vec_data: VectorRepresentations::Full(vec![0.1, 0.2, 0.3, 0.4]),
-                neighbors: vec![smallvec::smallvec![99u128]],
                 storage_offset: 0,
                 inv_cached_norm: 1.0,
                 norm_sq: 1.0,
@@ -702,15 +720,20 @@ mod tests {
                 id: 99,
                 bitset: FilterBitset::new(),
                 vec_data: VectorRepresentations::Full(vec![0.5, 0.6, 0.7, 0.8]),
-                neighbors: vec![smallvec::smallvec![42u128]],
                 storage_offset: 0,
                 inv_cached_norm: 1.0,
                 norm_sq: 1.0,
                 flags: 0,
             },
         );
+        // Populate neighbor_index
+        neighbor_index.allocate(42, 1);
+        neighbor_index.set_neighbors(42, 0, smallvec::smallvec![99u128]);
+        neighbor_index.allocate(99, 1);
+        neighbor_index.set_neighbors(99, 0, smallvec::smallvec![42u128]);
         CPIndex {
             nodes,
+            neighbor_index,
             max_layer: AtomicUsize::new(0),
             entry_point: AtomicU128::new(42),
             backend: IndexBackend::InMemory,
@@ -750,28 +773,31 @@ mod tests {
             VectorRepresentations::Full(v) => assert_eq!(v.as_slice(), &[0.1, 0.2, 0.3, 0.4]),
             _ => panic!("expected Full"),
         }
-        assert_eq!(node.neighbors.len(), 1);
-        assert_eq!(node.neighbors[0].as_slice(), &[99u128]);
+        let neighbors42 = deser.neighbor_index.get_neighbors(42, 0).unwrap();
+        assert_eq!(neighbors42.as_slice(), &[99u128]);
     }
 
     #[test]
     fn roundtrip_binary_vector() {
         let nodes = dashmap::DashMap::new();
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         nodes.insert(
             1u128,
             HnswNode {
                 id: 1,
                 bitset: FilterBitset::new(),
                 vec_data: VectorRepresentations::Binary(vec![0xDEADBEEFCAFEu64].into_boxed_slice()),
-                neighbors: vec![smallvec::smallvec![]],
                 storage_offset: 0,
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(1, 1);
+        neighbor_index.set_neighbors(1, 0, smallvec::smallvec![]);
         let index = CPIndex {
             nodes,
+            neighbor_index,
             max_layer: AtomicUsize::new(0),
             entry_point: AtomicU128::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
@@ -792,21 +818,24 @@ mod tests {
     #[test]
     fn roundtrip_turbo_vector() {
         let nodes = dashmap::DashMap::new();
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         nodes.insert(
             1u128,
             HnswNode {
                 id: 1,
                 bitset: FilterBitset::new(),
                 vec_data: VectorRepresentations::Turbo(vec![0xAB, 0xCD].into_boxed_slice()),
-                neighbors: vec![smallvec::smallvec![]],
                 storage_offset: 0,
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(1, 1);
+        neighbor_index.set_neighbors(1, 0, smallvec::smallvec![]);
         let index = CPIndex {
             nodes,
+            neighbor_index,
             max_layer: AtomicUsize::new(0),
             entry_point: AtomicU128::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
@@ -827,6 +856,7 @@ mod tests {
     #[test]
     fn roundtrip_sq8_vector() {
         let nodes = dashmap::DashMap::new();
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         nodes.insert(
             1u128,
             HnswNode {
@@ -836,15 +866,17 @@ mod tests {
                     vec![10i8, -20, 30, -40].into_boxed_slice(),
                     2.5,
                 ),
-                neighbors: vec![smallvec::smallvec![]],
                 storage_offset: 0,
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(1, 1);
+        neighbor_index.set_neighbors(1, 0, smallvec::smallvec![]);
         let index = CPIndex {
             nodes,
+            neighbor_index,
             max_layer: AtomicUsize::new(0),
             entry_point: AtomicU128::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
@@ -868,21 +900,24 @@ mod tests {
     #[test]
     fn roundtrip_none_vector() {
         let nodes = dashmap::DashMap::new();
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         nodes.insert(
             1u128,
             HnswNode {
                 id: 1,
                 bitset: FilterBitset::new(),
                 vec_data: VectorRepresentations::None,
-                neighbors: vec![smallvec::smallvec![]],
                 storage_offset: 0,
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(1, 1);
+        neighbor_index.set_neighbors(1, 0, smallvec::smallvec![]);
         let index = CPIndex {
             nodes,
+            neighbor_index,
             max_layer: AtomicUsize::new(0),
             entry_point: AtomicU128::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
@@ -899,6 +934,7 @@ mod tests {
 
     #[test]
     fn roundtrip_multiple_nodes_with_neighbors() {
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         let mut index = CPIndex::new();
         // Manually add 3 small fully-connected nodes
         let ids = [10u128, 20, 30];
@@ -909,17 +945,23 @@ mod tests {
                     id,
                     bitset: FilterBitset::all_set(),
                     vec_data: VectorRepresentations::Full(vec![id as f32 / 100.0; 4]),
-                    neighbors: vec![smallvec::smallvec![
-                        ids[(ids.iter().position(|x| *x == id).unwrap() + 1) % 3],
-                        ids[(ids.iter().position(|x| *x == id).unwrap() + 2) % 3],
-                    ]],
                     storage_offset: id as u64,
                     inv_cached_norm: 1.0,
                     norm_sq: 0.5,
                     flags: 0,
                 },
             );
+            neighbor_index.allocate(id, 1);
+            neighbor_index.set_neighbors(
+                id,
+                0,
+                smallvec::smallvec![
+                    ids[(ids.iter().position(|x| *x == id).unwrap() + 1) % 3],
+                    ids[(ids.iter().position(|x| *x == id).unwrap() + 2) % 3],
+                ],
+            );
         }
+        index.neighbor_index = neighbor_index;
         index.max_layer = AtomicUsize::new(0);
         index.entry_point = AtomicU128::new(10);
         index.total_nodes = AtomicU64::new(3);
@@ -933,8 +975,8 @@ mod tests {
         for &id in &ids {
             let node = deser.nodes.get(&id).unwrap();
             assert_eq!(node.storage_offset, id as u64);
-            assert_eq!(node.neighbors.len(), 1);
-            assert_eq!(node.neighbors[0].len(), 2);
+            let neighbors = deser.neighbor_index.get_neighbors(id, 0).unwrap();
+            assert_eq!(neighbors.len(), 2);
         }
     }
 
@@ -945,21 +987,24 @@ mod tests {
         bs.set_bit(2);
         bs.set_bit(127);
         let nodes = dashmap::DashMap::new();
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         nodes.insert(
             1u128,
             HnswNode {
                 id: 1,
                 bitset: bs.clone(),
                 vec_data: VectorRepresentations::Full(vec![1.0; 8]),
-                neighbors: vec![smallvec::smallvec![]],
                 storage_offset: 100,
                 inv_cached_norm: 1.0,
                 norm_sq: 1.0,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(1, 1);
+        neighbor_index.set_neighbors(1, 0, smallvec::smallvec![]);
         let index = CPIndex {
             nodes,
+            neighbor_index,
             max_layer: AtomicUsize::new(0),
             entry_point: AtomicU128::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
@@ -1042,21 +1087,24 @@ mod tests {
     #[test]
     fn serialize_mmapfull_none_fails() {
         let nodes = dashmap::DashMap::new();
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         nodes.insert(
             1u128,
             HnswNode {
                 id: 1,
                 bitset: FilterBitset::new(),
                 vec_data: VectorRepresentations::MmapFull(None),
-                neighbors: vec![smallvec::smallvec![]],
                 storage_offset: 0,
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(1, 1);
+        neighbor_index.set_neighbors(1, 0, smallvec::smallvec![]);
         let index = CPIndex {
             nodes,
+            neighbor_index,
             max_layer: AtomicUsize::new(0),
             entry_point: AtomicU128::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
@@ -1106,6 +1154,7 @@ mod tests {
 
     #[test]
     fn euclidean_metric_roundtrip() {
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         let mut index = CPIndex::new_with_config(HnswConfig {
             distance_metric: DistanceMetric::Euclidean,
             ..Default::default()
@@ -1116,13 +1165,15 @@ mod tests {
                 id: 1,
                 bitset: FilterBitset::new(),
                 vec_data: VectorRepresentations::Full(vec![0.5; 4]),
-                neighbors: vec![smallvec::smallvec![]],
                 storage_offset: 0,
                 inv_cached_norm: 1.0,
                 norm_sq: 0.25,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(1, 1);
+        neighbor_index.set_neighbors(1, 0, smallvec::smallvec![]);
+        index.neighbor_index = neighbor_index;
         index.entry_point = AtomicU128::new(ENTRY_POINT_NONE);
         index.total_nodes = AtomicU64::new(1);
 
@@ -1231,21 +1282,24 @@ mod tests {
     #[test]
     fn miri_serialize_roundtrip_binary() {
         let nodes = dashmap::DashMap::new();
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         nodes.insert(
             1u128,
             HnswNode {
                 id: 1,
                 bitset: FilterBitset::new(),
                 vec_data: VectorRepresentations::Binary(vec![0xDEADBEEFCAFEu64].into_boxed_slice()),
-                neighbors: vec![smallvec::smallvec![]],
                 storage_offset: 0,
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(1, 1);
+        neighbor_index.set_neighbors(1, 0, smallvec::smallvec![]);
         let index = CPIndex {
             nodes,
+            neighbor_index,
             max_layer: AtomicUsize::new(0),
             entry_point: AtomicU128::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
@@ -1267,21 +1321,24 @@ mod tests {
     #[test]
     fn miri_serialize_roundtrip_turbo() {
         let nodes = dashmap::DashMap::new();
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         nodes.insert(
             1u128,
             HnswNode {
                 id: 1,
                 bitset: FilterBitset::new(),
                 vec_data: VectorRepresentations::Turbo(vec![0xAB, 0xCD].into_boxed_slice()),
-                neighbors: vec![smallvec::smallvec![]],
                 storage_offset: 0,
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(1, 1);
+        neighbor_index.set_neighbors(1, 0, smallvec::smallvec![]);
         let index = CPIndex {
             nodes,
+            neighbor_index,
             max_layer: AtomicUsize::new(0),
             entry_point: AtomicU128::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
@@ -1303,6 +1360,7 @@ mod tests {
     #[test]
     fn miri_serialize_roundtrip_sq8() {
         let nodes = dashmap::DashMap::new();
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         nodes.insert(
             1u128,
             HnswNode {
@@ -1312,15 +1370,17 @@ mod tests {
                     vec![10i8, -20, 30, -40].into_boxed_slice(),
                     2.5,
                 ),
-                neighbors: vec![smallvec::smallvec![]],
                 storage_offset: 0,
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(1, 1);
+        neighbor_index.set_neighbors(1, 0, smallvec::smallvec![]);
         let index = CPIndex {
             nodes,
+            neighbor_index,
             max_layer: AtomicUsize::new(0),
             entry_point: AtomicU128::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
@@ -1345,21 +1405,24 @@ mod tests {
     #[test]
     fn miri_serialize_roundtrip_none() {
         let nodes = dashmap::DashMap::new();
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         nodes.insert(
             1u128,
             HnswNode {
                 id: 1,
                 bitset: FilterBitset::new(),
                 vec_data: VectorRepresentations::None,
-                neighbors: vec![smallvec::smallvec![]],
                 storage_offset: 0,
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(1, 1);
+        neighbor_index.set_neighbors(1, 0, smallvec::smallvec![]);
         let index = CPIndex {
             nodes,
+            neighbor_index,
             max_layer: AtomicUsize::new(0),
             entry_point: AtomicU128::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
@@ -1378,6 +1441,7 @@ mod tests {
     #[test]
     fn miri_serialize_roundtrip_all_variants_together() {
         // Build an index with all vector variants to test mixed serialization.
+        let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
         let mut index = CPIndex::new();
         // Clear default empty state
         index.nodes.clear();
@@ -1389,13 +1453,14 @@ mod tests {
                 id: 1,
                 bitset: FilterBitset::new(),
                 vec_data: VectorRepresentations::Full(vec![0.1, 0.2, 0.3, 0.4]),
-                neighbors: vec![smallvec::smallvec![2, 3]],
                 storage_offset: 0,
                 inv_cached_norm: 1.0,
                 norm_sq: 1.0,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(1, 1);
+        neighbor_index.set_neighbors(1, 0, smallvec::smallvec![2, 3]);
         // Binary
         index.nodes.insert(
             2,
@@ -1403,13 +1468,14 @@ mod tests {
                 id: 2,
                 bitset: FilterBitset::new(),
                 vec_data: VectorRepresentations::Binary(vec![0xAA, 0xBB].into_boxed_slice()),
-                neighbors: vec![smallvec::smallvec![1, 3]],
                 storage_offset: 0,
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(2, 1);
+        neighbor_index.set_neighbors(2, 0, smallvec::smallvec![1, 3]);
         // Turbo
         index.nodes.insert(
             3,
@@ -1417,13 +1483,14 @@ mod tests {
                 id: 3,
                 bitset: FilterBitset::new(),
                 vec_data: VectorRepresentations::Turbo(vec![0x10, 0x20].into_boxed_slice()),
-                neighbors: vec![smallvec::smallvec![1, 2]],
                 storage_offset: 0,
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(3, 1);
+        neighbor_index.set_neighbors(3, 0, smallvec::smallvec![1, 2]);
         // None
         index.nodes.insert(
             4,
@@ -1431,13 +1498,15 @@ mod tests {
                 id: 4,
                 bitset: FilterBitset::new(),
                 vec_data: VectorRepresentations::None,
-                neighbors: vec![smallvec::smallvec![]],
                 storage_offset: 0,
                 inv_cached_norm: 0.0,
                 norm_sq: 0.0,
                 flags: 0,
             },
         );
+        neighbor_index.allocate(4, 1);
+        neighbor_index.set_neighbors(4, 0, smallvec::smallvec![]);
+        index.neighbor_index = neighbor_index;
 
         index.max_layer = AtomicUsize::new(0);
         index.entry_point = AtomicU128::new(1);

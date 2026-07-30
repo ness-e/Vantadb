@@ -194,15 +194,7 @@ impl CPIndex {
                 }
             }
 
-            let neighbors = if let Some(node) = self.nodes.get(&cand_id) {
-                if layer < node.neighbors.len() {
-                    Some(node.neighbors[layer].clone())
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
+            let neighbors = self.neighbor_index.get_neighbors(cand_id, layer);
 
             if let Some(neighbors_list) = neighbors {
                 if graph::should_prefetch() {
@@ -337,13 +329,7 @@ impl CPIndex {
                                         || neighbor.bitset.matches_mask(query_mask);
                                     if !passes_filter {
                                         let second_hop =
-                                            self.nodes.get(&neighbor_id).and_then(|n| {
-                                                if layer < n.neighbors.len() {
-                                                    Some(n.neighbors[layer].clone())
-                                                } else {
-                                                    None
-                                                }
-                                            });
+                                            self.neighbor_index.get_neighbors(neighbor_id, layer);
                                         if let Some(second_list) = second_hop {
                                             let budget = ef.saturating_sub(results.len()).max(16);
                                             for &second_id in second_list.iter().take(budget) {
@@ -1344,34 +1330,40 @@ mod tests {
         // Verify layer-0 neighbors exist
         for id in 0u128..5 {
             assert!(
-                !index.nodes.get(&id).unwrap().neighbors[0].is_empty(),
+                index
+                    .neighbor_index
+                    .get_neighbors(id, 0)
+                    .map(|n| !n.is_empty())
+                    .unwrap_or(false),
                 "node {id} should have at least one neighbor after HNSW insert"
             );
         }
 
         // Force topology
         // A → X, N
-        index.nodes.get_mut(&0).unwrap().neighbors[0].clear();
-        index.nodes.get_mut(&0).unwrap().neighbors[0].push(2); // X
-        index.nodes.get_mut(&0).unwrap().neighbors[0].push(1); // N
+        index
+            .neighbor_index
+            .set_neighbors(0, 0, smallvec::smallvec![2u128, 1u128]); // X, N
 
         // X → A, R
-        index.nodes.get_mut(&2).unwrap().neighbors[0].clear();
-        index.nodes.get_mut(&2).unwrap().neighbors[0].push(0); // A
-        index.nodes.get_mut(&2).unwrap().neighbors[0].push(3); // R
+        index
+            .neighbor_index
+            .set_neighbors(2, 0, smallvec::smallvec![0u128, 3u128]); // A, R
 
         // N → A, S
-        index.nodes.get_mut(&1).unwrap().neighbors[0].clear();
-        index.nodes.get_mut(&1).unwrap().neighbors[0].push(0); // A
-        index.nodes.get_mut(&1).unwrap().neighbors[0].push(4); // S
+        index
+            .neighbor_index
+            .set_neighbors(1, 0, smallvec::smallvec![0u128, 4u128]); // A, S
 
         // R → X (backlink)
-        index.nodes.get_mut(&3).unwrap().neighbors[0].clear();
-        index.nodes.get_mut(&3).unwrap().neighbors[0].push(2);
+        index
+            .neighbor_index
+            .set_neighbors(3, 0, smallvec::smallvec![2u128]);
 
         // S → N (backlink)
-        index.nodes.get_mut(&4).unwrap().neighbors[0].clear();
-        index.nodes.get_mut(&4).unwrap().neighbors[0].push(1);
+        index
+            .neighbor_index
+            .set_neighbors(4, 0, smallvec::smallvec![1u128]);
 
         let mut mask = FilterBitset::new();
         mask.set_bit(0);
@@ -1452,10 +1444,12 @@ mod tests {
         add_node_with_bitset(&index, 1, vec![0.99, 0.01, 0.0], &[1]);
 
         // Node 0's neighbor is node 1 (force it)
-        index.nodes.get_mut(&0).unwrap().neighbors[0].clear();
-        index.nodes.get_mut(&0).unwrap().neighbors[0].push(1);
-        index.nodes.get_mut(&1).unwrap().neighbors[0].clear();
-        index.nodes.get_mut(&1).unwrap().neighbors[0].push(0);
+        index
+            .neighbor_index
+            .set_neighbors(0, 0, smallvec::smallvec![1u128]);
+        index
+            .neighbor_index
+            .set_neighbors(1, 0, smallvec::smallvec![0u128]);
 
         // With ALL_BITSET, acorn should never trigger because
         // !query_mask.is_all_set() is false
@@ -1517,22 +1511,21 @@ mod tests {
         add_node_with_bitset(&index, 4, vec![0.2, 0.0, 0.0], &[0]); // S
 
         // Force same topology: A→{X,N}, X→{A,R}, N→{A,S}
-        index.nodes.get_mut(&0).unwrap().neighbors[0].clear();
-        index.nodes.get_mut(&0).unwrap().neighbors[0].push(2);
-        index.nodes.get_mut(&0).unwrap().neighbors[0].push(1);
-
-        index.nodes.get_mut(&1).unwrap().neighbors[0].clear();
-        index.nodes.get_mut(&1).unwrap().neighbors[0].push(0);
-        index.nodes.get_mut(&1).unwrap().neighbors[0].push(4);
-
-        index.nodes.get_mut(&2).unwrap().neighbors[0].clear();
-        index.nodes.get_mut(&2).unwrap().neighbors[0].push(0);
-        index.nodes.get_mut(&2).unwrap().neighbors[0].push(3);
-
-        index.nodes.get_mut(&3).unwrap().neighbors[0].clear();
-        index.nodes.get_mut(&3).unwrap().neighbors[0].push(2);
-        index.nodes.get_mut(&4).unwrap().neighbors[0].clear();
-        index.nodes.get_mut(&4).unwrap().neighbors[0].push(1);
+        index
+            .neighbor_index
+            .set_neighbors(0, 0, smallvec::smallvec![2u128, 1u128]);
+        index
+            .neighbor_index
+            .set_neighbors(1, 0, smallvec::smallvec![0u128, 4u128]);
+        index
+            .neighbor_index
+            .set_neighbors(2, 0, smallvec::smallvec![0u128, 3u128]);
+        index
+            .neighbor_index
+            .set_neighbors(3, 0, smallvec::smallvec![2u128]);
+        index
+            .neighbor_index
+            .set_neighbors(4, 0, smallvec::smallvec![1u128]);
 
         let mut mask = FilterBitset::new();
         mask.set_bit(0);

@@ -145,7 +145,6 @@ pub struct HnswNode {
     pub id: u128,
     pub bitset: FilterBitset,
     pub vec_data: VectorRepresentations,
-    pub neighbors: Vec<NeighborVec>,
     pub storage_offset: u64,
     pub inv_cached_norm: f32,
     pub norm_sq: f32,
@@ -333,6 +332,9 @@ pub struct CPIndex {
     /// Lazy-built IVF index. Will be `None` until first search with
     /// `config.index_type == IndexType::Ivf`.
     pub ivf_index: parking_lot::Mutex<Option<crate::index::ivf::IvfIndex>>,
+    /// Flat, lock-friendly neighbor list index.
+    /// `pub(crate)` because `HnswNeighborIndex` is only `pub(crate)`.
+    pub(crate) neighbor_index: crate::index::neighbor_index::HnswNeighborIndex,
 }
 
 use crate::index::distance::f32_l2_norm;
@@ -370,6 +372,7 @@ impl CPIndex {
             total_nodes: AtomicU64::new(0),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
             ivf_index: parking_lot::Mutex::new(None),
+            neighbor_index: crate::index::neighbor_index::HnswNeighborIndex::new(),
         }
     }
 
@@ -397,13 +400,14 @@ impl CPIndex {
                 VectorRepresentations::SQ8(d, _) => total += d.len() + 4,
                 VectorRepresentations::None => {}
             }
-            for layer in &node.neighbors {
-                total +=
-                    layer.len() * std::mem::size_of::<u128>() + std::mem::size_of::<NeighborVec>();
-            }
             total += std::mem::size_of::<HnswNode>();
         }
         total += self.total_nodes.load(Ordering::Relaxed) as usize * 60;
+        // Rough estimate for neighbor index storage
+        for entry in self.neighbor_index.id_to_meta.iter() {
+            let (_, num_layers) = entry.value();
+            total += num_layers * std::mem::size_of::<parking_lot::RwLock<NeighborVec>>();
+        }
         total
     }
 
@@ -426,7 +430,7 @@ impl CPIndex {
     pub fn find_new_entry_point(&self) -> Option<u128> {
         self.nodes
             .iter()
-            .max_by_key(|kv| kv.value().neighbors.len())
+            .max_by_key(|kv| self.neighbor_index.num_layers(*kv.key()).unwrap_or(0))
             .map(|kv| *kv.key())
     }
 
@@ -498,13 +502,13 @@ impl CPIndex {
         }
 
         if vec_data.is_none() {
+            self.neighbor_index.allocate(id, 1);
             self.nodes.insert(
                 id,
                 HnswNode {
                     id,
                     bitset,
                     vec_data: vec_data.clone(),
-                    neighbors: vec![NeighborVec::new()],
                     storage_offset,
                     inv_cached_norm: 0.0,
                     norm_sq: 0.0,
@@ -573,11 +577,12 @@ impl CPIndex {
             None => return,
         };
 
+        self.neighbor_index.allocate(id, level + 1);
+
         let node = HnswNode {
             id,
             bitset,
             vec_data,
-            neighbors: vec![NeighborVec::new(); level + 1],
             storage_offset,
             inv_cached_norm,
             norm_sq,
@@ -667,9 +672,8 @@ impl CPIndex {
             curr_entry_points = w.iter().map(|ns| ns.1).collect();
             let selected_neighbors = self.select_neighbors(w, m_max);
 
-            if let Some(mut n) = self.nodes.get_mut(&id) {
-                n.neighbors[layer] = selected_neighbors.clone();
-            }
+            self.neighbor_index
+                .set_neighbors(id, layer, selected_neighbors.clone());
 
             self.connect_layer_neighbors(id, &selected_neighbors, layer, m_max);
         }
@@ -694,11 +698,12 @@ impl CPIndex {
             None => return,
         };
 
+        self.neighbor_index.allocate(id, level + 1);
+
         let node = HnswNode {
             id,
             bitset,
             vec_data,
-            neighbors: vec![NeighborVec::new(); level + 1],
             storage_offset,
             inv_cached_norm,
             norm_sq,
@@ -788,9 +793,8 @@ impl CPIndex {
             curr_entry_points = w.iter().map(|ns| ns.1).collect();
             let selected_neighbors = self.select_neighbors(w, m_max);
 
-            if let Some(mut n) = self.nodes.get_mut(&id) {
-                n.neighbors[layer] = selected_neighbors.clone();
-            }
+            self.neighbor_index
+                .set_neighbors(id, layer, selected_neighbors.clone());
 
             self.connect_layer_neighbors(id, &selected_neighbors, layer, m_max);
         }
@@ -806,28 +810,18 @@ impl CPIndex {
         m_max: usize,
     ) {
         for &neighbor_id in selected_neighbors {
-            let (needs_shrink, current_neighbors) = {
-                if let Some(mut neighbor_node) = self.nodes.get_mut(&neighbor_id) {
-                    if layer < neighbor_node.neighbors.len() {
-                        if !neighbor_node.neighbors[layer].contains(&id) {
-                            neighbor_node.neighbors[layer].push(id);
-                        }
+            // 1. Add reverse link: push id to the neighbor's neighbor list (if not duplicate)
+            let added = self.neighbor_index.add_neighbor(neighbor_id, layer, id);
 
-                        if neighbor_node.neighbors[layer].len() > m_max {
-                            (true, neighbor_node.neighbors[layer].clone())
-                        } else {
-                            (false, NeighborVec::new())
-                        }
-                    } else {
-                        (false, NeighborVec::new())
+            // 2. If added and the neighbor's list now exceeds m_max, shrink it
+            if added {
+                if let Some(current_neighbors) =
+                    self.neighbor_index.get_neighbors(neighbor_id, layer)
+                {
+                    if current_neighbors.len() > m_max {
+                        self.shrink_neighbors(neighbor_id, m_max, &current_neighbors, layer);
                     }
-                } else {
-                    (false, NeighborVec::new())
                 }
-            };
-
-            if needs_shrink {
-                self.shrink_neighbors(neighbor_id, m_max, &current_neighbors, layer);
             }
         }
     }
@@ -840,6 +834,7 @@ impl CPIndex {
         current_neighbors: &[u128],
         layer: usize,
     ) {
+        // 1. Read the node's vector data and cached norm
         let (nb_vec, nb_inv_norm) = match self.nodes.get(&neighbor_id) {
             Some(n) => (
                 n.vec_data.as_f32_slice().map(|s| s.to_vec()),
@@ -873,9 +868,8 @@ impl CPIndex {
                 }
             }
             let pruned = self.select_neighbors(cand_heap, m_max);
-            if let Some(mut neighbor_node) = self.nodes.get_mut(&neighbor_id) {
-                neighbor_node.neighbors[layer] = pruned;
-            }
+            self.neighbor_index
+                .set_neighbors(neighbor_id, layer, pruned);
         }
     }
 
@@ -900,9 +894,14 @@ impl CPIndex {
 
             while let Some(node_id) = queue.pop_front() {
                 order.push(node_id);
-                if let Some(node) = self.nodes.get(&node_id) {
-                    for layer in (0..node.neighbors.len()).rev() {
-                        for &neighbor_id in &node.neighbors[layer] {
+                if self.nodes.contains_key(&node_id) {
+                    let num_layers = self.neighbor_index.num_layers(node_id).unwrap_or(0);
+                    for layer in (0..num_layers).rev() {
+                        let neighbors = self
+                            .neighbor_index
+                            .get_neighbors(node_id, layer)
+                            .unwrap_or_default();
+                        for &neighbor_id in &neighbors {
                             if seen.insert(neighbor_id) {
                                 queue.push_back(neighbor_id);
                             }
@@ -946,53 +945,50 @@ impl CPIndex {
     ///   3. Repair each recorded pair with `get_mut()` — iter lock is
     ///      released, so only one shard is locked at a time.
     pub fn repair_orphan_links(&self) -> FreshHnswReport {
-        let started = web_time::Instant::now();
+        let start = std::time::Instant::now();
 
-        // Phase 1: snapshot all existing node IDs.
-        // This iter completes fully and releases the lock before Phase 2.
-        let existing: std::collections::HashSet<u128> =
-            self.nodes.iter().map(|e| *e.key()).collect();
-        let scanned_nodes = existing.len() as u64;
+        // Phase 1: Snapshot all existing node IDs into a local HashSet.
+        let active_nodes: std::collections::HashSet<u128> =
+            self.nodes.iter().map(|kv| *kv.key()).collect();
 
-        // Phase 2: scan for orphans under the iter lock (read-only).
+        // Phase 2: Scan neighbor lists via neighbor_index.for_each(), identify
+        // orphan links (neighbor IDs not in active_nodes). Record (node_id, layer)
+        // pairs that need repair and count all individual orphan links found.
+        let mut scanned_nodes: u64 = 0;
         let mut total_layers: u64 = 0;
+        let mut orphan_count: u64 = 0;
         let mut to_repair: Vec<(u128, usize)> = Vec::new();
-        {
-            let iter = self.nodes.iter();
-            for entry in iter {
-                let node_id = *entry.key();
-                let num_layers = entry.value().neighbors.len();
-                total_layers += num_layers as u64;
 
-                for layer in 0..num_layers {
-                    let neighbors = &entry.value().neighbors[layer];
-                    if neighbors
-                        .iter()
-                        .any(|nid| *nid != node_id && !existing.contains(nid))
-                    {
-                        to_repair.push((node_id, layer));
+        self.neighbor_index.for_each(|node_id, layers| {
+            scanned_nodes += 1;
+            for (layer_idx, neighbors) in layers.iter().enumerate() {
+                total_layers += 1;
+                let mut layer_has_orphan = false;
+                for &nid in neighbors {
+                    if !active_nodes.contains(&nid) {
+                        orphan_count += 1;
+                        layer_has_orphan = true;
                     }
                 }
+                if layer_has_orphan {
+                    to_repair.push((node_id, layer_idx));
+                }
             }
-        }
+        });
 
-        // Phase 3: repair (no iter lock held — only one shard locked at a time).
-        let mut repaired_links: u64 = 0;
+        // Phase 3: Repair each recorded layer — retain only links whose
+        // target ID exists in active_nodes.
         for (node_id, layer) in &to_repair {
-            if let Some(mut node) = self.nodes.get_mut(node_id) {
-                let before = node.neighbors[*layer].len();
-                node.neighbors[*layer].retain(|nid| *nid == *node_id || existing.contains(nid));
-                let removed = before - node.neighbors[*layer].len();
-                repaired_links += removed as u64;
-            }
+            self.neighbor_index
+                .retain_neighbors(*node_id, *layer, |nid| active_nodes.contains(nid));
         }
 
-        let duration_ms = started.elapsed().as_millis() as u64;
+        let duration_ms = start.elapsed().as_millis() as u64;
 
         FreshHnswReport {
             scanned_nodes,
             total_layers,
-            repaired_links,
+            repaired_links: orphan_count,
             duration_ms,
             success: true,
         }
@@ -1270,12 +1266,20 @@ mod tests {
         assert_eq!(index.nodes.len(), 5);
 
         // Manually add orphan links: give node 0 a link to node 99 (doesn't exist)
-        if let Some(mut node) = index.nodes.get_mut(&0) {
-            node.neighbors[0].push(99);
+        {
+            let mut l0 = index.neighbor_index.get_neighbors(0, 0).unwrap_or_default();
+            if !l0.contains(&99) {
+                l0.push(99);
+            }
+            index.neighbor_index.set_neighbors(0, 0, l0);
         }
         // Give node 1 a link to node 999 (doesn't exist)
-        if let Some(mut node) = index.nodes.get_mut(&1) {
-            node.neighbors[0].push(999);
+        {
+            let mut l0 = index.neighbor_index.get_neighbors(1, 0).unwrap_or_default();
+            if !l0.contains(&999) {
+                l0.push(999);
+            }
+            index.neighbor_index.set_neighbors(1, 0, l0);
         }
 
         // Remove node 2 from the index entirely (simulating delete)
@@ -1296,17 +1300,11 @@ mod tests {
         assert!(report.success);
 
         // Verify the orphans were actually removed
-        if let Some(node) = index.nodes.get(&0) {
-            assert!(
-                !node.neighbors[0].contains(&99),
-                "node 0 should no longer link to 99"
-            );
+        if let Some(l0) = index.neighbor_index.get_neighbors(0, 0) {
+            assert!(!l0.contains(&99), "node 0 should no longer link to 99");
         };
-        if let Some(node) = index.nodes.get(&1) {
-            assert!(
-                !node.neighbors[0].contains(&999),
-                "node 1 should no longer link to 999"
-            );
+        if let Some(l0) = index.neighbor_index.get_neighbors(1, 0) {
+            assert!(!l0.contains(&999), "node 1 should no longer link to 999");
         };
     }
 
@@ -1332,13 +1330,22 @@ mod tests {
 
         // Inject orphan links at layers 0 and 1
         for node_id in [0u128, 5, 10] {
-            if let Some(mut node) = index.nodes.get_mut(&node_id) {
-                for layer in 0..node.neighbors.len() {
-                    // Add several fake orphan IDs
-                    node.neighbors[layer].push(100);
-                    node.neighbors[layer].push(200);
-                    node.neighbors[layer].push(300);
+            let num_layers = index.neighbor_index.num_layers(node_id).unwrap_or(0);
+            for layer in 0..num_layers {
+                let mut l = index
+                    .neighbor_index
+                    .get_neighbors(node_id, layer)
+                    .unwrap_or_default();
+                if !l.contains(&100) {
+                    l.push(100);
                 }
+                if !l.contains(&200) {
+                    l.push(200);
+                }
+                if !l.contains(&300) {
+                    l.push(300);
+                }
+                index.neighbor_index.set_neighbors(node_id, layer, l);
             }
         }
 
@@ -1358,18 +1365,21 @@ mod tests {
 
         // Verify orphans are gone and legit links remain
         for node_id in [0u128, 5, 10] {
-            if let Some(node) = index.nodes.get(&node_id) {
-                for layer in 0..node.neighbors.len() {
-                    assert!(
-                        !node.neighbors[layer].contains(&100),
-                        "node {node_id} layer {layer} should not link to 100"
-                    );
-                    assert!(
-                        !node.neighbors[layer].contains(&200),
-                        "node {node_id} layer {layer} should not link to 200"
-                    );
-                }
-            };
+            let num_layers = index.neighbor_index.num_layers(node_id).unwrap_or(0);
+            for layer in 0..num_layers {
+                let l = index
+                    .neighbor_index
+                    .get_neighbors(node_id, layer)
+                    .unwrap_or_default();
+                assert!(
+                    !l.contains(&100),
+                    "node {node_id} layer {layer} should not link to 100"
+                );
+                assert!(
+                    !l.contains(&200),
+                    "node {node_id} layer {layer} should not link to 200"
+                );
+            }
         }
     }
 }
