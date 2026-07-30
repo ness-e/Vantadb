@@ -341,3 +341,64 @@ Benchmark con build `maturin build --release` tras revertir Propuesta 2 (NN-Desc
 \*Estimaciones de vanta-tuner antes de benchmark real. La discrepancia se debe a que otros overheads (vstore, KV, metadata) limitan el QPS real.
 
 > **Condiciones:** Windows 11, SSD NVMe, 32GB RAM. Build local v0.4.0 con `maturin build --release` + instalación del wheel. Datasets de ann-benchmarks HDF5.
+
+---
+
+## 6. Historial Consolidado de Optimizaciones
+
+> Esta sección resume todas las optimizaciones aplicadas, probadas y documentadas en los archivos de optimización ahora eliminados (`COMPAT_INGESTA_OPTIMIZACION.md`, `INDEX_REBUILD_OPTIMIZATION.md`, `RECOVERY_PLAN.md`). El contenido ha sido consolidado aquí para mantener un registro histórico único.
+
+### 6.1 Optimizaciones Aplicadas y en Código
+
+| # | Optimización | Documento Origen | Impacto Medido |
+|---|-------------|-----------------|----------------|
+| 1 | `put_batch_raw` expuesto en API Python (zero-copy numpy) | COMPAT_INGESTA | Elimina overhead FFI |
+| 2 | `put_batch()` → `engine.batch_insert_with_opts()` | COMPAT_INGESTA | 2.3× vs per-item loop |
+| 3 | Auto-flush deshabilitado en batch_insert | COMPAT_INGESTA | Menos flushing frecuente |
+| 4 | ShardedWal batch_append real (group-by-shard) | COMPAT_INGESTA | WAL 6,174ms → ~18ms/1K (325×) |
+| 5 | metadata.clone() eliminado en serialization | COMPAT_INGESTA | ~200K allocs menos por 10K records |
+| 6 | ef_construction: 400 → 100 | COMPAT_INGESTA | 4× menos distancia en HNSW rebuild |
+| 7 | select_neighbors simplificado (top-M sin diversity) | COMPAT_INGESTA | 2.5× rebuild más rápido |
+| 8 | skip_hnsw + rebuild diferido (BatchInsertOptions) | COMPAT_INGESTA | Pipeline puro ~32K QPS teóricos |
+| 9 | HNSW rebuild paralelo con rayon | INDEX_REBUILD | 3.5× index (GloVe 7.7s → 2.2s) |
+| 10 | add_with_level() + thread-local RNG | INDEX_REBUILD | Evita contención Mutex RNG en rebuild paralelo |
+| 11 | InsertMode incremental (threshold 1000) | INDEX_REBUILD | 4-10× en inserts <50 nodos, recall 100% |
+| 12 | Layer-wise bulk insert (sort por nivel) | INDEX_REBUILD | Mejor calidad de entry points en batches 100-1000 |
+| 13 | HnswNeighborIndex — flatten + RWLock | INDEX_REBUILD | Rebuild 1.88s → 760ms (2.47×) |
+| 14 | try_add_and_get_if_full() (1 acceso DashMap vs 3) | RECOVERY_PLAN | Index time mejoró 12-27% |
+| 15 | Fase 0 mitigación sistémica | RECOVERY_PLAN | Liberar disco, matar procesos, RAYON_NUM_THREADS=4 |
+| 16 | **target-cpu=native reactivado** | INVESTIGACIÓN 2026 | **+20-50% en kernels SIMD** |
+| 17 | **select_nth_unstable_by** (O(n log n) → O(n)) | INVESTIGACIÓN 2026 | **~7× menos comparaciones en select_neighbors** |
+
+### 6.2 Lo Que se Probó y NO Funcionó
+
+| # | Propuesta | Documento Origen | Resultado | Decisión |
+|---|-----------|-----------------|-----------|----------|
+| 1 | Propuesta 1a: Deferred shrink (1a.4) | INDEX_REBUILD | **Regresión +53%** (2.024s → 3.106s). Listas de vecinos crecen sin límite durante rebuild paralelo → shrink final O(m²) domina. | ❌ DESCATADA |
+| 2 | Propuesta 2: NN-Descent Bulk Build | INDEX_REBUILD | **Regresión catastrófica 7-1,332×**. 200v: 0.558-1.470s vs ~0.076s parallel insert. 1000v: 506s vs ~0.380s. | ❌ REVERTIDA (commit f1b9ee03) |
+| 3 | Propuesta 5: Index worker thread | COMPAT_INGESTA | Complejidad alta (~200 líneas), riesgo de shutdown race. No implementada. | ⏳ DIFERIDA |
+| 4 | `target-cpu=native` desactivado por codegen time | INVESTIGACIÓN 2026 | Se comentó porque aumentaba codegen time. Para benchmarks el beneficio es directo. | ✅ REACTIVADO |
+
+### 6.3 Causas de Regresión Documentadas (Jul 2026)
+
+| # | Causa | Impacto | Fix |
+|---|-------|---------|-----|
+| 1 | HnswNeighborIndex: 3 accesos DashMap vs 1 en connect_layer_neighbors | +12-27% index time | try_add_and_get_if_full() |
+| 2 | CPU throttling: E-cores al 69%, SSD 8.2% libre | ~1.3-1.6× | Liberar disco, RAYON_NUM_THREADS=4, enfriar sistema |
+| 3 | Procesos anómalos (UninstallMonitor, imsctadn) | ~1.05-1.15× | Matar procesos, deshabilitar scheduled tasks |
+| 4 | 21 instancias VS Code compitiendo | Significativo | Cerrar instancias no esenciales |
+
+### 6.4 Próximas Optimizaciones Pendientes (de la Investigación 2026)
+
+Ver `docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md` para el plan detallado.
+
+| # | Acción | Prioridad | Impacto Esperado |
+|---|--------|-----------|-----------------|
+| 1 | A2: get_neighbors_ref() — eliminar clones en hot path | ALTA | ~10% menos allocs |
+| 2 | A4: Sweep paramétrico (M, efC, efS) | ALTA | Identificar config óptima |
+| 3 | A3: Ground truth pre-computado HDF5 | MEDIA | Elimina O(n²) en benchmarks |
+| 4 | B5: thread_local RNG (pendiente de profiling) | MEDIA | Elimina lock en inserts paralelos |
+| 5 | B1: Extraer branches vector_store/metric del while loop | MEDIA | ~5-10% search throughput |
+| 6 | B4: Prefetch batch en search_layer | MEDIA | ~10-20% en search con VantaFile |
+| 7 | C2: Benchmarks multi-thread | MEDIA | Medir throughput real |
+| 8 | A5: cargo-criterion + HTML reports | BAJA | Visualización de regresiones |

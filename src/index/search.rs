@@ -449,12 +449,18 @@ impl CPIndex {
         //
         // ponytail: if ef_construction < 50 or recall at low ef_search matters,
         // re-enable the check with a config flag.
-        let sorted = candidates.into_sorted_vec();
-        sorted
-            .into_iter()
-            .take(m)
-            .map(|ns| ns.1)
-            .collect::<NeighborVec>()
+        //
+        // O(n) partial sort via select_nth_unstable_by instead of O(n log n)
+        // into_sorted_vec. For ef_construction=200 and m=32: ~200 comparisons
+        // vs ~200*log(200) ≈ 1500.
+        let mut vec = candidates.into_vec();
+        if vec.len() > m {
+            vec.select_nth_unstable_by(m, |a, b| {
+                a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            vec.truncate(m);
+        }
+        vec.into_iter().map(|ns| ns.1).collect::<NeighborVec>()
     }
 
     fn use_flat_search(&self) -> bool {
@@ -524,7 +530,7 @@ impl CPIndex {
         let mut curr_entry_points = vec![ep];
         let mut visited: std::collections::HashSet<u128, RandomState> =
             std::collections::HashSet::with_capacity_and_hasher(
-                ef_search.max(top_k) * 2,
+                ef_search.max(top_k).saturating_mul(3),
                 RandomState::new(),
             );
 

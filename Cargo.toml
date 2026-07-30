@@ -524,6 +524,12 @@ lto = "thin"
 codegen-units = 1
 opt-level = 3
 
+# Bench profile: release-like with debug symbols for profiling (samply, flamegraph).
+# debug=1 emits line tables + function names for flamegraphs without full debug vars.
+[profile.bench]
+inherits = "release"
+debug = 1
+
 # Fast dev profile: balance between compilation speed and runtime performance.
 # opt-level=1 gives ~35% faster builds than 0 while keeping debug usable.
 # debug=1 emits line tables only (no full debug var info).

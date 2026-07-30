@@ -630,7 +630,10 @@ impl CPIndex {
 
         let mut curr_entry_points = vec![ep];
         let mut visited: std::collections::HashSet<u128, RandomState> =
-            std::collections::HashSet::with_capacity_and_hasher(ef_cons * 2, RandomState::new());
+            std::collections::HashSet::with_capacity_and_hasher(
+                ef_cons.saturating_mul(3),
+                RandomState::new(),
+            );
         let top_layer = self.max_layer.load(Ordering::Acquire);
 
         for layer in (level + 1..=top_layer).rev() {
@@ -685,7 +688,8 @@ impl CPIndex {
             // then store the pruned list — avoids cloning for set_neighbors.
             self.connect_layer_neighbors(id, &selected_neighbors, layer, m_max);
 
-            // Populate inline neighbor cache (cloned before the move into set_neighbors).
+            // Populate both neighbor_index and inline cache.
+            // Inline cache avoids a 2nd DashMap fallback in search_layer during rebuild.
             let inline_cache = selected_neighbors.clone();
             self.neighbor_index
                 .set_neighbors(id, layer, selected_neighbors);
@@ -762,7 +766,10 @@ impl CPIndex {
 
         let mut curr_entry_points = vec![ep];
         let mut visited: std::collections::HashSet<u128, RandomState> =
-            std::collections::HashSet::with_capacity_and_hasher(ef_cons * 2, RandomState::new());
+            std::collections::HashSet::with_capacity_and_hasher(
+                ef_cons.saturating_mul(3),
+                RandomState::new(),
+            );
         let top_layer = self.max_layer.load(Ordering::Acquire);
 
         for layer in (level + 1..=top_layer).rev() {
@@ -817,7 +824,7 @@ impl CPIndex {
             // then store the pruned list — avoids cloning for set_neighbors.
             self.connect_layer_neighbors(id, &selected_neighbors, layer, m_max);
 
-            // Populate inline neighbor cache (cloned before the move into set_neighbors).
+            // Populate both neighbor_index and inline cache.
             let inline_cache = selected_neighbors.clone();
             self.neighbor_index
                 .set_neighbors(id, layer, selected_neighbors);
@@ -893,7 +900,7 @@ impl CPIndex {
                 }
             }
             let pruned = self.select_neighbors(cand_heap, m_max);
-            // Populate inline neighbor cache (cloned before the move into set_neighbors).
+            // Populate both neighbor_index and inline cache.
             let inline_cache = pruned.clone();
             self.neighbor_index
                 .set_neighbors(neighbor_id, layer, pruned);

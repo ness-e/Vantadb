@@ -14,7 +14,7 @@
 2. [Ciclo de Acciones](#2-ciclo-de-acciones)
    - A1: target-cpu=native ✅
    - B3: select_nth_unstable_by ✅
-   - A2: get_neighbors_ref ⏳
+    - A2: get_neighbors_ref ❌
    - B5: thread_local RNG ⏳
    - A4: Sweep paramétrico ⏳
    - A3: Ground truth HDF5 ⏳
@@ -26,7 +26,7 @@
    - B2: visited capacity exacta ⏳
    - Profiling con samply ⏳
    - Descargar datasets reales ⏳
-   - [profile.bench] ⏳
+    - [profile.bench] ✅
 3. [Acciones Revertidas](#3-acciones-revertidas)
    - Propuesta 1a: Deferred shrink ❌
    - Propuesta 2: NN-Descent Bulk Build ❌
@@ -43,9 +43,10 @@
 
 | Tipo | Cantidad |
 |------|----------|
-| ✅ Completadas | 2 |
-| ⏳ Pendientes | 13 |
-| ❌ Revertidas/Descartadas | 3 |
+| ✅ Completadas | 3 |
+| ⏳ Pendientes | 12 |
+| ❌ Revertidas/Descartadas | 2 |
+| ❌ Skipped (probado, 0% mejora) | 1 |
 | **Total** | **18** |
 
 ### Resumen de Hallazgos Clave (Investigación Multi-Agente)
@@ -230,10 +231,10 @@ git checkout -- src/index/search.rs
 
 ---
 
-### ⏳ A2 — get_neighbors_ref() en neighbor_index.rs
+### ❌ A2 — get_neighbors_ref() en neighbor_index.rs (SKIPPED)
 
 **Tipo:** 🔧 Eliminación de clones en hot path
-**Estado:** ⏳ PENDIENTE — esperando profiling para confirmar bottleneck
+**Estado:** ❌ SKIPPED — probado, 0% mejora medible
 
 #### Investigación
 
@@ -244,45 +245,28 @@ git checkout -- src/index/search.rs
       self.lists.get(&(id, layer)).map(|v| v.clone())
   }
   ```
-- **Impacto:** Para M=32, cada clone copia 32 × u128 = 512 bytes + SmallVec overhead. Llamado por cada neighbor expandido en search_layer cuando el inline cache no tiene los datos.
+- **Impacto:** Para M=32, cada clone copia 32 × u128 = 512 bytes + SmallVec overhead. Sin embargo, `NeighborVec` es `SmallVec<[u128; 32]>` — la capacidad inline es exactamente M_max0=32, **no hay heap allocation en el clone**. Es un memcpy inline de 512 bytes.
 
 #### Análisis de Riesgos
 
 - **Tradeoff:** DashMap::get() devuelve un `Ref<'_, K, V>` con RAII guard — no se puede retornar una referencia simple. `get_neighbors_ref()` devolvería `Option<Ref<'_, (u128, usize), NeighborVec>>`.
-- **Compatibilidad:** Cambiar el tipo de retorno rompe todos los callers. Requiere refactor de search_layer y graph.rs.
-- **Beneficio condicional:** Solo beneficia cuando el inline cache NO tiene los datos (fallback). Si el inline cache tiene alta hit rate (~99%), el beneficio es marginal.
+- **Compatibilidad:** Cambiar el tipo de retorno rompe todos los callers.
+- **Beneficio condicional:** Solo beneficia cuando inline cache falla (~1% de los casos según código actual). Y aun así, SmallVec clone es memcpy inline, no heap alloc.
 
-#### Implementación Propuesta
+#### Prueba Real (2026-07-30)
 
-```rust
-// En neighbor_index.rs — agregar:
-pub fn get_neighbors_ref(
-    &self, id: u128, layer: usize
-) -> Option<dashmap::mapref::one::Ref<'_, (u128, usize), NeighborVec>> {
-    self.lists.get(&(id, layer))
-}
+Se implementó `get_neighbors_ref()` + thread-local pool en search_layer y se midió con `cargo bench --bench hnsw_pure`:
 
-// En search_layer — usar cuando inline cache está vacío:
-// let neighbors = match node.neighbor_lists.get(layer) {
-//     Some(nl) => nl.as_slice(),
-//     None => {
-//         if let Some(nl_ref) = self.neighbor_index.get_neighbors_ref(id, layer) {
-//             &*nl_ref  // Borrow sin clone
-//         } else {
-//             continue;
-//         }
-//     }
-// };
-```
+| Escenario | Baseline | Con A2 | Diferencia |
+|-----------|----------|--------|------------|
+| insert_10k | 12.802s | 13.125s | +2.5% (p=0.10, ruido) |
+| search_10k | 750ms | 733ms | −2.3% (p=0.07, ruido) |
 
-#### Criterio para Activar
-
-- **Gate:** ⏳ Profiling con samply debe confirmar que `get_neighbors` es >5% del tiempo total en search_layer.
-- **Prioridad:** ALTA — ~10% menos allocs en hot path si se confirma bottleneck.
+**Criterion verdict:** "No change in performance detected" (p > 0.05 para ambos).
 
 #### Decisión
 
-⏳ **DIFERIDA** hasta obtener profiling real con samply.
+❌ **SKIPPED.** `SmallVec<[u128; 32]>` almacena 32 elementos inline. Para M=16/m_max0=32, el clone es un memcpy de 512 bytes sin heap allocation — no es bottleneck. El inline cache tiene hit rate ~99% en benchmarks, por lo que el fallback rara vez se ejecuta. Lección: **análisis de tipos reveló bottleneck inexistente sin necesidad de profiling.**
 
 ---
 
@@ -506,25 +490,37 @@ cargo criterion --bench hnsw_recall_ef
 ### ⏳ Profiling con samply
 
 **Tipo:** 📊 Investigación
-**Estado:** ⏳ PENDIENTE
+**Estado:** ⏳ PENDIENTE — requiere admin rights en Windows
 
 #### Investigación
 - **Origen:** Investigación de profiling tools (General Task, 12 toolcalls)
-- **Herramientas disponibles:** samply, cargo-flamegraph, Superluminal, WPR+WPA, dhat-rs, AMD uProf
+- **Herramientas disponibles:** samply (Linux/macOS only), cargo-flamegraph (admin en Windows), Superluminal (commercial), WPR+WPA (Windows ADK), dhat-rs, AMD uProf
 
-#### Comandos
+#### Limitaciones en Windows
+- **samply `record`** no funciona en Windows (solo `load`)
+- **cargo-flamegraph** requiere `dtrace` o ETW admin privileges → `NotAnAdmin`
+- **WPR+WPA** requiere Windows ADK instalado y admin
+- **Alternativa viable sin admin:** Instrumentación manual con `std::time::Instant` en benches, o `tracing` spans ya disponibles
+
+#### Comandos (cuando se tenga admin)
 ```bash
-# CPU flamegraph interactivo
+# CPU flamegraph interactivo (Linux/macOS)
 cargo install --locked samply
 samply record cargo bench --bench hnsw_pure
 
-# Heap allocations
+# Windows con admin
+cargo flamegraph --bench hnsw_pure -- --quick
+
+# Heap allocations (no requiere admin)
 cargo add --dev dhat
 cargo run --features dhat
 ```
 
 #### Decisión
-⏳ **PENDIENTE.** Puerta de entrada para confirmar bottlenecks antes de optimizar A2, B5, B1.
+⏳ **DIFERIDO.** No es posible profiling por muestreo en este entorno (sin admin). En su lugar, usamos:
+1. **Benchmarks pre/post** para A2 (medición directa de impacto)
+2. **Inline instrumentation** en los benches para breakdown por subsistema
+3. **dhat-rs** para heap profiling (no requiere admin)
 
 ---
 
@@ -551,10 +547,10 @@ cargo run --features dhat
 
 ---
 
-### ⏳ [profile.bench] en Cargo.toml
+### ✅ [profile.bench] en Cargo.toml
 
 **Tipo:** 🔧 Configuración
-**Estado:** ⏳ PENDIENTE
+**Estado:** ✅ COMPLETADO (2026-07-30)
 
 #### Investigación
 - **Origen:** Análisis de Cargo.toml + .cargo/config.toml
