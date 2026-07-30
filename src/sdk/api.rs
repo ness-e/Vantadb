@@ -178,7 +178,7 @@ impl VantaEmbedded {
     /// uses `put()` for individual UPSERTS).
     #[tracing::instrument(skip(self, inputs), err)]
     pub fn put_batch(&self, inputs: Vec<VantaMemoryInput>) -> Result<Vec<VantaMemoryRecord>> {
-        use crate::storage::engine::BatchInsertOptions;
+        use crate::storage::engine::{BatchInsertOptions, InsertMode};
 
         for input in &inputs {
             validate_namespace(&input.namespace)?;
@@ -189,6 +189,7 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
         let batch_size = self.config.batch_size.unwrap_or(1000);
         let mut all_results: Vec<VantaMemoryRecord> = Vec::with_capacity(inputs.len());
+        let mut rebuild_needed = false;
 
         for chunk in inputs.chunks(batch_size) {
             let timestamp = now_ms();
@@ -215,16 +216,17 @@ impl VantaEmbedded {
             }
 
             // ── Single batch insert: WAL batch_append + KV write_batch ──
-            // Skip incremental HNSW adds (dominates at ~79% of insert time
-            // per COMPAT doc analysis) — rebuild from scratch at the end.
-            engine.batch_insert_with_opts(
-                &nodes,
-                BatchInsertOptions {
-                    skip_existing_check: true,
-                    skip_wal: false,
-                    skip_hnsw: true,
-                },
-            )?;
+            // Use Auto mode — rebuild only if the chunk exceeds the
+            // incremental threshold (default: 1000 nodes).
+            let opts = BatchInsertOptions {
+                skip_existing_check: true,
+                skip_wal: false,
+                insert_mode: InsertMode::Auto,
+                ..Default::default()
+            };
+            let chunk_needs_rebuild = opts.needs_rebuild(chunk.len());
+            engine.batch_insert_with_opts(&nodes, opts)?;
+            rebuild_needed = rebuild_needed || chunk_needs_rebuild;
 
             // ── Post-processing (same as put_one but without derived indexes for batch) ──
             for record in &records {
@@ -245,8 +247,10 @@ impl VantaEmbedded {
             all_results.extend(records);
         }
 
-        // ── HNSW index: rebuild from scratch after deferred bulk insert ──
-        engine.rebuild_vector_index()?;
+        // ── HNSW index: rebuild from scratch when any chunk used Rebuild mode ──
+        if rebuild_needed {
+            engine.rebuild_vector_index()?;
+        }
 
         Ok(all_results)
     }
