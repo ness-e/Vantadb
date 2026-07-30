@@ -1,5 +1,6 @@
 //! Core CRUD operations: insert, get, get_many, delete, purge, scan.
 
+use rand::SeedableRng;
 use std::sync::atomic::Ordering;
 use web_time::{SystemTime, UNIX_EPOCH};
 
@@ -1040,8 +1041,27 @@ impl StorageEngine {
                     duration_ms: self.config.insert_lock_timeout_ms,
                 })?;
             let hnsw = self.hnsw.load();
+
+            // P3 — Layer-wise bulk insert: pre-compute levels with local RNG
+            // (avoids shared rng mutex) and sort descending so higher-level
+            // nodes are inserted first — creating better entry points for
+            // lower-level nodes and reducing search-layer descent cost.
+            let config = &hnsw.config;
+            let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+            let mut level_entries: Vec<(usize, u128, FilterBitset, VectorRepresentations, u64)> =
+                Vec::with_capacity(hnsw_entries.len());
+
             for (id, bitset, vector, offset) in &hnsw_entries {
-                hnsw.add(*id, bitset.clone(), vector.clone(), *offset);
+                // ponytail: deterministic seed — reproducible HNSW topology
+                let level = crate::index::random_layer_from_config(config, &mut rng);
+                level_entries.push((level, *id, bitset.clone(), vector.clone(), *offset));
+            }
+
+            // Higher level first → better entry point placement
+            level_entries.sort_by_key(|k| std::cmp::Reverse(k.0));
+
+            for (level, id, bitset, vector, offset) in &level_entries {
+                hnsw.add_with_level(*id, bitset.clone(), vector.clone(), *offset, *level);
             }
         }
 

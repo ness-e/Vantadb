@@ -606,7 +606,7 @@ impl HnswNeighborIndex {
 
 **Rebuild estimado post-4: 1.0-1.5s** (desde 2.0-2.2s)
 
-### Implementación y Benchmark — ✅ COMPLETADA (Jul 2026)
+### Implementación y Benchmark — ✅ COMPLETADA (Jul 2026, junto con Propuesta 3)
 
 **Archivos creados:**
 - `src/index/neighbor_index.rs` — nueva struct `HnswNeighborIndex` con `Vec<RwLock<NeighborVec>>` plano + `DashMap<u128, (usize, usize)>` para lookup id→slots
@@ -792,7 +792,7 @@ SPFresh (SOSP 2023) introduce **incremental in-place update** para grafos HNSW a
 
 ### Recomendación Final
 
-**Camino A: "Ship it incremental" ✅** (Ejecutado)
+**Camino A: "Ship it incremental" ✅** (Completado — 1b + 3 + 4)
 
 1. **✅ Propuesta 1b (incremental) — COMPLETADA** — Semana 1 (Jul 2026)
    - Threshold híbrido en `batch_insert_with_opts()` implementado
@@ -802,16 +802,15 @@ SPFresh (SOSP 2023) introduce **incremental in-place update** para grafos HNSW a
    - **Recall real:** 100% (vs 98-99% de rebuild)
    - **Riesgo:** Muy bajo — la infraestructura ya existía
 
-2. **Segundo: Propuesta 4 (flatten + RWLock)** — Semana 2-3
-   - Separar neighbor lists de HnswNode
+2. **✅ Propuesta 4 (flatten + RWLock) — COMPLETADA**
+   - Separar neighbor lists de HnswNode → `HnswNeighborIndex`
    - RWLock por neighbor list en vez de DashMap shard lock
-   - **Impacto:** 1.5-2× adicional en rebuild paralelo
-   - **Riesgo:** Refactor medio, tests cubren regresión
+   - **Impacto real:** rebuild 1.88s → 760ms (**2.47×**)
 
-3. **Tercero: Propuesta 3 (layer-wise auto-select)** — Semana 2 (paralelo a 4)
-   - Auto-detectar si insert incremental o rebuild según batch size
-   - **Impacto:** Sin esfuerzo extra si 1b ya está implementado
-   - **Riesgo:** Muy bajo
+3. **✅ Propuesta 3 (layer-wise auto-select) — COMPLETADA**
+   - Pre-computa niveles con RNG local, ordena inserción por nivel descendente
+   - Usa `add_with_level` con nivel pre-computado (sin mutex compartido)
+   - **Impacto:** mejor calidad de entry points en batches 100-1000
 
 **Camino B: "NN-Descent SOTA"** (Recomendado si se busca el máximo rendimiento)
 
@@ -828,12 +827,23 @@ Semana 1:   1b (incremental) + 3 (auto-select threshold)  ✅ COMPLETADA
              → Benchmark real: 10× en inserts de 10 nodos, recall 100%
              → Impacto: ingesta de pocos nodos es instantánea
 
+Semana 2-3: 3 (layer-wise auto-select) — en paralelo con 4  ✅ COMPLETADA
+             → Pre-computa niveles con RNG local (evita mutex compartido)
+             → Ordena inserción por nivel descendente (mejores entry points)
+             → Usa add_with_level, ~25 líneas
+
 Semana 2-3: 4 (flatten + RWLock) — en paralelo con 1b/3  ✅ COMPLETADA
              → Task 4a-4f implementadas: HnswNeighborIndex con Vec<RwLock<NeighborVec>> plano
              → 101 tests index pasan, 0 fallos
              → Code review (Task 4g): 2 HIGH fixes aplicados (lock scoping), APROBADO
              → Benchmark (Task 4h): rebuild 1.4-2.5× más rápido
              → Rebuild 2000 vectores: 1.88s → 760ms (2.47× improvement)
+
+Semana 2-3: 3 (layer-wise auto-select) — en paralelo con 4  ✅ COMPLETADA
+             → Pre-computa niveles con RNG local (evita mutex compartido)
+             → Ordena inserción por nivel descendente (mejores entry points primero)
+             → Usa add_with_level con nivel pre-computado
+             → ~25 líneas, impacto: mejor calidad de entry points en batches 100-1000
 
 Semana 4:   Evaluar si se necesita NN-Descent (Camino B)
              → Si rebuild < 1.0s es suficiente → publicar
