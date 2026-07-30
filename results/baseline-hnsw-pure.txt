@@ -1,0 +1,84 @@
+   Compiling arrow-arith v59.1.0
+   Compiling arrow-row v59.1.0
+   Compiling uuid v1.24.0
+   Compiling crossbeam-channel v0.5.16
+   Compiling nu-ansi-term v0.50.3
+   Compiling tantivy-tokenizer-api v0.7.0
+   Compiling sketches-ddsketch v0.4.0
+   Compiling rust-stemmers v1.2.0
+   Compiling thread_local v1.1.10
+   Compiling htmlescape v0.3.1
+   Compiling datasketches v0.2.0
+   Compiling levenshtein_automata v0.2.1
+   Compiling unit-prefix v0.5.2
+   Compiling census v0.4.2
+   Compiling allocator-api2 v0.4.0
+   Compiling oneshot v0.1.13
+   Compiling memmap2 v0.9.11
+   Compiling tantivy v0.26.1
+   Compiling croaring v2.7.0
+   Compiling indicatif v0.18.6
+   Compiling tracing-subscriber v0.3.23
+   Compiling arrow v59.1.0
+   Compiling fjall v3.1.8
+   Compiling postcard v1.1.3
+   Compiling sysinfo v0.38.4
+   Compiling vantadb v0.4.0 (C:\Users\Eros\VantaDB Proyect\VantaDB)
+   Compiling wide v1.5.0
+   Compiling crc32c v0.5.0
+   Compiling clap_complete v4.6.8
+   Compiling fs2 v0.4.3
+   Compiling web-time v1.1.0
+   Compiling subtle v2.6.1
+   Compiling alloca v0.4.0
+   Compiling winapi-util v0.1.11
+   Compiling ciborium-io v0.2.2
+   Compiling plotters-backend v0.3.7
+   Compiling plotters-svg v0.3.7
+   Compiling ciborium-ll v0.2.2
+   Compiling same-file v1.0.6
+   Compiling futures-executor v0.3.33
+   Compiling itertools v0.13.0
+   Compiling tokio-macros v2.7.2
+   Compiling wait-timeout v0.2.1
+   Compiling cast v0.3.0
+   Compiling bit-vec v0.8.0
+   Compiling quick-error v1.2.3
+   Compiling rusty-fork v0.3.1
+   Compiling bit-set v0.8.0
+   Compiling criterion-plot v0.8.2
+   Compiling tokio v1.53.1
+   Compiling walkdir v2.5.0
+   Compiling ciborium v0.2.2
+   Compiling plotters v0.3.7
+   Compiling rand_xorshift v0.4.0
+   Compiling page_size v0.6.0
+   Compiling tinytemplate v1.2.1
+   Compiling serial_test_derive v3.5.0
+   Compiling unarray v0.1.4
+   Compiling oorandom v11.1.5
+   Compiling anes v0.1.6
+   Compiling proptest v1.11.0
+   Compiling criterion v0.8.2
+   Compiling serial_test v3.5.0
+   Compiling futures v0.3.33
+   Compiling http v1.5.0
+    Finished `bench` profile [optimized] target(s) in 4m 33s
+     Running benches\hnsw_pure.rs (target\release\deps\hnsw_pure-853ced19aa9a25a9.exe)
+Gnuplot not found, using plotters backend
+Benchmarking hnsw_pure/insert_10k
+
+  Γò¡ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓò«
+  Γöé                                                                            Γöé
+  Γöé ΓÜí  CPU [ AVX2 ]   RAM 31GBGB (cache 7GBGB)  Γöé  12 cores  Γöé  score 79              Γöé
+  Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+  Γöé Γÿà  Profile: PERFORMANCE   Source: CACHED                                   Γöé
+  Γöé                                                                            Γöé
+  Γò░ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓò»
+
+Benchmarking hnsw_pure/insert_10k: Analyzing
+hnsw_pure/insert_10k    time:   [12.802 s 12.802 s 12.802 s]
+Benchmarking hnsw_pure/search_10k
+Benchmarking hnsw_pure/search_10k: Analyzing
+hnsw_pure/search_10k    time:   [750.09 ms 750.09 ms 750.09 ms]
+

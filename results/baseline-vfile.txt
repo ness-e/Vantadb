@@ -1,0 +1,35 @@
+   Compiling vantadb v0.4.0 (C:\Users\Eros\VantaDB Proyect\VantaDB)
+    Finished `bench` profile [optimized] target(s) in 42.56s
+     Running benches\vfile_search.rs (target\release\deps\vfile_search-f7ef55a99e6d08da.exe)
+Gnuplot not found, using plotters backend
+
+  Γò¡ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓò«
+  Γöé                                                                            Γöé
+  Γöé ΓÜí  CPU [ AVX2 ]   RAM 31GBGB (cache 7GBGB)  Γöé  12 cores  Γöé  score 79              Γöé
+  Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+  Γöé Γÿà  Profile: PERFORMANCE   Source: CACHED                                   Γöé
+  Γöé                                                                            Γöé
+  Γò░ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓò»
+
+Benchmarking vfile_search/in_memory
+Benchmarking vfile_search/in_memory: Analyzing
+vfile_search/in_memory  time:   [57.981 ms 58.283 ms 59.493 ms]
+                        thrpt:  [3.3618 Kelem/s 3.4315 Kelem/s 3.4494 Kelem/s]
+Benchmarking vfile_search/with_vfile
+Benchmarking vfile_search/with_vfile: Analyzing
+vfile_search/with_vfile time:   [221.93 ms 257.09 ms 265.88 ms]
+                        thrpt:  [752.21  elem/s 777.93  elem/s 901.18  elem/s]
+Benchmarking vfile_search/with_vfile_compacted
+Benchmarking vfile_search/with_vfile_compacted: Analyzing
+vfile_search/with_vfile_compacted
+                        time:   [329.87 ms 331.62 ms 338.58 ms]
+                        thrpt:  [590.69  elem/s 603.11  elem/s 606.29  elem/s]
+
+Benchmarking populate_vfile
+Benchmarking populate_vfile: Analyzing
+populate_vfile          time:   [2.3569 ms 2.3865 ms 2.3939 ms]
+Benchmarking build_index
+
+Benchmarking build_index: Analyzing
+build_index             time:   [19.007 s 19.007 s 19.007 s]
+

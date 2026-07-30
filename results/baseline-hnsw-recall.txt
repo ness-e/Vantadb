@@ -1,0 +1,58 @@
+   Compiling vantadb v0.4.0 (C:\Users\Eros\VantaDB Proyect\VantaDB)
+    Finished `bench` profile [optimized] target(s) in 41.77s
+     Running benches\hnsw_recall_ef.rs (target\release\deps\hnsw_recall_ef-b361e640951c8410.exe)
+Gnuplot not found, using plotters backend
+
+  Γò¡ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓò«
+  Γöé                                                                            Γöé
+  Γöé ΓÜí  CPU [ AVX2 ]   RAM 31GBGB (cache 7GBGB)  Γöé  12 cores  Γöé  score 79              Γöé
+  Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+  Γöé Γÿà  Profile: PERFORMANCE   Source: CACHED                                   Γöé
+  Γöé                                                                            Γöé
+  Γò░ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓò»
+
+
+  Build time (N=10000, D=128): 4.591s
+Benchmarking hnsw_recall_ef/build_index
+Benchmarking hnsw_recall_ef/build_index: Analyzing
+hnsw_recall_ef/build_index
+                        time:   [3.9381 s 3.9474 s 3.9847 s]
+Benchmarking hnsw_recall_ef/search_ef_10
+Benchmarking hnsw_recall_ef/search_ef_10: Analyzing
+hnsw_recall_ef/search_ef_10
+                        time:   [303.19 ms 305.24 ms 313.43 ms]
+Benchmarking hnsw_recall_ef/search_ef_20
+Benchmarking hnsw_recall_ef/search_ef_20: Analyzing
+hnsw_recall_ef/search_ef_20
+                        time:   [285.68 ms 293.63 ms 295.62 ms]
+Benchmarking hnsw_recall_ef/search_ef_50
+Benchmarking hnsw_recall_ef/search_ef_50: Analyzing
+hnsw_recall_ef/search_ef_50
+                        time:   [287.95 ms 293.98 ms 295.48 ms]
+Benchmarking hnsw_recall_ef/search_ef_100
+Benchmarking hnsw_recall_ef/search_ef_100: Analyzing
+hnsw_recall_ef/search_ef_100
+                        time:   [288.24 ms 295.53 ms 297.35 ms]
+Benchmarking hnsw_recall_ef/search_ef_200
+Benchmarking hnsw_recall_ef/search_ef_200: Analyzing
+hnsw_recall_ef/search_ef_200
+                        time:   [292.03 ms 302.97 ms 305.70 ms]
+Benchmarking hnsw_recall_ef/search_ef_400
+Benchmarking hnsw_recall_ef/search_ef_400: Analyzing
+hnsw_recall_ef/search_ef_400
+                        time:   [309.11 ms 309.66 ms 309.79 ms]
+
+ΓöüΓöüΓöü HNSW Recall vs Latency (N=10000, D=128, k=10) ΓöüΓöüΓöü
+  Build time: 4.591s
+  ef_search    Recall@10    p50 (┬╡s)     p99 (┬╡s)     Mean (┬╡s)    QPS         
+  ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  10           1.0000       1070.3       3088.3       1346.2       743         
+  20           1.0000       1304.2       3893.4       1563.7       640         
+  50           1.0000       1905.8       4316.7       1955.4       511         
+  100          1.0000       1148.7       3246.2       1424.0       702         
+  200          1.0000       1375.6       3996.4       1581.2       632         
+  400          1.0000       1497.6       3529.1       1659.3       603         
+  ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  Recall measured against brute-force cosine similarity ground truth.
+
+
