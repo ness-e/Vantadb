@@ -309,7 +309,9 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
 mod tests {
     use super::*;
     use crate::index::CPIndex;
-    use crate::node::{DiskNodeHeader, FilterBitset, VectorRepresentations};
+    use crate::node::DiskNodeHeader;
+    use crate::node::FilterBitset;
+    use crate::node::VectorRepresentations;
 
     // ── helpers ──────────────────────────────────────────────────
 

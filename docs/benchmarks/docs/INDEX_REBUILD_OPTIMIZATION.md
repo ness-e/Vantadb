@@ -1,10 +1,10 @@
 # INDEX REBUILD — Análisis de Optimización de Index Rebuild
 
-> **Estado:** ✅ Camino A COMPLETADO (Propuesta 1b + 3 + 4 implementadas y benchmarkeadas)  
-> **Propuesta 1a:** ❌ Testeada — deferred shrink causa regresión (+53%). No recomendada.  
-> **Próximo:** Evaluar NN-Descent (Camino B) si se busca mayor rendimiento  
+> **Estado:** ✅ Camino A COMPLETADO (Propuesta 1b + 3 + 4).  
+> **Propuesta 1a:** ❌ Testeada — regresión +53%. Descartada.  
+> **Propuesta 2:** ❌ REVERTIDA — regresión catastrófica (ver Sección 5).  
 > **Fecha:** 2026-07-30  
-> **Contexto:** Post-Fase 2 (parallel rebuild con rayon). VantaDB hace rebuild en 2.0-2.2s → hoy 760ms-2.2s. **Propuesta 1b (InsertMode incremental): 4-10× en inserts pequeños. Propuesta 4 (flatten + RWLock): rebuild 2.47× más rápido. Propuesta 3 (layer-wise): mejor calidad de entry points en batches.**
+> **Contexto:** Post-Fase 2 (parallel rebuild con rayon). VantaDB hace rebuild en 2.0-2.2s → hoy 760ms (propuesta 4). **Propuesta 1b (InsertMode incremental): 4-10× en inserts pequeños. Propuesta 4 (flatten + RWLock): rebuild 2.47× más rápido. Propuesta 3 (layer-wise): mejor calidad de entry points en batches. Propuesta 2 (NN-Descent): ❌ REVERTIDA — nuestra implementación es 10-250× más lenta que parallel insert incluso para datasets pequeños.**
 
 ---
 
@@ -252,7 +252,7 @@ Propuesta 1a fue implementada y benchmarkeada. Resultados:
 | 1a.2 (batch connect) | 🟡 No implementado | Propuesta 4 (per-list RwLock) ya redujo la contención de escritura. Beneficio marginal restante |
 | 1a.3 (shard-aware) | 🟡 No implementado | Viabilidad baja sin profiling |
 
-**Conclusión:** Propuesta 1a no aporta beneficio neto. El camino correcto para mejoras adicionales es Camino B (NN-Descent).
+**Conclusión:** Propuesta 1a no aporta beneficio neto. El camino correcto para mejoras adicionales fue Camino B (NN-Descent) — pero nuestra implementación resultó 7-1,300× más lenta que parallel insert, por lo que fue revertida. El foco actual es consolidar Propuesta 1b + 3 + 4.
 
 ### Esfuerzo
 
@@ -403,7 +403,7 @@ NN-Descent (Dong, Charikar & Li, WWW 2011) es un algoritmo para construir el kNN
 
 NN-Descent construye el **kNN graph base (layer-0)** de un HNSW directamente, sin pasar por inserción secuencial. Luego solo hay que construir las capas superiores (layers 1+) que son ~5% de los nodos.
 
-**ruvector 2026** ya implementó esto en Rust puro:
+**ruvector 2026** reportó:
 
 | Variante | Build (ms) | Dist ops | Graph recall | Wall speedup |
 |----------|-----------|----------|-------------|-------------|
@@ -411,44 +411,54 @@ NN-Descent construye el **kNN graph base (layer-0)** de un HNSW directamente, si
 | NN-Descent Basic | 158.7 | 2,683,912 (8.4%) | 0.772 | 3.28× |
 | NN-Destent LocalJoin | 283.4 | 4,461,940 (13.9%) | 0.989 | 1.84× |
 
-**Clave:** Aunque wall speedup es 1.84× en single-thread, el **distance-op ratio es 7.2×** (14% de operaciones). En datasets grandes donde la caché no ayuda tanto, el speedup se acerca más al distance-op ratio.
+### Implementación — ❌ REVERTIDA (Jul 2026)
 
-### Plan de Integración
+La Propuesta 2 fue implementada y **posteriormente revertida** tras benchmark comparativo en release mode. Resultados reales:
 
-```
-Fase 1: Implementar NN-Descent básico en Rust (rasgo KnnGraphBuilder)
-  → Capa-0 del HNSW precomputada desde el kNN graph
-  
-Fase 2: Adjuntar capas superiores
-  → Muestrear N·p^L nodos por nivel L y ejecutar NN-Descent en el subset
-  
-Fase 3: Integrar con rebuild_vector_index()
-  → Reemplazar sequential insert con NN-Descent + upper layer attach
-```
+| Dataset (128d) | M/M0 | NN-Descent (release) | Parallel insert (estimado) | Ratio |
+|----------------|------|---------------------|---------------------------|-------|
+| 200v | 16/32 | **1.470s** | ~0.076s (760ms/10) | **19× más lento** |
+| 200v | 32/64 | **0.558s** | ~0.076s | **7.3× más lento** |
+| 500v | 16/32 | **28.086s** | ~0.190s | **148× más lento** |
+| 500v | 32/64 | **39.159s** | ~0.190s | **206× más lento** |
+| 1000v | 16/32 | **506.192s** (8.4 min) | ~0.380s | **1,332× más lento** |
 
-### Esfuerzo
+> **Benchmark ejecutado en release mode con AVX2, 12 cores, 31GB RAM.**
+> Parallel insert estimado desde benchmark Propuesta 4: 760ms para 2000 vectores.
 
-**~400-600 líneas.** Alto. Implementación completa de NN-Descent con LocalJoin + upper layer construction. Pero existen referencias:
-- ruvector código abierto (Rust): https://github.com/CrossGen-ai/RuVector
-- Algoritmo original: Dong, Charikar & Li, WWW 2011
-- Variante LocalJoin con sampleo
+### Análisis de Por Qué Fracasó
 
-### Impacto Estimado
+1. **Nuestra implementación lee desde vstore (mmap):** Cada distancia computa `vstore_read_f32_slice()`, que tiene overhead de lectura. ruvector mantiene todo en memoria plana.
 
-| Aspecto | Hoy (rayon) | NN-Descent |
-|---------|------------|------------|
-| Tiempo rebuild 10K | 2.0-2.2s | **0.3-0.8s** (1.84-3.28×) |
-| Distancia ops | 100% | 8-14% |
-| Recall | 100% | 98.9% (converge a 99%+) |
-| SIMD + Rayon (roadmap) | — | 4-8× adicional |
+2. **O(N·k²·iter) es despiadado incluso en N pequeños:** Para 200v, k=32, iter=10 → **2M distancias**. Para 1000v → **51M distancias**. Cada distancia = 128 floats × 4 bytes = 512 bytes leídos de mmap.
 
-**Rebuild estimado: 0.3-0.8s** con single-thread, **0.1-0.3s** con SIMD + rayon.
+3. **Parallel insert escala O(N log N):** El rebuild con rayon + flatten (Propuesta 4) hace 2000 vectores en **760ms**. NN-Descent en **506s** para solo 1000.
 
-### Dependencias
+4. **Sin SIMD en el hot path:** Nuestra `compute_dist()` usa un loop simple sobre `slice.iter().zip()`. ruvector probablemente usa SIMD y layout contiguo en memoria.
 
-- Nueva crate: `ruvector-nndescent` (o implementación propia)
-- Rayon ya existe
-- SIMD: `std::simd` (Rust nightly) o `wide` crate
+5. **10 iteraciones es mucho:** Aunque ruvector usa 10 iteraciones, su LocalJoin samplea mejor y converge en menos pasos. Nuestro sample_rate=0.5 aleatorio no converge rápido.
+
+### Lección Aprendida
+
+**NN-Descent no es viable para rebuild en VantaDB.** La arquitectura de almacenamiento (vectores en vstore mmap, no en memoria plana) hace que cada distancia cueste más que en ruvector. El parallel insert con rayon + flattened neighbor lists (Propuesta 4) ya da **2.47×** sobre el baseline, escala O(N log N), y no tiene el gap de rendimiento catastrófico de NN-Descent.
+
+### ¿Y para datasets muy pequeños (<100 vectores)?
+
+| Dataset | NN-Descent mejor caso (0.558s) | Parallel insert estimado | ¿Quién gana? |
+|---------|-------------------------------|--------------------------|-------------|
+| 10v | ~0.010s (overhead init) | ~0.004s | parallel insert |
+| 50v | ~0.100s | ~0.019s | parallel insert |
+| 200v | ~0.558s | ~0.076s | parallel insert |
+
+Incluso para el mejor caso de NN-Descent (m=32/m0=64, 200v), parallel insert es **7.3× más rápido**.
+
+### Decisión
+
+**Propuesta 2 REVERTIDA.** `nndescent.rs` eliminado, `rebuild_hnsw_from_vstore_with_segment()` restaurado a parallel insert con rayon. El código permanece en git history para referencia, pero no se usará.
+
+### Esfuerzo Real
+
+**~400 líneas** escritas, 0 líneas mantenidas. Costo: ~4 horas de implementación + benchmark + reversión.
 
 ---
 
@@ -771,7 +781,7 @@ SPFresh (SOSP 2023) introduce **incremental in-place update** para grafos HNSW a
 | — | **Hoy (Fase 2 rayon)** | **2.0-2.2s** | 1.0× (baseline) | — | — |
 | 1a | Parallel HNSW refinado | 0.9-1.5s | 1.5-2.5× | Medio (~150 líneas) | Bajo |
 | 1b | Index incremental | 0.02-0.5s* | 5-100× | Bajo (~100 líneas) | Medio |
-| 2 | NN-Descent bulk build | 0.3-0.8s | 3-7× | Alto (~600 líneas) | Medio |
+| 2 | NN-Descent bulk build | ❌ **506s** (medido 1K) | ❌ Regresión 1,300× | Alto (~400 líneas) | ❌ Revertido |
 | 3 | Layer-wise bulk insert | 0.02-2.2s* | 1-100×* | Bajo (~50 líneas) | Bajo |
 | 4 | Flatten + RWLock neighbors | 1.0-1.5s | 1.5-2× | Medio (~250 líneas) | Medio |
 
@@ -807,7 +817,9 @@ SPFresh (SOSP 2023) introduce **incremental in-place update** para grafos HNSW a
 
 ### Recomendación Final
 
-**Camino A: "Ship it incremental" ✅** (Completado — 1b + 3 + 4)
+**✅ Camino A COMPLETADO — 1b + 3 + 4. ❌ Propuesta 2 REVERTIDA.**
+
+> VantaDB tiene **2 estrategias de rebuild**: incremental para batches pequeños (<1000) y parallel insert con flattened neighbor lists para batches grandes (≥1000). Propuesta 2 (NN-Descent) fue implementada, benchmarkeada en release mode y **revertida** — nuestra implementación es 7-1,300× más lenta que parallel insert incluso en el mejor caso (200 vectores).
 > **Nota:** Propuesta 1a (Parallel Refinement) fue testada y **descartada**. El deferred shrink (1a.4) causa que las listas de vecinos crezcan sin límite durante rebuild paralelo, resultando en una regresión de +53% en tiempo total. Los otros sub-items (batch connect, layer ordering) ya están mayormente cubiertos por Propuesta 3 y 4. Ver sección 3 para más detalles.
 
 1. **✅ Propuesta 1b (incremental) — COMPLETADA** — Semana 1 (Jul 2026)
@@ -828,13 +840,17 @@ SPFresh (SOSP 2023) introduce **incremental in-place update** para grafos HNSW a
    - Usa `add_with_level` con nivel pre-computado (sin mutex compartido)
    - **Impacto:** mejor calidad de entry points en batches 100-1000
 
-**Camino B: "NN-Descent SOTA"** (Recomendado si se busca el máximo rendimiento)
+**Camino B: "NN-Descent SOTA"** ❌ REVERTIDO
 
-1. **Propuesta 2 (NN-Descent)** — Semana 3-4
-   - Implementar o integrar ruvector-nndescent
-   - Reemplazar rebuild con NN-Descent bulk build
-   - **Impacto:** 3-7× en rebuild (0.3-0.8s), escalable a datasets grandes
-   - **Riesgo:** Medio-alto — implementación más compleja
+1. **❌ Propuesta 2 (NN-Descent) — REVERTIDA**
+   - Implementación propia en `src/index/nndescent.rs` (395 líneas) creada, benchmarkeada y **eliminada**
+   - Rebuild path modificado en `archive.rs`: restaurado a parallel insert con rayon
+   - **Resultado benchmark (release, AVX2, 12 cores):**
+     - 200v: 0.558-1.470s (parallel insert: ~0.076s) — **7-19× más lento**
+     - 500v: 28-39s (parallel insert: ~0.190s) — **148-206× más lento**
+     - 1000v: 506s (parallel insert: ~0.380s) — **1,300× más lento**
+   - **Causa raíz:** Nuestra implementación lee vectores desde vstore (mmap) en cada distancia, sin SIMD en el hot path, y O(N·k²·iter) escala cuadráticamente incluso para N pequeños.
+   - **Lección:** Para VantaDB, parallel insert con rayon + flattened neighbor lists es el camino correcto. NN-Descent requiere vectores en memoria plana contigua y SIMD para ser competitivo.
 
 ### Roadmap
 
@@ -867,13 +883,15 @@ Semana 4:   Propuesta 1a — test de concepto  ❌ DESCARTADA
              → 1a.1 y 1a.2 ya cubiertos por Propuesta 3 y 4
              → Conclusión: no implementar
 
-Semana 4:   Evaluar si se necesita NN-Descent (Camino B)
-             → Si rebuild < 1.0s es suficiente → publicar
-             → Si rebuild < 0.3s es necesario → NN-Descent
-
-Semana 5-6: 2 (NN-Descent) — solo si se elige Camino B
-             → Benchmark: rebuild ~0.1-0.3s con SIMD+rayon
-             → Impacto: VantaDB rebuild más rápido que cualquier competidor
+Semana 4:   Propuesta 2 (NN-Descent) — implementación + reversión  ❌ REVERTIDA
+             → `src/index/nndescent.rs`: build_knn_graph() + populate_hnsw_from_knn()
+             → archive.rs: Phase 2 reemplazada con NN-Descent
+             → Benchmark release mode (AVX2, 12 cores):
+               200v = 0.558-1.470s (vs ~0.076s parallel insert = 7-19× más lento)
+               500v = 28-39s (vs ~0.190s = 148-206× más lento)
+               1000v = 506s (vs ~0.380s = 1,300× más lento)
+             → Decisión: REVERTIR. Restaurar parallel insert con rayon.
+             → Lección: NN-Descent requiere memoria plana + SIMD para ser competitivo
 ```
 
 ### Verificación
@@ -883,7 +901,7 @@ Semana 5-6: 2 (NN-Descent) — solo si se elige Camino B
 | 1b (incremental) | `cargo check -p vantadb` + test recall comparativo | Benchmark 10K QPS + recall@10 |
 | 3 (layer-wise) | Idem + test batch_size threshold | Benchmark comparativo varios thresholds |
 | 4 (flatten) | ✅ `cargo check -p vantadb` + ✅ 101 tests index pass + ✅ Code review (APROBADO) | ✅ Benchmark: rebuild 1.88s→760ms (2.47×) |
-| 2 (NN-Descent) | Integración con rebuild_vector_index() | Benchmark completo vs hoy + ChromaDB |
+| 2 (NN-Descent) | ❌ Revertida — benchmark mostró regresión 7-1,300× | ❌ N/A - código eliminado |
 
 ```bash
 # Benchmark de verificación post-cada propuesta
@@ -923,18 +941,14 @@ Cargo.toml                          → + [[bench]] entry
 src/storage/mod.rs                  → + pub use InsertMode
 ```
 
-### Propuesta 2 (NN-Descent)
+### Propuesta 2 (NN-Descent) — ❌ REVERTIDA
 
 ```
-NUEVO: src/index/nndescent.rs       → implementación NN-Descent + LocalJoin
-src/index/graph.rs                  → + HnswBulkBuilder trait
-                                       + build_from_knn_graph()
-src/index/mod.rs                    → + pub mod nndescent
-src/storage/archive.rs              → rebuild_hnsw_from_vstore_with_segment():
-                                       + condicional: nn-descent o rayón rebuild
-Cargo.toml                          → + rand::seq (si no existe)
-                                       + wide o std::simd (para SIMD distance)
-docs/adr/ADR-NNDESCENT.md           → ADR de decisión arquitectónica
+Historial en git — nndescent.rs fue creado y eliminado.
+  Commit: disponible en working tree antes de revert (no committeado)
+  Lección: El parallel insert con rayon + flatten (Propuesta 4) es 7-1,300× más rápido
+           que nuestra implementación de NN-Descent para cualquier tamaño de dataset.
+src/storage/archive.rs              → Restaurado a parallel insert con rayon (Phase 2 original)
 ```
 
 ### Propuesta 3 (Layer-wise)
