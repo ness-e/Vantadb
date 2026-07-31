@@ -51,7 +51,7 @@ fn dql_parser_certification() {
         let (_, stmt_ins) = parse_statement(q_ins).expect("Insert parse failed");
         if let Statement::Insert(ins) = stmt_ins {
             assert_eq!(ins.node_id, 101);
-            assert_eq!(ins.fields.get("edad").unwrap(), &FieldValue::Int(28));
+            assert_eq!(ins.fields.get("edad").unwrap(), &FieldValue::Float(28.0));
         }
 
         TerminalReporter::sub_step("Testing UPDATE with multiple fields...");
