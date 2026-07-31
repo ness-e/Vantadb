@@ -14,19 +14,19 @@
 2. [Ciclo de Acciones](#2-ciclo-de-acciones)
    - A1: target-cpu=native ✅
    - B3: select_nth_unstable_by ✅
-    - A2: get_neighbors_ref ❌
-    - B5: thread_local RNG ✅ (resuelto en Fase 2)
-    - A4: Sweep paramétrico ✅
-    - A3: Ground truth datasets reales ✅
-    - A5: cargo-criterion ⏳
-    - C2: Benchmarks multi-thread ⏳
-    - C1: Filtered search benchmarks ⏳
-    - B1: Extraer branches search_layer ⏳
-    - B4: Prefetch batch ⏳
-     - B2: visited capacity exacta ✅
-    - Profiling con samply ⏳
-    - Descargar datasets reales ✅
-     - [profile.bench] ✅
+   - A2: get_neighbors_ref ❌
+   - B5: thread_local RNG ✅ (resuelto en Fase 2)
+   - A4: Sweep paramétrico ✅
+   - A3: Ground truth datasets reales ✅
+   - A5: cargo-criterion ⏳
+   - C2: Benchmarks multi-thread ⏳
+   - C1: Filtered search benchmarks ⏳
+   - B1: Extraer branches search_layer ⏳
+   - B4: Prefetch batch ⏳
+   - B2: visited capacity exacta ✅
+   - Profiling con samply ⏳
+   - Descargar datasets reales ✅
+   - [profile.bench] ✅
 3. [Acciones Revertidas](#3-acciones-revertidas)
    - Propuesta 1a: Deferred shrink ❌
    - Propuesta 2: NN-Descent Bulk Build ❌
@@ -222,7 +222,7 @@ git checkout -- .cargo/config.toml
 
 #### Benchmarks (Pre / Post)
 
-*Benchmarks post-cambio aún no ejecutados.*
+_Benchmarks post-cambio aún no ejecutados._
 
 | Escenario | Pre-cambio | Post-cambio (estimado) | Mejora Estimada |
 |-----------|-----------|----------------------|----------------|

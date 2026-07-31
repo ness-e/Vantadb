@@ -1,5 +1,3 @@
-> ⚠️ **ARCHIVED** — This document is preserved for reference. The fuzzing strategy applies to legacy/archived parser targets; active development fuzzing is maintained inline in per-crate tests.
-
 ---
 title: Fuzzing Guide for VantaDB
 type: operations
@@ -8,6 +6,8 @@ tags: [vantadb, operations, testing, fuzzing]
 last_reviewed: 2026-07-01
 aliases: []
 ---
+
+> ⚠️ **ARCHIVED** — This document is preserved for reference. The fuzzing strategy applies to legacy/archived parser targets; active development fuzzing is maintained inline in per-crate tests.
 
 # Fuzzing Guide for VantaDB
 
