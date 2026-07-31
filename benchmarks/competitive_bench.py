@@ -555,10 +555,10 @@ def health_check(skip_prompt=False):
 
     # CPU load (short sample)
     cpu_load = psutil.cpu_percent(interval=0.5)
-    if cpu_load < 50:
+    if cpu_load < 30:
         print(f"{ok} CPU load: {cpu_load:.1f}%")
     else:
-        print(f"{warn} CPU load: {cpu_load:.1f}% (>50% WARNING)")
+        print(f"{warn} CPU load: {cpu_load:.1f}% (>30% WARNING — benchmarks will be contaminated)")
 
     # VS Code processes
     vscode_count = 0
@@ -589,11 +589,12 @@ def main():
     parser.add_argument("--size", type=int, default=10000, help="Number of database vectors to load/generate")
     parser.add_argument("--queries", type=int, default=100, help="Number of query vectors")
     parser.add_argument("--top-k", type=int, default=10, help="Top K neighbors to retrieve")
-    parser.add_argument("--batch-size", type=int, default=0,
-                        help="VantaDB ingest chunk size. 0 = single put_batch_raw call (default; hidden "
-                             "HNSW rebuild runs inside the Ingest timer). 999 = chunked incremental "
-                             "insert (no rebuild inside Ingest). Delta between the two isolates the "
-                             "hidden rebuild cost. See header comment.")
+    parser.add_argument("--batch-size", type=int, default=999,
+                        help="VantaDB ingest chunk size. 999 (default) = chunked incremental insert "
+                             "(no hidden HNSW rebuild inside the Ingest timer — rebuild measured "
+                             "only in Index timer). 0 = single put_batch_raw call (legacy; hidden "
+                             "rebuild runs inside Ingest AND Index timers = double rebuild). "
+                             "See header comment.")
     parser.add_argument("--dataset-dir", type=str, default="./datasets", help="Path to HDF5 dataset folder")
     parser.add_argument("--db-dir", type=str, default="./benchmarks/competitive_data", help="Temporal folder for databases")
     parser.add_argument("--output", type=str, default="docs/BENCHMARKS.md", help="Path to docs/BENCHMARKS.md to append results")
@@ -694,11 +695,11 @@ def main():
     if args.batch_size and args.batch_size > 0:
         print(f"Ingest mode: chunked (--batch-size {args.batch_size}) — no hidden rebuild inside VantaDB Ingest timer.")
     else:
-        print("Ingest mode: single put_batch_raw call — VantaDB's full HNSW rebuild runs INSIDE the Ingest timer;")
-        print("  re-run with `--batch-size 999` to isolate that hidden rebuild cost (see header comment).")
-    print("Baseline reference: 3,157 QPS / 2,196 ms is NOT directly comparable — pre-regression baseline")
-    print("  measured a different workload (no cosine normalization, no JIT ground-truth, no warmup,")
-    print("  no median-of-3). See header comment.")
+        print("Ingest mode: single put_batch_raw call (--batch-size 0) — VantaDB's full HNSW rebuild")
+        print("  runs INSIDE the Ingest timer AND again in Index timer (double rebuild).")
+        print("  Use default (--batch-size 999) for isolated measurements.")
+    print("\nNote: pre-Jul-31-2026 numbers used --batch-size 0 (double rebuild) and are NOT directly")
+    print("  comparable. See header comment for full methodology changelog.")
 
     # Write report back to docs/BENCHMARKS.md if specified
     if args.output and os.path.exists(args.output):

@@ -56,7 +56,7 @@
 - **BUG de correctness B2: comparador invertido en `select_neighbors`** (search.rs:458-465) — la optimización a `select_nth_unstable_by` usó comparador normal (`a.0 < b.0`) contra un `NodeSimMin::Ord` REVERSED (graph.rs:300-308). Resultado: seleccionaba los m **PEORES** vecinos para cada edge → grafo degradado (build +21%). **FIX 2026-07-31:** comparador invertido a `b.0.partial_cmp(&a.0)` + test de regresión `test_select_neighbors_keeps_best_scores` (FAIL antes / PASS después). Impacto en recall: ef_10 0.229, ef_200 0.958, ef_400 0.9975 (medido con harness corregido).
 - **Sin ground truth pre-computado** → hnsw_recall_ef.rs recalcula brute-force O(n²) cada ejecución del benchmark (50M comparaciones para 10k vectores).
 - **Benchmarks solo miden 10k vectores sintéticos** — muy por debajo de industria (SIFT 1M).
-- **bench_concurrent.rs es dead code** — no compila desde que se agregó.
+- **bench_concurrent.rs compiles but not in CI** — registered as `[[bench]]` in Cargo.toml:195, compiles with `cargo check`, but not run in CI. Uses `fn main()` (not Criterion).
 - **NeighborVec::clone()** en cada get_neighbors → 1 clone de SmallVec por neighbor expandido en el hot path.
 - **parking_lot::Mutex<StdRng>** con contención potencial en random_layer para inserts paralelos.
 - **visited: HashSet** con capacidad sub-óptima → rehashes frecuentes con ef_search alto.
@@ -589,7 +589,7 @@ cargo run --features dhat
 ### ✅ [profile.bench] en Cargo.toml
 
 **Tipo:** 🔧 Configuración
-**Estado:** ✅ COMPLETADO (2026-07-30)
+**Estado:** ⏳ PENDIENTE — propuesto pero no añadido a Cargo.toml
 
 #### Investigación
 - **Origen:** Análisis de Cargo.toml + .cargo/config.toml
@@ -998,7 +998,7 @@ VantaDB usa M=32 y Mmax0=64 (agresivo). ef_construction=100 (bajo vs industria 2
 | **backend_compare.rs** | Fjall vs RocksDB | No mide throughput vector search |
 | **high_density.rs** | 250k/1M nodos 768d | Sin medición de recall |
 | **stress_test.rs** | Bloom filter point lookup | No mide vector search |
-| **bench_concurrent.rs** | Multi-thread read/write | **DEAD CODE** — sin [[bin]] en Cargo.toml |
+| **bench_concurrent.rs** | Multi-thread read/write | Compiles, registered in Cargo.toml:195, uses `fn main()` (not Criterion). Not run in CI. |
 | **tokenizer_bench.rs** | Tokenizer Tantivy | No relevante para vector search |
 
 ### D: Hallazgos del Análisis de Código (14 archivos src/index/)
@@ -1013,5 +1013,5 @@ VantaDB usa M=32 y Mmax0=64 (agresivo). ef_construction=100 (bajo vs industria 2
 | **ivf.rs** | ~959 | Forgy k-means 20 iteraciones. Duplica calculate_similarity. |
 | **flat.rs** | ~265 | O(n) DashMap brute-force. Dual Mutex lock. Sin cached norms. |
 | **stats.rs** | ~133 | Orphan detection CLONE neighbor lists. O(N×M) en startup. |
-| **auto_tune.rs** | ~131 | Adaptive ef pero report_success/brute_fallback NUNCA conectados. |
+| **auto_tune.rs** | ~131 | Adaptive ef with `report_success()` (sdk/search/mod.rs:590) and `report_brute_fallback()` (sdk/search/mod.rs:562) connected. `current_ef()` used in search.rs:519. **Problem:** global static leaks state across benchmark iterations — use `AutoTune::set_ef(1)` to reset. |
 | **mod.rs** | ~50 | VecIndex trait. 5 variantes IndexType. |
