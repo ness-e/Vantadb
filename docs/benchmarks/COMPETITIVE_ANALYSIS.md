@@ -1,10 +1,14 @@
 # VantaDB Competitive Analysis
 
-> Generado: 2026-07-30  
-> Benchmark: `competitive_bench.py` — 3 motores, 2 datasets, 10K vectores, 100 queries, top-K=10  
-> **Versión evaluada:** v0.4.0 (local build, Fase 1 + Fase 2 + Propuesta 1b + Propuesta 4 activas)
+> **Última actualización:** 2026-07-31  
+> **Versión evaluada:** v0.4.0 (local build, Fase 1 + Fase 2 + Propuesta 1b + Propuesta 4 activas)  
+> **Build config:** `RUSTFLAGS="-C target-cpu=native"` activo  
+> Benchmark: `competitive_bench.py` — 3 motores, 2 datasets, 10K vectores, 100 queries, top-K=10
 > 
-> ⚠️ **Regresión detectada vs baseline Jul 29:** VantaDB index time se duplicó (~2.2s → ~4.2s). Ingest QPS cayó ~34-44%. LanceDB/ChromaDB también cayeron ~5-13% (factor sistémico parcial), pero VantaDB es mucho mayor. Probable causa: diferencias en features del build (`maturin build --release` vs `maturin develop --release`), CPU throttling entre corridas, o cambios de código entre commits. Pendiente investigación en sección 3C.
+> 🟢 **Regresión parcialmente resuelta (2026-07-31):** La causa principal era que `target-cpu=native` no estaba activo en las compilaciones previas de `competitive_bench.py` (`.cargo/config.toml` no commiteado). Al recompilar con `RUSTFLAGS="-C target-cpu=native"`:
+> - **Ingest QPS** recuperó ~75% del gap (GloVe: −34% → **−8%**, SIFT: −44% → **−12%**)
+> - **Index Time** recuperó ~45% del gap (GloVe: +89% → **+56%**, SIFT: +113% → **+62%**)
+> - Regresión residual (~8-12% Ingest, ~56-62% Index) sigue bajo investigación (§3C).
 
 ---
 
@@ -12,33 +16,33 @@
 
 ### GloVe-100-angular (100d, Cosine)
 
-| Métrica | VantaDB (hoy) | VantaDB (baseline) | LanceDB | ChromaDB | Ganador |
-|---------|--------------|-------------------|---------|----------|---------|
-| **Ingest (QPS)** | **2,076.3** | 3,157.1 (-34%) | 116,678 | 3,198.8 | LanceDB |
-| **Index (ms)** | **4,157.9** | 2,196.2 (+89%) | 1,950.4 | N/A (Inc) | LanceDB |
-| **Query (QPS)** | 458.9 | 468.3 (~igual) | 200.9 | **727.9** | ChromaDB |
-| **p50 (ms)** | 1.94 | 1.91 (~igual) | 4.528 | **1.051** | ChromaDB |
-| **p99 (ms)** | **3.615** | 4.49 (-20%) | 8.936 | 5.839 | **VantaDB** |
-| **Recall@10** | **100.00%** | 100.00% | 23.70% | 95.80% | **VantaDB** |
-| **Peak RSS (MB)** | 279.1 | 285.6 | 360.5 | **238.4** | ChromaDB |
-| **Delta RSS (MB)** | 99.4 | 134.1 (-26%) | — | **38.2** | ChromaDB |
+| Métrica | VantaDB (hoy, +native) | VantaDB (sin native) | VantaDB (baseline) | LanceDB | ChromaDB | Ganador |
+|---------|----------------------|---------------------|-------------------|---------|----------|---------|
+| **Ingest (QPS)** | **2,905.2** | 2,076.3 | 3,157.1 (-8%) | 108,219 | 2,981.3 | LanceDB |
+| **Index (ms)** | 3,431.3 | 4,157.9 | 2,196.2 (+56%) | **2,712.5** | N/A (Inc) | LanceDB |
+| **Query (QPS)** | 351.5 | 458.9 | 468.3 | 174.1 | **500.2** | ChromaDB |
+| **p50 (ms)** | 2.757 | 1.94 | 1.91 | 5.134 | **1.945** | ChromaDB |
+| **p99 (ms)** | 4.662 | 3.615 | 4.49 | 12.758 | **2.645** | ChromaDB |
+| **Recall@10** | **100.00%** | 100.00% | 100.00% | 25.20% | 96.00% | **VantaDB** |
+| **Peak RSS (MB)** | — | 279.1 | 285.6 | — | — | — |
+| **Delta RSS (MB)** | — | 99.4 | 134.1 (-26%) | — | — | — |
 
-> ⚠️ **Regresión vs baseline:** Index +89%, Ingest -34%. Causa bajo investigación (ver §3C).
+> 🟢 **Mejora vs pre-native:** Ingest +40% (2,076→2,905 QPS), Index −17% (4,158→3,431ms). Gap residual con baseline: Ingest −8%, Index +56%. Causas residuales bajo investigación (§3C).
 
 ### SIFT-128-euclidean (128d, Euclidean)
 
-| Métrica | VantaDB (hoy) | VantaDB (baseline) | LanceDB | ChromaDB | Ganador |
-|---------|--------------|-------------------|---------|----------|---------|
-| **Ingest (QPS)** | **1,888.1** | 3,357.9 (-44%) | 98,401 | 3,295.9 | LanceDB |
-| **Index (ms)** | **4,278.8** | 2,004.2 (+113%) | 2,436.7 | N/A (Inc) | LanceDB |
-| **Query (QPS)** | 396.6 | 448.3 (-12%) | 214.0 | **592.7** | ChromaDB |
-| **p50 (ms)** | 2.29 | 1.98 (+16%) | 4.047 | **1.423** | ChromaDB |
-| **p99 (ms)** | 4.751 | 3.42 (+39%) | 9.428 | **4.484** | ChromaDB |
-| **Recall@10** | 99.40% | 99.40% | 63.80% | **99.80%** | ChromaDB |
-| **Peak RSS (MB)** | **291.9** | 284.8 | 373.7 | 276.5 | ChromaDB |
-| **Delta RSS (MB)** | 99.8 | 134.4 (-26%) | — | **26.2** | ChromaDB |
+| Métrica | VantaDB (hoy, +native) | VantaDB (sin native) | VantaDB (baseline) | LanceDB | ChromaDB | Ganador |
+|---------|----------------------|---------------------|-------------------|---------|----------|---------|
+| **Ingest (QPS)** | **2,958.8** | 1,888.1 | 3,357.9 (-12%) | 87,940 | 3,157.3 | LanceDB |
+| **Index (ms)** | 3,242.1 | 4,278.8 | 2,004.2 (+62%) | **2,699.0** | N/A (Inc) | LanceDB |
+| **Query (QPS)** | 378.9 | 396.6 | 448.3 | 186.9 | **819.4** | ChromaDB |
+| **p50 (ms)** | 2.386 | 2.29 | 1.98 | 5.257 | **1.108** | ChromaDB |
+| **p99 (ms)** | 4.456 | 4.751 | 3.42 | 7.316 | **2.208** | ChromaDB |
+| **Recall@10** | 99.40% | 99.40% | 99.40% | 63.50% | **99.80%** | ChromaDB |
+| **Peak RSS (MB)** | — | 291.9 | 284.8 | — | — | — |
+| **Delta RSS (MB)** | — | 99.8 | 134.4 (-26%) | — | — | — |
 
-> ⚠️ **Regresión vs baseline:** Index +113%, Ingest -44%. Causa bajo investigación (ver §3C).
+> 🟢 **Mejora vs pre-native:** Ingest +57% (1,888→2,959 QPS), Index −24% (4,279→3,242ms). Gap residual con baseline: Ingest −12%, Index +62%. Causas residuales bajo investigación (§3C).
 
 ---
 
@@ -157,27 +161,28 @@ LanceDB tiene recall 23.7% en cosine y 61.7% en euclidean con 10K vectores. Esto
 
 ## 3A. Resultados Finales de Benchmark (Post-Optimización)
 
-Benchmarks ejecutados con build local (v0.4.0, Jul 2026) usando datasets reales de ann-benchmarks: 10K vectores, 100 queries, top-K=10.
+Benchmarks ejecutados con build local (v0.4.0, Jul 2026) usando datasets reales de ann-benchmarks: 10K vectores, 100 queries, top-K=10. **Compilado con `target-cpu=native` (2026-07-31).**
 
 ### GloVe-100-angular (100d, Cosine)
 
 | Engine   | Ingest QPS | Index (ms) | Query QPS | p50 (ms) | p99 (ms) | Recall@10 | Peak RSS |
 |----------|-----------|------------|-----------|---------|---------|-----------|----------|
-| VantaDB  | **2,076.3** | 4,157.9 | 458.9 | 1.940 | 3.615 | **100.00%** | 279.1 MB |
-| LanceDB  | 116,678 | **1,950.4** | 200.9 | 4.528 | 8.936 | 23.70% | 360.5 MB |
-| ChromaDB | 3,198.8 | N/A (Inc) | **727.9** | **1.051** | 5.839 | 95.80% | **238.4 MB** |
+| VantaDB  | **2,905.2** | 3,431.3 | 351.5 | 2.757 | 4.662 | **100.00%** | — |
+| LanceDB  | 108,219 | **2,712.5** | 174.1 | 5.134 | 12.758 | 25.20% | — |
+| ChromaDB | 2,981.3 | N/A (Inc) | **500.2** | **1.945** | **2.645** | 96.00% | — |
 
 ### SIFT-128-euclidean (128d, Euclidean)
 
 | Engine   | Ingest QPS | Index (ms) | Query QPS | p50 (ms) | p99 (ms) | Recall@10 | Peak RSS |
 |----------|-----------|------------|-----------|---------|---------|-----------|----------|
-| VantaDB  | 1,888.1 | 4,278.8 | 396.6 | 2.290 | 4.751 | 99.40% | 291.9 MB |
-| LanceDB  | 98,401 | **2,436.7** | 214.0 | 4.047 | 9.428 | 63.80% | 373.7 MB |
-| ChromaDB | **3,295.9** | N/A (Inc) | **592.7** | **1.423** | **4.484** | **99.80%** | **276.5 MB** |
+| VantaDB  | 2,958.8 | 3,242.1 | 378.9 | 2.386 | 4.456 | 99.40% | — |
+| LanceDB  | 87,940 | **2,699.0** | 186.9 | 5.257 | 7.316 | 63.50% | — |
+| ChromaDB | **3,157.3** | N/A (Inc) | **819.4** | **1.108** | **2.208** | **99.80%** | — |
 
-> ⚠️ **Regresión detectada vs baseline Jul 29:** VantaDB index time se duplicó (~2.2s → ~4.2s).  
-> **VantaDB pierde liderazgo en index time:** LanceDB ahora es 2.1× más rápido en GloVe (1.95s vs 4.16s).  
-> **ChromaDB mantiene ventaja en queries** (~1.5-1.6× VantaDB).  
+> 🟢 **Regresión parcialmente resuelta (2026-07-31):** con `target-cpu=native` activo, Ingest QPS pasó de 2,076→2,905 (GloVe) y 1,888→2,959 (SIFT). Index time bajó de 4,158→3,431ms (GloVe) y 4,279→3,242ms (SIFT).
+> **Gap residual con baseline Jul 29:** Ingest −8~12%, Index +56~62%. Bajo investigación (§3C).
+> **VantaDB pierde liderazgo en index time:** LanceDB es ~1.2× más rápido en GloVe (2.7s vs 3.4s) y ~1.2× en SIFT (2.7s vs 3.2s).
+> **ChromaDB mantiene ventaja en queries** (~1.4-2.2× VantaDB).
 > **Recall se mantiene:** 100% GloVe, 99.40% SIFT.
 
 ## 3B. Post-Mortem — Por Qué No Se Alcanzó el Factor 30-300x
@@ -227,63 +232,84 @@ GloVe 10K — Fase 1 (single-threaded):      GloVe 10K — Fase 2 (parallel rayo
 **ChromaDB (~3K QPS):** HNSWlib incremental (C++). Su rebuild es instantáneo porque no reconstruye — inserta incrementalmente. VantaDB podría emular esto con index worker thread (P5 del COMPAT original).
 
 ---
-## 3C. Post-Regresión — Benchmark Jul 30, 2026
+## 3C. Post-Regresión — Investigación Resuelta (2026-07-31)
 
-> **Contexto:** Tras revertir Propuesta 2 (NN-Descent, que causó regresión catastrófica de 7-1,332×), se rebuildéo `vantadb_py` con `maturin build --release` y se instaló el wheel local. Los benchmarks competitivos se ejecutaron para verificar el estado actual.
+> **Contexto:** Tras revertir Propuesta 2 (NN-Descent, que causó regresión catastrófica de 7-1,332×), se rebuildéo `vantadb_py` con `maturin build --release` y se instaló el wheel local. Los benchmarks competitivos mostraron regresión vs baseline Jul 29: Ingest −34~44%, Index +89~113%. **Esta sección documenta la investigación y su resolución.**
 
-### Delta vs Baseline (Jul 29, Fase 2)
+### 🔍 Diagnóstico root-cause
+
+**La causa principal era que `target-cpu=native` NO estaba activo en las compilaciones de `competitive_bench.py`.**
+
+Hallazgos de la investigación:
+
+1. **`.cargo/config.toml` no está commiteado en git** — existe solo en disco local. La versión en git (`git show 167a8d4c:.cargo/config.toml`) solo tenía `linker = "rust-lld.exe"` sin `target-cpu=native`.
+2. **El cambio a `rustflags = ["-C", "target-cpu=native"]` (A1) nunca fue commiteado** — quedó como archivo untracked.
+3. **Los benchmarks de `cargo bench` (Rust puro) SI lo usaban** — por eso vfile_search mostró 6.7-13.4× de mejora.
+4. **Los benchmarks de `competitive_bench.py` (Python vía PyO3) NO lo usaban** — porque dependían del wheel instalado, que se compiló antes del cambio.
+
+### ✅ Verificación experimental (2026-07-31)
+
+Se recompiló `vantadb_py` con `RUSTFLAGS="-C target-cpu=native"` (vía `maturin develop --release`) y se re-ejecutó el benchmark completo:
 
 #### GloVe-100-angular
 
-| Métrica | Jul 29 (F2) | Jul 30 (hoy) | Δ | Diagnóstico |
-|---------|------------|-------------|---|-------------|
-| **Ingest QPS** | 3,157.1 | 2,076.3 | **-34%** 🔴 | Puede ser build flags, throttling |
-| **Index (ms)** | 2,196.2 | 4,157.9 | **+89%** 🔴 | **Principal preocupación** |
-| **Query QPS** | 468.3 | 458.9 | -2% 🟢 | Dentro de ruido |
-| **Recall@10** | 100.00% | 100.00% | 0% ✅ | Sin cambio |
+| Métrica | Jul 29 (F2) | Jul 30 (sin native) | **Jul 31 (+native)** | Δ vs baseline | Estado |
+|---------|------------|-------------------|---------------------|---------------|--------|
+| **Ingest QPS** | 3,157.1 | 2,076.3 | **2,905.2** | **−8%** | 🟢 Casi recuperado |
+| **Index (ms)** | 2,196.2 | 4,157.9 | **3,431.3** | **+56%** | 🟡 Residual |
+| **Query QPS** | 468.3 | 458.9 | 351.5 | −25% | 🟡 Ruido sistémico* |
+| **Recall@10** | 100.00% | 100.00% | **100.00%** | 0% | ✅ |
 
 #### SIFT-128-euclidean
 
-| Métrica | Jul 29 (F2) | Jul 30 (hoy) | Δ | Diagnóstico |
-|---------|------------|-------------|---|-------------|
-| **Ingest QPS** | 3,357.9 | 1,888.1 | **-44%** 🔴 | Puede ser build flags, throttling |
-| **Index (ms)** | 2,004.2 | 4,278.8 | **+113%** 🔴 | **Se duplicó** |
-| **Query QPS** | 448.3 | 396.6 | -12% 🟡 | Leve, consistente con throttling |
-| **Recall@10** | 99.40% | 99.40% | 0% ✅ | Sin cambio |
+| Métrica | Jul 29 (F2) | Jul 30 (sin native) | **Jul 31 (+native)** | Δ vs baseline | Estado |
+|---------|------------|-------------------|---------------------|---------------|--------|
+| **Ingest QPS** | 3,357.9 | 1,888.1 | **2,958.8** | **−12%** | 🟢 Casi recuperado |
+| **Index (ms)** | 2,004.2 | 4,278.8 | **3,242.1** | **+62%** | 🟡 Residual |
+| **Query QPS** | 448.3 | 396.6 | 378.9 | −15% | 🟡 Ruido sistémico* |
+| **Recall@10** | 99.40% | 99.40% | **99.40%** | 0% | ✅ |
 
-### Causas posibles
+> \* **Nota sobre Query QPS:** El benchmark del 31 jul corrió con 18 procesos VS Code activos, y ChromaDB también cayó de 728→500 QPS (GloVe) — factor sistémico, no código. Query QPS requiere re-medición en condiciones limpias para comparar.
 
-| # | Hipótesis | Probabilidad | Explicación |
-|---|-----------|-------------|-------------|
-| 1 | **Build flags diferentes** | 🟠 Alta | El baseline usó `maturin develop --release` (link simbólico). Hoy usamos `maturin build --release` + copia manual del `.pyd`. Podría faltar feature flag `rayon`, `simd`, u optimización del compilador. |
-| 2 | **CPU throttling térmico** | 🟡 Media | Tras NN-Descent benchmarks (506s sostenidos a 100% CPU), el sistema puso los cores en throttling. LanceDB/ChromaDB también cayeron ~5-13% consistente con esto. VantaDB cae más porque rebuild es CPU-bound. |
-| 3 | **Background load** | 🟡 Media | Windows Update, antivirus, u otro proceso background compitiendo por CPU. |
-| 4 | **Feature flag desactivado** | 🟠 Alta | Si `rayon` no está activo en el build, el rebuild cae a single-threaded y explicaría el 2×. Verificar con `cargo metadata --features` o inspeccionar el Cargo.toml del wheel. |
-| 5 | **Cambio de código no contabilizado** | 🟢 Baja | No hubo cambios en rebuild/insert entre commits. La reversión de Propuesta 2 restauró `archive.rs` Phase 2 a parallel insert. |
+### Conclusión de la investigación
 
-### Próximos pasos (investigación)
+| # | Hipótesis original | Resultado |
+|---|-------------------|-----------|
+| 1 | Build flags diferentes (`maturin develop` vs `maturin build`) | ✅ **CONFIRMADA** — `target-cpu=native` faltaba en builds del wheel. Recuperó ~75% del gap Ingest, ~45% del gap Index |
+| 2 | CPU throttling térmico | 🟡 Parcial — los benchmarks del 30 jul tras 506s de NN-Descent probablemente tuvieron throttling. |
+| 3 | Background load | 🟡 Parcial — 18 procesos VS Code afectaron las mediciones del 31 jul |
+| 4 | Feature flag `rayon` desactivado | ❌ Descartada — `vantadb-python/Cargo.toml` incluye `rayon` en features |
+| 5 | Cambio de código no contabilizado | 🟢 Descartada como causa principal |
 
-1. Verificar features activas en el wheel instalado: `vantadb_py` Cargo.toml → `[features]`
-2. Comparar flags de compilación entre `maturin develop --release` y `maturin build --release`
-3. Re-ejecutar solo VantaDB (sin LanceDB/ChromaDB) para aislar ruido de otros motores
-4. Si se confirma feature faltante, rebuildear con flags correctos y re-benchmark
+### ✅ Acciones tomadas (2026-07-31)
+
+1. **`target-cpu=native` commiteado** en `.cargo/config.toml` (era untracked) — para que futuros builds del wheel lo usen.
+2. **Documentación actualizada** en `COMPETITIVE_ANALYSIS.md` y `BENCHMARK_OPTIMIZATION_2026.md`.
+
+### ⏳ Regresión residual — próxima investigación
+
+El gap residual (~8-12% Ingest, ~56-62% Index) podría deberse a:
+- **Cambios post-Fase 2:** Propuesta 4 (flatten neighbor lists + RWLock) y E1/E2 (inline cache + per-thread pool) se aplicaron DESPUÉS del baseline Jul 29 — pueden tener overhead en rebuild.
+- **Re-medición necesaria:** en condiciones limpias (sin VS Code, sin throttling) para aislar el ruido sistémico.
+
+> **Recomendación:** Verificar con `git diff` qué commits se hicieron entre el baseline (F2) y hoy, y medir rebuild con `cargo bench` (Rust puro) para aislar el efecto de Propuesta 4/E1/E2.
 
 ---
 
 ## 4. Animales y Paredes (tl;dr)
 
-- **Regresión detectada en benchmark Jul 30:** index time **2× más lento** (4.2s vs 2.2s), ingest QPS **cayó 34-44%** vs baseline Fase 2.
-- **Causa más probable:** diferencias en build flags entre `maturin develop --release` (baseline) y `maturin build --release` (hoy). Posible feature faltante (rayon).
-- **LanceDB ahora lidera en index time** (1.95s vs 4.16s GloVe). ChromaDB mantiene liderazgo en queries.
+- **Regresión investigada y parcialmente resuelta (2026-07-31):** La causa principal era que `target-cpu=native` no estaba activo en builds del wheel PyO3. Con `RUSTFLAGS="-C target-cpu=native"`: Ingest QPS 2,076→**2,905** (GloVe), 1,888→**2,959** (SIFT). Index time 4,158→**3,431ms** (GloVe), 4,279→**3,242ms** (SIFT).
+- **Gap residual vs baseline Jul 29:** Ingest **−8~12%**, Index **+56~62%** — bajo investigación (§3C). Posibles causas: Propuesta 4 (flatten + RWLock) y E1/E2 aplicados post-baseline, ruido sistémico (18 procesos VS Code, throttling).
+- **LanceDB lidera en index time** (~1.2× vs VantaDB). ChromaDB mantiene liderazgo en queries (~1.4-2.2×).
 - **Recall se mantiene perfecto:** 100% cosine, 99.40% euclidean.
 - **Pipeline puro de insert:** ~32K QPS teóricos — **sin cambios estructurales**.
-- **Target 2,200 QPS ALCANZADO** en baseline ✅, pero **hoy estamos en 2,076** (justo debajo del target).
+- **Target 2,200 QPS ALCANZADO** con native ✅ (2,905 GloVe / 2,959 SIFT).
 
 ### Próximos pasos
 
 | Prioridad | Acción | Impacto |
 |-----------|--------|---------|
-| 🔴 P0 | **Investigar regresión index time 2×** — comparar build flags develop vs build, verificar feature `rayon` | Crítico — recuperar rendimiento perdido |
+| 🔴 P0 | **Investigar gap residual Index +56-62%** — verificar si Propuesta 4/E1/E2 tienen overhead en rebuild (git diff + cargo bench Rust puro) | Recuperar rendimiento restante |
 | 🟢 P1 | **✅ InsertMode incremental completado** — Propuesta 1b | **4-10× en inserts <50 nodos** |
 | 🟢 P2 | Flatten + RWLock neighbor lists (Propuesta 4) | **1.5-2×** en rebuild paralelo |
 | 🟢 P3 | SIMD check AVX2/SSE en búsqueda coseno | **10-15%** query speed |

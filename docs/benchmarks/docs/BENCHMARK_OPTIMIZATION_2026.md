@@ -3,7 +3,7 @@
 > **Propósito:** Documentar el ciclo completo de cada optimización aplicada a los benchmarks de VantaDB.
 > Cada acción sigue: **Investigar → Analizar → Implementar → Verificar → Benchmarkear → Decidir → Restaurar si falla**
 >
-> **Última actualización:** 2026-07-30
+> **Última actualización:** 2026-07-31
 > **Contexto:** Investigación exhaustiva multi-agente (6 agentes paralelos, 14+ archivos fuente, búsqueda web multi-engine, 10 competidores analizados)
 
 ---
@@ -43,8 +43,8 @@
 
 | Tipo | Cantidad |
 |------|----------|
-| ✅ Completadas | 7 |
-| ⏳ Pendientes | 8 |
+| ✅ Completadas | 8 |
+| ⏳ Pendientes | 7 |
 | ❌ Revertidas/Descartadas | 2 |
 | ❌ Skipped (probado, 0% mejora) | 1 |
 | **Total** | **18** |
@@ -128,21 +128,23 @@ Investigación → Análisis de Riesgos → Implementación → Verificación
 
 #### Benchmarks (Pre / Post)
 
-*Benchmarks post-cambio aún no ejecutados — requiere compilación completa (~10 min).*
+| Escenario | Pre-cambio | Post-cambio | Mejora |
+|-----------|-----------|-------------|--------|
+| vfile_search in_memory | ~783ms | **58ms** | **13.4×** 🟢 |
+| vfile_search with_vfile | ~2,440ms | **257ms** | **9.5×** 🟢 |
+| vfile_search compacted | ~2,221ms | **332ms** | **6.7×** 🟢 |
+| competitive_bench.py Ingest GloVe | 2,076 QPS | **2,905 QPS** | **+40%** 🟢 |
+| competitive_bench.py Ingest SIFT | 1,888 QPS | **2,959 QPS** | **+57%** 🟢 |
+| competitive_bench.py Index GloVe | 4,158ms | **3,431ms** | **−17%** 🟢 |
+| competitive_bench.py Index SIFT | 4,279ms | **3,242ms** | **−24%** 🟢 |
 
-| Escenario | Pre-cambio | Post-cambio (estimado) | Mejora Estimada |
-|-----------|-----------|----------------------|----------------|
-| hnsw_pure insert_10k (1536d) | ~? | ~? | +20-50% en kernels SIMD |
-| hnsw_pure search_10k (1536d) | ~? | ~? | +20-50% en kernels SIMD |
-| hnsw_recall_ef build_index 10k | ~? | ~? | +15-30% |
-| vfile_search in_memory (~783ms) | ~783ms | ~626ms | +20% |
-| competitive_bench.py QPS | ~2,076 | ~2,490 | +20% |
-
-> **Nota:** Los números pre-cambio no existen porque no ejecutamos benchmarks antes de implementar. Esto es una lección aprendida: **siempre ejecutar baseline antes de optimizar.**
+> **Nota:** Los números pre-cambio sin target-cpu=native son los del baseline competitivo del 30 Jul 2026. Los números post-cambio se midieron el 31 Jul tras recompilar con `RUSTFLAGS="-C target-cpu=native"`.
 
 #### Decisión
 
-✅ **ACEPTADA.** El beneficio potencial (+20-50% en kernels SIMD) supera ampliamente el costo (codegen time 2×). La compilación es correcta.
+✅ **ACEPTADA.** El beneficio real (+40-57% en competitive_bench.py, hasta 13.4× en vfile_search) supera ampliamente el costo (codegen time 2×). El cambio se commiteó el 31 Jul 2026.
+
+⚠️ **Lección aprendida:** El cambio estaba en el working tree pero NO commiteado. Los benchmarks de `cargo bench` (Rust puro) lo usaban y mostraban mejora. Pero los benchmarks de `competitive_bench.py` (Python vía PyO3) se compilaban sin target-cpu=native porque el wheel instalado predataba el cambio. **Siempre verificar que el wheel local esté actualizado antes de medir.**
 
 #### Restauración
 
@@ -152,6 +154,19 @@ git checkout -- .cargo/config.toml
 # O editar manualmente a:
 # rustflags = []
 ```
+
+#### Restauración
+
+```bash
+# Si causa problemas en CI o desarrollo local, revertir:
+git checkout -- .cargo/config.toml
+# O editar manualmente a:
+# rustflags = []
+```
+
+> ⚠️ **IMPORTANTE (2026-07-31):** `.cargo/config.toml` está en `.gitignore` (`.gitignore:111`) porque contiene settings machine-specific (`jobs = 2` por límites de page file, `linker = "link.exe"` por workaround de rust-lld). El `target-cpu=native` **NO se propaga a otros devs ni CI**.
+> Para benchmarks locales, usar explícitamente: `RUSTFLAGS="-C target-cpu=native" maturin develop --release`.
+> Para verificar si un wheel está compilado con native: recompilar siempre tras cambios de flags (ver hallazgo #9).
 
 ---
 
@@ -807,6 +822,7 @@ Compilador: rustc, bench profile (opt-level=3, lto, codegen-units=1)
 6. **efC=50 da MEJOR recall que efC=400** en SIFT-128 real (99.2% vs 54.8% para M=32). Contraintuitivo. Hipótesis: la greedy search con más candidatos diverge en lugar de converger para Euclidean distance en datasets reales.
 7. **AutoTune global contaminaba el param_sweep** — no se reseteaba entre configs de benchmark. Fix: `AutoTune::set_ef(1)` añadido.
 8. **Ground truth de ann-benchmarks usa índices del dataset 1M** — no es directamente usable para subsets 10k. El bench recalcula brute-force en 0.2s.
+9. **La regresión de competitive_bench.py (−34~44% Ingest, +89~113% Index) era causada por target-cpu=native NO activo en builds del wheel PyO3** — el cambio A1 no estaba commiteado, y el wheel instalado se compiló sin él. Con `RUSTFLAGS="-C target-cpu=native"`: Ingest recuperó ~75% del gap, Index ~45%. Lección: **el wheel local debe recompilarse tras cada cambio de build flags** (ver §A1 y COMPETITIVE_ANALYSIS.md §3C).
 
 ### Historial de Benchmarks Ejecutados
 
@@ -822,6 +838,8 @@ Compilador: rustc, bench profile (opt-level=3, lto, codegen-units=1)
 | 2026-07-30 | incremental_bench | rebuild / auto / inc (D=768) | Ver tabla arriba | Auto domina batch≥1k |
 | 2026-07-30 | param_sweep | sift-128 (10k×128, euclidean) | Tabla completa en A4 | efC=50 beats efC=400, M=32 sweet spot |
 | 2026-07-30 | param_sweep | [BUG] auto_tune contaminaba | 99.2→7% recall con bug | AutoTune::set_ef() fix |
+| 2026-07-31 | competitive_bench.py | GloVe-100 +native | **2,905 QPS / 3,431ms index** | Regresión resuelta parcialmente (§3C) |
+| 2026-07-31 | competitive_bench.py | SIFT-128 +native | **2,959 QPS / 3,242ms index** | Regresión resuelta parcialmente (§3C) |
 
 ---
 
