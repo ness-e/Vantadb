@@ -469,7 +469,7 @@ impl StorageEngine {
             let path = entry.path();
             if path.is_file() {
                 let dest = snap_dir.join(entry.file_name());
-                std::os::unix::fs::link(&path, &dest)?;
+                std::fs::hard_link(&path, &dest)?;
             }
         }
         Ok(FsSnapshot {

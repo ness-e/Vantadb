@@ -42,7 +42,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <main id="main-content" className="flex-1">
         <PageTransition viewKey={pathname ?? "home"}>{children}</PageTransition>
       </main>
-      <Footer onNavigate={navigate} />
+      <Footer />
       <BackToTop />
       <CommandPalette onNavigate={navigate} />
       <ShortcutOverlay onNavigate={navigate} />
