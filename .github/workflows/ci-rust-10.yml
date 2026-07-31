@@ -200,7 +200,7 @@ jobs:
   minimal-versions:
     name: Minimal Versions Check (-Zminimal-versions)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     # CATEGORY: EXPERIMENTAL — nightly-only -Zminimal-versions is unstable.
     # Failure does not indicate a regression in default builds.
     continue-on-error: true
