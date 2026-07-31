@@ -706,6 +706,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::approx_constant)] // 3.14 is intentional here, not an approximation
     fn test_parse_literal_field_value_float() {
         // double now comes BEFORE parse_i64 in alt(), so "3.14" → Float(3.14)
         let val = parse_literal_field_value("3.14").unwrap().1;
@@ -1376,6 +1377,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::approx_constant)] // 3.14 is intentional here, not an approximation
     fn test_parse_field_assign_float() {
         // double now comes before parse_i64: "3.14" → Float(3.14)
         let (_, (k, v)) = parse_field_assign("price: 3.14").unwrap();

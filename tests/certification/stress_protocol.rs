@@ -156,6 +156,7 @@ fn config_base() -> HnswConfig {
         distance_metric: vantadb::node::DistanceMetric::Cosine,
         flat_threshold: None,
         index_type: IndexType::Hnsw,
+        auto_tune: false,
     }
 }
 
@@ -170,6 +171,7 @@ fn config_50k_high() -> HnswConfig {
         distance_metric: vantadb::node::DistanceMetric::Cosine,
         flat_threshold: None,
         index_type: IndexType::Hnsw,
+        auto_tune: false,
     }
 }
 
@@ -225,6 +227,7 @@ fn stress_protocol_certification() {
             distance_metric: vantadb::node::DistanceMetric::Cosine,
             flat_threshold: None,
             index_type: IndexType::Hnsw,
+            auto_tune: false,
         };
         let index = build_index(&dataset, config);
         let recall = compute_recall(&index, &queries, &dataset, K);
@@ -274,6 +277,7 @@ fn stress_protocol_certification() {
                 distance_metric: vantadb::node::DistanceMetric::Cosine,
                 flat_threshold: None,
                 index_type: IndexType::Hnsw,
+                auto_tune: false,
             };
             let t0 = Instant::now();
             let idx_100k = build_index(&ds, config_100k);

@@ -175,6 +175,7 @@ fn test_open_then_reopen_read_only() {
 }
 
 #[test]
+#[cfg(not(feature = "rocksdb"))]
 fn test_open_rocksdb_without_feature() {
     let dir = tempfile::tempdir().expect("tempdir");
     let result = StorageEngine::open_with_config(

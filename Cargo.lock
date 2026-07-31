@@ -4884,6 +4884,7 @@ dependencies = [
  "arrow",
  "axum",
  "axum-server",
+ "bytemuck",
  "chrono",
  "clap",
  "clap_complete",

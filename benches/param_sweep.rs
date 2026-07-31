@@ -179,6 +179,7 @@ fn build_index(ds: &Dataset, m: usize, ef_c: usize) -> (CPIndex, f64) {
         distance_metric: ds.metric,
         flat_threshold: None,
         index_type: IndexType::Hnsw,
+        auto_tune: false,
     });
     let t0 = Instant::now();
     for i in 0..ds.n_train {

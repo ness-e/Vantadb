@@ -97,7 +97,7 @@ impl ReplState {
             }
             _ => {
                 // Try to execute as a query via the executor
-                let executor = crate::executor::Executor::new(&*self.engine);
+                let executor = crate::executor::Executor::new(&self.engine);
                 let start = std::time::Instant::now();
                 match executor.execute_hybrid(&input) {
                     Ok(crate::executor::ExecutionResult::Read(nodes)) => {

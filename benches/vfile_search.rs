@@ -73,6 +73,7 @@ fn build_index(vectors: &[Vec<f32>]) -> CPIndex {
         distance_metric: DistanceMetric::Cosine,
         flat_threshold: None,
         index_type: IndexType::Hnsw,
+        auto_tune: false,
     };
     let index = CPIndex::new_with_config(config);
     let align: u64 = 64;

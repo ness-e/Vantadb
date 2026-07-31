@@ -77,6 +77,7 @@ fn recall_certification_runner() {
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
             index_type: IndexType::Hnsw,
+            auto_tune: false,
         };
         let index = CPIndex::new_with_config(config);
 
