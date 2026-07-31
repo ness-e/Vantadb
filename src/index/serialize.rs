@@ -1271,6 +1271,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_serialize_roundtrip_empty() {
         let index = CPIndex::new();
         let bytes = index.serialize_to_bytes();
@@ -1280,6 +1281,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_serialize_roundtrip_full_vector() {
         let index = single_full_node_index();
         let bytes = index.serialize_to_bytes();
@@ -1294,6 +1296,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_serialize_roundtrip_binary() {
         let nodes = dashmap::DashMap::new();
         let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
@@ -1334,6 +1337,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_serialize_roundtrip_turbo() {
         let nodes = dashmap::DashMap::new();
         let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
@@ -1374,6 +1378,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_serialize_roundtrip_sq8() {
         let nodes = dashmap::DashMap::new();
         let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
@@ -1420,6 +1425,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_serialize_roundtrip_none() {
         let nodes = dashmap::DashMap::new();
         let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
@@ -1457,6 +1463,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_serialize_roundtrip_all_variants_together() {
         // Build an index with all vector variants to test mixed serialization.
         let neighbor_index = crate::index::neighbor_index::HnswNeighborIndex::new();
