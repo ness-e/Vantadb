@@ -814,6 +814,7 @@ Compilador: rustc, bench profile (opt-level=3, lto, codegen-units=1)
 8. **Ground truth de ann-benchmarks usa índices del dataset 1M** — no es directamente usable para subsets 10k. El bench recalcula brute-force en 0.2s.
 9. **La regresión de competitive_bench.py (−34~44% Ingest, +89~113% Index) era causada por target-cpu=native NO activo en builds del wheel PyO3** — el cambio A1 no estaba commiteado, y el wheel instalado se compiló sin él. Con `RUSTFLAGS="-C target-cpu=native"`: Ingest recuperó ~75% del gap, Index ~45%. Lección: **el wheel local debe recompilarse tras cada cambio de build flags** (ver §A1 y COMPETITIVE_ANALYSIS.md §3C).
 10. **Throttling térmico y power plan afectan TODOS los benchmarks en esta máquina (i5-1235U)** — el 2026-07-31 hnsw_pure mostró regresión falsa (+38~63%) vs baseline del día anterior sin cambios de código. **CONFIRMADO experimentalmente:** el plan activo era "Driver Booster Power Plan" (tercero). Al cambiar a "Alto rendimiento" (`powercfg /setactive 8c5e7fda...`), los números volvieron: insert 19.9s→**12.05s** (−39.6%), search 993ms→**721ms** (−27.4%). **hnsw_pure nunca regresó — está 4-6% más rápido que baseline.** Lección: **siempre verificar clock speed + power plan antes de comparar benchmarks entre sesiones. `powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c` (Alto rendimiento) es requisito para benchmarks.**
+11. **La carga de CPU del entorno contamina los benches aunque el power plan sea correcto** — el 2026-07-31, con "Alto rendimiento" activo pero CPU al **94% de carga** (VS Code ×6 + UninstallMonitor + opencode ×3 + chrome + OneDrive), hnsw_recall_ef mostró "regresión" falsa: build 3.94s→**4.74s** (+20%), search ef_200 +38%. **Contradicción lógica:** hnsw_pure y hnsw_recall_ef usan el MISMO path (`index.add()` → `insert_hnsw`), así que es imposible que uno mejore −6% y el otro regrese +20% con el mismo binario. El culpable es la carga de fondo, no el código. **Lección: verificar `(Get-CimInstance Win32_Processor).LoadPercentage` (debe estar <30%) antes de ejecutar cualquier bench.** Los números de la sesión 2026-07-31 tardía para hnsw_recall_ef NO son baseline válido.
 
 ### Historial de Benchmarks Ejecutados
 
@@ -831,6 +832,9 @@ Compilador: rustc, bench profile (opt-level=3, lto, codegen-units=1)
 | 2026-07-30 | param_sweep | [BUG] auto_tune contaminaba | 99.2→7% recall con bug | AutoTune::set_ef() fix |
 | 2026-07-31 | competitive_bench.py | GloVe-100 +native | **2,905 QPS / 3,431ms index** | Regresión resuelta parcialmente (§3C) |
 | 2026-07-31 | competitive_bench.py | SIFT-128 +native | **2,959 QPS / 3,242ms index** | Regresión resuelta parcialmente (§3C) |
+| 2026-07-31 | vfile_search | in_memory / with_vfile / compacted | **59ms / 225ms / 232ms** | compacted −30.7% vs 332ms (era artefacto throttling) |
+| 2026-07-31 | vfile_search | populate_vfile | **1.85ms** | −21.9% vs cached |
+| 2026-07-31 | hnsw_recall_ef | build_index, sweep ef (D=128) | **4.74s build, 330-412ms search** | ❌ NO VÁLIDO — CPU 94% (hallazgo #11) |
 
 ---
 
