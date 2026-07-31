@@ -43,8 +43,8 @@
 
 | Tipo | Cantidad |
 |------|----------|
-| ✅ Completadas | 3 |
-| ⏳ Pendientes | 12 |
+| ✅ Completadas | 4 |
+| ⏳ Pendientes | 11 |
 | ❌ Revertidas/Descartadas | 2 |
 | ❌ Skipped (probado, 0% mejora) | 1 |
 | **Total** | **18** |

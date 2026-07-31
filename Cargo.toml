@@ -210,6 +210,10 @@ harness = false
 name = "incremental_bench"
 harness = false
 
+[[bench]]
+name = "param_sweep"
+harness = false
+
 [[bin]]
 name = "vanta-cli"
 path = "src/bin/vanta-cli.rs"

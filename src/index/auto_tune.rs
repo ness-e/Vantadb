@@ -22,6 +22,18 @@ impl AutoTune {
         AUTO_TUNE.ef_search.load(Ordering::Relaxed)
     }
 
+    /// Reset to default state (50/0). Useful for benchmarks.
+    pub fn reset() {
+        AUTO_TUNE.ef_search.store(50, Ordering::Relaxed);
+        AUTO_TUNE.hit_streak.store(0, Ordering::Relaxed);
+    }
+
+    /// Set ef_search to any value. Used by benchmarks to bypass auto-tuning.
+    pub fn set_ef(v: usize) {
+        AUTO_TUNE.ef_search.store(v, Ordering::Relaxed);
+        AUTO_TUNE.hit_streak.store(0, Ordering::Relaxed);
+    }
+
     pub fn report_brute_fallback() {
         let current = AUTO_TUNE.ef_search.load(Ordering::Relaxed);
         let new = (current + current / 2).min(Self::MAX_EF);
