@@ -67,7 +67,24 @@ pub struct HardwareCapabilities {
 impl HardwareCapabilities {
     /// Return the global cached hardware capabilities, detecting them on first call.
     pub fn global() -> &'static Self {
-        CAPS.get_or_init(HardwareScout::detect)
+        #[cfg(miri)]
+        {
+            // Miri cannot execute sysinfo's sysconf(_SC_CLK_TCK) probe (unimplemented
+            // operation). Return a scalar baseline so kernel dispatch tests still run.
+            static MIRI_CAPS: OnceLock<HardwareCapabilities> = OnceLock::new();
+            return MIRI_CAPS.get_or_init(|| HardwareCapabilities {
+                instructions: InstructionSet::Fallback,
+                profile: HardwareProfile::LowResource,
+                logical_cores: 1,
+                total_memory: 0,
+                resource_score: 0,
+                env_hash: 0,
+            });
+        }
+        #[cfg(not(miri))]
+        {
+            CAPS.get_or_init(HardwareScout::detect)
+        }
     }
 }
 
