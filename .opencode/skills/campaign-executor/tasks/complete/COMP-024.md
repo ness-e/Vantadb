@@ -1,5 +1,8 @@
 # COMP-024: ACORN-1 Algorithm (Second-Hop Filtered Search)
 
+**Estado:** ✅ COMPLETED — 2026-07-28
+**Resultado:** `acorn_expansion: bool` en `search_layer()` (src/index/search.rs:115), 2-hop expansion block con budget `ef.saturating_sub(results.len()).max(16)`, activado solo cuando `!query_mask.is_all_set()`. 3 tests (expands_through_non_matching, no_regression_all_set, budget_respected).
+
 > **Goal:** Implement ACORN-1 (second-hop neighbor expansion during HNSW filtered traversal) to improve recall when filters are moderately selective (InFilter strategy).
 
 ## Current State

@@ -8,7 +8,7 @@
 - **Tipo:** Rust core + Python examples
 - **Turns estimados:** 30-60
 - **Creado:** 2026-07-26
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-07-26, verificado batch 6: `src/graphrag/` pipeline formal completo — mod, pipeline, retrieve, expand — + `examples/rust/graphrag.rs`)
 
 ## Blast Radius
 

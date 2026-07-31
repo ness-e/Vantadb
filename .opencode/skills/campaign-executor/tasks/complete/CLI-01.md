@@ -7,7 +7,8 @@
 - **Prioridad:** 🟡
 - **Tipo:** Rust
 - **Turns estimados:** 20-30
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED — 2026-07-26 (vanta-worker)
+- **Resultado:** 5 handlers conectados (backup, restore, doctor, inspect, stats). 46 tests CLI pasan.
 
 ## Blast Radius
 | Dirección | Módulos |

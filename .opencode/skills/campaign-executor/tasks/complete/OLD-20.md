@@ -8,7 +8,7 @@
 - **Tipo:** Rust
 - **Turns estimados:** 15-25
 - **Creado:** 2026-07-28
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-07-26, verificado batch 6: `src/cache_warmer.rs` + métricas + co-access en hot path; Backlog confirma "auto-decay cada 1000 eventos, métricas exportables")
 
 ## Blast Radius
 

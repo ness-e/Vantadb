@@ -9,7 +9,7 @@
 - **Turns estimados:** 5-10
 - **Creado:** 2026-07-26T16:30
 - **last-synced:** 2026-07-26T16:30
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-07-26, verificado batch 6: `try_auto_rotate()` en `src/wal.rs:393`, default 256MB :255, 3 tests)
 
 ## Blast Radius
 

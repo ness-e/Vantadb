@@ -7,7 +7,8 @@
 - **Prioridad:** 🟡
 - **Tipo:** CI/CD
 - **Turns estimados:** 5-8
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED — 2026-07-26
+- **Resultado:** `Formula/vantadb.rb` con livecheck, 4 plataformas, install + test. Placeholder SHA256 — actualizar antes de publish.
 
 ## Blast Radius
 | Dirección | Módulos |

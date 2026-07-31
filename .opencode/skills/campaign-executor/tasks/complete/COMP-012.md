@@ -3,7 +3,8 @@
 **ID:** COMP-012
 **Prioridad:** 🟡 Media-Alta
 **Esfuerzo:** ~1 semana
-**Estado:** ❌ No implementado
+**Resultado:** `FilterBitset` migrado a `croaring::Bitmap` (`use croaring::{Bitmap, Portable}` en src/node.rs:1). 19/19 tests ✅, serializado ~10× más pequeño. `DiskNodeHeader` intacto (u128).
+**Estado:** ✅ COMPLETED
 **Dependencias:** Pre-COMP-003
 **Sub-agente:** `vanta-worker`
 

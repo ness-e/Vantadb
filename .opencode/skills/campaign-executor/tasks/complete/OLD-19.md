@@ -1,6 +1,6 @@
 # OLD-19: Rehidratación desde Shadow Archive
 
-**Fuente:** Backlog Phase 9, Estado: ⚠️ Parcial  
+**Fuente:** Backlog Phase 9, Estado: ✅ COMPLETED (2026-07-26, verificado batch 6: `recover_archived_nodes` en sdk/builder.rs:158, python lib.rs:1088, MCP lib.rs:1396)  
 **Effort:** 🟡 1d (ponytail — ya existe infraestructura)  
 
 ## Gate

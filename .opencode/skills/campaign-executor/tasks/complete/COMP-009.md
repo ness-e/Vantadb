@@ -1,6 +1,7 @@
 # COMP-009 — Binary Bulk Import
 
-> **Estado:** Spec → Implement → Verify → Review → Accept → Close
+> **Estado:** ✅ COMPLETED — 2026-07-27
+> **Resultado:** `bulk_import_stream()` + `bulk_import_file()` (src/sdk/api.rs:964/1053), `bulk_commit_interval` en config. Python `bulk_import()`/`bulk_import_bytes()`, WASM bindings. Formato `VDBJSON\n` + serde_json. 3 tests.
 > **Sub-agente:** `vanta-worker`
 > **Esfuerzo:** 🟢 3-4 días
 > **Workflow:** feature-add

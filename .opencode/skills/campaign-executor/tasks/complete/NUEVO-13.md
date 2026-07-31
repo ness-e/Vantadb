@@ -8,7 +8,7 @@
 - **Tipo:** Rust
 - **Turns estimados:** 15-30
 - **Creado:** 2026-07-26
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-07-26, verificado batch 6: `src/index/auto_tune.rs` + gauge `vantadb_auto_tune_ef` en `metrics/core/registry.rs:674`, test `repeated_fallbacks_increase_ef`:111)
 
 ## Blast Radius
 

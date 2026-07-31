@@ -1,9 +1,10 @@
 # COMP-022: Graph Data Science library (PageRank, centrality)
 
-**Estado:** ❌ No implementado → 🟡 En progreso
+**Estado:** ✅ COMPLETED
 **Esfuerzo:** 🟡 2-3 sem
 **Dependencias:** COMP-017 ✅ (GraphAccumulator)
 **Bloquea:** Nothing
+**Resultado:** `GraphDataScience` en `src/gds.rs` con `page_rank()` + `degree_centrality()`, SDK `graph_page_rank`/`graph_degree_centrality` + Python bindings. 7 tests.
 
 ---
 

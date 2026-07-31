@@ -205,6 +205,16 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(tui)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
 (completions)
 _arguments "${_arguments_options[@]}" : \
 '--shell=[Shell type for the completion script]:SHELL:((bash\:"Bash shell completions"
@@ -240,6 +250,45 @@ _arguments "${_arguments_options[@]}" : \
 '--key=[Key of the record to delete]:KEY:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(delete-by-filter)
+_arguments "${_arguments_options[@]}" : \
+'--namespace=[Namespace to operate on]:NAMESPACE:_default' \
+'--filter=[JSON filter in MongoDB-like format, e.g. '\''{"field"\: {"\$op"\: value}}'\'' Operators\: \$eq, \$neq, \$gt, \$gte, \$lt, \$lte Example\: '\''{"status"\: {"\$eq"\: "inactive"}}'\'']:FILTER:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(count)
+_arguments "${_arguments_options[@]}" : \
+'--namespace=[Namespace to count records in]:NAMESPACE:_default' \
+'--filter=[Optional JSON filter (same format as delete-by-filter)]:FILTER:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--json[Output as raw number only]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(similar-to-key)
+_arguments "${_arguments_options[@]}" : \
+'--namespace=[Namespace of the reference record]:NAMESPACE:_default' \
+'--key=[Key of the reference record]:KEY:_default' \
+'--top-k=[Number of similar records to return]:TOP_K:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--json[Output in JSON format]' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -548,6 +597,35 @@ esac
     ;;
 esac
 ;;
+(search-multi)
+_arguments "${_arguments_options[@]}" : \
+'--namespaces=[Comma-separated list of namespaces to search (e.g. "ns1,ns2,ns3")]:NAMESPACES:_default' \
+'--query=[Text query for hybrid/lexical search]:QUERY:_default' \
+'--query-vector=[Optional explicit vector query (comma-separated f32 values)]:QUERY_VECTOR:_default' \
+'--top-k=[Maximum number of results across all namespaces]:TOP_K:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--json[Output in JSON format]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(search-all)
+_arguments "${_arguments_options[@]}" : \
+'--query=[Text query for hybrid/lexical search]:QUERY:_default' \
+'--query-vector=[Optional explicit vector query (comma-separated f32 values)]:QUERY_VECTOR:_default' \
+'--top-k=[Maximum number of results across all namespaces]:TOP_K:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--json[Output in JSON format]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
 (server)
 _arguments "${_arguments_options[@]}" : \
 '-p+[Port for the HTTP server]:PORT:_default' \
@@ -636,6 +714,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(tui)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (completions)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -645,6 +727,18 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (delete)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(delete-by-filter)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(count)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(similar-to-key)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -748,6 +842,14 @@ _arguments "${_arguments_options[@]}" : \
     ;;
 esac
 ;;
+(search-multi)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(search-all)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (server)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -783,13 +885,19 @@ _vanta-cli_commands() {
 'doctor:Run comprehensive health diagnostics on the database' \
 'inspect:Inspect a single record showing all fields, vectors, and metadata' \
 'stats:Display detailed database statistics in human-readable or JSON format' \
+'tui:Launch the interactive TUI (requires \`tui\` feature)' \
 'completions:Generate shell completion scripts' \
 'search:Search records semantically across a namespace' \
 'delete:Delete a record by namespace and key' \
+'delete-by-filter:Delete all records in a namespace matching a JSON metadata filter' \
+'count:Count records in a namespace, optionally filtered by metadata' \
+'similar-to-key:Find records similar to a given key using vector similarity search' \
 'migrate:Migrate a database to the latest storage schema version' \
 'namespace:Manage namespaces' \
 'snapshot:Manage instant filesystem snapshots' \
 'wal:Manage the Write-Ahead Log (compact, vacuum)' \
+'search-multi:Search across multiple namespaces and merge results by score' \
+'search-all:Search across ALL known namespaces and merge results by score' \
 'server:Start the HTTP or MCP server wrapper' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -810,10 +918,20 @@ _vanta-cli__subcmd__completions_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli completions commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__count_commands] )) ||
+_vanta-cli__subcmd__count_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli count commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__delete_commands] )) ||
 _vanta-cli__subcmd__delete_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli delete commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__delete-by-filter_commands] )) ||
+_vanta-cli__subcmd__delete-by-filter_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli delete-by-filter commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__doctor_commands] )) ||
 _vanta-cli__subcmd__doctor_commands() {
@@ -848,13 +966,19 @@ _vanta-cli__subcmd__help_commands() {
 'doctor:Run comprehensive health diagnostics on the database' \
 'inspect:Inspect a single record showing all fields, vectors, and metadata' \
 'stats:Display detailed database statistics in human-readable or JSON format' \
+'tui:Launch the interactive TUI (requires \`tui\` feature)' \
 'completions:Generate shell completion scripts' \
 'search:Search records semantically across a namespace' \
 'delete:Delete a record by namespace and key' \
+'delete-by-filter:Delete all records in a namespace matching a JSON metadata filter' \
+'count:Count records in a namespace, optionally filtered by metadata' \
+'similar-to-key:Find records similar to a given key using vector similarity search' \
 'migrate:Migrate a database to the latest storage schema version' \
 'namespace:Manage namespaces' \
 'snapshot:Manage instant filesystem snapshots' \
 'wal:Manage the Write-Ahead Log (compact, vacuum)' \
+'search-multi:Search across multiple namespaces and merge results by score' \
+'search-all:Search across ALL known namespaces and merge results by score' \
 'server:Start the HTTP or MCP server wrapper' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -875,10 +999,20 @@ _vanta-cli__subcmd__help__subcmd__completions_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help completions commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__help__subcmd__count_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__count_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help count commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__help__subcmd__delete_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__delete_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help delete commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__delete-by-filter_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__delete-by-filter_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help delete-by-filter commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__help__subcmd__doctor_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__doctor_commands() {
@@ -987,10 +1121,25 @@ _vanta-cli__subcmd__help__subcmd__search_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help search commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__help__subcmd__search-all_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__search-all_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help search-all commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__search-multi_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__search-multi_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help search-multi commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__help__subcmd__server_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__server_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help server commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__similar-to-key_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__similar-to-key_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help similar-to-key commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__help__subcmd__snapshot_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__snapshot_commands() {
@@ -1019,6 +1168,11 @@ _vanta-cli__subcmd__help__subcmd__stats_commands() {
 _vanta-cli__subcmd__help__subcmd__status_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help status commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__tui_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__tui_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help tui commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__help__subcmd__wal_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__wal_commands() {
@@ -1181,10 +1335,25 @@ _vanta-cli__subcmd__search_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli search commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__search-all_commands] )) ||
+_vanta-cli__subcmd__search-all_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli search-all commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__search-multi_commands] )) ||
+_vanta-cli__subcmd__search-multi_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli search-multi commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__server_commands] )) ||
 _vanta-cli__subcmd__server_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli server commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__similar-to-key_commands] )) ||
+_vanta-cli__subcmd__similar-to-key_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli similar-to-key commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__snapshot_commands] )) ||
 _vanta-cli__subcmd__snapshot_commands() {
@@ -1238,6 +1407,11 @@ _vanta-cli__subcmd__stats_commands() {
 _vanta-cli__subcmd__status_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli status commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__tui_commands] )) ||
+_vanta-cli__subcmd__tui_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli tui commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__wal_commands] )) ||
 _vanta-cli__subcmd__wal_commands() {

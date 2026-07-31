@@ -30,4 +30,4 @@ Reducir default features del core a solo lo esencial: `["arrow", "fjall", "advan
 - CI workflows que referencian features → revisar
 
 ## Estado
-PENDING
+❌ WONTFIX — 2026-07-26. Analizado y NO aplicado: reducir de 7 a 3 features (`cli`, `memmap2`, `fs2`, `sysinfo`) rompe UX "it just works". `Cargo.toml:93` mantiene las 7 features.

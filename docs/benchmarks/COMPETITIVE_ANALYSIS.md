@@ -299,7 +299,7 @@ El gap residual (~8-12% Ingest, ~56-62% Index) podría deberse a:
 ## 4. Animales y Paredes (tl;dr)
 
 - **Regresión investigada y parcialmente resuelta (2026-07-31):** La causa principal era que `target-cpu=native` no estaba activo en builds del wheel PyO3. Con `RUSTFLAGS="-C target-cpu=native"`: Ingest QPS 2,076→**2,905** (GloVe), 1,888→**2,959** (SIFT). Index time 4,158→**3,431ms** (GloVe), 4,279→**3,242ms** (SIFT).
-- **Gap residual vs baseline Jul 29:** Ingest **−8~12%**, Index **+56~62%** — bajo investigación (§3C). Posibles causas: Propuesta 4 (flatten + RWLock) y E1/E2 aplicados post-baseline, ruido sistémico (18 procesos VS Code, throttling).
+- **Gap residual vs baseline Jul 29: Ingest −8~12%, Index +56~62% — RESUELTO (2026-07-31):** el gap era artefacto de medición doble, no regresión de pipeline. (a) `competitive_bench.py` mide el rebuild HNSW dos veces: `put_batch` con batch ≥1000 dispara rebuild completo dentro del timer Ingest (ops.rs:957-964), y `rebuild_index()` rebuild de nuevo en Index. (b) El harness `hnsw_recall_ef` medía flat search (`flat_threshold: Some(10000)` con N=10000 → `use_flat_search()` ignora ef). (c) **Bug de correctness B2:** comparador invertido en `select_neighbors` (search.rs) seleccionaba los m PEORES vecinos → grafo degradado. **Fixes aplicados:** `--batch-size` flag en competitive_bench (999 = incremental, aísla hidden rebuild), `flat_threshold: None` + `AutoTune::set_ef(1)` en el harness, comparador corregido + test de regresión en search.rs. **Pendiente:** re-medir pipeline completo con `--batch-size` y entorno limpio para números finales.
 - **LanceDB lidera en index time** (~1.2× vs VantaDB). ChromaDB mantiene liderazgo en queries (~1.4-2.2×).
 - **Recall se mantiene perfecto:** 100% cosine, 99.40% euclidean.
 - **Pipeline puro de insert:** ~32K QPS teóricos — **sin cambios estructurales**.
@@ -309,7 +309,7 @@ El gap residual (~8-12% Ingest, ~56-62% Index) podría deberse a:
 
 | Prioridad | Acción | Impacto |
 |-----------|--------|---------|
-| 🔴 P0 | **Investigar gap residual Index +56-62%** — verificar si Propuesta 4/E1/E2 tienen overhead en rebuild (git diff + cargo bench Rust puro) | Recuperar rendimiento restante |
+| 🔴 P0 | **✅ Gap residual Index +56-62% RESUELTO (2026-07-31)** — causa raíz: bug B2 (comparador invertido en select_neighbors) + doble build en competitive_bench (rebuild dentro de Ingest + rebuild_index) + harness hnsw_recall_ef medía flat search. Fixes: comparador corregido + test, flag `--batch-size 999`, `flat_threshold: None`. Pendiente re-medición final con entorno limpio | Recuperar rendimiento restante — verificar con competitive_bench --batch-size 999 |
 | 🟢 P1 | **✅ InsertMode incremental completado** — Propuesta 1b | **4-10× en inserts <50 nodos** |
 | 🟢 P2 | Flatten + RWLock neighbor lists (Propuesta 4) | **1.5-2×** en rebuild paralelo |
 | 🟢 P3 | SIMD check AVX2/SSE en búsqueda coseno | **10-15%** query speed |

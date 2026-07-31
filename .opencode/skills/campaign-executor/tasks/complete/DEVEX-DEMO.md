@@ -7,7 +7,8 @@
 - **Prioridad:** 🟡
 - **Tipo:** Rust + Python (Mixto)
 - **Turns estimados:** 15-25
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED — 2026-07-26 (vanta-worker)
+- **Resultado:** `examples/demo/demo.py` (239L, create → insert → search → delete) + `README.md` + `requirements.txt`. Syntax check clean.
 
 ## Blast Radius
 | Dirección | Módulos |

@@ -1,7 +1,7 @@
 # OLD-11: CLI/TUI Interactivo
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue)  
-**Estado:** ⚠️ Parcial (CLI completo 46 tests, TUI no implementado)  
+**Estado:** ✅ COMPLETED (2026-07-26, verificado batch 6: TUI SÍ implementado — `src/tui/` completo con mod, dashboard, repl, monitor; el task file estaba stale al decir "no implementado")  
 **Effort:** 🟡 1-2 sem  
 **Dependencias:** Ninguna. Proyecto aparte (puede ser crate separado)
 

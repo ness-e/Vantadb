@@ -1,7 +1,7 @@
 # OLD-03: Chaos Testing (Failpoint Framework Formal)
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue)  
-**Estado:** ⚠️ Parcial — `tests/storage/chaos_integrity.rs` + `chaos_test_wal.sh` existen, no marco formal  
+**Estado:** ✅ COMPLETED (2026-07-26, verificado batch 6: `ChaosTestHarness` en `src/testing/mod.rs`, failpoints en edge_index/serialize/vfile, `docs/chaos-testing.md`)  
 **Effort:** 🟡 2-3 sem → ponytail: 🟢 2-3d (formalizar lo que ya existe, no implementar Jepsen)  
 **Dependencias:** Docker. WAL shipping existente ✅
 

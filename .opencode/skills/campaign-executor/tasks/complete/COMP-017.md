@@ -1,9 +1,10 @@
 # COMP-017: Accumulators for parallel graph algorithms
 
-**Estado:** ❌ No implementado → 🟡 En progreso
+**Estado:** ✅ COMPLETED
 **Esfuerzo:** 🟡 1-2 sem
 **Dependencias:** Ninguna
-**Bloquea:** COMP-022 (Graph Data Science — PageRank, centrality)
+**Bloquea:** COMP-022 (Graph Data Science — PageRank, centrality) ✅ desbloqueado
+**Resultado:** `GraphAccumulator` (AtomicU64 lock-free) en `src/accumulator.rs`, `traverse_with_accumulator` en GraphTraverser, SDK API `graph_create_accumulator`/`graph_accumulator_add/get/snapshot`. 6 tests.
 
 ---
 

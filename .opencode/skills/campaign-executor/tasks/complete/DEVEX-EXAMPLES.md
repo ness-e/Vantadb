@@ -7,7 +7,8 @@
 - **Prioridad:** 🟡
 - **Tipo:** Rust
 - **Turns estimados:** 8-12
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED — 2026-07-26 (vanta-worker)
+- **Resultado:** 4 ejemplos en `examples/rust/`: `basic.rs`, `hybrid.rs`, `graphrag.rs`, `concurrent.rs`. Compilan clean.
 
 ## Blast Radius
 | Dirección | Módulos |

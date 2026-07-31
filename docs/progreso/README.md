@@ -2,13 +2,13 @@
 title: "General Progress of VantaDB Project"
 status: active
 tags: [vantadb, progress, documentation]
-last_reviewed: 2026-07-27
+last_reviewed: 2026-07-31
 aliases: []
 ---
 
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-27
+> **Last updated:** 2026-07-31
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -292,6 +292,27 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 - **Checkpoint.md:** Nuevo — resumen anclado del vault MPTS con cobertura, backlog activo y estado actual.
 
 ## Recent Progress
+
+### 2026-07-31 — VantaDB Recovery Plan (REC-001 to REC-010, REC-999) ✅
+
+**Fuente:** Recovery Plan (`docs/plans/2026-07-28-recovery-plan.md`)
+
+**Resuelto por:**
+- **REC-001:** Definición de `VantaFilterOp`, `VantaMemoryFilterItem` y `VantaMemoryFilter` en `src/sdk/types.rs`.
+- **REC-002:** Implementación de `delete_by_filter()` en SDK + CLI.
+- **REC-003:** Implementación de `count()` con filtros opcionales en SDK + CLI.
+- **REC-004:** Implementación de `similar_to_key()` en SDK + CLI.
+- **REC-005:** Multi-namespace search (`search_multi` y `search_all`) en SDK + CLI.
+- **REC-006:** Implementación de coincidencia de predicados de metadatos avanzados (`matches_advanced_filters`) en listados del SDK.
+- **REC-007:** Comandos de WAL compactación y vacuum en la CLI (completado previamente).
+- **REC-008:** Diseño de incremental backup + PITR, e implementación de la Fase A (`MANIFEST.json` con integridad CRC32C de archivos en `cmd_backup`).
+- **REC-009:** Análisis de viabilidad de Product Quantization (PQ) vs SQ8/TurboQuant/RaBitQ.
+- **REC-010:** Empaquetado y tipados de Python (completado previamente).
+- **REC-999:** Corrección e historial actualizado en `docs/progreso/README.md`.
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo check --bin vanta-cli` ✅
+
+**Ids:** `REC-001`, `REC-002`, `REC-003`, `REC-004`, `REC-005`, `REC-006`, `REC-007`, `REC-008`, `REC-009`, `REC-010`, `REC-999`
 
 ### 2026-07-28 — COMP-018: Double-linked Relationship Chains ✅
 

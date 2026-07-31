@@ -1,7 +1,7 @@
 # OLD-12: Pilot Program Formal (Early Adopters)
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue)  
-**Estado:** ⚠️ Parcial (doc existe como spec, no programa ejecutable)  
+**Estado:** ✅ COMPLETED (2026-07-26, verificado batch 6: `PILOT_PROGRAM.md` + 3 templates — agreement, feedback, onboarding)  
 **Effort:** 🟡 1 sem  
 **Dependencia:** PyPI publicado ✅  
 

@@ -7,7 +7,8 @@
 - **Prioridad:** 🟡
 - **Tipo:** CI/CD
 - **Turns estimados:** 3-5
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED — 2026-07-26
+- **Resultado:** CI verify jobs actualizados a Python 3.13 (`release-wheels-60.yml` :203, :252). Build mantiene 3.11 con `abi3-py311`. `pyproject.toml` requiere `>=3.11`.
 
 ## Blast Radius
 | Dirección | Módulos |

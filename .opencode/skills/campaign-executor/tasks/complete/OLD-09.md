@@ -1,7 +1,7 @@
 # OLD-09: Olvido Bayesiano (Bayesian Hit Decay)
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue)  
-**Estado:** ⚠️ Parcial  
+**Estado:** ✅ COMPLETED (2026-07-26, verificado batch 6: `BayesianDecay` en `src/eviction.rs`, feature-gated `bayesian_decay`)  
 **Effort:** 🟡 3-4d  
 **Dependencias:** Ninguna. `EvictionPolicy` existe en `src/eviction.rs`
 

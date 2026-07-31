@@ -1,5 +1,8 @@
 # COMP-016: Supernode Mitigation (Indexed Relationships)
 
+**Estado:** ✅ COMPLETED — 2026-07-28
+**Resultado:** `label_index: HashMap<u32, Vec<u128>>` en `UnifiedNode`. `bfs_traverse_filtered`/`dfs_traverse_filtered` en `GraphTraverser` (src/graph.rs:103). SDK `graph_bfs_filtered`/`graph_dfs_filtered` + WASM + Python. 6 tests.
+
 **Effort:** 🟢 3-5d
 **Dependencies:** COMP-006 (Edge Label Interning) ✅
 **Type:** Rust core (feature-add)

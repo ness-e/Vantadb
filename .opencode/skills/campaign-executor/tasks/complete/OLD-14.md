@@ -9,7 +9,7 @@
 - **Turns estimados:** 15-30
 - **Creado:** 2026-07-26T16:00
 - **last-synced:** 2026-07-26T16:00
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-07-26, verificado batch 6: `src/gc.rs` GcWorker + `src/agentic/thread.rs` MessageThread)
 
 ## Blast Radius
 

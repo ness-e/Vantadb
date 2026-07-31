@@ -54,4 +54,4 @@ Para releases públicos de Windows, el code signing (Authenticode) es crítico p
 Requiere suscripción Azure + configuración de Azure Trusted Signing. Si no hay acceso Azure ahora, dejar preparado el paso YAML con `if: false` y documentar los secrets necesarios.
 
 ## Estado
-PENDING
+🔵 DEFERIDO — 2026-07-26 (ponytail). SHA256 + .zip dan integridad básica. Agregar Azure Trusted Signing cuando release público lo requiera. Step YAML preparado arriba, secrets documentados: `AZURE_TRUSTED_SIGNING_ENDPOINT`, `AZURE_SIGNING_ACCOUNT`, `AZURE_CERT_PROFILE`.

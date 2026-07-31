@@ -1,5 +1,8 @@
 # COMP-027: Multiple Index Types (IVF, DiskANN, SCANN)
 
+**Estado:** ✅ COMPLETED — 2026-07-28
+**Resultado:** `FlatIndex` (brute-force), `DiskAnnIndex` (Vamana graph + robust pruning, src/index/diskann.rs:40), `ScannIndex` (SQ8 scalar quantization, src/index/scann.rs:50). `IndexType::Flat/DiskAnn/Scann` + `create_index()` factory. `IvfIndex` implementa `VecIndex`. 15 tests ✅.
+
 **Effort:** 🟠 5-10d
 **Dependencies:** COMP-008 (VecIndex trait) ✅
 **Type:** Rust core — index algorithms

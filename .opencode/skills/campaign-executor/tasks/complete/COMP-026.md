@@ -1,5 +1,8 @@
 # COMP-026: Multi-level LSM Compaction (L0→L1→L2→L3)
 
+**Estado:** ✅ COMPLETED — 2026-07-28
+**Resultado:** Implementación completa en `src/lsm.rs` (SegmentRegistry, 4 niveles pre-allocados L0-L3) + `PipelineMode::CompactOnly`/`CompactL0Only` en `src/storage/engine/mod.rs:186-188`, `compact_level()` en pipeline. 13+ archivos modificados. `cargo check -p vantadb` ✅.
+
 **Prioridad:** 🟡 Media | **Esfuerzo:** 🟠 1-2 sem | **Dependencia:** COMP-013 ✅
 
 ---

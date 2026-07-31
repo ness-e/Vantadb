@@ -9,7 +9,8 @@
 - **Turns estimados:** 15-45
 - **Creado:** 2026-07-27
 - **last-synced:** 2026-07-27
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Resultado:** `LabelIntern` (HashMap<String,u32>+Vec<String>) en `src/engine.rs` (`label_intern`, `intern_label()`). `Edge.label_id: u32`. Persistido vía interner. SDK `VantaEdgeRecord.label: String` intacto.
 
 ## Blast Radius
 

@@ -1,5 +1,8 @@
 # COMP-014: FreshHNSW — Background Repair de Enlaces Huérfanos
 
+**Estado:** ✅ COMPLETED — 2026-07-27
+**Resultado:** `repair_orphan_links()` three-phase (snapshot→scan→repair) evita deadlock DashMap. `FreshHnswReport`, `PipelineMode::FreshHnswOnly`, pipeline phase entre Vacuum y Merge. 4 tests ✅ (0.49s).
+
 ## Descripción
 
 Cuando un nodo se elimina del grafo HNSW (`apply_delete` en `src/storage/engine/ops.rs:1321`), se remueve del `hnsw.nodes` DashMap. Pero las listas de vecinos (`Vec<NeighborVec>`) de otros nodos aún conservan referencias (IDs) al nodo eliminado. Estos son **enlaces huérfanos (orphan links)** que:

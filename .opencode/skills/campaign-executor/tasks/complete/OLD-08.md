@@ -1,7 +1,7 @@
 # OLD-08: Life Insurance — Snapshots via Hard Links
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue)  
-**Estado:** ⚠️ Parcial — `tests/core/snapshot_certification.rs` existe, hard-link pattern no  
+**Estado:** ✅ COMPLETED (2026-07-26, verificado batch 6: `FsSnapshot` en `storage/engine/mod.rs:150`, `create_snapshot` :454, `cli_handlers/snapshot.rs`)  
 **Effort:** 🟡 3-4d  
 **Dependencias:** Ninguna. Solo syscalls POSIX  
 

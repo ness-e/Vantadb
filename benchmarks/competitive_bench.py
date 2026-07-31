@@ -3,6 +3,29 @@
 VantaDB Competitive Benchmark Suite (T3.2)
 Compares VantaDB, LanceDB, and ChromaDB on performance (Ingestion, Read Latency, QPS, Recall, RSS Memory).
 Supports glove-100-angular, sift-128-euclidean, and synthetic datasets.
+
+=== Measurement-methodology notes (read before comparing numbers) ===
+
+1. HIDDEN REBUILD — VantaDB's Ingest timer double-counts index building.
+   `db.put_batch_raw` is called once with ALL vectors (default `--size 10000`).
+   With InsertMode::Auto, the engine skips incremental HNSW insertion when the
+   batch is >= 1000 nodes (src/storage/engine/ops.rs:957-964) and performs ONE
+   full HNSW rebuild at the end of the batch — INSIDE the Ingest timer. The
+   explicit `db.rebuild_index()` in the Index timer then rebuilds AGAIN.
+   Net: 2 full index builds per run; the Ingest/Index deltas measure the same
+   build regression twice.
+   To isolate the hidden rebuild: run with `--batch-size 999`. Chunking the
+   Python-side insert to < 1000 nodes per `put_batch_raw` call forces
+   InsertMode::Incremental (no rebuild inside Ingest). The delta
+   `--batch-size 0` (single call) minus `--batch-size 999` IS the hidden
+   rebuild cost.
+
+2. PRE-REGRESSION BASELINE IS NOT DIRECTLY COMPARABLE.
+   The 3,157 QPS / 2,196 ms baseline (git diff 1235830e on this file:
+   +152/-29 lines) measured different work: no cosine normalization
+   (`np.linalg.norm`), no JIT ground-truth (compute_ground_truth), no warmup,
+   and no median-of-3 iterations. Any comparison against those numbers is
+   approximate only.
 """
 
 import argparse
@@ -187,7 +210,7 @@ def compute_ground_truth(train_vectors, test_vectors, metric, top_k=100):
 
 
 # 4. Engine Benchmark Functions
-def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, top_k):
+def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, top_k, batch_size=0):
     print("\nBenchmarking VantaDB...")
     if os.path.exists(db_path):
         shutil.rmtree(db_path)
@@ -203,17 +226,35 @@ def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, to
     # or rely on standard config.
     namespace = "bench"
     # PERF: batch insert via put_batch_raw with zero-copy numpy array (~50-300x vs per-vector put())
+    # batch_size > 0 chunks the insert so each put_batch_raw call is < 1000 nodes, forcing
+    # InsertMode::Incremental (no hidden HNSW rebuild inside this timer — see header comment).
     n = len(train_vectors)
     keys = [f"doc-{i}" for i in range(n)]
     payloads = [f"Payload metadata entry for vector number {i}" for i in range(n)]
     metadatas = [{"index": i} for i in range(n)]
-    db.put_batch_raw(
-        vectors=train_vectors,  # numpy float32 ndarray (zero-copy via PyBuffer)
-        keys=keys,
-        payloads=payloads,
-        metadatas=metadatas,
-        namespaces=[namespace] * n,
-    )
+
+    def _put(vectors_chunk, keys_chunk, payloads_chunk, metadatas_chunk):
+        db.put_batch_raw(
+            vectors=vectors_chunk,  # numpy float32 ndarray (zero-copy via PyBuffer)
+            keys=keys_chunk,
+            payloads=payloads_chunk,
+            metadatas=metadatas_chunk,
+            namespaces=[namespace] * len(keys_chunk),
+        )
+
+    if batch_size and batch_size > 0:
+        for i in range(0, n, batch_size):
+            end = min(i + batch_size, n)
+            _put(
+                train_vectors[i:end],
+                keys[i:end],
+                payloads[i:end],
+                metadatas[i:end],
+            )
+    else:
+        # Default (--batch-size 0): single call, full array — the engine performs ONE full
+        # HNSW rebuild at the end of the batch, INSIDE this timer (see header comment).
+        _put(train_vectors, keys, payloads, metadatas)
     db.flush()
     ingest_time = time.perf_counter() - start_time
     rss_after_ingest = get_current_rss()
@@ -548,6 +589,11 @@ def main():
     parser.add_argument("--size", type=int, default=10000, help="Number of database vectors to load/generate")
     parser.add_argument("--queries", type=int, default=100, help="Number of query vectors")
     parser.add_argument("--top-k", type=int, default=10, help="Top K neighbors to retrieve")
+    parser.add_argument("--batch-size", type=int, default=0,
+                        help="VantaDB ingest chunk size. 0 = single put_batch_raw call (default; hidden "
+                             "HNSW rebuild runs inside the Ingest timer). 999 = chunked incremental "
+                             "insert (no rebuild inside Ingest). Delta between the two isolates the "
+                             "hidden rebuild cost. See header comment.")
     parser.add_argument("--dataset-dir", type=str, default="./datasets", help="Path to HDF5 dataset folder")
     parser.add_argument("--db-dir", type=str, default="./benchmarks/competitive_data", help="Temporal folder for databases")
     parser.add_argument("--output", type=str, default="docs/BENCHMARKS.md", help="Path to docs/BENCHMARKS.md to append results")
@@ -579,20 +625,20 @@ def main():
 
     # D4: 3 iterations per engine, report median
     engines = [
-        ("vanta", bench_vantadb, os.path.join(args.db_dir, "vanta_db")),
-        ("lance", bench_lancedb, os.path.join(args.db_dir, "lance_db")),
-        ("chroma", bench_chromadb, os.path.join(args.db_dir, "chroma_db")),
+        ("vanta", bench_vantadb, os.path.join(args.db_dir, "vanta_db"), {"batch_size": args.batch_size}),
+        ("lance", bench_lancedb, os.path.join(args.db_dir, "lance_db"), {}),
+        ("chroma", bench_chromadb, os.path.join(args.db_dir, "chroma_db"), {}),
     ]
 
     all_engine_results = []  # (name, [run1_dict, run2_dict, run3_dict])
 
-    for name, bench_fn, path in engines:
+    for name, bench_fn, path, kwargs in engines:
         print(f"\n--- Running {name.capitalize()} (3 iterations) ---")
         runs = []
         for i in range(3):
             gc.collect()
             try:
-                res = bench_fn(path, train_vectors, test_vectors, ground_truth, metric, args.top_k)
+                res = bench_fn(path, train_vectors, test_vectors, ground_truth, metric, args.top_k, **kwargs)
                 runs.append(res)
             except Exception as e:
                 print(f"  ERROR: Failed to benchmark {name} (run {i+1}): {e}")
@@ -645,6 +691,14 @@ def main():
     print("=" * 60)
     print(table_md)
     print("=" * 60)
+    if args.batch_size and args.batch_size > 0:
+        print(f"Ingest mode: chunked (--batch-size {args.batch_size}) — no hidden rebuild inside VantaDB Ingest timer.")
+    else:
+        print("Ingest mode: single put_batch_raw call — VantaDB's full HNSW rebuild runs INSIDE the Ingest timer;")
+        print("  re-run with `--batch-size 999` to isolate that hidden rebuild cost (see header comment).")
+    print("Baseline reference: 3,157 QPS / 2,196 ms is NOT directly comparable — pre-regression baseline")
+    print("  measured a different workload (no cosine normalization, no JIT ground-truth, no warmup,")
+    print("  no median-of-3). See header comment.")
 
     # Write report back to docs/BENCHMARKS.md if specified
     if args.output and os.path.exists(args.output):

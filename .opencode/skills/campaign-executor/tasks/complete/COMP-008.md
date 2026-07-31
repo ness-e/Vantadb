@@ -9,7 +9,8 @@
 - **Turns estimados:** 20-40
 - **Creado:** 2026-07-27
 - **last-synced:** 2026-07-27
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED — 2026-07-27
+- **Resultado:** `trait VecIndex: Send + Sync` en `src/index/mod.rs` (search/add/len/estimate_memory_bytes). Implementado para CPIndex e IvfIndex. `vector_memory_search` usa `engine.vec_index()`. 1679 tests ✅.
 
 ## Contexto Actual
 

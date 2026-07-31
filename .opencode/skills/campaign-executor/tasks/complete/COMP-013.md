@@ -1,6 +1,7 @@
 # COMP-013 — Segment Optimizer Pipeline (Vacuum/Merge/Index)
 
-**Estado:** ⚠️ Parcial → **Objetivo:** ✅ Completa
+**Estado:** ✅ COMPLETED — 2026-07-27
+**Resultado:** `PipelineMode` (Full/VacuumOnly/MergeOnly/IndexOnly), `VacuumReport`, `MergeReport`, `PipelineReport`, `SegmentOptimizerConfig` en `VantaConfig`. `vacuum()`/`merge_segments()`/`run_pipeline()` en maintenance.rs + SDK `vacuum()`/`pipeline()`/`optimizer_config()`. 77 tests.
 **Esfuerzo:** 🟡 1-2 semanas
 **Dependencias:** COMP-004 (bitset soft deletes), COMP-011 (HNSW CRUD tombstones) — ✅ ya implementadas
 

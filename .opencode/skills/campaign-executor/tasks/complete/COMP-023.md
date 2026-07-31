@@ -1,5 +1,8 @@
 # COMP-023: 3 Filtering Strategies (Pre/In/Post) with Selectivity-Based Optimizer
 
+**Estado:** ✅ COMPLETED — 2026-07-28
+**Resultado:** `FilterStrategy::PreFilter/InFilter/PostFilter` + `select_filter_strategy()` (joint selectivity: <1% pre, 1-10% in, ≥10% post) en `src/sdk/search/mod.rs:38-75`. `bitset_from_filters` reutiliza `records_for_namespace()`. 1589 tests ✅.
+
 ## Metadata
 - **ID:** COMP-023
 - **Priority:** 🟡 Media
