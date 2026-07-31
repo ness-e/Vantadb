@@ -191,7 +191,7 @@ impl HardwareScout {
                     0,
                 )
             };
-            return (rc == 0).then_some(mem);
+            (rc == 0).then_some(mem)
         }
 
         #[cfg(target_os = "windows")]
@@ -203,7 +203,7 @@ impl HardwareScout {
             status.dwLength = std::mem::size_of::<MEMORYSTATUSEX>() as u32;
             // SAFETY: GlobalMemoryStatusEx fills the zeroed POD struct; dwLength is set first.
             let rc = unsafe { GlobalMemoryStatusEx(&mut status) };
-            return (rc != 0).then_some(status.ullTotalPhys);
+            (rc != 0).then_some(status.ullTotalPhys)
         }
 
         #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
