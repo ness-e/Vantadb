@@ -401,7 +401,10 @@ impl CPIndex {
                     let vec_bytes = take_bytes(data, &mut pos, byte_len, "f32 vec")?;
                     let v = match bytemuck::try_cast_slice::<u8, f32>(vec_bytes) {
                         Ok(slice) => slice.to_vec(),
-                        Err(_) => bytemuck::pod_collect_to_vec(vec_bytes),
+                        Err(_) => vec_bytes
+                            .chunks_exact(4)
+                            .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
+                            .collect(),
                     };
                     VectorRepresentations::Full(v)
                 }
