@@ -484,7 +484,7 @@ impl crate::index::VecIndex for IvfIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::index::graph::{HnswConfig, HnswNode, NeighborVec};
+    use crate::index::graph::{HnswConfig, HnswNode};
     use dashmap::DashMap;
 
     /// Helper: build a CPIndex with `n` distinct 2D vectors placed at
