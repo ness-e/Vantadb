@@ -15,7 +15,7 @@
    - A1: target-cpu=native ✅
    - B3: select_nth_unstable_by ✅
     - A2: get_neighbors_ref ❌
-    - B5: thread_local RNG ⏳
+    - B5: thread_local RNG ✅ (resuelto en Fase 2)
     - A4: Sweep paramétrico ✅
     - A3: Ground truth datasets reales ✅
     - A5: cargo-criterion ⏳
@@ -43,8 +43,8 @@
 
 | Tipo | Cantidad |
 |------|----------|
-| ✅ Completadas | 8 |
-| ⏳ Pendientes | 7 |
+| ✅ Completadas | 9 |
+| ⏳ Pendientes | 6 |
 | ❌ Revertidas/Descartadas | 2 |
 | ❌ Skipped (probado, 0% mejora) | 1 |
 | **Total** | **18** |
@@ -285,10 +285,10 @@ Se implementó `get_neighbors_ref()` + thread-local pool en search_layer y se mi
 
 ---
 
-### ⏳ B5 — thread_local RNG para random_layer
+### ✅ B5 — thread_local RNG para random_layer (RESUELTO en Fase 2)
 
 **Tipo:** 🔧 Eliminación de lock contention
-**Estado:** ⏳ PENDIENTE — no medido como bottleneck
+**Estado:** ✅ COMPLETADO (2026-07-31) — verificado que la contención ya fue eliminada en Fase 2
 
 #### Investigación
 
@@ -296,37 +296,27 @@ Se implementó `get_neighbors_ref()` + thread-local pool en search_layer y se mi
 - **Hallazgo:** `random_layer()` en `graph.rs:420-424` usa `self.rng.lock()` (parking_lot::Mutex<StdRng>)
 - **Impacto:** En inserts secuenciales, el Mutex nunca tiene contención. En inserts paralelos (rayon rebuild), cada thread compite por el mismo lock.
 
-#### Análisis de Riesgos
+#### Verificación (2026-07-31)
 
-- **Beneficio:** Solo visible en rebuilds paralelos con rayon. En inserts single-thread, no hay diferencia.
-- **Riesgo:** `SmallRng` es más rápido pero menos criptográficamente seguro — no relevante para random_layer.
-- **Seed:** Usar seed fija por thread garantiza reproducibilidad.
-
-#### Implementación Propuesta
+**El rebuild paralelo ya NO usa `random_layer()` ni el Mutex:**
 
 ```rust
-// En graph.rs:
-thread_local! {
-    static THREAD_RNG: std::cell::RefCell<rand::rngs::SmallRng> =
-        const { std::cell::RefCell::new(rand::rngs::SmallRng::seed_from_u64(42)) };
-}
-
-fn random_layer(&self) -> usize {
-    THREAD_RNG.with(|rng| {
-        let r: f64 = rng.borrow_mut().random_range(0.0001..1.0);
-        (-r.ln() * self.config.ml).floor() as usize
-    })
-}
+// src/storage/archive.rs:272-287 — rebuild paralelo
+entries.into_par_iter().for_each(|entry| {
+    let level = crate::index::random_layer_from_config(&hnsw.config, &mut rand::rng());
+    hnsw.add_with_level(entry.id, bitset, entry.vec_data, entry.storage_offset, level);
+});
 ```
 
-#### Criterio para Activar
-
-- **Gate:** ⏳ Profiling con samply debe mostrar >5% de tiempo en `rng.lock()` durante rebuild paralelo.
-- **Prioridad:** MEDIA — ya hay ponytail comment documentado.
+- `rand::rng()` en rand 0.9 devuelve un RNG **thread-local** — cada thread tiene el suyo, sin contención.
+- `add_with_level()` (graph.rs:550) recibe el nivel pre-computado y **evita** `random_layer()` completamente.
+- El único caller restante de `random_layer()` (el Mutex) es `insert_hnsw()` (graph.rs:570) — el path de inserts incrementales single-threaded, donde **no hay contención por definición**.
 
 #### Decisión
 
-⏳ **DIFERIDA** hasta obtener profiling real con samply.
+✅ **COMPLETADO.** La contención del Mutex en el rebuild paralelo fue eliminada en Fase 2 con `add_with_level()` + `random_layer_from_config()` + `rand::rng()`. El gate original de B5 (samply >5% en rng.lock() durante rebuild paralelo) **no puede cumplirse** porque el rebuild paralelo ya no toca el Mutex. El overhead restante en inserts single-threaded (~2-5µs uncontested por insert ≈ 0.2% de 1.2ms) es despreciable. Convertir `random_layer()` a thread_local no aportaría ganancia medible.
+
+> **Lección:** La optimización propuesta ya había sido implementada indirectamente en Fase 2 — B5 debió marcarse completado al hacer Fase 2. El análisis de código (codegraph) reveló que la contención ya no existía sin necesidad de profiling.
 
 ---
 
@@ -823,6 +813,7 @@ Compilador: rustc, bench profile (opt-level=3, lto, codegen-units=1)
 7. **AutoTune global contaminaba el param_sweep** — no se reseteaba entre configs de benchmark. Fix: `AutoTune::set_ef(1)` añadido.
 8. **Ground truth de ann-benchmarks usa índices del dataset 1M** — no es directamente usable para subsets 10k. El bench recalcula brute-force en 0.2s.
 9. **La regresión de competitive_bench.py (−34~44% Ingest, +89~113% Index) era causada por target-cpu=native NO activo en builds del wheel PyO3** — el cambio A1 no estaba commiteado, y el wheel instalado se compiló sin él. Con `RUSTFLAGS="-C target-cpu=native"`: Ingest recuperó ~75% del gap, Index ~45%. Lección: **el wheel local debe recompilarse tras cada cambio de build flags** (ver §A1 y COMPETITIVE_ANALYSIS.md §3C).
+10. **Throttling térmico y power plan afectan TODOS los benchmarks en esta máquina (i5-1235U)** — el 2026-07-31 hnsw_pure mostró regresión falsa (+38~63%) vs baseline del día anterior sin cambios de código. **CONFIRMADO experimentalmente:** el plan activo era "Driver Booster Power Plan" (tercero). Al cambiar a "Alto rendimiento" (`powercfg /setactive 8c5e7fda...`), los números volvieron: insert 19.9s→**12.05s** (−39.6%), search 993ms→**721ms** (−27.4%). **hnsw_pure nunca regresó — está 4-6% más rápido que baseline.** Lección: **siempre verificar clock speed + power plan antes de comparar benchmarks entre sesiones. `powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c` (Alto rendimiento) es requisito para benchmarks.**
 
 ### Historial de Benchmarks Ejecutados
 
