@@ -313,10 +313,9 @@ jobs:
     name: Experimental Crates Check
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # CATEGORY: EXPERIMENTAL — experimental crates may fail without blocking CI.
-    # This job provides visibility into the health of server, MCP, WASM, and
-    # adapter crates. Failures do not gate the fast lane.
-    continue-on-error: true
+    # CATEGORY: EXPERIMENTAL — server, MCP, WASM, and adapter crates. These
+    # crates are not in workspace default-members; this job checks them so
+    # regressions surface in CI. Must pass before merge.
     steps:
       - uses: actions/checkout@v4
 
@@ -329,7 +328,12 @@ jobs:
         run: cargo check -p vantadb-server -p vantadb-mcp -p vantadb-wasm
 
       - name: Check experimental adapter crates
-        run: cargo check -p vantadb-openai -p vantadb-ollama -p vantadb-litellm
+        # providers/* are intentionally NOT workspace members (MSVC linker
+        # crash on Windows) — check them individually via --manifest-path.
+        run: |
+          cargo check --manifest-path providers/openai/Cargo.toml
+          cargo check --manifest-path providers/ollama/Cargo.toml
+          cargo check --manifest-path providers/litellm/Cargo.toml
 
   audit:
     name: Security Audit
