@@ -788,13 +788,15 @@ pub async fn build_tls13_config(
     Ok(config)
 }
 
-/// Flush storage and log the result.
-fn flush_on_shutdown(storage: &crate::storage::StorageEngine) {
+/// Flush storage and log the result using spawn_blocking to avoid blocking Tokio.
+async fn flush_on_shutdown_async(storage: Arc<crate::storage::StorageEngine>) {
     console::warn("Flushing storage before exit...", None);
-    if let Err(e) = storage.flush() {
-        console::error("Flush failed during shutdown", Some(&e.to_string()));
-    } else {
-        console::ok("Storage flushed", None);
+    let flush_res = tokio::task::spawn_blocking(move || storage.flush()).await;
+
+    match flush_res {
+        Ok(Err(e)) => console::error("Flush failed during shutdown", Some(&e.to_string())),
+        Ok(Ok(())) => console::ok("Storage flushed", None),
+        Err(e) => console::error("Flush task panicked during shutdown", Some(&e.to_string())),
     }
     #[cfg(feature = "opentelemetry")]
     shutdown_telemetry();
@@ -814,7 +816,7 @@ async fn serve_http_or_tls(
             Ok(c) => axum_server::tls_rustls::RustlsConfig::from_config(Arc::new(c)),
             Err(e) => {
                 console::error("Failed to load TLS certificate/key", Some(&e.to_string()));
-                flush_on_shutdown(&storage);
+                flush_on_shutdown_async(storage.clone()).await;
                 return false;
             }
         };
@@ -823,7 +825,7 @@ async fn serve_http_or_tls(
             Ok(a) => a,
             Err(e) => {
                 console::error("Invalid bind address", Some(&e.to_string()));
-                flush_on_shutdown(&storage);
+                flush_on_shutdown_async(storage.clone()).await;
                 return false;
             }
         };
@@ -836,13 +838,7 @@ async fn serve_http_or_tls(
         tokio::spawn(async move {
             wait_for_shutdown_signal().await;
             console::warn("Shutting down TLS server gracefully...", None);
-            if let Err(e) = storage_clone.flush() {
-                console::error("Flush failed during shutdown", Some(&e.to_string()));
-            } else {
-                console::ok("Storage flushed", None);
-            }
-            #[cfg(feature = "opentelemetry")]
-            shutdown_telemetry();
+            flush_on_shutdown_async(storage_clone).await;
             handle_clone.graceful_shutdown(Some(Duration::from_secs(10)));
         });
 
@@ -852,11 +848,11 @@ async fn serve_http_or_tls(
             .await
         {
             console::error("TLS server terminated unexpectedly", Some(&e.to_string()));
-            flush_on_shutdown(&storage);
+            flush_on_shutdown_async(storage.clone()).await;
             return false;
         }
 
-        flush_on_shutdown(&storage);
+        flush_on_shutdown_async(storage.clone()).await;
         return true;
     }
 
@@ -867,7 +863,7 @@ async fn serve_http_or_tls(
         }
         Err(e) => {
             console::error("Failed to bind port", Some(&e.to_string()));
-            flush_on_shutdown(&storage);
+            flush_on_shutdown_async(storage.clone()).await;
             return false;
         }
     };
@@ -893,7 +889,7 @@ async fn serve_http_or_tls(
         console::error("Server terminated unexpectedly", Some(&e.to_string()));
     }
 
-    flush_on_shutdown(&storage);
+    flush_on_shutdown_async(storage.clone()).await;
     true
 }
 

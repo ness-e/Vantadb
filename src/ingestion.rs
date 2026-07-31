@@ -80,7 +80,18 @@ impl AsyncIngestionPipeline {
             match item {
                 Some((task, response_tx)) => {
                     let start = Instant::now();
-                    let result = Self::process(&engine, task);
+                    let engine_clone = Arc::clone(&engine);
+                    let run_res =
+                        tokio::task::spawn_blocking(move || Self::process(&engine_clone, task))
+                            .await;
+
+                    let result = match run_res {
+                        Ok(res) => res,
+                        Err(e) => Err(crate::error::VantaError::generic_error(format!(
+                            "Ingestion worker task panicked: {}",
+                            e
+                        ))),
+                    };
                     let _ = response_tx.send(result.map(|_| start.elapsed().as_micros()));
                 }
                 None => break,
