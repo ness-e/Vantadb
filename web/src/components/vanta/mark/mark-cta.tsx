@@ -113,7 +113,6 @@ export function MarkCta({
   // Trigger reaction on clickButton change
   useEffect(() => {
     if (clickButton && clickButton.timestamp > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       handleClickReaction(clickButton.button);
     }
   }, [clickButton, handleClickReaction]);

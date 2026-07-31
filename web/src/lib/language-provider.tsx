@@ -34,7 +34,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     // The cascading render is acceptable (runs once on mount).
     const stored = localStorage.getItem("vantadb-lang") as Lang | null;
     if (stored && (stored === "es" || stored === "en")) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLangState(stored);
       document.documentElement.lang = stored;
     } else {

@@ -1072,6 +1072,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_graph_hnsw_build_and_search() {
         let config = HnswConfig {
             m: 8,
@@ -1105,6 +1106,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_graph_hnsw_euclidean() {
         let config = HnswConfig {
             m: 8,
@@ -1146,6 +1148,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_graph_hnsw_multiple_layers() {
         // Insert enough vectors to trigger multiple HNSW layers
         let config = HnswConfig {
@@ -1177,6 +1180,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_graph_entry_point_management() {
         let index = CPIndex::new();
         assert!(index.get_entry_point().is_none());

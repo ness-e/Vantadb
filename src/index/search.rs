@@ -1217,6 +1217,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_search_layer_empty_entry_points() {
         let index = make_index(DistanceMetric::Cosine);
         add_node(&index, 0, vec![1.0, 0.0, 0.0]);
@@ -1241,6 +1242,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_search_layer_cosine_small() {
         let index = make_index(DistanceMetric::Cosine);
         add_node(&index, 0, vec![1.0, 0.0, 0.0]);
@@ -1271,6 +1273,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_search_layer_euclidean() {
         let index = make_index(DistanceMetric::Euclidean);
         add_node(&index, 0, vec![1.0, 0.0]);
@@ -1300,6 +1303,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_search_nearest_hnsw_path() {
         // Force HNSW path (flat_threshold = None)
         let index = make_hnsw_index(DistanceMetric::Cosine);
@@ -1315,6 +1319,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_search_nearest_hnsw_euclidean() {
         let index = make_hnsw_index(DistanceMetric::Euclidean);
         for i in 0u128..10 {
@@ -1330,6 +1335,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_select_neighbors_basic() {
         let index = make_index(DistanceMetric::Cosine);
         for i in 0u128..6 {
@@ -1350,6 +1356,7 @@ mod tests {
 
     #[cfg(miri)]
     #[test]
+    #[ignore] // croaring (C FFI) can't run under Miri
     fn miri_select_neighbors_euclidean() {
         let index = make_index(DistanceMetric::Euclidean);
         for i in 0u128..4 {
