@@ -140,10 +140,11 @@ impl HardwareScout {
 
         #[cfg(not(feature = "sysinfo"))]
         {
-            let env_hash = 0;
             let instructions = Self::detect_instructions();
-            let logical_cores = 1;
-            let total_memory = GIB; // Conservative 1GB default
+            let logical_cores = std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1);
+            let total_memory = Self::detect_total_memory_native().unwrap_or(GIB);
             let profile = Self::determine_profile(total_memory, instructions);
             let resource_score =
                 Self::calculate_resource_score(total_memory, logical_cores, instructions);
@@ -154,11 +155,60 @@ impl HardwareScout {
                 logical_cores,
                 total_memory,
                 resource_score,
-                env_hash,
+                env_hash: 0,
             };
 
             Self::log_adaptive_status(&caps, false);
             caps
+        }
+    }
+
+    /// Detect total physical RAM via native OS APIs, with no `sysinfo` dependency.
+    /// Returns `None` when the platform provides no supported query.
+    #[cfg(not(feature = "sysinfo"))]
+    fn detect_total_memory_native() -> Option<u64> {
+        #[cfg(target_os = "linux")]
+        {
+            use std::fs;
+            let content = fs::read_to_string("/proc/meminfo").ok()?;
+            let line = content.lines().find(|l| l.starts_with("MemTotal:"))?;
+            let kb: u64 = line.split_whitespace().nth(1)?.parse().ok()?;
+            return Some(kb * 1024);
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            use libc::sysctlbyname;
+            let mut mem: u64 = 0;
+            let mut len = std::mem::size_of::<u64>();
+            // SAFETY: `hw.memsize` is a stable macOS sysctl; writes into a POD u64 buffer.
+            let rc = unsafe {
+                sysctlbyname(
+                    b"hw.memsize\0".as_ptr().cast(),
+                    &mut mem as *mut u64 as *mut _,
+                    &mut len,
+                    std::ptr::null_mut(),
+                    0,
+                )
+            };
+            return (rc == 0).then_some(mem);
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            use windows_sys::Win32::System::SystemInformation::{
+                GlobalMemoryStatusEx, MEMORYSTATUSEX,
+            };
+            let mut status: MEMORYSTATUSEX = unsafe { std::mem::zeroed() };
+            status.dwLength = std::mem::size_of::<MEMORYSTATUSEX>() as u32;
+            // SAFETY: GlobalMemoryStatusEx fills the zeroed POD struct; dwLength is set first.
+            let rc = unsafe { GlobalMemoryStatusEx(&mut status) };
+            return (rc != 0).then_some(status.ullTotalPhys);
+        }
+
+        #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+        {
+            None
         }
     }
 
@@ -540,7 +590,7 @@ mod tests {
     #[test]
     fn test_detect_returns_valid_caps() {
         let caps = HardwareScout::detect();
-        // Without sysinfo: 1 core, 1GB default; with sysinfo: real values
+        // Without sysinfo: real values; with sysinfo: real values
         assert!(caps.logical_cores >= 1, "at least 1 core");
         assert!(caps.total_memory >= GIB, "at least 1GB RAM");
         match caps.instructions {
@@ -553,6 +603,16 @@ mod tests {
             HardwareProfile::Enterprise
             | HardwareProfile::Performance
             | HardwareProfile::LowResource => {}
+        }
+    }
+
+    #[cfg(not(feature = "sysinfo"))]
+    #[test]
+    fn test_native_memory_detection_reports_real_ram() {
+        // Native detection must never return the hardcoded 1GB default on a
+        // supported desktop OS — it should report actual physical RAM.
+        if let Some(mem) = HardwareScout::detect_total_memory_native() {
+            assert!(mem > GIB, "native RAM detection reported {mem} bytes");
         }
     }
 
