@@ -321,6 +321,23 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `INV-001`
 
+### 2026-07-30 — INV-024: Unsafe Blocks Audit ✅
+
+**Fuente:** Backlog (Phase 1 — Security & Critical) `INV-024`
+
+**Resuelto por (vanta-audit):**
+- Auditados **39 bloques `unsafe`** en 11 archivos del core Rust
+- Clasificación: 28 SAFE, 4 SAFE_BUT_UNDOCUMENTED, 7 UB_POTENTIAL
+- **🔴 High (1):** panic-DoS en `sq8_similarity` (`distance.rs:411/450`) — reachable desde API pública (`search_vector` → `search_nearest` → `calculate_similarity`), sin guard de dimensiones. Query de 9 dims contra SQ8 de 8 dims → panic. Fix de una línea.
+- **🟠 Medium (1):** UB por alineación — `header.vector_offset` nunca validado como múltiplo de 4 en runtime (solo `debug_assert`, ausente en release). Afecta 7 sitios (`ops.rs:509` ni siquiera tiene debug_assert).
+- **🟡 Low (3):** RUSTSEC-2026-0002 (lru via ratatui, allowed), MmapFull sin validación de contenido (NaN silencioso), `_force_copy` muerto.
+- `cargo deny check` **PASSED** | `cargo audit` 0 critical/high/medium
+- Reporte: `docs/audit-reports/inv-024-unsafe-audit-2026-07-30.md`
+
+**Veredicto:** ✅ Core sólido. Fix recomendado primero: guard de una línea en `sq8_similarity`; luego fix central de alineación en `read_header`.
+
+**Ids:** `INV-024`
+
 ### 2026-07-29 — REC-007: WAL Compaction + Vacuum CLI ✅
 
 **Fuente:** Backlog (Phase 8 — Post-Launch & Enterprise) `REC-007`
