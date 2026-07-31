@@ -321,6 +321,23 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `INV-001`
 
+### 2026-07-30 — INV-002: Memory Telemetry Correction ✅
+
+**Fuente:** Backlog (Phase 4 — Engineering Health) `INV-002`
+
+**Resuelto por (vanta-tuner):**
+- Inventario completo: 10+ métricas mapeadas a fuente real (PSAPI/sysinfo, `estimate_memory_bytes`, `VantaFile::mmap_resident_bytes`, jemalloc-ctl, CacheWarmer dead code, MemoryGovernor sin gauge)
+- Hallazgos clave: `volatile_cache_cap_bytes` hardcoded `0` (roto), sampler periódico inexistente, `MemoryGovernor` no conectado a métricas
+- Esquema de 5 categorías diseñado (core / index / page_cache / mmap / ingest) con invariante explícita: categorías son vistas ortogonales, nunca sumarlas como total; único agregado es RSS del OS (`core ≈ rss − index − page_cache − mmap − ingest`)
+- Propuesta: `IntGaugeVec` con label fijo `category` — validado contra API oficial `tikv/rust-prometheus`; descartado `metrics`/`metrics-tracing` del backlog (workspace usa prometheus 0.14 directo)
+- Contrato público `OperationalMetrics` (TS SDK) preservado — Vec aditivo en `/metrics`
+- Doc actualizado: `docs/operations/MEMORY_TELEMETRY.md` (+357 líneas, reconciliado DISC-05), cross-ref en `PERFORMANCE_TUNING.md`
+- **Sin implementación** — solo diseño + propuesta (src/ intacto)
+
+**Veredicto:** ✅ Esquema aprobado para fase 2 (implementación de gauges por categoría como task futuro).
+
+**Ids:** `INV-002`
+
 ### 2026-07-30 — INV-024: Unsafe Blocks Audit ✅
 
 **Fuente:** Backlog (Phase 1 — Security & Critical) `INV-024`

@@ -112,6 +112,11 @@ This is a **budget hint** — it influences:
 - Backpressure thresholds (combined with `rss_threshold`).
 - The `HardwareProfile` detection (`Performance` vs `LowResource`).
 
+> **Memory telemetry cross-reference:** the memory observability contract
+> (five categories: core / index / page_cache / mmap / ingest, label proposal,
+> summation invariant) lives in [MEMORY_TELEMETRY.md](MEMORY_TELEMETRY.md). Do
+> not infer memory efficiency from `process_rss_bytes` alone.
+
 ```rust
 // Rust: programmatic override
 let config = VantaConfig::default()
