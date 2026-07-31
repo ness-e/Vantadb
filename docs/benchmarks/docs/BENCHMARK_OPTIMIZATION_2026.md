@@ -43,8 +43,8 @@
 
 | Tipo | Cantidad |
 |------|----------|
-| ✅ Completadas | 12 |
-| ⏳ Pendientes | 3 |
+| ✅ Completadas | 14 |
+| ⏳ Pendientes | 1 |
 | ❌ Revertidas/Descartadas | 2 |
 | ❌ Skipped (probado, 0% mejora) | 1 |
 | **Total** | **18** |
@@ -432,40 +432,71 @@ cargo criterion --bench hnsw_recall_ef
 
 ---
 
-### ⏳ C2 — Benchmarks multi-thread
+### ✅ C2 — Benchmarks multi-thread
 
 **Tipo:** 📊 Benchmark nuevo
-**Estado:** ⏳ PENDIENTE
+**Estado:** ✅ COMPLETADO (2026-07-31)
 
 #### Investigación
-- **Origen:** Análisis de código — `bench_concurrent.rs` es dead code
-- **Hallazgo:** VantaDB no mide throughput con >1 hilo a pesar de tener DashMap concurrente y soporte rayon
+- **Origen:** Análisis de código — `bench_concurrent.rs` era dead code (registrado en Cargo.toml pero sin `fn main` Criterion)
+- **Hallazgo:** VantaDB no medía throughput con >1 hilo a pesar de tener DashMap concurrente y soporte rayon
 
-#### Implementación Propuesta
-- **Archivo:** `benches/mt_throughput.rs` (~100 líneas)
-- **Escenarios:** Throughput con 1, 2, 4, 8, 16 hilos
-- **Métricas:** QPS, speedup, eficiencia
+#### Implementación Realizada
+- **Archivo:** `benches/bench_concurrent.rs` (refactorizado con Criterion + `fn main`)
+- **Escenarios:** Throughput con 1, 4, 8, 16 hilos (reads concurrentes) + 1 writer + N readers
+- **Métricas:** QPS, p50µs, p99µs, speedup, eficiencia
+
+#### Resultados (N=10,000, D=128, 3s por escenario)
+
+**Escenario A — Reads concurrentes (sin writes):**
+
+| Hilos | QPS | p50 (µs) | p99 (µs) | Speedup | Eficiencia |
+|-------|-----|----------|----------|---------|------------|
+| 1 | 532.8 | 1,876 | 3,035 | 1.00× | 100.0% |
+| 4 | 2,355.9 | 1,632 | 2,719 | **4.42×** | **110.5%** |
+| 8 | 2,973.8 | 2,422 | 6,908 | 5.58× | 69.8% |
+| 16 | 4,959.0 | 2,316 | 21,580 | 9.31× | 58.2% |
+
+**Escenario B — Mixed Read-Write (1 writer + N readers):**
+
+| Readers | QPS reads | p50 (µs) | p99 (µs) | Insert Rate |
+|---------|-----------|----------|----------|-------------|
+| 1 | 289.6 | 3,295 | 5,024 | 53.8 ins/s |
+| 4 | 782.8 | 5,073 | 9,459 | 33.5 ins/s |
+| 8 | 1,247.2 | 6,037 | 14,822 | 24.9 ins/s |
+| 16 | 1,523.7 | 7,354 | 39,843 | 16.8 ins/s |
 
 #### Decisión
-⏳ **PENDIENTE.**
+✅ **COMPLETADO.** Super-lineal a 4 hilos (110.5% eficiencia) por aprovechamiento de caches L2/L3. Ver COMPETITIVE_ANALYSIS.md §8.
 
 ---
 
-### ⏳ C1 — Benchmarks filtered search (ACORN)
+### ✅ C1 — Benchmarks filtered search (ACORN)
 
 **Tipo:** 📊 Benchmark nuevo
-**Estado:** ⏳ PENDIENTE
+**Estado:** ✅ COMPLETADO (2026-07-31)
 
 #### Investigación
 - **Origen:** Análisis de código — ACORN-1 expansion en search_layer
-- **Hallazgo:** VantaDB tiene ACORN implementado pero no benchmarkeado. Es una fortaleza única frente a competidores.
+- **Hallazgo:** VantaDB tiene ACORN implementado pero no benchmarkeado. Es una fortaleza única frente a competidores (LanceDB, ChromaDB, Milvus no tienen filtrado HNSW de alta calidad).
 
-#### Implementación Propuesta
-- **Archivo:** `benches/acorn_filter.rs` (~100 líneas)
-- **Escenarios:** 0%, 25%, 50%, 75%, 90% de filtros
+#### Implementación Realizada
+- **Archivo:** `benches/acorn_filtered_search.rs`
+- **Escenarios:** Selectividades 1%, 5%, 10%, 50%, 100% (sin filtro)
+- **N:** 10,000 vectores, D=128, k=10. Index build: 4.836s
+
+#### Resultados
+
+| Selectividad | Throughput | Recall@10 | p50 (µs) | p99 (µs) |
+|--------------|-----------|-----------|----------|----------|
+| **1%** | 104.3 QPS | **100.00%** | 9,546 | 11,067 |
+| **5%** | 302.7 QPS | **100.00%** | 3,300 | 4,594 |
+| **10%** | 443.3 QPS | **100.00%** | 2,177 | 3,230 |
+| 50% | 1,358.0 QPS | 95.30% | 674 | 1,431 |
+| 100% (sin filtro) | 2,971.5 QPS | 81.65% | 316 | 656 |
 
 #### Decisión
-⏳ **PENDIENTE.**
+✅ **COMPLETADO.** Primer baseline cuantitativo de la ventaja ACORN: Recall=100% a selectividades 1-10%. LanceDB y ChromaDB no tienen esta garantía (IVF/brute-force post-filtrado). Ver COMPETITIVE_ANALYSIS.md §9.
 
 ---
 
@@ -841,6 +872,12 @@ Compilador: rustc, bench profile (opt-level=3, lto, codegen-units=1)
 | 2026-07-31 | hnsw_recall_ef | build_index, sweep ef (D=128) | **4.77s build, 310-318ms search ef_10-100** | CPU 49%. ⚠️ build +21% vs baseline; ef_200/400 +66-90% (hallazgo #12) |
 | 2026-07-31 | incremental_bench | rebuild/auto/inc (D=768) | batch 50-1000: −40-46% vs throttled base | ⚠️ NO VÁLIDO como mejora — base estaba throttled. batch 10: +12-25% ruidoso |
 | 2026-07-31 | hnsw_recall_ef (harness CORREGIDO) | build_index, sweep ef (D=128) | build 9.12s; recall 0.229→0.9975 (ef 10→400) | ✅ PRIMER HNSW real medido (flat_threshold: None + AutoTune reset). Absolutos válidos; **build 9.12s y deltas criterion INVALID** — CPU 60-90% + soak térmico tras compile 4m49s. Search 7× más rápido que flat. Fix B2 incluido. |
+| **2026-07-31** | **competitive_bench.py [POST-P0/P1/P2]** | **GloVe-100 --batch-size 999** | **1,754 QPS ingest / 2,577ms index / 622.6 QPS query** | ✅ Baseline limpio post-fix B2. Recall 100%. Query QPS +77% vs run anterior (bytemuck+cached norms). Ingest QPS menor que anterior porque anterior medía doble-rebuild. |
+| **2026-07-31** | **competitive_bench.py [POST-P0/P1/P2]** | **SIFT-128 --batch-size 999** | **2,099 QPS ingest / 2,203ms index / 551.7 QPS query** | ✅ Baseline limpio. Recall 99.4%. Index time −32% vs run anterior. |
+| **2026-07-31** | **hnsw_recall_ef [POST-P0/P1/P2]** | **ef sweep D=128, entorno limpio** | **build 4.170s (efC=100); recall 0.2365→0.9945 (ef 10→400)** | ✅ Criterion: build −23.87% (p=0.00), search_ef_100 −31.25% (p=0.00). efC=100 confirmado óptimo. |
+| **2026-07-31** | **bench_concurrent [NUEVO]** | **Reads: 1/4/8/16 hilos** | **1→532 QPS, 4→2,356 QPS (4.42×), 16→4,959 QPS** | ✅ Super-lineal a 4 hilos (110.5% eficiencia). Mixed RW: write contention escala con readers. |
+| **2026-07-31** | **acorn_filtered_search [NUEVO]** | **Selectividad 1/5/10/50/100%** | **Recall 100% a 1-10% selectividad; 2,971 QPS sin filtro** | ✅ Primer baseline ACORN cuantificado. Ventaja competitiva confirmada. |
+| **2026-07-31** | **hnsw_pure [REGRESIÓN CHECK POST-P0/P1/P2]** | **insert_10k / search_10k** | **insert 10.860s (−9.84%), search 521ms (−27.72%)** | ✅ Criterion p=0.00 en ambos. Sin regresiones por bytemuck+cached norms. |
 
 ---
 
