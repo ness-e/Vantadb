@@ -41,8 +41,9 @@ fn corrupt_state_and_missing_entries_rebuild_on_reopen() {
         .list(
             "agent/main",
             VantaMemoryListOptions {
+                #[allow(deprecated)]
                 filters,
-
+                filter_ops: None,
                 limit: 10,
                 cursor: None,
             },

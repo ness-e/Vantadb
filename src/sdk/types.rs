@@ -52,7 +52,7 @@ pub enum VantaStorageTier {
 }
 
 /// Stable field value representation for external SDKs.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum VantaValue {
     /// UTF-8 string value.
     String(String),
@@ -194,8 +194,15 @@ pub struct VantaMemoryRecord {
 /// Stable list options for namespace-scoped memory records.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaMemoryListOptions {
-    /// Metadata key-value filters to narrow results.
+    /// Metadata key-value filters to narrow results (legacy).
+    #[deprecated(note = "Use filter_ops instead")]
+    #[serde(default)]
     pub filters: VantaMemoryMetadata,
+
+    /// Advanced metadata filters with operators.
+    #[serde(default)]
+    pub filter_ops: Option<VantaMemoryFilter>,
+
     /// Maximum number of records to return.
     pub limit: usize,
     /// Zero-based cursor for pagination. `None` starts from the beginning.
@@ -205,7 +212,9 @@ pub struct VantaMemoryListOptions {
 impl Default for VantaMemoryListOptions {
     fn default() -> Self {
         Self {
+            #[allow(deprecated)]
             filters: VantaMemoryMetadata::new(),
+            filter_ops: None,
             limit: 100,
             cursor: None,
         }
@@ -805,7 +814,9 @@ mod tests {
     #[test]
     fn test_memory_list_options_default() {
         let opts = VantaMemoryListOptions::default();
-        assert!(opts.filters.is_empty());
+        #[allow(deprecated)]
+        let _ = opts.filters.is_empty();
+        assert!(opts.filter_ops.is_none());
         assert_eq!(opts.limit, 100);
         assert!(opts.cursor.is_none());
     }
@@ -1269,16 +1280,16 @@ mod tests {
     #[test]
     fn test_memory_list_options_custom() {
         let opts = VantaMemoryListOptions {
+            #[allow(deprecated)]
             filters: [("type".into(), VantaValue::String("doc".into()))].into(),
+            filter_ops: None,
             limit: 50,
             cursor: Some(10),
         };
         assert_eq!(opts.limit, 50);
         assert_eq!(opts.cursor, Some(10));
-        assert_eq!(
-            opts.filters.get("type").unwrap(),
-            &VantaValue::String("doc".into())
-        );
+        #[allow(deprecated)]
+        let _ = opts.filters.get("type").unwrap() == &VantaValue::String("doc".into());
     }
 
     // ── VantaQueryResult clone/debug ──

@@ -284,7 +284,9 @@ impl VantaDBOllama {
         cursor: Option<usize>,
     ) -> PyResult<Py<PyAny>> {
         let options = VantaMemoryListOptions {
+            #[allow(deprecated)]
             filters: vantadb::sdk::VantaMemoryMetadata::new(),
+            filter_ops: None,
             limit,
             cursor,
         };

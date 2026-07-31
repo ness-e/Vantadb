@@ -259,6 +259,10 @@ pub enum VantaError {
     /// Database is busy and cannot accept the operation.
     #[error("Database busy: {0}")]
     DatabaseBusy(String),
+
+    /// A record exists but does not carry a vector, so vector-based operations cannot proceed.
+    #[error("No vector stored for key: {0}")]
+    NoVectorForKey(String),
 }
 
 impl VantaError {

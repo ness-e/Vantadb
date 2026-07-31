@@ -344,3 +344,181 @@ pub fn cmd_delete(db_path: &str, namespace: &str, key: &str, verbose: bool) -> R
 
     Ok(())
 }
+
+/// Parse a JSON filter string (MongoDB-like) into a `VantaMemoryFilter`.
+///
+/// Accepts objects like:
+/// ```json
+/// {"field": {"$eq": "value"}, "score": {"$gte": 50}}
+/// ```
+pub(crate) fn parse_filter_json(
+    filter_str: &str,
+) -> crate::error::Result<crate::sdk::VantaMemoryFilter> {
+    use crate::sdk::{VantaFilterOp, VantaMemoryFilterItem};
+
+    let root: serde_json::Value = serde_json::from_str(filter_str)
+        .map_err(|e| crate::error::VantaError::InvalidInput(format!("Invalid filter JSON: {e}")))?;
+
+    let obj = root.as_object().ok_or_else(|| {
+        crate::error::VantaError::InvalidInput(
+            "Filter must be a JSON object at the root level".into(),
+        )
+    })?;
+
+    let mut items = Vec::new();
+    for (field, spec) in obj {
+        let spec_obj = spec.as_object().ok_or_else(|| {
+            crate::error::VantaError::InvalidInput(format!(
+                "Filter value for '{field}' must be an object like {{\"$eq\": value}}"
+            ))
+        })?;
+
+        for (op_str, val_json) in spec_obj {
+            let op = match op_str.as_str() {
+                "$eq" => VantaFilterOp::Eq,
+                "$neq" => VantaFilterOp::Neq,
+                "$gt" => VantaFilterOp::Gt,
+                "$gte" => VantaFilterOp::Gte,
+                "$lt" => VantaFilterOp::Lt,
+                "$lte" => VantaFilterOp::Lte,
+                other => {
+                    return Err(crate::error::VantaError::InvalidInput(format!(
+                    "Unknown filter operator '{other}'. Supported: $eq, $neq, $gt, $gte, $lt, $lte"
+                )))
+                }
+            };
+            let value = json_to_vanta_value(val_json)?;
+            items.push(VantaMemoryFilterItem {
+                field: field.clone(),
+                op,
+                value,
+            });
+        }
+    }
+    Ok(items)
+}
+
+fn json_to_vanta_value(v: &serde_json::Value) -> crate::error::Result<crate::sdk::VantaValue> {
+    use crate::sdk::VantaValue;
+    match v {
+        serde_json::Value::String(s) => Ok(VantaValue::String(s.clone())),
+        serde_json::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                Ok(VantaValue::Int(i))
+            } else if let Some(f) = n.as_f64() {
+                Ok(VantaValue::Float(f))
+            } else {
+                Err(crate::error::VantaError::InvalidInput(format!(
+                    "Cannot convert number {n} to VantaValue"
+                )))
+            }
+        }
+        serde_json::Value::Bool(b) => Ok(VantaValue::Bool(*b)),
+        other => Err(crate::error::VantaError::InvalidInput(format!(
+            "Unsupported filter value type: {other}. Use string, number, or bool."
+        ))),
+    }
+}
+
+#[tracing::instrument]
+/// Delete all records in a namespace matching a JSON metadata filter
+pub fn cmd_delete_by_filter(
+    db_path: &str,
+    namespace: &str,
+    filter_str: &str,
+    verbose: bool,
+) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let filter = parse_filter_json(filter_str).map_err(|e| {
+        print_error(&format!("Filter parse error: {e}"));
+        e
+    })?;
+
+    let spinner = create_spinner("Opening database...");
+    let db = open_embedded(db_path, false)?;
+    spinner.set_message("Deleting matching records...");
+
+    let deleted = db.delete_by_filter(namespace, filter)?;
+    spinner.finish_and_clear();
+
+    print_success(&format!(
+        "Deleted {} record{} from namespace '{}'",
+        deleted,
+        if deleted == 1 { "" } else { "s" },
+        namespace
+    ));
+
+    if verbose {
+        print_info(&format!("Namespace: {namespace}"));
+        print_info(&format!("Records deleted: {deleted}"));
+    }
+
+    Ok(())
+}
+
+#[tracing::instrument]
+/// Count records in a namespace, optionally filtered by metadata
+pub fn cmd_count(
+    db_path: &str,
+    namespace: &str,
+    filter_str: Option<&str>,
+    json_output: bool,
+    verbose: bool,
+) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        if json_output {
+            println!("0");
+            return Ok(());
+        }
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let filter = if let Some(fs) = filter_str {
+        Some(parse_filter_json(fs).map_err(|e| {
+            print_error(&format!("Filter parse error: {e}"));
+            e
+        })?)
+    } else {
+        None
+    };
+
+    let spinner = create_spinner("Opening database...");
+    let db = open_embedded(db_path, true)?;
+    spinner.set_message("Counting records...");
+
+    let count = db.count(namespace, filter)?;
+    spinner.finish_and_clear();
+
+    if json_output {
+        println!("{count}");
+        return Ok(());
+    }
+
+    let term = console::Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "Namespace '{}': {} record{}",
+        namespace,
+        count,
+        if count == 1 { "" } else { "s" }
+    ));
+
+    if verbose && filter_str.is_some() {
+        print_info(&format!("Filter applied: {}", filter_str.unwrap_or("")));
+    }
+
+    Ok(())
+}

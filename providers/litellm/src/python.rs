@@ -180,7 +180,9 @@ impl VantaDBLiteLLM {
                 .list(
                     &namespace,
                     VantaMemoryListOptions {
+                        #[allow(deprecated)]
                         filters: vantadb::sdk::VantaMemoryMetadata::new(),
+                        filter_ops: None,
                         limit,
                         cursor,
                     },

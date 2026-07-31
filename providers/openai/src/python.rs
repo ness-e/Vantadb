@@ -293,7 +293,9 @@ impl VantaDBOpenAI {
         let engine = self.engine.clone();
         let ns = namespace.to_string();
         let options = VantaMemoryListOptions {
+            #[allow(deprecated)]
             filters: Default::default(),
+            filter_ops: None,
             limit: limit.max(1) as usize,
             cursor: cursor.map(|c| c.max(0) as usize),
         };

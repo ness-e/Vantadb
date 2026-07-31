@@ -89,6 +89,51 @@ fn main() -> Result<()> {
             cli_handlers::cmd_delete(&args.db, &namespace, &key, args.verbose)?
         }
 
+        Commands::DeleteByFilter { namespace, filter } => {
+            cli_handlers::cmd_delete_by_filter(&args.db, &namespace, &filter, args.verbose)?
+        }
+
+        Commands::Count {
+            namespace,
+            filter,
+            json,
+        } => cli_handlers::cmd_count(&args.db, &namespace, filter.as_deref(), json, args.verbose)?,
+
+        Commands::SimilarToKey {
+            namespace,
+            key,
+            top_k,
+            json,
+        } => cli_handlers::cmd_similar_to_key(&args.db, &namespace, &key, top_k, json)?,
+
+        Commands::SearchMulti {
+            namespaces,
+            query,
+            query_vector,
+            top_k,
+            json,
+        } => cli_handlers::search::cmd_search_multi(
+            &args.db,
+            &namespaces,
+            query.as_deref(),
+            query_vector.as_deref(),
+            top_k,
+            json,
+        )?,
+
+        Commands::SearchAll {
+            query,
+            query_vector,
+            top_k,
+            json,
+        } => cli_handlers::search::cmd_search_all(
+            &args.db,
+            query.as_deref(),
+            query_vector.as_deref(),
+            top_k,
+            json,
+        )?,
+
         Commands::Namespace(cmd) => match cmd {
             vantadb::cli::NamespaceCommand::List => cli_handlers::cmd_namespace_list(&args.db)?,
             vantadb::cli::NamespaceCommand::Info { namespace } => {

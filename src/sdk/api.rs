@@ -360,6 +360,7 @@ impl VantaEmbedded {
     /// preventing OOM on namespaces with 100K+ records. Records are returned in
     /// namespace-index order (stable by insertion/ID), not key-sorted.
     #[tracing::instrument(skip(self), err)]
+    #[allow(deprecated)] // options.filters is legacy path kept for backward compatibility
     pub fn list(
         &self,
         namespace: &str,
@@ -372,12 +373,20 @@ impl VantaEmbedded {
         let limit = options.limit.max(1);
         let cursor = options.cursor.unwrap_or(0);
 
-        let (candidate_ids, has_index_entries) =
-            if let Some((field, value)) = options.filters.iter().next() {
-                self.indexed_ids_by_filter(&engine, namespace, field, value)?
+        let (candidate_ids, has_index_entries) = if let Some(ops) = &options.filter_ops {
+            if let Some(eq_op) = ops
+                .iter()
+                .find(|op| op.op == crate::sdk::types::VantaFilterOp::Eq)
+            {
+                self.indexed_ids_by_filter(&engine, namespace, &eq_op.field, &eq_op.value)?
             } else {
                 self.indexed_ids_by_namespace(&engine, namespace)?
-            };
+            }
+        } else if let Some((field, value)) = options.filters.iter().next() {
+            self.indexed_ids_by_filter(&engine, namespace, field, value)?
+        } else {
+            self.indexed_ids_by_namespace(&engine, namespace)?
+        };
 
         // Deduplicate IDs (prefix scan may return duplicates)
         let mut seen = BTreeSet::new();
@@ -396,9 +405,12 @@ impl VantaEmbedded {
         let mut records: Vec<VantaMemoryRecord> = Vec::with_capacity(window_ids.len());
         for node in engine.get_many(&window_ids)? {
             if let Some(record) = memory_record_from_node(&node) {
-                if record.namespace == namespace
-                    && matches_memory_filters(&record, &options.filters)
-                {
+                let matches = if let Some(ops) = &options.filter_ops {
+                    crate::sdk::serialization::matches_advanced_filters(&record, ops)
+                } else {
+                    matches_memory_filters(&record, &options.filters)
+                };
+                if record.namespace == namespace && matches {
                     records.push(record);
                 }
             }
@@ -410,9 +422,12 @@ impl VantaEmbedded {
             let mut skipped = 0usize;
             for node in engine.scan_nodes()? {
                 if let Some(record) = memory_record_from_node(&node) {
-                    if record.namespace == namespace
-                        && matches_memory_filters(&record, &options.filters)
-                    {
+                    let matches = if let Some(ops) = &options.filter_ops {
+                        crate::sdk::serialization::matches_advanced_filters(&record, ops)
+                    } else {
+                        matches_memory_filters(&record, &options.filters)
+                    };
+                    if record.namespace == namespace && matches {
                         if skipped < cursor {
                             skipped += 1;
                             continue;
@@ -476,7 +491,9 @@ impl VantaEmbedded {
             let page = self.list(
                 namespace,
                 VantaMemoryListOptions {
+                    #[allow(deprecated)]
                     filters: VantaMemoryMetadata::new(),
+                    filter_ops: None,
                     limit: batch_size,
                     cursor,
                 },
@@ -941,6 +958,179 @@ impl VantaEmbedded {
             .into_iter()
             .map(|(node_id, distance)| VantaSearchHit { node_id, distance })
             .collect())
+    }
+
+    // ── REC-002: delete_by_filter ──────────────────────────────────────────
+
+    /// Delete all records in a namespace that match the given metadata filter.
+    ///
+    /// Iterates through all records in the namespace using cursor-based pagination
+    /// and deletes each record that satisfies every filter item. Returns the total
+    /// number of records deleted.
+    ///
+    /// # Behaviour
+    /// - Returns an error if `namespace` is empty or invalid.
+    /// - Returns an error if `filter` is empty (to avoid accidental full-namespace wipe).
+    /// - Operation is **not atomic**: if the process is interrupted mid-execution,
+    ///   some records may be deleted while others are not. The WAL does not support
+    ///   batch rollback.
+    ///
+    /// # Performance
+    /// V1 uses full paginated scan. For namespaces with millions of records,
+    /// execution time scales linearly. Optimise to direct scan in V2 if needed.
+    #[tracing::instrument(skip(self, filter), err)]
+    pub fn delete_by_filter(&self, namespace: &str, filter: VantaMemoryFilter) -> Result<u64> {
+        self.check_read_only()?;
+        validate_namespace(namespace)?;
+        if filter.is_empty() {
+            return Err(crate::error::VantaError::InvalidInput(
+                "delete_by_filter requires at least one filter item to prevent accidental \
+                 full-namespace deletion. Use delete() to remove individual records."
+                    .into(),
+            ));
+        }
+
+        const PAGE_SIZE: usize = 500;
+        let mut cursor: Option<usize> = None;
+        let mut deleted: u64 = 0;
+        let mut keys_to_delete: Vec<String> = Vec::new();
+
+        // Phase 1: collect all matching keys via paginated scan.
+        loop {
+            let page = self.list(
+                namespace,
+                VantaMemoryListOptions {
+                    #[allow(deprecated)]
+                    filters: VantaMemoryMetadata::new(),
+                    filter_ops: Some(filter.clone()),
+                    limit: PAGE_SIZE,
+                    cursor,
+                },
+            )?;
+            for record in &page.records {
+                keys_to_delete.push(record.key.clone());
+            }
+            cursor = page.next_cursor;
+            if cursor.is_none() {
+                break;
+            }
+        }
+
+        // Phase 2: delete collected keys.
+        for key in &keys_to_delete {
+            if self.delete(namespace, key)? {
+                deleted += 1;
+                if deleted % 1000 == 0 {
+                    tracing::info!(namespace, deleted, "delete_by_filter: progress checkpoint");
+                }
+            }
+        }
+        Ok(deleted)
+    }
+
+    // ── REC-003: count ────────────────────────────────────────────────────
+
+    /// Count records in a namespace, optionally filtered by metadata.
+    ///
+    /// Without a filter, this is an O(n) scan over namespace index entries.
+    /// With a filter, records are evaluated in-memory after retrieval.
+    ///
+    /// # Arguments
+    /// * `namespace` — Namespace to count records in.
+    /// * `filter` — Optional list of filter items (AND-combined). Pass `None`
+    ///   to count all records in the namespace.
+    #[tracing::instrument(skip(self, filter), err)]
+    pub fn count(&self, namespace: &str, filter: Option<VantaMemoryFilter>) -> Result<u64> {
+        validate_namespace(namespace)?;
+
+        const PAGE_SIZE: usize = 1000;
+        let mut cursor: Option<usize> = None;
+        let mut total: u64 = 0;
+
+        loop {
+            let page = self.list(
+                namespace,
+                VantaMemoryListOptions {
+                    #[allow(deprecated)]
+                    filters: VantaMemoryMetadata::new(),
+                    filter_ops: filter.clone(),
+                    limit: PAGE_SIZE,
+                    cursor,
+                },
+            )?;
+            total += page.records.len() as u64;
+            cursor = page.next_cursor;
+            if cursor.is_none() {
+                break;
+            }
+        }
+        Ok(total)
+    }
+
+    // ── REC-004: similar_to_key ───────────────────────────────────────────
+
+    /// Find records similar to an existing record identified by `key`.
+    ///
+    /// Retrieves the vector stored under `key` in `namespace` and performs a
+    /// K-NN vector similarity search against the HNSW index. Results are
+    /// post-filtered to the same namespace and the source record itself is
+    /// excluded from the output.
+    ///
+    /// # Errors
+    /// * [`VantaError::NotFound`] if `key` does not exist in `namespace`.
+    /// * [`VantaError::NoVectorForKey`] if the record exists but carries no vector.
+    ///
+    /// # Notes
+    /// `search_vector()` queries the global HNSW index (all namespaces). Results
+    /// are post-filtered to `namespace` to preserve namespace isolation semantics.
+    #[tracing::instrument(skip(self), err)]
+    pub fn similar_to_key(
+        &self,
+        namespace: &str,
+        key: &str,
+        top_k: usize,
+    ) -> Result<Vec<VantaMemorySearchHit>> {
+        validate_namespace(namespace)?;
+        validate_key(key)?;
+
+        let record =
+            self.get(namespace, key)?
+                .ok_or_else(|| crate::error::VantaError::NotFound {
+                    kind: "memory record".into(),
+                    id: format!("{namespace}/{key}"),
+                })?;
+
+        let vector = record.vector.ok_or_else(|| {
+            crate::error::VantaError::NoVectorForKey(format!("{namespace}/{key}"))
+        })?;
+
+        // Search top_k + 1 to account for the source record itself being in results.
+        let raw_hits = self.search_vector(&vector, top_k + 1)?;
+
+        let engine = self.engine_handle()?;
+        let raw_ids: Vec<u128> = raw_hits.iter().map(|h| h.node_id).collect();
+        let nodes = engine.get_many(&raw_ids)?;
+
+        let hits: Vec<VantaMemorySearchHit> = raw_hits
+            .into_iter()
+            .zip(nodes)
+            .filter_map(|(hit, node)| {
+                crate::sdk::serialization::memory_record_from_node(&node).and_then(|r| {
+                    if r.namespace == namespace && r.key != key {
+                        Some(VantaMemorySearchHit {
+                            record: r,
+                            score: 1.0 - hit.distance,
+                            explanation: None,
+                        })
+                    } else {
+                        None
+                    }
+                })
+            })
+            .take(top_k)
+            .collect();
+
+        Ok(hits)
     }
 }
 

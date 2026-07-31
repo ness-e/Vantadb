@@ -39,8 +39,9 @@ fn derived_indexes_isolate_namespaces_and_filters() {
         .list(
             "agent/a",
             VantaMemoryListOptions {
+                #[allow(deprecated)]
                 filters,
-
+                filter_ops: None,
                 limit: 10,
                 cursor: None,
             },
@@ -70,8 +71,9 @@ fn upsert_and_delete_keep_payload_indexes_current() {
         .list(
             "agent/main",
             VantaMemoryListOptions {
+                #[allow(deprecated)]
                 filters: old_filter,
-
+                filter_ops: None,
                 limit: 10,
                 cursor: None,
             },
@@ -85,8 +87,9 @@ fn upsert_and_delete_keep_payload_indexes_current() {
         .list(
             "agent/main",
             VantaMemoryListOptions {
+                #[allow(deprecated)]
                 filters: new_filter,
-
+                filter_ops: None,
                 limit: 10,
                 cursor: None,
             },

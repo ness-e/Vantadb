@@ -375,6 +375,26 @@ pub(crate) fn matches_memory_filters(
         .all(|(key, expected)| record.metadata.get(key) == Some(expected))
 }
 
+pub(crate) fn matches_advanced_filters(
+    record: &VantaMemoryRecord,
+    filter_ops: &crate::sdk::types::VantaMemoryFilter,
+) -> bool {
+    filter_ops.iter().all(|op_item| {
+        if let Some(actual) = record.metadata.get(&op_item.field) {
+            match op_item.op {
+                crate::sdk::types::VantaFilterOp::Eq => actual == &op_item.value,
+                crate::sdk::types::VantaFilterOp::Neq => actual != &op_item.value,
+                crate::sdk::types::VantaFilterOp::Gt => actual > &op_item.value,
+                crate::sdk::types::VantaFilterOp::Gte => actual >= &op_item.value,
+                crate::sdk::types::VantaFilterOp::Lt => actual < &op_item.value,
+                crate::sdk::types::VantaFilterOp::Lte => actual <= &op_item.value,
+            }
+        } else {
+            false
+        }
+    })
+}
+
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
@@ -1048,5 +1068,145 @@ mod tests {
         bad.insert("a".into(), VantaValue::Int(1));
         bad.insert("b".into(), VantaValue::String("y".into()));
         assert!(!matches_memory_filters(&record, &bad));
+    }
+
+    // ── matches_advanced_filters ──────────────────────────────────────────────
+
+    fn make_record_with_meta(pairs: &[(&str, VantaValue)]) -> VantaMemoryRecord {
+        let mut record = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 0,
+            updated_at_ms: 0,
+            version: 0,
+            node_id: 0,
+            vector: None,
+            expires_at_ms: None,
+        };
+        for (k, v) in pairs {
+            record.metadata.insert(k.to_string(), v.clone());
+        }
+        record
+    }
+
+    #[test]
+    fn test_advanced_filter_eq() {
+        let r = make_record_with_meta(&[("color", VantaValue::String("blue".into()))]);
+        let ops = vec![crate::sdk::types::VantaMemoryFilterItem {
+            field: "color".into(),
+            op: crate::sdk::types::VantaFilterOp::Eq,
+            value: VantaValue::String("blue".into()),
+        }];
+        assert!(matches_advanced_filters(&r, &ops));
+        let ops_fail = vec![crate::sdk::types::VantaMemoryFilterItem {
+            field: "color".into(),
+            op: crate::sdk::types::VantaFilterOp::Eq,
+            value: VantaValue::String("red".into()),
+        }];
+        assert!(!matches_advanced_filters(&r, &ops_fail));
+    }
+
+    #[test]
+    fn test_advanced_filter_neq() {
+        let r = make_record_with_meta(&[("status", VantaValue::String("active".into()))]);
+        let ops = vec![crate::sdk::types::VantaMemoryFilterItem {
+            field: "status".into(),
+            op: crate::sdk::types::VantaFilterOp::Neq,
+            value: VantaValue::String("inactive".into()),
+        }];
+        assert!(matches_advanced_filters(&r, &ops));
+    }
+
+    #[test]
+    fn test_advanced_filter_gt_gte_lt_lte_int() {
+        let r = make_record_with_meta(&[("score", VantaValue::Int(50))]);
+        let make_op = |op: crate::sdk::types::VantaFilterOp, v: i64| {
+            vec![crate::sdk::types::VantaMemoryFilterItem {
+                field: "score".into(),
+                op,
+                value: VantaValue::Int(v),
+            }]
+        };
+        assert!(matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::VantaFilterOp::Gt, 40)
+        ));
+        assert!(!matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::VantaFilterOp::Gt, 60)
+        ));
+        assert!(matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::VantaFilterOp::Gte, 50)
+        ));
+        assert!(!matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::VantaFilterOp::Gte, 51)
+        ));
+        assert!(matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::VantaFilterOp::Lt, 60)
+        ));
+        assert!(!matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::VantaFilterOp::Lt, 40)
+        ));
+        assert!(matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::VantaFilterOp::Lte, 50)
+        ));
+        assert!(!matches_advanced_filters(
+            &r,
+            &make_op(crate::sdk::types::VantaFilterOp::Lte, 49)
+        ));
+    }
+
+    #[test]
+    fn test_advanced_filter_missing_field_returns_false() {
+        let r = make_record_with_meta(&[]);
+        let ops = vec![crate::sdk::types::VantaMemoryFilterItem {
+            field: "nonexistent".into(),
+            op: crate::sdk::types::VantaFilterOp::Eq,
+            value: VantaValue::String("x".into()),
+        }];
+        assert!(!matches_advanced_filters(&r, &ops));
+    }
+
+    #[test]
+    fn test_advanced_filter_multi_and_logic() {
+        let r = make_record_with_meta(&[
+            ("score", VantaValue::Int(75)),
+            ("status", VantaValue::String("active".into())),
+        ]);
+        let ops = vec![
+            crate::sdk::types::VantaMemoryFilterItem {
+                field: "score".into(),
+                op: crate::sdk::types::VantaFilterOp::Gte,
+                value: VantaValue::Int(50),
+            },
+            crate::sdk::types::VantaMemoryFilterItem {
+                field: "status".into(),
+                op: crate::sdk::types::VantaFilterOp::Eq,
+                value: VantaValue::String("active".into()),
+            },
+        ];
+        assert!(matches_advanced_filters(&r, &ops));
+
+        // Falla si uno de los filtros no coincide
+        let ops_fail = vec![
+            crate::sdk::types::VantaMemoryFilterItem {
+                field: "score".into(),
+                op: crate::sdk::types::VantaFilterOp::Gte,
+                value: VantaValue::Int(80),
+            },
+            crate::sdk::types::VantaMemoryFilterItem {
+                field: "status".into(),
+                op: crate::sdk::types::VantaFilterOp::Eq,
+                value: VantaValue::String("active".into()),
+            },
+        ];
+        assert!(!matches_advanced_filters(&r, &ops_fail));
     }
 }

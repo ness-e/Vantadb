@@ -239,10 +239,14 @@ fn arb_list_options_full() -> impl Strategy<Value = VantaMemoryListOptions> {
         any::<usize>(),
         prop::option::of(any::<usize>()),
     )
-        .prop_map(|(filters, limit, cursor)| VantaMemoryListOptions {
-            filters,
-            limit,
-            cursor,
+        .prop_map(|(filters, limit, cursor)| {
+            #[allow(deprecated)]
+            VantaMemoryListOptions {
+                filters,
+                filter_ops: None,
+                limit,
+                cursor,
+            }
         })
 }
 

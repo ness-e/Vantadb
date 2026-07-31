@@ -541,7 +541,9 @@ impl VantaDB {
                 .list(
                     &namespace,
                     VantaMemoryListOptions {
+                        #[allow(deprecated)]
                         filters: filters_meta,
+                        filter_ops: None,
                         limit,
                         cursor,
                     },

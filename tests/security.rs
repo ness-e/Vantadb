@@ -612,6 +612,7 @@ mod fuzzing_tests {
 
         // List with problematic filters
         let options = vantadb::VantaMemoryListOptions {
+            #[allow(deprecated)]
             filters: {
                 let mut m = std::collections::BTreeMap::new();
                 m.insert(
@@ -620,6 +621,7 @@ mod fuzzing_tests {
                 );
                 m
             },
+            filter_ops: None,
             limit: 10,
             cursor: None,
         };

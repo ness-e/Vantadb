@@ -81,7 +81,9 @@ pub fn cmd_namespace_info(db_path: &str, namespace: &str) -> Result<()> {
     spinner.set_message("Scanning namespace...");
 
     let options = crate::sdk::VantaMemoryListOptions {
+        #[allow(deprecated)]
         filters: crate::sdk::VantaMemoryMetadata::new(),
+        filter_ops: None,
         limit: usize::MAX,
         cursor: None,
     };

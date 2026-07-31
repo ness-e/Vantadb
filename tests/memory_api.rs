@@ -147,7 +147,9 @@ fn memory_api_filters() {
         .list(
             "agent/main",
             VantaMemoryListOptions {
+                #[allow(deprecated)]
                 filters: filters.clone(),
+                filter_ops: None,
                 limit: 10,
                 cursor: None,
             },

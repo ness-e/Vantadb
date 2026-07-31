@@ -43,7 +43,9 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
             .list(
                 ns,
                 crate::sdk::VantaMemoryListOptions {
+                    #[allow(deprecated)]
                     filters: crate::sdk::VantaMemoryMetadata::new(),
+                    filter_ops: None,
                     limit: 1,
                     cursor: None,
                 },
@@ -68,7 +70,9 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
         let mut cursor: Option<usize> = None;
         loop {
             let opts = crate::sdk::VantaMemoryListOptions {
+                #[allow(deprecated)]
                 filters: crate::sdk::VantaMemoryMetadata::new(),
+                filter_ops: None,
                 limit: BATCH_SIZE,
                 cursor,
             };

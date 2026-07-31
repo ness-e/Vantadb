@@ -1,6 +1,7 @@
 //! Backup command handlers — backup and restore.
 
 use console::Term;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use web_time::{SystemTime, UNIX_EPOCH};
 
@@ -9,6 +10,101 @@ use crate::cli_handlers::{
     print_success, print_warning,
 };
 use crate::error::{ChainedError, Result};
+
+// ── MANIFEST types ─────────────────────────────────────────────────────────
+
+/// Backup type recorded in MANIFEST.json.
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum BackupType {
+    Base,
+    Incremental,
+}
+
+/// Per-file entry in MANIFEST.json.
+#[derive(Debug, Serialize, Deserialize)]
+struct ManifestFile {
+    name: String,
+    size: u64,
+    /// Hex-encoded CRC32C of the file contents.
+    crc32c: String,
+}
+
+/// MANIFEST.json written alongside every backup.
+///
+/// Provides enough metadata to validate backup integrity, chain incrementals
+/// to their base, and target point-in-time restores via LSN in the future.
+#[derive(Debug, Serialize, Deserialize)]
+struct BackupManifest {
+    /// "base" or "incremental"
+    backup_type: BackupType,
+    /// RFC 3339 timestamp at which the backup was created.
+    created_at: String,
+    /// VantaDB crate version.
+    vantadb_version: String,
+    /// Relative path to the base backup (null for base backups).
+    base_ref: Option<String>,
+    /// Files included in this backup with integrity data.
+    files: Vec<ManifestFile>,
+}
+
+/// Compute CRC32C of a file and return its hex string.
+fn file_crc32c(path: &Path) -> std::io::Result<String> {
+    use std::io::Read;
+    let mut f = std::fs::File::open(path)?;
+    let mut buf = Vec::new();
+    f.read_to_end(&mut buf)?;
+    let checksum = crate::wal::compute_crc32c(&buf);
+    Ok(format!("{:08x}", checksum))
+}
+
+/// Collect all regular files under `dir` recursively, returning relative
+/// paths and their manifest entries.
+fn collect_manifest_files(dir: &Path, base: &Path) -> std::io::Result<Vec<ManifestFile>> {
+    let mut files = Vec::new();
+    for entry in walkdir_flat(dir)? {
+        let relative = entry
+            .strip_prefix(base)
+            .unwrap_or(&entry)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let meta = std::fs::metadata(&entry)?;
+        let crc = file_crc32c(&entry).unwrap_or_else(|_| "error".to_string());
+        files.push(ManifestFile {
+            name: relative,
+            size: meta.len(),
+            crc32c: crc,
+        });
+    }
+    files.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(files)
+}
+
+/// Flat recursive directory walker returning regular file paths.
+fn walkdir_flat(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
+    let mut result = Vec::new();
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            result.extend(walkdir_flat(&path)?);
+        } else {
+            result.push(path);
+        }
+    }
+    Ok(result)
+}
+
+/// Write `MANIFEST.json` to `dir`.
+fn write_manifest(dir: &Path, manifest: &BackupManifest) -> Result<()> {
+    let json = serde_json::to_string_pretty(manifest).map_err(|e| {
+        crate::error::VantaError::backup_error(format!("Failed to serialize MANIFEST: {e}"))
+    })?;
+    let path = dir.join("MANIFEST.json");
+    std::fs::write(&path, json).map_err(|e| {
+        crate::error::VantaError::backup_error(format!("Failed to write MANIFEST.json: {e}"))
+    })
+}
 
 fn copy_dir(src: &Path, dst: &Path, skip: Option<&Path>) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
@@ -72,7 +168,39 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
         crate::error::VantaError::backup_error(format!("Failed to copy database to backup: {e}"))
     })?;
 
-    let spinner = create_spinner("Verifying backup...");
+    // Generate MANIFEST.json alongside the backup files.
+    let spinner = create_spinner("Generating MANIFEST.json...");
+    let now_ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    // Format as a simple RFC 3339-ish UTC string without pulling chrono.
+    let created_at = format!(
+        "{}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        1970 + now_ts / 31_536_000, // approximate — good enough for a label
+        1,
+        1,
+        (now_ts % 86400) / 3600,
+        (now_ts % 3600) / 60,
+        now_ts % 60
+    );
+    let files = collect_manifest_files(&backup_dir, &backup_dir)
+        .unwrap_or_default()
+        .into_iter()
+        // Skip MANIFEST.json itself to avoid a circular reference.
+        .filter(|f| f.name != "MANIFEST.json")
+        .collect::<Vec<_>>();
+    let manifest = BackupManifest {
+        backup_type: BackupType::Base,
+        created_at,
+        vantadb_version: env!("CARGO_PKG_VERSION").to_string(),
+        base_ref: None,
+        files,
+    };
+    // Non-fatal: log a warning but don't abort the backup on manifest failure.
+    if let Err(e) = write_manifest(&backup_dir, &manifest) {
+        tracing::warn!(error = %e, "Failed to write MANIFEST.json; backup data is intact");
+    }
     spinner.finish_and_clear();
 
     let _ = Term::stdout().write_line("");

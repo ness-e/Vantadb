@@ -408,7 +408,9 @@ impl VantaDB {
             let mut cursor: Option<usize> = None;
             loop {
                 let opts = VantaMemoryListOptions {
+                    #[allow(deprecated)]
                     filters: VantaMemoryMetadata::new(),
+                    filter_ops: None,
                     limit: 10_000,
                     cursor,
                 };
@@ -590,7 +592,9 @@ impl VantaDB {
     pub fn list(&self, namespace: &str, options: JsValue) -> Result<JsValue, JsValue> {
         let opts: ListOptions = from_js(options)?;
         let vanta_opts = VantaMemoryListOptions {
+            #[allow(deprecated)]
             filters: opts.filters,
+            filter_ops: None,
             limit: opts.limit,
             cursor: opts.cursor,
         };

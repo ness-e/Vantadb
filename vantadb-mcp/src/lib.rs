@@ -314,7 +314,9 @@ fn collect_all_records(
         let options = vantadb::sdk::VantaMemoryListOptions {
             limit: config.max_list_limit,
             cursor,
+            #[allow(deprecated)]
             filters: vantadb::sdk::VantaMemoryMetadata::new(),
+            filter_ops: None,
         };
         match embedded.list(namespace, options) {
             Ok(page) => {
@@ -678,7 +680,9 @@ pub fn handle_resources_read(
         let options = vantadb::sdk::VantaMemoryListOptions {
             limit: 100,
             cursor: None,
+            #[allow(deprecated)]
             filters: vantadb::sdk::VantaMemoryMetadata::new(),
+            filter_ops: None,
         };
         match embedded.list(namespace, options) {
             Ok(page) => {
@@ -1082,7 +1086,9 @@ pub fn handle_tools_call(
             let options = vantadb::sdk::VantaMemoryListOptions {
                 limit,
                 cursor,
+                #[allow(deprecated)]
                 filters,
+                filter_ops: None,
             };
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
