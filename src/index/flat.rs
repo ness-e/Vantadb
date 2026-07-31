@@ -14,6 +14,17 @@ pub(crate) fn flat_search(
 ) -> Vec<(u128, f32)> {
     use crate::storage::engine::FLAG_TOMBSTONE;
 
+    let query_inv_norm = if metric == DistanceMetric::Cosine {
+        let norm = crate::index::f32_l2_norm(query_vec);
+        if norm > f32::EPSILON {
+            Some(1.0 / norm)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     let mut results: Vec<(u128, f32)> = nodes
         .iter()
         .filter(|entry| {
@@ -25,7 +36,12 @@ pub(crate) fn flat_search(
         .map(|entry| {
             let id = *entry.key();
             let node = entry.value();
-            let sim = calculate_similarity(query_vec, None, None, None, &node.vec_data, metric);
+            let sim = match (&node.vec_data, metric, query_inv_norm) {
+                (VectorRepresentations::Full(v), DistanceMetric::Cosine, Some(q_inv)) => {
+                    crate::index::cosine_sim_cached_norms(query_vec, q_inv, v, node.inv_cached_norm)
+                }
+                _ => calculate_similarity(query_vec, None, None, None, &node.vec_data, metric),
+            };
             (id, sim)
         })
         .collect();
@@ -59,6 +75,7 @@ struct FlatEntry {
     id: u128,
     bitset: FilterBitset,
     vec: VectorRepresentations,
+    inv_cached_norm: f32,
     #[allow(dead_code)]
     storage_offset: u64,
 }
@@ -88,11 +105,27 @@ impl crate::index::VecIndex for FlatIndex {
         let nodes = self.nodes.lock().unwrap();
         let metric = self.config.distance_metric;
 
+        let query_inv_norm = if metric == DistanceMetric::Cosine {
+            let norm = crate::index::f32_l2_norm(query_vec);
+            if norm > f32::EPSILON {
+                Some(1.0 / norm)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         let mut results: Vec<(u128, f32)> = nodes
             .iter()
             .filter(|e| query_mask.is_all_set() || e.bitset.matches_mask(query_mask))
             .map(|e| {
-                let sim = calculate_similarity(query_vec, None, None, None, &e.vec, metric);
+                let sim = match (&e.vec, metric, query_inv_norm) {
+                    (VectorRepresentations::Full(v), DistanceMetric::Cosine, Some(q_inv)) => {
+                        crate::index::cosine_sim_cached_norms(query_vec, q_inv, v, e.inv_cached_norm)
+                    }
+                    _ => calculate_similarity(query_vec, None, None, None, &e.vec, metric),
+                };
                 (e.id, sim)
             })
             .collect();
@@ -109,11 +142,23 @@ impl crate::index::VecIndex for FlatIndex {
         vec_data: VectorRepresentations,
         storage_offset: u64,
     ) {
+        let inv_cached_norm = match &vec_data {
+            VectorRepresentations::Full(v) => {
+                let norm = crate::index::f32_l2_norm(v);
+                if norm > f32::EPSILON {
+                    1.0 / norm
+                } else {
+                    1.0
+                }
+            }
+            _ => 1.0,
+        };
         let mut nodes = self.nodes.lock().unwrap();
         nodes.push(FlatEntry {
             id,
             bitset,
             vec: vec_data,
+            inv_cached_norm,
             storage_offset,
         });
     }

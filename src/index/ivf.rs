@@ -526,6 +526,7 @@ mod tests {
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
             index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
         };
         let index = CPIndex::new_with_config(config);
         for i in 0u128..(n as u128) {
@@ -819,6 +820,7 @@ mod tests {
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
             index_type: IndexType::Ivf,
+            auto_tune: false,
         };
         let index = CPIndex::new_with_config(config);
 
@@ -850,6 +852,7 @@ mod tests {
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
             index_type: IndexType::Hnsw,
+            auto_tune: false,
         };
         let hnsw_idx = CPIndex::new_with_config(hnsw_config);
 

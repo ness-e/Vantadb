@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 use tempfile::tempdir;
+use vantadb::index::auto_tune::AutoTune;
 use vantadb::index::FilterBitset;
 use vantadb::node::{UnifiedNode, VectorRepresentations};
 use vantadb::storage::StorageEngine;
@@ -17,6 +18,7 @@ fn generate_vectors(count: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
 }
 
 fn main() {
+    AutoTune::set_ef(100);
     let dim = 128;
     let initial_count = 10_000;
     let test_duration = Duration::from_secs(3);
@@ -58,22 +60,32 @@ fn main() {
 
     println!("\n--- SCENARIO 1: READ-ONLY CONCURRENT SEARCHES ---");
     println!(
-        "{:<10} | {:<15} | {:<12} | {:<12}",
-        "Threads", "Throughput (QPS)", "p50 Latency", "p99 Latency"
+        "{:<8} | {:<16} | {:<12} | {:<12} | {:<10} | {:<10}",
+        "Threads", "Throughput (QPS)", "p50 Latency", "p99 Latency", "Speedup", "Efficiency"
     );
-    println!("{}", "-".repeat(60));
+    println!("{}", "-".repeat(78));
 
+    let mut baseline_qps = 0.0;
     for &t in &thread_counts {
-        run_read_only_bench(storage.clone(), query_pool.clone(), t, test_duration);
+        let qps = run_read_only_bench(
+            storage.clone(),
+            query_pool.clone(),
+            t,
+            test_duration,
+            baseline_qps,
+        );
+        if t == 1 {
+            baseline_qps = qps;
+        }
     }
 
     println!("\n--- SCENARIO 2: MIXED READ-WRITE CONCURRENCY ---");
     println!("(1 Thread constantly inserting new vectors while T threads search)");
     println!(
-        "{:<10} | {:<15} | {:<12} | {:<12} | {:<15}",
+        "{:<8} | {:<16} | {:<12} | {:<12} | {:<15}",
         "Threads", "Throughput (QPS)", "p50 Latency", "p99 Latency", "Insert Rate"
     );
-    println!("{}", "-".repeat(70));
+    println!("{}", "-".repeat(72));
 
     for &t in &thread_counts {
         run_mixed_bench(storage.clone(), query_pool.clone(), t, test_duration, dim);
@@ -86,7 +98,8 @@ fn run_read_only_bench(
     query_pool: Arc<Vec<Vec<f32>>>,
     num_threads: usize,
     duration: Duration,
-) {
+    baseline_qps: f64,
+) -> f64 {
     let stop_signal = Arc::new(AtomicBool::new(false));
     let mut handles = Vec::new();
 
@@ -162,10 +175,26 @@ fn run_read_only_bench(
         "N/A".to_string()
     };
 
+    let speedup_str = if baseline_qps > 0.0 {
+        format!("{:.2}x", qps / baseline_qps)
+    } else {
+        "1.00x".to_string()
+    };
+
+    let eff_str = if baseline_qps > 0.0 {
+        format!(
+            "{:.1}%",
+            (qps / (baseline_qps * num_threads as f64)) * 100.0
+        )
+    } else {
+        "100.0%".to_string()
+    };
+
     println!(
-        "{:<10} | {:<15.1} | {:<12} | {:<12}",
-        num_threads, qps, p50, p99
+        "{:<8} | {:<16.1} | {:<12} | {:<12} | {:<10} | {:<10}",
+        num_threads, qps, p50, p99, speedup_str, eff_str
     );
+    qps
 }
 
 fn run_mixed_bench(

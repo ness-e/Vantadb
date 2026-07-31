@@ -33,6 +33,7 @@ portable-atomic = "1"
 lru = "0.16"
 dashmap = "6"
 arc-swap = "1.7"
+bytemuck = "1.18"
 zerocopy = { version = "0.8", features = ["derive"] }
 smallvec = "1.15"
 
@@ -213,6 +214,10 @@ harness = false
 
 [[bench]]
 name = "param_sweep"
+harness = false
+
+[[bench]]
+name = "acorn_filtered_search"
 harness = false
 
 [[bin]]

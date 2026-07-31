@@ -516,8 +516,12 @@ impl CPIndex {
         };
 
         let static_ef = self.config.ef_search;
-        let tuned_ef = crate::index::auto_tune::AutoTune::current_ef();
-        let ef_search = static_ef.max(tuned_ef).max(top_k);
+        let ef_search = if self.config.auto_tune {
+            let tuned_ef = crate::index::auto_tune::AutoTune::current_ef();
+            static_ef.max(tuned_ef).max(top_k)
+        } else {
+            static_ef.max(top_k)
+        };
         let (effective_metric, query_norm, query_inv_norm) = match self.config.distance_metric {
             DistanceMetric::Cosine => {
                 let norm = f32_l2_norm(query_vec);
@@ -909,6 +913,7 @@ mod tests {
             distance_metric: metric,
             flat_threshold: None,
             index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
         })
     }
 
@@ -1419,6 +1424,7 @@ mod tests {
             distance_metric: DistanceMetric::Euclidean,
             flat_threshold: None,
             index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
         });
 
         // Insert 5 nodes
@@ -1525,6 +1531,7 @@ mod tests {
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
             index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
         });
 
         add_node_with_bitset(&index, 0, vec![1.0, 0.0, 0.0], &[0]);

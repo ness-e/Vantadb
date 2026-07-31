@@ -241,6 +241,10 @@ pub struct HnswConfig {
     /// IVF is rebuilt lazily on first search after load.
     #[serde(default)]
     pub index_type: crate::index::IndexType,
+    /// Whether adaptive ef_search auto-tuning is enabled.
+    /// Default: `false`.
+    #[serde(default)]
+    pub auto_tune: bool,
 }
 
 const fn default_flat_threshold() -> Option<usize> {
@@ -258,6 +262,7 @@ impl Default for HnswConfig {
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: Some(10000),
             index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
         }
     }
 }
@@ -1076,6 +1081,8 @@ mod tests {
             ml: 1.0 / (8_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None, // force HNSW path
+            index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
         };
         let index = CPIndex::new_with_config(config);
 
@@ -1107,6 +1114,8 @@ mod tests {
             ml: 1.0 / (8_f64).ln(),
             distance_metric: DistanceMetric::Euclidean,
             flat_threshold: None,
+            index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
         };
         let index = CPIndex::new_with_config(config);
 
@@ -1270,6 +1279,7 @@ mod tests {
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
             index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
         });
 
         // Insert nodes A, B, C — they form a connected graph with no orphans
