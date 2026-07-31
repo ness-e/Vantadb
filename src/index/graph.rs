@@ -1156,6 +1156,8 @@ mod tests {
             ml: 1.0 / (4_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
+            index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
         };
         let index = CPIndex::new_with_config(config);
 
@@ -1305,6 +1307,7 @@ mod tests {
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
             index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
         });
 
         // Insert nodes 0, 1, 2 — they link to each other via HNSW
@@ -1368,6 +1371,7 @@ mod tests {
             distance_metric: DistanceMetric::Cosine,
             flat_threshold: None,
             index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
         });
 
         // Insert enough nodes to create multi-layer graph
