@@ -12,7 +12,9 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::hint::black_box;
 use std::time::Instant;
-use vantadb::index::{cosine_sim_f32, CPIndex, HnswConfig, IndexType, VectorRepresentations};
+use vantadb::index::{
+    auto_tune::AutoTune, cosine_sim_f32, CPIndex, HnswConfig, IndexType, VectorRepresentations,
+};
 use vantadb::node::DistanceMetric;
 use vantadb::node::FilterBitset;
 
@@ -100,7 +102,7 @@ fn bench_hnsw_recall_ef(c: &mut Criterion) {
         ef_search: 200,
         ml: 1.0 / (16_f64).ln(),
         distance_metric: DistanceMetric::Cosine,
-        flat_threshold: Some(10000),
+        flat_threshold: None, // None = force real HNSW search; Some(10000) routed to flat_search and ignored ef_search entirely
         index_type: IndexType::Hnsw,
     };
 
@@ -158,6 +160,10 @@ fn bench_hnsw_recall_ef(c: &mut Criterion) {
     let mut results: Vec<(usize, f64, f64, f64, f64, f64)> = Vec::new();
 
     for &ef in EF_SWEEP {
+        // Bypass the global auto_tuner so search uses the configured static ef
+        // only (mirrors benches/param_sweep.rs). Without this, tuned_ef could
+        // exceed ef_search, contaminating the ef sweep.
+        AutoTune::set_ef(1);
         let index = CPIndex::new_with_config(HnswConfig {
             ef_search: ef,
             ..base_config.clone()

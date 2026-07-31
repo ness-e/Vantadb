@@ -455,8 +455,13 @@ impl CPIndex {
         // vs ~200*log(200) ≈ 1500.
         let mut vec = candidates.into_vec();
         if vec.len() > m {
+            // Comparator flipped vs. the natural ordering: select_nth_unstable_by
+            // partitions with elements "less than" the pivot in [0..nth]. With
+            // `b.0 < a.0` (descending), vec[0..m] holds the m HIGHEST scores —
+            // the best neighbors. (Regression: B2 inverted this to ascending,
+            // keeping the m WORST candidates.)
             vec.select_nth_unstable_by(m, |a, b| {
-                a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
+                b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
             });
             vec.truncate(m);
         }
@@ -823,6 +828,30 @@ mod tests {
         let selected = index.select_neighbors(heap, 5);
         assert_eq!(selected.len(), 2, "top-M selects both candidates by score");
         assert!(selected.contains(&0), "top-M does not filter tombstones");
+    }
+
+    #[test]
+    fn test_select_neighbors_keeps_best_scores() {
+        // Regression test: B2 (1379343b) inverted the select_nth_unstable_by
+        // comparator, which left the m SMALLEST-score elements in vec[0..m] —
+        // i.e. the m WORST neighbors — instead of the m best. Every insert and
+        // shrink then built edges to the worst candidates, degrading topology.
+        let index = make_index(DistanceMetric::Cosine);
+        let mut heap = BinaryHeap::new();
+        // Higher score = better neighbor.
+        heap.push(NodeSimMin(0.1, 1));
+        heap.push(NodeSimMin(0.9, 2));
+        heap.push(NodeSimMin(0.5, 3));
+        heap.push(NodeSimMin(0.7, 4));
+        heap.push(NodeSimMin(0.3, 5));
+        let selected = index.select_neighbors(heap, 2);
+        let mut ids: Vec<u128> = selected.iter().copied().collect();
+        ids.sort_unstable();
+        assert_eq!(
+            ids,
+            vec![2, 4],
+            "must keep the 2 BEST candidates (scores 0.9, 0.7), got {ids:?}"
+        );
     }
 
     // ── use_flat_search ──────────────────────────────────────────────────
