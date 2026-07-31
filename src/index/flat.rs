@@ -122,7 +122,12 @@ impl crate::index::VecIndex for FlatIndex {
             .map(|e| {
                 let sim = match (&e.vec, metric, query_inv_norm) {
                     (VectorRepresentations::Full(v), DistanceMetric::Cosine, Some(q_inv)) => {
-                        crate::index::cosine_sim_cached_norms(query_vec, q_inv, v, e.inv_cached_norm)
+                        crate::index::cosine_sim_cached_norms(
+                            query_vec,
+                            q_inv,
+                            v,
+                            e.inv_cached_norm,
+                        )
                     }
                     _ => calculate_similarity(query_vec, None, None, None, &e.vec, metric),
                 };
