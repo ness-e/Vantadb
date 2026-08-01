@@ -23,3 +23,10 @@ changelog_update = true
 [[package]]
 name = "vantadb"
 changelog_path = "docs/CHANGELOG.md"
+
+[[package]]
+name = "vantadb-wasm"
+# WASM bindings are distributed via npm (wasm-pack), not crates.io.
+# release = false: skip update/changelog/publish entirely. The version is
+# inherited automatically via version.workspace = true in the workspace.
+release = false
