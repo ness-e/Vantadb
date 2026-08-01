@@ -194,6 +194,8 @@ impl FilterBitset {
 
     /// Set bit at position `pos`.
     pub fn set_bit(&mut self, pos: usize) {
+        // Match croaring's u32 index space (node_ids are 128-bit hashes).
+        let pos = pos as u32 as usize;
         let word = pos / 64;
         let bit = pos % 64;
         if word >= self.0.len() {
@@ -204,6 +206,7 @@ impl FilterBitset {
 
     /// Check if bit at position `pos` is set.
     pub fn has_bit(&self, pos: usize) -> bool {
+        let pos = pos as u32 as usize;
         let word = pos / 64;
         let bit = pos % 64;
         word < self.0.len() && (self.0[word] & (1u64 << bit)) != 0

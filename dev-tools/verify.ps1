@@ -40,7 +40,7 @@ $Jobs = if ($TotalRAM -ge 16) { [math]::Min($Cores, 4) } elseif ($TotalRAM -ge 4
 Write-Host "${TotalRAM}GB ${Cores}cores j=${Jobs}" -ForegroundColor DarkGray
 
 $env:RUST_MIN_STACK = "33554432"
-$feats = @("--no-default-features", "--features", "cli,fjall,memmap2,fs2")
+$feats = @("--no-default-features", "--features", "cli,fjall,memmap2,fs2,roaring")
 $pass = 0; $fail = 0
 
 function run($name, [string[]]$cmd) {
