@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write # Required for npm trusted publishing (OIDC)
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -35,6 +36,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.package != 'ts')
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment: npm
 
     steps:
       - uses: actions/checkout@v4
@@ -76,8 +78,6 @@ jobs:
         working-directory: vantadb-wasm/pkg
         run: >
           npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-ts:
     name: Publish vantadb (TS) to npm
@@ -87,6 +87,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.package != 'wasm')
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment: npm
 
     steps:
       - uses: actions/checkout@v4
@@ -126,5 +127,3 @@ jobs:
         working-directory: vantadb-ts
         run: >
           npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
