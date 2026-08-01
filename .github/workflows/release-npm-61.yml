@@ -70,10 +70,24 @@ jobs:
           path: vantadb-wasm/pkg
           if-no-files-found: error
 
+      - name: Check if version already published
+        id: check-wasm
+        working-directory: vantadb-wasm/pkg
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "vantadb-wasm@${VERSION}" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Version ${VERSION} already published — skipping"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Version ${VERSION} not published — will publish"
+          fi
+
       - name: Publish to npm
         if: >
-          startsWith(github.ref, 'refs/tags/v') ||
-          github.event_name == 'workflow_dispatch'
+          steps.check-wasm.outputs.exists != 'true' &&
+          (startsWith(github.ref, 'refs/tags/v') ||
+           github.event_name == 'workflow_dispatch')
         working-directory: vantadb-wasm/pkg
         run: >
           npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }}
@@ -122,7 +136,21 @@ jobs:
           fi
           npm pkg set "dependencies.vantadb-wasm=^${WASM_VER}"
 
+      - name: Check if version already published
+        id: check-ts
+        working-directory: vantadb-ts
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "vantadb@${VERSION}" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Version ${VERSION} already published — skipping"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Version ${VERSION} not published — will publish"
+          fi
+
       - name: Publish to npm
+        if: steps.check-ts.outputs.exists != 'true'
         working-directory: vantadb-ts
         run: >
           npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }}
