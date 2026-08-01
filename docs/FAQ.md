@@ -21,7 +21,7 @@ Unlike ChromaDB and Qdrant (client-server databases), VantaDB is fully embedded 
 
 ### Is VantaDB production-ready?
 
-VantaDB is at version 0.4.0 and under active development. The core engine, WAL durability, HNSW vector search, BM25 text indexing, and hybrid search are stable and covered by integration tests. Production use is encouraged with the understanding that the API is still evolving.
+VantaDB is at version 0.5.0 and under active development. The core engine, WAL durability, HNSW vector search, BM25 text indexing, and hybrid search are stable and covered by integration tests. Production use is encouraged with the understanding that the API is still evolving.
 
 ## Usage
 
@@ -30,7 +30,7 @@ VantaDB is at version 0.4.0 and under active development. The core engine, WAL d
 **Rust:** Add to `Cargo.toml`:
 ```toml
 [dependencies]
-vantadb = "0.4.0"
+vantadb = "0.5.0"
 ```
 
 **Python:**

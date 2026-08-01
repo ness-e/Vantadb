@@ -9,7 +9,7 @@ aliases: []
 
 # VantaDB Internal Architecture
 
-This document reflects the current repo truth for `v0.4.0`. It describes the embedded core, the durability path, the current retrieval model, and the limits that still matter for product claims.
+This document reflects the current repo truth for `v0.5.0`. It describes the embedded core, the durability path, the current retrieval model, and the limits that still matter for product claims.
 
 ---
 
