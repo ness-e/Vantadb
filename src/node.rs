@@ -1,3 +1,4 @@
+#[cfg(feature = "roaring")]
 use croaring::{Bitmap, Portable};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -19,12 +20,23 @@ const MAX_VEC_F32_LEN: usize = 10_000_000; // Max ~40MB for a single f32 vector
 ///
 /// Serialization (serde) uses croaring's Portable format wrapped in a
 /// `(all_set: bool, bytes: Vec<u8>)` tuple.
+#[cfg(feature = "roaring")]
 #[derive(Clone, Debug)]
 pub struct FilterBitset {
     inner: Bitmap,
     all_set: bool,
 }
 
+/// Dynamic bitset supporting >128 bits for multi-tenant filtering.
+///
+/// Pure-Rust `Vec<u64>` fallback used when croaring's C FFI is unavailable
+/// (e.g. `wasm32-unknown-unknown`). The all-set sentinel is a single
+/// `u64::MAX` word.
+#[cfg(not(feature = "roaring"))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FilterBitset(Vec<u64>);
+
+#[cfg(feature = "roaring")]
 impl FilterBitset {
     /// Create an empty bitset.
     pub fn new() -> Self {
@@ -146,14 +158,167 @@ impl FilterBitset {
     }
 }
 
+#[cfg(not(feature = "roaring"))]
+impl FilterBitset {
+    /// Create an empty bitset.
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    /// Pre-allocate capacity for `bits` entries.
+    pub fn with_capacity(bits: usize) -> Self {
+        let words = bits.div_ceil(64);
+        Self(Vec::with_capacity(words))
+    }
+
+    /// Sentinel meaning "match everything" — used as a no-filter query mask.
+    /// A single `u64::MAX` word signals unbounded matching in `matches_mask`.
+    pub fn all_set() -> Self {
+        Self(vec![u64::MAX])
+    }
+
+    /// Returns `true` if this is the all-set sentinel.
+    pub fn is_all_set(&self) -> bool {
+        self.0.len() == 1 && self.0[0] == u64::MAX
+    }
+
+    /// Returns `true` if no bits are set (empty bitset).
+    pub fn is_empty(&self) -> bool {
+        self.0.iter().all(|&w| w == 0)
+    }
+
+    /// Number of u64 words backing this bitset.
+    pub fn word_count(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Set bit at position `pos`.
+    pub fn set_bit(&mut self, pos: usize) {
+        let word = pos / 64;
+        let bit = pos % 64;
+        if word >= self.0.len() {
+            self.0.resize(word + 1, 0);
+        }
+        self.0[word] |= 1u64 << bit;
+    }
+
+    /// Check if bit at position `pos` is set.
+    pub fn has_bit(&self, pos: usize) -> bool {
+        let word = pos / 64;
+        let bit = pos % 64;
+        word < self.0.len() && (self.0[word] & (1u64 << bit)) != 0
+    }
+
+    /// Check if ALL bits set in `mask` are also set in `self`.
+    ///
+    /// The all-set sentinel (produced by `FilterBitset::all_set()`) causes
+    /// this method to return `true` unconditionally, acting as a no-filter.
+    pub fn matches_mask(&self, mask: &FilterBitset) -> bool {
+        if mask.is_all_set() {
+            return true;
+        }
+        let min_len = self.0.len().min(mask.0.len());
+        for i in 0..min_len {
+            if (self.0[i] & mask.0[i]) != mask.0[i] {
+                return false;
+            }
+        }
+        // Any bits set in mask words beyond self's length can't be matched
+        if self.0.len() < mask.0.len() {
+            for &w in mask.0.iter().skip(self.0.len()) {
+                if w != 0 {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    /// Convert to a `u128`, truncating if the bitset exceeds 128 bits.
+    pub fn to_u128(&self) -> u128 {
+        let lo = self.0.first().copied().unwrap_or(0) as u128;
+        let hi = self.0.get(1).copied().unwrap_or(0) as u128;
+        lo | (hi << 64)
+    }
+
+    /// Create from a `u128` (legacy format — max 128 bits).
+    pub fn from_u128(v: u128) -> Self {
+        let lo = v as u64;
+        let hi = (v >> 64) as u64;
+        if hi == 0 {
+            Self(vec![lo])
+        } else {
+            Self(vec![lo, hi])
+        }
+    }
+
+    /// Serialize to length-prefixed bytes: `[word_count: u32 LE][words × u64 LE]`.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(4 + self.0.len() * 8);
+        buf.extend_from_slice(&(self.0.len() as u32).to_le_bytes());
+        for &w in &self.0 {
+            buf.extend_from_slice(&w.to_le_bytes());
+        }
+        buf
+    }
+
+    /// Maximum sane number of filter words (256K bits = 32KB).
+    const MAX_WORDS: usize = 4096;
+
+    /// Deserialize from length-prefixed bytes. Returns `(Self, bytes_consumed)`.
+    pub fn from_bytes(data: &[u8]) -> std::io::Result<(Self, usize)> {
+        use std::io::{Error, ErrorKind};
+        if data.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::UnexpectedEof,
+                "FilterBitset: truncated length",
+            ));
+        }
+        let word_count = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
+        if word_count > Self::MAX_WORDS {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "FilterBitset: word_count exceeds maximum",
+            ));
+        }
+        let needed = word_count
+            .checked_mul(8)
+            .and_then(|v| v.checked_add(4))
+            .ok_or_else(|| {
+                Error::new(ErrorKind::InvalidData, "FilterBitset: word_count overflow")
+            })?;
+        if data.len() < needed {
+            return Err(Error::new(
+                ErrorKind::UnexpectedEof,
+                "FilterBitset: truncated words",
+            ));
+        }
+        let mut words = Vec::with_capacity(word_count);
+        for i in 0..word_count {
+            let off = 4 + i * 8;
+            let w = u64::from_le_bytes([
+                data[off],
+                data[off + 1],
+                data[off + 2],
+                data[off + 3],
+                data[off + 4],
+                data[off + 5],
+                data[off + 6],
+                data[off + 7],
+            ]);
+            words.push(w);
+        }
+        Ok((Self(words), needed))
+    }
+}
+
 impl Default for FilterBitset {
     fn default() -> Self {
         Self::new()
     }
 }
 
-// Custom PartialEq: all_set sentinel is equal only to itself.
-// Two non-all_set bitmaps compare by their inner Bitmap.
+#[cfg(feature = "roaring")]
 impl PartialEq for FilterBitset {
     fn eq(&self, other: &Self) -> bool {
         if self.all_set != other.all_set {
@@ -178,35 +343,38 @@ impl From<FilterBitset> for u128 {
     }
 }
 
-// ── Serde: serialize as (all_set: bool, bytes: Vec<u8>) ──
+#[cfg(feature = "roaring")]
+mod filter_bitset_serde {
+    use super::*;
 
-impl Serialize for FilterBitset {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let bytes = self.inner.serialize::<Portable>();
-        (self.all_set, bytes).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for FilterBitset {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let (all_set, bytes): (bool, Vec<u8>) = Deserialize::deserialize(deserializer)?;
-        if all_set {
-            return Ok(Self {
-                inner: Bitmap::new(),
-                all_set: true,
-            });
+    impl Serialize for FilterBitset {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            let bytes = self.inner.serialize::<Portable>();
+            (self.all_set, bytes).serialize(serializer)
         }
-        let inner = if bytes.is_empty() {
-            Bitmap::new()
-        } else {
-            Bitmap::try_deserialize::<Portable>(&bytes).ok_or_else(|| {
-                serde::de::Error::custom("FilterBitset: invalid croaring bitmap data")
-            })?
-        };
-        Ok(Self {
-            inner,
-            all_set: false,
-        })
+    }
+
+    impl<'de> Deserialize<'de> for FilterBitset {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            let (all_set, bytes): (bool, Vec<u8>) = Deserialize::deserialize(deserializer)?;
+            if all_set {
+                return Ok(Self {
+                    inner: Bitmap::new(),
+                    all_set: true,
+                });
+            }
+            let inner = if bytes.is_empty() {
+                Bitmap::new()
+            } else {
+                Bitmap::try_deserialize::<Portable>(&bytes).ok_or_else(|| {
+                    serde::de::Error::custom("FilterBitset: invalid croaring bitmap data")
+                })?
+            };
+            Ok(Self {
+                inner,
+                all_set: false,
+            })
+        }
     }
 }
 
@@ -1093,6 +1261,7 @@ mod tests {
         assert!(!bs.is_empty());
     }
 
+    #[cfg(feature = "roaring")]
     #[test]
     fn test_filter_bitset_word_count_deprecated() {
         // word_count is deprecated for croaring — always returns 0
@@ -1102,6 +1271,17 @@ mod tests {
         assert_eq!(bs.word_count(), 0);
         bs.set_bit(64);
         assert_eq!(bs.word_count(), 0);
+    }
+
+    #[cfg(not(feature = "roaring"))]
+    #[test]
+    fn test_filter_bitset_word_count() {
+        assert_eq!(FilterBitset::new().word_count(), 0);
+        let mut bs = FilterBitset::new();
+        bs.set_bit(63);
+        assert_eq!(bs.word_count(), 1);
+        bs.set_bit(64);
+        assert_eq!(bs.word_count(), 2);
     }
 
     #[test]
