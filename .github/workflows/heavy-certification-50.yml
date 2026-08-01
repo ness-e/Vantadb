@@ -43,6 +43,17 @@ jobs:
       - name: Run stress protocol
         run: cargo test --release --test stress_protocol -- --nocapture --test-threads=1
 
+  multi-namespace-stress:
+    name: "Certification: multi_namespace_stress"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust-setup
+      - name: Run multi-namespace stress test
+        run: cargo test --release --test multi_namespace_stress -- --nocapture --test-threads=1
+
   hnsw-validation:
     name: "Certification: hnsw_validation"
     needs: ci-gate

@@ -32,6 +32,7 @@ and not binary(hybrid_ranking_metrics) \
 and not binary(hybrid_retrieval_quality) \
 and not binary(sift_validation) \
 and not binary(stress_protocol) \
+and not binary(multi_namespace_stress) \
 and not binary(competitive_bench) \
 and not binary(hardware_profiles) \
 and not binary(basic_node) \
