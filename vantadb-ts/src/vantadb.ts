@@ -798,10 +798,14 @@ export class VantaDB {
    * console.log(result.visited);
    * ```
    */
-  graphBfs(roots: number[], maxDepth: number = 10): GraphBfsResult {
+  graphBfs(
+    roots: number[],
+    maxDepth: number = 10,
+    direction: "Forward" | "Reverse" | "Both" = "Forward",
+  ): GraphBfsResult {
     this._assertOpen();
     return this._wasm("graphBfs", () =>
-      this.inner.graph_bfs(new BigUint64Array(roots.map(BigInt)), maxDepth) as GraphBfsResult,
+      this.inner.graph_bfs(new BigUint64Array(roots.map(BigInt)), maxDepth, direction) as GraphBfsResult,
     );
   }
 
@@ -818,10 +822,14 @@ export class VantaDB {
    * const result = db.graphDfs([1], 5);
    * ```
    */
-  graphDfs(roots: number[], maxDepth: number = 10): GraphDfsResult {
+  graphDfs(
+    roots: number[],
+    maxDepth: number = 10,
+    direction: "Forward" | "Reverse" | "Both" = "Forward",
+  ): GraphDfsResult {
     this._assertOpen();
     return this._wasm("graphDfs", () =>
-      this.inner.graph_dfs(new BigUint64Array(roots.map(BigInt)), maxDepth) as GraphDfsResult,
+      this.inner.graph_dfs(new BigUint64Array(roots.map(BigInt)), maxDepth, direction) as GraphDfsResult,
     );
   }
 
