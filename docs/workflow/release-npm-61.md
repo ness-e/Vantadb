@@ -8,12 +8,12 @@ Publica los paquetes WASM y TypeScript de VantaDB en npm.
 
 2 jobs con dependencia (`publish-ts` necesita el artifact WASM):
 
-1. **`publish-wasm`**: (tag `wasm-v*` o `ts-v*`, o dispatch `wasm/both`):
+1. **`publish-wasm`**: (tag `v*` o dispatch `wasm/both`):
    - Build WASM con `wasm-pack build --release`
    - Sube artifact `wasm-pkg`
-   - Publica `vantadb-wasm` a npm (skip si el tag es solo `ts-v*` y no es dispatch)
-   - Autenticación vía `NODE_AUTH_TOKEN` (Granular Access Token, bypass-2fa habilitado)
-2. **`publish-ts`**: (tag `ts-v*` o dispatch `ts/both`):
+   - Publica `vantadb-wasm` a npm
+   - Autenticación vía Trusted Publishing (OIDC)
+2. **`publish-ts`**: (tag `v*` o dispatch `ts/both`):
    - Descarga el artifact `wasm-pkg` generado por `publish-wasm`
    - `npm install` y `npm run build` en `vantadb-ts`
    - Reescribe la dependencia `vantadb-wasm` en package.json con la versión exacta del build
@@ -38,6 +38,5 @@ Publicar el binding WASM y el SDK TypeScript de VantaDB en npm para consumo desd
 
 ## ¿Cuándo se ejecuta?
 
-- **Push** de tag `wasm-vX.Y.Z` (publica `vantadb-wasm` únicamente)
-- **Push** de tag `ts-vX.Y.Z` (publica ambos — `vantadb-wasm` + `vantadb`)
+- **Push** de tag `vX.Y.Z` (release del core — publica ambos: `vantadb-wasm` + `vantadb`)
 - **Workflow dispatch** manual: elige paquete (`wasm`, `ts`, `both`) y opción dry-run
