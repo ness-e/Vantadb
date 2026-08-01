@@ -40,3 +40,12 @@ Detección temprana de vulnerabilidades y bugs de memoria en componentes crític
 
 - **Semanal** (cada lunes 06:00 UTC) vía `schedule`
 - **Workflow dispatch** manual con parámetro configurable de segundos por target
+
+## CI Gate (`ci-gate`)
+
+Antes de `build` corre el job `ci-gate` (reutiliza `.github/workflows/ci-gate.yml`). Verifica que los 11 checks requeridos del ruleset de `main` estén en verde en el commit objetivo; si alguno está en rojo, el gate falla y se salta el fuzzing (correr fuzz sobre un core que no compila/verifica es tiempo perdido). El job `fuzz` depende de `ci-gate` y `build`.
+
+- En **schedule**: el gate se aplica.
+- En **workflow_dispatch**: el gate se salta (fuerza la ejecución).
+
+Requiere `checks: read` en el calling job.

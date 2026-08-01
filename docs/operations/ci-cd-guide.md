@@ -2,7 +2,7 @@
 
 ## Overview
 
-VantaDB uses GitHub Actions for continuous integration and delivery. The CI/CD pipeline is organized into 12 workflows, each with a clear category and purpose.
+VantaDB uses GitHub Actions for continuous integration and delivery. The CI/CD pipeline is organized into 15 workflows, each with a clear category and purpose.
 
 ### File Naming Convention
 
@@ -14,8 +14,10 @@ All workflow files follow: `<category>-<name>-<number>.yml`
 | 20-29 | **GATE** | Validation gates (docs) | Sí |
 | 30-39 | **SEC** | Security scanning | Sí |
 | 40-49 | **PERF** | Performance benchmarks | No |
-| 50-59 | **HEAVY** | Long-running certification | No (schedule) |
+| 50-59 | **HEAVY** | Long-running certification | No (schedule + gate) |
 | 60-69 | **RELEASE** | Publish to registries | No (tag-only) |
+
+> **NOTA**: Los workflows HEAVY (`heavy-certification-50`, `heavy-bench-nightly-51`) y `fuzz-40` arrancan con un job `ci-gate` (reutiliza `ci-gate.yml`) que aborta la ejecución si el CI de `main` está en rojo. El gate solo se aplica en ejecuciones por `schedule`; el dispatch manual lo salta.
 
 Numbering is sequential within each category (10, 11, 12...).
 
@@ -105,15 +107,35 @@ jobs:
 
 #### `heavy-certification-50.yml` — HEAVY: Certification — All Tests
 
-**Trigger**: Weekly schedule (Sunday 3AM), manual dispatch
+**Trigger**: Weekly schedule (Sunday 3AM), manual dispatch (con gate de CI en schedule)
 
 **Jobs**: 10 parallel stress/certification test suites
 
 #### `heavy-bench-nightly-51.yml` — HEAVY: Benchmarks — Nightly Regression
 
-**Trigger**: Nightly schedule (3AM), manual dispatch
+**Trigger**: Nightly schedule (3AM), manual dispatch (con gate de CI en schedule)
 
 **Jobs**: Criterion benchmarks with regression detection + GitHub Issues
+
+#### `fuzz-40.yml` — FUZZ: LibFuzzer — Corpus + Regression
+
+**Trigger**: Weekly schedule (Monday 6AM), manual dispatch (con gate de CI en schedule)
+
+**Jobs**: Build + fuzz matrix (4 targets) with cargo-fuzz
+
+#### `chaos-45.yml` — Chaos: Failpoint Injection & Resilience Tests
+
+**Trigger**: Push/PR to main (Rust paths), manual dispatch
+
+**Jobs**: Failpoint/resilience tests (`cargo nextest --profile chaos`)
+
+### GATE/COMMON
+
+#### `ci-gate.yml` — CI Gate (reusable)
+
+**Trigger**: `workflow_call` (invocado por los workflows HEAVY y `fuzz-40`)
+
+**Jobs**: Verifica los 11 checks requeridos del ruleset de `main`; falla si el CI está en rojo
 
 ### RELEASE (60-)
 
@@ -125,7 +147,7 @@ jobs:
 
 #### `release-npm-61.yml` — RELEASE: NPM — Publish
 
-**Trigger**: Tag `wasm-v*`/`ts-v*`, manual dispatch
+**Trigger**: Tag `v*`, manual dispatch
 
 **Jobs**: Publish wasm + TypeScript packages to npm
 

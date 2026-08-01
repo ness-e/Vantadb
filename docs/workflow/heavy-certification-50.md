@@ -44,3 +44,12 @@ Certificar que VantaDB cumple con los estándares de calidad, durabilidad y rend
 
 - **Semanal** (domingo 03:00 UTC) vía `schedule`
 - **Workflow dispatch** manual, con opciones para incluir SIFT validation y competitive benchmarks
+
+## CI Gate (`ci-gate`)
+
+Antes de cualquier job pesado corre el job `ci-gate`, que reutiliza `.github/workflows/ci-gate.yml`. Verifica que los 11 checks requeridos del ruleset de `main` estén en verde en el commit objetivo; si alguno está en rojo, el gate falla y todos los jobs de certificación se saltan (no se gasta ~8h de cómputo en una suite que fallaría igual).
+
+- En **schedule**: el gate se aplica (aborta si el CI de main está en rojo).
+- En **workflow_dispatch**: el gate se salta (el dispatch manual fuerza la ejecución).
+
+Requiere `checks: read` en el calling job (los permisos del reusable solo pueden degradarse, no elevarse).
