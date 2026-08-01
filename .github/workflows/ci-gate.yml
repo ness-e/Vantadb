@@ -1,0 +1,60 @@
+# CI Gate — reusable workflow.
+# Heavy/scheduled workflows call this first: if the CI of the current main
+# commit is red, the gate fails and dependent jobs (needs: ci-gate) are skipped,
+# avoiding hours of wasted heavy runs that would fail anyway.
+
+name: CI Gate
+
+on:
+  workflow_call:
+    inputs:
+      event_name:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  ci-gate:
+    name: Main is green
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check main CI status
+        if: ${{ inputs.event_name == 'schedule' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA="${GITHUB_SHA}"
+          REPO="${{ github.repository }}"
+          echo "Checking CI status for ${REPO} @ ${SHA}"
+          REQUIRED=(
+            "Format Check"
+            "Clippy Lints"
+            "Tests (Linux)"
+            "Tests (Windows)"
+            "Tests (macOS)"
+            "MSRV Check (1.94.1)"
+            "Experimental Crates Check"
+            "Security Audit"
+            "Miri (UB Detection)"
+            "Dependency Policy Check"
+            "Analyze"
+          )
+          FAILED=0
+          for c in "${REQUIRED[@]}"; do
+            CONCLUSION=$(gh api "repos/${REPO}/commits/${SHA}/check-runs?per_page=100&filter=latest" \
+              --jq ".check_runs[] | select(.name==\"${c}\" and .status==\"completed\") | .conclusion" | head -n1)
+            echo "  ${c} -> ${CONCLUSION:-<not found>}"
+            case "${CONCLUSION}" in
+              success) ;;
+              failure|timed_out|cancelled|action_required) FAILED=1 ;;
+              *) ;;
+            esac
+          done
+          if [ "${FAILED}" = "1" ]; then
+            echo "::error::main CI is red — aborting this heavy run"
+            exit 1
+          fi
+          echo "Main CI is green — proceeding"
