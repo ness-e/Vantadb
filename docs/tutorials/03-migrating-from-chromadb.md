@@ -1,6 +1,6 @@
 ---
 title: "Migrating from ChromaDB to VantaDB"
-status: draft
+status: active
 tags: [vantadb, tutorial, guide, migration, chromadb]
 last_reviewed: 2026-08-02
 aliases: []
