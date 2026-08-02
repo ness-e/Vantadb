@@ -124,8 +124,11 @@ Key documents:
 
 | Document | Description |
 |----------|-------------|
+| [Tutorials index](tutorials/index.md) | Structured learning path (ordered by complexity) |
 | [01: AI Agent Memory](tutorials/01-ai-agent-memory.md) | Building AI agent memory with VantaDB |
 | [02: Local RAG Pipeline](tutorials/02-local-rag-pipeline.md) | Local RAG pipeline tutorial |
+| [04: Hybrid Search](tutorials/04-hybrid-search-basics.md) | Vector, BM25, and hybrid search modes |
+| [05: Embedding Providers](tutorials/05-embedding-integrations.md) | OpenAI, Ollama, LiteLLM embedding patterns |
 | [03: Migrating from ChromaDB](tutorials/03-migrating-from-chromadb.md) | Migration guide from ChromaDB to VantaDB |
 | [Migrating from LanceDB](tutorials/migration-from-lancedb.md) | Migration guide from LanceDB to VantaDB |
 

@@ -32,7 +32,7 @@ The primary entry point to all documentation is the [[master-index|Master Index]
 | [[api/EMBEDDED_SDK.md\|api/]] | Python and Rust SDK reference |
 | [[architecture/ARCHITECTURE.md\|architecture/]] | Core engine architecture, ADRs, audits |
 | [[operations/CONFIGURATION.md\|operations/]] | CI/CD, benchmarks, configuration, monitoring |
-| [[tutorials/03-migrating-from-chromadb.md\|tutorials/]] | Migration guides (ChromaDB, LanceDB) |
+| [[tutorials/index.md\|tutorials/]] | Learning path: agent memory, RAG, hybrid search, migrations |
 <!-- | [[../web/content/blog/why-i-built-vantadb-local-memory-engine.md\|articles/]] | Published technical articles (planned) | -->
 | [[case_studies/rag_edge_device.md\|case_studies/]] | Deployment case studies |
 | [[graphrag/README.md\|graphrag/]] | GraphRAG architecture and design |
