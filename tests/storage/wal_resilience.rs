@@ -147,11 +147,19 @@ fn test_wal_middle_corruption_auto_healing() {
             file.write_all(&file_content).unwrap();
         }
 
-        // Forzar recuperación exclusiva desde el WAL eliminando el vector store y el índice HNSW
-        let vector_store_path = dir.path().join("data").join("vector_store.vanta");
-        let index_path = dir.path().join("data").join("vector_index.bin");
-        let _ = std::fs::remove_file(vector_store_path);
-        let _ = std::fs::remove_file(index_path);
+        // Forzar recuperación exclusiva desde el WAL eliminando el vector store
+        // (legacy + LSM levels) y el índice HNSW
+        let data_dir = dir.path().join("data");
+        for name in [
+            "vector_store.vanta",
+            "vstore_L0.vanta",
+            "vstore_L1.vanta",
+            "vstore_L2.vanta",
+            "vstore_L3.vanta",
+        ] {
+            let _ = std::fs::remove_file(data_dir.join(name));
+        }
+        let _ = std::fs::remove_file(data_dir.join("vector_index.bin"));
     }
 
     // Escribir un nuevo nodo válido DESPUÉS del agujero corrupto
@@ -271,10 +279,17 @@ fn test_wal_selective_crc_corruption_recovery() {
     }
 
     // Borrar el vector store y el índice en disco para forzar recuperación a través de WAL
-    let vector_store_path = dir.path().join("data").join("vector_store.vanta");
-    let index_path = dir.path().join("data").join("vector_index.bin");
-    let _ = std::fs::remove_file(vector_store_path);
-    let _ = std::fs::remove_file(index_path);
+    let data_dir = dir.path().join("data");
+    for name in [
+        "vector_store.vanta",
+        "vstore_L0.vanta",
+        "vstore_L1.vanta",
+        "vstore_L2.vanta",
+        "vstore_L3.vanta",
+    ] {
+        let _ = std::fs::remove_file(data_dir.join(name));
+    }
+    let _ = std::fs::remove_file(data_dir.join("vector_index.bin"));
 
     // Abrir la base de datos de nuevo.
     // Durante la recuperación, el replay del WAL debe detectar el fallo de CRC32C en el registro del nodo 302,

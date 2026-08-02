@@ -64,7 +64,10 @@ fn test_benchmark_internal_10k() {
     println!("Rebuild completed in {:.2} ms", rebuild_duration_ms);
 
     // Latency tests: warm up first
-    let search_iterations = 1000;
+    // ponytail: 200 iterations keeps percentile stability while fitting the
+    // CI `other_heavy` step (45 min). The synthetic corpus has common terms
+    // (df~=10K) that make BM25 O(corpus) per query (~2.4s at 10K docs).
+    let search_iterations = 200;
     let mut hybrid_latencies = Vec::new();
     let mut vector_latencies = Vec::new();
     let mut text_latencies = Vec::new();

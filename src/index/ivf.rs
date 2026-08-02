@@ -370,6 +370,21 @@ impl IvfIndex {
             Some(f32::from_le_bytes(buf))
         };
 
+        // Read a length field that will drive an allocation, bounding it against
+        // the remaining input so a corrupt count can't cause `Vec::with_capacity`
+        // capacity overflow / OOM (see fuzz_archive crash).
+        let read_count = |cursor: &mut Cursor<&[u8]>, min_bytes: usize| -> Option<usize> {
+            let count = read_u64(cursor)? as usize;
+            let remaining = cursor
+                .get_ref()
+                .len()
+                .saturating_sub(cursor.position() as usize);
+            if count > remaining / min_bytes.max(1) {
+                return None;
+            }
+            Some(count)
+        };
+
         // Config
         let nlist = read_u64(&mut cursor)? as usize;
         let nprobe = read_u64(&mut cursor)? as usize;
@@ -380,10 +395,10 @@ impl IvfIndex {
         };
 
         // Centroids
-        let centroid_count = read_u64(&mut cursor)? as usize;
+        let centroid_count = read_count(&mut cursor, 8)?;
         let mut centroids = Vec::with_capacity(centroid_count);
         for _ in 0..centroid_count {
-            let dim = read_u64(&mut cursor)? as usize;
+            let dim = read_count(&mut cursor, 4)?;
             let mut centroid = Vec::with_capacity(dim);
             for _ in 0..dim {
                 centroid.push(read_f32(&mut cursor)?);
@@ -392,10 +407,10 @@ impl IvfIndex {
         }
 
         // Inverted lists
-        let list_count = read_u64(&mut cursor)? as usize;
+        let list_count = read_count(&mut cursor, 8)?;
         let mut inverted_lists = Vec::with_capacity(list_count);
         for _ in 0..list_count {
-            let entry_count = read_u64(&mut cursor)? as usize;
+            let entry_count = read_count(&mut cursor, 32)?;
             let mut list = Vec::with_capacity(entry_count);
             for _ in 0..entry_count {
                 let id = {
@@ -403,11 +418,11 @@ impl IvfIndex {
                     cursor.read_exact(&mut buf).ok()?;
                     u128::from_le_bytes(buf)
                 };
-                let bs_len = read_u64(&mut cursor)? as usize;
+                let bs_len = read_count(&mut cursor, 1)?;
                 let mut bs_buf = vec![0u8; bs_len];
                 cursor.read_exact(&mut bs_buf).ok()?;
                 let (bitset, _consumed) = FilterBitset::from_bytes(&bs_buf).ok()?;
-                let dim = read_u64(&mut cursor)? as usize;
+                let dim = read_count(&mut cursor, 4)?;
                 let mut vector = Vec::with_capacity(dim);
                 for _ in 0..dim {
                     vector.push(read_f32(&mut cursor)?);
@@ -721,6 +736,38 @@ mod tests {
         let deser = IvfIndex::deserialize_from_bytes(&bytes).expect("deserialize");
         assert!(deser.centroids.is_empty());
         assert!(deser.inverted_lists.is_empty());
+    }
+
+    // ── corrupt-count resilience (fuzz_archive crash) ─────────────────
+
+    #[test]
+    fn test_ivf_deserialize_rejects_corrupt_counts() {
+        // centroid_count = u64::MAX with nothing left -> must return None, not panic
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&0u64.to_le_bytes()); // nlist
+        buf.extend_from_slice(&0u64.to_le_bytes()); // nprobe
+        buf.push(0); // metric
+        buf.extend_from_slice(&u64::MAX.to_le_bytes()); // centroid_count
+        assert!(IvfIndex::deserialize_from_bytes(&buf).is_none());
+
+        // centroid dim = u64::MAX with no room for a single f32 -> None
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&0u64.to_le_bytes()); // nlist
+        buf.extend_from_slice(&0u64.to_le_bytes()); // nprobe
+        buf.push(0); // metric
+        buf.extend_from_slice(&1u64.to_le_bytes()); // centroid_count
+        buf.extend_from_slice(&u64::MAX.to_le_bytes()); // dim
+        assert!(IvfIndex::deserialize_from_bytes(&buf).is_none());
+
+        // entry_count huge with no room for one entry (16 id + 8 bs_len + 8 dim) -> None
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&0u64.to_le_bytes()); // nlist
+        buf.extend_from_slice(&0u64.to_le_bytes()); // nprobe
+        buf.push(0); // metric
+        buf.extend_from_slice(&0u64.to_le_bytes()); // centroid_count
+        buf.extend_from_slice(&1u64.to_le_bytes()); // list_count
+        buf.extend_from_slice(&u64::MAX.to_le_bytes()); // entry_count
+        assert!(IvfIndex::deserialize_from_bytes(&buf).is_none());
     }
 
     #[test]
