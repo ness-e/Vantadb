@@ -1,3 +1,13 @@
+---
+name: campaign-executor
+description: >
+  Harness-driven pipeline that unifies backlog-executor (campaign
+  orchestration) and task-executor (deep task execution). Use when running
+  /pipeline plan|task|run, defining task files with atomic steps, or driving
+  the PowerShell harness loop through PLAN/ACT/VERIFY states.
+compatibility: opencode
+---
+
 # Campaign Executor — Harness-Driven Pipeline
 
 > Unifica backlog-executor (orquestación de campañas) y task-executor
