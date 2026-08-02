@@ -17,6 +17,11 @@
 use napi::Error;
 use napi_derive::napi;
 use serde_json::{json, Map, Value};
+
+/// Cap on vector dimension accepted from Node to bound CPU/memory on the FFI
+/// trust boundary. Mirrors the guard the WASM backend applies
+/// (`vantadb-wasm/src/lib.rs` `MAX_F32_VEC_LEN`).
+const MAX_VEC_DIM: usize = 10_000;
 use vantadb::config::VantaConfig;
 use vantadb::node::DistanceMetric;
 use vantadb::sdk::{
@@ -201,11 +206,10 @@ fn build_config(path: &str, options: Option<&Value>) -> napi::Result<VantaConfig
                 .ok_or_else(|| Error::from_reason("read_only must be a boolean"))?;
         }
         if let Some(limit) = obj.get("memory_limit") {
-            config.memory_limit = Some(
-                limit
-                    .as_u64()
-                    .ok_or_else(|| Error::from_reason("memory_limit must be a number"))?,
-            );
+            let value = limit
+                .as_u64()
+                .ok_or_else(|| Error::from_reason("memory_limit must be a number"))?;
+            config.memory_limit = (value > 0).then_some(value);
         }
     }
     Ok(config)
@@ -270,7 +274,11 @@ fn parse_search_request(value: &Value) -> napi::Result<VantaMemorySearchRequest>
         query_vector,
         filters: get_metadata(obj, "filters")?,
         text_query: get_opt_str(obj, "text_query")?,
-        top_k: obj.get("top_k").and_then(Value::as_u64).unwrap_or(10) as usize,
+        top_k: obj
+            .get("top_k")
+            .and_then(Value::as_u64)
+            .unwrap_or(10)
+            .min(10_000) as usize,
         distance_metric: match obj.get("distance_metric") {
             Some(Value::String(s)) if s == "Euclidean" || s == "euclidean" => {
                 DistanceMetric::Euclidean
@@ -302,21 +310,39 @@ fn get_opt_str(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<Strin
 fn get_opt_u64(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<u64>> {
     match obj.get(key) {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::Number(n)) => Ok(n.as_u64()),
+        Some(Value::Number(n)) => {
+            if n.is_i64() || n.is_u64() {
+                Ok(n.as_u64())
+            } else if n.as_f64().is_some_and(|f| f.is_finite() && f.fract() == 0.0 && f >= 0.0) {
+                Ok(n.as_u64())
+            } else {
+                Err(Error::from_reason(format!(
+                    "`{key}` must be a non-negative integer"
+                )))
+            }
+        }
         Some(_) => Err(Error::from_reason(format!("`{key}` must be a number"))),
     }
 }
 
 fn get_f32_vec(obj: &Map<String, Value>, key: &str) -> napi::Result<Vec<f32>> {
     match obj.get(key) {
-        Some(Value::Array(items)) => items
-            .iter()
-            .map(|v| {
-                v.as_f64()
-                    .map(|f| f as f32)
-                    .ok_or_else(|| Error::from_reason(format!("`{key}` must be a number[]")))
-            })
-            .collect(),
+        Some(Value::Array(items)) => {
+            if items.len() > MAX_VEC_DIM {
+                return Err(Error::from_reason(format!(
+                    "`{key}` exceeds max vector dimension {MAX_VEC_DIM}"
+                )));
+            }
+            items
+                .iter()
+                .map(|v| {
+                    v.as_f64()
+                        .filter(|f| f.is_finite())
+                        .map(|f| f as f32)
+                        .ok_or_else(|| Error::from_reason(format!("`{key}` must be a number[]")))
+                })
+                .collect()
+        }
         Some(_) => Err(Error::from_reason(format!("`{key}` must be a number[]"))),
         None => Err(Error::from_reason(format!(
             "missing required field `{key}`"
@@ -327,15 +353,23 @@ fn get_f32_vec(obj: &Map<String, Value>, key: &str) -> napi::Result<Vec<f32>> {
 fn get_opt_f32_vec(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<Vec<f32>>> {
     match obj.get(key) {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::Array(items)) => items
-            .iter()
-            .map(|v| {
-                v.as_f64()
-                    .map(|f| f as f32)
-                    .ok_or_else(|| Error::from_reason(format!("`{key}` must be a number[]")))
-            })
-            .collect::<napi::Result<Vec<f32>>>()
-            .map(Some),
+        Some(Value::Array(items)) => {
+            if items.len() > MAX_VEC_DIM {
+                return Err(Error::from_reason(format!(
+                    "`{key}` exceeds max vector dimension {MAX_VEC_DIM}"
+                )));
+            }
+            items
+                .iter()
+                .map(|v| {
+                    v.as_f64()
+                        .filter(|f| f.is_finite())
+                        .map(|f| f as f32)
+                        .ok_or_else(|| Error::from_reason(format!("`{key}` must be a number[]")))
+                })
+                .collect::<napi::Result<Vec<f32>>>()
+                .map(Some)
+        }
         Some(_) => Err(Error::from_reason(format!("`{key}` must be a number[]"))),
     }
 }

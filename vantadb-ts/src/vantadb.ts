@@ -786,7 +786,7 @@ export class VantaDB {
         BigInt(target),
         label,
         weight ?? null,
-        createdAtMs ?? null,
+        createdAtMs != null ? BigInt(createdAtMs) : null,
       ),
     );
   }
@@ -921,3 +921,4 @@ export {
   isValidVector,
   validateVector,
 } from "./guards.js";
+export * from "./native.js";
