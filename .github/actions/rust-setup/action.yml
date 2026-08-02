@@ -69,6 +69,17 @@ runs:
       with:
         cache-bin: ${{ inputs.cache-bin }}
 
+    - name: Set up sccache
+      uses: mozilla-actions/sccache-action@v0.0.11
+      with:
+        version: v0.16.0
+
+    - name: Enable sccache for cargo
+      shell: bash
+      run: |
+        echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+        echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+
     - name: Install system dependencies
       if: ${{ inputs.install-system-deps == 'true' && runner.os == 'Linux' }}
       shell: bash

@@ -134,8 +134,9 @@ jobs:
           cache-bin: "false"
 
       - name: Install cargo-nextest
-        shell: pwsh
-        run: cargo install cargo-nextest --locked
+        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853
+        with:
+          tool: nextest
 
       - name: Cargo check (Windows smoke test)
         run: cargo check
