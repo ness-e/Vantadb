@@ -293,6 +293,21 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-08-02 — COMP-021: Temporal edges (timestamp-aware relationships) ✅
+
+**Fuente:** Backlog (Phase 10 — Competitive Features) `COMP-021`
+
+**Resuelto por (vanta-lead + vanta-worker):**
+- `Edge.created_at_ms: u64` en `src/node.rs`, seteado a wall-clock en `new`/`with_weight`/`reverse`; helper `Edge::with_timestamp`.
+- **Custom `Deserialize` manual para `Edge`:** hallazgo — postcard 1.1.3 NO consulta `#[serde(default)]` (`deserialize_struct` → `deserialize_tuple(fields.len())`, `next_element_seed` devuelve `Err(DeserializeUnexpectedEnd)` al agotar el buffer con `len > 0`). Se implementó un visitor que trata el fin de buffer del campo nuevo como `0`, preservando lectura de datasets persistidos antes de esta feature.
+- `bfs_traverse_filtered`/`dfs_traverse_filtered` con `time_range: Option<(u64,u64)>` (inclusive) en `GraphTraverser`.
+- `add_edge(source, target, label, weight, created_at_ms)` en SDK + bindings Python/WASM/TS; timestamp compartido entre arista forward y reverse.
+- `docs/api/PYTHON_SDK.md` documenta `created_at_ms: Optional[int] = None`.
+
+**Verificación:** `cargo test -p vantadb --lib` 1672 passed ✅ | `cargo test -p vantadb --test temporal_edges` 6/6 ✅ (backward-compat postcard, roundtrip, window filtering, forward+reverse persistence)
+
+**Ids:** `COMP-021`
+
 ### 2026-08-02 — COMP-019: Binary protocol (gRPC) — WONTFIX ✅
 
 **Fuente:** Backlog (Phase 10 — Competitive Features) `COMP-019`
