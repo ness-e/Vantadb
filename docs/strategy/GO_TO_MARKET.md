@@ -3,7 +3,7 @@ title: VantaDB Go-to-Market Strategy
 type: strategy
 status: stable
 tags: [vantadb, gtm, marketing, distribution, integrations, community, devrel, pricing]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-08-02
 aliases: [GTM, Ecosystem, Marketing, Distribution, Pricing]
 ---
 
@@ -39,12 +39,12 @@ pip install vantadb-py
 
 #### 2. crates.io (Rust Package Registry)
 
-**Status:** ✅ Active (v0.1.4)
+**Status:** ✅ Active (v0.5.0)
 **URL:** https://crates.io/crates/vantadb
 
 ```toml
 [dependencies]
-vantadb = "0.1.4"
+vantadb = "0.5.0"
 ```
 
 **Features:**

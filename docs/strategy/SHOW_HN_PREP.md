@@ -3,7 +3,7 @@ title: Show HN — VantaDB — Embedded, Persistent Memory & Hybrid Search Engin
 type: operations
 status: active
 tags: [vantadb, operations, launch, hn]
-last_reviewed: 2026-07-27
+last_reviewed: 2026-08-02
 aliases: []
 ---
 
@@ -72,7 +72,7 @@ for res in results:
 ```
 
 ### Limitations & Current Status
-VantaDB is currently at version `0.4.0` (beta). It is not designed to be a distributed database, a generic relational system of record, or a massive web-scale vector search engine. It is strictly optimized as an embedded, durable memory engine for edge AI agents.
+VantaDB is currently at version `0.5.0` (beta). It is not designed to be a distributed database, a generic relational system of record, or a massive web-scale vector search engine. It is strictly optimized as an embedded, durable memory engine for edge AI agents.
 
 The project is Apache-2.0. We have fully automated Python wheel builds for Linux (x86_64/aarch64), macOS (x86_64/arm64), and Windows (x86_64). I'd love to hear your feedback on the architecture, optimization choices, and how you manage local memory in your agent pipelines.
 
@@ -177,9 +177,9 @@ To avoid panics from missing hardware support, we use the `cpufeatures` crate an
 ---
 
 ### 10. Is VantaDB production-ready?
-> **Criticism:** The version is v0.1.4. This looks like another experimental vector database project that will be abandoned in six months.
+> **Criticism:** The version is v0.5.0. This looks like another experimental vector database project that will be abandoned in six months.
 
 **Response:**
-We are honest about this: VantaDB is in **active beta** (v0.4.0).
+We are honest about this: VantaDB is in **active beta** (v0.5.0).
 We have completed all local correctness and durability certifications (100% of unit and integration tests passing on Windows/Linux/macOS, GIL leak tests, deterministic precision benchmarks, chaos-tested crash recovery with injected failpoints).
 The core is stabilized and documented. We are now launching the **controlled pilot program** to validate the engine in real autonomous agent applications. The goal is to maintain a stable API and resolve issues with priority on our issue tracker.
