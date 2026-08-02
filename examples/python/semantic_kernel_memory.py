@@ -140,7 +140,7 @@ class VantaDBSemanticMemory:
         
         hits = self.db.search_memory(
             self.namespace,
-            query_vector=query_embedding,
+            query_vector=query_embedding or [],
             text_query=query,
             top_k=limit,
             filters=search_filters
@@ -205,7 +205,7 @@ class VantaDBSemanticMemory:
         Returns:
             List of memories
         """
-        records = self.db.list(self.namespace, {"limit": limit, "filters": filters or {}})
+        records = self.db.list_memory(self.namespace, filters=filters or {}, limit=limit)
         
         return [
             {

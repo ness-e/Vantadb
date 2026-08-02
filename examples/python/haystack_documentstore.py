@@ -141,7 +141,7 @@ class VantaDBDocumentStore:
         
         hits = self.db.search_memory(
             self.namespace,
-            query_vector=query_vector,
+            query_vector=query_vector or [],
             text_query=query,
             top_k=top_k,
             filters=search_filters
@@ -185,7 +185,7 @@ class VantaDBDocumentStore:
         
         if filters:
             # Get all documents matching filters
-            records = self.db.list(self.namespace, {"limit": 1000, "filters": filters})
+            records = self.db.list_memory(self.namespace, filters=filters, limit=1000)
             count = 0
             for record in records:
                 if self.db.delete(self.namespace, record["key"]):
@@ -201,7 +201,7 @@ class VantaDBDocumentStore:
         Returns:
             Number of documents
         """
-        records = self.db.list(self.namespace, {"limit": 1000000})
+        records = self.db.list_memory(self.namespace, limit=1000000)
         return len(records)
     
     def get_all_documents(
@@ -221,7 +221,7 @@ class VantaDBDocumentStore:
         Returns:
             List of all documents
         """
-        records = self.db.list(self.namespace, {"limit": 1000000, "filters": filters or {}})
+        records = self.db.list_memory(self.namespace, filters=filters or {}, limit=1000000)
         
         documents = []
         for record in records:

@@ -97,7 +97,7 @@ class VantaDBRetriever:
         
         hits = self.db.search_memory(
             self.namespace,
-            query_vector=query_vector,
+            query_vector=query_vector or [],
             text_query=query,
             top_k=top_k,
             filters=search_filters
@@ -169,7 +169,7 @@ class VantaDBRetriever:
         Returns:
             Number of documents
         """
-        records = self.db.list(self.namespace, {"limit": 1000000})
+        records = self.db.list_memory(self.namespace, limit=1000000)
         return len(records)
     
     def clear(self) -> int:
@@ -179,7 +179,7 @@ class VantaDBRetriever:
         Returns:
             Number of deleted documents
         """
-        documents = self.db.list(self.namespace, {"limit": 1000000})
+        documents = self.db.list_memory(self.namespace, limit=1000000)
         count = 0
         for doc in documents:
             if self.db.delete(self.namespace, doc["key"]):

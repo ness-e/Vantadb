@@ -1,0 +1,122 @@
+name: 'CI: Examples — Rust & Python smoke tests'
+
+# GH-142: every Rust and Python example runs as a smoke test (no benchmarks).
+# Each example is its own step so a failure names the exact example that broke.
+# No `continue-on-error` anywhere: PRs that break examples are blocked.
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'examples/**'
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'vantadb-python/**'
+      - '.github/workflows/ci-examples-12.yml'
+      - '!web/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'examples/**'
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'vantadb-python/**'
+      - '.github/workflows/ci-examples-12.yml'
+      - '!web/**'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+concurrency:
+  group: ci-examples-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rust-examples:
+    name: Rust Examples
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          swap-mb: 4096
+
+      # Each example runs as its own step so failures name the example that broke.
+      # `cargo run --example <name>` compiles then executes the example; all four
+      # use local storage paths (./examples_*_data) and exit 0 on success.
+      - name: "Rust example: basic"
+        run: cargo run --example basic
+      - name: "Rust example: hybrid"
+        run: cargo run --example hybrid
+      - name: "Rust example: graphrag"
+        run: cargo run --example graphrag
+      - name: "Rust example: concurrent"
+        run: cargo run --example concurrent
+
+  python-examples:
+    name: Python Examples
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # CATEGORY: SMOKE — every example imports ONLY `vantadb_py` + stdlib.
+    # None import framework libs (langchain, haystack, crewai, autogen, dspy,
+    # semantic_kernel, mem0, langgraph) and none read API keys / env vars, so no
+    # framework deps are installed and nothing is excluded on those grounds.
+    # `demo.py` degrades gracefully to mock embeddings when sentence-transformers
+    # is absent.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Build vantadb_py wheel (maturin)
+        uses: PyO3/maturin-action@3e2bdf6ba6453a61e649744019b8a2d906c7eb38
+        with:
+          command: build
+          args: --release --out dist --manifest-path ./vantadb-python/Cargo.toml
+
+      - name: Install wheel + example requirements
+        run: |
+          wheel="$(ls -t ./dist/vantadb_py-*.whl | head -n 1)"
+          python -m pip install --upgrade pip
+          python -m pip install "$wheel"
+          python -m pip install -r examples/demo/requirements.txt
+
+      # ── Smoke tests against the current API (vantadb-py 0.5.0) ──
+      # Each example runs as its own step so failures name the example that broke.
+      - name: "Python smoke: agent_memory"
+        run: python examples/python/agent_memory.py
+      - name: "Python smoke: langchain_rag"
+        run: python examples/python/langchain_rag.py
+      - name: "Python smoke: demo"
+        run: python examples/demo/demo.py
+      - name: "Python smoke: autogen_memory"
+        run: python examples/python/autogen_memory.py
+      - name: "Python smoke: langgraph_checkpoint"
+        run: python examples/python/langgraph_checkpoint.py
+      - name: "Python smoke: crewai_memory"
+        run: python examples/python/crewai_memory.py
+      - name: "Python smoke: dspy_retriever"
+        run: python examples/python/dspy_retriever.py
+      - name: "Python smoke: haystack_documentstore"
+        run: python examples/python/haystack_documentstore.py
+      - name: "Python smoke: mem0_integration"
+        run: python examples/python/mem0_integration.py
+      - name: "Python smoke: semantic_kernel_memory"
+        run: python examples/python/semantic_kernel_memory.py

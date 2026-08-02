@@ -128,7 +128,7 @@ class VantaDBCheckpointStore:
         if config and config.get("checkpoint_id"):
             filters["checkpoint_id"] = config["checkpoint_id"]
         
-        records = self.db.list(self.namespace, {"limit": limit, "filters": filters})
+        records = self.db.list_memory(self.namespace, filters=filters, limit=limit)
         
         checkpoints = []
         for record in records:
@@ -178,6 +178,7 @@ class VantaDBCheckpointStore:
         """
         hits = self.db.search_memory(
             self.namespace,
+            query_vector=[],
             text_query=query,
             top_k=limit
         )

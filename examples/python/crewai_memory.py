@@ -109,7 +109,7 @@ class VantaDBMemory:
         """
         hits = self.db.search_memory(
             self.namespace,
-            query_vector=query_vector,
+            query_vector=query_vector or [],
             text_query=query,
             top_k=top_k,
             filters=filters or {}
@@ -150,11 +150,7 @@ class VantaDBMemory:
         Returns:
             List of memory records
         """
-        options = {
-            "limit": limit,
-            "filters": filters or {}
-        }
-        records = self.db.list(self.namespace, options)
+        records = self.db.list_memory(self.namespace, filters=filters or {}, limit=limit)
         
         return [
             {

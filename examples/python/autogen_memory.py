@@ -131,7 +131,7 @@ class VantaDBAutoGenMemory:
         
         hits = self.db.search_memory(
             self.namespace,
-            query_vector=query_vector,
+            query_vector=query_vector or [],
             text_query=query,
             top_k=limit,
             filters=filters
@@ -167,7 +167,7 @@ class VantaDBAutoGenMemory:
             List of messages in chronological order
         """
         filters = {"role": role_filter} if role_filter else {}
-        records = self.db.list(self.namespace, {"limit": limit, "filters": filters})
+        records = self.db.list_memory(self.namespace, filters=filters, limit=limit)
         
         return [
             {
