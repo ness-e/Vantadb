@@ -5,6 +5,7 @@
 
 use crate::error::{Result, VantaError};
 use crate::query::LogicalPlan;
+use crate::storage::StorageEngine;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Global counter of bytes currently allocated by queries in flight.
@@ -83,6 +84,19 @@ impl ResourceGovernor {
                 }
             }
         }
+    }
+
+    /// Estimate the peak memory cost of a logical plan (COMP-028).
+    ///
+    /// Delegates to the unified semantic cost estimator. Unwired on purpose:
+    /// OLD-21 (multi-index routing) will use it for cost-aware admission.
+    #[allow(dead_code)] // COMP-028: consumed by OLD-21; not wired until it lands.
+    pub(crate) fn estimate_plan_cost(
+        &self,
+        storage: &StorageEngine,
+        plan: &LogicalPlan,
+    ) -> crate::cost_estimator::PlanCost {
+        crate::cost_estimator::CostEstimator::new(storage).estimate_plan(plan)
     }
 }
 

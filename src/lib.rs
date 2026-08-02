@@ -73,6 +73,7 @@ pub mod columnar;
 pub mod config;
 #[cfg(feature = "cli")]
 pub mod console;
+pub(crate) mod cost_estimator;
 pub(crate) mod edge_index;
 pub mod engine;
 /// Core error types for all VantaDB operations.

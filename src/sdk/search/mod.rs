@@ -8,13 +8,12 @@ use super::types::*;
 use crate::backend::BackendPartition;
 #[cfg(debug_assertions)]
 use crate::backend::BackendWriteOp;
+use crate::cost_estimator::{CostEstimator, FilterStrategy};
 use crate::error::{ChainedError, Result, VantaError};
 use crate::index::cosine_sim_f32;
 use crate::index::VecIndex;
 use crate::node::{FilterBitset, UnifiedNode};
-use crate::planner::HIGH_SELECTIVITY_THRESHOLD;
 use crate::query::RelOp;
-use crate::storage::StorageEngine;
 pub(crate) mod debug;
 pub(crate) mod phrase;
 pub(crate) mod snippet;
@@ -23,60 +22,6 @@ pub(crate) mod text_index;
 use std::collections::BTreeMap;
 use tracing;
 use web_time::Instant;
-
-/// Selectivity threshold below which **PreFilter** is chosen:
-/// scan metadata → build bitset → brute-force vector search on the small subset.
-/// Filters with selectivity below this value match < 1 % of rows.
-const PREFILTER_THRESHOLD: f32 = 0.01;
-
-/// 3 filtering strategies ordered by increasing selectivity.
-///
-/// The optimizer picks one based on the estimated joint selectivity of all
-/// query filters — how many rows survive the filter before vector search.
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(clippy::enum_variant_names)]
-pub(crate) enum FilterStrategy {
-    /// Highly selective (joint_sel < 1 %): pre-filter metadata first, then
-    /// vector-search only the matching records (brute-force on a tiny set).
-    PreFilter,
-    /// Moderately selective (1 % ≤ joint_sel < 10 %): build a bitset of
-    /// matching node IDs and pass it as `query_mask` during HNSW traversal
-    /// so the graph walk only visits candidates that survive the filter.
-    InFilter,
-    /// Low selectivity (joint_sel ≥ 10 %): let HNSW see everything, then
-    /// post-filter results with `matches_memory_filters`.  Current default.
-    PostFilter,
-}
-
-/// Convert `VantaValue` (SDK metadata type) → `FieldValue` (engine stats type).
-///
-/// Delegates to the existing `From<VantaValue>` impl in `conversions.rs`.
-fn vanta_value_to_field_value(v: &VantaValue) -> crate::node::FieldValue {
-    crate::node::FieldValue::from(v.clone())
-}
-
-/// Estimate the joint selectivity of all query filters against the engine's
-/// cardinality statistics, then pick the best filtering strategy.
-fn select_filter_strategy(engine: &StorageEngine, filters: &VantaMemoryMetadata) -> FilterStrategy {
-    if filters.is_empty() {
-        return FilterStrategy::PostFilter;
-    }
-
-    let mut joint_selectivity = 1.0f32;
-    for (field, value) in filters.iter() {
-        let fv = vanta_value_to_field_value(value);
-        let sel = engine.get_estimated_selectivity(field, &RelOp::Eq, &fv);
-        joint_selectivity *= sel;
-    }
-
-    if joint_selectivity < PREFILTER_THRESHOLD {
-        FilterStrategy::PreFilter
-    } else if joint_selectivity < HIGH_SELECTIVITY_THRESHOLD {
-        FilterStrategy::InFilter
-    } else {
-        FilterStrategy::PostFilter
-    }
-}
 
 impl VantaEmbedded {
     /// Hybrid search across memory records combining text (BM25) and vector (HNSW) retrieval.
@@ -518,7 +463,7 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
 
         // ---- Selectivity-based strategy ----
-        let strategy = select_filter_strategy(&engine, filters);
+        let strategy = CostEstimator::new(&engine).select_filter_strategy(filters);
 
         // PreFilter: skip HNSW entirely, brute-force on the filtered subset.
         if strategy == FilterStrategy::PreFilter {
@@ -1818,7 +1763,7 @@ mod tests {
         let db = setup();
         let engine = db.engine_handle().unwrap();
         let filters = VantaMemoryMetadata::new();
-        let strategy = select_filter_strategy(&engine, &filters);
+        let strategy = CostEstimator::new(&engine).select_filter_strategy(&filters);
         assert_eq!(
             strategy,
             FilterStrategy::PostFilter,
@@ -1857,7 +1802,7 @@ mod tests {
         // That's > 0.1 → PostFilter + 0.01.  Let's use a value that doesn't exist.
         // Non-existent value → selectivity 0.0 → PreFilter.
         filters.insert("nonexistent".into(), VantaValue::String("nope".into()));
-        let strategy = select_filter_strategy(&engine, &filters);
+        let strategy = CostEstimator::new(&engine).select_filter_strategy(&filters);
         assert_eq!(
             strategy,
             FilterStrategy::PreFilter,
@@ -1886,7 +1831,7 @@ mod tests {
         let engine = db.engine_handle().unwrap();
         let mut filters = VantaMemoryMetadata::new();
         filters.insert("color".into(), VantaValue::String("red".into()));
-        let strategy = select_filter_strategy(&engine, &filters);
+        let strategy = CostEstimator::new(&engine).select_filter_strategy(&filters);
         // "red" has freq 1 / 20 = 0.05 → InFilter
         assert_eq!(
             strategy,
@@ -1921,7 +1866,7 @@ mod tests {
             VantaValue::String("nonexistent_stuff".into()),
         );
 
-        let strategy = select_filter_strategy(&engine, &filters);
+        let strategy = CostEstimator::new(&engine).select_filter_strategy(&filters);
         assert_eq!(
             strategy,
             FilterStrategy::PreFilter,
@@ -1954,7 +1899,7 @@ mod tests {
         let mut filters = VantaMemoryMetadata::new();
         filters.insert("color".into(), VantaValue::String("red".into()));
 
-        let strategy = select_filter_strategy(&engine, &filters);
+        let strategy = CostEstimator::new(&engine).select_filter_strategy(&filters);
         assert_eq!(strategy, FilterStrategy::InFilter, "1/20 → InFilter");
 
         // Query close to [0.0, 0.1] (k0's vector) so k0 "red" ranks first.

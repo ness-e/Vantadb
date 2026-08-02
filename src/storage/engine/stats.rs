@@ -220,75 +220,8 @@ impl StorageEngine {
 
     /// Estimate the selectivity of a relational filter based on cached cardinality statistics.
     pub fn get_estimated_selectivity(&self, field: &str, op: &RelOp, value: &FieldValue) -> f32 {
-        let stats = self.cardinality_stats.read();
-        let total_nodes = self.hnsw.load().nodes.len();
-        if total_nodes == 0 {
-            let val_keys = value.to_cardinality_keys();
-            let val_key = val_keys
-                .first()
-                .cloned()
-                .unwrap_or_else(|| "null".to_string());
-            if let Some(val_map) = stats.get(field) {
-                let freq = *val_map.get(&val_key).unwrap_or(&0);
-                return match op {
-                    RelOp::Eq => {
-                        if freq > 0 {
-                            1.0
-                        } else {
-                            0.0
-                        }
-                    }
-                    RelOp::Neq => {
-                        if freq > 0 {
-                            0.0
-                        } else {
-                            1.0
-                        }
-                    }
-                    _ => 0.5,
-                };
-            }
-            return 1.0;
-        }
-
-        let val_keys = value.to_cardinality_keys();
-        let val_key = val_keys
-            .first()
-            .cloned()
-            .unwrap_or_else(|| "null".to_string());
-
-        if let Some(val_map) = stats.get(field) {
-            let freq = *val_map.get(&val_key).unwrap_or(&0) as f32;
-
-            match op {
-                RelOp::Eq => {
-                    if freq > 0.0 {
-                        freq / total_nodes as f32
-                    } else if val_map.len() >= 100 {
-                        1.0 / total_nodes.max(1) as f32
-                    } else {
-                        0.0
-                    }
-                }
-                RelOp::Neq => {
-                    let eq_sel = if freq > 0.0 {
-                        freq / total_nodes as f32
-                    } else if val_map.len() >= 100 {
-                        1.0 / total_nodes.max(1) as f32
-                    } else {
-                        0.0
-                    };
-                    1.0 - eq_sel
-                }
-                RelOp::Gt | RelOp::Gte | RelOp::Lt | RelOp::Lte => 0.33,
-            }
-        } else {
-            match op {
-                RelOp::Eq => 0.0,
-                RelOp::Neq => 1.0,
-                _ => 0.5,
-            }
-        }
+        // COMP-028: unified semantic cost estimator owns the selectivity heuristic.
+        crate::cost_estimator::CostEstimator::new(self).selectivity(field, op, value)
     }
 
     /// Request backend compaction.
