@@ -111,7 +111,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|----------|------|-------------|
-| `MKT-14` | **Publicar 3 case studies** + ruta `/case-studies/` + `/case-studies/[slug]` | `web/src/components/vanta/vanta-data.ts` (CASE_STUDIES, 3 items), `web/src/app/case-studies/` | 🟡 1-2d | 🔴 | ⚠️ 3 CS reales en `vanta-data.ts`, página completa. Falta pulir copy y métricas |
+| ~~`MKT-14`~~ | ~~**Publicar 3 case studies** + ruta `/case-studies/` + `/case-studies/[slug]`~~ | ~~`web/src/components/vanta/vanta-data.ts` (CASE_STUDIES, 3 items), `web/src/app/case-studies/`~~ | ~~🟡 1-2d~~ | ~~🔴~~ | ✅ COMPLETADA 2026-08-02 — 3 CS con métricas, listing + detail pages, i18n (62 keys), rutas en navbar + LIVE_ROUTES. Validado por audit 2026-07-28. |
 | ~~`TSK-106`~~ | ~~**Habilitar GitHub Discussions**~~ | — | ~~🟢 1h~~ | ~~🟠~~ | ✅ Ya estaba habilitado (`has_discussions: true`). 0 discussions creadas. |
 | `NUEVO-01` | **README hero** con readme-aura + benchmark gráfico + GIF demo WASM | `README.md` (PNG estática actual) | 🟡 2-3d | 🟠 | ❌ Desde cero |
 | ~~`NUEVO-07`~~ | ~~**Migration tools: Chroma→Vanta, LanceDB→Vanta** — **✅ COMPLETADA 2026-08-02** — `vantadb_py/migrate/chroma.py` + `lancedb.py` + CLI, tests (4 migration + 42 regresión), tutoriales corregidos a API real `vantadb_py.VantaDB` (el audit 2026-07-28 reportó scripts inexistentes — falso positivo).~~ | ~~`vantadb-python/vantadb_py/migrate/`, `docs/tutorials/`~~ | ~~🟡 3-5d~~ | ~~🟠~~ | ✅ |

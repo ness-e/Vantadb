@@ -1884,6 +1884,18 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ Commit `d0b1c7c6` (feat: public reproducible benchmark suite). `validate-docs-coverage.ps1` falla por gaps preexistentes no relacionados (search.rs inexistente en script, coverage config/error/cli).
 - **Ids:** `NUEVO-10`
 
+### MKT-14: Case studies publicados (3)
+- **Fecha:** 2026-08-02
+- **Objetivo:** Publicar 3 case studies + rutas `/case-studies/` y `/case-studies/[slug]`. El backlog decía "falta pulir copy y métricas" — falso negativo corregido por el audit 2026-07-28 y re-verificado en código.
+- **Checklist de verificación (gate SKIP — ya implementada):**
+  - [x] `web/src/components/vanta/vanta-data.ts:993-1042` — `CASE_STUDIES` con 3 items (metrics, challenge, solution, quote, quoteAuthor)
+  - [x] Listing `/case-studies/` (`page.tsx`) — cards con métricas, tags, i18n
+  - [x] Detail `/case-studies/[slug]` (`[slug]/page.tsx`) — 404 handling, metrics grid, challenge/solution, quote, CTA
+  - [x] i18n — 62 keys `caseStudiesData.0/1/2` en `dictionaries.ts` (ES/EN)
+  - [x] Navegación — `site-navbar.tsx:71` (`nav.caseStudies` → `/case-studies`) + `LIVE_ROUTES` (4 rutas) en `use-vanta-navigate.ts:63-66`
+- **Resultado:** ✅ COMPLETADA 2026-08-02 — SKIP por gate (feature ya implementada, validada por audit 2026-07-28:205 como "Más completo de lo reportado"). Sin code changes.
+- **Ids:** `MKT-14`
+
 ### INV-019: Advanced Tokenizer (Unicode + Stopwords)
 - **Fecha:** 2026-08-02
 - **Objetivo:** Investigar tokenizer avanzado con Unicode, stopwords per-language y stemming.
