@@ -1,8 +1,8 @@
 ---
 title: "Building AI Agent Memory with VantaDB"
-status: draft
+status: active
 tags: [vantadb, tutorial, guide, ai-agents, memory]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-08-02
 aliases: []
 ---
 
@@ -12,45 +12,60 @@ VantaDB gives AI agents **persistent memory** — the ability to store, recall, 
 
 In this tutorial you'll build a REPL agent that:
 
-- Stores every message as a **node** with metadata (role, timestamp, session_id)
-- Searches past conversations by **semantic similarity**
-- Filters by metadata (session_id, date range)
-- Runs **hybrid search** (vector + BM25 keyword) together
+- Stores every message as a **memory record** (payload + metadata) in a namespace
+- Searches past conversations by **semantic similarity** with `search_memory()`
+- Filters by metadata (`session_id`, `role`)
+- Uses **hybrid search** (vector + BM25 keyword) via `text_query`
 
 ## Prerequisites
 
 ```bash
-pip install vantadb openai
+pip install vantadb-py openai
 ```
 
 Set your `OPENAI_API_KEY` environment variable (or swap in any OpenAI-compatible provider).
 
-## 1. Connect and define the schema
+## 1. Connect and define a helper
+
+VantaDB is embedded — there is no server. Opening a database creates (or reopens) a directory on disk:
 
 ```python
-import vantadb
-import time
-import uuid
-from datetime import datetime, timedelta
+from vantadb_py import VantaDB
 
-db = vantadb.connect("agent-memory.db")
-
-# VantaDB is schemaless, but we define a helper to create consistent nodes.
-def create_message(session_id: str, role: str, content: str):
-    return {
-        "type": "message",
-        "content": content,
-        "role": role,
-        "session_id": session_id,
-        "timestamp": datetime.utcnow().isoformat(),
-        "embedding_field": "content",  # tells VantaDB which field to embed
-    }
-
-# Create a collection (VantaDB calls them "spaces" — isolated namespaces).
-space = db.space("chat_history")
+db = VantaDB("agent-memory.db")
 ```
 
-**Key concept:** Every node carries both **data** (content, role) and **metadata** (session_id, timestamp). VantaDB uses the `embedding_field` hint to know which text to vectorize automatically.
+Records are stored under **namespaces** (the equivalent of a collection in other vector databases). Namespaces are created lazily on the first `put()`. Each record has a string `key`, a text `payload`, optional `metadata`, and an optional `vector`:
+
+```python
+import time
+import uuid
+from datetime import datetime
+
+def embed(text: str) -> list[float]:
+    """Embed text with OpenAI. Returns a 1536-dim vector."""
+    import openai
+    resp = openai.embeddings.create(
+        model="text-embedding-3-small",
+        input=text,
+    )
+    return resp.data[0].embedding
+
+def store_message(db, session_id: str, role: str, content: str, seq: int):
+    return db.put(
+        "chat_history",                # namespace (≈ collection)
+        f"{session_id}-{seq}",         # key
+        content,                       # payload (what BM25 indexes)
+        metadata={
+            "role": role,
+            "session_id": session_id,
+            "timestamp": int(time.time()),
+        },
+        vector=embed(content),         # queryable embedding
+    )
+```
+
+**Key concept:** every record carries both **data** (payload + metadata) and a **vector** you supply. VantaDB stores your payload for lexical (BM25) search and your vector for ANN search — you bring the embedding model, VantaDB brings the storage and the search.
 
 ## 2. Store messages
 
@@ -64,24 +79,30 @@ messages = [
     ("assistant", "Yes, but Railway's filesystem is ephemeral — use PostgreSQL via the Railway dashboard instead."),
 ]
 
-for role, content in messages:
-    node = create_message(session_id, role, content)
-    space.put(node)
+records = []
+for seq, (role, content) in enumerate(messages):
+    records.append(store_message(db, session_id, role, content, seq))
 
-print(f"Stored {len(messages)} messages in session {session_id[:8]}...")
+print(f"Stored {len(records)} messages in session {session_id[:8]}...")
 ```
 
-`space.put()` inserts or upserts a node. VantaDB automatically generates an embedding for the `content` field when it detects `embedding_field`.
+`put()` inserts or upserts a record: the same `key` overwrites. It returns a `VantaMemoryRecord` with `.key`, `.payload`, `.metadata`, `.node_id`, and timestamps — `node_id` is the numeric id used by the graph APIs.
 
 ## 3. Search by semantic similarity
 
+Embed the query, then search:
+
 ```python
 query = "What should I use instead of SQLite on Railway?"
-results = space.similar_to(query, top_k=5)
+hits = db.search_memory(
+    "chat_history",
+    embed(query),
+    top_k=5,
+)
 
 print("=== Semantic Search ===")
-for r in results:
-    print(f"  [{r.role}] ({r.score:.3f}) {r.content[:80]}")
+for h in hits:
+    print(f"  [{h.metadata['role']}] ({h.score:.3f}) {h.payload[:80]}")
 ```
 
 Expected output — the top result is the assistant message about PostgreSQL:
@@ -93,68 +114,82 @@ Expected output — the top result is the assistant message about PostgreSQL:
   ...
 ```
 
-## 4. Filter by metadata (session_id, date range)
+`search_memory()` returns `VantaSearchHit` objects exposing `.key`, `.payload`, `.metadata`, `.score`, and `.node_id`.
+
+## 4. Filter by metadata
+
+`search_memory()` accepts a `filters` dict. The Python SDK matches metadata values with **equality semantics**:
 
 ```python
 # Filter to a specific session
-results = space.similar_to(
-    "deployment advice",
+hits = db.search_memory(
+    "chat_history",
+    embed("deployment advice"),
+    filters={"session_id": session_id},
     top_k=10,
-    filter={"session_id": session_id},
-)
-
-# Filter by date range
-last_hour = (datetime.utcnow() - timedelta(hours=1)).isoformat()
-results = space.similar_to(
-    "database options",
-    filter={"timestamp": {"$gte": last_hour}},
 )
 
 # Combine filters
-results = space.similar_to(
-    "deployment",
-    filter={
-        "session_id": session_id,
-        "role": "assistant",
-        "timestamp": {"$gte": last_hour},
-    },
+hits = db.search_memory(
+    "chat_history",
+    embed("deployment"),
+    filters={"session_id": session_id, "role": "assistant"},
+    top_k=10,
 )
 ```
+
+> **Range filters (e.g. `timestamp >= X`):** the Python SDK currently supports equality filters. The Rust SDK supports the full operator set (`$gt`, `$gte`, `$lt`, `$lte`, `$neq`). For Python, filter by equality first and apply range conditions client-side, or store a coarse bucket (e.g. an hour key) in metadata.
 
 **Metadata filtering** narrows the search space before vector comparison — this is faster and more accurate than post-filtering.
 
 ## 5. Hybrid search (vector + BM25)
 
-Sometimes you need exact keyword matches alongside semantic ones:
+Sometimes you need exact keyword matches alongside semantic ones. Pass `text_query` and VantaDB fuses the BM25 lexical score with the vector score:
 
 ```python
-results = space.search(
-    "ephemeral filesystem PostgreSQL",
-    mode="hybrid",       # combines vector and BM25 scores
-    alpha=0.5,           # balance: 0 = pure BM25, 1 = pure vector
+hits = db.search_memory(
+    "chat_history",
+    embed("ephemeral filesystem PostgreSQL"),
+    text_query="ephemeral filesystem PostgreSQL",
     top_k=5,
 )
 
-print("=== Hybrid Search (alpha=0.5) ===")
-for r in results:
-    print(f"  [{r.role}] ({r.score:.3f}) {r.content[:80]}")
+print("=== Hybrid Search ===")
+for h in hits:
+    print(f"  [{h.metadata['role']}] ({h.score:.3f}) {h.payload[:80]}")
 ```
 
-**`alpha=0.3`** → more keyword-heavy (good for code snippets, exact names).  
-**`alpha=0.7`** → more semantic (good for paraphrased questions).
+- **Vector-only:** omit `text_query` — best for paraphrased questions.
+- **Hybrid:** add `text_query` — best for code snippets, product names, and exact terms.
 
 ## 6. Full REPL agent with memory
 
 Putting it all together — a REPL that remembers past conversations:
 
 ```python
-import vantadb
+import time
 import uuid
-from datetime import datetime
+from vantadb_py import VantaDB
 
-db = vantadb.connect("agent-memory.db")
-space = db.space("chat_history")
+db = VantaDB("agent-memory.db")
 session_id = str(uuid.uuid4())
+seq = 0
+
+def embed(text: str) -> list[float]:
+    import openai
+    resp = openai.embeddings.create(model="text-embedding-3-small", input=text)
+    return resp.data[0].embedding
+
+def remember(role: str, content: str):
+    global seq
+    db.put(
+        "chat_history",
+        f"{session_id}-{seq}",
+        content,
+        metadata={"role": role, "session_id": session_id, "timestamp": int(time.time())},
+        vector=embed(content),
+    )
+    seq += 1
 
 print(f"Agent session: {session_id[:8]}")
 print("Type 'exit' to quit. Type 'recall <query>' to search memory.\n")
@@ -166,22 +201,24 @@ while True:
 
     if user_input.lower().startswith("recall "):
         query = user_input[7:]
-        results = space.similar_to(
-            query,
+        hits = db.search_memory(
+            "chat_history",
+            embed(query),
+            filters={"session_id": session_id},
             top_k=3,
-            filter={"role": {"$in": ["user", "assistant"]}},
         )
         print("\n--- Relevant memories ---")
-        for r in results:
-            ts = r.timestamp[:19] if hasattr(r, "timestamp") else "?"
-            print(f"  [{r.role}] ({ts}) {r.content[:100]}")
+        for h in hits:
+            print(f"  [{h.metadata['role']}] {h.payload[:100]}")
         print("-------------------------\n")
         continue
 
     # 1. Retrieve relevant context
-    context_chunks = space.similar_to(user_input, top_k=2)
+    context_chunks = db.search_memory(
+        "chat_history", embed(user_input), top_k=2
+    )
     context = "\n".join(
-        f"{c.role}: {c.content[:200]}"
+        f"{c.metadata['role']}: {c.payload[:200]}"
         for c in context_chunks
     )
 
@@ -204,22 +241,8 @@ Assistant:"""
     reply = response.choices[0].message.content
 
     # 4. Store both sides
-    space.put({
-        "type": "message",
-        "content": user_input,
-        "role": "user",
-        "session_id": session_id,
-        "timestamp": datetime.utcnow().isoformat(),
-        "embedding_field": "content",
-    })
-    space.put({
-        "type": "message",
-        "content": reply,
-        "role": "assistant",
-        "session_id": session_id,
-        "timestamp": datetime.utcnow().isoformat(),
-        "embedding_field": "content",
-    })
+    remember("user", user_input)
+    remember("assistant", reply)
 
     print(f"Agent: {reply}\n")
 ```
@@ -227,27 +250,27 @@ Assistant:"""
 ## How it works
 
 ```
-User input ──▶ VantaDB semantic search ──▶ relevant past messages
-                                      │
-                                      ▼
-                              Prompt (context + query)
-                                      │
-                                      ▼
-                              LLM generates reply
-                                      │
-                                      ▼
-                              Store user + assistant msg
-                                      │
-                                      ▼
-                              Loop ──────────────────┐
+User input ──▶ embed(query) ──▶ search_memory ──▶ relevant past messages
+                                             │
+                                             ▼
+                                     Prompt (context + query)
+                                             │
+                                             ▼
+                                     LLM generates reply
+                                             │
+                                             ▼
+                             Store user + assistant msg (with vectors)
+                                             │
+                                             ▼
+                                     Loop ──────────────────┐
 ```
 
 ## Next steps
 
-- Add **graph edges** between related messages to build an agentic knowledge graph
+- Add **graph edges** between related records with `add_edge()` (node IDs come from `record.node_id`) to build an agentic knowledge graph
 - Use **MCP protocol** to expose agent memory to any MCP-compatible LLM host
-- Run the same code in the browser via **WASM runtime**
+- Run the same code in the browser via the **WASM runtime**
 
 ---
 
-**Key takeaway:** VantaDB turns "stateless LLM calls" into "stateful agents" with ~30 lines of Python. No separate vector database, no embedding pipeline to manage — just `put()` and `similar_to()`.
+**Key takeaway:** VantaDB turns "stateless LLM calls" into "stateful agents" with ~40 lines of Python. No separate vector database, no server to run — just `put()` and `search_memory()`.
