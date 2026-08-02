@@ -39,11 +39,11 @@ export const PRODUCT = {
 
   // Versions (footer, navbar, trust-section, docs, about pages)
   versions: {
-    vantadb: "v0.1.2",             // current release
+    vantadb: "v0.5.0",             // current release
     rust: VANTA.rustVersion,        // "1.94.1+"
     python: VANTA.pythonVersion,    // "3.11+"
     license: VANTA.license,         // "Apache 2.0"
-    cli: "vanta-cli v0.1.2",
+    cli: "vanta-cli v0.5.0",
     pypiPackage: "vantadb-py",
     cargoCrate: "vantadb",
   },
@@ -69,7 +69,7 @@ export const PRODUCT = {
   distribution: [
     { name: "pip", cmd: "pip install vantadb-py", label: "Python" },
     { name: "cargo", cmd: "cargo add vantadb", label: "Rust" },
-    { name: "binary", cmd: "curl -LO https://github.com/ness-e/Vantadb/releases/download/v0.1.2/vanta-cli-x86_64-unknown-linux-gnu.tar.gz", label: "Binary" },
+    { name: "binary", cmd: "curl -LO https://github.com/ness-e/Vantadb/releases/download/v0.5.0/vanta-cli-x86_64-unknown-linux-gnu.tar.gz", label: "Binary" },
     { name: "wheel", cmd: "vantadb-py", label: "Wheels" },
   ],
 
@@ -836,7 +836,7 @@ export const BLOG_POSTS = [
     title: "Introducing VantaDB",
     excerpt: "Why we built an embedded Rust engine for local-first hybrid retrieval — and why \"local-first\" matters more than ever in 2025.",
     date: "2025-01-15",
-    author: "ness-e",
+    author: "VantaDB Team",
     readTime: "6 min",
     tag: "Announcement",
     tagColor: "neon",
@@ -876,7 +876,7 @@ export const BLOG_POSTS = [
     title: "How Hybrid Search Actually Works",
     excerpt: "BM25 and HNSW are not competitors. They are two lenses on the same ranking problem. Here's how RRF fuses them without comparable scores.",
     date: "2025-01-22",
-    author: "ness-e",
+    author: "VantaDB Team",
     readTime: "9 min",
     tag: "Engineering",
     tagColor: "ink",
@@ -920,7 +920,7 @@ export const BLOG_POSTS = [
     title: "SQLite for AI Agents: The Missing Memory Layer",
     excerpt: "Agents don't need a vector database. They need a memory database that happens to support vectors. VantaDB is that layer.",
     date: "2025-02-05",
-    author: "ness-e",
+    author: "VantaDB Team",
     readTime: "7 min",
     tag: "Architecture",
     tagColor: "ink",
@@ -1083,7 +1083,7 @@ export const COMPANY_INFO = {
   repo: VANTA.repo,
   stats: [
     { value: "Apache 2.0", label: "License" },
-    { value: "v0.1.2", label: "Current release" },
+    { value: "0.5.0", label: "Current release" },
     { value: "3.11+", label: "Python support" },
     { value: "1.94+", label: "Rust support" },
   ],
