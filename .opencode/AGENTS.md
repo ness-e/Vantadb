@@ -332,7 +332,7 @@ Uso: `release-plz release` (desde la rama main, después de mergear)
 
 ### CI: sccache
 
-Agregado al workflow `ci-rust-10.yml` mediante `mozilla-actions/sccache-action`. Acelera compilaciones en CI reutilizando objetos compilados entre runs (~40-60% más rápido en rebuilds).
+Integrado en `.github/actions/rust-setup/action.yml` mediante `mozilla-actions/sccache-action@v0.0.11` (sccache `v0.16.0`), con env `SCCACHE_GHA_ENABLED=true` + `RUSTC_WRAPPER=sccache` escritas a `$GITHUB_ENV` (las composite actions no soportan `env` a nivel `runs`). Usa el backend de GHA cache automáticamente (sin infra adicional) y complementa a `Swatinem/rust-cache`: acelera rebuilds reutilizando objetos compilados entre jobs/runs.
 
 ### Flujo diario recomendado
 
