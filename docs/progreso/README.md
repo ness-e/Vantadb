@@ -1872,6 +1872,18 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ 46 tests pasan (4 migration + 42 regresión `test_sdk.py`)
 - **Ids:** `NUEVO-07`
 
+### NUEVO-10: Benchmark suite pública reproducible
+- **Fecha:** 2026-08-02
+- **Objetivo:** Hacer la suite de benchmarks públicamente reproducible sin build local. Corrige el gap del audit 2026-07-28 ("scripts requieren build local; no standalone"): los 3 scripts forzaban `maturin develop` al fallar `import vantadb_py`.
+- **Checklist:**
+  - [x] `benchmarks/requirements.txt` — path standalone `vantadb-py>=0.5.0` (PyPI) + deps opcionales para competitive
+  - [x] Hints de instalación corregidos en `vantadb_local_bench.py`, `competitive_bench.py`, `batch_vs_sequential_bench.py` → `pip install vantadb-py` (maturin queda como alternativa dev)
+  - [x] `benchmarks/README.md` — guía pública: quick start standalone, competitive, variante dev local
+  - [x] `docs/operations/BENCHMARKS.md` sección 3 reescrita — path standalone (pip install) antes que maturin
+  - [x] Smoke test en venv limpio: `pip install -r benchmarks/requirements.txt` exit 0 (vantadb-py 0.5.0 PyPI); `vantadb_local_bench.py --size 1000 --queries 50` JSON 5/5 claves no vacías
+- **Resultado:** ✅ Commit `d0b1c7c6` (feat: public reproducible benchmark suite). `validate-docs-coverage.ps1` falla por gaps preexistentes no relacionados (search.rs inexistente en script, coverage config/error/cli).
+- **Ids:** `NUEVO-10`
+
 ### INV-019: Advanced Tokenizer (Unicode + Stopwords)
 - **Fecha:** 2026-08-02
 - **Objetivo:** Investigar tokenizer avanzado con Unicode, stopwords per-language y stemming.
