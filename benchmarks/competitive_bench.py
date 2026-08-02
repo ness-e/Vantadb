@@ -67,7 +67,11 @@ try:
     import vantadb_py as vantadb
 except ImportError:
     print("ERROR: 'vantadb_py' is not installed.")
-    print("Please compile and install it first in your current python environment.")
+    print("Install it from PyPI (standalone, no Rust build required):")
+    print("  pip install vantadb-py")
+    print("Full benchmark dependencies: pip install -r benchmarks/requirements.txt")
+    print("Or for local development against the source tree:")
+    print("  maturin develop --manifest-path vantadb-python/Cargo.toml --release")
     sys.exit(1)
 
 

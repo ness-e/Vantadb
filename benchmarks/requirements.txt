@@ -1,0 +1,21 @@
+# VantaDB public benchmark suite — Python dependencies
+#
+# Install:  pip install -r benchmarks/requirements.txt
+#
+# This is the standalone public path. It installs vantadb-py from PyPI, so no
+# Rust build (maturin) is required. For local development against the source
+# tree, use `maturin develop --manifest-path vantadb-python/Cargo.toml --release`
+# instead — the scripts work with either install.
+
+# --- Required for every benchmark script ---
+# Distribution name is `vantadb-py` (hyphen); the Python import is `vantadb_py` (underscore).
+vantadb-py>=0.5.0
+
+# --- Required only for competitive_bench.py (VantaDB vs LanceDB vs ChromaDB) ---
+# Optional for vantadb_local_bench.py and batch_vs_sequential_bench.py.
+numpy
+h5py
+lancedb
+chromadb
+psutil
+tabulate
