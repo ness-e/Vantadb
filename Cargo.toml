@@ -286,6 +286,10 @@ name = "graph"
 path = "tests/core/graph.rs"
 
 [[test]]
+name = "temporal_edges"
+path = "tests/core/temporal_edges.rs"
+
+[[test]]
 name = "storage"
 path = "tests/storage/storage.rs"
 

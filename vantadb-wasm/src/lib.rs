@@ -893,16 +893,24 @@ impl VantaDB {
         self.inner.delete_node(id.into(), reason).map_err(to_js_err)
     }
 
-    /// Add a directed edge between two graph nodes with an optional weight.
+    /// Add a directed edge between two graph nodes with an optional weight
+    /// and creation timestamp (Unix ms).
     pub fn add_edge(
         &self,
         source_id: u64,
         target_id: u64,
         label: &str,
         weight: Option<f32>,
+        created_at_ms: Option<u64>,
     ) -> Result<(), JsValue> {
         self.inner
-            .add_edge(source_id.into(), target_id.into(), label, weight)
+            .add_edge(
+                source_id.into(),
+                target_id.into(),
+                label,
+                weight,
+                created_at_ms,
+            )
             .map_err(to_js_err)
     }
 

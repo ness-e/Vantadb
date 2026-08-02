@@ -959,10 +959,13 @@ impl VantaEmbedded {
         target_id: u128,
         label: &str,
         weight: Option<f32>,
+        created_at_ms: Option<u64>,
     ) -> Result<()> {
         let engine = self.engine_handle()?;
         let label_id = engine.intern_label(label);
         let w = weight.unwrap_or(1.0);
+        // Both the forward and reverse edge share the same logical creation time.
+        let ts = created_at_ms.unwrap_or_else(now_ms);
 
         let mut source = engine
             .get(source_id)?
@@ -972,6 +975,7 @@ impl VantaEmbedded {
             label_id,
             weight: w,
             reverse: false,
+            created_at_ms: ts,
         });
         engine.insert(&source)?;
 
@@ -983,6 +987,7 @@ impl VantaEmbedded {
             label_id,
             weight: w,
             reverse: true,
+            created_at_ms: ts,
         });
         engine.insert(&target)
     }
@@ -1570,8 +1575,80 @@ mod tests {
     #[test]
     fn test_add_edge_no_engine() {
         let e = make_embedded(false);
-        let err = e.add_edge(1, 2, "label", None).unwrap_err();
+        let err = e.add_edge(1, 2, "label", None, None).unwrap_err();
         assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    // ── add_edge temporal (COMP-021) ──
+
+    fn make_embedded_real() -> VantaEmbedded {
+        let config = VantaConfig {
+            storage_path: ":memory:".into(),
+            backend_kind: crate::storage::BackendKind::InMemory,
+            ..Default::default()
+        };
+        VantaEmbedded::open_with_config(config).expect("open in-memory engine")
+    }
+
+    fn insert_node_input(id: u128) -> VantaNodeInput {
+        VantaNodeInput {
+            id,
+            content: Some("n".into()),
+            vector: None,
+            fields: VantaFields::new(),
+        }
+    }
+
+    #[test]
+    fn test_add_edge_with_timestamp_persists_both_nodes() {
+        let e = make_embedded_real();
+        e.insert_node(insert_node_input(1)).unwrap();
+        e.insert_node(insert_node_input(2)).unwrap();
+
+        let ts = 1_700_000_000_000;
+        e.add_edge(1, 2, "references", Some(0.5), Some(ts)).unwrap();
+
+        let engine = e.engine_handle().unwrap();
+        let n1 = engine.get(1).unwrap().unwrap();
+        let n2 = engine.get(2).unwrap().unwrap();
+
+        let fwd = n1
+            .edges
+            .iter()
+            .find(|x| x.target == 2)
+            .expect("forward edge");
+        assert!(!fwd.reverse);
+        assert_eq!(fwd.created_at_ms, ts, "forward edge must keep explicit ts");
+
+        let rev = n2
+            .edges
+            .iter()
+            .find(|x| x.target == 1)
+            .expect("reverse edge");
+        assert!(rev.reverse);
+        assert_eq!(rev.created_at_ms, ts, "reverse edge must share the ts");
+    }
+
+    #[test]
+    fn test_add_edge_default_timestamp_now() {
+        let e = make_embedded_real();
+        e.insert_node(insert_node_input(1)).unwrap();
+        e.insert_node(insert_node_input(2)).unwrap();
+
+        e.add_edge(1, 2, "references", None, None).unwrap();
+
+        let engine = e.engine_handle().unwrap();
+        let n1 = engine.get(1).unwrap().unwrap();
+        let fwd = n1
+            .edges
+            .iter()
+            .find(|x| x.target == 2)
+            .expect("forward edge");
+        assert!(
+            fwd.created_at_ms > 0,
+            "default created_at_ms must be now, got {}",
+            fwd.created_at_ms
+        );
     }
 
     #[test]

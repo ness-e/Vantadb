@@ -777,10 +777,17 @@ export class VantaDB {
     target: number,
     label: string = "",
     weight?: number,
+    createdAtMs?: number,
   ): void {
     this._assertOpen();
     this._wasm("addEdge", () =>
-      this.inner.add_edge(BigInt(source), BigInt(target), label, weight ?? null),
+      this.inner.add_edge(
+        BigInt(source),
+        BigInt(target),
+        label,
+        weight ?? null,
+        createdAtMs ?? null,
+      ),
     );
   }
 

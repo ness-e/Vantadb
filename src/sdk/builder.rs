@@ -357,6 +357,7 @@ mod tests {
             label_id: belonged_to_id,
             weight: 1.0,
             reverse: false,
+            created_at_ms: 1,
         });
         let data = postcard::to_allocvec(&archived)
             .map_err(|e| format!("serialization: {e}"))

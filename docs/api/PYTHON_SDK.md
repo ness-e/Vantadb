@@ -291,13 +291,19 @@ db.add_edge(
     target_id: int,
     label: str,
     weight: Optional[float] = None,
+    created_at_ms: Optional[int] = None,
 ) -> None
 ```
 Add a labeled, optionally weighted edge between two graph nodes. Useful for building knowledge graphs, relationships between entities, or graph-based RAG pipelines. GIL-released.
 
+`created_at_ms` sets the edge's creation timestamp as Unix epoch milliseconds (forward and reverse edges share the same logical creation time). If omitted, the current wall-clock time is used. The timestamp is persisted with the edge and available to time-aware graph queries in the core engine.
+
 ```python
 # Connect two nodes with a relationship edge
 db.add_edge(source_id=42, target_id=17, label="references", weight=0.95)
+
+# Record an edge as of a historical point in time
+db.add_edge(source_id=42, target_id=17, label="references", created_at_ms=1700000000000)
 ```
 
 #### `graph_bfs()`

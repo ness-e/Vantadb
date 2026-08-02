@@ -79,6 +79,10 @@ impl VantaEmbedded {
     /// When `labels` is empty, acts like `graph_bfs` (no filter).
     ///
     /// `direction` controls whether edges are followed forward, reverse, or both.
+    ///
+    /// `time_range: Option<(from_ms, to_ms)>` (inclusive) restricts traversal to
+    /// edges whose `created_at_ms` falls within the window. `None` disables
+    /// temporal filtering.
     #[tracing::instrument(skip(self), err)]
     pub fn graph_bfs_filtered(
         &self,
@@ -86,10 +90,11 @@ impl VantaEmbedded {
         max_depth: usize,
         direction: crate::graph::TraversalDirection,
         labels: &[u32],
+        time_range: Option<(u64, u64)>,
     ) -> Result<Vec<u128>> {
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
-        traverser.bfs_traverse_filtered(roots, max_depth, direction, labels)
+        traverser.bfs_traverse_filtered(roots, max_depth, direction, labels, time_range)
     }
 
     /// Depth-first traversal with label filtering.
@@ -97,6 +102,10 @@ impl VantaEmbedded {
     /// When `labels` is empty, acts like `graph_dfs` (no filter).
     ///
     /// `direction` controls whether edges are followed forward, reverse, or both.
+    ///
+    /// `time_range: Option<(from_ms, to_ms)>` (inclusive) restricts traversal to
+    /// edges whose `created_at_ms` falls within the window. `None` disables
+    /// temporal filtering.
     #[tracing::instrument(skip(self), err)]
     pub fn graph_dfs_filtered(
         &self,
@@ -104,10 +113,11 @@ impl VantaEmbedded {
         max_depth: usize,
         direction: crate::graph::TraversalDirection,
         labels: &[u32],
+        time_range: Option<(u64, u64)>,
     ) -> Result<Vec<u128>> {
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
-        traverser.dfs_traverse_filtered(roots, max_depth, labels, direction)
+        traverser.dfs_traverse_filtered(roots, max_depth, labels, direction, time_range)
     }
 
     /// Topological sort starting from the given root nodes.
@@ -190,7 +200,13 @@ mod tests {
     fn test_graph_bfs_filtered_no_engine() {
         let e = no_engine_embedded();
         let err = e
-            .graph_bfs_filtered(&[1], 5, crate::graph::TraversalDirection::Forward, &[1])
+            .graph_bfs_filtered(
+                &[1],
+                5,
+                crate::graph::TraversalDirection::Forward,
+                &[1],
+                None,
+            )
             .unwrap_err();
         assert!(err.to_string().contains("initialized"), "got: {:?}", err);
     }
@@ -199,7 +215,13 @@ mod tests {
     fn test_graph_dfs_filtered_no_engine() {
         let e = no_engine_embedded();
         let err = e
-            .graph_dfs_filtered(&[1], 5, crate::graph::TraversalDirection::Forward, &[1])
+            .graph_dfs_filtered(
+                &[1],
+                5,
+                crate::graph::TraversalDirection::Forward,
+                &[1],
+                None,
+            )
             .unwrap_err();
         assert!(err.to_string().contains("initialized"), "got: {:?}", err);
     }

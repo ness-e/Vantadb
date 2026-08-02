@@ -1296,7 +1296,8 @@ impl VantaDB {
     ///     target_id: Target node ID.
     ///     label: Edge label (e.g., "belongs_to", "similar_to").
     ///     weight: Optional edge weight (default 1.0).
-    #[pyo3(signature = (source_id, target_id, label, weight=None))]
+    ///     created_at_ms: Optional creation timestamp (Unix ms). Defaults to now.
+    #[pyo3(signature = (source_id, target_id, label, weight=None, created_at_ms=None))]
     fn add_edge(
         &self,
         py: Python,
@@ -1304,12 +1305,13 @@ impl VantaDB {
         target_id: u128,
         label: &str,
         weight: Option<f32>,
+        created_at_ms: Option<u64>,
     ) -> PyResult<()> {
         let engine = self.engine.clone();
         let label_str = label.to_string();
         py.detach(move || {
             engine
-                .add_edge(source_id, target_id, &label_str, weight)
+                .add_edge(source_id, target_id, &label_str, weight, created_at_ms)
                 .map_err(map_vanta_error)
         })
     }

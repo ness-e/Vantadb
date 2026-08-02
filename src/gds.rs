@@ -210,6 +210,7 @@ mod tests {
                 weight,
                 label_id: 0,
                 reverse: false,
+                created_at_ms: 1,
             })
             .collect();
         storage.insert(&node).unwrap();

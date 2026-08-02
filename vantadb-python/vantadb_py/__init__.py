@@ -222,9 +222,16 @@ class AsyncVantaDB:
     async def capabilities(self):
         return await self._run(self._sync.capabilities)
 
-    async def add_edge(self, source_id, target_id, label, weight=None):
+    async def add_edge(
+        self, source_id, target_id, label, weight=None, created_at_ms=None
+    ):
         return await self._run(
-            self._sync.add_edge, source_id, target_id, label, weight
+            self._sync.add_edge,
+            source_id,
+            target_id,
+            label,
+            weight,
+            created_at_ms,
         )
 
     async def graph_bfs(self, roots, max_depth=999999):
