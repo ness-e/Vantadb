@@ -207,7 +207,8 @@ impl OpfsWorkerProxy {
                                 let args = js_sys::Array::new();
                                 args.push(&r);
                                 args.push(&JsValue::from_f64(d as f64));
-                                js_sys::Reflect::apply(&set_timeout, &global, &args).ok();
+                                let set_timeout_fn = js_sys::Function::from(set_timeout);
+                                js_sys::Reflect::apply(&set_timeout_fn, &global, &args).ok();
                             }
                         }
                     });

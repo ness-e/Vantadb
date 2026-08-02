@@ -7,6 +7,8 @@
 //! flow through `run()` → `app()` → Router. Telemetry is verbose (tracing-subscriber
 //! config) but not complex — not worth splitting.
 
+use crate::circuit_breaker::CircuitBreaker;
+use crate::connection_pool::{ConnectionPool, PoolError};
 use crate::error::ChainedError;
 use crate::VantaError;
 use lru::LruCache;
@@ -14,7 +16,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 #[cfg(feature = "opentelemetry")]
 use std::sync::OnceLock;
-#[cfg(feature = "tls")]
 use std::time::Duration;
 use std::time::Instant;
 
@@ -100,8 +101,10 @@ impl From<&UnifiedNode> for NodeDTO {
 pub struct ServerState {
     /// The underlying storage engine.
     pub storage: Arc<StorageEngine>,
-    /// Concurrency limiter for blocking execution tasks.
-    pub semaphore: Arc<tokio::sync::Semaphore>,
+    /// Circuit breaker for fast-failing when the backend is failing.
+    pub circuit_breaker: Arc<CircuitBreaker>,
+    /// Connection pool bounding concurrent query execution.
+    pub pool: Arc<ConnectionPool>,
     /// Optional bearer token for API authentication.
     pub api_key: Option<Arc<str>>,
     /// RBAC token-to-role mapping configuration.
@@ -146,6 +149,10 @@ pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
     Router::new()
         .merge(public)
         .merge(protected)
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            circuit_breaker_middleware,
+        ))
         .layer(middleware::from_fn(request_metrics_middleware))
         .layer(Extension(auth_state))
         .layer(tower_http::trace::TraceLayer::new_for_http())
@@ -384,22 +391,65 @@ pub async fn request_metrics_middleware(
     res
 }
 
+/// Fast-fail requests while the circuit breaker is open.
+///
+/// When the breaker allows the request, records success/failure from the
+/// resulting status code (>=500 trips the breaker). Returns `503` with a
+/// `Retry-After` header while open.
+pub async fn circuit_breaker_middleware(
+    State(state): State<Arc<ServerState>>,
+    req: axum::extract::Request,
+    next: middleware::Next,
+) -> Response {
+    if !state.circuit_breaker.allow_request() {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            [(
+                header::RETRY_AFTER,
+                state.circuit_breaker.retry_after_secs().to_string(),
+            )],
+            Json(serde_json::json!({
+                "success": false,
+                "error": "Service temporarily unavailable: circuit breaker open",
+            })),
+        )
+            .into_response();
+    }
+
+    let res = next.run(req).await;
+    if res.status().is_server_error() {
+        state.circuit_breaker.record_failure();
+    } else {
+        state.circuit_breaker.record_success();
+    }
+    res
+}
+
 #[tracing::instrument(skip(state))]
 async fn execute_query(
     State(state): State<Arc<ServerState>>,
     Json(payload): Json<QueryRequest>,
-) -> Json<QueryResponse> {
+) -> Response {
     use crate::executor::{ExecutionResult, Executor};
 
-    let _permit = match state.semaphore.clone().acquire_owned().await {
+    let _permit = match state.pool.acquire().await {
         Ok(p) => p,
-        Err(_) => {
-            return Json(QueryResponse {
-                success: false,
-                data: "Server concurrency semaphore closed".to_string(),
-                node_id: None,
-                nodes: None,
-            });
+        Err(e) => {
+            let msg = match e {
+                PoolError::Closed => "Server query pool closed".to_string(),
+                PoolError::Timeout => "Server concurrency limit reached; retry shortly".to_string(),
+            };
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                [(header::RETRY_AFTER, "1")],
+                Json(QueryResponse {
+                    success: false,
+                    data: msg,
+                    node_id: None,
+                    nodes: None,
+                }),
+            )
+                .into_response();
         }
     };
 
@@ -415,12 +465,16 @@ async fn execute_query(
     let execution_result = match join_res {
         Ok(r) => r,
         Err(e) => {
-            return Json(QueryResponse {
-                success: false,
-                data: format!("Internal server error: execution task panicked: {}", e),
-                node_id: None,
-                nodes: None,
-            });
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(QueryResponse {
+                    success: false,
+                    data: format!("Internal server error: execution task panicked: {}", e),
+                    node_id: None,
+                    nodes: None,
+                }),
+            )
+                .into_response();
         }
     };
 
@@ -433,6 +487,7 @@ async fn execute_query(
                 node_id: None,
                 nodes: Some(dtos),
             })
+            .into_response()
         }
         Ok(ExecutionResult::Write {
             affected_nodes,
@@ -443,7 +498,8 @@ async fn execute_query(
             data: format!("Mutated {} nodes: {}", affected_nodes, message),
             node_id,
             nodes: None,
-        }),
+        })
+        .into_response(),
         Ok(ExecutionResult::StaleContext(summary_id)) => Json(QueryResponse {
             success: true,
             data: format!(
@@ -452,13 +508,15 @@ async fn execute_query(
             ),
             node_id: Some(summary_id),
             nodes: None,
-        }),
+        })
+        .into_response(),
         Err(e) => Json(QueryResponse {
             success: false,
             data: format!("Execution Error: {}", e),
             node_id: None,
             nodes: None,
-        }),
+        })
+        .into_response(),
     }
 }
 
@@ -695,11 +753,19 @@ pub async fn run(config: VantaConfig) -> Result<()> {
     log_security_mode(&config);
 
     let api_key: Option<Arc<str>> = config.api_key.as_deref().map(Arc::from);
-    let semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_blocking_threads));
+    let circuit_breaker = Arc::new(CircuitBreaker::new(
+        config.circuit_breaker_failure_threshold,
+        Duration::from_secs(config.circuit_breaker_open_timeout_secs),
+    ));
+    let pool = Arc::new(ConnectionPool::new(
+        config.max_connections,
+        Duration::from_millis(config.pool_acquire_timeout_ms),
+    ));
     let rbac_config = config.rbac_config.clone();
     let state = Arc::new(ServerState {
         storage: storage.clone(),
-        semaphore,
+        circuit_breaker,
+        pool,
         api_key,
         rbac_config,
     });

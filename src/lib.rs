@@ -62,6 +62,9 @@ pub(crate) mod backends;
 /// Binary header format for all persisted VantaDB files.
 pub mod binary_header;
 pub(crate) mod cache_warmer;
+/// Circuit breaker state machine for fast-failing HTTP requests (feature `server`).
+#[cfg(feature = "server")]
+pub mod circuit_breaker;
 #[cfg(feature = "cli")]
 pub mod cli;
 #[cfg(feature = "cli")]
@@ -71,6 +74,9 @@ pub mod cli_server;
 #[cfg(feature = "arrow")]
 pub mod columnar;
 pub mod config;
+/// Explicit connection pool for HTTP query execution (feature `server`).
+#[cfg(feature = "server")]
+pub mod connection_pool;
 #[cfg(feature = "cli")]
 pub mod console;
 pub(crate) mod cost_estimator;

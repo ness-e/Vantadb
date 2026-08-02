@@ -33,6 +33,10 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `eviction_ratio` | `f64` | `0.20` | — | Fraction of hot nodes to evict when memory pressure triggers |
 | `backend_kind` | `BackendKind` | `Fjall` | `VANTA_BACKEND` | KV backend: `[[fjall]]`, `[[rocksdb]]`, `memory` |
 | `max_blocking_threads` | `usize` | `16` | `VANTADB_MAX_BLOCKING_THREADS` | Max threads for blocking thread pool |
+| `max_connections` | `usize` | `max_blocking_threads * 2` | `VANTADB_MAX_CONNECTIONS` | Max concurrent HTTP query pool permits |
+| `pool_acquire_timeout_ms` | `u64` | `5000` | `VANTADB_POOL_ACQUIRE_TIMEOUT_MS` | Timeout acquiring a pool permit before the query fails fast with 503 |
+| `circuit_breaker_failure_threshold` | `u32` | `5` | `VANTADB_CIRCUIT_BREAKER_FAILURE_THRESHOLD` | Consecutive 5xx failures before the circuit breaker opens |
+| `circuit_breaker_open_timeout_secs` | `u64` | `30` | `VANTADB_CIRCUIT_BREAKER_OPEN_TIMEOUT_SECS` | Seconds the breaker stays open before probing half-open |
 | `sync_mode` | `SyncMode` | `Periodic` | — | [[wal\|WAL]] sync: `Always`, `Periodic`, `Never` |
 | `insert_lock_timeout_ms` | `u64` | `5000` | `VANTADB_INSERT_LOCK_TIMEOUT_MS` | [[hnsw\|HNSW]] insert lock timeout in ms |
 | `file_lock_timeout_ms` | `u64` | `1000` | `VANTADB_FILE_LOCK_TIMEOUT_MS` | .vanta.lock file lock timeout in ms |

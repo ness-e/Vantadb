@@ -102,6 +102,10 @@ impl MemoryGovernor {
     /// Record an out-of-memory event.
     pub fn record_oom(&self) {
         self.oom_count.fetch_add(1, Ordering::Relaxed);
+        #[cfg(feature = "prometheus")]
+        if let Some(c) = crate::metrics::OOM_TRIPS.as_ref() {
+            c.inc();
+        }
     }
 
     /// Returns `true` if eviction is currently running.

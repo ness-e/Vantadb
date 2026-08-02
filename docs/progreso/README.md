@@ -3216,4 +3216,14 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `gh run view 30737269105` → success ✅ | job test-windows 515s vs baseline 869s (−40.7%) ✅ | actionlint + pyyaml OK ✅
 
+### 2026-08-02 — ENT-04: Connection pooling + circuit breaker (server-mode)
+
+**Objetivo:** Robustez del server-mode bajo carga/concurrencia. Implementar pool de conexiones con límite de concurrencia y circuit breaker con estados closed/open/half-open. (Wasn't previously implementado — solo la métrica existía.)
+
+| ID | Tarea | Resultado | Evidencia |
+|----|-------|-----------|-----------|
+| `ENT-04` | Connection pooling + circuit breaker | ✅ COMPLETED | Módulos `src/connection_pool.rs` (pool con cola + semaphore, 4 tests) y `src/circuit_breaker.rs` (estados closed/open/half-open, probe, 5 tests), feature-gated `server` en `src/lib.rs`. `ServerState` en `src/cli_server.rs` construye ambos desde config (`server.pool.*`, `server.breaker.*`); middleware breaker como capa más externa vía `from_fn_with_state`; `execute_query` → `axum::response::Response` (timeout/closed → 503 + header `Retry-After`, pánico → 500). `record_oom()` incrementa umbral no-exit bajo `prometheus`. E2e en `vantadb-server/tests/server.rs`: 503 + `Retry-After: "30"` al abrir, probe half-open que cierra. Config y `.env` documentados en `docs/operations/CONFIGURATION.md`. |
+
+**Verificación:** `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` ✅ | `cargo fmt --check` ✅ | Unit: `-E 'test(circuit_breaker) | test(connection_pool)'` → 9/9 ✅ | E2e: `-E 'test(circuit_breaker)'` → 2/2 ✅ | Workspace `cargo nextest run --profile audit --build-jobs 2 --workspace` → 1802/1802 ✅ | En pasada se arregló error pre-existente `vantadb-wasm/src/worker.rs:210` (js-sys 0.3.103 `Reflect::apply` exige `&Function`). |
+
 

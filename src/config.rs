@@ -264,6 +264,18 @@ pub struct VantaConfig {
     pub backend_kind: BackendKind,
     /// Maximum number of blocking threads for the async runtime.
     pub max_blocking_threads: usize,
+    /// Maximum concurrent connections for the HTTP query pool (default: max_blocking_threads * 2).
+    /// Configured via `VANTADB_MAX_CONNECTIONS`.
+    pub max_connections: usize,
+    /// Timeout in ms when acquiring a pool permit (default: 5000).
+    /// Configured via `VANTADB_POOL_ACQUIRE_TIMEOUT_MS`.
+    pub pool_acquire_timeout_ms: u64,
+    /// Consecutive failures before the circuit breaker opens (default: 5).
+    /// Configured via `VANTADB_CIRCUIT_BREAKER_FAILURE_THRESHOLD`.
+    pub circuit_breaker_failure_threshold: u32,
+    /// Seconds the circuit breaker stays open before probing half-open (default: 30).
+    /// Configured via `VANTADB_CIRCUIT_BREAKER_OPEN_TIMEOUT_SECS`.
+    pub circuit_breaker_open_timeout_secs: u64,
     /// Write synchronisation mode for durability vs. throughput.
     pub sync_mode: SyncMode,
     /// Optional Bearer token for HTTP API authentication.
@@ -387,6 +399,9 @@ where
 
 impl Default for VantaConfig {
     fn default() -> Self {
+        let default_max_blocking = std::thread::available_parallelism()
+            .map(|n| n.get() * 2)
+            .unwrap_or(16);
         Self {
             storage_path: {
                 let v =
@@ -480,11 +495,28 @@ impl Default for VantaConfig {
                 v
             },
             max_blocking_threads: {
-                let default = std::thread::available_parallelism()
-                    .map(|n| n.get() * 2)
-                    .unwrap_or(16);
-                let v = parse_env_or("VANTADB_MAX_BLOCKING_THREADS", default);
+                let v = parse_env_or("VANTADB_MAX_BLOCKING_THREADS", default_max_blocking);
                 debug!(val = v, "VANTADB_MAX_BLOCKING_THREADS");
+                v
+            },
+            max_connections: {
+                let v = parse_env_or("VANTADB_MAX_CONNECTIONS", default_max_blocking * 2);
+                debug!(val = v, "VANTADB_MAX_CONNECTIONS");
+                v
+            },
+            pool_acquire_timeout_ms: {
+                let v = parse_env_or("VANTADB_POOL_ACQUIRE_TIMEOUT_MS", 5000u64);
+                debug!(val = v, "VANTADB_POOL_ACQUIRE_TIMEOUT_MS");
+                v
+            },
+            circuit_breaker_failure_threshold: {
+                let v = parse_env_or("VANTADB_CIRCUIT_BREAKER_FAILURE_THRESHOLD", 5u32);
+                debug!(val = v, "VANTADB_CIRCUIT_BREAKER_FAILURE_THRESHOLD");
+                v
+            },
+            circuit_breaker_open_timeout_secs: {
+                let v = parse_env_or("VANTADB_CIRCUIT_BREAKER_OPEN_TIMEOUT_SECS", 30u64);
+                debug!(val = v, "VANTADB_CIRCUIT_BREAKER_OPEN_TIMEOUT_SECS");
                 v
             },
             sync_mode: SyncMode::default(),

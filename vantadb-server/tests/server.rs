@@ -16,9 +16,10 @@ use common::{TerminalReporter, VantaHarness};
 use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
-#[cfg(feature = "tls")]
 use std::time::Duration;
 use tower::ServiceExt;
+use vantadb::circuit_breaker::CircuitBreaker;
+use vantadb::connection_pool::ConnectionPool;
 use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
 
@@ -264,8 +265,85 @@ async fn test_concurrency_with_auth() {
     }
 }
 
-// ─── TSK-16: TLS/HTTPS (requires --features tls) ─────────────────────────
+// ─── ENT-04: Circuit Breaker + Connection Pool ───────────────────────────
 
+/// Forces the breaker open (threshold 1 → one failure trips it), then verifies
+/// `/api/v2/query` fast-fails with 503 + `Retry-After` while open.
+#[tokio::test]
+async fn test_circuit_breaker_open_returns_503_with_retry_after() {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
+    let breaker = Arc::new(CircuitBreaker::new(1, Duration::from_secs(30)));
+    let state = Arc::new(ServerState {
+        storage,
+        circuit_breaker: breaker.clone(),
+        pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
+        api_key: None,
+        rbac_config: Default::default(),
+    });
+    breaker.record_failure(); // opens (threshold == 1)
+    assert_eq!(
+        breaker.state(),
+        vantadb::circuit_breaker::CircuitState::Open
+    );
+    let router = app(state, 0);
+
+    let req = add_addr(
+        Request::builder()
+            .uri("/api/v2/query")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"query":"test"}"#))
+            .unwrap(),
+    );
+    let res = router.oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let retry_after = res
+        .headers()
+        .get(axum::http::header::RETRY_AFTER)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    assert_eq!(
+        retry_after, "30",
+        "Retry-After must mirror the open timeout"
+    );
+}
+
+/// A half-open breaker admits exactly one probe; a successful probe closes it.
+#[tokio::test]
+async fn test_circuit_breaker_half_open_probe_success_closes() {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
+    let breaker = Arc::new(CircuitBreaker::new(1, Duration::from_secs(0)));
+    let state = Arc::new(ServerState {
+        storage,
+        circuit_breaker: breaker.clone(),
+        pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
+        api_key: None,
+        rbac_config: Default::default(),
+    });
+    breaker.record_failure(); // open (0s timeout → immediately eligible for probe)
+    let router = app(state, 0);
+
+    // First request claims the half-open probe slot and executes successfully.
+    let req = add_addr(
+        Request::builder()
+            .uri("/api/v2/query")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"query":"test"}"#))
+            .unwrap(),
+    );
+    let res = router.oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK, "probe request should pass");
+    assert_eq!(
+        breaker.state(),
+        vantadb::circuit_breaker::CircuitState::Closed,
+        "successful probe must close the breaker"
+    );
+}
+
+// ─── TSK-16: TLS/HTTPS (requires --features tls) ─────────────────────────
 #[cfg(feature = "tls")]
 fn setup_tls() {
     let _ = rustls::crypto::ring::default_provider().install_default();
@@ -338,7 +416,8 @@ async fn test_tls_server_health_and_query() {
     let storage = Arc::new(StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap());
     let state = Arc::new(ServerState {
         storage,
-        semaphore: Arc::new(tokio::sync::Semaphore::new(10)),
+        circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+        pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: Some(Arc::from("tls-key")),
         rbac_config: Default::default(),
     });
@@ -427,7 +506,8 @@ async fn api_server_certification() {
             let storage = Arc::new(StorageEngine::open(temp_dir.path().to_str().unwrap()).unwrap());
             let state = Arc::new(ServerState {
                 storage,
-                semaphore: Arc::new(tokio::sync::Semaphore::new(10)),
+                circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+                pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
                 api_key: None,
                 rbac_config: Default::default(),
             });
