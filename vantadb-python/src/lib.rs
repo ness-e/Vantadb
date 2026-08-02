@@ -37,6 +37,40 @@ use crate::convert::{
 
 #[pyclass]
 /// Python-accessible embedded VantaDB engine.
+///
+/// Create or open a database with ``VantaDB(db_path, ...)``:
+///
+/// Args:
+///     db_path: Path to the database directory. Pass ``":memory:"`` (or an
+///         empty string) to create an in-memory database that is discarded
+///         when the connection closes.
+///     memory_limit_bytes: Optional memory budget in bytes for the Rust engine.
+///         Isolates the DB's memory from Python's heap. If None, uses hardware
+///         detection or VANTADB_MEMORY_LIMIT env var.
+///     read_only: If True, opens the DB in read-only mode. Safe for multi-process
+///         access when another process holds the write lock.
+///     backend: Storage backend to use — ``"memory"``, ``"rocksdb"``, or None
+///         (None selects the default persistent backend, fjall). Unknown values
+///         fall back to the default backend with a warning.
+///
+/// Returns:
+///     VantaDB: A connected VantaDB database handle.
+///
+/// Raises:
+///     ValueError: If the database file has an incompatible format or the
+///         configuration is invalid.
+///     OSError: If the database directory cannot be created or opened.
+///     PermissionError: If the database directory is not accessible.
+///     RuntimeError: For any other engine-level failure.
+///
+/// Example:
+///     ```python
+///     >>> from vantadb_py import VantaDB
+///     >>> db = VantaDB(":memory:", backend="memory")  # in-memory engine
+///     >>> db.put("agent/main", "task-1", "alpha")
+///     >>> db.get_memory("agent/main", "task-1").payload
+///     'alpha'
+///     ```
 pub struct VantaDB {
     engine: VantaEmbedded,
 }
@@ -46,12 +80,36 @@ impl VantaDB {
     /// Create or open a VantaDB database.
     ///
     /// Args:
-    ///     db_path: Path to the database directory.
+    ///     db_path: Path to the database directory. Pass ``":memory:"`` (or an
+    ///         empty string) to create an in-memory database that is discarded
+    ///         when the connection closes.
     ///     memory_limit_bytes: Optional memory budget in bytes for the Rust engine.
     ///         Isolates the DB's memory from Python's heap. If None, uses hardware
     ///         detection or VANTADB_MEMORY_LIMIT env var.
     ///     read_only: If True, opens the DB in read-only mode. Safe for multi-process
     ///         access when another process holds the write lock.
+    ///     backend: Storage backend to use — ``"memory"``, ``"rocksdb"``, or None
+    ///         (None selects the default persistent backend, fjall). Unknown values
+    ///         fall back to the default backend with a warning.
+    ///
+    /// Returns:
+    ///     VantaDB: A connected VantaDB database handle.
+    ///
+    /// Raises:
+    ///     ValueError: If the database file has an incompatible format or the
+    ///         configuration is invalid.
+    ///     OSError: If the database directory cannot be created or opened.
+    ///     PermissionError: If the database directory is not accessible.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import VantaDB
+    ///     >>> db = VantaDB(":memory:", backend="memory")  # in-memory engine
+    ///     >>> db.put("agent/main", "task-1", "alpha")
+    ///     >>> db.get_memory("agent/main", "task-1").payload
+    ///     'alpha'
+    ///     ```
     #[new]
     #[pyo3(signature = (db_path, memory_limit_bytes=None, read_only=false, backend=None))]
     fn new(
@@ -92,10 +150,29 @@ impl VantaDB {
     /// GIL Policy: RELEASED — allows Python threads to run during node insert.
     ///
     /// Args:
-    ///     id: Unique node identifier (u64).
+    ///     id: Unique node identifier (u128).
     ///     content: Text content stored as a relational field.
     ///     vector: Embedding vector (list of floats). Pass empty list for no vector.
     ///     fields: Optional dict of additional relational fields.
+    ///
+    /// Returns:
+    ///     None
+    ///
+    /// Raises:
+    ///     TypeError: If ``vector`` is not a list of floats or ``fields`` contains
+    ///         unsupported value types.
+    ///     ValueError: If the node ID already exists, the vector dimension is
+    ///         inconsistent, or another validation error occurs.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import VantaDB
+    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> db.insert(1, "first node", [0.1, 0.2, 0.3], {"kind": "note"})
+    ///     >>> db.get(1)["fields"]["kind"]
+    ///     'note'
+    ///     ```
     #[pyo3(signature = (id, content, vector, fields=None))]
     fn insert(
         &self,
@@ -467,6 +544,45 @@ impl VantaDB {
     }
 
     /// Put or update a namespace-scoped persistent memory record.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during storage write
+    /// and index update.
+    ///
+    /// Args:
+    ///     namespace: Namespace that groups related records.
+    ///     key: Unique record key within the namespace. Reusing an existing key
+    ///         updates the stored record.
+    ///     payload: Text payload stored with the record.
+    ///     metadata: Optional dict of scalar values (str, int, float, bool,
+    ///         datetime, list, or None) used for filtering.
+    ///     vector: Optional embedding vector (list of floats or NumPy array).
+    ///     ttl_ms: Optional time-to-live in milliseconds; the record expires
+    ///         after this duration.
+    ///
+    /// Returns:
+    ///     VantaMemoryRecord: The stored record, exposing ``namespace``, ``key``,
+    ///     ``payload``, ``metadata``, ``vector``, ``created_at_ms``,
+    ///     ``updated_at_ms``, ``version``, ``node_id``, and ``expires_at_ms``.
+    ///
+    /// Raises:
+    ///     TypeError: If ``vector`` is not a list of floats or ``metadata``
+    ///         contains unsupported value types.
+    ///     ValueError: If the vector dimension is inconsistent with the index or
+    ///         validation fails.
+    ///     OSError: If the write cannot be persisted (WAL or storage I/O failure).
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import VantaDB
+    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> record = db.put("agent/main", "task-1", "organize the backlog",
+    ///     ...                  metadata={"category": "task"}, vector=[1.0, 0.0, 0.0])
+    ///     >>> record.key
+    ///     'task-1'
+    ///     >>> record["metadata"]["category"]
+    ///     'task'
+    ///     ```
 
     // PyO3 keyword argument binding requires matching function parameters in Rust.
     #[allow(clippy::too_many_arguments)]
@@ -499,6 +615,32 @@ impl VantaDB {
     }
 
     /// Retrieve a namespace-scoped persistent memory record.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during storage read.
+    ///
+    /// Args:
+    ///     namespace: Namespace the record belongs to.
+    ///     key: Record key within the namespace.
+    ///
+    /// Returns:
+    ///     VantaMemoryRecord or None: The stored record, or None if no record
+    ///     exists for the given namespace and key.
+    ///
+    /// Raises:
+    ///     OSError: If the storage cannot be read.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import VantaDB
+    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "task-1", "organize the backlog")
+    ///     >>> record = db.get_memory("agent/main", "task-1")
+    ///     >>> record.payload
+    ///     'organize the backlog'
+    ///     >>> db.get_memory("agent/main", "missing") is None
+    ///     True
+    ///     ```
     fn get_memory(
         &self,
         py: Python,
@@ -516,6 +658,30 @@ impl VantaDB {
     }
 
     /// Delete a namespace-scoped persistent memory record.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during storage delete.
+    ///
+    /// Args:
+    ///     namespace: Namespace the record belongs to.
+    ///     key: Record key within the namespace.
+    ///
+    /// Returns:
+    ///     bool: True if a record was deleted, False if no matching record existed.
+    ///
+    /// Raises:
+    ///     OSError: If the storage cannot be written.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import VantaDB
+    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "temp", "delete me")
+    ///     >>> db.delete_memory("agent/main", "temp")
+    ///     True
+    ///     >>> db.get_memory("agent/main", "temp") is None
+    ///     True
+    ///     ```
     fn delete_memory(&self, py: Python, namespace: &str, key: &str) -> PyResult<bool> {
         let engine = self.engine.clone();
         let namespace = namespace.to_string();
@@ -524,6 +690,39 @@ impl VantaDB {
     }
 
     /// List namespace-scoped persistent memory records.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during storage scan.
+    ///
+    /// Args:
+    ///     namespace: Namespace to list records from.
+    ///     filters: Optional dict of metadata field values to filter on.
+    ///     limit: Maximum number of records to return (default 100).
+    ///     cursor: Optional pagination cursor returned as ``next_cursor`` from a
+    ///         previous page.
+    ///
+    /// Returns:
+    ///     VantaListResult: A page of records with ``records``, ``total_count``,
+    ///     and ``next_cursor`` properties. Iterate or index into the result to
+    ///     access ``VantaMemoryRecord`` items.
+    ///
+    /// Raises:
+    ///     TypeError: If ``filters`` contains unsupported value types.
+    ///     ValueError: If a filter value is invalid.
+    ///     OSError: If the storage cannot be read.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import VantaDB
+    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "task-1", "alpha", metadata={"category": "task"})
+    ///     >>> db.put("agent/main", "task-2", "beta", metadata={"category": "task"})
+    ///     >>> page = db.list_memory("agent/main", filters={"category": "task"})
+    ///     >>> len(page)
+    ///     2
+    ///     >>> page[0].key
+    ///     'task-1'
+    ///     ```
     #[pyo3(signature = (namespace, filters=None, limit=100, cursor=None))]
     fn list_memory(
         &self,
@@ -561,6 +760,49 @@ impl VantaDB {
     }
 
     /// Search namespace-scoped persistent memory records by vector + filters.
+    ///
+    /// Combines ANN vector search with optional metadata filters and an optional
+    /// lexical text query (hybrid search).
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during distance
+    /// computation and HNSW traversal.
+    ///
+    /// Args:
+    ///     namespace: Namespace to search within.
+    ///     query_vector: Query embedding vector (list of floats or NumPy array).
+    ///     filters: Optional dict of metadata field values to filter on.
+    ///     text_query: Optional full-text query to combine with the vector search.
+    ///     top_k: Maximum number of hits to return (default 10).
+    ///     distance_metric: Distance metric — ``"cosine"`` (default) or
+    ///         ``"euclidean"``. Unknown values fall back to cosine with a warning.
+    ///     explain: If True, include search explanation data on each hit
+    ///         (default False).
+    ///
+    /// Returns:
+    ///     list[VantaSearchHit]: Search hits ordered by relevance, each exposing
+    ///     ``key``, ``payload``, ``metadata``, ``vector``, ``score``, and
+    ///     ``node_id`` properties.
+    ///
+    /// Raises:
+    ///     TypeError: If ``query_vector`` is not a list of floats or ``filters``
+    ///         contains unsupported value types.
+    ///     ValueError: If the vector dimension is inconsistent with the index or
+    ///         validation fails.
+    ///     OSError: If the storage cannot be read.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import VantaDB
+    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "task-1", "organize the backlog",
+    ///     ...          vector=[1.0, 0.0, 0.0])
+    ///     >>> hits = db.search_memory("agent/main", [0.9, 0.1, 0.0], top_k=5)
+    ///     >>> hits[0].key
+    ///     'task-1'
+    ///     >>> hits[0].score > 0.0
+    ///     True
+    ///     ```
     // PyO3 keyword argument binding requires matching function parameters in Rust.
     #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, explain=false))]
     #[allow(clippy::too_many_arguments)]
@@ -613,6 +855,32 @@ impl VantaDB {
     }
 
     /// Rebuild ANN and derived memory indexes from canonical storage.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during index rebuild.
+    ///
+    /// Args:
+    ///     None
+    ///
+    /// Returns:
+    ///     dict: Rebuild report with keys ``scanned_nodes``, ``indexed_vectors``,
+    ///     ``skipped_tombstones``, ``duration_ms``, ``derived_rebuild_ms``,
+    ///     ``index_path``, and ``success``.
+    ///
+    /// Raises:
+    ///     OSError: If the index cannot be written to disk.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import VantaDB
+    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "task-1", "alpha", vector=[1.0, 0.0, 0.0])
+    ///     >>> report = db.rebuild_index()
+    ///     >>> report["indexed_vectors"]
+    ///     1
+    ///     >>> report["success"]
+    ///     True
+    ///     ```
     fn rebuild_index(&self, py: Python) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
         let report = py.detach(move || engine.rebuild_index().map_err(map_vanta_error))?;
@@ -642,6 +910,35 @@ impl VantaDB {
     }
 
     /// Export one namespace as JSONL.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during export.
+    ///
+    /// Args:
+    ///     path: Destination file path for the JSONL export.
+    ///     namespace: Namespace to export.
+    ///
+    /// Returns:
+    ///     dict: Export report with keys ``records_exported``, ``namespaces``,
+    ///     ``path``, and ``duration_ms``.
+    ///
+    /// Raises:
+    ///     FileNotFoundError: If the target directory does not exist.
+    ///     PermissionError: If the target path is not writable.
+    ///     OSError: For other file I/O failures.
+    ///     ValueError: If the namespace does not exist or is invalid.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> import tempfile
+    ///     >>> from vantadb_py import VantaDB
+    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "task-1", "alpha")
+    ///     >>> with tempfile.TemporaryDirectory() as tmp:
+    ///     ...     report = db.export_namespace(f"{tmp}/export.jsonl", "agent/main")
+    ///     ...     report["records_exported"]
+    ///     1
+    ///     ```
     fn export_namespace(&self, py: Python, path: &str, namespace: &str) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
         let path = path.to_string();
@@ -655,6 +952,33 @@ impl VantaDB {
     }
 
     /// Export all namespaces as JSONL.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during export.
+    ///
+    /// Args:
+    ///     path: Destination file path for the JSONL export.
+    ///
+    /// Returns:
+    ///     dict: Export report with keys ``records_exported``, ``namespaces``,
+    ///     ``path``, and ``duration_ms``.
+    ///
+    /// Raises:
+    ///     FileNotFoundError: If the target directory does not exist.
+    ///     PermissionError: If the target path is not writable.
+    ///     OSError: For other file I/O failures.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> import tempfile
+    ///     >>> from vantadb_py import VantaDB
+    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "task-1", "alpha")
+    ///     >>> with tempfile.TemporaryDirectory() as tmp:
+    ///     ...     report = db.export_all(f"{tmp}/export.jsonl")
+    ///     ...     report["records_exported"]
+    ///     1
+    ///     ```
     fn export_all(&self, py: Python, path: &str) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
         let path = path.to_string();
@@ -663,6 +987,40 @@ impl VantaDB {
     }
 
     /// Import records from a VantaDB memory JSONL export.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during import.
+    ///
+    /// Args:
+    ///     path: Path to a JSONL file previously produced by ``export_namespace()``
+    ///         or ``export_all()``.
+    ///
+    /// Returns:
+    ///     dict: Import report with keys ``inserted``, ``updated``, ``skipped``,
+    ///     ``errors``, and ``duration_ms``.
+    ///
+    /// Raises:
+    ///     FileNotFoundError: If the import file does not exist.
+    ///     ValueError: If the file is not a valid VantaDB JSONL export.
+    ///     PermissionError: If the file cannot be read.
+    ///     OSError: For other file I/O failures.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> import tempfile
+    ///     >>> from vantadb_py import VantaDB
+    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "task-1", "alpha")
+    ///     >>> with tempfile.TemporaryDirectory() as tmp:
+    ///     ...     export_path = f"{tmp}/export.jsonl"
+    ///     ...     db.export_namespace(export_path, "agent/main")
+    ///     ...     target = VantaDB(":memory:", backend="memory")
+    ///     ...     report = target.import_file(export_path)
+    ///     ...     report["inserted"]
+    ///     1
+    ///     ...     target.get_memory("agent/main", "task-1").payload
+    ///     'alpha'
+    ///     ```
     fn import_file(&self, py: Python, path: &str) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
         let path = path.to_string();
@@ -726,6 +1084,28 @@ impl VantaDB {
     /// Return operational metrics for startup, replay, rebuild, export, and import.
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during metrics snapshot.
+    ///
+    /// Args:
+    ///     None
+    ///
+    /// Returns:
+    ///     dict: Operational counters and memory telemetry, including
+    ///     ``startup_ms``, ``wal_replay_ms``, ``ann_rebuild_ms``,
+    ///     ``records_exported``, ``records_imported``, ``process_rss_bytes``,
+    ///     ``hnsw_nodes_count``, and jemalloc allocation counters.
+    ///
+    /// Raises:
+    ///     RuntimeError: For any engine-level failure while snapshotting metrics.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import VantaDB
+    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "task-1", "alpha")
+    ///     >>> metrics = db.operational_metrics()
+    ///     >>> metrics["startup_ms"] >= 0
+    ///     True
+    ///     ```
     fn operational_metrics(&self, py: Python) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
         let metrics = py.detach(move || engine.operational_metrics());

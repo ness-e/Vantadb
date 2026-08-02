@@ -1511,6 +1511,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - `.github/workflows/python_wheels.yml` — pagefile/swap in CI/CD Windows/macOS
 ## Tareas Completadas (Migradas desde Backlog)
 
+### GH-122: Docstrings en API pública del Python SDK
+- **Fuente:** Backlog (Phase 11 — GitHub Issues)
+- **Fecha:** 2026-08-02
+- **Objetivo:** Docstrings completos (Args, Returns, Raises, ejemplo runnable) en `vantadb-python/src/lib.rs` para los 12 métodos públicos de `VantaDB`: `new()`, `put()`, `get_memory()`, `delete_memory()`, `list_memory()`, `search_memory()`, `insert()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `operational_metrics()`. Visibles como docstrings Python vía PyO3.
+- **Resultado:** ✅ 12/12 métodos documentados con Args+Returns+Raises+ejemplo ` ```python ` self-contained (`VantaDB(":memory:", backend="memory")`, patrones de `tests/test_sdk.py`). Docstring de clase `VantaDB.__doc__` enriquecido con la doc del constructor (único canal PyO3 para la clase). `cargo check`/`fmt --check`/`clippy -D warnings` exit 0; `maturin develop` instalado; 11/12 `__doc__` verificados en Python. +382/−2 en `vantadb-python/src/lib.rs`.
+- **Ids:** `GH-122`
+
 ### GH-124: Ejemplos doc-test para API pública Rust
 - **Fuente:** Backlog (Phase 11 — GitHub Issues)
 - **Fecha:** 2026-08-02
