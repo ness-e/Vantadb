@@ -1911,6 +1911,30 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ COMPLETADA 2026-08-02 — SKIP por gate (feature ya implementada, validada por audit 2026-07-28:205 como "Más completo de lo reportado"). Sin code changes.
 - **Ids:** `MKT-14`
 
+### NUEVO-08: Learning path estructurado en tutorials/ (5-7 ejemplos)
+- **Fecha:** 2026-08-02
+- **Objetivo:** Learning path estructurado en `docs/tutorials/` (5-7 ejemplos). Backlog decía "4/7, algunos draft". Corrige API inventada (`vantadb.connect`, `db.space`) en tutoriales draft y completa el path a 6 tutoriales.
+- **Checklist:**
+  - [x] `01-ai-agent-memory.md`, `02-local-rag-pipeline.md` — reescritos a API real (`VantaDB(path)`, `db.put(ns, key, payload, metadata, vector)`, `db.search_memory(ns, vector, text_query, filters)`), status → active
+  - [x] `04-hybrid-search-basics.md`, `05-embedding-integrations.md` — nuevos (4 search modes + `explain_memory_search`; OpenAI/Ollama/LiteLLM + hash fallback)
+  - [x] `docs/tutorials/index.md` — learning path estructurado (core track 01→02→04→05, migration track 03/lancedb)
+  - [x] `03-migrating-from-chromadb.md` — draft → active
+  - [x] mdBook sync — index con `{{#include}}`, stubs 04/05, SUMMARY lista 6 tutoriales
+  - [x] `docs/master-index.md`, `docs/README.md` — links de tutoriales actualizados
+- **Resultado:** ✅ 6 tutoriales, todos active, 0 API inventada (`rg` 0 matches), 30+ snippets validados contra `vantadb_py 0.5.0` en root `.venv`. Commits a460e4e4, a0c8415d, 70a820de, a8104873, b027926e, cff2fb99. `validate-docs-coverage.ps1` falla por gaps preexistentes no relacionados.
+- **Ids:** `NUEVO-08`
+
+### INV-006: Blog series completion — plan de finalización
+- **Fecha:** 2026-08-02
+- **Objetivo:** Plan de finalización del blog series (sin implementación). MKT-05 reportaba 4/5; audit 2026-07-28 corrigió que el backlog inflaba el conteo (3 posts en docs/blog, 4 en web).
+- **Checklist:**
+  - [x] `docs/strategy/BLOG_SERIES_PLAN.md` — inventario 4 web vs 3 docs/blog con 6 mismatches (M1-M6), incluyendo `introducing-vantadb` sin fuente `.md` y drift de versión (M6)
+  - [x] Revisión drafts — 3 posts sólidos, listos tras fixes (CTA débil en 2/3, frontmatter incompleto)
+  - [x] Audiencia + keyword research — 5 segmentos, 6 clusters validados por búsqueda web 2026
+  - [x] Calendario — Show HN (referencia SHOW_HN_PREP.md) + cadencia 2 posts/mes alineada a GTM (6/12/24)
+- **Resultado:** ✅ Plan entregado (205 líneas, markdownlint 0 issues), sin implementación de contenido. Commit 042e8e50. **Siguientes acciones derivadas:** resolver M1 (crear `introducing-vantadb.md`) y M6 (unificar versión en web/posts/SHOW_HN) — no bloquean el plan.
+- **Ids:** `INV-006`
+
 ### INV-019: Advanced Tokenizer (Unicode + Stopwords)
 - **Fecha:** 2026-08-02
 - **Objetivo:** Investigar tokenizer avanzado con Unicode, stopwords per-language y stemming.
