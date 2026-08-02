@@ -1,9 +1,15 @@
 ---
 title: "SQLite for AI Agents: Benchmarks and Architecture Decisions"
+version: 0.5.0
+slug: sqlite-for-ai-agents
 date: 2026-06-06
 author: "VantaDB Team"
 tags: ["sqlite", "ai-agents", "lsm-tree", "benchmarks", "architecture", "embedded-database"]
-description: "Why VantaDB chose LSM-trees over B-Trees, memory-mapped HNSW with BFS compaction, and PyO3 batch parallelism for AI agent memory — with benchmark data."
+description: "Why VantaDB chose LSM-trees over B-trees, memory-mapped HNSW with BFS compaction, and PyO3 batch parallelism for AI agent memory — with benchmark data."
+tag: Architecture
+readTime: "7 min"
+canonical: https://vantadb.dev/blog/sqlite-for-ai-agents
+draft: true
 ---
 
 # SQLite for AI Agents: Benchmarks and Architecture Decisions
@@ -102,4 +108,10 @@ To ensure VantaDB is reliable enough to serve as a production memory store, we m
 
 SQLite is the best database for embedded relational data. But for AI agent memory, VantaDB's architectural deviations—LSM storage for append-heavy writes, topological BFS layouts on memory-mapped graphs, SIMD accelerations, and GIL-free batch query parallelization—provide the performance and safety edge AI agents deserve.
 
-To run the hardware profiles and benchmarks on your own device, clone the repository at [GitHub: VantaDB](https://github.com/ness-e/Vantadb).
+Run the hardware profiles and benchmarks on your own device — the engine installs in one line:
+
+```bash
+pip install vantadb-py
+```
+
+Join the community on Discord and star the [VantaDB repository](https://github.com/ness-e/Vantadb). To understand how BM25 and HNSW are orchestrated and fused with RRF, read [How Hybrid Search Works](/blog/how-hybrid-search-works).

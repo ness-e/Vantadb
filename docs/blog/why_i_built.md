@@ -1,9 +1,15 @@
 ---
 title: "Why I Built a Local Memory Engine for AI Agents in Rust"
+version: 0.5.0
+slug: why-i-built-vantadb-local-memory-engine
 date: 2026-06-06
-author: "VantaDB Team"
+author: "ness-e"
 tags: ["ai-agents", "rust", "local-first", "memory-engine", "embedded-database", "llm"]
 description: "The motivation and architectural decisions behind VantaDB — an embedded, persistent, hybrid retrieval engine purpose-built for local-first AI agent memory."
+tag: Story
+readTime: "5 min"
+canonical: https://vantadb.dev/blog/why-i-built-vantadb-local-memory-engine
+draft: true
 ---
 
 # Why I Built a Local Memory Engine for AI Agents in Rust
@@ -83,7 +89,7 @@ This approach is parameter-free, fast, and eliminates the need for developers to
 
 ## Conclusion: The "SQLite for AI" Vision
 
-VantaDB is currently at version `0.1.4`. It is not trying to be a database for massive cloud clusters. It is designed to do one thing exceptionally well: act as a durable, reliable, and extremely fast embedded memory engine for edge AI agents.
+VantaDB is the current release of an engine that is constantly improving. It is not trying to be a database for massive cloud clusters. It is designed to do one thing exceptionally well: act as a durable, reliable, and extremely fast embedded memory engine for edge AI agents.
 
 By combining the speed and type safety of Rust, the durability of transactional LSM storage, and the retrieval power of unified hybrid search, VantaDB provides the foundational memory layer that local-first AI needs.
 
