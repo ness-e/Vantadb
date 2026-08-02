@@ -165,6 +165,31 @@ impl VantaEmbedded {
 
     /// Insert or update a persistent memory record.
     /// Returns the created/updated record with system-assigned timestamps and version.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vantadb::config::VantaConfig;
+    /// use vantadb::{BackendKind, VantaEmbedded, VantaMemoryInput};
+    ///
+    /// let db = VantaEmbedded::open_with_config(VantaConfig {
+    ///     storage_path: ":memory:".into(),
+    ///     backend_kind: BackendKind::InMemory,
+    ///     ..Default::default()
+    /// })
+    /// .expect("open in-memory database");
+    ///
+    /// let record = db
+    ///     .put(VantaMemoryInput::new("docs", "greeting", "Hello, VantaDB!"))
+    ///     .expect("put record");
+    ///
+    /// assert_eq!(record.namespace, "docs");
+    /// assert_eq!(record.key, "greeting");
+    /// assert_eq!(record.payload, "Hello, VantaDB!");
+    /// assert_eq!(record.version, 1);
+    ///
+    /// db.close().expect("close database");
+    /// ```
     #[tracing::instrument(skip(self, input), err)]
     pub fn put(&self, input: VantaMemoryInput) -> Result<VantaMemoryRecord> {
         self.put_one(input)
@@ -266,6 +291,34 @@ impl VantaEmbedded {
 
     /// Retrieve a single memory record by namespace and key.
     /// Returns `None` if the record does not exist or has expired.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vantadb::config::VantaConfig;
+    /// use vantadb::{BackendKind, VantaEmbedded, VantaMemoryInput};
+    ///
+    /// let db = VantaEmbedded::open_with_config(VantaConfig {
+    ///     storage_path: ":memory:".into(),
+    ///     backend_kind: BackendKind::InMemory,
+    ///     ..Default::default()
+    /// })
+    /// .expect("open in-memory database");
+    ///
+    /// db.put(VantaMemoryInput::new("docs", "greeting", "Hello, VantaDB!"))
+    ///     .expect("put record");
+    ///
+    /// let record = db
+    ///     .get("docs", "greeting")
+    ///     .expect("get record")
+    ///     .expect("record should exist");
+    /// assert_eq!(record.payload, "Hello, VantaDB!");
+    ///
+    /// // Unknown keys return `None` instead of an error.
+    /// assert!(db.get("docs", "missing").expect("get missing").is_none());
+    ///
+    /// db.close().expect("close database");
+    /// ```
     #[tracing::instrument(skip(self), err)]
     pub fn get(&self, namespace: &str, key: &str) -> Result<Option<VantaMemoryRecord>> {
         validate_namespace(namespace)?;
@@ -285,6 +338,30 @@ impl VantaEmbedded {
 
     /// Delete a memory record by namespace and key.
     /// Returns `true` if a record was actually deleted, `false` if it did not exist.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vantadb::config::VantaConfig;
+    /// use vantadb::{BackendKind, VantaEmbedded, VantaMemoryInput};
+    ///
+    /// let db = VantaEmbedded::open_with_config(VantaConfig {
+    ///     storage_path: ":memory:".into(),
+    ///     backend_kind: BackendKind::InMemory,
+    ///     ..Default::default()
+    /// })
+    /// .expect("open in-memory database");
+    ///
+    /// db.put(VantaMemoryInput::new("docs", "greeting", "Hello, VantaDB!"))
+    ///     .expect("put record");
+    ///
+    /// assert!(db.delete("docs", "greeting").expect("delete existing"));
+    /// // Deleting again returns `false` because the record is gone.
+    /// assert!(!db.delete("docs", "greeting").expect("delete missing"));
+    /// assert!(db.get("docs", "greeting").expect("get after delete").is_none());
+    ///
+    /// db.close().expect("close database");
+    /// ```
     #[tracing::instrument(skip(self), err)]
     pub fn delete(&self, namespace: &str, key: &str) -> Result<bool> {
         validate_namespace(namespace)?;

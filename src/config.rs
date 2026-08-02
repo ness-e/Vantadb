@@ -197,6 +197,24 @@ impl HotReloadConfig {
 ///
 /// Consolidates engine, LLM, and server settings. Loads from environment
 /// variables with sensible defaults and allows programmatic overrides.
+///
+/// # Examples
+///
+/// Override just the storage path and pass the rest of the defaults through:
+///
+/// ```rust
+/// use vantadb::config::VantaConfig;
+/// use vantadb::{BackendKind, VantaEmbedded};
+///
+/// let config = VantaConfig {
+///     storage_path: ":memory:".into(),
+///     backend_kind: BackendKind::InMemory,
+///     ..Default::default()
+/// };
+///
+/// let db = VantaEmbedded::open_with_config(config).expect("open database");
+/// db.close().expect("close database");
+/// ```
 #[derive(Debug, Clone)]
 pub struct VantaConfig {
     /// Directory path for persistent storage.

@@ -41,12 +41,8 @@
 //! let config = VantaConfig::default();
 //! let engine = VantaEmbedded::open_with_config(config).unwrap();
 //!
-//! engine.put(VantaMemoryInput {
-//!     namespace: "docs".into(),
-//!     key: "example".into(),
-//!     payload: "Hello, VantaDB!".into(),
-//!     ..Default::default()
-//! }).unwrap();
+//! engine.put(VantaMemoryInput::new("docs", "example", "Hello, VantaDB!"))
+//!     .unwrap();
 //!
 //! let record = engine.get("docs", "example").unwrap();
 //! assert_eq!(record.unwrap().payload, "Hello, VantaDB!");

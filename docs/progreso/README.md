@@ -1511,6 +1511,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - `.github/workflows/python_wheels.yml` — pagefile/swap in CI/CD Windows/macOS
 ## Tareas Completadas (Migradas desde Backlog)
 
+### GH-124: Ejemplos doc-test para API pública Rust
+- **Fuente:** Backlog (Phase 11 — GitHub Issues)
+- **Fecha:** 2026-08-02
+- **Objetivo:** Agregar ejemplos doc-test runnable (`/// ```rust`) a la API pública: `VantaEmbedded::open()`, `open_with_config()`, `put()`, `get()`, `delete()`, `search()` y `VantaConfig`.
+- **Resultado:** ✅ 7 doc-tests nuevos (uno por función objetivo) usando `BackendKind::InMemory` + `":memory:"` (self-contained, sin dejar archivos). Se repararon 2 doc-tests pre-existentes rotos (`console.rs` `init_logging` con `LogFormat`; `lib.rs` `VantaMemoryInput` sin `Default`). `cargo test --doc -p vantadb` 11/11 pass; `cargo doc --no-deps` 0 warnings nuevos (20 pre-existentes); fmt y clippy clean.
+- **Ids:** `GH-124`
+
 ### GH-127: Property-based tests para roundtrip de WAL
 - **Fuente:** Backlog (Phase 11 — GitHub Issues)
 - **Fecha:** 2026-08-02

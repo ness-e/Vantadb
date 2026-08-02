@@ -81,6 +81,50 @@ fn select_filter_strategy(engine: &StorageEngine, filters: &VantaMemoryMetadata)
 impl VantaEmbedded {
     /// Hybrid search across memory records combining text (BM25) and vector (HNSW) retrieval.
     /// Route selection (text-only, vector-only, hybrid) is automatic based on the request payload.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vantadb::config::VantaConfig;
+    /// use vantadb::{
+    ///     BackendKind, VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest,
+    /// };
+    ///
+    /// let db = VantaEmbedded::open_with_config(VantaConfig {
+    ///     storage_path: ":memory:".into(),
+    ///     backend_kind: BackendKind::InMemory,
+    ///     ..Default::default()
+    /// })
+    /// .expect("open in-memory database");
+    ///
+    /// db.put(VantaMemoryInput::new(
+    ///     "docs",
+    ///     "fox",
+    ///     "The quick brown fox jumps over the lazy dog",
+    /// ))
+    /// .expect("put first record");
+    /// db.put(VantaMemoryInput::new(
+    ///     "docs",
+    ///     "sleepy",
+    ///     "The lazy dog sleeps all day",
+    /// ))
+    /// .expect("put second record");
+    ///
+    /// let hits = db
+    ///     .search(VantaMemorySearchRequest {
+    ///         namespace: "docs".into(),
+    ///         text_query: Some("fox".into()),
+    ///         top_k: 10,
+    ///         ..Default::default()
+    ///     })
+    ///     .expect("text search");
+    ///
+    /// // Only the first record contains the word "fox".
+    /// assert_eq!(hits.len(), 1);
+    /// assert_eq!(hits[0].record.payload, "The quick brown fox jumps over the lazy dog");
+    ///
+    /// db.close().expect("close database");
+    /// ```
     #[tracing::instrument(skip(self, request), err)]
     pub fn search(&self, request: VantaMemorySearchRequest) -> Result<Vec<VantaMemorySearchHit>> {
         validate_namespace(&request.namespace)?;

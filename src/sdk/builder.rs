@@ -40,6 +40,23 @@ impl VantaEmbedded {
     }
 
     /// Open a VantaDB database at the given path with default configuration.
+    ///
+    /// # Examples
+    ///
+    /// Opens a persistent database in a temporary directory. The directory is
+    /// removed after the engine is closed so the example leaves no files behind.
+    ///
+    /// ```rust
+    /// use vantadb::VantaEmbedded;
+    ///
+    /// let path = std::env::temp_dir().join(format!(
+    ///     "vantadb-open-example-{}",
+    ///     std::process::id()
+    /// ));
+    /// let db = VantaEmbedded::open(&path).expect("open database");
+    /// db.close().expect("close database");
+    /// let _ = std::fs::remove_dir_all(&path);
+    /// ```
     #[tracing::instrument(skip(path), err)]
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let config = VantaConfig {
@@ -50,6 +67,24 @@ impl VantaEmbedded {
     }
 
     /// Open a VantaDB database with a fully custom configuration.
+    ///
+    /// # Examples
+    ///
+    /// Opens an in-memory database by setting `BackendKind::InMemory` as the
+    /// backend and `":memory:"` as the storage path:
+    ///
+    /// ```rust
+    /// use vantadb::config::VantaConfig;
+    /// use vantadb::{BackendKind, VantaEmbedded};
+    ///
+    /// let config = VantaConfig {
+    ///     storage_path: ":memory:".into(),
+    ///     backend_kind: BackendKind::InMemory,
+    ///     ..Default::default()
+    /// };
+    /// let db = VantaEmbedded::open_with_config(config).expect("open database");
+    /// db.close().expect("close database");
+    /// ```
     #[tracing::instrument(skip(config), err)]
     pub fn open_with_config(config: VantaConfig) -> Result<Self> {
         let final_config = config.clone();
