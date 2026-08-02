@@ -42,7 +42,7 @@ describe("vantadb-node persistence (native backend)", () => {
       expect(got).not.toBeNull();
       expect(got!.payload).toBe("hello world");
     } finally {
-      db.close();
+      await db.close();
     }
   });
 
@@ -58,7 +58,7 @@ describe("vantadb-node persistence (native backend)", () => {
       vector: [1.0, 0.0, 0.0],
     });
     await db1.flush();
-    db1.close();
+    await db1.close();
 
     const db2 = await VantaDb.connect(dir);
     try {
@@ -66,7 +66,7 @@ describe("vantadb-node persistence (native backend)", () => {
       expect(got).not.toBeNull();
       expect(got!.payload).toBe("survives");
     } finally {
-      db2.close();
+      await db2.close();
     }
   });
 
@@ -97,7 +97,7 @@ describe("vantadb-node persistence (native backend)", () => {
       expect(hits[0].score).toBeGreaterThan(hits[1].score);
       expect(hits[1].score).toBeGreaterThan(hits[2].score);
     } finally {
-      db.close();
+      await db.close();
     }
   });
 });

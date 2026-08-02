@@ -127,13 +127,16 @@ export class NativeVantaDB {
   }
 
   /**
-   * Close the database. Pending writes are flushed first. Safe to call
-   * multiple times (no-op on subsequent calls).
+   * Close the database. Pending writes are flushed first. Awaits the native
+   * `close()`, which sets the durability barrier: new operations are rejected
+   * and every in-flight operation (including fire-and-forget `put`s whose
+   * background task had not yet run) is drained before the engine is flushed.
+   * Safe to call multiple times (no-op on subsequent calls).
    */
-  close(): void {
+  async close(): Promise<void> {
     if (this._closed) return;
     try {
-      this.inner.close();
+      await this.inner.close();
     } catch (e) {
       throw wrapNativeError(e, "close");
     } finally {

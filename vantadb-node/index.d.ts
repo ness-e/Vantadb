@@ -16,8 +16,16 @@ export declare class VantaDb {
   static connect(path: string, options?: any | undefined | null): Promise<VantaDb>
   /** Flush the WAL and memory-mapped files to disk. */
   flush(): Promise<void>
-  /** Close the database handle. Pending writes are flushed first. */
-  close(): void
+  /**
+   * Close the database handle. Pending writes are flushed first.
+   *
+   * Once closing starts, new operations are rejected (`database is
+   * closing`). This waits for every in-flight operation to finish before
+   * flushing, so a fire-and-forget `put` whose `spawn_blocking` had not yet
+   * run can never write after `close()` returns and be silently lost on
+   * process exit.
+   */
+  close(): Promise<void>
   /**
    * Insert or update a persistent memory record.
    *

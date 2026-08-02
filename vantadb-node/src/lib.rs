@@ -17,6 +17,7 @@
 use napi::Error;
 use napi_derive::napi;
 use serde_json::{json, Map, Value};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 
 /// Cap on vector dimension accepted from Node to bound CPU/memory on the FFI
 /// trust boundary. Mirrors the guard the WASM backend applies
@@ -34,6 +35,7 @@ use vantadb::sdk::{
 #[napi]
 pub struct VantaDB {
     engine: VantaEmbedded,
+    op_gate: OpGate,
 }
 
 #[napi]
@@ -48,20 +50,32 @@ impl VantaDB {
     pub async fn connect(path: String, options: Option<Value>) -> napi::Result<VantaDB> {
         let config = build_config(&path, options.as_ref())?;
         let engine = spawn_blocking(move || VantaEmbedded::open_with_config(config)).await?;
-        Ok(VantaDB { engine })
+        Ok(VantaDB {
+            engine,
+            op_gate: OpGate::new(),
+        })
     }
 
     /// Flush the WAL and memory-mapped files to disk.
     #[napi]
     pub async fn flush(&self) -> napi::Result<()> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         spawn_blocking(move || engine.flush()).await
     }
 
     /// Close the database handle. Pending writes are flushed first.
+    ///
+    /// Once closing starts, new operations are rejected (`database is
+    /// closing`). This waits for every in-flight operation to finish before
+    /// flushing, so a fire-and-forget `put` whose `spawn_blocking` had not yet
+    /// run can never write after `close()` returns and be silently lost on
+    /// process exit.
     #[napi]
-    pub fn close(&self) -> napi::Result<()> {
-        self.engine.close().map_err(map_err)
+    pub async fn close(&self) -> napi::Result<()> {
+        self.op_gate.drain();
+        let engine = self.engine.clone();
+        spawn_blocking(move || engine.close()).await
     }
 
     /// Insert or update a persistent memory record.
@@ -70,6 +84,7 @@ impl VantaDB {
     /// Returns the created/updated record with system timestamps and version.
     #[napi]
     pub async fn put(&self, record: Value) -> napi::Result<Value> {
+        let _g = enter(&self.op_gate)?;
         let input = parse_memory_input(&record)?;
         let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.put(input)).await?;
@@ -79,6 +94,7 @@ impl VantaDB {
     /// Insert or update multiple records. Returns the resulting records.
     #[napi]
     pub async fn put_batch(&self, records: Value) -> napi::Result<Value> {
+        let _g = enter(&self.op_gate)?;
         let arr = records
             .as_array()
             .ok_or_else(|| Error::from_reason("records must be an array"))?;
@@ -94,6 +110,7 @@ impl VantaDB {
     /// Retrieve a memory record by namespace and key. Returns `null` if absent.
     #[napi]
     pub async fn get(&self, namespace: String, key: String) -> napi::Result<Option<Value>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.get(&namespace, &key)).await?;
         match out {
@@ -106,6 +123,7 @@ impl VantaDB {
     /// was actually deleted, `false` if it did not exist.
     #[napi]
     pub async fn delete(&self, namespace: String, key: String) -> napi::Result<bool> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         spawn_blocking(move || engine.delete(&namespace, &key)).await
     }
@@ -116,6 +134,7 @@ impl VantaDB {
     /// Returns `{ records: MemoryRecord[], next_cursor?: number }`.
     #[napi]
     pub async fn list(&self, namespace: String, options: Option<Value>) -> napi::Result<Value> {
+        let _g = enter(&self.op_gate)?;
         let opts = parse_list_options(options.as_ref())?;
         let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.list(&namespace, opts)).await?;
@@ -125,6 +144,7 @@ impl VantaDB {
     /// Return all namespaces that contain at least one memory record.
     #[napi]
     pub async fn list_namespaces(&self) -> napi::Result<Vec<String>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         spawn_blocking(move || engine.list_namespaces()).await
     }
@@ -134,6 +154,7 @@ impl VantaDB {
     /// `{ record: MemoryRecord, score: number, explanation?: object }`.
     #[napi]
     pub async fn search(&self, request: Value) -> napi::Result<Value> {
+        let _g = enter(&self.op_gate)?;
         let request = parse_search_request(&request)?;
         let engine = self.engine.clone();
         let out: Vec<vantadb::sdk::VantaMemorySearchHit> =
@@ -171,6 +192,86 @@ fn map_err(e: vantadb::error::VantaError) -> napi::Error {
 
 fn serde_map_err(e: serde_json::Error) -> napi::Error {
     Error::from_reason(format!("serialization error: {e}"))
+}
+
+/// Durability gate: rejects new operations once `close()` has begun and keeps
+/// `close()` waiting until every in-flight operation finishes. Closes the
+/// race where an async op whose `spawn_blocking` had not yet run would write
+/// after `close()` returned — silently lost on process exit.
+struct OpGate {
+    state: Arc<(Mutex<OpState>, Condvar)>,
+}
+
+struct OpState {
+    closing: bool,
+    count: usize,
+}
+
+impl OpGate {
+    fn new() -> Self {
+        Self {
+            state: Arc::new((
+                Mutex::new(OpState {
+                    closing: false,
+                    count: 0,
+                }),
+                Condvar::new(),
+            )),
+        }
+    }
+
+    /// Register a new in-flight operation. Returns `None` if `close()` has
+    /// started (new operations are rejected past the durability barrier).
+    fn try_enter(&self) -> Option<OpGuard> {
+        let (lock, _) = &*self.state;
+        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
+        if state.closing {
+            return None;
+        }
+        state.count += 1;
+        Some(OpGuard {
+            state: self.state.clone(),
+        })
+    }
+
+    /// Start closing and block until every in-flight operation drains.
+    ///
+    /// Sets `closing = true` (so new ops are rejected) then waits until
+    /// `count == 0`. Blocks the calling thread; the `MutexGuard` is dropped on
+    /// return so it never crosses an `.await` (a raw `MutexGuard` is not
+    /// `Send`, and this future must be `Send` to run on the napi Tokio
+    /// runtime). Acceptable to be blocking: this is the durability barrier.
+    fn drain(&self) {
+        let (lock, cvar) = &*self.state;
+        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
+        state.closing = true;
+        while state.count > 0 {
+            state = cvar.wait(state).unwrap_or_else(PoisonError::into_inner);
+        }
+        // `state` (the MutexGuard) is dropped here, before any await.
+    }
+}
+
+/// RAII guard that decrements the in-flight count and wakes `close()` when
+/// dropped (at the end of the owning async method, after the op completes).
+struct OpGuard {
+    state: Arc<(Mutex<OpState>, Condvar)>,
+}
+
+impl Drop for OpGuard {
+    fn drop(&mut self) {
+        let (lock, cvar) = &*self.state;
+        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
+        state.count -= 1;
+        cvar.notify_one();
+    }
+}
+
+/// Enter the gate for an engine operation, or fail with a descriptive error
+/// if the database is closing.
+fn enter(gate: &OpGate) -> napi::Result<OpGuard> {
+    gate.try_enter()
+        .ok_or_else(|| Error::from_reason("database is closing"))
 }
 
 /// Run a blocking engine operation on the tokio blocking threadpool.
@@ -226,6 +327,7 @@ fn parse_memory_input(value: &Value) -> napi::Result<VantaMemoryInput> {
         metadata: get_metadata(obj, "metadata")?,
         vector: get_opt_f32_vec(obj, "vector")?,
         ttl_ms: get_opt_u64(obj, "ttl_ms")?,
+        sparse_vector: None,
     })
 }
 
@@ -272,6 +374,7 @@ fn parse_search_request(value: &Value) -> napi::Result<VantaMemorySearchRequest>
     Ok(VantaMemorySearchRequest {
         namespace: get_str(obj, "namespace")?,
         query_vector,
+        query_sparse: None,
         filters: get_metadata(obj, "filters")?,
         text_query: get_opt_str(obj, "text_query")?,
         top_k: obj
@@ -313,7 +416,10 @@ fn get_opt_u64(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<u64>>
         Some(Value::Number(n)) => {
             if n.is_i64() || n.is_u64() {
                 Ok(n.as_u64())
-            } else if n.as_f64().is_some_and(|f| f.is_finite() && f.fract() == 0.0 && f >= 0.0) {
+            } else if n
+                .as_f64()
+                .is_some_and(|f| f.is_finite() && f.fract() == 0.0 && f >= 0.0)
+            {
                 Ok(n.as_u64())
             } else {
                 Err(Error::from_reason(format!(
