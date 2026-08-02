@@ -1842,6 +1842,21 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ 46 tests pasan (4 migration + 42 regresión `test_sdk.py`)
 - **Ids:** `NUEVO-07`
 
+### INV-019: Advanced Tokenizer (Unicode + Stopwords)
+- **Fecha:** 2026-08-02
+- **Objetivo:** Investigar tokenizer avanzado con Unicode, stopwords per-language y stemming.
+- **Resultado:** ❌ SKIP — ya implementada. Verificado contra código real (no se re-investigó).
+- **Checklist de verificación:**
+  - [x] `src/tokenizer.rs` (288 líneas) — `tokenize_advanced()`, `AdvancedTokenizerConfig` (language, max_token_length, remove_stopwords, apply_stemming), `is_advanced_tokenizer_available()`
+  - [x] Feature gate `advanced-tokenizer` — `Cargo.toml:108`, habilitado en `default` (línea 94)
+  - [x] Wiring runtime — `src/config.rs:321,586,776` (`advanced_tokenizer_config`, `with_advanced_tokenizer_config`)
+  - [x] Integración `src/text_index.rs` — `TextTokenizerSpec::advanced()`, `TEXT_INDEX_SCHEMA_VERSION=4`, nombre `tantivy-multilingual`
+  - [x] Tests multilingües (ES/FR/DE), stemming, stopwords, length_filter, combined
+  - [x] Bench `benches/tokenizer_bench.rs` (ASCII vs Tantivy)
+  - [x] Commits: `1a7c4d04`, `7459a558`
+- **Gap detectado:** `docs/api/ADVANCED_TOKENIZER.md` no existe — doc de API pendiente (ticket separado, no bloquea el SKIP).
+- **Ids:** `INV-019`
+
 ### MCP-IDE: Docs de setup MCP por IDE
 - **Fecha:** 2026-07-10
 - **Objetivo:** Add per-IDE setup documentation for Cursor, Claude Code, Windsurf, OpenCode, and Cline.
