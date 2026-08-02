@@ -1830,6 +1830,18 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] Tests: `flat_search_matches_hnsw_on_small_dataset`, `flat_search_used_when_under_threshold`, `test_with_flat_threshold`
 - **Ids:** `NUEVO-06`
 
+### NUEVO-07: Migration tools Chroma→Vanta, LanceDB→Vanta
+- **Fecha:** 2026-08-02
+- **Objetivo:** Scripts de migración ejecutables desde ChromaDB y LanceDB a VantaDB usando la API real del SDK Python (`vantadb_py.VantaDB`). Corrige el falso positivo del audit 2026-07-28 (que afirmaba scripts inexistentes) y la API inventada (`vantadb.connect`/`db.space`) en tutoriales.
+- **Checklist:**
+  - [x] `vantadb-python/vantadb_py/migrate/chroma.py` — CLI `python -m vantadb_py.migrate.chroma` + `migrate_from_chroma()` con paginación por batches
+  - [x] `vantadb-python/vantadb_py/migrate/lancedb.py` — CLI + `migrate_from_lancedb()` (usa `to_arrow().to_pylist()`, sin dep pylance)
+  - [x] `vantadb-python/vantadb_py/migrate/__init__.py` — exports públicos (lazy imports)
+  - [x] `vantadb-python/tests/test_migration.py` — 4 tests smoke (chroma, lancedb, custom namespace/table)
+  - [x] Tutoriales `03-migrating-from-chromadb.md` + `migration-from-lancedb.md` corregidos a API real; 0 ocurrencias de API inventada
+- **Resultado:** ✅ 46 tests pasan (4 migration + 42 regresión `test_sdk.py`)
+- **Ids:** `NUEVO-07`
+
 ### MCP-IDE: Docs de setup MCP por IDE
 - **Fecha:** 2026-07-10
 - **Objetivo:** Add per-IDE setup documentation for Cursor, Claude Code, Windsurf, OpenCode, and Cline.

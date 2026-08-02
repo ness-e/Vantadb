@@ -12,7 +12,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 > **Purpose:** Single source of truth for all project tasks — organized by execution order.
 > **Completed tasks moved to:** `docs/progreso/README.md`
 > **Verification method:** All items cross-checked against actual codebase (Jul 27, 2026). 8 tareas ejecutadas en sesión: TSK-106, MKT-03, NUEVO-21, MKT-04, TSK-107, COM-03, COM-04, Good first issues (18 creadas).
-> **Total open items:** ~100 (59 anteriores + 19 investigaciones INV-001..INV-017 + INV-024, -3 items migrados a completado REC-001/REC-010/INV-002 + 15 GitHub issues GH-119..GH-144 convertidos a backlog Phase 11)
+> **Total open items:** ~100 (59 anteriores + 19 investigaciones INV-001..INV-017 + INV-024, -4 items migrados a completado REC-001/REC-010/INV-002/NUEVO-07 + 15 GitHub issues GH-119..GH-144 convertidos a backlog Phase 11)
 > **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/progreso/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
 
 ---
@@ -114,7 +114,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | `MKT-14` | **Publicar 3 case studies** + ruta `/case-studies/` + `/case-studies/[slug]` | `web/src/components/vanta/vanta-data.ts` (CASE_STUDIES, 3 items), `web/src/app/case-studies/` | 🟡 1-2d | 🔴 | ⚠️ 3 CS reales en `vanta-data.ts`, página completa. Falta pulir copy y métricas |
 | ~~`TSK-106`~~ | ~~**Habilitar GitHub Discussions**~~ | — | ~~🟢 1h~~ | ~~🟠~~ | ✅ Ya estaba habilitado (`has_discussions: true`). 0 discussions creadas. |
 | `NUEVO-01` | **README hero** con readme-aura + benchmark gráfico + GIF demo WASM | `README.md` (PNG estática actual) | 🟡 2-3d | 🟠 | ❌ Desde cero |
-| `NUEVO-07` | **Migration tools: Chroma→Vanta, LanceDB→Vanta** | `docs/tutorials/` (guías existen), `src/migration.rs` (formatos internos) | 🟡 3-5d | 🟠 | ⚠️ Tutoriales OK, scripts ejecutables faltan |
+| ~~`NUEVO-07`~~ | ~~**Migration tools: Chroma→Vanta, LanceDB→Vanta** — **✅ COMPLETADA 2026-08-02** — `vantadb_py/migrate/chroma.py` + `lancedb.py` + CLI, tests (4 migration + 42 regresión), tutoriales corregidos a API real `vantadb_py.VantaDB` (el audit 2026-07-28 reportó scripts inexistentes — falso positivo).~~ | ~~`vantadb-python/vantadb_py/migrate/`, `docs/tutorials/`~~ | ~~🟡 3-5d~~ | ~~🟠~~ | ✅ |
 | `NUEVO-08` | **Learning path estructurado** en tutorials/ (5-7 ejemplos) | 4 tutoriales (2 draft, 1 active, 1 migration) | 🟡 2-3d | 🟠 | ⚠️ 4/7, algunos draft |
 | `NUEVO-10` | **Benchmark suite pública reproducible** | Benchmarks internos existen, sin script público standalone | 🟡 3-5d | 🟠 | ⚠️ Benchmarks OK, reproducibilidad no |
 | ~~`TSK-107`~~ | ~~Community showcase page (`/showcase`, `/about/community`)~~ | ~~`web/src/app/showcase/page.tsx` (6 items mock)~~ | ~~🟢 4-6h~~ | ~~🟡~~ | ✅ 6 items actualizados a ejemplos reales (LangGraph, AutoGen, Haystack, CrewAI, Rust hybrid, GraphRAG) |

@@ -2,7 +2,7 @@
 title: "Migrating from LanceDB to VantaDB"
 status: active
 tags: [vantadb, tutorial, guide, migration, lancedb]
-last_reviewed: 2026-07-07
+last_reviewed: 2026-08-02
 aliases: []
 ---
 
@@ -18,14 +18,13 @@ LanceDB is an excellent embedded vector database, but it was designed around Apa
 
 | Feature | LanceDB | VantaDB |
 |---------|---------|---------|
-| **Schema** | Strict Arrow schema required | Schema-less document model (payload + BTreeMap metadata) |
-| **Hybrid search** | Not built-in | BM25 + HNSW RRF fusion in `search()` |
+| **Schema** | Strict Arrow schema required | Schema-less document model (payload + metadata) |
+| **Hybrid search** | Not built-in | BM25 + HNSW fusion in `search_memory()` |
 | **GraphRAG** | Not supported | Native edges, BFS, DFS, topological sort |
 | **TTL** | Not built-in | Native `ttl_ms` on every record |
-| **Metadata filters** | SQL `WHERE` clauses | Native `VantaMemoryMetadata` filters |
+| **Metadata filters** | SQL `WHERE` clauses | Native structured filters |
 | **Durability** | Lance columnar format | WAL + CRC32C + crash recovery |
 | **Language** | Python-first, C++ core | Rust-native + Python + TypeScript + WASM |
-| **Batch operations** | `table.add()` | `put_batch()` with Rayon parallelism (5x faster) |
 | **Export/Import** | SQL + manual | Built-in JSONL `export_namespace()` / `import_file()` |
 | **Server** | Optional (remote) | Embedded only (optional localhost HTTP server with Prometheus) |
 | **PyPI integrations** | Standalone | 14+ ecosystem packages (LangChain, LlamaIndex, Haystack, etc.) |
@@ -52,8 +51,8 @@ LanceDB is an excellent embedded vector database, but it was designed around Apa
 
 ## Known limitations
 
-- **No schema enforcement**: LanceDB enforces column types; VantaDB stores everything as string `payload` + `BTreeMap<String, VantaValue>` metadata.
-- **No SQL queries**: VantaDB uses IQL (LISP-like query language) or direct SDK methods. No SQL.
+- **No schema enforcement**: LanceDB enforces column types; VantaDB stores everything as string `payload` + `metadata` map.
+- **No SQL queries**: VantaDB uses direct SDK methods or IQL. No SQL.
 - **No `create_table` / `drop_table`**: Namespaces are created lazily on first `put()` and have no lifecycle management yet.
 - **No concurrent writers**: VantaDB is single-writer with process-level file locking.
 
@@ -61,16 +60,15 @@ LanceDB is an excellent embedded vector database, but it was designed around Apa
 
 | Operation | LanceDB | VantaDB |
 |-----------|---------|---------|
-| Connect | `lancedb.connect(path)` | `vantadb.connect(path)` |
-| Create/get table | `db.create_table(name, schema)` | `db.space(name)` (lazy, no schema) |
-| Insert records | `table.add(data)` | `space.put({...node...})` |
-| Vector search | `table.search(vector).limit(n).to_pandas()` | `space.similar_to(vector, top_k=n)` |
-| Get by ID | `table.search().where("id = ?")` | `space.get(id)` |
-| Delete | `table.delete("id = ?")` | `space.delete(id)` |
-| List all | `table.to_pandas()` | `space.list()` |
-| Hybrid search | Not built-in | `space.search(query, mode="hybrid")` |
-| Metadata filter | `table.filter("field = ?").search(...)` | `space.search(..., filter={...})` |
-| Graph traversal | Not supported | `space.neighbors(id)`, `space.bfs(...)` |
+| Connect | `lancedb.connect(path)` | `VantaDB(path)` from `vantadb_py` |
+| Create/get table | `db.create_table(name, schema)` | Lazy — namespaces created on first `put()` |
+| Insert records | `table.add(data)` | `db.put(namespace, key, payload, ...)` |
+| Vector search | `table.search(vector).limit(n).to_pandas()` | `db.search_memory(namespace, vector, top_k=n)` |
+| Get by ID | `table.search().where("id = ?")` | `db.get_memory(namespace, key)` |
+| Delete | `table.delete("id = ?")` | `db.delete_memory(namespace, key)` |
+| List all | `table.to_pandas()` | `db.list_memory(namespace)` |
+| Metadata filter | `table.filter("field = ?").search(...)` | `db.search_memory(..., filters={...})` |
+| Graph traversal | Not supported | `db.graph_bfs(...)`, `db.graph_dfs(...)` |
 
 ## 1. Setup comparison
 
@@ -91,17 +89,16 @@ table = db.create_table(
 **VantaDB:**
 
 ```python
-import vantadb
+from vantadb_py import VantaDB
 
-db = vantadb.connect("./vantadb_data")
-space = db.space("my_table")
+db = VantaDB("./vantadb_data")
 # No schema needed — insert any document with any fields.
 ```
 
 **Key differences:**
 - LanceDB requires a schema (Arrow-based) on `create_table`. VantaDB is schema-less — namespaces are created lazily on first `put()`.
-- LanceDB stores vectors in a dedicated Arrow column. VantaDB stores vectors as `embedding` key inside the node document.
-- VantaDB's `space` API mirrors LanceDB's `table` but is richer (graph, hybrid search, TTL).
+- LanceDB stores vectors in a dedicated Arrow column. VantaDB stores vectors via the `vector` argument to `put()`.
+- LanceDB tables map to VantaDB namespaces — the `namespace` argument on `put()`/`search_memory()`.
 
 ## 2. Inserting documents
 
@@ -117,13 +114,17 @@ table.add([
 **VantaDB:**
 
 ```python
-space.put({"id": "doc1", "content": "VantaDB is an embedded vector database.", "source": "docs", "page": 1, "embedding_field": "content"})
-space.put({"id": "doc2", "content": "It supports Python, TypeScript, and Rust.", "source": "docs", "page": 2, "embedding_field": "content"})
+db.put("my_table", "doc1", "VantaDB is an embedded vector database.",
+       metadata={"source": "docs", "page": 1},
+       vector=[0.1, 0.2, 0.3])
+db.put("my_table", "doc2", "It supports Python, TypeScript, and Rust.",
+       metadata={"source": "docs", "page": 2},
+       vector=[0.4, 0.5, 0.6])
 ```
 
 Key differences:
-- LanceDB requires you to pre-compute and pass the `vector` column. VantaDB can **auto-embed** via `embedding_field` — or accept a pre-computed `embedding` key.
-- VantaDB uses a single **node** object — everything (content + metadata) lives together.
+- LanceDB requires you to pre-compute and pass the `vector` column. VantaDB accepts a pre-computed `vector` — or you can pass only text and use an embedding provider.
+- VantaDB separates the record **payload** (text) from **metadata** (everything else).
 
 ## 3. Querying
 
@@ -141,22 +142,23 @@ results = (
 **VantaDB (vector search with metadata filter):**
 
 ```python
-results = space.similar_to(
+results = db.search_memory(
+    "my_table",
     [0.1, 0.2, 0.3],
+    filters={"source": "docs"},
     top_k=5,
-    filter={"source": "docs"},
 )
 ```
 
 **VantaDB — what LanceDB cannot do (hybrid search):**
 
 ```python
-results = space.search(
-    "embedded database",
-    mode="hybrid",
-    alpha=0.5,       # balance between vector (0.0) and keyword (1.0)
+results = db.search_memory(
+    "my_table",
+    query_vector,        # your query embedding
+    text_query="embedded database",   # BM25 component
     top_k=5,
-    filter={"source": "docs"},
+    filters={"source": "docs"},
 )
 ```
 
@@ -175,140 +177,41 @@ results = space.search(
 
 > **Note:** Benchmark numbers depend on hardware, vector dimensionality, and index configuration. Run your own benchmarks with representative data. VantaDB's `put_batch()` benefits from Rayon parallelism; LanceDB's `add()` is serially columnar.
 
-## 5. Full migration script
+## 5. Migration script
 
-This script exports all rows from a LanceDB table and imports them into VantaDB:
-
-```python
-#!/usr/bin/env python3
-"""
-Migration script: LanceDB → VantaDB
-
-Usage:
-    python migrate_lancedb_to_vantadb.py <lancedb_path> <table_name> <vantadb_path>
-"""
-
-import sys
-import json
-import lancedb
-import vantadb
-import pandas as pd
-from datetime import datetime
-
-
-def export_lancedb_table(lancedb_path: str, table_name: str) -> pd.DataFrame:
-    """Read all rows from a LanceDB table."""
-    db = lancedb.connect(lancedb_path)
-    table = db.open_table(table_name)
-
-    df = table.to_pandas()
-    print(f"Exported {len(df)} rows from LanceDB '{table_name}'")
-    print(f"Columns found: {list(df.columns)}")
-    return df
-
-
-def transform_to_vantadb(df: pd.DataFrame) -> list[dict]:
-    """Transform LanceDB DataFrame rows into VantaDB node documents."""
-    records = []
-    vector_cols = [c for c in df.columns if c == "vector"]
-    text_col = next((c for c in ("text", "content", "description", "body") if c in df.columns), None)
-    id_col = next((c for c in ("id", "key", "uri", "_id") if c in df.columns), "index")
-
-    for idx, row in df.iterrows():
-        # Extract the vector column
-        vector = list(row["vector"]) if "vector" in df.columns else None
-
-        # Pick a text column for the node's content
-        content = str(row[text_col]) if text_col and not pd.isna(row.get(text_col)) else json.dumps(row.to_dict())
-
-        # Everything except vector and content becomes metadata
-        exclude_keys = {"vector"}
-        if text_col:
-            exclude_keys.add(text_col)
-        metadata = {
-            k: v for k, v in row.to_dict().items()
-            if k not in exclude_keys and not pd.isna(v)
-        }
-
-        node = {
-            "id": str(row[id_col]) if id_col != "index" else f"row_{idx}",
-            "content": content,
-            "embedding_field": "content",
-            "migrated_from": "lancedb",
-            "migrated_at": datetime.utcnow().isoformat(),
-        }
-
-        # Preserve pre-computed embeddings (bypass auto-embedding)
-        if vector is not None:
-            node["embedding"] = vector
-            node.pop("embedding_field", None)
-
-        # Preserve all original metadata
-        for k, v in metadata.items():
-            if k != id_col:
-                node[k] = v if not isinstance(v, list) else json.dumps(v)
-
-        records.append(node)
-
-    return records
-
-
-def import_into_vantadb(vantadb_path: str, records: list[dict]):
-    """Write all documents into VantaDB in batches."""
-    db = vantadb.connect(vantadb_path)
-    space = db.space("documents")
-
-    batch_size = 100
-    total = len(records)
-
-    for start in range(0, total, batch_size):
-        end = min(start + batch_size, total)
-        batch = records[start:end]
-
-        for node in batch:
-            space.put(node)
-
-        print(f"  Migrated {end}/{total} documents...")
-
-    print(f"\nMigration complete: {total} documents into {vantadb_path}")
-
-
-def verify_migration(vantadb_path: str, sample_query: str = "test") -> bool:
-    """Run a test query to verify the migration worked."""
-    db = vantadb.connect(vantadb_path)
-    space = db.space("documents")
-
-    count = len(space.list())
-    print(f"\nVerification: {count} documents in VantaDB")
-
-    results = space.similar_to(sample_query, top_k=3)
-    print(f"Sample query '{sample_query}' returned {len(results)} results")
-    for r in results:
-        snippet = (r.content or "")[:80]
-        print(f"  [{r.score:.3f}] {snippet}")
-
-    return count > 0
-
-
-if __name__ == "__main__":
-    if len(sys.argv) < 4:
-        print("Usage: python migrate_lancedb_to_vantadb.py <lancedb_path> <table_name> <vantadb_path>")
-        sys.exit(1)
-
-    lancedb_path = sys.argv[1]
-    table_name = sys.argv[2]
-    vantadb_path = sys.argv[3]
-
-    df = export_lancedb_table(lancedb_path, table_name)
-    records = transform_to_vantadb(df)
-    import_into_vantadb(vantadb_path, records)
-    verify_migration(vantadb_path)
-```
-
-Run it:
+A ready-to-run migration script ships with the Python SDK. It reads every row from a LanceDB dataset (all tables, or one) and imports them into VantaDB, preserving ids, payloads, metadata, and vectors.
 
 ```bash
-python migrate_lancedb_to_vantadb.py ./lancedb_data my_table ./vantadb_data
+# All tables → one VantaDB database
+python -m vantadb_py.migrate.lancedb --source ./lancedb_data --dest ./vantadb_data
+
+# Only one table, mapped to a custom namespace
+python -m vantadb_py.migrate.lancedb \
+    --source ./lancedb_data \
+    --dest ./vantadb_data \
+    --table-name my_table \
+    --namespace memories
+```
+
+Flags:
+
+| Flag | Default | Meaning |
+|------|---------|---------|
+| `--source` | — (required) | Path to the LanceDB dataset directory |
+| `--dest` | — (required) | Path where the VantaDB database will be created |
+| `--table-name` | all | Migrate only this table |
+| `--namespace` | table name | Target VantaDB namespace |
+| `--batch-size` | 500 | Records per batch |
+
+Column mapping: `id`/`_id` → key; `text`/`content`/`payload` → payload; `vector`/`_vector` → vector; every other column → metadata.
+
+Programmatic use:
+
+```python
+from vantadb_py.migrate import migrate_from_lancedb
+
+count = migrate_from_lancedb("./lancedb_data", "./vantadb_data")
+print(f"Migrated {count} records")
 ```
 
 ## 6. Schema mapping considerations
@@ -317,30 +220,30 @@ python migrate_lancedb_to_vantadb.py ./lancedb_data my_table ./vantadb_data
 
 | LanceDB | VantaDB |
 |---------|---------|
-| Dedicated `vector` column of type `FixedSizeList<float>` | `embedding` key inside the node, or `embedding_field` to auto-embed |
+| Dedicated `vector` column of type `FixedSizeList<float>` | `vector` argument to `put()` |
 | Pre-computed, required | Optional — bring your own vector or let VantaDB compute it |
 
 ### Metadata
 
 | LanceDB | VantaDB |
 |---------|---------|
-| Arrow typed columns (int64, float64, string, etc.) | `BTreeMap<String, VantaValue>` — all values coerced |
+| Arrow typed columns (int64, float64, string, etc.) | `metadata` dict — values coerced |
 | SQL WHERE for filtering | Structured filter: `{"field": value}` or `{"field": {"$gte": 100}}` |
-| Nullable columns | Missing keys are simply absent from the node |
+| Nullable columns | Missing keys are simply absent from the record |
 
 ### IDs
 
 | LanceDB | VantaDB |
 |---------|---------|
-| Any column as logical ID | Explicit `id` field (string); auto-generated if omitted |
-| No uniqueness enforcement | Upsert by `id` — same key overwrites |
+| Any column as logical ID | Explicit `key` argument (string); auto-generated if omitted |
+| No uniqueness enforcement | Upsert by `key` — same key overwrites |
 
 ### Text payload
 
 | LanceDB | VantaDB |
 |---------|---------|
-| Any string column | `content` field — used for BM25 indexing + auto-embedding |
-| Multiple text columns | Combine columns into `content`, or leave others as metadata |
+| Any string column | `payload` argument — used for BM25 indexing |
+| Multiple text columns | Combine columns into payload, or leave others as metadata |
 
 ## 7. Feature comparison: what you gain
 
@@ -371,21 +274,20 @@ Once your data is in VantaDB, you can immediately use features LanceDB cannot of
 ### GraphRAG — connect documents with edges
 
 ```python
-space.edge("doc1", "doc2", relation="related")
-space.edge("doc1", "doc3", relation="supersedes")
+db.add_edge("doc1", "doc2", label="related")
+db.add_edge("doc1", "doc3", label="supersedes")
 
 # Traverse the knowledge graph
-neighbors = space.neighbors("doc1", relation="related")
-path = space.bfs("doc1", "doc3")   # shortest path
+path = db.graph_bfs("doc1", "doc3")   # shortest path
 ```
 
 ### Hybrid search (vector + BM25 fusion)
 
 ```python
-results = space.search(
-    "your query",
-    mode="hybrid",
-    alpha=0.5,       # 0 = pure vector, 1 = pure BM25
+results = db.search_memory(
+    "my_table",
+    query_vector,
+    text_query="your query",
     top_k=10,
 )
 ```
@@ -394,7 +296,7 @@ results = space.search(
 
 ```python
 # Record auto-expires after 1 hour
-space.put({"id": "session_1", "content": "temp data", "ttl_ms": 3_600_000})
+db.put("sessions", "session_1", "temp data", ttl_ms=3_600_000)
 ```
 
 ### Use with any VantaDB integration
@@ -429,41 +331,31 @@ Both persist to disk. Neither requires a server process.
 
 ### Does VantaDB support multi-modal data (images, audio)?
 
-LanceDB stores Arrow data natively, so you can store image bytes or audio tensors in columns. VantaDB's document model is text-first with a `content` string payload. For multi-modal use cases:
+LanceDB stores Arrow data natively, so you can store image bytes or audio tensors in columns. VantaDB's document model is text-first with a string `payload`. For multi-modal use cases:
 - Store file paths or URIs as metadata.
 - Use VantaDB as the **retrieval index** while keeping blobs in object storage or the filesystem.
 - The WASM build enables browser-side embedding for client-side image search.
 
 ### Does VantaDB have reranking?
 
-LanceDB does not have built-in reranking. VantaDB supports cross-encoder reranking through the `search()` API with the `rerank` parameter:
-
-```python
-results = space.search(
-    "query",
-    mode="hybrid",
-    top_k=20,        # initial retrieval
-    rerank=True,      # cross-encoder reranking on top results
-    final_k=5,        # final top after reranking
-)
-```
+LanceDB does not have built-in reranking. VantaDB supports cross-encoder reranking through `search_memory()` with the `rerank` parameter on the Rust SDK / integration packages.
 
 Requires the `vantadb-litellm` integration package for the cross-encoder model.
 
 ### What about SQL queries?
 
-LanceDB supports SQL WHERE clauses for metadata filtering. VantaDB does **not** support SQL — it uses **VantaQL** (a LISP-like query language) or the structured metadata filter API:
+LanceDB supports SQL WHERE clauses for metadata filtering. VantaDB does **not** support SQL — it uses direct SDK methods or the structured metadata filter API:
 
 ```python
 # VantaDB equivalent of LanceDB's WHERE "price >= 100 AND category = 'electronics'"
 filter = {"price": {"$gte": 100}, "category": "electronics"}
-results = space.similar_to(query_vector, top_k=10, filter=filter)
+results = db.search_memory("my_table", query_vector, top_k=10, filters=filter)
 ```
 
 For ad-hoc analysis, use VantaDB's built-in JSONL export and process with your favorite tools:
 
 ```python
-db.export_namespace("export.jsonl", namespace="documents")
+db.export_namespace("export.jsonl", namespace="my_table")
 ```
 
 ### Can I run VantaDB and LanceDB side by side?
