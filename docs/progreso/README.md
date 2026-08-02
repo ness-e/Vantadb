@@ -1527,6 +1527,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - `.github/workflows/python_wheels.yml` — pagefile/swap in CI/CD Windows/macOS
 ## Tareas Completadas (Migradas desde Backlog)
 
+### COMP-028: Semantic Cost Estimator (SCE) unificado
+- **Fuente:** Backlog (Phase 10 — Competitive Features)
+- **Fecha:** 2026-08-02
+- **Objetivo:** Extraer la estimación de costos de query, distribuida en 3 componentes (ResourceGovernor, CBO, `select_filter_strategy`), a un módulo unificado `src/cost_estimator.rs` sin cambio de comportamiento público. Habilitador de OLD-21 (routing multi-índice HNSW/IVF/Flat).
+- **Resultado:** ✅ `src/cost_estimator.rs` (nuevo): `CostEstimator<'a>` con `selectivity()` (lógica 1:1 de `get_estimated_selectivity`), `estimate_operator()` (Scan/FilterRelational/VectorSearch/Limit/Traverse/Sort/Project/Join/SubqueryFilter con stats ya disponibles, sin scans), `estimate_plan()` (encadena operadores, rows fluyen, bytes = operador pico), `select_filter_strategy()` y `FilterStrategy` movidos desde `sdk/search/mod.rs`. `StorageEngine::get_estimated_selectivity` conserva firma pública y delega (21 callers intactos). `ResourceGovernor::estimate_plan_cost` `pub(crate)` unwired con `#[allow(dead_code)]` (consumidor OLD-21 futuro). 4 tests unitarios nuevos. `cargo check`/`fmt`/`clippy -D warnings` exit 0; `cargo nextest --profile audit -p vantadb` 1776 passed. Commit `f7cb46e4`.
+- **Ids:** `COMP-028`
+
 ### TSK-107b: Audit logging enterprise (JSONL, timestamp + op)
 - **Fuente:** Backlog (Phase 8 — Post-Launch & Enterprise)
 - **Fecha:** 2026-08-02
