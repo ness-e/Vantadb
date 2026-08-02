@@ -12,7 +12,9 @@ use crate::backend::BackendKind;
 use crate::config::VantaConfig;
 use crate::index::VecIndex;
 use crate::node::{DistanceMetric, UnifiedNode, ALL_BITSET};
-use crate::sdk::{VantaEmbedded, VantaMemoryInput};
+use crate::sdk::{
+    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest,
+};
 use crate::storage::engine::{BatchInsertOptions, InsertMode};
 
 const DIMS: usize = 8;
@@ -320,5 +322,66 @@ fn test_incremental_recall_parity() {
         recall_rebuild > 0.95,
         "Rebuild recall@10: {:.3} (expected > 0.95)",
         recall_rebuild
+    );
+}
+
+// ─── Test 8: put_batch keeps list/count/text-search indexes consistent ─────
+
+#[test]
+fn test_put_batch_list_count_text_consistent() {
+    let db = VantaEmbedded::open_with_config(VantaConfig {
+        backend_kind: BackendKind::InMemory,
+        ..Default::default()
+    })
+    .expect("open VantaEmbedded");
+
+    let n = 1200;
+    let inputs: Vec<VantaMemoryInput> = (0..n)
+        .map(|i| {
+            let mut input = VantaMemoryInput::new(
+                "inc_test",
+                format!("key_{}", i),
+                format!("alpha payload {}", i),
+            );
+            input.vector = Some(make_vector(i as u128, DIMS));
+            input
+        })
+        .collect();
+
+    let records = db.put_batch(inputs).expect("put_batch");
+    assert_eq!(records.len(), n);
+
+    let page = db
+        .list(
+            "inc_test",
+            VantaMemoryListOptions {
+                limit: 2000,
+                ..Default::default()
+            },
+        )
+        .expect("list");
+    assert_eq!(
+        page.records.len(),
+        n,
+        "list must return all records after put_batch"
+    );
+
+    assert_eq!(
+        db.count("inc_test", None).expect("count"),
+        n as u64,
+        "count must reflect put_batch"
+    );
+
+    let hits = db
+        .search(VantaMemorySearchRequest {
+            namespace: "inc_test".into(),
+            text_query: Some("payload".into()),
+            top_k: 5,
+            ..Default::default()
+        })
+        .expect("search");
+    assert!(
+        !hits.is_empty(),
+        "text search must find batch-inserted records"
     );
 }

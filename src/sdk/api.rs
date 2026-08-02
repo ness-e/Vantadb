@@ -252,6 +252,15 @@ impl VantaEmbedded {
             engine.rebuild_vector_index()?;
         }
 
+        // Derived + text indexes: put_batch writes nodes directly (no per-node
+        // replace_derived_indexes), so rebuild them in one pass. Without this,
+        // list/count/text-search return 0 for batch-inserted records because the
+        // empty NamespaceIndex/TextIndex partitions are read as authoritative.
+        // ponytail: full rebuild per batch is O(total nodes); switch to
+        // incremental per-record index ops if batch-heavy workloads need it.
+        self.rebuild_derived_indexes_with_report()?;
+        self.rebuild_text_index_with_report()?;
+
         Ok(all_results)
     }
 
