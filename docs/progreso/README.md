@@ -293,6 +293,22 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-08-02 — COMP-019: Binary protocol (gRPC) — WONTFIX ✅
+
+**Fuente:** Backlog (Phase 10 — Competitive Features) `COMP-019`
+
+**Resuelto por (vanta-lead):**
+- **Decisión:** WONTFIX. gRPC contradice el posicionamiento embedded-first de VantaDB.
+- rkyv (serialización binaria zero-copy) ya cubre la serialización interna en storage/WAL — el 80% del valor técnico de la tarea.
+- Sin demanda de usuario ni dependencias de otras tareas en el backlog → YAGNI.
+- Micro-ADR: `docs/architecture/adr/COMP-019-binary-protocol-wontfix.md`
+- Backlog: `COMP-019` tachado como WONTFIX (línea 279).
+- ROADMAP: 3 referencias a COMP-019 actualizadas (Sem 13-14, FASE 4, resumen).
+
+**Criterio de re-apertura:** si aparece un caso de uso de servidor remoto con transferencia masiva de vectores, o un issue de usuario que lo requiera. La base rkyv deja la serialización lista.
+
+**Ids:** `COMP-019`
+
 ### 2026-07-31 — VantaDB Recovery Plan (REC-001 to REC-010, REC-999) ✅
 
 **Fuente:** Recovery Plan (`docs/plans/2026-07-28-recovery-plan.md`)

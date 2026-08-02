@@ -250,7 +250,7 @@ R8 (claims) ─── Fase 0 (WEB-02)
 | Orden | Item | Descripción | Esfuerzo | Dependencias |
 |-------|------|-------------|----------|-------------|
 | 48 | **COMP-030** | Survival Mode: backpressure + Docker OOM prevention. Integrar memory_governor con cgroups | 🟡 1-2 sem | — |
-| 49 | **COMP-019** | Binary protocol (rkyv/FlatBuffers): reemplazar JSON por binario zero-copy | 🟡 1-2 sem | 20 (rkyv) |
+| 49 | ~~**COMP-019**~~ | ~~Binary protocol (rkyv/FlatBuffers): reemplazar JSON por binario zero-copy~~ — ❌ **WONTFIX** (ADR `COMP-019-binary-protocol-wontfix.md`) | ~~🟡 1-2 sem~~ | — |
 | 50 | **COMP-013** | Segment optimizer: Vacuum/Merge/Index optimizadores background | 🟡 1-2 sem | 35 (tombstones) |
 | 51 | **COMP-026** | Multi-level LSM compaction: L0→L1→L2→L3, spread compaction cost | 🟡 1-2 sem | 50 |
 
@@ -316,7 +316,7 @@ Sem 9-12: FASE 3 — GRAPH+VECTOR
 Sem 13-16: FASE 4 — MADUREZ
 ┌──────────────────────┴──────────────────────────────┐
 │ COMP-030 (Survival Mode)                             │
-│ COMP-019 (binary protocol) ─── SEC-14 (rkyv)        │
+│ COMP-019 (binary protocol) ~~WONTFIX~~ — ADR 2026-08-02   │
 │ COMP-013 (segment optimizer) ─── COMP-004/011       │
 │ COMP-026 (LSM compaction) ─── COMP-013              │
 │ COMP-008 (VecIndex trait)                            │
@@ -403,7 +403,7 @@ Sem 13-16: FASE 4 — MADUREZ
 | Item | Descripción | Prioridad |
 |------|-------------|-----------|
 | COMP-030 | Survival Mode (OOM prevention) | 🟡 |
-| COMP-019 | Binary protocol (rkyv) | 🟡 |
+| ~~COMP-019~~ | ~~Binary protocol (rkyv)~~ — ❌ WONTFIX | ~~🟡~~ |
 | COMP-013 | Segment optimizer pipeline | 🟡 |
 | COMP-026 | Multi-level LSM compaction | 🟡 |
 | COMP-008 | VecIndex trait | 🟡 |
