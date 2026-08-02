@@ -2,13 +2,13 @@
 title: "General Progress of VantaDB Project"
 status: active
 tags: [vantadb, progress, documentation]
-last_reviewed: 2026-07-31
+last_reviewed: 2026-08-02
 aliases: []
 ---
 
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-31
+> **Last updated:** 2026-08-02
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -3051,5 +3051,25 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | `ECO-002` | Fix --no-verify contradiction in AGENTS.md (C3) | ✅ COMPLETED | Regla B (línea 967 original) ya eliminada. Solo queda Regla A (`grep --no-verify .opencode/AGENTS.md` → 1 match: prohibición en línea 791). `.antigravity/AGENTS.md` idéntico. |
 
 **Verificación:** `grep "trivial.*CI\|no-verify.*trivial" .opencode/AGENTS.md` → 0 matches ✅ | `grep "trivial.*CI\|no-verify.*trivial" .antigravity/AGENTS.md` → 0 matches ✅
+
+### 2026-08-02 — INV-017: sccache en CI — investigación
+
+**Objetivo:** Investigar compatibilidad de `sccache` con GitHub Actions + `Swatinem/rust-cache`, evaluar complementariedad/redundancia, diseñar integración mínima y medir impacto estimado.
+
+| ID | Tarea | Resultado | Evidencia |
+|----|-------|-----------|-----------|
+| `INV-017` | sccache en CI — investigación | ✅ COMPLETED | `docs/Investigaciones/INV-017-sccache-ci.md`. Hallazgo clave: `.opencode/AGENTS.md` afirmaba falsamente sccache implementado (drift, 0 matches en `.github/`); corregido. Diseño: `mozilla-actions/sccache-action@v0.0.11` + `SCCACHE_GHA_ENABLED` + `RUSTC_WRAPPER` en rust-setup. |
+
+**Verificación:** `rg -rln sccache .github/` → 0 (pre-cambio) ✅ | `docs/Investigaciones/INV-017-sccache-ci.md` existe ✅
+
+### 2026-08-02 — GH-143: Acelerar CI con sccache y paralelización
+
+**Objetivo:** CI ≥20% más rápido. Habilitar sccache para cachear compilación Rust y eliminar bottleneck de `cargo install cargo-nextest` en Windows.
+
+| ID | Tarea | Resultado | Evidencia |
+|----|-------|-----------|-----------|
+| `GH-143` | Acelerar CI con sccache y paralelización | ✅ COMPLETED | Commits `44404c7d` (docs INV-017 + drift AGENTS.md), `1f9f5c41` (sccache + nextest install fix). sccache vía `mozilla-actions/sccache-action@v0.0.11` en `.github/actions/rust-setup/action.yml`; nextest Windows vía `taiki-e/install-action` en `ci-rust-10.yml`. Run 30737269105: 15/15 jobs pass; Tests (Windows) 14m29s → 8m35s (−40.7%). Issue #143 cerrado. |
+
+**Verificación:** `gh run view 30737269105` → success ✅ | job test-windows 515s vs baseline 869s (−40.7%) ✅ | actionlint + pyyaml OK ✅
 
 
