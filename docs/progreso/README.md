@@ -1511,6 +1511,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - `.github/workflows/python_wheels.yml` — pagefile/swap in CI/CD Windows/macOS
 ## Tareas Completadas (Migradas desde Backlog)
 
+### GH-127: Property-based tests para roundtrip de WAL
+- **Fuente:** Backlog (Phase 11 — GitHub Issues)
+- **Fecha:** 2026-08-02
+- **Objetivo:** Proptest para roundtrip serialize→deserialize de cualquier `WalRecord` válido (7 variantes), payloads de varios tamaños (vacío, 1 byte, 64KB, ~1MB) y escrituras concurrentes.
+- **Resultado:** ✅ `tests/proptest_wal_roundtrip.rs` creado. 4 tests: roundtrip bytes puro (1000 casos), payload buckets, file roundtrip batch, concurrent writes. nextest 4/4, clippy y fmt limpios.
+- **Ids:** `GH-127`
+
 ### COMP-026: Multi-level LSM Compaction (L0→L1→L2→L3)
 - **Fuente:** Backlog (Phase 10 — Competitive Features)
 - **Fecha:** 2026-07-28
