@@ -8,6 +8,8 @@
 - [Tutorials](tutorials/index.md)
   - [AI Agent Memory](tutorials/01-ai-agent-memory.md)
   - [Local RAG Pipeline](tutorials/02-local-rag-pipeline.md)
+  - [Hybrid Search](tutorials/04-hybrid-search-basics.md)
+  - [Embedding Providers](tutorials/05-embedding-integrations.md)
   - [Migrating from ChromaDB](tutorials/03-migrating-from-chromadb.md)
   - [Migrating from LanceDB](tutorials/migration-from-lancedb.md)
 
