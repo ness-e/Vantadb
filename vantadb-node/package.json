@@ -1,0 +1,43 @@
+{
+  "name": "vantadb-node",
+  "version": "0.5.0",
+  "description": "VantaDB native Node.js bindings via napi-rs — persistent embedded memory & vector search (additional backend to WASM)",
+  "type": "module",
+  "main": "./index.cjs",
+  "module": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "require": "./index.cjs"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.cjs",
+    "index.d.ts",
+    "*.node",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "napi build --platform --release --js index.cjs && napi build --platform --release --esm --js index.js",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.8.2",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.10"
+  },
+  "napi": {
+    "binaryName": "vantadb_native",
+    "targets": [
+      "x86_64-pc-windows-msvc",
+      "x86_64-unknown-linux-gnu",
+      "aarch64-unknown-linux-gnu",
+      "aarch64-apple-darwin",
+      "x86_64-apple-darwin"
+    ]
+  },
+  "license": "Apache-2.0"
+}

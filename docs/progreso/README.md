@@ -293,6 +293,18 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-08-02 — COMP-029: Node.js/TS bindings via napi-rs (backend adicional) ✅
+
+**Fuente:** Backlog `COMP-029`
+
+**Resuelto por (vanta-worker + vanta-docs):**
+- Crate standalone **`vantadb-node/`** (NO workspace member): `lib = "vantadb_native"` (cdylib), `napi 3` + `napi-derive` sobre `vantadb` (features `fjall, memmap2, rayon`). El aislamiento standalone evita el crash del linker MSVC con cdylib en workspace.
+- API isomórfica con el wrapper WASM: `connect`, `flush`, `close`, `put`, `put_batch`, `get`, `delete`, `list`, `list_namespaces`, `search`, `capabilities`. Patrón `engine.clone()` + `tokio::task::spawn_blocking`.
+- Persistencia real (fjall/WAL/fsync) en Node.js — WASM no puede. Browser se queda con WASM (`vantadb-wasm` intocado).
+- Wrapper TS `vantadb-ts/src/native.ts` + dep `vantadb-node` en `vantadb-ts/package.json`.
+- Verify: `cd vantadb-node && npm test` → vitest **3/3** (put/get, persistencia cross-reconnect, search ordenado).
+- ADR: `docs/architecture/adr/COMP-029-napi-rs-node-bindings.md`.
+
 ### 2026-08-02 — COMP-021: Temporal edges (timestamp-aware relationships) ✅
 
 **Fuente:** Backlog (Phase 10 — Competitive Features) `COMP-021`

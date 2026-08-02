@@ -1,0 +1,31 @@
+[package]
+name = "vantadb-node"
+version = "0.5.0"
+edition = "2021"
+rust-version = "1.94.1"
+description = "Native Node.js bindings for VantaDB via napi-rs (additional backend to WASM)"
+license = "Apache-2.0"
+publish = false
+
+# ponytail: standalone crate, NOT a workspace member — napi-rs emits a cdylib and
+# cdylib crates (see providers/openai etc.) trigger the MSVC linker crash during
+# workspace builds on Windows. Shares the root `target/` via .cargo/config.toml.
+[workspace]
+
+[lib]
+name = "vantadb_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "3", default-features = false, features = ["napi8", "serde-json", "tokio_rt"] }
+napi-derive = "3"
+serde_json = "1.0"
+tokio = { version = "1", features = ["rt"] }
+vantadb = { path = "..", features = ["fjall", "memmap2", "rayon"] }
+
+[build-dependencies]
+napi-build = "2"
+
+[profile.release]
+lto = true
+strip = "symbols"
