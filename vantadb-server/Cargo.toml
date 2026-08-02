@@ -38,6 +38,7 @@ cli = ["vantadb/cli"]
 tls = ["vantadb/tls"]
 opentelemetry = ["vantadb/opentelemetry"]
 sysinfo = []
+prometheus = ["vantadb/prometheus"]
 
 
 [dependencies.mimalloc]

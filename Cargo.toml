@@ -126,6 +126,7 @@ server = [
     "dep:tower-http",
 ]
 tls = ["dep:axum-server", "dep:rustls"]
+prometheus = ["dep:prometheus"]
 sysinfo = ["dep:sysinfo"]
 tui = ["dep:ratatui", "dep:crossterm", "cli"]
 

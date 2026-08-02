@@ -256,6 +256,7 @@ jobs:
             --test-threads=1
           cargo test --release \
             --package vantadb-server \
+            --features prometheus \
             --test mcp_integration \
             --test e2e \
             --test benchmarks \
