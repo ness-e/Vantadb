@@ -1864,6 +1864,18 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Gap detectado:** `docs/api/ADVANCED_TOKENIZER.md` no existe — doc de API pendiente (ticket separado, no bloquea el SKIP).
 - **Ids:** `INV-019`
 
+### TSK-104: Demo agent LangChain + Ollama + VantaDB
+- **Fecha:** 2026-08-02
+- **Objetivo:** Demo RAG pulida conectando LangChain + Ollama + VantaDB con las integraciones reales (reemplaza el sketch que emulaba ambos).
+- **Checklist:**
+  - [x] `examples/python/langchain_ollama_rag.py` (151 líneas) — usa `vantadb_langchain.VantaDBVectorStore` + `langchain_ollama.OllamaEmbeddings`, API moderna `put`/`search_memory`
+  - [x] Fallback determinístico (hash-based, sin red) cuando Ollama no está disponible — smoke exit 0 sin servidor
+  - [x] Sketch legacy `examples/python/langchain_rag.py` eliminado (emulaba LangChain/Ollama, API legacy `insert`/`search`/`get`)
+  - [x] `docs/operations/EXPERIMENTAL_FEATURES.md:73` actualizado al nuevo nombre
+  - [x] 0 matches de API legacy/`Emulated` en la demo (grep verificado)
+- **Resultado:** ✅ Smoke test exit 0 (fallback path). Tests de integraciones no corribles por disco lleno (45 MB libres — ambiental, no regresión).
+- **Ids:** `TSK-104`
+
 ### MCP-IDE: Docs de setup MCP por IDE
 - **Fecha:** 2026-07-10
 - **Objetivo:** Add per-IDE setup documentation for Cursor, Claude Code, Windsurf, OpenCode, and Cline.

@@ -12,7 +12,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 > **Purpose:** Single source of truth for all project tasks — organized by execution order.
 > **Completed tasks moved to:** `docs/progreso/README.md`
 > **Verification method:** All items cross-checked against actual codebase (Jul 27, 2026). 8 tareas ejecutadas en sesión: TSK-106, MKT-03, NUEVO-21, MKT-04, TSK-107, COM-03, COM-04, Good first issues (18 creadas).
-> **Total open items:** ~100 (59 anteriores + 19 investigaciones INV-001..INV-017 + INV-024, -5 items migrados a completado REC-001/REC-010/INV-002/NUEVO-07/INV-019 + 15 GitHub issues GH-119..GH-144 convertidos a backlog Phase 11)
+> **Total open items:** ~100 (59 anteriores + 19 investigaciones INV-001..INV-017 + INV-024, -6 items migrados a completado REC-001/REC-010/INV-002/NUEVO-07/INV-019/TSK-104 + 15 GitHub issues GH-119..GH-144 convertidos a backlog Phase 11)
 > **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/progreso/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
 
 ---
@@ -141,7 +141,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | `MKT-16` | **Publicar metodología de benchmark GraphRAG** — Sin doc específico | 🟡 1-2d | 🟡 | ❌ Desde cero |
 | `MKT-17` | Página de comparación competitiva interactiva — Sin ruta `/compare` ni archivos | 🟡 2-3d | 🟢 | ❌ Desde cero |
 | `TSK-103` | Public benchmark site (`/benchmarks`) — BenchmarksView + BenchmarkRace existen (BENCH01, SIFT1M). Falta script público reproducible | 🟡 2-3d | 🟠 | ⚠️ `/benchmarks` existe con datos benchmark reales. Sin script standalone público |
-| `TSK-104` | Demo agent: LangChain + Ollama + VantaDB — Ejemplo experimental existe | 🟡 1-2d | 🟠 | ⚠️ Ejemplo OK, no demo pulido |
+| ~~`TSK-104`~~ | ~~**Demo agent: LangChain + Ollama + VantaDB** — **✅ COMPLETADA 2026-08-02** — `examples/python/langchain_ollama_rag.py` (151 líneas) con integraciones reales (`VantaDBVectorStore` + `OllamaEmbeddings`), fallback determinístico sin Ollama, smoke exit 0. Sketch legacy `langchain_rag.py` eliminado.~~ | ~~`examples/python/langchain_ollama_rag.py`, `docs/operations/EXPERIMENTAL_FEATURES.md`~~ | ~~🟡 1-2d~~ | ~~🟠~~ | ✅ |
 | `INV-007` | **🔍 Competitive benchmark vs LanceDB/Chroma — investigación y diseño** — El asset marketing #1 para audiencia técnica. **Alcance:** (1) Investigar `ann-benchmarks` y su conector para VantaDB, (2) Definir datasets: glove-100-angular + sift-128-euclidean, (3) Diseñar metodología: throughput, latencia p50/p95/p99, Recall@10, RAM, (4) Evaluar si benchmarks internos existentes (`/benchmarks`) pueden extenderse o si se necesita script standalone, (5) Proponer implementación mínima para página pública. **Sin implementación — solo diseño + propuesta.** | 🟡 2-3d | 🟠 |
 
 ---

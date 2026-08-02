@@ -70,7 +70,7 @@ Visible in-tree examples and docs must carry the same boundary:
 - `examples/docker/docker-compose.ollama.yml`
 - `examples/docker/Dockerfile`
 - `examples/docker/start.sh`
-- `examples/python/langchain_rag.py`
+- `examples/python/langchain_ollama_rag.py`
 
 ## Deferred
 
