@@ -56,6 +56,22 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `require_auth` | `bool` | `false` | `VANTADB_REQUIRE_AUTH` | Refuse to start unless `api_key` is configured |
 | `token_role_map` | `HashMap<String, String>` | `{}` | — | `RbacConfig` field: token → role name mapping |
 | `export_base_dir` | `Option<PathBuf>` | `None` | `VANTADB_EXPORT_BASE_DIR` | Base directory for export/import path validation. When set, export and import paths are resolved canonically against this directory (symlink protection included). When `None`, only bare `..` traversal is blocked. |
+| `audit_log_path` | `Option<PathBuf>` | `None` | `VANTADB_AUDIT_LOG_PATH` | Append-only JSONL audit log (ISO 8601 timestamp + op per write/delete/export/import). When `None`, audit is disabled. |
+
+### Audit Log Format
+
+Each line is one JSON object:
+
+```json
+{"timestamp":"2026-08-02T12:34:56Z","op":"put","namespace":"docs","key":"a","outcome":"ok","reason":null}
+```
+
+- `timestamp`: ISO 8601 UTC (RFC 3339, second precision).
+- `op`: `put`, `put_batch`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`.
+- `outcome`: `ok` or `err`. Failures still record the attempt; error details go to the `reason` field where available.
+- `reason`: optional contextual detail (e.g. `memory delete` on delete, deleted count on `delete_by_filter`).
+- Read-only operations (`search`, `get`, `list`) are **not** audited.
+- The file is opened in append mode; each record is flushed immediately. Set `VANTADB_AUDIT_LOG_PATH` or `VantaConfig.audit_log_path` via the Rust builder `with_audit_log_path(path)` to enable.
 
 ### Enums
 

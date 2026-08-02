@@ -192,7 +192,16 @@ impl VantaEmbedded {
     /// ```
     #[tracing::instrument(skip(self, input), err)]
     pub fn put(&self, input: VantaMemoryInput) -> Result<VantaMemoryRecord> {
-        self.put_one(input)
+        let (namespace, key) = (input.namespace.clone(), input.key.clone());
+        let res = self.put_one(input);
+        self.audit(crate::audit::AuditEvent::new(
+            "put",
+            &namespace,
+            &key,
+            if res.is_ok() { "ok" } else { "err" },
+            None,
+        ));
+        res
     }
 
     /// Insert or update multiple namespace-scoped persistent memory records.
@@ -203,6 +212,22 @@ impl VantaEmbedded {
     /// uses `put()` for individual UPSERTS).
     #[tracing::instrument(skip(self, inputs), err)]
     pub fn put_batch(&self, inputs: Vec<VantaMemoryInput>) -> Result<Vec<VantaMemoryRecord>> {
+        let (namespace, key) = inputs
+            .first()
+            .map(|i| (i.namespace.clone(), i.key.clone()))
+            .unwrap_or_else(|| ("N/A".to_string(), "N/A".to_string()));
+        let res = self.put_batch_inner(inputs);
+        self.audit(crate::audit::AuditEvent::new(
+            "put_batch",
+            &namespace,
+            &key,
+            if res.is_ok() { "ok" } else { "err" },
+            None,
+        ));
+        res
+    }
+
+    fn put_batch_inner(&self, inputs: Vec<VantaMemoryInput>) -> Result<Vec<VantaMemoryRecord>> {
         use crate::storage::engine::{BatchInsertOptions, InsertMode};
 
         for input in &inputs {
@@ -373,8 +398,18 @@ impl VantaEmbedded {
 
         let node_id = memory_node_id(namespace, key);
         let engine = self.engine_handle()?;
-        engine.delete(node_id, "memory delete")?;
-        self.replace_derived_indexes(&engine, Some(&existing), None)?;
+        let res = engine.delete(node_id, "memory delete");
+        if res.is_ok() {
+            self.replace_derived_indexes(&engine, Some(&existing), None)?;
+        }
+        self.audit(crate::audit::AuditEvent::new(
+            "delete",
+            namespace,
+            key,
+            if res.is_ok() { "ok" } else { "err" },
+            Some("memory delete".to_string()),
+        ));
+        res?;
         Ok(true)
     }
 
@@ -1111,6 +1146,13 @@ impl VantaEmbedded {
                 }
             }
         }
+        self.audit(crate::audit::AuditEvent::new(
+            "delete_by_filter",
+            namespace,
+            "N/A",
+            "ok",
+            Some(format!("{deleted} records")),
+        ));
         Ok(deleted)
     }
 

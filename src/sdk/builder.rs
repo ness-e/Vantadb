@@ -15,6 +15,7 @@ use tracing;
 pub struct VantaEmbedded {
     engine: Arc<RwLock<Option<Arc<StorageEngine>>>>,
     pub(crate) config: VantaConfig,
+    audit: Option<Arc<crate::audit::AuditLogger>>,
 }
 
 impl std::fmt::Debug for VantaEmbedded {
@@ -35,6 +36,7 @@ impl VantaEmbedded {
         let config = engine.config.clone();
         Self {
             engine: Arc::new(RwLock::new(Some(engine))),
+            audit: init_audit(&config),
             config,
         }
     }
@@ -96,6 +98,7 @@ impl VantaEmbedded {
         )?;
         let embedded = Self {
             engine: Arc::new(RwLock::new(Some(Arc::new(engine)))),
+            audit: init_audit(&final_config),
             config: final_config,
         };
         if !embedded.config.read_only {
@@ -108,12 +111,23 @@ impl VantaEmbedded {
         self.engine.read().clone().ok_or(VantaError::NotInitialized)
     }
 
+    /// Record an audit event if an audit log is configured; no-op otherwise.
+    /// Audit failures are logged and never fail the business operation.
+    pub(crate) fn audit(&self, event: crate::audit::AuditEvent) {
+        if let Some(logger) = &self.audit {
+            if let Err(e) = logger.record(&event) {
+                tracing::warn!(op = %event.op, error = %e, "audit record failed");
+            }
+        }
+    }
+
     /// Create an empty handle (no engine) for tests.
     /// Produces `NotInitialized` errors on any engine-dependent operation.
     #[doc(hidden)]
     pub fn test_empty(config: VantaConfig) -> Self {
         Self {
             engine: Arc::new(RwLock::new(None)),
+            audit: init_audit(&config),
             config,
         }
     }
@@ -228,6 +242,23 @@ impl VantaEmbedded {
     pub fn list_snapshots(&self) -> Result<Vec<String>> {
         let engine = self.engine_handle()?;
         engine.list_snapshots()
+    }
+}
+
+/// Open the audit logger when `config.audit_log_path` is set. A failed open is
+/// logged and treated as disabled — it must never block the database open.
+fn init_audit(config: &VantaConfig) -> Option<Arc<crate::audit::AuditLogger>> {
+    let path = config.audit_log_path.as_ref()?;
+    match crate::audit::AuditLogger::new(path) {
+        Ok(logger) => Some(Arc::new(logger)),
+        Err(e) => {
+            tracing::warn!(
+                path = %path.display(),
+                error = %e,
+                "audit log disabled: could not open audit_log_path"
+            );
+            None
+        }
     }
 }
 

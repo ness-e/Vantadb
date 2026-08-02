@@ -169,7 +169,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | `NUEVO-17` | **Segment LSM-style** — hot/warm/cold tiers. Fjall tiene LSM interno, tiers no | Muy alto | 🔵 |
 | `NUEVO-18` | **Sparse vectors nativos** — hybrid search real. Solo mención en test | Alto | 🔵 |
 | ~~`NUEVO-21`~~ | ~~**Vectara competitive research**~~ | ~~🟢 2-4h~~ | ✅ Hallazgo clave: Vectara cerró self-service tier → gap de mercado para soluciones local-first. Reporte en `docs/audit-reports/vectara-competitive-research-2026-07-27.md` |
-| `TSK-107b` | Audit logging enterprise (JSONL, timestamp + op) | 🟡 2-3d | 🟡 |
+| `TSK-107b` | **✅ Audit logging enterprise (JSONL, timestamp + op)** — módulo `src/audit.rs` append-only JSONL (ISO 8601 + op + outcome + reason), opt-in via `audit_log_path`/`VANTADB_AUDIT_LOG_PATH`, hooks en put/put_batch/delete/delete_by_filter/export/import, no-op sin config. Migrada a progreso. | 🟡 2-3d | 🟡 | ✅ Hecho |
 | `ENT-04` | Connection pooling + circuit breaker (métrica existe, implementación no) | 🟡 2-3d | 🟡 |
 | `BIZ-01` | **Enterprise features: encryption + RBAC ya en crate principal. Audit/replication/enterprise crate separado no existen** | 🟡 3-5d | 🟡 ⏳ |
 | `WEB-001` | **Implementar WASM demo en `/playground`** — El CodePlayground actual es un simulador, no corre WASM real. La demo WASM anterior estaba en `web_old/` (eliminada). Reconstruir requiere integrar `@vantadb/wasm` en el componente. | 🟡 1-2d | 🟡 | ❌ Desde cero — CodePlayground existe pero sin WASM real |
@@ -342,3 +342,4 @@ IDs finales: REC-001 (foundation types), REC-007 (WAL CLI), REC-008 (backup desi
 Próxima acción sugerida: Ejecutar REC-010 primero (🟢 30min), después REC-001 (foundation types)
 Contrato: Plan recuperación + backlog actualizados. Plan referencias REC IDs internas, backlog usa SDK-XX + REC-XX.
 === END RECITATION ===
+

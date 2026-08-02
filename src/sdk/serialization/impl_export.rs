@@ -123,6 +123,22 @@ impl VantaEmbedded {
         path: impl AsRef<Path>,
         namespace: &str,
     ) -> Result<super::super::types::VantaExportReport> {
+        let res = self.export_namespace_inner(path, namespace);
+        self.audit(crate::audit::AuditEvent::new(
+            "export_namespace",
+            namespace,
+            "N/A",
+            if res.is_ok() { "ok" } else { "err" },
+            None,
+        ));
+        res
+    }
+
+    fn export_namespace_inner(
+        &self,
+        path: impl AsRef<Path>,
+        namespace: &str,
+    ) -> Result<super::super::types::VantaExportReport> {
         validate_namespace(namespace)?;
         let resolved = self.resolve_export_path(path.as_ref())?;
         let started = Instant::now();
@@ -133,6 +149,21 @@ impl VantaEmbedded {
 
     #[tracing::instrument(skip(self, path), err)]
     pub fn export_all(
+        &self,
+        path: impl AsRef<Path>,
+    ) -> Result<super::super::types::VantaExportReport> {
+        let res = self.export_all_inner(path);
+        self.audit(crate::audit::AuditEvent::new(
+            "export_all",
+            "N/A",
+            "N/A",
+            if res.is_ok() { "ok" } else { "err" },
+            None,
+        ));
+        res
+    }
+
+    fn export_all_inner(
         &self,
         path: impl AsRef<Path>,
     ) -> Result<super::super::types::VantaExportReport> {
@@ -218,6 +249,21 @@ impl VantaEmbedded {
 
     #[tracing::instrument(skip(self, path), err)]
     pub fn import_file(
+        &self,
+        path: impl AsRef<Path>,
+    ) -> Result<super::super::types::VantaImportReport> {
+        let res = self.import_file_inner(path);
+        self.audit(crate::audit::AuditEvent::new(
+            "import_file",
+            "N/A",
+            "N/A",
+            if res.is_ok() { "ok" } else { "err" },
+            None,
+        ));
+        res
+    }
+
+    fn import_file_inner(
         &self,
         path: impl AsRef<Path>,
     ) -> Result<super::super::types::VantaImportReport> {

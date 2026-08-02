@@ -40,6 +40,21 @@ let db = VantaEmbedded::from_engine(engine);
 | `open_with_config(config)` | Open or create with full `VantaConfig` |
 | `from_engine(engine)` | Wrap an existing `Arc<StorageEngine>` handle |
 
+### Audit Log
+
+Set `VantaConfig.audit_log_path` (or `VANTADB_AUDIT_LOG_PATH`) to enable append-only JSONL audit logging of write/delete/export/import operations. Disabled by default (`None`).
+
+```rust
+let config = VantaConfig {
+    storage_path: "./vanta_data".into(),
+    audit_log_path: Some("audit/audit.jsonl".into()),
+    ..Default::default()
+};
+let db = VantaEmbedded::open_with_config(config).unwrap();
+```
+
+Each line is one JSON object: `{"timestamp":"2026-08-02T12:34:56Z","op":"put","namespace":"docs","key":"a","outcome":"ok","reason":null}`. Ops: `put`, `put_batch`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`. Read-only ops are not audited. See `docs/operations/CONFIGURATION.md`.
+
 ## Memory (Namespace-scoped) API
 
 CRUD operations for persistent memory records identified by `(namespace, key)` pairs.

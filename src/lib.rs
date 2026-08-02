@@ -55,6 +55,8 @@ pub mod crypto;
 
 pub mod accumulator;
 pub mod agentic;
+/// Append-only JSONL audit log of business operations (opt-in).
+pub mod audit;
 pub(crate) mod backend;
 pub(crate) mod backends;
 /// Binary header format for all persisted VantaDB files.

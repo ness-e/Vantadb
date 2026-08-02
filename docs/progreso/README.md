@@ -1511,6 +1511,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - `.github/workflows/python_wheels.yml` — pagefile/swap in CI/CD Windows/macOS
 ## Tareas Completadas (Migradas desde Backlog)
 
+### TSK-107b: Audit logging enterprise (JSONL, timestamp + op)
+- **Fuente:** Backlog (Phase 8 — Post-Launch & Enterprise)
+- **Fecha:** 2026-08-02
+- **Objetivo:** Módulo de audit log append-only en JSONL (timestamp ISO 8601 + operación) para compliance y debugging en producción. Opt-in vía config.
+- **Resultado:** ✅ `src/audit.rs` (nuevo): `AuditEvent` (timestamp ISO 8601 UTC, op, namespace, key, outcome, reason) + `AuditLogger` (Mutex<BufWriter<File>>, append+flush por registro, `chrono`+`web_time` wasm-safe). Campo `VantaConfig.audit_log_path` + env `VANTADB_AUDIT_LOG_PATH` + builder `with_audit_log_path()`. Hooks en put, put_batch, delete (reason "memory delete"), delete_by_filter, export_namespace, export_all, import_file — todos vía `VantaEmbedded` (cubre CLI/WASM/Python/MCP/TS). No-op si no está configurado; fallos de audit solo warn, nunca fallan la operación. Consume el placeholder `reason` reservado en `ops.rs`. `cargo check`/`fmt --check`/`clippy -D warnings` exit 0; `cargo nextest --profile audit` 1772 passed, 2 skipped; `tests/audit_log.rs` 3/3 (timestamp Z, op, reason, no-op).
+- **Ids:** `TSK-107b`
+
 ### GH-122: Docstrings en API pública del Python SDK
 - **Fuente:** Backlog (Phase 11 — GitHub Issues)
 - **Fecha:** 2026-08-02

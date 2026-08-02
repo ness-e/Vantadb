@@ -341,6 +341,12 @@ pub struct VantaConfig {
     /// (including symlink protection). When `None`, only `..` traversal is checked.
     /// Configured via `VANTADB_EXPORT_BASE_DIR`.
     pub export_base_dir: Option<std::path::PathBuf>,
+    /// Optional path for the append-only JSONL audit log of business operations.
+    ///
+    /// When set, `VantaEmbedded` records every put/delete/export/import with an
+    /// ISO 8601 timestamp, namespace, key, and outcome. Configured via
+    /// `VANTADB_AUDIT_LOG_PATH`. Not hot-reloadable.
+    pub audit_log_path: Option<std::path::PathBuf>,
     /// Configuration for the segment optimizer pipeline (vacuum / merge / reindex).
     ///
     /// Controls automatic tombstone reclamation, segment compaction, and
@@ -599,6 +605,13 @@ impl Default for VantaConfig {
                     .ok()
                     .map(std::path::PathBuf::from)
             },
+            audit_log_path: {
+                let v = env::var("VANTADB_AUDIT_LOG_PATH")
+                    .ok()
+                    .map(std::path::PathBuf::from);
+                debug!(?v, "VANTADB_AUDIT_LOG_PATH");
+                v
+            },
             rbac_config: RbacConfig::default(),
             segment_optimizer: SegmentOptimizerConfig::default(),
             #[cfg(feature = "hot-reload")]
@@ -805,6 +818,12 @@ impl VantaConfig {
     /// Set to `None` or `Some(0)` to always use HNSW.
     pub fn with_flat_threshold(mut self, threshold: Option<usize>) -> Self {
         self.flat_threshold = threshold.filter(|&v| v > 0);
+        self
+    }
+
+    /// Enables the append-only JSONL audit log of business operations.
+    pub fn with_audit_log_path(mut self, path: impl Into<std::path::PathBuf>) -> Self {
+        self.audit_log_path = Some(path.into());
         self
     }
 
@@ -1102,6 +1121,7 @@ mod tests {
         assert_eq!(cfg.insert_lock_timeout_ms, 5000);
         assert_eq!(cfg.file_lock_timeout_ms, 1000);
         assert_eq!(cfg.flat_threshold, Some(10000));
+        assert_eq!(cfg.audit_log_path, None);
     }
 
     // ── Builder methods ───────────────────────────────────────
@@ -1276,6 +1296,17 @@ mod tests {
         assert_eq!(cfg.flat_threshold, None);
         let cfg = VantaConfig::default().with_flat_threshold(Some(0));
         assert_eq!(cfg.flat_threshold, None);
+    }
+
+    #[test]
+    fn test_with_audit_log_path() {
+        let cfg = VantaConfig::default().with_audit_log_path("logs/audit.jsonl");
+        assert_eq!(
+            cfg.audit_log_path,
+            Some(std::path::PathBuf::from("logs/audit.jsonl"))
+        );
+        let cfg = VantaConfig::default();
+        assert_eq!(cfg.audit_log_path, None);
     }
 
     #[test]
