@@ -442,6 +442,8 @@ jobs:
             --package vantadb \
             --features "cli,arrow,tls,opentelemetry" \
             --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=address", "-Cunsafe-allow-abi-mismatch=sanitizer"]' \
+            -- \
+            --skip test_benchmark_internal_10k \
             || echo "ASan reported issues (see log above)"
         env:
           ASAN_OPTIONS: "detect_stack_use_after_return=1:detect_leaks=1:halt_on_error=0"

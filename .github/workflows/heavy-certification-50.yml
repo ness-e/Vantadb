@@ -224,7 +224,7 @@ jobs:
     name: "Certification: other_heavy"
     needs: ci-gate
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust-setup
@@ -234,7 +234,9 @@ jobs:
       - name: Download benchmark datasets
         run: bash scripts/download_benchmark_datasets.sh
       - name: Run remaining heavy tests
-        timeout-minutes: 45
+        # ponytail: 45 min fit cached runs; bump to 60 so a cold release
+        # compile (~40 min) + tests (~18 min) fits within the job window.
+        timeout-minutes: 60
         run: |
           cargo test --release --features cli,arrow \
             --test benchmark_internal \
