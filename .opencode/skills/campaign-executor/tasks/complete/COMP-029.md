@@ -8,7 +8,7 @@
 - **Tipo:** Rust core + Bindings (Mixto)
 - **Turns estimados:** 15-45
 - **Creado:** 2026-08-02
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 - **Routing:** vanta-worker (implementación) + vanta-docs (docs/api/TS_SDK.md)
 
 ## Blast Radius
@@ -46,37 +46,37 @@
 - **Archivos:** `vantadb-node/Cargo.toml`, `vantadb-node/src/lib.rs`, `vantadb-node/package.json`, `vantadb-node/build.rs`, `vantadb-node/npm/` (platform packages)
 - **Acción:** Estructura mirror de `vantadb-python/`: crate name `vantadb_node`, lib `vantadb_native` (cdylib). Deps: `napi = { version = "3", default-features = false, features = ["napi8"] }`, `napi-derive = "3"`, `vantadb = { path = "..", features = ["fjall", "memmap2", "rayon"] }`, `serde`/`serde_json` si hace falta. devDeps: `@napi-rs/cli`. Scripts: `build = "napi build --platform --release"`, `test`, `lint`. Decidir: workspace member vs crate standalone (si workspace root build server se rompe, standalone con `[workspace]` vacío en su Cargo.toml).
 - **Verify:** `cargo check -p vantadb-node` (o `cd vantadb-node && cargo check`)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 2: Exponer core class nativa (equivalente a clase `VantaDB` de python)
 - **Archivos:** `vantadb-node/src/lib.rs` (+ módulos `convert.rs`, `types.rs`, `vector.rs`)
 - **Acción:** `#[napi]` class `VantaDB` con `engine: VantaEmbedded`. Métodos de ciclo de vida: `connect(db_path, config?)`, `close()`. Patrón `engine.clone()` para operaciones async en threads (replicar `open_in_background`). Mapear error type a `napi::Error`.
 - **Verify:** `cargo check -p vantadb-node`; smoke: `napi build` genera `.node` y `index.d.ts`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 3: Operaciones CRUD + memory + search
 - **Archivos:** `vantadb-node/src/lib.rs`
 - **Acción:** Métodos isomórficos con `vantadb-ts/src/vantadb.ts` (WASM wrapper): `put/insert_node`, `get`, `delete`, `search`, `list`/`list_memories`, `graph` ops si expuestas. Usar los types `VantaMemoryInput`, `VantaNodeInput`, `VantaValue`, `VantaMemorySearchRequest` de `vantadb::sdk`. Serde conversion para inputs/outputs.
 - **Verify:** `cargo check -p vantadb-node`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 4: Wrapper TS del binding nativo (backend-agnóstico)
 - **Archivos:** `vantadb-node/index.js` (generado), `vantadb-node/index.d.ts` (generado), `vantadb-ts/src/native.ts` (o similar)
 - **Acción:** Wrapper TS que carga el `.node` nativo con fallback claro: si no hay `.node` para la plataforma, error explícito (browser usa WASM, Node usa napi). Reutilizar firma de `WasmVantaDB` + `wrapWasmError` para error handling consistente. NO romper la API pública actual de `vantadb-ts`.
 - **Verify:** `cd vantadb-ts && npx tsc --noEmit`; vitest smoke test
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 5: Test de persistencia (diferencial vs WASM)
 - **Archivos:** `vantadb-node/tests/persistence.test.ts` (vitest)
 - **Acción:** (1) `connect` a ruta temporal → `put` → `get` devuelve valor; (2) `close` → reconectar a misma ruta → dato persiste (fjall/WAL — lo que WASM no puede); (3) `search` retorna ordenado por score.
 - **Verify:** `cd vantadb-node && npm test`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 6: Docs + ADR + registro en Backlog
 - **Archivos:** `docs/api/TS_SDK.md` (o nuevo `docs/api/NODE_SDK.md`), `docs/architecture/adr/NNN_napi-rs-node-bindings.md`, `docs/Backlog.md` (COMP-029 → ✅), `VantaDB_Manual_Estrategico_Unificado.md` (P9: marcar "Node nativo (napi-rs)" como decidido/implementado)
 - **Acción:** Doc-driven: escribir docs API del binding nativo. ADR con la decisión "napi-rs como backend adicional a WASM" (tradeoff: binario nativo vs portabilidad WASM). Actualizar backlog y progreso.
 - **Verify:** `scripts/validate-docs-coverage.ps1` (si existe); revisión manual de referencias
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ## Dependencias
 - Ninguna bloqueante. (P9 del Manual Estratégico vence esta semana como decisión — confirmar antes de Step 1.)

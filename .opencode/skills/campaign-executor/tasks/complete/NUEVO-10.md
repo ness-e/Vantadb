@@ -8,7 +8,7 @@
 - **Tipo:** Mixto (Benchmark infra + Docs)
 - **Turns estimados:** 15-25
 - **Creado:** 2026-08-02
-- **Estado:** ✅ COMPLETED (2026-08-02)
+- **Estado:** ✅ COMPLETADO
 
 ## Contexto verificado (2026-08-02)
 - `vantadb_py` **0.5.0 está publicado en PyPI** (verified: `pip index versions vantadb-py` → 0.5.0, 0.4.0, 0.2.0, 0.1.5...). El path standalone público YA es posible sin build local.
@@ -49,31 +49,31 @@
 - **Archivos:** `benchmarks/requirements.txt`
 - **Acción:** crear con deps del path público reproducible: `vantadb-py>=0.5.0`, `numpy`, `h5py`, `lancedb`, `chromadb`, `psutil`, `tabulate` (para competitive_bench). Comentar cuáles son obligatorias vs opcionales (local_bench solo necesita vantadb-py).
 - **Verify:** `pip install -r benchmarks/requirements.txt` en venv limpio instala `vantadb_py` desde PyPI (`pip show vantadb-py` → 0.5.0)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 2: Corregir hints de instalación en los 3 scripts
 - **Archivos:** `benchmarks/vantadb_local_bench.py` (líneas 18-22), `benchmarks/competitive_bench.py` (líneas 66-71), `benchmarks/batch_vs_sequential_bench.py` (líneas 14-17)
 - **Acción:** reemplazar el hint "run 'maturin develop' in vantadb-python first" por "pip install vantadb-py" (path público PyPI) manteniendo la mención a `maturin develop` solo como alternativa para devs locales (una línea).
 - **Verify:** grep confirma que los 3 scripts mencionan `pip install vantadb-py` y ya no son el único hint el maturin
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 3: Crear `benchmarks/README.md` (guía pública de reproducción)
 - **Archivos:** `benchmarks/README.md`
 - **Acción:** documentar (a) path rápido standalone: venv → `pip install -r requirements.txt` → `python benchmarks/vantadb_local_bench.py --size 10000 --queries 1000 --output report.json`; (b) competitive: mismo + datasets ann-benchmarks; (c) variante dev local con `maturin develop`; (d) referencia a resultados publicados en `docs/operations/BENCHMARKS.md` y badge CI.
 - **Verify:** markdownlint pasa (`npx markdownlint-cli2 benchmarks/README.md` o reglas del repo)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 4: Actualizar `docs/operations/BENCHMARKS.md` sección 3
 - **Archivos:** `docs/operations/BENCHMARKS.md` (sección "Reproducing the Benchmark Locally", líneas 64-78)
 - **Acción:** agregar el path standalone público (pip install desde PyPI) ANTES del path dev local (maturin). Referenciar `benchmarks/README.md`. Mantener la tabla de métricas generada por CI intacta.
 - **Verify:** `scripts/validate-docs-coverage.ps1` pasa; grep confirma que la sección 3 documenta `pip install`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 5: Smoke test end-to-end path público
 - **Archivos:** `benchmarks/vanta_benchmark_report.json` (generado)
 - **Acción:** en el venv limpio del Step 1 (o venv aislado temporal), correr `python benchmarks/vantadb_local_bench.py --size 1000 --queries 50 --output <tmp>/report.json` y validar que el JSON contiene las 5 claves con valores > 0. (Usar size/querys chico para rapidez — no es benchmark de medición, es smoke test de reproducibilidad.)
 - **Verify:** JSON válido con `insert/rebuild/query_text/query_vector/query_hybrid` no vacíos; exit code 0
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ## Dependencias
 - Ninguna (task independiente)

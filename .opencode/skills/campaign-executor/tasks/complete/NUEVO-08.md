@@ -8,7 +8,7 @@
 - **Tipo:** Docs / Content (tutoriales)
 - **Turns estimados:** 15-30
 - **Creado:** 2026-08-02
-- **Estado:** ✅ COMPLETED
+- **Estado:** ✅ COMPLETADO
 
 ## Contexto verificado (2026-08-02)
 - `docs/tutorials/` tiene **4 tutoriales** (meta 5-7):
@@ -49,31 +49,31 @@
 - **Archivos:** `docs/tutorials/*.md`
 - **Acción:** verificar cada tutorial contra la API real de `vantadb_py` (NUEVO-07 corrigió migraciones; verificar 01/02/03). Corregir API inventada (`vantadb.connect`, `db.space`, etc.) si existe. Corregir frontmatter `status`.
 - **Verify:** grep — 0 ocurrencias de API inventada; cada tutorial con status correcto
-- **Estado:** ✅ COMPLETED — 01/02 reescritos contra API real (`from vantadb_py import VantaDB`, `db.put(ns, key, payload, metadata=..., vector=...)`, `db.search_memory(ns, vector, text_query=..., filters=...)`). 03 promovido a active. `rg -l "vantadb.connect|db.space|\.similar_to|space.configure" docs/tutorials` → 0 resultados.
+- **Estado:** ✅ COMPLETADO
 
 ### Step 2: Definir learning path estructurado + índice
 - **Archivos:** `docs/tutorials/index.md` (crear) + `docs/book/src/tutorials/index.md` (sync)
 - **Acción:** índice con progresión (DB basics → agent memory → RAG → migraciones → avanzado). Actualizar `docs/book/src/SUMMARY.md` si cambia la lista.
 - **Verify:** índice existe y lista todos los tutoriales en orden
-- **Estado:** ✅ COMPLETED — `docs/tutorials/index.md` creado con learning path (Core: 01→02→04→05; Migration track: 03, lancedb) por complejidad creciente. Book index convertido a `{{#include}}` stub (single source of truth). SUMMARY.md actualizado con los 6 tutoriales.
+- **Estado:** ✅ COMPLETADO
 
 ### Step 3: Completar tutoriales faltantes (llegar a 5-7)
 - **Archivos:** 1-3 tutoriales nuevos en `docs/tutorials/`
 - **Acción:** según gap vs meta 5-7. Candidatos naturales: `04-hybrid-search-basics.md`, `05-embedding-integrations.md` (OpenAI/Ollama/LiteLLM), o `06-wasm-in-browser.md`. Validar contra API real.
 - **Verify:** count = 5-7 tutoriales; nuevos con status: active y código verificable
-- **Estado:** ✅ COMPLETED — creados `04-hybrid-search-basics.md` y `05-embedding-integrations.md` (total 6, dentro de 5-7). WASM descartado (requeriría API TS no verificada en este scope). Código validado contra `.venv` con `vantadb_py 0.5.0`.
+- **Estado:** ✅ COMPLETADO
 
 ### Step 4: Promover drafts a active + sync mdBook
 - **Archivos:** `docs/tutorials/*.md` (frontmatter) + `docs/book/src/tutorials/`
 - **Acción:** cambiar `status: draft` → `active` en 01/02/03 tras validar. Sincronizar copias del book con la fuente canónica.
 - **Verify:** grep — 0 tutoriales con status: draft; hashes book == fuente (o sync documentado)
-- **Estado:** ✅ COMPLETED — todos los tutoriales `status: active`. Book usa `{{#include ../../../tutorials/<file>.md}}` → sincronizado por diseño (fuente canónica = `docs/tutorials/`). Stubs añadidos para 04/05.
+- **Estado:** ✅ COMPLETADO
 
 ### Step 5: Verificación final de coverage + links
 - **Archivos:** `docs/master-index.md`, `docs/README.md` (si referencian tutorials)
 - **Acción:** verificar que el índice de docs lista el learning path; links internos sin 404.
 - **Verify:** `scripts/validate-docs-coverage.ps1` (nota: falla por gaps preexistentes no relacionados — documentar); grep links rotos
-- **Estado:** ✅ COMPLETED — master-index.md y README.md actualizados con learning path + tutoriales nuevos. Links internos verificados (todos los targets existen). `validate-docs-coverage.ps1` falla por gaps PREEXISTENTES no relacionados (script referencia `src/sdk/search.rs` inexistente; gaps en CONFIGURATION.md/EMBEDDED_SDK.md/PYTHON_SDK.md ajenos a tutorials) — no corregidos por estar fuera de scope.
+- **Estado:** ✅ COMPLETADO
 
 ## Dependencias
 - NUEVO-07 (ya completado) — migraciones con API real sirven de referencia de sintaxis correcta

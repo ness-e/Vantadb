@@ -8,7 +8,7 @@
 - **Tipo:** Rust core + Bindings (Mixto)
 - **Turns estimados:** 15-30
 - **Creado:** 2026-08-02
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 - **Routing:** vanta-worker
 
 ## Blast Radius
@@ -43,37 +43,37 @@
 - **Archivos:** `src/node.rs`
 - **Acción:** Agregar `pub created_at_ms: u64` con `#[serde(default)]` al struct `Edge` (línea ~648). Actualizar `Edge::new`, `Edge::with_weight`, `Edge::reverse` para setear `created_at_ms: SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64` (mismo patrón que `UnifiedNode::new`, src/node.rs:1062). Agregar helper `Edge::with_timestamp(target, label_id, created_at_ms)` o param en los constructores existentes (elegir la firma más coherente con el codebase).
 - **Verify:** `cargo check -p vantadb`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 2: Propagar timestamp en SDK `add_edge` (forward + reverse)
 - **Archivos:** `src/sdk/api.rs`
 - **Acción:** `add_edge(source_id, target_id, label, weight: Option<f32>, created_at_ms: Option<u64>)` — si `None`, usar `now()`. Setear el mismo `created_at_ms` en el Edge forward (línea ~970) y el Edge reverse (línea ~981). `remove_edge` no cambia (no toca el struct completo).
 - **Verify:** `cargo check -p vantadb`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 3: Filtro temporal en GraphTraverser
 - **Archivos:** `src/graph.rs`
 - **Acción:** Agregar rango temporal a `bfs_traverse_filtered`/`dfs_traverse_filtered` (o variante `*_temporal` si los callers existentes no deben cambiar): `time_range: Option<(u64, u64)>` (from_ms, to_ms). Filtrar `edge.created_at_ms >= from && edge.created_at_ms <= to` (bound inclusive) al seguir edges, en ambos paths: `label_index` (encontrar Edge para verificar) y fallback scan. Aplicar en `discover_edges_filtered` para DFS. Callers existentes pasan `None` → comportamiento idéntico.
 - **Verify:** `cargo check -p vantadb`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 4: Tests Rust (backward-compat + temporal)
 - **Archivos:** `src/node.rs` (mod tests), `tests/graphrag_test.rs` o nuevo `tests/core/temporal_edges.rs`
 - **Acción:** (1) Serializar `UnifiedNode` con Edge viejo-shape (sin created_at_ms) y deserializar → `created_at_ms == 0` (bincode backward-compat). (2) `add_edge` con timestamp explícito → persiste en ambos nodos (forward + reverse). (3) Traversal con ventana temporal: edge dentro → seguido; fuera → no seguido; `None` → todo. (4) `add_edge` sin timestamp → `created_at_ms > 0`.
 - **Verify:** `cargo nextest run --profile audit -p vantadb --build-jobs 2`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 5: Bindings Python (add_edge + filtro temporal)
 - **Archivos:** `vantadb-python/src/lib.rs`, `vantadb_py/__init__.py`
 - **Acción:** `add_edge(..., created_at_ms=None)` en lib.rs:1300 (aditivo). AsyncVantaDB wrapper `vantadb_py/__init__.py:225` + método de traversal filtrado por tiempo si existe equivalente (`graph_bfs_filtered`/`graph_dfs_filtered` ya existen — agregar param de rango temporal si el core lo expone).
 - **Verify:** `cargo check -p vantadb-python` (si disco permite) o al menos `cargo check -p vantadb`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 6: Bindings WASM + TS
 - **Archivos:** `vantadb-wasm/src/lib.rs`, `vantadb-ts/src/vantadb.ts`
 - **Acción:** `add_edge` WASM (lib.rs:897) acepta `created_at_ms: Option<u64>` (wasm_bindgen: `Option<u64>`). TS wrapper `addEdge` agrega param opcional `created_at_ms?: number`.
 - **Verify:** `cargo check -p vantadb-wasm` (si disco permite) + `cd vantadb-ts && npx tsc --noEmit` (si hay node)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ## Dependencias
 - Ninguna. (COMP-021 no depende de DRV-121/122 — eso es COMP-028.)

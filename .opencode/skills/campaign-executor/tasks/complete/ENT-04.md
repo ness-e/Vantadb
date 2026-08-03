@@ -9,7 +9,7 @@
 - **Turns estimados:** 20-30
 - **Creado:** 2026-08-02T12:00
 - **last-synced:** 2026-08-02T12:00
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ## Contexto (validado en sesión 2026-08-02)
 - La métrica `OOM_TRIPS` existe en `src/metrics/core/registry.rs:42` pero **solo se referencia en tests** — el governor OOM no la incrementa en producción. No hay circuit breaker (state machine) ni ConnectionPool.

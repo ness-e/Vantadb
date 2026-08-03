@@ -8,7 +8,7 @@
 - **Tipo:** Mixto (Python SDK + Docs)
 - **Turns estimados:** 20-30
 - **Creado:** 2026-08-02
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ## Contexto verificado (2026-08-02)
 - `vantadb_py/migrate/` **NO existe** — el audit 2026-07-28 (backlog-validation) reportó un falso positivo ("chroma.py + lancedb.py existen"). Los scripts nunca existieron.
@@ -45,31 +45,31 @@
 - **Archivos:** `vantadb_py/migrate/__init__.py` (exporta `migrate_from_chroma`, `migrate_from_lancedb`)
 - **Acción:** crear directorio y `__init__.py` con docstring del paquete y funciones públicas
 - **Verify:** `python -c "import vantadb_py.migrate"`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 2: Script `chroma.py`
 - **Archivos:** `vantadb_py/migrate/chroma.py`
 - **Acción:** CLI + función `migrate_from_chroma(source_path, dest_path, collection_name=None, namespace=None, batch_size=500)`. Lee ChromaDB, escribe con `VantaDB.put()` (API real, no `space.put`). Soporta `python -m vantadb_py.migrate.chroma --source ... --dest ...`
 - **Verify:** `python -m vantadb_py.migrate.chroma --help` exit 0
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 3: Script `lancedb.py`
 - **Archivos:** `vantadb_py/migrate/lancedb.py`
 - **Acción:** CLI + función `migrate_from_lancedb(source_path, dest_path, table_name=None, namespace=None, batch_size=500)`. Lee LanceDB (to_pandas), mapea columnas → payload/metadata/vector, escribe con `VantaDB.put()`
 - **Verify:** `python -m vantadb_py.migrate.lancedb --help` exit 0
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 4: Smoke test end-to-end
 - **Archivos:** `vantadb_py/tests/test_migration.py` (o script demo)
 - **Acción:** crear demo con datos ChromaDB/LanceDB de ejemplo (3 registros c/u), migrar, verificar con `get_memory` + `search_memory`
 - **Verify:** pytest pasa; registros recuperados
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 5: Actualizar tutoriales
 - **Archivos:** `docs/tutorials/03-migrating-from-chromadb.md`, `docs/tutorials/migration-from-lancedb.md`
 - **Acción:** reemplazar API inventada (`vantadb.connect`/`db.space`) por la API real `vantadb_py.VantaDB`; agregar sección "Migration script" con comando exacto `python -m vantadb_py.migrate.chroma ...`
 - **Verify:** grep confirma 0 ocurrencias de `vantadb.connect(`/`space.put(` en los tutoriales
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ## Dependencias
 - Ninguna (task independiente)

@@ -9,7 +9,7 @@
 - **Turns estimados:** 30-60
 - **Creado:** 2026-08-02
 - **last-synced:** 2026-08-02
-- **Estado:** ✅ COMPLETED
+- **Estado:** ✅ COMPLETADO
 
 ## Blast Radius
 
@@ -39,37 +39,37 @@
 - **Archivos:** `src/audit.rs` (nuevo), `src/lib.rs` (export `pub mod audit;`)
 - **Acción:** struct `AuditEvent` con `#[derive(Serialize, Clone)]`: `timestamp: String` (ISO 8601 vía `web_time::SystemTime`), `op: String`, `namespace: String`, `key: String`, `outcome: String` ("ok"|"err"), `reason: Option<String>` (para deletes). Struct `AuditLogger { path: PathBuf, writer: Mutex<BufWriter<File>> }` con `fn new(path) -> Result<Self>` (crea dirs parent), `fn record(&self, event) -> Result<()>` (serializa `serde_json::to_string` + newline, flush best-effort), `fn is_enabled(&self)`. Append-only: abrir con `OpenOptions::create(true).append(true)`.
 - **Verify:** `cargo check -p vantadb`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 2: Config `audit_log_path` en VantaConfig
 - **Archivos:** `src/config.rs` (field ~126, builder ~772, `from_env`/hot-reload ~558, tests ~1261)
 - **Acción:** campo `pub audit_log_path: Option<PathBuf>` en `VantaConfig` (default `None`), env var `VANTADB_AUDIT_LOG_PATH`, builder `with_audit_log_path(path)`, test de parse. NO incluir en `HotReloadConfig` (no es hot-reloadable).
 - **Verify:** `cargo check -p vantadb` + tests de config (`cargo nextest run -p vantadb config`)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 3: Instanciar `AuditLogger` en VantaEmbedded
 - **Archivos:** `src/sdk/builder.rs` (struct VantaEmbedded ~15, constructores)
 - **Acción:** agregar campo `audit: Option<AuditLogger>` a `VantaEmbedded`, inicializarlo en `open_with_config`/`from_engine`/`connect` si `config.audit_log_path` está seteado (si falla al abrir → `tracing::warn!` y `None`, no fallar el open). Método helper `fn audit(&self, event: AuditEvent)` que hace no-op si `None`.
 - **Verify:** `cargo check -p vantadb`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 4: Hooks en operaciones de escritura del SDK
 - **Archivos:** `src/sdk/api.rs` (`put` ~194, `delete` ~366, `delete_by_filter` ~1068, `put_batch`), `src/sdk/serialization/impl_export.rs` (`export_namespace` ~121, `export_all` ~135, `import_file`)
 - **Acción:** en cada método, tras validar inputs, registrar `self.audit(AuditEvent { op: "put"|"delete"|"delete_by_filter"|"put_batch"|"export_namespace"|"export_all"|"import_file", timestamp: now_iso(), namespace, key (o "N/A"), outcome: "ok"/"err", reason: Some(reason) para delete })`. En `delete`, pasar el `reason` que ya existe en la llamada a `engine.delete(node_id, "memory delete")`. En paths con `?` temprano, registrar el evento ANTES del resultado no hace falta — registrar el outcome real al final; para errores usar `let res = ...; audit(... outcome: if res.is_ok()...); res`.
 - **Verify:** `cargo check -p vantadb`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 5: Test unitario del audit log
 - **Archivos:** `src/audit.rs` (mod tests) o `tests/audit_log.rs`
 - **Acción:** test: config con `audit_log_path` en tempdir, hacer `put` + `delete` + `search`, cerrar, leer el archivo JSONL, assert: existe, cada línea parsea a `serde_json::Value`, cada una tiene `timestamp` (no vacío) y `op` (put/delete/search), el delete tiene `reason`. Test adicional: sin `audit_log_path` → no se crea archivo, ops funcionan igual (no-op).
 - **Verify:** `cargo nextest run -p vantadb audit` + `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` + `cargo fmt --check`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 6: Docs + cierre
 - **Archivos:** `docs/operations/CONFIGURATION.md` (sección `audit_log_path` + env var), `docs/api/EMBEDDED_SDK.md` (nota: operaciones auditan si está configurado), `docs/Backlog.md:172` (✅)
 - **Acción:** documentar el nuevo campo en CONFIGURATION.md y validar con `pwsh scripts/validate-docs-coverage.ps1` (los gaps pre-existentes fuera de scope se mantienen). Migrar TSK-107b a `docs/progreso/README.md`.
 - **Verify:** `scripts/validate-docs-coverage.ps1` sin gaps NUEVOS
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ## Dependencias
 - Ninguna (task standalone del backlog P8 — Post-Launch & Enterprise)

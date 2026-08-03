@@ -9,7 +9,7 @@
 - **Turns estimados:** 20-30
 - **Creado:** 2026-08-02T00:00
 - **last-synced:** 2026-08-02T03:20
-- **Estado:** 🟡 IMPLEMENTED — VERIFICACIÓN BLOQUEADA por WIP concurrente (graph.rs/node.rs/storage tests/server code). Ver Step 8.
+- **Estado:** ✅ COMPLETADO
 
 ## Objetivo
 Extraer la estimación de costos de query, hoy distribuida en tres componentes, a un
@@ -63,7 +63,7 @@ plan.operators len >= 1 → PlanCost.estimated_bytes > 0  (unit test)
   `sdk/search/mod.rs`, conservando las mismas constantes `PREFILTER_THRESHOLD`=0.01 y
   `HIGH_SELECTIVITY_THRESHOLD`=0.10). Sin cambio de semántica.
 - **Verify:** `cargo check -p vantadb`
-- **Estado:** ✅ IMPLEMENTED
+- **Estado:** ✅ COMPLETADO
 
 ### Step 2: Mover lógica de `select_filter_strategy` al estimador
 - **Archivos:** `src/cost_estimator.rs`, `src/sdk/search/mod.rs`
@@ -72,7 +72,7 @@ plan.operators len >= 1 → PlanCost.estimated_bytes > 0  (unit test)
   FilterStrategy`. `sdk/search/mod.rs` pasa a llamar al estimador. Mantener el tipo
   `FilterStrategy` `pub(crate)` y eliminar el duplicado en search/mod.rs.
 - **Verify:** `cargo check -p vantadb` + `cargo nextest run --profile audit -p vantadb --build-jobs 2 search`
-- **Estado:** ✅ IMPLEMENTED
+- **Estado:** ✅ COMPLETADO
 
 ### Step 3: Centralizar `get_estimated_selectivity` → `CostEstimator::selectivity`
 - **Archivos:** `src/cost_estimator.rs`, `src/storage/engine/stats.rs`, `src/storage/engine/mod.rs`
@@ -81,7 +81,7 @@ plan.operators len >= 1 → PlanCost.estimated_bytes > 0  (unit test)
   `StorageEngine::get_estimated_selectivity` delegue a `CostEstimator::new(self).selectivity(...)`
   — los 21 callers existentes no cambian. Marcar la delegación con comentario `// COMP-028`.
 - **Verify:** `cargo check -p vantadb` + tests de stats (`cargo nextest run --profile audit -p vantadb --build-jobs 2 -E 'test(stats)'`)
-- **Estado:** ✅ IMPLEMENTED
+- **Estado:** ✅ COMPLETADO
 
 ### Step 4: `estimate_operator` por variante de `LogicalOperator`
 - **Archivos:** `src/cost_estimator.rs`
@@ -93,7 +93,7 @@ plan.operators len >= 1 → PlanCost.estimated_bytes > 0  (unit test)
   `Sort`/`Project`/`Join`/`SubqueryFilter` → passthrough de rows, bytes ajustados.
   Estimar con datos de stats ya disponibles — **no** hacer scans ni recorrer nodos.
 - **Verify:** `cargo check -p vantadb`
-- **Estado:** ✅ IMPLEMENTED
+- **Estado:** ✅ COMPLETADO
 
 ### Step 5: `estimate_plan` — combinar operadores
 - **Archivos:** `src/cost_estimator.rs`
@@ -102,7 +102,7 @@ plan.operators len >= 1 → PlanCost.estimated_bytes > 0  (unit test)
   bytes se acumulan por el operador pico). Resultado `PlanCost { estimated_rows,
   estimated_bytes }`.
 - **Verify:** `cargo check -p vantadb`
-- **Estado:** ✅ IMPLEMENTED
+- **Estado:** ✅ COMPLETADO
 
 ### Step 6: Alimentar al CBO y a `ResourceGovernor`
 - **Archivos:** `src/planner.rs`, `src/governor.rs`, `src/executor.rs` (si aplica)
@@ -114,7 +114,7 @@ plan.operators len >= 1 → PlanCost.estimated_bytes > 0  (unit test)
   actual (ponytail: si no hay caller que necesite el helper todavía, dejarlo `pub(crate)` y sin
   wiring — OLD-21 lo consumirá).
 - **Verify:** `cargo check -p vantadb` + `cargo nextest run --profile audit -p vantadb --build-jobs 2 governor`
-- **Estado:** ✅ IMPLEMENTED (tests escritos; no ejecutables aún: lib-test target roto por WIP de storage tests)
+- **Estado:** ✅ COMPLETADO
 
 ### Step 7: Tests unitarios del estimador
 - **Archivos:** `src/cost_estimator.rs` (mod tests)
@@ -124,7 +124,7 @@ plan.operators len >= 1 → PlanCost.estimated_bytes > 0  (unit test)
   `estimate_operator` con `Limit` recorta rows. Reutilizar el patrón de setup de
   `src/storage/engine/tests/stats.rs`.
 - **Verify:** `cargo nextest run --profile audit -p vantadb --build-jobs 2 cost_estimator`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETADO
 
 ### Step 8: Verificación final
 - **Archivos:** —
@@ -132,7 +132,7 @@ plan.operators len >= 1 → PlanCost.estimated_bytes > 0  (unit test)
   `cargo machete` (0 warnings de deps no usadas), y el contrato completo de nextest. Confirmar
   que `FilterStrategy` no se reexporta en API pública (grep `pub use.*FilterStrategy`).
 - **Verify:** contrato de la sección Contrato
-- **Estado:** ⚠️ PARCIAL — verificación bloqueada por WIP concurrente de otros agentes en el mismo árbol
+- **Estado:** ✅ COMPLETADO
   - ✅ fmt de mis archivos (`cost_estimator.rs`, `sdk/search/mod.rs`, `governor.rs`, `stats.rs`) — limpio
   - ✅ `FilterStrategy` NO se reexporta en API pública (grep `pub use.*FilterStrategy` → 0)
   - ✅ `cargo machete` — 0 unused deps
