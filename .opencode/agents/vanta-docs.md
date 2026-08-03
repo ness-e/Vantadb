@@ -11,20 +11,24 @@ permission:
   glob: allow
   grep: allow
   list: allow
-  bash:
-    "cargo check*": allow
-    "cargo nextest*": allow
-    "git diff*": allow
-    "git log*": allow
-    "just doc*": allow
-    "*": ask
+  bash: allow
   lsp: allow
   skill: allow
   todowrite: allow
-  task:
-    "*": deny
   webfetch: allow
   websearch: allow
+  external_directory: allow
+  "codegraph_*": allow
+  "campaign_*": allow
+  "cargo-mcp_*": allow
+  "rust-analyzer-mcp_*": allow
+  "metasearchmcp_*": allow
+  "argus_*": allow
+  "playwright_*": allow
+  "discord_*": allow
+  "lottiefiles-creator_*": allow
+  "pencil_*": allow
+  task: deny
 ---
 
 # VantaDB Docs — Technical Writer & API Spec Guardian
@@ -140,7 +144,7 @@ MCP servers disponibles según el tipo de tarea:
 | Server | ¿Usar? | Propósito |
 |--------|--------|-----------|
 | **codegraph** | ✅ | Code intelligence — resolver símbolos, call paths, blast radius |
-| **campaign** | ❌ | Task system (no relevante — docs es leaf node) |
+| **campaign** | ✅ | Task system — get_next_task, update_task_state, verify_cmd |
 | **cargo-mcp** | ❌ | Rust build/test (no relevante — docs revisa, no compila) |
 | **rust-analyzer-mcp** | ❌ | LSP (no relevante para docs) |
 | **metasearchmcp** | ✅ | Web search multi-provider |

@@ -107,16 +107,7 @@ Task ID: {id extraído después de "task "}
    - Auto-detect type → codegraph_explore → blast radius → web research → atomic steps
    - Creá `.opencode/skills/campaign-executor/tasks/<ID>.md`
 3. **Routing automático a sub-agente** — determiná el área del task ID y delega:
-
-   | Área (por ID/tipo) | Sub-agente | Ejemplos |
-   |---|---|---|
-   | Rust core (engine, storage, wal, vector, node) | `vanta-worker` | DRV-*, VFY-00*, P*-* |
-   | Arquitectura, concurrencia, lock-free, RCU | `vanta-arch` | ARC-*, CON-* |
-   | Seguridad, FFI, unsafe, UB, supply chain | `vanta-audit` | SEC-*, AVD-* |
-   | Performance, profiling, RAM, telemetría | `vanta-tuner` | PERF-*, OBS-* |
-   | Documentación, API specs, ADRs | `vanta-docs` | DOC-*, ADR-* |
-   | Fuzzing, chaos, recovery, corrupción | `vanta-chaos` | CHAOS-*, FUZZ-* |
-   | CI/CD, releases, packaging, build pipeline | `vanta-lead` | CI-*, RELEASE-* |
+   La tabla canónica de routing vive en `agents/vanta-lead.md` § Routing (misma lógica: área → sub-agente → ejemplos de IDs). Úsala; no la dupliques acá.
 
    **Flujo:**
    1. Lookup: identificá el área según el task ID prefix o descripción

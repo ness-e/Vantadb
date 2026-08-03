@@ -270,7 +270,8 @@ Tareas independientes en paralelo vía sub-agentes. CIERRE steps que NO dependen
    [ ] Tests pasan
    [ ] Documentación afectada actualizada
 
-7. git add -p + git commit con mensaje Conventional Commits:
+7. git add -p + git commit (solo archivos tocados en esta tarea — nunca `git add -A`)
+   con mensaje Conventional Commits:
     tipo(scope): ID — descripción breve
 
     Blast radius: [módulos afectados]

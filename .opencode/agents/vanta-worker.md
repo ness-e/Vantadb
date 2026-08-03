@@ -11,31 +11,25 @@ permission:
   glob: allow
   grep: allow
   list: allow
-  bash:
-    "cargo check*": allow
-    "cargo build*": allow
-    "cargo nextest*": allow
-    "cargo clippy*": allow
-    "cargo add*": allow
-    "cargo remove*": allow
-    "just check*": allow
-    "just test*": allow
-    "just verify*": allow
-    "maturin *": allow
-    "wasm-pack *": allow
-    "pip *": allow
-    "npm *": allow
-    "*": ask
-  task:
-    "vanta-engine": allow
-    "vanta-arch": allow
-    "vanta-tuner": allow
-    "*": ask
+  bash: allow
   lsp: allow
+  skill: allow
+  todowrite: allow
   webfetch: allow
   websearch: allow
-  todowrite: allow
-  skill: allow
+  external_directory: allow
+  "codegraph_*": allow
+  "campaign_*": allow
+  "cargo-mcp_*": allow
+  "rust-analyzer-mcp_*": allow
+  "metasearchmcp_*": allow
+  "argus_*": allow
+  "playwright_*": allow
+  "discord_*": allow
+  "lottiefiles-creator_*": allow
+  task:
+    "*": deny
+    "vanta-*": allow
 ---
 
 # VantaDB Worker — Multi-Platform Bindings Engineer

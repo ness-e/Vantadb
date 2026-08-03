@@ -293,6 +293,19 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-08-02 — NUEVO-17: Segment LSM tiers hot/warm/cold + archive ✅
+
+**Fuente:** Backlog (Phase 8 — Post-Launch) `NUEVO-17`
+
+**Resuelto por (vanta-worker):**
+- **Hallazgo clave:** la infra de niveles ya existía (`src/lsm.rs`: `SegmentLevel` L0-L3, `SegmentRegistry::open_or_create` pre-asigna 4 VantaFile mmap). El gap era la *política de tier* y el archive L3.
+- `TierPolicy` enum (SizeBased | FrequencyBased | AgeBased) + `TierPolicyConfig` (archive on/off, cold_min_access, cold_age_days) en `src/lsm.rs`.
+- `LsmConfig` extendido: `l3_max_size`, `l3_tombstone_threshold`, `tier` (defaults compatibles).
+- Promoción encadenada en `compact_level`: L0(hot)→L1(warm)→L2(cold)→L3(archive). L3 terminal (no-op seguro) y solo cuando `tier.archive=true`; si está off, L2 es el tier más profundo.
+- Tests: `test_tier_promotion_hot_to_cold`, `test_tier_promotion_cold_to_archive`, `test_tier_archive_disabled_stops_at_cold` — 3/3 ✅.
+- Doc: `docs/architecture/STORAGE-TIERS.md` (EN inglés).
+- Verify: `cargo check` ✅, `cargo test tier*` 3/3 ✅, fmt 0 diffs, clippy 0 warnings.
+
 ### 2026-08-02 — COMP-029: Node.js/TS bindings via napi-rs (backend adicional) ✅
 
 **Fuente:** Backlog `COMP-029`

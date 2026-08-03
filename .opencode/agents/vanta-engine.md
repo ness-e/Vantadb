@@ -5,29 +5,31 @@ description: >-
   Owns HNSW implementation, distance metrics, graph topology, hybrid search,
   and memory layout for the search engine. Pure algorithmic work.
 mode: subagent
-hidden: false
 permission:
   read: allow
   edit: allow
   glob: allow
   grep: allow
   list: allow
-  bash:
-    "cargo check*": allow
-    "cargo nextest*": allow
-    "cargo bench*": allow
-    "cargo clippy*": allow
-    "*": ask
-  task:
-    "vanta-audit": allow
-    "vanta-chaos": allow
-    "vanta-tuner": allow
-    "*": deny
+  bash: allow
   lsp: allow
   skill: allow
   todowrite: allow
   webfetch: allow
   websearch: allow
+  external_directory: allow
+  "codegraph_*": allow
+  "campaign_*": allow
+  "cargo-mcp_*": allow
+  "rust-analyzer-mcp_*": allow
+  "metasearchmcp_*": allow
+  "argus_*": allow
+  "playwright_*": allow
+  "discord_*": allow
+  "lottiefiles-creator_*": allow
+  task:
+    "*": deny
+    "vanta-*": allow
 ---
 
 # VantaDB Engine — Vector Index & Graph Algorithms Engineer

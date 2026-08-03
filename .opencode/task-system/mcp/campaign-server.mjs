@@ -965,7 +965,7 @@ server.tool(
         initial: workflow ? workflow.definition.initial : null,
         availableTemplates: available,
         hasCustomWorkflow: workflow !== null,
-        fallback: !workflow ? "Use generic C0 state machine from iter.md" : undefined,
+        fallback: !workflow ? "Use generic C0 state machine from iter-loop-tools.md" : undefined,
       }, null, 2) }],
     }
   },

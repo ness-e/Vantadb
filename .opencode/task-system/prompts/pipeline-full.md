@@ -75,7 +75,7 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
   2. `campaign_verify_cmd command="cargo clippy --workspace --all-targets --all-features -- -D warnings"`
   3. `campaign_verify_cmd command="cargo nextest run --profile audit --workspace --build-jobs 2"`
   4. `campaign_verify_cmd command="scripts/validate-docs-coverage.ps1"`
-- Si todo pasa: `git add -A && git commit -m "feat: <ID> — <name>"`
+- Si todo pasa: `git add <solo los archivos tocados en esta tarea> && git commit -m "feat: <ID> — <name>"`
 - **AGENTS.md learnings:** documentá 1-2 aprendizajes de la tarea en una entrada al final de `.opencode/AGENTS.md`:
   ```markdown
   <!-- Learnings: TASK-ID — fecha -->

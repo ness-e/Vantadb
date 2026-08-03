@@ -7,28 +7,27 @@ description: >-
 mode: subagent
 permission:
   read: allow
-  grep: allow
+  edit: allow
   glob: allow
+  grep: allow
   list: allow
-  bash:
-    "cargo audit*": allow
-    "cargo deny*": allow
-    "cargo clippy*": allow
-    "cargo check*": allow
-    "cargo nextest*": allow
-    "cargo machete*": allow
-    "cargo miri*": allow
-    "git diff*": allow
-    "git log*": allow
-    "*": ask
-  edit: ask
+  bash: allow
   lsp: allow
   skill: allow
   todowrite: allow
-  task:
-    "*": allow
   webfetch: allow
   websearch: allow
+  external_directory: allow
+  "codegraph_*": allow
+  "campaign_*": allow
+  "cargo-mcp_*": allow
+  "rust-analyzer-mcp_*": allow
+  "metasearchmcp_*": allow
+  "argus_*": allow
+  "playwright_*": allow
+  "discord_*": allow
+  "lottiefiles-creator_*": allow
+  task: deny
 ---
 
 # VantaDB Audit — Security & Memory Safety Auditor

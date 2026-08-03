@@ -10,7 +10,7 @@ Documenta todo el sistema de tareas, agentes, skills, comandos, y MCP servers.
 
 Skills Manifest — `SKILLS-MANIFEST.md`
 
-Catálogo completo de las 104 skills del proyecto.
+Catálogo completo de las skills del proyecto (ver SKILLS-MANIFEST.md).
 
 ## Release Workflow (Regla 7)
 

@@ -1,3 +1,11 @@
+// State machine C0 — per-state tool enforcement (PLAN→ACT→VERIFY→COLLATERAL→RESEARCH→EVALUATE→REVIEW→ACCEPT→CLOSE→STALL).
+// This is the CANONICAL C0 definition consumed by campaign_enforce_state / campaign_validate_action.
+// Hierarchy of state definitions (do NOT diverge them without updating this):
+//   1. state-tools.mjs        → C0 enforcement (this file, runtime via campaign-server.mjs)
+//   2. workflows/*.json       → per-task-type phase templates, consumed ONLY by campaign_classify_workflow / campaign_detect_task_type.
+//      Their states (localizing, implementing, ...) do NOT pass through enforce_state — they are classification output, not enforcement input.
+//   3. prompts/iter-loop-tools.md → prose spec of C0 (PLAN→ACT→VERIFY→COLLATERAL→EVALUATE→REVIEW→ACCEPT→CLOSE) for the agent.
+//   4. enforcement/session-tracking.ps1 → telemetry, not a state machine.
 const STATE_TOOLS = {
   PLAN: {
     allowed: ["read", "grep", "glob", "codegraph_explore", "campaign_*", "skill", "bash", "websearch", "webfetch", "argus_*", "metasearchmcp_*"],

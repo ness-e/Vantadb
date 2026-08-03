@@ -109,16 +109,16 @@ codegraph_callers "VantaEmbedded::connect"
 |--------|----------|
 | `dev-tools/verify.ps1` | Pre-flight completa (fmt → check → clippy → audit → deny → nextest) |
 | `dev-tools/verify_changed.ps1` | **Quick verify**: fmt → check → clippy solo en `vantadb` core. ~30s |
-| `.git/hooks/pre-commit` | Muestra preview no-blocking de tests afectados por staged changes |
-| `.git/hooks/pre-push` | Corre `verify.ps1` completo antes de cada push |
+| `.opencode/skills/unified-review/templates/pre-push.ps1` | Template del pre-push barrier (SIPP). **No instalado** — verificar manualmente. |
+
+> **Nota:** Los hooks git (`pre-commit`/`pre-push`) NO están instalados. La verificación previa a push es manual (Regla 1). Para instalar el pre-push barrier, seguir las instrucciones de `templates/pre-push.ps1` (§ Installation).
 
 **Flujo típico local:**
 ```
 git add .                                           # stage changes
-# pre-commit hook muestra preview de tests afectados
-dev-tools/verify_changed.ps1                       # quick check (~30s)
+dev-tools/verify_changed.ps1                       # quick check (~30s) antes de commit
 git commit -m "feat: ..."                           # commit
-# pre-push hook corre verify.ps1 completo (~2-5min)
+dev-tools/verify.ps1                               # pre-flight completa antes de push (~2-5min)
 git push
 ```
 ## Understand-Anything
@@ -410,7 +410,7 @@ Efectos: press/press-lg/glow-neon/glitch-hover/scanlines/halftone/speed-lines/gr
 ## Skills Manifest
 
 **Todas las skills están centralizadas en:**
-- `.agents/skills/` (proyecto, 104 skills esenciales)
+- `.agents/skills/` (proyecto, 82 skills) + `.opencode/skills/` (32 skills)
 - Referencia completa en: `SKILLS-MANIFEST.md` (raíz del proyecto)
 
 **Siempre preferir la copia del proyecto sobre la global.**
@@ -749,7 +749,7 @@ benches/                   ← Criterion benchmarks ([[bench]] in Cargo.toml)
 - **Markdown linting**: `.markdownlint-cli2.yaml` — line length disabled, HTML `div`/`h1`/`p`/`br` allowed
 - **WASM**: vanta-wasm binary uses `opt-level = "s"` + strip in release
 - **OpenCode MCP config**: `opencode.jsonc` at root (CodeGraph MCP server)
-- **CodeGraph CI hooks**: verify.ps1/verify_changed.ps1 + pre-commit/pre-push hooks
+- **CodeGraph CI hooks**: verify.ps1/verify_changed.ps1 (git hooks no instalados — verificación manual, ver Regla 1)
 
 ## MCP Servers Disponibles
 
@@ -762,7 +762,7 @@ Configurados globalmente en `%USERPROFILE%\.config\opencode\opencode.json`.
 | **CodeGraph** | `codegraph serve --mcp` | Grafo de conocimiento del código (7.3K símbolos). Resuelve símbolos, flujos, blast radius |
 | **Pencil** | `mcp-server-windows-x64.exe` | Editor de archivos `.pen` — diseño UI visual, reemplazo de Figma |
 | **Playwright** | `@playwright/mcp` | Automatización de navegador: navegar, click, screenshot, snapshot, redes |
-| **Campaign** | `node .opencode/task-system/mcp/campaign-server.mjs` | Task system: 30+ tools para plan, task, verify, state machine |
+| **Campaign** | `bun .opencode/task-system/mcp/campaign-server.mjs` | Task system: 30+ tools para plan, task, verify, state machine |
 | **MetaSearchMCP** | `metasearchmcp-mcp` | Búsqueda multi-provider: web, GitHub, académico, código. DuckDuckGo gratis |
 | **Argus** | `argus mcp serve` | 14 providers, extracción 12-step, dead URL recovery |
 | **Discord** | `discord-mcp` | Gestión de servidor Discord: canales, roles, moderación |
@@ -788,7 +788,7 @@ Como agente de IA asistiendo en VantaDB, DEBES auditar el código y las peticion
 
 NUNCA sugieras mergear a `main` o pushear código sin antes ejecutar el pipeline local de certificación.
 
-**Prohibido `--no-verify`**: si el pre-commit o pre-push hook falla (tests, clippy, fmt, deny), NO se puede usar `--no-verify` para saltarlo. Hay que arreglar el error y reintentar hasta que pase. Error → arreglar → reintentar, tantas veces como sea necesario. `--no-verify` solo se permite si el usuario lo ordena explícitamente.
+**Prohibido `--no-verify`**: aunque los hooks git no están instalados localmente, la verificación previa es obligatoria antes de push. Si `dev-tools/verify.ps1` falla (tests, clippy, fmt, deny), NO se puede pushear saltándolo. Hay que arreglar el error y reintentar hasta que pase. Error → arreglar → reintentar, tantas veces como sea necesario. `--no-verify` solo se permite si el usuario lo ordena explícitamente.
 
 | Si el usuario hace... | Debes responder... |
 |---|---|
@@ -930,7 +930,7 @@ Si el usuario necesita un release inmediato sin pasar por el ciclo de release-pl
 
 #### Pre-push Gate
 
-El pre-push hook corre: `cargo fmt → cargo check → cargo clippy → cargo deny check → cargo nextest run`.
+La verificación pre-push manual corre: `cargo fmt → cargo check → cargo clippy → cargo deny check → cargo nextest run` (equivalente a `dev-tools/verify.ps1`).
 
 <!-- Learnings: P1-2 — 2026-07-17 -->
 - `nextest.toml` está en `.config/` (no en raíz). Buscar con `Get-ChildItem -Filter` si `Read` falla.

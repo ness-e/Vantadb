@@ -6,7 +6,7 @@
 
 .DESCRIPTION
   Lee docs/plans/<campaign>.md, encuentra la próxima tarea ⬜ PENDING,
-  invoca `opencode run` con el prompt de iter.md, espera que termine,
+  invoca `opencode run` con el prompt de iter-loop-tools.md, espera que termine,
   verifica progreso, y repite.
 
 .PARAMETER PlanFile
@@ -419,7 +419,7 @@ while ($true) {
     $batch = $pendingTasks | Select-Object -First $MaxParallel
     $jobs = @()
 
-    $promptPath = Join-Path $projectRoot ".opencode" "task-system" "prompts" "iter.md"
+    $promptPath = Join-Path $projectRoot ".opencode" "task-system" "prompts" "iter-loop-tools.md"
     if (-not (Test-Path $promptPath)) {
       Write-Error "Prompt not found: $promptPath"
       Stop-HarnessLog -ExitCode 1
@@ -519,7 +519,7 @@ while ($true) {
 
   Sync-LastSynced $planFile
 
-  $promptPath = Join-Path $projectRoot ".opencode" "task-system" "prompts" "iter.md"
+  $promptPath = Join-Path $projectRoot ".opencode" "task-system" "prompts" "iter-loop-tools.md"
   if (-not (Test-Path $promptPath)) {
     Write-Error "Prompt not found: $promptPath"
     Stop-HarnessLog -ExitCode 1

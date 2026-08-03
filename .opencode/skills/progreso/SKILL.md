@@ -71,7 +71,7 @@ Completed tasks may come from 3 sources. Check ALL:
 
 ### D. Migrate to progreso (sin duplicados)
 
-1. Read `docs/progreso/README.md` — buscá el ID de la tarea en todas las secciones.
+1. Search `docs/progreso/README.md` — usá `grep` para localizar el ID de la tarea (no lo leas completo; son 3K+ líneas ~60K tokens). Grep primero; solo leé las secciones que coincidan.
 2. Si el ID **ya existe** en progreso → skip (no duplicar). Si es información nueva (commit, fecha) → actualizá la entrada existente.
 3. Si el ID **no existe**, agregá entrada en **`## Tareas Completadas`** (sección según fuente) con:
    ```
@@ -110,10 +110,9 @@ Tell the user that Backlog.md, plan file and progreso/README.md were updated and
 
 Before generating a new plan:
 
-1. Read `docs/progreso/README.md` — check if the previous task was already migrated.
-2. If not, run **Trigger 1** first to flush it.
-3. Find the task in `docs/Backlog.md` or the active plan file (`docs/plans/`). If status is ❌, change it to 🟡 (or leave it and update after completion).
-4. Proceed with the new work.
+1. Grep `docs/progreso/README.md` para el ID de la tarea previa (no leer completo — 3K+ líneas ~60K tokens). Si no está → correr **Trigger 1** primero.
+2. Find the task in `docs/Backlog.md` or the active plan file (`docs/plans/`). If status is ❌, change it to 🟡 (or leave it and update after completion).
+3. Proceed with the new work.
 
 ---
 

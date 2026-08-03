@@ -10,6 +10,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 # Active Backlog — VantaDB
 
 > **Purpose:** Single source of truth for all project tasks — organized by execution order.
+> **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
 > **Completed tasks moved to:** `docs/progreso/README.md`
 > **Verification method:** All items cross-checked against actual codebase (Jul 27, 2026). 8 tareas ejecutadas en sesión: TSK-106, MKT-03, NUEVO-21, MKT-04, TSK-107, COM-03, COM-04, Good first issues (18 creadas).
 > **Total open items:** ~100 (59 anteriores + 19 investigaciones INV-001..INV-017 + INV-024, -6 items migrados a completado REC-001/REC-010/INV-002/NUEVO-07/INV-019/TSK-104 + 15 GitHub issues GH-119..GH-144 convertidos a backlog Phase 11)
@@ -166,7 +167,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | ~~`DEVEX-DEMO`~~ | ~~**Demo app (Rust + Python)** — Phase 4.G~~ — **✅ COMPLETADA** (`examples/demo/demo.py` 239L con create → insert → search → delete, README, requirements.txt) | ~~🟡 2-3d~~ | ✅ |
 | ~~`DEVEX-EXAMPLES`~~ | ~~**Rust examples en `examples/rust/`** (no `docs/examples/`)~~ — **✅ COMPLETADA** (4 ejemplos: basic, hybrid, graphrag, concurrent. Compilan clean.) | ~~🟢 4-6h~~ | ✅ |
 | `NUEVO-16` | **Product Quantization (PQ) 96x** — compresión para datasets >RAM. RabitQ + TurboQuant + SQ8 existen, PQ real no | Alto | 🔵 |
-| `NUEVO-17` | **Segment LSM-style** — hot/warm/cold tiers. Fjall tiene LSM interno, tiers no | Muy alto | 🔵 |
+| ~~`NUEVO-17`~~ | ~~**Segment LSM-style** — hot/warm/cold tiers. Fjall tiene LSM interno, tiers no~~ — **✅ COMPLETADA 2026-08-02** (TierPolicy SizeBased/FrequencyBased/AgeBased + TierPolicyConfig + L3 archive configurable en `LsmConfig`, promoción L0(hot)→L1(warm)→L2(cold)→L3(archive) en `compact_level`, 3 tests de promoción. `docs/architecture/STORAGE-TIERS.md`.) | ~~Muy alto~~ | ✅ |
 | `NUEVO-18` | **Sparse vectors nativos** — hybrid search real. Solo mención en test | Alto | 🔵 |
 | ~~`NUEVO-21`~~ | ~~**Vectara competitive research**~~ | ~~🟢 2-4h~~ | ✅ Hallazgo clave: Vectara cerró self-service tier → gap de mercado para soluciones local-first. Reporte en `docs/audit-reports/vectara-competitive-research-2026-07-27.md` |
 | `TSK-107b` | **✅ Audit logging enterprise (JSONL, timestamp + op)** — módulo `src/audit.rs` append-only JSONL (ISO 8601 + op + outcome + reason), opt-in via `audit_log_path`/`VANTADB_AUDIT_LOG_PATH`, hooks en put/put_batch/delete/delete_by_filter/export/import, no-op sin config. Migrada a progreso. | 🟡 2-3d | 🟡 | ✅ Hecho |

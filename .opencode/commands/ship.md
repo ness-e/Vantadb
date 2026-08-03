@@ -15,7 +15,7 @@ Spawn three subagents concurrently using the Agent tool. **Issue all three Agent
 
 In Claude Code, each call passes `subagent_type` matching the persona's `name` field:
 
-1. **`vanta-audit`** — Run a security + memory-safety audit. Check `unsafe` blocks, FFI boundaries, `cargo audit`/`deny`, supply chain risk. Also performs five-axis code review for non-security aspects (correctness, readability, architecture, performance). Output the standard audit template.
+1. **`vanta-audit`** — Run a security + memory-safety audit only. Check `unsafe` blocks, FFI boundaries, `cargo audit`/`deny`, supply chain risk. Functional code review (correctness, readability, architecture, performance) is out of its scope — handled in Phase B. Output the standard audit template.
 2. **`vanta-chaos`** — Analyze test coverage and resilience for the change. Identify gaps in fuzzing, chaos tests, edge cases, race conditions, and concurrency scenarios. Output coverage analysis with recommended test additions.
 3. **`vanta-tuner`** — Run a performance and observability audit. Check RED metrics on any new endpoints, benchmark regression for changed hot paths, binary size impact, and backpressure requirements. Output the optimization report template.
 
@@ -25,7 +25,7 @@ In Claude Code, each call passes `subagent_type` matching the persona's `name` f
 
 Once all three reports are back, the main agent (not a sub-persona) synthesizes them:
 
-1. **Code Quality** — Aggregate Critical/Important findings from `vanta-audit` and any failing tests, lint, or build output. Resolve duplicates between reviewers.
+1. **Code Quality** — Aggregate Critical/Important findings from `vanta-audit` and any failing tests, lint, or build output. Resolve duplicates between reviewers. Perform the functional five-axis review (correctness, readability, architecture) here in main context — no persona owns it.
 2. **Security** — Promote any Critical/High `vanta-audit` findings to launch blockers. Cross-reference with its security axis.
 3. **Performance** — Pull from `vanta-tuner`'s report; cross-check Core Web Vitals if applicable.
 4. **Accessibility** — Verify keyboard nav, screen reader support, contrast (not covered by the three personas — handle directly here, or invoke the accessibility checklist).

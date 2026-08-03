@@ -59,11 +59,10 @@ Los módulos se ejecutan en 7 waves, de mayor a menor impacto:
 ## Batch mode para una wave completa
 
 ```bash
-/loop-goal --prompt-file .opencode/skills/task-executor/batch-prompt.md \
-  "PLAN_FILE=docs/plans/review-deep-wave0.md" "FAIL_MODE=stop"
+.opencode/task-system/harness/harness-executor.ps1 -PlanFile docs/plans/review-deep-wave0.md -Interval 5
 ```
 
-Primero creá un plan file con los módulos de la wave.
+Primero creá un plan file con los módulos de la wave (formato de campaign-executor).
 
 ## Lo que hace internamente por módulo
 

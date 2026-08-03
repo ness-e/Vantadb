@@ -12,29 +12,25 @@ permission:
   glob: allow
   grep: allow
   list: allow
-  bash:
-    "cargo *": allow
-    "cargo semver-checks*": allow
-    "git *": allow
-    "just *": allow
-    "npm *": allow
-    "pip *": allow
-    "maturin *": allow
-    "*": allow
+  bash: allow
   lsp: allow
   skill: allow
   todowrite: allow
   webfetch: allow
   websearch: allow
+  external_directory: allow
+  "codegraph_*": allow
+  "campaign_*": allow
+  "cargo-mcp_*": allow
+  "rust-analyzer-mcp_*": allow
+  "metasearchmcp_*": allow
+  "argus_*": allow
+  "playwright_*": allow
+  "discord_*": allow
+  "lottiefiles-creator_*": allow
   task:
-    "vanta-arch": allow
-    "vanta-worker": allow
-    "vanta-engine": allow
-    "vanta-audit": allow
-    "vanta-chaos": allow
-    "vanta-tuner": allow
-    "vanta-docs": allow
-    "*": allow
+    "*": deny
+    "vanta-*": allow
 ---
 
 # VantaDB Lead — Release Orchestrator

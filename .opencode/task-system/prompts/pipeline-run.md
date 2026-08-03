@@ -85,7 +85,7 @@ estancadas.
        7. Implementá ~100 líneas, un step
        8. Verify: campaign_verify_cmd (MCP)
        9. Si verify falla: retry ladder (feedback → fresh context → strategy → FAILED)
-       10. Si pasa: git add -A && git commit -m \"{type}({id}): {name}\"
+       10. Si pasa: git add <solo los archivos tocados en esta tarea> && git commit -m \"{type}({id}): {name}\"
        11. Escribí Context Save Point en task file (decisiones, problemas)
        12. Devolvé: resultado (✅/❌), commit hash, qué se hizo, archivos tocados"
    e. Esperá resultado del sub-agente

@@ -81,7 +81,7 @@ Iniciá el loop PowerShell desde la terminal o vía MCP:
 
 Cada iteración del harness:
 1. Lee el plan file, encuentra próxima tarea ⬜ PENDING
-2. Inyecta `.opencode/task-system/prompts/iter.md` con `{{CAMPAIGN_ID}}` = "stabilization-v1"
+2. Inyecta `.opencode/task-system/prompts/iter-loop-tools.md` con `{{CAMPAIGN_ID}}` = "stabilization-v1"
 3. Invoca `opencode run` con el prompt
 4. El agente ejecuta **exactamente un paso** (no una tarea completa)
 5. Usa MCP tools para todo: `campaign_get_next_task`, `campaign_update_task_state`, `campaign_verify_cmd`, `campaign_load_skills`, `campaign_detect_task_type`
@@ -224,7 +224,7 @@ Usá `campaign_memory_write` para persistir el reporte y la decisión de freeze 
 |---------|------|
 | **Harness executor** | `.opencode/task-system/harness/harness-executor.ps1` |
 | **Plan prompt** | `.opencode/task-system/prompts/plan.md` |
-| **Iter prompt** | `.opencode/task-system/prompts/iter.md` |
+| **Iter prompt** | `.opencode/task-system/prompts/iter-loop-tools.md` |
 | **Task prompt** | `.opencode/task-system/prompts/task.md` |
 | **Pipeline command** | `.opencode/commands/pipeline.md` |
 | **Audit command** | `.opencode/commands/audit.md` |

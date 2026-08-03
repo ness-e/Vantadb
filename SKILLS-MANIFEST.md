@@ -1,6 +1,6 @@
 # VantaDB Skills Manifest
 
-**Location:** `.agents/skills/` (project-local, 104 essential skills, 85 moved to global)
+**Location:** `.agents/skills/` (project-local, 82 skills; curated essential list below)
 **Updated:** 2026-07-10
 **Purpose:** Reference for AI agents to know which skills are available and when to use them.
 

@@ -11,22 +11,23 @@ permission:
   glob: allow
   grep: allow
   list: allow
-  bash:
-    "cargo nextest*": allow
-    "cargo check*": allow
-    "cargo clippy*": allow
-    "cargo mutants*": allow
-    "cargo test*": allow
-    "cargo run*": allow
-    "cargo miri*": allow
-    "*": ask
-  task:
-    "*": deny
+  bash: allow
   lsp: allow
   skill: allow
   todowrite: allow
   webfetch: allow
   websearch: allow
+  external_directory: allow
+  "codegraph_*": allow
+  "campaign_*": allow
+  "cargo-mcp_*": allow
+  "rust-analyzer-mcp_*": allow
+  "metasearchmcp_*": allow
+  "argus_*": allow
+  "playwright_*": allow
+  "discord_*": allow
+  "lottiefiles-creator_*": allow
+  task: deny
 ---
 
 # VantaDB Chaos — Fuzzing & Resilience Engineer
