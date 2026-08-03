@@ -1602,6 +1602,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ `src/cost_estimator.rs` (nuevo): `CostEstimator<'a>` con `selectivity()` (lógica 1:1 de `get_estimated_selectivity`), `estimate_operator()` (Scan/FilterRelational/VectorSearch/Limit/Traverse/Sort/Project/Join/SubqueryFilter con stats ya disponibles, sin scans), `estimate_plan()` (encadena operadores, rows fluyen, bytes = operador pico), `select_filter_strategy()` y `FilterStrategy` movidos desde `sdk/search/mod.rs`. `StorageEngine::get_estimated_selectivity` conserva firma pública y delega (21 callers intactos). `ResourceGovernor::estimate_plan_cost` `pub(crate)` unwired con `#[allow(dead_code)]` (consumidor OLD-21 futuro). 4 tests unitarios nuevos. `cargo check`/`fmt`/`clippy -D warnings` exit 0; `cargo nextest --profile audit -p vantadb` 1776 passed. Commit `f7cb46e4`.
 - **Ids:** `COMP-028`
 
+### OLD-21: CP-Index formal (query routing inteligente)
+- **Fuente:** Backlog (Phase 9 — Features perdidas con alto valor de mercado)
+- **Fecha:** 2026-08-03
+- **Objetivo:** Formalizar el query routing multi-índice (HNSW/IVF/Flat) usando el Semantic Cost Estimator de COMP-028. Habilitado por la dependencia COMP-028 ✅.
+- **Resultado:** ✅ `CostEstimator::select_index_strategy()` en `src/cost_estimator.rs` (heurística: Flat si `nodes <= flat_threshold` — consistente con `CPIndex::use_flat_search`; IVF si `nodes >= 10_000`; HNSW default; respeta config explícita no-HNSW). Conectado en `vector_memory_search` (`src/sdk/search/mod.rs`) + métrica `record_vector_index_routing` (3 contadores en `src/metrics/core/mod.rs` + snapshot). Admission budget de `Executor::execute_plan` (`src/executor.rs`) ahora usa `ResourceGovernor::estimate_plan_cost` (removido `#[allow(dead_code)]`) en vez del MIB fijo; guard libera bytes en error path (test `test_execute_plan_frees_admission_on_error`). 6 tests nuevos (4 routing + 1 admission + 1 governor). `cargo check`/`fmt`/`clippy -D warnings` exit 0; `cargo nextest --profile audit --workspace --build-jobs 2` 1816 passed, 2 skipped. Firmas públicas intactas (search()/VantaMemorySearchRequest sin cambios); `planner.rs` classify/CBO no tocado.
+- **Ids:** `OLD-21`
+
 ### TSK-107b: Audit logging enterprise (JSONL, timestamp + op)
 - **Fuente:** Backlog (Phase 8 — Post-Launch & Enterprise)
 - **Fecha:** 2026-08-02

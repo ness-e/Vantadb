@@ -11,7 +11,6 @@ use crate::storage::StorageEngine;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 const GIB: usize = 1024 * 1024 * 1024;
-const MIB: usize = 1024 * 1024;
 
 /// Result of executing a statement against the storage engine.
 #[derive(Debug)]
@@ -407,7 +406,12 @@ impl<'a> Executor<'a> {
         let governor = ResourceGovernor::new(2 * GIB, 50); // 2GB Soft Limit, 50ms timeout
         governor.apply_temperature_limits(&mut plan);
 
-        let estimated_mem_cost = MIB; // 1MB estimated buffer footprint per query
+        // OLD-21: derive the admission budget from the semantic cost estimator
+        // instead of a fixed 1MB heuristic. The plan is estimated AFTER
+        // temperature limits are applied so hot systems are accounted correctly.
+        let estimated_mem_cost = governor
+            .estimate_plan_cost(self.storage, &plan)
+            .estimated_bytes;
         governor.request_allocation(estimated_mem_cost)?;
 
         // Intercept Conflict entity scan for experimental governance immediately
@@ -1006,5 +1010,38 @@ mod tests {
             }
             _ => panic!("expected Write result"),
         }
+    }
+
+    // ── Admission guard (OLD-21): cost-aware budget must be returned on error ──
+
+    #[test]
+    #[serial_test::serial]
+    fn test_execute_plan_frees_admission_on_error() {
+        use crate::governor::ALLOCATED_BYTES;
+        use std::sync::atomic::Ordering;
+
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        // The Conflict# scan hits the experimental-governance early-return AFTER
+        // `request_allocation`; the guard MUST `free_allocation` the same bytes
+        // or the in-flight counter leaks and eventually OOMs real queries.
+        let plan = LogicalPlan {
+            operators: vec![LogicalOperator::Scan {
+                entity: "Conflict#missing-extension".to_string(),
+            }],
+            temperature: 0.0,
+            enforce_role: None,
+        };
+
+        ALLOCATED_BYTES.store(0, Ordering::SeqCst);
+        let result = ex.execute_plan(plan);
+        assert!(result.is_err(), "Conflict scan must be rejected");
+        assert_eq!(
+            ALLOCATED_BYTES.load(Ordering::SeqCst),
+            0,
+            "admission budget must be freed on the error path"
+        );
+        ALLOCATED_BYTES.store(0, Ordering::SeqCst);
     }
 }

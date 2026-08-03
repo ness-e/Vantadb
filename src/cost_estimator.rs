@@ -10,6 +10,7 @@
 //! `FilterStrategy` moved from `sdk/search/mod.rs` as a `pub(crate)` type and is
 //! not re-exported through any public API.
 
+use crate::index::IndexType;
 use crate::node::FieldValue;
 use crate::query::{LogicalOperator, LogicalPlan, RelOp};
 use crate::sdk::types::VantaMemoryMetadata;
@@ -29,6 +30,13 @@ const AVG_NODE_BYTES: usize = 1024;
 /// Default embedding dimension used for vector search byte estimates.
 const DEFAULT_EMBEDDING_DIMS: usize = 128;
 
+/// Node-count threshold above which IVF lazy-build is preferred over HNSW.
+///
+/// Below this, HNSW graph traversal is the cheapest correct path; at scale the
+/// inverted-file (clustering) index wins on latency. Only consulted when the
+/// engine has no explicit non-HNSW `index_type` configured.
+const IVF_NODE_THRESHOLD: usize = 10_000;
+
 /// Estimated cost of a single logical operator.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct OperatorCost {
@@ -40,11 +48,11 @@ pub(crate) struct OperatorCost {
 
 /// Estimated cost of a full logical plan.
 #[derive(Debug, Clone, Copy)]
-// COMP-028: fields are read by the (unwired) OLD-21 admission consumer and the
-// unit tests; no production reader yet by design.
-#[allow(dead_code)]
+// COMP-028: estimated_bytes feeds the OLD-21 admission guard in executor.rs;
+// estimated_rows is read only by unit tests (kept for future cardinality use).
 pub(crate) struct PlanCost {
     /// Estimated rows produced by the final operator.
+    #[allow(dead_code)] // read only by CostEstimator unit tests today.
     pub estimated_rows: f64,
     /// Estimated peak bytes (largest intermediate materialization).
     pub estimated_bytes: usize,
@@ -251,6 +259,33 @@ impl<'a> CostEstimator<'a> {
         }
     }
 
+    /// Choose which vector index backend to route a search through (OLD-21).
+    ///
+    /// Heuristic, not an optimizer:
+    /// - An explicitly configured non-HNSW `index_type` (Ivf/Flat/DiskAnn/…) is
+    ///   always honored — a user who asked for IVF gets IVF.
+    /// - Otherwise: Flat when `nodes <= flat_threshold` (matches
+    ///   [`CPIndex::use_flat_search`](crate::index::graph::CPIndex)), IVF once
+    ///   the dataset is large enough to amortize clustering, HNSW in between.
+    ///
+    /// The engine's [`search_nearest`](crate::index::search) performs the actual
+    /// routing identically (flat_threshold + config.index_type); this is the
+    /// single authority for the decision so callers can record/EXPLAIN it.
+    pub(crate) fn select_index_strategy(&self) -> IndexType {
+        let index = self.storage.hnsw.load();
+        if index.config.index_type != IndexType::Hnsw {
+            return index.config.index_type;
+        }
+        let nodes = index.nodes.len();
+        if index.config.flat_threshold.is_some_and(|t| nodes <= t) {
+            return IndexType::Flat;
+        }
+        if nodes >= IVF_NODE_THRESHOLD {
+            return IndexType::Ivf;
+        }
+        IndexType::Hnsw
+    }
+
     /// Estimate the cost of a full logical plan by chaining operator estimates
     /// in plan order. Rows flow between operators; bytes are accounted by the
     /// peak (largest intermediate materialization) operator.
@@ -275,6 +310,7 @@ mod tests {
     use super::*;
     use crate::backend::BackendKind;
     use crate::config::VantaConfig;
+    use crate::index::graph::CPIndex;
     use crate::node::{UnifiedNode, VectorRepresentations};
     use crate::sdk::types::VantaValue;
 
@@ -381,5 +417,80 @@ mod tests {
         let est = CostEstimator::new(&engine);
         let cost = est.estimate_operator(&LogicalOperator::Limit { top_k: 5 }, 100.0);
         assert_eq!(cost.estimated_rows, 5.0, "Limit trims rows to top_k");
+    }
+
+    /// Build a CPIndex with `n` nodes (level-0 only, fast for tests) using `cfg`.
+    fn index_with_n(n: usize, mut cfg: crate::index::graph::HnswConfig) -> std::sync::Arc<CPIndex> {
+        cfg.m = 8;
+        cfg.m_max0 = 8;
+        cfg.ef_construction = 4;
+        cfg.ef_search = 8;
+        cfg.ml = 1.0 / (8_f64).ln();
+        let idx = CPIndex::new_with_config(cfg);
+        for i in 0..n as u128 {
+            idx.add_with_level(
+                i,
+                crate::node::FilterBitset::new(),
+                crate::node::VectorRepresentations::Full(vec![0.1, 0.2, 0.3]),
+                0,
+                0,
+            );
+        }
+        std::sync::Arc::new(idx)
+    }
+
+    #[test]
+    fn test_select_index_strategy_small_dataset_flat() {
+        let engine = in_memory_engine();
+        // 0 nodes <= flat_threshold (default 10_000) → Flat.
+        assert_eq!(
+            CostEstimator::new(&engine).select_index_strategy(),
+            IndexType::Flat
+        );
+    }
+
+    #[test]
+    fn test_select_index_strategy_medium_dataset_defaults_to_hnsw() {
+        let engine = in_memory_engine();
+        // Flat disabled, 100 nodes < IVF_NODE_THRESHOLD → HNSW.
+        let cfg = crate::index::graph::HnswConfig {
+            flat_threshold: None,
+            ..Default::default()
+        };
+        engine.hnsw.store(index_with_n(100, cfg));
+        assert_eq!(
+            CostEstimator::new(&engine).select_index_strategy(),
+            IndexType::Hnsw
+        );
+    }
+
+    #[test]
+    fn test_select_index_strategy_large_dataset_ivf() {
+        let engine = in_memory_engine();
+        // 10_000 nodes, flat disabled → at/above IVF_NODE_THRESHOLD → IVF.
+        let cfg = crate::index::graph::HnswConfig {
+            flat_threshold: None,
+            ..Default::default()
+        };
+        engine.hnsw.store(index_with_n(IVF_NODE_THRESHOLD, cfg));
+        assert_eq!(
+            CostEstimator::new(&engine).select_index_strategy(),
+            IndexType::Ivf
+        );
+    }
+
+    #[test]
+    fn test_select_index_strategy_respects_explicit_config() {
+        let engine = in_memory_engine();
+        // Explicit IVF on a tiny dataset overrides the flat/hnsw heuristics.
+        let cfg = crate::index::graph::HnswConfig {
+            index_type: IndexType::Ivf,
+            ..Default::default()
+        };
+        engine.hnsw.store(index_with_n(3, cfg));
+        assert_eq!(
+            CostEstimator::new(&engine).select_index_strategy(),
+            IndexType::Ivf
+        );
     }
 }

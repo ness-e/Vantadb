@@ -615,6 +615,13 @@ impl VantaEmbedded {
 
         let candidates = {
             let index = engine.vec_index();
+            // OLD-21: decide which index backend this query should route through
+            // (Flat / IVF / HNSW). `select_index_strategy` returns the single
+            // authority for the decision; the metric lets operators observe it.
+            // `search_nearest` executes the matching backend internally via the
+            // index's `flat_threshold` + `index_type` — no duplicate fork here.
+            let routing = CostEstimator::new(&engine).select_index_strategy();
+            crate::metrics::record_vector_index_routing(routing);
             // After LSM compaction, nodes may reside on any level (L0..L3).
             // Pass `None` to force HNSW to use inline vec_data for distance
             // computation — this is correct for all levels since `get()` later

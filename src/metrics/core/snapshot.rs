@@ -77,6 +77,12 @@ pub struct OperationalMetricsSnapshot {
     pub planner_text_only_queries: u64,
     /// Total queries planned as vector-only.
     pub planner_vector_only_queries: u64,
+    /// Total memory searches routed to the flat index backend (OLD-21).
+    pub index_routing_flat: u64,
+    /// Total memory searches routed to the IVF backend (OLD-21).
+    pub index_routing_ivf: u64,
+    /// Total memory searches routed to the HNSW backend (or DiskANN/SCANN) (OLD-21).
+    pub index_routing_hnsw: u64,
     /// Total records exported.
     pub records_exported: u64,
     /// Total records imported.

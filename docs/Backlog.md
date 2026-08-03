@@ -248,7 +248,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | ~~`OLD-16`~~ | ~~**WAL rotation a 256MB** — `WalWriter::try_auto_rotate()` en `append()`/`batch_append()`. 3 tests (trigger, no-trigger, data preservation). 52/52 WAL tests pass.~~ | ~~🟢 1d~~ | ~~✅ COMPLETADA~~ |
 | ~~`OLD-19`~~ | ~~**Rehidratación desde shadow archive** — `VantaEmbedded::recover_archived_nodes()`, MCP tool `rehydrate`, Python binding. Conecta `StorageEngine::recover_archived_nodes()` (6 tests existentes) a SDK público.~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | OLD-07 (AutoHot/Cold tiering) |
 | ~~`OLD-20`~~ | ~~Contextual Priming (cache warming predictivo) — ✅ COMPLETADA. Auto-decay cada 1000 eventos, métricas exportables, co-access tracking ya conectado en hot path.~~ | ~~🟢 2-3d~~ | ~~✅ COMPLETADA~~ | ~~Ninguna~~ |
-| `OLD-21` | CP-Index formal (query routing inteligente) — `CPIndex` existe como struct HNSW, no query routing formal | 🟡 1 sem | ⏳ Deferido — Routing texto/vector/híbrido ya existe en `planner.rs` (classify + CBO). Routing multi-índice (HNSW/IVF/Flat) depende de COMP-028 (Semantic Cost Estimator) | COMP-028 |
+| ~~`OLD-21`~~ | ~~**CP-Index formal (query routing inteligente)** — `CostEstimator::select_index_strategy()` (Flat ≤ flat_threshold, IVF ≥ 10K, HNSW default; respeta config explícita). Conectado en `vector_memory_search` (métrica `record_vector_index_routing`). Admission budget de `Executor::execute_plan` ahora usa `ResourceGovernor::estimate_plan_cost` (removido dead_code) en vez de MIB fijo. 6 tests nuevos, 1816 tests ✅.~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | COMP-028 ✅ |
 
 ---
 

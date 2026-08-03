@@ -88,6 +88,11 @@ static PLANNER_TEXT_ONLY_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 static PLANNER_VECTOR_ONLY_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 static PLANNER_SPARSE_ONLY_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 
+// OLD-21: vector index routing decision counters.
+static INDEX_ROUTING_FLAT_TOTAL: AtomicU64 = AtomicU64::new(0);
+static INDEX_ROUTING_IVF_TOTAL: AtomicU64 = AtomicU64::new(0);
+static INDEX_ROUTING_HNSW_TOTAL: AtomicU64 = AtomicU64::new(0);
+
 // ── PERF-10: Eviction counters ───────────────────────────────
 
 /// Total number of nodes evicted from hot cache to cold storage.
@@ -201,6 +206,23 @@ pub fn record_planner_vector_only_query() {
 /// Record a query planned as sparse-only.
 pub fn record_planner_sparse_only_query() {
     PLANNER_SPARSE_ONLY_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
+}
+
+/// Record which vector index backend a memory search was routed to (OLD-21).
+///
+/// Flat / IVF / HNSW are the three routing targets selected by
+/// [`CostEstimator::select_index_strategy`]. DiskAnn and Scann execute via the
+/// HNSW-style non-flat path, so they count in the HNSW bucket conservatively.
+pub fn record_vector_index_routing(index_type: crate::index::IndexType) {
+    match index_type {
+        crate::index::IndexType::Flat => INDEX_ROUTING_FLAT_TOTAL.fetch_add(1, Ordering::Relaxed),
+        crate::index::IndexType::Ivf => INDEX_ROUTING_IVF_TOTAL.fetch_add(1, Ordering::Relaxed),
+        crate::index::IndexType::Hnsw
+        | crate::index::IndexType::DiskAnn
+        | crate::index::IndexType::Scann => {
+            INDEX_ROUTING_HNSW_TOTAL.fetch_add(1, Ordering::Relaxed)
+        }
+    };
 }
 
 /// Record memory record export.
@@ -510,6 +532,9 @@ pub fn operational_metrics_snapshot() -> OperationalMetricsSnapshot {
         planner_hybrid_queries: PLANNER_HYBRID_QUERIES_TOTAL.load(Ordering::Relaxed),
         planner_text_only_queries: PLANNER_TEXT_ONLY_QUERIES_TOTAL.load(Ordering::Relaxed),
         planner_vector_only_queries: PLANNER_VECTOR_ONLY_QUERIES_TOTAL.load(Ordering::Relaxed),
+        index_routing_flat: INDEX_ROUTING_FLAT_TOTAL.load(Ordering::Relaxed),
+        index_routing_ivf: INDEX_ROUTING_IVF_TOTAL.load(Ordering::Relaxed),
+        index_routing_hnsw: INDEX_ROUTING_HNSW_TOTAL.load(Ordering::Relaxed),
         records_exported: RECORDS_EXPORTED_TOTAL.load(Ordering::Relaxed),
         records_imported: RECORDS_IMPORTED_TOTAL.load(Ordering::Relaxed),
         import_errors: IMPORT_ERRORS_TOTAL.load(Ordering::Relaxed),
