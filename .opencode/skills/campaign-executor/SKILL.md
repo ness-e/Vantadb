@@ -373,6 +373,8 @@ la recitation. No avances sin haber completado verificación, commit, progreso."
 | El agente hace 2+ tareas en un turno | Ignoró "una iteración" | Usar el harness |
 | Harness no detecta progreso | Recitation faltante | Verificar que el agente escribió RECITATION |
 | Plan file corrupto | Regex no parsea | Revisar encoding de emojis |
+| Harness no encuentra tareas en el plan | Plan usa formato distinto (`### Task N:` esperado) | El parser acepta `#+\s*T\w+\s*\d+:` (cubre `### Task N:` y `## Tarea N:`). El plan DEBE listar tareas con `## Tarea <N>:` (o `### Task <N>:`) para que el harness las detecte |
+| Estado de tarea no detectado | Task file usa `- **Estado:** ⬜ PENDING` (markdown bold) | El parser ahora acepta `Estado:\**\s*[⬜⏳✅❌]` — tolera `**` y espacios alrededor del emoji |
 | last-synced desfasado | Task file editado sin plan file | El harness re-sincroniza automáticamente |
 | opencode run colgado | Tool output muy grande | El timeout del harness aborta |
 | Misma tarea reprocesada infinitamente | Stall detection mal configurado | Verificar $StallThreshold >= 2 |
