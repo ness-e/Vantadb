@@ -127,14 +127,14 @@ function Get-PlanTasks {
   param([string]$Path)
   $content = Get-Content $Path -Raw
   $tasks = @()
-  $matches = [regex]::Matches($content, '(?s)(### Task \d+:[^\n]*\n.*?)(?=### Task|\z)')
+  $matches = [regex]::Matches($content, '(?s)(#+\s*T\w+\s*\d+:[^\n]*\n.*?)(?=#+\s*T\w+\s*\d+|\z)')
   foreach ($m in $matches) {
     $block = $m.Groups[1].Value
-    $idMatch = [regex]::Match($block, '### Task (\d+):\s*(.+)')
-    $nameMatch = [regex]::Match($block, '### Task \d+:\s*(.+)')
-    $stateMatch = [regex]::Match($block, 'Estado:\s*([⬜⏳✅❌])')
-    $fileMatch = [regex]::Match($block, 'Task file:\s*`?([^`\n]+)')
-    $depMatch = [regex]::Match($block, 'Dependencias?:?\s*(.+)')
+    $idMatch = [regex]::Match($block, '#+\s*T\w+\s*(\d+):\s*(.+)')
+    $nameMatch = [regex]::Match($block, '#+\s*T\w+\s*\d+:\s*(.+)')
+    $stateMatch = [regex]::Match($block, 'Estado:\**\s*([⬜⏳✅❌])')
+    $fileMatch = [regex]::Match($block, 'Task file:\**\s*`?([^`\n]+)')
+    $depMatch = [regex]::Match($block, 'Dependencias?:\**\s*(.+)')
     $tasks += [PSCustomObject]@{
       Id        = if ($idMatch.Success) { $idMatch.Groups[1].Value } else { "?" }
       Name      = if ($nameMatch.Success) { $nameMatch.Groups[1].Value.Trim() } else { "?" }
@@ -160,9 +160,9 @@ function Get-StatusLine {
   $content = Get-Content $Path -Raw
   $match = [regex]::Match($content, '(✅ COMPLETADO|❌ ABORTADO|⏳ EN PROGRESO)')
   if ($match.Success) { return $match.Value }
-  $completed = [regex]::Matches($content, 'Estado:\s*✅').Count
-  $failed = [regex]::Matches($content, 'Estado:\s*❌').Count
-  $pending = [regex]::Matches($content, 'Estado:\s*[⬜⏳]').Count
+  $completed = [regex]::Matches($content, 'Estado:\**\s*✅').Count
+  $failed = [regex]::Matches($content, 'Estado:\**\s*❌').Count
+  $pending = [regex]::Matches($content, 'Estado:\**\s*[⬜⏳]').Count
   $total = $completed + $failed + $pending
   return "$completed/$total ✅ ($failed ❌, $pending pendientes)"
 }
@@ -373,14 +373,14 @@ while ($true) {
   if ($pendingTasks.Count -eq 0) {
     Write-Host "✅ No quedan tareas pendientes." -ForegroundColor Green
     $content = Get-Content $planFile -Raw
-    $content = $content -replace '(Estado:\s*)⏳ EN PROGRESO', '${1}✅ COMPLETADO'
+    $content = $content -replace '(Estado:\**\s*)⏳ EN PROGRESO', '${1}✅ COMPLETADO'
     Set-Content $planFile $content
 
     # Resumen final con desglose
     $counts = Get-TaskCounts $planFile
-    $completed = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\s*✅').Count
-    $failed = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\s*❌').Count
-    $pending = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\s*[⬜⏳]').Count
+    $completed = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\**\s*✅').Count
+    $failed = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\**\s*❌').Count
+    $pending = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\**\s*[⬜⏳]').Count
     Write-Host ""
     Write-Host "╔══════════════════════════════════════════════════╗" -ForegroundColor Green
     Write-Host "║  Resumen Final" -ForegroundColor Green
@@ -496,7 +496,7 @@ while ($true) {
       if ($Yes) {
         Write-Host "  → Stall, abortando (-Yes)." -ForegroundColor Red
         $content = Get-Content $planFile -Raw
-        $content = $content -replace '(Estado:\s*)⏳ EN PROGRESO', '${1}❌ ABORTADO'
+        $content = $content -replace '(Estado:\**\s*)⏳ EN PROGRESO', '${1}❌ ABORTADO'
         Set-Content $planFile $content
         Stop-HarnessLog -ExitCode 2
         exit 2
@@ -504,7 +504,7 @@ while ($true) {
       Write-Host "  ❌ Stall ($StallThreshold intentos). ¿Abortar? (s/N) " -ForegroundColor Red -NoNewline
       if ((Read-Host) -eq 's') {
         $content = Get-Content $planFile -Raw
-        $content = $content -replace '(Estado:\s*)⏳ EN PROGRESO', '${1}❌ ABORTADO'
+        $content = $content -replace '(Estado:\**\s*)⏳ EN PROGRESO', '${1}❌ ABORTADO'
         Set-Content $planFile $content
         Stop-HarnessLog -ExitCode 2
         exit 2
@@ -527,9 +527,9 @@ while ($true) {
   }
 
   $counts = Get-TaskCounts $planFile
-  $completed = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\s*✅').Count
-  $failed = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\s*❌').Count
-  $pending = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\s*[⬜⏳]').Count
+  $completed = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\**\s*✅').Count
+  $failed = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\**\s*❌').Count
+  $pending = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\**\s*[⬜⏳]').Count
   $summaryLine = "Resumen: $completed/$($counts.DO) ✅ · $failed ❌ · $pending pendientes"
 
   $promptTemplate = Get-Content $promptPath -Raw
