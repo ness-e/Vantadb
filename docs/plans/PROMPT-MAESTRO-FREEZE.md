@@ -247,12 +247,12 @@ Usá `campaign_memory_write` para persistir el reporte y la decisión de freeze 
 **Ejecutá. No preguntes. Solo ejecutá.** Si algo no está claro, usá default (ponytail ladder) y anotá en `campaign_memory_write`. Si encontrás un bug fuera del plan, registralo pero no lo toques hasta que el plan lo incluya. Zero-Bug Policy significa arreglar bugs, no cazar fantasmas.
 
 === RECITATION ===
-Campaign ID: 357cbbcf-7909-4d8f-90ca-5db03d976e55
-Objetivo activo: Windows signing CI
+Campaign ID: ba61ec71-cdda-414c-be36-df8af8bf548c
+Objetivo activo: Completar ENT-04 connection pooling + circuit breaker
 Estado: completed
-Última acción: Análisis complete: requiere Azure Trusted Signing ($10/mes). Deferido por ponytail — SHA256 + .zip son suficientes para integridad básica pre-1.0.
-Resultado: ✅ (deferred)
-Próxima acción: Agregar cuando release público lo requiera
-Contrato: Task file DEVOPS-10.md preparado con step YAML + secrets documentation
-Próxima tarea si completa: N/A
+Última acción: Migré ENT-04 a docs/progreso/README.md, marqué Backlog ✅, arreglé error pre-existente worker.rs, corrí validación de docs
+Resultado: ✅
+Próxima acción: Registrar decisión en campaign memory y commit
+Contrato: clippy limpio, fmt limpio, unit 9/9, e2e 2/2, workspace 1802/1802, progreso migrado, docs validados
+Próxima tarea si completa: 
 === END RECITATION ===

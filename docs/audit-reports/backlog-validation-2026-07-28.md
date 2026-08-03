@@ -132,7 +132,7 @@ Archivo único de definición formal de tarea en el proyecto.
 | **NUEVO-17** | Segment LSM (hot/warm/cold) | ⚠️ | **Hot/Cold existen** con eviction y promoción. Backlog dice "tiers no" — esto es incorrecto. Falta "Warm" tier y LSM compaction real. |
 | **NUEVO-18** | Sparse vectors nativos | **❌** | No existe `SparseVector`. Solo mención de "sparse" en bitset context. |
 | **TSK-107b** | Audit logging enterprise (JSONL) | **❌** | Sin módulo audit. JSONL solo para export/import, no para operaciones. Placeholder en `ops.rs:233`. |
-| **ENT-04** | Connection pooling + circuit breaker | **❌** | Una métrica existe (`circuit_breaker`). Sin ConnectionPool, sin state machine. |
+| **ENT-04** | Connection pooling + circuit breaker | **❌** | Una métrica existe (`circuit_breaker`). Sin ConnectionPool, sin state machine. *(Snapshot 2026-07-28 — **RESUELTO 2026-08-02**: `src/connection_pool.rs` + `src/circuit_breaker.rs`, cableado en `cli_server.rs`, commit `f0c76768`, unit 9/9 + e2e 2/2.)* |
 | **BIZ-01** | Enterprise (encryption + RBAC + audit) | ⚠️ | Crypto (`src/crypto.rs` AES-256-GCM) ✅. RBAC (`src/rbac.rs`) ✅. Enterprise crate separado ❌. Audit ❌. Replication ❌. |
 | **WEB-001** | WASM demo en `/playground` | **❌** | `CodePlayground` es **simulador pattern-matching**, no WASM real. Demo WASM de `web_old/` eliminada. |
 | **WEB-018** | Pricing strategy | ⚠️ | **2 modelos incompatibles**: `vanta-data.ts` ($49/seat Team) vs `GO_TO_MARKET.md` ($99/mo Pro, $499 Business). Sin decisión estratégica. |

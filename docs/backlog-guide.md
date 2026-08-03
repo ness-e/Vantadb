@@ -245,7 +245,7 @@ aliases: []
 | `ENT-01` 🟡 | **SOC 2 compliance prep** | Access controls, audit trails, data retention policies. Prepararse antes de que clientes lo pidan. |
 | `ENT-02` 🟡 | **HIPAA assessment** | Documentación para cumplimiento en datos médicos. Oportunidad de mercado (Chroma no lo tiene). |
 | `ENT-03` 🟡 | **Multi-tenant isolation** | Resource quotas: RAM, IOPS, storage por tenant. Para cloud multi-tenant. |
-| `ENT-04` 🟡 | **Connection pooling + circuit breaker** | Para server-mode clients. Conexiones reusables con backoff. |
+| ~~`ENT-04`~~ ✅ | ~~**Connection pooling + circuit breaker**~~ | ~~Para server-mode clients. Conexiones reusables con backoff.~~ **COMPLETADA 2026-08-02** — `src/connection_pool.rs` + `src/circuit_breaker.rs` (feature-gated `server`), 503 + `Retry-After`, probe half-open, e2e en `vantadb-server/tests/server.rs`. Commit `f0c76768`. |
 
 ---
 
