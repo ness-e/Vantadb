@@ -1,6 +1,6 @@
 ---
 title: ACID Rollback — Multi-Layer Design
-type: architecture
+type: research
 status: active
 tags: [vantadb, architecture, acid, transactions, wal, mvcc, rollback]
 last_reviewed: 2026-08-03
