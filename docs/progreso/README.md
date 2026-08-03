@@ -1595,6 +1595,20 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ `docs/Investigaciones/ACID_ROLLBACK_DESIGN.md` (28KB, en inglés). Research `ACID_TRANSACTIONS.md` estaba borrado del repo (commit `8b1c52cd`) pero íntegro en git — documentado el gap y citados los 3 enfoques verbatim (A=Fjall-only rechazado, B=Custom WAL layer recomendado, C=SQLite journal rechazado). Protocolo: extender B con `WalRecord::Prepare(u64)` + reordenar commit point (prepare durable → aplicar stores por costo de compensación → Commit; Abort ante fallo), recovery roll-forward idempotente sin breaking changes. Hallazgos F1-F6: commit durable antes de apply, recovery pre-MVCC (`created_by_txn: 0`), derived indexes sin compensación, VantaFile sin watermark, HNSW remove irreversible. Plan 4 fases (4a WAL v2+Prepare keystone, 4b KV pre-image+GC, 4c VantaFile watermark+HNSW commit protocol, 4d derived-index consistency). `cargo check -p vantadb` ✅ (0 cambios de código).
 - **Ids:** `INV-010`
 
+### INV-011: Core-Server Separation — auditoría
+- **Fuente:** Backlog (Investigaciones — Rust/SDK)
+- **Fecha:** 2026-08-03
+- **Objetivo:** Verificar si el core embebido (`VantaEmbedded`) tiene dependencias no deseadas del modo servidor (axum, tower, MCP). Sin implementación — solo auditoría.
+- **Resultado:** ✅ **Separación YA limpia — sin cambios requeridos.** Server deps (tokio, axum, tower_governor, tower-http, rustls, opentelemetry) todas optional detrás de features `server`/`tls`/`opentelemetry`/`prometheus`. `default = [cli, arrow, fjall, roaring, advanced-tokenizer, memmap2, fs2, sysinfo]` NO incluye server deps. Imports server-only gated: `cli_server.rs`/`circuit_breaker.rs`/`connection_pool.rs` bajo `#[cfg(feature = "server")]` en lib.rs. Verificado mecánicamente: `cargo tree --no-default-features -F cli -e normal` = 0 deps server; `cargo check -p vantadb --no-default-features -F cli` exit 0. Observación menor: `server = ["cli",...]` acopla server→cli (intencional, YAGNI separar hoy). Doc: `docs/Investigaciones/INV-011-core-server-separation.md`. Cero cambios de código.
+- **Ids:** `INV-011`
+
+### INV-012: Anti-Locality Disk Layout — re-evaluación
+- **Fuente:** Backlog (Investigaciones — Storage/Benchmarks)
+- **Fecha:** 2026-08-03
+- **Objetivo:** Re-evaluar si con LSM compaction + multi-level storage el BFS relabeling tiene más impacto que en DRV-130 (WONTFIX ~9%). Sin implementación — solo benchmark + recomendación.
+- **Resultado:** ✅ **WONTFIX CONFIRMADO — NO re-abrir.** Re-run `benches/vfile_search.rs` (vía vanta-tuner, release): with_vfile 614.5ms vs with_vfile_compacted 571.5ms → mejora locativa **~7.0%**, inferior al 9% de DRV-130 y muy bajo el 15% requerido. `with_vfile` ~4.9x sobre in-memory; BFS compaction recupera ~1 unidad. LSM/multi-level NO alteraron el resultado. Causa raíz vigente: search greedy (distancia-guía) diverge del orden BFS; overhead es call/mmap-deref, no page misses. Limitación: dataset 10K×128 ≈5MB cabe en page-cache (infravalora locality en SSD frío). Re-apertura hipotética requeriría dataset 1M+ cold-cache. Nota: backlog apuntaba a `src/index/graph.rs`; real en `src/storage/archive.rs`+`maintenance.rs`. Doc: `docs/Investigaciones/INV-012-antilocality-reevaluation.md`. Cero cambios de código.
+- **Ids:** `INV-012`
+
 ### INV-013: JSON-LD structured data — auditoría
 - **Fuente:** Backlog (Investigaciones — Web Frontend)
 - **Fecha:** 2026-08-03
