@@ -63,11 +63,16 @@ fn test_simple_graphrag_search() {
         ));
     }
 
-    db.add_edge(ids[0], ids[1], "uses", Some(1.0)).unwrap();
-    db.add_edge(ids[0], ids[2], "uses", Some(0.9)).unwrap();
-    db.add_edge(ids[0], ids[4], "uses", Some(0.8)).unwrap();
-    db.add_edge(ids[1], ids[3], "enables", Some(1.0)).unwrap();
-    db.add_edge(ids[2], ids[3], "enables", Some(1.0)).unwrap();
+    db.add_edge(ids[0], ids[1], "uses", Some(1.0), None)
+        .unwrap();
+    db.add_edge(ids[0], ids[2], "uses", Some(0.9), None)
+        .unwrap();
+    db.add_edge(ids[0], ids[4], "uses", Some(0.8), None)
+        .unwrap();
+    db.add_edge(ids[1], ids[3], "enables", Some(1.0), None)
+        .unwrap();
+    db.add_edge(ids[2], ids[3], "enables", Some(1.0), None)
+        .unwrap();
 
     let pipeline = GraphRagPipeline::new();
     let result = pipeline
@@ -148,7 +153,7 @@ fn test_max_expansion() {
         ));
     }
     for pair in ids.windows(2) {
-        db.add_edge(pair[0], pair[1], "connects", Some(1.0))
+        db.add_edge(pair[0], pair[1], "connects", Some(1.0), None)
             .unwrap();
     }
 
