@@ -12,6 +12,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::net::TcpListener;
+use vantadb::circuit_breaker::CircuitBreaker;
+use vantadb::connection_pool::ConnectionPool;
 use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
 
@@ -277,7 +279,8 @@ async fn bench_latency_with_auth() {
     let storage = Arc::new(StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap());
     let state = Arc::new(ServerState {
         storage,
-        semaphore: Arc::new(tokio::sync::Semaphore::new(100)),
+        circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+        pool: Arc::new(ConnectionPool::new(100, Duration::from_millis(5000))),
         api_key: Some(Arc::from("bench-key")),
         rbac_config: Default::default(),
     });

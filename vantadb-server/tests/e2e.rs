@@ -13,6 +13,8 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
+use vantadb::circuit_breaker::CircuitBreaker;
+use vantadb::connection_pool::ConnectionPool;
 use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
 
@@ -224,7 +226,8 @@ async fn test_e2e_persistence_across_restart() {
     let storage2 = Arc::new(StorageEngine::open(&storage_path).unwrap());
     let state2 = Arc::new(ServerState {
         storage: storage2,
-        semaphore: Arc::new(tokio::sync::Semaphore::new(10)),
+        circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+        pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: None,
         rbac_config: Default::default(),
     });
