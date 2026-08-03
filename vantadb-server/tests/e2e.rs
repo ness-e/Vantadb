@@ -84,13 +84,18 @@ async fn test_e2e_health_and_metrics() {
         .await
         .unwrap();
     assert_eq!(resp.status(), 200);
-    let text = resp.text().await.unwrap();
-    assert!(!text.is_empty(), "Metrics body should not be empty");
-    assert!(
-        text.contains("vanta_"),
-        "Metrics should contain 'vanta_' prefix: {}",
-        text
-    );
+    // Metrics body content is only guaranteed when the `prometheus` feature
+    // is enabled; without it the endpoint returns an empty body.
+    #[cfg(feature = "prometheus")]
+    {
+        let text = resp.text().await.unwrap();
+        assert!(!text.is_empty(), "Metrics body should not be empty");
+        assert!(
+            text.contains("vanta_"),
+            "Metrics should contain 'vanta_' prefix: {}",
+            text
+        );
+    }
 }
 
 #[tokio::test]
