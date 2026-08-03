@@ -4,7 +4,8 @@
 //! LSM level identifiers, per-level configuration, segment metadata, and the
 //! [`SegmentRegistry`] which manages multi-level VantaFile lifecycle.
 //!
-//! ponytail: L0 + L1 compaction only — L3 archive tier skipped.
+//! ponytail: tier promotion hot→warm→cold→archive (L0→L3) driven by
+//! size/tombstone thresholds; Frequency/Age heuristics are config-only for now.
 
 use std::path::PathBuf;
 use std::time::Instant;
@@ -201,28 +202,77 @@ impl Default for SegmentRegistry {
     }
 }
 
+/// Tier promotion heuristic. `compact_level`/`should_compact_level` currently
+/// execute `SizeBased`; the frequency/age variants are exposed as a nominated
+/// policy for a future per-node access tracker and do not change behavior yet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::enum_variant_names)] // *Based* suffixes are intentional, they mirror STORAGE-TIERS.md
+pub enum TierPolicy {
+    /// Promote when `write_cursor` reaches the level's max size or the tombstone
+    /// ratio crosses the level's threshold.
+    SizeBased,
+    /// Promote when a level's resident nodes fall below `cold_min_frequency`
+    /// accesses per window. Config-only until an access tracker exists.
+    FrequencyBased,
+    /// Promote when a level's resident nodes idle longer than `cold_age_days`.
+    /// Config-only until an access tracker exists.
+    AgeBased,
+}
+
+/// Tunable knobs for the tier policy.
+#[derive(Debug, Clone, Copy)]
+pub struct TierPolicyConfig {
+    /// Which heuristic drives promotion.
+    pub policy: TierPolicy,
+    /// Whether the L3 archive level participates in compaction. When `false`,
+    /// `should_compact_level` never selects L3 and L2 is the deepest tier.
+    pub archive: bool,
+    /// Accesses per window under which a node is considered cold (`FrequencyBased`).
+    pub cold_min_access: u32,
+    /// Days idled before a node is considered cold (`AgeBased`).
+    pub cold_age_days: u64,
+}
+
+impl Default for TierPolicyConfig {
+    fn default() -> Self {
+        Self {
+            policy: TierPolicy::SizeBased,
+            archive: true,
+            cold_min_access: 3,
+            cold_age_days: 30,
+        }
+    }
+}
+
 /// Per-level LSM configuration.
 #[derive(Debug, Clone, Copy)]
 pub struct LsmConfig {
     pub l0_max_size: u64,
     pub l1_max_size: u64,
     pub l2_max_size: u64,
+    pub l3_max_size: u64,
     pub l0_tombstone_threshold: f32,
     pub l1_tombstone_threshold: f32,
     pub l2_tombstone_threshold: f32,
+    pub l3_tombstone_threshold: f32,
     pub min_segment_size: u64,
+    /// Tier promotion policy (hot/warm/cold/archive).
+    pub tier: TierPolicyConfig,
 }
 
 impl Default for LsmConfig {
     fn default() -> Self {
         Self {
-            l0_max_size: 64 * 1024 * 1024,       // 64 MB
-            l1_max_size: 512 * 1024 * 1024,      // 512 MB
-            l2_max_size: 4 * 1024 * 1024 * 1024, // 4 GB
+            l0_max_size: 64 * 1024 * 1024,        // 64 MB
+            l1_max_size: 512 * 1024 * 1024,       // 512 MB
+            l2_max_size: 4 * 1024 * 1024 * 1024,  // 4 GB
+            l3_max_size: 32 * 1024 * 1024 * 1024, // 32 GB
             l0_tombstone_threshold: 0.20,
             l1_tombstone_threshold: 0.15,
             l2_tombstone_threshold: 0.10,
+            l3_tombstone_threshold: 0.05,
             min_segment_size: 64 * 1024, // 64 KB
+            tier: TierPolicyConfig::default(),
         }
     }
 }

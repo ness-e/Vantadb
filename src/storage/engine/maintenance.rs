@@ -845,7 +845,15 @@ impl StorageEngine {
         let (max_size, tombstone_threshold) = match level {
             0 => (config.l0_max_size, config.l0_tombstone_threshold),
             1 => (config.l1_max_size, config.l1_tombstone_threshold),
-            2 => (config.l2_max_size, config.l2_tombstone_threshold),
+            // L2 (cold) promotes to L3 (archive) only when the archive tier is
+            // enabled; otherwise L2 is the deepest tier.
+            2 => {
+                if !config.tier.archive {
+                    return false;
+                }
+                (config.l2_max_size, config.l2_tombstone_threshold)
+            }
+            // L3 is the terminal tier: nothing above it to promote into.
             _ => return false,
         };
         if seg_size >= max_size {
@@ -874,17 +882,31 @@ impl StorageEngine {
         ratio >= tombstone_threshold
     }
 
-    /// Compact a single LSM level by promoting live nodes to the next level.
+    /// Compact a single LSM level by promoting live nodes to the next tier.
     ///
     /// Reads live (non-tombstone) nodes from `level` using `self.get()`,
     /// rewrites them to `level+1` using `write_node_to_vstore()`, updates
     /// HNSW offset references, then truncates the source level's VantaFile.
     ///
-    /// ponytail: L0→L1 only. L1→L2 and L2→L3 archive tier deferred.
+    /// Chain: L0(hot) -> L1(warm) -> L2(cold) -> L3(archive). L3 participates
+    /// only when `LsmConfig::tier.archive` is enabled (see STORAGE-TIERS.md).
     #[tracing::instrument(skip(self), level = "info", err)]
     pub fn compact_level(&self, level: u8) -> Result<LsmReport> {
         let started = Instant::now();
         let target_level = level + 1;
+
+        // L3 is the terminal tier — there is no L4 to promote into. A direct
+        // compact_level(3) call (or a single-segment store) is a no-op, never
+        // an out-of-bounds access.
+        if target_level as usize >= self.vector_store.len() {
+            return Ok(LsmReport {
+                level,
+                nodes_promoted: 0,
+                reclaimed_bytes: 0,
+                duration_ms: started.elapsed().as_millis() as u64,
+                success: true,
+            });
+        }
 
         // All 4 LSM levels are pre-allocated at init (SegmentRegistry::open_or_create),
         // so vector_store has entries for L0..L3 — no unsafe growth needed.
@@ -1029,16 +1051,12 @@ impl StorageEngine {
         );
         let mut lsm_reports: Vec<LsmReport> = Vec::new();
         if run_lsm {
+            // Sources are L0..L2: compacting L2 promotes into the L3 archive
+            // tier. L3 itself is never a source (terminal). The archive gate
+            // lives in should_compact_level so disabling it stops at cold (L2).
             let max_level = match mode {
                 PipelineMode::CompactL0Only => 0u8,
-                _ => {
-                    // ponytail: L0+L1 only; L2 defered
-                    if self.vector_store.len() >= 2 {
-                        1u8
-                    } else {
-                        0u8
-                    }
-                }
+                _ => 2u8.min(self.vector_store.len().saturating_sub(1) as u8),
             };
             for level in 0..=max_level {
                 if !self.should_compact_level(level) {
@@ -1101,7 +1119,11 @@ impl StorageEngine {
             fresh_hnsw: fresh_hnsw_report,
             merge: merge_report,
             index: index_report,
-            lsm: None, // ponytail: added after compact_level phases
+            lsm: if lsm_reports.is_empty() {
+                None
+            } else {
+                Some(lsm_reports)
+            },
             total_duration_ms,
             success: all_ok,
         })

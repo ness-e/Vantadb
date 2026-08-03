@@ -1,7 +1,7 @@
 //! MAINTENANCE module tests: eviction, compaction, quantization, rebuild, consolidate, flush.
 
 use super::super::*;
-use super::{in_memory_engine, in_memory_read_only, sample_node};
+use super::{in_memory_engine, in_memory_read_only, in_memory_tiered_engine, sample_node};
 use crate::backend::BackendPartition;
 use crate::config::VantaConfig;
 use crate::node::{NodeTier, UnifiedNode};
@@ -1003,4 +1003,139 @@ fn test_flush_pending_hnsw_with_mixed_ops() {
     }
     let result = engine.flush_pending_hnsw().expect("flush mixed ops");
     let _ = result;
+}
+
+// ─── Tier promotion (hot/warm/cold/archive) ───────────────────
+
+/// Current LSM segment (0=L0 hot, 1=L1 warm, 2=L2 cold, 3=L3 archive) for a node.
+fn node_segment(engine: &StorageEngine, id: u128) -> u8 {
+    let hnsw = engine.hnsw.load();
+    let off = hnsw.nodes.get(&id).map(|n| n.storage_offset).unwrap();
+    crate::lsm::unpack_offset(off).0
+}
+
+#[test]
+fn test_tier_promotion_hot_to_cold() {
+    let engine = in_memory_tiered_engine();
+    engine.insert(&sample_node(42)).expect("insert");
+    // Starts in L0 (hot).
+    assert_eq!(node_segment(&engine, 42), 0);
+
+    // hot -> warm (L0 -> L1)
+    let r0 = engine.compact_level(0).expect("compact L0");
+    assert!(r0.success);
+    assert_eq!(r0.level, 0);
+    assert!(r0.nodes_promoted >= 1, "L0 should promote nodes");
+    assert!(r0.reclaimed_bytes > 0);
+    assert_eq!(
+        node_segment(&engine, 42),
+        1,
+        "node should now live in L1 (warm)"
+    );
+
+    // warm -> cold (L1 -> L2)
+    let r1 = engine.compact_level(1).expect("compact L1");
+    assert!(r1.success);
+    assert_eq!(r1.level, 1);
+    assert!(r1.nodes_promoted >= 1);
+    assert!(r1.reclaimed_bytes > 0);
+    assert_eq!(
+        node_segment(&engine, 42),
+        2,
+        "node should now live in L2 (cold)"
+    );
+
+    // The promoted node must remain queryable.
+    let n = engine.get(42).expect("get").expect("node exists");
+    assert_eq!(n.id, 42);
+}
+
+#[test]
+fn test_tier_promotion_cold_to_archive() {
+    let engine = in_memory_tiered_engine();
+    engine.insert(&sample_node(7)).expect("insert");
+    // Push the node through the whole chain to reach the archive tier (L3).
+    for level in 0..=2 {
+        let r = engine.compact_level(level).expect("compact chain");
+        assert!(r.success);
+    }
+    assert_eq!(
+        node_segment(&engine, 7),
+        3,
+        "node should now live in L3 (archive)"
+    );
+    let n = engine.get(7).expect("get").expect("node exists");
+    assert_eq!(n.id, 7);
+}
+
+#[test]
+fn test_tier_archive_disabled_stops_at_cold() {
+    let mut engine = in_memory_tiered_engine();
+    engine.insert(&sample_node(45)).expect("insert");
+    // Promote the node to L2 (cold) first, then disable the archive tier.
+    engine.compact_level(0).expect("compact L0");
+    engine.compact_level(1).expect("compact L1");
+    assert_eq!(node_segment(&engine, 45), 2, "node should sit in L2 (cold)");
+    engine.config.segment_optimizer.lsm.tier.archive = false;
+
+    // Force L2 (cold) over its threshold. With the archive tier disabled the
+    // pipeline must NOT compact L2 into L3, so no LSM report is produced.
+    engine.config.segment_optimizer.lsm.l2_max_size = 8;
+    let mut vs = engine.vector_store[2].write();
+    vs.write_cursor = 16;
+    drop(vs);
+
+    let pipe = engine
+        .run_pipeline(PipelineMode::CompactOnly)
+        .expect("compact-only pipeline");
+    assert!(
+        pipe.lsm.is_none() || pipe.lsm.unwrap().is_empty(),
+        "archive-tier disabled must not compact L2 into L3"
+    );
+    // The node stays in L2 (cold), never promoted to the archive tier.
+    assert_eq!(
+        node_segment(&engine, 45),
+        2,
+        "node should stay in L2 (cold)"
+    );
+}
+
+// ─── LsmReport coverage ───────────────────────────────────────
+
+#[test]
+fn test_lsm_report_shapes() {
+    let engine = in_memory_tiered_engine();
+    let report = engine.compact_level(0).expect("compact empty level");
+    // Empty level -> no promotion, but the report still carries its shape.
+    assert_eq!(report.level, 0);
+    assert_eq!(report.nodes_promoted, 0);
+    assert!(report.success);
+    assert!(report.duration_ms == 0 || report.reclaimed_bytes == 0);
+
+    engine.insert(&sample_node(50)).expect("insert");
+    let report = engine.compact_level(0).expect("compact with data");
+    assert_eq!(report.level, 0);
+    assert!(report.nodes_promoted >= 1);
+    assert!(report.reclaimed_bytes > 0);
+    assert!(report.success);
+
+    // PipelineReport surfaces the LSM report vec once compaction runs.
+    let mut engine = in_memory_tiered_engine();
+    engine.insert(&sample_node(51)).expect("insert");
+    // Force L0 past its threshold so the pipeline actually compacts it.
+    engine.config.segment_optimizer.lsm.l0_max_size = 8; // tiny
+    let mut vs = engine.vector_store[0].write();
+    vs.write_cursor = 16;
+    drop(vs);
+    let pipe = engine
+        .run_pipeline(PipelineMode::CompactOnly)
+        .expect("compact-only pipeline");
+    let reports = pipe.lsm.expect("pipeline should report LSM compactions");
+    assert!(
+        !reports.is_empty(),
+        "at least one LSM compaction report expected"
+    );
+    for r in &reports {
+        assert!(r.success);
+    }
 }

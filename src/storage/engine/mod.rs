@@ -221,7 +221,7 @@ pub struct MergeReport {
 /// Report from a single LSM level compaction pass.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct LsmReport {
-    /// Which level was compacted (0 = L0, 1 = L1, 2 = L2).
+    /// Which level was compacted (0 = L0 hot, 1 = L1 warm, 2 = L2 cold, 3 = L3 archive).
     pub level: u8,
     /// Number of nodes promoted to the next level.
     pub nodes_promoted: u64,
