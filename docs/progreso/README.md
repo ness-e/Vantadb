@@ -1567,6 +1567,27 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - `.github/workflows/python_wheels.yml` — pagefile/swap in CI/CD Windows/macOS
 ## Tareas Completadas (Migradas desde Backlog)
 
+### INV-007: Competitive benchmark vs LanceDB/Chroma — investigación y diseño
+- **Fuente:** Backlog (Phase 6 — Launch Campaign)
+- **Fecha:** 2026-08-03
+- **Objetivo:** Diseñar el benchmark competitivo VantaDB vs LanceDB/Chroma como asset marketing #1 para audiencia técnica. Sin implementación — solo diseño + propuesta.
+- **Resultado:** ✅ `docs/Investigaciones/INV-007-competitive-benchmark-lancedb-chroma.md` (19.8KB). Veredicto: NO publicar en `ann-benchmarks` (repo sin mantenimiento, recomienda migrar a VIBE, integración costaría 3-5 días) — usar solo como fuente de datasets HDF5 + metodología Recall-QPS. Harness standalone reproducible Python (`benchmarks/competitive/run_competitive_benchmark.py`) con glove-100-angular (1.18M×100d cosine) + sift-128-euclidean (1M×128d L2). Protocolo: 10K queries oficiales, warmup 100, 5 runs mediana, grid M∈{16,32}×ef_search∈{10,50,100,200}, hardware publicado. Métricas: Recall@10, QPS, latencia p50/p95/p99, RSS peak, build time. Contrato web `competitive_benchmark.json`. Slicing vertical: Slice 1 harness+JSON, Slice 2 tabla `competitive-table.tsx` bajo `<BenchmarkRace />`, Slice 3 CI manual. 10 fuentes web citadas. Cero cambios de código.
+- **Ids:** `INV-007`
+
+### INV-008: Batch Queries Python SDK — diseño
+- **Fuente:** Backlog (Investigaciones Post-Consolidación)
+- **Fecha:** 2026-08-03
+- **Objetivo:** Diseñar `VantaDB.search_batch()` para ejecutar múltiples queries en paralelo vía Rayon. Sin implementación — solo diseño.
+- **Resultado:** ✅ `docs/Investigaciones/INV-008-batch-queries-python-sdk.md` (10.9KB). Gate: parcialmente implementado — `search_batch(vectors, top_k)` vector-only YA existía (`vantadb-python/src/lib.rs:1181`, GIL release eager + Rayon `into_par_iter`, wrapper async `__init__.py:214`, tests `test_sdk.py` + `benchmarks/batch_vs_sequential_bench.py`). Gap real: no acepta SearchRequest completo (filters/text_query/namespace/hybrid). Propuesta: `search_batch_requests(queries: List[SearchRequest]) -> List[SearchResult]` con dataclass SearchRequest (vector, top_k, namespace, text_query, filters, distance_metric, explain), reusar patrón GIL+Rayon sobre `engine.search`, errores parciales fail-fast v1, target batch 10 < 3× single, plan 4 pasos (binding → dataclasses/stubs → tests → bench). Veredicto YAGNI: método nuevo en binding, wrapper Python puro descartado. Cero cambios de código.
+- **Ids:** `INV-008`
+
+### INV-009: Phrase Queries + Term Positions — diseño
+- **Fuente:** Backlog (Investigaciones Post-Consolidación)
+- **Fecha:** 2026-08-03
+- **Objetivo:** Diseñar phrase query operator con almacenamiento de term positions para snippets destacados. Sin implementación — solo diseño.
+- **Resultado:** ✅ `docs/Investigaciones/INV-009-phrase-queries-term-positions.md` (13.8KB). Gate: parcialmente implementado — infrastructure phrase-ready YA existía (`TextQueryPlan.phrases` text_index.rs:145, `TextRecordTerms.token_positions` :132, `posting_value(node_id, tf, positions)` :554, `text_positions_match_phrase` en src/sdk/search/phrase.rs:28 con 12 tests, test `spec_declares_phrase_ready_text_index_v3`). Gaps: sintaxis IQL, enforcement en query execution, highlight de frase. Propuesta: `Condition::TextMatch(field, query)` + `parse_condition` reusando `string_literal` (parser delega a `query_plan()`), filtro con `text_positions_match_phrases`, riesgo con advanced-tokenizer (frases deben tokenizar sin stopword removal), `highlight_phrases` para envolver frase completa en un solo `<strong>`. Veredicto tantivy: CUSTOM (YAGNI) — tantivy duplicaría índice, ~40 crates, sin feature ausente relevante. Cero cambios de código.
+- **Ids:** `INV-009`
+
 ### INV-010: ACID rollback multi-capa completo — diseño
 - **Fuente:** Backlog (Investigaciones Post-Consolidación)
 - **Fecha:** 2026-08-03
