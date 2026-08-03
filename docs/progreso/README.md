@@ -1567,6 +1567,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - `.github/workflows/python_wheels.yml` — pagefile/swap in CI/CD Windows/macOS
 ## Tareas Completadas (Migradas desde Backlog)
 
+### INV-010: ACID rollback multi-capa completo — diseño
+- **Fuente:** Backlog (Investigaciones Post-Consolidación)
+- **Fecha:** 2026-08-03
+- **Objetivo:** Diseñar el rollback coordinado entre WAL, VantaFile, HNSW y KV store para completar el soporte ACID (Phases 1-3 implementadas: WAL txn records, buffered writes, MVCC snapshot). Sin implementación — solo diseño.
+- **Resultado:** ✅ `docs/architecture/ACID_ROLLBACK_DESIGN.md` (28KB, en inglés). Research `ACID_TRANSACTIONS.md` estaba borrado del repo (commit `8b1c52cd`) pero íntegro en git — documentado el gap y citados los 3 enfoques verbatim (A=Fjall-only rechazado, B=Custom WAL layer recomendado, C=SQLite journal rechazado). Protocolo: extender B con `WalRecord::Prepare(u64)` + reordenar commit point (prepare durable → aplicar stores por costo de compensación → Commit; Abort ante fallo), recovery roll-forward idempotente sin breaking changes. Hallazgos F1-F6: commit durable antes de apply, recovery pre-MVCC (`created_by_txn: 0`), derived indexes sin compensación, VantaFile sin watermark, HNSW remove irreversible. Plan 4 fases (4a WAL v2+Prepare keystone, 4b KV pre-image+GC, 4c VantaFile watermark+HNSW commit protocol, 4d derived-index consistency). `cargo check -p vantadb` ✅ (0 cambios de código).
+- **Ids:** `INV-010`
+
 ### COMP-028: Semantic Cost Estimator (SCE) unificado
 - **Fuente:** Backlog (Phase 10 — Competitive Features)
 - **Fecha:** 2026-08-02
