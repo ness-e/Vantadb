@@ -102,6 +102,9 @@ fn compute_brute_force_gt(
                 let d = match metric {
                     DistanceMetric::Euclidean => -euclidean_sq(q, v),
                     DistanceMetric::Cosine => cosine_sim(q, v),
+                    DistanceMetric::SparseDot => {
+                        unreachable!("SparseDot is not a dense recall metric")
+                    }
                 };
                 (d, i as u128)
             })

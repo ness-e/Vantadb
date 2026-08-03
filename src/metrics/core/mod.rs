@@ -86,6 +86,7 @@ static HYBRID_CANDIDATES_FUSED_TOTAL: AtomicU64 = AtomicU64::new(0);
 static PLANNER_HYBRID_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 static PLANNER_TEXT_ONLY_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 static PLANNER_VECTOR_ONLY_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
+static PLANNER_SPARSE_ONLY_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 
 // ── PERF-10: Eviction counters ───────────────────────────────
 
@@ -195,6 +196,11 @@ pub fn record_planner_text_only_query() {
 pub fn record_planner_vector_only_query() {
     PLANNER_VECTOR_ONLY_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
     inc_counter!(PLANNER_VECTOR_ONLY_QUERIES);
+}
+
+/// Record a query planned as sparse-only.
+pub fn record_planner_sparse_only_query() {
+    PLANNER_SPARSE_ONLY_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
 }
 
 /// Record memory record export.

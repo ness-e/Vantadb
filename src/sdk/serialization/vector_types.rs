@@ -3,7 +3,7 @@
 use super::super::types::{
     u128_serde, VantaMemoryMetadata, VantaMemoryRecord, VantaSearchExplanationHit,
 };
-use crate::node::DistanceMetric;
+use crate::node::{DistanceMetric, SparseVector};
 use serde::{Deserialize, Serialize};
 
 /// Stable vector search request for persistent memory records.
@@ -11,15 +11,20 @@ use serde::{Deserialize, Serialize};
 pub struct VantaMemorySearchRequest {
     /// Namespace to restrict the search to.
     pub namespace: String,
-    /// Query vector for similarity search. Empty means vector search is skipped.
+    /// Query vector for similarity search. Empty means dense vector search is skipped.
     pub query_vector: Vec<f32>,
+    /// Optional sparse query vector for sparse-dot similarity. `None` skips
+    /// sparse search. Sparse search runs a brute-force dot over the matching
+    /// namespace and is fused with any dense/text scores.
+    #[serde(default)]
+    pub query_sparse: Option<SparseVector>,
     /// Metadata key-value filters to narrow results.
     pub filters: VantaMemoryMetadata,
     /// Optional text query for BM25 lexical search.
     pub text_query: Option<String>,
     /// Maximum number of results to return.
     pub top_k: usize,
-    /// Distance metric for vector similarity. Defaults to Cosine.
+    /// Distance metric for dense vector similarity. Defaults to Cosine.
     pub distance_metric: DistanceMetric,
     /// When true, each result will carry a `VantaSearchExplanation`.
     pub explain: bool,
@@ -30,6 +35,7 @@ impl Default for VantaMemorySearchRequest {
         Self {
             namespace: String::new(),
             query_vector: Vec::new(),
+            query_sparse: None,
             filters: Default::default(),
             text_query: None,
             top_k: 10,
@@ -90,6 +96,7 @@ mod tests {
             top_k: 5,
             distance_metric: DistanceMetric::Euclidean,
             explain: true,
+            query_sparse: None,
         };
         assert_eq!(req.namespace, "test");
         assert_eq!(req.query_vector.len(), 3);
@@ -108,6 +115,7 @@ mod tests {
             top_k: 20,
             distance_metric: DistanceMetric::Cosine,
             explain: false,
+            query_sparse: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let deserialized: VantaMemorySearchRequest = serde_json::from_str(&json).unwrap();
@@ -138,6 +146,7 @@ mod tests {
                 version: 1,
                 node_id: 42,
                 vector: None,
+                sparse_vector: None,
                 expires_at_ms: None,
             },
             score: 0.95,

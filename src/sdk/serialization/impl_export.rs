@@ -328,6 +328,7 @@ mod tests {
             payload: format!("payload for {key}"),
             metadata: VantaMemoryMetadata::new(),
             vector: None,
+            sparse_vector: None,
             ttl_ms: None,
         }
     }
@@ -341,6 +342,7 @@ mod tests {
             payload: format!("payload for {key}"),
             metadata,
             vector: None,
+            sparse_vector: None,
             ttl_ms: None,
         }
     }
@@ -430,6 +432,7 @@ mod tests {
             version: 1,
             node_id: crate::sdk::serialization::memory_node_id("imp", "k1"),
             vector: None,
+            sparse_vector: None,
             expires_at_ms: None,
         };
         let report = db.import_records(vec![record]).unwrap();
@@ -463,6 +466,7 @@ mod tests {
             version: 2,
             node_id: crate::sdk::serialization::memory_node_id("upd", "k1"),
             vector: None,
+            sparse_vector: None,
             expires_at_ms: None,
         };
         let report = db.import_records(vec![record]).unwrap();
@@ -485,6 +489,7 @@ mod tests {
             version: 1,
             node_id: 999, // wrong — doesn't match hash of "ns"/"k"
             vector: None,
+            sparse_vector: None,
             expires_at_ms: None,
         };
         let report = db.import_records(vec![record]).unwrap();
@@ -509,6 +514,7 @@ mod tests {
             version: 1,
             node_id: crate::sdk::serialization::memory_node_id("file", "k1"),
             vector: None,
+            sparse_vector: None,
             expires_at_ms: None,
         };
         let line = super::super::export_line_from_record(record);
@@ -541,6 +547,7 @@ mod tests {
             version: 1,
             node_id: crate::sdk::serialization::memory_node_id("ns", "k"),
             vector: None,
+            sparse_vector: None,
             expires_at_ms: None,
         };
         let line = super::super::export_line_from_record(record);

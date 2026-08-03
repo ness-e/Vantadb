@@ -115,6 +115,7 @@ fn test_ttl_boundary_purge_expired() {
         payload: "ephemeral data".into(),
         metadata: VantaMemoryMetadata::new(),
         vector: None,
+        sparse_vector: None,
         ttl_ms: Some(1),
     };
 

@@ -1012,6 +1012,7 @@ pub fn handle_tools_call(
                 namespace: namespace.to_string(),
                 payload: payload.to_string(),
                 vector,
+                sparse_vector: None,
                 metadata,
                 ttl_ms: None,
             };
@@ -1212,6 +1213,7 @@ pub fn handle_tools_call(
             let request = vantadb::sdk::VantaMemorySearchRequest {
                 namespace: namespace.to_string(),
                 query_vector,
+                query_sparse: None,
                 filters,
                 text_query,
                 top_k,

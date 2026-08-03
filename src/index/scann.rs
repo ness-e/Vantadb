@@ -132,6 +132,8 @@ impl ScannIndex {
                 .zip(approx.iter())
                 .map(|(a, b)| (a - b) * (a - b))
                 .sum::<f32>(),
+            // SparseDot is not a quantized-dense codebook path (own brute-force).
+            DistanceMetric::SparseDot => 0.0,
         }
     }
 
@@ -169,6 +171,8 @@ impl ScannIndex {
                 .zip(approx.iter())
                 .map(|(a, b)| (a - b) * (a - b))
                 .sum::<f32>(),
+            // SparseDot is not a quantized-dense codebook path (own brute-force).
+            DistanceMetric::SparseDot => 0.0,
         }
     }
 

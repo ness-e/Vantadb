@@ -382,6 +382,7 @@ fn memory_euclidean_and_explainable_ranking() {
         top_k: 2,
         distance_metric: vantadb::DistanceMetric::Euclidean,
         explain: true,
+        query_sparse: None,
     };
 
     let hits_explain = db.search(request_explain).expect("search with explain");
@@ -403,6 +404,7 @@ fn memory_euclidean_and_explainable_ranking() {
         top_k: 2,
         distance_metric: vantadb::DistanceMetric::Euclidean,
         explain: false,
+        query_sparse: None,
     };
 
     let hits_no_explain = db
@@ -424,6 +426,7 @@ fn snippet_with_highlighting() {
         namespace: "test".to_string(),
         payload: "The quick brown fox jumps over the lazy dog".to_string(),
         vector: Some(vec![0.1, 0.2, 0.3]),
+        sparse_vector: None,
         metadata: Default::default(),
         ttl_ms: None,
     };
@@ -438,6 +441,7 @@ fn snippet_with_highlighting() {
         top_k: 1,
         distance_metric: vantadb::DistanceMetric::Euclidean,
         explain: true,
+        query_sparse: None,
     };
 
     let hits = db.search(request).expect("search");

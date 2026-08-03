@@ -155,7 +155,8 @@ pub use engine::{EngineStats, InMemoryEngine, QueryResult, SourceType};
 pub use error::{Result, VantaError};
 pub use index::graph::VECTOR_INDEX_VERSION;
 pub use node::{
-    DistanceMetric, Edge, FieldValue, NodeFlags, RelFields, UnifiedNode, VectorRepresentations,
+    DistanceMetric, Edge, FieldValue, NodeFlags, RelFields, SparseVector, UnifiedNode,
+    VectorRepresentations,
 };
 pub use sdk::{
     connect, BulkImportReport, VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord,

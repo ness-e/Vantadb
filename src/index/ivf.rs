@@ -198,6 +198,7 @@ impl IvfIndex {
                             .sum();
                         sq_sum.sqrt()
                     }
+                    DistanceMetric::SparseDot => 0.0, // k-means is dense-only
                 };
                 max_movement = max_movement.max(diff);
             }
@@ -313,6 +314,7 @@ impl IvfIndex {
         let metric_byte: u8 = match self.config.distance_metric {
             DistanceMetric::Cosine => 0,
             DistanceMetric::Euclidean => 1,
+            DistanceMetric::SparseDot => 2,
         };
         buf.push(metric_byte);
 

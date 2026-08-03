@@ -521,6 +521,7 @@ impl VantaDB {
             payload: input.payload,
             metadata: input.metadata,
             vector: input.vector,
+            sparse_vector: None,
             ttl_ms: input.ttl_ms,
         };
         let record = self.inner.put(vanta_input).map_err(to_js_err)?;
@@ -556,6 +557,7 @@ impl VantaDB {
                 payload: i.payload,
                 metadata: i.metadata,
                 vector: i.vector,
+                sparse_vector: None,
                 ttl_ms: i.ttl_ms,
             })
             .collect();
@@ -651,6 +653,7 @@ impl VantaDB {
         let vanta_req = VantaMemorySearchRequest {
             namespace: req.namespace,
             query_vector: req.query_vector,
+            query_sparse: None,
             filters: req.filters,
             text_query: req.text_query,
             top_k: req.top_k,
@@ -705,6 +708,7 @@ impl VantaDB {
         let vanta_req = VantaMemorySearchRequest {
             namespace: req.namespace,
             query_vector: req.query_vector,
+            query_sparse: None,
             filters: req.filters,
             text_query: req.text_query,
             top_k: req.top_k,

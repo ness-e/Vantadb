@@ -44,6 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .into_iter()
                 .collect(),
             vector: Some(vec![0.1, 0.2, 0.3, 0.4]),
+            sparse_vector: None,
             ttl_ms: None,
         })?;
     }

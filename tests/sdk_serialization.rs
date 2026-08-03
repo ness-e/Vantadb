@@ -41,6 +41,7 @@ fn test_memory_input_serialize_roundtrip() {
         payload: "hello world".into(),
         metadata: meta,
         vector: Some(vec![0.1, 0.2, 0.3]),
+        sparse_vector: None,
         ttl_ms: Some(60000),
     };
     let json = serde_json::to_string(&input).unwrap();
@@ -67,6 +68,7 @@ fn test_memory_record_serialize() {
         version: 1,
         node_id: 42,
         vector: None,
+        sparse_vector: None,
         expires_at_ms: None,
     };
     let json = serde_json::to_string(&record).unwrap();
@@ -87,6 +89,7 @@ fn test_search_request_serialize() {
         top_k: 5,
         distance_metric: DistanceMetric::Cosine,
         explain: true,
+        query_sparse: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     let back: VantaMemorySearchRequest = serde_json::from_str(&json).unwrap();
@@ -107,6 +110,7 @@ fn test_search_hit_serialize() {
         version: 1,
         node_id: 1,
         vector: None,
+        sparse_vector: None,
         expires_at_ms: None,
     };
     let hit = VantaMemorySearchHit {

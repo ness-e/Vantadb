@@ -141,6 +141,7 @@ impl VantaEmbedded {
             version,
             node_id,
             vector: input.vector.filter(|v| !v.is_empty()),
+            sparse_vector: input.sparse_vector,
             expires_at_ms,
         };
         let (node, record) = memory_record_to_node_owned(record);
@@ -258,6 +259,7 @@ impl VantaEmbedded {
                     version: 1,
                     node_id,
                     vector: input.vector.clone().filter(|v| !v.is_empty()),
+                    sparse_vector: input.sparse_vector.clone(),
                     expires_at_ms: input.ttl_ms.map(|ttl| timestamp.saturating_add(ttl)),
                 };
                 let (node, record) = memory_record_to_node_owned(record);
@@ -740,6 +742,14 @@ impl VantaEmbedded {
                     version,
                     node_id: node.id,
                     vector,
+                    sparse_vector: node
+                        .get_field(crate::sdk::serialization::SPARSE_VECTOR_EXT_KEY)
+                        .and_then(|value| match value {
+                            crate::node::FieldValue::String(json) => {
+                                serde_json::from_str(json).ok()
+                            }
+                            _ => None,
+                        }),
                     expires_at_ms: Some(expires),
                 });
             }

@@ -137,7 +137,19 @@ pub fn fuse_rrf(
     hits
 }
 
-/// Fuse lexical and vector hit lists and produce a fusion report.
+/// Fuse an arbitrary number of ranked candidate lists (lexical, dense, sparse,
+/// ...) via reciprocal rank fusion. Each channel contributes RRF score by rank;
+/// hits appearing in several channels accumulate contributions. Sorted
+/// descending by score with deterministic tie-breaking (see `sort_hits`).
+pub fn fuse_rrf_many(channels: Vec<Vec<VantaMemorySearchHit>>) -> Vec<VantaMemorySearchHit> {
+    let mut fused: BTreeMap<(String, String), VantaMemorySearchHit> = BTreeMap::new();
+    for channel in channels {
+        apply_rrf_contributions(&mut fused, channel);
+    }
+    let mut hits: Vec<_> = fused.into_values().collect();
+    sort_hits(&mut hits);
+    hits
+}
 pub fn fuse_rrf_with_report(
     lexical_hits: Vec<VantaMemorySearchHit>,
     vector_hits: Vec<VantaMemorySearchHit>,
@@ -464,6 +476,7 @@ mod tests {
                 version: 0,
                 node_id,
                 vector: None,
+                sparse_vector: None,
             },
             score,
             explanation: None,

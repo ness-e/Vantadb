@@ -494,6 +494,9 @@ impl CPIndex {
                     calculate_similarity(query_vec, query_norm, None, None, &node.vec_data, metric)
                 }
             }
+            // Sparse vectors are searched via a dedicated brute-force path (see
+            // VantaEmbedded::sparse_memory_search), never through the dense HNSW.
+            DistanceMetric::SparseDot => 0.0,
         }
     }
 
@@ -631,6 +634,8 @@ impl CPIndex {
                 let norm = f32_l2_norm(&query_f32);
                 (Some(norm), None)
             }
+            // SparseDot has its own brute-force search path; unused here.
+            DistanceMetric::SparseDot => (None, None),
         };
 
         let mut curr_entry_points = vec![ep];
@@ -767,6 +772,8 @@ impl CPIndex {
                 let norm = f32_l2_norm(&query_f32);
                 (Some(norm), None)
             }
+            // SparseDot has its own brute-force search path; unused here.
+            DistanceMetric::SparseDot => (None, None),
         };
 
         let mut curr_entry_points = vec![ep];

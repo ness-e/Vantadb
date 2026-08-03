@@ -172,6 +172,8 @@ impl CPIndex {
                                 DistanceMetric::Euclidean => {
                                     -euclidean_distance_squared_f32(query_vec, f32_vec)
                                 }
+                                // SparseDot has its own brute-force path.
+                                DistanceMetric::SparseDot => 0.0,
                             }
                         }
                     } else {
@@ -316,6 +318,7 @@ impl CPIndex {
                                             DistanceMetric::Euclidean => {
                                                 -euclidean_distance_squared_f32(query_vec, f32_v)
                                             }
+                                            DistanceMetric::SparseDot => 0.0,
                                         }
                                     }
                                 } else {
@@ -535,6 +538,11 @@ impl CPIndex {
                 let norm = f32_l2_norm(query_vec);
                 (DistanceMetric::Euclidean, Some(norm), None)
             }
+            DistanceMetric::SparseDot => {
+                // Sparse has its own brute-force search path; never routed through
+                // the dense HNSW query. Degenerate norm pair if reached.
+                (DistanceMetric::SparseDot, None, None)
+            }
         };
         let mut curr_entry_points = vec![ep];
         let mut visited: std::collections::HashSet<u128, RandomState> =
@@ -593,6 +601,7 @@ impl CPIndex {
             let adjusted_score = match effective_metric {
                 DistanceMetric::Euclidean => -(-score).max(0.0).sqrt(),
                 DistanceMetric::Cosine => score,
+                DistanceMetric::SparseDot => score,
             };
             final_results.push((id, adjusted_score));
         }

@@ -50,6 +50,7 @@ impl CPIndex {
         let metric_byte: u8 = match self.config.distance_metric {
             DistanceMetric::Cosine => 0,
             DistanceMetric::Euclidean => 1,
+            DistanceMetric::SparseDot => 2,
         };
         w.write_all(&[metric_byte])?;
         pos += 1;
@@ -335,6 +336,7 @@ impl CPIndex {
         if version >= 3 && pos < data.len() {
             config.distance_metric = match take_bytes(data, &mut pos, 1, "distance_metric")?[0] {
                 1 => DistanceMetric::Euclidean,
+                2 => DistanceMetric::SparseDot,
                 _ => DistanceMetric::Cosine,
             };
         }

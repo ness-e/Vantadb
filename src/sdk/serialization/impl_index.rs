@@ -287,6 +287,7 @@ mod tests {
             version: 1,
             node_id: crate::sdk::serialization::memory_node_id(namespace, key),
             vector: None,
+            sparse_vector: None,
             expires_at_ms: None,
         }
     }

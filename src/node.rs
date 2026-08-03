@@ -393,6 +393,66 @@ pub enum DistanceMetric {
     Cosine,
     /// Euclidean distance.
     Euclidean,
+    /// Sparse vector dot product (higher = more similar). Sparse vectors are
+    /// user-provided dim→value maps; no dedicated index topology exists, so
+    /// operators under this metric must fall back to a brute-force scan.
+    SparseDot,
+}
+
+/// A sparse vector: mapping from dimension id → coefficient (f32).
+///
+/// Stored as a `BTreeMap` for deterministic serialization (JSON/Bincode round
+/// trips produce identical byte order) and to make the dot-product walk both
+/// maps in sorted order with a single linear merge. Any `u32` dim id is valid;
+/// the domain (vocabulary size) is defined by the caller, not this type.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct SparseVector(pub BTreeMap<u32, f32>);
+
+impl SparseVector {
+    /// Create an empty sparse vector.
+    pub fn new() -> Self {
+        Self(BTreeMap::new())
+    }
+
+    /// Insert or overwrite the coefficient at `dim`.
+    pub fn insert(&mut self, dim: u32, value: f32) {
+        self.0.insert(dim, value);
+    }
+
+    /// Number of populated dimensions.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Whether the vector has no populated dimensions.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Sparse dot product between two sparse vectors (linear merge over the
+    /// sorted keys of both maps). Dimensions present in only one side
+    /// contribute zero, matching the standard sparse-dot definition.
+    pub fn dot(&self, other: &SparseVector) -> f32 {
+        let mut it_a = self.0.iter().peekable();
+        let mut it_b = other.0.iter().peekable();
+        let mut acc = 0.0_f32;
+        while let (Some((da, va)), Some((db, vb))) = (it_a.peek(), it_b.peek()) {
+            match da.cmp(db) {
+                std::cmp::Ordering::Less => {
+                    it_a.next();
+                }
+                std::cmp::Ordering::Greater => {
+                    it_b.next();
+                }
+                std::cmp::Ordering::Equal => {
+                    acc += *va * *vb;
+                    it_a.next();
+                    it_b.next();
+                }
+            }
+        }
+        acc
+    }
 }
 
 // ─── Vector Data ───────────────────────────────────────────

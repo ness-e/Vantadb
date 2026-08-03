@@ -24,6 +24,10 @@ pub const FIELD_UPDATED_AT_MS: &str = "__vanta_updated_at_ms";
 pub const FIELD_VERSION: &str = "__vanta_version";
 /// Internal field name storing the optional Unix-ms expiry deadline.
 pub const FIELD_EXPIRES_AT_MS: &str = "__vanta_expires_at_ms";
+/// Internal `ext_metadata` key storing the serialized sparse vector (JSON) on
+/// a memory record node. Kept out of the bincode-graph so old databases read
+/// missing keys as `None`.
+pub const SPARSE_VECTOR_EXT_KEY: &str = "__vanta_sparse_vector";
 const EXPORT_SCHEMA_VERSION: u32 = 1;
 pub(crate) const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
 pub(crate) const DERIVED_INDEX_STATE_KEY: &[u8] = b"derived_index_state";
@@ -246,6 +250,7 @@ pub fn memory_record_from_node(node: &UnifiedNode) -> Option<VantaMemoryRecord> 
     fields.remove(FIELD_UPDATED_AT_MS);
     fields.remove(FIELD_VERSION);
     fields.remove(FIELD_EXPIRES_AT_MS);
+    fields.remove(SPARSE_VECTOR_EXT_KEY);
 
     // Lazy TTL eviction: if expires_at_ms is set and the deadline
     // has passed, the record is treated as if it no longer exists.
@@ -263,6 +268,16 @@ pub fn memory_record_from_node(node: &UnifiedNode) -> Option<VantaMemoryRecord> 
         _ => None,
     };
 
+    // Sparse vector persisted as a reserved relational field (survives the
+    // KV round-trip via NodeMetadata; `ext_metadata` is memory-only).
+    // Missing key => None (old records).
+    let sparse_vector = node
+        .get_field(SPARSE_VECTOR_EXT_KEY)
+        .and_then(|value| match value {
+            crate::node::FieldValue::String(json) => serde_json::from_str(json).ok(),
+            _ => None,
+        });
+
     Some(VantaMemoryRecord {
         namespace,
         key,
@@ -273,6 +288,7 @@ pub fn memory_record_from_node(node: &UnifiedNode) -> Option<VantaMemoryRecord> 
         version,
         node_id: node.id,
         vector,
+        sparse_vector,
         expires_at_ms,
     })
 }
@@ -285,6 +301,7 @@ pub(crate) fn memory_record_to_node_owned(
     let payload = std::mem::take(&mut record.payload);
     let metadata = std::mem::take(&mut record.metadata);
     let vector = record.vector.take();
+    let sparse_vector = std::mem::take(&mut record.sparse_vector);
 
     let mut node = UnifiedNode::new(record.node_id);
     node.set_field(FIELD_NAMESPACE, FieldValue::String(namespace.clone()));
@@ -315,11 +332,18 @@ pub(crate) fn memory_record_to_node_owned(
         node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
     }
 
+    if let Some(sparse) = &sparse_vector {
+        if let Ok(json) = serde_json::to_string(sparse) {
+            node.set_field(SPARSE_VECTOR_EXT_KEY, FieldValue::String(json));
+        }
+    }
+
     record.namespace = namespace;
     record.key = key;
     record.payload = payload;
     record.metadata = metadata;
     record.vector = vector;
+    record.sparse_vector = sparse_vector;
 
     (node, record)
 }
@@ -333,6 +357,7 @@ pub fn export_line_from_record(record: VantaMemoryRecord) -> VantaMemoryExportLi
         payload: record.payload,
         metadata: record.metadata,
         vector: record.vector,
+        sparse_vector: record.sparse_vector,
         created_at_ms: record.created_at_ms,
         updated_at_ms: record.updated_at_ms,
         version: record.version,
@@ -362,6 +387,7 @@ pub(crate) fn record_from_export_line(line: VantaMemoryExportLine) -> Result<Van
         version: line.version,
         node_id,
         vector: line.vector,
+        sparse_vector: line.sparse_vector,
         expires_at_ms: line.expires_at_ms,
     })
 }
@@ -449,7 +475,7 @@ mod tests {
         assert_eq!(result, None);
     }
 
-    // ─── now_ms ────────────────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ now_ms ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     #[test]
     fn test_now_ms_non_zero() {
@@ -460,7 +486,7 @@ mod tests {
         );
     }
 
-    // ─── memory_node_id ────────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ memory_node_id ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     #[test]
     fn test_memory_node_id_deterministic() {
@@ -475,7 +501,7 @@ mod tests {
         assert_ne!(a, d);
     }
 
-    // ─── validate_namespace ────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ validate_namespace ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     #[test]
     fn test_validate_namespace_empty() {
@@ -506,7 +532,7 @@ mod tests {
         assert!(validate_namespace("default").is_ok());
     }
 
-    // ─── validate_key ──────────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ validate_key ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     #[test]
     fn test_validate_key_empty() {
@@ -531,10 +557,10 @@ mod tests {
     fn test_validate_key_valid() {
         assert!(validate_key("hello_world").is_ok());
         assert!(validate_key("a").is_ok());
-        assert!(validate_key("你好").is_ok());
+        assert!(validate_key("Σ╜áσÑ╜").is_ok());
     }
 
-    // ─── validate_metadata ─────────────────────────────────────
+    // ΓöÇΓöÇΓöÇ validate_metadata ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     #[test]
     fn test_validate_metadata_reserved_prefix() {
@@ -560,7 +586,7 @@ mod tests {
         assert!(validate_metadata(&VantaMemoryMetadata::new()).is_ok());
     }
 
-    // ─── namespace_index_key / namespace_index_prefix ──────────
+    // ΓöÇΓöÇΓöÇ namespace_index_key / namespace_index_prefix ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     #[test]
     fn test_namespace_index_key_format() {
@@ -574,7 +600,7 @@ mod tests {
         assert_eq!(prefix, b"myns\0");
     }
 
-    // ─── encoded_scalar_value ──────────────────────────────────
+    // ΓöÇΓöÇΓöÇ encoded_scalar_value ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     #[test]
     fn test_encoded_scalar_value_string() {
@@ -631,7 +657,7 @@ mod tests {
         assert!(encoded_scalar_value(&VantaValue::ListDateTime(vec![])).is_err());
     }
 
-    // ─── payload_index_prefix / payload_index_key ──────────────
+    // ΓöÇΓöÇΓöÇ payload_index_prefix / payload_index_key ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     #[test]
     fn test_payload_index_prefix_string() {
@@ -659,7 +685,7 @@ mod tests {
         assert_eq!(key, b"ns\0status\0s:ok\0mykey");
     }
 
-    // ─── node_id_bytes / decode_node_id ────────────────────────
+    // ΓöÇΓöÇΓöÇ node_id_bytes / decode_node_id ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     #[test]
     fn test_node_id_roundtrip() {
@@ -683,7 +709,7 @@ mod tests {
         assert_eq!(decode_node_id(&bytes), Some(0));
     }
 
-    // ─── get_string_field / get_u64_field ──────────────────────
+    // ΓöÇΓöÇΓöÇ get_string_field / get_u64_field ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     #[test]
     fn test_get_string_field_present() {
@@ -732,7 +758,7 @@ mod tests {
         assert_eq!(get_u64_field(&fields, "name"), None);
     }
 
-    // ─── memory_record_from_node ───────────────────────────────
+    // ΓöÇΓöÇΓöÇ memory_record_from_node ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     fn make_memory_node(id: u128, namespace: &str, key: &str) -> UnifiedNode {
         use crate::node::FieldValue;
@@ -829,7 +855,7 @@ mod tests {
         assert_eq!(record.expires_at_ms, Some(0));
     }
 
-    // ─── memory_record_to_node_owned ───────────────────────────
+    // ΓöÇΓöÇΓöÇ memory_record_to_node_owned ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     #[test]
     fn test_memory_record_to_node_owned_roundtrip() {
@@ -847,6 +873,7 @@ mod tests {
             version: 3,
             node_id: memory_node_id("ns", "k"),
             vector: Some(vec![0.5, 0.5]),
+            sparse_vector: None,
             expires_at_ms: None,
         };
 
@@ -881,6 +908,7 @@ mod tests {
             version: 1,
             node_id: memory_node_id("ns", "k"),
             vector: None,
+            sparse_vector: None,
             expires_at_ms: Some(999_999_999_999),
         };
         let (node, _) = memory_record_to_node_owned(record);
@@ -902,6 +930,7 @@ mod tests {
             version: 1,
             node_id: memory_node_id("ns", "k"),
             vector: Some(vec![]),
+            sparse_vector: None,
             expires_at_ms: None,
         };
         let (node, returned) = memory_record_to_node_owned(record);
@@ -911,7 +940,7 @@ mod tests {
         assert_eq!(node.vector, expected);
     }
 
-    // ─── export_line_from_record / record_from_export_line ─────
+    // ΓöÇΓöÇΓöÇ export_line_from_record / record_from_export_line ΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     #[test]
     fn test_export_line_roundtrip() {
@@ -929,6 +958,7 @@ mod tests {
             version: 2,
             node_id: memory_node_id("ns", "k"),
             vector: None,
+            sparse_vector: None,
             expires_at_ms: None,
         };
 
@@ -955,6 +985,7 @@ mod tests {
             payload: "".into(),
             metadata: VantaMemoryMetadata::new(),
             vector: None,
+            sparse_vector: None,
             created_at_ms: 0,
             updated_at_ms: 0,
             version: 0,
@@ -974,6 +1005,7 @@ mod tests {
             payload: "my payload".into(),
             metadata: VantaMemoryMetadata::new(),
             vector: Some(vec![0.1, 0.2]),
+            sparse_vector: None,
             created_at_ms: 100,
             updated_at_ms: 200,
             version: 5,
@@ -994,7 +1026,7 @@ mod tests {
         assert_eq!(deserialized.expires_at_ms, line.expires_at_ms);
     }
 
-    // ─── matches_memory_filters ────────────────────────────────
+    // ΓöÇΓöÇΓöÇ matches_memory_filters ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     #[test]
     fn test_matches_memory_filters_exact() {
@@ -1008,6 +1040,7 @@ mod tests {
             version: 0,
             node_id: 0,
             vector: None,
+            sparse_vector: None,
             expires_at_ms: None,
         };
         record
@@ -1035,6 +1068,7 @@ mod tests {
             version: 0,
             node_id: 0,
             vector: None,
+            sparse_vector: None,
             expires_at_ms: None,
         };
         assert!(matches_memory_filters(&record, &VantaMemoryMetadata::new()));
@@ -1052,6 +1086,7 @@ mod tests {
             version: 0,
             node_id: 0,
             vector: None,
+            sparse_vector: None,
             expires_at_ms: None,
         };
         record.metadata.insert("a".into(), VantaValue::Int(1));
@@ -1070,7 +1105,7 @@ mod tests {
         assert!(!matches_memory_filters(&record, &bad));
     }
 
-    // ── matches_advanced_filters ──────────────────────────────────────────────
+    // ΓöÇΓöÇ matches_advanced_filters ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     fn make_record_with_meta(pairs: &[(&str, VantaValue)]) -> VantaMemoryRecord {
         let mut record = VantaMemoryRecord {
@@ -1083,6 +1118,7 @@ mod tests {
             version: 0,
             node_id: 0,
             vector: None,
+            sparse_vector: None,
             expires_at_ms: None,
         };
         for (k, v) in pairs {

@@ -50,6 +50,7 @@ pub fn cmd_search(
     let request = crate::sdk::VantaMemorySearchRequest {
         namespace: namespace.to_string(),
         query_vector,
+        query_sparse: None,
         filters: crate::sdk::VantaMemoryMetadata::new(),
         text_query: Some(query.to_string()),
         top_k: limit,
@@ -392,6 +393,7 @@ pub fn cmd_search_multi(
         // namespace is overridden per-namespace inside search_multi
         namespace: String::new(),
         query_vector,
+        query_sparse: None,
         filters: crate::sdk::VantaMemoryMetadata::new(),
         text_query: query.map(str::to_string),
         top_k,
@@ -445,6 +447,7 @@ pub fn cmd_search_all(
     let request = crate::sdk::VantaMemorySearchRequest {
         namespace: String::new(),
         query_vector,
+        query_sparse: None,
         filters: crate::sdk::VantaMemoryMetadata::new(),
         text_query: query.map(str::to_string),
         top_k,

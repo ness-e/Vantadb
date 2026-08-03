@@ -452,6 +452,9 @@ fn sq8_similarity(
             }
             -sum_sq
         }
+        // Sparse search uses its own brute-force path; dense helpers never
+        // receive a SparseDot metric.
+        DistanceMetric::SparseDot => 0.0,
     }
 }
 
@@ -488,6 +491,9 @@ pub fn calculate_similarity(
                 None => cosine_sim_f32(raw_query, f),
             },
             DistanceMetric::Euclidean => -euclidean_distance_squared_f32(raw_query, f),
+            // Sparse search has its own brute-force path over sparse vectors;
+            // dense helpers never receive a SparseDot metric.
+            DistanceMetric::SparseDot => 0.0,
         },
         VectorRepresentations::MmapFull(mmap_opt) => {
             let mmap = match mmap_opt {
@@ -506,6 +512,7 @@ pub fn calculate_similarity(
                     None => cosine_sim_f32(raw_query, slice),
                 },
                 DistanceMetric::Euclidean => -euclidean_distance_squared_f32(raw_query, slice),
+                DistanceMetric::SparseDot => 0.0,
             }
         }
         VectorRepresentations::None => 0.0,
@@ -525,6 +532,7 @@ pub(crate) fn f32_slice_similarity(
             None => cosine_sim_f32(query_vec, candidate),
         },
         DistanceMetric::Euclidean => -euclidean_distance_squared_f32(query_vec, candidate),
+        DistanceMetric::SparseDot => 0.0,
     }
 }
 

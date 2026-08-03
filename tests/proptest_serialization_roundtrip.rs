@@ -155,6 +155,7 @@ fn arb_memory_input_full() -> impl Strategy<Value = VantaMemoryInput> {
                 payload,
                 metadata,
                 vector,
+                sparse_vector: None,
                 ttl_ms,
             },
         )
@@ -207,6 +208,7 @@ fn arb_memory_record_json() -> impl Strategy<Value = VantaMemoryRecord> {
                     version,
                     node_id: node_id_small as u128,
                     vector,
+                    sparse_vector: None,
                     expires_at_ms,
                 }
             },
@@ -279,6 +281,7 @@ fn arb_search_request_full() -> impl Strategy<Value = VantaMemorySearchRequest> 
                     top_k,
                     distance_metric,
                     explain,
+                    query_sparse: None,
                 }
             },
         )

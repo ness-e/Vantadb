@@ -832,6 +832,7 @@ impl VantaDB {
         let request = VantaMemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector: extract_vector(query_vector, py)?,
+            query_sparse: None,
             filters: py_dict_to_metadata(filters)?,
             text_query,
             top_k,
@@ -1535,6 +1536,7 @@ impl VantaDB {
         let request = VantaMemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector: extract_vector(query_vector, py)?,
+            query_sparse: None,
             filters: py_dict_to_metadata(filters)?,
             text_query,
             top_k,

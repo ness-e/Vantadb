@@ -1,6 +1,7 @@
 //! Stable public types for the VantaDB SDK boundary.
 //! All types in this module are serializable and designed for third-party bindings.
 
+use crate::node::SparseVector;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -103,7 +104,7 @@ pub type VantaFields = BTreeMap<String, VantaValue>;
 /// Stable metadata map for persistent memory records.
 pub type VantaMemoryMetadata = VantaFields;
 
-/// Operadores de comparación para filtros de metadata.
+/// Operadores de comparaci├│n para filtros de metadata.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum VantaFilterOp {
     Eq,
@@ -122,7 +123,7 @@ pub struct VantaMemoryFilterItem {
     pub value: VantaValue,
 }
 
-/// Lista de filtros combinados con AND lógico.
+/// Lista de filtros combinados con AND l├│gico.
 pub type VantaMemoryFilter = Vec<VantaMemoryFilterItem>;
 
 /// Stable persistent memory payload accepted by external SDKs.
@@ -138,6 +139,10 @@ pub struct VantaMemoryInput {
     pub metadata: VantaMemoryMetadata,
     /// Optional embedding vector.
     pub vector: Option<Vec<f32>>,
+    /// Optional sparse term-weight vector (e.g. raw-keyword weights). Sparse
+    /// vectors participate in sparse-dot search alongside the dense vector.
+    #[serde(default)]
+    pub sparse_vector: Option<SparseVector>,
     /// Time-to-live in milliseconds from now.  The system computes
     /// ``expires_at_ms = now_ms() + ttl_ms`` server-side during ``put()``.
     /// ``None`` means the record never expires.
@@ -159,6 +164,7 @@ impl VantaMemoryInput {
             payload: payload.into(),
             metadata: VantaMemoryMetadata::new(),
             vector: None,
+            sparse_vector: None,
             ttl_ms: None,
         }
     }
@@ -186,6 +192,9 @@ pub struct VantaMemoryRecord {
     pub node_id: u128,
     /// Optional embedding vector.
     pub vector: Option<Vec<f32>>,
+    /// Optional sparse term-weight vector persisted alongside the dense vector.
+    #[serde(default)]
+    pub sparse_vector: Option<SparseVector>,
     /// Absolute Unix-ms timestamp after which the record is considered
     /// expired.  ``None`` means the record never expires.
     pub expires_at_ms: Option<u64>,
@@ -591,6 +600,9 @@ pub struct VantaMemoryExportLine {
     pub metadata: VantaMemoryMetadata,
     /// Optional embedding vector.
     pub vector: Option<Vec<f32>>,
+    /// Optional sparse vector.
+    #[serde(default)]
+    pub sparse_vector: Option<SparseVector>,
     /// Unix-ms creation timestamp.
     pub created_at_ms: u64,
     /// Unix-ms last-update timestamp.
@@ -645,7 +657,7 @@ pub struct VantaCapabilities {
 mod tests {
     use super::*;
 
-    // ── VantaRuntimeProfile ──
+    // ΓöÇΓöÇ VantaRuntimeProfile ΓöÇΓöÇ
 
     #[test]
     fn test_runtime_profile_variants() {
@@ -672,7 +684,7 @@ mod tests {
         assert_eq!(d, "LowResource");
     }
 
-    // ── VantaStorageTier ──
+    // ΓöÇΓöÇ VantaStorageTier ΓöÇΓöÇ
 
     #[test]
     fn test_storage_tier_variants() {
@@ -685,7 +697,7 @@ mod tests {
         assert_eq!(h, "Hot");
     }
 
-    // ── VantaValue ──
+    // ΓöÇΓöÇ VantaValue ΓöÇΓöÇ
 
     #[test]
     fn test_vanta_value_string() {
@@ -789,7 +801,7 @@ mod tests {
         assert!(d.contains("Bool") || d.contains("false"));
     }
 
-    // ── VantaMemoryInput ──
+    // ΓöÇΓöÇ VantaMemoryInput ΓöÇΓöÇ
 
     #[test]
     fn test_memory_input_new() {
@@ -809,7 +821,7 @@ mod tests {
         assert_eq!(input, cloned);
     }
 
-    // ── VantaMemoryListOptions ──
+    // ΓöÇΓöÇ VantaMemoryListOptions ΓöÇΓöÇ
 
     #[test]
     fn test_memory_list_options_default() {
@@ -821,7 +833,7 @@ mod tests {
         assert!(opts.cursor.is_none());
     }
 
-    // ── VantaMemoryListPage ──
+    // ΓöÇΓöÇ VantaMemoryListPage ΓöÇΓöÇ
 
     #[test]
     fn test_memory_list_page_empty() {
@@ -833,7 +845,7 @@ mod tests {
         assert!(page.next_cursor.is_none());
     }
 
-    // ── VantaCapabilities ──
+    // ΓöÇΓöÇ VantaCapabilities ΓöÇΓöÇ
 
     #[test]
     fn test_capabilities_default() {
@@ -851,7 +863,7 @@ mod tests {
         assert!(!caps.read_only);
     }
 
-    // ── Reports ──
+    // ΓöÇΓöÇ Reports ΓöÇΓöÇ
 
     #[test]
     fn test_index_rebuild_report() {
@@ -910,7 +922,7 @@ mod tests {
         assert!(r.success);
     }
 
-    // ── VantaQueryResult ──
+    // ΓöÇΓöÇ VantaQueryResult ΓöÇΓöÇ
 
     #[test]
     fn test_query_result_read() {
@@ -953,7 +965,7 @@ mod tests {
         }
     }
 
-    // ── VantaMemoryRecord ──
+    // ΓöÇΓöÇ VantaMemoryRecord ΓöÇΓöÇ
 
     #[test]
     fn test_memory_record_fields() {
@@ -967,6 +979,7 @@ mod tests {
             version: 1,
             node_id: 42,
             vector: None,
+            sparse_vector: None,
             expires_at_ms: None,
         };
         assert_eq!(rec.namespace, "ns");
@@ -974,7 +987,7 @@ mod tests {
         assert_eq!(rec.version, 1);
     }
 
-    // ── VantaMemoryExportLine ──
+    // ΓöÇΓöÇ VantaMemoryExportLine ΓöÇΓöÇ
 
     #[test]
     fn test_export_line() {
@@ -985,6 +998,7 @@ mod tests {
             payload: "text".into(),
             metadata: VantaMemoryMetadata::new(),
             vector: None,
+            sparse_vector: None,
             created_at_ms: 1000,
             updated_at_ms: 1000,
             version: 1,
@@ -994,7 +1008,7 @@ mod tests {
         assert_eq!(line.namespace, "ns");
     }
 
-    // ── VantaHybridFusionReport ──
+    // ΓöÇΓöÇ VantaHybridFusionReport ΓöÇΓöÇ
 
     #[test]
     fn test_hybrid_fusion_report() {
@@ -1008,7 +1022,7 @@ mod tests {
         assert_eq!(r.fused_candidates, 70);
     }
 
-    // ── VantaBm25TermContribution ──
+    // ΓöÇΓöÇ VantaBm25TermContribution ΓöÇΓöÇ
 
     #[test]
     fn test_bm25_term_contribution() {
@@ -1023,7 +1037,7 @@ mod tests {
         assert_eq!(c.tf, 3);
     }
 
-    // ── VantaSearchExplanation ──
+    // ΓöÇΓöÇ VantaSearchExplanation ΓöÇΓöÇ
 
     #[test]
     fn test_search_explanation_empty() {
@@ -1036,7 +1050,7 @@ mod tests {
         assert!(expl.fusion_report.is_none());
     }
 
-    // ── VantaSearchExplanationHit ──
+    // ΓöÇΓöÇ VantaSearchExplanationHit ΓöÇΓöÇ
 
     #[test]
     fn test_search_explanation_hit() {
@@ -1055,7 +1069,7 @@ mod tests {
         assert!(hit.rrf_text_rank.is_some());
     }
 
-    // ── VantaTextIndexAuditReport ──
+    // ΓöÇΓöÇ VantaTextIndexAuditReport ΓöÇΓöÇ
 
     #[test]
     fn test_text_index_audit_report_ok() {
@@ -1090,7 +1104,7 @@ mod tests {
         assert_eq!(r.status, "ok");
     }
 
-    // ── VantaOperationalMetrics ──
+    // ΓöÇΓöÇ VantaOperationalMetrics ΓöÇΓöÇ
 
     #[test]
     fn test_operational_metrics_defaults() {
@@ -1185,7 +1199,7 @@ mod tests {
         assert!(dbg.contains("startup_ms"));
     }
 
-    // ── VantaMemoryInput with vector and ttl ──
+    // ΓöÇΓöÇ VantaMemoryInput with vector and ttl ΓöÇΓöÇ
 
     #[test]
     fn test_memory_input_with_vector_ttl() {
@@ -1195,6 +1209,7 @@ mod tests {
             payload: "text".into(),
             metadata: [("lang".into(), VantaValue::String("en".into()))].into(),
             vector: Some(vec![0.1, 0.2, 0.3]),
+            sparse_vector: None,
             ttl_ms: Some(60000),
         };
         assert_eq!(input.namespace, "ns");
@@ -1207,7 +1222,7 @@ mod tests {
         );
     }
 
-    // ── VantaMemoryRecord with expiry ──
+    // ΓöÇΓöÇ VantaMemoryRecord with expiry ΓöÇΓöÇ
 
     #[test]
     fn test_memory_record_with_expiry() {
@@ -1221,6 +1236,7 @@ mod tests {
             version: 5,
             node_id: 42,
             vector: Some(vec![0.5, 0.6]),
+            sparse_vector: None,
             expires_at_ms: Some(99999),
         };
         assert_eq!(rec.version, 5);
@@ -1240,13 +1256,14 @@ mod tests {
             version: 1,
             node_id: 42,
             vector: None,
+            sparse_vector: None,
             expires_at_ms: None,
         };
         let cloned = rec.clone();
         assert_eq!(rec, cloned);
     }
 
-    // ── VantaCapabilities clone/debug ──
+    // ΓöÇΓöÇ VantaCapabilities clone/debug ΓöÇΓöÇ
 
     #[test]
     fn test_capabilities_clone() {
@@ -1275,7 +1292,7 @@ mod tests {
         assert!(dbg.contains("read_only"));
     }
 
-    // ── VantaMemoryListOptions custom ──
+    // ΓöÇΓöÇ VantaMemoryListOptions custom ΓöÇΓöÇ
 
     #[test]
     fn test_memory_list_options_custom() {
@@ -1292,7 +1309,7 @@ mod tests {
         let _ = opts.filters.get("type").unwrap() == &VantaValue::String("doc".into());
     }
 
-    // ── VantaQueryResult clone/debug ──
+    // ΓöÇΓöÇ VantaQueryResult clone/debug ΓöÇΓöÇ
 
     #[test]
     fn test_query_result_clone_read() {
@@ -1323,7 +1340,7 @@ mod tests {
         assert!(dbg.contains("Write") || dbg.contains("affected_nodes"));
     }
 
-    // ── VantaHybridFusionReport clone/debug ──
+    // ΓöÇΓöÇ VantaHybridFusionReport clone/debug ΓöÇΓöÇ
 
     #[test]
     fn test_hybrid_fusion_report_clone_debug() {
@@ -1339,7 +1356,7 @@ mod tests {
         assert!(dbg.contains("rrf_k"));
     }
 
-    // ── VantaBm25TermContribution clone ──
+    // ΓöÇΓöÇ VantaBm25TermContribution clone ΓöÇΓöÇ
 
     #[test]
     fn test_bm25_term_contribution_clone() {
@@ -1354,7 +1371,7 @@ mod tests {
         assert_eq!(c, cloned);
     }
 
-    // ── VantaSearchExplanationHit clone ──
+    // ΓöÇΓöÇ VantaSearchExplanationHit clone ΓöÇΓöÇ
 
     #[test]
     fn test_search_explanation_hit_clone() {
@@ -1372,7 +1389,7 @@ mod tests {
         assert_eq!(hit, cloned);
     }
 
-    // ── VantaSearchExplanation with fusion ──
+    // ΓöÇΓöÇ VantaSearchExplanation with fusion ΓöÇΓöÇ
 
     #[test]
     fn test_search_explanation_with_fusion() {
@@ -1391,7 +1408,7 @@ mod tests {
         assert_eq!(expl.fusion_report.unwrap().fused_candidates, 12);
     }
 
-    // ── VantaExportReport clone ──
+    // ΓöÇΓöÇ VantaExportReport clone ΓöÇΓöÇ
 
     #[test]
     fn test_export_report_clone() {
@@ -1405,7 +1422,7 @@ mod tests {
         assert_eq!(r, cloned);
     }
 
-    // ── VantaImportReport clone ──
+    // ΓöÇΓöÇ VantaImportReport clone ΓöÇΓöÇ
 
     #[test]
     fn test_import_report_clone() {
@@ -1420,7 +1437,7 @@ mod tests {
         assert_eq!(r, cloned);
     }
 
-    // ── VantaIndexRebuildReport clone ──
+    // ΓöÇΓöÇ VantaIndexRebuildReport clone ΓöÇΓöÇ
 
     #[test]
     fn test_index_rebuild_report_clone() {
@@ -1437,7 +1454,7 @@ mod tests {
         assert_eq!(r, cloned);
     }
 
-    // ── VantaTextIndexRepairReport clone ──
+    // ΓöÇΓöÇ VantaTextIndexRepairReport clone ΓöÇΓöÇ
 
     #[test]
     fn test_text_index_repair_report_clone() {
@@ -1454,7 +1471,7 @@ mod tests {
         assert_eq!(r, cloned);
     }
 
-    // ── VantaMemoryExportLine all fields ──
+    // ΓöÇΓöÇ VantaMemoryExportLine all fields ΓöÇΓöÇ
 
     #[test]
     fn test_export_line_full() {
@@ -1465,6 +1482,7 @@ mod tests {
             payload: "text".into(),
             metadata: [("score".into(), VantaValue::Float(9.5))].into(),
             vector: Some(vec![0.1, 0.2]),
+            sparse_vector: None,
             created_at_ms: 1000,
             updated_at_ms: 2000,
             version: 3,
@@ -1476,7 +1494,7 @@ mod tests {
         assert!(line.expires_at_ms.is_some());
     }
 
-    // ── VantaValue Debug variant coverage ──
+    // ΓöÇΓöÇ VantaValue Debug variant coverage ΓöÇΓöÇ
 
     #[test]
     fn test_vanta_value_debug_variants() {
@@ -1487,7 +1505,7 @@ mod tests {
         assert!(format!("{:?}", VantaValue::ListString(vec!["a".into()])).contains("List"));
     }
 
-    // ── VantaTextIndexAuditReport failure ──
+    // ΓöÇΓöÇ VantaTextIndexAuditReport failure ΓöÇΓöÇ
 
     #[test]
     fn test_text_index_audit_report_failure() {
@@ -1524,7 +1542,7 @@ mod tests {
         assert_eq!(r.status, "repair_recommended");
     }
 
-    // ── VantaMemoryListPage with data ──
+    // ΓöÇΓöÇ VantaMemoryListPage with data ΓöÇΓöÇ
 
     #[test]
     fn test_memory_list_page_with_data() {
@@ -1538,6 +1556,7 @@ mod tests {
             version: 1,
             node_id: 1,
             vector: None,
+            sparse_vector: None,
             expires_at_ms: None,
         };
         let page = VantaMemoryListPage {

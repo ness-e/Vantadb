@@ -56,6 +56,7 @@ mod hnsw_proptests {
             let (_dir, db) = setup_db();
             let input = VantaMemoryInput {
                 vector: Some(vec.clone()),
+                sparse_vector: None,
                 ..VantaMemoryInput::new("hnsw", "identity", "payload")
             };
             db.put(input).unwrap();
@@ -79,6 +80,7 @@ mod hnsw_proptests {
             for (i, v) in vectors.iter().enumerate() {
                 let input = VantaMemoryInput {
                     vector: Some(v.clone()),
+                    sparse_vector: None,
                     ..VantaMemoryInput::new("hnsw", format!("n{}", i), "payload")
                 };
                 db.put(input).unwrap();
@@ -105,6 +107,7 @@ mod hnsw_proptests {
             for (i, v) in vectors.iter().enumerate() {
                 let input = VantaMemoryInput {
                     vector: Some(v.clone()),
+                    sparse_vector: None,
                     ..VantaMemoryInput::new("hnsw", format!("n{}", i), "payload")
                 };
                 db.put(input).unwrap();
@@ -147,6 +150,7 @@ mod hnsw_proptests {
             let (_dir, db) = setup_db();
             let input = VantaMemoryInput {
                 vector: Some(vec.clone()),
+                sparse_vector: None,
                 ..VantaMemoryInput::new("hnsw", "zero_topk", "payload")
             };
             db.put(input).unwrap();
@@ -163,6 +167,7 @@ mod hnsw_proptests {
             let (_dir, db) = setup_db();
             let input = VantaMemoryInput {
                 vector: Some(vec.clone()),
+                sparse_vector: None,
                 ..VantaMemoryInput::new("hnsw", "to_delete", "payload")
             };
             db.put(input).unwrap();
@@ -188,6 +193,7 @@ mod hnsw_proptests {
                 let key = format!("mv_{}", i);
                 let input = VantaMemoryInput {
                     vector: Some(v.clone()),
+                    sparse_vector: None,
                     ..VantaMemoryInput::new("hnsw", &key, "payload")
                 };
                 db.put(input).unwrap();
@@ -223,6 +229,7 @@ mod hnsw_proptests {
         for (i, v) in raw_vectors.iter().enumerate() {
             let input = VantaMemoryInput {
                 vector: Some(v.clone()),
+                sparse_vector: None,
                 ..VantaMemoryInput::new("hnsw", format!("mixed_{}", i), "payload")
             };
             db.put(input).unwrap();
