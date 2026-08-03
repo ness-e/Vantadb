@@ -29,6 +29,7 @@ impl VantaEmbedded {
     /// Insert or update a node directly. The `input` provides id, content, vector, and fields.
     #[tracing::instrument(skip(self), err)]
     pub fn insert_node(&self, input: VantaNodeInput) -> Result<()> {
+        self.check_read_only()?;
         let engine = self.engine_handle()?;
         let mut node = UnifiedNode::new(input.id);
 
@@ -60,6 +61,7 @@ impl VantaEmbedded {
     /// Delete a node by its numeric id. The `reason` string is recorded for auditing.
     #[tracing::instrument(skip(self), err)]
     pub fn delete_node(&self, id: u128, reason: &str) -> Result<()> {
+        self.check_read_only()?;
         self.engine_handle()?.delete(id, reason)
     }
 
@@ -99,6 +101,7 @@ impl VantaEmbedded {
     /// Shared logic for inserting/updating a single memory record.
     /// Used by both `put()` and `put_batch()`.
     fn put_one(&self, input: VantaMemoryInput) -> Result<VantaMemoryRecord> {
+        self.check_read_only()?;
         validate_namespace(&input.namespace)?;
         validate_key(&input.key)?;
         validate_metadata(&input.metadata)?;
@@ -391,6 +394,7 @@ impl VantaEmbedded {
     /// ```
     #[tracing::instrument(skip(self), err)]
     pub fn delete(&self, namespace: &str, key: &str) -> Result<bool> {
+        self.check_read_only()?;
         validate_namespace(namespace)?;
         validate_key(key)?;
 
@@ -417,6 +421,7 @@ impl VantaEmbedded {
 
     /// Insert or update a record with exact fields (used internally by import).
     pub(crate) fn put_record_exact(&self, record: VantaMemoryRecord) -> Result<VantaMemoryRecord> {
+        self.check_read_only()?;
         validate_namespace(&record.namespace)?;
         validate_key(&record.key)?;
         validate_metadata(&record.metadata)?;
@@ -971,6 +976,7 @@ impl VantaEmbedded {
         weight: Option<f32>,
         created_at_ms: Option<u64>,
     ) -> Result<()> {
+        self.check_read_only()?;
         let engine = self.engine_handle()?;
         let label_id = engine.intern_label(label);
         let w = weight.unwrap_or(1.0);
@@ -1005,6 +1011,7 @@ impl VantaEmbedded {
     /// Remove all edges between two nodes with the given label (both directions).
     #[tracing::instrument(skip(self), err)]
     pub fn remove_edge(&self, source_id: u128, target_id: u128, label: &str) -> Result<()> {
+        self.check_read_only()?;
         let engine = self.engine_handle()?;
         let label_id = engine.intern_label(label);
 
@@ -1448,6 +1455,29 @@ mod tests {
             msg.contains("read-only") || msg.contains("read_only"),
             "got: {msg}"
         );
+    }
+
+    #[test]
+    fn test_put_blocked_when_read_only() {
+        let e = VantaEmbedded::open_with_config(VantaConfig {
+            storage_path: ":memory:".into(),
+            backend_kind: crate::storage::BackendKind::InMemory,
+            read_only: true,
+            ..Default::default()
+        })
+        .expect("open read-only in-memory database");
+
+        let err = e
+            .put(VantaMemoryInput::new("docs", "greeting", "Hello, VantaDB!"))
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("read-only") || msg.contains("read_only"),
+            "put should be blocked on read-only db, got: {msg}"
+        );
+
+        // Nothing was written: a read still sees nothing.
+        assert!(e.get("docs", "greeting").expect("get").is_none());
     }
 
     // ── search_vector (early returns) ──
