@@ -2,7 +2,7 @@
 description: "Dashboard de un vistazo: plan activo, último audit, último ship decision, rama actual, próximo paso"
 ---
 
-Cargá las skills progreso, ponytail (full).
+Cargá ponytail (full). La skill `progreso` ya se carga en el ritual de inicio de sesión — no recargarla acá.
 
 Generá un dashboard del estado actual del proyecto. Mostrar no más de 30 líneas.
 

@@ -6,7 +6,7 @@
 > Al finalizar: skill progreso, checkpoint, detenerse.
 > Si FAIL_MODE=stop: detener en primera falla. Si skip: registrar y seguir.
 
-Cargá las skills campaign-executor, progreso, ponytail (full).
+Las skills base (campaign-executor, progreso, ponytail) se cargan automáticamente vía MCP — no las cargues manualmente.
 
 INSTRUCCIONES — EJECUTAR BACKLOG COMPLETO:
 

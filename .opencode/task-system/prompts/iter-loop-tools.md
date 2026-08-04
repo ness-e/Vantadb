@@ -5,7 +5,7 @@
 > Usar MCP tools (`campaign_get_next_task`, `campaign_verify_cmd`, etc.) para estado.
 > Al finalizar: recitation + STOP.
 
-Cargá las skills campaign-executor, progreso, ponytail (full). Después de determinar la tarea activa, usá `campaign_load_skills` (MCP) para cargar skills específicas del tipo de tarea.
+Las skills base (campaign-executor, progreso, ponytail) se cargan automáticamente al invocar `campaign_load_skills` (MCP) — no las cargues dos veces. Usá `campaign_load_skills` para obtener las skills específicas del tipo de tarea.
 
 ### Step 0: Auto-cargar skills vía MCP
 

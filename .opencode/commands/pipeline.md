@@ -115,8 +115,8 @@ Task ID: {id extraído después de "task "}
    3. Load skills: `campaign_load_skills` con archivos clave + skills extra según área
    4. Delegate: `task(subagent_type="vanta-<area>", prompt="...")` con entry point, acceptance criteria, y verification command
    5. Review: el sub-agente devuelve resultado, revisalo
-   6. **Progreso**: ejecutá `skill progreso` (Trigger 1 — Complete a task) para:
-      - Marcar la tarea como ✅ en Backlog.md
+    6. **Progreso**: ejecutá `skill progreso` (Trigger 1 — Complete a task) para:
+      - Tachar la tarea como ✅ en Backlog.md (con nota de fecha; items removidos → BACKLOG_HISTORY.md)
       - Migrar a progreso/README.md (sin duplicados)
       - Actualizar el plan file si existe
       - Validar doc coverage con `scripts/validate-docs-coverage.ps1`

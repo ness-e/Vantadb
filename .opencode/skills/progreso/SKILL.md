@@ -13,13 +13,13 @@ compatibility: opencode
 
 | File | Role |
 |---|---|
-| `docs/Backlog.md` | Active tasks (state: ✅ or ❌ in `Status` column) |
+| `docs/Backlog.md` | Active tasks (state: ✅ or ❌ in `Status` column). Rows completed are struck-through (`~~…~~`) with a completion note — never deleted |
 | `docs/progreso/README.md` | Completed task history + milestones + audits |
+| `docs/progreso/BACKLOG_HISTORY.md` | Items removed from Backlog.md (historical record, keeps backlogs auditable) |
 | `docs/CHANGELOG.md` | Release notes per version (keepachangelog format) |
 | `docs/Investigaciones/` | Research artifacts (not tasks) |
-| `docs/Investigaciones.md` | Index of research artifacts |
 
-**Invariant:** No task exists in both Backlog.md and progreso/README.md simultaneously.
+**Invariant:** No task exists in both Backlog.md and progreso/README.md simultaneously. Items removed from Backlog.md are archived to BACKLOG_HISTORY.md, not silently dropped.
 
 ## Language split
 
@@ -65,7 +65,7 @@ Completed tasks may come from 3 sources. Check ALL:
 
 | Source | What to do |
 |--------|-----------|
-| `docs/Backlog.md` | Find the ✅ row, delete it |
+| `docs/Backlog.md` | Find the ✅ row, **táchalo** (`~~…~~`) + add completion note with date. If the task is removed without completing (❌/nunca hará), move the row to `docs/progreso/BACKLOG_HISTORY.md` |
 | *(bitácora legacy — migrada a plan files)* | Verificar que el issue esté marcado en el plan file activo |
 | `docs/plans/YYYY-MM-DD-*.md` | Update status tracker + recitation |
 
@@ -73,7 +73,7 @@ Completed tasks may come from 3 sources. Check ALL:
 
 1. Search `docs/progreso/README.md` — usá `grep` para localizar el ID de la tarea (no lo leas completo; son 3K+ líneas ~60K tokens). Grep primero; solo leé las secciones que coincidan.
 2. Si el ID **ya existe** en progreso → skip (no duplicar). Si es información nueva (commit, fecha) → actualizá la entrada existente.
-3. Si el ID **no existe**, agregá entrada en **`## Tareas Completadas`** (sección según fuente) con:
+3. Si el ID **no existe**, agregá entrada en la sección correspondiente (`## Tasks Completed` para inglés, `## Tareas Completadas` para español) con:
    ```
    ### <ID>: Description
    - **Fuente:** Backlog / Bitácora / Plan
@@ -82,8 +82,8 @@ Completed tasks may come from 3 sources. Check ALL:
    - **Resultado:** ✅
    - **Ids:** `ID`
    ```
-3. If the task was a significant milestone, also add a note under the **Executive Summary** or **Recent Progress** section.
-4. If the task was a research/discovery, consider adding to `docs/Investigaciones/` instead of or in addition to progreso.
+4. If the task was a significant milestone, also add a note under the **Executive Summary** or **Recent Progress** section.
+5. If the task was a research/discovery, consider adding to `docs/Investigaciones/` instead of or in addition to progreso.
 
 ### E. Register in CHANGELOG (user-visible changes only)
 
@@ -118,7 +118,7 @@ Before generating a new plan:
 
 ## Trigger 3: Monthly/fase maintenance
 
-1. Backlog: move tasks inactive >30 days to ⏸️ Icebox or ❌ No Hacer.
+1. Backlog: move tasks inactive >30 days to ⏸️ Icebox or ❌ No Hacer (archiving removed rows to `docs/progreso/BACKLOG_HISTORY.md`).
 2. progreso: deduplicate entries, fix stale cross-links.
 3. Investigaciones: verify index matches actual files, prune orphans.
 4. Cross-check: no task exists in both Backlog.md and progreso/README.md.
@@ -127,6 +127,9 @@ Before generating a new plan:
 
 ## Definition of Done (pre-commit checklist)
 
+Ver el standing quality bar en [`.opencode/references/definition-of-done.md`](../../references/definition-of-done.md) — aplica para releases y cambios del sistema.
+
+Para tareas de código (referencia rápida):
 - [ ] Compiles (`cargo check --workspace` or `cargo nextest run --no-run`)
 - [ ] Tests pass (`cargo nextest run --profile audit --workspace --build-jobs 2`)
 - [ ] Affected docs updated (see Trigger 1.A table)

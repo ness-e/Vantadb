@@ -1,6 +1,6 @@
 # /audit — Unified Audit Pipeline Orchestrator
 
-Cargá las skills `vanta-design-orchestrator`, `progreso`, `ponytail` (full).
+Cargá la skill `unified-review` (orquestador de auditoría) + `ponytail` (full).
 
 ## Modo de operación
 

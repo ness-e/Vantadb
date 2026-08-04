@@ -46,9 +46,9 @@ USUARIO
 | Capa | Componentes | Rol |
 |------|-------------|-----|
 | **Entry** | 9 commands en `.opencode/commands/` | Detectan el intento del usuario, resuelven rutas, orquestan |
-| **Pipeline** | `task-system/prompts/` (8 prompts) | Instrucciones detalladas para el agente por fase |
+| **Pipeline** | `task-system/prompts/` (7 prompts) | Instrucciones detalladas para el agente por fase |
 | **Ejecución** | `campaign-executor` (SKILL + RULES + harness) | Loop externo, state machine, recitation |
-| **Skills** | 31 skills engineering + 4 skills VantaDB | Workflows especializados obligatorios |
+| **Skills** | 25 skills engineering + 7 skills VantaDB | Workflows especializados obligatorios |
 | **Agents** | 8 vanta-* agents | Roles con perspectiva y herramientas restringidas |
 | **MCP** | CodeGraph, Playwright, cargo-mcp, rust-analyzer-mcp | Tools de infraestructura |
 | **Dev Tools** | Justfile, cargo-*, dev-tools/scripts/ | Automatización local |
@@ -336,7 +336,7 @@ States válidos (Statewright pattern, iter-loop-tools.md canonical):
 
 ### 6.1 Lifecycle Mapping
 
-Las 31 skills de ingeniería se asignan automáticamente según la fase del trabajo:
+Las 25 skills de ingeniería se asignan automáticamente según la fase del trabajo:
 
 | Fase | Skill | Disparador |
 |------|-------|-----------|
@@ -393,7 +393,7 @@ Skills específicas del proyecto VantaDB. Cada una tiene un rol en el pipeline.
 **Rol:** Único skill que reemplaza `vantadb-full-review`, `vantadb-certify` y `vantadb-audit`.
 Orquesta sub-agentes en paralelo, tiene sistema de perfiles YAML, y 4 modos de operación.
 
-**Ubicación:** `.opencode/skills/unified-review/SKILL.md` (1084 líneas)
+**Ubicación:** `.opencode/skills/unified-review/SKILL.md` (1198 líneas)
 
 **Modos:**
 | Modo | Comando | Equivalente legacy |
@@ -433,7 +433,7 @@ Orquesta sub-agentes en paralelo, tiene sistema de perfiles YAML, y 4 modos de o
 
 **Rol:** Loop que itera módulo por módulo, investiga cada hallazgo en internet, compara con competidores, evalúa prioridad.
 
-**Ubicación:** `.opencode/skills/review-deep/SKILL.md` (370 líneas) + `loop-prompt.md` (71 líneas)
+**Ubicación:** `.opencode/skills/review-deep/SKILL.md` (474 líneas) + `loop-prompt.md` (98 líneas)
 
 **Diferencia con full-review:** No es one-shot. Es un loop que corre tantas iteraciones como módulos tenga el proyecto.
 
@@ -459,16 +459,16 @@ Orquesta sub-agentes en paralelo, tiene sistema de perfiles YAML, y 4 modos de o
 
 ### 7.5 `progreso` — Migración de Tareas
 
-**Rol:** Mueve tareas completadas de Backlog.md a progreso/README.md. Mantiene la documentación sincronizada.
+**Rol:** Mueve tareas completadas de Backlog.md a progreso/README.md. Mantiene la documentación sincronizada. Los items removidos del backlog se archivan a `docs/progreso/BACKLOG_HISTORY.md` (no se borran en silencio).
 
-**Ubicación:** `.opencode/skills/progreso/SKILL.md` (112 líneas)
+**Ubicación:** `.opencode/skills/progreso/SKILL.md` (157 líneas)
 
 **Triggers:**
 | Trigger | Cuándo | Qué hace |
 |---------|--------|----------|
-| 1 | Tarea ✅ | Migra de Backlog a progreso, actualiza docs |
+| 1 | Tarea ✅ | Tacha la fila en Backlog + migra a progreso, actualiza docs |
 | 2 | Nueva tarea | Verifica que la anterior esté migrada |
-| 3 | Mensual | Mantenimiento: icebox, dedup, cross-check |
+| 3 | Mensual | Mantenimiento: icebox, dedup, cross-check, archivar removidos |
 
 **Commit policy:**
 - **Standalone** (sin campaign-executor): no commit — esperar instrucción
@@ -481,7 +481,7 @@ Orquesta sub-agentes en paralelo, tiene sistema de perfiles YAML, y 4 modos de o
 
 **Rol:** Orquesta la ejecución de campañas completas desde backlog. Es el cerebro del pipeline.
 
-**Ubicación:** `.opencode/skills/campaign-executor/SKILL.md` (334 líneas) + `RULES.md` (228 líneas)
+**Ubicación:** `.opencode/skills/campaign-executor/SKILL.md` (420 líneas) + `RULES.md` (413 líneas)
 
 **Relaciones con otros componentes:**
 | Componente | Relación |
@@ -870,8 +870,8 @@ Después de completar: skill progreso
     workflows/                       ← Workflow definitions (bug-fix, feature-add, etc.)
   skills/
     campaign-executor/               ← Núcleo del task system
-      SKILL.md (334L)                ← Referencia completa
-      RULES.md (228L)                ← Reglas invariantes
+      SKILL.md (420L)                ← Referencia completa
+      RULES.md (413L)                ← Reglas invariantes
       tasks/                         ← Task files (DRV-*, P0-*, P1-*, etc.)
     progreso/                        ← Migración de tareas
     vantadb-certify/                 ← (deprecated, reemplazado por unified-review)

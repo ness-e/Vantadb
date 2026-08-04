@@ -2,8 +2,8 @@
 description: Start spec-driven development — write a structured specification before writing code
 ---
 
-Invoke the agent-skills:spec-driven-development skill.
-If requirements are ambiguous, also invoke the agent-skills:interview-me skill to extract what the user actually needs.
+Invoke the spec-driven-development skill.
+If requirements are ambiguous, also invoke the interview-me skill to extract what the user actually needs.
 
 Begin by understanding what the user wants to build. Ask clarifying questions about:
 1. The objective and target users

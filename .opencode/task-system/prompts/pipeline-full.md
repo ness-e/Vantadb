@@ -6,7 +6,7 @@
 > Al finalizar: commit, actualizar plan file, ejecutar skill progreso, handoff y STOP.
 > NO continuar a la siguiente tarea — el loop externo (pipeline-run / sub-agentes) lo maneja.
 
-Cargá las skills campaign-executor, progreso, ponytail (full).
+Las skills base (campaign-executor, progreso, ponytail) se cargan automáticamente vía MCP — no las cargues manualmente.
 
 Paso 0 — Auto-cargar skills según tipo de tarea:
    Llamá `campaign_get_next_task` (MCP) para obtener la tarea activa.
@@ -24,8 +24,8 @@ Operás en un entorno por turnos. Procesás EXACTAMENTE UNA TAREA COMPLETA
 por invocación y te detenés. El loop externo lo maneja el agente que te invocó
 (/pipeline run via sub-agentes, o /loop-goal si usás el approach manual).
 
-Las reglas detalladas están en `skills/campaign-executor/SKILL.md` (339L)
-y `skills/campaign-executor/RULES.md` (167L). Seguilas exactamente.
+Las reglas detalladas están en `skills/campaign-executor/SKILL.md` (420L)
+y `skills/campaign-executor/RULES.md` (413L). Seguilas exactamente.
 
 ## Flujo
 

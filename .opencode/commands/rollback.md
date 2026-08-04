@@ -2,7 +2,7 @@
 description: "Automatic rollback: recover from a failed ship or broken deployment by reverting to the last known-good state"
 ---
 
-Invoke the agent-skills:shipping-and-launch skill (rollback section).
+Invoke the shipping-and-launch skill (rollback section).
 
 Execute a rollback to recover from a failed ship or broken deployment. Follow these steps in order.
 

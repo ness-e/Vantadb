@@ -26,7 +26,7 @@ description: Run a web performance audit via the vanta-tuner persona (web perfor
 
 ## Run the audit
 
-Spawn `vanta-tuner` (web performance specialization). Load `performance-optimization` skill and `observability-and-instrumentation` skill. Pass them explicitly:
+Spawn `vanta-tuner` (web performance specialization). Load `skill performance-optimization`, `skill observability-and-instrumentation`, and `skill playwright-cli` (for browser screenshot/RUM capturing when a live page is available). Pass them explicitly:
 
 > **Alternativa más liviana:** `/audit quick` (CLI checks, ~2min) si solo necesitás verificar timing/Lighthouse sin el perfilado completo de `vanta-tuner`.
 

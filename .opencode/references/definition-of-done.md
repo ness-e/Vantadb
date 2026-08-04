@@ -65,3 +65,26 @@ Tailor the list to the project once, then reuse it unchanged. A Definition of Do
 - A different bar applied depending on deadline pressure.
 - Acceptance criteria treated as the whole bar, with no standing quality floor.
 - "Done" declared before human review on changes that need it.
+
+---
+
+# VantaDB — Definition of Ready (DoR)
+
+Applicable to every item admitted to the active backlog (`docs/Backlog.md`). An item is ready to be picked up only when all of the following hold:
+
+- [ ] Unique ID assigned
+- [ ] Priority defined (🔴🟠🟡🟢🔵⬜)
+- [ ] Involved files known
+- [ ] Effort estimated
+- [ ] Verified against real code (not assumed)
+
+# VantaDB — Project-specific DoD commands
+
+The standing checklist above applies to every change. VantaDB additionally requires these concrete commands to pass (equivalent to `dev-tools/verify.ps1`):
+
+- [ ] Code compiles: `cargo check` / `tsc --noEmit`
+- [ ] Tests pass: `cargo nextest run` / `pytest`
+- [ ] Linters pass: `cargo clippy` / `eslint`
+- [ ] Docs updated if applicable
+- [ ] Task moved to `docs/progreso/README.md` when completed
+- [ ] Changelog updated if user-visible change (`docs/CHANGELOG.md` via git-cliff)
