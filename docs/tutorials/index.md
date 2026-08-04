@@ -19,6 +19,7 @@ Already using another embedded vector database? Jump in here:
 |------|----------|-------------------|
 | M1 | [Migrating from ChromaDB](03-migrating-from-chromadb.md) | API mappings + one-command migration from ChromaDB |
 | M2 | [Migrating from LanceDB](migration-from-lancedb.md) | Schema mapping, filters, and migration from LanceDB |
+| M3 | [Migrating from Vectara](migrate-from-vectara.md) | Export Vectara corpora, convert to VantaDB format, re-embed |
 
 ## Prerequisites
 
@@ -29,7 +30,7 @@ Already using another embedded vector database? Jump in here:
 
 Start with **Building AI Agent Memory** — it covers the two primitives used everywhere (`put()` and `search_memory()`). Then build a **Local RAG Pipeline** on top. Once you're comfortable, the **Hybrid Search** and **Embedding Providers** tutorials cover production concerns: ranking quality, filter scoping, and provider choice.
 
-The migration tutorials are standalone — read them when you have existing ChromaDB or LanceDB data to move.
+The migration tutorials are standalone — read them when you have existing ChromaDB, LanceDB, or Vectara data to move.
 
 ## API reference
 
