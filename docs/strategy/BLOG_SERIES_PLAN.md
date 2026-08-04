@@ -17,13 +17,13 @@ aliases: [BLOG_SERIES_PLAN, Blog Plan, Blog Calendar, Blog Series]
 
 ## Status Summary
 
-The blog series is **3 of 4 posts complete** as drafts in `docs/blog/`, but the production site exposes **4 posts** (one of them, `introducing-vantadb`, has no source draft in `docs/blog/`). Every live post has metadata drift between the web manifest and its markdown draft. See [Section 1](#1-content-inventory).
+The blog series is **4 of 5 posts complete** as drafts in `docs/blog/`, but the production site exposes **4 posts** (one of them, `introducing-vantadb`, has no source draft in `docs/blog/`). Every live post has metadata drift between the web manifest and its markdown draft. See [Section 1](#1-content-inventory).
 
 | Surface | Posts | Notes |
 |---------|-------|-------|
 | Web (`BLOG_POSTS` in `web/src/components/vanta/vanta-data.ts`) | 4 | Full inline content, published dates Jan–Feb 2025, author `ness-e` |
-| Drafts (`docs/blog/`) | 3 | Real content (not stubs), all dated 2026-06-06, author `VantaDB Team` |
-| Backlog / MKT-05 claim | 4/5 | Audit `backlog-validation-2026-07-28` corrected the count to 3 drafts |
+| Drafts (`docs/blog/`) | 5 | Real content (not stubs), all dated 2026-06-06, author `VantaDB Team` |
+| Backlog / MKT-05 claim | 4/5 | Audit `backlog-validation-2026-07-28` corrected the count to 3 drafts; MKT-05 added the 5th (benchmarks) draft on 2026-08-04 |
 
 ---
 
@@ -47,10 +47,14 @@ Defined in `web/src/components/vanta/vanta-data.ts` (line 833, `BLOG_POSTS`). Al
 | 1 | `docs/blog/how_hybrid_search_works.md` | How Hybrid Search Works: BM25 + HNSW + RRF in Practice | 2026-06-06 | VantaDB Team | 8,540 B | 144 |
 | 2 | `docs/blog/sqlite_for_ai_agents.md` | SQLite for AI Agents: Benchmarks and Architecture Decisions | 2026-06-06 | VantaDB Team | 7,339 B | 105 |
 | 3 | `docs/blog/why_i_built.md` | Why I Built a Local Memory Engine for AI Agents in Rust | 2026-06-06 | VantaDB Team | 8,477 B | 92 |
+| 4 | `docs/blog/introducing_vantadb.md` | Introducing VantaDB | 2026-06-06 | VantaDB Team | 5,960 B | 37 |
+| 5 | `docs/blog/benchmarks_vs_lancedb_chroma.md` | VantaDB vs LanceDB vs ChromaDB: Real Numbers from an Embedded Engine | 2026-06-06 | VantaDB Team | 12,586 B | 130 |
+
+> **M1 status update (2026-08-04):** `docs/blog/introducing_vantadb.md` now exists as an editable source draft, resolving the original M1 gap — every live post has a `.md` source.
 
 ### 1.3 Planned (backlog / GTM)
 
-The original backlog planned 3 articles: *Why I Built a Local Memory Engine in Rust*, *How Hybrid Search Works*, *SQLite for AI Agents*. All three exist as drafts. `GO_TO_MARKET.md` additionally lists topics that are **not** yet drafted (GraphRAG, benchmarks vs Pinecone/ChromaDB, WAL/durability lessons, Ollama + VantaDB tutorial, Claude Code memory). These are future posts, not part of the original 3–4.
+The original backlog planned 3 articles: *Why I Built a Local Memory Engine in Rust*, *How Hybrid Search Works*, *SQLite for AI Agents*. All three exist as drafts. `GO_TO_MARKET.md` additionally lists topics that are **not** yet drafted (GraphRAG, WAL/durability lessons, Ollama + VantaDB tutorial, Claude Code memory). The benchmarks post (VantaDB vs LanceDB vs ChromaDB) was planned in [Section 4.3](#43-missing-posts-and-proposed-order) and is now drafted (MKT-05, 2026-08-04).
 
 ### 1.4 Mismatch summary
 
@@ -177,7 +181,7 @@ Suggested rhythm:
 | 6 | Local agent memory with Ollama + VantaDB | not drafted | Plan | Month 2 | GTM local-LLM vertical |
 | 7 | VantaDB as persistent memory for Claude Code (MCP) | not drafted | Plan | Month 3 | GTM AI-IDE vertical |
 | 8 | WAL & durability: lessons from chaos testing | not drafted | Plan | Month 3 | Release with durability feature |
-| 9 | VantaDB vs Pinecone vs ChromaDB (benchmarks) | not drafted | Plan | Month 4 | Release with benchmark data |
+| 9 | VantaDB vs LanceDB vs ChromaDB (benchmarks) | `docs/blog/benchmarks_vs_lancedb_chroma.md` | **Drafted (MKT-05, 2026-08-04)** — real run of `benchmarks/competitive_bench.py` (glove-100-angular 10K, median-of-3, chunked ingest) | Drafted; publish with benchmark data | Release with benchmark data |
 
 ### 4.4 Release alignment
 
