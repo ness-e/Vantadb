@@ -31,7 +31,7 @@ export default function PricingPage() {
       />
 
       <PageSection variant="cream">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {PRICING_PLANS.map((plan, i) => (
             <Reveal key={plan.name} direction="up" delay={i * 80} as="article">
               <article

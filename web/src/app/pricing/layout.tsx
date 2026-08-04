@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Pricing · VantaDB — Open Source + Team + Enterprise",
+  title: "Pricing · VantaDB — Open Source + Enterprise",
   description:
-    "Pricing de VantaDB: 3 planes. Community $0 Apache 2.0 para siempre, Team $49/dev seat con soporte, Enterprise con SLA on-prem. Sin facturación por query.",
+    "Pricing de VantaDB: 2 planes. Community $0 Apache 2.0 para siempre, Enterprise con SLA on-prem. Sin facturación por query.",
   openGraph: {
-    title: "Pricing · VantaDB — Open Source + Team + Enterprise",
+    title: "Pricing · VantaDB — Open Source + Enterprise",
     description:
-      "3 planes VantaDB: Community $0, Team $49/dev seat, Enterprise SLA. Sin facturación por query.",
+      "2 planes VantaDB: Community $0, Enterprise SLA. Sin facturación por query.",
     url: "https://vantadb.dev/pricing",
     siteName: "VantaDB",
     type: "website",
