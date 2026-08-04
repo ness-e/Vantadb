@@ -10,7 +10,7 @@ import {
   TrendingDown,
   Boxes,
 } from "lucide-react";
-import { BENCH01, SIFT1M, VANTA } from "./vanta-data";
+import { BENCH01, SIFT1M, VANTA, COMPETITIVE_TABLE } from "./vanta-data";
 import type { View } from "./vanta-data";
 import { LatencyComparator } from "./latency-comparator";
 import { Reveal } from "./reveal";
@@ -343,13 +343,104 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
         </div>
       </section>
 
+      {/* Competitive benchmark */}
+      <section className="relative border-b-4 border-black bg-[#FBF9F5]">
+        <div className="pointer-events-none absolute inset-0 grid-tech opacity-50" aria-hidden />
+        <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6">
+          <Reveal direction="up">
+          <SectionHeader
+            tag="§03"
+            title={COMPETITIVE_TABLE.title}
+            subtitle={COMPETITIVE_TABLE.subtitle}
+          />
+          </Reveal>
+
+          <div className="mt-6 overflow-x-auto border-4 border-black bg-[#FBF9F5] shadow-[8px_8px_0_0_#000]">
+            <table className="w-full min-w-[900px] border-collapse font-tech">
+              <thead>
+                <tr className="border-b-4 border-black bg-black text-[#FBF9F5]">
+                  <th className="border-r-2 border-[#FBF9F5]/20 px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider">
+                    Metric
+                  </th>
+                  {["VantaDB", "LanceDB", "ChromaDB", "Pinecone", "Weaviate"].map((h) => (
+                    <th
+                      key={h}
+                      className={`border-r-2 border-[#FBF9F5]/20 px-4 py-3 text-right text-[10px] font-bold uppercase tracking-wider ${
+                        h === "VantaDB" ? "text-[#FF5500]" : ""
+                      }`}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {COMPETITIVE_TABLE.rows.map((r) => (
+                  <tr
+                    key={r.metric}
+                    className={`border-b-2 border-black/15 transition-colors hover:bg-[#FF5500]/10 ${
+                      r.highlight ? "bg-[#FF5500]/15" : ""
+                    }`}
+                  >
+                    <td className="border-r-2 border-black/10 px-4 py-3 text-xs font-bold text-black">
+                      <div className="flex items-center gap-2">
+                        {r.highlight && (
+                          <span className="h-2 w-2 shrink-0 animate-pulse-ring bg-[#FF5500]" />
+                        )}
+                        {r.metric}
+                      </div>
+                    </td>
+                    <td className="border-r-2 border-black/10 px-4 py-3 text-right font-mono text-sm font-bold text-[#FF5500]">
+                      {r.vanta}
+                    </td>
+                    <td className="border-r-2 border-black/10 px-4 py-3 text-right font-mono text-sm text-black/80">
+                      {r.lance}
+                    </td>
+                    <td className="border-r-2 border-black/10 px-4 py-3 text-right font-mono text-sm text-black/80">
+                      {r.chroma}
+                    </td>
+                    <td className="border-r-2 border-black/10 px-4 py-3 text-right font-mono text-[11px] uppercase tracking-wider text-black/50">
+                      {r.pinecone}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-[11px] uppercase tracking-wider text-black/50">
+                      {r.weaviate}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Honesty note */}
+          <div className="mt-4 flex items-start gap-3 border-l-4 border-black bg-[#FBF9F5] px-4 py-3">
+            <Cpu className="mt-0.5 h-4 w-4 shrink-0 text-[#FF5500]" strokeWidth={2.5} />
+            <p className="font-tech text-[10px] leading-relaxed text-black/60">
+              {COMPETITIVE_TABLE.note}
+            </p>
+          </div>
+
+          {/* Source */}
+          <div className="mt-2 flex items-start gap-3 px-4 py-2 font-tech text-[10px] text-black/50">
+            <span className="uppercase tracking-wider">Source:</span>
+            <a
+              href={COMPETITIVE_TABLE.sourceLink}
+              target="_blank"
+              rel="noreferrer"
+              className="underline decoration-[#FF5500]/60 underline-offset-2 hover:text-[#FF5500]"
+            >
+              docs/blog/benchmarks_vs_lancedb_chroma.md
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* Run locally */}
       <section className="relative border-b-4 border-black bg-[#F2EDE2]">
         <div className="pointer-events-none absolute inset-0 grid-tech opacity-50" aria-hidden />
         <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6">
           <Reveal direction="up">
           <SectionHeader
-            tag="§03"
+            tag="§04"
             title="Run the benchmark locally"
             subtitle="Measure the baseline on your own hardware in three commands"
           />

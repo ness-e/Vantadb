@@ -235,6 +235,50 @@ export const SIFT1M = {
   ],
 };
 
+// Competitive benchmark — VantaDB vs LanceDB vs ChromaDB (measured locally) + Pinecone/Weaviate (CSP-managed).
+// Measured numbers source: benchmarks/competitive_bench.py → docs/blog/benchmarks_vs_lancedb_chroma.md
+// (glove-100-angular, 10K vectors, 100 queries, top_k=10, median of 3 runs, --batch-size 999).
+// Pinecone/Weaviate are hosted/managed services — the harness does NOT run them locally, so their
+// measured cells are marked "Managed" — we do not fabricate cross-vendor QPS/latency figures.
+type CompetitiveRow = {
+  metric: string;
+  kind: "num" | "txt";
+  vanta: string;
+  lance: string;
+  chroma: string;
+  pinecone: string;
+  weaviate: string;
+  highlight?: boolean;
+};
+
+export const COMPETITIVE_TABLE: {
+  title: string;
+  subtitle: string;
+  sourceLink: string;
+  note: string;
+  rows: CompetitiveRow[];
+} = {
+  title: "Competitive benchmark · embedded engines",
+  subtitle:
+    "glove-100-angular · 10K vectors · 100 queries · top_k=10 · median of 3 runs. VantaDB, LanceDB and ChromaDB are measured locally by competitive_bench.py.",
+  sourceLink: `${VANTA.repo}/blob/main/docs/blog/benchmarks_vs_lancedb_chroma.md`,
+  note: "Pinecone and Weaviate are managed/hosted services — the harness does not run them locally, so their measured cells read 'Managed'. We do not invent cross-vendor QPS/latency numbers here; the three local engines are reproducible via the public harness.",
+  rows: [
+    // Measured rows — real numbers from the harness run (blog published 2026).
+    { metric: "Ingest QPS", kind: "num", vanta: "301.5", lance: "92,294.1", chroma: "2,227.6", pinecone: "Managed", weaviate: "Managed" },
+    { metric: "Index time (ms)", kind: "num", vanta: "7,330.1", lance: "3,087.0", chroma: "N/A (inc)", pinecone: "Managed", weaviate: "Managed" },
+    { metric: "Query QPS", kind: "num", vanta: "241.4", lance: "197.5", chroma: "591.1", pinecone: "Managed", weaviate: "Managed" },
+    { metric: "Latency p50 (ms)", kind: "num", vanta: "4.124", lance: "4.978", chroma: "1.650", pinecone: "Managed", weaviate: "Managed" },
+    { metric: "Latency p99 (ms)", kind: "num", vanta: "6.129", lance: "8.953", chroma: "2.744", pinecone: "Managed", weaviate: "Managed" },
+    { metric: "Recall@10", kind: "num", vanta: "100%", lance: "22.8%", chroma: "95.6%", pinecone: "Managed", weaviate: "Managed", highlight: true },
+    { metric: "Peak RSS (MB)", kind: "num", vanta: "434.4", lance: "390.7", chroma: "386.5", pinecone: "Managed", weaviate: "Managed" },
+    // Architecture / positioning rows — factual, no fabricated latency. Pinecone/Weaviate carry verified model facts.
+    { metric: "Deployment", kind: "txt", vanta: "pip install · embedded", lance: "pip install · library", chroma: "pip install · client/server", pinecone: "Fully managed SaaS", weaviate: "Self-host or cloud" },
+    { metric: "Pricing model", kind: "txt", vanta: "Open source · $0", lance: "Open source", chroma: "Open source", pinecone: "Usage / pods", weaviate: "Hosted by vendor" },
+    { metric: "Durability", kind: "txt", vanta: "WAL + CRC32C", lance: "Arrow, query-versioned", chroma: "In-memory HNSW (no WAL)", pinecone: "Managed SLA", weaviate: "WAL / hosted" },
+  ],
+};
+
 // The exact 5-Minute Quickstart Python snippet from the README
 export const QUICKSTART_PYTHON = `import vantadb_py as vantadb
 
