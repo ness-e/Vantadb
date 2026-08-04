@@ -1,8 +1,9 @@
-# Reporte de Auditoría y Propuesta — INV-003: Sync Blocking en Tokio
+# Auditoría — INV-003: Tokio Blocking Audit (uso de spawn_blocking)
 
 > **ID:** `INV-003`  
 > **Categoría:** Phase 4 — Engineering Health & Architecture  
 > **Fecha:** 2026-07-31  
+> **Actualizado:** 2026-08-04 — verificación de líneas de código, corrección de `build_tls13_config` y cobertura de `vantadb-mcp`  
 > **Estado:** ✅ Auditoría Completada — Propuesta Lista  
 
 ---
@@ -20,8 +21,8 @@ Esta auditoría evaluó todo el espacio de código en `src/`, `vantadb-server/` 
 ### 2.1 Uso de Async vs Sync en el Motor Principal (`src/`)
 
 1. **Protección mediante `spawn_blocking` ya existente en API Async:**
-   - **`execute_query` en `src/cli_server.rs:409`**: Invocaciones pesadas al motor mediante `Executor::execute_hybrid` corren aisladas dentro de `tokio::task::spawn_blocking`.
-   - **`flush_on_shutdown_async` en `src/cli_server.rs:794`**: `storage.flush()` corre mediante `spawn_blocking`.
+   - **`execute_query` en `src/cli_server.rs:429`**: Invocaciones pesadas al motor mediante `Executor::execute_hybrid` corren aisladas dentro de `tokio::task::spawn_blocking`.
+   - **`flush_on_shutdown_async` en `src/cli_server.rs:858`**: `storage.flush()` corre mediante `spawn_blocking`.
    - **`AsyncIngestionPipeline` en `src/ingestion.rs:85`**: El procesamiento del task `Self::process` corre en `spawn_blocking`.
 
 2. **Manejo Dual en `src/transcript.rs`:**
@@ -32,7 +33,8 @@ Esta auditoría evaluó todo el espacio de código en `src/`, `vantadb-server/` 
 
 ### 2.2 Mutexes y Estado Concurrente
 
-- En `vantadb-server/`, los manejadores usan estado compartido de Tokio (`Arc<ServerState>`) con un semáforo de concurrencia (`tokio::sync::Semaphore`).
+- En `vantadb-server/`, los manejadores usan estado compartido de Tokio (`Arc<ServerState>`) con un semáforo de concurrencia (`tokio::sync::Semaphore`). El semáforo vive en `ConnectionPool` (`src/connection_pool.rs:15`) como campo de `ServerState` (`src/cli_server.rs:101`); `vantadb-server/src/server.rs` re-exporta el router de `vantadb::cli_server`.
+- `vantadb-mcp/` aplica el mismo patrón explícitamente: `tokio::sync::Semaphore` + `tokio::task::spawn_blocking` con `timeout` en `tools/call` y `resources/read` (`vantadb-mcp/src/lib.rs:505-561`).
 - No se detectaron cierres o guardas de `std::sync::Mutex` mantenidas a través de puntos de suspensión (`.await`).
 - Los mutexes sincrónicos en la capa de índices (`src/index/scann.rs`, `src/index/flat.rs`, `src/index/diskann.rs`) se utilizan exclusivamente en llamadas sincrónicas aisladas dentro de `spawn_blocking`.
 
@@ -42,7 +44,7 @@ Esta auditoría evaluó todo el espacio de código en `src/`, `vantadb-server/` 
 
 | Ubicación | Operación | Contexto | Nivel de Riesgo | Solución Propuesta |
 |---|---|---|---|---|
-| `src/cli_server.rs:744` | `build_tls13_config` (lectura de certificados SSL en inicio) | Startup Async | 🟢 Bajo | Aceptable en fase de arranque (single-pass). |
+| `src/cli_server.rs:810` | `build_tls13_config` (lectura de certificados SSL) | Startup Async | 🟢 Bajo | Ya usa `tokio::fs::read` — sin bloqueo real del event loop. |
 | `src/wal_shipping.rs` | `std::fs::read_dir` en envío de segmentos WAL | Background thread | 🟢 Bajo | Corre fuera del loop de Tokio. |
 | `src/ingestion.rs:77` | `tokio::sync::Mutex` en `worker_loop` | Async Worker | 🟢 Bajo | Lock liviano de canal Tokio (no bloquea hilo). |
 
@@ -56,4 +58,4 @@ Esta auditoría evaluó todo el espacio de código en `src/`, `vantadb-server/` 
    - La arquitectura actual respeta la separación entre hilos I/O de Tokio y tareas intensivas en CPU/Disco.
 
 ---
-*Reporte generado automáticamente como parte de INV-003.*
+*Reporte generado automáticamente como parte de INV-003. Actualizado el 2026-08-04 tras verificación contra el código fuente.*

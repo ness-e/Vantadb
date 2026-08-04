@@ -3,8 +3,8 @@ title: "Active Backlog — VantaDB"
 type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
-last_reviewed: 2026-07-29
-verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 5 sub-agentes explore validaron 69 items contra código real — ver docs/audit-reports/backlog-validation-2026-07-28.md. 2026-07-29: 19 items INVESTIGACION agregados (INV-001 a INV-017) tras verificación de consolidación de 4 sub-agentes vs código real."
+last_reviewed: 2026-08-03
+verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 ---
 
 # Active Backlog — VantaDB
@@ -34,26 +34,13 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | **P9** 📚 Old Docs Rescue (reference) | 13 (7 ✅ progreso) | — | 📖 Referencia |
 | **P10** 🏗️ Competitive Features (catalog) | 20 (11 ✅ progreso) | — | 🗺️ Roadmap |
 
-> **Items removidos (71+):** ~25 originales + 6 P0 stale + 9 P1 resueltos + 24 P2 stale + 7 P3 stale + 10 P4 completados + 7 P9 completados + 11 P10 completados + 1 P7 completado + 24 crates de integración nunca implementados
+> **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
 
 ---
 
-## ✅ Definition of Ready (DoR)
+## ✅ Definition of Ready / Done
 
-- [ ] ID único asignado
-- [ ] Prioridad definida (🔴🟠🟡🟢🔵⬜)
-- [ ] Archivos involucrados conocidos
-- [ ] Esfuerzo estimado
-- [ ] Verificado contra código real (no asumido)
-
-## ✅ Definition of Done (DoD)
-
-- [ ] Código compila (`cargo check` / `tsc --noEmit`)
-- [ ] Tests pasan (`cargo nextest run` / `pytest`)
-- [ ] Linters pasan (`cargo clippy` / `eslint`)
-- [ ] Docs actualizados si aplica
-- [ ] Tarea movida a `progreso/README.md`
-- [ ] Changelog actualizado si es cambio visible al usuario
+> **DoR + DoD del proyecto (VantaDB-specific) viven en:** `.opencode/references/definition-of-done.md` — secciones "VantaDB — Definition of Ready" y "VantaDB — Project-specific DoD commands". Referencia única; no duplicar aquí.
 
 ---
 
@@ -65,7 +52,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | ~~`DEVOPS-15`~~ | ~~**Reducir default features de 7 a 3** — ❌ **WONTFIX**. Analizado: remover `cli, memmap2, fs2, sysinfo` rompe UX "it just works". Las 7 features mantienen experiencia completa. | `Cargo.toml:89` | 🟡 — | ✅ Cerrado |~~
 | ~~`META-001`~~ | ~~**🔍 Root Cause Analysis: Inconsistencias del Backlog** — Auditoría profunda. **Entregable:** Reporte de hallazgos.~~ | ~~`docs/audit-reports/meta-001-root-cause-analysis.md`~~ | ~~🟠 2-3d~~ | ✅ |
 
-> **Items removidos (7):** DEVOPS-10 (deferido), DEVOPS-12 (PyPI signing), DEVOPS-14 ✅, NUEVO-09 ✅, NUEVO-10 ✅, ~~DEVOPS-15 re-opened~~ → ❌ **WONTFIX** (7 features necesarias para UX completo), META-001 queda como único P0 activo.
+> **Items removidos (7) + WONTFIX:** ver `docs/progreso/BACKLOG_HISTORY.md` (P0). `META-001` era el único P0 activo.
 
 ---
 
@@ -78,16 +65,16 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | ~~`INV-001`~~ | ~~**🔍 Investigar dependencias con RUSTSEC activas** — Auditar `Cargo.lock` contra advisories conocidos. 3 crates reportadas: `atomic-polyfill` (RUSTSEC-2023-0089), `paste` (RUSTSEC-2024-0436), `rustls-pemfile` (RUSTSEC-2025-0134). **✅ COMPLETADA 2026-07-29 — Las 3 están gestionadas o son stale. Reporte: `docs/audit-reports/inv-001-rustsec-2026-07-29.md`. Cargo deny pasa limpio.**~~ | ~~`Cargo.lock`, `deny.toml`~~ | ~~🟢 2-4h~~ | ✅ |
 | ~~`INV-024`~~ | ~~**🔍 Auditar bloqueos `unsafe` sin SAFETY docs** — Revisar todos los bloques `unsafe` en el código Rust (`src/node.rs`, `src/index/graph.rs`, `src/storage/vfile.rs`) que carecen de invariantes documentados. Verificar si hay UB potencial o si son seguros pero sin docs. Proponer: (a) agregar SAFETY comments documentando invariantes, o (b) reemplazar con alternativas seguras. **Sin implementación — solo auditoría + propuesta.** **✅ COMPLETADA 2026-07-30 — 39 bloques auditados (28 SAFE, 4 SAFE_BUT_UNDOCUMENTED, 7 UB_POTENTIAL). 1 High (panic-DoS sq8_similarity) + 1 Medium (UB alineación). Reporte: `docs/audit-reports/inv-024-unsafe-audit-2026-07-30.md`. cargo deny PASSED, cargo audit 0 vulns.**~~ | ~~`src/node.rs`, `src/index/graph.rs`, `src/storage/vfile.rs`, `src/index/search.rs`~~ | ~~🟡 3-5d~~ | ✅ |
 
-> **Items previos resueltos (9):** Todos los items P1 originales resueltos/deferidos en campañas anteriores.
+> **Items previos resueltos (9):** ver `docs/progreso/BACKLOG_HISTORY.md` (P1).
 
 ---
 
-> **Phase 2: ⚡ Quick Wins Técnicos** — **31 items removidos:** DRV-014 ✅, DRV-028 ✅, DRV-041 ✅, VFY-006 ✅, VFY-007 ✅, REV-012 ✅, DRV-136 ✅ + 24 stale items de la auditoría original. No quedan items activos en P2.
-> ⚠️ **Nota DRV-014 (2026-07-31):** El fix fue **REVERTIDO** por `cae92db3` "perf(engine): Phase 1 optimizations — WAL batch". El clon de WalRecords (`Vec<Vec<WalRecord>>` + `record.clone()`) se reintrodujo deliberadamente para agrupar por shard y usar `WalWriter::batch_append()` (1 lock + 1 write_all + 1 maybe_sync por shard, 3-5× speedup en WAL writes). La tarea quedó cerrada ✅ como completada en su momento (`3bdfc93e`), pero el código actual NO refleja ese fix — es un tradeoff de performance posterior, no deuda pendiente.
+> **Phase 2: ⚡ Quick Wins Técnicos** — **31 items removidos:** ver `docs/progreso/BACKLOG_HISTORY.md` (P2). No quedan items activos en P2.
+> ⚠️ **Nota DRV-014 (tradeoff WAL batch):** ver ADR `docs/architecture/adr/DRV-014-wal-batch-tradeoff.md` — el fix original fue revertido deliberadamente por `cae92db3` (batch-append por shard, 3-5× speedup). Tradeoff de performance, no deuda pendiente.
 
 ---
 
-> **Phase 3: 🧪 Test Coverage (Adapters & Engine)** — **14 items removidos:** DRV-013 ✅, DRV-017 ✅, DRV-061 ✅, DRV-067 ✅, DRV-073 ✅, TEST-11 ✅, TEST-12 ✅ + 7 stale de auditoría original. No quedan items activos en P3.
+> **Phase 3: 🧪 Test Coverage (Adapters & Engine)** — **14 items removidos:** ver `docs/progreso/BACKLOG_HISTORY.md` (P3). No quedan items activos en P3.
 
 ---
 
@@ -98,11 +85,11 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
 | ~~`INV-002`~~ | ~~**🔍 Memory Telemetry Correction — investigación** — El reporte de RAM actual es inconsistente (mezcla core RAM, index RAM, page cache, mmap, ingest buffers). Audit dice "hasta que arregles la telemetría, no hables de eficiencia de memoria". **Alcance:** (1) Mapear qué mide cada métrica actual vs qué debería medir, (2) Diseñar esquema de telemetría con categorías separadas (core, index, page cache, mmap, ingest), (3) Identificar qué estructuras contribuyen a cada categoría, (4) Proponer implementación con `tracing::metrics` + labels. **Sin implementación — solo diseño + propuesta.** **✅ COMPLETADA 2026-07-30 — Esquema 5 categorías diseñado (core/index/page_cache/mmap/ingest) en `docs/operations/MEMORY_TELEMETRY.md`; IntGaugeVec con label `category` validado contra API oficial prometheus; contrato `OperationalMetrics` preservado.**~~ | ~~`src/metrics/`, `docs/operations/MEMORY_TELEMETRY.md`, `docs/operations/PERFORMANCE_TUNING.md`~~ | ~~🟡 3-5d~~ | ✅ |
-| ~~`INV-003`~~ | ~~**🔍 Sync Blocking en Tokio — auditoría** — Auditoría de `std::fs::*` y `std::sync::Mutex::lock()` en contextos `async`. **✅ COMPLETADA 2026-07-31 — Reporte: `docs/Investigaciones/INV-003-sync-blocking-tokio.md`. Se verificó que llamadas bloqueantes usan `spawn_blocking` correctamente.**~~ | ~~`src/`, `vantadb-server/`, `vantadb-mcp/`~~ | ~~🟡 2-3d~~ | ✅ |
+| ~~`INV-003`~~ | ~~**🔍 Tokio Blocking Audit — auditoría** — Auditoría de `std::fs::*` y `std::sync::Mutex::lock()` en contextos `async`. **✅ COMPLETADA 2026-07-31 — Reporte: `docs/Investigaciones/INV-003-tokio-blocking-audit.md`. Se verificó que llamadas bloqueantes usan `spawn_blocking` correctamente.**~~ | ~~`src/`, `vantadb-server/`, `vantadb-mcp/`~~ | ~~🟡 2-3d~~ | ✅ |
 | ~~`INV-004`~~ | ~~**🔍 mimalloc como Global Allocator — investigación** — Evaluación de `mimalloc` y allocators globales por plataforma. **✅ COMPLETADA 2026-07-31 — Reporte: `docs/Investigaciones/INV-004-mimalloc-global-allocator.md`. Feature `custom-allocator` y `mimalloc` validados y configurados.**~~ | ~~`Cargo.toml`, `src/bin/vanta-cli.rs`~~ | ~~🟢 4-6h~~ | ✅ |
 | ~~`INV-005`~~ | ~~**🔍 ErrorBoundary en web frontend — investigación** — Auditoría de `react-error-boundary` y manejo de errores Next.js. **✅ COMPLETADA 2026-07-31 — Reporte: `docs/Investigaciones/INV-005-error-boundary-web.md`. Se propone adoptar `error.tsx` nativo de App Router.**~~ | ~~`web/src/app/layout.tsx`, `web/package.json`~~ | ~~🟢 2-4h~~ | ✅ |
 
-> **Items previos completados (10):** WEB-03 ✅, WEB-04 ✅, VFY-004 ✅, VFY-011 ✅, DRV-121 ✅, DRV-122 ✅, DRV-123 ✅, DRV-130 ✅, DRV-131 ✅, DOC-20 ✅ — movidos a `docs/progreso/README.md`.
+> **Items previos completados (10):** ver `docs/progreso/BACKLOG_HISTORY.md` (P4) — movidos a `docs/progreso/README.md`.
 
 ---
 
@@ -151,7 +138,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
-> **Items removidos (5):** NUEVO-11/12 (WASM IndexedDB + multi-tab coordinación — ✅ implementados), NUEVO-14 (bundle 394KB gzip < 500KB — ✅ en WASM-04), NUEVO-19 (SourceDesign/ no existe), BENCH-01 (solo mención en backlog, sin script ni dataset)
+> **Items removidos (5):** ver `docs/progreso/BACKLOG_HISTORY.md` (P7).
 
 ---
 
@@ -217,7 +204,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 |----|-------------|----------|----------|------|
 | ~~`INV-017`~~ | **✅ 🔍 sccache en CI — investigación** — Los builds Rust en CI compilan desde cero cada vez (~8-10 min). sccache podría cachear compilaciones entre runs. **Alcance:** (1) Investigar compatibilidad de `sccache` con GitHub Actions + `Swatinem/rust-cache`, (2) Evaluar si son complementarios o redundantes, (3) Diseñar integración mínima (instalar sccache + configurar `RUSTC_WRAPPER`), (4) Medir impacto estimado en tiempo de CI. **Sin implementación — solo investigación + propuesta.** | `docs/Investigaciones/INV-017-sccache-ci.md` | 🟢 2-4h | 🟡 | ✅ Hecho |
 
-> **Items removidos (1):** NUEVO-20 (Dockerfile ya existe en raíz del repo — multi-stage, Rust 1.94)
+> **Items removidos (1):** ver `docs/progreso/BACKLOG_HISTORY.md` (P8).
 
 ---
 
@@ -226,13 +213,13 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 > Recuperado de `VANTADB DOC OLD` (~280 archivos .md analizados vía 21 sub-agentes).
 > **Total:** 21 items, **13 activos** (8 ✅ removidos a progreso). **Estado:** 1 ⚠️ parcial, 1 ❌ pendiente, 2 ❌ justificado.
 > **Referencia completa:** `docs/REPORTE_EVALUACION_COMPLETO.md` secciones 6 y 7.
-> **Batch file map:** ver `docs/Backlog.md` sección Tier 5 original para archivos por batch.
+> **Items removidos a progreso (8):** ver `docs/progreso/BACKLOG_HISTORY.md` (P9).
 
 ### 🔴 Alta — Features perdidas con alto valor de mercado
 
 | ID | Feature | Esfuerzo | Estado | Dependencias | Prioridad |
 |----|---------|----------|--------|--------------|-----------|
-> **8 items ✅ removidos a progreso:** OLD-04 (OpenTelemetry), OLD-07 (AutoHot/Cold tiering), OLD-13 (Explainable ranking), OLD-15 (Euclidean SIMD), OLD-16 (WAL rotation 256MB), OLD-17 (Migration guides), OLD-18 (TEMPERATURE param), OLD-22 (Arrow columnar export).
+> **8 items ✅ removidos a progreso:** ver `docs/progreso/BACKLOG_HISTORY.md` (P9).
 
 | ID | Feature | Esfuerzo | Estado | Dependencias |
 |----|---------|----------|--------|--------------|
@@ -255,7 +242,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 ## Phase 10: 🏗️ Competitive Features — Catalog
 
 > **Fuente:** Análisis de 27 archivos de `VANTADB DOC OLD/` (9 vector DBs + 8 graph DBs + 10 arquitectura).
-> **Total:** 30 items, **18 activos.** 12 ✅ implementados removidos a progreso: COMP-001 (SQ8/PQ), COMP-002 (HNSW persist), COMP-003 (in-filter), COMP-004 (bitset), COMP-005 (params), COMP-006 (Edge Label Interning), COMP-007 (inline u128), COMP-010 (auto-embedding), COMP-011 (CRUD tombstones), COMP-015 (hybrid pipeline), COMP-018 (Double-linked chains), COMP-020 (RRF fusion), COMP-030 (survival mode).
+> **Total:** 30 items, **18 activos.** 12 ✅ implementados removidos a progreso: ver `docs/progreso/BACKLOG_HISTORY.md` (P10).
 > **Reportes completos:** `docs/audit-reports/competitive-features-consolidated-report.md`, `docs/audit-reports/deep-analysis-{vector,graph,arch}.md`
 
 ### 🔴 Alta — Features competitivas críticas para adopción
@@ -329,18 +316,6 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 - **OLD items:** `docs/REPORTE_EVALUACION_COMPLETO.md` secciones 6 y 7 — ~280 archivos VANTADB DOC OLD analizados
 - **COMP items:** `docs/audit-reports/competitive-features-consolidated-report.md` + `docs/audit-reports/deep-analysis-{vector,graph,arch}.md` — 27 archivos, 172 features, top 30 priorizados
 
-=== RECITATION ===
-Session: 2026-07-28 — SDK Gap Audit + Recovery Plan
-Campaign: auditoría-sdk-2026-07-28
-Objetivo: Investigar 12 puntos sobre SDK/CLI missing features contra código real y git history.
-Estado: ✅ COMPLETED
-Hallazgo clave: delete_by_filter(), count(), similar_to_key() NUNCA existieron como SDK — solo CLI handlers eliminados en AUD-09 (e9371ea8). Multi-namespace solo en tipos de output report.
-Outputs:
-- `docs/plans/2026-07-28-recovery-plan.md` — plan detallado (37KB, 11 tasks, 4 fases)
-- `docs/Backlog.md` Phase 8 — SDK-01 a SDK-05 existentes + REC-001, REC-007–010, REC-999 agregados (líneas 152-162)
-Corrección al plan: SDK-01/02/03/04/05 YA estaban en backlog (no REC-002/003/004/005/006).
-IDs finales: REC-001 (foundation types), REC-007 (WAL CLI), REC-008 (backup design), REC-009 (PQ analysis), REC-010 (py.typed), REC-999 (progreso fix)
-Próxima acción sugerida: Ejecutar REC-010 primero (🟢 30min), después REC-001 (foundation types)
-Contrato: Plan recuperación + backlog actualizados. Plan referencias REC IDs internas, backlog usa SDK-XX + REC-XX.
-=== END RECITATION ===
+---
+
 

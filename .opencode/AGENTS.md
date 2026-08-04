@@ -6,7 +6,7 @@
 
 Todo el detalle del sistema de tareas, agentes, skills, MCP servers, y su integración está en:
 
-📖 **`.opencode/VANTADB-OPERATING-MANUAL.md`** — Manual de Operación completo (948 líneas, 14 secciones)
+📖 **`.opencode/VANTADB-OPERATING-MANUAL.md`** — Manual de Operación completo (917 líneas, 14 secciones)
 
 📖 **`SKILLS-MANIFEST.md`** — Catálogo completo de las 104 skills del proyecto (raíz)
 
@@ -596,7 +596,7 @@ Las 6 skills de ponytail están disponibles como skills del proyecto:
 
 Load `progreso` at start and before completing every task:
 - **Start**: `skill progreso` — reads backlog, checks for in-progress work
-- **Complete**: `skill progreso` (Trigger 1) — moves done tasks from `docs/Backlog.md` → `docs/progreso/README.md` BEFORE any summary
+- **Complete**: `skill progreso` (Trigger 1) — tacha la fila ✅ en `docs/Backlog.md` (con nota de fecha) y la migra a `docs/progreso/README.md` BEFORE any summary; items removidos van a `docs/progreso/BACKLOG_HISTORY.md`
 
 ## Reference Files
 
@@ -612,6 +612,31 @@ Archivos de referencia externos para no saturar este AGENTS.md. Son auto-conteni
 - NO leer estos archivos si no aplican al contexto actual
 - Si lees un archivo para resolver un issue y la solución no está documentada, AGREGA la entrada faltante
 - Si editas, mantener el mismo formato: tabla de secciones al inicio, bloques de código para comandos
+
+## Reglas del Proyecto (`.opencode/rules/`) — LAZY-LOADING OBLIGATORIO
+
+Las reglas normativas por **área del sistema** viven en `.opencode/rules/`. Son reglas duras (must/must-not/por-qué), separadas del material de referencia. El índice y el instructivo de formato están en `.opencode/rules/README.md`.
+
+**CUÁNDO LEER:** antes de **crear, editar, modificar, mejorar o borrar** código dentro de un área, carga el archivo de reglas de ESA área. Ejemplos de disparadores:
+
+| Si vas a tocar... | Archivo de reglas a leer |
+|---|---|
+| WAL, storage/engine, backends, vfile, gc, lsm, schema, migration | `.opencode/rules/durability.md` |
+| Índices vectoriales / text_index / tokenizer / vector quantization | `.opencode/rules/indexes.md` |
+| Cualquier `async`/Tokio, `spawn_blocking`, mutexes, semáforos, ingestion async | `.opencode/rules/concurrency-async.md` |
+| `node.rs`, `engine.rs`, `config.rs`, `error.rs`, parser, planner, executor | `.opencode/rules/core-engine.md` |
+| `sdk/`, API pública, `VantaError`, semver, compat de bindings | `.opencode/rules/api-contract.md` |
+| `vantadb-python/`, providers | `.opencode/rules/python-bindings.md` |
+| `vantadb-server/`, `vantadb-mcp/` | `.opencode/rules/server-mcp.md` |
+| `vantadb-wasm/`, `vantadb-ts/`, `vantadb-node/` | `.opencode/rules/js-ecosystem.md` |
+| `web/` (Next.js, Tailwind, motion, i18n) | `.opencode/rules/frontend-web.md` |
+| release, versionado, CI, changelog, publish de cualquier crate | `.opencode/rules/release-ci.md` |
+
+**Cómo usarlas:**
+- Leer SOLO el archivo del área tocada; no cargar toda la carpeta (lazy-loading por contexto).
+- El contenido es **obligatorio** — no se puede saltar ni relajar una regla.
+- Si una regla no aplica a la sub-tarea exacta, ignorarla sin borrarla.
+- Si vas a AÑADIR/MODIFICAR una regla: seguir `.opencode/rules/README.md` → "Reglas para las reglas" (formato de cabecera, Must/Must-not/Por-qué, status, sin solapamiento con `references/`, `skills/`, `AGENTS.md`, ADRs).
 
 ## Doc Language Split
 

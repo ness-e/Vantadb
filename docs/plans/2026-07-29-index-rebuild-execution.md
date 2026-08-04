@@ -199,5 +199,5 @@ Estado: completed
 Resultado: ✅
 Próxima acción: Fase 2 del esquema (implementar gauges por categoría) como task futuro — requiere decisión del usuario
 Contrato: MEMORY_TELEMETRY.md actualizado + src/ intacto + docs coverage gaps pre-existentes documentados
-Próxima tarea si completa: INV-003 (Sync Blocking en Tokio) si se continúa backlog
+Próxima tarea si completa: INV-003 (Tokio Blocking Audit) si se continúa backlog
 === END RECITATION ===
