@@ -4,7 +4,7 @@ type: glossary-entry
 status: stable
 tags: [vantadb, glosario, enterprise, seguridad]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[Glosario](./README.md)"
 ---
 
 # RBAC (Role-Based Access Control)
@@ -126,7 +126,7 @@ pub struct AuditEntry {
 ## Véase También
 
 - [Multi-tenancy](Multi-tenancy.md) — Aislamiento de datos por tenant
-- [File Locking](File Locking.md) — Seguridad a nivel de archivo
+- [File Locking](file-locking.md) — Seguridad a nivel de archivo
 
 ---
 

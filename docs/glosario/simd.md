@@ -4,7 +4,7 @@ type: glossary-entry
 status: stable
 tags: [vantadb, glosario, performance, hardware, optimización]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[Glosario](./README.md)"
 ---
 
 # SIMD (Single Instruction, Multiple Data)
@@ -115,7 +115,7 @@ let mmap = MmapOptions::new()
 ## Véase También
 
 - [HNSW](HNSW.md) — Índice vectorial que usa SIMD para distancias
-- [Vector Similarity](Vector Similarity.md) — Métricas aceleradas por SIMD
+- [Vector Similarity](vector-similarity.md) — Métricas aceleradas por SIMD
 - [Benchmarks](Benchmarks.md) — Métricas de performance con SIMD
 
 ---

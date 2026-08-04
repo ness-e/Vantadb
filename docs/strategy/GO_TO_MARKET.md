@@ -455,7 +455,7 @@ docs/
 
 ## See Also
 
-- [Master Index](../VantaDB-MPTS/Master%20Index.md) — Parent document
+- [Master Index](../master-index.md) — Parent document
 - [VISION.md](../vision/VISION.md) — ICP and UVP
 - [ROADMAP.md](ROADMAP.md) — Technical timeline
 - [Backlog](../Backlog.md) — Detailed tasks (INT-01, INT-02, INT-03, TSK-90, etc.)

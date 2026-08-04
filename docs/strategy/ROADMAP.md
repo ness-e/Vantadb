@@ -474,4 +474,4 @@ Sem 13-16: FASE 4 — MADUREZ
 ---
 
 > **Próxima revisión:** 2026-07-23 o al completar Fase 0, lo que ocurra primero.
-> **Ver también:** [`docs/Backlog.md`](../Backlog.md) para detalle de cada item, [`docs/strategy/ACTION_PLAN.md`](ACTION_PLAN.md) (plan de acción v1.0, Jul 3 — supercedido por este documento), [`docs/master-index.md`](../master-index.md) (índice global de documentación).
+> **Ver también:** [`docs/Backlog.md`](../Backlog.md) para detalle de cada item, [`docs/strategy/ACTION_PLAN.md`](ROADMAP.md) (plan de acción v1.0, Jul 3 — supercedido por este documento), [`docs/master-index.md`](../master-index.md) (índice global de documentación).

@@ -4,7 +4,7 @@ type: glossary-entry
 status: stable
 tags: [vantadb, glosario, performance, memoria]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[Glosario](./README.md)"
 ---
 
 # Zero-Copy

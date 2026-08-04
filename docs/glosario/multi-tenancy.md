@@ -4,7 +4,7 @@ type: glossary-entry
 status: stable
 tags: [vantadb, glosario, enterprise, arquitectura]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[Glosario](./README.md)"
 ---
 
 # Multi-tenancy
@@ -115,7 +115,7 @@ impl VantaEmbedded {
 
 - [RBAC](RBAC.md) — Control de acceso por roles
 - [Backpressure](Backpressure.md) — Control de recursos
-- [File Locking](File Locking.md) — Aislamiento a nivel archivo
+- [File Locking](file-locking.md) — Aislamiento a nivel archivo
 
 ---
 

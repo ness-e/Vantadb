@@ -783,7 +783,7 @@ Crate `vantadb_py` que expone el motor embebido a Python in-process vía PyO3 (s
 
 *2.2 API pública (clase VantaDB)*
 
-Definida en vantadb-python\src\lib.rs:74-76 como `pub struct VantaDB { engine: VantaEmbedded }`. Firmas exactas en vantadb_py\vantadb_py.pyi (generado) y vantadb_py\__init__.pyi.
+Definida en vantadb-python\src\lib.rs:74-76 como `pub struct VantaDB { engine: VantaEmbedded }`. Firmas exactas en `vantadb_py\vantadb_py.pyi` (generado) y `vantadb_py\__init__.pyi`.
 
 Constructor (lib.rs:113-146):
 ```
@@ -793,7 +793,7 @@ VantaDB(db_path: str, memory_limit_bytes: int|None = None,
 - `backend`: "rocksdb" | "memory" | None→Fjall (default persistente); desconocido → warning y fallback Fjall (lib.rs:122-133).
 - `db_path=":memory:"` o `""` → in-memory.
 - Función módulo alternativa: `connect(path, memory_limit=None)` (lib.rs:1565-1581).
-- Exporta además: `VantaVector`, `VantaVectorIter`, `VantaSearchHit`, `VantaMemoryRecord`, `VantaListResult`, `__version__` (lib.rs:1586-1595). `AsyncVantaDB` es un wrapper Python puro vía `asyncio.to_thread` con semáforo de concurrencia (vantadb_py\__init__.py:24-44, 57-77).
+- Exporta además: `VantaVector`, `VantaVectorIter`, `VantaSearchHit`, `VantaMemoryRecord`, `VantaListResult`, `__version__` (lib.rs:1586-1595). `AsyncVantaDB` es un wrapper Python puro vía `asyncio.to_thread` con semáforo de concurrencia (`vantadb_py\__init__.py`:24-44, 57-77).
 
 Métodos (firmas resumidas de vantadb_py\vantadb_py.pyi:28-144)
 

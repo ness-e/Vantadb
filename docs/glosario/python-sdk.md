@@ -164,7 +164,7 @@ for hit in results:
     print(f"  {hit['record']['payload'][:100]}...")
 ```
 
-**Ejemplo - [busqueda-hibrida](busqueda-hibrida.md):**
+**Ejemplo - [busqueda-hibrida](hybrid-search.md):**
 ```python
 results = db.search_memory(
     namespace="knowledge_base",
@@ -393,4 +393,4 @@ db.close()
 - [PyO3](PyO3.md) - Framework de bindings Rust-Python
 - [GIL](GIL.md) - Global Interpreter Lock
 - [FFI](FFI.md) - Foreign Function Interface
-- [SDK](SDK Python.md) - Concepto general
+- [SDK](python-sdk.md) - Concepto general

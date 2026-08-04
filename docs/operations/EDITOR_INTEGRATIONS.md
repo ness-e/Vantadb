@@ -157,7 +157,7 @@ Antigravity editor with AI features supports MCP.
 
 ```toml
 [mcp]
-[mcp.servers](Glosario/mcp.servers.md)
+[mcp.servers](../api/MCP.md)
 name = "vantadb"
 command = "vantadb-server"
 args = ["--mcp", "--path", "~/.vantadb"]

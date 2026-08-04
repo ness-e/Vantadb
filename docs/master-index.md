@@ -160,10 +160,10 @@ Published blog posts (in `web/content/blog/`):
 
 | Article | Description |
 |---------|-------------|
-| [Why I Built a Local Memory Engine for AI Agents in Rust](../web/content/blog/why-i-built-vantadb-local-memory-engine.md) | Motivation and design philosophy |
-| [How Hybrid Search Works: BM25 + HNSW + RRF](../web/content/blog/how-hybrid-search-works.md) | Technical deep-dive on hybrid search |
-| [SQLite for AI Agents: Benchmarks and Architecture](../web/content/blog/sqlite-for-ai-agents.md) | Comparing embedded databases for agent memory |
-| [Introducing VantaDB](../web/content/blog/introducing-vantadb.md) | Product announcement |
+| [Why I Built a Local Memory Engine for AI Agents in Rust](./blog/why_i_built.md) | Motivation and design philosophy |
+| [How Hybrid Search Works: BM25 + HNSW + RRF](./blog/how_hybrid_search_works.md) | Technical deep-dive on hybrid search |
+| [SQLite for AI Agents: Benchmarks and Architecture](./blog/sqlite_for_ai_agents.md) | Comparing embedded databases for agent memory |
+| [Introducing VantaDB](./blog/introducing_vantadb.md) | Product announcement |
 
 ---
 
@@ -188,7 +188,7 @@ Published blog posts (in `web/content/blog/`):
 | Document | Description |
 |----------|-------------|
 | [PROMPT-MAESTRO-FREEZE.md](plans/PROMPT-MAESTRO-FREEZE.md) | Prompt maestro freeze plan |
-| [ACTION_PLAN.md](strategy/ACTION_PLAN.md) | Archived — superseded by ROADMAP.md v2.0 |
+| [ACTION_PLAN.md](strategy/ROADMAP.md) | Archived — superseded by ROADMAP.md v2.0 |
 
 ---
 

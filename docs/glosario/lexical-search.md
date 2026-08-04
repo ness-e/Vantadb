@@ -157,6 +157,6 @@ results_hybrid = db.search(
 ## Véase También
 
 - [BM25](BM25.md) - Algoritmo de scoring
-- [busqueda-hibrida](busqueda-hibrida.md) - Combinación con vectorial
+- [busqueda-hibrida](hybrid-search.md) - Combinación con vectorial
 - [RRF](RRF.md) - Fusión de rankings
 - [HNSW](HNSW.md) - Índice vectorial

@@ -207,6 +207,6 @@ IQL error: <description>
 ## Related
 
 - [`HTTP_API.md`](HTTP_API.md) — REST API endpoints that accept IQL queries
-- [`src/parser/mod.rs`](../src/parser/mod.rs) — IQL parser implementation (Nom-based)
-- [`src/query.rs`](../src/query.rs) — Query AST and logical plan types
-- [`src/executor.rs`](../src/executor.rs) — Hybrid IQL execution engine
+- [`src/parser/mod.rs`](../../src/parser/mod.rs) — IQL parser implementation (Nom-based)
+- [`src/query.rs`](../../src/query.rs) — Query AST and logical plan types
+- [`src/executor.rs`](../../src/executor.rs) — Hybrid IQL execution engine

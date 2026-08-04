@@ -250,5 +250,5 @@ Total estimado: ~2.5 GB RAM
 
 - [mmap](mmap.md) - Memory-mapped I/O
 - [Benchmarks](Benchmarks.md) - Suite de medición
-- [Latencia](Latencia.md) - Métrica complementaria
+- [Latencia](latency.md) - Métrica complementaria
 - [Recall](Recall.md) - Métrica de calidad

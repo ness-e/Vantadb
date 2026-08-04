@@ -11,7 +11,7 @@ aliases: [hybrid search, search fusion, combined search]
 
 ## Definición
 
-La **busqueda-hibrida** combina múltiples estrategias de recuperación (típicamente [vectorial](busqueda-vectorial.md) + [léxica](busqueda-lexica.md)) para aprovechar las fortalezas de cada una y mejorar el recall general del sistema.
+La **busqueda-hibrida** combina múltiples estrategias de recuperación (típicamente [vectorial](vector-search.md) + [léxica](lexical-search.md)) para aprovechar las fortalezas de cada una y mejorar el recall general del sistema.
 
 ## Por Qué Híbrida
 
@@ -231,8 +231,8 @@ En VantaDB:
 ## Véase También
 
 - [RRF](RRF.md) - Algoritmo de fusión
-- [busqueda-vectorial](busqueda-vectorial.md) - Similitud semántica
-- [busqueda-lexica](busqueda-lexica.md) - Coincidencia de keywords
+- [busqueda-vectorial](vector-search.md) - Similitud semántica
+- [busqueda-lexica](lexical-search.md) - Coincidencia de keywords
 - [HNSW](HNSW.md) - Índice vectorial
 - [BM25](BM25.md) - Scoring léxico
-- [GraphRAG](GraphRAG.md) - Extensión con grafos
+- [GraphRAG](graphrag.md) - Extensión con grafos

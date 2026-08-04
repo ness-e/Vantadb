@@ -208,5 +208,5 @@ $$\text{Throughput} = \frac{1}{\text{Latencia promedio}}$$
 
 - [Recall](Recall.md) - Métrica complementaria
 - [Benchmarks](Benchmarks.md) - Suite de medición
-- [Memory Efficiency](Memory Efficiency.md) - Uso de recursos
-- [busqueda-vectorial](busqueda-vectorial.md) - Contexto de uso
+- [Memory Efficiency](memory-efficiency.md) - Uso de recursos
+- [busqueda-vectorial](vector-search.md) - Contexto de uso

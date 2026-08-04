@@ -4,7 +4,7 @@ type: glossary-entry
 status: stable
 tags: [vantadb, glosario, seguridad, ci-cd]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[Glosario](./README.md)"
 ---
 
 # Sigstore
@@ -77,7 +77,7 @@ gh attestation verify <artifact> --owner ness-e
 
 - [OIDC](OIDC.md) — Autenticación para firma
 - [SLSA](SLSA.md) — Framework que Sigstore habilita
-- [CI/CD](CI_CD.md) — Pipeline de firma
+- [CI/CD](ci-cd.md) — Pipeline de firma
 
 ---
 

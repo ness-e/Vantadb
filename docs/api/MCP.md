@@ -307,7 +307,7 @@ Adjust the `max_blocking_threads` configuration in VantaConfig to optimize for y
 
 ## Version
 
-Current MCP implementation version: 0.1.5
+Current MCP implementation version: 0.5.0
 
 Protocol version: 2024-11-05
 

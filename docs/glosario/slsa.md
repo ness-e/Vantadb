@@ -4,7 +4,7 @@ type: glossary-entry
 status: stable
 tags: [vantadb, glosario, seguridad, ci-cd]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[Glosario](./README.md)"
 ---
 
 # SLSA (Supply-chain Levels for Software Artifacts)
@@ -101,7 +101,7 @@ gh attestation verify \
 
 - [OIDC](OIDC.md) — Autenticación para builds
 - [Sigstore](Sigstore.md) — Firma de artefactos
-- [CI/CD](CI_CD.md) — Pipeline de build
+- [CI/CD](ci-cd.md) — Pipeline de build
 
 ---
 

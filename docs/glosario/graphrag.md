@@ -4,14 +4,14 @@ type: glossary-entry
 status: implemented
 tags: [vantadb, glosario, rag, grafo, ia]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[Glosario](./README.md)"
 ---
 
 # GraphRAG
 
 ## Definición
 
-**GraphRAG** (Graph-based Retrieval-Augmented Generation) es una técnica avanzada de recuperación de información que combina [RAG](RAG.md) tradicional con traversal de [Grafo](Grafo.md) de conocimiento para proporcionar contexto enriquecido y estructuralmente conectado a modelos de lenguaje.
+**GraphRAG** (Graph-based Retrieval-Augmented Generation) es una técnica avanzada de recuperación de información que combina [RAG](RAG.md) tradicional con traversal de [Grafo](graph.md) de conocimiento para proporcionar contexto enriquecido y estructuralmente conectado a modelos de lenguaje.
 
 ## Cómo Funciona
 
@@ -102,7 +102,7 @@ db.put("function_auth", text="def authenticate()...",
 ## Véase También
 
 - [RAG](RAG.md) — Retrieval-Augmented Generation tradicional
-- [Grafo](Grafo.md) — Estructura de datos subyacente
+- [Grafo](graph.md) — Estructura de datos subyacente
 - [HNSW](HNSW.md) — busqueda-vectorial para nodos semilla
 - [RRF](RRF.md) — Fusión de resultados híbridos
 

@@ -132,6 +132,6 @@ $$\text{Recall@K} = \frac{|\text{resultados} \cap \text{ground\_truth}|}{K}$$
 
 - [HNSW](HNSW.md) - Algoritmo de índice vectorial
 - [ANN](ANN.md) - Approximate Nearest Neighbor
-- [Vector Similarity](Vector Similarity.md) - Métricas de similitud
-- [Vectores](Vectores.md) - Representaciones vectoriales
-- [busqueda-hibrida](busqueda-hibrida.md) - Combinación con busqueda-lexica
+- [Vector Similarity](vector-similarity.md) - Métricas de similitud
+- [Vectores](vectors.md) - Representaciones vectoriales
+- [busqueda-hibrida](hybrid-search.md) - Combinación con busqueda-lexica

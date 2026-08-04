@@ -152,10 +152,10 @@ Descartada: **no expresa el gap**. `search` Python solo toma `(vector, top_k)` (
 
 ## 5. Orden de implementación sugerido (para el backlog, fuera de alcance de este doc)
 
-1. `SearchRequestPy`/`SearchResultPy` (o `FromPyObject` sobre dicts) + `search_batch_requests` en `vantadb-python/src/lib.rs` (copiar patrón lib.rs:1187-1208). *(BINDING)*
-2. Dataclass `SearchRequest` + `SearchResult` y wrapper async `search_batch(queries)` en `vantadb_py/__init__.py` + stubs `.pyi`. *(PYTHON)*
-3. Tests en `vantadb-python/tests/test_sdk.py`: batch de 10 con filters, batch hybrid (vector+text_query), error fail-fast con vector de dimensión inválida. *(TEST)*
-4. Extender `benchmarks/batch_vs_sequential_bench.py` con el método nuevo y verificar el target de §3. *(PERF)*
+1. `SearchRequestPy`/`SearchResultPy` (o `FromPyObject` sobre dicts) + `search_batch_requests` en `vantadb-python/src/lib.rs` (copiar patrón lib.rs:1187-1208). _(BINDING)_
+2. Dataclass `SearchRequest` + `SearchResult` y wrapper async `search_batch(queries)` en `vantadb_py/__init__.py` + stubs `.pyi`. _(PYTHON)_
+3. Tests en `vantadb-python/tests/test_sdk.py`: batch de 10 con filters, batch hybrid (vector+text_query), error fail-fast con vector de dimensión inválida. _(TEST)_
+4. Extender `benchmarks/batch_vs_sequential_bench.py` con el método nuevo y verificar el target de §3. _(PERF)_
 
 Estimación: 1-2 días, 0 dependencias nuevas, 0 cambios de core/engine/storage.
 
@@ -172,4 +172,4 @@ Estimación: 1-2 días, 0 dependencias nuevas, 0 cambios de core/engine/storage.
 
 ---
 
-*Generado por vanta-worker — INV-008, 2026-08-03.*
+_Generado por vanta-worker — INV-008, 2026-08-03._

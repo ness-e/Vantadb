@@ -4,7 +4,7 @@ type: glossary-entry
 status: stable
 tags: [vantadb, glosario, protocolo, ia, agentes]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[Glosario](./README.md)"
 ---
 
 # MCP (Model Context Protocol)
@@ -219,8 +219,8 @@ LLM: "Esta semana se discutieron 3 temas principales..."
 ## Véase También
 
 - [RAG](RAG.md) — Caso de uso principal
-- [GraphRAG](GraphRAG.md) — Búsqueda con contexto relacional
-- [Agentes de IA](Agentes de IA.md) — Consumidores del protocolo
+- [GraphRAG](graphrag.md) — Búsqueda con contexto relacional
+- [Agentes de IA](ai-agents.md) — Consumidores del protocolo
 
 ### Documentación de Implementación Relacionada
 - [[../api/MCP|MCP API Integration]]

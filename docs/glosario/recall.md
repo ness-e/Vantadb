@@ -163,7 +163,7 @@ Recall
 
 ## Véase También
 
-- [busqueda-vectorial](busqueda-vectorial.md) - Contexto de uso
+- [busqueda-vectorial](vector-search.md) - Contexto de uso
 - [HNSW](HNSW.md) - Algoritmo que optimiza recall
-- [Latencia](Latencia.md) - Métrica complementaria
+- [Latencia](latency.md) - Métrica complementaria
 - [ANN](ANN.md) - Approximate Nearest Neighbor
