@@ -29,8 +29,10 @@ version = "0.1"
 optional = true
 ```
 
-### 2.2 Declaración en Binarios (`src/bin/vanta-cli.rs`)
-La integración actual en `src/bin/vanta-cli.rs` implementa la siguiente selección condicional del asignador global:
+> **Nota de verificación (2026-08-04):** `tikv-jemallocator` y `tikv-jemalloc-ctl` están restringidos a `cfg(any(target_os = "linux", target_os = "macos"))` en `Cargo.toml`. En Windows, `jemalloc` no compila — solo `custom-allocator` (mimalloc) está disponible. La fila "Windows → mimalloc" de la matriz (Sección 3) es por tanto un requisito de compilación, no solo una recomendación.
+
+### 2.2 Declaración en Binarios (`src/bin/vanta-cli.rs`, `vantadb-server/src/main.rs`)
+La integración está **duplicada en los dos binarios distribuibles** — `src/bin/vanta-cli.rs` y `vantadb-server/src/main.rs` — y ambos implementan la misma selección condicional del asignador global:
 
 ```rust
 #[cfg(all(feature = "jemalloc", not(target_os = "windows")))]
@@ -61,7 +63,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 ## 4. Conclusiones y Recomendaciones
 
 1. **Windows:** Usar `custom-allocator` (`mimalloc`) proporciona la mayor reducción de fragmentación de heap y mejora la velocidad de asignación en pruebas de carga concurrentes.
-2. **Impacto en Binarios:** `mimalloc` añade < 100 KB al tamaño final del binario, lo que representa un impacto mínimo comparado con los beneficios en latencia.
+2. **Impacto en Binarios:** `mimalloc` añade < 100 KB al tamaño final del binario (estimación de la investigación — no verificado por build en este repo), lo que representa un impacto mínimo comparado con los beneficios en latencia.
 3. **Recomendación para Builds de Producción:**
    - Para ejecutables de servidor o CLI en Windows: compilar con `--features custom-allocator`.
    - Para entornos Linux/macOS: compilar con `--features jemalloc` o `custom-allocator`.

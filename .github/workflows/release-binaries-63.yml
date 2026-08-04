@@ -67,9 +67,17 @@ jobs:
           echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
       - name: Build release
+        shell: bash
         run: |
-          cargo build --release --target ${{ matrix.target }} --package vantadb --bin vanta-cli
-          cargo build --release --target ${{ matrix.target }} --package vantadb-server
+          # INV-004: production binaries use a custom allocator.
+          # Windows -> mimalloc (custom-allocator); Linux/macOS -> jemalloc.
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            ALLOC_FEATURES="custom-allocator"
+          else
+            ALLOC_FEATURES="jemalloc"
+          fi
+          cargo build --release --target ${{ matrix.target }} --features "$ALLOC_FEATURES" --package vantadb --bin vanta-cli
+          cargo build --release --target ${{ matrix.target }} --features "$ALLOC_FEATURES" --package vantadb-server
 
       - name: Package binaries (Unix)
         if: runner.os != 'Windows'
