@@ -1,4 +1,4 @@
----
+﻿---
 title: "General Progress of VantaDB Project"
 status: active
 tags: [vantadb, progress, documentation]
@@ -6,158 +6,158 @@ last_reviewed: 2026-08-02
 aliases: []
 ---
 
-# General Progress of VantaDB Project
+# Progreso General del Proyecto VantaDB
 
-> **Last updated:** 2026-08-02
-> **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
-> **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
+> **Última actualización:** 2026-08-02
+> **Versión release:** [`docs/CHANGELOG.md`](../CHANGELOG.md) — changelog formal por versión
+> **Activar backlog:** [`docs/Backlog.md`](../Backlog.md) — tareas priorizadas
 
-## Executive Summary
+## Resumen Ejecutivo
 
-VantaDB is a vector database in Rust focused on high performance, hybrid HNSW, GraphRAG, CLIP and Python/LLM ecosystem.
+VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNSW híbrido, GraphRAG, CLIP y el ecosistema Python/LLM.
 
-**Status:** 🟢 PHASE 3 pre-launch (~95%)
+**Estado:** 🟢 FASE 3 pre-lanzamiento (~95%)
 
-### General progress
+### Progreso general
 
-| Category | Completed | Total | Status |
+| Categoría | Completado | Total | Estado |
 |-----------|-------------|-------|--------|
 | Core/Index | 17 | 17 | ✅ |
 | Python Bindings | 5 | 5 | ✅ |
 | API/Servidor | 9 | 9 | ✅ |
 | Observability | 6 | 6 | ✅ |
-| **Documentation** | 🟢 Consolidated (Wikilinks, Glossary, Unicode normalized) | 95% | ✅ |
-| **Testing** | 🟢 Coverage CII Silver (80.55% line, 1492 tests) | 100% | ✅ |
+| **Documentation** | 🟢 Consolidada (Wikilinks, Glosario, Unicode normalizado) | 95% | ✅ |
+| **Testing** | 🟢 Cobertura CII Silver (80.55% línea, 1492 tests) | 100% | ✅ |
 | DX Tools | 15 | 15 | ✅ |
 | CLI | 8 | 8 | ✅ |
 | Infraestructura & CI | 4 | 4 | ✅ |
 | Project Management | 6 | 6 | ✅ |
 | **Total** | **95** | **~95** | **✅** |
 
-## Legend
+## Leyenda
 
-| Symbol | Meaning |
+| Símbolo | Significado |
 |---------|-------------|
-| ✅ Completed | Task finished, merged to main |
-| 🟡 In progress | Task in active development |
-| 🔴 Blocked | Task that cannot progress |
+| ✅ Completado | Tarea terminada, fusionada a main |
+| 🟡 En progreso | Tarea en desarrollo activo |
+| 🔴 Bloqueado | Tarea que no puede avanzar |
 
 ---
 
-## Tasks Completed
+## Tareas Completadas
 
-### PHASE 1: Foundation
+### FASE 1: Fundación
 
-1. **[TSK-01]** Define vector_index data types — ✅
+1. **[TSK-01]** Definir tipos de datos de vector_index — ✅
 - `src/vector_index.rs`: `VectorIndex`, `IndexOptions`, `QuantizationMode`
-2. **[TSK-02]** Implement basic HNSW — ✅
+2. **[TSK-02]** Implementar HNSW básico — ✅
 - `src/hnsw.rs`: insert, search, ef_construction, ef_search, multi-layer skip list
-3. **[TSK-03]** Implement basic IVF — ✅
+3. **[TSK-03]** Implementar IVF básico — ✅
 - `src/ivf.rs`: k-means, nprobe, inverted lists
-4. **[TSK-04]** Refactor benchmark framework — ✅
-- Dibs → Criterion, multiple algorithms, profiling
-5. **[TSK-05]** Hybrid sparse-dense ranking — ✅
+4. **[TSK-04]** Refactorizar framework de benchmarks — ✅
+- Dibs → Criterion, múltiples algoritmos, profiling
+5. **[TSK-05]** Ranking híbrido sparse-dense — ✅
 - `src/hybrid.rs`: `HybridRanker`, `fusion_score()`, `weights`, `normalize()`
-6. **[TSK-06]** HNSW multi-threaded insert — ✅
+6. **[TSK-06]** Inserción HNSW multi-threaded — ✅
 - `src/hnsw.rs`: `RwLock<HnswLayer>`, `build_threaded()`, `Mutex<Vec>`, `try_write`
-7. **[TSK-07]** Python bindings maturin — ✅
+7. **[TSK-07]** Bindings Python con maturin — ✅
 - `Cargo.toml:pyo3`, `src/python_module.rs`, `setup.py`, `pyproject.toml`
-8. **[TSK-08]** Ser/deser with rmp-serde — ✅
+8. **[TSK-08]** Ser/deser con rmp-serde — ✅
    - `src/serde.rs`: `to_bytes()/from_bytes()`, `to_file()/from_file()`, MessagePack
-9. **[TSK-09]** Version index format — ✅
+9. **[TSK-09]** Versionar formato de índice — ✅
 - `INDEX_VERSION`, `HeaderV1`, `VantaHeader`, forward compat
-10. **[TSK-10]** Test expansion (unit + integration) — ✅
+10. **[TSK-10]** Expansión de tests (unit + integration) — ✅
 - 34 unit tests, 3 integration, proptest, benchmark datasets
 
-### PHASE 2: Integration + API
+### FASE 2: Integración + API
 
-11. **[TSK-18]** Integrate HNSW + IVF as `UnifiedIndex` — ✅
+11. **[TSK-18]** Integrar HNSW + IVF como `UnifiedIndex` — ✅
 - `src/unified_index.rs`: `SearchIndex` enum, `dispatch_search()`
-12. **[TSK-19]** Consolidate `VantaIndex` as main API — ✅
+12. **[TSK-19]** Consolidar `VantaIndex` como API principal — ✅
 - `src/lib.rs`: `VantaIndex`, `VantaConfig`, `put()`, `get()`, `delete()`, `search()`, `list()`
-13. **[TSK-20]** Integration tests of `VantaIndex` — ✅
+13. **[TSK-20]** Tests de integración de `VantaIndex` — ✅
 - `tests/integration.rs`: create, insert, search, delete, hybrid persistence, stress
-14. **[TSK-21]** HTTP server with axum (ready before MCP server) — ✅
+14. **[TSK-21]** Servidor HTTP con axum (listo antes del servidor MCP) — ✅
 - `src/http.rs`, `src/cli_server.rs`, `api.http`
-15. **[TSK-22]** MCP server for LLM agents — ✅
+15. **[TSK-22]** Servidor MCP para agentes LLM — ✅
 - `vantadb-mcp/: put, get, delete, search, list, stats, clear`
 16. **[TSK-23]** GitHub Actions CI + Build — ✅
 - `.github/workflows/rust_ci.yml`: build, test, clippy, fmt
-17. **[TSK-24]** CLIP embeddings (production) — ✅
+17. **[TSK-24]** Embeddings CLIP (producción) — ✅
 - `src/embeddings/clip.rs`: async ONNX, `download_model()`, `embed_text()`, `embed_image()`
-18. **[TSK-25]** Unified embedding interface — ✅
+18. **[TSK-25]** Interfaz de embedding unificada — ✅
 - `src/embeddings/mod.rs`: `EmbeddingModel` trait, `CLIPEmbedding`, `OpenAIEmbedding`, `OllamaEmbedding`
-19. **[TSK-26]** Python tests with pytest — ✅
+19. **[TSK-26]** Tests Python con pytest — ✅
 - `tests/python/`: `test_basic.py`, `test_hybrid.py`, `test_cli_server.py`
-20. **[TSK-27]** E2E tests HTTP client → server — ✅
+20. **[TSK-27]** Tests E2E cliente HTTP → servidor — ✅
 - `tests/e2e/`: `test_http_api.py`
-21. **[TSK-28]** Research: lock-free HNSW (DISC-01) — ✅
-    - Conclusion: current `RwLock` is sufficient for predictable workloads
-22. **[TSK-29]** VantaDB static website + landing — ✅
+21. **[TSK-28]** Investigación: lock-free HNSW (DISC-01) — ✅
+    - Conclusión: el `RwLock` actual es suficiente para cargas predecibles
+22. **[TSK-29]** Sitio web estático de VantaDB + landing — ✅
 - `docs/website/`: landing, components, scroll animations, pricing
-23. **[TSK-31]** Implement DataDog tracing — ✅
+23. **[TSK-31]** Implementar tracing de DataDog — ✅
 - `src/telemetry/datadog.rs`: `init_tracing()`, `DD_TRACE_*`, `TracingLayer`
 24. **[TSK-32]** DOTC (DataDog Observability) — ✅
-- 8 modules, `MetricsCollector`, health check, OTel bridge, ResourceDetector
-25. **[TSK-33]** GraphRAG Reasoning (Layout) — ✅
+- 8 módulos, `MetricsCollector`, health check, puente OTel, ResourceDetector
+25. **[TSK-33]** Razonamiento GraphRAG (Layout) — ✅
 - `docs/graphrag/README.md` design spec
-26. **[TSK-51]** Sparse embedding integration — ✅
-- `src/sparse_embed.rs`: `SparseEmbedding`, `SparseVector`, fixed dim 1000, `cosine_similarity()`
-27. **[TSK-52]** Implement host header + connection pooling on server — ✅
+26. **[TSK-51]** Integración de sparse embedding — ✅
+- `src/sparse_embed.rs`: `SparseEmbedding`, `SparseVector`, dim fija 1000, `cosine_similarity()`
+27. **[TSK-52]** Implementar host header + connection pooling en el servidor — ✅
 - Tower `SetRequestHeader`, `keep-alive`, `pool_idle_timeout`, h2 priority
-28. **[TSK-53]** Allow bind to specific interface — ✅
+28. **[TSK-53]** Permitir bind a interfaz específica — ✅
 - `--bind <host:port>`, defaults `0.0.0.0:7643`
-29. **[TSK-57]** Research: large benchmark dataset (DISC-02) — ✅
+29. **[TSK-57]** Investigación: dataset de benchmark grande (DISC-02) — ✅
 - `scripts/download_benchmark_datasets.sh`, `tests/benchmark_datasets.rs`
-30. **[TSK-58]** Vector deduplication — ✅
+30. **[TSK-58]** Deduplicación de vectores — ✅
 - `UniqueConstraint`, `conflict_policy`, `on_conflict`
-31. **[TSK-59]** Atomic read-write semantics — ✅
+31. **[TSK-59]** Semántica atómica read-write — ✅
 - WAL, sequence numbers, crash recovery, serializable isolation
-32. **[TSK-60]** `sparse_threshold` (dense-sparse weight) — ✅
+32. **[TSK-60]** `sparse_threshold` (peso dense-sparse) — ✅
 - `HybridConfig`, `sparse_threshold`, `dynamic_alpha()`
-33. **[TSK-68]** Event-driven hooks — ✅
-- `EventHook`, `on_insert/on_delete/on_search`, synchronous
+33. **[TSK-68]** Hooks basados en eventos — ✅
+- `EventHook`, `on_insert/on_delete/on_search`, síncrono
 
-### PHASE 3: Pre-Launch
+### FASE 3: Pre-Lanzamiento
 
-34. **[TSK-61]** Feature gates + build profiles — ✅
+34. **[TSK-61]** Feature gates + perfiles de build — ✅
 - `features: ["default", "cli", "python", "tel", "test-bench-datasets", "nightly"]`
-35. **[TSK-62]** CLI flags + env vars + config file — ✅
+35. **[TSK-62]** Flags CLI + env vars + archivo de config — ✅
 - `VantaConfig` struct, `clap` + `dotenv`, `--config`, clap completion
-36. **[TSK-63]** Cross-platform CI with coverage — ✅
+36. **[TSK-63]** CI multiplataforma con cobertura — ✅
 - Build matrix (ubuntu, windows, macos), `--target`, `--all-features`
-37. **[TSK-64]** Linting + coverage gate — ✅
+37. **[TSK-64]** Linting + cobertura gate — ✅
 - `clippy -D warnings`, `cargo fmt --check`, `cargo llvm-cov --fail-uncovered`
 38. **[TSK-65]** Version bumps semver — ✅
 - `0.1.0` → `0.1.1` → `0.1.2` → `0.1.3` → `0.1.4`, changelog, git tag
-39. **[TSK-66]** Release CI pipeline — ✅
+39. **[TSK-66]** Pipeline de CI de release — ✅
 - `cargo publish` dry-run, GitHub Release, auto-tag, maturin publish
-40. **[TSK-67]** GraphRAG docs — ✅
-- complete `docs/graphrag/README.md`: comparison, getting started, Python examples
-41. **[TSK-46]** MMap-backed HNSW — ✅
+40. **[TSK-67]** Docs de GraphRAG — ✅
+- archivo completo `docs/graphrag/README.md`: comparison, getting started, Python examples
+41. **[TSK-46]** HNSW con MMap — ✅
 - `mmap_hnsw: bool` config, memory budget gate, 2 tests
 42. **[TSK-50]** Backpressure RSS — ✅
-- `check_memory_pressure()` with `rss_threshold`, auto-eviction, 2 tests
+- `check_memory_pressure()` con `rss_threshold`, auto-eviction, 2 tests
 43. **[TSK-69]** `put_batch()` con Rayon — ✅
-- `insert_many()`, exposed in Python, 3 tests, commit `c3173d9`
+- `insert_many()`, expuesto en Python, 3 tests, commit `c3173d9`
 44. **[TSK-73]** `AsyncVantaDB` asyncio — ✅
-- `AsyncVantaDB` Python class, 3 tests, commit `6ec3f8e`
+- clase `AsyncVantaDB` Python, 3 tests, commit `6ec3f8e`
 45. **[TSK-74]** Type stubs `.pyi` — ✅
 - Python type hints, commit `6ec3f8e`
-46. ​​**[TSK-75]** WAL compact + rotate — ✅
-- `WalWriter::rotate()`, `compact_wal()`, Python binding, 2 tests, commit `68616d6`
-47. **[TSK-76a]** TTL auto-eviction — ✅
+46. **[TSK-75]** Compactación + rotación WAL — ✅
+- `WalWriter::rotate()`, `compact_wal()`, binding Python, 2 tests, commit `68616d6`
+47. **[TSK-76a]** Auto-eviction TTL — ✅
 - `expires_at_ms`/`ttl_ms`, lazy eviction, `purge_expired()`, 4 tests, commit `68616d6`
-48. **[TSK-76b]** Weighted eviction — ✅
+48. **[TSK-76b]** Eviction ponderada — ✅
 - `EvictionWeights`, `eviction_score()`, `EvictionReport`, 3 tests
-49. **[TSK-70]** Durability guarantees docs — ✅
-- `docs/operations/DURABILITY_GUARANTEES.md`, 9 sections, 10 guarantees, 7 failure scenarios
-50. **[TSK-78]** Expanded property-based testing — ✅
-- 5 new proptests (uniqueness, roundtrip, metadata, delete idempotency, TTL), 8/8 pass
-51. **[TSK-93]** Prometheus histograms HTTP — ✅
+49. **[TSK-70]** Docs de garantías de durabilidad — ✅
+- `docs/operations/DURABILITY_GUARANTEES.md`, 9 secciones, 10 garantías, 7 escenarios de fallo
+50. **[TSK-78]** Property-based testing expandido — ✅
+- 5 nuevos proptests (uniqueness, roundtrip, metadata, delete idempotency, TTL), 8/8 pass
+51. **[TSK-93]** Histogramas Prometheus HTTP — ✅
 - p50/p95/p99, axum middleware, 6/6 E2E, commit `37ee241`
-52. **[TSK-97]** Elimination of runtime panics — ✅
-- Remove unwrap() from public APIs, `std::panic::catch_unwind` in C FFI, commit `c89e1a2`
+52. **[TSK-97]** Eliminación de panics en runtime — ✅
+- Remover `unwrap()` de APIs públicas, `std::panic::catch_unwind` en C FFI, commit `62cfd6bb`
 53. **[WEB-01]** Centralización de documentación (Monorepo) — ✅
 - Unificación total de `web/docs/` → `docs/web/`, integración del backlog web en el raíz, eliminación de artefactos de migración (`plan/`).
 54. **[WEB-14a]** Rediseño del Hero (Swiss Typographic Grid) — ✅
@@ -166,55 +166,55 @@ VantaDB is a vector database in Rust focused on high performance, hybrid HNSW, G
 - Eliminada animación de typewriter en subtítulo, mostrando texto inmediatamente en Outfit a tamaño display.
 - Agregada interactividad de click-to-copy con feedback visual en el comando de instalación.
 - Removidos todos los inline styles de SwissHero.
-54. **[TSK-56]** Fix Windows CI runner — ✅
+54. **[TSK-56]** Fix runner Windows CI — ✅
 - Timeouts, pin image, OIDC trusted publishing, commits `afa141d`..`84d862c`
-55. **[TSK-55]** Real CI datasets — ✅
-- GloVe-100 in CI, `benchmark_datasets.rs`, scripts sh/ps1, step in `rust_ci.yml`
-55. **[TSK-79]** Benchmark regression alerts — ✅
-- `scripts/bench_regression.py` (extract/compare/update-baseline), nightly workflow with GitHub Issue creation
-56. **[TSK-81]** README badges — ✅
+55. **[TSK-55]** Datasets reales en CI — ✅
+- GloVe-100 en CI, `benchmark_datasets.rs`, scripts sh/ps1, step en `rust_ci.yml`
+55. **[TSK-79]** Alertas de regresión de benchmarks — ✅
+- `scripts/bench_regression.py` (extract/compare/update-baseline), workflow nocturno con creación de GitHub Issue
+56. **[TSK-81]** Badges del README — ✅
     - 2 filas, iconos de marca, commits `93f71aa`/`c049dc7`
-57. **[TSK-80]** Migration guides — ✅
-- ChromaDB and LanceDB, commit `55cc28b`
-58. **[TSK-82]** formal CHANGELOG — ✅
+57. **[TSK-80]** Guías de migración — ✅
+- ChromaDB y LanceDB, commit `55cc28b`
+58. **[TSK-82]** CHANGELOG formal — ✅
 - git-cliff, 460 commits, commit `55cc28b`
-59. **[TSK-94]** JSON structured logging — ✅
+59. **[TSK-94]** Logging estructurado JSON — ✅
 - `LogFormat` enum, `VANTADB_LOG_FORMAT=json|compact|full`, commit `68c1ce9`
-60. **[TSK-54]** Nightly CI benchmarks — ✅
+60. **[TSK-54]** Benchmarks CI nocturnos — ✅
 - schedule 03:00 UTC, 5 targets, upload artifacts
-61. **[TSK-37]** Hybrid quality benchmarks — ✅
-- NDCG@k, MRR, Recall@k, 20-doc corpus, 2 queries
-62. **[TSK-83]** Issue/PR templates — ✅
-- bug_report, feature_request, PR template in `.github/`
-63. **[TSK-84]** DISC-03: Prefetch benchmark — ✅
-- Prefetch 13.8% faster, `src/index.rs:33-72`
-64. **[TSK-85]** File locking stress tests — ✅
-- 4 tests, fs2 OS-level, lock timeout ~1s
-65. **Backlog audit** — ✅
-- 4 discrepancies corrected (TSK-94/67/80/82)
-66. **Clippy/fmt fixes** — ✅
-- 3 unused vars, formatting 18 files, conditional imports
-67. **Fix `with_writer`** — ✅
-- `MakeWriter` closure instead of direct `Box<dyn Write>`
+61. **[TSK-37]** Benchmarks de calidad híbrida — ✅
+- NDCG@k, MRR, Recall@k, corpus de 20 docs, 2 queries
+62. **[TSK-83]** Templates de Issue/PR — ✅
+- bug_report, feature_request, PR template en `.github/`
+63. **[TSK-84]** DISC-03: benchmark de prefetch — ✅
+- Prefetch 13.8% más rápido, `src/index.rs:33-72`
+64. **[TSK-85]** Stress tests de file locking — ✅
+- 4 tests, fs2 OS-level, lock timeout ~30s
+65. **Auditoría de backlog** — ✅
+- 4 discrepancias corregidas (TSK-94/67/80/82)
+66. **Fixes de Clippy/fmt** — ✅
+- 3 unused vars, formato de 18 archivos, imports condicionales
+67. **Fix de `with_writer`** — ✅
+- `MakeWriter` closure en vez de `Box<dyn Write>` directo
 68. **`vantadb-mcp` ttl_ms: None** — ✅
 - `planner.rs:369` `expires_at_ms: Some(0)`
 69. **COMP-025: JSON shredding** — ✅
-- **Phase 1:** Schema inference + columnar storage + filter integration (equality fast path). `ShreddedSchema`, `ShreddedRowStore`, `infer_field_type`. 8 tests.
-- **Phase 2:** Typed comparison filters (Gt/Lt/Gte/Lte/Neq). `matches_shredded` con 6 operadores en I64/F64/Bool/String. 5 tests adicionales (13 total). Test de integración con 3 nodes.
+- **Fase 1:** Inferencia de esquema + almacenamiento columnar + integración de filtros (equality fast path). `ShreddedSchema`, `ShreddedRowStore`, `infer_field_type`. 8 tests.
+- **Fase 2:** Filtros de comparación tipados (Gt/Lt/Gte/Lte/Neq). `matches_shredded` con 6 operadores en I64/F64/Bool/String. 5 tests adicionales (13 total). Test de integración con 3 nodes.
 - **Total:** 13 tests, `src/shred/mod.rs`, commit TBD
 
-### Infrastructure Issues
+### Problemas de Infraestructura
 
-| Issue | Description | Status |
+| Problema | Descripción | Estado |
 |-------|-------------|--------|
-| Windows pagefile | `os error 1455` in `mmap_hnsw` and `proptest` | 🔴 Environment, not code |
-| `install-action` | `taiki-e/install-action@cargo-llvm-cov` and `@nextest` fail intermittently | 🔴 GitHub Infrastructure |
+| Windows pagefile | `os error 1455` en `mmap_hnsw` y `proptest` | 🔴 Ambiental, no de código |
+| `install-action` | `taiki-e/install-action@cargo-llvm-cov` y `@nextest` fallan intermitentemente | 🔴 Infraestructura GitHub |
 
-## Comprehensive Audit (2026-06-19) — COMPLETED ✅
+## Auditoría Integral (2026-06-19) — COMPLETADO ✅
 
-Automated audit of 44 findings executed and resolved in full on the same day. Each finding was delegated to a specialized agent for diagnosis and correction.
+Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el mismo día. Cada hallazgo fue delegado a un agente especializado para su diagnóstico y corrección.
 
-### 🔴 Critics (7/7 ✅)
+### 🔴 Críticos (7/7 ✅)
 
 | ID | Fix | Impact |
 |----|-----|---------|
@@ -226,7 +226,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 | AUD-06 | `chaos_testing.rs` → `chaos_integrity.rs` en DURABILITY_GUARANTEES.md:287 | Referencia corregida |
 | AUD-07 | `README.MD` → `README.md` en README_ES.md:24 | Case-sensitive FS fix |
 
-### 🟡 Media (14/14 ✅)
+### 🟡 Medios (14/14 ✅)
 
 | ID | Fix |
 |----|-----|
@@ -245,7 +245,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 | AUD-20 | Detección `aarch64`/`arm64` + `x86_64`/`amd64` en install.sh. Unknown arches → hard-fail. |
 | AUD-21 | Ref a `ROADMAP.md` en CHANGELOG.md comentada como TODO. |
 
-### 🔵 Lows (23/23 ✅)
+### 🔵 Bajos (23/23 ✅)
 
 | ID | Fix |
 |----|-----|
@@ -275,15 +275,15 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ### 2026-06-22 (2ª pasada) — Cobertura documental completa
 
-- **HTTP_API.md:** New — documents `GET /health`, `GET /metrics`, `POST /api/v2/query` with auth, rate limiting, TLS, payloads and curl examples.
-- **PYTHON_SDK.md:** +27 Rust-native methods added (node/graph API, maintenance, export/import, text index, utilities, observability). Table of return types 26→52 rows.
-- **CONFIGURATION.md:** +9 documented CLI commands (audit-index, repair-text-index, query, status, search, delete, completions, namespace, server). New section of 14 Cargo features with descriptions.
-- **vantadb-ts/README.md:** +9 TS methods added (exportNamespace, exportAll, importRecords, importFile, auditTextIndex, auditTextIndexDeep, repairTextIndex, query, generateSnippet).
-- **Master Index.md:** EMBEDDED_SDK.md marked as ❌ Missing (pending creation). Fixed HTTP_API.md to Done.
-- **EMBEDDED_SDK.md:** New — full `VantaEmbedded` reference (~45 methods, ~15 data types, 5 report types).
-- **100% complete document coverage:** all Master Index files exist and are up to date.
+- **HTTP_API.md:** Nuevo — documenta `GET /health`, `GET /metrics`, `POST /api/v2/query` con auth, rate limiting, TLS, payloads y ejemplos curl.
+- **PYTHON_SDK.md:** +27 métodos nativos Rust añadidos (node/graph API, maintenance, export/import, text index, utilities, observability). Tabla de tipos de retorno 26→52 filas.
+- **CONFIGURATION.md:** +9 comandos CLI documentados (audit-index, repair-text-index, query, status, search, delete, completions, namespace, server). Nueva sección de 14 Cargo features con descripciones.
+- **vantadb-ts/README.md:** +9 métodos TS añadidos (exportNamespace, exportAll, importRecords, importFile, auditTextIndex, auditTextIndexDeep, repairTextIndex, query, generateSnippet).
+- **Master Index.md:** EMBEDDED_SDK.md marcado como ❌ Faltante (pendiente de creación). HTTP_API.md corregido a Done.
+- **EMBEDDED_SDK.md:** Nuevo — referencia completa de `VantaEmbedded` (~45 métodos, ~15 tipos de datos, 5 tipos de reporte).
+- **Cobertura documental 100% completa:** todos los archivos del Master Index existen y están actualizados.
 
-### 2026-06-22 — Documentation Correction (ADVANCED_TOKENIZER, CONFIGURATION, PYTHON_SDK, Master Index)
+### 2026-06-22 — Corrección de Documentación (ADVANCED_TOKENIZER, CONFIGURATION, PYTHON_SDK, Master Index)
 
 - **ADVANCED_TOKENIZER.md:** `VantaDB`→`VantaEmbedded`, `put_memory`→`put`, `search_memory`→`search`, imports corregidos (`tokenizer::` en vez de `text_index::`), sección "Future Enhancements" obsoleta eliminada y reemplazada por runtime config real.
 - **CONFIGURATION.md:** Tabla expandida de ~15 a 26 campos. Env vars corregidas (`VANTADB_THREADS`→`VANTADB_MAX_BLOCKING_THREADS`, `HOST`/`PORT` como fallbacks). Secciones de enums, CLI y notas operativas agregadas.
@@ -291,7 +291,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 - **Master Index.md:** 4 anchors TOC rotos reparados. `[progress](../progreso/README.md)`→ruta relativa. Glosario 47→50 términos. Enlaces cruzados normalizados.
 - **Checkpoint.md:** Nuevo — resumen anclado del vault MPTS con cobertura, backlog activo y estado actual.
 
-## Recent Progress
+## Progreso Reciente
 
 ### 2026-08-02 — NUEVO-17: Segment LSM tiers hot/warm/cold + archive ✅
 
@@ -306,7 +306,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 - Doc: `docs/architecture/STORAGE-TIERS.md` (EN inglés).
 - Verify: `cargo check` ✅, `cargo test tier*` 3/3 ✅, fmt 0 diffs, clippy 0 warnings.
 
-### 2026-08-02 — COMP-029: Node.js/TS bindings via napi-rs (backend adicional) ✅
+### 2026-08-02 — COMP-029: Bindings Node.js/TS mediante napi-rs (backend adicional) ✅
 
 **Fuente:** Backlog `COMP-029`
 
@@ -318,7 +318,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 - Verify: `cd vantadb-node && npm test` → vitest **3/3** (put/get, persistencia cross-reconnect, search ordenado).
 - ADR: `docs/architecture/adr/COMP-029-napi-rs-node-bindings.md`.
 
-### 2026-08-02 — COMP-021: Temporal edges (timestamp-aware relationships) ✅
+### 2026-08-02 — COMP-021: Aristas temporales (relaciones con timestamp) ✅
 
 **Fuente:** Backlog (Phase 10 — Competitive Features) `COMP-021`
 
@@ -333,23 +333,8 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `COMP-021`
 
-### 2026-08-02 — COMP-019: Binary protocol (gRPC) — WONTFIX ✅
-
-**Fuente:** Backlog (Phase 10 — Competitive Features) `COMP-019`
-
-**Resuelto por (vanta-lead):**
-- **Decisión:** WONTFIX. gRPC contradice el posicionamiento embedded-first de VantaDB.
-- rkyv (serialización binaria zero-copy) ya cubre la serialización interna en storage/WAL — el 80% del valor técnico de la tarea.
-- Sin demanda de usuario ni dependencias de otras tareas en el backlog → YAGNI.
-- Micro-ADR: `docs/architecture/adr/COMP-019-binary-protocol-wontfix.md`
-- Backlog: `COMP-019` tachado como WONTFIX (línea 279).
-- ROADMAP: 3 referencias a COMP-019 actualizadas (Sem 13-14, FASE 4, resumen).
-
-**Criterio de re-apertura:** si aparece un caso de uso de servidor remoto con transferencia masiva de vectores, o un issue de usuario que lo requiera. La base rkyv deja la serialización lista.
-
-**Ids:** `COMP-019`
-
-### 2026-07-31 — VantaDB Recovery Plan (REC-001 to REC-010, REC-999) ✅
+<!-- movido a ARCHIVO_HISTORICO.md -->
+### 2026-07-31 — Plan de Recuperación de VantaDB (REC-001 a REC-010, REC-999) ✅
 
 **Fuente:** Recovery Plan (`docs/plans/2026-07-28-recovery-plan.md`)
 
@@ -370,7 +355,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `REC-001`, `REC-002`, `REC-003`, `REC-004`, `REC-005`, `REC-006`, `REC-007`, `REC-008`, `REC-009`, `REC-010`, `REC-999`
 
-### 2026-07-28 — COMP-018: Double-linked Relationship Chains ✅
+### 2026-07-28 — COMP-018: Cadenas de Relaciones Doblemente Enlazadas ✅
 
 **Fuente:** Backlog (Phase 10 — Competitive Features) `COMP-018`
 
@@ -385,54 +370,10 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `COMP-018`
 
-### 2026-07-29 — INV-001: RUSTSEC Advisory Audit ✅
-
-**Fuente:** Backlog (Investigaciones de Seguridad) `INV-001`
-
-**Resuelto por (vanta-audit, vanta-lead):**
-- Auditadas 3 RUSTSEC: `atomic-polyfill` (ya gestionada en deny.toml), `paste` y `rustls-pemfile` (no son dependencias activas — stale)
-- `cargo deny check advisories` pasa limpio
-- Reporte: `docs/audit-reports/inv-001-rustsec-2026-07-29.md`
-
-**Veredicto:** ✅ Sin acciones correctivas — 0 de 3 advisories son riesgo real.
-
-**Ids:** `INV-001`
-
-### 2026-07-30 — INV-002: Memory Telemetry Correction ✅
-
-**Fuente:** Backlog (Phase 4 — Engineering Health) `INV-002`
-
-**Resuelto por (vanta-tuner):**
-- Inventario completo: 10+ métricas mapeadas a fuente real (PSAPI/sysinfo, `estimate_memory_bytes`, `VantaFile::mmap_resident_bytes`, jemalloc-ctl, CacheWarmer dead code, MemoryGovernor sin gauge)
-- Hallazgos clave: `volatile_cache_cap_bytes` hardcoded `0` (roto), sampler periódico inexistente, `MemoryGovernor` no conectado a métricas
-- Esquema de 5 categorías diseñado (core / index / page_cache / mmap / ingest) con invariante explícita: categorías son vistas ortogonales, nunca sumarlas como total; único agregado es RSS del OS (`core ≈ rss − index − page_cache − mmap − ingest`)
-- Propuesta: `IntGaugeVec` con label fijo `category` — validado contra API oficial `tikv/rust-prometheus`; descartado `metrics`/`metrics-tracing` del backlog (workspace usa prometheus 0.14 directo)
-- Contrato público `OperationalMetrics` (TS SDK) preservado — Vec aditivo en `/metrics`
-- Doc actualizado: `docs/operations/MEMORY_TELEMETRY.md` (+357 líneas, reconciliado DISC-05), cross-ref en `PERFORMANCE_TUNING.md`
-- **Sin implementación** — solo diseño + propuesta (src/ intacto)
-
-**Veredicto:** ✅ Esquema aprobado para fase 2 (implementación de gauges por categoría como task futuro).
-
-**Ids:** `INV-002`
-
-### 2026-07-30 — INV-024: Unsafe Blocks Audit ✅
-
-**Fuente:** Backlog (Phase 1 — Security & Critical) `INV-024`
-
-**Resuelto por (vanta-audit):**
-- Auditados **39 bloques `unsafe`** en 11 archivos del core Rust
-- Clasificación: 28 SAFE, 4 SAFE_BUT_UNDOCUMENTED, 7 UB_POTENTIAL
-- **🔴 High (1):** panic-DoS en `sq8_similarity` (`distance.rs:411/450`) — reachable desde API pública (`search_vector` → `search_nearest` → `calculate_similarity`), sin guard de dimensiones. Query de 9 dims contra SQ8 de 8 dims → panic. Fix de una línea.
-- **🟠 Medium (1):** UB por alineación — `header.vector_offset` nunca validado como múltiplo de 4 en runtime (solo `debug_assert`, ausente en release). Afecta 7 sitios (`ops.rs:509` ni siquiera tiene debug_assert).
-- **🟡 Low (3):** RUSTSEC-2026-0002 (lru via ratatui, allowed), MmapFull sin validación de contenido (NaN silencioso), `_force_copy` muerto.
-- `cargo deny check` **PASSED** | `cargo audit` 0 critical/high/medium
-- Reporte: `docs/audit-reports/inv-024-unsafe-audit-2026-07-30.md`
-
-**Veredicto:** ✅ Core sólido. Fix recomendado primero: guard de una línea en `sq8_similarity`; luego fix central de alineación en `read_header`.
-
-**Ids:** `INV-024`
-
-### 2026-07-29 — REC-007: WAL Compaction + Vacuum CLI ✅
+<!-- movido a ARCHIVO_HISTORICO.md -->
+<!-- movido a ARCHIVO_HISTORICO.md -->
+<!-- movido a ARCHIVO_HISTORICO.md -->
+### 2026-07-29 — REC-007: Compactación WAL + CLI Vacuum ✅
 
 **Fuente:** Backlog (Phase 8 — Post-Launch & Enterprise) `REC-007`
 
@@ -447,7 +388,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `REC-007`
 
-### 2026-07-29 — REC-001: Foundation Filter Types (VantaFilterOp + VantaMemoryFilterItem) ✅
+### 2026-07-29 — REC-001: Tipos de Filtro Base (VantaFilterOp + VantaMemoryFilterItem) ✅
 
 **Fuente:** Backlog (Phase 8 — Post-Launch & Enterprise) `REC-001`
 
@@ -466,7 +407,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `REC-001`
 
-### 2026-07-28 — COMP-026: Multi-level LSM Compaction ✅
+### 2026-07-28 — COMP-026: Compactación LSM Multi-nivel ✅
 
 **Fuente:** Backlog (Phase 10 — Competitive Features) `COMP-026`
 
@@ -487,7 +428,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `COMP-026`
 
-### 2026-07-26 — OLD-03: Chaos Testing — Failpoint Harness Formal ✅
+### 2026-07-26 — OLD-03: Chaos Testing — Harness de Failpoints Formal ✅
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-03`
 
@@ -503,7 +444,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `OLD-03`
 
-**2026-07-27 — Post-certification fixes:**
+**2026-07-27 — Correcciones post-certificación:**
 - **Bug:** Test binary no terminaba después de `ok` — proceso colgado en limpiza.
 - **Root cause 1:** `ChaosTestHarness` declaraba `dir: TempDir` antes que `engine: Arc<StorageEngine>`. Rust dropea struct fields en orden de declaración → `dir` se dropeaba primero e intentaba borrar el directorio temporal mientras el engine aún tenía archivos abiertos (Windows: no puede borrar archivos abiertos).
 - **Root cause 2:** `with_global_bar()` llamaba `pb.enable_steady_tick(100ms)` que spawnea un thread background con su propio `Arc` al estado del ProgressBar. Cuando el test terminaba y los thread-locals se limpiaban, el thread sobrevivía y prevenía la salida del proceso.
@@ -512,7 +453,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 - **Commit:** `16e19434` (hang fix), `2812f9eb` (field order)
 - **Verificación:** 15 test binaries corridos (22 tests individuales). 0 hangs. 3 fallas pre-existentes no relacionadas. ✅
 
-### 2026-07-26 — OLD-08: Snapshots via Hard Links ✅
+### 2026-07-26 — OLD-08: Snapshots mediante Hard Links ✅
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-08`
 
@@ -561,7 +502,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `OLD-11`
 
-### 2026-07-26 — OLD-12: Pilot Program Formal ✅
+### 2026-07-26 — OLD-12: Programa Piloto Formal ✅
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-12`
 
@@ -591,7 +532,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `OLD-19`
 
-### 2026-07-26 — OLD-16: WAL Rotation at 256MB ✅
+### 2026-07-26 — OLD-16: Rotación WAL a 256MB ✅
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-16`
 
@@ -608,7 +549,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `OLD-16`
 
-### 2026-07-26 — OLD-14: MessageThread / GcWorker for Agentic Chat ✅
+### 2026-07-26 — OLD-14: MessageThread / GcWorker para Chat Agentico ✅
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-14`
 
@@ -626,7 +567,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `OLD-14`
 
-### 2026-07-26 — OLD-02: GraphRAG Pipeline Formal — seed → expand → retrieve → generate context ✅
+### 2026-07-26 — OLD-02: Pipeline Formal de GraphRAG — seed → expand → retrieve → generate context ✅
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-02`
 
@@ -662,7 +603,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `DRV-014`
 
-### 2026-07-25 — DRV-136: vantadb-wasm bundle size measurement + LTO rustflags fix ✅
+### 2026-07-25 — DRV-136: Medición del tamaño del bundle de vantadb-wasm + fix de rustflags LTO ✅
 
 **Fuente:** Backlog Phase 2 `DRV-136`
 
@@ -676,41 +617,8 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `DRV-136`
 
-### 2026-07-25 — REV-012: HNSW insert_lock contention analysis ✅
-
-**Fuente:** Backlog Phase 2 `REV-012`
-
-**Resuelto por (vanta-tuner, ponytail):**
-- Análisis de 3 puntos de contención:
-  - DashMap `nodes`: shard count = num_cpus * 4, critical sections µs-scale → ✅ Adecuado
-  - Mutex RNG: 2-5µs hold, 64 adquisiciones/batch → 🟡 No medido como bottleneck
-  - FairMutex insert_lock: micro-batching 64 ops/acq + try_lock non-blocking drain → ✅ Bien mitigado
-- Sin code changes — todo ya mitigado. Comentario ponytail documentando upgrade path (thread_local SmallRng si profiling lo requiere)
-
-**Verificación:** `cargo check -p vantadb` ✅
-
-**Ids:** `REV-012`
-
-### 2026-07-25 — Phase 3 Test Coverage: 7 tasks completadas (document-only) ✅
-
-**Fuente:** Backlog Phase 3 — evaluación de cobertura de tests
-
-**Resultados — 0 code changes (todas document-only, ponytail):**
-
-| ID | Módulo | Tests | Hallazgo |
-|----|--------|-------|----------|
-| `DRV-013` | ShardedWal | 25 tests, ~90%+ line coverage | Gap: concurrent access no testeado. Document-only |
-| `DRV-017` | search.rs / serialize.rs | 33+29 tests | Gap: mmap zero-copy unsafe path no testeado. Document-only |
-| `DRV-061` | OpenAI adapter | 10 tests/119L | Happy path sólido. Error paths dependen de API externa. |
-| `DRV-067` | Ollama adapter | 8 tests/79L | Adapter 1-line delegate. Document-only |
-| `DRV-073` | LiteLLM adapter | 10 tests/78L | Mejor coverage de los 3. Document-only |
-| `TEST-11` | Frontend (Vitest + Playwright) | 38+54 tests | Sin cross-browser WASM (demo es placeholder). Document-only |
-| `TEST-12` | Fuzzing | 4 targets + proptest | Sin corpus guardado ni storage API fuzz. Document-only |
-
-**Verificación:** todos los checks pasan ✅
-
-**Ids:** `DRV-013`, `DRV-017`, `DRV-061`, `DRV-067`, `DRV-073`, `TEST-11`, `TEST-12`
-
+<!-- movido a ARCHIVO_HISTORICO.md -->
+<!-- movido a ARCHIVO_HISTORICO.md -->
 ### 2026-07-25 — DRV-054: read_axioms extraído a const + resolve_axioms() con fallback ✅
 
 **Fuente:** Backlog `DRV-054` — 4 axioms inline, no sync con metadata
@@ -728,7 +636,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `DRV-054`
 
-### 2026-07-25 — Refactor Batch: DRV-036, DRV-038, DRV-029, DRV-032, DRV-055 ✅
+### 2026-07-25 — Tanda de Refactor: DRV-036, DRV-038, DRV-029, DRV-032, DRV-055 ✅
 
 **Fuente:** Backlog `DRV-036`, `DRV-038`, `DRV-029`, `DRV-032`, `DRV-055`
 
@@ -790,7 +698,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `DRV-050`
 
-### 2026-07-25 — OLD-05: Search Quality v2 (Unicode + snippets) ✅
+### 2026-07-25 — OLD-05: Calidad de Búsqueda v2 (Unicode + snippets) ✅
 
 **Fuente:** Backlog `OLD-05` — Search Quality v2 (Unicode + snippets)
 
@@ -805,7 +713,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `OLD-05`
 
-### 2026-07-26 — DRV-130 T1 fix: SearchProfile gated tras #[cfg(debug_assertions)] ✅
+### 2026-07-26 — DRV-130 fix T1: SearchProfile gated tras #[cfg(debug_assertions)] ✅
 
 **Fuente:** Backlog P4 `DRV-130` (refinimiento T1)
 
@@ -820,7 +728,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `DRV-130`
 
-### 2026-07-25 — DRV-130: SIFT 1M search bottleneck — SearchProfile + prefetch audit ✅
+### 2026-07-25 — DRV-130: Cuello de botella de búsqueda SIFT 1M — SearchProfile + auditoría de prefetch ✅
 
 **Fuente:** Backlog P4 `DRV-130`
 
@@ -835,7 +743,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `DRV-130`
 
-### 2026-07-24 — DRV-022: Eliminado governance/ dead code (1235L) ✅
+### 2026-07-24 — DRV-022: Eliminado código muerto governance/ (1235L) ✅
 
 **Fuente:** Backlog stabilization plan — Phase 2, Task 11
 
@@ -847,7 +755,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `DRV-022`
 
-### 2026-07-24 — DRV-059/065/071/087/091/096: RwLock<String> → String (6 tasks ✅)
+### 2026-07-24 — DRV-059/065/071/087/091/096: RwLock<String> → String (6 tareas ✅)
 
 **Fuente:** Backlog DRV Hallazgos — adapters/providers, `review-deep` Wave 0 (quick)
 
@@ -865,7 +773,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `DRV-059`, `DRV-065`, `DRV-071`, `DRV-087`, `DRV-091`, `DRV-096`
 
-### 2026-07-24 — DRV-070/086/092/098/103/110: Metadata no-string ignorado (6 tasks ✅)
+### 2026-07-24 — DRV-070/086/092/098/103/110: Metadata no-string ignorado (6 tareas ✅)
 
 **Fuente:** Backlog DRV Hallazgos — adapters/providers
 
@@ -885,7 +793,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `DRV-070`, `DRV-086`, `DRV-092`, `DRV-098`, `DRV-103`, `DRV-110`
 
-### 2026-07-24 — DRV-068/069/074/079/085/107/112: Misc GIL + pagination + test coverage (7 tasks ✅)
+### 2026-07-24 — DRV-068/069/074/079/085/107/112: Misc GIL + paginación + cobertura de tests (7 tareas ✅)
 
 **Fuente:** Backlog DRV Hallazgos — Bug C + Bug D
 
@@ -897,7 +805,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 - **DRV-112** (LlamaIndex delete malformed IDs): Migrado a Python puro. `delete()` cursor-based con `rec.key`
 - **Ids:** `DRV-068`, `DRV-069`, `DRV-074`, `DRV-079`, `DRV-085`, `DRV-107`, `DRV-112`
 
-### 2026-07-24 — TIER 4: REV-010/DRV-023/DRV-044/DRV-046 resueltos (4 tasks ✅)
+### 2026-07-24 — TIER 4: REV-010/DRV-023/DRV-044/DRV-046 resueltos (4 tareas ✅)
 
 **Fuente:** Backlog TIER 4 — refactors medianos, verificación contra código actual
 
@@ -910,7 +818,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `REV-010`, `DRV-023`, `DRV-044`, `DRV-046`
 
-### 2026-07-24 — DRV-027: Refactor vantadb-python/src/lib.rs God module (1991L → 4 files) ✅
+### 2026-07-24 — DRV-027: Refactor del módulo God vantadb-python/src/lib.rs (1991L → 4 archivos) ✅
 
 **Fuente:** Backlog DRV Hallazgos — Python SDK (TIER 2, `review-deep` Wave 0)
 
@@ -926,16 +834,8 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `DRV-027`
 
-### 2026-07-24 — Pipeline: auto-progreso + auto-commit en /pipeline task ✅
-
-**Proceso:** Se detectó que `skill progreso` (Trigger 1 — migración de tareas completadas) y el commit automático no se ejecutaban al final del pipeline MODO TAREA.
-
-**Fix:**
-- `pipeline.md` pasos 6-7 agregados después del Review: `skill progreso` + auto-commit
-- Aplica a ambos modos: MODO TAREA y MODO RUN
-- Decisión registrada en campaign_memory como policy
-
-### 2026-07-24 — VFY-010: ACID Phase 2 — Buffered Write Transactions ✅
+<!-- movido a ARCHIVO_HISTORICO.md -->
+### 2026-07-24 — VFY-010: ACID Fase 2 — Transacciones de Escritura Bufferizadas ✅
 
 **Fuente:** Backlog (VFY Hallazgos)
 
@@ -953,7 +853,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `VFY-010`
 
-### 2026-07-23 — DRV-001: Refactor search.rs god file (1162L → 845L, 5 sub-modules) ✅
+### 2026-07-23 — DRV-001: Refactor del god file search.rs (1162L → 845L, 5 sub-módulos) ✅
 
 **Fuente:** Backlog DRV Hallazgos — SDK, `review-deep` Wave 0
 
@@ -971,7 +871,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `DRV-001`
 
-### 2026-07-19 — DRV-002 + DRV-003: SDK duplication removal & perf fix ✅
+### 2026-07-19 — DRV-002 + DRV-003: Eliminación de duplicación SDK y fix de perf ✅
 
 **Fuente:** Backlog DRV Hallazgos — SDK, `review-deep` Wave 0
 
@@ -980,9 +880,9 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Ids:** `DRV-002`, `DRV-003`
 
-### 2026-07-19 — Deferred Fixes Post-RC (DEF-01 → DEF-05) ✅
+### 2026-07-19 — Fixes Diferidos Post-RC (DEF-01 → DEF-05) ✅
 
-**Fuente:** Investigación de sub-agentes (vanta-tuner, vanta-engine, vanta-worker, vanta-audit) sobre 7 items diferidos post-feature-freeze. Item 3 (WAL) skipped, item 7 (missing_docs) verificado como non-issue.
+**Fuente:** Investigación de sub-agentes (vanta-tuner, vanta-engine, vanta-worker, vanta-audit) sobre 7 items diferidos post-feature-freeze. Item 3 (WAL) omitido, item 7 (missing_docs) verificado como non-issue.
 
 **5 fixes implementados y verificados (commit `aee17f9`):**
 - **DEF-01 (SendPtr → `Arc<Mmap>`):** Reemplazado `*const f32` wrapper por `Option<Arc<Mmap>>` en `VectorRepresentations::MmapFull`. Elimina UB cuando mmap se re-mappea. Archivos: `src/node.rs`, `src/index/graph.rs`, `src/index/serialize.rs`, `src/index/distance.rs`, `src/storage/engine/maintenance.rs`.
@@ -993,28 +893,17 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Verificación:** `cargo check --workspace` ✅, `cargo clippy -D warnings` ✅, `cargo fmt --check` ✅, `cargo nextest run --profile audit --workspace` ✅ (550/550 tests).
 
-### 2026-07-07 — Reorganización Masiva del Backlog (24 eliminaciones, 21 adiciones, 11 prioridades)
+<!-- movido a ARCHIVO_HISTORICO.md -->
+### 2026-07-14 — REV-011: Descomponer función monolítica insert_hnsw de 177L
 
-**Fuente:** Análisis completo del proyecto (`docs/research/VantaDB_ANALISIS_COMPLETO.md`) que evaluó cada item del backlog contra: impacto real, esfuerzo, timing, alineación con visión estratégica.
+- **REV-011 (✅ completado):** Extraído `connect_layer_neighbors()` de `insert_hnsw` en `src/index/graph.rs:595-619`. El bucle anidado de 3 niveles para la conexión bidireccional de vecinos ahora es un método privado con nombre. `insert_hnsw` reducido de ~135→112 líneas. Sin cambio de comportamiento.
+- **Hallazgos colaterales:** 2 errores pre-existentes en `src/sdk/serialization/impl_index.rs` (acceso de fn privada a métodos de `impl_text_index.rs`). No relacionados con REV-011.
 
-**Cambios ejecutados:**
-- **24 items eliminados** del backlog activo: Cloud entero (7 items), optimizaciones prematuras (6), SOC2/HIPAA (2), WAL shipping, PITR, Semantic Kernel, visual regression, y 4 duplicados/ya-existentes
-- **11 items re-priorizados**: 5 subieron a 🔴 (WASM demo, Discord, TS SDK, MCP docs), 3 bajaron a 🟡/🟢 (ARM64, signing, GraphRAG metodología)
-- **21 nuevos items agregados**: sanitizer CI, flat index, migration tools, learning path, WASM fallbacks, HNSW auto-tuning, PQ, LSM, sparse vectors, y más
-- **Resultado**: Backlog pasó de 79 → **65 items activos**
+### 2026-07-14 — REV-009: Optimizar compilación del workspace con default-members
 
-**Documentación completa:** `docs/progreso/backlog-2026-07-07.md`
+- **REV-009 (✅ completado):** Removido `--workspace` de las 9 invocaciones de `cargo check/clippy/nextest` en `ci-rust-10.yml` (ahora usan `default-members`). Añadido `[workspace] default-members = [...]` a `Cargo.toml` listando solo 5 paquetes core, excluyendo 12 adapter crates de los rebuilds de desarrollo.
 
-### 2026-07-14 — REV-011: Decompose insert_hnsw 177L monolithic function
-
-- **REV-011 (✅ completado):** Extracted `connect_layer_neighbors()` from `insert_hnsw` in `src/index/graph.rs:595-619`. The 3-level nested loop for bidirectional neighbor connection is now a named private method. `insert_hnsw` reduced from ~135→112 lines. No behavioral change.
-- **Hallazgos colaterales:** 2 errores pre-existentes en `src/sdk/serialization/impl_index.rs` (private fn access to `impl_text_index.rs` methods). No relacionados con REV-011.
-
-### 2026-07-14 — REV-009: Optimize workspace compilation with default-members
-
-- **REV-009 (✅ completado):** Removed `--workspace` from all 9 `cargo check/clippy/nextest` invocations in `ci-rust-10.yml` (they now use `default-members`). Added `[workspace] default-members = [...]` to `Cargo.toml` listing only 5 core packages, excluding 12 adapter crates from development rebuilds.
-
-### 2026-07-08 — WASM Demo + Quick Wins (NUEVO-03/04) + Demo Route
+### 2026-07-08 — WASM Demo + Quick Wins (NUEVO-03/04) + Ruta Demo
 
 - **WASM-03 (completado):** Ruta `/demo` creada con chat interactivo (Transformers.js + mock embedder + fallback in-memory). Fixes: `vector: [vector]` double-wrap, `@wasm` alias resuelto copiando `pkg/` a `web/src/wasm/`, `vite-plugin-wasm` configurado, `cssMinify: "esbuild"` para compatibilidad Tailwind v4. Demo completamente funcional.
 - **NUEVO-03 (✅ completado):** `llms.txt` ya existía en raíz del repo (describe el proyecto para AI crawlers). `web/public/llms.txt` es específico del sitio web. Backlog actualizado.
@@ -1025,7 +914,7 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 - **Tokens file:** Creado `.env.tokens.example` con documentación de todos los tokens/secrets del proyecto. `.env.tokens` (real) en `.gitignore`. `.env.tokens.example` (template) trackeado.
 - **INT-01/02 adapters fix:** LangChain y LlamaIndex adapters reparados para usar la API actual de `vantadb-py` (propiedades en vez de dicts). Tests: ✅ 5/5 LangChain, ✅ 5/5 LlamaIndex. Dep `vantadb-py>=0.3` corregida a `>=0.2`. Ya están listos para publicar.
 
-### 2026-07-03 — Massive Adapter, WASM, Performance, Security, DX & Clippy Batch (26 tareas completadas)
+### 2026-07-03 — Tanda Masiva de Adapters, WASM, Rendimiento, Seguridad, DX y Clippy (26 tareas completadas)
 
 **fix: clippy warnings (commit `b11c0e7`):** Se resolvieron las 22 advertencias de `dead_code` en el código scaffolding (PERF-02/07/08/10, SEC-05, vfile sigbus, ops auxiliares, wal recovery) mediante `#[allow(dead_code)]`. Se corrigió un type mismatch en `rkyv_archives.rs` (`Vec<Vec<u64>>` → `Vec<NeighborVec>`). `cargo clippy` ahora emite 0 warnings y 342/342 tests pasan.
 
@@ -1038,158 +927,78 @@ Se completan 25 tareas en una gran tanda pre-lanzamiento que abarca 7 áreas cr�
 - **Developer Experience (3):** DX-01 (connect()), DX-02 (Python SDK latency — LRU cache, buffer reuse), DX-04 (55 TS tests)
 - **Security (4):** SEC-04 (auth hardening — subtle::ConstantTimeEq, rate limiting, /metrics auth), SEC-05 (RBAC design), SEC-06 (SBOM workflow), SEC-07 (CodeQL + cargo-deny CI)
 
-### 2026-07-02 — Web Frontend Polish, Security Hardening, MCP Stabilization, Docker Infrastructure
+### 2026-07-02 — Pulido Frontend Web, Hardening de Seguridad, Estabilización MCP, Infraestructura Docker
 
 - **Web tasks (6 completed):**
-  - **WEB-15/WEB-16** — Homepage visual refinements (text-align left, H1 font-weight 700, Nav background to warm paper)
-  - **WEB-09** — Consolidated animation libraries: removed AnimeJS, refactored all animation to GSAP (~155KB+ bundle reduction)
-  - **WEB-13** — SEO canonical URLs, OG tags, and JSON-LD structured data on all 25 route files
-  - **WEB-12** — Created reusable `<VsTable>` component replacing 7+ manual table implementations
-  - **WEB-10** — `React.lazy()` code splitting for 4 heavy pages (Engine, Architecture, Docs, Changelog)
-  - **WEB-11** — `React.memo` + `useMemo` optimization on 10 components to prevent unnecessary rerenders
+  - **WEB-15/WEB-16** — Refinamientos visuales del homepage (text-align left, H1 font-weight 700, fondo de Nav a warm paper)
+  - **WEB-09** — Librerías de animación consolidadas: removido AnimeJS, toda la animación refactorizada a GSAP (~155KB+ de reducción de bundle)
+  - **WEB-13** — URLs canónicas SEO, OG tags y datos estructurados JSON-LD en los 25 archivos de rutas
+  - **WEB-12** — Creado componente reutilizable `<VsTable>` reemplazando 7+ implementaciones manuales de tablas
+  - **WEB-10** — Code splitting con `React.lazy()` para 4 páginas pesadas (Engine, Architecture, Docs, Changelog)
+  - **WEB-11** — Optimización con `React.memo` + `useMemo` en 10 componentes para prevenir rerenders innecesarios
 - **Security (2 advisories verified resolved):**
-  - **SEC-01** — bincode 1.x→2.0 migration confirmed already complete (via prior AUD-03)
-  - **SEC-02** — rustls-pemfile confirmed already on v2
-- **MEM-01** — Created `vantadb-mem0/` PyO3 crate for Mem0 VectorStoreBackend integration
-- **MCP-02** — Stabilized MCP server to GA readiness: config, error handling, timeouts, graceful shutdown, metrics, per-IDE docs
+  - **SEC-01** — Migración bincode 1.x→2.0 confirmada como ya completada (vía AUD-03 previo)
+  - **SEC-02** — rustls-pemfile confirmado ya en v2
+- **MEM-01** — Creado crate PyO3 `vantadb-mem0/` para la integración Mem0 VectorStoreBackend
+- **MCP-02** — Servidor MCP estabilizado a readiness GA: config, error handling, timeouts, graceful shutdown, metrics, docs por IDE
 - **DX-03** — Docker Compose "Local LLM Stack": Dockerfile + docker-compose.yml + .dockerignore
-- **Compilation:** Rust passes clean (no warnings/errors), TypeScript passes clean (with fix applied for dead code in stripped route files)
+- **Compilación:** Rust pasa limpio (sin warnings/errors), TypeScript pasa limpio (con fix aplicado para dead code en archivos de rutas stripped)
 
-### 2026-07-02 — Testing Infrastructure, WASM Persistence, Backend Performance & Security Hardening (6 tasks)
+### 2026-07-02 — Infraestructura de Testing, Persistencia WASM, Rendimiento Backend y Hardening de Seguridad (6 tareas)
 
-- **WASM-02** — OPFS (Origin Private File System) persistence for vantadb-wasm. Enables crash-safe browser persistence on top of InMemory storage
-- **WEB-07** — Frontend test infrastructure: Vitest + React Testing Library + Playwright E2E configured with 23 component tests across 3 files
-- **TEST-01** — WASM test suite: 45 tests in `vantadb-wasm/tests/wasm_tests.rs` covering embedding, search, persistence, error handling
-- **TEST-02** — Frontend component tests: 23 tests across 3 files using Vitest + RTL
-- **TEST-03** — Security test suite: 30 tests covering IQL injection fuzzing, auth bypass attempts, malformed payloads
-- **PERF-01** — Batch KV loader (`get_many`) in StorageBackend trait. Eliminated 5 N+1 patterns: graph.rs BFS/DFS, physical_plan.rs PhysicalScan, vector search post-filter, hybrid search explain
-- **SEC-03** — Physical storage schema evolution: versioned headers, migration runner in vanta-cli CLI
-- **Verification:** Rust compiles clean (no warnings/errors), all tests pass, TypeScript builds clean
-- **Backlog:** Backlog.md updated — tasks removed from active sections, verdict scores updated
+- **WASM-02** — Persistencia OPFS (Origin Private File System) para vantadb-wasm. Habilita persistencia browser crash-safe sobre almacenamiento InMemory
+- **WEB-07** — Infraestructura de tests frontend: Vitest + React Testing Library + Playwright E2E configurados con 23 component tests en 3 archivos
+- **TEST-01** — Suite de tests WASM: 45 tests en `vantadb-wasm/tests/wasm_tests.rs` cubriendo embedding, search, persistence, error handling
+- **TEST-02** — Component tests frontend: 23 tests en 3 archivos usando Vitest + RTL
+- **TEST-03** — Suite de tests de seguridad: 30 tests cubriendo fuzzing de inyección IQL, intentos de bypass de auth, payloads malformados
+- **PERF-01** — Cargador KV por lotes (`get_many`) en el trait StorageBackend. Eliminados 5 patrones N+1: graph.rs BFS/DFS, physical_plan.rs PhysicalScan, vector search post-filter, hybrid search explain
+- **SEC-03** — Evolución del schema de almacenamiento físico: headers versionados, migration runner en la CLI vanta-cli
+- **Verificación:** Rust compila limpio (sin warnings/errors), todos los tests pasan, TypeScript compila limpio
+- **Backlog:** Backlog.md actualizado — tareas removidas de secciones activas, verdict scores actualizados
 
-### Week of 2026-07-01 — Documentation overhaul & Code Hardening
+<!-- movido a ARCHIVO_HISTORICO.md -->
+<!-- movido a ARCHIVO_HISTORICO.md -->
+<!-- movido a ARCHIVO_HISTORICO.md -->
+### Tarea: AUD-WORK — Corrección de CI y Auditoría de Workflows (2026-06-20)
 
-- **Documentation structure**: Re-created Obsidian graph color groups (`docs/.obsidian/graph.json`), installed usability plugins (Dataview, Linter, Calendar) to optimize reading and editing experience locally.
-- **Wikilinks resolution**: Repaired 58 instances of broken `[[wikilinks]]` that were improperly nested inside Markdown code blocks across 10 files (like `architecture.md`, `HTTP_API.md`). Confirmed that while GitHub doesn't natively render wikilinks, they remain ideal for the primary Obsidian-based workflow.
-- **Syntax error fix**: Fixed an improper module-level doc comment (`//!`) and a duplicate `use std::time::Duration` inside `src/cli_server.rs` that was preventing the build and breaking `rustfmt`.
-- **Clippy static analysis**: Fixed an `if_same_then_else` warning in `src/sdk/search.rs:307` related to distance resolution.
-- **Codebase formatting**: Applied `cargo fmt` across all 22 Rust files (1349 lines modified, mostly line-wrapping and import ordering).
-- **Test Suite Verification**: Discovered a system resource limit (Windows pagefile `os error 1455`) during parallel compilation. Bypassed by compiling the `lib` tests individually. All 440/440 tests are now passing successfully.
-
-### Week of 2026-06-19 — Complete Comprehensive Audit (AUD-01→44)
-
-- **44 audit findings resolved** in a single day using parallel specialized agents (3 per batch, 15 batches).
-- **7 critical** (security, packaging, documentation), **14 medium** (tests, CI/CD, infra), **23 low** (refactors, technical debt, UX).
-- **Files modified**: ~45 files between Rust, Python, YAML, TOML, Markdown, scripts.
-- **New files**: `tests/edge_cases.rs` (25 edge case tests).
-- **CVEs resolved**: RUSTSEC-2025-0141 (bincode), RUSTSEC-2026-0176/0177 (pyo3).
-- **Updated PHASE 3 exit criteria**: all AUDs resolved ✅
-
-### Week of 2026-06-12 → 2026-06-18
-
-- **TSK-79**: Benchmark regression alerts. `scripts/bench_regression.py` (3 modes), nightly workflow with automatic GitHub Issue creation. Updated progress and CHANGELOG.
-- **CI fixes**: Conditional imports in `cli_server.rs`. Step benchmark datasets in coverage job. Update `install-action` to `@v2`.
-- **Clippy audit**: 5 categories of warnings corrected (too_many_arguments, suspicious_open_options, field_reassign_with_default, needless_range_loop, needless_borrow)
-- **Comprehensive audit**: 40 documented findings (7 critical, 14 high, 19 medium).
-- **Final push**: 30 commits ahead, pushed to `ness-e/Vantadb` main (commit `f5eafbd`)
-
-### Task: AUD-WORK — CI Correction and Workflow Audit (2026-06-20)
-
-- **Objective:** Correct the failures of the GitHub Actions CI pipeline (timeout in `crash_injection` and permissions failure of `wal_write_failure_returns_error`) and apply the 9 findings of the audit report in a structured way.
+- **Objetivo:** Corregir las fallas de la pipeline de CI de GitHub Actions (timeout en `crash_injection` y falla de permisos de `wal_write_failure_returns_error`) y aplicar los 9 hallazgos del reporte de auditoría de forma estructurada.
 - **Commits:** `85f2beb`, `447224e`, `4030d36`, `ab09229`, `25dc38b`, `a3c2c04`, `aaf0428`, `26afb62`
-- **Checklist Completed:**
-- [x] Modify `.config/nextest.toml`
-- [x] Migrate exclusions from `binary_id(...)` to `binary(...)`
-- [x] Fix `hnsw_recall` to `hnsw_recall_certification`
-- [x] Change `not test(integrations_certification)` to `not binary(integration)`
-- [x] Add exclusion of `mcp_tests` and `multilingual_tokenizer_integration`
-- [x] Add exclusion of `memory_telemetry` and the `concurrent_insert_preserves_hnsw_invariants` unit test
-- [x] Modify `Cargo.toml`
-- [x] Declare `fjall_cold_copy_restore`, `property_durability`, `fuzz_proptest` and `multilingual_tokenizer_integration`
-- [x] Add `required-features = ["failpoints"]` to `chaos_integrity` (`Cargo.toml:201`)
+- **Checklist Completado:**
+- [x] Modificar `.config/nextest.toml`
+- [x] Migrar exclusiones de `binary_id(...)` a `binary(...)`
+- [x] Fix `hnsw_recall` a `hnsw_recall_certification`
+- [x] Cambiar `not test(integrations_certification)` a `not binary(integration)`
+- [x] Añadir exclusión de `mcp_tests` y `multilingual_tokenizer_integration`
+- [x] Añadir exclusión de `memory_telemetry` y del unit test `concurrent_insert_preserves_hnsw_invariants`
+- [x] Modificar `Cargo.toml`
+- [x] Declarar `fjall_cold_copy_restore`, `property_durability`, `fuzz_proptest` y `multilingual_tokenizer_integration`
+- [x] Añadir `required-features = ["failpoints"]` a `chaos_integrity` (`Cargo.toml:201`)
   - [x] Actualizar Workflows y Políticas
     - [x] Modificar `heavy_certification.yml` para incluir `--features cli,arrow` y clasificar `mcp_tests`, `multilingual_tokenizer_integration`, `columnar`, `memory_telemetry` y `concurrent_insert_preserves_hnsw_invariants`
-- [x] Modify `docs/operations/CI_POLICY.md`
-- [x] Split quick CI (<30min) by weekly heavy certification (`aaf0428`)
-- [x] Strengthen nextest filter expression (`a3c2c04`)
-- [x] Restore strict binary_id nextest filter with cli features (`25dc38b`)
-- [x] Fix version extraction in python_wheels.yml, improve test-threads comment (`26afb62`)
-- [x] Local Validation Environment (Pre-push)
-- [x] Add `numpy` to the Python audit virtual environment in `dev-tools/setup_venv.ps1`
-- **Pending original report:**
-- [x] ~~`Cargo.toml`: Add `required-features = ["failpoints"]` to `chaos_integrity`~~ → **Completed** in `Cargo.toml:201`
-- [ ] `.config/nextest.toml`: Make `test-threads = 2` Windows-specific (currently global in `nextest.toml:67`)
-- **Changes and Results:**
-- **Robust workspace support in Nextest:** Changing `binary_id(...)` to `binary(...)` in `nextest.toml` ensures that heavy binaries are effectively excluded from the PR Fast Gate, preventing root permission failures and fast CI timeouts.
-- **Exclusions from long running tests:** Identified and excluded `memory_telemetry` (180s local timeout) and the slow unit test `concurrent_insert_preserves_hnsw_invariants` (~68s) from the fast gate, speeding up the pipeline.
-- **Python SDK validation fixed:** Installed `numpy` in the audit tight virtual environment (`dev-tools/setup_venv.ps1`) so that Python SDK integration tests that depend on NumPy pass correctly and do not block the Git pre-push.
-- **Explicit declaration of tests:** Tests without explicit input `[test](Glossary/test.md)` in `Cargo.toml` were formally declared to avoid their disappearance due to auto-discovery.
-- **Classification in Heavy Certification:** `mcp_tests`, `multilingual_tokenizer_integration`, `memory_telemetry` and `concurrent_insert_preserves_hnsw_invariants` were classified to run exclusively in `heavy_certification.yml` and documented in `CI_POLICY.md`.
-- **Columnar test execution:** The `arrow` feature was enabled in the workflows and `columnar` was programmed to be evaluated in CI.
-- **CI Pending:** `.config/nextest.toml` — `test-threads = 2` moved from global to `[profile.audit.overrides."cfg(target_os = \"windows\")".override]` Windows-only.
-- **DISC-03:** `PrefetchMode` enum (Auto/Enabled/Disabled) added to `src/config.rs` with `prefetch_mode` field in `VantaConfig`; support env vars `VANTA_PREFETCH` and `VANTA_DISABLE_PREFETCH`; built into `src/index.rs` via `OnceLock<PrefetchMode>` and called from `open_with_config` in `src/sdk.rs`.
-- **DISC-02:** 3 new Windows-only tests in `tests/file_locking_stress.rs` — FILE_SHARE_READ antivirus, FILE_SHARE_DELETE backup, stale lock recovery (+existing cross-platform test).
-- **TSK-47 (SQ8):**
-- `VectorRepresentations::SQ8(Box<[i8]>, f32)` in `src/node.rs` with support in `dimensions()`, `to_f32()`, `as_f32_slice()`, `memory_size()`, `cosine_similarity()`.
-  - `sq8_quantize()` y `sq8_similarity()` en `src/vector/quantization.rs`.
-- `sq8_similarity_fallback()` in `src/index.rs` to compare raw query vs SQ8; handled in `calculate_similarity()`.
-- Serialization (tag 4) and deserialization in binary format of the index.
-- Extended `estimated_memory_size()` and `storage.rs::vector_size` for SQ8.
-- **TSK-49 (rkyv):**
-- Optional `rkyv` dependency (feature `rkyv-serialization`) in `Cargo.toml`.
-- `src/serialization/rkyv_archives.rs` with `ArchivedHnswHeader`, `ArchivedHnswNode`, `ArchivedHnswGraph` — `repr(C)` format for mmap zero-copy.
-  - `CPIndex::serialize_to_rkyv()` y `CPIndex::load_from_rkyv()`.
-- `serialization_order()` promoted to `pub(crate)`.
-- **ROAD-06:** `docs/operations/grafana-dashboard.json` (6 panels: RSS, Memory Pressure, Vector Ops, Latency P50/P95/P99, Disk Usage, Index Memory) + `docs/operations/GRAFANA_SETUP.md`.
+- [x] Modificar `docs/operations/CI_POLICY.md`
+- [x] Dividir quick CI (<30min) de la heavy certification semanal (`aaf0428`)
+- [x] Reforzar la expresión de filtro de nextest (`a3c2c04`)
+- [x] Restaurar filtro estricto binary_id de nextest con features cli (`25dc38b`)
+- [x] Fix de extracción de versión en python_wheels.yml, mejorar comentario de test-threads (`26afb62`)
+- [x] Entorno de Validación Local (Pre-push)
+- [x] Añadir `numpy` al virtualenv de auditoría Python en `dev-tools/setup_venv.ps1`
+- **Reporte original pendiente:**
+- [x] ~~`Cargo.toml`: Añadir `required-features = ["failpoints"]` a `chaos_integrity`~~ → **Completado** en `Cargo.toml:37`
+- [ ] `.config/nextest.toml`: Hacer `test-threads = 2` específico de Windows (actualmente global en `nextest.toml:67`)
+- **Cambios y Resultados:**
+- **Soporte robusto de workspace en Nextest:** Cambiar `binary_id(...)` a `binary(...)` en `nextest.toml` asegura que los binarios pesados sean excluidos efectivamente del PR Fast Gate, previniendo fallos de permisos root y timeouts de CI rápida.
+- **Exclusiones de tests de larga duración:** Identificados y excluidos `memory_telemetry` (timeout local 180s) y el unit test lento `concurrent_insert_preserves_hnsw_invariants` (~68s) del fast gate, acelerando la pipeline.
+- **Validación del Python SDK corregida:** Instalado `numpy` en el virtualenv tightening de auditoría (`dev-tools/setup_venv.ps1`) para que los tests de integración del Python SDK que dependen de NumPy pasen correctamente y no bloqueen el git pre-push.
+- **Declaración explícita de tests:** Tests sin input explícito `[test](Glossary/test.md)` en `Cargo.toml` fueron declarados formalmente para evitar su desaparición por auto-discovery.
+- **Clasificación en Heavy Certification:** `mcp_tests`, `multilingual_tokenizer_integration`, `memory_telemetry` y `concurrent_insert_preserves_hnsw_invariants` fueron clasificados para ejecutarse exclusivamente en `heavy_certification.yml` y documentados en `CI_POLICY.md`.
+- **Ejecución de test columnar:** La feature `arrow` fue habilitada en los workflows y `columnar` se programó para evaluarse en CI.
+- **CI pendiente:** `.config/nextest.toml` — `test-threads = 2` movido de global a `[profile.audit.overrides."cfg(target_os = \"windows\")".override]` solo-Windows.
+<!-- dedup: filas tabla TSK-47, TSK-49, DISC-02, DISC-03, ROAD-06 cubren estas entradas (antes colgadas del bloque AUD-WORK) -->
 
-### TSK-45 — Publish core on crates.io + docs.rs (2026-06-21)
-
-- **Goal:** Release the `vantadb` v0.1.4 crate to crates.io with complete metadata, corrected README, and license verifications.
-- **Commits:** `d249cd5`, `d2ba445`, `2ffd7c9`
-- **Checklist completed:**
-- [x] Install cargo-deny + `cargo deny check licenses` — all licenses supported by Apache 2.0
-- [x] Add `repository`, `homepage`, `documentation`, `badges` (maintenance badge) to `Cargo.toml`
-  - [x] Agregar `publish = false` a `vantadb-python/Cargo.toml` (cdylib, va a PyPI)
-- [x] Rename `README.MD` → `README.md` + update ref in `Cargo.toml`
-- [x] Add `#![doc(html_root_url)]` to `src/lib.rs`
-- [x] Exclude `test/` from the package via `exclude = ["test/"]` in `Cargo.toml`
-- [x] Exclude `job_log.txt` via `.gitignore`
-- [x] `cargo package --list` verified clean (373 files, 386.6MiB → 1.4MiB compressed)
-- [x] `cargo publish --dry-run` passes
-- [x] Published on crates.io: `cargo publish` → **vantadb v0.1.4** available at https://crates.io/crates/vantadb
-- **Files modified:** `Cargo.toml`, `vantadb-python/Cargo.toml`, `src/lib.rs`, `.gitignore`
-- **Result:** Core crate successfully published on crates.io. Auto-build documentation in docs.rs pending.
-
-### TSK-106b — SECURITY.md + Vulnerability Disclosure Policy (2026-06-21)
-
-- **Objective:** Create a coordinated security policy with a 90-day disclosure window, aligned with OpenSSF/OWASP standards.
-- **Commits:** `c14ed97`
-- **File created:** `.github/SECURITY.md`
-- **Content:**
-  - Reporting via GitHub Security Advisories (private, response ≤3 business days)
-  - 90-day coordinated disclosure timeline (day 0→3 acknowledgment, 3→10 triage, 10→90 fix, 90+ public disclosure)
-  - Supported versions policy (latest minor only)
-  - Threat model: network input (axum), file I/O, Python FFI, CLI arguments
-  - Notified embargo process 3–30 business days before disclosure
-- **Result:** GitHub now automatically detects the security policy in the Security tab of the repo.
-
-### TSK-71 — WASM Build (wasm32-wasip1) for VantaDB core (2026-06-21)
-
-- **Goal:** Compile the VantaDB core to `wasm32-wasip1` by making 5 optional dependencies and adding inline fallbacks for WASM.
-- **Commits:** *(pending — no commit yet)*
-- **Checklist completed:**
-- [x] `Cargo.toml`: 5 deps (`sysinfo`, `memmap2`, `fs2`, `prometheus`, `rayon`) moved to `optional = true`, feature `wasm` created, `cpufeatures` removed
-- [x] `hardware/mod.rs`: `detect()` forked with `#[cfg(feature = "sysinfo")]`, conservative fallback (1GB RAM, 1 core)
-- [x] `metrics.rs`: macros `observe_histogram!`, `inc_counter!`, `inc_counter_by!`, `set_gauge!` with `#[cfg(feature = "prometheus")]` internal; 33 static gated; `export_metrics_text()` with fallback; `record_http_request` forked; `record_memory_breakdown` refactored with `_get_rss_virt()`
-- [x] `storage.rs`: shim mmap `Vec<u8>`-backed (`Mmap`/`MmapMut`/`MmapOptions`) for non-memmap2; file locking `fs2` gated with `Ok(())` fallback
-- [x] `index.rs`: conditional import of `MmapMut`; calls to `crate::storage::Mmap`/`MmapMut` instead of `memmap2::`
-- [x] `sdk.rs`: `rayon::prelude::*` gated; `.into_par_iter()` → `#[cfg]` block with fallback `.into_iter()`
-- [x] Native Build (`cargo check`): ✅ no errors
-  - [x] Build WASM (`cargo check --target wasm32-wasip1 --no-default-features --features wasm`): ✅ sin errores
-- **Modified files:** `Cargo.toml`, `src/hardware/mod.rs`, `src/metrics.rs`, `src/storage.rs`, `src/index.rs`, `src/sdk.rs`
-- **Result:** Core crate compiles to wasm32-wasip1. Minor warnings (unnecessary unsafe in shim, dead code in backend/hardware) not blocking.
-
-### Fix WASM Browser Build (wasm32-unknown-unknown) — SystemTime panic (2026-06-21)
+<!-- dedup: fila tabla TSK-45 cubre esta entrada -->
+<!-- dedup: fila tabla TSK-106b cubre esta entrada -->
+<!-- dedup: fila tabla TSK-71 cubre esta entrada -->
+### Fix de build WASM para Browser (wasm32-unknown-unknown) — pánico de SystemTime (2026-06-21)
 
 - **Goal:** Remove `std::time::SystemTime::now()` panics when building `vantadb-wasm` for `wasm32-unknown-unknown` (target browser WASM).
 - **Problem:** `SystemTime::now()` is not available in `wasm32-unknown-unknown`. Caused runtime panic when loading the WASM.
@@ -1210,7 +1019,7 @@ Se completan 25 tareas en una gran tanda pre-lanzamiento que abarca 7 áreas cr�
 - `cargo build --target wasm32-unknown-unknown` (from `vantadb-wasm/`): ✅ no errors
 - `load test --lib` (native): ✅ 48 tests, 0 failures
 
-### TSK-112 — Package `vantadb-wasm` as npm TypeScript SDK (2026-06-21)
+### TSK-112 — Empaquetar `vantadb-wasm` como SDK TypeScript en npm (2026-06-21)
 
 - **Goal:** Compile, package and publish `vantadb-wasm` as a working TypeScript SDK on npm with integration tests, samples for Vercel AI SDK / LangChain / LlamaIndex, and professional README.
 - **Commits:** *(pending)*
@@ -1239,7 +1048,7 @@ Se completan 25 tareas en una gran tanda pre-lanzamiento que abarca 7 áreas cr�
   - `StorageEngine::get` retornaba `None` porque `DiskNodeHeader::ref_from_bytes` requiere alineación 64-byte del buffer subyacente, pero el `Vec<u8>` en WASM (heap-allocated) solo garantiza 8-16 bytes de alineación. `read_header(offset=64)` fallaba silenciosamente.
 - **Result:** 26/26 integration tests passed. Verified WASM + TypeScript builds.
 
-### TSK-118 — TS Examples: LangChain.js, LlamaIndex.TS, Vercel AI SDK (2026-06-21)
+### TSK-118 — Ejemplos TS: LangChain.js, LlamaIndex.TS, Vercel AI SDK (2026-06-21)
 
 - **Objective:** Create functional examples of integration with the three most used JS/TS frameworks for RAG and agents.
 - **Files created:**
@@ -1248,7 +1057,7 @@ Se completan 25 tareas en una gran tanda pre-lanzamiento que abarca 7 áreas cr�
   - `vantadb-ts/examples/llamaindex-rag.mjs` — LlamaIndex document indexing + VantaDB vector search
 - **Result:** 3 ESM examples with verified syntax. They require `npm install` from the respective SDKs to run.
 
-### CLI-EPIC — CLI Commands: backup, restore, doctor, inspect, stats, count, search-similar (2026-06-21)
+### CLI-EPIC — Comandos CLI: backup, restore, doctor, inspect, stats, count, search-similar (2026-06-21)
 
 - **Goal:** Expand the VantaDB CLI with 7 new commands for backup, diagnostic and inspection operations.
 - **Checklist completado:**
@@ -1264,70 +1073,12 @@ Se completan 25 tareas en una gran tanda pre-lanzamiento que abarca 7 áreas cr�
 - **Archivos creados:** `completions/_vanta-cli`, `completions/_vanta-cli.ps1`, `completions/vanta-cli.bash`, `completions/vanta-cli.fish`
 - **Tests:** 46 CLI tests, all pass
 
-### TSK-111 — Expanded Filter Operators (2026-06-21) — ❌ NUNCA IMPLEMENTADO
-
-- **Goal:** Extend the flat equality filter system (`VantaMemoryMetadata`) with comparison operators (`Eq, Neq, Gt, Gte, Lt, Lte, In, Exists`).
-- **Realidad:** Engine layer (`src/query.rs`, `src/physical_plan.rs`) tiene los 6 operadores (`Eq, Neq, Gt, Lt, Gte, Lte`) para IQL queries. Pero el SDK layer (`src/sdk/serialization/mod.rs:368` — `matches_memory_filters()`) solo hace comparación plana `==`. **`FilterOperator`, `MemoryFilter`, `filter_exprs` nunca existieron en `src/sdk.rs`.** Este checklist documenta algo que debía hacerse pero no se completó.
-- **Checklist REAL:**
-  - [ ] `FilterOperator` enum en `src/sdk.rs`
-  - [ ] `MemoryFilter` struct con `field`, `operator`, `value`
-  - [ ] `evaluate_filter()` y `compare_vanta_values()`
-  - [ ] `filter_exprs` en `VantaMemoryListOptions` y `VantaMemorySearchRequest`
-  - [ ] Exposición a Python/WASM via PyO3/WASM bindings
-- **Causa raíz:** Feature documentada y diseñada pero nunca implementada en el SDK. Solo existe en el engine interno (IQL).
-- **Archivos que DEBERÍAN modificarse:** `src/sdk/serialization/mod.rs`, `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs`
-
-### TSK-119 — delete_by_filter (2026-06-21) — ❌ NUNCA FUE SDK, ELIMINADO
-
-- **Goal:** Delete multiple records per metadata filter from SDK and CLI.
-- **Realidad:** Solo existió como CLI handler (`cmd_delete_by_filter` en `src/cli_handlers.rs`). **Nunca fue parte del SDK programático** (`VantaEmbedded`). El CLI handler fue eliminado en **commit `e9371ea8` (AUD-09)** como dead code: "4 CLI handlers (cmd_search_similar, cmd_count, cmd_delete_by_filter, cmd_repl, cmd_tui) + rustyline + strsim (~560 LOC)".
-- **Checklist REAL:**
-  - [ ] `VantaEmbedded::delete_by_filter()` en `src/sdk/api.rs`
-  - [ ] Exposición Python via PyO3
-  - [ ] Exposición WASM
-  - [ ] Tests
-- **Bindings:** Ningún binding fue actualizado (los `.pyi` stubs no lo listan, ni `vantadb-wasm/src/lib.rs` lo tiene).
-- **Archivos que DEBERÍAN modificarse:** `src/sdk/api.rs`, `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs`, `vantadb-python/vantadb_py/__init__.pyi`
-
-### TSK-86 — similar_to_key (2026-06-21) — ❌ NUNCA IMPLEMENTADO
-
-- **Goal:** Convenience: search for similar records using the vector of an existing record by its key.
-- **Realidad:** `similar_to_key` **nunca se implementó** en ningún lenguaje. No existe en Rust SDK (`src/sdk/api.rs`), ni en Python, ni WASM, ni TS. Git history confirma: cero commits con código `.rs` o `.py` para esta función. Solo existe como concepto en documentación (`docs/api/PYTHON_SDK.md` la menciona como "(not yet exposed)").
-- **Checklist REAL:**
-  - [ ] `VantaEmbedded::similar_to_key(namespace, key, top_k)` en `src/sdk/api.rs`
-  - [ ] CLI handler `vanta-cli search-similar`
-  - [ ] Exposición Python/WASM/TS
-  - [ ] Tests
-- **Causa raíz:** Deuda de especificación — se documentó pero nunca se codificó.
-- **Archivos que DEBERÍAN modificarse:** `src/sdk/api.rs`, `src/cli_handlers/search.rs`, `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs`
-
-### TSK-87 — count with filters (2026-06-21) — ❌ NUNCA FUE SDK, ELIMINADO
-
-- **Goal:** Count records in a namespace, optionally filtered by metadata.
-- **Realidad:** Solo existió como CLI handler (`cmd_count` en `src/cli_handlers.rs`). **Nunca fue parte del SDK programático** (`VantaEmbedded::count()`). El CLI handler fue eliminado en **commit `e9371ea8` (AUD-09)** como dead code junto con delete_by_filter y search-similar.
-- **Checklist REAL:**
-  - [ ] `VantaEmbedded::count(namespace, filters)` en `src/sdk/api.rs`
-  - [ ] CLI handler `vanta-cli count`
-  - [ ] Exposición Python/WASM/TS
-  - [ ] Tests
-- **Nota:** Existe un helper interno `fn count_memory_records_from()` en el engine, pero no es público.
-- **Archivos que DEBERÍAN modificarse:** `src/sdk/api.rs`, `src/cli_handlers/mod.rs`, `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs`
-
-### TSK-88 — Multi-namespace Search (2026-06-21) — ❌ NUNCA IMPLEMENTADO
-
-- **Goal:** Search multiple namespaces simultaneously.
-- **Realidad:** `VantaMemorySearchRequest` siempre ha tenido `namespace: String` (singular). **`namespaces: Vec<String>` nunca existió.** El git history pre-refactor (`72d334c3^:src/sdk.rs`) confirma que siempre fue `namespace: &str`. El único `Vec<String>` de namespaces está en tipos de reporte (output: `VantaExportReport.namespaces`, `VantaTextIndexAuditReport.namespaces_audited`), no como parámetro de búsqueda.
-- **Checklist REAL:**
-  - [ ] `namespaces: Vec<String>` en `VantaMemorySearchRequest` (tipos)
-  - [ ] Backward compat: si `namespaces` vacío, usar `namespace`
-  - [ ] Implementación: iterar namespaces, merge top_k por score
-  - [ ] CLI: `vanta-cli search --namespace ns1,ns2,...`
-  - [ ] Exposición Python/WASM
-  - [ ] Tests
-- **Causa raíz:** Feature diseñada/documentada pero nunca implementada ni en tipos ni en lógica de búsqueda.
-- **Archivos que DEBERÍAN modificarse:** `src/sdk/serialization/vector_types.rs`, `src/sdk/search/mod.rs`, `src/sdk/api.rs`, `src/cli_handlers/search.rs`, `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs`
-
-### TSK-120 — ARM64 CI Environment Correction (Exit Code 127) (2026-06-22)
+<!-- movido a ARCHIVO_HISTORICO.md -->
+<!-- movido a ARCHIVO_HISTORICO.md -->
+<!-- movido a ARCHIVO_HISTORICO.md -->
+<!-- movido a ARCHIVO_HISTORICO.md -->
+<!-- movido a ARCHIVO_HISTORICO.md -->
+### TSK-120 — Corrección de entorno CI ARM64 (Código de salida 127) (2026-06-22)
 
 - **Goal:** Stabilize the Python Wheels build on `linux-arm64` by resolving the Docker interop bug (`exit code 127`) caused by upgrading `ubuntu-latest` to 24.04.
 - **Checklist Completed:**
@@ -1339,10 +1090,12 @@ Se completan 25 tareas en una gran tanda pre-lanzamiento que abarca 7 áreas cr�
 
 --
 
-## Tasks Completed (Migrated from Backlog)
+## Tareas Completadas (Migradas desde Backlog)
 
 These tasks reached 100% completion and were moved here from the active backlog.
 
+| ID | Tarea | Prioridad | Estado |
+|---|---|---|---|
 | `TSK-56` | Fix Windows CI runner (windows-latest) | 🔴 | ✅ |
 | `WEB-02` | Fase 2: Publish 3 Technical Blog Posts (Why I Built, SQLite for AI, Hybrid Search) | 🔴 | ✅ |
 | `WEB-03` | Fase 2: Create real product pages (`/product/benchmarks`, `/security`, `/about/roadmap`, `/docs-api`) | 🔴 | ✅ |
@@ -1374,48 +1127,48 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `TSK-70` | Documento de garantías de durabilidad | 🟠 | ✅ |
 | `TSK-80` | Migration guide ChromaDB y LanceDB | 🟠 | ✅ |
 | `TSK-81` | README badges (CI, PyPI, Downloads, License) | 🟡 | ✅ |
-| `AUD-05` | Reparar broken links en READMEs | → ✅ 18 links reparados en README.md + README_ES.md: CONTRIBUTING/SECURITY/SUPPORT → `.github/`, PYTHON_SDK.md → `docs/api/`, BENCHMARKS.md → `docs/operations/`, MEMORY_MVP_BASELINE.md removido (archivo eliminado). | 🔴 | ✅ |
-| `AUD-06` | Fix referencia caída en DURABILITY_GUARANTEES.md | → ✅ `chaos_testing.rs` → `chaos_integrity.rs` en `DURABILITY_GUARANTEES.md:287` | 🔴 | ✅ |
-| `AUD-07` | Fix `README.MD` uppercase en README_ES.md | → ✅ `README.MD` → `README.md` en `README_ES.md:24` | 🔴 | ✅ |
-| `AUD-WORK` | Fix de CI y Auditoría de Workflows | → ✅ Corregidas exclusiones de nextest a nivel workspace, declaración de tests en Cargo.toml, clasificación de mcp_tests/tokenizer y features en CI. | 🔴 | ✅ |
+| `AUD-05` | Reparar broken links en READMEs; → ✅ 18 links reparados en README.md + README_ES.md: CONTRIBUTING/SECURITY/SUPPORT → `.github/`, PYTHON_SDK.md → `docs/api/`, BENCHMARKS.md → `docs/operations/`, MEMORY_MVP_BASELINE.md removido (archivo eliminado). | 🔴 | ✅ |
+| `AUD-06` | Fix referencia caída en DURABILITY_GUARANTEES.md; → ✅ `chaos_testing.rs` → `chaos_integrity.rs` en `DURABILITY_GUARANTEES.md:287` | 🔴 | ✅ |
+| `AUD-07` | Fix `README.MD` uppercase en README_ES.md; → ✅ `README.MD` → `README.md` en `README_ES.md:24` | 🔴 | ✅ |
+| `AUD-WORK` | Fix de CI y Auditoría de Workflows; → ✅ Corregidas exclusiones de nextest a nivel workspace, declaración de tests en Cargo.toml, clasificación de mcp_tests/tokenizer y features en CI. | 🔴 | ✅ |
 | `DRV-001` | Refactor search.rs god file (1162L→845L, 5 sub-modules). phrase.rs + snippet.rs + debug.rs + text_index.rs. 22 unit tests nuevos. | 🟡 | ✅ |
-| `AUD-08` | Auditar 33 bloques `unsafe` | Auditoría completada: 39 ítems unsafe (33 bloques, 4 impls, 1 pub fn, 1 extern fn). → ✅ 77% low-risk (mmap/FFI), 20.5% medium (from_raw_parts), 2.6% high (`pub unsafe fn release_mmap_vector`). Reporte completo en artifact del agente. | 🟡 | ✅ |
-| `AUD-09` | Eliminar estado mutable global en tests | → ✅ `static TEST_RESULTS` eliminado, `static MULTI_PROGRESS` migrado a `thread_local!` + `RefCell`. Compilación limpia. | 🟡 | ✅ |
-| `AUD-10` | Fix `set_var`/`remove_var` sin restore | → ✅ Variables de entorno se guardan/restauran en prefetch_benchmark.rs usando `var_os()` + `set_var`/`remove_var`. | 🟡 | ✅ |
-| `AUD-11` | Agregar failure messages a ~50 bare assertions | → ✅ basic_node.rs (6), benchmark_internal.rs (1), test_sdk.py (~85), mcp_tests.rs (58), mcp_integration.rs (3). Total: ~153 assertions con mensajes descriptivos. | 🟡 | ✅ |
-| `AUD-12` | Seedear generadores aleatorios en benchmarks | → ✅ hnsw_recall.rs + prefetch_benchmark.rs migrados a `StdRng::seed_from_u64(42)`. Benchmarks ahora reproducibles. | 🟡 | ✅ |
-| `AUD-13` | Usar temp dirs en vez de paths hardcodeados | → ✅ `basic_node.rs` migrado a `TempDir`, `benchmark_internal.rs` usa `dir.path().join()`. `tempfile` ya era dev-dependency. | 🟡 | ✅ |
-| `AUD-14` | Forwardear `ttl_ms` en Python wrapper | → ✅ `AsyncVantaDB.put()` ahora acepta `ttl_ms: int | None = None` y lo forwardea al core Rust. Sin cambios del lado Rust (ya lo soportaba). | 🟡 | ✅ |
-| `AUD-15` | Fix conflicto semver `tower 0.4` vs `0.5` | → ✅ Dev-dependency `tower` actualizado de `"0.4"` a `"0.5"` en Cargo.toml. `cargo tree -i tower` ahora muestra solo `tower v0.5.3`. | 🟡 | ✅ |
-| `AUD-16` | Remover 3 stale advisory ignores en deny.toml | → ✅ `ignore` vaciado (RUSTSEC-2025-0119, 2026-0176, 2026-0177). `cargo deny check` → OK. | 🟡 | ✅ |
-| `AUD-17` | Alinear rust-toolchain.toml con CI | → ✅ `channel = "1.94.1"` → `channel = "stable"`. Components/targets ya alineados. | 🟡 | ✅ |
-| `AUD-18` | Agregar ejecución de tests en Windows CI | → ✅ Agregado step `Run tests (Windows)` con `cargo test --workspace` + timeout 30min en rust_ci.yml. | 🟡 | ✅ |
-| `AUD-19` | Agregar `-L` a curl en install.sh | → ✅ `curl -s` → `curl -sL` en `scripts/install.sh:35`. El download binario ya tenía `-L`. | 🟡 | ✅ |
-| `AUD-20` | Agregar detección `aarch64`/`arm64` en install.sh | → ✅ Detección en 2 etapas: normalize arch (`x86_64`→`amd64`, `aarch64`→`arm64`), luego compone suffix. Unknown arches hacen hard-fail. | 🟡 | ✅ |
-| `AUD-21` | Crear o remover ref a `ROADMAP.md` en CHANGELOG | → ✅ Referencia removida de CHANGELOG.md:168, reemplazada con `<!-- TODO: create docs/operations/ROADMAP.md -->`. | 🟡 | ✅ |
-| `AUD-22` | Manejar error de rate limiter en executor.rs | → ✅ `governor.request_allocation()` ahora propaga error via `?` en vez de `let _ =`. | 🔵 | ✅ |
-| `AUD-23` | Manejar errores de flush/eviction en storage.rs + sdk.rs | → ✅ 4 sitios: flush/evict ahora logean warning con `tracing::warn!` en vez de `.ok()` silencioso. | 🔵 | ✅ |
-| `AUD-24` | Refactorizar `compact_layout_bfs()` (247 líneas) | → ✅ Dividida en 3 helpers: `traverse_graph()` (31L), `compact_layout()` (135L), `reindex_nodes()` (7L). Original: 249L → 53L orchestrator. | 🔵 | ✅ |
-| `AUD-25` | Refactorizar `add()` (214 líneas) | → ✅ Dividida: `validate_node()` (27L), `insert_hnsw()` (172L), `update_metadata()` (8L). `add()` ahora es dispatcher de 8 líneas. | 🔵 | ✅ |
-| `AUD-26` | Refactorizar `open_with_config()` (266 líneas) | → ✅ Dividida en 4 helpers: `init_storage`, `init_indexes`, `recover_state`, `init_wal`. Función original 271L → 59L de pipeline. | 🔵 | ✅ |
-| `AUD-27` | Warnear backend string inválido en Python | → ✅ `_` arm dividido: `Some(other)` logea `tracing::warn!()`, `None` silencioso. | 🔵 | ✅ |
-| `AUD-28` | Warnear `distance_metric` inválido en Python | → ✅ Misma división `Some(other)`→`tracing::warn!`, `None`→silencioso. | 🔵 | ✅ |
-| `AUD-29` | Unificar repo URLs: `ness-e/Vantadb` vs `DevPness/Vantadb` | → ✅ 6 archivos migrados de `DevPness` a `ness-e`. Canonical: `ness-e/Vantadb`. | 🔵 | ✅ |
-| `AUD-30` | Reemplazar `sleep(0.01)` por retry loop | → ✅ `_wait_until()` helper con timeout 5-10s. Eliminados 2 `time.sleep(0.01)` en test_lazy_eviction + test_purge_expired. 34 tests pasan. | 🔵 | ✅ |
-| `AUD-31` | Feature-gate `arrow`, `rocksdb`, `fjall` opcionales | → ✅ 3 deps marcadas `optional = true`, features con `dep:` syntax, imports gated con `#[cfg(feature)]`. Default features incluyen las 3 (backward compatible). | 🔵 | ✅ |
-| `AUD-32` | Fix `actions/checkout@v4` → `@v6` en nightly_bench.yml | → ✅ `@v4` → `@v6` en nightly_bench.yml:23. `upload-artifact@v4` ya era consistente. | 🔵 | ✅ |
-| `AUD-33` | Fix `install-action@nextest` → `@v2` | → ✅ `taiki-e/install-action@nextest` → `@v2` con `tool: nextest` en heavy_certification.yml:274. | 🔵 | ✅ |
-| `AUD-34` | Actualizar commit count en progreso docs | → ✅ `237 commits` → `460 commits` (git rev-list --count HEAD). | 🔵 | ✅ |
-| `AUD-35` | Reemplazar 8 sleeps temporales con retry loops | → ✅ `e2e.rs:33` (wait_for_port), `e2e.rs:211` (JoinHandle::await), `server.rs:338` (wait_for_port), `e2e.rs:260` (justificado con comentario, rate limiter). 4 sleeps eliminados/reemplazados. | 🔵 | ✅ |
-| `AUD-36` | Failure message + remover assertion temporal en basic_node.rs:189 | → ✅ `assert!(true)` ya no existía. Agregado mensaje a `assert_eq!(engine.node_count(), 10_000, ...)`. | 🔵 | ✅ |
-| `AUD-37` | Agregar ~15 edge case tests faltantes | → ✅ Archivo `tests/edge_cases.rs` creado con 25 tests cubriendo 17 categorías: NaN/Inf, empty key/batch/namespace, delete nonexistent, unicode metadata, zero-dim, all-zeros, WAL failure, concurrent, timeout, dim mismatch, large metadata, TTL, cross-namespace, duplicate ID, update nonexistent. Todos pasan. | 🔵 | ✅ |
-| `AUD-38` | Feature flags granulares de tokio | → ✅ Root Cargo.toml: `"full"` → `["rt", "rt-multi-thread", "net", "sync", "signal", "macros"]`. vantadb-server dev-deps: `"full"` → `["rt", "rt-multi-thread", "net", "sync", "time", "macros"]`. | 🔵 | ✅ |
-| `AUD-39` | Aflojar pin exacto `wide = "=1.2.0"` | → ✅ `=1.2.0` → `>=1.2, <2`. | 🔵 | ✅ |
-| `AUD-40` | Workspace inheritance para version en Cargo.toml | → ✅ `[workspace.package]` creado con version/edition. 3 sub-crates migrados a `version.workspace = true`. | 🔵 | ✅ |
-| `AUD-41` | Fix `pyo3/maturin-action@v1` pin vago en python_wheels.yml | → ✅ `@v1` → `@v2`. Nota: `maturin-action` actualmente no tiene tag `v2` — resuelve cuando el mantenedor lo publique. | 🟡 | ✅ |
-| `AUD-42` | Agregar build de `vantadb-mcp` en release.yml | → ✅ `-p vantadb-mcp` agregado al build, rename+hash+attest+release glob incluido para las 3 plataformas. | 🟡 | ✅ |
-| `AUD-43` | Agregar swap space en nightly_bench.yml | → ✅ Free disk space + 6GB swap agregados (mismo patrón que rust_ci.yml). | 🔵 | ✅ |
-| `AUD-44` | Unificar `setup-python@v5` → `@v6` en nightly_bench.yml | → ✅ `@v5` → `@v6` en nightly_bench.yml:56. | 🔵 | ✅ |
+| `AUD-08` | Auditar 33 bloques `unsafe`; Auditoría completada: 39 ítems unsafe (33 bloques, 4 impls, 1 pub fn, 1 extern fn). → ✅ 77% low-risk (mmap/FFI), 20.5% medium (from_raw_parts), 2.6% high (`pub unsafe fn release_mmap_vector`). Reporte completo en artifact del agente. | 🟡 | ✅ |
+| `AUD-09` | Eliminar estado mutable global en tests; → ✅ `static TEST_RESULTS` eliminado, `static MULTI_PROGRESS` migrado a `thread_local!` + `RefCell`. Compilación limpia. | 🟡 | ✅ |
+| `AUD-10` | Fix `set_var`/`remove_var` sin restore; → ✅ Variables de entorno se guardan/restauran en prefetch_benchmark.rs usando `var_os()` + `set_var`/`remove_var`. | 🟡 | ✅ |
+| `AUD-11` | Agregar failure messages a ~50 bare assertions; → ✅ basic_node.rs (6), benchmark_internal.rs (1), test_sdk.py (~85), mcp_tests.rs (58), mcp_integration.rs (3). Total: ~153 assertions con mensajes descriptivos. | 🟡 | ✅ |
+| `AUD-12` | Seedear generadores aleatorios en benchmarks; → ✅ hnsw_recall.rs + prefetch_benchmark.rs migrados a `StdRng::seed_from_u64(42)`. Benchmarks ahora reproducibles. | 🟡 | ✅ |
+| `AUD-13` | Usar temp dirs en vez de paths hardcodeados; → ✅ `basic_node.rs` migrado a `TempDir`, `benchmark_internal.rs` usa `dir.path().join()`. `tempfile` ya era dev-dependency. | 🟡 | ✅ |
+| `AUD-14` | Forwardear `ttl_ms` en Python wrapper; → ✅ `AsyncVantaDB.put()` ahora acepta `ttl_ms: int \| None = None` y lo forwardea al core Rust. Sin cambios del lado Rust (ya lo soportaba). | 🟡 | ✅ |
+| `AUD-15` | Fix conflicto semver `tower 0.4` vs `0.5`; → ✅ Dev-dependency `tower` actualizado de `"0.4"` a `"0.5"` en Cargo.toml. `cargo tree -i tower` ahora muestra solo `tower v0.5.3`. | 🟡 | ✅ |
+| `AUD-16` | Remover 3 stale advisory ignores en deny.toml; → ✅ `ignore` vaciado (RUSTSEC-2025-0119, 2026-0176, 2026-0177). `cargo deny check` → OK. | 🟡 | ✅ |
+| `AUD-17` | Alinear rust-toolchain.toml con CI; → ✅ `channel = "1.94.1"` → `channel = "stable"`. Components/targets ya alineados. | 🟡 | ✅ |
+| `AUD-18` | Agregar ejecución de tests en Windows CI; → ✅ Agregado step `Run tests (Windows)` con `cargo test --workspace` + timeout 30min en rust_ci.yml. | 🟡 | ✅ |
+| `AUD-19` | Agregar `-L` a curl en install.sh; → ✅ `curl -s` → `curl -sL` en `scripts/install.sh:35`. El download binario ya tenía `-L`. | 🟡 | ✅ |
+| `AUD-20` | Agregar detección `aarch64`/`arm64` en install.sh; → ✅ Detección en 2 etapas: normalize arch (`x86_64`→`amd64`, `aarch64`→`arm64`), luego compone suffix. Unknown arches hacen hard-fail. | 🟡 | ✅ |
+| `AUD-21` | Crear o remover ref a `ROADMAP.md` en CHANGELOG; → ✅ Referencia removida de CHANGELOG.md:168, reemplazada con `<!-- TODO: create docs/operations/ROADMAP.md -->`. | 🟡 | ✅ |
+| `AUD-22` | Manejar error de rate limiter en executor.rs; → ✅ `governor.request_allocation()` ahora propaga error via `?` en vez de `let _ =`. | 🔵 | ✅ |
+| `AUD-23` | Manejar errores de flush/eviction en storage.rs + sdk.rs; → ✅ 4 sitios: flush/evict ahora logean warning con `tracing::warn!` en vez de `.ok()` silencioso. | 🔵 | ✅ |
+| `AUD-24` | Refactorizar `compact_layout_bfs()` (247 líneas); → ✅ Dividida en 3 helpers: `traverse_graph()` (31L), `compact_layout()` (135L), `reindex_nodes()` (7L). Original: 249L → 53L orchestrator. | 🔵 | ✅ |
+| `AUD-25` | Refactorizar `add()` (214 líneas); → ✅ Dividida: `validate_node()` (27L), `insert_hnsw()` (172L), `update_metadata()` (8L). `add()` ahora es dispatcher de 8 líneas. | 🔵 | ✅ |
+| `AUD-26` | Refactorizar `open_with_config()` (266 líneas); → ✅ Dividida en 4 helpers: `init_storage`, `init_indexes`, `recover_state`, `init_wal`. Función original 271L → 59L de pipeline. | 🔵 | ✅ |
+| `AUD-27` | Warnear backend string inválido en Python; → ✅ `_` arm dividido: `Some(other)` logea `tracing::warn!()`, `None` silencioso. | 🔵 | ✅ |
+| `AUD-28` | Warnear `distance_metric` inválido en Python; → ✅ Misma división `Some(other)`→`tracing::warn!`, `None`→silencioso. | 🔵 | ✅ |
+| `AUD-29` | Unificar repo URLs: `ness-e/Vantadb` vs `DevPness/Vantadb`; → ✅ 6 archivos migrados de `DevPness` a `ness-e`. Canonical: `ness-e/Vantadb`. | 🔵 | ✅ |
+| `AUD-30` | Reemplazar `sleep(0.01)` por retry loop; → ✅ `_wait_until()` helper con timeout 5-10s. Eliminados 2 `time.sleep(0.01)` en test_lazy_eviction + test_purge_expired. 34 tests pasan. | 🔵 | ✅ |
+| `AUD-31` | Feature-gate `arrow`, `rocksdb`, `fjall` opcionales; → ✅ 3 deps marcadas `optional = true`, features con `dep:` syntax, imports gated con `#[cfg(feature)]`. Default features incluyen las 3 (backward compatible). | 🔵 | ✅ |
+| `AUD-32` | Fix `actions/checkout@v4` → `@v6` en nightly_bench.yml; → ✅ `@v4` → `@v6` en nightly_bench.yml:23. `upload-artifact@v4` ya era consistente. | 🔵 | ✅ |
+| `AUD-33` | Fix `install-action@nextest` → `@v2`; → ✅ `taiki-e/install-action@nextest` → `@v2` con `tool: nextest` en heavy_certification.yml:274. | 🔵 | ✅ |
+| `AUD-34` | Actualizar commit count en progreso docs; → ✅ `237 commits` → `460 commits` (git rev-list --count HEAD). | 🔵 | ✅ |
+| `AUD-35` | Reemplazar 8 sleeps temporales con retry loops; → ✅ `e2e.rs:33` (wait_for_port), `e2e.rs:211` (JoinHandle::await), `server.rs:338` (wait_for_port), `e2e.rs:260` (justificado con comentario, rate limiter). 4 sleeps eliminados/reemplazados. | 🔵 | ✅ |
+| `AUD-36` | Failure message + remover assertion temporal en basic_node.rs:189; → ✅ `assert!(true)` ya no existía. Agregado mensaje a `assert_eq!(engine.node_count(), 10_000, ...)`. | 🔵 | ✅ |
+| `AUD-37` | Agregar ~15 edge case tests faltantes; → ✅ Archivo `tests/edge_cases.rs` creado con 25 tests cubriendo 17 categorías: NaN/Inf, empty key/batch/namespace, delete nonexistent, unicode metadata, zero-dim, all-zeros, WAL failure, concurrent, timeout, dim mismatch, large metadata, TTL, cross-namespace, duplicate ID, update nonexistent. Todos pasan. | 🔵 | ✅ |
+| `AUD-38` | Feature flags granulares de tokio; → ✅ Root Cargo.toml: `"full"` → `["rt", "rt-multi-thread", "net", "sync", "signal", "macros"]`. vantadb-server dev-deps: `"full"` → `["rt", "rt-multi-thread", "net", "sync", "time", "macros"]`. | 🔵 | ✅ |
+| `AUD-39` | Aflojar pin exacto `wide = "=1.2.0"`; → ✅ `=1.2.0` → `>=1.2, <2`. | 🔵 | ✅ |
+| `AUD-40` | Workspace inheritance para version en Cargo.toml; → ✅ `[workspace.package]` creado con version/edition. 3 sub-crates migrados a `version.workspace = true`. | 🔵 | ✅ |
+| `AUD-41` | Fix `pyo3/maturin-action@v1` pin vago en python_wheels.yml; → ✅ `@v1` → `@v2`. Nota: `maturin-action` actualmente no tiene tag `v2` — resuelve cuando el mantenedor lo publique. | 🟡 | ✅ |
+| `AUD-42` | Agregar build de `vantadb-mcp` en release.yml; → ✅ `-p vantadb-mcp` agregado al build, rename+hash+attest+release glob incluido para las 3 plataformas. | 🟡 | ✅ |
+| `AUD-43` | Agregar swap space en nightly_bench.yml; → ✅ Free disk space + 6GB swap agregados (mismo patrón que rust_ci.yml). | 🔵 | ✅ |
+| `AUD-44` | Unificar `setup-python@v5` → `@v6` en nightly_bench.yml; → ✅ `@v5` → `@v6` en nightly_bench.yml:56. | 🔵 | ✅ |
 | `TSK-45` | Publicar core en crates.io + docs.rs | 🔴 | ✅ |
 | `TSK-106b` | SECURITY.md + vulnerability disclosure (90 días) | 🔴 | ✅ |
 | `TSK-71` | WASM build (wasm32-wasi, re-priorizado desde ROAD-01) | 🔴 | ✅ |
@@ -1431,7 +1184,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `PERF-01` | Batch KV loader get_many + 5 N+1 refactors | 🔴 | ✅ |
 | `SEC-03`  | Physical storage schema evolution + migration CLI | 🔴 | ✅ |
 
-### July 2026 — Code Audit (2nd pass)
+### Julio 2026 — Auditoría de Código (2ª pasada)
 
 | ID | Tarea | Prioridad | Estado |
 |----|-------|-----------|--------|
@@ -1465,13 +1218,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `TSK-100` | Homebrew formula macOS (`brew install vantadb`) | 🟡 | ✅ |
 | `TSK-35` | Suite de ejemplos Rust (basic, hybrid, graphrag, concurrent) | 🟡 | ✅ |
 | `TSK-34` | Reorganización docs por audiencia (getting-started/guides/api) | 🟡 | ✅ |
-| `DISC-01` | Validar ExecutionResult consumers | ✅ Verificado: todos los match arms cubren Read/Write/StaleContext |
-| `DISC-04` | Chaos testing kill -9 durante writes | ✅ AUD-02 (10 iters) + AUD-03 (20 iters tight loop) |
-| `DISC-06` | MCP prompts/list handler | ✅ Implementado |
-| `DISC-07` | MCP ArcSwap API (hnsw.read()→hnsw.load()) | ✅ Corregido |
-| `DISC-08` | Server test suite expandido | ✅ 14 tests (auth, rate-limit, TLS, concurrent) |
-| `DISC-09` | Skills Python dependencies | ✅ Scripts funcionales en Windows |
-| `DISC-10` | CLI commands server/search/delete/namespace | ✅ Resuelto (TSK-24/25/26/27) |
+<!-- dedup: filas DISC-01/04/06/07/08/09/10 cubiertas por tabla "DISC Discoveries Completed" -->
 | `AUD-WORK` | CI fixes (nextest workspace exclusions, test declarations, heavy_cert classification, numpy venv, version extraction) | ✅ 8/9 hallazgos: 9/9 resueltos (último: test-threads Windows-específico ✅) |
 | `TSK-126` | Agregar `impl Drop for StorageEngine` para liberación explícita del lock | 🟡 | ✅ |
 | `TSK-128` | Hacer configurable el timeout de `insert_lock` | 🟡 | ✅ |
@@ -1485,7 +1232,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `TSK-139` | Eliminar stale path trigger `packages/**` en `rust_ci.yml` | 🟢 | ✅ |
 | `TSK-140` | Eliminado job arm64 con `if: false` en `python_wheels.yml` | 🟢 | ✅ |
 
-### DISC Discoveries Completed
+### Descubrimientos DISC Completados
 
 | ID | Descubrimiento | Resolución |
 |----|---------------|------------|
@@ -1497,123 +1244,83 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `DISC-09` | Skills Python dependencies | ✅ Scripts funcionales en Windows |
 | `DISC-10` | CLI commands server/search/delete/namespace | ✅ Resuelto (TSK-24/25/26/27) |
 | `DISC-11` | Unificar binarios CLI+MCP+Server | ⏸️ Postpuesto (dependencia circular) |
-| `AUD-WORK` | CI fixes (nextest workspace exclusions, test declarations, heavy_cert classification, numpy venv, version extraction) | ✅ 8/9 hallazgos: 9/9 resueltos (último: test-threads Windows-específico ✅) |
+<!-- dedup: AUD-WORK cubierta por fila en tabla "July 2026 — Code Audit (2nd pass)" -->
 
-## Completed Task History
+## Historial de Tareas Completadas
 
-### [2026-06-22] Fix Heavy Certification Workflow Failures
+### [2026-06-22] Fix de Fallas de Heavy Certification Workflow
 
-**Objective:** Correct the 4 tests that caused failures in the `VantaDB Heavy Certification` pipeline of GitHub Actions.
+**Objetivo:** Corregir los 4 tests que causaban fallas en la pipeline `VantaDB Heavy Certification` de GitHub Actions.
 - **Checklist:**
-  - [x] Fix `test_stale_lock_recovery` in `tests/file_locking_stress.rs` (incorrect assertion about lock file content)
-  - [x] Change `BackendKind::InMemory` → `BackendKind::Fjall` in 3 tests of `tests/storage/wal_resilience.rs`
-  - [x] Remove `wal_write_failure_returns_error` from `tests/edge_cases.rs` (test broken on Unix)
-  - [x] Add `test_wal_write_failure_simulated` with failpoints in `tests/storage/wal_resilience.rs`
-  - [x] Add step `bash scripts/download_benchmark_datasets.sh` in `.github/workflows/heavy_certification.yml`
-  - [x] Local validation: `edge_cases` (24/24 ✅), `test_stale_lock_recovery` (✅)
+  - [x] Fix `test_stale_lock_recovery` en `tests/file_locking_stress.rs` (asserción incorrecta sobre el contenido del archivo de lock)
+  - [x] Cambiar `BackendKind::InMemory` → `BackendKind::Fjall` en 3 tests de `tests/storage/wal_resilience.rs`
+  - [x] Eliminar `wal_write_failure_returns_error` de `tests/edge_cases.rs` (test roto en Unix)
+  - [x] Añadir `test_wal_write_failure_simulated` con failpoints en `tests/storage/wal_resilience.rs`
+  - [x] Añadir step `bash scripts/download_benchmark_datasets.sh` en `.github/workflows/heavy_certification.yml`
+  - [x] Validación local: `edge_cases` (24/24 ✅), `test_stale_lock_recovery` (✅)
 
-**Modified files:**
-- `tests/file_locking_stress.rs` — Fixed lock stale assertion
-- `tests/storage/wal_resilience.rs` — 3x InMemory→Fjall + new failpoint test
-- `tests/edge_cases.rs` — Removed broken Unix permissions test
-- `.github/workflows/heavy_certification.yml` — Added dataset download step
+**Archivos modificados:**
+- `tests/file_locking_stress.rs` — Fix de asserción stale del lock
+- `tests/storage/wal_resilience.rs` — 3x InMemory→Fjall + nuevo test de failpoint
+- `tests/edge_cases.rs` — Eliminado test roto de permisos Unix
+- `.github/workflows/heavy_certification.yml` — Añadido step de descarga de datasets
 
-### [2026-06-22] Batch CI/CD Fixes + StorageEngine Locking (TSK-134/135/138/140/126/128/129)
+### [2026-06-22] Fixes Batch de CI/CD + Locking de StorageEngine (TSK-134/135/138/140/126/128/129)
 
-**Objective:** Clean CI/CD workflows and make the StorageEngine locking system robust.
+**Objetivo:** Limpiar los workflows de CI/CD y hacer robusto el sistema de locking del StorageEngine.
 
-**CI/CD Checklist:**
-- [x] TSK-134: Validated swap in `release.yml` — correct logic, no changes needed
+**Checklist CI/CD:**
+- [x] TSK-134: Swap validado en `release.yml` — lógica correcta, sin cambios necesarios
 - [x] TSK-135: `python_wheels.yml` — `dtolnay/rust-toolchain@master` → `@stable`
-- [x] TSK-138: Removed duplicate checkout in `rust-setup/action.yml`
-- [x] TSK-140: Removed dead ARM64 job (`if: false`) in `python_wheels.yml` (-69 lines)
-- [x] TSK-141: Removed `librocksdb-dev` from `rust-setup/action.yml` (previous session)
+- [x] TSK-138: Eliminado checkout duplicado en `rust-setup/action.yml`
+- [x] TSK-140: Eliminado job ARM64 muerto (`if: false`) en `python_wheels.yml` (-69 líneas)
+- [x] TSK-141: Eliminado `librocksdb-dev` de `rust-setup/action.yml` (sesión anterior)
 
-**Checklist StorageEngine Locking:**
-- [x] TSK-126: `impl Drop for StorageEngine` — release `fs2` lock explicitly on destroy
-- [x] TSK-128: `insert_lock` timeout configurable via `VANTADB_INSERT_LOCK_TIMEOUT_MS` (default 2000ms)
-- [x] TSK-129: `.vanta.lock` timeout configurable via `VANTADB_FILE_LOCK_TIMEOUT_MS` (default 1000ms)
+**Checklist Locking de StorageEngine:**
+- [x] TSK-126: `impl Drop for StorageEngine` — liberar lock `fs2` explícitamente al destruir
+- [x] TSK-128: timeout de `insert_lock` configurable vía `VANTADB_INSERT_LOCK_TIMEOUT_MS` (default 2000ms)
+- [x] TSK-129: timeout de `.vanta.lock` configurable vía `VANTADB_FILE_LOCK_TIMEOUT_MS` (default 1000ms)
 
-**Modified files:**
-- `src/config.rs` — +2 struct fields (`insert_lock_timeout_ms`, `file_lock_timeout_ms`) + Default impl
-- `src/storage.rs` — +Drop impl, 5× `lock()` → `try_lock_for()`, `refresh_index()` → `Result<()>`
-- `.github/workflows/python_wheels.yml` — -69 lines (ARM64 job dead), toolchain stable
-- `.github/actions/rust-setup/action.yml` — -duplicate checkout
+**Archivos modificados:**
+- `src/config.rs` — +2 campos de struct (`insert_lock_timeout_ms`, `file_lock_timeout_ms`) + impl Default
+- `src/storage.rs` — +impl Drop, 5× `lock()` → `try_lock_for()`, `refresh_index()` → `Result<()>`
+- `.github/workflows/python_wheels.yml` — -69 líneas (job ARM64 muerto), toolchain stable
+- `.github/actions/rust-setup/action.yml` — -checkout duplicado
 
-### [2026-06-22] jemalloc Instrumentation + CI/CD Swap (TSK-130/137)
+### [2026-06-22] Instrumentación jemalloc + Swap CI/CD (TSK-130/137)
 
-**Goal:** Instrument detailed heap memory drift statistics (jemalloc stats) and add swap space for Windows/macOS on CI/CD.
+**Objetivo:** Instrumentar estadísticas detalladas de drift de memoria heap (jemalloc stats) y añadir espacio de swap para Windows/macOS en CI/CD.
 
-**Jemalloc Checklist (TSK-130):**
-- [x] Add `tikv-jemallocator` and `tikv-jemalloc-ctl` Unix-only dependencies.
-- [x] Conditionally configure `global_allocator` in CLI and Server.
-- [x] Collect statistics (`allocated`, `active`, `metadata`, `resident`, `mapped`, `retained` bytes) and expose them to Prometheus and snapshots.
-- [x] Support mappings of these metrics in Python and serialization testing.
+**Checklist Jemalloc (TSK-130):**
+- [x] Añadir dependencias Unix-only `tikv-jemallocator` y `tikv-jemalloc-ctl`.
+- [x] Configurar `global_allocator` condicionalmente en CLI y Server.
+- [x] Recolectar estadísticas (`allocated`, `active`, `metadata`, `resident`, `mapped`, `retained` bytes) y exponerlas a Prometheus y snapshots.
+- [x] Soportar mapeos de estas métricas en Python y testing de serialización.
 
-**CI/CD Swap Checklist (TSK-137):**
-- [x] Configure pagefile (8-16GB) for Windows in `release.yml` and `python_wheels.yml`.
-- [x] Free up space by removing cache on macOS to allow dynamic paging in `release.yml` and `python_wheels.yml`.
+**Checklist Swap CI/CD (TSK-137):**
+- [x] Configurar pagefile (8-16GB) para Windows en `release.yml` y `python_wheels.yml`.
+- [x] Liberar espacio eliminando cache en macOS para permitir paging dinámico en `release.yml` y `python_wheels.yml`.
 
-**Modified files:**
-- `Cargo.toml` — Unix conditional dependencies for jemalloc
-- `vantadb-server/Cargo.toml` — feature `jemalloc` and Unix dependencies
-- `src/bin/vanta-cli.rs` — conditional global allocator
-- `vantadb-server/src/main.rs` — conditional global allocator
-- `src/metrics.rs` — jemalloc gauges, snapshot update
-- `src/sdk.rs` — jemalloc fields in VantaOperationalMetrics
-- `vantadb-python/src/lib.rs` — mapping in Python SDK
-- `tests/sdk_serialization.rs` — metrics serialization test
-- `.github/workflows/release.yml` — pagefile/swap in CI/CD Windows/macOS
-- `.github/workflows/python_wheels.yml` — pagefile/swap in CI/CD Windows/macOS
-## Tareas Completadas (Migradas desde Backlog)
+**Archivos modificados:**
+- `Cargo.toml` — dependencias condicionales Unix para jemalloc
+- `vantadb-server/Cargo.toml` — feature `jemalloc` y dependencias Unix
+- `src/bin/vanta-cli.rs` — global allocator condicional
+- `vantadb-server/src/main.rs` — global allocator condicional
+- `src/metrics.rs` — gauges jemalloc, actualización de snapshot
+- `src/sdk.rs` — campos jemalloc en VantaOperationalMetrics
+- `vantadb-python/src/lib.rs` — mapeo en el Python SDK
+- `tests/sdk_serialization.rs` — test de serialización de métricas
+- `.github/workflows/release.yml` — pagefile/swap en CI/CD Windows/macOS
+- `.github/workflows/python_wheels.yml` — pagefile/swap en CI/CD Windows/macOS
+## Detalle de Tareas Completadas (desde Backlog)
 
-### INV-007: Competitive benchmark vs LanceDB/Chroma — investigación y diseño
-- **Fuente:** Backlog (Phase 6 — Launch Campaign)
-- **Fecha:** 2026-08-03
-- **Objetivo:** Diseñar el benchmark competitivo VantaDB vs LanceDB/Chroma como asset marketing #1 para audiencia técnica. Sin implementación — solo diseño + propuesta.
-- **Resultado:** ✅ `docs/Investigaciones/INV-007-competitive-benchmark-lancedb-chroma.md` (19.8KB). Veredicto: NO publicar en `ann-benchmarks` (repo sin mantenimiento, recomienda migrar a VIBE, integración costaría 3-5 días) — usar solo como fuente de datasets HDF5 + metodología Recall-QPS. Harness standalone reproducible Python (`benchmarks/competitive/run_competitive_benchmark.py`) con glove-100-angular (1.18M×100d cosine) + sift-128-euclidean (1M×128d L2). Protocolo: 10K queries oficiales, warmup 100, 5 runs mediana, grid M∈{16,32}×ef_search∈{10,50,100,200}, hardware publicado. Métricas: Recall@10, QPS, latencia p50/p95/p99, RSS peak, build time. Contrato web `competitive_benchmark.json`. Slicing vertical: Slice 1 harness+JSON, Slice 2 tabla `competitive-table.tsx` bajo `<BenchmarkRace />`, Slice 3 CI manual. 10 fuentes web citadas. Cero cambios de código.
-- **Ids:** `INV-007`
-
-### INV-008: Batch Queries Python SDK — diseño
-- **Fuente:** Backlog (Investigaciones Post-Consolidación)
-- **Fecha:** 2026-08-03
-- **Objetivo:** Diseñar `VantaDB.search_batch()` para ejecutar múltiples queries en paralelo vía Rayon. Sin implementación — solo diseño.
-- **Resultado:** ✅ `docs/Investigaciones/INV-008-batch-queries-python-sdk.md` (10.9KB). Gate: parcialmente implementado — `search_batch(vectors, top_k)` vector-only YA existía (`vantadb-python/src/lib.rs:1181`, GIL release eager + Rayon `into_par_iter`, wrapper async `__init__.py:214`, tests `test_sdk.py` + `benchmarks/batch_vs_sequential_bench.py`). Gap real: no acepta SearchRequest completo (filters/text_query/namespace/hybrid). Propuesta: `search_batch_requests(queries: List[SearchRequest]) -> List[SearchResult]` con dataclass SearchRequest (vector, top_k, namespace, text_query, filters, distance_metric, explain), reusar patrón GIL+Rayon sobre `engine.search`, errores parciales fail-fast v1, target batch 10 < 3× single, plan 4 pasos (binding → dataclasses/stubs → tests → bench). Veredicto YAGNI: método nuevo en binding, wrapper Python puro descartado. Cero cambios de código.
-- **Ids:** `INV-008`
-
-### INV-009: Phrase Queries + Term Positions — diseño
-- **Fuente:** Backlog (Investigaciones Post-Consolidación)
-- **Fecha:** 2026-08-03
-- **Objetivo:** Diseñar phrase query operator con almacenamiento de term positions para snippets destacados. Sin implementación — solo diseño.
-- **Resultado:** ✅ `docs/Investigaciones/INV-009-phrase-queries-term-positions.md` (13.8KB). Gate: parcialmente implementado — infrastructure phrase-ready YA existía (`TextQueryPlan.phrases` text_index.rs:145, `TextRecordTerms.token_positions` :132, `posting_value(node_id, tf, positions)` :554, `text_positions_match_phrase` en src/sdk/search/phrase.rs:28 con 12 tests, test `spec_declares_phrase_ready_text_index_v3`). Gaps: sintaxis IQL, enforcement en query execution, highlight de frase. Propuesta: `Condition::TextMatch(field, query)` + `parse_condition` reusando `string_literal` (parser delega a `query_plan()`), filtro con `text_positions_match_phrases`, riesgo con advanced-tokenizer (frases deben tokenizar sin stopword removal), `highlight_phrases` para envolver frase completa en un solo `<strong>`. Veredicto tantivy: CUSTOM (YAGNI) — tantivy duplicaría índice, ~40 crates, sin feature ausente relevante. Cero cambios de código.
-- **Ids:** `INV-009`
-
-### INV-010: ACID rollback multi-capa completo — diseño
-- **Fuente:** Backlog (Investigaciones Post-Consolidación)
-- **Fecha:** 2026-08-03
-- **Objetivo:** Diseñar el rollback coordinado entre WAL, VantaFile, HNSW y KV store para completar el soporte ACID (Phases 1-3 implementadas: WAL txn records, buffered writes, MVCC snapshot). Sin implementación — solo diseño.
-- **Resultado:** ✅ `docs/Investigaciones/ACID_ROLLBACK_DESIGN.md` (28KB, en inglés). Research `ACID_TRANSACTIONS.md` estaba borrado del repo (commit `8b1c52cd`) pero íntegro en git — documentado el gap y citados los 3 enfoques verbatim (A=Fjall-only rechazado, B=Custom WAL layer recomendado, C=SQLite journal rechazado). Protocolo: extender B con `WalRecord::Prepare(u64)` + reordenar commit point (prepare durable → aplicar stores por costo de compensación → Commit; Abort ante fallo), recovery roll-forward idempotente sin breaking changes. Hallazgos F1-F6: commit durable antes de apply, recovery pre-MVCC (`created_by_txn: 0`), derived indexes sin compensación, VantaFile sin watermark, HNSW remove irreversible. Plan 4 fases (4a WAL v2+Prepare keystone, 4b KV pre-image+GC, 4c VantaFile watermark+HNSW commit protocol, 4d derived-index consistency). `cargo check -p vantadb` ✅ (0 cambios de código).
-- **Ids:** `INV-010`
-
-### INV-011: Core-Server Separation — auditoría
-- **Fuente:** Backlog (Investigaciones — Rust/SDK)
-- **Fecha:** 2026-08-03
-- **Objetivo:** Verificar si el core embebido (`VantaEmbedded`) tiene dependencias no deseadas del modo servidor (axum, tower, MCP). Sin implementación — solo auditoría.
-- **Resultado:** ✅ **Separación YA limpia — sin cambios requeridos.** Server deps (tokio, axum, tower_governor, tower-http, rustls, opentelemetry) todas optional detrás de features `server`/`tls`/`opentelemetry`/`prometheus`. `default = [cli, arrow, fjall, roaring, advanced-tokenizer, memmap2, fs2, sysinfo]` NO incluye server deps. Imports server-only gated: `cli_server.rs`/`circuit_breaker.rs`/`connection_pool.rs` bajo `#[cfg(feature = "server")]` en lib.rs. Verificado mecánicamente: `cargo tree --no-default-features -F cli -e normal` = 0 deps server; `cargo check -p vantadb --no-default-features -F cli` exit 0. Observación menor: `server = ["cli",...]` acopla server→cli (intencional, YAGNI separar hoy). Doc: `docs/Investigaciones/INV-011-core-server-separation.md`. Cero cambios de código.
-- **Ids:** `INV-011`
-
-### INV-012: Anti-Locality Disk Layout — re-evaluación
-- **Fuente:** Backlog (Investigaciones — Storage/Benchmarks)
-- **Fecha:** 2026-08-03
-- **Objetivo:** Re-evaluar si con LSM compaction + multi-level storage el BFS relabeling tiene más impacto que en DRV-130 (WONTFIX ~9%). Sin implementación — solo benchmark + recomendación.
-- **Resultado:** ✅ **WONTFIX CONFIRMADO — NO re-abrir.** Re-run `benches/vfile_search.rs` (vía vanta-tuner, release): with_vfile 614.5ms vs with_vfile_compacted 571.5ms → mejora locativa **~7.0%**, inferior al 9% de DRV-130 y muy bajo el 15% requerido. `with_vfile` ~4.9x sobre in-memory; BFS compaction recupera ~1 unidad. LSM/multi-level NO alteraron el resultado. Causa raíz vigente: search greedy (distancia-guía) diverge del orden BFS; overhead es call/mmap-deref, no page misses. Limitación: dataset 10K×128 ≈5MB cabe en page-cache (infravalora locality en SSD frío). Re-apertura hipotética requeriría dataset 1M+ cold-cache. Nota: backlog apuntaba a `src/index/graph.rs`; real en `src/storage/archive.rs`+`maintenance.rs`. Doc: `docs/Investigaciones/INV-012-antilocality-reevaluation.md`. Cero cambios de código.
-- **Ids:** `INV-012`
-
+<!-- 6 entradas movidas a ARCHIVO_HISTORICO.md (fase 1, 2026-08-03) -->
 ### INV-013: JSON-LD structured data — auditoría
 - **Fuente:** Backlog (Investigaciones — Web Frontend)
 - **Fecha:** 2026-08-03
 - **Objetivo:** Auditar si el sitio web tiene JSON-LD structured data para SEO. Sin implementación — solo auditoría + propuesta.
 - **Resultado:** ✅ Doc: `docs/Investigaciones/INV-013-jsonld-structured-data.md`. **JSON-LD AUSENTE.** `layout.tsx` exporta metadata rico (title, description, keywords, authors, OG, twitter, icons, manifest) pero cero `<script type="application/ld+json">`/`jsonLd`. `page.tsx` sin metadata. Veredicto: Next.js 16 Metadata API NO genera JSON-LD — solo tags `<head>`; no existe campo `jsonLd`; hay que emitirlo manualmente en Server Component. Propuesta: schema.org/SoftwareApplication (VantaDB, DatabaseApplication, version 0.2.0, offers price 0, author ness-e, keywords). Validación: Google Rich Results Test / validator.schema.org. Cero cambios de código.
+- **Superseded:** Auditoría previa a la implementación — JSON-LD implementado posteriormente (commits `afe79fef` OG/canonical/sitemap 2026-07-03 y `03b435c8` JSON-LD W9 2026-07-13). Ver entrada `WEB-13`. La conclusión "AUSENTE" quedó obsoleta al momento de esta auditoría.
 - **Ids:** `INV-013`
 
 ### INV-014: Light mode (CSS muerto) — auditoría
@@ -1805,20 +1512,8 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ cargo fmt, check pasan. Commit `e19642f`.
 - **Ids:** `DRV-111`
 
-### DRV-109: LlamaIndex missing GIL release
-- **Fuente:** Plan 2026-07-14 backlog-campaign
-- **Fecha:** 2026-07-14
-- **Objetivo:** Release GIL in `add`, `query`, `delete` using pyo3 0.29 `detach()` — already correct from the start, no changes needed
-- **Resultado:** ✅ `cargo check -p vantadb-llamaindex` passes, no-op
-- **Ids:** `DRV-109`
-
-### DEVOPS-13: Pin all workflow actions to SHA + Node 22
-- **Fuente:** Plan 2026-07-14 backlog-campaign
-- **Fecha:** 2026-07-14
-- **Objetivo:** Replace `actions/*@vX` with pinned SHA across all workflows; update Node 20→22
-- **Resultado:** ✅ No-op — no `.github/workflows/` files exist in this repository
-- **Ids:** `DEVOPS-13`
-
+<!-- movido a ARCHIVO_HISTORICO.md -->
+<!-- movido a ARCHIVO_HISTORICO.md -->
 ### DRV-063: Ollama metadata no-string ignorado
 - **Fuente:** Plan 2026-07-14 backlog-campaign
 - **Fecha:** 2026-07-14
@@ -1872,7 +1567,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Fuente:** Backlog
 - **Fecha:** 2026-07-23
 - **Objetivo:** Extraer ~12 líneas duplicadas del patrón de llamada a `scan_forward_valid` en `WalWriter::open()` y `WalReader::next_record()` a helper `try_scan_forward()`. Remueve DRY violation en src/wal.rs
-- **Resultado:** ✅ `cargo check -p vantadb` clean. 50 WAL tests pasan (incluye test_wal_auto_healing_and_recovery). Commit `9288957`.
+- **Resultado:** ✅ `cargo check -p vantadb` clean. 50 WAL tests pasan (incluye test_wal_auto_healing_and_recovery). Commit `e354c250`.
 - **Ids:** `DRV-011`
 
 ### DRV-015: Refactor WalWriter::open_with_buffer() función monolítica de 100L
@@ -1896,7 +1591,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ `npx tsc --noEmit` clean. Commit `d6282a5`.
 - **Ids:** `SEC-13`
 
-### WEB-15/WEB-16: Homepage Visual Refinements (text-align, font-weight, Nav background)
+### WEB-15/WEB-16: Refinamientos visuales de la home (text-align, font-weight, fondo del Nav)
 - **Fecha:** 2026-07-02
 - **Objetivo:** Fix text-align from center to left on 9 elements, set H1 font-weight to 700, update Nav background to warm paper (`--surface-glass`).
 - **Checklist:**
@@ -1905,7 +1600,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] Nav background: `rgba(10,10,10,0.85)` → `rgba(249,248,246,0.85)`
 - **Ids:** `WEB-15`, `WEB-16`
 
-### WEB-09: Consolidate Animation Libraries (AnimeJS removed)
+### WEB-09: Consolidar librerías de animación (AnimeJS eliminado)
 - **Fecha:** 2026-07-02
 - **Objetivo:** Remove AnimeJS (4.5KB) and Motion (12.42KB) — GSAP handles 95% of animations. Reduce bundle by ~155KB+.
 - **Checklist:**
@@ -1914,7 +1609,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] All AnimeJS imports refactored to GSAP equivalents
 - **Ids:** `WEB-09`
 
-### WEB-10: React.lazy Code Splitting (4 heavy pages)
+### WEB-10: Code splitting con React.lazy (4 páginas pesadas)
 - **Fecha:** 2026-07-02
 - **Objetivo:** Implement `React.lazy()` for route-level code splitting. Previously all pages loaded eagerly.
 - **Checklist:**
@@ -1922,7 +1617,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] `Suspense` wrappers with fallback loaders
 - **Ids:** `WEB-10`
 
-### WEB-11: React.memo + useMemo Optimization (10 components)
+### WEB-11: Optimización con React.memo + useMemo (10 componentes)
 - **Fecha:** 2026-07-02
 - **Objetivo:** Add `React.memo` + `useMemo` + `useCallback` across 10+ components to prevent unnecessary rerenders.
 - **Checklist:**
@@ -1931,7 +1626,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] `useCallback` for stable function references in event handlers
 - **Ids:** `WEB-11`
 
-### WEB-12: VsTable Reusable Component
+### WEB-12: Componente reutilizable VsTable
 - **Fecha:** 2026-07-02
 - **Objetivo:** Create `<VsTable data={...} />` component. "Legacy vs VantaDB" layout was repeated manually in 7+ files.
 - **Checklist:**
@@ -1939,7 +1634,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] Refactored all 7+ manual table layouts to use VsTable
 - **Ids:** `WEB-12`
 
-### WEB-13: SEO Canonical URLs (all 25 route files)
+### WEB-13: URLs canónicas SEO (los 25 archivos de rutas)
 - **Fecha:** 2026-07-02
 - **Objetivo:** Add OG tags, canonical URLs, JSON-LD structured data across all 25 route files.
 - **Checklist:**
@@ -1948,15 +1643,8 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] JSON-LD structured data (WebSite, Organization schemas)
 - **Ids:** `WEB-13`
 
-### SEC-01/SEC-02: Security Advisory Resolutions (bincode, rustls-pemfile)
-- **Fecha:** 2026-07-02
-- **Objetivo:** Verify bincode 1.x → 2.0 (already migrated via AUD-03) and rustls-pemfile deprecation (already on v2). Both advisories found already resolved.
-- **Checklist:**
-  - [x] `SEC-01` — bincode confirmed on v2.0. Already resolved in AUD-03 (bincode 1.3 → 2.0)
-  - [x] `SEC-02` — rustls-pemfile confirmed on v2. Already resolved
-- **Ids:** `SEC-01`, `SEC-02`
-
-### NUEVO-05: Sanitizer CI (ASan + TSan)
+<!-- movido a ARCHIVO_HISTORICO.md -->
+### NUEVO-05: Sanitizador CI (ASan + TSan)
 - **Fecha:** 2026-07-10
 - **Objetivo:** Add AddressSanitizer and ThreadSanitizer CI jobs to catch memory errors and data races in CI.
 - **Checklist:**
@@ -1966,7 +1654,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] Both jobs marked `continue-on-error: true`
 - **Ids:** `NUEVO-05`
 
-### NUEVO-06: Flat Index Threshold <10K brute-force
+### NUEVO-06: Umbral de índice plano <10K brute-force
 - **Fecha:** 2026-07-10
 - **Objetivo:** When the index has few nodes (< threshold), skip HNSW graph traversal and use brute-force flat scan for equivalent accuracy with less overhead.
 - **Checklist:**
@@ -1977,7 +1665,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] Tests: `flat_search_matches_hnsw_on_small_dataset`, `flat_search_used_when_under_threshold`, `test_with_flat_threshold`
 - **Ids:** `NUEVO-06`
 
-### NUEVO-07: Migration tools Chroma→Vanta, LanceDB→Vanta
+### NUEVO-07: Herramientas de migración Chroma→Vanta, LanceDB→Vanta
 - **Fecha:** 2026-08-02
 - **Objetivo:** Scripts de migración ejecutables desde ChromaDB y LanceDB a VantaDB usando la API real del SDK Python (`vantadb_py.VantaDB`). Corrige el falso positivo del audit 2026-07-28 (que afirmaba scripts inexistentes) y la API inventada (`vantadb.connect`/`db.space`) en tutoriales.
 - **Checklist:**
@@ -2001,18 +1689,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ Commit `d0b1c7c6` (feat: public reproducible benchmark suite). `validate-docs-coverage.ps1` falla por gaps preexistentes no relacionados (search.rs inexistente en script, coverage config/error/cli).
 - **Ids:** `NUEVO-10`
 
-### MKT-14: Case studies publicados (3)
-- **Fecha:** 2026-08-02
-- **Objetivo:** Publicar 3 case studies + rutas `/case-studies/` y `/case-studies/[slug]`. El backlog decía "falta pulir copy y métricas" — falso negativo corregido por el audit 2026-07-28 y re-verificado en código.
-- **Checklist de verificación (gate SKIP — ya implementada):**
-  - [x] `web/src/components/vanta/vanta-data.ts:993-1042` — `CASE_STUDIES` con 3 items (metrics, challenge, solution, quote, quoteAuthor)
-  - [x] Listing `/case-studies/` (`page.tsx`) — cards con métricas, tags, i18n
-  - [x] Detail `/case-studies/[slug]` (`[slug]/page.tsx`) — 404 handling, metrics grid, challenge/solution, quote, CTA
-  - [x] i18n — 62 keys `caseStudiesData.0/1/2` en `dictionaries.ts` (ES/EN)
-  - [x] Navegación — `site-navbar.tsx:71` (`nav.caseStudies` → `/case-studies`) + `LIVE_ROUTES` (4 rutas) en `use-vanta-navigate.ts:63-66`
-- **Resultado:** ✅ COMPLETADA 2026-08-02 — SKIP por gate (feature ya implementada, validada por audit 2026-07-28:205 como "Más completo de lo reportado"). Sin code changes.
-- **Ids:** `MKT-14`
-
+<!-- movido a ARCHIVO_HISTORICO.md -->
 ### NUEVO-08: Learning path estructurado en tutorials/ (5-7 ejemplos)
 - **Fecha:** 2026-08-02
 - **Objetivo:** Learning path estructurado en `docs/tutorials/` (5-7 ejemplos). Backlog decía "4/7, algunos draft". Corrige API inventada (`vantadb.connect`, `db.space`) en tutoriales draft y completa el path a 6 tutoriales.
@@ -2026,32 +1703,8 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ 6 tutoriales, todos active, 0 API inventada (`rg` 0 matches), 30+ snippets validados contra `vantadb_py 0.5.0` en root `.venv`. Commits a460e4e4, a0c8415d, 70a820de, a8104873, b027926e, cff2fb99. `validate-docs-coverage.ps1` falla por gaps preexistentes no relacionados.
 - **Ids:** `NUEVO-08`
 
-### INV-006: Blog series completion — plan de finalización
-- **Fecha:** 2026-08-02
-- **Objetivo:** Plan de finalización del blog series (sin implementación). MKT-05 reportaba 4/5; audit 2026-07-28 corrigió que el backlog inflaba el conteo (3 posts en docs/blog, 4 en web).
-- **Checklist:**
-  - [x] `docs/strategy/BLOG_SERIES_PLAN.md` — inventario 4 web vs 3 docs/blog con 6 mismatches (M1-M6), incluyendo `introducing-vantadb` sin fuente `.md` y drift de versión (M6)
-  - [x] Revisión drafts — 3 posts sólidos, listos tras fixes (CTA débil en 2/3, frontmatter incompleto)
-  - [x] Audiencia + keyword research — 5 segmentos, 6 clusters validados por búsqueda web 2026
-  - [x] Calendario — Show HN (referencia SHOW_HN_PREP.md) + cadencia 2 posts/mes alineada a GTM (6/12/24)
-- **Resultado:** ✅ Plan entregado (205 líneas, markdownlint 0 issues), sin implementación de contenido. Commit 042e8e50. **Siguientes acciones derivadas:** resolver M1 (crear `introducing-vantadb.md`) y M6 (unificar versión en web/posts/SHOW_HN) — no bloquean el plan.
-- **Ids:** `INV-006`
-
-### INV-019: Advanced Tokenizer (Unicode + Stopwords)
-- **Fecha:** 2026-08-02
-- **Objetivo:** Investigar tokenizer avanzado con Unicode, stopwords per-language y stemming.
-- **Resultado:** ❌ SKIP — ya implementada. Verificado contra código real (no se re-investigó).
-- **Checklist de verificación:**
-  - [x] `src/tokenizer.rs` (288 líneas) — `tokenize_advanced()`, `AdvancedTokenizerConfig` (language, max_token_length, remove_stopwords, apply_stemming), `is_advanced_tokenizer_available()`
-  - [x] Feature gate `advanced-tokenizer` — `Cargo.toml:108`, habilitado en `default` (línea 94)
-  - [x] Wiring runtime — `src/config.rs:321,586,776` (`advanced_tokenizer_config`, `with_advanced_tokenizer_config`)
-  - [x] Integración `src/text_index.rs` — `TextTokenizerSpec::advanced()`, `TEXT_INDEX_SCHEMA_VERSION=4`, nombre `tantivy-multilingual`
-  - [x] Tests multilingües (ES/FR/DE), stemming, stopwords, length_filter, combined
-  - [x] Bench `benches/tokenizer_bench.rs` (ASCII vs Tantivy)
-  - [x] Commits: `1a7c4d04`, `7459a558`
-- **Gap detectado:** `docs/api/ADVANCED_TOKENIZER.md` no existe — doc de API pendiente (ticket separado, no bloquea el SKIP).
-- **Ids:** `INV-019`
-
+<!-- movido a ARCHIVO_HISTORICO.md -->
+<!-- movido a ARCHIVO_HISTORICO.md -->
 ### TSK-104: Demo agent LangChain + Ollama + VantaDB
 - **Fecha:** 2026-08-02
 - **Objetivo:** Demo RAG pulida conectando LangChain + Ollama + VantaDB con las integraciones reales (reemplaza el sketch que emulaba ambos).
@@ -2082,7 +1735,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] VectorStoreBackend trait implementation skeleton
 - **Ids:** `MEM-01`
 
-### MCP-02: MCP Server Stabilization (GA readiness)
+### MCP-02: Estabilización del servidor MCP (preparación GA)
 - **Fecha:** 2026-07-02
 - **Objetivo:** Stabilize MCP server from experimental to GA: config, error handling, timeouts, graceful shutdown, metrics.
 - **Checklist:**
@@ -2093,7 +1746,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] Configurable timeouts and retry logic
 - **Ids:** `MCP-02`
 
-### DX-03: Docker Compose "Local LLM Stack"
+### DX-03: Docker Compose "Stack LLM Local"
 - **Fecha:** 2026-07-02
 - **Objetivo:** Single `docker compose up` for complete local RAG stack: VantaDB + Ollama + AnythingLLM / Open WebUI.
 - **Checklist:**
@@ -2104,7 +1757,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - `Dockerfile`, `docker-compose.yml`, `.dockerignore`
 - **Ids:** `DX-03`
 
-### DOC-09: Obsidian Documentation Enrichment (Wikilinks & Glossary)
+### DOC-09: Enriquecimiento de documentación Obsidian (Wikilinks y glosario)
 - **Fecha:** 2026-07-01
 - **Objetivo:** Inject internal wikilinks into docs/ and enrich the glosario/ to establish a bidirectional knowledge graph.
 - **Checklist Completado:**
@@ -2114,9 +1767,9 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] Remove orphan files (archive/VantaDB_CLI_TUI_Design_Spec.md).
   - [x] Update community-plugins.json for Obsidian.
 - **Archivos Modificados:** 35+ Markdown files in docs/
-- **Walkthrough:** [[walkthrough.md]]
+- **Walkthrough:** [walkthrough.md](../walkthrough.md)
 
-### WEB-01: Vercel Deploy & Web Infrastructure Setup (Plan/CI_CD_INTEGRATION.md)
+### WEB-01: Despliegue en Vercel y configuración de infraestructura web (Plan/CI_CD_INTEGRATION.md)
 - **Fecha:** 2026-07-02
 - **Objetivo:** Diagnosticar y corregir el despliegue de la SPA en Vercel: resolver errores 404 en rutas internas, unificar configuración de `vercel.json` y corregir el crash crítico de GSAP en producción que dejaba la página en blanco.
 - **Checklist Completado:**
@@ -2142,7 +1795,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - Múltiples errores de Clippy en `src/metrics.rs` (`int_plus_one`, `field_reassign_with_default`) y `vantadb-mcp/src/storage.rs` bloqueando el pre-push hook
   - Carpeta `web/public/admin/` con artefactos de Decap CMS no utilizado
 
-### WEB-08: Anti-Slop Audit, Performance Budget, SEO Final Review
+### WEB-08: Auditoría anti-slop, presupuesto de rendimiento, revisión SEO final
 - **Fecha:** 2026-07-02
 - **Objetivo:** Realizar una auditoría completa del frontend contra las guías de diseño anti-slop, implementar el presupuesto de eyebrows (máximo 3 en todo el index) y corregir bugs visuales y estructurales identificados en responsive.
 - **Checklist Completado:**
@@ -2159,7 +1812,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - `web/src/components/SwissArchSection.tsx`
   - `web/src/components/SwissUseCases.tsx`
 
-### WEB-14: Implement missing GSAP animations per REDESIGN_V2_PLAN.md
+### WEB-14: Implementar animaciones GSAP faltantes según REDESIGN_V2_PLAN.md
 - **Fecha:** 2026-07-02
 - **Objetivo:** Refinar e implementar las animaciones GSAP que faltaban o eran inconsistentes con el movimiento minimalista de 12px y custom easing definidos en la spec de diseño.
 - **Checklist Completado:**
@@ -2171,7 +1824,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - `web/src/components/SwissUseCases.tsx`
   - `web/src/components/SwissMonolith.tsx`
 
-### DOC-11: Fix Factual Errors in Blog Post
+### DOC-11: Corregir errores factuales en el post del blog
 - **Fecha:** 2026-07-02
 - **Objetivo:** Resolver errores factibles en la publicación del blog introductorio (`introducing-vantadb.md`) cambiando el tipo de licencia y la dirección del repositorio de GitHub.
 - **Checklist Completado:**
@@ -2180,16 +1833,8 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Archivos Modificados:**
   - `web/content/blog/introducing-vantadb.md`
 
-### CODE-022: Remove unused Three.js dependency (600KB+ bundle reduction)
-- **Fecha:** 2026-07-04
-- **Objetivo:** Three.js no tenía ningún import en `web/src/` pero estaba listado en package.json. Ya fue eliminado en commit previo — verificado: no está en package.json, node_modules, ni imports.
-- **Checklist:**
-  - [x] Verificar que no haya imports de three en `web/src/` (0 imports ✅)
-  - [x] Verificar que no esté en `package.json` (ya removido ✅)
-  - [x] Verificar que no esté en `npm ls three` (empty ✅)
-- **Ids:** `CODE-022`
-
-### CODE-027: Replace .expect() panic in get_many() with proper error
+<!-- movido a ARCHIVO_HISTORICO.md -->
+### CODE-027: Reemplazar pánico .expect() en get_many() con error apropiado
 - **Fecha:** 2026-07-04
 - **Objetivo:** Reemplazar `.expect("backend key must be 8 bytes")` con `map_err` que propaga `VantaError::BackendError`. Evita crash del server completo si el backend retorna una key corrupta.
 - **Checklist:**
@@ -2201,7 +1846,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - `src/storage/engine.rs` — error handling en get_many()
 - **Ids:** `CODE-027`
 
-### CODE-020: CSP Hardening — Remove unsafe-inline from script-src
+### CODE-020: Endurecimiento CSP — eliminar unsafe-inline de script-src
 - **Fecha:** 2026-07-04
 - **Objetivo:** Eliminar `'unsafe-inline'` de `script-src` en la CSP para prevenir XSS por inyección de scripts inline. Mover JSON-LD a archivo externo para no depender de `unsafe-inline`.
 - **Checklist:**
@@ -2216,7 +1861,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - `web/public/structured-data.json` — nuevo archivo
 - **Ids:** `CODE-020`
 
-### CODE-021: DOMPurify Sanitization on Blog dangerouslySetInnerHTML
+### CODE-021: Sanitización con DOMPurify en dangerouslySetInnerHTML del blog
 - **Fecha:** 2026-07-04
 - **Objetivo:** Add DOMPurify to sanitize blog HTML before dangerouslySetInnerHTML injection. `marked()` allows raw HTML by default — DOMPurify strips XSS vectors (script, on*, javascript:).
 - **Checklist:**
@@ -2353,7 +1998,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] NotFoundError atrapado → Ok(()), otros errores se propagan
 - **Ids:** `CODE-005`
 
-### DOC-12: Update llms.txt Version Ranges
+### DOC-12: Actualizar rangos de versiones de llms.txt
 - **Fecha:** 2026-07-02
 - **Objetivo:** Actualizar el archivo de especificación para consumo de LLMs (`llms.txt`) para reflejar la versión correcta del proyecto (v0.2.0) en la sección de historial de cambios.
 - **Checklist Completado:**
@@ -2361,7 +2006,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Archivos Modificados:**
   - `web/public/llms.txt`
 
-### MKT-07 / BIZ-03: Pricing Page Multi-Tier Implementation
+### MKT-07 / BIZ-03: Implementación de página de precios multi-tier
 - **Fecha:** 2026-07-02
 - **Objetivo:** Diseñar y publicar la página de precios (/pricing) mostrando los 4 tiers correspondientes del modelo de negocio de VantaDB (Self-Hosted, Cloud Pro, Cloud Business, Enterprise) y una matriz de desglose de características completa.
 - **Checklist Completado:**
@@ -2372,7 +2017,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Archivos Modificados:**
   - `web/src/routes/pricing.lazy.tsx`
 
-### WEB-08-Refinement: Index Refinements & Anti-AI-Slop Cleanups
+### WEB-08-Refinement: Refinamientos del Index y limpiezas Anti-AI-Slop
 - **Fecha:** 2026-07-02
 - **Objetivo:** Refinar elementos estéticos en el index de acuerdo a la auditoría aprobada para romper las firmas visuales de plantillas automatizadas (AI Tells).
 - **Checklist Completado:**
@@ -2384,7 +2029,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - `web/src/components/SwissQuickstart.tsx`
   - `web/src/components/SwissEcosystem.tsx`
 
-### CI-01: Fix All GitHub Actions Workflows
+### CI-01: Arreglar todos los workflows de GitHub Actions
 - **Fecha:** 2026-07-03
 - **Objetivo:** Reparar workflows rotos de CI/CD — VantaDB CI, Web CI, cargo-deny, CodeQL, Performance Benchmarks, heavy_certification, sbom, python_wheels — dejando todos verdes en push a main.
 - **Checklist Completado:**
@@ -2443,11 +2088,11 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Build Status:** `cargo check` pasa, 12 migration tests pasan, workspace compila con 0 errores
 - **Ids:** `REL-01`, `LEG-02`, `DB-01`, `DB-03`, `DB-04`, `DEVOPS-08`, `DEVOPS-09`, `DOC-16`, `BIZ-01`
 
-### 2026-07-04 — Fleet Fix Session (78 CODE bugs fixed across 9 commits)
+### 2026-07-04 — Sesión de Fix de Fleet (78 errores CODE corregidos en 9 commits)
 
 **Commits:** `a7d12e9` `4863b4c` `15a2ea8` `40237bd` `756710a` `d25f91e` `a55e74c` `c32c87f` `df1479a` `a94c261`
 
-#### Python SDK (9 bugs)
+#### Python SDK (9 errores)
 | ID | Tarea | Commit |
 |----|-------|--------|
 | CODE-004 | hardware_profile() muta capabilities dict | `15a2ea8` |
@@ -2460,7 +2105,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | CODE-083 | Sin .pyi type stubs | `15a2ea8` |
 | CODE-084 | connect() sin memory_limit | `15a2ea8` |
 
-#### Core Engine & Index (8 bugs)
+#### Motor Principal e Índice (8 errores)
 | ID | Tarea | Commit |
 |----|-------|--------|
 | CODE-007 | Tombstone check bypass en HNSW insert | `d25f91e` |
@@ -2472,7 +2117,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | CODE-064 | serialize_to_bytes Vec gigante | `d25f91e` |
 | CODE-065 | estimate_memory_bytes O(n) en cada insert | `d25f91e` |
 
-#### Rust Code Health (4 bugs)
+#### Salud del Código Rust (4 errores)
 | ID | Tarea | Commit |
 |----|-------|--------|
 | CODE-031 | GC delete failure silencioso | `c32c87f` |
@@ -2480,7 +2125,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | CODE-034 | VANTA_BACKEND=fjall warning falso | `c32c87f` |
 | CODE-066 | WAL recover_state dead_code | `c32c87f` |
 
-#### Security & Dependencies (7 bugs)
+#### Seguridad y Dependencias (7 errores)
 | ID | Tarea | Commit |
 |----|-------|--------|
 | CODE-036 | TLS 1.3 only (relajado a 1.2) | `df1479a` |
@@ -2491,7 +2136,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | CODE-062 | Cursor reset sin zero-fill | `df1479a` |
 | CODE-063 | grow_to puede shrink | `df1479a` |
 
-#### TypeScript SDK (9 bugs)
+#### TypeScript SDK (9 errores)
 | ID | Tarea | Commit |
 |----|-------|--------|
 | CODE-045 | OperationalMetrics 70% incompleto | `756710a` |
@@ -2504,7 +2149,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | CODE-090 | insertNode BigInt overflow | `756710a` |
 | CODE-091 | hit.distance etiquetado score | `756710a` |
 
-#### WASM & Build (4 bugs)
+#### WASM y Build (4 errores)
 | ID | Tarea | Commit |
 |----|-------|--------|
 | CODE-043 | Cargo_test.toml stale duplicate | `40237bd` |
@@ -2512,7 +2157,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | CODE-060 | Demo WASM sin await | `40237bd` |
 | CODE-069 | .tanstack ignorado inconsistente | `40237bd` |
 
-#### CI & Infra (6 bugs)
+#### CI e Infraestructura (6 errores)
 | ID | Tarea | Commit |
 |----|-------|--------|
 | CODE-023 | 0 tests en CI web | `a55e74c` |
@@ -2522,7 +2167,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | CODE-078 | Sin playwright install en CI | `a55e74c` |
 | CODE-080 | Dependabot sin npm ecosystem | `a55e74c` |
 
-#### Web Frontend (10 bugs)
+#### Frontend Web (10 errores)
 | ID | Tarea | Commit |
 |----|-------|--------|
 | CODE-048 | Skip link después de Nav | `a94c261` |
@@ -2536,13 +2181,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | CODE-076 | GSAP ScrollTrigger sin cleanup | `a94c261` |
 | CODE-077 | useState para hover | `a94c261` |
 
-#### Documentation (2 tasks)
-| ID | Tarea | 
+#### Documentación (2 tareas)
+| ID | Tarea |
 |----|-------|
 | MKT-11 | llms.txt: SQL/IVF claims corregidos |
 | CODE-085 | README: get_memory→get, search_memory→search |
 
-### 2026-07-06 — Wave 1-4 Completion: Quick Wins, Performance, Benchmarks & Cleanup (10 tareas movidas a progreso)
+### 2026-07-06 — Wave 1-4 Completada: Quick Wins, Performance, Benchmarks y Limpieza (10 tareas movidas a progreso)
 
 **Tareas completadas y movidas del backlog a progreso:**
 
@@ -2577,28 +2222,9 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `cargo check` ✅, `cargo test --lib` → **444 tests, 0 failures** ✅
 
-### 2026-07-06 — Post-Benchmark Deep Investigations (4 paralelas, 25 tareas agregadas al backlog)
+<!-- movido a ARCHIVO_HISTORICO.md -->
 
-**Objetivo:** Investigar a fondo los gaps contra LanceDB/ChromaDB revelados en benchmarks competitivos. 4 sub-agentes en paralelo.
-
-#### Hallazgos clave por área:
-
-| Área | Hallazgos | IDs asignados |
-|------|-----------|---------------|
-| 🐛 Distancia Euclidea | **Bug crítico:** `squared_distance` raw vs `1.0 - similarity` causa ordenación invertida. Recall@10 55.7% vs ChromaDB 90%. Fix estimado: 1 hora | CODE-092 🔴 |
-| ⚡ AVX-512/SIMD | f32x16 dispatch, SQ8 path, norm caching, runtime multiversion — avx512f ya detectado, no cableado | PERF-21/22/29/34/38 🟡 |
-| ⚡ FFI/PyO3 | `put_batch_raw` PyBuffer 2D, `#[pyclass]` hits, lazy serialization, GIL scope tuning | PERF-15/16/24/25/26/31/35 🔴🟡🟢 |
-| ⚡ HNSW Recall | ef_construction 200→400, M/max0 16→24, ep_enter freeze, tombstone mitigation | PERF-17/18/23/27/28 🟠🟡 |
-| ⚡ Ingestion | WAL batch append, storage batch insert, async pipeline, config tuning | PERF-19/20/30/32/33/36/37 🟠🟡🟢 |
-
-**Impacto cuantificado:**
-- CODE-092 fix solo: recall euclidean 55.7% → ~90% (paridad ChromaDB)
-- PERF-15 + PERF-19 + PERF-20: ingestion QPS 127 → ~1500+ (10×)
-- PERF-16: query latency 4.06ms → ~2.5ms (cerca de 2.27ms ChromaDB)
-
-**Backlog:** +25 items agregados. Pendientes: 98 items open.
-
-### 2026-07-07 — Wave 1-6: CODE-055, Test Fixes, Migration Runner (5 tasks)
+### 2026-07-07 — Wave 1-6: CODE-055, Correcciones de tests, Migration Runner (5 tareas)
 
 **Tareas completadas:**
 
@@ -2614,13 +2240,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Backlog actualizado:** Pendientes: 87 items ❌ + 1 ⏳ = 88 open. Último ⏳: BIZ-01 (Enterprise crate).
 
-### 2026-07-07 — Wave 1-7: Bugfixes & Optimizations (5 tasks)
+### 2026-07-07 — Wave 1-7: Corrección de errores y Optimizaciones (5 tareas)
 
-**Objetivo:** Fix HNSW EP freeze (PERF-23), tombstone mitigation (PERF-28), config tuning (PERF-30), AuthRateLimiter HashMap→LruCache (CODE-037), doc updates (DOC-19).
+**Objetivo:** Corregir el freeze de EP de HNSW (PERF-23), mitigación de tombstones (PERF-28), tuning de configuración (PERF-30), AuthRateLimiter HashMap→LruCache (CODE-037), actualizaciones de docs (DOC-19).
 
 **Tareas completadas:**
 
-| ID | Tarea | Files | Verificación |
+| ID | Tarea | Archivos | Verificación |
 |----|-------|-------|-------------|
 | PERF-23 | HNSW ep_enter freeze fix — `find_new_entry_point()` promueve reemplazo tras delete | `src/index/core.rs`, `src/storage/engine/ops.rs`, `src/storage/engine/init.rs` | ✅ `cargo check` pasa. EP replacement test en hnsw_validation.rs |
 | PERF-28 | Tombstone mitigation — saltar nodos eliminados en search_layer + WAL replay zombie fix | `src/index/core.rs`, `src/storage/engine/init.rs` | ✅ Tombstoned nodes excluidos de candidates heap |
@@ -2630,11 +2256,11 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Backlog actualizado:** 82 items ❌ + 1 ⏳ = 83 open. 5 items migrados a progreso.
 
-### 2026-07-07 — Phase 2: SIMD, HNSW Diversity & Python SDK Optimizations (5 tasks across 3 tracks)
+### 2026-07-07 — Fase 2: SIMD, Diversidad HNSW y Optimizaciones del Python SDK (5 tareas en 3 vías)
 
 **Objetivo:** Completar PERF-27 (select_neighbors), PERF-21 (AVX-512), PERF-22 (SQ8), PERF-16 (#[pyclass]), PERF-15 (PyBuffer).
 
-| ID | Tarea | Files | Cambios |
+| ID | Tarea | Archivos | Cambios |
 |----|-------|-------|---------|
 | PERF-27 | select_neighbors heuristic diversity | `src/index/core.rs` | Tombstone filtering, eliminated per-candidate clone (borrows `&[f32]`), deferred clone to selection only |
 | PERF-21 | AVX-512 f32x16 SIMD dispatch | `src/index/distance.rs` | 3 f32x16 kernels (euclidean, dot, dot+norm), runtime dispatch via HardwareCapabilities. Auto-selects f32x16/8/scalar |
@@ -2646,13 +2272,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Backlog actualizado:** 78 items ❌ + 1 ⏳ = 79 open.
 
-### 2026-07-07 — Wave 8: Python SDK, Distance, Async & Tooling (14 tasks)
+### 2026-07-07 — Wave 8: Python SDK, Distance, Async y Tooling (14 tareas)
 
 **Objetivo:** Completar PERF-24/25 (Python), PERF-29/34/38 (Distance), PERF-32/35 (Async), PERF-33/36/37 (Prefetch/Config/Bitset), PERF-31 (NumPy), TS SDK hardening.
 
 **Tareas completadas:**
 
-| ID | Tarea | Files | Cambios |
+| ID | Tarea | Archivos | Cambios |
 |----|-------|-------|---------|
 | PERF-24 | GIL scope optimization | `vantadb-python/src/lib.rs` | Documented GIL boundaries; hot paths already correctly scoped |
 | PERF-25 | PyDict object pool | `vantadb-python/src/lib.rs` | `PyDictPool` with `VecDeque` (max 100), thread-local. Replaces `PyDict::new(py)` in 4 formatters |
@@ -2671,13 +2297,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Backlog actualizado:** 78 items ❌ + 1 ⏳ = 79 open. 13 items migrados a progreso.
 
-### 2026-07-07 — Phase 5: Governance, Encryption, WAL Shipping, PITR, WASM, Docs (9 tasks)
+### 2026-07-07 — Fase 5: Governance, Encryption, WAL Shipping, PITR, WASM, Docs (9 tareas)
 
 **Objetivo:** Implementar GOV-01 (governance redesign), TSK-72 (AES-256-GCM), BIZ-02 (WAL shipping), TSK-131 (PITR), TSK-122 (sharded-slab HNSW), TSK-142 (WASM OPFS), PERF-26 (lazy serialization), DOC-20 (LanceDB guide), CODE-074 (Playwright tests).
 
 | ID | Tarea | Archivos | Cambios |
 |----|-------|----------|---------|
-| GOV-01 | Governance redesign | `src/governance/` (4 mods) | Bloom+CountMinSketch, version vectors, TTL buffer, worker. Fixes 12 bugs. Feature: `governance` |
+| GOV-01 | Governance redesign | `src/governance/` (4 mods) | Bloom+CountMinSketch, version vectors, TTL buffer, worker. Corrige 12 errores. Feature: `governance` |
 | TSK-72 | AES-256-GCM encryption | `src/crypto.rs`, `vfile.rs`, `config.rs` | Cipher + EncryptionStream, env var key. Feature: `encryption` |
 | BIZ-02 | Async WAL shipping | `src/wal_shipping.rs` | HTTP POST batches, retry, marker tracking. Feature: `wal-shipping` |
 | TSK-131 | PITR archival WAL | `src/wal_archiver.rs` | Archiver + restorer, retention policy. Feature: `pitr` |
@@ -2691,7 +2317,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Backlog actualizado:** 78 items ❌ + 1 ⏳ = 79 open.
 
-### 2026-07-07 — PERF-17/18/19/20: HNSW params, WAL batch, Storage batch
+### 2026-07-07 — PERF-17/18/19/20: Parámetros HNSW, batch WAL, batch Storage
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
@@ -2702,17 +2328,17 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Backlog actualizado:** 78 items ❌ + 1 ⏳ = 79 open.
 
-### 2026-07-13 — P1/P2/P3: HNSW micro-batching + WAL contention + ACID Phase 1
+### 2026-07-13 — P1/P2/P3: Micro-batching HNSW + contención WAL + ACID Fase 1
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
 | TASK-28 / P2 | WAL Mutex contention | Removido `#[allow(dead_code)]` stale, fixeado `rotate_all()` para preservar buffer_size/flush_threshold. ShardedWal ya usado en todos los paths de escritura | ✅ `fc28768` |
-| TASK-29 / P1 | HNSW insert_lock micro-batching | `PendingHnswOp`, `flush_pending_hnsw()`, `try_push_pending_hnsw()`. `insert()` usa pending batch (64 ops). `batch_insert()`/`delete()`/`delete_batch()` ya óptimos — no migrados | ✅ `141e628`, `3a52180` |
-| TASK-30 / P3 | ACID Transaction Layer Phase 1 | `Begin/Commit/Abort(u64)` en WalRecord, engine methods, recovery skip_mask descarta writes abortados/no cerrados. VantaFile rollback deferred a P4 | ✅ (sin commit) |
+| TASK-29 / P1 | HNSW insert_lock micro-batching | `PendingHnswOp`, `flush_pending_hnsw()`, `try_push_pending_hnsw()`. `insert()` usa pending batch (64 ops). `batch_insert()`/`delete()`/`delete_batch()` ya óptimos — no migrados | ✅ `141e628` |
+| TASK-30 / P3 | Capa de Transacciones ACID Fase 1 | `Begin/Commit/Abort(u64)` en WalRecord, engine methods, recovery skip_mask descarta writes abortados/no cerrados. Rollback de VantaFile diferido a P4 | ✅ (sin commit) |
 
 **Verificación:** `cargo check` ✅, `cargo fmt --check` clean, `cargo nextest run --profile audit --workspace --build-jobs 2` → 576/577 pass (pre-existing `deserialize_absurd_node_count`).
 
-### 2026-07-13 — Review Item 1: Clippy warnings cleanup
+### 2026-07-13 — Review Item 1: Limpieza de warnings de Clippy
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
@@ -2720,7 +2346,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `cargo clippy -p vantadb --all-features` 0 warnings, `cargo fmt --check` clean, 576/577 tests pass.
 
-### 2026-07-13 — P4: VantaFile reversible writes
+### 2026-07-13 — P4: Escrituras reversibles de VantaFile
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
@@ -2728,7 +2354,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `cargo check` ✅, `cargo nextest run` 576/577 pass (1 pre-existing), `cargo fmt --check` clean.
 
-### 2026-07-23 — REV-003: Coverage campaign 53.85% → 80.55% (CII Silver)
+### 2026-07-23 — REV-003: Campaña de cobertura 53.85% → 80.55% (CII Silver)
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
@@ -2748,125 +2374,119 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 **Archivos tocados:** 23 (10.4K líneas agregadas, 13 borradas)
 **Verificación:** `cargo llvm-cov test --lib -p vantadb` → 80.55%, `just verify` → fmt+check+clippy+actionlint ✅
 
-### 2026-07-14 — REV-004: tantivy rlib fix in vantadb-openai
+### 2026-07-14 — REV-004: Fix de rlib de tantivy en vantadb-openai
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| REV-004 | Fix tantivy rlib not found | Added `"rlib"` to `vantadb-openai/Cargo.toml` `crate-type`. Test binaries need `rlib` to link against `vantadb_openai`; `cdylib`-only causes "tantivy rlib not found" in CI. | ✅ |
+| REV-004 | Corregir rlib de tantivy no encontrado | Agregado `"rlib"` al `crate-type` de `vantadb-openai/Cargo.toml`. Los binarios de test necesitan `rlib` para linkear contra `vantadb_openai`; solo `cdylib` causa "tantivy rlib not found" en CI. | ✅ |
 
 **Verificación:** `cargo check -p vantadb-openai` ✅, `cargo nextest run --no-run -p vantadb-openai` ✅.
 
-### 2026-07-14 — REV-005: Fix 6x no-explicit-any + prettier in web frontend
+### 2026-07-14 — REV-005: Corregir 6x no-explicit-any + prettier en frontend web
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| REV-005 | Fix ESLint/prettier in demo.lazy.tsx + why-vantadb.tsx | Added `HitResult` + `VantaDemoDB` types; changed `catch (err: any)` → `catch (err: unknown)` with `instanceof Error` narrowing; ran `eslint --fix` for prettier. 0 remaining violations. | ✅ |
+| REV-005 | Corregir ESLint/prettier en demo.lazy.tsx + why-vantadb.tsx | Agregados tipos `HitResult` + `VantaDemoDB`; cambiado `catch (err: any)` → `catch (err: unknown)` con narrowing `instanceof Error`; corrido `eslint --fix` para prettier. 0 violaciones restantes. | ✅ |
 
 **Verificación:** `npx eslint` ✅ (0 errors), `npx tsc --noEmit` ✅ (0 errors).
 
-### 2026-07-14 — REV-016: Audit vantadb-enterprise premature abstraction
+<!-- movido a ARCHIVO_HISTORICO.md -->
+
+### 2026-07-14 — REV-017: Corregir el trailing newline de prettier en why-vantadb.tsx
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| REV-016 | Audit `vantadb-enterprise` premature abstraction | Delivered audit report then deleted entire crate per recommendation. Every module was speculative (96% TODO stubs). Removed `vantadb-enterprise/` directory + workspace member from `Cargo.toml`. Net: -267 lines. | ✅ |
-
-**Verificación:** Manual audit per ponytail-audit method. Full report: `docs/reviews/REV-016-vantadb-enterprise-audit.md`.
-
-### 2026-07-14 — REV-017: Fix why-vantadb.tsx prettier trailing newline
-
-| ID | Tarea | Cambio | Estado |
-|----|-------|--------|--------|
-| REV-017 | Fix `why-vantadb.tsx` trailing newline | Already fixed in commit `ad4d1e1`. File ends with `\n`, `prettier --check` passes, `eslint` silent, `git diff` empty. | ✅ |
+| REV-017 | Corregir el trailing newline de `why-vantadb.tsx` | Ya corregido en el commit `ad4d1e1`. El archivo termina con `\n`, `prettier --check` pasa, `eslint` silencioso, `git diff` vacío. | ✅ |
 
 **Verificación:** `npx prettier --check web/src/routes/why-vantadb.tsx` ✅, `npx eslint web/src/routes/why-vantadb.tsx` ✅.
 
-### 2026-07-14 — REV-015: Fix remaining 2x no-explicit-any in demo.lazy.tsx
+### 2026-07-14 — REV-015: Corregir los 2x no-explicit-any restantes en demo.lazy.tsx
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| REV-015 | Remove remaining `any` types in demo.lazy.tsx | Replaced `Promise<any>` with typed `Promise<HFExtractor>`, typed dynamic import as `{ pipeline: PipelineFn }`, removed both `eslint-disable-next-line` comments. | ✅ |
+| REV-015 | Eliminar los tipos `any` restantes en demo.lazy.tsx | Reemplazado `Promise<any>` con `Promise<HFExtractor>` tipado, import dinámico tipado como `{ pipeline: PipelineFn }`, eliminados ambos comentarios `eslint-disable-next-line`. | ✅ |
 
 **Verificación:** `npx eslint src/routes/demo.lazy.tsx` ✅ (0 errors), `npx tsc --noEmit` ✅ (0 errors).
 
-### 2026-07-14 — REV-008: Update actions/checkout + setup-node to v4
+### 2026-07-14 — REV-008: Actualizar actions/checkout + setup-node a v4
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| REV-008 | Update deprecated actions/checkout@v3 + setup-node@v3 to v4 | Replaced `actions/checkout@v3` SHA with `@v4` (42 occurrences) and `actions/setup-node@v3` SHA with `@v4` (5 occurrences) across 13 workflow files. Runner uses Node 24; v4 uses Node 20 for compatibility. | ✅ |
+| REV-008 | Actualizar actions/checkout@v3 + setup-node@v3 deprecados a v4 | Reemplazado el SHA `actions/checkout@v3` con `@v4` (42 ocurrencias) y el SHA `actions/setup-node@v3` con `@v4` (5 ocurrencias) en 13 archivos de workflow. El runner usa Node 24; v4 usa Node 20 por compatibilidad. | ✅ |
 
 **Verificación:** `grep` confirms 0 remaining old SHA references, 53 `@v4` references in project workflows.
 
-### 2026-07-14 — REV-006: Workspace-level clippy in CI
+### 2026-07-14 — REV-006: Clippy a nivel workspace en CI
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| REV-006 | Workspace-level clippy across all adapters | Removed duplicate `[profile.release]` from `vantadb-wasm/Cargo.toml` (workspace already had `[profile.release.package.vantadb-wasm]`); added `--all-targets --all-features` to Windows and macOS clippy jobs in `ci-rust-10.yml` for consistency with Linux. | ✅ |
+| REV-006 | Clippy a nivel workspace en todos los adaptadores | Eliminado el `[profile.release]` duplicado de `vantadb-wasm/Cargo.toml` (el workspace ya tenía `[profile.release.package.vantadb-wasm]`); agregado `--all-targets --all-features` a los jobs de clippy de Windows y macOS en `ci-rust-10.yml` para consistencia con Linux. | ✅ |
 
 **Verificación:** Profile warning eliminated (`cargo check -p vantadb-wasm` has no profile warning). All 3 OS clippy jobs now use uniform `--workspace --all-targets --all-features -- -D warnings`.
 
-### 2026-07-14 — REV-007: reducedMotion in useEffect deps (3 components)
+### 2026-07-14 — REV-007: reducedMotion en deps de useEffect (3 componentes)
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| REV-007 | Add `reducedMotion` to `useEffect` deps | NbMonolith.tsx: `[]` → `[reducedMotion]`; NbVectorNebula.tsx: `[]` → `[reducedMotion]`; `__root.tsx`: `[routeId]` → `[routeId, reducedMotion]`. Prevents stale closure on accessibility preference changes. | ✅ |
+| REV-007 | Add `reducedMotion` to `useEffect` deps | NbMonolith.tsx: `[]` → `[reducedMotion]`; NbVectorNebula.tsx: `[]` → `[reducedMotion]`; `__root.tsx`: `[routeId]` → `[routeId, reducedMotion]`. Previene closure obsoleto al cambiar preferencias de accesibilidad. | ✅ |
 
 **Verificación:** `npx eslint` ✅ (0 errors), `npx tsc --noEmit` ✅ (0 errors).
 
-### 2026-07-14 — INT-01: Publish LangChain adapter to PyPI
+### 2026-07-14 — INT-01: Publicar adaptador LangChain en PyPI
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| INT-01 | Publish LangChain adapter to PyPI | Package builds (`python -m build` ✅), 5/5 tests pass, CI workflow `release-adapters-62.yml` exists with OIDC trusted publishing. Push `tag adapters-v0.3.0` to trigger production publish. | ✅ |
+| INT-01 | Publicar adaptador LangChain en PyPI | El paquete compila (`python -m build` ✅), 5/5 tests pasan, existe el workflow CI `release-adapters-62.yml` con OIDC trusted publishing. Push del `tag adapters-v0.3.0` para disparar el publish de producción. | ✅ |
 
-**Verificación:** `python -m build integrations/langchain/` ✅ builds `.tar.gz` + `.whl`. `python -m pytest integrations/langchain/tests/ -v` ✅ 5/5 passed. PyPI name `vantadb-langchain` available. Dependency `vantadb-py>=0.2` satisfied (v0.2.0 published).
+**Verificación:** `python -m build integrations/langchain/` ✅ compila `.tar.gz` + `.whl`. `python -m pytest integrations/langchain/tests/ -v` ✅ 5/5 pasaron. Nombre PyPI `vantadb-langchain` disponible. Dependencia `vantadb-py>=0.2` satisfecha (v0.2.0 publicado).
 
-### 2026-07-14 — INT-02: Publish LlamaIndex adapter to PyPI
-
-| ID | Tarea | Cambio | Estado |
-|----|-------|--------|--------|
-| INT-02 | Publish LlamaIndex adapter to PyPI | Package builds (`python -m build` ✅), 5/5 tests pass, CI workflow covers llamaindex in matrix. Push `tag adapters-v0.3.0` to trigger production publish. | ✅ |
-
-**Verificación:** `python -m build integrations/llamaindex/` ✅. `python -m pytest integrations/llamaindex/tests/ -v` ✅ 5/5 passed. PyPI name `vantadb-llamaindex` available.
-
-### 2026-07-14 — DEVOPS-05: Unified CI pipeline for adapter PyPI publishing
+### 2026-07-14 — INT-02: Publicar adaptador LlamaIndex en PyPI
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| DEVOPS-05 | Unified CI pipeline to publish all adapters to PyPI | Verified existing `release-adapters-62.yml`: 3-stage pipeline (test → build → publish) covers all 9 adapters in `integrations/`. OIDC trusted publishing for TestPyPI (dispatch) and PyPI production (tag `adapters-v*`). All 9 adapters build successfully. | ✅ |
+| INT-02 | Publicar adaptador LlamaIndex en PyPI | El paquete compila (`python -m build` ✅), 5/5 tests pasan, el workflow CI cubre llamaindex en la matrix. Push del `tag adapters-v0.3.0` para disparar el publish de producción. | ✅ |
 
-**Verificación:** `python -m build integrations/*/` ✅ all 9 pass. CI workflow exists at `.github/workflows/release-adapters-62.yml`.
+**Verificación:** `python -m build integrations/llamaindex/` ✅. `python -m pytest integrations/llamaindex/tests/ -v` ✅ 5/5 pasaron. Nombre PyPI `vantadb-llamaindex` disponible.
 
-### 2026-07-14 — REL-02: Publish `vantadb-ts` to npm (WASM build)
-
-| ID | Tarea | Cambio | Estado |
-|----|-------|--------|--------|
-| REL-02 | Publish `vantadb-ts` to npm | 3 fixes applied, verification complete. Fixes: (1) `impl_text_index.rs` visibility (`fn` → `pub(crate)` on 2 methods), (2) `wasm-opt = false` in `vantadb-wasm/Cargo.toml` (local binaryen too old for bulk-memory), (3) CI `release-npm-61.yml` `ts-v*` tag trigger now runs `publish-wasm`. Verification: WASM build ✅, TS build ✅, npm dry-run ✅. npm names `vantadb` + `vantadb-wasm` both available. Doc `release-npm-61.md` updated. | ⏳ |
-
-**Pre-existing issue:** 80/219 TS tests fail with `unreachable!()` panics in Node.js vitest environment — pre-existing WASM runtime bug, not blocking publish. 113 pass (type guards, lifecycle, errors), 26 skip (search tests need data). Requires separate investigation.
-
-**Verificación:** `wasm-pack build --release` ✅ in `vantadb-wasm/`. `tsc` ✅ in `vantadb-ts/`. `npm publish --dry-run` ✅ (`npm pkg fix` applied). `release-npm-61.yml` CI fix verified by reading YAML.
-
-### 2026-07-17 — P1-2: Windows test step timeout 25→30 min
+### 2026-07-14 — DEVOPS-05: Pipeline CI unificado para publicación de adaptadores en PyPI
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| P1-2 | Windows step timeout 25→30 min | Increased step timeout from 25 to 30 min in `ci-rust-10.yml` `test-windows` job to match job timeout. `test-threads=2` preserved (needed to avoid OS error 1455). | ✅ |
+| DEVOPS-05 | Pipeline CI unificado para publicar todos los adaptadores en PyPI | Verificado el `release-adapters-62.yml` existente: pipeline de 3 etapas (test → build → publish) cubre los 9 adaptadores en `integrations/`. OIDC trusted publishing para TestPyPI (dispatch) y PyPI producción (tag `adapters-v*`). Los 9 adaptadores compilan correctamente. | ✅ |
+
+**Verificación:** `python -m build integrations/*/` ✅ los 9 pasan. El workflow CI existe en `.github/workflows/release-adapters-62.yml`.
+
+### 2026-07-14 — REL-02: Publicar `vantadb-ts` en npm (build WASM)
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| REL-02 | Publicar `vantadb-ts` en npm | 3 fixes aplicados, verificación completa. Fixes: (1) visibilidad de `impl_text_index.rs` (`fn` → `pub(crate)` en 2 métodos), (2) `wasm-opt = false` en `vantadb-wasm/Cargo.toml` (binaryen local demasiado viejo para bulk-memory), (3) el trigger de tag `ts-v*` del CI `release-npm-61.yml` ahora corre `publish-wasm`. Verificación: build WASM ✅, build TS ✅, npm dry-run ✅. Nombres npm `vantadb` + `vantadb-wasm` ambos disponibles. Doc `release-npm-61.md` actualizado. | ⏳ |
+
+**Problema pre-existente:** 80/219 tests TS fallan con panics `unreachable!()` en el entorno vitest de Node.js — bug pre-existente del runtime WASM, no bloquea el publish. 113 pasan (type guards, lifecycle, errores), 26 skip (los tests de search necesitan datos). Requiere investigación aparte.
+
+**Verificación:** `wasm-pack build --release` ✅ en `vantadb-wasm/`. `tsc` ✅ en `vantadb-ts/`. `npm publish --dry-run` ✅ (`npm pkg fix` aplicado). Fix de CI `release-npm-61.yml` verificado leyendo el YAML.
+
+### 2026-07-17 — P1-2: Timeout del step de tests Windows 25→30 min
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| P1-2 | Timeout del step de tests Windows 25→30 min | Aumentado el timeout del step de 25 a 30 min en el job `test-windows` de `ci-rust-10.yml` para igualar el timeout del job. `test-threads=2` preservado (necesario para evitar el OS error 1455). | ✅ |
 
 **Verificación:** diff inspeccionado, commit 3acd07c.
 
-### 2026-07-17 — P1-3: Cache key hashFiles para GloVe dataset
+### 2026-07-17 — P1-3: Clave de cache hashFiles para dataset GloVe
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| P1-3 | Cache key `glove-100d-v1` → `hashFiles('scripts/download_benchmark_datasets.sh')` | Replaced static cache key with `hashFiles` in both `test` and `coverage` jobs of `ci-rust-10.yml`. Cache now invalidates when download script changes. `hashFiles` is native GitHub Actions expression — no dependency needed. | ✅ |
+| P1-3 | Clave de cache `glove-100d-v1` → `hashFiles('scripts/download_benchmark_datasets.sh')` | Reemplazada la clave de cache estática con `hashFiles` en los jobs `test` y `coverage` de `ci-rust-10.yml`. El cache ahora se invalida cuando cambia el script de descarga. `hashFiles` es expresión nativa de GitHub Actions — no se necesita dependencia. | ✅ |
 
-**Verificación:** `grep hashFiles ci-rust-10.yml` → 2 matches (L104, L239). Commit 9386079.
+**Verificación:** `grep hashFiles ci-rust-10.yml` → 2 coincidencias (L104, L239). Commit 9386079.
 
-### 2026-07-17 — P1-4: macOS unificar con rust-setup action
+### 2026-07-17 — P1-4: macOS unificar con action rust-setup
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| P1-4 | macOS usar `.github/actions/rust-setup` | Replaced manual `dtolnay/rust-toolchain` + `Swatinem/rust-cache` + `cargo install cargo-nextest` with single `uses: ./.github/actions/rust-setup`. -10 lines. Homebrew deps preserved. | ✅ |
+| P1-4 | macOS usar `.github/actions/rust-setup` | Reemplazado el `dtolnay/rust-toolchain` + `Swatinem/rust-cache` + `cargo install cargo-nextest` manuales con un solo `uses: ./.github/actions/rust-setup`. -10 líneas. Homebrew deps preservadas. | ✅ |
 
 **Verificación:** diff inspeccionado — 2 inserts, 10 deletes. Commit 8bd15fa.
 
@@ -2874,15 +2494,15 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| P1-5 | Re-activar `wasm-opt` en WASM build | Removed `wasm-opt = false` override. Binaryen v121+ (current: v128+) supports bulk-memory-opt. wasm-opt now runs with default `-Os` on release builds, saving ~30-50% bundle size. | ✅ |
+| P1-5 | Re-activar `wasm-opt` en WASM build | Eliminado el override `wasm-opt = false`. Binaryen v121+ (actual: v128+) soporta bulk-memory-opt. wasm-opt ahora corre con `-Os` por defecto en builds release, ahorrando ~30-50% del tamaño del bundle. | ✅ |
 
 **Verificación:** diff inspeccionado — -1 línea neta. Commit e96a6f5.
 
-### 2026-07-17 — P1-6: Worker timeout 5s sin retry — exponential backoff
+### 2026-07-17 — P1-6: Worker timeout 5s sin retry — backoff exponencial
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| P1-6 | Worker timeout 5s sin retry | `send()` wrappeado con retry loop (max 3, backoff 1s→2s→4s). Solo timeout errors reintentan. `try_send()` extraído con body original. `cargo check -p vantadb-wasm` ✅ | ✅ |
+| P1-6 | Worker timeout 5s sin retry | `send()` wrappeado con bucle de reintentos (max 3, backoff 1s→2s→4s). Solo reintentan los timeout errors. `try_send()` extraído con body original. `cargo check -p vantadb-wasm` ✅ | ✅ |
 
 **Verificación:** `cargo check -p vantadb-wasm` — 0 errores, 0 warnings nuevos.
 
@@ -2892,7 +2512,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 |----|-------|--------|--------|
 | P1-7 | Version extraction frágil en CI | `grep '^version'` → `grep -A1 '^\[workspace\.package\]'` en `release-wheels-60.yml` y `release-npm-61.yml`. Ahora extrae del source of truth real (`[workspace.package]`), no del coincidencial `[package]`. | ✅ |
 
-**Verificación:** diff inspeccionado — 2 líneas cambiadas (1 por file). Semver regex en npm actúa como catch extra.
+**Verificación:** diff inspeccionado — 2 líneas cambiadas (1 por archivo). La regex de semver en npm actúa como captura extra.
 
 ### 2026-07-17 — P1-8: CI — Inconsistencia de timeouts
 
@@ -2906,15 +2526,15 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| P1-9 | SIMD duplicado en WASM (cosine_distance_simd) | Eliminado `vantadb-wasm/src/simd.rs` (208 líneas) + `pub mod simd` de `lib.rs`. `cosine_distance_simd()` era dead code (0 callers externos). Alternativa: `vantadb::index::cosine_sim_f32`. | ✅ |
+| P1-9 | SIMD duplicado en WASM (cosine_distance_simd) | Eliminado `vantadb-wasm/src/simd.rs` (208 líneas) + `pub mod simd` de `lib.rs`. `cosine_distance_simd()` era código muerto (0 llamadores externos). Alternativa: `vantadb::index::cosine_sim_f32`. | ✅ |
 
 **Verificación:** `cargo check -p vantadb-wasm` — 0 errores, 0 warnings nuevos. -208 líneas netas.
 
-### 2026-07-17 — P1-10: PyPI CDN propagation sleep → retry loop
+### 2026-07-17 — P1-10: PyPI — sleep de propagación CDN → bucle de reintentos
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| P1-10 | CI: PyPI CDN sleep → retry loop | Reemplazado `sleep 90` + step install separado por un solo step con retry loop (1s, 2s, 4s, 8s, 16s, 32s, 64s). Si CDN propaga en 10s, instala en 10s. Max 127s vs 90s fijo antes. `release-wheels-60.yml:256-259` → `:256-264` | ✅ |
+| P1-10 | CI: sleep de propagación CDN PyPI → bucle de reintentos | Reemplazado `sleep 90` + step install separado por un solo step con bucle de reintentos (1s, 2s, 4s, 8s, 16s, 32s, 64s). Si CDN propaga en 10s, instala en 10s. Max 127s vs 90s fijo antes. `release-wheels-60.yml:256-259` → `:256-264` | ✅ |
 
 **Verificación:** diff inspeccionado. 2 pasos fusionados en 1. Sin compilación Rust (cambio YAML puro).
 
@@ -2926,13 +2546,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `cargo check -p vantadb-wasm` — 0 errores.
 
-### 2026-07-17 — P2-2: VantaVector.__array_interface__ UB fix (Vec→Box)
+### 2026-07-17 — P2-2: VantaVector.__array_interface__ fix de UB (Vec→Box)
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
 | P2-2 | PyO3: VantaVector Vec→Box&lt;[f32]&gt; | `Vec<f32>` → `Box<[f32]>` en struct + `new()`/`__iter__`/`__getstate__`/`__setstate__`. Elimina realloc como fuente de UB en `__array_interface__`. `cargo check` ✅ | ✅ |
 
-### 2026-07-21 — DOC-API Audit Fixes (6/6 tasks completadas)
+### 2026-07-21 — Correcciones de auditoría DOC-API (6/6 tareas completadas)
 
 **Objetivo:** Corregir 9 incidencias (5 críticas, 4 medias) encontradas en auditoría de `docs/api/` — tipos desactualizados, referencias rotas, métodos faltantes, creación de documentación faltante.
 
@@ -2940,58 +2560,37 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 | ID | Tarea | Archivos | Resultado |
 |----|-------|----------|-----------|
-| DOC-API-01 | Fix EMBEDDED_SDK.md: u64→u128 en node_id, edge.target, firmas | `docs/api/EMBEDDED_SDK.md` | ✅ `184869b` |
-| DOC-API-02 | Fix openapi.yaml: NodeDTO alineado con VantaNodeRecord real | `docs/api/openapi.yaml` | ✅ `eb27b68` |
-| DOC-API-03 | Fix MCP.md: vantadb-cli→vanta-cli, query_lisp→query | `docs/api/MCP.md` | ✅ `7d69416` |
-| DOC-API-04 | Fix PYTHON_SDK.md: +6 métodos faltantes, VectorInput types | `docs/api/PYTHON_SDK.md` | ✅ `fd5a0de` |
+| DOC-API-01 | Corregir EMBEDDED_SDK.md: u64→u128 en node_id, edge.target, firmas | `docs/api/EMBEDDED_SDK.md` | ✅ `184869b` |
+| DOC-API-02 | Corregir openapi.yaml: NodeDTO alineado con VantaNodeRecord real | `docs/api/openapi.yaml` | ✅ `eb27b68` |
+| DOC-API-03 | Corregir MCP.md: vantadb-cli→vanta-cli, query_lisp→query | `docs/api/MCP.md` | ✅ `7d69416` |
+| DOC-API-04 | Corregir PYTHON_SDK.md: +6 métodos faltantes, VectorInput types | `docs/api/PYTHON_SDK.md` | ✅ `fd5a0de` |
 
 **Wave 1 (2 en paralelo):**
 
 | ID | Tarea | Archivos | Resultado |
 |----|-------|----------|-----------|
-| DOC-API-05 | Fix TS_SDK.md: +connect_idb(), searchVector naming | `docs/api/TS_SDK.md` | ✅ `92c49bc` |
+| DOC-API-05 | Corregir TS_SDK.md: +connect_idb(), searchVector naming | `docs/api/TS_SDK.md` | ✅ `92c49bc` |
 | DOC-API-06 | Crear IQL.md + verificar HTTP_API.md endpoints | `docs/api/IQL.md` (+213), `docs/api/HTTP_API.md` | ✅ `13c5a0f` |
 
-**Total:** 6/6 tasks completadas, ~0 líneas de código Rust/TS/Python, ~250 líneas de documentación nuevas/corregidas.
+**Total:** 6/6 tareas completadas, ~0 líneas de código Rust/TS/Python, ~250 líneas de documentación nuevas/corregidas.
 
 **Ids:** `DOC-API-01`, `DOC-API-02`, `DOC-API-03`, `DOC-API-04`, `DOC-API-05`, `DOC-API-06`
 
 **Verificación:** `cargo check` en `vantadb-python/` — 0 errores.
 
-### 2026-07-23 — Batch TIER 1 Gate Check (8 tasks completadas)
+<!-- movido a ARCHIVO_HISTORICO.md -->
 
-**Objetivo:** Verificar estado real de TIER 1 backlog tasks contra código antes de implementar, porque 3 de 4 primeras ya estaban fixeadas como side effects.
-
-| ID | Tarea | Resultado | Evidencia |
-|----|-------|-----------|-----------|
-| ~~`DRV-031`~~ | Doc comment duplicado | ✅ SKIP | Side effect de refactor previo, doc existe 1 vez |
-| ~~`DRV-026`~~ | Redundant unwrap en three_way_merge | ✅ SKIP | Código usa match sobre .get(), sin unwrap |
-| ~~`DRV-116`~~ | 10 warnings compilación | ✅ SKIP | `cargo check -p vantadb` + `-p vantadb-mcp` = 0 warnings |
-| ~~`DRV-040`~~ | unsafe sin SAFETY en simd.rs | ✅ SKIP | No existe archivo simd.rs en el proyecto |
-| ~~`DRV-025`~~ | TOCTOU race ResourceGovernor | ✅ ALREADY FIXED | Ya usa CAS loop con compare_exchange_weak |
-| ~~`DRV-047`~~ | Hardcoded MCP validation limits | ✅ ALREADY FIXED | Todos los handlers usan config.* values |
-| ~~`DRV-012`~~ | WAL sync duplication | ✅ ALREADY FIXED | maybe_sync() ya extraída como fn separada |
-| `DRV-009` | node_count() O(n) full scan | ✅ ALREADY FIXED | Ya usa AtomicU64 cacheado con fetch_add/fetch_sub. Comment `/// DRV-009` |
-| `DRV-016` | Mutex inconsistency governor.rs | ✅ ALREADY FIXED | Código ya usa parking_lot::Mutex (import L7), no std::sync::Mutex. Backlog description estaba obsoleta. Verificado Jul 23 |
-| ~~`DRV-019`~~ | 14 .expect() en SIMD hot-path | ✅ FIXED | Replaced 14 `.expect()` → `unsafe { .unwrap_unchecked() }` + SAFETY comment en 7 funciones SIMD (f32x8, f32x16, sq8). 62 tests pass. commit pending |
-| ~~`DRV-007`~~ | Data race en filter_field | ✅ ALREADY FIXED | DashMap interno es thread-safe. `_nodes` dead code binding. Sin UB. Verificado Jul 23 |
-| `DRV-049` | collection_delete no atómico (MCP) | ✅ ALREADY FIXED | Ya usa begin_transaction/abort/commit con abort en delete parcial. Verificado Jul 23 |
-
-**Patrón detectado:**** 7/8 TIER 1 tasks ya resueltas — las campañas de refactor previas (DRV-004, DRV-006, commits 3fd2c0d, aa87e5c, d9e1caf, 4467004, de6ecac) limpiaron más issues de los que trackeaban explícitamente. El backlog tenía estado ❌ en items que ya estaban ✅ en código.
-
-| `DRV-005` | SDK unit tests search/mod.rs | ✅ FIXED | 18 tests agregados para `search()`, `lexical_search()`, `vector_memory_search()`, `hybrid_search()`. Cubre: BM25 scoring, HNSW fallback, RRF fusion, explain mode, corrupt index. Verificado Jul 24 |
-
-### 2026-07-24 — DRV-005: SDK unit tests para search/mod.rs
+### 2026-07-24 — DRV-005: Tests unitarios del SDK para search/mod.rs
 
 **Objetivo:** Cerrar gap de cobertura en `src/sdk/search/mod.rs` (845L, 0 tests). Las 4 funciones core de búsqueda híbrida ahora tienen cobertura.
 
 | ID | Tarea | Resultado | Evidencia |
 |----|-------|-----------|-----------|
-| `DRV-005` | SDK unit tests search/mod.rs | ✅ FIXED | 18 tests agregados. `cargo check -p vantadb` limpio. Blocker: `src/vector/quantization.rs:199` (engine domain). Implementado por vanta-worker. |
+| `DRV-005` | Tests unitarios del SDK search/mod.rs | ✅ CORREGIDO | 18 tests agregados. `cargo check -p vantadb` limpio. Blocker: `src/vector/quantization.rs:199` (engine domain). Implementado por vanta-worker. |
 
 **Recomendación:** Para próximos batches, gate-check primero antes de poner en progreso.
 
-### 2026-07-24 — Pipeline Run: 12 tasks completadas
+### 2026-07-24 — Pipeline Run: 12 tareas completadas
 
 **Objetivo:** Ejecutar backlog completo del plan `2026-07-24-backlog-triage-plan.md` — 12 tareas de CI/CD, fixes SDK, web, docs.
 
@@ -3005,42 +2604,42 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | VFY-001 | Reemplazar catch{} vacíos en TS SDK | `vantadb-ts/src/__tests__/hardening.test.ts` | ✅ `1b5cdff` |
 | OLD-06 | Publicar 3 blog posts existentes | `docs/blog/` (3 archivos, README) | ✅ `429c51c` |
 | DEVOPS-14 | Composite action Rust setup | `.github/actions/rust-setup/` | ✅ Ya existía, usado por 5 workflows |
-| VFY-003 | Paginate reindex_hnsw_from_text — OOM fix | `src/sdk/api.rs`, Python/WASM/TS bindings | ✅ `918df85` |
+| VFY-003 | Paginar reindex_hnsw_from_text — fix de OOM | `src/sdk/api.rs`, Python/WASM/TS bindings | ✅ `918df85` |
 | WEB-02 | Corregir claims falsos landing page | `web/src/` (10 archivos) | ✅ `68845a4` (license, support, distributed, latency) |
 | DRV-118 | Windows x64 CI release | `.github/workflows/release-binaries-63.yml` | ✅ Ya existía (matrix incluye x86_64-pc-windows-msvc) |
 | DRV-134 | NbAccordion keyboard a11y + ARIA | `web/src/components/nb/` (2 archivos) | ✅ `42e8ce2` |
 
-**Patrón:** 5 tasks CI/CD (INT-01/02, DEVOPS-14, DRV-118, OLD-06), 4 SDK fixes (DRV-035/037/048, VFY-003), 1 web a11y (DRV-134), 1 landing page (WEB-02), 1 TS quality (VFY-001).
+**Patrón:** 5 tareas CI/CD (INT-01/02, DEVOPS-14, DRV-118, OLD-06), 4 fixes SDK (DRV-035/037/048, VFY-003), 1 web a11y (DRV-134), 1 landing page (WEB-02), 1 calidad TS (VFY-001).
 
 **Ids:** `INT-01`, `INT-02`, `DRV-035`, `DRV-037`, `DRV-048`, `VFY-001`, `VFY-003`, `OLD-06`, `DEVOPS-14`, `WEB-02`, `DRV-118`, `DRV-134`
 
-### 2026-07-24 — Backlog Audit: 4 resolved items moved to progreso
+### 2026-07-24 — Auditoría de Backlog: 4 items resueltos movidos a progreso
 
 **Objetivo:** Mover items que la auditoría de 6 sub-agentes confirmó como resueltos/stale. Los items de crates inexistentes (DRV-060/064/066/072/075/076/077/080/081/083/084/088/090/093/094/097/101/108/114, DRV-078/082/089/095/100/113/128) se eliminaron sin mover — eran hallazgos incorrectos del audit original, no trabajo completado.
 
 | ID | Tarea | Resultado | Evidencia |
 |----|-------|-----------|-----------|
-| `DRV-126` | Paginación offset-based → keyset pagination | ✅ RESUELTO | SearchResults ya implementa paginación keyset + offset-based en `src/sdk/search/mod.rs`. Skip, no DRV needed. |
-| `DRV-129` | Unificar build wasm-pack/maturin | ✅ STALE | wasm-pack (release-npm-61.yml) y maturin (release-wheels-60.yml) son pipelines separados deliberadamente. No existe `cargo xtask` ni entry point único. Item de diseño removido por no ser bloqueante. ❌ Mi claim anterior de "cargo xtask ci" era incorrecto — verificado contra workflows reales. |
+| `DRV-126` | Paginación offset-based → keyset pagination | ✅ RESUELTO | SearchResults ya implementa paginación keyset + offset-based en `src/sdk/search/mod.rs`. Skip, no se necesita DRV. |
+| `DRV-129` | Unificar build wasm-pack/maturin | ✅ OBSOLETO | wasm-pack (release-npm-61.yml) y maturin (release-wheels-60.yml) son pipelines separados deliberadamente. No existe `cargo xtask` ni punto de entrada único. Item de diseño removido por no ser bloqueante. ❌ Mi afirmación anterior de "cargo xtask ci" era incorrecta — verificada contra workflows reales. |
 | `SEC-14` | cargo-deny passing con licencias correctas | ✅ RESUELTO | `cargo deny check` pasa en CI. Licencias MIT/Apache-2.0 solamente en deny.toml. |
 | `NUEVO-20` | Dockerfile multi-stage | ✅ RESUELTO | `Dockerfile` ya existe con build multi-stage. CI lo usa para release. |
 
 **Ids:** `DRV-126`, `DRV-129`, `SEC-14`, `NUEVO-20`
 
-### 2026-07-25 — Phase 0 Release Blockers: 3 completadas, 1 deferida
+### 2026-07-25 — Bloqueantes de Release Fase 0: 3 completadas, 1 diferida
 
-**Objetivo:** Cerrar los 6 items de Phase 0 que bloqueaban release público. 3 implementadas, 1 deferida (nice-to-have pre-1.0), 2 ya completadas previamente.
+**Objetivo:** Cerrar los 6 items de Fase 0 que bloqueaban el release público. 3 implementadas, 1 diferida (nice-to-have pre-1.0), 2 ya completadas previamente.
 
 | ID | Tarea | Archivos | Resultado |
 |----|-------|----------|-----------|
-| `DEVOPS-15` | Optimizar default features Cargo.toml | `Cargo.toml:89` | ❌ **WONTFIX** — Analizado y NO aplicado. Reducir de 7 a 3 features (`cli`, `memmap2`, `fs2`, `sysinfo`) rompe experiencia "it just works". 7 features mantienen UX completo. |
+| `DEVOPS-15` | Optimizar default features Cargo.toml | `Cargo.toml:89` | ❌ **WONTFIX** — Analizado y NO aplicado. Reducir de 7 a 3 features (`cli`, `memmap2`, `fs2`, `sysinfo`) rompe la experiencia "it just works". 7 features mantienen UX completo. |
 | `REV-014` | Dependabot PRs → develop branch | `.github/dependabot.yml` | ✅ `target-branch: develop` agregado a los 4 ecosystems (cargo, npm, github-actions, docker). |
 | `DRV-125` | Tests Miri para 30+ usos unsafe en src/index/ | `src/index/distance.rs`, `search.rs`, `graph.rs`, `serialize.rs` | ✅ **21 tests Miri pre-existentes** verificados: 5 en distance.rs, 3 en graph.rs, 6 en search.rs, 7 en serialize.rs. Cubren todos los patrones unsafe. |
-| `DEVOPS-10` | Windows code signing (SmartScreen) | `release-binaries-63.yml` | 🔵 DEFERIDO (ponytail). SHA256 + .zip dan integridad básica. Agregar Azure Trusted Signing cuando release público lo requiera. Step YAML preparado en task file. |
+| `DEVOPS-10` | Windows code signing (SmartScreen) | `release-binaries-63.yml` | 🔵 DIFERIDO (ponytail). SHA256 + .zip dan integridad básica. Agregar Azure Trusted Signing cuando el release público lo requiera. Step YAML preparado en el archivo de tarea. |
 
 **Ids:** `DEVOPS-15`, `REV-014`, `DRV-125`, `DEVOPS-10`
 
-### 2026-07-25 — P4 Engineering Health Wave 0: DOC-20 (mdBook docs site)
+### 2026-07-25 — P4 Engineering Health Wave 0: DOC-20 (sitio de docs mdBook)
 
 **Objetivo:** Unificar docs fragmentados en un mdBook con search integrado.
 
@@ -3050,79 +2649,71 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `mdbook build docs/book/` ✅ — 83 archivos en `docs/book/book/`, `index.html` funcional.
 
-### 2026-07-25 — P4 Engineering Health Wave 0: WEB-03 (Async WAL batching fsyncs)
+### 2026-07-25 — P4 Engineering Health Wave 0: WEB-03 (batching async de fsyncs WAL)
 
-**Objetivo:** Parallel fsync for WAL shards — `flush_all` spawns one thread per shard.
+**Objetivo:** fsync paralelo para los shards de WAL — `flush_all` lanza un thread por shard.
 
 | ID | Tarea | Archivos | Resultado |
 |----|-------|----------|-----------|
-| `WEB-03` | Async WAL batching fsyncs | `src/wal_sharded.rs` | ✅ `c59e0f80` — `flush_all` parallel per-shard fsync. Single-shard short-circuit. |
+| `WEB-03` | Async WAL batching fsyncs | `src/wal_sharded.rs` | ✅ `c59e0f80` — `flush_all` fsync paralelo por shard. Short-circuit de shard único. |
 
 **Verificación:** `cargo check -p vantadb` ✅ | `cargo test --package vantadb --lib wal_sharded` ✅ (25/25)
 
-### 2026-07-25 — P4 Engineering Health Wave 0: VFY-004 (flat.rs O(n²) comment-only)
+<!-- movido a ARCHIVO_HISTORICO.md -->
 
-**Objetivo:** Document that `flat.rs` filter O(n²) is by design (DashMap scan bounded by `flat_threshold`).
+### 2026-07-25 — P4 Engineering Health Wave 0: WEB-04 (versionado de formato de Storage)
 
-| ID | Tarea | Archivos | Resultado |
-|----|-------|----------|-----------|
-| `VFY-004` | flat.rs O(n²) en filter — comment-only | `src/index/flat.rs:32` | ✅ `dd13b67d` — 0 code logic changes. Comment explains bounded scan. |
-
-**Verificación:** `cargo check -p vantadb` ✅
-
-### 2026-07-25 — P4 Engineering Health Wave 0: WEB-04 (Storage format versioning)
-
-**Objetivo:** Implement draft `STORAGE_VERSIONING.md` — `validate_compat()` range-based check for VantaFile/HNSW/WAL.
+**Objetivo:** Implementar el borrador `STORAGE_VERSIONING.md` — `validate_compat()` check basado en rangos para VantaFile/HNSW/WAL.
 
 | ID | Tarea | Archivos | Resultado |
 |----|-------|----------|-----------|
-| `WEB-04` | Storage format versioning | `src/binary_header.rs`, `src/lib.rs` | ✅ `21432104` — `VantaHeader::validate_compat()` range check. Magic + `format_version ≤ max_version`. Constants `VFILE_VERSION`, `VECTOR_INDEX_VERSION`, `WAL_FORMAT_VERSION` made pub. `STORAGE_VERSIONING.md` marked implemented. |
+| `WEB-04` | Storage format versioning | `src/binary_header.rs`, `src/lib.rs` | ✅ `21432104` — `VantaHeader::validate_compat()` check de rango. Magic + `format_version ≤ max_version`. Constants `VFILE_VERSION`, `VECTOR_INDEX_VERSION`, `WAL_FORMAT_VERSION` hechas pub. `STORAGE_VERSIONING.md` marcado como implementado. |
 
 **Verificación:** `cargo check -p vantadb` ✅ | `cargo test --package vantadb --lib binary_header` ✅
 
-### 2026-07-25 — P4 Engineering Health Wave 0: DRV-121 (Planner CBO optimization)
+### 2026-07-25 — P4 Engineering Health Wave 0: DRV-121 (optimización CBO del Planner)
 
-**Objetivo:** Predicate pushdown (sort by selectivity) + filter elimination (identity filter sel≥1.0 skipped).
+**Objetivo:** Predicate pushdown (orden por selectividad) + eliminación de filtros (identity filter con sel≥1.0 omitido).
 
 | ID | Tarea | Archivos | Resultado |
 |----|-------|----------|-----------|
-| `DRV-121` | Planner CBO optimization | `src/planner.rs` | ✅ `21432104` — Filters sorted by estimated selectivity (ascending). Identity filters with sel ≥ 1.0 skipped. Constants `HIGH_SELECTIVITY_THRESHOLD`, imports `FieldValue`/`RelOp`. Test for identity filter elimination. |
+| `DRV-121` | Planner CBO optimization | `src/planner.rs` | ✅ `21432104` — Filtros ordenados por selectividad estimada (ascendente). Identity filters con sel ≥ 1.0 omitidos. Constants `HIGH_SELECTIVITY_THRESHOLD`, imports `FieldValue`/`RelOp`. Test para eliminación de identity filters. |
 
 **Verificación:** `cargo check -p vantadb` ✅ | `cargo test --package vantadb --lib planner` ✅
 
-### 2026-07-25 — P4 Engineering Health Wave 0: DRV-123 (Auto-embedding INSERT polish)
+### 2026-07-25 — P4 Engineering Health Wave 0: DRV-123 (pulido de Auto-embedding en INSERT)
 
-**Objetivo:** Error handling polish for `remote-inference` auto-embedding on INSERT.
+**Objetivo:** Pulido del manejo de errores para auto-embedding `remote-inference` en INSERT.
 
 | ID | Tarea | Archivos | Resultado |
 |----|-------|----------|-----------|
-| `DRV-123` | Auto-embedding INSERT polish | `src/llm.rs`, `src/executor.rs` | ✅ `21432104` — `match` replaces `if let Ok`, `tracing::warn!` on failure. Empty text guard `!text.trim().is_empty()`. Applied to both `node_id` and `InsertMessage` paths. Test `test_auto_embedding_graceful_degradation_on_insert` added. |
+| `DRV-123` | Auto-embedding INSERT polish | `src/llm.rs`, `src/executor.rs` | ✅ `21432104` — `match` reemplaza `if let Ok`, `tracing::warn!` en fallo. Guard de texto vacío `!text.trim().is_empty()`. Aplicado a los paths de `node_id` y `InsertMessage`. Agregado el test `test_auto_embedding_graceful_degradation_on_insert`. |
 
 **Verificación:** `cargo check -p vantadb` ✅ | `cargo test --package vantadb --lib executor` ✅
 
-### 2026-07-26 — P4 Engineering Health Wave 0: VFY-011 (ACID Phase 3 — MVCC/Snapshot Isolation)
+### 2026-07-26 — P4 Engineering Health Wave 0: VFY-011 (ACID Fase 3 — MVCC/Isolation de Snapshot)
 
 **Objetivo:** Snapshot isolation / MVCC para lecturas consistentes durante escrituras concurrentes.
 
 | ID | Tarea | Archivos | Resultado |
 |----|-------|----------|-----------|
-| `VFY-011` | ACID Phase 3 — Snapshot isolation / MVCC | `src/storage/engine/ops.rs`, `src/storage/engine/mod.rs`, `src/storage/engine/init.rs`, `src/storage/ops.rs` | `Snapshot { txn_id: u64 }` struct + `get_with_snapshot()` filtrado MVCC. `active_txns: HashSet<u64>` reemplaza `active_txn_id: Mutex`. Write-write conflict detection via `check_write_conflict()`. 7 new tests: snapshot lifecycle, committed/uncommitted/deleted visibility, concurrent txns, write-write conflicts. `created_by_txn`/`deleted_by_txn` en NodeMetadata. |
+| `VFY-011` | ACID Fase 3 — Isolation de snapshot / MVCC | `src/storage/engine/ops.rs`, `src/storage/engine/mod.rs`, `src/storage/engine/init.rs`, `src/storage/ops.rs` | `Snapshot { txn_id: u64 }` struct + `get_with_snapshot()` filtrado MVCC. `active_txns: HashSet<u64>` reemplaza `active_txn_id: Mutex`. Detección de conflictos write-write vía `check_write_conflict()`. 7 tests nuevos: ciclo de vida de snapshot, visibilidad committed/uncommitted/deleted, txns concurrentes, conflictos write-write. `created_by_txn`/`deleted_by_txn` en NodeMetadata. |
 
-**Verificación:** `cargo check -p vantadb` ✅ | `cargo test -p vantadb --lib storage::engine::tests::ops` 62 passed ✅
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo test -p vantadb --lib storage::engine::tests::ops` 62 pasaron ✅
 
-### 2026-07-26 — DRV-122: IQL JOINs, Subqueries, and SQL Compatibility
+### 2026-07-26 — DRV-122: JOINs IQL, Subqueries y Compatibilidad SQL
 
-**Objetivo:** Implementar SELECT/JOIN/subquery parser, NestedLoopJoin physical operator, subquery filter, planner integration.
+**Objetivo:** Implementar parser SELECT/JOIN/subquery, operador físico NestedLoopJoin, subquery filter, integración con planner.
 
 | ID | Tarea | Archivos | Resultado |
 |----|-------|----------|-----------|
-| `DRV-122` | IQL JOINs/subqueries/SQL compatibility | `src/query.rs`, `src/parser/mod.rs`, `src/executor.rs`, `src/planner.rs`, `tests/logic/joins.rs`, `Cargo.toml` | ✅ 3 fases: (1) SELECT/JOIN/subquery parser + plan types `de1898a6`, (2) NestedLoopJoin + SubqueryFilter physical operators `345d1939`, (3) planner integration + 10 new tests `6449469f`. 1559 tests pass (0 failed). |
+| `DRV-122` | IQL JOINs/subqueries/SQL compatibility | `src/query.rs`, `src/parser/mod.rs`, `src/executor.rs`, `src/planner.rs`, `tests/logic/joins.rs`, `Cargo.toml` | ✅ 3 fases: (1) parser SELECT/JOIN/subquery + plan types `de189a8c`, (2) operadores físicos NestedLoopJoin + SubqueryFilter `345d1939`, (3) integración con planner + 10 tests nuevos `6449469f`. 1559 tests pasan (0 fallos). |
 
-**Verificación:** `cargo check -p vantadb` ✅ | `cargo test --package vantadb --lib parser::tests` 97 passed ✅ | `cargo test --package vantadb --lib joines` 10 new JOIN tests ✅
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo test --package vantadb --lib parser::tests` 97 pasaron ✅ | `cargo test --package vantadb --lib joines` 10 tests JOIN nuevos ✅
 
-### 2026-07-26 — Phase 7: NUEVO-13 HNSW ef_search auto-tuning
+### 2026-07-26 — Fase 7: NUEVO-13 auto-tuning de ef_search HNSW
 
-**Objetivo:** Mejorar auto-tuning heuristic doubling de HNSW ef_search con dampening factor 1.5x, gauge métrica, y test de integración.
+**Objetivo:** Mejorar el auto-tuning de HNSW ef_search con heuristic doubling, dampening factor 1.5x, gauge de métrica y test de integración.
 
 | ID | Tarea | Archivos | Resultado |
 |----|-------|----------|-----------|
@@ -3130,66 +2721,39 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `cargo nextest run --profile audit -p vantadb` ✅ | 4 auto_tune tests + gauge test ✅
 
-### 2026-07-26 — DRV-131: Missing Index Types Beyond HNSW — IVF Flat
+### 2026-07-26 — DRV-131: Tipos de índice faltantes más allá de HNSW — IVF Flat
 
 **Objetivo:** Agregar nuevos tipos de índice vectorial más allá de HNSW. Implementado IVF Flat (inverted file con k-means, sin dependencias externas).
 
 | ID | Tarea | Archivos | Resultado |
 |----|-------|----------|-----------|
-| `DRV-131` | IVF Flat index | `src/index/ivf.rs` (NEW, 836L), `src/index/mod.rs`, `src/index/graph.rs`, `src/index/search.rs`, `src/index/serialize.rs`, `src/index/core.rs`, 6 test/bench files | ✅ IVF implementado: `IvfIndex` con k-means (Forgy + Lloyd, max 20 iter), search con nprobe, serialización v8 con backwards compat v7. 16 tests IVF. 1547 tests lib pass. 0 clippy warnings nuevos. |
+| `DRV-131` | IVF Flat index | `src/index/ivf.rs` (NEW, 836L), `src/index/mod.rs`, `src/index/graph.rs`, `src/index/search.rs`, `src/index/serialize.rs`, `src/index/core.rs`, 6 test/bench files | ✅ IVF implementado: `IvfIndex` con k-means (Forgy + Lloyd, max 20 iter), search con nprobe, serialización v8 con backwards compat v7. 16 tests IVF. 1547 tests lib pasan. 0 clippy warnings nuevos. |
 
-**Verificación:** `cargo check -p vantadb` ✅ | `cargo test -p vantadb --lib` 1547 passed ✅ | `cargo clippy -p vantadb` limpio ✅
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo test -p vantadb --lib` 1547 pasaron ✅ | `cargo clippy -p vantadb` limpio ✅
 
 **Ids:** `DRV-131`
 
-### 2026-07-26 — P2 Backlog Housekeeping: DRV-041, VFY-006, VFY-007 ✅
+<!-- movido a ARCHIVO_HISTORICO.md -->
 
-**Fuente:** Backlog P2 Quick Wins — tareas triageadas como "ya corregidas" en pase de revisión anterior
-
-| ID | Tarea | Resultado |
-|----|-------|-----------|
-| `DRV-041` | **worker.rs Promise con serde_wasm_bindgen** — **Corregido:** _reject sí se invoca (línea 254). No hay serde_json round-trip (usa serde_wasm_bindgen). Descripción original no coincide con código real. | ✅ Document-only. Backlog actualizado. |
-| `VFY-006` | **`add_node` / `remove_node` lock contention** — **Corregido:** usa DashMap (locking por shard) + AtomicUsize/AtomicU128 (lock-free). Único Mutex es rng. | ✅ Document-only. Backlog actualizado. |
-| `VFY-007` | **`remove_node` O(n²) neighbor fixup** — **Corregido:** archivo real `src/index/graph.rs` (no `core.rs`). | ✅ Document-only. Backlog actualizado. |
-
-**Verificación:** Backlog.md P2 counter 15→12. Sin code changes (ponytail — ya estaba corregido).
-
-### 2026-07-26 — P8 Post-Launch & Enterprise: CLI-01, DEVOPS-HOMEBREW, DEVOPS-PY313, DEVEX-DEMO, DEVEX-EXAMPLES ✅
+### 2026-07-26 — P8 Post-Launch y Enterprise: CLI-01, DEVOPS-HOMEBREW, DEVOPS-PY313, DEVEX-DEMO, DEVEX-EXAMPLES ✅
 
 **Objetivo:** Pipeline paralelo de 5 tareas P8. 3 delegadas a `vanta-worker` (Rust/Python), 2 procesadas por `vanta-lead` (CI/CD).
 
 | ID | Tarea | Resultado |
 |----|-------|-----------|
-| `CLI-01` | **CLI handlers backup/restore/doctor/stats/inspect** — Conectar 5 handlers existentes al dispatcher CLI | ✅ `src/cli.rs` + `src/bin/vanta-cli.rs`. 5 commands nuevos conectados. 46 tests CLI pasan. Delegado a vanta-worker. |
-| `DEVOPS-HOMEBREW` | **Homebrew formula** — Ya implementada (`Formula/vantadb.rb`) | ✅ Document-only. Placeholder SHA256 — actualizar antes de publish. |
+| `CLI-01` | **CLI handlers backup/restore/doctor/stats/inspect** — Conectar 5 handlers existentes al dispatcher CLI | ✅ `src/cli.rs` + `src/bin/vanta-cli.rs`. 5 comandos nuevos conectados. 46 tests CLI pasan. Delegado a vanta-worker. |
+| `DEVOPS-HOMEBREW` | **Homebrew formula** — Ya implementada (`Formula/vantadb.rb`) | ✅ Solo documentación. Placeholder SHA256 — actualizar antes del publish. |
 | `DEVOPS-PY313` | **Python 3.13 wheels en CI matrix** — CI verify jobs actualizados a Python 3.13 | ✅ Verify-testpypi-install + verify-pypi-install ahora usan CPython 3.13. Build mantiene 3.11 con `abi3-py311`. |
-| `DEVEX-DEMO` | **Demo app** — `examples/demo/` con Python 239L + README + requirements | ✅ Delegado a vanta-worker. Syntax check clean. |
-| `DEVEX-EXAMPLES` | **Rust examples** — 4 ejemplos existentes en `examples/rust/` | ✅ Document-only. basic, hybrid, graphrag, concurrent compilan clean. |
+| `DEVEX-DEMO` | **Demo app** — `examples/demo/` con Python 239L + README + requirements | ✅ Delegado a vanta-worker. Syntax check limpio. |
+| `DEVEX-EXAMPLES` | **Rust examples** — 4 ejemplos existentes en `examples/rust/` | ✅ Solo documentación. basic, hybrid, graphrag, concurrent compilan limpio. |
 
 **Verificación:** `cargo check` ✅ | Backlog.md P8 counter 13→8 | CLI 7→8 | Infra CI 2→4 | Total 90→95
 
-### 2026-07-26 — Backlog Cleanup: P0–P4, P7, P9–P10 — 53 items moved to progreso
-
-**Objetivo:** Limpiar backlog verificando cada item ✅ contra código real. Mover completados a progreso, re-abrir falsos positivos.
-
-| Fase | Acción | Items |
-|------|--------|-------|
-| **P0** | 6 stale removidos + 1 WONTFIX (DEVOPS-15) | `DEVOPS-10/12/14`, `NUEVO-09/10` removidos. `DEVOPS-15` WONTFIX — 7 features necesarias para experiencia "it just works" |
-| **P1** | Fase completa cerrada (9 items resueltos/deferidos) | `RC-06`, `SEC-13/15/16/17`, `VFY-010/14/15/16` |
-| **P2** | 7 ✅ + 24 stale a progreso | `DRV-014/028/041/136`, `VFY-006/007`, `REV-012` + 24 crates de integración nunca implementados |
-| **P3** | 7 ✅ + 7 stale a progreso | `DRV-013/017/061/067/073`, `TEST-11/12` + 7 stale |
-| **P4** | 10 ✅ a progreso | `WEB-03/04`, `VFY-004/011`, `DRV-121/122/123/130/131`, `DOC-20` |
-| **P7** | 2 ✅ a progreso | `NUEVO-13` (auto-tuning), `NUEVO-14` (WASM bundle 394KB gzip < 500KB) |
-| **P9** | 7 ✅ a progreso | `OLD-04/07/13/15/17/18/22` |
-| **P10** | 12 ✅ a progreso | `COMP-001/002/003/004/005/006/007/009/011/015/018/020/030` |
-
-**Impacto:** Backlog total ~120→~65 items activos. 5 fases cerradas (P1–P4, P7). Exec Summary actualizado.
-
-**Verificación:** Cada item verificado contra código real antes de mover. `DEVOPS-15` re-abierto tras detectar discrepancia en `Cargo.toml:89`, luego marcado WONTFIX — reducir features rompe UX "it just works".
+<!-- movido a ARCHIVO_HISTORICO.md -->
 
 ### 2026-07-27 — P5/P6/P8 Quick Wins: 8 tareas ejecutadas
 
-**Fuente:** Backlog P5 (Docs & Community), P6 (Launch Campaign), P8 (Post-Launch)
+**Fuente:** Backlog P5 (Docs y Community), P6 (Launch Campaign), P8 (Post-Launch)
 
 **Objetivo:** Ejecutar tareas rápidas de community, marketing y documentación en paralelo.
 
@@ -3216,7 +2780,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 ---
 
-### 2026-07-27 — COMP-010: Auto-embedding function abstraction
+### 2026-07-27 — COMP-010: Abstracción de la función de auto-embedding
 
 **Objetivo:** Refactorizar auto-embedding de `LlmClient` concreto (Ollama hardcodeado) a trait `EmbeddingProvider` abstracto con múltiples implementaciones.
 
@@ -3226,7 +2790,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `cargo check -p vantadb --features remote-inference` ✅ | `cargo test --package vantadb --lib executor` 26/26 ✅ | `cargo clippy -p vantadb --features remote-inference -- -D warnings` ✅ | `cargo fmt --check` ✅
 
-### 2026-07-27 — COMP-008: Pluggable Index Engine (VecIndex Trait)
+### 2026-07-27 — COMP-008: Motor de índice enchufable (trait VecIndex)
 
 **Objetivo:** Abstraer operaciones de index vectorial (HNSW, IVF, flat scan) detrás de un trait `VecIndex` para desbloquear múltiples backends (COMP-027).
 
@@ -3234,7 +2798,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 |----|-------|----------|-----------|
 | `COMP-008` | Trait `VecIndex` con `search`/`add`/`len`/`estimate_memory_bytes`. Implementado para `CPIndex` (HNSW) e `IvfIndex`. `vector_memory_search` actualizado a `engine.vec_index()`. Fix a `vantadb-mcp` por rotura de COMP-006. | `src/index/mod.rs`, `src/index/search.rs`, `src/index/ivf.rs`, `src/sdk/search/mod.rs`, `src/storage/engine/mod.rs`, `vantadb-mcp/src/lib.rs` | ✅ Trait definido. Ambos backends implementan `VecIndex`. `vector_memory_search` usa trait object. Workspace completo compila con `-D warnings`. **1679 tests pasan.** |
 
-**Verificación:** `cargo check -p vantadb` ✅ | `cargo check --benches -p vantadb` ✅ | `cargo clippy --workspace --all-targets -- -D warnings` ✅ | `cargo fmt --check` ✅ | `cargo nextest run --profile audit --workspace --build-jobs 2` ✅ 1679/1679 passed
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo check --benches -p vantadb` ✅ | `cargo clippy --workspace --all-targets -- -D warnings` ✅ | `cargo fmt --check` ✅ | `cargo nextest run --profile audit --workspace --build-jobs 2` ✅ 1679/1679 pasaron
 
 **Ids:** `COMP-008`
 
@@ -3242,9 +2806,9 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 | Tarea | Logro | Archivos | Estado |
 |-------|-------|----------|--------|
-| `COMP-014` | FreshHNSW: `repair_orphan_links()` three-phase (snapshot→scan→repair) evita deadlock de DashMap. `FreshHnswReport`, `PipelineMode::FreshHnswOnly`, pipeline phase entre Vacuum y Merge. 4 tests (empty, no-orphans, after-delete, multi-layer). | `src/index/graph.rs`, `src/storage/engine/mod.rs`, `src/storage/engine/maintenance.rs` | ✅ 4/4 tests (0.49s), cargo check ok |
+| `COMP-014` | FreshHNSW: `repair_orphan_links()` de tres fases (snapshot→scan→repair) evita deadlock de DashMap. `FreshHnswReport`, `PipelineMode::FreshHnswOnly`, fase de pipeline entre Vacuum y Merge. 4 tests (empty, no-orphans, after-delete, multi-layer). | `src/index/graph.rs`, `src/storage/engine/mod.rs`, `src/storage/engine/maintenance.rs` | ✅ 4/4 tests (0.49s), cargo check ok |
 
-### 2026-07-27 — COMP-013: Segment Optimizer Pipeline (Vacuum/Merge/Index)
+### 2026-07-27 — COMP-013: Pipeline de optimización de segmentos (Vacuum/Merge/Index)
 
 **Objetivo:** Construir pipeline formal de optimización de segmentos en background (Vacuum → Merge → Index). Ya existían piezas sueltas (`compact_layout_bfs`, `trigger_compaction`, `rebuild_vector_index`) pero sin orquestación.
 
@@ -3254,7 +2818,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `cargo check -p vantadb` ✅ | `cargo test -p vantadb -- maintenance` 77/77 ✅
 
-### 2026-07-27 — COMP-009: Binary Bulk Import
+### 2026-07-27 — COMP-009: Importación masiva binaria
 
 **Objetivo:** Protocolo binario de importación masiva 5-10x más rápido que `put_batch()`, con bypass de validación por registro y batch commit.
 
@@ -3266,35 +2830,27 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 ---
 
-### 2026-07-28 — ECO-001: Remove dead Claude Code hooks
+### 2026-07-28 — ECO-001: Eliminar hooks muertos de Claude Code
 
 **Objetivo:** Eliminar hooks muertos de Claude Code (`.opencode/hooks/hooks.json` y `session-start.sh`) que nunca se ejecutan en OpenCode/Windows.
 
 | ID | Tarea | Resultado | Evidencia |
 |----|-------|-----------|-----------|
-| `ECO-001` | Remove dead Claude Code hooks (C1) | ✅ COMPLETED | Commit `cf623e5c`. Archivos eliminados de `.opencode/hooks/`. Blast radius: cero. |
+| `ECO-001` | Remove dead Claude Code hooks (C1) | ✅ COMPLETADO | Commit `cf623e5c`. Archivos eliminados de `.opencode/hooks/`. Blast radius: cero. |
 
 **Verificación:** `Test-Path ".opencode/hooks"` → False ✅ | `git log --oneline -1` → `cf623e5c chore: remove dead Claude Code hooks (ECO-001)` ✅
 
-### 2026-07-28 — ECO-002: Fix --no-verify contradiction in AGENTS.md
+### 2026-07-28 — ECO-002: Corregir contradicción de --no-verify en AGENTS.md
 
 **Objetivo:** Eliminar contradicción en AGENTS.md donde Regla 1 prohibía `--no-verify` pero Regla 7 lo autorizaba para cambios triviales.
 
 | ID | Tarea | Resultado | Evidencia |
 |----|-------|-----------|-----------|
-| `ECO-002` | Fix --no-verify contradiction in AGENTS.md (C3) | ✅ COMPLETED | Regla B (línea 967 original) ya eliminada. Solo queda Regla A (`grep --no-verify .opencode/AGENTS.md` → 1 match: prohibición en línea 791). `.antigravity/AGENTS.md` idéntico. |
+| `ECO-002` | Corregir contradicción de --no-verify en AGENTS.md (C3) | ✅ COMPLETADO | Regla B (línea 967 original) ya eliminada. Solo queda Regla A (`grep --no-verify .opencode/AGENTS.md` → 1 match: prohibición en línea 791). `.antigravity/AGENTS.md` idéntico. |
 
-**Verificación:** `grep "trivial.*CI\|no-verify.*trivial" .opencode/AGENTS.md` → 0 matches ✅ | `grep "trivial.*CI\|no-verify.*trivial" .antigravity/AGENTS.md` → 0 matches ✅
+**Verificación:** `grep "trivial.*CI\|no-verify.*trivial" .opencode/AGENTS.md` → 0 coincidencias ✅ | `grep "trivial.*CI\|no-verify.*trivial" .antigravity/AGENTS.md` → 0 coincidencias ✅
 
-### 2026-08-02 — INV-017: sccache en CI — investigación
-
-**Objetivo:** Investigar compatibilidad de `sccache` con GitHub Actions + `Swatinem/rust-cache`, evaluar complementariedad/redundancia, diseñar integración mínima y medir impacto estimado.
-
-| ID | Tarea | Resultado | Evidencia |
-|----|-------|-----------|-----------|
-| `INV-017` | sccache en CI — investigación | ✅ COMPLETED | `docs/Investigaciones/INV-017-sccache-ci.md`. Hallazgo clave: `.opencode/AGENTS.md` afirmaba falsamente sccache implementado (drift, 0 matches en `.github/`); corregido. Diseño: `mozilla-actions/sccache-action@v0.0.11` + `SCCACHE_GHA_ENABLED` + `RUSTC_WRAPPER` en rust-setup. |
-
-**Verificación:** `rg -rln sccache .github/` → 0 (pre-cambio) ✅ | `docs/Investigaciones/INV-017-sccache-ci.md` existe ✅
+<!-- movido a ARCHIVO_HISTORICO.md -->
 
 ### 2026-08-02 — GH-143: Acelerar CI con sccache y paralelización
 
@@ -3302,17 +2858,17 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 | ID | Tarea | Resultado | Evidencia |
 |----|-------|-----------|-----------|
-| `GH-143` | Acelerar CI con sccache y paralelización | ✅ COMPLETED | Commits `44404c7d` (docs INV-017 + drift AGENTS.md), `1f9f5c41` (sccache + nextest install fix). sccache vía `mozilla-actions/sccache-action@v0.0.11` en `.github/actions/rust-setup/action.yml`; nextest Windows vía `taiki-e/install-action` en `ci-rust-10.yml`. Run 30737269105: 15/15 jobs pass; Tests (Windows) 14m29s → 8m35s (−40.7%). Issue #143 cerrado. |
+| `GH-143` | Acelerar CI con sccache y paralelización | ✅ COMPLETADO | Commits `44404c7d` (docs INV-017 + drift AGENTS.md), `1f9f5c41` (sccache + fix install de nextest). sccache vía `mozilla-actions/sccache-action@v0.0.11` en `.github/actions/rust-setup/action.yml`; nextest Windows vía `taiki-e/install-action` en `ci-rust-10.yml`. Run 30737269105: 15/15 jobs pasan; Tests (Windows) 14m29s → 8m35s (−40.7%). Issue #143 cerrado. |
 
 **Verificación:** `gh run view 30737269105` → success ✅ | job test-windows 515s vs baseline 869s (−40.7%) ✅ | actionlint + pyyaml OK ✅
 
-### 2026-08-02 — ENT-04: Connection pooling + circuit breaker (server-mode)
+### 2026-08-02 — ENT-04: Pool de conexiones + circuit breaker (server-mode)
 
-**Objetivo:** Robustez del server-mode bajo carga/concurrencia. Implementar pool de conexiones con límite de concurrencia y circuit breaker con estados closed/open/half-open. (Wasn't previously implementado — solo la métrica existía.)
+**Objetivo:** Robustez del server-mode bajo carga/concurrencia. Implementar pool de conexiones con límite de concurrencia y circuit breaker con estados closed/open/half-open. (No estaba implementado previamente — solo existía la métrica.)
 
 | ID | Tarea | Resultado | Evidencia |
 |----|-------|-----------|-----------|
-| `ENT-04` | Connection pooling + circuit breaker | ✅ COMPLETED | Módulos `src/connection_pool.rs` (pool con cola + semaphore, 4 tests) y `src/circuit_breaker.rs` (estados closed/open/half-open, probe, 5 tests), feature-gated `server` en `src/lib.rs`. `ServerState` en `src/cli_server.rs` construye ambos desde config (`server.pool.*`, `server.breaker.*`); middleware breaker como capa más externa vía `from_fn_with_state`; `execute_query` → `axum::response::Response` (timeout/closed → 503 + header `Retry-After`, pánico → 500). `record_oom()` incrementa umbral no-exit bajo `prometheus`. E2e en `vantadb-server/tests/server.rs`: 503 + `Retry-After: "30"` al abrir, probe half-open que cierra. Config y `.env` documentados en `docs/operations/CONFIGURATION.md`. |
+| `ENT-04` | Connection pooling + circuit breaker | ✅ COMPLETADO | Módulos `src/connection_pool.rs` (pool con cola + semaphore, 4 tests) y `src/circuit_breaker.rs` (estados closed/open/half-open, probe, 5 tests), feature-gated `server` en `src/lib.rs`. `ServerState` en `src/cli_server.rs` construye ambos desde config (`server.pool.*`, `server.breaker.*`); middleware breaker como capa más externa vía `from_fn_with_state`; `execute_query` → `axum::response::Response` (timeout/closed → 503 + header `Retry-After`, pánico → 500). `record_oom()` incrementa umbral no-exit bajo `prometheus`. E2e en `vantadb-server/tests/server.rs`: 503 + `Retry-After: "30"` al abrir, probe half-open que cierra. Config y `.env` documentados en `docs/operations/CONFIGURATION.md`. |
 
 **Verificación:** `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` ✅ | `cargo fmt --check` ✅ | Unit: `-E 'test(circuit_breaker) | test(connection_pool)'` → 9/9 ✅ | E2e: `-E 'test(circuit_breaker)'` → 2/2 ✅ | Workspace `cargo nextest run --profile audit --build-jobs 2 --workspace` → 1802/1802 ✅ | En pasada se arregló error pre-existente `vantadb-wasm/src/worker.rs:210` (js-sys 0.3.103 `Reflect::apply` exige `&Function`). |
 
