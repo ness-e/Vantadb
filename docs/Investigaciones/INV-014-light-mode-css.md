@@ -35,9 +35,12 @@ La paleta (manga/linocut: cream `#FBF9F5` / ink `#000000` / neon `#FF5500`) es i
 
 1. **Eliminar la plomería DARK inerte** (YAGNI): `theme-provider.tsx` + `theme-toggle.tsx` + dep `next-themes` de `package.json`.
 2. **NO reactivar dark mode**: requeriría bloque `.dark` con nueva paleta + sobreescribir decenas de utilities hardcodeadas a light — contradice la estética manga/linocut. Dark mode = feature aparte si se quiere.
-3. **Corregir nota stale** en `web/AGENTS.md`: "class-based theme switching (light default)" es aspiracional — next-themes no está montado.
+3. **Corregir nota stale en DOS archivos**: `web/AGENTS.md` ("class-based theme switching (light default)") **y la tabla Stack decisions de `.opencode/AGENTS.md` raíz** — ambos afirman un next-themes que no está montado (verificado 2026-08-04; la versión original del doc solo citaba `web/AGENTS.md`).
 
 ## Notas
 
 - Coincide con el patrón dead-code ya documentado en `web/AUDIT.md`.
+- Matiz (verificado 2026-08-04): `web/src/components/ui/chart.tsx:9` (recharts) referencia el selector `.dark` (`THEMES.dark = ".dark"`), pero no hay ninguna variable `.dark` en el stylesheet — efecto visual insignificante en Tailwind v4. "Cero cambios visuales" se precisa a "cero cambios con paleta dark definida".
 - Solo auditoría + propuesta (alcance del backlog). Cero cambios de código.
+
+<!-- Changed 2026-08-04: alcance de la nota stale ampliado a 2 AGENTS.md (web/ + raíz); matiz chart.tsx. -->

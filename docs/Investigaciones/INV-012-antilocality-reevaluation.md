@@ -2,12 +2,14 @@
 
 **Fecha:** 2026-08-03
 **Estado:** ✅ COMPLETADA
-**Fuente:** docs/Backlog.md línea 202
+**Fuente:** docs/Backlog.md línea 189 (verificado 2026-08-04; la cita original "202" apuntaba al header de la sección CI & Tooling)
 **Tipo:** Benchmark + recomendación (sin implementación)
 
 ## Veredicto: WONTFIX confirmado — mejora ~7%, bajo el 9% original y lejos del 15% requerido
 
-Re-ejecutado `benches/vfile_search.rs` (el benchmark original de DRV-130) en la arquitectura actual (LSM + multi-level storage). result no block.
+Re-ejecutado `benches/vfile_search.rs` (el benchmark original de DRV-130) en la arquitectura actual (LSM + multi-level storage).
+
+<!-- Changed 2026-08-04: corregida fuente Backlog (189); limpiado fragmento residual "result no block". -->
 
 ## Resultados (release, 200 queries/batch)
 

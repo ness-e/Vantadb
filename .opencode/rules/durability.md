@@ -7,6 +7,6 @@
 
 ## Reglas
 
-<!-- Pendiente: reglas de Durability & WAL. Ver README.md → Reglas para las reglas (formato R2). -->
+> **Pendiente de decisión (INV-012, requiere aprobación humana):** INV-012 re-evaluó la anti-localidad y concluyó **WONTFIX** — mantener LSM + multi-level storage (2N/3N de I/O en cold reads es aceptado a cambio de simplicidad y determinismo; `benches/vfile_search.rs` re-ejecutado 2026-08-04 confirma el tradeoff). Cuando se decida formalmente, documentar aquí como regla: NO reintroducir un buffer cache complejo ni layout de datos con localidad física sin una medición que justifique el costo de complejidad. Fuente: INV-012 §2 (Rendimiento) y §3 (Complejidad vs localidad).
 
 <!-- Referencias cruzadas: → ver concurrency-async.md, indexes.md -->

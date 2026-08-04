@@ -54,3 +54,4 @@
 
 - Solo auditoría + propuesta (alcance del backlog). Cero cambios de código.
 - El JSON-LD propuesto es una sola wallet (un solo bloque) para el sitio completo.
+- **Corrección de trazabilidad (2026-08-04):** `docs/progreso/README.md:1323` etiqueta esta investigación como "superseded por WEB-13". Esa nota es **FALSA** — WEB-13 era sobre `web/src/routes/` (páginas Next.js Pages Router) que ya no existe tras la migración a App Router; el JSON-LD NUNCA se implementó. Se corrige el registro de progreso; la propuesta de arriba sigue siendo el plan de acción vigente (ver tarea en Backlog).

@@ -19,9 +19,11 @@ GH-143 pide acelerar el CI de Rust. Esta investigación evalúa integrar
 
 ## 2. Estado real del CI (verificado)
 
-- `rg -rln sccache .github/` → **0 resultados**. sccache NO está implementado en ningún workflow.
+> **Nota de estado 2026-08-04:** este análisis corresponde al 2026-08-02. **El plan de este doc se aplicó literalmente y está COMPLETO** (ver §5 → implementado en `.github/actions/rust-setup/action.yml:72-81`; fix nextest en `ci-rust-10.yml:136-139`; drift de AGENTS.md corregido en `.opencode/AGENTS.md:333-335`; Backlog: INV-017 ✅ y GH-143 ✅). Las afirmaciones de abajo eran ciertas al 08-02, no hoy.
+
+- `rg -rln sccache .github/` → **0 resultados** (al 2026-08-02). sccache NO estaba implementado en ningún workflow.
 - `.opencode/AGENTS.md` (sección "CI: sccache") afirmaba: *"Agregado al workflow `ci-rust-10.yml` mediante `mozilla-actions/sccache-action`"* — **DRIFT documental**: la integración nunca existió.
-- Baseline medible: run `30731463004` de `ci-rust-10.yml` → el job más lento es **Tests (Windows) 14m29s**, dominado por `cargo install cargo-nextest --locked` (`ci-rust-10.yml:138`) en vez de `taiki-e/install-action` (que Linux/macOS ya usan vía `rust-setup:79-83`).
+- Baseline medible: run `30731463004` de `ci-rust-10.yml` → el job más lento es **Tests (Windows) 14m29s**, dominado por `cargo install cargo-nextest --locked` (`ci-rust-10.yml:138` en ese momento; hoy esa línea usa `taiki-e/install-action`) en vez de `taiki-e/install-action` (que Linux/macOS ya usan vía `rust-setup:79-83`).
 
 ---
 

@@ -257,6 +257,14 @@ versionado** como fuente de verdad. Nada se genera en el navegador.
 
 ### 6.2 Slice 1 — Harness + JSON (backend de datos, sin web)
 
+> **Estado 2026-08-04: IMPLEMENTADO.** El harness existe como `benchmarks/competitive_bench.py`
+> (751 líneas) en el repo — no como directorio `benchmarks/competitive/` como proponía este doc.
+> Baja datasets (glove/sift), corre ChromaDB/LanceDB vs VantaDB y emite métricas. Los archivos
+> `benchmarks/competitive/run_competitive_benchmark.py` + `requirements.txt` + `README.md`
+> descritos abajo son el **diseño original** (conceptual); el nombre de archivo real es
+> `competitive_bench.py` y el README vive en `benchmarks/README.md`. Pendiente: emisión del JSON
+> `competitive_benchmark.json` versionado como contrato con la web (ver tarea en Backlog).
+
 - Nuevo: `benchmarks/competitive/run_competitive_benchmark.py`, `requirements.txt`
   (pinned: `vantadb-py`, `chromadb`, `lancedb`, `h5py`, `numpy`), `README.md` con
   instrucciones.
@@ -320,20 +328,23 @@ versionado** como fuente de verdad. Nada se genera en el navegador.
 
 ---
 
-## 8. Gate 2026-08-03 — Diseño Puro, Sin Código
+## 8. Gate 2026-08-03 — Diseño Puro, Sin Código (actualizado 2026-08-04)
 
 | Chequeo | Estado |
 |---|---|
 | ¿Se modificó código fuente (`src/`)? | ❌ No |
 | ¿Se tocó `Cargo.toml` o `Cargo.lock`? | ❌ No |
-| ¿Se modificó `web/`? | ❌ No |
+| ¿Se modificó `web/`? | ❌ No (Slice 2 de la tabla aún pendiente) |
 | ¿Se crearon nuevos benches Criterion? | ❌ No |
-| ¿Se escribió código del harness? | ❌ No (solo diseño en este documento) |
+| ¿Se escribió código del harness? | ✅ **SÍ — después del Gate**: `benchmarks/competitive_bench.py` (751 líneas) ya existe en el repo (verificado 2026-08-04) |
 | ¿Fuentes web citadas? | ✅ Sí (sección 9) |
 | Archivo de investigación creado | ✅ `docs/Investigaciones/INV-007-competitive-benchmark-lancedb-chroma.md` |
 
-Este INV es **diseño puro**. La implementación (harness Python + componente web) se
-ejecutará en tareas posteriores, respetando el slicing de la sección 6.
+Este INV era **diseño puro** al 2026-08-03. Posteriormente se implementó **Slice 1 (harness)**
+como `benchmarks/competitive_bench.py`. Pendiente: emisión del JSON contrato + **Slice 2**
+(tabla competitiva en `web/`). Los placeholders del JSON de ejemplo (§6.2) nunca se publican.
+
+<!-- Changed 2026-08-04: Gate re-verificado — Slice 1 ya existe como competitive_bench.py (751 L). -->
 
 ---
 

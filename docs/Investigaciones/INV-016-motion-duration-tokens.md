@@ -4,7 +4,7 @@
 
 ## Resumen Ejecutivo
 
-**NO existe un sistema de tokens de duración/easing.** `globals.css` `@theme inline{}` solo define colores + fuentes; no hay `--duration-*` ni `--ease-*`. El easing `cubic-bezier(0.2,0.8,0.2,1)` está hardcodeado en 4 lugares — candidato a token `--ease-default`.
+**NO existe un sistema de tokens de duración/easing.** `globals.css` `@theme inline{}` solo define colores + fuentes; no hay `--duration-*` ni `--ease-*`. El easing `cubic-bezier(0.2,0.8,0.2,1)` está hardcodeado en **~15 lugares** — 4 componentes (`reveal.tsx:64`, `faq-section.tsx:79`, `page-transition:27`, `latency-comparator:323/367`) + ~10 utilities/keyframes de `globals.css` (`.press`, `.press-lg`, `.press-neon`, `.neon-underline`, `.btn-neon-glow`, `vanta-rise`, `vanta-stamp`, `.stagger-children`…) + `benchmark-race.tsx` (JS) — candidato a token `--ease-default`. (Conteo corregido en verificación 2026-08-04: el doc original decía "4 lugares".)
 
 ## Corrección al backlog
 
@@ -19,6 +19,7 @@
 | `latency-comparator.tsx:367` → `0.5` | framer-motion | `slow` (.5) |
 | `reveal.tsx` default → `600ms` + delays 40–240 | CSS transition (useReveal) | `transitionDuration` vía CSS var |
 | `mark-classic` 400 / 2400 loop; `mark-cta` 250,300,350,400,400,500,500 | animejs | settle→`slow`/`normal`; loop queda |
+| `benchmark-race.tsx` `transition width ${durationMs}ms cubic-bezier(0.2,0.8,0.2,1)` | CSS inline JS | `--ease-default` (verificado 2026-08-04 — ausente en el inventario original) |
 | Tailwind `duration-*`: 200×13, 300×6, 500, 150, 75, 1000 | CSS utility | `fast`/`normal`/`slow` (300 ya matchea) |
 
 Detalle del easing hardcodeado: `cubic-bezier(0.2,0.8,0.2,1)` en `page-transition`, `reveal`, `latency-comparator`, `faq`.

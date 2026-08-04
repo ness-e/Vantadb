@@ -16,13 +16,14 @@
 ## 2. Hallazgos del Análisis de la Aplicación Web (`web/`)
 
 1. **Estructura de la Aplicación (Next.js App Router):**
-   - El sitio en `web/` utiliza **Next.js 15 App Router**.
+   - El sitio en `web/` utiliza **Next.js 16 App Router** (`web/package.json` → `"next": "^16.1.1"`; corregido de "15" en verificación 2026-08-04).
    - El archivo principal `web/src/app/layout.tsx` configura el shell global (`SiteShell`), fuentes, metadatos y proveedores de contexto (`LanguageProvider`).
    - No se encontró ningún archivo `error.tsx` o `global-error.tsx` en `web/src/app/`.
 
 2. **Uso de `react-error-boundary`:**
    - No se encontraron importaciones activas de `react-error-boundary` en ningún componente UI dentro de `web/src/`.
-   - La dependencia existe en `package-lock.json` pero no se aprovecha ni en layout ni en componentes individuales.
+   - **Es una dependencia TRANSITIVA** de `@lexical/react` (vía `@mdxeditor/editor`), no una dep directa de `package.json` — verificado 2026-08-04 (`package-lock.json:2034`). Un `npm uninstall react-error-boundary` no tendría efecto persistente (se reinstala en el próximo `npm install`).
+   - El peso muerto real es **`@mdxeditor/editor`** (dep directa en `package.json:16`, cero imports en `src/`), que arrastra el árbol `@lexical/*` + `react-error-boundary`.
 
 3. **Naturaleza del Sitio:**
    - La aplicación es primordialmente un portal de documentación, aterrizaje y demos interactivas simples.
@@ -68,7 +69,7 @@ export default function Error({
 }
 ```
 
-Luego, **desinstalar `react-error-boundary`** para reducir el footprint de dependencias no utilizadas.
+Luego, **eliminar la dependencia muerta `@mdxeditor/editor`** (sin imports en `src/`; arrastra `@lexical/*` + `react-error-boundary` transitivamente). No tiene sentido desinstalar `react-error-boundary` directamente — es transitiva y se reinstalaría (ver §2.2, verificado 2026-08-04).
 
 ### Opción B: Utilizar `react-error-boundary` en `layout.tsx`
 Si se prefiere mantener la librería, envolver el contenido dentro de `layout.tsx` con `<ErrorBoundary>` especificando una interfaz de respaldo (*fallback UI*).
@@ -77,7 +78,9 @@ Si se prefiere mantener la librería, envolver el contenido dentro de `layout.ts
 
 ## 4. Conclusión
 
-Se recomienda aplicar la **Opción A**: remover la dependencia redundante `react-error-boundary` e implementar `error.tsx` nativo en el App Router de Next.js.
+Se recomienda aplicar la **Opción A**: remover la dependencia muerta `@mdxeditor/editor` (fuente del árbol `react-error-boundary` transitivo) e implementar `error.tsx` nativo en el App Router de Next.js.
+
+<!-- Changed 2026-08-04: Next.js 15→16; react-error-boundary re-clasificada como dep transitiva de @mdxeditor/editor (dead dep); la limpieza apunta a @mdxeditor/editor, no a react-error-boundary. -->
 
 ---
 *Reporte generado automáticamente como parte de INV-005.*

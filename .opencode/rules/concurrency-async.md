@@ -41,5 +41,12 @@
 - **Must:** las operaciones `std::fs` de `wal_shipping.rs`, `wal_archiver.rs`, `wal.rs` corren en hilos de background dedicados o en init/snapshot — **no** en el event loop de Tokio.
 - **Must not:** mover esas llamadas a un contexto async sin envolverlas en `spawn_blocking` o sin un hilo dedicado.
 - **Por qué:** INV-003 §2.1.3 confirmó que no bloquean el runtime porque ya están aisladas.
+- **Extensión INV-003:** los handlers MCP (`vantadb-mcp`) y del server deben seguir el mismo patrón: trabajo del motor en `spawn_blocking` (ver R-7), con límite de concurrencia vía semáforo (ver R-3) para no saturar `spawn_blocking` con requests ilimitados.
 
-<!-- Referencias cruzadas: → ver durability.md, core-engine.md -->
+### 7 — Handlers MCP/HTTP: trabajo del motor SIEMPRE en `spawn_blocking` (INV-003 R7)
+
+- **Must:** en `vantadb-mcp` y `vantadb-server`, envolver toda llamada a `StorageEngine`/`Executor`/I/O en `tokio::task::spawn_blocking` (patrón `execute_query` de `cli_server.rs`; en `vantadb-mcp` usar `spawn_blocking` con `join` en el handler stdio).
+- **Must not:** ejecutar búsquedas híbridas, `flush()` o `std::fs` directamente en el handler async del servidor.
+- **Por qué:** INV-003 verificó que el motor es síncrono y CPU/disco-bound; correrlo en el event loop de Tokio (o en el thread del runtime MCP) causa inanición y tail latency bajo carga concurrente.
+
+<!-- Referencias cruzadas: → ver durability.md, core-engine.md, server-mcp.md -->

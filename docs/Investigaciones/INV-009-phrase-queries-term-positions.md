@@ -200,14 +200,17 @@ Estimación: 2-3 días, 0 dependencias nuevas, 0 cambios de storage/serializaci�
 
 ---
 
-## Gate 2026-08-03
+## Gate 2026-08-03 (actualizado 2026-08-04)
 
-**Estado: PARCIALMENTE IMPLEMENTADO.**
+**Estado: PARCIALMENTE IMPLEMENTADO — el enforcement de frases YA se implementó después del Gate original.**
 
 - ✅ **Ya implementado (verificado en código, NO es diseño):** positions por documento (`TextPosting.positions`, `TextRecordTerms.token_positions`), serialización en postings (`posting_value`, `posting_put_ops`), modelo de frases en `TextQueryPlan.phrases`, extracción de frases por comillas en `query_plan`, matching de orden+adyacencia (`phrase.rs`, 12 tests), explicación de frases en debug (`matched_phrases_for_record`), contrato `spec_declares_phrase_ready_text_index_v3`.
-- ⚠️ **No implementado (diseño pendiente de backlog):** condición `TextMatch` en parser IQL, enforcement de frases como filtro/score en query execution, highlight de frase completa en snippets.
+- ✅ **Enforcement de frases en query execution — IMPLEMENTADO (2026-08-04):** `lexical_search` en `src/sdk/search/mod.rs:416-425` filtra cada documento candidato con `phrase::text_positions_match_phrases(positions, &query_plan.phrases)` (recolecta `candidate_positions` inline durante el loop BM25, líneas ~340, 401-404 — variante más eficiente que la propuesta `load_phrase_positions` per-record). **Nota:** aplica a *recall*; las frases siguen ignoradas en *scoring* (no hay `phrase_hit_bonus` — Fase 2 del §3, opcional).
+- ⚠️ **No implementado (diseño pendiente de backlog):** condición `TextMatch` en parser IQL (gap #1), tokenización literal de frases sin stopwords/stemming en `query_plan_with_config` (gap §6 paso 3), highlight de frase completa en snippets (gap #3 / §6 paso 4).
 - ✅ **Decisión tomada:** storage custom, sin tantivy (YAGNI, ver §4).
 - **Recomendación al próximo ejecutor:** arrancar por §6 paso 1 (sintaxis), el resto tiene cero fricción con el storage existente.
+
+<!-- Changed 2026-08-04: Gate actualizado — el gap de enforcement pasó de ⚠️ No implementado a ✅ implementado en lexical_search (mod.rs:416-425). -->
 
 ---
 
