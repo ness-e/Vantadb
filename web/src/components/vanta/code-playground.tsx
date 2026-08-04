@@ -5,9 +5,157 @@ import { Play, RotateCcw, Terminal, Zap, ChevronDown } from "lucide-react";
 import { Reveal } from "./reveal";
 import { cn } from "@/lib/utils";
 
-// Inline lightweight Python tokenizer for syntax highlighting overlay
-const HL_KEYWORDS = new Set(["import", "as", "def", "return", "from", "class", "if", "else", "elif", "for", "while", "in", "not", "and", "or", "None", "True", "False", "with", "try", "except", "lambda", "pass", "break", "continue", "self"]);
-const HL_BUILTINS = new Set(["print", "len", "range", "str", "int", "float", "list", "dict", "set", "tuple", "bool", "open", "enumerate", "zip", "map", "filter", "sorted", "sum", "min", "max", "abs", "round", "type", "format"]);
+// ── Real VantaDB WASM engine ──────────────────────────────────────────────
+// The bindings are the compiled vantadb-wasm package (wasm-pack --target
+// no-modules) copied verbatim from vantadb-wasm/pkg into web/public/vanta-wasm.
+// no-modules emits a classic script that registers a global `wasm_bindgen`
+// with `initSync(bytes)` + the exposed classes — no bundler, no wasm ESM
+// (the --target web namespace import `import * as wasm from "./*.wasm"`
+// requires a bundler; drager/wasm-pack#1432). Source:
+// https://rustwasm.github.io/wasm-bindgen/reference/no-modules.html
+const WASM_SCRIPT_URL = "/vanta-wasm/vantadb_wasm.js";
+const WASM_BINARY_URL = "/vanta-wasm/vantadb_wasm_bg.wasm";
+
+interface VantaRecord {
+  namespace: string;
+  key: string;
+  payload: string;
+  version?: string;
+  metadata?: Record<string, unknown>;
+  vector?: number[];
+}
+
+interface VantaSearchHit {
+  record: VantaRecord;
+  score: number;
+}
+
+interface VantaDBHandle {
+  put(input: {
+    namespace: string;
+    key: string;
+    payload: string;
+    metadata?: Record<string, unknown>;
+    vector?: number[];
+    ttl_ms?: number;
+  }): VantaRecord;
+  put_batch(
+    inputs: Array<{
+      namespace: string;
+      key: string;
+      payload: string;
+      metadata?: Record<string, unknown>;
+      vector?: number[];
+    }>,
+  ): VantaRecord[];
+  get(namespace: string, key: string): VantaRecord | null;
+  search(request: {
+    namespace: string;
+    query_vector: number[];
+    text_query?: string;
+    top_k?: number;
+    distance_metric?: string;
+    explain?: boolean;
+  }): VantaSearchHit[];
+  list(
+    namespace: string,
+    options?: { limit?: number; cursor?: number },
+  ): { records: VantaRecord[]; next_cursor?: number };
+  list_namespaces(): string[];
+  flush(): void;
+  close(): void;
+}
+
+// wasm-pack --target no-modules registers a global lexical `wasm_bindgen`
+// (a classic script in the global scope, not a window property) carrying
+// `initSync(bytes)` and the exported classes (e.g. `VantaDB`). We reference
+// it by the bare identifier after the script has loaded.
+interface VantaWasmInit {
+  initSync(input: BufferSource): void;
+  VantaDB: new (config?: {
+    storage_path?: string;
+    read_only?: boolean;
+    rss_threshold?: number;
+    memory_limit?: number;
+  }) => VantaDBHandle;
+}
+
+declare global {
+  var wasm_bindgen: VantaWasmInit | undefined;
+}
+
+let wasmReady = false;
+let wasmLoadPromise: Promise<void> | null = null;
+
+function injectWasmScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      "script[data-vanta-wasm]",
+    );
+    if (existing?.dataset.loaded === "1") return resolve();
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error(`WASM script failed to load: ${WASM_SCRIPT_URL}`)), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = WASM_SCRIPT_URL;
+    script.dataset.vantaWasm = "1";
+    script.onload = () => {
+      script.dataset.loaded = "1";
+      resolve();
+    };
+    script.onerror = () => reject(new Error(`WASM script failed to load: ${WASM_SCRIPT_URL}`));
+    document.head.appendChild(script);
+  });
+}
+
+// Loads the no-modules script and instantiates the wasm binary via initSync.
+// Idempotent — safe to call on every Run (singleton script tag + cached init).
+function loadWasm(): Promise<void> {
+  if (wasmLoadPromise) return wasmLoadPromise;
+  wasmLoadPromise = (async () => {
+    if (wasmReady) return;
+    await injectWasmScript();
+    const res = await fetch(WASM_BINARY_URL);
+    if (!res.ok) throw new Error(`WASM binary fetch failed: HTTP ${res.status}`);
+    const bytes = await res.arrayBuffer();
+    wasm_bindgen!.initSync(bytes);
+    wasmReady = true;
+  })().catch((err: unknown) => {
+    wasmLoadPromise = null; // allow retry on next run
+    throw err;
+  });
+  return wasmLoadPromise;
+}
+
+function fmtArg(arg: unknown): string {
+  if (typeof arg === "string") return arg;
+  if (arg === null) return "null";
+  if (arg === undefined) return "undefined";
+  if (typeof arg === "object") {
+    try {
+      return JSON.stringify(arg);
+    } catch {
+      return String(arg);
+    }
+  }
+  return String(arg);
+}
+
+// ── Inline lightweight JS tokenizer for syntax highlighting overlay ──────
+const HL_KEYWORDS = new Set([
+  "const", "let", "var", "function", "return", "if", "else", "for", "while",
+  "do", "new", "class", "extends", "import", "export", "from", "async",
+  "await", "try", "catch", "finally", "throw", "switch", "case", "break",
+  "continue", "default", "typeof", "instanceof", "in", "of", "null", "true",
+  "false", "undefined", "this", "delete", "void", "static", "get", "set",
+]);
+const HL_BUILTINS = new Set([
+  "console", "Math", "JSON", "Object", "Array", "String", "Number",
+  "Boolean", "Promise", "fetch", "performance", "parseInt", "parseFloat",
+  "setTimeout", "setInterval", "Date",
+]);
 
 const HL_CLASS: Record<string, string> = {
   plain: "text-[#FBF9F5]",
@@ -26,12 +174,23 @@ function hlTokenize(line: string) {
   let i = 0;
   while (i < line.length) {
     const rest = line.slice(i);
-    if (rest.startsWith("#")) { tokens.push({ t: "comment", v: rest }); break; }
-    const strMatch = rest.match(/^("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/);
-    if (strMatch) { tokens.push({ t: "string", v: strMatch[0] }); i += strMatch[0].length; continue; }
+    if (rest.startsWith("#") || rest.startsWith("//")) {
+      tokens.push({ t: "comment", v: rest });
+      break;
+    }
+    const strMatch = rest.match(/^("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/);
+    if (strMatch) {
+      tokens.push({ t: "string", v: strMatch[0] });
+      i += strMatch[0].length;
+      continue;
+    }
     const numMatch = rest.match(/^\d[\d_]*(\.\d+)?/);
-    if (numMatch) { tokens.push({ t: "number", v: numMatch[0] }); i += numMatch[0].length; continue; }
-    const idMatch = rest.match(/^[A-Za-z_][A-Za-z0-9_]*/);
+    if (numMatch) {
+      tokens.push({ t: "number", v: numMatch[0] });
+      i += numMatch[0].length;
+      continue;
+    }
+    const idMatch = rest.match(/^[A-Za-z_$][A-Za-z0-9_$]*/);
     if (idMatch) {
       const word = idMatch[0];
       const after = line[i + word.length];
@@ -43,85 +202,45 @@ function hlTokenize(line: string) {
       i += word.length;
       continue;
     }
-    const opMatch = rest.match(/^(==|!=|<=|>=|->|\+=|-=|\*=|\/\/=|\/\/|\*\*|[=+\-*/%<>:,.(){}\[\]])/);
-    if (opMatch) { tokens.push({ t: "op", v: opMatch[0] }); i += opMatch[0].length; continue; }
+    const opMatch = rest.match(/^(==|!=|<=|>=|->|=>|\+=|-=|\*=|\/\/=|\/\/|\*\*|[=+\-*/%<>:,.(){}\[\]])/);
+    if (opMatch) {
+      tokens.push({ t: "op", v: opMatch[0] });
+      i += opMatch[0].length;
+      continue;
+    }
     const wsMatch = rest.match(/^\s+/);
-    if (wsMatch) { tokens.push({ t: "plain", v: wsMatch[0] }); i += wsMatch[0].length; continue; }
-    tokens.push({ t: "plain", v: rest[0] }); i += 1;
+    if (wsMatch) {
+      tokens.push({ t: "plain", v: wsMatch[0] });
+      i += wsMatch[0].length;
+      continue;
+    }
+    tokens.push({ t: "plain", v: rest[0] });
+    i += 1;
   }
   return tokens;
 }
 
-// Simulated execution: pattern-matches the user's Python-ish input and produces
-// illustrative output. This is NOT a real Python interpreter — it's a demo.
-function simulateRun(code: string): string[] {
-  const lines: string[] = [];
-  const trimmed = code.trim();
+const STARTER_CODE = `const rec = db.put({
+  namespace: "agent/main",
+  key: "mem-001",
+  payload: "hello vanta",
+  vector: [0.1, 0.9, 0.5],
+});
+console.log("stored", rec.key, "->", rec.payload);
 
-  // Detect key patterns
-  if (trimmed.includes("VantaDB(") || trimmed.includes("vantadb.")) {
-    lines.push("✓ VantaDB instance initialized (./vanta_data)");
-    lines.push("✓ WAL opened · CRC32C checksums active");
-  }
-  if (trimmed.includes("db.put(")) {
-    const putCount = (trimmed.match(/db\.put\(/g) || []).length;
-    lines.push(`✓ put() · ${putCount} record(s) stored`);
-    lines.push("  → payload + metadata + vector indexed");
-  }
-  if (trimmed.includes("db.get(")) {
-    lines.push("✓ get() · canonical record retrieved");
-    lines.push('  → key="memory-001" · version=1');
-  }
-  if (trimmed.includes("db.search(")) {
-    lines.push("✓ search() · hybrid query planned");
-    lines.push("  → BM25 path: 47 candidates");
-    lines.push("  → HNSW path: 52 candidates (cosine)");
-    lines.push("  → RRF fusion: top_k=5 ranked");
-    lines.push("  → 1.2ms · 100% Recall@10");
-  }
-  if (trimmed.includes("db.flush()")) {
-    lines.push("✓ flush() · WAL synced to disk");
-  }
-  if (trimmed.includes("db.close()")) {
-    lines.push("✓ close() · handles released safely");
-  }
-  if (trimmed.includes("print(")) {
-    // Extract print arguments
-    const printMatches = trimmed.matchAll(/print\(([^)]*)\)/g);
-    for (const m of printMatches) {
-      let arg = m[1].trim();
-      // Strip quotes
-      if ((arg.startsWith('"') && arg.endsWith('"')) || (arg.startsWith("'") && arg.endsWith("'"))) {
-        arg = arg.slice(1, -1);
-      }
-      lines.push(`> ${arg}`);
-    }
-  }
-  if (trimmed.includes("import")) {
-    lines.push("✓ modules loaded");
-  }
+const stored = db.get("agent/main", "mem-001");
+console.log("get", stored.key, "->", stored.payload);
 
-  if (lines.length === 0) {
-    lines.push("→ (no recognizable VantaDB calls detected)");
-    lines.push("  try: db.put(...), db.search(...), db.get(...)");
-  }
-
-  lines.push("");
-  lines.push(`◆ executed in ${(0.8 + Math.random() * 1.5).toFixed(2)}ms · in-process`);
-  return lines;
+const hits = db.search({
+  namespace: "agent/main",
+  query_vector: [0.11, 0.89, 0.55],
+  top_k: 5,
+});
+for (const hit of hits) {
+  console.log(hit.record.key, "score=" + hit.score.toFixed(4));
 }
 
-const STARTER_CODE = `import vantadb_py as vantadb
-
-db = vantadb.VantaDB("./vanta_data")
-
-db.put("agent/main", "mem-001", "hello vanta", vector=[0.1, 0.9, 0.5])
-stored = db.get("agent/main", "mem-001")
-hits = db.search("agent/main", vector=[0.11, 0.89, 0.55], top_k=5)
-
-print(hits)
-db.flush()
-db.close()`;
+db.flush();`;
 
 const EXAMPLES = [
   {
@@ -130,15 +249,66 @@ const EXAMPLES = [
   },
   {
     name: "Put & Get",
-    code: `import vantadb_py as vantadb\n\ndb = vantadb.VantaDB("./vanta_data")\n\n# Store a record with vector\nrecord = db.put(\n    "agent/main",\n    "memory-001",\n    "In-process execution minimizes latency.",\n    metadata={"category": "architecture", "priority": 1},\n    vector=[0.12, 0.88, 0.54],\n)\n\n# Retrieve by exact key\nstored = db.get("agent/main", "memory-001")\nprint(stored)\n\ndb.flush()\ndb.close()`,
+    code: `const record = db.put({
+  namespace: "agent/main",
+  key: "memory-001",
+  payload: "In-process execution minimizes latency.",
+  metadata: { category: "architecture", priority: 1 },
+  vector: [0.12, 0.88, 0.54],
+});
+console.log("put version", record.version);
+
+const stored = db.get("agent/main", "memory-001");
+console.log("get", stored.payload);
+console.log("metadata", stored.metadata);
+
+db.flush();`,
   },
   {
     name: "Hybrid Search",
-    code: `import vantadb_py as vantadb\n\ndb = vantadb.VantaDB("./vanta_data")\n\n# Insert documents with vectors\nfor i in range(5):\n    db.put("docs", f"doc-{i}", f"document content {i}",\n             vector=[0.1 * i, 0.9 - 0.1 * i, 0.5])\n\n# Hybrid search: BM25 + HNSW via RRF\nhits = db.search("docs", vector=[0.2, 0.8, 0.5], top_k=5)\n\nfor hit in hits:\n    print(f"{hit.key} score={hit.score}")\n\ndb.flush()\ndb.close()`,
+    code: `for (let i = 0; i < 5; i++) {
+  db.put({
+    namespace: "docs",
+    key: "doc-" + i,
+    payload: "document content " + i,
+    vector: [0.1 * i, 0.9 - 0.1 * i, 0.5],
+  });
+}
+
+// Hybrid search: vector similarity + optional text query
+const hits = db.search({
+  namespace: "docs",
+  query_vector: [0.2, 0.8, 0.5],
+  top_k: 5,
+});
+for (const hit of hits) {
+  console.log(hit.record.key, "score=" + hit.score.toFixed(4));
+}
+
+db.flush();`,
   },
   {
     name: "Batch Insert",
-    code: `import vantadb_py as vantadb\n\ndb = vantadb.VantaDB("./vanta_data", memory_limit_bytes=512_000_000)\n\n# Bulk insert 100 records\nfor i in range(100):\n    vec = [i / 100.0, 1.0 - i / 100.0, 0.5]\n    db.put("agent/main", f"mem-{i}", f"record {i}", vector=vec)\n\nprint(f"Inserted 100 records")\n\n# Search across all\nhits = db.search("agent/main", vector=[0.5, 0.5, 0.5], top_k=10)\nprint(f"Found {len(hits)} results")\n\ndb.flush()\ndb.close()`,
+    code: `const batch = [];
+for (let i = 0; i < 100; i++) {
+  batch.push({
+    namespace: "agent/main",
+    key: "mem-" + i,
+    payload: "record " + i,
+    vector: [i / 100.0, 1.0 - i / 100.0, 0.5],
+  });
+}
+db.put_batch(batch);
+console.log("inserted", batch.length, "records");
+
+const hits = db.search({
+  namespace: "agent/main",
+  query_vector: [0.5, 0.5, 0.5],
+  top_k: 10,
+});
+console.log("found", hits.length, "results");
+
+db.flush();`,
   },
 ];
 
@@ -161,21 +331,86 @@ export function CodePlayground() {
     if (syncing.current) return;
     syncing.current = true;
     const src = source === "gutter" ? gutterRef.current : source === "pre" ? preRef.current : textareaRef.current;
-    if (!src) { syncing.current = false; return; }
+    if (!src) {
+      syncing.current = false;
+      return;
+    }
     const { scrollTop, scrollLeft } = src;
     if (gutterRef.current && source !== "gutter") gutterRef.current.scrollTop = scrollTop;
-    if (preRef.current && source !== "pre") { preRef.current.scrollTop = scrollTop; preRef.current.scrollLeft = scrollLeft; }
-    if (textareaRef.current && source !== "textarea") { textareaRef.current.scrollTop = scrollTop; textareaRef.current.scrollLeft = scrollLeft; }
-    requestAnimationFrame(() => { syncing.current = false; });
+    if (preRef.current && source !== "pre") {
+      preRef.current.scrollTop = scrollTop;
+      preRef.current.scrollLeft = scrollLeft;
+    }
+    if (textareaRef.current && source !== "textarea") {
+      textareaRef.current.scrollTop = scrollTop;
+      textareaRef.current.scrollLeft = scrollLeft;
+    }
+    requestAnimationFrame(() => {
+      syncing.current = false;
+    });
   }, []);
 
-  const run = () => {
+  const run = async () => {
     setRunning(true);
     setOutput(null);
-    setTimeout(() => {
-      setOutput(simulateRun(code));
+    try {
+      await loadWasm(); // no-modules script + initSync instantiates the wasm binary
+      const mod = wasm_bindgen!; // global carries the exposed classes after init
+      const db = new mod.VantaDB({ storage_path: "playground_data" });
+
+      // Capture console output produced by the snippet
+      const captured: string[] = [];
+      const sandboxConsole = {
+        log: (...args: unknown[]) => captured.push(args.map(fmtArg).join(" ")),
+        warn: (...args: unknown[]) => captured.push(args.map(fmtArg).join(" ")),
+        error: (...args: unknown[]) => captured.push("✗ " + args.map(fmtArg).join(" ")),
+      };
+
+      // Execute the user's snippet against the real WASM engine. `db` is a fresh
+      // in-memory instance per run; `VantaDB` is exposed in case a snippet wants
+      // to instantiate its own handle.
+      // ponytail: arbitrary-code execution via new Function — acceptable for a
+      // client-side demo (same trust level as the browser console); rework into a
+      // proper interpreter/worker if the playground becomes untrusted content.
+      const fn = new Function(
+        "VantaDB",
+        "db",
+        "console",
+        `return (async () => {\n${code}\n})();`,
+      );
+
+      const t0 = performance.now();
+      try {
+        await fn(mod.VantaDB, db, sandboxConsole);
+      } catch (err) {
+        captured.push(`✗ ${err instanceof Error ? err.message : String(err)}`);
+      }
+      const elapsedMs = performance.now() - t0;
+
+      try {
+        db.close();
+      } catch {
+        // snippet already closed the handle — fine for a playground
+      }
+
+      setOutput([
+        "✓ VantaDB WASM engine loaded",
+        "✓ db opened · in-memory backend",
+        ...captured,
+        "",
+        `◆ executed in ${elapsedMs.toFixed(2)}ms · wasm32`,
+      ]);
+    } catch (err) {
+      setOutput([
+        "✗ failed to load VantaDB WASM engine",
+        `  ${err instanceof Error ? err.message : String(err)}`,
+        "",
+        "  → expected /vanta-wasm/vantadb_wasm.js to be served from public/",
+        "  → browsers need native wasm ESM support (Chrome 111+, Safari 16.4+, Firefox 118+)",
+      ]);
+    } finally {
       setRunning(false);
-    }, 600);
+    }
   };
 
   const reset = () => {
@@ -202,8 +437,9 @@ export function CodePlayground() {
                 Code Playground
               </h2>
               <p className="mt-2 max-w-lg font-tech text-xs text-black/80">
-                Edit the code and hit Run. The simulator pattern-matches VantaDB calls
-                and produces illustrative output — not a real interpreter.
+                Edit the code and hit Run. Each run opens a real VantaDB instance
+                compiled to WebAssembly (vantadb-wasm) and executes your snippet
+                against it — in your browser.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -264,7 +500,7 @@ export function CodePlayground() {
               <div className="flex items-center justify-between border-b-2 border-[#FBF9F5]/20 bg-[#1A1A1A] px-3 py-2">
                 <span className="inline-flex items-center gap-1.5 font-tech text-[11px] uppercase tracking-wider text-[#FBF9F5]/70">
                   <Terminal className="h-3 w-3 text-[#FF5500]" />
-                  playground.py
+                  playground.js
                 </span>
                 <span className="font-tech text-[9px] uppercase tracking-wider text-[#FBF9F5]/30">
                   {lineCount} lines
@@ -310,7 +546,7 @@ export function CodePlayground() {
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
                     spellCheck={false}
-                    aria-label="Python code editor"
+                    aria-label="JavaScript code editor"
                     className="scroll-manga absolute inset-0 h-full w-full resize-none bg-transparent p-3 font-tech text-[12px] leading-relaxed text-transparent caret-[#FF5500] focus:outline-none"
                     style={{ tabSize: 4 }}
                   />
@@ -328,7 +564,7 @@ export function CodePlayground() {
                 {running && (
                   <span className="flex items-center gap-1 font-tech text-[9px] uppercase tracking-wider text-[#FF5500]">
                     <span className="animate-blink">▋</span>
-                    executing
+                    executing wasm
                   </span>
                 )}
               </div>
@@ -341,12 +577,15 @@ export function CodePlayground() {
                 {running && (
                   <div className="space-y-1">
                     <p className="font-tech text-[11px] text-[#FF5500]">
-                      <span className="animate-blink">▋</span> planning query...
+                      <span className="animate-blink">▋</span> loading wasm engine...
                     </p>
                   </div>
                 )}
                 {output && !running && (
                   <div className="space-y-0.5">
+                    {output.some((o) => o.startsWith("✓")) && (
+                      <div id="pia-wasm-result" aria-hidden className="hidden" />
+                    )}
                     {output.map((line, i) => (
                       <p
                         key={i}
@@ -358,9 +597,11 @@ export function CodePlayground() {
                               ? "text-[#7ec7ff]"
                               : line.startsWith(">")
                                 ? "text-[#ffd479]"
-                                : line.startsWith("◆")
-                                  ? "text-[#FF5500] font-bold"
-                                  : "text-[#FBF9F5]/60"
+                                : line.startsWith("✗")
+                                  ? "text-[#ff7a7a]"
+                                  : line.startsWith("◆")
+                                    ? "text-[#FF5500] font-bold"
+                                    : "text-[#FBF9F5]/60"
                         )}
                       >
                         {line || "\u00A0"}
@@ -376,9 +617,9 @@ export function CodePlayground() {
         <Reveal direction="up" delay={120}>
           <p className="mt-4 border-l-4 border-[#FF5500] bg-[#FBF9F5] px-4 py-2 font-tech text-[11px] italic text-black/70  ">
             <span className="font-bold not-italic uppercase tracking-wider">Note:</span>{" "}
-            This is a pattern-matching simulator for demo purposes. For real execution,
-            install VantaDB with{" "}
-            <code className="font-mono">pip install vantadb-py</code> and run locally.
+            Each Run opens a fresh in-memory VantaDB instance (wasm32 engine). Data is
+            not persisted between runs — for browser persistence use{" "}
+            <code className="font-mono">await VantaDB.connect_persistent(path)</code>.
           </p>
         </Reveal>
       </div>
