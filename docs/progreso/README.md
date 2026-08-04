@@ -1344,6 +1344,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ Doc: `docs/Investigaciones/INV-016-motion-duration-tokens.md`. **NO existen tokens de duración/easing.** globals.css solo colores+fuentes; easing `cubic-bezier(0.2,0.8,0.2,1)` hardcodeado en 4 lugares. Duraciones hardcodeadas: framer-motion (page-transition .28s, latency .4/.5s), Reveal (NOTE: NO framer-motion — CSS transition vía IntersectionObserver; default 600ms + delays 40-240), animejs (marks), Tailwind duration-* (75-1000). Propuesta: CSS vars `--duration-fast:150ms; --duration-normal:300ms; --duration-slow:500ms` + `--ease-default`; mapa JS `web/src/lib/motion.ts` `MOTION={duration:{fast:.15,normal:.3,slow:.5},ease:[.2,.8,.2,1]}` (framer-motion/animejs no leen CSS vars en `duration`); Reveal consume CSS vars vía transitionDuration. Cero cambios de código.
 - **Ids:** `INV-016`
 
+### DESKTOP-01: Investigar Tauri como plataforma desktop para VantaDB
+- **Fuente:** Backlog (Investigaciones)
+- **Fecha:** 2026-08-04
+- **Objetivo:** Evaluar Tauri (v2) como plataforma desktop para VantaDB: integración Rust nativa (`vantadb` como dep directa), casos de uso desktop AI app privada con memoria local, comparativa vs Electron, effort estimate MVP desktop, y recomendación de arquitectura. Sin implementación — solo investigación + recomendación.
+- **Resultado:** ✅ Doc: `docs/Investigaciones/DESKTOP-01-tauri-plataforma-desktop.md` (20.9KB, 208 líneas). **Recomendación: SÍ — Tauri v2** con integración Rust nativa (`vantadb` en `src-tauri/`, `VantaEmbedded` en managed state, commands async `vanta_ingest`/`vanta_search`, SIN bridge WASM/OPFS). Tauri v2.11.5 (01-jul-2026) vs Electron v43.2.0 (21-jul-2026). Comparativa: bundle 2-10MB vs 80-200MB; RAM idle ~50MB vs ~120MB+; backend Rust+WebView nativo vs Node+Chromium; mobile iOS/Android ✅ vs ❌. Effort MVP: ≈8-13 días hábiles. Nota: origen GTM original (`docs_backup_2026-06-30/`) ya no existe en el repo. Cero cambios de código.
+- **Ids:** `DESKTOP-01`
+
 ### COMP-028: Semantic Cost Estimator (SCE) unificado
 - **Fuente:** Backlog (Phase 10 — Competitive Features)
 - **Fecha:** 2026-08-02
