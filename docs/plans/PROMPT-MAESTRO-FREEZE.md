@@ -247,12 +247,11 @@ Usá `campaign_memory_write` para persistir el reporte y la decisión de freeze 
 **Ejecutá. No preguntes. Solo ejecutá.** Si algo no está claro, usá default (ponytail ladder) y anotá en `campaign_memory_write`. Si encontrás un bug fuera del plan, registralo pero no lo toques hasta que el plan lo incluya. Zero-Bug Policy significa arreglar bugs, no cazar fantasmas.
 
 === RECITATION ===
-Campaign ID: ba61ec71-cdda-414c-be36-df8af8bf548c
-Objetivo activo: Completar ENT-04 connection pooling + circuit breaker
+Campaign ID: 3c234cd5-9472-4770-85ec-394a4bab8942
+Objetivo activo: INV-012 — Anti-Locality re-evaluación
 Estado: completed
-Última acción: Migré ENT-04 a docs/progreso/README.md, marqué Backlog ✅, arreglé error pre-existente worker.rs, corrí validación de docs
+Última acción: Re-run benches/vfile_search.rs vía vanta-tuner: compacted vs vfile = 7.0%
 Resultado: ✅
-Próxima acción: Registrar decisión en campaign memory y commit
-Contrato: clippy limpio, fmt limpio, unit 9/9, e2e 2/2, workspace 1802/1802, progreso migrado, docs validados
-Próxima tarea si completa: 
-=== END RECITATION ===
+Próxima acción: Ninguna — completo
+Contrato: WONTFIX confirmado (<15%)
+Próxima tarea si completa: Ninguna
