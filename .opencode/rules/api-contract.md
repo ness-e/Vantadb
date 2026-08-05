@@ -10,8 +10,8 @@
 ### R-1: Todo claim de API en docs debe apuntar a un símbolo real
 
 - **Must:** antes de documentar una función/clase/método/endpoint/tool en `docs/api/`, verificar que existe en el código y bindings reales (`codegraph_explore`/grep).
-- **Must not:** documentar APIs especulativas o planeadas como existentes (ej. `vantadb_python.Client`/`client.graphrag_search(...)` de GRAPH_RAG.md — 0 hits en Python/TS/WASM; `GraphRagPipeline` existe en Rust pero ningún binding lo expone).
-- **Por qué:** un usuario que sigue el ejemplo de docs falla en runtime; hoy hay una API documentada que no existe en ningún binding.
+- **Must not:** documentar APIs especulativas o planeadas como existentes (ej. `vantadb_python.Client`/`client.graphrag_search(...)` — 0 hits en Python/TS/WASM; `GraphRagPipeline` existe en Rust pero ningún binding lo expone. GRAPH_RAG.md lo documentaba así hasta AUD-002, 2026-08-05, cuando se marcó Python como no-implementado).
+- **Por qué:** un usuario que sigue el ejemplo de docs falla en runtime; GRAPH_RAG.md documentaba una API inexistente — el patrón sigue prohibido.
 
 ### R-2: Versión única de referencia en docs de API
 
