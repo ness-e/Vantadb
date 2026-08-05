@@ -532,6 +532,10 @@ name = "graphrag"
 path = "examples/rust/graphrag.rs"
 
 [[example]]
+name = "graphrag_bench"
+path = "benchmarks/graphrag_bench.rs"
+
+[[example]]
 name = "concurrent"
 path = "examples/rust/concurrent.rs"
 

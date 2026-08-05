@@ -28,7 +28,7 @@ $$
 \text{Token Reduction} = 1 - \frac{\text{Tokens}_{\text{GraphRAG}}}{\text{Tokens}_{\text{RAG}}}
 $$
 
-**Resultado típico:** 40-60% de reducción vs RAG tradicional.
+> ⚠️ **Estado de la métrica (2026-08-05, MKT-16):** el valor "40-60%" era un **claim sin run**. Ver [GraphRAG Benchmark Methodology](../blog/graphrag-benchmark.md) — el script reproducible `benchmarks/graphrag_bench.rs` mide esta métrica, pero a escala productiva (3000 nodos) la fase de query **sigue sin poder ejecutarse** (`stack overflow reproducible` del engine en Windows release, clase AUDIT-04). **No usar 40-60% como dato verificado** hasta que un run real a escala lo confirme.
 
 ## Implementación en VantaDB
 
@@ -52,7 +52,7 @@ results = db.search(
 |---------|-----------------|----------|
 | **Contexto** | Fragmentos aislados | Subgrafos conectados |
 | **Relaciones** | Implícitas (texto) | Explícitas (aristas) |
-| **Tokens** | Alto (redundancia) | Bajo (40-60% menos) |
+| **Tokens** | Alto (redundancia) | Bajo (pendiente de verificación — ver benchmark) |
 | **Razonamiento** | Single-hop | Multi-hop |
 | **Alucinaciones** | Mayor riesgo | Menor riesgo |
 
@@ -92,12 +92,12 @@ db.put("function_auth", text="def authenticate()...",
 
 ## Métricas de VantaDB
 
-| Métrica | Valor |
-|---------|-------|
-| **Token Reduction** | 40-60% vs RAG tradicional |
-| **Latencia adicional** | ~25-50ms por hop |
-| **Max hops soportados** | 3 (configurable) |
-| **Recall improvement** | +15-20% en queries relacionales |
+| Métrica | Valor | Estado |
+|---------|-------|--------|
+| **Token Reduction** | — | ⏳ PENDIENTE de run — ver [benchmark](../blog/graphrag-benchmark.md) |
+| **Latencia adicional por hop** | — | ⏳ PENDIENTE de run |
+| **Max hops soportados** | 3 (configurable) | ✅ código: `expansion_hops: 2` default, configurable |
+| **Recall improvement** | — | ⏳ Requiere ground truth etiquetado (no existe) — no-goal |
 
 ## Véase También
 
