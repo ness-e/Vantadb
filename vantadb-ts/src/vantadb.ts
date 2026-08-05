@@ -541,10 +541,7 @@ export class VantaDB {
    */
   reindexHnswFromText(namespace: string, pageSize: number = 1000): unknown {
     this._assertOpen();
-    // NOTE: reindex_hnsw_from_text is not yet exported by the installed WASM build.
-    // This method will work once the WASM package is rebuilt and published.
-    void namespace; void pageSize;
-    throw new VantaError("WASM_ERROR", "reindexHnswFromText: not available in the current WASM build");
+    return this._wasm("reindexHnswFromText", () => this.inner.reindex_hnsw_from_text(namespace, pageSize));
   }
 
   /**
