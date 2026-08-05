@@ -147,4 +147,14 @@ When `VANTADB_TLS_CERT` and `VANTADB_TLS_KEY` are configured, the server binds w
 
 ## CORS
 
-The server currently does not set CORS headers. For browser-based clients, a reverse proxy (nginx, Caddy) is recommended to add CORS support.
+The server currently does not set CORS headers. This is a deliberate decision, not a bug: there are no direct browser consumers of the HTTP API.
+
+- The web app (`web/`) runs VantaDB **in-browser via WASM** — its only fetches load the WASM binary, never the HTTP server.
+- The desktop plan (see `docs/Investigaciones/DESKTOP-01b-investigacion-6-integraciones-arquitectura.md`) talks to the server from Rust (reqwest), which is not subject to CORS.
+- All existing HTTP clients (tests, LLM integration, WAL shipping) are native/server-side.
+
+For any future browser-based client, two options:
+1. **Recommended:** terminate TLS at a reverse proxy (nginx, Caddy) and add CORS there, keeping the origin allow-list in the proxy config.
+2. **In-process:** enable CORS middleware in the server. `tower-http` (already an optional dependency behind the `server` feature) provides a `cors` module; gate it behind a config flag (e.g. `cors_origins` in `VantaConfig`) with default **off** so no headers are emitted unless explicitly configured. Never default to `AllowOrigin::any()` — restrict to the configured origins.
+
+Decision recorded 2026-08-05 (TECH-06): no real browser consumer exists, so no code change was made.
