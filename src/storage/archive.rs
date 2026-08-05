@@ -96,7 +96,7 @@ pub fn compact_layout(
             let new_vec_offset = new_node_offset + header_size;
             let end = new_vec_offset + vec_size_aligned;
             if end > new_file_size {
-                let _ = tmp_mmap.flush();
+                tmp_mmap.flush().map_err(VantaError::IoError)?;
                 drop(tmp_mmap);
                 tmp_file.set_len(end + 4096).map_err(VantaError::IoError)?;
                 // SAFETY: tmp_file was extended via set_len() before this call, so the
@@ -110,10 +110,25 @@ pub fn compact_layout(
             }
             let old_data = vstore.mmap_bytes();
             let src_start = old_offset as usize;
-            let src_end = src_start + header_size as usize + vec_size_aligned as usize;
             let copy_len = (header_size + vec_size_aligned) as usize;
+            let src_end = src_start + copy_len;
+            // AUDREP-01: a header whose vector_len claims more bytes than the
+            // file actually holds (crash mid-write) would make the destination
+            // slice longer than the source and panic copy_from_slice. Validate
+            // the source is long enough and abort the compact with an error.
+            if src_end > old_data.len() {
+                return Err(VantaError::IoError(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    format!(
+                        "vstore truncated: node at offset {old_offset} claims {copy_len} bytes \
+                         (header {header_size} + vec {vec_size_aligned}) but file has {} — \
+                         needed {src_end}",
+                        old_data.len(),
+                    ),
+                )));
+            }
             tmp_mmap[write_cursor as usize..(write_cursor as usize + copy_len)]
-                .copy_from_slice(&old_data[src_start..src_end.min(old_data.len())]);
+                .copy_from_slice(&old_data[src_start..src_end]);
             let mut new_header = old_header;
             new_header.vector_offset = new_vec_offset;
             tmp_mmap[write_cursor as usize..(write_cursor as usize + header_size as usize)]
@@ -123,6 +138,11 @@ pub fn compact_layout(
         }
     }
 
+    // AUDREP-04: flush final mmap writes to the OS, then sync + fsync the tmp
+    // file so no unwritten garbage is renamed in as if it were a valid store.
+    tmp_mmap.flush().map_err(VantaError::IoError)?;
+    drop(tmp_mmap);
+    tmp_file.sync_all().map_err(VantaError::IoError)?;
     std::fs::rename(&tmp_path, &vstore_path).map_err(VantaError::IoError)?;
     vstore.replace_backing_file(new_file_size)?;
     vstore.write_cursor = write_cursor;
@@ -230,9 +250,12 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                                 0,
                                 "f32 vector must be 4-byte aligned"
                             );
-                            // SAFETY: slice is page-aligned via mmap, confirming
-                            // f32 alignment. The debug_assert_eq above verifies
-                            // the invariant. .to_vec() eliminates aliasing.
+                            // SAFETY: 1) bounds — `end <= vstore.size` guard above
+                            // ensures the byte range is inside the mapping; 2) alignment —
+                            // `read_header` rejects non-4-multiple `vector_offset`
+                            // (INV-024 M-1 central guard), so `slice.as_ptr()` is
+                            // 4-byte aligned, required for a valid `&[f32]`;
+                            // 3) the immediate `.to_vec()` copy eliminates aliasing.
                             crate::node::VectorRepresentations::Full(
                                 unsafe {
                                     std::slice::from_raw_parts(
@@ -596,7 +619,37 @@ mod tests {
         assert!(map.contains_key(&1));
     }
 
-    // ── rebuild_hnsw_from_vstore ─────────────────────────────────
+    #[test]
+    fn test_compact_layout_truncated_vstore_errors_not_panic() {
+        // AUDREP-01: a header whose vector_len claims more bytes than the file
+        // actually holds (crash mid-write) used to panic copy_from_slice and
+        // tear down the whole process. It must return Err(VantaError) instead.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.vanta");
+        let mut vstore = VantaFile::open(path, 4096).unwrap();
+
+        let hs = hdr_size();
+        // Write a header at offset 64 that claims a huge vector
+        // length (e.g. 100k floats = 400KB) but the file is only 4096 bytes.
+        let mut header = DiskNodeHeader::new(1);
+        header.vector_len = 100_000;
+        header.vector_offset = 64 + hs;
+        vstore.write_header(64, &header).unwrap();
+
+        let hnsw = CPIndex::new();
+        hnsw.add(
+            1,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.1]),
+            64,
+        );
+
+        let err = compact_layout(&mut vstore, &hnsw, &[1], hs).unwrap_err();
+        assert!(
+            err.to_string().contains("truncated"),
+            "expected truncated vstore error, got: {err}"
+        );
+    }
 
     #[test]
     fn test_rebuild_empty_vstore() {
