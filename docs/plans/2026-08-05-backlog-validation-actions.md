@@ -1,6 +1,6 @@
 # Plan de Ejecución: Backlog Validation Actions — 2026-08-05
 
-> **Campaign ID: 3a1d7b14-a394-4e03-9a06-360220b162d5
+> **Campaign ID: 900d2459-9a35-4149-a93d-5997f2e2e928
 > **Inicio:** 2026-08-05
 > **Estado: completed
 > **Fuente:** `docs/Backlog.md` (85 tareas abiertas validadas)
@@ -37,7 +37,7 @@
 ### Task 1: Backlog-EDIT — Corregir 12 premisas stale + limpiar referencia muerta
 - **Archivos clave:** `docs/Backlog.md`
 - **Gate Justificación:** hallazgos de los 6 sub-agentes; las descripciones actuales inducen a error de implementación.
-- **Contrato: Firma matchea d.ts:183; error TS2306 pre-existente
+- **Contrato: OpGate en 3 bindings; ops.rs:1761 intacto; sin unwrap nuevo
 - **Pasos:**
   1. **AUDIT-01** (L70): reemplazar "try_numpy_array expone puntero" → "el UAF es por los getters `__array_interface__` (vector.rs:59-73, types.rs:365-380); `try_numpy_array` COPIA (seguro). Fix: congelar/clonar ante drop y `__setstate__`".
   2. **AUD-004** (L252): reemplazar "gate por feature experimental-lisp" → "feature `experimental-lisp` ELIMINADA en CUARENTENA-01; fix = eliminar/renombrar tool `query_lisp` o documentar que solo acepta IQL".
@@ -146,7 +146,7 @@
 - **Acción (premisa corregida):** decidir eliminar la tool o renombrarla (ej. `query_iql`) y documentar en MCP.md. NO gate por feature inexistente.
 - **Contrato:** test MCP pasa; MCP.md documenta el nombre real; sin tool que prometa LISP.
 - **Dependencias:** define el destino para AUD-006 (Task 30) y TECH-03 #4 (Task 20).
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 14: AUDIT-04 — Root-cause crash benchmark Python (0xC0000409)
 - **Archivos clave:** `benchmarks/vantadb_local_bench.py:242-245`, `heavy_nocturnal_tests.log:142-149`
@@ -162,7 +162,7 @@
 - **Acción (premisa corregida):** (a) NO tratar ops.rs:1761 como pánico alcanzable (es expect infalible por guard); (b) consumir reporte INV-024 (39 bloques, 7 UB_POTENTIAL) en vez de re-contar; (c) portar patrón OpGate a bindings python/wasm; (d) reemplazar unwraps críticos en hot path por propagación de error.
 - **Contrato:** `cargo clippy --workspace --all-targets -- -D warnings`; OpGate presente en 3 bindings; sin pánico nuevo en hot path.
 - **Dependencias:** reporte INV-024 (existente).
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 16: AUD-001 — Fix Dockerfile (🔴 CI/Docker invendible)
 - **Archivos clave:** `Dockerfile:4,32-39,42-47,54`, `Cargo.toml:5`
@@ -514,11 +514,11 @@ INV-007-B → MKT-17, TSK-103 (absorbe cierres)
 
 === RECITATION ===
 Campaign ID: 06826e46-9034-4f0c-bb4c-5e06742d9480
-Objetivo activo: F2 — TECH-02 wrapper TS reindexHnswFromText
+Objetivo activo: F2 — AUD-011 deuda unsafe/OpGate
 Estado: completed
-Última acción: vanta-worker wrapper 1-línea en vantadb.ts:542-548
-Resultado: ✅ tsc --noEmit OK, commit 274edcf9
-Próxima acción: Deuda: vantadb-wasm/package.json sin main/module (vitest falla en HEAD)
+Última acción: vanta-worker portó OpGate a python y wasm
+Resultado: ✅ check+clippy OK, commit ef155f9c
+Próxima acción: Smoke pytest/wasm-pack pendiente en entorno
 Contrato: grep experimental-lisp|MCP-02 = 0; sin duplicados en progreso
-Próxima tarea si completa: 13
+Próxima tarea si completa: 14
 === END RECITATION ===
