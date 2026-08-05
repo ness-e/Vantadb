@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VantaDB Desktop — MVP</title>
+    <style>
+      :root {
+        --ink: #1a1a1a;
+        --paper: #f2ede2;
+        --accent: #ff5500;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: var(--paper);
+        color: var(--ink);
+        padding: 24px;
+      }
+      h1 { margin-top: 0; font-size: 1.4rem; }
+      .card {
+        background: #fff;
+        border: 2px solid var(--ink);
+        box-shadow: 4px 4px 0 0 var(--ink);
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+      input, button {
+        font: inherit;
+        padding: 6px 10px;
+        border: 2px solid var(--ink);
+        background: #fff;
+      }
+      button { cursor: pointer; }
+      button:hover { background: var(--accent); color: #fff; }
+      pre {
+        background: var(--ink);
+        color: #eaffea;
+        padding: 12px;
+        overflow: auto;
+        max-height: 320px;
+        font-size: 0.8rem;
+      }
+      #status { font-weight: 600; }
+      #status.ok { color: #0a7d2f; }
+      #status.err { color: #c00; }
+    </style>
+  </head>
+  <body>
+    <h1>VantaDB Desktop — MVP</h1>
+
+    <div class="card">
+      <div class="row">
+        <button id="ping">ping</button>
+        <span id="status">not checked</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>CRUD demo (in-process core)</h2>
+      <div class="row">
+        <input id="ns" placeholder="namespace" value="demo" />
+        <input id="key" placeholder="key" />
+        <input id="payload" placeholder="payload" />
+        <button id="put">put</button>
+        <button id="get">get</button>
+        <button id="delete">delete</button>
+      </div>
+      <pre id="output"></pre>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const status = $("status");
+      const out = $("output");
+      const log = (s) => { out.textContent = s; };
+
+      async function invoke(cmd, args) {
+        // @tauri-apps/api is not bundled; use the global injected by withGlobalTauri.
+        return window.__TAURI__.core.invoke(cmd, args);
+      }
+
+      $("ping").addEventListener("click", async () => {
+        status.textContent = "pinging…";
+        status.className = "";
+        try {
+          const h = await invoke("ping", {});
+          status.textContent = `ok: ${h.message} (${h.connection_kind}, core ${h.core_version})`;
+          status.className = "ok";
+        } catch (e) {
+          status.textContent = `error: ${e}`;
+          status.className = "err";
+        }
+      });
+
+      const args = () => ({ namespace: $("ns").value, key: $("key").value, payload: $("payload").value });
+
+      $("put").addEventListener("click", async () => {
+        try { log(await invoke("put", args())); }
+        catch (e) { log(`ERR: ${e}`); }
+      });
+
+      $("get").addEventListener("click", async () => {
+        try { log(JSON.stringify(await invoke("get", args()), null, 2)); }
+        catch (e) { log(`ERR: ${e}`); }
+      });
+
+      $("delete").addEventListener("click", async () => {
+        try { log(String(await invoke("delete", args()))); }
+        catch (e) { log(`ERR: ${e}`); }
+      });
+
+      $("ping").click();
+    </script>
+  </body>
+</html>

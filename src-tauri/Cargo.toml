@@ -1,0 +1,32 @@
+[package]
+name = "vantadb-desktop"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94.1"
+description = "VantaDB Desktop MVP — Tauri shell over the VantaDB core (NativeConnection contract)."
+license = "Apache-2.0"
+repository = "https://github.com/ness-e/Vantadb"
+
+# Standalone crate: deliberately NOT a member of the root workspace so that
+# `cargo check` at the repo root keeps compiling the stabilized bindings
+# (F4/F6) without pulling Tauri/webview deps. The empty [workspace] table
+# below opts this package out of the parent workspace (standard Tauri layout).
+[workspace]
+
+[lib]
+name = "vantadb_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+# VantaDB core as a direct native dependency — no WASM bridge, no OPFS.
+# default-features = false keeps the desktop binary lean (no arrow/cli/rocksdb
+# unless a later task turns them on). InMemory backend needs no extra features.
+vantadb = { path = "..", default-features = false }
