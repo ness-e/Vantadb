@@ -610,6 +610,12 @@ pub fn handle_resources_list() -> Result<Value, Value> {
                 "name": "Operational Metrics",
                 "description": "Current operational metrics including memory usage, HNSW statistics, and storage information",
                 "mimeType": "application/json"
+            },
+            {
+                "uri": "schema://",
+                "name": "Database Schema",
+                "description": "Database schema information including HNSW configuration and text index version",
+                "mimeType": "application/json"
             }
         ]
     }))
@@ -633,6 +639,10 @@ pub fn handle_resources_read(
         let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
         let metrics_val = embedded.operational_metrics();
         let text = serialize_content(&metrics_val);
+        Ok(json!({"contents": [{"uri": uri, "mimeType": "application/json", "text": text}]}))
+    } else if uri == "schema://" {
+        let schema = build_schema_resource(storage);
+        let text = serialize_content(&schema);
         Ok(json!({"contents": [{"uri": uri, "mimeType": "application/json", "text": text}]}))
     } else if uri.starts_with("memory://") {
         let path = uri.strip_prefix("memory://").unwrap_or("");
@@ -703,6 +713,30 @@ pub fn handle_resources_read(
     } else {
         McpError::method_not_found("Resource not found").into_err()
     }
+}
+
+/// Build the `schema://` resource payload: active HNSW configuration and
+/// text index schema/tokenizer version.
+fn build_schema_resource(storage: &Arc<StorageEngine>) -> Value {
+    let index = storage.vec_index();
+    let hnsw_config = serde_json::to_value(index.config.clone())
+        .unwrap_or_else(|_| json!({}));
+    let text_spec = vantadb::TextIndexSpec::default();
+    json!({
+        "vector_index": {
+            "type": "HNSW",
+            "format_version": vantadb::VECTOR_INDEX_VERSION,
+            "config": hnsw_config
+        },
+        "text_index": {
+            "schema_version": text_spec.schema_version,
+            "tokenizer": {
+                "name": text_spec.tokenizer.name,
+                "version": text_spec.tokenizer.version
+            },
+            "key_format": text_spec.key_format
+        }
+    })
 }
 
 // ── Prompts handlers ──────────────────────────────────────────────────────

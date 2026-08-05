@@ -59,6 +59,10 @@ fn test_mcp_resources_list() {
         uris.contains(&"metrics://"),
         "resources should include metrics:// URI"
     );
+    assert!(
+        uris.contains(&"schema://"),
+        "resources should include schema:// URI"
+    );
 }
 
 #[test]
@@ -83,6 +87,61 @@ fn test_mcp_resources_read() {
     assert!(
         res_invalid.is_err(),
         "reading invalid URI should return an error"
+    );
+}
+
+#[test]
+fn test_mcp_resources_read_schema() {
+    let (_dir, storage) = setup_storage();
+    let cfg = vantadb_mcp::McpConfig::default();
+
+    let res = handle_resources_read(&Some(json!({"uri": "schema://"})), &storage, &cfg);
+    assert!(res.is_ok(), "reading schema:// should succeed");
+    let val = res.unwrap();
+    assert_eq!(val["contents"][0]["uri"], "schema://");
+    assert_eq!(val["contents"][0]["mimeType"], "application/json");
+    let text = val["contents"][0]["text"].as_str().unwrap();
+    let schema: Value = serde_json::from_str(text).expect("schema payload should be valid JSON");
+
+    // vector_index block: HNSW config + format version
+    let vector_index = &schema["vector_index"];
+    assert_eq!(vector_index["type"], "HNSW");
+    assert_eq!(
+        vector_index["format_version"],
+        vantadb::VECTOR_INDEX_VERSION,
+        "schema should report the compiled vector index format version"
+    );
+    let config = &vector_index["config"];
+    assert!(
+        config["m"].is_u64() && config["m"].as_u64().unwrap() > 0,
+        "HNSW config should expose m"
+    );
+    assert!(
+        config["ef_construction"].is_u64(),
+        "HNSW config should expose ef_construction"
+    );
+    assert!(
+        config["ef_search"].is_u64(),
+        "HNSW config should expose ef_search"
+    );
+    assert!(
+        config["distance_metric"].is_string(),
+        "HNSW config should expose distance_metric"
+    );
+
+    // text_index block: schema version + tokenizer
+    let text_index = &schema["text_index"];
+    assert!(
+        text_index["schema_version"].is_u64(),
+        "schema should expose text index schema version"
+    );
+    assert!(
+        text_index["tokenizer"]["name"].is_string(),
+        "schema should expose tokenizer name"
+    );
+    assert!(
+        text_index["tokenizer"]["version"].is_u64(),
+        "schema should expose tokenizer version"
     );
 }
 

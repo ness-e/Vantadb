@@ -169,6 +169,7 @@ pub use sdk::{
 };
 pub use storage::vfile::VFILE_VERSION;
 pub use storage::BackendKind;
+pub use text_index::{TextIndexSpec, TextTokenizerSpec};
 pub use utils::compute_confidence_friction;
 pub use wal::{WalReader, WalRecord, WalWriter};
 pub use wal::{WAL_FORMAT_VERSION, WAL_POSTCARD_VERSION};

@@ -41,7 +41,7 @@ const NAMESPACE_STATS_TAG: &[u8] = b"ns\0";
 
 /// Specification for a text tokenizer implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct TextTokenizerSpec {
+pub struct TextTokenizerSpec {
     /// Tokenizer name identifier.
     pub name: &'static str,
     /// Tokenizer version.
@@ -69,7 +69,7 @@ impl TextTokenizerSpec {
 
 /// Specification for the text index schema and tokenizer.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct TextIndexSpec {
+pub struct TextIndexSpec {
     /// Schema version of the text index.
     pub schema_version: u32,
     /// Tokenizer specification.
