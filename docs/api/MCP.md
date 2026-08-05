@@ -3,7 +3,7 @@ title: VantaDB Model Context Protocol (MCP) Server
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-07-21
+last_reviewed: 2026-08-05
 aliases: []
 ---
 
@@ -68,6 +68,24 @@ The MCP server exposes the following tools for memory operations:
 - **`read_axioms`** - Read system axioms
   - Parameters: None
   - Returns: Active Devil's Advocate Axioms
+
+- **`rehydrate`** - Recover shadow-archived nodes that belonged to a summary node from TombstoneStorage
+  - Parameters: `summary_id` (u128 as string)
+  - Returns: `recovered_count`, `summary_id`, `rehydration_complete`
+
+#### Collection Operations
+
+- **`collection_stats`** - Returns statistics for a namespace/collection
+  - Parameters: `namespace`
+  - Returns: `total_records`, `total_bytes`, `has_vector_index`, `vector_count`, `created_at`
+
+- **`collection_list`** - Lists all collections with metadata
+  - Parameters: None
+  - Returns: Array of `{name, record_count, has_vector_index, created_at}`
+
+- **`collection_delete`** - Deletes an entire namespace/collection and all its records
+  - Parameters: `namespace`, `confirm` (must be `"yes"`)
+  - Returns: Deletion status
 
 ### Resources
 
