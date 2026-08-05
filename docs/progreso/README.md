@@ -1402,6 +1402,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ Workflow nuevo `ci-examples-12.yml`: job `rust-examples` (4 `cargo run --example` con rust-setup) + job `python-examples` (setup-python 3.11, wheel maturin local, 1 step por example, sin `continue-on-error`). Se detectaron y repararon 7 examples Python con drift de API (nunca corrieron en CI): `db.list()`→`list_memory()` (retorno `VantaListResult` iterable) y `search_memory(query_vector=None)`→`query_vector or []` (vector requerido). Local: 4/4 Rust exit 0, 10/10 Python exit 0. actionlint ok. Los examples solo importan `vantadb_py` + stdlib (sin libs de framework ni API keys).
 - **Ids:** `GH-142`
 
+### GH-144: i18n traducciones ES para showcase page
+- **Fuente:** Backlog (Phase 11 — GitHub Issues)
+- **Fecha:** 2026-08-05
+- **Objetivo:** Completar claves i18n `showcasePage.*` en español para `web/src/app/showcase/page.tsx`.
+- **Resultado:** ✅ Ya resuelto: `web/src/lib/dictionaries.ts` contiene 22 claves `showcasePage.*` completas en ES (L1370-1391) y EN (L2856-2877); la página usa `tt()` con fallback. Verificado 44 matches del token (22+22). Issue #144 cerrado con comentario de evidencia (backlog-validation F1, 2026-08-05).
+- **Ids:** `GH-144`
+
 ### GH-124: Ejemplos doc-test para API pública Rust
 - **Fuente:** Backlog (Phase 11 — GitHub Issues)
 - **Fecha:** 2026-08-02

@@ -53,7 +53,7 @@
   12. **DESKTOP-08** (L392): corregir "métodos por endpoint de HTTP_API.md" → "la API real tiene 3 endpoints (/health, /metrics, /api/v2/query IQL); put/get/delete/list/search van como statements IQL. Diseñar 'cliente IQL tipado', no client REST por-op".
   13. **Progreso (capa 8):** tras las ediciones, verificar con `skill progreso` que ningún ID quede duplicado entre Backlog.md y progreso/README.md.
 - **Dependencias:** ninguna.
-- **Estado:** ✅ COMPLETED 2026-08-05 — 12 premisas corregidas (13 edits: AUDIT-01, AUD-004, AUD-011, TECH-02, AUD-005, AUD-006, AUD-007, INV-009-B, INV-016-B, NUEVO-01, GH-139, TECH-05, DESKTOP-08); contrato grep `experimental-lisp|MCP-02` = 0; sin duplicados en progreso.
+- **Estado:** ✅ COMPLETED
 
 ---
 
@@ -65,37 +65,37 @@
 - **Veredicto:** ❌ premisa falsa — sparse search YA implementado (`sparse_memory_search` sdk/search/mod.rs:721-746, hybrid 3 canales :748-780, SparseVector node.rs:409).
 - **Acción:** reescribir la fila como feature NUEVA: "Sparse indexed search — inverted index + posting lists (hoy brute-force O(n) sobre subset filtrado)" con ID nuevo (ej. NUEVO-22). Si no se quiere: tachar + mover a BACKLOG_HISTORY.
 - **Contrato:** row editado en Backlog.md; referencia al gap real (brute-force sin índice).
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-08-05 — NUEVO-18 reescrita como NUEVO-22 (sparse indexed search, inverted index + posting lists); premisa falsa corregida.
 
 ### Task 3: CLOSE-TSK103 — Cerrar TSK-103 (resuelta por NUEVO-10)
 - **Veredicto:** ❌ resuelta — `benchmarks/README.md` + `requirements.txt` + 3 scripts públicos reproducibles (commit d0b1c7c6, NUEVO-10 ✅ 2026-08-02).
 - **Acción:** tachar en Backlog.md + nota "resuelta por NUEVO-10; remanente = INV-007-B". No mover a progreso como nueva (ya está ahí).
 - **Contrato:** row tachado; sin duplicado en progreso.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-08-05 — TSK-103 tachada; resuelta por NUEVO-10 (commit d0b1c7c6); remanente = INV-007-B.
 
 ### Task 4: CLOSE-MKT17 — Cerrar MKT-17 (duplicada de INV-007-B)
 - **Veredicto:** ❌ duplicada 1:1 — `benchmarks-view.tsx:352-365` ya tiene la tabla estática (MKT-15 ✅); INV-007-B ya especifica `competitive-table.tsx` + contrato JSON con más rigor.
 - **Acción:** tachar + nota "consolidada en INV-007-B (Task 47)". No ejecutar.
 - **Contrato:** row tachado con referencia cruzada.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-08-05 — MKT-17 tachada; duplicada 1:1 de INV-007-B.
 
 ### Task 5: CLOSE-GH144 — Cerrar issue #144 sin trabajo
 - **Veredicto:** ❌ ya resuelta — `web/src/lib/dictionaries.ts` tiene 22 claves `showcasePage.*` completas en ES (1370-1391) y EN (2856-2877); página usa `tt()` con fallback.
 - **Acción:** `gh issue close 144 --repo ness-e/Vantadb` con comentario de evidencia. Tachar row en Backlog + migrar a progreso con nota.
 - **Contrato:** issue cerrado; row tachado.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-08-05 — GH-144 issue cerrado con evidencia (22 ES + 22 EN claves); row tachado; migrada a progreso.
 
 ### Task 6: MOVE-LEG01 — Mover LEG-01 a lista humana
 - **Veredicto:** ❌ no-delegable — registro USPTO/EUIPO requiere abogado, pago (~$250-350/clase USPTO, ~€850 EUIPO), identidad legal; estimación "2-4h" irreal.
 - **Acción:** mover fila a sección "Tareas Humanas" del backlog (o docs/strategy/GO_TO_MARKET.md) con `owner: human` + estimación realista (semanas, $2-5K).
 - **Contrato:** fila fuera del flujo de agentes; nota de decisión en campaign_memory (decisions).
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-08-05 — LEG-01 movida a sección Tareas Humanas (owner: human, estimación semanas, $2-5K).
 
 ### Task 7: MOVE-COM04 — Mover COM-04 a nota de roadmap
 - **Veredicto:** ❌ bloqueada — Server Discovery exige 1000+ miembros, Canny.io SaaS externo, ticketing requiere bot externo (Ticket Tool/Helper.gg). Nada accionable hoy.
 - **Acción:** tachar o marcar `⏸ Icebox` con nota de dependencias en `docs/discord/todo.md`.
 - **Contrato:** fila no contada como activa; dependencias documentadas.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-08-05 — COM-04 marcada ⏸ Icebox con dependencias en docs/discord/todo.md.
 
 ### Task 8: MERGE-TECH04-AUD010 — Unificar naming de env vars (una sola tarea)
 - **Veredicto:** 🔁 duplicados reales — mismas 3 lecturas: `cli.rs:15` env `VANTA_DB`, `server.rs:244` `cmd.env("VANTA_DB")`, `config.rs:408` `VANTADB_STORAGE_PATH`; ~25 vars `VANTADB_*`.
@@ -105,26 +105,26 @@
   3. Sincronizar `docs/operations/CONFIGURATION.md`.
 - **Contrato:** ADR publicado; test de compatibilidad (leer ambas vars, warning de deprecación) si se migra; TECH-01 (Task 17) resuelve el síntoma mientras tanto.
 - **Dependencias:** TECH-01 (Task 17) primero para el síntoma.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-08-05 — ADR-012 publicado (VANTA_DB = flag CLI, VANTADB_STORAGE_PATH = env config; child setea ambos); CONFIGURATION.md nota añadida; AUD-010 absorbida.
 
 ### Task 9: MERGE-GH139-NUEVO01 — Fusionar GH-139 como slice de NUEVO-01
 - **Veredicto:** 🔁 GH-139 ⊂ NUEVO-01 — ambos crean GIF demo en README; NUEVO-01 es superset (hero readme-aura + gráfico benchmark + GIF).
 - **Acción:** tachar GH-139 con nota "slice GIF de NUEVO-01 (Task 41)". NUEVO-01 gana el deliverable GIF <5MB (pip install → REPL CRUD → hybrid search) como sub-paso.
 - **Contrato:** GH-139 tachado; NUEVO-01 incluye sub-paso GIF.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-08-05 — GH-139 tachado como slice de NUEVO-01 (GIF <5MB sub-paso).
 
 ### Task 10: MERGE-AUDIT06-07 — Fusionar micro-optimizaciones → vanta-tuner
 - **Veredicto:** 🔁 ambas micro-opt sin bug demostrado: AUDIT-06 (BTreeMap RRF con cap 750 → impacto µs; no hay path single-channel que lo justifique), AUDIT-07 (tradeoff BTreeMap ya decidido y razonado en doc comment node.rs:404-407).
 - **Acción:** fusionar en UNA tarea de investigación de rendimiento delegada a vanta-tuner: medición previa (flamegraph/profiling) antes de tocar código. DoD: si la medición no muestra >1% impacto, cerrar como WONTFIX con ADR ligero.
 - **Contrato:** doc de investigación con medición; decisión documentada.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-08-05 — AUDIT-06+07 fusionadas en investigación de vanta-tuner (medición previa, WONTFIX si <1%).
 
 ### Task 11: RESCALE-AUDIT03 — Re-escalar guard Miri
 - **Veredicto:** ⚠️ inviable como está — `vantadb-python/Cargo.toml` = 0 dev-deps, 0 tests Rust, cdylib PyO3; Miri no puede correr FFI CPython/NumPy.
 - **Acción:** reformular → "Miri sobre el CORE (`cargo +nightly miri test -p vantadb`, ya existe `tests/miri_unsafe.rs`) para cubrir los 7 bloques UB_POTENTIAL de INV-024; boundary Python cubierto con repro Python + ASAN/valgrind (AUDIT-04)". Ejecutar DESPUÉS del fix AUDIT-01 (Task 12).
 - **Contrato:** comando Miri sobre core pasa o reporta UB; sin intento de Miri sobre el crate Python.
 - **Dependencias:** AUDIT-01 (Task 12).
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-08-05 — AUDIT-03 re-escalado a Miri sobre core (tests/miri_unsafe.rs), post AUDIT-01.
 
 ---
 
@@ -511,3 +511,14 @@ INV-007-B → MKT-17, TSK-103 (absorbe cierres)
 - [ ] Git status limpio (o cambios del pipeline actual)
 - [ ] `just verify-quick` pasa antes de merge de cualquier fix de código
 - [ ] Para release: `skill unified-review --mode certify --profile vantadb`
+
+=== RECITATION ===
+Campaign ID: 06826e46-9034-4f0c-bb4c-5e06742d9480
+Objetivo activo: F0 Backlog-EDIT: corregir premisas stale
+Estado: completed
+Última acción: 13 edits en Backlog.md + verificación contrato grep=0
+Resultado: ✅
+Próxima acción: Task 2: CLOSE-NUEVO18 — reescribir NUEVO-18 como sparse indexed
+Contrato: grep experimental-lisp|MCP-02 = 0; sin duplicados en progreso
+Próxima tarea si completa: 2
+=== END RECITATION ===

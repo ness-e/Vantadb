@@ -128,6 +128,8 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `--json` | — | `false` | Output in JSON format |
 | `--quiet` | — | `false` | Suppress non-essential output |
 
+> **Note (ADR-012, 2026-08-05):** `VANTA_DB` is the CLI flag env (clap, global). `VANTADB_STORAGE_PATH` is the config env (`VantaConfig::from_env`). Precedence: CLI flag `--db` > `VANTA_DB` env > `VANTADB_STORAGE_PATH` > defaults. The `vantadb-server` child sets **both** vars from `--db` so the MCP/config path resolves correctly (fix TECH-01). See `docs/architecture/adr/012_env_var_naming.md`.
+
 ### Commands
 
 | Command | Description |
