@@ -1,21 +1,45 @@
 ---
-title: "Experimental Governance — Design Document (2024 → Phase 5)"
+title: "Experimental Governance — Proposed Design (NOT Implemented)"
 type: architecture
 status: draft
+implemented: false
 tags: [vantadb, architecture, governance, admission-control, conflict-resolution, consistency]
 links: "[[Backlog]], [[LISP_ANALYSIS]]"
-last_reviewed: 2026-07-21
+last_reviewed: 2026-08-05
 aliases: [gov-design-doc, experimental-governance]
 ---
 
 # Experimental Governance — Design Document
 
-> **Original source:** `archive/experimental-quarantine-2024-06/experimental-governance/` (7 files, 1,010 LOC — **archived Jul 2026**)
-> **Current implementation:** `src/governance/` (5 modules: `admission.rs`, `conflict.rs`, `consistency.rs`, `worker.rs`, `mod.rs`)
-> **Status:** Design doc preservado como referencia. Muchos bugs catalogados ya fueron corregidos en la implementación actual.
+> **Original source:** `archive/experimental-quarantine-2024-06/experimental-governance/` (7 files, 1,010 LOC — **archived Jul 2026**; ⚠️ origin path could not be re-verified on 2026-08-05)
+> **Current implementation:** ⚠️ **NONE — RETRACTED (2026-08-05).** An earlier draft claimed a "current implementation" in `src/governance/` (`admission.rs`, `conflict.rs`, `consistency.rs`, `worker.rs`, `mod.rs`). **That directory does not exist** (`Test-Path` = false). The governance subsystem was never implemented beyond the archived experiment. This is the only (marked) historical mention of `src/governance` left in the document.
+> **Status:** ⚠️ **PROPOSED DESIGN — NOT IMPLEMENTED.** No code corresponds to this design. Every "FIXED in current code" / "current implementation" statement below describes *intended* fixes in the archived experiment — **none is verified against live code**.
 > **Action:** Redesign in **Phase 5** (2026-Q4). Concepts captured here will inform the rewrite.
 
 ---
+
+## 0. Implementation Status & Mapping to Existing Code
+
+> **Retraction (2026-08-05):** this document previously claimed verification against
+> `src/governance/` on 2026-07-21. The directory does not exist; the claim was false.
+> The governance subsystem (admission control, conflict resolution, consistency
+> buffer, maintenance worker) is **unimplemented** — it is a proposed design for
+> Phase 5, not a shipped feature.
+
+The only existing code related to this document is `src/gds.rs`
+(`GraphDataScience`, 403 lines) — but it is a **different subsystem** and does
+**not** implement any governance concept:
+
+| Exists today (`src/gds.rs`) | Governance design (future — NOT implemented) |
+|------------------------------|-----------------------------------------------|
+| `GraphDataScience::page_rank(roots, max_iterations, damping, tolerance)` (gds.rs:38) — iterative PageRank over the subgraph reachable from `roots` | `AdmissionFilter` — Bloom Filter + CountMinSketch (design §2.1) |
+| `GraphDataScience::degree_centrality(roots)` (gds.rs:145) — in/out degree counts per node | `ConflictResolver` — version vectors + friction metric (design §2.2) |
+| Single-threaded graph algorithms over `StorageEngine` via `GraphTraverser` (~10K nodes) | `ConsistencyBuffer` — TTL-based pending records (design §2.3) |
+| Unit-tested in `src/gds.rs` (`#[cfg(test)]` module) | `MaintenanceWorker` — background maintenance cycle (design §2.5) |
+
+> `src/gds.rs` is **Graph Data Science** (ranking/centrality), not admission
+> control or conflict resolution. The two share only the `StorageEngine`
+> dependency. Do not cite this document as describing implemented behavior.
 
 ## 1. System Architecture Overview
 
@@ -135,7 +159,7 @@ Temporal buffer for conflicting records that cannot be immediately resolved.
 
 ### 2.4 InvalidationDispatcher (`invalidations.rs` — ARCHIVED)
 
-**This module does not exist in the current `src/governance/` implementation.** It was part of the original experimental design and was removed during the rewrite. Invalidation events are now handled directly by their respective modules without a central dispatcher.
+**This module does not exist in any implementation (see §0 retraction).** It was part of the original experimental design and was removed during the rewrite. Invalidation events would be handled directly by their respective modules without a central dispatcher.
 
 **Original Design (archived):**
 - Synchronous MPSC channel for invalidation events (PremiseInvalidated, InvalidatedPurged, EnvironmentDrift)
@@ -169,7 +193,7 @@ Background thread that cycles every 10s on inactivity (>5s), performing bloom re
 
 ## 3. Bug Catalog — Status vs Current Implementation
 
-> Bugs catalogued below were identified in the original experimental code and verified against the current `src/governance/` implementation on **2026-07-21**. Status reflects whether the bug persists, was fixed, or is N/A (feature removed).
+> ⚠️ **Not verified (2026-08-05).** The bugs below were identified in the original experimental code. They were **NOT** verified against any live implementation — see §0 retraction. Status reflects the *intended* design of the archived experiment, not verified code.
 
 ### 🔴 Critical (Data Loss / System Blockage)
 
