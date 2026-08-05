@@ -276,8 +276,15 @@ pub async fn auth_middleware(req: axum::extract::Request, next: middleware::Next
         }
     };
 
-    // No API key configured — allow all (dev mode)
+    // No API key configured — allow all (dev mode), but surface it so the
+    // silent auth bypass is visible (not rate-limited: tracing::rate_limited is
+    // unstable and unavailable in the pinned tracing 0.1.44).
     let Some(expected_key) = &auth.api_key else {
+        tracing::warn!(
+            method = %req.method(),
+            path = %req.uri().path(),
+            "no API key configured; allowing unauthenticated request (dev mode)"
+        );
         return next.run(req).await;
     };
 
