@@ -155,59 +155,14 @@
     box-shadow: 0 0 0 0 #000;
   }
 
-  /* Textured cream paper background */
-  .paper-bg {
-    background-color: #FBF9F5;
-    background-image:
-      radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.035) 1px, transparent 0);
-    background-size: 22px 22px;
-  }
-
-  .paper-grain {
-    position: relative;
-  }
-  .paper-grain::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
-    mix-blend-mode: multiply;
-    z-index: 0;
-  }
-
   /* Halftone dot pattern */
   .halftone {
     background-image: radial-gradient(circle, #000 1.4px, transparent 1.6px);
     background-size: 12px 12px;
   }
-  .halftone-neon {
-    background-image: radial-gradient(circle, #FF5500 1.6px, transparent 1.8px);
-    background-size: 14px 14px;
-  }
   .halftone-fade {
     -webkit-mask-image: linear-gradient(to bottom right, #000 10%, transparent 75%);
     mask-image: linear-gradient(to bottom right, #000 10%, transparent 75%);
-  }
-
-  /* Diagonal hatch (linocut carving texture) */
-  .hatch {
-    background-image: repeating-linear-gradient(
-      45deg,
-      #000 0,
-      #000 1px,
-      transparent 1px,
-      transparent 6px
-    );
-  }
-  .hatch-neon {
-    background-image: repeating-linear-gradient(
-      45deg,
-      #FF5500 0,
-      #FF5500 1px,
-      transparent 1px,
-      transparent 6px
-    );
   }
 
   /* Kinetic speed lines (manga action) */
@@ -242,38 +197,14 @@
     background-size: 28px 28px;
   }
 
-  /* Hard panel shadow utilities */
-  .shadow-brutal {
-    box-shadow: 6px 6px 0 0 #000;
-  }
-  .shadow-brutal-lg {
-    box-shadow: 8px 8px 0 0 #000;
-  }
-  .shadow-brutal-neon {
-    box-shadow: 6px 6px 0 0 #FF5500, 6px 6px 0 2px #000;
-  }
-  .shadow-brutal-sm {
-    box-shadow: 4px 4px 0 0 #000;
-  }
-
   /* Stencil / ink title styling */
   .text-stencil {
     letter-spacing: -0.02em;
     line-height: 0.9;
   }
-  .text-outline {
-    -webkit-text-stroke: 2px #000;
-    color: transparent;
-  }
   .text-outline-neon {
     -webkit-text-stroke: 2px #FF5500;
     color: transparent;
-  }
-
-  /* Marker highlight */
-  .marker-neon {
-    background: linear-gradient(180deg, transparent 58%, #FF5500 58%, #FF5500 92%, transparent 92%);
-    padding: 0 0.1em;
   }
 
   /* Custom scrollbar (manga style) */
@@ -295,23 +226,6 @@
   }
   .scroll-manga::-webkit-scrollbar-thumb:hover {
     background: #FF5500;
-  }
-
-  /* Tape strip (washi tape comic effect) */
-  .tape {
-    position: relative;
-  }
-  .tape::after {
-    content: "";
-    position: absolute;
-    top: -10px;
-    left: 50%;
-    transform: translateX(-50%) rotate(-3deg);
-    width: 70px;
-    height: 18px;
-    background: #FF5500;
-    opacity: 0.85;
-    border: 1px dashed rgba(0, 0, 0, 0.4);
   }
 }
 
@@ -347,16 +261,6 @@
   animation: vanta-flicker 4.5s linear infinite;
 }
 
-@keyframes vanta-shake {
-  0%, 100% { transform: translate(0, 0); }
-  25% { transform: translate(-1px, 1px); }
-  50% { transform: translate(1px, -1px); }
-  75% { transform: translate(-1px, -1px); }
-}
-.animate-shake {
-  animation: vanta-shake 0.18s ease-in-out infinite;
-}
-
 @keyframes vanta-rise {
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
@@ -372,14 +276,6 @@
 }
 .animate-stamp {
   animation: vanta-stamp 0.5s var(--ease-default) both;
-}
-
-@keyframes vanta-scan {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
-}
-.animate-scan {
-  animation: vanta-scan 3.2s linear infinite;
 }
 
 @keyframes vanta-pulse-ring {
@@ -580,48 +476,6 @@
   50% { box-shadow: 0 0 20px 4px rgba(255, 85, 0, 0.5); }
 }
 
-/* Gradient accent border (top) */
-.accent-bar-top {
-  position: relative;
-}
-.accent-bar-top::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #FF5500 0%, #FF5500 30%, transparent 30%, transparent 35%, #FF5500 35%, #FF5500 50%, transparent 50%, transparent 55%, #FF5500 55%, #FF5500 70%, transparent 70%);
-}
-
-/* Diagonal stripe accent (manga panel shading) */
-.stripe-accent {
-  background-image: repeating-linear-gradient(
-    -45deg,
-    #FF5500 0,
-    #FF5500 2px,
-    transparent 2px,
-    transparent 8px
-  );
-}
-
-/* Ink splatter decoration (corner) */
-.ink-corner {
-  position: relative;
-}
-.ink-corner::after {
-  content: "";
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 14px;
-  height: 14px;
-  background: radial-gradient(circle, #000 30%, transparent 31%);
-  opacity: 0.15;
-  pointer-events: none;
-}
-
-
 /* Glitch effect (for hover on titles) */
 .glitch-hover {
   position: relative;
@@ -638,16 +492,6 @@
   75% { transform: translate(-1px, -1px); }
   100% { transform: translate(0); }
 }
-
-/* Manga panel "throw" shadow (extra depth on key cards) */
-.shadow-throw {
-  box-shadow: 6px 6px 0 0 #000, 12px 12px 0 0 rgba(0, 0, 0, 0.15);
-}
-
-
-/* ============================================================
-   TASK 12 — NEW CSS EFFECTS & ENHANCEMENTS
-   ============================================================ */
 
 /* Neon underline (animated accent on text hover) */
 .neon-underline {
@@ -688,34 +532,6 @@
 }
 
 
-/* Ink drip decoration (bottom of sections) */
-.ink-drip {
-  position: relative;
-}
-.ink-drip::after {
-  content: "";
-  position: absolute;
-  bottom: -12px;
-  left: 10%;
-  width: 80%;
-  height: 12px;
-  background: radial-gradient(ellipse at 20% 0%, #000 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 0%, #000 0%, transparent 40%),
-    radial-gradient(ellipse at 80% 0%, #000 0%, transparent 50%);
-  opacity: 0.08;
-  pointer-events: none;
-}
-
-
-/* Manga panel frame (decorative corner cuts) */
-.manga-frame {
-  position: relative;
-  clip-path: polygon(
-    0 12px, 12px 0, calc(100% - 12px) 0, 100% 12px,
-    100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px)
-  );
-}
-
 /* Neon pulse button hover */
 .btn-neon-glow {
   position: relative;
@@ -741,22 +557,6 @@
   transform: translate(6px, 6px);
   box-shadow: 0 0 0 0 transparent;
 }
-
-
-/* Kinetic type animation (for animated text sequences) */
-@keyframes vanta-kinetic-type {
-  0% { opacity: 0; transform: translateY(8px); }
-  10% { opacity: 1; transform: translateY(0); }
-  90% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-8px); }
-}
-.kinetic-type > span {
-  display: inline-block;
-  animation: vanta-kinetic-type 4s ease-in-out infinite;
-}
-.kinetic-type > span:nth-child(2) { animation-delay: 0.5s; }
-.kinetic-type > span:nth-child(3) { animation-delay: 1s; }
-.kinetic-type > span:nth-child(4) { animation-delay: 1.5s; }
 
 /* Animated gradient border (for footer top / dividers) */
 @keyframes vanta-gradient-border {
