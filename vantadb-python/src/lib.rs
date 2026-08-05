@@ -6,10 +6,11 @@
 #![allow(deprecated)]
 
 use pyo3::buffer::PyBuffer;
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyModuleMethods, PyTuple, PyTupleMethods};
 use std::collections::HashMap;
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use vantadb::config::VantaConfig;
 use vantadb::metadata;
 use vantadb::sdk::{
@@ -73,6 +74,85 @@ use crate::convert::{
 ///     ```
 pub struct VantaDB {
     engine: VantaEmbedded,
+    op_gate: OpGate,
+}
+
+/// Durability gate: rejects new operations once `close()` has begun and keeps
+/// `close()` waiting until every in-flight operation finishes. Mirrors
+/// `vantadb-node/src/lib.rs` — closes the write-after-close race where a
+/// thread whose engine call had not yet run (or is running GIL-released via
+/// `py.detach`) would write after `close()` returned.
+struct OpGate {
+    state: Arc<(Mutex<OpState>, Condvar)>,
+}
+
+struct OpState {
+    closing: bool,
+    count: usize,
+}
+
+impl OpGate {
+    fn new() -> Self {
+        Self {
+            state: Arc::new((
+                Mutex::new(OpState {
+                    closing: false,
+                    count: 0,
+                }),
+                Condvar::new(),
+            )),
+        }
+    }
+
+    /// Register a new in-flight operation. Returns `None` if `close()` has
+    /// started (new operations are rejected past the durability barrier).
+    fn try_enter(&self) -> Option<OpGuard> {
+        let (lock, _) = &*self.state;
+        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
+        if state.closing {
+            return None;
+        }
+        state.count += 1;
+        Some(OpGuard {
+            state: self.state.clone(),
+        })
+    }
+
+    /// Start closing and block until every in-flight operation drains.
+    ///
+    /// Sets `closing = true` (so new ops are rejected) then waits until
+    /// `count == 0`. Blocks the calling thread; acceptable: this is the
+    /// durability barrier and engine operations are bounded.
+    fn drain(&self) {
+        let (lock, cvar) = &*self.state;
+        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
+        state.closing = true;
+        while state.count > 0 {
+            state = cvar.wait(state).unwrap_or_else(PoisonError::into_inner);
+        }
+    }
+}
+
+/// RAII guard that decrements the in-flight count and wakes `close()` when
+/// dropped (at the end of the owning method, after the engine call completes).
+struct OpGuard {
+    state: Arc<(Mutex<OpState>, Condvar)>,
+}
+
+impl Drop for OpGuard {
+    fn drop(&mut self) {
+        let (lock, cvar) = &*self.state;
+        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
+        state.count -= 1;
+        cvar.notify_one();
+    }
+}
+
+/// Enter the gate for an engine operation, or fail with a descriptive error
+/// if the database is closing.
+fn enter(gate: &OpGate) -> PyResult<OpGuard> {
+    gate.try_enter()
+        .ok_or_else(|| PyRuntimeError::new_err("database is closing"))
 }
 
 #[pymethods]
@@ -142,7 +222,10 @@ impl VantaDB {
             .detach(move || VantaEmbedded::open_with_config(config))
             .map_err(map_vanta_error)?;
 
-        Ok(VantaDB { engine })
+        Ok(VantaDB {
+            engine,
+            op_gate: OpGate::new(),
+        })
     }
 
     /// Insert a node with content and an optional embedding vector.
@@ -182,6 +265,7 @@ impl VantaDB {
         vector: &Bound<'_, PyAny>,
         fields: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<()> {
+        let _g = enter(&self.op_gate)?;
         let mut input = VantaNodeInput::new(id);
         input.content = Some(content.to_string());
         let v = extract_vector(vector, py)?;
@@ -236,6 +320,7 @@ impl VantaDB {
         namespace: Option<String>,
         ttls: Option<Vec<Option<u64>>>,
     ) -> PyResult<Vec<VantaPyMemoryRecord>> {
+        let _g = enter(&self.op_gate)?;
         // Backward compat: old tuple-based list-of-entries API
         if let Some(entries_list) = entries {
             let _ = py.import("warnings")?.call_method1("warn", ("put_batch() with positional tuples is deprecated; use keyword arguments (keys=..., vectors=..., ...) instead",))?;
@@ -391,6 +476,7 @@ impl VantaDB {
         namespaces: Option<Vec<String>>,
         ttls: Option<Vec<Option<u64>>>,
     ) -> PyResult<Vec<VantaPyMemoryRecord>> {
+        let _g = enter(&self.op_gate)?;
         /// Build VantaMemoryInput vector from per-row parameters and a vector getter.
         fn build_inputs(
             nrows: usize,
@@ -597,6 +683,7 @@ impl VantaDB {
         vector: Option<&Bound<'_, PyAny>>,
         ttl_ms: Option<u64>,
     ) -> PyResult<VantaPyMemoryRecord> {
+        let _g = enter(&self.op_gate)?;
         let mut input = VantaMemoryInput::new(namespace, key, payload);
         input.metadata = py_dict_to_metadata(metadata)?;
         input.ttl_ms = ttl_ms;
@@ -647,6 +734,7 @@ impl VantaDB {
         namespace: &str,
         key: &str,
     ) -> PyResult<Option<VantaPyMemoryRecord>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let n = namespace.to_string();
         let k = key.to_string();
@@ -683,6 +771,7 @@ impl VantaDB {
     ///     True
     ///     ```
     fn delete_memory(&self, py: Python, namespace: &str, key: &str) -> PyResult<bool> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let namespace = namespace.to_string();
         let key = key.to_string();
@@ -732,6 +821,7 @@ impl VantaDB {
         limit: usize,
         cursor: Option<usize>,
     ) -> PyResult<VantaPyListResult> {
+        let _g = enter(&self.op_gate)?;
         let namespace = namespace.to_string();
         let filters_meta = py_dict_to_metadata(filters)?;
         let engine = self.engine.clone();
@@ -817,6 +907,7 @@ impl VantaDB {
         distance_metric: Option<&str>,
         explain: bool,
     ) -> PyResult<Vec<VantaPySearchHit>> {
+        let _g = enter(&self.op_gate)?;
         let metric = match distance_metric {
             Some("euclidean") => DistanceMetric::Euclidean,
             Some(other) => {
@@ -883,6 +974,7 @@ impl VantaDB {
     ///     True
     ///     ```
     fn rebuild_index(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let report = py.detach(move || engine.rebuild_index().map_err(map_vanta_error))?;
         rebuild_report_to_pydict(py, &report)
@@ -900,6 +992,7 @@ impl VantaDB {
         namespace: &str,
         page_size: usize,
     ) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let namespace = namespace.to_string();
         let report = py.detach(move || {
@@ -941,6 +1034,7 @@ impl VantaDB {
     ///     1
     ///     ```
     fn export_namespace(&self, py: Python, path: &str, namespace: &str) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
         let namespace = namespace.to_string();
@@ -981,6 +1075,7 @@ impl VantaDB {
     ///     1
     ///     ```
     fn export_all(&self, py: Python, path: &str) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
         let report = py.detach(move || engine.export_all(&path).map_err(map_vanta_error))?;
@@ -1023,6 +1118,7 @@ impl VantaDB {
     ///     'alpha'
     ///     ```
     fn import_file(&self, py: Python, path: &str) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
         let report = py.detach(move || engine.import_file(&path).map_err(map_vanta_error))?;
@@ -1032,6 +1128,7 @@ impl VantaDB {
     /// Bulk-import records from a binary .vdbdump file.
     /// Returns a dict with total_records, batches_committed, duration_ms.
     fn bulk_import(&self, py: Python, path: &str) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
         let report = py.detach(move || engine.bulk_import_file(&path).map_err(map_vanta_error))?;
@@ -1041,6 +1138,7 @@ impl VantaDB {
     /// Bulk-import records from binary bytes (.vdbdump format).
     /// Returns a dict with total_records, batches_committed, duration_ms.
     fn bulk_import_bytes(&self, py: Python, data: &[u8]) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let data = data.to_vec();
         let report = py.detach(move || {
@@ -1060,6 +1158,7 @@ impl VantaDB {
         namespace: Option<&str>,
         deep: bool,
     ) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let namespace = namespace.map(|s| s.to_string());
         let report = py
@@ -1077,6 +1176,7 @@ impl VantaDB {
 
     /// Rebuild the text index from canonical storage as a repair primitive.
     fn repair_text_index(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let report = py.detach(move || engine.repair_text_index().map_err(map_vanta_error))?;
         text_index_repair_report_to_pydict(py, &report)
@@ -1108,6 +1208,7 @@ impl VantaDB {
     ///     True
     ///     ```
     fn operational_metrics(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let metrics = py.detach(move || engine.operational_metrics());
         operational_metrics_to_pydict(py, &metrics)
@@ -1117,6 +1218,7 @@ impl VantaDB {
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during database retrieval.
     fn get(&self, py: Python, id: u128) -> PyResult<Option<Py<PyAny>>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let node = py.detach(move || engine.get_node(id).map_err(map_vanta_error))?;
         match node {
@@ -1130,6 +1232,7 @@ impl VantaDB {
     /// GIL Policy: RELEASED — allows Python threads to run during node deletion.
     #[pyo3(signature = (id, reason="manual deletion"))]
     fn delete(&self, py: Python, id: u64, reason: &str) -> PyResult<()> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let reason_str = reason.to_string();
         py.detach(move || {
@@ -1153,6 +1256,7 @@ impl VantaDB {
         vector: &Bound<'_, PyAny>,
         top_k: usize,
     ) -> PyResult<Vec<(u64, f32)>> {
+        let _g = enter(&self.op_gate)?;
         // PERF-24: vector extraction (needs GIL) — done before detach
         let v = extract_vector(vector, py)?;
         let engine = self.engine.clone();
@@ -1184,6 +1288,7 @@ impl VantaDB {
         vectors: Vec<Bound<'_, PyAny>>,
         top_k: usize,
     ) -> PyResult<Vec<Vec<(u64, f32)>>> {
+        let _g = enter(&self.op_gate)?;
         // PERF-24: vector extraction (needs GIL) — done before detach
         let parsed: PyResult<Vec<Vec<f32>>> =
             vectors.iter().map(|v| extract_vector(v, py)).collect();
@@ -1213,6 +1318,7 @@ impl VantaDB {
     /// GIL Policy: RELEASED during Tokio execution — allows other Python
     /// threads to run while VantaDB processes the query.
     fn query(&self, py: Python, iql_query: &str) -> PyResult<String> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let query_str = iql_query.to_string();
 
@@ -1228,6 +1334,7 @@ impl VantaDB {
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during disk sync.
     fn flush(&self, py: Python) -> PyResult<()> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || engine.flush().map_err(map_vanta_error))
     }
@@ -1236,6 +1343,7 @@ impl VantaDB {
     /// ``vanta.wal.<timestamp>``, and start a fresh WAL.
     #[pyo3(signature = ())]
     fn compact_wal(&self, py: Python) -> PyResult<()> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || engine.compact_wal().map_err(map_vanta_error))
     }
@@ -1244,6 +1352,7 @@ impl VantaDB {
     /// Returns the number of records purged.
     #[pyo3(signature = ())]
     fn purge_expired(&self, py: Python) -> PyResult<u64> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || engine.purge_expired().map_err(map_vanta_error))
     }
@@ -1308,6 +1417,7 @@ impl VantaDB {
         weight: Option<f32>,
         created_at_ms: Option<u64>,
     ) -> PyResult<()> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let label_str = label.to_string();
         py.detach(move || {
@@ -1319,6 +1429,9 @@ impl VantaDB {
 
     /// Flush and close the embedded engine handle.
     fn close(&self, py: Python) -> PyResult<()> {
+        // Durability barrier: reject new ops and wait for in-flight ones to
+        // finish BEFORE the engine is closed (see OpGate docs).
+        self.op_gate.drain();
         let engine = self.engine.clone();
         py.detach(move || engine.close().map_err(map_vanta_error))
     }
@@ -1348,6 +1461,7 @@ impl VantaDB {
         direction: &str,
     ) -> PyResult<Vec<u128>> {
         let dir = parse_direction(direction)?;
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || {
             engine
@@ -1369,6 +1483,7 @@ impl VantaDB {
         direction: &str,
     ) -> PyResult<Vec<u128>> {
         let dir = parse_direction(direction)?;
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || {
             engine
@@ -1382,6 +1497,7 @@ impl VantaDB {
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during topological sort.
     fn graph_topological_sort(&self, py: Python, roots: Vec<u128>) -> PyResult<Vec<u128>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || {
             engine
@@ -1394,6 +1510,7 @@ impl VantaDB {
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during cycle detection.
     fn graph_is_dag(&self, py: Python, roots: Vec<u128>) -> PyResult<bool> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || engine.graph_is_dag(&roots).map_err(map_vanta_error))
     }
@@ -1419,6 +1536,7 @@ impl VantaDB {
         damping: f64,
         tolerance: f64,
     ) -> PyResult<HashMap<u128, f64>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || {
             engine
@@ -1442,6 +1560,7 @@ impl VantaDB {
         py: Python,
         roots: Vec<u128>,
     ) -> PyResult<HashMap<u128, (usize, usize)>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || {
             engine
@@ -1453,6 +1572,7 @@ impl VantaDB {
     /// Compact the storage layout: reorders nodes in BFS order to improve
     /// locality and free unused pages. Returns the number of nodes compacted.
     fn compact_layout(&self, py: Python) -> PyResult<u64> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || engine.compact_layout().map_err(map_vanta_error))
     }
@@ -1476,6 +1596,7 @@ impl VantaDB {
                 "Invalid summary_id: {summary_id}"
             )))
         })?;
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let nodes =
             py.detach(move || engine.recover_archived_nodes(sid).map_err(map_vanta_error))?;
@@ -1484,6 +1605,7 @@ impl VantaDB {
 
     /// List all namespaces currently registered in the database.
     fn list_namespaces(&self, py: Python) -> PyResult<Vec<String>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || engine.list_namespaces().map_err(map_vanta_error))
     }
@@ -1497,6 +1619,7 @@ impl VantaDB {
         text_query: &str,
         with_highlighting: bool,
     ) -> PyResult<Option<String>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let payload = payload.to_string();
         let text_query = text_query.to_string();
@@ -1544,6 +1667,7 @@ impl VantaDB {
             explain: true,
         };
 
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let explanation = py.detach(move || {
             engine
@@ -1577,7 +1701,10 @@ fn connect(path: &str, memory_limit: Option<u64>) -> PyResult<VantaDB> {
         ..Default::default()
     };
     let engine = VantaEmbedded::open_with_config(config).map_err(map_vanta_error)?;
-    Ok(VantaDB { engine })
+    Ok(VantaDB {
+        engine,
+        op_gate: OpGate::new(),
+    })
 }
 
 /// The Python module for VantaDB.

@@ -9,6 +9,7 @@
 
 use core::sync::atomic::{AtomicBool, Ordering};
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use vantadb::config::VantaConfig;
 use vantadb::graph::TraversalDirection;
 use vantadb::sdk::*;
@@ -248,8 +249,87 @@ impl From<VantaOperationalMetrics> for JsOperationalMetrics {
 pub struct VantaDB {
     inner: VantaEmbedded,
     opfs: Option<OpfsStorage>,
+    op_gate: OpGate,
     #[cfg(feature = "opfs")]
     worker: Option<worker::OpfsWorkerProxy>,
+}
+
+/// Durability gate: rejects new operations once `close()` has begun and keeps
+/// `close()` waiting until every in-flight operation finishes. Mirrors
+/// `vantadb-node/src/lib.rs` and `vantadb-python/src/lib.rs` — closes the
+/// write-after-close race where an operation started before `close()` would
+/// still write to the engine after close returned.
+struct OpGate {
+    state: Arc<(Mutex<OpState>, Condvar)>,
+}
+
+struct OpState {
+    closing: bool,
+    count: usize,
+}
+
+impl OpGate {
+    fn new() -> Self {
+        Self {
+            state: Arc::new((
+                Mutex::new(OpState {
+                    closing: false,
+                    count: 0,
+                }),
+                Condvar::new(),
+            )),
+        }
+    }
+
+    /// Register a new in-flight operation. Returns `None` if `close()` has
+    /// started (new operations are rejected past the durability barrier).
+    fn try_enter(&self) -> Option<OpGuard> {
+        let (lock, _) = &*self.state;
+        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
+        if state.closing {
+            return None;
+        }
+        state.count += 1;
+        Some(OpGuard {
+            state: self.state.clone(),
+        })
+    }
+
+    /// Start closing and block until every in-flight operation drains.
+    ///
+    /// Sets `closing = true` (so new ops are rejected) then waits until
+    /// `count == 0`. Blocks the calling thread; acceptable: this is the
+    /// durability barrier and engine operations are bounded.
+    fn drain(&self) {
+        let (lock, cvar) = &*self.state;
+        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
+        state.closing = true;
+        while state.count > 0 {
+            state = cvar.wait(state).unwrap_or_else(PoisonError::into_inner);
+        }
+    }
+}
+
+/// RAII guard that decrements the in-flight count and wakes `close()` when
+/// dropped (at the end of the owning method, after the engine call completes).
+struct OpGuard {
+    state: Arc<(Mutex<OpState>, Condvar)>,
+}
+
+impl Drop for OpGuard {
+    fn drop(&mut self) {
+        let (lock, cvar) = &*self.state;
+        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
+        state.count -= 1;
+        cvar.notify_one();
+    }
+}
+
+/// Enter the gate for an engine operation, or fail with a descriptive error
+/// if the database is closing.
+fn enter(gate: &OpGate) -> Result<OpGuard, JsValue> {
+    gate.try_enter()
+        .ok_or_else(|| JsValue::from_str("database is closing"))
 }
 
 const MAX_RECORDS: usize = 1_000_000;
@@ -269,6 +349,7 @@ impl VantaDB {
         Ok(VantaDB {
             inner,
             opfs: None,
+            op_gate: OpGate::new(),
             #[cfg(feature = "opfs")]
             worker: None,
         })
@@ -286,6 +367,7 @@ impl VantaDB {
         Ok(VantaDB {
             inner,
             opfs: None,
+            op_gate: OpGate::new(),
             #[cfg(feature = "opfs")]
             worker: None,
         })
@@ -304,6 +386,7 @@ impl VantaDB {
         let db = VantaDB {
             inner,
             opfs,
+            op_gate: OpGate::new(),
             #[cfg(feature = "opfs")]
             worker: None,
         };
@@ -323,6 +406,7 @@ impl VantaDB {
         let db = VantaDB {
             inner,
             opfs: None,
+            op_gate: OpGate::new(),
             #[cfg(feature = "opfs")]
             worker: None,
         };
@@ -357,6 +441,7 @@ impl VantaDB {
         let db = VantaDB {
             inner,
             opfs: None,
+            op_gate: OpGate::new(),
             worker: Some(worker_proxy),
         };
         // Load from worker-backed storage
@@ -400,6 +485,7 @@ impl VantaDB {
 
     /// Collect all in-memory records deduplicated by (namespace, key).
     fn collect_all_deduped(&self) -> Result<Vec<VantaMemoryRecord>, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let mut seen: std::collections::HashSet<(String, String)> =
             std::collections::HashSet::new();
         let mut state: Vec<VantaMemoryRecord> = Vec::new();
@@ -434,6 +520,7 @@ impl VantaDB {
 
     /// Persist all in-memory records to OPFS storage.
     pub async fn save(&self) -> Result<(), JsValue> {
+        let _g = enter(&self.op_gate)?;
         let opfs = match &self.opfs {
             Some(o) => o,
             None => return Ok(()),
@@ -446,6 +533,7 @@ impl VantaDB {
 
     /// Persist all in-memory records to IndexedDB storage.
     pub async fn save_idb(&self) -> Result<(), JsValue> {
+        let _g = enter(&self.op_gate)?;
         let state = self.collect_all_deduped()?;
         let data = serde_json::to_vec(&state)
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
@@ -454,6 +542,7 @@ impl VantaDB {
 
     /// Restore all records from IndexedDB storage into memory.
     pub async fn load_idb(&self) -> Result<(), JsValue> {
+        let _g = enter(&self.op_gate)?;
         let data = match IdbStorage::read_file("db_state.json").await? {
             Some(d) => d,
             None => return Ok(()),
@@ -473,6 +562,7 @@ impl VantaDB {
 
     /// Restore all records from OPFS storage into memory.
     pub async fn load(&self) -> Result<(), JsValue> {
+        let _g = enter(&self.op_gate)?;
         let opfs = match &self.opfs {
             Some(o) => o,
             None => return Ok(()),
@@ -494,6 +584,9 @@ impl VantaDB {
     /// This does NOT free the JS wrapper object — callers should drop references
     /// after close to allow WASM GC to reclaim the wrapper.
     pub fn close(&self) -> Result<(), JsValue> {
+        // Durability barrier: reject new ops and wait for in-flight ones to
+        // finish BEFORE the engine is closed (see OpGate docs).
+        self.op_gate.drain();
         self.inner.close().map_err(to_js_err)
     }
 
@@ -505,6 +598,7 @@ impl VantaDB {
 
     /// Insert or update a single memory record from a JS object.
     pub fn put(&self, input: JsValue) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let input: MemoryInput = from_js(input)?;
         if let Some(ref v) = input.vector {
             if v.len() > MAX_F32_VEC_LEN {
@@ -530,6 +624,7 @@ impl VantaDB {
 
     /// Insert or update multiple memory records from a JS array.
     pub fn put_batch(&self, inputs: JsValue) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let inputs: Vec<MemoryInput> = from_js(inputs)?;
         if inputs.len() > MAX_BATCH_SIZE {
             return Err(to_js_err(VantaError::InvalidInput(format!(
@@ -571,6 +666,7 @@ impl VantaDB {
 
     /// Retrieve a single record by namespace and key.
     pub fn get(&self, namespace: &str, key: &str) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let record: Option<VantaMemoryRecord> =
             self.inner.get(namespace, key).map_err(to_js_err)?;
         match record {
@@ -581,17 +677,20 @@ impl VantaDB {
 
     /// Delete a single record by namespace and key. Returns whether a record was deleted.
     pub fn delete(&self, namespace: &str, key: &str) -> Result<bool, JsValue> {
+        let _g = enter(&self.op_gate)?;
         self.inner.delete(namespace, key).map_err(to_js_err)
     }
 
     /// Return all namespaces as a JS array of strings.
     pub fn list_namespaces(&self) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let nss = self.inner.list_namespaces().map_err(to_js_err)?;
         to_js(&nss)
     }
 
     /// List records in a namespace with optional filters, limit, and cursor pagination.
     pub fn list(&self, namespace: &str, options: JsValue) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let opts: ListOptions = from_js(options)?;
         let vanta_opts = VantaMemoryListOptions {
             #[allow(deprecated)]
@@ -638,6 +737,7 @@ impl VantaDB {
 
     /// Search memory records by vector similarity with optional filters and text query.
     pub fn search(&self, request: JsValue) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let req: SearchRequest = from_js(request)?;
         if req.query_vector.len() > MAX_F32_VEC_LEN {
             return Err(to_js_err(VantaError::InvalidInput(format!(
@@ -670,6 +770,7 @@ impl VantaDB {
 
     /// Search nodes by raw vector without namespace scoping.
     pub fn search_vector(&self, vector: Vec<f32>, top_k: usize) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         if vector.len() > MAX_F32_VEC_LEN {
             return Err(to_js_err(VantaError::InvalidInput(format!(
                 "vector length {} exceeds max {}",
@@ -693,6 +794,7 @@ impl VantaDB {
 
     /// Run a search with explanation metadata for debugging scoring.
     pub fn explain_memory_search(&self, request: JsValue) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let req: SearchRequest = from_js(request)?;
         if req.query_vector.len() > MAX_F32_VEC_LEN {
             return Err(to_js_err(VantaError::InvalidInput(format!(
@@ -724,6 +826,7 @@ impl VantaDB {
 
     /// Export all records in a namespace to a JSON file at the given path.
     pub fn export_namespace(&self, path: &str, namespace: &str) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let report = self
             .inner
             .export_namespace(path, namespace)
@@ -733,12 +836,14 @@ impl VantaDB {
 
     /// Export all records across all namespaces to the given path.
     pub fn export_all(&self, path: &str) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let report = self.inner.export_all(path).map_err(to_js_err)?;
         to_js(&report)
     }
 
     /// Import records from a JS array of memory record objects.
     pub fn import_records(&self, records: JsValue) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let records: Vec<VantaMemoryRecord> = from_js(records)?;
         if records.len() > MAX_BATCH_SIZE {
             return Err(to_js_err(VantaError::InvalidInput(format!(
@@ -753,6 +858,7 @@ impl VantaDB {
 
     /// Import records from a JSON file at the given path.
     pub fn import_file(&self, path: &str) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let report = self.inner.import_file(path).map_err(to_js_err)?;
         to_js(&report)
     }
@@ -760,6 +866,7 @@ impl VantaDB {
     /// Bulk-import records from a binary .vdbdump file.
     /// Returns a report object with total_records, batches_committed, duration_ms.
     pub fn bulk_import(&self, path: &str) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let report = self.inner.bulk_import_file(path).map_err(to_js_err)?;
         to_js(&report)
     }
@@ -767,6 +874,7 @@ impl VantaDB {
     /// Bulk-import records from binary bytes (.vdbdump format).
     /// Accepts a Uint8Array and returns a report object.
     pub fn bulk_import_bytes(&self, data: &[u8]) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let mut cursor = std::io::Cursor::new(data);
         let report = self
             .inner
@@ -777,6 +885,7 @@ impl VantaDB {
 
     /// Rebuild the HNSW index and return a rebuild report.
     pub fn rebuild_index(&self) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let report = self.inner.rebuild_index().map_err(to_js_err)?;
         to_js(&report)
     }
@@ -790,6 +899,7 @@ impl VantaDB {
         namespace: &str,
         page_size: Option<usize>,
     ) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let report = self
             .inner
             .reindex_hnsw_from_text(namespace, page_size)
@@ -799,11 +909,13 @@ impl VantaDB {
 
     /// Compact the storage layout and return the number of freed bytes.
     pub fn compact_layout(&self) -> Result<u64, JsValue> {
+        let _g = enter(&self.op_gate)?;
         self.inner.compact_layout().map_err(to_js_err)
     }
 
     /// Run a text index consistency audit for an optional namespace.
     pub fn audit_text_index(&self, namespace: Option<String>) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let report = self
             .inner
             .audit_text_index(namespace.as_deref())
@@ -813,6 +925,7 @@ impl VantaDB {
 
     /// Run a deep text index consistency audit for an optional namespace.
     pub fn audit_text_index_deep(&self, namespace: Option<String>) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let report = self
             .inner
             .audit_text_index_deep(namespace.as_deref())
@@ -822,27 +935,32 @@ impl VantaDB {
 
     /// Repair the text index and return a repair report.
     pub fn repair_text_index(&self) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let report = self.inner.repair_text_index().map_err(to_js_err)?;
         to_js(&report)
     }
 
     /// Flush all pending writes to disk.
     pub fn flush(&self) -> Result<(), JsValue> {
+        let _g = enter(&self.op_gate)?;
         self.inner.flush().map_err(to_js_err)
     }
 
     /// Compact the write-ahead log.
     pub fn compact_wal(&self) -> Result<(), JsValue> {
+        let _g = enter(&self.op_gate)?;
         self.inner.compact_wal().map_err(to_js_err)
     }
 
     /// Purge all expired records and return the number removed.
     pub fn purge_expired(&self) -> Result<u64, JsValue> {
+        let _g = enter(&self.op_gate)?;
         self.inner.purge_expired().map_err(to_js_err)
     }
 
     /// Return operational metrics as a JS object with stringified large numbers.
     pub fn operational_metrics(&self) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let metrics = self.inner.operational_metrics();
         let js: JsOperationalMetrics = metrics.into();
         to_js(&js)
@@ -850,6 +968,7 @@ impl VantaDB {
 
     /// Execute a raw DSL query string and return the result.
     pub fn query(&self, query: &str) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let result = self.inner.query(query).map_err(to_js_err)?;
         to_js(&result)
     }
@@ -882,11 +1001,13 @@ impl VantaDB {
             vector,
             fields,
         };
+        let _g = enter(&self.op_gate)?;
         self.inner.insert_node(input).map_err(to_js_err)
     }
 
     /// Retrieve a graph node by its numeric ID.
     pub fn get_node(&self, id: u64) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
         let node: Option<VantaNodeRecord> = self.inner.get_node(id.into()).map_err(to_js_err)?;
         let js: Option<JsNodeRecord> = node.map(Into::into);
         to_js(&js)
@@ -894,6 +1015,7 @@ impl VantaDB {
 
     /// Delete a graph node by ID with an associated reason string.
     pub fn delete_node(&self, id: u64, reason: &str) -> Result<(), JsValue> {
+        let _g = enter(&self.op_gate)?;
         self.inner.delete_node(id.into(), reason).map_err(to_js_err)
     }
 
@@ -907,6 +1029,7 @@ impl VantaDB {
         weight: Option<f32>,
         created_at_ms: Option<u64>,
     ) -> Result<(), JsValue> {
+        let _g = enter(&self.op_gate)?;
         self.inner
             .add_edge(
                 source_id.into(),
@@ -936,6 +1059,7 @@ impl VantaDB {
             }
         };
         let roots: Vec<u128> = roots.into_iter().map(|r| r.into()).collect();
+        let _g = enter(&self.op_gate)?;
         let result = self
             .inner
             .graph_bfs(&roots, max_depth, dir)
@@ -961,6 +1085,7 @@ impl VantaDB {
             }
         };
         let roots: Vec<u128> = roots.into_iter().map(|r| r.into()).collect();
+        let _g = enter(&self.op_gate)?;
         let result = self
             .inner
             .graph_dfs(&roots, max_depth, dir)
@@ -971,6 +1096,7 @@ impl VantaDB {
     /// Compute a topological sort order starting from the given root node IDs.
     pub fn graph_topological_sort(&self, roots: Vec<u64>) -> Result<JsValue, JsValue> {
         let roots: Vec<u128> = roots.into_iter().map(|r| r.into()).collect();
+        let _g = enter(&self.op_gate)?;
         let result = self
             .inner
             .graph_topological_sort(&roots)
@@ -981,6 +1107,7 @@ impl VantaDB {
     /// Return whether the subgraph reachable from the given roots forms a DAG.
     pub fn graph_is_dag(&self, roots: Vec<u64>) -> Result<bool, JsValue> {
         let roots: Vec<u128> = roots.into_iter().map(|r| r.into()).collect();
+        let _g = enter(&self.op_gate)?;
         self.inner.graph_is_dag(&roots).map_err(to_js_err)
     }
 
@@ -991,6 +1118,7 @@ impl VantaDB {
         text_query: &str,
         with_highlighting: bool,
     ) -> Option<String> {
+        let _g = enter(&self.op_gate).ok()?;
         self.inner
             .generate_snippet(payload, text_query, with_highlighting)
     }
