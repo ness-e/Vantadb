@@ -1,6 +1,6 @@
 # Plan de Ejecución: Backlog Validation Actions — 2026-08-05
 
-> **Campaign ID: 039e08f3-c41b-4cc7-ab99-3c20937d46ef
+> **Campaign ID: 951d15e5-1150-4424-b996-fd5253c9a400
 > **Inicio:** 2026-08-05
 > **Estado: completed
 > **Fuente:** `docs/Backlog.md` (85 tareas abiertas validadas)
@@ -37,7 +37,7 @@
 ### Task 1: Backlog-EDIT — Corregir 12 premisas stale + limpiar referencia muerta
 - **Archivos clave:** `docs/Backlog.md`
 - **Gate Justificación:** hallazgos de los 6 sub-agentes; las descripciones actuales inducen a error de implementación.
-- **Contrato: openapi.yaml = 0.5.0; gate CI falla si cabeceras divergen del workspace; rg 0.4.0 = 0
+- **Contrato: cargo check raiz sin cambios; src-tauri compila; cierre sin huerfanos
 - **Pasos:**
   1. **AUDIT-01** (L70): reemplazar "try_numpy_array expone puntero" → "el UAF es por los getters `__array_interface__` (vector.rs:59-73, types.rs:365-380); `try_numpy_array` COPIA (seguro). Fix: congelar/clonar ante drop y `__setstate__`".
   2. **AUD-004** (L252): reemplazar "gate por feature experimental-lisp" → "feature `experimental-lisp` ELIMINADA en CUARENTENA-01; fix = eliminar/renombrar tool `query_lisp` o documentar que solo acepta IQL".
@@ -278,7 +278,7 @@
 - **Acción:** extraer firmas reales de las 5; documentar en MCP.md; gate de paridad tool↔doc.
 - **Contrato:** 15/15 tools documentadas con nombre real; gate verifica paridad.
 - **Dependencias:** Task 13 (destino de query_lisp).
-- **Estado:** ⬜ PENDING
+ - **Estado:** ✅ COMPLETED
 
 ### Task 31: AUD-007 — Corregir drift ARCHITECTURE.md
 - **Archivos clave:** `docs/architecture/ARCHITECTURE.md:296-298,327`, `src/index/graph.rs:255-260,318`, `src/wal_sharded.rs:9`
@@ -292,7 +292,7 @@
 - **Gate Justificación:** doc dice 7/1/bincode; real 8/2/postcard. Relevante para migraciones de datos (versión de formato mal documentada).
 - **Acción:** corregir constantes; importar constantes del código en vez de hardcodear; resolver contradicción interna (nota WEB-04 dice postcard, §2.4/§4.2 dicen bincode).
 - **Contrato:** doc = constantes reales; valores importados del código.
-- **Estado:** ⬜ PENDING
+ - **Estado:** ✅ COMPLETED
 
 ### Task 33: AUD-009 — Corregir notas Vite→Next.js
 - **Archivos clave:** `docs/Investigaciones/DESKTOP-01b...:1090`, `web/package.json` (next ^16.1.1), `web/next.config.ts`
@@ -306,7 +306,7 @@
 - **Gate Justificación:** claim "167+ archivos" sin sustento (341 .md en docs/); scan real = ~4 links rotos + wiki-links `[[..]]` falsos positivos.
 - **Acción:** corregir los ~4 links reales + typos de docs/progreso; documentar método de auditoría (no re-inventar sweep). Cerrar issue #123 con evidencia del inventario.
 - **Contrato:** `gh issue close 123` tras inventario; 0 links rotos en docs/progreso.
-- **Estado:** ✅ COMPLETED 2026-08-05 — 3 links rotos reales corregidos (README:1047 Glossary/test.md→texto, README:1839 walkthrough→sin enlace, BENCHMARKS:93 file:///→ruta relativa); método de auditoría documentado; issue #123 **cerrado** (inventario: 341 .md, no "167+"; falsos positivos wiki-links/commits).
+- **Estado:** ✅ COMPLETED
 
 ---
 
@@ -317,63 +317,63 @@
 - **Gate Justificación:** error.tsx ausente; @mdxeditor/editor 0 imports (solo package.json/lock) — dep muerta ~500KB.
 - **Acción:** crear error.tsx (App Router error boundary); eliminar dep.
 - **Contrato:** `npm run build` en web/ pasa; grep @mdxeditor/editor en src = 0.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 36: INV-013-B — JSON-LD structured data
 - **Archivos clave:** `web/src/app/layout.tsx:33-77`
 - **Gate Justificación:** 0 JSON-LD en web/src; Metadata API de Next.js 16 NO genera JSON-LD.
 - **Acción:** emitir `<script type="application/ld+json">` (schema.org/SoftwareApplication) en Server Component del head; validar con Google Rich Results Test.
 - **Contrato:** grep `application/ld+json` en layout.tsx = 1; JSON válido.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 37: INV-014-B — Limpiar plomería dark inerte
 - **Archivos clave:** `web/src/components/vanta/theme-provider.tsx`, `theme-toggle.tsx`, `web/package.json:59`, `web/AGENTS.md:72`, `.opencode/AGENTS.md:383`
 - **Gate Justificación:** theme-provider 0 consumidores; único consumidor de theme-toggle (navbar.tsx:14,396) es dead code; globals.css 0 `.dark`; regla R-FE-4 (frontend-web.md:28-33) YA manda eliminarlos.
 - **Acción:** eliminar 2 componentes + dep next-themes; corregir 2 notas stale; verificar que site-navbar.tsx no importe ThemeToggle.
 - **Contrato:** `npm run build` pasa; grep next-themes en web/src = 0.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 38: INV-015-B — Fix touch targets < 44px
 - **Archivos clave:** `web/src/components/vanta/changelog-section.tsx:81-87`, `tutorials-section.tsx:83-88` (2 P0: clear-search 14px), ~24 componentes < 44px
 - **Gate Justificación:** 2 icon buttons de 14px confirmados (< 24px mínimo); inventario ~24 plausible (task file INV-015.md:30).
 - **Acción:** P0: `size-11`/`min-h-[44px] min-w-[44px]` en los clear-search; luego P1-P4 del inventario.
 - **Contrato:** grep `<X className="h-3.5 w-3.5"` en buttons = 0; WCAG 2.5.8.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 39: INV-016-B — Motion tokens (lista corregida)
 - **Archivos clave:** `web/src/app/globals.css:5,111-140,360,369,660,718-719,810`, `web/src/components/vanta/reveal.tsx:64`, `faq-section.tsx:79`, `benchmark-race.tsx:233`
 - **Gate Justificación:** 15 tokens reales (12 CSS + 3 comps); `@theme inline` existe. NO tocar page-transition/latency-comparator (no contienen el token).
 - **Acción:** definir `--duration-fast/normal/slow` + `--ease-default`; reemplazar los 15 cubic-bezier hardcodeados.
 - **Contrato:** grep `cubic-bezier(0.2,0.8,0.2,1)` en web/src = 0; tokens definidos.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 40: GH-140 — Auditar CSS no usado (reescopetar)
 - **Archivos clave:** `web/src/app/globals.css` (18.9KB / 817L)
 - **Gate Justificación:** clases efecto muestreadas TODAS usadas; DoD ≥10% no demostrable sin auditoría clase-por-clase.
 - **Acción:** análisis de cobertura clase-por-clase primero (método documentado); eliminar solo CSS probadamente huérfano; si <10%, ajustar DoD a "0 selectores huérfanos".
 - **Contrato:** reporte de cobertura; 0 selectores muertos probados.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 41: NUEVO-01 — README hero (incluye GH-139 slice GIF)
 - **Archivos clave:** `README.md` (hoy: solo texto + badges SVG), `assets/` (nuevo)
 - **Gate Justificación:** gap real (premisa "PNG estática" falsa — no hay hero); GH-139 fusionado aquí.
 - **Acción:** 3 slices: (1) hero readme-aura; (2) gráfico benchmark (hay tablas SIFT1M que mejorar); (3) GIF <5MB (pip install → REPL CRUD → hybrid search) vía vhs/asciinema.
 - **Contrato:** README con hero; GIF <5MB renderiza; `npx readme-aura` (o herramienta elegida) sin errores.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 42: GH-132 — Notebook Colab + badge
 - **Archivos clave:** `examples/colab/vantadb_quickstart.ipynb` (nuevo), `README.md`
 - **Gate Justificación:** examples/colab/ no existe; sin badge "Run in Colab".
 - **Acción:** notebook end-to-end (install, CRUD, hybrid search) + badge en README.
 - **Contrato:** notebook corre en Colab (verificado o documentado); badge renderiza.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 43: GH-131/129/128 — README integraciones (3 issues, 1 patrón)
 - **Archivos clave:** `README.md`, `examples/python/mem0_integration.py`, `semantic_kernel_memory.py`, `dspy_retriever.py`
 - **Gate Justificación:** 3 ejemplos existen y ya tienen smoke en CI (GH-142, ci-examples-12.yml:115-122); falta solo la sección README + verificación SDK actual (SK).
 - **Acción:** 3 secciones README con snippet verificado (mem0, Semantic Kernel, DSPy); opcional: un solo PR "README: secciones de integraciones" si los issues lo permiten.
 - **Contrato:** README menciona las 3; snippets corren; CI smoke sigue verde.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ---
 
@@ -386,7 +386,7 @@
 - **Gate Justificación:** snippet con highlighting es pub(crate); no hay decisión de API pública. Precede a INV-009-B (toca highlight_phrases).
 - **Acción:** definir outputs público SDK/CLI vs debug-only; non-goals (sin claims de paridad hybrid); corpus de validación pequeño; documentar dependencia con INV-009-B.
 - **Contrato:** doc de scoping publicado; decisiones registradas en ADR/memoria.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 45: INV-009-B — Phrase queries (reescalada: solo Condition::TextMatch)
 - **Archivos clave:** `src/query.rs:121-126` (enum Condition), `src/parser/mod.rs`
@@ -394,35 +394,35 @@
 - **Acción:** agregar variante `Condition::TextMatch(field, query)` con reuso `string_literal`; tokenización literal de frases (sin stopwords) en query_plan_with_config; highlight_phrases.
 - **Contrato:** query IQL con frase entre comillas ejecuta; tests parser + snippet verdes.
 - **Dependencias:** Task 44 (contrato de snippet/API).
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 46: INV-008-B — Implementar `search_batch_requests` Python SDK
 - **Archivos clave:** `vantadb-python/src/lib.rs:1180-1209` (search_batch vector-only), `src/sdk/api.rs`
 - **Gate Justificación:** batch vector-only existe (Rayon + GIL release); falta versión con SearchRequest completo (filtros/text_query).
 - **Acción:** dataclass SearchRequest; patrón GIL+Rayon existente; fail-fast (`try_for_each`); extender `benchmarks/batch_vs_sequential_bench.py`. Target: batch 10 < 3× single.
 - **Contrato:** test Python batch_requests pasa; bench muestra target.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 47: INV-007-B — JSON contrato + competitive-table.tsx (absorbe MKT-17)
 - **Archivos clave:** `benchmarks/competitive_bench.py` (751 L), `web/src/components/vanta/competitive-table.tsx` (nuevo), `web/src/lib/vanta-data.ts`
 - **Gate Justificación:** script emite Markdown a docs/BENCHMARKS.md, NO JSON versionado; componente web ausente; MKT-17 cerrado aquí.
 - **Acción:** emitir `competitive_benchmark.json` (fecha/hardware/versiones); crear competitive-table.tsx bajo `<BenchmarkRace />` en /benchmarks. Sin números inventados.
 - **Contrato:** JSON versionado; tabla renderiza con datos del JSON; `/benchmarks` build pasa.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 48: NUEVO-16 — Product Quantization (roadmap)
 - **Archivos clave:** `src/vector/quantization.rs:16,33,97,141`, `src/index/scann.rs:9` ("no PQ")
 - **Gate Justificación:** RabitQ/TurboQuant/SQ8 existen, PQ no. REC-009 (2026-07-31) ya deferió la viabilidad — partir de ese doc.
 - **Acción:** scoping técnico (enlazar REC-009) + investigación de corpus objetivo (datasets >RAM) antes de implementar.
 - **Contrato:** doc de viabilidad actualizado con decisión; si se aprueba, plan de fases.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 49: NUEVO-22 (ex NUEVO-18) — Sparse indexed search (inverted index)
 - **Archivos clave:** `src/sdk/search/mod.rs:721-746` (hoy brute-force O(n)), `src/node.rs:409` (SparseVector)
 - **Gate Justificación:** premisa original falsa; gap real = falta índice invertido + posting lists para sparse.
 - **Acción:** diseño (inverted index, posting lists, merge con lexical); implementación; benchmarks vs brute-force.
 - **Contrato:** search sparse indexado > brute-force en corpus sparse; tests deterministas.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ---
 
@@ -439,20 +439,20 @@
 - **Gate Justificación:** doc existe pero sin tipos de evento detallados ni cómo agregar.
 - **Acción:** documentar 4 tipos de evento (push, pull_request, issues, release → #announcements), procedimiento para añadir eventos, dónde se configura. Cerrar issue #141.
 - **Contrato:** `gh issue close 141`; sección Integrations completa.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 52: MKT-16 — Metodología benchmark GraphRAG (números reales)
 - **Archivos clave:** `examples/rust/graphrag.rs`, `docs/glosario/graphrag.md`, `docs/blog/`
 - **Gate Justificación:** material real existe (ejemplo + fórmula + métricas); caveat: métricas 40-60% parecen claims, no runs.
 - **Acción:** correr benchmark real reproducible (como MKT-05 con competitive_bench.py); publicar metodología + números de runs. Prohibido inventar cifras.
 - **Contrato:** doc con números de un run real; script reproducible citado.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 53: MKT-10 — "AI Agent Memory" campaign (rescatar con DoD)
 - **Veredicto:** ⚠️ vaga sin artifact (backlog-validation-2026-07-28.md:118 ya la marcó ❌); contenido base existe (tutorial 01-ai-agent-memory.md + 3 blogs).
 - **Acción:** reescribir con deliverables medibles: landing "agent memory" + 1 blog benchmark vs full-context + demo. O cerrar como cubierta por INV-006/BLOG_SERIES_PLAN.
 - **Contrato:** checklist de campaña con entregables; sin items vagos.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ---
 
@@ -469,7 +469,7 @@
   5. **Recortar:** DESKTOP-22 (solo evento obligatorio connection-state; los otros 2 son flag opcional), DESKTOP-25 (CI desktop solo si el MVP se aprueba), DESKTOP-27 (docs+ADR al final del MVP).
   6. **Corregir en task file:** DESKTOP-08 redacción "cliente IQL tipado" (no REST por-op).
 - **Contrato:** `npm run tauri dev` abre ventana + ping responde; `cargo check` en src-tauri pasa; `cargo check` raíz sin cambios; cierre con MCP conectado no deja procesos huérfanos.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ---
 
@@ -514,11 +514,6 @@ INV-007-B → MKT-17, TSK-103 (absorbe cierres)
 
 === RECITATION ===
 Campaign ID: 06826e46-9034-4f0c-bb4c-5e06742d9480
-Objetivo activo: Sincronizar versiones docs/api con workspace (AUD-005)
-Estado: completed
-Última acción: Fix openapi.yaml:4 0.4.0→0.5.0; creé job check-api-version en gate-docs-21.yml; escribí Context Save Point; commiteé
-Resultado: ✅ openapi.yaml=0.5.0, gate creado, rg 0.4.0=0, commit 73ee5b75
-Próxima acción: Ninguna — tarea completada
-Contrato: grep experimental-lisp|MCP-02 = 0; sin duplicados en progreso
-Próxima tarea si completa: 
-=== END RECITATION ===
+Objetivo activo: Ejecutar plan backlog-validation F8 DESKTOP MVP
+Resultado: ✅
+Próxima acción: 
