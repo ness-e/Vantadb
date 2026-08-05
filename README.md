@@ -45,7 +45,9 @@
   <a href="README_ES.md">🇪🇸 Español</a>
 </div>
 
-
+<div align="center">
+  <img src="assets/hero.svg" alt="VantaDB — Embedded Rust engine for durable local memory and hybrid vector retrieval" width="600">
+</div>
 
 VantaDB is a local-first, embedded database engine designed for AI agents, local RAG pipelines, and edge applications. It provides persistent storage, crash-safe recovery via WAL, and native hybrid search (BM25 + HNSW) without requiring external services, containers, or network dependencies.
 
@@ -98,6 +100,12 @@ vantadb = { git = "https://github.com/ness-e/Vantadb" }
 
 ## 5-Minute Quickstart
 
+<!-- GIF PLACEHOLDER (NUEVO-01/GH-139): pip install → REPL CRUD → hybrid search.
+     Generate with: vhs doc/demo.tape  (requires vhs/chafa;
+     vhs not installed in CI yet). When a demo GIF < 5MB exists,
+     render it here:
+     <img src="assets/demo.gif" alt="VantaDB demo — pip install, CRUD, hybrid search">
+-->
 Initialize a persistent memory store, save structured records with vectors, and execute hybrid retrieval in pure Python:
 
 ```python
@@ -289,6 +297,10 @@ The certified performance results on the standard SIFT dataset in optimized mode
 | **100K** | High Recall L2 Mmap | Mmap Euclidean | 411.2s | **189.8s** | **2.16x** | 1,094.8 µs | 1,438 |
 
 *Certification hardware: AMD Ryzen 12-Core @ 3.5GHz, compiled with `-C target-cpu=native`.*
+
+<p align="center">
+  <img src="assets/benchmark-sift1m.svg" alt="SIFT1M HNSW construction speedup — Phase 1 vs Phase 2 (2.14x–2.80x)" width="760">
+</p>
 
 ### Running the Local Benchmark Suite
 
