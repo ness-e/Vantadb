@@ -18,6 +18,8 @@ Status: Approved
 The original design of VantaDB coupled the core library (`vantadb`) with the Tokio async runtime. This forced database consumers (e.g., command-line applications, native synchronous services, or dynamic language wrappers like Python/PyO3) to bootstrap and coordinate a heavy async runtime solely to interact with the local embedded database.
 Additionally, mixing intensive disk-blocking and CPU-heavy indexing operations (such as HNSW graph traversal) directly within the Tokio thread pool for network traffic caused starvation of network tasks and severe degradation of P99 server latency.
 
+This decision also avoids the write-biased starvation pattern reported in SurrealDB issue #6819: a Tokio `RwLock` held across an `await` during slow disk-backed HNSW searches blocked index updates indefinitely. Because the `vantadb` core is 100% synchronous, no lock ever crosses an `await` point, so long-held read locks cannot starve writers (lessons captured from competitive analysis of SurrealDB, 2026-04-03).
+
 ## Decision
 
 To resolve this architectural bottleneck and ensure a highly portable, industrial-grade embedded engine with stable latencies, a strict two-level execution thread decoupling was implemented:

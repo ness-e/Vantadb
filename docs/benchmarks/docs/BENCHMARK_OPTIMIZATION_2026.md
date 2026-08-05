@@ -957,6 +957,15 @@ VantaDB usa M=32 y Mmax0=64 (agresivo). ef_construction=100 (bajo vs industria 2
 | **Pinecone** | ❌ Sin benchmark público reproducible | SaaS cerrado. No se puede testear en mismo hardware. |
 | **pgvector** | ❌ Sin benchmark publicado | Guías de tuning en README. Defaults: m=16, efC=64, efS=40. |
 
+**Operadores de distancia pgvector (referencia):** pgvector expone la métrica vía operadores SQL. Fuente: `VANTADB DOC OLD/pgvector.md` (verificado y extraído en `docs/benchmarks/COMPETITIVE_ANALYSIS.md` §11).
+
+| Operador | Distancia | Uso |
+|----------|-----------|-----|
+| `<->` | L2 euclidiana | Distancias absolutas |
+| `<=>` | Coseno | Similitud semántica invariable a magnitud |
+| `<#>` | Producto escalar negativo | Máx. activación (vectores normalizados) |
+| `<+>` | L1 Manhattan | Robusto ante outliers |
+
 ### Mejores Prácticas HNSW (2025-2026)
 
 | Técnica | Descripción | Referencia |

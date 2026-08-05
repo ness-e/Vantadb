@@ -299,7 +299,58 @@ N=10,000, D=128, k=10. Index build: 4.836s.
 
 ---
 
-## 11. Próximos Pasos (Post-Verificación)
+## 11. pgvector — análisis de competidor (documental, abril 2026)
+
+Extraído del único análisis técnico de pgvector del repo (`VANTADB DOC OLD/pgvector.md`, 46 citas).
+Solo se traslada el núcleo técnico verificable respaldado por fuentes (issues de GitHub / docs oficiales).
+**Nota de posicionamiento:** pgvector es Postgres/cloud y **no cabe en el harness local-first** de VantaDB (requiere un servidor PostgreSQL, no es embebido in-process). Es competidor indirecto en RAG, no en el benchmark local.
+
+### ↑ Fortaleza clave (aseguración) y su espejo en VantaDB
+
+- **Sobre-filtrado pre-0.8 → Iterative Index Scans (0.8.0):** antes de 0.8.0, si un filtro era muy selectivo el índice vectorial no devolvía suficientes resultados que cumplieran ambas condiciones (distance + WHERE escalar). La solución "Iterative Index Scans" (0.8.0) hace que el índice actúe como generador de estados, reanudando la exploración en su cola de prioridad interna con `strict_order`/`relaxed_order`. **Es el espejo de la fortaleza ACORN (filtered search) de VantaDB** — ver §9: VantaDB entrega Recall=100% a selectividades 1-10% sin necesitar reconstrucción de escaneo. *Fuente: [pgvector 0.8.0 (PG News)](https://www.postgresql.org/about/news/pgvector-080-released-2952/), [Nile blog post 0.8.0](https://www.thenile.dev/blog/pgvector-080).*
+
+### ↓ Debilidades verificables (con fuente)
+
+| # | Debilidad | Detalle | Fuente |
+|---|-----------|---------|--------|
+| 1 | **Contención de locks LWLock ≈ 32 conexiones concurrentes** | `hnswscan.c` usa `LockPage(..., HNSW_SCAN_LOCK, ShareLock)`; sobre ~32 backends concurrentes el tiempo de espera en `LWLock:LockManager` crece exponencialmente (overhead del lock manager de Postgres). | [pgvector issue #766](https://github.com/pgvector/pgvector/issues/766) |
+| 2 | **OOM en builds HNSW a escala** | Durante construcción de índices HNSW en datasets masivos, Postgres falla por OOM al intentar asignar bloques grandes de memoria para el grafo sin gestión granular de presión de RAM. | [issue #643](https://github.com/pgvector/pgvector/issues/643), [issue #843](https://github.com/pgvector/pgvector/issues/843) |
+| 3 | **Trampas del query planner** | Si las estadísticas de tabla no están actualizadas, el optimizador ignora el índice HNSW y hace full scan secuencial en tablas de ~10M filas → picos de latencia de varios segundos. | [Nile blog post 0.8.0](https://www.thenile.dev/blog/pgvector-080) |
+| 4 | **Latencia oculta por TOAST** | Vector 1536d ≈ 6 KiB ≈ casi una página 8KB. Superado el umbral (~2KB/atributo) TOAST mueve el vector a tabla satélite; cada búsqueda paga saltos de E/S extra para reconstruir el vector antes de calcular distancia. | [pgconfeu2024 vectors-internal](https://www.postgresql.eu/events/pgconfeu2024/sessions/session/5830/slides/609/pgconfeu-2024-vectors-internal.pdf) |
+
+### Operadores de distancia SQL (defaults HNSW m=16, efC=64, efS=40)
+
+| Operador | Distancia | Uso |
+|----------|-----------|-----|
+| `<->` | L2 euclidiana | Distancias absolutas |
+| `<=>` | Coseno | Similitud semántica invariable a magnitud |
+| `<#>` | Producto escalar negativo | Max activación (vectores normalizados) |
+| `<+>` | L1 Manhattan | Robusto ante outliers |
+
+---
+
+## 12. Weaviate — contexto competitivo cualitativo (INV-018)
+
+> Weaviate **no está en el harness de benchmarks local** (INV-007): es un servicio cloud/self-hosted en Go, no una librería embebible in-process como LanceDB/ChromaDB. Las cifras citadas son contexto cualitativo (fuente: `vanta-data.ts`, datos abril 2026), no medición propia del harness. Análisis completo: `docs/Investigaciones/INV-018-weaviate-competitive-analysis.md`.
+
+**Fortalezas (documentadas en INV-018):**
+- HNSW personalizado con CRUD en tiempo real + cuantización BQ/PQ/SQ/RQ (recall >98% con compresión agresiva vía RQ)
+- HFresh (Weaviate 1.36): índice disk-resident LSM — solo centroides en memoria, postings en disco → escala a billones de vectores con RAM limitada
+- Lock striping (128 locks por hash de UUID) para importación paralela
+- Ref2Vec-Centroid: embedding relacional (vector = centroide de vectores referenciados)
+- Query Agent: lenguaje natural → consulta vía LLM
+
+**Debilidades (oportunidad para VantaDB):**
+- GC de Go: pausas Stop-the-World afectan p99; OOM bajo ingesta masiva (mitigación `GOMEMLIMIT`)
+- mmap: page faults pueden stallear hilos (mitigado con pread)
+- Sin adyacencia de grafo real: cross-references = "tablas vinculadas", travesías multi-hop ineficientes
+- Huella de memoria alta (runtime Go + shards) → difícil en edge
+
+**Posición en el mercado:** cuadrante cloud + más features (ver mapa de posicionamiento en `docs/web/standards/product-positioning.md` §4). VantaDB compite en local-first + enfocado; las lecciones de arquitectura (HFresh, lock striping, tombstones async) son el insumo técnico, no un benchmark numérico.
+
+---
+
+## 13. Próximos Pasos (Post-Verificación)
 
 | Prioridad | Acción | Estado |
 |-----------|--------|--------|

@@ -61,6 +61,8 @@ De `vanta-data.ts` → `WHY_VANTADB.comparison`:
 | Data egress | **None** | Cloud | Self-host/cloud | None |
 | Costo 1M vectores | **$0** | $1,800/mo | $600/mo | $0 |
 
+> **✅ Hallazgo B1 cerrado (2026-08-04):** Las latencias de Weaviate (~20-80ms) pasan de "sin validar" a **respaldadas** por investigación documental — ver `docs/Investigaciones/INV-018-weaviate-competitive-analysis.md` (34 refs citadas, abril 2026; datos ligados a releases, re-verificación pendiente contra docs actuales). Nota: Weaviate es cloud/self-hosted en Go y **queda fuera del harness de benchmarks local** (INV-007) — no hay medición propia; el rango proviene de `vanta-data.ts` y el contexto cualitativo de arquitectura de INV-018.
+
 ### Mapa de posicionamiento
 
 ```
@@ -88,6 +90,10 @@ Donde NO compite:
 - Multi-region / HA / replicación (deferred)
 - SQL / OLTP / time-series (deferred)
 - Escala masiva (10M+ vectores): requires HNSW persistence work-in-progress (ver ROADMAP.md R7)
+
+> **Deep-dive competidor:** ver `docs/Investigaciones/INV-019-pinecone-architecture-competitor.md` para el análisis arquitectónico completo de Pinecone (Slabs/LSM, FJLT/Ananas, IVF→PQFS, límites de 40KB metadatos y "impuesto RAM").
+
+> **Competidor indirecto — pgvector (Postgres/cloud):** filtrado SQL nativo, sin lógica híbrida nativa (BM25+HNSW fuera del box), y requiere servidor PostgreSQL (no embebido). Relevante para RAG builders que ya tienen Postgres, pero cae fuera del cuadrante local-first/embedded de VantaDB. No listado como competidor directo en la tabla comparativa porque no cabe en el harness local del benchmark.
 
 ---
 

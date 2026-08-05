@@ -93,6 +93,8 @@ Estos riesgos **no tienen item dedicado en el backlog** o están subestimados. S
 | **R4** | **DRV-115: MSVC linker overflow** — No se puede build workspace completo en Windows con MSVC | 🟠 Bloquea Windows build en CI | Excluir adaptadores PyO3 de workspace build o usar rust-lld | DRV-115 |
 | **R5** | **165 items abiertos, persona-equipo 1-2** — Sin priorización estricta, el backlog es months | 🔴 Parálisis por analysis-paralysis | Congelar nuevos items hasta reducir a ≤100. No agregar COMP-031+ | ❌ No hay item |
 | **R6** | **SQ8 no expuesto en query path** — Existe como `VectorRepresentations::SQ8` pero el hot path de búsqueda solo usa f32 full precision. SIFT 1M tarda 127s | 🔴 Benchmarks no competitivos vs Qdrant/Milvus | Exponer SQ8 en `distance.rs` hot path (sem 3) | COMP-001 |
+>
+> **Causa raíz documentada (histórica, 2026-05-31):** los 127s se atribuyen a *Disk Thrashing* (fallos de página masivos en el Mmap del índice) + desajuste de métricas: se transforma Distancia Coseno a Euclidiana L₂ al vuelo en el hot path.
 | **R7** | **HNSW rebuild en cada startup** — 30-60s para 1M vectores. Impide uso en serverless/edge | 🟠 Cold start inaceptable para AI agents | Serializar neighbor lists con bincode + load condicional (sem 4) | COMP-002 |
 | **R8** | **Claims falsos en landing** — "50x" vs 40x real, "SQL support" sin implementar, "auto-embeddings" sin feature, "cloud tiers" sin infra | 🟠 Riesgo reputacional en Show HN | Corregir WEB-02 antes de cualquier campaign | WEB-02 |
 
