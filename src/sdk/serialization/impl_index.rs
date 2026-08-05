@@ -18,6 +18,7 @@ impl VantaEmbedded {
 
         self.ensure_derived_indexes_current_with(&engine, &nodes)?;
         self.ensure_text_index_current_with(&engine, &nodes)?;
+        self.ensure_sparse_index_current_with(&engine, &nodes)?;
 
         Ok(())
     }
@@ -158,6 +159,8 @@ impl VantaEmbedded {
         }
         let (text_ops, text_report) = Self::text_index_ops_for_replace(engine, previous, current)?;
         ops.extend(text_ops);
+        let sparse_ops = super::impl_sparse_index::sparse_index_ops_for_replace(previous, current)?;
+        ops.extend(sparse_ops);
         if ops.is_empty() {
             return Ok(());
         }
@@ -224,6 +227,7 @@ impl VantaEmbedded {
 
         Self::adjust_derived_index_state_after_replace(engine, previous, current)?;
         Self::adjust_text_index_state_after_replace(engine, previous, current, text_report)?;
+        Self::adjust_sparse_index_state_after_replace(engine, previous, current)?;
         crate::metrics::record_text_postings_written(text_report.postings_written);
         Ok(())
     }

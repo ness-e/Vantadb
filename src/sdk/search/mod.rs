@@ -1,4 +1,5 @@
 use super::builder::VantaEmbedded;
+use super::serialization::impl_sparse_index::{decode_sparse_posting, sparse_posting_prefix};
 use super::serialization::{
     matches_memory_filters, memory_record_from_node, validate_metadata, validate_namespace,
 };
@@ -714,10 +715,12 @@ impl VantaEmbedded {
         Ok(hits)
     }
 
-    /// Brute-force sparse-dot search over the `sparse_vector` of every record
-    /// in the namespace (matching filters). Sparse vectors are user-provided
-    /// term-weight maps, so this mirrors the pre-filter path: fetch the
-    /// filtered subset, score by `SparseVector::dot`, sort, truncate.
+    /// Sparse-dot search over the derived sparse-vector inverted index.
+    ///
+    /// The `SparseIndex` partition stores one posting per (namespace, dim,
+    /// record). A query only walks the posting lists for the dims it contains,
+    /// so cost is O(sum of matching posting-list lengths) instead of the old
+    /// O(records in namespace) brute-force scan (`NUEVO-22`).
     fn sparse_memory_search(
         &self,
         namespace: &str,
@@ -728,18 +731,47 @@ impl VantaEmbedded {
         if query_sparse.is_empty() || top_k == 0 {
             return Ok(Vec::new());
         }
-        let mut hits = Vec::with_capacity(top_k);
-        for record in self.records_for_namespace(namespace, filters)? {
-            let Some(sparse) = record.sparse_vector.as_ref() else {
-                continue;
-            };
-            let score = query_sparse.dot(sparse);
-            hits.push(VantaMemorySearchHit {
-                score,
-                record,
-                explanation: None,
-            });
+        let engine = self.engine_handle()?;
+
+        let mut scores: BTreeMap<u128, f32> = BTreeMap::new();
+        for (dim, query_weight) in query_sparse.0.iter() {
+            let prefix = sparse_posting_prefix(namespace, *dim);
+            for entry in engine.scan_partition_prefix_iter(BackendPartition::SparseIndex, &prefix)?
+            {
+                let (_posting_key, posting_value) = entry?;
+                let posting = decode_sparse_posting(&posting_value)?;
+                scores
+                    .entry(posting.node_id)
+                    .and_modify(|score| *score += query_weight * posting.weight)
+                    .or_insert(query_weight * posting.weight);
+            }
         }
+
+        let mut hits = Vec::with_capacity(top_k);
+        let node_ids: Vec<u128> = scores.keys().copied().collect();
+        if !node_ids.is_empty() {
+            let mut node_map: std::collections::HashMap<u128, UnifiedNode> =
+                std::collections::HashMap::with_capacity(node_ids.len());
+            for n in engine.get_many(&node_ids)? {
+                node_map.insert(n.id, n);
+            }
+            for (node_id, score) in scores {
+                if let Some(node) = node_map.get(&node_id) {
+                    if let Some(record) = memory_record_from_node(node) {
+                        if record.namespace == namespace
+                            && matches_memory_filters(&record, filters)
+                        {
+                            hits.push(VantaMemorySearchHit {
+                                record,
+                                score,
+                                explanation: None,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
         crate::planner::sort_hits(&mut hits);
         hits.truncate(top_k);
         Ok(hits)
