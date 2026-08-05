@@ -103,7 +103,7 @@ export function ShortcutOverlay({
             className="inline-flex h-7 w-7 items-center justify-center border-2 border-black bg-[#F2EDE2] text-black transition-colors hover:bg-[#FF5500]   "
             aria-label={t("shortcuts.close")}
           >
-            <X className="h-3.5 w-3.5" strokeWidth={3} />
+            <X className="h-5 w-5" strokeWidth={3} />
           </button>
         </div>
 

@@ -80,10 +80,10 @@ export function ChangelogSection() {
               {query && (
                 <button
                   onClick={() => setQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-black/50 hover:text-[#FF5500] "
+                  className="absolute right-2 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-black/50 hover:text-[#FF5500] "
                   aria-label={t("changelog.clearSearch")}
                 >
-                  <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  <X className="h-5 w-5" strokeWidth={2.5} />
                 </button>
               )}
             </div>
