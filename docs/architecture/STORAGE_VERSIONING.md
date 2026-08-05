@@ -51,8 +51,8 @@ VantaDB persists data across four distinct physical formats, each with its own m
 
 | Format | File(s) | Magic | Current Version | Version Type | Defined In |
 |---|---|---|---|---|---|
-| **VantaFile** | `vector_store.vanta` | `b"VFLE"` | `1` | `u16` format_version | `src/storage/vfile.rs` |
-| **Vector Index (HNSW)** | `index.bin` | `b"VNDX"` | `7` | `u16` format_version | `src/index/graph.rs` (const `VECTOR_INDEX_VERSION`) |
+| **VantaFile** | `vector_store.vanta` | `b"VFLE"` | `2` (const `VFILE_VERSION`) | `u16` format_version | `src/storage/vfile.rs` |
+| **Vector Index (HNSW)** | `index.bin` | `b"VNDX"` | `8` (const `VECTOR_INDEX_VERSION`) | `u16` format_version | `src/index/graph.rs` |
 | **WAL** | `wal.log`, segments | `b"VWAL"` | `1` | `u32` (cast from `u16`) | `src/wal.rs` (`WalHeader`) |
 | **Schema** | `.vanta.schema` | `b"VTDBv001"` | `1` | `u32` schema_version | `src/schema.rs` (`StorageHeader`) |
 
@@ -124,11 +124,11 @@ if self.magic != expected_magic || self.format_version != expected_version {
 
 This means any change to the binary layout — even a forward-compatible field addition — breaks existing databases. There is no concept of "this version can read older versions" or "this version is newer but compatible."
 
-### 2.2 bincode Deprecation Risk
+### 2.2 Serialization Format Change Risk
 
-The crate uses `bincode` in several serialization paths. The `bincode` crate is **unmaintained** — its last release was 2021 (`bincode 1.3.3`). The ecosystem has moved to `bincode 2.0` (different API) or alternative serialization frameworks (`rkyv`, `speedy`, `postcard`).
+The crate uses `postcard` for all wire serialization (`src/wal.rs`, `src/index/graph.rs`, `src/sdk/serialization/mod.rs`; dep in `Cargo.toml`). This replaced the legacy `bincode` serializer (unmaintained — last release 2021, `bincode 1.3.3`) as part of the WEB-04 work. The ecosystem has since moved to `bincode 2.0` (different API) or alternative frameworks (`rkyv`, `speedy`).
 
-Switching serialization libraries will change the wire format of:
+Switching serialization libraries again would change the wire format of:
 - Node payloads in VantaFile
 - WAL record bodies
 - Index metadata blocks
@@ -165,7 +165,7 @@ The `vanta-cli migrate` command exists (`src/cli_handlers/migrate.rs`) but only 
 Changes to any binary-serialized struct (adding optional fields, changing field types, reordering) cause silent deserialization failures or data corruption. Current examples:
 
 - `UnifiedNode` in `src/node.rs` — serialized as part of VantaFile
-- `Mutation` enum in WAL records — serialized as bincode payloads
+- `Mutation` enum in WAL records — serialized as postcard payloads
 - `WalHeader` — hardcoded 20-byte layout
 
 ---
@@ -310,9 +310,9 @@ vanta-cli migrate check  <target>
 | Add payload checksum footer | Rewrite each record block with appended CRC32C |
 | Optional field support | Scan all nodes; fill missing optionals with default sentinel |
 
-**Vector Index v1→v2→v3→v4→v5→v6→v7 (already versioned):**
+**Vector Index v1→v2→v3→v4→v5→v6→v7→v8 (already versioned):**
 
-The vector index already tracks `VECTOR_INDEX_VERSION = 7`. Each version increment should document:
+The vector index already tracks `VECTOR_INDEX_VERSION = 8` (defined in `src/index/graph.rs`). Each version increment should document:
 - What changed (e.g., V3 added distance metric byte, V4 added zero-copy aligned vector paging)
 - Migration cost (full rebuild vs. in-place header update)
 
@@ -325,7 +325,7 @@ Since HNSW index is a **derived index** (rebuildable from canonical data), the s
 
 | Change | Migration Action |
 |---|---|
-| Change serialization from bincode to postcard/rkyv | Replay all WAL records, re-serialize with new format |
+| Change serialization from postcard to rkyv (future) | Replay all WAL records, re-serialize with new format |
 | Add record-level version tags | Insert version byte after record header |
 
 **WAL migration is high-risk** because WAL is the durability path. The recommended approach is:
