@@ -166,6 +166,7 @@ Cargo_test.toml
 **/Cargo_test.toml
 .vercel
 .playwright-mcp/
+.playwright-cli/
 
 # Understand-Anything (local scratch)
 .understand-anything/

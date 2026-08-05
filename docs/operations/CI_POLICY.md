@@ -83,6 +83,13 @@ The workspace includes several **experimental crates** that are not part of the 
 **To promote an experimental crate to stable**, remove it from the exclusion list in
 `ci-rust-10.yml` and re-add it to `default-members` in `Cargo.toml`.
 
+**Review 2026-08-05 (TECH-08):** Decision: **keep `vantadb-server`, `vantadb-mcp`, `vantadb-wasm`
+EXPERIMENTAL** — not promoted to `default-members`. Evidence: all three compile together
+(`cargo check -p vantadb-server -p vantadb-mcp -p vantadb-wasm` → OK, 49s) and their test suites are
+green, but the circuit-breaker policy is deliberate: a failure in an experimental crate must not block
+core CI, and the planned desktop build (`DESKTOP-01b`) depends on being able to consume these crates
+with an empty `[workspace]` decoupling. Re-evaluate after desktop ships.
+
 ### Experimental Suite
 
 Experimental tests are retained for local/manual diagnostics but do not define the v0.1.x MVP. Run

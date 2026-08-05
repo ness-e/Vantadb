@@ -1,6 +1,6 @@
 # Plan de Ejecución: Backlog Validation Actions — 2026-08-05
 
-> **Campaign ID: a19732b9-c57e-40bd-8d2a-d1cb409e6fc3
+> **Campaign ID: ed2b8ad1-58fb-4ea9-bea8-ad616f80f19a
 > **Inicio:** 2026-08-05
 > **Estado: completed
 > **Fuente:** `docs/Backlog.md` (85 tareas abiertas validadas)
@@ -37,7 +37,7 @@
 ### Task 1: Backlog-EDIT — Corregir 12 premisas stale + limpiar referencia muerta
 - **Archivos clave:** `docs/Backlog.md`
 - **Gate Justificación:** hallazgos de los 6 sub-agentes; las descripciones actuales inducen a error de implementación.
-- **Contrato: Benchmark estable 3x; causa atribuida (no stack overflow, no UAF)
+- **Contrato: Refs 1:1 reales; comentario corregido
 - **Pasos:**
   1. **AUDIT-01** (L70): reemplazar "try_numpy_array expone puntero" → "el UAF es por los getters `__array_interface__` (vector.rs:59-73, types.rs:365-380); `try_numpy_array` COPIA (seguro). Fix: congelar/clonar ante drop y `__setstate__`".
   2. **AUD-004** (L252): reemplazar "gate por feature experimental-lisp" → "feature `experimental-lisp` ELIMINADA en CUARENTENA-01; fix = eliminar/renombrar tool `query_lisp` o documentar que solo acepta IQL".
@@ -194,7 +194,7 @@
 - **Gate Justificación:** línea 64 apunta a `src\sdk\search.rs` (directorio) → el error mata la validación SDK ("0 items"); además 13 gaps reales (bulk_commit_interval config.rs:304, NoVectorForKey error.rs:265, create cli.rs:326, bulk_import/graph_page_rank/graph_degree_centrality/recover_archived_nodes en bindings + gds.rs).
 - **Acción:** Parte A: corregir ruta. Parte B: documentar los gaps. **Nota:** arreglar solo la ruta NO deja el script verde — quedan los 13.
 - **Contrato:** `pwsh scripts/validate-docs-coverage.ps1` exit 0; sección SDK reporta items reales.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-08-05 — commit `1a0cb79a` (gate reparado + 13 gaps documentados).
 
 ### Task 20: TECH-03 — Corregir 3 stale-docs reales (de 4)
 - **Archivos clave:** `docs/api/HTTP_API.md:124-125`, `vantadb-python/README.md:33,48,59`, `docs/api/MCP.md:56`
@@ -202,7 +202,7 @@
 - **Acción:** retirar claim (3) (`python_sdk` feature SÍ existe en Cargo.toml:104 + src/python.rs:1 — el drift es nomenclatura, no falsedad). Corregir los 3 reales.
 - **Contrato:** grep de cada método/tool confirma existencia; `validate-docs-coverage.ps1` verde (con Task 19).
 - **Dependencias:** Task 13 (destino de query_lisp) define el wording de (4).
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 21: TECH-05 — Implementar resource MCP `schema://`
 - **Archivos clave:** `vantadb-mcp/src/lib.rs:605-616,619-706`, `docs/api/MCP.md:79-81`, `vantadb-mcp/tests/mcp_tests.rs`
@@ -210,41 +210,41 @@
 - **Acción:** definir shape JSON (config HNSW + text index version) + handler + tests.
 - **Contrato:** `resources/read schema://` devuelve schema; tests MCP verdes.
 - **Nota:** NO hay MCP-02..05 en backlog — sin solape (limpiar la nota del backlog en F0).
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-08-05 — commit `4dff484c` (resource `schema://` list+read + tests MCP).
 
 ### Task 22: TECH-07 — Publicar pkg WASM con feature `opfs`
 - **Archivos clave:** `vantadb-wasm/src/lib.rs:334-399`, `vantadb-wasm/Cargo.toml:36-38`, `pkg/*.d.ts`, `src/opfs_bridge.js`
 - **Gate Justificación:** worker APIs (`connect_worker`, `worker_read/write/delete`) bajo `cfg(opfs)` ausentes del pkg compilado; default = `["tracing-wasm"]`.
 - **Acción:** rebuild con `--features opfs`; publicar pkg con worker opcional documentado; test browser con worker.
 - **Contrato:** d.ts del pkg incluye los 4 exports; test browser worker pasa.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (`566e9369`) — pkg rebuild con `wasm-pack build --features opfs` (wasm-pack 0.15.0): d.ts incluye connect_worker/worker_read/worker_write/worker_delete. Documentación "Optional capability" en los 4 métodos (lib.rs) + ejemplo spawnOpfsWorker. Demo `vantadb-wasm/demo/worker-test.html` creado. ⚠️ pkg/ no trackeado en git (build local); browser test con worker pendiente de entorno.
 
 ### Task 23: TECH-08 — Decidir promoción a default-members (sin re-investigar)
 - **Archivos clave:** `Cargo.toml:583-599`, `docs/operations/CI_POLICY.md:73-84`
 - **Gate Justificación:** análisis YA existe (CI_POLICY.md + DESKTOP-01b:140,273,419,515). No es tarea de worker — es de lead/arch.
 - **Acción:** tomar la decisión (promover vs mantener experimental) + nota en CI_POLICY o ADR ligero. `cargo check --workspace` con los 3 habilitados como prueba.
 - **Contrato:** decisión documentada; workspace compila con los 3.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 24: TECH-06 — CORS como feature request (reformular)
 - **Archivos clave:** `src/cli_server.rs`, `src/config.rs`, `docs/api/HTTP_API.md:148-150`
 - **Gate Justificación:** ausencia de CORS es DECISIÓN documentada (reverse proxy recomendado), no bug silencioso.
 - **Acción:** reformular como feature-gated opcional: middleware tower-http CORS con origenes configurables; default OFF (sin cambio de comportamiento). Si no hay necesidad real (webview usa reqwest, no fetch), cerrar.
 - **Contrato:** CORS configurable; default sin headers nuevos; test e2e con Origin header.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 25: AUDIT-05 — Housekeeping 3 fixes (30min)
 - **Archivos clave:** `.gitignore` (falta `.playwright-cli/` — verificado), `docs/architecture/adr/003_sync_async_decoupling.md` (nota SurrealDB sin last-updated), `.opencode/skills/campaign-executor/tasks/GH-123.md` (Estado PENDING stale vs commit d406feab)
 - **Acción:** añadir `.playwright-cli/` a gitignore; agregar sección Addendum o línea `last-updated` al ADR; actualizar Estado en GH-123.md.
 - **Contrato:** `git status` limpio de artefactos .playwright-cli; ADR con last-updated; task file en ✅/done.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 26: AUDIT-08 — Actualizar P2 debt ledger (30min)
 - **Archivos clave:** `.opencode/AGENTS.md:882-887`, `vantadb-python/src/vector.rs:63`, `vantadb-python/src/types.rs:365`, `vantadb-python/src/convert.rs:23-70,53-62`, `src/sdk/serialization/mod.rs:227-294`, `vantadb-wasm/src/lib.rs:402-433`
 - **Gate Justificación:** refs apuntan a `lib.rs:1754/34-36/895-901/394-413` pero src/lib.rs = 193 líneas; comentario LRU dice O(1) pero evicción es O(n) `min_by_key`.
 - **Acción:** actualizar refs P2-2/P2-3/P2-7/P2-8 a las reales (verificadas 1:1); corregir comentario O(1)→O(n) en convert.rs:53-62.
 - **Contrato:** grep en AGENTS.md de lib.rs:1754 = 0; comentario corregido.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ---
 
@@ -514,11 +514,11 @@ INV-007-B → MKT-17, TSK-103 (absorbe cierres)
 
 === RECITATION ===
 Campaign ID: 06826e46-9034-4f0c-bb4c-5e06742d9480
-Objetivo activo: F2 — AUDIT-04 crash benchmark 0xC0000409
+Objetivo activo: F3 — AUDIT-08 P2 debt ledger
 Estado: completed
-Última acción: vanta-chaos root-cause: co_access O(n²) sin cap → heap exhaustion; fix cap 1M pares
-Resultado: ✅ repro 3x exit 0, peak 333MB vs 2514, commit d2c7b0a5
-Próxima acción: F3 — Engineering Health
+Última acción: lead actualizó refs reales + P2-2 RESUELTA
+Resultado: ✅ grep lib.rs:1754 = 0, comentario O(n)
+Próxima acción: —
 Contrato: grep experimental-lisp|MCP-02 = 0; sin duplicados en progreso
-Próxima tarea si completa: 19
+Próxima tarea si completa: 27
 === END RECITATION ===

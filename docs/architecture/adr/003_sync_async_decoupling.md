@@ -4,6 +4,7 @@ type: adr
 status: active
 tags: [vantadb, architecture, adr]
 last_reviewed: 2026-07-21
+last-updated: 2026-08-05
 aliases: []
 ---
 

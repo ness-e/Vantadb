@@ -26,6 +26,7 @@ El sistema de pipeline vive en `.opencode/` y se activa cuando el usuario envía
 | `/ship` | `.opencode/commands/ship.md` | Fan-out GO/NO-GO |
 | `/rollback` | `.opencode/commands/rollback.md` | Revertir ship fallido |
 | `/status` | `.opencode/commands/status.md` | Dashboard de un vistazo |
+| `/backlog` | `.opencode/commands/backlog.md` | Revisar backlog + listar tareas activas + recomendar prioridad |
 | `/spec` | `.opencode/commands/spec.md` | Spec-Driven Development |
 | `/webperf` | `.opencode/commands/webperf.md` | Web performance audit |
 | `/code-simplify` | `.opencode/commands/code-simplify.md` | Simplify code |
@@ -878,13 +879,13 @@ El saldo neto de deuda técnica por PR debe ser **cero o negativo**.
 
 | ID | Archivo | Deuda | Esfuerzo |
 |---|---|---|---|
-| P2-1 | `opfs.rs:83-87` | `delete()` stub no implementado | 🟢 30 min |
-| P2-2 | `lib.rs:1754` | Raw pointer UB potencial en `__array_interface__` | 🟡 2-4 hr |
-| P2-3 | `lib.rs:34-36` | LRU cache O(n) con capacidad 64 | 🟢 15 min |
-| P2-5 | `lib.rs:824-887` | Dual API en `put_batch()` — 60 líneas de branching | 🟢 1 hr |
-| P2-6 | `lib.rs:688-712` | Match no exhaustivo en `VantaError` | 🟢 15 min |
-| P2-7 | `lib.rs:895-901` | Serialización completa sin zero-copy path | 🟡 4-8 hr |
-| P2-8 | `lib.rs:394-413` | `collect_all_deduped()` O(n) en memoria | 🟡 2-4 hr |
+| P2-1 | `vantadb-wasm/src/opfs.rs:83-87` | `delete()` stub no implementado | 🟢 30 min |
+| ~~P2-2~~ | ~~Raw pointer UB en `__array_interface__`~~ — ✅ RESUELTO por AUDIT-01 (`bff30d38`): getter devuelve `PyBytes` owned copy (`vantadb-python/src/vector.rs:59-74`) | — |
+| P2-3 | `vantadb-python/src/convert.rs:23-70` | LRU cache evicción O(n) `min_by_key` (comentario O(1) corregido) | 🟢 15 min |
+| P2-5 | `vantadb-python/src/lib.rs` (`put_batch`, línea ~312) | Dual API en `put_batch()` — 60 líneas de branching | 🟢 1 hr |
+| P2-6 | `vantadb-python/src/types.rs:365` | Match no exhaustivo en `VantaError` | 🟢 15 min |
+| P2-7 | `src/sdk/serialization/mod.rs:227-294` | Serialización completa sin zero-copy path | 🟡 4-8 hr |
+| P2-8 | `vantadb-wasm/src/lib.rs:402-433` | `collect_all_deduped()` O(n) en memoria | 🟡 2-4 hr |
 
 ### Regla 7: Release Workflow — main/develop + Conventional Commits
 

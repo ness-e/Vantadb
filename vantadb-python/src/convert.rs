@@ -50,8 +50,8 @@ impl LruCache {
         }
     }
 
-    /// Insert or update a metadata cache entry in O(1).
-    /// Evicts the least recently used entry when at capacity.
+    /// Insert or update a metadata cache entry.
+    /// Eviction is O(n) (`min_by_key` scan) — the "O(1)" in older comments was wrong.
     fn put(&mut self, key: String, value: std::collections::BTreeMap<String, VantaValue>) {
         self.tick = self.tick.wrapping_add(1);
         if self.map.len() >= self.capacity && !self.map.contains_key(&key) {
