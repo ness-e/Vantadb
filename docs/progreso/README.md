@@ -1174,6 +1174,9 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `AUDREP-02` | Engine-Panic: `.expect()` en deserialización de claves (guard previo ya lo protegía; fix defensivo `let-else`) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-05` | Dockerfile: COPY 8 dirs inexistentes (resuelto por plan Task 16/AUD-001) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-06` | Dockerfile: RUST_VERSION 1.94.0 → 1.94.1 (resuelto por plan Task 16/AUD-001) | 🔴 | ✅ 2026-08-05 |
+| `AUDREP-03` | Storage-Consistencia: errores de tombstone tragados en ops.rs (3 sitios `let _ = write_header` → `tracing::error!`; commit `de83ebbf`; 345 tests storage OK) | 🔴 | ✅ 2026-08-05 |
+| `AUDREP-08` | WAL-Race: colisión de timestamps en `archive_segment` (<1ms) → contador atómico `ARCHIVE_SEQ` + único rename atómico (commit `fe0dce6f`; 60 tests WAL OK) | 🔴 | ✅ 2026-08-05 |
+| `AUDREP-13` | Seguridad-Auth: dev mode bypass silencioso → `tracing::warn!` por request no autenticada (commit `0f099822`; 4 tests auth OK) | 🟠 | ✅ 2026-08-05 |
 | `TSK-56` | Fix Windows CI runner (windows-latest) | 🔴 | ✅ |
 | `WEB-02` | Fase 2: Publish 3 Technical Blog Posts (Why I Built, SQLite for AI, Hybrid Search) | 🔴 | ✅ |
 | `WEB-03` | Fase 2: Create real product pages (`/product/benchmarks`, `/security`, `/about/roadmap`, `/docs-api`) | 🔴 | ✅ |
@@ -1261,6 +1264,23 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `TEST-03` | Security test suite (30 tests: IQL injection, auth, fuzzing) | 🔴 | ✅ |
 | `PERF-01` | Batch KV loader get_many + 5 N+1 refactors | 🔴 | ✅ |
 | `SEC-03`  | Physical storage schema evolution + migration CLI | 🔴 | ✅ |
+| `INV-005-A` | error.tsx App Router + drop dep muerta @mdxeditor/editor (Task 35, `6d0b84ec`) | 🟡 | ✅ 2026-08-05 |
+| `INV-013-B` | JSON-LD schema.org/SoftwareApplication en layout root (Task 36, `1d072f4a`) | 🟢 | ✅ 2026-08-05 |
+| `INV-015-B` | Touch targets clear-search 44px + iconos X h-5 (Task 38, `532788d2`) | 🟢 | ✅ 2026-08-05 |
+| `INV-014-B` | Eliminar plomería dark inerte (theme-provider/theme-toggle/next-themes) (Task 37, `6e7b91b8`) | 🟢 | ✅ 2026-08-05 |
+| `INV-016-B` | Motion tokens duration/ease reemplazan cubic-bezier (Task 39, `6afb37c3`) | 🟢 | ✅ 2026-08-05 |
+| `GH-140` | Auditar + eliminar CSS no usado (−23.6%, 17 selectores + 3 keyframes) (Task 40, `21e6c58a`) | 🟢 | ✅ 2026-08-05 |
+| `NUEVO-01` | README hero + benchmark graphic SIFT1M; GIF documentado (Task 41, `df1f84cc`) | 🟢 | ✅ 2026-08-05 |
+| `GH-132` | Notebook Colab + badge Open in Colab (Task 42, `45c02e82`) | 🟢 | ✅ 2026-08-05 |
+| `GH-131` | README integración mem0 (Task 43, `4ff2010a`) | 🟢 | ✅ 2026-08-05 |
+| `GH-129` | README integración Semantic Kernel (Task 43, `4ff2010a`) | 🟢 | ✅ 2026-08-05 |
+| `GH-128` | README integración DSPy (Task 43, `4ff2010a`) | 🟢 | ✅ 2026-08-05 |
+| `INV-025` | Scoping Search Quality v2 (SEARCH_QUALITY_V2_SCOPING.md, contrato INV-009-B) (Task 44, `023d6e89`) | 🟡 | ✅ 2026-08-05 |
+| `INV-009-B` | Phrase queries `Condition::TextMatch` + highlight contiguo (Task 45, `995258e9`) | 🟡 | ✅ 2026-08-05 |
+| `INV-008-B` | `search_batch_requests` con SearchRequest completo (Task 46, `90fd3532`) | 🟡 | ✅ 2026-08-05 |
+| `INV-007-B` | competitive_benchmark.json + competitive-table web (MKT-17) (Task 47, `58061ab8`) | 🟡 | ✅ 2026-08-05 |
+| `NUEVO-16` | PQ viabilidad defer (REC-009 reafirmado, PQ_FEASIBILITY.md) (Task 48, `241a1d81`) | 🔵 | ✅ 2026-08-05 DEFER |
+| `NUEVO-22` | Sparse indexed search (inverted index + posting lists) (Task 49, `5e71b5ff`) | 🔵 | ✅ 2026-08-05 |
 
 ### Julio 2026 — Auditoría de Código (2ª pasada)
 
