@@ -6,6 +6,7 @@ Sync and async bindings for the embedded persistent memory engine.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import asdict, dataclass
 from functools import partial
 
 from .vantadb_py import VantaDB, VantaListResult, VantaMemoryRecord, VantaSearchHit, VantaVector, __version__
@@ -17,8 +18,54 @@ __all__ = [
     "VantaMemoryRecord",
     "VantaSearchHit",
     "VantaVector",
+    "SearchRequest",
     "__version__",
 ]
+
+
+@dataclass
+class SearchRequest:
+    """Full search request for batch searches.
+
+    Mirrors the keyword arguments of ``VantaDB.search_memory``. Pass instances
+    (or equivalent dicts) to ``VantaDB.search_batch_requests``, which runs them
+    in parallel in the Rust engine with GIL released.
+
+    Args:
+        namespace: Namespace to search within.
+        query_vector: Query embedding vector (list of floats or NumPy array).
+            Empty skips dense vector search.
+        filters: Optional dict of metadata field values to filter on.
+        text_query: Optional full-text query for BM25 lexical search.
+        top_k: Maximum number of hits to return (default 10).
+        distance_metric: ``"cosine"`` (default) or ``"euclidean"``.
+        explain: Whether to include search explanations (default False).
+
+    Example::
+
+        from vantadb_py import VantaDB, SearchRequest
+
+        db = VantaDB(":memory:")
+        requests = [
+            SearchRequest("ns", [1.0, 0.0, 0.0], text_query="memory", top_k=5),
+            SearchRequest("ns", [0.0, 1.0, 0.0], filters={"kind": "task"}, top_k=5),
+        ]
+        results = db.search_batch_requests(requests)
+
+    A plain dict with the same keys is also accepted (e.g. ``asdict(request)``).
+    """
+
+    namespace: str
+    query_vector: list[float]
+    filters: dict | None = None
+    text_query: str | None = None
+    top_k: int = 10
+    distance_metric: str | None = None
+    explain: bool = False
+
+    def asdict(self):
+        """Return this request as a plain dict (for non-dataclass callers)."""
+        return asdict(self)
 
 
 class AsyncVantaDB:
@@ -214,6 +261,11 @@ class AsyncVantaDB:
     async def search_batch(self, vectors, top_k=10):
         return await self._run(
             self._sync.search_batch, vectors, top_k
+        )
+
+    async def search_batch_requests(self, requests, top_k=10):
+        return await self._run(
+            self._sync.search_batch_requests, requests, top_k
         )
 
     async def query(self, iql_query):

@@ -1313,6 +1313,79 @@ impl VantaDB {
         })
     }
 
+    /// Hybrid memory search for a batch of full search requests.
+    ///
+    /// Each element is a [`SearchRequest`][1] dataclass or an equivalent
+    /// ``dict`` with the same keys as ``search_memory``: ``namespace``,
+    /// ``query_vector``, ``filters``, ``text_query``, ``top_k``,
+    /// ``distance_metric``, ``explain``.
+    ///
+    /// [1]: https://vantadb.github.io (see `vantadb_py.SearchRequest`)
+    ///
+    /// GIL Policy: RELEASED eager, runs searches in parallel using Rayon.
+    /// Fail-fast: ``try_for_each`` aborts at the first failing request and the
+    /// first error is raised to Python.
+    ///
+    /// Args:
+    ///     requests: List of `SearchRequest` dataclass instances (or dicts).
+    ///     top_k: Fallback `top_k` for requests that omit it (default 10).
+    ///
+    /// Returns:
+    ///     list[list[VantaSearchHit]]: One hit list per request, in input order.
+    ///
+    /// Raises:
+    ///     ValueError: If a request fails engine validation (raised eagerly on
+    ///         the first failing request).
+    ///     RuntimeError: For internal failures or engine errors.
+    #[pyo3(signature = (requests, top_k=10))]
+    fn search_batch_requests(
+        &self,
+        py: Python,
+        requests: Vec<Bound<'_, PyAny>>,
+        top_k: usize,
+    ) -> PyResult<Vec<Vec<VantaPySearchHit>>> {
+        let _g = enter(&self.op_gate)?;
+        // PERF-24: parse all requests (needs GIL) before detach
+        let parsed: PyResult<Vec<VantaMemorySearchRequest>> = requests
+            .iter()
+            .map(|obj| self.parse_search_request(obj, py, top_k))
+            .collect();
+        let parsed = parsed?;
+        let count = parsed.len();
+        let engine = self.engine.clone();
+        let results: std::sync::Mutex<Vec<Vec<VantaPySearchHit>>> =
+            std::sync::Mutex::new((0..count).map(|_| Vec::new()).collect());
+        let results_ref = &results;
+        // GIL RELEASED: pure Rust — parallel hybrid search, no Python objects
+        py.detach(move || -> PyResult<()> {
+            use rayon::prelude::*;
+            parsed
+                .into_par_iter()
+                .enumerate()
+                .try_for_each(|(index, request)| {
+                    let hits = engine.search(request).map_err(map_vanta_error)?;
+                    results_ref
+                        .lock()
+                        .map_err(|_| {
+                            PyRuntimeError::new_err(
+                                "search_batch_requests: result mutex poisoned",
+                            )
+                        })?
+                        [index] = hits
+                        .into_iter()
+                        .map(|hit| VantaPySearchHit {
+                            inner: hit.record,
+                            score: hit.score,
+                        })
+                        .collect();
+                    Ok(())
+                })
+        })?;
+        results.into_inner().map_err(|_| {
+            PyRuntimeError::new_err("search_batch_requests: result mutex poisoned")
+        })
+    }
+
     /// Execute an IQL or LISP query string. Returns a formatted result string.
     ///
     /// GIL Policy: RELEASED during Tokio execution — allows other Python
@@ -1676,6 +1749,99 @@ impl VantaDB {
         })?;
 
         search_explanation_to_pydict(py, &explanation)
+    }
+}
+
+impl VantaDB {
+    /// Read a field from a batch search request element — either a ``dict``
+    /// (mapping keys) or a ``SearchRequest`` dataclass (attribute access).
+    fn request_field<'py>(
+        obj: &Bound<'py, PyAny>,
+        key: &str,
+    ) -> PyResult<Option<Bound<'py, PyAny>>> {
+        if let Ok(dict) = obj.cast::<PyDict>() {
+            match dict.get_item(key)? {
+                Some(value) if value.is_none() => Ok(None),
+                Some(value) => Ok(Some(value)),
+                None => Ok(None),
+            }
+        } else if let Ok(value) = obj.getattr(key) {
+            if value.is_none() {
+                Ok(None)
+            } else {
+                Ok(Some(value))
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Convert a Python batch-search request element (dict or `SearchRequest`
+    /// dataclass) into a [`VantaMemorySearchRequest`]. Field access needs the
+    /// GIL, so this runs before `py.detach` (PERF-24 pattern).
+    fn parse_search_request(
+        &self,
+        obj: &Bound<'_, PyAny>,
+        py: Python<'_>,
+        default_top_k: usize,
+    ) -> PyResult<VantaMemorySearchRequest> {
+        let namespace: String = Self::request_field(obj, "namespace")?
+            .ok_or_else(|| {
+                PyValueError::new_err("search request missing required field 'namespace'")
+            })?
+            .extract()?;
+
+        let query_vector = match Self::request_field(obj, "query_vector")? {
+            Some(v) => extract_vector(&v, py)?,
+            None => Vec::new(),
+        };
+
+        let filters = match Self::request_field(obj, "filters")? {
+            Some(f) => py_dict_to_metadata(f.cast::<PyDict>().ok())?,
+            None => Default::default(),
+        };
+
+        let text_query: Option<String> = match Self::request_field(obj, "text_query")? {
+            Some(v) => Some(v.extract()?),
+            None => None,
+        };
+
+        let top_k: usize = match Self::request_field(obj, "top_k")? {
+            Some(v) => v.extract()?,
+            None => default_top_k,
+        };
+
+        let distance_metric = match Self::request_field(obj, "distance_metric")? {
+            Some(v) => Some(v.extract::<String>()?),
+            None => None,
+        };
+        let distance_metric = match distance_metric.as_deref() {
+            Some("euclidean") => DistanceMetric::Euclidean,
+            Some(other) => {
+                tracing::warn!(
+                    "Unknown distance_metric \"{}\" — falling back to default (cosine). Known values: cosine, euclidean",
+                    other
+                );
+                DistanceMetric::Cosine
+            }
+            None => DistanceMetric::Cosine,
+        };
+
+        let explain: bool = match Self::request_field(obj, "explain")? {
+            Some(v) => v.extract()?,
+            None => false,
+        };
+
+        Ok(VantaMemorySearchRequest {
+            namespace,
+            query_vector,
+            query_sparse: None,
+            filters,
+            text_query,
+            top_k,
+            distance_metric,
+            explain,
+        })
     }
 }
 

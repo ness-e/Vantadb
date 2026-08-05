@@ -258,6 +258,92 @@ class TestPersistentMemoryApi:
         assert db.delete_memory("agent/main", "delete-me") is True, "delete_memory should return True"
         assert db.get_memory("agent/main", "delete-me") is None, "deleted memory should not be retrievable"
 
+    def test_search_batch_requests(self):
+        """Full SearchRequest batch search should match sequential search_memory."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+
+        for i in range(10):
+            db.put(
+                "agent/main",
+                f"task-{i}",
+                f"ship the memory API item {i}",
+                metadata={"category": "task" if i % 2 == 0 else "note", "done": (i % 2 == 0)},
+                vector=[float(i) * 0.1] * 16,
+            )
+
+        requests = [
+            vanta.SearchRequest(
+                namespace="agent/main",
+                query_vector=[0.9] * 16,
+                text_query="memory",
+                filters={"category": "task"},
+                top_k=3,
+            ),
+            vanta.SearchRequest(
+                namespace="agent/main",
+                query_vector=[0.1] * 16,
+                text_query="API",
+                top_k=3,
+            ),
+        ]
+
+        batch_results = db.search_batch_requests(requests, top_k=3)
+
+        sequential_results = [
+            db.search_memory(
+                "agent/main",
+                [0.9] * 16,
+                text_query="memory",
+                filters={"category": "task"},
+                top_k=3,
+            ),
+            db.search_memory("agent/main", [0.1] * 16, text_query="API", top_k=3),
+        ]
+
+        assert len(batch_results) == len(requests), (
+            f"expected {len(requests)} batch results, got {len(batch_results)}"
+        )
+        for i in range(len(requests)):
+            assert len(batch_results[i]) == len(sequential_results[i]), (
+                f"result {i}: expected {len(sequential_results[i])} hits, got {len(batch_results[i])}"
+            )
+            for j in range(len(batch_results[i])):
+                assert batch_results[i][j].key == sequential_results[i][j].key, (
+                    f"result {i},{j}: expected key {sequential_results[i][j].key}, got {batch_results[i][j].key}"
+                )
+                assert abs(batch_results[i][j].score - sequential_results[i][j].score) < 1e-4, (
+                    f"result {i},{j}: scores differ by {abs(batch_results[i][j].score - sequential_results[i][j].score)}"
+                )
+
+    def test_search_batch_requests_dict_equivalent(self):
+        """search_batch_requests should also accept plain dicts (asdict equivalent)."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("ns", "a", "alpha", vector=[1.0, 0.0, 0.0])
+        db.put("ns", "b", "beta", vector=[0.0, 1.0, 0.0])
+
+        requests = [
+            {"namespace": "ns", "query_vector": [1.0, 0.0, 0.0], "top_k": 2},
+            vanta.SearchRequest(namespace="ns", query_vector=[0.0, 1.0, 0.0], top_k=2),
+        ]
+        results = db.search_batch_requests(requests, top_k=2)
+        assert len(results) == 2
+        assert [h.key for h in results[0]] == ["a", "b"]
+        assert results[1][0].key == "b", f"expected 'b', got {results[1][0].key}"
+
+    def test_search_batch_requests_fail_fast(self):
+        """The first failing request should raise eagerly (fail-fast)."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("ns", "k1", "hello", vector=[1.0, 0.0, 0.0])
+
+        requests = [
+            vanta.SearchRequest(namespace="ns", query_vector=[1.0, 0.0, 0.0], top_k=3),
+            # Empty namespace is invalid → engine.search returns an error.
+            vanta.SearchRequest(namespace="", query_vector=[1.0, 0.0, 0.0], top_k=3),
+            vanta.SearchRequest(namespace="ns", query_vector=[1.0, 0.0, 0.0], top_k=3),
+        ]
+        with pytest.raises(ValueError):
+            db.search_batch_requests(requests)
+
     def test_rebuild_export_import_memory(self, tmp_path):
         """Python memory API should expose rebuild and JSONL movement."""
         source_path = str(tmp_path / "source")
