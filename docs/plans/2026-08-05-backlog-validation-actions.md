@@ -1,6 +1,6 @@
 # Plan de Ejecución: Backlog Validation Actions — 2026-08-05
 
-> **Campaign ID: ed2b8ad1-58fb-4ea9-bea8-ad616f80f19a
+> **Campaign ID: 039e08f3-c41b-4cc7-ab99-3c20937d46ef
 > **Inicio:** 2026-08-05
 > **Estado: completed
 > **Fuente:** `docs/Backlog.md` (85 tareas abiertas validadas)
@@ -37,7 +37,7 @@
 ### Task 1: Backlog-EDIT — Corregir 12 premisas stale + limpiar referencia muerta
 - **Archivos clave:** `docs/Backlog.md`
 - **Gate Justificación:** hallazgos de los 6 sub-agentes; las descripciones actuales inducen a error de implementación.
-- **Contrato: Refs 1:1 reales; comentario corregido
+- **Contrato: openapi.yaml = 0.5.0; gate CI falla si cabeceras divergen del workspace; rg 0.4.0 = 0
 - **Pasos:**
   1. **AUDIT-01** (L70): reemplazar "try_numpy_array expone puntero" → "el UAF es por los getters `__array_interface__` (vector.rs:59-73, types.rs:365-380); `try_numpy_array` COPIA (seguro). Fix: congelar/clonar ante drop y `__setstate__`".
   2. **AUD-004** (L252): reemplazar "gate por feature experimental-lisp" → "feature `experimental-lisp` ELIMINADA en CUARENTENA-01; fix = eliminar/renombrar tool `query_lisp` o documentar que solo acepta IQL".
@@ -255,7 +255,7 @@
 - **Gate Justificación:** `vantadb_python.Client()` + `graphrag_search()` no existen en ningún binding; citado como violación en `rules/api-contract.md:13`.
 - **Acción:** documentar el entrypoint real (VantaDB core + GraphRagPipeline config) o marcar como roadmap/futuro y corregir el ejemplo.
 - **Contrato:** ejemplo Python ejecutable (o marcado como no-implementado); grep `graphrag_search` en bindings = solo Rust SDK.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 28: AUD-003 — Retractar afirmación falsa src/governance
 - **Archivos clave:** `docs/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md:14,172,138`, `src/gds.rs` (403 L, GraphDataScience page_rank :38, degree_centrality :145)
@@ -263,14 +263,14 @@
 - **Acción:** retractar afirmaciones; renombrar como diseño propuesto no-implementado; mapear qué corresponde a src/gds.rs vs futuro.
 - **Contrato:** doc no afirma verificación contra código inexistente.
 - **Nota:** backlog ubica el doc en docs/Investigaciones/ pero está en docs/architecture/ (corregir path en F0).
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 29: AUD-005 — Sincronizar versiones docs/api (solo 1 drift real)
 - **Archivos clave:** `docs/api/openapi.yaml:4` (0.4.0 → 0.5.0), `Cargo.toml:602`
 - **Gate Justificación:** único drift real es openapi.yaml; MCP.md ya está en 0.5.0 (L310); HTTP_API.md 0.0.4 coincide con cli_server.rs:368.
 - **Acción:** corregir openapi.yaml + opcionalmente gate CI de versión (lo valioso). No tocar MCP.md/HTTP_API.md salvo el gate.
 - **Contrato:** openapi.yaml = 0.5.0; gate CI falla si cabeceras divergen del workspace.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 30: AUD-006 — Documentar 5 tools MCP reales faltantes
 - **Archivos clave:** `docs/api/MCP.md`, `vantadb-mcp/src/lib.rs:808-964`
@@ -285,7 +285,7 @@
 - **Gate Justificación:** ef_construction 400→100 real; WalSharded→ShardedWal; HnswIndex→CPIndex; src/index/core.rs es 100% `#[cfg(test)]` (480 L).
 - **Acción:** corregir nombres de tipo + constantes. (La formulación "paths no existen" del backlog es falsa — src/storage/wal.rs SÍ existe.)
 - **Contrato:** grep ARCHITECTURE.md de HnswIndex/WalSharded/ef_construction=400 = 0.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 32: AUD-008 — Corregir drift STORAGE_VERSIONING.md
 - **Archivos clave:** `docs/architecture/STORAGE_VERSIONING.md:54-55,315,168,328`, `src/index/graph.rs:142` (VECTOR_INDEX_VERSION=8), `src/storage/vfile.rs:26` (VFILE_VERSION=2), `src/wal.rs:17,31` (postcard)
@@ -299,14 +299,14 @@
 - **Gate Justificación:** DESKTOP-01b:1090 afirma "React + Vite (mismo que web/)" — falso; web/ es Next.js 16 App Router. Las demás menciones Vite se refieren al desktop Tauri planificado (correctas — no tocar).
 - **Acción:** corregir la nota errónea + non_exhaustive check de stack. La referencia "DOC3 §A.5" no es trazable (ID de catálogo) — no perseguir.
 - **Contrato:** grep DESKTOP-01b de "Vite (mismo que web/" = 0; web/AGENTS.md correcto.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 34: GH-123 — Re-escopetar a links rotos reales (~4)
 - **Archivos clave:** `docs/progreso/README.md:1793`, `docs/progreso/bitacora.md`, `docs/operations/BENCHMARKS.md` (path file:/// máquina-específico), `docs/glosario/`
 - **Gate Justificación:** claim "167+ archivos" sin sustento (341 .md en docs/); scan real = ~4 links rotos + wiki-links `[[..]]` falsos positivos.
 - **Acción:** corregir los ~4 links reales + typos de docs/progreso; documentar método de auditoría (no re-inventar sweep). Cerrar issue #123 con evidencia del inventario.
 - **Contrato:** `gh issue close 123` tras inventario; 0 links rotos en docs/progreso.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-08-05 — 3 links rotos reales corregidos (README:1047 Glossary/test.md→texto, README:1839 walkthrough→sin enlace, BENCHMARKS:93 file:///→ruta relativa); método de auditoría documentado; issue #123 **cerrado** (inventario: 341 .md, no "167+"; falsos positivos wiki-links/commits).
 
 ---
 
@@ -514,11 +514,11 @@ INV-007-B → MKT-17, TSK-103 (absorbe cierres)
 
 === RECITATION ===
 Campaign ID: 06826e46-9034-4f0c-bb4c-5e06742d9480
-Objetivo activo: F3 — AUDIT-08 P2 debt ledger
+Objetivo activo: Sincronizar versiones docs/api con workspace (AUD-005)
 Estado: completed
-Última acción: lead actualizó refs reales + P2-2 RESUELTA
-Resultado: ✅ grep lib.rs:1754 = 0, comentario O(n)
-Próxima acción: —
+Última acción: Fix openapi.yaml:4 0.4.0→0.5.0; creé job check-api-version en gate-docs-21.yml; escribí Context Save Point; commiteé
+Resultado: ✅ openapi.yaml=0.5.0, gate creado, rg 0.4.0=0, commit 73ee5b75
+Próxima acción: Ninguna — tarea completada
 Contrato: grep experimental-lisp|MCP-02 = 0; sin duplicados en progreso
-Próxima tarea si completa: 27
+Próxima tarea si completa: 
 === END RECITATION ===
