@@ -52,3 +52,31 @@ jobs:
           done
           if [ "$PASS" != "true" ]; then exit 1; fi
           echo "All documents have valid frontmatter."
+
+  check-api-version:
+    name: Check API Docs Version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check docs/api headers match workspace version
+        run: |
+          VER=$(sed -n '/^\[workspace.package\]/,/^\[/p' Cargo.toml | grep '^version' | head -1 | awk '{print $3}' | tr -d '"')
+          echo "Workspace version: $VER"
+          FAIL=0
+          # openapi.yaml info.version (first version: line in file)
+          OAPI=$(grep -m1 '^  version:' docs/api/openapi.yaml | awk '{print $2}' | tr -d '"')
+          echo "openapi.yaml: $OAPI"
+          if [ "$OAPI" != "$VER" ]; then
+            echo "::error file=docs/api/openapi.yaml::version $OAPI != workspace $VER"
+            FAIL=1
+          fi
+          # MCP.md implementation version (tracks workspace version; HTTP_API.md is protocol version 0.0.4 — intentionally not checked)
+          MCP=$(grep -m1 'Current MCP implementation version:' docs/api/MCP.md | awk '{print $NF}')
+          echo "MCP.md: $MCP"
+          if [ "$MCP" != "$VER" ]; then
+            echo "::error file=docs/api/MCP.md::version $MCP != workspace $VER"
+            FAIL=1
+          fi
+          if [ "$FAIL" != "0" ]; then exit 1; fi
+          echo "All tracked API doc headers match workspace version $VER."
