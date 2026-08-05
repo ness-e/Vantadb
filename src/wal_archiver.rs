@@ -9,8 +9,16 @@ use crate::error::{Result, VantaError};
 use crate::wal::{WalReader, WalRecord};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tracing::{debug, info, warn};
+
+/// Process-wide monotonic sequence appended to archived filenames.
+///
+/// Guarantees unique destinations even when two segments are archived within
+/// the same millisecond, so [`WalArchiver::archive_segment`] never needs to
+/// overwrite an existing file.
+static ARCHIVE_SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// Configuration for WAL archival and retention.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,12 +87,17 @@ impl WalArchiver {
             .as_millis();
 
         let filename = source_path.file_name().unwrap_or_default();
-        let archive_name = format!("{}.{}", filename.to_string_lossy(), timestamp);
+        // Monotonic sequence keeps the destination unique even within the same
+        // millisecond. The millisecond timestamp remains the final dot-separated
+        // token so `parse_segment_timestamp` (PITR) keeps working unchanged.
+        let seq = ARCHIVE_SEQ.fetch_add(1, Ordering::Relaxed);
+        let archive_name = format!("{}.{}.{}", filename.to_string_lossy(), seq, timestamp);
         let dest = self.archive_dir.join(&archive_name);
 
-        if dest.exists() {
-            std::fs::remove_file(&dest)?;
-        }
+        // The destination is unique, so a plain rename into the (same-filesystem)
+        // archive directory is atomic. No `remove_file` first: there is never an
+        // existing file to clobber, and deleting-then-renaming would re-open a
+        // window for concurrent data loss.
         std::fs::rename(source_path, &dest)?;
 
         info!(
@@ -278,8 +291,10 @@ impl PitrRestorer {
 
     /// Parse the millisecond timestamp from an archived segment filename.
     ///
-    /// Format: `<original_name>.<timestamp_millis>`
-    /// Example: `vanta.wal.1712345678901` → `1712345678901`
+    /// Format: `<original_name>.<seq>.<timestamp_millis>` (seq disambiguates
+    /// same-millisecond archives).
+    /// Example: `vanta.wal.3.1712345678901` → `1712345678901`
+    /// Legacy format `<original_name>.<timestamp_millis>` is also accepted.
     fn parse_segment_timestamp(path: &Path) -> u64 {
         let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
         if let Some(ts_str) = name.rsplit('.').next() {
@@ -413,5 +428,44 @@ mod tests {
 
         let path2 = dir.path().join("vanta.wal.shard0.1712345678902");
         assert_eq!(PitrRestorer::parse_segment_timestamp(&path2), 1712345678902);
+
+        // New format with the disambiguating sequence inserted before the millis.
+        let path3 = dir.path().join("vanta.wal.7.1712345678903");
+        assert_eq!(PitrRestorer::parse_segment_timestamp(&path3), 1712345678903);
+    }
+
+    #[test]
+    fn test_archive_segment_unique_names() {
+        // Two segments that share a basename, archived within the same
+        // millisecond, must not collide on their destination. The monotonic
+        // sequence (not just the filename) guarantees uniqueness, and both
+        // archives survive (no remove_file-overwrite data loss).
+        let dir = tempdir().unwrap();
+        let wal1 = dir.path().join("wal1");
+        let wal2 = dir.path().join("wal2");
+        std::fs::create_dir_all(&wal1).unwrap();
+        std::fs::create_dir_all(&wal2).unwrap();
+        let archive_dir = dir.path().join("archive");
+        let archiver = WalArchiver::new(&archive_dir, WalArchiveConfig::default()).unwrap();
+
+        // Same basename (`vanta.wal`) from two different segment directories.
+        let s1 = make_wal_segment(&wal1, "vanta.wal");
+        let s2 = make_wal_segment(&wal2, "vanta.wal");
+        let d1 = archiver.archive_segment(&s1).unwrap();
+        let d2 = archiver.archive_segment(&s2).unwrap();
+
+        assert_ne!(
+            d1, d2,
+            "destinations must be unique within same millisecond"
+        );
+        assert!(d1.exists());
+        assert!(d2.exists());
+        assert!(!s1.exists());
+        assert!(!s2.exists());
+        // Archives remain parseable for PITR.
+        let t1 = PitrRestorer::parse_segment_timestamp(&d1);
+        let t2 = PitrRestorer::parse_segment_timestamp(&d2);
+        assert_ne!(t1, 0);
+        assert_ne!(t2, 0);
     }
 }
