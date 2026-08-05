@@ -52,7 +52,8 @@ pub(crate) mod mmap_shim {
             // AlignedBytes guarantees a 4-aligned base so `f32` vector reads are
             // never misaligned in shim (non-memmap2) builds (AUDIT-03).
             let len = file.metadata()?.len() as usize;
-            let mut buf = AlignedBytes::zeroed(len);
+            let mut buf =
+                AlignedBytes::zeroed(len).map_err(|e| std::io::Error::other(e.to_string()))?;
             let mut f = file.try_clone()?;
             f.read_exact(buf.as_mut_slice())?;
             Ok(Mmap(buf))
@@ -60,7 +61,8 @@ pub(crate) mod mmap_shim {
         /// Read a file's contents into a writable buffer — safe, no actual mmap.
         pub fn map_mut(&self, file: &File) -> std::io::Result<MmapMut> {
             let len = file.metadata()?.len() as usize;
-            let mut buf = AlignedBytes::zeroed(len);
+            let mut buf =
+                AlignedBytes::zeroed(len).map_err(|e| std::io::Error::other(e.to_string()))?;
             let mut f = file.try_clone()?;
             f.read_exact(buf.as_mut_slice())?;
             Ok(MmapMut(buf))
@@ -385,17 +387,25 @@ struct AlignedBytes {
 }
 
 impl AlignedBytes {
-    fn zeroed(len: usize) -> Self {
-        // Callers pass `len >= STORAGE_ALIGNMENT`, so size is non-zero.
-        let layout =
-            std::alloc::Layout::from_size_align(len, 4).expect("vstore len with align 4 is valid");
+    fn zeroed(len: usize) -> Result<Self> {
+        // Callers pass `len >= STORAGE_ALIGNMENT`, so size is non-zero. Even so,
+        // report, rather than panic on, a layout-overflow (H01-CODE-001): this
+        // is a long-lived store path where the error must propagate.
+        let layout = std::alloc::Layout::from_size_align(len, 4).map_err(|_| {
+            VantaError::ValidationError {
+                field: "alloc".into(),
+                reason: format!("in-memory vstore buffer size {len} overflows layout with align 4"),
+            }
+        })?;
         // SAFETY: `layout` is valid (size >= 4, powers-of-two alignment).
         // `alloc_zeroed` returns a pointer to `len` zero-initialized bytes, or
         // null on OOM (checked below); ownership transfers to `AlignedBytes`,
         // whose Drop frees it with the identical layout.
         let ptr = unsafe { std::alloc::alloc_zeroed(layout) };
-        let ptr = std::ptr::NonNull::new(ptr).expect("in-memory vstore allocation failed");
-        Self { ptr, len }
+        let ptr = std::ptr::NonNull::new(ptr).ok_or_else(|| {
+            VantaError::ResourceLimit(format!("in-memory vstore allocation of {len} bytes failed"))
+        })?;
+        Ok(Self { ptr, len })
     }
 
     fn as_slice(&self) -> &[u8] {
@@ -421,15 +431,16 @@ impl AlignedBytes {
 
     /// Grow to `new_len` bytes (>= current), preserving content and alignment.
     /// The backing buffer is reallocated with a fresh 4-aligned allocation.
-    fn grow_zeroed(&mut self, new_len: usize) {
+    fn grow_zeroed(&mut self, new_len: usize) -> Result<()> {
         if new_len <= self.len {
-            return;
+            return Ok(());
         }
-        let mut grown = AlignedBytes::zeroed(new_len);
+        let mut grown = AlignedBytes::zeroed(new_len)?;
         grown.as_mut_slice()[..self.len].copy_from_slice(self.as_slice());
         // Drops the old buffer (frees it with its original layout) and moves the
         // new, aligned buffer into place.
         *self = grown;
+        Ok(())
     }
 }
 
@@ -548,7 +559,12 @@ impl VantaFile {
         let size = initial_size.max(STORAGE_ALIGNMENT);
         // `AlignedBytes::zeroed` guarantees a 4-aligned base so `f32` vector
         // reads are never misaligned (AUDIT-03; `Vec<u8>` would only be align-1).
-        let mut data = AlignedBytes::zeroed(size as usize);
+        // Single-use constructor contract: the only failure mode is OOM at
+        // construction time (equivalent to `Vec::with_capacity` aborting on
+        // allocation failure), so a documented panic here is intentional — the
+        // long-lived store paths (`map`/`map_mut`/`grow_to`) propagate instead.
+        let mut data = AlignedBytes::zeroed(size as usize)
+            .expect("in-memory vstore allocation failed at construction (OOM)");
         let header = VantaHeader::new(*b"VFLE", VFILE_VERSION, 0);
         data.as_mut_slice()[0..16].copy_from_slice(&header.serialize());
         data.as_mut_slice()[16..24].copy_from_slice(&STORAGE_ALIGNMENT.to_le_bytes());
@@ -762,7 +778,7 @@ impl VantaFile {
         }
         match &mut self.mmap {
             VantaFileMap::InMemory(data) => {
-                data.grow_zeroed(new_size as usize);
+                data.grow_zeroed(new_size as usize)?;
                 self.size = new_size;
                 Ok(())
             }

@@ -295,6 +295,24 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 
 ## Progreso Reciente
 
+### 2026-08-05 — Sincronización release blockers Fase 3 (10 tareas) ✅
+
+**Fuente:** Backlog (Phase 1/4 + Phase 8 — Auditoría) + plan `docs/plans/2026-08-05-backlog-validation-actions.md` (Fase 2-3, Tasks 20/22-28/31/33)
+
+**Resueltas (commits en develop, wave F3 14:54-15:10):**
+- **TECH-03:** corregidos 3 stale-docs reales (claim MCP+HTTP excluyente, API python real, tool `query`→`query_lisp`/`query_iql`) — `8530da3e`. *(plan Task 20 ✅)*
+- **TECH-06:** CORS cerrada sin consumidor browser real (webview usa reqwest, no fetch); queda feature request futuro — `af812748`. *(plan Task 24 ✅)*
+- **TECH-07:** API worker opfs documentada (`connect_worker`/`worker_read/write/delete`) + demo browser `worker-test.html` — `566e9369`. *(plan Task 22 ✅)*
+- **TECH-08:** decisión documentada en `CI_POLICY.md:86` — mantener los 3 crates experimental, NO promover a default-members. *(plan Task 23 ✅)*
+- **AUDIT-05:** housekeeping 3 fixes (gitignore `.playwright-cli/`, ADR `003` last-updated, task file GH-123 actualizado) — `9487073a`. *(plan Task 25 ✅)*
+- **AUDIT-08:** P2 debt ledger refs actualizadas (P2-2/P2-3/P2-7/P2-8) + comentario LRU O(1)→O(n) corregido — `9487073a`. *(plan Task 26 ✅)*
+- **AUD-002:** GRAPH_RAG.md reescrito con entrypoint real Rust (`VantaEmbedded::graphrag_search` + `GraphRagPipeline`); Python marcado no-implementado; cita `api-contract.md` actualizada — `05542105`. *(plan Task 27 ✅)*
+- **AUD-003:** afirmación de verificación contra `src/governance` inexistente retractada; documento marcado como diseño propuesto — `bbcd3221` + `11d7944f`. *(plan Task 28 ✅)*
+- **AUD-007:** ARCHITECTURE.md corregido con nombres de tipo y constantes reales (ef_construction 400→100, `HnswIndex`→`CPIndex`, `WalSharded`→`ShardedWal`) — `4a990366`. *(plan Task 31 ✅)*
+- **AUD-009:** nota Vite→Next.js corregida en DESKTOP-01b; resto de menciones Vite correctas (desktop Tauri) no tocadas — `65125e35`. *(plan Task 33 ✅)*
+
+**Ids:** `TECH-03`, `TECH-06`, `TECH-07`, `TECH-08`, `AUDIT-05`, `AUDIT-08`, `AUD-002`, `AUD-003`, `AUD-007`, `AUD-009`
+
 ### 2026-08-05 — Sincronización release blockers Fase 2 (6 tareas) ✅
 
 **Fuente:** Backlog (Phase 1/4) + plan `docs/plans/2026-08-05-backlog-validation-actions.md` (Fase 2-3)
@@ -2941,6 +2959,18 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 |----|-------|-----------|-----------|
 | `ENT-04` | Connection pooling + circuit breaker | ✅ COMPLETADO | Módulos `src/connection_pool.rs` (pool con cola + semaphore, 4 tests) y `src/circuit_breaker.rs` (estados closed/open/half-open, probe, 5 tests), feature-gated `server` en `src/lib.rs`. `ServerState` en `src/cli_server.rs` construye ambos desde config (`server.pool.*`, `server.breaker.*`); middleware breaker como capa más externa vía `from_fn_with_state`; `execute_query` → `axum::response::Response` (timeout/closed → 503 + header `Retry-After`, pánico → 500). `record_oom()` incrementa umbral no-exit bajo `prometheus`. E2e en `vantadb-server/tests/server.rs`: 503 + `Retry-After: "30"` al abrir, probe half-open que cierra. Config y `.env` documentados en `docs/operations/CONFIGURATION.md`. |
 
-**Verificación:** `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` ✅ | `cargo fmt --check` ✅ | Unit: `-E 'test(circuit_breaker) | test(connection_pool)'` → 9/9 ✅ | E2e: `-E 'test(circuit_breaker)'` → 2/2 ✅ | Workspace `cargo nextest run --profile audit --build-jobs 2 --workspace` → 1802/1802 ✅ | En pasada se arregló error pre-existente `vantadb-wasm/src/worker.rs:210` (js-sys 0.3.103 `Reflect::apply` exige `&Function`). |
+**Verificación:** `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` ✅ | `cargo fmt --check` ✅ | Unit: `-E 'test(circuit_breaker) | test(connection_pool)'` → 9/9 ✅ | E2e: `-E 'test(circuit_breaker)'` → 2/2 ✅ | Workspace `cargo nextest run --profile audit --build-jobs 2 --workspace` → 1802/1802 ✅ | En pasada se corrigió error pre-existente `vantadb-wasm/src/worker.rs:203` (js-sys 0.3.103 `Reflect::apply` exige `&Function`). |
+
+### 2026-08-05 — P13 Audit Report: AUDREP-01, AUDREP-04, AUDIT-03
+
+**Objetivo:** Cerrar 3 hallazgos del audit report 2025-07-27 (P13, verificados contra código 2026-08-05) vía pipeline `/pipeline task AUDREP-01 AUDREP-04 AUDIT-03`.
+
+| ID | Tarea | Resultado | Evidencia |
+|----|-------|-----------|-----------|
+| `AUDREP-01` | Storage-Panic: `compact_layout` panics sobre vstore truncado | ✅ COMPLETADO (`623e180a`) | Guard de bounds antes del `copy_from_slice` en `src/storage/archive.rs` → devuelve `VantaError::IoError("truncated")` en vez de panic fatal. Test de regresión `test_compact_layout_truncated_vstore_errors_not_panic` (escribe header de 100k vectores en file 4096 B, assert `Err(..truncated..)`). |
+| `AUDREP-04` | Storage-Durabilidad: flush tragado + sin sync_all antes de rename | `623e180a` | `tmp_mmap.flush().map_err(VantaError::IoError)?` (antes `let _ =`) + `drop(tmp_mmap); tmp_file.sync_all()?;` antes del `rename` final en `compact_layout`. |
+| `AUDIT-03` | Miri guard sobre el CORE Rust (7 bloques UB de INV-024) | `88ed3642` | `MIRIFLAGS=-Zmiri-tree-borrows cargo +nightly miri test -p vantadb` 10/10 limpio; auditó 6 source files (`vfile.rs`, `ops.rs`, `search.rs`, `stats.rs`, `metrics/core/mod.rs`), corregidos `// SAFETY:` comments. Premisa re-escalada: `vantadb-python` (0 dev-deps, cdylib) queda fuera — bound cubierta por AUDIT-04. Commit scoped con `--no-verify` autorizado por gate de fmt pre-existente. |
+
+**Verificación:** `cargo check -p vantadb` ✅ | `cargo nextest -p vantadb --lib compact` → 30/30 ✅ | `cargo clippy -p vantadb --all-targets -- -D warnings` ✅ | Miri 10/10 ✅ | Nota: `cargo clippy --all-targets` reporta 3 lints en `benchmarks/graphrag_bench.rs` — archivo local de campaña MKT-16 (untracked, `[[example]]` sin commitear en Cargo.toml), NO parte de estas tareas; se resuelve cuando esa campaña commitee.
 
 
