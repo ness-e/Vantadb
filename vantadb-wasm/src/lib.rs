@@ -415,6 +415,16 @@ impl VantaDB {
     }
 
     /// Open VantaDB with OPFS persistence via a dedicated Web Worker.
+    ///
+    /// **Optional capability:** this method only exists when the package is
+    /// built with the `opfs` feature (`wasm-pack build --features opfs`).
+    /// Before calling it, import `spawnOpfsWorker` from `src/opfs_bridge.js`
+    /// into the global scope, e.g.:
+    ///
+    /// ```js
+    /// import { spawnOpfsWorker } from "vantadb-wasm/src/opfs_bridge.js";
+    /// globalThis.spawnOpfsWorker = spawnOpfsWorker;
+    /// ```
     #[cfg(feature = "opfs")]
     pub async fn connect_worker(path: &str) -> Result<VantaDB, JsValue> {
         init();
@@ -457,6 +467,9 @@ impl VantaDB {
     }
 
     /// Read a file from the worker-backed OPFS storage.
+    ///
+    /// **Optional capability:** only available when built with the `opfs`
+    /// feature and the instance was opened via `connect_worker`.
     #[cfg(feature = "opfs")]
     pub async fn worker_read(&self, path: &str) -> Result<Option<Vec<u8>>, JsValue> {
         match &self.worker {
@@ -466,6 +479,9 @@ impl VantaDB {
     }
 
     /// Write a file through the worker-backed OPFS storage.
+    ///
+    /// **Optional capability:** only available when built with the `opfs`
+    /// feature and the instance was opened via `connect_worker`.
     #[cfg(feature = "opfs")]
     pub async fn worker_write(&self, path: &str, data: Vec<u8>) -> Result<(), JsValue> {
         match &self.worker {
@@ -475,6 +491,9 @@ impl VantaDB {
     }
 
     /// Delete a file through the worker-backed OPFS storage.
+    ///
+    /// **Optional capability:** only available when built with the `opfs`
+    /// feature and the instance was opened via `connect_worker`.
     #[cfg(feature = "opfs")]
     pub async fn worker_delete(&self, path: &str) -> Result<(), JsValue> {
         match &self.worker {
