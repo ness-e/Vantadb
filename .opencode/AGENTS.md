@@ -381,7 +381,6 @@ web/
 | **framer-motion** | Page transitions via AnimatePresence, scroll reveal |
 | **Tailwind v4** | Theme via `@theme inline {}` in globals.css; `tailwind.config.ts` inert |
 | **animejs** | Interactive graph animation (mark-classic.tsx) |
-| **next-themes** | Class-based theme switching (light default) |
 | **zustand** | State management (installed, usage TBD) |
 
 ### Design System (globals.css + shadcn)

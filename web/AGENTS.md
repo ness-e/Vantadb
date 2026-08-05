@@ -69,7 +69,6 @@ const tt = (key: string, fallback: string) => {
 - Colors: cream `#FBF9F5`, ink `#000000`, neon `#FF5500`, paper `#F2EDE2`, smoke `#1A1A1A`
 - Borders: `border-4 border-black` with rigid shadows `shadow-[6px_6px_0_0_#000]`
 - Effects: press/press-lg/glow-neon/glitch-hover/scanlines/halftone/speed-lines/grid-tech etc.
-- Theme switching via `next-themes` with `attribute="class"` (light default)
 
 ## Notable
 

@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import type { View } from "./vanta-data";
 import { VANTA } from "./vanta-data";
-import { ThemeToggle } from "./theme-toggle";
 import { LangToggle } from "./lang-toggle";
 import { useLanguage } from "@/lib/language-provider";
 import { isLiveRoute } from "@/hooks/use-vanta-navigate";
@@ -391,9 +390,6 @@ export function Navbar({
 
           {/* Lang Toggle */}
           <LangToggle />
-
-          {/* Theme Toggle */}
-          <ThemeToggle />
 
           {/* extraActions (slot for future features) */}
           {extraActions}
