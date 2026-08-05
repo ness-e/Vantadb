@@ -1087,7 +1087,7 @@ Construir `desktop/` como app Tauri v2 (frontend React+Vite reutilizando el desi
 Keys/namespaces siempre String (nunca &str), errores VantaError (Serialize).
 
 **3. Frontend (detalle)**
-- Stack: React + Vite (mismo que web/), reutilizando el design system y tokens de web/ (verificado: web/package.json es el frontend existente; la tarea DESKTOP-07 valida la ruta exacta de tokens). `@tauri-apps/api` (invoke + event).
+- Stack: React + Vite (scaffold propio de desktop/, NO "mismo que web/": web/ es Next.js 16 App Router — verificado en web/package.json `next: ^16.1.1` y web/next.config.ts; no usa Vite), reutilizando el design system y tokens de web/ (la tarea DESKTOP-07 valida la ruta exacta de tokens). `@tauri-apps/api` (invoke + event).
 - Bridge: `src/lib/vanta.ts` — wrapper tipado de invoke que espeja los comandos; hook `useConnectionState` suscribe a vanta://connection-state.
 - Componentes mínimos MVP:
   - `<ConnectionPanel>` — lista de conexiones con health badge por vía (estado por eventos).
