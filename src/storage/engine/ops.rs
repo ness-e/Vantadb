@@ -423,7 +423,15 @@ impl StorageEngine {
                 // P4: tombstone on KV failure — local_off works because segment 0
                 if let Some(mut hdr) = vstore.read_header(local_off) {
                     hdr.flags |= FLAG_TOMBSTONE;
-                    let _ = vstore.write_header(local_off, &hdr);
+                    if let Err(te) = vstore.write_header(local_off, &hdr) {
+                        tracing::error!(
+                            node_id = %node.id,
+                            offset = local_off,
+                            put_error = %e,
+                            header_error = %te,
+                            "failed to write tombstone header after KV put failure"
+                        );
+                    }
                 }
                 return Err(e);
             }
@@ -714,7 +722,15 @@ impl StorageEngine {
             {
                 if let Some(mut hdr) = vstore.read_header(local_off) {
                     hdr.flags |= FLAG_TOMBSTONE;
-                    let _ = vstore.write_header(local_off, &hdr);
+                    if let Err(te) = vstore.write_header(local_off, &hdr) {
+                        tracing::error!(
+                            node_id = %node.id,
+                            offset = local_off,
+                            put_error = %e,
+                            header_error = %te,
+                            "failed to write tombstone header after KV put failure"
+                        );
+                    }
                 }
                 return Err(e);
             }
@@ -1031,7 +1047,14 @@ impl StorageEngine {
                 let (_seg_id, local_off) = crate::lsm::unpack_offset(packed);
                 if let Some(mut hdr) = vstore.read_header(local_off) {
                     hdr.flags |= FLAG_TOMBSTONE;
-                    let _ = vstore.write_header(local_off, &hdr);
+                    if let Err(te) = vstore.write_header(local_off, &hdr) {
+                        tracing::error!(
+                            offset = local_off,
+                            batch_error = %e,
+                            header_error = %te,
+                            "failed to write tombstone header after KV batch write failure"
+                        );
+                    }
                 }
             }
             return Err(e);
