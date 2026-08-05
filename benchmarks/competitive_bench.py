@@ -32,6 +32,7 @@ import argparse
 import gc
 import json
 import os
+import platform
 import shutil
 import statistics
 import time
@@ -586,6 +587,87 @@ def health_check(skip_prompt=False):
         sys.exit(0)
 
 
+# 5.5 JSON contract output (INV-007-B)
+def _pkg_version(name):
+    """Best-effort installed package version; None when not importable."""
+    try:
+        from importlib.metadata import version
+        return version(name)
+    except Exception:
+        return None
+
+
+def detect_hardware():
+    """Hardware metadata recorded with every run (published in the JSON)."""
+    return {
+        "os": platform.platform(),
+        "cpu_count": os.cpu_count(),
+        "cpu_model": platform.processor() or None,
+        "python": sys.version.split()[0],
+    }
+
+
+def detect_versions():
+    """Engine/library versions at run time (published in the JSON)."""
+    return {
+        "vantadb": _pkg_version("vantadb-py") or _pkg_version("vantadb_py"),
+        "lancedb": _pkg_version("lancedb"),
+        "chromadb": _pkg_version("chromadb"),
+        "numpy": _pkg_version("numpy"),
+    }
+
+
+def write_json_report(json_path, args, results, n_dim, metric, hardware, versions):
+    """
+    Write the versioned JSON contract consumed by web/ (INV-007-B).
+    Schema lives in web/src/lib/vanta-data.ts; the web imports this file directly.
+    """
+    doc = {
+        "schema_version": 1,
+        "generated_by": "benchmarks/competitive_bench.py",
+        "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "source": f"run real del harness ({args.dataset}) — valores generados por esta ejecucion",
+        "hardware": hardware,
+        "versions": versions,
+        "dataset": {
+            "name": args.dataset,
+            "metric": metric,
+            "vectors": args.size,
+            "queries": args.queries,
+            "top_k": args.top_k,
+            "ingest_mode": (
+                f"chunked (--batch-size {args.batch_size})"
+                if args.batch_size and args.batch_size > 0
+                else "single put_batch_raw (--batch-size 0, doble rebuild — no comparable)"
+            ),
+        },
+        "methodology": {
+            "iterations_per_engine": 3,
+            "aggregation": "median",
+            "ground_truth": "exact brute-force numpy over the loaded subset",
+            "warmup_queries": 10,
+        },
+        "results": [],
+    }
+    for r in results:
+        doc["results"].append({
+            "engine": r["engine"],
+            "ingest_qps": round(r["ingest_throughput"], 1),
+            # index_time_ms <= 0 => incremental index (no separate rebuild measured)
+            "index_time_ms": round(r["index_time_ms"], 1) if r["index_time_ms"] > 0 else None,
+            "query_qps": round(r["qps"], 1),
+            "query_p50_ms": round(r["query_p50_ms"], 3),
+            "query_p99_ms": round(r["query_p99_ms"], 3),
+            "recall_at_k": round(r["recall_at_k"], 4),
+            "mem_peak_rss_mb": round(r["mem_peak_rss_mb"], 1),
+            "mem_delta_rss_mb": round(r["mem_leak_rss_mb"], 1),
+        })
+    os.makedirs(os.path.dirname(json_path), exist_ok=True)
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(doc, f, indent=2, ensure_ascii=False)
+    print(f"\nWrote versioned JSON contract: {json_path}")
+
+
 # 6. Main Execution Loop
 def main():
     parser = argparse.ArgumentParser(description="VantaDB Competitive Benchmark Suite")
@@ -602,6 +684,8 @@ def main():
     parser.add_argument("--dataset-dir", type=str, default="./datasets", help="Path to HDF5 dataset folder")
     parser.add_argument("--db-dir", type=str, default="./benchmarks/competitive_data", help="Temporal folder for databases")
     parser.add_argument("--output", type=str, default="docs/BENCHMARKS.md", help="Path to docs/BENCHMARKS.md to append results")
+    parser.add_argument("--json-output", type=str, default="web/src/lib/data/competitive-benchmark.json",
+                        help="Path to write the versioned JSON contract (INV-007-B). The web imports this file directly.")
     parser.add_argument("--yes", action="store_true", help="Skip health check prompt")
     args = parser.parse_args()
 
@@ -672,6 +756,13 @@ def main():
 
     # Clear temp database folder
     shutil.rmtree(args.db_dir, ignore_errors=True)
+
+    # Emit the versioned JSON contract (INV-007-B) with hardware/versions/date.
+    write_json_report(
+        args.json_output, args, results,
+        train_vectors.shape[1], metric,
+        detect_hardware(), detect_versions(),
+    )
 
     # 7. Format and Print Results
     headers = ["Engine", "Ingest QPS", "Index Time (ms)", "Query QPS", "Latency p50 (ms)", "Latency p99 (ms)", "Recall@10", "Peak RSS (MB)", "Delta RSS (MB)"]
