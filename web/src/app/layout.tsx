@@ -76,6 +76,38 @@ export const viewport = {
   initialScale: 1,
 };
 
+// Schema.org/SoftwareApplication structured data (JSON-LD). Next.js Metadata API
+// mirrors HTML tags only and does not emit JSON-LD — rendered here as a native
+// <script> in the root layout's <head>, per the official Next.js JSON-LD guide.
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "VantaDB",
+  applicationCategory: "DatabaseApplication",
+  applicationSubCategory: "Vector Database",
+  operatingSystem: "Windows, macOS, Linux, WebAssembly",
+  description:
+    "VantaDB: An embedded persistent memory and vector retrieval engine for local-first AI applications.",
+  version: "0.5.0",
+  url: "https://github.com/ness-e/Vantadb",
+  logo: "https://raw.githubusercontent.com/ness-e/Vantadb/main/web/public/assets/avatar_gato.png",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+  },
+  softwareRequirements: "Python >= 3.11 bindings; Rust core MSRV 1.94.1; 64-bit OS",
+  license: "https://www.apache.org/licenses/LICENSE-2.0",
+  featureList: [
+    "Embedded in-process database",
+    "Crash-safe WAL recovery (CRC32C)",
+    "Native hybrid search (BM25 + HNSW via RRF)",
+    "PyO3 Python bindings",
+    "WASM build",
+    "MCP server",
+  ],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -83,6 +115,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${anton.variable} ${spaceMono.variable} antialiased bg-background text-foreground`}
       >
