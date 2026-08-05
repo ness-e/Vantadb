@@ -12,6 +12,8 @@ aliases: []
 > **Versión release:** [`docs/CHANGELOG.md`](../CHANGELOG.md) — changelog formal por versión
 > **Activar backlog:** [`docs/Backlog.md`](../Backlog.md) — tareas priorizadas
 
+> **Método de auditoría de links (AUD-007/GH-123, 2026-08-05):** los links rotos se escanean con la regex `` [regex]'\]\(([^)]+)\)' `` excluyendo `http/https/#/mailto`, resolviendo el path relativo contra el directorio del doc y verificando `Test-Path`. Wiki-links Obsidian `[[..]]` y títulos de commits con paréntesis (`](fix: ...`) son falsos positivos del scan — no son links reales. No se usa un sweep externo (reutiliza el método documentado, no re-inventa).
+
 ## Resumen Ejecutivo
 
 VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNSW híbrido, GraphRAG, CLIP y el ecosistema Python/LLM.
@@ -292,6 +294,45 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 - **Checkpoint.md:** Nuevo — resumen anclado del vault MPTS con cobertura, backlog activo y estado actual.
 
 ## Progreso Reciente
+
+### 2026-08-05 — Sincronización release blockers Fase 2 (6 tareas) ✅
+
+**Fuente:** Backlog (Phase 1/4) + plan `docs/plans/2026-08-05-backlog-validation-actions.md` (Fase 2-3)
+
+**Resueltas (commits en develop):**
+- **AUDIT-04:** crash benchmark `0xC0000409` atribuido a `cache_warmer.co_access` (OOM 270KB), NO UAF — fix `d2c7b0a5` acota access-time. *(plan Task 14 ✅)*
+- **DEBT-01:** gate `validate-docs-coverage.ps1` reparado (ruta `src/sdk/search/` corregida) + 13 gaps de API documentados — `1a0cb79a`.
+- **TECH-01:** MCP child respeta `--db` (setea `VANTADB_STORAGE_PATH`) — `9d085d00`; ver ADR-012. *(plan Task 17 ✅)*
+- **TECH-02:** wrapper TS `reindexHnswFromText` usa export real del pkg (1-línea, sin rebuild) — `274edcf9`. *(plan Task 18 ✅)*
+- **TECH-04:** ADR-012 publicado (`012_env_var_naming.md`) — naming env vars unificado, AUD-010 absorbida. *(plan Task 10 ✅)*
+- **TECH-05:** resource MCP `schema://` implementado (list + read) — `4dff484c`.
+
+**Ids:** `AUDIT-04`, `DEBT-01`, `TECH-01`, `TECH-02`, `TECH-04`, `TECH-05`
+
+### 2026-08-05 — Sincronización release blockers Fase 2 wave 2 (3 tareas) ✅
+
+**Fuente:** Backlog (Phase 8 — Auditoría) + plan `docs/plans/2026-08-05-backlog-validation-actions.md` (Fase 2)
+
+**Resueltas (commits en develop):**
+- **AUD-001:** Dockerfile reparado — MSRV subido a ≥1.94.1 y 8 `COPY` a crates inexistentes (integración movida a `integrations/`) eliminados — `1ffe523c`. *(plan Task 16 ✅)*
+- **AUD-004:** tool MCP `query_lisp` renombrada a `query_iql` (feature LISP eliminada en CUARENTENA-01) + MCP.md actualizado — `f097bac7`. *(plan Task 13 ✅)*
+- **AUD-011:** patrón OpGate portado a bindings python/wasm (riesgo write-after-close); `ops.rs:1761` documentado como expect infalible — `ef155f9c`. *(plan Task 15 ✅)*
+
+**Ids:** `AUD-001`, `AUD-004`, `AUD-011`
+
+### 2026-08-05 — AUDIT-01: Fix UAF PyO3 `__array_interface__` (release-blocker) ✅
+
+**Fuente:** Backlog (Phase 1 — Security & Critical) `AUDIT-01`
+
+**Resuelto por (vanta-worker):**
+- **Root cause:** getters `__array_interface__` (`vector.rs:59-73`, `types.rs:365-380`) exponían puntero raw zero-copy al `Box<[f32]>` del pyclass; el UAF real se abría con mutación (`__setstate__` libera el buffer viejo con views NumPy vivas → lectura de memoria liberada). `try_numpy_array` COPIA y era seguro — premisa corregida 2026-08-05.
+- **Fix:** `get_array_interface` devuelve `PyBytes` (copia little-endian f32, sin `unsafe`); NumPy pinna el snapshot bytes inmutable → nunca aliasa `self.data`. Cubre drop + `__setstate__` + cualquier mutación futura.
+- **Tests:** `TestArrayInterfaceMemorySafety` 3/3 (no-alias determinístico, sobrevive drop+hammering 2000 allocs, sobrevive `__setstate__` mutation) + suite `test_sdk.py` 45 passed, 0 regresiones.
+- **Verify:** `cargo check -p vantadb_py` ✅; MIRI no operativo en Windows (documentado, alcance Miri re-escalado a AUDIT-03 sobre core).
+- Commit `bff30d38` (develop). Deuda P2-2 (raw pointer UB) liquidada — saldo neto negativo.
+- **Follow-up:** pickle roto pre-existente (`__module__ == 'builtins'`) — agregar `module = "vantadb_py"` al `#[pyclass]`.
+
+**Ids:** `AUDIT-01`
 
 ### 2026-08-04 — Campaña WEB Launch (5 tareas) ✅
 
@@ -1005,7 +1046,7 @@ Se completan 25 tareas en una gran tanda pre-lanzamiento que abarca 7 áreas cr�
 - **Soporte robusto de workspace en Nextest:** Cambiar `binary_id(...)` a `binary(...)` en `nextest.toml` asegura que los binarios pesados sean excluidos efectivamente del PR Fast Gate, previniendo fallos de permisos root y timeouts de CI rápida.
 - **Exclusiones de tests de larga duración:** Identificados y excluidos `memory_telemetry` (timeout local 180s) y el unit test lento `concurrent_insert_preserves_hnsw_invariants` (~68s) del fast gate, acelerando la pipeline.
 - **Validación del Python SDK corregida:** Instalado `numpy` en el virtualenv tightening de auditoría (`dev-tools/setup_venv.ps1`) para que los tests de integración del Python SDK que dependen de NumPy pasen correctamente y no bloqueen el git pre-push.
-- **Declaración explícita de tests:** Tests sin input explícito `[test](Glossary/test.md)` en `Cargo.toml` fueron declarados formalmente para evitar su desaparición por auto-discovery.
+- **Declaración explícita de tests:** Tests sin input explícito (`Glossary/test.md`) en `Cargo.toml` fueron declarados formalmente para evitar su desaparición por auto-discovery.
 - **Clasificación en Heavy Certification:** `mcp_tests`, `multilingual_tokenizer_integration`, `memory_telemetry` y `concurrent_insert_preserves_hnsw_invariants` fueron clasificados para ejecutarse exclusivamente en `heavy_certification.yml` y documentados en `CI_POLICY.md`.
 - **Ejecución de test columnar:** La feature `arrow` fue habilitada en los workflows y `columnar` se programó para evaluarse en CI.
 - **CI pendiente:** `.config/nextest.toml` — `test-threads = 2` movido de global a `[profile.audit.overrides."cfg(target_os = \"windows\")".override]` solo-Windows.
@@ -1797,7 +1838,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] Remove orphan files (archive/VantaDB_CLI_TUI_Design_Spec.md).
   - [x] Update community-plugins.json for Obsidian.
 - **Archivos Modificados:** 35+ Markdown files in docs/
-- **Walkthrough:** [walkthrough.md](../walkthrough.md)
+- **Walkthrough:** walkthrough.md (no ha sido comisionado; documento futuro en `docs/`)
 
 ### WEB-01: Despliegue en Vercel y configuración de infraestructura web (Plan/CI_CD_INTEGRATION.md)
 - **Fecha:** 2026-07-02

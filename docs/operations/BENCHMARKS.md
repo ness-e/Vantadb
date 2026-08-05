@@ -90,7 +90,7 @@ maturin develop --manifest-path vantadb-python/Cargo.toml --release
 .venv/Scripts/python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000 --output benchmarks/vanta_benchmark_report.json
 ```
 
-This script will export a detailed report with schema parity to [benchmarks/vanta_benchmark_report.json](file:///c:/Users/Eros/VantaDB%20Proyect/VantaDB/benchmarks/vanta_benchmark_report.json).
+This script will export a detailed report with schema parity to `benchmarks/vanta_benchmark_report.json`.
 
 ---
 
