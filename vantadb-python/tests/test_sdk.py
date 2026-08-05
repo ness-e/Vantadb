@@ -467,6 +467,77 @@ class TestNumPyIntegration:
         assert node["vector_dims"] == 128, f"expected vector_dims 128, got {node['vector_dims']}"
 
 
+class TestArrayInterfaceMemorySafety:
+    """AUDIT-01: ``__array_interface__`` must not expose a dangling buffer.
+
+    Regression tests for the use-after-free where ``np.asarray(VantaVector)``
+    created a zero-copy view over the pyclass's internal ``Box<[f32]>``.
+    NumPy keeps the pyclass alive via ``arr.base``, so a bare ``del`` is not
+    enough — the dangling window opens on *mutation*: ``__setstate__`` swaps
+    ``self.data`` and frees the old buffer while live ndarrays still point at
+    it (observed reading garbage, e.g. 1.000007 instead of 1.0). The fix hands
+    NumPy a private immutable ``bytes`` snapshot as ``data``, so the ndarray's
+    ``base`` is the snapshot (never the pyclass) and survives drop/mutation.
+    """
+
+    def test_asarray_does_not_alias_pyclass(self):
+        """ndarray must pin the private snapshot, not the pyclass buffer."""
+        import numpy as np
+
+        vv = vanta.VantaVector([1.0, 2.0, 3.0, 4.0])
+        arr = np.asarray(vv)
+        assert arr.dtype == np.float32, f"expected float32, got {arr.dtype}"
+        assert arr.tolist() == [1.0, 2.0, 3.0, 4.0]
+        # Old code: arr.base was the VantaVector (zero-copy aliasing). The
+        # fixed getter hands NumPy an owned bytes snapshot, so base must NOT be
+        # the pyclass and the array must survive mutating the pyclass.
+        assert arr.base is not vv, "np.asarray(vv) aliases the pyclass buffer"
+        vv.__setstate__([9.0, 9.0, 9.0, 9.0])
+        assert arr.tolist() == [1.0, 2.0, 3.0, 4.0], "ndarray aliases pyclass memory"
+
+    def test_asarray_survives_pyclass_drop(self):
+        """ndarray must keep its data after the VantaVector is dropped."""
+        import gc
+        import numpy as np
+
+        vv = vanta.VantaVector([1.0, 2.0, 3.0, 4.0])
+        arr = np.asarray(vv)
+        assert arr.tolist() == [1.0, 2.0, 3.0, 4.0]
+
+        del vv
+        gc.collect()
+
+        # Hammer the allocator with same-size Box<[f32]> allocations. A view
+        # over freed memory would change values or crash; the snapshot is
+        # untouched. (NumPy currently pins the pyclass via arr.base, so this
+        # is a safety net rather than the primary trigger.)
+        for _ in range(2000):
+            vanta.VantaVector([9.0] * 4)
+
+        assert arr.tolist() == [1.0, 2.0, 3.0, 4.0], "ndarray is dangling after pyclass drop"
+
+    def test_asarray_survives_setstate_mutation(self):
+        """ndarray must keep its data when __setstate__ swaps the buffer."""
+        import gc
+        import numpy as np
+
+        vv = vanta.VantaVector([5.0, 6.0, 7.0, 8.0])
+        arr = np.asarray(vv)
+        assert arr.tolist() == [5.0, 6.0, 7.0, 8.0]
+
+        # __setstate__ replaces self.data and frees the old Box<[f32]> that a
+        # zero-copy view would still point at (arr.base keeps vv itself alive).
+        # This was the exact AUDIT-01 dangling window: before the fix the array
+        # read garbage after mutation.
+        vv.__setstate__([9.0] * 4)
+        gc.collect()
+
+        for _ in range(2000):
+            vanta.VantaVector([1.0] * 4)
+
+        assert arr.tolist() == [5.0, 6.0, 7.0, 8.0], "ndarray is dangling after __setstate__"
+
+
 class TestMemoryBoundary:
     """Memory budget isolation tests."""
 

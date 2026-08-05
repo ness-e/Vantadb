@@ -4,11 +4,11 @@
 
 use pyo3::exceptions::PyIndexError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyTuple};
+use pyo3::types::{PyBytes, PyDict, PyTuple};
 
-/// A zero-copy vector wrapper that exposes f32 data to NumPy via
-/// `__array_interface__` without copying, while remaining sequence-iterable
-/// for pure-Python consumers.
+/// A vector wrapper that exposes f32 data to NumPy via `__array_interface__`
+/// with an *owned* buffer copy (safe under drop/mutation), while remaining
+/// sequence-iterable for pure-Python consumers.
 #[pyclass(name = "VantaVector")]
 pub(crate) struct VantaVector {
     data: Box<[f32]>,
@@ -56,18 +56,32 @@ impl VantaVector {
         }
     }
 
-    /// NumPy ``__array_interface__`` protocol — exposes the internal f32 buffer
-    /// directly so ``np.asarray(vector_obj)`` creates a zero-copy view.
-    /// The backing `Box<[f32]>` is never reallocated (unlike `Vec`),
-    /// preventing UB from a Rust realloc while NumPy references the buffer.
+    /// NumPy ``__array_interface__`` protocol — hands NumPy an *owned* copy of
+    /// the buffer (as `bytes`) so the resulting ndarray never aliases this
+    /// pyclass's memory.
+    ///
+    /// AUDIT-01 (UAF): this previously exposed the raw `Box<[f32]>` pointer as
+    /// `(ptr, True)`. NumPy built a zero-copy view over that memory, so when
+    /// `__setstate__` swapped `self.data` (or the pyclass was dropped and the
+    /// buffer freed) the ndarray was left pointing at freed memory and read
+    /// garbage. Passing a buffer-protocol object (`bytes`) as `data` makes
+    /// NumPy copy the buffer into the ndarray's own allocation — the ndarray
+    /// then survives any drop/mutation of this pyclass.
     #[getter(__array_interface__)]
     fn get_array_interface(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         let shape = PyTuple::new(py, [self.data.len()])?;
         dict.set_item("shape", shape)?;
         dict.set_item("typestr", "<f4")?;
-        let data = (self.data.as_ptr() as usize, true);
-        dict.set_item("data", data)?;
+        // Owned little-endian f32 bytes (host-order is irrelevant; to_le_bytes
+        // always emits "<f4" layout). NumPy copies this buffer, so the array
+        // never aliases self.data.
+        let le_bytes: Vec<u8> = self
+            .data
+            .iter()
+            .flat_map(|f| f.to_le_bytes())
+            .collect();
+        dict.set_item("data", PyBytes::new(py, &le_bytes))?;
         dict.set_item("version", 3)?;
         Ok(dict.unbind().into())
     }
