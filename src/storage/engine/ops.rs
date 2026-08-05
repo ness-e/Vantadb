@@ -506,6 +506,13 @@ impl StorageEngine {
         }
 
         let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
+        // SAFETY: 1) bounds — the `vec_end > vstore.size` guard above ensures
+        // `vec_bytes` is a byte slice inside the mapping of exactly
+        // `vector_len*4` bytes; 2) alignment — `read_header` rejects headers
+        // whose `vector_offset` is not a multiple of 4 (INV-024 M-1 central
+        // guard), so `vec_bytes.as_ptr()` is 4-byte aligned, required for a
+        // valid `&[f32]`; 3) lifetime — the borrow of `vec_bytes` keeps the
+        // mapping alive; the `.to_vec()` copy below clears the borrow.
         let f32_vec: &[f32] = unsafe {
             std::slice::from_raw_parts(vec_bytes.as_ptr() as *const f32, header.vector_len as usize)
         };
@@ -1217,11 +1224,13 @@ impl StorageEngine {
             0,
             "f32 vector must be 4-byte aligned"
         );
-        // SAFETY: vec_bytes is a slice of a memory-mapped region (page-aligned,
-        // guaranteeing f32 alignment). The debug_assert_eq above verifies the
-        // 4-byte alignment invariant. The lifetime is bounded by the caller's
-        // read lock on the storage engine. The to_vec() copy below eliminates
-        // the borrow, so no aliasing concern.
+        // SAFETY: 1) bounds — `vec_end` is guarded against exceeding the mapping
+        // size, so `vec_bytes` is an in-mapping byte slice of exactly
+        // `vector_len*4` bytes; 2) alignment — `read_header` rejects non-4-multiple
+        // `vector_offset` (INV-024 M-1 central guard), so `vec_bytes.as_ptr()` is
+        // 4-byte aligned even in release (where debug_assert is compiled out);
+        // 3) lifetime — bounded by the caller's read lock on the storage engine;
+        // the to_vec() copy below clears the borrow, so no aliasing concern.
         let f32_vec: &[f32] = unsafe {
             std::slice::from_raw_parts(vec_bytes.as_ptr() as *const f32, header.vector_len as usize)
         };
@@ -1396,9 +1405,11 @@ impl StorageEngine {
                 0,
                 "f32 vector must be 4-byte aligned"
             );
-            // SAFETY: vec_bytes is page-aligned via mmap, guaranteeing f32
-            // alignment. The debug_assert_eq above confirms the invariant.
-            // The to_vec() copy clears the borrow, preventing aliasing.
+            // SAFETY: 1) bounds — guarded above, `vec_bytes` is an in-mapping byte
+            // slice of exactly `vector_len*4` bytes; 2) alignment — `read_header`
+            // rejects non-4-multiple `vector_offset` (INV-024 M-1 central guard),
+            // so `vec_bytes.as_ptr()` is 4-byte aligned even in release; 3) the
+            // to_vec() copy clears the borrow, preventing aliasing.
             let f32_vec: &[f32] = unsafe {
                 std::slice::from_raw_parts(
                     vec_bytes.as_ptr() as *const f32,
@@ -1798,9 +1809,11 @@ impl StorageEngine {
                     0,
                     "f32 vector must be 4-byte aligned"
                 );
-                // SAFETY: vec_bytes slice from page-aligned mmap, guaranteeing
-                // f32 alignment. The debug_assert_eq above verifies it.
-                // Immediate .to_vec() eliminates aliasing concerns.
+                // SAFETY: 1) bounds — guarded above, `vec_bytes` is an in-mapping byte
+                // slice of exactly `vector_len*4` bytes; 2) alignment — `read_header`
+                // rejects non-4-multiple `vector_offset` (INV-024 M-1 central guard),
+                // so `vec_bytes.as_ptr()` is 4-byte aligned even in release; 3) the
+                // immediate .to_vec() eliminates aliasing concerns.
                 let f32_vec: Vec<f32> = unsafe {
                     std::slice::from_raw_parts(
                         vec_bytes.as_ptr() as *const f32,

@@ -33,12 +33,12 @@ pub(crate) use memmap2::{Mmap, MmapMut, MmapOptions};
 pub(crate) mod mmap_shim {
     #![allow(dead_code)]
     use super::*;
-    /// A read-only memory-mapped file backed by a `Vec<u8>`.
+    /// A read-only memory-mapped file backed by an aligned buffer.
     #[derive(Debug)]
-    pub struct Mmap(Vec<u8>);
-    /// A read-write memory-mapped file backed by a `Vec<u8>`.
+    pub struct Mmap(AlignedBytes);
+    /// A read-write memory-mapped file backed by an aligned buffer.
     #[derive(Debug)]
-    pub struct MmapMut(Vec<u8>);
+    pub struct MmapMut(AlignedBytes);
     /// Options for creating memory-mapped regions (no-op shim).
     pub struct MmapOptions;
 
@@ -47,21 +47,26 @@ pub(crate) mod mmap_shim {
         pub fn new() -> Self {
             Self
         }
-        /// Read a file's contents into a `Vec<u8>` — safe, no actual mmap.
+        /// Read a file's contents into an aligned buffer — safe, no actual mmap.
         pub fn map(&self, file: &File) -> std::io::Result<Mmap> {
-            let mut v = vec![0u8; file.metadata()?.len() as usize];
+            // AlignedBytes guarantees a 4-aligned base so `f32` vector reads are
+            // never misaligned in shim (non-memmap2) builds (AUDIT-03).
+            let len = file.metadata()?.len() as usize;
+            let mut buf = AlignedBytes::zeroed(len);
             let mut f = file.try_clone()?;
-            f.read_exact(&mut v)?;
-            Ok(Mmap(v))
+            f.read_exact(buf.as_mut_slice())?;
+            Ok(Mmap(buf))
         }
-        /// Read a file's contents into a writable `Vec<u8>` — safe, no actual mmap.
+        /// Read a file's contents into a writable buffer — safe, no actual mmap.
         pub fn map_mut(&self, file: &File) -> std::io::Result<MmapMut> {
-            let mut v = vec![0u8; file.metadata()?.len() as usize];
+            let len = file.metadata()?.len() as usize;
+            let mut buf = AlignedBytes::zeroed(len);
             let mut f = file.try_clone()?;
-            f.read_exact(&mut v)?;
-            Ok(MmapMut(v))
+            f.read_exact(buf.as_mut_slice())?;
+            Ok(MmapMut(buf))
         }
     }
+
     impl Mmap {
         /// Create a new read-only Mmap by reading the file contents.
         /// # Safety
@@ -92,13 +97,13 @@ pub(crate) mod mmap_shim {
         }
         /// Returns true if the mapped memory is empty.
         pub fn is_empty(&self) -> bool {
-            self.0.is_empty()
+            self.0.len() == 0
         }
     }
     impl std::ops::Deref for Mmap {
         type Target = [u8];
         fn deref(&self) -> &[u8] {
-            &self.0
+            self.0.as_slice()
         }
     }
     impl MmapMut {
@@ -115,7 +120,7 @@ pub(crate) mod mmap_shim {
         }
         /// Return a mutable raw pointer to the mapped memory.
         pub fn as_mut_ptr(&mut self) -> *mut u8 {
-            self.0.as_mut_ptr()
+            self.0.as_mut_slice().as_mut_ptr()
         }
         /// Return the length of the mapped memory.
         pub fn len(&self) -> usize {
@@ -135,18 +140,18 @@ pub(crate) mod mmap_shim {
         }
         /// Returns true if the mapped memory is empty.
         pub fn is_empty(&self) -> bool {
-            self.0.is_empty()
+            self.0.len() == 0
         }
     }
     impl std::ops::Deref for MmapMut {
         type Target = [u8];
         fn deref(&self) -> &[u8] {
-            &self.0
+            self.0.as_slice()
         }
     }
     impl std::ops::DerefMut for MmapMut {
         fn deref_mut(&mut self) -> &mut [u8] {
-            &mut self.0
+            self.0.as_mut_slice()
         }
     }
 }
@@ -224,6 +229,17 @@ pub fn get_resident_bytes(addr: *const u8, len: usize) -> Option<u64> {
 pub fn get_resident_bytes_impl(addr: *const u8, len: usize) -> Option<u64> {
     if len == 0 || addr.is_null() {
         return Some(0);
+    }
+    #[cfg(miri)]
+    {
+        // Miri has no kernel-backed page-residency semantics: it does not
+        // implement the `mincore`/`QueryWorkingSetEx` host syscalls this fn
+        // relies on. The only mapping reachable under Miri is the in-memory
+        // (`Vec<u8>`) variant, whose bytes are all in heap RAM → fully
+        // resident. Report the whole region as resident (telemetry-only) instead
+        // of calling an unsupported host syscall (AUDIT-03).
+        let _ = addr;
+        return Some(len as u64);
     }
     #[cfg(unix)]
     {
@@ -352,10 +368,98 @@ pub(crate) fn engine_mmap_resident_bytes(
     total
 }
 
+/// An owned byte buffer whose base pointer is guaranteed to be 4-byte aligned.
+///
+/// `Vec<u8>` only guarantees 1-byte alignment, which is fine for the mmap-backed
+/// store (mmap returns page-aligned base) but is a latent UB risk for the
+/// in-memory store: `f32` vector reads (`from_raw_parts` in `engine/ops.rs`,
+/// `index/search.rs`, `storage/archive.rs`) require `base + vector_offset` to be
+/// 4-aligned, and that invariant can silently break for an unaligned `Vec<u8>`
+/// base in release (AUDIT-03 / INV-024 alignment finding). Giving the in-memory
+/// buffer a fixed 4-byte alignment makes the store-side invariant exactly match
+/// the mmap-side (page-aligned) one.
+#[derive(Debug)]
+struct AlignedBytes {
+    ptr: std::ptr::NonNull<u8>,
+    len: usize,
+}
+
+impl AlignedBytes {
+    fn zeroed(len: usize) -> Self {
+        // Callers pass `len >= STORAGE_ALIGNMENT`, so size is non-zero.
+        let layout =
+            std::alloc::Layout::from_size_align(len, 4).expect("vstore len with align 4 is valid");
+        // SAFETY: `layout` is valid (size >= 4, powers-of-two alignment).
+        // `alloc_zeroed` returns a pointer to `len` zero-initialized bytes, or
+        // null on OOM (checked below); ownership transfers to `AlignedBytes`,
+        // whose Drop frees it with the identical layout.
+        let ptr = unsafe { std::alloc::alloc_zeroed(layout) };
+        let ptr = std::ptr::NonNull::new(ptr).expect("in-memory vstore allocation failed");
+        Self { ptr, len }
+    }
+
+    fn as_slice(&self) -> &[u8] {
+        // SAFETY: `self.ptr` is a valid allocation of exactly `self.len` bytes,
+        // live for `self`'s lifetime (forwarded to the returned slice).
+        unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
+    }
+
+    fn as_ptr(&self) -> *const u8 {
+        self.ptr.as_ptr()
+    }
+
+    fn as_mut_slice(&mut self) -> &mut [u8] {
+        // SAFETY: `&mut self` makes this the only live reference to the buffer,
+        // so yielding `&mut [u8]` over the whole allocation is a sound, unique
+        // borrow for the slice's lifetime.
+        unsafe { std::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
+    }
+
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Grow to `new_len` bytes (>= current), preserving content and alignment.
+    /// The backing buffer is reallocated with a fresh 4-aligned allocation.
+    fn grow_zeroed(&mut self, new_len: usize) {
+        if new_len <= self.len {
+            return;
+        }
+        let mut grown = AlignedBytes::zeroed(new_len);
+        grown.as_mut_slice()[..self.len].copy_from_slice(self.as_slice());
+        // Drops the old buffer (frees it with its original layout) and moves the
+        // new, aligned buffer into place.
+        *self = grown;
+    }
+}
+
+impl Drop for AlignedBytes {
+    fn drop(&mut self) {
+        // SAFETY: `self.ptr` was allocated with `{len, align 4}` in `zeroed` and
+        // `len` never changes, so this deallocate layout exactly matches the
+        // allocation layout (allocator contract).
+        unsafe {
+            std::alloc::dealloc(
+                self.ptr.as_ptr(),
+                std::alloc::Layout::from_size_align(self.len, 4)
+                    .expect("len with align 4 is valid"),
+            )
+        }
+    }
+}
+
+// SAFETY: `AlignedBytes` exclusively owns its aligned `u8` buffer — the same
+// ownership model as the `Vec<u8>` backing it replaces (which is Send + Sync).
+// The raw pointer is never exposed for mutation without `&mut self` and never
+// shared unsafely; there is no interior mutability. So sharing across threads
+// (`Sync`) and transferring ownership (`Send`) are both sound.
+unsafe impl Send for AlignedBytes {}
+unsafe impl Sync for AlignedBytes {}
+
 enum VantaFileMap {
     ReadOnly(Mmap),
     ReadWrite(MmapMut),
-    InMemory(Vec<u8>),
+    InMemory(AlignedBytes),
 }
 
 impl VantaFileMap {
@@ -363,7 +467,7 @@ impl VantaFileMap {
         match self {
             VantaFileMap::ReadOnly(m) => m,
             VantaFileMap::ReadWrite(m) => m,
-            VantaFileMap::InMemory(d) => d,
+            VantaFileMap::InMemory(d) => d.as_slice(),
         }
     }
     fn as_ptr(&self) -> *const u8 {
@@ -387,7 +491,7 @@ impl VantaFileMap {
                 reason: "VantaFile is read-only".into(),
             }),
             VantaFileMap::ReadWrite(m) => Ok(m),
-            VantaFileMap::InMemory(d) => Ok(d),
+            VantaFileMap::InMemory(d) => Ok(d.as_mut_slice()),
         }
     }
     fn flush(&self) -> Result<()> {
@@ -417,12 +521,13 @@ pub struct VantaFile {
     pub cipher: Option<Cipher>,
 }
 
-// SAFETY: VantaFile owns a `File` handle, a `VantaFileMap` (Mmap/MmapMut/Vec<u8>),
+// SAFETY: VantaFile owns a `File` handle, a `VantaFileMap` (Mmap/MmapMut/AlignedBytes),
 // a `PathBuf`, and an `AtomicBool` — all of which are `Send`. The mmap pointers
-// are managed by the memmap2 crate or the in-memory shim (Vec<u8>), both of which
-// are `Send + Sync`. The cipher field (behind `#[cfg(feature = "encryption")]`) is
-// Send by construction. No mutable aliasing crosses threads because all mutations
-// go through `&mut self` or the storage engine's locks.
+// are managed by the memmap2 crate or the in-memory/shim buffers (AlignedBytes,
+// `unsafe impl Send + Sync` above), all `Send + Sync`. The cipher field (behind
+// `#[cfg(feature = "encryption")]`) is Send by construction. No mutable aliasing
+// crosses threads because all mutations go through `&mut self` or the storage
+// engine's locks.
 unsafe impl Send for VantaFile {}
 // SAFETY: same reasoning — all fields are Sync-safe, and the engine serializes
 // read-write access through `RwLock<VantaFile>`.
@@ -441,10 +546,12 @@ impl VantaFile {
     /// Create a VantaFile backed entirely by in-memory storage (no disk I/O).
     pub fn create_in_memory(initial_size: u64) -> Self {
         let size = initial_size.max(STORAGE_ALIGNMENT);
-        let mut data = vec![0u8; size as usize];
+        // `AlignedBytes::zeroed` guarantees a 4-aligned base so `f32` vector
+        // reads are never misaligned (AUDIT-03; `Vec<u8>` would only be align-1).
+        let mut data = AlignedBytes::zeroed(size as usize);
         let header = VantaHeader::new(*b"VFLE", VFILE_VERSION, 0);
-        data[0..16].copy_from_slice(&header.serialize());
-        data[16..24].copy_from_slice(&STORAGE_ALIGNMENT.to_le_bytes());
+        data.as_mut_slice()[0..16].copy_from_slice(&header.serialize());
+        data.as_mut_slice()[16..24].copy_from_slice(&STORAGE_ALIGNMENT.to_le_bytes());
         Self {
             file: None,
             mmap: VantaFileMap::InMemory(data),
@@ -597,13 +704,25 @@ impl VantaFile {
     }
 
     /// Read a `DiskNodeHeader` from the given aligned offset, if valid.
+    ///
+    /// Central guard (INV-024 M-1 / AUDIT-03): rejects headers whose vector
+    /// payload offset is not 4-byte aligned. `vector_offset` is file data and
+    /// is never validated by the writer path on load; a corrupt or adversarial
+    /// file could otherwise produce a misaligned `&[f32]` at every
+    /// `from_raw_parts` call site (search.rs, archive.rs, engine/ops.rs) — UB
+    /// in release. All 7 sites read headers through this function, so the
+    /// invariant is enforced in one place.
     pub fn read_header(&self, offset: u64) -> Option<DiskNodeHeader> {
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
         if offset + header_size > self.size || !offset.is_multiple_of(STORAGE_ALIGNMENT) {
             return None;
         }
         let slice = &self.mmap_bytes()[offset as usize..(offset + header_size) as usize];
-        DiskNodeHeader::read_from_bytes(slice).ok()
+        let header = DiskNodeHeader::read_from_bytes(slice).ok()?;
+        if !header.vector_offset.is_multiple_of(4) {
+            return None;
+        }
+        Some(header)
     }
 
     /// Write a `DiskNodeHeader` at the given aligned offset, replacing existing bytes.
@@ -643,7 +762,7 @@ impl VantaFile {
         }
         match &mut self.mmap {
             VantaFileMap::InMemory(data) => {
-                data.resize(new_size as usize, 0);
+                data.grow_zeroed(new_size as usize);
                 self.size = new_size;
                 Ok(())
             }
@@ -863,6 +982,30 @@ mod tests {
         // Offset not a multiple of STORAGE_ALIGNMENT ⇒ None
         assert!(vf.read_header(1).is_none());
         assert!(vf.read_header(STORAGE_ALIGNMENT + 1).is_none());
+    }
+
+    #[test]
+    fn test_vfile_read_header_rejects_misaligned_vector_offset() {
+        // INV-024 M-1 / AUDIT-03: a header whose vector payload offset is not a
+        // multiple of 4 must be rejected centrally — otherwise the
+        // `from_raw_parts(.. as *const f32)` cast at the 7 vector read sites
+        // would produce a misaligned `&[f32]` (UB in release) on a corrupt or
+        // adversarial file.
+        let mut vf = VantaFile::create_in_memory(256);
+        let mut header = DiskNodeHeader::new(1);
+        header.vector_offset = 2; // NOT a multiple of 4 → corrupt payload pointer
+        header.vector_len = 4;
+        vf.write_header(STORAGE_ALIGNMENT, &header).unwrap();
+
+        assert!(
+            vf.read_header(STORAGE_ALIGNMENT).is_none(),
+            "misaligned vector_offset must be rejected"
+        );
+
+        // Control: a multiple-of-4 offset is accepted.
+        header.vector_offset = 4;
+        vf.write_header(STORAGE_ALIGNMENT, &header).unwrap();
+        assert!(vf.read_header(STORAGE_ALIGNMENT).is_some());
     }
 
     #[test]

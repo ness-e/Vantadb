@@ -461,6 +461,15 @@ pub fn record_memory_breakdown(
 }
 
 fn _get_rss_virt() -> (u64, u64) {
+    #[cfg(miri)]
+    {
+        // Miri does not implement the host-memory (Win32 QueryWorkingSetEx /
+        // Mach task_info) or sysinfo host syscalls this function uses. The RSS
+        // telemetry is host-only (INV-024 §31–§32, classified SAFE); under Miri
+        // (AUDIT-03) return a neutral breakdown so the engine can open under the
+        // interpretter without invoking an unsupported host syscall.
+        return (0, 0);
+    }
     if let Some((rss, virt)) = get_native_memory() {
         return (rss, virt);
     }

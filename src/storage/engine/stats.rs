@@ -110,6 +110,14 @@ impl StorageEngine {
             .memory_limit
             .unwrap_or_else(|| crate::hardware::HardwareCapabilities::global().total_memory);
 
+        // A zero/unknown limit means "not configured" (e.g. hardware detection
+        // unavailable, or under Miri where machine memory reports 0). Treat it as
+        // unlimited — otherwise `limit == 0` makes every insert look like 100%
+        // memory pressure and rejects all writes (AUDIT-03).
+        if limit == 0 {
+            return Ok(());
+        }
+
         // PERF-10: Check MemoryGovernor watermarks
         let above_high_water = self
             .memory_governor

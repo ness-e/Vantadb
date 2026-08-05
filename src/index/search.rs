@@ -133,11 +133,14 @@ impl CPIndex {
                             0.0
                         } else {
                             let vec_data = &vs.mmap_bytes()[vec_start..vec_end];
-                            // SAFETY: `vec_end > vs.mmap_bytes().len()` guard above ensures
-                            // `vec_start + header.vector_len * 4 <= mmap size` — the byte range
-                            // is valid and the alignment cast to `f32` is safe (mmap pages are
-                            // aligned, and HNSW stores vectors with 4-byte alignment in the
-                            // memory-mapped file).
+                            // SAFETY: 1) bounds — the `vec_end > vs.mmap_bytes().len()`
+                            // guard above ensures `vec_start + vector_len*4 <= mmap size`,
+                            // so `vec_bytes` is an in-mapping byte slice of exactly
+                            // `vector_len*4` bytes; 2) alignment — `read_header` rejects
+                            // headers whose `vector_offset` is not a multiple of 4
+                            // (INV-024 M-1 central guard), so `vec_bytes.as_ptr()` is
+                            // 4-byte aligned, required for a valid `&[f32]`;
+                            // 3) lifetime — the borrow keeps the mapping alive.
                             debug_assert_eq!(
                                 vec_data.as_ptr().align_offset(4),
                                 0,
@@ -278,9 +281,14 @@ impl CPIndex {
                                         0.0
                                     } else {
                                         let v_data = &vs.mmap_bytes()[vec_start..vec_end];
-                                        // SAFETY: `vec_end > vs.mmap_bytes().len()` guard above
-                                        // ensures `h.vector_len * 4` does not exceed the mmap
-                                        // region. Pointer is derived from the mmap byte slice.
+                                        // SAFETY: 1) bounds — the `vec_end > vs.mmap_bytes().len()`
+                                        // guard above ensures `h.vector_len * 4` does not exceed
+                                        // the mapping, so `v_data` is an in-mapping byte slice
+                                        // of exactly `vector_len*4` bytes; 2) alignment —
+                                        // `read_header` rejects non-4-multiple `vector_offset`
+                                        // (INV-024 M-1 central guard), so `v_data.as_ptr()` is
+                                        // 4-byte aligned; 3) lifetime — the borrow keeps the
+                                        // mapping alive.
                                         debug_assert_eq!(
                                             v_data.as_ptr().align_offset(4),
                                             0,
