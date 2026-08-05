@@ -147,6 +147,11 @@ fn parse_condition(i: &str) -> IResult<&str, Condition> {
             )),
             |(field, _, query, _, _, _, min_score)| Condition::VectorSim(field, query, min_score),
         ),
+        // Text Query (phrase): p.bio ~ "neural network" (no min suffix)
+        map(
+            tuple((ws(ident), ws(tag("~")), ws(string_literal))),
+            |(field, _, query)| Condition::TextMatch(field, query),
+        ),
         // Relational Query: p.pais = "VZLA"
         map(
             tuple((ws(ident), ws(parse_rel_op), ws(string_literal))),
@@ -780,6 +785,24 @@ mod tests {
         assert_eq!(
             cond,
             Condition::VectorSim("bio".to_string(), "data".to_string(), 0.5)
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_text_match_plain() {
+        let (_, cond) = parse_condition(r#"bio ~ "rust expert""#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::TextMatch("bio".to_string(), "rust expert".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_text_match_quoted_phrase() {
+        let (_, cond) = parse_condition(r#"bio ~ "neural network""#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::TextMatch("bio".to_string(), "neural network".to_string())
         );
     }
 

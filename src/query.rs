@@ -123,6 +123,10 @@ pub enum Condition {
     Relational(String, RelOp, FieldValue),
     /// Vector similarity condition (field, text_query, min_score).
     VectorSim(String, String, f32),
+    /// Lexical text-match condition (field, query). The query is passed raw
+    /// (quoted phrases preserved) and tokenized at execution via
+    /// `text_index::query_plan` — enabling contiguous phrase matching.
+    TextMatch(String, String),
 }
 
 /// Relational comparison operator.
@@ -255,6 +259,9 @@ impl SelectStatement {
                             min_score: min,
                         });
                     }
+                    Condition::TextMatch(f, query) => {
+                        ops.push(LogicalOperator::TextFilter { field: f, query });
+                    }
                 }
             }
         }
@@ -351,6 +358,13 @@ pub enum LogicalOperator {
         /// Minimum similarity score.
         min_score: f32,
     },
+    /// Lexical text filter on a field (phrase-aware).
+    TextFilter {
+        /// Field name.
+        field: String,
+        /// Text query (quoted phrases preserved).
+        query: String,
+    },
     /// Field projection (narrowing).
     Project {
         /// Fields to retain.
@@ -426,6 +440,9 @@ impl Query {
                             query_vec: text,
                             min_score: min,
                         });
+                    }
+                    Condition::TextMatch(f, query) => {
+                        ops.push(LogicalOperator::TextFilter { field: f, query });
                     }
                 }
             }

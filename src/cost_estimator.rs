@@ -231,6 +231,15 @@ impl<'a> CostEstimator<'a> {
                     estimated_bytes: bytes,
                 }
             }
+            LogicalOperator::TextFilter { .. } => {
+                // Lexical text filter: assume ~10% selectivity heuristic; the
+                // filter scans a string field, so bytes scale with row count.
+                let rows = in_rows * 0.1;
+                OperatorCost {
+                    estimated_rows: rows,
+                    estimated_bytes: (rows * AVG_NODE_BYTES as f64) as usize,
+                }
+            }
             LogicalOperator::Limit { top_k } => {
                 let rows = in_rows.min(*top_k as f64);
                 OperatorCost {

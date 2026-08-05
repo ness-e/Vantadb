@@ -215,6 +215,7 @@ pub fn optimize_and_compile<'a>(
     let mut limit = None;
     let mut project = None;
     let mut sort = None;
+    let mut text_matches: Vec<(String, String)> = Vec::new();
 
     // JOIN and SubqueryFilter produce their own sub-plans that wrap the chain
     let mut has_join = false;
@@ -265,6 +266,9 @@ pub fn optimize_and_compile<'a>(
                 min_score,
             } => {
                 vector_search = Some((field.clone(), query_vec.clone(), *min_score));
+            }
+            crate::query::LogicalOperator::TextFilter { field, query } => {
+                text_matches.push((field.clone(), query.clone()));
             }
             crate::query::LogicalOperator::Limit { top_k } => {
                 limit = Some(*top_k);
@@ -367,6 +371,15 @@ pub fn optimize_and_compile<'a>(
             subq_op,
             field,
             op,
+        ));
+    }
+
+    // Apply lexical text filters (phrase-aware) on top of the chain
+    for (field, query) in text_matches {
+        current_operator = Box::new(crate::physical_plan::PhysicalTextFilter::new(
+            current_operator,
+            field,
+            query,
         ));
     }
 

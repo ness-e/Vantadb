@@ -188,6 +188,47 @@ fn evaluate_condition(
     }
 }
 
+// ─── Physical Text Filter Operator ────────────────────────────
+
+/// Physical text filter operator that evaluates lexical text conditions
+/// (phrase-aware) against a node's string field.
+pub struct PhysicalTextFilter<'a> {
+    /// Child operator.
+    child: Box<dyn PhysicalOperator + 'a>,
+    /// Field to filter on.
+    field: String,
+    /// Text query (quoted phrases preserved).
+    query: String,
+}
+
+impl<'a> PhysicalTextFilter<'a> {
+    /// Create a new text filter operator wrapping a child operator.
+    pub fn new(child: Box<dyn PhysicalOperator + 'a>, field: String, query: String) -> Self {
+        Self { child, field, query }
+    }
+}
+
+impl PhysicalOperator for PhysicalTextFilter<'_> {
+    fn open(&mut self) -> Result<()> {
+        self.child.open()
+    }
+
+    fn next(&mut self) -> Result<Option<UnifiedNode>> {
+        while let Some(node) = self.child.next()? {
+            if let Some(crate::node::FieldValue::String(value)) = node.relational.get(&self.field) {
+                if crate::text_index::text_contains_query(value, &self.query) {
+                    return Ok(Some(node));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    fn close(&mut self) -> Result<()> {
+        self.child.close()
+    }
+}
+
 // ─── Physical Vector Search Operator ─────────────────────────
 
 /// Physical vector search operator using HNSW index.

@@ -309,11 +309,14 @@ pub(crate) fn query_plan_with_config(
     for ch in query.chars() {
         if ch == '"' {
             if in_quote {
-                let phrase = if let Some(cfg) = config {
-                    tokenize_advanced(&quoted, cfg)
-                } else {
-                    crate::tokenizer::tokenize_advanced_default(&quoted)
-                };
+                // INV-009-B: quoted phrases are tokenized LITERALLY (whitespace
+                // split + lowercase, no stopword removal, no stemming) so phrase
+                // adjacency is preserved. Non-goal D-4: no tokenizer rewrite —
+                // this only skips the advanced tokenizer for phrase content.
+                let phrase: Vec<String> = quoted
+                    .split_whitespace()
+                    .map(|s| s.to_lowercase())
+                    .collect();
                 if !phrase.is_empty() {
                     terms.extend(phrase.iter().cloned());
                     phrases.push(phrase);
@@ -404,6 +407,42 @@ pub(crate) fn query_plan_with_config(query: &str, _config: Option<&()>) -> TextQ
 /// Return the set of unique tokens in text.
 pub(crate) fn unique_tokens(text: &str) -> BTreeSet<String> {
     token_counts(text).into_keys().collect()
+}
+
+/// Return whether a raw `text` string contains every phrase of `query`.
+///
+/// Operates on the raw string: splits `text` into literal whitespace tokens
+/// (no stopword removal, no stemming) and checks phrase adjacency against
+/// those token positions via `sdk::search::phrase::text_positions_match_phrases`.
+/// Used by the graph IQL `Condition::TextMatch` physical filter and by
+/// snippet phrase-highlighting. An empty `query` yields `true`.
+pub(crate) fn text_contains_query(text: &str, query: &str) -> bool {
+    let plan = query_plan(query);
+    if plan.phrases.is_empty() {
+        if plan.terms.is_empty() {
+            return true;
+        }
+        let tokens = literal_token_positions(text);
+        plan.terms.iter().all(|t| tokens.contains_key(t))
+    } else {
+        let tokens = literal_token_positions(text);
+        crate::sdk::search::phrase::text_positions_match_phrases(&tokens, &plan.phrases)
+    }
+}
+
+/// Literal whitespace tokenization of `text` into token -> positions map.
+/// Lowercases (matching index tokenization) but does NOT remove stopwords or
+/// stem — phrase adjacency must be exact per INV-009-B (non-goal D-4: no
+/// tokenizer rewrite).
+fn literal_token_positions(text: &str) -> BTreeMap<String, Vec<u32>> {
+    let mut positions: BTreeMap<String, Vec<u32>> = BTreeMap::new();
+    for (pos, token) in text.split_whitespace().enumerate() {
+        positions
+            .entry(token.to_lowercase())
+            .or_default()
+            .push(pos.min(u32::MAX as usize) as u32);
+    }
+    positions
 }
 
 /// Build a posting index key from namespace, token, and record key.
