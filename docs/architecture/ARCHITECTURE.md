@@ -294,8 +294,8 @@ Client: db.search(vector, text, top_k=10)
 | **VantaEmbedded** | `src/sdk/api.rs` | Public API boundary |
 | **StorageEngine** | `src/storage/engine/ops.rs` | Storage orchestration |
 | **WalWriter** | `src/storage/wal.rs` | Write-ahead log |
-| **WalSharded** | `src/wal_sharded.rs` | Sharded WAL writer |
-| **HnswIndex** | `src/index/core.rs` | Vector ANN index |
+| **ShardedWal** | `src/wal_sharded.rs` | Sharded WAL writer |
+| **CPIndex** | `src/index/graph.rs` | Vector ANN index |
 | **VantaFile** | `src/storage/vfile.rs` | Memory-mapped vector storage |
 | **Bm25Index** | `src/text_index.rs` | Lexical search index |
 | **FjallBackend** | `src/backends/fjall_backend.rs` | LSM-tree backend |
@@ -324,7 +324,7 @@ Layer 0 (densest, all vectors):
 
 **Parameters:**
 - **M:** Max connections per node (default: 32)
-- **ef_construction:** Candidates during construction (default: 400)
+- **ef_construction:** Candidates during construction (default: 100)
 - **ef_search:** Candidates during search (default: 100)
 
 **Persistence:** Full graph memory-mapped (mmap) → instant load.
