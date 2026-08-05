@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # VantaDB Server — multi-stage build with dependency caching & minimal runtime
 # https://vantadb.dev
-ARG RUST_VERSION=1.94.0
+ARG RUST_VERSION=1.94.1
 ARG BINARY=vantadb-server
 ARG APP_VERSION=0.4.0
 
@@ -29,29 +29,23 @@ COPY vantadb-server/Cargo.toml vantadb-server/
 COPY vantadb-mcp/Cargo.toml vantadb-mcp/
 COPY vantadb-python/Cargo.toml vantadb-python/
 COPY vantadb-wasm/Cargo.toml vantadb-wasm/
-COPY vantadb-mem0/Cargo.toml vantadb-mem0/
-COPY vantadb-letta/Cargo.toml vantadb-letta/
-COPY vantadb-crewai/Cargo.toml vantadb-crewai/
-COPY vantadb-dspy/Cargo.toml vantadb-dspy/
-COPY vantadb-haystack/Cargo.toml vantadb-haystack/
-COPY vantadb-litellm/Cargo.toml vantadb-litellm/
-COPY vantadb-openai/Cargo.toml vantadb-openai/
-COPY vantadb-ollama/Cargo.toml vantadb-ollama/
 
-# Skeleton sources to resolve & compile all dependencies
+# Skeleton sources so cargo can resolve & compile all dependencies.
+# Only vantadb-server, vantadb-mcp and the root crate are needed to build the
+# server binary — the integration crates (mem0, letta, crewai, dspy, haystack,
+# litellm, openai, ollama) live in integrations/ as Python packages and are
+# not workspace members (see [workspace.members] in Cargo.toml).
 RUN mkdir -p src && echo "fn main() {}" > src/main.rs && \
     mkdir -p vantadb-server/src && echo "fn main() {}" > vantadb-server/src/main.rs && \
-    mkdir -p vantadb-mcp/src && echo "" > vantadb-mcp/src/lib.rs && \
-    for d in vantadb-python vantadb-wasm vantadb-mem0 vantadb-letta vantadb-crewai vantadb-dspy vantadb-haystack vantadb-litellm vantadb-openai vantadb-ollama; do \
-      mkdir -p "$d/src" && echo "" > "$d/src/lib.rs"; \
-    done
+    mkdir -p vantadb-mcp/src && echo "" > vantadb-mcp/src/lib.rs
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
     cargo build --profile ci --package ${BINARY}
 
-# Remove skeleton before copying real sources
-RUN rm -rf src/ vantadb-*/src/
+# Remove skeletons before copying real sources. Root src/main.rs is a skeleton
+# only (the repo root has no main.rs) — scoped to the paths that exist.
+RUN rm -rf src/ vantadb-server/src vantadb-mcp/src
 
 # ── Real build ──
 COPY . .
