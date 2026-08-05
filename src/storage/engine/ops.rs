@@ -1764,13 +1764,10 @@ impl StorageEngine {
                 if collected.len() >= limit {
                     break;
                 }
-                if key.len() != std::mem::size_of::<u128>() {
+                let Ok(key_arr) = <[u8; 16]>::try_from(key.as_slice()) else {
                     continue;
-                }
-
-                let id = u128::from_le_bytes(
-                    key.as_slice().try_into().expect("key slice fits [u8; 16]"),
-                );
+                };
+                let id = u128::from_le_bytes(key_arr);
                 if id <= cursor_id {
                     continue;
                 }
