@@ -143,6 +143,66 @@ print(caps)
 
 ---
 
+## Integrations
+
+VantaDB ships with runnable Python examples that wire the embedded engine into popular AI memory / RAG frameworks. Each example defines a thin wrapper class over the stable Python SDK (`vantadb_py`) and is exercised end-to-end by the CI example smoke suite (`ci-examples-12.yml`).
+
+### Mem0 — persistence backend
+
+Use VantaDB as the storage backend for [Mem0](https://mem0.ai) memories. [`VantaDBMem0Backend`](examples/python/mem0_integration.py) implements the memory CRUD/search interface (`add`, `get`, `search`, `update`, `delete`, `get_all`, `delete_all`) on top of a namespace-scoped hybrid store (`mem0/memories`):
+
+```python
+backend = VantaDBMem0Backend(namespace="mem0/memories")
+backend.add(
+    "User prefers dark mode in all applications",
+    user_id="user-001",
+    metadata={"category": "preference", "priority": "high"},
+)
+for r in backend.search("dark mode", user_id="user-001"):
+    print(f"  Score: {r['score']:.3f}  Content: {r['content']}")
+backend.close()
+```
+
+### Semantic Kernel — memory interface
+
+Use VantaDB's hybrid retrieval for the **Microsoft Semantic Kernel** memory / context surface. [`VantaDBSemanticMemory`](examples/python/semantic_kernel_memory.py) exposes the store operations (`add`, `get`, `search`, `remove`) used by an AI-augmented environment, all backed by a LAN-free, embedded engine:
+
+```python
+memory = VantaDBSemanticMemory(collection_name="demo-app")
+memory.save_information(
+    "User prefers concise technical answers with code examples",
+    metadata={"category": "preference", "priority": "high"},
+)
+for r in memory.retrieve("Semantic Kernel", limit=5):
+    print(f"  Relevance: {r['relevance']:.3f}  Text: {r['text'][:80]}...")
+memory.close()
+```
+
+### DSPy — retriever
+
+Use VantaDB as the retriever for [DSPy](https://github.com/stanfordnlp/dspy) pipelines. [`VantaDBRetriever`](examples/python/dspy_retriever.py) implements the callable retriever interface (`__call__`) so it slots directly into DSPy pipelines, backed by hybrid vector + text search over `dspy/documents`:
+
+```python
+retriever = VantaDBRetriever(namespace="dspy/documents", k=3)
+retriever.add([
+    {"id": "doc-001", "text": "VantaDB is an embedded persistent memory and vector retrieval engine for local-first AI applications."},
+    {"id": "doc-002", "text": "DSPy is a framework for algorithmically optimizing LM prompts and weights."},
+])
+for doc in retriever("vector database"):
+    print(f"  Score: {doc['score']:.3f}  Text: {doc['text'][:80]}...")
+retriever.close()
+```
+
+Run any example directly (mirrors the CI smoke commands):
+
+```bash
+python examples/python/mem0_integration.py
+python examples/python/semantic_kernel_memory.py
+python examples/python/dspy_retriever.py
+```
+
+---
+
 ## Core Capabilities
 
 | Engine | Mechanism | Details |
