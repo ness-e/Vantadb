@@ -68,6 +68,9 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `list(namespace, options)` | List records in a namespace with cursor pagination. Returns `VantaMemoryListPage` |
 | `list_namespaces()` | List all namespaces. Returns `Vec<String>` |
 | `search(request: VantaMemorySearchRequest)` | [[hybrid-search\|Hybrid]] (vector + lexical) search. Returns `Vec<VantaMemorySearchHit>` |
+| `search_multi(namespaces, request)` | Search across multiple namespaces, merging results by descending score, capped at `request.top_k`. Namespaces that produce no results or fail validation are silently skipped; an empty `namespaces` slice returns an empty `Vec` |
+| `search_all(request)` | Search across ALL known namespaces, merging results by score. Convenience wrapper that performs a complete namespace scan before searching; prefer `search_multi` when the target namespaces are known ahead of time |
+| `similar_to_key(namespace, key, top_k)` | Vector similarity search from an existing record's vector, post-filtered to `namespace`. Errors `NotFound` if the key does not exist and `NoVectorForKey` if the record carries no vector |
 | `explain_memory_search(request)` | Search with detailed score breakdown. Returns `VantaSearchExplanation` |
 
 ### `VantaMemoryInput`
@@ -125,10 +128,17 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 | `get_node(id: u128)` | Retrieve a node by numeric ID. Returns `Option<VantaNodeRecord>` |
 | `delete_node(id, reason)` | Delete a node with auditable reason (tombstone) |
 | `add_edge(source_id, target_id, label, weight)` | Add a directed edge between two nodes |
+| `remove_edge(source_id, target_id, label)` | Remove all edges between two nodes with the given label (both directions) |
 | `graph_bfs(roots, max_depth)` | BFS traversal. Returns `Vec<u128>` |
 | `graph_dfs(roots, max_depth)` | DFS traversal. Returns `Vec<u128>` |
+| `graph_bfs_filtered(roots, max_depth, direction, labels, time_range)` | BFS traversal with label filtering and optional temporal window. Only follows edges whose `label_id` is in `labels` (empty = no filter); `time_range: Option<(from_ms, to_ms)>` restricts to edges created within the window |
+| `graph_dfs_filtered(roots, max_depth, direction, labels, time_range)` | DFS traversal with the same label/temporal filtering as `graph_bfs_filtered` |
 | `graph_topological_sort(roots)` | Topological sort. Returns `Vec<u128>` |
 | `graph_is_dag(roots)` | Check if subgraph is a DAG. Returns `bool` |
+| `graph_create_accumulator()` | Create a new thread-safe `GraphAccumulator` shareable across worker threads for parallel graph algorithms (PageRank, centrality, etc.) |
+| `graph_accumulator_add(acc, node_id, delta)` | Atomically add `delta` to the accumulator for `node_id`. Returns the previous value |
+| `graph_accumulator_get(acc, node_id)` | Get the current value for `node_id`. Returns `Option<f64>` |
+| `graph_accumulator_snapshot(acc)` | Capture a consistent snapshot of all accumulator values. Returns `HashMap<u128, f64>` |
 | `search_vector(vector, top_k)` | Pure [[hnsw\|HNSW]] vector search. Returns `Vec<VantaSearchHit>` |
 | `query(iql_query)` | Execute IQL query string. Returns `VantaQueryResult` |
 
@@ -162,14 +172,49 @@ pub struct VantaNodeRecord {
 }
 ```
 
+| `recover_archived_nodes(summary_id)` | Recover shadow-archived nodes that belonged to a summary node. Scans TombstoneStorage for nodes with a `belonged_to` edge targeting `summary_id`, re-activates them, and inserts them back into the active store. Returns `Vec<VantaNodeRecord>` |
+
+## Threads API
+
+Conversation threads with append-only messages and optional TTL expiry.
+
+| Method | Description |
+|--------|-------------|
+| `create_thread(ttl_secs)` | Create a new conversation thread. Returns the thread's numeric ID. Pass `ttl_secs` for auto-expiry |
+| `get_thread(thread_id)` | Retrieve a thread by its ID |
+| `list_threads(options)` | List threads with pagination |
+| `delete_thread(thread_id)` | Delete a thread by its ID |
+| `send_message(thread_id, message)` | Append a message to a thread |
+| `purge_expired_threads()` | Purge threads whose TTL has expired. Returns the number of threads removed |
+
+## Snapshots API
+
+Instant filesystem snapshots via hard links (Unix) or copy (Windows).
+
+| Method | Description |
+|--------|-------------|
+| `create_snapshot(name)` | Create an instant point-in-time snapshot. All data files in the storage directory are hard-linked into `<data_dir>/snapshots/<name>` (O(1)) |
+| `list_snapshots()` | List all existing snapshot names |
+
+## GraphRAG
+
+| Method | Description |
+|--------|-------------|
+| `graphrag_search(query, ...)` | Run the GraphRAG pipeline: seed → expand → retrieve → generate context. Uses the default pipeline configuration (seed_k=10, hops=2, max=100, top_k=20). For custom settings, construct `GraphRagPipeline` directly |
+
 ## Maintenance
 
 | Method | Description |
 |--------|-------------|
 | `flush()` | Flush [[wal\|WAL]] + [[hnsw\|HNSW]] to disk for durability |
 | `compact_wal()` | Archive [[wal\|WAL]] file and start fresh |
+| `vacuum()` | Purge tombstoned nodes from the [[hnsw\|HNSW]] index. Returns a `VacuumReport` with counts and timing |
+| `pipeline()` | Run the segment optimizer pipeline (vacuum → merge → reindex). Each phase is logged independently; a phase failure does not abort subsequent phases |
+| `optimizer_config()` | Return the current segment optimizer configuration |
+| `set_optimizer_config(config)` | Override the segment optimizer configuration. Takes effect on the next pipeline invocation |
 | `purge_expired()` | Delete TTL-expired records. Returns count purged |
 | `rebuild_index()` | Rebuild ANN ([[hnsw\|HNSW]]), derived, and text indexes. Returns `VantaIndexRebuildReport` |
+| `reindex_hnsw_from_text(namespace, page_size)` | Rebuild the vector index from text records using cursor-based pagination (`page_size` default 1000, max 1000). Safe alternative to unbounded enumeration |
 | `compact_layout()` | BFS-order physical compaction of vector store. Returns nodes compacted |
 
 ## Export / Import
@@ -180,6 +225,8 @@ pub struct VantaNodeRecord {
 | `export_all(path)` | Export all namespaces as JSONL. Returns `VantaExportReport` |
 | `import_records(records)` | Import `Vec<VantaMemoryRecord>`. Returns `VantaImportReport` |
 | `import_file(path)` | Import from JSONL file. Returns `VantaImportReport` |
+| `bulk_import_file(path)` | Bulk-import from a binary `.vdbdump` file. Bypasses per-record validation for raw throughput; commits in batches sized by `bulk_commit_interval` (default 10000) |
+| `bulk_import_stream(reader)` | Bulk-import records from a binary stream. Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`, 8-byte LE record count, then serde_json-serialized `Vec<VantaMemoryInput>`. Same batching/validation behavior as `bulk_import_file` |
 
 ## Text Index Diagnostics
 
@@ -458,4 +505,5 @@ All fallible methods return `Result<T, VantaError>` where `VantaError` is an enu
 - `VantaError::BackendError(ChainedError)` — storage backend error
 - `VantaError::InvalidInput(String)` — invalid input provided
 - `VantaError::SchemaError(String)` — schema-related error
+- `VantaError::NoVectorForKey(String)` — a record exists but does not carry a vector, so vector-based operations (e.g. `similar_to_key`) cannot proceed
 - `VantaError::Generic(ChainedError)` — generic catch-all error

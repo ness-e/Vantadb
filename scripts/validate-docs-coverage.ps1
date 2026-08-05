@@ -61,13 +61,15 @@ function Check-Methods {
 # ═══════════════════════════════════════
 #  1. SDK
 # ═══════════════════════════════════════
-$sdkAll = Select-String -Path "$root\src\sdk\builder.rs","$root\src\sdk\api.rs","$root\src\sdk\graph.rs","$root\src\sdk\search.rs" -Pattern '^\s{4}pub (unsafe )?(async )?fn (\w+)' |
+$sdkAll = Select-String -Path "$root\src\sdk\builder.rs","$root\src\sdk\api.rs","$root\src\sdk\graph.rs","$root\src\sdk\search\mod.rs" -Pattern '^\s{4}pub (unsafe )?(async )?fn (\w+)' |
   ForEach-Object { $_.Matches[0].Groups[3].Value } | Sort-Object -Unique
 
 $sdkNormal = $sdkAll | Where-Object { $_ -notlike 'debug_*' }
 $sdkDebug  = $sdkAll | Where-Object { $_ -like 'debug_*' }
 
-Check-Methods -Label "src/sdk.rs (públicos)" -Methods $sdkNormal -DocRelPath "docs\api\EMBEDDED_SDK.md" -DocLabel "EMBEDDED_SDK.md"
+Check-Methods -Label "src/sdk.rs (públicos)" -Methods $sdkNormal -DocRelPath "docs\api\EMBEDDED_SDK.md" -DocLabel "EMBEDDED_SDK.md" -Exclude @(
+  'test_empty'
+)
 Check-Methods -Label "src/sdk.rs (debug_*)" -Methods $sdkDebug -DocRelPath "docs\api\EMBEDDED_SDK.md" -DocLabel "EMBEDDED_SDK.md" -Exclude @(
   'debug_clear_derived_indexes_for_tests',
   'debug_clear_text_index_for_tests',
@@ -147,7 +149,8 @@ if (Test-Path $pyLib) {
     'rebuild_report_to_pydict','export_report_to_pydict',
     'import_report_to_pydict','text_index_repair_report_to_pydict',
     'text_index_audit_report_to_pydict','operational_metrics_to_pydict',
-    'py_dict_to_metadata','search_batch','__repr__'
+    'py_dict_to_metadata','search_batch','__repr__',
+    'try_enter','drain','drop'
   )
   $pyAll = Select-String -Path $pyLib -Pattern '^\s{4}fn (\w+)' |
     ForEach-Object { $_.Matches[0].Groups[1].Value } |

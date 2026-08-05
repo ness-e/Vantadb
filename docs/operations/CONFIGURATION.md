@@ -53,6 +53,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `flush_threshold` | `Option<usize>` | `10000` | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
 | `advanced_tokenizer_config` | `Option<...>` | `None` | — | Advanced tokenizer config (feature-gated) |
 | `batch_size` | `Option<usize>` | `None` (1000) | `VANTADB_BATCH_SIZE` | Max nodes per batch ingestion operation |
+| `bulk_commit_interval` | `Option<usize>` | `None` (10000) | `VANTADB_BULK_COMMIT_INTERVAL` | Number of records per batch commit during bulk import |
 | `encryption_key` | `Option<String>` | `None` | `VANTADB_ENCRYPTION_KEY` | AES-256-GCM key (hex 32-byte) for at-rest encryption (feature-gated: `encryption`) |
 | `flat_threshold` | `Option<usize>` | `10000` | `VANTADB_FLAT_THRESHOLD` | Brute-force flat scan threshold; ≤ this many nodes skips HNSW |
 | `hot_reload_config` | `Arc<RwLock<...>>` | — | — | Hot-reloadable config snapshot (feature-gated: `hot-reload`) |
@@ -61,6 +62,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `token_role_map` | `HashMap<String, String>` | `{}` | — | `RbacConfig` field: token → role name mapping |
 | `export_base_dir` | `Option<PathBuf>` | `None` | `VANTADB_EXPORT_BASE_DIR` | Base directory for export/import path validation. When set, export and import paths are resolved canonically against this directory (symlink protection included). When `None`, only bare `..` traversal is blocked. |
 | `audit_log_path` | `Option<PathBuf>` | `None` | `VANTADB_AUDIT_LOG_PATH` | Append-only JSONL audit log (ISO 8601 timestamp + op per write/delete/export/import). When `None`, audit is disabled. |
+| `segment_optimizer` | `SegmentOptimizerConfig` | `{enabled: true, vacuum_threshold_pct: 15.0, auto_run_interval_secs: 3600, max_pipeline_duration_secs: 300}` | — | Segment optimizer configuration: master switch, tombstone vacuum threshold (%), auto-run interval (s), max pipeline duration (s), and per-level LSM compaction config. See also `pipeline()` / `optimizer_config()` / `set_optimizer_config()` in the SDK. |
 
 ### Audit Log Format
 
@@ -141,7 +143,9 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `count [--namespace <ns>] [--filter <json>]` | Count records, optionally filtered |
 | `list --namespace <ns> [--limit <N>]` | List keys and values in a namespace |
 | `search --namespace <ns> --query <q> [--query-vector <v>] [--limit <N>] [--json]` | Search records semantically across a namespace |
-| `search-similar --namespace <ns> --key <k> [--limit <N>]` | Search by vector similarity from an existing key |
+| `search-multi --namespaces <ns1,ns2> --query <q> [--query-vector <v>] [--top-k <N>] [--json]` | Search across multiple namespaces and merge results by score |
+| `search-all --query <q> [--query-vector <v>] [--top-k <N>] [--json]` | Search across ALL known namespaces and merge results by score |
+| `similar-to-key --namespace <ns> --key <k> [--top-k <N>] [--json]` | Find records similar to a given key using vector similarity search |
 | `query <iql_string> [--limit <N>]` | Execute a structured IQL/hybrid query |
 | `status` | Display database health diagnostics and system status |
 | `stats [--json]` | Database statistics (formatted or JSON) |
@@ -160,6 +164,10 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `import --in <path>` | Import records from a JSONL file |
 | `namespace list` | List all namespaces |
 | `namespace info --namespace <ns>` | Show record count and details for a namespace |
+| `snapshot create --name <name>` | Create an instant filesystem snapshot by hard-linking all data files (copy on Windows) |
+| `snapshot list` | List all existing snapshots |
+| `wal compact` | Compact the WAL: flush all data, archive the current WAL file, and start a fresh one |
+| `wal vacuum` | Remove tombstoned nodes from HNSW and reclaim space |
 | `server [--http] [--mcp] [--port <N>] [--host <host>]` | Start the HTTP or MCP server wrapper |
 | `repl` | Interactive rustyline REPL with tab autocomplete |
 | `tui` | Live dashboard refreshing every 2s |

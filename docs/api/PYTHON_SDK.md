@@ -350,6 +350,37 @@ if db.graph_is_dag(roots=[1, 2]):
     print("Subgraph is a DAG — safe for topological sort")
 ```
 
+#### `graph_page_rank()`
+```python
+db.graph_page_rank(
+    roots: List[int],
+    max_iterations: int = 100,
+    damping: float = 0.85,
+    tolerance: float = 1e-6,
+) -> Dict[int, float]
+```
+Compute PageRank for the subgraph reachable from the given roots. Returns a dict mapping `node_id -> rank`. GIL-released - allows Python threads to run during PageRank computation.
+
+```python
+ranks = db.graph_page_rank(roots=[1, 2], max_iterations=100, damping=0.85)
+for node_id, rank in sorted(ranks.items(), key=lambda kv: -kv[1]):
+    print(node_id, rank)
+```
+
+#### `graph_degree_centrality()`
+```python
+db.graph_degree_centrality(
+    roots: List[int],
+) -> Dict[int, Tuple[int, int]]
+```
+Compute degree centrality (in/out degree counts) for the subgraph reachable from the given roots. Returns a dict mapping `node_id -> (in_degree, out_degree)`. GIL-released.
+
+```python
+centrality = db.graph_degree_centrality(roots=[1, 2])
+for node_id, (in_deg, out_deg) in centrality.items():
+    print(node_id, in_deg, out_deg)
+```
+
 ### Advanced Operations
 
 #### `query()`
@@ -374,6 +405,36 @@ Search by vector similarity from an existing key. *Not yet available in the Pyth
 
 #### `count()` (not yet exposed)
 Count records, optionally filtered by namespace and metadata. *Not yet available in the Python SDK — tracked for future release.*
+
+#### `bulk_import()`
+```python
+db.bulk_import(
+    path: str,
+) -> Dict[str, Any]
+```
+Bulk-import records from a binary `.vdbdump` file. Returns a dict with `total_records`, `batches_committed`, `duration_ms`. GIL-released.
+
+#### `bulk_import_bytes()`
+```python
+db.bulk_import_bytes(
+    data: bytes,
+) -> Dict[str, Any]
+```
+Bulk-import records from binary bytes (`.vdbdump` format). Returns a dict with `total_records`, `batches_committed`, `duration_ms`. GIL-released.
+
+#### `recover_archived_nodes()`
+```python
+db.recover_archived_nodes(
+    summary_id: str,
+) -> List[dict]
+```
+Recover shadow-archived nodes that belonged to a summary node. Scans TombstoneStorage for nodes with a `belonged_to` edge targeting `summary_id`, re-activates them, and inserts them back into the active store. Returns a list of recovered node dictionaries. `summary_id` is the summary node ID as a decimal string (u128). GIL-released.
+
+```python
+nodes = db.recover_archived_nodes(summary_id="42")
+for node in nodes:
+    print(node["id"], node["fields"])
+```
 
 ### Maintenance & Diagnostics
 
