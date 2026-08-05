@@ -1,6 +1,6 @@
 # Plan de Ejecución: Backlog Validation Actions — 2026-08-05
 
-> **Campaign ID: 900d2459-9a35-4149-a93d-5997f2e2e928
+> **Campaign ID: a19732b9-c57e-40bd-8d2a-d1cb409e6fc3
 > **Inicio:** 2026-08-05
 > **Estado: completed
 > **Fuente:** `docs/Backlog.md` (85 tareas abiertas validadas)
@@ -37,7 +37,7 @@
 ### Task 1: Backlog-EDIT — Corregir 12 premisas stale + limpiar referencia muerta
 - **Archivos clave:** `docs/Backlog.md`
 - **Gate Justificación:** hallazgos de los 6 sub-agentes; las descripciones actuales inducen a error de implementación.
-- **Contrato: OpGate en 3 bindings; ops.rs:1761 intacto; sin unwrap nuevo
+- **Contrato: Benchmark estable 3x; causa atribuida (no stack overflow, no UAF)
 - **Pasos:**
   1. **AUDIT-01** (L70): reemplazar "try_numpy_array expone puntero" → "el UAF es por los getters `__array_interface__` (vector.rs:59-73, types.rs:365-380); `try_numpy_array` COPIA (seguro). Fix: congelar/clonar ante drop y `__setstate__`".
   2. **AUD-004** (L252): reemplazar "gate por feature experimental-lisp" → "feature `experimental-lisp` ELIMINADA en CUARENTENA-01; fix = eliminar/renombrar tool `query_lisp` o documentar que solo acepta IQL".
@@ -154,7 +154,7 @@
 - **Pipeline:** 🔍 Inv (repro mínimo standalone + ASAN/valgrind) → 📊 Análisis (atribuir causa) → ✅ Verif (3× sin crash) → 🔧 Impl (fix según causa).
 - **Contrato:** benchmark Python estable 3×; crash atribuido y documentado.
 - **Dependencias:** AUDIT-01 (Task 12) para descartar la rama UAF.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 15: AUD-011 — Deuda unsafe/unwrap/OpGate (2 matices)
 - **Archivos clave:** `src/storage/engine/ops.rs:1756-1762`, `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs`, `vantadb-node/src/lib.rs:75-92,277-287`
@@ -514,11 +514,11 @@ INV-007-B → MKT-17, TSK-103 (absorbe cierres)
 
 === RECITATION ===
 Campaign ID: 06826e46-9034-4f0c-bb4c-5e06742d9480
-Objetivo activo: F2 — AUD-011 deuda unsafe/OpGate
+Objetivo activo: F2 — AUDIT-04 crash benchmark 0xC0000409
 Estado: completed
-Última acción: vanta-worker portó OpGate a python y wasm
-Resultado: ✅ check+clippy OK, commit ef155f9c
-Próxima acción: Smoke pytest/wasm-pack pendiente en entorno
+Última acción: vanta-chaos root-cause: co_access O(n²) sin cap → heap exhaustion; fix cap 1M pares
+Resultado: ✅ repro 3x exit 0, peak 333MB vs 2514, commit d2c7b0a5
+Próxima acción: F3 — Engineering Health
 Contrato: grep experimental-lisp|MCP-02 = 0; sin duplicados en progreso
-Próxima tarea si completa: 14
+Próxima tarea si completa: 19
 === END RECITATION ===
