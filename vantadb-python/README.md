@@ -30,7 +30,7 @@ import vantadb_py as vdb
 db = vdb.VantaDB("./my_agent_memory", memory_limit_bytes=128 * 1024 * 1024)
 
 # 2. Almacenar memoria persistente (payload + vector + metadatos)
-db.put_memory(
+db.put(
     namespace="agent/session_1",
     key="fact_001",
     payload="El usuario prefiere respuestas técnicas y directas.",
@@ -45,10 +45,10 @@ print(record["payload"])
 # 4. busqueda-hibrida (Vectorial + Léxica)
 # Nota: Requiere un vector de consulta del mismo tamaño que los almacenados
 query_vector = [0.15, 0.25, 0.35, 0.45]
-results = db.search_hybrid(
+results = db.search_memory(
     namespace="agent/session_1",
     query_vector=query_vector,
-    query_text="preferencias usuario",
+    text_query="preferencias usuario",
     top_k=5
 )
 
@@ -56,9 +56,9 @@ for hit in results:
     print(f"Key: {hit['key']}, Score: {hit['score']:.4f}")
 
 # 5. Monitoreo de recursos (Crítico para agentes locales)
-stats = db.memory_stats()
-print(f"Uso lógico: {stats['logical_bytes'] / 1024:.2f} KB")
-print(f"RSS físico: {stats['physical_rss'] / 1024:.2f} KB")
+stats = db.operational_metrics()
+print(f"Uso lógico: {stats['hnsw_logical_bytes'] / 1024:.2f} KB")
+print(f"RSS físico: {stats['process_rss_bytes'] / 1024:.2f} KB")
 
 # 6. Cierre seguro
 db.close()

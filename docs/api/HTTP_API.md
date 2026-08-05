@@ -121,8 +121,9 @@ When `tls_cert_path` and `tls_key_path` are configured, the server binds with HT
 # HTTP server only
 vanta-cli server --http --port 8080 --host 127.0.0.1 --db ./vanta_data
 
-# Full MCP + HTTP
-vanta-cli server --http --mcp --port 8080 --db ./vanta_data
+# MCP and HTTP are mutually exclusive modes. Passing --http --mcp together
+# starts MCP only (mcp_mode = mcp && !http); HTTP is not served.
+vanta-cli server --mcp --port 8080 --db ./vanta_data
 
 # With TLS
 vanta-cli server --http --port 443 --db ./vanta_data
