@@ -76,7 +76,7 @@ export function FaqSection() {
                   <div
                     id={`faq-panel-${i}`}
                     className={cn(
-                      "grid transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]",
+                      "grid transition-all duration-300 ease-default",
                       isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
                     )}
                   >

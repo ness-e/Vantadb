@@ -230,7 +230,7 @@ export function BenchmarkRace() {
                             className={`relative h-full ${isVanta ? "bg-[#FF5500]" : "bg-black/70 "}`}
                             style={{
                               width: showBars ? `${bar.pct}%` : "0%",
-                              transition: `width ${bar.durationMs}ms cubic-bezier(0.2, 0.8, 0.2, 1)`,
+                              transition: `width ${bar.durationMs}ms var(--ease-default)`,
                               boxShadow: isVanta ? "3px 3px 0 0 #000" : "none",
                             }}
                           >
