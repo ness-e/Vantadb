@@ -244,7 +244,7 @@ When VantaDB is connected via MCP, the following tools are available to AI assis
 
 ### Graph Operations
 
-- `query_lisp` - Executes VantaLISP code (read structures, insert/mutate nodes providing semantic context)
+- `query_iql` - Executes an IQL statement (read structures, insert/mutate nodes providing semantic context)
 - `get_node_neighbors` - Inspect neighbors or lineage of a node
 - `inject_context` - Injects external state connecting it to a specific thread for subsequent consolidation
 - `read_axioms` - Returns the active Devil's Advocate Axioms (Iron Axioms)

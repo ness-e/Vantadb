@@ -245,8 +245,8 @@ fn test_mcp_tools_list() {
         "tools should include memory_list_namespaces"
     );
     assert!(
-        names.contains(&"query_lisp"),
-        "tools should include query_lisp"
+        names.contains(&"query_iql"),
+        "tools should include query_iql"
     );
     assert!(
         names.contains(&"search_semantic"),
@@ -406,7 +406,7 @@ fn test_mcp_tool_query_iql() {
 
     // Execute an INSERT via IQL syntax
     let iql_write = Some(json!({
-        "name": "query_lisp",
+        "name": "query_iql",
         "arguments": {
             "query": "INSERT NODE#999 TYPE TestNode { tier: \"Cold\" }"
         }
@@ -430,7 +430,7 @@ fn test_mcp_tool_query_iql() {
 
     // Execute a READ query via IQL syntax (FROM NODE#id)
     let iql_read = Some(json!({
-        "name": "query_lisp",
+        "name": "query_iql",
         "arguments": {
             "query": "FROM NODE#999"
         }
@@ -454,13 +454,13 @@ fn test_mcp_tool_query_iql() {
 }
 
 #[test]
-fn test_mcp_query_lisp_sanitization() {
+fn test_mcp_query_iql_sanitization() {
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
 
     // Test empty query rejection
     let empty_query = Some(json!({
-        "name": "query_lisp",
+        "name": "query_iql",
         "arguments": {
             "query": "   "
         }
@@ -473,7 +473,7 @@ fn test_mcp_query_lisp_sanitization() {
 
     // Test null byte injection rejection
     let null_byte_query = Some(json!({
-        "name": "query_lisp",
+        "name": "query_iql",
         "arguments": {
             "query": "FROM NODE#1\0; DROP TABLE"
         }

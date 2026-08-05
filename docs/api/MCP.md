@@ -53,7 +53,7 @@ The MCP server exposes the following tools for memory operations:
 
 #### Graph Operations
 
-- **`query`** - Execute VantaLISP/IQL code
+- **`query_iql`** - Execute an IQL (Interactive Query Language) statement (reads + mutations). LISP is not supported.
   - Parameters: `query`
   - Returns: Query results or execution status
 

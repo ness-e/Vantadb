@@ -31,7 +31,7 @@ pub struct McpConfig {
     pub max_namespace_length: usize,
     /// Max vector dimension (default: 16384).
     pub max_vector_dim: usize,
-    /// Max LISP query length (default: 1 MB).
+    /// Max query length (default: 1 MB).
     pub max_query_length: usize,
     /// Per-request timeout (default: 60 s).
     pub request_timeout: Duration,
@@ -795,7 +795,7 @@ pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
             let conditions = args.and_then(|a| a["conditions"].as_str()).unwrap_or("");
             Ok(json!({
                 "description": "Build IQL queries for VantaDB",
-                "messages": [{"role": "user", "content": {"type": "text", "text": format!("Build an IQL query for VantaDB. Operation: {}, Target: {}, Conditions: {}. Ensure the query follows VantaLISP/IQL syntax and is properly formatted.", operation, target, conditions)}}]
+                "messages": [{"role": "user", "content": {"type": "text", "text": format!("Build an IQL query for VantaDB. Operation: {}, Target: {}, Conditions: {}. Ensure the query follows IQL syntax and is properly formatted.", operation, target, conditions)}}]
             }))
         }
         _ => McpError::invalid_params(format!("Prompt not found: {}", name)).into_err(),
@@ -861,11 +861,11 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                 "inputSchema": { "type": "object", "properties": {}, "required": [] }
             },
             {
-                "name": "query_lisp",
-                "description": "Executes VantaLISP code. Allows reading structures and inserting/mutating Nodes providing semantic context.",
+                "name": "query_iql",
+                "description": "Executes an IQL (Interactive Query Language) statement. Allows reading structures and inserting/mutating Nodes providing semantic context. LISP is not supported; statements must be IQL.",
                 "inputSchema": {
                     "type": "object", "properties": {
-                        "query": { "type": "string", "description": "VantaLISP program or statement" }
+                        "query": { "type": "string", "description": "IQL statement" }
                     }, "required": ["query"]
                 }
             },
@@ -1110,7 +1110,7 @@ pub fn handle_tools_call(
             }
         }
 
-        "query_lisp" => {
+        "query_iql" => {
             let query = args["query"]
                 .as_str()
                 .ok_or_else(|| McpError::invalid_params("Missing 'query'").to_json())?;
@@ -1156,7 +1156,7 @@ pub fn handle_tools_call(
                         "message": "Suggested Historical Recovery (Critical Confidence Score)."
                     }))))
                 }
-                Err(e) => Ok(error_content(format!("LISP Runtime Error: {}", e))),
+                Err(e) => Ok(error_content(format!("IQL Runtime Error: {}", e))),
             }
         }
 
