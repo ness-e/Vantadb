@@ -391,6 +391,9 @@ jobs:
         run: cargo +nightly miri test --manifest-path Cargo.toml -p vantadb -- miri
         env:
           MIRI_NO_HOST_FALLBACK: 1
+          # VantaHeader::new reads SystemTime::now() when opening the engine;
+          # Miri blocks clock_gettime(REALTIME) under default isolation.
+          MIRIFLAGS: "-Zmiri-disable-isolation"
           RUSTFLAGS: "-Zrandomize-layout"
 
   deny:
