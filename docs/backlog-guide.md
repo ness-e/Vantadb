@@ -142,8 +142,8 @@ aliases: []
 
 | ID | Tarea | Justificación |
 |----|-------|---------------|
-| `SEC-01` 🔴 | **Migrar `bincode`** | RUSTSEC-2025-0141: unmaintained. Usado en serialización de índices, WAL, estado. Alternativas: `postcard` (seguro, compacto) o `rkyv` (zero-copy, extremo). |
-| `SEC-02` 🔴 | **Migrar `rustls-pemfile`** | RUSTSEC-2025-0134: vulnerability. Usado para TLS en vantadb-server. Reemplazar con `rustls-pki-types`. |
+| ~~`SEC-01` 🔴~~ | ~~**Migrar `bincode`**~~ | ~~RUSTSEC-2025-0141: unmaintained. Usado en serialización de índices, WAL, estado. Alternativas: `postcard` (seguro, compacto) o `rkyv` (zero-copy, extremo).~~ ✅ **Ya resuelto** — bincode en 2.0 (vía AUD-03 previo). Ver `docs/progreso/README.md` L1015. |
+| ~~`SEC-02` 🔴~~ | ~~**Migrar `rustls-pemfile`**~~ | ~~RUSTSEC-2025-0134: vulnerability. Usado para TLS en vantadb-server. Reemplazar con `rustls-pki-types`.~~ ✅ **Ya resuelto** — rustls-pemfile en v2. Ver `docs/progreso/README.md` L1016. |
 | `SEC-03` 🔴 | **Schema evolution para formato en disco** | **RIESGO CRÍTICO.** Actualmente bincode serializa structs de Rust directamente. Cualquier refactor rompe DBs existentes. Implementar versioned headers + migration runner en vanta-cli. |
 | `SEC-04` 🟠 | **Auth hardening** | La comparación de tokens NO es constant-time (`==` en vez de `subtle::ConstantEq`). Sin rate limiting en auth failures. `/metrics` es público. |
 | `SEC-05` 🟡 | **RBAC design** | Scoped API tokens (read-only, namespace-scoped, time-limited). Para deploys multi-usuario. Post-MVP pero necesario para enterprise. |
@@ -318,7 +318,7 @@ Basado en el análisis de 4 subagentes de investigación (competencia, industria
 | 1 | `MEM-01` | **Mem0 VectorStoreBackend** | 57K stars, 20 backends soportados, VantaDB no está. Canal de distribución más grande disponible. |
 | 2 | `MCP-02` | **Estabilizar MCP server a GA** | Único MCP server embebido del mercado. Weaviate ya tiene MCP nativo. Ventana cerrándose. |
 | 3 | `DX-03` | **Docker Compose "Local LLM Stack"** | Todos los competidores tienen Docker impecable. VantaDB tiene 0. Barrera de entrada enorme. |
-| 4 | `SEC-01/02` | **Migrar bincode + rustls-pemfile** | Vulnerabilidades activas RUSTSEC. bincode es unmaintained, riesgo de seguridad real. |
+| ~~4~~ | ~~`SEC-01/02`~~ | ~~**Migrar bincode + rustls-pemfile**~~ | ~~Vulnerabilidades activas RUSTSEC. bincode es unmaintained, riesgo de seguridad real.~~ ✅ Ya resueltos (bincode 2.0, rustls-pemfile v2). |
 | 5 | `SEC-03` | **Schema evolution para formato en disco** | Cualquier refactor rompe DBs existentes. Riesgo crítico de compatibilidad. |
 | 6 | `WASM-02` | **OPFS persistence para WASM** | Sin persistencia, WASM es solo demo. Competidores WASM (EdgeVec, minimemory) ya tienen. |
 | 7 | `PERF-01` | **Batch KV loader (get_many)** | 7 patrones N+1 que causan latencia evitable. Impacto directo en p50. |

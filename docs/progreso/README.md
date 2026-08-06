@@ -1,4 +1,4 @@
-﻿---
+---
 title: "General Progress of VantaDB Project"
 status: active
 tags: [vantadb, progress, documentation]
@@ -2873,7 +2873,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 |----|-------|-----------|
 | `TSK-106` | Habilitar GitHub Discussions | ✅ Ya estaba habilitado (`has_discussions: true`). Sin cambios. |
 | `MKT-03` | Show HN draft → v0.4.0 | ✅ Draft actualizado con APIs correctas (`put`, `search_memory`) y links a PyPI/docs |
-| `NUEVO-21` | Vectara competitive research | ✅ Reporte en `docs/audit-reports/vectara-competitive-research-2026-07-27.md`. Hallazgo: Vectara cerró self-service → gap para local-first |
+| `NUEVO-21` | Vectara competitive research | ✅ Reporte en `docs/Investigaciones/vectara-competitive-research-2026-07-27.md`. Hallazgo: Vectara cerró self-service → gap para local-first |
 | `MKT-04` | Reddit posts (3 subreddits) | ✅ 3 drafts en `docs/strategy/REDDIT_POSTS.md` (r/rust, r/MachineLearning, r/LocalLLaMA) |
 | `TSK-107` | Community showcase page | ✅ 6 items actualizados: apuntan a ejemplos reales (LangGraph, AutoGen, Haystack, CrewAI, Rust hybrid, GraphRAG) |
 | `COM-03` | Discord forums + AutoMod | ⚠️ Parcial: 9 threads seedeados (FAQ/Showcase/Ideas/Bug). AutoMod/stickers/emojis requieren Discord UI manual |
@@ -2881,7 +2881,7 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | `—` | Good first issues (18 open) | ✅ 22 issues creados (#118-#142), 3 duplicados cerrados (#136-#138). Etiquetados `good first issue` en GitHub |
 
 **Archivos creados/modificados:**
-- `docs/audit-reports/vectara-competitive-research-2026-07-27.md` (nuevo)
+- `docs/Investigaciones/vectara-competitive-research-2026-07-27.md` (nuevo)
 - `docs/strategy/SHOW_HN_PREP.md` (actualizado)
 - `docs/strategy/REDDIT_POSTS.md` (nuevo)
 - `web/src/app/showcase/page.tsx` (actualizado)
@@ -2995,5 +2995,21 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | `AUDIT-03` | Miri guard sobre el CORE Rust (7 bloques UB de INV-024) | `88ed3642` | `MIRIFLAGS=-Zmiri-tree-borrows cargo +nightly miri test -p vantadb` 10/10 limpio; auditó 6 source files (`vfile.rs`, `ops.rs`, `search.rs`, `stats.rs`, `metrics/core/mod.rs`), corregidos `// SAFETY:` comments. Premisa re-escalada: `vantadb-python` (0 dev-deps, cdylib) queda fuera — bound cubierta por AUDIT-04. Commit scoped con `--no-verify` autorizado por gate de fmt pre-existente. |
 
 **Verificación:** `cargo check -p vantadb` ✅ | `cargo nextest -p vantadb --lib compact` → 30/30 ✅ | `cargo clippy -p vantadb --all-targets -- -D warnings` ✅ | Miri 10/10 ✅ | Nota: `cargo clippy --all-targets` reporta 3 lints en `benchmarks/graphrag_bench.rs` — archivo local de campaña MKT-16 (untracked, `[[example]]` sin commitear en Cargo.toml), NO parte de estas tareas; se resuelve cuando esa campaña commitee.
+
+### 2026-08-05 — Limpieza y consolidación `docs/audit-reports/` + `docs/reviews/`
+
+**Objetivo:** Depurar y unificar la documentación de audits/reviews: eliminar duplicados, reclasificar archivos por función real (audit vs investigación vs proceso), y añadir al backlog los hallazgos nuevos verificados en código.
+
+**Resultado:**
+
+| Acción | Detalle |
+|--------|---------|
+| **Reclasificación de archivos (fs, sin git)** | `vectara-competitive-research` y `meta-001-root-cause-analysis` → `docs/Investigaciones/` (no son audits: research y RCA de proceso). `backlog-validation`, `progreso-readme-part1/2/3`, `progreso-sistema` → `docs/audit-reports/archive/` (intermedios superados). `audit-reports/` quedó solo con audits legítimos. |
+| **Hallazgos nuevos verificados en código** | Bloque `## NV` añadido a `docs/Backlog.md` (Phase 13): `NV-01` 🟠 sq8 panic OOB, `NV-02` 🟡 expects cli_server, `NV-03` 🟡 licencia wasm ausente, `NV-04` 🟠 UB alineación grow_zeroed, `NV-05` 🟢 divergencia deny/audit.toml. |
+| **Duplicados cerrados** | `AUDREP-51` tachado (== duplicado de `INV-001`: mismo advisory RUSTSEC-2023-0089). `SEC-01`/`SEC-02` en `backlog-guide.md` tachados como ya resueltos (bincode 2.0, rustls-pemfile v2). |
+| **Enlaces actualizados** | Rutas `vectara`/`meta-001` en `Backlog.md` (`META-001`/`NUEVO-21`/`GH-119`) y `progreso/README.md` → `docs/Investigaciones/`. `docs/reports/INDEX.md` marcó archivados y consolidador. |
+| **No duplicados** | `rayon` y `next.config ignoreBuildErrors` verificados en código: ya eran `AUDREP-07`/`AUDREP-19` — correctamente omitidos. |
+
+**Verificación:** Verificación manual en código real de cada candidato nuevo (no solo sub-agentes); 0 links vivos rotos a las rutas movidas (refs en `plans/`, `blog/`, backups y `BACKLOG_HISTORY.md` conservadas como snapshots históricos intencionales). Sin cambios de código — solo documentación.
 
 
