@@ -1192,6 +1192,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `AUDREP-03` | Storage-Consistencia: errores de tombstone tragados en ops.rs (3 sitios `let _ = write_header` → `tracing::error!`; commit `de83ebbf`; 345 tests storage OK) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-08` | WAL-Race: colisión de timestamps en `archive_segment` (<1ms) → contador atómico `ARCHIVE_SEQ` + único rename atómico (commit `fe0dce6f`; 60 tests WAL OK) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-13` | Seguridad-Auth: dev mode bypass silencioso → `tracing::warn!` por request no autenticada (commit `0f099822`; 4 tests auth OK) | 🟠 | ✅ 2026-08-05 |
+| `AUDREP-12` | Seguridad-Network: sin límite de tamaño de body en `/api/v2/query` → `DefaultBodyLimit::max(1_000_000)` al router + test `body_limit_rejects_oversized` (413 para body > 1MB) | 🟠 | ✅ 2026-08-06 |
 | `TSK-56` | Fix Windows CI runner (windows-latest) | 🔴 | ✅ |
 | `WEB-02` | Fase 2: Publish 3 Technical Blog Posts (Why I Built, SQLite for AI, Hybrid Search) | 🔴 | ✅ |
 | `WEB-03` | Fase 2: Create real product pages (`/product/benchmarks`, `/security`, `/about/roadmap`, `/docs-api`) | 🔴 | ✅ |

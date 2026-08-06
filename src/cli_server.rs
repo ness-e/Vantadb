@@ -20,7 +20,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use axum::{
-    extract::State,
+    extract::{DefaultBodyLimit, State},
     http::{header, StatusCode},
     middleware,
     response::{IntoResponse, Response},
@@ -149,6 +149,7 @@ pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
     Router::new()
         .merge(public)
         .merge(protected)
+        .layer(DefaultBodyLimit::max(1_000_000))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             circuit_breaker_middleware,
@@ -1015,5 +1016,65 @@ mod tests {
             }
             other => panic!("expected InvalidInput, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn body_limit_rejects_oversized() {
+        // In-memory engine so the test touches no disk.
+        let cfg = VantaConfig {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(cfg)).unwrap());
+        let state = Arc::new(ServerState {
+            storage,
+            circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+            pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+            api_key: None,
+            rbac_config: RbacConfig::default(),
+        });
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(
+                listener,
+                app(state, 0).into_make_service_with_connect_info::<std::net::SocketAddr>(),
+            )
+            .await
+            .unwrap();
+        });
+
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        async fn http_request(addr: std::net::SocketAddr, body: &[u8]) -> String {
+            let mut request = format!(
+                "POST /api/v2/query HTTP/1.1\r\nHost: {addr}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            )
+            .into_bytes();
+            request.extend_from_slice(body);
+
+            let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+            stream.write_all(&request).await.unwrap();
+            let mut response = String::new();
+            stream.read_to_string(&mut response).await.unwrap();
+            response
+        }
+
+        // Body larger than the 1_000_000-byte DefaultBodyLimit → 413.
+        let oversized = http_request(addr, &vec![b'x'; 1_000_001]).await;
+        assert!(
+            oversized.starts_with("HTTP/1.1 413"),
+            "expected 413 for oversized body, got: {oversized}"
+        );
+
+        // A small body must not be rejected by the limit (status is whatever the
+        // handler returns — auth/parse — but never 413).
+        let small = http_request(addr, br#"{"query":"SELECT 1"}"#).await;
+        assert!(
+            !small.starts_with("HTTP/1.1 413"),
+            "small body should not hit the body limit, got: {small}"
+        );
     }
 }
