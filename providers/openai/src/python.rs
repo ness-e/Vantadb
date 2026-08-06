@@ -190,6 +190,7 @@ impl VantaDBOpenAI {
                 _ => vantadb::DistanceMetric::Cosine,
             },
             explain: false,
+            query_sparse: None,
         };
 
         let engine = self.engine.clone();
