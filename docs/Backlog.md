@@ -535,6 +535,20 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 ---
 
+## P14 — REVIEW items (hallazgos de `docs/reviews/review-full-2026-07-27-0309.md`, validado 2026-08-05)
+
+> **Origen:** findings de la unified-review full 2026-07-27, re-validados contra el código el 2026-08-05 (sub-agentes vanta-worker/vanta-docs). Los items marcados como corregidos en el report y confirmados se excluyen. `DEPS-01` ya cubre la duplicación de crates/lru; `AUDREP-41` cubre next-auth dead dep — no duplicados aquí.
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+| `REVIEW-01` | **MEDIO / Gate pre-publish: `cargo semver-checks check` → `check-release`** — El subcomando `check` no existe; en CI debe usarse `check-release`. Roto en profile unified-review (`vantadb.yml`, ~L120), `VANTADB-OPERATING-MANUAL.md` (L432) y agent docs (vanta-lead/audit/docs). **Recomendación:** reemplazar `cargo semver-checks check` por `cargo semver-checks check-release` en los 4+ sitios. | `.opencode/skills/unified-review/profiles/vantadb.yml`, `.opencode/VANTADB-OPERATING-MANUAL.md`, `.opencode/agents/*.md` | 30min | 🟠 Media | 📝 Pendiente |
+| `REVIEW-02` | **BAJO / Tooling: flags stale `--ignore RUSTSEC-2026-0176/0177`** — Ambos advisories ya remediados vía migración pyo3 0.29, pero el flag sigue hardcodeado en tooling (certify skill, unified-review profile, pre-push.ps1, docs). **Recomendación:** quitar los ignores muertos para que `cargo audit` no silencie advisories falsamente. | `.opencode/`, `dev-tools/`, `docs/workflow/` | 15min | 🔵 Baja | 📝 Pendiente |
+| `REVIEW-03` | **ALTO / CI: 7 `continue-on-error: true` en 4 workflows** — ci-rust-10 (4), heavy-bench-nightly, release-adapters, release-wheels. Parcialmente etiquetados `CATEGORY: BEST-EFFORT`. **Recomendación:** convertir en gates duros o split best-effort explícito y documentado (conflicto con política cero-tolerancia del repo). | `.github/workflows/ci-rust-10.yml`, `heavy-bench-nightly-51.yml`, `release-adapters-62.yml`, `release-wheels-60.yml` | 4-8h | 🟡 Media | 📝 Pendiente |
+| `REVIEW-04` | **MEDIO / Refactor: 3 god modules** — `src/node.rs` (1554→1882L, creció), `src/config.rs` (1313L), `src/storage/vfile.rs` (1165L). **Recomendación:** partir en submódulos (ej. separar UnifiedNode de FieldValue; config per-feature). | `src/node.rs`, `src/config.rs`, `src/storage/vfile.rs` | 1-2 semanas | 📆 Backlog | 📝 Pendiente |
+| `REVIEW-05` | **MEDIO / Frontend-Deps: residual npm de `web/`** — De 21 vulns (1 crítico next-auth) bajó a 6 (0 crítico); quedan trans consequent: postcss + sharp (vía next) + prismjs (vía react-syntax-highlighter). **Recomendación:** `npm audit fix` + revisión manual por breaking en las transmisoras. | `web/package.json`, `web/package-lock.json` | 1-2h | 🟡 Media | 📝 Pendiente |
+
+---
+
 ## Referencias Cruzadas
 
 - **RC items:** `docs/reviews/PROJECT_FULL_REVIEW_2026-07-13.md` (generado por `vantadb-full-review` skill)
