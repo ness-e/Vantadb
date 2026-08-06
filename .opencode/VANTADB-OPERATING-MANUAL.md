@@ -36,6 +36,7 @@ USUARIO
   ├─ /ship                → ship.md           → campaign-executor + certify
   ├─ /rollback            → rollback.md       → git revert + docs
   ├─ /status              → status.md         → git + plan files + progreso
+  ├─ /backlog             → backlog.md        → docs/Backlog.md + priorización
   ├─ /spec                → spec.md           → spec-driven-development
   ├─ /webperf             → webperf.md        → Playwright MCP
   └─ /code-simplify       → code-simplify.md  → ponytail-audit
@@ -45,7 +46,7 @@ USUARIO
 
 | Capa | Componentes | Rol |
 |------|-------------|-----|
-| **Entry** | 9 commands en `.opencode/commands/` | Detectan el intento del usuario, resuelven rutas, orquestan |
+| **Entry** | 10 commands en `.opencode/commands/` | Detectan el intento del usuario, resuelven rutas, orquestan |
 | **Pipeline** | `task-system/prompts/` (7 prompts) | Instrucciones detalladas para el agente por fase |
 | **Ejecución** | `campaign-executor` (SKILL + RULES + harness) | Loop externo, state machine, recitation |
 | **Skills** | 25 skills engineering + 7 skills VantaDB | Workflows especializados obligatorios |
@@ -139,6 +140,7 @@ Cada ejecución de `/audit` crea un plan file (`docs/plans/plan-audit-*.md`) con
 | `/ship` | `ship.md` | Fan-out GO/NO-GO con certify pre-push |
 | `/rollback` | `rollback.md` | Revierte un ship fallido |
 | `/status` | `status.md` | Dashboard del sistema (git, plan files, progreso) |
+| `/backlog` | `backlog.md` | Revisar backlog, listar tareas activas, recomendar prioridad |
 | `/spec` | `spec.md` | Spec-Driven Development — escribir spec antes de código |
 | `/webperf` | `webperf.md` | Web performance audit con Playwright |
 | `/code-simplify` | `code-simplify.md` | Simplifica código (ponytail-audit) |
@@ -846,6 +848,7 @@ Después de completar: skill progreso
     ship.md                          ← /ship
     rollback.md                      ← /rollback
     status.md                        ← /status
+    backlog.md                       ← /backlog
     spec.md                          ← /spec
     webperf.md                       ← /webperf
     code-simplify.md                 ← /code-simplify

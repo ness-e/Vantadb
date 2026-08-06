@@ -138,6 +138,7 @@ Si falta información de estado actual, solicítala antes de proponer cambios.
 - `/build` — implementar tareas (RED→GREEN→refactor) o `/build prove` para bugs
 - `/rollback` — revertir ship fallido
 - `/status` — dashboard de un vistazo
+- `/backlog` — revisar backlog, listar tareas activas, recomendar la de mayor prioridad
 
 ## 7. Task System Integration
 
