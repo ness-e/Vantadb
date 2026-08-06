@@ -87,7 +87,7 @@ if (-not (Test-Path $planFile)) {
 
 # ---- double PID detection ----
 $planContent = Get-Content $planFile -Raw
-$pidMatch = [regex]::Match($planContent, 'Harness PID:\s*(\d+)')
+$pidMatch = [regex]::Match($planContent, 'Harness PID:\*\*\s*(\d+)')
 if ($pidMatch.Success) {
   $existingPid = [int]$pidMatch.Groups[1].Value
   $existingProcess = Get-Process -Id $existingPid -ErrorAction SilentlyContinue
