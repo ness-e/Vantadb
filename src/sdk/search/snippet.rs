@@ -33,7 +33,10 @@ pub(crate) fn generate_snippet_with_highlighting(
     text_query: &str,
     with_highlighting: bool,
 ) -> Option<String> {
-    let query_plan = crate::text_index::query_plan(text_query);
+    // Snippets match against the raw payload string, so use the literal query
+    // plan (exact phrase adjacency per INV-009-B) rather than the index-aligned
+    // plan used by lexical_search.
+    let query_plan = crate::text_index::literal_query_plan(text_query);
     let first_token = query_plan.terms.iter().next()?;
 
     if payload.len() <= 120 {

@@ -309,14 +309,16 @@ pub(crate) fn query_plan_with_config(
     for ch in query.chars() {
         if ch == '"' {
             if in_quote {
-                // INV-009-B: quoted phrases are tokenized LITERALLY (whitespace
-                // split + lowercase, no stopword removal, no stemming) so phrase
-                // adjacency is preserved. Non-goal D-4: no tokenizer rewrite —
-                // this only skips the advanced tokenizer for phrase content.
-                let phrase: Vec<String> = quoted
-                    .split_whitespace()
-                    .map(|s| s.to_lowercase())
-                    .collect();
+                // Phrase tokens MUST be index-aligned: postings are built with
+                // the advanced tokenizer (stemming + stopword removal), so
+                // lexical_search can only find candidates when phrase tokens
+                // match posting keys. INV-009-B raw-text exactness is served by
+                // `literal_query_plan` (see `text_contains_query`/snippets).
+                let phrase = if let Some(cfg) = config {
+                    tokenize_advanced(&quoted, cfg)
+                } else {
+                    crate::tokenizer::tokenize_advanced_default(&quoted)
+                };
                 if !phrase.is_empty() {
                     terms.extend(phrase.iter().cloned());
                     phrases.push(phrase);
@@ -409,6 +411,61 @@ pub(crate) fn unique_tokens(text: &str) -> BTreeSet<String> {
     token_counts(text).into_keys().collect()
 }
 
+/// Build a query plan whose terms and phrases are tokenized LITERALLY
+/// (whitespace split + lowercase, no stopword removal, no stemming).
+///
+/// This is the raw-text view of a query: phrase adjacency is exact on the raw
+/// string, independent of how the index postings are keyed. Used by
+/// `text_contains_query` and snippet phrase-highlighting (INV-009-B). Index
+/// lookups must use `query_plan` instead, so tokens align with postings.
+pub(crate) fn literal_query_plan(query: &str) -> TextQueryPlan {
+    let mut terms = BTreeSet::new();
+    let mut phrases = Vec::new();
+    let mut outside = String::new();
+    let mut quoted = String::new();
+    let mut in_quote = false;
+
+    for ch in query.chars() {
+        if ch == '"' {
+            if in_quote {
+                let phrase: Vec<String> = quoted
+                    .split_whitespace()
+                    .map(|s| s.to_lowercase())
+                    .collect();
+                if !phrase.is_empty() {
+                    terms.extend(phrase.iter().cloned());
+                    phrases.push(phrase);
+                }
+                quoted.clear();
+                in_quote = false;
+            } else {
+                let outside_tokens: Vec<String> = outside
+                    .split_whitespace()
+                    .map(|s| s.to_lowercase())
+                    .collect();
+                terms.extend(outside_tokens);
+                outside.clear();
+                in_quote = true;
+            }
+        } else if in_quote {
+            quoted.push(ch);
+        } else {
+            outside.push(ch);
+        }
+    }
+
+    if in_quote {
+        outside.push_str(&quoted);
+    }
+    let outside_tokens: Vec<String> = outside
+        .split_whitespace()
+        .map(|s| s.to_lowercase())
+        .collect();
+    terms.extend(outside_tokens);
+
+    TextQueryPlan { terms, phrases }
+}
+
 /// Return whether a raw `text` string contains every phrase of `query`.
 ///
 /// Operates on the raw string: splits `text` into literal whitespace tokens
@@ -417,7 +474,7 @@ pub(crate) fn unique_tokens(text: &str) -> BTreeSet<String> {
 /// Used by the graph IQL `Condition::TextMatch` physical filter and by
 /// snippet phrase-highlighting. An empty `query` yields `true`.
 pub(crate) fn text_contains_query(text: &str, query: &str) -> bool {
-    let plan = query_plan(query);
+    let plan = literal_query_plan(query);
     if plan.phrases.is_empty() {
         if plan.terms.is_empty() {
             return true;
