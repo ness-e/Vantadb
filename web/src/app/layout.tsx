@@ -31,6 +31,7 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://github.com/ness-e/Vantadb"),
   title: "VantaDB — Embedded Rust Engine for Local-First Hybrid Retrieval",
   description:
     "VantaDB is a local-first, embedded Rust database engine for AI agents and local RAG. Persistent memory, crash-safe WAL recovery (CRC32C), and native hybrid search (BM25 + HNSW via RRF) — zero network, in-process, 1.2ms latency.",

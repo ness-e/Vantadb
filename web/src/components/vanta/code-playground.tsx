@@ -67,9 +67,13 @@ interface VantaDBHandle {
 }
 
 // wasm-pack --target no-modules registers a global lexical `wasm_bindgen`
-// (a classic script in the global scope, not a window property) carrying
-// `initSync(bytes)` and the exported classes (e.g. `VantaDB`). We reference
-// it by the bare identifier after the script has loaded.
+// (a classic <script> at top level, so it is a global-environment binding, NOT
+// a property of `globalThis`) carrying `initSync(bytes)` + the exposed classes.
+// The generated `public/vanta-wasm/vantadb_wasm.d.ts` already declares
+// `declare namespace wasm_bindgen` (types for the classes). We MERGE `initSync`
+// into that namespace rather than redeclaring a conflicting `var wasm_bindgen`
+// global (which trips TS "duplicate identifier", H03-WEB-001) — because
+// products const the bare identifier `wasm_bindgen` (resolves the lexical global).
 interface VantaWasmInit {
   initSync(input: BufferSource): void;
   VantaDB: new (config?: {
@@ -81,7 +85,21 @@ interface VantaWasmInit {
 }
 
 declare global {
-  var wasm_bindgen: VantaWasmInit | undefined;
+  // Merging into the generated `declare namespace wasm_bindgen` (runtime
+  // classic-script global) — the only legal way to extend it without a
+  // duplicate-identifier conflict (H03-WEB-001).
+  // regular: namespace merge is intentional (generated `wasm_bindgen` global)
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace wasm_bindgen {
+    function initSync(input: BufferSource): void;
+  }
+}
+
+// Returns the runtime `wasm_bindgen` handle. Reference it by the bare
+// identifier (resolves the classic-script global lexical), then cast to our
+// shape so the namespace-merged initSync is known.
+function getWasmRuntime(): VantaWasmInit | undefined {
+  return wasm_bindgen as unknown as VantaWasmInit | undefined;
 }
 
 let wasmReady = false;
@@ -120,7 +138,9 @@ function loadWasm(): Promise<void> {
     const res = await fetch(WASM_BINARY_URL);
     if (!res.ok) throw new Error(`WASM binary fetch failed: HTTP ${res.status}`);
     const bytes = await res.arrayBuffer();
-    wasm_bindgen!.initSync(bytes);
+    const runtime = getWasmRuntime();
+    if (!runtime) throw new Error("WASM global not registered by /vanta-wasm/vantadb_wasm.js");
+    runtime.initSync(bytes);
     wasmReady = true;
   })().catch((err: unknown) => {
     wasmLoadPromise = null; // allow retry on next run
@@ -355,7 +375,7 @@ export function CodePlayground() {
     setOutput(null);
     try {
       await loadWasm(); // no-modules script + initSync instantiates the wasm binary
-      const mod = wasm_bindgen!; // global carries the exposed classes after init
+      const mod = getWasmRuntime()!; // global carries the exposed classes after init
       const db = new mod.VantaDB({ storage_path: "playground_data" });
 
       // Capture console output produced by the snippet
