@@ -145,6 +145,7 @@ pub(crate) fn partition_from_cf_name(cf_name: &str) -> Result<BackendPartition> 
         "namespace_index" => Ok(BackendPartition::NamespaceIndex),
         "payload_index" => Ok(BackendPartition::PayloadIndex),
         "text_index" => Ok(BackendPartition::TextIndex),
+        "sparse_index" => Ok(BackendPartition::SparseIndex),
         "internal_metadata" => Ok(BackendPartition::InternalMetadata),
         other => Err(VantaError::InvalidInput(format!(
             "Unknown column family: '{}'",

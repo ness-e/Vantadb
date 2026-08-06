@@ -519,6 +519,28 @@ pub(crate) struct TextIndexMutationReport {
     pub(crate) namespace_stats_delta: i64,
 }
 
+/// Persisted state marker for the derived sparse-vector inverted index.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct SparseIndexState {
+    pub(crate) schema_version: u32,
+    pub(crate) rebuilt_at_ms: u64,
+    pub(crate) record_count: u64,
+    pub(crate) posting_entries: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SparseIndexRebuildReport {
+    pub(crate) record_count: u64,
+    pub(crate) posting_entries: u64,
+    pub(crate) duration_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct SparseIndexCounts {
+    pub(crate) record_count: u64,
+    pub(crate) posting_entries: u64,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct ExpectedTextIndexEntries {
     pub(crate) entries: BTreeMap<Vec<u8>, Vec<u8>>,

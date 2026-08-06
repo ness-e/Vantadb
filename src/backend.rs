@@ -42,6 +42,8 @@ pub enum BackendPartition {
     PayloadIndex,
     /// Derived inverted index for persistent memory payload tokens.
     TextIndex,
+    /// Derived inverted index for sparse vector term weights.
+    SparseIndex,
     /// Internal metadata used for derived-state health markers.
     InternalMetadata,
 }
@@ -59,6 +61,7 @@ impl BackendPartition {
             BackendPartition::NamespaceIndex => "namespace_index",
             BackendPartition::PayloadIndex => "payload_index",
             BackendPartition::TextIndex => "text_index",
+            BackendPartition::SparseIndex => "sparse_index",
             BackendPartition::InternalMetadata => "internal_metadata",
         }
     }

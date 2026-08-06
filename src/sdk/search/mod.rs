@@ -736,7 +736,8 @@ impl VantaEmbedded {
         let mut scores: BTreeMap<u128, f32> = BTreeMap::new();
         for (dim, query_weight) in query_sparse.0.iter() {
             let prefix = sparse_posting_prefix(namespace, *dim);
-            for entry in engine.scan_partition_prefix_iter(BackendPartition::SparseIndex, &prefix)?
+            for entry in
+                engine.scan_partition_prefix_iter(BackendPartition::SparseIndex, &prefix)?
             {
                 let (_posting_key, posting_value) = entry?;
                 let posting = decode_sparse_posting(&posting_value)?;
@@ -758,8 +759,7 @@ impl VantaEmbedded {
             for (node_id, score) in scores {
                 if let Some(node) = node_map.get(&node_id) {
                     if let Some(record) = memory_record_from_node(node) {
-                        if record.namespace == namespace
-                            && matches_memory_filters(&record, filters)
+                        if record.namespace == namespace && matches_memory_filters(&record, filters)
                         {
                             hits.push(VantaMemorySearchHit {
                                 record,

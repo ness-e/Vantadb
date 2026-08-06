@@ -315,6 +315,7 @@ impl VantaEmbedded {
         // incremental per-record index ops if batch-heavy workloads need it.
         self.rebuild_derived_indexes_with_report()?;
         self.rebuild_text_index_with_report()?;
+        self.rebuild_sparse_index_with_report()?;
 
         Ok(all_results)
     }
@@ -585,6 +586,7 @@ impl VantaEmbedded {
         let report = self.engine_handle()?.rebuild_vector_index()?;
         let derived = self.rebuild_derived_indexes_with_report()?;
         self.rebuild_text_index_with_report()?;
+        self.rebuild_sparse_index_with_report()?;
         let mut report: VantaIndexRebuildReport = report.into();
         report.derived_rebuild_ms = derived.duration_ms;
         Ok(report)

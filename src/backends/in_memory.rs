@@ -37,6 +37,7 @@ impl InMemoryBackend {
         map.insert(BackendPartition::NamespaceIndex, BTreeMap::new());
         map.insert(BackendPartition::PayloadIndex, BTreeMap::new());
         map.insert(BackendPartition::TextIndex, BTreeMap::new());
+        map.insert(BackendPartition::SparseIndex, BTreeMap::new());
         map.insert(BackendPartition::InternalMetadata, BTreeMap::new());
         Self {
             partitions: RwLock::new(map),

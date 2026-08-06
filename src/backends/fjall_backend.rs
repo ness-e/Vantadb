@@ -41,6 +41,7 @@ pub(crate) struct FjallBackend {
     namespace_index: Keyspace,
     payload_index: Keyspace,
     text_index: Keyspace,
+    sparse_index: Keyspace,
     internal_metadata: Keyspace,
 }
 
@@ -83,6 +84,10 @@ impl FjallBackend {
             .keyspace("text_index", KeyspaceCreateOptions::default)
             .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
 
+        let sparse_index = db
+            .keyspace("sparse_index", KeyspaceCreateOptions::default)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+
         let internal_metadata = db
             .keyspace("internal_metadata", KeyspaceCreateOptions::default)
             .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
@@ -98,6 +103,7 @@ impl FjallBackend {
             namespace_index,
             payload_index,
             text_index,
+            sparse_index,
             internal_metadata,
         })
     }
@@ -112,6 +118,7 @@ impl FjallBackend {
             BackendPartition::NamespaceIndex => &self.namespace_index,
             BackendPartition::PayloadIndex => &self.payload_index,
             BackendPartition::TextIndex => &self.text_index,
+            BackendPartition::SparseIndex => &self.sparse_index,
             BackendPartition::InternalMetadata => &self.internal_metadata,
         }
     }

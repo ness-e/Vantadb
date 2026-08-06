@@ -32,12 +32,15 @@ const EXPORT_SCHEMA_VERSION: u32 = 1;
 pub(crate) const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
 pub(crate) const DERIVED_INDEX_STATE_KEY: &[u8] = b"derived_index_state";
 pub(crate) const TEXT_INDEX_STATE_KEY: &[u8] = b"text_index_state";
+pub(crate) const SPARSE_INDEX_STATE_KEY: &[u8] = b"sparse_index_state";
+pub(crate) const SPARSE_INDEX_SCHEMA_VERSION: u32 = 1;
 
 pub(crate) mod conversions;
 pub mod graph_types;
 pub(crate) mod impl_export;
 pub(crate) mod impl_index;
 pub(crate) mod impl_rebuild;
+pub(crate) mod impl_sparse_index;
 pub(crate) mod impl_text_index;
 pub mod vector_types;
 

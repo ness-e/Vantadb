@@ -183,9 +183,7 @@ fn highlight_phrases(text: &str, phrases: &[Vec<String>], terms: &BTreeSet<Strin
         let t: Vec<String> = phrase.iter().map(|t| fold_str(t)).collect();
         let phrase_len = t.len();
         for i in 0..tokens.len() {
-            if i + phrase_len <= tokens.len()
-                && (0..phrase_len).all(|k| tokens[i + k].0 == t[k])
-            {
+            if i + phrase_len <= tokens.len() && (0..phrase_len).all(|k| tokens[i + k].0 == t[k]) {
                 spans.push((i, i + phrase_len));
                 break; // first occurrence only (INV-009 v1: first-match anchor)
             }
@@ -198,9 +196,7 @@ fn highlight_phrases(text: &str, phrases: &[Vec<String>], terms: &BTreeSet<Strin
                 let stf = fold_str(st);
                 if tokens[i].0 == stf {
                     // Skip standalone if inside an already-marked phrase span.
-                    let inside = spans
-                        .iter()
-                        .any(|(s, e)| i >= *s && i < *e);
+                    let inside = spans.iter().any(|(s, e)| i >= *s && i < *e);
                     if !inside {
                         spans.push((i, i + 1));
                     }

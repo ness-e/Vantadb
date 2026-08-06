@@ -112,11 +112,11 @@ impl StorageEngine {
 
         // A zero/unknown limit means "not configured" (e.g. hardware detection
         // unavailable, or under Miri where machine memory reports 0). Treat it as
-        // unlimited — otherwise `limit == 0` makes every insert look like 100%
-        // memory pressure and rejects all writes (AUDIT-03).
-        if limit == 0 {
-            return Ok(());
-        }
+        // unlimited for the RSS path — otherwise `limit == 0` makes every insert
+        // look like 100% memory pressure and rejects all writes (AUDIT-03). The
+        // MemoryGovernor check still runs: it uses its own independent watermarks
+        // and must not be disabled by a missing limit (H06-ARCH-002).
+        let above_rss_limit = limit != 0 && (effective as f64) > (limit as f64 * threshold);
 
         // PERF-10: Check MemoryGovernor watermarks
         let above_high_water = self
@@ -124,7 +124,7 @@ impl StorageEngine {
             .as_ref()
             .map(|g| g.should_evict())
             .unwrap_or(false);
-        if (effective as f64) > (limit as f64 * threshold) || above_high_water {
+        if above_rss_limit || above_high_water {
             let reason = if self
                 .memory_governor
                 .as_ref()

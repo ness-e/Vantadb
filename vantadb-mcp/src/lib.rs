@@ -719,8 +719,7 @@ pub fn handle_resources_read(
 /// text index schema/tokenizer version.
 fn build_schema_resource(storage: &Arc<StorageEngine>) -> Value {
     let index = storage.vec_index();
-    let hnsw_config = serde_json::to_value(index.config.clone())
-        .unwrap_or_else(|_| json!({}));
+    let hnsw_config = serde_json::to_value(index.config.clone()).unwrap_or_else(|_| json!({}));
     let text_spec = vantadb::TextIndexSpec::default();
     json!({
         "vector_index": {

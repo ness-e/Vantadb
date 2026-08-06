@@ -380,11 +380,19 @@ mod tests {
         // A brand-new pair (9,10) must NOT be learned once saturated.
         let before = warmer.metrics().total_pairs;
         warmer.record_co_access(&[9, 10]);
-        assert_eq!(warmer.metrics().total_pairs, before, "saturated warmer must not grow");
+        assert_eq!(
+            warmer.metrics().total_pairs,
+            before,
+            "saturated warmer must not grow"
+        );
 
         // Existing pairs still get refreshed (count bump, no new memory).
         warmer.record_co_access(&[1, 2]);
-        assert_eq!(warmer.metrics().total_pairs, before, "refresh must not grow table");
+        assert_eq!(
+            warmer.metrics().total_pairs,
+            before,
+            "refresh must not grow table"
+        );
     }
 
     #[test]

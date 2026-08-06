@@ -204,7 +204,11 @@ pub struct PhysicalTextFilter<'a> {
 impl<'a> PhysicalTextFilter<'a> {
     /// Create a new text filter operator wrapping a child operator.
     pub fn new(child: Box<dyn PhysicalOperator + 'a>, field: String, query: String) -> Self {
-        Self { child, field, query }
+        Self {
+            child,
+            field,
+            query,
+        }
     }
 }
 

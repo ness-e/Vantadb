@@ -184,6 +184,12 @@ mod tests {
             let _ = handle.join();
         }
 
+        // Drain any HNSW mutations still buffered in the pending batch before
+        // validating. Under load a `try_push_pending_hnsw` may have left ops
+        // queued (not yet applied); flushing here makes reachability check
+        // deterministic instead of timing-sensitive.
+        storage.flush_pending_hnsw().unwrap();
+
         let hnsw = storage.hnsw.load();
         assert!(hnsw.validate_index().is_ok());
 

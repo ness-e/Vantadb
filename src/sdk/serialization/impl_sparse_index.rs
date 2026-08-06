@@ -257,9 +257,7 @@ impl VantaEmbedded {
         Ok(counts)
     }
 
-    pub(crate) fn rebuild_sparse_index_with_report(
-        &self,
-    ) -> Result<SparseIndexRebuildReport> {
+    pub(crate) fn rebuild_sparse_index_with_report(&self) -> Result<SparseIndexRebuildReport> {
         let started = web_time::Instant::now();
         let engine = self.engine_handle()?;
 
@@ -311,13 +309,15 @@ impl VantaEmbedded {
         match (previous, current) {
             (None, Some(current)) => {
                 state.record_count = state.record_count.saturating_add(1);
-                state.posting_entries =
-                    state.posting_entries.saturating_add(sparse_posting_count(current));
+                state.posting_entries = state
+                    .posting_entries
+                    .saturating_add(sparse_posting_count(current));
             }
             (Some(previous), None) => {
                 state.record_count = state.record_count.saturating_sub(1);
-                state.posting_entries =
-                    state.posting_entries.saturating_sub(sparse_posting_count(previous));
+                state.posting_entries = state
+                    .posting_entries
+                    .saturating_sub(sparse_posting_count(previous));
             }
             (Some(previous), Some(current)) => {
                 state.posting_entries = state

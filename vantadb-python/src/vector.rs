@@ -76,11 +76,7 @@ impl VantaVector {
         // Owned little-endian f32 bytes (host-order is irrelevant; to_le_bytes
         // always emits "<f4" layout). NumPy copies this buffer, so the array
         // never aliases self.data.
-        let le_bytes: Vec<u8> = self
-            .data
-            .iter()
-            .flat_map(|f| f.to_le_bytes())
-            .collect();
+        let le_bytes: Vec<u8> = self.data.iter().flat_map(|f| f.to_le_bytes()).collect();
         dict.set_item("data", PyBytes::new(py, &le_bytes))?;
         dict.set_item("version", 3)?;
         Ok(dict.unbind().into())
