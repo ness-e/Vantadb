@@ -1364,14 +1364,9 @@ impl VantaDB {
                 .enumerate()
                 .try_for_each(|(index, request)| {
                     let hits = engine.search(request).map_err(map_vanta_error)?;
-                    results_ref
-                        .lock()
-                        .map_err(|_| {
-                            PyRuntimeError::new_err(
-                                "search_batch_requests: result mutex poisoned",
-                            )
-                        })?
-                        [index] = hits
+                    results_ref.lock().map_err(|_| {
+                        PyRuntimeError::new_err("search_batch_requests: result mutex poisoned")
+                    })?[index] = hits
                         .into_iter()
                         .map(|hit| VantaPySearchHit {
                             inner: hit.record,
@@ -1381,9 +1376,9 @@ impl VantaDB {
                     Ok(())
                 })
         })?;
-        results.into_inner().map_err(|_| {
-            PyRuntimeError::new_err("search_batch_requests: result mutex poisoned")
-        })
+        results
+            .into_inner()
+            .map_err(|_| PyRuntimeError::new_err("search_batch_requests: result mutex poisoned"))
     }
 
     /// Execute an IQL or LISP query string. Returns a formatted result string.

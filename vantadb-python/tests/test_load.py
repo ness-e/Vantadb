@@ -103,6 +103,7 @@ class TestConcurrentOperations:
 class TestLargeBatchOperations:
     """Large dataset insert and search stress tests."""
 
+    @pytest.mark.slow
     def test_large_batch_insert_3k(self):
         """Insert 3000 vectors and verify search still works."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=512 * 1024 * 1024)
@@ -113,6 +114,7 @@ class TestLargeBatchOperations:
         results = db.search(vector=[0.5] * 64, top_k=10)
         assert len(results) == 10
 
+    @pytest.mark.slow
     def test_large_batch_insert_5k(self):
         """Insert 5000 vectors (larger scale)."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=1024 * 1024 * 1024)
@@ -163,6 +165,7 @@ class TestMemoryPressure:
 class TestSustainedThroughput:
     """Throughput and endurance tests."""
 
+    @pytest.mark.slow
     def test_sustained_inserts(self):
         """Sustained inserts over many iterations."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
@@ -179,6 +182,7 @@ class TestSustainedThroughput:
         results = db.search(vector=[0.5] * 64, top_k=10)
         assert len(results) == 10
 
+    @pytest.mark.slow
     def test_sustained_search(self):
         """Sustained search throughput."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)

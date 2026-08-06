@@ -41,3 +41,13 @@ include = [
     "vantadb_py/py.typed",
     "vantadb_py/*.pyi",
 ]
+
+# pytest — FX-3 (test_load.py hang): the bulk-load/sustained-throughput tests are
+# legitimate dozens-of-seconds stress tests (3k/5k inserts). They must NOT run in
+# the default unit gate (they made `pytest` appear hung for >300s with no output).
+# Default run excludes `slow`; run explicitly with `pytest -m slow`.
+[tool.pytest.ini_options]
+markers = [
+    "slow: long-running load/stress tests (bulk inserts, sustained throughput). Excluded from the default unit run; use `pytest -m slow`.",
+]
+addopts = "-m 'not slow'"

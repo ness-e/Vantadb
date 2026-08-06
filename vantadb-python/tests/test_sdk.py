@@ -486,6 +486,9 @@ class TestNumPyIntegration:
     def test_put_batch_parallel(self):
         """put_batch should insert multiple records in parallel and return them in order."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        # ponytail: mixed per-row namespaces (ns1/ns2) are only expressible via
+        # the legacy tuple API (keyword form takes a single `namespace` column);
+        # this test keeps exercising that supported backward-compat path.
         entries = [
             ("ns1", "a", "alpha", None, None),
             ("ns1", "b", "beta", {"type": "greek"}, None),
@@ -519,9 +522,13 @@ class TestNumPyIntegration:
         import numpy as np
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         vec = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-        records = db.put_batch([
-            ("ns", "x", "numpy entry", None, vec),
-        ])
+        records = db.put_batch(
+            entries=None,
+            keys=["x"],
+            payloads=["numpy entry"],
+            vectors=[vec],
+            namespace="ns",
+        )
         assert len(records) == 1, f"expected 1 record, got {len(records)}"
         assert records[0]["key"] == "x", f"expected key 'x', got {records[0]['key']}"
 

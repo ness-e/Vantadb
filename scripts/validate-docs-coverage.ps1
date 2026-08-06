@@ -150,7 +150,8 @@ if (Test-Path $pyLib) {
     'import_report_to_pydict','text_index_repair_report_to_pydict',
     'text_index_audit_report_to_pydict','operational_metrics_to_pydict',
     'py_dict_to_metadata','search_batch','__repr__',
-    'try_enter','drain','drop'
+    'try_enter','drain','drop',
+    'request_field','parse_search_request'
   )
   $pyAll = Select-String -Path $pyLib -Pattern '^\s{4}fn (\w+)' |
     ForEach-Object { $_.Matches[0].Groups[1].Value } |

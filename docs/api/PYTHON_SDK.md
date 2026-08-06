@@ -284,6 +284,28 @@ for i, hits in enumerate(results):
     print(f"Query {i}: {len(hits)} hits")
 ```
 
+#### `search_batch_requests()`
+```python
+db.search_batch_requests(
+    requests: List[Union[Dict[str, Any], "SearchRequest"]],
+    top_k: int = 10,
+) -> List[List[SearchHit]]
+```
+Batch hybrid search over multiple request objects. Each element may be a
+`dict` or a typed `SearchRequest` dataclass, and supports the fields
+`namespace`, `query_vector`, `text_query`, `filters`, `distance_metric`, and
+`top_k`. Requests are validated eagerly (raises `ValueError` on the first
+invalid element), then executed in parallel via Rayon with the GIL released.
+Returns one `[SearchHit]` list per request, in input order.
+
+```python
+requests = [
+    {"namespace": "ns", "query_vector": [0.1] * 384},
+    {"namespace": "ns", "text_query": "rust", "top_k": 5},
+]
+all_hits = db.search_batch_requests(requests)
+```
+
 #### `add_edge()`
 ```python
 db.add_edge(
