@@ -1041,6 +1041,73 @@ server.tool(
 
 // ---------- Tool 16: campaign_enforce_state ----------
 
+// [SPEC -> RUNTIME] C0 enforcement extras (vantadb-lead 2026-08-05, recommendation A).
+// Wired single-call checks: blocked_env, allowed_commands (VERIFY), write-operation classifier.
+// max_edit_lines / max_files_per_state / read-dedup / context-budget remain [SPEC] (need per-session accumulators).
+const BLOCKED_ENV_DEFAULT = ["API_KEY", "TOKEN", "SECRET", "PASSWORD", "REGISTRY_TOKEN", "AUTH"]
+const VERIFY_COMMANDS = [
+  "cargo", "just verify", "just check", "just ci", "pytest", "npm test",
+  "node --check", "git diff", "git status", "git log", "rg", "grep",
+  "Get-ChildItem", "Test-Path", "dev-tools/verify",
+]
+const C0_CHECK_CONFIG = {
+  PLAN: { blocked_env: BLOCKED_ENV_DEFAULT },
+  ACT: { blocked_env: BLOCKED_ENV_DEFAULT },
+  VERIFY: { blocked_env: BLOCKED_ENV_DEFAULT, allowed_commands: VERIFY_COMMANDS },
+  COLLATERAL: { blocked_env: BLOCKED_ENV_DEFAULT },
+  RESEARCH: { blocked_env: BLOCKED_ENV_DEFAULT },
+  EVALUATE: { blocked_env: BLOCKED_ENV_DEFAULT },
+  REVIEW: { blocked_env: BLOCKED_ENV_DEFAULT },
+  ACCEPT: { blocked_env: BLOCKED_ENV_DEFAULT },
+  CLOSE: { blocked_env: BLOCKED_ENV_DEFAULT },
+  STALL: { blocked_env: BLOCKED_ENV_DEFAULT },
+}
+
+// Scan for $VAR / ${VAR} / $VARIABLE references matching blocked prefixes.
+function checkBlockedEnv(cmd, prefixes) {
+  if (!prefixes || !cmd) return null
+  for (const pre of prefixes) {
+    if (new RegExp(`\\$\\{?${pre}[A-Z_]*}?`).test(cmd)) {
+      return `Command blocked: references environment variable matching '${pre}'.`
+    }
+  }
+  return null
+}
+
+function checkAllowedCommands(cmd, prefixes) {
+  if (!prefixes || !cmd) return null
+  const c = cmd.trim()
+  for (const p of prefixes) { if (c.startsWith(p)) return null }
+  return `Command rejected: '${c.slice(0, 60)}' is not in the allowed commands for this state. Allowed prefixes: ${prefixes.join(", ")}`
+}
+
+// Write/destructive operations that bypass Edit/Write denial via Bash redirects.
+const WRITE_OPS = [
+  { re: /(\s|^)(tee|cp|mv|dd)\s/, cls: "FileWrite" },
+  { re: /(\s|^)(sed\s+-i|awk\s+-i\s+inplace|perl\s+-pi|patch)\s/, cls: "FileModify" },
+  { re: /(^|\s|2|1)>>?\s*\S/, cls: "FileWrite" },
+  { re: /(\s|^)(rm|rmdir|shred|truncate)\s/, cls: "Destructive" },
+  { re: /git\s+clean/, cls: "Destructive" },
+]
+
+function stateAllowsWrites(stateKey) {
+  const a = getAllowedTools(stateKey).allowed || []
+  return a.some(p => p === "edit" || p === "write" || p.startsWith("edit") || p.startsWith("write"))
+}
+
+function classifyBashWrite(cmd, stateKey) {
+  if (!cmd || stateAllowsWrites(stateKey)) return null
+  for (const seg of cmd.split(/&&|;|\||\r?\n/)) {
+    for (const op of WRITE_OPS) {
+      if (op.re.test(seg)) {
+        const allow = getAllowedTools(stateKey).allowed.join(", ")
+        return `Bash command blocked in state '${stateKey}': segment '${seg.trim().slice(0, 50)}' performs a ${op.cls} operation which requires Write/Edit in allowed_tools. Allowed: ${allow}`
+      }
+    }
+  }
+  return null
+}
+
 server.tool(
   "campaign_enforce_state",
   {
@@ -1052,6 +1119,7 @@ server.tool(
     const stateKey = state.toUpperCase()
     const allowed = getAllowedTools(stateKey)
     const actionCheck = validateAction(stateKey, toolName)
+    const checkConfig = C0_CHECK_CONFIG[stateKey] || {}
 
     const warnings = []
     const blocks = []
@@ -1061,9 +1129,20 @@ server.tool(
     }
 
     if (toolArgs.command && toolName.toLowerCase() === "bash") {
+      const envBlock = checkBlockedEnv(toolArgs.command, checkConfig.blocked_env)
+      if (envBlock) blocks.push(envBlock)
+
       const val = validateShellCommand(toolArgs.command)
       if (!val.valid) blocks.push(...val.errors)
       warnings.push(...val.warnings)
+
+      if (checkConfig.allowed_commands) {
+        const ac = checkAllowedCommands(toolArgs.command, checkConfig.allowed_commands)
+        if (ac) blocks.push(ac)
+      } else {
+        const cls = classifyBashWrite(toolArgs.command, stateKey)
+        if (cls) blocks.push(cls)
+      }
     }
 
     if (toolArgs.filePath && toolName.toLowerCase().match(/edit|write/)) {
@@ -1079,6 +1158,7 @@ server.tool(
         blocks,
         warnings,
         allowedTools: allowed,
+        checkConfig,
         actionCheck,
       }, null, 2) }],
     }
@@ -1218,6 +1298,92 @@ server.tool(
       const err = e.stderr || ""
       traceEmit(campaignId, "campaign.failed", { planFile: planPath, error: e.message }, PROJECT_ROOT)
       return { content: [{ type: "text", text: JSON.stringify({ started: false, completed: false, error: e.message, campaignId, stdout: out.slice(0, 500), stderr: err.slice(0, 500) }) }] }
+    }
+  },
+)
+
+// ---------- Tool 19: campaign_state_snapshot ----------
+
+server.tool(
+  "campaign_state_snapshot",
+  {
+    state: z.string().describe("Current C0 state (PLAN/ACT/VERIFY/etc.)"),
+    planFile: z.string().optional().describe("Path to plan file"),
+    taskId: z.string().optional().describe("Current task ID"),
+    notes: z.string().optional().describe("Free-form state notes"),
+  },
+  async ({ state, planFile, taskId, notes }) => {
+    const file = join(PROJECT_ROOT, "docs", "pipeline-state.json")
+    let prev = {}
+    try { prev = JSON.parse(readFileSync(file, "utf-8")) } catch {}
+
+    const snap = {
+      ...prev,
+      lastSync: new Date().toISOString(),
+      state: (state || prev.state || "").toUpperCase(),
+      planFile: planFile || prev.planFile,
+      taskId: taskId || prev.taskId,
+      ...(notes !== undefined ? { notes } : {}),
+    }
+
+    try { writeFileSync(file, JSON.stringify(snap, null, 2), "utf-8") } catch (e) {
+      return { content: [{ type: "text", text: JSON.stringify({ saved: false, error: e.message }) }] }
+    }
+
+    return { content: [{ type: "text", text: JSON.stringify({ saved: true, file, snapshot: snap }, null, 2) }] }
+  },
+)
+
+// ---------- Tool 20: campaign_backlog_dedup ----------
+
+server.tool(
+  "campaign_backlog_dedup",
+  {
+    backlogPath: z.string().optional().default("docs/Backlog.md").describe("Path to backlog file"),
+  },
+  async ({ backlogPath }) => {
+    const file = resolve(PROJECT_ROOT, backlogPath)
+    if (!existsSync(file)) return { content: [{ type: "text", text: JSON.stringify({ error: `Backlog not found: ${file}` }) }] }
+
+    const text = readFileSync(file, "utf-8")
+    const rows = text.split("\n")
+    const taskRows = []   // actual task rows: `ID` in first table cell
+
+    for (const line of rows) {
+      // task row: | `ID` | ... | (backticked ID in first cell)
+      const taskMatch = line.match(/^\|\s*`([A-Z0-9]+-\d+)`\s*\|/)
+      if (taskMatch) taskRows.push(taskMatch[1])
+    }
+
+    const dupRows = [...new Set(taskRows.filter((id, i) => taskRows.indexOf(id) !== i))]
+
+    // Near-dupes: same normalized number AND similar prefix (Levenshtein <= 2).
+    // Catches NUEVA-01 vs NUEVO-01; ignores DESKTOP-01 vs AUDIT-01 (different prefix).
+    const lev = (a, b) => {
+      const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)])
+      for (let j = 0; j <= b.length; j++) dp[0][j] = j
+      for (let i = 1; i <= a.length; i++)
+        for (let j = 1; j <= b.length; j++)
+          dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+      return dp[a.length][b.length]
+    }
+    const normNum = id => String(parseInt(id.match(/(\d+)$/)?.[1] || "0", 10))
+    const prefix = id => id.replace(/-?\d+$/, "")
+    const nearDupes = {}
+    for (const id of taskRows) {
+      const hits = taskRows.filter(x => x !== id && normNum(x) === normNum(id) && lev(prefix(x), prefix(id)) <= 2)
+      if (hits.length) nearDupes[id] = hits
+    }
+
+    return {
+      content: [{ type: "text", text: JSON.stringify({
+        file,
+        totalTaskRows: taskRows.length,
+        distinctTaskRows: new Set(taskRows).size,
+        duplicateTaskRows: dupRows,
+        nearDuplicateIds: nearDupes,
+        readOnly: true,
+      }, null, 2) }],
     }
   },
 )
