@@ -92,7 +92,7 @@ Donde NO compite:
 - Escala masiva (10M+ vectores): requires HNSW persistence work-in-progress (ver ROADMAP.md R7)
 
 > **Deep-dive competidor:** ver `docs/Investigaciones/INV-019-pinecone-architecture-competitor.md` para el análisis arquitectónico completo de Pinecone (Slabs/LSM, FJLT/Ananas, IVF→PQFS, límites de 40KB metadatos y "impuesto RAM").
-
+>
 > **Competidor indirecto — pgvector (Postgres/cloud):** filtrado SQL nativo, sin lógica híbrida nativa (BM25+HNSW fuera del box), y requiere servidor PostgreSQL (no embebido). Relevante para RAG builders que ya tienen Postgres, pero cae fuera del cuadrante local-first/embedded de VantaDB. No listado como competidor directo en la tabla comparativa porque no cabe en el harness local del benchmark.
 
 ---

@@ -11,7 +11,7 @@ aliases: []
 > **Última actualización:** 2026-08-02
 > **Versión release:** [`docs/CHANGELOG.md`](../CHANGELOG.md) — changelog formal por versión
 > **Activar backlog:** [`docs/Backlog.md`](../Backlog.md) — tareas priorizadas
-
+>
 > **Método de auditoría de links (AUD-007/GH-123, 2026-08-05):** los links rotos se escanean con la regex `` [regex]'\]\(([^)]+)\)' `` excluyendo `http/https/#/mailto`, resolviendo el path relativo contra el directorio del doc y verificando `Test-Path`. Wiki-links Obsidian `[[..]]` y títulos de commits con paréntesis (`](fix: ...`) son falsos positivos del scan — no son links reales. No se usa un sweep externo (reutiliza el método documentado, no re-inventa).
 
 ## Resumen Ejecutivo
@@ -312,6 +312,21 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 - **AUD-009:** nota Vite→Next.js corregida en DESKTOP-01b; resto de menciones Vite correctas (desktop Tauri) no tocadas — `65125e35`. *(plan Task 33 ✅)*
 
 **Ids:** `TECH-03`, `TECH-06`, `TECH-07`, `TECH-08`, `AUDIT-05`, `AUDIT-08`, `AUD-002`, `AUD-003`, `AUD-007`, `AUD-009`
+
+### 2026-08-05 — Sync Docs/Auditoría/Community/Webhook + Marketing (7 tareas) ✅
+
+**Fuente:** Backlog (Phase 5/6/8/11) + plan `docs/plans/2026-08-05-backlog-validation-actions.md` (Tasks 29/30/32/34/51/52/53)
+
+**Resueltas:**
+- **AUD-005:** único drift real = openapi.yaml 0.4.0→0.5.0 (MCP.md=0.5.0 correcto, HTTP_API.md 0.0.4 coincide con `cli_server.rs:368`); gate CI de versión contra workspace. *(plan Task 29 ✅)*
+- **AUD-006:** 5 tools MCP reales faltantes documentadas (`query_lisp`→`query_iql`, `collection_stats`, `collection_list`, `collection_delete`, `rehydrate`) — 15/15 con nombre real + gate de paridad tool↔doc. *(plan Task 30 ✅)*
+- **AUD-008:** STORAGE_VERSIONING.md corregido a constantes reales (VECTOR_INDEX_VERSION=8, VFILE_VERSION=2, WAL postcard), importadas del código; contradicción interna bincode/postcard resuelta. *(plan Task 32 ✅)*
+- **GH-123:** claim "167+ archivos" desmentido (341 .md en docs/); ~4 links rotos reales corregidos + método de auditoría documentado (wiki-links `[[..]]` = falsos positivos). Issue #123 cerrado con evidencia del inventario. *(plan Task 34 ✅)*
+- **GH-141:** webhook GitHub→Discord documentado en `docs/discord/server-config.md` (4 tipos de evento: push, pull_request, issues, release → #announcements) + procedimiento para añadir eventos. Issue #141 cerrado. *(plan Task 51 ✅)*
+- **MKT-16:** metodología benchmark GraphRAG publicada con números reales de un run reproducible (prohibido inventar cifras; ejemplo `examples/rust/graphrag.rs` citado). *(plan Task 52 ✅)*
+- **MKT-10:** "AI Agent Memory" campaign rescatada con DoD de deliverables medibles (landing "agent memory" + 1 blog benchmark vs full-context + demo); contenido base tutorial 01-ai-agent-memory + 3 blogs; cubierta por INV-006/BLOG_SERIES_PLAN. *(plan Task 53 ✅)*
+
+**Ids:** `AUD-005`, `AUD-006`, `AUD-008`, `GH-123`, `GH-141`, `MKT-16`, `MKT-10`
 
 ### 2026-08-05 — Sincronización release blockers Fase 2 (6 tareas) ✅
 

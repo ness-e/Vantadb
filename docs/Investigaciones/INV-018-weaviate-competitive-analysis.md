@@ -1,4 +1,5 @@
 ---
+title: "INV-018 — Weaviate: Análisis Competitivo de Arquitectura de Almacenamiento y Recuperación"
 tipo: investigacion
 id: INV-018
 titulo: "Weaviate — Análisis Competitivo de Arquitectura de Almacenamiento y Recuperación"

@@ -278,7 +278,7 @@
 - **Acción:** extraer firmas reales de las 5; documentar en MCP.md; gate de paridad tool↔doc.
 - **Contrato:** 15/15 tools documentadas con nombre real; gate verifica paridad.
 - **Dependencias:** Task 13 (destino de query_lisp).
- - **Estado:** ✅ COMPLETED
+- **Estado:** ✅ COMPLETED
 
 ### Task 31: AUD-007 — Corregir drift ARCHITECTURE.md
 - **Archivos clave:** `docs/architecture/ARCHITECTURE.md:296-298,327`, `src/index/graph.rs:255-260,318`, `src/wal_sharded.rs:9`
@@ -292,7 +292,7 @@
 - **Gate Justificación:** doc dice 7/1/bincode; real 8/2/postcard. Relevante para migraciones de datos (versión de formato mal documentada).
 - **Acción:** corregir constantes; importar constantes del código en vez de hardcodear; resolver contradicción interna (nota WEB-04 dice postcard, §2.4/§4.2 dicen bincode).
 - **Contrato:** doc = constantes reales; valores importados del código.
- - **Estado:** ✅ COMPLETED
+- **Estado:** ✅ COMPLETED
 
 ### Task 33: AUD-009 — Corregir notas Vite→Next.js
 - **Archivos clave:** `docs/Investigaciones/DESKTOP-01b...:1090`, `web/package.json` (next ^16.1.1), `web/next.config.ts`
