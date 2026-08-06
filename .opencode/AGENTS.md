@@ -838,7 +838,7 @@ Actúa como un linter de documentación viva:
 | Disparador | Acción obligatoria |
 |---|---|
 | Modifica `struct pub`, `fn pub`, endpoint HTTP, binding PyO3/WASM | Recordar actualizar el `.md` correspondiente en `docs/api/` en el **mismo PR** |
-| Crea documentación nueva | No colocarla en `docs/audit-reports/`, `docs/archive/`, `docs/research/`, `docs/reviews/` |
+| Crea documentación nueva (guías, API, arquitectura) | No colocarla en `docs/archive/`, `docs/research/`. Los reportes generados por el pipeline (`/audit`, `/review`, `unified-review`) SÍ van a `docs/audit-reports/` y `docs/reviews/` y se registran en `docs/reports/INDEX.md` — esas carpetas son para reportes de auditoría/review, no para documentación ad-hoc |
 | Crea un plan temporal | Guardar en `docs/plans/` **y** recordar eliminarlo al completar la tarea |
 | Escribe documentación en español siendo técnica | Redirigir a inglés. Español solo para `docs/Backlog.md`, `docs/progreso/`, `docs/Investigaciones/` |
 

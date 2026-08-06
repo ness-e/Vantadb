@@ -15,7 +15,7 @@ Las skills base (campaign-executor, progreso, ponytail) se cargan automáticamen
    - Lista de skills a cargar
    - Comandos de verificación
 3. Cargá CADA skill devuelta con `skill <nombre>` (no te saltees ninguna)
-4. Llamá `campaign_get_workflow` (MCP) con el tipo detectado para cargar el workflow JSON (bug-fix/feature-add/refactor/research/nine-second-saloon). El workflow define estados, allowed_tools y transiciones específicas.
+4. Llamá `campaign_get_workflow` (MCP) con el tipo detectado para cargar el workflow JSON (bug-fix/feature-add/refactor/research/nine-second-saloon). El workflow define el template de fases (estados, instrucciones y transiciones por tipo de tarea) **como guía para el agente (classification-output)** — estos estados NO pasan por `campaign_enforce_state`. El enforcement de herramientas en runtime usa SIEMPRE la state machine genérica C0 (`STATE_TOOLS` en `config/state-tools.mjs`: PLAN/ACT/VERIFY/COLLATERAL/RESEARCH/EVALUATE/REVIEW/ACCEPT/CLOSE/STALL). No confundir los dos conjuntos de estados.
 5. Si es bug → cargá `systematic-debugging` además
 6. Si es lógica nueva/compleja → cargá `test-driven-development` además
 7. Si es security-sensitive → cargá `doubt-driven-development` además

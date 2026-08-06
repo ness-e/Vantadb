@@ -129,7 +129,7 @@ estancadas.
       Wave 1: tareas que dependen de Wave 0
       Wave 2: tareas que dependen de Wave 1
       ```
-   c. MAX_CONCURRENT = min(4, tareas_en_wave)
+   c. MAX_CONCURRENT = min(3, tareas_en_wave)  # 3 por RAM en Windows (mismo límite que iter-loop-tools.md)
    d. Por cada wave: spawn N sub-agentes en paralelo (task tool), esperá que
       todos terminen, procesá resultados individuales (mismo que paso 6.f/6.g)
    e. Si una tarea falla en parallel → las demás de la wave terminan, waves
@@ -145,7 +145,7 @@ estancadas.
 REGLAS:
 - FAIL_MODE=stop: primera falla → detener
 - FAIL_MODE=skip: fallas registradas, sigue. Si 3 consecutivas → pasa a stop forzoso
-- FAIL_MODE=parallel: waves con MAX_CONCURRENT=4, DAG de dependencias
+- FAIL_MODE=parallel: waves con MAX_CONCURRENT=3, DAG de dependencias
 - Budget: máximo 20 sub-agentes totales, 3 consecutive fails → stall
 - Cada sub-agente: máximo 8 tool calls internas — si no responde en ~2 min, killed
 - Si 3 sub-agentes consecutivos fallan (aún con retry) → pausar y preguntar al usuario

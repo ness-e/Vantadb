@@ -121,7 +121,7 @@ Task ID: {id extraído después de "task "}
       - Actualizar el plan file si existe
       - Validar doc coverage con `scripts/validate-docs-coverage.ps1`
       - Registrar en `campaign_memory_write` si aplica
-   7. **Auto-commit**: creá commit con conventional commit + task ID (sin preguntar)
+   7. **Auto-commit**: validá el contrato mecánicamente PRIMERO (`campaign_verify_cmd` con el comando del task file); solo si pasa, creá commit con conventional commit + task ID (sin preguntar). Sin verify mecánico no se commitea — nunca saltar el gate.
    - Para comandos multi-tarea (ej: `/pipeline run` con FAIL_MODE=parallel): múltiples sub-agentes en paralelo
 4. Si el usuario quiere ejecutar AHORA sin esperar task file → cargá `prompts/pipeline-full.md` y delegá al sub-agente según el routing de (3)
 
@@ -160,7 +160,7 @@ Por defecto, el pipeline se detiene al primer error. Se puede modificar:
 2. Agrupalas en waves según el grafo de dependencias
 3. Wave 0: tareas sin dependencias → N sub-agentes paralelos
 4. Wave 1: tareas que dependen de Wave 0 → N sub-agentes
-5. MAX_CONCURRENT = min(4, tareas_en_wave)
+5. MAX_CONCURRENT = min(3, tareas_en_wave)   # límite por RAM en Windows
 6. Cada tarea paralela es su propio sub-agente (contexto fresco)
 7. Si una tarea de una wave falla, las tareas dependientes en waves posteriores quedan BLOQUEADAS
 

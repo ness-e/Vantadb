@@ -318,6 +318,7 @@ fan-out candidates (each runs in its own sub-agent when `parallel: true`).
 | L9 | Code Review (cognitive) | no | yes (mode=review/full) | `general` (or `vanta-audit` in VantaDB) | Multi-axis review via `code-review-and-quality` and related skills. May veto. |
 | L10 | Findings Consolidation | no | no (orchestrator) | — | Aggregate, dedupe, detect cross-cutting patterns |
 | L11 | Final Report | no | no (orchestrator) | — | Write `docs/reviews/review-<mode>-<timestamp>.md` |
+| L11b | Backlog Sync | no | no (orchestrator) | — | Register report in `docs/reports/INDEX.md`; derive findings ≥ medium into `docs/Backlog.md` |
 
 Each phase has a `detect` field in its profile entry. A phase is **skipped
 silently** when its `detect` conditions don't match (e.g. L3 Web Frontend
@@ -621,7 +622,8 @@ report:
 ### Markdown template
 
 Written to `docs/reviews/review-<mode>-<timestamp>.md` where timestamp is
-`YYYY-MM-DD-HHMM` in the project's local timezone.
+`YYYYMMDD-HHMMSS` in the project's local timezone (zero-padded, no `t`, no
+`Z` suffix — keeps filenames chronologically sortable).
 
 ```markdown
 # Unified Review — <mode> — <YYYY-MM-DD>
@@ -832,6 +834,43 @@ syntaxes the orchestrator fills at L11:
 
 ---
 
+## Backlog Sync (Phase L11b)
+
+Runs synchronously in the orchestrator after L11 writes the report. Its job is
+to make every report **traceable** — reports must never be orphaned artifacts.
+Two outputs:
+
+### 1. Register in `docs/reports/INDEX.md`
+
+Append one row to the master report registry (create the file if missing):
+
+```
+| <YYYYMMDD-HHMMSS> | <mode> | `docs/reviews/review-<mode>-<YYYYMMDD>-<HHMMSS>.md` | ✅/❌ | C/H/M/L/I | vigente | <summary one-liner> |
+```
+
+Column: fecha | modo | archivo | QG pass/fail | findings counts | estado | resumen.
+If an older report for the same mode is superseded by this new run, flip its
+status from `vigente` to `superado` in the same edit.
+
+### 2. Derive findings into `docs/Backlog.md`
+
+For every finding with severity **medium or higher** that is still open:
+
+- Add a row to `docs/Backlog.md` under the `## Hallazgos pendientes de reportes`
+  section (create it if missing), one row per finding, prefixing the ID with the
+  report mode so it's traceable: `REVIEW-NN` (from `review-*`) or `AUD-NN`
+  (from `audit-*`). Include `file:line`, severity, and the recommendation.
+- Add a line at the bottom of the report: `Backlog sync: created REVIEW-03, REVIEW-04`.
+
+If the finding is already tracked (same file:line + same description already in
+Backlog.md), do **not** duplicate it — append a `✔ ya se sigue en <ID>` note to
+the report instead.
+
+**Lazy gate:** if mode is `quick` or there are no findings ≥ medium, the
+backlog derivation is skipped but the INDEX.md registration always runs.
+
+---
+
 ## Ponytail Integration
 
 Ponytail is a separate skill/plugin that injects a "lazy senior dev" ruleset
@@ -1002,6 +1041,7 @@ needs `permission.task` to allow them:
 ## Files this skill writes
 
 - `docs/reviews/review-<mode>-<timestamp>.md` — main report (always)
+- `docs/reports/INDEX.md` — master report registry (L11b, always)
 - `docs/plans/plan-review-<timestamp>.md` — plan file (if Campaign enabled)
 - `docs/reviews/logs/<phase>-<timestamp>.log` — per-phase raw logs (only if `orchestration.keep_raw_logs: true`)
 

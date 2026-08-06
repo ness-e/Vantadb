@@ -138,7 +138,7 @@ Cada finding debe incluir referencia `archivo:línea` y recomendación de fix.
 
 ## Output
 
-Al finalizar: escribí `docs/audit-reports/audit-<mode>-<timestamp>.md` **y** `docs/last-audit-state.json` con:
+Al finalizar: escribí `docs/audit-reports/audit-<mode>-<YYYYMMDD>-<HHMMSS>.md` **y** `docs/last-audit-state.json` con:
 
 ```json
 {
@@ -146,9 +146,18 @@ Al finalizar: escribí `docs/audit-reports/audit-<mode>-<timestamp>.md` **y** `d
   "mode": "full|quick|certify|review",
   "veredicto": "PASS|FAIL",
   "findings_critical": 0,
-  "report_file": "docs/audit-reports/audit-<mode>-<timestamp>.md"
+  "report_file": "docs/audit-reports/audit-<mode>-<YYYYMMDD>-<HHMMSS>.md"
 }
 ```
+
+**Naming estándar** (igual que unified-review): `<mode>-YYYYMMDD-HHMMSS`
+(zero-padded, sin `t`, sin `Z`) → ordena cronológicamente. No uses `T1751Z` ni `t1545`.
+
+**Registro maestro (obligatorio):** al finalizar, añadí una fila a
+`docs/reports/INDEX.md` (creá el archivo si no existe) con el mismo formato que
+usá unified-review, y derivá los findings ≥ medium a `docs/Backlog.md` sección
+`## Hallazgos pendientes de reportes` (IDs `AUD-NN`). Si un audit previo del mismo
+modo queda superado por este, marcá el anterior como `superado`.
 
 Formato del reporte:
 

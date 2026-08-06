@@ -674,7 +674,8 @@ report:
   markdown_template: ~           # built-in, see SKILL.md Report Format section
   html_template: "templates/report.html.tmpl"
   output_dir: "docs/reviews"
-  filename_pattern: "review-<mode>-<timestamp>"
+  # Standardized: <mode>-YYYYMMDD-HHMMSS (no t, no Z, zero-padded → sorts chronologically)
+  filename_pattern: "review-<mode>-<YYYYMMDD>-<HHMMSS>"
 
 # -----------------------------------------------------------------------------
 # Pre-push hook generation (off by default; enable per-profile)

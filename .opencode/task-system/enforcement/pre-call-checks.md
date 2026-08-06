@@ -3,9 +3,20 @@
 These rules are injected into the recitation block or agent prompt to guard every
 tool invocation. Each check runs BEFORE the tool executes and can block or warn.
 
+**STATUS LEGIBILITY NOTE (vantadb-lead 2026-08-05):** This file is a **specification**
+for a richer enforcement engine. Today `campaign_enforce_state` (in
+`campaign-server.mjs`) implements THREE of these checks in runtime:
+  1. per-state allowed/denied tool lists (`state-tools.mjs`),
+  2. Bash shell command validation (`validateShellCommand` — Destructive/Network/git-write gating),
+  3. Edit/Write `filePath` validation (`validateFilePath` — path scope guard).
+The checks below labeled **[SPEC]** are NOT yet wired into `campaign_enforce_state`.
+They are aspirational — treat them as design intent, not enforced behavior.
+Do not claim in agent prompts that EditGuard / ReadDedup / ContextBudget / etc.
+are active gates; they are not.
+
 ---
 
-## 1. Edit Guard — `max_edit_lines`
+## 1. [SPEC] Edit Guard — `max_edit_lines`
 
 **Purpose:** Prevent large single-shot edits that bypass review or exceed
 per-state granularity limits.
@@ -28,7 +39,7 @@ Agent sends Edit with 40-line new_string → BLOCKED:
 
 ---
 
-## 2. Bash Command Allow-Listing — `allowed_commands`
+## 2. [SPEC] Bash Command Allow-Listing — `allowed_commands`
 
 **Purpose:** Whitelist specific command prefixes for a state so the agent
 can only run approved commands via the Bash tool.
@@ -50,7 +61,7 @@ Agent sends Bash "rm -rf target/" → BLOCKED:
 
 ---
 
-## 3. Bash Operation Classifier — tool-based blocking
+## 3. [SPEC] Bash Operation Classifier — tool-based blocking
 
 **Purpose:** When `allowed_commands` is NOT set, classify Bash commands by
 operation type and block operations whose required tool is absent from the
@@ -90,7 +101,7 @@ Agent sends Bash "cat > file.rs << 'EOF'" → BLOCKED:
 
 ---
 
-## 4. File Scope — `max_files_per_state`
+## 4. [SPEC] File Scope — `max_files_per_state`
 
 **Purpose:** Limit the number of distinct files an agent can edit within a
 single state, forcing transitions between phases rather than editing
@@ -116,7 +127,7 @@ Agent sends Edit for "src/a.rs" → ALLOWED (re-edit of tracked file)
 
 ---
 
-## 5. Read Dedup
+## 5. [SPEC] Read Dedup
 
 **Purpose:** Warn the agent when it re-reads a file that is already in
 context, reducing wasted tokens and encouraging context reuse.
@@ -137,7 +148,7 @@ Agent sends Read "src/main.rs" → ALLOWED + WARNING:
 
 ---
 
-## 6. Context Budget — `context_budget_bytes`
+## 6. [SPEC] Context Budget — `context_budget_bytes`
 
 **Purpose:** Warn when accumulated tool-result bytes approach the per-state
 context limit, prompting the agent to transition before hitting limits.
@@ -159,7 +170,7 @@ Agent sends any tool → ALLOWED + WARNING:
 
 ---
 
-## 7. Environment Blocking — `blocked_env`
+## 7. [SPEC] Environment Blocking — `blocked_env`
 
 **Purpose:** Prevent the agent from reading or leaking sensitive environment
 variables (secrets, keys, tokens) via Bash commands.

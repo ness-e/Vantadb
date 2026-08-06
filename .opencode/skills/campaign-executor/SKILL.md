@@ -252,7 +252,7 @@ Wave 2: tareas que dependen de Wave 1
 ...
 ```
 
-MAX_CONCURRENT = min(4, tareas_en_wave). Cada tarea en paralelo usa su
+MAX_CONCURRENT = min(3, tareas_en_wave). Cada tarea en paralelo usa su
 propia invocación de `opencode run`.
 
 ## Contrato: vago vs verificable

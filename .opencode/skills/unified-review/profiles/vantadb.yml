@@ -691,7 +691,8 @@ report:
   markdown_template: ~             # built-in
   html_template: "templates/report.html.tmpl"
   output_dir: "docs/reviews"
-  filename_pattern: "review-<mode>-<timestamp>"
+  # Standard: <mode>-YYYYMMDD-HHMMSS (no t, no Z, zero-padded → sorts chronologically)
+  filename_pattern: "review-<mode>-<YYYYMMDD>-<HHMMSS>"
 
 # -----------------------------------------------------------------------------
 # Pre-push hook (PowerShell for VantaDB on Windows dev machines)

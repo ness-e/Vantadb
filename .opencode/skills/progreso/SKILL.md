@@ -16,6 +16,7 @@ compatibility: opencode
 | `docs/Backlog.md` | Active tasks (state: ✅ or ❌ in `Status` column). Rows completed are struck-through (`~~…~~`) with a completion note — never deleted |
 | `docs/progreso/README.md` | Completed task history + milestones + audits |
 | `docs/progreso/BACKLOG_HISTORY.md` | Items removed from Backlog.md (historical record, keeps backlogs auditable) |
+| `docs/reports/INDEX.md` | Master registry of review/audit reports — one row per report (fecha, modo, archivo, QG, findings, estado). Source of truth for Trigger 4 |
 | `docs/CHANGELOG.md` | Release notes per version (keepachangelog format) |
 | `docs/Investigaciones/` | Research artifacts (not tasks) |
 
@@ -122,6 +123,38 @@ Before generating a new plan:
 2. progreso: deduplicate entries, fix stale cross-links.
 3. Investigaciones: verify index matches actual files, prune orphans.
 4. Cross-check: no task exists in both Backlog.md and progreso/README.md.
+
+---
+
+## Trigger 4: Sync reportes (review/audit reports ↔ backlog)
+
+Run this **at session start** (alongside the reading of Backlog.md) and **after
+any `/review` or `/audit` run**. Reports in `docs/reviews/` and
+`docs/audit-reports/` are artifacts — they only have value when their findings
+are tracked.
+
+### A. Check the registry
+
+1. If `docs/reports/INDEX.md` exists: read it.
+2. If it's missing, list `docs/reviews/*.md` and `docs/audit-reports/*.md` and
+   flag that the registry hasn't been created (first sync creates it).
+
+### B. Flag orphans
+
+For every report file whose `YYYYMMDD-HHMMSS` is **newer** than its INDEX.md row
+(or that has no row):
+
+- Add the row to `docs/reports/INDEX.md` (fecha | modo | archivo | QG | C/H/M/L/I | estado | resumen).
+- Check `docs/Backlog.md` for a `## Hallazgos pendientes de reportes` section.
+  If the report has findings ≥ medium and no backlog row references them
+  (`REVIEW-NN` / `AUD-NN` derived from that report), add them. Otherwise append
+  `✔ findings ya se siguen en <IDs>` to the INDEX row.
+
+### C. Report to user
+
+Summarize: "N reportes en INDEX, M reportes nuevos sincronizados, K hallazgos
+pendientes derivados al backlog". Never silently skip a report that is newer
+than its registry entry — that's the exact desync this trigger exists to catch.
 
 ---
 

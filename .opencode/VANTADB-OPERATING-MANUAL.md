@@ -770,7 +770,7 @@ AL COMPLETAR:
 | Disparador | Acción |
 |---|---|
 | Nueva `pub fn`, endpoint HTTP, binding PyO3/WASM | Actualizar el `.md` en `docs/api/` en el mismo PR |
-| Nueva documentación | NO en `docs/archive/`, `docs/research/`, `docs/reviews/` |
+| Nueva documentación (guías/API/arquitectura ad-hoc) | NO en `docs/archive/`, `docs/research/`. Reportes del pipeline (`/audit`/`/review`) → `docs/audit-reports/`, `docs/reviews/` + registro en `docs/reports/INDEX.md` |
 | Documentación técnica en español | Redirigir a inglés. Español solo para backlog/planning |
 | Auditoría completada | Reporte en `docs/audit-reports/` |
 | Decisión arquitectónica con tradeoff | ADR en `docs/architecture/adr/` o `campaign_memory_write` |
