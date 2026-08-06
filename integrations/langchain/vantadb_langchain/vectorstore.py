@@ -218,7 +218,7 @@ class VantaDBVectorStore(VectorStore):
 
         while len(selected) < k and candidates:
             best_idx: int = -1
-            best_score: float = -1.0
+            best_score: float = -float("inf")
             for i in candidates:
                 mmr = lambda_mult * relevance[i]
                 if selected:
@@ -459,7 +459,7 @@ class VantaDBVectorStore(VectorStore):
             A list of assigned IDs, one per document.
         """
         if not documents:
-            raise ValueError("documents must be a non-empty list")
+            return []
         texts = [doc.page_content for doc in documents]
         metadatas = [doc.metadata for doc in documents]
         ids = [doc.id for doc in documents if doc.id is not None] or None
