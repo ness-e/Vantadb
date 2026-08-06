@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from vantadb_crewai import VantaDBTool
+from vantadb_crewai.vectorstore import categorize
 
 
 @pytest.fixture
@@ -32,7 +33,7 @@ def test_tool_empty(tool):
 
 
 def test_tool_categorize(tool):
-    result = tool.categorize("hello")
+    result = categorize("hello")
     assert isinstance(result, str)
 
 
@@ -77,49 +78,49 @@ def test_categorize_question():
     """categorize retorna 'question' para preguntas."""
     path = os.path.join(tempfile.mkdtemp(), "test_cat_q")
     t = VantaDBTool(db_path=path, namespace="test_cat_q")
-    assert t.categorize("What is VantaDB?") == "question"
-    assert t.categorize("How does this work") == "question"
-    assert t.categorize("When will it be ready?") == "question"
-    assert t.categorize("short?") == "question"
-    assert t.categorize("Can you help?") == "question"
+    assert categorize("What is VantaDB?") == "question"
+    assert categorize("How does this work") == "question"
+    assert categorize("When will it be ready?") == "question"
+    assert categorize("short?") == "question"
+    assert categorize("Can you help?") == "question"
 
 
 def test_categorize_technical():
     """categorize retorna 'technical' para texto técnico."""
     path = os.path.join(tempfile.mkdtemp(), "test_cat_t")
     t = VantaDBTool(db_path=path, namespace="test_cat_t")
-    assert t.categorize("I have a bug in my code") == "technical"
-    assert t.categorize("This function has an error") == "technical"
-    assert t.categorize("The API returned an exception") == "technical"
+    assert categorize("I have a bug in my code") == "technical"
+    assert categorize("This function has an error") == "technical"
+    assert categorize("The API returned an exception") == "technical"
 
 
 def test_categorize_greeting():
     """categorize retorna 'greeting' para saludos."""
     path = os.path.join(tempfile.mkdtemp(), "test_cat_g")
     t = VantaDBTool(db_path=path, namespace="test_cat_g")
-    assert t.categorize("hello there") == "greeting"
-    assert t.categorize("hi how are you") == "greeting"
-    assert t.categorize("good morning") == "greeting"
-    assert t.categorize("hey") == "greeting"
+    assert categorize("hello there") == "greeting"
+    assert categorize("hi how are you") == "greeting"
+    assert categorize("good morning") == "greeting"
+    assert categorize("hey") == "greeting"
 
 
 def test_categorize_informational():
     """categorize retorna 'informational' para afirmaciones."""
     path = os.path.join(tempfile.mkdtemp(), "test_cat_i")
     t = VantaDBTool(db_path=path, namespace="test_cat_i")
-    assert t.categorize("The sky is blue") == "informational"
-    assert t.categorize("VantaDB is a vector database") == "informational"
-    assert t.categorize("Today is Wednesday") == "informational"
+    assert categorize("The sky is blue") == "informational"
+    assert categorize("VantaDB is a vector database") == "informational"
+    assert categorize("Today is Wednesday") == "informational"
 
 
 def test_categorize_empty():
     """categorize retorna 'empty' para input vacío."""
     path = os.path.join(tempfile.mkdtemp(), "test_cat_e")
     t = VantaDBTool(db_path=path, namespace="test_cat_e")
-    assert t.categorize("") == "empty"
-    assert t.categorize("   ") == "empty"
-    assert t.categorize("\t") == "empty"
-    assert t.categorize("\n") == "empty"
+    assert categorize("") == "empty"
+    assert categorize("   ") == "empty"
+    assert categorize("\t") == "empty"
+    assert categorize("\n") == "empty"
 
 
 # ── _run edge cases ──
