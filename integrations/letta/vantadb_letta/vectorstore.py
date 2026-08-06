@@ -105,7 +105,11 @@ class VantaDBVectorStore:
         if k <= 0:
             raise ValueError("k must be > 0")
         if self.embedding is None:
-            raise ValueError("embedding function is not set. Call set_embedding() first.")
+            results = self._db.list_memory(self.namespace, limit=k)
+            return [
+                {"key": rec.key, "text": rec.payload, "metadata": dict(rec.metadata), "score": 1.0}
+                for rec in results.records
+            ]
         vector = self.embedding(query)
         results = self._db.search_memory(self.namespace, vector, top_k=k, distance_metric="cosine")
         return [

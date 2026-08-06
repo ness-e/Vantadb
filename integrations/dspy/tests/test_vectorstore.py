@@ -19,12 +19,12 @@ def retriever():
 
 def test_forward(retriever):
     result = retriever("hello")
-    assert len(result) >= 1
+    assert len(result.passages) >= 1
 
 
 def test_empty(retriever):
     result = retriever("nothing")
-    assert len(result) == 0
+    assert len(result.passages) == 0
 
 
 def test_k_param():
@@ -33,7 +33,7 @@ def test_k_param():
     for i in range(5):
         r._add(f"doc{i}", str(i))
     result = r("doc")
-    assert len(result) <= 3
+    assert len(result.passages) <= 3
 
 
 # ── forward retorna dspy.Prediction con .passages ──
@@ -87,7 +87,7 @@ def test_add_with_metadata():
     r = VantaDBRetriever(db_path=path, namespace="test_add")
     r._add("document with metadata", "doc1", {"source": "test", "rank": 1})
     result = r("document")
-    assert len(result) >= 1
+    assert len(result.passages) >= 1
 
 
 # ── k passthrough ──

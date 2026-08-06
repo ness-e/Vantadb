@@ -92,14 +92,14 @@ def test_search_with_embedding(store_with_embed):
 
 def test_to_dict(store):
     d = store.to_dict()
-    assert d["path"] == store.path
+    assert d["db_path"] == store.path
     assert d["namespace"] == store.namespace
 
 
 def test_to_dict_from_dict_roundtrip(store):
     d = store.to_dict()
     # Use a different db_path so from_dict doesn't contend for the lock
-    d["path"] = os.path.join(tempfile.mkdtemp(), "test_lt_rt")
+    d["db_path"] = os.path.join(tempfile.mkdtemp(), "test_lt_rt")
     s2 = VantaDBVectorStore.from_dict(d)
     assert s2.namespace == store.namespace
     # Verify the new store works

@@ -49,7 +49,7 @@ jobs:
           pip install -e vantadb-python
           cd integrations/${{ matrix.adapter }}
           pip install -e .
-          pip install pytest
+          pip install pytest pytest-asyncio
 
       - name: Run adapter tests
         run: |
