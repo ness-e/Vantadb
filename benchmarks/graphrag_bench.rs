@@ -5,7 +5,7 @@
 //!   - Query latency p50/p95/mean over M queries
 //!   - Latency-per-hop delta (hops=1,2,3)
 //!   - Token Reduction vs plain RAG baseline
-//!       TR = 1 - Tokens_GraphRAG / Tokens_RAG
+//!     TR = 1 - Tokens_GraphRAG / Tokens_RAG
 //!     where RAG baseline = same pipeline with expansion_hops=0 (seeds only,
 //!     no graph expansion, no relationship section).
 //!
@@ -84,7 +84,7 @@ fn build_corpus(
         let topic = i % n_topics;
         // Cluster centroid on the unit sphere (dim = 32).
         let mut vec = vec![0.0f32; 32];
-        let _ = (rng.f32() * 6.2831853).sin(); // advance RNG deterministically
+        let _ = (rng.f32() * std::f32::consts::TAU).sin(); // advance RNG deterministically
         vec[topic] = 1.0;
         vec[(topic + 1) % n_topics] = 0.6;
         // Add small noise around the centroid, then normalize.
@@ -105,7 +105,7 @@ fn build_corpus(
             rng.next_u64() % 1000
         );
 
-        let mut input = VantaMemoryInput::new(ns, &format!("doc-{i}"), &content);
+        let mut input = VantaMemoryInput::new(ns, format!("doc-{i}"), &content);
         input.vector = Some(vec);
         let node_id = db.put(input).expect("put").node_id;
         ids.push(node_id);
