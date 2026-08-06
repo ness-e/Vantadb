@@ -222,6 +222,10 @@ harness = false
 name = "acorn_filtered_search"
 harness = false
 
+[[bench]]
+name = "sparse_hot_path"
+harness = false
+
 [[bin]]
 name = "vanta-cli"
 path = "src/bin/vanta-cli.rs"

@@ -367,6 +367,20 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 
 **Ids:** `AUDIT-01`
 
+### 2026-08-06 — AUDIT-02: Sparse hot-path micro-opt (gate de medición) — WONTFIX ✅
+
+**Fuente:** Backlog `AUDIT-02`
+
+**Resuelto por (vanta-tuner):**
+- **Premisa corregida:** "sparse_memory_search full-scan" era falsa desde NUEVO-22 (SparseIndex invertido + posting lists ya implementado).
+- **Medición (gate):** bench `sparse_hot_path` (criterion, 5.000 docs, ~24 dims/2000 vocab, 5.000 candidatos, top_k=10). Hot-path total 464 ms.
+- **Candidato sort:** `sort_hits` (vive en `src/planner.rs:190`, no en search:775) = 0.51% del hot-path; fix `select_nth` ahorra solo 0.31% → < 1%.
+- **Candidato serialización-J:** parse por hit = 1.49% cruza umbral nominal, pero eliminarlo exige migración del formato persistido (storage + compat) y ya está indexado como deuda P2-7 — no es diff mínimo.
+- **Decisión:** WONTFIX. Mediciones en `docs/Investigaciones/AUDIT-02-2026-08-06.md`.
+- **Verify:** `cargo bench --bench sparse_hot_path --no-run` ✅; no se tocó `src/` → no aplica check/nextest.
+
+**Ids:** `AUDIT-02`
+
 ### 2026-08-04 — Campaña WEB Launch (5 tareas) ✅
 
 **Fuente:** Backlog (plan `docs/plans/2026-08-04-launch-web-campaign.md`)
