@@ -25,8 +25,8 @@ async fn mcp_protocol_certification() {
             .as_array()
             .expect("Tools must be an array");
         assert!(
-            tools.iter().any(|t| t["name"] == "query_lisp"),
-            "tools list should include query_lisp"
+            tools.iter().any(|t| t["name"] == "query_iql"),
+            "tools list should include query_iql"
         );
 
         TerminalReporter::success("MCP handshake and tools definition verified.");
@@ -58,9 +58,9 @@ async fn mcp_protocol_certification() {
 
         // Note: 'query_lisp' tool now routes through execute_hybrid (IQL), since LISP
         // was extracted to the experimental-lisp crate during CUARENTENA-01.
-        TerminalReporter::sub_step("Testing query_lisp tool (IQL Insertion via MCP dispatcher)...");
+        TerminalReporter::sub_step("Testing query_iql tool (IQL Insertion via MCP dispatcher)...");
         let lisp_params = Some(json!({
-            "name": "query_lisp",
+            "name": "query_iql",
             "arguments": { "query": "INSERT NODE#999 TYPE node { label: \"MCP_TEST\" }" }
         }));
         let lisp_res = handle_tools_call(&lisp_params, &executor, &storage, &McpConfig::default())
