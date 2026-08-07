@@ -117,7 +117,8 @@ fn build_index(dataset: &[(u64, Vec<f32>)], config: HnswConfig) -> CPIndex {
             FilterBitset::all_set(),
             VectorRepresentations::Full(vec.clone()),
             0,
-        );
+        )
+        .expect("test insert");
         pb.inc(1);
     }
     pb.finish_and_clear();
@@ -454,12 +455,14 @@ fn stress_protocol_certification() {
 
         TerminalReporter::sub_step("5b: Single node...");
         let single = CPIndex::new();
-        single.add(
-            1,
-            FilterBitset::all_set(),
-            VectorRepresentations::Full(vec![1.0; d]),
-            0,
-        );
+        single
+            .add(
+                1,
+                FilterBitset::all_set(),
+                VectorRepresentations::Full(vec![1.0; d]),
+                0,
+            )
+            .expect("test insert");
         assert_eq!(
             single
                 .search_nearest(
@@ -481,13 +484,15 @@ fn stress_protocol_certification() {
             FilterBitset::all_set(),
             VectorRepresentations::Full(vec![1.0; d]),
             0,
-        );
+        )
+        .expect("test insert");
         two.add(
             2,
             FilterBitset::all_set(),
             VectorRepresentations::Full(vec![-1.0; d]),
             0,
-        );
+        )
+        .expect("test insert");
         assert_eq!(
             two.search_nearest(
                 &vec![1.0; d],
@@ -502,13 +507,17 @@ fn stress_protocol_certification() {
         );
 
         TerminalReporter::sub_step("5d: Zero vector...");
+        // AUDREP-27: a zero-norm vector is now rejected up-front rather than
+        // silently inserted-then-removed, so the index stays empty.
         let zvec = CPIndex::new();
-        zvec.add(
-            1,
-            FilterBitset::all_set(),
-            VectorRepresentations::Full(vec![0.0; d]),
-            0,
-        );
+        assert!(zvec
+            .add(
+                1,
+                FilterBitset::all_set(),
+                VectorRepresentations::Full(vec![0.0; d]),
+                0,
+            )
+            .is_err());
         assert_eq!(
             zvec.search_nearest(
                 &vec![0.0; d],
@@ -519,7 +528,7 @@ fn stress_protocol_certification() {
                 None
             )
             .len(),
-            1
+            0
         );
 
         TerminalReporter::sub_step("5e: Duplicate ID...");
@@ -529,13 +538,15 @@ fn stress_protocol_certification() {
             FilterBitset::all_set(),
             VectorRepresentations::Full(vec![1.0; d]),
             0,
-        );
+        )
+        .expect("test insert");
         dup.add(
             1,
             FilterBitset::all_set(),
             VectorRepresentations::Full(vec![-1.0; d]),
             0,
-        );
+        )
+        .expect("test insert");
         assert_eq!(dup.nodes.len(), 1);
 
         TerminalReporter::sub_step("5f: Dimension Mismatch...");
@@ -545,7 +556,8 @@ fn stress_protocol_certification() {
             FilterBitset::all_set(),
             VectorRepresentations::Full(vec![1.0; d]),
             0,
-        );
+        )
+        .expect("test insert");
         let _ = dvec.search_nearest(
             &vec![1.0; 128],
             None,

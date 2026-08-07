@@ -549,7 +549,9 @@ mod tests {
         for i in 0u128..(n as u128) {
             let angle = (i as f32) * std::f32::consts::TAU / (n as f32);
             let v = vec![angle.cos(), angle.sin()];
-            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+            index
+                .add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
         }
         index
     }
@@ -875,7 +877,9 @@ mod tests {
 
         for i in 0u128..20 {
             let v = vec![(i as f32 * 0.1).sin(), (i as f32 * 0.1).cos()];
-            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+            index
+                .add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
         }
 
         let query = vec![0.0, 1.0];
@@ -919,13 +923,17 @@ mod tests {
         for i in 0u128..20 {
             let angle = (i as f32) * std::f32::consts::TAU / 20.0;
             let v = vec![angle.cos(), angle.sin()];
-            hnsw_idx.add(
-                i,
-                FilterBitset::new(),
-                VectorRepresentations::Full(v.clone()),
-                0,
-            );
-            ivf_idx.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+            hnsw_idx
+                .add(
+                    i,
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(v.clone()),
+                    0,
+                )
+                .expect("test vectors are non-zero-norm");
+            ivf_idx
+                .add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
         }
 
         let query = vec![1.0, 0.0];
@@ -959,7 +967,9 @@ mod tests {
 
         for i in 0u128..10 {
             let v = vec![(i as f32) * 2.0, (i as f32) * 2.0];
-            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+            index
+                .add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
         }
 
         let query = vec![0.0, 0.0];

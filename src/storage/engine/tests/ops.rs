@@ -630,7 +630,7 @@ fn test_delete_entry_point_promotion() {
     let engine = in_memory_engine();
     for i in 0..10u128 {
         let mut node = sample_node(i);
-        node.vector = crate::node::VectorRepresentations::Full(vec![(i as f32) / 10.0; 4]);
+        node.vector = crate::node::VectorRepresentations::Full(vec![(i as f32 + 1.0) / 10.0; 4]);
         engine.insert(&node).expect("insert");
     }
     let ep = {

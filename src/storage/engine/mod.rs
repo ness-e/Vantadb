@@ -391,7 +391,7 @@ impl StorageEngine {
         let mut l0 = vector_store[0].write();
         let local_off = crate::storage::ops::write_node_to_vstore(&mut l0, node)?;
         let packed = pack_offset(0, local_off);
-        hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), packed);
+        hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), packed)?;
         let key = node.id.to_le_bytes();
         let metadata = NodeMetadata {
             relational: node.relational.clone(),

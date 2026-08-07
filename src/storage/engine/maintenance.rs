@@ -231,7 +231,7 @@ impl StorageEngine {
                     node.bitset.clone(),
                     VectorRepresentations::Full(vec.clone()),
                     storage_offset,
-                );
+                )?;
                 return Ok(());
             }
         }
@@ -250,7 +250,7 @@ impl StorageEngine {
             node.bitset.clone(),
             VectorRepresentations::None,
             storage_offset,
-        );
+        )?;
         Ok(())
     }
 
@@ -583,7 +583,7 @@ impl StorageEngine {
                                     duration_ms: self.config.insert_lock_timeout_ms,
                                 })?;
                             let hnsw = self.hnsw.load();
-                            hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), offset);
+                            hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), offset)?;
                             crate::metrics::record_quantization();
                             self.quantization_governor.reset(node_id);
                             quantized += 1;
@@ -616,7 +616,7 @@ impl StorageEngine {
                                     duration_ms: self.config.insert_lock_timeout_ms,
                                 })?;
                             let hnsw = self.hnsw.load();
-                            hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), offset);
+                            hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), offset)?;
                             crate::metrics::record_promotion();
                             self.quantization_governor.reset(node_id);
                             promoted += 1;

@@ -660,24 +660,30 @@ mod tests {
             ..HnswConfig::default()
         };
         let index = CPIndex::new_with_config(config);
-        index.add(
-            1,
-            FilterBitset::all_set(),
-            VectorRepresentations::Full(vec![0.0, 0.0]),
-            0,
-        );
-        index.add(
-            2,
-            FilterBitset::all_set(),
-            VectorRepresentations::Full(vec![1.0, 0.0]),
-            0,
-        );
-        index.add(
-            3,
-            FilterBitset::all_set(),
-            VectorRepresentations::Full(vec![10.0, 10.0]),
-            0,
-        );
+        index
+            .add(
+                1,
+                FilterBitset::all_set(),
+                VectorRepresentations::Full(vec![0.0, 0.0]),
+                0,
+            )
+            .expect("test insert");
+        index
+            .add(
+                2,
+                FilterBitset::all_set(),
+                VectorRepresentations::Full(vec![1.0, 0.0]),
+                0,
+            )
+            .expect("test insert");
+        index
+            .add(
+                3,
+                FilterBitset::all_set(),
+                VectorRepresentations::Full(vec![10.0, 10.0]),
+                0,
+            )
+            .expect("test insert");
         let query = vec![0.0, 0.0];
         let results = index.search_nearest(&query, None, None, &FilterBitset::all_set(), 3, None);
         assert_eq!(results.len(), 3);

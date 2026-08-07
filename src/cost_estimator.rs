@@ -443,7 +443,8 @@ mod tests {
                 crate::node::VectorRepresentations::Full(vec![0.1, 0.2, 0.3]),
                 0,
                 0,
-            );
+            )
+            .expect("test vectors are non-zero-norm");
         }
         std::sync::Arc::new(idx)
     }

@@ -141,7 +141,7 @@ impl StorageEngine {
                     op.bitset.clone(),
                     op.vector.clone(),
                     op.storage_offset,
-                );
+                )?;
             }
         }
         Ok(true)
@@ -182,7 +182,7 @@ impl StorageEngine {
                             op.bitset.clone(),
                             op.vector.clone(),
                             op.storage_offset,
-                        );
+                        )?;
                     }
                 }
                 // guard dropped here
@@ -1091,7 +1091,7 @@ impl StorageEngine {
             level_entries.sort_by_key(|k| std::cmp::Reverse(k.0));
 
             for (level, id, bitset, vector, offset) in &level_entries {
-                hnsw.add_with_level(*id, bitset.clone(), vector.clone(), *offset, *level);
+                hnsw.add_with_level(*id, bitset.clone(), vector.clone(), *offset, *level)?;
             }
         }
 

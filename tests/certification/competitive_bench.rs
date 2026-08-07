@@ -122,7 +122,8 @@ fn build_in_memory_index(
             FilterBitset::all_set(),
             VectorRepresentations::Full(vec.clone()),
             0,
-        );
+        )
+        .expect("test insert");
         pb.inc(1);
     }
     pb.finish_and_clear();
@@ -146,7 +147,8 @@ fn build_mmap_index(
             FilterBitset::all_set(),
             VectorRepresentations::Full(vec.clone()),
             0,
-        );
+        )
+        .expect("test insert");
         pb.inc(1);
     }
     pb.finish_and_clear();

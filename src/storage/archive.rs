@@ -144,6 +144,9 @@ pub fn compact_layout(
     drop(tmp_mmap);
     tmp_file.sync_all().map_err(VantaError::IoError)?;
     std::fs::rename(&tmp_path, &vstore_path).map_err(VantaError::IoError)?;
+    // AUDREP-35: a rename is not durable until its parent dir is fsync'd —
+    // without this, a crash can revert the swap and resurrect the old file.
+    crate::utils::fs::sync_parent_dir(&vstore_path).map_err(VantaError::IoError)?;
     vstore.replace_backing_file(new_file_size)?;
     vstore.write_cursor = write_cursor;
     vstore.save_cursor()?;
@@ -296,7 +299,7 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
     {
         use rayon::prelude::*;
 
-        entries.into_par_iter().for_each(|entry| {
+        entries.into_par_iter().try_for_each(|entry| {
             let bitset = crate::node::FilterBitset::from_u128(entry.bitset);
             let level = crate::index::random_layer_from_config(&hnsw.config, &mut rand::rng());
             hnsw.add_with_level(
@@ -305,15 +308,15 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                 entry.vec_data,
                 entry.storage_offset,
                 level,
-            );
-        });
+            )
+        })?;
     }
 
     #[cfg(not(feature = "rayon"))]
     {
         for entry in entries {
             let bitset = crate::node::FilterBitset::from_u128(entry.bitset);
-            hnsw.add(entry.id, bitset, entry.vec_data, entry.storage_offset);
+            hnsw.add(entry.id, bitset, entry.vec_data, entry.storage_offset)?;
         }
     }
 
@@ -330,6 +333,11 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
 #[cfg(test)]
 #[allow(missing_docs, clippy::module_inception)]
 mod tests {
+    // CPIndex::add now returns Result (AUDREP-27); these are hand-built
+    // test fixtures whose vectors are known non-zero-norm, so the Result is
+    // intentionally ignored. Kept as a module-scope allow to avoid N identical
+    // `.expect(...)` suffixes on fixture inserts.
+    #![allow(unused_must_use)]
     use super::*;
     use crate::index::CPIndex;
     use crate::node::DiskNodeHeader;

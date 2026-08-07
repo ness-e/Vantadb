@@ -31,21 +31,24 @@ fn engine_executor_certification() {
             FilterBitset::from(0b11u128),
             VectorRepresentations::Full(vec![1.0, 0.0]),
             0,
-        );
+        )
+        .expect("test insert");
         // Match mask + Low sim
         idx.add(
             2,
             FilterBitset::from(0b11u128),
             VectorRepresentations::Full(vec![0.0, 1.0]),
             0,
-        );
+        )
+        .expect("test insert");
         // Fails mask
         idx.add(
             3,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![1.0, 0.0]),
             0,
-        );
+        )
+        .expect("test insert");
 
         let filter_mask = FilterBitset::from(0b10u128);
         let res = idx.search_nearest(&[1.0, 0.0], None, None, &filter_mask, 2, None);

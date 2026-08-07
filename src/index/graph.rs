@@ -278,13 +278,28 @@ impl PartialOrd for NodeSim {
     }
 }
 
+/// Total order approximating cosine similarity for HNSW heap bookkeeping
+/// (AUDREP-29).
+///
+/// The plain `f32` ordering is partial: `NaN` compares `Equal` to everything
+/// via `partial_cmp(...).unwrap_or(Equal)`. A node whose similarity is `NaN`
+/// would therefore _never_ be evicted from the candidate set, tainting the
+/// graph topology. This function imposes a deterministic total order and
+/// pins every `NaN` below every finite value, so a `NaN` neighbour sorts to
+/// the bottom and is pruned first.
+#[inline]
+pub(crate) fn total_cmp_sim(a: f32, b: f32) -> std::cmp::Ordering {
+    match (a.is_nan(), b.is_nan()) {
+        (true, true) => std::cmp::Ordering::Equal,
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        (false, false) => a.total_cmp(&b),
+    }
+}
+
 impl Ord for NodeSim {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self
-            .0
-            .partial_cmp(&other.0)
-            .unwrap_or(std::cmp::Ordering::Equal)
-        {
+        match total_cmp_sim(self.0, other.0) {
             std::cmp::Ordering::Equal => other.1.cmp(&self.1),
             cmp => cmp,
         }
@@ -304,11 +319,7 @@ impl PartialOrd for NodeSimMin {
 
 impl Ord for NodeSimMin {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match other
-            .0
-            .partial_cmp(&self.0)
-            .unwrap_or(std::cmp::Ordering::Equal)
-        {
+        match total_cmp_sim(other.0, self.0) {
             std::cmp::Ordering::Equal => self.1.cmp(&other.1),
             cmp => cmp,
         }
@@ -549,12 +560,12 @@ impl CPIndex {
         bitset: FilterBitset,
         vec_data: VectorRepresentations,
         storage_offset: u64,
-    ) {
+    ) -> Result<(), crate::error::VantaError> {
         if self.validate_node(id, bitset.clone(), &vec_data, storage_offset) {
-            return;
+            return Ok(());
         }
 
-        self.insert_hnsw(id, bitset, vec_data, storage_offset);
+        self.insert_hnsw(id, bitset, vec_data, storage_offset)
     }
 
     /// Add a node with a pre-computed HNSW layer level (avoids `random_layer()`).
@@ -567,12 +578,12 @@ impl CPIndex {
         vec_data: VectorRepresentations,
         storage_offset: u64,
         level: usize,
-    ) {
+    ) -> Result<(), crate::error::VantaError> {
         if self.validate_node(id, bitset.clone(), &vec_data, storage_offset) {
-            return;
+            return Ok(());
         }
 
-        self.insert_hnsw_with_level(id, bitset, vec_data, storage_offset, level);
+        self.insert_hnsw_with_level(id, bitset, vec_data, storage_offset, level)
     }
 
     #[inline]
@@ -586,7 +597,7 @@ impl CPIndex {
         bitset: FilterBitset,
         vec_data: VectorRepresentations,
         storage_offset: u64,
-    ) {
+    ) -> Result<(), crate::error::VantaError> {
         let level = self.random_layer();
         let ef_cons = self.config.ef_construction;
 
@@ -594,8 +605,23 @@ impl CPIndex {
 
         let query_f32 = match vec_data.to_f32() {
             Some(v) => v,
-            None => return,
+            None => return Ok(()),
         };
+
+        // AUDREP-27: reject zero-norm vectors up-front, before any graph
+        // mutation. Cosine similarity is undefined for a zero vector; the old
+        // code inserted the node and then silently removed it, leaving the
+        // caller believing the insert succeeded (and occasionally leaking an
+        // entry point / neighbour allocation). Fail loudly instead.
+        if self.config.distance_metric == DistanceMetric::Cosine {
+            let norm = f32_l2_norm(&query_f32);
+            if norm < f32::EPSILON {
+                return Err(crate::error::VantaError::InvalidInput(format!(
+                    "cannot index node {id}: zero-norm vector is undefined under \
+                     cosine similarity"
+                )));
+            }
+        }
 
         self.neighbor_index.allocate(id, level + 1);
         let empty_layers = vec![NeighborVec::new(); level + 1];
@@ -617,7 +643,7 @@ impl CPIndex {
                 self.max_layer.store(level, Ordering::Release);
                 self.nodes.insert(id, node);
                 self.total_nodes.fetch_add(1, Ordering::Relaxed);
-                return;
+                return Ok(());
             }
             Some(entry) => entry,
         };
@@ -627,12 +653,8 @@ impl CPIndex {
 
         let (query_norm, query_inv_norm) = match self.config.distance_metric {
             DistanceMetric::Cosine => {
+                // Zero-norm was rejected up-front (AUDREP-27).
                 let norm = f32_l2_norm(&query_f32);
-                if norm < f32::EPSILON {
-                    self.nodes.remove(&id);
-                    self.total_nodes.fetch_sub(1, Ordering::Relaxed);
-                    return;
-                }
                 (Some(norm), Some(1.0 / norm))
             }
             DistanceMetric::Euclidean => {
@@ -716,6 +738,8 @@ impl CPIndex {
         }
 
         self.update_metadata(level, id);
+
+        Ok(())
     }
 
     fn insert_hnsw_with_level(
@@ -725,15 +749,26 @@ impl CPIndex {
         vec_data: VectorRepresentations,
         storage_offset: u64,
         level: usize,
-    ) {
+    ) -> Result<(), crate::error::VantaError> {
         let ef_cons = self.config.ef_construction;
 
         let (inv_cached_norm, norm_sq) = self.compute_cached_norms(&vec_data);
 
         let query_f32 = match vec_data.to_f32() {
             Some(v) => v,
-            None => return,
+            None => return Ok(()),
         };
+
+        // AUDREP-27: reject zero-norm up-front, before any graph mutation.
+        if self.config.distance_metric == DistanceMetric::Cosine {
+            let norm = f32_l2_norm(&query_f32);
+            if norm < f32::EPSILON {
+                return Err(crate::error::VantaError::InvalidInput(format!(
+                    "cannot index node {id}: zero-norm vector is undefined under \
+                     cosine similarity"
+                )));
+            }
+        }
 
         self.neighbor_index.allocate(id, level + 1);
         let empty_layers = vec![NeighborVec::new(); level + 1];
@@ -755,7 +790,7 @@ impl CPIndex {
                 self.max_layer.store(level, Ordering::Release);
                 self.nodes.insert(id, node);
                 self.total_nodes.fetch_add(1, Ordering::Relaxed);
-                return;
+                return Ok(());
             }
             Some(entry) => entry,
         };
@@ -765,12 +800,8 @@ impl CPIndex {
 
         let (query_norm, query_inv_norm) = match self.config.distance_metric {
             DistanceMetric::Cosine => {
+                // Zero-norm was rejected up-front (AUDREP-27).
                 let norm = f32_l2_norm(&query_f32);
-                if norm < f32::EPSILON {
-                    self.nodes.remove(&id);
-                    self.total_nodes.fetch_sub(1, Ordering::Relaxed);
-                    return;
-                }
                 (Some(norm), Some(1.0 / norm))
             }
             DistanceMetric::Euclidean => {
@@ -853,6 +884,8 @@ impl CPIndex {
         }
 
         self.update_metadata(level, id);
+
+        Ok(())
     }
 
     fn connect_layer_neighbors(
@@ -1102,7 +1135,9 @@ mod tests {
         // Insert vectors — this calls insert_hnsw → distance kernels
         for i in 0u128..5 {
             let v: Vec<f32> = (0..8).map(|d| ((i * 8 + d) as f32).sin()).collect();
-            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+            index
+                .add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
         }
         assert_eq!(index.nodes.len(), 5);
         assert!(index.get_entry_point().is_some());
@@ -1141,12 +1176,14 @@ mod tests {
             vec![0.0, 0.0, 0.0, 1.0],
         ];
         for (i, v) in vectors.iter().enumerate() {
-            index.add(
-                i as u128,
-                FilterBitset::new(),
-                VectorRepresentations::Full(v.clone()),
-                0,
-            );
+            index
+                .add(
+                    i as u128,
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(v.clone()),
+                    0,
+                )
+                .expect("test vectors are non-zero-norm");
         }
 
         let query = vec![1.0, 0.0, 0.0, 0.0];
@@ -1178,7 +1215,9 @@ mod tests {
 
         for i in 0u128..50 {
             let v: Vec<f32> = (0..16).map(|d| ((i * 16 + d) as f32).cos()).collect();
-            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+            index
+                .add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
         }
         assert_eq!(index.nodes.len(), 50);
 
@@ -1199,12 +1238,14 @@ mod tests {
         assert!(index.find_new_entry_point().is_none());
 
         // Add a node → entry point should be set
-        index.add(
-            42,
-            FilterBitset::new(),
-            VectorRepresentations::Full(vec![1.0, 0.0, 0.0, 0.0]),
-            0,
-        );
+        index
+            .add(
+                42,
+                FilterBitset::new(),
+                VectorRepresentations::Full(vec![1.0, 0.0, 0.0, 0.0]),
+                0,
+            )
+            .expect("test vector is non-zero-norm");
         assert_eq!(index.get_entry_point(), Some(42));
 
         // Check that we can set entry point
@@ -1228,12 +1269,14 @@ mod tests {
             vec![0.0, 0.0, 0.0, 1.0],
         ];
         for (i, v) in vectors.iter().enumerate() {
-            index.add(
-                i as u128,
-                FilterBitset::new(),
-                VectorRepresentations::Full(v.clone()),
-                0,
-            );
+            index
+                .add(
+                    i as u128,
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(v.clone()),
+                    0,
+                )
+                .expect("test vectors are non-zero-norm");
         }
 
         let query = vec![1.0, 0.0, 0.0, 0.0];
@@ -1274,6 +1317,82 @@ mod tests {
         }
     }
 
+    // ── AUDREP-27: zero-norm rejection ──────────────────────────────
+
+    #[test]
+    fn test_add_zero_norm_vector_rejected() {
+        let index = CPIndex::new_with_config(HnswConfig {
+            m: 8,
+            m_max0: 16,
+            ef_construction: 50,
+            ef_search: 50,
+            ml: 1.0 / (8_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None,
+            index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
+        });
+
+        // Old behaviour: insert_hnsw inserted the node, then silently removed
+        // it on zero norm, so `add` returned success while the node vanished.
+        let err = index
+            .add(
+                1,
+                FilterBitset::new(),
+                VectorRepresentations::Full(vec![0.0, 0.0, 0.0]),
+                0,
+            )
+            .expect_err("zero-norm vector must be rejected under cosine");
+        assert!(
+            matches!(err, crate::error::VantaError::InvalidInput(_)),
+            "expected InvalidInput, got {err:?}"
+        );
+        // The rejection happens before any graph mutation: no node survives,
+        // no total_nodes increment, no entry point left behind.
+        assert_eq!(index.nodes.len(), 0);
+        assert_eq!(index.total_nodes.load(Ordering::Relaxed), 0);
+        assert!(index.get_entry_point().is_none());
+
+        // A subsequent valid vector inserts normally and becomes the entry point.
+        index
+            .add(
+                2,
+                FilterBitset::new(),
+                VectorRepresentations::Full(vec![1.0, 0.0, 0.0]),
+                0,
+            )
+            .expect("valid non-zero-norm vector should insert");
+        assert_eq!(index.nodes.len(), 1);
+        assert_eq!(index.get_entry_point(), Some(2));
+    }
+
+    // ── AUD-29: NaN total ordering / eviction ───────────────────────
+
+    #[test]
+    fn test_nodesim_nan_total_order_evicts_extreme() {
+        // NaN is pinned below every finite value in the total order, so it
+        // sorts to the extreme low end and is pruned first.
+        assert_eq!(total_cmp_sim(f32::NAN, f32::NAN), std::cmp::Ordering::Equal);
+        assert_eq!(total_cmp_sim(f32::NAN, 0.5), std::cmp::Ordering::Less);
+        assert_eq!(total_cmp_sim(0.5, f32::NAN), std::cmp::Ordering::Greater);
+        assert_eq!(
+            total_cmp_sim(-f32::MAX, f32::NAN),
+            std::cmp::Ordering::Greater
+        );
+        // Finite ordering is unchanged.
+        assert_eq!(total_cmp_sim(0.3, 0.5), std::cmp::Ordering::Less);
+
+        // End-to-end: a NaN neighbour is evicted from the top-M candidate set.
+        let index = CPIndex::new();
+        let mut heap = BinaryHeap::new();
+        heap.push(NodeSimMin(f32::NAN, 99));
+        heap.push(NodeSimMin(0.9, 0));
+        heap.push(NodeSimMin(0.7, 1));
+        let selected = index.select_neighbors(heap, 2);
+        assert!(!selected.contains(&99), "NaN neighbour must be evicted");
+        assert!(selected.contains(&0) && selected.contains(&1));
+    }
+
     // ── repair_orphan_links ─────────────────────────────────────────
 
     #[test]
@@ -1303,7 +1422,9 @@ mod tests {
         // Insert nodes A, B, C — they form a connected graph with no orphans
         for i in 0u128..5 {
             let v: Vec<f32> = (0..8).map(|d| ((i * 8 + d) as f32).sin()).collect();
-            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+            index
+                .add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
         }
 
         let report = index.repair_orphan_links();
@@ -1329,7 +1450,9 @@ mod tests {
         // Insert nodes 0, 1, 2 — they link to each other via HNSW
         for i in 0u128..5 {
             let v: Vec<f32> = (0..8).map(|d| ((i * 8 + d) as f32).sin()).collect();
-            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+            index
+                .add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
         }
         assert_eq!(index.nodes.len(), 5);
 
@@ -1393,7 +1516,9 @@ mod tests {
         // Insert enough nodes to create multi-layer graph
         for i in 0u128..30 {
             let v: Vec<f32> = (0..16).map(|d| ((i * 16 + d) as f32).cos()).collect();
-            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+            index
+                .add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
         }
         assert_eq!(index.nodes.len(), 30);
 

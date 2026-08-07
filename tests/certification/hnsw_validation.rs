@@ -55,12 +55,14 @@ fn build_index(dataset: &[(u64, Vec<f32>)], config: HnswConfig, block_msg: &str)
     let pb = TerminalReporter::create_progress(dataset.len() as u64, block_msg);
     let index = CPIndex::new_with_config(config);
     for (id, vec) in dataset {
-        index.add(
-            (*id).into(),
-            FilterBitset::all_set(),
-            VectorRepresentations::Full(vec.clone()),
-            0,
-        );
+        index
+            .add(
+                (*id).into(),
+                FilterBitset::all_set(),
+                VectorRepresentations::Full(vec.clone()),
+                0,
+            )
+            .expect("test insert");
         pb.inc(1);
     }
     pb.finish_and_clear();
@@ -261,12 +263,14 @@ fn hnsw_hard_validation_certification() {
         let iv = vec![1.0; dims];
         let index = CPIndex::new();
         for i in 0..100 {
-            index.add(
-                i,
-                FilterBitset::all_set(),
-                VectorRepresentations::Full(iv.clone()),
-                0,
-            );
+            index
+                .add(
+                    i,
+                    FilterBitset::all_set(),
+                    VectorRepresentations::Full(iv.clone()),
+                    0,
+                )
+                .expect("test insert");
         }
         let results = index.search_nearest(&iv, None, None, &vantadb::node::ALL_BITSET, k, None);
         assert_eq!(results.len(), k);
@@ -278,31 +282,42 @@ fn hnsw_hard_validation_certification() {
 
     harness.execute("Edge Case: Zero Vector Resilience", || {
         let index = CPIndex::new();
-        index.add(
-            1,
-            FilterBitset::all_set(),
-            VectorRepresentations::Full(vec![1.0; 32]),
-            0,
-        );
-        index.add(
-            2,
-            FilterBitset::all_set(),
-            VectorRepresentations::Full(vec![0.0; 32]),
-            0,
+        index
+            .add(
+                1,
+                FilterBitset::all_set(),
+                VectorRepresentations::Full(vec![1.0; 32]),
+                0,
+            )
+            .expect("test insert");
+        // AUDREP-27: a zero-norm vector is now rejected up-front under Cosine
+        // instead of being silently inserted-then-removed.
+        assert!(
+            index
+                .add(
+                    2,
+                    FilterBitset::all_set(),
+                    VectorRepresentations::Full(vec![0.0; 32]),
+                    0,
+                )
+                .is_err(),
+            "zero-norm vector must be rejected, not silently dropped"
         );
         let res = index.search_nearest(&[1.0; 32], None, None, &vantadb::node::ALL_BITSET, 3, None);
         assert!(!res.is_empty());
-        TerminalReporter::success("Zero vector in index did not cause panics.");
+        TerminalReporter::success("Zero vector is rejected cleanly without panicking.");
     });
 
     harness.execute("Edge Case: Single Node Index", || {
         let index = CPIndex::new();
-        index.add(
-            42,
-            FilterBitset::all_set(),
-            VectorRepresentations::Full(vec![1.0; 16]),
-            0,
-        );
+        index
+            .add(
+                42,
+                FilterBitset::all_set(),
+                VectorRepresentations::Full(vec![1.0; 16]),
+                0,
+            )
+            .expect("test insert");
         let res =
             index.search_nearest(&[1.0; 16], None, None, &vantadb::node::ALL_BITSET, 10, None);
         assert_eq!(res.len(), 1);

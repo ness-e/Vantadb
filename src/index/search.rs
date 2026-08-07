@@ -471,9 +471,7 @@ impl CPIndex {
             // `b.0 < a.0` (descending), vec[0..m] holds the m HIGHEST scores —
             // the best neighbors. (Regression: B2 inverted this to ascending,
             // keeping the m WORST candidates.)
-            vec.select_nth_unstable_by(m, |a, b| {
-                b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
-            });
+            vec.select_nth_unstable_by(m, |a, b| graph::total_cmp_sim(b.0, a.0));
             vec.truncate(m);
         }
         vec.into_iter().map(|ns| ns.1).collect::<NeighborVec>()
@@ -648,7 +646,12 @@ impl crate::index::VecIndex for CPIndex {
         vec_data: crate::node::VectorRepresentations,
         storage_offset: u64,
     ) {
-        CPIndex::add(self, id, bitset, vec_data, storage_offset);
+        // `VecIndex::add` returns `()`, so a rejected insert (e.g. zero-norm
+        // vector under cosine, AUDREP-27) cannot be propagated here; surface
+        // it loudly instead of dropping it silently.
+        if let Err(e) = CPIndex::add(self, id, bitset, vec_data, storage_offset) {
+            tracing::warn!(id, error = %e, "index add rejected at VecIndex boundary");
+        }
     }
 
     fn estimate_memory_bytes(&self) -> usize {
@@ -679,7 +682,9 @@ mod tests {
     }
 
     fn add_node(index: &CPIndex, id: u128, vec: Vec<f32>) {
-        index.add(id, FilterBitset::new(), VectorRepresentations::Full(vec), 0);
+        index
+            .add(id, FilterBitset::new(), VectorRepresentations::Full(vec), 0)
+            .expect("test vectors are non-zero-norm");
     }
 
     // ── search_nearest ──────────────────────────────────────────────
@@ -742,7 +747,7 @@ mod tests {
     fn test_search_nearest_top_k_limits() {
         let index = make_index(DistanceMetric::Cosine);
         for i in 0..10u128 {
-            add_node(&index, i, vec![i as f32, 0.0, 0.0]);
+            add_node(&index, i, vec![i as f32 + 1.0, 0.0, 0.0]);
         }
         let results = index.search_nearest(&[0.0, 0.0, 0.0], None, None, &ALL_BITSET, 3, None);
         assert!(
@@ -824,7 +829,7 @@ mod tests {
     fn test_select_neighbors_returns_top_m() {
         let index = make_index(DistanceMetric::Cosine);
         for i in 0..6u128 {
-            add_node(&index, i, vec![(i as f32) * 0.2, 0.0, 0.0]);
+            add_node(&index, i, vec![(i as f32 + 1.0) * 0.2, 0.0, 0.0]);
         }
         let mut heap = BinaryHeap::new();
         for i in 0..6u128 {
@@ -964,12 +969,14 @@ mod tests {
         );
 
         // Add a new, far vector after the build, then search for it.
-        index.add(
-            999_u128,
-            FilterBitset::new(),
-            VectorRepresentations::Full(vec![999.0, 999.0]),
-            0,
-        );
+        index
+            .add(
+                999_u128,
+                FilterBitset::new(),
+                VectorRepresentations::Full(vec![999.0, 999.0]),
+                0,
+            )
+            .expect("test vector is non-zero-norm");
         let results = index.search_nearest(&[999.0, 999.0], None, None, &ALL_BITSET, 5, None);
         assert_eq!(
             index
@@ -1467,7 +1474,9 @@ mod tests {
         for &b in bits {
             bs.set_bit(b as usize);
         }
-        index.add(id, bs, VectorRepresentations::Full(vec), 0);
+        index
+            .add(id, bs, VectorRepresentations::Full(vec), 0)
+            .expect("test vectors are non-zero-norm");
     }
 
     /// Force a node's neighbors in both neighbor_index AND inline cache.

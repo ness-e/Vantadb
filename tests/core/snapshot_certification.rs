@@ -115,12 +115,14 @@ fn hnsw_recall_snapshot_baseline() {
         let index = CPIndex::new_with_config(config);
 
         for (id, vec) in &dataset {
-            index.add(
-                *id,
-                FilterBitset::all_set(),
-                VectorRepresentations::Full(vec.clone()),
-                0,
-            );
+            index
+                .add(
+                    *id,
+                    FilterBitset::all_set(),
+                    VectorRepresentations::Full(vec.clone()),
+                    0,
+                )
+                .expect("test insert");
         }
 
         // First run: compute baseline recall
@@ -202,12 +204,14 @@ fn hnsw_recall_snapshot_deterministic_across_scales() {
         for run in 0..3 {
             let index = CPIndex::new_with_config(HnswConfig::default());
             for (id, vec) in &dataset {
-                index.add(
-                    *id,
-                    FilterBitset::all_set(),
-                    VectorRepresentations::Full(vec.clone()),
-                    0,
-                );
+                index
+                    .add(
+                        *id,
+                        FilterBitset::all_set(),
+                        VectorRepresentations::Full(vec.clone()),
+                        0,
+                    )
+                    .expect("test insert");
             }
             let mut total = 0.0;
             for query in &queries {

@@ -40,12 +40,14 @@ mod tests {
             ];
             let norm = f32_l2_norm(&raw);
             let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
-            index.add(
-                i + 1,
-                FilterBitset::new(),
-                VectorRepresentations::Full(normalized),
-                0,
-            );
+            index
+                .add(
+                    i + 1,
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(normalized),
+                    0,
+                )
+                .expect("test vectors are non-zero-norm");
         }
 
         let query = vec![0.1, 0.9, 0.2, 0.4];
@@ -102,7 +104,7 @@ mod tests {
                     };
 
                     let _guard = insert_mutex.lock().unwrap();
-                    index.add(
+                    let _ = index.add(
                         id,
                         FilterBitset::all_set(),
                         VectorRepresentations::Full(vec),
@@ -240,12 +242,14 @@ mod tests {
             ];
             let norm = f32_l2_norm(&raw);
             let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
-            index.add(
-                i + 1,
-                FilterBitset::from_u128(0),
-                VectorRepresentations::Full(normalized),
-                0,
-            );
+            index
+                .add(
+                    i + 1,
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(normalized),
+                    0,
+                )
+                .expect("test vectors are non-zero-norm");
         }
         index
     }
@@ -302,12 +306,14 @@ mod tests {
         let raw = [99f32.sin(), 99f32.cos(), 99f32.sin(), 99f32.cos()];
         let norm = f32_l2_norm(&raw);
         let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
-        loaded.add(
-            999,
-            FilterBitset::new(),
-            VectorRepresentations::Full(normalized),
-            0,
-        );
+        loaded
+            .add(
+                999,
+                FilterBitset::new(),
+                VectorRepresentations::Full(normalized),
+                0,
+            )
+            .expect("test vectors are non-zero-norm");
 
         loaded.sync_to_mmap().expect("sync_to_mmap");
 
@@ -438,12 +444,14 @@ mod tests {
             ];
             let norm = f32_l2_norm(&raw);
             let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
-            index.add(
-                i + 1,
-                FilterBitset::new(),
-                VectorRepresentations::Full(normalized),
-                0,
-            );
+            index
+                .add(
+                    i + 1,
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(normalized),
+                    0,
+                )
+                .expect("test vectors are non-zero-norm");
         }
 
         let query = vec![0.1, 0.9, 0.2, 0.4];
@@ -471,12 +479,14 @@ mod tests {
         });
 
         for i in 0..10u128 {
-            index.add(
-                i + 1,
-                FilterBitset::new(),
-                VectorRepresentations::Full(vec![i as f32; 4]),
-                0,
-            );
+            index
+                .add(
+                    i + 1,
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(vec![i as f32 + 1.0; 4]),
+                    0,
+                )
+                .expect("test vectors are non-zero-norm");
         }
 
         let query = vec![0.0; 4];

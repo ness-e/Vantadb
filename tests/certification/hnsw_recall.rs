@@ -83,12 +83,14 @@ fn recall_certification_runner() {
 
         let pb = TerminalReporter::create_progress(node_count as u64, "Building Index");
         for (id, vec) in &dataset {
-            index.add(
-                (*id).into(),
-                FilterBitset::all_set(),
-                VectorRepresentations::Full(vec.clone()),
-                0,
-            );
+            index
+                .add(
+                    (*id).into(),
+                    FilterBitset::all_set(),
+                    VectorRepresentations::Full(vec.clone()),
+                    0,
+                )
+                .expect("test insert");
             pb.inc(1);
         }
         pb.finish_and_clear();
