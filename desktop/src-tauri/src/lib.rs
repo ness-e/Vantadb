@@ -3,8 +3,9 @@
 //! Tauri v2 shell over the multi-connection contract ([`VantaConnection`]) that
 //! every backend adapter implements. This module tree owns both the typed HTTP
 //! client (DESK-08) and the trait contract (DESK-04); the Tauri runtime + IPC
-//! commands (DESK-02) live alongside them here.
+//! commands (DESK-02/03) live alongside them here.
 
+pub mod commands;
 pub mod connections;
 pub mod error;
 
@@ -13,6 +14,21 @@ pub use connections::{
     MemoryRecord, SearchQuery, SearchResult, VantaConnection,
 };
 pub use error::VantaError;
+
+use vantadb::config::VantaConfig;
+
+/// Shared managed state injected into every IPC command (DESK-03).
+///
+/// `manager` will become the `ConnectionManager` registry in DESK-19; until then
+/// it is an empty placeholder so the `tauri::Builder::manage(..)` wiring is in
+/// place. `config` holds the embedded-engine configuration the native adapters
+/// (DESK-05) reuse for their opens.
+pub struct AppState {
+    /// Future `ConnectionManager` registry (DESK-19). Placeholder today.
+    pub manager: (),
+    /// Embedded-engine configuration for native connections.
+    pub config: VantaConfig,
+}
 
 /// Health-probe IPC command: proves the Rust <-> JS invoke bridge round-trips.
 ///
@@ -28,8 +44,14 @@ fn ping() -> String {
 /// `main.rs` calls `vantadb_desktop_lib::run()`.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let state = AppState {
+        manager: (),
+        config: VantaConfig::default(),
+    };
+
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![ping])
+        .manage(state)
+        .invoke_handler(tauri::generate_handler![ping, commands::connection::vanta_health])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

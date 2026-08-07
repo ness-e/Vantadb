@@ -31,6 +31,11 @@ async-trait = "0.1"
 reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 
+# Core VantaDB engine, inlined (DESK-03). Subset of features only — never
+# `cli`/`server`/`prometheus` (would pull axum/tokio heavy and duplicate the
+# server binary logic). Path `../..` = repo root, resolved from desktop/src-tauri.
+vantadb = { path = "../..", default-features = false, features = ["fjall", "fs2", "memmap2", "roaring", "advanced-tokenizer"] }
+
 [dev-dependencies]
 axum = "0.7"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "time"] }

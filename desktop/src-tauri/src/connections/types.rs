@@ -101,6 +101,9 @@ pub struct MemoryRecord {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HealthReport {
     pub status: HealthStatus,
+    /// Backend engine the report describes (e.g. `"fjall"` for native embedded).
+    #[serde(default = "default_backend")]
+    pub backend: String,
     /// Round-trip latency in milliseconds.
     pub latency_ms: u64,
     /// Time the check was performed, unix milliseconds.
@@ -128,6 +131,10 @@ fn default_namespace() -> String {
 
 fn default_top_k() -> usize {
     10
+}
+
+fn default_backend() -> String {
+    "unknown".to_string()
 }
 
 #[cfg(test)]
@@ -232,6 +239,7 @@ mod tests {
     fn health_report_roundtrip() {
         let h = HealthReport {
             status: HealthStatus::Healthy,
+            backend: "fjall".into(),
             latency_ms: 12,
             checked_at_ms: 1_700_000_000_000,
             message: Some("ok".into()),
