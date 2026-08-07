@@ -1228,6 +1228,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 
 | ID | Tarea | Prioridad | Estado |
 |---|---|---|---|
+| `AUDREP-14` | Seguridad-Network: sin CORS → middleware configurable off por defecto (`VantaConfig::allowed_origins`, env `VANTADB_ALLOWED_ORIGINS`), `app_with_cors()` capa más externa; 2 tests + docs; commit `74a2c050` | 🟠 | ✅ 2026-08-07 |
+| `AUDREP-16` | WAL-Compatibilidad: shard count hardcodeado (4) → layout on-disk ground truth via sidecar `<base>.shards` + inferencia; reconcilia al abrir; 3 tests; commit `13da3d6d` | 🟠 | ✅ 2026-08-07 |
+| `AUDREP-17` | WAL-Operaciones: `run_loop` sin shutdown ni backoff → flag `AtomicBool` + sleeps interrumpibles + backoff exponencial (2s→60s cap) + no-spam con `replica_url` vacía; 3 tests; commit `2422981d` | 🟠 | ✅ 2026-08-07 |
+| `AUDREP-18` | Storage-Cross-platform: `save_vector_index` falla en Windows (mmap vivo en rename) → scoped drop del mapping antes del rename, espeja `CPIndex::sync_to_mmap`; 1822 tests (incl. Windows); commit `df235fdd` | 🟠 | ✅ 2026-08-07 |
+| `AUDREP-20` | SDK-TS-Types: `isMemoryRecord` rechazaba version/node_id numéricos → acepta `string || number` alineado con `MemoryRecord`; 3 tests + `tsc --noEmit` 0 errores; commit `734e9e11` | 🟠 | ✅ 2026-08-07 |
+| `AUDREP-21` | MCP-OOM: collection_stats/list materializaban todo → agregados streaming página a página (fold, pico 1 página); test bounded; commit `b5278799` | 🟠 | ✅ 2026-08-07 |
+| `AUDREP-22` | Integraciones-Versiones: 9 adapters Python 0.3.0 vs core 0.5.0 → bump a 0.5.0 + pin `vantadb-py>=0.5.0,<0.6.0`; validado tomllib; commit `776f734c` | 🟠 | ✅ 2026-08-07 |
 | `AUDREP-02` | Engine-Panic: `.expect()` en deserialización de claves (guard previo ya lo protegía; fix defensivo `let-else`) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-05` | Dockerfile: COPY 8 dirs inexistentes (resuelto por plan Task 16/AUD-001) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-06` | Dockerfile: RUST_VERSION 1.94.0 → 1.94.1 (resuelto por plan Task 16/AUD-001) | 🔴 | ✅ 2026-08-05 |
