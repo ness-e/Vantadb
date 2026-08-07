@@ -152,10 +152,14 @@ fn parse_condition(i: &str) -> IResult<&str, Condition> {
             tuple((ws(ident), ws(tag("~")), ws(string_literal))),
             |(field, _, query)| Condition::TextMatch(field, query),
         ),
-        // Relational Query: p.pais = "VZLA"
+        // Relational Query: p.pais = "VZLA", or numeric p.edad > 18, or
+        // p.activo = true / p.campo = null. Reuse parse_literal_field_value so the
+        // RHS is typed: bare numbers parse as Float (matching the storage
+        // convention, so the evaluator's Float/Float branch gives numeric
+        // ordering), while quoted strings stay String for backward compatibility.
         map(
-            tuple((ws(ident), ws(parse_rel_op), ws(string_literal))),
-            |(field, op, val)| Condition::Relational(field, op, FieldValue::String(val)),
+            tuple((ws(ident), ws(parse_rel_op), ws(parse_literal_field_value))),
+            |(field, op, val)| Condition::Relational(field, op, val),
         ),
     ))(i)
 }
@@ -766,6 +770,76 @@ mod tests {
                 RelOp::Neq,
                 FieldValue::String("18".to_string())
             )
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_relational_numeric() {
+        // Bare number RHS parses as a typed numeric value (Float, matching the
+        // storage convention), so `edad > 18` compares numerically not
+        // lexicographically ("18" > "9" order).
+        let (_, cond) = parse_condition(r#"edad > 18"#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::Relational("edad".to_string(), RelOp::Gt, FieldValue::Float(18.0))
+        );
+        // Numeric ordering: 18 < 20, so a Float RHS of 18 compares correctly
+        // against a stored Float(20). Type is Float, not Int, matching INSERT.
+        let (_, cond2) = parse_condition(r#"edad < 20"#).unwrap();
+        match cond2 {
+            Condition::Relational(_, op, v) => {
+                assert_eq!(op, RelOp::Lt);
+                assert_eq!(v, FieldValue::Float(20.0));
+            }
+            _ => panic!("expected Relational"),
+        }
+    }
+
+    #[test]
+    fn test_parse_condition_relational_float() {
+        let (_, cond) = parse_condition(r#"price <= 3.14"#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::Relational("price".to_string(), RelOp::Lte, FieldValue::Float(3.14))
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_relational_quoted_string_backward_compat() {
+        // Quoted numeric strings stay String for backward compatibility — the
+        // previous parser produced FieldValue::String for the RHS.
+        let (_, cond) = parse_condition(r#"edad > "18""#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::Relational(
+                "edad".to_string(),
+                RelOp::Gt,
+                FieldValue::String("18".to_string())
+            )
+        );
+        // Quoted-string comparison against a numeric-text field still parses fine.
+        let (_, cond2) = parse_condition(r#"texto > "9""#).unwrap();
+        match cond2 {
+            Condition::Relational(_, op, v) => {
+                assert_eq!(op, RelOp::Gt);
+                assert_eq!(v, FieldValue::String("9".to_string()));
+            }
+            _ => panic!("expected Relational"),
+        }
+    }
+
+    #[test]
+    fn test_parse_condition_relational_bool_null() {
+        // parse_literal_field_value also accepts bool/null literals.
+        let (_, cond) = parse_condition(r#"activo = true"#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::Relational("activo".to_string(), RelOp::Eq, FieldValue::Bool(true))
+        );
+        let (_, cond2) = parse_condition(r#"campo = null"#).unwrap();
+        assert_eq!(
+            cond2,
+            Condition::Relational("campo".to_string(), RelOp::Eq, FieldValue::Null)
         );
     }
 
