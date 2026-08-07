@@ -55,6 +55,34 @@ describe("Type guards: isMemoryRecord", () => {
   it("rejects objects with non-string namespace", () => {
     expect(isMemoryRecord({ ...validRecord, namespace: 123 } as unknown)).toBe(false);
   });
+
+  it("accepts numeric version/node_id/timestamps (WASM-returned numbers)", () => {
+    const numericRecord = {
+      ...validRecord,
+      version: 3,
+      node_id: 42,
+      created_at_ms: 1000,
+      updated_at_ms: 2000,
+    };
+    expect(isMemoryRecord(numericRecord)).toBe(true);
+  });
+
+  it("accepts mixed string/number version and node_id", () => {
+    expect(
+      isMemoryRecord({ ...validRecord, version: "1", node_id: 7 }),
+    ).toBe(true);
+    expect(
+      isMemoryRecord({ ...validRecord, version: 2, node_id: "8" }),
+    ).toBe(true);
+  });
+
+  it("still rejects invalid version/node_id/timestamps", () => {
+    expect(isMemoryRecord({ ...validRecord, version: {} } as unknown)).toBe(false);
+    expect(isMemoryRecord({ ...validRecord, version: null } as unknown)).toBe(false);
+    expect(isMemoryRecord({ ...validRecord, node_id: true } as unknown)).toBe(false);
+    expect(isMemoryRecord({ ...validRecord, created_at_ms: [] } as unknown)).toBe(false);
+    expect(isMemoryRecord({ ...validRecord, updated_at_ms: undefined } as unknown)).toBe(false);
+  });
 });
 
 describe("Type guards: isSearchHit", () => {

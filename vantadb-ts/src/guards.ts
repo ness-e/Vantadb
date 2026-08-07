@@ -13,10 +13,12 @@ export function isMemoryRecord(r: unknown): r is MemoryRecord {
     typeof obj.namespace === "string" &&
     typeof obj.key === "string" &&
     typeof obj.payload === "string" &&
-    typeof obj.version === "string" &&
-    typeof obj.node_id === "string" &&
-    typeof obj.created_at_ms === "string" &&
-    typeof obj.updated_at_ms === "string"
+    (typeof obj.version === "string" || typeof obj.version === "number") &&
+    (typeof obj.node_id === "string" || typeof obj.node_id === "number") &&
+    (typeof obj.created_at_ms === "string" ||
+      typeof obj.created_at_ms === "number") &&
+    (typeof obj.updated_at_ms === "string" ||
+      typeof obj.updated_at_ms === "number")
   );
 }
 
