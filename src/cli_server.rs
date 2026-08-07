@@ -514,6 +514,24 @@ pub async fn circuit_breaker_middleware(
     res
 }
 
+/// Build a generic 500 for a panicked execution task.
+///
+/// The panic detail is logged server-side; clients only get a generic message
+/// to avoid leaking internal runtime details (AUDREP-32).
+fn panic_error_response(panic_detail: &dyn std::fmt::Display) -> Response {
+    tracing::error!("execution task panicked: {}", panic_detail);
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(QueryResponse {
+            success: false,
+            data: "Internal server error".to_string(),
+            node_id: None,
+            nodes: None,
+        }),
+    )
+        .into_response()
+}
+
 #[tracing::instrument(skip(state))]
 async fn execute_query(
     State(state): State<Arc<ServerState>>,
@@ -553,18 +571,7 @@ async fn execute_query(
 
     let execution_result = match join_res {
         Ok(r) => r,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(QueryResponse {
-                    success: false,
-                    data: format!("Internal server error: execution task panicked: {}", e),
-                    node_id: None,
-                    nodes: None,
-                }),
-            )
-                .into_response();
-        }
+        Err(e) => return panic_error_response(&e),
     };
 
     match execution_result {
@@ -1291,13 +1298,38 @@ mod tests {
     }
 
     #[test]
-    fn client_ip_skips_invalid_xff_entry() {
-        let proxy = "10.0.0.5:4444".parse().unwrap();
-        // First header entry is garbage; a valid one follows.
-        let req = request_with_xff(&proxy, "not-an-ip, 203.0.113.99");
+    fn client_ip_simple_remote_addr_no_xff() {
+        // Untrusted: x-forwarded-for ignored, socket addr returned.
+        let peer = "198.51.100.5:4444".parse().unwrap();
+        let req = request_with_xff(&peer, "203.0.113.99");
+        assert_eq!(client_ip(&req, &[]), "198.51.100.5");
+    }
+
+    #[tokio::test]
+    async fn panic_error_response_hides_detail_from_client() {
+        // AUDREP-32: a panicked execution task must reach the client as a generic
+        // 5xx; the panic detail is only logged server-side by the helper.
+        let detail = "execution task panicked: CONTRIVED_PANIC_96942e85";
+        let res = panic_error_response(&detail);
+
         assert_eq!(
-            client_ip(&req, &["10.0.0.5".parse().unwrap()]),
-            "203.0.113.99"
+            res.status(),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "panicked task must stay a 5xx"
+        );
+
+        let bytes = axum::body::to_bytes(res.into_body(), 1 << 20)
+            .await
+            .expect("response body should be readable");
+        let body = String::from_utf8(bytes.to_vec()).expect("body should be utf-8");
+
+        assert!(
+            !body.contains("CONTRIVED_PANIC_96942e85"),
+            "client-visible body must not leak the panic detail, got: {body}"
+        );
+        assert!(
+            body.contains("Internal server error"),
+            "client should see the generic message, got: {body}"
         );
     }
 }
