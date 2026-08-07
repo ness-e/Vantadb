@@ -1,0 +1,62 @@
+use async_trait::async_trait;
+
+use super::types::{Capability, ConnectionInfo, HealthReport, IngestItem, MemoryRecord, SearchQuery, SearchResult};
+use crate::error::VantaError;
+
+/// A single connection to a VantaDB backend.
+///
+/// This is the **contract** of the desktop multi-connection architecture: every adapter
+/// (native / server / HTTP / MCP / ...) implements it, and a future `ConnectionManager`
+/// holds them as `Box<dyn VantaConnection>`. Only the contract lives here — no adapter
+/// logic.
+///
+/// Object-safe: `async_trait` boxes each future, methods take only `&self`/`&mut self`,
+/// and there are no generics or `Self`-by-value returns — so `&dyn VantaConnection` is a
+/// valid trait object (compile-time check in tests). `Send + Sync` supertrait lets the
+/// object be stored behind a Tauri `State` / shared manager.
+#[async_trait]
+pub trait VantaConnection: Send + Sync {
+    /// Static metadata describing this connection.
+    fn info(&self) -> ConnectionInfo;
+
+    /// Which transport bridges this connection can expose.
+    fn capabilities(&self) -> Vec<Capability>;
+
+    /// Establish the connection. Idempotent: safe to call when already connected.
+    async fn connect(&mut self) -> Result<(), VantaError>;
+
+    /// Tear down the connection. Idempotent.
+    async fn disconnect(&mut self) -> Result<(), VantaError>;
+
+    /// Store a single item, returning its id (assigned or supplied).
+    async fn ingest(&mut self, item: IngestItem) -> Result<String, VantaError>;
+
+    /// Store many items. Each returned id corresponds positionally to `items`.
+    async fn ingest_batch(&mut self, items: Vec<IngestItem>) -> Result<Vec<String>, VantaError>;
+
+    /// Semantic / text search over stored memories.
+    async fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>, VantaError>;
+
+    /// Fetch a single record by id, optionally scoped to a namespace.
+    async fn get(&self, id: &str, namespace: Option<&str>) -> Result<MemoryRecord, VantaError>;
+
+    /// Delete a single record by id, optionally scoped to a namespace. Idempotent.
+    async fn delete(&mut self, id: &str, namespace: Option<&str>) -> Result<(), VantaError>;
+
+    /// List records in a namespace, capped at `limit`.
+    async fn list(&self, namespace: Option<&str>, limit: usize) -> Result<Vec<MemoryRecord>, VantaError>;
+
+    /// Cheap liveness / latency probe.
+    async fn health(&self) -> Result<HealthReport, VantaError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Compile-time proof of object safety: taking `&dyn VantaConnection` compiles only
+    // if the trait is dyn-compatible. This function is never called; its mere existence
+    // (compiled as part of the crate) is the check.
+    #[allow(dead_code)]
+    fn assert_object_safe(_conn: &dyn VantaConnection) {}
+}
