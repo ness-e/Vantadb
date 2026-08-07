@@ -408,7 +408,12 @@ fn sq8_similarity(
             let mut dot = dot_v.reduce_add();
             let mut norm_q = norm_q_v.reduce_add();
             let mut norm_sq = norm_sq_v.reduce_add();
-            for i in 0..rem_q.len() {
+            // NV-01: clamp to min len — rem_s may be shorter than rem_q when
+            // dims are not multiples of 8 (e.g. query 16d vs sq8 12d leaves
+            // rem_q=0, rem_s=4; query 15d vs sq8 9d leaves rem_q=7, rem_s=1).
+            // Indexing rem_s[i] past its end previously panicked (DoS).
+            let n_rem = rem_q.len().min(rem_s.len());
+            for i in 0..n_rem {
                 let decoded = (rem_s[i] as f32) * inv_scale;
                 dot += rem_q[i] * decoded;
                 norm_q += rem_q[i] * rem_q[i];
@@ -446,7 +451,9 @@ fn sq8_similarity(
                 sum_sq_v += diff * diff;
             }
             let mut sum_sq = sum_sq_v.reduce_add();
-            for i in 0..rem_q.len() {
+            // NV-01: clamp to min len (see Cosine branch above).
+            let n_rem = rem_q.len().min(rem_s.len());
+            for i in 0..n_rem {
                 let diff = rem_q[i] - (rem_s[i] as f32) * inv_scale;
                 sum_sq += diff * diff;
             }
@@ -1093,6 +1100,28 @@ mod tests {
             "SQ8 Euclidean similarity should be negative, got {}",
             sim
         );
+    }
+
+    /// NV-01 regression: mismatched dims used to panic OOB inside
+    /// `sq8_similarity`. 15d query → rem_q=7; 9d sq8 → rem_s=1; indexing
+    /// rem_s[1..6] used to panic → DoS. Must now return, clamped to min len.
+    #[test]
+    fn test_sq8_similarity_mismatched_dims_no_panic() {
+        let q = vec![
+            1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
+        ]; // 15d → rem 7
+        let (data, scale) = sq8_encode(&[0.1, -0.2, 0.3, -0.4, 0.5, -0.6, 0.7, -0.8, 9.0]); // 9d → rem 1
+        for metric in [DistanceMetric::Cosine, DistanceMetric::Euclidean] {
+            let sim = calculate_similarity(
+                &q,
+                None,
+                None,
+                None,
+                &VectorRepresentations::SQ8(data.clone(), scale),
+                metric,
+            );
+            assert!(sim.is_finite(), "sim must be finite, got {sim}");
+        }
     }
 
     #[test]
