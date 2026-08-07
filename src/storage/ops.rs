@@ -55,7 +55,8 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
             [(offset + header_size) as usize..(offset + header_size + vec_size) as usize]
             .copy_from_slice(vec_bytes);
     }
-    vstore.write_cursor = (total_needed + 63) & !63;
+    // ponytail: saturating to avoid overflow in 64-byte alignment if total_needed near u64::MAX
+    vstore.write_cursor = total_needed.saturating_add(63) & !63;
     vstore.save_cursor()?;
     Ok(offset)
 }
