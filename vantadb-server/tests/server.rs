@@ -280,6 +280,7 @@ async fn test_circuit_breaker_open_returns_503_with_retry_after() {
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: None,
         rbac_config: Default::default(),
+        trusted_proxies: vec![],
     });
     breaker.record_failure(); // opens (threshold == 1)
     assert_eq!(
@@ -321,6 +322,7 @@ async fn test_circuit_breaker_half_open_probe_success_closes() {
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: None,
         rbac_config: Default::default(),
+        trusted_proxies: vec![],
     });
     breaker.record_failure(); // open (0s timeout → immediately eligible for probe)
     let router = app(state, 0);
@@ -420,6 +422,7 @@ async fn test_tls_server_health_and_query() {
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: Some(Arc::from("tls-key")),
         rbac_config: Default::default(),
+        trusted_proxies: vec![],
     });
     let router = app(state, 0);
 
@@ -510,6 +513,7 @@ async fn api_server_certification() {
                 pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
                 api_key: None,
                 rbac_config: Default::default(),
+                trusted_proxies: vec![],
             });
             let app = app(state, 100);
 

@@ -23,6 +23,7 @@ pub fn build_server_state(
         )),
         api_key: api_key.map(Arc::from),
         rbac_config: Default::default(),
+        trusted_proxies: vec![],
     });
     (dir, state)
 }

@@ -235,6 +235,7 @@ async fn test_e2e_persistence_across_restart() {
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: None,
         rbac_config: Default::default(),
+        trusted_proxies: vec![],
     });
     let (base2, handle2) = spawn_server(state2, 0).await;
 

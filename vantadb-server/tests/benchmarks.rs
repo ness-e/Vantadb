@@ -283,6 +283,7 @@ async fn bench_latency_with_auth() {
         pool: Arc::new(ConnectionPool::new(100, Duration::from_millis(5000))),
         api_key: Some(Arc::from("bench-key")),
         rbac_config: Default::default(),
+        trusted_proxies: vec![],
     });
     let router = app(state, 0);
 
