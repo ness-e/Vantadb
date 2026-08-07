@@ -10,12 +10,14 @@
 //! > (not present yet) should use `crate::connections::wire_types`.
 
 mod r#trait;
+pub mod manager;
 pub mod native;
 pub mod server;
 pub mod server_client;
 pub mod types;
 pub mod wire_types;
 
+pub use manager::ConnectionManager;
 pub use r#trait::VantaConnection;
 pub use server_client::ServerClient;
 pub use server::ServerConnection;

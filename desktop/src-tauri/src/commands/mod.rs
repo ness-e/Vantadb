@@ -4,3 +4,4 @@
 //! they accept a `tauri::State<'_, AppState>` and never own business logic.
 
 pub mod connection;
+pub mod data;

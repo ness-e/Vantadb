@@ -1,0 +1,300 @@
+//! Thread-safe registry of live [`VantaConnection`]s (DESK-06).
+//!
+//! Replaces the `manager: ()` placeholder in [`AppState`](crate::AppState): holds
+//! every open connection keyed by id plus the single currently-*active* one that
+//! the data commands (`vanta_ingest`/`vanta_search`/…) target.
+//!
+//! Concurrency: `tokio::sync::RwLock` lets concurrent read ops (`search`/`get`/
+//! `list`/`health`) share the guard, while mutation ops (`add`/`remove`/`set_active`
+//! and the `&mut self` adapter calls) take the write path. Every alias adapter
+//! already `spawn_blocking`s its SDK work, so awaiting the guard's inner call
+//! never blocks the Tauri runtime — it only serializes commands onto one writer.
+//!
+//! ponytail: one global RwLock serializes data ops across *all* connections.
+//! Acceptable while the desktop drives a single active backend at a time; a
+//! per-connection lock or sharded registry is the upgrade if parallel writes to
+//! several backends become hot.
+
+use std::collections::HashMap;
+
+use tokio::sync::RwLock;
+
+use super::{ConnectionInfo, HealthReport, IngestItem, MemoryRecord, SearchQuery, SearchResult, VantaConnection};
+use crate::error::VantaError;
+
+#[derive(Default)]
+struct Inner {
+    /// Live connections by id.
+    connections: HashMap<String, Box<dyn VantaConnection>>,
+    /// Id of the connection data commands currently target.
+    active_id: Option<String>,
+}
+
+/// Registry + active-connection selector shared via managed Tauri state.
+pub struct ConnectionManager {
+    inner: RwLock<Inner>,
+}
+
+impl ConnectionManager {
+    /// Empty registry with no active connection.
+    pub fn new() -> Self {
+        Self {
+            inner: RwLock::new(Inner::default()),
+        }
+    }
+
+    fn no_active() -> VantaError {
+        VantaError::Unsupported("no active connection; call vanta_connect first".into())
+    }
+
+    fn missing(id: &str) -> VantaError {
+        VantaError::Other(format!("connection not found: {id}"))
+    }
+
+    /// Register `conn`, connect it (validating health), store it, and make it
+    /// the active connection. Returns its static info.
+    pub async fn add(
+        &self,
+        mut conn: Box<dyn VantaConnection>,
+    ) -> Result<ConnectionInfo, VantaError> {
+        conn.connect().await?;
+        let info = conn.info();
+        let id = info.id.clone();
+        let mut inner = self.inner.write().await;
+        inner.connections.insert(id.clone(), conn);
+        inner.active_id = Some(id.clone());
+        Ok(info)
+    }
+
+    /// Remove a connection by id, disconnecting it and releasing any backend
+    /// resources (e.g. the native path lock). Clears active if it was the target.
+    pub async fn remove(&self, id: &str) -> Result<(), VantaError> {
+        let mut inner = self.inner.write().await;
+        let taken = inner.connections.remove(id);
+        if inner.active_id.as_deref() == Some(id) {
+            inner.active_id = inner.connections.keys().next().cloned();
+        }
+        drop(inner);
+        match taken {
+            Some(mut conn) => conn.disconnect().await,
+            None => Err(Self::missing(id)),
+        }
+    }
+
+    /// Mark `id` as the active connection.
+    pub async fn set_active(&self, id: &str) -> Result<(), VantaError> {
+        let mut inner = self.inner.write().await;
+        if !inner.connections.contains_key(id) {
+            return Err(Self::missing(id));
+        }
+        inner.active_id = Some(id.to_string());
+        Ok(())
+    }
+
+    /// Id of the currently-active connection.
+    pub async fn active_id(&self) -> Result<String, VantaError> {
+        let inner = self.inner.read().await;
+        inner.active_id.clone().ok_or_else(Self::no_active)
+    }
+
+    /// Snapshot of every registered connection as `(id, info)`.
+    pub async fn list_connections(&self) -> Vec<(String, ConnectionInfo)> {
+        let inner = self.inner.read().await;
+        inner
+            .connections
+            .iter()
+            .map(|(k, v)| (k.clone(), v.info()))
+            .collect()
+    }
+
+    /// Static info of the active connection.
+    pub async fn active_info(&self) -> Result<ConnectionInfo, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        inner
+            .connections
+            .get(&id)
+            .map(|c| c.info())
+            .ok_or_else(|| Self::missing(&id))
+    }
+
+    /// Live health probe of the active connection.
+    pub async fn health(&self) -> Result<HealthReport, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        let conn = inner.connections.get(&id).ok_or_else(|| Self::missing(&id))?;
+        conn.health().await
+    }
+
+    /// Store a single item on the active connection, returning its id.
+    pub async fn ingest(&self, item: IngestItem) -> Result<String, VantaError> {
+        let id = self.active_id().await?;
+        let mut inner = self.inner.write().await;
+        let conn = inner
+            .connections
+            .get_mut(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        conn.ingest(item).await
+    }
+
+    /// Store many items on the active connection, returning ids positionally.
+    pub async fn ingest_batch(
+        &self,
+        items: Vec<IngestItem>,
+    ) -> Result<Vec<String>, VantaError> {
+        let id = self.active_id().await?;
+        let mut inner = self.inner.write().await;
+        let conn = inner
+            .connections
+            .get_mut(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        conn.ingest_batch(items).await
+    }
+
+    /// Search the active connection.
+    pub async fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        let conn = inner.connections.get(&id).ok_or_else(|| Self::missing(&id))?;
+        conn.search(query).await
+    }
+
+    /// Fetch a single record by key on the active connection.
+    pub async fn get(
+        &self,
+        key: &str,
+        namespace: Option<&str>,
+    ) -> Result<MemoryRecord, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        let conn = inner.connections.get(&id).ok_or_else(|| Self::missing(&id))?;
+        conn.get(key, namespace).await
+    }
+
+    /// Delete a record by key on the active connection. Idempotent.
+    pub async fn delete(&self, key: &str, namespace: Option<&str>) -> Result<(), VantaError> {
+        let id = self.active_id().await?;
+        let mut inner = self.inner.write().await;
+        let conn = inner
+            .connections
+            .get_mut(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        conn.delete(key, namespace).await
+    }
+
+    /// List records on the active connection.
+    pub async fn list_records(
+        &self,
+        namespace: Option<&str>,
+        limit: Option<usize>,
+    ) -> Result<Vec<MemoryRecord>, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        let conn = inner.connections.get(&id).ok_or_else(|| Self::missing(&id))?;
+        conn.list(namespace, limit.unwrap_or(100)).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::connections::Capability;
+    use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    struct TempDir(PathBuf);
+
+    impl TempDir {
+        fn new() -> Self {
+            static SEQ: AtomicU64 = AtomicU64::new(0);
+            let seq = SEQ.fetch_add(1, Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "vantadb-desktop-06-{}-{seq}",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_dir_all(&path);
+            std::fs::create_dir_all(&path).expect("create temp dir");
+            Self(path)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn item(key: &str, text: &str) -> IngestItem {
+        IngestItem {
+            id: Some(key.to_string()),
+            namespace: "docs".into(),
+            text: text.into(),
+            embedding: None,
+            metadata: Default::default(),
+        }
+    }
+
+    /// E2E contract (DESK-06): connect native → ingest 3 items → search →
+    /// ordered results; plus get/list/delete against the registry.
+    #[tokio::test]
+    async fn e2e_native_connect_ingest_search_ordered() {
+        let dir = TempDir::new();
+        let manager = ConnectionManager::new();
+
+        // connect native and make it active
+        let info = manager
+            .add(Box::new(crate::connections::native::NativeConnection::open(dir.path()).unwrap()))
+            .await
+            .unwrap();
+        assert_eq!(info.via, Capability::Native);
+
+        // ingest 3 items
+        let ids = manager
+            .ingest_batch(vec![
+                item("k1", "the quick brown fox jumps over the lazy dog"),
+                item("k2", "a red fox stalks prey inside the garden wall"),
+                item("k3", "vector databases power semantic search engines"),
+            ])
+            .await
+            .unwrap();
+        assert_eq!(ids, vec!["k1".to_string(), "k2".to_string(), "k3".to_string()]);
+
+        // get roundtrip
+        let rec = manager.get("k1", Some("docs")).await.unwrap();
+        assert!(rec.text.contains("fox"));
+
+        // search: both fox docs returned, ordered by non-increasing score
+        let hits = manager
+            .search(SearchQuery {
+                query: "fox".into(),
+                embedding: None,
+                top_k: 5,
+                namespace: Some("docs".into()),
+                filters: Default::default(),
+            })
+            .await
+            .unwrap();
+        assert!(
+            hits.iter().any(|h| h.id == "k1"),
+            "k1 should match, got: {hits:?}"
+        );
+        assert!(hits.iter().any(|h| h.id == "k2"));
+        let scores: Vec<f32> = hits.iter().map(|h| h.score).collect();
+        assert!(
+            scores.windows(2).all(|w| w[0] >= w[1]),
+            "results must be ordered by descending score: {scores:?}"
+        );
+
+        // list caps at limit
+        let listed = manager.list_records(Some("docs"), Some(2)).await.unwrap();
+        assert!(listed.len() == 2);
+
+        // delete + list registry
+        manager.delete("k1", Some("docs")).await.unwrap();
+        assert_eq!(manager.list_connections().await.len(), 1);
+    }
+}

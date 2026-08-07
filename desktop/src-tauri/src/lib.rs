@@ -10,8 +10,8 @@ pub mod connections;
 pub mod error;
 
 pub use connections::{
-    Capability, ConnectionInfo, ConnectionStatus, HealthReport, HealthStatus, IngestItem,
-    MemoryRecord, SearchQuery, SearchResult, VantaConnection,
+    Capability, ConnectionInfo, ConnectionManager, ConnectionStatus, HealthReport, HealthStatus,
+    IngestItem, MemoryRecord, SearchQuery, SearchResult, VantaConnection,
 };
 pub use error::VantaError;
 
@@ -19,13 +19,13 @@ use vantadb::config::VantaConfig;
 
 /// Shared managed state injected into every IPC command (DESK-03).
 ///
-/// `manager` will become the `ConnectionManager` registry in DESK-19; until then
-/// it is an empty placeholder so the `tauri::Builder::manage(..)` wiring is in
-/// place. `config` holds the embedded-engine configuration the native adapters
+/// `manager` is the [`ConnectionManager`] registry (DESK-06): it holds every
+/// open connection and the currently-active one the data commands target.
+/// `config` holds the embedded-engine configuration the native adapters
 /// (DESK-05) reuse for their opens.
 pub struct AppState {
-    /// Future `ConnectionManager` registry (DESK-19). Placeholder today.
-    pub manager: (),
+    /// Registry of live connections (native / server / …).
+    pub manager: ConnectionManager,
     /// Embedded-engine configuration for native connections.
     pub config: VantaConfig,
 }
@@ -45,13 +45,26 @@ fn ping() -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state = AppState {
-        manager: (),
+        manager: ConnectionManager::new(),
         config: VantaConfig::default(),
     };
 
     tauri::Builder::default()
         .manage(state)
-        .invoke_handler(tauri::generate_handler![ping, commands::connection::vanta_health])
+        .invoke_handler(tauri::generate_handler![
+            ping,
+            commands::connection::vanta_health,
+            commands::connection::vanta_connect,
+            commands::connection::vanta_disconnect,
+            commands::connection::vanta_list_connections,
+            commands::connection::vanta_set_active,
+            commands::data::vanta_ingest,
+            commands::data::vanta_ingest_batch,
+            commands::data::vanta_search,
+            commands::data::vanta_get,
+            commands::data::vanta_delete,
+            commands::data::vanta_list,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

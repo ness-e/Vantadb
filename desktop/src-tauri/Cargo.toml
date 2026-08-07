@@ -29,7 +29,7 @@ serde_json = "1"
 thiserror = "2"
 async-trait = "0.1"
 reqwest = { version = "0.12", features = ["json"] }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "process", "io-util", "sync"] }
 
 # Core VantaDB engine, inlined (DESK-03). Subset of features only — never
 # `cli`/`server`/`prometheus` (would pull axum/tokio heavy and duplicate the
@@ -38,4 +38,4 @@ vantadb = { path = "../..", default-features = false, features = ["fjall", "fs2"
 
 [dev-dependencies]
 axum = "0.7"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "time"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "time", "process", "io-util"] }
