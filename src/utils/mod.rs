@@ -5,5 +5,6 @@
 
 pub mod confidence_metrics;
 pub mod duplicate_prevention;
+pub mod fs;
 
 pub use confidence_metrics::compute_confidence_friction;

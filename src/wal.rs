@@ -385,6 +385,7 @@ impl WalWriter {
             std::fs::remove_file(&archive_path)?;
         }
         std::fs::rename(&old_path, &archive_path)?;
+        crate::utils::fs::sync_parent_dir(&archive_path)?;
 
         Self::open(&old_path, sync_mode)
     }
@@ -419,6 +420,7 @@ impl WalWriter {
             std::fs::remove_file(&archive_path)?;
         }
         std::fs::rename(&old_path, &archive_path)?;
+        crate::utils::fs::sync_parent_dir(&archive_path)?;
 
         // Open fresh WAL file at original path and write a new header
         let mut file = OpenOptions::new()
