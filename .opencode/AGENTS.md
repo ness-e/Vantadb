@@ -690,7 +690,9 @@ Estrategias para mantener `cargo check` rápido:
 
 ## Default Features
 
-`cli` + `arrow` + `rocksdb` + `fjall` + `sysinfo` + `memmap2` + `fs2` + `prometheus` + `rayon` + `advanced-tokenizer`
+`cli` + `arrow` + `fjall` + `roaring` + `advanced-tokenizer` + `memmap2` + `fs2` + `sysinfo` + `rayon`
+
+(`rocksdb` y `prometheus` NO están en default — activarlos opt-in cuando se necesiten.)
 
 Key optional features:
 - `failpoints` — required for `chaos_integrity` test

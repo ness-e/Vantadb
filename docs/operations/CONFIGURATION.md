@@ -226,7 +226,7 @@ Build-time feature flags in `Cargo.toml`:
 
 | Feature | Deps Enabled | Description |
 |---------|-------------|-------------|
-| `default` | `cli`, `arrow`, `fjall`, `sysinfo`, `memmap2`, `fs2`, `prometheus`, `rayon`, `advanced-tokenizer` | Default feature set for production |
+| `default` | `cli`, `arrow`, `fjall`, `roaring`, `advanced-tokenizer`, `memmap2`, `fs2`, `sysinfo`, `rayon` | Default feature set for production |
 | `cli` | `indicatif`, `console`, `clap`, `clap_complete` | CLI binary + console UX |
 | `server` | `cli` + `tokio`, `axum`, `tower`, `tower_governor`, `tower-http` | HTTP/MCP server |
 | `tls` | `axum-server`, `rustls` | TLS for HTTP server |

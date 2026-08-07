@@ -4920,6 +4920,7 @@ dependencies = [
  "ratatui",
  "rayon",
  "reqwest 0.12.28",
+ "ring",
  "rocksdb",
  "rustls",
  "serde",
