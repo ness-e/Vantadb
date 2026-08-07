@@ -66,6 +66,7 @@ quickstart_memory.py
 .env
 .env.*
 !.env.tokens.example
+!.env.example
 
 # Datasets / local assets
 datasets/
