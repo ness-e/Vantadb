@@ -7,8 +7,23 @@ use crate::error::{Result, VantaError};
 use crate::wal::{compute_crc32c, WalReader, WalRecord};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::{error, info, warn};
+
+/// Cap for exponential backoff between shipping cycles after persistent failures.
+const MAX_BACKOFF: Duration = Duration::from_secs(60);
+/// Base duration for exponential backoff on consecutive failures.
+const BACKOFF_BASE: Duration = Duration::from_secs(2);
+
+/// Exponential backoff duration for `failures` consecutive failures, capped at `MAX_BACKOFF`.
+///
+/// Doubles from `BACKOFF_BASE` per failure (4s, 8s, ...) until the 60s cap.
+fn failure_backoff(failures: u32) -> Duration {
+    let secs = BACKOFF_BASE.as_secs() << failures.min(5); // 2 * 2^failures, capped by shift clamp
+    MAX_BACKOFF.min(Duration::from_secs(secs))
+}
 
 /// Configuration for shipping WAL segments to a remote replica.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,6 +76,8 @@ pub struct WalShipper {
     archive_dir: PathBuf,
     marker_path: PathBuf,
     client: reqwest::blocking::Client,
+    /// Set to `true` to stop the shipping loop on its next sleep-detection.
+    shutdown: Arc<AtomicBool>,
 }
 
 impl WalShipper {
@@ -80,7 +97,16 @@ impl WalShipper {
             wal_dir: wal_dir.as_ref().to_path_buf(),
             archive_dir: archive_dir.as_ref().to_path_buf(),
             marker_path,
+            shutdown: Arc::new(AtomicBool::new(false)),
         })
+    }
+
+    /// Return a handle whose [`AtomicBool::load`] signals shutdown to the running loop.
+    ///
+    /// Setting it to `true` (via [`AtomicBool::store`]) stops `run_loop` on its next
+    /// detection (within ~100ms of a cycle).
+    pub fn shutdown_handle(&self) -> Arc<AtomicBool> {
+        self.shutdown.clone()
     }
 
     /// Run one shipping cycle: discover unsent segments and ship all their records.
@@ -128,19 +154,66 @@ impl WalShipper {
         Ok(total_shipped)
     }
 
-    /// Run the shipping loop continuously (blocking). Never returns.
-    pub fn run_loop(&self) -> ! {
-        loop {
+    /// Run the shipping loop continuously (blocking).
+    ///
+    /// Returns when the shutdown flag (from [`Self::shutdown_handle`]) is set.
+    /// Uses exponential backoff (capped at `MAX_BACKOFF`) on persistent failures;
+    /// when no `replica_url` is configured it logs a warning and never POSTs.
+    pub fn run_loop(&self) {
+        let mut consecutive_failures = 0u32;
+        let mut warned_empty = false;
+
+        while !self.shutdown.load(Ordering::Relaxed) {
+            // No replica configured: shipping is effectively disabled. Log once and
+            // sleep a long interval instead of firing failing POSTs in a tight loop.
+            if self.config.replica_url.is_empty() {
+                if !warned_empty {
+                    warn!("No replica_url configured; WAL shipping disabled");
+                    warned_empty = true;
+                }
+                if self.sleep_or_shutdown(MAX_BACKOFF) {
+                    break;
+                }
+                continue;
+            }
+
             match self.ship_once() {
                 Ok(n) => {
+                    consecutive_failures = 0;
                     if n > 0 {
                         info!(records = n, "Shipped WAL records to replica");
                     }
+                    if self.sleep_or_shutdown(Duration::from_millis(self.config.batch_interval_ms))
+                    {
+                        break;
+                    }
                 }
-                Err(e) => error!(error = %e, "WAL shipping cycle failed"),
+                Err(e) => {
+                    consecutive_failures += 1;
+                    error!(error = %e, "WAL shipping cycle failed");
+                    if self.sleep_or_shutdown(failure_backoff(consecutive_failures)) {
+                        break;
+                    }
+                }
             }
-            std::thread::sleep(Duration::from_millis(self.config.batch_interval_ms));
         }
+    }
+
+    /// Sleep for `dur`, checking the shutdown flag every 100ms.
+    ///
+    /// Returns `true` if shutdown was requested during the sleep (the loop should exit).
+    fn sleep_or_shutdown(&self, dur: Duration) -> bool {
+        const SLICE: Duration = Duration::from_millis(100);
+        let mut remaining = dur;
+        while remaining > SLICE {
+            if self.shutdown.load(Ordering::Relaxed) {
+                return true;
+            }
+            std::thread::sleep(SLICE);
+            remaining -= SLICE;
+        }
+        std::thread::sleep(remaining);
+        self.shutdown.load(Ordering::Relaxed)
     }
 
     /// Ship a single batch of records with 3 retries and exponential backoff.
@@ -286,5 +359,55 @@ mod tests {
         let shipper = WalShipper::new(cfg, dir.path(), dir.path().join("archive")).unwrap();
         let segments = shipper.discover_segments(&None).unwrap();
         assert_eq!(segments.len(), 1);
+    }
+
+    #[test]
+    fn test_failure_backoff_expands_and_caps() {
+        assert_eq!(failure_backoff(0), Duration::from_secs(2));
+        assert_eq!(failure_backoff(1), Duration::from_secs(4));
+        assert_eq!(failure_backoff(2), Duration::from_secs(8));
+        // Cap at MAX_BACKOFF, never grows past it on many failures.
+        assert!(failure_backoff(10) <= MAX_BACKOFF);
+        assert_eq!(failure_backoff(u32::MAX), MAX_BACKOFF);
+    }
+
+    #[test]
+    fn test_run_loop_stops_on_shutdown() {
+        let dir = tempdir().unwrap();
+        let cfg = WalShipConfig {
+            batch_interval_ms: 500,
+            ..WalShipConfig::default()
+        };
+        let shipper = WalShipper::new(cfg, dir.path(), dir.path().join("archive")).unwrap();
+        let handle = shipper.shutdown_handle();
+
+        let joiner = std::thread::spawn(move || shipper.run_loop());
+        // Let it run at least one cycle, then signal shutdown.
+        std::thread::sleep(Duration::from_millis(50));
+        handle.store(true, Ordering::Relaxed);
+        // Should exit within a couple of 100ms sleep slices.
+        assert!(
+            joiner.join().is_ok(),
+            "run_loop did not exit after shutdown signal"
+        );
+    }
+
+    #[test]
+    fn test_run_loop_empty_url_idles_without_failing() {
+        // Default config has an empty replica_url: the loop must not attempt POSTs
+        // (no server, no error spam) and still be stoppable.
+        let dir = tempdir().unwrap();
+        let cfg = WalShipConfig::default();
+        assert!(cfg.replica_url.is_empty());
+        let shipper = WalShipper::new(cfg, dir.path(), dir.path().join("archive")).unwrap();
+        let handle = shipper.shutdown_handle();
+
+        let joiner = std::thread::spawn(move || shipper.run_loop());
+        std::thread::sleep(Duration::from_millis(30));
+        handle.store(true, Ordering::Relaxed);
+        assert!(
+            joiner.join().is_ok(),
+            "run_loop with empty replica_url did not stop cleanly"
+        );
     }
 }
