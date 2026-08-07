@@ -345,7 +345,10 @@ pub fn euclidean_distance_sq_with_norms(
     b_norm_sq: f32,
 ) -> f32 {
     let dot = f32_dot_product(a, b);
-    a_norm_sq + b_norm_sq - 2.0 * dot
+    // AUDREP-28: for nearly-identical vectors FP rounding can make
+    // ||a||² + ||b||² - 2·dot slightly negative. Clamp so negative noise
+    // never corrupts HNSW neighbor selection.
+    (a_norm_sq + b_norm_sq - 2.0 * dot).max(0.0)
 }
 
 /// Pure dot product — no norm computation.
@@ -625,6 +628,20 @@ mod tests {
             (score - 0.0).abs() < 1e-6,
             "Euclidean score for identical vectors should be 0, got {}",
             score
+        );
+    }
+
+    #[test]
+    fn test_euclidean_distance_sq_with_norms_never_negative() {
+        // AUDREP-28: identical vectors must never yield a negative squared
+        // distance even under FP rounding of ||a||² + ||b||² - 2·dot.
+        let v = vec![1.0_f32; 128];
+        let norm_sq = f32_dot_product(&v, &v);
+        let d = euclidean_distance_sq_with_norms(&v, norm_sq, &v, norm_sq);
+        assert!(
+            d >= 0.0,
+            "squared distance for identical vectors must be >= 0, got {}",
+            d
         );
     }
 
