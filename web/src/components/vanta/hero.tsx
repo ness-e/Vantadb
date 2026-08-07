@@ -59,7 +59,7 @@ export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
           {/* Stamp badge */}
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <span className="animate-stamp inline-flex rotate-[-6deg] items-center border-4 border-black bg-[#FF5500] px-3 py-1 font-display text-xs uppercase tracking-wider text-black shadow-[4px_4px_0_0_#000]">
-              v0.1 · MVP
+              0.5.0 · MVP
             </span>
             <span className="inline-flex items-center gap-2 border-2 border-black bg-black px-3 py-1 font-tech text-[10px] font-bold uppercase tracking-[0.2em] text-[#FBF9F5]">
               <span className="h-2 w-2 animate-flicker bg-[#FF5500]" />

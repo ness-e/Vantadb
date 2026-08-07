@@ -1,5 +1,3 @@
-version: "3.9"
-
 # Development compose — hot-reload via cargo-watch, exposed metrics, debug port
 services:
   vantadb:
