@@ -417,7 +417,12 @@ impl StorageEngine {
             .unwrap_or(0);
 
         if !config.read_only && config.wal_shards > 0 {
-            let num_shards = config.wal_shards.max(1);
+            // AUDREP-16: reconcile to the on-disk layout instead of trusting the
+            // config. A WAL written with a different shard count would otherwise
+            // be replayed with mismatched shard files and lose data silently.
+            let num_shards = crate::wal_sharded::detect_shard_count(&wal_path)
+                .or_else(|| crate::wal_sharded::read_shard_meta(&wal_path))
+                .unwrap_or(config.wal_shards.max(1));
 
             // Build shard path for a given index
             let shard_path_for = |idx: usize| -> std::path::PathBuf {

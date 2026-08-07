@@ -16,6 +16,64 @@ pub(crate) struct ShardedWal {
     flush_threshold: Option<usize>,
 }
 
+/// Sidecar metadata file recording the shard layout of a WAL. Lives next to
+/// the base WAL path (e.g. `vanta.wal.shards` for base `vanta.wal`).
+fn shard_meta_path(base_path: &Path) -> PathBuf {
+    let mut os = base_path.as_os_str().to_os_string();
+    os.push(".shards");
+    PathBuf::from(os)
+}
+
+/// Infer the shard count from the WAL files actually present on disk (AUDREP-16).
+///
+/// Returns `None` when no WAL exists yet (brand-new path). Detects both the
+/// single-file layout (`vanta.wal`) and the sharded layout (`vanta.shardN.wal`).
+/// This is the source of truth for recovery so reopening with any requested
+/// shard count reconciles to the real on-disk layout instead of silently
+/// misreading a differently-sharded WAL.
+pub(crate) fn detect_shard_count(base_path: &Path) -> Option<usize> {
+    if base_path.exists() {
+        return Some(1);
+    }
+    let dir = base_path.parent().unwrap_or(Path::new("."));
+    let stem = base_path.file_stem()?.to_string_lossy();
+    let ext = base_path
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy()))
+        .unwrap_or_default();
+    let prefix = format!("{}.shard", stem);
+    let mut max_idx = None;
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if let Some(rest) = name.strip_prefix(&prefix) {
+                if let Some(num) = rest.strip_suffix(&ext) {
+                    if let Ok(i) = num.parse::<usize>() {
+                        max_idx = Some(max_idx.map_or(i, |m: usize| m.max(i)));
+                    }
+                }
+            }
+        }
+    }
+    max_idx.map(|m| m + 1)
+}
+
+/// Read the persisted shard count from the sidecar metadata file, if any.
+pub(crate) fn read_shard_meta(base_path: &Path) -> Option<usize> {
+    std::fs::read_to_string(shard_meta_path(base_path))
+        .ok()?
+        .trim()
+        .parse()
+        .ok()
+        .filter(|&n| n >= 1)
+}
+
+/// Persist the shard count to the sidecar metadata file.
+fn write_shard_meta(base_path: &Path, count: usize) -> Result<()> {
+    std::fs::write(shard_meta_path(base_path), count.to_string())?;
+    Ok(())
+}
+
 impl ShardedWal {
     /// Create a new `ShardedWal` with the given base path, shard count, and sync mode.
     pub fn new(
@@ -34,6 +92,15 @@ impl ShardedWal {
         wal_buffer_size: usize,
         flush_threshold: Option<usize>,
     ) -> Result<Self> {
+        // AUDREP-16: reconcile to the layout actually on disk. The requested
+        // `num_shards` only applies to a brand-new WAL. Opening an existing WAL
+        // with a different shard count used to recover with mismatched shard
+        // naming (`vanta.wal` ⇄ `vanta.shardN.wal`) and lose data silently.
+        // The on-disk layout (falling back to the persisted metadata, then the
+        // request) is authoritative so recovery always matches real files.
+        let num_shards = detect_shard_count(base_path)
+            .or_else(|| read_shard_meta(base_path))
+            .unwrap_or(num_shards);
         let num_shards = num_shards.max(1);
         let mut shards = Vec::with_capacity(num_shards);
 
@@ -58,6 +125,10 @@ impl ShardedWal {
             )?;
             shards.push(Arc::new(Mutex::new(writer)));
         }
+
+        // Persist the resolved layout so future opens reconcile even if shard
+        // files are partially cleaned.
+        write_shard_meta(base_path, num_shards)?;
 
         Ok(Self {
             shards,
@@ -229,6 +300,7 @@ mod tests {
             };
             let _ = std::fs::remove_file(&shard_path);
         }
+        let _ = std::fs::remove_file(shard_meta_path(base));
     }
 
     // ─── Construction ───────────────────────────────────────────
@@ -616,6 +688,68 @@ mod tests {
         // Old records remain; appending after rotation increments total
         sw.append(&make_record(2)).unwrap();
         assert_eq!(sw.total_record_count(), before + 1);
+        clean_shards(&path, 1);
+    }
+
+    // ─── AUDREP-16: shard-count reconciliation ───────────────────
+
+    #[test]
+    fn test_meta_persists_resolved_shard_count() {
+        let path = test_wal_path();
+        ShardedWal::new(&path, 3, SyncMode::Periodic).unwrap();
+        assert_eq!(read_shard_meta(&path), Some(3));
+        clean_shards(&path, 3);
+    }
+
+    #[test]
+    fn test_reopen_with_different_shard_count_no_loss() {
+        let path = test_wal_path();
+        {
+            let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+            for i in 0..6 {
+                sw.append(&make_record(i)).unwrap();
+            }
+            sw.flush_all().unwrap();
+        }
+
+        // Reopen requesting a different count (e.g. engine hardcoded 4).
+        // Must reconcile to the on-disk layout (2) and replay ALL records.
+        let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
+        assert_eq!(sw.num_shards, 2, "must reconcile to on-disk layout");
+
+        let mut recovered = Vec::new();
+        sw.recover(0, |record| {
+            recovered.push(record);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(recovered.len(), 6, "no silent data loss on reopen");
+        clean_shards(&path, 2);
+    }
+
+    #[test]
+    fn test_reopen_single_file_legacy_with_multi_shard_request() {
+        let path = test_wal_path();
+        {
+            let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
+            for i in 0..3 {
+                sw.append(&make_record(i)).unwrap();
+            }
+            sw.flush_all().unwrap();
+        }
+
+        // Legacy single-file layout (vanta.wal): reopening with multi-shard
+        // must detect the single-file layout and replay without loss.
+        let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
+        assert_eq!(sw.num_shards, 1, "single-file legacy layout preserved");
+
+        let mut recovered = Vec::new();
+        sw.recover(0, |record| {
+            recovered.push(record);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(recovered.len(), 3, "legacy single-file WAL fully recovered");
         clean_shards(&path, 1);
     }
 }

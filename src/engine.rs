@@ -143,7 +143,8 @@ impl InMemoryEngine {
         let mut nodes_map = HashMap::with_capacity(DEFAULT_INITIAL_CAPACITY);
         let mut max_id: u128 = 0;
 
-        // Use 4 shards for reduced mutex contention on WAL writes
+        // ShardedWal reconciles to a pre-existing WAL's on-disk shard layout
+        // when present (AUDREP-16); 4 is only the default for a brand-new WAL.
         let sharded = ShardedWal::new(&path, 4, crate::config::SyncMode::Periodic)?;
         sharded.recover(0, |record| {
             match record {
