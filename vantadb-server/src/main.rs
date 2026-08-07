@@ -22,9 +22,23 @@ use vantadb::storage::StorageEngine;
 
 /// Application entrypoint. Starts either the MCP stdio server (`--mcp`) or the
 /// HTTP CLI server.
+/// The single CLI flag this binary understands (alongside `-h`/`--help`).
+const MCP_FLAG: &str = "--mcp";
+
 #[tokio::main]
 async fn main() {
-    let is_mcp = std::env::args().any(|a| a == "--mcp");
+    // Hand-rolled arg scan (the binary has exactly one boolean flag; clap is
+    // only a dev-dependency here and adding it as a runtime dep would be
+    // over-engineering). `skip(1)` drops the binary name so flags are matched
+    // against real argv values only.
+    let args: Vec<String> = std::env::args().skip(1).collect();
+
+    if args.iter().any(|a| a == "-h" || a == "--help") {
+        print_help();
+        return;
+    }
+
+    let is_mcp = args.iter().any(|a| a == MCP_FLAG);
     let config = vantadb::config::VantaConfig::from_env();
 
     if is_mcp {
@@ -55,4 +69,16 @@ async fn main() {
             std::process::exit(1);
         }
     }
+}
+
+/// Prints the usage message and exits (called on `-h`/`--help`).
+fn print_help() {
+    println!(
+        "VantaDB server\n\n\
+         USAGE:\n    \
+         vantadb-server [OPTIONS]\n\n\
+         OPTIONS:\n    \
+         {MCP_FLAG}    Run as an MCP stdio server instead of the HTTP CLI server\n    \
+         -h, --help    Print help information"
+    );
 }
