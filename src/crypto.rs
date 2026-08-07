@@ -113,6 +113,19 @@ const KDF_ITERATIONS: u32 = 210_000;
 /// PBKDF2-framed message (empty plaintext).
 const KDF_FRAME_MIN: usize = 1 + KDF_SALT_LEN + 12 + 16;
 
+/// Upper bound on a single encrypted frame length (plaintext + nonce + tag).
+///
+/// The reader trusts a 4-byte LE length from the wire; without a bound a
+/// corrupt/hostile header could ask for an allocation of up to `u32::MAX`
+/// (4 GiB) and OOM the process. Frames are written only by
+/// [`EncryptionStream::write`], which holds one chunk per frame — realistic
+/// sizes are far below this. 512 MiB is 8× the practical maximum and safely
+/// rejects forged lengths before allocation.
+///
+/// This is separate from [`KDF_FRAME_MIN`] which is a *minimum* for the
+/// PBKDF2-framed payload.
+const MAX_FRAME_LEN: usize = 512 * 1024 * 1024;
+
 /// AES-256-GCM cipher wrapping [`Aes256Gcm`] with a 12-byte nonce.
 ///
 /// Each encryption generates a fresh random nonce via [`OsRng`].
@@ -355,6 +368,14 @@ impl<S: Read + Write> Read for EncryptionStream<S> {
                 };
             }
             let frame_len = u32::from_le_bytes(len_buf) as usize;
+            if frame_len > MAX_FRAME_LEN {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    CryptoError::InvalidCiphertext(format!(
+                        "frame length {frame_len} exceeds limit {MAX_FRAME_LEN}"
+                    )),
+                ));
+            }
             let mut frame = vec![0u8; frame_len];
             self.inner.read_exact(&mut frame)?;
             self.read_buf = self
@@ -595,6 +616,21 @@ mod tests {
             result.extend_from_slice(&chunk[..n]);
         }
         assert_eq!(result, b"this is a longer message to test partial reads");
+    }
+
+    #[test]
+    fn test_encryption_stream_rejects_oversized_frame() {
+        // AUDREP-31: a forged header with an absurd frame length must fail
+        // before allocating, not OOM (previously up to u32::MAX / 4GiB).
+        let forged_header = u32::MAX.to_le_bytes();
+
+        let read_cursor = Cursor::new(forged_header);
+        let cipher = Cipher::new(&[0xEEu8; 32]);
+        let mut reader = EncryptionStream::new(read_cursor, cipher);
+        let mut output = Vec::new();
+        let err = reader.read_to_end(&mut output).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+        assert!(output.is_empty());
     }
 
     #[test]
