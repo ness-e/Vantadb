@@ -1,0 +1,24 @@
+{
+  "name": "vantadb-remotion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remotion compositions to render the VantaDB README GIF and favicon.",
+  "scripts": {
+    "studio": "remotion studio",
+    "render:banner": "remotion render Banner out/banner.gif --codec=gif --image-format=png --pixel-format=yuva444p10le --every-nth-frame=1 --number-of-gif-loops=0",
+    "render:manga": "remotion render MangaBrutal out/banner-manga.gif --codec=gif --image-format=png --pixel-format=yuva444p10le --every-nth-frame=1 --number-of-gif-loops=0",
+    "render:favicon": "remotion still FavIcon out/favicon.png --image-format=png"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.506",
+    "@remotion/google-fonts": "4.0.506",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "remotion": "4.0.506"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.7.2"
+  }
+}

@@ -51,8 +51,8 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "ness-e" }],
   icons: {
-    icon: "/assets/avatar_gato.png",
-    apple: "/assets/avatar_gato.png",
+    icon: "/favicon.png",
+    apple: "/favicon.png",
   },
   manifest: "/manifest.json",
   openGraph: {
