@@ -10,11 +10,13 @@
 //! > (not present yet) should use `crate::connections::wire_types`.
 
 mod r#trait;
+pub mod server;
 pub mod server_client;
 pub mod types;
 pub mod wire_types;
 
 pub use r#trait::VantaConnection;
+pub use server::ServerConnection;
 pub use server_client::ServerClient;
 pub use types::{
     Capability, ConnectionInfo, ConnectionStatus, HealthReport, HealthStatus, IngestItem,
