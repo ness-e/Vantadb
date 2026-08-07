@@ -1,7 +1,8 @@
-# DESKTOP-04 - Contracto multi-connection: trait VantaConnection + DTOs serde + VantaError unificado
+# DESKTOP-04 - Contrato multi-connection: trait VantaConnection + DTOs serde + VantaError unificado
 
 - **Estado:** ✅ COMPLETED (2026-08-06)
 - **Esfuerzo:** 🟡
+- **Commit:** `dd7d25a10573a52ec32c9af0954821e4f7b34f25`
 - **Archivos clave:** `desktop/src-tauri/src/connections/trait.rs`, `desktop/src-tauri/src/connections/types.rs`, `desktop/src-tauri/src/error.rs`
 - **Agente:** `vanta-worker`
 
