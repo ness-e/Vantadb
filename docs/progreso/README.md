@@ -1235,6 +1235,16 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `AUDREP-20` | SDK-TS-Types: `isMemoryRecord` rechazaba version/node_id numéricos → acepta `string || number` alineado con `MemoryRecord`; 3 tests + `tsc --noEmit` 0 errores; commit `734e9e11` | 🟠 | ✅ 2026-08-07 |
 | `AUDREP-21` | MCP-OOM: collection_stats/list materializaban todo → agregados streaming página a página (fold, pico 1 página); test bounded; commit `b5278799` | 🟠 | ✅ 2026-08-07 |
 | `AUDREP-22` | Integraciones-Versiones: 9 adapters Python 0.3.0 vs core 0.5.0 → bump a 0.5.0 + pin `vantadb-py>=0.5.0,<0.6.0`; validado tomllib; commit `776f734c` | 🟠 | ✅ 2026-08-07 |
+| `AUDREP-24` | Configuración: `.gitignore` ignoraba `.env.example` → negación `!.env.example` en L68; commit `535a3964` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-28` | Index-Precisión: distancia euclídea negativa por FP rounding → `max(0.0, ...)` en `euclidean_distance_sq_with_norms` + test `test_euclidean_distance_sq_with_norms_never_negative`; commit `feeeb73f` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-31` | Seguridad-OOM: frame_len sin límite en EncryptionStream → cap `MAX_FRAME_LEN` 512MiB validado antes de alloc, reusa `CryptoError::InvalidCiphertext`; test `test_encryption_stream_rejects_oversized_frame`; commit `e99d82b6` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-33` | Storage-Overflow: `(vstore.size*2)` overflow → `saturating_mul(2)` + `saturating_add(4096)`; commit `e81f963f` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-36` | WAL-Recuperación: WAL corrupto truncado sin backup → cuarentena `.corrupt`/`.corrupt.N` (fail-soft, recovery nunca depende del backup) + test `test_corrupt_wal_tail_is_quarantined`; commit `00080282` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-40` | Frontend-Contenido: badge hero "v0.1 · MVP" obsoleto → "0.5.0 · MVP"; commit `af7d1655` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-44` | MCP-Concurrency: `active_requests` leak → guard RAII (ya existía) como único decremento; eliminado `fetch_sub` manual que doble-decrementaba; test panic-safe `active_request_guard`; commit `489d9a88` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-49` | Infraestructura: `version: "3.9"` obsoleto en compose → clave eliminada (sin warning); commit `af7d1655` | 🟢 | ✅ 2026-08-07 |
+| `AUDREP-60` | SDK-TS-Código: `void ERROR_CODES` descartaba el const → eliminado el `void` (tipo `ErrorCode` sigue derivando); commit `b7f5a664` | 🟢 | ✅ 2026-08-07 |
+| `AUDREP-62` | Server-DX: `--mcp` vía `args().any()` sin help → argv loop hand-rolled con `skip(1)` + `print_help()` documenta `--mcp` (sin clap runtime); commit `b7f5a664` | 🟢 | ✅ 2026-08-07 |
 | `AUDREP-02` | Engine-Panic: `.expect()` en deserialización de claves (guard previo ya lo protegía; fix defensivo `let-else`) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-05` | Dockerfile: COPY 8 dirs inexistentes (resuelto por plan Task 16/AUD-001) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-06` | Dockerfile: RUST_VERSION 1.94.0 → 1.94.1 (resuelto por plan Task 16/AUD-001) | 🔴 | ✅ 2026-08-05 |
