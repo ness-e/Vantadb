@@ -43,6 +43,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `api_key` | `Option<String>` | `None` | `VANTADB_API_KEY` | Bearer token for HTTP auth |
 | `rate_limit_rpm` | `u32` | `100` | `VANTADB_RATE_LIMIT_RPM` | Rate limit in requests per minute |
 | `trusted_proxies` | `Vec<IpAddr>` | `[]` | `VANTADB_TRUSTED_PROXIES` | Comma-separated reverse-proxy IPs whose `X-Forwarded-For` header is honored for client-IP resolution (rate limiter / logs). Empty = header ignored; direct socket addr is authoritative (clients cannot spoof their IP). |
+| `allowed_origins` | `Vec<String>` | `[]` | `VANTADB_ALLOWED_ORIGINS` | Comma-separated origins allowed to make cross-origin (CORS) requests to the HTTP server (e.g. `https://app.example.com,https://admin.example.com`). Empty (default) = CORS middleware omitted; the server sends no `Access-Control-Allow-Origin` header and browsers block cross-origin web calls. Repeatable via `VantaConfig::with_allowed_origins`. |
 | `tls_cert_path` | `Option<String>` | `None` | `VANTADB_TLS_CERT` | Path to TLS certificate PEM file |
 | `tls_key_path` | `Option<String>` | `None` | `VANTADB_TLS_KEY` | Path to TLS private key PEM file |
 | `log_format` | `LogFormat` | `Compact` | `VANTADB_LOG_FORMAT`, `VANTADB_LOG_JSON` | Log output: `compact`, `json`, `full` |

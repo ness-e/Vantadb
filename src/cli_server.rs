@@ -21,7 +21,7 @@ use std::time::Instant;
 
 use axum::{
     extract::{DefaultBodyLimit, State},
-    http::{header, StatusCode},
+    http::{header, HeaderValue, Method, StatusCode},
     middleware,
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -115,7 +115,20 @@ pub struct ServerState {
 }
 
 /// Build the axum Router with public and protected routes, rate-limiting, and middleware.
+///
+/// No CORS is configured (see [`app_with_cors`] to allow specific origins).
 pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
+    app_with_cors(state, rpm, &[])
+}
+
+/// Build the axum Router as in [`app`], optionally enabling CORS for the given
+/// allowed origins.
+///
+/// An empty `allowed_origins` slice attaches **no** CORS middleware — the
+/// server sends no `Access-Control-Allow-Origin` header. Only when origins are
+/// provided is a [`tower_http::cors::CorsLayer`] mounted as the outermost
+/// layer (so preflight `OPTIONS` are answered before auth).
+pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[String]) -> Router {
     let rbac = Arc::new(Rbac::new());
     rbac.add_role("admin", vec![Permission::Admin]);
     rbac.add_role("reader", vec![Permission::Read]);
@@ -150,9 +163,15 @@ pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
         protected
     };
 
-    Router::new()
-        .merge(public)
-        .merge(protected)
+    let router = Router::new().merge(public).merge(protected);
+
+    // CORS goes outermost so preflight OPTIONS are answered before auth.
+    let router = match cors_layer(allowed_origins) {
+        Some(cors) => router.layer(cors),
+        None => router,
+    };
+
+    router
         .layer(DefaultBodyLimit::max(1_000_000))
         .layer(middleware::from_fn_with_state(
             state.clone(),
@@ -162,6 +181,38 @@ pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
         .layer(Extension(auth_state))
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .with_state(state)
+}
+
+/// Build a [`tower_http::cors::CorsLayer`] allowing the given origins.
+///
+/// Returns `None` (no CORS middleware) when no valid origin is configured.
+/// Invalid/blank origins are skipped and the rest kept.
+fn cors_layer(allowed_origins: &[String]) -> Option<tower_http::cors::CorsLayer> {
+    let origins: Vec<HeaderValue> = allowed_origins
+        .iter()
+        .filter_map(|origin| match HeaderValue::from_str(origin.as_str()) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                tracing::warn!("Invalid CORS origin {:?} — ignoring: {e}", origin);
+                None
+            }
+        })
+        .collect();
+    if origins.is_empty() {
+        return None;
+    }
+    Some(
+        tower_http::cors::CorsLayer::new()
+            .allow_origin(origins)
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::DELETE,
+                Method::OPTIONS,
+            ])
+            .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION]),
+    )
 }
 
 /// Per-IP rate limiter for authentication failures.
@@ -810,7 +861,7 @@ pub async fn run(config: VantaConfig) -> Result<()> {
     });
 
     let rpm = config.rate_limit_rpm;
-    let router = app(state, rpm);
+    let router = app_with_cors(state, rpm, &config.allowed_origins);
     let addr = format!("{}:{}", config.host, config.port);
 
     if !serve_http_or_tls(router, addr, &config, storage.clone()).await {
@@ -1107,6 +1158,82 @@ mod tests {
         assert!(
             !small.starts_with("HTTP/1.1 413"),
             "small body should not hit the body limit, got: {small}"
+        );
+    }
+
+    /// Spawn the app router on an ephemeral port, returning its address.
+    async fn spawn_app(router: Router) -> std::net::SocketAddr {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(
+                listener,
+                router.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+            )
+            .await
+            .unwrap();
+        });
+        addr
+    }
+
+    /// Send GET /health with an `Origin` header and return the raw HTTP response.
+    async fn raw_get_with_origin(addr: std::net::SocketAddr, origin: &str) -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let request = format!(
+            "GET /health HTTP/1.1\r\nHost: {addr}\r\nOrigin: {origin}\r\nConnection: close\r\n\r\n"
+        );
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        stream.write_all(request.as_bytes()).await.unwrap();
+        let mut response = String::new();
+        stream.read_to_string(&mut response).await.unwrap();
+        response
+    }
+
+    async fn cors_test_state() -> Arc<ServerState> {
+        let cfg = VantaConfig {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(cfg)).unwrap());
+        Arc::new(ServerState {
+            storage,
+            circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+            pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+            api_key: None,
+            rbac_config: RbacConfig::default(),
+            trusted_proxies: Vec::new(),
+        })
+    }
+
+    #[tokio::test]
+    async fn cors_disabled_omits_allow_origin_header() {
+        // No allowed origins → no CORS headers on the response.
+        let state = cors_test_state().await;
+        let addr = spawn_app(app(state, 0)).await;
+        let response = raw_get_with_origin(addr, "http://attacker.example.com").await;
+        assert!(
+            !response
+                .to_lowercase()
+                .contains("access-control-allow-origin"),
+            "expected no CORS header, got: {response}"
+        );
+    }
+
+    #[tokio::test]
+    async fn cors_configured_returns_allow_origin_header() {
+        // Allowed origin matching the request → header echoes the origin.
+        let state = cors_test_state().await;
+        let addr = spawn_app(app_with_cors(
+            state,
+            0,
+            &["http://app.example.com".to_string()],
+        ))
+        .await;
+        let resp = raw_get_with_origin(addr, "http://app.example.com").await;
+        assert!(
+            resp.to_lowercase()
+                .contains("access-control-allow-origin: http://app.example.com"),
+            "expected CORS allow-origin header, got: {resp}"
         );
     }
 

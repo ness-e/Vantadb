@@ -306,6 +306,14 @@ pub struct VantaConfig {
     /// `127.0.0.1,::1,10.0.0.5`). Only set this when VantaDB is served behind
     /// a reverse proxy that overwrites the header.
     pub trusted_proxies: Vec<std::net::IpAddr>,
+    /// Origins allowed to make cross-origin (CORS) requests to the HTTP server.
+    ///
+    /// Configured via `VANTADB_ALLOWED_ORIGINS` (comma-separated origins, e.g.
+    /// `https://app.example.com,https://admin.example.com`). When empty (default),
+    /// no CORS middleware is attached and the server sends **no**
+    /// `Access-Control-Allow-Origin` header — browsers block cross-origin web
+    /// calls unless a reverse proxy handles CORS. Defaults off.
+    pub allowed_origins: Vec<String>,
     /// Batch size for batch ingestion operations (default: 1000).
     /// Configured via `VANTADB_BATCH_SIZE`.
     pub batch_size: Option<usize>,
@@ -572,6 +580,19 @@ impl Default for VantaConfig {
                 }
                 proxies
             },
+            allowed_origins: {
+                let raw = env::var("VANTADB_ALLOWED_ORIGINS").unwrap_or_default();
+                let origins: Vec<String> = raw
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .collect();
+                if !raw.trim().is_empty() {
+                    debug!(count = origins.len(), "VANTADB_ALLOWED_ORIGINS");
+                }
+                origins
+            },
             batch_size: {
                 let v = parse_env_or::<u32>("VANTADB_BATCH_SIZE", 0)
                     .try_into()
@@ -802,6 +823,13 @@ impl VantaConfig {
     /// Leave empty to ignore the header entirely.
     pub fn with_trusted_proxies(mut self, proxies: Vec<std::net::IpAddr>) -> Self {
         self.trusted_proxies = proxies;
+        self
+    }
+
+    /// Sets the origins allowed to make cross-origin (CORS) requests to the
+    /// HTTP server. Empty = no CORS middleware (server sends no CORS headers).
+    pub fn with_allowed_origins(mut self, origins: Vec<String>) -> Self {
+        self.allowed_origins = origins;
         self
     }
 
@@ -1191,6 +1219,7 @@ mod tests {
         assert_eq!(cfg.file_lock_timeout_ms, 1000);
         assert_eq!(cfg.flat_threshold, Some(10000));
         assert_eq!(cfg.audit_log_path, None);
+        assert!(cfg.allowed_origins.is_empty());
     }
 
     // ── Builder methods ───────────────────────────────────────

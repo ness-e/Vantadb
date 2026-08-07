@@ -148,14 +148,14 @@ When `VANTADB_TLS_CERT` and `VANTADB_TLS_KEY` are configured, the server binds w
 
 ## CORS
 
-The server currently does not set CORS headers. This is a deliberate decision, not a bug: there are no direct browser consumers of the HTTP API.
+CORS is **off by default**: the server sends no CORS headers unless origins are explicitly configured, so existing behavior is unchanged. Existing clients (web app via WASM, desktop via reqwest, LLM integration, WAL shipping) are unaffected by CORS either way.
 
-- The web app (`web/`) runs VantaDB **in-browser via WASM** — its only fetches load the WASM binary, never the HTTP server.
-- The desktop plan (see `docs/Investigaciones/DESKTOP-01b-investigacion-6-integraciones-arquitectura.md`) talks to the server from Rust (reqwest), which is not subject to CORS.
-- All existing HTTP clients (tests, LLM integration, WAL shipping) are native/server-side.
+To allow specific origins to call the HTTP API from a browser, set the allow-list:
 
-For any future browser-based client, two options:
-1. **Recommended:** terminate TLS at a reverse proxy (nginx, Caddy) and add CORS there, keeping the origin allow-list in the proxy config.
-2. **In-process:** enable CORS middleware in the server. `tower-http` (already an optional dependency behind the `server` feature) provides a `cors` module; gate it behind a config flag (e.g. `cors_origins` in `VantaConfig`) with default **off** so no headers are emitted unless explicitly configured. Never default to `AllowOrigin::any()` — restrict to the configured origins.
+- Env var: `VANTADB_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com`
+- Config API: `VantaConfig::with_allowed_origins(vec![...])`
+- CLI: `REQUIRE_AUTH`/config only via the above (no dedicated `--cors` flag; configure origins through the env var or `VantaConfig`).
 
-Decision recorded 2026-08-05 (TECH-06): no real browser consumer exists, so no code change was made.
+When configured, the server mounts a `tower_http::cors::CorsLayer` as the **outermost** layer (so CORS preflight `OPTIONS` are answered before authentication), echoing `Access-Control-Allow-Origin` for the configured origins and allowing `GET`/`POST`/`PUT`/`DELETE`/`OPTIONS` with `Content-Type` and `Authorization` headers. The default is deliberately **not** `AllowOrigin::any()` — origins are restricted to the configured list.
+
+Decision history: recorded 2026-08-05 (TECH-06) as "no browser consumer → no change", and the CORS feature request was implemented 2026-08-06 (AUDREP-14) via `VANTADB_ALLOWED_ORIGINS`.
