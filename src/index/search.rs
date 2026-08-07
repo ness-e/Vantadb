@@ -496,16 +496,25 @@ impl CPIndex {
         top_k: usize,
         vector_store: Option<&crate::storage::vfile::VantaFile>,
     ) -> Vec<(u128, f32)> {
-        // IVF path: lazy-build on first search, then search
+        // IVF path: lazy-build on first search, then search. AUDREP-09:
+        // rebuild whenever the node count changed since the last build, so
+        // vectors added after a cached IVF was built become candidates.
         if self.config.index_type == IndexType::Ivf {
             let mut guard = self.ivf_index.lock();
-            if guard.is_none() {
+            let node_count = self.nodes.len();
+            if guard.as_ref().is_none_or(|_| {
+                self.ivf_built_at_node_count
+                    .load(std::sync::atomic::Ordering::Relaxed)
+                    != node_count
+            }) {
                 let ivf_config = crate::index::ivf::IvfConfig {
-                    nlist: (self.nodes.len() as f64).sqrt() as usize + 1,
+                    nlist: (node_count as f64).sqrt() as usize + 1,
                     nprobe: 10,
                     distance_metric: self.config.distance_metric,
                 };
                 *guard = Some(crate::index::ivf::IvfIndex::build(&self.nodes, &ivf_config));
+                self.ivf_built_at_node_count
+                    .store(node_count, std::sync::atomic::Ordering::Relaxed);
             }
             let ivf = guard.as_ref().unwrap();
             return ivf.search(query_vec, top_k, query_mask);
@@ -915,6 +924,63 @@ mod tests {
         assert!(
             index.use_flat_search(),
             "small index should use flat search by default"
+        );
+    }
+
+    // ── IVF lazy-build invalidation (AUDREP-09) ────────────────────────
+
+    fn make_ivf_index(metric: DistanceMetric) -> CPIndex {
+        CPIndex::new_with_config(HnswConfig {
+            m: 8,
+            m_max0: 16,
+            ef_construction: 50,
+            ef_search: 50,
+            ml: 1.0 / (8_f64).ln(),
+            distance_metric: metric,
+            flat_threshold: None,
+            index_type: crate::index::IndexType::Ivf,
+            auto_tune: false,
+        })
+    }
+
+    #[test]
+    fn test_ivf_rebuilds_when_nodes_added_after_build() {
+        let index = make_ivf_index(DistanceMetric::Euclidean);
+        for id in 0..20_u128 {
+            add_node(&index, id, vec![id as f32 * 0.5, id as f32 * 0.5]);
+        }
+        // Force the lazy IVF build on the first search.
+        index.search_nearest(&[0.5, 0.5], None, None, &ALL_BITSET, 5, None);
+        assert!(
+            index.ivf_index.lock().is_some(),
+            "IVF should be built after first search"
+        );
+        assert_eq!(
+            index
+                .ivf_built_at_node_count
+                .load(std::sync::atomic::Ordering::Relaxed),
+            20,
+            "IVF built over the initial 20 nodes"
+        );
+
+        // Add a new, far vector after the build, then search for it.
+        index.add(
+            999_u128,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![999.0, 999.0]),
+            0,
+        );
+        let results = index.search_nearest(&[999.0, 999.0], None, None, &ALL_BITSET, 5, None);
+        assert_eq!(
+            index
+                .ivf_built_at_node_count
+                .load(std::sync::atomic::Ordering::Relaxed),
+            21,
+            "cached IVF must be rebuilt after node count changed"
+        );
+        assert!(
+            results.iter().any(|(id, _)| *id == 999_u128),
+            "newly added vector must be a candidate after rebuild, got {results:?}"
         );
     }
 

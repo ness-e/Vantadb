@@ -342,6 +342,10 @@ pub struct CPIndex {
     /// Lazy-built IVF index. Will be `None` until first search with
     /// `config.index_type == IndexType::Ivf`.
     pub ivf_index: parking_lot::Mutex<Option<crate::index::ivf::IvfIndex>>,
+    /// Node count the cached `ivf_index` was built over. When `nodes.len()`
+    /// diverges (vectors added/removed after the lazy build), the cached IVF
+    /// is stale and must be rebuilt on the next search (AUDREP-09).
+    pub ivf_built_at_node_count: AtomicUsize,
     /// Flat, lock-friendly neighbor list index.
     /// `pub(crate)` because `HnswNeighborIndex` is only `pub(crate)`.
     pub(crate) neighbor_index: crate::index::neighbor_index::HnswNeighborIndex,
@@ -382,6 +386,7 @@ impl CPIndex {
             total_nodes: AtomicU64::new(0),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
             ivf_index: parking_lot::Mutex::new(None),
+            ivf_built_at_node_count: AtomicUsize::new(0),
             neighbor_index: crate::index::neighbor_index::HnswNeighborIndex::new(),
         }
     }
