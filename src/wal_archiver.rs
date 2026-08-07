@@ -248,7 +248,7 @@ impl PitrRestorer {
         let mut total_replayed = 0u64;
 
         for segment_path in &segments {
-            let seg_ts = Self::parse_segment_timestamp(segment_path);
+            let seg_ts = Self::parse_segment_timestamp(segment_path)?;
             if seg_ts > target_timestamp_ms {
                 break;
             }
@@ -282,9 +282,14 @@ impl PitrRestorer {
     /// Return archived segments whose archive timestamp is ≤ the target.
     fn segments_up_to(&self, target_timestamp_ms: u64) -> Result<Vec<PathBuf>> {
         let archiver = WalArchiver::new(&self.archive_dir, WalArchiveConfig::default())?;
-        let mut segments = archiver.list_archived_segments()?;
+        let all = archiver.list_archived_segments()?;
 
-        segments.retain(|p| Self::parse_segment_timestamp(p) <= target_timestamp_ms);
+        let mut segments = Vec::with_capacity(all.len());
+        for p in all {
+            if Self::parse_segment_timestamp(&p)? <= target_timestamp_ms {
+                segments.push(p);
+            }
+        }
 
         Ok(segments)
     }
@@ -295,20 +300,19 @@ impl PitrRestorer {
     /// same-millisecond archives).
     /// Example: `vanta.wal.3.1712345678901` → `1712345678901`
     /// Legacy format `<original_name>.<timestamp_millis>` is also accepted.
-    fn parse_segment_timestamp(path: &Path) -> u64 {
+    ///
+    /// Returns `Err` if the filename has no parseable timestamp — ordering for
+    /// PITR replay must never silently fall back to file mtime (mtimes change
+    /// on copy/restore), so callers fail loudly instead of mis-ordering.
+    fn parse_segment_timestamp(path: &Path) -> Result<u64> {
         let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
-        if let Some(ts_str) = name.rsplit('.').next() {
-            if let Ok(ts) = ts_str.parse::<u64>() {
-                return ts;
-            }
-        }
-        // Fallback: use file modification time
-        std::fs::metadata(path)
-            .ok()
-            .and_then(|m| m.modified().ok())
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| d.as_millis() as u64)
-            .unwrap_or(0)
+        let ts_str = name.rsplit('.').next().unwrap_or("");
+        ts_str.parse::<u64>().map_err(|_| {
+            VantaError::wal_error(format!(
+                "Archived WAL segment has unparseable timestamp: {}",
+                path.display()
+            ))
+        })
     }
 }
 
@@ -424,14 +428,35 @@ mod tests {
     fn test_parse_segment_timestamp() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("vanta.wal.1712345678901");
-        assert_eq!(PitrRestorer::parse_segment_timestamp(&path), 1712345678901);
+        assert_eq!(
+            PitrRestorer::parse_segment_timestamp(&path).unwrap(),
+            1712345678901
+        );
 
         let path2 = dir.path().join("vanta.wal.shard0.1712345678902");
-        assert_eq!(PitrRestorer::parse_segment_timestamp(&path2), 1712345678902);
+        assert_eq!(
+            PitrRestorer::parse_segment_timestamp(&path2).unwrap(),
+            1712345678902
+        );
 
         // New format with the disambiguating sequence inserted before the millis.
         let path3 = dir.path().join("vanta.wal.7.1712345678903");
-        assert_eq!(PitrRestorer::parse_segment_timestamp(&path3), 1712345678903);
+        assert_eq!(
+            PitrRestorer::parse_segment_timestamp(&path3).unwrap(),
+            1712345678903
+        );
+    }
+
+    #[test]
+    fn test_parse_segment_timestamp_unparseable_is_err() {
+        let dir = tempdir().unwrap();
+        // No trailing numeric token — the mtime fallback must NOT kick in.
+        let path = dir.path().join("vanta.wal");
+        assert!(PitrRestorer::parse_segment_timestamp(&path).is_err());
+
+        // Non-numeric trailing token.
+        let path2 = dir.path().join("vanta.wal.abc");
+        assert!(PitrRestorer::parse_segment_timestamp(&path2).is_err());
     }
 
     #[test]
@@ -463,8 +488,8 @@ mod tests {
         assert!(!s1.exists());
         assert!(!s2.exists());
         // Archives remain parseable for PITR.
-        let t1 = PitrRestorer::parse_segment_timestamp(&d1);
-        let t2 = PitrRestorer::parse_segment_timestamp(&d2);
+        let t1 = PitrRestorer::parse_segment_timestamp(&d1).unwrap();
+        let t2 = PitrRestorer::parse_segment_timestamp(&d2).unwrap();
         assert_ne!(t1, 0);
         assert_ne!(t2, 0);
     }
