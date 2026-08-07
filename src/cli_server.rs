@@ -109,6 +109,9 @@ pub struct ServerState {
     pub api_key: Option<Arc<str>>,
     /// RBAC token-to-role mapping configuration.
     pub rbac_config: RbacConfig,
+    /// Reverse-proxy IPs whose `X-Forwarded-For` header is honored for client
+    /// IP resolution. Empty = ignore the header (ConnectInfo is authoritative).
+    pub trusted_proxies: Vec<std::net::IpAddr>,
 }
 
 /// Build the axum Router with public and protected routes, rate-limiting, and middleware.
@@ -121,6 +124,7 @@ pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
         state.api_key.as_ref().map(|k| k.to_string()),
         state.rbac_config.clone(),
         rbac,
+        &state.trusted_proxies,
     );
 
     let public = Router::new().route("/health", get(health_check));
@@ -221,36 +225,62 @@ pub struct AuthState {
     pub(crate) token_role_map: HashMap<String, String>,
     pub(crate) rbac: Arc<Rbac>,
     pub(crate) rate_limiter: Arc<AuthRateLimiter>,
+    /// Reverse-proxy IPs whose `X-Forwarded-For` header is honored for client IP
+    /// resolution. Empty = the header is ignored.
+    pub(crate) trusted_proxies: Vec<std::net::IpAddr>,
 }
 
 impl AuthState {
-    pub(crate) fn new(api_key: Option<String>, rbac_config: RbacConfig, rbac: Arc<Rbac>) -> Self {
+    pub(crate) fn new(
+        api_key: Option<String>,
+        rbac_config: RbacConfig,
+        rbac: Arc<Rbac>,
+        trusted_proxies: &[std::net::IpAddr],
+    ) -> Self {
         Self {
             api_key: api_key.map(|k| Arc::from(k.as_str())),
             token_role_map: rbac_config.token_role_map,
             rbac,
             rate_limiter: Arc::new(AuthRateLimiter::new(5, 60)),
+            trusted_proxies: trusted_proxies.to_vec(),
         }
     }
 }
 
-/// Resolve the real client IP, checking the `X-Forwarded-For` header first
-/// (for deployments behind a reverse proxy), then falling back to the direct
-/// TCP socket address.
-pub fn client_ip(req: &axum::extract::Request) -> String {
-    if let Some(forwarded) = req.headers().get("x-forwarded-for") {
-        if let Ok(ip_str) = forwarded.to_str() {
-            if let Some(ip) = ip_str.split(',').next().map(|s| s.trim()) {
-                if !ip.is_empty() {
-                    return ip.to_string();
+/// Resolve the real client IP used for rate limiting and logging.
+///
+/// `X-Forwarded-For` is only honored when the request's peer is one of
+/// `trusted_proxies` (i.e. it actually arrived via a configured reverse proxy
+/// that sets the header). Otherwise the direct TCP socket address
+/// ([`ConnectInfo`]) is returned — so a client cannot spoof its recorded IP by
+/// setting `X-Forwarded-For` itself. The first valid IP in the header is used
+/// when a trusted proxy is present.
+pub fn client_ip(req: &axum::extract::Request, trusted_proxies: &[std::net::IpAddr]) -> String {
+    let peer = req
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|ci| ci.0);
+
+    if let Some(peer) = peer {
+        if trusted_proxies.contains(&peer.ip()) {
+            if let Some(forwarded) = req.headers().get("x-forwarded-for") {
+                if let Ok(ip_str) = forwarded.to_str() {
+                    for part in ip_str.split(',') {
+                        let trimmed = part.trim();
+                        if trimmed.is_empty() {
+                            continue;
+                        }
+                        if let Ok(ip) = trimmed.parse::<std::net::IpAddr>() {
+                            return ip.to_string();
+                        }
+                    }
                 }
             }
         }
+        return peer.to_string();
     }
-    req.extensions()
-        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
-        .map(|ci| ci.0.to_string())
-        .unwrap_or_else(|| "unknown".to_string())
+
+    "unknown".to_string()
 }
 
 /// Axum middleware that validates Bearer tokens and enforces RBAC permissions.
@@ -290,7 +320,7 @@ pub async fn auth_middleware(req: axum::extract::Request, next: middleware::Next
     };
 
     // Extract client IP for rate limiting (respects X-Forwarded-For)
-    let client_ip = client_ip(&req);
+    let client_ip = client_ip(&req, &auth.trusted_proxies);
 
     // Check rate limiting before processing auth
     if auth.rate_limiter.is_rate_limited(&client_ip) {
@@ -776,6 +806,7 @@ pub async fn run(config: VantaConfig) -> Result<()> {
         pool,
         api_key,
         rbac_config,
+        trusted_proxies: config.trusted_proxies.clone(),
     });
 
     let rpm = config.rate_limit_rpm;
@@ -1032,6 +1063,7 @@ mod tests {
             pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
             api_key: None,
             rbac_config: RbacConfig::default(),
+            trusted_proxies: Vec::new(),
         });
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -1075,6 +1107,70 @@ mod tests {
         assert!(
             !small.starts_with("HTTP/1.1 413"),
             "small body should not hit the body limit, got: {small}"
+        );
+    }
+
+    /// Build a request with a forged `X-Forwarded-For` header and the given
+    /// peer socket address.
+    fn request_with_xff(peer: &std::net::SocketAddr, xff: &str) -> axum::extract::Request {
+        axum::extract::Request::builder()
+            .header("x-forwarded-for", xff)
+            .extension(axum::extract::ConnectInfo(*peer))
+            .body(axum::body::Body::empty())
+            .unwrap()
+    }
+
+    #[test]
+    fn client_ip_ignores_xff_without_trusted_proxy() {
+        // No trusted proxy configured → a forged header must be ignored and the
+        // real socket address returned. This is the AUDREP-11 regression guard:
+        // a direct client cannot spoof its recorded IP.
+        let peer = "198.51.100.5:4444".parse().unwrap();
+        let req = request_with_xff(&peer, "203.0.113.99");
+        assert_eq!(client_ip(&req, &[]), "198.51.100.5");
+    }
+
+    #[test]
+    fn client_ip_uses_xff_from_trusted_proxy() {
+        // Peer is a configured proxy → the X-Forwarded-For value is used.
+        let proxy = "10.0.0.5:4444".parse().unwrap();
+        let req = request_with_xff(&proxy, "203.0.113.99");
+        assert_eq!(
+            client_ip(&req, &["10.0.0.5".parse().unwrap()]),
+            "203.0.113.99"
+        );
+    }
+
+    #[test]
+    fn client_ip_uses_first_valid_ip_in_xff() {
+        let proxy = "10.0.0.5:4444".parse().unwrap();
+        let req = request_with_xff(&proxy, "203.0.113.1, 198.51.100.7");
+        assert_eq!(
+            client_ip(&req, &["10.0.0.5".parse().unwrap()]),
+            "203.0.113.1"
+        );
+    }
+
+    #[test]
+    fn client_ip_ignores_xff_from_untrusted_peer_with_proxy_list() {
+        // The list of trusted proxies is non-empty, but this request's peer is
+        // NOT one of them, so X-Forwarded-For must still be ignored.
+        let direct = "198.51.100.9:5555".parse().unwrap();
+        let req = request_with_xff(&direct, "203.0.113.99");
+        assert_eq!(
+            client_ip(&req, &["10.0.0.5".parse().unwrap()]),
+            "198.51.100.9"
+        );
+    }
+
+    #[test]
+    fn client_ip_skips_invalid_xff_entry() {
+        let proxy = "10.0.0.5:4444".parse().unwrap();
+        // First header entry is garbage; a valid one follows.
+        let req = request_with_xff(&proxy, "not-an-ip, 203.0.113.99");
+        assert_eq!(
+            client_ip(&req, &["10.0.0.5".parse().unwrap()]),
+            "203.0.113.99"
         );
     }
 }

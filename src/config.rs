@@ -296,6 +296,16 @@ pub struct VantaConfig {
     /// Configured via `VANTADB_RATE_LIMIT_RPM`. Set to `0` to disable rate
     /// limiting entirely (useful for tests and embedded-local usage).
     pub rate_limit_rpm: u32,
+    /// IP addresses of trusted reverse proxies whose `X-Forwarded-For` header
+    /// is honored when resolving the client IP for rate limiting and logging.
+    ///
+    /// When empty (default), the header is **ignored** and the direct TCP
+    /// socket address (`ConnectInfo`) is authoritative — a client cannot
+    /// spoof its recorded IP by setting `X-Forwarded-For` itself. Configured
+    /// via `VANTADB_TRUSTED_PROXIES` (comma-separated, e.g.
+    /// `127.0.0.1,::1,10.0.0.5`). Only set this when VantaDB is served behind
+    /// a reverse proxy that overwrites the header.
+    pub trusted_proxies: Vec<std::net::IpAddr>,
     /// Batch size for batch ingestion operations (default: 1000).
     /// Configured via `VANTADB_BATCH_SIZE`.
     pub batch_size: Option<usize>,
@@ -545,6 +555,23 @@ impl Default for VantaConfig {
                 debug!(val = v, "VANTADB_RATE_LIMIT_RPM");
                 v
             },
+            trusted_proxies: {
+                let raw = env::var("VANTADB_TRUSTED_PROXIES").unwrap_or_default();
+                let mut proxies = Vec::new();
+                for part in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                    match part.parse::<std::net::IpAddr>() {
+                        Ok(ip) => proxies.push(ip),
+                        Err(e) => warn!(
+                            "Invalid VANTADB_TRUSTED_PROXIES entry {:?} — ignoring: {e}",
+                            part
+                        ),
+                    }
+                }
+                if !raw.trim().is_empty() {
+                    debug!(count = proxies.len(), "VANTADB_TRUSTED_PROXIES");
+                }
+                proxies
+            },
             batch_size: {
                 let v = parse_env_or::<u32>("VANTADB_BATCH_SIZE", 0)
                     .try_into()
@@ -765,6 +792,16 @@ impl VantaConfig {
     /// Use `0` to disable rate limiting.
     pub fn with_rate_limit_rpm(mut self, rpm: u32) -> Self {
         self.rate_limit_rpm = rpm;
+        self
+    }
+
+    /// Sets the reverse-proxy IPs whose `X-Forwarded-For` header is trusted.
+    ///
+    /// Only requests arriving from one of these peers will have their client IP
+    /// (used for rate limiting and logging) resolved from `X-Forwarded-For`.
+    /// Leave empty to ignore the header entirely.
+    pub fn with_trusted_proxies(mut self, proxies: Vec<std::net::IpAddr>) -> Self {
+        self.trusted_proxies = proxies;
         self
     }
 
