@@ -235,6 +235,9 @@ impl WalWriter {
                     valid_len = valid_end,
                     "Truncating corrupt or incomplete records at the end of WAL"
                 );
+                // Quarantine the corrupt tail BEFORE truncating it away
+                // permanently, so the bytes stay recoverable for forensics.
+                quarantine_corrupt_tail(&path, valid_end, file_len);
                 file.set_len(valid_end)?;
             }
 
@@ -547,6 +550,51 @@ fn recover_valid_records(path: &Path, file_len: u64) -> Result<(u64, usize)> {
     }
 
     Ok((valid_bytes_limit, record_count))
+}
+
+/// Copy the corrupt trailing bytes `[valid_end, file_len)` of the WAL at
+/// `path` to a quarantine backup file before they are truncated away, so the
+/// bytes stay recoverable. Fails soft: recovery must never depend on backup
+/// succeeding, so a failure is logged and ignored.
+fn quarantine_corrupt_tail(path: &Path, valid_end: u64, file_len: u64) {
+    if valid_end >= file_len {
+        return;
+    }
+    let backup = quarantine_backup_path(path);
+    let result = (|| -> std::io::Result<()> {
+        let mut src = File::open(path)?;
+        src.seek(SeekFrom::Start(valid_end))?;
+        let mut tail = vec![0u8; (file_len - valid_end) as usize];
+        src.read_exact(&mut tail)?;
+        std::fs::write(&backup, tail)
+    })();
+    match result {
+        Ok(()) => warn!(
+            backup = %backup.display(),
+            bytes = file_len - valid_end,
+            "Quarantined corrupt WAL tail before truncation"
+        ),
+        Err(e) => warn!(
+            error = %e,
+            backup = %backup.display(),
+            "Failed to quarantine corrupt WAL tail; truncating anyway"
+        ),
+    }
+}
+
+/// Prefer `<path>.corrupt`; if it already exists, fall back to
+/// `<path>.corrupt.<N>` so earlier corruption evidence is never overwritten.
+fn quarantine_backup_path(path: &Path) -> PathBuf {
+    let plain = PathBuf::from(format!("{}.corrupt", path.display()));
+    if plain.exists() {
+        for n in 1..1000u32 {
+            let candidate = PathBuf::from(format!("{}.corrupt.{}", path.display(), n));
+            if !candidate.exists() {
+                return candidate;
+            }
+        }
+    }
+    plain
 }
 
 // ─── WAL Reader ────────────────────────────────────────────
@@ -870,6 +918,62 @@ mod tests {
         }
 
         let _ = std::fs::remove_file(&dir);
+    }
+
+    #[test]
+    fn test_corrupt_wal_tail_is_quarantined() {
+        let dir = std::env::temp_dir().join(format!(
+            "vanta_test_wal_quarantine_{}",
+            rand::random::<u32>()
+        ));
+        let backup = PathBuf::from(format!("{}.corrupt", dir.display()));
+        let _ = std::fs::remove_file(&dir);
+        let _ = std::fs::remove_file(&backup);
+
+        // 1. Write a valid WAL
+        {
+            let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(2))).unwrap();
+            w.sync().unwrap();
+            assert_eq!(w.record_count(), 2);
+        }
+
+        // 2. Corrupt the tail: append a torn record so there are bytes past EOF
+        {
+            let mut file = OpenOptions::new().append(true).open(&dir).unwrap();
+            file.write_all(b"\x00\xff\xff\xffcorrupt-tail-garbage")
+                .unwrap();
+        }
+
+        // 3. Run recovery — must truncate AND quarantine the corrupt tail
+        {
+            let w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
+            assert_eq!(w.record_count(), 2);
+        }
+
+        // 4. Assert the corrupt tail was backed up, not silently lost
+        assert!(backup.exists(), "quarantine backup {:?} must exist", backup);
+        let backup_bytes = std::fs::read(&backup).unwrap();
+        assert!(
+            backup_bytes.len() >= b"\x00\xff\xff\xffcorrupt-tail-garbage".len(),
+            "backup should contain the corrupt tail bytes"
+        );
+
+        // 5. Recovered WAL parses cleanly
+        {
+            let mut r = WalReader::open(&dir).unwrap();
+            let mut records = Vec::new();
+            r.replay_all(|rec| {
+                records.push(rec);
+                Ok(())
+            })
+            .unwrap();
+            assert_eq!(records.len(), 2);
+        }
+
+        let _ = std::fs::remove_file(&dir);
+        let _ = std::fs::remove_file(&backup);
     }
 
     #[test]
