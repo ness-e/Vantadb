@@ -1235,6 +1235,15 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `AUDREP-08` | WAL-Race: colisión de timestamps en `archive_segment` (<1ms) → contador atómico `ARCHIVE_SEQ` + único rename atómico (commit `fe0dce6f`; 60 tests WAL OK) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-13` | Seguridad-Auth: dev mode bypass silencioso → `tracing::warn!` por request no autenticada (commit `0f099822`; 4 tests auth OK) | 🟠 | ✅ 2026-08-05 |
 | `AUDREP-12` | Seguridad-Network: sin límite de tamaño de body en `/api/v2/query` → `DefaultBodyLimit::max(1_000_000)` al router + test `body_limit_rejects_oversized` (413 para body > 1MB) | 🟠 | ✅ 2026-08-06 |
+| `AUDREP-07` | Build-Código muerto: dep opcional `rayon` sin feature (paths paralelos inalcanzables) → `rayon = ["dep:rayon"]` en default features + limpieza docs (AGENTS.md:693, CONFIGURATION.md:229); commit `2c91d159` | 🔴 | ✅ 2026-08-06 |
+| `AUDREP-19` | Frontend: `ignoreBuildErrors: true` en web/next.config.ts (bugs TS a producción) → eliminado (default false) + `reactStrictMode: true`; `tsc --noEmit` 0 errores; commit `1467a58e` | 🟠 | ✅ 2026-08-06 |
+| `AUDREP-10` | Seguridad-Criptografía: key derivation débil (single SHA-256) → PBKDF2-HMAC-SHA256 (210k iter, salt 16B) + framing versionado; fallback legacy retrocompatible; 16 tests crypto OK; commit `a0ec48d3` | 🟠 | ✅ 2026-08-06 |
+| `AUDREP-11` | Seguridad-Network: X-Forwarded-For confiado sin validación (IP spoofing) → `trusted_proxies` (env `VANTADB_TRUSTED_PROXIES`); XFF solo desde peers confiados, si no `ConnectInfo`; commit `008c9531` | 🟠 | ✅ 2026-08-06 |
+| `NV-01` | Index-Panic: `sq8_similarity` indexa `rem_s[i]` con `rem_q.len()` (OOB) → clamp `min(rem_q.len(), rem_s.len())` en cosine+euclid; test `test_sq8_similarity_mismatched_dims_no_panic` OK; commit `555f3b70` | 🟠 | ✅ 2026-08-06 |
+| `AUDREP-09` | Index-Datos obsoletos: IVF nunca se invalida tras inserts → `ivf_built_at_node_count: AtomicUsize`; rebuild cuando cambia node_count; test `test_ivf_rebuilds_when_nodes_added_after_build` OK; commit `c5b4967b` | 🟠 | ✅ 2026-08-06 |
+| `AUDREP-15` | WAL-Concurrency: `rotate_all` libera el lock entre sync y swap (ventana race, writes perdidos) → lock sostenido a través de sync+open+swap; 26 tests wal OK; commit `f57bfa74` | 🟠 | ✅ 2026-08-06 |
+| `NV-04` | Storage-UB: `AlignedBytes::grow_zeroed` sin garantía de alineación → ya implementado pre-existente (`Layout::from_size_align(len,4)` + alloc_zeroed, vfile.rs:394, AUDIT-03/INV-024); backlog desincronizado — sin commit | 🟠 | ✅ 2026-08-06 |
+| `DEPS-01` | Investigación: 8 crates duplicadas (hashbrown/rand/rand_core/getrandom/reqwest/thiserror/lru/windows-sys) → reporte `docs/audit-reports/deps-01-duplicadas-2026-08-05.md`; causas=MSRV/API legítimas (thiserror y lru consolidadas); recomendación=NO unificar; Cargo.lock intacto | 🟡 | ✅ 2026-08-06 (investigación) |
 | `TSK-56` | Fix Windows CI runner (windows-latest) | 🔴 | ✅ |
 | `WEB-02` | Fase 2: Publish 3 Technical Blog Posts (Why I Built, SQLite for AI, Hybrid Search) | 🔴 | ✅ |
 | `WEB-03` | Fase 2: Create real product pages (`/product/benchmarks`, `/security`, `/about/roadmap`, `/docs-api`) | 🔴 | ✅ |
