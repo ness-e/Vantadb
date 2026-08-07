@@ -147,33 +147,51 @@ impl StorageEngine {
             let temp_path = index_path.with_extension("bin.tmp");
 
             let result = (|| -> std::io::Result<Arc<CPIndex>> {
+                // Scope the temp file + its mapping so both are released (dropped)
+                // BEFORE the rename. Windows refuses `rename` while the source file
+                // has ANY open handle — including a live memory map. This ordering is
+                // the same proven pattern used in `CPIndex::sync_to_mmap`.
+                {
+                    let file = OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open(&temp_path)?;
+                    file.set_len(data.len() as u64)?;
+
+                    // SAFETY: `file` is a newly created/truncated handle at `data.len()` bytes.
+                    // `MmapMut::map_mut` from memmap2 creates a writable mapping of matching size.
+                    // The mapped memory is immediately initialized via `copy_from_slice` below.
+                    let mut mapped = unsafe { MmapMut::map_mut(&file)? };
+                    mapped.copy_from_slice(&data);
+                    mapped.flush()?;
+                    // `mapped` and `file` drop here — no handles left open on `temp_path`.
+                }
+
+                // Atomic swap into place. `temp_path` has no open handles now (mapping +
+                // File dropped above), so rename succeeds on Windows too. The destination
+                // `index_path` is re-mapped fresh below, after the rename takes effect.
+                std::fs::rename(&temp_path, &index_path)?;
+
+                // Re-open the final file and map it as the new zero-copy backend. Deserialize
+                // from the in-memory `data` (source of truth) rather than the mapping so the
+                // writeable destination handle is opened only after the rename completed.
                 let file = OpenOptions::new()
                     .read(true)
                     .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(&temp_path)?;
-                file.set_len(data.len() as u64)?;
+                    .open(&index_path)?;
+                // SAFETY: `index_path` now holds the full serialized index (`data.len()` bytes),
+                // so the mapping size exactly covers the file; `map_mut` validates internally.
+                let mapped = unsafe { MmapMut::map_mut(&file)? };
 
-                // SAFETY: `file` is a newly created/truncated handle at `data.len()` bytes.
-                // `MmapMut::map_mut` from memmap2 creates a writable mapping of matching size.
-                // The mapped memory is immediately initialized via `copy_from_slice` below.
-                let mut mapped = unsafe { MmapMut::map_mut(&file)? };
-                mapped.copy_from_slice(&data);
-                mapped.flush()?;
-
-                let mut new_index =
-                    CPIndex::deserialize_from_bytes(&mapped, false).map_err(|e| {
-                        std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
-                    })?;
-
+                let mut new_index = CPIndex::deserialize_from_bytes(&data, false).map_err(|e| {
+                    std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
+                })?;
                 new_index.backend = IndexBackend::MMapFile {
                     path: index_path.clone(),
                     mmap: Some(mapped),
                 };
-
-                drop(file);
-                std::fs::rename(&temp_path, &index_path)?;
                 Ok(Arc::new(new_index))
             })();
 

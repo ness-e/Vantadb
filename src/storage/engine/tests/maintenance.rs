@@ -592,6 +592,63 @@ fn test_rebuild_vector_index_twice_idempotent() {
     assert!(engine.get(1).expect("get").is_some());
 }
 
+// ─── save_vector_index (mmap round-trip persistence) ─────────
+//
+// AUDREP-18: `save_vector_index` must survive a cold-start round trip. It
+// writes the serialized index to a `.bin.tmp` file under a live `MmapMut`,
+// then calls `std::fs::rename` into `vector_index.bin`. On Windows, rename
+// fails while ANY handle (including the memory map) is still open on the
+// source file, so the temp mapping must be dropped before the rename — the
+// same ordering `CPIndex::sync_to_mmap` already uses. This test runs the full
+// mmap flavor of `flush() -> save_vector_index` and then reopens the engine
+// to prove the index round-trips. Linux/macOS tolerates the open-handle
+// rename, so CI-Linux passes even vs the buggy ordering; on Windows the test
+// is the regression gate for the mapping-before-rename strictness.
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+#[test]
+fn test_save_vector_index_mmap_roundtrip() {
+    use tempfile::tempdir;
+
+    let dir = tempdir().expect("tempdir");
+    let path = dir.path().to_str().unwrap().to_string();
+
+    let config = VantaConfig {
+        force_mmap: true,
+        mmap_hnsw: true,
+        memory_limit: Some(2 * 1024 * 1024 * 1024),
+        ..VantaConfig::default()
+    };
+
+    // First pass: build an mmap-backed engine, insert, then flush so
+    // `save_vector_index` exercises its MMapFile rewrite path.
+    let engine =
+        StorageEngine::open_with_config(&path, Some(config.clone())).expect("open mmap engine");
+    engine.insert(&sample_node(1)).expect("insert 1");
+    engine.insert(&sample_node(2)).expect("insert 2");
+    engine.flush().expect("flush triggers save_vector_index");
+
+    // Second flush: the previous save left `self.hnsw` holding a live MMapMut on
+    // `index_path` (the rename DESTINATION). Windows also requires the destination
+    // to be replaceable while no stale mapping pins it, so save again after a new
+    // insert to exercise the repeat-rename path.
+    engine.insert(&sample_node(3)).expect("insert 3");
+    engine.flush().expect("second flush re-saves vector index");
+
+    let index_path = dir.path().join("data").join("vector_index.bin");
+    assert!(
+        index_path.exists(),
+        "vector_index.bin should exist after flush: {}",
+        index_path.display()
+    );
+    drop(engine);
+
+    // Second pass: reopen cold and confirm the persisted index loads back.
+    let engine2 = StorageEngine::open_with_config(&path, Some(config)).expect("reopen mmap engine");
+    assert_eq!(engine2.get(1).expect("get 1").unwrap().id, 1);
+    assert_eq!(engine2.get(2).expect("get 2").unwrap().id, 2);
+    assert_eq!(engine2.get(3).expect("get 3").unwrap().id, 3);
+}
+
 // ─── Recover archived nodes ───────────────────────────────────
 
 #[test]
