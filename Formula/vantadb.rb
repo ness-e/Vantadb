@@ -16,7 +16,7 @@ class Vantadb < Formula
   #     url="https://github.com/ness-e/Vantadb/releases/download/v$VERSION/vantadb-$plat.tar.gz"
   #     curl -sL "$url" | sha256sum
   #   done
-  version "0.2.0"
+  version "0.5.0"
 
   livecheck do
     url :stable
