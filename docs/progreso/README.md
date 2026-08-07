@@ -1245,6 +1245,16 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `AUDREP-49` | Infraestructura: `version: "3.9"` obsoleto en compose → clave eliminada (sin warning); commit `af7d1655` | 🟢 | ✅ 2026-08-07 |
 | `AUDREP-60` | SDK-TS-Código: `void ERROR_CODES` descartaba el const → eliminado el `void` (tipo `ErrorCode` sigue derivando); commit `b7f5a664` | 🟢 | ✅ 2026-08-07 |
 | `AUDREP-62` | Server-DX: `--mcp` vía `args().any()` sin help → argv loop hand-rolled con `skip(1)` + `print_help()` documenta `--mcp` (sin clap runtime); commit `b7f5a664` | 🟢 | ✅ 2026-08-07 |
+| `AUDREP-25` | Build-Release: fórmula Homebrew `0.2.0` con SHA placeholders → version 0.5.0; SHAs quedan placeholder (WONTFIX: no hay tarballs de release, documentado en comentario); commit `872c2a9b` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-27` | Index-Lógica: zero-norm vectors silenciosamente descartados en Cosine → `add*` retorna `Result`; rechazo up-front; wrapper `VecIndex` loguea `tracing::warn`; 2 tests; commit `764ecc4b` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-29` | Index-Algoritmo: NaN mapeado a `Equal` corrompía el heap HNSW → `total_cmp_sim` (orden total: NaN < finitos) evicción explícita; test; commit `764ecc4b` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-30` | SDK-API: paginación con conteo pre-filtro → cursor post-filtro (`records.len()==limit`); test repro del loop infinito; commit `06916123` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-32` | Seguridad: panic detail filtrado a clientes HTTP → mensaje genérico "Internal server error", detalle a `tracing::error!`; test; commit `a77905db` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-34` | Storage-Overflow: `(total_needed + 63) & !63` overflow → `saturating_add(63) & !63`; commit `eb333794` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-35` | WAL-Durabilidad: rename sin dir-fsync → helper `sync_parent_dir` (`utils/fs.rs`), aplicado en rotate/auto-rotate/compact_layout; no-op Windows (NTFS); 4 tests verdes; commit `8f3d65c0` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-37` | WAL-PITR: fallback a mtime en `parse_segment_timestamp` → `Result<u64>`; nombre no parseable = `Err` (PITR falla loud en vez de reordenar silencioso); test; commit `ff82df8d` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-38` | Parser: condiciones relacionales solo strings → RHS tipado (`parse_literal_field_value`): número → `Float`, quoted → `String` (backward compat); `edad > 18` funciona, ordering numérico; 4 tests; commit `e7214c00` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-39` | Frontend-i18n: `lang="es"` hardcoded SSR → `lang={DEFAULT_LANG}` desde `dictionaries.ts`; quitado `suppressHydrationWarning` innecesario; commit `f49bbe10` | 🟡 | ✅ 2026-08-07 |
 | `AUDREP-02` | Engine-Panic: `.expect()` en deserialización de claves (guard previo ya lo protegía; fix defensivo `let-else`) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-05` | Dockerfile: COPY 8 dirs inexistentes (resuelto por plan Task 16/AUD-001) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-06` | Dockerfile: RUST_VERSION 1.94.0 → 1.94.1 (resuelto por plan Task 16/AUD-001) | 🔴 | ✅ 2026-08-05 |
