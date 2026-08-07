@@ -32,7 +32,8 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
     let vec_size = (vec_len * 4) as u64;
     let total_needed = offset + header_size + vec_size;
     if total_needed > vstore.size {
-        let new_size = (vstore.size * 2).max(total_needed + 4096);
+        // ponytail: saturating to avoid overflow if size > 2^63 (already past sane limits)
+        let new_size = (vstore.size.saturating_mul(2)).max(total_needed.saturating_add(4096));
         vstore.grow_to(new_size)?;
     }
     let mut header = DiskNodeHeader::new(node.id);
