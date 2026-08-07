@@ -571,7 +571,13 @@ impl VantaEmbedded {
         }
 
         let end_cursor = cursor.saturating_add(limit);
-        let next_cursor = (end_cursor < unique_ids.len()).then_some(end_cursor);
+        // A trailing cursor is only valid when this page was actually FULL after
+        // the post-filter/dedup pass. `unique_ids.len()` is the pre-filter candidate
+        // count, which can exceed the real remaining rows (dedup, filters, TTL) —
+        // basing has-more on it emits a phantom cursor at an empty page and loops a
+        // client forever. Invariant: a page with fewer than `limit` records is last.
+        let page_full = records.len() == limit;
+        let next_cursor = (page_full && end_cursor < unique_ids.len()).then_some(end_cursor);
 
         Ok(VantaMemoryListPage {
             records,
@@ -1735,6 +1741,66 @@ mod tests {
         assert_eq!(
             input.fields.get("lang").unwrap(),
             &VantaValue::String("en".into())
+        );
+    }
+
+    // ── list() pagination cursor (AUDREP-30) ──
+
+    #[test]
+    fn test_list_no_trailing_cursor_when_post_filter_exhausts_page() {
+        let e = make_embedded_real();
+        // 10 records are all present in the derived index for `lang == "en"`,
+        // but the combined advanced filter additionally requires `rank`, a field
+        // no record carries. matches_advanced_filters() returns false for a
+        // missing field, so post-filter yields zero records while the pre-filter
+        // candidate count (unique_ids.len() == 10) suggests more pages exist.
+        for i in 0..10u32 {
+            e.put(VantaMemoryInput {
+                namespace: "ns".into(),
+                key: format!("k{i}"),
+                payload: format!("payload{i}"),
+                metadata: [("lang".into(), VantaValue::String("en".into()))].into(),
+                vector: None,
+                sparse_vector: None,
+                ttl_ms: None,
+            })
+            .unwrap();
+        }
+
+        let filter_ops: VantaMemoryFilter = vec![
+            // Candidate lookup: feeds the derived payload index (first Eq field).
+            VantaMemoryFilterItem {
+                field: "lang".into(),
+                op: VantaFilterOp::Eq,
+                value: VantaValue::String("en".into()),
+            },
+            // Excludes every record: `rank` is absent on all of them.
+            VantaMemoryFilterItem {
+                field: "rank".into(),
+                op: VantaFilterOp::Neq,
+                value: VantaValue::String("top".into()),
+            },
+        ];
+        let opts = VantaMemoryListOptions {
+            #[allow(deprecated)]
+            filters: VantaMemoryMetadata::new(),
+            filter_ops: Some(filter_ops),
+            limit: 4,
+            cursor: None,
+        };
+
+        let page = e.list("ns", opts).unwrap();
+        assert!(
+            page.records.is_empty(),
+            "post-filter should yield zero records, got {}",
+            page.records.len()
+        );
+        assert!(
+            page.next_cursor.is_none(),
+            "empty page emitted trailing cursor {:?} — pre-filter count ({}) \
+             overestimates remaining rows, which loops a client forever",
+            page.next_cursor,
+            10,
         );
     }
 
