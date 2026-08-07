@@ -429,7 +429,7 @@ Orquesta sub-agentes en paralelo, tiene sistema de perfiles YAML, y 4 modos de o
 **Reportes:** `docs/reviews/review-<mode>-<timestamp>.md`
 **Pre-push barrier:** template PowerShell en `templates/pre-push.ps1` (SIPP). No instalado — verificación manual con `dev-tools/verify.ps1` (Regla 1).
 
-**Verificación semver:** Incluye `cargo semver-checks check --workspace` en L1 como gate pre-publish obligatorio.
+**Verificación semver:** Incluye `cargo semver-checks check-release --workspace` en L1 como gate pre-publish obligatorio.
 
 ### 7.4 `review-deep` — Revisión por Módulo
 

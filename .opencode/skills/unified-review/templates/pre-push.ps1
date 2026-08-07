@@ -110,7 +110,7 @@ $failures += Invoke-Barrier "cargo nextest run --profile audit" {
 # -----------------------------------------------------------------------------
 if ($Mode -in @("certify", "full")) {
     $failures += Invoke-Barrier "cargo audit" {
-        cargo audit --ignore RUSTSEC-2026-0176 --ignore RUSTSEC-2026-0177
+        cargo audit
     } -MaxDurationSec 60
 
     $failures += Invoke-Barrier "cargo deny check" {

@@ -37,7 +37,7 @@ Corresponde al workflow CI Rust (`.github/workflows/ci-rust-10.yml`).
 | Format | `cargo fmt --all -- --check` | Cualquier diff |
 | Compile | `cargo check --workspace --tests -j 2` | Cualquier error |
 | Clippy | `cargo clippy --workspace --tests -j 2 -- -D warnings` | Cualquier warning |
-| Audit | `cargo audit --ignore RUSTSEC-2026-0176 --ignore RUSTSEC-2026-0177` | Advisory activo |
+| Audit | `cargo audit` | Advisory activo |
 | Deny | `cargo deny check` | Licencia/bans/sources violados |
 | Tests | `cargo nextest run --profile audit --workspace --build-jobs 2` | Cualquier test fallido |
 | Unused deps | `cargo machete` | Dependencias no usadas |
