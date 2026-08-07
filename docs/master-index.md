@@ -115,6 +115,8 @@ Key documents:
 |----------|-------------|
 | [ROADMAP.md](strategy/ROADMAP.md) | Engineering roadmap, phases, and execution plan |
 | [GO_TO_MARKET.md](strategy/GO_TO_MARKET.md) | Go-to-market and ecosystem strategy |
+| [VANTADB-PRO-FEATURES.md](strategy/VANTADB-PRO-FEATURES.md) | Open Core boundary — features Pro vs community |
+| [VANTADB-PRO-DELIVERY.md](strategy/VANTADB-PRO-DELIVERY.md) | Delivery and distribution of VantaDB Pro |
 | [VISION.md](vision/VISION.md) | Product vision and strategic positioning |
 | [SHOW_HN_PREP.md](strategy/SHOW_HN_PREP.md) | Hacker News launch preparation |
 

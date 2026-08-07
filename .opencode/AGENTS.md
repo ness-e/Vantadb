@@ -770,9 +770,19 @@ benches/                   ← Criterion benchmarks ([[bench]] in Cargo.toml)
 
 - **Commit style**: Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `perf:`) — see `.github/CONTRIBUTING.md`
 - **Changelog**: `docs/CHANGELOG.md` via `git-cliff` (config: `cliff.toml`)
-- **Licensing**: `cargo-deny` configured in `deny.toml` (MIT/Apache-2.0 only)
+- **Licensing**: `cargo-deny` configured in `deny.toml` (MIT/Apache-2.0 only) — applies to the Apache-2.0 core only; `vantadb-pro` proprietary is excluded
 - **Markdown linting**: `.markdownlint-cli2.yaml` — line length disabled, HTML `div`/`h1`/`p`/`br` allowed
 - **WASM**: vanta-wasm binary uses `opt-level = "s"` + strip in release
+
+## Open Core Licensing (Model)
+
+VantaDB follows an **Open Core** model (decision 2026-08-06, see `docs/plans/2026-08-06-oc-vantadb-pro.md` and `.opencode/rules/open-core-licensing.md`):
+
+- **Core `vantadb` stays Apache-2.0** — never relicensed, never gains Pro-only features.
+- **`vantadb-pro`** (commercial Pro/Enterprise) lives in a **separate private repo** (`C:\Users\Eros\VantaDB Proyect\vantadb-pro`), **NOT** a workspace member. Never add it to `Cargo.toml` `[workspace] members`/`default-members`.
+- **Delivery is compiled artifacts only** (private registry / signed on-prem `vantadb.license`), never source. Each Pro feature validates its license offline (expiry + max nodes).
+- `cargo-deny` (`deny.toml`, MIT/Apache-2.0) gates the core only; Pro is excluded.
+- Full normative rules: `.opencode/rules/open-core-licensing.md`.
 - **OpenCode MCP config**: `opencode.jsonc` at root (CodeGraph MCP server)
 - **CodeGraph CI hooks**: verify.ps1/verify_changed.ps1 (git hooks no instalados — verificación manual, ver Regla 1)
 

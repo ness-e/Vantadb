@@ -259,6 +259,8 @@ Based on "Context Engineering" analysis (term coined by Shopify CEO Tobi Lutke, 
 | **Professional** | 6-20 | $50K/yr |
 | **Enterprise** | 21+ | Custom |
 
+> **Open Core boundary (2026-08-06):** los tiers pagos (Pro/Business/Enterprise) corresponden a la capa propietaria `vantadb-pro`. Qué feature es Pro vs Community y su fuente de verdad: [`VANTADB-PRO-FEATURES.md`](VANTADB-PRO-FEATURES.md). Entrega/artefactos por tier: [`VANTADB-PRO-DELIVERY.md`](VANTADB-PRO-DELIVERY.md). Precios base intactos (decisión D5: cobro aplazado, Enterprise manual).
+
 ---
 
 ## Community Building
