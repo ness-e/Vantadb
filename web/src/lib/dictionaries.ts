@@ -3,6 +3,12 @@
 
 export type Lang = "es" | "en";
 
+// SSR default locale. The runtime locale is synced async by the
+// LanguageProvider (client-side, from localStorage/browser) via
+// document.documentElement.lang; this constant is the single source
+// of truth for the initial root <html lang> attribute.
+export const DEFAULT_LANG: Lang = "es";
+
 export const dictionaries: Record<Lang, Record<string, string>> = {
   es: {
     // ============================================================

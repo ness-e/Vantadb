@@ -8,7 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { dictionaries, type Lang } from "./dictionaries";
+import { dictionaries, DEFAULT_LANG, type Lang } from "./dictionaries";
 
 type LanguageContextType = {
   lang: Lang;
@@ -17,13 +17,13 @@ type LanguageContextType = {
 };
 
 const LanguageContext = createContext<LanguageContextType>({
-  lang: "es",
+  lang: DEFAULT_LANG,
   setLang: () => {},
   t: (key) => key,
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("es");
+  const [lang, setLangState] = useState<Lang>(DEFAULT_LANG);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {

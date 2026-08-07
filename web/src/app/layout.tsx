@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/lib/language-provider";
+import { DEFAULT_LANG } from "@/lib/dictionaries";
 import { SiteShell } from "@/components/vanta/site-shell";
 
 const geistSans = Geist({
@@ -115,7 +116,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" suppressHydrationWarning>
+    <html lang={DEFAULT_LANG}>
       <head>
         <script
           type="application/ld+json"
