@@ -1,6 +1,6 @@
 # Plan de Ejecución: Backlog Validation Actions — 2026-08-05
 
-> **Campaign ID: 951d15e5-1150-4424-b996-fd5253c9a400
+> **Campaign ID: 830fabd9-3647-40f7-a1f1-f74b6837892b
 > **Inicio:** 2026-08-05
 > **Estado: completed
 > **Fuente:** `docs/Backlog.md` (85 tareas abiertas validadas)
@@ -37,7 +37,7 @@
 ### Task 1: Backlog-EDIT — Corregir 12 premisas stale + limpiar referencia muerta
 - **Archivos clave:** `docs/Backlog.md`
 - **Gate Justificación:** hallazgos de los 6 sub-agentes; las descripciones actuales inducen a error de implementación.
-- **Contrato: cargo check raiz sin cambios; src-tauri compila; cierre sin huerfanos
+- **Contrato: Reporte de medicion que atribuye impacto y decide WONTFIX/fix, valido en ambos sentidos
 - **Pasos:**
   1. **AUDIT-01** (L70): reemplazar "try_numpy_array expone puntero" → "el UAF es por los getters `__array_interface__` (vector.rs:59-73, types.rs:365-380); `try_numpy_array` COPIA (seguro). Fix: congelar/clonar ante drop y `__setstate__`".
   2. **AUD-004** (L252): reemplazar "gate por feature experimental-lisp" → "feature `experimental-lisp` ELIMINADA en CUARENTENA-01; fix = eliminar/renombrar tool `query_lisp` o documentar que solo acepta IQL".
@@ -514,6 +514,6 @@ INV-007-B → MKT-17, TSK-103 (absorbe cierres)
 
 === RECITATION ===
 Campaign ID: 06826e46-9034-4f0c-bb4c-5e06742d9480
-Objetivo activo: Ejecutar plan backlog-validation F8 DESKTOP MVP
-Resultado: ✅
-Próxima acción: 
+Objetivo activo: AUDIT-02 sparse hot-path micro-opt gate de medicion
+Resultado: WONTFIX con reporte de medicion como evidencia
+Próxima acción: Revisar el lead antes de commit; reporte en docs/Investigaciones/AUDIT-02-2026-08-06.md

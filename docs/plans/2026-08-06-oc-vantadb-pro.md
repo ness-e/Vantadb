@@ -184,7 +184,7 @@
 
 ### Task 18: COMMIT + progreso
 - **Acción:** commit convencional de los docs del core (docs: open-core) + `skill progreso`. No tocar version (Regla 7).
-- **Estado:** ⏳ PENDING (se ejecuta en esta pasada)
+- **Estado:** ✅ COMPLETED
 
 ---
 
