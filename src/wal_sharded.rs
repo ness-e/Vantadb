@@ -167,18 +167,18 @@ impl ShardedWal {
     /// Rotate all shards (flush, archive, and start fresh WAL files).
     pub fn rotate_all(&self) -> Result<()> {
         for shard in &self.shards {
-            let replacement = {
-                let mut guard = shard.lock();
-                let path = guard.path().to_path_buf();
-                guard.sync()?;
-                WalWriter::open_with_buffer(
-                    &path,
-                    self.sync_mode,
-                    self.wal_buffer_size,
-                    self.flush_threshold,
-                )?
-            };
-            *shard.lock() = replacement;
+            // Hold the lock across sync + swap (AUDREP-15): releasing it between
+            // the two lets a concurrent append() land on the old writer after it
+            // was synced and get silently lost when the replacement replaces it.
+            let mut guard = shard.lock();
+            let path = guard.path().to_path_buf();
+            guard.sync()?;
+            *guard = WalWriter::open_with_buffer(
+                &path,
+                self.sync_mode,
+                self.wal_buffer_size,
+                self.flush_threshold,
+            )?;
         }
         Ok(())
     }
