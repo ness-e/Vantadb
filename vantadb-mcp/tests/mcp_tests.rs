@@ -722,6 +722,71 @@ fn test_collection_list() {
 }
 
 #[test]
+fn test_collection_stats_large_namespace_bounded() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    // Force multi-page scans by capping page size well below the record count.
+    let cfg = vantadb_mcp::McpConfig {
+        max_list_limit: 5,
+        ..default_config()
+    };
+
+    // Namespace bigger than one page (12 records) so aggregation must cross pages
+    // without materializing the whole namespace (AUDREP-21 OOM regression test).
+    for i in 0..12u32 {
+        let params = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "big_ns",
+                "key": format!("k{}", i),
+                "payload": format!("record {}", i),
+                "vector": [i as f32, 0.0, 0.0]
+            }
+        }));
+        handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    }
+
+    let stats_params = Some(json!({
+        "name": "collection_stats",
+        "arguments": { "namespace": "big_ns" }
+    }));
+    let res = handle_tools_call(&stats_params, &executor, &storage, &cfg);
+    assert!(res.is_ok());
+    let val = res.unwrap();
+    assert!(
+        val["isError"].is_null(),
+        "collection_stats should not error"
+    );
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let stats: Value = serde_json::from_str(text).unwrap();
+    assert_eq!(
+        stats["total_records"], 12,
+        "stats must aggregate across multiple pages"
+    );
+    assert_eq!(
+        stats["vector_count"], 12,
+        "vector count must aggregate across multiple pages"
+    );
+
+    // collection_list must also report correct per-namespace counts across pages.
+    let list_params = Some(json!({ "name": "collection_list", "arguments": {} }));
+    let list_res = handle_tools_call(&list_params, &executor, &storage, &cfg);
+    assert!(list_res.is_ok());
+    let list_val = list_res.unwrap();
+    assert!(
+        list_val["isError"].is_null(),
+        "collection_list should not error"
+    );
+    let list_text = list_val["content"][0]["text"].as_str().unwrap();
+    let collections: Vec<Value> = serde_json::from_str(list_text).unwrap();
+    let big = collections
+        .iter()
+        .find(|c| c["name"] == "big_ns")
+        .expect("big_ns should be listed");
+    assert_eq!(big["record_count"], 12);
+}
+
+#[test]
 fn test_collection_delete() {
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
