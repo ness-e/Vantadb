@@ -64,6 +64,7 @@ pub fn run() {
             commands::data::vanta_get,
             commands::data::vanta_delete,
             commands::data::vanta_list,
+            commands::metrics::vanta_metrics,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
