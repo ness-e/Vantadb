@@ -43,13 +43,16 @@ fn select_kernels() -> &'static DistanceKernels {
 }
 
 // ---------------------------------------------------------------------------
-// PERF-29: Cosine ↔ Euclidean mapping cache
+// PERF-29: Cosine ↔ Euclidean mapping
 //
 // For normalized vectors: euclidean_sq = 2 * (1 - cosine).
-// MetricCache stores the precomputed conversion factor once.
 // ---------------------------------------------------------------------------
 
-/// Cached conversion between cosine similarity and Euclidean squared distance.
+/// For L2-normalized vectors (||a|| = ||b|| = 1):
+/// `euclidean_sq = COSINE_TO_EUCLIDEAN_FACTOR * (1 - cosine)`.
+const COSINE_TO_EUCLIDEAN_FACTOR: f32 = 2.0;
+
+/// Conversion between cosine similarity and Euclidean squared distance.
 pub struct MetricMapper;
 
 impl MetricMapper {
@@ -57,7 +60,7 @@ impl MetricMapper {
     /// Valid when both vectors are L2-normalized (||a|| = ||b|| = 1).
     #[inline(always)]
     pub fn cosine_to_euclidean_sq(cosine: f32) -> f32 {
-        metric_cache().factor * (1.0 - cosine)
+        COSINE_TO_EUCLIDEAN_FACTOR * (1.0 - cosine)
     }
 
     /// Convert cosine similarity to negative Euclidean distance (higher = closer).
@@ -65,17 +68,6 @@ impl MetricMapper {
     pub fn cosine_to_euclidean_similarity(cosine: f32) -> f32 {
         -Self::cosine_to_euclidean_sq(cosine)
     }
-}
-
-/// Precomputed conversion factor populated once at startup.
-struct MetricCache {
-    factor: f32,
-}
-
-static METRIC_CACHE: OnceLock<MetricCache> = OnceLock::new();
-
-fn metric_cache() -> &'static MetricCache {
-    METRIC_CACHE.get_or_init(|| MetricCache { factor: 2.0 })
 }
 
 /// Precomputed dot product + squared norm of `b`. Returns `(dot, norm_b_sq)`.
