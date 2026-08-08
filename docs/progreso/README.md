@@ -1265,6 +1265,15 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `AUDREP-53` | Código: OnceLock<MetricCache> para constante 2.0 → `const COSINE_TO_EUCLIDEAN_FACTOR` directo; tests distance 64 OK; commit `8dad81b1` | 🟢 | ✅ 2026-08-07 |
 | `AUDREP-55` | Index-Lógica: Cosine→Euclidean fallback silencioso para zero queries → warn + resultados vacíos (sin rescore); 2 tests; commit `7864a50e` | 🟢 | ✅ 2026-08-07 |
 | `AUDREP-56` | Código muerto: campo last_offset engañoso y sin lecturas → eliminado; serdefeg tolera markers viejos; commit `3469243b` | 🟢 | ✅ 2026-08-07 |
+| `AUDREP-23` | Configuración: `exclude = ["fuzz"]` bajo `[workspace.package]` (tabla incorrecta) → movido a `[workspace]`; commit `d8e77741` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-26` | DX-Cross-platform: Justfile solo con PowerShell → `set windows-shell` para Windows + shell POSIX default en Unix; commit `fec50757` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-42` | Frontend-i18n: skip-link hardcoded → componente cliente `SkipLink` con `t("common.skipToContent")` (claves ES+EN); commit `6f0fdc4b` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-46` | Frontend-TypeScript: `noImplicitAny: false` degradaba `strict: true` → `true`; 0 errores implícitos en el proyecto; `tsc --noEmit` clean; commit `d729fa66` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-54` | Rendimiento: `purge_expired` clonaba vector + parseo JSON por registro (dead weight) → `vector: None, sparse_vector: None`; 353 tests SDK OK; commit `fe87f7ec` | 🟢 | ✅ 2026-08-07 |
+| `AUDREP-57` | Frontend-Código muerto: `{false && ...}` + `setHeroVariant` + rama gato + `SfxLabel` inalcanzables → eliminados; hero renderiza `Mark` clásico; commit `8450a51c` | 🟢 | ✅ 2026-08-07 |
+| `AUDREP-58` | Frontend-Duplicación: tokenizer Python copiado en 2 archivos → `lib/code-tokenizer.ts` compartido (`pythonTokenizer`/`jsTokenizer`); −90 líneas duplicadas; commit `3573c03f` | 🟢 | ✅ 2026-08-07 |
+| `AUDREP-59` | Frontend-Configuración: nombre boilerplate `nextjs_tailwind_shadcn_ts` → `vantadb-web`; commit `3ca455ed` | 🟢 | ✅ 2026-08-07 |
+| `AUDREP-61` | MCP-Seguridad: error interno filtrado a clientes → `error!()` con detalle server-side + JSON genérico al cliente; commit `bdf31c90` | 🟢 | ✅ 2026-08-07 |
 | `AUDREP-02` | Engine-Panic: `.expect()` en deserialización de claves (guard previo ya lo protegía; fix defensivo `let-else`) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-05` | Dockerfile: COPY 8 dirs inexistentes (resuelto por plan Task 16/AUD-001) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-06` | Dockerfile: RUST_VERSION 1.94.0 → 1.94.1 (resuelto por plan Task 16/AUD-001) | 🔴 | ✅ 2026-08-05 |
