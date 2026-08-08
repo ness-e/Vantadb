@@ -741,10 +741,6 @@ impl VantaEmbedded {
                         metadata.insert(fk.clone(), fv.clone().into());
                     }
                 }
-                let vector = match &node.vector {
-                    VectorRepresentations::Full(v) => Some(v.clone()),
-                    _ => None,
-                };
                 to_delete.push(VantaMemoryRecord {
                     namespace,
                     key,
@@ -754,15 +750,12 @@ impl VantaEmbedded {
                     updated_at_ms,
                     version,
                     node_id: node.id,
-                    vector,
-                    sparse_vector: node
-                        .get_field(crate::sdk::serialization::SPARSE_VECTOR_EXT_KEY)
-                        .and_then(|value| match value {
-                            crate::node::FieldValue::String(json) => {
-                                serde_json::from_str(json).ok()
-                            }
-                            _ => None,
-                        }),
+                    // The delete loop only reads node_id/namespace/key/payload/
+                    // metadata. Skip materializing the dense vector (full
+                    // Vec<f32> clone) and the sparse vector (JSON parse) —
+                    // both were dead allocations in this path.
+                    vector: None,
+                    sparse_vector: None,
                     expires_at_ms: Some(expires),
                 });
             }
