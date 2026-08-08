@@ -151,14 +151,18 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
         let period_ms = (60_000u64 / rpm as u64).max(1);
         let burst_size = (rpm / 10).max(1);
 
-        let governor_config = GovernorConfigBuilder::default()
+        match GovernorConfigBuilder::default()
             .per_millisecond(period_ms)
             .burst_size(burst_size)
             .key_extractor(SmartIpKeyExtractor)
             .finish()
-            .expect("GovernorConfig build failed");
-
-        protected.layer(GovernorLayer::new(governor_config))
+        {
+            Ok(gc) => protected.layer(GovernorLayer::new(gc)),
+            Err(_) => {
+                tracing::error!("Governor config build failed; rate limiting disabled");
+                protected
+            }
+        }
     } else {
         protected
     };

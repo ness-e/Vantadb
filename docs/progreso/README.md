@@ -3195,4 +3195,16 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** Verificación manual en código real de cada candidato nuevo (no solo sub-agentes); 0 links vivos rotos a las rutas movidas (refs en `plans/`, `blog/`, backups y `BACKLOG_HISTORY.md` conservadas como snapshots históricos intencionales). Sin cambios de código — solo documentación.
 
+### 2026-08-08 — P13 Audit Report: NV-02, NV-03, NV-05
+
+**Objetivo:** Cerrar 3 hallazgos restantes del bloque NV del audit report (P13) vía pipeline `/pipeline task NV-02 NV-03 NV-05`.
+
+| ID | Tarea | Resultado | Evidencia |
+|----|-------|-----------|-----------|
+| `NV-02` | Server-Robustez: `expect`/`unwrap` en `cli_server.rs` | ✅ COMPLETADO | On-disk review: handlers HTTP ya propagaban errores (AUDREP-32); único `expect` restante (GovernorConfig build, línea 159) reemplazado por `match` que loguea y degrada a sin rate-limit. Delegado a vanta-worker (detectó `finish()` → `Option`, usó `Some/None`). `cargo check -p vantadb --features server` + `cargo check -p vantadb` ✅. |
+| `NV-03` | Packaging-Licencia: `vantadb-wasm` sin LICENSE | ✅ COMPLETADO | `LICENSE` Apache-2.0 copiado del raíz a `vantadb-wasm/`; hash MD5 idéntico (`0BA1CD7F…`). |
+| `NV-05` | Config-Dependencias: divergencia `deny.toml` vs `.cargo/audit.toml` | ✅ COMPLETADO | Ignore `RUSTSEC-2024-0436` (paste) añadido a `deny.toml` con mismo comentario que audit.toml; `cargo deny check advisories` → "advisories ok" (warning "no crate matched advisory criteria" benigno — política unificada). |
+
+**Verificación:** `cargo check -p vantadb --features server` ✅ | `cargo check -p vantadb` ✅ | `cargo deny check advisories` ✅ | `rg "\.expect\(|\.unwrap\(" src/cli_server.rs` → solo tests + constante infalible. Sin `--no-verify`; cambios mínimos (1 fix Rust, 1 archivo nuevo, 1 config).
+
 
