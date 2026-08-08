@@ -65,6 +65,24 @@ pub fn run() {
             commands::data::vanta_delete,
             commands::data::vanta_list,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            // Shutdown lifecycle (DESKTOP-20): tear down every connection when the
+            // app is about to exit. `ExitRequested` fires while the event loop is
+            // still alive, so we can block on the async teardown.
+            // Source: https://docs.rs/tauri/latest/tauri/enum.RunEvent.html
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                use tauri::Manager as _;
+                let manager = &app.state::<AppState>().manager;
+                let results = tauri::async_runtime::block_on(manager.shutdown_all(
+                    ConnectionManager::SHUTDOWN_GRACE,
+                ));
+                for (id, res) in results {
+                    if let Err(e) = res {
+                        eprintln!("[vantadb-desktop] shutdown: {id}: {e}");
+                    }
+                }
+            }
+        });
 }

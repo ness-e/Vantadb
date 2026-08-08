@@ -19,7 +19,10 @@ use std::collections::HashMap;
 
 use tokio::sync::RwLock;
 
-use super::{ConnectionInfo, HealthReport, IngestItem, MemoryRecord, SearchQuery, SearchResult, VantaConnection};
+use super::{
+    Capability, ConnectionInfo, HealthReport, IngestItem, MemoryRecord, SearchQuery, SearchResult,
+    VantaConnection,
+};
 use crate::error::VantaError;
 
 #[derive(Default)]
@@ -36,6 +39,9 @@ pub struct ConnectionManager {
 }
 
 impl ConnectionManager {
+    /// Per-connection grace period used by [`ConnectionManager::shutdown_all`].
+    pub const SHUTDOWN_GRACE: std::time::Duration = std::time::Duration::from_secs(5);
+
     /// Empty registry with no active connection.
     pub fn new() -> Self {
         Self {
@@ -193,6 +199,43 @@ impl ConnectionManager {
         let conn = inner.connections.get(&id).ok_or_else(|| Self::missing(&id))?;
         conn.list(namespace, limit.unwrap_or(100)).await
     }
+
+    /// Tear down every registered connection on app shutdown (DESKTOP-20).
+    ///
+    /// Order: non-native connections (server / subprocess-backed) are
+    /// disconnected first, then native (embedded) last so its `close` flushes
+    /// pending writes. Each `disconnect` is bounded by `grace`; a hung adapter
+    /// times out and is dropped, and any sidecar it owns is force-killed by
+    /// `McpSpawn`'s `Drop` — no orphaned children survive.
+    ///
+    /// Returns one `(id, result)` per connection; the registry is left empty.
+    /// Idempotent: calling again on an empty registry returns `vec![]`.
+    pub async fn shutdown_all(
+        &self,
+        grace: std::time::Duration,
+    ) -> Vec<(String, Result<(), VantaError>)> {
+        let mut inner = self.inner.write().await;
+        let connections = std::mem::take(&mut inner.connections);
+        inner.active_id = None;
+        drop(inner);
+
+        let mut conns: Vec<(String, Box<dyn VantaConnection>)> = connections.into_iter().collect();
+        // Native last: its `disconnect` flushes the embedded store. Stable sort
+        // keeps insertion order within each group.
+        conns.sort_by_key(|(_, c)| c.info().via != Capability::Native);
+
+        let mut results = Vec::with_capacity(conns.len());
+        for (id, mut conn) in conns {
+            let res = match tokio::time::timeout(grace, conn.disconnect()).await {
+                Ok(res) => res,
+                Err(_) => Err(VantaError::Other(format!(
+                    "disconnect timed out after {grace:?}"
+                ))),
+            };
+            results.push((id, res));
+        }
+        results
+    }
 }
 
 #[cfg(test)]
@@ -296,5 +339,34 @@ mod tests {
         // delete + list registry
         manager.delete("k1", Some("docs")).await.unwrap();
         assert_eq!(manager.list_connections().await.len(), 1);
+    }
+
+    /// shutdown_all empties the registry and disconnects every backend; a
+    /// second call is a no-op. Contract (DESKTOP-20): no connections left and
+    /// no errors from a healthy native backend.
+    #[tokio::test]
+    async fn shutdown_all_empties_registry_and_disconnects() {
+        let dir = TempDir::new();
+        let manager = ConnectionManager::new();
+        manager
+            .add(Box::new(
+                crate::connections::native::NativeConnection::open(dir.path()).unwrap(),
+            ))
+            .await
+            .unwrap();
+
+        let results = manager
+            .shutdown_all(std::time::Duration::from_secs(5))
+            .await;
+        assert_eq!(results.len(), 1);
+        assert!(results[0].1.is_ok(), "disconnect should succeed");
+        assert!(manager.list_connections().await.is_empty());
+        assert!(manager.active_id().await.is_err());
+
+        // Idempotent: empty registry → no results.
+        assert!(manager
+            .shutdown_all(std::time::Duration::from_secs(1))
+            .await
+            .is_empty());
     }
 }
