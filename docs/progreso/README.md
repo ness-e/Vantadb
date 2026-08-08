@@ -1255,6 +1255,16 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `AUDREP-37` | WAL-PITR: fallback a mtime en `parse_segment_timestamp` → `Result<u64>`; nombre no parseable = `Err` (PITR falla loud en vez de reordenar silencioso); test; commit `ff82df8d` | 🟡 | ✅ 2026-08-07 |
 | `AUDREP-38` | Parser: condiciones relacionales solo strings → RHS tipado (`parse_literal_field_value`): número → `Float`, quoted → `String` (backward compat); `edad > 18` funciona, ordering numérico; 4 tests; commit `e7214c00` | 🟡 | ✅ 2026-08-07 |
 | `AUDREP-39` | Frontend-i18n: `lang="es"` hardcoded SSR → `lang={DEFAULT_LANG}` desde `dictionaries.ts`; quitado `suppressHydrationWarning` innecesario; commit `f49bbe10` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-41` | Frontend-Dependencies: dead dep next-auth → `npm uninstall next-auth` (-13 pkgs); commit `e4cd7306` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-43` | MCP-Rendimiento: collection_delete O(n) → transacción ya presente (`7d16a0b`); agregado test rollback sin deletes parciales; commit `e3c26287` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-45` | Seguridad-Input: `postcard::from_bytes` sin bounds → `deserialize_node_payload` cap 128MiB en 8 paths storage (engine/ops, stats, maintenance); test malformed input; commit `eb879d84` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-47` | Frontend-i18n: toast "quickstart.py copiado" hardcoded → `t("terminal.codeCopied")` (clave ES+EN existente); commit `668e191c` | 🟡 | ✅ 2026-08-07 |
+| `AUDREP-48` | Configuración: raíz hardcodea edition/rust-version → `.workspace = true`; commit `1e2913a3` | 🟢 | ✅ 2026-08-07 |
+| `AUDREP-50` | DX: faltaban targets macOS/WASM → añadidos `aarch64-apple-darwin`, `x86_64-apple-darwin`, `wasm32-unknown-unknown`; commit `1e2913a3` | 🟢 | ✅ 2026-08-07 |
+| `AUDREP-52` | Configuración: tokio duplicado (deps vs dev-deps) → una entrada con features unificadas (rt/net/time); commit `e1c58b16` | 🟢 | ✅ 2026-08-07 |
+| `AUDREP-53` | Código: OnceLock<MetricCache> para constante 2.0 → `const COSINE_TO_EUCLIDEAN_FACTOR` directo; tests distance 64 OK; commit `8dad81b1` | 🟢 | ✅ 2026-08-07 |
+| `AUDREP-55` | Index-Lógica: Cosine→Euclidean fallback silencioso para zero queries → warn + resultados vacíos (sin rescore); 2 tests; commit `7864a50e` | 🟢 | ✅ 2026-08-07 |
+| `AUDREP-56` | Código muerto: campo last_offset engañoso y sin lecturas → eliminado; serdefeg tolera markers viejos; commit `3469243b` | 🟢 | ✅ 2026-08-07 |
 | `AUDREP-02` | Engine-Panic: `.expect()` en deserialización de claves (guard previo ya lo protegía; fix defensivo `let-else`) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-05` | Dockerfile: COPY 8 dirs inexistentes (resuelto por plan Task 16/AUD-001) | 🔴 | ✅ 2026-08-05 |
 | `AUDREP-06` | Dockerfile: RUST_VERSION 1.94.0 → 1.94.1 (resuelto por plan Task 16/AUD-001) | 🔴 | ✅ 2026-08-05 |
