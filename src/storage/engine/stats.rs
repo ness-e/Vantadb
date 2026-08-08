@@ -199,7 +199,10 @@ impl StorageEngine {
         let mut stats: HashMap<String, HashMap<String, usize>> = HashMap::new();
         if let Ok(records) = backend.scan(BackendPartition::Default) {
             for (_key, val) in records {
-                if let Ok(metadata) = postcard::from_bytes::<NodeMetadata>(&val) {
+                if let Ok(metadata) = crate::storage::ops::deserialize_node_payload::<NodeMetadata>(
+                    &val,
+                    "node metadata",
+                ) {
                     for (field, value) in metadata.relational {
                         let val_keys = value.to_cardinality_keys();
                         let val_map = stats.entry(field).or_default();

@@ -1155,7 +1155,9 @@ impl StorageEngine {
         let mut recovered = Vec::new();
         let belonged_to_id = self.intern_label("belonged_to");
         for (_k, v) in &entries {
-            if let Ok(mut node) = postcard::from_bytes::<UnifiedNode>(v) {
+            let decode_res =
+                crate::storage::ops::deserialize_node_payload::<UnifiedNode>(v, "archived node");
+            if let Ok(mut node) = decode_res {
                 if node
                     .edges
                     .iter()

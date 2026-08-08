@@ -7,6 +7,8 @@ use crate::storage::vfile::VantaFile;
 use std::path::Path;
 use zerocopy::IntoBytes;
 
+use serde::de::DeserializeOwned;
+
 /// Serialized metadata stored per node in the KV backend.
 #[derive(serde::Serialize, serde::Deserialize)]
 pub(crate) struct NodeMetadata {
@@ -18,6 +20,73 @@ pub(crate) struct NodeMetadata {
     pub created_by_txn: u64,
     /// Transaction ID that deleted this version (None = alive).
     pub deleted_by_txn: Option<u64>,
+}
+
+/// Upper bound for a serialized node payload read from the KV store.
+///
+/// `postcard` does not validate length prefixes before allocating: a corrupt
+/// or attacker-crafted prefix (e.g. `Vec<Edge>` claiming billions of entries
+/// in a handful of bytes) drives `Vec::with_capacity` with the untrusted
+/// value, which can abort or OOM the process before the payload is read.
+/// Everything deserialized from persisted bytes goes through this cap
+/// (AUDREP-45).
+pub(crate) const MAX_PERSISTED_NODE_BYTES: usize = 128 * 1024 * 1024;
+
+/// Deserialize a persisted node payload under a fixed size cap.
+///
+/// Rejects buffers larger than [`MAX_PERSISTED_NODE_BYTES`] before
+/// `postcard::from_bytes` can act on an untrusted length prefix, converting
+/// a corrupt/oversized payload into a clean [`VantaError`] instead of a
+/// panic or OOM.
+pub(crate) fn deserialize_node_payload<T: DeserializeOwned>(
+    bytes: &[u8],
+    label: &str,
+) -> Result<T> {
+    if bytes.len() > MAX_PERSISTED_NODE_BYTES {
+        return Err(VantaError::serialization(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!(
+                "{label} payload of {} bytes exceeds {} byte cap",
+                bytes.len(),
+                MAX_PERSISTED_NODE_BYTES
+            ),
+        )));
+    }
+    postcard::from_bytes(bytes).map_err(VantaError::serialization)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// AUDREP-45: a corrupt/oversized persisted payload must fail cleanly,
+    /// never panic. Covers truncated buffers and oversized length prefixes
+    /// that postcard would otherwise feed to `Vec::with_capacity`.
+    #[test]
+    fn deserialize_node_payload_rejects_malformed_input() {
+        // Truncated buffer: valid start, cut off mid-structure.
+        let valid = postcard::to_allocvec(&NodeMetadata {
+            relational: std::collections::BTreeMap::new(),
+            edges: vec![crate::node::Edge::new(1, 0)],
+            created_by_txn: 1,
+            deleted_by_txn: None,
+        })
+        .unwrap();
+        let truncated = &valid[..valid.len() - 3];
+        assert!(
+            deserialize_node_payload::<NodeMetadata>(truncated, "node metadata").is_err(),
+            "truncated payload must error, not panic"
+        );
+
+        // Oversized length prefix: varint claims a huge Vec length in a tiny buffer.
+        // Layout: relational map len (0) then edges vec len as a 10-byte varint.
+        let mut crafted = vec![0u8]; // relational: empty map
+        crafted.extend_from_slice(&[0xFF; 10]); // edges vec len = huge
+        assert!(
+            deserialize_node_payload::<NodeMetadata>(&crafted, "node metadata").is_err(),
+            "oversized length prefix must error, not panic"
+        );
+    }
 }
 
 /// Write a node's header and vector data into the VantaFile at the current cursor position.

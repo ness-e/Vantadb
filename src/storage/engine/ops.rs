@@ -86,7 +86,9 @@ impl StorageEngine {
         let mut keys: Vec<Vec<u8>> = Vec::new();
 
         for (key, val) in &entries {
-            if let Ok(meta) = postcard::from_bytes::<NodeMetadata>(val) {
+            if let Ok(meta) =
+                crate::storage::ops::deserialize_node_payload::<NodeMetadata>(val, "node metadata")
+            {
                 if let Some(deleted_by) = meta.deleted_by_txn {
                     if deleted_by < cutoff {
                         keys.push(key.clone());
@@ -388,7 +390,11 @@ impl StorageEngine {
             .backend
             .get(crate::backend::BackendPartition::Default, &key)?
         {
-            if let Ok(mut meta) = postcard::from_bytes::<NodeMetadata>(&existing) {
+            let meta_result = crate::storage::ops::deserialize_node_payload::<NodeMetadata>(
+                &existing,
+                "node metadata",
+            );
+            if let Ok(mut meta) = meta_result {
                 meta.deleted_by_txn = Some(txn_id);
                 let val = postcard::to_allocvec(&meta)
                     .map_err(crate::error::VantaError::serialization)?;
@@ -473,10 +479,11 @@ impl StorageEngine {
         };
 
         use crate::storage::ops::NodeMetadata;
-        let metadata: NodeMetadata = match postcard::from_bytes(&metadata_res) {
-            Ok(m) => m,
-            Err(_) => return Ok(None),
-        };
+        let metadata: NodeMetadata =
+            match crate::storage::ops::deserialize_node_payload(&metadata_res, "node metadata") {
+                Ok(m) => m,
+                Err(_) => return Ok(None),
+            };
 
         // MVCC visibility: created_by_txn <= snapshot_id
         // AND (deleted_by_txn IS NULL OR deleted_by_txn > snapshot_id)
@@ -1215,7 +1222,7 @@ impl StorageEngine {
         };
 
         let metadata: NodeMetadata =
-            postcard::from_bytes(&metadata_res).map_err(crate::error::VantaError::serialization)?;
+            crate::storage::ops::deserialize_node_payload(&metadata_res, "node metadata")?;
 
         let hnsw = self.hnsw.load();
         let index_node = match hnsw.nodes.get(&id) {
@@ -1396,7 +1403,10 @@ impl StorageEngine {
                 continue;
             };
 
-            let metadata: NodeMetadata = match postcard::from_bytes(metadata_bytes) {
+            let metadata: NodeMetadata = match crate::storage::ops::deserialize_node_payload(
+                metadata_bytes,
+                "node metadata",
+            ) {
                 Ok(m) => m,
                 Err(_) => continue,
             };
@@ -1795,10 +1805,11 @@ impl StorageEngine {
                     continue;
                 }
 
-                let metadata: NodeMetadata = match postcard::from_bytes(&value) {
-                    Ok(m) => m,
-                    Err(_) => continue,
-                };
+                let metadata: NodeMetadata =
+                    match crate::storage::ops::deserialize_node_payload(&value, "node metadata") {
+                        Ok(m) => m,
+                        Err(_) => continue,
+                    };
 
                 let index_node = match hnsw.nodes.get(&id) {
                     Some(n) => n,
