@@ -6,6 +6,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/lib/language-provider";
 import { DEFAULT_LANG } from "@/lib/dictionaries";
 import { SiteShell } from "@/components/vanta/site-shell";
+import { SkipLink } from "@/components/vanta/skip-link";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -129,9 +130,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${anton.variable} ${spaceMono.variable} antialiased bg-background text-foreground`}
       >
           <LanguageProvider>
-            <a href="#main-content" className="skip-link">
-              Saltar al contenido
-            </a>
+            <SkipLink />
             <SiteShell>{children}</SiteShell>
             <Toaster />
             <Sonner
