@@ -494,6 +494,25 @@ impl CPIndex {
         top_k: usize,
         vector_store: Option<&crate::storage::vfile::VantaFile>,
     ) -> Vec<(u128, f32)> {
+        // AUDREP-55: a zero-norm query is undefined under cosine similarity
+        // (the cosine of a zero vector is 0/0). Historically this silently
+        // fell back to Euclidean scoring, which swaps the score range
+        // (cosine ∈ [-1, 1] vs euclidean ∈ (-∞, 0]) so the caller's score
+        // thresholds become meaningless across calls. This function (and the
+        // VecIndex::search trait) return a plain Vec, so an error cannot be
+        // propagated cleanly at this boundary; instead we fail loudly and
+        // return no results, keeping the cosine metric pure — consistent with
+        // AUDREP-27, which rejects zero-norm inserts under cosine.
+        if self.config.distance_metric == DistanceMetric::Cosine
+            && f32_l2_norm(query_vec) < f32::EPSILON
+        {
+            tracing::warn!(
+                "zero-norm cosine query is undefined; returning no results \
+                 (AUDREP-55, was silently re-scored with euclidean)"
+            );
+            return Vec::new();
+        }
+
         // IVF path: lazy-build on first search, then search. AUDREP-09:
         // rebuild whenever the node count changed since the last build, so
         // vectors added after a cached IVF was built become candidates.
@@ -542,12 +561,15 @@ impl CPIndex {
         };
         let (effective_metric, query_norm, query_inv_norm) = match self.config.distance_metric {
             DistanceMetric::Cosine => {
+                // AUDREP-55 guard at the top of search_nearest guarantees
+                // norm >= f32::EPSILON here, so 1/norm is finite and the
+                // metric stays Cosine — no silent Euclidean fallback remains.
                 let norm = f32_l2_norm(query_vec);
-                if norm < f32::EPSILON {
-                    (DistanceMetric::Euclidean, None, None)
-                } else {
-                    (DistanceMetric::Cosine, Some(norm), Some(1.0 / norm))
-                }
+                debug_assert!(
+                    norm >= f32::EPSILON,
+                    "zero-norm cosine query must be rejected up-front (AUDREP-55)"
+                );
+                (DistanceMetric::Cosine, Some(norm), Some(1.0 / norm))
             }
             DistanceMetric::Euclidean => {
                 let norm = f32_l2_norm(query_vec);
@@ -930,6 +952,59 @@ mod tests {
             index.use_flat_search(),
             "small index should use flat search by default"
         );
+    }
+
+    // ── AUDREP-55: zero-norm cosine queries ────────────────────────────
+
+    #[test]
+    fn test_search_nearest_zero_norm_cosine_rejected() {
+        // Zero-norm query under cosine is undefined (0/0). It must not be
+        // silently re-scored with euclidean (score range would swap and
+        // callers could no longer compare scores across calls); it must
+        // return no results, deterministically, for any zero vector length.
+        let index = make_index(DistanceMetric::Cosine);
+        add_node(&index, 1, vec![1.0, 0.0, 0.0]);
+
+        for query in [
+            vec![0.0_f32, 0.0],
+            vec![0.0_f32, 0.0, 0.0],
+            vec![0.0_f32, -0.0, 0.0, 0.0],
+        ] {
+            let results = index.search_nearest(&query, None, None, &ALL_BITSET, 5, None);
+            assert!(
+                results.is_empty(),
+                "zero-norm cosine query must return no results, got {results:?}"
+            );
+        }
+
+        // Contrast: zero-norm queries remain valid for other metrics — the
+        // guard must only fire under cosine.
+        let euc = make_index(DistanceMetric::Euclidean);
+        add_node(&euc, 1, vec![3.0, 4.0]);
+        let results = euc.search_nearest(&[0.0, 0.0], None, None, &ALL_BITSET, 5, None);
+        assert_eq!(results.len(), 1, "zero-norm euclidean query is valid");
+    }
+
+    #[test]
+    fn test_search_nearest_hnsw_zero_norm_cosine_rejected() {
+        // Same contract via the HNSW path (flat_threshold = None) — the
+        // guard lives at the search_nearest entry point, before any
+        // flat/IVF/HNSW routing.
+        let index = make_hnsw_index(DistanceMetric::Cosine);
+        add_node(&index, 1, vec![1.0, 0.0, 0.0]);
+
+        for query in [vec![0.0_f32, 0.0, 0.0], vec![0.0_f32, 0.0]] {
+            let results = index.search_nearest(&query, None, None, &ALL_BITSET, 5, None);
+            assert!(
+                results.is_empty(),
+                "HNSW zero-norm cosine query must return no results, got {results:?}"
+            );
+        }
+
+        let euc = make_hnsw_index(DistanceMetric::Euclidean);
+        add_node(&euc, 1, vec![3.0, 4.0]);
+        let results = euc.search_nearest(&[0.0, 0.0], None, None, &ALL_BITSET, 5, None);
+        assert_eq!(results.len(), 1, "HNSW zero-norm euclidean query is valid");
     }
 
     // ── IVF lazy-build invalidation (AUDREP-09) ────────────────────────
@@ -1401,10 +1476,9 @@ mod tests {
             add_node(&index, i, vec![(i as f32) * 0.2, 0.0, 0.0]);
         }
         let results = index.search_nearest(&[0.0, 0.0, 0.0], None, None, &ALL_BITSET, 5, None);
-        assert_eq!(results.len(), 5);
-        for &(_, score) in &results {
-            assert!(score.is_finite());
-        }
+        // AUDREP-55: zero-norm cosine query is undefined; must return no
+        // results (and a warning) instead of re-scoring with euclidean.
+        assert_eq!(results.len(), 0);
     }
 
     #[cfg(miri)]
