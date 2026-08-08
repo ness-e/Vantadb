@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import { Play, RotateCcw, Terminal, Zap, ChevronDown } from "lucide-react";
 import { Reveal } from "./reveal";
+import { jsTokenizer, TOK_CLASS } from "@/lib/code-tokenizer";
 import { cn } from "@/lib/utils";
 
 // ── Real VantaDB WASM engine ──────────────────────────────────────────────
@@ -161,83 +162,6 @@ function fmtArg(arg: unknown): string {
     }
   }
   return String(arg);
-}
-
-// ── Inline lightweight JS tokenizer for syntax highlighting overlay ──────
-const HL_KEYWORDS = new Set([
-  "const", "let", "var", "function", "return", "if", "else", "for", "while",
-  "do", "new", "class", "extends", "import", "export", "from", "async",
-  "await", "try", "catch", "finally", "throw", "switch", "case", "break",
-  "continue", "default", "typeof", "instanceof", "in", "of", "null", "true",
-  "false", "undefined", "this", "delete", "void", "static", "get", "set",
-]);
-const HL_BUILTINS = new Set([
-  "console", "Math", "JSON", "Object", "Array", "String", "Number",
-  "Boolean", "Promise", "fetch", "performance", "parseInt", "parseFloat",
-  "setTimeout", "setInterval", "Date",
-]);
-
-const HL_CLASS: Record<string, string> = {
-  plain: "text-[#FBF9F5]",
-  comment: "text-[#8a8a8a] italic",
-  string: "text-[#FFB380]",
-  number: "text-[#a3d9a5]",
-  keyword: "text-[#FF5500] font-bold",
-  builtin: "text-[#7ec7ff]",
-  func: "text-[#ffd479]",
-  ident: "text-[#FBF9F5]",
-  op: "text-[#c9c9c9]",
-};
-
-function hlTokenize(line: string) {
-  const tokens: { t: string; v: string }[] = [];
-  let i = 0;
-  while (i < line.length) {
-    const rest = line.slice(i);
-    if (rest.startsWith("#") || rest.startsWith("//")) {
-      tokens.push({ t: "comment", v: rest });
-      break;
-    }
-    const strMatch = rest.match(/^("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/);
-    if (strMatch) {
-      tokens.push({ t: "string", v: strMatch[0] });
-      i += strMatch[0].length;
-      continue;
-    }
-    const numMatch = rest.match(/^\d[\d_]*(\.\d+)?/);
-    if (numMatch) {
-      tokens.push({ t: "number", v: numMatch[0] });
-      i += numMatch[0].length;
-      continue;
-    }
-    const idMatch = rest.match(/^[A-Za-z_$][A-Za-z0-9_$]*/);
-    if (idMatch) {
-      const word = idMatch[0];
-      const after = line[i + word.length];
-      let t = "ident";
-      if (HL_KEYWORDS.has(word)) t = "keyword";
-      else if (HL_BUILTINS.has(word)) t = "builtin";
-      else if (after === "(") t = "func";
-      tokens.push({ t, v: word });
-      i += word.length;
-      continue;
-    }
-    const opMatch = rest.match(/^(==|!=|<=|>=|->|=>|\+=|-=|\*=|\/\/=|\/\/|\*\*|[=+\-*/%<>:,.(){}\[\]])/);
-    if (opMatch) {
-      tokens.push({ t: "op", v: opMatch[0] });
-      i += opMatch[0].length;
-      continue;
-    }
-    const wsMatch = rest.match(/^\s+/);
-    if (wsMatch) {
-      tokens.push({ t: "plain", v: wsMatch[0] });
-      i += wsMatch[0].length;
-      continue;
-    }
-    tokens.push({ t: "plain", v: rest[0] });
-    i += 1;
-  }
-  return tokens;
 }
 
 const STARTER_CODE = `const rec = db.put({
@@ -552,8 +476,8 @@ export function CodePlayground() {
                         {line.length === 0 ? (
                           <span>&nbsp;</span>
                         ) : (
-                          hlTokenize(line).map((tok, j) => (
-                            <span key={j} className={HL_CLASS[tok.t]}>{tok.v}</span>
+                          jsTokenizer(line).map((tok, j) => (
+                            <span key={j} className={TOK_CLASS[tok.t]}>{tok.v}</span>
                           ))
                         )}
                       </div>

@@ -8,96 +8,10 @@ import { toast } from "./toast";
 import { Reveal } from "./reveal";
 import { useTypingLines } from "@/hooks/use-typing-lines";
 import { useLanguage } from "@/lib/language-provider";
+import { pythonTokenizer, TOK_CLASS } from "@/lib/code-tokenizer";
 import { cn } from "@/lib/utils";
 
-type Tok = {
-  t: "plain" | "comment" | "string" | "number" | "keyword" | "builtin" | "func" | "ident" | "op";
-  v: string;
-};
-
-const KEYWORDS = new Set([
-  "import", "as", "def", "return", "from", "class", "if", "else", "elif",
-  "for", "while", "in", "not", "and", "or", "None", "True", "False",
-  "with", "try", "except", "lambda", "pass", "break", "continue", "self",
-]);
-
-const BUILTINS = new Set([
-  "print", "len", "range", "str", "int", "float", "list", "dict", "set",
-  "tuple", "bool", "open", "isinstance", "enumerate", "zip", "map", "filter",
-  "sorted", "reversed", "sum", "min", "max", "abs", "round", "type", "format",
-]);
-
-function tokenizeLine(line: string): Tok[] {
-  const tokens: Tok[] = [];
-  let i = 0;
-  while (i < line.length) {
-    const rest = line.slice(i);
-    // comment
-    if (rest.startsWith("#")) {
-      tokens.push({ t: "comment", v: rest });
-      break;
-    }
-    // string (double or single quoted, with escapes)
-    const strMatch = rest.match(/^("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/);
-    if (strMatch) {
-      tokens.push({ t: "string", v: strMatch[0] });
-      i += strMatch[0].length;
-      continue;
-    }
-    // number
-    const numMatch = rest.match(/^\d[\d_]*(\.\d+)?/);
-    if (numMatch) {
-      tokens.push({ t: "number", v: numMatch[0] });
-      i += numMatch[0].length;
-      continue;
-    }
-    // identifier / keyword / builtin / function call
-    const idMatch = rest.match(/^[A-Za-z_][A-Za-z0-9_]*/);
-    if (idMatch) {
-      const word = idMatch[0];
-      // Look ahead: if followed by "(" it's a function call
-      const afterIdx = i + word.length;
-      const after = line[afterIdx];
-      let t: Tok["t"] = "ident";
-      if (KEYWORDS.has(word)) t = "keyword";
-      else if (BUILTINS.has(word)) t = "builtin";
-      else if (after === "(") t = "func";
-      tokens.push({ t, v: word });
-      i += word.length;
-      continue;
-    }
-    // operators / punctuation
-    const opMatch = rest.match(/^(==|!=|<=|>=|->|\+=|-=|\*=|\/\/=|\/\/|\*\*|[=+\-*/%<>:,.(){}\[\]])/);
-    if (opMatch) {
-      tokens.push({ t: "op", v: opMatch[0] });
-      i += opMatch[0].length;
-      continue;
-    }
-    // whitespace run
-    const wsMatch = rest.match(/^\s+/);
-    if (wsMatch) {
-      tokens.push({ t: "plain", v: wsMatch[0] });
-      i += wsMatch[0].length;
-      continue;
-    }
-    // single char
-    tokens.push({ t: "plain", v: rest[0] });
-    i += 1;
-  }
-  return tokens;
-}
-
-const TOK_CLASS: Record<Tok["t"], string> = {
-  plain: "text-[#FBF9F5]",
-  comment: "text-[#8a8a8a] italic",
-  string: "text-[#FFB380]",
-  number: "text-[#a3d9a5]",
-  keyword: "text-[#FF5500] font-bold",
-  builtin: "text-[#7ec7ff]",
-  func: "text-[#ffd479]",
-  ident: "text-[#FBF9F5]",
-  op: "text-[#c9c9c9]",
-};
+const tokenizeLine = pythonTokenizer;
 
 export function CodeTerminal() {
   const { t } = useLanguage();
