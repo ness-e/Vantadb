@@ -315,8 +315,10 @@ fn escape_iql_string(s: &str) -> String {
 }
 
 fn serialize_content(value: &impl Serialize) -> String {
-    serde_json::to_string(value)
-        .unwrap_or_else(|e| format!("{{\"error\":\"Serialization failed: {}\"}}", e))
+    serde_json::to_string(value).unwrap_or_else(|e| {
+        error!(%e, "serialize_content: serialization failed");
+        r#"{"error":"Serialization failed"}"#.to_string()
+    })
 }
 
 fn text_content(text: String) -> Value {
