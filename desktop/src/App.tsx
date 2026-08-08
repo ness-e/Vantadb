@@ -4,6 +4,8 @@ import { useConnectionState } from "./hooks/useConnectionState";
 import ConnectionPanel from "./components/ConnectionPanel";
 import IngestForm from "./components/IngestForm";
 import SearchBar from "./components/SearchBar";
+import KpiCards from "./components/KpiCards";
+import MetricsGrid from "./components/MetricsGrid";
 
 function App() {
   const [state, actions] = useConnectionState();
@@ -26,6 +28,14 @@ function App() {
           {notice}
         </div>
       )}
+
+      <MetricsGrid
+        health={state.health}
+        healthStatus={state.healthStatus}
+        activeName={state.active ? state.active.name : null}
+      />
+
+      <KpiCards />
 
       <div className="grid">
         <ConnectionPanel
