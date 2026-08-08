@@ -1,8 +1,13 @@
 # VantaDB — Justfile (cross-platform task runner)
 # Install: `cargo install just`
 # Usage:   `just check` `just test` `just watch` `just verify`
+# Shell:   PowerShell on Windows (`just` auto-detects and uses pwsh via
+#          `set windows-shell`), POSIX `sh` on macOS/Linux.
 
-set shell := ["pwsh", "-NoProfile", "-Command"]
+# Default shell on non-Windows platforms. Windows uses `windows-shell` below.
+set shell := ["sh", "-c"]
+# Windows-only override (just picks this over `set shell` on Windows).
+set windows-shell := ["pwsh", "-NoProfile", "-Command"]
 
 cargo := "cargo"
 nextest_args := "--workspace"
