@@ -60,7 +60,6 @@ impl Default for WalShipConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ShipMarker {
     last_segment: String,
-    last_offset: u64,
     shipped_at: u64,
 }
 
@@ -143,7 +142,6 @@ impl WalShipper {
 
             self.save_marker(&ShipMarker {
                 last_segment: segment_name,
-                last_offset: total_shipped,
                 shipped_at: web_time::SystemTime::now()
                     .duration_since(web_time::UNIX_EPOCH)
                     .unwrap_or_default()
