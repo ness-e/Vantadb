@@ -599,6 +599,9 @@ members = [
     "vantadb-mcp",
     "vantadb-wasm",
 ]
+# fuzz/ is intentionally outside the workspace: cargo-fuzz requires nightly + Linux sanitizers.
+# Run with: cargo +nightly fuzz run <target>  (in the fuzz/ directory on Linux)
+exclude = ["fuzz"]
 # NOTE: providers/openai, providers/ollama, providers/litellm are NOT workspace members.
 # They use pyo3 + cdylib which triggers MSVC linker crash on Windows during workspace
 # builds. Build individually with `cargo build -p vantadb-openai` etc. on non-Windows.
@@ -614,9 +617,6 @@ default-members = [
 version = "0.5.0"
 edition = "2021"
 rust-version = "1.94.1"
-exclude = ["fuzz"]
-# fuzz/ is intentionally outside the workspace: cargo-fuzz requires nightly + Linux sanitizers.
-# Run with: cargo +nightly fuzz run <target>  (in the fuzz/ directory on Linux)
 
 [profile.test]
 debug = 1
