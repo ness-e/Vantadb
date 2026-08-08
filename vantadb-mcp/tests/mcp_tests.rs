@@ -848,6 +848,68 @@ fn test_collection_delete() {
     assert!(records.is_empty(), "namespace should be empty after delete");
 }
 
+/// Deleting N records in one `collection_delete` call must be all-or-nothing:
+/// if any record fails, the transaction aborts and no records are removed.
+/// (Happy path — all N deleted atomically — is covered by `test_collection_delete`.)
+#[test]
+fn test_collection_delete_abort_leaves_no_partial_deletes() {
+    let (_dir, mut storage) = setup_storage();
+
+    // Seed 3 records (executor borrows, it does not own the Arc, so a
+    // scoped block lets go of the borrow before we mutate below).
+    {
+        let executor = Executor::new(&storage);
+        for i in 0..3 {
+            let params = Some(json!({
+                "name": "memory_put",
+                "arguments": {
+                    "namespace": "abort_ns",
+                    "key": format!("k{}", i),
+                    "payload": "to delete"
+                }
+            }));
+            handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+        }
+    }
+
+    // Make every per-record delete fail mid-loop so the handler aborts its
+    // transaction instead of committing. `collection_delete` clones its
+    // embedded handle from `storage.config` at call time, so flipping the
+    // flag now is enough to gate every delete.
+    Arc::get_mut(&mut storage)
+        .expect("no live clones")
+        .config
+        .read_only = true;
+
+    let executor = Executor::new(&storage);
+    let del_params = Some(json!({
+        "name": "collection_delete",
+        "arguments": { "namespace": "abort_ns", "confirm": "yes" }
+    }));
+    let res = handle_tools_call(&del_params, &executor, &storage, &default_config());
+    assert!(
+        res.is_ok(),
+        "handler should surface failure as error content"
+    );
+    let val = res.unwrap();
+    assert_eq!(val["isError"], true);
+
+    // No partial deletes: all 3 records must still be present.
+    let list_params = Some(json!({
+        "name": "memory_list",
+        "arguments": { "namespace": "abort_ns" }
+    }));
+    let list_res = handle_tools_call(&list_params, &executor, &storage, &default_config()).unwrap();
+    let list_text = list_res["content"][0]["text"].as_str().unwrap();
+    let page: Value = serde_json::from_str(list_text).unwrap();
+    let records = page["records"].as_array().unwrap();
+    assert_eq!(
+        records.len(),
+        3,
+        "aborted collection_delete must not remove any records"
+    );
+}
+
 // ── Error Handling Tests ───────────────────────────────────────────────
 
 #[test]
