@@ -6,6 +6,8 @@ import IngestForm from "./components/IngestForm";
 import SearchBar from "./components/SearchBar";
 import KpiCards from "./components/KpiCards";
 import MetricsGrid from "./components/MetricsGrid";
+import DataExplorer from "./components/DataExplorer";
+import SopPanel from "./components/SopPanel";
 
 function App() {
   const [state, actions] = useConnectionState();
@@ -37,6 +39,8 @@ function App() {
 
       <KpiCards />
 
+      <SopPanel />
+
       <div className="grid">
         <ConnectionPanel
           connections={state.connections}
@@ -52,6 +56,8 @@ function App() {
         <IngestForm onDone={(ids) => setNotice(`Stored ${ids.length} record(s).`)} runError={reportError} />
         <SearchBar busy={state.busy} runError={reportError} />
       </div>
+
+      <DataExplorer active={!!state.active} busy={state.busy} runError={reportError} />
 
       <footer className="muted">
         {state.active

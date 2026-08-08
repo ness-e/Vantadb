@@ -178,8 +178,12 @@ export interface OperationalMetrics {
   planner_vector_only_queries: number;
   derived_prefix_scans: number;
   derived_full_scan_fallbacks: number;
+  startup_ms: number;
   wal_replay_ms: number;
   wal_records_replayed: number;
+  ann_rebuild_ms: number;
+  derived_rebuild_ms: number;
+  text_index_rebuild_ms: number;
   text_postings_written: number;
   text_index_repairs: number;
   text_consistency_audits: number;

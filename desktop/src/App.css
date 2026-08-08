@@ -177,6 +177,35 @@ button.ghost:hover { color: var(--neon); transform: none; box-shadow: none; }
 
 footer { margin-top: 16px; font-size: 0.85rem; }
 
+/* ADMIN-07: Data Explorer table (same tokens as .panel: paper, 3px ink,
+   radius 0, hard shadow). */
+.explorer-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+.explorer-table th,
+.explorer-table td {
+  border: 2px solid var(--ink);
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+.explorer-table th {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.7rem;
+  background: var(--paper);
+}
+.explorer-text {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.explorer-more { margin-top: 12px; }
+
 /* --- KPI cards (ADMIN-05) --- */
 .kpi-grid {
   display: grid;
@@ -270,8 +299,56 @@ footer { margin-top: 16px; font-size: 0.85rem; }
 .trend-down { color: var(--ink); }
 .trend-flat { color: var(--muted); }
 
+/* ADMIN-06: SOP operational panels (paper, 2px ink border, hard 3px shadow,
+   same tokens as .results li). */
+.sop { margin-bottom: 16px; }
+.sop-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.sop-panel {
+  background: var(--cream);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  box-shadow: 3px 3px 0 0 var(--ink);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sop-panel h3 {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.sop-desc {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  flex: 1;
+}
+.sop-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sop-result {
+  font-size: 0.75rem;
+  max-width: 60%;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.sop-result[data-status="ok"]   { color: var(--ink); }
+.sop-result[data-status="err"]  { color: var(--neon); }
+.sop-result[data-status="idle"] { color: var(--muted); }
+
 @media (max-width: 900px) {
   .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .sop-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .metrics-grid { grid-template-columns: 1fr; }
