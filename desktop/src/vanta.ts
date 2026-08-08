@@ -162,3 +162,34 @@ export function list(opts?: { namespace?: string; limit?: number }): Promise<Mem
     limit: opts?.limit,
   });
 }
+
+// --- Metrics (ADMIN-01/04/05) ---------------------------------------------------
+// Subset of `VantaOperationalMetrics` consumed by the dashboard grid (KPI cards
+// + later live dashboard). Rust serializes every u64 field; we only declare
+// the ones the UI reads. `mmap_resident_bytes` is `Option<u64>` → null on wire.
+export interface OperationalMetrics {
+  process_rss_bytes: number;
+  records_imported: number;
+  import_errors: number;
+  text_lexical_queries: number;
+  text_candidates_scored: number;
+  planner_hybrid_queries: number;
+  planner_text_only_queries: number;
+  planner_vector_only_queries: number;
+  derived_prefix_scans: number;
+  derived_full_scan_fallbacks: number;
+  wal_replay_ms: number;
+  wal_records_replayed: number;
+  text_postings_written: number;
+  text_index_repairs: number;
+  text_consistency_audits: number;
+  text_consistency_audit_failures: number;
+  mmap_resident_bytes: number | null;
+  hnsw_logical_bytes: number;
+  hnsw_nodes_count: number;
+}
+
+/** Point-in-time operational metrics snapshot (ADMIN-01). */
+export function metrics(): Promise<OperationalMetrics> {
+  return invoke<OperationalMetrics>("vanta_metrics");
+}
