@@ -9,7 +9,7 @@ description = "Optional local server wrapper and MCP interface for VantaDB"
 [dependencies]
 vantadb = { path = "..", features = ["cli", "server"] }
 vantadb-mcp = { path = "../vantadb-mcp" }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "signal"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "signal", "net", "time"] }
 tracing = "0.1"
 
 [dev-dependencies]
@@ -28,7 +28,6 @@ indicatif = "0.18"
 rcgen = "0.13"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 rustls = { version = "0.23", features = ["ring"] }
-tokio = { version = "1", features = ["rt", "rt-multi-thread", "net", "sync", "time", "macros"] }
 axum-server = { version = "0.8", features = ["tls-rustls"] }
 
 [features]
