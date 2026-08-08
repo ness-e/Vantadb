@@ -7,6 +7,7 @@ import { copyToClipboard } from "./copy-utils";
 import { toast } from "./toast";
 import { Reveal } from "./reveal";
 import { useTypingLines } from "@/hooks/use-typing-lines";
+import { useLanguage } from "@/lib/language-provider";
 import { cn } from "@/lib/utils";
 
 type Tok = {
@@ -99,6 +100,7 @@ const TOK_CLASS: Record<Tok["t"], string> = {
 };
 
 export function CodeTerminal() {
+  const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [running, setRunning] = useState(false);
 
@@ -114,7 +116,7 @@ export function CodeTerminal() {
     const ok = await copyToClipboard(QUICKSTART_PYTHON);
     if (ok) {
       setCopied(true);
-      toast.copy("quickstart.py copiado");
+      toast.copy(t("terminal.codeCopied"));
       setTimeout(() => setCopied(false), 1600);
     }
   };
