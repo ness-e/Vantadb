@@ -1,11 +1,10 @@
 "use client";
 
-import { Github, Terminal, Zap, ArrowDown, Copy, Check, ChevronRight, Cat, Sparkles } from "lucide-react";
+import { Github, Terminal, Zap, ArrowDown, Copy, Check, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { VANTA, HERO_STATS } from "./vanta-data";
 import type { View } from "./vanta-data";
 import { CountUpStat } from "@/hooks/count-up";
-import { useParallax } from "@/hooks/use-parallax";
 import { Mark } from "./mark";
 import { copyToClipboard } from "./copy-utils";
 import { toast } from "./toast";
@@ -14,8 +13,6 @@ import { useLanguage } from "@/lib/language-provider";
 
 export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
   const [copied, setCopied] = useState(false);
-  const [heroVariant, setHeroVariant] = useState<"cat" | "mark">("mark");
-  const parallax = useParallax(12);
   const { t } = useLanguage();
   const tt = (key: string, fallback: string) => {
     const v = t(key);
@@ -160,100 +157,14 @@ export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
           </div>
         </div>
 
-        {/* RIGHT — interactive mark (default) OR cat mascot (hidden toggle) */}
+        {/* RIGHT — interactive mark (default) */}
         <div className="order-1 lg:order-2 lg:col-span-5">
-          {/* Toggle hidden — Mark is default. setHeroVariant kept for future re-enable. */}
-          {false && (
-          <div className="mb-3 flex justify-center gap-2">
-            <button
-              onClick={() => setHeroVariant("cat")}
-              className={cn(
-                "inline-flex items-center gap-1.5 border-4 border-black px-3 py-1.5 font-tech text-[10px] font-bold uppercase tracking-wider transition-all",
-                heroVariant === "cat"
-                  ? "bg-[#FF5500] text-black shadow-[3px_3px_0_0_#000]"
-                  : "bg-[#FBF9F5] text-black/60 hover:text-black shadow-[3px_3px_0_0_#000]   "
-              )}
-              aria-label="Hero variant: cat mascot"
-            >
-              <Cat className="h-3.5 w-3.5" strokeWidth={2.5} />
-              Cat
-            </button>
-            <button
-              onClick={() => setHeroVariant("mark")}
-              className={cn(
-                "inline-flex items-center gap-1.5 border-4 border-black px-3 py-1.5 font-tech text-[10px] font-bold uppercase tracking-wider transition-all",
-                heroVariant === "mark"
-                  ? "bg-[#FF5500] text-black shadow-[3px_3px_0_0_#000]"
-                  : "bg-[#FBF9F5] text-black/60 hover:text-black shadow-[3px_3px_0_0_#000]   "
-              )}
-              aria-label="Hero variant: interactive mark"
-            >
-              <Sparkles className="h-3.5 w-3.5" strokeWidth={2.5} />
-              Mark
-            </button>
-          </div>
-          )}
+          {/* Interactive mark */}
+          <Mark variant="classic" />
 
-          {/* Conditional render: cat image (v1) or interactive mark (v2) */}
-          {heroVariant === "mark" ? (
-            <Mark variant="classic" />
-          ) : (
-          <div
-            id="mascot-container"
-            className="relative mx-auto aspect-square w-full max-w-[460px] border-4 border-black bg-[#FBF9F5] shadow-[8px_8px_0_0_#000] lg:max-w-none"
-          >
-            {/* Halftone backdrop inside the panel */}
-            <div
-              className="absolute inset-0 halftone opacity-20"
-              aria-hidden
-            />
-            {/* Radial speed burst behind cat */}
-            <div
-              className="absolute left-1/2 top-1/2 h-[120%] w-[120%] -translate-x-1/2 -translate-y-1/2 speed-lines-radial opacity-30"
-              style={{
-                transform: `translate(calc(-50% + ${-parallax.x * 0.5}px), calc(-50% + ${-parallax.y * 0.5}px))`,
-              }}
-              aria-hidden
-            />
-
-            {/* The mascot */}
-            <img
-              src="/assets/mascota_gato.png"
-              alt="VantaDB shadow cat mascot with fire eyes — hybrid retrieval engine"
-              loading="lazy"
-              className="relative z-10 h-full w-full object-cover mix-blend-multiply transition-transform duration-200 ease-out "
-              style={{
-                imageRendering: "auto",
-                transform: `translate(${parallax.x}px, ${parallax.y}px) scale(1.04)`,
-              }}
-            />
-
-            {/* Floating annotation labels (manga SFX) */}
-            <SfxLabel className="left-2 top-2" rotate={-6} color="neon">
-              1.2ms
-            </SfxLabel>
-            <SfxLabel className="right-2 top-6" rotate={5} color="ink">
-              RRF
-            </SfxLabel>
-            <SfxLabel className="bottom-6 left-2" rotate={-3} color="ink">
-              WAL · CRC32C
-            </SfxLabel>
-            <SfxLabel className="bottom-2 right-2" rotate={4} color="neon">
-              ZERO NET
-            </SfxLabel>
-
-            {/* Corner clip tag */}
-            <div className="absolute -bottom-4 -left-4 z-20 rotate-[-4deg] border-4 border-black bg-[#FF5500] px-3 py-1 font-display text-sm uppercase text-black shadow-[4px_4px_0_0_#000]">
-              IN-PROCESS
-            </div>
-          </div>
-          )}
-
-          {/* Caption under mascot/mark */}
+          {/* Caption under mark */}
           <p className="mt-4 text-center font-tech text-[11px] uppercase tracking-[0.15em] text-black/60">
-            {heroVariant === "mark"
-              ? tt("hero.captionMark", "Interactive mark · move your mouse · BM25 + HNSW via RRF")
-              : tt("hero.caption", "Hybrid search demo · BM25 + HNSW via RRF · 100% Recall@10")}
+            {tt("hero.captionMark", "Interactive mark · move your mouse · BM25 + HNSW via RRF")}
           </p>
         </div>
       </div>
@@ -272,31 +183,6 @@ export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
         </button>
       </div>
     </section>
-  );
-}
-
-function SfxLabel({
-  children,
-  className,
-  rotate = 0,
-  color = "ink",
-}: {
-  children: React.ReactNode;
-  className?: string;
-  rotate?: number;
-  color?: "ink" | "neon";
-}) {
-  return (
-    <span
-      className={cn(
-        "absolute z-20 inline-flex items-center border-2 border-black px-2 py-0.5 font-display text-xs uppercase tracking-wider shadow-[2px_2px_0_0_#000]",
-        color === "neon" ? "bg-[#FF5500] text-black" : "bg-[#FBF9F5] text-black",
-        className
-      )}
-      style={{ transform: `rotate(${rotate}deg)` }}
-    >
-      {children}
-    </span>
   );
 }
 
