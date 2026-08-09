@@ -15,7 +15,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 > **Verification method:** All items cross-checked against actual codebase (Jul 27, 2026). 8 tareas ejecutadas en sesión: TSK-106, MKT-03, NUEVO-21, MKT-04, TSK-107, DISC-02, DISC-03, Good first issues (18 creadas).
 > **Sync 2026-08-06:** 30 tareas ejecutadas por el plan `docs/plans/2026-08-05-backlog-validation-actions.md` tachadas y migradas a `docs/progreso/README.md`: AUDIT-01/03/04, DEBT-01, TECH-01..08, AUDIT-05/08, NUEVO-01, MKT-10/16, AUD-001..011 (AUD-010 fusionada en TECH-04/ADR-012), GH-123/141.
 > **Sync 2026-08-07:** 214 filas completadas eliminadas del backlog (210 IDs únicos) — migradas/verificadas en `docs/progreso/README.md` y `docs/progreso/BACKLOG_HISTORY.md`. Quedan 35 tareas activas (ver Exec Summary).
-> **Total open items:** ~35 activas (DISC-01..03, LEG-01, BIZ-01b, OLD-01, DESKTOP-12..27, ADMIN-01..09, NV-02/03/05, REVIEW-04)
+> **Total open items:** ~100 activas — previas (DISC-01..03, LEG-01, BIZ-01b, OLD-01, DESKTOP-15..27, REVIEW-04, NV-02/03/05, [ADMIN-XX pending W4]) + P15 (54: ERR-001..051 + ERR-038/039/040/041) + P16 (24: RELEASE-01..03, SEC-01, PERF-01..06, FEAT-01..07, REVISAR-01, DOC-02..08). Origen: investigación multi-agente 2026-08-09 → `docs/investigacion/investigacion-equipo-2026-08-09.md`
 > **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/progreso/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
 
 ---
@@ -24,10 +24,10 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 | Phase | Items | Est. Effort | Priority |
 |-------|-------|-------------|----------|
-| **P0** 🚀 Release Blockers | 0 | — | ✅ Cerrado |
-| **P1** 🛡️ Security & Critical | 0 | — | ✅ Cerrado |
+| **P0** 🚀 Release Blockers | 3 (RELEASE-01..03) | ~1 semana | 🔴 Re-abierta |
+| **P1** 🛡️ Security & Critical | 1 (SEC-01 UAF) | ~1-2 días | 🔴 Re-abierta |
 | **P2** ⚡ Quick Wins Técnicos | 0 | — | ✅ Cerrado |
-| **P3** 🧪 Test Coverage (adapters) | 0 | — | ✅ Cerrado |
+| **P3** 🧪 Test Coverage (core SDKs) | 4 (COV-001..004) | ~1-2 días | 🟢 Alta |
 | **P4** 🔧 Engineering Health | 0 | — | ✅ Cerrado |
 | **P5** 📖 Docs & Community | 3 (DISC-01..03) | ~1-2 semanas | 🟡 Media |
 | **P6** 🚀 Launch Campaign | 1 (LEG-01) | ~1-2 semanas | 🟡 Media |
@@ -38,13 +38,17 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | **P11** 🐛 GitHub Issues | 0 | — | ✅ Cerrado |
 | **P12** 🖥️ DESKTOP App (Tauri) + Consola Admin | 25 (DESKTOP-12..27 + ADMIN-01..09) | ~4-6 semanas | 🔵 Futuro |
 | **P13** 🔎 AUDREP — Audit Report 2025 | 3 (NV-02, NV-03, NV-05) | ~2-3 semanas | 🔴 Mixta |
-| **P14** 🔍 REVIEW items | 1 (REVIEW-04) | 📆 Backlog | 🟡 Media |
-| **P15** 🔍 ERR items (revisión multi-agente 2026-08-08) | 50 (ERR-001..051, 1 descartado) | ~2-3 semanas | 🔴 Mixta (5 críticos) |
+| **P14** 🔍 REVIEW items | 2 (REVIEW-04, REVIEW-05) | 📆 Backlog | 🟡 Media |
+| **P15** 🔍 ERR items (revisión multi-agente 2026-08-08) | 54 (ERR-001..051 — 1 descartado — + ERR-038/039/040/041 reincorporados) | ~2-3 semanas | 🔴 Mixta (5 críticos) |
+| **P16** 🧩 Completitud de Features (investigación 2026-08-09) | 24 (RELEASE-01..03, SEC-01, PERF-01..06, FEAT-01..07, REVISAR-01, DOC-02..08) | ~2-4 semanas | 🔴 mixta |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
 > **Nuevo 2026-08-04:** Fase 12 DESKTOP (26 tareas, app Tauri multi-connection sobre las 6 integraciones) + `DEBT-01` (gate docs-coverage roto, Fase 4) + `TECH-01..08` (hallazgos de investigación DESKTOP-01b: 2 bugs reales, 1 batch stale-docs, 1 ADR env-naming, 4 features/decisiones, todos en Phase 4).
 > **Nuevo 2026-08-07:** Fase 7 ADMIN (ADMIN-01..09, consola administrativa centralizada: datos/métricas/KPIs/SOPs/telemetría/procesos/conexiones) sobre la infra DESKTOP-02..11 ya completada. Fuente de KPIs/SOPs: investigación de mercado (Grafana VectorDB Observability, Milvus, Qdrant, Weaviate, Zilliz/VectorDBBench) + snapshot de métricas ya existente en core (`src/metrics/core/snapshot.rs`, 112 líneas). Tareas DESKTOP-12..27 (drivers/MCP/empaquetado) se ejecutan después del core del dashboard.
 > **Nuevo 2026-08-08:** P15 ERR — 50 hallazgos de la revisión multi-agente por capas (6 sub-agentes: vanta-audit/arch/engine/worker/tuner/docs + verificación manual). Origen completo en `docs/reviews/errors-found.md`. Top 3 a atacar primero: ERR-010 (raza checkpoint/persistencia), ERR-021 (OOM MCP), ERR-022 (top_k sin clamp → alloc gigante).
+> **Nuevo 2026-08-09:** Fase 3 reabierta con COV-001..004 — medición de coverage multi-agente (3 sub-agentes 2026-08-09): Rust root 81.40% ✅ gate / TS 0% medible (bloqueado import-time por `vite-plugin-wasm`↔`vitest`) / Python wrapper 69% (core PyO3 invisible). Detalle en `docs/reviews/coverage-2026-08-09.md` (pendiente de generar). COV-004 es decisión de política ADR, no código.
+> **Nuevo 2026-08-09:** P16 Completitud de Features + P0/P1 reabiertos — investigación multi-agente (5 sub-agentes: audit/worker/docs×2/tuner) que barrió features declaradas → parciales/huérfanas (PITR/WAL-shipping standalone-vacío, DiskANN "in-memory", Arrow 1-comp, IVF/SCANN sin SDK, integrations stubs), releases (semver-checks, publish 0.5.0, artifactos de ejecución), seguridad (UAF `__array_interface__`), rendimiento (benchmarks publicados no confiables) y docs (CHANGELOG muerto / llms.txt inventado / mojibake). Origen completo: `docs/investigacion/investigacion-equipo-2026-08-09.md`. **Top 3 a atacar primero:** RELEASE-01 (semver-checks), SEC-01 (UAF), PERF-01 (sellar benchmarks).
+> **Nuevo 2026-08-09 (audit-reports archive):** 4 reportes `audit-full-2026-07-*`/`08-04` archivados tras verificación contra código. Resueltos desde entonces: archive.rs fsync (AUDREP-04/35) ✅, deny.toml RUSTSEC-2024-0436 ✅, tests.rs god file dividido ✅, `.playwright-cli` → .gitignore ✅, JSON-LD en web ✅, prefers-reduced-motion ✅, metrics registry test ✅, pyi stubs ✅. Hallazgos pendientes incorporados como tareas nuevas: `PERF-07` (sparse JSON hot path), `PERF-08` (WASM serialización completa), `REVIEW-05` (god files restantes), `CI-01` (pre-commit-config). C1 UAF en `types.rs:365-380` (VantaSearchHit) sigue vigente → cubierto por `SEC-01`.
 
 ---
 
@@ -57,10 +61,14 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 ## Phase 0: 🚀 Release Blockers
 
 > Items que bloquean un release público seguro. Resolver antes de cualquier publicación.
+> **Re-abierta 2026-08-09 por investigación multi-agente** — publicar 0.5.0 de forma coherente una vez fixeados ERR-022/021 y UAF (SEC-01) de P1/P15.
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
-
-> **Items removidos (7) + WONTFIX:** ver `docs/progreso/BACKLOG_HISTORY.md` (P0). `META-001` era el único P0 activo.
+|----|-------------|----------|----------|------|
+| `RELEASE-01` | **Gate `cargo semver-checks` en CI release + correr antes de publish** — release-plz.toml ya tiene `semver_check = true`, pero no hay job dedicado en CI. Añadir `obi1kenobi/cargo-semver-checks-action@v3` a `.github/workflows/release.yml` (y `ci-gate.yml`) contra la última versión publicada | `.github/workflows/release.yml`, `ci-rust-10.yml`, `release-plz.toml:18` | 🟢 1d | 🔴 |
+| `RELEASE-02` | **Publish coordinado 0.5.0** (crates.io + PyPI wheels + npm) — crates.io está en 0.4.0, PyPI 0.1.5/0.5.0, wheel local stale; ejecutar `release-plz release` desde `main`, verificar tag `v0.5.0`, CHANGELOG regenerado (ERR-050), badge PyPI después de wheels | `release.yml`, `release-wheels-60.yml`, `release-npm-61.yml`, `docs/CHANGELOG.md` | 🟢 | 🔴 |
+| `RELEASE-03` | **Limpiar artefactos de ejecución del repo** (`_audit04_repro_db/`, `benchmarks/_probe_db/`, `chroma_db`, `.pyc`, `data_comp_bench/`) — no deben salir en el tarball publicado; actualizar `Cargo.toml` exclude si procede | raíz repo, `.gitignore`, `Cargo.toml:14-18` | 🟢 | 🟡 |
+| `CI-01` | **`.pre-commit-config.yaml` con prettier + formatters** — causó el certify FAILED de 2026-07-24 (L3 prettier `NbAccordion.tsx:20` sin hook). Registrar prettier (web/), ruff (python), cargo fmt en pre-commit XS effort | `.pre-commit-config.yaml` | 🟢 | 🟢 |
 
 ---
 
@@ -70,6 +78,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
+| `SEC-01` | **UAF real en `__array_interface__`** — `vantadb-python/src/types.rs:365-380` devuelve `v.as_ptr()` al buffer interno del `Vec<f32>` sin mantener vivo `VantaSearchHit`; vista numpy + GC → use-after-free. Fix: devolver **copia** (o guard que extiende lifetime) + test numpy (droppear wrapper → acceder ndarray debe sobrevivir). **Marcar `AUD-019` como superseded** | `vantadb-python/src/types.rs:365-380`, `vantadb-python/src/vector.rs:59-67`, test numpy | 🟠 | 🔴 |
 
 
 > **Items previos resueltos (9):** ver `docs/progreso/BACKLOG_HISTORY.md` (P1).
@@ -81,7 +90,14 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 ---
 
-> **Phase 3: 🧪 Test Coverage (Adapters & Engine)** — **14 items removidos:** ver `docs/progreso/BACKLOG_HISTORY.md` (P3). No quedan items activos en P3.
+> **Phase 3: 🧪 Test Coverage (core SDKs)** — reabierta 2026-08-09 con COV-001..004 tras medición multi-agente (Rust 81.40% root ✅ / TS 0% bloqueado / Python 69%). Items previos (14) removidos: ver `docs/progreso/BACKLOG_HISTORY.md` (P3).
+
+| ID | Descripción | Archivos | Esfuerzo | Prio |
+|----|-------------|----------|----------|------|
+| `COV-001` | **Python: smoke test async de `AsyncVantaDB`** — cubre las 37 líneas faltantes (`flush`, `purge_expired`, `query`, `graph_*`, `put`, `delete`, `export_*`); solo ejercita el path sync hoy. Gate: coverage wrapper ≥85% | `vantadb-python/vantadb_py/__init__.py`, `vantadb-python/tests/` | 🟢 | 🟢 |
+| `COV-002` | **TS: destrabar medición de coverage** — resolver incompatibilidad `vite-plugin-wasm@3.6.0` ↔ `vitest@4.1.10` (virtual module `__vite-plugin-wasm-helper` no resuelto en Node, ver vitest-dev/vitest#6723) o reportar con c8 desde `test-runner.mjs`. Runtime de `src/` (vantadb.ts, native.ts, errors.ts, guards.ts) está 0% medible. 25/26 tests ya pasan vía runner alterno | `vantadb-ts/vitest.config.ts`, `src/` | 🟡 | 🟢 |
+| `COV-003` | **Rust: tests del binario CLI** — `src/cli_handlers/*` (crud 396, search 383, diagnostics 367, server 271, migrate 238), `src/bin/vanta-cli.rs`, `src/sdk/gds.rs` ≈2,500 ln al 0%. Asserts en subcomandos. Root coverage 81.40% → ~88% | `src/cli_handlers/`, `src/bin/`, `tests/` | 🟡 | 🟢 |
+| `COV-004` | **ADR: política del gate de coverage en CI** — ¿root crate (81.40%, hoy pasa) vs `--workspace` (72.76%, incluye bindings python/wasm/server/mcp que el gate 100% by design)? Si se adopta `--workspace`, migrar medición de bindings a sus runners nativos (pytest/browser). Documentar decisión | `.github/workflows/ci-rust-10.yml`, ADR en `docs/architecture/adr/` | 📖 | 🟡 |
 
 ---
 
@@ -91,6 +107,14 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
+| `PERF-01` | **Sellar + resync benchmarks publicados** — las claims del README (ej. "100k docs en 0.6s") son del desarrollo inicial y no se reproducen con el código actual (`cargo bench` con 100k docs/docs mix >60s). Re-validar cifras, actualizar README/QUICKSTART/docs con metodología y HW, o retirar claims no soportadas | `benches/`, `README.md`, `docs/QUICKSTART.md`, `docs/benchmarks/` | 🟡 | 🔴 |
+| `PERF-02` | **Baseline riguroso post-publicación**: `criterion` con perfiles fijos + `critcmp` para regresiones en CI (candidate), dataset sintético determinístico guardado junto a benches | `benches/` (candidates), `.github/workflows/heavy-bench-nightly-51.yml` | 🟡 | 🟡 |
+| `PERF-03` | **Bench competitivo de SDKs** — dejar de afirmar superioridad sin números: comparar (medir) hnsw_pure vs Qdrant/Chroma/Milvus-frugal en el mismo HW; publicar tabla honesta. Implica mantener `data_comp_bench/`, luego integrar a `docs/benchmarks/` | `data_comp_bench/`, `docs/benchmarks/` | 🟠 | 🟡 |
+| `PERF-04` | **Prefetch default OFF** — el auto-indexado prefetch en `engine` oculta la latencia real (`fnv1a` eager en put). Si el feature es real, documentar flag y mantener OFF por defecto (tal cual salió: 0.5.0) | `src/index/hnsw.rs` (prefetch), docs | 🟢 | 🟢 |
+| `PERF-05` | **WAL async roadmap** — batch-append por shard ya da 3-5× (ADR DRV-014); roadmap: `io_uring`/`aio` + fsync group commit. No bloquea release | `src/storage/wal.rs`, ADR | 🔴 | 🟡 |
+| `PERF-06` | **`VANTADB_MEMORY_LIMIT` env var** — hoy el flag `--memory-limit` se parsea como int sin sufijos (KB/MB/GB); añadir parse humano estilo `500MB`/`1g` | `src/config.rs`, `src/cli.rs` | 🟢 | 🟡 |
+| `PERF-07` | **Sparse JSON parseado en cada read/write del hot path** — `memory_record_from_node` (`src/sdk/serialization/mod.rs:271-279`) hace `serde_json::from_str` en cada read y `to_string` en cada write (L335-338) aunque el caller no use sparse; `.ok()` traga errores de parse → degradación silenciosa a `None`. Cachear/streaming del JSON sparse o saltar si `sparse_vector` no está presente | `src/sdk/serialization/mod.rs:271-279, 335-338`, `src/sdk/api.rs:751` (3er consumidor) | 🟢 | 🟡 |
+| `PERF-08` | **WASM serialización completa en persist + search hot path** — `serde_wasm_bindgen::to_value` serializa TODOS los records en cada `persist` (`vantadb-wasm/src/lib.rs:750`, H3-SER-001) y en resultados de search (H3-SER-002); datasets >100MB bloquean el event loop por segundos. Plan: persistencia diferencial (delta de cambios) + `Float32Array` zero-copy para vectores de search | `vantadb-wasm/src/lib.rs:439,447,750,997` | 🟠 | 🟡 |
 
 > **Items previos completados (10):** ver `docs/progreso/BACKLOG_HISTORY.md` (P4) — movidos a `docs/progreso/README.md`.
 
@@ -355,6 +379,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
 | `REVIEW-04` | **MEDIO / Refactor: 3 god modules** — `src/node.rs` (1554→1882L, creció), `src/config.rs` (1313L), `src/storage/vfile.rs` (1165L). **Recomendación:** partir en submódulos (ej. separar UnifiedNode de FieldValue; config per-feature). | `src/node.rs`, `src/config.rs`, `src/storage/vfile.rs` | 1-2 semanas | 📆 Backlog | 📝 Pendiente |
+| `REVIEW-05` | **God files restantes (>1300L sin split)** — verificación 2026-08-09 (audit-reports 07-24/08-04): `src/index/serialize.rs` 1452L (serialization hot path), `src/index/distance.rs` 1591L, `src/physical_plan.rs` 1380L. tests.rs 4076L ya fue dividido en `src/storage/engine/tests/` ✅. Misma recomendación que REVIEW-04: submódulos por concern | `src/index/serialize.rs`, `src/index/distance.rs`, `src/physical_plan.rs` | 1 semana | 📆 Backlog | 📝 Pendiente |
 
 ---
 
@@ -433,6 +458,37 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | `ERR-049` | Sin bench dedicado a `ivf.rs` ni `batch_insert` — hallazgos ERR-037/39-41 sin cuantificar. | `benches/` | 🟠 | ⚪ | 📝 Pendiente |
 
 > **Descartado:** ERR-017 (métrica euclidiana consistente en `flat.rs:43` / `distance.rs:495/516/536` / `search.rs:176/327` — no se confirma la divergencia flat vs HNSW).
+
+---
+
+## Phase 16: 🧩 Completitud de Features & Docs (de investigación multi-agente 2026-08-09)
+
+> Origen completo: `docs/investigacion/investigacion-equipo-2026-08-09.md`. Features declaradas en docs/README pero **parciales u huérfanas** en código, más deuda de docs/DX/UX encontrada. Complementa P15 (ERR-*) y P0 (RELEASE-*).
+
+### Features parciales — "completarlas, documentarlas honestamente o retirar"
+
+| ID | Descripción | Archivos | Esfuerzo | Prio |
+|----|-------------|----------|----------|------|
+| `FEAT-01` | **Decisión ADR: PITR + WAL-shipping** — los módulos existen y pasan self-tests pero **nadie los llama** (ni StorageEngine ni SDK; son API standalone). La feature `pitr` = lista vacía. Elegir: (a) integrar a StorageEngine/SDK de verdad, (b) marcar experimental + documentar uso standalone, o (c) deferir con ADR explícito. No dejar "feature fantasma" | `src/pitr.rs`, `src/storage/wal.rs` (wal-shipping), `src/lib.rs` (`pitr` feature), ADR en `docs/architecture/adr/` | 🔴 | 🟡 |
+| `FEAT-02` | **DiskANN: desmentir o implementar** — doc interno admite "purely in-memory": no hace disk I/O. Renombrar índice (`memann`?) con docs honestas, o implementar v1 real (mmap + prefetch + re-cluster). No vender disk-ANN | `src/index/diskann.rs`, `docs/architecture/` | 🔴 | 🟡 |
+| `FEAT-03` | **Arrow columnar: exportar vector completo** — hoy `export_arrow` escribe solo `id` + 1ª componente (A prop). Exportar el vector entero como columnas flat/ARROW_FLOAT32 o documentar la limitación en `docs/api/` | `src/integrations.rs` (arrow), `vantadb-python/src/vector.rs`, `docs/api/PYTHON_SDK.md` | 🟡 | 🟡 |
+| `FEAT-04` | **IVF / SCANN por SDK** — implementados como `VecIndex` en core pero solo HNSW es usable desde bindings. Exponer creación/consulta IVF y SCANN por SDK (con flag velo `method` o constructor específico) | `src/index/ivf.rs`, `src/index/scann.rs`, `vantadb-python/src/`, `vantadb-wasm/src/`, `vectl` + docs | 🔴 | 🟡 |
+| `FEAT-05` | **Fresh EXPERIMENTAL** — revisar flags `experimental`/`"X"` en `Cargo.toml` para TUI/MCP/server/WASM: ¿siguen siendo experimentales? ¿Qué gate usan para no bloquear CI? Promover a estable o documentar por qué no | `Cargo.toml` (features), `.github/workflows/ci-rust-10.yml`, docs | 🟢 | 🟢 |
+| `FEAT-06` | **Configuración: hot-reload JSON y `config.toml`** — no existe `.vanta/config.toml` (solo builder/env) y hot-reload JSON no está documentado (formato, ejemplo, feature gate). Documentar en `docs/operations/CONFIGURATION.md` o implementar `config.toml` si el marketing lo promete | `src/config.rs:1313`, `docs/operations/CONFIGURATION.md` | 🟡 | 🟢 |
+| `FEAT-07` | **`src/integrations.rs`: stubs vacíos** — `search_handler` devuelve `results: []` y `ollama_proxy` devuelve "Próximamente". Implementar o cortar del surface público (no exponer en docs como feature) | `src/integrations.rs` | 🟡 | 🟢 |
+| `REVISAR-01` | **Cerrar ciclo ERR de search engine** — re-cuantificar ERR-038/039/040/041 (IVF `batch_insert`, compactación, dimensiones) con benchmark dedicado (ERR-049) antes de reincorporarlos como priorizados; si no son reproducibles, marcarlos verificados/sin hallazgo | `benches/`, `src/index/ivf.rs` | 🟡 | 🟡 |
+
+### Docs, DX y UX — hallazgos (de vanta-docs, 2026-08-09)
+
+| ID | Descripción | Archivos | Esfuerzo | Prio |
+|----|-------------|----------|----------|------|
+| `DOC-02` | **Fix versión drift QUICKSTART/badges** — QUICKSTART dice "v0.4.x" (real 0.5.0), wheel local stale `dist/vantadb_py-0.1.5`, badge PyPI 0.1.5 vs core 0.5.0. Actualizar QUICKSTART y doctero; documentar política de versionado sincronizado (tarea conjunta con RELEASE-02) | `docs/QUICKSTART.md`, `README.md`, P# (release) | 🟢 | 🟢 |
+| `DOC-03` | **Fix mojibake** — encoding corrupto en `vantadb-python/README.md` y `docs/DESIGN_RULES.md`; reparar a UTF-8 | `vantadb-python/README.md`, `docs/DESIGN_RULES.md` | 🟢 | 🟢 |
+| `DOC-04` | **Fix `llms.txt` API inventada** — `from vantadb import VantaEmbedded` no existe; la API real es `vantadb_py.VantaDB(...)`. Regenciar con llamadas reales validadas contra el código | `llms.txt`, `docs/` | 🟢 | 🔴 |
+| `DOC-05` | **`docs/README.md`: wikilinks Obsidian no renderizan en GitHub** — convertir a rutas relativas normales | `docs/README.md` | 🟢 | 🟢 |
+| `DOC-06` | **Documentar límite u64 (ERR-023 truncación Python)** — docs prometen de más; añadir nota en `docs/api/PYTHON_SDK.md` + FAQ | `docs/api/PYTHON_SDK.md`, `docs/QUICKSTART.md` | 🟢 | 🟢 |
+| `DOC-07` | **Documentar hot-reload JSON + config.toml** (enlace con FEAT-06) — si FEAT-06 decide mantener solo builder/env, doc lo afirma; si se implementa, doc del formato | `docs/operations/CONFIGURATION.md` | 🟡 | 🟢 |
+| `DOC-08` | **README: claims ambiguos de cluster/graph** — verificar qué dice el README sobre distribución (`wal-shipping send-only` ≠ cluster/replication; "not a graph database claim" ✅ correcto, mantenerlo explícito). El texto debe decir: single-node embedding engine, replication fuera de alcance hoy; WAL-shipping = send-only experimental. Alinear con `docs/tutorials/migrate-from-lancedb.md` y sección Enterprise | `README.md`, `docs/architecture/` | 🟢 | 🟢 |
 
 ---
 

@@ -1,0 +1,376 @@
+# Plan de Ejecución: Backlog Pipeline — Release Blockers + Err Fix + Feature Honesty
+
+> **Inicio:** 2026-08-09
+> **Estado:** ⏳ EN PROGRESO
+> **Fuente:** `docs/Backlog.md` (backlog activo completo)
+> **FAIL_MODE:** parallel (default)
+> **Campaign ID:** backlog-2026-08-09
+
+## Resumen del Triage Gate
+
+| Resultado | Count |
+|-----------|-------|
+| ✅ DO | 48 |
+| 🟡 DEFER | 17 |
+| ❌ SKIP | 6 (ya resueltos/verificados: ERR-016, ERR-034, ERR-051, NV-02/03/05, DESKTOP-20, ADMIN-01..09) |
+| 🔴 BLOQUEADO | 1 (RELEASE-02 → se desbloquea al completar SEC-01 + ERR-022 + RELEASE-01) |
+
+### DEFER (no entran al plan de esta campaña)
+
+| Grupo | Items | Por qué |
+|-------|-------|---------|
+| Descarga constructora desktop | DESKTOP-12..27 | Build completo 4-6 sem (`desktop/` desde cero); plan separado. Ya completados: DESKTOP-20, ADMIN-01..09 |
+| Perf micro-opts | ERR-036, ERR-037, ERR-042..045, ERR-047, ERR-048, ERR-049 | Impacto individual bajo; campaña tuner separada |
+| Investigación/roadmap | PERF-02, PERF-03, PERF-05, BIZ-01b, OLD-01, REVIEW-04 | Período largo, no bloquea release |
+| Huidad post-launch | PERF-02 (criterion CI), PERF-03 (competitive bench) | Esfuerzo >> impacto hoy |
+| Humano/manual | DISC-01..03, LEG-01 | Requieren UI externa / abogado / pago — owner: human |
+| Housekeeping deps | ERR-006, ERR-007, ERR-008, ERR-009 | Limpieza deuda dep, no crítica; ventana 2 |
+
+---
+
+## Tasks
+
+## WAVE 0 — Release Blockers & Seguridad (independientes, paralelo)
+
+### Task 1: RELEASE-01 — Gate cargo semver-checks en CI
+
+- **Esfuerzo:** 🟢 · **Prioridad:** 🔴
+- **Archivos clave:** `.github/workflows/release.yml`, `.github/workflows/ci-rust-10.yml`, `release-plz.toml:18`
+- **Verificación real:** ✅ CÓDIGO-REAL — `release-plz.toml:18` tiene `semver_check = true` pero `rg semver` en los 3 workflows **no** encuentra `cargo-semver-checks` (ni la action). Gap confirmado: el flag de release-plz nunca se ejecuta como gate CI.
+- **Gate Justificación:** 0.5.0 próximo release; sin semver-check un breaking change accidental (API pública) publica rompiendo bindings.
+- **Gate Result:** ✅ DO
+- **Contrato:** `rg -q "semver" .github/workflows/release.yml .github/workflows/ci-rust-10.yml`
+- **Task file:** `skills/campaign-executor/tasks/RELEASE-01.md`
+- **Estado:** ⬜ PENDING
+- **Branch:** `develop`
+- **Commit:**
+
+### Task 2: SEC-01 — UAF en `__array_interface__` (Python)
+
+- **Esfuerzo:** 🟠 · **Prioridad:** 🔴
+- **Archivos clave:** `vantadb-python/src/types.rs:365-380`, `vantadb-python/src/vector.rs:59-67`
+- **Verificación real:** ✅ CÓDIGO-REAL — `#[getter(__array_interface__)]` existe en `vantadb-python/src/types.rs:365`; devuelve puntero raw al buffer interno sin `// SAFETY:`. UAF plausible si la vista numpy mantiene el puntero y el wrapper se dropeó.
+- **Gate Justificación:** uso de seguridad de memoria real reportado por auditoría 2026-08-09; fix acotado a 1 archivo + test numpy.
+- **Gate Result:** ✅ DO
+- **Contract:** `python -c "import vantadb_py; ..."` (test numpy: dropear wrapper y acceder ndarray; via `target/audit-venv/Scripts/python -m pytest vantadb-python/tests/ -k array_interface`)
+- **Task file:** `.agents/campaign-executor/tasks/SEC-01.md`
+- **Estado:** ⬜ PENDING
+- **Branch:** develop
+- **Commit:**
+
+### Task 3: RELEASE-03 — Limpiar artefactos de ejecución del repo
+
+- **Esfuerzo:** 🟢 · **Prioridad:** 🟡
+- **Archivos clave:** raíz repo, `.gitignore`, `Cargo.toml:14-18`
+- **Verificación real:** ✅ CÓDIGO-REAL — `_audit04_repro_db/` y `benchmarks/_probe_db/` **existen en disco** (Test-Path True). `chroma_db`, `data_comp_bench/` no existen (renovados limpios).
+- **Gate Justificación:** no deben salir en el tarball publicado de 0.5.0.
+- **Contrato:** `git status --short` sin traces de `_audit04_repro_db` ni `benchmarks/_probe_db`; `Test-Path _audit04_repro_db` → False
+- **Estado:** ⬜ PENDING
+
+### Task 4: SEC-01 — (loopback no) — VER SEC-01 en Task 2
+
+_(no duplicar)_
+
+---
+
+## WAVE 1 — ERR Críticos (5) + Altos (13)
+
+### Task 4: ERR-010 — Fix race checkpoint↔snapshot
+
+- **Esfuerzo:** 🔴 · **Prioridad:** 🔴
+- **Archivos clave:** `src/storage/engine/maintenance.rs:145-217` (`save_vector_index`), `fluir()`, `insert_lock`
+- **Verificación real:** ✅ CÓDIGO-REAL — `save_vector_index` existe (`maintenance.rs:145`): serializa index y hace swap mmap, llamado desde rutas de persistencia. La pregunta del race está en `fluir()` (checkpoint_seq antes de save sin insert_lock); no hay tests cubriendo `save_vector_index` (codegraph: ⚠️ no covering tests).
+- **Gate Justificación:** corrupción posible en recover (duplicación/record invisible); failpoint + test de interleave pedido.
+- **Contrato:** `cargo nextest run --profile audit -p vantadb --features "failpoints" --test durability_recovery` (el test de interleave fija checkpoint_seq bajo lock)
+- **Task file:** `.agents/skills/campaign-executor/tasks/ERR_010.md`
+- **Estado:** ⬜ PENDING
+
+### Task 5: ERR-021 — MCP OOM en collection_stats/list/delete (restaurar streaming)
+
+- **Esfuerzo:** 🟠 · **Prioridad:** 🔴
+- **Archivos clave:** `vantadb-mcp/src/lib.rs:333-365, 1401, 1430, 1499`
+- **Verificación real:** ✅ CÓDIGO-REAL — `collect_all_records` presente; `collect_stats` streaming eliminado (`rgba collect_stats` → no). Límite `config.max_list_limit` existe solo en list paths.
+- **Gate Justification:** namespace >100k → OOM por llamada en servidor MCP (exposed).
+- **Contrato:** `cargo test -p vantadb-mcp` eco: streaming limita Materialization; o `count_stats` no reverts full list.
+- **Estado:** ⬜ PENDING
+
+### Task 6: ERR-022 — Clamp `top_k`/`k` en MCP+Python+WASM → evitar alloc gigante
+
+- **Esfuerzo:** 🟢 · **Prioridad:** 🔴
+- **Archivos clave:** `vantadb-mcp/src/lib.rs:1248`, `vantadb-python/src/lib.rs(s), src/search`, `vantadb-wasm/src/lib.rs`
+- **Verificación real:** 🟡 PARCIAL — MCP **ya** usa `(raw_top_k as usize).min(config.max_top_k)` en línea 1248 (nuevo codegang). Python y WASM **no** muestran clamp en `rgba` (sin MAX_K fuera de MCP). Gap vigente en 2 de 3 bindings + posible path directo core.
+- **Gate Justificación:** `k=10⁹` → `HashSet::with_capacity(ef*3)` aborta el proceso (panic-alloc). Fix barato.
+- **Contrato:** `rg "min\\(config.max_top_k\\)|MAX_K" vantadb-python/src/lib.rs vantadb-wasm/src/lib.rs` → match ≥ 1 en ambos
+- **Estado:** ⬜ PENDING
+
+### Task 7: ERR-035 — Read-lock global HNSW bloquea inserts
+
+- **Esfuerzo:** 🔴 · **Prioridad:** 🔴
+- **Archivos clave:** `src/physical_plan.rs:211`, `src/storage/engine/ops.rs` (+`apply_insert` línea 723 usa `vector_store[0].write()` confirmado)
+- **Verificación real:** ✅ CÓDIGO-REAL — `apply_insert` (`ops.rs:723`) toma `self.vector_store[0].write()`; `search_nearest` (`search.rs:522`) recorre HNSW. PatternRR contender query↔insert real.
+- **Gate Justificación:** contención global writer↔reader bloquea throughput; risco de sys.
+- **Contrato:** test concurrente `cargo nextest run --profile audit -p vantadb --test concurrency_parity`
+- **Estado:** ⬜ PENDING
+
+### Task 8: ERR-001 — UB 32-bit wasm32: `view_start + len*4` overflow
+
+- **Esfuerzo:** 🟠 · **Prioridad:** 🟠 · **Archivos:** `src/storage/engine/ops.rs:518-521 (+1266,1451,1851)`, `src/index/search.rs:541` · **Gate:** UB real con wasm32 → **DO** · **Contrato:** `checked_mul/checked_add` presentes; `cargo build --target wasm32-unknown-unknown -p vantadb-wasm` compilable
+- **Estado:** ⬜ PENDING
+
+### Task 9: ERR-002 — SIGBUS handler → infinite loop
+
+- **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `src/storage/vfile.rs:211-223` · **Gate:** handler que no resuelve el fault → hang real → **DO** · **Contrato:** handler setu flags y no re-ejecuta sin resolución; test unit vfile
+- **Estado:** ⬜ PENDING
+
+### Task 10: ERR-003 — Panic en header corrupto (4 puntos `[id as usize]`)
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟠 · **Archivos:** `src/storage/engine/ops.rs:507,1311,1397,1820` · **Gate:** panic en datos corruptos evade `VantaError` → **DO** · **Contrato:** `rgba "vector_store\\[" src/storage/engine/ops.rs` sin indexing sin `.get()`
+- **Estado:** ⬜ PENDING
+
+### Task 11: ERR-004 — lru 0.12.5 RUSTSEC-2026-0002 via ratatui
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟠 · **Archivos:** `deny.toml`, `Cargo.lock`; `ralatatu-feature`? · **Gate:** advisory Stacked Borrows real → **DO** (si no bloquea, documentar ignore; probar bump ratatui/lru) · **Contrato:** `cargo deny check advisories`
+- **Estado:** ⬜ PENDING
+
+### Task 12: ERR-011 — WAL replay pérdida silenciosa (local_pos round-robin)
+
+- **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `src/wal_sharded.rs`, `src/storage/engine/init.rs:454-480` · **Gate:** data-loss en recover → **DO** · **Contrato:** test `wal_resilience` (replay de shard truncado sin marcar checkpoint)
+- **Estado:** ⬜ PENDING
+
+### Task 13: ERR-012 — Contadores `inbound` stale en delete
+
+- **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `src/index/neighbor_index.rs`, `src/index/graph.rs` · **Gate:** fuga de memoria del índide real → **DO** · **Contrato:** test de eviction tras delete-decrement
+- **Estado:** ⬜ PENDING
+
+### Task 14: ERR-013 — Stats en txns abortadas
+
+- **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `src/storage/engine/ops.rs` (insert paths) · **Gate:** inventario inflado tras Abort → **DO** · **Contrato:** test `engine_tests` con txn abort y stats correctas
+- **Estado:** ⬜ PENDING
+
+### Task 15: ERR-018 — random_layer capado en nivel 2
+
+- **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `src/index/graph.rs:441-444` · **Gate:** recall degrada con gráficos bajos → **DO** · **Contrato:** test layer distribution / search recall
+- **Estado:** ⬜ PENDING
+
+### Task 16: ERR-019 — Bench mide brute-force no HNSW
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟠 · **Archivos:** `benches/hnsw_pure.rs:33,63` · **Gate:** performance claim falsa → **DO** · **Contrato:** bench con `flat_threshold: None` y 10k
+- **Estado:** ⬜ PENDING
+
+### Task 17: ERR-020 — ACORN second-hop con vecinos stale
+
+- **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `src/index/search.rs` (ACORN), `src/index/graph.rs` · **Gate:** recall/flags segundarios rotos → **DO** · **Contrato:** test ACORN tras repair_orphans
+- **Estado:** ⬜ PENDING
+
+### Task 18: ERR-023 — Python node IDs u64 truncado (core u128)
+
+- **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `vantadb-python/src/lib.rs` · **Gate:** OverflowError en IDs ≥2⁶⁴ → **DO** · **Contrato:** test Python con ID > 2^64 (ronda 64 bits)
+- **Estado:** ⬜ PENDING
+
+### Task 19: ERR-024 — WASM u64 vs core u128
+
+- **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `vantadb-wasm/src/lib.rs:1011,1039,1047` · **Gate:** nodos >2⁶⁴ inaccesibles en WASM → **DO** · **Contrato:** test wasm insert/get con string u128
+- **Estado:** ⬜ PENDING
+
+### Task 20: ERR-025 — MCP get_node_neighbors `as_u64` pierde precisión
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟠 · **Archivos:** `vantadb-mcp/src/lib.rs:1330-1340` · **Gate:** IDs u128 desde JSONRPC inaccesibles → **DO** · **Contrato:** MCP test con id > 2^53 preservado
+- **Estado:** ⬜ PENDING
+
+---
+
+## WAVE 2 — ERR medios + docs / feature honesty (paralelizables)
+
+### Task 21: ERR-005 — Restaurar test AUDREP-45 (guard oversized)
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `src/storage/ops.rs` | **Gate:** perdimos cobertura | **Contrato:** `cargo nextest run -p vantadb --test storage_guard`
+- **Estado:** ⬜ PENDING
+
+### Task 22: ERR-014 — Staleness insert→get (WAL antes de drain)
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `src/storage/engine/ops.rs` | **DO** (consistencia visibilidad) | **Contrato:** test concurrent insert→get comisión
+- **Estado:** ⬜ PENDING
+
+### Task 23: ERR-030 — `put_batch` cross-namespace
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `vantadb-python/src/lib.rs:311-350` | **DO** (data leak entre ns) | **Contrato:** pytest con dos namespaces en un batch
+- **Estado:** ⬜ PENDING
+
+### Task 24: ERR-027 — HTTP 200 con `success:false`
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `src/cli_server.rs:607-627` | **DO** | **Contrato:** test HTTP con query err → status 4xx/5xx
+- **Estado:** ⬜ PENDING
+
+### Task 25: ERR-028 — Query vector norma 0 → error, no `[]`
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `src/index/search.rs:521-547` (`search_nearest`, guard AUDREP-55 ya devuelve `Vec::new()`) | **DO parcial:** core ya devuelve vacío; falta error pepper en bindings | **Contrato:** binding devuelve VantaError para zero-norm
+- **Estado:** ⬜ PENDING
+
+### Task 26: ERR-029 — `edge_count = u16` overflow
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `src/storage/ops.rs:85` | **DO** (corrupción perSIST) | **Contrato:** test >65535 aristas
+- **Estado:** ⬜ PENDING
+
+### Task 27: ERR-050 — CHANGELOG desactualizado (falta [Unreleased])
+
+- **Esfuerzo:** 🟢 · **Prig:** 🛎 · **Archivos:** `docs/CHANGELOG.md`, `cliff.toml` | **DO** (release-plz lo regenera en RELEASE-02; activar con `git-cliff -o docs/CHANGELOG.md -u`) | **Contrato:** `git-cliff -o docs/CHANGELOG.md` y `[Unreleased]` presente
+- **Estado:** ⬜ PENDING
+
+---
+
+## WAVE 3 — Features & Docs honesty + COV/PERF pequeños
+
+### Task 28: FEAT-01 — ADR PITR + WAL-shipping
+
+- **Esfuerzo:** 🔴 · **Prig:** 🟡 · **Archivos:** `src/pitr.rs`, `src/storage/wal.rs`, `src/lib.rs` (`pitr` feat), ADR en `docs/architecture/adr/`
+- **Verificación real:** ✅ CÓDIGO-REAL — feature `pitr` = lista vacía (doc = "+feature": `Cargo.toml:138` versión 0.1 etc.); módulos existen standalone.
+- **Gate:** dead feature phantom → **DO** (solo ADR + decidir: integrar / experimental / defer)
+- **Contrato:** ADR file exists (`docs/architecture/adr/ADR-0XX-pitr.md`) + `rgba "pitr" Cargo.toml` (feature docs)
+- **Estado:** ⬜ PENDING
+
+### Task 29: FEAT-02 — DiskANN: honest rename o implementar v1
+
+- **Esfuerzo:** 🔴 · **Prig:** 🟡 · **Archivos:** `src/index/diskann.rs` | **Gate:** doc interno admite "purely in-memory" | **DO** (decisión + docs/rename) | **Contrato:** README/arch no claim "DiskANN" sin disk I/O (rgba `disk-ann\|\|mmap` doc → ok)
+- **Estado:** ⬜
+
+### Task 30: FEAT-03 — Arrow: export vector completo
+
+- **Esfuerzo:** 🟡 · **Prig:** 🟡 · **Archivos:** `src/integrations.rs`, `vantadb-python/src/vector.rs`, `docs/api/PYTHON_SDK.md` | **DO** (feature prometida vs 1-component) | **Contrato:** `export_arrow` devuelve columnas flat completas + test
+- **Estado:** ⬜
+
+### Task 31: FEAT-04 — IVF/SCANN expuestos por SDK
+
+- **Esfuerzo:** 🔴 · **Prig:** 🟡 · **Archivos:** `src/index/ivf.rs`, `src/index/scann.rs`, bindings | **DO** (exponer `method: ivf/scann` en sdk) | **Contrato:** `search(..., method="ivf")` funciona desde 1 binding
+- **Estado:** ⬜
+
+### Task 32: FEAT-05 — Revisar flags EXPERIMENTAL
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟢 · **Archivos:** `Cargo.toml` (features), `.github/workflows/ci-rust-10.yml`, docs | **DO** (doc decision) | **Contrato:** doc con status por feature
+- **Estado:** ⬜
+
+### Task 33: FEAT-06 — Config hot-reload JSON + config.toml
+
+- **Esfuerzo:** 🟡 · **Prig:** 🟢 · **Archivos:** `src/config.rs:1313`, `docs/operations/CONFIGURATION.md` | **DO** (doc formato real) | **Contrato:** CONFIGURATION.md describe builder/env y JSON hot-reload (si existe) · not invent config.toml
+- **Estado:** ⬜
+
+### Task 34: FEAT-07 — `src/integrations.rs` stubs vacíos
+
+- **Esfuerzo:** 🟡 · **Prig:** 🟢 · **Archivos:** `src/integrations.rs` | **DO** (implement `ollama_proxy` o retirar de surface) | **Contrato:** `rgba "Proximamente" src/integrations.rs` → no match
+- **Estado:** ⬜
+
+### Task 35: REVISAR-01 — Cerrar ciclo ERR-038/039/040/041 (reproducibilidad)
+
+- **Esfuerzo:** 🟡 · **Prig:** 🟡 · **Archivos:** `benches/`, `src/index/ivf.rs` | **DO** (bench dedicado) | **Contrato:** `cargo bench --bench ivf_*` existe + reporte
+- **Estado:** ⬜
+
+### COV
+
+### Task 36: COV-001 — Test Python async (missing flush/purge/query/graph)
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟢 · **Archivos:** `vantadb-python/vantadb_py/__init__.py`, `vantadb-python/tests/` · **DO** · **Contrato:** `target/audit-venv/Scripts/python -m pytest vantadb-python/tests/ -k async` pasa; coverage wrapper ≥85%
+- **Estado:** ⬜
+
+### Task 37: COV-003 — Rust CLI tests (vanta-cli subcommands)
+
+- **Esfuerzo:** 🟡 · **Prig:** 🟢 · **Archivos:** `src/cli_handlers/*`, `src/bin/vanta-cli.rs`, `src/sdk/gds.rs` | **DO** (2.5k ln 0% coverage) | **Contrato:** `cargo nextest run --profile audit -p vantadb --features cli --test cli_tests`
+- **Estado:** ⬜
+
+### Task 38: COV-004 — ADR política gate coverage CI
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `.github/workflows/ci-rust-10.yml`, ADR | **DO** (decisión documentada) | **Contrato:** ADR expresa root (81.40%) vs workspace (72.76%) y expectativa de bindings
+- **Estado:** ⬜
+
+### PERF
+
+### Task 39: PERF-01 — Sellar benchmark claims README
+
+- **Esfuerzo:** 🟡 · **Prig:** 🟉 · **Archivos:** `benchmales/`, `README.md`, `docs/QUICKSTART.md`, `docs/benchmarks/` | **DO** (honestidad de marketing) | **Contrato:** README/QUICKSTART claims re-validados o retirados; siRE != código actual
+- **Estado:** ⬜
+
+### Task 40: PERF-04 — Prefetch default OFF
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟢 · **Archivos:** `src/index/hnsw.rs` (prefetch), docs | **DO** (flag real + OFF) — **DO** only si hay feature; verificar
+- **Estado:** ⬜
+
+### Task 41: PERF-06 — `VANTADB_MEMORY_LIMIT` soporta sufijos KB/MB/GB
+
+- **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `src/config.rs`, `src/cli.rs` | **DO** | **Contrato:** `vanta --memory-limit 500MB` → no error + test parse
+- **Estado:** ⬜
+
+---
+
+## DOC — honesty (paralelo, wave 3)
+
+### Task 42: DOC-02 — Fix versión drift QUICKSTART/badges (0.5.0)
+
+- **Esfuerzo:** 🟢 · **Archivos:** `docs/QUICKSTART.md`, `README.md` | **DO** · **Contrato:** `rg "0.4" docs/QUICKSTART.md README.md` → no match (except history)
+- **Estado:** ⬜
+
+### Task 43: DOC-03 — Fix mojibake UTF-8
+
+- **Esfuerzo:** 🟢 · **Archivos:** `vantadb-python/README.md`, `docs/DESIGN_RULES.md` | **DO** · **Contrato:** `rgcha "\\u00e9|�"` → no match
+- **Estado:** ⬜
+
+### Task 44: DOC-04 — Fix `llms.txt` API inventada
+
+- **Esfuerzo:** 🟢 · **Prig:** 🔴 · **Archivos:** `llms.txt`, `docs/` | **DO** — `from vantadb import VantaEmbedded` no existe (real: `vantadb_py.VantaDB`) | **Contrato:** `rgba "from vantadb import"` → no match
+- **Estado:** ⬜
+
+### Task 45: DOC-05 — Wikilinks Obsidian → rutas relativas
+
+- **Esfuerzo:** 🟢 · **Archivos:** `docs/README.md` | **DO** · **Contrato:** `rg "\[\[" docs/README.md` → no match
+- **Estado:** ⬜
+
+### Task 46: DOC-06 — Límite u64 documentado (ERR-023)
+
+- **Esfuerzo:** 🟢 · **Archivos:** `docs/api/PYTHON_SDK.md`, `docs/QUICKSTART.md` | **DO** · **Contrato:** sección "ID limits" existe
+- **Estado:** ⬜
+
+### Task 47: DOC-07 — Documentar hot-reload JSON / config.toml
+
+- **Esfuerzo:** 🟡 · **Archivos:** `docs/operations/CONFIGURATION.md` | **DO** (con FEAT-06) · **Contrato:** sección config-examples
+- **Estado:** ⬜
+
+### Task 48: DOC-08 — README claims cluster/graph honestos
+
+- **Esfuerzo:** 🟢 · **Archivos:** `README.md` | **DO** · **Contrato:** README dice "single-node embedding engine", "wal-shipping experimental send-only"
+- **Estado:** ⬜
+
+---
+
+### V-CÁTEGORÍA (P0 bloqueado — **RELEASE-02**)
+
+### Task 49: RELEASE-02 — Publish coordinado 0.5.0 (depende de SEC-01, ERR-022, RELEASE-01, doc-coverage)
+
+- **Esfuerzo:** 🟢 · **Prig:** 🔴 · **Gate:** 🔴 BLOQUEADO (dependencias) — se habilita al completar Task 1, 2, 6
+- **Archivos clave:** `release.yml`, `release-wheels-60.yml`, `release-npm-61.yml`, `docs/CHANGELOG.md`
+- **Verificación real:** ✅ workspace.package.version = `0.5.0` (`Cargo.toml:617`); crates.io en 0.4.0 reporte (RELEASE-02 claim). require pclient + tags + wheels.
+- **Contract:** `git tag v0.5.0` + CI green; `gh release view v0.5.0`
+- **Task file:** `.agents/skills/campaign-executor/tasks/RELEASE_02.md`
+- **Estado:** ⬜ PENDING (se activa con gates)
+
+---
+
+## Fields interative record
+
+**Iteraciones:** (tablas vacías hasta execute)
+
+**Notas por tarea:**
+- ERR-016 (`parser WHERE/RANK`) capítulo resuelto → SKIP
+- ERR-034 (`/metrics` protegido) verificado sin hallazgo → SKIP
+- ERR-051 (`sync CLI`) verificado OK → SKIP
+- NV-02/03/05 → ✅ completados (progreso)
+- DESKTOP-20 + ADMIN-01..09 → ✅ completados (progreso)
+
+---
+
+<!-- INSTANTÁNEO: partial state module / recitation -->
+
+## RECITATION (initial)
+
+- **Campaign ID:** backlog-2026-08-09
+- **Objetivo activo:** RELEASE-01 (gate semver-checks en CI)
+- **Estado:** pending
+- **Última acción:** Plan file creado desde backlog con triage gate + verificación real (codegraph/glob/test-path)
+- **Resultado:** ✅ Plan creado — 48 DO, 17 DEFER, 6 SKIP, 1 BLOQUEADO
+- **Próxima acción:** Ejecutar `/pipeline run docs/plans/2026-08-09-backlog-pipeline.md` (FAIL_MODE=parallel, waves) o `harness-executor.ps1`
