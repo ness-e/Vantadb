@@ -7,6 +7,7 @@
 mod common;
 
 use common::{TerminalReporter, VantaSession};
+use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::config::VantaConfig;
 use vantadb::node::UnifiedNode;
@@ -268,6 +269,178 @@ fn test_wal_replay_mixed_mutations() {
     }
 
     session.success("WAL handles mixed mutations correctly during replay.");
+    session.finish(true);
+}
+
+// ─── TEST: ERR-010 checkpoint_seq ↔ snapshot interleave ─────────────
+
+// Regression for ERR-010: flush() holds the HNSW insert_lock across
+// [drain → serialize → checkpoint_seq write], and every mutating path
+// (insert/delete) appends its WAL record and queues its HNSW mutation under
+// the SAME guard. Without that, a concurrent insert's WAL record can be
+// counted into checkpoint_seq while its HNSW mutation misses the serialized
+// snapshot — replay then skips the record (invisible node in the vector
+// index) or the opposite: a mutation lands in the snapshot whose record is
+// NOT counted → replay re-applies it (duplicate entry).
+#[test]
+fn test_checkpoint_snapshot_interleave_not_lost_or_duplicated() {
+    let mut session = VantaSession::begin("Checkpoint/Snapshot Interleave (ERR-010)");
+    let dir = tempdir().unwrap();
+    let db_path = dir.path().to_str().unwrap();
+
+    const NODES: u128 = 512;
+
+    fn target_for(id: u128) -> Vec<f32> {
+        vec![
+            (id % 97) as f32 / 97.0,
+            (id % 31) as f32 / 31.0,
+            0.25,
+            0.125,
+        ]
+    }
+
+    session.step("Phase 1: Concurrent inserts + flushes (forcing checkpoint/snapshot interleaves)");
+    let engine = Arc::new(open_fjall(db_path));
+
+    // Writer thread keeps inserting vectors while the main thread flushes,
+    // so WAL appends + HNSW queues race the checkpoint critical section.
+    let writer_engine = Arc::clone(&engine);
+    let writer = std::thread::spawn(move || {
+        for i in 0..NODES {
+            let mut node = UnifiedNode::new(i as u128);
+            node.vector = vantadb::node::VectorRepresentations::Full(target_for(i));
+            node.flags.set(vantadb::node::NodeFlags::HAS_VECTOR);
+            writer_engine.insert(&node).unwrap();
+        }
+    });
+
+    for _ in 0..8 {
+        engine.flush().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    writer.join().unwrap();
+    engine.flush().unwrap();
+    drop(engine);
+
+    session.step("Phase 2: Reopen and assert exact index recovery");
+    let engine = open_fjall(db_path);
+    let hnsw = engine.hnsw.load();
+    let vs = engine.vector_store[0].read();
+
+    let indexed_len = hnsw.nodes.len() as u64;
+    assert!(
+        indexed_len >= NODES as u64,
+        "Index lost records: expected >= {NODES} nodes, got {indexed_len} (invisible records)"
+    );
+
+    let mut missing = 0;
+    for i in 0..NODES {
+        // KV data must be durable either way.
+        assert!(
+            engine.get(i as u128).unwrap().is_some(),
+            "node {i} missing from KV after recovery"
+        );
+        // The HNSW entry must exist (no checkpoint-skipped invisible record).
+        if hnsw.nodes.get(&(i as u128)).is_none() {
+            missing += 1;
+        }
+        // And it must not be duplicated inside the index (same id twice in
+        // the exact-vector neighborhood).
+        let results = hnsw.search_nearest(
+            &target_for(i),
+            None,
+            None,
+            &vantadb::node::ALL_BITSET,
+            16,
+            Some(&vs),
+        );
+        let dup = results.iter().filter(|(id, _)| *id == i as u128).count();
+        assert!(
+            dup <= 1,
+            "node {i} appears {dup} times in index after recovery (duplicate)"
+        );
+    }
+    assert_eq!(
+        missing, 0,
+        "{missing} nodes are invisible in the vector index after recovery (checkpoint skipped their WAL record without snapshot capture)"
+    );
+
+    session.success("No invisible or duplicate records across checkpoint/snapshot interleaves.");
+    session.finish(true);
+}
+
+// ─── TEST: ERR-010 snapshot failure must NOT advance checkpoint_seq ──
+
+// The lock makes the [drain → snapshot → count] critical section atomic, but
+// the ordering ALSO guarantees durability on the failure path: if
+// save_vector_index fails, the count + checkpoint write below it are never
+// reached, so the previous checkpoint_seq stays in place and WAL replay on
+// reopen covers every record above it (no data loss). This test forces that
+// failure with the failpoints feature and asserts the WAL replay fully
+// recovers the failed flush.
+#[cfg(feature = "failpoints")]
+#[test]
+fn test_checkpoint_not_advanced_on_snapshot_failure() {
+    let mut session = VantaSession::begin("Checkpoint NOT advanced on snapshot failure (ERR-010)");
+    let dir = tempdir().unwrap();
+    let db_path = dir.path().to_str().unwrap();
+
+    const NODES: u128 = 128;
+
+    fn target_for(id: u128) -> Vec<f32> {
+        vec![
+            (id % 97) as f32 / 97.0,
+            (id % 31) as f32 / 31.0,
+            0.25,
+            0.125,
+        ]
+    }
+
+    session.step("Phase 1: Insert nodes, flush cleanly, then flush with a forced snapshot failure");
+    {
+        let engine = open_fjall(db_path);
+        for i in 0..NODES {
+            let mut node = UnifiedNode::new(i as u128);
+            node.vector = vantadb::node::VectorRepresentations::Full(target_for(i));
+            node.flags.set(vantadb::node::NodeFlags::HAS_VECTOR);
+            engine.insert(&node).unwrap();
+        }
+        engine.flush().unwrap();
+
+        // Arm the failpoint: the next save_vector_index errors out, so the
+        // checkpoint_seq write must be skipped entirely.
+        fail::cfg("snapshot_serialize_fail", "return").unwrap();
+        let res = engine.flush();
+        fail::cfg("snapshot_serialize_fail", "off").unwrap();
+        assert!(
+            res.is_err(),
+            "snapshot_serialize_fail should make flush() error (bug: checkpoint/drain proceeded after failed snapshot)"
+        );
+    }
+
+    session.step("Phase 2: Reopen — every node must be recoverable via WAL replay");
+    {
+        let engine = open_fjall(db_path);
+        let hnsw = engine.hnsw.load();
+        for i in 0..NODES {
+            assert!(
+                engine.get(i as u128).unwrap().is_some(),
+                "node {i} lost after failed snapshot + replay"
+            );
+            assert!(
+                hnsw.nodes.get(&(i as u128)).is_some(),
+                "node {i} invisible in vector index after failed snapshot + replay"
+            );
+        }
+        let indexed_len = hnsw.nodes.len() as u64;
+        assert!(
+            indexed_len == NODES as u64,
+            "expected exactly {NODES} indexed nodes, got {indexed_len}"
+        );
+    }
+
+    session
+        .success("Checkpoint did not advance past the failed snapshot; replay recovered all data.");
     session.finish(true);
 }
 

@@ -50,9 +50,28 @@ impl StorageEngine {
     /// Flush all pending writes: backend, vector store, WAL checkpoint, and vector index.
     #[tracing::instrument(skip(self), level = "info", err)]
     pub fn flush(&self) -> Result<()> {
-        // Drain pending HNSW mutations before checkpointing
-        self.flush_pending_hnsw()?;
         self.ensure_writable()?;
+
+        // ERR-010: hold insert_lock across [drain → serialize → count → write].
+        // Every mutating path (insert/delete/batch) appends its WAL record and
+        // queues its HNSW mutation under the same guard, so while this critical
+        // section runs no record can be counted by total_record_count() whose
+        // mutation is not already drained into the index. The snapshot is the
+        // exact, quiescent set of WAL records <= checkpoint_seq: replay skips
+        // nothing it needs (no invisible records) and re-applies nothing it
+        // already has (no duplicates).
+        let _guard = self
+            .insert_lock
+            .try_lock_for(std::time::Duration::from_millis(
+                self.config.insert_lock_timeout_ms,
+            ))
+            .ok_or_else(|| VantaError::Timeout {
+                operation: "acquire insert_lock in flush (ERR-010 checkpoint)".into(),
+                duration_ms: self.config.insert_lock_timeout_ms,
+            })?;
+
+        // Drain pending HNSW mutations before checkpointing (lock already held).
+        self.drain_hnsw_batch_locked()?;
         self.backend.flush()?;
         for vs in &self.vector_store {
             vs.read().flush()?;
@@ -74,7 +93,9 @@ impl StorageEngine {
         // time the count is read here — checkpoint_seq >= snapshot contents,
         // and replay on reopen never re-applies an already-snapshotted op
         // (no duplication). If save_vector_index fails above, the checkpoint
-        // is NOT advanced and the WAL replay covers the gap instead.
+        // is NOT advanced and the WAL replay covers the gap instead. The
+        // insert_lock above makes this count simultaneous with the drain, so
+        // it can never observe a record whose mutation is still queued.
         let current_wal_seq = self
             .wal
             .as_ref()
@@ -91,6 +112,8 @@ impl StorageEngine {
             )?;
             self.backend.flush()?;
         }
+        // _guard drops here — the checkpoint is durable before any new
+        // mutation can be counted.
 
         // PERF-09: Run quantization auto-transition during flush
         if let Ok(report) = self.run_quantization_maintenance() {

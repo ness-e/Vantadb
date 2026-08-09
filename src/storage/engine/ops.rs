@@ -116,14 +116,6 @@ impl StorageEngine {
     /// Returns `Ok(true)` if any ops were flushed.
     #[tracing::instrument(skip(self), level = "trace", err)]
     pub fn flush_pending_hnsw(&self) -> Result<bool> {
-        let ops = {
-            let mut pending = self.pending_hnsw_batch.lock();
-            if pending.is_empty() {
-                return Ok(false);
-            }
-            std::mem::take(&mut *pending)
-        };
-
         let _guard = self
             .insert_lock
             .try_lock_for(std::time::Duration::from_millis(
@@ -133,6 +125,24 @@ impl StorageEngine {
                 operation: "acquire insert_lock in flush_pending_hnsw".into(),
                 duration_ms: self.config.insert_lock_timeout_ms,
             })?;
+        self.drain_hnsw_batch_locked()
+    }
+
+    /// Apply the pending HNSW mutation batch to the index.
+    ///
+    /// Caller MUST already hold `insert_lock` (see [`Self::flush_pending_hnsw`]
+    /// and `flush()`'s ERR-010 checkpoint critical section). Never acquires the
+    /// lock itself — doing so from a context that holds the guard would
+    /// deadlock, since `insert_lock` is not reentrant.
+    pub(crate) fn drain_hnsw_batch_locked(&self) -> Result<bool> {
+        let ops = {
+            let mut pending = self.pending_hnsw_batch.lock();
+            if pending.is_empty() {
+                return Ok(false);
+            }
+            std::mem::take(&mut *pending)
+        };
+
         let hnsw = self.hnsw.load();
         for op in &ops {
             if op.is_delete {
@@ -154,41 +164,48 @@ impl StorageEngine {
     /// `insert()` / `delete()` calls accumulate in the batch and are
     /// flushed atomically under one lock acquisition.
     fn try_push_pending_hnsw(&self, op: PendingHnswOp) -> Result<()> {
-        let needs_flush = {
+        let batch_len = {
             let mut pending = self.pending_hnsw_batch.lock();
             pending.push(op);
-            pending.len() >= HNSW_BATCH_SIZE
+            pending.len()
         };
-        if needs_flush {
-            self.flush_pending_hnsw()?;
-        } else {
-            // non-blocking drain: if the lock is free, flush eagerly;
-            // otherwise the next caller that hits the threshold will do it.
-            #[allow(clippy::redundant_pattern_matching)]
-            if let Some(_) = self.insert_lock.try_lock() {
-                let ops = {
-                    let mut pending = self.pending_hnsw_batch.lock();
-                    // could have been drained by another thread — double-check
-                    if pending.is_empty() {
-                        return Ok(());
-                    }
-                    std::mem::take(&mut *pending)
-                };
-                let hnsw = self.hnsw.load();
-                for op in &ops {
-                    if op.is_delete {
-                        hnsw.nodes.remove(&op.id);
-                    } else {
-                        hnsw.add(
-                            op.id,
-                            op.bitset.clone(),
-                            op.vector.clone(),
-                            op.storage_offset,
-                        )?;
-                    }
+        if batch_len >= HNSW_BATCH_SIZE {
+            tracing::trace!(batch_len, "HNSW pending batch reached HNSW_BATCH_SIZE");
+        }
+
+        // Opportunistic drain (P1 micro-batching): take the batch whenever the
+        // insert lock is free. When the lock is busy — another writer, or the
+        // current thread's own outer guard already held by insert()/delete()/
+        // flush() (ERR-010) — the op stays queued and is drained by the next
+        // holder: flush() drains the batch at the start of its checkpoint
+        // critical section, so WAL-vs-index ordering is preserved either way.
+        //
+        // Never BLOCK on the lock here: the old threshold path called
+        // flush_pending_hnsw() unconditionally, which deadlocks/timeouts
+        // (insert_lock is not reentrant) when called under a held guard.
+        if let Some(_guard) = self.insert_lock.try_lock() {
+            let ops = {
+                let mut pending = self.pending_hnsw_batch.lock();
+                // could have been drained by another thread — double-check
+                if pending.is_empty() {
+                    return Ok(());
                 }
-                // guard dropped here
+                std::mem::take(&mut *pending)
+            };
+            let hnsw = self.hnsw.load();
+            for op in &ops {
+                if op.is_delete {
+                    hnsw.nodes.remove(&op.id);
+                } else {
+                    hnsw.add(
+                        op.id,
+                        op.bitset.clone(),
+                        op.vector.clone(),
+                        op.storage_offset,
+                    )?;
+                }
             }
+            // guard dropped here
         }
         Ok(())
     }
@@ -703,15 +720,39 @@ impl StorageEngine {
             }
         }
 
-        // Non-transaction path: WAL + apply immediately
-        if let Some(ref sharded) = self.wal {
-            let mut wal_node = node.clone();
-            wal_node.last_accessed = now_ms;
-            // moved (not cloned again) — eliminates the 2nd clone
-            sharded.append(&crate::wal::WalRecord::Insert(wal_node))?;
+        // Non-transaction path: WAL + apply inside a single insert_lock
+        // critical section (ERR-010). flush() takes the same guard around
+        // [drain → serialize → checkpoint_seq write], so a concurrent flush
+        // can never count this WAL record before its HNSW mutation has been
+        // drained into the serialized snapshot — no invisible records and no
+        // duplicates on replay. `apply_insert` queues to the pending batch
+        // (try_push_pending_hnsw never blocks on the guard we hold here).
+        {
+            let _guard = self
+                .insert_lock
+                .try_lock_for(std::time::Duration::from_millis(
+                    self.config.insert_lock_timeout_ms,
+                ))
+                .ok_or_else(|| crate::error::VantaError::Timeout {
+                    operation: "acquire insert_lock in insert (WAL + queue)".into(),
+                    duration_ms: self.config.insert_lock_timeout_ms,
+                })?;
+            if let Some(ref sharded) = self.wal {
+                let mut wal_node = node.clone();
+                wal_node.last_accessed = now_ms;
+                // moved (not cloned again) — eliminates the 2nd clone
+                sharded.append(&crate::wal::WalRecord::Insert(wal_node))?;
+            }
+            // Pass &node directly — no active_node intermediate needed
+            self.apply_insert(node)?;
+            // We hold the guard, so try_push_pending_hnsw (called inside
+            // apply_insert) could never opportunistically drain — drain the
+            // batch NOW under the same latch so the HNSW entry exists for
+            // immediate reads (get()/search), exactly like the pre-ERR-010
+            // eager path did.
+            self.drain_hnsw_batch_locked()?;
+            Ok(())
         }
-        // Pass &node directly — no active_node intermediate needed
-        self.apply_insert(node)
     }
 
     /// Apply an insert to the stores (vstore, KV backend, HNSW, cache).
@@ -798,10 +839,14 @@ impl StorageEngine {
             }
         }
 
-        // PERF-30: auto-flush when total node count exceeds flush_threshold
+        // PERF-30: auto-flush when total node count exceeds flush_threshold.
+        // insert() may hold insert_lock here (ERR-010, non-reentrant), so
+        // only auto-flush when the lock is free — otherwise the checkpoint
+        // would block on the very guard we hold. Skipped flushes happen at the
+        // next uncontended call or user-initiated flush().
         if let Some(threshold) = self.config.flush_threshold {
             let hnsw = self.hnsw.load();
-            if hnsw.nodes.len() >= threshold {
+            if hnsw.nodes.len() >= threshold && self.insert_lock.try_lock().is_some() {
                 drop(hnsw);
                 if let Err(e) = self.flush() {
                     tracing::warn!("auto-flush failed: {e}");
@@ -1057,6 +1102,21 @@ impl StorageEngine {
         }
         drop(vstore);
 
+        // ── Phases 3-4 (+HNSW): WAL, KV batch write and HNSW insertion all under
+        // ── one insert_lock guard (ERR-010). flush() counts WAL records while
+        // holding the same guard, so these records are never counted before
+        // their HNSW entries are drained into the serialized snapshot — no
+        // invisible/duplicate records on recovery.
+        let _guard = self
+            .insert_lock
+            .try_lock_for(std::time::Duration::from_millis(
+                self.config.insert_lock_timeout_ms,
+            ))
+            .ok_or_else(|| crate::error::VantaError::Timeout {
+                operation: "acquire insert_lock in batch_insert".into(),
+                duration_ms: self.config.insert_lock_timeout_ms,
+            })?;
+
         // ── Phase 3: WAL (P3 — skip_wal flag) ────────────────────
         if !opts.skip_wal {
             if let Some(ref sharded) = self.wal {
@@ -1087,15 +1147,6 @@ impl StorageEngine {
         }
 
         if should_insert_hnsw {
-            let _guard = self
-                .insert_lock
-                .try_lock_for(std::time::Duration::from_millis(
-                    self.config.insert_lock_timeout_ms,
-                ))
-                .ok_or_else(|| crate::error::VantaError::Timeout {
-                    operation: "acquire insert_lock in batch_insert".into(),
-                    duration_ms: self.config.insert_lock_timeout_ms,
-                })?;
             let hnsw = self.hnsw.load();
 
             // P3 — Layer-wise bulk insert: pre-compute levels with local RNG
@@ -1144,10 +1195,12 @@ impl StorageEngine {
             }
         }
 
-        // PERF-30: auto-flush when total node count exceeds flush_threshold
+        // PERF-30: auto-flush when total node count exceeds flush_threshold.
+        // batch_insert() holds insert_lock here (ERR-010, non-reentrant), so
+        // only auto-flush when the lock is free — see apply_insert().
         if let Some(threshold) = self.config.flush_threshold {
             let hnsw = self.hnsw.load();
-            if hnsw.nodes.len() >= threshold {
+            if hnsw.nodes.len() >= threshold && self.insert_lock.try_lock().is_some() {
                 drop(hnsw);
                 if let Err(e) = self.flush() {
                     tracing::warn!("auto-flush failed: {e}");
@@ -1590,14 +1643,26 @@ impl StorageEngine {
             }
         }
 
-        // Non-transaction path: WAL + apply immediately + physically remove metadata
+        // Non-transaction path: WAL + apply inside a single insert_lock
+        // critical section (ERR-010) — see insert().
         self.ensure_writable()?;
-        if let Some(ref sharded) = self.wal {
-            sharded.append(&crate::wal::WalRecord::Delete { id })?;
+        {
+            let _guard = self
+                .insert_lock
+                .try_lock_for(std::time::Duration::from_millis(
+                    self.config.insert_lock_timeout_ms,
+                ))
+                .ok_or_else(|| crate::error::VantaError::Timeout {
+                    operation: "acquire insert_lock in delete (WAL + apply)".into(),
+                    duration_ms: self.config.insert_lock_timeout_ms,
+                })?;
+            if let Some(ref sharded) = self.wal {
+                sharded.append(&crate::wal::WalRecord::Delete { id })?;
+            }
+            self.apply_delete_inner(id, false)?;
+            self.backend
+                .delete(BackendPartition::Default, &id.to_le_bytes())
         }
-        self.apply_delete(id)?;
-        self.backend
-            .delete(BackendPartition::Default, &id.to_le_bytes())
     }
 
     /// Apply a delete to the stores (vstore tombstone, HNSW, cache).
@@ -1612,6 +1677,13 @@ impl StorageEngine {
     /// Does NOT check active_txns or ensure_writable.
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub(crate) fn apply_delete(&self, id: u128) -> Result<()> {
+        self.apply_delete_inner(id, true)
+    }
+
+    /// Shared delete-apply body. When `acquire` is false the caller already
+    /// holds `insert_lock` (delete()'s ERR-010 critical section), so the HNSW
+    /// removal must not re-acquire the non-reentrant lock.
+    pub(crate) fn apply_delete_inner(&self, id: u128, acquire: bool) -> Result<()> {
         let packed = {
             let hnsw = self.hnsw.load();
             hnsw.nodes.get(&id).map(|n| n.storage_offset)
@@ -1629,7 +1701,7 @@ impl StorageEngine {
             }
         }
 
-        {
+        if acquire {
             let _guard = self
                 .insert_lock
                 .try_lock_for(std::time::Duration::from_millis(
@@ -1639,19 +1711,27 @@ impl StorageEngine {
                     operation: "acquire insert_lock in apply_delete".into(),
                     duration_ms: self.config.insert_lock_timeout_ms,
                 })?;
-            let hnsw = self.hnsw.load();
-            hnsw.nodes.remove(&id);
-
-            // PERF-23: If we just removed the entry point, promote a replacement
-            if hnsw.entry_point.load(Ordering::Relaxed) == id {
-                let new_ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
-                hnsw.entry_point.store(new_ep, Ordering::Relaxed);
-            }
+            self.remove_hnsw_entry(id);
+        } else {
+            self.remove_hnsw_entry(id);
         }
 
         self.volatile_cache.write().remove(&id);
 
         Ok(())
+    }
+
+    /// Remove a node from the HNSW graph and promote a replacement entry point
+    /// if the removed node was the entry point. Caller must hold `insert_lock`.
+    fn remove_hnsw_entry(&self, id: u128) {
+        let hnsw = self.hnsw.load();
+        hnsw.nodes.remove(&id);
+
+        // PERF-23: If we just removed the entry point, promote a replacement
+        if hnsw.entry_point.load(Ordering::Relaxed) == id {
+            let new_ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
+            hnsw.entry_point.store(new_ep, Ordering::Relaxed);
+        }
     }
 
     /// Delete multiple nodes in a single batch operation.
@@ -1714,6 +1794,18 @@ impl StorageEngine {
             }
         }
 
+        // Phase 2-3: WAL batch append + HNSW removal under one insert_lock guard
+        // (ERR-010) — see batch_insert()/flush().
+        let _guard = self
+            .insert_lock
+            .try_lock_for(std::time::Duration::from_millis(
+                self.config.insert_lock_timeout_ms,
+            ))
+            .ok_or_else(|| crate::error::VantaError::Timeout {
+                operation: "acquire insert_lock in delete_batch".into(),
+                duration_ms: self.config.insert_lock_timeout_ms,
+            })?;
+
         // Phase 2: WAL batch append
         let wal_records: Vec<WalRecord> = ids.iter().map(|&id| WalRecord::Delete { id }).collect();
         if let Some(ref sharded) = self.wal {
@@ -1722,15 +1814,6 @@ impl StorageEngine {
 
         // Phase 3: HNSW node removal + vector store tombstone marking
         {
-            let _guard = self
-                .insert_lock
-                .try_lock_for(std::time::Duration::from_millis(
-                    self.config.insert_lock_timeout_ms,
-                ))
-                .ok_or_else(|| crate::error::VantaError::Timeout {
-                    operation: "acquire insert_lock in delete_batch".into(),
-                    duration_ms: self.config.insert_lock_timeout_ms,
-                })?;
             let hnsw = self.hnsw.load();
             for &id in ids {
                 if let Some(packed) = hnsw.nodes.get(&id).map(|n| n.storage_offset) {
