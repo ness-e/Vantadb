@@ -440,8 +440,16 @@ impl CPIndex {
 
     fn random_layer(&self) -> usize {
         let mut rng = self.rng.lock();
-        let r: f64 = rng.random_range(0.0001..1.0);
-        (-r.ln() * self.config.ml).floor() as usize
+        // ERR-018: the previous `random_range(0.0001..1.0)` clamped the
+        // geometric tail — with the default ml = 1/ln(32) the max achievable
+        // level was floor(-ln(0.0001) * ml) = 2, so no node could ever live
+        // above layer 2 and sparse/low-degree graphs lost recall. Sample the
+        // full unit interval instead: `-(1-u).ln()` is the standard log
+        // transform (identical to -ln(u) over (0,1]) but cannot hit `inf` on
+        // an exact-zero draw, so the tail is unbounded and follows the
+        // intended geometric distribution P(level >= k) = M^-k.
+        let u: f64 = rng.random(); // [0.0, 1.0)
+        (-(1.0 - u).ln() * self.config.ml).floor() as usize
     }
 
     #[inline]
@@ -1113,8 +1121,11 @@ impl Default for CPIndex {
 /// Compute a random HNSW layer level from a generic RNG.
 /// Used by parallel rebuild to avoid contention on `CPIndex::rng` mutex.
 pub fn random_layer_from_config<R: rand::Rng>(config: &HnswConfig, rng: &mut R) -> usize {
-    let r: f64 = rng.random_range(0.0001..1.0);
-    (-r.ln() * config.ml).floor() as usize
+    // ERR-018: same fix as `CPIndex::random_layer` — draw from the full unit
+    // interval so the geometric tail is not truncated at
+    // floor(-ln(0.0001) * ml) = 2 (with the default ml = 1/ln(32)).
+    let u: f64 = rng.random(); // [0.0, 1.0)
+    (-(1.0 - u).ln() * config.ml).floor() as usize
 }
 
 #[cfg(test)]
@@ -1752,5 +1763,94 @@ mod tests {
                 );
             }
         }
+    }
+
+    // ── ERR-018: layer distribution ─────────────────────────────────────
+    // The old `random_range(0.0001..1.0)` draw truncated the geometric tail:
+    // with the default ml = 1/ln(32) the max achievable level was
+    // floor(-ln(0.0001) * ml) = 2, so graphs never grew past layer 2 and
+    // sparse/low-degree recall degraded. These tests prove the fixed sampler
+    // follows P(level >= k) = M^-k and that real inserts reach level 3+.
+
+    #[test]
+    fn random_layer_follows_geometric_distribution() {
+        // M=4 → ml = 1/ln(4); expect P(level>=2) = 1/16, P(level>=3) = 1/64.
+        let config = HnswConfig {
+            m: 4,
+            m_max0: 8,
+            ef_construction: 100,
+            ef_search: 100,
+            ml: 1.0 / (4_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None,
+            index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
+        };
+        let index = CPIndex::new_with_config(config);
+
+        const N: usize = 2000;
+        let mut hist = [0usize; 4]; // level buckets: 0, 1, 2, >=3
+        for _ in 0..N {
+            let lvl = index.random_layer();
+            assert!(lvl < 200, "runaway level {lvl}");
+            hist[lvl.min(3)] += 1;
+        }
+        // P(level>=2) = 6.25% → expect ~125 of 2000.
+        assert!(hist[2] + hist[3] > 40, "too few level-2+ draws: {hist:?}");
+        // P(level>=3) = 1.5625% → expect ~31 of 2000. Structurally 0 under
+        // the old capped sampler (max level was 2).
+        assert!(
+            hist[3] > 5,
+            "no level >= 3 draws — layer cap regression: {hist:?}"
+        );
+    }
+
+    #[test]
+    fn insert_reach_layer_three() {
+        let config = HnswConfig {
+            m: 4,
+            m_max0: 8,
+            ef_construction: 20,
+            ef_search: 20,
+            ml: 1.0 / (4_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None, // force HNSW (default threshold brute-forces <10k nodes)
+            index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
+        };
+        let index = CPIndex::new_with_config(config);
+
+        // Deterministic pseudo-random vectors (LCG with fixed seed).
+        let mut state: u64 = 0x9E37_79B9_7F4A_7C15;
+        let mut dims = [0f32; 16];
+        let mut ge3 = 0usize; // nodes with level >= 3 (i.e. 4+ allocated layers)
+
+        const N: u128 = 2000;
+        for i in 0..N {
+            for d in &mut dims {
+                state = state
+                    .wrapping_mul(6364_1362_2384_6793_005)
+                    .wrapping_add(1442_6950_4088_9634_07);
+                *d = (state >> 33) as f32 / (1u64 << 31) as f32;
+            }
+            index
+                .add(
+                    i,
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(dims.to_vec()),
+                    0,
+                )
+                .expect("insert should succeed");
+            if index.neighbor_index.num_layers(i).unwrap_or(0) >= 4 {
+                ge3 += 1;
+            }
+        }
+
+        assert_eq!(index.nodes.len(), N as usize);
+        // With M=4 → P(level>=3) = 1/64 ≈ 1.56% → expect ~31 of 2000.
+        assert!(
+            ge3 > 5,
+            "too few inserts reached layer 3+ — layer cap regression: {ge3}"
+        );
     }
 }
