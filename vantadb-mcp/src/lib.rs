@@ -329,13 +329,18 @@ fn error_content(msg: impl Into<String>) -> Value {
     json!({"isError": true, "content": [{"type": "text", "text": msg.into()}]})
 }
 
-/// Collect all memory records from a namespace via cursor-paginated list.
-fn collect_all_records(
+/// Stream a namespace's records page-by-page, invoking `f` on each record.
+/// Never materializes the full namespace: at most `config.max_list_limit`
+/// records are in memory at once (ERR-021: large namespaces OOM'd the server
+/// when stats/list/delete collected the whole set into a Vec per call).
+/// Returns the total number of records visited.
+fn for_each_record(
     embedded: &vantadb::VantaEmbedded,
     namespace: &str,
     config: &McpConfig,
-) -> Result<Vec<vantadb::sdk::VantaMemoryRecord>, String> {
-    let mut all_records = Vec::new();
+    mut f: impl FnMut(&vantadb::sdk::VantaMemoryRecord),
+) -> Result<usize, String> {
+    let mut count = 0usize;
     let mut cursor: Option<usize> = None;
     loop {
         let options = vantadb::sdk::VantaMemoryListOptions {
@@ -347,21 +352,22 @@ fn collect_all_records(
         };
         match embedded.list(namespace, options) {
             Ok(page) => {
-                let count = page.records.len();
-                all_records.extend(page.records);
-                if count == 0 {
+                if page.records.is_empty() {
                     break;
                 }
-                if let Some(next) = page.next_cursor {
-                    cursor = Some(next);
-                } else {
-                    break;
+                for record in &page.records {
+                    f(record);
+                }
+                count += page.records.len();
+                match page.next_cursor {
+                    Some(next) => cursor = Some(next),
+                    None => break,
                 }
             }
             Err(e) => return Err(format!("{}", e)),
         }
     }
-    Ok(all_records)
+    Ok(count)
 }
 
 // ── Stdio server (main entry point) ───────────────────────────────────────
@@ -1398,23 +1404,24 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             let metrics = embedded.operational_metrics();
 
-            let records = match collect_all_records(&embedded, namespace, config) {
-                Ok(r) => r,
+            let mut total_bytes = 0usize;
+            let mut vector_count = 0usize;
+            let mut created_at = u64::MAX;
+            let total_records = match for_each_record(&embedded, namespace, config, |record| {
+                total_bytes += record.payload.len()
+                    + record
+                        .metadata
+                        .iter()
+                        .fold(0, |acc, (k, v)| acc + k.len() + format!("{:?}", v).len());
+                if record.vector.is_some() {
+                    vector_count += 1;
+                }
+                created_at = created_at.min(record.created_at_ms);
+            }) {
+                Ok(count) => count,
                 Err(e) => return Ok(error_content(format!("Collection stats error: {}", e))),
             };
-
-            let total_records = records.len();
-            let total_bytes: usize = records
-                .iter()
-                .map(|r| {
-                    r.payload.len()
-                        + r.metadata
-                            .iter()
-                            .fold(0, |acc, (k, v)| acc + k.len() + format!("{:?}", v).len())
-                })
-                .sum();
-            let vector_count = records.iter().filter(|r| r.vector.is_some()).count();
-            let created_at = records.iter().map(|r| r.created_at_ms).min().unwrap_or(0);
+            let created_at = if total_records == 0 { 0 } else { created_at };
 
             let result = json!({
                 "total_records": total_records,
@@ -1436,14 +1443,16 @@ pub fn handle_tools_call(
 
             let mut collections = Vec::new();
             for ns in &namespaces {
-                let records = match collect_all_records(&embedded, ns, config) {
-                    Ok(r) => r,
+                let mut has_vector = false;
+                let mut created_at = u64::MAX;
+                let record_count = match for_each_record(&embedded, ns, config, |record| {
+                    has_vector |= record.vector.is_some();
+                    created_at = created_at.min(record.created_at_ms);
+                }) {
+                    Ok(count) => count,
                     Err(_) => continue,
                 };
-
-                let record_count = records.len();
-                let has_vector = records.iter().any(|r| r.vector.is_some());
-                let created_at = records.iter().map(|r| r.created_at_ms).min().unwrap_or(0);
+                let created_at = if record_count == 0 { 0 } else { created_at };
 
                 collections.push(json!({
                     "name": ns,
@@ -1496,25 +1505,29 @@ pub fn handle_tools_call(
             })?;
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
-            let records = match collect_all_records(&embedded, namespace, config) {
-                Ok(r) => r,
-                Err(e) => {
-                    if let Err(abort_err) = storage.abort_transaction(txn_id) {
-                        warn!(error = %abort_err, "Failed to abort transaction after collection error");
-                    }
-                    return Ok(error_content(format!("Collection delete error: {}", e)));
+            // Stream only keys — never materialize the full record set. Deletes
+            // run after pagination: list() recomputes the ID window per call and
+            // deleting mid-stream would shift the cursor offset and skip rows.
+            let mut keys: Vec<String> = Vec::new();
+            let streamed = for_each_record(&embedded, namespace, config, |record| {
+                keys.push(record.key.clone());
+            });
+            if let Err(e) = streamed {
+                if let Err(abort_err) = storage.abort_transaction(txn_id) {
+                    warn!(error = %abort_err, "Failed to abort transaction after collection error");
                 }
-            };
+                return Ok(error_content(format!("Collection delete error: {}", e)));
+            }
 
-            let total = records.len();
+            let total = keys.len();
             let mut failures = 0;
             let mut last_error = String::new();
 
-            for record in &records {
-                if let Err(e) = embedded.delete(namespace, &record.key) {
+            for key in &keys {
+                if let Err(e) = embedded.delete(namespace, key) {
                     failures += 1;
-                    last_error = format!("{}: {}", record.key, e);
-                    warn!(error = %e, key = %record.key, "Failed to delete record during collection_delete");
+                    last_error = format!("{}: {}", key, e);
+                    warn!(error = %e, key = %key, "Failed to delete record during collection_delete");
                 }
             }
 
@@ -1536,7 +1549,7 @@ pub fn handle_tools_call(
 
             let result = json!({
                 "deleted": true,
-                "records_removed": records.len(),
+                "records_removed": total,
             });
             Ok(text_content(serialize_content(&result)))
         }
