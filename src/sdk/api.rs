@@ -1084,8 +1084,20 @@ impl VantaEmbedded {
             return Ok(Vec::new());
         }
         let engine = self.engine_handle()?;
+        let hnsw = engine.hnsw.load();
+        // ERR-028: mirror the AUDREP-55 up-front guard using the index's own
+        // metric (matches `search_nearest` exactly) so the legacy K-NN path
+        // also reports InvalidInput instead of a silent empty result.
+        if hnsw.config.distance_metric == crate::node::DistanceMetric::Cosine
+            && crate::index::f32_l2_norm(vector) < f32::EPSILON
+        {
+            return Err(crate::error::VantaError::InvalidInput(
+                "zero-norm cosine query vector is undefined; use a non-zero vector \
+                 or the euclidean distance metric (AUDREP-55, ERR-028)"
+                    .into(),
+            ));
+        }
         let results = {
-            let hnsw = engine.hnsw.load();
             // ponytail: search reads from L0 only. Multi-level search
             // will need a segment-merged view.
             let vs = engine.vector_store[0].read();

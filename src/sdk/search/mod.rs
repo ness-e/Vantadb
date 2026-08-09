@@ -87,6 +87,22 @@ impl VantaEmbedded {
             return Ok(Vec::new());
         }
 
+        // ERR-028: a zero-norm cosine query is undefined (cosine = 0/0).
+        // `search_nearest` cannot surface an error (Vec-returning trait, see
+        // AUDREP-55), so without this guard every binding would show a silent
+        // empty result — indistinguishable from "no matches" — instead of an
+        // error. Reject here so Python/MCP/WASM all report InvalidInput.
+        if request.distance_metric == crate::node::DistanceMetric::Cosine
+            && !request.query_vector.is_empty()
+            && crate::index::f32_l2_norm(&request.query_vector) < f32::EPSILON
+        {
+            return Err(VantaError::InvalidInput(
+                "zero-norm cosine query vector is undefined; use a non-zero vector \
+                 or the euclidean distance metric (AUDREP-55, ERR-028)"
+                    .into(),
+            ));
+        }
+
         if request.explain {
             let engine = self.engine_handle()?;
             let (hits, text_ranks, vector_ranks) = match (text_query, has_vector, has_sparse) {
