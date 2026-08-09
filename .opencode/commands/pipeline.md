@@ -116,7 +116,7 @@ Task ID: {id extraído después de "task "}
    4. Delegate: `task(subagent_type="vanta-<area>", prompt="...")` con entry point, acceptance criteria, y verification command
    5. Review: el sub-agente devuelve resultado, revisalo
     6. **Progreso**: ejecutá `skill progreso` (Trigger 1 — Complete a task) para:
-      - Tachar la tarea como ✅ en Backlog.md (con nota de fecha; items removidos → BACKLOG_HISTORY.md)
+      - **Eliminar la fila** del Backlog.md (no tachar; el registro queda en progreso/README.md; items removidos → BACKLOG_HISTORY.md)
       - Migrar a progreso/README.md (sin duplicados)
       - Actualizar el plan file si existe
       - Validar doc coverage con `scripts/validate-docs-coverage.ps1`

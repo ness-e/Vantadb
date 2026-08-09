@@ -13,9 +13,11 @@ compatibility: opencode
 
 | File | Role |
 |---|---|
-| `docs/Backlog.md` | Active tasks (state: ✅ or ❌ in `Status` column). Rows completed are struck-through (`~~…~~`) with a completion note — never deleted |
-| `docs/progreso/README.md` | Completed task history + milestones + audits |
+| `docs/Backlog.md` | **Active tasks only.** Rows completed are **removed from the table** — the completion record lives in `docs/progreso/README.md`. Rows removed without completing (❌/nunca hará) go to `docs/progreso/BACKLOG_HISTORY.md`. No `~~…~~` accumulation: struck-through rows belong to the history files, not here |
+| `docs/progreso/README.md` | Completed task history + milestones + audits (**canonical registry** — task files y snapshots apuntan a líneas exactas de este archivo) |
 | `docs/progreso/BACKLOG_HISTORY.md` | Items removed from Backlog.md (historical record, keeps backlogs auditable) |
+| `docs/avance/` | **Curated live mirror** del registry: `activo/*` + `auditoria/*` + `decisiones/*` organizados por dominio. Cada tarea migrada a progreso se refleja también en el archivo de dominio correspondiente (Trigger 1.D3). Los snapshots de `historial/` son congelados — NO editar |
+| `docs/plans/archive/` | Plan files already completed/aborted, moved out of active `docs/plans/` (keeps the plans dir as actionable campaigns only) |
 | `docs/reports/INDEX.md` | Master registry of review/audit reports — one row per report (fecha, modo, archivo, QG, findings, estado). Source of truth for Trigger 4 |
 | `docs/CHANGELOG.md` | Release notes per version (keepachangelog format) |
 | `docs/Investigaciones/` | Research artifacts (not tasks) |
@@ -66,7 +68,7 @@ Completed tasks may come from 3 sources. Check ALL:
 
 | Source | What to do |
 |--------|-----------|
-| `docs/Backlog.md` | Find the ✅ row, **táchalo** (`~~…~~`) + add completion note with date. If the task is removed without completing (❌/nunca hará), move the row to `docs/progreso/BACKLOG_HISTORY.md` |
+| `docs/Backlog.md` | **Remove the ✅ row entirely** (never leave `~~…~~` shells — they bloat the table infinitely). If the task is removed without completing (❌/nunca hará), ALSO remove the row and move it to `docs/progreso/BACKLOG_HISTORY.md` |
 | *(bitácora legacy — migrada a plan files)* | Verificar que el issue esté marcado en el plan file activo |
 | `docs/plans/YYYY-MM-DD-*.md` | Update status tracker + recitation |
 
@@ -85,6 +87,42 @@ Completed tasks may come from 3 sources. Check ALL:
    ```
 4. If the task was a significant milestone, also add a note under the **Executive Summary** or **Recent Progress** section.
 5. If the task was a research/discovery, consider adding to `docs/Investigaciones/` instead of or in addition to progreso.
+
+### D3. Mirror to `docs/avance` (dominio vivo)
+
+`docs/avance/` es el mirror curado del registry. Al migrar a `docs/progreso/README.md`, reflejar la entrada en el archivo de dominio correspondiente de `docs/avance` (mismo formato `### <ID>:`, agregar bajo la sección correcta):
+
+| ID / dominio | Archivo en `docs/avance/` |
+|---|---|
+| DRV-*, COMP-*, VFY-*, storage/WAL/HNSW/ACID/IQL | `activo/core-engine.md` |
+| Bindings Python/WASM/TS/MCP/adapters | `activo/bindings.md` |
+| Web frontend/SEO/UX | `activo/web-frontend.md` |
+| CI/CD, release, docker, wheels | `activo/ci-cd.md` |
+| Ops: backup/restore/API/enterprise | `activo/operaciones.md` |
+| Desktop (Tauri) | `activo/desktop.md` |
+| SEC-*, AUD-*, fuzz, Miri, FFI | `auditoria/seguridad.md` |
+| Deps: cargo-deny, dependabot, advisories | `auditoria/dependencias.md` |
+| WONTFIX / decisiones | `decisiones/wontfix.md` |
+| Investigaciones (INV-*) | `investigaciones.md` |
+| No-ops / SKIPs | `historial/no-ops.md` |
+
+- **NO** editar los snapshots (`historial/snapshot-*.md`) — son copias congeladas, espejo literal del registry en su fecha.
+- Invariante de cobertura: todo ID nuevo en `docs/progreso/README.md` debe aparecer también en un archivo de dominio de `docs/avance` (ver `scripts/check-avance-coverage.ps1`).
+- Las carpetas vivas (`docs/plans/`, `docs/audit-reports/`, `docs/reviews/`, `docs/Investigaciones/`) NO se mueven ni se duplican — se catalogan en `docs/avance/fuentes-vivas.md`.
+
+### D2. Archive completed plans (cuando el plan file termina)
+
+Cuando **todas** las tareas de un plan file están ✅ (o ❌ ABORTADO) y el plan ya no será ejecutado:
+
+1. Mover el plan file (y su `.budget.json` si existe) a `docs/plans/archive/`.
+2. NO borrarlo — el archivo queda como registro auditable de la campaña.
+3. Actualizar en `docs/progreso/README.md` una nota con la fecha de archive:
+   ```
+   - **Plan archivado:** `docs/plans/archive/YYYY-MM-DD-<nombre>.md` — N/M completadas
+   ```
+4. En el Backlog, las filas de ese plan ya se eliminaron en paso C; no queda nada pendiente del plan en `docs/Backlog.md`.
+
+> Contraste: los **task files** (`.opencode/skills/campaign-executor/tasks/<ID>.md`) no se archivan — son STALE una vez su plan file se archivó; se pueden borrar, ya que el registro de completado vive en progreso.
 
 ### E. Register in CHANGELOG (user-visible changes only)
 

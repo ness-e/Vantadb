@@ -596,7 +596,7 @@ Las 6 skills de ponytail están disponibles como skills del proyecto:
 
 Load `progreso` at start and before completing every task:
 - **Start**: `skill progreso` — reads backlog, checks for in-progress work
-- **Complete**: `skill progreso` (Trigger 1) — tacha la fila ✅ en `docs/Backlog.md` (con nota de fecha) y la migra a `docs/progreso/README.md` BEFORE any summary; items removidos van a `docs/progreso/BACKLOG_HISTORY.md`
+- **Complete**: `skill progreso` (Trigger 1) — **elimina la fila** de `docs/Backlog.md` (no tacharla; el registro de completado vive en `docs/progreso/README.md`) y migra a `docs/progreso/README.md` BEFORE any summary; items removidos sin completar van a `docs/progreso/BACKLOG_HISTORY.md`. Plans completados → `docs/plans/archive/`
 
 ## Reference Files
 

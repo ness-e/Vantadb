@@ -461,14 +461,14 @@ Orquesta sub-agentes en paralelo, tiene sistema de perfiles YAML, y 4 modos de o
 
 ### 7.5 `progreso` — Migración de Tareas
 
-**Rol:** Mueve tareas completadas de Backlog.md a progreso/README.md. Mantiene la documentación sincronizada. Los items removidos del backlog se archivan a `docs/progreso/BACKLOG_HISTORY.md` (no se borran en silencio).
+**Rol:** Mueve tareas completadas de Backlog.md a progreso/README.md. Mantiene la documentación sincronizada. Las filas completadas se **eliminan** de Backlog.md y quedan en `docs/progreso/README.md` — no acumular filas tachadas. Los items removidos del backlog se archivan a `docs/progreso/BACKLOG_HISTORY.md` (no se borran en silencio). Los planes completados se mueven a `docs/plans/archive/`.
 
 **Ubicación:** `.opencode/skills/progreso/SKILL.md` (157 líneas)
 
 **Triggers:**
 | Trigger | Cuándo | Qué hace |
 |---------|--------|----------|
-| 1 | Tarea ✅ | Tacha la fila en Backlog + migra a progreso, actualiza docs |
+| 1 | Tarea ✅ | Elimina la fila de Backlog + migra a progreso; plan completado → `docs/plans/archive/`, actualiza docs |
 | 2 | Nueva tarea | Verifica que la anterior esté migrada |
 | 3 | Mensual | Mantenimiento: icebox, dedup, cross-check, archivar removidos |
 
