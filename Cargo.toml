@@ -119,6 +119,10 @@ opentelemetry = [
 hot-reload = ["dep:notify"]
 encryption = ["dep:aes-gcm", "dep:sha2", "dep:ring"]
 wal-shipping = ["dep:reqwest"]
+# PITR — WAL archival + point-in-time recovery. EXPERIMENTAL standalone API.
+# Gates `src/wal_archiver.rs` (`WalArchiver`/`PitrRestorer`): functional and
+# self-tested, but NOT yet integrated into StorageEngine WAL rotation or SDK
+# recovery — uses it directly. See ADR-014 (docs/architecture/adr/ADR-014-pitr.md).
 pitr = []
 bayesian_decay = []
 server = [
