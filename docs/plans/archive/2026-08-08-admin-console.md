@@ -6,6 +6,7 @@
 > **Fuente:** `docs/Backlog.md` → Phase 12 Fase 7 (ADMIN-01..09) + Phase 12 Fase 5 (DESKTOP-20)
 > **Dirección:** el usuario dirige el desktop hacia una **consola administrativa** (dashboard métricas/KPIs/SOPs/telemetría/procesos/conexiones + data explorer), no solo MVP multi-connection. Base ya implementada: DESKTOP-02..11 (scaffold, trait, nativa, server, MCP spawn manager, frontend MVP).
 > **Contexto 2026-08-08:** verificado con codegraph — `operational_metrics_snapshot()` existe en core (`src/metrics/core/mod.rs:522`, ~45 campos) y `vanta_health` ya implementado (DESKTOP-03). No crear telemetría nueva: el snapshot core es la fuente única de KPIs.
+> **Corrección post-implementación (archivado 2026-08-09):** la UI admin se implementó en `desktop/src/components/` (MetricsGrid, KpiCards, SopPanel, DataExplorer, ProcessPanel, ExportPanel) en vez de `desktop/src/pages/` como especificaba el plan. Commands: `desktop/src-tauri/src/commands/metrics.rs` (`vanta_metrics`), `connection.rs`, `data.rs`. `shutdown_all` en `manager.rs:213` + `RunEvent::ExitRequested` (lib.rs:79). No hay `desktop/src/pages/` — la navegación es componente-based.
 
 ## Resumen
 
@@ -25,7 +26,7 @@
 - **Verificación real:** ✅ CÓDIGO-REAL — `operational_metrics_snapshot()` existe en `src/metrics/core/mod.rs:522` con `OperationalMetricsSnapshot` (~45 campos incl. `derived_prefix_scans`, `derived_full_scan_fallbacks`, `memory: MemoryBreakdownSnapshot`). Falta exponerlo como comando Tauri. Gap confirmado.
 - **Gate Justificación:** base del dashboard completo; 8 tareas ADMIN dependen del snapshot; costo bajo (1 command + serde).
 - **Gate Result:** ✅ DO
-- **Contrato: WHERE/RANK/FETCH/WITH/ROLE no se consumen como alias; alias default 'target' intacto; 106 tests parser::tests pasan
+- **Contrato:** `vanta_metrics` command registrado en `invoke_handler` (lib.rs:67); `OperationalMetricsSnapshot` serde-serializable; `cargo check --manifest-path desktop/src-tauri/Cargo.toml` exit 0
 - **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
@@ -266,11 +267,12 @@ ADMIN-06 → ADMIN-07 → ADMIN-08 → ADMIN-09
 | REVIEW-04 (god modules) | refactor 1-2 sem; DEFER |
 
 === RECITATION ===
-Campaign ID: 3deee89d-78c7-43d9-aab3-0fd0d6e125c3
-Objetivo activo: Fix ERR-016: alias opcional no debe consumir keywords reservadas
+Campaign ID: 3a8eae36-baf2-4982-ac7d-bec69c105233
+Objetivo activo: Consola Administrativa Desktop (ADMIN-01..09 + DESKTOP-20)
 Estado: completed
-Última acción: Añadí guardia non_keyword_ident (verify de nom sobre ident con RESERVED_KEYWORDS) en parse_query:174 y parse_select:468; 3 tests nuevos
+Última acción: Archivar plan — comandos `vanta_metrics` (metrics.rs) + shutdown_all + dashboard grid/KPIs/SOP/explorer/procesos/export en `desktop/src/components/`
 Resultado: ✅
-Próxima acción: Ninguno — fix verificado con cargo check + 106 tests + fmt
-Contrato: cargo check pasa; shutdown_all en evento de cierre; sin huérfanos
+Próxima acción: Ninguno — plan archivado en docs/plans/archive/
+Contrato: `vanta_metrics` + `shutdown_all` en lib.rs:67/79; componentes admin en desktop/src/components/ (MetricsGrid, KpiCards, SopPanel, DataExplorer, ProcessPanel, ExportPanel); `cargo check` desktop exit 0
 Próxima tarea si completa: N/A
+=== END RECITATION ===

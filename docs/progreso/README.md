@@ -295,6 +295,41 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 
 ## Progreso Reciente
 
+### Archivados 2026-08-09 — 5 planes completados
+
+| Fecha | Plan | Estado | Ubicación |
+|-------|------|--------|-----------|
+| 2026-08-08 | Consola Administrativa Desktop (ADMIN-01..09 + DESKTOP-20) | ✅ 10/10 | `docs/plans/archive/2026-08-08-admin-console.md` |
+| 2026-08-06 | Open Core VantaDB + Pro/Enterprise (licenciamiento) | ✅ 16/18 (F0 decisiones humanas respondidas, Task 17 verify parcial, Task 18 commit ✅) | `docs/plans/archive/2026-08-06-oc-vantadb-pro.md` |
+| 2026-08-06 | Desktop MVP (DESKTOP-02..11) | ✅ 10/10 | `docs/plans/archive/2026-08-06-desktop-mvp.md` |
+| 2026-08-05 | Backlog Validation Actions | ✅ 46 DO / 5 DEFER / 1 SKIP / 2 BLOQUEADO (Task 50 COM-02/03 humana ⬜) | `docs/plans/archive/2026-08-05-backlog-validation-actions.md` |
+| 2026-08-04 | Launch Web Campaign (WEB-18, MKT-15/05, GH-119, WEB-001, OLD-01) | ✅ 5/5 DO + 1 DEFER + 1 SKIP | `docs/plans/archive/2026-08-04-launch-web-campaign.md` |
+
+**Notas de archivo:**
+- **Admin Console:** la UI se implementó en `desktop/src/components/` (no `pages/dir` por reposensivo del plan) — commands `metrics.rs` (`vanta_metrics` lib.rs:67), `shutdown_all` (manager.rs:213, lib.rs:79). Recitation del plan corregida (contenía fragmento de otra campaña).
+- **Open Core/Pro:** F0 decidida D1-D6 con contrato `ness-e/vantadb-pro` creado y push; docs `VANTADB-PRO-FEATURES.md` + `VANTADB-PRO-DELIVERY.md` + ADR-013 + `.opencode/rules/open-core-licensing.md`. Task 17 (verify.ps1 full) 🟡 pendiente de run — sin commit de código core (decisión D4A: no tocar core).
+- **Desktop MVP:** 10/10 ✅, carpeta `desktop/` completa con 9 crates de connections.
+- **Backlog-Validation:** 46 de 54 DO completadas, tareas 1-44/51-54 ✅; tarea 50 (COM-02/03 Discord config — chequeo humano) es la única pendiente ⬜ — NO accionable por agente.
+- **Launch Web:** las 5 DO verificadas en disco (competitive-table, WASM playground, migrate-from-vectara, blog×3, pricing alineado) + página va más allá del alcance (`/latency`, `/cost`, `/storage` añadidas después).
+- Budget files movidos junto a su plan.
+
+### 2026-07-29 — Index Rebuild Optimization (4/4 tareas + 3 WI) ✅
+
+**Fuente:** Plan `docs/plans/2026-07-29-index-rebuild-execution.md` — archivado en `docs/plans/archive/2026-07-29-index-rebuild-execution.md`.
+
+**Objetivo:** Implementar Propuesta 1b (incremental threshold) + 3 (layer-wise) + 4 (flatten) de INDEX_REBUILD_OPTIMIZATION.md; NN-Descent diferido (fase posterior).
+
+- **T1+: `InsertMode::Auto` + `incremental_threshold` en `BatchInsertOptions`** — `put_batch()` decide incremental vs rebuild por tamaño de chunk (`039b8c96`, `dad5b2fd`).
+- **T2: Tests incremental** — `src/storage/engine/tests/incremental.rs` (8 tests: small/large batch, recall parity) + Criterion bench `benches/incremental_bench.rs` (`d1a6c62c`).
+- **T3:** threshold configurable por opciones insert (auto default 1000).
+- **T4:** `HnswNeighborIndex` flatten (`src/index/neighbor_index.rs`, DashMap de neighbor lists + inbound reachability) — `f94d71b1`; evolución posterior: inline `neighbor_lists` cache en `HnswNode` (`3f5e8416` E1, `b214434c` E2) tras regresión search_layer +66-90% por cloning.
+- **Propuesta 2 (NN-Descent):** probada y revertida — regresión 7-1,300× (`f1b9ee03`).
+- **WI-1/2/3:** fix comparador invertido B2, harness hnsw_recall_ef, competitive_bench.py fix.
+- **Verificación:** `cargo test -p vantadb --lib index::search` 31 passed; recall harness real ef_400 → 0.9975; search 7× vs flat. Build benchmark pendiente de re-medición limpia (entorno sucio 2026-07-31).
+- **Plan archivado:** `docs/plans/archive/2026-07-29-index-rebuild-execution.md` — 4/4 tareas + 3/3 WI completadas.
+
+**Ids:** INDEX-REBUILD (T1-T4), WI-1, WI-2, WI-3
+
 ### 2026-08-05 — Sincronización release blockers Fase 3 (10 tareas) ✅
 
 **Fuente:** Backlog (Phase 1/4 + Phase 8 — Auditoría) + plan `docs/plans/2026-08-05-backlog-validation-actions.md` (Fase 2-3, Tasks 20/22-28/31/33)
