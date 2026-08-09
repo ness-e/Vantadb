@@ -54,9 +54,9 @@
 - **Gate Result:** ✅ DO
 - **Contract:** `python -c "import vantadb_py; ..."` (test numpy: dropear wrapper y acceder ndarray; via `target/audit-venv/Scripts/python -m pytest vantadb-python/tests/ -k array_interface`)
 - **Task file:** `.agents/campaign-executor/tasks/SEC-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:** develop
-- **Commit:**
+- **Commit:** 241f30a3
 
 ### Task 3: RELEASE-03 — Limpiar artefactos de ejecución del repo
 
