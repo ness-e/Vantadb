@@ -68,6 +68,20 @@ impl BatchInsertOptions {
 }
 
 impl StorageEngine {
+    /// Bounds-checked write guard for the segment-0 vector store.
+    ///
+    /// A corrupt or empty `vector_store` (zero segments) must surface as a
+    /// `VantaError` instead of a raw indexing panic (ERR-003).
+    fn vstore0(
+        &self,
+    ) -> Result<parking_lot::RwLockWriteGuard<'_, crate::storage::vfile::VantaFile>> {
+        self.vector_store.first().map(|v| v.write()).ok_or_else(|| {
+            crate::error::VantaError::generic_error(
+                "corrupt storage: vector_store has no segment 0".to_string(),
+            )
+        })
+    }
+
     /// Scan the backend and physically remove entries whose MVCC delete
     /// stamp is older than `safe_cutoff`. A version is reclaimable when
     /// `deleted_by_txn < safe_cutoff` because any snapshot created at or
@@ -435,7 +449,7 @@ impl StorageEngine {
         .map_err(crate::error::VantaError::serialization)?;
 
         let (local_off, storage_offset) = {
-            let mut vstore = self.vector_store[0].write();
+            let mut vstore = self.vstore0()?;
             let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, node)?;
             (local_off, crate::lsm::pack_offset(0, local_off))
         }; // vstore guard dropped here — readers can proceed
@@ -446,7 +460,7 @@ impl StorageEngine {
             &metadata_val,
         ) {
             // P4: tombstone on KV failure — re-acquire the guard only for this fix-up
-            let mut vstore = self.vector_store[0].write();
+            let mut vstore = self.vstore0()?;
             if let Some(mut hdr) = vstore.read_header(local_off) {
                 hdr.flags |= FLAG_TOMBSTONE;
                 if let Err(te) = vstore.write_header(local_off, &hdr) {
@@ -777,7 +791,7 @@ impl StorageEngine {
         .map_err(crate::error::VantaError::serialization)?;
 
         let (local_off, storage_offset) = {
-            let mut vstore = self.vector_store[0].write();
+            let mut vstore = self.vstore0()?;
             let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, node)?;
             (local_off, crate::lsm::pack_offset(0, local_off))
         }; // vstore guard dropped here — readers can proceed
@@ -789,7 +803,7 @@ impl StorageEngine {
             .backend
             .put(BackendPartition::Default, &key, &metadata_val)
         {
-            let mut vstore = self.vector_store[0].write();
+            let mut vstore = self.vstore0()?;
             if let Some(mut hdr) = vstore.read_header(local_off) {
                 hdr.flags |= FLAG_TOMBSTONE;
                 if let Err(te) = vstore.write_header(local_off, &hdr) {
@@ -1058,7 +1072,7 @@ impl StorageEngine {
         };
 
         // ── Phase 2: vstore writes + KV/HNSW entry prep ──────────
-        let mut vstore = self.vector_store[0].write();
+        let mut vstore = self.vstore0()?;
 
         // P4: pre-allocate batch space to avoid per-node grow_to syscalls
         let approx_per_node: u64 = 1280; // ponytail: fixed estimate; tune if fragmentation appears
@@ -1128,7 +1142,7 @@ impl StorageEngine {
 
         // ── Phase 4: KV batch write + tombstone on failure ────────
         if let Err(e) = self.backend.write_batch(kv_ops) {
-            let mut vstore = self.vector_store[0].write();
+            let mut vstore = self.vstore0()?;
             for &packed in &vstore_offsets {
                 let (_seg_id, local_off) = crate::lsm::unpack_offset(packed);
                 if let Some(mut hdr) = vstore.read_header(local_off) {
@@ -1897,7 +1911,7 @@ impl StorageEngine {
         let val = postcard::to_allocvec(node).map_err(crate::error::VantaError::serialization)?;
         self.backend.put(partition, &key, &val)?;
 
-        let mut vstore = self.vector_store[0].write();
+        let mut vstore = self.vstore0()?;
         let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, node)?;
         let storage_offset = crate::lsm::pack_offset(0, local_off);
         self.refresh_index(node, storage_offset)?;
