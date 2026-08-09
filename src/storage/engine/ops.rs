@@ -407,42 +407,43 @@ impl StorageEngine {
 
     /// Apply an insert with explicit MVCC stamp.
     fn apply_insert_with_txn(&self, node: &UnifiedNode, txn_id: u64) -> Result<()> {
-        let storage_offset = {
+        // ERR-035: serialize KV payload outside the write lock (see apply_insert).
+        let key = node.id.to_le_bytes();
+        let metadata_val = postcard::to_allocvec(&NodeMetadata {
+            relational: node.relational.clone(),
+            edges: node.edges.clone(),
+            created_by_txn: txn_id,
+            deleted_by_txn: None,
+        })
+        .map_err(crate::error::VantaError::serialization)?;
+
+        let (local_off, storage_offset) = {
             let mut vstore = self.vector_store[0].write();
             let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, node)?;
-            let offset = crate::lsm::pack_offset(0, local_off);
+            (local_off, crate::lsm::pack_offset(0, local_off))
+        }; // vstore guard dropped here — readers can proceed
 
-            let key = node.id.to_le_bytes();
-            let metadata = crate::storage::ops::NodeMetadata {
-                relational: node.relational.clone(),
-                edges: node.edges.clone(),
-                created_by_txn: txn_id,
-                deleted_by_txn: None,
-            };
-            let metadata_val = postcard::to_allocvec(&metadata)
-                .map_err(crate::error::VantaError::serialization)?;
-            if let Err(e) = self.backend.put(
-                crate::backend::BackendPartition::Default,
-                &key,
-                &metadata_val,
-            ) {
-                // P4: tombstone on KV failure — local_off works because segment 0
-                if let Some(mut hdr) = vstore.read_header(local_off) {
-                    hdr.flags |= FLAG_TOMBSTONE;
-                    if let Err(te) = vstore.write_header(local_off, &hdr) {
-                        tracing::error!(
-                            node_id = %node.id,
-                            offset = local_off,
-                            put_error = %e,
-                            header_error = %te,
-                            "failed to write tombstone header after KV put failure"
-                        );
-                    }
+        if let Err(e) = self.backend.put(
+            crate::backend::BackendPartition::Default,
+            &key,
+            &metadata_val,
+        ) {
+            // P4: tombstone on KV failure — re-acquire the guard only for this fix-up
+            let mut vstore = self.vector_store[0].write();
+            if let Some(mut hdr) = vstore.read_header(local_off) {
+                hdr.flags |= FLAG_TOMBSTONE;
+                if let Err(te) = vstore.write_header(local_off, &hdr) {
+                    tracing::error!(
+                        node_id = %node.id,
+                        offset = local_off,
+                        put_error = %e,
+                        header_error = %te,
+                        "failed to write tombstone header after KV put failure"
+                    );
                 }
-                return Err(e);
             }
-            offset
-        };
+            return Err(e);
+        }
 
         self.try_push_pending_hnsw(PendingHnswOp {
             id: node.id,
@@ -719,45 +720,49 @@ impl StorageEngine {
     /// Does NOT check active_txns — only called outside the buffering path.
     #[tracing::instrument(skip(self, node), level = "debug", err)]
     pub(crate) fn apply_insert(&self, node: &UnifiedNode) -> Result<()> {
-        let storage_offset = {
+        // Serialize the KV payload first (pure input-derived work) so the
+        // vector_store write lock is held only for the actual mmap append —
+        // ERR-035: the writes were serializing backend.put (WAL/I-O) under the
+        // write lock, blocking every read-side search for its full duration.
+        let key = node.id.to_le_bytes();
+        // non-txn insert; use next_txn_id as pseudo-txn
+        let created_by = self.next_txn_id.load(std::sync::atomic::Ordering::Relaxed);
+        let metadata_val = postcard::to_allocvec(&NodeMetadata {
+            relational: node.relational.clone(),
+            edges: node.edges.clone(),
+            created_by_txn: created_by,
+            deleted_by_txn: None,
+        })
+        .map_err(crate::error::VantaError::serialization)?;
+
+        let (local_off, storage_offset) = {
             let mut vstore = self.vector_store[0].write();
             let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, node)?;
-            let offset = crate::lsm::pack_offset(0, local_off);
-
-            let key = node.id.to_le_bytes();
-            // non-txn insert: use next_txn_id as pseudo-txn
-            let created_by = self.next_txn_id.load(std::sync::atomic::Ordering::Relaxed);
-            let metadata = NodeMetadata {
-                relational: node.relational.clone(),
-                edges: node.edges.clone(),
-                created_by_txn: created_by,
-                deleted_by_txn: None,
-            };
-            let metadata_val = postcard::to_allocvec(&metadata)
-                .map_err(crate::error::VantaError::serialization)?;
-            // P4: if KV backend write fails after VantaFile write, tombstone the entry
-            // to prevent orphan vectors in the vector store.
-            if let Err(e) = self
-                .backend
-                .put(BackendPartition::Default, &key, &metadata_val)
-            {
-                if let Some(mut hdr) = vstore.read_header(local_off) {
-                    hdr.flags |= FLAG_TOMBSTONE;
-                    if let Err(te) = vstore.write_header(local_off, &hdr) {
-                        tracing::error!(
-                            node_id = %node.id,
-                            offset = local_off,
-                            put_error = %e,
-                            header_error = %te,
-                            "failed to write tombstone header after KV put failure"
-                        );
-                    }
-                }
-                return Err(e);
-            }
-
-            offset
+            (local_off, crate::lsm::pack_offset(0, local_off))
         }; // vstore guard dropped here — readers can proceed
+
+        // P4: if KV backend write fails after VantaFile write, tombstone the entry
+        // to prevent orphan vectors for the vector store. Only the error fix-up
+        // re-acquires the write lock.
+        if let Err(e) = self
+            .backend
+            .put(BackendPartition::Default, &key, &metadata_val)
+        {
+            let mut vstore = self.vector_store[0].write();
+            if let Some(mut hdr) = vstore.read_header(local_off) {
+                hdr.flags |= FLAG_TOMBSTONE;
+                if let Err(te) = vstore.write_header(local_off, &hdr) {
+                    tracing::error!(
+                        node_id = %node.id,
+                        offset = local_off,
+                        put_error = %e,
+                        header_error = %te,
+                        "failed to write tombstone header after KV put failure"
+                    );
+                }
+            }
+            return Err(e);
+        }
 
         self.try_push_pending_hnsw(PendingHnswOp {
             id: node.id,
