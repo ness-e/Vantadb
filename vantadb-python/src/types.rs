@@ -4,7 +4,7 @@
 use pyo3::buffer::ReadOnlyCell;
 use pyo3::exceptions::{PyRuntimeError, PyStopIteration};
 use pyo3::prelude::*;
-use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyTuple};
+use pyo3::types::{PyAnyMethods, PyBytes, PyDict, PyDictMethods, PyTuple};
 use vantadb::sdk::VantaMemoryRecord;
 
 use crate::convert::{set_python_value, try_numpy_array};
@@ -362,6 +362,17 @@ impl VantaPySearchHit {
         )
     }
 
+    /// NumPy ``__array_interface__`` protocol — hands NumPy an *owned* copy of
+    /// the vector (as `bytes`) so the resulting ndarray never aliases this
+    /// pyclass's memory.
+    ///
+    /// SEC-01 (UAF): this previously exposed the raw `Vec<f32>` pointer as
+    /// `(ptr, True)`. NumPy built a zero-copy view over that memory, so when the
+    /// wrapper was dropped (or the vector was replaced) the ndarray was left
+    /// pointing at freed memory and read garbage. Passing a buffer-protocol
+    /// object (`bytes`) as `data` makes NumPy copy the buffer into the ndarray's
+    /// own allocation — the ndarray then survives any drop/mutation of this
+    /// pyclass. Same fix as AUDIT-01 in `vector.rs`.
     #[getter(__array_interface__)]
     fn get_search_hit_array_interface(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         match &self.inner.vector {
@@ -370,8 +381,11 @@ impl VantaPySearchHit {
                 let shape = PyTuple::new(py, [v.len()])?;
                 dict.set_item("shape", shape)?;
                 dict.set_item("typestr", "<f4")?;
-                let data = (v.as_ptr() as usize, true);
-                dict.set_item("data", data)?;
+                // Owned little-endian f32 bytes (host-order is irrelevant;
+                // to_le_bytes always emits "<f4" layout). NumPy copies this
+                // buffer, so the array never aliases self.inner.vector.
+                let le_bytes: Vec<u8> = v.iter().flat_map(|f| f.to_le_bytes()).collect();
+                dict.set_item("data", PyBytes::new(py, &le_bytes))?;
                 dict.set_item("version", 3)?;
                 Ok(dict.unbind().into())
             }

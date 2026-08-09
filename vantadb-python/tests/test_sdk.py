@@ -630,6 +630,44 @@ class TestArrayInterfaceMemorySafety:
 
         assert arr.tolist() == [5.0, 6.0, 7.0, 8.0], "ndarray is dangling after __setstate__"
 
+    def test_search_hit_array_interface_does_not_aliase_pyclass(self):
+        """SEC-01: VantaSearchHit.__array_interface__ must hand NumPy a copy.
+
+        Regression test for the use-after-free where the getter exposed the
+        raw `Vec<f32>` pointer as `(ptr, True)`. NumPy built a zero-copy view,
+        so after the hit wrapper was dropped the view read freed memory.
+        The getter now hands NumPy an owned bytes snapshot as `data`, so the
+        ndarray's `base` is the snapshot (never the pyclass) and the view
+        survives the wrapper being dropped.
+        """
+        import gc
+        import numpy as np
+
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("ns", "uaf-test", "payload",
+               vector=np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32))
+        hits = db.search_memory("ns", np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32), top_k=1)
+        assert len(hits) == 1
+        hit = hits[0]
+
+        arr = np.asarray(hit)
+        assert arr.dtype == np.float32, f"expected float32, got {arr.dtype}"
+        assert arr.tolist() == [1.0, 2.0, 3.0, 4.0], f"expected [1,2,3,4], got {arr.tolist()}"
+        assert arr.base is not hit, "np.asarray(hit) aliases the pyclass buffer"
+
+        del hit, hits
+        gc.collect()
+
+        # Hammer the allocator with same-size Vec<f32>/Vec<u8> allocations. A
+        # view over freed memory would change values or crash; the snapshot is
+        # untouched.
+        for _ in range(2000):
+            db.put("ns", f"fill-{np.random.randint(0, 10**6)}", "x",
+                   vector=np.random.rand(4).astype(np.float32))
+            vanta.VantaVector([9.0] * 4)
+
+        assert arr.tolist() == [1.0, 2.0, 3.0, 4.0], "ndarray is dangling after hit drop"
+
 
 class TestMemoryBoundary:
     """Memory budget isolation tests."""
