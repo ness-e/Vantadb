@@ -1131,3 +1131,90 @@ fn test_many_concurrent_txns_with_final_consistency() {
         );
     }
 }
+
+// ─── ERR-014: insert→get immediate visibility ─────────────────
+//
+// The non-transactional insert() path appends the WAL record, then inside
+// apply_insert publishes the KV node metadata BEFORE the queued HNSW mutation
+// is drained into the index. A concurrent get() that reads the metadata but
+// fails to find the HNSW entry used to return None — a stale miss for a node
+// whose insert had already made the metadata visible. The fix registers the
+// HNSW entry (queue + synchronous drain) before the backend.put, so the
+// invariant below — "metadata visible ⇒ get() returns the node" — holds
+// structurally.
+
+#[test]
+fn test_concurrent_insert_get_immediate_visibility() {
+    use std::sync::Arc;
+    let engine = Arc::new(in_memory_engine());
+
+    const THREADS: usize = 8;
+    const NODES_PER_THREAD: usize = 32;
+    const BASE: u128 = 1_000_000;
+
+    let mut handles = Vec::new();
+
+    // Writer threads: insert into a private id range, then immediately read
+    // the node back. ERR-014's contract — a committed insert must be visible
+    // to the very next get().
+    for t in 0..THREADS {
+        let engine = Arc::clone(&engine);
+        handles.push(std::thread::spawn(move || {
+            for i in 0..NODES_PER_THREAD {
+                let id = BASE + t as u128 * NODES_PER_THREAD as u128 + i as u128;
+                // Distinct vector per node: all-identical vectors make the HNSW
+                // greedy insertion pathologically slow, which starves writers on
+                // the shared insert_lock.  (ERR-014 is about visibility, not
+                // index topology.)
+                let mut node = sample_node(id);
+                node.vector = crate::node::VectorRepresentations::Full(vec![
+                    0.1 + i as f32 / 1000.0,
+                    0.2,
+                    0.3,
+                ]);
+                engine.insert(&node).expect("insert");
+                let got = engine.get(id).expect("get after insert");
+                assert!(
+                    got.is_some(),
+                    "ERR-014: inserted node {id} not visible to immediate get()"
+                );
+            }
+        }));
+    }
+
+    // Reader threads: hover over the writers' ranges. The moment the KV
+    // metadata for an id is visible (backend.put inside apply_insert), get()
+    // must already return the node — on the buggy path the metadata was
+    // published before the HNSW entry existed, surfacing a transient None.
+    for t in 0..THREADS {
+        let engine = Arc::clone(&engine);
+        handles.push(std::thread::spawn(move || {
+            for i in 0..NODES_PER_THREAD {
+                let id = BASE + t as u128 * NODES_PER_THREAD as u128 + i as u128;
+                let key = id.to_le_bytes();
+                let mut spins = 0u32;
+                loop {
+                    if engine
+                        .get_from_partition(BackendPartition::Default, &key)
+                        .expect("read partition")
+                        .is_some()
+                    {
+                        break;
+                    }
+                    spins += 1;
+                    assert!(spins < 200_000, "timeout waiting for metadata of {id}");
+                    std::thread::sleep(std::time::Duration::from_micros(50));
+                }
+                let got = engine.get(id).expect("get while insert in flight");
+                assert!(
+                    got.is_some(),
+                    "ERR-014: metadata visible for {id} but get() returned None"
+                );
+            }
+        }));
+    }
+
+    for h in handles {
+        h.join().expect("thread panicked");
+    }
+}

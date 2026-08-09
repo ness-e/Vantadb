@@ -825,13 +825,31 @@ impl StorageEngine {
             (local_off, crate::lsm::pack_offset(0, local_off))
         }; // vstore guard dropped here — readers can proceed
 
-        // P4: if KV backend write fails after VantaFile write, tombstone the entry
-        // to prevent orphan vectors for the vector store. Only the error fix-up
-        // re-acquires the write lock.
+        // ERR-014: register the HNSW mutation BEFORE publishing the KV metadata.
+        // try_push_pending_hnsw queues the op — insert() holds insert_lock, so
+        // the opportunistic drain is skipped — and the drain below applies it to
+        // the index synchronously. A concurrent get() therefore can never observe
+        // metadata (backend.put) whose HNSW entry does not yet exist, which was
+        // the insert→get staleness window: the KV record became visible (and the
+        // WAL record was appended earlier in insert()) before the index drain.
+        self.try_push_pending_hnsw(PendingHnswOp {
+            id: node.id,
+            bitset: node.bitset.clone(),
+            vector: node.vector.clone(),
+            storage_offset,
+            is_delete: false,
+        })?;
+        self.drain_hnsw_batch_locked()?;
+
+        // P4: if KV backend write fails after the vstore/index mutations, remove
+        // the HNSW entry added above (get() reads via index+metadata, but search
+        // would otherwise surface a ghost) and tombstone the vstore entry to
+        // prevent orphan vectors. Only the error fix-up re-acquires the lock.
         if let Err(e) = self
             .backend
             .put(BackendPartition::Default, &key, &metadata_val)
         {
+            self.hnsw.load().nodes.remove(&node.id);
             let mut vstore = self.vstore0()?;
             if let Some(mut hdr) = vstore.read_header(local_off) {
                 hdr.flags |= FLAG_TOMBSTONE;
@@ -847,14 +865,6 @@ impl StorageEngine {
             }
             return Err(e);
         }
-
-        self.try_push_pending_hnsw(PendingHnswOp {
-            id: node.id,
-            bitset: node.bitset.clone(),
-            vector: node.vector.clone(),
-            storage_offset,
-            is_delete: false,
-        })?;
 
         if node.tier == crate::node::NodeTier::Hot {
             let mut cache = self.volatile_cache.write();
