@@ -217,7 +217,8 @@ _(no duplicar)_
 ### Task 27: ERR-050 — CHANGELOG desactualizado (falta [Unreleased])
 
 - **Esfuerzo:** 🟢 · **Prig:** 🛎 · **Archivos:** `docs/CHANGELOG.md`, `cliff.toml` | **DO** (release-plz lo regenera en RELEASE-02; activar con `git-cliff -o docs/CHANGELOG.md -u`) | **Contrato:** `git-cliff -o docs/CHANGELOG.md` y `[Unreleased]` presente
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ DONE
+- **Ejecutado:** 246f86ae — causa raíz: `body = ""` en cliff.toml hacía que git-cliff jamás generara secciones. Restaurado template body (keepachangelog), limpio groups duplicados; sección [Unreleased] (301 commits) generada y antepuesta preservando 0.5.0 manual
 
 ---
 
