@@ -1632,6 +1632,76 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ `McpSpawn` con `tokio::process::Command`, stderr→log temporal, timeout; spawn+kill limpio; test gateado si falta binario. Commit d`d62c1c0c`.
 - **Ids:** `DESKTOP-11`
 
+### ADMIN-01: Command vanta_metrics IPC
+- **Fuente:** Backlog (Phase 12 — Fase 7 Consola Admin)
+- **Fecha:** 2026-08-08
+- **Objetivo:** Exponer el snapshot de métricas operativas del core como comando Tauri.
+- **Resultado:** ✅ `desktop/src-tauri/src/commands/metrics.rs` con `#[tauri::command] vanta_metrics` → usa `VantaEmbedded::operational_metrics()` (`VantaOperationalMetrics` ya `Serialize`, exportado en `vantadb`); 37 campos incl. `derived_prefix_scans`, `derived_full_scan_fallbacks`. Cero cambios al core. Commit `d77559f3`.
+- **Ids:** `ADMIN-01`
+
+### ADMIN-02: Métricas vivas (delta entre snapshots)
+- **Fuente:** Backlog (Phase 12 — Fase 7)
+- **Fecha:** 2026-08-08
+- **Objetivo:** Frontend calcula deltas/rates entre snapshots consecutivos (poll 3-5s).
+- **Resultado:** ✅ Convergido en ADMIN-04 (`b62fff7c`): grid con tiles muestra deltas imports/queries/scans, RSS y rate por poll 4s; código propio eliminado por duplicación (lección: ADMIN-02 solapa con ADMIN-04/05 — deberían fusionarse). Contract verificado con `npm run build`.
+- **Ids:** `ADMIN-02`
+
+### ADMIN-03: Migrar UI al design system web (modo claro)
+- **Fuente:** Backlog (Phase 12 — Fase 7)
+- **Fecha:** 2026-08-08
+- **Objetivo:** Reemplazar tema oscuro de `App.css` por tokens de `web/globals.css` (cream/ink/neon) y eliminar `ConnectionSelector.tsx` muerto.
+- **Resultado:** ✅ `App.css` reescrito (95+/225−) con tokens cream `#FBF9F5`/ink `#000`/neon `#FF5500`/paper, bordes 2-3px, sombra dura `6px 6px 0 #000`, radius 0; clases preservadas (sin tocar TSX); `ConnectionSelector.tsx` eliminado (+0 refs). `npm run build` OK. Commit `847ab080`.
+- **Ids:** `ADMIN-03`
+
+### ADMIN-04: Dashboard grid (metro-style) con poll 3-5s
+- **Fuente:** Backlog (Phase 12 — Fase 7)
+- **Fecha:** 2026-08-08
+- **Objetivo:** Layout de cards con polling en cadena y estados health por vía.
+- **Resultado:** ✅ `MetricsGrid.tsx` metro 6 tiles (RSS, Records, Queries, Scans, WAL Replay, Text Index) con delta + trend (▲/▼), poll inline `setInterval` 4s, cleanup; header con health badge y last-poll. Grid responsive 3→2→1 col con design system. `npm run build` OK. Commit `b62fff7c`.
+- **Ids:** `ADMIN-04`
+
+### ADMIN-05: KPIs derivados
+- **Fuente:** Backlog (Phase 12 — Fase 7)
+- **Fecha:** 2026-08-08
+- **Objetivo:** KPIs calculados a partir del snapshot con spinner y derivados simples.
+- **Resultado:** ✅ `KpiCards.tsx` (113 líneas): memory efficiency (mmap/RSS), hybrid query share, import error rate, WAL rec/ms, HNSW bytes/node con guard div-by-zero y sparkline CSS puro (ring 12). Consolidó `vanta.ts` — interfaz `OperationalMetrics` única + `metrics()` (fix TS2393 de dos interfaces duplicadas). Commit `4dcf268e`.
+- **Ids:** `ADMIN-05`
+
+### ADMIN-06: SOP panels (WAL replay / Reindex / Health) con semáforo
+- **Fuente:** Backlog (Phase 12 — Fase 7)
+- **Fecha:** 2026-08-08
+- **Objetivo:** Flujo con estado idle → running → done|error y botones de acción/re-run.
+- **Resultado:** ✅ `SopPanel.tsx` con 3 paneles accionables: WAL Replay + Reindex muestran último valor del snapshot (Refresh) — el core no expone triggers, documentado; Health llama `vanta_health` en vivo. Extendido bridge TS con 4 campos (`startup_ms`, `ann_rebuild_ms`, `derived_rebuild_ms`, `text_index_rebuild_ms`). `npm run build` OK. Commit `f20d67a4`.
+- **Ids:** `ADMIN-06`
+
+### ADMIN-07: Data Explorer
+- **Fuente:** Backlog (Phase 12 — Fase 7)
+- **Fecha:** 2026-08-08
+- **Objetivo:** Tabla navegable con paginación y score.
+- **Resultado:** ✅ `DataExplorer.tsx`: browse (`vanta_list`) + search (`vanta_search` con score) + tabla id/ns/text/score + "Load more" con limit creciente 50→100→200 (core sin offset/cursor — `ponytail:` documentado). Cero cambios Rust. `npm run build` OK. Commit `7a19a9f5`.
+- **Ids:** `ADMIN-07`
+
+### ADMIN-08: Panel Procesos & Conexiones
+- **Fuente:** Backlog (Phase 12 — Fase 7)
+- **Fecha:** 2026-08-08
+- **Objetivo:** Listar conexiones activas y procesos con kill/remove desde UI.
+- **Resultado:** ✅ `ProcessPanel.tsx` (69 líneas): lista de conexiones con botón shutdown por entrada (`vanta_disconnect` existente) + placeholder Subprocesses documentado (sin `McpSpawnRegistry` en core; `McpSpawn` nunca instanciado). Cero Rust inventado. `npm run build` OK. Commit `f5c69788`.
+- **Ids:** `ADMIN-08`
+
+### ADMIN-09: Snapshot export + persistencia
+- **Fuente:** Backlog (Phase 12 — Fase 7)
+- **Fecha:** 2026-08-08
+- **Objetivo:** Exportar snapshot JSON con timestamp y persistir último en disco/localStorage.
+- **Resultado:** ✅ `ExportPanel.tsx`: blob download JSON (URL.createObjectURL + `<a download>`) + localStorage con timestamp; sin plugins Tauri nuevos. `npm run build` OK. Commit `e0e8ff3a`.
+- **Ids:** `ADMIN-09`
+
+### DESKTOP-20: Lifecycle shutdown_all
+- **Fuente:** Backlog (Phase 12 — Fase 5)
+- **Fecha:** 2026-08-08
+- **Objetivo:** Cerrar todos los subprocesos/conexiones al salir, con graceful + kill forzoso.
+- **Resultado:** ✅ `shutdown_all(grace)` en `ConnectionManager` (release lock, non-native primero, native última con flush vía `db.close()`; `timeout(5s)` → `VantaError::Other` + Drop force-kill `McpSpawn`) y hook en `RunEvent::ExitRequested` (validado contra docs.rs tauri 2.11.5). Test `shutdown_all_empties_registry_and_disconnects` 2/2. Commit `45f8bed8`.
+- **Ids:** `DESKTOP-20`
+
 ### COMP-028: Semantic Cost Estimator (SCE) unificado
 - **Fuente:** Backlog (Phase 10 — Competitive Features)
 - **Fecha:** 2026-08-02
