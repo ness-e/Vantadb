@@ -1,6 +1,6 @@
 # Plan de Ejecución: Backlog Pipeline — Release Blockers + Err Fix + Feature Honesty
 
-> **Campaign ID:** 20d91e55-d874-4903-b673-91453ff045a9
+> **Campaign ID: 20d91e55-d874-4903-b673-91453ff045a9
 > **Inicio:** 2026-08-09
 > **Estado: completed
 > **Fuente:** `docs/Backlog.md` (backlog activo completo)
@@ -40,7 +40,7 @@
 - **Verificación real:** ✅ CÓDIGO-REAL — `release-plz.toml:18` tiene `semver_check = true` pero `rg semver` en los 3 workflows **no** encuentra `cargo-semver-checks` (ni la action). Gap confirmado: el flag de release-plz nunca se ejecuta como gate CI.
 - **Gate Justificación:** 0.5.0 próximo release; sin semver-check un breaking change accidental (API pública) publica rompiendo bindings.
 - **Gate Result:** ✅ DO
-- **Contrato: pytest put_batch 13 passed
+- **Contrato: ADR exists (ADR-014-pitr.md) + rg 'pitr' Cargo.toml match
 - **Estado:** ✅ COMPLETED
 - **Branch:** `develop`
 - **Commit:**
@@ -230,7 +230,7 @@ _(no duplicar)_
 - **Verificación real:** ✅ CÓDIGO-REAL — feature `pitr` = lista vacía (doc = "+feature": `Cargo.toml:138` versión 0.1 etc.); módulos existen standalone.
 - **Gate:** dead feature phantom → **DO** (solo ADR + decidir: integrar / experimental / defer)
 - **Contrato:** ADR file exists (`docs/architecture/adr/ADR-0XX-pitr.md`) + `rgba "pitr" Cargo.toml` (feature docs)
-- **Estado:** ✅ DONE
+- **Estado:** ✅ COMPLETED
 - **Ejecutado:** `b52ae2f0` — PITR/WAL-shipping decision: ADR-014 (experimental standalone API, engine integration deferred) + honest `pitr` feature docs in Cargo.toml
 
 ### Task 29: FEAT-02 — DiskANN: honest rename o implementar v1
@@ -242,7 +242,8 @@ _(no duplicar)_
 ### Task 30: FEAT-03 — Arrow: export vector completo
 
 - **Esfuerzo:** 🟡 · **Prig:** 🟡 · **Archivos:** `src/integrations.rs`, `vantadb-python/src/vector.rs`, `docs/api/PYTHON_SDK.md` | **DO** (feature prometida vs 1-component) | **Contrato:** `export_arrow` devuelve columnas flat completas + test
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** `16346bd5` — FEAT-03: `nodes_to_record_batch` (el código Arrow real vive en `src/columnar.rs`, no integrations.rs) ahora exporta el vector completo como columnas flat `vector_d0..d{N-1}` en vez de solo `v[0]`; 3 tests nuevos verifican vector entero con N dimensión correcta (9/9 columnares + columnar_engine_certification pasan).
 
 ### Task 31: FEAT-04 — IVF/SCANN expuestos por SDK
 
@@ -375,16 +376,14 @@ _(no duplicar)_
 ## RECITATION (initial)
 
 - **Campaign ID:** backlog-2026-08-09
-- **Objetivo activo: batch namespaces
+- **Objetivo activo: FEAT-01: PITR/WAL-shipping decision + ADR + feature docs
 - **Estado:** pending
-- **Última acción: namespaces param per-record en put_batch
+- **Última acción: Investigated pitr/wal_archiver, decided experimental standalone API (integration deferred), wrote ADR-014, documented pitr feature in Cargo.toml, marked Task 28 DONE
 - **Resultado: ✅
-- **Próxima acción: 
-Resultado: ✅
+- **Próxima acción: None
 Próxima acción: None — task complete
 Contrato: Handler sets flags and does not re-execute without resolution (never returns to faulting instruction); unit test vest vfile present
-Próxima tarea si completa: 
-Resultado: ✅
+Próxima tarea si completa: None
 Próxima acción: 
 Contrato: pytest U128 3 passed + array_interface
 Próxima tarea si completa: 
