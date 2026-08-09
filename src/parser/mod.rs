@@ -796,6 +796,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::approx_constant)] // 3.14 is intentional here, not an approximation
     fn test_parse_condition_relational_float() {
         let (_, cond) = parse_condition(r#"price <= 3.14"#).unwrap();
         assert_eq!(

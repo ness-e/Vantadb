@@ -187,7 +187,7 @@ fn build_index(ds: &Dataset, m: usize, ef_c: usize) -> (CPIndex, f64) {
     let t0 = Instant::now();
     for i in 0..ds.n_train {
         let vec = &ds.train[i * ds.dims..(i + 1) * ds.dims];
-        idx.add(
+        let _ = idx.add(
             i as u128,
             FilterBitset::all_set(),
             VectorRepresentations::Full(vec.to_vec()),

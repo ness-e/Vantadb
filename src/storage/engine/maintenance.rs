@@ -58,6 +58,23 @@ impl StorageEngine {
             vs.read().flush()?;
         }
 
+        #[cfg(feature = "failpoints")]
+        {
+            fail::fail_point!("snapshot_serialize_fail", |_| {
+                Err(crate::error::VantaError::IoError(std::io::Error::other(
+                    "Simulated snapshot serialize I/O failure",
+                )))
+            });
+        }
+        self.save_vector_index()?;
+
+        // ERR-010: checkpoint_seq MUST be recorded AFTER the snapshot is
+        // serialized. WAL records are written before their HNSW mutation, so
+        // any op captured in the snapshot has its WAL record durable by the
+        // time the count is read here — checkpoint_seq >= snapshot contents,
+        // and replay on reopen never re-applies an already-snapshotted op
+        // (no duplication). If save_vector_index fails above, the checkpoint
+        // is NOT advanced and the WAL replay covers the gap instead.
         let current_wal_seq = self
             .wal
             .as_ref()
@@ -74,16 +91,6 @@ impl StorageEngine {
             )?;
             self.backend.flush()?;
         }
-
-        #[cfg(feature = "failpoints")]
-        {
-            fail::fail_point!("snapshot_serialize_fail", |_| {
-                Err(crate::error::VantaError::IoError(std::io::Error::other(
-                    "Simulated snapshot serialize I/O failure",
-                )))
-            });
-        }
-        self.save_vector_index()?;
 
         // PERF-09: Run quantization auto-transition during flush
         if let Ok(report) = self.run_quantization_maintenance() {

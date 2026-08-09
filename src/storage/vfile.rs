@@ -730,10 +730,11 @@ impl VantaFile {
     /// invariant is enforced in one place.
     pub fn read_header(&self, offset: u64) -> Option<DiskNodeHeader> {
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
-        if offset + header_size > self.size || !offset.is_multiple_of(STORAGE_ALIGNMENT) {
+        let end = offset.checked_add(header_size)?;
+        if end > self.size || !offset.is_multiple_of(STORAGE_ALIGNMENT) {
             return None;
         }
-        let slice = &self.mmap_bytes()[offset as usize..(offset + header_size) as usize];
+        let slice = &self.mmap_bytes()[offset as usize..end as usize];
         let header = DiskNodeHeader::read_from_bytes(slice).ok()?;
         if !header.vector_offset.is_multiple_of(4) {
             return None;
@@ -750,14 +751,19 @@ impl VantaFile {
                 "misaligned",
             )));
         }
-        if offset + header_size > self.size {
+        let Some(end) = offset.checked_add(header_size) else {
+            return Err(VantaError::IoError(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "out of bounds",
+            )));
+        };
+        if end > self.size {
             return Err(VantaError::IoError(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "out of bounds",
             )));
         }
-        self.mmap_bytes_mut()?[offset as usize..(offset + header_size) as usize]
-            .copy_from_slice(header.as_bytes());
+        self.mmap_bytes_mut()?[offset as usize..end as usize].copy_from_slice(header.as_bytes());
         Ok(())
     }
 

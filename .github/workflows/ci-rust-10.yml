@@ -399,6 +399,18 @@ jobs:
           MIRIFLAGS: "-Zmiri-disable-isolation"
           RUSTFLAGS: "-Zrandomize-layout"
 
+      # ERR-009: Tree Borrows variant (catches violations Stacked Borrows misses,
+      # e.g. RUSTSEC-2026-0002 class). Bonus: reuses cached sysroot from above.
+      # CATEGORY: BEST-EFFORT — TB can flag false-positives; failures reviewed
+      # manually, do not gate releases.
+      - name: Miri Test (tree borrows - best effort)
+        continue-on-error: true
+        run: cargo +nightly miri test --manifest-path Cargo.toml -p vantadb --no-default-features --features "cli,fjall,memmap2,fs2" -- miri
+        env:
+          MIRI_NO_HOST_FALLBACK: 1
+          MIRIFLAGS: "-Zmiri-disable-isolation -Zmiri-tree-borrows"
+          RUSTFLAGS: "-Zrandomize-layout"
+
   deny:
     name: Dependency Policy Check
     runs-on: ubuntu-latest

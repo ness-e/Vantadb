@@ -81,7 +81,7 @@ fn build_index(vectors: &[Vec<f32>]) -> CPIndex {
     let mut offset = align;
     for (id, vec) in vectors.iter().enumerate() {
         let rep = VectorRepresentations::Full(vec.clone());
-        index.add(id as u128, FilterBitset::all_set(), rep, offset);
+        let _ = index.add(id as u128, FilterBitset::all_set(), rep, offset);
         let node_size = hdr_size + (vec.len() as u64 * 4);
         offset = ((offset + node_size + align - 1) / align) * align;
     }

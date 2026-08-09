@@ -157,8 +157,8 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
             .key_extractor(SmartIpKeyExtractor)
             .finish()
         {
-            Ok(gc) => protected.layer(GovernorLayer::new(gc)),
-            Err(_) => {
+            Some(gc) => protected.layer(GovernorLayer::new(gc)),
+            None => {
                 tracing::error!("Governor config build failed; rate limiting disabled");
                 protected
             }
@@ -309,7 +309,9 @@ impl AuthState {
 /// that sets the header). Otherwise the direct TCP socket address
 /// ([`ConnectInfo`]) is returned — so a client cannot spoof its recorded IP by
 /// setting `X-Forwarded-For` itself. The first valid IP in the header is used
-/// when a trusted proxy is present.
+/// when a trusted proxy is present. Returns only the IP address (without the
+/// source port) in every case — port would change per connection and fragment
+/// rate-limiting/audit keys.
 pub fn client_ip(req: &axum::extract::Request, trusted_proxies: &[std::net::IpAddr]) -> String {
     let peer = req
         .extensions()
@@ -332,7 +334,7 @@ pub fn client_ip(req: &axum::extract::Request, trusted_proxies: &[std::net::IpAd
                 }
             }
         }
-        return peer.to_string();
+        return peer.ip().to_string();
     }
 
     "unknown".to_string()

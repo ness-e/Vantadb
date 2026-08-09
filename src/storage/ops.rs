@@ -55,40 +55,6 @@ pub(crate) fn deserialize_node_payload<T: DeserializeOwned>(
     postcard::from_bytes(bytes).map_err(VantaError::serialization)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// AUDREP-45: a corrupt/oversized persisted payload must fail cleanly,
-    /// never panic. Covers truncated buffers and oversized length prefixes
-    /// that postcard would otherwise feed to `Vec::with_capacity`.
-    #[test]
-    fn deserialize_node_payload_rejects_malformed_input() {
-        // Truncated buffer: valid start, cut off mid-structure.
-        let valid = postcard::to_allocvec(&NodeMetadata {
-            relational: std::collections::BTreeMap::new(),
-            edges: vec![crate::node::Edge::new(1, 0)],
-            created_by_txn: 1,
-            deleted_by_txn: None,
-        })
-        .unwrap();
-        let truncated = &valid[..valid.len() - 3];
-        assert!(
-            deserialize_node_payload::<NodeMetadata>(truncated, "node metadata").is_err(),
-            "truncated payload must error, not panic"
-        );
-
-        // Oversized length prefix: varint claims a huge Vec length in a tiny buffer.
-        // Layout: relational map len (0) then edges vec len as a 10-byte varint.
-        let mut crafted = vec![0u8]; // relational: empty map
-        crafted.extend_from_slice(&[0xFF; 10]); // edges vec len = huge
-        assert!(
-            deserialize_node_payload::<NodeMetadata>(&crafted, "node metadata").is_err(),
-            "oversized length prefix must error, not panic"
-        );
-    }
-}
-
 /// Write a node's header and vector data into the VantaFile at the current cursor position.
 pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -> Result<u64> {
     let offset = vstore.write_cursor;
@@ -222,5 +188,70 @@ pub(crate) fn partition_from_cf_name(cf_name: &str) -> Result<BackendPartition> 
             "Unknown column family: '{}'",
             other
         ))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// AUDREP-45: a corrupt/oversized persisted payload must fail cleanly,
+    /// never panic. Covers truncated buffers and oversized length prefixes
+    /// that postcard would otherwise feed to `Vec::with_capacity`.
+    #[test]
+    fn deserialize_node_payload_rejects_malformed_input() {
+        // Truncated buffer: valid start, cut off mid-structure.
+        let valid = postcard::to_allocvec(&NodeMetadata {
+            relational: std::collections::BTreeMap::new(),
+            edges: vec![crate::node::Edge::new(1, 0)],
+            created_by_txn: 1,
+            deleted_by_txn: None,
+        })
+        .unwrap();
+        let truncated = &valid[..valid.len() - 3];
+        assert!(
+            deserialize_node_payload::<NodeMetadata>(truncated, "node metadata").is_err(),
+            "truncated payload must error, not panic"
+        );
+
+        // Oversized length prefix: varint claims a huge Vec length in a tiny buffer.
+        // Layout: relational map len (0) then edges vec len as a 10-byte varint.
+        let mut crafted = vec![0u8]; // relational: empty map
+        crafted.extend_from_slice(&[0xFF; 10]); // edges vec len = huge
+        assert!(
+            deserialize_node_payload::<NodeMetadata>(&crafted, "node metadata").is_err(),
+            "oversized length prefix must error, not panic"
+        );
+    }
+
+    /// AUDREP-45: exercises the `MAX_PERSISTED_NODE_BYTES` guard branch exactly
+    /// (buffer beyond the cap is rejected before postcard can act on it) and
+    /// proves a legitimate payload inside the cap still deserializes.
+    #[test]
+    fn deserialize_node_payload_cap_guard_rejects_and_ok_within_cap() {
+        // Buffer larger than the cap → the guard fires (not postcard, not panic).
+        let oversized = vec![0u8; MAX_PERSISTED_NODE_BYTES + 1024];
+        let err = match deserialize_node_payload::<NodeMetadata>(&oversized, "node metadata") {
+            Ok(_) => panic!("oversized payload must be rejected by the cap guard"),
+            Err(e) => e,
+        };
+        assert!(
+            err.to_string().contains("exceeds"),
+            "guard error should mention the byte cap, got: {err}"
+        );
+
+        // Payload within the cap → deserializes normally.
+        let meta = NodeMetadata {
+            relational: std::collections::BTreeMap::new(),
+            edges: vec![crate::node::Edge::new(7, 0)],
+            created_by_txn: 3,
+            deleted_by_txn: Some(9),
+        };
+        let bytes = postcard::to_allocvec(&meta).unwrap();
+        let decoded: NodeMetadata =
+            deserialize_node_payload(&bytes, "node metadata").expect("within cap must deserialize");
+        assert_eq!(decoded.created_by_txn, 3);
+        assert_eq!(decoded.deleted_by_txn, Some(9));
+        assert_eq!(decoded.edges.len(), 1);
     }
 }

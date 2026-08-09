@@ -719,7 +719,7 @@ impl CPIndex {
             };
 
             curr_entry_points = w.iter().map(|ns| ns.1).collect();
-            let selected_neighbors = self.select_neighbors(w, m_max);
+            let selected_neighbors = self.select_neighbors(w, m_max, |_| false);
 
             // Connect reverse links first (reads &selected_neighbors by ref),
             // then store the pruned list — avoids cloning for set_neighbors.
@@ -866,7 +866,7 @@ impl CPIndex {
             };
 
             curr_entry_points = w.iter().map(|ns| ns.1).collect();
-            let selected_neighbors = self.select_neighbors(w, m_max);
+            let selected_neighbors = self.select_neighbors(w, m_max, |_| false);
 
             // Connect reverse links first (reads &selected_neighbors by ref),
             // then store the pruned list — avoids cloning for set_neighbors.
@@ -949,7 +949,27 @@ impl CPIndex {
                     cand_heap.push(NodeSimMin(d, n_target));
                 }
             }
-            let pruned = self.select_neighbors(cand_heap, m_max);
+            // INV-024 M-8 (reachability): never drop the last remaining
+            // incoming link of a node. The just-added reverse link
+            // (neighbor_id → new_node) carries inbound_count == 1 right after
+            // connect_layer_neighbors pushed it, so it survives the prune; the
+            // more important case is later prunes: an old node X that sits at
+            // the bottom of a saturated list must NOT be evicted if it is X's
+            // only remaining incoming edge, otherwise X loses ALL in-edges and
+            // becomes an island (unreachable from the entry point by directed
+            // BFS) while still being present in `self.nodes`.
+            // The scan MUST cover every candidate: an early exit once
+            // `pruned.len() >= m_max` would silently drop last-inbound nodes
+            // ranked after the cutoff. Over-capacity lists are the accepted
+            // price for the invariant.
+            //
+            // AUD-014: delegate selection to the canonical `select_neighbors`
+            // (NodeSimMin::Ord tie-break: id ascending) — previously this block
+            // re-implemented top-M with a pure-sim comparator, producing a
+            // different (arbitrary) tie order than the insert path.
+            let pruned = self.select_neighbors(cand_heap, m_max, |cand| {
+                self.neighbor_index.inbound_count(cand) <= 1
+            });
             // Populate both neighbor_index and inline cache.
             let inline_cache = pruned.clone();
             self.neighbor_index
@@ -1388,9 +1408,166 @@ mod tests {
         heap.push(NodeSimMin(f32::NAN, 99));
         heap.push(NodeSimMin(0.9, 0));
         heap.push(NodeSimMin(0.7, 1));
-        let selected = index.select_neighbors(heap, 2);
+        let selected = index.select_neighbors(heap, 2, |_| false);
         assert!(!selected.contains(&99), "NaN neighbour must be evicted");
         assert!(selected.contains(&0) && selected.contains(&1));
+    }
+
+    // ── AUD-014: deterministic tie-break / single selection path ───────
+
+    #[test]
+    fn test_select_neighbors_tie_break_deterministic_across_heap_orders() {
+        let index = CPIndex::new();
+        // Tied similarities — the only differentiator must be node id (asc).
+        let candidates = [
+            NodeSimMin(0.7, 30),
+            NodeSimMin(0.7, 10),
+            NodeSimMin(0.7, 20),
+            NodeSimMin(0.3, 5),
+        ];
+
+        // Different heap push orders simulate different construction paths
+        // (insert vs shrink) producing the same candidate set.
+        let run = |push_order: &[usize]| {
+            let mut heap = BinaryHeap::new();
+            for &i in push_order {
+                heap.push(candidates[i].clone());
+            }
+            index.select_neighbors(heap, 2, |_| false)
+        };
+
+        let a = run(&[0, 1, 2, 3]);
+        let b = run(&[3, 2, 1, 0]);
+        assert_eq!(
+            a.as_slice(),
+            &[10u128, 20u128],
+            "tie-break must be by ascending node id"
+        );
+        assert_eq!(
+            a.as_slice(),
+            b.as_slice(),
+            "identical candidate set must yield identical neighbor lists \
+             regardless of heap push order (AUD-014)"
+        );
+    }
+
+    #[test]
+    fn test_shrink_neighbors_keeps_last_inbound_over_capacity() {
+        let index = CPIndex::new_with_config(HnswConfig {
+            m: 2,
+            m_max0: 4,
+            ef_construction: 8,
+            ef_search: 8,
+            ml: 1.0 / (2_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None,
+            index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
+        });
+
+        // A (id 0) is the shrink target; B (1) / C (2) are close to A, D (3)
+        // is farthest and ranks beyond m_max; E (4) is an unrelated carrier.
+        for (id, v) in [
+            (0u128, vec![1.0, 0.0, 0.0]),
+            (1u128, vec![0.99, 0.01, 0.0]),
+            (2u128, vec![0.9, 0.1, 0.0]),
+            (3u128, vec![-1.0, 0.0, 0.0]),
+            (4u128, vec![0.0, 1.0, 0.0]),
+        ] {
+            index
+                .add(id, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
+        }
+
+        // Reset construction topology so the test fully controls inbound state.
+        // inbound_count spans ALL layers, so every layer of every node must
+        // be emptied before seeding the exact last-inbound scenario.
+        for id in 0u128..5 {
+            let layers = index.neighbor_index.num_layers(id).unwrap_or(0);
+            for layer in 0..layers {
+                index
+                    .neighbor_index
+                    .set_neighbors(id, layer, NeighborVec::new());
+            }
+        }
+        // A's saturated list [B, C, D]. D's ONLY inbound reference is A's own
+        // list (inbound_count == 1) → the shrink must NOT evict it.
+        index
+            .neighbor_index
+            .set_neighbors(0, 0, NeighborVec::from_slice(&[1, 2, 3]));
+
+        index.shrink_neighbors(0, 2, &[1, 2, 3], 0);
+
+        let pruned = index
+            .neighbor_index
+            .get_neighbors(0, 0)
+            .expect("A has layer 0");
+        assert_eq!(
+            pruned.as_slice(),
+            &[1u128, 2u128, 3u128],
+            "last-inbound node D must survive the shrink and keep rank order"
+        );
+        assert_eq!(
+            pruned.len(),
+            3,
+            "over-capacity list is the accepted price for INV-024"
+        );
+    }
+
+    #[test]
+    fn test_shrink_neighbors_evicts_non_last_inbound() {
+        let index = CPIndex::new_with_config(HnswConfig {
+            m: 2,
+            m_max0: 4,
+            ef_construction: 8,
+            ef_search: 8,
+            ml: 1.0 / (2_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None,
+            index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
+        });
+
+        for (id, v) in [
+            (0u128, vec![1.0, 0.0, 0.0]),
+            (1u128, vec![0.99, 0.01, 0.0]),
+            (2u128, vec![0.9, 0.1, 0.0]),
+            (3u128, vec![-1.0, 0.0, 0.0]),
+            (4u128, vec![0.0, 1.0, 0.0]),
+        ] {
+            index
+                .add(id, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
+        }
+
+        for id in 0u128..5 {
+            let layers = index.neighbor_index.num_layers(id).unwrap_or(0);
+            for layer in 0..layers {
+                index
+                    .neighbor_index
+                    .set_neighbors(id, layer, NeighborVec::new());
+            }
+        }
+        // Same saturated list, but D now has a SECOND inbound reference (E's
+        // list) → D is evictable and must be dropped to stay within m_max.
+        index
+            .neighbor_index
+            .set_neighbors(0, 0, NeighborVec::from_slice(&[1, 2, 3]));
+        index
+            .neighbor_index
+            .set_neighbors(4, 0, NeighborVec::from_slice(&[3]));
+
+        index.shrink_neighbors(0, 2, &[1, 2, 3], 0);
+
+        let pruned = index
+            .neighbor_index
+            .get_neighbors(0, 0)
+            .expect("A has layer 0");
+        assert_eq!(
+            pruned.as_slice(),
+            &[1u128, 2u128],
+            "non-last-inbound D must be evicted to enforce m_max"
+        );
     }
 
     // ── repair_orphan_links ─────────────────────────────────────────

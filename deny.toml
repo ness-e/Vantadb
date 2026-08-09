@@ -8,13 +8,13 @@ ignore = [
     # VantaDB already has portable-atomic as a direct dependency.
     "RUSTSEC-2023-0089",
 
-    # RUSTSEC-2024-0436: paste is unmaintained.
-    # Transitive via tikv-jemalloc-ctl -> paste (build-time proc macro).
-    # Owner: vanta-lead
-    # Expiry: 2027-01-01
-    # No runtime impact: build-time only proc macro.
-    # Issue: https://github.com/tikv/jemalloc-ctl/issues/60
-    "RUSTSEC-2024-0436",
+# RUSTSEC-2024-0436 (paste unmaintained): removed — advisory-not-detected,
+    # tikv-jemalloc-ctl no longer pulls paste. Re-add only if it reappears.
+
+    # NOTE RUSTSEC-2026-0002 (lru <0.16.3): NOT ignored — informational/unsound,
+    # cargo-deny reports it as warn only. Lives behind optional feature `tui`
+    # (ratatui 0.28.1 -> lru 0.12.5); workspace direct lru is 0.16.4 (patched).
+    # Tracked bump: ratatui 0.29+ post-1.0 (breaking API in src/tui/).
 ]
 
 [licenses]

@@ -103,7 +103,7 @@ fn main() {
     let t_build = Instant::now();
     let index = CPIndex::new_with_config(config);
     for (id, vec, bitset) in &dataset {
-        index.add(
+        let _ = index.add(
             *id,
             bitset.clone(),
             VectorRepresentations::Full(vec.clone()),

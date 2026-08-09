@@ -38,7 +38,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
 
                 let start = Instant::now();
                 for (id, vec) in vectors.into_iter().enumerate() {
-                    index.add(
+                    let _ = index.add(
                         id as u128,
                         FilterBitset::all_set(),
                         VectorRepresentations::Full(vec),
@@ -67,7 +67,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
         let index = CPIndex::new_with_config(config);
 
         for (id, vec) in vectors.iter().enumerate() {
-            index.add(
+            let _ = index.add(
                 id as u128,
                 FilterBitset::all_set(),
                 VectorRepresentations::Full(vec.clone()),

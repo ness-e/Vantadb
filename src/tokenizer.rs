@@ -4,10 +4,14 @@
 //! and Unicode folding for improved text search quality across multiple languages.
 //! It is only available when the `advanced-tokenizer` feature is enabled.
 
+/// Language used for stemming and stopwords. Re-exported from Tantivy so users
+/// can name it without depending on Tantivy directly.
+#[cfg(feature = "advanced-tokenizer")]
+pub use tantivy::tokenizer::Language;
 #[cfg(feature = "advanced-tokenizer")]
 use tantivy::tokenizer::{
-    AsciiFoldingFilter, Language, LowerCaser, RemoveLongFilter, SimpleTokenizer, Stemmer,
-    StopWordFilter, TextAnalyzer, TokenStream,
+    AsciiFoldingFilter, LowerCaser, RemoveLongFilter, SimpleTokenizer, Stemmer, StopWordFilter,
+    TextAnalyzer, TokenStream,
 };
 /// Advanced tokenizer configuration
 #[derive(Debug, Clone, PartialEq, Eq)]

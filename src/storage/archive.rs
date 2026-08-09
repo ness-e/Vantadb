@@ -243,11 +243,14 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                     skipped_tombstones += 1;
                 } else {
                     let vec_data = if header.vector_len > 0 {
-                        let start = header.vector_offset as usize;
-                        let end = start + (header.vector_len as usize * 4);
-                        if end <= vstore.size as usize {
+                        if let Some(end) = (header.vector_len as u64)
+                            .checked_mul(4)
+                            .and_then(|b| header.vector_offset.checked_add(b))
+                            .filter(|&end| end <= vstore.size as u64)
+                        {
                             indexed_vectors += 1;
-                            let slice = &vstore.mmap_bytes()[start..end];
+                            let start = header.vector_offset as usize;
+                            let slice = &vstore.mmap_bytes()[start..end as usize];
                             debug_assert_eq!(
                                 slice.as_ptr().align_offset(4),
                                 0,
@@ -331,13 +334,12 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
 }
 
 #[cfg(test)]
-#[allow(missing_docs, clippy::module_inception)]
+#[allow(missing_docs, clippy::module_inception, unused_must_use)]
 mod tests {
     // CPIndex::add now returns Result (AUDREP-27); these are hand-built
     // test fixtures whose vectors are known non-zero-norm, so the Result is
     // intentionally ignored. Kept as a module-scope allow to avoid N identical
     // `.expect(...)` suffixes on fixture inserts.
-    #![allow(unused_must_use)]
     use super::*;
     use crate::index::CPIndex;
     use crate::node::DiskNodeHeader;

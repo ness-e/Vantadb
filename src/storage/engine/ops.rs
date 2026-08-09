@@ -504,7 +504,15 @@ impl StorageEngine {
         let storage_offset = index_node.storage_offset;
         let (seg_id, local_off) = unpack_offset(storage_offset);
 
-        let vstore = self.vector_store[seg_id as usize].read();
+        let vstore = self
+            .vector_store
+            .get(seg_id as usize)
+            .ok_or_else(|| {
+                crate::error::VantaError::generic_error(format!(
+                    "corrupt storage: segment {seg_id} out of range for node {id}"
+                ))
+            })?
+            .read();
         let header = match vstore.read_header(local_off) {
             Some(h) => h,
             None => return Ok(None),
@@ -514,11 +522,17 @@ impl StorageEngine {
             return Ok(None);
         }
 
-        let vec_start = header.vector_offset as usize;
-        let vec_end = vec_start + (header.vector_len as usize * 4);
-        if vec_end > vstore.size as usize {
+        let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(4) else {
+            return Ok(None);
+        };
+        let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
+            return Ok(None);
+        };
+        if vec_end > vstore.mmap_bytes().len() as u64 {
             return Ok(None);
         }
+        let vec_start = header.vector_offset as usize;
+        let vec_end = vec_end as usize;
 
         let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
         // SAFETY: 1) bounds — the `vec_end > vstore.size` guard above ensures
@@ -1232,7 +1246,15 @@ impl StorageEngine {
         let storage_offset = index_node.storage_offset;
         let (seg_id, local_off) = unpack_offset(storage_offset);
 
-        let vstore = self.vector_store[seg_id as usize].read();
+        let vstore = self
+            .vector_store
+            .get(seg_id as usize)
+            .ok_or_else(|| {
+                crate::error::VantaError::generic_error(format!(
+                    "corrupt storage: segment {seg_id} out of range for node {id}"
+                ))
+            })?
+            .read();
         let header = match vstore.read_header(local_off) {
             Some(h) => h,
             None => return Ok(None),
@@ -1242,11 +1264,17 @@ impl StorageEngine {
             return Ok(None);
         }
 
-        let vec_start = header.vector_offset as usize;
-        let vec_end = vec_start + (header.vector_len as usize * 4);
-        if vec_end > vstore.size as usize {
+        let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(4) else {
+            return Ok(None);
+        };
+        let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
+            return Ok(None);
+        };
+        if vec_end > vstore.mmap_bytes().len() as u64 {
             return Ok(None);
         }
+        let vec_start = header.vector_offset as usize;
+        let vec_end = vec_end as usize;
 
         let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
         debug_assert_eq!(
@@ -1417,7 +1445,15 @@ impl StorageEngine {
             let storage_offset = index_node.storage_offset;
             let (seg_id, local_off) = unpack_offset(storage_offset);
 
-            let vstore = self.vector_store[seg_id as usize].read();
+            let vstore = self
+                .vector_store
+                .get(seg_id as usize)
+                .ok_or_else(|| {
+                    crate::error::VantaError::generic_error(format!(
+                        "corrupt storage: segment {seg_id} out of range for node {id}"
+                    ))
+                })?
+                .read();
             let Some(header) = vstore.read_header(local_off) else {
                 continue;
             };
@@ -1426,11 +1462,17 @@ impl StorageEngine {
                 continue;
             }
 
-            let vec_start = header.vector_offset as usize;
-            let vec_end = vec_start + (header.vector_len as usize * 4);
-            if vec_end > vstore.size as usize {
+            let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(4) else {
+                continue;
+            };
+            let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
+                continue;
+            };
+            if vec_end > vstore.mmap_bytes().len() as u64 {
                 continue;
             }
+            let vec_start = header.vector_offset as usize;
+            let vec_end = vec_end as usize;
 
             let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
             debug_assert_eq!(
@@ -1817,7 +1859,15 @@ impl StorageEngine {
                 };
                 let storage_offset = index_node.storage_offset;
                 let (seg_id, local_off) = unpack_offset(storage_offset);
-                let vstore = self.vector_store[seg_id as usize].read();
+                let vstore = self
+                    .vector_store
+                    .get(seg_id as usize)
+                    .ok_or_else(|| {
+                        crate::error::VantaError::generic_error(format!(
+                            "corrupt storage: segment {seg_id} out of range for node {id}"
+                        ))
+                    })?
+                    .read();
 
                 let header = match vstore.read_header(local_off) {
                     Some(h) => h,
@@ -1828,11 +1878,17 @@ impl StorageEngine {
                     continue;
                 }
 
-                let vec_start = header.vector_offset as usize;
-                let vec_end = vec_start + (header.vector_len as usize * 4);
-                if vec_end > vstore.size as usize {
+                let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(4) else {
+                    continue;
+                };
+                let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
+                    continue;
+                };
+                if vec_end > vstore.mmap_bytes().len() as u64 {
                     continue;
                 }
+                let vec_start = header.vector_offset as usize;
+                let vec_end = vec_end as usize;
 
                 let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
                 debug_assert_eq!(

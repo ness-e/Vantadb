@@ -489,7 +489,8 @@ mod tests {
                 .expect("test vectors are non-zero-norm");
         }
 
-        let query = vec![0.0; 4];
+        // Zero-norm cosine queries return empty (AUDREP-55 guard in search.rs); use non-zero to test flat threshold path.
+        let query = vec![0.9, 0.8, 0.7, 0.6];
         let results = index.search_nearest(&query, None, None, &crate::node::ALL_BITSET, 3, None);
         assert_eq!(results.len(), 3);
     }
