@@ -1,6 +1,6 @@
 # Plan de Ejecución: Backlog Pipeline — Release Blockers + Err Fix + Feature Honesty
 
-> **Campaign ID: 2864080d-b417-44a8-916a-244ddfacc044
+> **Campaign ID: 360b4b37-8f03-4715-8622-54ece23949de
 > **Inicio:** 2026-08-09
 > **Estado: completed
 > **Fuente:** `docs/Backlog.md` (backlog activo completo)
@@ -40,7 +40,7 @@
 - **Verificación real:** ✅ CÓDIGO-REAL — `release-plz.toml:18` tiene `semver_check = true` pero `rg semver` en los 3 workflows **no** encuentra `cargo-semver-checks` (ni la action). Gap confirmado: el flag de release-plz nunca se ejecuta como gate CI.
 - **Gate Justificación:** 0.5.0 próximo release; sin semver-check un breaking change accidental (API pública) publica rompiendo bindings.
 - **Gate Result:** ✅ DO
-- **Contrato: doc con status por feature — docs/architecture/FEATURES.md tabla 29 features
+- **Contrato: search(..., method='ivf') funciona desde Python — test en test_sdk.py pasa
 - **Estado:** ✅ COMPLETED
 - **Branch:** `develop`
 - **Commit:**
@@ -248,7 +248,7 @@ _(no duplicar)_
 ### Task 31: FEAT-04 — IVF/SCANN expuestos por SDK
 
 - **Esfuerzo:** 🔴 · **Prig:** 🟡 · **Archivos:** `src/index/ivf.rs`, `src/index/scann.rs`, bindings | **DO** (exponer `method: ivf/scann` en sdk) | **Contrato:** `search(..., method="ivf")` funciona desde 1 binding
-- **Estado:** ✅ DONE
+- **Estado:** ✅ COMPLETED
 - **Ejecutado:** `aac61155` — `search(..., method=)` expuesto desde el binding Python (`search_memory` + `SearchRequest` batch) con `search_with_method` en el core SDK (ruteo inmutable por búsqueda a IVF/Scann/Flat/Hnsw, sin tocar `config.index_type`); backend Scann ahora se construye lazy (misma semántica que IVF, AUDREP-09); test Rust `test_search_with_method_override_routes_backends` + test Python `test_search_memory_method_override`
 
 ### Task 32: FEAT-05 — Revisar flags EXPERIMENTAL
@@ -266,7 +266,8 @@ _(no duplicar)_
 ### Task 34: FEAT-07 — `src/integrations.rs` stubs vacíos
 
 - **Esfuerzo:** 🟡 · **Prig:** 🟢 · **Archivos:** `src/integrations.rs` | **DO** (implement `ollama_proxy` o retirar de surface) | **Contrato:** `rgba "Proximamente" src/integrations.rs` → no match
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** `1b2a39d3` — Retirado el stub público `ollama_proxy_handler` (devolvía "Proximamente: Context-Aware proxy response"), eliminado de la surface (`pub mod integrations`); conservado el struct `OllamaGenerateRequest` (contrato serde real con tests); cert test `integrations_certification` ahora valida el roundtrip de serialización del request en lugar del fake del proxy. `rg -i "Proximamente" src/integrations.rs` → no match; clippy/fmt/`cargo test` ✅
 
 ### Task 35: REVISAR-01 — Cerrar ciclo ERR-038/039/040/041 (reproducibilidad)
 
@@ -379,14 +380,14 @@ _(no duplicar)_
 ## RECITATION (initial)
 
 - **Campaign ID:** backlog-2026-08-09
-- **Objetivo activo: FEAT-05: revisar flags EXPERIMENTAL y documentar status por feature
+- **Objetivo activo: FEAT-04: exponer search method=ivf/scann desde binding
 - **Estado:** pending
-- **Última acción: Inventario features Cargo.toml + gates src/ + uso CI; doc FEATURES.md; cargo check -p vantadb OK; Task 32 DONE
+- **Última acción: Commit aac61155 (code) + 7bb0cd84 (plan DONE)
 - **Resultado: ✅
-- **Próxima acción: Ninguna — tarea completada
+- **Próxima acción: ninguna, tarea cerrada
 Próxima acción: None — task complete
 Contrato: Handler sets flags and does not re-execute without resolution (never returns to faulting instruction); unit test vest vfile present
-Próxima tarea si completa: Task 33 (FEAT-06)
+Próxima tarea si completa: 
 Próxima acción: 
 Contrato: pytest U128 3 passed + array_interface
 Próxima tarea si completa: 
