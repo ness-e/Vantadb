@@ -1116,10 +1116,21 @@ impl CPIndex {
         });
 
         // Phase 3: Repair each recorded layer — retain only links whose
-        // target ID exists in active_nodes.
+        // target ID exists in active_nodes. Keep the node's inline
+        // `neighbor_lists` cache in sync: `search_layer` (including the
+        // ACORN second-hop expansion) reads the inline cache first and falls
+        // back to `neighbor_index` only when it is empty, so a stale inline
+        // list would keep walking the just-removed orphan edges (ERR-020).
         for (node_id, layer) in &to_repair {
             self.neighbor_index
                 .retain_neighbors(*node_id, *layer, |nid| active_nodes.contains(nid));
+            if let Some(repaired) = self.neighbor_index.get_neighbors(*node_id, *layer) {
+                if let Some(mut node_ref) = self.nodes.get_mut(node_id) {
+                    if node_ref.neighbor_lists.len() > *layer {
+                        node_ref.neighbor_lists[*layer] = repaired;
+                    }
+                }
+            }
         }
 
         let duration_ms = start.elapsed().as_millis() as u64;

@@ -1848,4 +1848,123 @@ mod tests {
             ids
         );
     }
+
+    #[test]
+    fn test_acorn_second_hop_after_repair_orphans() {
+        // ERR-020: ACORN's second-hop expansion must read the POST-repair
+        // adjacency, not a stale inline cache.
+        //
+        // repair_orphan_links repairs `neighbor_index` but (pre-fix) left each
+        // HnswNode's inline `neighbor_lists` cache holding the removed orphan
+        // ids. search_layer prefers the inline cache and only falls back to
+        // `neighbor_index` when it is empty, so ACORN keeps walking dead
+        // edges. This test inserts 16 orphan nodes into non-matching node N's
+        // neighbor list, removes them (simulating engine deletes), repairs,
+        // then runs the ACORN search with ef=2 so the second-hop budget is
+        // 16: the stale orphans crowd out the live second-hop node S before
+        // the fix.
+        //
+        // Topology (Euclidean, entry A matches {0}; N blocks the filter):
+        //   A=[1,0,0] {0} → {X, N}
+        //   N=[0.95,0,0] {1} → {D0..D15, A, S}   (D* are removed orphans)
+        //   X=[0.8,0,0] {0} → {A, R}
+        //   R=[0.3,0,0] {0} → {X}
+        //   S=[0.2,0,0] {0} → {N}
+        // S is only reachable via ACORN expansion through N. With the stale
+        // inline cache, take(16) over {D0..D15, A, S} never reaches S; after
+        // repair the list is {A, S} and S is found.
+        let index = CPIndex::new_with_config(HnswConfig {
+            m: 2,
+            m_max0: 2,
+            ef_construction: 10,
+            ef_search: 50,
+            ml: 1.0,
+            distance_metric: DistanceMetric::Euclidean,
+            flat_threshold: None,
+            index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
+        });
+
+        add_node_with_bitset(&index, 0, vec![1.0, 0.0, 0.0], &[0]); // A
+        add_node_with_bitset(&index, 1, vec![0.95, 0.0, 0.0], &[1]); // N (non-matching)
+        add_node_with_bitset(&index, 2, vec![0.8, 0.0, 0.0], &[0]); // X
+        add_node_with_bitset(&index, 3, vec![0.3, 0.0, 0.0], &[0]); // R
+        add_node_with_bitset(&index, 4, vec![0.2, 0.0, 0.0], &[0]); // S
+
+        // 16 orphan nodes D0..D15 (ids 5..20), inserted so the delete flow
+        // that orphans N's list is realistic, then raw-removed below.
+        let orphans: Vec<u128> = (5u128..21).collect();
+        for d in &orphans {
+            add_node_with_bitset(&index, *d, vec![0.1, 0.0, 0.0], &[1]);
+        }
+
+        let mut n_neighbors: NeighborVec = orphans.iter().copied().collect();
+        n_neighbors.push(0); // A
+        n_neighbors.push(4); // S
+        set_test_neighbors(&index, 0, 0, smallvec::smallvec![2u128, 1u128]); // A → X, N
+        set_test_neighbors(&index, 2, 0, smallvec::smallvec![0u128, 3u128]); // X → A, R
+        set_test_neighbors(&index, 1, 0, n_neighbors); // N → orphans + A + S
+        set_test_neighbors(&index, 3, 0, smallvec::smallvec![2u128]); // R → X
+        set_test_neighbors(&index, 4, 0, smallvec::smallvec![1u128]); // S → N
+
+        // Provoke orphan repair: raw-remove the D nodes (the engine delete
+        // path this mirrors); repair_orphan_links cleans the leftovers.
+        for d in &orphans {
+            assert!(
+                index.nodes.remove(d).is_some(),
+                "orphan node {d} should exist before removal"
+            );
+        }
+        let report = index.repair_orphan_links();
+        assert!(
+            report.repaired_links >= orphans.len() as u64,
+            "repair should drop at least the {}-node orphan list from N, got {}",
+            orphans.len(),
+            report.repaired_links
+        );
+
+        // Post-repair invariant: no inline neighbor cache references a
+        // removed id (the direct causal check for the stale second hop).
+        for d in &orphans {
+            if let Some(node_ref) = index.nodes.get(&1) {
+                for list in &node_ref.neighbor_lists {
+                    assert!(
+                        !list.contains(d),
+                        "inline neighbor list of node 1 still references removed node {d}"
+                    );
+                }
+            }
+        }
+
+        let mut mask = FilterBitset::new();
+        mask.set_bit(0);
+
+        let mut visited: HashSet<u128, RandomState> =
+            HashSet::with_capacity_and_hasher(100, RandomState::new());
+        let results = index.search_layer(
+            &[0.0, 0.0, 0.0],
+            Some(0.0),
+            None,
+            &[0], // entry A only
+            2,    // ef=2 → ACORN budget = (2-1).max(16) = 16
+            0,
+            &mask,
+            true, // acorn_expansion
+            None,
+            DistanceMetric::Euclidean,
+            &mut visited,
+            &mut SearchProfile::new(),
+        );
+        let ids: Vec<u128> = results
+            .into_sorted_vec()
+            .into_iter()
+            .map(|ns| ns.1)
+            .collect();
+        assert!(
+            ids.contains(&4),
+            "ACORN second-hop after repair_orphan_links: live node S (4) must be found \
+             (stale orphans must not crowd the expansion budget), got {:?}",
+            ids
+        );
+    }
 }
