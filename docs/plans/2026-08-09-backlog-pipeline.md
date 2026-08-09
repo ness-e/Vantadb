@@ -231,6 +231,7 @@ _(no duplicar)_
 - **Gate:** dead feature phantom → **DO** (solo ADR + decidir: integrar / experimental / defer)
 - **Contrato:** ADR file exists (`docs/architecture/adr/ADR-0XX-pitr.md`) + `rgba "pitr" Cargo.toml` (feature docs)
 - **Estado:** ✅ DONE
+- **Ejecutado:** `b52ae2f0` — PITR/WAL-shipping decision: ADR-014 (experimental standalone API, engine integration deferred) + honest `pitr` feature docs in Cargo.toml
 
 ### Task 29: FEAT-02 — DiskANN: honest rename o implementar v1
 
