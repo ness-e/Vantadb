@@ -58,6 +58,41 @@ pub(crate) fn detect_shard_count(base_path: &Path) -> Option<usize> {
     max_idx.map(|m| m + 1)
 }
 
+/// Validate that per-shard record counts are consistent with round-robin
+/// distribution (ERR-011). Writes land round-robin: shard `s` receives a new
+/// record only after every shard `< s` has reached the same local position, so
+/// valid counts are non-increasing across shard index and each within one of
+/// the max. A shard whose tail was truncated (fewer durable records) violates
+/// this and would otherwise be silently replayed short — returning an error
+/// message here makes the replay surface the gap instead of a silent skip.
+/// Returns `None` when the counts are consistent.
+pub(crate) fn verify_shard_counts(shard_counts: &[u64]) -> Option<String> {
+    let max_count = shard_counts.iter().copied().max().unwrap_or(0);
+    if max_count > 1 {
+        for (i, &count) in shard_counts.iter().enumerate() {
+            if count + 1 < max_count {
+                return Some(format!(
+                    "WAL shard {i} is truncated: {count} durable records, but round-robin requires at least {}; aborting recovery instead of silently dropping data",
+                    max_count - 1
+                ));
+            }
+        }
+    }
+    if shard_counts.len() > 1 {
+        for i in 1..shard_counts.len() {
+            if shard_counts[i] > shard_counts[i - 1] {
+                return Some(format!(
+                    "WAL shard {i} has {} records, more than the {} in shard {}; round-robin order broken (truncated tail); aborting recovery instead of silently dropping data",
+                    shard_counts[i],
+                    shard_counts[i - 1],
+                    i - 1
+                ));
+            }
+        }
+    }
+    None
+}
+
 /// Read the persisted shard count from the sidecar metadata file, if any.
 pub(crate) fn read_shard_meta(base_path: &Path) -> Option<usize> {
     std::fs::read_to_string(shard_meta_path(base_path))
@@ -190,6 +225,8 @@ impl ShardedWal {
         let skip_base = checkpoint_seq / self.num_shards as u64;
         let extra_shards = checkpoint_seq % self.num_shards as u64;
 
+        let mut shard_counts = vec![0u64; self.num_shards];
+
         for (i, shard) in self.shards.iter().enumerate() {
             let path = {
                 let guard = shard.lock();
@@ -210,6 +247,16 @@ impl ShardedWal {
                     continue;
                 }
                 f(record)?;
+            }
+            shard_counts[i] = current_seq;
+        }
+        // ERR-011: round-robin only yields a coherent dataset when every shard
+        // matches its siblings' local positions; surface the gap instead of
+        // silently replaying a truncated shard short. Single-shard WALs are
+        // exempt (no round-robin layout to corrupt).
+        if self.num_shards > 1 {
+            if let Some(msg) = verify_shard_counts(&shard_counts) {
+                return Err(VantaError::wal_error(msg));
             }
         }
         Ok(())

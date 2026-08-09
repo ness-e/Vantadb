@@ -317,6 +317,71 @@ fn test_wal_selective_crc_corruption_recovery() {
 }
 
 #[test]
+fn test_sharded_wal_truncated_shard_recovery_fails_closed() {
+    TerminalReporter::suite_banner("SHARDED WAL TRUNCATED TAIL — RECOVERY SURFACES GAP", 1);
+    let mut session = VantaSession::begin("ERR-011 Truncated Shard Closed-Replay");
+
+    let dir = tempdir().unwrap();
+    let db_path = dir.path().to_str().unwrap();
+
+    let config = VantaConfig {
+        backend_kind: BackendKind::Fjall,
+        wal_shards: 4,
+        ..Default::default()
+    };
+
+    session.step("Seeding multi-shard WAL with 8 nodes (2 per shard)");
+    let storage = StorageEngine::open_with_config(db_path, Some(config.clone())).unwrap();
+    for id in 401..=408 {
+        storage.insert(&UnifiedNode::new(id)).unwrap();
+    }
+    drop(storage);
+
+    // Shard files live as <data>/vanta.shard{i}.wal; shard 1 has records 402, 406.
+    session.step("Truncating the tail of shard 1 mid-record (simulating torn write)");
+    let data_dir = dir.path().join("data");
+    let shard1 = data_dir.join("vanta.shard1.wal");
+    let mut content = Vec::new();
+    {
+        use std::io::Read;
+        let mut f = File::open(&shard1).unwrap();
+        f.read_to_end(&mut content).unwrap();
+    }
+    assert!(content.len() > 20, "shard1 should contain records");
+    // Walk records past the 20-byte header to find the end of the LAST record.
+    let mut offset = 20usize;
+    let mut last_rec_start = 20usize;
+    while offset + 8 <= content.len() {
+        let len = u32::from_le_bytes(content[offset..offset + 4].try_into().unwrap()) as usize;
+        let rec_end = offset + 4 + len + 4;
+        if rec_end > content.len() {
+            break;
+        }
+        last_rec_start = offset;
+        offset = rec_end;
+    }
+    // Cut INTO the last record's payload → torn/truncated tail.
+    let torn_len = (offset - last_rec_start) / 2;
+    let cut = offset - torn_len;
+    let f = OpenOptions::new().write(true).open(&shard1).unwrap();
+    f.set_len(cut as u64).unwrap();
+    drop(f);
+
+    // Reopen must FAIL CLOSED: replaying a truncated shard short and reporting
+    // success would silently drop records that round-robin says must be present.
+    session.step("Reopening: recovery must surface the shard gap as an error");
+    let result = StorageEngine::open_with_config(db_path, Some(config));
+    assert!(
+        result.is_err(),
+        "Reopening a WAL whose shard tail was truncated must fail, not silently succeed"
+    );
+    eprintln!("Expected failure surfaced: {:?}", result.err());
+
+    session.success("Truncated shard tail now fails closed during recovery.");
+    session.finish(true);
+}
+
+#[test]
 fn test_wal_write_failure_simulated() {
     TerminalReporter::suite_banner("WAL WRITE FAILURE SIMULATION", 1);
     let mut session = VantaSession::begin("WAL Write Failure");

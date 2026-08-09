@@ -460,15 +460,20 @@ impl StorageEngine {
                     record: crate::wal::WalRecord,
                 }
                 let mut pending: Vec<TimedRecord> = Vec::new();
-                for shard_idx in 0..num_shards {
+                // ERR-011: track per-shard record counts so a shard whose tail was
+                // truncated (or that failed to open) is detected instead of replaying
+                // short and reporting a checkpoint that silently skipped records.
+                let mut shard_counts = vec![0u64; num_shards];
+                for (shard_idx, shard_count) in shard_counts.iter_mut().enumerate() {
                     let shard_path = shard_path_for(shard_idx);
                     if !shard_path.exists() {
                         continue;
                     }
-                    let mut reader = match crate::wal::WalReader::open(&shard_path) {
-                        Ok(r) => r,
-                        Err(_) => continue,
-                    };
+                    let mut reader = crate::wal::WalReader::open(&shard_path).map_err(|e| {
+                        VantaError::wal_error(format!(
+                            "Failed to open WAL shard {shard_idx} during recovery: {e}"
+                        ))
+                    })?;
                     let skip = full_rounds + if (shard_idx as u64) < remainder { 1 } else { 0 };
                     let mut local_pos = 0u64;
                     while let Some(record) = reader.next_record()? {
@@ -477,6 +482,16 @@ impl StorageEngine {
                             pending.push(TimedRecord { global_seq, record });
                         }
                         local_pos += 1;
+                    }
+                    *shard_count = local_pos;
+                }
+                // ERR-011: round-robin only produces a coherent dataset when every
+                // shard matches the sibling local positions; surface the gap instead
+                // of silently replaying a truncated shard short. Single-shard legacy
+                // WALs are exempt (there is no round-robin layout to corrupt).
+                if num_shards > 1 {
+                    if let Some(msg) = crate::wal_sharded::verify_shard_counts(&shard_counts) {
+                        return Err(VantaError::wal_error(msg));
                     }
                 }
                 pending.sort_by_key(|tr| tr.global_seq);
