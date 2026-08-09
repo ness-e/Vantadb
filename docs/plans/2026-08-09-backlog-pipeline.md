@@ -199,12 +199,14 @@ _(no duplicar)_
 ### Task 24: ERR-027 — HTTP 200 con `success:false`
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `src/cli_server.rs:607-627` | **DO** | **Contrato:** test HTTP con query err → status 4xx/5xx
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ DONE
+- **Ejecutado:** 6b3dce25 — `query_error_response()` mapea errores a 4xx/5xx (400 parse/input, 404 missing, 409 conflict, 500 resto); test `query_error_returns_4xx_not_200` 3 casos ✅
 
 ### Task 25: ERR-028 — Query vector norma 0 → error, no `[]`
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `src/index/search.rs:521-547` (`search_nearest`, guard AUDREP-55 ya devuelve `Vec::new()`) | **DO parcial:** core ya devuelve vacío; falta error pepper en bindings | **Contrato:** binding devuelve VantaError para zero-norm
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ DONE
+- **Ejecutado:** b8058a26 — guard `InvalidInput` para zero-norm cosine en `sdk/api.rs` (K-NN legacy) + `sdk/search/mod.rs` (request path); bindings Python/MCP/WASM heredan el error
 
 ### Task 26: ERR-029 — `edge_count = u16` overflow
 
