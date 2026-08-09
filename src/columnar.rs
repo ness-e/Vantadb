@@ -5,7 +5,7 @@
 
 use crate::error::Result;
 use crate::node::UnifiedNode;
-use arrow::array::{Float32Array, UInt64Array};
+use arrow::array::{ArrayRef, Float32Array, UInt64Array};
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use std::sync::Arc;
@@ -13,33 +13,41 @@ use std::sync::Arc;
 /// Converts a collection of UnifiedNodes into an Apache Arrow RecordBatch.
 /// This enables zero-copy SIMD analytical scans directly inside the executor or
 /// zero-cost transmission to a Python client (Pandas/Polars).
+///
+/// Each node's vector is exported as **complete flat columns** — one
+/// [`Float32Array`] column per dimension: `vector_d0`, `vector_d1`, …,
+/// `vector_d{N-1}`. Binary/none vectors (or shorter vectors than the widest
+/// node) fall back to `0.0` per missing component, mirroring the legacy
+/// single-component behavior.
 pub fn nodes_to_record_batch(nodes: &[UnifiedNode]) -> Result<RecordBatch> {
-    let mut ids = Vec::with_capacity(nodes.len());
-    let mut vec_coords = Vec::new(); // Naive flattened vector logic for MVP
+    let vector_dims: Vec<Vec<f32>> = nodes
+        .iter()
+        .map(|node| node.vector.to_f32().unwrap_or_default())
+        .collect();
 
-    for node in nodes {
-        ids.push(node.id);
-        // Only push first vector dimension to prove columnar packing capabilities
-        if let crate::node::VectorRepresentations::Full(ref v) = node.vector {
-            if !v.is_empty() {
-                vec_coords.push(v[0]);
-            } else {
-                vec_coords.push(0.0);
-            }
-        } else {
-            vec_coords.push(0.0);
+    // One flat Float32 column per dimension. Keep at least `vector_d0` so an
+    // empty batch still carries the vector slot (matches legacy schema).
+    let max_dim = vector_dims.iter().map(Vec::len).max().unwrap_or(0).max(1);
+
+    let mut fields = vec![Field::new("id", DataType::UInt64, false)];
+    let mut columns: Vec<ArrayRef> = vec![Arc::new(UInt64Array::from(
+        nodes.iter().map(|node| node.id as u64).collect::<Vec<_>>(),
+    ))];
+
+    for dim in 0..max_dim {
+        let mut values = Vec::with_capacity(nodes.len());
+        for v in &vector_dims {
+            values.push(v.get(dim).copied().unwrap_or(0.0));
         }
+        fields.push(Field::new(
+            format!("vector_d{dim}"),
+            DataType::Float32,
+            true,
+        ));
+        columns.push(Arc::new(Float32Array::from(values)));
     }
 
-    let id_array = UInt64Array::from(ids.iter().map(|&id| id as u64).collect::<Vec<_>>());
-    let coords_array = Float32Array::from(vec_coords);
-
-    let schema = Arc::new(Schema::new(vec![
-        Field::new("id", DataType::UInt64, false),
-        Field::new("vector_d0", DataType::Float32, true),
-    ]));
-
-    let batch = RecordBatch::try_new(schema, vec![Arc::new(id_array), Arc::new(coords_array)])
+    let batch = RecordBatch::try_new(Arc::new(Schema::new(fields)), columns)
         .map_err(|e| crate::error::VantaError::InvalidInput(e.to_string()))?;
 
     Ok(batch)
@@ -132,5 +140,68 @@ mod tests {
         assert_eq!(schema.field(0).data_type(), &DataType::UInt64);
         assert_eq!(schema.field(1).name(), "vector_d0");
         assert_eq!(schema.field(1).data_type(), &DataType::Float32);
+    }
+
+    // FEAT-03: export must return the complete flat vector columns (full f32
+    // array, correct dimension N), not just the first component.
+    #[test]
+    fn test_export_returns_full_vector_flat_columns() {
+        let node = UnifiedNode::with_vector(42, vec![0.5, 0.6, 0.7]);
+        let batch = nodes_to_record_batch(&[node]).unwrap();
+        assert_eq!(batch.num_rows(), 1);
+        // id + one flat Float32 column per dimension (N = 3).
+        assert_eq!(batch.num_columns(), 4);
+
+        let schema = batch.schema();
+        assert_eq!(schema.field(1).name(), "vector_d0");
+        assert_eq!(schema.field(2).name(), "vector_d1");
+        assert_eq!(schema.field(3).name(), "vector_d2");
+
+        let expected = [0.5, 0.6, 0.7];
+        for (dim, want) in expected.iter().enumerate() {
+            let col = batch
+                .column(1 + dim)
+                .as_any()
+                .downcast_ref::<Float32Array>()
+                .unwrap();
+            assert_eq!(col.value(0), *want);
+        }
+    }
+
+    #[test]
+    fn test_multiple_nodes_full_vectors_flat_columns() {
+        let nodes = vec![
+            UnifiedNode::with_vector(10, vec![1.0, 2.0, 3.0]),
+            UnifiedNode::with_vector(20, vec![4.0, 5.0, 6.0]),
+        ];
+        let batch = nodes_to_record_batch(&nodes).unwrap();
+        assert_eq!(batch.num_rows(), 2);
+        assert_eq!(batch.num_columns(), 4); // id + vector_d0..d2
+
+        let d1 = batch
+            .column(2)
+            .as_any()
+            .downcast_ref::<Float32Array>()
+            .unwrap();
+        assert_eq!(d1.value(0), 2.0);
+        assert_eq!(d1.value(1), 5.0);
+    }
+
+    #[test]
+    fn test_mixed_dimensions_pad_with_zero() {
+        let nodes = vec![
+            UnifiedNode::with_vector(10, vec![1.0, 2.0, 3.0]),
+            UnifiedNode::with_vector(20, vec![4.0]), // shorter → padded 0.0
+        ];
+        let batch = nodes_to_record_batch(&nodes).unwrap();
+        assert_eq!(batch.num_columns(), 4); // widest node drives columns
+
+        let d1 = batch
+            .column(2)
+            .as_any()
+            .downcast_ref::<Float32Array>()
+            .unwrap();
+        assert_eq!(d1.value(0), 2.0);
+        assert_eq!(d1.value(1), 0.0);
     }
 }
