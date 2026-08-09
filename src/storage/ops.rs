@@ -82,7 +82,19 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
         crate::node::NodeTier::Hot => 1u8,
         crate::node::NodeTier::Cold => 0u8,
     };
-    header.edge_count = node.edges.len() as u16;
+    // ERR-029: `edge_count` is a u16 field in the fixed 64-byte DiskNodeHeader.
+    // `as u16` silently truncates, so a node with >65,535 edges used to wrap
+    // (e.g. 65,536 → 0) and corrupt the persisted header. The header layout is
+    // on-disk format; widening the field would break every existing file, so
+    // fail loudly instead of persisting a corrupt count.
+    let edge_count = node.edges.len();
+    if edge_count > u16::MAX as usize {
+        return Err(VantaError::ResourceLimit(format!(
+            "node {} has {edge_count} edges, exceeding the DiskNodeHeader u16 edge_count limit of {}",
+            node.id, u16::MAX
+        )));
+    }
+    header.edge_count = edge_count as u16;
     vstore.write_header(offset, &header)?;
     if let crate::node::VectorRepresentations::Full(ref vec) = node.vector {
         let vec_bytes = vec.as_bytes();
@@ -194,6 +206,7 @@ pub(crate) fn partition_from_cf_name(cf_name: &str) -> Result<BackendPartition> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::storage::engine::STORAGE_ALIGNMENT;
 
     /// AUDREP-45: a corrupt/oversized persisted payload must fail cleanly,
     /// never panic. Covers truncated buffers and oversized length prefixes
@@ -253,5 +266,50 @@ mod tests {
         assert_eq!(decoded.created_by_txn, 3);
         assert_eq!(decoded.deleted_by_txn, Some(9));
         assert_eq!(decoded.edges.len(), 1);
+    }
+
+    /// ERR-029: a node with more than 65,535 edges must be rejected at the
+    /// persistence boundary (ResourceLimit), never silently wrapped by the
+    /// `as u16` cast on the `DiskNodeHeader::edge_count` field. Uses 65,537
+    /// edges: if the old truncating behavior ran, the persisted count would
+    /// wrap to 1 — the test proves nothing is persisted on failure.
+    #[test]
+    fn write_node_to_vstore_rejects_over_u16_max_edges() {
+        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut node = UnifiedNode::new(42);
+        node.edges = vec![crate::node::Edge::new(1, 0); u16::MAX as usize + 2];
+
+        let err = write_node_to_vstore(&mut vstore, &node).unwrap_err();
+        assert!(
+            err.to_string().contains("65535"),
+            "error must mention the u16 edge_count limit, got: {err}"
+        );
+
+        // Failed write leaves the store untouched: cursor at the initial
+        // position and the header area still zeroed (edge_count 0, not the
+        // wrapped count).
+        assert_eq!(
+            vstore.write_cursor, STORAGE_ALIGNMENT,
+            "failed write must not advance the cursor"
+        );
+        let header = vstore.read_header(STORAGE_ALIGNMENT);
+        assert_eq!(
+            header.map(|h| h.edge_count),
+            Some(0),
+            "no wrapped edge_count may be persisted"
+        );
+    }
+
+    /// ERR-029: the valid boundary (exactly 65,535 edges) still persists
+    /// without truncation.
+    #[test]
+    fn write_node_to_vstore_persists_u16_max_edges() {
+        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut node = UnifiedNode::new(7);
+        node.edges = vec![crate::node::Edge::new(1, 0); u16::MAX as usize];
+
+        let offset = write_node_to_vstore(&mut vstore, &node).unwrap();
+        let header = vstore.read_header(offset).expect("header must be readable");
+        assert_eq!(header.edge_count, u16::MAX);
     }
 }
