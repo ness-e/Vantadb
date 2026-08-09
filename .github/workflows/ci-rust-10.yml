@@ -85,6 +85,38 @@ jobs:
         # Use --exclude vantadb-wasm --exclude vantadb-server --exclude vantadb-mcp.
         run: cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm --exclude vantadb-server --exclude vantadb-mcp -- -D warnings
 
+  semver-checks:
+    # RELEASE-01: gate so a breaking change in the public API can never publish.
+    # release-plz.toml has semver_check = true, but nothing ran cargo-semver-checks
+    # as a CI gate — this job closes that gap. Compares the current tree against
+    # the latest published version on crates.io (0.4.x baseline vs 0.5.0).
+    # Only `vantadb` is checked: vantadb-wasm is npm-distributed (release = false),
+    # and python/server/mcp are not crates.io-distributed.
+    name: Semver Checks (public API)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: semver-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          toolchain: nightly
+          install-nextest: false
+          install-llvm-cov: false
+          install-system-deps: true
+          swap-mb: 4096
+
+      - name: Install cargo-semver-checks
+        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a
+        with:
+          tool: cargo-semver-checks
+
+      - name: Semver check (vantadb vs latest published)
+        run: cargo semver-checks -p vantadb
+
   test:
     name: Tests (Linux)
     runs-on: ubuntu-latest
