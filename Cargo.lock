@@ -4936,6 +4936,7 @@ dependencies = [
  "tikv-jemalloc-ctl",
  "tikv-jemallocator",
  "tokio",
+ "tower",
  "tower-http",
  "tower_governor",
  "tracing",

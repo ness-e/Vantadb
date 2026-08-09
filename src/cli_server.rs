@@ -538,6 +538,41 @@ fn panic_error_response(panic_detail: &dyn std::fmt::Display) -> Response {
         .into_response()
 }
 
+/// Build a 4xx/5xx response for a query execution error (ERR-027).
+///
+/// Client mistakes (bad IQL, missing nodes, validation) map to explicit 4xx
+/// statuses; anything server-side stays a 500. Proxies and monitoring can then
+/// distinguish query errors from healthy traffic instead of relying on the
+/// body's `success` flag.
+fn query_error_response(e: &VantaError) -> Response {
+    let status = match e {
+        VantaError::IqlParseError { .. }
+        | VantaError::IqlError(_)
+        | VantaError::InvalidInput(_)
+        | VantaError::DimensionMismatch { .. }
+        | VantaError::UnsupportedOperation { .. }
+        | VantaError::SchemaError(_)
+        | VantaError::NoVectorForKey(_) => StatusCode::BAD_REQUEST,
+        VantaError::ValidationError { .. } => StatusCode::UNPROCESSABLE_ENTITY,
+        VantaError::NodeNotFound(_) | VantaError::NotFound { .. } => StatusCode::NOT_FOUND,
+        VantaError::DuplicateNode(_)
+        | VantaError::NodeIdCollision(_)
+        | VantaError::ExecutionConflict { .. } => StatusCode::CONFLICT,
+        // Storage/WAL/IO/resource failures and anything unclassified.
+        _ => StatusCode::INTERNAL_SERVER_ERROR,
+    };
+    (
+        status,
+        Json(QueryResponse {
+            success: false,
+            data: format!("Execution Error: {}", e),
+            node_id: None,
+            nodes: None,
+        }),
+    )
+        .into_response()
+}
+
 #[tracing::instrument(skip(state))]
 async fn execute_query(
     State(state): State<Arc<ServerState>>,
@@ -612,13 +647,7 @@ async fn execute_query(
             nodes: None,
         })
         .into_response(),
-        Err(e) => Json(QueryResponse {
-            success: false,
-            data: format!("Execution Error: {}", e),
-            node_id: None,
-            nodes: None,
-        })
-        .into_response(),
+        Err(e) => query_error_response(&e),
     }
 }
 
@@ -1309,6 +1338,61 @@ mod tests {
         let peer = "198.51.100.5:4444".parse().unwrap();
         let req = request_with_xff(&peer, "203.0.113.99");
         assert_eq!(client_ip(&req, &[]), "198.51.100.5");
+    }
+
+    #[tokio::test]
+    async fn query_error_returns_4xx_not_200() {
+        // ERR-027: a failing query must surface as an explicit 4xx/5xx so
+        // proxies and monitoring can distinguish client errors from success.
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::util::ServiceExt;
+
+        let state = cors_test_state().await;
+        let router = app(state, 0);
+
+        async fn raw_post(router: axum::Router, body: &[u8]) -> (StatusCode, String) {
+            let request = Request::builder()
+                .method("POST")
+                .uri("/api/v2/query")
+                .header("content-type", "application/json")
+                .body(Body::from(body.to_vec()))
+                .unwrap();
+            let response = router.oneshot(request).await.unwrap();
+            let status = response.status();
+            let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
+                .await
+                .unwrap();
+            (status, String::from_utf8(bytes.to_vec()).unwrap())
+        }
+
+        // Unparseable IQL → 400, not 200.
+        let (status, body) = raw_post(router.clone(), br#"{"query":"NOT_VALID_IQL"}"#).await;
+        assert_eq!(
+            status,
+            StatusCode::BAD_REQUEST,
+            "parse error must be a 4xx, got {status}: {body}"
+        );
+
+        // Update of a missing node → NotFound → 404, not 200.
+        let (status, body) = raw_post(
+            router.clone(),
+            br#"{"query":"UPDATE NODE#999 SET name = \"x\""}"#,
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::NOT_FOUND,
+            "missing node must be a 4xx, got {status}: {body}"
+        );
+
+        // A valid read still succeeds with 200.
+        let (status, body) = raw_post(router, br#"{"query":"SELECT * FROM Person"}"#).await;
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "healthy query must stay 200, got {status}: {body}"
+        );
     }
 
     #[tokio::test]
