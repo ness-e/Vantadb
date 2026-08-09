@@ -248,7 +248,8 @@ _(no duplicar)_
 ### Task 31: FEAT-04 — IVF/SCANN expuestos por SDK
 
 - **Esfuerzo:** 🔴 · **Prig:** 🟡 · **Archivos:** `src/index/ivf.rs`, `src/index/scann.rs`, bindings | **DO** (exponer `method: ivf/scann` en sdk) | **Contrato:** `search(..., method="ivf")` funciona desde 1 binding
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** `aac61155` — `search(..., method=)` expuesto desde el binding Python (`search_memory` + `SearchRequest` batch) con `search_with_method` en el core SDK (ruteo inmutable por búsqueda a IVF/Scann/Flat/Hnsw, sin tocar `config.index_type`); backend Scann ahora se construye lazy (misma semántica que IVF, AUDREP-09); test Rust `test_search_with_method_override_routes_backends` + test Python `test_search_memory_method_override`
 
 ### Task 32: FEAT-05 — Revisar flags EXPERIMENTAL
 
