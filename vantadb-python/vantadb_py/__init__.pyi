@@ -73,6 +73,7 @@ def put_batch(
         text_query: str | None = None,
         top_k: int = 10,
         distance_metric: str | None = None,
+        method: str | None = None,
         explain: bool = False,
     ) -> list[VantaSearchHit]: ...
     def list_memory(
@@ -162,6 +163,7 @@ class AsyncVantaDB:
         text_query: str | None = None,
         top_k: int = 10,
         distance_metric: str | None = None,
+        method: str | None = None,
         explain: bool = False,
     ) -> list[VantaSearchHit]: ...
     async def get_memory(self, namespace: str, key: str) -> dict | None: ...

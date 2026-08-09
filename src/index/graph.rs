@@ -357,6 +357,12 @@ pub struct CPIndex {
     /// diverges (vectors added/removed after the lazy build), the cached IVF
     /// is stale and must be rebuilt on the next search (AUDREP-09).
     pub ivf_built_at_node_count: AtomicUsize,
+    /// Lazy-built SCANN (SQ8) index. `None` until first search with
+    /// `config.index_type == IndexType::Scann` or a per-search method override.
+    pub scann_index: parking_lot::Mutex<Option<crate::index::scann::ScannIndex>>,
+    /// Node count the cached `scann_index` was built over. Rebuilt whenever
+    /// `nodes.len()` diverges (same staleness rule as `ivf_built_at_node_count`).
+    pub scann_built_at_node_count: AtomicUsize,
     /// Flat, lock-friendly neighbor list index.
     /// `pub(crate)` because `HnswNeighborIndex` is only `pub(crate)`.
     pub(crate) neighbor_index: crate::index::neighbor_index::HnswNeighborIndex,
@@ -398,6 +404,8 @@ impl CPIndex {
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
             ivf_index: parking_lot::Mutex::new(None),
             ivf_built_at_node_count: AtomicUsize::new(0),
+            scann_index: parking_lot::Mutex::new(None),
+            scann_built_at_node_count: AtomicUsize::new(0),
             neighbor_index: crate::index::neighbor_index::HnswNeighborIndex::new(),
         }
     }

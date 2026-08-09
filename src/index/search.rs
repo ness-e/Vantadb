@@ -551,24 +551,14 @@ impl CPIndex {
         // rebuild whenever the node count changed since the last build, so
         // vectors added after a cached IVF was built become candidates.
         if self.config.index_type == IndexType::Ivf {
-            let mut guard = self.ivf_index.lock();
-            let node_count = self.nodes.len();
-            if guard.as_ref().is_none_or(|_| {
-                self.ivf_built_at_node_count
-                    .load(std::sync::atomic::Ordering::Relaxed)
-                    != node_count
-            }) {
-                let ivf_config = crate::index::ivf::IvfConfig {
-                    nlist: (node_count as f64).sqrt() as usize + 1,
-                    nprobe: 10,
-                    distance_metric: self.config.distance_metric,
-                };
-                *guard = Some(crate::index::ivf::IvfIndex::build(&self.nodes, &ivf_config));
-                self.ivf_built_at_node_count
-                    .store(node_count, std::sync::atomic::Ordering::Relaxed);
-            }
-            let ivf = guard.as_ref().unwrap();
-            return ivf.search(query_vec, top_k, query_mask);
+            return self.search_ivf(query_vec, query_mask, top_k);
+        }
+
+        // SCANN (SQ8) path: same lazy-build pattern as IVF. Without this the
+        // configured `index_type = Scann` would silently fall through to the
+        // HNSW graph, ignoring the selected backend entirely.
+        if self.config.index_type == IndexType::Scann {
+            return self.search_scann(query_vec, query_mask, top_k);
         }
 
         if self.use_flat_search() {
@@ -677,6 +667,108 @@ impl CPIndex {
             final_results.push((id, adjusted_score));
         }
         final_results
+    }
+
+    /// Lazy-build and search the IVF index (AUDREP-09). Shared by
+    /// `search_nearest` (config `index_type = Ivf`) and per-search overrides
+    /// from bindings (`method = "ivf"`).
+    pub(crate) fn search_ivf(
+        &self,
+        query_vec: &[f32],
+        query_mask: &FilterBitset,
+        top_k: usize,
+    ) -> Vec<(u128, f32)> {
+        let mut guard = self.ivf_index.lock();
+        let node_count = self.nodes.len();
+        if guard.as_ref().is_none_or(|_| {
+            self.ivf_built_at_node_count
+                .load(std::sync::atomic::Ordering::Relaxed)
+                != node_count
+        }) {
+            let ivf_config = crate::index::ivf::IvfConfig {
+                nlist: (node_count as f64).sqrt() as usize + 1,
+                nprobe: 10,
+                distance_metric: self.config.distance_metric,
+            };
+            *guard = Some(crate::index::ivf::IvfIndex::build(&self.nodes, &ivf_config));
+            self.ivf_built_at_node_count
+                .store(node_count, std::sync::atomic::Ordering::Relaxed);
+        }
+        match guard.as_ref() {
+            Some(ivf) => ivf.search(query_vec, top_k, query_mask),
+            None => Vec::new(),
+        }
+    }
+
+    /// Lazy-build and search the SCANN (SQ8) index. Mirrors the IVF lazy
+    /// cache: rebuilt whenever the node count diverges from the last build.
+    pub(crate) fn search_scann(
+        &self,
+        query_vec: &[f32],
+        query_mask: &FilterBitset,
+        top_k: usize,
+    ) -> Vec<(u128, f32)> {
+        let mut guard = self.scann_index.lock();
+        let node_count = self.nodes.len();
+        if guard.as_ref().is_none_or(|_| {
+            self.scann_built_at_node_count
+                .load(std::sync::atomic::Ordering::Relaxed)
+                != node_count
+        }) {
+            let scann = crate::index::scann::ScannIndex::new(self.config.distance_metric);
+            for entry in self.nodes.iter() {
+                let node = entry.value();
+                if let crate::node::VectorRepresentations::Full(v) = &node.vec_data {
+                    crate::index::VecIndex::add(
+                        &scann,
+                        node.id,
+                        node.bitset.clone(),
+                        crate::node::VectorRepresentations::Full(v.clone()),
+                        node.storage_offset,
+                    );
+                }
+            }
+            *guard = Some(scann);
+            self.scann_built_at_node_count
+                .store(node_count, std::sync::atomic::Ordering::Relaxed);
+        }
+        match guard.as_ref() {
+            Some(scann) => crate::index::VecIndex::search(
+                scann,
+                query_vec,
+                query_mask,
+                top_k,
+                None,
+                self.config.distance_metric,
+            ),
+            None => Vec::new(),
+        }
+    }
+
+    /// Run a search through an explicit index backend, ignoring the engine's
+    /// configured `index_type`. Used by per-search `method` overrides from
+    /// bindings; the shared `config` is never mutated (thread-safe).
+    pub(crate) fn search_with_method(
+        &self,
+        method: IndexType,
+        query_vec: &[f32],
+        query_mask: &FilterBitset,
+        top_k: usize,
+    ) -> Vec<(u128, f32)> {
+        match method {
+            IndexType::Ivf => self.search_ivf(query_vec, query_mask, top_k),
+            IndexType::Scann => self.search_scann(query_vec, query_mask, top_k),
+            IndexType::Flat => crate::index::flat::flat_search(
+                &self.nodes,
+                query_vec,
+                query_mask,
+                top_k,
+                self.config.distance_metric,
+            ),
+            IndexType::Hnsw | IndexType::DiskAnn => {
+                self.search_nearest(query_vec, None, None, query_mask, top_k, None)
+            }
+        }
     }
 }
 
@@ -1169,6 +1261,30 @@ mod tests {
                 score <= 0.0,
                 "Euclidean score should be <= 0, got {}",
                 score
+            );
+        }
+    }
+
+    #[test]
+    fn test_search_with_method_override_routes_backends() {
+        // Engine configured for HNSW, but per-search `method` must route to
+        // each explicit backend (FEAT-04 binding override path).
+        let index = make_hnsw_index(DistanceMetric::Cosine);
+        add_node(&index, 0, vec![1.0, 0.0, 0.0]);
+        add_node(&index, 1, vec![-1.0, 0.0, 0.0]);
+        add_node(&index, 2, vec![0.0, 1.0, 0.0]);
+        let query = vec![1.0, 0.0, 0.0];
+        for method in [
+            crate::index::IndexType::Hnsw,
+            crate::index::IndexType::Ivf,
+            crate::index::IndexType::Scann,
+            crate::index::IndexType::Flat,
+        ] {
+            let results = index.search_with_method(method, &query, &ALL_BITSET, 3);
+            assert_eq!(results.len(), 3, "method {method:?} should return 3 nodes");
+            assert_eq!(
+                results[0].0, 0,
+                "method {method:?} should rank the identical vector first, got {results:?}"
             );
         }
     }

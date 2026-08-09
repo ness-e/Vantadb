@@ -548,6 +548,8 @@ impl CPIndex {
             // Match the deserialized node set so a restored IVF isn't
             // papered over as fresh without covering all nodes (AUDREP-09).
             ivf_built_at_node_count: AtomicUsize::new(node_count as usize),
+            scann_index: parking_lot::Mutex::new(None),
+            scann_built_at_node_count: AtomicUsize::new(node_count as usize),
         })
     }
 
@@ -753,6 +755,8 @@ mod tests {
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
             ivf_index: parking_lot::Mutex::new(None),
             ivf_built_at_node_count: AtomicUsize::new(0),
+            scann_index: parking_lot::Mutex::new(None),
+            scann_built_at_node_count: AtomicUsize::new(0),
         }
     }
 
@@ -819,6 +823,8 @@ mod tests {
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
             ivf_index: parking_lot::Mutex::new(None),
             ivf_built_at_node_count: AtomicUsize::new(0),
+            scann_index: parking_lot::Mutex::new(None),
+            scann_built_at_node_count: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -859,6 +865,8 @@ mod tests {
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
             ivf_index: parking_lot::Mutex::new(None),
             ivf_built_at_node_count: AtomicUsize::new(0),
+            scann_index: parking_lot::Mutex::new(None),
+            scann_built_at_node_count: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -902,6 +910,8 @@ mod tests {
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
             ivf_index: parking_lot::Mutex::new(None),
             ivf_built_at_node_count: AtomicUsize::new(0),
+            scann_index: parking_lot::Mutex::new(None),
+            scann_built_at_node_count: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -945,6 +955,8 @@ mod tests {
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
             ivf_index: parking_lot::Mutex::new(None),
             ivf_built_at_node_count: AtomicUsize::new(0),
+            scann_index: parking_lot::Mutex::new(None),
+            scann_built_at_node_count: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -1035,6 +1047,8 @@ mod tests {
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
             ivf_index: parking_lot::Mutex::new(None),
             ivf_built_at_node_count: AtomicUsize::new(0),
+            scann_index: parking_lot::Mutex::new(None),
+            scann_built_at_node_count: AtomicUsize::new(0),
         };
         let data = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&data, true).unwrap();
@@ -1137,6 +1151,8 @@ mod tests {
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
             ivf_index: parking_lot::Mutex::new(None),
             ivf_built_at_node_count: AtomicUsize::new(0),
+            scann_index: parking_lot::Mutex::new(None),
+            scann_built_at_node_count: AtomicUsize::new(0),
         };
         let err = index
             .serialize_to_writer(&mut std::io::Cursor::new(Vec::new()))
@@ -1338,6 +1354,8 @@ mod tests {
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
             ivf_index: parking_lot::Mutex::new(None),
             ivf_built_at_node_count: AtomicUsize::new(0),
+            scann_index: parking_lot::Mutex::new(None),
+            scann_built_at_node_count: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -1380,6 +1398,8 @@ mod tests {
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
             ivf_index: parking_lot::Mutex::new(None),
             ivf_built_at_node_count: AtomicUsize::new(0),
+            scann_index: parking_lot::Mutex::new(None),
+            scann_built_at_node_count: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -1425,6 +1445,8 @@ mod tests {
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
             ivf_index: parking_lot::Mutex::new(None),
             ivf_built_at_node_count: AtomicUsize::new(0),
+            scann_index: parking_lot::Mutex::new(None),
+            scann_built_at_node_count: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -1470,6 +1492,8 @@ mod tests {
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
             ivf_index: parking_lot::Mutex::new(None),
             ivf_built_at_node_count: AtomicUsize::new(0),
+            scann_index: parking_lot::Mutex::new(None),
+            scann_built_at_node_count: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();

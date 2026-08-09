@@ -71,8 +71,29 @@ impl VantaEmbedded {
     ///
     /// db.close().expect("close database");
     /// ```
-    #[tracing::instrument(skip(self, request), err)]
     pub fn search(&self, request: VantaMemorySearchRequest) -> Result<Vec<VantaMemorySearchHit>> {
+        self.search_impl(request, None)
+    }
+
+    /// Same as [`search`](Self::search) with an explicit index backend override
+    /// for the dense-vector portion of the query.
+    ///
+    /// `method` accepts `Ivf`, `Scann`, `Flat` or `Hnsw`. `None` (default)
+    /// keeps the automatic engine routing completely untouched.
+    pub fn search_with_method(
+        &self,
+        request: VantaMemorySearchRequest,
+        method: Option<crate::index::IndexType>,
+    ) -> Result<Vec<VantaMemorySearchHit>> {
+        self.search_impl(request, method)
+    }
+
+    #[tracing::instrument(skip(self, request), err)]
+    fn search_impl(
+        &self,
+        request: VantaMemorySearchRequest,
+        method: Option<crate::index::IndexType>,
+    ) -> Result<Vec<VantaMemorySearchHit>> {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
 
@@ -120,6 +141,7 @@ impl VantaEmbedded {
                         &request.filters,
                         budget,
                         request.distance_metric,
+                        method,
                     )?;
                     let text_ranks = debug::rank_map(&lexical_hits);
                     let vector_ranks = debug::rank_map(&vector_hits);
@@ -183,6 +205,7 @@ impl VantaEmbedded {
                         &request.filters,
                         budget,
                         request.distance_metric,
+                        method,
                     )?;
                     let sparse_hits = self.sparse_memory_search(
                         &request.namespace,
@@ -202,6 +225,7 @@ impl VantaEmbedded {
                         &request.filters,
                         request.top_k,
                         request.distance_metric,
+                        method,
                     )?;
                     let vector_ranks = debug::rank_map(&hits);
                     (hits, BTreeMap::new(), vector_ranks)
@@ -247,6 +271,7 @@ impl VantaEmbedded {
                     request.top_k,
                     request.distance_metric,
                     request.query_sparse.as_ref(),
+                    method,
                 )
             }
             (Some(text_query), false, true) => {
@@ -282,6 +307,7 @@ impl VantaEmbedded {
                     &request.filters,
                     budget,
                     request.distance_metric,
+                    None,
                 )?;
                 let sparse_hits = self.sparse_memory_search(
                     &request.namespace,
@@ -301,6 +327,7 @@ impl VantaEmbedded {
                     &request.filters,
                     request.top_k,
                     request.distance_metric,
+                    method,
                 )
             }
             (None, false, true) => {
@@ -589,6 +616,7 @@ impl VantaEmbedded {
         filters: &VantaMemoryMetadata,
         top_k: usize,
         distance_metric: crate::node::DistanceMetric,
+        method: Option<crate::index::IndexType>,
     ) -> Result<Vec<VantaMemorySearchHit>> {
         if query_vector.is_empty() || top_k == 0 {
             return Ok(Vec::new());
@@ -635,15 +663,20 @@ impl VantaEmbedded {
             // OLD-21: decide which index backend this query should route through
             // (Flat / IVF / HNSW). `select_index_strategy` returns the single
             // authority for the decision; the metric lets operators observe it.
-            // `search_nearest` executes the matching backend internally via the
-            // index's `flat_threshold` + `index_type` — no duplicate fork here.
-            let routing = CostEstimator::new(&engine).select_index_strategy();
+            // A per-search `method` override (FEAT-04) takes precedence; without
+            // one, `search_nearest` executes the matching backend internally via
+            // the index's `flat_threshold` + `index_type`.
+            let routing =
+                method.unwrap_or_else(|| CostEstimator::new(&engine).select_index_strategy());
             crate::metrics::record_vector_index_routing(routing);
             // After LSM compaction, nodes may reside on any level (L0..L3).
             // Pass `None` to force HNSW to use inline vec_data for distance
             // computation — this is correct for all levels since `get()` later
             // resolves the packed offset to the right segment.
-            index.search(query_vector, &query_mask, budget, None, distance_metric)
+            match method {
+                Some(m) => index.search_with_method(m, query_vector, &query_mask, budget),
+                None => index.search(query_vector, &query_mask, budget, None, distance_metric),
+            }
         };
 
         let mut hits = Vec::with_capacity(top_k);
@@ -802,6 +835,7 @@ impl VantaEmbedded {
         top_k: usize,
         distance_metric: crate::node::DistanceMetric,
         query_sparse: Option<&crate::node::SparseVector>,
+        method: Option<crate::index::IndexType>,
     ) -> Result<Vec<VantaMemorySearchHit>> {
         let started = Instant::now();
         if top_k == 0 {
@@ -811,8 +845,14 @@ impl VantaEmbedded {
 
         let budget = crate::planner::hybrid_candidate_budget(top_k);
         let lexical_hits = self.lexical_search(namespace, text_query, filters, budget)?;
-        let vector_hits =
-            self.vector_memory_search(namespace, query_vector, filters, budget, distance_metric)?;
+        let vector_hits = self.vector_memory_search(
+            namespace,
+            query_vector,
+            filters,
+            budget,
+            distance_metric,
+            method,
+        )?;
         let mut hits = match query_sparse {
             Some(query_sparse) => {
                 let sparse_hits =
@@ -918,6 +958,7 @@ impl VantaEmbedded {
                     &request.filters,
                     budget,
                     request.distance_metric,
+                    None,
                 )?;
                 let text_ranks = debug::rank_map(&lexical_hits);
                 let vector_ranks = debug::rank_map(&vector_hits);
@@ -985,6 +1026,7 @@ impl VantaEmbedded {
                     &request.filters,
                     budget,
                     request.distance_metric,
+                    None,
                 )?;
                 let sparse_hits = self.sparse_memory_search(
                     &request.namespace,
@@ -1010,6 +1052,7 @@ impl VantaEmbedded {
                     &request.filters,
                     request.top_k,
                     request.distance_metric,
+                    None,
                 )?;
                 let vector_ranks = debug::rank_map(&hits);
                 (
@@ -1283,6 +1326,7 @@ impl VantaEmbedded {
                     &request.filters,
                     budget,
                     request.distance_metric,
+                    None,
                 )?;
                 let text_candidates = lexical_hits.len();
                 let vector_candidates = vector_hits.len();
@@ -1357,6 +1401,7 @@ impl VantaEmbedded {
                     &request.filters,
                     budget,
                     request.distance_metric,
+                    None,
                 )?;
                 let sparse_hits = self.sparse_memory_search(
                     &request.namespace,
@@ -1384,6 +1429,7 @@ impl VantaEmbedded {
                     &request.filters,
                     request.top_k,
                     request.distance_metric,
+                    None,
                 )?;
                 Ok(VantaMemorySearchDebugReport {
                     route: "vector-only".to_string(),
@@ -2245,7 +2291,14 @@ mod tests {
         );
 
         let hits = db
-            .vector_memory_search("test", &[0.1, 0.2], &filters, 5, DistanceMetric::Cosine)
+            .vector_memory_search(
+                "test",
+                &[0.1, 0.2],
+                &filters,
+                5,
+                DistanceMetric::Cosine,
+                None,
+            )
             .expect("pre-filter search");
         assert!(hits.is_empty(), "no records match 'nonexistent_stuff'");
     }
@@ -2275,7 +2328,14 @@ mod tests {
 
         // Query close to [0.0, 0.1] (k0's vector) so k0 "red" ranks first.
         let hits = db
-            .vector_memory_search("test", &[0.0, 0.1], &filters, 5, DistanceMetric::Cosine)
+            .vector_memory_search(
+                "test",
+                &[0.0, 0.1],
+                &filters,
+                5,
+                DistanceMetric::Cosine,
+                None,
+            )
             .expect("in-filter search");
         assert!(!hits.is_empty(), "should find k0 (red)");
         assert_eq!(
@@ -2373,7 +2433,7 @@ mod tests {
         );
 
         let hits = db
-            .vector_memory_search("test", &query, &filters, 10, DistanceMetric::Cosine)
+            .vector_memory_search("test", &query, &filters, 10, DistanceMetric::Cosine, None)
             .expect("search with metadata filter");
         assert_eq!(hits.len(), 1, "only engineering doc should match");
         assert_eq!(hits[0].record.key, "doc1");
@@ -2407,6 +2467,7 @@ mod tests {
                 &VantaMemoryMetadata::new(),
                 5,
                 DistanceMetric::Cosine,
+                None,
             )
             .expect("search without filters");
         assert!(!hits.is_empty(), "should find both records");

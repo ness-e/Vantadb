@@ -39,6 +39,9 @@ class SearchRequest:
         text_query: Optional full-text query for BM25 lexical search.
         top_k: Maximum number of hits to return (default 10).
         distance_metric: ``"cosine"`` (default) or ``"euclidean"``.
+        method: Optional index backend override: ``"ivf"``, ``"scann"``,
+            ``"hnsw"`` or ``"flat"``. Defaults to the engine's configured
+            routing.
         explain: Whether to include search explanations (default False).
 
     Example::
@@ -61,6 +64,7 @@ class SearchRequest:
     text_query: str | None = None
     top_k: int = 10
     distance_metric: str | None = None
+    method: str | None = None
     explain: bool = False
 
     def asdict(self):
@@ -110,6 +114,7 @@ class AsyncVantaDB:
         text_query: str | None = None,
         top_k: int = 10,
         distance_metric: str | None = None,
+        method: str | None = None,
         explain: bool = False,
     ):
         return await self._run(
@@ -120,6 +125,7 @@ class AsyncVantaDB:
             text_query,
             top_k,
             distance_metric,
+            method,
             explain,
         )
 

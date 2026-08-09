@@ -75,6 +75,7 @@ class VantaDB:
         text_query: str | None = None,
         top_k: int = 10,
         distance_metric: str | None = None,
+        method: str | None = None,
         explain: bool = False,
     ) -> list[VantaSearchHit]: ...
     def list_memory(

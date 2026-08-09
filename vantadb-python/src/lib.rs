@@ -12,6 +12,7 @@ use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyModuleMethods, PyTuple,
 use std::collections::HashMap;
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use vantadb::config::VantaConfig;
+use vantadb::index::IndexType;
 use vantadb::metadata;
 use vantadb::sdk::{
     VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest,
@@ -926,7 +927,7 @@ impl VantaDB {
     ///     True
     ///     ```
     // PyO3 keyword argument binding requires matching function parameters in Rust.
-    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, explain=false))]
+    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false))]
     #[allow(clippy::too_many_arguments)]
     fn search_memory(
         &self,
@@ -937,6 +938,7 @@ impl VantaDB {
         text_query: Option<String>,
         top_k: usize,
         distance_metric: Option<&str>,
+        method: Option<&str>,
         explain: bool,
     ) -> PyResult<Vec<VantaPySearchHit>> {
         let _g = enter(&self.op_gate)?;
@@ -951,6 +953,7 @@ impl VantaDB {
             }
             None => DistanceMetric::Cosine,
         };
+        let method = parse_search_method(method);
 
         let request = VantaMemorySearchRequest {
             namespace: namespace.to_string(),
@@ -965,7 +968,11 @@ impl VantaDB {
 
         let engine = self.engine.clone();
         // PERF-24: GIL RELEASED — pure Rust distance computation + HNSW traversal
-        let hits = py.detach(move || engine.search(request).map_err(map_vanta_error))?;
+        let hits = py.detach(move || {
+            engine
+                .search_with_method(request, method)
+                .map_err(map_vanta_error)
+        })?;
 
         // Pure Rust struct wrapping — no Python objects created
         hits.into_iter()
@@ -1375,7 +1382,7 @@ impl VantaDB {
     ) -> PyResult<Vec<Vec<VantaPySearchHit>>> {
         let _g = enter(&self.op_gate)?;
         // PERF-24: parse all requests (needs GIL) before detach
-        let parsed: PyResult<Vec<VantaMemorySearchRequest>> = requests
+        let parsed: PyResult<Vec<(VantaMemorySearchRequest, Option<IndexType>)>> = requests
             .iter()
             .map(|obj| self.parse_search_request(obj, py, top_k))
             .collect();
@@ -1391,8 +1398,10 @@ impl VantaDB {
             parsed
                 .into_par_iter()
                 .enumerate()
-                .try_for_each(|(index, request)| {
-                    let hits = engine.search(request).map_err(map_vanta_error)?;
+                .try_for_each(|(index, (request, method))| {
+                    let hits = engine
+                        .search_with_method(request, method)
+                        .map_err(map_vanta_error)?;
                     results_ref.lock().map_err(|_| {
                         PyRuntimeError::new_err("search_batch_requests: result mutex poisoned")
                     })?[index] = hits
@@ -1808,7 +1817,7 @@ impl VantaDB {
         obj: &Bound<'_, PyAny>,
         py: Python<'_>,
         default_top_k: usize,
-    ) -> PyResult<VantaMemorySearchRequest> {
+    ) -> PyResult<(VantaMemorySearchRequest, Option<IndexType>)> {
         let namespace: String = Self::request_field(obj, "namespace")?
             .ok_or_else(|| {
                 PyValueError::new_err("search request missing required field 'namespace'")
@@ -1856,16 +1865,44 @@ impl VantaDB {
             None => false,
         };
 
-        Ok(VantaMemorySearchRequest {
-            namespace,
-            query_vector,
-            query_sparse: None,
-            filters,
-            text_query,
-            top_k,
-            distance_metric,
-            explain,
-        })
+        let method = match Self::request_field(obj, "method")? {
+            Some(v) => parse_search_method(Some(&v.extract::<String>()?)),
+            None => None,
+        };
+
+        Ok((
+            VantaMemorySearchRequest {
+                namespace,
+                query_vector,
+                query_sparse: None,
+                filters,
+                text_query,
+                top_k,
+                distance_metric,
+                explain,
+            },
+            method,
+        ))
+    }
+}
+
+/// Parse a per-search index backend override from a Python string.
+/// Mirrors the `distance_metric` fallback pattern: unknown values warn
+/// and fall back to the engine's configured routing.
+fn parse_search_method(value: Option<&str>) -> Option<IndexType> {
+    match value {
+        None => None,
+        Some("ivf") => Some(IndexType::Ivf),
+        Some("scann") => Some(IndexType::Scann),
+        Some("hnsw") => Some(IndexType::Hnsw),
+        Some("flat") => Some(IndexType::Flat),
+        Some(other) => {
+            tracing::warn!(
+                "Unknown search method \"{}\" — falling back to engine routing. Known values: ivf, scann, hnsw, flat",
+                other
+            );
+            None
+        }
     }
 }
 

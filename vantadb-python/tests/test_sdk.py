@@ -276,6 +276,27 @@ class TestPersistentMemoryApi:
         )
         assert [hit.key for hit in phrase_hits] == ["phrase-exact"], f"expected ['phrase-exact'], got {[hit.key for hit in phrase_hits]}"
 
+    def test_search_memory_method_override(self):
+        """Per-search index backend override (method=) must route correctly (FEAT-04)."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("agent/main", "k0", "identical", vector=[1.0, 0.0, 0.0])
+        db.put("agent/main", "k1", "opposite", vector=[-1.0, 0.0, 0.0])
+        db.put("agent/main", "k2", "perpendicular", vector=[0.0, 1.0, 0.0])
+
+        for method in ("ivf", "scann", "hnsw", "flat", None):
+            hits = db.search_memory("agent/main", [1.0, 0.0, 0.0], top_k=3, method=method)
+            assert len(hits) == 3, f"method={method}: expected 3 hits, got {len(hits)}"
+            assert hits[0].key == "k0", f"method={method}: expected k0 first, got {hits[0].key}"
+
+        # Unknown method falls back to engine routing without error.
+        hits = db.search_memory("agent/main", [1.0, 0.0, 0.0], top_k=3, method="quantum")
+        assert hits[0].key == "k0", f"unknown method: expected k0 first, got {hits[0].key}"
+
+        # Batch search requests carry the method override through as well.
+        requests = [vanta.SearchRequest("agent/main", [1.0, 0.0, 0.0], top_k=3, method="scann")]
+        results = db.search_batch_requests(requests)
+        assert results[0][0].key == "k0", f"batch scann: expected k0 first, got {results[0][0].key}"
+
     def test_memory_close_and_reopen(self):
         """Memory records should survive flush/close/reopen."""
         path = _unique_path()
