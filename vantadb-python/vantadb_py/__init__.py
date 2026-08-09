@@ -178,8 +178,29 @@ class AsyncVantaDB:
             self._sync.insert, id, content, vector, fields
         )
 
-    async def put_batch(self, entries):
-        return await self._run(self._sync.put_batch, entries)
+    async def put_batch(
+        self,
+        entries=None,
+        *,
+        keys=None,
+        vectors=None,
+        payloads=None,
+        metadatas=None,
+        namespace=None,
+        namespaces=None,
+        ttls=None,
+    ):
+        return await self._run(
+            self._sync.put_batch,
+            entries,
+            keys,
+            vectors,
+            payloads,
+            metadatas,
+            namespace,
+            namespaces,
+            ttls,
+        )
 
     async def put_batch_raw(
         self,

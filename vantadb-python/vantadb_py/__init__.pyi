@@ -43,8 +43,16 @@ class VantaDB:
         vector: Any | None = None,
         ttl_ms: int | None = None,
     ) -> dict: ...
-    def put_batch(
-        self, entries: list[tuple[str, str, str, dict | None, Any | None, int | None]]
+def put_batch(
+        self,
+        entries: list[tuple[str, str, str, dict | None, Any | None, int | None]] | None = None,
+        keys: list[str] | None = None,
+        vectors: Any | None = None,
+        payloads: list[str] | None = None,
+        metadatas: list[dict | None] | None = None,
+        namespace: str | None = None,
+        namespaces: list[str] | None = None,
+        ttls: list[int | None] | None = None,
     ) -> list[dict]: ...
     def put_batch_raw(
         self,

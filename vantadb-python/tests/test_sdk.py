@@ -549,6 +549,36 @@ class TestNumPyIntegration:
         fetched = db.get_memory("ns1", "d")
         assert fetched["payload"] == "delta", f"expected 'delta', got {fetched['payload']}"
 
+    def test_put_batch_two_namespaces_isolated(self):
+        """ERR-030: one batch spanning two namespaces must route each record
+        into its own namespace — no cross-namespace data leak."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        records = db.put_batch(
+            entries=None,
+            keys=["k1", "k2"],
+            vectors=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            payloads=["from A", "from B"],
+            namespaces=["nsA", "nsB"],
+        )
+        assert [r["namespace"] for r in records] == ["nsA", "nsB"]
+
+        # Read-back isolation: nsA holds only its own record, likewise nsB.
+        keys_a = [r["key"] for r in db.list_memory("nsA", limit=100)["records"]]
+        keys_b = [r["key"] for r in db.list_memory("nsB", limit=100)["records"]]
+        assert keys_a == ["k1"], f"nsA leaked records: {keys_a}"
+        assert keys_b == ["k2"], f"nsB leaked records: {keys_b}"
+
+    def test_put_batch_namespaces_length_mismatch(self):
+        """ERR-030: per-record namespaces column must match keys length."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        with pytest.raises(ValueError):
+            db.put_batch(
+                entries=None,
+                keys=["k1", "k2"],
+                vectors=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+                namespaces=["nsA"],
+            )
+
     def test_put_batch_empty(self):
         """put_batch with empty list should return empty list."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)

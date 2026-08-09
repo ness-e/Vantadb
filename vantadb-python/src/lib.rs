@@ -306,14 +306,23 @@ impl VantaDB {
     ///                 payloads=["p1", "p2"], metadatas=[{"f": "v"}, None],
     ///                 namespace="ns", ttls=[None, 1000])
     ///    ```
+    ///    A batch is single-namespace by default: every record goes to
+    ///    ``namespace`` (or ``"default"`` when omitted). To route records of one
+    ///    batch into different namespaces, pass the parallel per-record column
+    ///    ``namespaces`` (length must equal ``keys``); it overrides
+    ///    ``namespace`` for each record:
+    ///    ```
+    ///    db.put_batch(keys=["k1", "k2"], vectors=[[0.1]*384, [0.2]*384],
+    ///                 namespaces=["ns1", "ns2"])
+    ///    ```
     ///
     /// Returns a list of ``VantaMemoryRecord`` objects, up to ~5x faster
     /// than sequential ``put()`` for large batches.
     #[deprecated(
-        note = "use keyword arguments (keys=..., vectors=..., payloads=..., metadatas=..., namespace=..., ttls=...) instead"
+        note = "use keyword arguments (keys=..., vectors=..., payloads=..., metadatas=..., namespace=..., namespaces=..., ttls=...) instead"
     )]
     #[allow(deprecated)]
-    #[pyo3(signature = (entries, keys=None, vectors=None, payloads=None, metadatas=None, namespace=None, ttls=None))]
+    #[pyo3(signature = (entries, keys=None, vectors=None, payloads=None, metadatas=None, namespace=None, namespaces=None, ttls=None))]
     fn put_batch(
         &self,
         py: Python,
@@ -323,6 +332,7 @@ impl VantaDB {
         payloads: Option<Vec<String>>,
         metadatas: Option<Vec<Option<HashMap<String, String>>>>,
         namespace: Option<String>,
+        namespaces: Option<Vec<String>>,
         ttls: Option<Vec<Option<u64>>>,
     ) -> PyResult<Vec<VantaPyMemoryRecord>> {
         let _g = enter(&self.op_gate)?;
@@ -427,6 +437,15 @@ impl VantaDB {
                 )));
             }
         }
+        if let Some(ref nss) = namespaces {
+            if nss.len() != n {
+                return Err(PyValueError::new_err(format!(
+                    "namespaces.len() ({}) must equal keys.len() ({})",
+                    nss.len(),
+                    n
+                )));
+            }
+        }
 
         let ns = namespace.unwrap_or_else(|| "default".to_string());
         let mut inputs = Vec::with_capacity(n);
@@ -435,7 +454,15 @@ impl VantaDB {
                 Some(p) => p[i].clone(),
                 None => String::new(),
             };
-            let mut input = VantaMemoryInput::new(ns.clone(), keys[i].clone(), payload);
+            // ERR-030: per-record namespace routing. A batch is single-namespace
+            // by default (`namespace`, falling back to "default"), but each
+            // record's intended namespace is honored when the parallel
+            // per-record `namespaces` column is supplied.
+            let ns_i = match &namespaces {
+                Some(nss) => nss[i].clone(),
+                None => ns.clone(),
+            };
+            let mut input = VantaMemoryInput::new(ns_i, keys[i].clone(), payload);
 
             if let Some(all_meta) = &metadatas {
                 if let Some(meta_dict) = &all_meta[i] {
