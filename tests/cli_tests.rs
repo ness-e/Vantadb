@@ -663,3 +663,334 @@ fn test_list_verbose() {
     let result = vantadb::cli_handlers::cmd_list(&path, "lv_ns", 10, true);
     assert!(result.is_ok());
 }
+
+// ─── count / delete-by-filter (metadata filters) ───────────────
+
+fn seed_embedded_with_meta(db_path: &str, namespace: &str, key: &str, payload: &str, color: &str) {
+    use vantadb::sdk::{VantaMemoryInput, VantaMemoryMetadata, VantaValue};
+
+    let config = vantadb::config::VantaConfig {
+        storage_path: db_path.to_string(),
+        read_only: false,
+        ..Default::default()
+    };
+    let db = vantadb::VantaEmbedded::open_with_config(config).expect("seed embedded open failed");
+    let mut metadata = VantaMemoryMetadata::new();
+    metadata.insert("color".to_string(), VantaValue::String(color.to_string()));
+    db.put(VantaMemoryInput {
+        namespace: namespace.to_string(),
+        key: key.to_string(),
+        payload: payload.to_string(),
+        metadata,
+        vector: None,
+        sparse_vector: None,
+        ttl_ms: None,
+    })
+    .expect("seed embedded put failed");
+}
+
+#[test]
+fn test_count_plain_and_json() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "cnt_ns", "a", "data");
+    seed_record(&path, "cnt_ns", "b", "data");
+    seed_record(&path, "cnt_ns", "c", "data");
+
+    let result = vantadb::cli_handlers::cmd_count(&path, "cnt_ns", None, false, false);
+    assert!(result.is_ok(), "count should succeed: {:?}", result);
+
+    let result_json = vantadb::cli_handlers::cmd_count(&path, "cnt_ns", None, true, false);
+    assert!(
+        result_json.is_ok(),
+        "count json should succeed: {:?}",
+        result_json
+    );
+}
+
+#[test]
+fn test_count_with_filter() {
+    let (_dir, path) = setup_temp_db();
+    seed_embedded_with_meta(&path, "cntf_ns", "k1", "payload one", "red");
+    seed_embedded_with_meta(&path, "cntf_ns", "k2", "payload two", "blue");
+
+    // filters AND-combined on metadata — "color == red" matches exactly 1
+    let filter = r#"{"color":{"$eq":"red"}}"#;
+    let result = vantadb::cli_handlers::cmd_count(&path, "cntf_ns", Some(filter), true, false);
+    assert!(
+        result.is_ok(),
+        "count with filter should succeed: {:?}",
+        result
+    );
+
+    // unmatched filter is a no-op path, not an error
+    let no_match = r#"{"color":{"$eq":"green"}}"#;
+    let result = vantadb::cli_handlers::cmd_count(&path, "cntf_ns", Some(no_match), false, false);
+    assert!(result.is_ok(), "count with unmatched filter: {:?}", result);
+}
+
+#[test]
+fn test_delete_by_filter() {
+    let (_dir, path) = setup_temp_db();
+    seed_embedded_with_meta(&path, "dbf_ns", "k1", "payload one", "red");
+    seed_embedded_with_meta(&path, "dbf_ns", "k2", "payload two", "blue");
+
+    // delete the red record via metadata filter
+    let filter = r#"{"color":{"$eq":"red"}}"#;
+    let result = vantadb::cli_handlers::cmd_delete_by_filter(&path, "dbf_ns", filter, false);
+    assert!(
+        result.is_ok(),
+        "delete-by-filter should succeed: {:?}",
+        result
+    );
+
+    // red record gone, blue record still present
+    let engine = vantadb::cli_handlers::open_database(&path, true).unwrap();
+    let red_id = vantadb::cli_handlers::memory_node_id("dbf_ns", "k1");
+    let blue_id = vantadb::cli_handlers::memory_node_id("dbf_ns", "k2");
+    assert!(
+        engine.get(red_id).unwrap().is_none(),
+        "red should be deleted"
+    );
+    assert!(engine.get(blue_id).unwrap().is_some(), "blue should remain");
+}
+
+#[test]
+fn test_delete_by_filter_no_match() {
+    let (_dir, path) = setup_temp_db();
+    seed_embedded_with_meta(&path, "dbfn_ns", "k1", "payload", "red");
+
+    let filter = r#"{"color":{"$eq":"purple"}}"#;
+    let result = vantadb::cli_handlers::cmd_delete_by_filter(&path, "dbfn_ns", filter, false);
+    assert!(
+        result.is_ok(),
+        "no-match delete should be a no-op: {:?}",
+        result
+    );
+
+    let engine = vantadb::cli_handlers::open_database(&path, true).unwrap();
+    let id = vantadb::cli_handlers::memory_node_id("dbfn_ns", "k1");
+    assert!(engine.get(id).unwrap().is_some(), "record must survive");
+}
+
+#[test]
+fn test_delete_by_filter_missing_db() {
+    let result = vantadb::cli_handlers::cmd_delete_by_filter("./ghost_dir", "ns", "{}", false);
+    assert!(result.is_ok(), "missing db should warn, not error");
+}
+
+#[test]
+fn test_count_missing_db() {
+    let result = vantadb::cli_handlers::cmd_count("./ghost_dir", "ns", None, false, false);
+    assert!(result.is_ok(), "missing db should warn, not error");
+}
+
+// ─── vector similarity / multi-namespace search ────────────────
+
+#[test]
+fn test_similar_to_key() {
+    let (_dir, path) = setup_temp_db();
+    vantadb::cli_handlers::cmd_put(
+        &path,
+        "sim_ns",
+        "v1",
+        "vector record",
+        Some("1.0,2.0,3.0"),
+        false,
+    )
+    .expect("put with vector failed");
+
+    let result = vantadb::cli_handlers::cmd_similar_to_key(&path, "sim_ns", "v1", 5, false);
+    assert!(
+        result.is_ok(),
+        "similar-to-key should succeed: {:?}",
+        result
+    );
+
+    let result_json = vantadb::cli_handlers::cmd_similar_to_key(&path, "sim_ns", "v1", 5, true);
+    assert!(
+        result_json.is_ok(),
+        "similar-to-key json: {:?}",
+        result_json
+    );
+}
+
+#[test]
+fn test_similar_to_key_missing_db() {
+    let result = vantadb::cli_handlers::cmd_similar_to_key("./ghost_dir", "ns", "k", 5, true);
+    assert!(result.is_ok(), "missing db should warn, not error");
+}
+
+#[test]
+fn test_search_multi() {
+    let (_dir, path) = setup_temp_db();
+    seed_embedded(&path, "m1", "r1", "apple banana");
+    seed_embedded(&path, "m2", "r2", "banana cherry");
+
+    let result = vantadb::cli_handlers::search::cmd_search_multi(
+        &path,
+        "m1,m2",
+        Some("banana"),
+        None,
+        10,
+        false,
+    );
+    assert!(result.is_ok(), "search-multi should succeed: {:?}", result);
+
+    let result_json = vantadb::cli_handlers::search::cmd_search_multi(
+        &path,
+        "m1,m2",
+        None,
+        Some("1.0,2.0,3.0"),
+        10,
+        true,
+    );
+    assert!(result_json.is_ok(), "search-multi json: {:?}", result_json);
+}
+
+#[test]
+fn test_search_multi_missing_db() {
+    let result = vantadb::cli_handlers::search::cmd_search_multi(
+        "./ghost_dir",
+        "ns1,ns2",
+        Some("q"),
+        None,
+        10,
+        true,
+    );
+    assert!(result.is_ok(), "missing db should warn, not error");
+}
+
+#[test]
+fn test_search_all() {
+    let (_dir, path) = setup_temp_db();
+    seed_embedded(&path, "sa1", "r1", "apple banana");
+    seed_embedded(&path, "sa2", "r2", "banana cherry");
+
+    let result =
+        vantadb::cli_handlers::search::cmd_search_all(&path, Some("banana"), None, 10, false);
+    assert!(result.is_ok(), "search-all should succeed: {:?}", result);
+
+    let result_json =
+        vantadb::cli_handlers::search::cmd_search_all(&path, None, Some("1.0,2.0,3.0"), 10, true);
+    assert!(result_json.is_ok(), "search-all json: {:?}", result_json);
+}
+
+#[test]
+fn test_search_all_missing_db() {
+    let result =
+        vantadb::cli_handlers::search::cmd_search_all("./ghost_dir", Some("q"), None, 10, true);
+    assert!(result.is_ok(), "missing db should warn, not error");
+}
+
+// ─── index audit / repair ──────────────────────────────────────
+
+#[test]
+fn test_audit_index() {
+    let (_dir, path) = setup_temp_db();
+    seed_embedded(&path, "aud_ns", "k1", "apple banana");
+
+    let result = vantadb::cli_handlers::cmd_audit_index(&path, None, false, false);
+    assert!(result.is_ok(), "audit-index should succeed: {:?}", result);
+
+    let result_deep = vantadb::cli_handlers::cmd_audit_index(&path, Some("aud_ns"), true, true);
+    assert!(
+        result_deep.is_ok(),
+        "audit-index deep should succeed: {:?}",
+        result_deep
+    );
+}
+
+#[test]
+fn test_repair_text_index() {
+    let (_dir, path) = setup_temp_db();
+    seed_embedded(&path, "rpr_ns", "k1", "repair me");
+
+    let result = vantadb::cli_handlers::cmd_repair_text_index(&path);
+    assert!(
+        result.is_ok(),
+        "repair-text-index should succeed: {:?}",
+        result
+    );
+}
+
+// ─── snapshot ──────────────────────────────────────────────────
+
+#[test]
+fn test_snapshot_create_and_list() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "snap_ns", "k1", "snapshot me");
+
+    let result = vantadb::cli_handlers::cmd_snapshot_create(&path, "snap1", false);
+    assert!(
+        result.is_ok(),
+        "snapshot create should succeed: {:?}",
+        result
+    );
+
+    let result = vantadb::cli_handlers::cmd_snapshot_list(&path);
+    assert!(result.is_ok(), "snapshot list should succeed: {:?}", result);
+}
+
+#[test]
+fn test_snapshot_list_empty() {
+    let (_dir, path) = setup_temp_db();
+    let result = vantadb::cli_handlers::cmd_snapshot_list(&path);
+    assert!(result.is_ok(), "snapshot list on empty db: {:?}", result);
+}
+
+// ─── wal compact / vacuum ──────────────────────────────────────
+
+#[test]
+fn test_wal_compact() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "wal_ns", "k1", "wal data");
+    seed_record(&path, "wal_ns", "k2", "more wal data");
+
+    let result = vantadb::cli_handlers::cmd_wal_compact(&path);
+    assert!(result.is_ok(), "wal compact should succeed: {:?}", result);
+}
+
+#[test]
+fn test_wal_vacuum() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "vac_ns", "k1", "to delete");
+    vantadb::cli_handlers::cmd_delete(&path, "vac_ns", "k1", false)
+        .expect("delete for vacuum failed");
+
+    let result = vantadb::cli_handlers::cmd_wal_vacuum(&path);
+    assert!(result.is_ok(), "wal vacuum should succeed: {:?}", result);
+}
+
+// ─── migrate plan / check ─────────────────────────────────────
+
+#[test]
+fn test_migrate_plan() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "mig_ns", "k1", "migrate me");
+
+    let result = vantadb::cli_handlers::cmd_migrate_plan(&path, false);
+    assert!(result.is_ok(), "migrate plan should succeed: {:?}", result);
+}
+
+#[test]
+fn test_migrate_check() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "mig_ns", "k1", "migrate check me");
+
+    let result = vantadb::cli_handlers::cmd_migrate_check(&path, false);
+    assert!(result.is_ok(), "migrate check should succeed: {:?}", result);
+}
+
+// ─── completions ───────────────────────────────────────────────
+
+#[test]
+fn test_completions_bash() {
+    // writes the completion script to stdout and returns ()
+    vantadb::cli_handlers::cmd_completions(vantadb::cli::Shell::Bash);
+}
+
+#[test]
+fn test_completions_zsh_and_powershell() {
+    vantadb::cli_handlers::cmd_completions(vantadb::cli::Shell::Zsh);
+    vantadb::cli_handlers::cmd_completions(vantadb::cli::Shell::PowerShell);
+}
