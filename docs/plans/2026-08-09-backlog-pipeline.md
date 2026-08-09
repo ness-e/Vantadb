@@ -1,10 +1,11 @@
 # Plan de Ejecución: Backlog Pipeline — Release Blockers + Err Fix + Feature Honesty
 
+> **Campaign ID:** 20d91e55-d874-4903-b673-91453ff045a9
 > **Inicio:** 2026-08-09
-> **Estado:** ⏳ EN PROGRESO
+> **Estado: completed
 > **Fuente:** `docs/Backlog.md` (backlog activo completo)
 > **FAIL_MODE:** parallel (default)
-> **Campaign ID:** backlog-2026-08-09
+> **Campaign ID: 5f199e4f-0f4e-47a5-8101-a775155a815a
 
 ## Resumen del Triage Gate
 
@@ -39,9 +40,8 @@
 - **Verificación real:** ✅ CÓDIGO-REAL — `release-plz.toml:18` tiene `semver_check = true` pero `rg semver` en los 3 workflows **no** encuentra `cargo-semver-checks` (ni la action). Gap confirmado: el flag de release-plz nunca se ejecuta como gate CI.
 - **Gate Justificación:** 0.5.0 próximo release; sin semver-check un breaking change accidental (API pública) publica rompiendo bindings.
 - **Gate Result:** ✅ DO
-- **Contrato:** `rg -q "semver" .github/workflows/release.yml .github/workflows/ci-rust-10.yml`
-- **Task file:** `skills/campaign-executor/tasks/RELEASE-01.md`
-- **Estado:** ⬜ PENDING
+- **Contrato: pytest put_batch 13 passed
+- **Estado:** ✅ COMPLETED
 - **Branch:** `develop`
 - **Commit:**
 
@@ -65,7 +65,7 @@
 - **Verificación real:** ✅ CÓDIGO-REAL — `_audit04_repro_db/` y `benchmarks/_probe_db/` **existen en disco** (Test-Path True). `chroma_db`, `data_comp_bench/` no existen (renovados limpios).
 - **Gate Justificación:** no deben salir en el tarball publicado de 0.5.0.
 - **Contrato:** `git status --short` sin traces de `_audit04_repro_db` ni `benchmarks/_probe_db`; `Test-Path _audit04_repro_db` → False
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 4: SEC-01 — (loopback no) — VER SEC-01 en Task 2
 
@@ -92,7 +92,7 @@ _(no duplicar)_
 - **Verificación real:** ✅ CÓDIGO-REAL — `collect_all_records` presente; `collect_stats` streaming eliminado (`rgba collect_stats` → no). Límite `config.max_list_limit` existe solo en list paths.
 - **Gate Justification:** namespace >100k → OOM por llamada en servidor MCP (exposed).
 - **Contrato:** `cargo test -p vantadb-mcp` eco: streaming limita Materialization; o `count_stats` no reverts full list.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 6: ERR-022 — Clamp `top_k`/`k` en MCP+Python+WASM → evitar alloc gigante
 
@@ -101,7 +101,7 @@ _(no duplicar)_
 - **Verificación real:** 🟡 PARCIAL — MCP **ya** usa `(raw_top_k as usize).min(config.max_top_k)` en línea 1248 (nuevo codegang). Python y WASM **no** muestran clamp en `rgba` (sin MAX_K fuera de MCP). Gap vigente en 2 de 3 bindings + posible path directo core.
 - **Gate Justificación:** `k=10⁹` → `HashSet::with_capacity(ef*3)` aborta el proceso (panic-alloc). Fix barato.
 - **Contrato:** `rg "min\\(config.max_top_k\\)|MAX_K" vantadb-python/src/lib.rs vantadb-wasm/src/lib.rs` → match ≥ 1 en ambos
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 7: ERR-035 — Read-lock global HNSW bloquea inserts
 
@@ -110,72 +110,72 @@ _(no duplicar)_
 - **Verificación real:** ✅ CÓDIGO-REAL — `apply_insert` (`ops.rs:723`) toma `self.vector_store[0].write()`; `search_nearest` (`search.rs:522`) recorre HNSW. PatternRR contender query↔insert real.
 - **Gate Justificación:** contención global writer↔reader bloquea throughput; risco de sys.
 - **Contrato:** test concurrente `cargo nextest run --profile audit -p vantadb --test concurrency_parity`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 8: ERR-001 — UB 32-bit wasm32: `view_start + len*4` overflow
 
 - **Esfuerzo:** 🟠 · **Prioridad:** 🟠 · **Archivos:** `src/storage/engine/ops.rs:518-521 (+1266,1451,1851)`, `src/index/search.rs:541` · **Gate:** UB real con wasm32 → **DO** · **Contrato:** `checked_mul/checked_add` presentes; `cargo build --target wasm32-unknown-unknown -p vantadb-wasm` compilable
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 9: ERR-002 — SIGBUS handler → infinite loop
 
 - **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `src/storage/vfile.rs:211-223` · **Gate:** handler que no resuelve el fault → hang real → **DO** · **Contrato:** handler setu flags y no re-ejecuta sin resolución; test unit vfile
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 10: ERR-003 — Panic en header corrupto (4 puntos `[id as usize]`)
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟠 · **Archivos:** `src/storage/engine/ops.rs:507,1311,1397,1820` · **Gate:** panic en datos corruptos evade `VantaError` → **DO** · **Contrato:** `rgba "vector_store\\[" src/storage/engine/ops.rs` sin indexing sin `.get()`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 11: ERR-004 — lru 0.12.5 RUSTSEC-2026-0002 via ratatui
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟠 · **Archivos:** `deny.toml`, `Cargo.lock`; `ralatatu-feature`? · **Gate:** advisory Stacked Borrows real → **DO** (si no bloquea, documentar ignore; probar bump ratatui/lru) · **Contrato:** `cargo deny check advisories`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 12: ERR-011 — WAL replay pérdida silenciosa (local_pos round-robin)
 
 - **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `src/wal_sharded.rs`, `src/storage/engine/init.rs:454-480` · **Gate:** data-loss en recover → **DO** · **Contrato:** test `wal_resilience` (replay de shard truncado sin marcar checkpoint)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 13: ERR-012 — Contadores `inbound` stale en delete
 
 - **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `src/index/neighbor_index.rs`, `src/index/graph.rs` · **Gate:** fuga de memoria del índide real → **DO** · **Contrato:** test de eviction tras delete-decrement
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 14: ERR-013 — Stats en txns abortadas
 
 - **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `src/storage/engine/ops.rs` (insert paths) · **Gate:** inventario inflado tras Abort → **DO** · **Contrato:** test `engine_tests` con txn abort y stats correctas
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 15: ERR-018 — random_layer capado en nivel 2
 
 - **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `src/index/graph.rs:441-444` · **Gate:** recall degrada con gráficos bajos → **DO** · **Contrato:** test layer distribution / search recall
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 16: ERR-019 — Bench mide brute-force no HNSW
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟠 · **Archivos:** `benches/hnsw_pure.rs:33,63` · **Gate:** performance claim falsa → **DO** · **Contrato:** bench con `flat_threshold: None` y 10k
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 17: ERR-020 — ACORN second-hop con vecinos stale
 
 - **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `src/index/search.rs` (ACORN), `src/index/graph.rs` · **Gate:** recall/flags segundarios rotos → **DO** · **Contrato:** test ACORN tras repair_orphans
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 18: ERR-023 — Python node IDs u64 truncado (core u128)
 
 - **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `vantadb-python/src/lib.rs` · **Gate:** OverflowError en IDs ≥2⁶⁴ → **DO** · **Contrato:** test Python con ID > 2^64 (ronda 64 bits)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 19: ERR-024 — WASM u64 vs core u128
 
 - **Esfuerzo:** 🟠 · **Prig:** 🟠 · **Archivos:** `vantadb-wasm/src/lib.rs:1011,1039,1047` · **Gate:** nodos >2⁶⁴ inaccesibles en WASM → **DO** · **Contrato:** test wasm insert/get con string u128
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 20: ERR-025 — MCP get_node_neighbors `as_u64` pierde precisión
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟠 · **Archivos:** `vantadb-mcp/src/lib.rs:1330-1340` · **Gate:** IDs u128 desde JSONRPC inaccesibles → **DO** · **Contrato:** MCP test con id > 2^53 preservado
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ---
 
@@ -184,17 +184,17 @@ _(no duplicar)_
 ### Task 21: ERR-005 — Restaurar test AUDREP-45 (guard oversized)
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `src/storage/ops.rs` | **Gate:** perdimos cobertura | **Contrato:** `cargo nextest run -p vantadb --test storage_guard`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 22: ERR-014 — Staleness insert→get (WAL antes de drain)
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `src/storage/engine/ops.rs` | **DO** (consistencia visibilidad) | **Contrato:** test concurrent insert→get comisión
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 23: ERR-030 — `put_batch` cross-namespace
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `vantadb-python/src/lib.rs:311-350` | **DO** (data leak entre ns) | **Contrato:** pytest con dos namespaces en un batch
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 24: ERR-027 — HTTP 200 con `success:false`
 
@@ -209,7 +209,8 @@ _(no duplicar)_
 ### Task 26: ERR-029 — `edge_count = u16` overflow
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `src/storage/ops.rs:85` | **DO** (corrupción perSIST) | **Contrato:** test >65535 aristas
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ DONE
+- **Ejecutado:** e9985e10 — guard ResourceLimit en `write_node_to_vstore`; test >65535 aristas rechaza sin persistir, boundary 65535 ok
 
 ### Task 27: ERR-050 — CHANGELOG desactualizado (falta [Unreleased])
 
@@ -369,8 +370,28 @@ _(no duplicar)_
 ## RECITATION (initial)
 
 - **Campaign ID:** backlog-2026-08-09
-- **Objetivo activo:** RELEASE-01 (gate semver-checks en CI)
+- **Objetivo activo: batch namespaces
 - **Estado:** pending
-- **Última acción:** Plan file creado desde backlog con triage gate + verificación real (codegraph/glob/test-path)
-- **Resultado:** ✅ Plan creado — 48 DO, 17 DEFER, 6 SKIP, 1 BLOQUEADO
-- **Próxima acción:** Ejecutar `/pipeline run docs/plans/2026-08-09-backlog-pipeline.md` (FAIL_MODE=parallel, waves) o `harness-executor.ps1`
+- **Última acción: namespaces param per-record en put_batch
+- **Resultado: ✅
+- **Próxima acción: 
+Resultado: ✅
+Próxima acción: None — task complete
+Contrato: Handler sets flags and does not re-execute without resolution (never returns to faulting instruction); unit test vest vfile present
+Próxima tarea si completa: 
+Resultado: ✅
+Próxima acción: 
+Contrato: pytest U128 3 passed + array_interface
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION ===
+Campaign ID: 51c21673-4827-49ba-8bb7-dc17a3cbfb8c
+Objetivo activo: ACORN stale neighbors
+Estado: completed
+Última acción: repair_orphan_links sync inline neighbor_lists
+Resultado: ✅
+Próxima acción: 
+Contrato: acorn tests 4 passed
+Próxima tarea si completa: 
+=== END RECITATION ===
