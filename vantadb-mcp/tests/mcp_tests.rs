@@ -740,7 +740,10 @@ fn test_collection_stats_large_namespace_bounded() {
                 "namespace": "big_ns",
                 "key": format!("k{}", i),
                 "payload": format!("record {}", i),
-                "vector": [i as f32, 0.0, 0.0]
+                // +1.0 keeps every vector non-zero-norm: i==0 would otherwise
+                // produce [0.0,0.0,0.0], rejected by the zero-norm guard
+                // (AUDREP-27) under cosine distance.
+                "vector": [i as f32 + 1.0, 0.0, 0.0]
             }
         }));
         handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();

@@ -364,69 +364,6 @@ fn collect_all_records(
     Ok(all_records)
 }
 
-/// Aggregate stats computed without materializing every record (AUDREP-21 OOM fix).
-struct CollectionStatsAggregate {
-    total_records: usize,
-    total_bytes: usize,
-    vector_count: usize,
-    created_at_ms: u64,
-}
-
-/// Stream cursor-paginated pages of a namespace and fold each page into aggregate
-/// counters, dropping the page before fetching the next one. Peak memory stays
-/// bounded by `config.max_list_limit` regardless of namespace size, instead of
-/// holding every record in memory at once.
-fn collect_stats(
-    embedded: &vantadb::VantaEmbedded,
-    namespace: &str,
-    config: &McpConfig,
-) -> Result<CollectionStatsAggregate, String> {
-    let mut agg = CollectionStatsAggregate {
-        total_records: 0,
-        total_bytes: 0,
-        vector_count: 0,
-        created_at_ms: u64::MAX,
-    };
-    let mut cursor: Option<usize> = None;
-    loop {
-        let options = vantadb::sdk::VantaMemoryListOptions {
-            limit: config.max_list_limit,
-            cursor,
-            #[allow(deprecated)]
-            filters: vantadb::sdk::VantaMemoryMetadata::new(),
-            filter_ops: None,
-        };
-        let page = match embedded.list(namespace, options) {
-            Ok(p) => p,
-            Err(e) => return Err(format!("{}", e)),
-        };
-        if page.records.is_empty() {
-            break;
-        }
-        for r in &page.records {
-            agg.total_records += 1;
-            agg.total_bytes += r.payload.len()
-                + r.metadata
-                    .iter()
-                    .fold(0, |acc, (k, v)| acc + k.len() + format!("{:?}", v).len());
-            if r.vector.is_some() {
-                agg.vector_count += 1;
-            }
-            agg.created_at_ms = agg.created_at_ms.min(r.created_at_ms);
-        }
-        cursor = match page.next_cursor {
-            Some(c) => Some(c),
-            None => break,
-        };
-    }
-    agg.created_at_ms = if agg.total_records == 0 {
-        0
-    } else {
-        agg.created_at_ms
-    };
-    Ok(agg)
-}
-
 // ── Stdio server (main entry point) ───────────────────────────────────────
 
 /// Run the MCP server over stdin/stdout (JSON-RPC 2.0).
