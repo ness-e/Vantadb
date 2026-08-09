@@ -8,7 +8,7 @@ pub(crate) mod distance;
 pub(crate) mod flat;
 pub(crate) mod graph;
 
-pub(crate) mod ivf;
+pub mod ivf;
 pub(crate) mod neighbor_index;
 
 pub(crate) mod refresh;

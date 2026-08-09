@@ -235,6 +235,10 @@ harness = false
 name = "sparse_hot_path"
 harness = false
 
+[[bench]]
+name = "ivf_bench"
+harness = false
+
 [[bin]]
 name = "vanta-cli"
 path = "src/bin/vanta-cli.rs"
