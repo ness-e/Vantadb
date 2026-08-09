@@ -205,8 +205,18 @@ pub(crate) fn install_sigbus_handler() -> Result<()> {
 ///
 /// This function is used exclusively as a signal handler for SIGBUS,
 /// registered via `sigaction`. It only performs async-signal-safe operations
-/// (atomic stores on static variables) and never calls into the allocator,
-/// libc I/O, or any non-signal-safe function.
+/// (atomic stores on static variables and `_exit`) and never calls into the
+/// allocator, libc I/O, or any non-signal-safe function.
+///
+/// The handler NEVER returns: returning from a SIGBUS handler restores the
+/// interrupted context and the kernel re-executes the faulting instruction.
+/// Because a SIGBUS occurs when no accessible page backs the faulting address
+/// (e.g. a mmap access beyond EOF) and the handler does not repair the
+/// mapping, that re-execution faults again → the kernel re-raises SIGBUS →
+/// the handler runs again → infinite loop (ERR-002). Terminating with
+/// `_exit` is the corrective action: it is async-signal-safe, sets the
+/// observable flags first, and deterministically stops the process with the
+/// conventional "died by signal" exit code (128 + SIGBUS) instead of hanging.
 #[cfg(unix)]
 unsafe extern "C" fn sigbus_handler(
     _signum: libc::c_int,
@@ -220,6 +230,10 @@ unsafe extern "C" fn sigbus_handler(
         let addr = unsafe { (*siginfo).si_addr() as *mut u8 };
         SIGBUS_FAULT_ADDR.store(addr, Ordering::SeqCst);
     }
+    // SAFETY: `_exit` is async-signal-safe (POSIX) and never returns. It must
+    // be the last statement: the handler must not return to the faulting
+    // instruction, which would restart the unresolvable fault in a loop.
+    libc::_exit(128 + libc::SIGBUS);
 }
 
 /// Returns the number of resident (in-RAM) bytes for the given memory region.
@@ -1272,5 +1286,24 @@ mod tests {
         let vf = VantaFile::create_in_memory(128);
         let bytes = engine_mmap_resident_bytes(&index, &vf);
         assert!(bytes.is_some());
+    }
+
+    // ── SIGBUS handler (ERR-002) ──
+
+    /// Install the SIGBUS handler and verify the guards it exposes. A runtime
+    /// test of the fault path itself is impractical in-process: triggering a
+    /// real SIGBUS requires accessing an mmap page past EOF, and the handler
+    /// then terminates the process (`_exit`) by design — the test binary would
+    /// die, so only the inert install/flags are asserted here.
+    #[cfg(unix)]
+    #[test]
+    fn test_sigbus_handler_install_is_idempotent() {
+        install_sigbus_handler().expect("handler install should succeed");
+        // Second install (Once-guarded) must not error or double-register.
+        install_sigbus_handler().expect("handler re-install should be a no-op");
+        // No fault has occurred: both observability flags stay in default state,
+        // proving the handler never ran and installed cleanly.
+        assert!(!SIGBUS_OCCURRED.load(Ordering::SeqCst));
+        assert!(SIGBUS_FAULT_ADDR.load(Ordering::SeqCst).is_null());
     }
 }
