@@ -127,11 +127,13 @@ impl CPIndex {
                     profile.record_vfile_entry(node.storage_offset);
                     profile.start_compute();
                     let result = if let Some(header) = vs.read_header(node.storage_offset) {
-                        let vec_start = header.vector_offset as usize;
-                        let vec_end = vec_start + (header.vector_len as usize * 4);
-                        if vec_end > vs.mmap_bytes().len() {
-                            0.0
-                        } else {
+                        if let Some(vec_end) = (header.vector_len as u64)
+                            .checked_mul(4)
+                            .and_then(|b| header.vector_offset.checked_add(b))
+                            .filter(|&end| end <= vs.mmap_bytes().len() as u64)
+                            .map(|end| end as usize)
+                        {
+                            let vec_start = header.vector_offset as usize;
                             let vec_data = &vs.mmap_bytes()[vec_start..vec_end];
                             // SAFETY: 1) bounds — the `vec_end > vs.mmap_bytes().len()`
                             // guard above ensures `vec_start + vector_len*4 <= mmap size`,
@@ -178,6 +180,8 @@ impl CPIndex {
                                 // SparseDot has its own brute-force path.
                                 DistanceMetric::SparseDot => 0.0,
                             }
+                        } else {
+                            0.0
                         }
                     } else {
                         0.0
@@ -246,15 +250,21 @@ impl CPIndex {
                             if !visited.contains(&pf_neighbor_id) {
                                 if let Some(pf_node) = self.nodes.get(&pf_neighbor_id) {
                                     if let Some(h) = vs.read_header(pf_node.storage_offset) {
-                                        let vec_start = h.vector_offset as usize;
-                                        let vec_len_bytes = h.vector_len as usize * 4;
-                                        if vec_start + vec_len_bytes <= mmap_len
-                                            && vec_len_bytes > 0
-                                        {
+                                        let Some(vec_len_bytes) =
+                                            (h.vector_len as u64).checked_mul(4)
+                                        else {
+                                            continue;
+                                        };
+                                        let Some(vec_end) =
+                                            h.vector_offset.checked_add(vec_len_bytes)
+                                        else {
+                                            continue;
+                                        };
+                                        if vec_end <= mmap_len as u64 && vec_len_bytes > 0 {
                                             graph::prefetch_mmap_vector(
                                                 mmap_base,
-                                                vec_start,
-                                                vec_len_bytes,
+                                                h.vector_offset as usize,
+                                                vec_len_bytes as usize,
                                             );
                                         }
                                     }
@@ -275,11 +285,13 @@ impl CPIndex {
                                 let result = if let Some(h) =
                                     vs.read_header(neighbor.storage_offset)
                                 {
-                                    let vec_start = h.vector_offset as usize;
-                                    let vec_end = vec_start + (h.vector_len as usize * 4);
-                                    if vec_end > vs.mmap_bytes().len() {
-                                        0.0
-                                    } else {
+                                    if let Some(vec_end) = (h.vector_len as u64)
+                                        .checked_mul(4)
+                                        .and_then(|b| h.vector_offset.checked_add(b))
+                                        .filter(|&end| end <= vs.mmap_bytes().len() as u64)
+                                        .map(|end| end as usize)
+                                    {
+                                        let vec_start = h.vector_offset as usize;
                                         let v_data = &vs.mmap_bytes()[vec_start..vec_end];
                                         // SAFETY: 1) bounds — the `vec_end > vs.mmap_bytes().len()`
                                         // guard above ensures `h.vector_len * 4` does not exceed
@@ -328,6 +340,8 @@ impl CPIndex {
                                             }
                                             DistanceMetric::SparseDot => 0.0,
                                         }
+                                    } else {
+                                        0.0
                                     }
                                 } else {
                                     0.0
@@ -448,33 +462,53 @@ impl CPIndex {
         results
     }
 
-    pub(crate) fn select_neighbors(
+    /// Top-M neighbor selection — the single source of truth for HNSW pruning
+    /// (AUD-014). Simple top-M, no diversity heuristic (Malkov & Yashunin 2016 §4).
+    ///
+    /// Ordering is the canonical `NodeSimMin::Ord`: similarity DESCENDING, ties
+    /// broken by node id ASCENDING — deterministic across every call path
+    /// (insert vs shrink prune). Callers that previously re-implemented this
+    /// selection inline must delegate here instead.
+    ///
+    /// `should_keep` is the post-filter evaluated only for candidates ranked
+    /// beyond the top-M: when it returns true the candidate is kept anyway
+    /// (over-capacity list). The default `|_| false` reproduces the historical
+    /// exactly-M truncation. INV-024 uses it to never evict a node's last
+    /// remaining inbound edge.
+    ///
+    /// Over-capacity is capped at `2 * m` (standard HNSW convention). Without
+    /// the cap, `should_keep` may be true for a large fraction of candidates
+    /// (e.g. `inbound_count <= 1` during a cold build), letting neighbor lists
+    /// grow to O(N) and turning the next build/search into O(N²). With the
+    /// cap, extra candidates are bounded by `m` regardless of the filter.
+    pub(crate) fn select_neighbors<F>(
         &self,
         candidates: BinaryHeap<NodeSimMin>,
         m: usize,
-    ) -> NeighborVec {
-        // Simple top-M selection — no diversity heuristic (Malkov & Yashunin 2016 §4).
-        // The diversity check (comparing each candidate against every selected neighbor)
-        // is O(m · candidates) extra distance computations — roughly 2-3× slower — with
-        // negligible recall benefit when ef_construction >= 100 (< 0.5% recall drop).
-        //
-        // ponytail: if ef_construction < 50 or recall at low ef_search matters,
-        // re-enable the check with a config flag.
-        //
-        // O(n) partial sort via select_nth_unstable_by instead of O(n log n)
-        // into_sorted_vec. For ef_construction=200 and m=32: ~200 comparisons
-        // vs ~200*log(200) ≈ 1500.
-        let mut vec = candidates.into_vec();
-        if vec.len() > m {
-            // Comparator flipped vs. the natural ordering: select_nth_unstable_by
-            // partitions with elements "less than" the pivot in [0..nth]. With
-            // `b.0 < a.0` (descending), vec[0..m] holds the m HIGHEST scores —
-            // the best neighbors. (Regression: B2 inverted this to ascending,
-            // keeping the m WORST candidates.)
-            vec.select_nth_unstable_by(m, |a, b| graph::total_cmp_sim(b.0, a.0));
-            vec.truncate(m);
+        should_keep: F,
+    ) -> NeighborVec
+    where
+        F: Fn(u128) -> bool,
+    {
+        if m == 0 {
+            return NeighborVec::new();
         }
-        vec.into_iter().map(|ns| ns.1).collect::<NeighborVec>()
+        // Full deterministic sort instead of the old select_nth_unstable_by +
+        // truncate: the partial sort left top-M keys in arbitrary order and
+        // could not express the `should_keep` post-filter. n is bounded by
+        // ef_construction (≤ a few hundred) and the candidates come from a
+        // heap, so O(n log n) comparisons are negligible next to the distance
+        // computations that produced the heap.
+        let mut vec = candidates.into_vec();
+        vec.sort_unstable();
+        let cap = m.saturating_mul(2);
+        let mut pruned: NeighborVec = NeighborVec::new();
+        for cand in vec {
+            if pruned.len() < m || (should_keep(cand.1) && pruned.len() < cap) {
+                pruned.push(cand.1);
+            }
+        }
+        pruned
     }
 
     fn use_flat_search(&self) -> bool {
@@ -840,7 +874,7 @@ mod tests {
     fn test_select_neighbors_empty_candidates() {
         let index = make_index(DistanceMetric::Cosine);
         let heap = BinaryHeap::new();
-        let selected = index.select_neighbors(heap, 5);
+        let selected = index.select_neighbors(heap, 5, |_| false);
         assert!(
             selected.is_empty(),
             "empty candidates should produce empty selection"
@@ -863,7 +897,7 @@ mod tests {
                 }
             }
         }
-        let selected = index.select_neighbors(heap, 3);
+        let selected = index.select_neighbors(heap, 3, |_| false);
         assert_eq!(selected.len(), 3, "should select top 3 from 6 candidates");
     }
 
@@ -882,7 +916,7 @@ mod tests {
         // With top-M selection, tombstone filtering is skipped.
         // During rebuild, tombstones don't appear in the candidate set
         // (they are filtered out during vstore scan).
-        let selected = index.select_neighbors(heap, 5);
+        let selected = index.select_neighbors(heap, 5, |_| false);
         assert_eq!(selected.len(), 2, "top-M selects both candidates by score");
         assert!(selected.contains(&0), "top-M does not filter tombstones");
     }
@@ -901,7 +935,7 @@ mod tests {
         heap.push(NodeSimMin(0.5, 3));
         heap.push(NodeSimMin(0.7, 4));
         heap.push(NodeSimMin(0.3, 5));
-        let selected = index.select_neighbors(heap, 2);
+        let selected = index.select_neighbors(heap, 2, |_| false);
         let mut ids: Vec<u128> = selected.iter().copied().collect();
         ids.sort_unstable();
         assert_eq!(
@@ -1281,7 +1315,7 @@ mod tests {
 
         // select_neighbors now uses simple top-M (no diversity check):
         // sorted: [0 (0.9), 1 (0.85), 2 (0.1)] → top 2 = [0, 1]
-        let selected = index.select_neighbors(heap, 2);
+        let selected = index.select_neighbors(heap, 2, |_| false);
         assert_eq!(selected.len(), 2);
         assert!(selected.contains(&0), "best candidate should be selected");
         assert!(
@@ -1305,7 +1339,7 @@ mod tests {
         heap.push(NodeSimMin(-0.01, 1)); // slightly worse
         heap.push(NodeSimMin(-2.0, 2)); // much worse
 
-        let selected = index.select_neighbors(heap, 2);
+        let selected = index.select_neighbors(heap, 2, |_| false);
         assert_eq!(selected.len(), 2);
         assert!(selected.contains(&0), "best should be selected");
         // node 1 is close to 0 so it may or may not be pruned depending on distances
@@ -1322,7 +1356,7 @@ mod tests {
 
         let mut heap = BinaryHeap::new();
         heap.push(NodeSimMin(1.0, 0));
-        let selected = index.select_neighbors(heap, 0);
+        let selected = index.select_neighbors(heap, 0, |_| false);
         assert!(selected.is_empty(), "m=0 should return empty selection");
     }
 
@@ -1337,7 +1371,7 @@ mod tests {
         heap.push(NodeSimMin(1.0, 999));
         heap.push(NodeSimMin(0.5, 0));
 
-        let selected = index.select_neighbors(heap, 5);
+        let selected = index.select_neighbors(heap, 5, |_| false);
         assert_eq!(selected.len(), 2, "top-M selects both available entries");
         assert!(
             selected.contains(&999),
@@ -1360,7 +1394,7 @@ mod tests {
         heap.push(NodeSimMin(0.3, 2));
 
         // select_neighbors with m=3 should try to return 3, even if pruning happens
-        let selected = index.select_neighbors(heap, 3);
+        let selected = index.select_neighbors(heap, 3, |_| false);
         assert_eq!(
             selected.len(),
             3,
@@ -1514,7 +1548,7 @@ mod tests {
                 }
             }
         }
-        let selected = index.select_neighbors(heap, 3);
+        let selected = index.select_neighbors(heap, 3, |_| false);
         assert_eq!(selected.len(), 3);
     }
 
@@ -1536,7 +1570,7 @@ mod tests {
                 }
             }
         }
-        let selected = index.select_neighbors(heap, 2);
+        let selected = index.select_neighbors(heap, 2, |_| false);
         assert_eq!(selected.len(), 2);
     }
 
