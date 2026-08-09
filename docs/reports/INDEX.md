@@ -14,10 +14,11 @@
 
 | Fecha (YYYYMMDD-HHMMSS) | Modo | Archivo | QG | C/H/M/L/I | Estado | Resumen |
 |---|---|---|---|---|---|---|
+| 2026-08-08-0026 | full | `docs/audit-reports/audit-full-20260808-002617.md` | ? FAIL | 0/5/8/9/0 | vigente | INV-024 sin tests + prune duplica select_neighbors; clippy gate rojo (5 pre-existentes). AUD-012..021 derivados |
 | 2026-08-05-2025 | certify | `docs/reviews/review-certify-2026-08-05-2025.md` | ✅ PASS | 0/0/2/8/7 | vigente | Certify pre-push 9.4/10 (A). Recomendaciones: mitigar npm-audit web (6 vulns), migrar put_batch a keyword |
 | 2026-08-05-1545 | full | `docs/reviews/review-full-2026-08-05-t1545.md` | ❌ FAIL | — | vigente | Full ISO 7.1/10 (B). (Sync pendiente) |
 | 2026-07-27-0309 | full | `docs/reviews/review-full-2026-07-27-0309.md` | — | — | superado | Full previo; findings consumidos en P14 REVIEW del backlog |
-| 2026-08-04-1745 | full | `docs/audit-reports/audit-full-2026-08-04T174544.md` | ❌ FAIL | 1 C | vigente | &#8672; AUDIT-01: UAF memory-safety en Python SDK NumPy path; benchmark nocturno crashea |
+| 2026-08-04-1745 | full | `docs/audit-reports/audit-full-2026-08-04T174544.md` | ❌ FAIL | 1 C | superado | &#8672; AUDIT-01: UAF memory-safety en Python SDK NumPy path; benchmark nocturno crashea (superado por audit-full-20260808-002617) |
 | 2026-07-24-1751 | full | `docs/audit-reports/audit-full-2026-07-24T1751Z.md` | ❌ FAIL | 1 C | superado | pre-existing test failure bloqueó pipeline |
 | 2026-07-24 | full | `docs/audit-reports/audit-full-2026-07-24.md` | — | — | — | (Sync pendiente) |
 | 2026-07-18 | full | `docs/audit-reports/audit-full-2026-07-18.md` | — | — | — | (Sync pendiente) |

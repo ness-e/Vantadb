@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-08-04T17:45:44",
+  "timestamp": "2026-08-08T00:26:17-03:00",
   "mode": "full",
   "veredicto": "FAIL",
-  "findings_critical": 1,
-  "report_file": "docs/audit-reports/audit-full-2026-08-04T174544.md"
+  "findings_critical": 0,
+  "report_file": "docs/audit-reports/audit-full-20260808-002617.md"
 }
