@@ -999,7 +999,7 @@ impl VantaDB {
     /// Insert a graph node with optional content, vector, and fields.
     pub fn insert_node(
         &self,
-        id: u64,
+        id: &str,
         content: Option<String>,
         vector: Option<Vec<f32>>,
         fields: JsValue,
@@ -1019,7 +1019,7 @@ impl VantaDB {
             from_js(fields)?
         };
         let input = VantaNodeInput {
-            id: id.into(),
+            id: parse_node_id(id)?,
             content,
             vector,
             fields,
@@ -1028,26 +1028,29 @@ impl VantaDB {
         self.inner.insert_node(input).map_err(to_js_err)
     }
 
-    /// Retrieve a graph node by its numeric ID.
-    pub fn get_node(&self, id: u64) -> Result<JsValue, JsValue> {
+    /// Retrieve a graph node by its numeric ID (decimal string).
+    pub fn get_node(&self, id: &str) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
-        let node: Option<VantaNodeRecord> = self.inner.get_node(id.into()).map_err(to_js_err)?;
+        let node: Option<VantaNodeRecord> =
+            self.inner.get_node(parse_node_id(id)?).map_err(to_js_err)?;
         let js: Option<JsNodeRecord> = node.map(Into::into);
         to_js(&js)
     }
 
     /// Delete a graph node by ID with an associated reason string.
-    pub fn delete_node(&self, id: u64, reason: &str) -> Result<(), JsValue> {
+    pub fn delete_node(&self, id: &str, reason: &str) -> Result<(), JsValue> {
         let _g = enter(&self.op_gate)?;
-        self.inner.delete_node(id.into(), reason).map_err(to_js_err)
+        self.inner
+            .delete_node(parse_node_id(id)?, reason)
+            .map_err(to_js_err)
     }
 
     /// Add a directed edge between two graph nodes with an optional weight
     /// and creation timestamp (Unix ms).
     pub fn add_edge(
         &self,
-        source_id: u64,
-        target_id: u64,
+        source_id: &str,
+        target_id: &str,
         label: &str,
         weight: Option<f32>,
         created_at_ms: Option<u64>,
@@ -1055,8 +1058,8 @@ impl VantaDB {
         let _g = enter(&self.op_gate)?;
         self.inner
             .add_edge(
-                source_id.into(),
-                target_id.into(),
+                parse_node_id(source_id)?,
+                parse_node_id(target_id)?,
                 label,
                 weight,
                 created_at_ms,
@@ -1067,7 +1070,7 @@ impl VantaDB {
     /// Perform a breadth-first traversal from the given root node IDs.
     pub fn graph_bfs(
         &self,
-        roots: Vec<u64>,
+        roots: Vec<String>,
         max_depth: usize,
         direction: String,
     ) -> Result<JsValue, JsValue> {
@@ -1081,7 +1084,10 @@ impl VantaDB {
                 )))
             }
         };
-        let roots: Vec<u128> = roots.into_iter().map(|r| r.into()).collect();
+        let roots: Vec<u128> = roots
+            .into_iter()
+            .map(|r| parse_node_id(&r))
+            .collect::<Result<Vec<u128>, JsValue>>()?;
         let _g = enter(&self.op_gate)?;
         let result = self
             .inner
@@ -1093,7 +1099,7 @@ impl VantaDB {
     /// Perform a depth-first traversal from the given root node IDs.
     pub fn graph_dfs(
         &self,
-        roots: Vec<u64>,
+        roots: Vec<String>,
         max_depth: usize,
         direction: String,
     ) -> Result<JsValue, JsValue> {
@@ -1107,7 +1113,10 @@ impl VantaDB {
                 )))
             }
         };
-        let roots: Vec<u128> = roots.into_iter().map(|r| r.into()).collect();
+        let roots: Vec<u128> = roots
+            .into_iter()
+            .map(|r| parse_node_id(&r))
+            .collect::<Result<Vec<u128>, JsValue>>()?;
         let _g = enter(&self.op_gate)?;
         let result = self
             .inner
@@ -1117,8 +1126,11 @@ impl VantaDB {
     }
 
     /// Compute a topological sort order starting from the given root node IDs.
-    pub fn graph_topological_sort(&self, roots: Vec<u64>) -> Result<JsValue, JsValue> {
-        let roots: Vec<u128> = roots.into_iter().map(|r| r.into()).collect();
+    pub fn graph_topological_sort(&self, roots: Vec<String>) -> Result<JsValue, JsValue> {
+        let roots: Vec<u128> = roots
+            .into_iter()
+            .map(|r| parse_node_id(&r))
+            .collect::<Result<Vec<u128>, JsValue>>()?;
         let _g = enter(&self.op_gate)?;
         let result = self
             .inner
@@ -1128,8 +1140,11 @@ impl VantaDB {
     }
 
     /// Return whether the subgraph reachable from the given roots forms a DAG.
-    pub fn graph_is_dag(&self, roots: Vec<u64>) -> Result<bool, JsValue> {
-        let roots: Vec<u128> = roots.into_iter().map(|r| r.into()).collect();
+    pub fn graph_is_dag(&self, roots: Vec<String>) -> Result<bool, JsValue> {
+        let roots: Vec<u128> = roots
+            .into_iter()
+            .map(|r| parse_node_id(&r))
+            .collect::<Result<Vec<u128>, JsValue>>()?;
         let _g = enter(&self.op_gate)?;
         self.inner.graph_is_dag(&roots).map_err(to_js_err)
     }
@@ -1159,6 +1174,19 @@ fn init() {
 
 fn to_js_err(e: VantaError) -> JsValue {
     js_sys::Error::new(&e.to_string()).into()
+}
+
+/// Parse a graph node id from a JS string.
+///
+/// Node ids are u128 in the core SDK; JS Numbers lose precision above 2^53 and
+/// cannot represent ids above 2^64, so the WASM API takes ids as decimal
+/// strings (strings in, strings out — matches ERR-025 MCP and ERR-023 Python).
+fn parse_node_id(id: &str) -> Result<u128, JsValue> {
+    id.parse::<u128>().map_err(|_| {
+        to_js_err(VantaError::InvalidInput(format!(
+            "invalid node id '{id}': expected a decimal u128 string"
+        )))
+    })
 }
 
 fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
@@ -1428,5 +1456,47 @@ mod tests {
         db.compact_wal().unwrap();
         let freed = db.compact_layout().unwrap();
         assert_eq!(freed, 0);
+    }
+
+    // ── ERR-024: u128 node id round-trip ──
+
+    #[test]
+    fn test_parse_node_id_accepts_u128_strings() {
+        // Node ids are u128 in the core SDK. 2^64 is one past the old u64
+        // ceiling and cannot be represented by a JS Number (max safe 2^53).
+        // The helper converts to u128 exactly, then core maps it (js_sys error
+        // path is browser-only, exercised by the wasm_bindgen_test below).
+        let big: u128 = "18446744073709551616".parse().unwrap(); // 2^64
+        assert_eq!(parse_node_id("18446744073709551616").unwrap(), big);
+        assert_eq!(parse_node_id("0").unwrap(), 0);
+        // Reject non-numeric, negative, and overflow inputs (> u128::MAX)
+        assert!("not-a-number".parse::<u128>().is_err());
+        assert!("-1".parse::<u128>().is_err());
+        assert!("340282366920938463463374607431768211456"
+            .parse::<u128>()
+            .is_err()); // 2^128
+    }
+
+    #[wasm_bindgen_test]
+    fn test_insert_get_node_u128_roundtrip() {
+        // ERR-024: nodes with ids > 2^64 were previously truncated to u64 and
+        // inaccessible via WASM. String ids must round-trip exactly.
+        let db = create_db();
+        let big_id = "18446744073709551616"; // 2^64
+        db.insert_node(
+            big_id,
+            Some("big id node".to_string()),
+            None,
+            JsValue::UNDEFINED,
+        )
+        .expect("insert node with u128 id");
+        let got = db.get_node(big_id).expect("get node by string id");
+        let val: serde_json::Value =
+            serde_wasm_bindgen::from_value(got).expect("deserialize node record");
+        assert_eq!(
+            val["id"],
+            serde_json::Value::String(big_id.to_string()),
+            "node id must round-trip exactly (old u64 binding would clamp to 0)"
+        );
     }
 }
