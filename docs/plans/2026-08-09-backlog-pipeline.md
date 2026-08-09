@@ -279,7 +279,9 @@ _(no duplicar)_
 ### Task 36: COV-001 — Test Python async (missing flush/purge/query/graph)
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟢 · **Archivos:** `vantadb-python/vantadb_py/__init__.py`, `vantadb-python/tests/` · **DO** · **Contrato:** `target/audit-venv/Scripts/python -m pytest vantadb-python/tests/ -k async` pasa; coverage wrapper ≥85%
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** `340731ce` — añadidos 8 tests async en `TestAsyncVantaDB` (flush durability, purge_expired, IQL query, graph BFS/DFS/centrality/algorithms, batch APIs, export/import, mantenimiento, snippet/explain, close). `-k async` = 14 passed; wrapper `vantadb_py/__init__.py` 96% coverage.
+- **Nota (delegado a vanta-engine):** `rebuild_index`, `reindex_hnsw_from_text` y `compact_layout` fallan con `TimeoutError: acquire insert_lock in flush (ERR-010)` — self-deadlock del insert_lock en el engine (`src/storage/`), pre-existente en `develop` (el test sync `test_rebuild_export_import_memory` falla igual). Excluidos de los tests async hasta fix; el coverage del wrapper queda en 96% sin ellos.
 
 ### Task 37: COV-003 — Rust CLI tests (vanta-cli subcommands)
 
