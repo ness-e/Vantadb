@@ -1252,6 +1252,10 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `AUDREP-32` | Seguridad: panic detail filtrado a clientes HTTP → mensaje genérico "Internal server error", detalle a `tracing::error!`; test; commit `a77905db` | 🟡 | ✅ 2026-08-07 |
 | `AUDREP-34` | Storage-Overflow: `(total_needed + 63) & !63` overflow → `saturating_add(63) & !63`; commit `eb333794` | 🟡 | ✅ 2026-08-07 |
 | `AUDREP-35` | WAL-Durabilidad: rename sin dir-fsync → helper `sync_parent_dir` (`utils/fs.rs`), aplicado en rotate/auto-rotate/compact_layout; no-op Windows (NTFS); 4 tests verdes; commit `8f3d65c0` | 🟡 | ✅ 2026-08-07 |
+| `AUD-012` | Clippy gate: 5 errores pre-existentes (mixed_attributes_style, dead_code x2, approx_constant, items_after_test_module) arreglados en archive.rs, mcp lib.rs, parser, storage ops; `cargo clippy --workspace --all-targets` exit 0; commit `9d3c05a2` | 🔴 | ✅ 2026-08-08 |
+| `AUD-013` | Tests invariante INV-024: unit tests de select_neighbors/neighbor_index + fix query zero-norm en flat threshold test; index:: suite 244 passed; commit `9d3c05a2` | 🔴 | ✅ 2026-08-08 |
+| `AUD-014` | Prune duplicaba select_neighbors → canonicalizado como single source of truth (NodeSimMin::Ord tie-break); shrink delega; commit `9d3c05a2` | 🔴 | ✅ 2026-08-08 |
+| `AUD-015` | Listas over-capacity sin techo (O(n²) build, hang en test 10k) → cap `2*m` en select_neighbors; test 10k: 6.46s vs hang previo; nextest 1844 passed; commit `9d3c05a2` | 🟠 | ✅ 2026-08-08 |
 | `AUDREP-37` | WAL-PITR: fallback a mtime en `parse_segment_timestamp` → `Result<u64>`; nombre no parseable = `Err` (PITR falla loud en vez de reordenar silencioso); test; commit `ff82df8d` | 🟡 | ✅ 2026-08-07 |
 | `AUDREP-38` | Parser: condiciones relacionales solo strings → RHS tipado (`parse_literal_field_value`): número → `Float`, quoted → `String` (backward compat); `edad > 18` funciona, ordering numérico; 4 tests; commit `e7214c00` | 🟡 | ✅ 2026-08-07 |
 | `AUDREP-39` | Frontend-i18n: `lang="es"` hardcoded SSR → `lang={DEFAULT_LANG}` desde `dictionaries.ts`; quitado `suppressHydrationWarning` innecesario; commit `f49bbe10` | 🟡 | ✅ 2026-08-07 |

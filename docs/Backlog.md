@@ -454,10 +454,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/audit-rep
 
 | ID | Severidad | Hallazgo | Archivo:línea | Estado |
 |----|-----------|----------|---------------|--------|
-| AUD-012 | Alta | 5 errores clippy pre-existentes rompen `just verify` (gate pre-push). mixed_attributes_style, dead_code x2, approx_constant, items_after_test_module | src/storage/archive.rs:333; vantadb-mcp/src/lib.rs:368,379; src/parser/mod.rs:803; src/storage/ops.rs:59 | 🟡 pendiente |
-| AUD-013 | Alta | Cero tests de la invariante INV-024 (bookkeeping inbound). Property test: inbound suma == total aristas tras ops | src/index/neighbor_index.rs:21-54 | 🟡 pendiente |
-| AUD-014 | Alta | Prune duplica `select_neighbors` y diverge en tie-break (NodeSimMin::Ord vs total_cmp_sim) -> resultados no reproducibles | src/index/graph.rs:963-978 | 🟡 pendiente |
-| AUD-015 | Media | Listas de vecinos over-capacity sin techo: RAM + latencia search_layer + O(n²) crecen sin cota | src/index/graph.rs:972-977 | 🟡 pendiente |
 | AUD-016 | Media | RUSTSEC-2026-0002 (lru 0.12.5 unsound via ratatui) no mechanizado en deny.toml ignore (allow roto en práctica) | deny.toml | 🟡 pendiente |
 | AUD-017 | Media | `remove_node` remueve inbound sin limpiar refs cruzadas -> desync INV-024 (dead code, pero contrato roto si se cablea) | src/index/neighbor_index.rs:167-176 | 🟡 pendiente |
 | AUD-018 | Media | CI clippy excluye mcp/wasm/server (ci-rust-10.yml:86) -> 5 errores latentes pasan CI; extend gate o documentar deuda | .github/workflows/ci-rust-10.yml | 🟡 pendiente |

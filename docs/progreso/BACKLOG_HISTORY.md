@@ -3,7 +3,7 @@ title: "Backlog History — Items Removed & Migrated"
 type: tracking
 status: active
 tags: [vantadb, backlog, history]
-last_reviewed: 2026-08-03
+last_reviewed: 2026-08-07
 aliases: []
 ---
 
@@ -119,3 +119,22 @@ Verificación de los 5 documentos de `docs/strategy/` (ROADMAP, GO_TO_MARKET, SH
 ### Nota — pendientes de strategy SIN evidencia de completado (no registrar como ✅)
 
 `CLD-01/02/04` (cloud beta, pitch deck, case study), `OLD-001`, `VFY-008` (WAL fsync batching), `DRV-115` (MSVC linker), `DRV-117` (advisory ignores), `DRV-119` (ACID 0) — aparecen solo como **menciones** en ROADMAP/GO_TO_MARKET/backlog-guide; no hay task file, commit de fix, ni fila de progreso que demuestre completado. Siguen pendientes o sin trackear.
+
+## Limpieza masiva 2026-08-07 (225 filas / 221 IDs eliminados de docs/Backlog.md)
+
+Accion: se eliminaron del catalogo activo todas las filas completadas (✅) — 225 filas, 221 IDs unicos — aplicando la politica nueva (completadas se eliminan del backlog, no se tachan). El registro de completado vive en docs/progreso/README.md; el por que de cada cierre quedo documentado en la propia fila del backlog antes de eliminarla (commits, fechas, ADRs).
+
+IDs eliminados por area:
+
+- **P0/P1 (Security & Critical):** DEVOPS-15, META-001, INV-001, INV-024, AUDIT-01..08.
+- **P4 Engineering:** DEBT-01, TECH-01..08, INV-002..005, AUDIT-05..08.
+- **AUDREP (P13):** AUDREP-01..62 (todos resueltos 2026-08-05..07, commits en las filas; incl. AUDREP-04), DEPS-01, NV-01, NV-04.
+- **P10 (Competitive catalog):** COMP-006/008/009/010/012..019/021..029 — catalogado, decisiones registradas.
+- **P9/P11 (Docs/GitHub):** OLD-02/03/08..12/14/16/19..21, GH-119/122/123/124/128/129/131/132/139..144.
+- **Investigaciones:** INV-001..025 (reportes en docs/Investigaciones/), REC-*.
+- **MKT/DISC/NUEVO/WEB/TSK:** campanas ya cerradas (MKT-03/04/05/10/14..17, NUEVO-*, TSK-103/104/106/107, WEB-001/18).
+- **P12 DESKTOP base:** DESKTOP-02..11 (scaffold Tauri, conexiones, commands, frontend MVP, IQL, server wire, MCP spawn — ✅ 2026-08-06).
+- **P14 REVIEW:** REVIEW-01/02/03/05 (cerrados).
+- **Otros sin ubicacion por fase:** `GFI-01` (18 Good first issues creados en GitHub #118-#145), `SDK-02` (`similar_to_key()` ✅ 2026-07-31), `SDK-04` (`search_multi`/`search_all` ✅ 2026-07-31).
+
+Nota de integridad: filas eliminadas sin entrada en docs/progreso/README.md (fases cerradas por blockquote P2/P3/P7, items reference-only) pasan al historico aqui; fuente canonica para re-auditar: docs/audit-reports/* + secciones por fase de este archivo.
