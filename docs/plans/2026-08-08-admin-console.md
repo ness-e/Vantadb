@@ -1,6 +1,6 @@
 # Plan de Ejecución: Consola Administrativa Desktop (ADMIN-01..09 + DESKTOP-20)
 
-> **Campaign ID: 68db6ae9-51f0-4e64-bf06-195ac18a2b5e
+> **Campaign ID: 3a8eae36-baf2-4982-ac7d-bec69c105233
 > **Inicio:** 2026-08-08
 > **Estado: completed
 > **Fuente:** `docs/Backlog.md` → Phase 12 Fase 7 (ADMIN-01..09) + Phase 12 Fase 5 (DESKTOP-20)
@@ -25,7 +25,7 @@
 - **Verificación real:** ✅ CÓDIGO-REAL — `operational_metrics_snapshot()` existe en `src/metrics/core/mod.rs:522` con `OperationalMetricsSnapshot` (~45 campos incl. `derived_prefix_scans`, `derived_full_scan_fallbacks`, `memory: MemoryBreakdownSnapshot`). Falta exponerlo como comando Tauri. Gap confirmado.
 - **Gate Justificación:** base del dashboard completo; 8 tareas ADMIN dependen del snapshot; costo bajo (1 command + serde).
 - **Gate Result:** ✅ DO
-- **Contrato: cargo nextest run: 1844 passed, 0 failed; clippy clean
+- **Contrato: WHERE/RANK/FETCH/WITH/ROLE no se consumen como alias; alias default 'target' intacto; 106 tests parser::tests pasan
 - **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
@@ -267,11 +267,10 @@ ADMIN-06 → ADMIN-07 → ADMIN-08 → ADMIN-09
 
 === RECITATION ===
 Campaign ID: 3deee89d-78c7-43d9-aab3-0fd0d6e125c3
-Objetivo activo: AUD-014 dedupe pruning logic
+Objetivo activo: Fix ERR-016: alias opcional no debe consumir keywords reservadas
 Estado: completed
-Última acción: select_neighbors canonicalizado como single source of truth; cap over-capacity a 2m fixea hang de test 10k (6.46s vs hang previo)
+Última acción: Añadí guardia non_keyword_ident (verify de nom sobre ident con RESERVED_KEYWORDS) en parse_query:174 y parse_select:468; 3 tests nuevos
 Resultado: ✅
-Próxima acción: handoff
+Próxima acción: Ninguno — fix verificado con cargo check + 106 tests + fmt
 Contrato: cargo check pasa; shutdown_all en evento de cierre; sin huérfanos
-Próxima tarea si completa: 
-=== END RECITATION ===
+Próxima tarea si completa: N/A

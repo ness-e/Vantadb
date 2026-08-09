@@ -53,7 +53,7 @@
 
 | ID | Sev | Tipo | Ubicacion | Descripcion | Suggestion |
 |----|-----|------|-----------|-------------|------------|
-| ERR-016 | 🔴 | Logic/Data loss | `src/parser/mod.rs:174-175` + `src/index/executor.rs:160` | Parser consume `WHERE`/`RANK` como alias -> filtro se **descarta silenciosamente** en queries | Corregir parseo de clausulas WHERE/RANK |
+| ERR-016 | 🔴 | Logic/Data loss | `src/parser/mod.rs:174-175` + `src/index/executor.rs:160` | Parser consume `WHERE`/`RANK` como alias -> filtro se **descarta silenciosamente** en queries | ✅ Resuelto — `non_keyword_ident` guard + `verify` (2026-08-09) |
 | ERR-017 | 🟠 | Correctness/Recall | `flat.rs:49-51` vs `src/index/search.rs:650-652` | Score euclidiano inconsistente: flat usa `-dist^2` vs HNSW usa `-dist` -> resultados y recall difieren entre modos | Unificar metrica |
 | ERR-018 | 🟠 | Algorithm | `src/index/graph.rs:441-444` | `random_layer` capado en level 2 con `ml` default -> grafos sin profundidad (L<5) degradan recall en alta dimensionalidad | Teto superior por `ml` real |
 | ERR-019 | 🟠 | Bench invalido | `benches/hnsw_pure.rs` | `flat_threshold=Some(10000)` con count=10000 -> bench mide brute-force, no HNSW | Corregir threshold del bench |
