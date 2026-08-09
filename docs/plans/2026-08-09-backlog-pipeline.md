@@ -253,7 +253,8 @@ _(no duplicar)_
 ### Task 32: FEAT-05 — Revisar flags EXPERIMENTAL
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟢 · **Archivos:** `Cargo.toml` (features), `.github/workflows/ci-rust-10.yml`, docs | **DO** (doc decision) | **Contrato:** doc con status por feature
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** `418bc5bb` — Documented per-feature status (29 features, EXPERIMENTAL flags + dead/no-op `wasm` marker) in docs/architecture/FEATURES.md
 
 ### Task 33: FEAT-06 — Config hot-reload JSON + config.toml
 
