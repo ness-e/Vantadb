@@ -292,7 +292,8 @@ _(no duplicar)_
 ### Task 38: COV-004 — ADR política gate coverage CI
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `.github/workflows/ci-rust-10.yml`, ADR | **DO** (decisión documentada) | **Contrato:** ADR expresa root (81.40%) vs workspace (72.76%) y expectativa de bindings
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** `60c64038` — `docs/architecture/adr/ADR-015-coverage-policy.md`: gate real = workspace-wide ≥80% llvm-cov (root 81.40% pasa, workspace 72.76% diluido por crate binding); step "(>=70%)" es stale; bindings: python ≥85% vía pytest propio, wasm/mcp/server excluidos (experimental), node fuera del workspace coverage.
 
 ### PERF
 
