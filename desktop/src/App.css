@@ -63,6 +63,16 @@ body {
 .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .panel-head h2 { margin: 0; }
 
+/* ADMIN-08: Processes & Connections panel subheadings. */
+.proc-sub {
+  margin: 14px 0 4px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.proc-empty { margin: 8px 0 0; font-size: 0.85rem; }
+
 .row { display: flex; gap: 8px; }
 .row > input { flex: 1; }
 .row .narrow { flex: 0 0 70px; }
@@ -345,6 +355,19 @@ footer { margin-top: 16px; font-size: 0.85rem; }
 .sop-result[data-status="ok"]   { color: var(--ink); }
 .sop-result[data-status="err"]  { color: var(--neon); }
 .sop-result[data-status="idle"] { color: var(--muted); }
+
+/* ADMIN-09: snapshot export (same .panel tokens). */
+.export { margin-bottom: 16px; }
+.export-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.export-saved { font-size: 0.75rem; }
+.export-saved[data-status="ok"]   { color: var(--ink); }
+.export-saved[data-status="idle"] { color: var(--muted); }
 
 @media (max-width: 900px) {
   .metrics-grid { grid-template-columns: repeat(2, 1fr); }

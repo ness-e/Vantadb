@@ -8,6 +8,8 @@ import KpiCards from "./components/KpiCards";
 import MetricsGrid from "./components/MetricsGrid";
 import DataExplorer from "./components/DataExplorer";
 import SopPanel from "./components/SopPanel";
+import ProcessPanel from "./components/ProcessPanel";
+import ExportPanel from "./components/ExportPanel";
 
 function App() {
   const [state, actions] = useConnectionState();
@@ -39,6 +41,8 @@ function App() {
 
       <KpiCards />
 
+      <ExportPanel />
+
       <SopPanel />
 
       <div className="grid">
@@ -58,6 +62,13 @@ function App() {
       </div>
 
       <DataExplorer active={!!state.active} busy={state.busy} runError={reportError} />
+
+      <ProcessPanel
+        connections={state.connections}
+        activeId={state.activeId}
+        onShutdown={actions.disconnectId}
+        onActivate={actions.activate}
+      />
 
       <footer className="muted">
         {state.active
