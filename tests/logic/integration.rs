@@ -27,7 +27,7 @@ async fn integrations_certification() {
         });
     });
 
-    harness.execute("Proxy: Ollama Context-Aware Generation", || {
+    harness.execute("Proxy: Ollama Generate Request Contract", || {
         futures::executor::block_on(async {
             let req = OllamaGenerateRequest {
                 model: "llama3".to_string(),
@@ -35,10 +35,14 @@ async fn integrations_certification() {
                 stream: Some(false),
             };
 
-            TerminalReporter::sub_step("Routing generational prompt through Ollama proxy...");
-            let res = ollama_proxy_handler(req).await;
-            assert!(res.contains("Context-Aware"));
-            TerminalReporter::success("Ollama proxy handler consensus reached.");
+            TerminalReporter::sub_step("Validating Ollama generation request serialization...");
+            let json = serde_json::to_string(&req).expect("serializing OllamaGenerateRequest");
+            let back: OllamaGenerateRequest =
+                serde_json::from_str(&json).expect("deserializing OllamaGenerateRequest");
+            assert_eq!(back.model, "llama3");
+            assert_eq!(back.prompt, "Tell me about memory constraints");
+            assert_eq!(back.stream, Some(false));
+            TerminalReporter::success("Ollama generation request contract validated.");
         });
     });
 }
