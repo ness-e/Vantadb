@@ -1,12 +1,12 @@
-//! Historical parser surface.
+//! Query-language surface for HTTP, Python, CLI, MCP, and SDK `query()`.
 //!
-//! The stable embedded memory API lives in `src/sdk.rs`.
+//! The primary typed API lives in `src/sdk/` (VantaEmbedded) — keep both stable.
 
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while1},
     character::complete::{alpha1, alphanumeric1, char, digit1, multispace0},
-    combinator::{map, map_res, opt, recognize},
+    combinator::{map, map_res, opt, recognize, verify},
     multi::{many0, separated_list1},
     number::complete::{double, float},
     sequence::{delimited, tuple},
@@ -32,6 +32,48 @@ fn ident(i: &str) -> IResult<&str, String> {
         many0(alt((alphanumeric1, tag("_"), tag("#"), tag(".")))),
     )))(i)?;
     Ok((i, id.to_string()))
+}
+
+/// Keywords reservadas del lenguaje. No pueden usarse como alias en `parse_query`,
+/// porque un `opt(ident)` sin guarda consumiría la cláusula siguiente como alias
+/// (ej. `FROM Person WHERE ...` se comía `WHERE` y descartaba el filtro).
+const RESERVED_KEYWORDS: &[&str] = &[
+    "AND",
+    "AS",
+    "DELETE",
+    "DESC",
+    "FETCH",
+    "FROM",
+    "INSERT",
+    "JOIN",
+    "LIMIT",
+    "MATCH",
+    "MESSAGE",
+    "ON",
+    "RANK",
+    "RELATE",
+    "ROLE",
+    "SELECT",
+    "SET",
+    "SIGUE",
+    "SYSTEM",
+    "TEMPERATURE",
+    "TIMEOUT",
+    "TIPO",
+    "TO",
+    "TYPE",
+    "UPDATE",
+    "USER",
+    "VECTOR",
+    "WEIGHT",
+    "WHERE",
+    "WITH",
+];
+
+/// `ident` que falla si el token es una keyword reservada. Se usa para aliases
+/// opcionales: deja el keyword sin consumir para que lo tome la cláusula real.
+fn non_keyword_ident(i: &str) -> IResult<&str, String> {
+    verify(ident, |s: &str| !RESERVED_KEYWORDS.contains(&s))(i)
 }
 
 fn parse_number(i: &str) -> IResult<&str, u32> {
@@ -171,7 +213,7 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
 
     let (i, traversal) = opt(parse_traversal)(i)?;
 
-    let (i, target_alias) = opt(ws(ident))(i)?;
+    let (i, target_alias) = opt(ws(non_keyword_ident))(i)?;
     let target_alias = target_alias.unwrap_or_else(|| "target".to_string());
 
     let (i, where_clause) = opt(tuple((
@@ -423,7 +465,7 @@ pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
 
     let (i, _) = ws(tag("FROM"))(i)?;
     let (i, from_entity) = ws(ident)(i)?;
-    let (i, from_alias) = opt(ws(ident))(i)?;
+    let (i, from_alias) = opt(ws(non_keyword_ident))(i)?;
     let from_alias = from_alias.unwrap_or_else(|| from_entity.clone());
 
     // Parse zero or more JOIN clauses
@@ -1042,7 +1084,6 @@ mod tests {
 
     #[test]
     fn test_parse_query_with_where_single() {
-        // Must provide explicit alias before WHERE, otherwise opt(ident) consumes "WHERE" as alias
         let (_, q) = parse_query(r#"FROM Person p WHERE edad = "25""#).unwrap();
         let conds = q.where_clause.unwrap();
         assert_eq!(conds.len(), 1);
@@ -1054,6 +1095,32 @@ mod tests {
                 FieldValue::String("25".to_string())
             )
         );
+    }
+
+    #[test]
+    fn test_parse_query_where_without_alias() {
+        // Sin alias explícito, `WHERE` no debe consumirse como alias (ERR-016).
+        let (_, q) = parse_query(r#"FROM Person WHERE edad = "25""#).unwrap();
+        assert_eq!(q.target_alias, "target");
+        let conds = q.where_clause.unwrap();
+        assert_eq!(conds.len(), 1);
+        assert_eq!(
+            conds[0],
+            Condition::Relational(
+                "edad".to_string(),
+                RelOp::Eq,
+                FieldValue::String("25".to_string())
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_query_rank_without_alias() {
+        let (_, q) = parse_query("FROM Person RANK BY score").unwrap();
+        assert_eq!(q.target_alias, "target");
+        let rank = q.rank_by.unwrap();
+        assert_eq!(rank.field, "score");
+        assert!(!rank.desc);
     }
 
     #[test]
@@ -1624,6 +1691,20 @@ mod tests {
                     matches!(&conds[0], crate::query::Condition::Relational(..)),
                     "expected relational condition"
                 );
+            }
+            _ => panic!("expected Select"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_where_without_alias() {
+        // Guarda ERR-016 para SELECT: el alias opcional no debe comerse WHERE.
+        let input = r#"SELECT * FROM Person WHERE name = "Alice""#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                let conds = sel.where_clause.expect("expected WHERE conditions");
+                assert_eq!(conds.len(), 1);
             }
             _ => panic!("expected Select"),
         }
