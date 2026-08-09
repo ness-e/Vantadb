@@ -1,6 +1,6 @@
 # Plan de Ejecución: Backlog Pipeline — Release Blockers + Err Fix + Feature Honesty
 
-> **Campaign ID: 20d91e55-d874-4903-b673-91453ff045a9
+> **Campaign ID: 2864080d-b417-44a8-916a-244ddfacc044
 > **Inicio:** 2026-08-09
 > **Estado: completed
 > **Fuente:** `docs/Backlog.md` (backlog activo completo)
@@ -40,7 +40,7 @@
 - **Verificación real:** ✅ CÓDIGO-REAL — `release-plz.toml:18` tiene `semver_check = true` pero `rg semver` en los 3 workflows **no** encuentra `cargo-semver-checks` (ni la action). Gap confirmado: el flag de release-plz nunca se ejecuta como gate CI.
 - **Gate Justificación:** 0.5.0 próximo release; sin semver-check un breaking change accidental (API pública) publica rompiendo bindings.
 - **Gate Result:** ✅ DO
-- **Contrato: ADR exists (ADR-014-pitr.md) + rg 'pitr' Cargo.toml match
+- **Contrato: doc con status por feature — docs/architecture/FEATURES.md tabla 29 features
 - **Estado:** ✅ COMPLETED
 - **Branch:** `develop`
 - **Commit:**
@@ -253,13 +253,14 @@ _(no duplicar)_
 ### Task 32: FEAT-05 — Revisar flags EXPERIMENTAL
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟢 · **Archivos:** `Cargo.toml` (features), `.github/workflows/ci-rust-10.yml`, docs | **DO** (doc decision) | **Contrato:** doc con status por feature
-- **Estado:** ✅ DONE
+- **Estado:** ✅ COMPLETED
 - **Ejecutado:** `418bc5bb` — Documented per-feature status (29 features, EXPERIMENTAL flags + dead/no-op `wasm` marker) in docs/architecture/FEATURES.md
 
 ### Task 33: FEAT-06 — Config hot-reload JSON + config.toml
 
 - **Esfuerzo:** 🟡 · **Prig:** 🟢 · **Archivos:** `src/config.rs:1313`, `docs/operations/CONFIGURATION.md` | **DO** (doc formato real) | **Contrato:** CONFIGURATION.md describe builder/env y JSON hot-reload (si existe) · not invent config.toml
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** `2174f854` — CONFIGURATION.md documenta builder (`from_env()` = `default()` + `with_*`), corregido fallback `PORT` inexistente, y añadidas secciones Builder API + Hot-Reload JSON (feature `hot-reload`, `VantaConfig::watch_config`, 8 campos, JSON-only, 1MB); afirmado explícitamente que NO se lee config.toml
 
 ### Task 34: FEAT-07 — `src/integrations.rs` stubs vacíos
 
@@ -377,14 +378,14 @@ _(no duplicar)_
 ## RECITATION (initial)
 
 - **Campaign ID:** backlog-2026-08-09
-- **Objetivo activo: FEAT-01: PITR/WAL-shipping decision + ADR + feature docs
+- **Objetivo activo: FEAT-05: revisar flags EXPERIMENTAL y documentar status por feature
 - **Estado:** pending
-- **Última acción: Investigated pitr/wal_archiver, decided experimental standalone API (integration deferred), wrote ADR-014, documented pitr feature in Cargo.toml, marked Task 28 DONE
+- **Última acción: Inventario features Cargo.toml + gates src/ + uso CI; doc FEATURES.md; cargo check -p vantadb OK; Task 32 DONE
 - **Resultado: ✅
-- **Próxima acción: None
+- **Próxima acción: Ninguna — tarea completada
 Próxima acción: None — task complete
 Contrato: Handler sets flags and does not re-execute without resolution (never returns to faulting instruction); unit test vest vfile present
-Próxima tarea si completa: None
+Próxima tarea si completa: Task 33 (FEAT-06)
 Próxima acción: 
 Contrato: pytest U128 3 passed + array_interface
 Próxima tarea si completa: 
