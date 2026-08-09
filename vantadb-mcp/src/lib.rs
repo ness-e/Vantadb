@@ -292,6 +292,19 @@ fn parse_metadata(obj: &serde_json::Map<String, Value>) -> vantadb::sdk::VantaMe
     meta
 }
 
+/// Parse a graph node id from a JSON-RPC value.
+///
+/// Node ids are u128: JSON numbers lose precision above 2^53 and cannot
+/// represent ids above 2^64, so MCP clients MUST pass ids as decimal strings.
+/// A numeric value is still accepted for backward compatibility, mirroring
+/// `vantadb::sdk::u128_serde`.
+fn parse_node_id(val: &Value) -> Option<u128> {
+    if let Some(s) = val.as_str() {
+        return s.parse().ok();
+    }
+    val.as_u64().map(u128::from)
+}
+
 /// Serialize value to JSON string; on error produces a JSON-error string rather
 /// than silently returning "".
 fn escape_iql_string(s: &str) -> String {
@@ -971,7 +984,7 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                 "description": "Inspects neighbors or lineage of a node.",
                 "inputSchema": {
                     "type": "object", "properties": {
-                        "node_id": { "type": "number", "description": "Node ID to explore" }
+                        "node_id": { "type": "string", "description": "Node ID to explore (decimal string; u128 ids exceed JSON number precision)" }
                     }, "required": ["node_id"]
                 }
             },
@@ -1328,12 +1341,12 @@ pub fn handle_tools_call(
         }
 
         "get_node_neighbors" => {
-            let node_id = args["node_id"]
-                .as_u64()
-                .ok_or_else(|| McpError::invalid_params("Missing 'node_id'").to_json())?;
+            let node_id = parse_node_id(&args["node_id"]).ok_or_else(|| {
+                McpError::invalid_params("Invalid or missing 'node_id'").to_json()
+            })?;
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
-            match embedded.get_node(node_id.into()) {
+            match embedded.get_node(node_id) {
                 Ok(Some(node)) => {
                     let mut neighbors = Vec::new();
                     for edge in &node.edges {

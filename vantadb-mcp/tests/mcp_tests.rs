@@ -1208,3 +1208,62 @@ fn test_mcp_prompt_invalid_name() {
         "error message should include prompt name"
     );
 }
+
+#[test]
+fn test_mcp_get_node_neighbors_preserves_large_u128_ids() {
+    // ERR-025: node ids are u128; JSON numbers lose precision above 2^53 and
+    // cannot represent ids above 2^64, so IDs must round-trip as strings.
+    let big_id = 9007199254740993u128; // 2^53 + 1 — first id a f64 cannot represent exactly
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+
+    embedded
+        .insert_node(vantadb::sdk::VantaNodeInput::new(7))
+        .expect("insert source node");
+    embedded
+        .insert_node(vantadb::sdk::VantaNodeInput::new(big_id))
+        .expect("insert big-id node");
+    embedded
+        .add_edge(7, big_id, "knows", None, None)
+        .expect("add edge");
+
+    // 1. Big id as the *neighbor*: assert it round-trips exactly as a string.
+    let neighbors_params = Some(json!({
+        "name": "get_node_neighbors",
+        "arguments": { "node_id": "7" }
+    }));
+    let res = handle_tools_call(&neighbors_params, &executor, &storage, &default_config());
+    assert!(res.is_ok(), "get_node_neighbors should succeed");
+    let val = res.unwrap();
+    assert!(
+        val["isError"].is_null(),
+        "get_node_neighbors should not indicate error: {:?}",
+        val
+    );
+    let text = val["content"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains(&format!("\"target_id\":\"{big_id}\"")),
+        "neighbor id must round-trip exactly as a string, got: {text}"
+    );
+
+    // 2. Big id as the *query input*: a string id > 2^53 must parse to u128
+    //    and find the node (was previously rejected by `as_u64`).
+    let big_params = Some(json!({
+        "name": "get_node_neighbors",
+        "arguments": { "node_id": big_id.to_string() }
+    }));
+    let big_res = handle_tools_call(&big_params, &executor, &storage, &default_config());
+    assert!(big_res.is_ok(), "big node_id call should succeed");
+    let big_val = big_res.unwrap();
+    assert!(
+        big_val["isError"].is_null(),
+        "big node_id should not be an error: {:?}",
+        big_val
+    );
+    let big_text = big_val["content"][0]["text"].as_str().unwrap();
+    assert!(
+        !big_text.contains("Node not found") && big_text.contains("\"target_id\":\"7\""),
+        "big node_id should resolve its reverse edge, got: {big_text}"
+    );
+}
