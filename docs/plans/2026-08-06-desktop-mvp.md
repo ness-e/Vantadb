@@ -1,6 +1,7 @@
 # Plan de Ejecución: Desktop MVP — DESKTOP-02..11 (Tauri v2 multi-connection)
 
-> **Campaign ID: 531a71a8-4828-450b-a175-f9cae55a6576
+> **Campaign ID: 6d527f85-4943-453d-bb9e-4b95d31cb0ea
+> **Campaign ID:** 6d527f85-4943-453d-bb9e-4b95d31cb0ea
 > **Inicio:** 2026-08-06
 > **Estado: completed
 > **Fuente:** `docs/Backlog.md` → Phase 12 DESKTOP (`DESKTOP-02..27`), scoping Task 54 (2026-08-05)
@@ -36,9 +37,8 @@
 - **Archivos clave:** `desktop/src-tauri/*`, `desktop/package.json`, `desktop/src/*`
 - **Gate Justificación:** no existe `desktop/`; es el scaffolding sin el que ninguna tarea compila ni se verifica.
 - **Gate Result:** ✅ DO
-- **Contrato: 
-- **Branch:**
-- **Commit:**
+- **Contrato: cargo check -p vantadb --features server ✅, desktop/ existe y commiteado ✅, migración a progreso ya hecha (947403f1) ✅
+  - **Commit:** `9feefea7`
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -94,7 +94,7 @@
 - **Agente:** `vanta-arch` (contract) con impl de `vanta-worker` — trait diseñado por arch (arquitectura multi-connection), implementado con worker
 - **Estado:** ✅ COMPLETED
 - **Branch:**
-- **Commit:**
+  - **Commit:** `dd7d25a1, 363c3f8a7`
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -120,7 +120,7 @@
 - **Agente:** `vanta-worker`
 - **Estado:** ✅ COMPLETED
 - **Branch:**
-- **Commit:**
+  - **Commit:** `5cebcc29`
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -146,7 +146,7 @@
 - **Agente:** `vanta-worker`
 - **Estado:** ✅ COMPLETED
 - **Branch:**
-- **Commit:**
+  - **Commit:** `9d2d5319`
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -171,7 +171,7 @@
 - **Agente:** `vanta-worker` (con skills de frontend/design si aplica)
 - **Estado:** ✅ COMPLETED
 - **Branch:**
-- **Commit:**
+  - **Commit:** `10c161aa`
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -197,7 +197,7 @@
 - **Agente:** `vanta-worker` (validar rutas/auth contra `docs/api/HTTP_API.md` + `src/cli_server.rs`)
 - **Estado:** ✅ COMPLETED
 - **Branch:**
-- **Commit:**
+  - **Commit:** `b7aff3a0`
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -223,7 +223,7 @@
 - **Agente:** `vanta-worker`
 - **Estado:** ✅ COMPLETED
 - **Branch:**
-- **Commit:**
+  - **Commit:** `a5f2da1b`
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -248,7 +248,7 @@
 - **Agente:** `vanta-worker`
 - **Estado:** ✅ COMPLETED
 - **Branch:**
-- **Commit:**
+  - **Commit:** `7619c3cb`
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -274,7 +274,7 @@
 - **Agente:** `vanta-worker` con review de `vanta-audit` (manejo de sub-procesos/unsafe de sidecars — ver DESKTOP-01b:1189)
 - **Estado:** ✅ COMPLETED
 - **Branch:**
-- **Commit:**
+  - **Commit:** `d62c1c0c`
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -297,10 +297,10 @@
 ## Checklist (gates de calidad entre fases)
 
 - [x] Wave 0: `cargo check -p vantadb` raíz invariante antes y después
-- [ ] **Checkpoint Wave 0→1:** 4 crates/UI base scaffold compilan
-- [ ] **Checkpoint Wave 1→2:** trait+types con serde roundtrip ✓; NativeConnection put/get ✓; Server IQL y ServerConnection integrado ✓
-- [ ] **Checkpoint Wave 2→3:** CRUD commands E2E nativo ✓
-- [ ] **Checkpoint final:** build de demo completa (Tauri + server) ✓; `scripts/validate-docs-coverage.ps1` ✓
+- [x] **Checkpoint Wave 0→1:** 4 crates/UI base scaffold compilan ✓
+- [x] **Checkpoint Wave 1→2:** trait+types con serde roundtrip ✓; NativeConnection put/get ✓; Server IQL y ServerConnection integrado ✓
+- [x] **Checkpoint Wave 2→3:** CRUD commands E2E nativo ✓
+- [x] **Checkpoint final:** build de demo completa (Tauri + server) ✓; `scripts/validate-docs-coverage.ps1` ✓
 - [ ] `dev-tools/verify.ps1` al cerrar el plan (Regla 1 pre-push)
 
 ## Riesgos / Mitigaciones
@@ -322,4 +322,4 @@
 
 === RECITATION ===
 Campaign ID: d83a2a1e-5b96-4ee9-a4d7-23afa648cf91
-Objetivo activo: 
+Objetivo activo: Completar backlog desktop-MVP (pipeline run)

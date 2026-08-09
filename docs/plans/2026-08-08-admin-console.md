@@ -1,6 +1,6 @@
 # Plan de Ejecución: Consola Administrativa Desktop (ADMIN-01..09 + DESKTOP-20)
 
-> **Campaign ID: 2e2da2c7-76e9-4ed1-980f-2731c65f52b8
+> **Campaign ID: 68db6ae9-51f0-4e64-bf06-195ac18a2b5e
 > **Inicio:** 2026-08-08
 > **Estado: completed
 > **Fuente:** `docs/Backlog.md` → Phase 12 Fase 7 (ADMIN-01..09) + Phase 12 Fase 5 (DESKTOP-20)
@@ -25,8 +25,7 @@
 - **Verificación real:** ✅ CÓDIGO-REAL — `operational_metrics_snapshot()` existe en `src/metrics/core/mod.rs:522` con `OperationalMetricsSnapshot` (~45 campos incl. `derived_prefix_scans`, `derived_full_scan_fallbacks`, `memory: MemoryBreakdownSnapshot`). Falta exponerlo como comando Tauri. Gap confirmado.
 - **Gate Justificación:** base del dashboard completo; 8 tareas ADMIN dependen del snapshot; costo bajo (1 command + serde).
 - **Gate Result:** ✅ DO
-- **Contrato: 
-- **Task file:** `skills/campaign-executor/tasks/ADMIN-01.md`
+- **Contrato: cargo nextest run: 1844 passed, 0 failed; clippy clean
 - **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
@@ -268,11 +267,11 @@ ADMIN-06 → ADMIN-07 → ADMIN-08 → ADMIN-09
 
 === RECITATION ===
 Campaign ID: 3deee89d-78c7-43d9-aab3-0fd0d6e125c3
-Objetivo activo: Consola administrativa desktop — Wave 3
+Objetivo activo: AUD-014 dedupe pruning logic
 Estado: completed
-Última acción: ADMIN-09: ExportPanel.tsx blob download + localStorage last-snapshot. Sin plugins Tauri
-Resultado: ✅ COMPLETADO commit e0e8ff3a
-Próxima acción: Cierre: progreso progreso memoria
+Última acción: select_neighbors canonicalizado como single source of truth; cap over-capacity a 2m fixea hang de test 10k (6.46s vs hang previo)
+Resultado: ✅
+Próxima acción: handoff
 Contrato: cargo check pasa; shutdown_all en evento de cierre; sin huérfanos
-Próxima tarea si completa: CLOSE
+Próxima tarea si completa: 
 === END RECITATION ===
