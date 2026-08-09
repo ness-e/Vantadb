@@ -36,6 +36,10 @@ pub mod worker;
 
 const MAX_F32_VEC_LEN: usize = 10_000_000;
 const MAX_BATCH_SIZE: usize = 100_000;
+/// Cap on `top_k`/`k` for all search entry points (ERR-022). Prevents absurd
+/// values (e.g. `k = 10^9`) from reaching `HashSet::with_capacity(ef*3)`
+/// style allocations in the engine, which abort the process (panic-alloc).
+const MAX_K: usize = 1_000;
 
 /// Minimal WASM-friendly config that maps to VantaConfig
 #[derive(Deserialize)]
@@ -775,7 +779,7 @@ impl VantaDB {
             query_sparse: None,
             filters: req.filters,
             text_query: req.text_query,
-            top_k: req.top_k,
+            top_k: req.top_k.min(MAX_K),
             distance_metric: distance,
             explain: req.explain,
         };
@@ -799,7 +803,7 @@ impl VantaDB {
         }
         let hits = self
             .inner
-            .search_vector(&vector, top_k)
+            .search_vector(&vector, top_k.min(MAX_K))
             .map_err(to_js_err)?;
         let arr = js_sys::Array::new();
         for hit in hits {
@@ -832,7 +836,7 @@ impl VantaDB {
             query_sparse: None,
             filters: req.filters,
             text_query: req.text_query,
-            top_k: req.top_k,
+            top_k: req.top_k.min(MAX_K),
             distance_metric: distance,
             explain: true,
         };

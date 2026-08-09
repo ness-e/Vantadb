@@ -36,6 +36,11 @@ use crate::convert::{
     text_index_repair_report_to_pydict,
 };
 
+/// Cap on `top_k`/`k` for all search entry points (ERR-022). Prevents absurd
+/// values (e.g. `k = 10^9`) from reaching `HashSet::with_capacity(ef*3)`
+/// style allocations in the engine, which abort the process (panic-alloc).
+const MAX_K: usize = 1_000;
+
 #[pyclass]
 /// Python-accessible embedded VantaDB engine.
 ///
@@ -926,7 +931,7 @@ impl VantaDB {
             query_sparse: None,
             filters: py_dict_to_metadata(filters)?,
             text_query,
-            top_k,
+            top_k: top_k.min(MAX_K),
             distance_metric: metric,
             explain,
         };
@@ -1263,7 +1268,7 @@ impl VantaDB {
         // GIL RELEASED: only pure Rust — distance computation + graph traversal
         py.detach(move || {
             engine
-                .search_vector(&v, top_k)
+                .search_vector(&v, top_k.min(MAX_K))
                 .map(|hits| {
                     // Pure Rust tuple mapping — no Python objects created
                     hits.into_iter()
@@ -1301,7 +1306,7 @@ impl VantaDB {
                 .into_par_iter()
                 .map(|vector| {
                     engine
-                        .search_vector(&vector, top_k)
+                        .search_vector(&vector, top_k.min(MAX_K))
                         .map(|hits| {
                             hits.into_iter()
                                 .map(|hit| (hit.node_id as u64, hit.distance))
@@ -1730,7 +1735,7 @@ impl VantaDB {
             query_sparse: None,
             filters: py_dict_to_metadata(filters)?,
             text_query,
-            top_k,
+            top_k: top_k.min(MAX_K),
             distance_metric: metric,
             explain: true,
         };
@@ -1802,8 +1807,8 @@ impl VantaDB {
         };
 
         let top_k: usize = match Self::request_field(obj, "top_k")? {
-            Some(v) => v.extract()?,
-            None => default_top_k,
+            Some(v) => v.extract::<usize>()?.min(MAX_K),
+            None => default_top_k.min(MAX_K),
         };
 
         let distance_metric = match Self::request_field(obj, "distance_metric")? {
