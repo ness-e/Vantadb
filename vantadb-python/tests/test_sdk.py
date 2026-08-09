@@ -172,6 +172,44 @@ class TestVectorSearch:
                 assert abs(batch_results[i][j][1] - individual_results[i][j][1]) < 1e-5, f"result {i},{j}: distances differ by {abs(batch_results[i][j][1] - individual_results[i][j][1])}"
 
 
+class TestU128NodeIds:
+    """ERR-023: Node IDs >= 2^64 must round-trip intact (core ids are u128)."""
+
+    BIG_IDS = [
+        2**64 + 1,   # 18446744073709551617 — beyond u64 range
+        2**128 - 1,  # max u128 — 340282366920938463463374607431768211455
+    ]
+
+    def test_insert_get_roundtrip(self):
+        """insert/get must not truncate or raise OverflowError for big ids."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        for i, nid in enumerate(self.BIG_IDS):
+            db.insert(nid, f"u128-node-{i}", [float(i + 1) / 10.0] * 384)
+            node = db.get(nid)
+            assert node is not None, f"get({nid}) should not be None"
+            assert node["id"] == nid, f"id corrupted: expected {nid}, got {node['id']}"
+
+    def test_search_preserves_node_id(self):
+        """search() (node_id, distance) tuples must keep u128 ids."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        nid = self.BIG_IDS[0]
+        vec = [0.5] * 384
+        db.insert(nid, "big-vec", vec)
+        results = db.search(vec, top_k=1)
+        assert len(results) >= 1, f"expected >= 1 hit, got {results}"
+        hit_id, _ = results[0]
+        assert hit_id == nid, f"search node_id truncated: expected {nid}, got {hit_id}"
+
+    def test_delete_u128_id(self):
+        """delete() must accept ids >= 2^64 (was u64 -> OverflowError)."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        nid = self.BIG_IDS[0]
+        db.insert(nid, "to delete", [0.1] * 128)
+        assert db.get(nid) is not None, "node should exist before delete"
+        db.delete(nid, "ERR-023 cleanup")
+        assert db.get(nid) is None, "node should be None after delete with u128 id"
+
+
 class TestPersistentMemoryApi:
     """Namespace-scoped persistent memory API tests."""
 

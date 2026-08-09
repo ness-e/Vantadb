@@ -1236,15 +1236,11 @@ impl VantaDB {
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during node deletion.
     #[pyo3(signature = (id, reason="manual deletion"))]
-    fn delete(&self, py: Python, id: u64, reason: &str) -> PyResult<()> {
+    fn delete(&self, py: Python, id: u128, reason: &str) -> PyResult<()> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let reason_str = reason.to_string();
-        py.detach(move || {
-            engine
-                .delete_node(id.into(), &reason_str)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.delete_node(id, &reason_str).map_err(map_vanta_error))
     }
 
     /// K-NN vector search. Returns a list of (node_id, distance) tuples.
@@ -1260,7 +1256,7 @@ impl VantaDB {
         py: Python,
         vector: &Bound<'_, PyAny>,
         top_k: usize,
-    ) -> PyResult<Vec<(u64, f32)>> {
+    ) -> PyResult<Vec<(u128, f32)>> {
         let _g = enter(&self.op_gate)?;
         // PERF-24: vector extraction (needs GIL) — done before detach
         let v = extract_vector(vector, py)?;
@@ -1271,8 +1267,9 @@ impl VantaDB {
                 .search_vector(&v, top_k.min(MAX_K))
                 .map(|hits| {
                     // Pure Rust tuple mapping — no Python objects created
+                    // node_id is u128 in core; keep full precision (ERR-023)
                     hits.into_iter()
-                        .map(|hit| (hit.node_id as u64, hit.distance))
+                        .map(|hit| (hit.node_id, hit.distance))
                         .collect()
                 })
                 .map_err(map_vanta_error)
@@ -1292,7 +1289,7 @@ impl VantaDB {
         py: Python,
         vectors: Vec<Bound<'_, PyAny>>,
         top_k: usize,
-    ) -> PyResult<Vec<Vec<(u64, f32)>>> {
+    ) -> PyResult<Vec<Vec<(u128, f32)>>> {
         let _g = enter(&self.op_gate)?;
         // PERF-24: vector extraction (needs GIL) — done before detach
         let parsed: PyResult<Vec<Vec<f32>>> =
@@ -1309,12 +1306,12 @@ impl VantaDB {
                         .search_vector(&vector, top_k.min(MAX_K))
                         .map(|hits| {
                             hits.into_iter()
-                                .map(|hit| (hit.node_id as u64, hit.distance))
+                                .map(|hit| (hit.node_id, hit.distance))
                                 .collect()
                         })
                         .map_err(map_vanta_error)
                 })
-                .collect::<Result<Vec<Vec<(u64, f32)>>, _>>()
+                .collect::<Result<Vec<Vec<(u128, f32)>>, _>>()
         })
     }
 
