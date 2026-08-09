@@ -230,12 +230,13 @@ _(no duplicar)_
 - **Verificación real:** ✅ CÓDIGO-REAL — feature `pitr` = lista vacía (doc = "+feature": `Cargo.toml:138` versión 0.1 etc.); módulos existen standalone.
 - **Gate:** dead feature phantom → **DO** (solo ADR + decidir: integrar / experimental / defer)
 - **Contrato:** ADR file exists (`docs/architecture/adr/ADR-0XX-pitr.md`) + `rgba "pitr" Cargo.toml` (feature docs)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ DONE
 
 ### Task 29: FEAT-02 — DiskANN: honest rename o implementar v1
 
 - **Esfuerzo:** 🔴 · **Prig:** 🟡 · **Archivos:** `src/index/diskann.rs` | **Gate:** doc interno admite "purely in-memory" | **DO** (decisión + docs/rename) | **Contrato:** README/arch no claim "DiskANN" sin disk I/O (rgba `disk-ann\|\|mmap` doc → ok)
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** bcdcad3f — Decisión: mantener `IndexType::DiskAnn` (público+serde, rename rompería API) y documentar honestamente (opción b). `diskann.rs` es Vamana graph puramente in-memory — sin disk I/O, sin mmap. Docs corregidos: ROADMAP.md (#264), PQ_FEASIBILITY.md, module doc `//!` con nota de honestidad FEAT-02.
 
 ### Task 30: FEAT-03 — Arrow: export vector completo
 
