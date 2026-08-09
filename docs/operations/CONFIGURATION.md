@@ -19,7 +19,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 |-------|------|---------|---------|-------------|
 | `storage_path` | `String` | `vantadb_data` | `VANTADB_STORAGE_PATH` | Filesystem path for embedded data directory |
 | `host` | `String` | `127.0.0.1` | `VANTADB_HOST` (fallback `HOST`) | Bind address for HTTP server |
-| `port` | `u16` | `8080` | `VANTADB_PORT` (fallback `PORT`) | TCP port for HTTP server |
+| `port` | `u16` | `8080` | `VANTADB_PORT` | TCP port for HTTP server |
 | `memory_limit` | `Option<u64>` | `None` | — | Memory budget hint for backend and mmap selection |
 | `read_only` | `bool` | `false` | — | Opens engine in read-only mode |
 | `force_mmap` | `bool` | `false` | — | Force memory-mapped I/O for vector store |
@@ -58,7 +58,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `bulk_commit_interval` | `Option<usize>` | `None` (10000) | `VANTADB_BULK_COMMIT_INTERVAL` | Number of records per batch commit during bulk import |
 | `encryption_key` | `Option<String>` | `None` | `VANTADB_ENCRYPTION_KEY` | AES-256-GCM key (hex 32-byte) for at-rest encryption (feature-gated: `encryption`) |
 | `flat_threshold` | `Option<usize>` | `10000` | `VANTADB_FLAT_THRESHOLD` | Brute-force flat scan threshold; ≤ this many nodes skips HNSW |
-| `hot_reload_config` | `Arc<RwLock<...>>` | — | — | Hot-reloadable config snapshot (feature-gated: `hot-reload`) |
+| `hot_reload_config` | `Arc<RwLock<HotReloadConfig>>` | `HotReloadConfig::default()` | — | Hot-reloadable config snapshot (feature-gated: `hot-reload`, not in `default` features). See [Hot-Reload JSON](#hot-reload-json) |
 | `rbac_config` | `RbacConfig` | `{ token_role_map: {} }` | — | RBAC config mapping API tokens to roles |
 | `require_auth` | `bool` | `false` | `VANTADB_REQUIRE_AUTH` | Refuse to start unless `api_key` is configured |
 | `token_role_map` | `HashMap<String, String>` | `{}` | — | `RbacConfig` field: token → role name mapping |
@@ -89,6 +89,88 @@ Each line is one JSON object:
 | `SyncMode` | `Always` (fsync every write), `Periodic` (fsync every 5s), `Never` | [[wal\|WAL]] durability sync mode |
 | `PrefetchMode` | `Auto` (detect), `Enabled`, `Disabled` | MMap prefetch strategy |
 | `BackendKind` | `[[fjall\|Fjall]]` (default), `[[rocksdb\|RocksDb]]`, `InMemory` | KV storage backend |
+
+### Builder API
+
+Configuration in Rust uses the builder pattern: `VantaConfig::default()` reads **all** environment
+variables listed above, `VantaConfig::from_env()` is a thin alias of `default()`, and each `with_*`
+method overrides a single field on the returned builder. Builder methods are additive — fields you do
+not touch keep their env-var or default value. **No `config.toml` (or any other config file) is read
+at startup.** The only file-based mechanism is the optional JSON hot-reload watcher described in
+[Hot-Reload JSON](#hot-reload-json), which applies a subset of fields at runtime and never replaces
+startup configuration.
+
+```rust
+use vantadb::VantaConfig;
+
+let cfg = VantaConfig::from_env()
+    .with_storage_path("./vanta_data".to_string())
+    .with_memory_limit(512_000_000)
+    .with_wal_buffer_size(64 * 1024)
+    .with_flush_threshold(10_000)
+    .with_flat_threshold(Some(10_000))
+    .with_tls("cert.pem".to_string(), "key.pem".to_string())
+    .with_audit_log_path("./audit.jsonl");
+```
+
+### Hot-Reload JSON
+
+Behind the `hot-reload` Cargo feature (not included in `default`; pulls in `notify`),
+`VantaConfig::watch_config(config, path, on_reload)` spawns a background thread that watches a single
+JSON file and atomically applies safe-to-reload fields at runtime. It is the **only file-based
+configuration mechanism**; there is no `config.toml` and no config file is read at startup.
+
+Mechanism (`#[cfg(feature = "hot-reload")]`, `src/config.rs`):
+
+- `watch_config(config: Arc<RwLock<VantaConfig>>, path, on_reload)` returns
+  `io::Result<mpsc::Sender<()>>`. Dropping the returned `Sender` shuts the watcher thread down.
+- The file is parsed as **JSON only** (`serde_json`); invalid JSON or files larger than 1 MB are
+  ignored with a warning. The parent directory is watched non-recursively; only
+  `Modify(Data)` events on the exact path trigger a reload.
+- Only the safe `HotReloadConfig` subset is applied — `prefetch_mode`, `log_format`,
+  `rate_limit_rpm`, `batch_size`, `wal_buffer_size`, `flush_threshold`, `insert_lock_timeout_ms`,
+  `sync_mode`. Changes to storage paths, backend, TLS, API keys, or audit settings are ignored.
+- `on_reload` is invoked only when at least one field actually changed.
+
+Example file (all keys optional):
+
+```json
+{
+  "prefetch_mode": "enabled",
+  "log_format": "json",
+  "rate_limit_rpm": 100,
+  "batch_size": 1000,
+  "wal_buffer_size": 65536,
+  "flush_threshold": 10000,
+  "insert_lock_timeout_ms": 5000,
+  "sync_mode": "periodic"
+}
+```
+
+| Key | Type | Accepted values |
+|-----|------|-----------------|
+| `prefetch_mode` | string | `auto`, `enabled`, `disabled` |
+| `log_format` | string | `compact`, `json`, `full` |
+| `rate_limit_rpm` | u32 | 0 = disabled |
+| `batch_size` | number \| `null` | `null` → `None` |
+| `wal_buffer_size` | number \| `null` | bytes; `null` → `None` |
+| `flush_threshold` | number \| `null` | node count; `null` → `None` |
+| `insert_lock_timeout_ms` | u64 | ms |
+| `sync_mode` | string | `always`, `never`; anything else → `periodic` |
+
+```rust
+use std::sync::{Arc, RwLock};
+use vantadb::VantaConfig;
+
+let cfg = Arc::new(RwLock::new(VantaConfig::from_env()));
+let watcher = VantaConfig::watch_config(
+    Arc::clone(&cfg),
+    "./hot-reload.json",
+    || tracing::info!("config hot-reloaded"),
+)
+.expect("failed to start hot-reload watcher");
+// later: drop(watcher) stops the background thread
+```
 
 ## 2. Python Constructor
 
