@@ -48,8 +48,17 @@ impl HnswNeighborIndex {
     }
 
     fn decrement_inbound(&self, id: u128) {
+        let mut now_zero = false;
         if let Some(mut r) = self.inbound.get_mut(&id) {
             *r = r.saturating_sub(1);
+            now_zero = *r == 0;
+        }
+        // Drop the shard guard (scoped) before mutating the map: evict a
+        // counter when it reaches zero so deleted reference sinks are fully
+        // released instead of accumulating unbounded 0-count entries
+        // (ERR-012).
+        if now_zero {
+            self.inbound.remove(&id);
         }
     }
 
@@ -161,9 +170,16 @@ impl HnswNeighborIndex {
         }
     }
 
-    /// Remove a node's metadata and all layer entries.
-    /// Used during reindex when a node ID is removed.
-    #[allow(dead_code)]
+    /// Remove a node and ALL trace of it from the index (ERR-012):
+    ///
+    /// 1. Drop the node's own outbound lists, decrementing each neighbor's
+    ///    `inbound` counter (symmetrical with `add_neighbor` / `set_neighbors`).
+    /// 2. Strip every remaining reference *to* the node from other nodes'
+    ///    lists, so no live list points at a deleted id.
+    /// 3. Evict the node's own counter entry once nothing references it.
+    ///
+    /// Without this, deletes leak: the node's lists stay in the index and its
+    /// neighbors' `inbound` counters keep counting a dead edge forever.
     pub fn remove_node(&self, id: u128) {
         if let Some((_, num_layers)) = self.id_to_meta.remove(&id) {
             for layer in 0..num_layers {
@@ -173,8 +189,20 @@ impl HnswNeighborIndex {
                     }
                 }
             }
-            self.inbound.remove(&id);
         }
+        // Scrub references to `id` from every other node's lists.
+        // DashMap `iter()` holds the global lock: collect candidates first,
+        // then mutate one shard at a time via `remove_neighbor`.
+        let mut stale: Vec<(u128, usize)> = Vec::new();
+        for entry in self.lists.iter() {
+            if entry.value().contains(&id) {
+                stale.push(*entry.key());
+            }
+        }
+        for (owner, layer) in stale {
+            self.remove_neighbor(owner, layer, id);
+        }
+        self.inbound.remove(&id);
     }
 
     /// Replace a node's ID while keeping its neighbor data.
@@ -405,6 +433,64 @@ mod tests {
             idx.num_layers(1).is_none(),
             "removed node meta must be gone"
         );
+    }
+
+    #[test]
+    fn remove_node_evicts_zero_inbound_node_after_delete() {
+        // ERR-012: deleting a middle node in chain A→B→C must:
+        // 1. Drop B's own lists and meta.
+        // 2. Decrement B's former outbound neighbor inbound (C loses B's
+        //    contribution).
+        // 3. Scrub every inbound reference to B from other lists (A, C no
+        //    longer point at a deleted id).
+        // 4. Evict B's inbound counter entirely once nothing references it.
+        let idx = HnswNeighborIndex::new();
+        idx.allocate(1, 1); // A
+        idx.allocate(2, 1); // B
+        idx.allocate(3, 1); // C
+
+        // A→B, B→C, C→B (bidirectional edges like real HNSW links).
+        let mut a = NeighborVec::new();
+        a.push(2);
+        idx.set_neighbors(1, 0, a);
+        let mut b = NeighborVec::new();
+        b.push(3);
+        idx.set_neighbors(2, 0, b);
+        let mut c = NeighborVec::new();
+        c.push(2);
+        idx.set_neighbors(3, 0, c);
+
+        assert_eq!(idx.inbound_count(2), 2); // referenced by A and C
+        assert_eq!(idx.inbound_count(3), 1); // referenced by B
+        check_inbound_invariant(&idx);
+
+        idx.remove_node(2); // delete B
+
+        // B's own meta and lists are gone.
+        assert!(idx.num_layers(2).is_none(), "B's meta must be removed");
+        assert!(
+            idx.get_neighbors(2, 0).is_none(),
+            "B's outbound lists must be removed"
+        );
+        // B's contribution to C is gone: C's inbound must drop to 0 and C's
+        // list must no longer reference B.
+        assert_eq!(idx.inbound_count(3), 0, "C's inbound must lose B's edge");
+        assert!(
+            !idx.get_neighbors(3, 0).unwrap_or_default().contains(&2),
+            "C's list must not reference deleted B"
+        );
+        // A must also stop referencing B.
+        assert!(
+            !idx.get_neighbors(1, 0).unwrap_or_default().contains(&2),
+            "A's list must not reference deleted B"
+        );
+        // Eviction: nothing references B anymore, so its counter entry is
+        // removed entirely (zero-reference node released, no leak).
+        assert!(
+            idx.inbound.get(&2).is_none(),
+            "deleted node's inbound entry must be evicted"
+        );
+        check_inbound_invariant(&idx);
     }
 
     #[test]

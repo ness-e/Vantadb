@@ -474,6 +474,28 @@ impl CPIndex {
         self.entry_point.store(id, Ordering::Relaxed);
     }
 
+    /// Remove a node from the graph (ERR-012).
+    ///
+    /// Calls `neighbor_index.remove_node(id)`, so the deletion is NOT a leak:
+    /// the node's outbound lists leave the index and every neighbor's
+    /// `inbound` counter is decremented, plus all inbound references to the
+    /// deleted id are scrubbed from other nodes' lists. Mirrors the HNSW
+    /// removal that `StorageEngine` performs on delete; the engine must call
+    /// this (instead of only `nodes.remove`) to keep the neighbor index
+    /// consistent.
+    pub fn remove_node(&self, id: u128) {
+        if self.nodes.remove(&id).is_none() {
+            tracing::debug!(node = id, "remove_node: id not found in graph");
+        }
+        // PERF-23: promote a replacement entry point if we just removed the
+        // current one — same logic as `StorageEngine::remove_hnsw_entry`.
+        if self.entry_point.load(Ordering::Relaxed) == id {
+            let new_ep = self.find_new_entry_point().unwrap_or(ENTRY_POINT_NONE);
+            self.entry_point.store(new_ep, Ordering::Relaxed);
+        }
+        self.neighbor_index.remove_node(id);
+    }
+
     #[inline(always)]
     pub(crate) fn fast_similarity(
         &self,
@@ -1763,6 +1785,73 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_remove_node_decrements_inbound_and_promotes_entry_point() {
+        let index = CPIndex::new_with_config(HnswConfig {
+            m: 8,
+            m_max0: 16,
+            ef_construction: 50,
+            ef_search: 50,
+            ml: 1.0 / (8_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None,
+            index_type: crate::index::IndexType::Hnsw,
+            auto_tune: false,
+        });
+
+        for i in 0u128..6 {
+            let v: Vec<f32> = (0..8).map(|d| ((i * 8 + d) as f32).sin()).collect();
+            index
+                .add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
+        }
+        assert_eq!(index.nodes.len(), 6);
+
+        // Make node 2 the entry point so the removal path also exercises
+        // entry-point promotion.
+        index.set_entry_point(2);
+        assert_eq!(index.get_entry_point(), Some(2));
+
+        // ERR-012: engineer-level remove_node — the same call the storage
+        // engine must use on delete (vs the old raw `nodes.remove`).
+        index.remove_node(2);
+
+        // Node payload is gone.
+        assert!(index.nodes.get(&2).is_none(), "node 2 must be removed");
+        // Neighbor index: no layers, and no other node's list references 2.
+        assert!(
+            index.neighbor_index.num_layers(2).is_none(),
+            "node 2 meta must be purged from neighbor index"
+        );
+        let mut stale_refs: Vec<u128> = Vec::new();
+        index.neighbor_index.for_each(|owner, layers| {
+            for layer in layers {
+                if layer.contains(&2) {
+                    stale_refs.push(owner);
+                }
+            }
+        });
+        assert!(
+            stale_refs.is_empty(),
+            "no neighbor list may reference deleted node 2, found owners {stale_refs:?}"
+        );
+        // Deleted node's inbound counter is evicted (no leak, bounded map).
+        let inbound_after = index.neighbor_index.inbound_count(2);
+        assert_eq!(inbound_after, 0, "deleted node's inbound must drop to zero");
+
+        // Entry point must no longer point at the removed node.
+        let ep = index.get_entry_point();
+        assert_ne!(
+            ep,
+            Some(2),
+            "entry point must be promoted away from deleted node"
+        );
+        assert!(
+            ep.is_some(),
+            "remaining nodes still exist, entry point must remain"
+        );
     }
 
     // ── ERR-018: layer distribution ─────────────────────────────────────
