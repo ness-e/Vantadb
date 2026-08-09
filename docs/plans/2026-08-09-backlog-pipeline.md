@@ -272,7 +272,8 @@ _(no duplicar)_
 ### Task 35: REVISAR-01 — Cerrar ciclo ERR-038/039/040/041 (reproducibilidad)
 
 - **Esfuerzo:** 🟡 · **Prig:** 🟡 · **Archivos:** `benches/`, `src/index/ivf.rs` | **DO** (bench dedicado) | **Contrato:** `cargo bench --bench ivf_*` existe + reporte
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** b9249654 — `benches/ivf_bench.rs` (criterion, nlist×nprobe sweep: build k-means, Recall@10 vs brute-force, p50/p99/mean, QPS, cand/q); expuesto `pub mod ivf` (1-palabra, src/index/mod.rs); `[[bench]] ivf_bench` en Cargo.toml; reporte `docs/benchmarks/ivf_bench.md`
 
 ### COV
 
