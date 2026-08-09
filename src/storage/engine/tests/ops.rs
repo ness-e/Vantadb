@@ -119,6 +119,112 @@ fn test_txn_commit_after_commit_errors() {
     let _ = result;
 }
 
+// ─── ERR-013: cardinality stats deferred to commit ────────────
+//
+// Buffering an insert/delete inside a transaction must NOT update
+// cardinality stats (or edge/scalar indexes) until commit. Otherwise an
+// aborted transaction leaves the counters inflated/deflated for records
+// that never committed.
+
+fn node_with_color(id: u128, color: &str) -> UnifiedNode {
+    let mut node = UnifiedNode::new(id);
+    node.relational.insert(
+        "color".to_string(),
+        crate::node::FieldValue::String(color.to_string()),
+    );
+    node
+}
+
+fn sel_of(engine: &StorageEngine, color: &str) -> f32 {
+    engine.get_estimated_selectivity(
+        "color",
+        &crate::query::RelOp::Eq,
+        &crate::node::FieldValue::String(color.to_string()),
+    )
+}
+
+#[test]
+fn test_txn_insert_abort_does_not_inflate_cardinality_stats() {
+    let engine = in_memory_engine();
+    engine
+        .insert(&node_with_color(10, "red"))
+        .expect("insert outside txn");
+
+    let txn_id = engine.begin_transaction().expect("begin");
+    engine
+        .insert(&node_with_color(11, "blue"))
+        .expect("insert in txn");
+    engine.abort_transaction(txn_id).expect("abort");
+
+    assert_eq!(
+        sel_of(&engine, "blue"),
+        0.0_f32,
+        "aborted txn insert must not inflate cardinality for its value"
+    );
+    assert_eq!(
+        sel_of(&engine, "red"),
+        1.0_f32,
+        "pre-existing value keeps its stats after abort"
+    );
+}
+
+#[test]
+fn test_txn_insert_commit_applies_stats_once() {
+    let engine = in_memory_engine();
+    engine
+        .insert(&node_with_color(10, "red"))
+        .expect("insert outside txn");
+
+    let txn_id = engine.begin_transaction().expect("begin");
+    engine
+        .insert(&node_with_color(11, "blue"))
+        .expect("insert in txn");
+    engine.commit_transaction(txn_id).expect("commit");
+
+    assert_eq!(
+        sel_of(&engine, "blue"),
+        0.5_f32,
+        "committed txn insert counts the new value exactly once (1 of 2)"
+    );
+    assert_eq!(sel_of(&engine, "red"), 0.5_f32);
+}
+
+#[test]
+fn test_txn_delete_abort_keeps_cardinality_stats() {
+    let engine = in_memory_engine();
+    engine
+        .insert(&node_with_color(10, "red"))
+        .expect("insert outside txn");
+
+    let txn_id = engine.begin_transaction().expect("begin");
+    engine.delete(10, "test").expect("delete in txn");
+    engine.abort_transaction(txn_id).expect("abort");
+
+    assert_eq!(
+        sel_of(&engine, "red"),
+        1.0_f32,
+        "aborted txn delete must not deflate cardinality stats"
+    );
+}
+
+#[test]
+fn test_txn_delete_commit_applies_stats_once() {
+    let engine = in_memory_engine();
+    engine
+        .insert(&node_with_color(10, "red"))
+        .expect("insert outside txn");
+
+    let txn_id = engine.begin_transaction().expect("begin");
+    engine.delete(10, "test").expect("delete in txn");
+    engine.commit_transaction(txn_id).expect("commit");
+
+    assert_eq!(
+        sel_of(&engine, "red"),
+        0.0_f32,
+        "committed txn delete decrements cardinality exactly once"
+    );
+}
+
 // ─── Batch insert ─────────────────────────────────────────────
 
 #[test]

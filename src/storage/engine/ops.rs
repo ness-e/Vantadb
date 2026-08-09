@@ -377,6 +377,10 @@ impl StorageEngine {
         for op in &buffer {
             match op {
                 BufferedWrite::Insert(node) => {
+                    // ERR-013: cardinality/index updates are deferred from the
+                    // buffering stage to commit — applied here so they only
+                    // count records that actually commit.
+                    self.apply_insert_stats(node);
                     // Remove old from HNSW/cache so the new insert can take its place
                     {
                         let hnsw = self.hnsw.load();
@@ -386,6 +390,9 @@ impl StorageEngine {
                     self.apply_insert_with_txn(node, txn_id)?;
                 }
                 BufferedWrite::Delete(id) => {
+                    // ERR-013: cardinality/index decrement is deferred from the
+                    // buffering delete path; apply it here on commit.
+                    self.apply_delete_stats(*id);
                     // Stamp metadata as deleted_by this txn instead of removing
                     self.stamp_deleted_in_backend(*id, txn_id)?;
                     // Still tombstone vstore + remove from HNSW + cache
@@ -609,6 +616,99 @@ impl StorageEngine {
     #[tracing::instrument(skip(self, node), level = "debug", err)]
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
         self.check_memory_pressure()?;
+
+        // Inside transaction → buffer in the txn's write set; stats, indexes
+        // and store writes are applied only at commit (ERR-013). Applying
+        // cardinality/index updates eagerly here would leave them inflated
+        // when the transaction aborts.
+        {
+            let active = self.active_txns.lock();
+            if !active.is_empty() {
+                if active.len() == 1 {
+                    let txn_id = *active.iter().next().unwrap();
+                    drop(active);
+                    let now_ms = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as u64;
+                    let mut buffers = self.txn_buffers.lock();
+                    let mut buffered = node.clone();
+                    buffered.last_accessed = now_ms;
+                    buffers
+                        .entry(txn_id)
+                        .or_default()
+                        .push(BufferedWrite::Insert(buffered));
+                    return Ok(());
+                }
+                return Err(crate::error::VantaError::InvalidInput(
+                    "Multiple active transactions; use insert_in_txn() instead".into(),
+                ));
+            }
+        }
+
+        // Non-transaction path: stats minus eager cardinality/index updates
+        // (shared with commit_transaction), then WAL + apply inside a single
+        // insert_lock
+        self.apply_insert_stats(node);
+
+        self.ensure_writable()?;
+        #[cfg(feature = "failpoints")]
+        fail::fail_point!("storage_insert_fail", |_| {
+            Err(crate::error::VantaError::IoError(std::io::Error::other(
+                "Simulated Storage insert catastrophic I/O failure",
+            )))
+        });
+
+        self.touch_activity();
+
+        let now_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        // Non-transaction path: WAL + apply inside a single insert_lock
+        // critical section (ERR-010). flush() takes the same guard around
+        // [drain → serialize → checkpoint_seq write], so a concurrent flush
+        // can never count this WAL record before its HNSW mutation has been
+        // drained into the serialized snapshot — no invisible records and no
+        // duplicates on replay. `apply_insert` queues to the pending batch
+        // (try_push_pending_hnsw never blocks on the guard we hold here).
+        {
+            let _guard = self
+                .insert_lock
+                .try_lock_for(std::time::Duration::from_millis(
+                    self.config.insert_lock_timeout_ms,
+                ))
+                .ok_or_else(|| crate::error::VantaError::Timeout {
+                    operation: "acquire insert_lock in insert (WAL + queue)".into(),
+                    duration_ms: self.config.insert_lock_timeout_ms,
+                })?;
+            if let Some(ref sharded) = self.wal {
+                let mut wal_node = node.clone();
+                wal_node.last_accessed = now_ms;
+                // moved (not cloned again) — eliminates the 2nd clone
+                sharded.append(&crate::wal::WalRecord::Insert(wal_node))?;
+            }
+            // Pass &node directly — no active_node intermediate needed
+            self.apply_insert(node)?;
+            // We hold the guard, so try_push_pending_hnsw (called inside
+            // apply_insert) could never opportunistically drain — drain the
+            // batch NOW under the same latch so the HNSW entry exists for
+            // immediate reads (get()/search), exactly like the pre-ERR-010
+            // eager path did.
+            self.drain_hnsw_batch_locked()?;
+            Ok(())
+        }
+    }
+
+    /// Apply cardinality stats + edge/scalar index updates for an insert.
+    ///
+    /// Called from the non-transactional `insert()` path and from
+    /// `commit_transaction` when a buffered insert is actually committed.
+    /// It is intentionally NOT called while an insert is being buffered into a
+    /// transaction — an abort would otherwise leave these counters inflated
+    /// for records that never committed (ERR-013).
+    fn apply_insert_stats(&self, node: &UnifiedNode) {
         if let Ok(Some(existing_node)) = self.get(node.id) {
             let mut stats = self.cardinality_stats.write();
             for (field, value) in &existing_node.relational {
@@ -695,77 +795,6 @@ impl StorageEngine {
             for (field, value) in &node.relational {
                 si.insert(field, value, node.id);
             }
-        }
-
-        self.ensure_writable()?;
-        #[cfg(feature = "failpoints")]
-        fail::fail_point!("storage_insert_fail", |_| {
-            Err(crate::error::VantaError::IoError(std::io::Error::other(
-                "Simulated Storage insert catastrophic I/O failure",
-            )))
-        });
-
-        self.touch_activity();
-
-        let now_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
-
-        // Inside transaction → buffer instead of writing to stores
-        {
-            let active = self.active_txns.lock();
-            if !active.is_empty() {
-                if active.len() == 1 {
-                    let txn_id = *active.iter().next().unwrap();
-                    drop(active);
-                    let mut buffers = self.txn_buffers.lock();
-                    let mut buffered = node.clone();
-                    buffered.last_accessed = now_ms;
-                    buffers
-                        .entry(txn_id)
-                        .or_default()
-                        .push(BufferedWrite::Insert(buffered));
-                    return Ok(());
-                }
-                return Err(crate::error::VantaError::InvalidInput(
-                    "Multiple active transactions; use insert_in_txn() instead".into(),
-                ));
-            }
-        }
-
-        // Non-transaction path: WAL + apply inside a single insert_lock
-        // critical section (ERR-010). flush() takes the same guard around
-        // [drain → serialize → checkpoint_seq write], so a concurrent flush
-        // can never count this WAL record before its HNSW mutation has been
-        // drained into the serialized snapshot — no invisible records and no
-        // duplicates on replay. `apply_insert` queues to the pending batch
-        // (try_push_pending_hnsw never blocks on the guard we hold here).
-        {
-            let _guard = self
-                .insert_lock
-                .try_lock_for(std::time::Duration::from_millis(
-                    self.config.insert_lock_timeout_ms,
-                ))
-                .ok_or_else(|| crate::error::VantaError::Timeout {
-                    operation: "acquire insert_lock in insert (WAL + queue)".into(),
-                    duration_ms: self.config.insert_lock_timeout_ms,
-                })?;
-            if let Some(ref sharded) = self.wal {
-                let mut wal_node = node.clone();
-                wal_node.last_accessed = now_ms;
-                // moved (not cloned again) — eliminates the 2nd clone
-                sharded.append(&crate::wal::WalRecord::Insert(wal_node))?;
-            }
-            // Pass &node directly — no active_node intermediate needed
-            self.apply_insert(node)?;
-            // We hold the guard, so try_push_pending_hnsw (called inside
-            // apply_insert) could never opportunistically drain — drain the
-            // batch NOW under the same latch so the HNSW entry exists for
-            // immediate reads (get()/search), exactly like the pre-ERR-010
-            // eager path did.
-            self.drain_hnsw_batch_locked()?;
-            Ok(())
         }
     }
 
@@ -1600,6 +1629,60 @@ impl StorageEngine {
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn delete(&self, id: u128, _reason: &str) -> Result<()> {
         self.check_memory_pressure()?;
+        // Inside transaction → buffer in the txn's write set; stats, indexes
+        // and store writes are applied only at commit (ERR-013).
+        {
+            let active = self.active_txns.lock();
+            if !active.is_empty() {
+                if active.len() == 1 {
+                    let txn_id = *active.iter().next().unwrap();
+                    drop(active);
+                    let mut buffers = self.txn_buffers.lock();
+                    buffers
+                        .entry(txn_id)
+                        .or_default()
+                        .push(BufferedWrite::Delete(id));
+                    return Ok(());
+                }
+                return Err(crate::error::VantaError::InvalidInput(
+                    "Multiple active transactions; use delete_in_txn() instead".into(),
+                ));
+            }
+        }
+
+        // Non-transaction path: cardinality/index updates + WAL + stores.
+        self.apply_delete_stats(id);
+
+        // WAL + apply inside a single insert_lock critical section (ERR-010) —
+        // see insert()/delete().
+        self.ensure_writable()?;
+        {
+            let _guard = self
+                .insert_lock
+                .try_lock_for(std::time::Duration::from_millis(
+                    self.config.insert_lock_timeout_ms,
+                ))
+                .ok_or_else(|| crate::error::VantaError::Timeout {
+                    operation: "acquire insert_lock in delete (WAL + apply)".into(),
+                    duration_ms: self.config.insert_lock_timeout_ms,
+                })?;
+            if let Some(ref sharded) = self.wal {
+                sharded.append(&crate::wal::WalRecord::Delete { id })?;
+            }
+            self.apply_delete_inner(id, false)?;
+            self.backend
+                .delete(BackendPartition::Default, &id.to_le_bytes())
+        }
+    }
+
+    /// Apply cardinality stats + edge/scalar index removal for a delete.
+    ///
+    /// Called from the non-transactional `delete()` path and from
+    /// `commit_transaction` when a buffered delete is actually committed.
+    /// It is intentionally NOT called while a delete is being buffered into a
+    /// transaction — an abort would otherwise leave the counters deflated for
+    /// records that were never removed (ERR-013).
+    fn apply_delete_stats(&self, id: u128) {
         if let Ok(Some(node)) = self.get(id) {
             let mut stats = self.cardinality_stats.write();
             for (field, value) in node.relational {
@@ -1635,47 +1718,6 @@ impl StorageEngine {
             if let Some(ref si) = self.scalar_index {
                 si.remove_node(id);
             }
-        }
-
-        // Inside transaction → buffer instead of writing to stores
-        {
-            let active = self.active_txns.lock();
-            if !active.is_empty() {
-                if active.len() == 1 {
-                    let txn_id = *active.iter().next().unwrap();
-                    drop(active);
-                    let mut buffers = self.txn_buffers.lock();
-                    buffers
-                        .entry(txn_id)
-                        .or_default()
-                        .push(BufferedWrite::Delete(id));
-                    return Ok(());
-                }
-                return Err(crate::error::VantaError::InvalidInput(
-                    "Multiple active transactions; use delete_in_txn() instead".into(),
-                ));
-            }
-        }
-
-        // Non-transaction path: WAL + apply inside a single insert_lock
-        // critical section (ERR-010) — see insert().
-        self.ensure_writable()?;
-        {
-            let _guard = self
-                .insert_lock
-                .try_lock_for(std::time::Duration::from_millis(
-                    self.config.insert_lock_timeout_ms,
-                ))
-                .ok_or_else(|| crate::error::VantaError::Timeout {
-                    operation: "acquire insert_lock in delete (WAL + apply)".into(),
-                    duration_ms: self.config.insert_lock_timeout_ms,
-                })?;
-            if let Some(ref sharded) = self.wal {
-                sharded.append(&crate::wal::WalRecord::Delete { id })?;
-            }
-            self.apply_delete_inner(id, false)?;
-            self.backend
-                .delete(BackendPartition::Default, &id.to_le_bytes())
         }
     }
 
