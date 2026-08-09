@@ -311,24 +311,25 @@ export VANTADB_HOST=0.0.0.0
 
 ## Benchmarks & Performance Baseline
 
-VantaDB includes a formal Python-native performance benchmark suite (**BENCH-01**) to capture ingestion throughput and query latency profiles under realistic single-threaded workloads.
+VantaDB ships a formal Python-native performance benchmark suite (**BENCH-01**) that captures ingestion throughput and query latency profiles under realistic single-threaded workloads.
 
 ### In-Process Performance Baseline (10K Vectors, 128d, Cosine)
 
-| Metric | Target Baseline (p50) | Target Baseline (p99) | Estimated Throughput |
-| :--- | :--- | :--- | :--- |
-| **Ingestion** (Insert + WAL + Flush) | — | — | **~5,400 vectors/sec** |
-| **Search (Lexical BM25)** | 0.85 ms | 2.10 ms | **~1,100 queries/sec** |
-| **Search (Vector HNSW)** | 1.20 ms | 3.50 ms | **~830 queries/sec** |
-| **Search (Hybrid Fusion)** | 2.10 ms | 4.80 ms | **~450 queries/sec** |
+Measured single-threaded SDK baselines (including the PyO3/GIL boundary) are published in [docs/operations/BENCHMARKS.md](docs/operations/BENCHMARKS.md): SDK operation latencies (`put`, BM25, HNSW, hybrid) and the certified Rust stress-protocol results (10K–100K, recall, memory, scaling). Numbers are hardware- and build-dependent — regenerate locally with the suite below to reproduce them on your machine.
 
-*Hardware profile: 12-core CPU @ 3.5GHz, AVX2 enabled, Windows 11 / Ubuntu 22.04 LTS.*
+| Metric | Real committed baseline (`vanta_benchmark_report.json`, 10K×128d) |
+| :--- | :--- |
+| **Ingestion** (Insert + WAL + Flush) | 61.5 records/sec (p50 16.0 ms) |
+| **Search (Vector HNSW)** | p50 3.3 ms (~300 queries/sec) |
+| **Search (Hybrid Fusion)** | p50 12.1 ms (~83 queries/sec) |
 
-### SIFT1M Competitive Benchmarks & Speedups (Phase 2)
+*Source: [`benchmarks/vanta_benchmark_report.json`](benchmarks/vanta_benchmark_report.json).* BM25 text-search latency is excluded above because the committed artifact reports a degenerate outlier (p50 0.009 ms for a single-document text query); see the maintained [BENCHMARKS.md §2](docs/operations/BENCHMARKS.md) table for the full CI series.
 
-VantaDB's HNSW engine has been optimized in Phase 2 through static prefetch, elimination of Euclidean square root calculation in hot graph traversal, pure SIMD calculation for cosine similarity, and the **O(M²) select_neighbors optimization** (which caches references to eradicate HashMap queries during the diversity loop).
+### SIFT-1M (100K scale) — Phase 2 Construction & Search Results
 
-The certified performance results on the standard SIFT dataset in optimized mode are:
+VantaDB's HNSW engine was optimized in Phase 2 through static prefetch, elimination of Euclidean square root calculation in hot graph traversal, pure SIMD calculation for cosine similarity, and the **O(M²) select_neighbors optimization** (which caches references to eradicate HashMap queries during the diversity loop).
+
+The certified performance results on the standard SIFT-1M dataset at 100K scale in optimized mode are:
 
 | Scale (Vectors) | HNSW Configuration | Metric | Construction Time (Before) | Construction Time (Now) | Speedup | p99 Search Latency | Average QPS |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -339,6 +340,8 @@ The certified performance results on the standard SIFT dataset in optimized mode
 | **100K** | High Recall L2 Mmap | Mmap Euclidean | 411.2s | **189.8s** | **2.16x** | 1,094.8 µs | 1,438 |
 
 *Certification hardware: AMD Ryzen 12-Core @ 3.5GHz, compiled with `-C target-cpu=native`.*
+
+*Source: [docs/operations/BENCHMARKS.md §5](docs/operations/BENCHMARKS.md) — "Impact of Loop and HNSW Distance Optimization (Phase 2)" (2026-07-21). Full optimization history in [docs/benchmarks/BENCHMARK_OPTIMIZATION_2026.md](docs/benchmarks/BENCHMARK_OPTIMIZATION_2026.md).*
 
 <p align="center">
   <img src="assets/benchmark-sift1m.svg" alt="SIFT1M HNSW construction speedup — Phase 1 vs Phase 2 (2.14x–2.80x)" width="760">

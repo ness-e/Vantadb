@@ -312,18 +312,19 @@ export VANTADB_HOST=0.0.0.0
 
 VantaDB incluye una suite formal de benchmarks nativos de Python (**BENCH-01**) para capturar la tasa de ingesta y los perfiles de latencia de consultas bajo cargas de trabajo realistas de un solo hilo.
 
-### Línea base de rendimiento en proceso (10 K vectores, 128 d, Coseno)
+### Línea base de rendimiento en proceso (10K vectores, 128d, Coseno)
 
-| Métrica | Línea base objetivo (p50) | Línea base objetivo (p99) | Throughput estimado |
-| :--- | :--- | :--- | :--- |
-| **Ingesta** (Insert + WAL + Flush) | — | — | **~5,400 vectores/seg** |
-| **Búsqueda (BM25 léxico)** | 0,85 ms | 2,10 ms | **~1,100 consultas/seg** |
-| **Búsqueda (HNSW vectorial)** | 1,20 ms | 3,50 ms | **~830 consultas/seg** |
-| **Búsqueda (fusión híbrida)** | 2,10 ms | 4,80 ms | **~450 consultas/seg** |
+Las líneas base medidas del SDK de un solo hilo (incluido el límite PyO3/GIL) están publicadas en [docs/operations/BENCHMARKS.md](docs/operations/BENCHMARKS.md): latencias de operación del SDK (`put`, BM25, HNSW, híbrido) y los resultados certificados del stress protocol Rust (10K–100K, recall, memoria, escalado). Los números dependen del hardware y del build — regenera localmente con la suite inferior para reproducirlos en tu máquina.
 
-*Perfil de hardware: CPU de 12 núcleos @ 3,5 GHz, AVX2 habilitado, Windows 11 / Ubuntu 22.04 LTS.*
+| Métrica | Línea base real commiteada (`vanta_benchmark_report.json`, 10K×128d) |
+| :--- | :--- |
+| **Ingesta** (Insert + WAL + Flush) | 61,5 registros/seg (p50 16,0 ms) |
+| **Búsqueda (HNSW vectorial)** | p50 3,3 ms (~300 consultas/seg) |
+| **Búsqueda (fusión híbrida)** | p50 12,1 ms (~83 consultas/seg) |
 
-### Benchmarks competitivos SIFT1M y aceleraciones (Fase 2)
+*Fuente: [`benchmarks/vanta_benchmark_report.json`](benchmarks/vanta_benchmark_report.json).* La latencia de búsqueda de texto BM25 se excluye arriba porque el artefacto commiteado reporta un outlier degenerado (p50 0,009 ms para una consulta de texto de documento único); ver la tabla completa de la serie CI en [BENCHMARKS.md §2](docs/operations/BENCHMARKS.md).
+
+### Benchmarks competitivos SIFT-1M (escala 100K) — Fase 2
 
 El motor HNSW de VantaDB se optimizó en la Fase 2 mediante prefetch estático, eliminación del cálculo de raíz cuadrada euclidiana en el recorrido caliente del grafo, cálculo SIMD puro para la similitud del coseno y la **optimización `select_neighbors` O(M²)** (que guarda referencias en caché para eliminar consultas a HashMap durante el bucle de diversidad).
 
@@ -338,6 +339,8 @@ Los resultados de rendimiento certificados en el dataset estándar de SIFT en mo
 | **100K** | High Recall L2 Mmap | Euclidiana Mmap | 411,2 s | **189,8 s** | **2,16×** | 1.094,8 µs | 1,438 |
 
 *Hardware de certificación: AMD Ryzen 12-Core @ 3,5 GHz, compilado con `-C target-cpu=native`.*
+
+*Fuente: [docs/operations/BENCHMARKS.md §5](docs/operations/BENCHMARKS.md) — "Impact of Loop and HNSW Distance Optimization (Phase 2)" (2026-07-21). Historial completo de optimización en [docs/benchmarks/BENCHMARK_OPTIMIZATION_2026.md](docs/benchmarks/BENCHMARK_OPTIMIZATION_2026.md).*
 
 <p align="center">
   <img src="assets/benchmark-sift1m.svg" alt="Aceleración de construcción HNSW SIFT1M — Fase 1 vs Fase 2 (2,14×–2,80×)" width="760">

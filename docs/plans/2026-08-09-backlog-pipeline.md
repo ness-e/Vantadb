@@ -300,7 +300,8 @@ _(no duplicar)_
 ### Task 39: PERF-01 — Sellar benchmark claims README
 
 - **Esfuerzo:** 🟡 · **Prig:** 🟉 · **Archivos:** `benchmales/`, `README.md`, `docs/QUICKSTART.md`, `docs/benchmarks/` | **DO** (honestidad de marketing) | **Contrato:** README/QUICKSTART claims re-validados o retirados; siRE != código actual
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** <TBD_COMMIT> — README.md y README_ES.md: retirados los claims sin respaldo del "Target Baseline" (~5,400 vec/s, ~1,100/830/450 qps) reemplazados por el baseline real commiteado de `benchmarks/vanta_benchmark_report.json` (61.5 rec/s, HNSW p50 3.3ms, hybrid p50 12.1ms) con fuente citada; tabla SIFT-1M Fase 2 referenciada a BENCHMARKS.md §5 (verificado idéntico) + fuente de BENCHMARK_OPTIMIZATION_2026.md. QUICKSTART.md sin claims de perf (verificado por grep, sin cambios).
 
 ### Task 40: PERF-04 — Prefetch default OFF
 
