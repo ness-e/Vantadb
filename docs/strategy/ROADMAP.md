@@ -261,7 +261,7 @@ R8 (claims) ─── Fase 0 (WEB-02)
 | Orden | Item | Descripción | Esfuerzo | Dependencias |
 |-------|------|-------------|----------|-------------|
 | 52 | **COMP-008** | VecIndex trait: abstraer index operations para múltiples backends | 🟡 1-2 sem | — |
-| 53 | **COMP-027** | Multiple index types: IVF, DiskANN, SCANN además de HNSW | 🟠 5-10d | 52 |
+| 53 | **COMP-027** | Multiple index types: IVF, SCANN además de HNSW + DiskANN-style Vamana graph (**in-memory, no disk I/O** — no es DiskANN real) | 🟠 5-10d | 52 |
 | 54 | **COMP-021** | Temporal edges: timestamp en edges para time-travel queries | 🟡 1 sem | — |
 | 55 | **COMP-023** | 3 filtering strategies (pre/post/in-index) con optimizador por selectividad | 🟡 1-2 sem | 19 (COMP-003), 17 (COMP-012), 45 (SCE) |
 | 56 | **DRV-119→122** | ACID Phase 0-3: WAL/VantaFile/HNSW/KV coordination, HNSW multi-layer, Planner AST, IQL JOINs | 🟠 3-10d c/u | — |

@@ -1,11 +1,18 @@
-//! DiskANN-inspired in-memory Vamana graph index.
+//! In-memory Vamana graph index (DiskANN-inspired, **not disk-backed**).
 //!
 //! Implements a simplified Vamana graph: greedy search with a bounded
 //! priority queue, and insert with robust pruning.
 //!
-//! ## ponytail
-//! No actual disk I/O — purely in-memory. The index stores all vectors
-//! alongside the graph. A real DiskANN would spill centroids to disk.
+//! # Honesty note (FEAT-02)
+//! The name is "DiskANN" but this index is **purely in-memory**: it performs
+//! no disk I/O, no mmap, and no SSD-optimized page layout. It reuses the
+//! Vamana graph structure from the DiskANN paper (greedy search + robust
+//! pruning) but stores all vectors and edges in RAM. A real DiskANN would
+//! spill nodes to disk and load on demand; that is future work.
+//!
+//! This module is `pub(crate)`; the public [`IndexType::DiskAnn`] variant
+//! (in `crate::index`) keeps its name for API/serde stability but is
+//! documented as in-memory.
 
 use crate::index::distance::calculate_similarity;
 use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};

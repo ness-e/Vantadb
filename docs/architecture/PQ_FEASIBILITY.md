@@ -35,7 +35,10 @@ then full f32 re-rank. It carries the explicit gate for this analysis:
 
 `VecIndex` (`src/index/mod.rs`) is the pluggable backend trait (`search`/`add`/
 `estimate_memory_bytes`/`len`); `create_index` selects on `IndexType::{Hnsw, Ivf,
-Flat, DiskAnn, Scann}`. Storage tiering (`docs/architecture/STORAGE-TIERS.md`) maps
+Flat, DiskAnn, Scann}`. Note: the `DiskAnn` variant is a **Vamana graph kept
+entirely in memory** (`src/index/diskann.rs`) — no disk I/O, no mmap; only the
+graph algorithm is DiskANN-inspired. Storage tiering
+(`docs/architecture/STORAGE-TIERS.md`) maps
 segments to mmapped `vstore_L*.vanta` levels L0-L3 (L0 64MiB, L2 4GiB, L3 32GiB);
 cold tiers sit **on disk via mmap**, not RAM-resident.
 
