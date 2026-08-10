@@ -3,7 +3,7 @@ title: "VantaDB CI & Certification Policy"
 type: operations
 status: active
 tags: [vantadb, operations]
-last_reviewed: 2026-07-21
+last_reviewed: 2026-08-10
 aliases: []
 ---
 
@@ -16,6 +16,23 @@ engine, VantaDB enforces a split Continuous Integration architecture.
 
 VantaDB has **14 active workflow files** in `.github/workflows/` (numbered by layer for dependency
 ordering). Each workflow is documented below.
+
+### Local Verification Scripts — Rutas Canónicas
+
+The CI/Hooks integration table in `.opencode/AGENTS.md` lists the local verification scripts.
+Their canonical paths are:
+
+| Script | Assertion scope |
+|--------|-----------------|
+| `dev-tools/verify_changed.ps1` | Quick verify (~30s): fmt → check → clippy on `vantadb` core. Runs the docs-coverage gate only when `git diff --name-only HEAD` touches `src/`, bindings (`vantadb-python`, `vantadb-ts`, `vantadb-wasm`) or `docs/api/`; otherwise silently skips. |
+| `dev-tools/verify.ps1` | Full pre-flight (~2–5 min): fmt → check → clippy → audit → deny → tests → coverage. Runs the docs-coverage gate whenever the script exists. |
+| `scripts/validate-docs-coverage.ps1` | Docs coverage gate (Regla 3, mecánica): valida símbolos públicos SDK/config/error/CLI/Python/MCP contra `docs/api/*`. `-ReportOnly` imprime gaps sin fallar; sin el flag, los métodos sin documentar devuelven exit 1 y fallan el script host. |
+
+`scripts/validate-docs-coverage.ps1` is the **single shared docs gate**, referenced from both
+`dev-tools/verify_changed.ps1` and `dev-tools/verify.ps1`. The two verify scripts form a
+hierarchy (quick → full), not alternative locations for the same gate — this is the canonical
+map so the AGENTS.md CI/Hooks table and this policy reconcile at the next docs sync:
+Regla 3 ("docs al día") is enforced mechanically by the docs-coverage gate, not by convention.
 
 ### 1. Fast Gate (`ci-rust-10.yml`)
 

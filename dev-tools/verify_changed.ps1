@@ -28,6 +28,16 @@ try {
     run "check" (("cargo", "check", "-p", "vantadb") + $feats + @("-j", "2"))
     run "clippy" (("cargo", "clippy", "-p", "vantadb") + $feats + @("-j", "2", "--", "-D", "warnings"))
 
+    # docs-coverage: solo si cambió código fuente/bindings/docs/api y el script existe (si no, skip silencioso)
+    $docsScript = "$ProjectRoot\scripts\validate-docs-coverage.ps1"
+    if (Test-Path $docsScript) {
+        $docsDiff = git diff --name-only HEAD 2>$null
+        $docsTouched = @($docsDiff | Where-Object { $_ -match '(^|/)(src/|[^/]*-python/|vantadb-ts/|vantadb-wasm/|docs/api/)' })
+        if ($docsTouched.Count -gt 0) {
+            run "docs-coverage" ("pwsh", "-NoProfile", "$docsScript")
+        }
+    }
+
     Write-Host "ALL ${pass} PASS" -ForegroundColor Green; exit 0
 } catch {
     if ($fail -eq 0) { $Script:fail = 1 }

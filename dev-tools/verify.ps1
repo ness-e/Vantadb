@@ -72,6 +72,11 @@ try {
     } else {
         Write-Host "  llvm-cov not installed - skipping coverage gate" -ForegroundColor DarkYellow
     }
+    if (Test-Path "$ProjectRoot\scripts\validate-docs-coverage.ps1") {
+        run "docs-coverage" ("pwsh", "-NoProfile", "$ProjectRoot\scripts\validate-docs-coverage.ps1")
+    } else {
+        Write-Host "  docs-coverage script not installed - skipping docs gate" -ForegroundColor DarkYellow
+    }
     Write-Host "ALL ${pass} PASS" -ForegroundColor Green; exit 0
 } catch {
     if ($fail -eq 0) { $Script:fail = 1 }
