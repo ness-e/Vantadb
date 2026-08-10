@@ -313,7 +313,8 @@ _(no duplicar)_
 ### Task 41: PERF-06 — `VANTADB_MEMORY_LIMIT` soporta sufijos KB/MB/GB
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `src/config.rs`, `src/cli.rs` | **DO** | **Contrato:** `vanta --memory-limit 500MB` → no error + test parse
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** `914514bb` — `parse_memory_limit()` en `config.rs` (sufijos KB/MB/GB/TB + KiB/MiB/GiB/TiB, 1024-based) + `VANTADB_MEMORY_LIMIT` env leída en `VantaConfig::default()` (warn+ignore si inválida) + flag global `--memory-limit` en `cli.rs` (env `VANTADB_MEMORY_LIMIT`) plumbed a `cmd_server` (HTTP config + env al child MCP). Test `test_parse_memory_limit`: `500MB` → 524288000 ok. Verificado `vanta-cli --memory-limit 500MB server --help` exit 0 + 36/36 config tests en temp worktree de HEAD.
 
 ---
 
