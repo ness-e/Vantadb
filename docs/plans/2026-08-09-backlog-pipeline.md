@@ -374,7 +374,7 @@ _(no duplicar)_
 - **Verificación real:** ✅ workspace.package.version = `0.5.0` (`Cargo.toml:626`); release coordinado 0.5.0 YA publicado en crates.io, PyPI (`vantadb_py`), npm y GitHub Releases (2026-08-01) — el claim "crates.io en 0.4.0" del plan quedó obsoleto; los gates de campaña (SEC-01, ERR-022, RELEASE-01) se completaron DESPUÉS del release → los 49 commits de esta campaña van al próximo release vía release-plz.
 - **Contract:** `git tag v0.5.0` + CI green; `gh release view v0.5.0`
 - **Task file:** `.agents/skills/campaign-executor/tasks/RELEASE_02.md`
-- **Estado:** ✅ DONE
+- **Estado:** ✅ COMPLETED
 - **Ejecutado:** tag `v0.5.0` + GitHub Release (ness-e, 2026-08-01, assets aarch64-apple-darwin) · crates.io `vantadb 0.5.0` · PyPI `vantadb_py 0.5.0` · npm `vantadb 0.5.0` — verificado con `cargo search`/`pip index`/`npm view`/`gh release view`
 
 ---
@@ -405,4 +405,15 @@ _(no duplicar)_
 - **Contrato:** todos los contratos por tarea cumplidos (evidencia rg/git en cada tarea)
 - **Próxima tarea si completa:** Task 50 (COM-02/03 — humana, no delegable)
 
+=== END RECITATION ===
+
+=== RECITATION ===
+Campaign ID: c362dc7a-829b-4bbb-82b4-84beaa162d8b
+Objetivo activo: Ejecutar backlog completo 2026-08-09
+Estado: completed
+Última acción: Verificó registros públicos: cargo search vantadb=0.5.0, pip index vantadb_py=0.5.0, npm view vantadb=0.5.0, gh release view v0.5.0 OK. Marcó Task 49 DONE en plan + commit 64da13bc
+Resultado: ✅
+Próxima acción: Migrar Backlog.md → docs/progreso/ + reporte final
+Contrato: git tag v0.5.0 + gh release view v0.5.0 — verificado live: release coordinado 0.5.0 ya publicado (crates.io/PyPI/npm/GitHub, 2026-08-01)
+Próxima tarea si completa: Task 50 (humana)
 === END RECITATION ===
