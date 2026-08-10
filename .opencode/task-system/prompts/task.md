@@ -131,6 +131,19 @@ como gate mandatorio para 🔴 — revisión adversarial en contexto fresco
 | Callees | módulo C, crate D |
 | Implicaciones | contrato X no cambia, performance Y mejora |
 
+## Impacto mapeado (Regla 0)
+
+> **GATE ANTES DE CUALQUIER EDICIÓN (MUST — AGENTS.md Regla 0):** todo archivo
+> que se vaya a modificar/eliminar se lee completo y se mapea su impacto ANTES
+> del primer step de edición. Sin este bloque poblado, NO se escribe ni se
+> ejecuta ningún step que edite archivos. Como orquestador, exigí su
+> cumplimiento en cada task file.
+
+- **Archivos leídos (completos):** [paths]
+- **Archivos referenciados hacia dentro (imports/includes/dependencias):** [grep]
+- **Archivos que referencian a los editados (referencias entrantes):** [grep por nombre del archivo]
+- **Veredicto impacto:** [bajo/medio/alto — qué se rompe si cambio/elimino]
+
 ## Contrato
 "cargo nextest run --profile audit --workspace --build-jobs 2 pasa y el comportamiento específico es [condición]"
 

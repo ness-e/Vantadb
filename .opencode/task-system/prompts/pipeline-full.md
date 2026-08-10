@@ -61,6 +61,11 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
   El trabajo parcial vive en el worktree (git diff) y en el task file: respetalo.
 
 **Implementación:**
+- **Gate Regla 0 (MUST):** antes de la PRIMERA edición de cualquier archivo,
+  el task file debe tener llena la sección **"Impacto mapeado (Regla 0)"**
+  (formato en `prompts/task.md`): archivos leídos completos, referencias
+  hacia dentro, referencias entrantes y veredicto de impacto. Si el task file
+  no la tiene → volver a DISCOVERY y poblarla antes de editar.
 - Llamá `campaign_update_task_state` con `"in-progress"` y recitation
 - State machine: PLAN → ACT → VERIFY por cada step (~100 líneas por step)
   * Antes de ACT → `campaign_validate_command` (MCP) para validar el comando
