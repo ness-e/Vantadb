@@ -94,26 +94,45 @@ impl VantaEmbedded {
             });
         }
 
+        // Build the advanced analyzer once for the whole batch; constructing
+        // the stemming/stopwords pipeline per record would pay N setups.
+        #[cfg(feature = "advanced-tokenizer")]
+        let mut analyzer = crate::tokenizer::build_advanced_analyzer(
+            &crate::tokenizer::AdvancedTokenizerConfig::default(),
+        );
+
         for node in engine.scan_nodes()? {
             if let Some(record) = memory_record_from_node(&node) {
                 counts.record_count += 1;
-                let posting_ops = crate::text_index::posting_put_ops(
+                let terms = {
+                    #[cfg(feature = "advanced-tokenizer")]
+                    {
+                        crate::text_index::record_terms_with_analyzer(
+                            &mut analyzer,
+                            &record.payload,
+                        )
+                    }
+                    #[cfg(not(feature = "advanced-tokenizer"))]
+                    {
+                        crate::text_index::record_terms(&record.payload)
+                    }
+                };
+                let posting_ops = crate::text_index::posting_ops_from_terms(
                     &record.namespace,
                     &record.key,
-                    &record.payload,
+                    &terms,
                     record.node_id,
                 )?;
                 counts.posting_entries += posting_ops.len() as u64;
                 ops.extend(posting_ops);
-                ops.push(crate::text_index::doc_stats_put_op(
+                ops.push(crate::text_index::doc_stats_op_from_terms(
                     &record.namespace,
                     &record.key,
-                    &record.payload,
+                    terms.doc_len,
                     record.node_id,
                 )?);
                 counts.doc_stats_entries += 1;
 
-                let terms = crate::text_index::record_terms(&record.payload);
                 for token in terms.token_counts.keys() {
                     *term_stats
                         .entry((record.namespace.clone(), token.clone()))

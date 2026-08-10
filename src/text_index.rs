@@ -266,7 +266,37 @@ pub(crate) fn record_terms_with_config(
     }
 }
 
-/// Extract record terms (simple path, no advanced tokenizer).
+/// Extract record terms reusing a prebuilt advanced analyzer.
+///
+/// Batch callers build the analyzer once with
+/// [`crate::tokenizer::build_advanced_analyzer`] and reuse it here per record,
+/// avoiding one stemming/stopwords pipeline build per tokenized payload.
+/// Results are identical to [`record_terms_with_config`] with the same config.
+#[cfg(feature = "advanced-tokenizer")]
+pub(crate) fn record_terms_with_analyzer(
+    analyzer: &mut crate::tokenizer::TextAnalyzer,
+    payload: &str,
+) -> TextRecordTerms {
+    let tokens = crate::tokenizer::tokenize_with_analyzer(analyzer, payload);
+    let doc_len = tokens.len().min(u32::MAX as usize) as u32;
+    let mut token_counts = BTreeMap::new();
+    let mut token_positions: BTreeMap<String, Vec<u32>> = BTreeMap::new();
+    for (position, token) in tokens.into_iter().enumerate() {
+        token_counts
+            .entry(token.clone())
+            .and_modify(|count: &mut u32| *count = count.saturating_add(1))
+            .or_insert(1);
+        token_positions
+            .entry(token)
+            .or_default()
+            .push(position.min(u32::MAX as usize) as u32);
+    }
+    TextRecordTerms {
+        token_counts,
+        token_positions,
+        doc_len,
+    }
+}
 #[cfg(not(feature = "advanced-tokenizer"))]
 pub(crate) fn record_terms_with_config(payload: &str, _config: Option<&()>) -> TextRecordTerms {
     // Simple record terms without advanced tokenizer support
@@ -702,19 +732,29 @@ pub(crate) fn posting_put_ops(
     node_id: u128,
 ) -> Result<Vec<BackendWriteOp>> {
     let terms = record_terms(payload);
-    let token_positions = terms.token_positions;
+    posting_ops_from_terms(namespace, key, &terms, node_id)
+}
+
+/// Build posting write operations from precomputed record terms.
+///
+/// Batch callers that already tokenized via a reused analyzer avoid
+/// re-tokenizing the payload here.
+pub(crate) fn posting_ops_from_terms(
+    namespace: &str,
+    key: &str,
+    terms: &TextRecordTerms,
+    node_id: u128,
+) -> Result<Vec<BackendWriteOp>> {
+    let token_positions = &terms.token_positions;
     terms
         .token_counts
-        .into_iter()
+        .iter()
         .map(|(token, tf)| {
-            let positions = token_positions
-                .get(&token)
-                .map(Vec::as_slice)
-                .unwrap_or(&[]);
+            let positions = token_positions.get(token).map(Vec::as_slice).unwrap_or(&[]);
             Ok(BackendWriteOp::Put {
                 partition: BackendPartition::TextIndex,
-                key: posting_key(namespace, &token, key),
-                value: posting_value(node_id, tf, positions)?,
+                key: posting_key(namespace, token, key),
+                value: posting_value(node_id, *tf, positions)?,
             })
         })
         .collect()
@@ -738,10 +778,24 @@ pub(crate) fn doc_stats_put_op(
     payload: &str,
     node_id: u128,
 ) -> Result<BackendWriteOp> {
+    let terms = record_terms(payload);
+    doc_stats_op_from_terms(namespace, key, terms.doc_len, node_id)
+}
+
+/// Build a write operation to upsert doc stats from a precomputed doc length.
+///
+/// Batch callers that already tokenized via a reused analyzer avoid
+/// re-tokenizing the payload here.
+pub(crate) fn doc_stats_op_from_terms(
+    namespace: &str,
+    key: &str,
+    doc_len: u32,
+    node_id: u128,
+) -> Result<BackendWriteOp> {
     Ok(BackendWriteOp::Put {
         partition: BackendPartition::TextIndex,
         key: doc_stats_key(namespace, key),
-        value: doc_stats_value(node_id, record_terms(payload).doc_len)?,
+        value: doc_stats_value(node_id, doc_len)?,
     })
 }
 
@@ -843,6 +897,25 @@ mod tests {
         assert!(!terms.token_counts.is_empty());
         // With stopwords removal, should have fewer tokens than the full text
         assert!(terms.token_counts.len() < 9); // "The quick brown fox jumps over the lazy dog" has 9 words
+    }
+
+    #[cfg(feature = "advanced-tokenizer")]
+    #[test]
+    fn test_record_terms_with_analyzer_matches_record_terms() {
+        // Reusing one analyzer across a batch must equal fresh builds.
+        let mut analyzer = crate::tokenizer::build_advanced_analyzer(
+            &crate::tokenizer::AdvancedTokenizerConfig::default(),
+        );
+        let payloads = [
+            "The quick brown fox jumps over the lazy dog",
+            "Café naïve résumé",
+            "",
+        ];
+        for payload in payloads {
+            let reused = record_terms_with_analyzer(&mut analyzer, payload);
+            let fresh = record_terms(payload);
+            assert_eq!(reused, fresh);
+        }
     }
 
     #[cfg(feature = "advanced-tokenizer")]

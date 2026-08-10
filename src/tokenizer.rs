@@ -4,15 +4,15 @@
 //! and Unicode folding for improved text search quality across multiple languages.
 //! It is only available when the `advanced-tokenizer` feature is enabled.
 
-/// Language used for stemming and stopwords. Re-exported from Tantivy so users
-/// can name it without depending on Tantivy directly.
-#[cfg(feature = "advanced-tokenizer")]
-pub use tantivy::tokenizer::Language;
 #[cfg(feature = "advanced-tokenizer")]
 use tantivy::tokenizer::{
     AsciiFoldingFilter, LowerCaser, RemoveLongFilter, SimpleTokenizer, Stemmer, StopWordFilter,
-    TextAnalyzer, TokenStream,
+    TokenStream,
 };
+/// Language used for stemming and stopwords. Re-exported from Tantivy so users
+/// can name it without depending on Tantivy directly.
+#[cfg(feature = "advanced-tokenizer")]
+pub use tantivy::tokenizer::{Language, TextAnalyzer};
 /// Advanced tokenizer configuration
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdvancedTokenizerConfig {
@@ -37,11 +37,15 @@ impl Default for AdvancedTokenizerConfig {
     }
 }
 
-/// Tokenize text using the advanced Tantivy tokenizer
+/// Build a reusable advanced Tantivy analyzer for the given configuration.
+///
+/// The analyzer holds the stemming/stopwords pipeline; building it is the
+/// expensive part, so construct it once per batch/call and reuse it via
+/// [`tokenize_with_analyzer`] instead of rebuilding per text.
+// Source: https://docs.rs/tantivy/0.26.1/tantivy/tokenizer/struct.TextAnalyzer.html#method.token_stream
 #[cfg(feature = "advanced-tokenizer")]
-pub fn tokenize_advanced(text: &str, config: &AdvancedTokenizerConfig) -> Vec<String> {
-    // Build the tokenizer with appropriate filters based on configuration
-    let mut tokenizer = if config.apply_stemming && config.remove_stopwords {
+pub fn build_advanced_analyzer(config: &AdvancedTokenizerConfig) -> TextAnalyzer {
+    if config.apply_stemming && config.remove_stopwords {
         // Both stemming and stopwords
         if let Some(stopword_filter) = StopWordFilter::new(config.language) {
             TextAnalyzer::builder(SimpleTokenizer::default())
@@ -92,9 +96,16 @@ pub fn tokenize_advanced(text: &str, config: &AdvancedTokenizerConfig) -> Vec<St
             .filter(LowerCaser)
             .filter(AsciiFoldingFilter)
             .build()
-    };
+    }
+}
 
-    let mut stream = tokenizer.token_stream(text);
+/// Tokenize text with a prebuilt analyzer, reusing it across calls.
+///
+/// `token_stream` borrows the analyzer only for the lifetime of the stream, so
+/// the same analyzer can be reused sequentially for many texts.
+#[cfg(feature = "advanced-tokenizer")]
+pub fn tokenize_with_analyzer(analyzer: &mut TextAnalyzer, text: &str) -> Vec<String> {
+    let mut stream = analyzer.token_stream(text);
 
     let mut tokens = Vec::new();
 
@@ -103,6 +114,13 @@ pub fn tokenize_advanced(text: &str, config: &AdvancedTokenizerConfig) -> Vec<St
     }
 
     tokens
+}
+
+/// Tokenize text using the advanced Tantivy tokenizer
+#[cfg(feature = "advanced-tokenizer")]
+pub fn tokenize_advanced(text: &str, config: &AdvancedTokenizerConfig) -> Vec<String> {
+    let mut analyzer = build_advanced_analyzer(config);
+    tokenize_with_analyzer(&mut analyzer, text)
 }
 
 /// Tokenize text with default configuration
@@ -282,6 +300,24 @@ mod tests {
         assert!(!tokens.iter().any(|t| t == "and"));
         // Should contain stemmed words
         assert!(tokens.iter().any(|t| t.contains("jump")));
+    }
+
+    #[cfg(feature = "advanced-tokenizer")]
+    #[test]
+    fn test_analyzer_reuse_matches_fresh_build() {
+        let config = AdvancedTokenizerConfig::default();
+        let mut analyzer = build_advanced_analyzer(&config);
+        let texts = [
+            "The jumping fox runs quickly",
+            "Café naïve résumé",
+            "",
+            "another batch item",
+        ];
+        for text in texts {
+            let reused = tokenize_with_analyzer(&mut analyzer, text);
+            let fresh = tokenize_advanced(text, &config);
+            assert_eq!(reused, fresh);
+        }
     }
 
     #[test]
