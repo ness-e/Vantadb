@@ -307,7 +307,8 @@ _(no duplicar)_
 ### Task 40: PERF-04 — Prefetch default OFF
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟢 · **Archivos:** `src/index/hnsw.rs` (prefetch), docs | **DO** (flag real + OFF) — **DO** only si hay feature; verificar
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** `152ddd26` — El flag real ya existía (`PrefetchMode` Auto/Enabled/Disabled + `if should_prefetch()` en `src/index/search.rs:245`) pero el default era ON: enum `#[default] Auto`, `VantaConfig::default()`/`HotReloadConfig::default()` explícitos a `Auto`, y fallback de `should_prefetch()` hardcodeado a `true`. Verificado → default en OFF: `#[default]` movido a `Disabled`, fallbacks de config a `Disabled`, fallback de `should_prefetch()` a `false` (ERR-038), tests de default actualizados, benchmark `prefetch_benchmark.rs` ON arm ahora exige `VANTA_PREFETCH=enabled`, docs (`CONFIGURATION.md` + doc de campo) actualizadas a `Disabled`.
 
 ### Task 41: PERF-06 — `VANTADB_MEMORY_LIMIT` soporta sufijos KB/MB/GB
 
