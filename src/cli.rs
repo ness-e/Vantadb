@@ -19,6 +19,12 @@ pub struct Cli {
     #[arg(short, long, global = true)]
     pub verbose: bool,
 
+    /// Optional memory limit for the database engine, in bytes.
+    /// Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`.
+    /// Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable.
+    #[arg(long, env = "VANTADB_MEMORY_LIMIT", global = true)]
+    pub memory_limit: Option<String>,
+
     #[command(subcommand)]
     /// The subcommand to execute
     pub command: Commands,

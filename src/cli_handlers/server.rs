@@ -177,12 +177,13 @@ pub fn cmd_server(
     port: Option<u16>,
     host: Option<String>,
     require_auth: bool,
+    memory_limit: Option<&str>,
     _verbose: bool,
 ) -> Result<()> {
     let mcp_mode = mcp && !http;
 
     if mcp_mode {
-        return cmd_server_mcp(db_path, port, host, require_auth);
+        return cmd_server_mcp(db_path, port, host, require_auth, memory_limit);
     }
 
     #[cfg(feature = "server")]
@@ -193,7 +194,13 @@ pub fn cmd_server(
             )))
         })?;
 
-        rt.block_on(cmd_server_http(db_path, port, host, require_auth))
+        rt.block_on(cmd_server_http(
+            db_path,
+            port,
+            host,
+            require_auth,
+            memory_limit,
+        ))
     }
 
     #[cfg(not(feature = "server"))]
@@ -210,14 +217,25 @@ async fn cmd_server_http(
     port: Option<u16>,
     host: Option<String>,
     require_auth: bool,
+    memory_limit: Option<&str>,
 ) -> Result<()> {
     use crate::config::VantaConfig;
+
+    let memory_limit = match memory_limit {
+        Some(raw) => Some(crate::config::parse_memory_limit(raw).map_err(|e| {
+            crate::error::VantaError::CliError(ChainedError::msg(format!(
+                "Invalid --memory-limit value: {e}"
+            )))
+        })?),
+        None => None,
+    };
 
     let config = VantaConfig {
         storage_path: db_path.to_string(),
         port: port.unwrap_or(8080),
         host: host.unwrap_or_else(|| "127.0.0.1".to_string()),
         require_auth,
+        memory_limit,
         ..Default::default()
     };
 
@@ -229,6 +247,7 @@ fn cmd_server_mcp(
     port: Option<u16>,
     host: Option<String>,
     require_auth: bool,
+    memory_limit: Option<&str>,
 ) -> Result<()> {
     use crate::error::VantaError;
 
@@ -253,6 +272,9 @@ fn cmd_server_mcp(
         }
         if require_auth {
             cmd.env("VANTADB_REQUIRE_AUTH", "true");
+        }
+        if let Some(ml) = memory_limit {
+            cmd.env("VANTADB_MEMORY_LIMIT", ml);
         }
         cmd.arg("--mcp");
         cmd.stdin(std::process::Stdio::inherit());

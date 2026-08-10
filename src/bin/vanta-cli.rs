@@ -196,7 +196,16 @@ fn main() -> Result<()> {
             port,
             host,
             require_auth,
-        } => cli_handlers::cmd_server(&args.db, http, mcp, port, host, require_auth, args.verbose)?,
+        } => cli_handlers::cmd_server(
+            &args.db,
+            http,
+            mcp,
+            port,
+            host,
+            require_auth,
+            args.memory_limit.as_deref(),
+            args.verbose,
+        )?,
 
         #[cfg(feature = "tui")]
         Commands::Tui => {

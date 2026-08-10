@@ -391,6 +391,70 @@ pub struct VantaConfig {
     pub hot_reload_config: Arc<RwLock<HotReloadConfig>>,
 }
 
+/// Parse a memory limit string into bytes.
+///
+/// Accepts an optional decimal suffix: `KB`, `MB`, `GB`, `TB` (case-insensitive),
+/// plus their binary variants `KiB`, `MiB`, `GiB`, `TiB`. A bare number is
+/// treated as bytes. Multipliers are 1024-based to match the codebase `MIB`
+/// convention (1 MB = 1024 * 1024 bytes).
+pub fn parse_memory_limit(s: &str) -> Result<u64, String> {
+    let s = s.trim();
+    if s.is_empty() {
+        return Err("empty memory limit".to_string());
+    }
+
+    // Split off a 2-char suffix (KB/MB/GB/TB) if present, else a 3-char
+    // binary suffix (KiB/MiB/GiB/TiB), else treat the whole string as bytes.
+    let (num_part, suffix) = {
+        let two = s.len().saturating_sub(2);
+        let char_at = |i: usize| s.as_bytes().get(i).map(|b| *b as char);
+        if matches!(
+            char_at(two),
+            Some('k')
+                | Some('K')
+                | Some('m')
+                | Some('M')
+                | Some('g')
+                | Some('G')
+                | Some('t')
+                | Some('T')
+        ) {
+            (&s[..two], &s[two..])
+        } else {
+            let three = s.len().saturating_sub(3);
+            if matches!(
+                s[three..].to_ascii_lowercase().as_str(),
+                "kib" | "mib" | "gib" | "tib"
+            ) {
+                (&s[..three], &s[three..])
+            } else {
+                (s, "")
+            }
+        }
+    };
+
+    let value: u64 = num_part.trim().parse().map_err(|_| {
+        format!("invalid memory limit {s:?}: expected a number with optional KB/MB/GB suffix")
+    })?;
+
+    let multiplier: u64 = match suffix.to_ascii_lowercase().as_str() {
+        "" | "b" => 1,
+        "k" | "kb" | "kib" => 1024,
+        "m" | "mb" | "mib" => 1024 * 1024,
+        "g" | "gb" | "gib" => 1024 * 1024 * 1024,
+        "t" | "tb" | "tib" => 1024u64.pow(4),
+        _ => {
+            return Err(format!(
+                "invalid memory limit {s:?}: unknown suffix {suffix:?} — expected KB, MB, GB (or KiB, MiB, GiB)"
+            ))
+        }
+    };
+
+    value
+        .checked_mul(multiplier)
+        .ok_or_else(|| format!("memory limit {s:?} overflows u64"))
+}
+
 /// Parse an environment variable with a fallback default.
 fn parse_env_or<T: FromStr>(key: &str, default: T) -> T
 where
@@ -456,7 +520,24 @@ impl Default for VantaConfig {
                 debug!(val = %v, "VANTA_LLM_SUMMARIZE_MODEL");
                 v
             },
-            memory_limit: None,
+            memory_limit: {
+                let v = match env::var("VANTADB_MEMORY_LIMIT") {
+                    Ok(raw) => match parse_memory_limit(&raw) {
+                        Ok(bytes) => Some(bytes),
+                        Err(e) => {
+                            warn!("Invalid VANTADB_MEMORY_LIMIT={:?} ({}) — ignoring", raw, e);
+                            None
+                        }
+                    },
+                    Err(env::VarError::NotPresent) => None,
+                    Err(env::VarError::NotUnicode(_)) => {
+                        warn!("Non-Unicode value for VANTADB_MEMORY_LIMIT — ignoring");
+                        None
+                    }
+                };
+                debug!(?v, "VANTADB_MEMORY_LIMIT");
+                v
+            },
             read_only: false,
             force_mmap: false,
             mmap_hnsw: true,
@@ -1234,6 +1315,31 @@ mod tests {
     fn test_with_memory_limit() {
         let cfg = VantaConfig::default().with_memory_limit(4_096_000_000);
         assert_eq!(cfg.memory_limit, Some(4_096_000_000));
+    }
+
+    // ── Memory limit suffix parsing ────────────────────────────
+
+    #[test]
+    fn test_parse_memory_limit() {
+        // Bare numbers are bytes.
+        assert_eq!(parse_memory_limit("500").unwrap(), 500);
+        assert_eq!(parse_memory_limit("500 ").unwrap(), 500);
+        // KB/MB/GB (case-insensitive) are 1024-based, matching the codebase MIB convention.
+        assert_eq!(parse_memory_limit("128KB").unwrap(), 128 * 1024);
+        assert_eq!(parse_memory_limit("500MB").unwrap(), 500 * 1024 * 1024);
+        assert_eq!(parse_memory_limit("500mb").unwrap(), 500 * 1024 * 1024);
+        assert_eq!(parse_memory_limit("2GB").unwrap(), 2 * 1024 * 1024 * 1024);
+        assert_eq!(parse_memory_limit("1TB").unwrap(), 1024u64.pow(4));
+        // Binary variants are accepted too.
+        assert_eq!(parse_memory_limit("64KiB").unwrap(), 64 * 1024);
+        assert_eq!(parse_memory_limit("1MiB").unwrap(), 1024 * 1024);
+        assert_eq!(parse_memory_limit("1GiB").unwrap(), 1024 * 1024 * 1024);
+        // Bad input errors clearly.
+        assert!(parse_memory_limit("").is_err());
+        assert!(parse_memory_limit("hello").is_err());
+        assert!(parse_memory_limit("500XB").is_err());
+        assert!(parse_memory_limit("MB").is_err());
+        assert!(parse_memory_limit("18446744073709551616GB").is_err()); // overflow
     }
 
     #[test]
