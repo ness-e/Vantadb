@@ -20,7 +20,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `storage_path` | `String` | `vantadb_data` | `VANTADB_STORAGE_PATH` | Filesystem path for embedded data directory |
 | `host` | `String` | `127.0.0.1` | `VANTADB_HOST` (fallback `HOST`) | Bind address for HTTP server |
 | `port` | `u16` | `8080` | `VANTADB_PORT` | TCP port for HTTP server |
-| `memory_limit` | `Option<u64>` | `None` | — | Memory budget hint for backend and mmap selection |
+| `memory_limit` | `Option<u64>` | `None` | `VANTADB_MEMORY_LIMIT` | Memory budget hint for backend and mmap selection (string with optional KB/MB/GB suffix, e.g. `500MB`) |
 | `read_only` | `bool` | `false` | — | Opens engine in read-only mode |
 | `force_mmap` | `bool` | `false` | — | Force memory-mapped I/O for vector store |
 | `mmap_hnsw` | `bool` | `true` | — | Enable memory-mapped [[hnsw\|HNSW]] index |
@@ -170,6 +170,90 @@ let watcher = VantaConfig::watch_config(
 )
 .expect("failed to start hot-reload watcher");
 // later: drop(watcher) stops the background thread
+```
+
+## 1.5 Configuration Examples
+
+Copy-ready snippets for the most common setups. All variable and flag names match
+the reference above.
+
+### (a) Environment variables (typical deployment)
+
+```bash
+# Storage + HTTP server
+export VANTADB_STORAGE_PATH=/var/lib/vantadb
+export VANTADB_HOST=0.0.0.0
+export VANTADB_PORT=8080
+
+# Engine
+export VANTADB_MEMORY_LIMIT=2GB          # or e.g. 500MB, 1GiB
+export VANTA_BACKEND=fjall               # fjall (default) | rocksdb | memory
+export VANTADB_WAL_SHARDS=8
+export VANTADB_FLUSH_THRESHOLD=5000
+
+# Auth / rate limiting
+export VANTADB_API_KEY=change-me-bearer-token
+export VANTADB_REQUIRE_AUTH=true
+export VANTADB_TRUSTED_PROXIES=10.0.0.1,10.0.0.2
+
+# Observability
+export VANTADB_LOG_FORMAT=json
+```
+
+### (b) Rust builder
+
+```rust
+use vantadb::VantaConfig;
+use vantadb::BackendKind;
+
+let cfg = VantaConfig::from_env()
+    .with_storage_path("/var/lib/vantadb".to_string())
+    .with_memory_limit(2 * 1024 * 1024 * 1024) // 2 GB
+    .with_backend(BackendKind::Fjall)
+    .with_wal_shards(8)
+    .with_flat_threshold(Some(5_000))
+    .with_audit_log_path("/var/log/vantadb-audit.jsonl");
+```
+
+### (c) Hot-reload JSON file
+
+Requires the `hot-reload` Cargo feature. Point the watcher at one JSON file;
+only the `HotReloadConfig` subset is applied at runtime (see [Hot-Reload JSON](#hot-reload-json)).
+
+`vanta-reload.json`:
+
+```json
+{
+  "prefetch_mode": "enabled",
+  "log_format": "json",
+  "rate_limit_rpm": 200,
+  "batch_size": 1000,
+  "sync_mode": "always"
+}
+```
+
+```rust
+use std::sync::{Arc, RwLock};
+use vantadb::VantaConfig;
+
+let cfg = Arc::new(RwLock::new(VantaConfig::from_env()));
+let watcher = VantaConfig::watch_config(
+    Arc::clone(&cfg),
+    "./vanta-reload.json",
+    || tracing::info!("config hot-reloaded"),
+    )?;
+```
+
+### (d) CLI flags
+
+The `--memory-limit` flag is global and accepts a byte count with an optional
+`KB`/`MB`/`GB` (or `KiB`/`MiB`/`GiB`) suffix. It can also be set via
+`VANTADB_MEMORY_LIMIT`.
+
+```bash
+vanta-cli server --http --port 8080 --db ./vanta_data --memory-limit 500MB
+vanta-cli doctor --db ./vanta_data --memory-limit 2GB
+VANTADB_MEMORY_LIMIT=1GB vanta-cli status --db ./vanta_data
 ```
 
 ## 2. Python Constructor
