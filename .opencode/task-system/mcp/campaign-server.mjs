@@ -781,12 +781,36 @@ server.tool(
 
     // EVAL-01: append every verify to the eval log for North Star metrics (docs/reports/pipeline-evals.md).
     // P2-05: cada registro incluye traceId de la tarea para trazabilidad.
+    // P3-rem: skills (derivadas del plan vía detectType) + toolUsed (derivado del command) para correlación skill→primer intento.
     try {
       const logPath = join(TASK_SYSTEM, "enforcement", "verify-log.jsonl")
+      const planPath = (() => { try { return findPlanFile(PROJECT_ROOT) } catch { return null } })()
+      const skills = (() => {
+        try {
+          if (!planPath || !taskId) return []
+          const task = parseTasks(readFileSync(planPath, "utf-8")).find(t => t.id === taskId || (t.name && (t.name.startsWith(taskId) || t.name.includes(taskId))))
+          if (!task || !task.files) return []
+          const typeInfo = detectType(task.files)
+          return (typeInfo && typeInfo.skills) || []
+        } catch { return [] }
+      })()
+      const toolUsed = (() => {
+        const c = (command || "").trim()
+        if (!c) return null
+        const bin = c.split(/\s+/)[0].toLowerCase()
+        if (bin.includes("cargo")) return "cargo-verify"
+        if (bin.includes("pwsh") || bin.includes("powershell") || bin.endsWith(".ps1")) return "pwsh"
+        if (bin === "node") return "node"
+        if (bin === "npx") return "npx"
+        if (bin === "npm") return "npm"
+        if (bin.startsWith("python")) return "python"
+        if (bin === "git") return "git"
+        return bin || null
+      })()
       appendFileSync(logPath, JSON.stringify({
         ts: new Date().toISOString(), taskId: taskId || null, traceId: taskId ? traceIdForTask(taskId) : null, command,
         passed, exitCode, expectedExitCode, elapsed,
-        summary, plan: (() => { try { return findPlanFile(PROJECT_ROOT) } catch { return null } })(),
+        summary, plan: planPath, skills, toolUsed,
       }) + "\n", "utf-8")
     } catch { /* eval logging must never break verify */ }
 

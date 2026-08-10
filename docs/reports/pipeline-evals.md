@@ -1,6 +1,6 @@
 # Pipeline Evaluation Report
 
-> Generado por `evals/eval-metrics.mjs` (EVAL-01) — 2026-08-10T20:13:54.003Z
+> Generado por `evals/eval-metrics.mjs` (EVAL-01) — 2026-08-10T21:55:17.163Z
 > Datos: `.opencode/task-system/enforcement/verify-log.jsonl` (0 invocaciones de verify) + `docs/plans/*.md`
 
 ## North Star (RULES.md)
@@ -16,6 +16,12 @@
 | Tipo | Tareas |
 |---|---|
 
+
+## Skills → primer intento (P3-rem)
+
+> ⚠️ **Sin datos aún** — el verify-log no tiene registros con `skills` (telemetría recolectada desde P3-rem en `campaign_verify_cmd`). La correlación skill → primer intento se poblará con los próximos verifies.
+
+> Tareas con skills registradas: 0 / 0 (el resto no tenía "Archivos clave" derivables o log previo a P3-rem).
 
 ## Detalle por tarea
 

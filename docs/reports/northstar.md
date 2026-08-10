@@ -1,7 +1,7 @@
 # North Star Report
 
-> Generado por `evals/northstar.mjs` (P1-06) — 2026-08-10T20:29:30.066Z
-> Datos: `.opencode/task-system/enforcement/verify-log.jsonl` (0 invocaciones de verify) + `docs/plans/*.md` (37 tareas) + `docs/plans/*.budget.json` (3 tareas trackeadas)
+> Generado por `evals/northstar.mjs` (P1-06) — 2026-08-10T21:55:17.334Z
+> Datos: `.opencode/task-system/enforcement/verify-log.jsonl` (0 invocaciones de verify) + `docs/plans/*.md` (51 tareas) + `docs/plans/*.budget.json` (3 tareas trackeadas)
 > ⚠️ **verify-log.jsonl está vacío** — sin telemetría de verificación, las métricas se reportan en 0 y los thresholds no pueden evaluarse aún.
 
 
@@ -17,8 +17,8 @@
 
 | Métrica | Valor |
 |---|---|
-| Tareas ✅ COMPLETED | 9 |
-| Completadas en primer intento (sin fallos registrados) | 9 |
+| Tareas ✅ COMPLETED | 29 |
+| Completadas en primer intento (sin fallos registrados) | 29 |
 | **Tasa primer intento** | **100.0%** |
 
 ## 2. Falsos positivos
@@ -44,6 +44,15 @@
 | Falsos positivos | 0 | 0 | ✅ |
 | Regresión silenciosa | 0 | 0 | ⚠️ |
 
+## 5. Calibración de telemetría (P3-rem)
+
+| Métrica | Valor |
+|---|---|
+| Tareas con skills registradas en verify-log | 0 |
+| Cobertura de telemetría (tareas con skills / tareas con verify) | — |
+
+> Este indicador mide cuánto input de calibración (skill/tool → primer intento) se recolecta para el harness de evals (P0-1). ⚠️ Sin telemetría de skills aún — se poblará con los próximos verifies de P3-rem.
+
 > ⚠️ Sin telemetría de verify — los thresholds de primer intento y regresión **no pueden evaluarse aún** (baseline pendiente); con budget solo, falsos positivos es parcialmente evaluable.
 
 
@@ -51,8 +60,8 @@
 
 | Tipo | Tareas |
 |---|---|
+| other | 30 |
 | rust | 21 |
-| other | 16 |
 
 ## Detalle por tarea
 
@@ -86,13 +95,27 @@
 | EVAL-02 | 2026-08-10-p0-harness.md | completed | 0 | 0 | ✅ | — | 0 |
 | EVAL-03 | 2026-08-10-p0-harness.md | completed | 0 | 0 | ✅ | — | 0 |
 | EVAL-04 | 2026-08-10-p0-harness.md | completed | 0 | 0 | ✅ | — | 0 |
-| P1-01 | 2026-08-10-p1-process-discipline.md | pending | 0 | 0 | ✅ | — | 0 |
-| P1-02 | 2026-08-10-p1-process-discipline.md | pending | 0 | 0 | ✅ | — | 0 |
-| P1-03 | 2026-08-10-p1-process-discipline.md | pending | 0 | 0 | ✅ | — | 0 |
-| P1-04 | 2026-08-10-p1-process-discipline.md | pending | 0 | 0 | ✅ | — | 0 |
-| P1-05 | 2026-08-10-p1-process-discipline.md | pending | 0 | 0 | ✅ | — | 0 |
-| P1-06 | 2026-08-10-p1-process-discipline.md | pending | 0 | 0 | ✅ | — | 0 |
-| P1-07 | 2026-08-10-p1-process-discipline.md | pending | 0 | 0 | ✅ | — | 0 |
+| P1-01 | 2026-08-10-p1-process-discipline.md | completed | 0 | 0 | ✅ | — | 0 |
+| P1-02 | 2026-08-10-p1-process-discipline.md | completed | 0 | 0 | ✅ | — | 0 |
+| P1-03 | 2026-08-10-p1-process-discipline.md | completed | 0 | 0 | ✅ | — | 0 |
+| P1-04 | 2026-08-10-p1-process-discipline.md | completed | 0 | 0 | ✅ | — | 0 |
+| P1-05 | 2026-08-10-p1-process-discipline.md | completed | 0 | 0 | ✅ | — | 0 |
+| P1-06 | 2026-08-10-p1-process-discipline.md | completed | 0 | 0 | ✅ | — | 0 |
+| P1-07 | 2026-08-10-p1-process-discipline.md | completed | 0 | 0 | ✅ | — | 0 |
+| P2-01 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
+| P2-02 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
+| P2-03 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
+| P2-04 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
+| P2-05 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
+| P2-06 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
+| P2-07 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
+| P2-08 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
+| P3-04 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
+| P3-05 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
+| P3-06 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
+| P3-07 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
+| P3-08 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
+| P3-rem | 2026-08-10-p3-remaining-fallas.md | pending | 0 | 0 | ✅ | — | 0 |
 | PERF-07 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
 | PERF-09 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
 

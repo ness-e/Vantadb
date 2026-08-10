@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // P1-06 — North Star metrics harness.
 // Reads .opencode/task-system/enforcement/verify-log.jsonl (written by campaign_verify_cmd,
-// line format: {ts, taskId, command, passed, exitCode, expectedExitCode, elapsed, summary, plan})
+// line format: {ts, taskId, command, passed, exitCode, expectedExitCode, elapsed, summary, plan, skills, toolUsed})
 // plus docs/plans/*.md task blocks and docs/plans/*.budget.json task maps, and produces
 // docs/reports/northstar.md against the RULES.md North Star:
 //   - tasa completado primer intento >90%
@@ -146,6 +146,10 @@ const status = (ok, evaluable) => !evaluable ? "⚠️" : (ok ? "✅" : "🚩")
 
 const typeStats = tasks.reduce((acc, t) => { const k = deriveType(t.id); acc[k] = (acc[k] || 0) + 1; return acc }, {})
 
+// P3-rem: telemetría skill/tool recolectada en el verify-log.
+const skillReportedTasks = new Set(entries.filter(e => e.taskId && Array.isArray(e.skills) && e.skills.length > 0).map(e => e.taskId))
+const telemetryTasks = skillReportedTasks.size
+
 let md = `# North Star Report
 
 > Generado por \`evals/northstar.mjs\` (P1-06) — ${new Date().toISOString()}
@@ -190,6 +194,15 @@ ${!verifyData ? "> ⚠️ **verify-log.jsonl está vacío** — sin telemetría 
 | Tasa completado primer intento | >90% | ${firstTryRate.toFixed(1)}% | ${status(firstTryRate >= 90, verifyData)} |
 | Falsos positivos | 0 | ${falsePositives} | ${status(falsePositives === 0, telemetry)} |
 | Regresión silenciosa | 0 | ${regressions} | ${status(regressions === 0, verifyData)} |
+
+## 5. Calibración de telemetría (P3-rem)
+
+| Métrica | Valor |
+|---|---|
+| Tareas con skills registradas en verify-log | ${telemetryTasks} |
+| Cobertura de telemetría (tareas con skills / tareas con verify) | ${verifyData ? (telemetryTasks / [...logByTask.keys()].length * 100).toFixed(1) + "%" : "—"} |
+
+> Este indicador mide cuánto input de calibración (skill/tool → primer intento) se recolecta para el harness de evals (P0-1). ${telemetryTasks === 0 ? "⚠️ Sin telemetría de skills aún — se poblará con los próximos verifies de P3-rem." : "✅ Recolectando."}
 
 ${!verifyData ? "> ⚠️ Sin telemetría de verify — los thresholds de primer intento y regresión **no pueden evaluarse aún** (baseline pendiente); con budget solo, falsos positivos es parcialmente evaluable.\n" : ""}
 

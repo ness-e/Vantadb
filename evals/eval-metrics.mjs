@@ -73,6 +73,27 @@ const falsePositives = tasks.filter(t => t.finalState === "✅ COMPLETED" && t.f
 const silentRegressions = tasks.filter(t => t.regressions > 0).length
 const typeStats = tasks.reduce((acc, t) => { const k = deriveType(t.id); acc[k] = (acc[k] || 0) + 1; return acc }, {})
 
+// P3-rem: correlación skill → primer intento (telemetría recolectada por campaign_verify_cmd).
+const taskSkills = new Map()  // taskId → Set(skills) desde el último registro del log
+for (const e of entries) {
+  if (!e.taskId || !Array.isArray(e.skills) || e.skills.length === 0) continue
+  const set = taskSkills.get(e.taskId) || new Set()
+  e.skills.forEach(s => set.add(s))
+  taskSkills.set(e.taskId, set)
+}
+const skillStats = new Map()  // skill → { tasks, firstOk }
+for (const t of tasks) {
+  const set = taskSkills.get(t.id)
+  if (!set) continue
+  for (const s of set) {
+    const st = skillStats.get(s) || { tasks: 0, firstOk: 0 }
+    st.tasks++
+    if (t.firstOk) st.firstOk++
+    skillStats.set(s, st)
+  }
+}
+const skillsReported = tasks.filter(t => taskSkills.has(t.id)).length
+
 let md = `# Pipeline Evaluation Report
 
 > Generado por \`evals/eval-metrics.mjs\` (EVAL-01) — ${new Date().toISOString()}
@@ -91,6 +112,16 @@ let md = `# Pipeline Evaluation Report
 | Tipo | Tareas |
 |---|---|
 ${Object.entries(typeStats).sort((a, b) => b[1] - a[1]).map(([k, v]) => `| ${k} | ${v} |`).join("\n")}
+
+## Skills → primer intento (P3-rem)
+
+${skillStats.size === 0
+  ? `> ⚠️ **Sin datos aún** — el verify-log no tiene registros con \`skills\` (telemetría recolectada desde P3-rem en \`campaign_verify_cmd\`). La correlación skill → primer intento se poblará con los próximos verifies.`
+  : `| Skill | Tareas con skill | Primer intento ✅ | Tasa |
+|---|---|---|---|
+${[...skillStats.entries()].sort((a, b) => b[1].tasks - a[1].tasks).map(([s, st]) => `| ${s} | ${st.tasks} | ${st.firstOk} | ${(st.firstOk / st.tasks * 100).toFixed(1)}% |`).join("\n")}`}
+
+> Tareas con skills registradas: ${skillsReported} / ${tasks.length} (el resto no tenía "Archivos clave" derivables o log previo a P3-rem).
 
 ## Detalle por tarea
 
