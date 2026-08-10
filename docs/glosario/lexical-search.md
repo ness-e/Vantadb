@@ -130,18 +130,23 @@ results = db.search_memory(
 # Query: "¿Cómo funciona la persistencia WAL?"
 
 # Solo léxica (BM25)
-results_lexical = db.search(text="persistencia WAL", mode="text")
+results_lexical = db.search_memory(
+    namespace="default", query_vector=[], text_query="persistencia WAL", top_k=10,
+)
 # Encuentra documentos con esas palabras exactas
 
 # Solo vectorial
-results_vector = db.search(vector=embed(query), mode="vector")
+results_vector = db.search_memory(
+    namespace="default", query_vector=embed(query), text_query=None, top_k=10,
+)
 # Encuentra documentos semánticamente similares
 
 # Híbrida ([RRF](RRF.md))
-results_hybrid = db.search(
-    vector=embed(query),
-    text="persistencia WAL",
-    mode="hybrid"
+results_hybrid = db.search_memory(
+    namespace="default",
+    query_vector=embed(query),
+    text_query="persistencia WAL",
+    top_k=10,
 )
 # Combina ambos: mejor recall
 ```

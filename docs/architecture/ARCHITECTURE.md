@@ -236,7 +236,7 @@ Client: db.put("doc1", vector, text, metadata)
 ### Hybrid Search Path
 
 ```
-Client: db.search(vector, text, top_k=10)
+Client: db.search_memory(namespace, query_vector, text_query, top_k=10)
     │
     ├─▶ HNSW Index
     │   └─▶ Candidate List 1: [doc5, doc12, doc23, ...]

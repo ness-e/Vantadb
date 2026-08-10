@@ -33,12 +33,20 @@ $$
 ## Implementación en VantaDB
 
 ```python
-# Búsqueda con traversal de grafo
-results = db.search(
-    vector=embed("¿Quién trabaja en Acme?"),
+import vantadb_py as vantadb
+
+db = vantadb.VantaDB("./data")
+
+# Búsqueda vectorial: recupera nodos relevantes
+results = db.search_memory(
+    namespace="default",
+    query_vector=embed("¿Quién trabaja en Acme?"),
     top_k=10,
-    graph_hops=2  # Expandir 2 niveles de relaciones
 )
+
+# Traversal de grafo: expande vecinos de los nodos hit (via graph_bfs)
+roots = [hit.node_id for hit in results]
+neighbors = db.graph_bfs(roots, max_depth=2)  # Expandir 2 niveles de relaciones
 
 # Resultado incluye:
 # - alice (directamente relevante: "Alice trabaja en Acme")
@@ -61,21 +69,35 @@ results = db.search(
 ### 1. Memoria de Agentes de IA
 
 ```python
+import vantadb_py as vantadb
+
+db = vantadb.VantaDB("./data")
+
 # Agente recuerda conversaciones con contexto relacional
-db.put("user_pref_1", 
-       text="Usuario prefiere respuestas concisas",
-       edges=[{"target": "user_123", "type": "preferencia_de"}])
+db.put("default", "user_pref_1",
+       payload="Usuario prefiere respuestas concisas")
+db.add_edge(1, 2, "preferencia_de")  # enlaza user_pref_1 con user_123
 
 # Búsqueda recupera preferencia + usuario + conversaciones relacionadas
-context = db.search(vector=embed("preferencias usuario"), graph_hops=2)
+results = db.search_memory(
+    namespace="default",
+    query_vector=embed("preferencias usuario"),
+    top_k=10,
+)
+neighbors = db.graph_bfs([hit.node_id for hit in results], max_depth=2)
 ```
 
 ### 2. Knowledge Base Empresarial
 
 ```python
+import vantadb_py as vantadb
+
+db = vantadb.VantaDB("./data")
+
 # Documentos conectados por relaciones
-db.put("policy_security", text="Política de seguridad...",
-       edges=[{"target": "dept_legal", "type": "aprobado_por"}])
+db.put("default", "policy_security",
+       payload="Política de seguridad...")
+db.add_edge(1, 2, "aprobado_por")  # enlaza policy_security con dept_legal
 
 # Búsqueda recupera política + departamento + responsables
 ```
@@ -83,9 +105,13 @@ db.put("policy_security", text="Política de seguridad...",
 ### 3. Codebase Intelligence
 
 ```python
+import vantadb_py as vantadb
+
+db = vantadb.VantaDB("./data")
+
 # Funciones conectadas por llamadas
-db.put("function_auth", text="def authenticate()...",
-       edges=[{"target": "function_validate", "type": "llama_a"}])
+db.put("default", "function_auth", payload="def authenticate()...")
+db.add_edge(1, 2, "llama_a")  # enlaza function_auth con function_validate
 
 # Búsqueda recupera función + dependencias + tests
 ```

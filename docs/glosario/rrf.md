@@ -110,13 +110,12 @@ pub fn reciprocal_rank_fusion(
 ### hybrid-search in VantaDB
 
 ```python
-results = db.search(
-    vector=embed("query"),
-    text="query",
+results = db.search_memory(
+    namespace="default",
+    query_vector=embed("query"),
+    text_query="query",
     top_k=10,
-    mode="hybrid",  # Usa RRF internamente
-    rrf_k=60        # Parámetro de suavizado
-)
+)  # Usa RRF internamente (k=60 default del motor)
 ```
 
 ## Effect of Parameter k

@@ -129,9 +129,9 @@ pub struct BackpressureMetrics {
 def put_with_backoff(db, key, vector, max_retries=5):
     for attempt in range(max_retries):
         try:
-            db.put(key=key, vector=vector)
+            db.put(namespace="default", key=key, payload="...", vector=vector)
             return
-        except VantaError.BackpressureActive:
+        except RuntimeError:
             wait_time = 2 ** attempt  # 1, 2, 4, 8, 16 segundos
             time.sleep(wait_time)
     raise Exception("Max retries exceeded")

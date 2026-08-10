@@ -212,16 +212,21 @@ This is **natural in graphs**, but **very expensive in pure vector-search**.
 In VantaDB, **graph and vectors coexist in the same transaction**:
 
 ```python
-# Actualizar documento, vector y grafo atómicamente
+import vantadb_py as vantadb
+
+db = vantadb.VantaDB("./data")
+
+# Actualizar documento y vector atómicamente
 db.put(
+    namespace="default",
     key="alice",
+    payload="Alice es ingeniera en Acme",
     vector=embed("Alice es ingeniera en Acme"),
-    text="Alice es ingeniera en Acme",
-    edges=[
-        Edge(target="acme", type="trabaja_en"),
-        Edge(target="bob", type="amigo_de")
-    ]
 )
+
+# Las aristas del grafo se crean por separado con add_edge
+db.add_edge(1, 2, "trabaja_en")  # alice → acme
+db.add_edge(1, 3, "amigo_de")    # alice → bob
 ```
 
 On separate systems (Neo4j + Pinecone), you would need:

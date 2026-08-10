@@ -285,12 +285,17 @@ against this bitset — only nodes where
 `(node.bitset & query_mask) == query_mask` are returned.
 
 ```python
-# Python: tag nodes with bitset categories
-db.put("doc1", vector=[...], bitset=0b0011)   # category A + B
-db.put("doc2", vector=[...], bitset=0b0001)   # category A only
+# Python: filter by metadata fields on search (bitset is Rust-engine internal)
+db.put("default", "doc1", "payload", metadata={"category": "A"}, vector=[...])
+db.put("default", "doc2", "payload", metadata={"category": "A"}, vector=[...])
 
 # Search filtered to category A only
-results = db.search(query="...", bitset_filter=0b0001)
+results = db.search_memory(
+    namespace="default",
+    query_vector=[...],
+    filters={"category": "A"},
+    top_k=10,
+)
 ```
 
 Bitset filtering is evaluated **during HNSW traversal** (inside the hot

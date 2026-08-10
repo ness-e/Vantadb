@@ -167,12 +167,12 @@ results = db.search_memory(
 ### 2. Weighted Sum (Alternativo)
 
 ```python
-results = db.search(
-    vector=query_vector,
-    text=query_text,
-    mode="hybrid",
-    fusion="weighted",
-    weights={"vector": 0.7, "text": 0.3}
+# RRF fusion with search_memory (weighted mixing is engine config)
+results = db.search_memory(
+    namespace="default",
+    query_vector=query_vector,
+    text_query=query_text,
+    top_k=10,
 )
 ```
 
