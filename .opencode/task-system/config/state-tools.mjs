@@ -14,7 +14,7 @@ const STATE_TOOLS = {
   },
   ACT: {
     allowed: ["edit", "write", "bash", "campaign_*", "read", "grep", "glob", "codegraph_explore", "skill", "cargo-mcp_*", "rust-analyzer-mcp_*"],
-    denied: [],
+    denied: ["delete"],
     note: "implementación activa",
   },
   VERIFY: {
@@ -28,9 +28,9 @@ const STATE_TOOLS = {
     note: "diagnóstico de errores colaterales",
   },
   RESEARCH: {
-    allowed: ["read", "grep", "glob", "codegraph_explore", "websearch", "webfetch", "argus_*", "metasearchmcp_*", "campaign_*"],
-    denied: ["edit", "write", "bash"],
-    note: "sólo investigación, sin cambios",
+    allowed: ["read", "grep", "glob", "codegraph_explore", "websearch", "webfetch", "argus_*", "metasearchmcp_*", "campaign_*", "bash"],
+    denied: ["edit", "write"],
+    note: "sólo investigación, sin cambios (bash read-only permitida; classifyBashWrite bloquea writes)",
   },
   EVALUATE: {
     allowed: ["read", "grep", "codegraph_explore", "campaign_*"],

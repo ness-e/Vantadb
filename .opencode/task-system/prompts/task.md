@@ -32,6 +32,10 @@ Según los archivos involucrados:
 
 Si hay archivos de múltiples tipos, cargar skills de todos los tipos aplicables.
 
+> **¿Tipo Bug (`fix:`)?** Cargá systematic-debugging (Iron Law: no hay fixes
+> sin investigación de causa raíz primero) y exigí en el task file la sección
+> "Fase 1 — Evidencia de Debugging" (ver formato) ANTES de escribir el fix.
+
 ### Phase 2: Discovery + Blast Radius
 
 ```
@@ -111,6 +115,21 @@ Auto-estimar turns totales:
 
 ## Investigation Notes
 - Hallazgos de web research, si aplica
+
+## Fase 1 — Evidencia de Debugging (GATE — solo tipo Bug)
+
+> Obligatoria para tareas tipo Bug (`fix:`). El fix requiere método correcto,
+> no solo test verde: **Iron Law** de systematic-debugging — sin investigación
+> de causa raíz no hay fix. Sin esta sección poblada, NO se escribe ni se
+> ejecuta el step de fix.
+
+- **Repro:** reproducción determinística del bug (pasos exactos / comando)
+- **Hipótesis:** causa raíz probable, escrita ANTES de tocar código
+- **1 variable controlada:** exactamente UNA variable cambiada por intento
+
+**Gate:** los steps de fix y sus Verify se definen solo DESPUÉS de completar
+esta sección con `repro`, `hipótesis` y `1 variable controlada`.
+Grafías aceptadas del campo: `hipótesis|hipotesis`.
 
 ## Steps
 

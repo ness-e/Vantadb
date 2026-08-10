@@ -65,6 +65,39 @@ Sin él el gate decide sobre texto no verificado del backlog, no sobre el códig
 
    (Si el símbolo NO existe, anota también: `mo existe → la tarea menciona código renombrado` como evidencia del SKIP)
 
+### Pre-mortem — ¿por qué fracasaría esta tarea? (obligatorio)
+
+> **Propósito:** antes de comprometer esfuerzo en una tarea ✅ DO, listar los
+> modos de fallo más probables. Es la técnica cognitiva de mayor ROI: expone
+> rabbit holes antes de que el approach elegido se convierta en un compromiso
+> fuerte (y caro de revertir).
+
+Para cada tarea candidata a DO, escribir en el plan file:
+
+```
+- **Fallo probable 1:** ... (ej: el fix asume un hot path que no es el real)
+- **Fallo probable 2:** ... (ej: la feature depende de una API externa no verificable offline)
+- **Fallo probable 3:** ... (ej: el cambio rompe un caller no mapeado en el blast radius)
+```
+
+Si el pre-mortem revela un modo de fallo de alta probabilidad y alto impacto,
+bajar el gate (🟡 DEFER) o registrarlo como riesgo vivo en el **Risk Register**.
+
+### Stop conditions / circuit breaker (appetite)
+
+Criterios explícitos de CANCELACIÓN/abort definidos ANTES de arrancar la tarea:
+
+| Stop condition | Trigger | Acción |
+|---|---|---|
+| Appetite excedido | tiempo invertido > estimado ×2 | abortar → re-triaje como 🟡 DEFER |
+| Rabbit hole | N iteraciones sin progreso verificable (contrato sin green) | abortar → re-planear approach |
+| Presupuesto agotado | budget de tool calls / tiempo de campaña agotado | abortar → registrar en `Notas` |
+| Premisa invalidada | evidencia nueva contradice el Paso 0 | abortar → re-evaluar el gate |
+
+Al dispararse una stop condition, la tarea pasa a ⬛ CANCELADO (no ❌ SKIP)
+y se documenta el motivo en el plan file. Las stop conditions se escriben en
+el plan file junto al contrato de cada tarea.
+
 ### Reglas del gate (aplicar DESPUÉS del Paso 0)
 
 1. Bug ya inexistente o feature ya implementada (**verificado**) → SKIP
@@ -86,6 +119,9 @@ Registrá en el plan file con:
 - **Verificación real:** evidencia del Paso 0 (símbolos existentes, gap confirmado, callers)
 - **Gate Justificación:** por qué pasó el gate
 - **Contrato:** condición verificable por comando mecánico
+- **Pre-mortem:** 2-3 modos de fallo probables (ver Paso 0)
+- **Stop conditions:** criterios de cancelación (ver Paso 0)
+- **Risk Register:** máx 5-8 riesgos vivos (Prob×Impacto, respuesta, trigger/due)
 - **Estado inicial:** ⬜ PENDING
 - **Task file:** `skills/campaign-executor/tasks/ID.md` (aún no existe — se creará bajo demanda)
 
@@ -127,6 +163,15 @@ Si no reconoce el formato → el agente interpreta con LLM para extraer tareas.
 - **Estado:** ⬜ PENDING
 - **Branch:**
 - **Commit:**
+
+  **Risk Register:** (máx 5-8 riesgos vivos — parte del contract, no opcional)
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | ej: fix toca el hot path de `search_knn` | ej: pruebas acotadas a callers, plan de rollback | ej: 2 iteraciones sin green en VERIFY |
+  | — | — | — | — |
+
+  > Al materializarse un riesgo: decidir (mitigar/aceptar) y registrar la decisión
+  > vía Regla 5 (`campaign_memory_write(file="decisions", entry="...")`) o ADR.
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |

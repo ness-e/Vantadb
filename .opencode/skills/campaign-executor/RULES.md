@@ -201,6 +201,23 @@ actual.
 | Docs | writing-guidelines |
 | Siempre | campaign-executor, progreso, ponytail (full) |
 
+### 10b. Bug fixes — Gate de Fase 1 (Iron Law)
+
+Fuente: skill `systematic-debugging` — *Iron Law: no fixes sin investigación
+de causa raíz primero*. El pipeline exige método correcto, no solo test verde.
+Para cualquier tarea tipo `fix:` (Bug), el task file debe evidenciar la Fase 1
+de debugging ANTES de implementar el fix:
+
+| Requisito | Evidencia escrita (antes de codear) |
+|-----------|--------------------------------------|
+| Repro | Reproducción determinística: pasos exactos o comando que reproduce el bug |
+| Hipótesis | Causa raíz probable, escrita ANTES del fix |
+| 1 variable controlada | Exactamente UNA variable cambiada por intento |
+
+**Gate:** el step de fix y sus pasos Verify solo pueden definirse tras poblar
+la sección "Fase 1 — Evidencia de Debugging" del task file. Referencia del
+gate: `repro|Phase 1|Iron Law`.
+
 ## Apéndice A: HarnessCard (CAR Decomposition)
 
 | Capa | Dimensión | Implementación |

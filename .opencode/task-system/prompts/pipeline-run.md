@@ -186,6 +186,18 @@ estancadas.
 8. CUANDO no haya más ⬜ PENDING:
    - Reportá campaña completada: N/M ✅, K ❌, stalled: S
    - Ejecutá `skill progreso` (migración masiva de todas las completadas)
+   - **RETROSPECTIVA de cierre del plan/milestone** (obligatoria antes de detenerte):
+     - Produci la retrospectiva **Start/Stop/Continue** + 1 acción medida:
+       - **Start** (seguir haciendo): qué funcionó y se mantiene
+       - **Stop** (dejar de hacer): qué no funcionó y se elimina
+       - **Continue** (continuar): qué se sigue haciendo igual
+       - **UNA acción de mejora de proceso medible** con métrica contra baseline.
+         Ej: "reducir verify retries de 3 a 1 por tarea" (métrica: retries/tarea).
+         Cuando aplique, usá como baseline natural la North Star de
+         `.opencode/skills/campaign-executor/RULES.md`: tasa de completado >90%
+         en primer intento, falsos positivos 0, regresión 0.
+     - Registrala en el plan y pasala a `progreso` (Trigger 1.D2) para que quede
+       archivada junto con el plan, no solo movidas las tareas.
    - Si FAIL_MODE=parallel: verificá que no haya conflictos entre ramas paralelas
      (`git log --oneline` después del último commit secuencial)
    - Detenete

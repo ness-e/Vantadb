@@ -114,11 +114,21 @@ Completed tasks may come from 3 sources. Check ALL:
 
 Cuando **todas** las tareas de un plan file están ✅ (o ❌ ABORTADO) y el plan ya no será ejecutado:
 
+0. **Capturá la retrospectiva del plan** antes de archivar (el cierre no solo mueve archivos):
+   - Registrá la retrospectiva **Start/Stop/Continue**: **Start** (seguir haciendo),
+     **Stop** (dejar de hacer), **Continue** (continuar).
+   - **UNA acción de mejora de proceso medible** con métrica contra baseline.
+     Ej: "reducir verify retries de 3 a 1 por tarea" (métrica: retries/tarea).
+     Cuando aplique, usá la North Star de `.opencode/skills/campaign-executor/RULES.md`
+     como baseline natural: tasa de completado >90% en primer intento, falsos positivos 0,
+     regresión 0.
+   - Si el pipeline (`pipeline-run.md` step 8) ya la produjo, copiala — no la reinventes.
 1. Mover el plan file (y su `.budget.json` si existe) a `docs/plans/archive/`.
 2. NO borrarlo — el archivo queda como registro auditable de la campaña.
 3. Actualizar en `docs/progreso/README.md` una nota con la fecha de archive:
    ```
    - **Plan archivado:** `docs/plans/archive/YYYY-MM-DD-<nombre>.md` — N/M completadas
+   - **Retrospectiva:** Start: <...> | Stop: <...> | Continue: <...> | Acción medida: <...> (baseline: <...>)
    ```
 4. En el Backlog, las filas de ese plan ya se eliminaron en paso C; no queda nada pendiente del plan en `docs/Backlog.md`.
 
