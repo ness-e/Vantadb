@@ -878,6 +878,8 @@ Cada vez que se tome una decisión técnica que involucre un tradeoff (elegir A 
 
 Esto previene que el mismo debate ocurra dos veces y da contexto a futuros agentes.
 
+> **Validación web:** ante una decisión técnica con incertidumbre, validar primero con `websearch`/`webfetch` contra documentación oficial o GitHub antes de registrarla en decisiones.
+
 ### Regla 6: Límite de Deuda Técnica por PR
 
 Cada PR puede introducir deuda técnica nueva solo si **elimina o reduce** una cantidad equivalente de deuda existente.

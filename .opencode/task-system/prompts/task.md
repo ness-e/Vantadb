@@ -81,6 +81,30 @@ Auto-estimar turns totales:
 | 🟡 Medio (1d) | 15-30 |
 | 🔴 Alto (2-3d) | 30-60 |
 
+### Phase 5: REVIEW por agente distinto (GATE — P2-01)
+
+> **Esta es la falla más grave del reporte P2:** el REVIEW lo ejecutaba el
+> mismo contexto que implementó. Desde acá, para CUALQUIER tarea (y con
+> prioridad máxima en 🔴), el review lo hace un agente DISTINTO al
+> implementador. Nunca el mismo contexto.
+
+- **Persona de review:** `vanta-audit` (persona leaf, `task: * deny` en
+  `.opencode/agents/vanta-audit.md` — no puede implementar, solo revisa:
+  seguridad + code review). Para review de approach/diseño: persona
+  `vanta-review` si existe en el entorno, o la skill `review-deep`
+  (`.opencode/skills/review-deep/`) como pipeline de revisión profunda.
+- **Alcance obligatorio del review:**
+  1. **Enfoque** — ¿el approach elegido es el correcto? ¿hay alternativas
+     mejores que no se evaluaron?
+  2. **Cómo se probó** — ¿la evidencia de verificación es real y suficiente?
+     No alcanza con "test verde" auto-reportado.
+- **Gate:** sin review de agente distinto registrado en el task file, la
+  tarea NO se marca COMPLETED, aunque el contrato pase.
+
+**Fallback si no hay agente distinto disponible:** `doubt-driven-development`
+como gate mandatorio para 🔴 — revisión adversarial en contexto fresco
+(nuevo sub-agente o sesión nueva) antes de marcar ✅.
+
 ### Formato del task file
 
 ```markdown
@@ -96,6 +120,8 @@ Auto-estimar turns totales:
 - **Creado:** YYYY-MM-DDTHH:MM
 - **last-synced:** YYYY-MM-DDTHH:MM
 - **Estado:** ⬜ PENDING | ⏳ IN PROGRESS | ✅ COMPLETED | ❌ FAILED
+- **Incógnitas (uphill):** N abiertas (indicador independiente del % — debe bajar a 0 para ✅)
+- **Pendientes (downhill):** N steps de ejecución restantes
 
 ## Blast Radius
 
@@ -108,6 +134,22 @@ Auto-estimar turns totales:
 ## Contrato
 "cargo nextest run --profile audit --workspace --build-jobs 2 pasa y el comportamiento específico es [condición]"
 
+## Definition of Done (contrato multi-nivel — P2-08)
+
+El DoD es **contrato**, no checklist decorativo. La calidad mínima de pie está
+en `.opencode/references/definition-of-done.md` y aplica SIEMPRE. Además, el
+task se evalúa por nivel:
+
+| Nivel | Gate |
+|-------|------|
+| **Task** | Contrato verificable del task file se cumple + capa determinista (fmt, clippy, nextest) + tests del cambio pasan |
+| **Commit** | Commit atómico (~100 líneas), conventional commit, `git diff` limpio, verificación mecánica (nunca auto-reporte) |
+| **Release** | `dev-tools/verify.ps1` completo (6 pasos), changelog, semver respetado, pre-push gate (Regla 1) |
+
+**Gate:** el task se marca COMPLETED solo si pasan los tres niveles
+aplicables a la tarea. Si un nivel no aplica (p.ej. tarea docs sin release),
+justificar en Notas.
+
 ## Herramientas necesarias
 - cargo-mcp (check, clippy, fmt)
 - rust-analyzer-mcp (diagnostics, goto def)
@@ -115,6 +157,22 @@ Auto-estimar turns totales:
 
 ## Investigation Notes
 - Hallazgos de web research, si aplica
+
+## Incógnitas (uphill) vs Pendientes (downhill) — P2-03
+
+Dos ejes distintos del % de completado. El % mide ejecución; las incógnitas
+miden certidumbre. El estado reporta los tres por separado:
+
+| Eje | Contador |
+|-----|----------|
+| Incógnitas abiertas (uphill) | N — qué NO se sabe todavía: approach a validar, dependencia a investigar, decisión abierta |
+| Pendientes de ejecución (downhill) | N — steps de ejecución restantes (trabajo conocido) |
+| % completado | N% |
+
+**Regla de reporting:** cada actualización de estado actualiza los tres
+contadores. Una incógnita resuelta se mueve de Incógnitas → Notas con la
+respuesta. Una tarea con incógnitas abiertas NO se marca ✅ aunque el % sea
+100%.
 
 ## Fase 1 — Evidencia de Debugging (GATE — solo tipo Bug)
 
@@ -130,6 +188,17 @@ Auto-estimar turns totales:
 **Gate:** los steps de fix y sus Verify se definen solo DESPUÉS de completar
 esta sección con `repro`, `hipótesis` y `1 variable controlada`.
 Grafías aceptadas del campo: `hipótesis|hipotesis`.
+
+## Fases explícitas — SECURITY | PERFORMANCE (P2-07)
+
+Evaluación mandatoria ANTES de codear. Si no aplica, justificar en Notas:
+
+- [ ] **SECURITY** — si toca trust boundaries, input de usuario, auth, datos,
+      o agrega/quita dependencias → cargar `security-and-hardening` y
+      documentar hallazgos en Notas. Si no aplica, justificar por qué.
+- [ ] **PERFORMANCE** — si toca un hot path (búsqueda, indexación,
+      serialización, loops calientes) → cargar `performance-optimization` y
+      registrar baseline/impacto esperado. Si no aplica, justificar.
 
 ## Steps
 
@@ -147,6 +216,16 @@ Grafías aceptadas del campo: `hipótesis|hipotesis`.
 
 ## Dependencias
 - Task N-1: [ID] — [descripción] (debe completarse antes)
+
+## Review (GATE — agente distinto, P2-01)
+
+> Lo ejecuta un agente DISTINTO al implementador. Sin esto registrado, la
+> tarea no está COMPLETED.
+
+- **Revisor:** [vanta-audit | vanta-review | review-deep | doubt-driven-development]
+- **Enfoque:** [¿el approach es correcto? ¿alternativas mejores?]
+- **Cómo se probó:** [evidencia de verificación real, no auto-reporte]
+- **Veredicto:** ✅ approve | ❌ cambios requeridos (volver a Steps)
 
 ## Notas
 - Decisiones de diseño, contexto aprendido, problemas conocidos

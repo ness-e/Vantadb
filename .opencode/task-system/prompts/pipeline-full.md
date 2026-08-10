@@ -74,6 +74,18 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 - Evaluator-Optimizer: correctitud, simplicidad, consistencia
 - Self-Harness Gate: propose → evaluate → accept
 - Pre-commit Gate: Definition of Done + checklists por tipo
+- **FASE SECURITY** (obligatoria cuando el cambio toca trust boundaries):
+  * Condición: input de usuario, auth/sesiones, dependencias (nuevas o bump),
+    storage/persistencia, FFI (PyO3/WASM/Node), red (server/MCP/HTTP)
+  * Skill: `security-and-hardening` — seguí su checklist completa (la skill tiene la suya propia)
+  * Gate de verificación: checklist de `security-and-hardening` ✅ +
+    `cargo audit` SI hubo cambios de dependencias
+- **FASE PERFORMANCE** (obligatoria cuando el cambio toca hot paths):
+  * Condición: `vector/` (HNSW, métricas de distancia), `engine.rs`, loops de
+    search/ingestión, serialización (ver AGENTS.md Regla 4 y deuda P2)
+  * Skill: `performance-optimization`
+  * Gate de verificación: comparación contra baseline — medí antes/después
+    (bench Criterion o timing simple); sin regresión o regresión documentada
 - **Pre-commit: skill code-review-and-quality** antes del commit final
 - Budget: máx 5 iteraciones por tarea. **Si se agota el budget sin completar → devolvé
   `RESULTADO: 🟡 INCOMPLETO` con el próximo step ⬜ PENDING; NO lo marques FAILED solo por budget.**

@@ -206,6 +206,68 @@ than its registry entry — that's the exact desync this trigger exists to catch
 
 ---
 
+## Trigger 5: Postmortem (falla / incidente)
+
+Corré un postmortem cuando un resultado **no llegó al contrato** — apenas se
+confirma la falla, no después de arreglarla en silencio. Máximo 10 minutos.
+
+### A. Triggers (cualquiera dispara el postmortem)
+
+| Trigger | Ejemplo |
+|---|---|
+| Task marcada ❌ failed | Contrato no cumplido al cerrar la tarea |
+| Verify falla 2+ veces consecutivas | Mismo comando de verify rojo 2 veces seguidas |
+| Incidente reportado | Crash, data loss, regresión en release, OOM, UAF, downtime |
+| STALL excede el appetite del plan | Tarea trabada más tiempo del presupuestado |
+| Bug fix que tomó 3+ intentos (Phase 4.5 rule) | El 1er y 2º fix no resolvieron; el 3ro sí |
+
+Si más de un trigger aplica, un solo postmortem — no uno por trigger.
+
+### B. Plantilla 10 minutos (con reloj)
+
+⏱️ `0:00–2:00` **Timeline** — qué pasó, en orden cronológico (comandos, commits, timestamps).
+⏱️ `2:00–3:00` **Impacto** — qué se rompió (features, tests, users, release).
+⏱️ `3:00–6:00` **Causa raíz** — el por qué, no el síntoma. Preguntá "¿por qué?" 3-5 veces hasta el mecanismo real.
+⏱️ `6:00–9:00` **Follow-ups** — qué se hace, quién, cuándo. Cada ítem con owner + deadline.
+⏱️ `9:00–10:00` **Persistir** — append a `lessons.md` (paso C).
+
+```
+## POSTMORTEM <ID>
+- **Trigger:** task ❌ | verify 2x | incidente | STALL | 3+ intentos
+- **Timeline:** <qué pasó, en orden>
+- **Impacto:** <qué se rompió>
+- **Causa raíz:** <por qué pasó>
+- **Follow-ups:**
+  - [ ] <acción> — @<owner> — <cuándo>
+```
+
+### C. Persistir en lessons.md
+
+El output del postmortem se appendea a `.opencode/task-system/memory/lessons.md`
+usando el formato existente del archivo (una línea por entrada):
+`YYYY-MM-DD | Task ID | Contexto | Lección | Acción tomada`
+
+```
+- YYYY-MM-DD | POSTMORTEM <ID> | <contexto> | <lección en una línea> | <acción tomada>
+```
+
+Convención consistente con `campaign_memory_write` (misma línea, misma forma):
+
+```python
+campaign_memory_write(
+    file="lessons",
+    entry="YYYY-MM-DD | POSTMORTEM <ID> | <contexto> | <lección> | <acción tomada>"
+)
+```
+
+- **Postmortem bueno** (causa raíz real + follow-ups con owner) → la línea va a
+  `lessons.md` vía `campaign_memory_write(file="lessons", ...)` si el executor
+  lo maneja; si no, edit directo del archivo con la misma línea.
+- **Sin persistencia, sin cierre:** la tarea no queda `completed` hasta que la
+  lección esté en `lessons.md` — el objetivo no es castigar la falla sino no repetirla.
+
+---
+
 ## Definition of Done (pre-commit checklist)
 
 Ver el standing quality bar en [`.opencode/references/definition-of-done.md`](../../references/definition-of-done.md) — aplica para releases y cambios del sistema.

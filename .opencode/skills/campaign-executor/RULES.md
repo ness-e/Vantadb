@@ -218,6 +218,34 @@ de debugging ANTES de implementar el fix:
 la sección "Fase 1 — Evidencia de Debugging" del task file. Referencia del
 gate: `repro|Phase 1|Iron Law`.
 
+### 10c. Review por agente distinto (P2-01)
+
+El REVIEW de una tarea NUNCA lo ejecuta el mismo contexto que implementó.
+Para cualquier tarea (obligatorio en 🔴), el review lo hace un agente
+distinto — `vanta-audit` (persona leaf: `task: * deny`, no puede
+implementar, solo revisa) o la persona `vanta-review` / skill `review-deep`
+si está disponible — cubriendo (1) enfoque y (2) cómo se probó.
+
+- Sin review de agente distinto registrado en el task file, la tarea NO se
+  marca COMPLETED aunque el contrato pase.
+- Fallback si no hay agente distinto disponible: `doubt-driven-development`
+  como gate mandatorio para 🔴 — verificación adversarial en contexto fresco.
+
+### 10d. Refactor 2-sombreros — no cambia comportamiento (P3-06)
+
+Contrato (Fowler): **un commit de refactor no cambia comportamiento.** Los
+cambios de comportamiento y los de estructura van en commits distintos, con
+tests verdes ENTRE ambos:
+
+| Sombrero | Cambia comportamiento | Commit | Gate |
+|----------|----------------------|--------|------|
+| Comportamiento (feature/fix) | sí | `feat:` / `fix:` | tests verdes del nuevo comportamiento |
+| Estructura (refactor) | no | `refactor:` | mismos tests verdes SIN tocarlos |
+
+Gate: si un "refactor" requiere modificar tests para que pasen, entonces
+cambió comportamiento — es un commit de comportamiento disfrazado. Partirlo
+en dos commits (uno de comportamiento, uno de estructura).
+
 ## Apéndice A: HarnessCard (CAR Decomposition)
 
 | Capa | Dimensión | Implementación |

@@ -131,6 +131,7 @@ function New-VantaSession {
         context_bytes      = [uint64]0
         files_read         = @{}
         pending_approval   = $null
+        traceId            = [guid]::NewGuid().ToString()
     }
 
     Save-SessionToDisk $session
@@ -183,7 +184,9 @@ function Update-VantaSessionState {
         [Parameter(Mandatory)]
         [string]$NewState,
 
-        [hashtable]$Context = @{}
+        [hashtable]$Context = @{},
+
+        [string]$TraceId = $null
     )
 
     $session = Get-VantaSession $InstanceId
@@ -191,6 +194,11 @@ function Update-VantaSessionState {
         Write-Error "Session '$InstanceId' not found."
         return $false
     }
+
+    # P2-05: el traceId persiste en la sesión (lo provee el server de campaña
+    # al marcar una tarea in-progress). Si no viene, se conserva o genera uno.
+    if ($TraceId) { $session.traceId = $TraceId }
+    elseif (-not $session.traceId) { $session.traceId = [guid]::NewGuid().ToString() }
 
     $session.previous_state   = $session.current_state
     $session.current_state    = $NewState
@@ -600,6 +608,7 @@ function Get-VantaSessionList {
             FilesEdited    = @($json.files_edited).Count
             ContextBytes   = [uint64]$json.context_bytes
             IsFinal        = ($json.definition.states.$($json.current_state).type -eq 'final')
+            TraceId        = $json.traceId
         }
     }
     return $sessions

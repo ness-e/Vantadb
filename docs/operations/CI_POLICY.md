@@ -128,6 +128,47 @@ runners and requires significant system resources (AVX2 plus heavy swap). It run
 scheduled/manual job with a 150 minute step timeout so it can complete without blocking the other
 certification checks. Running this on every PR would paralyze development velocity.
 
+### Coverage Gate — Minimum Mechanized Coverage (P2-06)
+
+**Tier:** Heavy Certification (not the Fast Gate). A PR can reduce coverage in a hot module without
+any gate failing; this gate closes that gap by enforcing a minimum line-coverage threshold
+mechanically. **Task P2-06** from `docs/plans/2026-08-10-p2-p3-structural-quality.md`. The
+threshold starts conservative and ratchets upward.
+
+**Command:**
+
+```bash
+cargo llvm-cov --fail-under-lines <UMBRAL>
+```
+
+(The CI variant runs under nextest: `cargo llvm-cov nextest run --profile audit --workspace
+--fail-under-lines <UMBRAL>`.) `--fail-under-lines` exits with status 1 when total **line**
+coverage falls below the threshold — that is the fail-under behavior of this gate.
+
+**Scope:** Applies to the hot modules `src/vector/` and `src/engine/`. The threshold is evaluated
+on the whole workspace report (the hot modules dominate it); to enforce a strict per-module floor,
+narrow the report with `--ignore-filename-regex` to those paths.
+
+**Initial threshold (PRUDENT):** 60% line coverage. No coverage artifacts exist in the repo as of
+2026-08-10, so this number is **to be set from the first llvm-cov run** — the first Heavy
+Certification pass must record the real current level and adjust the threshold to match it (never
+set it below the current level).
+
+**Escalation policy:** the threshold ratchets upward over time (e.g. +5 points per quarter or per
+release), converging with the Fast Gate coverage job (currently ≥59%). The threshold is never
+lowered without a documented justification and review.
+
+**Merge / union:** multiple coverage runs under different feature/test conditions are merged with
+`--no-report` runs followed by `cargo llvm-cov report`; `--failure-mode any|all` controls whether
+merge failures fail the gate.
+
+**Test exclusion:** cargo-llvm-cov excludes `tests/` directories and `*_tests.rs` files from the
+report by default, so test code itself is not counted toward the threshold.
+
+**Local verify wiring:** `dev-tools/verify.ps1` runs this gate (with the same `--fail-under-lines`
+threshold) only when `cargo-llvm-cov` is installed; otherwise it prints a warning and continues, so
+the default local `just verify` flow is never blocked by a missing tool.
+
 ### 3. Web CI (`ci-web-11.yml`)
 
 Builds and lints the web frontend (`web/` directory — Next.js 16). Runs `npm ci`, `npm run lint`,

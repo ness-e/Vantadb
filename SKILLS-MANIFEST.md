@@ -1,8 +1,17 @@
 # VantaDB Skills Manifest
 
-**Location:** `.agents/skills/` (project-local, 82 skills; curated essential list below)
-**Updated:** 2026-07-10
+**Location:** 82 skills en `.agents/skills/` + 29 en `.opencode/skills/`; total **111** (project-local; curated essential list below)
+**Updated:** 2026-08-10
 **Purpose:** Reference for AI agents to know which skills are available and when to use them.
+
+> **AUDIT 2026-08-10 (P3-08) — Conteo verificado contra disk:**
+> - `.agents/skills/` = **82** skills (82 dirs, todas con SKILL.md) ✅
+> - `.opencode/skills/` = **29** skills (29 dirs, todas con SKILL.md) — antes se afirmaba 32 en AGENTS.md; 29 es el real
+> - **Total proyecto = 111** (82 + 29)
+> - Global `~/.agents/skills/` = 153 dirs (139 con SKILL.md, 14 sin) — antes se afirmaba 154; `~/.claude/skills/` = 26 dirs
+> - Stub detectado: `debugging-and-error-recovery` (`.opencode/skills/`) está DEPRECADO → delega en `systematic-debugging` (EVAL-03). Se mantiene listado porque existe en disk, pero NO se debe cargar.
+> - `impeccable` (Essential, KEEP) solo existe en la copia global `~/.agents/skills/`, no en `.agents/skills/` del proyecto — pendiente de sync.
+> - Corregido: "104 essential skills" (Source Locations) → **82** reales; 82 on-disk skills de `.agents/skills/` están todas referenciadas en el manifest (0 missing, 0 stale KEEP).
 
 ---
 
@@ -419,5 +428,5 @@ The following skills were removed during cleanup (158 total):
 
 ## Source Locations
 
-All skills are now consolidated in `.agents/skills/` (project-local, 104 essential skills). 85 skills returned to `~/.agents/skills/` as not relevant to VantaDB.
-The global `.agents/skills/` and `.claude/skills/` locations still exist but are secondary — prefer the project-local copy.
+All skills are now consolidated in the project: **82 skills en `.agents/skills/` + 29 en `.opencode/skills/`; total 111** (audited 2026-08-10). Skills not relevant to VantaDB live in `~/.agents/skills/` (153 dirs global) and `~/.claude/skills/` (26 dirs).
+The global locations still exist but are secondary — prefer the project-local copy. Regla de resolución (AGENTS.md): `.opencode/` → `.agents/` → global, usar la primera que exista.

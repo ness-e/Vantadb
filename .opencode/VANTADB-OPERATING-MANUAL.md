@@ -49,7 +49,7 @@ USUARIO
 | **Entry** | 10 commands en `.opencode/commands/` | Detectan el intento del usuario, resuelven rutas, orquestan |
 | **Pipeline** | `task-system/prompts/` (7 prompts) | Instrucciones detalladas para el agente por fase |
 | **Ejecución** | `campaign-executor` (SKILL + RULES + prompts) | Loop (orquestador `/pipeline run` o iteración `/loop-goal`), state machine, recitation |
-| **Skills** | 25 skills engineering + 7 skills VantaDB | Workflows especializados obligatorios |
+| **Skills** | 24 skills engineering + 4 skills VantaDB + `playwright-cli` (dev tool) = **29** en `.opencode/skills/`; 82 más en `.agents/skills/` — total proyecto **111** | Workflows especializados obligatorios |
 | **Agents** | 8 vanta-* agents | Roles con perspectiva y herramientas restringidas |
 | **MCP** | CodeGraph, Playwright, cargo-mcp, rust-analyzer-mcp | Tools de infraestructura |
 | **Dev Tools** | Justfile, cargo-*, dev-tools/scripts/ | Automatización local |
@@ -342,7 +342,7 @@ States válidos (Statewright pattern, iter-loop-tools.md canonical):
 
 ### 6.1 Lifecycle Mapping
 
-Las 25 skills de ingeniería se asignan automáticamente según la fase del trabajo:
+Las 24 skills de ingeniería se asignan automáticamente según la fase del trabajo:
 
 | Fase | Skill | Disparador |
 |------|-------|-----------|
@@ -881,7 +881,7 @@ Después de completar: skill progreso
     progreso/                        ← Migración de tareas
     unified-review/                  ← Review, audit & certification unificado (reemplaza a los 3 legacy) 
     review-deep/                     ← Revisión por módulo
-    (19 skills engineering más)
+    (25 skills más — total 29 en .opencode/skills/; ver §6 y §7)
   agents/
     vanta-arch.md                    ← Systems architect
     vanta-worker.md                  ← Implementador

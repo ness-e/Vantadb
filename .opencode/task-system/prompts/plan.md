@@ -107,6 +107,35 @@ el plan file junto al contrato de cada tarea.
 5. Prioridad original es sugerencia, no orden
 6. La verificación del Paso 0 es la base del gate — no re-evaluar por texto del backlog si codegraph contradice
 
+### Clasificación Cynefin + Top 3 riesgos (obligatorio para 🔴/ambiguas)
+
+> **P1-02** ya agregó el **Risk Register** por tarea (tabla Prob×Impacto, parte del contract).
+> El **Top 3 riesgos** del triaje ES la entrada del Risk Register: no duplica, alimenta.
+
+Para toda tarea de **Prioridad 🔴** o **ambigua** (gate dudoso, esfuerzo desconocido,
+verificación del Paso 0 incompleta), clasificá la complejidad en **Cynefin** ANTES de
+fijar Effort/Priority:
+
+| Dominio Cynefin | Señal | Implicación para el approach |
+|-----------------|-------|------------------------------|
+| 🟦 Obvio | causa-efecto claro, best practice conocida | ejecutar directo → effort 🟢 |
+| 🟨 Complicado | causa-efecto analizable por expertos | requiere análisis → effort 🟡, documentar elección entre approaches válidos |
+| 🟧 Complejo | causa-efecto solo emerge al experimentar | NO planificar todo upfront: probe-sense-respond, steps cortos con verify frecuente |
+| ⬛ Caótico | sin relación causal visible (crisis) | act-first: estabilizar antes de planear; ⬆️ uphill alto → DEFER si no es incendio |
+
+Registrá en el plan file junto a la tarea:
+
+```
+- **Cynefin:** 🟨 complicado — por qué: requiere experto en X para decidir Y
+- **Top 3 riesgos:** (priorizados — alimentan el Risk Register)
+  1. <más probable>
+  2. <mayor impacto>
+  3. <el que rompería el contrato>
+```
+
+El Top 3 del triaje se vuelca como primeras filas del **Risk Register** de la tarea:
+si el triaje identificó un riesgo, no puede faltar en el register (Prob×Impacto).
+
 ### Para cada tarea ✅ DO
 
 Registrá en el plan file con:
@@ -122,8 +151,55 @@ Registrá en el plan file con:
 - **Pre-mortem:** 2-3 modos de fallo probables (ver Paso 0)
 - **Stop conditions:** criterios de cancelación (ver Paso 0)
 - **Risk Register:** máx 5-8 riesgos vivos (Prob×Impacto, respuesta, trigger/due)
+- **Cynefin:** (solo 🔴/ambiguas) obvio | complicado | complejo | caótico + justificación
+- **Top 3 riesgos:** 3 riesgos priorizados del triaje → alimentan el Risk Register
+- **Uphill/Downhill:** ⬆️ incógnitas abiertas / ⬇️ ejecución pendiente
+- **DoD multi-nivel:** checklist task/commit/release — ver § DoD (gate, no afterthought)
 - **Estado inicial:** ⬜ PENDING
 - **Task file:** `skills/campaign-executor/tasks/ID.md` (aún no existe — se creará bajo demanda)
+
+### Definition of Done (DoD) — multi-nivel (gate, no afterthought)
+
+> **Contrato:** `.opencode/references/definition-of-done.md` es la fuente de verdad del DoD.
+> El plan la referencia; acá se fija el DoD por NIVEL. Una tarea NO está completa si no
+> pasa el DoD de su nivel — el % completado y la recitation no lo compensan.
+
+| Nivel | DoD mínima (verificar contra `references/definition-of-done.md`) |
+|-------|------------------------------------------------------------------|
+| **Task** | contrato mecánico ✅ (`campaign_verify_cmd`) · task file sync · recitation actualizada |
+| **Commit** | conventional commit · verify full (fmt/clippy/nextest) · sin deuda neta nueva (Regla 6) · learnings anotados |
+| **Release** | changelog (git-cliff) · API docs sincronizadas (Regla 3) · ADRs de decisiones · pre-launch gate (layer 6: docs review) |
+
+En el plan file, cada tarea lleva su checklist del nivel task (ver template): los
+checkboxes se marcan solo con evidencia mecánica, no con intención.
+
+### Reporte de incertidumbre — uphill / downhill (obligatorio)
+
+El estado del plan se reporta en DOS ejes, no solo % completado:
+
+| Eje | Qué cuenta | Estado en plan file |
+|-----|-----------|---------------------|
+| ⬆️ **uphill** | incógnitas abiertas: decisiones sin tomar, dependencias externas sin verificar, comportamiento ambiguo, Cynefin no resuelto | `⬆️ uphill: N` |
+| ⬇️ **downhill** | ejecución pendiente ya definida: steps atómicos con contrato claro, sin incógnita | `⬇️ downhill: M` |
+
+- Un avance de PENDING a IN PROGRESS sin conocer el approach NO es downhill: es uphill
+  hasta que el contrato esté definido.
+- El contador por-tarea (template del task file) vive en `prompts/task.md` — acá se reporta
+  el agregado del plan.
+
+### Evento "plan adjust" (re-planning)
+
+Re-planificar (mover una tarea de PENDING a DO, re-estimar, cambiar un contrato) NO es
+gratis: cambia el reporte de incertidumbre. Registrá en `Notas` del plan file:
+
+```
+plan-adjust [YYYY-MM-DD]: <ID> — qué cambió (gate / re-estimación / contrato)
+- ⬆️ uphill antes: <incógnita resuelta o nueva>
+- ⬆️ uphill después: <estado tras el ajuste>
+- ⬇️ downhill antes/después: <steps pendientes>
+```
+
+Sin el evento no se distingue "avance" de "incógnita resuelta" en el reporting.
 
 ### Auto-detección de formato
 
@@ -147,6 +223,8 @@ Si no reconoce el formato → el agente interpreta con LLM para extraer tareas.
 | 🟡 DEFER | N |
 | ❌ SKIP | N |
 | 🔴 BLOQUEADO | N |
+
+Status: ⬆️ uphill = <N incógnitas abiertas> · ⬇️ downhill = <M steps pendientes> (ver § uphill/downhill)
 
 ## Tasks
 

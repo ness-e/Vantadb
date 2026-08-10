@@ -118,6 +118,47 @@ function getOrCreateCampaignId(content) {
   return { campaignId: id, content: updated }
 }
 
+// ---------- P2-04: WIP hard-limit ----------
+
+// Escanea tareas activas (in-progress): plan files en docs/plans/ (task blocks
+// con `- **Estado:**` = IN PROGRESS/in-progress) + task files en tasks/.
+function findInProgressTasks(worktree) {
+  const active = []
+  const opencodeRoot = resolve(__dirname, "..", "..")
+
+  // 1) Plan files en docs/plans/.
+  const planDir = join(worktree, "docs", "plans")
+  if (existsSync(planDir)) {
+    for (const f of readdirSync(planDir).filter(f => f.endsWith(".md"))) {
+      try {
+        const content = readFileSync(join(planDir, f), "utf-8")
+        for (const t of parseTasks(content)) {
+          if (t.state === "⏳ IN PROGRESS") {
+            active.push({ id: t.id, name: t.name, state: "in-progress", source: `docs/plans/${f}` })
+          }
+        }
+      } catch {}
+    }
+  }
+
+  // 2) Task files (raíz + complete/ + closed/).
+  const tasksDir = join(opencodeRoot, "skills", "campaign-executor", "tasks")
+  for (const sub of ["", "complete", "closed"]) {
+    const dir = sub ? join(tasksDir, sub) : tasksDir
+    if (!existsSync(dir)) continue
+    for (const f of readdirSync(dir).filter(f => f.endsWith(".md"))) {
+      try {
+        const content = readFileSync(join(dir, f), "utf-8")
+        if (/-\s*\*\*Estado:\*\*\s*(IN PROGRESS|in-progress|⏳)/i.test(content)) {
+          active.push({ id: f.replace(/\.md$/, ""), name: f, state: "in-progress", source: sub ? `tasks/${sub}/${f}` : `tasks/${f}` })
+        }
+      } catch {}
+    }
+  }
+
+  return active
+}
+
 // ---------- Output Validation (LLM05) ----------
 
 const DANGEROUS_CMD = [
@@ -256,6 +297,43 @@ function budgetReset(taskId, worktree) {
   delete state.tasks[taskId]
   writeBudget(planPath, state)
   return { reset: true }
+}
+
+// ---------- P2-05: Trace ID por tarea ----------
+//
+// Persistence choice: el traceId se persiste en el budget JSON del plan
+// (`<plan>.budget.json` → `tasks[<taskId>].traceId`), que ya se escribe/lee de
+// forma síncrona en cada tool. Sobrevive reinicios del server (el mapa
+// en-memoria es solo cache). Adicionalmente viaja en cada registro del
+// verify-log.jsonl y en las sesiones de session-tracking.ps1.
+
+const traceIdByTask = new Map()
+
+function getOrCreateTraceId(planPath, taskId) {
+  initTaskBudget(planPath, taskId)
+  const state = readBudget(planPath)
+  const t = state.tasks[taskId]
+  if (!t.traceId) {
+    t.traceId = randomUUID()
+    writeBudget(planPath, state)
+  }
+  return t.traceId
+}
+
+function readTraceId(planPath, taskId) {
+  try {
+    const t = readBudget(planPath).tasks[taskId]
+    return (t && t.traceId) || null
+  } catch { return null }
+}
+
+function traceIdForTask(taskId) {
+  if (traceIdByTask.has(taskId)) return traceIdByTask.get(taskId)
+  try {
+    const planPath = findPlanFile(PROJECT_ROOT)
+    if (planPath) return readTraceId(planPath, taskId)
+  } catch {}
+  return null
 }
 
 // ---------- Tool: campaign_validate_output ----------
@@ -419,10 +497,16 @@ server.tool(
     event: z.string().describe("Event name (e.g. 'task.started', 'campaign.completed')"),
     campaignId: z.string().describe("Campaign ID"),
     data: z.record(z.any()).optional().default({}).describe("Arbitrary event payload"),
+    taskId: z.string().optional().describe("ID de tarea para adjuntar su traceId al evento (P2-05)"),
   },
-  async ({ event, campaignId, data }) => {
+  async ({ event, campaignId, data, taskId }) => {
+    let traceId = null
+    if (taskId) {
+      traceId = traceIdForTask(taskId)
+      if (traceId) data = { ...data, traceId }
+    }
     const entry = traceEmit(campaignId, event, data, PROJECT_ROOT)
-    return { content: [{ type: "text", text: JSON.stringify({ emitted: true, event, campaignId }) }] }
+    return { content: [{ type: "text", text: JSON.stringify({ emitted: true, event, campaignId, traceId: traceId || entry.traceId || null }) }] }
   },
 )
 
@@ -459,7 +543,11 @@ server.tool(
     const line = `- ${date} | ${entry}\n`
     appendFileSync(fp, line, "utf-8")
     if (campaignId) traceEmit(campaignId, `memory.${file}.written`, { entry, date })
-    return { content: [{ type: "text", text: JSON.stringify({ written: true, file, date, line: line.trim() }) }] }
+    // P3-04: reminder suave — decisiones técnicas inciertas se validan contra web/docs oficiales primero.
+    const reminder = file === "decisions"
+      ? "Recordatorio: si la decisión es técnica y hay incertidumbre, validala primero con websearch/webfetch contra documentación oficial o GitHub (Regla de Validación de AGENTS.md)."
+      : undefined
+    return { content: [{ type: "text", text: JSON.stringify({ written: true, file, date, line: line.trim(), ...(reminder ? { reminder } : {}) }) }] }
   },
 )
 
@@ -593,6 +681,22 @@ server.tool(
     const planPath = resolvePlan(planFile, worktree)
     if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ error: "No plan file found" }) }] }
 
+    // P2-04: WIP hard-limit — convención one-task-at-a-time.
+    if (newState === "in-progress") {
+      const active = findInProgressTasks(worktree).filter(t => t.id !== taskId)
+      if (active.length > 0) {
+        const list = active.map(a => `${a.id} (${a.name}) en ${a.source}`).join(", ")
+        return {
+          content: [{ type: "text", text: JSON.stringify({
+            updated: false,
+            error: `No se puede iniciar la tarea ${taskId}: ya hay otra tarea en progreso (${list}). Convención one-task-at-a-time: completala o cerrála antes de arrancar otra.`,
+            activeTasks: active,
+            wipBlocked: true,
+          }, null, 2) }],
+        }
+      }
+    }
+
     const original = readFileSync(planPath, "utf-8")
     const { campaignId } = getOrCreateCampaignId(original)
     let updated = updateState(original, taskId, newState)
@@ -614,8 +718,17 @@ server.tool(
       return { content: [{ type: "text", text: JSON.stringify({ updated: false, warning: `Task ${taskId} not found or no changes needed`, campaignId }) }] }
     }
 
+    // P2-05: traceId por tarea — se genera/persiste al entrar en in-progress.
+    let traceId = null
+    if (newState === "in-progress") {
+      traceId = getOrCreateTraceId(planPath, taskId)
+      traceIdByTask.set(taskId, traceId)
+    } else {
+      traceId = traceIdForTask(taskId)
+    }
+
     writeFileSync(planPath, updated, "utf-8")
-    traceEmit(campaignId, `task.${newState}`, { taskId, newState, taskType: "unknown" }, worktree)
+    traceEmit(campaignId, `task.${newState}`, { taskId, newState, taskType: "unknown", traceId }, worktree)
     if (newState === "completed" || newState === "failed") {
       const tasks = parseTasks(updated)
       const task = tasks.find(t => t.id === taskId)
@@ -624,7 +737,7 @@ server.tool(
       const date = new Date().toISOString().slice(0, 10)
       try { appendFileSync(memFile, `- ${date} | ${taskId} | ${note}\n`, "utf-8") } catch {}
     }
-    return { content: [{ type: "text", text: JSON.stringify({ updated: true, taskId, newState, campaignId, planFile: planPath }) }] }
+    return { content: [{ type: "text", text: JSON.stringify({ updated: true, taskId, newState, campaignId, planFile: planPath, traceId }) }] }
   },
 )
 
@@ -667,10 +780,11 @@ server.tool(
     const summary = nextestMatch ? { passed: parseInt(nextestMatch[1]), failed: parseInt(nextestMatch[2]) } : null
 
     // EVAL-01: append every verify to the eval log for North Star metrics (docs/reports/pipeline-evals.md).
+    // P2-05: cada registro incluye traceId de la tarea para trazabilidad.
     try {
       const logPath = join(TASK_SYSTEM, "enforcement", "verify-log.jsonl")
       appendFileSync(logPath, JSON.stringify({
-        ts: new Date().toISOString(), taskId: taskId || null, command,
+        ts: new Date().toISOString(), taskId: taskId || null, traceId: taskId ? traceIdForTask(taskId) : null, command,
         passed, exitCode, expectedExitCode, elapsed,
         summary, plan: (() => { try { return findPlanFile(PROJECT_ROOT) } catch { return null } })(),
       }) + "\n", "utf-8")

@@ -41,6 +41,8 @@ Write-Host "${TotalRAM}GB ${Cores}cores j=${Jobs}" -ForegroundColor DarkGray
 
 $env:RUST_MIN_STACK = "33554432"
 $feats = @("--no-default-features", "--features", "cli,fjall,memmap2,fs2,roaring")
+# P2-06: prudent initial llvm-cov line-coverage floor. Raise after first runs (see CI_POLICY.md).
+$CoverageThreshold = 60
 $pass = 0; $fail = 0
 
 function run($name, [string[]]$cmd) {
@@ -60,6 +62,15 @@ try {
         run "nextest" (("cargo", "nextest", "run", "--profile", "audit", "-p", "vantadb") + $feats + @("--build-jobs", "1", "-E", "not test(/deserialize_absurd_node_count/) and not test(/test_search_with_bizarre_text_query/) and not test(/test_malformed_payload_extremely_large/)"))
     } else {
         run "test" (("cargo", "test", "-p", "vantadb") + $feats + @("-j", "1", "--", "--skip", "benchmark", "--skip", "competitive", "--skip", "recall", "--skip", "sift", "--skip", "chaos", "--skip", "hnsw_hard_validation", "--skip", "stress_protocol", "--skip", "vector_scale", "--skip", "certification", "--skip", "security_audit", "--skip", "deserialize_absurd_node_count", "--skip", "test_search_with_bizarre_text_query", "--skip", "test_malformed_payload_extremely_large"))
+    }
+    if (Get-Command "cargo-llvm-cov" -ErrorAction SilentlyContinue) {
+        if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
+            run "coverage" (("cargo", "llvm-cov", "nextest", "run", "--profile", "audit", "-p", "vantadb", "--fail-under-lines", "$CoverageThreshold") + $feats + @("--build-jobs", "1", "-E", "not test(/deserialize_absurd_node_count/) and not test(/test_search_with_bizarre_text_query/) and not test(/test_malformed_payload_extremely_large/)"))
+        } else {
+            run "coverage" (("cargo", "llvm-cov", "-p", "vantadb", "--fail-under-lines", "$CoverageThreshold") + $feats + @("-j", "1", "--", "--skip", "benchmark", "--skip", "competitive", "--skip", "recall", "--skip", "sift", "--skip", "chaos", "--skip", "hnsw_hard_validation", "--skip", "stress_protocol", "--skip", "vector_scale", "--skip", "certification", "--skip", "security_audit", "--skip", "deserialize_absurd_node_count", "--skip", "test_search_with_bizarre_text_query", "--skip", "test_malformed_payload_extremely_large"))
+        }
+    } else {
+        Write-Host "  llvm-cov not installed - skipping coverage gate" -ForegroundColor DarkYellow
     }
     Write-Host "ALL ${pass} PASS" -ForegroundColor Green; exit 0
 } catch {

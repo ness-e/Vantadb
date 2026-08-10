@@ -170,6 +170,32 @@ Avoid batching multiple simplifications into a single untested change. If someth
 
 **The Rule of 500:** If a refactoring would touch more than 500 lines, invest in automation (codemods, sed scripts, AST transforms) rather than making the changes by hand. Manual edits at that scale are error-prone and exhausting to review.
 
+### Step 3b: Two Hats Refactoring (Fowler — P3-06)
+
+Separate behavior changes from structure changes into **distinct commits**, with the test suite green between the two. This is Martin Fowler's "two hats" discipline: you wear either the *behavior hat* (feature / bug fix — the output changes) or the *structure hat* (refactor — the output is identical, only the shape changes). Never both in one commit.
+
+```
+Hat 1 — Behavior (feature / bug fix):
+  → commit `feat:` / `fix:`, tests define the NEW behavior, suite green
+Hat 2 — Structure (refactor / simplification):
+  → commit `refactor:`, NO behavior change, same suite green with NO test
+    modifications
+```
+
+**The contract (invariante 2-sombreros):** *un commit de refactor no cambia comportamiento.* A "refactor" that requires editing tests to pass is a behavior change in disguise — split it into two commits (one behavior, one structure).
+
+The suite must run green between the two hats — never batch behavior + structure into one untested change:
+
+```
+REFACTOR CHECK — before committing Hat 2:
+1. Tests green before (baseline, unmodified)
+2. Make structure-only changes
+3. Run the SAME suite — must be green WITHOUT touching tests
+4. If a test needed editing → that change was behavior, split it out
+```
+
+Keep each hat reviewable on its own: a reviewer reads the `refactor:` commit knowing nothing changed semantically, and the `feat:`/`fix:` commit knowing exactly which behavior was added. See RULES.md (campaign-executor, rule 10d) for the pipeline-level contract.
+
 ### Step 4: Verify the Result
 
 After all simplifications, step back and evaluate the whole:
