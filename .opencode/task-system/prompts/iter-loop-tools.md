@@ -1,5 +1,5 @@
 > **ACTIVE INSTRUCTION — Una Iteración del Ciclo**
-> Cargado por `/loop-goal` o `harness-executor.ps1` cuando hay tareas en ejecución.
+> Cargado por `/loop-goal` cuando hay tareas en ejecución.
 > Path resolution: `skills/X` → `.opencode/skills/X/`
 > Procesar EXACTAMENTE UNA iteración (no una tarea completa).
 > Usar MCP tools (`campaign_get_next_task`, `campaign_verify_cmd`, etc.) para estado.

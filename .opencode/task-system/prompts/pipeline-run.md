@@ -2,7 +2,7 @@
 > Activado por `/pipeline run [plan]`.
 > Path resolution: `skills/X` → `.opencode/skills/X/`, `prompts/X.md` → `.opencode/task-system/prompts/X.md`
 > Procesar TODAS las tareas del plan file en una sesión usando sub-agentes.
-> **Profundidad UNIFICADA con `/pipeline task` y el harness:** cada tarea pasa por
+> **Profundidad UNIFICADA con `/pipeline task`:** cada tarea pasa por
 > DISCOVERY (task file con steps atómicos, blast radius, skills) → EJECUCIÓN → CIERRE
 > vía `pipeline-full.md`. NUNCA prompts inline de 7 líneas.
 > Cada sub-agente se ejecuta con `subagent_type` según el campo `Ruta` del plan.
@@ -41,14 +41,12 @@ estancadas.
 3. TRACKING DE SESIÓN:
    - Llamá `campaign_session_track` (MCP) con `action: "create"` y `sessionId` único al inicio
    - En cada tarea completada → `campaign_session_track` con `action: "update"` para registrar progreso
-   - Si hay harness activo (`.opencode/task-system/harness/harness-executor.ps1`) → verificar PID con `campaign_mount_harness` (MCP) dry-run antes de empezar
    - Al finalizar → `campaign_session_track` con `action: "update"` y estado final
 
 4. PROBES DE INTEGRIDAD (antes de empezar):
-   - Validá: (a) plan file existe y tiene tasks, (b) recitation block es legible,
-     (c) última tarea no es la misma dos veces seguidas sin progreso,
-     (d) plan file no tiene harness PID activo de otra sesión,
-     (e) git status está limpio o los cambios son del pipeline actual
+- Validá: (a) plan file existe y tiene tasks, (b) recitation block es legible,
+      (c) última tarea no es la misma dos veces seguidas sin progreso,
+      (d) git status está limpio o los cambios son del pipeline actual
    - Si alguna probe falla → preguntá al usuario antes de continuar
 
 5. ENCONTRAR próxima tarea pendiente vía MCP:

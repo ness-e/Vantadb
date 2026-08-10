@@ -143,5 +143,5 @@ Si no reconoce el formato → el agente interpreta con LLM para extraer tareas.
 Mostrá el comando exacto para ejecutar:
 
 ```
-.opencode\task-system\harness\harness-executor.ps1 -PlanFile docs\plans\YYYY-MM-DD-<nombre>.md -Interval 10
+/pipeline run -PlanFile docs/plans/YYYY-MM-DD-<nombre>.md
 ```

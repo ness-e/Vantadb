@@ -1239,70 +1239,7 @@ server.tool(
   },
 )
 
-// ---------- Tool 18: campaign_mount_harness ----------
-
-server.tool(
-  "campaign_mount_harness",
-  {
-    planFile: z.string().describe("Path to plan file (e.g. docs/plans/plan.md)"),
-    interval: z.number().optional().default(5).describe("Pause seconds between iterations"),
-    stallThreshold: z.number().optional().default(2).describe("Consecutive stalls before abort"),
-    singleTask: z.string().optional().describe("Run only one specific task"),
-    timeout: z.number().optional().default(900).describe("Timeout per iteration in seconds"),
-    parallel: z.boolean().optional().default(false).describe("Run parallel waves"),
-    maxParallel: z.number().optional().default(4).describe("Max parallel tasks"),
-    model: z.string().optional().default("deepseek-v4-flash-free").describe("Model to use"),
-    dryRun: z.boolean().optional().default(false).describe("Preview only, no execution"),
-  },
-  async ({ planFile, interval, stallThreshold, singleTask, timeout, parallel, maxParallel, model, dryRun }) => {
-    const harnessPath = join(PROJECT_ROOT, ".opencode", "task-system", "harness", "harness-executor.ps1")
-    if (!existsSync(harnessPath)) {
-      return { content: [{ type: "text", text: JSON.stringify({ error: "harness-executor.ps1 not found at .opencode/task-system/harness/" }) }] }
-    }
-
-    const planPath = resolve(PROJECT_ROOT, planFile)
-    if (!existsSync(planPath)) {
-      return { content: [{ type: "text", text: JSON.stringify({ error: `Plan file not found: ${planPath}` }) }] }
-    }
-
-    const planContent = readFileSync(planPath, "utf-8")
-    const { campaignId } = getOrCreateCampaignId(planContent)
-
-    const args = [
-      `-PlanFile '${planPath}'`,
-      `-Interval ${interval}`,
-      `-StallThreshold ${stallThreshold}`,
-      `-CampaignId '${campaignId}'`,
-      timeout ? `-Timeout ${timeout}` : "",
-      parallel ? "-Parallel" : "",
-      dryRun ? "-DryRun" : "",
-      singleTask ? `-SingleTask '${singleTask}'` : "",
-      model ? `-Model '${model}'` : "",
-      maxParallel ? `-MaxParallel ${maxParallel}` : "",
-    ].filter(Boolean).join(" ")
-
-    const cmd = `& '${harnessPath}' ${args}`
-
-    if (dryRun) {
-      return { content: [{ type: "text", text: JSON.stringify({ dryRun: true, command: cmd, harnessPath, planPath, campaignId }) }] }
-    }
-
-    traceEmit(campaignId, "campaign.started", { planFile: planPath, parallel, model, maxParallel }, PROJECT_ROOT)
-
-    try {
-      const ps = execSync(cmd, { encoding: "utf-8", timeout: (timeout || 900) * 1000, shell: "pwsh" })
-      traceEmit(campaignId, "campaign.completed", { planFile: planPath }, PROJECT_ROOT)
-      return { content: [{ type: "text", text: JSON.stringify({ started: true, completed: true, harnessPath, planPath, campaignId, output: ps.trim().slice(0, 1000) }) }] }
-    } catch (e) {
-      const out = e.stdout || ""
-      const err = e.stderr || ""
-      traceEmit(campaignId, "campaign.failed", { planFile: planPath, error: e.message }, PROJECT_ROOT)
-      return { content: [{ type: "text", text: JSON.stringify({ started: false, completed: false, error: e.message, campaignId, stdout: out.slice(0, 500), stderr: err.slice(0, 500) }) }] }
-    }
-  },
-)
-
-// ---------- Tool 19: campaign_state_snapshot ----------
+// ---------- Tool 18: campaign_state_snapshot ----------
 
 server.tool(
   "campaign_state_snapshot",

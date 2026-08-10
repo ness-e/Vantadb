@@ -1132,7 +1132,7 @@ Revisá solo la capa Rust Core Layer del proyecto VantaDB.
 ### Review desde terminal
 
 ```powershell
-.opencode\task-system\harness\harness-executor.ps1 -PlanFile docs/plans/YYYY-MM-DD-full-review.md
+/pipeline run -PlanFile docs\plans\YYYY-MM-DD-full-review.md
 ```
 
 ## Herramientas de referencia

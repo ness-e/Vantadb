@@ -25,7 +25,7 @@ Si no se especificó entrada, usá `docs/Backlog.md` en modo plan.
 - Si el argumento empieza con `task ` → **MODO TAREA**: extraé el ID y definí/ejecutá esa tarea con delegación automática a sub-agente.
 - Si el argumento es `run` + plan opcional → **MODO RUN**: ejecutá backlog completo sin parar.
 - Si el argumento es `pipeline` → **MODO PIPELINE**: ejecutá una tarea completa por iteración vía `/loop-goal`.
-- Si el argumento es `ejecución` o `mcp` → **MODO EJECUCIÓN**: paso a paso con MCP tools o harness PowerShell.
+- Si el argumento es `ejecución` o `mcp` → **MODO EJECUCIÓN**: paso a paso con MCP tools vía `/loop-goal`.
 - Si no hay argumento → **MODO INTERACTIVO**: detectá estado actual y sugerí próximo paso.
 
 Cross-command flow: pipeline → build → audit → ship → rollback
@@ -214,13 +214,6 @@ Usa `campaign_get_next_task`/`campaign_update_task_state`/`campaign_verify_cmd` 
 + `campaign_load_skills`/`campaign_detect_task_type` para carga automática de skills.
 No lee el plan file completo — usa MCP tools.
 Cada iteración procesa UN PASO (no una tarea completa). Útil para depuración.
-
-**Harness PowerShell (terminal dedicada o via MCP):**
-```
-.opencode\task-system\harness\harness-executor.ps1 -PlanFile docs\plans\<plan-más-reciente>.md -Interval 10
-```
-El flag `-Yes` auto-responde sí a todas las confirmaciones (git dirty, stall, etc.).
-También se puede invocar desde el chat via MCP: `campaign_mount_harness` con los mismos parámetros.
 Usar `campaign_session_track` (MCP) para tracking de sesión y persistencia entre iteraciones.
 
 Si hay múltiples planes activos, listalos y pedí al usuario que elija.
@@ -253,7 +246,7 @@ Mostrá el comando exacto para lo que sigue:
 
 | Después de... | Mostrar... |
 |--------------|------------|
-| Crear plan | `/pipeline run` *(backlog completo)* o `/build` *(primera tarea, RED→GREEN)* o `.opencode\task-system\harness\harness-executor.ps1` *(terminal)* |
+| Crear plan | `/pipeline run` *(backlog completo)* o `/build` *(primera tarea, RED→GREEN)* |
 | Definir tarea | `/build` *(implementar, RED→GREEN)* o `/pipeline run` *(backlog completo)* |
 | Ejecutar pipeline | `/audit quick` *(verificar calidad)* o `/ship` *(preparar release)* o `/status` *(dashboard)* |
 | Cualquier modo | También disponible: `/audit`, `/ship`, `/rollback`, `/status` |

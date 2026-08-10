@@ -48,7 +48,7 @@ USUARIO
 |------|-------------|-----|
 | **Entry** | 10 commands en `.opencode/commands/` | Detectan el intento del usuario, resuelven rutas, orquestan |
 | **Pipeline** | `task-system/prompts/` (7 prompts) | Instrucciones detalladas para el agente por fase |
-| **Ejecución** | `campaign-executor` (SKILL + RULES + harness) | Loop externo, state machine, recitation |
+| **Ejecución** | `campaign-executor` (SKILL + RULES + prompts) | Loop (orquestador `/pipeline run` o iteración `/loop-goal`), state machine, recitation |
 | **Skills** | 25 skills engineering + 7 skills VantaDB | Workflows especializados obligatorios |
 | **Agents** | 8 vanta-* agents | Roles con perspectiva y herramientas restringidas |
 | **MCP** | CodeGraph, Playwright, cargo-mcp, rust-analyzer-mcp | Tools de infraestructura |
@@ -99,13 +99,13 @@ Nunca referenciar `.tasks/` (no existe — error legacy corregido).
 |------|-----|----------|
 | `plan` | `/pipeline plan docs/Backlog.md` | Triage gate, crea `docs/plans/<fecha>.md` |
 | `task` | `/pipeline task DRV-NN` | Investiga, crea task file con steps |
-| `run` | `/pipeline run -PlanFile ...` | Inicia .opencode/task-system/harness/harness-executor.ps1 |
+| `run` | `/pipeline run -PlanFile ...` | Ejecuta backlog completo con sub-agentes (profundidad unificada) |
 | `interactive` | `/pipeline` sin args | Menú interactivo |
 
 **Flujo `plan`:**
 1. Lee Backlog.md → aplica triage gate (DO/DEFER/SKIP/BLOQUEADO)
 2. Crea plan file con tasks priorizadas
-3. Muestra comando para arrancar el harness
+3. Muestra comando para arrancar la ejecución (`/pipeline run`)
 
 **Flujo `task`:**
 1. `codegraph_explore` para blast radius del cambio
@@ -113,9 +113,10 @@ Nunca referenciar `.tasks/` (no existe — error legacy corregido).
 3. Crea task file con steps atómicos + contrato verificable
 
 **Flujo `run`:**
-1. Inicia `.opencode/task-system/harness/harness-executor.ps1` (loop PowerShell)
-2. Por cada tarea: inyecta `iter-loop-tools.md` → agente ejecuta un step → verifica
-3. Al completar: commit + `skill progreso`
+1. Carga `pipeline-run.md` (orquestador) — rutea cada tarea por `Ruta` a un sub-agente vanta-*
+2. Por cada tarea: sub-agente ejecuta `pipeline-full.md` completo (DISCOVERY → EJECUCIÓN → CIERRE)
+3. Resultado no-DONE → SARL (`subagent-recovery.md`: RESUME → RETRY → STRATEGY → ESCALATE)
+4. Al completar: commit + `skill progreso`
 
 ### 3.2 Audit — `/audit`
 
@@ -155,9 +156,10 @@ Cada ejecución de `/audit` crea un plan file (`docs/plans/plan-audit-*.md`) con
 |------------|-----------|-----------|
 | **plan.md** | `.opencode/task-system/prompts/plan.md` | Crear plan desde backlog |
 | **task.md** | `.opencode/task-system/prompts/task.md` | Definir tarea individual |
-| **iter-loop-tools.md** | `.opencode/task-system/prompts/iter-loop-tools.md` | Una iteración del harness |
+| **iter-loop-tools.md** | `.opencode/task-system/prompts/iter-loop-tools.md` | Una iteración del loop |
 | **pipeline.md** | `.opencode/commands/pipeline.md` | Entry point |
-| **harness-executor.ps1** | `.opencode/task-system/harness/harness-executor.ps1` | Loop PowerShell |
+| **pipeline-run.md** | `.opencode/task-system/prompts/pipeline-run.md` | Orquestador de backlog (sub-agentes) |
+| **pipeline-full.md** | `.opencode/task-system/prompts/pipeline-full.md` | Prompt canónico de ejecución de tarea |
 | **SKILL.md** | `.opencode/skills/campaign-executor/SKILL.md` | Referencia completa |
 | **RULES.md** | `.opencode/skills/campaign-executor/RULES.md` | Reglas invariantes |
 | **Plan file** | `docs/plans/<fecha>-<nombre>.md` | Orquestación de tasks |
@@ -177,7 +179,7 @@ Cada ejecución de `/audit` crea un plan file (`docs/plans/plan-audit-*.md`) con
   │   ├─ crear task file con steps atómicos + contrato
   │   └─ plan file → ⏳ IN PROGRESS
   │
-  ├─ FASE 2: EJECUCIÓN (1 step por iteración del harness)
+  ├─ FASE 2: EJECUCIÓN (1 step por iteración del loop)
   │   ├─ State Machine: PLAN → ACT → VERIFY
   │   ├─ Retry ladder (4 escalones)
   │   ├─ Stagnation Detection (3 same-error = stop)
@@ -264,7 +266,7 @@ Callers | Callees | Implicaciones
 
 ### 4.6 Recitation Block
 
-La recitation es el handoff entre iteraciones del harness. Sin ella, la próxima iteración arranca perdida.
+La recitation es el handoff entre iteraciones del loop. Sin ella, la próxima iteración arranca perdida.
 
 ```
 === RECITATION ===
@@ -601,11 +603,9 @@ Especialistas (audit, chaos, tuner, docs)
 ```
 /pipeline plan docs/Backlog.md       → crea plan file
 /pipeline task FEAT-01               → crea task file con steps
-/pipeline run -PlanFile ...          → harness loop automático
-    ├─ iteración 1: discovery + task file + primer step
-    ├─ iteración 2: implementación
-    ├─ iteración 3: implementación + verify
-    ├─ iteración 4: close + commit + progreso
+/pipeline run -PlanFile ...          → orquestador (sub-agentes, profundidad unificada)
+    ├─ por tarea: routing por Ruta → sub-agente vanta-* → pipeline-full.md
+    ├─ discovery → implementación → verify → close + commit + progreso
     └─ ... hasta completar todas las tasks
 
 skill unified-review --mode certify --profile vantadb   → pre-push gate (replaces vantadb-certify)
@@ -659,23 +659,23 @@ COMMAND pipeline.md
   → Lee prompt task.md
   → Carga campaign-executor (skill)
   → Ejecuta codegraph_explore para blast radius
-  → Crea tasks/P1-5.md con steps
-  → Muestra comando para harness
+  → Crea tasks/P1-5.md con steps / delega ejecución a pipeline-full.md
+  → Muestra comando para ejecutar (pipeline-full.md via /pipeline task o /build)
 
-HARNESS ejecuta:
-  → Inyecta iter-loop-tools.md
+ORQUESTADOR (/pipeline run) ejecuta:
+  → Rutea por Ruta → sub-agente vanta-* → inyecta pipeline-full.md
   → AGENTE lee task file
   → AGENTE carga skills según tipo (Rust → source-driven-development)
   → AGENTE implementa step
   → AGENTE verifica (cargo check, nextest)
   → AGENTE actualiza plan file
   → AGENTE escribe recitation
-  → HARNESS detecta STOP, itera al próximo step
+  → resultado no-DONE → SARL (subagent-recovery.md)
 
 AL COMPLETAR:
   → AGENTE hace commit
   → skill progreso (Trigger 1)
-  → HARNESS pasa a próxima tarea
+  → siguiente tarea
 ```
 
 ---
@@ -687,7 +687,7 @@ AL COMPLETAR:
 1. **CodeGraph primero** — antes de grep/Read para preguntas estructurales. Resuelve en ms lo que grep busca en minutos.
 2. **Cargar skills antes de actuar** — si una skill aplica, debe cargarse con `skill <nombre>`. No implementar sin spec, no mergear sin review.
 3. **Recitation siempre** — después de cada acción, escribir el bloque RECITATION. Sin ella la próxima iteración arranca perdida.
-4. **Un paso por turno** — OpenCode opera por turnos. Cada turno ejecuta UNA acción atómica. El harness itera por vos.
+4. **Un paso por turno** — OpenCode opera por turnos. Cada turno ejecuta UNA acción atómica. `/pipeline run` itera por vos con sub-agentes.
 5. **Contratos verificables** — cada tarea tiene una condición booleana. "cargo nextest run pasa" no "funciona bien".
 6. **Sync bidireccional** — plan file y task file se referencian mutuamente. Ambos tienen `last-synced`.
 7. **Ponytalla escalera antes de escribir código** — ¿ya existe? ¿stdlib? ¿platform? ¿dependency? ¿una línea? Recién ahí: código mínimo.
@@ -739,7 +739,7 @@ AL COMPLETAR:
 | 5 | Usar `docs/bitacora.md` | Archivo eliminado, reemplazado por plan files |
 | 6 | Referenciar `.tasks/` como ruta | No existe — usar `tasks/<ID>.md` |
 | 7 | Saltarse la carga de una skill que aplica | Las skills son obligatorias, no opcionales |
-| 8 | Hacer 2+ tareas en un turno | El harness itera una por una |
+| 8 | Hacer 2+ tareas en un turno | El loop itera una por una |
 | 9 | Auto-reportar "anda" sin verificación mecánica | `cargo check`/`nextest`/`tsc` son los únicos válidos |
 | 10 | Introducir más deuda técnica de la que se elimina por PR | Saldo neto debe ser cero o negativo |
 
@@ -750,7 +750,7 @@ AL COMPLETAR:
 - VERIFY siempre requiere un comando real, no auto-reporte
 - El estado se persiste en recitation, nunca en contexto
 
-### 12.3 Reglas del Harness
+### 12.3 Reglas del Loop
 
 - Cada invocación ejecuta EXACTAMENTE UNA iteración
 - El plan file y task file son la única fuente de verdad
@@ -781,11 +781,11 @@ AL COMPLETAR:
 
 | Síntoma | Causa | Solución |
 |---------|-------|----------|
-| El agente hace 2+ tareas en un turno | Ignoró "una iteración" | Usar el harness (`.opencode/task-system/harness/harness-executor.ps1`) |
-| Harness no detecta progreso | Recitation faltante | Verificar bloque RECITATION al final del plan file |
+| El agente hace 2+ tareas en un turno | Ignoró "una iteración" | Usar `/loop-goal` con `iter-loop-tools.md` |
+| Loop no detecta progreso | Recitation faltante | Verificar bloque RECITATION al final del plan file |
 | Plan file corrupto | Regex no parsea emojis | Revisar encoding |
-| `last-synced` desfasado | Task file editado sin plan file | El harness re-sincroniza automáticamente |
-| Misma tarea reprocesada | Stall detection mal configurado | Verificar `$StallThreshold >= 2` |
+| `last-synced` desfasado | Task file editado sin plan file | El pipeline re-sincroniza automáticamente |
+| Misma tarea reprocesada | Stall detection mal configurado | Verificar `NO_PROGRESS_LIMIT` en iter-loop-tools.md |
 | Skill no encontrada | Ruta incorrecta | Verificar que existe en `.opencode/skills/<name>/SKILL.md` |
 | `codegraph` no responde | Proyecto no indexado | Ejecutar `codegraph init` (solo si el usuario lo pide) |
 | Shell syntax error | Bash heredoc en PowerShell | Usar PowerShell nativo (`ConvertTo-Json`, `Out-File`) |
@@ -805,7 +805,7 @@ AL COMPLETAR:
 | **Plan file** | Archivo de orquestación (`docs/plans/<fecha>.md`). Tasks, estados, recitation |
 | **Task file** | Profundidad de una tarea (`tasks/<ID>.md`). Steps atómicos, blast radius |
 | **Recitation** | Bloque de handoff entre iteraciones. Persiste estado y objetivo |
-| **Harness** | Loop externo PowerShell (`.opencode/task-system/harness/harness-executor.ps1`). Timeout, git check, sync |
+| **Loop / Orquestador** | Accionado por `/pipeline run` (sub-agentes) o `/loop-goal` (una iteración). Timeout, git check, sync. Reemplaza al ciclo PowerShell |
 | **C0 State Machine** | 10 estados de ejecución (PLAN→ACT→VERIFY→...→CLOSE/FAILED) |
 | **Path Resolution** | Tabla que resuelve rutas relativas a absolutas (AGENTS.md) |
 | **Stall** | 3 iteraciones sin progreso (mismo error, mismo archivo) → FAILED |
@@ -855,15 +855,15 @@ Después de completar: skill progreso
   task-system/
     config/                          ← Configuración del sistema
     enforcement/                     ← Reglas de enforcement C0
-    harness/                         ← Harness executor loop
     mcp/                             ← MCP server del task system
     memory/                          ← Memoria persistente del agente
     prompts/
       plan.md                        ← Crear plan desde backlog
       task.md                        ← Definir tarea individual
-      iter-loop-tools.md             ← Una iteración del harness / Loop de herramientas
-      pipeline-full.md               ← Pipeline completo
-      pipeline-run.md                ← Pipeline run mode
+      iter-loop-tools.md             ← Una iteración del loop (paso a paso)
+      pipeline-full.md               ← Prompt canónico de ejecución de tarea
+      pipeline-run.md                ← Orquestador de backlog (sub-agentes)
+      subagent-recovery.md           ← SARL (recovery de sub-agentes)
       research-agent.md              ← Research agent prompt
       audit-full.md                  ← Audit full prompt
     sandbox/                         ← Sandbox de ejecución
@@ -906,7 +906,7 @@ Después de completar: skill progreso
     darwin-godel-machine/            ← Harness evolution
 
 raíz/
-  .opencode/task-system/harness/harness-executor.ps1  ← Loop PowerShell
+  .opencode/task-system/prompts/pipeline-run.md  ← Orquestador de backlog
   docs/
     Backlog.md                       ← Active tasks
     progreso/README.md               ← Completed tasks

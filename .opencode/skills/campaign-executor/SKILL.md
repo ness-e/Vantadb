@@ -1,14 +1,14 @@
 ---
 name: campaign-executor
 description: >
-  Harness-driven pipeline that unifies backlog-executor (campaign
+  Pipeline-driven system that unifies backlog-executor (campaign
   orchestration) and task-executor (deep task execution). Use when running
   /pipeline plan|task|run, defining task files with atomic steps, or driving
-  the PowerShell harness loop through PLAN/ACT/VERIFY states.
+  tight iteration loops through PLAN/ACT/VERIFY states.
 compatibility: opencode
 ---
 
-# Campaign Executor — Harness-Driven Pipeline
+# Campaign Executor — Pipeline-Driven Execution
 
 > Unifica backlog-executor (orquestación de campañas) y task-executor
 > (ejecución profunda de tareas) en un solo skill.
@@ -16,14 +16,14 @@ compatibility: opencode
 ## Arquitectura
 
 ```
-HARNESS (PowerShell)                AGENTE (por turno)
+LOOP (vía /loop-goal o /pipeline run)   AGENTE (por turno)
 ┌────────────────────────┐         ┌──────────────────────────┐
-│ while (tasks > 0)     │───────▶ │ 1. Leer plan file        │
-│  1. next pending task │         │ 2. Leer task file (si)   │
-│  2. inject prompt.md  │         │ 3. Una acción:           │
-│  3. wait + validate   │         │    a. Discovery          │
-│  4. detect stall      │◀────────│    b. Implementar step   │
-│  5. repeat            │         │    c. Verify + commit    │
+│ for each pending task  │───────▶ │ 1. Leer plan file        │
+│  1. next pending task  │         │ 2. Leer task file (si)   │
+│  2. inyecta prompt     │         │ 3. Una acción:           │
+│  3. wait + validate    │         │    a. Discovery          │
+│  4. detect stall       │◀────────│    b. Implementar step   │
+│  5. repeat             │         │    c. Verify + commit    │
 └────────────────────────┘         │ 4. Actualizar plan+task  │
                                    │ 5. Recitation           │
                                    │ 6. STOP                 │
@@ -36,9 +36,8 @@ HARNESS (PowerShell)                AGENTE (por turno)
 |------------|-----------|-----------|
 | **plan.md** | `prompts/plan.md` → `.opencode/task-system/prompts/plan.md` | Crear plan desde backlog |
 | **task.md** | `prompts/task.md` → `.opencode/task-system/prompts/task.md` | Definir tarea individual |
-| **iter-loop-tools.md** | `prompts/iter-loop-tools.md` → `.opencode/task-system/prompts/iter-loop-tools.md` | Prompt único del harness (1 iteración) |
+| **iter-loop-tools.md** | `prompts/iter-loop-tools.md` → `.opencode/task-system/prompts/iter-loop-tools.md` | Una iteración del loop (1 paso) |
 | **pipeline.md** | `.opencode/commands/pipeline.md` | Entry point: backlog / task ID / run |
-| **harness-executor.ps1** | `.opencode/task-system/harness/harness-executor.ps1` | Loop PowerShell (timeout, git check, sync) |
 | **Plan file** | `docs/plans/<fecha>-<nombre>.md` | Orquestación: qué tasks, en qué estado |
 | **Task file** | `tasks/<ID>.md` (resuelve a `.opencode/skills/campaign-executor/tasks/<ID>.md`) | Profundidad: steps atómicos, blast radius |
 | **RULES.md** | `skills/campaign-executor/RULES.md` | North star + reglas invariantes del sistema |
@@ -58,11 +57,11 @@ HARNESS (PowerShell)                AGENTE (por turno)
 2. `pipeline.md` carga `.opencode/task-system/prompts/plan.md`
 3. El agente aplica triage gate a cada tarea
 4. Crea `docs/plans/<fecha>-<nombre>.md` con todas las ✅ DO
-5. Muestra comando para arrancar el harness
+5. Muestra comando para arrancar la ejecución (`/pipeline run` o `/loop-goal`)
 
 ### Fase 1: Discovery (por tarea, una vez)
 
-1. Harness encuentra tarea ⬜ PENDING, inyecta `.opencode/task-system/prompts/iter-loop-tools.md`
+1. Loop (`/loop-goal` → `iter-loop-tools.md`, o un sub-agente via `/pipeline run`) detecta tarea ⬜ PENDING
 2. Agente detecta que el task file no existe
 3. Auto-detecta tipo de tarea (Rust / Frontend / Python / ...)
 4. `codegraph_explore` para blast radius
@@ -94,7 +93,7 @@ States válidos (C0 — Statewright pattern, iter-loop-tools.md canonical):
   STALL → ❌ FAILED (agotado)
 ```
 
-1. Harness re-inyecta `.opencode/task-system/prompts/iter-loop-tools.md`
+1. Loop (`/loop-goal` u orquestador de `/pipeline run`) re-inyecta el prompt de iteración para el próximo step
 2. Agente lee el próximo step del task file
 3. PLAN → ACT → VERIFY (con Agente de Diagnóstico si falla)
 4. Retry ladder: 1 retry → 2 fresh context → 3 different strategy → 4 escalate
@@ -194,7 +193,6 @@ El pipeline verifica antes de arrancar cualquier tarea:
 - Plan file existe y tiene al menos una task
 - Recitation block (si existe) es parseable
 - Última tarea procesada ≠ misma tarea dos veces sin progreso
-- Plan file no tiene PID de harness activo de otra sesión
 - Git status está limpio (o los cambios son del pipeline actual)
 - `campaign_stalled_tasks` (MCP) no reporta bloqueos previos sin resolver
 
@@ -263,7 +261,7 @@ Los límites se enforcean en runtime vía `campaign_budget_consume` y `campaign_
 
 ## Ejecución paralela
 
-Cuando el harness recibe `-Parallel`, identifica tareas independientes
+Cuando `/pipeline run` usa `FAIL_MODE=parallel`, identifica tareas independientes
 (sin dependencias entre sí, sin archivos compartidos) y las ejecuta en
 waves concurrentes:
 
@@ -308,7 +306,7 @@ campaign-executor es el núcleo del sistema de tareas. Se relaciona con:
 /pipeline task DRV-NN            → task.md (define task) → pipeline-full.md (ejecuta) → vanta-*
 /pipeline run                    → pipeline-run.md (orquestador) → pipeline-full.md por sub-agente
                                    → subagent-recovery.md (SARL) para resultados no-DONE
-/pipeline ejecución              → iter-loop-tools.md (harness, 1 iteración)
+/pipeline ejecución              → iter-loop-tools.md (loop, 1 iteración)
 ```
 
 **Prompt canónico de ejecución:** `pipeline-full.md` es la forma ÚNICA de ejecutar una tarea
@@ -329,7 +327,7 @@ Todos los sub-agentes devuelven el bloque `RESULTADO` (ver § Resultado de pipel
 
 ## Apéndice B: opencode-loop plugin
 
-Si instalaste el plugin `opencode-loop` como alternativa al harness:
+Si instalaste el plugin `opencode-loop` como mecanismo de loop:
 
 ```bash
 oc plugin install opencode-loop
@@ -348,8 +346,8 @@ la recitation. No avances sin haber completado verificación, commit, progreso."
 | Innovación | Fuente | Dónde |
 |------------|--------|-------|
 | **VISION.md (north star)** | Steinberger | RULES.md |
-| **Stagnation detection** | Anthropic: no-progress detection | iter-loop-tools.md, harness |
-| **Budget ceilings** | explainx.ai | SKILL.md, harness |
+| **Stagnation detection** | Anthropic: no-progress detection | iter-loop-tools.md |
+| **Budget ceilings** | explainx.ai | SKILL.md |
 | **Evaluator-optimizer** | Lilian Weng: agent self-review | iter-loop-tools.md MODO CIERRE |
 | **State machine guardrails** | Statewright (415⭐) | iter-loop-tools.md State Machine C0 |
 | **Self-Harness propose-evaluate-accept** | Self-Harness (Anthropic) | iter-loop-tools.md Self-Harness Gate |
@@ -398,14 +396,13 @@ la recitation. No avances sin haber completado verificación, commit, progreso."
 
 | Síntoma | Causa | Solución |
 |---------|-------|----------|
-| El agente hace 2+ tareas en un turno | Ignoró "una iteración" | Usar el harness |
-| Harness no detecta progreso | Recitation faltante | Verificar que el agente escribió RECITATION |
+| El agente hace 2+ tareas en un turno | Ignoró "una iteración" | Usar `/loop-goal` con `iter-loop-tools.md` |
+| Loop no detecta progreso | Recitation faltante | Verificar que el agente escribió RECITATION |
 | Plan file corrupto | Regex no parsea | Revisar encoding de emojis |
-| Harness no encuentra tareas en el plan | Plan usa formato distinto (`### Task N:` esperado) | El parser acepta `#+\s*T\w+\s*\d+:` (cubre `### Task N:` y `## Tarea N:`). El plan DEBE listar tareas con `## Tarea <N>:` (o `### Task <N>:`) para que el harness las detecte |
 | Estado de tarea no detectado | Task file usa `- **Estado:** ⬜ PENDING` (markdown bold) | El parser ahora acepta `Estado:\**\s*[⬜⏳✅❌]` — tolera `**` y espacios alrededor del emoji |
-| last-synced desfasado | Task file editado sin plan file | El harness re-sincroniza automáticamente |
-| opencode run colgado | Tool output muy grande | El timeout del harness aborta |
-| Misma tarea reprocesada infinitamente | Stall detection mal configurado | Verificar $StallThreshold >= 2 |
+| last-synced desfasado | Task file editado sin plan file | El pipeline re-sincroniza automáticamente |
+| opencode run colgado | Tool output muy grande | El timeout del limit aborta |
+| Misma tarea reprocesada infinitamente | Stall detection mal configurado | Verificar NO_PROGRESS_LIMIT en iter-loop-tools.md |
 
 ## Diagrama de flujo completo
 
@@ -421,33 +418,19 @@ la recitation. No avances sin haber completado verificación, commit, progreso."
   │   │   ├─ resultado no-DONE → subagent-recovery.md (RESUME → RETRY → STRATEGY → ESCALATE)
   │   │   └─ de una tarea por iteración
   │   │
-  ├─ .opencode/task-system/harness/harness-executor.ps1
+  ├─ /loop-goal → iter-loop-tools.md (una iteración, paso a paso, MCP)
   │   │
-  │   ├─ FASE 1: DISCOVERY (por tarea, 1 vez)
-  │   │   ├─ auto-detect tipo (Rust/Frontend/Python/...)
-  │   │   ├─ codegraph_explore → blast radius
-  │   │   ├─ web research si ambigüedad
-  │   │   ├─ crear task file con steps atómicos
-  │   │   ├─ plan file → ⏳ IN PROGRESS
-  │   │   └─ RECITATION → STOP
-  │   │
-  │   ├─ FASE 2: EJECUCIÓN (1 step por iteración)
-  │   │   ├─ State Machine: PLAN → ACT → VERIFY
-  │   │   ├─ Retry ladder (4 escalones)
-  │   │   ├─ Agente de Diagnóstico en verify falla
-  │   │   ├─ Stagnation Detection (3 same-error = stop)
-  │   │   ├─ Errores colaterales (rápido→fix, lento→Backlog)
-  │   │   ├─ Evaluator-Optimizer (3 ejes)
-  │   │   ├─ Self-Harness Gate (propose→evaluate→accept)
-  │   │   ├─ Pre-commit Gate
-  │   │   ├─ git commit
-  │   │   ├─ skill progreso
-  │   │   └─ RECITATION → STOP
-  │   │
-  │   ├─ FASE 3: CIERRE (último step)
-  │   │   ├─ Verificación full (build+test+fmt+clippy+extra)
-  │   │   ├─ Plan file → ✅ COMPLETED
-  │   │   └─ RECITATION → STOP
+  │   ├─ State Machine: PLAN → ACT → VERIFY
+  │   ├─ Retry ladder (4 escalones)
+  │   ├─ Agente de Diagnóstico en verify falla
+  │   ├─ Stagnation Detection (3 same-error = stop)
+  │   ├─ Errores colaterales (rápido→fix, lento→Backlog)
+  │   ├─ Evaluator-Optimizer (3 ejes)
+  │   ├─ Self-Harness Gate (propose→evaluate→accept)
+  │   ├─ Pre-commit Gate
+  │   ├─ git commit
+  │   ├─ skill progreso
+  │   └─ RECITATION → STOP
   │   │
   │   └─ (repite hasta que todas las tareas estén ✅ o ❌)
   │

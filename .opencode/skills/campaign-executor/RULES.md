@@ -46,7 +46,7 @@ encargadas y volver a encontrar todo hecho, verificado y comiteado.
    Nunca se deja pasar sin registro.
 
 7. **Progreso visible siempre** — después de cada paso, plan file actualizado
-   + recitation. El harness nunca debe estar más de 3-5 iteraciones sin reportar
+   + recitation. El loop nunca debe estar más de 3-5 iteraciones sin reportar
    progreso.
 
 8. **Stagnation = stop** — si el loop da 3 vueltas sin avanzar (mismo error,
@@ -72,9 +72,9 @@ encargadas y volver a encontrar todo hecho, verificado y comiteado.
        │       (investiga, crea task file con steps atómicos)
        │
        └─ No → ¿Querés ejecutar un plan existente?
-├─ Completo → .opencode\task-system\harness\harness-executor.ps1 -PlanFile ...
-├─ Una tarea → .opencode\task-system\harness\harness-executor.ps1 -PlanFile ... -SingleTask DRV-NN
-└─ En paralelo → .opencode\task-system\harness\harness-executor.ps1 -PlanFile ... -Parallel
+├─ Completo → /pipeline run (orquestador con sub-agentes, profundidad unificada)
+├─ Una tarea → /pipeline run -SingleTask DRV-NN
+└─ Paso a paso → /loop-goal + iter-loop-tools.md (una iteración)
 ```
 
 ### Relación con archivos
@@ -83,9 +83,11 @@ encargadas y volver a encontrar todo hecho, verificado y comiteado.
 RULES.md / VISION.md          ← north star (este archivo, no se modifica)
 .opencode/task-system/prompts/plan.md               ← crear plan desde backlog (triage gate)
 .opencode/task-system/prompts/task.md               ← definir tarea a profundidad
-.opencode/task-system/prompts/iter-loop-tools.md               ← ejecutar una iteración del harness
+.opencode/task-system/prompts/iter-loop-tools.md    ← ejecutar una iteración del loop
 .opencode/commands/pipeline.md                      ← entry point: plan | task | run | interactive
-.opencode/task-system/harness/harness-executor.ps1   ← loop externo PowerShell
+.opencode/task-system/prompts/pipeline-run.md       ← orquestador de backlog (sub-agentes)
+.opencode/task-system/prompts/pipeline-full.md      ← prompt canónico de ejecución de tarea
+.opencode/task-system/prompts/subagent-recovery.md  ← SARL (recovery de sub-agentes)
 SKILL.md                      ← referencia completa del skill
 tasks/<ID>.md               ← auto-generated task definitions (resuelve a .opencode/skills/campaign-executor/tasks/<ID>.md)
 .opencode/references/           ← repos clonados (awesome-harness-engineering, statewright, ...)
@@ -98,7 +100,8 @@ tasks/<ID>.md               ← auto-generated task definitions (resuelve a .ope
 ### 1. Un paso por turno
 
 OpenCode opera por turnos (Request-Response). Cada invocación ejecuta
-EXACTAMENTE UNA acción atómica. El harness itera por vos.
+EXACTAMENTE UNA acción atómica. `/pipeline run` itera por vos con sub-agentes;
+`/loop-goal` para una iteración interactiva.
 
 ### 2. Estado en archivos, no en contexto
 
@@ -178,13 +181,13 @@ actual.
 - Plan file y task file se referencian mutuamente
 - Ambos tienen `last-synced: <fecha>`
 - Después de cada acción, actualizar ambos
-- El harness valida sync antes de cada iteración
+- El pipeline valida sync antes de cada iteración
 
 ### 9. Stagnation detection
 
 - 2 intentos consecutivos con el mismo error (archivo+línea+mensaje) → ❌ FAILED
 - 3 intentos sin cambiar de step → ❌ FAILED
-- El harness detecta stall y pregunta al usuario
+- El pipeline detecta stall y pregunta al usuario
 
 ### 10. Skills según tipo de tarea
 
@@ -256,7 +259,7 @@ Fuente: awesome-harness-engineering (HumanLayer: 12-Factor Agents)
 | 1. Explicit prompts | Cada tarea tiene un prompt completo (plan.md, task.md, iter-loop-tools.md) |
 | 2. State ownership | Plan file + task file son la única fuente de verdad. No confiar en contexto de sesión. |
 | 3. Clean pause-resume | Recitation block permite retomar exactamente donde se quedó |
-| 4. Logs as event streams | harness.ps1 emite eventos JSONL a traces/<campaign-id>.jsonl |
+| 4. Logs as event streams | El pipeline emite eventos JSONL a traces/<campaign-id>.jsonl |
 | 5. Disposable agents | Cada iteración arranca contexto fresco. Sin estado en memoria del agente. |
 | 6. Backward compatibility | Nunca romper el formato de plan file — otros scripts lo leen |
 | 7. Fail fast, fail visibly | Stagnation detection + MoM ladder. No reintentar con el mismo modelo. |
@@ -279,7 +282,7 @@ Cada campaña genera un UUID al inicio (CampaignId). Este ID se propaga a:
 | Task files | `campaign_id: <uuid>` en el header |
 
 El correlation ID permite conectar:
-- Una iteración de harness → su log JSONL → el commit → el task file
+- Una iteración del loop → su log JSONL → el commit → el task file
 - Sin correlation ID, cada componente es un silo aislado
 
 ### Rule 15 — init.sh Pattern (Bootstrap Harness)
@@ -320,7 +323,7 @@ Reglas:
 
 Fuente: Geoffrey Huntley — "Ralph Wiggum as a Software Engineer"
 
-El patrón más simple de harness que funciona:
+El patrón más simple de loop que funciona:
 
 ```bash
 while :; do cat PROMPT.md | agent; done
@@ -332,20 +335,17 @@ En nuestro contexto (OpenCode + campaign system):
 |----------|---------------|
 | **PROMPT.md** | `iter-loop-tools.md` — el prompt de iteración |
 | **agent** | OpenCode con los MCP tools de campaign |
-| **loop externo** | `harness-executor.ps1` — iteración PowerShell |
+| **loop externo** | `/loop-goal` (interactivo) o `pipeline-run.md` (orquestador con sub-agentes) |
 | **determinismo** | Cada iteración arranca contexto fresco (Disposable Agents) |
 | **handoff** | Recitation block en el plan file |
 
 La versión VantaDB del while-loop:
 
-```powershell
-# harness-executor.ps1 -IterationCount $count
-while ($true) {
-    $task = Get-NextTask
-    if (-not $task) { break }
-    Invoke-OpenCode -Prompt "iter-loop-tools.md" -Task $task
-    if (-not (Test-Contract $task)) { break }
-}
+```text
+(por iteración)
+  → /loop-goal "Una iteración leyendo iter-loop-tools.md"
+  → Estado en plan file + recitation
+  → repite hasta que todas las tareas estén ✅ o ❌
 ```
 
 Este patrón es la base conceptual de todo el campaign executor — no agregar complejidad innecesaria al loop.
@@ -376,7 +376,7 @@ Por ahora: no bloqueante, solo informativo. Cuando el ecosistema madure, el Lurk
 
 Fuente: OpenHands — "Context Condensation for More Efficient AI Agents"
 
-Entre iteraciones del harness, condensar el contexto preservando solo:
+Entre iteraciones del loop, condensar el contexto preservando solo:
 
 | Preservar | Descartar |
 |-----------|----------|
@@ -387,7 +387,7 @@ Entre iteraciones del harness, condensar el contexto preservando solo:
 | Correlation ID | Errores ya resueltos |
 
 En la práctica:
-1. El harness escribe el recitation block al final de cada iteración
+1. El loop escribe el recitation block al final de cada iteración
 2. La próxima iteración LEE el plan file + recitation — eso ES la condensación
 3. No necesita lógica extra: el recitation block es nuestro mecanismo de condensación
 4. Si una tarea excede 15 tool calls sin progreso, fork a sub-agente vía `task` tool para aislar investigación
@@ -407,7 +407,7 @@ Para tareas que requieren durabilidad (continuar después de crash):
 | **Idempotency** | Cada paso puede re-ejecutarse sin side effects |
 | **Retry with backoff** | Si un paso falla, esperar 2^retry segundos antes de reintentar |
 
-No implementar como dependency — implementar como convention en el harness existente.
+No implementar como dependency — implementar como convention en el pipeline existente.
 - Budget tracking via JSON es el estado durable
 - C0 state machine en iter-loop-tools.md maneja transiciones
 - Retry con backoff: `Start-Sleep -Seconds [Math]::Pow(2, $retryCount)`

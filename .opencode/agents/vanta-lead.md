@@ -201,7 +201,7 @@ Cuando el usuario invoca `/pipeline task <ID>` o `/build <ID>`, **NO** implement
 | Documentación, API specs, ejemplos | `vanta-docs` | VFY-011, docs/api/ updates |
 | Fuzzing, crash recovery, corrupción | `vanta-chaos` | DRV-133, chaos test |
 | Release, CI/CD, packaging, dependencias | **yo mismo** | deny.toml, changelog, CI workflows |
-| Spec/planning (no código) | `vanta-lead` (harness) | /pipeline plan |
+| Spec/planning (no código) | `vanta-lead` (pipeline) | /pipeline plan |
 | Multi-agente (certify, full audit) | pipeline multi-step | /ship, /audit, certify |
 
 ### Flujo de revisión post-delegación
