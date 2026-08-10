@@ -31,7 +31,7 @@
   <a href="README_ES.md">🇪🇸 Español</a>
 </div>
 
-VantaDB is a local-first, embedded database engine designed for AI agents, local RAG pipelines, and edge applications. It provides persistent storage, crash-safe recovery via WAL, and native hybrid search (BM25 + HNSW) without requiring external services, containers, or network dependencies.
+VantaDB is a local-first, embedded, single-node database engine designed for AI agents, local RAG pipelines, and edge applications. It provides persistent storage, crash-safe recovery via WAL, and native hybrid search (BM25 + HNSW) without requiring external services, containers, or network dependencies. Everything runs in-process on one node — VantaDB does not cluster or shard across machines.
 
 ---
 
@@ -197,7 +197,7 @@ python examples/python/dspy_retriever.py
 | **Operational Flows** | Rebuild + JSONL + Metrics | ANN rebuild, memory export/import, text-index repair, stale derived-index repair, and process telemetry exposed through the SDK boundary. |
 | **Embedded Surface** | Rust Core + PyO3 Bindings | Zero-network overhead. Python bindings route through a stable `src/sdk.rs` boundary. |
 
-No separate cluster, daemon, or external service is required. VantaDB runs in-process.
+VantaDB is a single-node embedded engine: no cluster, daemon, or external service is required — it runs in-process.
 
 ---
 
@@ -224,6 +224,8 @@ VantaDB should be understood as: embedded-first, local-first, durable memory wit
 | **Deferred** | Cloud/enterprise platform, HA/replication, distributed clustering, SQL/OLTP/warehouse/time-series, advanced ranking/snippets/tokenization, RBAC, multi-tenancy |
 
 *VantaDB is an embedded memory engine, not a universal multimodel database or cloud platform.*
+
+> **Replication:** VantaDB is single-node — it does not cluster or replicate. The `wal-shipping` crate feature is an **experimental send-only** mechanism that ships WAL segments to a remote endpoint via HTTP POST; the embedded engine has no receive path, so it is not replication, clustering, or HA.
 
 See [Experimental Features and Product Boundary](docs/operations/EXPERIMENTAL_FEATURES.md) for the operational classification of all repository surfaces.
 
