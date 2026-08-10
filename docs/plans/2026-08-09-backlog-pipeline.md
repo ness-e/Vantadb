@@ -321,7 +321,8 @@ _(no duplicar)_
 ### Task 42: DOC-02 — Fix versión drift QUICKSTART/badges (0.5.0)
 
 - **Esfuerzo:** 🟢 · **Archivos:** `docs/QUICKSTART.md`, `README.md` | **DO** · **Contrato:** `rg "0.4" docs/QUICKSTART.md README.md` → no match (except history)
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** 6723cb3f — v0.4.x → v0.5.0 y wheel 0.1.1 → 0.5.0 en QUICKSTART.md
 
 ### Task 43: DOC-03 — Fix mojibake UTF-8
 
