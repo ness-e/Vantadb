@@ -330,7 +330,7 @@ _(no duplicar)_
 
 - **Esfuerzo:** 🟢 · **Archivos:** `vantadb-python/README.md`, `docs/DESIGN_RULES.md` | **DO** · **Contrato:** `rgcha "\\u00e9|�"` → no match
 - **Estado:** ✅ DONE
-- **Ejecutado:** verificación byte a byte: ambos archivos son UTF-8 válido en todo el historial git; 0 caracteres U+FFFD, 0 escapes literales `\u00e9`, 0 patrones de mojibake (`Ã©`, `Â`, `â€™`). El regex `\u00e9` del audit matchea el carácter é (U+00E9) que es acento legítimo en español (técnica, Léxica, comparación) → falso positivo. No se reemplazó nada: quitar acentos habría corrompido los docs. Contrato real de corrupción verificado sin match.
+- **Ejecutado:** `16cd29a7` — verificación byte a byte: ambos archivos son UTF-8 válido en todo el historial git; 0 caracteres U+FFFD, 0 escapes literales `\u00e9`, 0 patrones de mojibake (`Ã©`, `Â`, `â€™`). El regex `\u00e9` del audit matchea el carácter é (U+00E9) que es acento legítimo en español (técnica, Léxica, comparación) → falso positivo. No se reemplazó nada: quitar acentos habría corrompido los docs. Contrato real de corrupción verificado sin match.
 
 ### Task 44: DOC-04 — Fix `llms.txt` API inventada
 
