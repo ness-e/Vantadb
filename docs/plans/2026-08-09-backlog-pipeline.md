@@ -347,7 +347,8 @@ _(no duplicar)_
 ### Task 46: DOC-06 — Límite u64 documentado (ERR-023)
 
 - **Esfuerzo:** 🟢 · **Archivos:** `docs/api/PYTHON_SDK.md`, `docs/QUICKSTART.md` | **DO** · **Contrato:** sección "ID limits" existe
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** <commit> — sección "ID limits" añadida a `docs/api/PYTHON_SDK.md` y `docs/QUICKSTART.md`; límite real verificado en binding: u128 nativo (pyo3 0.29), IDs > u64::MAX soportados como ints Python sin truncación (ERR-023); OverflowError fuera de rango, string solo en `recover_archived_nodes()`, precaución JSON 2^53
 
 ### Task 47: DOC-07 — Documentar hot-reload JSON / config.toml
 

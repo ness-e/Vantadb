@@ -175,6 +175,22 @@ cargo run --bin vanta-cli -- audit-index \
 Expected result: export reports records written, and audit reports
 `"passed": true`.
 
+## ID limits
+
+Node IDs are **u128** end-to-end (core engine, WAL, and Python binding):
+
+- **Range:** `0 <= id <= 2^128 - 1` (`340282366920938463463374607431768211455`).
+- **Python:** pass any ID as a plain `int`. Python integers are arbitrary
+  precision, so IDs larger than `u64::MAX` (`18446744073709551615`) work
+  directly — there is **no u64 truncation** (ERR-023 fixed the previous
+  u64-only limit in the binding).
+- **Strings:** not required for the regular APIs; `recover_archived_nodes()`
+  is the only method that takes an ID as a decimal string.
+- **Out of range:** negative IDs or IDs above `u128::MAX` raise
+  `OverflowError`.
+- **JSON:** numbers beyond `2^53` lose precision in IEEE-754 JSON decoders —
+  keep large IDs as strings in JSON payloads.
+
 ## Current Boundary
 
 This quickstart covers the production-facing MVP: embedded storage, WAL-backed

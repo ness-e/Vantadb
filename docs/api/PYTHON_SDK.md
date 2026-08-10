@@ -815,6 +815,28 @@ async with AsyncVantaDB("./my_brain") as db:
 
 All VantaDB methods are available on `AsyncVantaDB` with `async/await`, including `put()`, `put_batch()`, `insert()`, `delete_memory()`, `get_memory()`, `list_memory()`, `search_memory()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, and `explain_memory_search()`.
 
+## ID limits
+
+Node IDs are **u128** end-to-end: the core engine, WAL, and the Python binding
+all use 128-bit unsigned integers.
+
+- **Range:** `0 <= id <= 2^128 - 1` (`340282366920938463463374607431768211455`).
+- **Passing IDs:** use a plain Python `int`. Python integers are arbitrary
+  precision, so IDs larger than `u64::MAX` (`18446744073709551615`) work
+  directly — there is **no u64 truncation**. (ERR-023: IDs beyond u64 were
+  previously truncated or rejected by the binding; that limit no longer
+  exists.)
+- **Strings:** not required for the regular APIs. The only string-based path is
+  `recover_archived_nodes()`, whose `summary_id` is a decimal string parsed to
+  `u128`.
+- **Out of range:** negative IDs or IDs greater than `u128::MAX` raise
+  `OverflowError`; `recover_archived_nodes()` raises `ValueError` for a string
+  it cannot parse.
+
+> **JSON caution:** if IDs are transported through JSON (JSONL export/import,
+> HTTP API), numbers beyond `2^53` lose precision in tools that decode them as
+> IEEE-754 doubles. Keep large IDs as strings in JSON payloads.
+
 ## Error Handling
 
 All methods raise `RuntimeError` with a descriptive message on failure.
