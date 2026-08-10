@@ -15,7 +15,8 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 > **Verification method:** All items cross-checked against actual codebase (Jul 27, 2026). 8 tareas ejecutadas en sesión: TSK-106, MKT-03, NUEVO-21, MKT-04, TSK-107, DISC-02, DISC-03, Good first issues (18 creadas).
 > **Sync 2026-08-06:** 30 tareas ejecutadas por el plan `docs/plans/2026-08-05-backlog-validation-actions.md` tachadas y migradas a `docs/progreso/README.md`: AUDIT-01/03/04, DEBT-01, TECH-01..08, AUDIT-05/08, NUEVO-01, MKT-10/16, AUD-001..011 (AUD-010 fusionada en TECH-04/ADR-012), GH-123/141.
 > **Sync 2026-08-07:** 214 filas completadas eliminadas del backlog (210 IDs únicos) — migradas/verificadas en `docs/progreso/README.md` y `docs/progreso/BACKLOG_HISTORY.md`. Quedan 35 tareas activas (ver Exec Summary).
-> **Total open items:** ~100 activas — previas (DISC-01..03, LEG-01, BIZ-01b, OLD-01, DESKTOP-15..27, REVIEW-04, NV-02/03/05, [ADMIN-XX pending W4]) + P15 (54: ERR-001..051 + ERR-038/039/040/041) + P16 (24: RELEASE-01..03, SEC-01, PERF-01..06, FEAT-01..07, REVISAR-01, DOC-02..08). Origen: investigación multi-agente 2026-08-09 → `docs/investigacion/investigacion-equipo-2026-08-09.md`
+> **Total open items:** ~20 activas — previas (DISC-01..03, LEG-01, BIZ-01b, OLD-01, DESKTOP-15..27, REVIEW-04, [ADMIN-XX pending W4]) + P15 residuales (ERR-006/007/008/009/015/026/031/032/033/036/037/042/043/044/045/047/048/049) + P16 residuales (PERF-07/08/09, CI-01, REVIEW-05). P15/P16 principales ejecutadas por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` (49/49 ✅). Origen: investigación multi-agente 2026-08-09 → `docs/investigacion/investigacion-equipo-2026-08-09.md`
+> **Sync 2026-08-09:** plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` archivado — 49/49 tareas delegables completadas (Wave 0-3: RELEASE-01/02/03, SEC-01, 24 ERR, 7 FEAT, REVISAR-01, COV-001/003/004, PERF-01/04/06, DOC-02..08). RELEASE-02 verificado live: 0.5.0 publicado (crates.io/PyPI/npm/GitHub 2026-08-01). Filas completadas eliminadas de P15/P16; residuales siguen activas. Task 50 COM-02/03 (humana) queda en la tabla.
 > **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/progreso/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
 
 ---
@@ -24,8 +25,8 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 | Phase | Items | Est. Effort | Priority |
 |-------|-------|-------------|----------|
-| **P0** 🚀 Release Blockers | 3 (RELEASE-01..03) | ~1 semana | 🔴 Re-abierta |
-| **P1** 🛡️ Security & Critical | 1 (SEC-01 UAF) | ~1-2 días | 🔴 Re-abierta |
+| **P0** 🚀 Release Blockers | 0 — ✅ 3/3 ejecutadas (plan 2026-08-09: RELEASE-01 semver-checks, RELEASE-02 publish 0.5.0 verificado live, RELEASE-03 artefactos) | — | ✅ Cerrada |
+| **P1** 🛡️ Security & Critical | 0 — ✅ 1/1 ejecutada (SEC-01 UAF `__array_interface__` fix) | — | ✅ Cerrada |
 | **P2** ⚡ Quick Wins Técnicos | 0 | — | ✅ Cerrado |
 | **P3** 🧪 Test Coverage (core SDKs) | 4 (COV-001..004) | ~1-2 días | 🟢 Alta |
 | **P4** 🔧 Engineering Health | 0 | — | ✅ Cerrado |
@@ -37,10 +38,10 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | **P10** 🏗️ Competitive Features (catalog) | 0 | — | 🗺️ Roadmap |
 | **P11** 🐛 GitHub Issues | 0 | — | ✅ Cerrado |
 | **P12** 🖥️ DESKTOP App (Tauri) + Consola Admin | 25 (DESKTOP-12..27 + ADMIN-01..09) | ~4-6 semanas | 🔵 Futuro |
-| **P13** 🔎 AUDREP — Audit Report 2025 | 3 (NV-02, NV-03, NV-05) | ~2-3 semanas | 🔴 Mixta |
+| **P13** 🔎 AUDREP — Audit Report 2025 | 0 | — | ✅ Cerrado |
 | **P14** 🔍 REVIEW items | 2 (REVIEW-04, REVIEW-05) | 📆 Backlog | 🟡 Media |
-| **P15** 🔍 ERR items (revisión multi-agente 2026-08-08) | 54 (ERR-001..051 — 1 descartado — + ERR-038/039/040/041 reincorporados) | ~2-3 semanas | 🔴 Mixta (5 críticos) |
-| **P16** 🧩 Completitud de Features (investigación 2026-08-09) | 24 (RELEASE-01..03, SEC-01, PERF-01..06, FEAT-01..07, REVISAR-01, DOC-02..08) | ~2-4 semanas | 🔴 mixta |
+| **P15** 🔍 ERR items (revisión multi-agente 2026-08-08) | 18 residuales (ERR-006/007/008/009/015/026/031/032/033/036/037/042/043/044/045/047/048/049) | 📆 Backlog | 🟡 Media (36 ejecutadas por plan 2026-08-09) |
+| **P16** 🧩 Completitud de Features (investigación 2026-08-09) | 5 residuales (PERF-07/08/09, CI-01, REVIEW-05) | 📆 Backlog | 🟢 Baja (19 ejecutadas por plan 2026-08-09) |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
 > **Nuevo 2026-08-04:** Fase 12 DESKTOP (26 tareas, app Tauri multi-connection sobre las 6 integraciones) + `DEBT-01` (gate docs-coverage roto, Fase 4) + `TECH-01..08` (hallazgos de investigación DESKTOP-01b: 2 bugs reales, 1 batch stale-docs, 1 ADR env-naming, 4 features/decisiones, todos en Phase 4).
@@ -49,6 +50,8 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 > **Nuevo 2026-08-09:** Fase 3 reabierta con COV-001..004 — medición de coverage multi-agente (3 sub-agentes 2026-08-09): Rust root 81.40% ✅ gate / TS 0% medible (bloqueado import-time por `vite-plugin-wasm`↔`vitest`) / Python wrapper 69% (core PyO3 invisible). Detalle en `docs/reviews/coverage-2026-08-09.md` (pendiente de generar). COV-004 es decisión de política ADR, no código.
 > **Nuevo 2026-08-09:** P16 Completitud de Features + P0/P1 reabiertos — investigación multi-agente (5 sub-agentes: audit/worker/docs×2/tuner) que barrió features declaradas → parciales/huérfanas (PITR/WAL-shipping standalone-vacío, DiskANN "in-memory", Arrow 1-comp, IVF/SCANN sin SDK, integrations stubs), releases (semver-checks, publish 0.5.0, artifactos de ejecución), seguridad (UAF `__array_interface__`), rendimiento (benchmarks publicados no confiables) y docs (CHANGELOG muerto / llms.txt inventado / mojibake). Origen completo: `docs/investigacion/investigacion-equipo-2026-08-09.md`. **Top 3 a atacar primero:** RELEASE-01 (semver-checks), SEC-01 (UAF), PERF-01 (sellar benchmarks).
 > **Nuevo 2026-08-09 (audit-reports archive):** 4 reportes `audit-full-2026-07-*`/`08-04` archivados tras verificación contra código. Resueltos desde entonces: archive.rs fsync (AUDREP-04/35) ✅, deny.toml RUSTSEC-2024-0436 ✅, tests.rs god file dividido ✅, `.playwright-cli` → .gitignore ✅, JSON-LD en web ✅, prefers-reduced-motion ✅, metrics registry test ✅, pyi stubs ✅. Hallazgos pendientes incorporados como tareas nuevas: `PERF-07` (sparse JSON hot path), `PERF-08` (WASM serialización completa), `REVIEW-05` (god files restantes), `CI-01` (pre-commit-config). C1 UAF en `types.rs:365-380` (VantaSearchHit) sigue vigente → cubierto por `SEC-01`.
+> **Nuevo 2026-08-09 (batch 2 audit-reports archive):** 4 reportes más archivados (audit-full-20260808, deps-01, inv-001, inv-024). Resueltos/verificados: AUD-012..015 (clippy 5 errores, tests INV-024, prune canonical, cap over-capacity) ✅ commit `9d3c05a2`; INV-024 H-1 (panic sq8 dims) ✅ NV-01 clamp; INV-024 M-1 (alineación `vector_offset`) ✅ `vfile.rs:739` central guard; inv-001 RUSTSEC sin acción ✅; deps-01 duplicación legítima trackeada en `ERR-007` ✅. Pendientes ya en backlog: AUD-016..021 (sección Hallazgos pendientes), `ERR-009` (Miri), `SEC-01`/`AUD-019` (__array_interface__). Único gap → `PERF-09` creado (cold-start "zero-copy" engañoso, `_force_copy` muerto).
+> **Nuevo 2026-08-09 (batch 3 audit-reports archive):** `audit-full-2025-07-27.md` (vantadb-audit-report, auditoría multi-agente sobre `develop@63b0101d`) archivado → `docs/audit-reports/archive/`. Reporte íntegramente procesado: fue la fuente de **P13 AUDREP-01..62 + DEPS-01 + NV-01..05** (verificado 2026-08-05, todos resueltos 2026-08-05..08, commits en `docs/avance/historial/snapshot-2026-08-07.md`). 6 hallazgos fueron corregidos antes del ticketeo (CRIT-01, CRIT-06, CRIT-09, ALTO-01, CRIT-10-prometheus, MED-15) y los residuales vivos ya están recapturados como tareas activas (SEC-01, ERR-021, PERF-07/08/09, CI-01, REVIEW-05). **No se crean tareas nuevas — archivo cerrado.**
 
 ---
 
@@ -61,24 +64,25 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 ## Phase 0: 🚀 Release Blockers
 
 > Items que bloquean un release público seguro. Resolver antes de cualquier publicación.
-> **Re-abierta 2026-08-09 por investigación multi-agente** — publicar 0.5.0 de forma coherente una vez fixeados ERR-022/021 y UAF (SEC-01) de P1/P15.
+> **Ejecutada 2026-08-09 por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` — 3/3 ✅.** RELEASE-02 publish 0.5.0 verificado live (crates.io/PyPI/npm/GitHub ya en 0.5.0 desde 2026-08-01). RELEASE-03 artefactos limpiados (gitignored).
 
-| ID | Descripción | Archivos | Esfuerzo | Prio |
-|----|-------------|----------|----------|------|
-| `RELEASE-01` | **Gate `cargo semver-checks` en CI release + correr antes de publish** — release-plz.toml ya tiene `semver_check = true`, pero no hay job dedicado en CI. Añadir `obi1kenobi/cargo-semver-checks-action@v3` a `.github/workflows/release.yml` (y `ci-gate.yml`) contra la última versión publicada | `.github/workflows/release.yml`, `ci-rust-10.yml`, `release-plz.toml:18` | 🟢 1d | 🔴 |
-| `RELEASE-02` | **Publish coordinado 0.5.0** (crates.io + PyPI wheels + npm) — crates.io está en 0.4.0, PyPI 0.1.5/0.5.0, wheel local stale; ejecutar `release-plz release` desde `main`, verificar tag `v0.5.0`, CHANGELOG regenerado (ERR-050), badge PyPI después de wheels | `release.yml`, `release-wheels-60.yml`, `release-npm-61.yml`, `docs/CHANGELOG.md` | 🟢 | 🔴 |
-| `RELEASE-03` | **Limpiar artefactos de ejecución del repo** (`_audit04_repro_db/`, `benchmarks/_probe_db/`, `chroma_db`, `.pyc`, `data_comp_bench/`) — no deben salir en el tarball publicado; actualizar `Cargo.toml` exclude si procede | raíz repo, `.gitignore`, `Cargo.toml:14-18` | 🟢 | 🟡 |
-| `CI-01` | **`.pre-commit-config.yaml` con prettier + formatters** — causó el certify FAILED de 2026-07-24 (L3 prettier `NbAccordion.tsx:20` sin hook). Registrar prettier (web/), ruff (python), cargo fmt en pre-commit XS effort | `.pre-commit-config.yaml` | 🟢 | 🟢 |
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+| `RELEASE-01` | **Gate `cargo semver-checks` en CI** — *ejecutado* (`1e2a58cc`: job dedicado semver-checks en release/ci). | `.github/workflows/release.yml`, `ci-rust-10.yml` | 🟢 | 🔴 | ✅ Completado |
+| `RELEASE-02` | **Publish coordinado 0.5.0** — *verificado live*: crates.io `vantadb 0.5.0`, PyPI `vantadb_py 0.5.0`, npm `vantadb 0.5.0`, GitHub Release + tag `v0.5.0` (2026-08-01). | `release.yml`, `release-wheels-60.yml`, `release-npm-61.yml` | 🟢 | 🔴 | ✅ Completado |
+| `RELEASE-03` | **Limpiar artefactos de ejecución** — *ejecutado*: `_audit04_repro_db/`, `benchmarks/_probe_db/`, `chroma_db`, `.pyc`, `data_comp_bench/` limpiados/ignored. | raíz repo, `.gitignore` | 🟢 | 🟡 | ✅ Completado |
+| `CI-01` | **`.pre-commit-config.yaml` con prettier + formatters** — causó el certify FAILED de 2026-07-24 (L3 prettier `NbAccordion.tsx:20` sin hook). Registrar prettier (web/), ruff (python), cargo fmt en pre-commit XS effort | `.pre-commit-config.yaml` | 🟢 | 🟢 | 📝 Pendiente |
 
 ---
 
 ## Phase 1: 🛡️ Security & Critical
 
 > Investigaciones de seguridad y dependencias críticas.
+> **Ejecutada 2026-08-09** — SEC-01 resuelto por plan `2026-08-09-backlog-pipeline.md` (Wave 0).
 
-| ID | Descripción | Archivos | Esfuerzo | Prio |
-|----|-------------|----------|----------|------|
-| `SEC-01` | **UAF real en `__array_interface__`** — `vantadb-python/src/types.rs:365-380` devuelve `v.as_ptr()` al buffer interno del `Vec<f32>` sin mantener vivo `VantaSearchHit`; vista numpy + GC → use-after-free. Fix: devolver **copia** (o guard que extiende lifetime) + test numpy (droppear wrapper → acceder ndarray debe sobrevivir). **Marcar `AUD-019` como superseded** | `vantadb-python/src/types.rs:365-380`, `vantadb-python/src/vector.rs:59-67`, test numpy | 🟠 | 🔴 |
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+| `SEC-01` | **UAF real en `__array_interface__`** — *resuelto* (`241f30a3`+`9fac19d0`: copia del buffer + test numpy; AUD-019 superseded). | `vantadb-python/src/types.rs:365-380`, test numpy | 🟠 | 🔴 | ✅ Completado |
 
 
 > **Items previos resueltos (9):** ver `docs/progreso/BACKLOG_HISTORY.md` (P1).
@@ -115,6 +119,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | `PERF-06` | **`VANTADB_MEMORY_LIMIT` env var** — hoy el flag `--memory-limit` se parsea como int sin sufijos (KB/MB/GB); añadir parse humano estilo `500MB`/`1g` | `src/config.rs`, `src/cli.rs` | 🟢 | 🟡 |
 | `PERF-07` | **Sparse JSON parseado en cada read/write del hot path** — `memory_record_from_node` (`src/sdk/serialization/mod.rs:271-279`) hace `serde_json::from_str` en cada read y `to_string` en cada write (L335-338) aunque el caller no use sparse; `.ok()` traga errores de parse → degradación silenciosa a `None`. Cachear/streaming del JSON sparse o saltar si `sparse_vector` no está presente | `src/sdk/serialization/mod.rs:271-279, 335-338`, `src/sdk/api.rs:751` (3er consumidor) | 🟢 | 🟡 |
 | `PERF-08` | **WASM serialización completa en persist + search hot path** — `serde_wasm_bindgen::to_value` serializa TODOS los records en cada `persist` (`vantadb-wasm/src/lib.rs:750`, H3-SER-001) y en resultados de search (H3-SER-002); datasets >100MB bloquean el event loop por segundos. Plan: persistencia diferencial (delta de cambios) + `Float32Array` zero-copy para vectores de search | `vantadb-wasm/src/lib.rs:439,447,750,997` | 🟠 | 🟡 |
+| `PERF-09` | **Cold-start "zero-copy" engañoso** — `deserialize_from_bytes(data, _force_copy)` (INV-024 L-3): el parámetro `_force_copy` está muerto y la ruta cold-start SIEMPRE copia todos los vectores al heap, aunque el log emite "loaded zero-copy index" (`src/index/serialize.rs:613`). Decidir con vanta-tuner: habilitar MmapFull real en cold-start, o corregir el log/comentario | `src/index/serialize.rs:238, 611-613` | 🟠 | 🟡 |
 
 > **Items previos completados (10):** ver `docs/progreso/BACKLOG_HISTORY.md` (P4) — movidos a `docs/progreso/README.md`.
 
@@ -334,7 +339,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 ## Phase 13: 🔎 AUDREP — Hallazgos Audit Report 2025-07-27 (verificados vigentes)
 
-> **Origen:** `docs/audit-reports/vantadb-audit-report.md` (auditoría estática multi-agente sobre `develop@63b0101d`).
+> **Origen:** `docs/audit-reports/archive/audit-full-2025-07-27.md` (auditoría estática multi-agente sobre `develop@63b0101d`).
 > **Verificación:** 2026-08-05 contra HEAD `8fe574b5` — los 62 hallazgos siguen presentes en código (líneas actualizadas). 6 fueron corregidos y NO se incluyen: CRIT-01 (recover round-robin), CRIT-06 (flush_threshold=1), CRIT-09 (providers `[workspace]`), ALTO-01 (double antes de parse_i64), CRIT-10-prometheus (feature añadida), MED-15 (batch por shard). Además AUDREP-02/05/06 corregidos 2026-08-05 (tachados) y AUDREP-01/04 ya completados.
 > **Ejecución:** priorizar por severidad. CRÍTICOS/ALTOS con categoría **Durabilidad** y **Panic** son los de mayor riesgo de producción.
 
@@ -368,7 +373,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | ~~`NV-03`~~ | ~~**🟡 MEDIO / Packaging-Licencia: `vantadb-wasm` sin archivo LICENSE** — El crate publicable no incluye archivo `LICENSE` (el workspace es Apache-2.0); crates.io lo marca sin license → falla publicación/CI deny. **Recomendación:** añadir `LICENSE` (Apache-2.0) en `vantadb-wasm/`.~~ → ✅ 2026-08-08 (LICENSE Apache-2.0 copiado del raíz, hash idéntico) | `vantadb-wasm/` (Cargo.toml) | 🟢 5min | 🟡 | ✅ Completado |
 | ~~`NV-05`~~ | ~~**🟢 BAJO / Config-Dependencias: divergencia `deny.toml` vs `.cargo/audit.toml`** — `deny.toml` no ignora `RUSTSEC-2024-0436` (paste) pero `.cargo/audit.toml:21` sí; herramientas reportan estados distintos del mismo advisory. **Recomendación:** unificar la política de ignorados en un solo lugar.~~ → ✅ 2026-08-08 (ignore RUSTSEC-2024-0436 añadido a deny.toml, `cargo deny check advisories` pasa) | `.cargo/audit.toml:21`, `deny.toml` | 🟢 30min | 🟢 | ✅ Completado |
 
-> **Total:** 63 tareas (8 🔴 CRÍTICOS, 14 🟠 ALTOS, 26 🟡 MEDIOS, 15 🟢 BAJOS). Origen: `docs/audit-reports/vantadb-audit-report.md` — 6 hallazgos ya corregidos excluidos (ver nota superior) + `DEPS-01` de la sección 7 del mismo reporte. Críticos restantes activos: AUDREP-07 (03/08/13/02/05/06 tachados).
+> **Total:** 63 tareas (8 🔴 CRÍTICOS, 14 🟠 ALTOS, 26 🟡 MEDIOS, 15 🟢 BAJOS). Origen: `docs/audit-reports/archive/audit-full-2025-07-27.md` — 6 hallazgos ya corregidos excluidos (ver nota superior) + `DEPS-01` de la sección 7 del mismo reporte. **Todas resueltas 2026-08-05..08** (commits en `docs/avance/historial/snapshot-2026-08-07.md`); residuales re-capturados en P15/P16 (ERR-021, SEC-01, PERF-07/08/09, CI-01, REVIEW-05).
 
 ---
 
@@ -387,54 +392,33 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 > **Origen:** `docs/reviews/errors-found.md` — revisión por capas con 6 sub-agentes en paralelo (vanta-audit, vanta-arch, vanta-engine, vanta-worker, vanta-tuner, vanta-docs) + verificación manual del lead sobre `develop@7a19a9f5`. 51 hallazgos documentados; ERR-017 descartado al verificar (métrica euclidiana uniforme en `distance.rs:495/516/536`). Índices de esfuerzo: 🟢 < 1 día | 🟠 1-3 días | 🔴 > 3 días.
 
-### CRÍTICOS (5)
+### CRÍTICOS (5) — ✅ todos ejecutados por plan `2026-08-09-backlog-pipeline.md` (ver progreso)
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `ERR-010` | **🔴 Persistencia / Race checkpoint↔snapshot** — `fluir()` escribe `checkpoint_seq` en backend (línea ~74) ANTES de serializar el índice (`save_vector_index()` línea ~86), sin `insert_lock`. Insert concurrente → en reopen el record se reaplica (duplicación) o queda invisible para siempre. **Fix:** fijar `checkpoint_seq` después de `save_vector_index` con la seq del snapshot bajo el mismo lock; failpoint + test de interleave. | `src/storage/engine/maintenance.rs` | 🔴 | 🔴 | 📝 Pendiente |
-| `ERR-016` | **🔴 Parser descarta WHERE/RANK silenciosamente** — sin alias explícito, `opt(ident)` consume `WHERE`/`RANK` como alias y el filtro se pierde (data loss silencioso en queries). Test existente línea 1044 lo asume. | `src/parser/mod.rs:1044, 174-175` | 🟢 | 🔴 | ✅ Resuelto (`non_keyword_ident` + 3 tests, 106 pass) |
-| `ERR-021` | **🔴 MCP OOM — `collection_stats/list/delete` materializan namespace completo** vía `collect_all_records`; el streaming `collect_stats` (AUDREP-21) se eliminó. Namespace >100k vectores → OOM por llamada. **Fix: restaurar streaming con `take(n)` + límite.** | `vantadb-mcp/src/lib.rs:333-365, 1401, 1430, 1499` | 🟠 | 🔴 | 📝 Pendiente |
-| `ERR-022` | **🔴 `top_k`/`k` sin tope → alloc gigante → abort** — bindings pasan `top_k` sin clamp; core aloca `HashSet::with_capacity(ef*3)` con `k=10⁹` → abort del proceso. **Fix: `k.min(MAX_K)` en bindings y MCP.** | `vantadb-mcp/src/lib.rs:1301`, `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs`, `src/index/search.rs` | 🟢 | 🔴 | 📝 Pendiente |
-| `ERR-035` | **🔴 Read-lock global bloquea inserts** — `vector_store[0].read()` retenido durante TODO el HNSW `search_nearest`; el `insert`/`batch_insert` necesita `write()` y queda congelado por cada query (viceversa). Contención global writer↔reader. | `src/physical_plan.rs:211`, `src/storage/engine/ops.rs` | 🔴 | 🔴 | 📝 Pendiente |
+| `ERR-010` | **🔴 Persistencia / Race checkpoint↔snapshot** — *resuelto* (`a5ca4389`: insert_lock across checkpoint/save race; failpoint + interleave test). | `src/storage/engine/maintenance.rs` | 🔴 | 🔴 | ✅ Completado |
+| `ERR-021` | **🔴 MCP OOM** — *resuelto* (`b01e9ed6`: streaming restaurado con take(n) + límite). | `vantadb-mcp/src/lib.rs` | 🟠 | 🔴 | ✅ Completado |
+| `ERR-022` | **🔴 top_k/k sin tope → alloc gigante** — *resuelto* (`3eeb86e1`: k.min(MAX_K) en bindings+MCP). | bindings + `src/index/search.rs` | 🟢 | 🔴 | ✅ Completado |
+| `ERR-035` | **🔴 Read-lock global HNSW** — *resuelto* (`1b0016d5`: contención reader/writer mitigada). | `src/physical_plan.rs:211`, `src/storage/engine/ops.rs` | 🔴 | 🔴 | ✅ Completado |
 
-### ALTOS (16 verificados)
+### ALTOS (16 verificados) — ✅ 14 ejecutados por plan `2026-08-09` (ERR-001..025; ver progreso). Residuales:
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `ERR-001` | **🟠 UB 32-bit (wasm32)** — `view_start + vector_len*4` en `usize` con wrap; `slice::from_raw_parts` OOB. Fix: `checked_mul/checked_add`. | `src/storage/engine/ops.rs:518-521 (+1266,1451,1851)`, `src/index/search.rs:541` | 🟠 | 🟠 | 📝 Pendiente |
-| `ERR-002` | **🟠 SIGBUS handler → infinite loop** — handler devuelve sin resolver el fault; flags nunca consumidas; fallo se re-ejecuta → hang. | `src/storage/vfile.rs:211-223` | 🟠 | 🟠 | 📝 Pendiente |
-| `ERR-003` | **🟠 Panic por header corrupto** — `vector_store[seg_id as usize]` en 4 puntos; `apply_delete` ya usa `.get()`. | `src/storage/engine/ops.rs:507, 1311, 1397, 1820` | 🟢 | 🟠 | 📝 Pendiente |
-| `ERR-004` | **🟠 `lru 0.12.5` RUSTSEC-2026-0002** vía `ratatui 0.28.1` — advisory de Stacked Borrows violation. | `deny.toml`, Cargo.lock | 🟢 | 🟠 | 📝 Pendiente |
-| `ERR-011` | **🟠 WAL replay pierde silenciosamente** — `recover_state` confía en `local_pos` round-robin; shard truncado → record marcado ya-checkpointed sin serlo. | `src/wal_sharded.rs`, `src/storage/engine/init.rs:454-480` | 🟠 | 🟠 | 📝 Pendiente |
-| `ERR-012` | **🟠 Contadores `inbound` stale en delete** — `apply_delete` no decrementa inbounds; `shrink_neighbors` decide evictions con conteo corrupt — fuga de memoria del índice. | `src/index/neighbor_index.rs`, `src/index/graph.rs` | 🟠 | 🟠 | 📝 Pendiente |
-| `ERR-013` | **🟠 Stats antes de txn abort** — cardinalidad/edges se actualizan antes del `Abort`; txn abortada deja inventario inflado. | `src/storage/engine/ops.rs` (insert paths) | 🟠 | 🟠 | 📝 Pendiente |
-| `ERR-018` | **🟠 `random_layer` capado en level 2 con `ml` default** — grafos sin profundidad, recall degrada. | `src/index/graph.rs:441-444` | 🟠 | 🟠 | 📝 Pendiente |
-| `ERR-019` | **🟠 Bench mide brute-force, no HNSW** — `flat_threshold: Some(10000)` con count=10000. Falso resultado de rendimiento. | `benches/hnsw_pure.rs:33,63` | 🟢 | 🟠 | 📝 Pendiente |
-| `ERR-020` | **🟠 ACORN second-hop con neighbor lists stale** tras `repair_orphan_links` — arcos muertos/omitidos. | `src/index/search.rs` (ACORN), `src/index/graph.rs` | 🟠 | 🟠 | 📝 Pendiente |
-| `ERR-023` | **🟠 Python node IDs u64 truncado** — core es u128; `search` devuelve `u64` cortado, `delete` recibe OverflowError en IDs ≥ 2⁶⁴. | `vantadb-python/src/lib.rs` | 🟠 | 🟠 | 📝 Pendiente |
-| `ERR-024` | **🟠 WASM u64 vs core u128** — `insert/get/delete_node` toman u64 mientras search devuelve string u128; nodos >2⁶⁴ inalcanzables. | `vantadb-wasm/src/lib.rs:1011, 1039, 1047` | 🟠 | 🟠 | 📝 Pendiente |
-| `ERR-025` | **🟠 MCP `get_node_neighbors` lee id `as_u64`** — JSON pierde precisión ≥2⁵³; nodos u128 grandes inaccesibles. | `vantadb-mcp/src/lib.rs:1330-1340` | 🟢 | 🟠 | 📝 Pendiente |
 | `ERR-036` | **🟠 Write-lock en hot path de `get()`** — `volatile_cache.write()` en cada read solo para `hits+=1`; lectores calientes serializados. | `src/storage/engine/ops.rs:1204-1214` | 🟠 | 🟠 | 📝 Pendiente |
 | `ERR-037` | **🟠 `batch_insert` chequea existencia por nodo** — 10k batch = 10k read-paths completos + write-lock cache + clone de vector descartado. | `src/storage/engine/ops.rs:853-925` | 🟠 | 🟠 | 📝 Pendiente |
 
-### MEDIOS (12)
+### MEDIOS (12) — ✅ 7 ejecutados por plan `2026-08-09` (ERR-005/014/027/028/029/030/050; ver progreso). Residuales:
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `ERR-005` | **🟡 Test AUDREP-45 eliminado** del diff; perdimos cobertura del guard length-prefix oversized. | `src/storage/ops.rs` | 🟢 | 🟡 | 📝 Pendiente |
-| `ERR-014` | **🟡 Staleness insert→get** — insert escribe WAL antes del `pending_hnsw` drain; `get()` concurrente puede dar `None` para nodo ya committed. | `src/storage/engine/ops.rs` | 🟢 | 🟡 | 📝 Pendiente |
 | `ERR-026` | **🟡 parse_metadata descarta filtros no-escalables** — arrays/objetos/null ignorados → filtro silenciosamente no aplicado → resultados súper-conjunto. | `vantadb-mcp/src/lib.rs` | 🟢 | 🟡 | 📝 Pendiente |
-| `ERR-027` | **🟡 HTTP 200 con `success:false`** en `execute_query` — proxies y monitoreo no distinguen errores de query. | `src/cli_server.rs:607-627` | 🟢 | 🟡 | 📝 Pendiente |
-| `ERR-028` | **🟡 Query con vector norma 0 → `[]` sin error** — bindings muestran "sin resultados" falso. | `src/index/search.rs:129-148` | 🟢 | 🟡 | 📝 Pendiente |
-| `ERR-029` | **🟡 `edge_count = u16` overflow** — nodo >65.535 aristas corrompe silenciosamente al persistir. | `src/storage/ops.rs:85` | 🟢 | 🟡 | 📝 Pendiente |
-| `ERR-030` | **🟡 `put_batch` cross-namespace** — path legacy permite namespace por entrada; path keyword mezcla datos. | `vantadb-python/src/lib.rs:311-350` | 🟢 | 🟡 | 📝 Pendiente |
 | `ERR-042` | **🟡 `read_header` 2× por candidato** en hot loop (+ entry points) — trabajo duplicado constante. | `src/index/search.rs:275-280, 347-353` | 🟠 | 🟡 | 📝 Pendiente |
 | `ERR-043` | **🟡 `shrink_neighbors` clona vector** del nodo solo para usarlo como query. | `src/index/graph.rs:920-926` | 🟢 | 🟡 | 📝 Pendiente |
 | `ERR-044` | **🟡 `TextAnalyzer` reconstruido por llamada** — batch N paga N setups (stemmer/stopwords). | `src/tokenizer.rs:44-106` | 🟢 | 🟡 | 📝 Pendiente |
 | `ERR-045` | **🟡 `get_neighbors` clona la lista por nodo** — O(N×M) allocs durante compactación BFS. | `src/index/neighbor_index.rs:66-68` | 🟢 | 🟡 | 📝 Pendiente |
-| `ERR-050` | **🟡 CHANGELOG desactualizado** — [0.5.0] es la última; 25+ commits (serie ADMIN/AUDREP/DESKTOP) sin doc. Falta [Unreleased]. | `docs/CHANGELOG.md` | 🟢 | 🛎 | 📝 Pendiente |
 
-### BAJOS (9)
+### BAJOS (9) — ✅ 3 resueltos/verificados por plan `2026-08-09` (ERR-016 SKIP verificado, ERR-034 ⏫, ERR-051 ⛠; ver progreso). Residuales:
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
@@ -442,10 +426,8 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | `ERR-031` | **🔵 `VecIndex::add` traga rechazos** (solo warn, sin Result) — futuros Arc<dyn> perderían inserts. | `src/index/search.rs:664-698` | 🟢 | 🔵 | 📝 Pendiente |
 | `ERR-032` | **🔵 Test de `deserialize_node_payload` removido** — pérdida de cobertura del guard MAX_PERSISTED_NODE_BYTES. | `src/storage/ops.rs` | 🟢 | 🔵 | 📝 Pendiente |
 | `ERR-033` | **🔵 `memory_list(limit=0)` → devuelve 1** — `max(1)` en core vs 0 pedido. | `vantadb-mcp/src/lib.rs:1139-1142` | 🟢 | 🔵 | 📝 Pendiente |
-| `ERR-034` | 🔵 Verificado sin hallazgo: `/metrics` protegido, `/health` público OK. | `src/cli_server.rs` | — | — | ⏫ Verificado |
 | `ERR-047` | **🔵 Copy inline en cada pop del hot loop** (`take_l + extend`). | `src/index/search.rs:225-238` | 🟢 | 🔵 | 📝 Pendiente |
 | `ERR-048` | **🔵 2 hash lookups en `visited`** — `contains + insert` en vez de `insert` devuelve bool. | `src/index/search.rs:268-269` | 🟢 | 🔵 | 📝 Pendiente |
-| `ERR-051` | 🔵 Verificado / sync CLI OK — subcomandos clap con handlers. | `src/cli.rs`, `src/bin/vanta-cli.rs` | — | — | ⛠ Verificado |
 
 ### INFO (5)
 
@@ -463,32 +445,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 ## Phase 16: 🧩 Completitud de Features & Docs (de investigación multi-agente 2026-08-09)
 
-> Origen completo: `docs/investigacion/investigacion-equipo-2026-08-09.md`. Features declaradas en docs/README pero **parciales u huérfanas** en código, más deuda de docs/DX/UX encontrada. Complementa P15 (ERR-*) y P0 (RELEASE-*).
-
-### Features parciales — "completarlas, documentarlas honestamente o retirar"
-
-| ID | Descripción | Archivos | Esfuerzo | Prio |
-|----|-------------|----------|----------|------|
-| `FEAT-01` | **Decisión ADR: PITR + WAL-shipping** — los módulos existen y pasan self-tests pero **nadie los llama** (ni StorageEngine ni SDK; son API standalone). La feature `pitr` = lista vacía. Elegir: (a) integrar a StorageEngine/SDK de verdad, (b) marcar experimental + documentar uso standalone, o (c) deferir con ADR explícito. No dejar "feature fantasma" | `src/pitr.rs`, `src/storage/wal.rs` (wal-shipping), `src/lib.rs` (`pitr` feature), ADR en `docs/architecture/adr/` | 🔴 | 🟡 |
-| `FEAT-02` | **DiskANN: desmentir o implementar** — doc interno admite "purely in-memory": no hace disk I/O. Renombrar índice (`memann`?) con docs honestas, o implementar v1 real (mmap + prefetch + re-cluster). No vender disk-ANN | `src/index/diskann.rs`, `docs/architecture/` | 🔴 | 🟡 |
-| `FEAT-03` | **Arrow columnar: exportar vector completo** — hoy `export_arrow` escribe solo `id` + 1ª componente (A prop). Exportar el vector entero como columnas flat/ARROW_FLOAT32 o documentar la limitación en `docs/api/` | `src/integrations.rs` (arrow), `vantadb-python/src/vector.rs`, `docs/api/PYTHON_SDK.md` | 🟡 | 🟡 |
-| `FEAT-04` | **IVF / SCANN por SDK** — implementados como `VecIndex` en core pero solo HNSW es usable desde bindings. Exponer creación/consulta IVF y SCANN por SDK (con flag velo `method` o constructor específico) | `src/index/ivf.rs`, `src/index/scann.rs`, `vantadb-python/src/`, `vantadb-wasm/src/`, `vectl` + docs | 🔴 | 🟡 |
-| `FEAT-05` | **Fresh EXPERIMENTAL** — revisar flags `experimental`/`"X"` en `Cargo.toml` para TUI/MCP/server/WASM: ¿siguen siendo experimentales? ¿Qué gate usan para no bloquear CI? Promover a estable o documentar por qué no | `Cargo.toml` (features), `.github/workflows/ci-rust-10.yml`, docs | 🟢 | 🟢 |
-| `FEAT-06` | **Configuración: hot-reload JSON y `config.toml`** — no existe `.vanta/config.toml` (solo builder/env) y hot-reload JSON no está documentado (formato, ejemplo, feature gate). Documentar en `docs/operations/CONFIGURATION.md` o implementar `config.toml` si el marketing lo promete | `src/config.rs:1313`, `docs/operations/CONFIGURATION.md` | 🟡 | 🟢 |
-| `FEAT-07` | **`src/integrations.rs`: stubs vacíos** — `search_handler` devuelve `results: []` y `ollama_proxy` devuelve "Próximamente". Implementar o cortar del surface público (no exponer en docs como feature) | `src/integrations.rs` | 🟡 | 🟢 |
-| `REVISAR-01` | **Cerrar ciclo ERR de search engine** — re-cuantificar ERR-038/039/040/041 (IVF `batch_insert`, compactación, dimensiones) con benchmark dedicado (ERR-049) antes de reincorporarlos como priorizados; si no son reproducibles, marcarlos verificados/sin hallazgo | `benches/`, `src/index/ivf.rs` | 🟡 | 🟡 |
-
-### Docs, DX y UX — hallazgos (de vanta-docs, 2026-08-09)
-
-| ID | Descripción | Archivos | Esfuerzo | Prio |
-|----|-------------|----------|----------|------|
-| `DOC-02` | **Fix versión drift QUICKSTART/badges** — QUICKSTART dice "v0.4.x" (real 0.5.0), wheel local stale `dist/vantadb_py-0.1.5`, badge PyPI 0.1.5 vs core 0.5.0. Actualizar QUICKSTART y doctero; documentar política de versionado sincronizado (tarea conjunta con RELEASE-02) | `docs/QUICKSTART.md`, `README.md`, P# (release) | 🟢 | 🟢 |
-| `DOC-03` | **Fix mojibake** — encoding corrupto en `vantadb-python/README.md` y `docs/DESIGN_RULES.md`; reparar a UTF-8 | `vantadb-python/README.md`, `docs/DESIGN_RULES.md` | 🟢 | 🟢 |
-| `DOC-04` | **Fix `llms.txt` API inventada** — `from vantadb import VantaEmbedded` no existe; la API real es `vantadb_py.VantaDB(...)`. Regenciar con llamadas reales validadas contra el código | `llms.txt`, `docs/` | 🟢 | 🔴 |
-| `DOC-05` | **`docs/README.md`: wikilinks Obsidian no renderizan en GitHub** — convertir a rutas relativas normales | `docs/README.md` | 🟢 | 🟢 |
-| `DOC-06` | **Documentar límite u64 (ERR-023 truncación Python)** — docs prometen de más; añadir nota en `docs/api/PYTHON_SDK.md` + FAQ | `docs/api/PYTHON_SDK.md`, `docs/QUICKSTART.md` | 🟢 | 🟢 |
-| `DOC-07` | **Documentar hot-reload JSON + config.toml** (enlace con FEAT-06) — si FEAT-06 decide mantener solo builder/env, doc lo afirma; si se implementa, doc del formato | `docs/operations/CONFIGURATION.md` | 🟡 | 🟢 |
-| `DOC-08` | **README: claims ambiguos de cluster/graph** — verificar qué dice el README sobre distribución (`wal-shipping send-only` ≠ cluster/replication; "not a graph database claim" ✅ correcto, mantenerlo explícito). El texto debe decir: single-node embedding engine, replication fuera de alcance hoy; WAL-shipping = send-only experimental. Alinear con `docs/tutorials/migrate-from-lancedb.md` y sección Enterprise | `README.md`, `docs/architecture/` | 🟢 | 🟢 |
+> Origen completo: `docs/investigacion/investigacion-equipo-2026-08-09.md`. **Ejecutada 2026-08-09 por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` — 19/19 tareas ✅** (FEAT-01..07, REVISAR-01, COV-001/003/004, PERF-01/04/06, DOC-02..08; RELEASE-01/02/03 + SEC-01 en Wave 0). Commit por feature en `docs/progreso/README.md`. Residuales viven en sus secciones: `PERF-07/08/09` (sección PERF), `CI-01` (hallazgos pendientes/CI), `REVIEW-05` (P14).
 
 ---
 

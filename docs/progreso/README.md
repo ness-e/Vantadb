@@ -299,6 +299,7 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 
 | Fecha | Plan | Estado | Ubicación |
 |-------|------|--------|-----------|
+| 2026-08-09 | Backlog Pipeline P15/P16 (49 tasks: ERR, FEAT, RELEASE, PERF, COV, DOC) | ✅ 49/49 (Task 50 COM-02/03 humana ⬜) | `docs/plans/archive/2026-08-09-backlog-pipeline.md` |
 | 2026-08-08 | Consola Administrativa Desktop (ADMIN-01..09 + DESKTOP-20) | ✅ 10/10 | `docs/plans/archive/2026-08-08-admin-console.md` |
 | 2026-08-06 | Open Core VantaDB + Pro/Enterprise (licenciamiento) | ✅ 16/18 (F0 decisiones humanas respondidas, Task 17 verify parcial, Task 18 commit ✅) | `docs/plans/archive/2026-08-06-oc-vantadb-pro.md` |
 | 2026-08-06 | Desktop MVP (DESKTOP-02..11) | ✅ 10/10 | `docs/plans/archive/2026-08-06-desktop-mvp.md` |
@@ -306,6 +307,7 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 | 2026-08-04 | Launch Web Campaign (WEB-18, MKT-15/05, GH-119, WEB-001, OLD-01) | ✅ 5/5 DO + 1 DEFER + 1 SKIP | `docs/plans/archive/2026-08-04-launch-web-campaign.md` |
 
 **Notas de archivo:**
+- **Backlog Pipeline 2026-08-09:** campaña `backlog-2026-08-09` cerró 49/49 tareas delegables. Wave 0: RELEASE-01 (semver-checks gate), SEC-01 (UAF `__array_interface__`), RELEASE-03 (artefactos). Wave 1: 18 ERR fixes (ERR-010..025 críticos/altos). Wave 2: ERR-005/014/027/028/029/030 + ERR-050 (changelog). Wave 3: FEAT-01..07, REVISAR-01, COV-001/003/004, PERF-01/04/06, DOC-02..08. RELEASE-02 (0.5.0) verificado live publicado (crates.io `vantadb` 0.5.0, PyPI `vantadb_py` 0.5.0, npm `vantadb` 0.5.0, GitHub Release 2026-08-01) → fixes de campaña van al próximo release vía release-plz. Única pendiente: Task 50 (COM-02/03 Discord, humana).
 - **Admin Console:** la UI se implementó en `desktop/src/components/` (no `pages/dir` por reposensivo del plan) — commands `metrics.rs` (`vanta_metrics` lib.rs:67), `shutdown_all` (manager.rs:213, lib.rs:79). Recitation del plan corregida (contenía fragmento de otra campaña).
 - **Open Core/Pro:** F0 decidida D1-D6 con contrato `ness-e/vantadb-pro` creado y push; docs `VANTADB-PRO-FEATURES.md` + `VANTADB-PRO-DELIVERY.md` + ADR-013 + `.opencode/rules/open-core-licensing.md`. Task 17 (verify.ps1 full) 🟡 pendiente de run — sin commit de código core (decisión D4A: no tocar core).
 - **Desktop MVP:** 10/10 ✅, carpeta `desktop/` completa con 9 crates de connections.
