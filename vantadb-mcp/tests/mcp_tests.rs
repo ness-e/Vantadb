@@ -1267,3 +1267,130 @@ fn test_mcp_get_node_neighbors_preserves_large_u128_ids() {
         "big node_id should resolve its reverse edge, got: {big_text}"
     );
 }
+
+#[test]
+fn test_mcp_parse_metadata_rejects_non_scalar_values() {
+    // ERR-026: parse_metadata used to silently drop non-scalar metadata
+    // values (arrays/objects/null), producing a super-set of results. The
+    // contract is explicit failure over silent filtering.
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let cases = [
+        // (key, value, label)
+        ("tags", json!(["a", "b"]), "array"),
+        ("nested", json!({"a": 1}), "object"),
+        ("empty", Value::Null, "null"),
+    ];
+
+    // memory_put metadata must reject non-scalar values.
+    for (key, value, label) in &cases {
+        let put_params = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "meta_ns",
+                "key": format!("put_{}", label),
+                "payload": "p",
+                "metadata": { *key: value }
+            }
+        }));
+        let res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+        assert!(
+            res.is_err(),
+            "memory_put metadata with {label} value must be rejected, not silently ignored"
+        );
+    }
+
+    // memory_list filters must reject non-scalar values too.
+    for (key, value, label) in &cases {
+        let list_params = Some(json!({
+            "name": "memory_list",
+            "arguments": {
+                "namespace": "meta_ns",
+                "filters": { *key: value }
+            }
+        }));
+        let res = handle_tools_call(&list_params, &executor, &storage, &default_config());
+        assert!(
+            res.is_err(),
+            "memory_list filters with {label} value must be rejected, not silently ignored"
+        );
+    }
+
+    // Scalar metadata must still be accepted (regression guard).
+    let ok_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "meta_ns",
+            "key": "ok",
+            "payload": "p",
+            "metadata": {
+                "priority": 1,
+                "verified": true,
+                "label": "doc",
+                "score": 1.5
+            }
+        }
+    }));
+    let res = handle_tools_call(&ok_params, &executor, &storage, &default_config());
+    assert!(res.is_ok(), "scalar metadata must still be accepted");
+}
+
+#[test]
+fn test_mcp_memory_list_limit_zero_returns_empty() {
+    // ERR-033: memory_list(limit=0) used to return 1 record because the core
+    // clamps limit to >= 1. A requested limit of 0 must return 0 records.
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "limit_ns",
+            "key": "k",
+            "payload": "p"
+        }
+    }));
+    let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+    assert!(put_res.is_ok(), "seed memory_put should succeed");
+
+    let list_params = Some(json!({
+        "name": "memory_list",
+        "arguments": {
+            "namespace": "limit_ns",
+            "limit": 0
+        }
+    }));
+    let list_res = handle_tools_call(&list_params, &executor, &storage, &default_config());
+    assert!(list_res.is_ok(), "memory_list(limit=0) should succeed");
+    let list_val = list_res.unwrap();
+    assert!(
+        list_val["isError"].is_null(),
+        "memory_list(limit=0) should not indicate an error: {:?}",
+        list_val
+    );
+    let list_text = list_val["content"][0]["text"].as_str().unwrap();
+    let page: Value = serde_json::from_str(list_text).expect("list response should be JSON");
+    let records = page["records"]
+        .as_array()
+        .expect("list response should contain a records array");
+    assert!(
+        records.is_empty(),
+        "memory_list(limit=0) must return 0 records, got {}",
+        records.len()
+    );
+
+    // Control: the same namespace without a limit returns the seeded record.
+    let default_params = Some(json!({
+        "name": "memory_list",
+        "arguments": { "namespace": "limit_ns" }
+    }));
+    let default_res = handle_tools_call(&default_params, &executor, &storage, &default_config());
+    assert!(default_res.is_ok(), "memory_list default should succeed");
+    let default_val = default_res.unwrap();
+    let default_text = default_val["content"][0]["text"].as_str().unwrap();
+    assert!(
+        default_text.contains("limit_ns") && default_text.contains("\"key\":\"k\""),
+        "default memory_list should still return the seeded record, got: {default_text}"
+    );
+}

@@ -276,7 +276,9 @@ fn validate_vector(array: &[Value], max_dim: usize) -> Result<Vec<f32>, McpError
     Ok(v)
 }
 
-fn parse_metadata(obj: &serde_json::Map<String, Value>) -> vantadb::sdk::VantaMemoryMetadata {
+fn parse_metadata(
+    obj: &serde_json::Map<String, Value>,
+) -> Result<vantadb::sdk::VantaMemoryMetadata, McpError> {
     let mut meta = vantadb::sdk::VantaMemoryMetadata::new();
     for (key, val) in obj {
         if let Some(s) = val.as_str() {
@@ -287,9 +289,19 @@ fn parse_metadata(obj: &serde_json::Map<String, Value>) -> vantadb::sdk::VantaMe
             meta.insert(key.clone(), vantadb::sdk::VantaValue::Int(i));
         } else if let Some(f) = val.as_f64() {
             meta.insert(key.clone(), vantadb::sdk::VantaValue::Float(f));
+        } else {
+            let ty = match val {
+                Value::Null => "null",
+                Value::Array(_) => "array",
+                Value::Object(_) => "object",
+                _ => "unsupported",
+            };
+            return Err(McpError::invalid_params(format!(
+                "metadata field '{key}' has unsupported type {ty} — supported: string, boolean, integer, float"
+            )));
         }
     }
-    meta
+    Ok(meta)
 }
 
 /// Parse a graph node id from a JSON-RPC value.
@@ -1085,7 +1097,7 @@ pub fn handle_tools_call(
             };
 
             let metadata = if let Some(obj) = args["metadata"].as_object() {
-                parse_metadata(obj)
+                parse_metadata(obj).map_err(|e| e.to_json())?
             } else {
                 vantadb::sdk::VantaMemoryMetadata::new()
             };
@@ -1162,7 +1174,7 @@ pub fn handle_tools_call(
             let cursor = args["cursor"].as_u64().map(|c| c as usize);
 
             let filters = if let Some(obj) = args["filters"].as_object() {
-                parse_metadata(obj)
+                parse_metadata(obj).map_err(|e| e.to_json())?
             } else {
                 vantadb::sdk::VantaMemoryMetadata::new()
             };
@@ -1288,7 +1300,7 @@ pub fn handle_tools_call(
             let explain = args["explain"].as_bool().unwrap_or(false);
 
             let filters = if let Some(obj) = args["filters"].as_object() {
-                parse_metadata(obj)
+                parse_metadata(obj).map_err(|e| e.to_json())?
             } else {
                 vantadb::sdk::VantaMemoryMetadata::new()
             };
@@ -1579,6 +1591,42 @@ mod tests {
     /// `active_requests` must return to its base value after a handler panic:
     /// the guard's Drop decrements on unwind just like on normal exit, so the
     /// gauge never leaks a phantom in-flight request.
+    /// Non-scalar metadata values (array/object/null) used to be dropped
+    /// silently, which turned a filter into no filter and returned a superset
+    /// of results. They must now fail explicitly instead.
+    #[test]
+    fn parse_metadata_rejects_non_scalar_values() {
+        use serde_json::json;
+
+        let array_value = json!({"tags": ["a", "b"]});
+        let array = array_value.as_object().unwrap();
+        let array_err = parse_metadata(array).unwrap_err();
+        assert!(
+            array_err.message.contains("tags"),
+            "array metadata must error naming the key, got: {}",
+            array_err.message
+        );
+
+        let object_value = json!({"nested": {"a": 1}});
+        let object = object_value.as_object().unwrap();
+        assert!(
+            parse_metadata(object).is_err(),
+            "object metadata must error, not be silently dropped"
+        );
+
+        let null_value = json!({"flag": null});
+        let null_val = null_value.as_object().unwrap();
+        assert!(
+            parse_metadata(null_val).is_err(),
+            "null metadata must error, not be silently dropped"
+        );
+
+        let scalars_value = json!({"s": "x", "b": true, "i": 42, "f": 1.5});
+        let scalars = scalars_value.as_object().unwrap();
+        let meta = parse_metadata(scalars).expect("scalar metadata is supported");
+        assert_eq!(meta.len(), 4);
+    }
+
     #[test]
     fn active_request_guard_decrements_on_panic() {
         let counter = AtomicU64::new(7); // base = prior in-flight requests
