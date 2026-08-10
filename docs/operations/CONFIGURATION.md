@@ -24,7 +24,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `read_only` | `bool` | `false` | — | Opens engine in read-only mode |
 | `force_mmap` | `bool` | `false` | — | Force memory-mapped I/O for vector store |
 | `mmap_hnsw` | `bool` | `true` | — | Enable memory-mapped [[hnsw\|HNSW]] index |
-| `prefetch_mode` | `PrefetchMode` | `Auto` | `VANTA_PREFETCH`, `VANTA_DISABLE_PREFETCH` | MMap prefetch strategy (Auto/Enabled/Disabled) |
+| `prefetch_mode` | `PrefetchMode` | `Disabled` | `VANTA_PREFETCH`, `VANTA_DISABLE_PREFETCH` | MMap prefetch strategy (Auto/Enabled/Disabled; default OFF, PERF-04) |
 | `rss_threshold` | `f64` | `0.80` | — | RSS pressure threshold for backpressure eviction (0.0-1.0) |
 | `eviction_weight_hits` | `f64` | `1.0` | — | Weight for access frequency in eviction score |
 | `eviction_weight_confidence` | `f64` | `2.0` | — | Weight for confidence score in eviction |
@@ -87,7 +87,7 @@ Each line is one JSON object:
 |------|----------|-------------|
 | `LogFormat` | `Compact`, `Json`, `Full` | Log output format |
 | `SyncMode` | `Always` (fsync every write), `Periodic` (fsync every 5s), `Never` | [[wal\|WAL]] durability sync mode |
-| `PrefetchMode` | `Auto` (detect), `Enabled`, `Disabled` | MMap prefetch strategy |
+| `PrefetchMode` | `Disabled` (default), `Enabled`, `Auto` (behaves like Enabled) | MMap prefetch strategy; default OFF (PERF-04) |
 | `BackendKind` | `[[fjall\|Fjall]]` (default), `[[rocksdb\|RocksDb]]`, `InMemory` | KV storage backend |
 
 ### Builder API

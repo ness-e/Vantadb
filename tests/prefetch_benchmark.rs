@@ -72,19 +72,25 @@ fn test_prefetch_impact_on_search_latency() {
     let mut rng = StdRng::seed_from_u64(42);
     let query: Vec<f32> = (0..vector_dim).map(|_| rng.random::<f32>()).collect();
 
-    // --- Run with prefetch ENABLED (default) ---
+    // --- Run with prefetch ENABLED (explicit) ---
+    // PERF-04: default is now OFF, so enable explicitly via VANTA_PREFETCH.
     let avg_prefetch_on = {
         let dir = TempDir::new().unwrap();
+        let old_prefetch = std::env::var_os("VANTA_PREFETCH");
+        let old_disable = std::env::var_os("VANTA_DISABLE_PREFETCH");
+        std::env::set_var("VANTA_PREFETCH", "enabled");
+        std::env::remove_var("VANTA_DISABLE_PREFETCH");
         let db = VantaEmbedded::open(dir.path().to_str().unwrap()).unwrap();
         insert_vectors(&db, vector_count, vector_dim);
-        let old = std::env::var_os("VANTA_DISABLE_PREFETCH");
-        std::env::remove_var("VANTA_DISABLE_PREFETCH");
         let result =
             measure_search_latency(&db, query.clone(), vector_dim, query_iterations, top_k);
-        if let Some(val) = old {
-            std::env::set_var("VANTA_DISABLE_PREFETCH", val);
-        } else {
-            std::env::remove_var("VANTA_DISABLE_PREFETCH");
+        match old_prefetch {
+            Some(val) => std::env::set_var("VANTA_PREFETCH", val),
+            None => std::env::remove_var("VANTA_PREFETCH"),
+        }
+        match old_disable {
+            Some(val) => std::env::set_var("VANTA_DISABLE_PREFETCH", val),
+            None => std::env::remove_var("VANTA_DISABLE_PREFETCH"),
         }
         result
     };
@@ -94,6 +100,9 @@ fn test_prefetch_impact_on_search_latency() {
     );
 
     // --- Run with prefetch DISABLED ---
+    // ponytail: PREFETCH_MODE is a one-shot OnceLock set by the first open in
+    // this process, so the OFF arm inherits the mode the ON arm set. True A/B
+    // needs separate processes; kept as-is (pre-existing benchmark limitation).
     let avg_prefetch_off = {
         let dir = TempDir::new().unwrap();
         let db = VantaEmbedded::open(dir.path().to_str().unwrap()).unwrap();

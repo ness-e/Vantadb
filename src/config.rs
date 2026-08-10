@@ -78,13 +78,15 @@ pub enum SyncMode {
 /// Controls whether mmap vector prefetching is active.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PrefetchMode {
-    /// Default — prefetch enabled (backward compatible).
-    /// In the future, may auto-detect NVMe vs HDD.
-    #[default]
+    /// Auto — currently behaves like `Enabled`. Only selected explicitly
+    /// (e.g. `VANTA_PREFETCH=auto`); not the default anymore.
     Auto,
     /// Force prefetch on regardless of storage type.
     Enabled,
-    /// Disable prefetch entirely (avoids syscall overhead on fast NVMe).
+    /// Default — prefetch off. Avoids `madvise`/`PrefetchVirtualMemory`
+    /// syscall overhead and duplicate neighbor lookups in the hot search loop
+    /// (PERF-04). Set `Enabled` to get the old behaviour.
+    #[default]
     Disabled,
 }
 
@@ -141,7 +143,7 @@ pub struct HotReloadConfig {
 impl Default for HotReloadConfig {
     fn default() -> Self {
         Self {
-            prefetch_mode: PrefetchMode::Auto,
+            prefetch_mode: PrefetchMode::Disabled,
             log_format: LogFormat::Compact,
             rate_limit_rpm: 100,
             batch_size: None,
@@ -243,7 +245,8 @@ pub struct VantaConfig {
     /// Prefetch mode for mmap vector pages during HNSW search.
     /// Controls whether `madvise(MADV_WILLNEED)` / `PrefetchVirtualMemory`
     /// is issued for unvisited neighbor pages in the hot search loop.
-    /// Default: `Auto` (prefetch enabled, backward compatible).
+    /// Default: `Disabled` (prefetch off, PERF-04). Set `Enabled` or
+    /// `VANTA_PREFETCH=auto|enabled` to turn it on.
     pub prefetch_mode: PrefetchMode,
     /// RSS threshold (0.0–1.0) that triggers backpressure rejection.
     /// When the effective memory usage exceeds this fraction of the memory limit,
@@ -557,7 +560,7 @@ impl Default for VantaConfig {
                             ];
                             if m == PrefetchMode::Auto && !known.contains(&trimmed.as_str()) {
                                 warn!(
-                                    "Unrecognized VANTA_PREFETCH=\"{}\" — expected \"enabled\", \"disabled\", or \"auto\". Using default: Auto",
+                                    "Unrecognized VANTA_PREFETCH=\"{}\" — expected \"enabled\", \"disabled\", or \"auto\". Using default: Disabled",
                                     val
                                 );
                             }
@@ -565,7 +568,7 @@ impl Default for VantaConfig {
                         m
                     }
                     (_, Some(true)) => PrefetchMode::Disabled,
-                    _ => PrefetchMode::Auto,
+                    _ => PrefetchMode::Disabled,
                 };
                 debug!(?v, "VANTA_PREFETCH");
                 v
@@ -1223,7 +1226,7 @@ mod tests {
 
     #[test]
     fn test_prefetch_mode_default() {
-        assert_eq!(PrefetchMode::default(), PrefetchMode::Auto);
+        assert_eq!(PrefetchMode::default(), PrefetchMode::Disabled);
     }
 
     #[test]
@@ -1274,7 +1277,7 @@ mod tests {
         assert!(!cfg.read_only);
         assert!(!cfg.force_mmap);
         assert!(cfg.mmap_hnsw);
-        assert_eq!(cfg.prefetch_mode, PrefetchMode::Auto);
+        assert_eq!(cfg.prefetch_mode, PrefetchMode::Disabled);
         assert!((cfg.rss_threshold - DEFAULT_RSS_THRESHOLD).abs() < 1e-9);
         assert!((cfg.eviction_weight_hits - 1.0).abs() < 1e-9);
         assert!((cfg.eviction_weight_confidence - 2.0).abs() < 1e-9);

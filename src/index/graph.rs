@@ -134,7 +134,8 @@ pub(crate) fn should_prefetch() -> bool {
     match (mode, disabled) {
         (Some(m), _) => m.is_prefetch_enabled(),
         (_, true) => false,
-        _ => true,
+        // PERF-04: no configuration at all → default OFF (no prefetch syscalls).
+        _ => false,
     }
 }
 
