@@ -289,18 +289,13 @@ impl VantaDB {
 ## Manejo de Errores
 
 ```python
-from vantadb_py import VantaDB, VantaError
+from vantadb_py import VantaDB
 
 try:
     db = VantaDB("./data")
     db.put("ns", "key", "payload", vector=[0.1, 0.2, 0.3])
-except VantaError.DatabaseLocked:
-    print("Error: Base de datos bloqueada por otro proceso")
-except VantaError.InvalidVector as e:
-    print(f"Error: Vector inválido: {e}")
-except VantaError.WalCorruption:
-    print("Error: WAL corrupto, ejecutando rebuild")
-    db.rebuild_index()
+except RuntimeError as e:
+    print(f"Error de motor: {e}")
 ```
 
 ## Performance
