@@ -335,7 +335,8 @@ _(no duplicar)_
 ### Task 44: DOC-04 — Fix `llms.txt` API inventada
 
 - **Esfuerzo:** 🟢 · **Prig:** 🔴 · **Archivos:** `llms.txt`, `docs/` | **DO** — `from vantadb import VantaEmbedded` no existe (real: `vantadb_py.VantaDB`) | **Contrato:** `rgba "from vantadb import"` → no match
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** `0b3de29a` + `5856d498` + `04d790b0` — API inventada `VantaEmbedded`/`VantaError`/kwargs (`config=`, `mode=`, `text=`, `edges=`, `bitset=`, `graph_hops=`) reemplazada por el API real `vantadb_py.VantaDB` (`put(namespace,key,payload)`, `search_memory(query_vector,text_query)`, `graph_bfs`, `add_edge`, `RuntimeError`) en llms.txt + 22 docs. Contrato verificado: `rg "from vantadb import"` → solo los descriptores del task en Backlog/plan. `rg "VantaError\."|mode="hybrid"|graph_hops|edges=\[|bitset="` → sin match en snippets Python.
 
 ### Task 45: DOC-05 — Wikilinks Obsidian → rutas relativas
 
