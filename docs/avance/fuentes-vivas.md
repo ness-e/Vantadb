@@ -29,11 +29,10 @@ aliases: [docs/avance/fuentes-vivas]
 
 ## 2. `docs/audit-reports/` — Reportes de auditoría
 
-**Propietario del pipeline:** `dev-tools/audit-all.ps1` (`$ReportDir`), prompt `audit-full.md` (escribe `audit-<mode>-<timestamp>.md`). `vantadb-audit-report.md` es el reporte estático multi-agente principal.
+**Propietario del pipeline:** `dev-tools/audit-all.ps1` (`$ReportDir`), prompt `audit-full.md` (escribe `audit-<mode>-<timestamp>.md`). `audit-full-2025-07-27.md` (antes `vantadb-audit-report.md`) es el reporte estático multi-agente principal — archivado 2026-08-09 al estar 100% procesado (P13 AUDREP).
 
 | Archivo | Líneas | Tipo |
 |---|---|---|
-| `vantadb-audit-report.md` | 915 | Auditoría estática multi-agente (principal) |
 | `audit-full-2026-07-18.md` | 165 | Audit completo |
 | `audit-full-2026-07-24.md` | 135 | Audit completo |
 | `audit-full-2026-07-24T1751Z.md` | 52 | Audit (resumen) |
@@ -41,7 +40,7 @@ aliases: [docs/avance/fuentes-vivas]
 | `deps-01-duplicadas-2026-08-05.md` | 31 | Investigación dependencias |
 | `inv-001-rustsec-2026-07-29.md` | 52 | Investigación rustsec |
 | `inv-024-unsafe-audit-2026-07-30.md` | 148 | Investigación unsafe blocks |
-| `archive/` (5 files) | — | Intermedios superados / backups pre-2026-08-05 |
+| `archive/` (6 files) | — | Intermedios superados / backups pre-2026-08-05 + `audit-full-2025-07-27.md` |
 
 ## 3. `docs/reviews/` — Reportes de review
 

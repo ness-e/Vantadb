@@ -30,7 +30,7 @@
 | 2026-08-03 | progreso-part2 | `docs/audit-reports/archive/progreso-readme-part2-2026-08-03.md` | — | — | archivado | Auditoría parcial del progreso README; movido a `archive/` |
 | 2026-08-03 | progreso-part3 | `docs/audit-reports/archive/progreso-readme-part3-2026-08-03.md` | — | — | archivado | Auditoría parcial del progreso README; movido a `archive/` |
 | 2026-08-03 | progreso-sistema | `docs/audit-reports/archive/progreso-sistema-2026-08-03.md` | — | — | archivado | UX doc-hygiene; movido a `archive/` |
-| — | — | `docs/audit-reports/vantadb-audit-report.md` | — | — | consumido | Estático multi-agente; findings consumidos en P13 AUDREP del backlog |
+| 2025-07-27 | audit-full | `docs/audit-reports/archive/audit-full-2025-07-27.md` | — | — | archivado | Auditoría estática multi-agente (era `vantadb-audit-report.md`); findings consumidos 100% en P13 AUDREP 2026-08-05..08 |
 | 2026-07-27 | research | `docs/Investigaciones/vectara-competitive-research-2026-07-27.md` | — | — | consumido | Vectara cerró self-service → gap local-first (movido a `Investigaciones` — research, no audit) |
 
 Notas:
