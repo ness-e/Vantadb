@@ -123,10 +123,14 @@ impl CPIndex {
 
         for &ep in entry_points {
             if let Some(node) = self.nodes.get(&ep) {
+                // ERR-042: read the disk header once per entry point and reuse
+                // it for both the distance computation and the tombstone
+                // eligibility check below (was 2x read_header per entry point).
+                let node_header = vector_store.and_then(|vs| vs.read_header(node.storage_offset));
                 let d = if let Some(vs) = vector_store {
                     profile.record_vfile_entry(node.storage_offset);
                     profile.start_compute();
-                    let result = if let Some(header) = vs.read_header(node.storage_offset) {
+                    let result = if let Some(header) = node_header {
                         if let Some(vec_end) = (header.vector_len as u64)
                             .checked_mul(4)
                             .and_then(|b| header.vector_offset.checked_add(b))
@@ -192,8 +196,8 @@ impl CPIndex {
                     self.fast_similarity(query_vec, query_norm, query_inv_norm, &node, metric)
                 };
 
-                let eligible = if let Some(vs) = vector_store {
-                    vs.read_header(node.storage_offset)
+                let eligible = if vector_store.is_some() {
+                    node_header
                         .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
                         .unwrap_or(false)
                 } else {
@@ -279,12 +283,16 @@ impl CPIndex {
                         visited.insert(neighbor_id);
 
                         if let Some(neighbor) = self.nodes.get(&neighbor_id) {
+                            // ERR-042: read the disk header once per candidate
+                            // and reuse it for both the distance computation and
+                            // the tombstone eligibility check below (was 2x
+                            // read_header per candidate in this hot loop).
+                            let node_header =
+                                vector_store.and_then(|vs| vs.read_header(neighbor.storage_offset));
                             let d = if let Some(vs) = vector_store {
                                 profile.record_vfile_candidate(neighbor.storage_offset);
                                 profile.start_compute();
-                                let result = if let Some(h) =
-                                    vs.read_header(neighbor.storage_offset)
-                                {
+                                let result = if let Some(h) = node_header {
                                     if let Some(vec_end) = (h.vector_len as u64)
                                         .checked_mul(4)
                                         .and_then(|b| h.vector_offset.checked_add(b))
@@ -358,8 +366,8 @@ impl CPIndex {
                                 )
                             };
 
-                            let eligible = if let Some(vs) = vector_store {
-                                vs.read_header(neighbor.storage_offset)
+                            let eligible = if vector_store.is_some() {
+                                node_header
                                     .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
                                     .unwrap_or(false)
                             } else {
