@@ -48,6 +48,7 @@ The depth behind these items lives in `code-review-and-quality` (the five-axis r
 - [ ] Security implications reviewed for any untrusted input, auth, or data handling (see `security-and-hardening`)
 - [ ] Observability in place for new critical paths (logs, metrics, traces) (see `observability-and-instrumentation`)
 - [ ] Rollback path exists for anything risky (see `shipping-and-launch`)
+- [ ] rollback plan declared explicitly in the task file for features touching production or risky paths (concrete `git revert` steps or a flag-off), with feature flags in place when gradual deployment is required
 - [ ] The human has reviewed and approved before merge or deploy
 
 ## How to Apply
@@ -55,6 +56,8 @@ The depth behind these items lives in `code-review-and-quality` (the five-axis r
 - **Per task**: confirm the Correctness and Quality sections before checking the task off.
 - **Per feature**: confirm Integration and Documentation before considering the feature complete.
 - **Per release**: the full checklist is the floor; `shipping-and-launch` adds the deploy-specific gates on top.
+- **Per release — post-release**: after releasing, verify in production that the release broke nothing before closing the iteration.
+- **Per release — monitoring**: monitor logs, metrics, and error rates as part of that post-release verification.
 
 Tailor the list to the project once, then reuse it unchanged. A Definition of Done that is renegotiated every sprint is not a Definition of Done.
 
@@ -88,3 +91,4 @@ The standing checklist above applies to every change. VantaDB additionally requi
 - [ ] Docs updated if applicable
 - [ ] Task moved to `docs/progreso/README.md` when completed
 - [ ] Changelog updated if user-visible change (`docs/CHANGELOG.md` via git-cliff)
+- [ ] Change is shippable: PR opened with green CI, or merged to `main` (Regla 7) — to merge a main-branch change, open a PR and get CI green first; task ends when the work can ship, not when it commits

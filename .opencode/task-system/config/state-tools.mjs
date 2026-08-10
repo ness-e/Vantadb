@@ -13,6 +13,11 @@ const STATE_TOOLS = {
     note: "sólo lectura e investigación",
   },
   ACT: {
+    // ponytail: scope enforcement is NOT implemented here — validateAction only receives (state, toolName),
+    // never the active task file/scope, and state-tools.mjs has no server access (would need a new arg + a
+    // scope registry fed by campaign-server.mjs). Known ceiling: write/edit scope is delegated to the
+    // "Impacto mapeado (Regla 0)" gate in the task file (task.md). Add a scopeRegistro arg to validateAction
+    // if the campaign server ever passes one.
     allowed: ["edit", "write", "bash", "campaign_*", "read", "grep", "glob", "codegraph_explore", "skill", "cargo-mcp_*", "rust-analyzer-mcp_*"],
     denied: ["delete"],
     note: "implementación activa",

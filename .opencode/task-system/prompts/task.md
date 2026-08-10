@@ -147,6 +147,15 @@ como gate mandatorio para 🔴 — revisión adversarial en contexto fresco
 ## Contrato
 "cargo nextest run --profile audit --workspace --build-jobs 2 pasa y el comportamiento específico es [condición]"
 
+## Deuda técnica (Regla 6 — MUST)
+
+**Saldo neto de deuda por PR:** Deuda registrada (≤0, justificada en Notas) | Sin deuda
+
+> Regla 6 (AGENTS.md): toda deuda nueva introducida debe compensar deuda
+> existente — el saldo neto por PR es 0 o negativo. Si hay deuda nueva,
+> completar el campo `Deuda registrada` con el ID de la deuda y su moneda de
+> pago (ver tabla P2 en AGENTS.md).
+
 ## Definition of Done (contrato multi-nivel — P2-08)
 
 El DoD es **contrato**, no checklist decorativo. La calidad mínima de pie está
@@ -197,9 +206,11 @@ respuesta. Una tarea con incógnitas abiertas NO se marca ✅ aunque el % sea
 - **Repro:** reproducción determinística del bug (pasos exactos / comando)
 - **Hipótesis:** causa raíz probable, escrita ANTES de tocar código
 - **1 variable controlada:** exactamente UNA variable cambiada por intento
+- **Test RED:** test de regresión que reproduce el bug — verificado como FALLO
+  (RED) antes del fix; pasa a GREEN solo con el fix aplicado
 
 **Gate:** los steps de fix y sus Verify se definen solo DESPUÉS de completar
-esta sección con `repro`, `hipótesis` y `1 variable controlada`.
+esta sección con `repro`, `hipótesis`, `1 variable controlada` y `test RED`.
 Grafías aceptadas del campo: `hipótesis|hipotesis`.
 
 ## Fases explícitas — SECURITY | PERFORMANCE (P2-07)

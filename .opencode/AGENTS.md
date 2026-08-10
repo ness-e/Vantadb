@@ -112,9 +112,9 @@ codegraph_callers "VantaEmbedded::connect"
 |--------|----------|
 | `dev-tools/verify.ps1` | Pre-flight completa (fmt → check → clippy → audit → deny → nextest) |
 | `dev-tools/verify_changed.ps1` | **Quick verify**: fmt → check → clippy solo en `vantadb` core. ~30s |
-| `.opencode/skills/unified-review/templates/pre-push.ps1` | Template del pre-push barrier (SIPP). **No instalado** — verificar manualmente. |
+| `.opencode/skills/unified-review/templates/pre-push.ps1` | Template del pre-push barrier (SIPP). **Instalado** como `.githooks/pre-push` — corre automáticamente en cada push. |
 
-> **Nota:** Los hooks git (`pre-commit`/`pre-push`) NO están instalados. La verificación previa a push es manual (Regla 1). Para instalar el pre-push barrier, seguir las instrucciones de `templates/pre-push.ps1` (§ Installation).
+> **Nota:** Los hooks git (`pre-commit`/`pre-push`) están instalados y activos vía `core.hooksPath=.githooks` (`.githooks/pre-commit`, `.githooks/pre-push`). La verificación previa a push es automática (Regla 1). Para reinstalar/recrear el pre-push barrier, ver `templates/pre-push.ps1` (§ Installation).
 
 **Flujo típico local:**
 ```
@@ -788,7 +788,7 @@ VantaDB follows an **Open Core** model (decision 2026-08-06, see `docs/plans/202
 - `cargo-deny` (`deny.toml`, MIT/Apache-2.0) gates the core only; Pro is excluded.
 - Full normative rules: `.opencode/rules/open-core-licensing.md`.
 - **OpenCode MCP config**: `opencode.jsonc` at root (CodeGraph MCP server)
-- **CodeGraph CI hooks**: verify.ps1/verify_changed.ps1 (git hooks no instalados — verificación manual, ver Regla 1)
+- **CodeGraph CI hooks**: verify.ps1/verify_changed.ps1 (invocados por los hooks git instalados — `.githooks/pre-commit`/`.githooks/pre-push`, ver Regla 1)
 
 ## MCP Servers Disponibles
 
@@ -827,7 +827,7 @@ Como agente de IA asistiendo en VantaDB, DEBES auditar el código y las peticion
 
 NUNCA sugieras mergear a `main` o pushear código sin antes ejecutar el pipeline local de certificación.
 
-**Prohibido `--no-verify`**: aunque los hooks git no están instalados localmente, la verificación previa es obligatoria antes de push. Si `dev-tools/verify.ps1` falla (tests, clippy, fmt, deny), NO se puede pushear saltándolo. Hay que arreglar el error y reintentar hasta que pase. Error → arreglar → reintentar, tantas veces como sea necesario. `--no-verify` solo se permite si el usuario lo ordena explícitamente.
+**Prohibido `--no-verify`**: aunque los hooks git se pueden saltar con `--no-verify` (o no estén reinstalados), la verificación previa es obligatoria antes de push. Si `dev-tools/verify.ps1` falla (tests, clippy, fmt, deny), NO se puede pushear saltándolo. Hay que arreglar el error y reintentar hasta que pase. Error → arreglar → reintentar, tantas veces como sea necesario. `--no-verify` solo se permite si el usuario lo ordena explícitamente.
 
 | Si el usuario hace... | Debes responder... |
 |---|---|

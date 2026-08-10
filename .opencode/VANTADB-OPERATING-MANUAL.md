@@ -431,7 +431,7 @@ Orquesta sub-agentes en paralelo, tiene sistema de perfiles YAML, y 4 modos de o
 - `profiles/vantadb.yml` — hereda default + Rust workspace, bindings, web frontend, scoring
 
 **Reportes:** `docs/reviews/review-<mode>-<timestamp>.md`
-**Pre-push barrier:** template PowerShell en `templates/pre-push.ps1` (SIPP). No instalado — verificación manual con `dev-tools/verify.ps1` (Regla 1).
+**Pre-push barrier:** template PowerShell en `templates/pre-push.ps1` (SIPP). Instalado como `.githooks/pre-push` vía `core.hooksPath=.githooks` — corre automáticamente antes de push (Regla 1), con `dev-tools/verify.ps1` como verificación manual de respaldo.
 
 **Verificación semver:** Incluye `cargo semver-checks check-release --workspace` en L1 como gate pre-publish obligatorio.
 
@@ -791,7 +791,7 @@ AL COMPLETAR:
 | Skill no encontrada | Ruta incorrecta | Verificar que existe en `.opencode/skills/<name>/SKILL.md` |
 | `codegraph` no responde | Proyecto no indexado | Ejecutar `codegraph init` (solo si el usuario lo pide) |
 | Shell syntax error | Bash heredoc en PowerShell | Usar PowerShell nativo (`ConvertTo-Json`, `Out-File`) |
-| Verificación pre-push requerida | Hooks no instalados (sistema PowerShell) | Correr `dev-tools/verify.ps1` manualmente antes de push (Regla 1); template SIPP en `templates/pre-push.ps1` |
+| Verificación pre-push requerida | Hooks instalados vía `core.hooksPath=.githooks` (`pre-commit`/`pre-push`) | El pre-push barrier corre automáticamente; si falla o se usó `--no-verify`, correr `dev-tools/verify.ps1` manualmente antes de push (Regla 1); template SIPP en `templates/pre-push.ps1` |
 | `bitacora.md` no encontrado | Archivo eliminado | Referenciar `docs/Backlog.md` o plan files |
 | Glob tool devuelve `No files found` en Windows para patrones válidos (`**/DRV-1*.md`, `.opencode/skills/*/SKILL.md`) | Falso negativo del glob tool con patrones recursivos/rutas relativas en Windows | Usar PowerShell: `Get-ChildItem -Recurse -Filter` (vía bash), `Test-Path -LiteralPath` + Read de directorios, o el glob tool con rutas absolutas |
 
