@@ -255,7 +255,7 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | doubt-driven-development | 8 | KEEP | Adversarial review for high-stakes. |
 | frontend-ui-engineering | 7 | KEEP | Production UI in web/. |
 | api-and-interface-design | 8 | KEEP | Stable public interfaces. |
-| debugging-and-error-recovery | 8 | KEEP | Systematic root-cause. |
+| debugging-and-error-recovery | 8 | KEEP | Systematic root-cause. ~~DEPRECADO (EVAL-03)~~ → delega en `systematic-debugging` (stub). |
 | browser-testing-with-devtools | 7 | KEEP | Real browser via CDP. |
 | code-review-and-quality | 9 | KEEP | Multi-axis review before merge. |
 | code-simplification | 7 | KEEP | Reduce complexity. |

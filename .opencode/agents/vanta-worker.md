@@ -116,7 +116,7 @@ Si el API core no está definida, solicita una spec o delega a Arch.
 - `source-driven-development` — verificar docs oficiales de librerías/frameworks antes de implementar
 - `incremental-implementation` — implementar en slices verticales delgados (test → code → verify)
 - `test-driven-development` — Red-Green-Refactor para lógica nueva
-- `debugging-and-error-recovery` — root cause de bugs en implementación
+- `systematic-debugging` — root cause de bugs en implementación
 - `code-simplification` — reducir complejidad sin cambiar comportamiento
 - `frontend-ui-engineering` — UI nueva o modificación en web/
 - `frontend-design` — diseño de interfaces de frontend

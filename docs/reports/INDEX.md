@@ -14,6 +14,7 @@
 
 | Fecha (YYYYMMDD-HHMMSS) | Modo | Archivo | QG | C/H/M/L/I | Estado | Resumen |
 |---|---|---|---|---|---|---|
+| 2026-08-10-2007 | eval | `docs/reports/pipeline-evals.md` | — | — | vigente | EVAL-01 (P0): harness de evals del pipeline — North Star metrics (primer intento, falsos positivos, regresión) desde `verify-log.jsonl` |
 | 2026-08-08-0026 | full | `docs/audit-reports/audit-full-20260808-002617.md` | ? FAIL | 0/5/8/9/0 | vigente | INV-024 sin tests + prune duplica select_neighbors; clippy gate rojo (5 pre-existentes). AUD-012..021 derivados |
 | 2026-08-05-2025 | certify | `docs/reviews/review-certify-2026-08-05-2025.md` | ✅ PASS | 0/0/2/8/7 | vigente | Certify pre-push 9.4/10 (A). Recomendaciones: mitigar npm-audit web (6 vulns), migrar put_batch a keyword |
 | 2026-08-05-1545 | full | `docs/reviews/review-full-2026-08-05-t1545.md` | ❌ FAIL | — | vigente | Full ISO 7.1/10 (B). (Sync pendiente) |

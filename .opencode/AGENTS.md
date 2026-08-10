@@ -38,9 +38,11 @@ Todas las rutas relativas en comandos y prompts se resuelven así:
 | Referencia en el archivo | Resuelve a |
 |---|---|
 | `prompts/X.md` | `.opencode/task-system/prompts/X.md` |
-| `skills/X` | `.opencode/skills/X/` |
-| `tasks/<ID>.md` | `.opencode/skills/campaign-executor/tasks/<ID>.md` |
+| `skills/X` | Buscar ↓ en orden: `.opencode/skills/X/` → `.agents/skills/X/` → `~/.agents/skills/X/` (usar la primera que exista; preferir la copia del proyecto → `.opencode/` sobre `.agents/` sobre global) |
+| `tasks/<ID>.md` | `.opencode/skills/campaign-executor/tasks/<ID>.md` (si no existe: `.opencode/skills/campaign-executor/tasks/complete/<ID>.md` → `.opencode/skills/campaign-executor/tasks/closed/<ID>.md`) |
 | `docs/plans/X.md` | `docs/plans/X.md` (ruta directa) |
+
+**Nota:** aunque la regla de resolución para `tasks/<ID>.md` arranca en la raíz (`tasks/`), las tareas **completadas** viven en `tasks/complete/` y las **cerradas sin resolver** en `tasks/closed/`. Un `grep` o `Read` sobre la raíz sola se pierde esas. Buscar en los tres niveles cuando el ID no aparezca en la raíz.
 
 ### Cómo ejecutar un comando
 
@@ -445,7 +447,7 @@ Skills de ingeniería instaladas desde [addyosmani/agent-skills](https://github.
 | **BUILD** | `doubt-driven-development` | Stakes altos (producción, seguridad) — verificación adversarial en contexto fresco |
 | **BUILD** | `frontend-ui-engineering` | UI nueva o modificación en web/ |
 | **BUILD** | `api-and-interface-design` | APIs, boundaries de módulos, interfaces públicas |
-| **VERIFY** | `debugging-and-error-recovery` | Tests fallan, builds rotos, comportamiento inesperado |
+| **VERIFY** | `systematic-debugging` | Tests fallan, builds rotos, comportamiento inesperado — root cause first (Iron Law) |
 | **VERIFY** | `browser-testing-with-devtools` | Depurar algo que corre en navegador (web/) |
 | **REVIEW** | `code-review-and-quality` | Antes de mergear cualquier cambio — revisión en 5 ejes |
 | **REVIEW** | `code-simplification` | Código funciona pero es más complejo de lo necesario |

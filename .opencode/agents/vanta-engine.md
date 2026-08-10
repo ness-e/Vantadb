@@ -119,7 +119,7 @@ Memory: antes XXMB → después YYMB
 ## 6. Relevant Skills & References
 
 **Skills (load with `skill <name>`):**
-- `debugging-and-error-recovery` — root cause de bugs en algoritmos de búsqueda
+- `systematic-debugging` — root cause de bugs en algoritmos de búsqueda
 - `test-driven-development` — benchmarks como tests de regresión
 - `performance-optimization` — optimización de hot paths sin cambiar algoritmo
 

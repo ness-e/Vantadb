@@ -131,7 +131,7 @@ Si no hay código unsafe en el diff, el scope se reduce a supply chain y depende
 - `code-review-and-quality` — revisión multi-eje (enfatizar seguridad y memoria)
 - `doubt-driven-development` — adversarial review para código crítico (unsafe, FFI)
 - `code-simplification` — simplificar bloques unsafe sin cambiar semántica
-- `debugging-and-error-recovery` — root cause de vulnerabilidades reportadas
+- `systematic-debugging` — root cause de vulnerabilidades reportadas
 
 **References:**
 - `.opencode/references/security-checklist.md` — threat modeling, OWASP, AI/LLM security, dependency security

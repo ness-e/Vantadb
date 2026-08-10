@@ -1,0 +1,14 @@
+{
+  "sessionId": "residual-hardening-run-2026-08-09",
+  "state": "PLAN",
+  "context": {
+    "plan": "docs/plans/2026-08-09-residual-hardening.md",
+    "mode": "run",
+    "failMode": "parallel",
+    "total": 26
+  },
+  "createdAt": "2026-08-10T02:49:05.008Z",
+  "updatedAt": "2026-08-10T02:49:05.008Z",
+  "iterationCount": 0,
+  "transitionCount": 0
+}

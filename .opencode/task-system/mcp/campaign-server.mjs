@@ -666,6 +666,16 @@ server.tool(
     const nextestMatch = stdout.match(/(\d+)\s+passed.*?(\d+)\s+failed/s)
     const summary = nextestMatch ? { passed: parseInt(nextestMatch[1]), failed: parseInt(nextestMatch[2]) } : null
 
+    // EVAL-01: append every verify to the eval log for North Star metrics (docs/reports/pipeline-evals.md).
+    try {
+      const logPath = join(TASK_SYSTEM, "enforcement", "verify-log.jsonl")
+      appendFileSync(logPath, JSON.stringify({
+        ts: new Date().toISOString(), taskId: taskId || null, command,
+        passed, exitCode, expectedExitCode, elapsed,
+        summary, plan: (() => { try { return findPlanFile(PROJECT_ROOT) } catch { return null } })(),
+      }) + "\n", "utf-8")
+    } catch { /* eval logging must never break verify */ }
+
     return {
       content: [{ type: "text", text: JSON.stringify({
         passed, exitCode, expectedExitCode, elapsed: `${elapsed}s`, taskId: taskId || null, summary, budget: budgetCheck,

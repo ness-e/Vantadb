@@ -120,7 +120,7 @@ Antes de diseñar tests de caos, verifica:
 
 **Skills (load with `skill <name>`):**
 - `test-driven-development` — escribir tests que verifiquen edge cases y condiciones de carrera
-- `debugging-and-error-recovery` — root cause de crashes y corrupción de datos
+- `systematic-debugging` — root cause de crashes y corrupción de datos
 - `code-simplification` — simplificar código que falla bajo caos para aislar el bug
 - `doubt-driven-development` — adversarial review para tests de caos: verificacion en contexto fresco
 

@@ -80,9 +80,11 @@ Todas las rutas relativas en comandos, prompts y skills se resuelven así:
 | Referencia en el archivo | Resuelve a |
 |---|---|
 | `prompts/X.md` | `.opencode/task-system/prompts/X.md` |
-| `skills/X` | `.opencode/skills/X/` |
-| `tasks/<ID>.md` | `.opencode/skills/campaign-executor/tasks/<ID>.md` |
+| `skills/X` | Buscar ↓ en orden: `.opencode/skills/X/` → `.agents/skills/X/` → `~/.agents/skills/X/` (usar la primera que exista; preferir la copia del proyecto → `.opencode/` sobre `.agents/` sobre global) |
+| `tasks/<ID>.md` | `.opencode/skills/campaign-executor/tasks/<ID>.md` (si no existe: `.opencode/skills/campaign-executor/tasks/complete/<ID>.md` → `.opencode/skills/campaign-executor/tasks/closed/<ID>.md`) |
 | `docs/plans/X.md` | `docs/plans/X.md` (ruta directa) |
+
+**Nota:** aunque la regla de resolución para `tasks/<ID>.md` arranca en la raíz (`tasks/`), las tareas **completadas** viven en `tasks/complete/` y las **cerradas sin resolver** en `tasks/closed/`. Un `grep` o `Read` sobre la raíz sola se pierde esas. Buscar en los tres niveles cuando el ID no aparezca en la raíz.
 
 **Regla:** Siempre usar la forma corta (`tasks/P1-5.md` en vez de la ruta absoluta).
 Nunca referenciar `.tasks/` (no existe — error legacy corregido).
@@ -355,7 +357,7 @@ Las 25 skills de ingeniería se asignan automáticamente según la fase del trab
 | **BUILD** | `doubt-driven-development` | Stakes altos (producción, seguridad) |
 | **BUILD** | `frontend-ui-engineering` | UI nueva en web/ |
 | **BUILD** | `api-and-interface-design` | APIs, boundaries de módulos |
-| **VERIFY** | `debugging-and-error-recovery` | Tests fallan, builds rotos |
+| **VERIFY** | `systematic-debugging` | Tests fallan, builds rotos |
 | **VERIFY** | `browser-testing-with-devtools` | Depurar algo en navegador |
 | **REVIEW** | `code-review-and-quality` | Antes de mergear |
 | **REVIEW** | `code-simplification` | Código más complejo de lo necesario |
