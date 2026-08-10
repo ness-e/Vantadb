@@ -13,7 +13,7 @@ aliases: [docs/avance/fuentes-vivas]
 
 ## 1. `docs/plans/` — Plan files (sistema de tareas)
 
-**Propietario del pipeline:** campaign-server.mjs (MCP), harness-executor.ps1, prompts pipeline-full.md/plan.md. Los plan files son el **estado de ejecución vivo** del sistema de tareas; el harness busca el más reciente por defecto. NO mover.
+**Propietario del pipeline:** campaign-server.mjs (MCP), prompts pipeline-full.md/plan.md. Los plan files son el **estado de ejecución vivo** del sistema de tareas; `pipeline-run.md` busca el más reciente por defecto. NO mover.
 
 | Plan | Líneas | Estado |
 |---|---|---|

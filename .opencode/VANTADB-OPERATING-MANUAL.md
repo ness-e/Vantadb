@@ -879,8 +879,7 @@ Después de completar: skill progreso
     progreso/                        ← Migración de tareas
     vantadb-certify/                 ← (deprecated, reemplazado por unified-review)
     vantadb-audit/                   ← (deprecated, reemplazado por unified-review)
-    vantadb-full-review/             ← (deprecated, reemplazado por unified-review)
-    unified-review/                  ← Review, audit & certification unificado
+    unified-review/                  ← Review, audit & certification unificado (reemplaza a los 3 legacy) 
     review-deep/                     ← Revisión por módulo
     (19 skills engineering más)
   agents/

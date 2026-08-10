@@ -285,7 +285,7 @@ El correlation ID permite conectar:
 - Una iteración del loop → su log JSONL → el commit → el task file
 - Sin correlation ID, cada componente es un silo aislado
 
-### Rule 15 — init.sh Pattern (Bootstrap Harness)
+### Rule 15 — Bootstrap Pattern (init.sh)
 
 Fuente: Anthropic — "Effective harnesses for long-running agents"
 
