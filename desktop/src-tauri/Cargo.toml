@@ -36,6 +36,10 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "proce
 # server binary logic). Path `../..` = repo root, resolved from desktop/src-tauri.
 vantadb = { path = "../..", default-features = false, features = ["fjall", "fs2", "memmap2", "roaring", "advanced-tokenizer"] }
 
+[target.'cfg(unix)'.dependencies]
+# Signal delivery for graceful sidecar shutdown (SIGINT to the MCP child).
+libc = "0.2"
+
 [dev-dependencies]
 axum = "0.7"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "time", "process", "io-util"] }

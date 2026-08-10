@@ -61,12 +61,17 @@ pub fn locate_binary() -> Option<PathBuf> {
     }
 
     // Dev: relative to the desktop crate manifest.
-    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target").join("debug").join(EXE);
+    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("target")
+        .join("debug")
+        .join(EXE);
     let candidates = [
         // desktop/src-tauri/target/debug  (own workspace)
         manifest.clone(),
         // repo-root target: desktop/src-tauri/../../target/debug
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target/debug").join(EXE),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../target/debug")
+            .join(EXE),
     ];
     candidates.into_iter().find(|p| p.is_file())
 }
@@ -109,9 +114,10 @@ impl McpSpawn {
             .spawn()
             .map_err(|e| VantaError::Mcp(format!("failed to spawn {bin:?}: {e}")))?;
 
-        let stderr = child.stderr.take().ok_or(VantaError::Mcp(
-            "sidecar stderr not piped".into(),
-        ))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or(VantaError::Mcp("sidecar stderr not piped".into()))?;
 
         let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<()>();
         let mut tee = log_file;
@@ -168,13 +174,36 @@ impl McpSpawn {
     /// Request a shutdown: send the child a stop signal and wait up to `grace`.
     /// On platforms without a graceful path this degrades to kill+wait.
     pub async fn request_shutdown(&mut self, grace: std::time::Duration) -> Result<(), VantaError> {
-        // MCP listens for SIGINT/Ctrl-C; SIGKILL is the portable backstop.
+        #[cfg(unix)]
+        {
+            // 1. Graceful stop: the sidecar's MCP loop shuts down on SIGINT
+            //    (vantadb-mcp `run_stdio_server` -> tokio::signal::ctrl_c),
+            //    letting its storage engine flush — never a forced kill that
+            //    could drop in-flight metadata.
+            if self.is_running() {
+                if let Some(pid) = self.child.id() {
+                    send_graceful_stop(pid);
+                }
+            }
+            // 2. Give the child up to `grace` to exit and be reaped; if it does,
+            //    we are done. Timeout falls through to the forced-kill backstop.
+            if tokio::time::timeout(grace, self.child.wait()).await.is_ok() {
+                return Ok(());
+            }
+        }
+
+        // `grace` applies to the Unix graceful wait above; Windows has no
+        // graceful signal to wait for, so the forced kill below is immediate.
+        #[cfg(windows)]
+        let _ = &grace;
+
+        // Backstop (and the only path on Windows, which has no per-process
+        // graceful signal — see [`send_graceful_stop`]): force-kill and reap.
         self.child
             .kill()
             .await
-            .map_err(|e| VantaError::Mcp(format!("kill sidecar: {e}")))?;
-        // Wait for reaping within the grace window; a later Drop still forces it.
-        let _ = tokio::time::timeout(grace, self.child.wait()).await;
+            .map_err(|e| VantaError::Mcp(format!("force-kill sidecar: {e}")))?;
+        let _ = self.child.wait().await;
         Ok(())
     }
 
@@ -187,6 +216,23 @@ impl McpSpawn {
         let _ = self.child.wait().await;
         Ok(())
     }
+}
+
+/// Best-effort graceful stop signal. The sidecar's MCP loop shuts down on
+/// SIGINT (vantadb-mcp `run_stdio_server` -> `tokio::signal::ctrl_c`), so
+/// SIGINT — not SIGTERM — is the signal that reaches its flush path.
+///
+/// There is no Windows equivalent: `GenerateConsoleCtrlEvent` only delivers
+/// Ctrl-C to processes sharing the caller's console and (per Microsoft Learn)
+/// CTRL_C cannot be limited to a process group, so [`McpSpawn::request_shutdown`]
+/// falls back to a forced kill there.
+#[cfg(unix)]
+fn send_graceful_stop(pid: u32) {
+    // SAFETY: `pid` is `Child::id()` of the process this struct spawned and
+    // still owns (guarded by `is_running()`); `libc::kill` only delivers the
+    // signal to that pid. A race (child already exited) surfaces as a harmless
+    // ESRCH, which is ignored — the forced-kill backstop still applies.
+    unsafe { libc::kill(pid as i32, libc::SIGINT) };
 }
 
 impl Drop for McpSpawn {
