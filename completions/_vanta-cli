@@ -17,6 +17,7 @@ _vanta-cli() {
     _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -40,6 +41,7 @@ _arguments "${_arguments_options[@]}" : \
 '--vector=[Optional vector embedding (comma-separated f32 values)]:VECTOR:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -52,6 +54,7 @@ _arguments "${_arguments_options[@]}" : \
 '--key=[Key to retrieve the value for]:KEY:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -64,6 +67,7 @@ _arguments "${_arguments_options[@]}" : \
 '--limit=[Maximum number of records to return]:LIMIT:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -74,6 +78,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -85,6 +90,7 @@ _arguments "${_arguments_options[@]}" : \
 '--namespace=[Optional namespace to audit (audits all if not specified)]:NAMESPACE:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '--json[Output results as JSON]' \
 '--deep[Perform deep structural validation]' \
 '-v[Enable verbose output]' \
@@ -97,6 +103,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -109,6 +116,7 @@ _arguments "${_arguments_options[@]}" : \
 '--out=[Output file path]:OUT:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -120,6 +128,7 @@ _arguments "${_arguments_options[@]}" : \
 '--input=[Input file path]:in:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -131,6 +140,7 @@ _arguments "${_arguments_options[@]}" : \
 '--limit=[Maximum results to return]:LIMIT:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -142,6 +152,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -153,6 +164,7 @@ _arguments "${_arguments_options[@]}" : \
 '--out=[Output directory for the backup (default\: vantadb_backups/backup_<timestamp>)]:OUT:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -164,6 +176,7 @@ _arguments "${_arguments_options[@]}" : \
 '--input=[Path to the backup directory]:INPUT:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '--force[Overwrite existing database directory if it exists]' \
 '--rebuild[Rebuild indexes after restore]' \
 '-v[Enable verbose output]' \
@@ -176,6 +189,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -188,6 +202,7 @@ _arguments "${_arguments_options[@]}" : \
 '--key=[Key of the record to inspect]:KEY:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -198,6 +213,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '--json[Output statistics as JSON]' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
@@ -213,6 +229,7 @@ fish\:"Fish shell completions"
 powershell\:"PowerShell shell completions"))' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help (see more with '\''--help'\'')]' \
@@ -227,6 +244,7 @@ _arguments "${_arguments_options[@]}" : \
 '--limit=[Maximum number of results]:LIMIT:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '--json[Output in JSON format]' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
@@ -240,6 +258,7 @@ _arguments "${_arguments_options[@]}" : \
 '--key=[Key of the record to delete]:KEY:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -252,6 +271,7 @@ _arguments "${_arguments_options[@]}" : \
 '--filter=[JSON filter in MongoDB-like format, e.g. '\''{"field"\: {"\$op"\: value}}'\'' Operators\: \$eq, \$neq, \$gt, \$gte, \$lt, \$lte Example\: '\''{"status"\: {"\$eq"\: "inactive"}}'\'']:FILTER:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -264,6 +284,7 @@ _arguments "${_arguments_options[@]}" : \
 '--filter=[Optional JSON filter (same format as delete-by-filter)]:FILTER:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '--json[Output as raw number only]' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
@@ -278,6 +299,7 @@ _arguments "${_arguments_options[@]}" : \
 '--top-k=[Number of similar records to return]:TOP_K:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '--json[Output in JSON format]' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
@@ -289,6 +311,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -307,6 +330,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -319,6 +343,7 @@ _arguments "${_arguments_options[@]}" : \
 '--format=[Specific format to migrate (vfile, index, wal, schema, all)]:FORMAT:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '--dry-run[Preview changes without modifying files]' \
 '--force[Skip confirmation prompts]' \
 '-v[Enable verbose output]' \
@@ -332,6 +357,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -379,6 +405,7 @@ esac
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -397,6 +424,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -407,6 +435,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -450,6 +479,7 @@ esac
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -468,6 +498,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -479,6 +510,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -521,6 +553,7 @@ esac
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -539,6 +572,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -549,6 +583,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -595,6 +630,7 @@ _arguments "${_arguments_options[@]}" : \
 '--top-k=[Maximum number of results across all namespaces]:TOP_K:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '--json[Output in JSON format]' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
@@ -609,6 +645,7 @@ _arguments "${_arguments_options[@]}" : \
 '--top-k=[Maximum number of results across all namespaces]:TOP_K:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '--json[Output in JSON format]' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
@@ -623,6 +660,7 @@ _arguments "${_arguments_options[@]}" : \
 '--host=[Host for the HTTP server]:HOST:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '--http[Start HTTP server wrapper (default)]' \
 '--mcp[Start MCP server wrapper over stdio]' \
 '--require-auth[Force authentication\: refuse to start without an API key]' \
