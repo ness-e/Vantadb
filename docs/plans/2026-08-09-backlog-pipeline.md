@@ -358,7 +358,8 @@ _(no duplicar)_
 ### Task 48: DOC-08 — README claims cluster/graph honestos
 
 - **Esfuerzo:** 🟢 · **Archivos:** `README.md` | **DO** · **Contrato:** README dice "single-node embedding engine", "wal-shipping experimental send-only"
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** 6d881fb8 — claims de cluster/distributed corregidos: intro + Core Capabilities explican que VantaDB es single-node embedded (sin clustering/sharding); nueva nota de Replication aclara que `wal-shipping` es experimental send-only (HTTP POST, sin receive path), no replication/clustering/HA
 
 ---
 
