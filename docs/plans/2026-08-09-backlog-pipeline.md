@@ -352,7 +352,8 @@ _(no duplicar)_
 ### Task 47: DOC-07 — Documentar hot-reload JSON / config.toml
 
 - **Esfuerzo:** 🟡 · **Archivos:** `docs/operations/CONFIGURATION.md` | **DO** (con FEAT-06) · **Contrato:** sección config-examples
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** `3e455b5e` — added §1.5 Configuration Examples (env vars, Rust builder, hot-reload JSON, CLI `--memory-limit`); fixed `memory_limit` env-var cell to `VANTADB_MEMORY_LIMIT`
 
 ### Task 48: DOC-08 — README claims cluster/graph honestos
 
