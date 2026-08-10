@@ -616,6 +616,27 @@ fn test_get_cache_tombstone_flag() {
 }
 
 #[test]
+fn test_get_cache_hit_bumps_hits_uncontended() {
+    // ERR-036: cache hits must still accumulate hits/last_accessed on the
+    // cached node via try_write — never a mandatory blocking write lock.
+    let engine = in_memory_engine();
+    let mut node = sample_node(42);
+    node.tier = NodeTier::Hot; // only Hot nodes enter volatile_cache
+    engine.insert(&node).expect("insert");
+    assert!(engine.get(42).expect("get").is_some(), "first hit");
+    assert!(engine.get(42).expect("get").is_some(), "second hit");
+    {
+        let cache = engine.volatile_cache.read();
+        let cached = cache.get(&42).expect("node should be cached");
+        assert_eq!(
+            cached.hits, 2,
+            "uncontended hits accumulate: insert + 2 gets"
+        );
+        assert!(cached.last_accessed > 0, "last_accessed updated on hit");
+    }
+}
+
+#[test]
 fn test_get_corrupt_backend_metadata() {
     let engine = in_memory_engine();
     engine.insert(&sample_node(42)).expect("insert");

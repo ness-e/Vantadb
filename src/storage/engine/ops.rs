@@ -1383,17 +1383,32 @@ impl StorageEngine {
         }
 
         {
-            let mut cache = self.volatile_cache.write();
-            if let Some(node) = cache.get_mut(&id) {
-                if node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
-                    return Ok(None);
+            // ERR-036: never take a blocking write lock on the read hot path.
+            // try_write bumps hits/last_accessed when uncontended; when a
+            // writer is active we degrade to a read-only (shared) lookup so
+            // concurrent readers never serialize behind a writer.
+            match self.volatile_cache.try_write() {
+                Some(mut cache) => {
+                    if let Some(node) = cache.get_mut(&id) {
+                        if node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
+                            return Ok(None);
+                        }
+                        node.hits += 1;
+                        node.last_accessed = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_millis() as u64;
+                        return Ok(Some(node.clone()));
+                    }
                 }
-                node.hits += 1;
-                node.last_accessed = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis() as u64;
-                return Ok(Some(node.clone()));
+                None => {
+                    if let Some(node) = self.volatile_cache.read().get(&id) {
+                        if node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
+                            return Ok(None);
+                        }
+                        return Ok(Some(node.clone()));
+                    }
+                }
             }
         }
 
