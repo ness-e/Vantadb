@@ -2,8 +2,9 @@
 name: progreso
 description: >
   Migrates completed tasks between docs/Backlog.md and
-  docs/progreso/README.md, tracks doc coverage, and maintains
-  cross-references across the VantaDB documentation tree.
+  docs/progreso/README.md, tracks doc coverage, reconciles
+  agent memory (lessons/decisions) with the project registry,
+  and maintains cross-references across the VantaDB documentation tree.
 compatibility: opencode
 ---
 
@@ -265,6 +266,49 @@ campaign_memory_write(
   lo maneja; si no, edit directo del archivo con la misma línea.
 - **Sin persistencia, sin cierre:** la tarea no queda `completed` hasta que la
   lección esté en `lessons.md` — el objetivo no es castigar la falla sino no repetirla.
+
+---
+
+## Trigger 6: Reconciliación de memorias (agente ↔ proyecto)
+
+Run **at session start** (junto con Trigger 4) y **al cerrar un milestone/tarea**.
+Existen dos memorias paralelas que pueden divergir sin compararse:
+`.opencode/task-system/memory/lessons.md` + `decisions.md` (memoria del agente) vs
+`docs/Backlog.md` + `docs/progreso/README.md` (memoria del proyecto).
+
+### A. Comparar
+
+1. Grep entradas nuevas en `lessons.md`/`decisions.md` (fecha ≥ última reconciliación o desde el último run).
+2. Por cada entrada con impacto potencial (decisión de scope/WONTFIX, lección que cambia un plan,
+   feature nueva, tarea cerrada), verificar si el ID aparece en `docs/Backlog.md` (activa)
+   o `docs/progreso/README.md` (completada).
+3. Por cada ID nuevo en Backlog/progreso sin entry correspondiente en memoria, marcar la divergencia.
+
+### B. Resolver divergencias
+
+Cuando haya divergencia — una decisión/lección que impacta el backlog sin reflejarse, o un cambio
+de backlog sin entry en memoria:
+
+- **Agregar fila de hallazgo** en el lugar correspondiente (sección `## Hallazgos pendientes de reportes`
+  del Backlog, o la tabla del plan/dominio afectado), **o**
+- **Anotarla como "pendiente reconciliar"** en `docs/progreso/README.md` (nota bajo el milestone/tarea afectada).
+
+Formato de hallazgo:
+
+```
+| ID | Severidad | Hallazgo | Origen | Estado |
+|----|-----------|----------|--------|--------|
+| REC-<NN> | Media | <decisión/lección sin reflejo en backlog/progreso> | lessons/decisions <fecha> | ⏳ pendiente reconciliar |
+```
+
+### C. Cerrar
+
+Report al usuario: "N entradas nuevas en memoria, M divergencias detectadas, K pendientes de reconciliar".
+Sin divergencia → no tocar backlog/progreso. Nunca silenciar una entrada de memoria cuyo ID no existe
+en el proyecto — es el desync exacto que este trigger existe para atrapar.
+
+> **Marker de reconciliación:** el patrón `reconcil|Reconciliación|reconciliation` identifica este
+> mecanismo en el skill (usado por el check de cobertura del harness).
 
 ---
 
