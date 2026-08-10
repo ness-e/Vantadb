@@ -910,6 +910,61 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Cheap existence probe for `batch_insert` index/cardinality bookkeeping.
+    ///
+    /// ERR-037: the previous per-node `self.get()` did a full read-path per node
+    /// (active-txn lock, cache write lock, KV metadata read, HNSW lookup, vstore
+    /// mmap vector read + clone) — the vector payload was cloned and discarded.
+    /// This probe returns only `relational` + `edges` (all bookkeeping needs),
+    /// from a shared read-only cache peek or the KV metadata blob, skipping the
+    /// HNSW/vstore vector I/O entirely.
+    ///
+    /// Ordering parity with `get()`: active txn buffer first (read-your-writes),
+    /// then cache, then backend. A disk-tombstoned-but-KV-present node surfaces
+    /// as Some; the resulting index removes are no-ops and converge with the
+    /// re-insert below (same final state as the prior get()-based path).
+    fn existing_for_batch(&self, id: u128) -> Option<UnifiedNode> {
+        // Read-your-writes: check active txn buffer first (parity with get())
+        {
+            let active = self.active_txns.lock();
+            if active.len() == 1 {
+                let txn_id = *active.iter().next().unwrap();
+                drop(active);
+                let buffers = self.txn_buffers.lock();
+                if let Some(buffer) = buffers.get(&txn_id) {
+                    for op in buffer.iter().rev() {
+                        match op {
+                            BufferedWrite::Insert(node) if node.id == id => {
+                                return Some(node.clone());
+                            }
+                            BufferedWrite::Delete(del_id) if *del_id == id => {
+                                return None;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+
+        // Shared read() only — no write lock, no hits bookkeeping (probe, not a read).
+        if let Some(node) = self.volatile_cache.read().get(&id) {
+            if !node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
+                return Some(node.clone());
+            }
+            return None;
+        }
+
+        let key = id.to_le_bytes();
+        let metadata_res = self.backend.get(BackendPartition::Default, &key).ok()??;
+        let metadata: NodeMetadata =
+            crate::storage::ops::deserialize_node_payload(&metadata_res, "node metadata").ok()?;
+        let mut node = UnifiedNode::new(id);
+        node.relational = metadata.relational;
+        node.edges = metadata.edges;
+        Some(node)
+    }
+
     /// Insert multiple nodes in a single batch operation.
     ///
     /// Reduces I/O and lock contention by batching WAL records, KV backend writes,
@@ -970,9 +1025,11 @@ impl StorageEngine {
             let existing: Vec<Option<UnifiedNode>> = if opts.skip_existing_check {
                 vec![None; nodes.len()]
             } else {
+                // ERR-037: existence probe instead of full get() per node —
+                // no cache write lock, no HNSW/vstore vector read+clone.
                 nodes
                     .par_iter()
-                    .map(|n| self.get(n.id).unwrap_or(None))
+                    .map(|n| self.existing_for_batch(n.id))
                     .collect()
             };
             let mut stats = self.cardinality_stats.write();
@@ -1039,7 +1096,7 @@ impl StorageEngine {
             let mut stats = self.cardinality_stats.write();
             for node in nodes {
                 if !opts.skip_existing_check {
-                    if let Ok(Some(existing_node)) = self.get(node.id) {
+                    if let Some(existing_node) = self.existing_for_batch(node.id) {
                         for (field, value) in &existing_node.relational {
                             let val_keys = value.to_cardinality_keys();
                             if let Some(val_map) = stats.get_mut(field.as_str()) {
