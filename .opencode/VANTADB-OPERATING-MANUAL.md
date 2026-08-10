@@ -877,8 +877,6 @@ Después de completar: skill progreso
       RULES.md (413L)                ← Reglas invariantes
       tasks/                         ← Task files (DRV-*, P0-*, P1-*, etc.)
     progreso/                        ← Migración de tareas
-    vantadb-certify/                 ← (deprecated, reemplazado por unified-review)
-    vantadb-audit/                   ← (deprecated, reemplazado por unified-review)
     unified-review/                  ← Review, audit & certification unificado (reemplaza a los 3 legacy) 
     review-deep/                     ← Revisión por módulo
     (19 skills engineering más)
