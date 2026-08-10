@@ -49,11 +49,11 @@ pip install vantadb-py
 ```
 
 ```python
-from vantadb import VantaEmbedded
+import vantadb_py as vantadb
 
-db = VantaEmbedded("./my_memory")
-db.put("doc1", vector=[0.1, 0.2, ...], text="Hello world")
-results = db.search(vector=[0.1, 0.2, ...], top_k=10)
+db = vantadb.VantaDB("./my_memory")
+db.put("default", "doc1", "Hello world", vector=[0.1, 0.2, 0.3])
+results = db.search_memory("default", [0.1, 0.2, 0.3], top_k=10)
 ```
 
 **That's all.** No accounts, no API keys, no provisioning.
@@ -75,31 +75,31 @@ results = db.search(vector=[0.1, 0.2, ...], top_k=10)
 # Instalación
 # pip install vantadb-py
 
-from vantadb import VantaEmbedded
+import vantadb_py as vantadb
 
 #1. Create instance (without configuration)
-db = VantaEmbedded("./agent_memory")
+db = vantadb.VantaDB("./agent_memory")
 
 #2. Save memory (without prior schema)
 db.put(
+    namespace="default",
     key="conversation_001",
-    vector=[0.12, -0.34, 0.56, ...], # 384 dimensions
-    text="The user prefers concise answers",
+    payload="The user prefers concise answers",
     metadata={
         "timestamp": "2026-06-12T10:30:00Z",
         "user_id": "user_123",
         "confidence": 0.95
-    }
+    },
+    vector=[0.12, -0.34, 0.56], # 384 dimensions
 )
 
 #3. Search (without setting indexes)
-results = db.search(
-    vector=[0.11, -0.33, 0.55, ...],
+results = db.search_memory(
+    namespace="default",
+    query_vector=[0.11, -0.33, 0.55],
     top_k=5,
-    filter={"user_id": "user_123"}
+    filters={"user_id": "user_123"},
 )
-
-#4. Everything works. No configuration.
 ```
 
 ## Zero-Config Trade-offs
@@ -115,17 +115,15 @@ results = db.search(
 VantaDB allows advanced configuration **when necessary**, but does not require it:
 
 ```python
-# Zero-config (default)
-db = VantaEmbedded("./data")
+import vantadb_py as vantadb
 
-# Advanced settings (optional)
-db = VantaEmbedded(
+# Zero-config (default)
+db = vantadb.VantaDB("./data")
+
+# Advanced settings (via constructor kwargs: memory_limit_bytes, backend)
+db = vantadb.VantaDB(
     "./data",
-    config={
-        "hnsw": {"M": 32, "ef_construction": 400},
-        "wal": {"sync_mode": "always"},
-        "memory_limit_mb": 4096
-    }
+    memory_limit_bytes=4096 * 1024 * 1024,  # memory_limit_mb: 4096
 )
 ```
 

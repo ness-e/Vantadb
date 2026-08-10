@@ -73,14 +73,11 @@ impl CPIndex {
 ### Parámetros de Configuración
 
 ```python
-db = VantaEmbedded("./data", config={
-    "hnsw": {
-        "M": 16,                    # Conexiones por nodo
-        "ef_construction": 200,     # Candidatos en construcción
-        "ef_search": 100,           # Candidatos en búsqueda
-        "metric": "cosine"          # "cosine", "euclidean", "dot"
-    }
-})
+import vantadb_py as vantadb
+
+# HNSW params (M, ef_construction, ef_search) + metric live in the Rust engine
+# config, not the constructor.
+db = vantadb.VantaDB("./data")  # metric: "cosine" (default), "euclidean", "dot"
 ```
 
 ### Aceleración SIMD

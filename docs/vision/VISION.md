@@ -65,18 +65,23 @@ VantaDB eliminates the fragmentation problem for AI agent developers by providin
 
 **Typical Use Case:**
 ```python
-from vantadb import VantaEmbedded
+import vantadb_py as vantadb
 
-db = VantaEmbedded("./agent_memory")
+db = vantadb.VantaDB("./agent_memory")
 
 db.put(
+    namespace="agent/main",
     key="conversation_2026_06_12",
+    payload="User prefers concise responses",
+    metadata={"type": "preference", "confidence": 0.95},
     vector=embed("User prefers concise responses"),
-    text="User prefers concise responses",
-    metadata={"type": "preference", "confidence": 0.95}
 )
 
-context = db.search(vector=embed("What does the user prefer?"), top_k=5)
+context = db.search_memory(
+    namespace="agent/main",
+    query_vector=embed("What does the user prefer?"),
+    top_k=5,
+)
 response = llm.generate(prompt + "\n\nContext:\n" + format_results(context))
 ```
 

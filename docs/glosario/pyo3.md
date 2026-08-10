@@ -21,8 +21,8 @@ description: "Rust framework to create Python extensions and bidirectional bindi
 ```
 ┌─────────────────────────────────────┐
 │         Código Python                │
-│  import vantadb                      │
-│  db = vantadb.VantaEmbedded("./data")│
+│  import vantadb_py as vantadb        │
+│  db = vantadb.VantaDB("./data")      │
 └──────────────┬──────────────────────┘
                │
                ▼
@@ -108,31 +108,33 @@ maturin develop
 ### Use from Python
 
 ```python
-from vantadb import VantaEmbedded
+import vantadb_py as vantadb
 
 # Create instance
-db = VantaEmbedded("./agent_memory")
+db = vantadb.VantaDB("./agent_memory")
 
 # Insert document with vector
 db.put(
+    namespace="default",
     key="doc1",
-    vector=[0.12, -0.34, 0.56, ...],
-    text="VantaDB is an embedded database",
-    metadata={"source": "web", "date": "2026-06-12"}
+    payload="VantaDB is an embedded database",
+    metadata={"source": "web", "date": "2026-06-12"},
+    vector=[0.12, -0.34, 0.56],
 )
 
 # Search by vector similarity
-results = db.search(
-    vector=[0.11, -0.33, 0.55, ...],
-    top_k=10
+results = db.search_memory(
+    namespace="default",
+    query_vector=[0.11, -0.33, 0.55],
+    top_k=10,
 )
 
 # hybrid-search (vector + lexical)
-results = db.search(
-    vector=[0.11, -0.33, 0.55, ...],
-    text="database",
+results = db.search_memory(
+    namespace="default",
+    query_vector=[0.11, -0.33, 0.55],
+    text_query="database",
     top_k=10,
-    mode="hybrid"
 )
 ```
 

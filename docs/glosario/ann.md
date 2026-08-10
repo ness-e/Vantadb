@@ -100,32 +100,14 @@ $$
 ### Recall vs Latency Trade-off
 
 ```python
-# Alta calidad (más lento)
-db = VantaEmbedded("./data", config={
-    "hnsw": {
-        "ef_search": 500,  # Más candidatos
-        "M": 32            # Más conexiones
-    }
-})
-# Recall: 0.998, Latencia: 15ms
+import vantadb_py as vantadb
 
-# Balanced
-db = VantaEmbedded("./data", config={
-    "hnsw": {
-        "ef_search": 100,
-        "M": 16
-    }
-})
-# Recall: 0.956, Latency: 6ms
-
-# High speed (less accurate)
-db = VantaEmbedded("./data", config={
-    "hnsw": {
-        "ef_search": 50,
-        "M": 8
-    }
-})
-# Recall: 0.890, Latency: 3ms
+# HNSW params (M, ef_construction, ef_search) live in the Rust engine config,
+# not the constructor. ef_search is auto-tuned at runtime.
+db = vantadb.VantaDB("./data")
+# Alta calidad (más lento) — Recall: 0.998, Latencia: 15ms
+# Balanced — Recall: 0.956, Latency: 6ms
+# High speed (less accurate) — Recall: 0.890, Latency: 3ms
 ```
 
 ## VantaDB Benchmarks (SIFT1M)

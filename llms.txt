@@ -18,11 +18,21 @@
 ## Quick Start
 ### Python
 ```python
-from vantadb import VantaEmbedded
+import vantadb_py as vantadb
 
-db = VantaEmbedded(path="./memory")
-db.put("key1", [0.1, 0.2, 0.3], {"source": "chat"})
-results = db.search([0.1, 0.2, 0.3], top_k=5)
+db = vantadb.VantaDB("./memory")
+db.put(
+    namespace="default",
+    key="key1",
+    payload="hello world",
+    metadata={"source": "chat"},
+    vector=[0.1, 0.2, 0.3],
+)
+results = db.search_memory(
+    namespace="default",
+    query_vector=[0.1, 0.2, 0.3],
+    top_k=5,
+)
 ```
 
 ### Rust

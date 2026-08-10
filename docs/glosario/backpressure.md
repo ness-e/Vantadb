@@ -68,14 +68,12 @@ impl VantaEmbedded {
 ## Configuration
 
 ```python
-db = VantaEmbedded(
+import vantadb_py as vantadb
+
+# Backpressure tuning lives in the Rust engine config, not the constructor
+db = vantadb.VantaDB(
     "./data",
-    config={
-        "memory": {
-            "max_ram_mb": 4096,           # Límite absoluto
-            "backpressure_threshold": 0.8  # Activar al 80%
-        }
-    }
+    memory_limit_bytes=4096 * 1024 * 1024,  # Límite absoluto (vía memory_limit_bytes)
 )
 ```
 
@@ -84,15 +82,15 @@ db = VantaEmbedded(
 ###Python
 
 ```python
-from vantadb import VantaEmbedded, VantaError
+import vantadb_py as vantadb
 
 try:
-    db.put(key="doc1", vector=[...])
-except VantaError.BackpressureActive as e:
+    db.put(namespace="default", key="doc1", payload="...", vector=[...])
+except RuntimeError as e:
     print(f"System under load: {e}")
     # Wait and retry
     time.sleep(1)
-    db.put(key="doc1", vector=[...])
+    db.put(namespace="default", key="doc1", payload="...", vector=[...])
 ```
 
 ### HTTP Server (429 Too Many Requests)

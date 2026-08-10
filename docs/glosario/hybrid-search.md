@@ -120,34 +120,30 @@ impl HybridSearch {
 ### Uso desde Python
 
 ```python
-from vantadb import VantaEmbedded
+import vantadb_py as vantadb
 
-db = VantaEmbedded("./data")
+db = vantadb.VantaDB("./data")
 
-# busqueda-hibrida
-results = db.search(
-    vector=embed("¿Cómo funciona la persistencia?"),
-    text="persistencia WAL durability",
+# busqueda-hibrida (vector + BM25 con RRF dentro de search_memory)
+results = db.search_memory(
+    namespace="default",
+    query_vector=embed("¿Cómo funciona la persistencia?"),
+    text_query="persistencia WAL durability",
     top_k=10,
-    mode="hybrid"  # Usa HNSW + BM25 + RRF
 )
 
 for result in results:
     print(f"{result.key}: {result.score:.4f}")
-    print(f"  {result.text[:100]}...")
+    print(f"  {result.payload[:100]}...")
 ```
 
 ### Configuración
 
 ```python
-db = VantaEmbedded("./data", config={
-    "hybrid": {
-        "rrf_k": 60,              # Constante de suavizado
-        "vector_weight": 0.5,     # Peso relativo (para weighted fusion)
-        "text_weight": 0.5,       # Peso relativo
-        "min_score": 0.01         # Score mínimo para incluir
-    }
-})
+import vantadb_py as vantadb
+
+# RRF fusion happens inside search_memory when both query_vector and text_query are set
+db = vantadb.VantaDB("./data")
 ```
 
 ## Modos de Fusión
@@ -155,11 +151,12 @@ db = VantaEmbedded("./data", config={
 ### 1. RRF (Default)
 
 ```python
-results = db.search(
-    vector=query_vector,
-    text=query_text,
-    mode="hybrid"  # RRF con k=60
-)
+results = db.search_memory(
+    namespace="default",
+    query_vector=query_vector,
+    text_query=query_text,
+    top_k=10,
+)  # RRF con k=60 (default del motor)
 ```
 
 **Ventajas:**

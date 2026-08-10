@@ -83,29 +83,29 @@ pub struct Posting {
 ### Configuración
 
 ```python
-db = VantaEmbedded("./data", config={
-    "bm25": {
-        "k1": 1.2,    # Saturación de TF
-        "b": 0.75     # Normalización de longitud
-    }
-})
+import vantadb_py as vantadb
+
+# BM25 tuning lives in the Rust engine config, not the constructor
+db = vantadb.VantaDB("./data")
 ```
 
 ### Uso
 
 ```python
-# busqueda-lexica pura
-results = db.search(
-    text="base de datos embebida",
+# busqueda-lexica pura (solo BM25, sin vector)
+results = db.search_memory(
+    namespace="default",
+    query_vector=[],
+    text_query="base de datos embebida",
     top_k=10,
-    mode="text"  # Solo BM25
 )
 
 # Phrase query (comillas)
-results = db.search(
-    text='"base de datos"',
+results = db.search_memory(
+    namespace="default",
+    query_vector=[],
+    text_query='"base de datos"',
     top_k=10,
-    mode="text"
 )
 ```
 

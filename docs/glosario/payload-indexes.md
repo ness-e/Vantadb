@@ -81,17 +81,10 @@ pub struct BooleanIndex {
 ### Python
 
 ```python
-db = VantaEmbedded(
-    "./data",
-    config={
-        "payload_indexes": [
-            {"field": "department", "type": "keyword"},
-            {"field": "year", "type": "integer"},
-            {"field": "score", "type": "float"},
-            {"field": "published", "type": "boolean"}
-        ]
-    }
-)
+import vantadb_py as vantadb
+
+# Payload index configuration lives in the Rust engine config, not the constructor
+db = vantadb.VantaDB("./data")
 ```
 
 ### Rust

@@ -108,9 +108,9 @@ agent = initialize_agent(
 
 ```python
 from crewai import Agent
-from vantadb import VantaEmbedded
+import vantadb_py as vantadb
 
-db = VantaEmbedded("./crew_memory")
+db = vantadb.VantaDB("./crew_memory")
 
 researcher = Agent(
     role="Researcher",

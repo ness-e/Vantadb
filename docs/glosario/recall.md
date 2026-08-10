@@ -99,32 +99,14 @@ fn test_hnsw_recall_sift1m() {
 ### Configuración Recomendada
 
 ```python
-# Alta precisión (recall > 0.98)
-db = VantaEmbedded("./data", config={
-    "hnsw": {
-        "M": 32,
-        "ef_construction": 400,
-        "ef_search": 200
-    }
-})
+import vantadb_py as vantadb
 
-# Balanceado (recall ~0.95)
-db = VantaEmbedded("./data", config={
-    "hnsw": {
-        "M": 16,
-        "ef_construction": 200,
-        "ef_search": 100
-    }
-})
-
-# Baja latencia (recall ~0.90)
-db = VantaEmbedded("./data", config={
-    "hnsw": {
-        "M": 8,
-        "ef_construction": 100,
-        "ef_search": 50
-    }
-})
+# HNSW params (M, ef_construction, ef_search) live in the Rust engine config,
+# not the constructor.
+db = vantadb.VantaDB("./data")
+# Alta precisión (recall > 0.98): M=32, ef_construction=400, ef_search=200
+# Balanceado (recall ~0.95): M=16, ef_construction=200, ef_search=100
+# Baja latencia (recall ~0.90): M=8, ef_construction=100, ef_search=50
 ```
 
 ## Recall vs Precision
