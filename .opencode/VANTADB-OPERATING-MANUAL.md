@@ -793,6 +793,7 @@ AL COMPLETAR:
 | Shell syntax error | Bash heredoc en PowerShell | Usar PowerShell nativo (`ConvertTo-Json`, `Out-File`) |
 | Verificación pre-push requerida | Hooks no instalados (sistema PowerShell) | Correr `dev-tools/verify.ps1` manualmente antes de push (Regla 1); template SIPP en `templates/pre-push.ps1` |
 | `bitacora.md` no encontrado | Archivo eliminado | Referenciar `docs/Backlog.md` o plan files |
+| Glob tool devuelve `No files found` en Windows para patrones válidos (`**/DRV-1*.md`, `.opencode/skills/*/SKILL.md`) | Falso negativo del glob tool con patrones recursivos/rutas relativas en Windows | Usar PowerShell: `Get-ChildItem -Recurse -Filter` (vía bash), `Test-Path -LiteralPath` + Read de directorios, o el glob tool con rutas absolutas |
 
 ---
 
