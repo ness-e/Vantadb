@@ -339,7 +339,8 @@ _(no duplicar)_
 ### Task 45: DOC-05 — Wikilinks Obsidian → rutas relativas
 
 - **Esfuerzo:** 🟢 · **Archivos:** `docs/README.md` | **DO** · **Contrato:** `rg "\[\[" docs/README.md` → no match
-- **Estado:** ⬜
+- **Estado:** ✅ DONE
+- **Ejecutado:** 282d33d6 — reemplazados 16 wikilinks Obsidian por enlaces markdown relativos verificados contra la estructura real de docs/; convención de enlaces internos actualizada
 
 ### Task 46: DOC-06 — Límite u64 documentado (ERR-023)
 
