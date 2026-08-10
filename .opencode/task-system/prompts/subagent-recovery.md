@@ -64,8 +64,11 @@ Nivel 4  ESCALATE — a humano
    su presupuesto → ESCALATE sin más intentos. Max sub-agentes totales: ver SKILL.md (HARD STOP).
 6. **Contra-stall:** si 2 recuperaciones consecutivas del mismo nivel no avanzan → subí de nivel.
    3 resultados no-DONE seguidos en la misma tarea → pausá y preguntá al usuario (NO_PROGRESS_LIMIT).
-7. **Registro final:** SIEMPRE `campaign_update_task_state` + recitation indicando el nivel de la
-   escalera alcanzado y la razón del resultado final.
+7. **Registro final (SARL trace — obligatorio):** además de `campaign_update_task_state` + recitation,
+   registrá SIEMPRE el peldaño alcanzado y el desenlace vía SARL trace sobre la sesión del taskId:
+   `campaign_session_track (action="update", context=@{ sarlRung = <1..4>; outcome = DONE|INCOMPLETE|UNEXPECTED|FAILED; reason = "<motivo>" })`
+   o la función `Add-VantaSarlEvent` de `enforcement/session-tracking.ps1` con los mismos campos.
+   Sin este registro el loop de aprendizaje del protocolo queda incompleto.
 
 ## 4. Qué pedirle SIEMPRE al sub-agente (contrato de retorno)
 

@@ -634,6 +634,67 @@ function Remove-VantaSession {
     $script:SessionCache.Remove($InstanceId) | Out-Null
 }
 
+<#
+.SYNOPSIS
+    Records a SARL recovery event for a task's session.
+.DESCRIPTION
+    Appends a Sub-Agent Recovery Protocol (SARL) trace entry to the session
+    identified by TaskId: ladder rung reached (1..4), outcome, and reason.
+    Persists in the same session JSON file as the rest of the module. If the
+    session does not exist yet, a bare trace record is created so recovery
+    events are never lost.
+.PARAMETER TaskId
+    Task identifier (used as the session key).
+.PARAMETER SarlRung
+    Recovery ladder rung reached (1 RESUME, 2 RETRY, 3 STRATEGY, 4 ESCALATE).
+.PARAMETER Outcome
+    Final disposition: DONE, INCOMPLETE, UNEXPECTED or FAILED.
+.PARAMETER Reason
+    Why the recovery ended that way.
+.PARAMETER Ts
+    Optional timestamp (ISO 8601). Defaults to UTC now.
+.EXAMPLE
+    Add-VantaSarlEvent -TaskId "P1-2" -SarlRung 2 -Outcome DONE -Reason "retried clean"
+#>
+function Add-VantaSarlEvent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$TaskId,
+
+        [Parameter(Mandatory)]
+        [ValidateRange(1, 4)]
+        [int]$SarlRung,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('DONE', 'INCOMPLETE', 'UNEXPECTED', 'FAILED')]
+        [string]$Outcome,
+
+        [string]$Reason = $null,
+
+        [string]$Ts = $null
+    )
+
+    $session = Get-VantaSession $TaskId
+    if (-not $session) {
+        $session = @{ instance_id = $TaskId }
+    }
+    if (-not $session.instance_id) { $session.instance_id = $TaskId }
+
+    if (-not $session.sarl_log) { $session.sarl_log = @() }
+
+    $event = @{
+        sarlRung = $SarlRung
+        outcome  = $Outcome
+        reason   = $Reason
+        ts       = if ($Ts) { $Ts } else { ([datetime]::UtcNow).ToString('o') }
+    }
+    $session.sarl_log += $event
+
+    Save-SessionToDisk $session
+    return $event
+}
+
 # ============================================================================
 # Export module members
 # ============================================================================
@@ -656,4 +717,5 @@ Export-ModuleMember -Function @(
     'Set-VantaPlanLimit'
     'Get-VantaSessionList'
     'Remove-VantaSession'
+    'Add-VantaSarlEvent'
 )
