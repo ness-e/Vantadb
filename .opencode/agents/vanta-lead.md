@@ -175,8 +175,19 @@ Cuando el usuario invoca `/pipeline task <ID>` o `/build <ID>`, **NO** implement
 1. **Lookup** — busco la tarea en `docs/Backlog.md` o `docs/plans/`
 2. **Analizar tipo** — uso `campaign_detect_task_type` + `campaign_classify_workflow` para determinar el tipo
 3. **Cargar skills** — `campaign_load_skills` según archivos clave de la tarea
-4. **Crear task file** — `.opencode/skills/campaign-executor/tasks/<ID>.md` con instrucciones precisas
-5. **Delegar** — lanzo `task(description, prompt, subagent_type)` al agente correcto
+4. **Resolver task file** — si `.opencode/skills/campaign-executor/tasks/<ID>.md` no existe,
+   crealo con las 4 fases de `prompts/task.md` (auto-detect type → codegraph blast radius →
+   web research si ambigüedad → steps atómicos). Si ya existe, leelo para saber dónde quedó.
+5. **Delegar** — lanzo `task(description, prompt, subagent_type)` al agente correcto (tabla Routing).
+   El prompt del sub-agente SIEMPRE referencia `pipeline-full.md` (profundidad unificada:
+   DISCOVERY → EJECUCIÓN → CIERRE) y exige el bloque `RESULTADO` al final — nunca prompt inline.
+6. **Clasificar resultado** — según `prompts/subagent-recovery.md` (SARL):
+   - `✅ COMPLETO` → revisión post-delegación
+   - `🟡 INCOMPLETO` / `❌ FALLIDO` / sin resultado / se detuvo solo
+     → aplicar escalera: (1) **RESUME** misma sesión con `task(task_id=<T>)` y feedback del próximo
+       step ⬜ PENDING; (2) **RETRY** con sub-agente fresco (digest ~200 tokens); (3) **STRATEGY**
+       distinta con `campaign_mom_escalate`; (4) **ESCALATE** a humano → `"failed"`.
+   - Nunca tratar INCOMPLETO como FAILED; nunca rehacer trabajo del task file/worktree.
 
 ### Tabla de Routing
 
@@ -198,9 +209,11 @@ Cuando el usuario invoca `/pipeline task <ID>` o `/build <ID>`, **NO** implement
 Después de que el sub-agente termina, YO (vanta-lead) hago:
 
 1. `codegraph_explore` de los archivos modificados para entender el cambio
-2. Verificar que el cambio cumple con el objetivo de la tarea
-3. Si es código: `cargo check -p <crate>` o `just verify-quick` (dependiendo de la tarea)
-4. Reportar resultado al usuario
+2. **Verify mecánico obligatorio:** `campaign_verify_cmd` con el contrato del task file.
+   Si no pasa, el resultado no cuenta como completado → volvés a la escalera SARL.
+3. Verificar que el cambio cumple con el objetivo de la tarea
+4. Si es código: `cargo check -p <crate>` o `just verify-quick` (dependiendo de la tarea)
+5. Reportar resultado al usuario
 
 ### Paralelismo
 

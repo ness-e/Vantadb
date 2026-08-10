@@ -5,6 +5,11 @@
 > Seguir el flujo según estado (PENDING / IN PROGRESS / FAILED).
 > Al finalizar: commit, actualizar plan file, ejecutar skill progreso, handoff y STOP.
 > NO continuar a la siguiente tarea — el loop externo (pipeline-run / sub-agentes) lo maneja.
+> **PROFUNDIDAD UNIFICADA:** este prompt es la forma canónica de ejecutar UNA tarea
+> (usado por `/pipeline task`, `/pipeline run` y vanta-lead). Incluye el DISCOVERY completo
+> (crea el task file si no existe) y el cierre completo. Si no podés terminar, devolvé
+> el bloque `RESULTADO` del § Resultado con el trabajo hecho — **nunca te detengas en silencio**;
+> el orquestador reanuda vía `subagent-recovery.md` (SARL).
 
 Las skills base (campaign-executor, progreso, ponytail) se cargan automáticamente vía MCP — no las cargues manualmente.
 
@@ -50,7 +55,10 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 - `codegraph_explore` para blast radius (nombrando los `Archivos clave` de la task)
 - Web research (MetaSearchMCP/Argus) si hay ambigüedad en APIs externas
 - Descomponé en steps atómicos
-- Creá task file en `.opencode/skills/campaign-executor/tasks/<ID>.md`
+- Creá task file en `.opencode/skills/campaign-executor/tasks/<ID>.md` SI NO EXISTE.
+  **Si ya existe** (tarea reanudada tras un intento previo), LEELO y continuá desde el primer
+  step ⬜ PENDING — **no re-hagas steps ya ✅ ni pisés el trabajo hecho.**
+  El trabajo parcial vive en el worktree (git diff) y en el task file: respetalo.
 
 **Implementación:**
 - Llamá `campaign_update_task_state` con `"in-progress"` y recitation
@@ -67,7 +75,9 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 - Self-Harness Gate: propose → evaluate → accept
 - Pre-commit Gate: Definition of Done + checklists por tipo
 - **Pre-commit: skill code-review-and-quality** antes del commit final
-- Budget: máx 5 iteraciones por tarea
+- Budget: máx 5 iteraciones por tarea. **Si se agota el budget sin completar → devolvé
+  `RESULTADO: 🟡 INCOMPLETO` con el próximo step ⬜ PENDING; NO lo marques FAILED solo por budget.**
+  El orquestador decide RESUME/RETRY vía subagent-recovery.md.
 
 **Cierre:**
 - Verify full:
@@ -95,7 +105,9 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 - Continuá con el próximo step (PLAN → ACT → VERIFY)
 - Si verify falla: retry ladder (mismo que arriba)
 - Errores colaterales: rápido (<30min) se arregla, lento se difiere a Backlog
-- Budget: 5 iteraciones máximas por tarea, 2 stalls consecutivos → ❌ FAILED
+- Budget: 5 iteraciones máximas por tarea, 2 stalls consecutivos → ❌ FAILED.
+  Si el presupuesto se agota sin terminar → devolvé `🟡 INCOMPLETO` con próximo step,
+  no te cierres en silencio.
 
 **Cuando el último step esté completo + verificado + commiteado:**
 - Llamá `campaign_update_task_state` con `"completed"` y recitation
@@ -146,6 +158,32 @@ loope vos mismo.
 | Todas | `/pipeline run` | Usa sub-agentes, invoca este prompt por tarea |
 | Plan | `/pipeline plan backlog.md` | Crea plan desde backlog |
 | Interactivo | `/pipeline` | Detecta estado y sugiere próximo paso |
+
+### 7. RESULTADO — contrato de retorno obligatorio
+
+Al final de CADA invocación devolvé ESTE bloque (el orquestador lo parsea para
+decidir si la tarea está terminada o requiere reintentar/reanudar):
+
+```
+RESULTADO: ✅ COMPLETO | 🟡 INCOMPLETO | ❌ FALLIDO | ⚠️ SIN-FORMATO
+STEPS_OK: <n>/<M> total steps
+PROXIMO_STEP: <nombre del próximo step pendiente, o "ninguno">
+COMMIT_HASH: <hash o "ninguno">
+ARCHIVOS: <paths tocados>
+VERIFY_CONTRATO: <pasa | no-corrido | falla>
+BLOQUEO: <ninguno | qué impidió terminar>
+```
+
+- `✅ COMPLETO`: todos los steps ✅ + `campaign_verify_cmd` del contrato pasa + commit hecho.
+- `🟡 INCOMPLETO`: hay trabajo parcial (steps ✅ y ⬜ restantes). Decime el próximo step.
+  Ocurre cuando: se agotó el budget, te detuviste a pedir aclaración, o el sub-proceso fue
+  interrumpido. **SIEMPRE** actualizá el task file (steps ✅ + Context Save Point) antes de
+  devolver INCOMPLETO — es lo que permite reanudar sin perder nada.
+- `❌ FALLIDO`: agotaste el retry ladder interno (4 escalones) en VERIFY.
+- `⚠️ SIN-FORMATO`: no devolviste el bloque — el orquestador va a re-invocarte pidiéndolo.
+
+**Nunca** devuelvas resultados vacíos, "lista", o silencio. Si no pudiste terminar,
+la información del bloque es el handoff para que el siguiente intento continúe.
 
 REGLAS (del campaign-executor RULES.md):
 - Usá `campaign_get_next_task` (MCP) o leé el plan file directamente

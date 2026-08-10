@@ -225,6 +225,28 @@ last-synced: YYYY-MM-DDTHH:MM
 | 3 | Estrategia materialmente distinta |
 | 4 | Escalar a humano: documentar intentos, commit WIP, ❌ FAILED |
 
+## Sub-Agent Recovery Protocol (SARL)
+
+Cuando un sub-agente (de `/pipeline run` o `/pipeline task`) devuelve un resultado
+incompleto, fallido, detenido, vacío o inesperado, el orquestador aplica la escalera
+canónica de `prompts/subagent-recovery.md`:
+
+1. **RESUME** — misma sesión del sub-agente (`task(task_id=<T>, subagent_type=<mismo>)`)
+   con feedback del próximo step ⬜ PENDING. El contexto Y el worktree persisten.
+2. **RETRY** — sub-agente fresco del mismo tipo con digest ~200 tokens + task file.
+3. **STRATEGY** — enfoque materialmente distinto (opcional `campaign_mom_escalate`).
+4. **ESCALATE** — humano: documentar intentos, commit WIP, `campaign_update_task_state "failed"`.
+
+Reglas: **INCOMPLETE nunca se trata como FAILED** (casi siempre se arregla con RESUME);
+los steps ✅ y el Context Save Point del task file son el estado durable — jamás se rehacen;
+entre intentos corre `campaign_verify_cmd` del contrato (sin verify no cuenta); cada intento
+consume budget (`campaign_budget_consume resource="fail"`); 3 resultados no-DONE seguidos →
+pausar y preguntar al usuario.
+
+Contraparte del sub-agente: cada sub-agente DEBE devolver el bloque `RESULTADO`
+(✅/🟡/❌/⚠️ + STEPS_OK + PROXIMO_STEP + COMMIT_HASH + VERIFY_CONTRATO + BLOQUEO)
+para que el orquestador decida el nivel de recovery sin adivinar.
+
 ## Budget management
 
 Los límites se enforcean en runtime vía `campaign_budget_consume` y `campaign_verify_cmd` (que consume automáticamente). Estado persistido en `docs/plans/<plan>.budget.json`.
@@ -283,9 +305,15 @@ campaign-executor es el núcleo del sistema de tareas. Se relaciona con:
 
 ```
 /pipeline plan docs/Backlog.md   → plan.md → docs/plans/<file>.md
-/pipeline task DRV-NN            → task.md → tasks/<ID>.md
-/pipeline run                    → .opencode/task-system/harness/harness-executor.ps1 + iter-loop-tools.md
+/pipeline task DRV-NN            → task.md (define task) → pipeline-full.md (ejecuta) → vanta-*
+/pipeline run                    → pipeline-run.md (orquestador) → pipeline-full.md por sub-agente
+                                   → subagent-recovery.md (SARL) para resultados no-DONE
+/pipeline ejecución              → iter-loop-tools.md (harness, 1 iteración)
 ```
+
+**Prompt canónico de ejecución:** `pipeline-full.md` es la forma ÚNICA de ejecutar una tarea
+(DISCOVERY → EJECUCIÓN → CIERRE). `/pipeline task`, `/pipeline run` y vanta-lead delegan a él.
+Todos los sub-agentes devuelven el bloque `RESULTADO` (ver § Resultado de pipeline-full.md).
 
 ## Apéndice A: Comandos rápidos VantaDB
 
@@ -386,6 +414,13 @@ la recitation. No avances sin haber completado verificación, commit, progreso."
   │
   ├─ plan.md: triage gate → docs/plans/<fecha>.md
   │
+  ├─ /pipeline run → pipeline-run.md (orquestador)
+  │   │
+  │   ├─ por tarea: routing por `Ruta` → sub-agent vanta-* → ejecuta pipeline-full.md
+  │   │   ├─ DISCOVERY: task file (si no existe) → EJECUCIÓN → CIERRE
+  │   │   ├─ resultado no-DONE → subagent-recovery.md (RESUME → RETRY → STRATEGY → ESCALATE)
+  │   │   └─ de una tarea por iteración
+  │   │
   ├─ .opencode/task-system/harness/harness-executor.ps1
   │   │
   │   ├─ FASE 1: DISCOVERY (por tarea, 1 vez)

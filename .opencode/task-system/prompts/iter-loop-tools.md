@@ -192,6 +192,8 @@ Tareas independientes en paralelo vía sub-agentes. CIERRE steps que NO dependen
 - Grupo 2 (depende de build): `cargo nextest`, `cargo clippy`
 - Usá `task` tool para spawn sub-agentes; join all antes de avanzar
 - Máximo 3 sub-agentes simultáneos (RAM en Windows)
+- Si un sub-agente de fork/join devuelve resultado INCOMPLETO, vacío o se detuvo solo →
+  aplicá `prompts/subagent-recovery.md` (RESUME misma sesión con `task_id` → RETRY → STRATEGY → ESCALATE)
 
 ### MODO EJECUCIÓN — Flujo paso a paso
 

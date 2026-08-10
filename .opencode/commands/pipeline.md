@@ -114,8 +114,12 @@ Task ID: {id extraído después de "task "}
    2. Analyze: `campaign_detect_task_type` con archivos clave del plan/backlog
    3. Load skills: `campaign_load_skills` con archivos clave + skills extra según área
    4. Delegate: `task(subagent_type="vanta-<area>", prompt="...")` con entry point, acceptance criteria, y verification command
-   5. Review: el sub-agente devuelve resultado, revisalo
-    6. **Progreso**: ejecutá `skill progreso` (Trigger 1 — Complete a task) para:
+5. Review: el sub-agente devuelve resultado, revisalo. Si el resultado es INCOMPLETO,
+       FAILED, vacío o "se detuvo solo" → aplicá la escalera `prompts/subagent-recovery.md`
+       (RESUME misma sesión con `task_id` → RETRY fresco → STRATEGY → ESCALATE). Nunca rehagas
+       el trabajo ya hecho del task file/worktree. Verify mecánico (`campaign_verify_cmd`)
+       antes de dar la tarea por completada.
+     6. **Progreso**: ejecutá `skill progreso` (Trigger 1 — Complete a task) para:
       - **Eliminar la fila** del Backlog.md (no tachar; el registro queda en progreso/README.md; items removidos → BACKLOG_HISTORY.md)
       - Migrar a progreso/README.md (sin duplicados)
       - Actualizar el plan file si existe
@@ -145,6 +149,15 @@ Para ejecutar más:
 
 Ejecutá TODAS las tareas del plan file una por una hasta completar.
 Usá `prompts/pipeline-run.md` con el plan file correspondiente.
+
+> **Profundidad unificada:** cada tarea se ejecuta en un sub-agente que sigue
+> `prompts/pipeline-full.md` (DISCOVERY → EJECUCIÓN → CIERRE) — la MISMA profundidad que
+> `/pipeline task`. El sub-agente crea el task file si no existe o continúa el existente.
+> El tipo de sub-agente (`subagent_type`) sale del campo `Ruta` del plan
+> (vanta-worker, vanta-tuner, vanta-audit, …).
+> Si un sub-agente devuelve resultado incompleto/fallido/detenido → escalera SARL
+> (`prompts/subagent-recovery.md`): RESUME misma sesión → RETRY fresco → STRATEGY → ESCALATE.
+> Ningún INCOMPLETE se marca FAILED sin pasar por SARL; el trabajo hecho nunca se pierde.
 
 > Si no se especifica plan file, detectá automáticamente el más reciente en `docs/plans/`.
 > Si no hay plan file, mostrá error: "No hay plan file. Usá `/pipeline plan docs/Backlog.md` primero."
@@ -253,7 +266,7 @@ Mostrá el comando exacto para lo que sigue:
 |---------|----------|---------|
 | `/pipeline plan backlog.md` | Crear plan | `prompts/plan.md` |
 | `/pipeline task ID` | Definir tarea | `prompts/task.md` → `prompts/pipeline-full.md` |
-| `/pipeline run [plan]` | Ejecutar backlog completo | `prompts/pipeline-run.md` |
+| `/pipeline run [plan]` | Ejecutar backlog completo (profundidad unificada) | `prompts/pipeline-run.md` → `pipeline-full.md` por sub-agente + `subagent-recovery.md` |
 | `/pipeline` | Detectar estado y sugerir | auto-detect |
 | `/pipeline pipeline` | Una tarea por iteración | `/loop-goal` + `prompts/pipeline-full.md` |
 | `/pipeline ejecución` | Paso a paso con MCP | `/loop-goal` + `prompts/iter-loop-tools.md` |

@@ -2,7 +2,11 @@
 > Activado por `/pipeline run [plan]`.
 > Path resolution: `skills/X` → `.opencode/skills/X/`, `prompts/X.md` → `.opencode/task-system/prompts/X.md`
 > Procesar TODAS las tareas del plan file en una sesión usando sub-agentes.
-> Cada tarea se ejecuta en un sub-agente con contexto fresco.
+> **Profundidad UNIFICADA con `/pipeline task` y el harness:** cada tarea pasa por
+> DISCOVERY (task file con steps atómicos, blast radius, skills) → EJECUCIÓN → CIERRE
+> vía `pipeline-full.md`. NUNCA prompts inline de 7 líneas.
+> Cada sub-agente se ejecuta con `subagent_type` según el campo `Ruta` del plan.
+> Si un sub-agente devuelve resultado incompleto/fallido/detenido → `prompts/subagent-recovery.md` (SARL).
 > Al finalizar: skill progreso, checkpoint, detenerse.
 > Si FAIL_MODE=stop: detener en primera falla. Si skip: registrar y seguir.
 
@@ -51,72 +55,117 @@ estancadas.
    - `campaign_get_next_task` devuelve la primera ⬜ PENDING o null
    - Si no hay → **campaña completada**. Ejecutá `skill progreso`, detenete.
 
-6. MIENTRAS haya tareas pendientes:
-   a. Identificá: `id`, `name`, `contract`, `archivos clave`
-   b. Si FAIL_MODE=parallel y hay ≥2 tareas independientes → saltá a **Paso 6 (waves paralelas)**
-   c. Auto-cargá skills para el sub-agente:
-      Llamá `campaign_load_skills` (MCP) con los archivos clave para obtener
-      los skills exactos a cargar. Incluilos en el prompt del sub-agente.
-    d. RESEARCH ISOLATION: Si la tarea requiere leer muchos archivos (3+)
-       o documentación extensa, spawné PRIMERO un sub-agente de research:
-       Prompt: "research-agent.md (lee {archivos clave} o la documentación necesaria,
-       devolvé solo un Digest en el formato especificado)"
-       → Guardá el digest en memoria o pasalo al sub-agente siguiente
-    e. Spawn UN sub-agente via `task` tool:
-       Prompt mínimo (inline, no leas pipeline-full.md):
-       "Ejecutá UNA TAREA COMPLETA:
-        Task ID: {id}
-        Archivos: {archivos clave}
-        Contrato: {contract}
-        Descripción: {name}
-       Context Save: sí (escribe ## Context Save al final del task file)
+6. MIENTRAS haya tareas pendientes — por cada tarea (profundidad completa):
 
-        Research Digest: {si hay digest del paso research, incluílo aquí}
+   a. **Identificá:** `id`, `name`, `contract`, `archivos clave`, y el campo `Ruta` (sub-agente destino).
+      Si la tarea YA tiene task file (`.opencode/skills/campaign-executor/tasks/<id>.md`),
+      leelo para saber dónde quedó (steps ✅ / ⬜ / Context Save Point).
 
-        Skills a cargar: {skills de campaign_load_skills}
+   b. Si FAIL_MODE=parallel y hay ≥2 tareas independientes → saltá a **Paso 7 (waves paralelas)**.
 
-        Flujo:
-        1. Cargá skills con skill <nombre> (TODOS los listados)
-       2. codegraph_explore para blast radius (nombrá los archivos clave)
-       3. Zero-code planning: describí solución en ≤3 viñetas primero
-       4. Si es bug → systematic-debugging
-       5. Si es security → doubt-driven-development
-       6. Si tiene lógica nueva → test-driven-development
-       7. Implementá ~100 líneas, un step
-       8. Verify: campaign_verify_cmd (MCP)
-       9. Si verify falla: retry ladder (feedback → fresh context → strategy → FAILED)
-       10. Si pasa: git add <solo los archivos tocados en esta tarea> && git commit -m \"{type}({id}): {name}\"
-       11. Escribí Context Save Point en task file (decisiones, problemas)
-       12. Devolvé: resultado (✅/❌), commit hash, qué se hizo, archivos tocados"
-   e. Esperá resultado del sub-agente
-   f. Si `✅ completed`:
+   c. **Warmer de skills (orquestador):**
+      Llamá `campaign_load_skills` (MCP) con los archivos clave → skills + checks exactos.
+      Incluilos en el prompt del sub-agente (el sub-agente también se los auto-carga
+      dentro de `pipeline-full.md` — no dupliques carga de skills, solo pasalos como contexto).
+
+   d. **RESEARCH ISOLATION:** si la tarea requiere leer muchos archivos (3+) o documentación
+      extensa, spawné PRIMERO un sub-agente de research que devuelva un Digest:
+      Prompt: "research-agent.md (lee {archivos clave} o la documentación necesaria,
+      devolvé solo un Digest en el formato especificado)"
+      → Guardá el digest y pasalo al sub-agente de ejecución (evita robarle contexto).
+
+   e. **ROUTING por `Ruta` — nunca sub-agentes genéricos.**
+      Mapeá el campo `Ruta` del plan a `subagent_type`:
+
+      | `Ruta` en el plan | `subagent_type` |
+      |---|---|
+      | vanta-worker | `vanta-worker` |
+      | vanta-tuner | `vanta-tuner` |
+      | vanta-engine | `vanta-engine` |
+      | vanta-arch | `vanta-arch` |
+      | vanta-audit | `vanta-audit` |
+      | vanta-chaos | `vanta-chaos` |
+      | vanta-docs | `vanta-docs` |
+      | vanta-lead / CI / release / packaging | `vanta-lead` |
+      | (sin Ruta o desconocida) | `campaign_detect_task_type` (MCP) → rust: `vanta-worker`, frontend: `general`, python/ts: `vanta-worker`, server/security: `vanta-audit`, docs: `vanta-docs`, default: `general` |
+
+      Si la `Ruta` trae paréntesis (ej: "vanta-worker (con revisión vanta-audit)"),
+      tomá SOLO el primer token. La revisión secundaria la hace tu post-check (paso i).
+
+   f. **Spawn UN sub-agente de EJECUCIÓN** via `task` tool cuyo prompt SIEMPRE referencia
+      `pipeline-full.md` — misma profundidad que `/pipeline task`:
+
+      ```
+      "Cargá .opencode/task-system/prompts/pipeline-full.md y ejecutá UNA TAREA COMPLETA:
+       Task ID: {id}
+       Plan file: {ruta del plan}
+       Archivos clave: {archivos clave}
+       Contrato: {contract}
+       Descripción: {name}
+       Task file: .opencode/skills/campaign-executor/tasks/{id}.md
+       Research Digest: {si se generó en d, incluilo aquí}
+       Skills a cargar: {skills de campaign_load_skills}
+
+       Reglas del prompt:
+       1. Seguí pipeline-full.md al pie de la letra (DISCOVERY → EJECUCIÓN → CIERRE).
+       2. Si el task file no existe → crealo en DISCOVERY (steps atómicos, blast radius,
+          web research si hay ambigüedad, contrato, herramientas, Context Save Point).
+       3. Si el task file ya existe → NO re-hagas steps ya ✅; continuá desde el primer
+          step ⬜ PENDING. No pierdas trabajo hecho.
+       4. Cada step: ~100 líneas, verify mecánico con campaign_verify_cmd.
+       5. Cierre: verify full (fmt/clippy/nextest/docs) → commit conventional con task ID.
+       6. Al final devolvé SIEMPRE el bloque RESULTADO estructurado (ver § Resultado).
+       7. Si no podés terminar en el presupuesto, devolvé el trabajo hecho + el próximo
+          step — nunca te detengas en silencio."
+      ```
+
+   g. Esperá resultado del sub-agente.
+
+   h. **CLASIFICÁ el resultado** según `prompts/subagent-recovery.md` (SARL):
+      - `✅ COMPLETO` → pasá a (i)
+      - `🟡 INCOMPLETO` / `❌ FALLIDO` / `⚠️ SIN-FORMATO` / salida vacía / "se detuvo solo"
+        → aplicá la escalera SARL en orden:
+        1. **RESUME** misma sesión: `task(task_id=<id del sub-agente>, subagent_type=<mismo>,
+           prompt="<feedback procesado + próximo step ⬜ PENDING del task file + pedí RESULTADO>")`
+        2. **RETRY** fresco: nuevo sub-agente del mismo tipo con digest ~200 tokens.
+        3. **STRATEGY** distinta (puede escalar con `campaign_mom_escalate`).
+        4. **ESCALATE** a humano: documentar, commit WIP, `campaign_update_task_state "failed"`.
+      - Cada recovery consume `campaign_budget_consume resource="fail"`.
+      - Si 3 resultados no-DONE seguidos en la misma tarea → pausá y preguntá al usuario.
+
+   i. Si `✅ completed` (post-recovery):
       - `campaign_update_task_state` con `"completed"` y recitation apuntando a próxima
-      - `campaign_verify_cmd` con el contrato (doble verificación)
+      - `campaign_verify_cmd` con el contrato (doble verificación — sin verify no cuenta)
       - Si verify pasa → incrementar totalCompleted, reset consecutiveFails
-      - Si verify NO pasa → marcar como stalled, no contar como completed
+      - Si verify NO pasa → tratalo como INCOMPLETE y volvé a (h)
+      - Revisión secundaria según la `Ruta` (ej: "con revisión vanta-audit") → podés forkear
+        `vanta-audit` con `task` para validar el diff sobre el resultado antes de cerrar.
       - **Revisión cada 5 tareas:** si totalCompleted % 5 == 0, releé el plan file
         completo y verificá: (a) estados consistentes, (b) recitation legible,
         (c) no hay duplicados en progreso. Anotá "Review N/5: OK" en el plan.
-   g. Si `❌ failed`:
-      - Intentá retry con estrategia distinta (máx 1 retry)
-      - Si vuelve a fallar → `campaign_update_task_state` con `"failed"`
+
+   j. Si agotaste la escalera con ❌:
+      - `campaign_update_task_state` con `"failed"`
       - Incrementar totalFailed y consecutiveFails
       - Si FAIL_MODE=stop → detener el pipeline
       - Si FAIL_MODE=skip → registrar y continuar
       - Si consecutiveFails >= 3 → FAIL_MODE pasa a "stop" forzosamente
-   h. Stagnation Detection:
-      - Si 3 sub-agentes consecutivos fallan (aún con retry) → NO_PROGRESS_LIMIT
+
+   k. Stagnation Detection:
+      - Si 3 sub-agentes consecutivos fallan (aún con SARL) → NO_PROGRESS_LIMIT
       - Llamá `campaign_stalled_tasks` (MCP) para revisar estado
       - Pausá y preguntá al usuario
-   i. Budget ceilings:
-      - Max 20 sub-agentes totales (HARD STOP a los 20)
+
+   l. Budget ceilings:
+      - Max 20 sub-agentes totales (HARD STOP a los 20) — cada intento de la escalera cuenta
       - Max 3 consecutive fails (HARD STOP → preguntar)
       - Cada sub-agente: max 8 tool calls, ~2 min timeout
-   j. ACTUALIZAR checkpoint `docs/pipeline-state.json`:
+
+   m. ACTUALIZAR checkpoint `docs/pipeline-state.json`:
       ```json
       { "plan": "ruta", "totalCompleted": N, "totalFailed": K, "total": M, "consecutiveFails": C, "failMode": "stop|skip", "lastSync": "ISO" }
       ```
-   k. Leer plan file con `campaign_get_next_task` (MCP) y buscar próxima ⬜ PENDING
+   n. Leer plan file con `campaign_get_next_task` (MCP) y buscar próxima ⬜ PENDING
 
 7. WAVES PARALELAS (FAIL_MODE=parallel):
    a. Construí DAG de dependencias entre las N tareas pendientes:
@@ -130,10 +179,11 @@ estancadas.
       Wave 2: tareas que dependen de Wave 1
       ```
    c. MAX_CONCURRENT = min(3, tareas_en_wave)  # 3 por RAM en Windows (mismo límite que iter-loop-tools.md)
-   d. Por cada wave: spawn N sub-agentes en paralelo (task tool), esperá que
-      todos terminen, procesá resultados individuales (mismo que paso 6.f/6.g)
-   e. Si una tarea falla en parallel → las demás de la wave terminan, waves
-      siguientes NO arrancan. Reporte parcial.
+   d. Por cada wave: spawn N sub-agentes en paralelo (task tool) con el MISMO prompt de
+      profundidad completa del paso 6.f (pipeline-full.md) y routing del 6.e.
+      Esperá que todos terminen, clasificá cada resultado con SARL (6.h) individualmente.
+   e. Si una tarea falla en parallel → las demás de la wave terminan, waves siguientes NO
+      arrancan. Reporte parcial. La escalera SARL se aplica por sub-agente dentro de la wave.
 
 8. CUANDO no haya más ⬜ PENDING:
    - Reportá campaña completada: N/M ✅, K ❌, stalled: S
@@ -143,14 +193,21 @@ estancadas.
    - Detenete
 
 REGLAS:
+- **Profundidad unificada:** cada sub-agente sigue `pipeline-full.md` (DISCOVERY → EJECUCIÓN → CIERRE).
+  NUNCA prompts inline. El task file es el estado durable — si existe, continuá, no re-creees.
+- **Routing por `Ruta`:** `subagent_type` sale del campo `Ruta` del plan (tabla 6.e).
+- **Recuperación:** cualquier resultado no-DONE → `prompts/subagent-recovery.md` (RESUME misma sesión
+  → RETRY fresco → STRATEGY → ESCALATE). Nunca tratar INCOMPLETE como FAILED.
+- **Preservación:** nunca borrar/rehacer trabajo del sub-agente. El Context Save Point + steps del
+  task file son la fuente de verdad para reanudar.
 - FAIL_MODE=stop: primera falla → detener
 - FAIL_MODE=skip: fallas registradas, sigue. Si 3 consecutivas → pasa a stop forzoso
 - FAIL_MODE=parallel: waves con MAX_CONCURRENT=3, DAG de dependencias
-- Budget: máximo 20 sub-agentes totales, 3 consecutive fails → stall
+- Budget: máximo 20 sub-agentes totales (cada intento de la escalera cuenta), 3 consecutive fails → stall
 - Cada sub-agente: máximo 8 tool calls internas — si no responde en ~2 min, killed
 - Si 3 sub-agentes consecutivos fallan (aún con retry) → pausar y preguntar al usuario
 - No cambiar scope, no implementar tareas no planificadas
-- El sub-agente NO tiene acceso al plan file completo — solo a su task
+- El sub-agente NO tiene acceso al plan file completo — solo a su tarea
 - Revisión cada 5 tareas: checkpoint de consistencia de artefactos
 - Stall detection: si 3 tareas consecutivas fallan con mismo error, detener el pipeline
 - Context Save Point: cada sub-agente lo escribe al final de su task file
