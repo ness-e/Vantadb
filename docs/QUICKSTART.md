@@ -9,7 +9,7 @@ aliases: []
 
 # VantaDB 5-Minute Quickstart
 
-This quickstart validates the current v0.4.x MVP boundary from a clean local
+This quickstart validates the current v0.5.0 MVP boundary from a clean local
 checkout. It uses the embedded CLI for operational flows and the source-installed
 Python binding for vector, text, and hybrid memory search.
 
@@ -87,7 +87,7 @@ GitHub Release, install it directly without needing the Rust toolchain:
 python -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip pytest
-pip install ./path/to/vantadb_py-0.1.1-*.whl
+pip install ./path/to/vantadb_py-0.5.0-*.whl
 ```
 
 ### Alternative: Install from TestPyPI
