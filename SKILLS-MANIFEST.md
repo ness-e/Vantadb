@@ -264,7 +264,7 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | doubt-driven-development | 8 | KEEP | Adversarial review for high-stakes. |
 | frontend-ui-engineering | 7 | KEEP | Production UI in web/. |
 | api-and-interface-design | 8 | KEEP | Stable public interfaces. |
-| debugging-and-error-recovery | 8 | KEEP | Systematic root-cause. ~~DEPRECADO (EVAL-03)~~ → delega en `systematic-debugging` (stub). |
+| debugging-and-error-recovery | — | DEPRECATED | Stub (EVAL-03, 2026-08-10) — unificada con `systematic-debugging`. NO cargar. |
 | browser-testing-with-devtools | 7 | KEEP | Real browser via CDP. |
 | code-review-and-quality | 9 | KEEP | Multi-axis review before merge. |
 | code-simplification | 7 | KEEP | Reduce complexity. |
@@ -279,7 +279,7 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | using-agent-skills | 8 | KEEP | Meta-skill for skill discovery. |
 | design-audit-orchestrator | 7 | KEEP | Audit-first design review pipeline. |
 | vantadb-full-review | 10 | REMOVED | Eliminado (2026-08-10) — reemplazado por `unified-review --profile vantadb`. Referencias históricas en `docs/plans/archive/`, `docs/audit-reports/archive/`. |
-| backlog-executor | 7 | KEEP | Autonomous task execution loop for backlog-driven development. One task per iteration: triage → eval gate → implement → verify → commit → update. |
+| backlog-executor | — | SUPERSEDED | Reemplazada por `campaign-executor` (unificado backlog-executor + task-executor). NO cargar. |
 
 ### Content / Writing
 
