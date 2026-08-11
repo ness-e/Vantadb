@@ -869,10 +869,11 @@ Después de completar: skill progreso
       subagent-recovery.md           ← SARL (recovery de sub-agentes)
       research-agent.md              ← Research agent prompt
       audit-full.md                  ← Audit full prompt
-    sandbox/                         ← Sandbox de ejecución
-    self-modification/               ← Auto-modificación del sistema
-    traces/                          ← Trazas de ejecución
-    validation/                      ← Validación de salidas
+    sandbox/                         ← Sandbox de ejecución (run-sandboxed.ps1 — activo)
+    self-modification/               ← Auto-modificación del sistema (performance_diagnosis.py — activo; dgm-*.ps1 eliminados)
+    traces/                          ← Trazas de ejecución (tracer.mjs — activo)
+    validation/                      ← Validación de salidas (validate-output.ps1 — activo)
+    enforcement/pre-call-checks.md   ← LEGACY — spec de enforcement engine (checks [SPEC] no implementados; ver campaign-server.mjs)
     workflows/                       ← Workflow definitions (bug-fix, feature-add, etc.)
   skills/
     campaign-executor/               ← Núcleo del task system
