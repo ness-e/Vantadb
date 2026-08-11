@@ -17,7 +17,7 @@ param(
     [Parameter(Mandatory)]
     [ValidateSet('quick', 'ci', 'full', 'lint', 'security', 'perf')]
     [string]$Mode,
-    [string]$ReportDir = "docs/audit-reports"
+    [string]$ReportDir = "docs/reviews"
 )
 
 $ErrorActionPreference = 'Continue'

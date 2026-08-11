@@ -7,7 +7,7 @@ description: "Audit pipeline unificado: CLI checks + skills de review en subagen
 > Path resolution: `prompts/X.md` → `.opencode/task-system/prompts/X.md`
 > Skills: `skills/X` → `.opencode/skills/X/`
 > Instrucciones: cargar skills listados, ejecutar fases según modo. Waves paralelas vía sub-agentes o secuencial según modo.
-> Al finalizar: escribir reporte en `docs/audit-reports/`.
+> Al finalizar: escribir reporte en `docs/reviews/`.
 
 # /audit — VantaDB Audit Pipeline
 
@@ -138,7 +138,7 @@ Cada finding debe incluir referencia `archivo:línea` y recomendación de fix.
 
 ## Output
 
-Al finalizar: escribí `docs/audit-reports/audit-<mode>-<YYYYMMDD>-<HHMMSS>.md` **y** `docs/last-audit-state.json` con:
+Al finalizar: escribí `docs/reviews/audit-<mode>-<YYYYMMDD>-<HHMMSS>.md` **y** `docs/last-audit-state.json` con:
 
 ```json
 {
@@ -146,7 +146,7 @@ Al finalizar: escribí `docs/audit-reports/audit-<mode>-<YYYYMMDD>-<HHMMSS>.md` 
   "mode": "full|quick|certify|review",
   "veredicto": "PASS|FAIL",
   "findings_critical": 0,
-  "report_file": "docs/audit-reports/audit-<mode>-<YYYYMMDD>-<HHMMSS>.md"
+  "report_file": "docs/reviews/audit-<mode>-<YYYYMMDD>-<HHMMSS>.md"
 }
 ```
 

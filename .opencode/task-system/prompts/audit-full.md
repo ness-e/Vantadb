@@ -191,7 +191,7 @@ Fases que pueden correr en PARALELO (misma oleada):
 Al finalizar TODAS las fases del modo actual:
 
 1. Recopilar findings de todos los sub-agentes
-2. Escribir reporte en `docs/audit-reports/audit-<mode>-<timestamp>.md`:
+2. Escribir reporte en `docs/reviews/audit-<mode>-<timestamp>.md`:
 
 ```markdown
 # Audit Report: <mode>
