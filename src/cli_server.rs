@@ -151,18 +151,16 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
         let period_ms = (60_000u64 / rpm as u64).max(1);
         let burst_size = (rpm / 10).max(1);
 
-        match GovernorConfigBuilder::default()
+        // AUD-021: fail-closed. Should the governor config ever fail to build,
+        // refuse to start rather than serving requests without a rate limit.
+        // (The previous fall branch left `protected` unthrottled — fail-open.)
+        let gc = GovernorConfigBuilder::default()
             .per_millisecond(period_ms)
             .burst_size(burst_size)
             .key_extractor(SmartIpKeyExtractor)
             .finish()
-        {
-            Some(gc) => protected.layer(GovernorLayer::new(gc)),
-            None => {
-                tracing::error!("Governor config build failed; rate limiting disabled");
-                protected
-            }
-        }
+            .expect("governor config must build: period_ms and burst_size are >= 1 for rpm > 0");
+        protected.layer(GovernorLayer::new(gc))
     } else {
         protected
     };
@@ -1421,5 +1419,26 @@ mod tests {
             body.contains("Internal server error"),
             "client should see the generic message, got: {body}"
         );
+    }
+
+    #[test]
+    fn governor_config_always_builds_for_positive_rpm() {
+        // AUD-021: the server must never fall open (serve without a rate
+        // limit). The eager .expect() in app_with_cors fails closed at
+        // startup instead; this test proves the fail path is unreachable for
+        // every rpm > 0 because the derived period/burst are always >= 1.
+        for rpm in 1..=10_000u32 {
+            let period_ms = (60_000u64 / rpm as u64).max(1);
+            let burst_size = (rpm / 10).max(1);
+            let cfg = GovernorConfigBuilder::default()
+                .per_millisecond(period_ms)
+                .burst_size(burst_size)
+                .key_extractor(SmartIpKeyExtractor)
+                .finish();
+            assert!(
+                cfg.is_some(),
+                "governor config must build for rpm={rpm} (period={period_ms}, burst={burst_size})"
+            );
+        }
     }
 }
