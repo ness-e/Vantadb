@@ -497,19 +497,24 @@ server.tool(
 server.tool(
   "campaign_emit_event",
   {
-    event: z.string().describe("Event name (e.g. 'task.started', 'campaign.completed')"),
+    event: z.string().describe("Event name (e.g. 'task.started', 'campaign.completed', 'plan.adjust')"),
     campaignId: z.string().describe("Campaign ID"),
     data: z.record(z.any()).optional().default({}).describe("Arbitrary event payload"),
     taskId: z.string().optional().describe("ID de tarea para adjuntar su traceId al evento (P2-05)"),
+    decision_reason: z.string().optional().describe("TSYS-09: motivo de la decisión (por qué se reabrió/cerró una tarea) — se persiste en el trace log"),
+    pattern: z.string().optional().describe("TSYS-09: patrón detectado (ej: 'retry', 'reopen', 'scope-creep') — se persiste en el trace log"),
   },
-  async ({ event, campaignId, data, taskId }) => {
+  async ({ event, campaignId, data, taskId, decision_reason, pattern }) => {
     let traceId = null
     if (taskId) {
       traceId = traceIdForTask(taskId)
       if (traceId) data = { ...data, traceId }
     }
+    // TSYS-09: tracing de decisiones — campos opcionales, no rompen el esquema del log.
+    if (decision_reason) data = { ...data, decision_reason }
+    if (pattern) data = { ...data, pattern }
     const entry = traceEmit(campaignId, event, data, PROJECT_ROOT)
-    return { content: [{ type: "text", text: JSON.stringify({ emitted: true, event, campaignId, traceId: traceId || entry.traceId || null }) }] }
+    return { content: [{ type: "text", text: JSON.stringify({ emitted: true, event, campaignId, traceId: traceId || entry.traceId || null, decision_reason: decision_reason || null, pattern: pattern || null }) }] }
   },
 )
 
@@ -670,6 +675,8 @@ server.tool(
     taskId: z.string().describe("ID de la tarea a actualizar (ej: '14', 'DRV-068')"),
     newState: z.enum(["completed", "failed", "in-progress", "pending"]).describe("Nuevo estado de la tarea"),
     planFile: z.string().optional().describe("Ruta al plan file. Si se omite, busca el más reciente."),
+    decision_reason: z.string().optional().describe("TSYS-09: motivo del cambio de estado (por qué se reabrió/cerró) — se persiste en el trace log via plan.adjust"),
+    pattern: z.string().optional().describe("TSYS-09: patrón detectado (ej: 'retry', 'reopen') — se persiste en el trace log via plan.adjust"),
     recitation: z.object({
       activeGoal: z.string().optional().describe("Objetivo activo actual"),
       lastAction: z.string().optional().describe("Qué se hizo en esta iteración"),
@@ -679,7 +686,7 @@ server.tool(
       nextTask: z.string().optional().describe("ID de la próxima tarea a ejecutar"),
     }).optional().describe("Datos estructurados de recitation"),
   },
-  async ({ taskId, newState, planFile, recitation }) => {
+  async ({ taskId, newState, planFile, decision_reason, pattern, recitation }) => {
     const worktree = PROJECT_ROOT
     const planPath = resolvePlan(planFile, worktree)
     if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ error: "No plan file found" }) }] }
@@ -702,6 +709,10 @@ server.tool(
 
     const original = readFileSync(planPath, "utf-8")
     const { campaignId } = getOrCreateCampaignId(original)
+    // TSYS-09: capturar el estado previo para trazar el cambio (por qué se reabrió/cerró).
+    const fromState = (() => {
+      try { const t = parseTasks(original).find(t => t.id === taskId); return t ? t.state : null } catch { return null }
+    })()
     let updated = updateState(original, taskId, newState)
 
     if (recitation) {
@@ -732,6 +743,14 @@ server.tool(
 
     writeFileSync(planPath, updated, "utf-8")
     traceEmit(campaignId, `task.${newState}`, { taskId, newState, taskType: "unknown", traceId }, worktree)
+    // TSYS-09: evento plan.adjust — registra cuándo un plan/tarea cambia de estado con el motivo.
+    // Campos opcionales: no rompe el esquema del log (solo añade claves cuando existen).
+    traceEmit(campaignId, "plan.adjust", {
+      taskId, fromState, newState,
+      decision_reason: decision_reason || null,
+      pattern: pattern || null,
+      traceId,
+    }, worktree)
     if (newState === "completed" || newState === "failed") {
       const tasks = parseTasks(updated)
       const task = tasks.find(t => t.id === taskId)

@@ -87,3 +87,35 @@ BLOQUEO: <ninguno | qué impidió terminar>
 Con este bloque el orquestador decide el nivel de recovery en 1 solo paso, sin adivinar.
 Si un sub-agente "se detiene solo" sin devolver el bloque → tratarlo como UNEXPECTED,
 RESUME pidiendo el bloque + feedback.
+
+## 5. HITL checkpoint (confirmación humana antes de arrancar)
+
+La escalera §2 recupera trabajo ya hecho; este checkpoint opera **antes** de ejecutar
+una tarea, para no gastar intentos en direcciones que el humano no autorizó
+(agent-03-orchestration.md:262-265, §6.1.6 "escalar a humano").
+
+**Regla:** toda tarea de **prioridad 🔴 (crítica)** o **ambigua** (contrato con dos o más
+interpretaciones válidas que cambian el resultado esperado) requiere confirmación humana
+**antes** de ejecutar el primer step.
+
+**Excepción — familia de ejecución aprobada:** no hace falta confirmación individual
+cuando la tarea pertenece a una familia ya aprobada por el humano:
+- El plan (`docs/plans/*.md`) pasó el gate de planificación: `Gate Result: ✅ DO` para esa
+  tarea, o el humano lanzó el pipeline (`/pipeline run <plan>`).
+- La misma familia recibió GO explícito en esta sesión (mismo plan, mismo objetivo).
+
+**Cuándo se activa:**
+1. **Pre-flight:** al tomar una tarea ⬜ PENDING con prioridad 🔴 (o contrato ambiguo),
+   antes de la primera tool call de ejecución.
+2. **Durante ejecución:** el sub-agente descubre una ambigüedad material no prevista en el
+   contrato (dos caminos válidos con resultado distinto) → detener y escalar.
+
+**Qué hacer (detener → preguntar → continuar):**
+1. **DETENER** — no lanzar steps nuevos; preservar el trabajo ya hecho (task file / worktree).
+2. **PREGUNTAR** al humano con `question` (o reporte estructurado si el harness no lo
+   expone): task id, prioridad/ambigüedad, opciones, y pedir GO / ajuste / NO-GO.
+3. **CONTINUAR** según la respuesta:
+   - **GO** → ejecutar la tarea; registrar la confirmación en el SARL trace (§3.7).
+   - **Ajuste** → aplicar el feedback (equivalente a RESUME con feedback procesado).
+   - **NO-GO** → `campaign_update_task_state "failed"` + FAIL_MODE (stop/skip); no consumir
+     la escalera §2 (no hubo intento real de ejecución).

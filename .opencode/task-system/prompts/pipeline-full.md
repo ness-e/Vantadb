@@ -97,6 +97,15 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
   El orquestador decide RESUME/RETRY vía subagent-recovery.md.
 
 **Cierre:**
+- **GATE CITAS (TSYS-13, solo research/evidencia):** si la tarea produce evidencia con URLs citadas
+  (campo `fuentes`/URLs del task file o `contract.evidencia` de la recitation):
+  * Extraé cada URL citada.
+  * Check mecánico: resolvé cada URL con `webfetch`/HEAD (o `argus_extract_content` si aplica).
+    URL que NO resuelve (404 / dead / timeout) → evidencia **INVALIDA**: reemplazá la fuente
+    o descartá el claim — no la presentes como verificada.
+  * SIN RED (runner offline): fallback manual documentado — marcá cada cita como
+    `[cita NO VERIFICADA — sin red]` en la evidencia y anotá la verificación pendiente
+    en `contract.deuda` de la recitation. Nunca la des por verificada.
 - Verify full:
   1. `campaign_verify_cmd command="cargo fmt --check"`
   2. `campaign_verify_cmd command="cargo clippy --workspace --all-targets --all-features -- -D warnings"`

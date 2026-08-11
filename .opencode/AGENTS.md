@@ -520,6 +520,31 @@ Tres capas componibles con roles distintos:
    5. DOCUMENTAR hallazgos en el commit message o ADR
    ```
 
+### Límites de herramientas por rol
+
+> Fuente: `docs/Investigaciones/2026-08-10-agent-engineering/agent-03-orchestration.md` §9.2 — *worker = solo tools de su dominio; orquestador = delegación + verificación; evaluador = verificación, nunca implementa*. Política objetivo (TSYS-11): **ningún sub-agente escala a tools del lead**. Estado actual: los `permission:` de `.opencode/agents/*.md` otorgan todo `allow` (deuda a corregir al implementar TSYS-11); la tabla es el contrato de referencia.
+
+Leyenda: ✅ permitido · ⚠️ solo uso read-only / delimitado a su dominio · ❌ prohibido.
+
+| Rol (archivo) | File Read (read/glob/grep/list) | File Edit (edit) | Bash (build/test/bench) | Git push/commit/release | codegraph\* (intel) | cargo-mcp\* / rust-analyzer-mcp\* | Web search (webfetch/websearch/metasearchmcp/argus) | campaign\* (task system) | task (delegar sub-agentes) | Extras (playwright/discord/lottiefiles-creator/pencil) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **vanta-lead** (mode: all) | ✅ | ✅ | ✅ | ✅ **único rol que hace git push/commit/release** | ✅ | ✅ | ✅ | ✅ | ✅ (solo `vanta-*`) | ✅ |
+| **vanta-arch** | ✅ | ✅ (diseño/arquitectura) | ✅ | ❌ | ✅ | ✅ | ⚠️ research | ✅ | ✅ (solo `vanta-*`) | ❌ |
+| **vanta-worker** | ✅ | ✅ (código core/bindings) | ✅ | ❌ | ✅ | ✅ | ⚠️ research | ✅ | ✅ (solo `vanta-*`) | ❌ |
+| **vanta-engine** | ✅ | ✅ (índices/algoritmos) | ✅ | ❌ | ✅ | ✅ | ⚠️ research | ✅ | ✅ (solo `vanta-*`) | ❌ |
+| **vanta-audit** (leaf) | ✅ | ⚠️ solo notas/reportes de auditoría, **nunca fix** | ⚠️ read-only (cargo check/clippy/test) | ❌ | ✅ | ✅ | ⚠️ CVE lookup | ⚠️ solo reportar verdict | ❌ | ❌ |
+| **vanta-chaos** (leaf) | ✅ | ✅ (solo scripts fuzz/estrés de su dominio) | ✅ (fuzzers, kill, stress) | ❌ | ✅ | ✅ | ⚠️ | ⚠️ | ❌ | ❌ |
+| **vanta-tuner** (leaf) | ✅ | ✅ (solo telemetría/bench) | ✅ (bench/profile) | ❌ | ✅ | ✅ | ⚠️ | ⚠️ | ❌ | ❌ |
+| **vanta-docs** (leaf) | ✅ | ✅ (solo docs/docstrings) | ⚠️ read-only (cargo doc/test --doc, pytest) | ❌ | ✅ | ⚠️ solo doc/test | ✅ | ⚠️ | ❌ | ⚠️ (pencil — suyo; resto ❌) |
+| **vanta-review** (leaf) | ✅ | ⚠️ solo notas de review, **nunca implementa** | ⚠️ read-only (verificar) | ❌ | ✅ | ⚠️ solo test/check | ⚠️ | ⚠️ (verdict approve/changes) | ❌ | ❌ |
+
+**Reglas de enforcement:**
+1. **Solo vanta-lead** toca git mutating (`git commit`, `git push`, tags, release-plz) y packaging/publish (cargo publish, pip, npm). El resto corre git solo en modo lectura (status/log/diff).
+2. **Workers** (arch/worker/engine): edit + bash limitados a su dominio de implementación; cualquier commit lo prepara el worker y lo ejecuta el lead.
+3. **Especialistas leaf** (audit/chaos/tuner/docs/review): `task: deny` ya enforced en sus archivos; su edit queda restringido a entregables de su dominio (reportes, scripts de fuzz, docs) — nunca código core.
+4. **Review nunca implementa**: vanta-review solo verifica y emite verdict; si encuentra fixes, los delega al worker.
+5. Los `permission:` reales de `.opencode/agents/*.md` deben alinearse a esta tabla al implementar TSYS-11 (hoy todos otorgan `allow` amplio).
+
 ## Ritual de Inicio de Sesión (MUST DO)
 
 Al empezar cada sesión, ejecutar en orden:
