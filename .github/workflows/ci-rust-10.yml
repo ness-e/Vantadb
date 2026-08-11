@@ -357,9 +357,10 @@ jobs:
           cargo llvm-cov report \
             --ignore-filename-regex '(tests/|benches/|packages/experimental)'
 
-      - name: Enforce coverage threshold (>=70%)
+      - name: Enforce coverage threshold (>=80%, ADR-015 coverage policy)
         shell: bash
         run: |
+          # ADR-015-coverage-policy: root-gate 80% en CI (bindings/wasm/server/mcp miden en runners nativos)
           cargo llvm-cov report --json \
             --ignore-filename-regex '(tests/|benches/|packages/experimental)' \
             | python3 -c "

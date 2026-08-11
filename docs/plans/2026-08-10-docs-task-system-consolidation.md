@@ -3,7 +3,7 @@
 > **Campaign ID: e0db1e63-9330-4737-9b1a-1d9ed042cd12**
 > **Campaign ID:** e3b8eb8f-f747-4029-a63a-6b6e6512d6c9
 > **Inicio:** 2026-08-10
-> **Estado:** planning
+> **Estado:** completed — 16/16 tasks ejecutadas (2026-08-11)
 > **Fuente:** Auditoría multi-agente (6 sub-agentes, solo-lectura) sobre `docs/Investigaciones/2026-08-10-agent-engineering/`, las 10 carpetas de `docs/` objetivo, y el flujo completo del task-system en `.opencode/`.
 
 ## Resumen
@@ -34,7 +34,7 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 - **Verificación real:** `git status` en develop muestra 6 modificados + 1 untracked; rama ahead of origin.
 - **Gate Result:** 🔵 DO
 - **Contrato:** `git status` limpio; commits conventional (`ci:`/`feat:`); `git log` registra los cambios de COV-001/002/004 y CI-01.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-11) — WIP commiteado en 3 commits: `d22733ab` (verify-log + reports con datos reales), `1e2d86ed`/`5c95d89f` (cierre residuo-consolidado + headers); verify-log.jsonl poblado (1378 bytes), CI_POLICY.md/northstar.md/pipeline-evals.md/test_sdk.py/vitest.config.ts/.pre-commit-config.yaml todos con commits reales.
 
 ### Task 2: Poblar verify-log.jsonl (desbloquea North Star/DORA/P3-2/SLA)
 - **Esfuerzo:** 🟡 | **Prioridad:** P0 | **Ruta:** vanta-lead
@@ -42,7 +42,7 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 - **Verificación real:** Los 3 evaluadores ya funcionan y escriben `docs/reports/`; falla el **dato**: 0 invocaciones de `campaign_verify_cmd`.
 - **Gate Result:** 🔵 DO
 - **Contrato:** al menos 1 tarea real ejecutada por el pipeline con `campaign_verify_cmd` → `verify-log.jsonl` > 0 líneas; `docs/reports/` regenerado con datos reales.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-11) — verify-log.jsonl poblado (1378 bytes), 3 invocaciones reales; northstar.md regenerado (126 líneas, datos reales). Commit `d22733ab` + telemetry `b1a117de`.
 - **Notas:** Es el habilitador transversal; cualquiera de las Tasks 3-13 ejecutadas vía pipeline lo alimenta.
 
 ### Task 3: Unificar carpetas de investigación → `docs/Investigaciones/` (4→1)
