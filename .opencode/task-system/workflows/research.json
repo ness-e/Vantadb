@@ -77,7 +77,7 @@
       },
       "close": {
         "allowed_tools": ["bash", "write"],
-        "instructions": "Guardar output final en docs/research/. skill progreso (Trigger 1). Context Save Point.",
+        "instructions": "Guardar output final en docs/Investigaciones/. skill progreso (Trigger 1). Context Save Point.",
         "max_iterations": 2,
         "on": { "CLOSED": "completed", "FAIL": "failed" }
       },
