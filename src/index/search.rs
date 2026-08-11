@@ -732,13 +732,15 @@ impl CPIndex {
             for entry in self.nodes.iter() {
                 let node = entry.value();
                 if let crate::node::VectorRepresentations::Full(v) = &node.vec_data {
-                    crate::index::VecIndex::add(
+                    if let Err(e) = crate::index::VecIndex::add(
                         &scann,
                         node.id,
                         node.bitset.clone(),
                         crate::node::VectorRepresentations::Full(v.clone()),
                         node.storage_offset,
-                    );
+                    ) {
+                        tracing::warn!(node_id = node.id, error = %e, "scann rebuild: add rejected");
+                    }
                 }
             }
             *guard = Some(scann);
@@ -806,13 +808,10 @@ impl crate::index::VecIndex for CPIndex {
         bitset: crate::node::FilterBitset,
         vec_data: crate::node::VectorRepresentations,
         storage_offset: u64,
-    ) {
-        // `VecIndex::add` returns `()`, so a rejected insert (e.g. zero-norm
-        // vector under cosine, AUDREP-27) cannot be propagated here; surface
-        // it loudly instead of dropping it silently.
-        if let Err(e) = CPIndex::add(self, id, bitset, vec_data, storage_offset) {
-            tracing::warn!(id, error = %e, "index add rejected at VecIndex boundary");
-        }
+    ) -> crate::error::Result<()> {
+        // ERR-031: propagate the rejection (e.g. zero-norm vector under
+        // cosine, AUDREP-27) to the caller instead of dropping it silently.
+        CPIndex::add(self, id, bitset, vec_data, storage_offset)
     }
 
     fn estimate_memory_bytes(&self) -> usize {

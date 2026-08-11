@@ -466,11 +466,14 @@ impl crate::index::VecIndex for IvfIndex {
         _bitset: crate::node::FilterBitset,
         _vec_data: crate::node::VectorRepresentations,
         _storage_offset: u64,
-    ) {
+    ) -> crate::error::Result<()> {
         // ponytail: IvfIndex is read-only after build; use IvfIndex::build().
-        // Panicking here is intentional — it signals a programming error at
-        // the integration level rather than silently dropping the add.
-        panic!("IvfIndex is read-only after build; rebuild via IvfIndex::build()");
+        // ERR-031: return an error instead of panicking so callers can
+        // propagate the rejection rather than crash.
+        Err(crate::error::VantaError::ValidationError {
+            field: "index".into(),
+            reason: "IvfIndex is read-only after build; rebuild via IvfIndex::build()".into(),
+        })
     }
 
     fn estimate_memory_bytes(&self) -> usize {

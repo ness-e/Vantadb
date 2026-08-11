@@ -406,14 +406,20 @@ impl crate::index::VecIndex for DiskAnnIndex {
         bitset: FilterBitset,
         vec_data: VectorRepresentations,
         _storage_offset: u64,
-    ) {
+    ) -> crate::error::Result<()> {
         let vec = match &vec_data {
             VectorRepresentations::Full(v) => v.clone(),
-            _ => return, // skip non-full vectors (ponytail)
+            _ => {
+                return Err(crate::error::VantaError::ValidationError {
+                    field: "vec_data".into(),
+                    reason: "DiskAnnIndex::add only accepts full vectors (ERR-031)".into(),
+                })
+            }
         };
 
         self.bitsets.lock().unwrap().insert(id, bitset);
         self.insert_vector(id, vec);
+        Ok(())
     }
 
     fn estimate_memory_bytes(&self) -> usize {

@@ -146,7 +146,7 @@ impl crate::index::VecIndex for FlatIndex {
         bitset: FilterBitset,
         vec_data: VectorRepresentations,
         storage_offset: u64,
-    ) {
+    ) -> crate::error::Result<()> {
         let inv_cached_norm = match &vec_data {
             VectorRepresentations::Full(v) => {
                 let norm = crate::index::f32_l2_norm(v);
@@ -166,6 +166,7 @@ impl crate::index::VecIndex for FlatIndex {
             inv_cached_norm,
             storage_offset,
         });
+        Ok(())
     }
 
     fn estimate_memory_bytes(&self) -> usize {

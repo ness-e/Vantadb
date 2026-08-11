@@ -269,10 +269,15 @@ impl crate::index::VecIndex for ScannIndex {
         bitset: FilterBitset,
         vec_data: VectorRepresentations,
         storage_offset: u64,
-    ) {
+    ) -> crate::error::Result<()> {
         let vec = match &vec_data {
             VectorRepresentations::Full(v) => v.clone(),
-            _ => return, // skip non-full vectors
+            _ => {
+                return Err(crate::error::VantaError::ValidationError {
+                    field: "vec_data".into(),
+                    reason: "ScannIndex::add only accepts full vectors (ERR-031)".into(),
+                })
+            }
         };
 
         // Update global bounds
@@ -280,7 +285,13 @@ impl crate::index::VecIndex for ScannIndex {
 
         let dim = *self.dim.lock().unwrap();
         if vec.len() != dim && !vec.is_empty() {
-            return;
+            return Err(crate::error::VantaError::ValidationError {
+                field: "vec_data".into(),
+                reason: format!(
+                    "ScannIndex::add vector dim {} != index dim {dim} (ERR-031)",
+                    vec.len()
+                ),
+            });
         }
 
         // Quantize
@@ -299,6 +310,7 @@ impl crate::index::VecIndex for ScannIndex {
             norm_sq,
             storage_offset,
         });
+        Ok(())
     }
 
     fn estimate_memory_bytes(&self) -> usize {

@@ -61,6 +61,10 @@ pub(crate) trait VecIndex: Send + Sync {
     ) -> Vec<(u128, f32)>;
 
     /// Add a single node to the index.
+    ///
+    /// Returns an error when the insert is rejected (e.g. non-full vector
+    /// under Scann/DiskAnn, read-only IVF after build) so callers can
+    /// propagate instead of silently dropping the add (ERR-031).
     #[allow(dead_code)]
     fn add(
         &self,
@@ -68,7 +72,7 @@ pub(crate) trait VecIndex: Send + Sync {
         bitset: crate::node::FilterBitset,
         vec_data: crate::node::VectorRepresentations,
         storage_offset: u64,
-    );
+    ) -> crate::error::Result<()>;
 
     /// Estimated heap memory usage in bytes.
     #[allow(dead_code)]
