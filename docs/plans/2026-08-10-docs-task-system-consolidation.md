@@ -115,7 +115,7 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 - **Verificación real:** rg de cada nombre en todo `.opencode/` + raíz = sin referencias externas (excepto los citados).
 - **Gate Result:** 🔵 DO
 - **Contrato:** cada eliminado verificado con `rg "<nombre>"` = 0; los que se conserven como manual/legacy quedan anotados en el manual; `(generar al arrancar).jsonl` eliminado (o fix del placeholder en `tracer.mjs`).
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-10) — 8 huérfanos ELIMINADOS + placeholder jsonl eliminado + guardia en `extractCampaignId` (commits `cbcbc0c1`, `ab61de79`, `4daf7ee6`); `pre-call-checks.md` LEGACY anotado en manual.
 
 ### Task 10: Crear persona `vanta-review` (referencia rota del pipeline)
 - **Esfuerzo:** 🟡 | **Prioridad:** P0 | **Ruta:** vanta-lead
