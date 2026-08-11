@@ -325,9 +325,13 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 | 2026-08-10 | P2/P3 Structural Quality (P2-01..08, P3-04..08) | ✅ cerrado | `docs/plans/archive/2026-08-10-p2-p3-structural-quality.md` |
 | 2026-08-10 | P3 Remaining Fallas (P3-rem) | ✅ cerrado | `docs/plans/archive/2026-08-10-p3-remaining-fallas.md` |
 
-**Notas de archivo:** los 5 planes estaban íntegramente entregados y verificados con commits reales; los marcadores `PENDING` detectados por grep eran texto de cabecera de tabla/contrato, no tareas sin ejecutar. Commits de cierre: agent-engineering-gaps `887d0f14`, p0-harness `0592695f`, p1-process-discipline `f85c8b0d`, p2/p3-structural-quality `350e9725`, p3-remaining-fallas `724b355c` (+ estado fin `cfc7ada9`). Refs vivas actualizadas: `docs/operations/CI_POLICY.md` (Task P2-06 → ruta archivada) y `docs/plans/2026-08-10-docs-task-system-consolidation.md` (Task 13). Los reportes `dora.md`/`northstar.md` regeneran rutas al re-correr los evals.
+**Notas de archivo:** los 5 planes estaban íntegramente entregados y verificados con commits reales; los marcadores `PENDING` detectados por grep eran texto de cabecera de tabla/contrato, no tareas sin ejecutar. Commits de cierre: agent-engineering-gaps `887d0f14`, p0-harness `0592695f`, p1-process-discipline `f85c8b0d`, p2/p3-structural-quality `350e9725`, p3-remaining-fallas `724b355c` (+ estado fin `cfc7ada9`). Refs vivas actualizadas: `docs/operations/CI_POLICY.md` (Task P2-06 → ruta archivada) y `docs/plans/archive/2026-08-10-docs-task-system-consolidation.md` (Task 13). Los reportes `dora.md`/`northstar.md` regeneran rutas al re-correr los evals.
 
-### Cerrado 2026-08-11 — residuo-consolidado (plan `2026-08-11-residuo-consolidado.md`)
+### Archivados 2026-08-11 (cierre) — residual-hardening, docs-task-system-consolidation, residuo-consolidado
+
+Los 3 planes activos restantes quedaron 100% completados (26/26, 16/16, 24/24 DO) y fueron movidos a `docs/plans/archive/` junto a sus budget. Commits de cierre: residual-hardening `5f0e8620`, docs-task-system-consolidation `5f0e8620`, residuo-consolidado `0a45a2b5`. Único caveat no-DO: `cargo nextest --workspace audit` roto por ERR-010 reabierto (insert_lock flush timeout, pre-existente, no regresión del plan). Ruta: `docs/plans/archive/2026-08-09-residual-hardening.md`, `docs/plans/archive/2026-08-10-docs-task-system-consolidation.md`, `docs/plans/archive/2026-08-11-residuo-consolidado.md`.
+
+### Cerrado y archivado 2026-08-11 — residuo-consolidado (plan `docs/plans/archive/2026-08-11-residuo-consolidado.md`)
 
 | Familia | Tasks | Resultado |
 |---------|-------|-----------|

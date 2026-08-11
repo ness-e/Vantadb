@@ -31,6 +31,14 @@
       "consecutiveFails": 0,
       "startTime": 1786334023877,
       "lastActivity": 1786334023877
+    },
+    "T1-residuo-consolidado": {
+      "taskId": "T1-residuo-consolidado",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1786479797772,
+      "lastActivity": 1786479797772
     }
   }
 }

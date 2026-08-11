@@ -477,7 +477,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/audit-rep
 
 ## P17 - Mejoras del task-system (de REPORTE-FINAL 2026-08-10 §3.3/§3.5)
 
-> Items §3.3 (FALTA, cobertura 0-30%) y §3.5 (MAL/CONTRADICTORIO) de `docs/Investigaciones/2026-08-10-agent-engineering/REPORTE-FINAL.md` no asignados a los planes P0-P3 (Task 14 de `docs/plans/2026-08-10-docs-task-system-consolidation.md`). **Los items de runtime dependen de Task 2** (poblar `verify-log.jsonl` — el bloqueante transversal que desbloquea métricas del pipeline).
+> Items §3.3 (FALTA, cobertura 0-30%) y §3.5 (MAL/CONTRADICTORIO) de `docs/Investigaciones/2026-08-10-agent-engineering/REPORTE-FINAL.md` no asignados a los planes P0-P3 (Task 14 de `docs/plans/archive/2026-08-10-docs-task-system-consolidation.md`). **Los items de runtime dependen de Task 2** (poblar `verify-log.jsonl` — el bloqueante transversal que desbloquea métricas del pipeline).
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
