@@ -1,6 +1,6 @@
 # Operations Master Index
 
-**last_reviewed:** 2026-07-21
+**last_reviewed:** 2026-08-10
 
 ## docs/operations/
 
@@ -34,4 +34,9 @@
 
 ## docs/archive/
 
-*No archived files currently.*
+| File | Description |
+|------|-------------|
+| [EXTRACCION-DOC-OLD-2026-08-05.md](../archive/EXTRACCION-DOC-OLD-2026-08-05.md) | Extracción de documentación legacy (2026-08-05) |
+| [legacy-docs-investigacion-2026-07-16.md](../archive/legacy-docs-investigacion-2026-07-16.md) | Docs legacy de investigación (2026-07-16) |
+
+> Optional: `docs/backlog-futuro.md` vive suelto en la raíz de `docs/` (no archivado); plan Open Core archivado en `docs/plans/archive/2026-08-06-oc-vantadb-pro.md`.

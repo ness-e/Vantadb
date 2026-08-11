@@ -645,7 +645,7 @@ Las reglas normativas por **área del sistema** viven en `.opencode/rules/`. Son
 | Language | Content |
 |----------|---------|
 | **English** (source of truth) | `docs/api/`, `docs/architecture/`, `docs/operations/`, `docs/QUICKSTART.md` |
-| **Spanish** (planning only) | `docs/VantaDB-MPTS/`, `docs/Backlog.md`, `docs/progreso/`, `docs/Investigaciones/` |
+| **Spanish** (planning only) | `docs/Backlog.md`, `docs/progreso/`, `docs/Investigaciones/` |
 
 Technical docs stay in English. Never duplicate technical content in Spanish.
 
@@ -780,7 +780,7 @@ benches/                   ← Criterion benchmarks ([[bench]] in Cargo.toml)
 
 ## Open Core Licensing (Model)
 
-VantaDB follows an **Open Core** model (decision 2026-08-06, see `docs/plans/2026-08-06-oc-vantadb-pro.md` and `.opencode/rules/open-core-licensing.md`):
+VantaDB follows an **Open Core** model (decision 2026-08-06, see `docs/plans/archive/2026-08-06-oc-vantadb-pro.md` and `.opencode/rules/open-core-licensing.md`):
 
 - **Core `vantadb` stays Apache-2.0** — never relicensed, never gains Pro-only features.
 - **`vantadb-pro`** (commercial Pro/Enterprise) lives in a **separate private repo** (`C:\Users\Eros\VantaDB Proyect\vantadb-pro`), **NOT** a workspace member. Never add it to `Cargo.toml` `[workspace] members`/`default-members`.

@@ -54,7 +54,8 @@ commit_parsers = [
   { message = ".*", group = " Other", default_scope = "core" },
 ]
 
+# Paths whose commits are excluded from the changelog (ruta real de histórico/archivo)
 exclude_paths = [
-  "docs/oldHistory/",
-  "docs/snapshots/",
+  "docs/archive/",
+  "docs/avance/historial/",
 ]

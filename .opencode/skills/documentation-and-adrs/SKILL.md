@@ -35,7 +35,7 @@ ADRs capture the reasoning behind significant technical decisions. They're the h
 
 ### ADR Template
 
-Store ADRs in `docs/decisions/` with sequential numbering:
+Store ADRs in `docs/architecture/adr/` with sequential numbering (`NNN_titulo_breve.md`, template `docs/_templates/adr.md`):
 
 ```markdown
 # ADR-001: Use PostgreSQL for primary database
