@@ -1,9 +1,8 @@
 # DORA Flow Metrics Report
 
-> Generado por `evals/dora.mjs` (P3-07) — 2026-08-10T21:41:08.127Z
-> Fuentes: `docs/plans/*.md` (50 tareas en 4 planes) + task files en `.opencode/skills/campaign-executor/tasks/` (180) + `*.budget.json` (3 con timestamps) + `verify-log.jsonl` (0 intentos de verify)
+> Generado por `evals/dora.mjs` (P3-07) — 2026-08-11T07:51:20.465Z
+> Fuentes: `docs/plans/*.md` (76 tareas en 8 planes) + task files en `.opencode/skills/campaign-executor/tasks/` (187) + `*.budget.json` (6 con timestamps) + `verify-log.jsonl` (1 intentos de verify)
 > ⚠️ **Fechas derivadas best-effort, NO normalizadas**. Prioridad: markers escritos (`**Inicio:**`, `**Estado:** COMPLETADO (fecha)`, `**Fecha:**`, `**Creado:**`, fechas en bloque de tarea) -> budget epoch ms (`startTime`/`lastActivity`) -> **file mtime**. Donde se usó mtime se marca `(mtime)`. Esto es exactamente lo que P2-05 (traceId por tarea) va a resolver: con traceId real, cada task tendrá timestamps estructurados.
-> ⚠️ **verify-log.jsonl está vacío (0 líneas)** — CFR reportado en 0% como baseline; no hay intentos registrados todavía.
 
 
 ## 1. Cycle / Lead time
@@ -18,8 +17,8 @@
 | Tipo | Tasks | Completed | Lead avg (días) | Cycle avg (días) |
 |---|---|---|---|---|
 | frontend | 2 | 1 | 0.0 | 0.0 |
-| other | 158 | 85 | 0.8 | 0.8 |
-| rust | 64 | 26 | 0.8 | 0.6 |
+| other | 186 | 112 | 0.5 | 0.5 |
+| rust | 65 | 40 | 1.3 | 0.9 |
 
 ### Por tarea (completadas con fechas derivables)
 
@@ -34,22 +33,30 @@
 | ADMIN-07 | other | task | 2026-08-08 | 2026-08-08 | 2026-08-08 | 0.0 | 0.0 |
 | ADMIN-08 | other | task | 2026-08-08 | 2026-08-08 | 2026-08-08 | 0.0 | 0.0 |
 | ADMIN-09 | other | task | 2026-08-08 | 2026-08-08 | 2026-08-08 | 0.0 | 0.0 |
+| Arreglar | other | 2026-08-10-docs-task-system-consolidation.md | 2026-08-10 | 2026-08-10 | 2026-08-10 | 0.0 | 0.0 |
 | AUD-002 | rust | task | 2026-08-05 | 2026-08-05 | 2026-08-05 | 0.0 | 0.0 |
 | AUD-004 | rust | task | 2026-08-05 | 2026-08-05 | 2026-08-05 | 0.0 | 0.0 |
 | AUD-006 | rust | task | 2026-07-21 | 2026-07-21 | 2026-08-05 | 15.0 | 15.0 |
 | AUD-009 | rust | task | 2026-08-05 | 2026-08-05 | 2026-08-05 | 0.0 | 0.0 |
+| AUD-016 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-09 | 2026-08-11 (mtime) | 2.0 | 2.0 |
+| AUD-018 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-09 | 2026-08-11 (mtime) | 2.0 | 2.0 |
+| AUD-021 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-11 | 2026-08-11 (mtime) | 2.0 | 0.0 |
 | AUD-031 | rust | task | 2026-08-05 | 2026-08-05 | 2026-08-05 | 0.0 | 0.0 |
 | AUDIT-02 | rust | task | 2026-08-06 | 2026-08-06 | 2026-08-06 | 0.0 | 0.0 |
 | AUDIT-03 | rust | task | 2026-08-05 | 2026-08-05 | 2026-08-05 | 0.0 | 0.0 |
 | AUDREP-01 | rust | task | 2026-08-05 | 2026-08-05 | 2026-08-05 | 0.0 | 0.0 |
 | AUDREP-04 | rust | task | 2026-08-05 | 2026-08-05 | 2026-08-05 | 0.0 | 0.0 |
 | AUDREP-12 | rust | task | 2026-08-06 | 2026-08-06 | 2026-08-06 | 0.0 | 0.0 |
+| CI-01 | other | 2026-08-09-residual-hardening.md | 2026-08-09 | 2026-08-09 | 2026-07-24 | -16.0 | -16.0 |
 | CLI-01 | other | task | 2026-07-26 | 2026-07-26 | 2026-07-26 | 0.0 | 0.0 |
 | COMP-006 | other | task | 2026-07-27 | 2026-07-27 | 2026-07-27 | 0.0 | 0.0 |
 | COMP-008 | other | task | 2026-07-27 | 2026-07-27 | 2026-07-27 | 0.0 | 0.0 |
 | COMP-021 | other | task | 2026-08-02 | 2026-08-02 | 2026-08-02 | 0.0 | 0.0 |
 | COMP-028 | other | task | 2026-08-02 | 2026-08-02 | 2026-07-28 | -5.0 | -5.0 |
 | COMP-029 | other | task | 2026-08-02 | 2026-08-02 | 2026-08-02 | 0.0 | 0.0 |
+| Correcci | other | 2026-08-10-docs-task-system-consolidation.md | 2026-08-10 | 2026-08-10 | 2026-08-10 | 0.0 | 0.0 |
+| COV-001 | other | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-11 | 2026-08-11 (mtime) | 2.0 | 0.0 |
+| Crear | other | 2026-08-10-docs-task-system-consolidation.md | 2026-08-10 | 2026-08-10 | 2026-08-10 | 0.0 | 0.0 |
 | DESKTOP-02 | other | task | 2026-08-06 | 2026-08-06 | 2026-08-06 | 0.0 | 0.0 |
 | DESKTOP-03 | other | task | 2026-08-06 | 2026-08-06 | 2026-08-06 | 0.0 | 0.0 |
 | DESKTOP-04 | other | task | 2026-08-06 | 2026-08-06 | 2026-08-06 | 0.0 | 0.0 |
@@ -78,12 +85,23 @@
 | ECO-002 | other | task | 2026-07-23 | 2026-07-23 | 2026-07-23 | 0.0 | 0.0 |
 | ECO-003 | other | task | 2026-07-23 | 2026-07-23 | 2026-07-28 | 5.0 | 5.0 |
 | ECO-004 | other | task | 2026-07-23 | 2026-07-23 | 2026-07-28 | 5.0 | 5.0 |
+| Eliminar | other | 2026-08-10-docs-task-system-consolidation.md | 2026-08-10 | 2026-08-10 | 2026-08-10 | 0.0 | 0.0 |
 | ENT-04 | other | task | 2026-08-02 | 2026-08-02 | 2026-08-02 | 0.0 | 0.0 |
-| ERR-026 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-09 | 2026-08-10 (mtime) | 1.0 | 1.0 |
-| ERR-036 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 1.0 | 0.0 |
-| ERR-037 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 1.0 | 0.0 |
-| ERR-042 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 1.0 | 0.0 |
-| ERR-044 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 1.0 | 0.0 |
+| ERR-006 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 | 2026-08-09 | 2026-08-08 | -1.0 | -1.0 |
+| ERR-008 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-09 | 2026-08-11 (mtime) | 2.0 | 2.0 |
+| ERR-026 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-09 | 2026-08-11 (mtime) | 2.0 | 2.0 |
+| ERR-031 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-11 | 2026-08-11 (mtime) | 2.0 | 0.0 |
+| ERR-032 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-09 | 2026-08-11 (mtime) | 2.0 | 2.0 |
+| ERR-033 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-11 | 2026-08-11 (mtime) | 2.0 | 0.0 |
+| ERR-036 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-10 | 2026-08-11 (mtime) | 2.0 | 1.0 |
+| ERR-037 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-10 | 2026-08-11 (mtime) | 2.0 | 1.0 |
+| ERR-042 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-10 | 2026-08-11 (mtime) | 2.0 | 1.0 |
+| ERR-043 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-09 | 2026-08-11 (mtime) | 2.0 | 2.0 |
+| ERR-044 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-10 | 2026-08-11 (mtime) | 2.0 | 1.0 |
+| ERR-045 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-09 | 2026-08-11 (mtime) | 2.0 | 2.0 |
+| ERR-047 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-11 | 2026-08-11 (mtime) | 2.0 | 0.0 |
+| ERR-048 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-11 | 2026-08-11 (mtime) | 2.0 | 0.0 |
+| Estado | other | 2026-08-10-docs-task-system-consolidation.md | 2026-08-10 | 2026-08-10 | 2026-08-10 | 0.0 | 0.0 |
 | EVAL-01 | other | 2026-08-10-p0-harness.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
 | EVAL-02 | other | 2026-08-10-p0-harness.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
 | EVAL-03 | other | 2026-08-10-p0-harness.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
@@ -109,8 +127,10 @@
 | INV-016 | other | task | 2026-08-03 | 2026-08-03 | 2026-08-03 | 0.0 | 0.0 |
 | INV-016-B | other | task | 2026-08-05 | 2026-08-05 | 2026-08-05 | 0.0 | 0.0 |
 | INV-017 | other | task | 2026-08-02 | 2026-08-02 | 2026-08-02 | 0.0 | 0.0 |
+| Items | other | 2026-08-10-docs-task-system-consolidation.md | 2026-08-10 | 2026-08-10 | 2026-08-10 | 0.0 | 0.0 |
 | MKT-05 | other | task | 2026-08-04 | 2026-08-04 | 2026-08-04 | 0.0 | 0.0 |
 | MKT-10 | other | task | 2026-08-05 | 2026-08-05 | 2026-08-05 | 0.0 | 0.0 |
+| Mover | other | 2026-08-10-docs-task-system-consolidation.md | 2026-08-10 | 2026-08-10 | 2026-08-10 | 0.0 | 0.0 |
 | NUEVO-07 | other | task | 2026-08-02 | 2026-08-02 | 2026-08-02 | 0.0 | 0.0 |
 | NUEVO-08 | other | task | 2026-08-02 | 2026-08-02 | 2026-08-02 | 0.0 | 0.0 |
 | NUEVO-10 | other | task | 2026-08-02 | 2026-08-02 | 2026-08-02 | 0.0 | 0.0 |
@@ -128,13 +148,33 @@
 | P1-05 | other | 2026-08-10-p1-process-discipline.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
 | P1-06 | other | 2026-08-10-p1-process-discipline.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
 | P1-07 | other | 2026-08-10-p1-process-discipline.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
+| P2-01 | other | 2026-08-10-p2-p3-structural-quality.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
+| P2-02 | other | 2026-08-10-p2-p3-structural-quality.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
+| P2-03 | other | 2026-08-10-p2-p3-structural-quality.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
+| P2-04 | other | 2026-08-10-p2-p3-structural-quality.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
+| P2-05 | other | 2026-08-10-p2-p3-structural-quality.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
+| P2-06 | other | 2026-08-10-p2-p3-structural-quality.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
+| P2-07 | other | 2026-08-10-p2-p3-structural-quality.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
+| P2-08 | other | 2026-08-10-p2-p3-structural-quality.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
+| P3-04 | other | 2026-08-10-p2-p3-structural-quality.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
+| P3-05 | other | 2026-08-10-p2-p3-structural-quality.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
+| P3-06 | other | 2026-08-10-p2-p3-structural-quality.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
+| P3-07 | other | 2026-08-10-p2-p3-structural-quality.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
+| P3-08 | other | 2026-08-10-p2-p3-structural-quality.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-10 (mtime) | 0.0 | 0.0 |
+| P3-rem | other | 2026-08-10-p3-remaining-fallas.md | 2026-08-10 (mtime) | 2026-08-10 | 2026-08-11 (mtime) | 1.0 | 1.0 |
+| PERF-07 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-09 | 2026-08-11 (mtime) | 2.0 | 2.0 |
+| PERF-09 | rust | 2026-08-09-residual-hardening.md | 2026-08-09 (mtime) | 2026-08-09 | 2026-08-11 (mtime) | 2.0 | 2.0 |
+| Resolver | other | 2026-08-10-docs-task-system-consolidation.md | 2026-08-10 | 2026-08-10 | 2026-08-10 | 0.0 | 0.0 |
+| Restaurar | other | 2026-08-10-docs-task-system-consolidation.md | 2026-08-10 | 2026-08-10 | 2026-08-10 | 0.0 | 0.0 |
 | REV-012 | other | task | 2026-07-31 (mtime) | 2026-07-31 | 2026-07-31 (mtime) | 0.0 | 0.0 |
+| Sincronizar | other | 2026-08-10-docs-task-system-consolidation.md | 2026-08-10 | 2026-08-10 | 2026-08-10 | 0.0 | 0.0 |
 | TECH-06 | other | task | 2026-08-05 | 2026-08-05 | 2026-08-05 | 0.0 | 0.0 |
 | TECH-07 | other | task | 2026-08-05 | 2026-08-05 | 2026-08-05 | 0.0 | 0.0 |
 | TEST-11 | other | task | 2026-07-31 (mtime) | 2026-07-31 | 2026-07-31 (mtime) | 0.0 | 0.0 |
 | TEST-12 | other | task | 2026-07-31 (mtime) | 2026-07-31 | 2026-07-31 (mtime) | 0.0 | 0.0 |
 | TSK-104 | other | task | 2026-08-02 | 2026-08-02 | 2026-08-02 | 0.0 | 0.0 |
 | TSK-107b | other | task | 2026-08-02 | 2026-08-02 | 2026-08-02 | 0.0 | 0.0 |
+| Unificar | other | 2026-08-10-docs-task-system-consolidation.md | 2026-08-10 | 2026-08-10 | 2026-08-10 | 0.0 | 0.0 |
 | VFY-011 | other | task | 2026-07-26 | 2026-07-26 | 2026-07-26 | 0.0 | 0.0 |
 | WEB-18 | frontend | task | 2026-08-04 | 2026-08-04 | 2026-08-04 | 0.0 | 0.0 |
 
@@ -144,16 +184,16 @@
 
 | Intentos de verify | Fallos | CFR |
 |---|---|---|
-| 0 | 0 | **0.0%** |
+| 1 | 1 | **100.0%** |
 
-> ⚠️ Sin intentos registrados en `verify-log.jsonl` — CFR 0% es **baseline sin datos**, no un resultado real. El log se alimenta desde `campaign_verify_cmd`.
+> Detalle de fallos por tarea: T1-residuo-consolidado(101)
 
 ## 3. Throughput
 
 | Periodo (días) | Tareas completadas |
 |---|---|
-| Últimos 7 | 65 |
-| Últimos 30 | 112 |
+| Últimos 7 | 95 |
+| Últimos 30 | 153 |
 
 
 
@@ -164,17 +204,21 @@
 | Tipo | Total | Pending | In-progress | Completed | Failed | Unknown |
 |---|---|---|---|---|---|---|
 | frontend | 2 | 0 | 1 | 1 | 0 | 0 |
-| other | 158 | 25 | 1 | 85 | 0 | 47 |
-| rust | 64 | 22 | 0 | 26 | 0 | 16 |
+| other | 186 | 24 | 1 | 112 | 0 | 49 |
+| rust | 65 | 8 | 0 | 40 | 0 | 17 |
 
 ### Por plan file
 
 | Plan | Total | Pending | In-progress | Completed | Failed | Lead avg (días) |
 |---|---|---|---|---|---|---|
-| 2026-08-09-residual-hardening.md (inicio 2026-08-09) | 26 | 21 | 0 | 5 | 0 | 1.0 |
+| 2026-08-09-residual-hardening.md (inicio 2026-08-09) | 21 | 0 | 0 | 21 | 0 | 1.0 |
+| 2026-08-10-docs-task-system-consolidation.md (inicio 2026-08-10) | 11 | 0 | 0 | 11 | 0 | 0.0 |
 | 2026-08-10-p0-harness.md (inicio 2026-08-10) | 4 | 0 | 0 | 4 | 0 | 0.0 |
 | 2026-08-10-p1-process-discipline.md (inicio 2026-08-10) | 7 | 0 | 0 | 7 | 0 | 0.0 |
-| 2026-08-10-p2-p3-structural-quality.md (inicio 2026-08-10) | 13 | 13 | 0 | 0 | 0 | — |
+| 2026-08-10-p2-p3-structural-quality.md (inicio 2026-08-10) | 13 | 0 | 0 | 13 | 0 | 0.0 |
+| 2026-08-10-p3-remaining-fallas.md (inicio 2026-08-10) | 1 | 0 | 0 | 1 | 0 | 1.0 |
+| 2026-08-11-residuo-consolidado.budget.json (inicio —) | 2 | 0 | 0 | 0 | 0 | — |
+| 2026-08-11-residuo-consolidado.md (inicio 2026-08-11) | 19 | 19 | 0 | 0 | 0 | — |
 
 ### Sin plan file (task files sueltos)
 

@@ -1,8 +1,7 @@
 # North Star Report
 
-> Generado por `evals/northstar.mjs` (P1-06) — 2026-08-10T22:27:12.992Z
-> Datos: `.opencode/task-system/enforcement/verify-log.jsonl` (0 invocaciones de verify) + `docs/plans/*.md` (51 tareas) + `docs/plans/*.budget.json` (3 tareas trackeadas)
-> ⚠️ **verify-log.jsonl está vacío** — sin telemetría de verificación, las métricas se reportan en 0 y los thresholds no pueden evaluarse aún.
+> Generado por `evals/northstar.mjs` (P1-06) — 2026-08-11T20:24:42.570Z
+> Datos: `.opencode/task-system/enforcement/verify-log.jsonl` (2 invocaciones de verify) + `docs/plans/*.md` (51 tareas) + `docs/plans/*.budget.json` (6 tareas trackeadas)
 
 
 ## Definiciones (documentadas en este header)
@@ -17,8 +16,8 @@
 
 | Métrica | Valor |
 |---|---|
-| Tareas ✅ COMPLETED | 29 |
-| Completadas en primer intento (sin fallos registrados) | 29 |
+| Tareas ✅ COMPLETED | 37 |
+| Completadas en primer intento (sin fallos registrados) | 37 |
 | **Tasa primer intento** | **100.0%** |
 
 ## 2. Falsos positivos
@@ -26,9 +25,9 @@
 | Componente | Count |
 |---|---|
 | COMPLETED con verify fallido | 0 |
-| Verified-then-rerun (>1 invocación verify) | 0 |
+| Verified-then-rerun (>1 invocación verify) | 1 |
 | Budget fails (consecutiveFails > 0) | 0 |
-| **Falsos positivos (unión)** | **0** |
+| **Falsos positivos (unión)** | **1** |
 
 ## 3. Regresión
 
@@ -40,84 +39,85 @@
 
 | Métrica | Threshold | Actual | Status |
 |---|---|---|---|
-| Tasa completado primer intento | >90% | 100.0% | ⚠️ |
-| Falsos positivos | 0 | 0 | ✅ |
-| Regresión silenciosa | 0 | 0 | ⚠️ |
+| Tasa completado primer intento | >90% | 100.0% | ✅ |
+| Falsos positivos | 0 | 1 | 🚩 |
+| Regresión silenciosa | 0 | 0 | ✅ |
 
 ## 5. Calibración de telemetría (P3-rem)
 
 | Métrica | Valor |
 |---|---|
-| Tareas con skills registradas en verify-log | 0 |
-| Cobertura de telemetría (tareas con skills / tareas con verify) | — |
+| Tareas con skills registradas en verify-log | 1 |
+| Cobertura de telemetría (tareas con skills / tareas con verify) | 100.0% |
 
-> Este indicador mide cuánto input de calibración (skill/tool → primer intento) se recolecta para el harness de evals (P0-1). ⚠️ Sin telemetría de skills aún — se poblará con los próximos verifies de P3-rem.
+> Este indicador mide cuánto input de calibración (skill/tool → primer intento) se recolecta para el harness de evals (P0-1). ✅ Recolectando.
 
-> ⚠️ Sin telemetría de verify — los thresholds de primer intento y regresión **no pueden evaluarse aún** (baseline pendiente); con budget solo, falsos positivos es parcialmente evaluable.
 
 
 ## Por tipo de tarea
 
 | Tipo | Tareas |
 |---|---|
-| other | 30 |
+| other | 32 |
 | rust | 21 |
 
 ## Detalle por tarea
 
 | Task | Plan | Estado | Verify ok | Verify fail | Primer intento | Presencia regresión | Budget fails |
 |---|---|---|---|---|---|---|---|
-| AUD-016 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| AUD-018 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| AUD-020 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| AUD-021 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| CI-01 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| COV-001 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| COV-002 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| COV-003 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| COV-004 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| ERR-006 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| ERR-008 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| ERR-015 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
+| Archivar | 2026-08-11-residuo-consolidado.md | pending | 0 | 0 | ✅ | — | 0 |
+| Arreglar | 2026-08-10-docs-task-system-consolidation.md | completed | 0 | 0 | ✅ | — | 0 |
+| Asincron | 2026-08-11-residuo-consolidado.md | pending | 0 | 0 | ✅ | — | 0 |
+| AUD-016 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
+| AUD-018 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
+| AUD-020 | 2026-08-11-residuo-consolidado.md | completed | 0 | 0 | ✅ | — | 0 |
+| AUD-021 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
+| Checklist | 2026-08-11-residuo-consolidado.md | pending | 0 | 0 | ✅ | — | 0 |
+| CI-01 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
+| Commitear | 2026-08-11-residuo-consolidado.md | pending | 0 | 0 | ✅ | — | 0 |
+| Contrato | 2026-08-11-residuo-consolidado.md | pending | 0 | 0 | ✅ | — | 0 |
+| Correcci | 2026-08-10-docs-task-system-consolidation.md | completed | 0 | 0 | ✅ | — | 0 |
+| Corregir | 2026-08-11-residuo-consolidado.md | pending | 0 | 0 | ✅ | — | 0 |
+| COV-001 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
+| COV-002 | 2026-08-11-residuo-consolidado.md | completed | 0 | 0 | ✅ | — | 0 |
+| COV-003 | 2026-08-11-residuo-consolidado.md | completed | 0 | 0 | ✅ | — | 0 |
+| COV-004 | 2026-08-11-residuo-consolidado.md | completed | 0 | 0 | ✅ | — | 0 |
+| Crear | 2026-08-10-docs-task-system-consolidation.md | completed | 0 | 0 | ✅ | — | 0 |
+| Definir | 2026-08-11-residuo-consolidado.md | pending | 0 | 0 | ✅ | — | 0 |
+| Eliminar | 2026-08-10-docs-task-system-consolidation.md | completed | 0 | 0 | ✅ | — | 0 |
+| ERR-006 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
+| ERR-008 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
+| ERR-015 | 2026-08-11-residuo-consolidado.md | completed | 0 | 0 | ✅ | — | 0 |
 | ERR-026 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
-| ERR-031 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| ERR-032 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| ERR-033 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
+| ERR-031 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
+| ERR-032 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
+| ERR-033 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
 | ERR-036 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
 | ERR-037 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
 | ERR-042 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
-| ERR-043 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
+| ERR-043 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
 | ERR-044 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
-| ERR-045 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| ERR-047 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| ERR-048 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| EVAL-01 | 2026-08-10-p0-harness.md | completed | 0 | 0 | ✅ | — | 0 |
-| EVAL-02 | 2026-08-10-p0-harness.md | completed | 0 | 0 | ✅ | — | 0 |
-| EVAL-03 | 2026-08-10-p0-harness.md | completed | 0 | 0 | ✅ | — | 0 |
-| EVAL-04 | 2026-08-10-p0-harness.md | completed | 0 | 0 | ✅ | — | 0 |
-| P1-01 | 2026-08-10-p1-process-discipline.md | completed | 0 | 0 | ✅ | — | 0 |
-| P1-02 | 2026-08-10-p1-process-discipline.md | completed | 0 | 0 | ✅ | — | 0 |
-| P1-03 | 2026-08-10-p1-process-discipline.md | completed | 0 | 0 | ✅ | — | 0 |
-| P1-04 | 2026-08-10-p1-process-discipline.md | completed | 0 | 0 | ✅ | — | 0 |
-| P1-05 | 2026-08-10-p1-process-discipline.md | completed | 0 | 0 | ✅ | — | 0 |
-| P1-06 | 2026-08-10-p1-process-discipline.md | completed | 0 | 0 | ✅ | — | 0 |
-| P1-07 | 2026-08-10-p1-process-discipline.md | completed | 0 | 0 | ✅ | — | 0 |
-| P2-01 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
-| P2-02 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
-| P2-03 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
-| P2-04 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
-| P2-05 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
-| P2-06 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
-| P2-07 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
-| P2-08 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
-| P3-04 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
-| P3-05 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
-| P3-06 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
-| P3-07 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
-| P3-08 | 2026-08-10-p2-p3-structural-quality.md | completed | 0 | 0 | ✅ | — | 0 |
-| P3-rem | 2026-08-10-p3-remaining-fallas.md | pending | 0 | 0 | ✅ | — | 0 |
-| PERF-07 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
-| PERF-09 | 2026-08-09-residual-hardening.md | pending | 0 | 0 | ✅ | — | 0 |
+| ERR-045 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
+| ERR-047 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
+| ERR-048 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
+| Estado | 2026-08-10-docs-task-system-consolidation.md | completed | 0 | 0 | ✅ | — | 0 |
+| Fix | 2026-08-11-residuo-consolidado.md | pending | 0 | 0 | ✅ | — | 0 |
+| Human-in-the-loop | 2026-08-11-residuo-consolidado.md | pending | 0 | 0 | ✅ | — | 0 |
+| Items | 2026-08-10-docs-task-system-consolidation.md | completed | 0 | 0 | ✅ | — | 0 |
+| L | 2026-08-11-residuo-consolidado.md | pending | 0 | 0 | ✅ | — | 0 |
+| Memoria | 2026-08-11-residuo-consolidado.md | pending | 0 | 0 | ✅ | — | 0 |
+| Mover | 2026-08-10-docs-task-system-consolidation.md | completed | 0 | 0 | ✅ | — | 0 |
+| Observabilidad | 2026-08-11-residuo-consolidado.md | pending | 0 | 0 | ✅ | — | 0 |
+| PERF-07 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
+| PERF-09 | 2026-08-09-residual-hardening.md | completed | 0 | 0 | ✅ | — | 0 |
+| Poblar | 2026-08-11-residuo-consolidado.md | pending | 0 | 0 | ✅ | — | 0 |
+| Resolver | 2026-08-10-docs-task-system-consolidation.md | completed | 0 | 0 | ✅ | — | 0 |
+| Restaurar | 2026-08-10-docs-task-system-consolidation.md | completed | 0 | 0 | ✅ | — | 0 |
+| Sincronizar | 2026-08-10-docs-task-system-consolidation.md | completed | 0 | 0 | ✅ | — | 0 |
+| T1-residuo | 2026-08-11-residuo-consolidado.budget.json | sin-plan | 0 | 0 | ✅ | — | 0 |
+| T1-residuo-consolidado | 2026-08-11-residuo-consolidado.budget.json | sin-plan | 1 | 1 | ❌ | — | 0 |
+| Unificar | 2026-08-10-docs-task-system-consolidation.md | completed | 0 | 0 | ✅ | — | 0 |
+| Validaci | 2026-08-11-residuo-consolidado.md | pending | 0 | 0 | ✅ | — | 0 |
 
 ## Notas
 - "Primer intento" se infiere de plan + budget + verify-log; sin telemetría de verify la tasa es best-effort (asume primer intento cuando no hay evidencia de fallo).
