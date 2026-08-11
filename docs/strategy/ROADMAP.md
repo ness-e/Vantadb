@@ -125,7 +125,7 @@ R8 (claims) ─── Fase 0 (WEB-02)
 | Orden | Item | Descripción | Esfuerzo | Dependencias |
 |-------|------|-------------|----------|-------------|
 | 1 | **R1 (nuevo)** | CI certification: estabilizar ASan/TSan/coverage thresholds. Agregar métrica de "builds verdes consecutivos" como gate | 🟡 2-3d | — |
-| 2 | **R5 (nuevo)** | Freeze backlog: congelar nuevos items. Hacer triage de 165 → ≤100 items. Mover diferidos a `docs/archive/backlog-futuro.md` | 🟢 1d | — |
+| 2 | **R5 (nuevo)** | Freeze backlog: congelar nuevos items. Hacer triage de 165 → ≤100 items. Mover diferidos a `docs/backlog-futuro.md` | 🟢 1d | — |
 | 3 | **DRV-115** | Fix MSVC linker overflow: excluir adapters PyO3 de workspace build o usar rust-lld | 🟡 4h | — |
 | 4 | **DRV-116** | 10 warnings: `unnecessary unsafe` (9) + dead code (4) en vfile.rs, graph.rs, serialize.rs, archive.rs, maintenance.rs | 🟢 30min | — |
 | 5 | **DRV-117** | Stale advisory ignores: limpiar RUSTSEC-2024-0436 y RUSTSEC-2025-0134 de deny.toml | 🟢 5min | — |

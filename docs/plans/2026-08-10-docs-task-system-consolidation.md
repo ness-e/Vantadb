@@ -188,7 +188,7 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 
 ### Task 16: Mover backlog diferido R5 fuera de docs/archive
 - **Esfuerzo:** 🟢 | **Prioridad:** P2 | **Ruta:** vanta-docs
-- **Archivos clave:** `docs/archive/backlog-futuro.md` → `docs/backlog-futuro.md` (junto a Backlog.md); `docs/strategy/ROADMAP.md:128` (R5 lo designa como destino)
+- **Archivos clave:** `docs/backlog-futuro.md` (movido desde `docs/archive/`); `docs/strategy/ROADMAP.md:128` (R5 lo designa como destino)
 - **Verificación real:** `backlog-futuro` es operativo vivo (ROADMAP R5 lo escribe), vive en carpeta de "archivo muerto" (doble rol de docs/archive).
 - **Gate Result:** 🔵 DO
 - **Contrato:** movido; ROADMAP L128 actualizado; `docs/archive/` queda solo con los 2 extractos histórico-estáticos.

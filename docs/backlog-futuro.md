@@ -17,4 +17,4 @@ Diferidos tras el freeze del backlog (ROADMAP R5). Ideas preservadas durante la 
 | FUT-11 | **Export bidireccional a Markdown legible** para auditoría humana | Hoy el export/import es JSONL machine-readable (`src/sdk/serialization/impl_export.rs`); Markdown legible para humanos no existe. Bajo valor — opcional. | VantaDB_ Evolución y Mejora Propuesta.md, Fase 5 (eliminado) |
 
 ---
-*Directorio designado por ROADMAP R5 (`docs/archive/backlog-futuro.md`) para items diferidos del triage. Fusionar con el resto del triage cuando R5 se ejecute.*
+*Directorio designado por ROADMAP R5 (`docs/backlog-futuro.md`) para items diferidos del triage. Fusionar con el resto del triage cuando R5 se ejecute.*
