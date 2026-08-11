@@ -955,60 +955,7 @@ impl CPIndex {
         current_neighbors: &[u128],
         layer: usize,
     ) {
-        // 1. Read the node's vector data and cached norm
-        let (nb_vec, nb_inv_norm) = match self.nodes.get(&neighbor_id) {
-            Some(n) => (
-                n.vec_data.as_f32_slice().map(|s| s.to_vec()),
-                n.inv_cached_norm,
-            ),
-            None => (None, 0.0),
-        };
-
-        if let Some(nb_v) = nb_vec {
-            let mut cand_heap = BinaryHeap::new();
-            let q_norm = if nb_inv_norm > f32::EPSILON {
-                Some(1.0 / nb_inv_norm)
-            } else {
-                None
-            };
-            let q_inv_norm = if nb_inv_norm > f32::EPSILON {
-                Some(nb_inv_norm)
-            } else {
-                None
-            };
-            for &n_target in current_neighbors {
-                if let Some(nt) = self.nodes.get(&n_target) {
-                    let d = self.fast_similarity(
-                        &nb_v,
-                        q_norm,
-                        q_inv_norm,
-                        &nt,
-                        self.config.distance_metric,
-                    );
-                    cand_heap.push(NodeSimMin(d, n_target));
-                }
-            }
-            // INV-024 M-8 (reachability): never drop the last remaining
-            // incoming link of a node. The just-added reverse link
-            // (neighbor_id → new_node) carries inbound_count == 1 right after
-            // connect_layer_neighbors pushed it, so it survives the prune; the
-            // more important case is later prunes: an old node X that sits at
-            // the bottom of a saturated list must NOT be evicted if it is X's
-            // only remaining incoming edge, otherwise X loses ALL in-edges and
-            // becomes an island (unreachable from the entry point by directed
-            // BFS) while still being present in `self.nodes`.
-            // The scan MUST cover every candidate: an early exit once
-            // `pruned.len() >= m_max` would silently drop last-inbound nodes
-            // ranked after the cutoff. Over-capacity lists are the accepted
-            // price for the invariant.
-            //
-            // AUD-014: delegate selection to the canonical `select_neighbors`
-            // (NodeSimMin::Ord tie-break: id ascending) — previously this block
-            // re-implemented top-M with a pure-sim comparator, producing a
-            // different (arbitrary) tie order than the insert path.
-            let pruned = self.select_neighbors(cand_heap, m_max, |cand| {
-                self.neighbor_index.inbound_count(cand) <= 1
-            });
+        if let Some(pruned) = self.compute_shrunk_neighbors(neighbor_id, m_max, current_neighbors) {
             // Populate both neighbor_index and inline cache.
             let inline_cache = pruned.clone();
             self.neighbor_index
@@ -1019,6 +966,69 @@ impl CPIndex {
                 }
             }
         }
+    }
+
+    /// ERR-043: select the survivors list for a saturated neighbor list.
+    ///
+    /// The source node's vector is read once as a borrowed slice instead of
+    /// cloning it per shrink (`as_f32_slice().map(|s| s.to_vec())` was an
+    /// O(vec_len) alloc). The DashMap guard lives only inside this helper, so
+    /// the caller's subsequent `get_mut` on the same id never contends with it.
+    #[inline]
+    fn compute_shrunk_neighbors(
+        &self,
+        neighbor_id: u128,
+        m_max: usize,
+        current_neighbors: &[u128],
+    ) -> Option<NeighborVec> {
+        let n = self.nodes.get(&neighbor_id)?;
+        let nb_v = n.vec_data.as_f32_slice()?;
+        let nb_inv_norm = n.inv_cached_norm;
+
+        let mut cand_heap = BinaryHeap::new();
+        let q_norm = if nb_inv_norm > f32::EPSILON {
+            Some(1.0 / nb_inv_norm)
+        } else {
+            None
+        };
+        let q_inv_norm = if nb_inv_norm > f32::EPSILON {
+            Some(nb_inv_norm)
+        } else {
+            None
+        };
+        for &n_target in current_neighbors {
+            if let Some(nt) = self.nodes.get(&n_target) {
+                let d = self.fast_similarity(
+                    nb_v,
+                    q_norm,
+                    q_inv_norm,
+                    &nt,
+                    self.config.distance_metric,
+                );
+                cand_heap.push(NodeSimMin(d, n_target));
+            }
+        }
+        // INV-024 M-8 (reachability): never drop the last remaining
+        // incoming link of a node. The just-added reverse link
+        // (neighbor_id → new_node) carries inbound_count == 1 right after
+        // connect_layer_neighbors pushed it, so it survives the prune; the
+        // more important case is later prunes: an old node X that sits at
+        // the bottom of a saturated list must NOT be evicted if it is X's
+        // only remaining incoming edge, otherwise X loses ALL in-edges and
+        // becomes an island (unreachable from the entry point by directed
+        // BFS) while still being present in `self.nodes`.
+        // The scan MUST cover every candidate: an early exit once
+        // `pruned.len() >= m_max` would silently drop last-inbound nodes
+        // ranked after the cutoff. Over-capacity lists are the accepted
+        // price for the invariant.
+        //
+        // AUD-014: delegate selection to the canonical `select_neighbors`
+        // (NodeSimMin::Ord tie-break: id ascending) — previously this block
+        // re-implemented top-M with a pure-sim comparator, producing a
+        // different (arbitrary) tie order than the insert path.
+        Some(self.select_neighbors(cand_heap, m_max, |cand| {
+            self.neighbor_index.inbound_count(cand) <= 1
+        }))
     }
 
     fn update_metadata(&self, level: usize, id: u128) {
