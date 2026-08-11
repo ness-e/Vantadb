@@ -288,12 +288,11 @@ impl VantaEmbedded {
                         None => None,
                     }
                 };
-                let (prev_version, prev_created_at_ms) =
-                    existing.map(|(v, c)| (Some(v), Some(c))).unwrap_or((None, None));
+                let (prev_version, prev_created_at_ms) = existing
+                    .map(|(v, c)| (Some(v), Some(c)))
+                    .unwrap_or((None, None));
                 let created_at_ms = prev_created_at_ms.unwrap_or(timestamp);
-                let version = prev_version
-                    .map(|v| v.saturating_add(1))
-                    .unwrap_or(1);
+                let version = prev_version.map(|v| v.saturating_add(1)).unwrap_or(1);
                 seen_versions.insert(node_id, version);
 
                 let record = VantaMemoryRecord {
