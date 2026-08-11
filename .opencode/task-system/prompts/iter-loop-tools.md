@@ -143,6 +143,11 @@ Usá `campaign_validate_action state=<ESTADO> toolName=<TOOL>` para verificar an
 ### PLAN
 - Leer el próximo step del task file
 - Consultar memoria: `campaign_memory_read lessons` y `decisions` para contexto
+  - **Esquema fijo por línea** (TSYS-15; los campos van separados por ` | `):
+    `- <fecha-auto> | <tema> | <decisión|lección> | ref: <ruta:línea>`
+  - `campaign_memory_write` recibe SOLO `entry="<tema> | <decisión|lección> | ref: <ruta:línea>"` — **NO incluir la fecha**: el server la antepone (`- YYYY-MM-DD | `); duplicarla es la FALLA #11 (desync entre líneas)
+  - Ej: `campaign_memory_write(file="decisions", entry="pyo3 | PyBytes owned en vez de raw pointer (AUDIT-01) | ref: vantadb-python/src/vector.rs:59")`
+  - **Read por tema** (el server NO filtra): `rg -n "<tema>" .opencode/task-system/memory/*.md` (o Grep con pattern `^\- .*\| <tema> \|`)
 - Decidir el cambio atómico (~100 líneas máx)
 - Ponytail ladder: ya existe > stdlib > dependency > mínimo código
 

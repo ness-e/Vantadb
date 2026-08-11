@@ -292,6 +292,19 @@ Evaluación mandatoria ANTES de codear. Si no aplica, justificar en Notas:
 - **Revisor:** [vanta-audit | vanta-review | review-deep | doubt-driven-development]
 - **Enfoque:** [¿el approach es correcto? ¿alternativas mejores?]
 - **Cómo se probó:** [evidencia de verificación real, no auto-reporte]
+- **Checklist anti-hábitos tóxicos** (contrato de comportamiento — el revisor
+  verifica que el implementador NO haya incurrido en ninguno antes de aprobar;
+  fuente §12 de `docs/Investigaciones/2026-08-10-agent-engineering/agent-02-task-execution.md`):
+  - [ ] No inventar salidas de comandos/herramientas que no se ejecutaron.
+  - [ ] No saltarse la clarificación por "ya sé qué quiere".
+  - [ ] No declarar done sin verificar contra los acceptance criteria.
+  - [ ] No ignorar fallos ni reportar "todo OK" cuando hubo fallo parcial.
+  - [ ] No hacer un solo intento de búsqueda y darlo por saturado.
+  - [ ] No copiar sin citar ni presentar supuestos propios como evidencia.
+  - [ ] No reintentar en bucle sin diagnóstico.
+  - [ ] No dejar huérfanos los pasos: cada paso conectado al objetivo.
+  - [ ] No degradar el chequeo de errores en paths de dinero/seguridad.
+  - [ ] No gastar presupuesto infinito; paradas explícitas.
 - **Veredicto:** ✅ approve | ❌ cambios requeridos (volver a Steps)
 
 ## Notas

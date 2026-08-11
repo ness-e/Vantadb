@@ -92,3 +92,17 @@ The standing checklist above applies to every change. VantaDB additionally requi
 - [ ] Task moved to `docs/progreso/README.md` when completed
 - [ ] Changelog updated if user-visible change (`docs/CHANGELOG.md` via git-cliff)
 - [ ] Change is shippable: PR opened with green CI, or merged to `main` (Regla 7) — to merge a main-branch change, open a PR and get CI green first; task ends when the work can ship, not when it commits
+
+# VantaDB — Feature shippable (trunk-based)
+
+Formaliza el criterio de "qué es feature shippable" en trunk-based (REPORTE-FINAL 2026-08-10 §3.4-11): en develop → PR a main, la decisión de shippear no queda al juicio humano. Una feature es **shippable** solo si cumple el umbral completo — un solo item faltante la mantiene en `develop`.
+
+Aplica como gate de merge a `main` (Regla 7), además del standing checklist y los comandos del DoD VantaDB de arriba. El checklist por feature es:
+
+- [ ] **(a) Tests** — unit tests que fallan sin la feature y pasan con ella; tests de integración donde aplique (backend, bindings, red)
+- [ ] **(b) Docs** — API/uso actualizadas en el mismo PR (Regla 3): `docs/api/`, README, docstrings de API pública; ADR registrado si hay decisión arquitectónica
+- [ ] **(c) Monitoring/observabilidad** — log o métrica que evidencie que la feature funciona en producción (no "se ve que anda"); critical paths con logs estructurados o métricas
+- [ ] **(d) Rollback viable** — revert limpio (`git revert` del commit/PR) o flag-off con feature flag; sin migración irreversible que impida el revert
+- [ ] **(e) Sin caballos sueltos** — toda deuda conocida (stub, shortcut, edge case diferido) está documentada y con ID de backlog; deuda silenciosa = no shippable
+
+**Red flag:** "shippear y ver" sin (c) o (d) — si no se puede observar ni revertir, no es shippable, es un experimento.

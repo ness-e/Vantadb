@@ -265,7 +265,7 @@ en dos commits (uno de comportamiento, uno de estructura).
 | **Runtime** | Execution | MCP server (campaign-* tools), cargo-mcp, rust-analyzer-mcp |
 | | Sub-agents | `task` tool, research isolation pattern, fork/join groups |
 | | Sandbox | `campaign_run_sandboxed` vía PowerShell aislado |
-| | Memory | `memory/lessons.md`, `memory/decisions.md` + `campaign_memory_read/write` |
+| | Memory | `memory/lessons.md`, `memory/decisions.md` + `campaign_memory_read/write`. Esquema por línea (TSYS-15): `- <fecha-auto> | <tema> | <decisión\|lección> | ref: <ruta:línea>`; la fecha la agrega el server (`write` recibe solo `entry`); read por tema vía `rg -n <tema> .opencode/task-system/memory/*.md` |
 | | Tracing | JSONL events a `traces/<campaign-id>.jsonl` via tracer.mjs |
 | | Plan files | `docs/plans/<plan>.md` + `docs/plans/<plan>.budget.json` |
 
