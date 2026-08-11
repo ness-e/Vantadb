@@ -165,12 +165,21 @@ impl ShardedWal {
         // files are partially cleaned.
         write_shard_meta(base_path, num_shards)?;
 
+        // ERR-050: resume round-robin where the previous process left off.
+        // Each open is a fresh ShardedWal; starting next_shard at 0 would pile
+        // every new process's writes onto shard 0, leaving the other shards
+        // behind and tripping verify_shard_counts on the next recovery
+        // (truncated-shard abort). WalWriter counts the durable on-disk records
+        // when it opens a file, so the next write continues the sequence.
+        let durable_records: u64 = shards.iter().map(|s| s.lock().record_count()).sum();
+        let next_shard = (durable_records % num_shards as u64) as usize;
+
         Ok(Self {
             shards,
             num_shards,
             base_path: base_path.to_path_buf(),
             sync_mode,
-            next_shard: AtomicUsize::new(0),
+            next_shard: AtomicUsize::new(next_shard),
             wal_buffer_size,
             flush_threshold,
         })
@@ -798,5 +807,42 @@ mod tests {
         .unwrap();
         assert_eq!(recovered.len(), 3, "legacy single-file WAL fully recovered");
         clean_shards(&path, 1);
+    }
+
+    // ─── ERR-050: round-robin resumes across opens ──────────────
+
+    #[test]
+    fn test_reopen_resumes_round_robin_position() {
+        let path = test_wal_path();
+        {
+            let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
+            sw.append(&make_record(1)).unwrap();
+            sw.append(&make_record(2)).unwrap();
+            sw.flush_all().unwrap();
+        }
+
+        // Reopen: 2 durable records sit in shards 0 and 1, so the next write
+        // must land in shard 2 — not shard 0 again (which is what tripped
+        // verify_shard_counts with counts [2,0,0,0] on a third open).
+        let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
+        sw.append(&make_record(3)).unwrap();
+        let counts: Vec<u64> = sw.shards.iter().map(|s| s.lock().record_count()).collect();
+        assert_eq!(counts, vec![1, 1, 1, 0], "round-robin resumes across opens");
+
+        // And a subsequent open recovers all 3 without the ERR-011 abort.
+        drop(sw);
+        let sw = ShardedWal::new(&path, 4, SyncMode::Periodic).unwrap();
+        let mut recovered = Vec::new();
+        sw.recover(0, |record| {
+            recovered.push(record);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            recovered.len(),
+            3,
+            "no truncation error across repeated opens"
+        );
+        clean_shards(&path, 4);
     }
 }
