@@ -235,6 +235,13 @@ impl CPIndex {
         Ok(())
     }
 
+    /// Deserialize a CPIndex from raw bytes.
+    ///
+    /// The deserialized structures are always owned (`postcard::from_bytes`
+    /// copies every Vec/DashMap out of `data`), so there is no zero-copy path —
+    /// `force_copy` is a legacy no-op kept for call-site compatibility
+    /// (PERF-09). The mmap path benefits only from skipping `std::fs::read`;
+    /// the parsed index itself is owned memory either way.
     pub fn deserialize_from_bytes(data: &[u8], _force_copy: bool) -> std::io::Result<Self> {
         use std::io::{Error, ErrorKind};
 
@@ -612,7 +619,7 @@ impl CPIndex {
 
             match Self::deserialize_from_bytes(&mmap, false) {
                 Ok(mut index) => {
-                    info!(path = %path.display(), node_count = index.nodes.len(), "HNSW cold-start: loaded zero-copy index from file");
+                    info!(path = %path.display(), node_count = index.nodes.len(), "HNSW cold-start: loaded index from mmap file");
                     index.backend = IndexBackend::MMapFile {
                         path: path.to_path_buf(),
                         mmap: Some(mmap),
