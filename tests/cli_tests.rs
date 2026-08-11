@@ -350,6 +350,9 @@ fn test_cmd_namespace_info_missing_db() {
 fn test_cmd_rebuild_index_empty() {
     let (_dir, path) = setup_temp_db();
     let result = vantadb::cli_handlers::cmd_rebuild_index(&path, false);
+    if let Err(e) = &result {
+        eprintln!("REBUILD ERROR: {:?}", e);
+    }
     assert!(result.is_ok());
 }
 

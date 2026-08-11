@@ -23,6 +23,14 @@ use crc32c::crc32c; // ← Import specific function to avoid namespace conflict
 /// Falls back to pure Rust implementation if hardware acceleration unavailable
 #[inline]
 pub fn compute_crc32c(data: &[u8]) -> u32 {
+    if data.is_empty() {
+        // crc32c-0.5.0's `split` does from_raw_parts::<u64> with UB-check
+        // preconditions; an empty slice (dangling, unaligned ptr) panics with
+        // STATUS_STACK_BUFFER_OVERRUN instead of returning the CRC of empty
+        // input (0x00000000). Guard here so backup manifest collection never
+        // crashes on zero-length WAL shard files.
+        return 0x0000_0000;
+    }
     crc32c::crc32c(data)
 }
 
