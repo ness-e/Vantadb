@@ -280,9 +280,9 @@ impl CPIndex {
                 }
 
                 for &neighbor_id in neighbors_list.iter() {
-                    if !visited.contains(&neighbor_id) {
-                        visited.insert(neighbor_id);
-
+                    // ERR-048: single hash lookup — insert() returns true if the
+                    // id was not already present, replacing contains + insert.
+                    if visited.insert(neighbor_id) {
                         if let Some(neighbor) = self.nodes.get(&neighbor_id) {
                             // ERR-042: read the disk header once per candidate
                             // and reuse it for both the distance computation and
@@ -414,8 +414,8 @@ impl CPIndex {
                                         if let Some(second_list) = second_hop {
                                             let budget = ef.saturating_sub(results.len()).max(16);
                                             for &second_id in second_list.iter().take(budget) {
-                                                if !visited.contains(&second_id) {
-                                                    visited.insert(second_id);
+                                                // ERR-048: single hash lookup via insert().
+                                                if visited.insert(second_id) {
                                                     if let Some(second_node) =
                                                         self.nodes.get(&second_id)
                                                     {
