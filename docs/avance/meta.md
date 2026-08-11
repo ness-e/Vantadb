@@ -67,7 +67,7 @@ aliases: []
 
 ### 2026-08-07 — Auditoría y reclasificación de docs (C-*)
 - **ECO-002:** Contradicción `--no-verify` en AGENTS.md (Regla 1 vs Regla 7) → Regla B eliminada; queda solo prohibición en línea 791. `.antigravity/AGENTS.md` idéntico.
-- Reclasificación de archivos: `vectara-competitive-research` y `meta-001-root-cause-analysis` → `docs/Investigaciones/`; `backlog-validation`, `progreso-readme-part1/2/3`, `progreso-sistema` → `docs/audit-reports/archive/`.
+- Reclasificación de archivos: `vectara-competitive-research` y `meta-001-root-cause-analysis` → `docs/Investigaciones/`; `backlog-validation`, `progreso-readme-part1/2/3`, `progreso-sistema` → `docs/reviews/archive/`.
 
 ## Skills ecosystem
 

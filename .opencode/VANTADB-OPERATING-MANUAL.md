@@ -131,7 +131,7 @@ Nunca referenciar `.tasks/` (no existe — error legacy corregido).
 | `review` | Code review + deep module review |
 | `full` | Todo: CLI + security + perf + review + deep + ISO + certify |
 
-**Flujo:** Phase 0 (pre-check) → Phase 1 (CLI) → Phases 2-8 (skills) → Report en `docs/audit-reports/`
+**Flujo:** Phase 0 (pre-check) → Phase 1 (CLI) → Phases 2-8 (skills) → Report en `docs/reviews/`
 
 Cada ejecución de `/audit` crea un plan file (`docs/plans/plan-audit-*.md`) con task_id y resultados por fase.
 
@@ -772,9 +772,9 @@ AL COMPLETAR:
 | Disparador | Acción |
 |---|---|
 | Nueva `pub fn`, endpoint HTTP, binding PyO3/WASM | Actualizar el `.md` en `docs/api/` en el mismo PR |
-| Nueva documentación (guías/API/arquitectura ad-hoc) | NO en `docs/archive/`, `docs/research/`. Reportes del pipeline (`/audit`/`/review`) → `docs/audit-reports/`, `docs/reviews/` + registro en `docs/reports/INDEX.md` |
+| Nueva documentación (guías/API/arquitectura ad-hoc) | NO en `docs/archive/`, `docs/research/`. Reportes del pipeline (`/audit`/`/review`) → `docs/reviews/` + registro en `docs/reports/INDEX.md` |
 | Documentación técnica en español | Redirigir a inglés. Español solo para backlog/planning |
-| Auditoría completada | Reporte en `docs/audit-reports/` |
+| Auditoría completada | Reporte en `docs/reviews/` |
 | Decisión arquitectónica con tradeoff | ADR en `docs/architecture/adr/` o `campaign_memory_write` |
 
 ---

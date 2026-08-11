@@ -21,7 +21,7 @@ Generá un dashboard del estado actual del proyecto. Mostrar no más de 30 líne
 - Próximo paso según estado
 
 ### 3. Último audit
-- Buscá `docs/last-audit-state.json` (rápido) o fallback `docs/audit-reports/audit-*.md` (más reciente)
+- Buscá `docs/last-audit-state.json` (rápido) o fallback `docs/reviews/audit-*.md` (más reciente)
 - Modo, fecha, veredicto (✅/❌)
 - Findings críticos si los hay
 

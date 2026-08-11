@@ -109,7 +109,7 @@ Completed tasks may come from 3 sources. Check ALL:
 
 - **NO** editar los snapshots (`historial/snapshot-*.md`) — son copias congeladas, espejo literal del registry en su fecha.
 - Invariante de cobertura: todo ID nuevo en `docs/progreso/README.md` debe aparecer también en un archivo de dominio de `docs/avance` (ver `scripts/check-avance-coverage.ps1`).
-- Las carpetas vivas (`docs/plans/`, `docs/audit-reports/`, `docs/reviews/`, `docs/Investigaciones/`) NO se mueven ni se duplican — se catalogan en `docs/avance/fuentes-vivas.md`.
+- Las carpetas vivas (`docs/plans/`, `docs/reviews/`, `docs/Investigaciones/`) NO se mueven ni se duplican — se catalogan en `docs/avance/fuentes-vivas.md`.
 
 ### D2. Archive completed plans (cuando el plan file termina)
 
@@ -178,15 +178,14 @@ Before generating a new plan:
 ## Trigger 4: Sync reportes (review/audit reports ↔ backlog)
 
 Run this **at session start** (alongside the reading of Backlog.md) and **after
-any `/review` or `/audit` run**. Reports in `docs/reviews/` and
-`docs/audit-reports/` are artifacts — they only have value when their findings
-are tracked.
+any `/review` or `/audit` run**. Reports in `docs/reviews/` are
+artifacts - they only have value when their findings are tracked.
 
 ### A. Check the registry
 
 1. If `docs/reports/INDEX.md` exists: read it.
-2. If it's missing, list `docs/reviews/*.md` and `docs/audit-reports/*.md` and
-   flag that the registry hasn't been created (first sync creates it).
+2. If it's missing, list `docs/reviews/*.md` and flag that the registry hasn't
+   been created (first sync creates it).
 
 ### B. Flag orphans
 

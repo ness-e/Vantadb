@@ -69,8 +69,7 @@ Estas 4 carpetas **no se mueven físicamente**: son escritas por pipelines activ
 | Carpeta externa | Propietario del pipeline | Catálogo en `docs/avance` |
 |---|---|---|
 | `docs/plans/` | Sistema de tareas (campaign-server.mjs / pipeline-run.md) | `fuentes-vivas.md` §Planes |
-| `docs/audit-reports/` | `audit-all.ps1`, `/audit` (escritura de reportes) | `fuentes-vivas.md` §Auditorías |
-| `docs/reviews/` | `unified-review` / `/review` (escritura de reportes) | `fuentes-vivas.md` §Reviews |
+| `docs/reviews/` | `audit-all.ps1`, `/audit` + `unified-review` / `/review` (escritura de reportes) | `fuentes-vivas.md` §Auditorías |
 | `docs/Investigaciones/` | Research (destino de INV-*) | `investigaciones.md` (ya existente, 1:1) |
 
 ## Cruz de referencia con `docs/Backlog.md`

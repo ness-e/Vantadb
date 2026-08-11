@@ -27,31 +27,18 @@ aliases: [docs/avance/fuentes-vivas]
 | `archive/2026-07-25-p4-drv130-t3-node-reordering.md` | 32 | ✅ Archivado |
 | `*.budget.json` | — | Estado de presupuesto de la campaña correspondiente |
 
-## 2. `docs/audit-reports/` — Reportes de auditoría
+## 2. `docs/reviews/` — Reportes de auditoría y review
 
-**Propietario del pipeline:** `dev-tools/audit-all.ps1` (`$ReportDir`), prompt `audit-full.md` (escribe `audit-<mode>-<timestamp>.md`). `audit-full-2025-07-27.md` (antes `vantadb-audit-report.md`) es el reporte estático multi-agente principal — archivado 2026-08-09 al estar 100% procesado (P13 AUDREP).
+**Propietario del pipeline:** `dev-tools/audit-all.ps1` (`$ReportDir`), prompt `audit-full.md` (escribe `audit-<mode>-<timestamp>.md`), skill `unified-review` (`/review`, reportes `review-<mode>-<timestamp>.md`). Unificado: `/audit` ≡ `/review` (alias legacy) escriben en `docs/reviews/`. `audit-full-2025-07-27.md` (antes `vantadb-audit-report.md`) es el reporte estático multi-agente principal — archivado 2026-08-09 al estar 100% procesado (P13 AUDREP).
 
 | Archivo | Líneas | Tipo |
 |---|---|---|
-| `audit-full-2026-07-18.md` | 165 | Audit completo |
-| `audit-full-2026-07-24.md` | 135 | Audit completo |
-| `audit-full-2026-07-24T1751Z.md` | 52 | Audit (resumen) |
-| `audit-full-2026-08-04T174544.md` | 87 | Audit reciente (IDs AUDIT-01..08) |
-| `deps-01-duplicadas-2026-08-05.md` | 31 | Investigación dependencias |
-| `inv-001-rustsec-2026-07-29.md` | 52 | Investigación rustsec |
-| `inv-024-unsafe-audit-2026-07-30.md` | 148 | Investigación unsafe blocks |
-| `archive/` (6 files) | — | Intermedios superados / backups pre-2026-08-05 + `audit-full-2025-07-27.md` |
-
-## 3. `docs/reviews/` — Reportes de review
-
-**Propietario pipeline:** skill `unified-review` (`/review`), reportes `review-<mode>-<timestamp>.json`.
-
-| Archivo | Estado |
-|---|---|
 | `review-full-2026-07-27-0309.md` | 457 | Review completo |
 | `review-certify-2026-08-05-2025.md` | 74 | Certify reciente |
 | `review-full-2026-08-05-t1545.md` | 53 | Review rápido |
+| `audit-full-20260808-002617.md` | — | Audit completo vigente |
 | `archive/review.md` | 61 | Archivado |
+| `archive/` (14 files) | — | Audits/reviews superados pre-unificación + `audit-full-2025-07-27.md` |
 
 ## 4. `docs/Investigaciones/` — Investigaciones
 

@@ -13,7 +13,6 @@ $dstDir = Join-Path $root "docs/avance"
 # Carpeta -> catálogo en docs/avance que la integra sin moverla
 $live = @{
     "docs/plans"            = "docs/avance/fuentes-vivas.md"
-    "docs/audit-reports"    = "docs/avance/fuentes-vivas.md"
     "docs/reviews"          = "docs/avance/fuentes-vivas.md"
     "docs/Investigaciones"  = "docs/avance/investigaciones.md"
 }
