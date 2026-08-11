@@ -1,6 +1,6 @@
 # North Star Report
 
-> Generado por `evals/northstar.mjs` (P1-06) — 2026-08-10T21:55:58.705Z
+> Generado por `evals/northstar.mjs` (P1-06) — 2026-08-10T22:27:12.992Z
 > Datos: `.opencode/task-system/enforcement/verify-log.jsonl` (0 invocaciones de verify) + `docs/plans/*.md` (51 tareas) + `docs/plans/*.budget.json` (3 tareas trackeadas)
 > ⚠️ **verify-log.jsonl está vacío** — sin telemetría de verificación, las métricas se reportan en 0 y los thresholds no pueden evaluarse aún.
 
