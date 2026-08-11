@@ -396,7 +396,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `ERR-010` | **🔴 Persistencia / Race checkpoint↔snapshot** — *resuelto* (`a5ca4389`: insert_lock across checkpoint/save race; failpoint + interleave test). | `src/storage/engine/maintenance.rs` | 🔴 | 🔴 | ✅ Completado |
+| `ERR-010` | **🔴 Persistencia / Race checkpoint↔snapshot** — fix original `a5ca4389` (insert_lock across checkpoint/save); **RE-ABIERTO 2026-08-11**: 13 tests fallan con `TimeoutError: acquire insert_lock in flush (ERR-010)` (5s) — self-deadlock insert_lock en rebuild/reindex/compact (verificado en corrida aislada, no es contención). Deuda ya documentada en `docs/plans/archive/2026-08-09-backlog-pipeline.md:286`. | `src/storage/engine/` | 🔴 | 🔴 | 🔁 Reabierto |
 | `ERR-021` | **🔴 MCP OOM** — *resuelto* (`b01e9ed6`: streaming restaurado con take(n) + límite). | `vantadb-mcp/src/lib.rs` | 🟠 | 🔴 | ✅ Completado |
 | `ERR-022` | **🔴 top_k/k sin tope → alloc gigante** — *resuelto* (`3eeb86e1`: k.min(MAX_K) en bindings+MCP). | bindings + `src/index/search.rs` | 🟢 | 🔴 | ✅ Completado |
 | `ERR-035` | **🔴 Read-lock global HNSW** — *resuelto* (`1b0016d5`: contención reader/writer mitigada). | `src/physical_plan.rs:211`, `src/storage/engine/ops.rs` | 🔴 | 🔴 | ✅ Completado |
@@ -471,7 +471,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/audit-rep
 | AUD-017 | Media | `remove_node` remueve inbound sin limpiar refs cruzadas -> desync INV-024 (dead code, pero contrato roto si se cablea) | src/index/neighbor_index.rs:167-176 | 🟡 pendiente |
 | AUD-018 | Media | CI clippy excluye mcp/wasm/server (ci-rust-10.yml:86) -> 5 errores latentes pasan CI; extend gate o documentar deuda | .github/workflows/ci-rust-10.yml | 🟡 pendiente |
 | AUD-019 | Media | `__array_interface__` expone puntero raw a Python sin // SAFETY: ni lifetime doc | vantadb-python/src/types.rs:365-380 | 🟡 pendiente |
-| AUD-020 | Media | vantadb-server sin tests de integración HTTP (auth/RBAC/rate-limit) — superficie de ataque pública | vantadb-server/ | 🟡 pendiente |
 | AUD-021 | Media | Rate limiter fall-open: si GovernorConfigBuilder::finish() falla, endpoint sirve sin límite | src/cli_server.rs:160-164 | 🟡 pendiente |
 
 ---

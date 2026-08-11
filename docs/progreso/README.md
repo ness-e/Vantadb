@@ -315,6 +315,18 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 - **Launch Web:** las 5 DO verificadas en disco (competitive-table, WASM playground, migrate-from-vectara, blog×3, pricing alineado) + página va más allá del alcance (`/latency`, `/cost`, `/storage` añadidas después).
 - Budget files movidos junto a su plan.
 
+### Archivados 2026-08-11 — 5 planes task-system consolidados (plan `2026-08-11-residuo-consolidado.md` Task 5)
+
+| Fecha | Plan | Estado | Ubicación |
+|-------|------|--------|-----------|
+| 2026-08-10 | Agent-Engineering Gaps (familia A del task-system) | ✅ cerrado | `docs/plans/archive/2026-08-10-agent-engineering-gaps.md` |
+| 2026-08-10 | P0 Harness primitivo (EVAL-01..04, tasks 1-4) | ✅ cerrado | `docs/plans/archive/2026-08-10-p0-harness.md` |
+| 2026-08-10 | P1 Process Discipline (P1-01..07) | ✅ cerrado | `docs/plans/archive/2026-08-10-p1-process-discipline.md` |
+| 2026-08-10 | P2/P3 Structural Quality (P2-01..08, P3-04..08) | ✅ cerrado | `docs/plans/archive/2026-08-10-p2-p3-structural-quality.md` |
+| 2026-08-10 | P3 Remaining Fallas (P3-rem) | ✅ cerrado | `docs/plans/archive/2026-08-10-p3-remaining-fallas.md` |
+
+**Notas de archivo:** los 5 planes estaban íntegramente entregados y verificados con commits reales; los marcadores `PENDING` detectados por grep eran texto de cabecera de tabla/contrato, no tareas sin ejecutar. Commits de cierre: agent-engineering-gaps `887d0f14`, p0-harness `0592695f`, p1-process-discipline `f85c8b0d`, p2/p3-structural-quality `350e9725`, p3-remaining-fallas `724b355c` (+ estado fin `cfc7ada9`). Refs vivas actualizadas: `docs/operations/CI_POLICY.md` (Task P2-06 → ruta archivada) y `docs/plans/2026-08-10-docs-task-system-consolidation.md` (Task 13). Los reportes `dora.md`/`northstar.md` regeneran rutas al re-correr los evals.
+
 ### 2026-07-29 — Index Rebuild Optimization (4/4 tareas + 3 WI) ✅
 
 **Fuente:** Plan `docs/plans/2026-07-29-index-rebuild-execution.md` — archivado en `docs/plans/archive/2026-07-29-index-rebuild-execution.md`.
@@ -1279,6 +1291,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `AUDREP-36` | WAL-Recuperación: WAL corrupto truncado sin backup → cuarentena `.corrupt`/`.corrupt.N` (fail-soft, recovery nunca depende del backup) + test `test_corrupt_wal_tail_is_quarantined`; commit `00080282` | 🟡 | ✅ 2026-08-07 |
 | `AUDREP-40` | Frontend-Contenido: badge hero "v0.1 · MVP" obsoleto → "0.5.0 · MVP"; commit `af7d1655` | 🟡 | ✅ 2026-08-07 |
 | `AUDREP-44` | MCP-Concurrency: `active_requests` leak → guard RAII (ya existía) como único decremento; eliminado `fetch_sub` manual que doble-decrementaba; test panic-safe `active_request_guard`; commit `489d9a88` | 🟡 | ✅ 2026-08-07 |
+| `AUD-020` | Server-HTTPSec: tests auth/RBAC/rate-limit verdes — `cargo test -p vantadb-server --test server` 19/19; root cause: tests mandaban `{"query":"test"}`/`SELECT 1` (IQL inválido → 400 correcto post-ERR-027); fix: `SELECT * FROM Node`; RBAC HTTP ya conectado vía `token_role_map` | 🟡 | ✅ 2026-08-11 |
 | `AUDREP-49` | Infraestructura: `version: "3.9"` obsoleto en compose → clave eliminada (sin warning); commit `af7d1655` | 🟢 | ✅ 2026-08-07 |
 | `AUDREP-60` | SDK-TS-Código: `void ERROR_CODES` descartaba el const → eliminado el `void` (tipo `ErrorCode` sigue derivando); commit `b7f5a664` | 🟢 | ✅ 2026-08-07 |
 | `AUDREP-62` | Server-DX: `--mcp` vía `args().any()` sin help → argv loop hand-rolled con `skip(1)` + `print_help()` documenta `--mcp` (sin clap runtime); commit `b7f5a664` | 🟢 | ✅ 2026-08-07 |
@@ -3319,3 +3332,10 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 **Verificación:** `cargo check -p vantadb --features server` ✅ | `cargo check -p vantadb` ✅ | `cargo deny check advisories` ✅ | `rg "\.expect\(|\.unwrap\(" src/cli_server.rs` → solo tests + constante infalible. Sin `--no-verify`; cambios mínimos (1 fix Rust, 1 archivo nuevo, 1 config).
 
 
+
+### AUD-020: Tests HTTP auth/RBAC/rate-limit en vantadb-server
+- **Fuente:** Plan 2026-08-09-residual-hardening.md Task 23
+- **Fecha:** 2026-08-11
+- **Objetivo:** Arreglar 9 tests HTTP rotos por ERR-027 (query inválido → 400) y añadir cobertura de auth/RBAC/rate-limit.
+- **Resultado:** ✅ cargo test -p vantadb-server --test server = 19/19 pass (15 originales + 4 RBAC). Commits: `90f85d9f` (tests), `24a15cdf` (fmt drift pre-existente en src/sdk/api.rs).
+- **Ids:** `AUD-020`

@@ -149,7 +149,7 @@ certification checks. Running this on every PR would paralyze development veloci
 
 **Tier:** Heavy Certification (not the Fast Gate). A PR can reduce coverage in a hot module without
 any gate failing; this gate closes that gap by enforcing a minimum line-coverage threshold
-mechanically. **Task P2-06** from `docs/plans/2026-08-10-p2-p3-structural-quality.md`. The
+mechanically. **Task P2-06** from `docs/plans/archive/2026-08-10-p2-p3-structural-quality.md (archivado)`. The
 threshold starts conservative and ratchets upward.
 
 **Command:**
@@ -265,3 +265,4 @@ datasets. You can also trigger it manually from the GitHub Actions UI:
 2. Select **HEAVY: Certification — All Tests** from the left sidebar.
 3. Click **Run workflow**.
 4. You can optionally check the boxes to include `SIFT-1M validation` or `Competitive benchmarks`.
+

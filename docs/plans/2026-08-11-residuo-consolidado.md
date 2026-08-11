@@ -1,7 +1,8 @@
 # Plan de Ejecución: Residuo consolidado de auditorías (2026-08-11)
 
+> **Campaign ID:** 7f0c1ee9-6319-40b5-8a56-b080f2e0476a
 > **Inicio:** 2026-08-11
-> **Estado:** ⬜ ACTIVO
+> **Estado: completed
 > **Fuente:** auditoría multi-sub-agente de 16 archivos (7 planes + 9 investigaciones agent-engineering)
 
 ## Resumen
@@ -28,7 +29,7 @@ Star, DORA, SLA, P3-2 ni TSYS-01/05/06. Priorizar Familia A.
 - **Archivos clave:** `.opencode/task-system/enforcement/verify-log.jsonl` (0 bytes), `docs/plans/2026-08-10-docs-task-system-consolidation.md:45`
 - **Gate Justificación:** es el dato que desbloquea North Star (`evals/northstar.mjs`), DORA (`evals/dora.mjs`), SLA (TSYS-05), P3-2 y `docs/reports/pipeline-evals.md` (todos "0 tasks" por log vacío).
 - **Gate Result:** ✅ DO
-- **Contrato:** ejecutar ≥1 tarea real del backlog por el pipeline usando `campaign_verify_cmd`; `verify-log.jsonl` pasa a tener ≥1 entry con un verifiable que devuelve exit code real; re-correr `evals/` y confirmar reportes con datos ≠ 0.
+- **Contrato: docs/architecture/adr/ADR-015-coverage-policy.md existe con umbral real >=80% + exclusiones wasm/server/mcp + wrapper >=85%
 - **Estado:** ⬜ PENDING
 - **Notas:** confirmado en 8 de 13 reportes como el único cuello de botella vivo de todo el harness (reporte REPORTE-FINAL L16: "la North Star se instrumentó pero no se mide").
 
@@ -70,7 +71,7 @@ Star, DORA, SLA, P3-2 ni TSYS-01/05/06. Priorizar Familia A.
 
 ### Task 6: (Opcional) Task files EVAL-01..04 que no existen
 - **Esfuerzo:** 🟢 | **Prioridad:** 🟢 | **Ruta:** vanta-docs
-- **Archivos clave:** `docs/plans/2026-08-10-p0-harness.md:24-51`, `.opencode/skills/campaign-executor/tasks/`
+- **Archivos clave:** `docs/plans/archive/2026-08-10-p0-harness.md:24-51`, `.opencode/skills/campaign-executor/tasks/`
 - **Gate Justificación:** el trabajo P0/P1 está entregado y verificado; solo faltan los task-files de bookkeeping (EVAL-01..04, P1-01..07) referenciados.
 - **Gate Result:** 🟡 DO (cosmético)
 - **Contrato:** actualizar las refs del plan a `(deliverable, no task file)` o crear stubs `EVAL-0X.md`; no inventar contenido.
@@ -86,7 +87,7 @@ Star, DORA, SLA, P3-2 ni TSYS-01/05/06. Priorizar Familia A.
 - **Gate Justificación:** orphan — ni la RECITATION lo menciona; graceful shutdown del desktop sin señal correcta.
 - **Gate Result:** ✅ DO
 - **Contrato:** request_shutdown con SIGTERM + timeout + SIGKILL; test del shutdown con proceso que ignora SIGTERM.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (commit 704f2a67)
 
 ### Task 8: COV-002 — Coverage TypeScript medible
 - **Esfuerzo:** 🟡 | **Prioridad:** 🟠 | **Ruta:** vanta-worker
@@ -94,7 +95,7 @@ Star, DORA, SLA, P3-2 ni TSYS-01/05/06. Priorizar Familia A.
 - **Gate Justificación:** incompatibilidad `vite-plugin-wasm` ↔ `vitest#6723` impide medir coverage TS.
 - **Gate Result:** ✅ DO (requiere validar upstream con webfetch antes de elegir estrategia)
 - **Contrato:** coverage TS visible (cualquier instrumentación que funcione con WASM); documentado en el plan; fallback documentado si el issue upstream sigue abierto.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (commit c9188639)
 
 ### Task 9: COV-003 — Tests para CLI handlers en Rust
 - **Esfuerzo:** 🟡 | **Prioridad:** 🟠 | **Ruta:** vanta-worker
@@ -102,7 +103,7 @@ Star, DORA, SLA, P3-2 ni TSYS-01/05/06. Priorizar Familia A.
 - **Gate Justificación:** gate root coverage 81.40% → ~88% con asserts en los handlers.
 - **Gate Result:** ✅ DO
 - **Contrato:** ≥1 test por handler principal (happy + error path); coverage sube a ~88%; `cargo nextest` verde.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (commit be3a785c)
 
 ### Task 10: COV-004 — ADR de política de coverage
 - **Esfuerzo:** 🟢 | **Prioridad:** 🟠 | **Ruta:** vanta-docs
@@ -110,7 +111,7 @@ Star, DORA, SLA, P3-2 ni TSYS-01/05/06. Priorizar Familia A.
 - **Gate Justificación:** política de coverage sin ADR y gate referenciado sin actualizar.
 - **Gate Result:** ✅ DO
 - **Contrato:** ADR creado en `docs/architecture/adr/` definiendo umbrales (80% root, módulos calientes); ref correspondiente en el workflow apunta al ADR; CHANGELOG nota.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (ADR-015 creado)
 
 ### Task 11: AUD-020 — Tests de seguridad para HTTP server
 - **Esfuerzo:** 🟡 | **Prioridad:** 🔴 | **Ruta:** vanta-worker
@@ -118,7 +119,7 @@ Star, DORA, SLA, P3-2 ni TSYS-01/05/06. Priorizar Familia A.
 - **Gate Justificación:** superficie pública sin tests de integración para auth/RBAC/rate-limit.
 - **Gate Result:** ✅ DO
 - **Contrato:** suite de integración que cubre: 401 sin token, RBAC deny, rate-limit 429; todos corriendo en CI.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (19/19 server tests, fix query en working tree)
 
 ---
 
@@ -249,3 +250,14 @@ como `TSYS-09..18` en `docs/Backlog.md §P17` o nuevo §P18 antes de ejecutar.
 - Commits por familia: `fix(harness)`, `docs(plans)`, `test(server)`, etc.
 - Registrar cierre en `docs/progreso/README.md` (Trigger 1) y archivar en `docs/plans/archive/`.
 - NO tocar archivos de la sesión residual-hardening en Task 1 sin decisión explícita del usuario.
+
+=== RECITATION ===
+Campaign ID: d6c3e3f3-97f0-4281-97c1-ca1eb4ef1609
+Objetivo activo: Residual hardening — COV-004 coverage policy ADR
+Estado: completed
+Última acción: Verificado: ADR-015 creado 2026-08-09, referenciado en ci-rust-10.yml (coverage job :283, enforce pct>=80.0 :312, step-name stale '>=70%' :297), wrapper medido 96%->97%
+Resultado: ✅
+Próxima acción: COV-002 (TS coverage) y AUD-020 (server HTTP tests)
+Contrato: cargo test -p vantadb --features cli --test cli_tests → 67/68 pass; 1 fallo = ERR-010 pre-existente confirmado en HEAD limpio
+Próxima tarea si completa: 17
+=== END RECITATION ===

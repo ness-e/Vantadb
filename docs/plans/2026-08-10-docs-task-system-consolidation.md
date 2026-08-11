@@ -151,7 +151,7 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 
 ### Task 13: Estado de p3-remaining-fallas.md desincronizado
 - **Esfuerzo:** 🟢 | **Prioridad:** P2 | **Ruta:** vanta-lead
-- **Archivos clave:** `docs/plans/2026-08-10-p3-remaining-fallas.md` — header `✅ COMPLETADO` con commits, pero 6 tasks `⬜ PENDING`
+- **Archivos clave:** `docs/plans/archive/2026-08-10-p3-remaining-fallas.md` — header `✅ COMPLETADO` con commits, pero 6 tasks `⬜ PENDING`
 - **Verificación real:** leído; viola la regla de "live artifact".
 - **Gate Result:** 🔵 DO
 - **Contrato:** estados de las 6 tasks → `✅ COMPLETED` con evidencia (commits) o header corregido; consistencia verificado por `northstar.mjs`.
@@ -193,7 +193,6 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 - **Verificación real:** `backlog-futuro` es operativo vivo (ROADMAP R5 lo escribe), vive en carpeta de "archivo muerto" (doble rol de docs/archive).
 - **Gate Result:** 🔵 DO
 - **Estado:** ✅ COMPLETED (2026-08-10) — `docs/backlog-futuro.md` movido a raíz de docs/; ROADMAP.md:128 actualizado; `docs/archive/` queda solo con los 2 extractos (commit `8e3d99fb`).
-- **Estado:** ⬜ PENDING
 
 ## Definición de Done (DoD) del plan
 
@@ -210,3 +209,5 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 - **MEDIO:** eliminar espejos de avance sin actualizar `check-avance-coverage.ps1` + `COBERTURA.md` rompe cobertura (Regla 0: grep antes de borrar).
 - **BAJO:** `docs/book/book/progreso/index.html` (mdBook) queda stale al regenerar README — regenerar libro o ignorar (artefacto de build).
 - **Histórico (NO tocar):** `docs/avance/historial/*`, `snapshots`, `docs/progreso/README.backup-*`, `docs/plans/archive/*` — describen estados pasados.
+
+
