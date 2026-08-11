@@ -60,7 +60,7 @@ aliases: [docs/avance]
 | `meta.md` | bitacora §META/PROCESO, ARCHIVO_HISTORICO §Meta, BACKLOG_HISTORY | ✅ creado |
 | `historial/no-ops.md` | ARCHIVO_HISTORICO §No-ops, README §no-code | ✅ creado |
 | `historial/sesiones/2026-07.md` | `bitacora.md` | ✅ creado |
-| `historial/autopsias-2026-06-19.md` | `ARCHIVO_HISTORICO.md` + `README.backup-2026-08-03.md` | ✅ creado |
+| `historial/autopsias-2026-06-19.md` | `ARCHIVO_HISTORICO.md` + `historial/snapshot-2026-08-03.md` | ✅ creado |
 
 ## Fuentes vivas referenciadas (fuera de `docs/avance`)
 

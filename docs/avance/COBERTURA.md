@@ -16,11 +16,10 @@ tags: [vantadb, avance, migracion, cobertura, verificacion]
 | Fuente (`docs/progreso/`) | Destino (`docs/avance/`) | Estado |
 |---|---|---|
 | `README.md` | `historial/snapshot-2026-08-07.md` (copia directa) + `activo/*` desglosado por dominio | ✅ |
-| `README.backup-2026-08-03.md` | `historial/snapshot-2026-08-03.md` (copia directa) | ✅ |
 | `BACKLOG_HISTORY.md` | `historial/backlog-history.md` (copia directa) | ✅ |
 | `ARCHIVO_HISTORICO.md` | `historial/archivo-historico.md` (copia directa) + refs en `activo/*`, `auditoria/*`, `decisiones/*`, `meta.md` | ✅ |
 | `bitacora.md` | `historial/sesiones/2026-07.md` + `historial/sesiones/2026-07-consolidacion.md` (sección pendientes, copia) + `activo/*` | ✅ |
-| `2026-07-28-sdk-gap-audit.md` | `historial/sdk-gap-audit-2026-07-28.md` (copia directa) | ✅ |
+| `2026-07-28-sdk-gap-audit.md` | `historial/sdk-gap-audit-2026-07-28.md` (link → canónico `docs/progreso/2026-07-28-sdk-gap-audit.md`) | ✅ |
 
 ## Cobertura de IDs
 
