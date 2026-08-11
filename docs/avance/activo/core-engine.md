@@ -207,6 +207,7 @@ aliases: []
 | PERF-36 | Config hot-reload | ✅ |
 | PERF-37 | FilterBitset reduction (and_fast/or_fast/count_set_bits) | ✅ |
 | PERF-38 | Multiversion dispatch (DistanceKernels) | ✅ |
+| ERR-036 | Write-lock en hot path de `get()` → `try_write()` + degradación a `read()` (nunca bloquea writer); hits preservados en uncontended; commit `e6cbc93f` | ✅ 2026-08-11 |
 
 > Nota de **R6** (bitacora): algunos PERF de esta lista se evaluaron como premature en `VantaDB_ANALISIS_COMPLETO.md` Sección 3.1, pero quedaron implementados en las waves de julio. Ver `decisiones/wontfix.md`.
 

@@ -405,7 +405,6 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `ERR-036` | **🟠 Write-lock en hot path de `get()`** — `volatile_cache.write()` en cada read solo para `hits+=1`; lectores calientes serializados. | `src/storage/engine/ops.rs:1204-1214` | 🟠 | 🟠 | 📝 Pendiente |
 | `ERR-037` | **🟠 `batch_insert` chequea existencia por nodo** — 10k batch = 10k read-paths completos + write-lock cache + clone de vector descartado. | `src/storage/engine/ops.rs:853-925` | 🟠 | 🟠 | 📝 Pendiente |
 
 ### MEDIOS (12) — ✅ 7 ejecutados por plan `2026-08-09` (ERR-005/014/027/028/029/030/050; ver progreso). Residuales:

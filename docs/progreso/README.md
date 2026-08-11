@@ -1342,6 +1342,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `AUDREP-54` | Rendimiento: `purge_expired` clonaba vector + parseo JSON por registro (dead weight) → `vector: None, sparse_vector: None`; 353 tests SDK OK; commit `fe87f7ec` | 🟢 | ✅ 2026-08-07 |
 | `AUDREP-57` | Frontend-Código muerto: `{false && ...}` + `setHeroVariant` + rama gato + `SfxLabel` inalcanzables → eliminados; hero renderiza `Mark` clásico; commit `8450a51c` | 🟢 | ✅ 2026-08-07 |
 | `AUDREP-58` | Frontend-Duplicación: tokenizer Python copiado en 2 archivos → `lib/code-tokenizer.ts` compartido (`pythonTokenizer`/`jsTokenizer`); −90 líneas duplicadas; commit `3573c03f` | 🟢 | ✅ 2026-08-07 |
+| `ERR-036` | Perf-Storage: write-lock en hot path de `get()` solo para `hits+=1` → `try_write()` + degradación a `read()` bajo contención (nunca bloquea a un writer); eviction/probes intactos; commit fix `e6cbc93f`; medición 1/4/8 threads: try_write ≈3% más rápido bajo lectores concurrentes; nextest 1898 passed; clippy -D warnings exit 0 | 🟠 | ✅ 2026-08-11 |
 | `AUDREP-59` | Frontend-Configuración: nombre boilerplate `nextjs_tailwind_shadcn_ts` → `vantadb-web`; commit `3ca455ed` | 🟢 | ✅ 2026-08-07 |
 | `AUDREP-61` | MCP-Seguridad: error interno filtrado a clientes → `error!()` con detalle server-side + JSON genérico al cliente; commit `bdf31c90` | 🟢 | ✅ 2026-08-07 |
 | `AUDREP-02` | Engine-Panic: `.expect()` en deserialización de claves (guard previo ya lo protegía; fix defensivo `let-else`) | 🔴 | ✅ 2026-08-05 |
