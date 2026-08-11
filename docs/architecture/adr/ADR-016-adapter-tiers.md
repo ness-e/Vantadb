@@ -1,4 +1,4 @@
-# ADR-001: Adapter Tier Classification & Surface-Area Governance
+# ADR-016: Adapter Tier Classification & Surface-Area Governance
 
 ## Status
 **Accepted** — 2026-07-22

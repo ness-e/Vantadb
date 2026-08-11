@@ -518,7 +518,7 @@ Todos los items extraídos de `docs/research/` (9 archivos) y `docs/reviews/` (1
 
 #### D5: ADRs insuficientes
 - **Qué:** Solo 3 ADRs para todo el proyecto. Faltan: Fjall vs RocksDB criteria, HNSW params (M=16, ef_construction=200), RRF constant (k=60), PyO3 binding architecture, WASM strategy, governance model.
-- **Investigar:** (1) Revisar `docs/archived-decisions/` y `docs/architecture/` para decisiones existentes; (2) Escribir ADRs faltantes.
+- **Investigar:** (1) Revisar `docs/architecture/adr/` para decisiones existentes; (2) Escribir ADRs faltantes.
 - **Fuente:** AP-36
 - **Esfuerzo:** 1 día
 

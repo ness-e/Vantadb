@@ -125,9 +125,9 @@ Tests are organized in `tests/` (core crate) by category:
 
 ---
 
-## Adapter Tier Classification (ADR-001)
+## Adapter Tier Classification (ADR-016)
 
-See `docs/archived-decisions/ADR-001-ADAPTER-TIERS.md` for full rationale.
+See `docs/architecture/adr/ADR-016-adapter-tiers.md` for full rationale.
 
 | Tier | Label | Adapters | Score range | CI gate |
 |---|---|---|---|---|
