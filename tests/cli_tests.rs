@@ -34,6 +34,11 @@ fn seed_embedded(db_path: &str, namespace: &str, key: &str, payload: &str) {
         ttl_ms: None,
     })
     .expect("seed embedded put failed");
+    // ERR-050b: put is buffered in WAL; a later read-only reopen (open_database)
+    // does NOT replay WAL (recover_state skips it for read_only). Without an
+    // explicit flush the seed record stays invisible to read-only handles,
+    // failing "must survive" / "should remain" assertions.
+    db.flush().expect("seed embedded flush failed");
 }
 
 // ─── put / get / list ─────────────────────────────────────────
@@ -687,6 +692,11 @@ fn seed_embedded_with_meta(db_path: &str, namespace: &str, key: &str, payload: &
         ttl_ms: None,
     })
     .expect("seed embedded put failed");
+    // ERR-050b: put is buffered in WAL; a later read-only reopen (open_database)
+    // does NOT replay WAL (recover_state skips it for read_only). Without an
+    // explicit flush the seed record stays invisible to read-only handles,
+    // failing "must survive" / "should remain" assertions.
+    db.flush().expect("seed embedded flush failed");
 }
 
 #[test]

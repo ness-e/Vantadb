@@ -1,6 +1,7 @@
 # Plan de Ejecución: Consolidación de Docs y Task-System
 
 > **Campaign ID: e0db1e63-9330-4737-9b1a-1d9ed042cd12**
+> **Campaign ID:** e3b8eb8f-f747-4029-a63a-6b6e6512d6c9
 > **Inicio:** 2026-08-10
 > **Estado:** planning
 > **Fuente:** Auditoría multi-agente (6 sub-agentes, solo-lectura) sobre `docs/Investigaciones/2026-08-10-agent-engineering/`, las 10 carpetas de `docs/` objetivo, y el flujo completo del task-system en `.opencode/`.
