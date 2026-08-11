@@ -499,8 +499,18 @@ impl VantaEmbedded {
         validate_metadata(&options.filters)?;
 
         let engine = self.engine_handle()?;
-        let limit = options.limit.max(1);
+        let limit = options.limit;
         let cursor = options.cursor.unwrap_or(0);
+
+        // ERR-033: `limit = 0` means "return no records", not "return one".
+        // Short-circuit before any scan so a zero-limit request is cheap and
+        // never triggers the full-scan fallback below.
+        if limit == 0 {
+            return Ok(VantaMemoryListPage {
+                records: Vec::new(),
+                next_cursor: None,
+            });
+        }
 
         let (candidate_ids, has_index_entries) = if let Some(ops) = &options.filter_ops {
             if let Some(eq_op) = ops
@@ -1806,6 +1816,43 @@ mod tests {
              overestimates remaining rows, which loops a client forever",
             page.next_cursor,
             10,
+        );
+    }
+
+    /// ERR-033: `limit = 0` must return zero records — the core previously
+    /// clamped to `max(1)`, so a zero-limit list returned one record instead.
+    #[test]
+    fn test_list_zero_limit_returns_no_records() {
+        let e = make_embedded_real();
+        for i in 0..3u32 {
+            e.put(VantaMemoryInput {
+                namespace: "ns".into(),
+                key: format!("k{i}"),
+                payload: format!("payload{i}"),
+                metadata: VantaMemoryMetadata::new(),
+                vector: None,
+                sparse_vector: None,
+                ttl_ms: None,
+            })
+            .unwrap();
+        }
+
+        let opts = VantaMemoryListOptions {
+            #[allow(deprecated)]
+            filters: VantaMemoryMetadata::new(),
+            filter_ops: None,
+            limit: 0,
+            cursor: None,
+        };
+        let page = e.list("ns", opts).unwrap();
+        assert!(
+            page.records.is_empty(),
+            "limit=0 must return no records, got {}",
+            page.records.len()
+        );
+        assert!(
+            page.next_cursor.is_none(),
+            "zero-limit page has no next cursor"
         );
     }
 
