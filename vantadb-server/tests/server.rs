@@ -13,12 +13,14 @@ use axum::{
     http::{Request, StatusCode},
 };
 use common::{TerminalReporter, VantaHarness};
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use tower::ServiceExt;
 use vantadb::circuit_breaker::CircuitBreaker;
+use vantadb::config::RbacConfig;
 use vantadb::connection_pool::ConnectionPool;
 use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
@@ -64,7 +66,8 @@ async fn post_query(app: &mut axum::Router, auth_token: Option<&str>) -> StatusC
         req = req.header("Authorization", &format!("Bearer {}", token));
     }
     app.oneshot(add_addr(
-        req.body(Body::from(r#"{"query":"test"}"#)).unwrap(),
+        req.body(Body::from(r#"{"query":"SELECT * FROM Node"}"#))
+            .unwrap(),
     ))
     .await
     .unwrap()
@@ -136,6 +139,70 @@ async fn test_auth_health_exempt() {
     assert_eq!(status, StatusCode::OK);
 }
 
+// ─── RBAC: token→role enforcement (AuthState.token_role_map + Rbac) ───────
+
+/// Builds a state whose `api_key` doubles as the RBAC token for the given role.
+/// The middleware (cli_server.rs `auth_middleware`) resolves the role from
+/// `token_role_map` after the constant-time key check and denies with 403 when
+/// the role lacks the permission required by the HTTP method.
+fn build_rbac_context(api_key: &str, role: &str) -> TestContext {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
+    let state = Arc::new(ServerState {
+        storage,
+        circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+        pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
+        api_key: Some(Arc::from(api_key)),
+        rbac_config: RbacConfig {
+            token_role_map: HashMap::from([(api_key.to_string(), role.to_string())]),
+        },
+        trusted_proxies: vec![],
+    });
+    TestContext {
+        _temp_dir: dir,
+        state,
+    }
+}
+
+#[tokio::test]
+async fn test_rbac_reader_forbidden_on_write() {
+    let ctx = build_rbac_context("reader-key", "reader");
+    let mut router = app(ctx.state, 0);
+
+    // POST is a write; reader role holds only Read → 403 before execution.
+    let status = post_query(&mut router, Some("reader-key")).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn test_rbac_writer_allowed_on_write() {
+    let ctx = build_rbac_context("writer-key", "writer");
+    let mut router = app(ctx.state, 0);
+
+    let status = post_query(&mut router, Some("writer-key")).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_rbac_admin_allowed_on_write() {
+    let ctx = build_rbac_context("admin-key", "admin");
+    let mut router = app(ctx.state, 0);
+
+    // Admin role bypasses the per-permission check (has_permission short-circuits).
+    let status = post_query(&mut router, Some("admin-key")).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_rbac_reader_allowed_on_read_route() {
+    let ctx = build_rbac_context("reader-key", "reader");
+    let mut router = app(ctx.state, 0);
+
+    // GET is a read; reader role holds Read → allowed.
+    let status = get(&mut router, "/metrics", Some("reader-key")).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
 // ─── TSK-15: Rate Limiting ────────────────────────────────────────────────
 
 #[tokio::test]
@@ -187,7 +254,7 @@ async fn post_query_owned(router: axum::Router) -> StatusCode {
         .uri("/api/v2/query")
         .method("POST")
         .header("content-type", "application/json")
-        .body(Body::from(r#"{"query":"test"}"#))
+        .body(Body::from(r#"{"query":"SELECT * FROM Node"}"#))
         .unwrap()
         .into_parts();
     parts
@@ -245,7 +312,7 @@ async fn test_concurrency_with_auth() {
                 .method("POST")
                 .header("content-type", "application/json")
                 .header("Authorization", "Bearer shared-key")
-                .body(Body::from(r#"{"query":"test"}"#))
+                .body(Body::from(r#"{"query":"SELECT * FROM Node"}"#))
                 .unwrap()
                 .into_parts();
             parts
@@ -333,7 +400,7 @@ async fn test_circuit_breaker_half_open_probe_success_closes() {
             .uri("/api/v2/query")
             .method("POST")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{"query":"test"}"#))
+            .body(Body::from(r#"{"query":"SELECT * FROM Node"}"#))
             .unwrap(),
     );
     let res = router.oneshot(req).await.unwrap();
@@ -469,7 +536,7 @@ async fn test_tls_server_health_and_query() {
         .post(format!("https://{}/api/v2/query", addr))
         .header("Authorization", "Bearer tls-key")
         .header("content-type", "application/json")
-        .body(r#"{"query":"test"}"#)
+        .body(r#"{"query":"SELECT * FROM Node"}"#)
         .send()
         .await
         .unwrap();
