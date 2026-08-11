@@ -145,13 +145,14 @@ class TestVectorSearch:
         """Search should find inserted vectors."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
 
-        # Insert some vectors
-        for i in range(10):
+        # Insert some vectors. i starts at 1: a zero-norm vector under cosine
+        # is rejected by the engine (AUDREP-27 / ERR-031 propagates the error).
+        for i in range(1, 11):
             vec = [float(i) * 0.1] * 384
-            db.insert(i + 1, f"Node {i}", vec)
+            db.insert(i, f"Node {i}", vec)
 
-        # Search for the first one
-        results = db.search([0.0] * 384, top_k=5)
+        # Search for the first one (non-zero query; ERR-028 rejects zero-norm)
+        results = db.search([0.1] * 384, top_k=5)
         assert len(results) > 0, f"search should return at least one result, got {len(results)}"
         # Results are (node_id, distance) tuples
         assert all(isinstance(r, tuple) and len(r) == 2 for r in results), f"each result should be a 2-tuple, got {results[:3]}"
@@ -160,13 +161,13 @@ class TestVectorSearch:
         """Batch search should yield equivalent results to individual searches in parallel."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
 
-        # Insert some vectors
-        for i in range(10):
+        # Insert some vectors (non-zero; zero-norm is rejected under cosine)
+        for i in range(1, 11):
             vec = [float(i) * 0.1] * 384
-            db.insert(i + 1, f"Node {i}", vec)
+            db.insert(i, f"Node {i}", vec)
 
         query_vectors = [
-            [0.0] * 384,
+            [0.1] * 384,
             [0.5] * 384,
             [0.9] * 384,
         ]
@@ -336,7 +337,7 @@ class TestPersistentMemoryApi:
         """Full SearchRequest batch search should match sequential search_memory."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
 
-        for i in range(10):
+        for i in range(1, 11):
             db.put(
                 "agent/main",
                 f"task-{i}",
@@ -543,9 +544,9 @@ class TestNumPyIntegration:
         """Search with numpy array should return results."""
         import numpy as np
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        for i in range(5):
-            db.insert(i + 1, f"Node {i}", np.full(384, float(i) * 0.1, dtype=np.float32))
-        results = db.search(np.zeros(384, dtype=np.float32), top_k=3)
+        for i in range(1, 6):
+            db.insert(i, f"Node {i}", np.full(384, float(i) * 0.1, dtype=np.float32))
+        results = db.search(np.full(384, 0.1, dtype=np.float32), top_k=3)
         assert len(results) > 0, f"search with numpy vector expected results, got {len(results)}"
         assert all(isinstance(r, tuple) and len(r) == 2 for r in results), f"each result should be a 2-tuple, got {results[:3]}"
 
