@@ -273,13 +273,26 @@ pub fn memory_record_from_node(node: &UnifiedNode) -> Option<VantaMemoryRecord> 
 
     // Sparse vector persisted as a reserved relational field (survives the
     // KV round-trip via NodeMetadata; `ext_metadata` is memory-only).
-    // Missing key => None (old records).
-    let sparse_vector = node
-        .get_field(SPARSE_VECTOR_EXT_KEY)
-        .and_then(|value| match value {
-            crate::node::FieldValue::String(json) => serde_json::from_str(json).ok(),
-            _ => None,
-        });
+    // Missing key => None (old records). The parse is conditional: nodes
+    // without SPARSE_VECTOR_EXT_KEY skip serde_json entirely (PERF-07).
+    let sparse_vector = match node.get_field(SPARSE_VECTOR_EXT_KEY) {
+        Some(crate::node::FieldValue::String(json)) => match serde_json::from_str(json) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                // PERF-07: a present-but-corrupt sparse payload was silently
+                // dropped by `.ok()`. Log it once so the corruption is
+                // visible, but keep returning None (old behavior) rather than
+                // failing the whole read.
+                tracing::warn!(
+                    node_id = %node.id,
+                    error = %err,
+                    "corrupt sparse vector payload ignored during read"
+                );
+                None
+            }
+        },
+        _ => None,
+    };
 
     Some(VantaMemoryRecord {
         namespace,
