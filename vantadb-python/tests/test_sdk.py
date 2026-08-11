@@ -38,6 +38,21 @@ def _unique_path():
     return f"{TEST_DB_PATH}_{uuid.uuid4().hex[:8]}"
 
 
+def _make_vdbdump(records):
+    """Build a binary .vdbdump stream (COV-001).
+
+    Wire format documented in ``src/sdk/api.rs::bulk_import_stream``:
+    8-byte magic ``VDBJSON\\n`` + 1-byte version ``0x01`` + 8-byte LE record
+    count + serde_json-serialized ``Vec<VantaMemoryInput>``. ``VantaValue``
+    metadata values use serde externally-tagged enums (e.g. ``{"String": ...}``).
+    """
+    import json
+    import struct
+
+    body = json.dumps(records).encode()
+    return b"VDBJSON\n" + bytes([0x01]) + struct.pack("<Q", len(records)) + body
+
+
 def _wait_until(predicate, timeout=5.0, interval=0.05):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -1134,6 +1149,65 @@ class TestAsyncVantaDB:
         assert record is not None, "record should survive explicit async close + reopen"
         assert record["payload"] == "durable payload", f"expected 'durable payload', got {record['payload']}"
         reopened.close()
+
+    def test_async_bulk_import_bytes(self, tmp_path):
+        """AsyncVantaDB.bulk_import_bytes should import a binary .vdbdump stream.
+
+        COV-001: exercises the async wrapper for the bulk binary import path
+        (the imported records are intentionally NOT asserted as retrievable via
+        the memory API — the engine currently persists them as nodes without the
+        namespace/key fields, an engine-level defect owned by vanta-engine).
+        """
+        import asyncio
+
+        dump = _make_vdbdump([
+            {
+                "namespace": "ns",
+                "key": "k1",
+                "payload": "from dump",
+                "metadata": {"tag": {"String": "x"}},
+                "vector": [1.0, 0.0, 0.0],
+            }
+        ])
+
+        async def run():
+            async with vanta.AsyncVantaDB(
+                _unique_path(), memory_limit_bytes=128 * 1024 * 1024
+            ) as db:
+                report = await db.bulk_import_bytes(dump)
+                assert isinstance(report, dict), f"expected dict report, got {type(report)}"
+                assert report["total_records"] == 1, f"expected 1 record, got {report}"
+                assert report["batches_committed"] >= 1, f"expected >= 1 batch, got {report}"
+                assert report["duration_ms"] >= 0, f"expected non-negative duration, got {report}"
+
+        asyncio.run(run())
+
+    def test_async_bulk_import_file(self, tmp_path):
+        """AsyncVantaDB.bulk_import should import from a .vdbdump file."""
+        import asyncio
+
+        dump_path = str(tmp_path / "import.vdbdump")
+        with open(dump_path, "wb") as f:
+            f.write(_make_vdbdump([
+                {
+                    "namespace": "ns",
+                    "key": "k1",
+                    "payload": "from dump file",
+                    "metadata": {},
+                    "vector": [1.0, 0.0, 0.0],
+                }
+            ]))
+
+        async def run():
+            async with vanta.AsyncVantaDB(
+                _unique_path(), memory_limit_bytes=128 * 1024 * 1024
+            ) as db:
+                report = await db.bulk_import(dump_path)
+                assert isinstance(report, dict), f"expected dict report, got {type(report)}"
+                assert report["total_records"] == 1, f"expected 1 record, got {report}"
+                assert report["batches_committed"] >= 1, f"expected >= 1 batch, got {report}"
+
+        asyncio.run(run())
 
 
 class TestWALCompaction:
