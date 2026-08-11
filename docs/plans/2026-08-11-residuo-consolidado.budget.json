@@ -1,0 +1,28 @@
+{
+  "tasks": {
+    "1": {
+      "taskId": "1",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1786435382299,
+      "lastActivity": 1786478606166
+    },
+    "T1-residuo": {
+      "taskId": "T1-residuo",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1786433451848,
+      "lastActivity": 1786433451849
+    },
+    "T1-residuo-consolidado": {
+      "taskId": "T1-residuo-consolidado",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1786433503844,
+      "lastActivity": 1786479823297
+    }
+  }
+}
