@@ -215,8 +215,8 @@ impl CacheWarmer {
             return vec![ep];
         }
         let mut ids = vec![ep];
-        if let Some(neighbors) = hnsw.neighbor_index.get_neighbors(ep, max_layer) {
-            for &nid in &neighbors {
+        if let Some(neighbors) = hnsw.neighbor_index.get_neighbors_ref(ep, max_layer) {
+            for &nid in neighbors.iter() {
                 if !ids.contains(&nid) {
                     ids.push(nid);
                 }

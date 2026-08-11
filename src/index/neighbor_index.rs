@@ -76,6 +76,19 @@ impl HnswNeighborIndex {
         self.lists.get(&(id, layer)).map(|v| v.clone())
     }
 
+    /// Read a layer's neighbor list by reference (no clone).
+    ///
+    /// For read-only consumers (BFS traversal, stats, validation, cache
+    /// warmer) this avoids the O(M) allocation per access that
+    /// `get_neighbors` pays to hand out an owned copy (ERR-045).
+    pub fn get_neighbors_ref(
+        &self,
+        id: u128,
+        layer: usize,
+    ) -> Option<dashmap::mapref::one::Ref<'_, (u128, usize), NeighborVec>> {
+        self.lists.get(&(id, layer))
+    }
+
     /// Get the number of layers for a node, without cloning the neighbor list.
     pub fn num_layers(&self, id: u128) -> Option<usize> {
         self.id_to_meta.get(&id).map(|r| *r)

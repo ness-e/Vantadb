@@ -204,13 +204,12 @@ mod tests {
         while let Some(node_id) = queue.pop_front() {
             let nl = hnsw.neighbor_index.num_layers(node_id).unwrap_or(0);
             for layer in 0..nl {
-                let neighbors = hnsw
-                    .neighbor_index
-                    .get_neighbors(node_id, layer)
-                    .unwrap_or_default();
-                for &neighbor in &neighbors {
-                    if visited.insert(neighbor) {
-                        queue.push_back(neighbor);
+                let neighbors = hnsw.neighbor_index.get_neighbors_ref(node_id, layer);
+                if let Some(neighbors) = neighbors {
+                    for &neighbor in neighbors.iter() {
+                        if visited.insert(neighbor) {
+                            queue.push_back(neighbor);
+                        }
                     }
                 }
             }

@@ -163,8 +163,8 @@ pub fn traverse_graph(hnsw: &CPIndex, entry_point_id: u128) -> Vec<u128> {
     visited.insert(entry_point_id);
     while let Some(node_id) = queue.pop_front() {
         bfs_order.push(node_id);
-        if let Some(layer0) = hnsw.neighbor_index.get_neighbors(node_id, 0) {
-            for &nid in &layer0 {
+        if let Some(layer0) = hnsw.neighbor_index.get_neighbors_ref(node_id, 0) {
+            for &nid in layer0.iter() {
                 if visited.insert(nid) {
                     queue.push_back(nid);
                 }
