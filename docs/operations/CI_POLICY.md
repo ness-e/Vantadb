@@ -186,6 +186,19 @@ report by default, so test code itself is not counted toward the threshold.
 threshold) only when `cargo-llvm-cov` is installed; otherwise it prints a warning and continues, so
 the default local `just verify` flow is never blocked by a missing tool.
 
+**Policy decision (COV-004, 2026-08-09):** the strategic coverage policy — root crate vs workspace
+aggregate vs per-runner binding measurement — is decided in
+[ADR-015](../architecture/adr/ADR-015-coverage-policy.md) (accepted, owner TBD). In force:
+
+- Keep the enforced workspace-wide ≥ 80% line gate in `ci-rust-10.yml`. Root `vantadb` (81.40%
+  baseline) is the primary quality signal; the workspace aggregate (root + `vantadb-python`,
+  72.76% measured) is reported, not treated as a per-crate target. Never lower the 80% threshold
+  to accommodate a baseline.
+- Bindings are measured on their native runners: Python wrapper coverage ≥ 85% via pytest;
+  WASM/MCP/server carry no coverage gate while experimental (Tier 3).
+- No new `--fail-under` gate is added for the aggregate. Revisit on release or when a binding
+  graduates from experimental.
+
 ### 3. Web CI (`ci-web-11.yml`)
 
 Builds and lints the web frontend (`web/` directory — Next.js 16). Runs `npm ci`, `npm run lint`,

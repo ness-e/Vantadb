@@ -4,7 +4,8 @@ type: adr
 status: accepted
 tags: [vantadb, architecture, adr, ci, coverage, quality-gates]
 created: 2026-08-09
-last_reviewed: 2026-08-09
+last_reviewed: 2026-08-10
+owner: TBD
 ---
 
 # ADR-015: Coverage policy gate — root crate vs workspace and bindings
@@ -96,6 +97,20 @@ thresholds; the only hard threshold in CI is the workspace-wide 80% gate.
 ## Related
 
 - `.github/workflows/ci-rust-10.yml` (`coverage` job, lines 252–322)
-- `docs/operations/CI_POLICY.md` (experimental crate policy)
+- `docs/operations/CI_POLICY.md` (experimental crate policy + COV-004 reference)
 - `Cargo.toml` (`[workspace].members`, `default-members`)
 - Plan 2026-08-09 Task 36 (COV-001, python wrapper coverage ≥ 85%)
+
+## Future tracking
+
+- **Threshold ratchet:** the local root-crate floor in `dev-tools/verify.ps1`
+  (P2-06, `--fail-under-lines 60` on `-p vantadb`) and the CI workspace gate
+  (≥ 80%) ratchet upward together; raise the local floor toward 80% in steps
+  as root coverage grows. Never lower a threshold without documented review.
+- **Mutation testing** is the next quality lever after line coverage (P3-3 /
+  P3-9); revisit this policy when mutation results are available.
+- **TS SDK:** runtime coverage is 0% measured today (`vite-plugin-wasm` ↔
+  `vitest` blocker, COV-002) — independent of this Rust-gate decision; revisit
+  when COV-002 lands.
+- **Owner (TBD) + review:** next review on the first release or when a binding
+  crate leaves experimental status. Review date: TBD.
