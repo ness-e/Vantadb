@@ -383,7 +383,7 @@ Todos los items extraídos de `docs/research/` (9 archivos) y `docs/reviews/` (1
 #### B10: MCP — session cache tier
 - **Qué:** MCP server solo tiene almacenamiento permanente (VantaDB). Le falta tier de session cache (volátil, rápido) estilo Cognee (Redis).
 - **Por qué:** Agent memory necesita acceso rápido a contextos de sesión reciente sin hits a disco.
-- **Investigar:** (1) Leer `docs/research/COGNEE_EVALUATION.md` (análisis completo); (2) Implementar `SessionCache` trait con backend Redis opcional y fallback HashMap in-memory; (3) Integrar con MCP tools.
+- **Investigar:** (1) Leer `docs/Investigaciones/COGNEE_EVALUATION.md` (análisis completo); (2) Implementar `SessionCache` trait con backend Redis opcional y fallback HashMap in-memory; (3) Integrar con MCP tools.
 - **Fuente:** COG-01/02 (COGNEE_EVALUATION.md)
 - **Esfuerzo:** 3 días
 
