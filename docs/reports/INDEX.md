@@ -16,23 +16,23 @@
 |---|---|---|---|---|---|---|
 | 2026-08-10-1740 | eval | `docs/reports/dora.md` | — | — | vigente | P3-07 (P3): DORA flow metrics — cycle/lead time, CFR, throughput, flow table desde plan files + task files + `verify-log.jsonl` (fechas derivadas best-effort, fallback mtime) |
 | 2026-08-10-2007 | eval | `docs/reports/pipeline-evals.md` | — | — | vigente | EVAL-01 (P0): harness de evals del pipeline — North Star metrics (primer intento, falsos positivos, regresión) desde `verify-log.jsonl` |
-| 2026-08-08-0026 | full | `docs/audit-reports/audit-full-20260808-002617.md` | ? FAIL | 0/5/8/9/0 | vigente | INV-024 sin tests + prune duplica select_neighbors; clippy gate rojo (5 pre-existentes). AUD-012..021 derivados |
+| 2026-08-08-0026 | full | `docs/reviews/audit-full-20260808-002617.md` | ? FAIL | 0/5/8/9/0 | vigente | INV-024 sin tests + prune duplica select_neighbors; clippy gate rojo (5 pre-existentes). AUD-012..021 derivados |
 | 2026-08-05-2025 | certify | `docs/reviews/review-certify-2026-08-05-2025.md` | ✅ PASS | 0/0/2/8/7 | vigente | Certify pre-push 9.4/10 (A). Recomendaciones: mitigar npm-audit web (6 vulns), migrar put_batch a keyword |
 | 2026-08-05-1545 | full | `docs/reviews/review-full-2026-08-05-t1545.md` | ❌ FAIL | — | vigente | Full ISO 7.1/10 (B). (Sync pendiente) |
 | 2026-07-27-0309 | full | `docs/reviews/review-full-2026-07-27-0309.md` | — | — | superado | Full previo; findings consumidos en P14 REVIEW del backlog |
-| 2026-08-04-1745 | full | `docs/audit-reports/audit-full-2026-08-04T174544.md` | ❌ FAIL | 1 C | superado | &#8672; AUDIT-01: UAF memory-safety en Python SDK NumPy path; benchmark nocturno crashea (superado por audit-full-20260808-002617) |
-| 2026-07-24-1751 | full | `docs/audit-reports/audit-full-2026-07-24T1751Z.md` | ❌ FAIL | 1 C | superado | pre-existing test failure bloqueó pipeline |
-| 2026-07-24 | full | `docs/audit-reports/audit-full-2026-07-24.md` | — | — | — | (Sync pendiente) |
-| 2026-07-18 | full | `docs/audit-reports/audit-full-2026-07-18.md` | — | — | — | (Sync pendiente) |
-| 2026-07-28 | backlog-validation | `docs/audit-reports/archive/backlog-validation-2026-07-28.md` | — | — | archivado | Validación de backlog — archivo movido a `archive/` (origen AUD-001..011) |
-| 2026-07-29 | inv | `docs/audit-reports/inv-001-rustsec-2026-07-29.md` | ✅ | — | COMPLETED | 3 dependencias RUSTSEC gestionadas o stale |
-| 2026-07-30 | inv | `docs/audit-reports/inv-024-unsafe-audit-2026-07-30.md` | ✅ | — | COMPLETED | 39 bloques unsafe auditados: 1 High + 1 Medium |
+| 2026-08-04-1745 | full | `docs/reviews/archive/audit-full-2026-08-04T174544.md` | ❌ FAIL | 1 C | superado | &#8672; AUDIT-01: UAF memory-safety en Python SDK NumPy path; benchmark nocturno crashea (superado por audit-full-20260808-002617) |
+| 2026-07-24-1751 | full | `docs/reviews/archive/audit-full-2026-07-24T1751Z.md` | ❌ FAIL | 1 C | superado | pre-existing test failure bloqueó pipeline |
+| 2026-07-24 | full | `docs/reviews/archive/audit-full-2026-07-24.md` | — | — | — | (Sync pendiente) |
+| 2026-07-18 | full | `docs/reviews/archive/audit-full-2026-07-18.md` | — | — | — | (Sync pendiente) |
+| 2026-07-28 | backlog-validation | `docs/reviews/archive/process-backlog-validation-2026-07-28.md` | — | — | archivado | Validación de backlog — archivo movido a `archive/` (origen AUD-001..011) |
+| 2026-07-29 | inv | `docs/reviews/archive/inv-001-rustsec-2026-07-29.md` | ✅ | — | COMPLETED | 3 dependencias RUSTSEC gestionadas o stale |
+| 2026-07-30 | inv | `docs/reviews/archive/inv-024-unsafe-audit-2026-07-30.md` | ✅ | — | COMPLETED | 39 bloques unsafe auditados: 1 High + 1 Medium |
 | 2026-07-27 | meta-001 | `docs/Investigaciones/meta-001-root-cause-analysis.md` | ✅ | — | COMPLETED | Root-cause de inconsistencias del backlog — movido a `Investigaciones/` (RCA de proceso, no audit) |
-| 2026-08-03 | progreso-part1 | `docs/audit-reports/archive/progreso-readme-part1-2026-08-03.md` | — | — | archivado | Auditoría parcial del progreso README; movido a `archive/` |
-| 2026-08-03 | progreso-part2 | `docs/audit-reports/archive/progreso-readme-part2-2026-08-03.md` | — | — | archivado | Auditoría parcial del progreso README; movido a `archive/` |
-| 2026-08-03 | progreso-part3 | `docs/audit-reports/archive/progreso-readme-part3-2026-08-03.md` | — | — | archivado | Auditoría parcial del progreso README; movido a `archive/` |
-| 2026-08-03 | progreso-sistema | `docs/audit-reports/archive/progreso-sistema-2026-08-03.md` | — | — | archivado | UX doc-hygiene; movido a `archive/` |
-| 2025-07-27 | audit-full | `docs/audit-reports/archive/audit-full-2025-07-27.md` | — | — | archivado | Auditoría estática multi-agente (era `vantadb-audit-report.md`); findings consumidos 100% en P13 AUDREP 2026-08-05..08 |
+| 2026-08-03 | progreso-part1 | `docs/reviews/archive/process-progreso-readme-part1-2026-08-03.md` | — | — | archivado | Auditoría parcial del progreso README; movido a `archive/` |
+| 2026-08-03 | progreso-part2 | `docs/reviews/archive/process-progreso-readme-part2-2026-08-03.md` | — | — | archivado | Auditoría parcial del progreso README; movido a `archive/` |
+| 2026-08-03 | progreso-part3 | `docs/reviews/archive/process-progreso-readme-part3-2026-08-03.md` | — | — | archivado | Auditoría parcial del progreso README; movido a `archive/` |
+| 2026-08-03 | progreso-sistema | `docs/reviews/archive/process-progreso-sistema-2026-08-03.md` | — | — | archivado | UX doc-hygiene; movido a `archive/` |
+| 2025-07-27 | audit-full | `docs/reviews/archive/audit-full-2025-07-27.md` | — | — | archivado | Auditoría estática multi-agente (era `vantadb-audit-report.md`); findings consumidos 100% en P13 AUDREP 2026-08-05..08 |
 | 2026-07-27 | research | `docs/Investigaciones/vectara-competitive-research-2026-07-27.md` | — | — | consumido | Vectara cerró self-service → gap local-first (movido a `Investigaciones` — research, no audit) |
 
 Notas:
