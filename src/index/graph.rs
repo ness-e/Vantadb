@@ -1948,8 +1948,8 @@ mod tests {
         for i in 0..N {
             for d in &mut dims {
                 state = state
-                    .wrapping_mul(6364_1362_2384_6793_005)
-                    .wrapping_add(1442_6950_4088_9634_07);
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
                 *d = (state >> 33) as f32 / (1u64 << 31) as f32;
             }
             index

@@ -343,13 +343,13 @@ mod tests {
     #[test]
     fn test_scann_sq8_roundtrip() {
         let idx = ScannIndex::new(DistanceMetric::Cosine);
-        idx.add(
+        let _ = idx.add(
             1,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![1.0, 0.0, 0.0]),
             0,
         );
-        idx.add(
+        let _ = idx.add(
             2,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![0.0, 1.0, 0.0]),
@@ -372,7 +372,7 @@ mod tests {
     fn test_scann_topk() {
         let idx = ScannIndex::new(DistanceMetric::Cosine);
         for i in 0u128..10 {
-            idx.add(
+            let _ = idx.add(
                 i,
                 FilterBitset::new(),
                 VectorRepresentations::Full(vec![i as f32, 0.0, 0.0]),
@@ -397,8 +397,8 @@ mod tests {
         let mut bs_b = FilterBitset::new();
         bs_b.set_bit(1);
 
-        idx.add(1, bs_a, VectorRepresentations::Full(vec![1.0, 0.0]), 0);
-        idx.add(2, bs_b, VectorRepresentations::Full(vec![0.0, 1.0]), 0);
+        let _ = idx.add(1, bs_a, VectorRepresentations::Full(vec![1.0, 0.0]), 0);
+        let _ = idx.add(2, bs_b, VectorRepresentations::Full(vec![0.0, 1.0]), 0);
 
         let mut mask = FilterBitset::new();
         mask.set_bit(0);
@@ -410,13 +410,13 @@ mod tests {
     #[test]
     fn test_scann_euclidean() {
         let idx = ScannIndex::new(DistanceMetric::Euclidean);
-        idx.add(
+        let _ = idx.add(
             0,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![0.0, 0.0]),
             0,
         );
-        idx.add(
+        let _ = idx.add(
             1,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![10.0, 10.0]),
@@ -435,13 +435,13 @@ mod tests {
     fn test_scann_quantize_identity() {
         // With vectors all in [0,1], quantization should round-trip closely
         let idx = ScannIndex::new(DistanceMetric::Euclidean);
-        idx.add(
+        let _ = idx.add(
             0,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![0.0, 0.5, 1.0]),
             0,
         );
-        idx.add(
+        let _ = idx.add(
             1,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![1.0, 0.5, 0.0]),

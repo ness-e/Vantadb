@@ -220,13 +220,13 @@ mod flat_tests {
     #[test]
     fn test_flat_index_basic_search() {
         let idx = FlatIndex::new(DistanceMetric::Cosine);
-        idx.add(
+        let _ = idx.add(
             1,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![1.0, 0.0, 0.0]),
             0,
         );
-        idx.add(
+        let _ = idx.add(
             2,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![0.0, 1.0, 0.0]),
@@ -249,7 +249,7 @@ mod flat_tests {
     fn test_flat_index_topk_limits() {
         let idx = FlatIndex::new(DistanceMetric::Cosine);
         for i in 0..10u128 {
-            idx.add(
+            let _ = idx.add(
                 i,
                 FilterBitset::new(),
                 VectorRepresentations::Full(vec![i as f32, 0.0, 0.0]),
@@ -274,8 +274,8 @@ mod flat_tests {
         let mut bs_b = FilterBitset::new();
         bs_b.set_bit(1);
 
-        idx.add(1, bs_a, VectorRepresentations::Full(vec![1.0, 0.0]), 0);
-        idx.add(2, bs_b, VectorRepresentations::Full(vec![0.0, 1.0]), 0);
+        let _ = idx.add(1, bs_a, VectorRepresentations::Full(vec![1.0, 0.0]), 0);
+        let _ = idx.add(2, bs_b, VectorRepresentations::Full(vec![0.0, 1.0]), 0);
 
         let mut mask = FilterBitset::new();
         mask.set_bit(0);
@@ -287,13 +287,13 @@ mod flat_tests {
     #[test]
     fn test_flat_index_euclidean() {
         let idx = FlatIndex::new(DistanceMetric::Euclidean);
-        idx.add(
+        let _ = idx.add(
             0,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![0.0, 0.0]),
             0,
         );
-        idx.add(
+        let _ = idx.add(
             1,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![10.0, 10.0]),

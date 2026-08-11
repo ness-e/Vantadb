@@ -465,7 +465,7 @@ mod tests {
             alpha: 1.2,
             distance_metric: DistanceMetric::Cosine,
         });
-        idx.add(
+        let _ = idx.add(
             1,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![1.0, 0.0, 0.0]),
@@ -495,7 +495,7 @@ mod tests {
         // Insert 5 points on a circle
         for i in 0u128..5 {
             let angle = (i as f32) * std::f32::consts::TAU / 5.0;
-            idx.add(
+            let _ = idx.add(
                 i,
                 FilterBitset::new(),
                 VectorRepresentations::Full(vec![angle.cos(), angle.sin()]),
@@ -518,8 +518,8 @@ mod tests {
         let mut bs_b = FilterBitset::new();
         bs_b.set_bit(1);
 
-        idx.add(1, bs_a, VectorRepresentations::Full(vec![1.0, 0.0]), 0);
-        idx.add(2, bs_b, VectorRepresentations::Full(vec![0.0, 1.0]), 0);
+        let _ = idx.add(1, bs_a, VectorRepresentations::Full(vec![1.0, 0.0]), 0);
+        let _ = idx.add(2, bs_b, VectorRepresentations::Full(vec![0.0, 1.0]), 0);
 
         let mut mask = FilterBitset::new();
         mask.set_bit(0);
