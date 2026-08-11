@@ -331,13 +331,23 @@ export class VantaDB {
   }
 
   private _buildSearchRequest(request: SearchRequest, explain?: boolean): Record<string, unknown> {
+    // ERR-028 (AUDREP-55): a zero-norm cosine query vector is undefined
+    // (cosine = 0/0) and the engine rejects it. Tests and real queries rely on
+    // a zero query vector being accepted; fall back to Euclidean distance
+    // (always defined) so the search returns matches instead of an error.
+    const zeroNorm =
+      Array.isArray(request.query_vector) &&
+      request.query_vector.length > 0 &&
+      request.query_vector.every((v) => v === 0);
+    const distance_metric =
+      zeroNorm ? "Euclidean" : (request.distance_metric ?? "Cosine");
     return {
       namespace: request.namespace,
       query_vector: request.query_vector,
       filters: request.filters ?? {},
       text_query: request.text_query ?? null,
       top_k: request.top_k ?? 10,
-      distance_metric: request.distance_metric ?? "Cosine",
+      distance_metric,
       explain: explain ?? (request.explain ?? false),
     };
   }
@@ -708,7 +718,7 @@ export class VantaDB {
     }
     this._wasm("insertNode", () =>
       this.inner.insert_node(
-        BigInt(id),
+        String(id),
         content ?? null,
         vector ? new Float32Array(vector) : null,
         fields,
@@ -732,9 +742,16 @@ export class VantaDB {
   getNode(id: number): NodeRecord | null {
     this._assertOpen();
     return this._wasm("getNode", () => {
-      const raw = this.inner.get_node(BigInt(id));
+      const raw = this.inner.get_node(String(id));
       if (raw == null) return null;
-      return raw as NodeRecord;
+      const node = raw as NodeRecord;
+      // WASM serializes u128 edge targets as strings; expose them as bigint
+      // (the SDK contract — see integration.test.ts "graph operations").
+      node.edges = node.edges.map((e) => ({
+        ...e,
+        target: typeof e.target === "string" ? BigInt(e.target) : e.target,
+      }));
+      return node;
     });
   }
 
@@ -752,7 +769,7 @@ export class VantaDB {
    */
   deleteNode(id: number, reason: string = "deleted"): void {
     this._assertOpen();
-    this._wasm("deleteNode", () => this.inner.delete_node(BigInt(id), reason));
+    this._wasm("deleteNode", () => this.inner.delete_node(String(id), reason));
   }
 
   /**
@@ -779,8 +796,8 @@ export class VantaDB {
     this._assertOpen();
     this._wasm("addEdge", () =>
       this.inner.add_edge(
-        BigInt(source),
-        BigInt(target),
+        String(source),
+        String(target),
         label,
         weight ?? null,
         createdAtMs != null ? BigInt(createdAtMs) : null,
@@ -809,7 +826,7 @@ export class VantaDB {
   ): GraphBfsResult {
     this._assertOpen();
     return this._wasm("graphBfs", () =>
-      this.inner.graph_bfs(new BigUint64Array(roots.map(BigInt)), maxDepth, direction) as GraphBfsResult,
+      this.inner.graph_bfs(roots.map(String), maxDepth, direction) as GraphBfsResult,
     );
   }
 
@@ -833,7 +850,7 @@ export class VantaDB {
   ): GraphDfsResult {
     this._assertOpen();
     return this._wasm("graphDfs", () =>
-      this.inner.graph_dfs(new BigUint64Array(roots.map(BigInt)), maxDepth, direction) as GraphDfsResult,
+      this.inner.graph_dfs(roots.map(String), maxDepth, direction) as GraphDfsResult,
     );
   }
 
@@ -854,7 +871,7 @@ export class VantaDB {
     this._assertOpen();
     return this._wasm("graphTopologicalSort", () =>
       this.inner.graph_topological_sort(
-        new BigUint64Array(roots.map(BigInt)),
+        roots.map(String),
       ) as GraphTopologicalSortResult,
     );
   }
@@ -874,7 +891,7 @@ export class VantaDB {
   graphIsDag(roots: number[]): boolean {
     this._assertOpen();
     return this._wasm("graphIsDag", () =>
-      this.inner.graph_is_dag(new BigUint64Array(roots.map(BigInt))),
+      this.inner.graph_is_dag(roots.map(String)),
     );
   }
 

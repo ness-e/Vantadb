@@ -6,16 +6,24 @@ use super::serialization::{
     FIELD_UPDATED_AT_MS, FIELD_VERSION,
 };
 use super::types::*;
-use crate::backend::{BackendPartition, BackendWriteOp};
+use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
 use crate::error::{Result, VantaError};
 use crate::executor::Executor;
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use tracing;
 use web_time::Instant;
 
 impl VantaEmbedded {
+    /// True when a vector is entirely zeros — the HNSW core rejects
+    /// zero-norm vectors under cosine similarity (AUDREP-27), so the
+    /// SDK treats them like empty vectors: keep the document, skip the
+    /// vector index (matches `load.test.ts` seeding `[i % 10, 0, 0, 0]`).
+    fn usable_vector(vector: &[f32]) -> bool {
+        !vector.is_empty() && vector.iter().any(|x| *x != 0.0)
+    }
+
     fn check_read_only(&self) -> Result<()> {
         if self.config.read_only {
             return Err(VantaError::ValidationError {
@@ -41,7 +49,7 @@ impl VantaEmbedded {
             node.set_field(key, value.into());
         }
 
-        if let Some(vector) = input.vector.filter(|vector| !vector.is_empty()) {
+        if let Some(vector) = input.vector.filter(|v| Self::usable_vector(v)) {
             node.vector = VectorRepresentations::Full(vector);
             node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
         }
@@ -143,7 +151,7 @@ impl VantaEmbedded {
             updated_at_ms: timestamp,
             version,
             node_id,
-            vector: input.vector.filter(|v| !v.is_empty()),
+            vector: input.vector.filter(|v| Self::usable_vector(v)),
             sparse_vector: input.sparse_vector,
             expires_at_ms,
         };
@@ -244,6 +252,10 @@ impl VantaEmbedded {
         let batch_size = self.config.batch_size.unwrap_or(1000);
         let mut all_results: Vec<VantaMemoryRecord> = Vec::with_capacity(inputs.len());
         let mut rebuild_needed = false;
+        // Track versions for keys seen earlier in this batch (in-batch dedup,
+        // mirrors put_one's UPSERT semantics). Persisted before the chunk loop
+        // so duplicate keys split across chunks still bump correctly.
+        let mut seen_versions: HashMap<u128, u64> = HashMap::with_capacity(inputs.len());
 
         for chunk in inputs.chunks(batch_size) {
             let timestamp = now_ms();
@@ -252,16 +264,48 @@ impl VantaEmbedded {
 
             for input in chunk {
                 let node_id = memory_node_id(&input.namespace, &input.key);
+                // Existing record: in-batch duplicate wins (already bumped), else
+                // consult the engine like put_one (pre-existing records from
+                // earlier batches should also increment, not reset to 1).
+                let existing = if let Some(v) = seen_versions.get(&node_id) {
+                    Some((*v, timestamp))
+                } else {
+                    match engine.get(node_id)? {
+                        Some(node) => match memory_record_from_node(&node) {
+                            Some(record)
+                                if record.namespace == input.namespace
+                                    && record.key == input.key =>
+                            {
+                                Some((record.version, record.created_at_ms))
+                            }
+                            _ => {
+                                return Err(VantaError::NodeIdCollision(memory_node_id(
+                                    &input.namespace,
+                                    &input.key,
+                                )));
+                            }
+                        },
+                        None => None,
+                    }
+                };
+                let (prev_version, prev_created_at_ms) =
+                    existing.map(|(v, c)| (Some(v), Some(c))).unwrap_or((None, None));
+                let created_at_ms = prev_created_at_ms.unwrap_or(timestamp);
+                let version = prev_version
+                    .map(|v| v.saturating_add(1))
+                    .unwrap_or(1);
+                seen_versions.insert(node_id, version);
+
                 let record = VantaMemoryRecord {
                     namespace: input.namespace.clone(),
                     key: input.key.clone(),
                     payload: input.payload.clone(),
                     metadata: input.metadata.clone(),
-                    created_at_ms: timestamp,
+                    created_at_ms,
                     updated_at_ms: timestamp,
-                    version: 1,
+                    version,
                     node_id,
-                    vector: input.vector.clone().filter(|v| !v.is_empty()),
+                    vector: input.vector.clone().filter(|v| Self::usable_vector(v)),
                     sparse_vector: input.sparse_vector.clone(),
                     expires_at_ms: input.ttl_ms.map(|ttl| timestamp.saturating_add(ttl)),
                 };
@@ -271,12 +315,21 @@ impl VantaEmbedded {
             }
 
             // ── Single batch insert: WAL batch_append + KV write_batch ──
-            // Use Auto mode — rebuild only if the chunk exceeds the
-            // incremental threshold (default: 1000 nodes).
+            // Auto mode — rebuild only if the chunk exceeds the incremental
+            // threshold (default: 1000 nodes). In-memory backends (WASM,
+            // `:memory:`) have no filesystem to persist a rebuilt index to,
+            // so insert incrementally instead — rebuild_vector_index() calls
+            // fs (mmap/persist) which fails on wasm32 with "IO error:
+            // operation not supported on this platform" (load.test.ts).
+            let use_auto = self.config.backend_kind != BackendKind::InMemory;
             let opts = BatchInsertOptions {
                 skip_existing_check: true,
                 skip_wal: false,
-                insert_mode: InsertMode::Auto,
+                insert_mode: if use_auto {
+                    InsertMode::Auto
+                } else {
+                    InsertMode::Incremental
+                },
                 ..Default::default()
             };
             let chunk_needs_rebuild = opts.needs_rebuild(chunk.len());

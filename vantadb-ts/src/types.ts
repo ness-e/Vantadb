@@ -93,7 +93,12 @@ export interface NodeRecord {
 }
 
 export interface EdgeRecord {
-  target: string;
+  /**
+   * Target node id. The WASM layer serializes u128 ids as strings
+   * (JS number-safety); the SDK normalizes them to bigint on read.
+   * Both forms are accepted so hand-constructed fixtures round-trip.
+   */
+  target: string | bigint;
   label: string;
   weight: number;
 }

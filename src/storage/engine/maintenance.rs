@@ -429,6 +429,13 @@ impl StorageEngine {
     pub fn rebuild_vector_index(&self) -> Result<IndexRebuildReport> {
         self.ensure_writable()?;
 
+        // flush() acquires insert_lock itself (ERR-010 checkpoint). It must run
+        // BEFORE we take insert_lock: the lock is non-reentrant, so flushing
+        // while holding the guard deadlocks native builds (try_lock_for times
+        // out) and panics on wasm (parking_lot's timeout computes Instant,
+        // which is not implemented on this platform).
+        self.flush()?;
+
         let _guard = self
             .insert_lock
             .try_lock_for(std::time::Duration::from_millis(
@@ -438,8 +445,6 @@ impl StorageEngine {
                 operation: "acquire insert_lock in rebuild_vector_index".into(),
                 duration_ms: self.config.insert_lock_timeout_ms,
             })?;
-
-        self.flush()?;
 
         let index_path = self.data_dir.join("vector_index.bin");
         let mut rebuilt = {
@@ -483,6 +488,13 @@ impl StorageEngine {
     pub fn compact_layout_bfs(&self) -> Result<u64> {
         self.ensure_writable()?;
 
+        // flush() acquires insert_lock itself (ERR-010 checkpoint). It must run
+        // BEFORE we take insert_lock: the lock is non-reentrant, so flushing
+        // while holding the guard deadlocks native builds (try_lock_for times
+        // out) and panics on wasm (parking_lot's timeout computes Instant,
+        // which is not implemented on this platform).
+        self.flush()?;
+
         let _guard_insert = self
             .insert_lock
             .try_lock_for(std::time::Duration::from_millis(
@@ -492,8 +504,6 @@ impl StorageEngine {
                 operation: "acquire insert_lock in compact_layout_bfs".into(),
                 duration_ms: self.config.insert_lock_timeout_ms,
             })?;
-
-        self.flush()?;
 
         let started = Instant::now();
 
