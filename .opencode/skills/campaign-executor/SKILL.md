@@ -208,11 +208,18 @@ Estado: plan / act / verify / stall / research / collateral / evaluate / review 
 Resultado: ✅ / ❌
 State: ESTADO (desde: ESTADO_ANTERIOR)
 Próxima acción: paso concreto (archivo + comando)
-Contrato: "condición verificable"
+Contrato: comando de verificación exacto + resultado (p.ej. `cargo nextest run --profile audit --workspace --build-jobs 2` ✅)
+Invariantes: qué NO se puede romper al continuar (dominio/seguridad — handoff transferible)
+Comandos de verificación: comando exacto + resultado esperado/obtenido
+Deuda: lo que queda incompleto / pendiente para la próxima iteración ("ninguna" si no aplica)
 Próxima tarea si completa: TASK-N+1 — ID
 last-synced: YYYY-MM-DDTHH:MM
 === END RECITATION ===
 ```
+
+> La recitation es un handoff transferible (eng-03-project.md:198): quien continúe
+> debe poder seguir SIN preguntar al anterior — invariantes de dominio, comandos
+> de verificación y deuda pendiente son obligatorios (gap-01 §3.3-18).
 
 ## Escalation ladder
 

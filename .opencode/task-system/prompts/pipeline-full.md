@@ -142,13 +142,32 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 Después de cada acción, llamá `campaign_update_task_state` con:
 - `taskId`: ID de la tarea
 - `newState`: `"completed"` | `"failed"` | `"in-progress"`
-- `recitation`:
-  - `activeGoal`: qué se estaba haciendo
-  - `lastAction`: qué se hizo en esta iteración
-  - `result`: ✅ o ❌
+- `recitation` — **estructura canónica única** (fuente única de verdad: §12.3 —
+  plantilla `RESULTADO` — de `docs/Investigaciones/2026-08-10-agent-engineering/agent-03-orchestration.md`,
+  SOLO LECTURA). Los campos reales del MCP son 6 (schema campaign-server.mjs); la
+  estructura §12 se embeberá DENTRO de `contract` y `result`:
+  - `activeGoal`: echo del objetivo (≈ §12 `objective`)
+  - `lastAction`: qué se hizo en esta iteración (≈ §12 `resumen`, máx ~200 tokens)
+  - `result`: `OK` | `PARTIAL` | `FAILED` — el §12 `status`; estado real, nunca fabricado
   - `nextAction`: próximo paso concreto (archivo + comando)
-  - `contract`: qué comando verifica que está bien
+  - `contract`: CONTRATO §12 (texto — incluye lo que gap-01 §3.3-18 llamaba `invariants`/`debt`):
+    - `verificacion`: comando de verificación EXACTO + resultado obtenido (p.ej. `cargo nextest run --profile audit --workspace --build-jobs 2` ✅)
+    - `evidencia` (obligatoria por claim):
+      - `claim`: <afirmación concreta>
+        `evidencia`: <URL | file path | tool result>
+        `confianza`: alta | media | baja
+    - `artefactos`: <paths persistidos en filesystem> — outputs grandes NO en el mensaje
+    - `invariantes`: qué NO se puede romper al continuar (dominio/seguridad; del task file) — si nada, "ninguna"
+    - `deuda`: deuda pendiente / lo que queda incompleto al cerrar esta iteración — si nada, "ninguna"
+    - `queda_pendiente`: <pendiente_adicional §12 — qué debe delegar/validar el orquestador>
   - `nextTask`: ID de la próxima tarea a ejecutar si completa
+
+> La recitation debe dejar al próximo agente en capacidad de continuar SIN
+> preguntar al anterior: invariantes, verificación y deuda (eng-03-project.md:198).
+> El orquestador valida `result` + evidencia por claim (§12.3); si el bloque no es
+> parseable → `⚠️ SIN-FORMATO` (ver § 7). El server persiste SOLO las 6 claves MCP —
+> claves top-level como `invariants`/`debt` no existen en el schema
+> (campaign-server.mjs:673-680), van dentro de `contract`.
 
 Sync el task file si aplica.
 
@@ -198,6 +217,9 @@ BLOQUEO: <ninguno | qué impidió terminar>
   devolver INCOMPLETO — es lo que permite reanudar sin perder nada.
 - `❌ FALLIDO`: agotaste el retry ladder interno (4 escalones) en VERIFY.
 - `⚠️ SIN-FORMATO`: no devolviste el bloque — el orquestador va a re-invocarte pidiéndolo.
+- Mapeo con la recitation canónica (§ 3 / §12): `✅ COMPLETO` ↔ `result: OK`,
+  `🟡 INCOMPLETO` ↔ `result: PARTIAL`, `❌ FALLIDO` ↔ `result: FAILED`,
+  `⚠️ SIN-FORMATO` = bloque no parseable (ningún status §12 válido).
 
 **Nunca** devuelvas resultados vacíos, "lista", o silencio. Si no pudiste terminar,
 la información del bloque es el handoff para que el siguiente intento continúe.

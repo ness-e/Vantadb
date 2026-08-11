@@ -139,8 +139,8 @@ requieren ejecución. Los 4 siguientes NO dependen de Familia A:
 | T18 | TSYS-05 | SLA/SLI/SLO (FALTA #23) | 🟡 | Familia A |
 | T19 | TSYS-06 | Chaos del propio server (FALTA #24) | 🟡 | Familia A |
 
-- **Estado (T12-T16):** ⬜ PENDING — ejecutable ya.
-- **Estado (T17-T19):** ⛔ BLOQUEADO por Task 1.
+- **Estado (T12-T16):** ✅ COMPLETED (2026-08-11) — T12 handoff invariantes (pipeline-full.md/task.md/SKILL.md), T13 ADR gate mecánico (ci-rust-10.yml, job `adr-gate`), T14 Appetite Shape Up (plan.md), T15 recitation unificado §12 (pipeline-full.md/task.md), T16 triage "es ahora" (plan.md).
+- **Estado (T17-T19):** ⛔ BLOQUEADO por Task 1 (verify-log — ahora poblado, verificar desbloqueo).
 
 ---
 

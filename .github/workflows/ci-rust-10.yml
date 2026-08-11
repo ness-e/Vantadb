@@ -117,6 +117,69 @@ jobs:
       - name: Semver check (vantadb vs latest published)
         run: cargo semver-checks -p vantadb
 
+  adr-gate:
+    # REGLA-5: public API changes require an ADR. Without this job the rule
+    # depended on agent memory — this is the mechanical gate. Runs only on PRs
+    # (push to main already passed its own PR gate); compares the PR changeset
+    # against the base SHA and fails when public API files changed unless an
+    # ADR (docs/architecture/adr/ADR-NNN-*.md) was added OR the PR is explicitly
+    # marked [no-adr] in the title/description with a justification.
+    # Lazy by design: one depth-1 fetch + two-tree diff — no full history.
+    name: ADR Gate (public API)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch base SHA
+        run: git fetch --depth 1 origin "${{ github.event.pull_request.base.sha }}"
+
+      - name: Detect API surface + ADR changes
+        id: detect
+        shell: bash
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          changed="$(git diff --name-only "$BASE" HEAD)"
+          echo "--- changed files ---"
+          printf '%s\n' "$changed"
+
+          api=""
+          for p in src/ vantadb-python/ vantadb-ts/ vantadb-server/ vantadb-wasm/; do
+            if printf '%s\n' "$changed" | grep -q "^$p"; then
+              api="${p%/}"
+              break
+            fi
+          done
+          adr="$(printf '%s\n' "$changed" | grep -E '^docs/architecture/adr/ADR-[0-9]{3}' || true)"
+
+          echo "api=$api" >> "$GITHUB_OUTPUT"
+          echo "adr=$adr" >> "$GITHUB_OUTPUT"
+
+      - name: Fail — API change without ADR
+        if: >-
+          steps.detect.outputs.api != ''
+          && steps.detect.outputs.adr == ''
+          && !contains(github.event.pull_request.title, '[no-adr]')
+          && !contains(github.event.pull_request.body, '[no-adr]')
+        run: |
+          echo "::error::Public API surface changed (${{ steps.detect.outputs.api }}) without an ADR."
+          echo "::error::Add an ADR to docs/architecture/adr/ (format ADR-NNN, see ADR-0001) or, if no ADR is warranted, mark this PR '[no-adr]' in the title/description with a one-line justification."
+          exit 1
+
+      - name: Acknowledge [no-adr] marker
+        if: >-
+          steps.detect.outputs.api != ''
+          && steps.detect.outputs.adr == ''
+          && (contains(github.event.pull_request.title, '[no-adr]')
+              || contains(github.event.pull_request.body, '[no-adr]'))
+        run: |
+          echo "::warning::PR marked [no-adr] — a reviewer must confirm the public API change needs no ADR."
+
+      - name: OK — ADR present
+        if: steps.detect.outputs.adr != ''
+        run: 'echo "ADR present: ${{ steps.detect.outputs.adr }}"'
+
   test:
     name: Tests (Linux)
     runs-on: ubuntu-latest

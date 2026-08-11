@@ -89,7 +89,7 @@ Criterios explícitos de CANCELACIÓN/abort definidos ANTES de arrancar la tarea
 
 | Stop condition | Trigger | Acción |
 |---|---|---|
-| Appetite excedido | tiempo invertido > estimado ×2 | abortar → re-triaje como 🟡 DEFER |
+| Appetite excedido | tiempo invertido > appetite declarado (campo `Appetite` del plan file) | abortar → re-triaje como 🟡 DEFER |
 | Rabbit hole | N iteraciones sin progreso verificable (contrato sin green) | abortar → re-planear approach |
 | Presupuesto agotado | budget de tool calls / tiempo de campaña agotado | abortar → registrar en `Notas` |
 | Premisa invalidada | evidencia nueva contradice el Paso 0 | abortar → re-evaluar el gate |
@@ -106,6 +106,18 @@ el plan file junto al contrato de cada tarea.
 4. Dependencia no lista → BLOQUEADO
 5. Prioridad original es sugerencia, no orden
 6. La verificación del Paso 0 es la base del gate — no re-evaluar por texto del backlog si codegraph contradice
+
+### Checklist Shape Up — ¿es AHORA? (obligatorio antes de ✅ DO)
+
+> El triage clasifica (DO/DEFER/SKIP/BLOQUEADO) pero no decide si el trabajo es el
+> **adecuado ahora**. Antes de fijar un ✅ DO, respondé las 3 preguntas de Shape Up —
+> un DO sin las 3 respuestas "sí" se degrada a 🟡 DEFER:
+
+1. **¿Es el problema correcto?** — ¿encaja con la estrategia/goal de la campaña actual, o es ruido lateral del backlog?
+2. **¿Es correcto el appetite/scope?** — ¿el trabajo cabe en el appetite declarado (ver Stop conditions)? Un appetite que ya sabemos insuficiente es un DEFER, no un DO con fecha de fallo. Si la tarea es 🟧 compleja (Cynefin), validar el appetite antes de DO.
+3. **¿Es AHORA?** — ¿la urgencia justifica sacarlo del backlog por sobre las demás tareas? Un problema real pero sin urgencia es DEFER, no DO.
+
+Regla: ✅ DO exige las 3 respuestas "sí". La verificación del Paso 0, el pre-mortem y el Cynefin no la reemplazan — complementan. Cualquier "no" → 🟡 DEFER con el motivo en la **Gate Justificación**.
 
 ### Clasificación Cynefin + Top 3 riesgos (obligatorio para 🔴/ambiguas)
 
@@ -142,6 +154,7 @@ Registrá en el plan file con:
 
 - **ID** único (ej: DRV-068)
 - **Descripción** corta (máx 80 chars)
+- **Appetite:** max 1h | 1d | 3d — tiempo que VAMOS a invertir (Shape Up), declarado ANTES del effort; es el límite que activa la stop condition "Appetite excedido"
 - **Esfuerzo:** 🟢 1h | 🟡 1d | 🔴 2-3d
 - **Prioridad:** 🔴 | 🟠 | 🟡 | 🟢
 - **Archivos clave:** paths relevantes
@@ -230,6 +243,7 @@ Status: ⬆️ uphill = <N incógnitas abiertas> · ⬇️ downhill = <M steps p
 
 ### Task 1: ID — Descripción
 
+- **Appetite:** max 1h | 1d | 3d (tiempo que VAMOS a invertir — antes del effort)
 - **Esfuerzo:** 🟢 | 🟡 | 🔴
 - **Prioridad:** 🔴 | 🟠 | 🟡 | 🟢
 - **Archivos clave:** `path/to/file.rs`

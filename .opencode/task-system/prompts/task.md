@@ -147,6 +147,49 @@ como gate mandatorio para 🔴 — revisión adversarial en contexto fresco
 ## Contrato
 "cargo nextest run --profile audit --workspace --build-jobs 2 pasa y el comportamiento específico es [condición]"
 
+## Invariantes de dominio (handoff — MUST)
+
+> El task file debe declarar qué NO se puede romper al continuar, con qué
+> comando se verifica y qué queda incompleto. Sin esto, el próximo agente
+> arranca sin contexto (gap-01 §3.3-18, eng-03-project.md:198).
+
+- **Invariantes a preservar:** [qué condición de dominio/seguridad no puede violar el próximo agente]
+- **Comandos de verificación:** [comando exacto + resultado esperado, p.ej. `cargo nextest run --profile audit --workspace --build-jobs 2`]
+- **Deuda pendiente:** [lo que queda incompleto al cerrar esta iteración, o "ninguna"]
+
+## Recitation (canónico — estructura única)
+
+> **Fuente única de verdad:** plantilla `RESULTADO` §12.3 de
+> `docs/Investigaciones/2026-08-10-agent-engineering/agent-03-orchestration.md`
+> (SOLO LECTURA). Este task file es la vista de "datos" de la recitation: sus
+> secciones Metadata/Steps/Invariantes se sincronizan a `campaign_update_task_state`
+> con la MISMA estructura canónica que define `prompts/pipeline-full.md` § 3.
+> Los campos MCP reales son 6 (schema campaign-server.mjs); la estructura §12 se
+> embeberá dentro de `contract` y `result`:
+
+| Campo recitation (MCP) | ← fuente en este task file |
+|------------------------|----------------------------|
+| `activeGoal` | Encabezado `# TASK-ID: Descripción` |
+| `lastAction` | Último step ✅ + Context Save Point |
+| `result` | `OK` ↔ ✅ COMPLETED · `PARTIAL` ↔ ⏳ IN PROGRESS con steps pendientes · `FAILED` ↔ ❌ FAILED |
+| `nextAction` | Próximo step ⬜ PENDING (archivo + comando) |
+| `contract` | `## Contrato` + `## Invariantes de dominio` + evidencia/artefactos (formato abajo) |
+| `nextTask` | Siguiente tarea del plan file |
+
+`contract` (idéntica a `prompts/pipeline-full.md` § 3; sub-campos §12.3):
+
+    contract:
+      verificacion: <comando EXACTO + resultado obtenido>   # del task file
+      evidencia:
+        - claim: <afirmación concreta>
+          evidencia: <URL | file path | tool result>
+          confianza: alta | media | baja
+      artefactos:
+        - <path persistido en filesystem>
+      invariantes: <qué NO se puede romper — de "Invariantes de dominio">   # si nada: "ninguna"
+      deuda: <lo que queda incompleto — de "Invariantes de dominio">        # si nada: "ninguna"
+      queda_pendiente: <pendiente_adicional §12 — qué debe delegar/validar el orquestador>
+
 ## Deuda técnica (Regla 6 — MUST)
 
 **Saldo neto de deuda por PR:** Deuda registrada (≤0, justificada en Notas) | Sin deuda
