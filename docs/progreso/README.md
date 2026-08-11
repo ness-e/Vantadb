@@ -327,6 +327,18 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 
 **Notas de archivo:** los 5 planes estaban íntegramente entregados y verificados con commits reales; los marcadores `PENDING` detectados por grep eran texto de cabecera de tabla/contrato, no tareas sin ejecutar. Commits de cierre: agent-engineering-gaps `887d0f14`, p0-harness `0592695f`, p1-process-discipline `f85c8b0d`, p2/p3-structural-quality `350e9725`, p3-remaining-fallas `724b355c` (+ estado fin `cfc7ada9`). Refs vivas actualizadas: `docs/operations/CI_POLICY.md` (Task P2-06 → ruta archivada) y `docs/plans/2026-08-10-docs-task-system-consolidation.md` (Task 13). Los reportes `dora.md`/`northstar.md` regeneran rutas al re-correr los evals.
 
+### Cerrado 2026-08-11 — residuo-consolidado (plan `2026-08-11-residuo-consolidado.md`)
+
+| Familia | Tasks | Resultado |
+|---------|-------|-----------|
+| A (desbloqueo) | T1, T2 | ✅ verify-log poblado (2+ entradas), WIP commiteado |
+| B (barato) | T3-T6 | ✅ T3 verificado sin edición; T4 header/RECITATION; T5 5 planes archivados; T6 cosmético omitido |
+| C (código) | T7-T11 | ✅ sesión paralela (commits 704f2a67, c9188639, be3a785c, ADR-015, fix query) |
+| D (harness) | T12-T19 | ✅ handoff invariantes, ADR-017 gate, appetite, recitation §12, triage, TSYS-01/05/06 |
+| E (TSYS-07..16) | T20-T28 | ✅ absorbidas en TSYS-07/09..16 (campaign-executor) |
+
+**Notas de cierre:** 24/24 DO ejecutados; 2 SKIP confirmados (enforcement MCP, rainbow deploys); 2 DEFER con fecha (calibración P3-2, mutation P3-9). Commits de cierre: T1-T6 `d22733ab`/`5c95d89f`/`1e2d86ed`, T12-T16 `8f774c18`, TSYS-07..13 `d9f2a4cb`, TSYS-14/15/16 + SLA/chaos `138d8735`, estados fin `5cd4c6d7`. Entregables nuevos: `ADR-017-pipeline-sla.md`, `task-system-chaos-resilience.md`. El plan queda como referencia activa de entregables (no archivado — sus deliverables son refs vivas del task-system).
+
 ### 2026-07-29 — Index Rebuild Optimization (4/4 tareas + 3 WI) ✅
 
 **Fuente:** Plan `docs/plans/2026-07-29-index-rebuild-execution.md` — archivado en `docs/plans/archive/2026-07-29-index-rebuild-execution.md`.
