@@ -473,3 +473,20 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/audit-rep
 | AUD-019 | Media | `__array_interface__` expone puntero raw a Python sin // SAFETY: ni lifetime doc | vantadb-python/src/types.rs:365-380 | 🟡 pendiente |
 | AUD-020 | Media | vantadb-server sin tests de integración HTTP (auth/RBAC/rate-limit) — superficie de ataque pública | vantadb-server/ | 🟡 pendiente |
 | AUD-021 | Media | Rate limiter fall-open: si GovernorConfigBuilder::finish() falla, endpoint sirve sin límite | src/cli_server.rs:160-164 | 🟡 pendiente |
+
+---
+
+## P17 - Mejoras del task-system (de REPORTE-FINAL 2026-08-10 §3.3/§3.5)
+
+> Items §3.3 (FALTA, cobertura 0-30%) y §3.5 (MAL/CONTRADICTORIO) de `docs/Investigaciones/2026-08-10-agent-engineering/REPORTE-FINAL.md` no asignados a los planes P0-P3 (Task 14 de `docs/plans/2026-08-10-docs-task-system-consolidation.md`). **Los items de runtime dependen de Task 2** (poblar `verify-log.jsonl` — el bloqueante transversal que desbloquea métricas del pipeline).
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+| `TSYS-01` | **Observabilidad de decisión** - log estructurado de qué herramienta usó el agente y por qué cambió de estado (gap-01 §3.3-17). Runtime: instrumentar `campaign-server.mjs`. | `.opencode/task-system/` (`campaign-server.mjs`, `state-tools.mjs`) | 🟡 | 🟡 | Pendiente (dep: Task 2) |
+| `TSYS-02` | **Handoff con invariantes** - recitation debe exigir "invariantes + comandos de verificación + deuda", no solo lastAction/nextAction (gap-01 §3.3-18). | `.opencode/task-system/prompts/task.md`, `pipeline-full.md` | 🟢 | 🟢 | Pendiente |
+| `TSYS-03` | **ADR gate mecánico** - gate que falle si se toca API pública sin ADR en `docs/architecture/adr/` (gap-01 §3.3-20; Regla 5 hoy depende de memoria del agente). | `.github/workflows/`, `docs/architecture/adr/` | 🟡 | 🟡 | Pendiente |
+| `TSYS-04` | **Estimar con appetite (Shape Up)** - "tiempo que VAMOS a invertir" como default en vez de effort vago (gap-01 §3.3-21). | `.opencode/task-system/prompts/plan.md` | 🟢 | 🟢 | Pendiente |
+| `TSYS-05` | **SLA del pipeline** - SLI/SLO/error budget; hoy no se sabe si el pipeline falla mucho (gap-01 §3.3-23). Requiere datos de `verify-log.jsonl`. | `evals/`, `docs/reports/` | 🟡 | 🟡 | Pendiente (dep: Task 2) |
+| `TSYS-06` | **Chaos/resilience del task-system** - `vanta-chaos` fuzzza el código fuente, no a `campaign-server.mjs` ni a la máquina de estados (gap-01 §3.3-24). | `vanta-chaos`, `.opencode/task-system/config/state-tools.mjs` | 🔴 | 🟢 | Pendiente (dep: Task 2) |
+| `TSYS-07` | **Recitation duplicado (3 definiciones)** - `pipeline-full.md` (RESULTADO), `task.md` (datos) y parámetro de `campaign_update_task_state`; unificar a 1 fuente (gap-01 §3.5-2). | `.opencode/task-system/prompts/` | 🟢 | 🟢 | Pendiente |
+| `TSYS-08` | **Triage "es ahora" (Shape Up)** - el triage clasifica DO/DEFER/SKIP/BLOQUEADO pero no pregunta "¿es el problema adecuado? ¿correcto el appetite? ¿es ahora?" (gap-01 §3.5-8). | `.opencode/task-system/prompts/plan.md` | 🟢 | 🟢 | Pendiente |
