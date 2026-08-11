@@ -106,7 +106,10 @@ function countGateResults(content) {
 
 function extractCampaignId(content) {
   const m = content.match(/> \*\*Campaign ID:\*\*\s*(.+)/)
-  return m ? m[1].trim() : null
+  if (!m) return null
+  const id = m[1].trim()
+  // Reject template placeholders so they never become trace filenames.
+  return /^(\([^)]*\)|TODO|TBD|<[^>]+>)$|^[^0-9a-f-]{0,}$/.test(id) ? null : id
 }
 
 function getOrCreateCampaignId(content) {
