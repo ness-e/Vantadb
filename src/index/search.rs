@@ -13,11 +13,6 @@ thread_local! {
     static NL_POOL: std::cell::RefCell<Vec<NeighborVec>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
-/// Borrow a `NeighborVec` from the thread-local pool, or create a new one.
-fn take_nl() -> NeighborVec {
-    NL_POOL.with(|pool| pool.borrow_mut().pop().unwrap_or_default())
-}
-
 /// Return a `NeighborVec` to the pool for reuse. Clears contents first.
 fn give_nl(mut v: NeighborVec) {
     v.clear();
@@ -229,28 +224,34 @@ impl CPIndex {
             // Only use inline cache if the list is non-empty — empty lists mean
             // the node hasn't had neighbors set yet (e.g. first node, or during
             // concurrent insert), so fall back to neighbor_index.
-            // E2: Use per-thread pool to reuse NeighborVec allocations.
-            let neighbors = self
-                .nodes
-                .get(&cand_id)
-                .and_then(|n| {
-                    n.neighbor_lists
-                        .get(layer)
-                        .filter(|l| !l.is_empty())
-                        .map(|l| {
-                            let mut v = take_nl();
-                            v.extend_from_slice(l);
-                            v
-                        })
-                })
-                .or_else(|| self.neighbor_index.get_neighbors(cand_id, layer));
+            // ERR-047: borrow the inline list instead of copying it into the
+            // per-thread pool (one O(M) alloc saved per expanded candidate).
+            // The nodes guard above stays alive for the whole expansion below,
+            // so the Cow borrow is valid while the neighbor_index fallback maps
+            // to an owned copy.
+            let node_guard = self.nodes.get(&cand_id);
+            let neighbors: Option<std::borrow::Cow<'_, NeighborVec>> = match &node_guard {
+                Some(n) => n
+                    .neighbor_lists
+                    .get(layer)
+                    .filter(|l| !l.is_empty())
+                    .map(std::borrow::Cow::Borrowed),
+                None => None,
+            };
+            let neighbors = match neighbors {
+                Some(c) => Some(c),
+                None => self
+                    .neighbor_index
+                    .get_neighbors(cand_id, layer)
+                    .map(std::borrow::Cow::Owned),
+            };
 
             if let Some(neighbors_list) = neighbors {
                 if graph::should_prefetch() {
                     if let Some(vs) = vector_store {
                         let mmap_base = vs.mmap_bytes().as_ptr();
                         let mmap_len = vs.mmap_bytes().len();
-                        for &pf_neighbor_id in &neighbors_list {
+                        for &pf_neighbor_id in neighbors_list.iter() {
                             if !visited.contains(&pf_neighbor_id) {
                                 if let Some(pf_node) = self.nodes.get(&pf_neighbor_id) {
                                     if let Some(h) = vs.read_header(pf_node.storage_offset) {
@@ -278,7 +279,7 @@ impl CPIndex {
                     }
                 }
 
-                for &neighbor_id in &neighbors_list {
+                for &neighbor_id in neighbors_list.iter() {
                     if !visited.contains(&neighbor_id) {
                         visited.insert(neighbor_id);
 
@@ -399,19 +400,17 @@ impl CPIndex {
                                     let passes_filter = query_mask.is_all_set()
                                         || neighbor.bitset.matches_mask(query_mask);
                                     if !passes_filter {
-                                        let second_hop = neighbor
-                                            .neighbor_lists
-                                            .get(layer)
-                                            .filter(|l| !l.is_empty())
-                                            .map(|l| {
-                                                let mut v = take_nl();
-                                                v.extend_from_slice(l);
-                                                v
-                                            })
-                                            .or_else(|| {
-                                                self.neighbor_index
-                                                    .get_neighbors(neighbor_id, layer)
-                                            });
+                                        let second_hop: Option<std::borrow::Cow<'_, NeighborVec>> =
+                                            neighbor
+                                                .neighbor_lists
+                                                .get(layer)
+                                                .filter(|l| !l.is_empty())
+                                                .map(std::borrow::Cow::Borrowed)
+                                                .or_else(|| {
+                                                    self.neighbor_index
+                                                        .get_neighbors(neighbor_id, layer)
+                                                        .map(std::borrow::Cow::Owned)
+                                                });
                                         if let Some(second_list) = second_hop {
                                             let budget = ef.saturating_sub(results.len()).max(16);
                                             for &second_id in second_list.iter().take(budget) {
@@ -454,8 +453,11 @@ impl CPIndex {
                                                     }
                                                 }
                                             }
-                                            // E2: Return second_hop to pool.
-                                            give_nl(second_list);
+                                            // E2: Return second_hop to pool (owned only —
+                                            // borrowed inline cache must not be pooled).
+                                            if let std::borrow::Cow::Owned(v) = second_list {
+                                                give_nl(v);
+                                            }
                                         }
                                     }
                                 }
@@ -463,8 +465,11 @@ impl CPIndex {
                         }
                     }
                 }
-                // E2: Return the NeighborVec to the thread-local pool for reuse.
-                give_nl(neighbors_list);
+                // E2: Return the NeighborVec to the thread-local pool for reuse
+                // (owned only — borrowed inline cache must not be pooled).
+                if let std::borrow::Cow::Owned(v) = neighbors_list {
+                    give_nl(v);
+                }
             }
         }
         results
