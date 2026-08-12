@@ -505,6 +505,7 @@ impl crate::index::VecIndex for IvfIndex {
 mod tests {
     use super::*;
     use crate::index::graph::{HnswConfig, HnswNode};
+    use crate::index::VecIndex;
     use dashmap::DashMap;
 
     /// Helper: build a CPIndex with `n` distinct 2D vectors placed at
@@ -1020,5 +1021,28 @@ mod tests {
         assert_eq!(results.len(), 10);
         // Top-1 should be near (1,0) which is id=0
         assert_eq!(results[0].0, 0, "closest node to (1,0) should be id=0");
+    }
+
+    #[test]
+    fn test_ivf_add_after_build_rejected() {
+        // ERR-031: IVF is read-only after build; add must surface as Err
+        // (replaced the old panic) so callers can propagate the rejection.
+        let nodes = make_nodes(10);
+        let ivf = IvfIndex::build(
+            &nodes,
+            &IvfConfig {
+                nlist: 3,
+                nprobe: 1,
+                distance_metric: DistanceMetric::Cosine,
+            },
+        );
+        let result = ivf.add(
+            999,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![1.0, 0.0]),
+            0,
+        );
+        assert!(result.is_err(), "read-only IVF add must be rejected");
+        assert_eq!(ivf.len(), 10, "rejected insert must not be stored");
     }
 }

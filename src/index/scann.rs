@@ -459,4 +459,19 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].0, 0, "closest to itself after SQ8");
     }
+
+    #[test]
+    fn test_scann_rejects_non_full_vector() {
+        // ERR-031: a rejected insert (non-full vector) must surface as Err,
+        // not be silently dropped.
+        let idx = ScannIndex::new(DistanceMetric::Cosine);
+        let result = idx.add(
+            1,
+            FilterBitset::new(),
+            VectorRepresentations::Binary(Box::new([0u64; 2])),
+            0,
+        );
+        assert!(result.is_err(), "non-full vector must be rejected");
+        assert_eq!(idx.len(), 0, "rejected insert must not be stored");
+    }
 }

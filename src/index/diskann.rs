@@ -527,4 +527,19 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].0, 1);
     }
+
+    #[test]
+    fn test_diskann_rejects_non_full_vector() {
+        // ERR-031: a rejected insert (non-full vector) must surface as Err,
+        // not be silently dropped.
+        let idx = DiskAnnIndex::new(DiskAnnConfig::default());
+        let result = idx.add(
+            1,
+            FilterBitset::new(),
+            VectorRepresentations::Binary(Box::new([0u64; 2])),
+            0,
+        );
+        assert!(result.is_err(), "non-full vector must be rejected");
+        assert_eq!(idx.len(), 0, "rejected insert must not be stored");
+    }
 }
