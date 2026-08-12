@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 3 * * *'
   workflow_dispatch:
+    inputs:
+      enable_critcmp:
+        description: 'Run critcmp regression comparison (requires a previous critcmp-baseline artifact from an earlier enabled run)'
+        type: boolean
+        default: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -220,4 +225,71 @@ jobs:
             nightly_*_results.txt
             benchmark_report_criterion.json
             bench_comparison_result.json
+          retention-days: 30
+
+  # critcmp regression candidate — OFF by default.
+  # Enabled via `workflow_dispatch` input `enable_critcmp=true`. On the first
+  # enabled run there is no prior baseline, so it only seeds the
+  # `critcmp-baseline` artifact; on subsequent enabled runs it downloads that
+  # artifact and compares base vs candidate. Gated by `if:` (NOT
+  # continue-on-error) so it never breaks the default nightly run. The main
+  # bench runs above stay on criterion's default `new/` output so
+  # scripts/bench_regression.py keeps working.
+  critcmp-regression:
+    name: critcmp regression (candidate)
+    if: ${{ github.event.inputs.enable_critcmp == 'true' }}
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 6144
+          free-disk: true
+
+      - name: Install critcmp
+        run: cargo install critcmp
+
+      - name: Run hnsw_pure bench with candidate baseline
+        run: cargo bench --bench hnsw_pure -- --save-baseline candidate
+
+      - name: Fetch previous critcmp baseline (if any)
+        id: getbase
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          AID=$(gh api "repos/${{ github.repository }}/actions/artifacts?per_page=100" \
+                --jq '.artifacts[] | select(.name=="critcmp-baseline" and .expired==false) | .id' \
+                | head -n1 || true)
+          if [ -n "$AID" ]; then
+            gh api "repos/${{ github.repository }}/actions/artifacts/$AID/zip" \
+              -H "Accept: application/vnd.github+zip" > /tmp/critcmp_base.zip
+            mkdir -p /tmp/critcmp_prev
+            unzip -o /tmp/critcmp_base.zip -d /tmp/critcmp_prev
+            if [ -d /tmp/critcmp_prev/hnsw_pure/candidate ]; then
+              echo "found=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "found=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compare with critcmp
+        if: steps.getbase.outputs.found == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p target/criterion/hnsw_pure
+          cp -r /tmp/critcmp_prev/hnsw_pure/candidate target/criterion/hnsw_pure/base
+          critcmp base candidate
+
+      - name: Upload candidate as new baseline
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: critcmp-baseline
+          path: target/criterion/
           retention-days: 30

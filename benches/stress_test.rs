@@ -7,6 +7,8 @@ use tokio::runtime::Runtime;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::StorageEngine;
 
+mod common;
+
 fn run_stress_test(c: &mut Criterion) {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
@@ -32,6 +34,7 @@ fn run_stress_test(c: &mut Criterion) {
     println!("✅ Inyección finalizada.");
 
     let mut group = c.benchmark_group("The Memory Abyss");
+    common::apply_fixed_profile(&mut group);
     group.sample_size(10);
 
     group.bench_function("Point Lookup Valido", |b: &mut criterion::Bencher| {

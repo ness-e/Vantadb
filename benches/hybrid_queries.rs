@@ -5,6 +5,8 @@ use vantadb::{
     VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata, VantaMemorySearchRequest, VantaValue,
 };
 
+mod common;
+
 struct HybridBenchFixture {
     _dir: TempDir,
     db: VantaEmbedded,
@@ -63,9 +65,11 @@ fn keep_filter() -> VantaMemoryMetadata {
 }
 
 fn bench_memory_retrieval_modes(c: &mut Criterion) {
+    let mut group = c.benchmark_group("hybrid_queries");
+    common::apply_fixed_profile(&mut group);
     let fixture = build_fixture();
 
-    c.bench_function("memory text-only bm25 filtered", |b| {
+    group.bench_function("memory text-only bm25 filtered", |b| {
         b.iter(|| {
             let hits = fixture
                 .db
@@ -82,7 +86,7 @@ fn bench_memory_retrieval_modes(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("memory vector-only filtered", |b| {
+    group.bench_function("memory vector-only filtered", |b| {
         b.iter(|| {
             let hits = fixture
                 .db
@@ -99,7 +103,7 @@ fn bench_memory_retrieval_modes(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("memory hybrid rrf filtered", |b| {
+    group.bench_function("memory hybrid rrf filtered", |b| {
         b.iter(|| {
             let hits = fixture
                 .db

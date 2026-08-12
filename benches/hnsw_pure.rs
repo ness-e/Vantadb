@@ -4,6 +4,8 @@ use rand::{Rng, SeedableRng};
 use std::time::Instant;
 use vantadb::index::{CPIndex, FilterBitset, HnswConfig, VectorRepresentations};
 
+mod common;
+
 fn generate_vectors(count: usize, dim: usize) -> Vec<Vec<f32>> {
     let mut rng = StdRng::seed_from_u64(42);
     (0..count)
@@ -16,6 +18,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
     let count = 10_000;
 
     let mut group = c.benchmark_group("hnsw_pure");
+    common::apply_fixed_profile(&mut group);
     group.sample_size(10);
 
     group.bench_function("insert_10k", |b| {
