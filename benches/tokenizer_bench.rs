@@ -8,7 +8,10 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 #[cfg(feature = "advanced-tokenizer")]
 use std::hint::black_box;
 #[cfg(feature = "advanced-tokenizer")]
-use vantadb::tokenizer::{tokenize_advanced, tokenize_advanced_default, AdvancedTokenizerConfig};
+use vantadb::tokenizer::{
+    build_advanced_analyzer, tokenize_advanced, tokenize_advanced_default, tokenize_with_analyzer,
+    AdvancedTokenizerConfig,
+};
 
 #[cfg(feature = "advanced-tokenizer")]
 fn bench_advanced_tokenizer_default(c: &mut Criterion) {
@@ -130,13 +133,57 @@ fn bench_multilingual(c: &mut Criterion) {
 }
 
 #[cfg(feature = "advanced-tokenizer")]
+fn bench_batch_reuse_vs_fresh(c: &mut Criterion) {
+    // ERR-044: a batch of N texts must pay one analyzer build (stemming +
+    // stopwords pipeline), not N builds. Builds a realistic batch and compares
+    // per-text fresh builds against a single reused analyzer.
+    let texts: Vec<String> = (0..100)
+        .map(|i| {
+            format!(
+                "The quick brown fox {} jumps over the lazy dog. Café naïve résumé item {}.",
+                i, i
+            )
+        })
+        .collect();
+    let config = AdvancedTokenizerConfig::default();
+
+    let mut group = c.benchmark_group("batch_analyzer");
+
+    group.bench_function("fresh_build_per_text", |b| {
+        b.iter(|| {
+            let mut total = 0usize;
+            for text in &texts {
+                let tokens = tokenize_advanced(black_box(text), &config);
+                total += tokens.len();
+            }
+            black_box(total)
+        });
+    });
+
+    group.bench_function("reuse_analyzer", |b| {
+        b.iter(|| {
+            let mut analyzer = build_advanced_analyzer(&config);
+            let mut total = 0usize;
+            for text in &texts {
+                let tokens = tokenize_with_analyzer(&mut analyzer, black_box(text));
+                total += tokens.len();
+            }
+            black_box(total)
+        });
+    });
+
+    group.finish();
+}
+
+#[cfg(feature = "advanced-tokenizer")]
 criterion_group!(
     benches,
     bench_advanced_tokenizer_default,
     bench_advanced_tokenizer_configurations,
     bench_tokenizer_text_sizes,
     bench_unicode_handling,
-    bench_multilingual
+    bench_multilingual,
+    bench_batch_reuse_vs_fresh
 );
 
 #[cfg(feature = "advanced-tokenizer")]
