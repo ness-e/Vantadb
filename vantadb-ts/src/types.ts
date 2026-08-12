@@ -29,7 +29,10 @@ export interface MemoryRecord {
   updated_at_ms: string | number;
   version: string | number;
   node_id: string | number;
-  vector?: number[];
+  // PERF-08: the WASM layer now emits record vectors as a zero-copy Float32Array
+  // (previously a number[] built via serde_wasm_bindgen). Both are indexable/
+  // iterable; consumers must accept either form.
+  vector?: Float32Array | number[];
   expires_at_ms?: string | number;
 }
 
@@ -80,7 +83,8 @@ export interface NodeInput {
 export interface NodeRecord {
   id: string;
   fields: Record<string, VantaValue>;
-  vector?: number[];
+  // PERF-08: zero-copy Float32Array from the WASM layer (was number[]).
+  vector?: Float32Array | number[];
   vector_dimensions: number;
   edges: EdgeRecord[];
   confidence_score: number;

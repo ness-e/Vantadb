@@ -1209,8 +1209,11 @@ fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
     js_sys::Reflect::set(&obj, &"version".into(), &rec.version.to_string().into()).ok();
     js_sys::Reflect::set(&obj, &"node_id".into(), &rec.node_id.to_string().into()).ok();
     if let Some(ref vector) = rec.vector {
-        // Sanitize NaN/Inf → 0.0: JSON/JS cannot represent NaN or Infinity as
-        // f32 values, and serde_wasm_bindgen would throw on serialization.
+        // PERF-08 / P2-7: zero-copy vector. Sanitize NaN/Inf → 0.0
+        // (JSON/JS cannot represent NaN or Infinity as f32), then bulk-copy
+        // into a Float32Array instead of letting serde_wasm_bindgen build a
+        // JS number[] element-by-element (one Reflect call + alloc per f32).
+        // This is the hot path hit on every search/list/put record.
         let sanitized: Vec<f32> = vector
             .iter()
             .map(|x| {
@@ -1221,9 +1224,9 @@ fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
                 }
             })
             .collect();
-        if let Ok(v) = serde_wasm_bindgen::to_value(&sanitized) {
-            js_sys::Reflect::set(&obj, &"vector".into(), &v).ok();
-        }
+        let arr = js_sys::Float32Array::new_with_length(sanitized.len() as u32);
+        arr.copy_from(&sanitized);
+        js_sys::Reflect::set(&obj, &"vector".into(), &arr).ok();
     }
     if let Some(expires_at) = rec.expires_at_ms {
         js_sys::Reflect::set(
@@ -1246,10 +1249,12 @@ fn from_js<T: serde::de::DeserializeOwned>(val: JsValue) -> Result<T, JsValue> {
 fn to_js<T: serde::Serialize>(val: &T) -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(val).map_err(|e| js_sys::Error::new(&e.to_string()).into())
 }
-// ponytail: P2-7 zero-copy path para Float32Array — ~2-5µs overhead por vector de 384/768 dims via serde.
-// Implementar cuando profiling muestre que es bottleneck (vs HNSW search ~100µs-1ms).
-// Output: memory_record_to_js → Float32Array::from(&sanitized[..]) en vez de serde_wasm_bindgen::to_value
-// Input: from_js → extraer Float32Array directamente en vez de serde_wasm_bindgen::from_value
+// ponytail: P2-7 RESUELTO por PERF-08 — memory_record_to_js emite `vector` como
+// Float32Array zero-copy (js_sys::Float32Array + copy_from) en vez de
+// serde_wasm_bindgen::to_value(&Vec<f32>). Mismo shape; evita N allocs/Reflect
+// por vector en el hot path de search/list/put.
+// Input zero-copy (from_js) queda pendiente: requiere tocar el parseo de
+// MemoryInput/VantaNodeInput (fuera del scope de PERF-08).
 
 #[cfg(test)]
 mod tests {
