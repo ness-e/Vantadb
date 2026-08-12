@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "generated_by": "benchmarks/competitive_bench.py",
-  "generated_at": "2026-08-12 12:46:51",
-  "source": "run real del harness (synthetic) — valores generados por esta ejecucion",
+  "generated_at": "2026-08-12 13:23:52",
+  "source": "run real del harness (synthetic) — valores generados por esta ejecucion; fila Milvus merge de competitive_sdk_bench_milvus.json",
   "hardware": {
     "os": "Windows-10-10.0.26200-SP0",
     "cpu_count": 12,
@@ -13,7 +13,9 @@
     "vantadb": "0.4.0",
     "lancedb": "0.30.0",
     "chromadb": "1.1.1",
-    "numpy": "2.4.6"
+    "numpy": "2.4.6",
+    "pymilvus": "2.5.18",
+    "milvus-lite": "3.2.0"
   },
   "dataset": {
     "name": "synthetic",
@@ -73,6 +75,17 @@
       "recall_at_k": 1.0,
       "mem_peak_rss_mb": 253.9,
       "mem_delta_rss_mb": -0.6
+    },
+    {
+      "engine": "Milvus",
+      "ingest_qps": 4644.8,
+      "index_time_ms": 617.1,
+      "query_qps": 206.8,
+      "query_p50_ms": 4.718,
+      "query_p99_ms": 6.654,
+      "recall_at_k": 0.636,
+      "mem_peak_rss_mb": 302.4,
+      "mem_delta_rss_mb": 19.9
     }
   ]
 }

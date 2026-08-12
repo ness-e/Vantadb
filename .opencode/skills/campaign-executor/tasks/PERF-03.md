@@ -9,9 +9,9 @@
 - **Turns estimados:** 8
 - **Creado:** 2026-08-12
 - **last-synced:** 2026-08-12
-- **Estado:** ⏳ IN PROGRESS
-- **Incógnitas (uphill):** 1 abierta (¿milvus-lite instalable en este HW? → resuelta: NO instalado, función guardada + marcada)
-- **Pendientes (downhill):** 5 steps de ejecución restantes
+- **Estado:** ✅ COMPLETED (fila Milvus cerrada — PERF-03 completo)
+- **Incógnitas (uphill):** 0 (milvus resuelto: instalable vía pymilvus 2.5.18 + milvus-lite 3.2.0; harness adaptado a API IndexParams)
+- **Pendientes (downhill):** 0
 
 ## Blast Radius
 
@@ -29,7 +29,7 @@
 - **Veredicto impacto:** MEDIO. Se extiende `competitive_bench.py` (reuso, no rewrite) y se marcan claims en `benchmarks/README.md`. El esquema JSON de salida se preserva. No se toca el árbol dirty de sesión previa.
 
 ## Contrato
-"`benchmarks/competitive_bench.py` corre en este HW (Python 3.11.9, vantadb_py+lancedb+chromadb+qdrant_client disponibles) produciendo tabla honesta publicada en `docs/benchmarks/COMPETITIVE_SDK_BENCH.md`; motores no ejecutables (milvus-lite ausente) marcados como no-medidos; claims del README sin soporte local señalados."
+"`benchmarks/competitive_bench.py` corre en este HW (Python 3.11.9, vantadb_py+lancedb+chromadb+qdrant_client+pymilvus 2.5.18+milvus-lite 3.2.0 disponibles) produciendo tabla honesta publicada en `docs/benchmarks/COMPETITIVE_SDK_BENCH.md` con Vanta/Lance/Chroma/Qdrant/**Milvus** medidos; claims del README sin soporte local señalados."
 
 ## Invariantes de dominio (handoff — MUST)
 
@@ -41,8 +41,8 @@
 
 - activeGoal: PERF-03 — Bench competitivo de SDKs (VantaDB vs Qdrant/Chroma/Milvus-frugal), tabla honesta en docs/benchmarks/
 - lastAction: Discovery + lectura de harness existente y análisis competitivo previo
-- result: PARTIAL (harness extendido + corrido para Vanta/Lance/Chroma/Qdrant; Milvus pendiente por dependencia ausente)
-- nextAction: Editar competitive_bench.py (añadir qdrant + milvus guardados) → correr → publicar tabla
+- result: COMPLETE (Vanta/Lance/Chroma/Qdrant/Milvus medidos en mismo HW; tabla honesta publicada y JSON agregado actualizado)
+- nextAction: ninguna (fila Milvus cerrada); orquestador commitea y cierra la tarea
 - contract: ver arriba
 - nextTask: PERF-02 (Task 1 del mismo plan) — independiente
 
@@ -52,7 +52,8 @@ Saldo neto: 0. Se reusa competitive_bench.py (sin deuda nueva). bench_milvus añ
 ## Definition of Done
 - [x] Harness corrido y produce tabla (Vanta/Lance/Chroma/Qdrant medidos en mismo HW)
 - [x] Tabla honesta publicada en docs/benchmarks/COMPETITIVE_SDK_BENCH.md
-- [x] Milvus marcado como no-medido (función reproducible presente)
+- [x] Milvus **medido** en este HW (synthetic 2K/50q/top-10 euclidean): Ingest 4644.8 QPS, Index 617.1 ms, Query 206.8 QPS, p50 4.718 ms, p99 6.654 ms, Recall@10 63.60%, Peak RSS 302.4 MB — ver `competitive_sdk_bench_milvus.json` y tabla agregada `competitive_sdk_bench.json`
+- [x] Harness `bench_milvus` adaptado a pymilvus>=2.5 (`IndexParams` + `release_collection` + `drop_index(index_name="vector")`) — requerido porque PyPI actual solo tiene milvus-lite 3.x (empareja con pymilvus 3.x, cuyo API dict de `create_index` ya no existe). No cambia qué se mide (HNSW M=16 / efConstruction=100).
 - [x] Claims del README sin soporte local señalados
 - [x] Esquema JSON web preservado; sin commit (lo hace orquestador)
 

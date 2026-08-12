@@ -24,4 +24,7 @@ tabulate
 # --- Optional: Milvus (frugal, embedded via milvus-lite) ---
 # Uncomment to enable the `milvus` engine in competitive_bench.py.
 # Not installed by default; the harness skips it cleanly if absent.
+# NOTE: the harness uses the pymilvus>=2.5 `IndexParams` API, so both are required:
+# pymilvus
 # milvus-lite
+

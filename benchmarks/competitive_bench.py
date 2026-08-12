@@ -35,6 +35,7 @@ import os
 import platform
 import shutil
 import statistics
+import tempfile
 import time
 import urllib.request
 import sys
@@ -76,6 +77,7 @@ except ImportError:
 
 try:
     from pymilvus import MilvusClient
+    from pymilvus.milvus_client import IndexParams
     HAS_MILVUS = True
 except ImportError:
     HAS_MILVUS = False
@@ -636,14 +638,16 @@ def bench_milvus(db_path, train_vectors, test_vectors, ground_truth, metric, top
         print("\n[SKIP] Milvus not measured: pymilvus (milvus-lite) not installed.")
         return None
     print("\nBenchmarking Milvus (milvus-lite embedded, no docker)...")
-    if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+    # Unique temp dir per run: the embedded lite server keeps a Windows file lock
+    # (WinError 32) that would block the next iteration if paths collided.
+    work_dir = tempfile.mkdtemp(prefix="vanta_milvus_")
+    db_uri = os.path.join(work_dir, "milvus.db")
 
     rss_start = get_current_rss()
     dim = train_vectors.shape[1]
     metric_type = "COSINE" if metric == "cosine" else "L2"
 
-    client = MilvusClient(uri=db_path)
+    client = MilvusClient(uri=db_uri)
     if client.has_collection("vectors"):
         client.drop_collection("vectors")
     client.create_collection(
@@ -663,16 +667,21 @@ def bench_milvus(db_path, train_vectors, test_vectors, ground_truth, metric, top
     ingest_time = time.perf_counter() - start_time
     rss_after_ingest = get_current_rss()
 
-    # 2. Index creation (HNSW, to be comparable to the other engines)
+    # 2. Index creation (HNSW, comparable to the other engines).
+    # pymilvus >=2.5 auto-creates a default index on create_collection and loads
+    # the collection, so release + drop it first, then build an explicit HNSW
+    # index (M=16, efConstruction=100).
     start_index = time.perf_counter()
-    client.create_index(
-        collection_name="vectors",
-        index_params={
-            "index_type": "HNSW",
-            "metric_type": metric_type,
-            "params": {"M": 16, "efConstruction": 100},
-        },
+    client.release_collection(collection_name="vectors")
+    client.drop_index(collection_name="vectors", index_name="vector")
+    index_params = IndexParams()
+    index_params.add_index(
+        field_name="vector",
+        index_type="HNSW",
+        metric_type=metric_type,
+        params={"M": 16, "efConstruction": 100},
     )
+    client.create_index(collection_name="vectors", index_params=index_params)
     index_time = time.perf_counter() - start_index
     rss_after_index = get_current_rss()
 
@@ -708,7 +717,7 @@ def bench_milvus(db_path, train_vectors, test_vectors, ground_truth, metric, top
     p99 = np.percentile(query_times, 99)
     qps = len(test_vectors) / (sum(query_times) / 1000.0)
 
-    shutil.rmtree(db_path, ignore_errors=True)
+    shutil.rmtree(work_dir, ignore_errors=True)
 
     return {
         "engine": "Milvus",

@@ -2,7 +2,7 @@
 
 > **Fecha:** 2026-08-12 · **HW:** Windows 10 (build 26200), Intel 12-core, Python 3.11.9
 > **Harness:** `benchmarks/competitive_bench.py` (modo **embedded local, sin docker**)
-> **Estado:** ✅ VantaDB / LanceDB / ChromaDB / **Qdrant** medidos en este HW · Milvus-frugal (milvus-lite) no instalado (opcional)
+> **Estado:** ✅ VantaDB / LanceDB / ChromaDB / **Qdrant** / **Milvus** medidos en este HW (Milvus vía milvus-lite embedded, sin docker)
 
 ## Por qué esta tabla es honesta
 - Todos los números fueron **generados por una corrida real del harness** en este HW — no estimates ni claims de marketing.
@@ -24,9 +24,10 @@
 | LanceDB | 50,086.9 | 679.3 | 126.2 | 7.379 | 17.853 | 27.00% | 233.8 |
 | ChromaDB | 1,511.7 | N/A (Inc) | 398.8 | 2.242 | 5.769 | 97.60% | 257.1 |
 | Qdrant | 129.5 | N/A (Inc) | 490.9 | 1.855 | 4.377 | **100.00%** | 253.9 |
+| Milvus (lite) | 4,644.8 | 617.1 | 206.8 | 4.718 | 6.654 | 63.60% | 302.4 |
 
 ## Lectura honesta (no sesgada a favor de VantaDB)
-- **Query throughput:** VantaDB (635.6 QPS) > Qdrant (490.9) > Chroma (398.8) > Lance (126.2). VantaDB gana aquí.
+- **Query throughput:** VantaDB (635.6 QPS) > Qdrant (490.9) > Chroma (398.8) > **Milvus (206.8)** > Lance (126.2). VantaDB gana aquí; Milvus es el más lento en query de este grupo.
 - **Recall@10 (euclidean synthetic):** Qdrant 100% ≈ Chroma 97.6% ≫ VantaDB 59.2% > Lance 27%. **VantaDB NO es superior en recall en esta configuración.** Esto es un número real del default `ef`; subir `ef` lo mejora a costa de QPS (ver `COMPETITIVE_ANALYSIS.md` §7 sweep). No afirmar superioridad de recall.
 - **Ingest:** LanceDB domina (50K QPS, batch), luego Chroma; VantaDB y Qdrant son más lentos en ingest (Vanta chunked rebuild, Qdrant upload secuencial).
 - **LanceDB** tiene ingest rápido pero query lento y recall pobre (27%) con el índice por defecto en este dataset — se reporta sin maquillar.
@@ -34,7 +35,8 @@
 ## Caveats (para no malinterpretar)
 - **ChromaDB:** solo 1 iteración válida. En Windows, runs 2/3 fallan con `WinError 32` (lock de archivo en cleanup entre corridas, issue conocido P5 de `COMPETITIVE_ANALYSIS.md`). Sus números son de la iteración 1; tratar como menos robustos.
 - **Dataset sintético 2K es pequeño y no representativo.** Los números absolutos no se extrapolan. Para cifras representativas usar datasets reales: `--dataset glove-100-angular` o `--dataset sift-128-euclidean` (descarga ~1 GB ann-benchmarks).
-- **Milvus-frugal** no medido: requiere `pip install milvus-lite` (comentado en `benchmarks/requirements.txt`); el harness lo salta limpio si está ausente. No se afirma nada sobre Milvus.
+- **Milvus** (milvus-lite 3.2.0 embedded + pymilvus 2.5.18 client) **medido en este run**. Recall@10 63.6% — cercano a VantaDB (59.2%), ambos por debajo de Chroma (97.6%) y Qdrant (100%). Su ingest (4.6K QPS) es alto, pero su **query QPS (206.8) es el más bajo del grupo** y su Peak RSS (302.4 MB) la más alta. No se afirma superioridad de Milvus en ningún eje.
+- **Adaptación del harness (transparencia):** `benchmarks/competitive_bench.py` → `bench_milvus` fue adaptado para que corra en PyPI actual. Motivo: `milvus-lite` solo existe como 3.x en PyPI y empareja con `pymilvus>=3`, pero el API high-level de 3.x y el `create_index` dict del harness original ya no existen. Se fijó `pymilvus==2.5.18` (importa con setuptools 83) + `milvus-lite==3.2.0` (server embebido compatible), y se cambió `create_index(dict)` → `IndexParams` + `release_collection` + `drop_index(index_name="vector")`. **No cambia qué se mide** (HNSW M=16 / efConstruction=100, misma métrica). Sin este ajuste el harness no arrancaba en este entorno.
 
 ## Cobertura del harness (motores disponibles en este HW)
 | Motor | Cliente | Disponible aquí | Medido | Cómo |
@@ -43,12 +45,13 @@
 | LanceDB | `lancedb` | ✅ | ✅ | in-process |
 | ChromaDB | `chromadb` | ✅ | ✅ (1 iter válida) | in-process |
 | Qdrant | `qdrant_client` | ✅ | ✅ | `QdrantClient(path=)` embedded, sin docker |
-| Milvus | `milvus_lite` | ❌ no instalado | ❌ no medido | requiere `pip install milvus-lite` |
+| Milvus | `pymilvus` + `milvus-lite` | ✅ (pymilvus 2.5.18 / milvus-lite 3.2.0) | ✅ medido | `MilvusClient(uri=)` embedded, sin docker |
 
 ## Relación con el website (pendiente, fuera de alcance de este bench)
 - `web/src/lib/vanta-data.ts` → `COMPETITIVE_TABLE` aún solo incluye LanceDB/ChromaDB. Para cumplir el claim competitivo del sitio contra Qdrant, esa tabla debe actualizarse con estos números (y eventualmente Milvus). El esquema `competitive-benchmark.json` (contrato INV-007-B) **no debe romperse**; este bench escribe a `competitive_sdk_bench.json` (archivo separado) para no pisar el contrato web.
 
 ## Para reproducir / cerrar al 100%
-1. Qdrant ya medido. Para Milvus: `pip install milvus-lite`, luego
+1. ✅ Milvus ya medido (ver tabla). Para reproducir: instalar `pip install "pymilvus==2.5.18" "milvus-lite==3.2.0"`, luego
    `python benchmarks/competitive_bench.py --engines milvus --dataset synthetic --size 2000 --queries 50 --json-output docs/benchmarks/competitive_sdk_bench_milvus.json --output benchmarks/_n.md --yes`
+   (el harness con la adaptación de `IndexParams` corre sin error; 3 iteraciones, marca mediana).
 2. Para cifras representativas (no sintéticas): `--dataset glove-100-angular --size 10000 --queries 100`.

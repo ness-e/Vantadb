@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "generated_by": "benchmarks/competitive_bench.py",
+  "generated_at": "2026-08-12 13:23:52",
+  "source": "run real del harness (synthetic) — valores generados por esta ejecucion",
+  "hardware": {
+    "os": "Windows-10-10.0.26200-SP0",
+    "cpu_count": 12,
+    "cpu_model": "Intel64 Family 6 Model 154 Stepping 4, GenuineIntel",
+    "python": "3.11.9"
+  },
+  "versions": {
+    "vantadb": "0.4.0",
+    "lancedb": "0.30.0",
+    "chromadb": "1.1.1",
+    "numpy": "2.4.6"
+  },
+  "dataset": {
+    "name": "synthetic",
+    "metric": "euclidean",
+    "vectors": 2000,
+    "queries": 50,
+    "top_k": 10,
+    "ingest_mode": "chunked (--batch-size 999)"
+  },
+  "methodology": {
+    "iterations_per_engine": 3,
+    "aggregation": "median",
+    "ground_truth": "exact brute-force numpy over the loaded subset",
+    "warmup_queries": 10
+  },
+  "results": [
+    {
+      "engine": "Milvus",
+      "ingest_qps": 4644.8,
+      "index_time_ms": 617.1,
+      "query_qps": 206.8,
+      "query_p50_ms": 4.718,
+      "query_p99_ms": 6.654,
+      "recall_at_k": 0.636,
+      "mem_peak_rss_mb": 302.4,
+      "mem_delta_rss_mb": 19.9
+    }
+  ]
+}

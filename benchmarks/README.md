@@ -44,8 +44,10 @@ python benchmarks/competitive_bench.py --dataset glove-100-angular --size 10000 
 > On the euclidean-synthetic 2K / top-10 configuration VantaDB query QPS is
 > competitive, but its **Recall@10 (≈59%) is lower than ChromaDB (≈98%) and
 > Qdrant (≈100%)** — do **not** claim recall superiority over either without
-> citing that table. Milvus is available as an engine only if `milvus-lite` is
-> installed (optional; harness skips it cleanly otherwise).
+> citing that table. Milvus **is measured** in PERF-03 (see
+> `docs/benchmarks/COMPETITIVE_SDK_BENCH.md`); enable it with
+> `pip install "pymilvus==2.5.18" "milvus-lite==3.2.0"` (the harness needs the
+> `pymilvus>=2.5` `IndexParams` API; `milvus-lite` provides the embedded server).
 
 ## Local development variant (maturin)
 
@@ -69,7 +71,7 @@ The scripts accept either install path (PyPI wheel or `maturin develop`).
 | Script | Purpose |
 | :--- | :--- |
 | `vantadb_local_bench.py` | BENCH-01: ingestion + lexical/vector/hybrid search latencies (zero-dep besides `vantadb_py`) |
-| `competitive_bench.py` | VantaDB vs LanceDB vs ChromaDB vs Qdrant (embedded, no docker; ingestion, QPS, latency, recall, RSS). Milvus optional via `milvus-lite`. |
+| `competitive_bench.py` | VantaDB vs LanceDB vs ChromaDB vs Qdrant vs **Milvus** (embedded, no docker; ingestion, QPS, latency, recall, RSS). Milvus via `pymilvus` + `milvus-lite`. |
 | `batch_vs_sequential_bench.py` | `search_batch()` vs sequential `search()` FFI amortization |
 | `prefetch_comparison.py` | Predictive kernel prefetch impact (SCALE-01) |
 | `wasm_bench.mjs` | WASM build benchmark |
