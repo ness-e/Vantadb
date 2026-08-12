@@ -60,3 +60,11 @@
 ## Notas
 - Git sucio con cambios de sesión previa (ERR-031 + migraciones docs, `972c13a7`); los sub-agentes commitean solo sus archivos.
 - PERF-03 tiene precedente en `benchmarks/` (no `data_comp_bench/` raíz como indica el backlog) — verificar en DISCOVERY.
+
+## Retrospectiva (archivado 2026-08-12)
+- **Start:** delegación por wave de 3 sub-agentes (vanta-tuner x3, vanta-worker) con prompts pipeline-full.md acotados; el orquestador commitea por tarea tras verify (respetando git sucio de sesión previa).
+- **Stop:** no commitear desde sub-agentes (solo vanta-lead toca git mutating) — evitó mezclar cambios de sesión previa.
+- **Continue:** el contrato global era `cargo nextest --profile audit`; en la práctica cada tarea verificó con su propio comando (bench/clippy/wasm-build/ADR grep) — suficiente y más rápido.
+- **Acción medida:** completado 4/4 en primer intento (tasa 100%, 0 falsos positivos, 0 regresión) — baseline North Star de RULES.md cumplido.
+- **Deuda documentada:** PERF-08 persist-delta (H3-SER-001) diferido — requiere dirty-tracking en core Rust (fuera de scope). PERF-03 Milvus-frugal pendiente de `pip install milvus-lite`.
+- **Colisión de naming:** ADR `DRV-015-wal-async-roadmap.md` comparte número con task previo DRV-015 (refactor WalWriter) ya en progreso; desambiguar por nombre de archivo.

@@ -1,8 +1,8 @@
 # Plan de Ejecución: Residual Hardening — PERF/ERR/COV/AUD/CI
 
-> **Campaign ID: 5096708f-dd41-43fb-b244-923bf4a52198
+> **Campaign ID: 8443b6f0-d66e-43fd-a603-90ebee2630ad
 > **Inicio:** 2026-08-09
-> **Estado: completed — 26/26 DO ejecutados (cierre 2026-08-11)
+> **Estado: completed
 > **Fuente:** docs/Backlog.md (verificación de realidad 2026-08-09 vía codegraph_explore)
 
 ## Resumen
@@ -26,7 +26,7 @@
 - **Verificación real:** ✅ CÓDIGO-REAL — `batch_insert_with_opts` llama `self.get(n.id)` por nodo (líneas 970-977 rayon); 10k batch = 10k read-paths + write-lock cache + clone descartado.
 - **Gate Justificación:** Alto impacto escritura masiva, hot path.
 - **Gate Result:** ✅ DO
-- **Contrato: tests HTTP auth/RBAC/rate-limit añadidos; cargo test -p vantadb-server pasa
+- **Contrato: verificacion: cargo nextest run --profile audit --workspace --build-jobs 2 (1905 passed) + cargo fmt --check (ok) + cargo clippy --workspace --all-targets --all-features -- -D warnings (0) | evidencia: commits f585e423, 1a1397d8; git log 339107b0, 918e57b1 | artefactos: .opencode/skills/campaign-executor/tasks/ERR-031.md | invariantes: ninguna; solo tests + docs migrados | deuda: ninguna | queda_pendiente: ninguno
 - **Task file:** `skills/campaign-executor/tasks/ERR-037.md`
 - **Estado:** ✅ COMPLETED
   **Notas:** batch exists-check único o `skip_existing_check` como default para inserts puros.
@@ -356,10 +356,10 @@
 
 === RECITATION ===
 Campaign ID: d083523e-e6aa-4a44-ae75-5236b8755500
-Objetivo activo: Cerrar pendientes del plan 2026-08-09-residual-hardening (COV-002 y AUD-020)
+Objetivo activo: Completar ERR-031: VecIndex::add debe propagar rechazos como Result, con tests de rechazo
 Estado: completed — 26/26 DO ejecutados al 2026-08-11
-Última acción: Cierre 2026-08-11 — COV-002 (c9188639), COV-003 (c773ee9c/be3a785c), COV-004 (ADR-015 + ref CI_POLICY:191 + job coverage ci-rust-10.yml >=80%), AUD-020 (90f85d9f, 19/19) todos verdes y marcados.
-Resultado: ✅ Los 4 pendientes cerrados con commits verificados. Único caveat no-DO: Checkpoint 1 `cargo nextest --workspace audit` falla por ERR-010 reabierto (insert_lock flush timeout, verificado 2026-08-11) — error pre-existente ya reportado, no regresión de este plan.
-Próxima acción: N/A — plan cerrado al 100%. Pasar a plans activos 2026-08-10-docs-task-system-consolidation (Tasks 1-2) y verificaciones del 2026-08-11.
+Última acción: Fix core ya existia (339107b0 + 918e57b1); agregue 3 tests de rechazo (DiskAnn non-full, Scann non-full, IVF read-only) en f585e423; migracion progreso en 1a1397d8
+Resultado: OK
+Próxima acción: ninguna; tarea completa
 Contrato: cerrar los 4 pendientes (COV-002/003/004, AUD-020). CUMPLIDO.
-Próxima tarea si completa: 
+Próxima tarea si completa: none
