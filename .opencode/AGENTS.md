@@ -1007,3 +1007,7 @@ La verificación pre-push manual corre: `cargo fmt → cargo check → cargo cli
 
 <!-- Learnings: ERR-045 - 2026-08-11 -->
 - Revisar el estado actual del archivo antes de asumir el fix completo: ERR-045 ya tenía `get_neighbors_ref` agregado en un intento previo (5 callers convertidos); el trabajo restante era migrar el caller BFS de compactación (`serialization_order`), no crear la API de nuevo.
+
+<!-- Learnings: ERR-031 - 2026-08-12 -->
+- El fix principal ya estaba commiteado (339107b0 trait Result + 918e57b1 colateral clippy); el gap real era tests de rechazo por backend. Verificar git history + grep de callers antes de escribir codigo.
+- Un contrato de comportamiento (""rechazo se propaga como Err, no silencioso"") se cierra con un test por backend que pruebe Err + no-mutacion (len sin cambios), no solo el fix en si.
