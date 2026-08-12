@@ -412,7 +412,6 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
 | `ERR-026` | **🟡 parse_metadata descarta filtros no-escalables** — arrays/objetos/null ignorados → filtro silenciosamente no aplicado → resultados súper-conjunto. | `vantadb-mcp/src/lib.rs` | 🟢 | 🟡 | 📝 Pendiente |
-| `ERR-042` | **🟡 `read_header` 2× por candidato** en hot loop (+ entry points) — trabajo duplicado constante. | `src/index/search.rs:275-280, 347-353` | 🟠 | 🟡 | 📝 Pendiente |
 | `ERR-043` | **🟡 `shrink_neighbors` clona vector** del nodo solo para usarlo como query. | `src/index/graph.rs:920-926` | 🟢 | 🟡 | 📝 Pendiente |
 | `ERR-044` | **🟡 `TextAnalyzer` reconstruido por llamada** — batch N paga N setups (stemmer/stopwords). | `src/tokenizer.rs:44-106` | 🟢 | 🟡 | 📝 Pendiente |
 | `ERR-045` | **🟡 `get_neighbors` clona la lista por nodo** — O(N×M) allocs durante compactación BFS. | `src/index/neighbor_index.rs:66-68` | 🟢 | 🟡 | 📝 Pendiente |

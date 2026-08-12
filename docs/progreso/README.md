@@ -1465,6 +1465,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `INV-007-B` | competitive_benchmark.json + competitive-table web (MKT-17) (Task 47, `58061ab8`) | 🟡 | ✅ 2026-08-05 |
 | `NUEVO-16` | PQ viabilidad defer (REC-009 reafirmado, PQ_FEASIBILITY.md) (Task 48, `241a1d81`) | 🔵 | ✅ 2026-08-05 DEFER |
 | `NUEVO-22` | Sparse indexed search (inverted index + posting lists) (Task 49, `5e71b5ff`) | 🔵 | ✅ 2026-08-05 |
+| `ERR-042` | Perf-Search: `read_header` 2× por candidato en hot loop (+ entry points) → `node_header` leído 1× y reutilizado en distance + tombstone eligibility; fix `e95dd94a`; 2 tests paridad vfile vs in-memory + tombstone header excluido (commit `5a9eada1`); bench `vfile_search`: with_vfile 211→187ms (−11.4%), with_vfile_compacted 201→163ms (−19.0%); nextest 1902/1902 | 🟠 | ✅ 2026-08-11 |
 
 ### Julio 2026 — Auditoría de Código (2ª pasada)
 
