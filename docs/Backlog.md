@@ -94,17 +94,6 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 ---
 
-> **Phase 3: 🧪 Test Coverage (core SDKs)** — reabierta 2026-08-09 con COV-001..004 tras medición multi-agente (Rust 81.40% root ✅ / TS 0% bloqueado / Python 69%). Items previos (14) removidos: ver `docs/progreso/BACKLOG_HISTORY.md` (P3).
-
-| ID | Descripción | Archivos | Esfuerzo | Prio |
-|----|-------------|----------|----------|------|
-| `COV-001` | **Python: smoke test async de `AsyncVantaDB`** — cubre las 37 líneas faltantes (`flush`, `purge_expired`, `query`, `graph_*`, `put`, `delete`, `export_*`); solo ejercita el path sync hoy. Gate: coverage wrapper ≥85% | `vantadb-python/vantadb_py/__init__.py`, `vantadb-python/tests/` | 🟢 | 🟢 |
-| `COV-002` | **TS: destrabar medición de coverage** — resolver incompatibilidad `vite-plugin-wasm@3.6.0` ↔ `vitest@4.1.10` (virtual module `__vite-plugin-wasm-helper` no resuelto en Node, ver vitest-dev/vitest#6723) o reportar con c8 desde `test-runner.mjs`. Runtime de `src/` (vantadb.ts, native.ts, errors.ts, guards.ts) está 0% medible. 25/26 tests ya pasan vía runner alterno | `vantadb-ts/vitest.config.ts`, `src/` | 🟡 | 🟢 |
-| `COV-003` | **Rust: tests del binario CLI** — `src/cli_handlers/*` (crud 396, search 383, diagnostics 367, server 271, migrate 238), `src/bin/vanta-cli.rs`, `src/sdk/gds.rs` ≈2,500 ln al 0%. Asserts en subcomandos. Root coverage 81.40% → ~88% | `src/cli_handlers/`, `src/bin/`, `tests/` | 🟡 | 🟢 |
-| `COV-004` | **ADR: política del gate de coverage en CI** — ¿root crate (81.40%, hoy pasa) vs `--workspace` (72.76%, incluye bindings python/wasm/server/mcp que el gate 100% by design)? Si se adopta `--workspace`, migrar medición de bindings a sus runners nativos (pytest/browser). Documentar decisión | `.github/workflows/ci-rust-10.yml`, ADR en `docs/architecture/adr/` | 📖 | 🟡 |
-
----
-
 ## Phase 4: 🔧 Engineering Health & Architecture
 
 > Investigaciones de salud de ingeniería — rendimiento, concurrencia, arquitectura.

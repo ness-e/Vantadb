@@ -104,3 +104,5 @@ aliases: []
 
 - `cargo check -p vantadb` ✅ en cada wave.
 - CI Fast Gate <5 min vs Heavy Certification hasta 2h (separados por diseño).
+### ERR-009 (job Miri en CI cubierto) — migrado 2026-08-12 (ver docs/progreso/README.md)
+### COV-004 (ADR-018 coverage gate = root crate vantadb ≥80%, supersede ADR-015) — migrado 2026-08-12 (ver docs/progreso/README.md)
