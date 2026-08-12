@@ -1293,6 +1293,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 
 | ID | Tarea | Prioridad | Estado |
 |---|---|---|---|
+| `ERR-031` | Index-API: `VecIndex::add` traga rechazos (solo warn) → trait retorna `Result<()>`, 5 impls propagan rechazos (non-full DiskAnn/Scann, read-only IVF, zero-norm CPIndex); fix `339107b0` + colateral clippy `918e57b1`; 3 tests rechazo `f585e423` | 🟢 | ✅ 2026-08-12 |
 | `AUDREP-14` | Seguridad-Network: sin CORS → middleware configurable off por defecto (`VantaConfig::allowed_origins`, env `VANTADB_ALLOWED_ORIGINS`), `app_with_cors()` capa más externa; 2 tests + docs; commit `74a2c050` | 🟠 | ✅ 2026-08-07 |
 | `AUDREP-16` | WAL-Compatibilidad: shard count hardcodeado (4) → layout on-disk ground truth via sidecar `<base>.shards` + inferencia; reconcilia al abrir; 3 tests; commit `13da3d6d` | 🟠 | ✅ 2026-08-07 |
 | `AUDREP-17` | WAL-Operaciones: `run_loop` sin shutdown ni backoff → flag `AtomicBool` + sleeps interrumpibles + backoff exponencial (2s→60s cap) + no-spam con `replica_url` vacía; 3 tests; commit `2422981d` | 🟠 | ✅ 2026-08-07 |

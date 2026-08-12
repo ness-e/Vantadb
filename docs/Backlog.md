@@ -418,7 +418,6 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
 | `ERR-015` | **🔵 kill() siempre en `request_shutdown`** — sin señal graciosa SIGINT; metadata loss en Windows. | `desktop/src-tauri/src/connections/child_process.rs:170-189` | 🟢 | 🔵 | 📝 Pendiente |
-| `ERR-031` | **🔵 `VecIndex::add` traga rechazos** (solo warn, sin Result) — futuros Arc<dyn> perderían inserts. | `src/index/search.rs:664-698` | 🟢 | 🔵 | 📝 Pendiente |
 | `ERR-032` | **🔵 Test de `deserialize_node_payload` removido** — pérdida de cobertura del guard MAX_PERSISTED_NODE_BYTES. | `src/storage/ops.rs` | 🟢 | 🔵 | 📝 Pendiente |
 | `ERR-033` | **🔵 `memory_list(limit=0)` → devuelve 1** — `max(1)` en core vs 0 pedido. | `vantadb-mcp/src/lib.rs:1139-1142` | 🟢 | 🔵 | 📝 Pendiente |
 | `ERR-047` | **🔵 Copy inline en cada pop del hot loop** (`take_l + extend`). | `src/index/search.rs:225-238` | 🟢 | 🔵 | 📝 Pendiente |
