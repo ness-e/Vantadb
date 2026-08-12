@@ -827,7 +827,8 @@ impl crate::index::VecIndex for CPIndex {
 mod tests {
     use super::*;
     use crate::index::graph::HnswConfig;
-    use crate::node::{VectorRepresentations, ALL_BITSET};
+    use crate::node::{DiskNodeHeader, VectorRepresentations, ALL_BITSET};
+    use crate::storage::vfile::VantaFile;
 
     fn make_index(metric: DistanceMetric) -> CPIndex {
         CPIndex::new_with_config(HnswConfig {
@@ -1393,6 +1394,109 @@ mod tests {
         for ns in &sorted {
             assert!(ns.1 != 0, "tombstone node 0 should not appear in results");
         }
+    }
+
+    // ── ERR-042 parity: disk (vector_store) vs in-memory search ──────────
+    //
+    // ERR-042 hoisted `read_header` to once per candidate (reused for the
+    // distance computation AND the tombstone eligibility check). These tests
+    // prove the refactor did not change search behavior: searching through a
+    // populated VantaFile (disk path, read_header) must return the same ids
+    // and scores as the in-memory path (fast_similarity), and a tombstone
+    // flag in the disk header must still exclude the node.
+
+    const ERR042_ALIGN: u64 = 64;
+
+    /// Build a HNSW index AND a matching in-memory VantaFile where each
+    /// node's `storage_offset` points at a readable header + vector payload.
+    /// Both data paths see byte-identical vectors.
+    fn build_index_with_vfile(metric: DistanceMetric) -> (CPIndex, VantaFile) {
+        let index = make_hnsw_index(metric);
+        let hdr_size = std::mem::size_of::<DiskNodeHeader>() as u64;
+        let total = 4096 + 512 * (hdr_size + 16 * 4 + ERR042_ALIGN);
+        let mut vfile = VantaFile::create_in_memory(total);
+        let mut offset = ERR042_ALIGN;
+        for i in 0..200u128 {
+            let vec: Vec<f32> = (0..16)
+                .map(|d| ((i as f32) * 0.01 + d as f32 * 0.05).sin())
+                .collect();
+            index
+                .add(
+                    i,
+                    FilterBitset::all_set(),
+                    VectorRepresentations::Full(vec.clone()),
+                    offset,
+                )
+                .expect("test vectors are non-zero-norm");
+            let vec_offset = offset + hdr_size;
+            let mut header = DiskNodeHeader::new(i);
+            header.vector_len = vec.len() as u32;
+            header.vector_offset = vec_offset;
+            vfile.write_header(offset, &header).expect("write header");
+            let bytes: Vec<u8> = vec.iter().flat_map(|v| v.to_le_bytes()).collect();
+            vfile.mmap_bytes_mut().expect("writable mmap")[vec_offset as usize..][..bytes.len()]
+                .copy_from_slice(&bytes);
+            let node_size = hdr_size + (vec.len() as u64 * 4);
+            offset = ((offset + node_size + ERR042_ALIGN - 1) / ERR042_ALIGN) * ERR042_ALIGN;
+        }
+        (index, vfile)
+    }
+
+    #[test]
+    fn test_search_vfile_in_memory_parity() {
+        let (index, vfile) = build_index_with_vfile(DistanceMetric::Cosine);
+        for q in [
+            vec![
+                0.1f32, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4,
+            ],
+            vec![
+                1.0f32, -0.5, 0.2, 0.0, 0.3, -0.1, 0.8, 0.4, 0.6, 0.2, 0.1, 0.9, 0.5, 0.3, 0.7, 0.0,
+            ],
+        ] {
+            let in_memory = index.search_nearest(&q, None, None, &ALL_BITSET, 10, None);
+            let from_disk = index.search_nearest(&q, None, None, &ALL_BITSET, 10, Some(&vfile));
+            assert_eq!(
+                from_disk.len(),
+                in_memory.len(),
+                "result count must match between disk and in-memory search"
+            );
+            for ((mem_id, mem_score), (disk_id, disk_score)) in
+                in_memory.iter().zip(from_disk.iter())
+            {
+                assert_eq!(mem_id, disk_id, "ids must match in ranking order");
+                assert!(
+                    (mem_score - disk_score).abs() < 1e-5,
+                    "scores must match: in-memory {mem_score} vs disk {disk_score}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_search_vfile_tombstone_header_excluded() {
+        // The hoisted header feeds the eligibility check too: a tombstone bit
+        // in the DISK header (not the in-memory node) must exclude the node.
+        let (index, mut vfile) = build_index_with_vfile(DistanceMetric::Cosine);
+        let victim_offset = ERR042_ALIGN;
+        let mut header = vfile.read_header(victim_offset).expect("victim header");
+        header.flags |= FLAG_TOMBSTONE;
+        vfile
+            .write_header(victim_offset, &header)
+            .expect("write tombstone");
+
+        // Query identical to node 0's vector so it is the top-ranked match.
+        let q: Vec<f32> = (0..16).map(|d| (d as f32 * 0.05).sin()).collect();
+        let results = index.search_nearest(&q, None, None, &ALL_BITSET, 10, Some(&vfile));
+        assert!(
+            results.iter().all(|(id, _)| *id != 0),
+            "tombstoned node 0 must not appear in disk-backed results"
+        );
+        // Control: in-memory search (node.flags untouched) still ranks node 0.
+        let mem_results = index.search_nearest(&q, None, None, &ALL_BITSET, 10, None);
+        assert!(
+            mem_results.iter().any(|(id, _)| *id == 0),
+            "in-memory path must still return the live node 0"
+        );
     }
 
     #[test]
