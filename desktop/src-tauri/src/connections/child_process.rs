@@ -171,34 +171,37 @@ impl McpSpawn {
         &self.log_path
     }
 
-    /// Request a shutdown: send the child a stop signal and wait up to `grace`.
-    /// On platforms without a graceful path this degrades to kill+wait.
+    /// Request a shutdown: close the child's stdin (graceful) and wait up to
+    /// `grace`, then force-kill as a backstop. Graceful works on every platform
+    /// because the sidecar's MCP loop reads stdin and exits on EOF — see
+    /// `vantadb-mcp run_stdio_server` (`Ok(None) => break`), after which
+    /// `vantadb-server`'s `main` flushes the storage engine.
     pub async fn request_shutdown(&mut self, grace: std::time::Duration) -> Result<(), VantaError> {
+        // 1. Graceful stop, cross-platform: dropping the write end of the stdin
+        //    pipe sends EOF to the sidecar's MCP loop, which breaks out and lets
+        //    the storage engine flush (vantadb-server main.rs flushes after
+        //    `run_stdio_server` returns) — never a forced kill that could drop
+        //    in-flight metadata. This is the only per-process graceful path on
+        //    Windows, which has no deliverable signal (see [`send_graceful_stop`]).
+        drop(self.child.stdin.take());
+
+        // 2. Unix: additionally SIGINT the child. Its `tokio::signal::ctrl_c`
+        //    handler sets a drain flag checked after in-flight requests — belt
+        //    and suspenders over the stdin EOF above.
         #[cfg(unix)]
-        {
-            // 1. Graceful stop: the sidecar's MCP loop shuts down on SIGINT
-            //    (vantadb-mcp `run_stdio_server` -> tokio::signal::ctrl_c),
-            //    letting its storage engine flush — never a forced kill that
-            //    could drop in-flight metadata.
-            if self.is_running() {
-                if let Some(pid) = self.child.id() {
-                    send_graceful_stop(pid);
-                }
-            }
-            // 2. Give the child up to `grace` to exit and be reaped; if it does,
-            //    we are done. Timeout falls through to the forced-kill backstop.
-            if tokio::time::timeout(grace, self.child.wait()).await.is_ok() {
-                return Ok(());
+        if self.is_running() {
+            if let Some(pid) = self.child.id() {
+                send_graceful_stop(pid);
             }
         }
 
-        // `grace` applies to the Unix graceful wait above; Windows has no
-        // graceful signal to wait for, so the forced kill below is immediate.
-        #[cfg(windows)]
-        let _ = &grace;
+        // 3. Give the child up to `grace` to exit and be reaped; if it does, we
+        //    are done. Timeout falls through to the forced-kill backstop.
+        if tokio::time::timeout(grace, self.child.wait()).await.is_ok() {
+            return Ok(());
+        }
 
-        // Backstop (and the only path on Windows, which has no per-process
-        // graceful signal — see [`send_graceful_stop`]): force-kill and reap.
+        // Backstop: force-kill and reap (child ignored EOF/SIGINT or is hung).
         self.child
             .kill()
             .await
@@ -222,10 +225,10 @@ impl McpSpawn {
 /// SIGINT (vantadb-mcp `run_stdio_server` -> `tokio::signal::ctrl_c`), so
 /// SIGINT — not SIGTERM — is the signal that reaches its flush path.
 ///
-/// There is no Windows equivalent: `GenerateConsoleCtrlEvent` only delivers
-/// Ctrl-C to processes sharing the caller's console and (per Microsoft Learn)
-/// CTRL_C cannot be limited to a process group, so [`McpSpawn::request_shutdown`]
-/// falls back to a forced kill there.
+/// Unix-only: Windows has no per-process signal (`GenerateConsoleCtrlEvent`
+/// only delivers Ctrl-C to processes sharing the caller's console and, per
+/// Microsoft Learn, CTRL_C cannot be limited to a process group). Windows
+/// graceful shutdown in [`McpSpawn::request_shutdown`] uses stdin EOF instead.
 #[cfg(unix)]
 fn send_graceful_stop(pid: u32) {
     // SAFETY: `pid` is `Child::id()` of the process this struct spawned and
