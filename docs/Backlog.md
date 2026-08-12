@@ -405,7 +405,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `ERR-037` | **🟠 `batch_insert` chequea existencia por nodo** — 10k batch = 10k read-paths completos + write-lock cache + clone de vector descartado. | `src/storage/engine/ops.rs:853-925` | 🟠 | 🟠 | 📝 Pendiente |
+| `ERR-037` | **🟠 `batch_insert` chequea existencia por nodo** — *resuelto* (`b97c0ccd` probe + follow-up `ExistingMeta` chunked): overwrite path −30.3% (97.1→67.7ms @10k), probe cache-hit 1-3ms. Bench en `benches/batch_existing_check.rs`. | `src/storage/engine/ops.rs` | 🟠 | 🟠 | ✅ Completado |
 
 ### MEDIOS (12) — ✅ 7 ejecutados por plan `2026-08-09` (ERR-005/014/027/028/029/030/050; ver progreso). Residuales:
 
@@ -436,7 +436,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | `ERR-007` | `multiple-versions` warn activo — hashbrown ×3, rand, syn, thiserror, windows-sys. | Cargo.lock | 🟠 | ⚪ | 📝 Pendiente |
 | `ERR-008` | `copy_unsafe` en vfile sin guard explícito de bounds (solo debug assert). | `src/storage/vfile.rs` | 🟢 | ⚪ | 📝 Pendiente |
 | `ERR-009` | Correr `cargo miri test` (tree-borrows) sobre vfile/ops antes del próximo merge. | CI / tooling | 🟢 | ⚪ | 📝 Pendiente |
-| `ERR-049` | Sin bench dedicado a `ivf.rs` ni `batch_insert` — hallazgos ERR-037/39-41 sin cuantificar. | `benches/` | 🟠 | ⚪ | 📝 Pendiente |
+| `ERR-049` | Sin bench dedicado a `ivf.rs` (batch_insert ya cubierto por `benches/batch_existing_check.rs`, ERR-037). | `benches/` | 🟠 | ⚪ | ⛠ Parcial |
 
 > **Descartado:** ERR-017 (métrica euclidiana consistente en `flat.rs:43` / `distance.rs:495/516/536` / `search.rs:176/327` — no se confirma la divergencia flat vs HNSW).
 
