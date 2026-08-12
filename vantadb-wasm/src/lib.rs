@@ -9,6 +9,7 @@
 
 use core::sync::atomic::{AtomicBool, Ordering};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use vantadb::config::VantaConfig;
 use vantadb::graph::TraversalDirection;
@@ -256,6 +257,45 @@ pub struct VantaDB {
     op_gate: OpGate,
     #[cfg(feature = "opfs")]
     worker: Option<worker::OpfsWorkerProxy>,
+    /// PERF-08 differential-persist cache (see `PersistCache`). Holds the last
+    /// persiated snapshot so `save`/`save_idb` re-serialize only what changed.
+    persist_cache: Mutex<PersistCache>,
+}
+
+/// PERF-08 differential-persist cache.
+///
+/// Keeps the last-persisted snapshot as `(namespace, key) -> (version,
+/// serialized_json)`. On `save`/`save_idb` only records whose `version`
+/// changed (or that were deleted) since the last persist are (re)serialized;
+/// every other record reuses its previously-serialized JSON string. This turns
+/// the old O(N) full-dataset `serde_json::to_vec` on every persist into
+/// O(changes) serialization and skips the file write entirely when nothing
+/// changed — eliminating the multi-second event-loop block on >100MB datasets.
+///
+/// `dirty`/`deleted` are fed by the mutation entry points (`put`, `delete`,
+/// ...). `cache_invalid` is set by bulk operations whose changed keys are not
+/// individually known (import/bulk/reindex/purge) and forces a one-time full
+/// rebuild of the cache on the next persist.
+struct PersistCache {
+    /// (namespace, key) -> (record version at last persist, serialized JSON of that record)
+    records: HashMap<(String, String), (u64, String)>,
+    /// Keys touched since the last persist (need re-serialize / re-fetch).
+    dirty: HashSet<(String, String)>,
+    /// Keys deleted since the last persist.
+    deleted: HashSet<(String, String)>,
+    /// Cache must be rebuilt from a full `collect_all_deduped` (bulk op happened).
+    cache_invalid: bool,
+}
+
+impl PersistCache {
+    fn new() -> Self {
+        Self {
+            records: HashMap::new(),
+            dirty: HashSet::new(),
+            deleted: HashSet::new(),
+            cache_invalid: false,
+        }
+    }
 }
 
 /// Durability gate: rejects new operations once `close()` has begun and keeps
@@ -354,6 +394,7 @@ impl VantaDB {
             inner,
             opfs: None,
             op_gate: OpGate::new(),
+            persist_cache: Mutex::new(PersistCache::new()),
             #[cfg(feature = "opfs")]
             worker: None,
         })
@@ -372,6 +413,7 @@ impl VantaDB {
             inner,
             opfs: None,
             op_gate: OpGate::new(),
+            persist_cache: Mutex::new(PersistCache::new()),
             #[cfg(feature = "opfs")]
             worker: None,
         })
@@ -391,6 +433,7 @@ impl VantaDB {
             inner,
             opfs,
             op_gate: OpGate::new(),
+            persist_cache: Mutex::new(PersistCache::new()),
             #[cfg(feature = "opfs")]
             worker: None,
         };
@@ -411,6 +454,7 @@ impl VantaDB {
             inner,
             opfs: None,
             op_gate: OpGate::new(),
+            persist_cache: Mutex::new(PersistCache::new()),
             #[cfg(feature = "opfs")]
             worker: None,
         };
@@ -456,6 +500,7 @@ impl VantaDB {
             inner,
             opfs: None,
             op_gate: OpGate::new(),
+            persist_cache: Mutex::new(PersistCache::new()),
             worker: Some(worker_proxy),
         };
         // Load from worker-backed storage
@@ -463,6 +508,7 @@ impl VantaDB {
         if let Some(d) = data {
             let records: Vec<VantaMemoryRecord> = serde_json::from_slice(&d)
                 .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
+            db.populate_cache_from_records(&records);
             if !records.is_empty() {
                 db.inner.import_records(records).map_err(to_js_err)?;
             }
@@ -541,26 +587,175 @@ impl VantaDB {
         Ok(state)
     }
 
-    /// Persist all in-memory records to OPFS storage.
+    // ── PERF-08 differential-persist helpers ──────────────────────────────
+
+    /// Mark a single record key as changed since the last persist.
+    fn mark_dirty(&self, namespace: &str, key: &str) {
+        let mut cache = self
+            .persist_cache
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        cache.dirty.insert((namespace.to_string(), key.to_string()));
+    }
+
+    /// Mark a single record key as deleted since the last persist.
+    fn mark_deleted(&self, namespace: &str, key: &str) {
+        let mut cache = self
+            .persist_cache
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let k = (namespace.to_string(), key.to_string());
+        cache.dirty.remove(&k);
+        cache.deleted.insert(k);
+    }
+
+    /// Mark the cache stale because an unknown set of keys changed (bulk ops).
+    fn mark_cache_invalid(&self) {
+        let mut cache = self
+            .persist_cache
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        cache.cache_invalid = true;
+    }
+
+    /// Seed the cache from a freshly-loaded snapshot so the next `save` is a
+    /// no-op unless a mutation occurs (avoids a redundant full re-serialize).
+    fn populate_cache_from_records(&self, records: &[VantaMemoryRecord]) {
+        let mut cache = self
+            .persist_cache
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        cache.records.clear();
+        cache.dirty.clear();
+        cache.deleted.clear();
+        cache.cache_invalid = false;
+        for rec in records {
+            let key = (rec.namespace.clone(), rec.key.clone());
+            match serde_json::to_string(rec) {
+                Ok(s) => {
+                    cache.records.insert(key, (rec.version, s));
+                }
+                Err(_) => {
+                    // Serialization failure is unrecoverable here; force a full
+                    // rebuild on the next persist instead of silently dropping.
+                    cache.cache_invalid = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    /// Build the serialized `db_state.json` payload using the differential
+    /// persist cache. Returns `None` when nothing changed since the last
+    /// successful persist, so the caller can skip the (potentially large) file
+    /// write entirely.
+    ///
+    /// Only records whose `version` changed (or that were deleted) since the
+    /// last persist are (re)serialized; every other record reuses its cached
+    /// JSON string. Output is a valid `Vec<VantaMemoryRecord>` JSON array,
+    /// byte-for-byte loadable by `load`/`load_idb`.
+    fn persist_payload(&self) -> Result<Option<Vec<u8>>, JsValue> {
+        let mut cache = self
+            .persist_cache
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+
+        if cache.dirty.is_empty() && cache.deleted.is_empty() && !cache.cache_invalid {
+            return Ok(None);
+        }
+
+        if cache.cache_invalid {
+            // Bulk op changed an unknown key set — rebuild cache from a full
+            // collect once, then fall through to emit the full snapshot.
+            cache.records.clear();
+            cache.dirty.clear();
+            cache.deleted.clear();
+            let current = self.collect_all_deduped()?;
+            for rec in current {
+                let key = (rec.namespace.clone(), rec.key.clone());
+                let s = serde_json::to_string(&rec)
+                    .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
+                cache.records.insert(key, (rec.version, s));
+            }
+            cache.cache_invalid = false;
+        } else {
+            // Apply deletions.
+            let deleted: Vec<(String, String)> = cache.deleted.drain().collect();
+            for k in deleted {
+                cache.records.remove(&k);
+            }
+            // Re-serialize only the dirty records (fetch current version).
+            let dirty: Vec<(String, String)> = cache.dirty.drain().collect();
+            for (ns, key) in dirty {
+                match self.inner.get(&ns, &key).map_err(to_js_err)? {
+                    Some(rec) => {
+                        let s = serde_json::to_string(&rec)
+                            .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
+                        cache.records.insert((ns, key), (rec.version, s));
+                    }
+                    None => {
+                        cache.records.remove(&(ns, key));
+                    }
+                }
+            }
+        }
+
+        // Reconstruct a valid JSON array from cached serialized record strings.
+        let mut out = String::with_capacity(cache.records.len().saturating_mul(64) + 2);
+        out.push('[');
+        let mut first = true;
+        for (_k, (_v, s)) in cache.records.iter() {
+            if !first {
+                out.push(',');
+            }
+            out.push_str(s);
+            first = false;
+        }
+        out.push(']');
+        Ok(Some(out.into_bytes()))
+    }
+
+    /// Persist in-memory records to OPFS storage using differential writes.
+    ///
+    /// Only records changed since the last successful `save` are serialized;
+    /// if nothing changed the file write is skipped entirely (PERF-08).
     pub async fn save(&self) -> Result<(), JsValue> {
         let _g = enter(&self.op_gate)?;
         let opfs = match &self.opfs {
             Some(o) => o,
             None => return Ok(()),
         };
-        let state = self.collect_all_deduped()?;
-        let data = serde_json::to_vec(&state)
-            .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
-        opfs.write_file("db_state.json", &data).await
+        match self.persist_payload()? {
+            Some(data) => {
+                if let Err(e) = opfs.write_file("db_state.json", &data).await {
+                    // Write failed: force a full rebuild+rewrite on the next
+                    // save instead of silently skipping (dirty was already
+                    // drained by persist_payload).
+                    self.mark_cache_invalid();
+                    return Err(e);
+                }
+                Ok(())
+            }
+            None => Ok(()), // nothing changed since last persist
+        }
     }
 
-    /// Persist all in-memory records to IndexedDB storage.
+    /// Persist in-memory records to IndexedDB storage using differential writes.
+    ///
+    /// Only records changed since the last successful `save_idb` are
+    /// serialized; if nothing changed the file write is skipped (PERF-08).
     pub async fn save_idb(&self) -> Result<(), JsValue> {
         let _g = enter(&self.op_gate)?;
-        let state = self.collect_all_deduped()?;
-        let data = serde_json::to_vec(&state)
-            .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
-        IdbStorage::write_file("db_state.json", &data).await
+        match self.persist_payload()? {
+            Some(data) => {
+                if let Err(e) = IdbStorage::write_file("db_state.json", &data).await {
+                    self.mark_cache_invalid();
+                    return Err(e);
+                }
+                Ok(())
+            }
+            None => Ok(()), // nothing changed since last persist
+        }
     }
 
     /// Restore all records from IndexedDB storage into memory.
@@ -572,6 +767,7 @@ impl VantaDB {
         };
         let records: Vec<VantaMemoryRecord> = serde_json::from_slice(&data)
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
+        self.populate_cache_from_records(&records);
         if !records.is_empty() {
             self.inner.import_records(records).map_err(to_js_err)?;
         }
@@ -596,6 +792,7 @@ impl VantaDB {
         };
         let records: Vec<VantaMemoryRecord> = serde_json::from_slice(&data)
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
+        self.populate_cache_from_records(&records);
         if !records.is_empty() {
             self.inner.import_records(records).map_err(to_js_err)?;
         }
@@ -633,8 +830,8 @@ impl VantaDB {
             }
         }
         let vanta_input = VantaMemoryInput {
-            namespace: input.namespace,
-            key: input.key,
+            namespace: input.namespace.clone(),
+            key: input.key.clone(),
             payload: input.payload,
             metadata: input.metadata,
             vector: input.vector,
@@ -642,6 +839,7 @@ impl VantaDB {
             ttl_ms: input.ttl_ms,
         };
         let record = self.inner.put(vanta_input).map_err(to_js_err)?;
+        self.mark_dirty(&input.namespace, &input.key);
         Ok(memory_record_to_js(record))
     }
 
@@ -666,6 +864,9 @@ impl VantaDB {
                     ))));
                 }
             }
+        }
+        for input in &inputs {
+            self.mark_dirty(&input.namespace, &input.key);
         }
         let vanta_inputs: Vec<VantaMemoryInput> = inputs
             .into_iter()
@@ -701,7 +902,11 @@ impl VantaDB {
     /// Delete a single record by namespace and key. Returns whether a record was deleted.
     pub fn delete(&self, namespace: &str, key: &str) -> Result<bool, JsValue> {
         let _g = enter(&self.op_gate)?;
-        self.inner.delete(namespace, key).map_err(to_js_err)
+        let deleted = self.inner.delete(namespace, key).map_err(to_js_err)?;
+        if deleted {
+            self.mark_deleted(namespace, key);
+        }
+        Ok(deleted)
     }
 
     /// Return all namespaces as a JS array of strings.
@@ -876,6 +1081,7 @@ impl VantaDB {
             ))));
         }
         let report = self.inner.import_records(records).map_err(to_js_err)?;
+        self.mark_cache_invalid();
         to_js(&report)
     }
 
@@ -883,6 +1089,7 @@ impl VantaDB {
     pub fn import_file(&self, path: &str) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
         let report = self.inner.import_file(path).map_err(to_js_err)?;
+        self.mark_cache_invalid();
         to_js(&report)
     }
 
@@ -891,6 +1098,7 @@ impl VantaDB {
     pub fn bulk_import(&self, path: &str) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
         let report = self.inner.bulk_import_file(path).map_err(to_js_err)?;
+        self.mark_cache_invalid();
         to_js(&report)
     }
 
@@ -903,6 +1111,7 @@ impl VantaDB {
             .inner
             .bulk_import_stream(&mut cursor)
             .map_err(to_js_err)?;
+        self.mark_cache_invalid();
         to_js(&report)
     }
 
@@ -927,6 +1136,7 @@ impl VantaDB {
             .inner
             .reindex_hnsw_from_text(namespace, page_size)
             .map_err(to_js_err)?;
+        self.mark_cache_invalid();
         to_js(&report)
     }
 
@@ -978,7 +1188,11 @@ impl VantaDB {
     /// Purge all expired records and return the number removed.
     pub fn purge_expired(&self) -> Result<u64, JsValue> {
         let _g = enter(&self.op_gate)?;
-        self.inner.purge_expired().map_err(to_js_err)
+        let removed = self.inner.purge_expired().map_err(to_js_err)?;
+        if removed > 0 {
+            self.mark_cache_invalid();
+        }
+        Ok(removed)
     }
 
     /// Return operational metrics as a JS object with stringified large numbers.
