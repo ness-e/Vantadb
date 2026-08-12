@@ -450,10 +450,14 @@ impl StorageEngine {
     /// pointing at the same inode, so no data is copied. On Windows, falls
     /// back to [`std::fs::copy`] (O(n) per file) since `CreateHardLinkA`
     /// requires NTFS and may need admin rights.
+    ///
+    /// The snapshot mirrors the live layout (`<snap_dir>/data/...`) so it can
+    /// be reopened directly as a database via `VantaEmbedded::open`.
     #[cfg(unix)]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
         let snap_dir = self.data_dir.join("snapshots").join(name);
-        std::fs::create_dir_all(&snap_dir)?;
+        let snap_data = snap_dir.join("data");
+        std::fs::create_dir_all(&snap_data)?;
 
         #[cfg(feature = "failpoints")]
         {
@@ -468,7 +472,7 @@ impl StorageEngine {
             let entry = entry?;
             let path = entry.path();
             if path.is_file() {
-                let dest = snap_dir.join(entry.file_name());
+                let dest = snap_data.join(entry.file_name());
                 std::fs::hard_link(&path, &dest)?;
             }
         }
@@ -479,10 +483,14 @@ impl StorageEngine {
     }
 
     /// Create a filesystem snapshot (Windows/WASM fallback using copy).
+    ///
+    /// The snapshot mirrors the live layout (`<snap_dir>/data/...`) so it can
+    /// be reopened directly as a database via `VantaEmbedded::open`.
     #[cfg(any(windows, target_arch = "wasm32"))]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
         let snap_dir = self.data_dir.join("snapshots").join(name);
-        std::fs::create_dir_all(&snap_dir)?;
+        let snap_data = snap_dir.join("data");
+        std::fs::create_dir_all(&snap_data)?;
 
         #[cfg(feature = "failpoints")]
         {
@@ -497,7 +505,7 @@ impl StorageEngine {
             let entry = entry?;
             let path = entry.path();
             if path.is_file() {
-                let dest = snap_dir.join(entry.file_name());
+                let dest = snap_data.join(entry.file_name());
                 std::fs::copy(&path, &dest)?;
             }
         }
