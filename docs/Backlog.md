@@ -29,7 +29,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | **P1** 🛡️ Security & Critical | 0 — ✅ 1/1 ejecutada (SEC-01 UAF `__array_interface__` fix) | — | ✅ Cerrada |
 | **P2** ⚡ Quick Wins Técnicos | 0 | — | ✅ Cerrado |
 | **P3** 🧪 Test Coverage (core SDKs) | 4 (COV-001..004) | ~1-2 días | 🟢 Alta |
-| **P4** 🔧 Engineering Health | 0 | — | ✅ Cerrado |
+| **P4** 🔧 Engineering Health | 0 — PERF-01..09 migradas a progreso 2026-08-12 | — | ✅ Cerrado |
 | **P5** 📖 Docs & Community | 3 (DISC-01..03) | ~1-2 semanas | 🟡 Media |
 | **P6** 🚀 Launch Campaign | 1 (LEG-01) | ~1-2 semanas | 🟡 Media |
 | **P7** 🌐 WASM & Performance | 0 | — | ✅ Cerrado |
@@ -40,7 +40,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | **P12** 🖥️ DESKTOP App (Tauri) + Consola Admin | 25 (DESKTOP-12..27 + ADMIN-01..09) | ~4-6 semanas | 🔵 Futuro |
 | **P13** 🔎 AUDREP — Audit Report 2025 | 0 | — | ✅ Cerrado |
 | **P14** 🔍 REVIEW items | 2 (REVIEW-04, REVIEW-05) | 📆 Backlog | 🟡 Media |
-| **P15** 🔍 ERR items (revisión multi-agente 2026-08-08) | 18 residuales (ERR-006/007/008/009/015/026/031/032/033/036/037/042/043/044/045/047/048/049) | 📆 Backlog | 🟡 Media (36 ejecutadas por plan 2026-08-09) |
+| **P15** 🔍 ERR items (revisión multi-agente 2026-08-08) | 0 — ✅ todos resueltos (36 por plan 2026-08-09 + 10 migradas 2026-08-12 + ERR-007 ban-skip 2026-08-12) | — | ✅ Cerrada |
 | **P16** 🧩 Completitud de Features (investigación 2026-08-09) | 5 residuales (PERF-07/08/09, CI-01, REVIEW-05) | 📆 Backlog | 🟢 Baja (19 ejecutadas por plan 2026-08-09) |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
@@ -111,16 +111,8 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
-| `PERF-01` | **Sellar + resync benchmarks publicados** — las claims del README (ej. "100k docs en 0.6s") son del desarrollo inicial y no se reproducen con el código actual (`cargo bench` con 100k docs/docs mix >60s). Re-validar cifras, actualizar README/QUICKSTART/docs con metodología y HW, o retirar claims no soportadas | `benches/`, `README.md`, `docs/QUICKSTART.md`, `docs/benchmarks/` | 🟡 | 🔴 |
-| `PERF-02` | **Baseline riguroso post-publicación**: `criterion` con perfiles fijos + `critcmp` para regresiones en CI (candidate), dataset sintético determinístico guardado junto a benches | `benches/` (candidates), `.github/workflows/heavy-bench-nightly-51.yml` | 🟡 | 🟡 |
-| `PERF-03` | **Bench competitivo de SDKs** — dejar de afirmar superioridad sin números: comparar (medir) hnsw_pure vs Qdrant/Chroma/Milvus-frugal en el mismo HW; publicar tabla honesta. Implica mantener `data_comp_bench/`, luego integrar a `docs/benchmarks/` | `data_comp_bench/`, `docs/benchmarks/` | 🟠 | 🟡 |
-| `PERF-04` | **Prefetch default OFF** — el auto-indexado prefetch en `engine` oculta la latencia real (`fnv1a` eager en put). Si el feature es real, documentar flag y mantener OFF por defecto (tal cual salió: 0.5.0) | `src/index/hnsw.rs` (prefetch), docs | 🟢 | 🟢 |
-| `PERF-05` | **WAL async roadmap** — batch-append por shard ya da 3-5× (ADR DRV-014); roadmap: `io_uring`/`aio` + fsync group commit. No bloquea release | `src/storage/wal.rs`, ADR | 🔴 | 🟡 |
-| `PERF-06` | **`VANTADB_MEMORY_LIMIT` env var** — hoy el flag `--memory-limit` se parsea como int sin sufijos (KB/MB/GB); añadir parse humano estilo `500MB`/`1g` | `src/config.rs`, `src/cli.rs` | 🟢 | 🟡 |
-| `PERF-07` | **Sparse JSON parseado en cada read/write del hot path** — `memory_record_from_node` (`src/sdk/serialization/mod.rs:271-279`) hace `serde_json::from_str` en cada read y `to_string` en cada write (L335-338) aunque el caller no use sparse; `.ok()` traga errores de parse → degradación silenciosa a `None`. Cachear/streaming del JSON sparse o saltar si `sparse_vector` no está presente | `src/sdk/serialization/mod.rs:271-279, 335-338`, `src/sdk/api.rs:751` (3er consumidor) | 🟢 | 🟡 |
-| `PERF-08` | **WASM serialización completa en persist + search hot path** — `serde_wasm_bindgen::to_value` serializa TODOS los records en cada `persist` (`vantadb-wasm/src/lib.rs:750`, H3-SER-001) y en resultados de search (H3-SER-002); datasets >100MB bloquean el event loop por segundos. Plan: persistencia diferencial (delta de cambios) + `Float32Array` zero-copy para vectores de search | `vantadb-wasm/src/lib.rs:439,447,750,997` | 🟠 | 🟡 |
-| `PERF-09` | **Cold-start "zero-copy" engañoso** — `deserialize_from_bytes(data, _force_copy)` (INV-024 L-3): el parámetro `_force_copy` está muerto y la ruta cold-start SIEMPRE copia todos los vectores al heap, aunque el log emite "loaded zero-copy index" (`src/index/serialize.rs:613`). Decidir con vanta-tuner: habilitar MmapFull real en cold-start, o corregir el log/comentario | `src/index/serialize.rs:238, 611-613` | 🟠 | 🟡 |
-
+> **Ejecutadas 2026-08-12 — tanda 1 (commits en develop, migradas a progreso):** PERF-01 (`30e90cd9` claims revalidados), PERF-04 (`152ddd26` prefetch flag default off), PERF-06 (`914514bb`+`d9378656` KB/MB/GB), PERF-07 (`88b0f875` sparse parse explícito), PERF-09 (`0be56cac` cold-start log honesto).
+> **Ejecutadas 2026-08-12 — tanda 2 (commits `32462de6`/`437a1125`/`9eef37c5`/`5105f22d`, migradas a progreso):** PERF-02 (baseline criterion determinista + critcmp), PERF-03 (bench competitivo honesto SDKs), PERF-05 (ADR DRV-015 WAL async roadmap), PERF-08 (WASM Float32Array zero-copy). P4 completo.
 > **Items previos completados (10):** ver `docs/progreso/BACKLOG_HISTORY.md` (P4) — movidos a `docs/progreso/README.md`.
 
 ---
@@ -407,31 +399,11 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 |----|-------------|----------|----------|------|--------|
 | `ERR-037` | **🟠 `batch_insert` chequea existencia por nodo** — *resuelto* (`b97c0ccd` probe + follow-up `ExistingMeta` chunked): overwrite path −30.3% (97.1→67.7ms @10k), probe cache-hit 1-3ms. Bench en `benches/batch_existing_check.rs`. | `src/storage/engine/ops.rs` | 🟠 | 🟠 | ✅ Completado |
 
-### MEDIOS (12) — ✅ 7 ejecutados por plan `2026-08-09` (ERR-005/014/027/028/029/030/050; ver progreso). Residuales:
+### MEDIOS (12) — ✅ 7 ejecutados por plan `2026-08-09` (ERR-005/014/027/028/029/030/050) + ERR-026 resuelto (`ce265569`/`aa1754d2`) y migrado a progreso 2026-08-12. Sin residuales.
 
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-| `ERR-026` | **🟡 parse_metadata descarta filtros no-escalables** — arrays/objetos/null ignorados → filtro silenciosamente no aplicado → resultados súper-conjunto. | `vantadb-mcp/src/lib.rs` | 🟢 | 🟡 | 📝 Pendiente |
+### BAJOS (9) — ✅ 3 resueltos/verificados por plan `2026-08-09` (ERR-016 SKIP verificado, ERR-034 ⏫, ERR-051 ⛠) + ERR-015/032/033/047/048 resueltos y migrados a progreso 2026-08-12. Sin residuales.
 
-### BAJOS (9) — ✅ 3 resueltos/verificados por plan `2026-08-09` (ERR-016 SKIP verificado, ERR-034 ⏫, ERR-051 ⛠; ver progreso). Residuales:
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-| `ERR-015` | **🔵 kill() siempre en `request_shutdown`** — sin señal graciosa SIGINT; metadata loss en Windows. | `desktop/src-tauri/src/connections/child_process.rs:170-189` | 🟢 | 🔵 | 📝 Pendiente |
-| `ERR-032` | **🔵 Test de `deserialize_node_payload` removido** — pérdida de cobertura del guard MAX_PERSISTED_NODE_BYTES. | `src/storage/ops.rs` | 🟢 | 🔵 | 📝 Pendiente |
-| `ERR-033` | **🔵 `memory_list(limit=0)` → devuelve 1** — `max(1)` en core vs 0 pedido. | `vantadb-mcp/src/lib.rs:1139-1142` | 🟢 | 🔵 | 📝 Pendiente |
-| `ERR-047` | **🔵 Copy inline en cada pop del hot loop** (`take_l + extend`). | `src/index/search.rs:225-238` | 🟢 | 🔵 | 📝 Pendiente |
-| `ERR-048` | **🔵 2 hash lookups en `visited`** — `contains + insert` en vez de `insert` devuelve bool. | `src/index/search.rs:268-269` | 🟢 | 🔵 | 📝 Pendiente |
-
-### INFO (5)
-
-| COM | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-| `ERR-006` | `deny.toml` ignore RUSTSEC-2024-0436 stale ("advisory-not-detected") — limpiar o trackear. | `deny.toml` | 🟢 | ⚪ | 📝 Pendiente |
-| `ERR-007` | `multiple-versions` warn activo — hashbrown ×3, rand, syn, thiserror, windows-sys. | Cargo.lock | 🟠 | ⚪ | 📝 Pendiente |
-| `ERR-008` | `copy_unsafe` en vfile sin guard explícito de bounds (solo debug assert). | `src/storage/vfile.rs` | 🟢 | ⚪ | 📝 Pendiente |
-| `ERR-009` | Correr `cargo miri test` (tree-borrows) sobre vfile/ops antes del próximo merge. | CI / tooling | 🟢 | ⚪ | 📝 Pendiente |
-| `ERR-049` | Sin bench dedicado a `ivf.rs` (batch_insert ya cubierto por `benches/batch_existing_check.rs`, ERR-037). | `benches/` | 🟠 | ⚪ | ⛠ Parcial |
+### INFO (5) — ✅ 5/5 resueltos/obsoletos (ERR-006 deny.toml limpio, ERR-008 `copy_unsafe` ya no existe, ERR-009 job Miri en CI `ci-rust-10.yml:457`, ERR-049 `ivf_bench.rs` registrado `Cargo.toml:247`, ERR-007 multiple-versions documentado en deny.toml `[bans] skip` 2026-08-12). Sin residuales — sección cerrada.
 
 > **Descartado:** ERR-017 (métrica euclidiana consistente en `flat.rs:43` / `distance.rs:495/516/536` / `search.rs:176/327` — no se confirma la divergencia flat vs HNSW).
 

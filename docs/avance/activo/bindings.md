@@ -76,6 +76,9 @@ aliases: []
 ### CODE-091: hit.distance etiquetado score
 - **Resultado:** ✅ tipo separado metadata vs metrics del vector; `score` = `1 - distance`.
 
+### PERF-08: WASM serialización zero-copy en hot path
+- **Resultado:** ✅ `memory_record_to_js` emite `record.vector` como `Float32Array` zero-copy (`js_sys`) en vez de `serde_wasm_bindgen::to_value` por elemento; cierra P2-7. Host compat: `vantadb-ts/src/types.ts` `vector?: Float32Array | number[]`. Persist-delta (H3-SER-001) diferido (requiere dirty-tracking en core).
+
 ### PERF-04: TS stream-based Large Object handling
 - **Resultado:** ✅ Streams en `put`/`get` (WASM BinaryLargeObject 2 stages).
 
@@ -149,3 +152,4 @@ aliases: []
 - **Estado:** Ver fuente README §bindings.
 
 > **Cruce:** cada binding público debe mantener el contrato definido en `docs/api/`; los cambios de firma se auditan en `auditoria/seguridad.md` FFI y en `docs/avance/operaciones.md` (API contract sync).
+### ERR-026 (MCP parse_metadata), ERR-033 (MCP list limit=0) — migrados 2026-08-12 (ver docs/progreso/README.md)
