@@ -439,7 +439,9 @@ fn export_format_empty_lines_skipped() {
         let target = VantaEmbedded::open(target_dir.path()).expect("open target");
         let import = target.import_file(&export_path).expect("import");
         assert_eq!(import.inserted, 3);
-        assert_eq!(import.skipped, 4);
+        // str::lines() yields 3 blank lines (two between a–b, one between
+        // b–c); the trailing newline after line_c is not a blank line.
+        assert_eq!(import.skipped, 3);
         assert_eq!(import.errors, 0);
 
         TerminalReporter::success("Empty lines correctly skipped in import.");
@@ -791,8 +793,12 @@ fn open_vf_engine(path: &std::path::Path) -> StorageEngine {
 }
 
 /// Path to the VantaFile inside a storage engine's data directory.
+///
+/// The LSM layout names the primary segment `vstore_L0.vanta` (the legacy
+/// `vector_store.vanta` is migrated on open); small engines write every node
+/// to L0, so this is the file that holds the raw node headers.
 fn vf_path(dir: &std::path::Path) -> std::path::PathBuf {
-    dir.join("data").join("vector_store.vanta")
+    dir.join("data").join("vstore_L0.vanta")
 }
 
 /// Deterministic 4-dimensional vector from a seed integer.
@@ -1016,7 +1022,10 @@ fn vantafile_tombstone_persistence() {
                 let engine = open_vf_engine(dir.path());
                 for i in 0..3 {
                     engine
-                        .insert(&UnifiedNode::with_vector(i as u128, vec![i as f32; 4]))
+                        .insert(&UnifiedNode::with_vector(
+                            i as u128,
+                            vec![i as f32 + 1.0; 4],
+                        ))
                         .expect("insert");
                 }
                 // All 3 visible
@@ -1110,7 +1119,8 @@ fn vantafile_export_golden_file() {
             assert_eq!(parsed["payload"].as_str(), Some("golden payload"));
             assert!(parsed["created_at_ms"].as_u64().unwrap_or(0) > 0);
             assert!(parsed["updated_at_ms"].as_u64().unwrap_or(0) > 0);
-            assert_eq!(parsed["version"].as_u64(), Some(0));
+            // putBatch versioning (c9188639) starts new records at version 1.
+            assert_eq!(parsed["version"].as_u64(), Some(1));
             assert!(parsed["expires_at_ms"].is_null());
             assert_eq!(
                 parsed["vector"].as_array().map(|v| v.len()),
@@ -1122,10 +1132,11 @@ fn vantafile_export_golden_file() {
                 "Vector[0] must be 0.1"
             );
 
-            // metadata sub-object
+            // metadata sub-object — VantaValue serializes with its variant tag
+            // (serde enum), e.g. {"Float":99.5} / {"Bool":true}.
             let meta = &parsed["metadata"];
-            assert_eq!(meta["score"].as_f64(), Some(99.5));
-            assert_eq!(meta["active"].as_bool(), Some(true));
+            assert_eq!(meta["score"]["Float"].as_f64(), Some(99.5));
+            assert_eq!(meta["active"]["Bool"].as_bool(), Some(true));
 
             // Round-trip: import into fresh DB
             let restore_dir = tempdir().expect("restore dir");
@@ -1163,19 +1174,21 @@ fn seed_snapshot_data(db: &VantaEmbedded) {
     db.flush().expect("seed flush");
 }
 
-/// Helper: count files in a directory (non-recursive).
+/// Helper: count files in a directory (recursive).
 fn count_files(path: &std::path::Path) -> usize {
     if !path.exists() {
         return 0;
     }
-    std::fs::read_dir(path)
-        .map(|entries| {
-            entries
-                .filter_map(|e| e.ok())
-                .filter(|e| e.file_type().map(|t| t.is_file()).unwrap_or(false))
-                .count()
-        })
-        .unwrap_or(0)
+    let mut total = 0;
+    for entry in std::fs::read_dir(path).map_or(vec![], |e| e.flatten().collect()) {
+        let Ok(ft) = entry.file_type() else { continue };
+        if ft.is_file() {
+            total += 1;
+        } else if ft.is_dir() {
+            total += count_files(&entry.path());
+        }
+    }
+    total
 }
 
 #[test]

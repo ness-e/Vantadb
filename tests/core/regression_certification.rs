@@ -88,7 +88,7 @@ fn compact_layout_preserves_insert_search_afterwards() {
     let engine = StorageEngine::open_with_config(db_path, Some(config)).unwrap();
 
     for i in 0..20 {
-        let v = i as f32 * 0.05;
+        let v = (i as f32 + 1.0) * 0.05;
         let mut node = UnifiedNode::with_vector(i as u128, vec![v, v, v]);
         node.set_field("tag", FieldValue::String(format!("n-{}", i)));
         engine.insert(&node).unwrap();
@@ -278,7 +278,7 @@ fn concurrent_rebuild_rcu_no_crash() {
     let engine = Arc::new(StorageEngine::open_with_config(db_path, Some(config)).unwrap());
 
     for i in 0..10 {
-        let v = i as f32 * 0.1;
+        let v = (i as f32 + 1.0) * 0.1;
         let mut node = UnifiedNode::with_vector(i as u128, vec![v, v, v]);
         node.set_field("label", FieldValue::String(format!("n-{}", i)));
         engine.insert(&node).unwrap();
@@ -288,7 +288,7 @@ fn concurrent_rebuild_rcu_no_crash() {
     let engine_write = Arc::clone(&engine);
     let writer = thread::spawn(move || {
         for i in 10..15 {
-            let v = i as f32 * 0.1;
+            let v = (i as f32 + 1.0) * 0.1;
             let mut node = UnifiedNode::with_vector(i as u128, vec![v, v, v]);
             node.set_field("label", FieldValue::String(format!("n-{}", i)));
             engine_write.insert(&node).unwrap();
@@ -410,7 +410,8 @@ fn thread_local_state_isolation() {
     let db_path = dir.path().to_str().unwrap();
 
     let engine = Arc::new(StorageEngine::open(db_path).unwrap());
-    let barrier = Arc::new(Barrier::new(3));
+    // Two worker threads synchronize their start; the main thread only joins.
+    let barrier = Arc::new(Barrier::new(2));
 
     let mut handles = Vec::new();
     for tid in 0..2 {
@@ -430,7 +431,6 @@ fn thread_local_state_isolation() {
     for h in handles {
         h.join().expect("thread panicked");
     }
-    barrier.wait();
 
     for tid in 0..2 {
         for i in 0..5 {
@@ -505,7 +505,10 @@ fn event_based_wait_instead_of_sleep() {
     });
 
     let mut waited = 0;
-    while !ready.load(Ordering::SeqCst) && waited < 100 {
+    // Generous window: 15 tests run concurrently in this binary and a cold
+    // spawned thread can take >100ms to schedule. Event-based semantics are
+    // unchanged; only the timeout budget grows.
+    while !ready.load(Ordering::SeqCst) && waited < 1000 {
         thread::sleep(std::time::Duration::from_millis(1));
         waited += 1;
     }

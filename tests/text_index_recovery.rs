@@ -412,16 +412,17 @@ fn text_index_tokenization_and_key_contract() {
     let keys = db
         .debug_text_index_posting_keys_for_tests()
         .expect("text keys");
+    // Advanced tokenizer stems by default (Tantivy Porter): "memory" → "memori".
     let expected = vec![
         posting_key("agent/main", "42", "contract"),
         posting_key("agent/main", "agent", "contract"),
         posting_key("agent/main", "hello", "contract"),
-        posting_key("agent/main", "memory", "contract"),
+        posting_key("agent/main", "memori", "contract"),
         posting_key("agent/main", "vantadb", "contract"),
     ];
     assert_eq!(keys, expected);
     let posting = db
-        .debug_text_index_posting_for_tests("agent/main", "memory", "contract")
+        .debug_text_index_posting_for_tests("agent/main", "memori", "contract")
         .expect("posting")
         .expect("memory posting");
     assert_eq!(posting.1, 2);
@@ -489,7 +490,8 @@ fn text_index_export_import_round_trip_rebuildable() {
     let imported_keys = target
         .debug_text_index_posting_keys_for_tests()
         .expect("imported text keys");
-    assert_has_posting(&imported_keys, "agent/main", "portable", "portable");
+    // Advanced tokenizer stems by default: "portable" → "portabl".
+    assert_has_posting(&imported_keys, "agent/main", "portabl", "portable");
     assert_has_posting(&imported_keys, "agent/main", "alpha", "portable");
 
     target
@@ -501,7 +503,7 @@ fn text_index_export_import_round_trip_rebuildable() {
         .debug_text_index_posting_keys_for_tests()
         .expect("rebuilt text keys");
     assert_eq!(rebuilt_keys.len(), 2);
-    assert_has_posting(&rebuilt_keys, "agent/main", "portable", "portable");
+    assert_has_posting(&rebuilt_keys, "agent/main", "portabl", "portable");
     assert_has_posting(&rebuilt_keys, "agent/main", "alpha", "portable");
     assert_eq!(
         search_keys(&target, "agent/main", "portable", Default::default(), 10),
@@ -865,9 +867,10 @@ fn debug_search_explain_reports_snippet_bm25_and_rrf_ranks() {
         .expect("both explain");
     assert_eq!(both.rrf_text_rank, Some(1));
     assert_eq!(both.rrf_vector_rank, Some(1));
-    assert_eq!(both.matched_phrases, vec!["alpha fused".to_string()]);
+    // Advanced tokenizer stems by default: "fused" → "fuse" in the phrase.
+    assert_eq!(both.matched_phrases, vec!["alpha fuse".to_string()]);
     assert!(both.matched_tokens.contains(&"alpha".to_string()));
-    assert!(both.matched_tokens.contains(&"fused".to_string()));
+    assert!(both.matched_tokens.contains(&"fuse".to_string()));
     assert!(both
         .snippet
         .as_deref()

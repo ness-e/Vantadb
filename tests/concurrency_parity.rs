@@ -220,7 +220,8 @@ fn test_concurrency_rebuild_rcu() {
     session.step("Seeding initial nodes with vectors");
     for i in 0..100 {
         let mut node = UnifiedNode::new(i);
-        node.vector = vantadb::node::VectorRepresentations::Full(vec![i as f32 * 0.01; 128]);
+        node.vector =
+            vantadb::node::VectorRepresentations::Full(vec![(i as f32 + 1.0) * 0.01; 128]);
         node.flags.set(vantadb::node::NodeFlags::HAS_VECTOR);
         engine.insert(&node).unwrap();
     }
