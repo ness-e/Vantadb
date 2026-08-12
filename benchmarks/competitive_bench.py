@@ -64,6 +64,22 @@ import chromadb
 import psutil
 from tabulate import tabulate
 
+# Optional engines (PERF-03 competitive extension): no-docker embedded modes.
+# Each guarded so a missing client never breaks the whole suite; missing engines
+# are skipped at runtime and reported as "not measured" in the honest table.
+try:
+    from qdrant_client import QdrantClient
+    from qdrant_client.models import Distance, VectorParams, PointStruct
+    HAS_QDRANT = True
+except ImportError:
+    HAS_QDRANT = False
+
+try:
+    from pymilvus import MilvusClient
+    HAS_MILVUS = True
+except ImportError:
+    HAS_MILVUS = False
+
 try:
     import vantadb_py as vantadb
 except ImportError:
@@ -526,6 +542,187 @@ def bench_chromadb(db_path, train_vectors, test_vectors, ground_truth, metric, t
     }
 
 
+def bench_qdrant(db_path, train_vectors, test_vectors, ground_truth, metric, top_k):
+    """Qdrant in embedded local mode (QdrantClient(path=...)) — NO docker, same HW.
+
+    This is the honest replacement for the old "we don't benchmark Qdrant" gap:
+    Qdrant's local/persistent mode runs in-process, so it is directly comparable
+    to VantaDB/LanceDB/ChromaDB without a server or container.
+    """
+    if not HAS_QDRANT:
+        print("\n[SKIP] Qdrant not measured: qdrant_client not installed.")
+        return None
+    print("\nBenchmarking Qdrant (embedded local mode, no docker)...")
+    if os.path.exists(db_path):
+        shutil.rmtree(db_path)
+
+    rss_start = get_current_rss()
+    dim = train_vectors.shape[1]
+    distance = Distance.COSINE if metric == "cosine" else Distance.EUCLID
+
+    client = QdrantClient(path=db_path)
+    client.recreate_collection(
+        collection_name="vectors",
+        vectors_config=VectorParams(size=dim, distance=distance),
+    )
+
+    # 1. Ingestion (HNSW is built incrementally during upload — no separate rebuild timer)
+    start_time = time.perf_counter()
+    points = [
+        PointStruct(id=int(i), vector=train_vectors[i].tolist(), payload={"index": i})
+        for i in range(len(train_vectors))
+    ]
+    client.upload_points(collection_name="vectors", points=points, wait=True)
+    ingest_time = time.perf_counter() - start_time
+    rss_after_ingest = get_current_rss()
+
+    # Qdrant indexes during upload; separate index time not measured (incremental == 0).
+    index_time = 0.0
+    rss_after_index = get_current_rss()
+
+    # 3. Warm-up: 10 queries (not measured)
+    warmup_count = min(10, len(test_vectors))
+    for q in test_vectors[:warmup_count]:
+        client.query_points("vectors", query=q.tolist(), limit=top_k)
+
+    # 4. Queries
+    query_times = []
+    predictions = []
+    for q in test_vectors:
+        t_start = time.perf_counter()
+        hits = client.query_points("vectors", query=q.tolist(), limit=top_k)
+        duration = (time.perf_counter() - t_start) * 1000.0
+        query_times.append(duration)
+        predictions.append([int(p.id) for p in hits.points])
+
+    client.close()
+    del client
+    gc.collect()
+
+    recalls = []
+    for pred, gt in zip(predictions, ground_truth):
+        gt_set = set(int(x) for x in gt[:top_k])
+        matches = len(set(pred).intersection(gt_set))
+        recalls.append(matches / top_k)
+
+    avg_recall = np.mean(recalls)
+    p50 = np.percentile(query_times, 50)
+    p95 = np.percentile(query_times, 95)
+    p99 = np.percentile(query_times, 99)
+    qps = len(test_vectors) / (sum(query_times) / 1000.0)
+
+    shutil.rmtree(db_path, ignore_errors=True)
+
+    return {
+        "engine": "Qdrant",
+        "ingest_throughput": len(train_vectors) / ingest_time,
+        "index_time_ms": index_time * 1000.0,
+        "query_p50_ms": p50,
+        "query_p99_ms": p99,
+        "qps": qps,
+        "recall_at_k": avg_recall,
+        "mem_peak_rss_mb": max(rss_after_ingest, rss_after_index),
+        "mem_leak_rss_mb": rss_after_index - rss_start,
+    }
+
+
+def bench_milvus(db_path, train_vectors, test_vectors, ground_truth, metric, top_k):
+    """Milvus-frugal via milvus-lite (embedded, no docker). Reproducible harness.
+
+    Guardado por import: si `pymilvus`/`milvus-lite` no está instalado, la función
+    devuelve None y el motor se marca "no medido" en la tabla honesta (PERF-03).
+    """
+    if not HAS_MILVUS:
+        print("\n[SKIP] Milvus not measured: pymilvus (milvus-lite) not installed.")
+        return None
+    print("\nBenchmarking Milvus (milvus-lite embedded, no docker)...")
+    if os.path.exists(db_path):
+        shutil.rmtree(db_path)
+
+    rss_start = get_current_rss()
+    dim = train_vectors.shape[1]
+    metric_type = "COSINE" if metric == "cosine" else "L2"
+
+    client = MilvusClient(uri=db_path)
+    if client.has_collection("vectors"):
+        client.drop_collection("vectors")
+    client.create_collection(
+        collection_name="vectors",
+        dimension=dim,
+        metric_type=metric_type,
+    )
+
+    # 1. Ingestion
+    start_time = time.perf_counter()
+    data = [
+        {"id": int(i), "vector": train_vectors[i].tolist(), "index_meta": i}
+        for i in range(len(train_vectors))
+    ]
+    client.insert(collection_name="vectors", data=data)
+    client.flush(collection_name="vectors")
+    ingest_time = time.perf_counter() - start_time
+    rss_after_ingest = get_current_rss()
+
+    # 2. Index creation (HNSW, to be comparable to the other engines)
+    start_index = time.perf_counter()
+    client.create_index(
+        collection_name="vectors",
+        index_params={
+            "index_type": "HNSW",
+            "metric_type": metric_type,
+            "params": {"M": 16, "efConstruction": 100},
+        },
+    )
+    index_time = time.perf_counter() - start_index
+    rss_after_index = get_current_rss()
+
+    # 3. Warm-up
+    warmup_count = min(10, len(test_vectors))
+    for q in test_vectors[:warmup_count]:
+        client.search(collection_name="vectors", data=[q.tolist()], limit=top_k)
+
+    # 4. Queries
+    query_times = []
+    predictions = []
+    for q in test_vectors:
+        t_start = time.perf_counter()
+        res = client.search(collection_name="vectors", data=[q.tolist()], limit=top_k)
+        duration = (time.perf_counter() - t_start) * 1000.0
+        query_times.append(duration)
+        pred_ids = [int(r["id"]) for r in res[0]]
+        predictions.append(pred_ids)
+
+    client.close()
+    del client
+    gc.collect()
+
+    recalls = []
+    for pred, gt in zip(predictions, ground_truth):
+        gt_set = set(int(x) for x in gt[:top_k])
+        matches = len(set(pred).intersection(gt_set))
+        recalls.append(matches / top_k)
+
+    avg_recall = np.mean(recalls)
+    p50 = np.percentile(query_times, 50)
+    p95 = np.percentile(query_times, 95)
+    p99 = np.percentile(query_times, 99)
+    qps = len(test_vectors) / (sum(query_times) / 1000.0)
+
+    shutil.rmtree(db_path, ignore_errors=True)
+
+    return {
+        "engine": "Milvus",
+        "ingest_throughput": len(train_vectors) / ingest_time,
+        "index_time_ms": index_time * 1000.0,
+        "query_p50_ms": p50,
+        "query_p99_ms": p99,
+        "qps": qps,
+        "recall_at_k": avg_recall,
+        "mem_peak_rss_mb": max(rss_after_ingest, rss_after_index),
+        "mem_leak_rss_mb": rss_after_index - rss_start,
+    }
+
+
 # 5. System Health Check (D1)
 def health_check(skip_prompt=False):
     """Run system health checks before benchmark, optionally prompt user."""
@@ -687,6 +884,10 @@ def main():
     parser.add_argument("--json-output", type=str, default="web/src/lib/data/competitive-benchmark.json",
                         help="Path to write the versioned JSON contract (INV-007-B). The web imports this file directly.")
     parser.add_argument("--yes", action="store_true", help="Skip health check prompt")
+    parser.add_argument("--engines", type=str, default="vanta,lance,chroma,qdrant",
+                        help="Comma-separated engines to benchmark on the SAME HW, no docker. "
+                             "Available: vanta,lance,chroma,qdrant,milvus. Missing clients are skipped "
+                             "and reported as 'not measured' in the honest table (PERF-03).")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -712,12 +913,33 @@ def main():
 
     os.makedirs(args.db_dir, exist_ok=True)
 
-    # D4: 3 iterations per engine, report median
-    engines = [
-        ("vanta", bench_vantadb, os.path.join(args.db_dir, "vanta_db"), {"batch_size": args.batch_size}),
-        ("lance", bench_lancedb, os.path.join(args.db_dir, "lance_db"), {}),
-        ("chroma", bench_chromadb, os.path.join(args.db_dir, "chroma_db"), {}),
-    ]
+    # D4: 3 iterations per engine, report median.
+    # Engine registry (PERF-03): every engine runs on the SAME HW, no docker.
+    # Embedded local modes (Qdrant path=, Milvus milvus-lite uri=) are directly
+    # comparable to VantaDB/LanceDB/ChromaDB without a server or container.
+    # Missing clients are skipped gracefully and reported as "not measured".
+    engine_registry = {
+        "vanta": (bench_vantadb, os.path.join(args.db_dir, "vanta_db"), {"batch_size": args.batch_size}),
+        "lance": (bench_lancedb, os.path.join(args.db_dir, "lance_db"), {}),
+        "chroma": (bench_chromadb, os.path.join(args.db_dir, "chroma_db"), {}),
+        "qdrant": (bench_qdrant, os.path.join(args.db_dir, "qdrant_db"), {}) if HAS_QDRANT else None,
+        "milvus": (bench_milvus, os.path.join(args.db_dir, "milvus_db.db"), {}) if HAS_MILVUS else None,
+    }
+    requested = [e.strip().lower() for e in args.engines.split(",") if e.strip()]
+    engines = []
+    for name in requested:
+        if name not in engine_registry:
+            print(f"[WARN] Unknown engine '{name}' — skipping.")
+            continue
+        entry = engine_registry[name]
+        if entry is None:
+            print(f"[SKIP] Engine '{name}' not measured: client library not installed.")
+            continue
+        engines.append((name, entry[0], entry[1], entry[2]))
+
+    if not engines:
+        print("ERROR: No benchmarkable engines available for the requested set.")
+        sys.exit(1)
 
     all_engine_results = []  # (name, [run1_dict, run2_dict, run3_dict])
 

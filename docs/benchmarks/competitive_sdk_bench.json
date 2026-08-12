@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "generated_by": "benchmarks/competitive_bench.py",
+  "generated_at": "2026-08-12 12:46:51",
+  "source": "run real del harness (synthetic) — valores generados por esta ejecucion",
+  "hardware": {
+    "os": "Windows-10-10.0.26200-SP0",
+    "cpu_count": 12,
+    "cpu_model": "Intel64 Family 6 Model 154 Stepping 4, GenuineIntel",
+    "python": "3.11.9"
+  },
+  "versions": {
+    "vantadb": "0.4.0",
+    "lancedb": "0.30.0",
+    "chromadb": "1.1.1",
+    "numpy": "2.4.6"
+  },
+  "dataset": {
+    "name": "synthetic",
+    "metric": "euclidean",
+    "vectors": 2000,
+    "queries": 50,
+    "top_k": 10,
+    "ingest_mode": "chunked (--batch-size 999)"
+  },
+  "methodology": {
+    "iterations_per_engine": 3,
+    "aggregation": "median",
+    "ground_truth": "exact brute-force numpy over the loaded subset",
+    "warmup_queries": 10
+  },
+  "results": [
+    {
+      "engine": "VantaDB",
+      "ingest_qps": 520.3,
+      "index_time_ms": 1695.7,
+      "query_qps": 635.6,
+      "query_p50_ms": 1.51,
+      "query_p99_ms": 2.655,
+      "recall_at_k": 0.592,
+      "mem_peak_rss_mb": 236.1,
+      "mem_delta_rss_mb": 50.9
+    },
+    {
+      "engine": "LanceDB",
+      "ingest_qps": 50086.9,
+      "index_time_ms": 679.3,
+      "query_qps": 126.2,
+      "query_p50_ms": 7.379,
+      "query_p99_ms": 17.853,
+      "recall_at_k": 0.27,
+      "mem_peak_rss_mb": 233.8,
+      "mem_delta_rss_mb": 3.1
+    },
+    {
+      "engine": "ChromaDB",
+      "ingest_qps": 1511.7,
+      "index_time_ms": null,
+      "query_qps": 398.8,
+      "query_p50_ms": 2.242,
+      "query_p99_ms": 5.769,
+      "recall_at_k": 0.976,
+      "mem_peak_rss_mb": 257.1,
+      "mem_delta_rss_mb": 25.5
+    },
+    {
+      "engine": "Qdrant",
+      "ingest_qps": 129.5,
+      "index_time_ms": null,
+      "query_qps": 490.9,
+      "query_p50_ms": 1.855,
+      "query_p99_ms": 4.377,
+      "recall_at_k": 1.0,
+      "mem_peak_rss_mb": 253.9,
+      "mem_delta_rss_mb": -0.6
+    }
+  ]
+}

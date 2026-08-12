@@ -11,11 +11,17 @@
 # Distribution name is `vantadb-py` (hyphen); the Python import is `vantadb_py` (underscore).
 vantadb-py>=0.5.0
 
-# --- Required only for competitive_bench.py (VantaDB vs LanceDB vs ChromaDB) ---
+# --- Required only for competitive_bench.py (VantaDB vs LanceDB vs ChromaDB vs Qdrant) ---
 # Optional for vantadb_local_bench.py and batch_vs_sequential_bench.py.
 numpy
 h5py
 lancedb
 chromadb
+qdrant-client
 psutil
 tabulate
+
+# --- Optional: Milvus (frugal, embedded via milvus-lite) ---
+# Uncomment to enable the `milvus` engine in competitive_bench.py.
+# Not installed by default; the harness skips it cleanly if absent.
+# milvus-lite
