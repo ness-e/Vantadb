@@ -11,15 +11,16 @@ ignore = [
 # RUSTSEC-2024-0436 (paste unmaintained): removed — advisory-not-detected,
     # tikv-jemalloc-ctl no longer pulls paste. Re-add only if it reappears.
 
-    # RUSTSEC-2026-0002 (lru <0.16.3, Stacked Borrows in IterMut, CVSS 2.7 LOW):
-    # NOT ignored and NOT flagged by the default gate. Verified 2026-08-09
-    # (ERR-004): workspace direct lru = 0.16.4 (patched, >= 0.16.3).
-    # The affected lru 0.12.5 exists only in Cargo.lock behind optional feature
-    # `tui` (ratatui 0.28.1 -> lru ^0.12); it is NOT in the default resolve
-    # graph and cargo-deny 0.19.9 reports nothing even with --all-features.
-    # No fixed 0.12.x release exists (fix landed only in lru 0.16.3), and
-    # ratatui 0.29+ (drops lru) is a breaking API change in src/tui/ — tracked
-    # for the post-1.0 upgrade. Do NOT enable `tui` by default without reevaluating.
+    # RUSTSEC-2026-0253 (lru 0.16.4, use-after-free in LruCache::pop; CWE-416/415):
+    # AUD-016: explicitly ignored (mechanized). The finding referenced the wrong ID
+    # (RUSTSEC-2026-0002, which is not in the advisory DB). The real advisory is
+    # RUSTSEC-2026-0253. It is present in the default graph via lru 0.16.4 (direct
+    # dep of vantadb and transitive via tantivy 0.26.1). Fixed only in lru 0.18.2,
+    # but tantivy 0.26.1 pins lru ^0.16, so we cannot upgrade without an upstream
+    # tantivy release. Exploitability is narrow: requires unwinding panics AND
+    # catch_unwind with key types whose Drop can panic; VantaDB's cache keys are
+    # simple types (no panicking Drop). Tracked for when tantivy bumps lru.
+    { id = "RUSTSEC-2026-0253", reason = "use-after-free in LruCache::pop (lru 0.16.4 via tantivy 0.26.1, fixed only in 0.18.2 which tantivy pins ^0.16); narrow exploitability (needs catch_unwind + panicking-Drop keys); VantaDB cache keys are simple types. Tracked upstream." },
 ]
 
 [licenses]
@@ -35,7 +36,23 @@ highlight = "all"
 workspace-default-features = "allow"
 external-default-features = "allow"
 allow-workspace = false
-skip = []
+# ERR-007 (2026-08-12): multiple-version "warn" clarificado a "warn codificado".
+# Las duplicaciones son splits de MAJOR version de deps transitivas — no unificables
+# con cargo update (cada caller exige su major). Bloat de binario solamente, sin
+# advisory de seguridad (verificado 2026-08-12). Se documentan abajo, no se silencian
+# a ciegas: si un crate aparece con una version NUEVA sin explicar, vuelve a alertar.
+skip = [
+    # hashbrown 0.14/0.15/0.16/0.17 — rustc-hash/parking_lot/ahash/edition2024 requieren majors distintos.
+    "hashbrown",
+    # windows-sys 0.52/0.59/0.60/0.61 — windows crates en cascada por major.
+    "windows-sys",
+    # syn 2.x/3.x — proc-macro2/serde_derive/tauri usan majors distintos.
+    "syn",
+    # thiserror 1.x/2.x — thiserror-core (2) vs deps legacy (1).
+    "thiserror",
+    # rand 0.8/0.9/0.10 — criterion/bolt/rand_core en majors distintos.
+    "rand",
+]
 skip-tree = []
 
 [sources]
