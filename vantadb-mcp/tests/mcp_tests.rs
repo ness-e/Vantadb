@@ -1269,53 +1269,147 @@ fn test_mcp_get_node_neighbors_preserves_large_u128_ids() {
 }
 
 #[test]
-fn test_mcp_parse_metadata_rejects_non_scalar_values() {
+fn test_mcp_parse_metadata_delegates_lists_and_null() {
     // ERR-026: parse_metadata used to silently drop non-scalar metadata
     // values (arrays/objects/null), producing a super-set of results. The
-    // contract is explicit failure over silent filtering.
+    // contract is: delegate what the core can filter (lists and null via
+    // VantaValue::List* / Null with strict equality) and explicitly reject
+    // only what it cannot represent (objects, mixed-type arrays).
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
 
-    let cases = [
-        // (key, value, label)
-        ("tags", json!(["a", "b"]), "array"),
-        ("nested", json!({"a": 1}), "object"),
-        ("empty", Value::Null, "null"),
-    ];
-
-    // memory_put metadata must reject non-scalar values.
-    for (key, value, label) in &cases {
-        let put_params = Some(json!({
-            "name": "memory_put",
-            "arguments": {
-                "namespace": "meta_ns",
-                "key": format!("put_{}", label),
-                "payload": "p",
-                "metadata": { *key: value }
+    // memory_put must accept delegable metadata: lists, null, and scalars.
+    let put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "meta_ns",
+            "key": "k1",
+            "payload": "p1",
+            "metadata": {
+                "tags": ["a", "b"],
+                "flag": null,
+                "priority": 1
             }
-        }));
-        let res = handle_tools_call(&put_params, &executor, &storage, &default_config());
-        assert!(
-            res.is_err(),
-            "memory_put metadata with {label} value must be rejected, not silently ignored"
-        );
-    }
+        }
+    }));
+    let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+    assert!(
+        put_res.is_ok(),
+        "memory_put must accept list/null metadata, got: {:?}",
+        put_res
+    );
 
-    // memory_list filters must reject non-scalar values too.
-    for (key, value, label) in &cases {
-        let list_params = Some(json!({
-            "name": "memory_list",
-            "arguments": {
-                "namespace": "meta_ns",
-                "filters": { *key: value }
-            }
-        }));
-        let res = handle_tools_call(&list_params, &executor, &storage, &default_config());
-        assert!(
-            res.is_err(),
-            "memory_list filters with {label} value must be rejected, not silently ignored"
-        );
-    }
+    // Second record without tags: it must NOT match a tags filter.
+    let put2_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "meta_ns",
+            "key": "k2",
+            "payload": "p2",
+            "metadata": { "priority": 2 }
+        }
+    }));
+    assert!(handle_tools_call(&put2_params, &executor, &storage, &default_config()).is_ok());
+
+    // memory_list with a list filter must return exactly the matching subset
+    // (not a superset and not an error): the core filters ListString by
+    // strict equality against the record's stored ListString.
+    let list_params = Some(json!({
+        "name": "memory_list",
+        "arguments": {
+            "namespace": "meta_ns",
+            "filters": { "tags": ["a", "b"] }
+        }
+    }));
+    let list_res = handle_tools_call(&list_params, &executor, &storage, &default_config());
+    assert!(
+        list_res.is_ok(),
+        "list filter must not error: {:?}",
+        list_res
+    );
+    let list_val = list_res.unwrap();
+    assert!(
+        list_val["isError"].is_null(),
+        "list filter must not indicate an error: {:?}",
+        list_val
+    );
+    let list_text = list_val["content"][0]["text"].as_str().unwrap();
+    let page: Value = serde_json::from_str(list_text).expect("list response should be JSON");
+    let records = page["records"]
+        .as_array()
+        .expect("list response should contain a records array");
+    assert_eq!(
+        records.len(),
+        1,
+        "list filter must return exactly the matching record, got {} records: {page}",
+        records.len()
+    );
+    assert_eq!(
+        records[0]["key"],
+        json!("k1"),
+        "the matching record must be k1, got: {page}"
+    );
+    // The stored metadata round-trips: ListString serializes as an
+    // externally-tagged serde enum.
+    assert_eq!(
+        records[0]["metadata"]["tags"],
+        json!({"ListString": ["a", "b"]}),
+        "stored list metadata must round-trip, got: {page}"
+    );
+    assert_eq!(
+        records[0]["metadata"]["flag"],
+        json!("Null"),
+        "stored null metadata must round-trip as VantaValue::Null, got: {page}"
+    );
+
+    // An object cannot be represented by VantaValue → explicit rejection on
+    // both memory_put and memory_list filters.
+    let object_put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "meta_ns",
+            "key": "bad",
+            "payload": "p",
+            "metadata": { "nested": {"a": 1} }
+        }
+    }));
+    let object_put_res =
+        handle_tools_call(&object_put_params, &executor, &storage, &default_config());
+    assert!(
+        object_put_res.is_err(),
+        "memory_put metadata with object value must be rejected, not silently ignored"
+    );
+
+    let object_list_params = Some(json!({
+        "name": "memory_list",
+        "arguments": {
+            "namespace": "meta_ns",
+            "filters": { "nested": {"a": 1} }
+        }
+    }));
+    let object_list_res =
+        handle_tools_call(&object_list_params, &executor, &storage, &default_config());
+    assert!(
+        object_list_res.is_err(),
+        "memory_list filters with object value must be rejected, not silently ignored"
+    );
+
+    // Mixed-type arrays are also not representable → explicit rejection.
+    let mixed_put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "meta_ns",
+            "key": "bad2",
+            "payload": "p",
+            "metadata": { "tags": ["a", 1] }
+        }
+    }));
+    let mixed_put_res =
+        handle_tools_call(&mixed_put_params, &executor, &storage, &default_config());
+    assert!(
+        mixed_put_res.is_err(),
+        "memory_put metadata with mixed array must be rejected, not silently ignored"
+    );
 
     // Scalar metadata must still be accepted (regression guard).
     let ok_params = Some(json!({

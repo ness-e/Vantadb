@@ -276,30 +276,110 @@ fn validate_vector(array: &[Value], max_dim: usize) -> Result<Vec<f32>, McpError
     Ok(v)
 }
 
+/// Convert a single JSON metadata value into a `VantaValue`.
+///
+/// Scalars map 1:1. `null` and homogeneous arrays are delegated to the core,
+/// which represents them as `VantaValue::Null` / `VantaValue::List*` and
+/// filters them by strict equality (`matches_memory_filters`). This mirrors
+/// the Python binding's `py_any_to_value` contract (ERR-026: a filter must
+/// never be silently dropped — either the core applies it or the MCP rejects
+/// the request with an explicit error). JSON objects have no `VantaValue`
+/// variant and are rejected.
+fn json_value_to_vanta_value(key: &str, val: &Value) -> Result<vantadb::sdk::VantaValue, McpError> {
+    if let Some(s) = val.as_str() {
+        return Ok(vantadb::sdk::VantaValue::String(s.to_string()));
+    }
+    if let Some(b) = val.as_bool() {
+        return Ok(vantadb::sdk::VantaValue::Bool(b));
+    }
+    if let Some(i) = val.as_i64() {
+        return Ok(vantadb::sdk::VantaValue::Int(i));
+    }
+    if let Some(f) = val.as_f64() {
+        return Ok(vantadb::sdk::VantaValue::Float(f));
+    }
+    if val.is_null() {
+        return Ok(vantadb::sdk::VantaValue::Null);
+    }
+    if let Some(items) = val.as_array() {
+        return json_array_to_vanta_value(key, items);
+    }
+    Err(McpError::invalid_params(format!(
+        "metadata field '{key}' has unsupported type object — supported: string, boolean, integer, float, null, or an array of one of those"
+    )))
+}
+
+/// Convert a homogeneous JSON array into the matching `VantaValue::List*`
+/// variant, mirroring `py_any_to_value`: the first element fixes the element
+/// type and every element must match. Empty arrays become an empty string
+/// list. Mixed-type, nested, or null-containing arrays cannot be represented
+/// by the core and are rejected explicitly.
+fn json_array_to_vanta_value(
+    key: &str,
+    items: &[Value],
+) -> Result<vantadb::sdk::VantaValue, McpError> {
+    let Some(first) = items.first() else {
+        return Ok(vantadb::sdk::VantaValue::ListString(Vec::new()));
+    };
+
+    if first.as_str().is_some() {
+        let mut out = Vec::with_capacity(items.len());
+        for item in items {
+            match item.as_str() {
+                Some(v) => out.push(v.to_string()),
+                None => return Err(mixed_array_error(key)),
+            }
+        }
+        return Ok(vantadb::sdk::VantaValue::ListString(out));
+    }
+    if first.as_bool().is_some() {
+        let mut out = Vec::with_capacity(items.len());
+        for item in items {
+            match item.as_bool() {
+                Some(v) => out.push(v),
+                None => return Err(mixed_array_error(key)),
+            }
+        }
+        return Ok(vantadb::sdk::VantaValue::ListBool(out));
+    }
+    // i64 before f64: integral arrays (e.g. [1, 2]) must stay ListInt, not
+    // ListFloat, so equality against stored Int metadata keeps matching.
+    if first.as_i64().is_some() {
+        let mut out = Vec::with_capacity(items.len());
+        for item in items {
+            match item.as_i64() {
+                Some(v) => out.push(v),
+                None => return Err(mixed_array_error(key)),
+            }
+        }
+        return Ok(vantadb::sdk::VantaValue::ListInt(out));
+    }
+    if first.as_f64().is_some() {
+        let mut out = Vec::with_capacity(items.len());
+        for item in items {
+            match item.as_f64() {
+                Some(v) => out.push(v),
+                None => return Err(mixed_array_error(key)),
+            }
+        }
+        return Ok(vantadb::sdk::VantaValue::ListFloat(out));
+    }
+
+    Err(mixed_array_error(key))
+}
+
+fn mixed_array_error(key: &str) -> McpError {
+    McpError::invalid_params(format!(
+        "metadata field '{key}' has unsupported array — elements must all be the same type: string, boolean, integer, or float (no nested arrays, objects, or null)"
+    ))
+}
+
 fn parse_metadata(
     obj: &serde_json::Map<String, Value>,
 ) -> Result<vantadb::sdk::VantaMemoryMetadata, McpError> {
     let mut meta = vantadb::sdk::VantaMemoryMetadata::new();
     for (key, val) in obj {
-        if let Some(s) = val.as_str() {
-            meta.insert(key.clone(), vantadb::sdk::VantaValue::String(s.to_string()));
-        } else if let Some(b) = val.as_bool() {
-            meta.insert(key.clone(), vantadb::sdk::VantaValue::Bool(b));
-        } else if let Some(i) = val.as_i64() {
-            meta.insert(key.clone(), vantadb::sdk::VantaValue::Int(i));
-        } else if let Some(f) = val.as_f64() {
-            meta.insert(key.clone(), vantadb::sdk::VantaValue::Float(f));
-        } else {
-            let ty = match val {
-                Value::Null => "null",
-                Value::Array(_) => "array",
-                Value::Object(_) => "object",
-                _ => "unsupported",
-            };
-            return Err(McpError::invalid_params(format!(
-                "metadata field '{key}' has unsupported type {ty} — supported: string, boolean, integer, float"
-            )));
-        }
+        meta.insert(key.clone(), json_value_to_vanta_value(key, val)?);
     }
     Ok(meta)
 }
@@ -1588,45 +1668,85 @@ mod tests {
     use super::*;
     use std::panic::{catch_unwind, AssertUnwindSafe};
 
+    /// `parse_metadata` used to silently drop non-scalar metadata values
+    /// (array/object/null), which turned a filter into no filter and returned
+    /// a superset of results. The core CAN filter lists and null
+    /// (`VantaValue::List*` / `Null` with strict equality), so the MCP must
+    /// delegate them — mirroring the Python binding's `py_any_to_value`.
+    /// Only JSON objects (no `VantaValue` variant) and mixed-type arrays are
+    /// rejected explicitly.
+    #[test]
+    fn parse_metadata_delegates_lists_and_null_rejects_objects() {
+        use serde_json::json;
+
+        // Lists and null are delegable to the core.
+        let delegable = json!({
+            "tags": ["a", "b"],
+            "counts": [1, 2],
+            "ratios": [1.5, 2.5],
+            "flags": [true, false],
+            "empty": [],
+            "flag": null,
+            "s": "x", "b": true, "i": 42, "f": 1.5
+        });
+        let meta = parse_metadata(delegable.as_object().unwrap())
+            .expect("lists, null, and scalars must be accepted");
+        assert_eq!(
+            meta.get("tags"),
+            Some(&vantadb::sdk::VantaValue::ListString(vec![
+                "a".to_string(),
+                "b".to_string()
+            ]))
+        );
+        assert_eq!(
+            meta.get("counts"),
+            Some(&vantadb::sdk::VantaValue::ListInt(vec![1, 2]))
+        );
+        assert_eq!(
+            meta.get("ratios"),
+            Some(&vantadb::sdk::VantaValue::ListFloat(vec![1.5, 2.5]))
+        );
+        assert_eq!(
+            meta.get("flags"),
+            Some(&vantadb::sdk::VantaValue::ListBool(vec![true, false]))
+        );
+        assert_eq!(
+            meta.get("empty"),
+            Some(&vantadb::sdk::VantaValue::ListString(Vec::new()))
+        );
+        assert_eq!(meta.get("flag"), Some(&vantadb::sdk::VantaValue::Null));
+        assert_eq!(meta.len(), 10);
+
+        // Objects cannot be represented by VantaValue → explicit error.
+        let object_value = json!({"nested": {"a": 1}});
+        let object = object_value.as_object().unwrap();
+        let object_err = parse_metadata(object).unwrap_err();
+        assert!(
+            object_err.message.contains("nested"),
+            "object metadata must error naming the key, got: {}",
+            object_err.message
+        );
+
+        // Mixed-type arrays cannot be represented either.
+        let mixed_value = json!({"tags": ["a", 1]});
+        let mixed = mixed_value.as_object().unwrap();
+        let mixed_err = parse_metadata(mixed).unwrap_err();
+        assert!(
+            mixed_err.message.contains("tags"),
+            "mixed array metadata must error naming the key, got: {}",
+            mixed_err.message
+        );
+
+        // Scalars are still accepted (regression guard).
+        let scalars_value = json!({"s": "x", "b": true, "i": 42, "f": 1.5});
+        let scalars = scalars_value.as_object().unwrap();
+        let scalars_meta = parse_metadata(scalars).expect("scalar metadata is supported");
+        assert_eq!(scalars_meta.len(), 4);
+    }
+
     /// `active_requests` must return to its base value after a handler panic:
     /// the guard's Drop decrements on unwind just like on normal exit, so the
     /// gauge never leaks a phantom in-flight request.
-    /// Non-scalar metadata values (array/object/null) used to be dropped
-    /// silently, which turned a filter into no filter and returned a superset
-    /// of results. They must now fail explicitly instead.
-    #[test]
-    fn parse_metadata_rejects_non_scalar_values() {
-        use serde_json::json;
-
-        let array_value = json!({"tags": ["a", "b"]});
-        let array = array_value.as_object().unwrap();
-        let array_err = parse_metadata(array).unwrap_err();
-        assert!(
-            array_err.message.contains("tags"),
-            "array metadata must error naming the key, got: {}",
-            array_err.message
-        );
-
-        let object_value = json!({"nested": {"a": 1}});
-        let object = object_value.as_object().unwrap();
-        assert!(
-            parse_metadata(object).is_err(),
-            "object metadata must error, not be silently dropped"
-        );
-
-        let null_value = json!({"flag": null});
-        let null_val = null_value.as_object().unwrap();
-        assert!(
-            parse_metadata(null_val).is_err(),
-            "null metadata must error, not be silently dropped"
-        );
-
-        let scalars_value = json!({"s": "x", "b": true, "i": 42, "f": 1.5});
-        let scalars = scalars_value.as_object().unwrap();
-        let meta = parse_metadata(scalars).expect("scalar metadata is supported");
-        assert_eq!(meta.len(), 4);
-    }
-
     #[test]
     fn active_request_guard_decrements_on_panic() {
         let counter = AtomicU64::new(7); // base = prior in-flight requests

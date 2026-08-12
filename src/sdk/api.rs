@@ -1,9 +1,9 @@
 use super::builder::VantaEmbedded;
 use super::serialization::{
-    matches_memory_filters, memory_node_id, memory_record_from_node, memory_record_to_node_owned,
-    now_ms, validate_key, validate_metadata, validate_namespace, DERIVED_INDEX_SCHEMA_VERSION,
-    FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD,
-    FIELD_UPDATED_AT_MS, FIELD_VERSION,
+    is_scalar_indexable, matches_memory_filters, memory_node_id, memory_record_from_node,
+    memory_record_to_node_owned, now_ms, validate_key, validate_metadata, validate_namespace,
+    DERIVED_INDEX_SCHEMA_VERSION, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS, FIELD_KEY,
+    FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS, FIELD_VERSION,
 };
 use super::types::*;
 use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
@@ -569,12 +569,20 @@ impl VantaEmbedded {
                 .iter()
                 .find(|op| op.op == crate::sdk::types::VantaFilterOp::Eq)
             {
-                self.indexed_ids_by_filter(&engine, namespace, &eq_op.field, &eq_op.value)?
+                if is_scalar_indexable(&eq_op.value) {
+                    self.indexed_ids_by_filter(&engine, namespace, &eq_op.field, &eq_op.value)?
+                } else {
+                    self.indexed_ids_by_namespace(&engine, namespace)?
+                }
             } else {
                 self.indexed_ids_by_namespace(&engine, namespace)?
             }
         } else if let Some((field, value)) = options.filters.iter().next() {
-            self.indexed_ids_by_filter(&engine, namespace, field, value)?
+            if is_scalar_indexable(value) {
+                self.indexed_ids_by_filter(&engine, namespace, field, value)?
+            } else {
+                self.indexed_ids_by_namespace(&engine, namespace)?
+            }
         } else {
             self.indexed_ids_by_namespace(&engine, namespace)?
         };
@@ -1905,6 +1913,68 @@ mod tests {
         assert!(
             page.next_cursor.is_none(),
             "zero-limit page has no next cursor"
+        );
+    }
+
+    /// ERR-026: a list-valued metadata filter must narrow by equality, not
+    /// fail. The derived payload index only stores flattened scalar entries,
+    /// so `list()` must fall back to a namespace scan for non-scalar filter
+    /// values and let `matches_memory_filters` do the strict equality check.
+    #[test]
+    fn test_list_filters_by_list_metadata() {
+        let e = make_embedded_real();
+        e.put(VantaMemoryInput {
+            namespace: "ns".into(),
+            key: "k1".into(),
+            payload: "p1".into(),
+            metadata: [(
+                "tags".into(),
+                VantaValue::ListString(vec!["a".into(), "b".into()]),
+            )]
+            .into(),
+            vector: None,
+            sparse_vector: None,
+            ttl_ms: None,
+        })
+        .unwrap();
+        e.put(VantaMemoryInput {
+            namespace: "ns".into(),
+            key: "k2".into(),
+            payload: "p2".into(),
+            metadata: [("tags".into(), VantaValue::ListString(vec!["x".into()]))].into(),
+            vector: None,
+            sparse_vector: None,
+            ttl_ms: None,
+        })
+        .unwrap();
+        e.put(VantaMemoryInput {
+            namespace: "ns".into(),
+            key: "k3".into(),
+            payload: "p3".into(),
+            metadata: VantaMemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            ttl_ms: None,
+        })
+        .unwrap();
+
+        let opts = VantaMemoryListOptions {
+            #[allow(deprecated)]
+            filters: [(
+                "tags".into(),
+                VantaValue::ListString(vec!["a".into(), "b".into()]),
+            )]
+            .into(),
+            filter_ops: None,
+            limit: 10,
+            cursor: None,
+        };
+        let page = e.list("ns", opts).unwrap();
+        let keys: Vec<_> = page.records.iter().map(|r| r.key.as_str()).collect();
+        assert_eq!(
+            keys,
+            vec!["k1"],
+            "list filter must return exactly the record with matching list metadata, got {keys:?}"
         );
     }
 

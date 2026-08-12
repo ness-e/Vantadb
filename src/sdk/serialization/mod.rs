@@ -137,6 +137,24 @@ pub(crate) fn namespace_index_prefix(namespace: &str) -> Vec<u8> {
     prefix
 }
 
+/// Whether a `VantaValue` can be encoded as a scalar payload-index key
+/// (`encoded_scalar_value`). List variants cannot — the derived payload index
+/// stores flattened scalar entries, so a whole-list prefix scan is impossible.
+/// `list()`/`records_for_namespace` fall back to a namespace scan and apply
+/// the filter by equality (`matches_memory_filters`) for non-scalar filter
+/// values instead of failing (ERR-026: a list/null filter must narrow, not
+/// error out).
+pub(crate) fn is_scalar_indexable(value: &VantaValue) -> bool {
+    !matches!(
+        value,
+        VantaValue::ListString(_)
+            | VantaValue::ListInt(_)
+            | VantaValue::ListFloat(_)
+            | VantaValue::ListBool(_)
+            | VantaValue::ListDateTime(_)
+    )
+}
+
 pub(crate) fn encoded_scalar_value(value: &VantaValue) -> Result<Vec<u8>> {
     match value {
         VantaValue::String(value) => {
