@@ -48,3 +48,6 @@ aliases: []
 - `.github/dependabot.yml` — config en repo.
 - `.github/workflows/ci-security-weekly.yml` — cron advisory check.
 - Releases: `cargo semver-checks` gate (v1-lead).
+### ERR-006 (deny.toml RUSTSEC-2024-0436 limpio) — migrado 2026-08-12 (ver docs/progreso/README.md)
+
+### ERR-007 (multiple-versions ban-skip documentado) - migrado 2026-08-12 (ver docs/progreso/README.md)

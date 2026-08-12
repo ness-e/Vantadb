@@ -61,6 +61,9 @@ aliases: []
 
 ### AUD-010? nota — `docs/historial/autopsias-2026-06-19.md`
 
+### AUD-020: Tests HTTP auth/RBAC/rate-limit — ✅ 2026-08-11
+- `cargo test -p vantadb-server --test server` → 19/19; root cause: helpers mandaban `{"query":"test"}`/`SELECT 1` (IQL inválido → 400 correcto post-ERR-027); fix: `SELECT * FROM Node`. RBAC vía `token_role_map` ya conectado. Backlog row removido; registrado en progreso.
+
 ---
 
 ## Auditoría de bindings (IA)
@@ -104,6 +107,10 @@ aliases: []
 ### P13 Audit Report: AUDREP-01, AUDREP-04, AUDIT-03
 - **Fecha:** 2026-08-05
 - **Resultado:** ✅ Reporte de auditoría (Miri/correctness). Detalle en snapshot-2026-08-07.
+
+### AUD-020: Tests HTTP auth/RBAC/rate-limit en vantadb-server
+- **Fecha:** 2026-08-11
+- **Resultado:** ✅ 9 tests rotos por ERR-027 arreglados (query inválido → 400; fix: `SELECT * FROM Node`) + 4 tests RBAC HTTP nuevos (reader 403, writer/admin 200, reader GET /metrics 200). `cargo test -p vantadb-server --test server` = 19/19. Commits `90f85d9f`, `24a15cdf` (fmt drift).
 
 ---
 

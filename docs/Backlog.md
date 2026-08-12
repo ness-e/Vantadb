@@ -28,7 +28,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | **P0** 🚀 Release Blockers | 0 — ✅ 3/3 ejecutadas (plan 2026-08-09: RELEASE-01 semver-checks, RELEASE-02 publish 0.5.0 verificado live, RELEASE-03 artefactos) | — | ✅ Cerrada |
 | **P1** 🛡️ Security & Critical | 0 — ✅ 1/1 ejecutada (SEC-01 UAF `__array_interface__` fix) | — | ✅ Cerrada |
 | **P2** ⚡ Quick Wins Técnicos | 0 | — | ✅ Cerrado |
-| **P3** 🧪 Test Coverage (core SDKs) | 4 (COV-001..004) | ~1-2 días | 🟢 Alta |
+| **P3** 🧪 Test Coverage (core SDKs) | 0 — ✅ 4/4 ejecutadas (COV-001..004 completadas 2026-08-12) | — | ✅ Cerrada |
 | **P4** 🔧 Engineering Health | 0 — PERF-01..09 migradas a progreso 2026-08-12 | — | ✅ Cerrado |
 | **P5** 📖 Docs & Community | 3 (DISC-01..03) | ~1-2 semanas | 🟡 Media |
 | **P6** 🚀 Launch Campaign | 1 (LEG-01) | ~1-2 semanas | 🟡 Media |
@@ -41,7 +41,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | **P13** 🔎 AUDREP — Audit Report 2025 | 0 | — | ✅ Cerrado |
 | **P14** 🔍 REVIEW items | 2 (REVIEW-04, REVIEW-05) | 📆 Backlog | 🟡 Media |
 | **P15** 🔍 ERR items (revisión multi-agente 2026-08-08) | 0 — ✅ todos resueltos (36 por plan 2026-08-09 + 10 migradas 2026-08-12 + ERR-007 ban-skip 2026-08-12) | — | ✅ Cerrada |
-| **P16** 🧩 Completitud de Features (investigación 2026-08-09) | 5 residuales (PERF-07/08/09, CI-01, REVIEW-05) | 📆 Backlog | 🟢 Baja (19 ejecutadas por plan 2026-08-09) |
+| **P16** 🧩 Completitud de Features (investigación 2026-08-09) | 2 residuales (CI-01, REVIEW-05) | 📆 Backlog | 🟢 Baja (19 ejecutadas 2026-08-09 + PERF-07/08/09 2026-08-12) |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
 > **Nuevo 2026-08-04:** Fase 12 DESKTOP (26 tareas, app Tauri multi-connection sobre las 6 integraciones) + `DEBT-01` (gate docs-coverage roto, Fase 4) + `TECH-01..08` (hallazgos de investigación DESKTOP-01b: 2 bugs reales, 1 batch stale-docs, 1 ADR env-naming, 4 features/decisiones, todos en Phase 4).
@@ -188,7 +188,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 ## Phase 9: 📚 Old Docs Rescue — Reference Catalog
 
 > Recuperado de `VANTADB DOC OLD` (~280 archivos .md analizados vía 21 sub-agentes).
-> **Total:** 21 items, **13 activos** (8 ✅ removidos a progreso). **Estado:** 1 ⚠️ parcial, 1 ❌ pendiente, 2 ❌ justificado.
+> **Total:** 21 items, **1 activo** (OLD-01; 8 ✅ removidos a progreso, 12 migrados/cerrados). **Estado:** OLD-01 ❌ No implementado.
 > **Referencia completa:** `docs/REPORTE_EVALUACION_COMPLETO.md` secciones 6 y 7.
 > **Items removidos a progreso (8):** ver `docs/progreso/BACKLOG_HISTORY.md` (P9).
 
@@ -205,7 +205,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 ## Phase 10: 🏗️ Competitive Features — Catalog
 
 > **Fuente:** Análisis de 27 archivos de `VANTADB DOC OLD/` (9 vector DBs + 8 graph DBs + 10 arquitectura).
-> **Total:** 30 items, **18 activos.** 12 ✅ implementados removidos a progreso: ver `docs/progreso/BACKLOG_HISTORY.md` (P10).
+> **Total:** 30 items, **0 activos** (tablas detalladas vacías; 12 ✅ removidos a progreso, 18 migrados/cerrados — ver `docs/progreso/BACKLOG_HISTORY.md` P10).
 > **Reportes completos:** `docs/audit-reports/competitive-features-consolidated-report.md`, `docs/audit-reports/deep-analysis-{vector,graph,arch}.md`
 
 ### 🔴 Alta — Features competitivas críticas para adopción
@@ -228,7 +228,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 ## Phase 11: 🐙 GitHub Issues — Backlog de Issues Abiertos
 
 > Issues abiertos en `ness-e/Vantadb` convertidos a tareas del backlog (2026-08-01).
-> **Total:** 14 tareas (issues #119–#144). Todos son `good first issue`.
+> **Total:** 14 tareas (issues #119–#144), **0 activas en backlog** (tabla vacía — cerradas/migradas). Todos son `good first issue`.
 > ⚠️ **Recordatorio obligatorio:** al completar cada tarea, **revisar el resultado contra el issue y cerrarlo en GitHub** (`gh issue close <NUM> --repo ness-e/Vantadb`), confirmando que se cumple su Definition of Done.
 > Estado real se actualiza en la columna **Estado**.
 
@@ -400,7 +400,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 ## Phase 16: 🧩 Completitud de Features & Docs (de investigación multi-agente 2026-08-09)
 
-> Origen completo: `docs/Investigaciones/investigacion-equipo-2026-08-09.md`. **Ejecutada 2026-08-09 por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` — 19/19 tareas ✅** (FEAT-01..07, REVISAR-01, COV-001/003/004, PERF-01/04/06, DOC-02..08; RELEASE-01/02/03 + SEC-01 en Wave 0). Commit por feature en `docs/progreso/README.md`. Residuales viven en sus secciones: `PERF-07/08/09` (sección PERF), `CI-01` (hallazgos pendientes/CI), `REVIEW-05` (P14).
+> Origen completo: `docs/Investigaciones/investigacion-equipo-2026-08-09.md`. **Ejecutada 2026-08-09 por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` — 19/19 tareas ✅** (FEAT-01..07, REVISAR-01, COV-001/003/004, PERF-01/04/06, DOC-02..08; RELEASE-01/02/03 + SEC-01 en Wave 0). Commit por feature en `docs/progreso/README.md`. Residuales viven en sus secciones: `CI-01` (hallazgos pendientes/CI), `REVIEW-05` (P14).
 
 ---
 
@@ -422,11 +422,11 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/audit-rep
 
 | ID | Severidad | Hallazgo | Archivo:línea | Estado |
 |----|-----------|----------|---------------|--------|
-| AUD-016 | Media | RUSTSEC-2026-0002 (lru 0.12.5 unsound via ratatui) no mechanizado en deny.toml ignore (allow roto en práctica) | deny.toml | 🟡 pendiente |
-| AUD-017 | Media | `remove_node` remueve inbound sin limpiar refs cruzadas -> desync INV-024 (dead code, pero contrato roto si se cablea) | src/index/neighbor_index.rs:167-176 | 🟡 pendiente |
-| AUD-018 | Media | CI clippy excluye mcp/wasm/server (ci-rust-10.yml:86) -> 5 errores latentes pasan CI; extend gate o documentar deuda | .github/workflows/ci-rust-10.yml | 🟡 pendiente |
-| AUD-019 | Media | `__array_interface__` expone puntero raw a Python sin // SAFETY: ni lifetime doc | vantadb-python/src/types.rs:365-380 | 🟡 pendiente |
-| AUD-021 | Media | Rate limiter fall-open: si GovernorConfigBuilder::finish() falla, endpoint sirve sin límite | src/cli_server.rs:160-164 | 🟡 pendiente |
+| AUD-016 | Media | RUSTSEC-2026-0253 (UaF en Lru → use-after-free) mecanizado en deny.toml ignore con rationale; el finding citaba el ID erróneo (RUSTSEC-2026-0002, inexistente). Bloqueado por tantivy 0.26.1 (fija lru ^0.16; fix en 0.18.2). Explotabilidad estrecha. — AUD-016 | deny.toml | ✅ Completado |
+| AUD-017 | Media | `remove_node` ya limpia refs cruzadas (scrub + remove_neighbor decrementa inbound) — ERR-012 | src/index/neighbor_index.rs:196-218 | ✅ Completado |
+| AUD-018 | Media | Gate clippy extendido a mcp/wasm/server (verificado limpio 2026-08-12) — AUD-018 | .github/workflows/ci-rust-10.yml:86 | ✅ Completado |
+| AUD-019 | Media | `__array_interface__` ya usa copia owned (PyBytes) + doc SAFETY/lifetime — SEC-01 | vantadb-python/src/types.rs:365-389 | ✅ Completado |
+| AUD-021 | Media | Rate limiter fail-closed vía `.expect()` (panics en build, no sirve sin límite) — AUD-021 | src/cli_server.rs:157-163 | ✅ Completado |
 
 ---
 
