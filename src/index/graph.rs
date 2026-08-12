@@ -1055,13 +1055,16 @@ impl CPIndex {
                 if self.nodes.contains_key(&node_id) {
                     let num_layers = self.neighbor_index.num_layers(node_id).unwrap_or(0);
                     for layer in (0..num_layers).rev() {
-                        let neighbors = self
-                            .neighbor_index
-                            .get_neighbors(node_id, layer)
-                            .unwrap_or_default();
-                        for &neighbor_id in &neighbors {
-                            if seen.insert(neighbor_id) {
-                                queue.push_back(neighbor_id);
+                        // ERR-045: borrow the list instead of cloning it. This
+                        // BFS walks every node's lists during compaction, so
+                        // get_neighbors() here would be O(N×M) allocations.
+                        if let Some(neighbors) =
+                            self.neighbor_index.get_neighbors_ref(node_id, layer)
+                        {
+                            for &neighbor_id in neighbors.iter() {
+                                if seen.insert(neighbor_id) {
+                                    queue.push_back(neighbor_id);
+                                }
                             }
                         }
                     }
