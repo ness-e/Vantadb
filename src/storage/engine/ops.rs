@@ -2171,7 +2171,13 @@ impl StorageEngine {
         cursor: &str,
         limit: usize,
     ) -> Result<(Vec<UnifiedNode>, String)> {
-        let cursor_id: u128 = cursor.parse().unwrap_or(0);
+        // An empty cursor means "first page, no filter" — parsing it as 0
+        // would exclude node id 0 from every scan (ERR-010 collateral).
+        let cursor_id: Option<u128> = if cursor.is_empty() {
+            None
+        } else {
+            Some(cursor.parse().unwrap_or(0))
+        };
         let entries = self.backend.scan(BackendPartition::Default)?;
 
         let raw_nodes = {
@@ -2186,8 +2192,10 @@ impl StorageEngine {
                     continue;
                 };
                 let id = u128::from_le_bytes(key_arr);
-                if id <= cursor_id {
-                    continue;
+                if let Some(cursor_id) = cursor_id {
+                    if id <= cursor_id {
+                        continue;
+                    }
                 }
 
                 let metadata: NodeMetadata =

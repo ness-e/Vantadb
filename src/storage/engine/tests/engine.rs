@@ -468,6 +468,27 @@ fn test_scan_nodes_with_inserts() {
     assert!(ids.contains(&2));
 }
 
+// Regression (ERR-010): an empty cursor must not exclude node id 0 — the
+// cursor previously parsed "" as 0 and the `id <= cursor_id` filter dropped
+// node 0 from every scan.
+#[test]
+fn test_scan_nodes_includes_node_zero() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(0)).expect("insert 0");
+    engine.insert(&sample_node(1)).expect("insert 1");
+    let nodes = engine.scan_nodes().expect("scan");
+    assert_eq!(nodes.len(), 2);
+    let ids: Vec<u128> = nodes.iter().map(|n| n.id).collect();
+    assert!(ids.contains(&0), "node id 0 must be included in scan");
+    assert!(ids.contains(&1));
+    // Pagination with an explicit cursor still skips already-seen ids.
+    let (page, _) = engine
+        .scan_nodes_page("0", 10)
+        .expect("scan after cursor 0");
+    assert!(!page.iter().any(|n| n.id == 0), "cursor 0 must skip id 0");
+    assert_eq!(page.len(), 1);
+}
+
 #[test]
 fn test_scan_nodes_excludes_deleted() {
     let engine = in_memory_engine();
