@@ -1004,3 +1004,6 @@ La verificación pre-push manual corre: `cargo fmt → cargo check → cargo cli
 
 <!-- Learnings: ERR-043 - 2026-08-11 -->
 - Antes de implementar un fix, verificar git history: el commit puede ya existir como ancestro de HEAD (ERR-043 ya estaba resuelto en 2a20b14a; solo faltaba migrar Backlog->progreso).
+
+<!-- Learnings: ERR-045 - 2026-08-11 -->
+- Revisar el estado actual del archivo antes de asumir el fix completo: ERR-045 ya tenía `get_neighbors_ref` agregado en un intento previo (5 callers convertidos); el trabajo restante era migrar el caller BFS de compactación (`serialization_order`), no crear la API de nuevo.

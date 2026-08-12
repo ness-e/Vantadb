@@ -1467,6 +1467,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `NUEVO-22` | Sparse indexed search (inverted index + posting lists) (Task 49, `5e71b5ff`) | 🔵 | ✅ 2026-08-05 |
 | `ERR-042` | Perf-Search: `read_header` 2× por candidato en hot loop (+ entry points) → `node_header` leído 1× y reutilizado en distance + tombstone eligibility; fix `e95dd94a`; 2 tests paridad vfile vs in-memory + tombstone header excluido (commit `5a9eada1`); bench `vfile_search`: with_vfile 211→187ms (−11.4%), with_vfile_compacted 201→163ms (−19.0%); nextest 1902/1902 | 🟠 | ✅ 2026-08-11 |
 | `ERR-043` | Perf-HNSW: `shrink_neighbors` clonaba vector del nodo (`as_f32_slice().map(to_vec)`) solo para usarlo como query → `compute_shrunk_neighbors` extraído, lee slice prestado (`as_f32_slice()`) sin alloc O(vec_len); fix `2a20b14a`; 3 tests shrink/paridad (INV-024 reachability, AUD-014 tie-break, search parity); nextest 1902/1902 | 🟡 | ✅ 2026-08-11 |
+| `ERR-045` | Perf-HNSW: `get_neighbors` clonaba lista por nodo en BFS de compactación (`serialization_order`, usado por `serialize_to_bytes`) → `get_neighbors_ref` (borrow DashMap, sin clone) elimina O(N×M) allocs; fix `0b2e9d99`; paridad compactación: `serialization_order_preserves_search_results` + roundtrips 74/74; nextest 1902/1902, fmt + clippy -D warnings ✅ | 🟡 | ✅ 2026-08-11 |
 
 ### Julio 2026 — Auditoría de Código (2ª pasada)
 

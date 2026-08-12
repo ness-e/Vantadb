@@ -414,7 +414,6 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | `ERR-026` | **🟡 parse_metadata descarta filtros no-escalables** — arrays/objetos/null ignorados → filtro silenciosamente no aplicado → resultados súper-conjunto. | `vantadb-mcp/src/lib.rs` | 🟢 | 🟡 | 📝 Pendiente |
 
 | `ERR-044` | **🟡 `TextAnalyzer` reconstruido por llamada** — batch N paga N setups (stemmer/stopwords). | `src/tokenizer.rs:44-106` | 🟢 | 🟡 | 📝 Pendiente |
-| `ERR-045` | **🟡 `get_neighbors` clona la lista por nodo** — O(N×M) allocs durante compactación BFS. | `src/index/neighbor_index.rs:66-68` | 🟢 | 🟡 | 📝 Pendiente |
 
 ### BAJOS (9) — ✅ 3 resueltos/verificados por plan `2026-08-09` (ERR-016 SKIP verificado, ERR-034 ⏫, ERR-051 ⛠; ver progreso). Residuales:
 
