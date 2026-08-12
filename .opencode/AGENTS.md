@@ -1001,3 +1001,6 @@ La verificación pre-push manual corre: `cargo fmt → cargo check → cargo cli
 <!-- Learnings: P1-2 — 2026-07-17 -->
 - `nextest.toml` está en `.config/` (no en raíz). Buscar con `Get-ChildItem -Filter` si `Read` falla.
 - Cambios CI-only no necesitan `cargo check`/`clippy`/`nextest` para verify — el diff es suficiente.
+
+<!-- Learnings: ERR-043 - 2026-08-11 -->
+- Antes de implementar un fix, verificar git history: el commit puede ya existir como ancestro de HEAD (ERR-043 ya estaba resuelto en 2a20b14a; solo faltaba migrar Backlog->progreso).
