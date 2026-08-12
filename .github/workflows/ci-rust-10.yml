@@ -81,9 +81,9 @@ jobs:
           swap-mb: 4096
 
       - name: Clippy Lints (core)
-        # CATEGORY: EXPERIMENTAL — excludes experimental crates from blocking lint checks.
-        # Use --exclude vantadb-wasm --exclude vantadb-server --exclude vantadb-mcp.
-        run: cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm --exclude vantadb-server --exclude vantadb-mcp -- -D warnings
+        # AUD-018: gate extended to vantadb-wasm / vantadb-server / vantadb-mcp.
+        # Verified 2026-08-12: clippy clean on all three (exit 0, no warnings).
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   semver-checks:
     # RELEASE-01: gate so a breaking change in the public API can never publish.
