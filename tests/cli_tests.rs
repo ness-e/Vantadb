@@ -1007,3 +1007,88 @@ fn test_completions_zsh_and_powershell() {
     vantadb::cli_handlers::cmd_completions(vantadb::cli::Shell::Zsh);
     vantadb::cli_handlers::cmd_completions(vantadb::cli::Shell::PowerShell);
 }
+
+// ─── COV-003: cmd_migrate (Run) + cmd_server coverage ──────────
+// These exercise handler code paths previously at 0% coverage.
+// `cmd_migrate` non-dry-run-without-force prompts interactively, so only the
+// error and `dry_run` (no-mutation) paths are testable here.
+
+#[test]
+fn test_migrate_run_missing_target() {
+    // target path does not exist -> early Err branch
+    let result =
+        vantadb::cli_handlers::cmd_migrate("./ghost_migrate_target_dir", "all", true, false, false);
+    assert!(result.is_err(), "migrate on missing target must error");
+}
+
+#[test]
+fn test_migrate_run_schema_write() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "migr_ns", "k1", "data");
+    // format "all" dry_run: fresh db has no .vanta.schema -> writes header, Ok
+    let result = vantadb::cli_handlers::cmd_migrate(&path, "all", true, false, false);
+    assert!(
+        result.is_ok(),
+        "migrate (schema write) should succeed: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_migrate_run_dry_run_physical() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "migr2_ns", "k1", "data");
+    // non-schema format + dry_run -> plan_all prints, no mutation, no prompt
+    let result = vantadb::cli_handlers::cmd_migrate(&path, "vfile", true, false, false);
+    assert!(
+        result.is_ok(),
+        "migrate dry_run (physical) should succeed: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_migrate_unknown_format() {
+    let (_dir, path) = setup_temp_db();
+    // valid target but bogus format string -> format parse error branch
+    let result = vantadb::cli_handlers::cmd_migrate(&path, "bogus", true, false, false);
+    assert!(result.is_err(), "unknown format must error");
+}
+
+#[test]
+fn test_server_missing_feature() {
+    let (_dir, path) = setup_temp_db();
+    // Without the `server` feature the http branch returns a CliError.
+    // (mcp mode spawns the vantadb-server binary -> not testable in CI.)
+    let result =
+        vantadb::cli_handlers::cmd_server(&path, true, false, None, None, false, None, false);
+    assert!(
+        result.is_err(),
+        "server without the 'server' feature must error: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_get_existing_record() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "get_ns", "get_key", "payload value");
+    let result = vantadb::cli_handlers::cmd_get(&path, "get_ns", "get_key", false);
+    assert!(
+        result.is_ok(),
+        "get existing record should succeed: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_query_with_results() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "q_ns", "q_key", "queryable payload");
+    let result = vantadb::cli_handlers::cmd_query(&path, "FROM q_ns", 10, false);
+    assert!(
+        result.is_ok(),
+        "query with data should succeed: {:?}",
+        result
+    );
+}
