@@ -7,13 +7,27 @@ use web_time::{SystemTime, UNIX_EPOCH};
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::Result;
 use crate::lsm::unpack_offset;
-use crate::node::{FieldValue, FilterBitset, UnifiedNode, VectorRepresentations};
+use crate::node::{Edge, FieldValue, FilterBitset, RelFields, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::StorageEngine;
 use crate::storage::engine::{
     BufferedWrite, EvictionReason, PendingHnswOp, Snapshot, FLAG_TOMBSTONE, HNSW_BATCH_SIZE,
 };
 use crate::storage::ops::NodeMetadata;
 use crate::wal::WalRecord;
+
+/// Bookkeeping-relevant fields of an existing node — no vector payload.
+///
+/// ERR-037 follow-up: the original probe cloned the whole `UnifiedNode`
+/// (including the 768-d vector) on cache hit, which under parallel
+/// `batch_insert` (shared read lock allows concurrency) caused allocator
+/// contention on the useless vector copies — a ~2x slowdown on
+/// overwrite-heavy batches. Batch bookkeeping only consumes `relational`
+/// and `edges`, so those are the only fields carried.
+#[derive(Clone)]
+struct ExistingMeta {
+    relational: RelFields,
+    edges: Vec<Edge>,
+}
 
 /// Controls how a batch operation updates the HNSW vector index.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -923,7 +937,11 @@ impl StorageEngine {
     /// then cache, then backend. A disk-tombstoned-but-KV-present node surfaces
     /// as Some; the resulting index removes are no-ops and converge with the
     /// re-insert below (same final state as the prior get()-based path).
-    fn existing_for_batch(&self, id: u128) -> Option<UnifiedNode> {
+    ///
+    /// Used by the non-rayon fallback path; the rayon path uses the amortized
+    /// [`Self::existing_for_batch_many`].
+    #[cfg(not(feature = "rayon"))]
+    fn existing_for_batch(&self, id: u128) -> Option<ExistingMeta> {
         // Read-your-writes: check active txn buffer first (parity with get())
         {
             let active = self.active_txns.lock();
@@ -935,7 +953,10 @@ impl StorageEngine {
                     for op in buffer.iter().rev() {
                         match op {
                             BufferedWrite::Insert(node) if node.id == id => {
-                                return Some(node.clone());
+                                return Some(ExistingMeta {
+                                    relational: node.relational.clone(),
+                                    edges: node.edges.clone(),
+                                });
                             }
                             BufferedWrite::Delete(del_id) if *del_id == id => {
                                 return None;
@@ -950,19 +971,109 @@ impl StorageEngine {
         // Shared read() only — no write lock, no hits bookkeeping (probe, not a read).
         if let Some(node) = self.volatile_cache.read().get(&id) {
             if !node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
-                return Some(node.clone());
+                return Some(ExistingMeta {
+                    relational: node.relational.clone(),
+                    edges: node.edges.clone(),
+                });
             }
             return None;
         }
 
+        self.backend_existing_meta(id)
+    }
+
+    /// Batch variant of [`Self::existing_for_batch`] that amortizes lock
+    /// acquisition across a chunk of ids.
+    ///
+    /// ERR-037 follow-up: the per-node probe acquired `active_txns` + `cache`
+    /// locks per node. On cache-hit-heavy batches (overwrite re-inserts) 12
+    /// rayon threads × N tiny critical sections became an SRWLOCK acquisition
+    /// storm that cost more than the avoided vector clone (overwrite_10000:
+    /// +146% → +86%). One read-lock pass per chunk keeps the same check order
+    /// (txn buffer → cache → backend), so semantics are unchanged.
+    #[cfg(feature = "rayon")]
+    fn existing_for_batch_many(&self, ids: &[u128]) -> Vec<Option<ExistingMeta>> {
+        let mut result: Vec<Option<ExistingMeta>> = vec![None; ids.len()];
+        let mut resolved = vec![false; ids.len()];
+        let mut missing: Vec<usize> = Vec::with_capacity(ids.len());
+
+        // Read-your-writes: scan the active txn buffer once (parity with get()).
+        {
+            let active = self.active_txns.lock();
+            if active.len() == 1 {
+                let txn_id = *active.iter().next().unwrap();
+                drop(active);
+                let buffers = self.txn_buffers.lock();
+                if let Some(buffer) = buffers.get(&txn_id) {
+                    for (i, id) in ids.iter().enumerate() {
+                        for op in buffer.iter().rev() {
+                            match op {
+                                BufferedWrite::Insert(node) if node.id == *id => {
+                                    result[i] = Some(ExistingMeta {
+                                        relational: node.relational.clone(),
+                                        edges: node.edges.clone(),
+                                    });
+                                    resolved[i] = true;
+                                    break;
+                                }
+                                BufferedWrite::Delete(del_id) if *del_id == *id => {
+                                    // Definitive: not present from the reader's view.
+                                    resolved[i] = true;
+                                    break;
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (i, r) in resolved.iter().enumerate() {
+            if !r {
+                missing.push(i);
+            }
+        }
+
+        // One shared read() over the cache for all ids in the chunk.
+        if !missing.is_empty() {
+            let cache = self.volatile_cache.read();
+            missing.retain(|&i| {
+                if let Some(node) = cache.get(&ids[i]) {
+                    if !node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
+                        result[i] = Some(ExistingMeta {
+                            relational: node.relational.clone(),
+                            edges: node.edges.clone(),
+                        });
+                    }
+                    false // resolved (present or tombstone-None)
+                } else {
+                    true // still missing → backend
+                }
+            });
+        }
+
+        // Backend metadata reads for the remaining misses. Serial per chunk:
+        // the chunk is ≤256 ids, so a nested par_iter would cost more in
+        // rayon spawn/steal overhead than it saves (measured: nested 10000-id
+        // backend misses were ~2.5x slower than the same work flat-parallel).
+        for &i in &missing {
+            result[i] = self.backend_existing_meta(ids[i]);
+        }
+
+        result
+    }
+
+    /// Backend fallback for the existence probes: read only the KV metadata
+    /// blob (relational + edges), never the vstore vector payload.
+    fn backend_existing_meta(&self, id: u128) -> Option<ExistingMeta> {
         let key = id.to_le_bytes();
         let metadata_res = self.backend.get(BackendPartition::Default, &key).ok()??;
         let metadata: NodeMetadata =
             crate::storage::ops::deserialize_node_payload(&metadata_res, "node metadata").ok()?;
-        let mut node = UnifiedNode::new(id);
-        node.relational = metadata.relational;
-        node.edges = metadata.edges;
-        Some(node)
+        Some(ExistingMeta {
+            relational: metadata.relational,
+            edges: metadata.edges,
+        })
     }
 
     /// Insert multiple nodes in a single batch operation.
@@ -1022,14 +1133,20 @@ impl StorageEngine {
         #[cfg(feature = "rayon")]
         {
             use rayon::prelude::*;
-            let existing: Vec<Option<UnifiedNode>> = if opts.skip_existing_check {
+            let existing: Vec<Option<ExistingMeta>> = if opts.skip_existing_check {
                 vec![None; nodes.len()]
             } else {
                 // ERR-037: existence probe instead of full get() per node —
                 // no cache write lock, no HNSW/vstore vector read+clone.
+                // Chunked so cache-hit-heavy batches don't degenerate into a
+                // per-node SRWLOCK acquisition storm (overwrite regressions).
+                // ponytail: 256 per chunk; tune if lock hold time matters.
                 nodes
-                    .par_iter()
-                    .map(|n| self.existing_for_batch(n.id))
+                    .par_chunks(256)
+                    .flat_map_iter(|chunk| {
+                        let ids: Vec<u128> = chunk.iter().map(|n| n.id).collect();
+                        self.existing_for_batch_many(&ids).into_iter()
+                    })
                     .collect()
             };
             let mut stats = self.cardinality_stats.write();
