@@ -4,6 +4,7 @@ pub mod archive;
 pub(crate) mod engine;
 pub(crate) mod ops;
 pub mod vfile;
+pub(crate) mod vfile_mmap;
 pub(crate) mod wal;
 
 // Re-export public types from engine
