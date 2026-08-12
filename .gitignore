@@ -147,6 +147,7 @@ vantadb-ts/node_modules/
 # Coverage reports
 lcov.info
 *.profraw
+vantadb-ts/coverage/
 
 # Obsidian vault config
 .obsidian/
