@@ -136,6 +136,10 @@ aliases: []
 - **Fecha:** 2026-08-13
 - **Resultado:** ✅ `heavy-bench-nightly-51.yml`: (1) trigger `pull_request` con paths filter (benches/**, benchmarks/**, scripts/bench_regression.py, Cargo.toml) — el gate corre en PRs que tocan el sistema de bench sin que el resto pague 2hrs; (2) step "Update and commit baseline (nightly only)" en analyze — `update-baseline` + commit/push, solo en schedule y solo si no hay regresión (`has_regression != 'True'`); `permissions.contents: write`. El modo `update-baseline` de bench_regression.py ya existía pero no tenía caller → baseline nunca se promovía. YAML OK. Commit `(AUD-030)`.
 
+### AUD-028: Anotar 78 SHA pins con versión (# vX.Y.Z) en GitHub Actions
+- **Fecha:** 2026-08-13
+- **Resultado:** ✅ 78 líneas `uses: repo@sha` sin anotar (74 del audit + 4 `pypa/gh-action-pypi-publish` omitidas del primer map de edición) → `# vX.Y.Z` en 11 archivos de `.github/**`. Versiones resueltas contra tags reales upstream (`git ls-remote --tags` para tags exactos; `git clone --filter=blob:none` + `git describe --tags` para commits intermedios: rust-cache v2.9.1, install-action v2.83.4, attest-build-provenance v4.1.1). dtolnay/rust-toolchain → `# v1` (único tag del repo). SHAs intactos (diff aditivo). Grep pins sin anotar = 0; actionlint 10/10; YAML 23/23. Review vanta-audit approve (16/16 correspondencias verificadas independientemente). Commit `8e9f5eb1`.
+
 ---
 
 ## Prevención de breaking changes

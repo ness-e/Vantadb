@@ -545,6 +545,23 @@ Los 3 planes activos restantes quedaron 100% completados (26/26, 16/16, 24/24 DO
 
 **Ids:** `AUD-030`
 
+### 2026-08-13 — AUD-028: Anotar 78 SHA pins con versión (# vX.Y.Z) en GitHub Actions ✅
+
+**Fuente:** Backlog `AUD-028` (derivado del audit full 2026-08-12, `docs/reviews/audit-full-20260812-231204.md`)
+
+**Objetivo:** los pins de acciones externas por SHA (higiene supply chain / OpenSSF Scorecard) eran ilegibles sin el tag semver — agregar `# vX.Y.Z` a cada `uses: repo@sha` sin anotar en `.github/**`.
+
+**Resuelto por (vanta-lead):**
+- **Inventario real:** 146 usos `uses:` totales en `.github/**/*.yml`; 68 ya anotados + **78 sin anotar** (el audit decía 74; el re-scan post-edición detectó 4 `pypa/gh-action-pypi-publish` que el primer map de edición había omitido → 78). 15 repos upstream, 12 archivos.
+- **Resolución de versiones contra tags reales (NO memoria del modelo):** `git ls-remote --tags` para tags semver exactos (upload-artifact→v4.6.2, setup-python→v5.6.0, download-artifact→v4.3.0, cache→v4.3.0, github-script→v7.1.0, gh-release→v3.0.2, pypi-publish→v1.14.0, maturin→v1.51.0, wasm-pack→v0.4.0, configure-pagefile→v1.5, setup-rust-toolchain→v1, install-action@43aecc8d→v2.83.2) y `git clone --filter=blob:none` + `git describe --tags` para commits intermedios (rust-cache@7e35be21→v2.9.1, install-action@25f25a6e→v2.83.4, attest-build-provenance→v4.1.1 — este último es tag object que peels al commit). dtolnay/rust-toolchain: único tag del repo es `v1` (commits 2026 post-tag) → `# v1`.
+- **Aplicación:** script PowerShell aditivo (`uses: repo@SHA` → `uses: repo@SHA # vX.Y.Z`), preserva indentado. **Los SHAs quedan intactos** — solo comentario.
+- **Verify:** grep de pins sin anotar = **0**; actionlint 10/10 workflows OK (action.yml es composite action → no aplica, esperado); YAML parse 23/23 OK (excl `.github/workflows-dl/` que no es código del repo). Diff verificado 100% aditivo.
+- **Review P2-01 (vanta-audit):** ✅ approve — 16/16 correspondencias SHA→versión verificadas contra `ls-remote`/`describe` independientes, 0 mismatches de SHA, 0 pins restantes.
+
+**Commit:** `8e9f5eb1` — ci: annotate pinned actions with version tags (AUD-028)
+
+**Ids:** `AUD-028`
+
 ### 2026-08-04 — Campaña WEB Launch (5 tareas) ✅
 
 **Fuente:** Backlog (plan `docs/plans/2026-08-04-launch-web-campaign.md`)

@@ -427,7 +427,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | AUD-025 | Media | BM25 aloca por posting (token.clone + String record_key por posting; doc_stats_cache re-fetch por token) — key u128 node-id | src/sdk/search/mod.rs:383-448 | ⏳ pendiente |
 | AUD-026 | Media | default features arrastran cli/arrow/tantivy al DLL nativo (6.7MiB debug; lsm_tree+fjall 944KiB) — build extension con --no-default-features | Cargo.toml:97 | ⏳ pendiente |
 | AUD-027 | Media | release-plz v0.3→v0.5.131 es cambio de comportamiento (permisos/inputs) — validar en primer release real post-jump | .github/workflows/release.yml:28,49 | ⏳ pendiente |
-| AUD-028 | Media | 74 SHA pins sin anotar (# vX.Y.Z) — auditabilidad supply chain (OpenSSF Scorecard) | .github/workflows/*.yml | ⏳ pendiente |
 | AUD-029 | Media | CI-05 verify-log registra passed:false para contrato con artifact válido (harness/cwd/quoting) — re-correr desde raíz | .opencode/task-system/enforcement/verify-log.jsonl | ⏳ pendiente |
 | AUD-032 | Media | Monolito `vantadb-mcp` 1607L en 1 archivo, solo 2 tests — peor ratio tests/líneas del workspace (mcp 5/10, rec#11) | crates/vantadb-mcp (monolito) | ⏳ pendiente |
 | AUD-033 | Media | `vantadb-server` sin tests (0 #[test]) + arg-scan manual ignora flags desconocidos — validar args + suite de tests | crates/vantadb-server | ⏳ pendiente |
