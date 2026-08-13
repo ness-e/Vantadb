@@ -120,6 +120,10 @@ aliases: []
 - **Fecha:** 2026-08-13
 - **Resultado:** ✅ `sparse_vector_from_field` valida dims (`is_finite`, >= 0, <= u32::MAX, entera) y devuelve `None` en vez de saturar silencioso via `as u32`. Test de rechazo TDD (NaN/+inf/negativa/out-of-range/no-entera). Warning corrupto actualizado. Contrato ✅: check, fmt, clippy workspace -D warnings, nextest 1913 passed, validate-docs-coverage 0 gaps. Commit `(AUD-023)`.
 
+### AUD-024: Eliminar heap clones por op en drain_hnsw_batch_locked
+- **Fecha:** 2026-08-13
+- **Resultado:** ✅ Refactor de ownership en `src/storage/engine/ops.rs`: `for op in ops` (consumir la Vec tomada vía `mem::take`) + pasar `op.bitset`/`op.vector` por valor (HnswGraph::add ya los toma por valor) → 0 heap clones por insert en el drain. Mismo fix en `try_push_pending_hnsw` (drain opportunista). Perf bench_concurrent 10k inserts: 178.11s → 137.95s (-22.5%). Contrato ✅: check, fmt, clippy -D warnings, nextest 1913 passed, docs-coverage 0 gaps. Commit `e4c2ff8e`.
+
 ---
 
 ## Prevención de breaking changes

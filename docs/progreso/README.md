@@ -480,6 +480,23 @@ Los 3 planes activos restantes quedaron 100% completados (26/26, 16/16, 24/24 DO
 
 **Ids:** `AUD-023`
 
+### 2026-08-13 — AUD-024: Eliminar heap clones por op en drain_hnsw_batch_locked ✅
+
+**Fuente:** Backlog `AUD-024` (derivado del audit full 2026-08-12, `docs/reviews/audit-full-20260812-231204.md`)
+
+**Objetivo:** `drain_hnsw_batch_locked` clonaba bitset+vector por op (2 heap clones/insert) — iterar por valor tras `mem::take` para mover cada op en vez de clonarla.
+
+**Resuelto por (vanta-worker):**
+- **Refactor de ownership:** `for op in ops` (consume la Vec ya tomada del mutex vía `mem::take`) en vez de `for op in &ops`; `hnsw.add(op.id, op.bitset, op.vector, op.storage_offset)` sin `.clone()`. `HnswGraph::add` ya toma ambos por valor (src/index/graph.rs:596) → 0 clones de heap por insert en el drain.
+- **Alcance:** también `try_push_pending_hnsw` (drain opportunista, ruta más caliente) — mismo anti-pattern, mismo root cause, mismo archivo.
+- **Perf (FASE PERFORMANCE):** `cargo bench --bench bench_concurrent` (10k inserts secuenciales → path completo engine): **178.11s → 137.95s (-22.5%, -40.2s)**.
+- **Verify:** `cargo check -p vantadb` ✅; `cargo fmt --check` ✅; `cargo clippy --workspace --all-targets --all-features -- -D warnings` ✅; `cargo nextest run --profile audit --workspace --build-jobs 2` → **1913 passed** ✅; `scripts/validate-docs-coverage.ps1` → 0 gaps ✅. `rg "for op in &ops|bitset.clone|vector.clone"` en los drains → 0.
+- **Sin cambio de comportamiento:** drain sigue vaciando el batch completo; tests de flush existentes (`test_flush_pending_hnsw_*`) cubren el path.
+
+**Commit:** `e4c2ff8e` — perf: avoid per-op heap clones in drain_hnsw_batch_locked (AUD-024)
+
+**Ids:** `AUD-024`
+
 ### 2026-08-04 — Campaña WEB Launch (5 tareas) ✅
 
 **Fuente:** Backlog (plan `docs/plans/2026-08-04-launch-web-campaign.md`)

@@ -1017,5 +1017,10 @@ La verificación pre-push manual corre: `cargo fmt → cargo check → cargo cli
 - Un finding STALE se cierra con evidencia grep (producción limpia + callers propagan con `?`), no con un cambio fabricado. La migración correcta es Backlog → BACKLOG_HISTORY.md + mirror en docs/avance/historial/no-ops.md.
 
 <!-- Learnings: AUD-023 - 2026-08-13 -->
-- `f64 as u32` en Rust satura silencioso (NaN→0, negativo→0, >u32::MAX→u32::MAX) y trunca no-enteros — en decode de datos persistidos/input de usuario, validar `is_finite() && >= 0.0 && <= u32::MAX as f64 && fract() == 0.0` antes del cast y rechazar con None/error. `u32::MAX as f64` es exacto (2^32−1 < 2^53).
+- `f64 as u32` en Rust satura silencioso (NaN→0, negativo→0, >u32::MAX→u32::MAX) y trunca no-enteros - en decode de datos persistidos/input de usuario, validar `is_finite() && >= 0.0 && <= u32::MAX as f64 && fract() == 0.0` antes del cast y rechazar con None/error. `u32::MAX as f64` es exacto (2^32-1 < 2^53).
 - TDD con test de rechazo por payload corrupto (patrón `test_*_corrupt_*_returns_none` de serialization) es la prueba mínima que cubre el finding: RED muestra el valor saturante real (`Some(SparseVector({0: 0.5}))`), GREEN lo convierte en None.
+
+<!-- Learnings: AUD-024 - 2026-08-13 -->
+- Un loop de drain sobre una Vec ya tomada del mutex con `mem::take` debe iterar por valor (`for op in ops`) — los `.clone()` de campos heap (bitset+vector) por op son clones evitables porque `add()` los toma por valor. Verificar la firma del callee (toma por valor vs por ref) ANTES de decidir el refactor.
+- `benches/bench_concurrent.rs` (harness=false, `cargo bench --bench bench_concurrent`) es el bench aplicable al path completo de inserción del engine (StorageEngine::insert → drain HNSW) — fase "Inserted 10000 nodes" como métrica antes/después.
+- WIP de otra sesión puede aparecer en el working tree DURANTE la ejecución (AUD-039: lru en vantadb-python/Cargo.toml + completions del subcomando tui aparecieron a mitad de sesión): commitear SOLO los archivos propios (`git add` explícito), nunca `git add -A`/`git commit -am` con WIP ajeno presente.
