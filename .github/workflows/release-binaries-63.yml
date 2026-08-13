@@ -13,8 +13,40 @@ permissions:
   contents: write
 
 jobs:
+  tests:
+    name: Tests (cargo nextest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          components: clippy
+          install-nextest: true
+          install-system-deps: true
+          swap-mb: 8192
+
+      - name: Cache benchmark dataset (GloVe 100d)
+        id: cache-benchmark
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: data/benchmark/glove.6B.100d.txt
+          key: glove-100d-${{ hashFiles('scripts/download_benchmark_datasets.sh') }}
+
+      - name: Download benchmark datasets
+        if: steps.cache-benchmark.outputs.cache-hit != 'true'
+        run: bash scripts/download_benchmark_datasets.sh
+        shell: bash
+
+      - name: Run tests (Audit profile, core)
+        timeout-minutes: 25
+        run: cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
+
   build:
     name: Build ${{ matrix.target }}
+    needs: [tests]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
 

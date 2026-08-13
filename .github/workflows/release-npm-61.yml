@@ -28,8 +28,51 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  tests:
+    name: Tests (npm/TS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa
+        with:
+          version: latest
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
+        with:
+          toolchain: stable
+
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Build WASM package
+        run: wasm-pack build --release
+        working-directory: vantadb-wasm
+
+      - name: Install dependencies
+        working-directory: vantadb-ts
+        run: npm install
+
+      - name: Build TypeScript
+        working-directory: vantadb-ts
+        run: npm run build
+
+      - name: Run tests
+        working-directory: vantadb-ts
+        run: npm test
+
   publish-wasm:
     name: Publish vantadb-wasm to npm
+    needs: [tests]
     if: >
       startsWith(github.ref, 'refs/tags/v') ||
       (github.event_name == 'workflow_dispatch' && inputs.package != 'ts')
