@@ -56,6 +56,10 @@ aliases: []
 - **Fecha:** 2026-08-06
 - **Resultado:** ✅ `prismjs` + `sharp` removidos de `web/` (deps muertas).
 
+### TSYS-01..16: Mejoras task-system (plan 2026-08-11-residuo-consolidado)
+- **Fecha:** 2026-08-11
+- **Resultado:** ✅ TSYS-01..05, 07..11, 13..16 implementados (14/16; TSYS-06 runner DEFER, TSYS-12 runtime opcional NO gate-CI). Commits: 8f774c18 (T12/T14/T15/T16), d9f2a4cb (T10/T11/T13), 138d8735 (TSYS-14/15/16), TSYS-09/ADR-017. Ver `docs/progreso/README.md` sección migradas.
+
 ## Workflows existentes (inventario 2026-08-03)
 
 | Workflow | Propósito | Estado |
