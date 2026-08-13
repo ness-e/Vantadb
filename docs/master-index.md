@@ -200,9 +200,7 @@ Published blog posts (in `web/content/blog/`):
 |----------|-------------|
 | [progreso/README.md](progreso/README.md) | Unified progress log and development history |
 | [Backlog.md](Backlog.md) | Full project backlog and feature tracking |
-| [backlog-guide.md](backlog-guide.md) | Backlog management guide |
 | [CHANGELOG.md](CHANGELOG.md) | Release history and version changelog |
-| [stabilization-report.md](stabilization-report.md) | Stability report |
 
 ---
 
@@ -213,7 +211,6 @@ Published blog posts (in `web/content/blog/`):
 | [QUICKSTART.md](QUICKSTART.md) | Quickstart guide for new users |
 | [FAQ.md](FAQ.md) | Frequently asked questions |
 | [ci-cd-guide.md](ci-cd-guide.md) | CI/CD setup and operations guide |
-| [DESIGN_RULES.md](DESIGN_RULES.md) | Design rules and conventions |
 | [README.md](README.md) | Documentation landing page and reading guide |
 
 ---

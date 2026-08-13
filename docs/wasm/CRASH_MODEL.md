@@ -54,7 +54,7 @@
 
 ## Related Documentation
 
-- [WASM Storage Review](../../docs/WASM_STORAGE_REVIEW.md) — Full gap analysis with recommendations
+- [WASM Storage Review](../architecture/WASM_STORAGE_REVIEW.md) — Full gap analysis with recommendations
 - [ADR-008](../../docs/architecture/adr/008_wasm_support_strategy.md) — WASM architecture decisions
 - `vantadb-wasm/src/opfs.rs` — OPFS backend implementation
 - `vantadb-wasm/src/idb.rs` — IndexedDB backend implementation
