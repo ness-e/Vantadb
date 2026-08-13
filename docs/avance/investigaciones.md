@@ -115,3 +115,10 @@ aliases: []
 ## P10 — Competitive features catalog (investigado + decidido)
 
 `COMP-001/002/003/004/005/007/011/015/020/030` catalogados en `historial/backlog-history.md` → P10. Incluyen SQ8/PQ, HNSW persist, in-filter, bitset, params, inline u128, CRUD tombstones, hybrid pipeline, RRF fusion, survival mode.
+
+## Investigaciones de ingeniería de agentes (agosto 2026)
+
+### TIR-03: Mitigación/contención primero en incidentes - decisión (2026-08-12)
+- **Fuente:** Backlog P18 `TIR-03` (gap-01 FALTA#15, REPORTE-FINAL §3.3-15)
+- **Resultado:** Decisión IMPLEMENTAR docs mínimos — nueva Fase 0.5 Contención/Estabilización en `docs/references/bug-workflow.md:18` (revert/pausar + registrar ANTES del debug; no reemplaza el Iron Law). Doc: `docs/Investigaciones/2026-08-10-agent-engineering/TIR-03-decision.md`. Review P2-01 vanta-review ✅ approve.
+- **Ids:** `TIR-03`

@@ -1,6 +1,6 @@
 # VantaDB — Bug Workflow
 
-> **Cómo usar:** Al reportar un bug o test failure, sigue esta secuencia. NO intentes fixes sin diagnóstico.
+> **Cómo usar:** Al reportar un bug o test failure, sigue esta secuencia. NO intentes fixes sin diagnóstico (salvo Fase 0.5: contener primero si el entorno está roto).
 > **Cómo editar:** Modifica los pasos si encuentras un patrón nuevo que debería estar documentado.
 > **Referencia desde:** `.opencode/AGENTS.md` — sección Bug Workflow Reference.
 
@@ -14,6 +14,22 @@
 2. Reproducir: `cargo nextest run --profile audit -p <crate> --test <test_name>` — ¿falla siempre?
 3. Si no es reproducible, buscar patrón: ¿cuándo falla? (CI sí, local no; Windows sí, Linux no)
 4. Buscar en `docs/references/troubleshooting.md` si el error ya está documentado
+
+### Fase 0.5: Contención/Estabilización (solo si el bug rompe el entorno)
+
+> Fuente: `docs/Investigaciones/2026-08-10-agent-engineering/eng-02-systems.md:209-214,397-400` (mitigar primero, root-cause después).
+> Decisión TIR-03 (2026-08-12).
+
+**Disparador:** el bug rompe el build (`cargo check`/`clippy`/`nextest` falla en masa),
+rompe CI, o afecta un flujo activo del pipeline (test suite en rojo, backoff).
+
+1. Estabilizar ANTES de debuggear: revert del último commit sospechoso (`git revert`)
+   o pausar el plan actual y aislar el cambio que lo rompió.
+2. Registrar el incidente (qué se rompió, timeline) aunque todavía no haya causa.
+3. Recién con el sistema estable, entrar a Fase 1 (Iron Law).
+
+No reemplaza el Iron Law: la contención estabiliza el entorno; el RCA y el fix
+siguen siendo obligatorios (Fase 1 → Fase 2).
 
 ### Fase 1: Aislar Causa Raíz
 
