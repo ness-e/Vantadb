@@ -24,7 +24,7 @@ jobs:
           install-nextest: false
           install-llvm-cov: false
           cache-bin: true
-      - uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853
+      - uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
         with:
           tool: cargo-cyclonedx
       - run: cargo cyclonedx --format json --override-filename sbom
@@ -34,15 +34,15 @@ jobs:
         run: |
           python3 -m pip install --user --quiet cyclonedx-bom
           python3 -m cyclonedx_py requirements - --pyproject vantadb-python/pyproject.toml --output-file sbom-python.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sbom
           path: sbom.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sbom-web
           path: sbom-web.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sbom-python
           path: sbom-python.json

@@ -54,7 +54,7 @@ jobs:
         swap-mb: 4096
 
     - name: Set up Python
-      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
       with:
         python-version: '3.11'
         cache: 'pip'
@@ -151,7 +151,7 @@ jobs:
 
     - name: Upload Baseline Candidate
       if: ${{ inputs.update_baseline == 'true' }}
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: vanta-benchmark-baseline-candidate
         path: benchmarks/python_baseline.json
@@ -162,7 +162,7 @@ jobs:
         .venv/bin/python benchmarks/update_markdown.py || echo "::warning::update_markdown.py failed (non-fatal)"
 
     - name: Upload Benchmark Results Artifact
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: vanta-benchmark-results
         path: benchmark_results.json

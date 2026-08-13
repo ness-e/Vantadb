@@ -44,7 +44,7 @@ jobs:
     steps:
       - name: Configure pagefile (Windows — prevent OOM)
         if: matrix.os == 'windows-latest'
-        uses: al-cheb/configure-pagefile-action@9b6da52fb72a3c6147c1aad2df22d8d905681adc
+        uses: al-cheb/configure-pagefile-action@9b6da52fb72a3c6147c1aad2df22d8d905681adc # v1.5
         with:
           minimum-size: 8GB
           maximum-size: 16GB
@@ -59,17 +59,17 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.11"
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
+        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
         with:
           toolchain: stable
 
       - name: Rust cache
-        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef
+        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
         with:
           cache-bin: "false"
 
@@ -80,7 +80,7 @@ jobs:
         run: cargo test --test version_coherence --no-default-features --features fjall
 
       - name: Build wheel
-        uses: PyO3/maturin-action@3e2bdf6ba6453a61e649744019b8a2d906c7eb38
+        uses: PyO3/maturin-action@3e2bdf6ba6453a61e649744019b8a2d906c7eb38 # v1.51.0
         with:
           command: build
           args: --release --out dist --manifest-path ./vantadb-python/Cargo.toml
@@ -114,7 +114,7 @@ jobs:
           & "$env:TEMP\.smoke-venv\Scripts\pytest" vantadb-python/tests/test_sdk.py -v
 
       - name: Upload wheel artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: wheels-${{ matrix.os }}
           path: ./dist/*.whl
@@ -133,14 +133,14 @@ jobs:
 
     steps:
       - name: Download wheels
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: wheels-*
           path: ./dist
           merge-multiple: true
 
       - name: Publish to TestPyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
         with:
           repository-url: https://test.pypi.org/legacy/
           verbose: true
@@ -160,7 +160,7 @@ jobs:
 
     steps:
       - name: Download wheels
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: wheels-*
           path: ./dist
@@ -170,18 +170,18 @@ jobs:
       # tokens are unavailable (e.g., fork PRs). Does not block wheel publishing.
       - name: Attest Build Provenance for Wheels
         continue-on-error: true
-        uses: actions/attest-build-provenance@78e6cbd37d0ac1a40113c04f2037dacf1ea3f12e
+        uses: actions/attest-build-provenance@78e6cbd37d0ac1a40113c04f2037dacf1ea3f12e # v4.1.1
         with:
           subject-path: './dist/*.whl'
 
       - name: Attach wheel artifacts to GitHub Release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           files: |
             ./dist/*.whl
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
         with:
           packages-dir: dist/
           verbose: true
@@ -198,7 +198,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.13"
 
@@ -247,7 +247,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.13"
 
