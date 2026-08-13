@@ -259,15 +259,22 @@ fn sparse_vector_to_field(sparse: &SparseVector) -> FieldValue {
 }
 
 /// Decode a persisted `ListFloat` sparse field back into a `SparseVector`.
-/// Returns `None` for malformed payloads (odd length), matching the corrupt
-/// handling of the legacy JSON path.
+/// Returns `None` for malformed payloads (odd length or invalid dims),
+/// matching the corrupt handling of the legacy JSON path.
 fn sparse_vector_from_field(flat: &[f64]) -> Option<SparseVector> {
     if flat.len() % 2 != 0 {
         return None;
     }
     let mut map = std::collections::BTreeMap::new();
     for pair in flat.chunks_exact(2) {
-        map.insert(pair[0] as u32, pair[1] as f32);
+        let dim = pair[0];
+        // AUD-023 (P2-7): `dim as u32` satura silenciosamente NaN/negativos/
+        // out-of-range y trunca dims no-enteras, corrompiendo el vector. Rechazar
+        // el payload completo en vez de persistir un dim inválido.
+        if !dim.is_finite() || dim < 0.0 || dim > u32::MAX as f64 || dim.fract() != 0.0 {
+            return None;
+        }
+        map.insert(dim as u32, pair[1] as f32);
     }
     Some(SparseVector(map))
 }
@@ -328,7 +335,7 @@ pub fn memory_record_from_node(node: &UnifiedNode) -> Option<VantaMemoryRecord> 
             None => {
                 tracing::warn!(
                     node_id = %node.id,
-                    "corrupt sparse vector payload (odd ListFloat length) ignored during read"
+                    "corrupt sparse vector payload (malformed ListFloat pairs) ignored during read"
                 );
                 None
             }
@@ -1428,5 +1435,30 @@ mod tests {
         );
         let record = memory_record_from_node(&node).unwrap();
         assert_eq!(record.sparse_vector, None);
+    }
+
+    #[test]
+    fn test_sparse_read_corrupt_listfloat_invalid_dims_return_none() {
+        // AUD-023 (P2-7): dims inválidas (NaN, negativa, out-of-range, no-entera)
+        // deben rechazarse con None, no saturarse silenciosamente via `as u32`.
+        let bad_payloads = [
+            vec![f64::NAN, 0.5],      // NaN dim -> hoy satura a 0
+            vec![f64::INFINITY, 0.5], // +inf dim -> hoy satura a u32::MAX
+            vec![-1.0, 0.5],          // dim negativa -> hoy satura a 0
+            vec![4294967296.0, 0.5],  // > u32::MAX -> hoy satura a u32::MAX
+            vec![1.5, 0.5],           // dim no-entera -> hoy trunca a 1
+        ];
+        for flat in bad_payloads {
+            let mut node = make_memory_node(42, "myns", "mykey");
+            node.set_field(
+                SPARSE_VECTOR_EXT_KEY,
+                crate::node::FieldValue::ListFloat(flat),
+            );
+            let record = memory_record_from_node(&node).unwrap();
+            assert_eq!(
+                record.sparse_vector, None,
+                "dims inválidas deben devolver None, no saturar silencioso"
+            );
+        }
     }
 }

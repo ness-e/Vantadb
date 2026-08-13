@@ -116,6 +116,10 @@ aliases: []
 - **Fecha:** 2026-08-13
 - **Resultado:** ✅ 5/5 unwraps `active.iter().next().unwrap()` en `src/storage/engine/ops.rs` convertidos a propagación de error (`ok_or_else` en insert/get/delete; `if let Some` en helpers con comentario de decisión). `parser/mod.rs` no-test = 0 unwraps (151 en tests). No se tocaron los 1381−5 restantes (tests/benches/paths internos ya hardened). Contrato ✅: check, nextest 1885 passed, clippy all-targets/all-features, fmt. Review vanta-review approve post-fix. Commit `c7185d25`.
 
+### AUD-023: Validar dims de sparse vector en decode (P2-7)
+- **Fecha:** 2026-08-13
+- **Resultado:** ✅ `sparse_vector_from_field` valida dims (`is_finite`, >= 0, <= u32::MAX, entera) y devuelve `None` en vez de saturar silencioso via `as u32`. Test de rechazo TDD (NaN/+inf/negativa/out-of-range/no-entera). Warning corrupto actualizado. Contrato ✅: check, fmt, clippy workspace -D warnings, nextest 1913 passed, validate-docs-coverage 0 gaps. Commit `(AUD-023)`.
+
 ---
 
 ## Prevención de breaking changes

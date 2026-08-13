@@ -425,7 +425,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | ID | Severidad | Hallazgo | Archivo:línea | Estado |
 |----|-----------|----------|---------------|--------|
 | AUD-022 | Media | sccache-action@v0.0.11 es la única acción externa sin pin SHA (ref mutable) — higiene supply-chain CI | .github/actions/rust-setup/action.yml:73 | ⏳ pendiente |
-| AUD-023 | Media | P2-7 `sparse_vector_from_field`: dims no validadas en decode (NaN/negativo/out-of-range saturan silencioso en vez de None) | src/sdk/serialization/mod.rs:264-273 | ⏳ pendiente |
 | AUD-024 | Media | `drain_hnsw_batch_locked` clona bitset+vector por op (2 heap clones/insert) — iterar por valor tras `mem::take` | src/storage/engine/ops.rs:174-187 | ⏳ pendiente |
 | AUD-025 | Media | BM25 aloca por posting (token.clone + String record_key por posting; doc_stats_cache re-fetch por token) — key u128 node-id | src/sdk/search/mod.rs:383-448 | ⏳ pendiente |
 | AUD-026 | Media | default features arrastran cli/arrow/tantivy al DLL nativo (6.7MiB debug; lsm_tree+fjall 944KiB) — build extension con --no-default-features | Cargo.toml:97 | ⏳ pendiente |

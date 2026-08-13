@@ -1015,3 +1015,7 @@ La verificación pre-push manual corre: `cargo fmt → cargo check → cargo cli
 <!-- Learnings: AUD-036 - 2026-08-13 -->
 - Findings de audit con line numbers pueden apuntar a código test-only (`let _ =` en `#[cfg(test)] mod tests`): verificar contexto producción vs test ANTES de implementar fix — el 90% de los "fs error tragado" son cleanup idiomático de tests.
 - Un finding STALE se cierra con evidencia grep (producción limpia + callers propagan con `?`), no con un cambio fabricado. La migración correcta es Backlog → BACKLOG_HISTORY.md + mirror en docs/avance/historial/no-ops.md.
+
+<!-- Learnings: AUD-023 - 2026-08-13 -->
+- `f64 as u32` en Rust satura silencioso (NaN→0, negativo→0, >u32::MAX→u32::MAX) y trunca no-enteros — en decode de datos persistidos/input de usuario, validar `is_finite() && >= 0.0 && <= u32::MAX as f64 && fract() == 0.0` antes del cast y rechazar con None/error. `u32::MAX as f64` es exacto (2^32−1 < 2^53).
+- TDD con test de rechazo por payload corrupto (patrón `test_*_corrupt_*_returns_none` de serialization) es la prueba mínima que cubre el finding: RED muestra el valor saturante real (`Some(SparseVector({0: 0.5}))`), GREEN lo convierte en None.

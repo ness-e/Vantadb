@@ -463,6 +463,23 @@ Los 3 planes activos restantes quedaron 100% completados (26/26, 16/16, 24/24 DO
 
 **Ids:** `AUD-031`
 
+### 2026-08-13 — AUD-023: Validar dims de sparse vector en decode (P2-7) ✅
+
+**Fuente:** Backlog `AUD-023` (derivado del audit full 2026-08-12, `docs/reviews/audit-full-20260812-231204.md`, finding P2-7)
+
+**Objetivo:** `sparse_vector_from_field` hacía `pair[0] as u32` sin validar — NaN/negativo/out-of-range saturaban silencioso a 0/u32::MAX y dims no-enteras truncaban, corrompiendo el sparse vector decodificado en vez de devolver `None`.
+
+**Resuelto por (vanta-worker):**
+- **Validación en decode:** `!dim.is_finite() || dim < 0.0 || dim > u32::MAX as f64 || dim.fract() != 0.0` → retorna `None` (payload rechazado, mismo camino corrupto que odd-length). `u32::MAX as f64` es exacto (2^32−1 < 2^53). Dims no-enteras incluidas: `1.5 as u32 → 1` es el mismo bug class de pérdida silenciosa.
+- **Warning actualizado:** `memory_record_from_node` loguea "malformed ListFloat pairs" en vez de "odd ListFloat length" (ya no describe todos los None).
+- **Weights f32 no validados** — fuera del contrato P2-7 (solo dims).
+- **Test de rechazo:** `test_sparse_read_corrupt_listfloat_invalid_dims_return_none` — NaN, +inf, negativa, >u32::MAX, no-entera → `None`. TDD: RED (fallaba con `Some(SparseVector({0: 0.5}))`) → GREEN.
+- **Verify:** `cargo check -p vantadb` ✅; `cargo fmt --check` ✅; `cargo clippy --workspace --all-targets --all-features -- -D warnings` ✅; `cargo nextest run --profile audit --workspace --build-jobs 2` → **1913 passed** ✅; `scripts/validate-docs-coverage.ps1` → 0 gaps ✅.
+
+**Commit:** `(AUD-023)` — fix: validate sparse vector dims on decode (AUD-023)
+
+**Ids:** `AUD-023`
+
 ### 2026-08-04 — Campaña WEB Launch (5 tareas) ✅
 
 **Fuente:** Backlog (plan `docs/plans/2026-08-04-launch-web-campaign.md`)
