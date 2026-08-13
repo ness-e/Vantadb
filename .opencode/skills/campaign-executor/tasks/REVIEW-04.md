@@ -9,9 +9,9 @@
 - **Turns estimados:** 15-30
 - **Creado:** 2026-08-12T00:00
 - **last-synced:** 2026-08-12T00:00
-- **Estado:** ⭐ ⚠️ ⬜ PENDING
-- **Incógnitas (uphill):** 1 abierta (ver Notas — decisión config.rs/vfile.rs)
-- **Pendientes (downhill):** 6 steps de ejecución restantes
+- **Estado:** ✅ COMPLETED
+- **Incógnitas (uphill):** 0 abiertas
+- **Pendientes (downhill):** 0 steps restantes
 
 ## Blast Radius
 
