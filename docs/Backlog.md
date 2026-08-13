@@ -15,7 +15,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 > **Verification method:** All items cross-checked against actual codebase (Jul 27, 2026). 8 tareas ejecutadas en sesión: TSK-106, MKT-03, NUEVO-21, MKT-04, TSK-107, DISC-02, DISC-03, Good first issues (18 creadas).
 > **Sync 2026-08-06:** 30 tareas ejecutadas por el plan `docs/plans/2026-08-05-backlog-validation-actions.md` tachadas y migradas a `docs/progreso/README.md`: AUDIT-01/03/04, DEBT-01, TECH-01..08, AUDIT-05/08, NUEVO-01, MKT-10/16, AUD-001..011 (AUD-010 fusionada en TECH-04/ADR-012), GH-123/141.
 > **Sync 2026-08-07:** 214 filas completadas eliminadas del backlog (210 IDs únicos) — migradas/verificadas en `docs/progreso/README.md` y `docs/progreso/BACKLOG_HISTORY.md`. Quedan 35 tareas activas (ver Exec Summary).
-> **Total open items:** ~24 activas — previas (DISC-01..03, LEG-01, BIZ-01b, OLD-01, DESKTOP-15..27, [ADMIN-XX pending W4]) + P15 residuales (ERR-006/007/008/009/015/026/031/032/033/036/037/042/043/044/045/047/048/049) + P16 residuales (PERF-07/08/09, CI-01) + P19 CI batch (CI-02..07, 2026-08-12). P15/P16 principales ejecutadas por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` (49/49 ✅). Origen: investigación multi-agente 2026-08-09 → `docs/Investigaciones/investigacion-equipo-2026-08-09.md`
+> **Total open items:** ~24 activas — previas (DISC-01..03, LEG-01, BIZ-01b, OLD-01, DESKTOP-15..27, [ADMIN-XX pending W4]) + P15 residuales (ERR-006/007/008/009/015/026/031/032/033/036/037/042/043/044/045/047/048/049) + P16 residuales (PERF-07/08/09, CI-01). P15/P16 principales ejecutadas por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` (49/49 ✅). P19 CI batch (CI-02..07) ejecutado y migrado 2026-08-12 — plan archivado `docs/plans/archive/2026-08-12-ci-deuda.md`. Origen: investigación multi-agente 2026-08-09 → `docs/Investigaciones/investigacion-equipo-2026-08-09.md`
 > **Sync 2026-08-09:** plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` archivado — 49/49 tareas delegables completadas (Wave 0-3: RELEASE-01/02/03, SEC-01, 24 ERR, 7 FEAT, REVISAR-01, COV-001/003/004, PERF-01/04/06, DOC-02..08). RELEASE-02 verificado live: 0.5.0 publicado (crates.io/PyPI/npm/GitHub 2026-08-01). Filas completadas eliminadas de P15/P16; residuales siguen activas. Task 50 COM-02/03 (humana) queda en la tabla.
 > **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/progreso/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
 
@@ -100,7 +100,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
-| `P2-7` | **Deuda perf — serialización full-copy del sparse vector** — el sparse se persiste como `FieldValue::String(serde_json)` en `SPARSE_VECTOR_EXT_KEY` (formato persistido del node); cada read hace `from_str` y cada write `to_string` (~1.5% del hot-path de búsqueda, AUDIT-02). Eliminarlo exige **redesign del formato de persistencia** + migración + compat de lectura. Indexado como deuda P2-7 (`src/sdk/serialization/mod.rs:227-294`, refs stale). PERF-08 ya cerró el lado WASM (`memory_record_to_js` → Float32Array) — esta tarea es el **core persistido** | `src/sdk/serialization/mod.rs`, `src/sdk/serialization/impl_*.rs`, formato `SPARSE_VECTOR_EXT_KEY` + storage compat | 4-8 hr | 🟡 Media |
+
 > **Ejecutadas 2026-08-12 — tanda 1 (commits en develop, migradas a progreso):** PERF-01 (`30e90cd9` claims revalidados), PERF-04 (`152ddd26` prefetch flag default off), PERF-06 (`914514bb`+`d9378656` KB/MB/GB), PERF-07 (`88b0f875` sparse parse explícito), PERF-09 (`0be56cac` cold-start log honesto).
 > **Ejecutadas 2026-08-12 — tanda 2 (commits `32462de6`/`437a1125`/`9eef37c5`/`5105f22d`, migradas a progreso):** PERF-02 (baseline criterion determinista + critcmp), PERF-03 (bench competitivo honesto SDKs), PERF-05 (ADR DRV-015 WAL async roadmap), PERF-08 (WASM Float32Array zero-copy). P4 completo.
 > **Items previos completados (10):** ver `docs/progreso/BACKLOG_HISTORY.md` (P4) — movidos a `docs/progreso/README.md`.
@@ -169,11 +169,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
-| `CI-02` | **Fuzzing solo semanal (WF1-016)** — `fuzz-40.yml` corre solo `cron '0 6 * * 1'`; bugs de persistencia no se detectan en PRs. Agregar job de fuzz acotado (persistencia/WAL) en PRs o gate opcional | `.github/workflows/fuzz-40.yml` | 🟡 | 🟠 |
-| `CI-03` | **SBOM solo Rust (WF2-015)** — `release-sbom-64.yml` usa solo `cargo-cyclonedx`; huecos Python/TS. Agregar cyclonedx-npm + Python SBOM | `.github/workflows/release-sbom-64.yml` | 🟢 | 🟡 |
-| `CI-05` | **Benchmarks sin baseline fijo (WF1-027/029)** — `perf-bench-40.yml` compara 2 commits consecutivos, no detecta regresión en dos commits; sin perf budget bloqueante | `.github/workflows/perf-bench-40.yml` | 🟡 | 🟡 |
-| `CI-06` | **release-binaries/npm no ejecutan tests (WF2-007/010)** — build-only; agregar gate de tests antes de publicar | `.github/workflows/release-binaries-63.yml`, `release-npm-61.yml` | 🟢 | 🟡 |
-| `CI-07` | **SHA pinning de acciones sin verificar (PLAN2-042)** — 129 `uses:` en 17 workflows, mezcla de tags y SHAs | `.github/workflows/*.yml` | 🟡 | 🟢 |
+> **Sync 2026-08-12:** batch CI-02..07 ejecutado y migrado a `docs/progreso/README.md` (plan `docs/plans/archive/2026-08-12-ci-deuda.md`).
 
 ### 🚀 Implementaciones derivadas de Investigaciones (agregadas 2026-08-04)
 

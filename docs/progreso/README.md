@@ -3394,3 +3394,52 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Objetivo:** Ampliar `sec-codeql-30.yml` de `languages: rust` a `rust, python, javascript-typescript` para cubrir web/ (Next.js) y bindings Python; extender timeout 30→45 min (Risk Register); sin tocar queries (suite default).
 - **Resultado:** ✅ actionlint exit 0 (pre-commit hook ok). Commits: `202af1f6` (workflow+task file), `6477aa87` (sync plan+task file). "CodeQL job corre sin error" pendiente de verificación en CI tras push.
 - **Ids:** `CI-04`
+
+### CI-03: SBOM multi-ecosistema (rust + npm + python)
+- **Fuente:** Plan 2026-08-12-ci-deuda.md Task 2
+- **Fecha:** 2026-08-12
+- **Objetivo:** Ampliar `release-sbom-64.yml` para generar artifacts SBOM de Rust (cargo-cyclonedx, existente) + npm (`@cyclonedx/cyclonedx-npm`) + Python (`cyclonedx-bom`) y sincronizar docs.
+- **Resultado:** ✅ 3 artifacts: `sbom.json` (Rust, intacto), `sbom-web.json` (npm, `--package-lock-only`), `sbom-python.json` (Python, `--pyproject`; root component — `vantadb-python` sin deps declaradas). Docs sincronizadas: `docs/workflow/release-sbom-64.md`, `docs/ci-cd-guide.md`. actionlint exit 0 (2× + pre-commit hook ok). Commit: `a8735174`.
+- **Ids:** `CI-03`
+
+### CI-02: Fuzzing en PRs (gate acotado)
+- **Fuente:** Plan 2026-08-12-ci-deuda.md Task 1
+- **Fecha:** 2026-08-12
+- **Objetivo:** Agregar job `fuzz-pr` acotado (5-8 min wall-clock) al workflow `fuzz-40.yml` que corra en `pull_request` sobre persistencia/WAL, con timeout 15 min, ubuntu-only, y `on.pull_request.paths: [src/**, fuzz/**]` para no alargar el Fast Gate; fuzz semanal completo sigue con `if: github.event_name != 'pull_request'`.
+- **Resultado:** ✅ actionlint exit 0 (job `fuzz-pr` con `timeout-minutes: 15`, `-max_total_time=75` × 4 targets en matriz, sin `continue-on-error`). Commit: `1c8029f1`.
+- **Ids:** `CI-02`
+
+### CI-05: Benchmark baseline fijo
+- **Fuente:** Plan 2026-08-12-ci-deuda.md Task 4
+- **Fecha:** 2026-08-12
+- **Objetivo:** `perf-bench-40.yml` corría sin baseline fijo (solo push a main + workflow_dispatch), sin detectar regresión de 2 commits consecutivos. Agregar comparación contra baseline versionado con umbral de regresión 15% (mediana de 3 runs) y rebaseline manual vía `workflow_dispatch` con `update_baseline=true`.
+- **Resultado:** ✅ actionlint exit 0; lógica validada con test sintético 3 caminos (regresión -30% detectada, baseline vacío no-op, baseline igual sin falsos positivos). Baseline inicial `benchmarks/python_baseline.json` vacío → gate no-op hasta rebaseline manual (números v0.5.0 no disponibles — gh auth roto). Commits: `adec84e7`, `56ebc126`, `9026000b`.
+- **Ids:** `CI-05`
+
+### CI-06: Tests gate en release workflows
+- **Fuente:** Plan 2026-08-12-ci-deuda.md Task 5
+- **Fecha:** 2026-08-12
+- **Objetivo:** `release-binaries-63.yml` y `release-npm-61.yml` publicaban sin correr tests. Agregar job `tests` a ambos (cargo nextest --profile audit / wasm-pack build + npm test) como `needs` del publish, reusando el patrón del Fast Gate.
+- **Resultado:** ✅ actionlint exit 0 en ambos workflows + pre-commit hook ok. Cadena release-npm completa: tests → publish-wasm → publish-ts. Commits: `3ca9e3e0`, `720bb7ab`.
+- **Ids:** `CI-06`
+
+### CI-07: SHA pinning de acciones
+- **Fuente:** Plan 2026-08-12-ci-deuda.md Task 6
+- **Fecha:** 2026-08-12
+- **Objetivo:** supply chain hardening — los 17 workflows mezclaban tags y SHAs en 129 `uses:`. Pinear toda acción de terceros a SHA de 40 hex del tag actual (sin major bump silencioso), batch por grupo de workflows.
+- **Resultado:** ✅ 67 refs tag/branch → SHA verificados (API GitHub + `git ls-remote`, no memoria) en 16 workflows (+67/−67, comentarios de versión preservados `@sha # v4.4.0`). Grep final: 0 uses de terceros sin 40-hex; 34 internos `./.github/...` correctamente sin pinear. Hallazgo: `release-plz/action@release-plz-v0.3.160` era tag muerto (git ls-remote vacío) → restaurado al tag vigente v0.5.131. actionlint exit 0. Commits: `faec5826`, `73bbf6e1`, `97c21d81`, `b84e4186`, `117c1ac4`.
+- **Ids:** `CI-07`
+
+### P2-7: Serialización zero-copy del sparse vector (formato persistido)
+- **Fuente:** Backlog § Phase 4 (deuda indexada AGENTS.md Regla 5 + AUDIT-02 2026-08-06)
+- **Fecha:** 2026-08-12
+- **Objetivo:** Eliminar la serialización full JSON del write path del sparse vector (antes `FieldValue::String(serde_json)` en `SPARSE_VECTOR_EXT_KEY`, `from_str`/`to_string` ~1.49% del hot-path de búsqueda). Redesign del formato de persistencia con compat de lectura backward.
+- **Resultado:** ✅ ADR-019: sparse se persiste como `FieldValue::ListFloat(Vec<f64>)` con pares intercalados `[dim, val]` (u32→f64 y f32→f64 lossless, orden determinista por BTreeMap). Write path `sparse_vector_to_field` sin serde_json; read path dual: `ListFloat` decode directo + `String` legacy (`serde_json::from_str`) para compat backward; faltante → `None` (PERF-07); corrupto (odd-length / JSON inválido) → warn + `None`. `VantaMemoryRecord.sparse_vector` público intacto. Sin migración one-shot — nodos viejos migran lazy en próximo put; shim legacy hasta gate de versionado de storage. 7 tests nuevos en serialization + 1 integración en search (recall idéntico). 1885/1885 tests + clippy `-D warnings` + fmt --check ✅. Review P2-01 (vanta-review) APPROVE. Commit `2f1a94e1`.
+- **Ids:** `P2-7`
+
+---
+
+## Planes archivados
+
+- **Plan archivado:** `docs/plans/archive/2026-08-12-ci-deuda.md` — 6/6 completadas (CI-02..07, deuda CI batch)
+- **Retrospectiva:** Start: verificación de realidad contra código real antes de DO (Paso 0) + contratos booleanos accionables con actionlint | Stop: batch CI-01 del doc EXTRACCION estaba stale (ROOT1-007 ya resuelto; solo 6 de 26 hallazgos eran reales) — no planificar desde docs sin verificar | Continue: waves paralelas por archivos disjuntos + routing vanta-lead para CI; escalera SARL (RESUME→RETRY) antes de marcar fallo | Acción medida: verify retries/tarea en CI batch = 1/6 (CI-05 requirió RETRY tras 2 salidas vacías; baseline North Star: >90% completado en primer intento)
