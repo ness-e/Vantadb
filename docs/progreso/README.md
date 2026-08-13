@@ -515,6 +515,36 @@ Los 3 planes activos restantes quedaron 100% completados (26/26, 16/16, 24/24 DO
 
 **Ids:** `AUD-039`
 
+### 2026-08-13 — AUD-022: Pin SHA sccache-action (supply-chain CI) ✅
+
+**Fuente:** Backlog `AUD-022` (derivado del audit full 2026-08-12, `docs/reviews/audit-full-20260812-231204.md`)
+
+**Objetivo:** `mozilla-actions/sccache-action@v0.0.11` era la única acción externa del workspace sin pin SHA (ref mutable por tag) — higiene supply-chain CI (OpenSSF Scorecard).
+
+**Resuelto por (vanta-lead):**
+- **Pin SHA verificado:** `.github/actions/rust-setup/action.yml:73` → `mozilla-actions/sccache-action@fd02668681acd5f960e1372061bee5e3e987195c # v0.0.11`. SHA obtenido vía GitHub API (refs/tags/v0.0.11 → tag object) el 2026-08-13 — no confiar en memoria del modelo.
+- **Convención de anotación:** `# v0.0.11` tras el SHA, alineado a AUD-028 (74 pins existentes con anotación).
+- **Verify:** YAML parse OK (`yaml.safe_load` UTF-8); sin otros cambios en el action.
+
+**Commit:** `(AUD-022)` — ci: pin sccache-action to verified SHA (AUD-022)
+
+**Ids:** `AUD-022`
+
+### 2026-08-13 — AUD-030: Gate de regresión bench en PRs + baseline auto-commiteado ✅
+
+**Fuente:** Backlog `AUD-030` (derivado del audit full 2026-08-12, `docs/reviews/audit-full-20260812-231204.md`)
+
+**Objetivo:** `heavy-bench-nightly-51.yml` solo corría en schedule/dispatch → el gate de regresión nunca validaba PRs; y el baseline `benchmarks/criterion_baseline.json` nunca se actualizaba (el modo `update-baseline` de `bench_regression.py` no tenía caller) → podía quedar stale.
+
+**Resuelto por (vanta-lead):**
+- **Trigger `pull_request`:** agregado con `paths` filter (benches/**, benchmarks/**, scripts/bench_regression.py, Cargo.toml) — solo PRs que tocan el sistema de bench disparan el gate; el resto no paga 2hrs de bench.
+- **Auto-commit baseline:** step "Update and commit baseline (nightly only)" en el job `analyze` — corre `update-baseline` + commit/push del baseline. `if: github.event_name == 'schedule' && steps.check_regression.outputs.has_regression != 'True'` → PRs jamás mutan el baseline del repo y un run con regresión nunca se hornea como baseline. `permissions.contents: write` (antes read).
+- **Verify:** YAML parse OK UTF-8; grep confirma `steps.check_regression.outputs.has_regression` coincide con el `id: check_regression` existente (línea 159).
+
+**Commit:** `(AUD-030)` — ci: run bench regression gate on PRs + auto-commit baseline (AUD-030)
+
+**Ids:** `AUD-030`
+
 ### 2026-08-04 — Campaña WEB Launch (5 tareas) ✅
 
 **Fuente:** Backlog (plan `docs/plans/2026-08-04-launch-web-campaign.md`)

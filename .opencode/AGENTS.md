@@ -1032,3 +1032,11 @@ La verificación pre-push manual corre: `cargo fmt → cargo check → cargo cli
 - `unreachable!("msg")` con argumento NO es const-compatible (E0015: formatting macro in const context) → usar `unreachable!()` sin argumentos en consts; `NonZeroUsize::new(64)` con match + unreachable es el patrón sin-unwrap para `LruCache::new`.
 - El core rechaza query vectors zero-norm desde ERR-028 (b8058a26, src/sdk/search/mod.rs): tests Python que usen `search(vector=[0.0]*dim)` fallan con "zero-norm cosine query vector is undefined" — usar vector non-zero (ej. [0.5]*dim).
 - FASE PERFORMANCE con timing: para este cache el cuello de botella es el engine (WAL+indexación), no la cache — microbench muestra ~78-80 ops/s indistinto de hits o thrash; la evidencia del gate es complejidad O(1) documentada (lru hash+lista doble) + sin regresión funcional (thresholds de test_sustained_* pasan).
+
+<!-- Learnings: AUD-022 - 2026-08-13 -->
+- Para pinear una GitHub Action a SHA: el ref `refs/tags/vX.Y.Z` apunta a un tag object, NO directo al commit — `GET /repos/{owner}/{repo}/git/refs/tags/{tag}` devuelve `{object: {type: "tag", sha: <tag-sha>}}` y hay que seguir `GET /repos/{owner}/{repo}/git/tags/{tag-sha}` para obtener el commit real. (En el caso de sccache-action v0.0.11 el sha del tag coincidió con el commit, pero el two-step es el camino correcto.) Anotar el SHA con `# vX.Y.Z` (convención AUD-028).
+
+<!-- Learnings: AUD-030 - 2026-08-13 -->
+- Un gate de bench nightly sin `pull_request` trigger no valida PRs, y un baseline que nadie promueve queda stale: `bench_regression.py` ya tenía el modo `update-baseline` pero ningún step lo llamaba — revisar SIEMPRE si el modo/callable existe antes de escribirlo (escalera ponytail rung 2: reusar).
+- Trigger PR con `paths` filter (benches/**, benchmarks/**, scripts/bench_regression.py, Cargo.toml) = el gate corre en PRs que tocan el sistema de bench sin que PRs normales paguen 2hrs de bench (respeta two-tier CI_POLICY).
+- Auto-commit de baseline solo en `github.event_name == 'schedule'` y solo si `has_regression != 'True'` — PRs jamás mutan el baseline del repo y un run con regresión nunca se hornea como baseline. Requiere `permissions.contents: write` (GitHub downgradea a read-only en forks).

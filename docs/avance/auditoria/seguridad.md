@@ -128,6 +128,14 @@ aliases: []
 - **Fecha:** 2026-08-13
 - **Resultado:** ✅ Reemplazo del LRU hand-rolled en `vantadb-python/src/convert.rs` (evicción O(n) `min_by_key`) por `lru::LruCache` (O(1), hash + lista doble); `const CACHE_CAPACITY: NonZeroUsize = 64`; call sites `.cloned()` y `let _ = put(...)`. Dep `lru = "0.16"` en vantadb-python (ya resuelta 0.16.4 en lockfile por el core). Colateral: fix test_load.py (query vectors non-zero; core rechaza zero-norm desde ERR-028). Perf: O(1) vs O(64), microbench 78-80 ops/s sin regresión. Contrato ✅: check -p vantadb_py, fmt, clippy -D warnings, nextest 1913 passed, pytest 85 passed, docs-coverage 0 gaps. Commit `af905c65`.
 
+### AUD-022: Pin SHA sccache-action (supply-chain CI)
+- **Fecha:** 2026-08-13
+- **Resultado:** ✅ `.github/actions/rust-setup/action.yml:73` — única acción externa sin pin SHA: `mozilla-actions/sccache-action@v0.0.11` → `@fd02668681acd5f960e1372061bee5e3e987195c # v0.0.11` (SHA verificada vía GitHub API 2026-08-13). Anotación alineada a AUD-028. YAML OK. Commit `(AUD-022)`.
+
+### AUD-030: Gate de regresión bench en PRs + baseline auto-commiteado
+- **Fecha:** 2026-08-13
+- **Resultado:** ✅ `heavy-bench-nightly-51.yml`: (1) trigger `pull_request` con paths filter (benches/**, benchmarks/**, scripts/bench_regression.py, Cargo.toml) — el gate corre en PRs que tocan el sistema de bench sin que el resto pague 2hrs; (2) step "Update and commit baseline (nightly only)" en analyze — `update-baseline` + commit/push, solo en schedule y solo si no hay regresión (`has_regression != 'True'`); `permissions.contents: write`. El modo `update-baseline` de bench_regression.py ya existía pero no tenía caller → baseline nunca se promovía. YAML OK. Commit `(AUD-030)`.
+
 ---
 
 ## Prevención de breaking changes
