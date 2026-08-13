@@ -61,6 +61,10 @@ Todos los items P1 originales resueltos/deferidos en campañas anteriores.
 
 `COMP-001` (SQ8/PQ), `COMP-002` (HNSW persist), `COMP-003` (in-filter), `COMP-004` (bitset), `COMP-005` (params), `COMP-006` (Edge Label Interning), `COMP-007` (inline u128), `COMP-010` (auto-embedding), `COMP-011` (CRUD tombstones), `COMP-015` (hybrid pipeline), `COMP-018` (Double-linked chains), `COMP-020` (RRF fusion), `COMP-030` (survival mode).
 
+### P16 — Security gaps (1 removido como STALE)
+
+- `AUD-036` — **STALE / falso positivo** (2026-08-13). El finding apuntaba a `src/schema.rs:255,263` (`let _ = std::fs::create_dir_all/remove_dir_all`), pero ambas líneas están dentro de `#[cfg(test)] mod tests` (setup/cleanup de test — idiomático ignorar). El código de producción (`read_from`, `write_to`, `load_or_create_schema`, `check_schema_compatibility`) propaga TODOS los errores fs con `map_err` + `?`, y todos los callers (`src/storage/engine/init.rs:259,266`, `src/migration.rs:342`, `src/cli_handlers/migrate.rs:167,181,206`) propagan con `?`. Sin fix aplicable. Evidencia grep en task file `.opencode/skills/campaign-executor/tasks/AUD-036.md`.
+
 ## Historial de verificación del catálogo
 
 - **2026-07-27:** vanta-lead ejecutó 8 tareas de P5/P6/P8.

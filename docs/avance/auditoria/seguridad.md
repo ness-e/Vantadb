@@ -112,6 +112,10 @@ aliases: []
 - **Fecha:** 2026-08-11
 - **Resultado:** ✅ 9 tests rotos por ERR-027 arreglados (query inválido → 400; fix: `SELECT * FROM Node`) + 4 tests RBAC HTTP nuevos (reader 403, writer/admin 200, reader GET /metrics 200). `cargo test -p vantadb-server --test server` = 19/19. Commits `90f85d9f`, `24a15cdf` (fmt drift).
 
+### AUD-031: Panic-hardening engine embebido (unwrap/expect alcanzables)
+- **Fecha:** 2026-08-13
+- **Resultado:** ✅ 5/5 unwraps `active.iter().next().unwrap()` en `src/storage/engine/ops.rs` convertidos a propagación de error (`ok_or_else` en insert/get/delete; `if let Some` en helpers con comentario de decisión). `parser/mod.rs` no-test = 0 unwraps (151 en tests). No se tocaron los 1381−5 restantes (tests/benches/paths internos ya hardened). Contrato ✅: check, nextest 1885 passed, clippy all-targets/all-features, fmt. Review vanta-review approve post-fix. Commit `c7185d25`.
+
 ---
 
 ## Prevención de breaking changes

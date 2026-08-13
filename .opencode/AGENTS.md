@@ -1011,3 +1011,7 @@ La verificación pre-push manual corre: `cargo fmt → cargo check → cargo cli
 <!-- Learnings: ERR-031 - 2026-08-12 -->
 - El fix principal ya estaba commiteado (339107b0 trait Result + 918e57b1 colateral clippy); el gap real era tests de rechazo por backend. Verificar git history + grep de callers antes de escribir codigo.
 - Un contrato de comportamiento (""rechazo se propaga como Err, no silencioso"") se cierra con un test por backend que pruebe Err + no-mutacion (len sin cambios), no solo el fix en si.
+
+<!-- Learnings: AUD-036 - 2026-08-13 -->
+- Findings de audit con line numbers pueden apuntar a código test-only (`let _ =` en `#[cfg(test)] mod tests`): verificar contexto producción vs test ANTES de implementar fix — el 90% de los "fs error tragado" son cleanup idiomático de tests.
+- Un finding STALE se cierra con evidencia grep (producción limpia + callers propagan con `?`), no con un cambio fabricado. La migración correcta es Backlog → BACKLOG_HISTORY.md + mirror en docs/avance/historial/no-ops.md.

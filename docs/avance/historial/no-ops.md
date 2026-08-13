@@ -34,6 +34,7 @@ aliases: []
 | VFY-007 | remove_node O(n²) neighbor fixup | ✅ Corregido — archivo real `src/index/graph.rs` (no `core.rs`) |
 | VFY-009 | 39 inline styles | ✅ SKIP — todos dinámicos |
 | TSK-106 | GitHub Discussions | ❌ SKIP — requiere humano |
+| AUD-036 | `schema.rs` traga errores de fs (255,263) | ✅ STALE — L255/263 son cleanup de `#[cfg(test)]`; producción propaga todos los fs errors con `map_err`+`?` y todos los callers propagan con `?`. Evidencia: `.opencode/skills/campaign-executor/tasks/AUD-036.md` |
 
 ## SKIP por gate (features ya implementadas, sin re-investigar)
 

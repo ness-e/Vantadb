@@ -446,6 +446,23 @@ Los 3 planes activos restantes quedaron 100% completados (26/26, 16/16, 24/24 DO
 
 **Ids:** `AUDIT-02`
 
+### 2026-08-13 — AUD-031: Panic-hardening engine embebido (unwrap/expect alcanzables) ✅
+
+**Fuente:** Backlog `AUD-031` (derivado del audit full 2026-08-12, `docs/reviews/audit-full-20260812-231204.md`)
+
+**Objetivo:** reemplazar unwrap/expect alcanzables desde la API pública del SDK por propagación de error (`Result`/`?`) — un panic en `VantaEmbedded` mata el proceso host (Python/WASM/TS).
+
+**Resuelto por (vanta-worker):**
+- **Alcance:** solo código no-test alcanzable por usuario. `src/parser/mod.rs` no-test = 0 unwraps (151 matches todos en `#[cfg(test)]`, módulo ≥ línea 550). `src/storage/engine/ops.rs` no-test = exactamente 5 unwraps, todos `active.iter().next().unwrap()` en los sitios 642/949/1004/1483/1837.
+- **Conversión 5/5:** `insert`/`get`/`delete` (funciones `Result`) → `active.iter().next().copied().ok_or_else(|| VantaError::generic_error("active transaction set corrupted: len()==1 but no txn id"))?`; helpers `existing_for_batch`/`existing_for_batch_many` (sin `Result`) → `if let Some(&txn_id)` anidado con comentario de decisión (branch imposible: `parking_lot::Mutex<HashSet<u64>>` poison-free, `len()==1` ⇒ `next()` es `Some`; degradación segura a cache/backend).
+- **Decisión de diseño:** los unwraps estaban protegidos por invariante local, pero son alcanzables por API pública y el costo de conversión es trivial → defensa en profundidad (espíritu del finding: panic mata el host). No se tocaron los 1381−5 restantes (tests/benches/paths internos ya hardened — `ops.rs:1761` bounds-guards + SAFETY, INV-024).
+- **Verify:** `cargo check -p vantadb` ✅; `cargo nextest run --profile audit -p vantadb --build-jobs 2` → **1885 passed** ✅; `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` ✅; `cargo fmt --check` ✅; `rg "\.unwrap\(\)|\.expect\(" src/storage/engine/ops.rs` → 0 matches.
+- **Review P2-01:** dictamen vanta-review — 2 bloqueantes de cierre corregidos (commit + registro REVIEW) y 2 mejoras de documentación aplicadas (`HashSet` no `BTreeSet`; comentarios de defensa en helpers). Approve post-fix.
+
+**Commit:** `c7185d25` — fix: propagate active-txn corruption as error instead of panic (AUD-031)
+
+**Ids:** `AUD-031`
+
 ### 2026-08-04 — Campaña WEB Launch (5 tareas) ✅
 
 **Fuente:** Backlog (plan `docs/plans/2026-08-04-launch-web-campaign.md`)
