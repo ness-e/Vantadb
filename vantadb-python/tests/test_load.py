@@ -62,7 +62,8 @@ class TestConcurrentOperations:
             t.join()
 
         assert not errors, f"Thread errors: {errors}"
-        results = db.search(vector=[0.0] * 128, top_k=10)
+        # Non-zero query vector: core rejects zero-norm cosine queries since ERR-028.
+        results = db.search(vector=[0.5] * 128, top_k=10)
         assert len(results) > 0
 
     def test_concurrent_search_after_inserts(self):
@@ -149,7 +150,8 @@ class TestMemoryPressure:
         for i in range(500):
             db.insert(i, content=f"large_{i}", vector=[float(i)] * 512)
         gc.collect()
-        results = db.search(vector=[0.0] * 512, top_k=5)
+        # Non-zero query vector: core rejects zero-norm cosine queries since ERR-028.
+        results = db.search(vector=[0.5] * 512, top_k=5)
         assert len(results) > 0
 
     def test_high_dimensional_vectors(self):

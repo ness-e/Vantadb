@@ -1,6 +1,7 @@
 //! Conversion helpers between internal VantaDB types and Python objects.
 #![allow(deprecated)]
 
+use lru::LruCache;
 use pyo3::exceptions::{
     PyFileExistsError, PyFileNotFoundError, PyImportError, PyKeyError, PyOSError,
     PyPermissionError, PyRuntimeError, PyTimeoutError, PyTypeError, PyValueError,
@@ -8,7 +9,7 @@ use pyo3::exceptions::{
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::num::NonZeroUsize;
 use vantadb::graph::TraversalDirection;
 use vantadb::sdk::{
     VantaBm25TermContribution, VantaCapabilities, VantaExportReport, VantaHybridFusionReport,
@@ -20,54 +21,17 @@ use vantadb::sdk::{
 use crate::vector::VantaVector;
 
 thread_local! {
-    static LRU_CACHE: RefCell<LruCache> = RefCell::new(LruCache::new(64));
+    static LRU_CACHE: RefCell<LruCache<String, std::collections::BTreeMap<String, VantaValue>>> =
+        RefCell::new(LruCache::new(CACHE_CAPACITY));
 }
 
-struct LruCache {
-    map: HashMap<String, (std::collections::BTreeMap<String, VantaValue>, u64)>,
-    capacity: usize,
-    tick: u64,
-}
-
-impl LruCache {
-    fn new(capacity: usize) -> Self {
-        Self {
-            map: HashMap::with_capacity(capacity),
-            capacity,
-            tick: 0,
-        }
-    }
-
-    /// Retrieve a cached metadata map by key.
-    /// Moves the entry to the most-recently-used position on access in O(1).
-    fn get(&mut self, key: &str) -> Option<std::collections::BTreeMap<String, VantaValue>> {
-        if let Some((value, last_used)) = self.map.get_mut(key) {
-            self.tick = self.tick.wrapping_add(1);
-            *last_used = self.tick;
-            Some(value.clone())
-        } else {
-            None
-        }
-    }
-
-    /// Insert or update a metadata cache entry.
-    /// Eviction is O(n) (`min_by_key` scan) — the "O(1)" in older comments was wrong.
-    fn put(&mut self, key: String, value: std::collections::BTreeMap<String, VantaValue>) {
-        self.tick = self.tick.wrapping_add(1);
-        if self.map.len() >= self.capacity && !self.map.contains_key(&key) {
-            // Evict least recently used entry (minimum tick)
-            if let Some(lru_key) = self
-                .map
-                .iter()
-                .min_by_key(|(_, (_, last_used))| *last_used)
-                .map(|(k, _)| k.clone())
-            {
-                self.map.remove(&lru_key);
-            }
-        }
-        self.map.insert(key, (value, self.tick));
-    }
-}
+/// Cache capacity for small-dict metadata reuse in `py_dict_to_metadata` (CODE-014).
+/// 64 is a compile-time constant — the match cannot fail.
+const CACHE_CAPACITY: NonZeroUsize = match NonZeroUsize::new(64) {
+    Some(cap) => cap,
+    // 64 is a compile-time constant; unreachable!() without args is const-compatible.
+    None => unreachable!(),
+};
 
 pub(crate) fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
     if value.is_none() {
@@ -653,7 +617,7 @@ pub(crate) fn py_dict_to_metadata(
         if use_cache {
             let cached = LRU_CACHE.with(|cache| {
                 let mut cache = cache.borrow_mut();
-                cache.get(&cache_key)
+                cache.get(&cache_key).cloned()
             });
             if let Some(meta) = cached {
                 return Ok(meta);
@@ -669,7 +633,9 @@ pub(crate) fn py_dict_to_metadata(
         if use_cache && metadata.len() <= 4 {
             LRU_CACHE.with(|cache| {
                 let mut cache = cache.borrow_mut();
-                cache.put(cache_key, metadata.clone());
+                // O(1) eviction: lru evicts the least-recently-used entry at capacity
+                // (AUD-039) — the old hand-rolled cache scanned with min_by_key (O(n)).
+                let _ = cache.put(cache_key, metadata.clone());
             });
         }
     }
