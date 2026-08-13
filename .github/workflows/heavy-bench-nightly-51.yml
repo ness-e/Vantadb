@@ -3,6 +3,12 @@ name: 'HEAVY: Benchmarks — Nightly Regression'
 on:
   schedule:
     - cron: '0 3 * * *'
+  pull_request:
+    paths:
+      - 'benches/**'
+      - 'benchmarks/**'
+      - 'scripts/bench_regression.py'
+      - 'Cargo.toml'
   workflow_dispatch:
     inputs:
       enable_critcmp:
@@ -18,7 +24,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 jobs:
@@ -226,6 +232,20 @@ jobs:
             benchmark_report_criterion.json
             bench_comparison_result.json
           retention-days: 30
+
+      # AUD-030: promote tonight's clean run to the new baseline so the
+      # regression gate never compares against a stale baseline. Nightly
+      # (schedule) only — PR runs must NOT mutate the repo baseline. Skipped
+      # when a regression was detected so a bad run is never baked in.
+      - name: Update and commit baseline (nightly only)
+        if: github.event_name == 'schedule' && steps.check_regression.outputs.has_regression != 'True'
+        run: |
+          python scripts/bench_regression.py update-baseline benchmark_report_criterion.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add benchmarks/criterion_baseline.json
+          git commit -m "chore(ci): update criterion bench baseline (nightly)" || echo "No baseline change"
+          git push
 
   # critcmp regression candidate — OFF by default.
   # Enabled via `workflow_dispatch` input `enable_critcmp=true`. On the first
