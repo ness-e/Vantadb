@@ -167,7 +167,7 @@ jobs:
 
 **Trigger**: Tag `v*`, manual dispatch
 
-**Jobs**: Generate CycloneDX SBOM, upload as artifact
+**Jobs**: Generate CycloneDX SBOMs (Rust, npm, Python), upload as 3 artifacts
 
 ---
 

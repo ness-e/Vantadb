@@ -28,7 +28,21 @@ jobs:
         with:
           tool: cargo-cyclonedx
       - run: cargo cyclonedx --format json --override-filename sbom
+      - name: Generate npm SBOM
+        run: npx --yes @cyclonedx/cyclonedx-npm --package-lock-only --output-file sbom-web.json web/package.json
+      - name: Generate Python SBOM
+        run: |
+          python3 -m pip install --user --quiet cyclonedx-bom
+          python3 -m cyclonedx_py requirements - --pyproject vantadb-python/pyproject.toml --output-file sbom-python.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: sbom
           path: sbom.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sbom-web
+          path: sbom-web.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sbom-python
+          path: sbom-python.json
