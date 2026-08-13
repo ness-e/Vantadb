@@ -172,16 +172,14 @@ impl StorageEngine {
         };
 
         let hnsw = self.hnsw.load();
-        for op in &ops {
+        // Consume the taken batch by value: the Vec was already moved out of
+        // the mutex via `mem::take`, so iterating by value moves each op into
+        // `add` instead of cloning bitset+vector per insert (AUD-024).
+        for op in ops {
             if op.is_delete {
                 hnsw.nodes.remove(&op.id);
             } else {
-                hnsw.add(
-                    op.id,
-                    op.bitset.clone(),
-                    op.vector.clone(),
-                    op.storage_offset,
-                )?;
+                hnsw.add(op.id, op.bitset, op.vector, op.storage_offset)?;
             }
         }
         Ok(true)
@@ -221,16 +219,13 @@ impl StorageEngine {
                 std::mem::take(&mut *pending)
             };
             let hnsw = self.hnsw.load();
-            for op in &ops {
+            // Same ownership refactor as drain_hnsw_batch_locked (AUD-024):
+            // consume the taken batch by value to avoid 2 heap clones/insert.
+            for op in ops {
                 if op.is_delete {
                     hnsw.nodes.remove(&op.id);
                 } else {
-                    hnsw.add(
-                        op.id,
-                        op.bitset.clone(),
-                        op.vector.clone(),
-                        op.storage_offset,
-                    )?;
+                    hnsw.add(op.id, op.bitset, op.vector, op.storage_offset)?;
                 }
             }
             // guard dropped here
