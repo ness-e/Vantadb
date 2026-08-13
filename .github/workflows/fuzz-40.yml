@@ -3,6 +3,12 @@ name: 'FUZZ: LibFuzzer — Corpus + Regression'
 on:
   schedule:
     - cron: '0 6 * * 1'  # Every Monday 06:00 UTC
+  pull_request:
+    # Fuzz gate acotado: solo se dispara en PRs que tocan código core/persistencia
+    # (paths-filter nativo — no alarga el Fast Gate con PRs docs-only)
+    paths:
+      - 'src/**'
+      - 'fuzz/**'
   workflow_dispatch:
     inputs:
       max_seconds:
@@ -31,6 +37,7 @@ jobs:
   build:
     name: Build fuzz targets
     needs: ci-gate
+    if: github.event_name != 'pull_request'  # el fuzz completo queda para schedule/dispatch; PRs usan fuzz-pr
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -55,6 +62,7 @@ jobs:
   fuzz:
     name: Fuzz ${{ matrix.target }}
     needs: [ci-gate, build]
+    if: github.event_name != 'pull_request'  # el fuzz completo queda para schedule/dispatch; PRs usan fuzz-pr
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -95,3 +103,47 @@ jobs:
 
       - name: Run ${{ matrix.target }}
         run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.target }} -- -max_total_time=${{ inputs.max_seconds || '60' }} -max_len=8192
+
+  fuzz-pr:
+    # Gate acotado para PRs: 75s por target (4 targets en paralelo ≈ 5-8 min).
+    # Ubuntu-only (Windows da flaky en fuzz); timeout <= 15 min; sin continue-on-error (Regla 2).
+    name: Fuzz PR gate ${{ matrix.target }}
+    if: github.event_name == 'pull_request'
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - fuzz_parser
+          - fuzz_node_deserialize
+          - fuzz_wal
+          - fuzz_archive
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
+        with:
+          toolchain: nightly
+
+      - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef
+        with:
+          shared-key: fuzz-build
+
+      - name: Restore fuzz corpus cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.ref_name }}
+          restore-keys: |
+            fuzz-corpus-${{ matrix.target }}-
+
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a
+        with:
+          tool: cargo-fuzz
+
+      - name: Run bounded fuzz on ${{ matrix.target }}
+        run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.target }} -- -max_total_time=75 -max_len=8192
