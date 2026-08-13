@@ -497,6 +497,24 @@ Los 3 planes activos restantes quedaron 100% completados (26/26, 16/16, 24/24 DO
 
 **Ids:** `AUD-024`
 
+### 2026-08-13 — AUD-039: LRU eviction O(1) con crate `lru` en python bindings ✅
+
+**Fuente:** Backlog `AUD-039` (derivado del audit full 2026-08-12, `docs/reviews/audit-full-20260812-231204.md`, finding P2-3)
+
+**Objetivo:** `py_dict_to_metadata` cacheaba metadata con un LRU hand-rolled cuya evicción era O(n) (`min_by_key` scan sobre capacity 64) — swap a `lru::LruCache` (O(1), hash + lista doblemente enlazada).
+
+**Resuelto por (vanta-worker):**
+- **Reemplazo:** struct `LruCache` custom (convert.rs:26-70, 49 líneas) → `lru::LruCache<String, BTreeMap<String, VantaValue>>`; `const CACHE_CAPACITY: NonZeroUsize = 64` (match + `unreachable!()` sin args por E0015); call sites `cache.get(&key).cloned()` y `let _ = cache.put(...)` (`Option` es `#[must_use]`).
+- **Deps:** `lru = "0.16"` agregada a `vantadb-python/Cargo.toml` — ya era dep directa del core (cli_server.rs) y estaba resuelta en el lockfile (0.16.4); sin crate nuevo ni bump. NO usar la 0.12.5 transitiva de tantivy.
+- **Perf (FASE PERFORMANCE):** evicción O(1) documentada (lru) vs O(64) scan previo. Microbench venv: ~78-80 ops/s en thrash y hits — el cuello de botella es el engine (WAL+indexación), no la cache; sin regresión funcional (thresholds de `test_sustained_*` pasan).
+- **Colateral:** `test_load.py` usaba `search(vector=[0.0]*dim)` → el core rechaza zero-norm cosine queries desde ERR-028 (b8058a26, pre-existente) — fix de test a query vector non-zero.
+- **Verify:** `cargo check -p vantadb_py` ✅; fmt ✅; `cargo clippy --workspace --all-targets --all-features -- -D warnings` ✅; `cargo nextest run --profile audit --workspace --build-jobs 2` → **1913 passed** ✅; pytest bindings → **85 passed** ✅; `scripts/validate-docs-coverage.ps1` → 0 gaps ✅.
+- **Sin cambio de comportamiento:** cache thread-local privada, capacidad 64 preservada; `py_dict_to_metadata` (7 callers en lib.rs) sin firma modificada.
+
+**Commit:** `af905c65` — perf: swap LRU eviction to O(1) lru crate in python bindings (AUD-039)
+
+**Ids:** `AUD-039`
+
 ### 2026-08-04 — Campaña WEB Launch (5 tareas) ✅
 
 **Fuente:** Backlog (plan `docs/plans/2026-08-04-launch-web-campaign.md`)

@@ -124,6 +124,10 @@ aliases: []
 - **Fecha:** 2026-08-13
 - **Resultado:** ✅ Refactor de ownership en `src/storage/engine/ops.rs`: `for op in ops` (consumir la Vec tomada vía `mem::take`) + pasar `op.bitset`/`op.vector` por valor (HnswGraph::add ya los toma por valor) → 0 heap clones por insert en el drain. Mismo fix en `try_push_pending_hnsw` (drain opportunista). Perf bench_concurrent 10k inserts: 178.11s → 137.95s (-22.5%). Contrato ✅: check, fmt, clippy -D warnings, nextest 1913 passed, docs-coverage 0 gaps. Commit `e4c2ff8e`.
 
+### AUD-039: LRU eviction O(1) con crate `lru` en python bindings (P2-3)
+- **Fecha:** 2026-08-13
+- **Resultado:** ✅ Reemplazo del LRU hand-rolled en `vantadb-python/src/convert.rs` (evicción O(n) `min_by_key`) por `lru::LruCache` (O(1), hash + lista doble); `const CACHE_CAPACITY: NonZeroUsize = 64`; call sites `.cloned()` y `let _ = put(...)`. Dep `lru = "0.16"` en vantadb-python (ya resuelta 0.16.4 en lockfile por el core). Colateral: fix test_load.py (query vectors non-zero; core rechaza zero-norm desde ERR-028). Perf: O(1) vs O(64), microbench 78-80 ops/s sin regresión. Contrato ✅: check -p vantadb_py, fmt, clippy -D warnings, nextest 1913 passed, pytest 85 passed, docs-coverage 0 gaps. Commit `af905c65`.
+
 ---
 
 ## Prevención de breaking changes
