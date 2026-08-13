@@ -23,6 +23,11 @@ on:
         description: 'Dimensionality of vectors'
         required: true
         default: '128'
+      update_baseline:
+        description: 'Rebaseline: write benchmarks/python_baseline.json (median of 3 runs) and upload as artifact instead of comparing'
+        required: false
+        default: 'false'
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -64,12 +69,93 @@ jobs:
         .venv/bin/pip install $(ls -t vantadb-python/dist/vantadb_py-*.whl | head -n 1) --force-reinstall
         .venv/bin/python -c "import vantadb_py; print('Import OK:', vantadb_py.__version__)"
 
-    - name: Run Standard Ingestion & Search Benchmark
+    - name: Run Standard Ingestion & Search Benchmark (3 runs)
       run: |
         SIZE="${{ github.event.inputs && github.event.inputs.size || '1000' }}"
         QUERIES="${{ github.event.inputs && github.event.inputs.queries || '100' }}"
         DIM="${{ github.event.inputs && github.event.inputs.dim || '128' }}"
-        .venv/bin/python benchmarks/vantadb_local_bench.py --size $SIZE --dim $DIM --queries $QUERIES --output benchmark_results.json
+        for i in 1 2 3; do
+          .venv/bin/python benchmarks/vantadb_local_bench.py --size $SIZE --dim $DIM --queries $QUERIES --output benchmark_results.$i.json
+        done
+
+    - name: Compare vs baseline (median of 3 runs)
+      run: |
+        .venv/bin/python - <<'PYEOF'
+        import json
+        import statistics
+        import sys
+
+        THRESHOLD_PCT = 15.0
+
+        # Higher-is-better metrics; everything else in *_ms is lower-is-better
+        def is_regression(key, current, base):
+            if key == 'throughput_records_per_sec':
+                return (base - current) / base * 100.0 > THRESHOLD_PCT
+            if key.endswith('_ms'):
+                return (current - base) / base * 100.0 > THRESHOLD_PCT
+            return False
+
+        # 1. Median of the 3 runs per metric
+        runs = []
+        for i in (1, 2, 3):
+            with open(f'benchmark_results.{i}.json') as f:
+                runs.append(json.load(f))
+        median_report = {}
+        sections = runs[0].keys()
+        for section in sections:
+            median_report[section] = {}
+            for key in runs[0][section]:
+                values = [r[section][key] for r in runs if section in r and key in r[section]]
+                median_report[section][key] = statistics.median(values)
+
+        # benchmark_results.json keeps the same shape for downstream steps
+        with open('benchmark_results.json', 'w') as f:
+            json.dump(median_report, f, indent=4)
+
+        with open('benchmarks/python_baseline.json') as f:
+            baseline = json.load(f)
+
+        if '${{ inputs.update_baseline }}' == 'true':
+            baseline['benchmarks'] = median_report
+            baseline['metadata']['updated'] = __import__('datetime').date.today().isoformat()
+            with open('benchmarks/python_baseline.json', 'w') as f:
+                json.dump(baseline, f, indent=4)
+            print('::notice::Baseline updated in benchmarks/python_baseline.json — upload artifact and commit it manually')
+            sys.exit(0)
+
+        stored = baseline.get('benchmarks', {})
+        if not stored:
+            print('::warning::No baseline stored yet (benchmarks/python_baseline.json empty). '
+                  'Run with update_baseline=true and commit the artifact to activate the regression gate.')
+            sys.exit(0)
+
+        regressions = []
+        for section in median_report:
+            for key, current in median_report[section].items():
+                base = stored.get(section, {}).get(key)
+                if base is None or base <= 0:
+                    continue
+                if is_regression(key, current, base):
+                    pct = (current - base) / base * 100.0
+                    if key == 'throughput_records_per_sec':
+                        pct = (base - current) / base * 100.0
+                    regressions.append(f'{section}.{key}: {current:.2f} vs baseline {base:.2f} ({pct:+.1f}% > {THRESHOLD_PCT}%)')
+
+        if regressions:
+            for r in regressions:
+                print(f'::error::Performance regression: {r}')
+            sys.exit(1)
+
+        print(f'::notice::No regression > {THRESHOLD_PCT}% detected across {sum(len(m) for m in median_report.values())} metrics.')
+        PYEOF
+
+    - name: Upload Baseline Candidate
+      if: ${{ inputs.update_baseline == 'true' }}
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: vanta-benchmark-baseline-candidate
+        path: benchmarks/python_baseline.json
+        retention-days: 14
 
     - name: Update BENCHMARKS.md dynamically
       run: |
