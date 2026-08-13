@@ -141,6 +141,10 @@ aliases: []
 - **Fecha:** 2026-08-12
 - **Resultado:** ✅ `node.rs` 2078L → 8 submódulos (`bitset,vector_data,label,edge,field,flags,disk,unified`) + mod.rs facade con re-exports byte-idénticos (lib.rs:157-160); `vfile.rs` 1309L → `vfile_mmap.rs` (shim+AlignedBytes+SIGBUS) + VantaFile ~490L. unsafe 30 preservados con `// SAFETY:`, tests 64+32 sin pérdida. `config.rs` NO se parte (assessment ponytail en header: cohesive leave-as-is). Commit `d5624082`.
 
+### P2-7: Serialización zero-copy del sparse vector (formato persistido)
+- **Fecha:** 2026-08-12
+- **Resultado:** ✅ ADR-019: sparse se persiste como `FieldValue::ListFloat(Vec<f64>)` con pares intercalados `[dim, val]` (lossless u32→f64/f32→f64, orden determinista por BTreeMap) en vez de `FieldValue::String(serde_json)` bajo `SPARSE_VECTOR_EXT_KEY`. Write path `sparse_vector_to_field` sin serde_json (elimina ~1.49% del hot-path de búsqueda); read path dual: `ListFloat` decode directo + `String` legacy para compat backward; faltante → `None` (PERF-07); corrupto → warn + `None`. `VantaMemoryRecord.sparse_vector` público intacto. Sin migración one-shot (lazy en próximo put); shim legacy hasta gate de versionado de storage. 1885/1885 tests + clippy `-D warnings` + fmt --check ✅. Review P2-01 APPROVE. Commit `2f1a94e1`.
+
 ### REVIEW-05: Split god files serialize.rs + distance.rs + physical_plan.rs
 - **Fecha:** 2026-08-12
 - **Resultado:** ✅ `serialize.rs` 1595L → `src/index/serialize/{mod,bytes,file}.rs` (impl CPIndex dividido por concern: bytes/file); `distance.rs` 1721L → `src/index/distance/{mod,kernels,metrics,mapper}.rs` (SIMD f32x8/f32x16 y métricas byte-idénticos, dispatch de calculate_similarity preservado, items `pub(crate)` cross-módulo); `physical_plan.rs` 1542L → `src/physical_plan/{mod,scan,filter,vector,project,sort,join}.rs` (10 operadores, `evaluate_condition` pub(crate) solo para tests). Re-exports `index/mod.rs:22` (`pub use distance::*`) y `lib.rs:110` intactos; API pública removed=[] added=[]; 1878/1878 tests (nextest audit) + clippy `-D warnings` + fmt --check ✅. P2-7 (zero-copy serialization) diferida, no se mezcla con el refactor. Commit `92852f9f`.
