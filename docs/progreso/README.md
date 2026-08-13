@@ -3387,3 +3387,10 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Objetivo:** Arreglar 9 tests HTTP rotos por ERR-027 (query inválido → 400) y añadir cobertura de auth/RBAC/rate-limit.
 - **Resultado:** ✅ cargo test -p vantadb-server --test server = 19/19 pass (15 originales + 4 RBAC). Commits: `90f85d9f` (tests), `24a15cdf` (fmt drift pre-existente en src/sdk/api.rs).
 - **Ids:** `AUD-020`
+
+### CI-04: CodeQL multi-lenguaje (rust + python + javascript-typescript)
+- **Fuente:** Plan 2026-08-12-ci-deuda.md Task 3
+- **Fecha:** 2026-08-12
+- **Objetivo:** Ampliar `sec-codeql-30.yml` de `languages: rust` a `rust, python, javascript-typescript` para cubrir web/ (Next.js) y bindings Python; extender timeout 30→45 min (Risk Register); sin tocar queries (suite default).
+- **Resultado:** ✅ actionlint exit 0 (pre-commit hook ok). Commits: `202af1f6` (workflow+task file), `6477aa87` (sync plan+task file). "CodeQL job corre sin error" pendiente de verificación en CI tras push.
+- **Ids:** `CI-04`

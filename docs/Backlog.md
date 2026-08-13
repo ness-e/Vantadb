@@ -171,7 +171,6 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 |----|-------------|----------|----------|------|
 | `CI-02` | **Fuzzing solo semanal (WF1-016)** — `fuzz-40.yml` corre solo `cron '0 6 * * 1'`; bugs de persistencia no se detectan en PRs. Agregar job de fuzz acotado (persistencia/WAL) en PRs o gate opcional | `.github/workflows/fuzz-40.yml` | 🟡 | 🟠 |
 | `CI-03` | **SBOM solo Rust (WF2-015)** — `release-sbom-64.yml` usa solo `cargo-cyclonedx`; huecos Python/TS. Agregar cyclonedx-npm + Python SBOM | `.github/workflows/release-sbom-64.yml` | 🟢 | 🟡 |
-| `CI-04` | **CodeQL solo `languages: rust` (WF2-020)** — excluye Python/TS (web/). Extender a `python` + `javascript-typescript` | `.github/workflows/sec-codeql-30.yml` | 🟢 | 🟡 |
 | `CI-05` | **Benchmarks sin baseline fijo (WF1-027/029)** — `perf-bench-40.yml` compara 2 commits consecutivos, no detecta regresión en dos commits; sin perf budget bloqueante | `.github/workflows/perf-bench-40.yml` | 🟡 | 🟡 |
 | `CI-06` | **release-binaries/npm no ejecutan tests (WF2-007/010)** — build-only; agregar gate de tests antes de publicar | `.github/workflows/release-binaries-63.yml`, `release-npm-61.yml` | 🟢 | 🟡 |
 | `CI-07` | **SHA pinning de acciones sin verificar (PLAN2-042)** — 129 `uses:` en 17 workflows, mezcla de tags y SHAs | `.github/workflows/*.yml` | 🟡 | 🟢 |
