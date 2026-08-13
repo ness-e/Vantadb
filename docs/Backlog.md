@@ -433,18 +433,16 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | AUD-028 | Media | 74 SHA pins sin anotar (# vX.Y.Z) — auditabilidad supply chain (OpenSSF Scorecard) | .github/workflows/*.yml | ⏳ pendiente |
 | AUD-029 | Media | CI-05 verify-log registra passed:false para contrato con artifact válido (harness/cwd/quoting) — re-correr desde raíz | .opencode/task-system/enforcement/verify-log.jsonl | ⏳ pendiente |
 | AUD-030 | Media | Gate de regresión bench no corre en PRs ni auto-commitea baseline (puede quedar stale) — add pull_request trigger | .github/workflows/heavy-bench-nightly-51.yml | ⏳ pendiente |
-| AUD-031 | Media | 1381 unwrap + 196 expect no-test en core — panic en engine embebido crashea proceso host | src/storage/engine/ops.rs, src/parser/mod.rs | ⏳ pendiente |
 | AUD-032 | Media | Monolito `vantadb-mcp` 1607L en 1 archivo, solo 2 tests — peor ratio tests/líneas del workspace (mcp 5/10, rec#11) | crates/vantadb-mcp (monolito) | ⏳ pendiente |
 | AUD-033 | Media | `vantadb-server` sin tests (0 #[test]) + arg-scan manual ignora flags desconocidos — validar args + suite de tests | crates/vantadb-server | ⏳ pendiente |
 | AUD-034 | Media | Transacción IDB duplicada ×4 en WASM (write/del × lock/no-lock) — dedupe en un helper transaccional | vantadb-wasm/src/idb.rs:33-70 | ⏳ pendiente |
 | AUD-035 | Media | Megafiles core: split siguiendo patrón REVIEW-05 (serialize/distance/physical_plan) | src/sdk/search/mod.rs:2357, src/storage/engine/ops.rs:2112, src/index/search.rs:2054 | ⏳ pendiente |
-| AUD-036 | Media | `schema.rs` traga errores de fs (255,263) — propagar error en vez de ignorar (riesgo data-loss silencioso) | src/schema.rs:255,263 | ⏳ pendiente |
 | AUD-037 | Media | Fallback silencioso a Fjall con backend desconocido + duplicación new()/connect() config — error explícito + unificar | vantadb-python/src/lib.rs:210-217 | ⏳ pendiente |
 | AUD-038 | Baja | `#![allow(unused_unsafe)]` enmascara unsafe muerto — remover y limpiar warnings resultantes | src/lib.rs:3 | ⏳ pendiente |
 | AUD-039 | Media | P2-3: LRU eviction O(n) `min_by_key` sigue presente — swap a crate `lru` O(1) (ya en workspace) | vantadb-python/src/convert.rs:55-67 | ⏳ pendiente |
 | AUD-040 | Baja | WAL `batch_append` aloca Vec por record (`to_allocvec`) — `serialize_into` con Cursor elimina n allocs | src/wal.rs:297-329 | ⏳ pendiente |
 | AUD-041 | Baja | Bench `sparse_hot_path` mide path viejo (serde_json) — agregar arm para ListFloat P2-7 | benches/sparse_hot_path.rs | ⏳ pendiente |
-| AUD-042 | Media | Upgrade tantivy ≥0.18 — elimina allowlist RUSTSEC-2026-0253 + desbloquea lru 0.18 (security debt, rec#6) | Cargo.toml (tantivy) | ⏳ pendiente |
+| AUD-042 | Media | Upgrade tantivy ≥0.18 — elimina allowlist RUSTSEC-2026-0253 + desbloquea lru 0.18 (security debt, rec#6) | Cargo.toml (tantivy), deny.toml | 🔴 BLOQUEADO upstream — verificado 2026-08-13: tantivy 0.26.1 (última publicada) fija `lru ^0.16.3`; el fix (`lru = "0.18.2"`) está en tantivy main (0.27.0) pero NO publicada en crates.io (404). Re-evaluar cuando tantivy ≥0.27.0 publique: bump tantivy + lru directo a 0.18.2 y remover allowlist. Comentario deny.toml actualizado con el estado. |
 | AUD-043 | Baja | P2-8: `collect_all_deduped` O(n) HashSet<String,String> — dedup con u128 node-ids (low prio) | vantadb-wasm/src/lib.rs:556-588 | ⏳ pendiente |
 
 ---

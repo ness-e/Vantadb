@@ -12,15 +12,19 @@ ignore = [
     # tikv-jemalloc-ctl no longer pulls paste. Re-add only if it reappears.
 
     # RUSTSEC-2026-0253 (lru 0.16.4, use-after-free in LruCache::pop; CWE-416/415):
-    # AUD-016: explicitly ignored (mechanized). The finding referenced the wrong ID
-    # (RUSTSEC-2026-0002, which is not in the advisory DB). The real advisory is
-    # RUSTSEC-2026-0253. It is present in the default graph via lru 0.16.4 (direct
-    # dep of vantadb and transitive via tantivy 0.26.1). Fixed only in lru 0.18.2,
-    # but tantivy 0.26.1 pins lru ^0.16, so we cannot upgrade without an upstream
-    # tantivy release. Exploitability is narrow: requires unwinding panics AND
-    # catch_unwind with key types whose Drop can panic; VantaDB's cache keys are
-    # simple types (no panicking Drop). Tracked for when tantivy bumps lru.
-    { id = "RUSTSEC-2026-0253", reason = "use-after-free in LruCache::pop (lru 0.16.4 via tantivy 0.26.1, fixed only in 0.18.2 which tantivy pins ^0.16); narrow exploitability (needs catch_unwind + panicking-Drop keys); VantaDB cache keys are simple types. Tracked upstream." },
+    # AUD-042 (2026-08-13): re-verified against crates.io + upstream. lru < 0.18.2
+    # affected; patched >= 0.18.2. lru 0.16.4 is in the default graph via BOTH the
+    # direct dep (lru = "0.16", Cargo.toml:33, cli_server.rs) AND tantivy 0.26.1,
+    # which pins lru ^0.16.3 (verified via crates.io dependencies API). tantivy
+    # 0.26.1 is the latest RELEASED version; tantivy main (0.27.0, unpublished,
+    # verified via GitHub Cargo.toml) uses lru = "0.18.2" — the fix is upstream but
+    # not yet on crates.io. Bumping direct lru alone does NOT clear the advisory
+    # (0.16.4 remains transitively via tantivy) and would create a version split.
+    # Exploitability is narrow: requires unwinding panics AND catch_unwind with key
+    # types whose Drop can panic; VantaDB's cache keys are simple types (no
+    # panicking Drop). RE-EVALUATE when tantivy >= 0.27.0 publishes to crates.io:
+    # bump tantivy + direct lru to 0.18.2, then remove this allowlist entry.
+    { id = "RUSTSEC-2026-0253", reason = "use-after-free in LruCache::pop (lru 0.16.4; direct dep + transitive via tantivy 0.26.1 which pins lru ^0.16; patched >= 0.18.2). AUD-042 verified 2026-08-13: fix merged in tantivy main (0.27.0 uses lru 0.18.2) but unpublished. Narrow exploitability (needs catch_unwind + panicking-Drop keys); VantaDB cache keys are simple types. Remove this entry when tantivy >= 0.27.0 publishes." },
 ]
 
 [licenses]
