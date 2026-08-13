@@ -639,7 +639,11 @@ impl StorageEngine {
             let active = self.active_txns.lock();
             if !active.is_empty() {
                 if active.len() == 1 {
-                    let txn_id = *active.iter().next().unwrap();
+                    let txn_id = active.iter().next().copied().ok_or_else(|| {
+                        crate::error::VantaError::generic_error(
+                            "active transaction set corrupted: len()==1 but no txn id".to_string(),
+                        )
+                    })?;
                     drop(active);
                     let now_ms = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
@@ -946,22 +950,28 @@ impl StorageEngine {
         {
             let active = self.active_txns.lock();
             if active.len() == 1 {
-                let txn_id = *active.iter().next().unwrap();
-                drop(active);
-                let buffers = self.txn_buffers.lock();
-                if let Some(buffer) = buffers.get(&txn_id) {
-                    for op in buffer.iter().rev() {
-                        match op {
-                            BufferedWrite::Insert(node) if node.id == id => {
-                                return Some(ExistingMeta {
-                                    relational: node.relational.clone(),
-                                    edges: node.edges.clone(),
-                                });
+                // Impossible branch guard: a HashSet with len()==1 always yields
+                // one element, so the skip below is dead code kept for defense in
+                // depth (panic → no host kill). If it ever fired, falling through
+                // to cache/backend is the safe degradation for this best-effort
+                // metadata probe (AUD-031).
+                if let Some(&txn_id) = active.iter().next() {
+                    drop(active);
+                    let buffers = self.txn_buffers.lock();
+                    if let Some(buffer) = buffers.get(&txn_id) {
+                        for op in buffer.iter().rev() {
+                            match op {
+                                BufferedWrite::Insert(node) if node.id == id => {
+                                    return Some(ExistingMeta {
+                                        relational: node.relational.clone(),
+                                        edges: node.edges.clone(),
+                                    });
+                                }
+                                BufferedWrite::Delete(del_id) if *del_id == id => {
+                                    return None;
+                                }
+                                _ => {}
                             }
-                            BufferedWrite::Delete(del_id) if *del_id == id => {
-                                return None;
-                            }
-                            _ => {}
                         }
                     }
                 }
@@ -1001,27 +1011,33 @@ impl StorageEngine {
         {
             let active = self.active_txns.lock();
             if active.len() == 1 {
-                let txn_id = *active.iter().next().unwrap();
-                drop(active);
-                let buffers = self.txn_buffers.lock();
-                if let Some(buffer) = buffers.get(&txn_id) {
-                    for (i, id) in ids.iter().enumerate() {
-                        for op in buffer.iter().rev() {
-                            match op {
-                                BufferedWrite::Insert(node) if node.id == *id => {
-                                    result[i] = Some(ExistingMeta {
-                                        relational: node.relational.clone(),
-                                        edges: node.edges.clone(),
-                                    });
-                                    resolved[i] = true;
-                                    break;
+                // Impossible branch guard: a HashSet with len()==1 always yields
+                // one element, so the skip below is dead code kept for defense in
+                // depth (panic → no host kill). If it ever fired, the probe falls
+                // through to cache/backend — safe degradation for this best-effort
+                // read-your-writes scan (AUD-031).
+                if let Some(&txn_id) = active.iter().next() {
+                    drop(active);
+                    let buffers = self.txn_buffers.lock();
+                    if let Some(buffer) = buffers.get(&txn_id) {
+                        for (i, id) in ids.iter().enumerate() {
+                            for op in buffer.iter().rev() {
+                                match op {
+                                    BufferedWrite::Insert(node) if node.id == *id => {
+                                        result[i] = Some(ExistingMeta {
+                                            relational: node.relational.clone(),
+                                            edges: node.edges.clone(),
+                                        });
+                                        resolved[i] = true;
+                                        break;
+                                    }
+                                    BufferedWrite::Delete(del_id) if *del_id == *id => {
+                                        // Definitive: not present from the reader's view.
+                                        resolved[i] = true;
+                                        break;
+                                    }
+                                    _ => {}
                                 }
-                                BufferedWrite::Delete(del_id) if *del_id == *id => {
-                                    // Definitive: not present from the reader's view.
-                                    resolved[i] = true;
-                                    break;
-                                }
-                                _ => {}
                             }
                         }
                     }
@@ -1480,7 +1496,11 @@ impl StorageEngine {
         {
             let active = self.active_txns.lock();
             if active.len() == 1 {
-                let txn_id = *active.iter().next().unwrap();
+                let txn_id = active.iter().next().copied().ok_or_else(|| {
+                    crate::error::VantaError::generic_error(
+                        "active transaction set corrupted: len()==1 but no txn id".to_string(),
+                    )
+                })?;
                 drop(active);
                 let buffers = self.txn_buffers.lock();
                 if let Some(buffer) = buffers.get(&txn_id) {
@@ -1834,7 +1854,11 @@ impl StorageEngine {
             let active = self.active_txns.lock();
             if !active.is_empty() {
                 if active.len() == 1 {
-                    let txn_id = *active.iter().next().unwrap();
+                    let txn_id = active.iter().next().copied().ok_or_else(|| {
+                        crate::error::VantaError::generic_error(
+                            "active transaction set corrupted: len()==1 but no txn id".to_string(),
+                        )
+                    })?;
                     drop(active);
                     let mut buffers = self.txn_buffers.lock();
                     buffers
