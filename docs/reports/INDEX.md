@@ -16,7 +16,8 @@
 |---|---|---|---|---|---|---|
 | 2026-08-10-1740 | eval | `docs/reports/dora.md` | — | — | vigente | P3-07 (P3): DORA flow metrics — cycle/lead time, CFR, throughput, flow table desde plan files + task files + `verify-log.jsonl` (fechas derivadas best-effort, fallback mtime) |
 | 2026-08-10-2007 | eval | `docs/reports/pipeline-evals.md` | — | — | vigente | EVAL-01 (P0): harness de evals del pipeline — North Star metrics (primer intento, falsos positivos, regresión) desde `verify-log.jsonl` |
-| 2026-08-08-0026 | full | `docs/reviews/audit-full-20260808-002617.md` | ? FAIL | 0/5/8/9/0 | vigente | INV-024 sin tests + prune duplica select_neighbors; clippy gate rojo (5 pre-existentes). AUD-012..021 derivados |
+| 2026-08-08-0026 | full | `docs/reviews/audit-full-20260808-002617.md` | ? FAIL | 0/5/8/9/0 | superado | INV-024 sin tests + prune duplica select_neighbors; clippy gate rojo (5 pre-existentes). AUD-012..021 derivados. (superado por audit-full-20260812-231204) |
+| 2026-08-12-2312 | full | `docs/reviews/audit-full-20260812-231204.md` | ✅ PASS | 0/5/5/10/3 | vigente | CI-07 pinning vérifié 17/17 + P2-7 VERIFIED ROI (serde_json fuera del write path); VETO falso reversado (`.env.tokens` gitignored); certify nocturno 7/7 (Recall 0.971). AUD-022..031 derivados |
 | 2026-08-05-2025 | certify | `docs/reviews/review-certify-2026-08-05-2025.md` | ✅ PASS | 0/0/2/8/7 | vigente | Certify pre-push 9.4/10 (A). Recomendaciones: mitigar npm-audit web (6 vulns), migrar put_batch a keyword |
 | 2026-08-05-1545 | full | `docs/reviews/review-full-2026-08-05-t1545.md` | ❌ FAIL | — | vigente | Full ISO 7.1/10 (B). (Sync pendiente) |
 | 2026-07-27-0309 | full | `docs/reviews/review-full-2026-07-27-0309.md` | — | — | superado | Full previo; findings consumidos en P14 REVIEW del backlog |
