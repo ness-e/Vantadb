@@ -2473,4 +2473,50 @@ mod tests {
         assert!(!hits.is_empty(), "should find both records");
         assert_eq!(hits[0].record.key, "a", "closest vector is a");
     }
+
+    // ── sparse vector search (ADR-019 round-trip) ──────────────
+
+    #[test]
+    fn test_sparse_search_roundtrip_recall_identical() {
+        let db = setup();
+
+        // Record with a sparse vector — write path now persists ListFloat pairs.
+        let mut sparse = crate::node::SparseVector::new();
+        sparse.insert(1, 0.5);
+        sparse.insert(2, 1.0);
+        let input = VantaMemoryInput {
+            namespace: "sparse".into(),
+            key: "sparse-doc".into(),
+            payload: "sparse payload".into(),
+            metadata: VantaMemoryMetadata::new(),
+            vector: None,
+            sparse_vector: Some(sparse),
+            ttl_ms: None,
+        };
+        let record = db.put(input).expect("put should succeed");
+        assert!(record.sparse_vector.is_some(), "sparse survives put");
+
+        // Fetch back from store (read path must reconstruct the sparse vector).
+        let fetched = db
+            .get("sparse", "sparse-doc")
+            .expect("get should succeed")
+            .expect("record should exist");
+        let mut expected = crate::node::SparseVector::new();
+        expected.insert(1, 0.5);
+        expected.insert(2, 1.0);
+        assert_eq!(fetched.sparse_vector, Some(expected));
+
+        // Search by sparse query → recall identical to the stored vector.
+        let mut query = crate::node::SparseVector::new();
+        query.insert(2, 1.0);
+        let req = VantaMemorySearchRequest {
+            namespace: "sparse".into(),
+            query_sparse: Some(query),
+            top_k: 5,
+            ..Default::default()
+        };
+        let hits = db.search(req).expect("sparse search should succeed");
+        assert!(!hits.is_empty(), "sparse query should hit the record");
+        assert_eq!(hits[0].record.key, "sparse-doc");
+    }
 }

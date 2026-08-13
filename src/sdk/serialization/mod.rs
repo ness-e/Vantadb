@@ -5,7 +5,7 @@
 use super::builder::VantaEmbedded;
 use super::types::*;
 use crate::error::{Result, VantaError};
-use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
+use crate::node::{FieldValue, SparseVector, UnifiedNode, VectorRepresentations};
 use twox_hash::XxHash3_128;
 use web_time::{SystemTime, UNIX_EPOCH};
 
@@ -24,9 +24,9 @@ pub const FIELD_UPDATED_AT_MS: &str = "__vanta_updated_at_ms";
 pub const FIELD_VERSION: &str = "__vanta_version";
 /// Internal field name storing the optional Unix-ms expiry deadline.
 pub const FIELD_EXPIRES_AT_MS: &str = "__vanta_expires_at_ms";
-/// Internal `ext_metadata` key storing the serialized sparse vector (JSON) on
-/// a memory record node. Kept out of the bincode-graph so old databases read
-/// missing keys as `None`.
+/// Internal `ext_metadata` key storing the sparse vector on a memory record
+/// node as interleaved `ListFloat` pairs (ADR-019). Kept out of the
+/// bincode-graph so old databases read missing keys as `None`.
 pub const SPARSE_VECTOR_EXT_KEY: &str = "__vanta_sparse_vector";
 const EXPORT_SCHEMA_VERSION: u32 = 1;
 pub(crate) const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
@@ -245,6 +245,33 @@ pub(crate) fn get_u64_field(fields: &VantaFields, key: &str) -> Option<u64> {
     }
 }
 
+/// Encode a `SparseVector` into the persisted `ListFloat` field format:
+/// interleaved `[dim_0, val_0, dim_1, val_1, ...]` (ADR-019). Both `u32` dims
+/// and `f32` weights are exactly representable in `f64`, so the round-trip is
+/// lossless, and `BTreeMap` iteration keeps the encoding deterministic.
+fn sparse_vector_to_field(sparse: &SparseVector) -> FieldValue {
+    let mut flat = Vec::with_capacity(sparse.0.len() * 2);
+    for (dim, weight) in &sparse.0 {
+        flat.push(*dim as f64);
+        flat.push(*weight as f64);
+    }
+    FieldValue::ListFloat(flat)
+}
+
+/// Decode a persisted `ListFloat` sparse field back into a `SparseVector`.
+/// Returns `None` for malformed payloads (odd length), matching the corrupt
+/// handling of the legacy JSON path.
+fn sparse_vector_from_field(flat: &[f64]) -> Option<SparseVector> {
+    if flat.len() % 2 != 0 {
+        return None;
+    }
+    let mut map = std::collections::BTreeMap::new();
+    for pair in flat.chunks_exact(2) {
+        map.insert(pair[0] as u32, pair[1] as f32);
+    }
+    Some(SparseVector(map))
+}
+
 pub fn memory_record_from_node(node: &UnifiedNode) -> Option<VantaMemoryRecord> {
     if !node.is_alive() {
         return None;
@@ -293,7 +320,19 @@ pub fn memory_record_from_node(node: &UnifiedNode) -> Option<VantaMemoryRecord> 
     // KV round-trip via NodeMetadata; `ext_metadata` is memory-only).
     // Missing key => None (old records). The parse is conditional: nodes
     // without SPARSE_VECTOR_EXT_KEY skip serde_json entirely (PERF-07).
+    // ADR-019: new writes are ListFloat pairs; legacy String/JSON remains
+    // readable for backward compat.
     let sparse_vector = match node.get_field(SPARSE_VECTOR_EXT_KEY) {
+        Some(crate::node::FieldValue::ListFloat(flat)) => match sparse_vector_from_field(flat) {
+            Some(parsed) => Some(parsed),
+            None => {
+                tracing::warn!(
+                    node_id = %node.id,
+                    "corrupt sparse vector payload (odd ListFloat length) ignored during read"
+                );
+                None
+            }
+        },
         Some(crate::node::FieldValue::String(json)) => match serde_json::from_str(json) {
             Ok(parsed) => parsed,
             Err(err) => {
@@ -367,9 +406,10 @@ pub(crate) fn memory_record_to_node_owned(
     }
 
     if let Some(sparse) = &sparse_vector {
-        if let Ok(json) = serde_json::to_string(sparse) {
-            node.set_field(SPARSE_VECTOR_EXT_KEY, FieldValue::String(json));
-        }
+        // ADR-019: persist as interleaved ListFloat pairs — no serde_json on
+        // the write hot path. Empty vectors write an empty ListFloat (matches
+        // legacy `"{}"` round-trip semantics).
+        node.set_field(SPARSE_VECTOR_EXT_KEY, sparse_vector_to_field(sparse));
     }
 
     record.namespace = namespace;
@@ -1278,5 +1318,115 @@ mod tests {
             },
         ];
         assert!(!matches_advanced_filters(&r, &ops_fail));
+    }
+
+    // ─── sparse vector persistence (ADR-019) ────────────────────
+
+    fn make_sparse(entries: &[(u32, f32)]) -> SparseVector {
+        let mut sparse = SparseVector::new();
+        for (dim, val) in entries {
+            sparse.insert(*dim, *val);
+        }
+        sparse
+    }
+
+    fn record_with_sparse(sparse: Option<SparseVector>) -> VantaMemoryRecord {
+        VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "payload".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 100,
+            updated_at_ms: 200,
+            version: 1,
+            node_id: memory_node_id("ns", "k"),
+            vector: None,
+            sparse_vector: sparse,
+            expires_at_ms: None,
+        }
+    }
+
+    #[test]
+    fn test_sparse_roundtrip_listfloat() {
+        let record = record_with_sparse(Some(make_sparse(&[(1, 0.5), (42, -1.25), (7, 3.0)])));
+        let (node, returned) = memory_record_to_node_owned(record);
+
+        // Written as interleaved ListFloat pairs in sorted dim order (BTreeMap).
+        assert_eq!(
+            node.get_field(SPARSE_VECTOR_EXT_KEY),
+            Some(&crate::node::FieldValue::ListFloat(vec![
+                1.0, 0.5, 7.0, 3.0, 42.0, -1.25
+            ]))
+        );
+        // Record returned to caller keeps the sparse vector in memory.
+        assert_eq!(
+            returned.sparse_vector,
+            Some(make_sparse(&[(1, 0.5), (42, -1.25), (7, 3.0)]))
+        );
+
+        // Read path reconstructs the same vector.
+        let read = memory_record_from_node(&node).unwrap();
+        assert_eq!(
+            read.sparse_vector,
+            Some(make_sparse(&[(1, 0.5), (42, -1.25), (7, 3.0)]))
+        );
+    }
+
+    #[test]
+    fn test_sparse_empty_roundtrip() {
+        let record = record_with_sparse(Some(SparseVector::new()));
+        let (node, _) = memory_record_to_node_owned(record);
+        assert_eq!(
+            node.get_field(SPARSE_VECTOR_EXT_KEY),
+            Some(&crate::node::FieldValue::ListFloat(vec![]))
+        );
+        let read = memory_record_from_node(&node).unwrap();
+        assert_eq!(read.sparse_vector, Some(SparseVector::new()));
+    }
+
+    #[test]
+    fn test_sparse_none_not_stored() {
+        let record = record_with_sparse(None);
+        let (node, _) = memory_record_to_node_owned(record);
+        assert_eq!(node.get_field(SPARSE_VECTOR_EXT_KEY), None);
+        let read = memory_record_from_node(&node).unwrap();
+        assert_eq!(read.sparse_vector, None);
+    }
+
+    #[test]
+    fn test_sparse_read_legacy_json_string() {
+        // Simulate a node persisted before ADR-019 (String/JSON format).
+        let mut node = make_memory_node(42, "myns", "mykey");
+        node.set_field(
+            SPARSE_VECTOR_EXT_KEY,
+            crate::node::FieldValue::String("{\"1\":0.5,\"42\":-1.25}".into()),
+        );
+        let record = memory_record_from_node(&node).unwrap();
+        assert_eq!(
+            record.sparse_vector,
+            Some(make_sparse(&[(1, 0.5), (42, -1.25)]))
+        );
+    }
+
+    #[test]
+    fn test_sparse_read_corrupt_legacy_returns_none() {
+        let mut node = make_memory_node(42, "myns", "mykey");
+        node.set_field(
+            SPARSE_VECTOR_EXT_KEY,
+            crate::node::FieldValue::String("not-json".into()),
+        );
+        let record = memory_record_from_node(&node).unwrap();
+        assert_eq!(record.sparse_vector, None);
+    }
+
+    #[test]
+    fn test_sparse_read_corrupt_listfloat_odd_len_returns_none() {
+        let mut node = make_memory_node(42, "myns", "mykey");
+        node.set_field(
+            SPARSE_VECTOR_EXT_KEY,
+            crate::node::FieldValue::ListFloat(vec![1.0, 0.5, 2.0]),
+        );
+        let record = memory_record_from_node(&node).unwrap();
+        assert_eq!(record.sparse_vector, None);
     }
 }
