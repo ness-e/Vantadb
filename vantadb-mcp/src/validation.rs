@@ -1,0 +1,354 @@
+//! Input validation helpers for MCP tool parameters.
+
+use crate::config::McpConfig;
+use crate::error::McpError;
+use serde::Serialize;
+use serde_json::{json, Value};
+use tracing::error;
+
+// ── Input validation helpers ───────────────────────────────────────────────
+
+pub(crate) fn validate_identifier(
+    value: &str,
+    label: &str,
+    max_len: usize,
+) -> Result<(), McpError> {
+    if value.is_empty() {
+        return Err(McpError::invalid_params(format!(
+            "'{}' must not be empty",
+            label
+        )));
+    }
+    if value.len() > max_len {
+        return Err(McpError::invalid_params(format!(
+            "'{}' exceeds maximum length of {} bytes",
+            label, max_len
+        )));
+    }
+    if value.contains('\0') {
+        return Err(McpError::invalid_params(format!(
+            "'{}' contains null byte",
+            label
+        )));
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_payload(value: &str, max_len: usize) -> Result<(), McpError> {
+    if value.len() > max_len {
+        return Err(McpError::invalid_params(format!(
+            "Payload exceeds maximum length of {} bytes",
+            max_len
+        )));
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_vector(array: &[Value], max_dim: usize) -> Result<Vec<f32>, McpError> {
+    if array.is_empty() {
+        return Err(McpError::invalid_params("Vector must not be empty"));
+    }
+    if array.len() > max_dim {
+        return Err(McpError::invalid_params(format!(
+            "Vector dimension {} exceeds maximum {}",
+            array.len(),
+            max_dim
+        )));
+    }
+    let mut v = Vec::with_capacity(array.len());
+    for val in array {
+        let f = val
+            .as_f64()
+            .ok_or_else(|| McpError::invalid_params("Vector elements must be numbers"))?;
+        if !f.is_finite() {
+            return Err(McpError::invalid_params(
+                "Vector elements must be finite numbers",
+            ));
+        }
+        v.push(f as f32);
+    }
+    Ok(v)
+}
+
+/// Convert a single JSON metadata value into a `VantaValue`.
+///
+/// Scalars map 1:1. `null` and homogeneous arrays are delegated to the core,
+/// which represents them as `VantaValue::Null` / `VantaValue::List*` and
+/// filters them by strict equality (`matches_memory_filters`). This mirrors
+/// the Python binding's `py_any_to_value` contract (ERR-026: a filter must
+/// never be silently dropped — either the core applies it or the MCP rejects
+/// the request with an explicit error). JSON objects have no `VantaValue`
+/// variant and are rejected.
+pub(crate) fn json_value_to_vanta_value(
+    key: &str,
+    val: &Value,
+) -> Result<vantadb::sdk::VantaValue, McpError> {
+    if let Some(s) = val.as_str() {
+        return Ok(vantadb::sdk::VantaValue::String(s.to_string()));
+    }
+    if let Some(b) = val.as_bool() {
+        return Ok(vantadb::sdk::VantaValue::Bool(b));
+    }
+    if let Some(i) = val.as_i64() {
+        return Ok(vantadb::sdk::VantaValue::Int(i));
+    }
+    if let Some(f) = val.as_f64() {
+        return Ok(vantadb::sdk::VantaValue::Float(f));
+    }
+    if val.is_null() {
+        return Ok(vantadb::sdk::VantaValue::Null);
+    }
+    if let Some(items) = val.as_array() {
+        return json_array_to_vanta_value(key, items);
+    }
+    Err(McpError::invalid_params(format!(
+        "metadata field '{key}' has unsupported type object — supported: string, boolean, integer, float, null, or an array of one of those"
+    )))
+}
+
+/// Convert a homogeneous JSON array into the matching `VantaValue::List*`
+/// variant, mirroring `py_any_to_value`: the first element fixes the element
+/// type and every element must match. Empty arrays become an empty string
+/// list. Mixed-type, nested, or null-containing arrays cannot be represented
+/// by the core and are rejected explicitly.
+pub(crate) fn json_array_to_vanta_value(
+    key: &str,
+    items: &[Value],
+) -> Result<vantadb::sdk::VantaValue, McpError> {
+    let Some(first) = items.first() else {
+        return Ok(vantadb::sdk::VantaValue::ListString(Vec::new()));
+    };
+
+    if first.as_str().is_some() {
+        let mut out = Vec::with_capacity(items.len());
+        for item in items {
+            match item.as_str() {
+                Some(v) => out.push(v.to_string()),
+                None => return Err(mixed_array_error(key)),
+            }
+        }
+        return Ok(vantadb::sdk::VantaValue::ListString(out));
+    }
+    if first.as_bool().is_some() {
+        let mut out = Vec::with_capacity(items.len());
+        for item in items {
+            match item.as_bool() {
+                Some(v) => out.push(v),
+                None => return Err(mixed_array_error(key)),
+            }
+        }
+        return Ok(vantadb::sdk::VantaValue::ListBool(out));
+    }
+    // i64 before f64: integral arrays (e.g. [1, 2]) must stay ListInt, not
+    // ListFloat, so equality against stored Int metadata keeps matching.
+    if first.as_i64().is_some() {
+        let mut out = Vec::with_capacity(items.len());
+        for item in items {
+            match item.as_i64() {
+                Some(v) => out.push(v),
+                None => return Err(mixed_array_error(key)),
+            }
+        }
+        return Ok(vantadb::sdk::VantaValue::ListInt(out));
+    }
+    if first.as_f64().is_some() {
+        let mut out = Vec::with_capacity(items.len());
+        for item in items {
+            match item.as_f64() {
+                Some(v) => out.push(v),
+                None => return Err(mixed_array_error(key)),
+            }
+        }
+        return Ok(vantadb::sdk::VantaValue::ListFloat(out));
+    }
+
+    Err(mixed_array_error(key))
+}
+
+pub(crate) fn mixed_array_error(key: &str) -> McpError {
+    McpError::invalid_params(format!(
+        "metadata field '{key}' has unsupported array — elements must all be the same type: string, boolean, integer, or float (no nested arrays, objects, or null)"
+    ))
+}
+
+pub(crate) fn parse_metadata(
+    obj: &serde_json::Map<String, Value>,
+) -> Result<vantadb::sdk::VantaMemoryMetadata, McpError> {
+    let mut meta = vantadb::sdk::VantaMemoryMetadata::new();
+    for (key, val) in obj {
+        meta.insert(key.clone(), json_value_to_vanta_value(key, val)?);
+    }
+    Ok(meta)
+}
+
+/// Parse a graph node id from a JSON-RPC value.
+///
+/// Node ids are u128: JSON numbers lose precision above 2^53 and cannot
+/// represent ids above 2^64, so MCP clients MUST pass ids as decimal strings.
+/// A numeric value is still accepted for backward compatibility, mirroring
+/// `vantadb::sdk::u128_serde`.
+pub(crate) fn parse_node_id(val: &Value) -> Option<u128> {
+    if let Some(s) = val.as_str() {
+        return s.parse().ok();
+    }
+    val.as_u64().map(u128::from)
+}
+
+/// Serialize value to JSON string; on error produces a JSON-error string rather
+/// than silently returning "".
+pub(crate) fn escape_iql_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            '(' => out.push_str("\\("),
+            ')' => out.push_str("\\)"),
+            c if c.is_control() => {
+                out.push_str(&format!("\\x{:02x}", c as u8));
+            }
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+pub(crate) fn serialize_content(value: &impl Serialize) -> String {
+    serde_json::to_string(value).unwrap_or_else(|e| {
+        error!(%e, "serialize_content: serialization failed");
+        r#"{"error":"Serialization failed"}"#.to_string()
+    })
+}
+
+pub(crate) fn text_content(text: String) -> Value {
+    json!({"content": [{"type": "text", "text": text}]})
+}
+
+pub(crate) fn error_content(msg: impl Into<String>) -> Value {
+    json!({"isError": true, "content": [{"type": "text", "text": msg.into()}]})
+}
+
+/// Stream a namespace's records page-by-page, invoking `f` on each record.
+/// Never materializes the full namespace: at most `config.max_list_limit`
+/// records are in memory at once (ERR-021: large namespaces OOM'd the server
+/// when stats/list/delete collected the whole set into a Vec per call).
+/// Returns the total number of records visited.
+pub(crate) fn for_each_record(
+    embedded: &vantadb::VantaEmbedded,
+    namespace: &str,
+    config: &McpConfig,
+    mut f: impl FnMut(&vantadb::sdk::VantaMemoryRecord),
+) -> Result<usize, String> {
+    let mut count = 0usize;
+    let mut cursor: Option<usize> = None;
+    loop {
+        let options = vantadb::sdk::VantaMemoryListOptions {
+            limit: config.max_list_limit,
+            cursor,
+            #[allow(deprecated)]
+            filters: vantadb::sdk::VantaMemoryMetadata::new(),
+            filter_ops: None,
+        };
+        match embedded.list(namespace, options) {
+            Ok(page) => {
+                if page.records.is_empty() {
+                    break;
+                }
+                for record in &page.records {
+                    f(record);
+                }
+                count += page.records.len();
+                match page.next_cursor {
+                    Some(next) => cursor = Some(next),
+                    None => break,
+                }
+            }
+            Err(e) => return Err(format!("{}", e)),
+        }
+    }
+    Ok(count)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `parse_metadata` used to silently drop non-scalar metadata values
+    /// (array/object/null), which turned a filter into no filter and returned
+    /// a superset of results. The core CAN filter lists and null
+    /// (`VantaValue::List*` / `Null` with strict equality), so the MCP must
+    /// delegate them — mirroring the Python binding's `py_any_to_value`.
+    /// Only JSON objects (no `VantaValue` variant) and mixed-type arrays are
+    /// rejected explicitly.
+    #[test]
+    fn parse_metadata_delegates_lists_and_null_rejects_objects() {
+        use serde_json::json;
+
+        // Lists and null are delegable to the core.
+        let delegable = json!({
+            "tags": ["a", "b"],
+            "counts": [1, 2],
+            "ratios": [1.5, 2.5],
+            "flags": [true, false],
+            "empty": [],
+            "flag": null,
+            "s": "x", "b": true, "i": 42, "f": 1.5
+        });
+        let meta = parse_metadata(delegable.as_object().unwrap())
+            .expect("lists, null, and scalars must be accepted");
+        assert_eq!(
+            meta.get("tags"),
+            Some(&vantadb::sdk::VantaValue::ListString(vec![
+                "a".to_string(),
+                "b".to_string()
+            ]))
+        );
+        assert_eq!(
+            meta.get("counts"),
+            Some(&vantadb::sdk::VantaValue::ListInt(vec![1, 2]))
+        );
+        assert_eq!(
+            meta.get("ratios"),
+            Some(&vantadb::sdk::VantaValue::ListFloat(vec![1.5, 2.5]))
+        );
+        assert_eq!(
+            meta.get("flags"),
+            Some(&vantadb::sdk::VantaValue::ListBool(vec![true, false]))
+        );
+        assert_eq!(
+            meta.get("empty"),
+            Some(&vantadb::sdk::VantaValue::ListString(Vec::new()))
+        );
+        assert_eq!(meta.get("flag"), Some(&vantadb::sdk::VantaValue::Null));
+        assert_eq!(meta.len(), 10);
+
+        // Objects cannot be represented by VantaValue → explicit error.
+        let object_value = json!({"nested": {"a": 1}});
+        let object = object_value.as_object().unwrap();
+        let object_err = parse_metadata(object).unwrap_err();
+        assert!(
+            object_err.message.contains("nested"),
+            "object metadata must error naming the key, got: {}",
+            object_err.message
+        );
+
+        // Mixed-type arrays cannot be represented either.
+        let mixed_value = json!({"tags": ["a", 1]});
+        let mixed = mixed_value.as_object().unwrap();
+        let mixed_err = parse_metadata(mixed).unwrap_err();
+        assert!(
+            mixed_err.message.contains("tags"),
+            "mixed array metadata must error naming the key, got: {}",
+            mixed_err.message
+        );
+
+        // Scalars are still accepted (regression guard).
+        let scalars_value = json!({"s": "x", "b": true, "i": 42, "f": 1.5});
+        let scalars = scalars_value.as_object().unwrap();
+        let scalars_meta = parse_metadata(scalars).expect("scalar metadata is supported");
+        assert_eq!(scalars_meta.len(), 4);
+    }
+}

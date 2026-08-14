@@ -94,7 +94,12 @@ fn public_surfaces_report_same_version() {
     );
 
     // MCP was extracted from vantadb-server/src/mcp.rs into its own crate during CUARENTENA-01.
-    let mcp = read(root.join("vantadb-mcp").join("src").join("lib.rs"));
+    let mcp = read(
+        root.join("vantadb-mcp")
+            .join("src")
+            .join("handlers")
+            .join("initialize.rs"),
+    );
     assert!(
         mcp.contains("metadata::reported_version()"),
         "MCP serverInfo.version must use vantadb::metadata::reported_version()"
