@@ -64,151 +64,18 @@ Todas las rutas relativas en comandos y prompts se resuelven así:
 
 ## CodeGraph
 
-CodeGraph tiene un índice pre-construido del código fuente de VantaDB (7.3K símbolos, 24.7K edges). **Úsalo SIEMPRE antes de grep/find/Read** para preguntas estructurales.
+Índice pre-construido del código de VantaDB (7.3K símbolos, 24.7K edges). **Úsalo SIEMPRE antes de grep/find/Read** para preguntas estructurales.
 
-### Guía de decisión
+- **Tool consolidada**: `codegraph_explore "pregunta o símbolo"` — búsqueda + call paths + blast radius en 1 llamada (hasta 60% menos tokens).
+- **Tools individuales (legacy, Cursor/Claude Code)**: `codegraph_search`, `codegraph_callers`, `codegraph_callees`, `codegraph_files`, `codegraph_dependencies`, `codegraph_status`.
+- **Reglas**: confía en el resultado (no re-verifiques); no uses grep para definiciones; si ves `⚠️ Pending sync:` lee el archivo directo (~2s); sin `.codegraph/` → usa herramientas normales.
+- **CI/Hooks**: `dev-tools/verify.ps1` (pre-flight), `dev-tools/verify_changed.ps1` (quick ~30s). Pre-push barrier instalado como `.githooks/pre-push` (automático, Regla 1).
 
-CodeGraph expone tools MCP individuales **y** una tool consolidada. Prefiere la consolidada para ahorrar tokens.
+Flujo típico: `git add .` → `dev-tools/verify_changed.ps1` → `git commit` → `dev-tools/verify.ps1` → `git push`
 
-#### 🚀 Tool Consolidada (Recomendada)
-
-`codegraph_explore` — búsqueda semántica + call paths + blast radius en 1 llamada. Reduce consumo de tokens hasta 60%.
-
-| Situación | Qué usar |
-|-----------|----------|
-| Cualquier pregunta estructural | `codegraph_explore "lenguaje natural o símbolo"` |
-
-#### 🔍 Tools Individuales (Legacy)
-
-Si tu entorno (Cursor, Claude Code) prefiere llamadas específicas:
-
-| Tool | Propósito |
-|------|-----------|
-| `codegraph_search` | Búsqueda FTS5 + semántica para localizar definiciones |
-| `codegraph_callers` | Qué llama a una función específica |
-| `codegraph_callees` | Qué llama una función desde dentro |
-| `codegraph_files` | Mapa y jerarquía de directorios indexados |
-| `codegraph_dependencies` | Árbol de importaciones entre módulos |
-| `codegraph_status` | Estado del índice (archivos, nodos AST, errores) |
-
-### Reglas
-
-- **Confía en el resultado** — no re-verifiques con grep/read. El source que devuelve es idéntico byte por byte al del Read tool.
-- **No uses grep para buscar definiciones** — CodeGraph ya las tiene indexadas.
-- **Staleness**: si ves `⚠️ Pending sync:` tras una edición, lee el archivo directamente. El auto-sync tarda ~2s.
-- **Sin `.codegraph/`** → ignora CodeGraph, usa herramientas normales.
-
-### Ejemplos VantaDB
-
-```
-codegraph_explore "how does a search query reach StorageEngine"
-codegraph_search "StorageEngine"
-codegraph_callers "VantaEmbedded::connect"
-```
-
-### CI / Hooks Integration
-
-| Script | Qué hace |
-|--------|----------|
-| `dev-tools/verify.ps1` | Pre-flight completa (fmt → check → clippy → audit → deny → nextest) |
-| `dev-tools/verify_changed.ps1` | **Quick verify**: fmt → check → clippy solo en `vantadb` core. ~30s |
-| `.opencode/skills/unified-review/templates/pre-push.ps1` | Template del pre-push barrier (SIPP). **Instalado** como `.githooks/pre-push` — corre automáticamente en cada push. |
-
-> **Nota:** Los hooks git (`pre-commit`/`pre-push`) están instalados y activos vía `core.hooksPath=.githooks` (`.githooks/pre-commit`, `.githooks/pre-push`). La verificación previa a push es automática (Regla 1). Para reinstalar/recrear el pre-push barrier, ver `templates/pre-push.ps1` (§ Installation).
-
-**Flujo típico local:**
-```
-git add .                                           # stage changes
-dev-tools/verify_changed.ps1                       # quick check (~30s) antes de commit
-git commit -m "feat: ..."                           # commit
-dev-tools/verify.ps1                               # pre-flight completa antes de push (~2-5min)
-git push
-```
 ## Understand-Anything
 
-Understand-Anything produce un **knowledge graph LLM-powered** (1917 nodos, 1120 edges, 32 capas, 14 tour steps) en `.understand-anything/knowledge-graph.json`. Complementa a CodeGraph para preguntas arquitectónicas y narrativa humana.
-
-### CodeGraph vs Understand-Anything — Guía de decisión
-
-| Situación | Herramienta | Por qué |
-|-----------|------------|---------|
-| "¿Dónde está definida la función X?" | **CodeGraph** | Index pre-construido, respuesta en ms |
-| "¿Qué llama a esta función?" | `codegraph_explore` | Call paths precisos, resuelve dispatch dinámico |
-| "¿Qué se rompe si cambio X?" | `codegraph_explore "X"` | Blast radius vía código fuente |
-| "¿Cómo está estructurada la arquitectura?" | **Understand-Anything** | 32 capas con descripciones narrativas |
-| "Dame un tour del código base" | **Understand-Anything** | Tour guiado de 14 pasos desde entry point |
-| "Explica este módulo en detalle" | `skill understand-explain` | Análisis narrativo contextual |
-| "¿Qué tests ejecutar?" | `git diff --name-only \| codegraph_explore` | Conectado al git diff |
-| "Onboarding para nuevo dev" | `skill understand-onboard` | Genera guía de onboarding interactiva |
-| "¿Cuál es el dominio de negocio?" | `skill understand-domain` | Extrae flujos de dominio del grafo |
-| "¿Qué cambió en este PR?" | `skill understand-diff` | Analiza diff contra el grafo existente |
-
-**Regla general**: CodeGraph primero para todo lo que sea símbolos/código preciso. Understand-Anything para contexto arquitectónico, narrativa, onboarding y visualización.
-
-### Slash Commands (Understand-Anything nativo)
-
-El proyecto [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) expone estos comandos que el agente escribe directamente en la consola:
-
-| Comando | Qué hace |
-|---------|----------|
-| `/understand` | Escanea repo, construye grafo en `.understand-anything/knowledge-graph.json` |
-| `/understand --auto-update` | Activa hook post-commit para actualizaciones incrementales |
-| `/understand --full` | Rebuild completo del grafo |
-| `/understand-chat [pregunta]` | Chat contextualizado en la arquitectura del sistema |
-| `/understand-dashboard` | Panel visual interactivo en navegador |
-| `/understand-explain [ruta]` | Análisis aislado de un archivo específico |
-| `/understand-diff` | Examina cambios staged/unstaged y predice impacto |
-| `/understand-onboard` | Genera Guided Tours para onboarding |
-| `/understand-domain` | Agrupa código por entidades de negocio |
-| `/understand-knowledge [ruta]` | Analiza documentación Markdown externa |
-
-### Alternativa: Agent Skills
-
-Los skills en `C:\Users\Eros\.agents\skills\` envuelven la misma funcionalidad vía `skill <nombre>`:
-
-| Skill | Comando OpenCode | Qué hace |
-|-------|-----------------|----------|
-| `understand` | `skill understand` | Pipeline completo: escanea, analiza y genera grafo |
-| `understand-chat` | `skill understand-chat` | Chat contextual sobre el codebase |
-| `understand-explain` | `skill understand-explain` | Explicación profunda de archivo/módulo |
-| `understand-diff` | `skill understand-diff` | Analiza git diff contra el grafo |
-| `understand-domain` | `skill understand-domain` | Extrae conocimiento de dominio de negocio |
-| `understand-knowledge` | `skill understand-knowledge` | Analiza wikis Markdown → grafo |
-| `understand-onboard` | `skill understand-onboard` | Guía de onboarding interactiva |
-| `understand-dashboard` | `skill understand-dashboard` | Visor web interactivo del grafo |
-
-### Estado actual
-
-El grafo ya está generado en `.understand-anything/knowledge-graph.json`:
-
-```
-/understand --auto-update        # incremental post-commit
-/understand --full               # rebuild completo
-skill understand                 # misma funcionalidad vía skill
-```
-
-### Flujo recomendado: CodeGraph + Understand-Anything sin conflictos
-
-1. **Para navegación diaria** → usa CodeGraph (`codegraph_explore`). Es más rápido, determinístico, y no gasta tokens LLM en re-análisis.
-2. **Para entender arquitectura** → `/understand-chat "pregunta"` o `skill understand-chat`. El grafo ya existe, no necesita regenerarse.
-3. **Para onboarding/review** → `/understand-explain` o `skill understand-explain`. Usan el grafo existente.
-4. **Solo regenera si**: cambia la estructura del proyecto (nuevos módulos grandes) o quieres un análisis más fresco.
-5. **NUNCA** ejecutes `/understand --full` a menos que sea necesario — el pipeline actual ya cubre 790 archivos y consumió ~158s de subagentes.
-
-### Referencia del grafo
-
-```json
-{
-  "nodes": [{"id": "file:src/engine.rs", "type": "file", "name": "engine.rs", "summary": "In-memory storage engine", "tags": ["storage", "core"]}],
-  "edges": [{"source": "file:src/engine.rs", "target": "file:src/storage/mod.rs", "type": "imports", "direction": "directed", "weight": 0.7}],
-  "layers": [{"id": "layer:core-engine", "name": "Core Engine", "description": "In-memory engine and storage backends", "nodeIds": ["file:src/engine.rs", ...]}],
-  "tour": [{"order": 1, "title": "Project Overview", "description": "Start with README", "nodeIds": ["document:README.md"]}]
-}
-```
-
-### Capas arquitectónicas (32 total)
-
-Las principales: `core-engine`, `storage-backends`, `vector-index`, `web-frontend`, `python-bindings`, `typescript-sdk`, `integration-wrappers`, `dev-tooling`, `tests`, `documentation`, `ci-cd`, `wasm`, `enterprise`, `mcp`.
+> Ver `references/understand-anything.md` — knowledge graph, capas arquitectónicas, decisión de uso vs CodeGraph, slash commands y flujo de consulta. Editar allá, no aquí.
 
 ## Rust MCP Servers
 
@@ -223,176 +90,11 @@ cargo add serde                  # dependencias
 
 ## Dev Tools (Instalados)
 
-Herramientas de desarrollo instaladas globalmente para optimizar el workflow de un solo dev.
-
-### Cargo Tools
-
-| Herramienta | Instalada | Comando | Propósito |
-|-------------|-----------|---------|-----------|
-| **cargo-watch** | ✅ | `cargo watch -x check` | Feedback loop sub-second. Re-ejecuta comandos en cada cambio de archivo |
-| **cargo-machete** | ✅ | `cargo machete` | Detecta dependencias no usadas |
-| **cargo-bloat** | ✅ | `cargo bloat --crates` | Analiza qué engorda el binario release |
-| **cargo-outdated** | ✅ | `cargo outdated` | Lista dependencias desactualizadas |
-| **cargo-nextest** | ✅ | `cargo nextest run` | Test runner ~3× más rápido que cargo test |
-| **cargo-deny** | ✅ | `cargo deny check` | Auditoría de licencias + advisory + bans |
-| **cargo-audit** | ✅ | `cargo audit` | Security advisory checker |
-| **release-plz** | ✅ | `release-plz release` | Automatiza bump de versiones, changelog, y publish |
-| **git-cliff** | ✅ | `git-cliff -o CHANGELOG.md` | Generador de changelog desde conventional commits |
-
-### Justfile
-
-El **Justfile** en la raíz del proyecto es el reemplazo moderno de Makefile. Instalación: `cargo install just`
-
-Comandos principales:
-
-```bash
-just check            # cargo check --workspace (feedback rápido)
-just test             # cargo nextest run --profile audit
-just verify           # fmt + clippy + test + deny (pre-flight completo)
-just verify-quick     # dev-tools/verify_changed.ps1 (30s, CodeGraph-optimized)
-just watch            # cargo watch -x check -x 'nextest run' (loop infinito)
-just fmt-fix          # cargo fmt (aplica formato)
-just machete          # cargo machete (deps no usadas)
-just size             # cargo bloat --crates (tamaño binario)
-just outdated         # cargo outdated (deps stale)
-just audit            # cargo audit (seguridad)
-just changelog        # git-cliff -o docs/CHANGELOG.md
-just ci               # fmt + clippy + test + deny + audit (mismo orden que CI)
-just certify          # nocturnal_suite.ps1 (certificación pesada local)
-just release          # cargo build --release
-just run-cli          # cargo run --features cli
-just run-server       # cargo run --features server --bin vantadb-server
-```
-
-### Git Aliases
-
-Configurados globalmente en `~/.gitconfig`:
-
-| Alias | Comando real |
-|-------|-------------|
-| `git lg` | `log --oneline --graph --all --decorate` |
-| `git st` | `status -sb` |
-| `git ci` | `commit` |
-| `git co` | `checkout` |
-| `git br` | `branch` |
-| `git rb` | `rebase -i` |
-| `git up` | `push -u origin HEAD` |
-| `git fixup` | `commit --fixup` |
-| `git amend` | `commit --amend --no-edit` |
-| `git undo` | `reset --soft HEAD~1` |
-| `git unstage` | `reset HEAD --` |
-
-### VS Code Setup
-
-Archivos en `.vscode/`:
-
-| Archivo | Propósito |
-|---------|-----------|
-| `extensions.json` | Recomienda rust-analyzer, CodeLLDB, crates, Even Better TOML, GitLens, cSpell, markdownlint, ShellCheck |
-| `settings.json` | Config: rust-analyzer con clippy + features del proyecto, formatOnSave, exclude patrones |
-| `tasks.json` | 10 tareas: check, clippy, nextest, fmt, deny, verify, build release, run cli/server |
-| `mcp.json` | cargo-mcp + rust-analyzer-mcp para GitHub Copilot Chat |
-
-### Dependabot
-
-Configurado en `.github/dependabot.yml` para 4 ecosistemas:
-
-| Ecosistema | Schedule | Límite PR |
-|------------|----------|-----------|
-| **Cargo** | Weekly (lunes) | 10 PRs |
-| **npm (web/)** | Weekly (lunes) | 5 PRs |
-| **GitHub Actions** | Weekly (lunes) | Ilimitado |
-| **Docker** | Weekly (lunes) | Ilimitado |
-
-Las PRs se agrupan por tipo (patch, minor) para reducir ruido.
-
-### release-plz
-
-Configurado en `release-plz.toml`. Automatiza:
-
-1. Análisis de conventional commits desde el último tag
-2. Bump semántico de versiones (feat → minor, fix → patch, breaking → major)
-3. Actualización de `docs/CHANGELOG.md`
-4. Creación de tag `v{{ version }}` en git
-5. Publicación a crates.io (en orden de dependencias del workspace)
-
-Uso: `release-plz release` (desde la rama main, después de mergear)
-
-### CI: sccache
-
-Integrado en `.github/actions/rust-setup/action.yml` mediante `mozilla-actions/sccache-action@v0.0.11` (sccache `v0.16.0`), con env `SCCACHE_GHA_ENABLED=true` + `RUSTC_WRAPPER=sccache` escritas a `$GITHUB_ENV` (las composite actions no soportan `env` a nivel `runs`). Usa el backend de GHA cache automáticamente (sin infra adicional) y complementa a `Swatinem/rust-cache`: acelera rebuilds reutilizando objetos compilados entre jobs/runs.
-
-### Flujo diario recomendado
-
-```bash
-# Desarrollo iterativo
-just watch-check                    # terminal 1: feedback instantáneo
-
-# Antes de commit
-just verify                         # fmt + clippy + test + deny
-
-# Commit
-git add -p && git ci -m "feat: ..."
-git up
-
-# Release (cuando toca)
-release-plz release                 # bump + changelog + tag + publish
-```
+> Ver `references/dev-tools.md` — cargo tools, justfile, git aliases, VS Code setup, dependabot, release-plz, CI sccache y flujo diario. Editar allá, no aquí.
 
 ## Web Frontend (Next.js 16 + shadcn/ui + framer-motion)
 
-Stack: **Next.js 16 + React 19 + shadcn/ui (New York) + Tailwind CSS v4 + framer-motion + animejs**
-
-### Estructura
-
-```
-web/
-  src/
-    app/           ← Next.js App Router pages (all "use client")
-    components/
-      ui/          ← shadcn/ui components (Radix-based)
-      vanta/       ← VantaDB-specific components (hero, features, etc.)
-    hooks/         ← count-up, focus-trap, reveal, toast, etc.
-    lib/           ← dictionaries.ts (i18n ~880 ES/EN keys), utils.ts (cn)
-  public/
-    assets/        ← images
-```
-
-### Stack decisions
-
-| Decisión | Por qué |
-|----------|---------|
-| **Next.js 16** | App Router, standalone output, `ignoreBuildErrors: true` en next.config.ts |
-| **React 19** | Client components everywhere (no RSC) |
-| **shadcn/ui** | New York style, neutral base, lucide icons |
-| **framer-motion** | Page transitions via AnimatePresence, scroll reveal |
-| **Tailwind v4** | Theme via `@theme inline {}` in globals.css; `tailwind.config.ts` inert |
-| **animejs** | Interactive graph animation (mark-classic.tsx) |
-| **zustand** | State management (installed, usage TBD) |
-
-### Design System (globals.css + shadcn)
-
-Colores: cream `#FBF9F5`, ink `#000000`, neon `#FF5500`, paper `#F2EDE2`, smoke `#1A1A1A`.
-Bordes: `border-4 border-black` con rigid shadow `shadow-[6px_6px_0_0_#000]`.
-Efectos: press/press-lg/glow-neon/glitch-hover/scanlines/halftone/speed-lines/grid-tech.
-
-### i18n (custom)
-
-`LanguageProvider` context + `useLanguage()` hook → `{ t, lang, setLang }`. Dictionary ~880 ES/EN keys. `next-intl` installed but unused.
-
-### Animación
-
-- Page transitions: `<PageTransition viewKey={pathname}>` wrapping layout children (framer-motion)
-- Scroll reveal: `<Reveal direction="up" delay={n}>` wrapping sections
-- Count-up: `<CountUpStat value={N} suffix="vec/s" />`
-- Animejs: SVG interactive graph in mark-classic.tsx
-
-### Contenido
-
-- Stack real: **Rust 1.94**+ | **Python 3.11**+ | Fjall + RocksDB + InMemory backends
-- Integraciones reales: CrewAI + DSPy + Haystack + Mem0 + OpenAI + Ollama + LiteLLM
-- Versión: **0.2.0** (no 0.1.5)
-- Embedding providers: OpenAI, Ollama, LiteLLM
+> Ver `references/frontend-web.md` — estructura, stack decisions, design system, i18n, animación y contenido. Editar allá, no aquí.
 
 ## Skills Manifest
 
@@ -403,52 +105,9 @@ Efectos: press/press-lg/glow-neon/glitch-hover/scanlines/halftone/speed-lines/gr
 **Siempre preferir la copia del proyecto sobre la global.**
 Para cargar: `skill <nombre>` o leer el SKILL.md correspondiente.
 
-### Skill Loading Guide — Diseño & Creativo
+### Skill Loading Guide
 
-- **Diseño UI/Frontend**: `vanta-design-orchestrator` → `impeccable` → `design-taste-frontend`
-- **Animación**: `motion (motion.dev)` (preferido), `gsap-core` (alternativa GSAP)
-- **Corrección de bugs**: `systematic-debugging` → `writing-plans`
-- **Features multi-paso**: `brainstorming` → `writing-plans` → skills relevantes
-- **SEO**: `ai-seo` → `seo-audit` → `audit-website`
-- **Video/presentaciones**: `hyperframes` → deck skills según necesidad
-- **Branding/Arte**: `brandkit`, `canvas-design`, `algorithmic-art`, `theme-factory`, `color-expert`, `platform-design`
-
-### Skill Loading Guide — Ingeniería (agent-skills)
-
-Skills de ingeniería instaladas desde [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) (`.opencode/`). Son **workflows obligatorios** — el agente DEBE usarlos cuando apliquen. No saltarse pasos.
-
-**Lifecycle mapping (detección automática por contexto):**
-
-| Fase | Skill | Cuándo se activa |
-|------|-------|-------------------|
-| **DEFINE** | `spec-driven-development` | Nueva feature, API, cambio significativo — escribe spec/PRD antes de código |
-| **DEFINE** | `interview-me` | Requisitos ambiguos — extrae lo que el usuario realmente necesita |
-| **DEFINE** | `idea-refine` | Concepto vago → propuesta concreta |
-| **PLAN** | `planning-and-task-breakdown` | Spec listo → tareas pequeñas, verificables, con dependencias |
-| **BUILD** | `incremental-implementation` | Implementar en slices verticales delgados (test → code → verify → commit) |
-| **BUILD** | `test-driven-development` | Lógica nueva, bugs — Red-Green-Refactor, pirámide 80/15/5 |
-| **BUILD** | `context-engineering` | Sesión nueva, tarea compleja — empaqueta contexto relevante para el agente |
-| **BUILD** | `source-driven-development` | Decisiones de framework/library — verifica docs oficiales primero |
-| **BUILD** | `doubt-driven-development` | Stakes altos (producción, seguridad) — verificación adversarial en contexto fresco |
-| **BUILD** | `frontend-ui-engineering` | UI nueva o modificación en web/ |
-| **BUILD** | `api-and-interface-design` | APIs, boundaries de módulos, interfaces públicas |
-| **VERIFY** | `systematic-debugging` | Tests fallan, builds rotos, comportamiento inesperado — root cause first (Iron Law) |
-| **VERIFY** | `browser-testing-with-devtools` | Depurar algo que corre en navegador (web/) |
-| **REVIEW** | `code-review-and-quality` | Antes de mergear cualquier cambio — revisión en 5 ejes |
-| **REVIEW** | `code-simplification` | Código funciona pero es más complejo de lo necesario |
-| **REVIEW** | `security-and-hardening` | Input de usuario, auth, datos, integraciones externas |
-| **REVIEW** | `performance-optimization` | Requisitos de performance o regresiones sospechadas |
-| **SHIP** | `git-workflow-and-versioning` | Siempre — commits atómicos, trunk-based, ~100 líneas por cambio |
-| **SHIP** | `ci-cd-and-automation` | CI/CD pipelines, Shift Left, feature flags |
-| **SHIP** | `shipping-and-launch` | Antes de deploy — checklists, rollout gradual, rollback |
-| **SHIP** | `documentation-and-adrs` | Decisiones arquitectónicas, cambios de API, features nuevas |
-| **SHIP** | `deprecation-and-migration` | Remover sistemas viejos, migrar usuarios, sunset features |
-| **SHIP** | `observability-and-instrumentation` | Telemetría, logging estructurado, métricas RED |
-| **META** | `using-agent-skills` | Cómo usar este pack — consultar si hay dudas |
-
-**Personas especializadas** (`.opencode/agents/`): `vanta-audit` (Security + Code Review), `vanta-chaos` (Fuzzing + Resilience), `vanta-tuner` (Performance + Observability). Legacy `code-reviewer`, `security-auditor`, `test-engineer` eliminados — reemplazados por vanta-*.
-
-**Referencias** (`.opencode/references/`, **12 total**): `definition-of-done.md`, `testing-patterns.md`, `security-checklist.md`, `performance-checklist.md`, `accessibility-checklist.md`, `observability-checklist.md`, `orchestration-patterns.md`, `REFERENCE-SYNTHESIS.md`, `awesome-harness-engineering/`, `darwin-godel-machine/`, `deepclaude/`, `statewright/`.
+> Ver `references/skills-engineering.md` — guías de carga por categoría (diseño, corrección de bugs, features multi-paso, SEO, video). Editar allá, no aquí.
 
 ### Anti-Rationalization (MUST)
 
@@ -545,7 +204,7 @@ Al empezar cada sesión, ejecutar en orden:
    git status --short             # ¿hay cambios sin commit?
    git log --oneline -5           # ¿qué se hizo en la última sesión?
    ```
-3. **Cargar skills adicionales** según el tipo de tarea (ver [Skill Loading Guide](#skill-loading-guide--diseño--creativo))
+3. **Cargar skills adicionales** según el tipo de tarea (ver `references/skills-engineering.md`)
 4. **Verificar entorno rápido**: solo si la tarea involucra cambios en infraestructura
    ```bash
    rustc --version && cargo --version
@@ -561,48 +220,16 @@ just verify                       # fmt + clippy + test + deny (o just verify-qu
 
 ## Ponytail — Lazy Senior Dev Mode
 
-Integrado vía plugin OpenCode desde `~/.agents/ponytail/` (v4.8.4, MIT, 80k stars).
+Integrado vía plugin OpenCode desde `~/.agents/ponytail/` (v4.8.4). **Modo default: `full`** (persistir con `PONYTAIL_DEFAULT_MODE`).
 
-**Filosofía:** antes de escribir código, subir esta escalera y detenerse en el primer peldaño que aplica:
+| Comando | Efecto |
+|---------|--------|
+| `/ponytail [lite\|full\|ultra\|off]` | Cambiar nivel de la escalera YAGNI→reusar→stdlib→nativo→dep→una línea→mínimo |
+| `/ponytail-review` | Revisa el diff por over-engineering |
+| `/ponytail-audit` | Audita el repo completo |
+| `/ponytail-debt` / `/ponytail-gain` / `/ponytail-help` | Deuda diferida / impacto / referencia |
 
-```
-1. ¿Esto necesita existir?       → no: skip (YAGNI)
-2. ¿Ya existe en el codebase?    → reusar, no reescribir
-3. ¿Lo resuelve la stdlib?       → usarla
-4. ¿Feature nativa del platform? → usarla
-5. ¿Dependency ya instalada?     → usarla
-6. ¿Se puede en una línea?       → una línea
-7. Recién acá: el mínimo que funciona
-```
-
-**No recorta:** validación de trust boundaries, data-loss handling, seguridad, accesibilidad. Solo over-engineering.
-
-### Comandos
-
-| Comando | Qué hace |
-|---------|----------|
-| `/ponytail` | Reporta nivel actual |
-| `/ponytail lite` | Moderado — solo corta lo obvio |
-| `/ponytail full` | Default — escalera completa |
-| `/ponytail ultra` | Máxima intensidad |
-| `/ponytail off` | Desactivado |
-| `/ponytail-review` | Revisa el diff actual por over-engineering |
-| `/ponytail-audit` | Audita todo el repo |
-| `/ponytail-debt` | Cosecha deuda técnica diferida |
-
-### Modo default
-
-El modo default es `full`. Se puede cambiar con `PONYTAIL_DEFAULT_MODE` (lite/full/ultra/off) o persistir con `/ponytail <nivel>`.
-
-### Skills integradas
-
-Las 6 skills de ponytail están disponibles como skills del proyecto:
-- `ponytail` — lazy mode activo
-- `ponytail-review` — revisión de diff
-- `ponytail-audit` — auditoría completa
-- `ponytail-debt` — deuda técnica
-- `ponytail-gain` — scoreboard de impacto
-- `ponytail-help` — referencia rápida
+Regla: no simplificar trust boundaries, seguridad, accesibilidad, ni lo pedido explícitamente. Código primero, explicación ≤3 líneas.
 
 ## Progreso Skill (MUST USE)
 
@@ -673,32 +300,7 @@ dev-tools/verify_changed.ps1
 
 ## Build System
 
-- **Rust**: stable (rust-toolchain.toml: `1.94.1`+)
-- **Profile `ci`** (no LTO, opt-level=2, 16 codegen-units) — used by CI Fast Gate
-- **Profile `release`** (thin LTO, opt-level=3, 1 codegen-unit)
-- **Profile `dev`** (opt-level=1, debug=0) — faster local iteration
-- **Profile `test`** (opt-level=0, debug=0)
-- **Profile `audit`** — used by nextest for pre-flight/release validation
-- **Windows MSVC stack overflow workaround**: Always pass `--build-jobs 2` to nextest
-- **Windows linker**: `.cargo/config.toml` forces `link.exe` (rust-lld causes STATUS_STACK_BUFFER_OVERRUN with large crates)
-
-### Rust Build Optimization
-
-`jobs = 2` en `.cargo/config.toml` es necesario por RAM (sin cambios de código posibles).
-Estrategias para mantener `cargo check` rápido:
-
-**Sin cambiar código (workflow):**
-
-| Comando | Por qué es más rápido |
-|---------|----------------------|
-| `cargo check -p vantadb` | Solo la crate core, ignora las otras 15 del workspace |
-| `cargo check -p vantadb -p vantadb-server -p vantadb-mcp` | Solo las 3 que tocas |
-| `cargo check -p vantadb --no-default-features -F "fjall,cli"` | Excluye rocksdb, arrow, tantivy, server, prometheus |
-| `cargo check -p vantadb` (sin flag) | El profile `check` nativo ya usa opt-level=0, debug=0, codegen-units=256 |
-| `cargo check --timings -p vantadb` | Genera HTML con el desglose exacto de cada crate |
-| `cargo check --workspace --exclude vantadb-langchain --exclude vantadb-ollama --exclude vantadb-openai --exclude vantadb-litellm --exclude vantadb-haystack --exclude vantadb-dspy --exclude vantadb-crewai --exclude vantadb-letta --exclude vantadb-mem0 --exclude vantadb-llamaindex` | Workspace completo sin los 10 adapters (cada uno tira pyo3) |
-
-**Prioridad: `-p vantadb` es el que más impacto da.** Los adapters casi nunca cambian.
+> Ver `references/build-system.md` — build optimizado, profile, features por defecto y Rust Build Optimization. Editar allá, no aquí.
 
 ## Default Features
 
@@ -714,25 +316,7 @@ Key optional features:
 
 ## Test Suite
 
-```bash
-:: Fast Gate (audit profile)
-cargo nextest run --profile audit --workspace --build-jobs 2
-
-:: Single test (adapt to use nextest or cargo test as needed)
-cargo nextest run --profile audit -p vantadb --test <test_name>
-
-:: Tests that require specific features:
-cargo nextest run --profile audit --features "failpoints" --test chaos_integrity
-cargo nextest run --profile audit --features "cli" --test cli_tests
-cargo nextest run --profile audit --features "arrow" --test columnar
-
-:: Experimental tests (parser, executor, governor) — NOTE: experimental-lisp and experimental-governance deleted Jul 2026
-
-:: Fuzzing (requires nightly + Linux, in fuzz/ dir excluded from workspace)
-cd fuzz && cargo +nightly fuzz run fuzz_parser -- -max_total_time=300
-```
-
-Test categories: `tests/core/`, `tests/storage/`, `tests/logic/`, `tests/api/`, `tests/certification/`, `tests/memory/`, plus root-level integration tests.
+> Ver `references/test-suite.md` — runner, categorías y comandos de test. Editar allá, no aquí.
 
 ## CI Architecture (Two-Tier)
 
@@ -743,42 +327,11 @@ See `docs/operations/CI_POLICY.md`.
 
 ## Python SDK
 
-```bash
-:: Hermetic venv (tests MUST use this — never a global install)
-dev-tools/setup_venv.ps1         # creates target/audit-venv + maturin build
-target/audit-venv/Scripts/python -m pytest vantadb-python/tests/test_sdk.py -v
-
-:: Editable install from source
-pip install -e ./vantadb-python
-
-:: PyPI name differs from import
-pip install vantadb-py      # distribution
-import vantadb_py            # module (underscore)
-```
-
-Built via `maturin` with PyO3. Requires Python ≥3.11.
+> Ver `references/python-sdk.md` — instalación, uso y bindings PyO3. Editar allá, no aquí.
 
 ## Architecture
 
-```
-vantadb/ (src/)            ← core library (primary crate)
-  sdk/                     ← primary embedded API (VantaEmbedded, connect(), Vanta* types)
-  engine.rs                ← in-memory engine
-  storage/                 ← persistent backends (Fjall default, RocksDB fallback)
-  wal.rs                   ← Write-Ahead Log
-  vector/                  ← HNSW, distance metrics
-  node.rs                  ← UnifiedNode, FieldValue
-  cli.rs                   ← vanta-cli binary (#[cfg(feature = "cli")])
-  api/                     ← HTTP routes (feature-gated, stub)
-vantadb-python/            ← PyO3 bindings
-vantadb-server/            ← standalone HTTP server binary
-vantadb-wasm/              ← WASM build
-vantadb-mcp/               ← MCP integration
-vantadb-{openai,ollama,mem0,letta,crewai,dspy,haystack,litellm}/  ← thin integration crates
-packages/                  ← LangChain + LlamaIndex adapter packages
-fuzz/                      ← cargo-fuzz targets (nightly Linux only, excluded from workspace)
-benches/                   ← Criterion benchmarks ([[bench]] in Cargo.toml)
-```
+> Ver `references/architecture.md` — estructura del workspace, invariantes y convenciones clave. Editar allá, no aquí.
 
 ## Key Conventions
 
