@@ -3568,6 +3568,27 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ ADR-019: sparse se persiste como `FieldValue::ListFloat(Vec<f64>)` con pares intercalados `[dim, val]` (u32→f64 y f32→f64 lossless, orden determinista por BTreeMap). Write path `sparse_vector_to_field` sin serde_json; read path dual: `ListFloat` decode directo + `String` legacy (`serde_json::from_str`) para compat backward; faltante → `None` (PERF-07); corrupto (odd-length / JSON inválido) → warn + `None`. `VantaMemoryRecord.sparse_vector` público intacto. Sin migración one-shot — nodos viejos migran lazy en próximo put; shim legacy hasta gate de versionado de storage. 7 tests nuevos en serialization + 1 integración en search (recall idéntico). 1885/1885 tests + clippy `-D warnings` + fmt --check ✅. Review P2-01 (vanta-review) APPROVE. Commit `2f1a94e1`.
 - **Ids:** `P2-7`
 
+### AUD-025: BM25 zero-alloc hot path (per-posting allocations)
+- **Fuente:** `docs/Backlog.md` § Hallazgos pendientes (audit-full-20260812-231204)
+- **Fecha:** 2026-08-14
+- **Objetivo:** Eliminar alocaciones por posting en el hot path BM25 (token.clone + String record_key por posting; doc_stats_cache re-fetch por token).
+- **Resultado:** ✅ `src/text_index.rs:565` `posting_record_key` → `&str` zero-alloc (`strip_prefix` + `from_utf8`); `src/sdk/search/phrase.rs` matcher genericizado (`K: AsRef<str> + Ord`, helper `find_positions`); `src/sdk/search/mod.rs:383-448` sin `token.clone()`/`String::from`/`format!` por posting, `doc_stats_cache` keyed por `u128 node_id` con guard de mismatch. `cargo check -p vantadb` ✅, clippy ✅, fmt ✅, 104 tests (13 phrase + 91 search) ✅. Commit `96b258ba`.
+- **Ids:** `AUD-025`
+
+### AUD-026: Dropped cli/arrow/tantivy from native DLL default features
+- **Fuente:** `docs/Backlog.md` § Hallazgos pendientes (audit-full-20260812-231204)
+- **Fecha:** 2026-08-14
+- **Objetivo:** `vantadb-node` era el único cdylib que arrastraba cli/arrow/tantivy (6.7MiB debug) vía default features del crate raíz.
+- **Resultado:** ✅ fix 1 línea `vantadb-node/Cargo.toml:24` — `vantadb = { path = "..", default-features = false, features = ["fjall", "memmap2", "rayon"] }` (python/wasm ya resuelto). `cargo check --manifest-path vantadb-node/Cargo.toml` ✅, `cargo tree -e features` sin tantivy/arrow/clap/indicatif. Commit `404f1625`.
+- **Ids:** `AUD-026`
+
+### AUD-027: Least-privilege per-job permissions in release workflow
+- **Fuente:** `docs/Backlog.md` § Hallazgos pendientes (audit-full-20260812-231204)
+- **Fecha:** 2026-08-14
+- **Objetivo:** Validar el jump release-plz v0.3→v0.5.131 (cambio de comportamiento en permisos/inputs) antes del primer release real post-jump.
+- **Resultado:** ✅ hallazgo refinado: pin `release-plz/action@2eb1d8bcb7 # v0.5.131` era CORRECTO (tag del action vs CLI 0.3.160); cambio real = permisos movidos de workflow-level a por-job (release: `contents: write, pull-requests: read, id-token: write`; PR: `contents: write, pull-requests: write`); Trusted Publishing intacto, sin `CARGO_REGISTRY_TOKEN`; `release-plz.toml` sin cambios. `yaml.safe_load` OK + actionlint exit 0. Commit `d66b267d`.
+- **Ids:** `AUD-027`
+
 ---
 
 ## Planes archivados
