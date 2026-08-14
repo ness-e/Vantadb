@@ -3603,6 +3603,20 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ re-ejecución del contrato desde la raíz del workspace: `python -c "import json; json.load(open('benchmarks/python_baseline.json')); print('OK')"` → `OK` exit 0, entry nueva en verify-log con `passed:true` (2026-08-14T05:47:47Z). Entrada vieja intacta (append-only); sin cambios de código ni harness. Fila del backlog eliminada.
 - **Ids:** `AUD-029`
 
+### AUD-032: Split del monolito vantadb-mcp en 12 módulos
+- **Fuente:** `docs/Backlog.md` § Hallazgos pendientes (audit-full-20260812-231204)
+- **Fecha:** 2026-08-14
+- **Objetivo:** `vantadb-mcp` 1607L en 1 archivo con solo 2 tests — peor ratio tests/líneas del workspace.
+- **Resultado:** ✅ `src/lib.rs` → facade (`#![warn(missing_docs)]`, 8 mods, 10 `pub use` documentados) + 12 módulos: `{config,axioms,error,protocol,metrics,validation,server}.rs` + `handlers/{initialize,resources,prompts,tools}.rs`; slicing 1:1 (internals `pub(crate)`, `#[allow(deprecated)]` ×3 preservado); tests migrados; `tests/version_coherence.rs:97` → `vantadb-mcp/src/handlers/initialize.rs`; review P2-01 approve. Nextest coherence 1/1 + clippy `-D warnings` exit 0. Commit `1099bfe4`.
+- **Ids:** `AUD-032`
+
+### AUD-033: validación de args CLI + suite de tests en vantadb-server
+- **Fuente:** `docs/Backlog.md` § Hallazgos pendientes (audit-full-20260812-231204)
+- **Fecha:** 2026-08-14
+- **Objetivo:** `vantadb-server` sin tests (0 #[test]) + arg-scan manual ignora flags desconocidos.
+- **Resultado:** ✅ `main.rs`: `is_known_flag` (-h/--help/--mcp) + `validate_args`; flag desconocido → `eprintln!("error: unrecognized argument ...")` + hint + `exit(2)`; help precedence intacta. `tests/cli_args.rs` (nuevo, 5 tests, proceso vía `CARGO_BIN_EXE` + `output_with_timeout`). Nextest 5/5. Commit `ef0dfc5c`.
+- **Ids:** `AUD-033`
+
 ---
 
 ## Planes archivados

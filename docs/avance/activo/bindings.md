@@ -138,6 +138,10 @@ aliases: []
 - **Fecha:** 2026-07-11
 - **Resultado:** ✅ ThreadPools 4 workers: `query_async`, `compact_async`, `import_async`, los retorna JoinHandle. 4 tests.
 
+### AUD-032: Split del monolito vantadb-mcp en 12 módulos
+- **Fecha:** 2026-08-14
+- **Resultado:** ✅ `src/lib.rs` → facade (`#![warn(missing_docs)]`, 8 mods, 10 `pub use`) + 12 módulos (`config,axioms,error,protocol,metrics,validation,server` + `handlers/{initialize,resources,prompts,tools}`); slicing 1:1, internals `pub(crate)`; tests migrados; `version_coherence.rs:97` → `src/handlers/initialize.rs`. Review P2-01 approve. Commit `1099bfe4`. (ver docs/progreso/README.md)
+
 ### MCP-16 (edge? — ver fuente)
 - **Estado:** Pendiente verificar.
 

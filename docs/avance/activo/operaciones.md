@@ -83,6 +83,10 @@ aliases: []
 ### REC-007: WAL Compaction + Vacuum CLI
 - **Resultado:** ✅ `vanta-cli wal compact` / `vanta-cli wal vacuum`. (ver core-engine.md)
 
+### AUD-033: Validación de args CLI + suite de tests en vantadb-server
+- **Fecha:** 2026-08-14
+- **Resultado:** ✅ `main.rs`: `is_known_flag` (-h/--help/--mcp) + `validate_args`; flag desconocido → error + hint + `exit(2)`; help precedence intacta. `tests/cli_args.rs` nuevo (5 tests, proceso vía `CARGO_BIN_EXE` + `output_with_timeout`). Nextest 5/5. Commit `ef0dfc5c`. (ver docs/progreso/README.md)
+
 ---
 
 ## Telemetría & monitoreo

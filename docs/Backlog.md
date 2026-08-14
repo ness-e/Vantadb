@@ -423,8 +423,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Severidad | Hallazgo | Archivo:línea | Estado |
 |----|-----------|----------|---------------|--------|
-| AUD-032 | Media | Monolito `vantadb-mcp` 1607L en 1 archivo, solo 2 tests — peor ratio tests/líneas del workspace (mcp 5/10, rec#11) | crates/vantadb-mcp (monolito) | ⏳ pendiente |
-| AUD-033 | Media | `vantadb-server` sin tests (0 #[test]) + arg-scan manual ignora flags desconocidos — validar args + suite de tests | crates/vantadb-server | ⏳ pendiente |
 | AUD-034 | Media | Transacción IDB duplicada ×4 en WASM (write/del × lock/no-lock) — dedupe en un helper transaccional | vantadb-wasm/src/idb.rs:33-70 | ⏳ pendiente |
 | AUD-035 | Media | Megafiles core: split siguiendo patrón REVIEW-05 (serialize/distance/physical_plan) | src/sdk/search/mod.rs:2357, src/storage/engine/ops.rs:2112, src/index/search.rs:2054 | ⏳ pendiente |
 | AUD-037 | Media | Fallback silencioso a Fjall con backend desconocido + duplicación new()/connect() config — error explícito + unificar | vantadb-python/src/lib.rs:210-217 | ⏳ pendiente |
