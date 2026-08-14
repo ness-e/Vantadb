@@ -212,29 +212,14 @@ Las principales: `core-engine`, `storage-backends`, `vector-index`, `web-fronten
 
 ## Rust MCP Servers
 
-Dos MCP servers para operaciones Rust (ver tabla completa en [MCP Servers Disponibles](#mcp-servers-disponibles)):
+**Deshabilitados por default** (ahorro de contexto, preferencia del usuario): el agente usa la terminal para operaciones Rust, no los MCPs de cargo/rust-analyzer. Para reactivarlos puntualmente, ver [MCP Servers Disponibles](#mcp-servers-disponibles).
 
-### Guía de uso para el agente
-
-| Situación | Qué usar |
-|-----------|----------|
-| "Verifica que el código compile" | `cargo-mcp cargo_check` |
-| "Ejecuta clippy" | `cargo-mcp cargo_clippy` |
-| "Corre los tests" | `cargo-mcp cargo_test` |
-| "Agrega la dependencia serde" | `cargo-mcp cargo_add` con `dependencies: ["serde"]` |
-| "Formatea el código" | `cargo-mcp cargo_fmt_check` |
-| "¿Qué símbolos hay en este archivo?" | `rust-analyzer-mcp rust_analyzer_symbols` con `file_path` |
-| "Llévame a la definición de X" | `rust-analyzer-mcp rust_analyzer_definition` con `file_path`, `line`, `character` |
-| "¿Qué errores tiene este archivo?" | `rust-analyzer-mcp rust_analyzer_diagnostics` con `file_path` |
-| "Dame los errores de todo el workspace" | `rust-analyzer-mcp rust_analyzer_workspace_diagnostics` |
-| "Refactoriza / renombra este símbolo" | `rust-analyzer-mcp rust_analyzer_code_actions` |
-
-### Flujo recomendado
-
-1. **Durante desarrollo**: usa `cargo-mcp` para build/test/clippy rápidos desde el chat
-2. **Para navegación de código**: `rust-analyzer-mcp` es más preciso que grep para goto-def, references, hover
-3. **Al finalizar**: corre `cargo fmt --check` + `cargo clippy` + `cargo nextest` via cargo-mcp antes de commit
-4. **rust-mcp-server**: ignorar — no funcional y redundante
+```bash
+cargo check -p vantadb           # compilar
+cargo clippy -p vantadb          # lint
+cargo nextest run --profile audit --workspace --build-jobs 2   # tests
+cargo add serde                  # dependencias
+```
 
 ## Dev Tools (Instalados)
 
@@ -817,32 +802,34 @@ VantaDB follows an **Open Core** model (decision 2026-08-06, see `docs/plans/arc
 
 ## MCP Servers Disponibles
 
-Configurados globalmente en `%USERPROFILE%\.config\opencode\opencode.json`.
+Config: activos en `opencode.jsonc` (proyecto); deshabilitados en `%USERPROFILE%\.config\opencode\opencode.json` (global, todos los proyectos). **OpenCode no filtra MCPs por agente** — los MCPs deshabilitados no cargan sus tools (ahorra contexto). Reactivar puntualmente: `"<mcp>": { "enabled": true }` en la config global + reiniciar OpenCode.
 
 ### Activos
 
 | MCP | Comando | Propósito |
 |-----|---------|-----------|
 | **CodeGraph** | `codegraph serve --mcp` | Grafo de conocimiento del código (7.3K símbolos). Resuelve símbolos, flujos, blast radius |
-| **Pencil** | `mcp-server-windows-x64.exe` | Editor de archivos `.pen` — diseño UI visual, reemplazo de Figma |
-| **Playwright** | `@playwright/mcp` | Automatización de navegador: navegar, click, screenshot, snapshot, redes |
 | **Campaign** | `bun .opencode/task-system/mcp/campaign-server.mjs` | Task system: 30+ tools para plan, task, verify, state machine |
 | **MetaSearchMCP** | `metasearchmcp-mcp` | Búsqueda multi-provider: web, GitHub, académico, código. DuckDuckGo gratis |
 | **Argus** | `argus mcp serve` | 14 providers, extracción 12-step, dead URL recovery |
-| **Discord** | `discord-mcp` | Gestión de servidor Discord: canales, roles, moderación |
-| **LottieFiles Creator** | `@lottiefiles/creator-mcp` | Crear y editar animaciones Lottie vía IA |
-| ~~**Recraft**~~ | ~~`@recraft-ai/mcp-recraft-server`~~ | ❌ Eliminado — sin API key |
-| **cargo-mcp** | `cargo-mcp serve` | Ejecutar comandos Cargo: `check`, `clippy`, `test`, `build`, `fmt`, `add`, `remove`, `bench`, `run` |
-| **rust-analyzer-mcp** | `rust-analyzer-mcp` | LSP completo: goto def, hover, references, completions, diagnostics, rename, format |
-| ~~**rust-mcp-server**~~ | ~~`rust-mcp-server`~~ | ❌ Deshabilitado — bug MCP handshake en v0.2.4. Redundante: cargo-mcp + rust-analyzer-mcp cubren todo |
+
+### Deshabilitados (default)
+
+| MCP | Estado | Por qué |
+|-----|--------|---------|
+| **Pencil** | ❌ off | Editor `.pen` — solo cuando se trabaja en diseño UI |
+| **Playwright** | ❌ off | Navegador — solo para testing web/devtools |
+| **Discord** | ❌ off | Integración social no usada |
+| **LottieFiles Creator** | ❌ off | Animaciones Lottie — solo cuando aplica |
+| **cargo-mcp** | ❌ off | Terminal preferida para Rust (ver [Rust MCP Servers](#rust-mcp-servers)) |
+| **rust-analyzer-mcp** | ❌ off | Terminal preferida para Rust |
+| ~~**rust-mcp-server**~~ | ❌ off | Bug MCP handshake v0.2.4. Redundante con cargo-mcp + rust-analyzer-mcp |
+| ~~**Recraft**~~ | ❌ eliminado | Sin API key |
 
 ### Referencia rápida para agentes
 
 - Para preguntas de código → **CodeGraph** (siempre primero, antes de grep/read)
-- Para diseño UI/visual → **Pencil** (archivos `.pen`)
-- Para web scraping/testing → **Playwright**
-- Para generar/editar imágenes → ~~**Recraft**~~ (❌ sin API key — eliminado)
-- Para tareas Rust → **cargo-mcp** (build/test/clippy/fmt), **rust-analyzer-mcp** (LSP: goto def, hover, diagnostics, completions)
+- Para tareas Rust → terminal (ver [Rust MCP Servers](#rust-mcp-servers))
 
 ## VantaDB Development Protocol & AI Guardian Rules
 
@@ -998,45 +985,3 @@ Si el usuario necesita un release inmediato sin pasar por el ciclo de release-pl
 
 La verificación pre-push manual corre: `cargo fmt → cargo check → cargo clippy → cargo deny check → cargo nextest run` (equivalente a `dev-tools/verify.ps1`).
 
-<!-- Learnings: P1-2 — 2026-07-17 -->
-- `nextest.toml` está en `.config/` (no en raíz). Buscar con `Get-ChildItem -Filter` si `Read` falla.
-- Cambios CI-only no necesitan `cargo check`/`clippy`/`nextest` para verify — el diff es suficiente.
-
-<!-- Learnings: ERR-043 - 2026-08-11 -->
-- Antes de implementar un fix, verificar git history: el commit puede ya existir como ancestro de HEAD (ERR-043 ya estaba resuelto en 2a20b14a; solo faltaba migrar Backlog->progreso).
-
-<!-- Learnings: ERR-045 - 2026-08-11 -->
-- Revisar el estado actual del archivo antes de asumir el fix completo: ERR-045 ya tenía `get_neighbors_ref` agregado en un intento previo (5 callers convertidos); el trabajo restante era migrar el caller BFS de compactación (`serialization_order`), no crear la API de nuevo.
-
-<!-- Learnings: ERR-031 - 2026-08-12 -->
-- El fix principal ya estaba commiteado (339107b0 trait Result + 918e57b1 colateral clippy); el gap real era tests de rechazo por backend. Verificar git history + grep de callers antes de escribir codigo.
-- Un contrato de comportamiento (""rechazo se propaga como Err, no silencioso"") se cierra con un test por backend que pruebe Err + no-mutacion (len sin cambios), no solo el fix en si.
-
-<!-- Learnings: AUD-036 - 2026-08-13 -->
-- Findings de audit con line numbers pueden apuntar a código test-only (`let _ =` en `#[cfg(test)] mod tests`): verificar contexto producción vs test ANTES de implementar fix — el 90% de los "fs error tragado" son cleanup idiomático de tests.
-- Un finding STALE se cierra con evidencia grep (producción limpia + callers propagan con `?`), no con un cambio fabricado. La migración correcta es Backlog → BACKLOG_HISTORY.md + mirror en docs/avance/historial/no-ops.md.
-
-<!-- Learnings: AUD-023 - 2026-08-13 -->
-- `f64 as u32` en Rust satura silencioso (NaN→0, negativo→0, >u32::MAX→u32::MAX) y trunca no-enteros - en decode de datos persistidos/input de usuario, validar `is_finite() && >= 0.0 && <= u32::MAX as f64 && fract() == 0.0` antes del cast y rechazar con None/error. `u32::MAX as f64` es exacto (2^32-1 < 2^53).
-- TDD con test de rechazo por payload corrupto (patrón `test_*_corrupt_*_returns_none` de serialization) es la prueba mínima que cubre el finding: RED muestra el valor saturante real (`Some(SparseVector({0: 0.5}))`), GREEN lo convierte en None.
-
-<!-- Learnings: AUD-024 - 2026-08-13 -->
-- Un loop de drain sobre una Vec ya tomada del mutex con `mem::take` debe iterar por valor (`for op in ops`) — los `.clone()` de campos heap (bitset+vector) por op son clones evitables porque `add()` los toma por valor. Verificar la firma del callee (toma por valor vs por ref) ANTES de decidir el refactor.
-- `benches/bench_concurrent.rs` (harness=false, `cargo bench --bench bench_concurrent`) es el bench aplicable al path completo de inserción del engine (StorageEngine::insert → drain HNSW) — fase "Inserted 10000 nodes" como métrica antes/después.
-- WIP de otra sesión puede aparecer en el working tree DURANTE la ejecución (AUD-039: lru en vantadb-python/Cargo.toml + completions del subcomando tui aparecieron a mitad de sesión): commitear SOLO los archivos propios (`git add` explícito), nunca `git add -A`/`git commit -am` con WIP ajeno presente.
-
-<!-- Learnings: AUD-039 - 2026-08-13 -->
-- `lru` 0.16.4 ya es dep directa del core (cli_server.rs usa LruCache) y está resuelta en el lockfile: para el binding solo hay que `cargo add lru@0.16` al crate (vantadb-python/Cargo.toml) — no introduce crate nuevo al lockfile ni bump de versión. NO usar la lru 0.12.5 transitiva de tantivy.
-- El package name del binding es `vantadb_py` (no `vantadb-python`): `cargo check -p vantadb-python` falla ("did not match any packages"), usar `-p vantadb_py`.
-- En PyO3 thread_local con RefCell: `lru::LruCache::get` devuelve `Option<&V>` cuyo borrow no puede escapar del closure del RefCell → `.cloned()` en el call site (mismo tipo owned que el código anterior).
-- `unreachable!("msg")` con argumento NO es const-compatible (E0015: formatting macro in const context) → usar `unreachable!()` sin argumentos en consts; `NonZeroUsize::new(64)` con match + unreachable es el patrón sin-unwrap para `LruCache::new`.
-- El core rechaza query vectors zero-norm desde ERR-028 (b8058a26, src/sdk/search/mod.rs): tests Python que usen `search(vector=[0.0]*dim)` fallan con "zero-norm cosine query vector is undefined" — usar vector non-zero (ej. [0.5]*dim).
-- FASE PERFORMANCE con timing: para este cache el cuello de botella es el engine (WAL+indexación), no la cache — microbench muestra ~78-80 ops/s indistinto de hits o thrash; la evidencia del gate es complejidad O(1) documentada (lru hash+lista doble) + sin regresión funcional (thresholds de test_sustained_* pasan).
-
-<!-- Learnings: AUD-022 - 2026-08-13 -->
-- Para pinear una GitHub Action a SHA: el ref `refs/tags/vX.Y.Z` apunta a un tag object, NO directo al commit — `GET /repos/{owner}/{repo}/git/refs/tags/{tag}` devuelve `{object: {type: "tag", sha: <tag-sha>}}` y hay que seguir `GET /repos/{owner}/{repo}/git/tags/{tag-sha}` para obtener el commit real. (En el caso de sccache-action v0.0.11 el sha del tag coincidió con el commit, pero el two-step es el camino correcto.) Anotar el SHA con `# vX.Y.Z` (convención AUD-028).
-
-<!-- Learnings: AUD-030 - 2026-08-13 -->
-- Un gate de bench nightly sin `pull_request` trigger no valida PRs, y un baseline que nadie promueve queda stale: `bench_regression.py` ya tenía el modo `update-baseline` pero ningún step lo llamaba — revisar SIEMPRE si el modo/callable existe antes de escribirlo (escalera ponytail rung 2: reusar).
-- Trigger PR con `paths` filter (benches/**, benchmarks/**, scripts/bench_regression.py, Cargo.toml) = el gate corre en PRs que tocan el sistema de bench sin que PRs normales paguen 2hrs de bench (respeta two-tier CI_POLICY).
-- Auto-commit de baseline solo en `github.event_name == 'schedule'` y solo si `has_regression != 'True'` — PRs jamás mutan el baseline del repo y un run con regresión nunca se hornea como baseline. Requiere `permissions.contents: write` (GitHub downgradea a read-only en forks).

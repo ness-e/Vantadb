@@ -27,7 +27,7 @@
         "-Command",
         "$t = (Get-Content '.env.tokens' | Where-Object {$_ -match '^DISCORD_BOT_TOKEN=\"(.+)\"$'} | ForEach-Object {$Matches[1]}); $env:DISCORD_TOKEN = $t; bunx @rayenking/discord-mcp"
       ],
-      "enabled": true
+      "enabled": false
     },
     "metasearchmcp": {
       "command": [
@@ -61,7 +61,7 @@
         "bunx",
         "@lottiefiles/creator-mcp@latest"
       ],
-      "enabled": true,
+      "enabled": false,
       "type": "local",
       "description": "LottieFiles Creator MCP — crear y editar animaciones Lottie via IA."
     }
