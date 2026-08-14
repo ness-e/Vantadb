@@ -38,6 +38,12 @@ async fn main() {
         return;
     }
 
+    if let Err(unknown) = validate_args(&args) {
+        eprintln!("error: unrecognized argument '{unknown}'");
+        eprintln!("Run with --help for usage.");
+        std::process::exit(2);
+    }
+
     let is_mcp = args.iter().any(|a| a == MCP_FLAG);
     let config = vantadb::config::VantaConfig::from_env();
 
@@ -71,6 +77,19 @@ async fn main() {
     }
 }
 
+/// Returns the first argument that is not a supported flag, if any.
+fn validate_args(args: &[String]) -> Result<(), String> {
+    match args.iter().find(|a| !is_known_flag(a)) {
+        Some(unknown) => Err(unknown.clone()),
+        None => Ok(()),
+    }
+}
+
+/// Whether `arg` is a flag this binary understands.
+fn is_known_flag(arg: &str) -> bool {
+    matches!(arg, "-h" | "--help" | "--mcp")
+}
+
 /// Prints the usage message and exits (called on `-h`/`--help`).
 fn print_help() {
     println!(
@@ -81,4 +100,49 @@ fn print_help() {
          {MCP_FLAG}    Run as an MCP stdio server instead of the HTTP CLI server\n    \
          -h, --help    Print help information"
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_known_flags() {
+        assert_eq!(validate_args(&[]), Ok(()));
+        assert_eq!(validate_args(&["--mcp".to_string()]), Ok(()));
+        assert_eq!(validate_args(&["-h".to_string()]), Ok(()));
+        assert_eq!(validate_args(&["--help".to_string()]), Ok(()));
+        assert_eq!(
+            validate_args(&["--mcp".to_string(), "-h".to_string()]),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_args() {
+        assert_eq!(
+            validate_args(&["--por".to_string()]),
+            Err("--por".to_string())
+        );
+        assert_eq!(
+            validate_args(&["--por".to_string(), "8080".to_string()]),
+            Err("--por".to_string())
+        );
+        assert_eq!(
+            validate_args(&["8080".to_string()]),
+            Err("8080".to_string())
+        );
+        assert_eq!(
+            validate_args(&["--mcp".to_string(), "--bogus".to_string()]),
+            Err("--bogus".to_string())
+        );
+    }
+
+    #[test]
+    fn first_unknown_arg_wins() {
+        assert_eq!(
+            validate_args(&["--mcp".to_string(), "--bogus".to_string(), "x".to_string()]),
+            Err("--bogus".to_string())
+        );
+    }
 }
