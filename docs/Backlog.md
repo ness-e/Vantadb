@@ -423,7 +423,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Severidad | Hallazgo | Archivo:línea | Estado |
 |----|-----------|----------|---------------|--------|
-| AUD-029 | Media | CI-05 verify-log registra passed:false para contrato con artifact válido (harness/cwd/quoting) — re-correr desde raíz | .opencode/task-system/enforcement/verify-log.jsonl | ⏳ pendiente |
 | AUD-032 | Media | Monolito `vantadb-mcp` 1607L en 1 archivo, solo 2 tests — peor ratio tests/líneas del workspace (mcp 5/10, rec#11) | crates/vantadb-mcp (monolito) | ⏳ pendiente |
 | AUD-033 | Media | `vantadb-server` sin tests (0 #[test]) + arg-scan manual ignora flags desconocidos — validar args + suite de tests | crates/vantadb-server | ⏳ pendiente |
 | AUD-034 | Media | Transacción IDB duplicada ×4 en WASM (write/del × lock/no-lock) — dedupe en un helper transaccional | vantadb-wasm/src/idb.rs:33-70 | ⏳ pendiente |

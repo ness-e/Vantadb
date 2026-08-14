@@ -3596,6 +3596,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ hallazgo refinado: pin `release-plz/action@2eb1d8bcb7 # v0.5.131` era CORRECTO (tag del action vs CLI 0.3.160); cambio real = permisos movidos de workflow-level a por-job (release: `contents: write, pull-requests: read, id-token: write`; PR: `contents: write, pull-requests: write`); Trusted Publishing intacto, sin `CARGO_REGISTRY_TOKEN`; `release-plz.toml` sin cambios. `yaml.safe_load` OK + actionlint exit 0. Commit `d66b267d`.
 - **Ids:** `AUD-027`
 
+### AUD-029: Re-correr contrato CI-05 desde la raíz (verify-log alineado)
+- **Fuente:** `docs/Backlog.md` § Hallazgos pendientes (audit-full-20260812-231204)
+- **Fecha:** 2026-08-14
+- **Objetivo:** `verify-log.jsonl` registraba CI-05 con `passed:false, exitCode:-1` (harness/cwd/quoting en la sesión de audit) pese a artifact `benchmarks/python_baseline.json` válido.
+- **Resultado:** ✅ re-ejecución del contrato desde la raíz del workspace: `python -c "import json; json.load(open('benchmarks/python_baseline.json')); print('OK')"` → `OK` exit 0, entry nueva en verify-log con `passed:true` (2026-08-14T05:47:47Z). Entrada vieja intacta (append-only); sin cambios de código ni harness. Fila del backlog eliminada.
+- **Ids:** `AUD-029`
+
 ---
 
 ## Planes archivados
