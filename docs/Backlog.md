@@ -72,8 +72,6 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | `RELEASE-01` | **Gate `cargo semver-checks` en CI** — *ejecutado* (`1e2a58cc`: job dedicado semver-checks en release/ci). | `.github/workflows/release.yml`, `ci-rust-10.yml` | 🟢 | 🔴 | ✅ Completado |
 | `RELEASE-02` | **Publish coordinado 0.5.0** — *verificado live*: crates.io `vantadb 0.5.0`, PyPI `vantadb_py 0.5.0`, npm `vantadb 0.5.0`, GitHub Release + tag `v0.5.0` (2026-08-01). | `release.yml`, `release-wheels-60.yml`, `release-npm-61.yml` | 🟢 | 🔴 | ✅ Completado |
 | `RELEASE-03` | **Limpiar artefactos de ejecución** — *ejecutado*: `_audit04_repro_db/`, `benchmarks/_probe_db/`, `chroma_db`, `.pyc`, `data_comp_bench/` limpiados/ignored. | raíz repo, `.gitignore` | 🟢 | 🟡 | ✅ Completado |
-| `CI-01` | **`.pre-commit-config.yaml` con prettier + formatters** — causó el certify FAILED de 2026-07-24 (L3 prettier `NbAccordion.tsx:20` sin hook). Registrar prettier (web/), ruff (python), cargo fmt en pre-commit XS effort | `.pre-commit-config.yaml` | 🟢 | 🟢 | 📝 Pendiente |
-
 ---
 
 ## Phase 1: 🛡️ Security & Critical

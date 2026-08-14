@@ -129,6 +129,9 @@ aliases: []
 ### CI-07: SHA pinning de acciones — migrado 2026-08-12 (ver docs/progreso/README.md)
 - **Resultado:** ✅ 67 refs tag/branch → SHA de 40 hex en 16 workflows (API GitHub + `git ls-remote`); 0 uses de terceros sin SHA restantes; 34 internos `./.github/...` sin pinear (correcto). Fix de ref muerta `release-plz@release-plz-v0.3.160` → v0.5.131. actionlint exit 0. Commits `faec5826`, `73bbf6e1`, `97c21d81`, `b84e4186`, `117c1ac4`.
 
+### CI-01 (pre-commit-config): Registrar prettier + ruff + cargo fmt en pre-commit — verificado 2026-08-14 (ver docs/progreso/README.md)
+- **Resultado:** ✅ `.pre-commit-config.yaml` con los 3 formatters (cargo-fmt local, ruff scoped `vantadb-python/`, prettier scoped `web/` rev v3.1.0). Commit `501758a3`. Fila stale del backlog eliminada.
+
 ### AUD-026: Dropped cli/arrow/tantivy from native DLL default features — migrado 2026-08-14 (ver docs/progreso/README.md)
 - **Resultado:** ✅ `vantadb-node/Cargo.toml:24` — `vantadb = { path = "..", default-features = false, features = ["fjall", "memmap2", "rayon"] }`; único cdylib que arrastraba cli/arrow/tantivy (6.7MiB debug). `cargo check --manifest-path vantadb-node/Cargo.toml` ✅ + `cargo tree -e features` limpio. Commit `404f1625`.
 

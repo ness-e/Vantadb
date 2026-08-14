@@ -3561,6 +3561,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ 67 refs tag/branch → SHA verificados (API GitHub + `git ls-remote`, no memoria) en 16 workflows (+67/−67, comentarios de versión preservados `@sha # v4.4.0`). Grep final: 0 uses de terceros sin 40-hex; 34 internos `./.github/...` correctamente sin pinear. Hallazgo: `release-plz/action@release-plz-v0.3.160` era tag muerto (git ls-remote vacío) → restaurado al tag vigente v0.5.131. actionlint exit 0. Commits: `faec5826`, `73bbf6e1`, `97c21d81`, `b84e4186`, `117c1ac4`.
 - **Ids:** `CI-07`
 
+### CI-01 (pre-commit-config): Registrar prettier + ruff + cargo fmt en pre-commit
+- **Fuente:** Backlog (fila stale — ya implementado)
+- **Fecha:** 2026-08-09 (plan residual-hardening Task 20) / verificado 2026-08-14
+- **Objetivo:** `.pre-commit-config.yaml` con los 3 formatters — cargo-fmt (hook local), ruff-check + ruff-format (scoped `vantadb-python/`), prettier (scoped `web/`, rev `v3.1.0`, exclude `.next`/`node_modules`/`package-lock.json`).
+- **Resultado:** ✅ config completo + commit `501758a3` "ci: CI-01 pre-commit hooks config (rustfmt, ruff, prettier scoped)". Fila del backlog eliminada al verificar que ya existía. *Nota: no confundir con el CI-01 viejo (workflows GitHub Actions, 2026-07-03, líneas arriba) — ID reutilizado.*
+- **Ids:** `CI-01 (pre-commit-config)`
+
 ### P2-7: Serialización zero-copy del sparse vector (formato persistido)
 - **Fuente:** Backlog § Phase 4 (deuda indexada AGENTS.md Regla 5 + AUDIT-02 2026-08-06)
 - **Fecha:** 2026-08-12
