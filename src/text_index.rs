@@ -561,11 +561,11 @@ pub(crate) fn posting_namespace_prefix(namespace: &str) -> Vec<u8> {
     prefix
 }
 
-/// Extract the record key from a posting key for a given namespace and token.
-pub(crate) fn posting_record_key(namespace: &str, token: &str, index_key: &[u8]) -> Option<String> {
-    let prefix = posting_prefix(namespace, token);
-    let key_bytes = index_key.strip_prefix(prefix.as_slice())?;
-    String::from_utf8(key_bytes.to_vec()).ok()
+/// Extract the record key from a posting key, given the already-built
+/// namespace+token prefix. Zero-allocation: borrows from the index key.
+pub(crate) fn posting_record_key<'a>(prefix: &[u8], index_key: &'a [u8]) -> Option<&'a str> {
+    let key_bytes = index_key.strip_prefix(prefix)?;
+    std::str::from_utf8(key_bytes).ok()
 }
 
 /// Check whether a key belongs to an internal (stats) prefix.

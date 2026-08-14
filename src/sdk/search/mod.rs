@@ -381,13 +381,12 @@ impl VantaEmbedded {
             namespace_stats.total_doc_len as f32 / doc_count
         };
         let mut scores: BTreeMap<u128, f32> = BTreeMap::new();
-        let mut candidate_positions: BTreeMap<u128, BTreeMap<String, Vec<u32>>> = BTreeMap::new();
-        let mut doc_stats_cache: BTreeMap<String, crate::text_index::TextDocStats> =
-            BTreeMap::new();
+        let mut candidate_positions: BTreeMap<u128, BTreeMap<&str, Vec<u32>>> = BTreeMap::new();
+        let mut doc_stats_cache: BTreeMap<u128, crate::text_index::TextDocStats> = BTreeMap::new();
         let mut candidates_scored = 0u64;
 
-        for token in query_plan.terms {
-            let Some(term_stats) = Self::load_text_term_stats(&engine, namespace, &token)? else {
+        for token in &query_plan.terms {
+            let Some(term_stats) = Self::load_text_term_stats(&engine, namespace, token)? else {
                 continue;
             };
             if term_stats.df == 0 {
@@ -396,7 +395,7 @@ impl VantaEmbedded {
 
             let df = term_stats.df as f32;
             let idf = (1.0 + ((doc_count - df + 0.5) / (df + 0.5))).ln();
-            let prefix = crate::text_index::posting_prefix(namespace, &token);
+            let prefix = crate::text_index::posting_prefix(namespace, token);
             for entry in engine.scan_partition_prefix_iter(BackendPartition::TextIndex, &prefix)? {
                 let (posting_key, posting_value) = entry?;
                 if crate::text_index::is_internal_key(&posting_key) {
@@ -407,32 +406,32 @@ impl VantaEmbedded {
                         "text_query found an unreadable posting; run rebuild_index: {err}"
                     )))
                 })?;
-                let Some(record_key) =
-                    crate::text_index::posting_record_key(namespace, &token, &posting_key)
+                let Some(record_key) = crate::text_index::posting_record_key(&prefix, &posting_key)
                 else {
                     continue;
                 };
-                let doc_stats = if let Some(stats) = doc_stats_cache.get(&record_key) {
-                    stats.clone()
+                let doc_len = if let Some(stats) = doc_stats_cache.get(&posting.node_id) {
+                    stats.doc_len
                 } else {
-                    let Some(stats) = Self::load_text_doc_stats(&engine, namespace, &record_key)?
+                    let Some(stats) = Self::load_text_doc_stats(&engine, namespace, record_key)?
                     else {
                         return Err(VantaError::NotFound {
                             kind: "document_stats".into(),
                             id: "unknown".into(),
                         });
                     };
-                    doc_stats_cache.insert(record_key.clone(), stats.clone());
-                    stats
+                    if stats.node_id != posting.node_id {
+                        return Err(VantaError::SearchError(ChainedError::msg(
+                            "text_query found posting/doc stats mismatch; run rebuild_index",
+                        )));
+                    }
+                    let doc_len = stats.doc_len;
+                    doc_stats_cache.insert(posting.node_id, stats);
+                    doc_len
                 };
-                if doc_stats.node_id != posting.node_id {
-                    return Err(VantaError::SearchError(ChainedError::msg(
-                        "text_query found posting/doc stats mismatch; run rebuild_index",
-                    )));
-                }
 
                 let tf = posting.tf as f32;
-                let doc_len = doc_stats.doc_len as f32;
+                let doc_len = doc_len as f32;
                 let denominator = tf
                     + crate::text_index::BM25_K1
                         * (1.0 - crate::text_index::BM25_B
@@ -445,7 +444,7 @@ impl VantaEmbedded {
                 candidate_positions
                     .entry(posting.node_id)
                     .or_default()
-                    .insert(token.clone(), posting.positions);
+                    .insert(token.as_str(), posting.positions);
                 candidates_scored += 1;
             }
         }
