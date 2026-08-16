@@ -42,7 +42,7 @@ await db.put({
   namespace: "memories",
   key: "greeting",
   payload: "Hello, world!",
-  metadata: { lang: { type: "String", value: "en" } },
+  metadata: { lang: { String: "en" } },
   vector: [0.1, 0.2, 0.3],
 });
 

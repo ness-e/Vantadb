@@ -4,7 +4,14 @@ Bindings oficiales de Python para **VantaDB**, un motor de base de datos embebid
 
 ## 📦 Instalación
 
-### Desde TestPyPI (Recomendado para pruebas)
+### Desde PyPI (Recomendado)
+```bash
+pip install vantadb-py
+```
+
+> **Nota:** El nombre de distribución es `vantadb-py`, pero el módulo importable usa guion bajo: `import vantadb_py`.
+
+### Desde TestPyPI (Pruebas de releases previas)
 ```bash
 pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ vantadb-py
 ```
@@ -53,7 +60,7 @@ results = db.search_memory(
 )
 
 for hit in results:
-    print(f"Key: {hit['key']}, Score: {hit['score']:.4f}")
+    print(f"Key: {hit.key}, Score: {hit.score:.4f}")
 
 # 5. Monitoreo de recursos (Crítico para agentes locales)
 stats = db.operational_metrics()
