@@ -99,7 +99,7 @@ Si el API core no está definida, solicita una spec o delega a Arch.
 
 ### Verification
 - `cargo check -p vantadb` — ✅ / ❌
-- `cargo check -p vantadb-python` — ✅ / ❌
+- `cargo check -p vantadb_py` — ✅ / ❌
 - `cargo nextest run -p vantadb --test <relevant>` — ✅ / ❌
 
 ### Notes

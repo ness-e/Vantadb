@@ -99,7 +99,7 @@ Antes de escribir docs, verifica:
 ### Verification
 - `cargo doc --no-deps` — ✅ / ❌ (sin warnings)
 - `cargo test --doc` — ✅ / ❌
-- `pytest vantadb-python/tests/` — ✅ / ❌
+- `target/audit-venv/Scripts/python -m pytest vantadb-python/tests/test_sdk.py` — ✅ / ❌
 
 ### API Contract Check
 - Functions documented: [X/Y]
