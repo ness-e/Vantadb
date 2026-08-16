@@ -69,6 +69,10 @@ aliases: []
 - **Fecha:** 2026-08-16
 - **Resultado:** ✅ `vantadb-wasm/src/idb.rs`: 4 bloques IDBTransaction (write/del × lock/no-lock) → helper `runWriteTx` + 2 call sites; diff +15/−32. Lock y notify preservados; API `IdbStorage::write_file`/`delete_file` intacta. Commit `b255f982`. (ver docs/progreso/README.md)
 
+### AUD-043: collect_all_deduped — dedup u128 node-ids (WASM)
+- **Fecha:** 2026-08-16
+- **Resultado:** ✅ `vantadb-wasm/src/lib.rs:556`: dedup `HashSet<(String,String)>` → `HashSet<u128>` por `record.node_id` (XxHash3_128 sobre `namespace\0key`); cero alocación por record. + test `test_collect_all_deduped_no_duplicates`. (ver docs/progreso/README.md)
+
 ### CODE-047: Tests con catch vacío
 - **Resultado:** ✅ aserciones de errores en catches, 11 archivos.
 

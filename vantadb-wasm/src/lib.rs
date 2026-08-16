@@ -553,10 +553,13 @@ impl VantaDB {
     }
 
     /// Collect all in-memory records deduplicated by (namespace, key).
+    ///
+    /// Dedup uses `node_id` (a u128 `XxHash3_128` over `namespace\0key`, see
+    /// `vantadb::sdk::serialization::memory_node_id`) instead of allocating two
+    /// Strings per record — identical semantics, zero per-record allocation.
     fn collect_all_deduped(&self) -> Result<Vec<VantaMemoryRecord>, JsValue> {
         let _g = enter(&self.op_gate)?;
-        let mut seen: std::collections::HashSet<(String, String)> =
-            std::collections::HashSet::new();
+        let mut seen: HashSet<u128> = HashSet::new();
         let mut state: Vec<VantaMemoryRecord> = Vec::new();
         let namespaces: Vec<String> = self.inner.list_namespaces().map_err(to_js_err)?;
         for ns in &namespaces {
@@ -571,7 +574,7 @@ impl VantaDB {
                 };
                 let page = self.inner.list(ns, opts).map_err(to_js_err)?;
                 for record in page.records {
-                    if seen.insert((record.namespace.clone(), record.key.clone())) {
+                    if seen.insert(record.node_id) {
                         if state.len() >= MAX_RECORDS {
                             return Err(JsValue::from_str("too many records to export"));
                         }
@@ -1716,6 +1719,49 @@ mod tests {
             val["id"],
             serde_json::Value::String(big_id.to_string()),
             "node id must round-trip exactly (old u64 binding would clamp to 0)"
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn test_collect_all_deduped_no_duplicates() {
+        // AUD-043: dedup by (namespace, key) must never emit duplicate pairs.
+        // Re-putting the same key overwrites the store copy, so the invariant
+        // to prove is: the deduped collection has exactly the unique records
+        // and no (namespace, key) pair appears twice.
+        let db = create_db();
+        for (ns, key) in [("ns_a", "k1"), ("ns_a", "k2"), ("ns_b", "k1")] {
+            let input = serde_wasm_bindgen::to_value(&serde_json::json!({
+                "namespace": ns,
+                "key": key,
+                "payload": "p"
+            }))
+            .unwrap();
+            db.put(input).unwrap();
+        }
+        // Overwrite an existing key — must not create a second record.
+        let dup = serde_wasm_bindgen::to_value(&serde_json::json!({
+            "namespace": "ns_a",
+            "key": "k1",
+            "payload": "overwritten"
+        }))
+        .unwrap();
+        db.put(dup).unwrap();
+
+        let records = db.collect_all_deduped().unwrap();
+        let mut seen = HashSet::new();
+        for rec in &records {
+            assert!(
+                seen.insert((rec.namespace.clone(), rec.key.clone())),
+                "duplicate (namespace, key) in collect_all_deduped output: {} {}",
+                rec.namespace,
+                rec.key
+            );
+        }
+        assert_eq!(
+            records.len(),
+            3,
+            "expected 3 unique records, got {}",
+            records.len()
         );
     }
 }

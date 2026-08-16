@@ -3653,6 +3653,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ `vantadb-python/src/lib.rs`: `parse_backend_kind(Option<&str>) -> PyResult<BackendKind>` + `open_vantadb(...)` — `None`→fjall, `"rocksdb"`, `"memory"`, otro→`ValueError` descriptivo (antes: `tracing::warn!` + fallback silencioso). `new()` y `connect()` delegan en `open_vantadb` (connect normaliza `""`/`":memory:"` + `py.detach` libera GIL durante open). Docstrings actualizados ("raise ValueError"). pytest 89 passed, 4 deselected (maturin develop); smoke: `backend='bogus'` → `ValueError: Unknown backend "bogus"`. Hallazgo colateral: `VantaDB(':memory:')` con default lanza OSError en Windows (Fjall trata `":memory:"` como dir) — pre-existente, documentado. Commit `47153977`.
 - **Ids:** `AUD-037`
 
+### AUD-043: collect_all_deduped — dedup con u128 node-ids (P2-8)
+- **Fuente:** `docs/Backlog.md` — Hallazgos pendientes (audit-full-20260812-231204)
+- **Fecha:** 2026-08-16
+- **Objetivo:** `collect_all_deduped` O(n) dedup con `HashSet<(String,String)>` — 2 alocaciones de String por record.
+- **Resultado:** ✅ `vantadb-wasm/src/lib.rs:556`: `HashSet<(String,String)>` → `HashSet<u128>` por `record.node_id` (XxHash3_128 sobre `namespace\0key`, determinístico 1:1 verificado en `src/sdk/serialization/mod.rs:54-60` con test `test_memory_node_id_deterministic`; 19 callers). Cero alocación por record (u128 Copy). Paginación/MAX_RECORDS intacta. + test `test_collect_all_deduped_no_duplicates` (`#[wasm_bindgen_test]`, 3 records + overwrite → sin duplicados). Check/clippy/fmt exit 0; 7 warnings pre-existentes del core (`vfile_*.rs`, fuera de scope). Commit pendiente.
+- **Ids:** `AUD-043`
+
 ---
 
 ## Planes archivados
