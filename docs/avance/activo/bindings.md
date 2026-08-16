@@ -25,6 +25,10 @@ aliases: []
 ### PERF-26: Lazy serialization
 - **Resultado:** ✅ Devuelve `VantaPyMemoryRecord` en lugar de PyDict built eager; Python convierte con `#type: ignore` fallback. +24.8% throughput.
 
+### AUD-037: error explícito de backend + unificar new()/connect() (Python)
+- **Fecha:** 2026-08-16
+- **Resultado:** ✅ `vantadb-python/src/lib.rs`: `parse_backend_kind` + `open_vantadb` — backend desconocido → `ValueError` (antes fallback silencioso a Fjall); `new()`/`connect()` delegan en `open_vantadb` (connect normaliza `""`/`":memory:"` + `py.detach`); docstrings actualizados. pytest 89 passed. Commit `47153977`. (ver docs/progreso/README.md)
+
 ### PERF-31: NumPy output batch
 - **Resultado:** ✅ `np_per_query_batch` vía `__array_interface__` zero-copy (sin GIL), CSV header skip, `np.asarray(..., dtype=np.float32)`. +26.4% throughput.
 
@@ -60,6 +64,10 @@ aliases: []
 
 ### CODE-046/087/088: _mapRecord / O(n) copy / Object reconstruction
 - **Resultado:** ✅ TS records: `_mapRecord` identity fallback, copy-on-write, Object.assign reconstruction refactor.
+
+### AUD-034: dedupe transacción IDB en helper único (WASM)
+- **Fecha:** 2026-08-16
+- **Resultado:** ✅ `vantadb-wasm/src/idb.rs`: 4 bloques IDBTransaction (write/del × lock/no-lock) → helper `runWriteTx` + 2 call sites; diff +15/−32. Lock y notify preservados; API `IdbStorage::write_file`/`delete_file` intacta. Commit `b255f982`. (ver docs/progreso/README.md)
 
 ### CODE-047: Tests con catch vacío
 - **Resultado:** ✅ aserciones de errores en catches, 11 archivos.

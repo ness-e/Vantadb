@@ -3639,6 +3639,20 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ `benches/sparse_hot_path.rs` (+42L): 2 arms nuevos en grupo `sparse/hot-path` — `listfloat_encode_one` (SparseVector → interleaved Vec<f64>) y `listfloat_decode_one` (→ BTreeMap validado), mirrors inline de `sparse_vector_to_field/from_field` (helpers privados a sdk::serialization, mismo patrón que arms serde_json). Arms serde_json intactos para comparación critcmp. Check --benches/clippy/test --no-run/fmt exit 0. Commit `ec4eaeff`.
 - **Ids:** `AUD-041`
 
+### AUD-034: dedupe transacción IDB en helper único
+- **Fuente:** `docs/Backlog.md` § Hallazgos pendientes (audit-full-20260812-231204)
+- **Fecha:** 2026-08-16
+- **Objetivo:** transacción IndexedDB duplicada ×4 (write/del × lock/no-lock).
+- **Resultado:** ✅ `vantadb-wasm/src/idb.rs`: los 4 bloques IDBTransaction duplicados → helper único `runWriteTx(db, key, op, resolve, reject)` + 2 call sites de 1 línea; diff +15/−32 (−37.8%). Lock `navigator.locks.request("vantadb-write")` preservado (resolveTx en tx.oncomplete — necesario o la siguiente escritura deadlockea); notify `channel.postMessage` idéntico; errores lock/no-lock mismos observables. API pública Rust (`IdbStorage::write_file`/`delete_file`, 13+20 callers) intacta. Check/clippy/nextest 1/fmt exit 0. Commit `b255f982`.
+- **Ids:** `AUD-034`
+
+### AUD-037: error explícito de backend + unificar new()/connect() en Python
+- **Fuente:** `docs/Backlog.md` § Hallazgos pendientes (audit-full-20260812-231204)
+- **Fecha:** 2026-08-16
+- **Objetivo:** fallback silencioso a Fjall con backend desconocido + duplicación new()/connect().
+- **Resultado:** ✅ `vantadb-python/src/lib.rs`: `parse_backend_kind(Option<&str>) -> PyResult<BackendKind>` + `open_vantadb(...)` — `None`→fjall, `"rocksdb"`, `"memory"`, otro→`ValueError` descriptivo (antes: `tracing::warn!` + fallback silencioso). `new()` y `connect()` delegan en `open_vantadb` (connect normaliza `""`/`":memory:"` + `py.detach` libera GIL durante open). Docstrings actualizados ("raise ValueError"). pytest 89 passed, 4 deselected (maturin develop); smoke: `backend='bogus'` → `ValueError: Unknown backend "bogus"`. Hallazgo colateral: `VantaDB(':memory:')` con default lanza OSError en Windows (Fjall trata `":memory:"` como dir) — pre-existente, documentado. Commit `47153977`.
+- **Ids:** `AUD-037`
+
 ---
 
 ## Planes archivados
