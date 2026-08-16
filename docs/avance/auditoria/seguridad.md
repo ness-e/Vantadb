@@ -140,6 +140,10 @@ aliases: []
 - **Fecha:** 2026-08-13
 - **Resultado:** ✅ 78 líneas `uses: repo@sha` sin anotar (74 del audit + 4 `pypa/gh-action-pypi-publish` omitidas del primer map de edición) → `# vX.Y.Z` en 11 archivos de `.github/**`. Versiones resueltas contra tags reales upstream (`git ls-remote --tags` para tags exactos; `git clone --filter=blob:none` + `git describe --tags` para commits intermedios: rust-cache v2.9.1, install-action v2.83.4, attest-build-provenance v4.1.1). dtolnay/rust-toolchain → `# v1` (único tag del repo). SHAs intactos (diff aditivo). Grep pins sin anotar = 0; actionlint 10/10; YAML 23/23. Review vanta-audit approve (16/16 correspondencias verificadas independientemente). Commit `8e9f5eb1`.
 
+### AUD-035: Split megafiles core (patrón REVIEW-05)
+- **Fecha:** 2026-08-16
+- **Resultado:** ✅ 3 splits. **Split 1** `src/sdk/search/mod.rs` 2521L → 8 submódulos (`lexical.rs` 225L, `vector.rs` 216L, `sparse.rs` 74L, `hybrid.rs` 47L, `explain.rs` 196L, `audit.rs` 52L, `debug_ops.rs` 380L, `multi.rs` 89L) + `tests.rs` (53 tests), mod.rs orquestador 330L. Commit `5d96b536`. **Split 2** `src/storage/engine/ops.rs` 2131L → orquestador 331L + `delete.rs/get.rs/insert.rs/txn.rs` (mod.rs cableado + doc-comments). **Split 3** `src/index/search.rs` 2054L → `search/mod.rs` 52L (orquestador + `impl VecIndex for CPIndex` verbatim) + `pool.rs` 16L + `profile.rs` 80L + `layer.rs` 393L + `neighbors.rs` 63L + `nearest.rs` 163L + `alternate.rs` 116L + `tests.rs` 1379L. Signaturas públicas intactas (`search_nearest` pub, `search_layer`/`select_neighbors`/`search_ivf`/`search_scann`/`search_with_method` pub(crate), `BatchInsertOptions`/`InsertMode` re-exportados); visibilidad `pub(crate)`/`pub(super)` mínima. Contrato ✅: check, clippy -D warnings, fmt, nextest 1886 passed (0 failures, 1 skipped). Commits `5d96b536` + `552f08a8`.
+
 ---
 
 ## Prevención de breaking changes
