@@ -4,11 +4,15 @@
 //! (in-memory, Fjall, or RocksDB), manages column-family partitions, and
 //! drives node archival / recovery.
 
+mod delete;
+mod get;
 mod init;
+mod insert;
 mod maintenance;
 mod ops;
 mod partition;
 mod stats;
+mod txn;
 
 #[cfg(test)]
 mod tests;
@@ -44,7 +48,7 @@ pub(crate) const GIB: u64 = 1024 * 1024 * 1024;
 /// Selects which KV backend `StorageEngine` uses.
 pub use crate::backend::BackendKind;
 
-/// Options passed to [`StorageEngine::batch_insert_with_opts`](crate::storage::engine::ops::StorageEngine::batch_insert_with_opts).
+/// Options passed to [`StorageEngine::batch_insert_with_opts`](crate::storage::engine::insert::StorageEngine::batch_insert_with_opts).
 pub use self::ops::{BatchInsertOptions, InsertMode};
 
 /// Memory usage statistics for a `StorageEngine` instance.
