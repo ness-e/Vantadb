@@ -20,6 +20,19 @@ use wasm_bindgen::prelude::*;
     }
     try { channel = new BroadcastChannel("vantadb-sync"); } catch (e) { }
     if (channel) { channel.onmessage = (ev) => { if (ev.data && ev.data.type === "data-changed") notify(ev.data.key || "db_state.json"); }; }
+    function runWriteTx(db, key, op, resolve, reject) {
+        const execute = (resolveTx, rejectTx) => {
+            const tx = db.transaction(STORE_NAME, "readwrite");
+            op(tx.objectStore(STORE_NAME));
+            tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); resolveTx(); };
+            tx.onerror = () => rejectTx(tx.error);
+        };
+        if (typeof navigator !== "undefined" && navigator.locks) {
+            navigator.locks.request("vantadb-write", () => new Promise(execute)).catch((err) => reject(err));
+        } else {
+            execute(resolve, reject);
+        }
+    }
     const storage = {
         read(key) {
             return openDB().then((db) => new Promise((resolve, reject) => {
@@ -31,42 +44,12 @@ use wasm_bindgen::prelude::*;
         },
         write(key, data) {
             return openDB().then((db) => new Promise((resolve, reject) => {
-                function doWrite() {
-                    const tx = db.transaction(STORE_NAME, "readwrite");
-                    tx.objectStore(STORE_NAME).put(data, key);
-                    tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); };
-                    tx.onerror = () => reject(tx.error);
-                }
-                if (typeof navigator !== "undefined" && navigator.locks) {
-                    navigator.locks.request("vantadb-write", () => new Promise((resolveTx, rejectTx) => {
-                        const tx = db.transaction(STORE_NAME, "readwrite");
-                        tx.objectStore(STORE_NAME).put(data, key);
-                        tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); resolveTx(); };
-                        tx.onerror = () => rejectTx(tx.error);
-                    })).catch((err) => reject(err));
-                } else {
-                    doWrite();
-                }
+                runWriteTx(db, key, (store) => store.put(data, key), resolve, reject);
             }));
         },
         del(key) {
             return openDB().then((db) => new Promise((resolve, reject) => {
-                function doDel() {
-                    const tx = db.transaction(STORE_NAME, "readwrite");
-                    tx.objectStore(STORE_NAME).delete(key);
-                    tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); };
-                    tx.onerror = () => reject(tx.error);
-                }
-                if (typeof navigator !== "undefined" && navigator.locks) {
-                    navigator.locks.request("vantadb-write", () => new Promise((resolveTx, rejectTx) => {
-                        const tx = db.transaction(STORE_NAME, "readwrite");
-                        tx.objectStore(STORE_NAME).delete(key);
-                        tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); resolveTx(); };
-                        tx.onerror = () => rejectTx(tx.error);
-                    })).catch((err) => reject(err));
-                } else {
-                    doDel();
-                }
+                runWriteTx(db, key, (store) => store.delete(key), resolve, reject);
             }));
         },
         subscribe(fn) { listeners.push(fn); return () => { listeners.splice(listeners.indexOf(fn), 1); }; },
