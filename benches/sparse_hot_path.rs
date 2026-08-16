@@ -187,6 +187,48 @@ fn bench_sparse_hot_path(c: &mut Criterion) {
         })
     });
 
+    // ── 4. Serialización ListFloat (ADR-019 / P2-7) vs serde_json ─────────────
+    // Dataset representativo: lista DENSA de f32 (todos los dims del vocabulario),
+    // distinto del sample sparse (24 NNZ) de los arms serde_json de arriba.
+    let dense: SparseVector = {
+        let mut v = SparseVector::new();
+        for d in 0..VOCAB {
+            v.insert(d, (d as f32 % 5.0) + 0.1);
+        }
+        v
+    };
+    // Los helpers del path ListFloat son privados a `sdk::serialization`
+    // (`sparse_vector_to_field` / `sparse_vector_from_field`), así que el bench
+    // inlinea la operación exacta que ejecutan (mismo patrón que los arms
+    // serde_json inlinean serde_json::to_string/from_str).
+    let dense_flat: Vec<f64> = {
+        let mut flat = Vec::with_capacity(dense.0.len() * 2);
+        for (dim, weight) in &dense.0 {
+            flat.push(*dim as f64);
+            flat.push(*weight as f64);
+        }
+        flat
+    };
+    group.bench_function("listfloat_encode_one", |b| {
+        b.iter(|| {
+            let mut flat = Vec::with_capacity(dense.0.len() * 2);
+            for (dim, weight) in &dense.0 {
+                flat.push(*dim as f64);
+                flat.push(*weight as f64);
+            }
+            black_box(flat.len())
+        })
+    });
+    group.bench_function("listfloat_decode_one", |b| {
+        b.iter(|| {
+            let mut map = std::collections::BTreeMap::new();
+            for pair in dense_flat.chunks_exact(2) {
+                map.insert(pair[0] as u32, pair[1] as f32);
+            }
+            black_box(map.len())
+        })
+    });
+
     group.finish();
 }
 
