@@ -214,6 +214,8 @@ aliases: []
 | PERF-31 | NumPy output batch (zero-copy `__array_interface__`) | ✅ |
 | PERF-32 | Async ingestion pipeline (4 workers) | ✅ |
 | PERF-33 | HNSW graph prefetching | ✅ |
+| AUD-040 | WAL `batch_append` sin alloc por record: `to_allocvec` → Vec reutilizable + `postcard::to_io`; framing byte-idéntico + test regresión; postcard feature `use-std`. Commit `a5001f4d` | ✅ 2026-08-16 |
+| AUD-041 | Bench `sparse_hot_path`: +2 arms ListFloat (P2-7) — `listfloat_encode_one`/`listfloat_decode_one`; arms serde_json intactos para critcmp. Commit `ec4eaeff` | ✅ 2026-08-16 |
 | PERF-34 | Extended norm caching (HNSW_VERSION 10) | ✅ |
 | PERF-35 | Async transcript I/O | ✅ |
 | PERF-36 | Config hot-reload | ✅ |

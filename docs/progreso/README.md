@@ -3618,6 +3618,27 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ `main.rs`: `is_known_flag` (-h/--help/--mcp) + `validate_args`; flag desconocido → `eprintln!("error: unrecognized argument ...")` + hint + `exit(2)`; help precedence intacta. `tests/cli_args.rs` (nuevo, 5 tests, proceso vía `CARGO_BIN_EXE` + `output_with_timeout`). Nextest 5/5. Commit `ef0dfc5c`.
 - **Ids:** `AUD-033`
 
+### AUD-038: remover `#![allow(unused_unsafe)]` obsoleto
+- **Fuente:** `docs/Backlog.md` § Hallazgos pendientes (audit-full-20260812-231204)
+- **Fecha:** 2026-08-16
+- **Objetivo:** el allow a nivel crate enmascara unsafe muerto.
+- **Resultado:** ✅ Removido `#![allow(unused_unsafe)]` de `src/lib.rs:3`. Hallazgo: los 22 usos de `unsafe` del crate son todos genuinos (mmap vfile_mmap.rs, `from_raw_parts`, `mem::zeroed` PSAPI, `unsafe impl Send/Sync` vfile.rs/accumulator.rs, bloques FFI metrics/archive/maintenance/graph) — el allow era config obsoleta, no enmascarador. 0 warnings unused_unsafe tras removerlo. Check/clippy -D warnings/nextest 1886/fmt exit 0. Commit `1e610225`.
+- **Ids:** `AUD-038`
+
+### AUD-040: batch_append WAL sin alocar por record
+- **Fuente:** `docs/Backlog.md` § Hallazgos pendientes (audit-full-20260812-231204)
+- **Fecha:** 2026-08-16
+- **Objetivo:** `batch_append` alocaba Vec por record (`to_allocvec`).
+- **Resultado:** ✅ `src/wal.rs`: `to_allocvec` (1 alloc/record) → Vec reutilizable `with_capacity(128)` + `postcard::to_io` (2 allocs/batch, clear conserva capacidad); framing `[len u32 LE][payload][crc u32 LE]` byte-idéntico + test regresión `test_batch_append_byte_format_matches_append` (bytes = append secuencial + replay limpio). `Cargo.toml`: postcard features `alloc` → `alloc,use-std` (aditiva). Nota: `serialize_into` no existe en postcard 1.1.3 (API std es `to_io`); diseño con sub-slice CRC abortaba por UB-check crc32c (`util::split` exige alineación 8) → Vec propio evita el landmine. Nextest 1887. Commits `a5001f4d`.
+- **Ids:** `AUD-040`
+
+### AUD-041: bench sparse_hot_path — arms ListFloat (P2-7)
+- **Fuente:** `docs/Backlog.md` § Hallazgos pendientes (audit-full-20260812-231204)
+- **Fecha:** 2026-08-16
+- **Objetivo:** el bench solo medía el path viejo (serde_json).
+- **Resultado:** ✅ `benches/sparse_hot_path.rs` (+42L): 2 arms nuevos en grupo `sparse/hot-path` — `listfloat_encode_one` (SparseVector → interleaved Vec<f64>) y `listfloat_decode_one` (→ BTreeMap validado), mirrors inline de `sparse_vector_to_field/from_field` (helpers privados a sdk::serialization, mismo patrón que arms serde_json). Arms serde_json intactos para comparación critcmp. Check --benches/clippy/test --no-run/fmt exit 0. Commit `ec4eaeff`.
+- **Ids:** `AUD-041`
+
 ---
 
 ## Planes archivados

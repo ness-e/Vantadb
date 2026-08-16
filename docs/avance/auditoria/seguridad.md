@@ -144,6 +144,10 @@ aliases: []
 - **Fecha:** 2026-08-16
 - **Resultado:** ✅ 3 splits. **Split 1** `src/sdk/search/mod.rs` 2521L → 8 submódulos (`lexical.rs` 225L, `vector.rs` 216L, `sparse.rs` 74L, `hybrid.rs` 47L, `explain.rs` 196L, `audit.rs` 52L, `debug_ops.rs` 380L, `multi.rs` 89L) + `tests.rs` (53 tests), mod.rs orquestador 330L. Commit `5d96b536`. **Split 2** `src/storage/engine/ops.rs` 2131L → orquestador 331L + `delete.rs/get.rs/insert.rs/txn.rs` (mod.rs cableado + doc-comments). **Split 3** `src/index/search.rs` 2054L → `search/mod.rs` 52L (orquestador + `impl VecIndex for CPIndex` verbatim) + `pool.rs` 16L + `profile.rs` 80L + `layer.rs` 393L + `neighbors.rs` 63L + `nearest.rs` 163L + `alternate.rs` 116L + `tests.rs` 1379L. Signaturas públicas intactas (`search_nearest` pub, `search_layer`/`select_neighbors`/`search_ivf`/`search_scann`/`search_with_method` pub(crate), `BatchInsertOptions`/`InsertMode` re-exportados); visibilidad `pub(crate)`/`pub(super)` mínima. Contrato ✅: check, clippy -D warnings, fmt, nextest 1886 passed (0 failures, 1 skipped). Commits `5d96b536` + `552f08a8`.
 
+### AUD-038: remover `#![allow(unused_unsafe)]` obsoleto
+- **Fecha:** 2026-08-16
+- **Resultado:** ✅ Removido de `src/lib.rs:3`. Los 22 usos de `unsafe` del crate son todos genuinos (mmap vfile_mmap.rs, `from_raw_parts`, `mem::zeroed` PSAPI, `unsafe impl Send/Sync` vfile.rs/accumulator.rs, bloques FFI) — el allow era config obsoleta, no enmascarador. 0 warnings unused_unsafe tras removerlo. Commit `1e610225`. (ver docs/progreso/README.md)
+
 ---
 
 ## Prevención de breaking changes
