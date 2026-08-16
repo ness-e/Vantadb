@@ -161,6 +161,50 @@ fn enter(gate: &OpGate) -> PyResult<OpGuard> {
         .ok_or_else(|| PyRuntimeError::new_err("database is closing"))
 }
 
+/// Parse the Python `backend` argument into a `BackendKind`.
+///
+/// `None` selects the default persistent backend (fjall). Unknown values
+/// raise `ValueError` instead of silently falling back (AUD-037).
+fn parse_backend_kind(backend: Option<&str>) -> PyResult<vantadb::BackendKind> {
+    match backend {
+        None => Ok(vantadb::BackendKind::Fjall),
+        Some("rocksdb") => Ok(vantadb::BackendKind::RocksDb),
+        Some("memory") => Ok(vantadb::BackendKind::InMemory),
+        Some(other) => Err(PyValueError::new_err(format!(
+            "Unknown backend \"{other}\" — known values: rocksdb, memory (or None for the default, fjall)"
+        ))),
+    }
+}
+
+/// Shared constructor: build the engine config and open the embedded database.
+///
+/// Both Python entry points (`VantaDB.new` and `connect`) delegate here so
+/// config construction stays in one place (AUD-037). The caller owns
+/// `storage_path` normalization: `new` passes `db_path` verbatim, `connect`
+/// maps `""`/`":memory:"` before calling.
+fn open_vantadb(
+    py: Python<'_>,
+    storage_path: String,
+    memory_limit: Option<u64>,
+    read_only: bool,
+    backend: Option<&str>,
+) -> PyResult<VantaDB> {
+    let config = VantaConfig {
+        storage_path,
+        memory_limit,
+        read_only,
+        backend_kind: parse_backend_kind(backend)?,
+        ..Default::default()
+    };
+    let engine = py
+        .detach(move || VantaEmbedded::open_with_config(config))
+        .map_err(map_vanta_error)?;
+    Ok(VantaDB {
+        engine,
+        op_gate: OpGate::new(),
+    })
+}
+
 #[pymethods]
 impl VantaDB {
     /// Create or open a VantaDB database.
@@ -176,7 +220,7 @@ impl VantaDB {
     ///         access when another process holds the write lock.
     ///     backend: Storage backend to use — ``"memory"``, ``"rocksdb"``, or None
     ///         (None selects the default persistent backend, fjall). Unknown values
-    ///         fall back to the default backend with a warning.
+    ///         raise ``ValueError``.
     ///
     /// Returns:
     ///     VantaDB: A connected VantaDB database handle.
@@ -205,33 +249,13 @@ impl VantaDB {
         read_only: bool,
         backend: Option<&str>,
     ) -> PyResult<Self> {
-        let backend_kind = match backend {
-            Some("rocksdb") => vantadb::BackendKind::RocksDb,
-            Some("memory") => vantadb::BackendKind::InMemory,
-            Some(other) => {
-                tracing::warn!(
-                    "Unknown backend \"{}\" — falling back to default (fjall). Known values: rocksdb, memory",
-                    other
-                );
-                vantadb::BackendKind::Fjall
-            }
-            None => vantadb::BackendKind::Fjall,
-        };
-        let config = VantaConfig {
-            storage_path: db_path.to_string(),
-            memory_limit: memory_limit_bytes,
+        open_vantadb(
+            py,
+            db_path.to_string(),
+            memory_limit_bytes,
             read_only,
-            backend_kind,
-            ..Default::default()
-        };
-        let engine = py
-            .detach(move || VantaEmbedded::open_with_config(config))
-            .map_err(map_vanta_error)?;
-
-        Ok(VantaDB {
-            engine,
-            op_gate: OpGate::new(),
-        })
+            backend,
+        )
     }
 
     /// Insert a node with content and an optional embedding vector.
@@ -1915,23 +1939,13 @@ fn parse_search_method(value: Option<&str>) -> Option<IndexType> {
 ///         controlled flush and architection of cold data to stay within budget.
 #[pyfunction]
 #[pyo3(signature = (path, memory_limit=None))]
-fn connect(path: &str, memory_limit: Option<u64>) -> PyResult<VantaDB> {
-    use vantadb::config::VantaConfig;
-    use vantadb::sdk::VantaEmbedded;
-    let config = VantaConfig {
-        storage_path: if path.is_empty() || path == ":memory:" {
-            ":memory:".to_string()
-        } else {
-            path.to_string()
-        },
-        memory_limit,
-        ..Default::default()
+fn connect(py: Python<'_>, path: &str, memory_limit: Option<u64>) -> PyResult<VantaDB> {
+    let storage_path = if path.is_empty() || path == ":memory:" {
+        ":memory:".to_string()
+    } else {
+        path.to_string()
     };
-    let engine = VantaEmbedded::open_with_config(config).map_err(map_vanta_error)?;
-    Ok(VantaDB {
-        engine,
-        op_gate: OpGate::new(),
-    })
+    open_vantadb(py, storage_path, memory_limit, false, None)
 }
 
 /// The Python module for VantaDB.
