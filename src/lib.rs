@@ -1,6 +1,5 @@
 #![doc(html_root_url = "https://docs.rs/vantadb/0.3.0/vantadb/")]
 #![deny(unsafe_op_in_unsafe_fn)]
-#![allow(unused_unsafe)]
 
 //! # VantaDB — Embedded Persistent Memory Engine
 //!
