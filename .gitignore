@@ -70,6 +70,12 @@ quickstart_memory.py
 
 # Datasets / local assets
 datasets/
+
+# Local agent memory DB (runtime artifact, 320MB+)
+my_agent_memory/
+
+# Enforcement runtime log (appended per verify call)
+.opencode/task-system/enforcement/verify-log.jsonl
 vanta-server-rc*.exe
 vanta-server-rc*.exe.sha256
 
