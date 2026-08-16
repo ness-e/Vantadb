@@ -148,6 +148,9 @@ aliases: []
 - **Fecha:** 2026-08-16
 - **Resultado:** ✅ Removido de `src/lib.rs:3`. Los 22 usos de `unsafe` del crate son todos genuinos (mmap vfile_mmap.rs, `from_raw_parts`, `mem::zeroed` PSAPI, `unsafe impl Send/Sync` vfile.rs/accumulator.rs, bloques FFI) — el allow era config obsoleta, no enmascarador. 0 warnings unused_unsafe tras removerlo. Commit `1e610225`. (ver docs/progreso/README.md)
 
+### FND-19: Auditoría Arc<Mutex<>> en todo el core (Fase 0) — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ inventario en `docs/Investigaciones/FND-19-arc-mutex-inventario.md`: 2 instancias `Arc<Mutex<>>` en core, 1 acción recomendada (ingestion canal). Commit `5df79635`.
+
 ---
 
 ## Prevención de breaking changes

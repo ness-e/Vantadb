@@ -275,3 +275,9 @@ aliases: []
 
 ### AUD-025: BM25 zero-alloc hot path (per-posting allocations) — migrado 2026-08-14 (ver docs/progreso/README.md)
 - **Resultado:** ✅ `src/text_index.rs:565` `posting_record_key` → `&str` zero-alloc (`strip_prefix` + `from_utf8`); `src/sdk/search/phrase.rs` matcher genericizado (`K: AsRef<str> + Ord`, helper `find_positions`); `src/sdk/search/mod.rs:383-448` hot path sin `token.clone()`/`String::from`/`format!` por posting, `doc_stats_cache` keyed por `u128 node_id` con guard de mismatch. `cargo check -p vantadb` ✅, clippy ✅, fmt ✅, 104 tests (13 phrase + 91 search) ✅. Commit `96b258ba`.
+
+### FND-15: Crash recovery / WAL en la práctica (verificación vanta-chaos) — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ verificación en `docs/Investigaciones/FND-15-crash-recovery-verificacion.md`: kill a mitad de escritura recupera estado consistente (`chaos_integrity`/`wal_resilience`) — sin gap de producto, gap de infra de tests documentado. Commit `8c6044a1`.
+
+### FND-20: Trade-off HNSW (ef_search/M: recall vs latencia) + argumento vs IVF/FAISS — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ `docs/architecture/FND-20-hnsw-tradeoff.md` (EN): parámetros actuales (M=32, ef=100) citados (`graph.rs:255-269`, `nearest.rs:71-77`, `neighbors.rs:57-62`, `ivf.rs:79-228`, `auto_tune.rs:11-53`), trade-off recall/latencia/memoria, sección "Why not FAISS/IVF" para local-first. Drift documentado: ADR 005/PERFORMANCE_TUNING.md dicen ef_construction=200/400, código dice 100 — la nota cita el código como fuente de verdad. Commit `4051a850`.

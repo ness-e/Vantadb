@@ -137,3 +137,15 @@ aliases: []
 
 ### AUD-027: Least-privilege per-job permissions in release workflow — migrado 2026-08-14 (ver docs/progreso/README.md)
 - **Resultado:** ✅ Permisos movidos de workflow-level a por-job en `release-plz.yml` (release: `contents: write, pull-requests: read, id-token: write`; PR: `contents: write, pull-requests: write`); Trusted Publishing intacto, sin `CARGO_REGISTRY_TOKEN`; pin `release-plz/action@2eb1d8bcb7 # v0.5.131` confirmado correcto (tag del action vs CLI 0.3.160). actionlint exit 0. Commit `d66b267d`.
+
+### R2: Crear agente vanta-research (read-only research subagent) — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ `.opencode/agents/vanta-research.md` (nuevo): mode subagent, tools read-only + web (edit/bash deny), skills coordinated-web-search/source-driven-development/progreso; 7 secciones idénticas a los 9 agentes. Contrato grep exit 0. Commit `2b4cbd6b`.
+
+### R7: Corregir comandos de verificación rotos en Output Templates — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ `vanta-worker.md:102` `cargo check -p vantadb_py` (package real; learning AUD-039) + `vanta-docs.md:102` `target/audit-venv/Scripts/python -m pytest vantadb-python/tests/test_sdk.py`. Commit `5bda5662`.
+
+### FND-09: Regla 8 — Concurrencia paranoica en PRs — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ Regla 8 en `.opencode/AGENTS.md` (paths multi-índice/dashmap/parking_lot/Tokio → auditoría deadlocks/data races, carga 10k w/s + 1k r/s, delegación vanta-chaos/vanta-review) + referencia en `vanta-worker.md` L104. Commit `c34a0dc8`.
+
+### FND-17: API reference automatizada (docs-as-code) — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ análisis + plan en `docs/Investigaciones/FND-17-api-reference-docs-as-code.md`: Fase 1 cargo doc en CI (sin deps), defer typedoc/pydoc/site justificado. Citas archivo:línea + URLs verificadas. Commit `5dc71f0d`.

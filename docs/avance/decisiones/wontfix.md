@@ -83,3 +83,6 @@ aliases: []
 | Security: NON-CRITICAL advisories | 7 categorías explícitas (# CATEGORY:) alineadas con CI_POLICY y Regla 2 — no requieren gates duros. |
 | CSP 'unsafe-eval' prod | Removido en frontend; WONTFIX en Rust server (JSON API puro). |
 | DEVOPS-10 code signing | SHA256 + .zip; Azure Trusted Signing cuando release público lo requiera. |
+| Fjall default vs RocksDB opt-in | ADR-020 (consolidación retroactiva, FND-21): Fjall backend por defecto, RocksDB feature opt-in; evidencia `Cargo.toml:97`, `config.rs:582-598`, `init.rs:269-289`. |
+| Zero-copy Arrow en bindings | ADR-021 (nuevo, FND-21): buffers Arrow sin copia como dirección; bindings Python/Node aún sin Arrow (FND-04 pendiente). |
+| WAL async/batch | ADR-022 (consolidación, FND-21): batch-append por shard + roadmap async; relaciona DRV-014/DRV-015. |

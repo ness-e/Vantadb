@@ -3657,8 +3657,71 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Fuente:** `docs/Backlog.md` — Hallazgos pendientes (audit-full-20260812-231204)
 - **Fecha:** 2026-08-16
 - **Objetivo:** `collect_all_deduped` O(n) dedup con `HashSet<(String,String)>` — 2 alocaciones de String por record.
-- **Resultado:** ✅ `vantadb-wasm/src/lib.rs:556`: `HashSet<(String,String)>` → `HashSet<u128>` por `record.node_id` (XxHash3_128 sobre `namespace\0key`, determinístico 1:1 verificado en `src/sdk/serialization/mod.rs:54-60` con test `test_memory_node_id_deterministic`; 19 callers). Cero alocación por record (u128 Copy). Paginación/MAX_RECORDS intacta. + test `test_collect_all_deduped_no_duplicates` (`#[wasm_bindgen_test]`, 3 records + overwrite → sin duplicados). Check/clippy/fmt exit 0; 7 warnings pre-existentes del core (`vfile_*.rs`, fuera de scope). Commit pendiente.
+- **Resultado:** ✅ `vantadb-wasm/src/lib.rs:556`: `HashSet<(String,String)>` → `HashSet<u128>` por `record.node_id` (XxHash3_128 sobre `namespace\0key`, determinístico 1:1 verificado en `src/sdk/serialization/mod.rs:54-60` con test `test_memory_node_id_deterministic`; 19 callers). Cero alocación por record (u128 Copy). Paginación/MAX_RECORDS intacta. + test `test_collect_all_deduped_no_duplicates` (`#[wasm_bindgen_test]`, 3 records + overwrite → sin duplicados). Check/clippy/fmt exit 0; 7 warnings pre-existentes del core (`vfile_*.rs`, fuera de scope). Commit `9dcbff5a`.
 - **Ids:** `AUD-043`
+
+### R2: Crear agente vanta-research (read-only research subagent)
+- **Fuente:** `docs/Backlog.md` § P19 (mejoras del sistema de agentes)
+- **Fecha:** 2026-08-16
+- **Objetivo:** convertir `research-agent.md` en agente real para que el lead delegue discovery y reciba digest ≤500 palabras sin gastar contexto.
+- **Resultado:** ✅ `.opencode/agents/vanta-research.md` (nuevo, 114L): mode subagent, tools read-only + web (codegraph, metasearchmcp, argus, read/grep/glob; edit/bash deny), skills §6: coordinated-web-search, source-driven-development, progreso; estructura de 7 secciones idéntica a los 9 agentes existentes. Contrato mecánico verificado (grep mode:subagent + 3 skills + read-only, exit 0). Cero impacto en código; routing en vanta-lead.md es R6 (depende R2+R3). Commit `2b4cbd6b`.
+- **Ids:** `R2`
+
+### R7: Corregir comandos de verificación rotos en Output Templates
+- **Fuente:** `docs/Backlog.md` § P19 (mejoras del sistema de agentes)
+- **Fecha:** 2026-08-16
+- **Objetivo:** checks que "pasan" sin correr = peor que no tenerlos; 2 comandos rotos en templates de agentes.
+- **Resultado:** ✅ `vanta-worker.md:102` `cargo check -p vantadb-python` → `cargo check -p vantadb_py` (package real en `vantadb-python/Cargo.toml:2`; learning AUD-039: "-p vantadb-python did not match any packages"); `vanta-docs.md:102` `pytest vantadb-python/tests/` → `target/audit-venv/Scripts/python -m pytest vantadb-python/tests/test_sdk.py`. Ambos corren realmente ahora. Commit `5bda5662`.
+- **Ids:** `R7`
+
+### FND-09: Regla 8 — Concurrencia paranoica en PRs
+- **Fuente:** `docs/Backlog.md` § P20b (instrucciones para AGENTS.md)
+- **Fecha:** 2026-08-16
+- **Objetivo:** no existía gate que obligara a auditar deadlocks/data races al tocar paths multi-índice o dashmap/parking_lot/Tokio (grep "Regla 8|concurrencia paranoica" solo matcheaba Regla 7).
+- **Resultado:** ✅ Regla 8 redactada en `.opencode/AGENTS.md` (tabla estilo Reglas 1/2 + carga objetivo 10k w/s + 1k r/s + delegación obligatoria vanta-chaos/vanta-review, P2-01) + 1 línea de referencia en `vanta-worker.md` Verification (L104). Contrato grep verificado (L541/543/547/548/551/553 AGENTS.md). Cambio docs aditivo, sin deuda. Commit `c34a0dc8`.
+- **Ids:** `FND-09`
+
+### FND-15: Crash recovery / WAL en la práctica (verificación con vanta-chaos)
+- **Fuente:** `docs/Backlog.md` § P20c (verificación y análisis)
+- **Fecha:** 2026-08-16
+- **Objetivo:** verificar que kill a mitad de escritura recupera estado consistente (`chaos_integrity`/`wal_resilience`).
+- **Resultado:** ✅ verificación escrita en `docs/Investigaciones/FND-15-crash-recovery-verificacion.md` — sin gap de producto (WAL + recovery funcionan), gap de infra de tests documentado. Commit `8c6044a1`.
+- **Ids:** `FND-15`
+
+### FND-17: API reference automatizada (docs-as-code)
+- **Fuente:** `docs/Backlog.md` § P20c (verificación y análisis)
+- **Fecha:** 2026-08-16
+- **Objetivo:** ¿rustdoc/pydoc/typedoc se generan en CI y se versionan junto al código? Lo primero que evalúa un dev antes de adoptar la DB.
+- **Resultado:** ✅ análisis + plan en `docs/Investigaciones/FND-17-api-reference-docs-as-code.md`: Fase 1 = cargo doc en CI (sin deps nuevas), defer justificado de typedoc/pydoc/site (deps nuevas, sin demanda aún). Citas archivo:línea verificadas (gate-docs-21.yml:30/62, ci-rust-10.yml:154, Cargo.toml:11, pyproject.toml:41-42, vantadb_py.pyi:1) + URLs resueltas. Commit `5dc71f0d`.
+- **Ids:** `FND-17`
+
+### FND-18: Time-to-first-query <5 min en SDKs Python/TS (Fase 0)
+- **Fuente:** `docs/Backlog.md` § P20d (Fase 0 pre-launch)
+- **Fecha:** 2026-08-16
+- **Objetivo:** medir y reducir "instalar → primera query" en ambos SDKs; pulir quickstart hasta <5 min.
+- **Resultado:** ✅ fricción real era docs rotas, no instalación: fix metadata shape en `vantadb-ts/README.md` (`{ lang: { String: "en" } }`, discriminated union vs shape roto), PyPI primario + `hit.key`/`hit.score` en `vantadb-python/README.md` (VantaSearchHit no es subscriptable), `docs/QUICKSTART.md` desactualizado corregido + sección métrica. **Medición local (2026-08-16): Python 6.2s (install 5.52s + query 0.67s), TS 1.6s (install 1.32s + query 0.30s)** — muy por debajo del objetivo de 5 min. Cero código tocado; gaps de API documentados para FND-05. Commit `ae39516e`.
+- **Ids:** `FND-18`
+
+### FND-19: Auditoría Arc<Mutex<>> en todo el core (Fase 0)
+- **Fuente:** `docs/Backlog.md` § P20d (Fase 0 pre-launch)
+- **Fecha:** 2026-08-16
+- **Objetivo:** grep `Arc<Mutex<` en `src/` y justificar cada instancia (¿necesaria o canal mpsc / Arc<DashMap>?); heurística: anidado en core = alerta roja.
+- **Resultado:** ✅ inventario en `docs/Investigaciones/FND-19-arc-mutex-inventario.md` — 2 instancias en core, 1 acción recomendada (ingestion canal). Commit `5df79635`.
+- **Ids:** `FND-19`
+
+### FND-20: Documentar trade-off HNSW (ef_search/M: recall vs latencia) + argumento vs IVF/FAISS
+- **Fuente:** `docs/Backlog.md` § P20d (Fase 0 pre-launch)
+- **Fecha:** 2026-08-16
+- **Objetivo:** nota técnica defensible para Show HN ("¿por qué no FAISS?"), con parámetros actuales citados.
+- **Resultado:** ✅ `docs/architecture/FND-20-hnsw-tradeoff.md` (inglés): parámetros HNSW actuales (M=32, ef=100) con citas archivo:línea (`src/index/graph.rs:255-269`, `search/nearest.rs:71-77`, `neighbors.rs:57-62`, `ivf.rs:79-228`, `auto_tune.rs:11-53`), trade-off recall vs latencia/memoria, sección "Why not FAISS/IVF" para local-first. Drift documentado: ADR 005 (ef_construction=200) y PERFORMANCE_TUNING.md (=400) no coinciden con el código (=100) — la nota cita el código como fuente de verdad. Commit `4051a850`.
+- **Ids:** `FND-20`
+
+### FND-21: ADRs retroactivos de decisiones ya tomadas (Fjall vs RocksDB, zero-copy Arrow, WAL async/batch)
+- **Fuente:** `docs/Backlog.md` § P20d (Fase 0 pre-launch)
+- **Fecha:** 2026-08-16
+- **Objetivo:** decisiones ya tomadas en código sin ADR que las documente; complementa FND-12 (método).
+- **Resultado:** ✅ 3 ADRs en `docs/architecture/adr/` con Contexto/Decisión/Consecuencias/Status, numeración sin colisión (ADR-020/021/022; ADR-019 ya ocupado), evidencia archivo:línea: **ADR-020** consolidación backend default Fjall vs RocksDB (relaciona ADR 004; `Cargo.toml:97`, `config.rs:582-598`, `init.rs:269-289`), **ADR-021** zero-copy Arrow en bindings (nuevo genuino; `columnar.rs:22`, wasm `lib.rs:1428-1447`; estado bindings Python/Node sin Arrow → FND-04 pendiente), **ADR-022** consolidación WAL async/batch (relaciona DRV-014/DRV-015; `wal.rs:297/340/342/358`, `wal_sharded.rs:9-14/191/198-218`). Commit `b4a86030`.
+- **Ids:** `FND-21`
 
 ---
 

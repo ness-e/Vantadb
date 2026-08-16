@@ -71,7 +71,11 @@ aliases: []
 
 ### AUD-043: collect_all_deduped — dedup u128 node-ids (WASM)
 - **Fecha:** 2026-08-16
-- **Resultado:** ✅ `vantadb-wasm/src/lib.rs:556`: dedup `HashSet<(String,String)>` → `HashSet<u128>` por `record.node_id` (XxHash3_128 sobre `namespace\0key`); cero alocación por record. + test `test_collect_all_deduped_no_duplicates`. (ver docs/progreso/README.md)
+- **Resultado:** ✅ `vantadb-wasm/src/lib.rs:556`: dedup `HashSet<(String,String)>` → `HashSet<u128>` por `record.node_id` (XxHash3_128 sobre `namespace\0key`); cero alocación por record. + test `test_collect_all_deduped_no_duplicates`. Commit `9dcbff5a`. (ver docs/progreso/README.md)
+
+### FND-18: Time-to-first-query <5 min en SDKs Python/TS
+- **Fecha:** 2026-08-16
+- **Resultado:** ✅ quickstarts corregidos (metadata shape discriminated union en TS, PyPI primario + `hit.key`/`hit.score` en Python, QUICKSTART.md desactualizado) — medido: Python 6.2s, TS 1.6s (objetivo <5 min). Commit `ae39516e`. (ver docs/progreso/README.md)
 
 ### CODE-047: Tests con catch vacío
 - **Resultado:** ✅ aserciones de errores en catches, 11 archivos.
