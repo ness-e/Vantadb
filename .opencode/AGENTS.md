@@ -538,3 +538,17 @@ Si el usuario necesita un release inmediato sin pasar por el ciclo de release-pl
 
 La verificación pre-push manual corre: `cargo fmt → cargo check → cargo clippy → cargo deny check → cargo nextest run` (equivalente a `dev-tools/verify.ps1`).
 
+### Regla 8: Concurrencia Paranoica en PRs
+
+Toda PR que toque paths multi-índice (vector + grafo + text), `dashmap`, `parking_lot`, o Tokio DEBE auditar deadlocks/data races antes de cerrarse.
+
+| Si el PR toca... | Debes responder... |
+|---|---|
+| Paths multi-índice (vector + grafo + text) | Exigir auditoría de deadlocks/data races antes de cerrar |
+| `dashmap`, `parking_lot`, o Tokio | Exigir auditoría de concurrencia (lock order, poison, data races) antes de cerrar |
+| Cerrar sin auditoría de concurrencia | Bloquear: "La auditoría es gate de cierre — no se cierra la PR sin evidencia de deadlock/data race check" |
+
+**Carga objetivo sugerida para la auditoría:** 10k w/s + 1k r/s (o el benchmark de estrés disponible).
+
+**Delegación obligatoria:** `vanta-chaos` (stress/deadlock) + `vanta-review` (revisión). El mismo contexto que implementó no puede auto-auditarse (P2-01).
+

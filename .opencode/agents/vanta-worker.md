@@ -101,6 +101,7 @@ Si el API core no está definida, solicita una spec o delega a Arch.
 - `cargo check -p vantadb` — ✅ / ❌
 - `cargo check -p vantadb_py` — ✅ / ❌
 - `cargo nextest run -p vantadb --test <relevant>` — ✅ / ❌
+- PR que toca paths multi-índice, `dashmap`, `parking_lot` o Tokio — auditoría de deadlocks/data races (Regla 8): delegar a `vanta-chaos` (stress 10k w/s + 1k r/s) + `vanta-review` antes de cerrar
 
 ### Notes
 [edge cases, decisiones de diseño, cosas a revisar]
