@@ -308,9 +308,15 @@ impl WalWriter {
 
         let estimated = records.len() * 128;
         let mut buf = Vec::with_capacity(estimated);
+        // Reusable serialization buffer: one allocation for the whole batch
+        // instead of one `to_allocvec` per record. `clear()` keeps the capacity,
+        // so the payload Vec never reallocates across records of similar size.
+        // On-disk framing is unchanged ([len u32 LE][payload][crc u32 LE]).
+        let mut payload = Vec::with_capacity(128);
 
         for record in records {
-            let payload = postcard::to_allocvec(record).map_err(VantaError::serialization)?;
+            payload.clear();
+            postcard::to_io(record, &mut payload).map_err(VantaError::serialization)?;
             let len = payload.len() as u32;
             let crc = crc32c(&payload);
             buf.extend_from_slice(&len.to_le_bytes());
@@ -818,6 +824,60 @@ mod tests {
         let data = b"vanta wal test";
         assert_eq!(compute_crc32c(data), compute_crc32c(data));
         assert_ne!(compute_crc32c(data), compute_crc32c(b"vanta wal tesx"));
+    }
+
+    #[test]
+    fn test_batch_append_byte_format_matches_append() {
+        let dir = std::env::temp_dir().join(format!(
+            "vanta_test_wal_batch_fmt_{}",
+            rand::random::<u32>()
+        ));
+        let _ = std::fs::remove_file(&dir);
+
+        let records = vec![
+            WalRecord::Insert(UnifiedNode::new(1)),
+            WalRecord::Insert(UnifiedNode::with_vector(2, vec![1.5; 32])),
+            WalRecord::Delete { id: 3 },
+            WalRecord::create_checkpoint(3, None),
+        ];
+
+        // Reference: N sequential `append` calls (existing single-record path)
+        {
+            let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
+            for rec in &records {
+                w.append(rec).unwrap();
+            }
+            w.sync().unwrap();
+        }
+        let sequential = std::fs::read(&dir).unwrap();
+        let _ = std::fs::remove_file(&dir);
+
+        // batch_append must produce byte-identical record bytes (the header
+        // carries a wall-clock timestamp, so only the record region is compared)
+        {
+            let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
+            w.batch_append(&records).unwrap();
+            w.sync().unwrap();
+        }
+        let batched = std::fs::read(&dir).unwrap();
+
+        assert_eq!(
+            &sequential[WalHeader::SIZE..],
+            &batched[WalHeader::SIZE..],
+            "batch_append must emit byte-identical WAL framing"
+        );
+
+        // And the batched file must replay cleanly
+        let mut r = WalReader::open(&dir).unwrap();
+        let mut replayed = Vec::new();
+        r.replay_all(|rec| {
+            replayed.push(rec);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(replayed.len(), records.len());
+
+        let _ = std::fs::remove_file(&dir);
     }
 
     #[test]
