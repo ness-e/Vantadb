@@ -113,7 +113,14 @@ Task ID: {id extraído después de "task "}
    1. Lookup: identificá el área según el task ID prefix o descripción
    2. Analyze: `campaign_detect_task_type` con archivos clave del plan/backlog
    3. Load skills: `campaign_load_skills` con archivos clave + skills extra según área
-   4. Delegate: `task(subagent_type="vanta-<area>", prompt="...")` con entry point, acceptance criteria, y verification command
+   4. **DISCOVERY (híbrido):** tareas 🟡/🔴 con DISCOVERY pesado (web research
+      multi-doc, extracción de contenido, blast radius amplio) → fork a
+      `vanta-research` (`task(subagent_type="vanta-research", ...)` — read-only,
+      digest ≤500 palabras + bloque RESULTADO §7) → el lead arma el task file
+      con el digest. 🟢 con DISCOVERY liviano → queda inline (codegraph +
+      búsqueda puntual). NO fragmentar por step: la delegación cubre la fase
+      pesada completa (R4: SARL RESUME ya conserva contexto del ejecutor).
+   5. Delegate: `task(subagent_type="vanta-<area>", prompt="...")` con entry point, acceptance criteria, y verification command
 5. Review: el sub-agente devuelve resultado, revisalo. Si el resultado es INCOMPLETO,
        FAILED, vacío o "se detuvo solo" → aplicá la escalera `prompts/subagent-recovery.md`
        (RESUME misma sesión con `task_id` → RETRY fresco → STRATEGY → ESCALATE). Nunca rehagas

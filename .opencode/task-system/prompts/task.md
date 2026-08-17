@@ -38,6 +38,14 @@ Si hay archivos de múltiples tipos, cargar skills de todos los tipos aplicables
 
 ### Phase 2: Discovery + Blast Radius
 
+> **DISCOVERY híbrido (R3):** tareas 🟡/🔴 con DISCOVERY pesado (web research
+> multi-doc, extracción de contenido, blast radius amplio) → fork a
+> `vanta-research` (`task(subagent_type="vanta-research", ...)` — read-only,
+> digest ≤500 palabras + bloque RESULTADO) y usá su digest para poblar esta
+> fase. 🟢 con DISCOVERY liviano → ejecutá inline (abajo). NO fragmentar por
+> step: la delegación cubre la fase pesada completa (R4: SARL RESUME ya
+> conserva contexto del ejecutor).
+
 ```
 codegraph_explore "IDs, archivos, símbolos de la tarea"
 
@@ -56,6 +64,10 @@ Documentar en el task file:
 ```
 
 ### Phase 3: Web research (si hay ambigüedad)
+
+> **Pesado (multi-doc, extracción de contenido) → fork a `vanta-research`**
+> (read-only, digest ≤500 palabras + bloque RESULTADO); el lead documenta el
+> digest en Investigation Notes. **Liviano (búsqueda puntual) → inline:**
 
 Si la tarea involucra APIs/librerías externas cuya doc no está en el código,
 patrones de diseño no familiares, o decisiones técnicas con múltiples enfoques:
