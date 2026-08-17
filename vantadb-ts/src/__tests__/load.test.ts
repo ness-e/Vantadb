@@ -28,7 +28,7 @@ describe("VantaDB Load Tests", () => {
 
     const hits = await db.search({
       namespace: "concurrent",
-      query_vector: [0, 0, 0, 0],
+      query_vector: [1, 0, 0, 0],
       top_k: 10,
     });
     expect(hits.length).toBeGreaterThan(0);
@@ -105,7 +105,7 @@ describe("VantaDB Load Tests", () => {
 
     const hits = await db.search({
       namespace: "multi_concurrent",
-      query_vector: [0, 0, 0, 0],
+      query_vector: [1, 0, 0, 0],
       top_k: 10,
     });
     expect(hits.length).toBeGreaterThan(0);

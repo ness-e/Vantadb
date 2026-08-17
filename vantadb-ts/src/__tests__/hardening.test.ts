@@ -201,7 +201,20 @@ describe("VantaDB search edge cases", () => {
   });
 
   it("hybrid search with only text_query", () => {
-    const hits = db.search({ namespace: "search_edge", query_vector: [0, 0, 0], text_query: "beta", top_k: 5 });
+    const hits = db.search({ namespace: "search_edge", query_vector: [1, 0, 0], text_query: "beta", top_k: 5 });
+    expect(hits.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it("zero-norm cosine query throws instead of falling back to Euclidean (ERR-028)", () => {
+    // The core rejects zero-norm cosine queries (src/sdk/search/mod.rs) —
+    // the binding must propagate that error, not silently switch metrics.
+    expect(() => db.search({ namespace: "search_edge", query_vector: [0, 0, 0], top_k: 5 })).toThrow(
+      /zero-norm|undefined|InvalidInput/i,
+    );
+  });
+
+  it("zero-norm euclidean query is accepted", () => {
+    const hits = db.search({ namespace: "search_edge", query_vector: [0, 0, 0], distance_metric: "Euclidean", top_k: 5 });
     expect(hits.length).toBeGreaterThanOrEqual(0);
   });
 });

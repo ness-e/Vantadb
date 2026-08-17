@@ -332,27 +332,18 @@ export class VantaDB {
 
   private _buildSearchRequest(request: SearchRequest, explain?: boolean): Record<string, unknown> {
     // ERR-028 (AUDREP-55): a zero-norm cosine query vector is undefined
-    // (cosine = 0/0) and the engine rejects it. Tests and real queries rely on
-    // a zero query vector being accepted; fall back to Euclidean distance
-    // (always defined) so the search returns matches instead of an error.
-    // TODO(core) FND-06: this is a search decision (metric fallback) living in
-    // the binding — business logic belongs in src/sdk/search/mod.rs (ERR-028).
-    // native.ts does NOT do this fallback, so WASM and native diverge on the
-    // same input. Moving it to core changes public behavior → needs a spec
-    // (api-contract.md R-8); until then keep both TS backends aligned.
-    const zeroNorm =
-      Array.isArray(request.query_vector) &&
-      request.query_vector.length > 0 &&
-      request.query_vector.every((v) => v === 0);
-    const distance_metric =
-      zeroNorm ? "Euclidean" : (request.distance_metric ?? "Cosine");
+    // (cosine = 0/0). The core rejects it with VantaError::InvalidInput
+    // (src/sdk/search/mod.rs) and that error surfaces here via the WASM
+    // binding — this layer is glue and must NOT make search decisions
+    // (api-contract.md R-8). Pass the request through untouched, like
+    // native.ts, so both backends behave identically.
     return {
       namespace: request.namespace,
       query_vector: request.query_vector,
       filters: request.filters ?? {},
       text_query: request.text_query ?? null,
       top_k: request.top_k ?? 10,
-      distance_metric,
+      distance_metric: request.distance_metric ?? "Cosine",
       explain: explain ?? (request.explain ?? false),
     };
   }

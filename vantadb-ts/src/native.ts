@@ -248,11 +248,11 @@ export class NativeVantaDB {
   }
 
   private _buildSearchRequest(request: SearchRequest, explain?: boolean): Record<string, unknown> {
-    // TODO(core) FND-06: vantadb.ts (WASM) silently falls back to Euclidean for
-    // zero-norm queries; this native path passes the request through and the
-    // core rejects zero-norm cosine with ERR-028 (src/sdk/search/mod.rs:106-120).
-    // Same input → different behavior per backend. Align with vantadb.ts or move
-    // the decision to core behind a spec (api-contract.md R-8).
+    // Pass the request through untouched. A zero-norm cosine query is rejected
+    // by the core with ERR-028 (src/sdk/search/mod.rs) and surfaces as
+    // VantaError — this layer is glue, not a place for search decisions
+    // (api-contract.md R-8). vantadb.ts (WASM) does the same, so both backends
+    // are aligned.
     return {
       namespace: request.namespace,
       query_vector: request.query_vector,
