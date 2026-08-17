@@ -146,6 +146,9 @@ aliases: []
 
 ## MCP
 
+### P22-MCP: Certificación del MCP server vs skill `vantadb-mcp` (14 tareas, 2026-08-17)
+- **Resultado:** ✅ Bloque 1 (código): MCP-01 text search fix (`ensure_indexes_current` en arranque `run_stdio_server`), MCP-02 `distance_metric` per-request propagado, MCP-03 `distance` = 1−cosine, MCP-04 validación `DimensionMismatch` (isError content). Bloques 2-5 (docs): skill sync — IQL Syntax, Response Envelope, Error Channels, Behavior Notes, dead refs, contradicciones. Commits `d8f720f9`, `d24fb663`, `04840079`. Tests MCP 33/33 ✅. Pendientes: MCP-15 (stack overflow child), T15 (explain shape). (ver docs/progreso/README.md)
+
 ### MCP-01: MCP server crate (vantadb-mcp)
 - **Fecha:** 2026-07-25
 - **Resultado:** ✅ crate nueva `vantadb-mcp`, tools `insert`, `search`, `list_namespaces`, `create_namespace`, `delete_namespace`, `compact` — 6 tools MCP. MCP se comunica vía JSON-RPC. En `crates/vantadb-mcp/`. Test `tools_all_reachable`. Solo Linux/macOS.
