@@ -125,7 +125,14 @@
 - **Enfoque:** ¿el fix de reentrancia preserva la dependencia mmap (re-add antes de release)? ¿los `_locked` variants no cambian semántica de los públicos?
 - **Cómo se probó:** test nuevo con timeout (falla con deadlock, pasa con fix) + cargo check
 - **Checklist anti-hábitos tóxicos:** (verifica lead)
-- **Veredicto:** pendiente
+- **Veredicto:** approve (vanta-review, commit c104f1f2, P2-01)
+- **Bloqueantes:** 0 (H1 reentrancia + H2 write guard genuinamente corregidos, invariante mmap intacta)
+- **Minors (follow-ups, no blocker):**
+  1. ops.rs:214-226 `insert_to_cf` retiene vstore guard al adquirir insert_lock (inversión pre-existente vs Regla 8; reporte lo marcaba "correctos" — incorrecto) → **FIX APLICADO** commit 93a1e311 (drop(vstore))
+  2. Stress test no ejerce evicción `*_locked` bajo contención (watermark nunca dispara: 192 nodos vs max_nodes ~2.7M)
+  3. Race delete-vs-consolidate pre-existente (maintenance.rs:311-312 + delete.rs:68-69) más frecuente desde que la evicción dejó de ser no-op
+- **Nits:** claim "MmapFull→Full" inexistente en código (maintenance.rs:247-249, cae a None — seguro pero inexacto, vector perdido del índice para candidatos MmapFull); stats no bumpadas bajo contención sostenida (aceptable, mismo contrato get()); assert <1000ms wall-clock con riesgo bajo de flake
+- **Verify mecánico (revisor):** cargo check -p vantadb --lib OK (0.42s); test_evict_cold_nodes_locked_no_reentrant_timeout OK (0.45s); test_multi_index_write_paths_no_deadlock OK (1.09s)
 
 ## Notas
 - No hay commit (lead commitea). No tocar Backlog.md, AUD-024.md, _vanta-cli.ps1, verify-log.jsonl, wave-p20-tsys.md, AGENTS.md, benches/, src/metrics, cli_server.

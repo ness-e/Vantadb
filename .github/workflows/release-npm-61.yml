@@ -15,6 +15,11 @@ on:
         default: "false"
   push:
     tags: ["v*.*.*"]
+  # FND-16: gate wasm32/TS por PR (paths filter) — publish jobs ya excluyen PRs via `if`
+  pull_request:
+    paths:
+      - "vantadb-wasm/**"
+      - "vantadb-ts/**"
 
 permissions:
   contents: read

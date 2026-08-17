@@ -339,7 +339,7 @@ See `docs/operations/CI_POLICY.md`.
 
 ## Key Conventions
 
-- **Commit style**: Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `perf:`) — see `.github/CONTRIBUTING.md`
+- **Commit style**: Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `perf:`) — see `CONTRIBUTING.md`
 - **Changelog**: `docs/CHANGELOG.md` via `git-cliff` (config: `cliff.toml`)
 - **Licensing**: `cargo-deny` configured in `deny.toml` (MIT/Apache-2.0 only) — applies to the Apache-2.0 core only; `vantadb-pro` proprietary is excluded
 - **Markdown linting**: `.markdownlint-cli2.yaml` — line length disabled, HTML `div`/`h1`/`p`/`br` allowed
