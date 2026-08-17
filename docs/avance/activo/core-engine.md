@@ -281,3 +281,12 @@ aliases: []
 
 ### FND-20: Trade-off HNSW (ef_search/M: recall vs latencia) + argumento vs IVF/FAISS — migrado 2026-08-16 (ver docs/progreso/README.md)
 - **Resultado:** ✅ `docs/architecture/FND-20-hnsw-tradeoff.md` (EN): parámetros actuales (M=32, ef=100) citados (`graph.rs:255-269`, `nearest.rs:71-77`, `neighbors.rs:57-62`, `ivf.rs:79-228`, `auto_tune.rs:11-53`), trade-off recall/latencia/memoria, sección "Why not FAISS/IVF" para local-first. Drift documentado: ADR 005/PERFORMANCE_TUNING.md dicen ef_construction=200/400, código dice 100 — la nota cita el código como fuente de verdad. Commit `4051a850`.
+
+### FND-01: Regla de presupuesto de memoria + benchmark OOM — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ 🔴 CONFIRMADO: RSS sin límite real, guard subestima ~6.5× bajo carga 10k w/s + 1k r/s. Regla must en `.opencode/rules/memory-budget.md`. Follow-ups F1/F4 delegados a core-engine. Commit `a159211b`.
+
+### FND-02: Regla de coordinación multi-índice + auditoría de deadlocks — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ fix deadlocks evicción multi-índice (lock no reentrante + write guard, `c104f1f2`) + regla en `.opencode/rules/concurrency-async.md` + audit P2-01 approve; follow-up lock order `93a1e311`. Follow-ups menores 2/3 delegados a core-engine.
+
+### FND-08: Regla de backend validado contra patrón de acceso real + auditoría de compactación — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ ADR-023 (backend compaction — diferir marginal, bench de lectura) + regla en `.opencode/rules/durability.md`. Commit `e5e76684`.

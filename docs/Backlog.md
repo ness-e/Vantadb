@@ -434,7 +434,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `TSYS-06` | **Chaos/resilience del task-system** - `vanta-chaos` fuzzza el código fuente, no a `campaign-server.mjs` ni a la máquina de estados (gap-01 §3.3-24). | `vanta-chaos`, `.opencode/task-system/config/state-tools.mjs` | 🔴 | 🟢 | 🟡 Diseño implementado (T19) — `task-system-chaos-resilience.md`; runner DEFER (sin verificación) |
 | `TSYS-12` | **Waves en paralelo + merge del lead** - `FAIL_MODE=parallel` es single-loop síncrono sin merge step estructural ni modelado de critical path; diseño: 3-5 sub-agentes por wave + contrato de merge (duplicados/huecos/conflictos). Opcional, NO gate-CI (REPORTE-FINAL §3.4-4; agent-03 §7.2-7.4). Diseño propuesto en `docs/architecture/task-system-waves-parallel.md`. | `docs/architecture/task-system-waves-parallel.md`, `.opencode/task-system/prompts/pipeline-run.md` | 🟡 | 🟢 | ✅ Diseño implementado (T12) — `task-system-waves-parallel.md` (merge/duplicados/huecos); runtime opcional NO gate-CI (commit d9f2a4cb) |
 
 ---
@@ -461,14 +460,14 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `R1` | **Skills obligatorias en §6 de los 9 agentes** — añadir al inicio de §6: "> **OBLIGATORIO:** al inicio de cada sesión cargá con skill <nombre> las skills de esta sección." Hoy la lista es recomendada; sub-agentes vía `task` tool pueden saltarse sus skills de dominio (gap encontrado por vanta-arch, P7). | `.opencode/agents/vanta-*.md` (9) | 🟢 | 🔴 | 📝 Pendiente |
-| `R3` | **Delegar fase DISCOVERY a vanta-research** — en `commands/pipeline.md` (modo task) y `task.md` Phase 2-3: tareas 🟡/🔴 → fork a vanta-research, el lead arma el task file con el digest. Ataca la pérdida de contexto en /compact; híbrido recomendado por vanta-arch (P6): delegar solo las fases pesadas, no fragmentar por step. | `.opencode/commands/pipeline.md`, `.opencode/task-system/prompts/task.md` | 🟡 | 🔴 | 📝 Pendiente |
+
+
 | `R4` | **NO fragmentar por step (decisión)** — cada paso como sub-agente dedicado = overhead de sesión por ~100 líneas + riesgo de regresión; SARL RESUME (`subagent-recovery.md:29-34`) ya conserva el contexto del sub-agente ejecutor con task_id; `/pipeline run` → `pipeline-full.md` es la respuesta correcta. Registrado para no re-proponer. | — | — | — | ✅ Decidido (no hacer) |
-| `R5` | **Sync §6 ↔ `campaign_load_skills`** — que lo que lista cada agente en §6 coincida con lo que devuelve el MCP (evita duplicación/desfase). | `.opencode/agents/vanta-*.md` (9) | 🟢 | 🟢 | 📝 Pendiente |
-| `R6` | **Actualizar routing table + manual** (si aplican R2+R3) — añadir fila "Research/Discovery → vanta-research" en `vanta-lead.md` §8 y actualizar `.opencode/VANTADB-OPERATING-MANUAL.md`. | `.opencode/agents/vanta-lead.md`, `.opencode/VANTADB-OPERATING-MANUAL.md` | 🟢 | 🟢 | 📝 Pendiente (depende R2+R3) |
-| `R8` | **Eliminar referencia colgante a skill `typescript-expert`** — `vanta-worker.md:125` la lista en §6 pero `SKILLS-MANIFEST.md:250` la cataloga REMOVED/Dangling (sin SKILL.md en disco, dir vacío, ECO-003 planea git rm); reemplazar por `source-driven-development` (validar contra docs oficiales al tocar el TS SDK). | `.opencode/agents/vanta-worker.md` | 🟢 | 🟡 | 📝 Pendiente |
-| `R9` | **Alinear bloques `permission:` con tablas MCP ❌/✅ (deuda TSYS-11)** — los 9 agentes permiten todo (playwright/discord/lottiefiles/metasearchmcp/argus/cargo-mcp/rust-analyzer-mcp) aun cuando su tabla MCP los marca ❌ (ej: `vanta-chaos.md` permission 25-29 vs tabla 156-160; `vanta-lead.md` permite cargo-mcp). El permission block SÍ filtra tools → deny los servers ❌ en cada agente (AGENTS.md documenta la deuda como "a corregir"). | `.opencode/agents/vanta-*.md` (9) | 🟡 | 🔴 | 📝 Pendiente |
-| `R10` | **Consolidar bloque §7 duplicado en reference compartido** — ~10 líneas idénticas × 9 agentes + tabla MCP + nota de filtrado; drift real (vanta-chaos marca metasearchmcp ✅ vs vanta-audit ❌). Fix: crear `.opencode/references/task-system.md` (patrón `definition-of-done.md`) y reemplazar §7 por 1 línea por agente. | `.opencode/references/task-system.md` (nuevo), `.opencode/agents/vanta-*.md` (9) | 🟡 | 🟢 | 📝 Pendiente |
+
+
+
+
+
 
 ---
 
@@ -480,14 +479,14 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (Investigación → Análisis → Implementación) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `FND-01` | **Regla de presupuesto de memoria (compute/storage separation) + benchmark OOM + back-pressure** — Investigar qué vive en RAM vs disco hoy: ¿HNSW siempre en RAM, LSM paginado? ¿existe límite/guard de RSS? **Verificación:** benchmark de memoria bajo carga 10k w/s + 1k r/s (RSS, swaps) que confirme si el riesgo OOM es real. **Implementación (si confirma):** regla must en `.opencode/rules/` (nueva sección memory-budget) + guard si no existe + **back-pressure/rechazo de escrituras** antes de que el SO mate el proceso (no saturar RAM ni swappear). **DoD:** regla + benchmark que la sustente. | `src/index/`, `benches/`, `src/metrics/`, `.opencode/rules/` | 🟡 | 🔴 | 📝 Pendiente |
-| `FND-02` | **Regla de coordinación multi-índice + auditoría de deadlocks y contención** — Investigar qué paths actualizan 2+ índices (vector + grafo + text) y su orden de locks. **Verificación:** escanear `lock()`/`read()`/`write()` en esos paths; mapear orden de locks; buscar inversión de orden bajo carga Y contención innecesaria (`dashmap`/`parking_lot`). Delegable a vanta-chaos/vanta-tuner/vanta-review. **Implementación:** regla en `.opencode/rules/concurrency-async.md` (orden de locks o exclusión de estado compartido) + test de deadlock que la valide + fixes. **DoD:** regla + test + reporte de hallazgos. | `src/storage/engine/`, `src/` (indexes), `.opencode/rules/concurrency-async.md` | 🟡 | 🔴 | 📝 Pendiente |
-| `FND-03` | **Aislamiento de features Cargo (vector-only sin grafos) + compile matrix** — Investigar el grafo de features actual (`Cargo.toml` default vs opt-in): ¿un consumidor vector-only compila el motor de grafos? **Verificación:** `cargo check --no-default-features` + variantes vector-only; verificar que no hay código de grafos en el path vectorial. **Implementación:** features granulares + job CI de compile matrix. **DoD:** feature set mínimo compila + job CI verde. | `Cargo.toml`, `src/`, `.github/workflows/` | 🟡 | 🟡 | 📝 Pendiente |
-| `FND-04` | **Zero-copy Arrow en bindings (Python/Node)** — Investigar el path de serialización actual (extiende P2-7 `src/sdk/serialization/`): dónde se serializa/deserializa entre core Arrow y PyO3/JS. Analizar viabilidad de exponer buffers Arrow sin copia (extiende PERF-08 WASM Float32Array). **Implementación:** plan detallado de zero-copy o ADR que lo difiera. **DoD:** plan firmado (implementación o ADR de diferimiento con razón). | `vantadb-python/`, `vantadb-wasm/`, `src/sdk/serialization/` | 🔴 | 🟡 | 📝 Pendiente |
-| `FND-05` | **SDK idiomático (no wrapper 1:1 de Rust)** — Investigar la API expuesta de `vantadb-python` y `vantadb-ts`: ¿usa context managers, type hints modernos, async nativo? ¿o es reflejo del core Rust? Analizar contra el estándar idiomático de cada lenguaje. **Implementación:** plan de rediseño de API (no rewrite a ciegas; identificar gaps concretos). **DoD:** lista de gaps + prototipo de 1 método idiomático. | `vantadb-python/`, `vantadb-ts/` | 🟡 | 🟡 | 📝 Pendiente |
-| `FND-06` | **Regla de boundaries core ↔ bindings (Ports & Adapters) + auditoría de acoplamiento** — Investigar si `vantadb-server`/bindings dependen de detalles internos del core que deberían estar tras un trait. **Verificación:** mapear edges codegraph (`vantadb-server`/bindings → internos del core); lógica de negocio filtrada a capas de interfaz. **Implementación:** regla must en `.opencode/rules/api-contract.md` (lógica de negocio NUNCA en PyO3/WASM/server) + refactor de hallazgos. **DoD:** regla + reporte de boundaries violados + fixes. | `.opencode/rules/api-contract.md`, `vantadb-server/`, `vantadb-python/`, `vantadb-wasm/`, `src/` | 🟡 | 🔴 | 📝 Pendiente |
-| `FND-07` | **Regla de observabilidad real (prometheus) + probe endpoint** — Investigar el estado de `prometheus` en `Cargo.toml` (declarado, ¿expuesto?): ¿el server expone `/metrics` con latencia de queries? **Verificación:** probe `/metrics` bajo carga; gap entre declarado y consultable. **Implementación:** regla must en `.opencode/rules/server-mcp.md` (todo endpoint/server nuevo expone métricas reales, no placeholders) + exposición funcional. **DoD:** endpoint `/metrics` responde con datos reales. | `vantadb-server/`, `src/metrics/`, `.opencode/rules/server-mcp.md` | 🟡 | 🔴 | 📝 Pendiente |
-| `FND-08` | **Regla de backend validado contra patrón de acceso real + auditoría de compactación** — Investigar la config actual de rocksdb/fjall: ¿compactación tuneada para random reads (similitud vectorial) o default de escritura secuencial? Patrón real = escrituras pequeñas frecuentes (agentes de IA). **Verificación:** comparar defaults vs patrón real; bench de lectura. **Implementación:** regla en `.opencode/rules/durability.md` o ADR que documente trade-offs (fsync policy, compactación) + tuning. **DoD:** ADR + config justificada + bench de lectura. | `src/storage/`, `benches/`, `.opencode/rules/durability.md`, `docs/architecture/adr/` | 🟡 | 🔴 | 📝 Pendiente |
+
+
+
+
+
+
+
+
 
 ### P20b - Instrucciones para AGENTS.md (prácticas del agente)
 
@@ -495,17 +494,17 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (Investigación → Análisis → Implementación) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `FND-10` | **Regla 9 — No optimizar sin medir + benchmark canónico P99** — Investigar benchmarks existentes (PERF-02 baseline criterion, `benches/`). **Verificación:** establecer benchmark canónico P99 (insert 100k×1536d, buscar) como baseline de no-regresión. **Implementación:** regla en AGENTS.md (todo cambio de rendimiento exige benchmark before/after). **DoD:** regla + benchmark canónico ejecutable con baseline registrado. | `.opencode/AGENTS.md`, `benches/` | 🟡 | 🔴 | 📝 Pendiente |
-| `FND-11` | **No mergear código IA sin poder explicarlo** — Investigar si hay gate que impida aceptar código generado por IA sin poder explicar cada decisión no trivial línea por línea. **Implementación:** regla en AGENTS.md (AI Guardian): la incapacidad de explicar = señal de qué estudiar esa semana; el desarrollo dicta el syllabus. **DoD:** regla redactada + referenciada en workflow de PR. | `.opencode/AGENTS.md` | 🟢 | 🔴 | 📝 Pendiente |
-| `FND-12` | **ADRs como forcing function (escrito por humano, no IA)** — Investigar si los ADRs actuales (`docs/architecture/adr/`) se escriben con el razonamiento articulado por el humano o se acepta la sugerencia de la IA. **Implementación:** reforzar Regla 5 del AGENTS.md: el ADR lo escribe el autor humano articulando el trade-off; la IA solo aporta evidencia. **DoD:** refuerzo en Regla 5 + ejemplo. | `.opencode/AGENTS.md`, `docs/architecture/adr/` | 🟢 | 🟡 | 📝 Pendiente |
-| `FND-13` | **Benchmarks honestos (extiende FND-10)** — Investigar cómo se comunican los benchmarks públicos (claims vs números medidos); relevante porque el proyecto prefiere evaluaciones honestas sobre framing promocional. **Implementación:** regla en AGENTS.md: los claims de performance deben citar benchmark reproducible + números, no adjetivos. **DoD:** regla + revisión de claims existentes en README/docs. | `.opencode/AGENTS.md`, `README.md`, `docs/` | 🟢 | 🟡 | 📝 Pendiente |
-| `FND-14` | **Ritual de inicio — validación de feature stack** — Investigar si el ritual de sesión verifica que el feature set default + mínimo compila. **Implementación:** agregar paso al Ritual de Inicio (`cargo check --no-default-features --features fjall`). **DoD:** paso en el ritual. | `.opencode/AGENTS.md` | 🟢 | 🟢 | 📝 Pendiente |
+
+
+
+
+
 
 ### P20c - Tareas de verificación y análisis (sin regla asociada)
 
 | ID | Descripción (Investigación → Análisis → Plan si procede) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `FND-16` | **Multi-target CI (wheels + WASM por PR)** — Investigar workflows actuales de release (release-wheels-60, release-npm-61): ¿compilan wheels Windows/Mac/Linux + WASM en cada PR o solo en release? Analizar costo. **Implementación si procede:** job CI de build multi-target por PR. **Entregable:** análisis + plan o decisión de defer. | `.github/workflows/` | 🟡 | 🟢 | 📝 Pendiente |
+
 
 ### P20d - Fase 0 pre-launch y decisiones de producto (2026-08-16)
 
@@ -513,6 +512,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (Investigación → Análisis → Implementación) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `FND-22` | **CONTRIBUTING.md + triage de issues (post-launch)** — Formalizar proceso de contribución y triage de issues antes de que el volumen comunitario desborde. **Entregable:** CONTRIBUTING.md + guía de triage. | `CONTRIBUTING.md`, `.github/` | 🟢 | 🟢 | 📝 Pendiente |
-| `FND-23` | **Decidir grafos default-on vs opt-in con telemetría real (post-launch)** — Usar señales reales de adopción (métricas, feedback) para decidir si el motor de grafos queda default-on o pasa a opt-in (Cargo feature). No decidir por intuición. Complementa FND-03 (aislar) con la decisión de default. **DoD:** decisión documentada con evidencia de telemetría. | `Cargo.toml`, `src/`, `docs/architecture/adr/` | 🟢 | 🟢 | 📝 Pendiente |
-| `FND-24` | **JTBD/ICP: entrevistas post-Show HN** — Usar las primeras conversaciones reales con usuarios para definir el ICP (¿dev de chatbot local o de edge computing?) y el job-to-be-done (¿por qué VantaDB sobre SQLite+vector extension?). **Entregable:** definición de ICP + JTBD con evidencia de usuarios reales. | `docs/strategy/` | 🟢 | 🟢 | 📝 Pendiente |
+
+
+

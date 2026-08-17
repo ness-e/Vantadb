@@ -295,6 +295,15 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 
 ## Progreso Reciente
 
+### Wave P20-TSYS completada 2026-08-16 — 25/25 tareas (plan `2026-08-16-wave-p20-tsys.md`)
+
+Cierre de campaña: **25 tareas, 21 commits en `develop`** (desde `ec7f947a` hasta `a159211b`). Migradas a este registry el mismo día. Destacados:
+
+- **TSYS-06**: decisión chaos runner → **DEFERIDO** con tests puntuales (doc `docs/Investigaciones/TSYS-06-chaos-runner.md`).
+- **P19 (R1/R3/R5/R6/R8/R9/R10)**: sistema de agentes endurecido — skills obligatorias §6, DISCOVERY delegado a vanta-research, permission blocks alineados con tablas MCP, §7 consolidado.
+- **FND-01..24**: 3 reglas nuevas en AGENTS.md (Reglas 9/10/11), regla memory-budget (🔴 OOM confirmado, guard subestima 6.5×), deadlocks multi-índice fixeados, /metrics con latencia real, ADR-023/024, CONTRIBUTING.md, ICP/JTBD con hipótesis honestas.
+- **Follow-ups delegados**: F1/F4 (memory) y 2/3 (deadlocks) → core-engine; FND-04 reapertura condicional → bindings/investigaciones.
+
 ### Archivados 2026-08-09 — 5 planes completados
 
 | Fecha | Plan | Estado | Ubicación |
@@ -3723,9 +3732,187 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ 3 ADRs en `docs/architecture/adr/` con Contexto/Decisión/Consecuencias/Status, numeración sin colisión (ADR-020/021/022; ADR-019 ya ocupado), evidencia archivo:línea: **ADR-020** consolidación backend default Fjall vs RocksDB (relaciona ADR 004; `Cargo.toml:97`, `config.rs:582-598`, `init.rs:269-289`), **ADR-021** zero-copy Arrow en bindings (nuevo genuino; `columnar.rs:22`, wasm `lib.rs:1428-1447`; estado bindings Python/Node sin Arrow → FND-04 pendiente), **ADR-022** consolidación WAL async/batch (relaciona DRV-014/DRV-015; `wal.rs:297/340/342/358`, `wal_sharded.rs:9-14/191/198-218`). Commit `b4a86030`.
 - **Ids:** `FND-21`
 
+### TSYS-06: Chaos/resilience del task-system — decisión (runner DEFER)
+- **Fuente:** `docs/Backlog.md` § P17 (P17 TSYS-06) + P18 TIR-07 (misma brecha)
+- **Fecha:** 2026-08-16
+- **Objetivo:** decidir si construir un chaos runner que fuzzee `campaign-server.mjs`/máquina de estados vs tests de inyección de fallos puntuales (gap-01 §3.3-24).
+- **Resultado:** ✅ decisión documentada en `docs/Investigaciones/TSYS-06-chaos-runner.md`: **runner DEFERIDO** — tests de inyección de fallos puntuales cubren el riesgo real con fracción del costo; runner re-evaluable cuando el MCP server tenga superficie crítica. Resuelve también TIR-07. Commit `bd4c3e22`.
+- **Ids:** `TSYS-06`
+
+### R1: Skills obligatorias en §6 de los 9 agentes
+- **Fuente:** `docs/Backlog.md` § P19
+- **Fecha:** 2026-08-16
+- **Objetivo:** añadir línea OBLIGATORIO al inicio de §6 para que sub-agentes vía `task` tool carguen sus skills de dominio.
+- **Resultado:** ✅ línea "> **OBLIGATORIO:** al inicio de cada sesión cargá con skill <nombre> las skills de esta sección." al inicio de §6 en los 9 agentes (`.opencode/agents/vanta-*.md`). Commit `ec7f947a`.
+- **Ids:** `R1`
+
+### R3: Delegar fase DISCOVERY a vanta-research
+- **Fuente:** `docs/Backlog.md` § P19
+- **Fecha:** 2026-08-16
+- **Objetivo:** delegar solo las fases pesadas (DISCOVERY 🟡/🔴) a vanta-research — ataca la pérdida de contexto en /compact (híbrido recomendado P6).
+- **Resultado:** ✅ `commands/pipeline.md` (modo task) y `task.md` Phase 2-3 referencian el fork a vanta-research: el lead arma el task file con el digest. Commit `1885f64e`.
+- **Ids:** `R3`
+
+### R5: Sync §6 ↔ `campaign_load_skills`
+- **Fuente:** `docs/Backlog.md` § P19
+- **Fecha:** 2026-08-16
+- **Objetivo:** que lo que lista cada agente en §6 coincida con lo que devuelve el MCP (evita duplicación/desfase).
+- **Resultado:** ✅ §6 sincronizado con `campaign_load_skills` en los 9 agentes; 0 refs desfasadas (grep verificado). Commit `ec7f947a`.
+- **Ids:** `R5`
+
+### R6: Routing table + manual con vanta-research
+- **Fuente:** `docs/Backlog.md` § P19
+- **Fecha:** 2026-08-16
+- **Objetivo:** añadir fila "Research/Discovery → vanta-research" en `vanta-lead.md` §8 y actualizar el operating manual.
+- **Resultado:** ✅ fila en `vanta-lead.md` §8 + `.opencode/VANTADB-OPERATING-MANUAL.md` actualizado (dependía de R3 ✅). Commit `7c21c8a4`.
+- **Ids:** `R6`
+
+### R8: Eliminar referencia colgante a skill `typescript-expert`
+- **Fuente:** `docs/Backlog.md` § P19
+- **Fecha:** 2026-08-16
+- **Objetivo:** reemplazar en `vanta-worker.md:125` la skill REMOVED/Dangling `typescript-expert` por una viva.
+- **Resultado:** ✅ `vanta-worker.md:125` → `source-driven-development` (validado contra SKILLS-MANIFEST). Commit `ec7f947a`.
+- **Ids:** `R8`
+
+### R9: Alinear bloques `permission:` con tablas MCP ❌/✅ (deuda TSYS-11)
+- **Fuente:** `docs/Backlog.md` § P19
+- **Fecha:** 2026-08-16
+- **Objetivo:** el permission block SÍ filtra tools → deny los servers ❌ de la tabla MCP en cada agente.
+- **Resultado:** ✅ permission blocks de los 9 agentes denegan los servers ❌ MCP (playwright/discord/lottiefiles/cargo-mcp/rust-analyzer-mcp según cada tabla). Commit `ec7f947a`.
+- **Ids:** `R9`
+
+### R10: Consolidar bloque §7 duplicado en reference compartido
+- **Fuente:** `docs/Backlog.md` § P19
+- **Fecha:** 2026-08-16
+- **Objetivo:** eliminar ~10 líneas idénticas × 9 agentes + tabla MCP (drift real documentado).
+- **Resultado:** ✅ `.opencode/references/task-system.md` creado (patrón `definition-of-done.md`) y §7 reemplazado por 1 línea por agente. Commit `ec7f947a`.
+- **Ids:** `R10`
+
+### FND-01: Regla de presupuesto de memoria + benchmark OOM
+- **Fuente:** `docs/Backlog.md` § P20a
+- **Fecha:** 2026-08-16
+- **Objetivo:** investigar qué vive en RAM vs disco hoy (HNSW/LSM) y confirmar si el riesgo OOM es real bajo carga.
+- **Resultado:** ✅ 🔴 CONFIRMADO: RSS sin límite real — guard existente subestima ~6.5× el uso bajo carga 10k w/s + 1k r/s (bench OOM). Regla must en `.opencode/rules/memory-budget.md` (compute/storage separation + back-pressure). Follow-ups F1/F4 delegados a core-engine. Commit `a159211b`.
+- **Ids:** `FND-01`
+
+### FND-02: Regla de coordinación multi-índice + auditoría de deadlocks
+- **Fuente:** `docs/Backlog.md` § P20a
+- **Fecha:** 2026-08-16
+- **Objetivo:** escanear paths multi-índice (vector + grafo + text), mapear orden de locks y buscar inversión/contención.
+- **Resultado:** ✅ fix de deadlocks en evicción multi-índice (lock no reentrante + write guard) + regla en `.opencode/rules/concurrency-async.md` + audit P2-01 approve. Follow-ups menores 2/3 delegados a core-engine. Commits `c104f1f2` + `93a1e311`.
+- **Ids:** `FND-02`
+
+### FND-03: Aislamiento de features Cargo + compile matrix
+- **Fuente:** `docs/Backlog.md` § P20a
+- **Fecha:** 2026-08-16
+- **Objetivo:** verificar que un consumidor vector-only no compile el motor de grafos; feature set mínimo compila + wheels.
+- **Resultado:** ✅ feature set mínimo compila (`--no-default-features --features fjall`) + wheels empaquetan set mínimo; compile matrix CI verde. Commit `71c58753`.
+- **Ids:** `FND-03`
+
+### FND-04: Zero-copy Arrow en bindings — DIFERIDO con ADR
+- **Fuente:** `docs/Backlog.md` § P20a
+- **Fecha:** 2026-08-16
+- **Objetivo:** analizar viabilidad de exponer buffers Arrow sin copia en Python/Node y firmar plan (implementación o ADR de diferimiento).
+- **Resultado:** ✅ DIFERIDO con ADR-021 + señal de reapertura explícita en `docs/Investigaciones/FND-04-arrow-zero-copy.md` (umbrales de reapertura documentados). Commit `95a67fd3`.
+- **Ids:** `FND-04`
+
+### FND-05: SDK idiomático (no wrapper 1:1 de Rust)
+- **Fuente:** `docs/Backlog.md` § P20a
+- **Fecha:** 2026-08-16
+- **Objetivo:** identificar gaps de API idiomática en `vantadb-python`/`vantadb-ts` (context managers, type hints, async nativo).
+- **Resultado:** ✅ análisis en `docs/Investigaciones/FND-05-sdk-idiomatico.md` (lista de gaps PY-*/TS-*) + prototipos: `with VantaDB(path) as db` (Python) y `await using db` (TS). Sin rewrite — no hacer async nativo (cubre FND-04). Commit `14183fc4`.
+- **Ids:** `FND-05`
+
+### FND-06: Regla de boundaries core ↔ bindings (Ports & Adapters)
+- **Fuente:** `docs/Backlog.md` § P20a
+- **Fecha:** 2026-08-16
+- **Objetivo:** verificar si server/bindings dependen de detalles internos del core que deberían estar tras un trait.
+- **Resultado:** ✅ regla R-8 core-bindings (lógica de negocio NUNCA en PyO3/WASM/server) en `.opencode/rules/api-contract.md` + TODO(core) marcado + drift ERR-028 documentado. Commit `bea0f513`.
+- **Ids:** `FND-06`
+
+### FND-07: Regla de observabilidad real (prometheus) + probe endpoint
+- **Fuente:** `docs/Backlog.md` § P20a
+- **Fecha:** 2026-08-16
+- **Objetivo:** cerrar el gap entre `prometheus` declarado en Cargo.toml y lo realmente consultable; /metrics con datos reales.
+- **Resultado:** ✅ `/metrics` responde con feed real de latencia de queries (prometheus) + regla R-3 en `.opencode/rules/server-mcp.md` (todo endpoint nuevo expone métricas reales, no placeholders). Commit `8820bdaf`.
+- **Ids:** `FND-07`
+
+### FND-08: Regla de backend validado contra patrón de acceso real + auditoría de compactación
+- **Fuente:** `docs/Backlog.md` § P20a
+- **Fecha:** 2026-08-16
+- **Objetivo:** evaluar si la compactación de fjall/rocksdb está tuneada para random reads (similitud vectorial) vs default de escritura secuencial.
+- **Resultado:** ✅ ADR-023 (backend compaction — diferir marginal, justificado con bench de lectura) + regla en `.opencode/rules/durability.md`. Commit `e5e76684`.
+- **Ids:** `FND-08`
+
+### FND-10: Regla 9 — No optimizar sin medir + benchmark canónico P99
+- **Fuente:** `docs/Backlog.md` § P20b
+- **Fecha:** 2026-08-16
+- **Objetivo:** establecer benchmark canónico P99 (insert 100k×1536d + search) como baseline de no-regresión.
+- **Resultado:** ✅ Regla 9 en `.opencode/AGENTS.md` + `benches/canonical_p99.rs` ejecutable con baseline registrado: **3.07ms p99** (documentado en `docs/operations/BENCHMARKS.md`). Commit `89943c7d`.
+- **Ids:** `FND-10`
+
+### FND-11: No mergear código IA sin poder explicarlo (AI Guardian)
+- **Fuente:** `docs/Backlog.md` § P20b
+- **Fecha:** 2026-08-16
+- **Objetivo:** gate que impida aceptar código generado por IA sin poder explicar cada decisión no trivial.
+- **Resultado:** ✅ Regla 10 (AI Guardian) en `.opencode/AGENTS.md` + referenciada en workflow de PR (el desarrollo dicta el syllabus). Commit `3b0d2a3b`.
+- **Ids:** `FND-11`
+
+### FND-12: ADRs como forcing function (escrito por humano, no IA)
+- **Fuente:** `docs/Backlog.md` § P20b
+- **Fecha:** 2026-08-16
+- **Objetivo:** reforzar que el ADR lo escribe el autor humano articulando el trade-off; la IA solo aporta evidencia.
+- **Resultado:** ✅ Regla 5 reforzada en `.opencode/AGENTS.md` con formato mínimo (Contexto/Decisión/Consecuencias — quién lo articula). Commit `3b0d2a3b`.
+- **Ids:** `FND-12`
+
+### FND-13: Benchmarks honestos (extiende FND-10)
+- **Fuente:** `docs/Backlog.md` § P20b
+- **Fecha:** 2026-08-16
+- **Objetivo:** los claims de performance deben citar benchmark reproducible + números, no adjetivos.
+- **Resultado:** ✅ Regla 11 en `.opencode/AGENTS.md` + claims del README revisados y alineados. Commit `d61a006c`.
+- **Ids:** `FND-13`
+
+### FND-14: Ritual de inicio — validación de feature stack
+- **Fuente:** `docs/Backlog.md` § P20b
+- **Fecha:** 2026-08-16
+- **Objetivo:** el ritual de sesión debe verificar que el feature set default + mínimo compila.
+- **Resultado:** ✅ paso 5 del Ritual de Inicio en `.opencode/AGENTS.md` (`cargo check --no-default-features --features fjall`). Commit `3b0d2a3b`.
+- **Ids:** `FND-14`
+
+### FND-16: Multi-target CI (wheels + WASM por PR)
+- **Fuente:** `docs/Backlog.md` § P20c
+- **Fecha:** 2026-08-16
+- **Objetivo:** analizar si compilar wheels Windows/Mac/Linux + WASM en cada PR vale el costo.
+- **Resultado:** ✅ plan multi-target CI implementado: job wasm/TS por PR con paths filter (análisis en FND-16) + fix path CONTRIBUTING + dictamen P2-01 en FND-02. Commits `0f15a817` + `fb878cba`.
+- **Ids:** `FND-16`
+
+### FND-22: CONTRIBUTING.md + triage de issues (post-launch)
+- **Fuente:** `docs/Backlog.md` § P20d
+- **Fecha:** 2026-08-16
+- **Objetivo:** formalizar proceso de contribución y triage antes de que el volumen comunitario desborde.
+- **Resultado:** ✅ `CONTRIBUTING.md` (commit convention, PR flow, gates) + guía de triage en `.github/`. Commit `d9beaa9a`.
+- **Ids:** `FND-22`
+
+### FND-23: Decidir grafos default-on vs opt-in con telemetría real (post-launch)
+- **Fuente:** `docs/Backlog.md` § P20d
+- **Fecha:** 2026-08-16
+- **Objetivo:** usar señales reales de adopción para decidir si el motor de grafos queda default-on o pasa a opt-in.
+- **Resultado:** ✅ ADR-024: motor de grafos **default-on hasta señal de telemetría** (métrica `vanta_graph_ops_total`) — no decidir por intuición; complementa FND-03. Commit `bde23fd3`.
+- **Ids:** `FND-23`
+
+### FND-24: JTBD/ICP: entrevistas post-Show HN
+- **Fuente:** `docs/Backlog.md` § P20d
+- **Fecha:** 2026-08-16
+- **Objetivo:** usar las primeras conversaciones reales para definir ICP y job-to-be-done.
+- **Resultado:** ✅ `docs/Investigaciones/FND-24-icp-jtbd.md`: **0 evidencia de usuarios reales — todo hipótesis** (4 perfiles ICP, 10 JTBD) + plan de validación accionable (semana 4-8 post-Show HN). No se inventa evidencia donde no existe (regla de la tarea). Commit `a93e7932`.
+- **Ids:** `FND-24`
+
 ---
 
 ## Planes archivados
 
 - **Plan archivado:** `docs/plans/archive/2026-08-12-ci-deuda.md` — 6/6 completadas (CI-02..07, deuda CI batch)
 - **Retrospectiva:** Start: verificación de realidad contra código real antes de DO (Paso 0) + contratos booleanos accionables con actionlint | Stop: batch CI-01 del doc EXTRACCION estaba stale (ROOT1-007 ya resuelto; solo 6 de 26 hallazgos eran reales) — no planificar desde docs sin verificar | Continue: waves paralelas por archivos disjuntos + routing vanta-lead para CI; escalera SARL (RESUME→RETRY) antes de marcar fallo | Acción medida: verify retries/tarea en CI batch = 1/6 (CI-05 requirió RETRY tras 2 salidas vacías; baseline North Star: >90% completado en primer intento)
+
+- **Plan archivado:** `docs/plans/archive/2026-08-16-wave-p20-tsys.md` — 25/25 completadas (wave P20-TSYS: TSYS-06 + R1/R3/R5/R6/R8/R9/R10 + FND-01..24 activas; 21 commits en develop desde `ec7f947a` hasta `a159211b`)
+- **Retrospectiva:** Start: waves paralelas con routing por dominio disjunto (vanta-lead/worker/arch/tuner/docs) + commits por batch del lead (regla de plan) | Stop: — | Continue: 0 DO diferidos/SKIP/BLOQUEADO; el gate por batch (contrato booleano + dictamen P2-01) mantuvo 25/25 en primer intento

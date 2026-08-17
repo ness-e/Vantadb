@@ -122,3 +122,13 @@ aliases: []
 - **Fuente:** Backlog P18 `TIR-03` (gap-01 FALTA#15, REPORTE-FINAL §3.3-15)
 - **Resultado:** Decisión IMPLEMENTAR docs mínimos — nueva Fase 0.5 Contención/Estabilización en `docs/references/bug-workflow.md:18` (revert/pausar + registrar ANTES del debug; no reemplaza el Iron Law). Doc: `docs/Investigaciones/2026-08-10-agent-engineering/TIR-03-decision.md`. Review P2-01 vanta-review ✅ approve.
 - **Ids:** `TIR-03`
+
+### TSYS-06: Chaos/resilience del task-system — decisión runner DEFER (2026-08-16)
+- **Fuente:** Backlog P17 `TSYS-06` + P18 `TIR-07` (misma brecha)
+- **Resultado:** Decisión **DEFERIR el chaos runner** — tests de inyección de fallos puntuales cubren el riesgo real con fracción del costo. Doc: `docs/Investigaciones/TSYS-06-chaos-runner.md`. Resuelve también TIR-07.
+- **Ids:** `TSYS-06`
+
+### FND-24: JTBD/ICP — hipótesis + plan de validación (2026-08-16)
+- **Fuente:** Backlog P20d `FND-24`
+- **Resultado:** **0 evidencia de usuarios reales — todo hipótesis** (4 perfiles ICP, 10 JTBD) + plan de validación accionable post-Show HN. Regla de la tarea: no inventar evidencia. Doc: `docs/Investigaciones/FND-24-icp-jtbd.md`.
+- **Ids:** `FND-24`

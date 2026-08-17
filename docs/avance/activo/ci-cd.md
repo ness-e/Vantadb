@@ -149,3 +149,45 @@ aliases: []
 
 ### FND-17: API reference automatizada (docs-as-code) — migrado 2026-08-16 (ver docs/progreso/README.md)
 - **Resultado:** ✅ análisis + plan en `docs/Investigaciones/FND-17-api-reference-docs-as-code.md`: Fase 1 cargo doc en CI (sin deps), defer typedoc/pydoc/site justificado. Citas archivo:línea + URLs verificadas. Commit `5dc71f0d`.
+
+### R1: Skills obligatorias en §6 de los 9 agentes — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ línea "> **OBLIGATORIO:** … cargá con skill <nombre> …" al inicio de §6 en los 9 agentes. Commit `ec7f947a`.
+
+### R3: Delegar fase DISCOVERY a vanta-research — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ `commands/pipeline.md` + `task.md` Phase 2-3 referencian fork a vanta-research para tareas 🟡/🔴 (híbrido, el lead arma el task file con el digest). Commit `1885f64e`.
+
+### R5: Sync §6 ↔ `campaign_load_skills` — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ §6 sincronizado con `campaign_load_skills` en los 9 agentes; 0 refs desfasadas (grep verificado). Commit `ec7f947a`.
+
+### R6: Routing table + manual con vanta-research — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ fila "Research/Discovery → vanta-research" en `vanta-lead.md` §8 + `.opencode/VANTADB-OPERATING-MANUAL.md` actualizado. Commit `7c21c8a4`.
+
+### R8: Eliminar referencia colgante a skill `typescript-expert` — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ `vanta-worker.md:125` `typescript-expert` → `source-driven-development`. Commit `ec7f947a`.
+
+### R9: Alinear bloques `permission:` con tablas MCP ❌/✅ — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ permission blocks de los 9 agentes denegan los servers ❌ de su tabla MCP (deuda TSYS-11 saldada). Commit `ec7f947a`.
+
+### R10: Consolidar bloque §7 duplicado en reference compartido — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ `.opencode/references/task-system.md` creado (patrón `definition-of-done.md`) + §7 = 1 línea por agente. Commit `ec7f947a`.
+
+### FND-03: Aislamiento de features Cargo + compile matrix — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ feature set mínimo compila (`--no-default-features --features fjall`) + wheels empaquetan set mínimo; compile matrix CI verde. Commit `71c58753`.
+
+### FND-10: Regla 9 — No optimizar sin medir + benchmark canónico P99 — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ Regla 9 en `.opencode/AGENTS.md` + `benches/canonical_p99.rs` ejecutable con baseline **3.07ms p99** (`docs/operations/BENCHMARKS.md`). Commit `89943c7d`.
+
+### FND-11: No mergear código IA sin poder explicarlo (AI Guardian) — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ Regla 10 (AI Guardian) en `.opencode/AGENTS.md` + referenciada en workflow de PR. Commit `3b0d2a3b`.
+
+### FND-12: ADRs como forcing function (escrito por humano, no IA) — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ Regla 5 reforzada en `.opencode/AGENTS.md` con formato mínimo (Contexto/Decisión/Consecuencias — quién articula). Commit `3b0d2a3b`.
+
+### FND-13: Benchmarks honestos (extiende FND-10) — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ Regla 11 en `.opencode/AGENTS.md` (claims citan benchmark reproducible + números) + claims README alineados. Commit `d61a006c`.
+
+### FND-14: Ritual de inicio — validación de feature stack — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ paso 5 del Ritual de Inicio en `.opencode/AGENTS.md` (`cargo check --no-default-features --features fjall`). Commit `3b0d2a3b`.
+
+### FND-16: Multi-target CI (wheels + WASM por PR) — migrado 2026-08-16 (ver docs/progreso/README.md)
+- **Resultado:** ✅ plan multi-target CI implementado: job wasm/TS por PR con paths filter + fix path CONTRIBUTING + dictamen P2-01 en FND-02. Commits `0f15a817` + `fb878cba`.
