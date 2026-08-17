@@ -13,6 +13,8 @@ This document explains the performance characteristics of VantaDB's architecture
 
 > **Key takeaway:** The Rust core delivers ~441µs p99 latency at 100K scale. The Python SDK adds ~140x overhead (62ms) due to FFI crossing, GIL management, type conversion, and result serialization. This is **expected and by design** — not a bug.
 
+> ⚠️ **Outdated numbers (Rule 11):** The Python-SDK figures in this guide (62 ms vector p50, 95 ops/sec, ~140x gap) are based on the **superseded CI series** of `BENCHMARKS.md §2`. The current local baseline reports **2.0 ms** vector p50 / **74 ops/sec** (see [`BENCHMARKS.md §2`](BENCHMARKS.md), regenerate with the command documented there). The qualitative analysis (FFI/GIL/serialization dominate) remains valid.
+
 ---
 
 ## 1. Architecture Layers and Their Latency Impact

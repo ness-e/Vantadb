@@ -136,7 +136,7 @@ full f32 to quantized representations:
 | Tier | Representation | Bytes/Dim | Recall Impact |
 |------|---------------|-----------|---------------|
 | **Hot** (f32 Full) | `VectorRepresentations::Full` | 4 | None (baseline) |
-| **Warm** (SQ8) | `VectorRepresentations::SQ8` | 1 | ~0.5–2 % drop |
+| **Warm** (SQ8) | `VectorRepresentations::SQ8` | 1 | ~0.5–2 % drop *(not verified — Rule 11)* |
 | **Cold** (MMap) | `VectorRepresentations::MmapFull` | 0 (OS page cache) | None when paged in |
 
 Configuration constants in `QuantizationConfig`:
@@ -195,7 +195,7 @@ evictions.
 - **MMap HNSW + SQ8 cold**: Good balance for 1M–10M vectors. Hot nodes
   stay in f32; cold nodes are quantized or paged from disk.
 - **Quantized-only (SQ8/Turbo)**: Minimal memory footprint. Accept 1–3 %
-  recall loss for 5–10× memory reduction.
+  recall loss for 5–10× memory reduction *(not verified — Rule 11)*.
 
 ---
 
@@ -206,7 +206,7 @@ VantaDB supports three storage backends via the `StorageBackend` trait.
 | Feature | Fjall (default) | RocksDB | InMemory |
 |---------|-----------------|---------|----------|
 | Language | 100% Rust | C++ (C bindings) | Rust-only |
-| Build time | ~30 s | ~5–10 min | ~20 s |
+| Build time | ~30 s *(not verified — Rule 11)* | ~5–10 min *(not verified — Rule 11)* | ~20 s *(not verified — Rule 11)* |
 | Dependencies | Zero | CMake, Clang, libstdc++ | None |
 | Memory safety | Safe Rust | `unsafe` bindings | Safe Rust |
 | WAL + crash recovery | ✅ | ✅ | ❌ (ephemeral) |
@@ -222,7 +222,7 @@ VantaDB supports three storage backends via the `StorageBackend` trait.
   system dependencies. Use unless you have a specific need for RocksDB.
 
 - **RocksDB** (env `VANTA_BACKEND=rocksdb`):
-  For extreme write throughput (> 100K ops/sec) or legacy infrastructure
+  For extreme write throughput (> 100K ops/sec) *(not verified — Rule 11)* or legacy infrastructure
   that depends on RocksDB tooling. Requires C++ build toolchain.
   Enables `supports_checkpoint` and `supports_manual_compaction` for
   advanced operational workflows.
@@ -253,14 +253,14 @@ The `SyncMode` enum (`src/config.rs:44`) controls WAL fsync behaviour.
 
 | Mode | fsync | Durability | Throughput Impact |
 |------|-------|------------|-------------------|
-| `Always` | Every write | Maximum (ACID) | 10–100× slower |
+| `Always` | Every write | Maximum (ACID) | 10–100× slower *(not verified — Rule 11)* |
 | `Periodic` (default) | Every ~5 s | High | Baseline |
 | `Never` | Never | Low (OS page cache) | Fastest |
 
 ### When to Use Each Mode
 
 - **`Always`**: Financial/transactional workloads where losing a single
-  write is unacceptable. On SATA SSDs, expect 10–100 ms per write.
+  write is unacceptable. On SATA SSDs, expect 10–100 ms per write *(not verified — Rule 11)*.
 - **`Periodic`**: General-purpose use. Balances safety and speed.
   A crash may lose the last ~5 seconds of writes.
 - **`Never`**: Bulk ingestion, caching layers, disposable data.
@@ -302,7 +302,7 @@ Bitset filtering is evaluated **during HNSW traversal** (inside the hot
 loop in `search_layer` at `src/index/search.rs:11`), so filtered-out nodes
 are never returned. This is far more efficient than post-filtering.
 
-**Performance impact**: Near-zero when the filter is selective. The bitset
+**Performance impact**: Near-zero when the filter is selective *(not verified — Rule 11)*. The bitset
 check is a single `u128` AND + compare — essentially free. Use bitsets to
 implement tenant isolation, document type routing, or any categorical
 filter.
@@ -344,6 +344,8 @@ HNSW GIL overhead:
 | `db.search()` sequential | 973.68 ms | 1× (baseline) |
 | `db.search_batch()` | 243.01 ms | **4.01×** |
 
+*Source: `BENCHMARKS.md §6` — regenerate with `python benchmarks/batch_vs_sequential_bench.py`.*
+
 Always batch independent queries when throughput matters.
 
 ---
@@ -357,9 +359,9 @@ VantaDB auto-detects the available instruction set at startup
 
 | Instruction Set | Detection | Rel. Performance |
 |----------------|-----------|------------------|
-| AVX-512 | `std::is_x86_feature_detected!("avx512f")` | 1.5–2× vs AVX2 |
-| AVX2 | `std::is_x86_feature_detected!("avx2")` | 3–5× vs scalar |
-| NEON | `std::arch::is_aarch64_feature_detected!("neon")` | 3–5× vs scalar |
+| AVX-512 | `std::is_x86_feature_detected!("avx512f")` | 1.5–2× vs AVX2 *(not verified — Rule 11)* |
+| AVX2 | `std::is_x86_feature_detected!("avx2")` | 3–5× vs scalar *(not verified — Rule 11)* |
+| NEON | `std::arch::is_aarch64_feature_detected!("neon")` | 3–5× vs scalar *(not verified — Rule 11)* |
 | Scalar fallback | None detected | Baseline |
 
 All SIMD paths use the `wide` crate (f32x8) for automatic vectorisation
@@ -388,9 +390,9 @@ gracefully.
 **RAM per vector (estimated)**:
 
 - HNSW graph edges: ~896 bytes (128d, default params)
-- HNSW DashMap overhead: ~60 bytes per entry
+- HNSW DashMap overhead: ~60 bytes per entry *(not verified — Rule 11)*
 - VantaFile vector payload: `dim × 4` bytes
-- Text index (BM25): varies with content, ~text_length × 2 bytes
+- Text index (BM25): varies with content, ~text_length × 2 bytes *(not verified — Rule 11)*
 
 **Tip**: If the HNSW index fits in memory but vector payloads do not,
 enable `mmap_hnsw` (default on) to keep graph edges hot and page vector
@@ -400,9 +402,9 @@ data from disk on demand.
 
 | Storage | WAL fsync | MMap load | Query Latency Impact |
 |---------|-----------|-----------|---------------------|
-| NVMe SSD | ~50 µs | Excellent | Baseline |
-| SATA SSD | ~500 µs | Good | +10–30 % |
-| HDD | ~10 ms | Poor | +200–500 % |
+| NVMe SSD | ~50 µs *(not verified — Rule 11)* | Excellent | Baseline |
+| SATA SSD | ~500 µs *(not verified — Rule 11)* | Good | +10–30 % *(not verified — Rule 11)* |
+| HDD | ~10 ms *(not verified — Rule 11)* | Poor | +200–500 % *(not verified — Rule 11)* |
 
 - **Always use SSD** for production. HDDs introduce catastrophic latency
   during mmap page faults and WAL fsync.
@@ -457,7 +459,15 @@ The **Stress Protocol** (`tests/certification/stress_protocol.rs`) is a
 | Throughput (QPS) | ~833 | ~164 | — | Queries per second (single-threaded) |
 | Memory/node | ~1172 B | ~1172 B | — | Bytes per vector in HNSW |
 
+*(QPS derived as `1000 / p50 ms` from the Stress Protocol latencies above; Memory/node from `BENCHMARKS.md §1`.)*
+
 ### Expected Performance by Dataset Size
+
+> ⚠️ **Not verified — Rule 11:** no reproducible benchmark is cited for these
+> extrapolated figures. The p50/QPS columns are partially derivable from the
+> Stress Protocol (`BENCHMARKS.md §1`, 10K p50 1.2 ms / 50K p50 6.1 ms), but
+> the build-time estimates have no documented source. Treat as rough guidance,
+> not certified numbers.
 
 | Scale | Build Time (M=32/ef=200) | p50 Query (ef=100) | QPS (single-threaded) |
 |-------|--------------------------|-------------------|----------------------|
@@ -472,13 +482,13 @@ The **Stress Protocol** (`tests/certification/stress_protocol.rs`) is a
 ### Python SDK Overhead
 
 Python benchmarks include PyO3 boundary crossing and GIL overhead.
-Expect 2–5× higher latency compared to pure Rust:
+Derived from `BENCHMARKS.md` §1 (Rust core) vs §2 (Python SDK, latest local baseline — regenerate locally):
 
 | Operation | Rust Core | Python SDK | Overhead |
 |-----------|-----------|------------|----------|
-| Vector search (10K) | 1.2 ms | 62 ms | ~50× |
-| Lexical search (10K) | ~2 ms | 115 ms | ~57× |
-| Insert (single) | ~100 µs | 10.7 ms | ~107× |
+| Vector search (10K) | 1.2 ms | 2.0 ms | ~1.7× |
+| Insert (single) | ~100 µs (estimate) | 13.2 ms | ~132× |
+| Lexical search (10K) | — | 0.0035 ms (degenerate outlier) | not meaningful |
 
 Overhead is dominated by FFI serialisation, not HNSW traversal. Use
 `search_batch()` to amortise this cost (4× throughput improvement).
@@ -489,6 +499,6 @@ When optimising, profile each phase independently:
 
 1. **HNSW traversal**: Dominates for vector-only queries. Tune `ef_search`.
 2. **BM25 scoring**: Dominates for lexical/text queries. Tune tokenizer.
-3. **RRF fusion**: Negligible (< 100 µs) for typical candidate sizes.
+3. **RRF fusion**: Negligible (< 100 µs) *(not verified — Rule 11)* for typical candidate sizes.
 4. **FFI serialisation**: Dominates Python SDK overhead. Use `search_batch()`.
 5. **Mmap page fault**: Cold-start latency. Warm up with a few probe queries.
