@@ -56,6 +56,18 @@
       "type": "local",
       "description": "Plan de campaña: get_next_task, update_task_state, verify_cmd."
     },
+    "vantadb": {
+      "command": [
+        "vanta-cli",
+        "server",
+        "--mcp",
+        "--db",
+        "C:/Users/Eros/.vantadb"
+      ],
+      "enabled": true,
+      "type": "local",
+      "description": "VantaDB MCP — memoria persistente y vector retrieval (15 tools: memory_put/get, query_iql, search_semantic, rehydrate...)."
+    },
     "lottiefiles-creator": {
       "command": [
         "bunx",
