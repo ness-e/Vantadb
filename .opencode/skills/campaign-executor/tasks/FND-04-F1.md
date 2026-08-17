@@ -35,11 +35,11 @@ Extraer `docs/architecture/adr/ADR-025-*.md` formal desde `docs/Investigaciones/
 
 ## Resultado
 ```
-RESULTADO: ✅ COMPLETO | 🟡 INCOMPLETO | ❌ FALLIDO
-STEPS_OK: <n>/<M>
-PROXIMO_STEP: <...>
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 4/4
+PROXIMO_STEP: ninguno
 COMMIT_HASH: ninguno (lead commitea)
-ARCHIVOS: <paths tocados>
-VERIFY_CONTRATO: <pasa | no-corrido | falla>
-BLOQUEO: <ninguno | ...>
+ARCHIVOS: docs/architecture/adr/ADR-025-zero-copy-arrow-deferred.md (nuevo), docs/Investigaciones/FND-04-arrow-zero-copy.md (1 línea cross-ref), .opencode/skills/campaign-executor/tasks/FND-04-F1.md (resultado)
+VERIFY_CONTRATO: pasa
+BLOQUEO: ninguno
 ```

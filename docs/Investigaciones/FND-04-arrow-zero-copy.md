@@ -117,7 +117,8 @@ probado en WASM.
 ## 3. Decisión: DIFERIR (ADR) + plan futuro firmado
 
 **Decisión:** NO implementar zero-copy Arrow en bindings Python/Node hoy. ADR de
-diferimiento con las siguientes razones:
+diferimiento con las siguientes razones. **Formalizado en**
+`docs/architecture/adr/ADR-025-zero-copy-arrow-deferred.md` (misma decisión/evidencia):
 
 1. **RecordBatch desconectado y de schema parcial.** El único RecordBatch del core
    (`src/columnar.rs:22`) tiene solo id + vectores flatten — no cubre
