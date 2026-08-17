@@ -3,7 +3,7 @@
 ## Metadata
 - **Plan:** docs/plans/2026-08-16-wave-followups.md (W3)
 - **Fuente:** deuda documentada en ADR-024 (`vanta_graph_ops_total` pendiente de instrumentar, vanta-tuner post-launch)
-- **Estado:** ⏳ IN PROGRESS · **Sub-agente:** vanta-tuner
+- **Estado:** ✅ COMPLETO (2026-08-17) · **Sub-agente:** vanta-tuner
 - **Prioridad:** 🟡
 
 ## Objetivo
@@ -37,11 +37,30 @@ Instrumentar el contador `vanta_graph_ops_total` (operaciones de grafo: `add_edg
 
 ## Resultado
 ```
-RESULTADO: ✅ COMPLETO | 🟡 INCOMPLETO | ❌ FALLIDO
-STEPS_OK: <n>/<M>
-PROXIMO_STEP: <...>
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 5/5
+PROXIMO_STEP: ninguno
 COMMIT_HASH: ninguno (lead commitea)
-ARCHIVOS: <paths tocados>
-VERIFY_CONTRATO: <pasa | no-corrido | falla>
-BLOQUEO: <ninguno | ...>
+ARCHIVOS: src/metrics/core/registry.rs, src/metrics/core/mod.rs, src/engine.rs, src/sdk/api.rs, src/sdk/graph.rs, docs/architecture/adr/ADR-024-graph-engine-default-telemetry.md, .opencode/skills/campaign-executor/tasks/FND-23-F1.md
+VERIFY_CONTRATO: pasa
+BLOQUEO: ninguno
 ```
+
+## Ejecución (2026-08-17, vanta-tuner)
+
+- **Steps 1-5:** ✅ completados. DISCOVERY leyó registry.rs (patrón IntCounterVec de
+  HTTP_REQUESTS_TOTAL), engine.rs:351 traverse, api.rs add_edge/remove_edge,
+  sdk/graph.rs (6 métodos edge_query), ADR-024. Implementación: GRAPH_OPS_TOTAL
+  (IntCounterVec label `op`) en registry.rs; `record_graph_op(op)` cfg-dual en
+  mod.rs; increments en engine.rs:358 (traverse), api.rs:1051 (add_edge),
+  api.rs:1087 (remove_edge), sdk/graph.rs ×6 (edge_query). Test
+  `test_graph_ops_counter_init` (incremento por label + verificación en
+  export_metrics_text) + handle en test_all_counter_handles_some. ADR-024
+  actualizado (nota instrumentado 2026-08-17, metric row, reopen signal ✅ DONE).
+- **Verificación:** `cargo check -p vantadb --features prometheus` ✅ ·
+  `cargo check -p vantadb` (default, no-op) ✅ · `cargo test --features
+  prometheus --lib metrics::` 93 passed ✅ · `cargo fmt --check` ✅ ·
+  `cargo clippy --features prometheus --lib` ✅ · grep métrica en registry ✅
+- **Invariantes:** NO git add/commit; NO campaign_update_task_state; NO tocar
+  Backlog/AUD-024/verify-log/plan/AGENTS/agents/mcp/SKL-* — respetado.
+  Default-on de grafos intacto (ADR-024). Sin feature gate nuevo.

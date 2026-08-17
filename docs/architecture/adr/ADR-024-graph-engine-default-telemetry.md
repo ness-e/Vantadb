@@ -69,7 +69,7 @@ intuition, roadmap aesthetics, or compile-time cost arguments alone.**
 
 | Element | Definition |
 |---|---|
-| **Metric (pending)** | `vanta_graph_ops_total` — Prometheus counter, labels `op` ∈ {`traverse`, `add_edge`, `remove_edge`, `edge_query`}, incremented in `src/engine.rs` graph paths and exposed via `/metrics`. **Not yet instrumented** — this ADR only defines it. |
+| **Metric (pending)** | `vanta_graph_ops_total` — Prometheus counter, labels `op` ∈ {`traverse`, `add_edge`, `remove_edge`, `edge_query`}, incremented in `src/engine.rs` graph paths and exposed via `/metrics`. **Instrumented 2026-08-17 (FND-23-F1)** — see "Current instrumentation state" below. |
 | **Metric (existing proxies)** | `vanta_http_requests_total` (labels method/route/status) and `vanta_planner_{hybrid,text_only,vector_only}_queries_total` from `src/metrics/core/registry.rs` — usable to correlate whether any HTTP/planner activity reaches graph paths, but they do NOT count graph ops directly. |
 | **Observation window** | 90 days after first public release (post-Show HN), on deployments that expose `/metrics` (server + `prometheus` feature). |
 | **Threshold** | **Adoption**: deployments with `vanta_graph_ops_total` > 0 (any op) count as "graph users". If **< 5%** of deployments reporting `/metrics` show graph usage over the window → graph engine shows no real adoption. |
@@ -78,12 +78,21 @@ intuition, roadmap aesthetics, or compile-time cost arguments alone.**
 
 ### Current instrumentation state (honest)
 
-**No data exists today.** There is no graph-usage telemetry: `grep
-GRAPH|EDGE|TRAVERSAL src/metrics/` → 0 matches. The signal is defined but
-**pending instrumentation**. Instrumenting `vanta_graph_ops_total` in
-`src/engine.rs` is explicitly **out of scope** for FND-23 (it is a separate
-telemetry task for vanta-tuner, post-launch). Until then, the decision stands
-on the status quo (default-on) with a defined, verifiable reopen signal.
+**Instrumented as of 2026-08-17 (FND-23-F1, vanta-tuner).** `vanta_graph_ops_total`
+is now a labelled Prometheus counter (`IntCounterVec`, label `op`) registered in
+`src/metrics/core/registry.rs` and exposed via `/metrics` (`prometheus` feature),
+with `record_graph_op(op)` helpers in `src/metrics/core/mod.rs` (cfg-guarded, no-op
+when `prometheus` is off). Incremented at the real graph call sites:
+
+- `op="traverse"` — `src/engine.rs:358` (`InMemoryEngine::traverse`, BFS)
+- `op="add_edge"` — `src/sdk/api.rs:1051` (`VantaEmbedded::add_edge`)
+- `op="remove_edge"` — `src/sdk/api.rs:1087` (`VantaEmbedded::remove_edge`)
+- `op="edge_query"` — `src/sdk/graph.rs` (`graph_bfs`, `graph_dfs`,
+  `graph_bfs_filtered`, `graph_dfs_filtered`, `graph_topological_sort`, `graph_is_dag`)
+
+Before FND-23-F1 there was no graph-usage telemetry (`grep GRAPH|EDGE|TRAVERSAL
+src/metrics/` → 0 matches). The decision itself (default-on) is unchanged — this
+ADR's reopen signal is now measurable.
 
 ## Consequences
 
@@ -96,11 +105,12 @@ on the status quo (default-on) with a defined, verifiable reopen signal.
   graph usage is genuinely ~0 post-launch, we carry that cost until the window
   closes (90 days). No metric counts graph ops until `vanta_graph_ops_total`
   is instrumented.
-- **Deferred (reopen signal):** instrument `vanta_graph_ops_total` (labels
+- **Deferred (reopen signal):** ~~instrument `vanta_graph_ops_total` (labels
   `op` ∈ {traverse, add_edge, remove_edge, edge_query}) in `src/engine.rs`
-  graph paths, exposed via `/metrics` (server + `prometheus` feature). Then,
-  at the 90-day post-launch mark, evaluate the <5% threshold above. A flip to
-  opt-in requires a new ADR and FND-03's feature isolation to exist first.
+  graph paths, exposed via `/metrics` (server + `prometheus` feature).~~ ✅
+  DONE (FND-23-F1, 2026-08-17). Then, at the 90-day post-launch mark, evaluate
+  the <5% threshold above. A flip to opt-in requires a new ADR and FND-03's
+  feature isolation to exist first.
 - **Complementarity:** FND-03 isolates graph code behind a feature; this ADR
   fixes the *default*. FND-03's compile-matrix CI job becomes the verification
   harness for the opt-in action if the threshold is met.

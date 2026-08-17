@@ -216,6 +216,21 @@ pub fn record_planner_sparse_only_query() {
     PLANNER_SPARSE_ONLY_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
 }
 
+/// Record a graph engine operation (ADR-024).
+///
+/// `op` ∈ {traverse, add_edge, remove_edge, edge_query}. No-op when the
+/// `prometheus` feature is off (same cfg-guard as the other counters).
+#[cfg(feature = "prometheus")]
+pub fn record_graph_op(op: &str) {
+    if let Some(counter) = GRAPH_OPS_TOTAL.as_ref() {
+        counter.with_label_values(&[op]).inc();
+    }
+}
+
+/// Record a graph engine operation (no-op when the `prometheus` feature is disabled).
+#[cfg(not(feature = "prometheus"))]
+pub fn record_graph_op(_op: &str) {}
+
 /// Record which vector index backend a memory search was routed to (OLD-21).
 ///
 /// Flat / IVF / HNSW are the three routing targets selected by

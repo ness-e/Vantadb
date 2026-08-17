@@ -1048,6 +1048,7 @@ impl VantaEmbedded {
         created_at_ms: Option<u64>,
     ) -> Result<()> {
         self.check_read_only()?;
+        crate::metrics::record_graph_op("add_edge");
         let engine = self.engine_handle()?;
         let label_id = engine.intern_label(label);
         let w = weight.unwrap_or(1.0);
@@ -1083,6 +1084,7 @@ impl VantaEmbedded {
     #[tracing::instrument(skip(self), err)]
     pub fn remove_edge(&self, source_id: u128, target_id: u128, label: &str) -> Result<()> {
         self.check_read_only()?;
+        crate::metrics::record_graph_op("remove_edge");
         let engine = self.engine_handle()?;
         let label_id = engine.intern_label(label);
 

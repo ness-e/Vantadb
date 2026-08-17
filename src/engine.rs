@@ -355,6 +355,7 @@ impl InMemoryEngine {
         min_depth: u32,
         max_depth: u32,
     ) -> Result<Vec<(u128, u32)>> {
+        crate::metrics::record_graph_op("traverse");
         let nodes = self.nodes.read();
         if !nodes.contains_key(&start) {
             return Err(VantaError::NodeNotFound(start));

@@ -53,6 +53,7 @@ impl VantaEmbedded {
         max_depth: usize,
         direction: crate::graph::TraversalDirection,
     ) -> Result<Vec<u128>> {
+        crate::metrics::record_graph_op("edge_query");
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
         traverser.bfs_traverse(roots, max_depth, direction)
@@ -69,6 +70,7 @@ impl VantaEmbedded {
         max_depth: usize,
         direction: crate::graph::TraversalDirection,
     ) -> Result<Vec<u128>> {
+        crate::metrics::record_graph_op("edge_query");
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
         traverser.dfs_traverse(roots, max_depth, direction)
@@ -92,6 +94,7 @@ impl VantaEmbedded {
         labels: &[u32],
         time_range: Option<(u64, u64)>,
     ) -> Result<Vec<u128>> {
+        crate::metrics::record_graph_op("edge_query");
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
         traverser.bfs_traverse_filtered(roots, max_depth, direction, labels, time_range)
@@ -115,6 +118,7 @@ impl VantaEmbedded {
         labels: &[u32],
         time_range: Option<(u64, u64)>,
     ) -> Result<Vec<u128>> {
+        crate::metrics::record_graph_op("edge_query");
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
         traverser.dfs_traverse_filtered(roots, max_depth, labels, direction, time_range)
@@ -124,6 +128,7 @@ impl VantaEmbedded {
     /// Returns an error if the graph contains a cycle.
     #[tracing::instrument(skip(self), err)]
     pub fn graph_topological_sort(&self, roots: &[u128]) -> Result<Vec<u128>> {
+        crate::metrics::record_graph_op("edge_query");
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
         traverser.topological_sort(roots)
@@ -132,6 +137,7 @@ impl VantaEmbedded {
     /// Check whether the subgraph reachable from `roots` is a directed acyclic graph (DAG).
     #[tracing::instrument(skip(self), err)]
     pub fn graph_is_dag(&self, roots: &[u128]) -> Result<bool> {
+        crate::metrics::record_graph_op("edge_query");
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
         traverser.is_dag(roots)
