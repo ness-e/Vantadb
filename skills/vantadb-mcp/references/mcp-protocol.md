@@ -291,6 +291,31 @@ Common error codes:
 - `-32602`: Invalid params
 - `-32603`: Internal error
 
+### Tool-level errors (isError content)
+
+Most **tool** failures do not use the JSON-RPC `error` object. `tools/call`
+returns a `result` with `isError: true` and the human-readable message inside
+`content[0].text`:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "isError": true,
+    "content": [
+      { "type": "text", "text": "Record not found" }
+    ]
+  }
+}
+```
+
+Rule of thumb: JSON-RPC `error` is reserved for protocol/param failures
+(invalid request, unknown method, unparseable arguments — e.g. a non-numeric
+`summary_id` in `rehydrate` yields `-32602`); domain failures (record not
+found, node missing, vector dimension mismatch) arrive as `isError` content.
+Clients must check **both** channels.
+
 ## Capabilities
 
 Servers declare their capabilities in the initialize response:

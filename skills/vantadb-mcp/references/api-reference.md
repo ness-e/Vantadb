@@ -38,6 +38,7 @@ async_db = AsyncVantaDB("./my_brain")  # asyncio wrapper (thread-pool backed)
 
 **search_memory(namespace, query_vector=None, text_query=None, top_k=10, filters=None, distance_metric=None, explain=False)**
 - Hybrid vector + text search
+- `distance_metric` (`"cosine"` | `"euclidean"`) is resolved **per request**; it changes the ranking and reported scores of that call. There is no global/server-side distance metric setting — each request selects its own metric. When omitted, `"cosine"` is used.
 - Returns: List of hits with scores
 
 **search(vector, top_k=10)**
@@ -92,6 +93,7 @@ let embedded = VantaEmbedded::from_engine(storage);  // wrap an existing Storage
 
 **search_vector(vector: &[f32], top_k: usize) -> Result<Vec<VantaSearchHit>>**
 - Pure vector search against the HNSW index
+- The core SDK reports the raw HNSW score in `VantaSearchHit.distance` (cosine **similarity**: identical → 1.0, orthogonal → 0.0; or negated euclidean distance). The MCP `search_semantic` tool converts this at the serialization boundary so its `distance` field is a real distance (`1 − similarity` for cosine) — see `SKILL.md`. Consumers of the core SDK directly must interpret the score per metric.
 
 **count(namespace: &str, filter: Option<VantaMemoryFilter>) -> Result<u64>**
 - Count records in a namespace
@@ -174,6 +176,24 @@ pub enum VantaValue {
     Null,
 }
 ```
+
+#### Wire format over MCP (F3)
+
+`VantaValue` serializes asymmetrically over MCP:
+
+- **Input (JSON arguments to tools):** plain JSON values — `{"priority": 2}`, `{"type": "preference"}`. The MCP handler parses them into `VantaValue` variants.
+- **Output (payload inside `content[0].text`):** serde-tagged JSON — `{"priority": {"Int": 2}}`, `{"type": {"String": "preference"}}`, `{"active": {"Bool": true}}`.
+
+Example — `memory_put` with `metadata: {"type": "preference", "priority": 2}` returns a record whose `metadata` serializes as:
+
+```json
+{
+  "type": { "String": "preference" },
+  "priority": { "Int": 2 }
+}
+```
+
+Consumers should flatten single-key variant objects (`{"Int": 2}` → `2`) when reading metadata from tool responses. Both forms may be observed depending on the serialization path.
 
 ### VantaMemoryFilter
 
@@ -295,6 +315,32 @@ pub enum VantaError {
     NoVectorForKey(String),
 }
 ```
+
+#### DimensionMismatch over MCP
+
+`VantaError::DimensionMismatch` is **not** returned as a JSON-RPC error. The MCP
+tools `search_memory` (when `query_vector` is provided) and `search_semantic`
+validate the query vector dimension against the live HNSW index dimension and
+deliver the failure as an **isError content result**:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "isError": true,
+    "content": [
+      { "type": "text", "text": "Vector dimension mismatch: expected 4, got 3" }
+    ]
+  }
+}
+```
+
+The message format is `Vector dimension mismatch: expected {expected}, got {got}`.
+Clients that receive `isError: true` should surface `content[0].text` to the user;
+do not expect a JSON-RPC `error` object for this case. On an empty index (no
+vectors stored yet) the dimension check is skipped and the search returns an
+empty result set.
 
 ## Performance Considerations
 
