@@ -612,6 +612,88 @@ fn test_mcp_tool_search() {
     );
 }
 
+// ── MCP-03: search_semantic.distance semantics ─────────────────────────────
+//
+// The `distance` field must be a real distance (lower = more similar), NOT the
+// raw cosine similarity the HNSW score carries. Identical vector → 0.0,
+// orthogonal vector → 1.0 (1 − cosine_sim). The conversion happens at the
+// handler serialization boundary (vantadb-mcp/src/handlers/tools.rs); the core
+// keeps its score semantics for other consumers (search_memory, WASM).
+
+#[test]
+fn test_mcp_search_semantic_distance_semantics() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Seed two records: one identical to the query, one orthogonal to it.
+    for (key, vec) in [
+        ("identical", vec![1.0, 0.0, 0.0]),
+        ("orthogonal", vec![0.0, 1.0, 0.0]),
+    ] {
+        let put_params = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "mcp03_ns",
+                "key": key,
+                "payload": format!("{} payload", key),
+                "vector": vec
+            }
+        }));
+        let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+        assert!(put_res.is_ok(), "seed {key} should succeed: {:?}", put_res);
+    }
+
+    let search_params = Some(json!({
+        "name": "search_semantic",
+        "arguments": { "vector": [1.0, 0.0, 0.0], "k": 2 }
+    }));
+    let res = handle_tools_call(&search_params, &executor, &storage, &default_config());
+    assert!(res.is_ok(), "search_semantic should succeed");
+    let val = res.unwrap();
+    assert!(
+        val["isError"].is_null(),
+        "search_semantic should not error: {:?}",
+        val
+    );
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let hits: Value = serde_json::from_str(text).expect("search_semantic response should be JSON");
+
+    let hits = hits.as_array().expect("search_semantic should return an array");
+    assert_eq!(hits.len(), 2, "k=2 should return 2 hits");
+
+    // Every hit must expose id, distance, and node.
+    for hit in hits {
+        assert!(hit["id"].is_string(), "hit must expose id field: {hit}");
+        assert!(hit["distance"].is_f64(), "hit must expose distance field: {hit}");
+        assert!(hit["node"].is_object(), "hit must expose node field: {hit}");
+    }
+
+    // Identical vector → distance ≈ 0.0 under cosine (was 1.0 similarity).
+    let identical = &hits[0];
+    assert!(
+        (identical["distance"].as_f64().unwrap() - 0.0).abs() < 1e-4,
+        "identical vector must report distance≈0.0, got {:?}",
+        identical["distance"]
+    );
+
+    // Orthogonal vector → distance ≈ 1.0 (1 − 0 similarity).
+    let orthogonal = &hits[1];
+    assert!(
+        (orthogonal["distance"].as_f64().unwrap() - 1.0).abs() < 1e-4,
+        "orthogonal vector must report distance≈1.0, got {:?}",
+        orthogonal["distance"]
+    );
+
+    // Distances must be ascending: lower = more similar.
+    let dists: Vec<f64> = hits
+        .iter()
+        .map(|h| h["distance"].as_f64().unwrap())
+        .collect();
+    let mut sorted = dists.clone();
+    sorted.sort_by(|a, b| a.partial_cmp(b).expect("distances are finite"));
+    assert_eq!(dists, sorted, "distances must be ascending, got {dists:?}");
+}
+
 // ── MCP-04: Collection Management Tests ─────────────────────────────────
 
 #[test]
@@ -1486,5 +1568,106 @@ fn test_mcp_memory_list_limit_zero_returns_empty() {
     assert!(
         default_text.contains("limit_ns") && default_text.contains("\"key\":\"k\""),
         "default memory_list should still return the seeded record, got: {default_text}"
+    );
+}
+
+// ── MCP-01: text index ready on fresh DB (regression) ─────────────────────
+//
+// The MCP server opens a raw `StorageEngine` (not `VantaEmbedded::open_with_config`),
+// so index state was never reconciled: text_query / hybrid / text-filter
+// searches failed on fresh DBs with "Search Error: text_index not found: bm25".
+// The server now calls `ensure_indexes_current()` at startup; this test
+// reproduces that contract: without the ensure the search must fail with the
+// documented error, and with it the same search must return hits.
+
+#[test]
+fn test_mcp_text_search_requires_index_ensure() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "mcp01_ns",
+            "key": "doc1",
+            "payload": "concise technical answer",
+            "vector": [1.0, 0.0, 0.0]
+        }
+    }));
+    let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+    assert!(put_res.is_ok(), "seed memory_put should succeed");
+
+    // Without startup index ensure, text search must fail with the documented error.
+    let search_params = Some(json!({
+        "name": "search_memory",
+        "arguments": { "namespace": "mcp01_ns", "text_query": "concise", "top_k": 5 }
+    }));
+    let raw_res = handle_tools_call(&search_params, &executor, &storage, &default_config());
+    let raw_val = raw_res.expect("search_memory call should return");
+    let raw_text = raw_val["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        raw_val["isError"].is_object() || raw_text.contains("text_index not found: bm25"),
+        "without ensure_indexes_current, text_query should fail with \
+         'text_index not found: bm25', got: {raw_text}"
+    );
+
+    // Simulate server startup (run_stdio_server does this before serving).
+    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    embedded
+        .ensure_indexes_current()
+        .expect("startup index ensure should succeed");
+
+    // Same search now succeeds and returns the seeded record.
+    let fixed_res = handle_tools_call(&search_params, &executor, &storage, &default_config());
+    let fixed_val = fixed_res.expect("search_memory call should return");
+    assert!(
+        fixed_val["isError"].is_null(),
+        "after ensure_indexes_current, text_query should not error: {fixed_val}"
+    );
+    let fixed_text = fixed_val["content"][0]["text"].as_str().unwrap();
+    assert!(
+        fixed_text.contains("doc1"),
+        "after ensure_indexes_current, text_query should return doc1, got: {fixed_text}"
+    );
+
+    // Hybrid (text + vector) also works after the ensure.
+    let hybrid_params = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "mcp01_ns",
+            "text_query": "concise",
+            "query_vector": [1.0, 0.0, 0.0],
+            "top_k": 5
+        }
+    }));
+    let hybrid_res = handle_tools_call(&hybrid_params, &executor, &storage, &default_config());
+    let hybrid_val = hybrid_res.expect("hybrid search_memory call should return");
+    assert!(
+        hybrid_val["isError"].is_null(),
+        "hybrid search should not error after ensure: {hybrid_val}"
+    );
+    assert!(
+        hybrid_val["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("doc1"),
+        "hybrid search should return doc1 after ensure"
+    );
+
+    // Text filters (BM25 + metadata filter) also work after the ensure.
+    let filter_params = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "mcp01_ns",
+            "text_query": "concise",
+            "filters": { "category": "dev" },
+            "top_k": 5
+        }
+    }));
+    let filter_res = handle_tools_call(&filter_params, &executor, &storage, &default_config());
+    let filter_val = filter_res.expect("filtered search_memory call should return");
+    assert!(
+        filter_val["isError"].is_null(),
+        "filtered text search should not error after ensure: {filter_val}"
     );
 }

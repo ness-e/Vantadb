@@ -12,7 +12,14 @@ use crate::storage::StorageEngine;
 use std::sync::Arc;
 
 impl VantaEmbedded {
-    pub(crate) fn ensure_indexes_current(&self) -> Result<()> {
+    /// Reconcile derived, text, and sparse index state against the current
+    /// node set. Idempotent: rebuilds only when state is missing, schema
+    /// mismatched, or counts disagree; writes fresh empty state otherwise.
+    ///
+    /// Used by `open_with_config` and by server entrypoints that open a
+    /// raw `StorageEngine` (e.g. the MCP stdio server) so that query paths
+    /// (`text_query`, hybrid search, text filters) work on fresh databases.
+    pub fn ensure_indexes_current(&self) -> Result<()> {
         let engine = self.engine_handle()?;
         let nodes = engine.scan_nodes()?;
 

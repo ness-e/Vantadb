@@ -26,6 +26,23 @@ use vantadb::storage::StorageEngine;
 /// and an optional per-request timeout.
 pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
     let config = McpConfig::from_storage(&storage);
+
+    // MCP-01: a raw StorageEngine (as the server binary opens) skips the
+    // `VantaEmbedded::open_with_config` index reconciliation, so
+    // text_query / hybrid / text-filter searches fail on fresh DBs with
+    // "text_index not found: bm25". Ensure index state at startup:
+    // idempotent — no-op when counts match, rebuilds only when state is
+    // missing/stale (existing DBs), writes fresh empty state for new DBs.
+    if !storage.config.read_only {
+        let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+        if let Err(e) = embedded.ensure_indexes_current() {
+            error!(
+                error = %e,
+                "Failed to ensure index state at startup; text search may be unavailable"
+            );
+        }
+    }
+
     let semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_concurrency));
     let metrics = Arc::new(McpMetrics::default());
     let running = Arc::new(AtomicBool::new(true));

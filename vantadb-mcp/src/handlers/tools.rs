@@ -385,6 +385,24 @@ pub fn handle_tools_call(
                 Vec::new()
             };
 
+            // MCP-04: reject vector queries whose dim does not match the live
+            // index dim. Without this check, mismatched queries score garbage
+            // (all distances ~0.0) and silently return wrong results. Text-only
+            // searches (empty query_vector) are unaffected.
+            if !query_vector.is_empty() {
+                if let Some(expected) = index_vector_dim(storage) {
+                    if query_vector.len() != expected {
+                        return Ok(error_content(
+                            vantadb::VantaError::DimensionMismatch {
+                                expected,
+                                got: query_vector.len(),
+                            }
+                            .to_string(),
+                        ));
+                    }
+                }
+            }
+
             let text_query = args["text_query"].as_str().map(String::from);
             let raw_top_k = args["top_k"]
                 .as_u64()
@@ -444,6 +462,22 @@ pub fn handle_tools_call(
                 validate_vector(vec_arr, config.max_vector_dim).map_err(|e| e.to_json())?;
             let k = args["k"].as_u64().unwrap_or(5) as usize;
 
+            // MCP-04: reject queries whose dim does not match the live index
+            // dim (trust boundary — validated here, not deeper in the engine).
+            // A 3-dim query against a 4-dim index would otherwise return
+            // garbage distances (all ~0.0) with success.
+            if let Some(expected) = index_vector_dim(storage) {
+                if vector.len() != expected {
+                    return Ok(error_content(
+                        vantadb::VantaError::DimensionMismatch {
+                            expected,
+                            got: vector.len(),
+                        }
+                        .to_string(),
+                    ));
+                }
+            }
+
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             let hits = match embedded.search_vector(&vector, k) {
                 Ok(hits) => hits,
@@ -452,12 +486,26 @@ pub fn handle_tools_call(
                 }
             };
 
+            // MCP-03: `VantaSearchHit.distance` carries the raw HNSW score —
+            // cosine SIMILARITY (identical → 1.0, orthogonal → 0.0) and the
+            // negated euclidean distance. The `distance` field exposed here is
+            // documented in docs/api/MCP.md as "lower is more similar", so
+            // invert the cosine score (1 - similarity) into a real distance.
+            // The core SDK keeps its score semantics for other consumers
+            // (search_memory, WASM), so the conversion happens at this
+            // serialization boundary.
+            let metric = storage.vec_index().config.distance_metric;
             let mut results = Vec::new();
             for hit in hits {
                 if let Ok(Some(node)) = embedded.get_node(hit.node_id) {
+                    let distance = match metric {
+                        vantadb::DistanceMetric::Cosine => 1.0 - hit.distance,
+                        vantadb::DistanceMetric::Euclidean => -hit.distance,
+                        vantadb::DistanceMetric::SparseDot => hit.distance,
+                    };
                     results.push(json!({
                         "id": hit.node_id.to_string(),
-                        "distance": hit.distance,
+                        "distance": distance,
                         "node": node,
                     }));
                 }
@@ -694,4 +742,18 @@ pub fn handle_tools_call(
 
         _ => McpError::method_not_found(format!("Tool not found: {}", name)).into_err(),
     }
+}
+
+/// Vector dimension of the live HNSW index, if it holds any vectors.
+///
+/// The index dim is not stored in config (HnswConfig has no `dim` field), so it
+/// is derived from the first node that carries a vector. An empty index returns
+/// `None` and dimension validation is skipped — there is nothing to compare
+/// against yet, and an empty result set is the correct answer anyway.
+fn index_vector_dim(storage: &Arc<StorageEngine>) -> Option<usize> {
+    storage
+        .vec_index()
+        .nodes
+        .iter()
+        .find_map(|entry| entry.value().vector_slice().map(|v| v.len()))
 }

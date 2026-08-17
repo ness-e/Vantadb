@@ -475,7 +475,9 @@ fn test_search_with_method_override_routes_backends() {
         crate::index::IndexType::Scann,
         crate::index::IndexType::Flat,
     ] {
-        let results = index.search_with_method(method, &query, &ALL_BITSET, 3);
+        let results = index
+            .search_with_method(method, &query, &ALL_BITSET, 3, DistanceMetric::Cosine)
+            .unwrap();
         assert_eq!(results.len(), 3, "method {method:?} should return 3 nodes");
         assert_eq!(
             results[0].0, 0,

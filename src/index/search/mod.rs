@@ -19,12 +19,21 @@ impl crate::index::VecIndex for CPIndex {
         query_mask: &crate::node::FilterBitset,
         top_k: usize,
         vector_store: Option<&crate::storage::vfile::VantaFile>,
-        _distance_metric: crate::node::DistanceMetric,
+        distance_metric: crate::node::DistanceMetric,
     ) -> Vec<(u128, f32)> {
-        // CPIndex already knows its distance metric from config;
-        // the _distance_metric argument is accepted for trait compatibility
-        // with index types that don't carry their own config (e.g. FlatIndex).
-        self.search_nearest(query_vec, None, None, query_mask, top_k, vector_store)
+        // MCP-02: the per-request `distance_metric` from the `VecIndex` trait
+        // reaches the actual scoring via `search_nearest_with_metric` (exact
+        // for the flat + HNSW paths; config-driven IVF/SCANN routing warns on
+        // mismatch instead of silently scoring with the wrong metric).
+        self.search_nearest_with_metric(
+            query_vec,
+            None,
+            None,
+            query_mask,
+            top_k,
+            vector_store,
+            distance_metric,
+        )
     }
 
     fn add(

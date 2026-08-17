@@ -124,7 +124,13 @@ impl VantaEmbedded {
             // computation — this is correct for all levels since `get()` later
             // resolves the packed offset to the right segment.
             match method {
-                Some(m) => index.search_with_method(m, query_vector, &query_mask, budget),
+                Some(m) => index.search_with_method(
+                    m,
+                    query_vector,
+                    &query_mask,
+                    budget,
+                    distance_metric,
+                )?,
                 None => index.search(query_vector, &query_mask, budget, None, distance_metric),
             }
         };

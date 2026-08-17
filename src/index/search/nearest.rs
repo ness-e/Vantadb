@@ -10,6 +10,11 @@ use crate::index::IndexType;
 use crate::node::{DistanceMetric, FilterBitset};
 
 impl CPIndex {
+    /// Search the HNSW graph for the `top_k` nearest neighbors using the
+    /// index's configured distance metric. Config-driven entry point kept for
+    /// direct callers (tests, benches, physical plan); bindings that need a
+    /// per-request metric go through `VecIndex::search` →
+    /// [`Self::search_nearest_with_metric`] instead.
     #[tracing::instrument(skip(self, query_vec, vector_store), level = "debug")]
     pub fn search_nearest(
         &self,
@@ -20,6 +25,33 @@ impl CPIndex {
         top_k: usize,
         vector_store: Option<&crate::storage::vfile::VantaFile>,
     ) -> Vec<(u128, f32)> {
+        self.search_nearest_with_metric(
+            query_vec,
+            _q_1bit,
+            _q_3bit,
+            query_mask,
+            top_k,
+            vector_store,
+            self.config.distance_metric,
+        )
+    }
+
+    /// Search honoring a per-request `metric` (MCP-02). The `VecIndex::search`
+    /// trait passes the request's `distance_metric` here so it reaches the
+    /// actual scoring (flat + HNSW). The metric may differ from the build
+    /// metric: every distance function is metric-parametric and scores
+    /// exactly; the build metric only influences ANN approximation quality
+    /// (graph edges, IVF centroids, SCANN codebooks), never correctness.
+    pub(super) fn search_nearest_with_metric(
+        &self,
+        query_vec: &[f32],
+        _q_1bit: Option<&[u64]>,
+        _q_3bit: Option<(&[u8], f32)>,
+        query_mask: &FilterBitset,
+        top_k: usize,
+        vector_store: Option<&crate::storage::vfile::VantaFile>,
+        metric: DistanceMetric,
+    ) -> Vec<(u128, f32)> {
         // AUDREP-55: a zero-norm query is undefined under cosine similarity
         // (the cosine of a zero vector is 0/0). Historically this silently
         // fell back to Euclidean scoring, which swaps the score range
@@ -29,9 +61,7 @@ impl CPIndex {
         // propagated cleanly at this boundary; instead we fail loudly and
         // return no results, keeping the cosine metric pure — consistent with
         // AUDREP-27, which rejects zero-norm inserts under cosine.
-        if self.config.distance_metric == DistanceMetric::Cosine
-            && f32_l2_norm(query_vec) < f32::EPSILON
-        {
+        if metric == DistanceMetric::Cosine && f32_l2_norm(query_vec) < f32::EPSILON {
             tracing::warn!(
                 "zero-norm cosine query is undefined; returning no results \
                  (AUDREP-55, was silently re-scored with euclidean)"
@@ -43,6 +73,13 @@ impl CPIndex {
         // rebuild whenever the node count changed since the last build, so
         // vectors added after a cached IVF was built become candidates.
         if self.config.index_type == IndexType::Ivf {
+            if metric != self.config.distance_metric {
+                tracing::warn!(
+                    request_metric = ?metric,
+                    config_metric = ?self.config.distance_metric,
+                    "ivf backend is metric-bound to the configured metric; per-request distance_metric ignored on this config-driven path (MCP-02)"
+                );
+            }
             return self.search_ivf(query_vec, query_mask, top_k);
         }
 
@@ -50,6 +87,13 @@ impl CPIndex {
         // configured `index_type = Scann` would silently fall through to the
         // HNSW graph, ignoring the selected backend entirely.
         if self.config.index_type == IndexType::Scann {
+            if metric != self.config.distance_metric {
+                tracing::warn!(
+                    request_metric = ?metric,
+                    config_metric = ?self.config.distance_metric,
+                    "scann backend is metric-bound to the configured metric; per-request distance_metric ignored on this config-driven path (MCP-02)"
+                );
+            }
             return self.search_scann(query_vec, query_mask, top_k);
         }
 
@@ -59,7 +103,7 @@ impl CPIndex {
                 query_vec,
                 query_mask,
                 top_k,
-                self.config.distance_metric,
+                metric,
             );
         }
 
@@ -75,7 +119,7 @@ impl CPIndex {
         } else {
             static_ef.max(top_k)
         };
-        let (effective_metric, query_norm, query_inv_norm) = match self.config.distance_metric {
+        let (effective_metric, query_norm, query_inv_norm) = match metric {
             DistanceMetric::Cosine => {
                 // AUDREP-55 guard at the top of search_nearest guarantees
                 // norm >= f32::EPSILON here, so 1/norm is finite and the

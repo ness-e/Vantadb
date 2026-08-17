@@ -49,7 +49,7 @@ The MCP server exposes the following tools for memory operations:
 
 - **`search_semantic`** - Raw [[hnsw|HNSW]] vector search
   - Parameters: `vector`, `k`
-  - Returns: Nearest neighbors with distances
+  - Returns: Nearest neighbors with `distance` (**lower is more similar**; for cosine, `distance = 1 − cosine_similarity`, so an identical vector reports `0.0`), plus `id` and `node`
 
 #### Graph Operations
 
