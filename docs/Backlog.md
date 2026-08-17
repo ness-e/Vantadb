@@ -20,6 +20,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 > **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/progreso/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
 > **Sync 2026-08-14:** 9 agentes de `.opencode/agents/` revisados (lead/worker/arch/review/audit/docs/engine/tuner/chaos) → 10 recomendaciones R1-R10 agregadas como **P19** (mejoras del sistema de agentes: Output Templates, skills §6, permissions, §7, DISCOVERY).
 > **Sync 2026-08-17:** batería de pruebas exhaustiva del MCP server (`vanta-cli 0.5.0`, 4 sub-agentes en paralelo, JSON-RPC stdio, DBs temporales aisladas) contra `.opencode/skills/vantadb-mcp/` → **P22** creada (14 tareas en 5 bloques: bugs server MCP, discrepancias skill↔realidad, deficiencias de documentación, referencias muertas, inconsistencias internas). Resultados: memoria 17/17, collections 12/12, grafo 25/25 PASS; **búsqueda 12/20 FAIL** (4 bugs reales del server, root cause trazado al código). Evidencia completa en los scripts `test-memoria.py`/`test-busqueda.py`/`test-grafo.py`/`test-collections.py` (temp) y en el historial de sesión.
+> **Sync 2026-08-17 (verificación strategy multi-agente):** 6 sub-agentes verificaron los ítems propuestos de `docs/strategy/` + `docs/backlog-futuro.md` contra el código → **P23** creada (6 features VantaDB Pro sin código ni tracking), **P24** creada (I+D futura re-verificada: FUT-01 implementado, FUT-07/09 redefinidos), **P6** ampliada (9 tareas: MKT-04 publicación Reddit, MKT-18f/g/h/i, CLD-01/02/04, BLOG-CTA). Verificaciones en sesión: adapters `integrations/` NUNCA publicados en PyPI; SHOW_HN_PREP.md tenía 2 claims falsos (corregidos); ROADMAP.md stale (0.5.0/24 items reales vs v0.2.0/165 — banner añadido).
 
 ---
 
@@ -33,7 +34,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | **P3** 🧪 Test Coverage (core SDKs) | 0 — ✅ 4/4 ejecutadas (COV-001..004 completadas 2026-08-12) | — | ✅ Cerrada |
 | **P4** 🔧 Engineering Health | 0 — PERF-01..09 migradas a progreso 2026-08-12 | — | ✅ Cerrado |
 | **P5** 📖 Docs & Community | 3 (DISC-01..03) | ~1-2 semanas | 🟡 Media |
-| **P6** 🚀 Launch Campaign | 1 (LEG-01) | ~1-2 semanas | 🟡 Media |
+| **P6** 🚀 Launch Campaign | 11 (LEG-01, MKT-04, MKT-18f/g/h/i, CLD-01/02/04, BLOG-CTA) | ~2-3 semanas | 🟡 Media |
 | **P7** 🌐 WASM & Performance | 0 | — | ✅ Cerrado |
 | **P8** 🔮 Post-Launch & Enterprise | 1 (BIZ-01b) | ~3-5 semanas | 🔵 Futuro |
 | **P9** 📚 Old Docs Rescue (reference) | 1 (OLD-01) | — | 📖 Referencia |
@@ -44,6 +45,8 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | **P14** 🔍 REVIEW items | 0 | — | ✅ Cerrada |
 | **P15** 🔍 ERR items (revisión multi-agente 2026-08-08) | 0 — ✅ todos resueltos (36 por plan 2026-08-09 + 10 migradas 2026-08-12 + ERR-007 ban-skip 2026-08-12) | — | ✅ Cerrada |
 | **P16** 🧩 Completitud de Features (investigación 2026-08-09) | 1 residual (CI-01) | 📆 Backlog | 🟢 Baja (19 ejecutadas 2026-08-09 + PERF-07/08/09 2026-08-12) |
+| **P23** 🔒 VantaDB Pro (Open Core) | 6 (PRO-01..06) | ~8-12 semanas | 🔵 Futuro |
+| **P24** 🧪 I+D futura (v3.0+) | 10 (FUT-02..11) | 📆 Futuro | 🗺️ Roadmap |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
 > **Nuevo 2026-08-04:** Fase 12 DESKTOP (26 tareas, app Tauri multi-connection sobre las 6 integraciones) + `DEBT-01` (gate docs-coverage roto, Fase 4) + `TECH-01..08` (hallazgos de investigación DESKTOP-01b: 2 bugs reales, 1 batch stale-docs, 1 ADR env-naming, 4 features/decisiones, todos en Phase 4).
@@ -133,6 +136,15 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 | ID | Descripción | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|------|-------------|
+| `MKT-04` | **Publicar 3 drafts de Reddit (r/rust, r/MachineLearning, r/LocalLLaMA)** — drafts listos en `docs/strategy/REDDIT_POSTS.md` (status: draft), NUNCA publicados. Verificado 2026-08-17. ⚠️ Corregir claims primero: "recall>0.998 SIFT1M"/"zero deps" no verificados (ver SHOW_HN_PREP.md nota). | 🟢 2-4h | 🟠 | ❌ Pendiente |
+| `MKT-18f` | **Publicar 5 adapters en PyPI + PRs upstream** — langchain, llama-index, mem0, crewai, dspy. Verificado 2026-08-17: código existe en `integrations/` pero **404 en PyPI** (progreso "inflado"). Desbloquea GTM checkboxes langchain/llama-index/Mem0/TSK-90/91. | 🟡 1-2d | 🔴 | ❌ Pendiente |
+| `MKT-18g` | **Corregir claims falsos en SHOW_HN_PREP.md + REDDIT_POSTS.md** — cpufeatures NO es dep (usa `std::is_x86_feature_detected!`, `src/hardware/mod.rs:236-245`); "zero-dependency" falso (croaring→cc compila C/C++); recall ">0.998 SIFT1M" y "sub-ms" sin verificar a esa escala (medido 0.9975 @ef_400 SIFT 10K, ~1.2ms @ef_200). Notas ya aplicadas 2026-08-17; queda verificar consistencia total del post + benchmark SIFT1M si se quiere el claim. | 🟢 2-4h | 🔴 | 🟡 Notas aplicadas, verificación pendiente |
+| `MKT-18h` | **Wheels ARM64 Linux + SHA reales Homebrew** — binarios incluyen `aarch64-unknown-linux-gnu` (`release-binaries-63.yml`) pero wheels NO (`release-wheels-60.yml` solo x86_64); `Formula/vantadb.rb` tiene SHA256 `0000...0` placeholders (inutilizable). | 🟡 1d | 🟠 | ❌ Pendiente |
+| `MKT-18i` | **Docker Compose multi-servicio: Ollama + VantaDB + AnythingLLM** — `docker-compose.yml` existe pero solo servicio VantaDB. La guía migración LanceDB YA existe (`docs/tutorials/migration-from-lancedb.md`). | 🟢 2-4h | 🟡 | ❌ Pendiente |
+| `CLD-01` | **VantaDB Cloud beta on Fly.io** — checkbox vacío en `GO_TO_MARKET.md:420`; cero archivos de infra. Verificado 2026-08-17: no existe nada. | 🟠 1-2 sem | 🔵 | ❌ Pendiente |
+| `CLD-02` | **Pitch deck + one-pager** — checkbox vacío en `GO_TO_MARKET.md:408`; cero archivos `*pitch*`/`*deck*`. | 🟡 3-5d | 🔵 | ❌ Pendiente |
+| `CLD-04` | **Case study #1 (enterprise pilot)** — checkbox vacío en `GO_TO_MARKET.md:409`; cero archivos. Depende de pilot real. | 🟠 1 sem | 🔵 | ❌ Pendiente |
+| `BLOG-CTA` | **CTAs + metadata de la serie de blogs + posts 6-7** — M3 🟡 date drift (2026-06-06 vs web 2025), M4 🟡 title drift, CTA débil en 2 posts (`how_hybrid_search_works.md`, `sqlite_for_ai_agents.md`), posts 6-7 no redactados (Ollama+VantaDB, Claude Code MCP). M1/M2/M5/M6 ya resueltos. | 🟡 3-5d | 🟠 | ❌ Pendiente |
 
 ---
 
@@ -576,7 +588,37 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 ---
 
-> **Cierre del backlog P22:** al completar cada bloque, migrar a `docs/progreso/README.md` con evidencia (commits/tests). Los scripts de prueba quedan como harness re-ejecutable para la verificación de DoD de cada fix: `python C:\Users\Eros\AppData\Local\Temp\opencode\test-busqueda.py` (Bloque 1: T09-T19 deben pasar tras MCP-01..04) y los test-*.py restantes como regresión.
+## P23 - VantaDB Pro — Backlog de features (Open Core, 2026-08-17)
+
+> **Origen:** `docs/strategy/VANTADB-PRO-FEATURES.md` § "Backlog Pro" + verificación multi-agente 2026-08-17. **Meta-modelo implementado** (repo privado `vantadb-pro` existe con `license.rs::verify_string` + `generate-license.ps1` + 4 tests; workspace aislado `Cargo.toml:620-626`; core sin refs Pro — D4 respetado). **Las 6 features NO tienen código** (solo `lib.rs`+`license.rs`) **ni tracking** — esta sección las trackea. Nacen en `vantadb-pro` (repo privado, fuera del workspace). Proceso: D5 entrega manual Enterprise hasta entidad.
+
+| ID | Descripción (Feature Pro sugerida → qué clava) | Código actual | Esfuerzo | Prio | Estado |
+|----|-------------|----------|------|--------|--------|
+| `PRO-01` | **Multi-tenancy / RBAC** — aislamiento cifras org | `vantadb-pro`: solo `lib.rs`+`license.rs` | 🔴 2-3 sem | 🔵 | ❌ Sin código |
+| `PRO-02` | **Replicación multi-copy / Sync** — DR | ídem | 🔴 3-4 sem | 🔵 | ❌ Sin código |
+| `PRO-03` | **WAL shipping + PITR (gates ya existen en core)** — failover | gates `wal-shipping`/`pitr` en core (`src/lib.rs:138,142`) | 🟠 2-3 sem | 🔵 | ❌ Sin código |
+| `PRO-04` | **TTL / retention policies** — compliance | ídem | 🟡 1-2 sem | 🔵 | ❌ Sin código |
+| `PRO-05` | **Admin server + dashboard** — UX enterprise | ídem | 🟠 2-3 sem | 🔵 | ❌ Sin código |
+| `PRO-06` | **Audit trail / compliance** — ídem | ídem | 🟡 1-2 sem | 🔵 | ❌ Sin código |
+
+---
+
+## P24 - I+D futura (v3.0+, re-verificada 2026-08-17)
+
+> **Origen:** `docs/backlog-futuro.md` — catálogo de I+D diferido (freeze R5). Re-verificación multi-agente 2026-08-17: **FUT-01 ✅ IMPLEMENTADO (sacado)** — RaBitQ 1-bit + Hamming ya existe (`quantization.rs:16,33-46`, `Binary(Box<[u64]>)`); **FUT-07/FUT-09 redefinidos** (bloques base existen, falta cableado); **FUT-02/03/04/05/06/08/10/11 siguen sin implementar**. Documento fuente es la versión canónica de cada fila.
+
+| ID | Descripción | Esfuerzo | Prio | Estado |
+|----|-------------|----------|------|--------|
+| `FUT-02` | **Embeddings Matryoshka** — truncamiento dinámico de dimensionalidad (1536→256) | 🔴 | 🗺️ | ❌ Sin implementar |
+| `FUT-03` | **Community detection Leiden/Louvain nativa** — `docs/graphrag/README.md:302` sigue vigente | 🔴 | 🗺️ | ❌ Sin implementar |
+| `FUT-04` | **Índices aprendidos (RMI)** para metadatos escalares | 🔴 | 🗺️ | ❌ Sin implementar |
+| `FUT-05` | **Corrección de residuos QJL (Fase 3 TurboQuant/RaBitQ)** — `turbo_quant_*` es PolarQuant 4-bit puro | 🟠 | 🗺️ | ❌ Sin implementar |
+| `FUT-06` | **Aceleración LUT / Bit-Slicing** para distancias cuantizadas | 🟠 | 🗺️ | ❌ Sin implementar |
+| `FUT-07` | **Selector adaptativo de precisión por tier** — bloques existen (`VectorRepresentations` + tiers), falta selector automático; `consolidate_node_inner` no cambia representación | 🟠 | 🗺️ | 🟡 Redefinido (cableado) |
+| `FUT-08` | **Go SDK vía C-ABI + cbindgen + cgo** — no existe capa C-ABI pública (solo `sigbus_handler` en `vfile_mmap.rs:206`) | 🔴 | 🗺️ | ❌ Sin implementar |
+| `FUT-09` | **Curación AUDN en ingesta** — `DuplicatePreventionFilter` (Bloom) existe SIN callers en write path; bucle semántico AUDN ausente | 🟠 | 🗺️ | 🟡 Redefinido (cablear primitiva) |
+| `FUT-10` | **Fuerza de retención Ebbinghaus / repetición espaciada** — solo `BayesianDecay` de eviction | 🟠 | 🗺️ | ❌ Sin implementar |
+| `FUT-11` | **Export bidireccional a Markdown legible** — hoy JSONL machine-readable; bajo valor | 🟢 | 🗺️ | ❌ Sin implementar |
 
 
 

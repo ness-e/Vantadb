@@ -2693,7 +2693,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] **DEVOPS-08** — Docs CI (`docs-check.yml`): markdownlint + lychee + frontmatter validation
   - [x] **DEVOPS-09** — Web deploy CI (`web-deploy.yml`): build + Vercel deploy on push to main
   - [x] **DOC-16** — 3 tutoriales: AI Agent Memory, Local RAG Pipeline, Migrating from ChromaDB
-  - [x] **BIZ-01** — `vantadb-enterprise/` crate (proprietary) con módulos encryption, audit, rbac, replication, license, config
+  - [x] **BIZ-01** — ~`vantadb-enterprise/`~ — **STALE (corregido 2026-08-17):** el crate es `vantadb-pro/` (repo privado hermano, fuera del workspace), no `vantadb-enterprise/`; solo contiene `lib.rs`+`license.rs` (licencia propietaria + `verify_string`, 4 tests). Encryption/RBAC viven en el core (D4: features nuevas nacen en Pro). Estado real: ver `Backlog.md` **P23** (6 features Pro sin código).
 - **Build Status:** `cargo check` pasa, 12 migration tests pasan, workspace compila con 0 errores
 - **Ids:** `REL-01`, `LEG-02`, `DB-01`, `DB-03`, `DB-04`, `DEVOPS-08`, `DEVOPS-09`, `DOC-16`, `BIZ-01`
 
