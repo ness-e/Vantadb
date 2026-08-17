@@ -33,7 +33,6 @@ export const PRODUCT = {
     networkHopsSub: "In-process · embedded",
     siftSpeedup: "2.80x",          // §5 SIFT1M best speedup (Balanced L2)
     siftSpeedupSub: "Balanced L2 · 100K",
-    bm25Latency: "115.334ms",      // §2 SDK Lexical Search p50, 10K records
     pythonSdkLatency: "39.74ms",   // §7 competitive bench p50 (glove-100-angular)
     cloudDbLatency: "network-bound", // cloud vector DBs — no measured number published
   },
@@ -142,8 +141,8 @@ export const CORE_CAPABILITIES = [
 ];
 
 // BENCH-01 — SDK Operations Performance Baseline (10K records, 128d, Cosine, single-threaded)
-// Numbers sourced from docs/operations/BENCHMARKS.md §2 (benchmarks/vantadb_local_bench.py,
-// p50/p99 latency + throughput). Reproduce: python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000
+// Numbers sourced from docs/operations/BENCHMARKS.md §2 (latest local run of
+// benchmarks/vantadb_local_bench.py). Reproduce: python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000
 export const BENCH01 = {
   title: "BENCH-01 · SDK Performance Baseline",
   subtitle: "10K records · 128 dimensions · Cosine · single-threaded · Python SDK (PyO3 boundary)",
@@ -152,28 +151,28 @@ export const BENCH01 = {
   rows: [
     {
       metric: "Ingestion (PUT)",
-      p50: "10.678 ms",
-      p99: "18.988 ms",
-      throughput: "95 ops/sec",
+      p50: "13.174 ms",
+      p99: "18.504 ms",
+      throughput: "74 ops/sec",
       highlight: true,
     },
     {
       metric: "Search (Lexical BM25)",
-      p50: "115.334 ms",
-      p99: "137.539 ms",
-      throughput: "9 qps",
+      p50: "N/D (outlier)",
+      p99: "—",
+      throughput: "—",
     },
     {
       metric: "Search (Vector HNSW)",
-      p50: "61.996 ms",
-      p99: "71.893 ms",
-      throughput: "16 qps",
+      p50: "2.024 ms",
+      p99: "4.403 ms",
+      throughput: "494 qps",
     },
     {
       metric: "Search (Hybrid Fusion)",
-      p50: "179.810 ms",
-      p99: "211.059 ms",
-      throughput: "6 qps",
+      p50: "3.114 ms",
+      p99: "5.507 ms",
+      throughput: "321 qps",
     },
   ],
 };

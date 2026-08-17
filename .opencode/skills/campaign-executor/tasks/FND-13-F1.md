@@ -41,7 +41,13 @@ RESULTADO: ✅ COMPLETO
 STEPS_OK: 5/5
 PROXIMO_STEP: ninguno — esperar commit del lead
 COMMIT_HASH: ninguno (lead commitea)
-ARCHIVOS: web/src/components/vanta/vanta-data.ts, web/src/components/vanta/benchmarks-view.tsx, web/src/components/vanta/latency-comparator.tsx, web/src/components/vanta/benchmark-race.tsx, web/src/components/vanta/site-navbar.tsx, web/src/components/vanta/navbar.tsx, web/src/components/vanta/metrics-bar.tsx, web/src/components/vanta/use-cases.tsx, web/src/components/vanta/core-engine.tsx, web/src/components/vanta/architecture.tsx, web/src/components/vanta/code-terminal.tsx, web/src/components/vanta/easter-egg.tsx, web/src/lib/dictionaries.ts, web/src/app/layout.tsx, web/src/app/latency/page.tsx, web/src/app/latency/layout.tsx, web/src/app/benchmarks/layout.tsx, web/src/app/engine/layout.tsx, web/src/app/opengraph-image.tsx, web/src/app/[...slug]/page.tsx
-VERIFY_CONTRATO: pasa (grep claims fantasma → 0; tsc --noEmit y npm run lint limpios; build completo no corrido — tsc/lint elegidos por tiempo, documentado en step 4)
+ARCHIVOS: web/src/components/vanta/vanta-data.ts, web/src/components/vanta/benchmarks-view.tsx, web/src/components/vanta/latency-comparator.tsx, web/src/components/vanta/benchmark-race.tsx, web/src/components/vanta/site-navbar.tsx, web/src/components/vanta/navbar.tsx, web/src/components/vanta/metrics-bar.tsx, web/src/components/vanta/use-cases.tsx, web/src/components/vanta/core-engine.tsx, web/src/components/vanta/architecture.tsx, web/src/components/vanta/code-terminal.tsx, web/src/components/vanta/easter-egg.tsx, web/src/lib/dictionaries.ts, web/src/app/layout.tsx, web/src/app/latency/page.tsx, web/src/app/latency/layout.tsx, web/src/app/benchmarks/layout.tsx, web/src/app/engine/layout.tsx, web/src/app/opengraph-image.tsx, web/src/app/[...slug]/page.tsx, src/storage/engine/tests/ops.rs
+VERIFY_CONTRATO: pasa (grep claims fantasma → 0; rg números serie vieja superseded → 0; tsc --noEmit y cargo check -p vantadb limpios; build completo no corrido — tsc/lint elegidos por tiempo, documentado en step 4)
 BLOQUEO: ninguno
 ```
+
+## Post-review (P2-01 changes-required menor — aplicado)
+- Re-sincronizado BENCH01/ENGINES/bars con BENCHMARKS.md §2 vigente (FND-13-F2): Ingestion 13.174ms/74 ops/sec, HNSW 2.024ms/494 qps, Hybrid 3.114ms/321 qps. Serie vieja (95 ops, 10.7/62.0/179.8ms) eliminada — marcada superseded en BENCHMARKS.md:65.
+- BM25 eliminado de comparadores y table (p50 0.0035ms es outlier degenerado no representativo, N/D en fuente).
+- `bm25Latency` (campo muerto) removido de PRODUCT.metrics.
+- src/storage/engine/tests/ops.rs:1250 comentario FND-02 "apply the HNSW entry" → "apply the volatile_cache entry" (version check real es contra volatile_cache, confirmado en maintenance.rs:328).

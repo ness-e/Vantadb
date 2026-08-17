@@ -151,11 +151,10 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
             </div>
             <div className="space-y-4">
               {[
-                { label: "BM25 (Lexical)", p50: 115.334, p99: 137.539, color: "bg-black" },
-                { label: "HNSW (Vector)", p50: 61.996, p99: 71.893, color: "bg-[#1A1A1A]" },
-                { label: "Hybrid Fusion", p50: 179.810, p99: 211.059, color: "bg-[#FF5500]" },
+                { label: "HNSW (Vector)", p50: 2.024, p99: 4.403, color: "bg-[#1A1A1A]" },
+                { label: "Hybrid Fusion", p50: 3.114, p99: 5.507, color: "bg-[#FF5500]" },
               ].map((b) => {
-                const max = 220.0;
+                const max = 8.0;
                 return (
                   <div key={b.label}>
                     <div className="mb-1 flex items-center justify-between font-tech text-[11px]">
@@ -193,7 +192,7 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-4 bg-black opacity-50" /> p99
               </span>
-              <span className="ml-auto">scale 0–220ms</span>
+              <span className="ml-auto">scale 0–8ms</span>
             </div>
           </div>
 

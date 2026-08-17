@@ -1247,7 +1247,7 @@ fn test_concurrent_insert_get_immediate_visibility() {
 // refresh_index re-acquired insert_lock via try_lock_for(5000ms), timing out
 // per candidate; worse, the call ran while the volatile_cache write guard was
 // still held, which would deadlock the eviction's own cache read/write.
-// The fix adds *_locked variants that apply the HNSW entry without re-locking.
+// The fix adds *_locked variants that apply the volatile_cache entry without re-locking.
 
 #[test]
 fn test_evict_cold_nodes_locked_no_reentrant_timeout() {

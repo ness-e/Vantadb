@@ -18,29 +18,22 @@ type Engine = {
 };
 
 // Baseline engines — sourced from docs/operations/BENCHMARKS.md §2 (SDK, 10K records, 128d, Cosine)
+// BM25 excluded: p50 0.0035 ms is a degenerate outlier from a single-document query and not representative.
 const ENGINES: Engine[] = [
   {
     name: "VantaDB · Hybrid",
-    p50: 179.810,
-    p99: 211.059,
-    throughput: 6,
+    p50: 3.114,
+    p99: 5.507,
+    throughput: 321,
     color: "bg-[#FF5500]",
     barColor: "#FF5500",
   },
   {
     name: "VantaDB · HNSW",
-    p50: 61.996,
-    p99: 71.893,
-    throughput: 16,
+    p50: 2.024,
+    p99: 4.403,
+    throughput: 494,
     color: "bg-black ",
-    barColor: "#000000",
-  },
-  {
-    name: "VantaDB · BM25",
-    p50: 115.334,
-    p99: 137.539,
-    throughput: 9,
-    color: "bg-black/70 ",
     barColor: "#000000",
   },
   {
