@@ -247,6 +247,10 @@ harness = false
 name = "ivf_bench"
 harness = false
 
+[[bench]]
+name = "canonical_p99"
+harness = false
+
 [[bin]]
 name = "vanta-cli"
 path = "src/bin/vanta-cli.rs"

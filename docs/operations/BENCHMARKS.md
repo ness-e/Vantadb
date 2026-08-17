@@ -176,4 +176,37 @@ This benchmark compares **VantaDB** directly against **LanceDB** and **ChromaDB*
 | LanceDB  |     114583   | 602.2             |       320.5 |              2.653 |              6.98  | 13.90%      |           344.2 |             97.2 |
 | ChromaDB |       3886   | N/A (Inc)         |       978.6 |              0.941 |              3.349 | 24.10%      |           253.5 |             39.1 |
 
-*Note: LanceDB and ChromaDB's incremental-HNSW use their native C/C++ wrappers integrated in Python. VantaDB runs through its PyO3 FFI bindings (`vantadb_py`) consuming the memory-mapped (`mmap`) Rust core.*
+*Note: LanceDB and ChromaDB's incremental-HNSW use their native C/C++ wrappers integrated in Python. VantaDB runs through its PyO3 FFI bindings (`vantadb_py`) consuming the memory-mapped (`mmap`) Rust core.
+
+---
+
+## 📏 8. Canonical P99 Baseline (FND-10 / Regla 9)
+
+The **canonical no-regression benchmark** for every performance change. Per Regla 9 ("No optimizar sin medir"), any perf change must show a before/after comparison against this baseline with P99 numbers.
+
+* **Benchmark**: `benches/canonical_p99.rs` — pure in-memory `CPIndex` (HNSW, m=16, ef_construction=100, ef_search=50, cosine), deterministic dataset (`StdRng` seed 42).
+* **Command**: `cargo bench -p vantadb --bench canonical_p99` (add `-- --quick` for a fast significance-based run).
+* **Contract**: insert **100k vectors × 1536 dims** + search **1000 queries** (top_k=10), reporting P99.
+
+### Baseline (quick run — criterion `--quick`, significance-based samples)
+
+| Metric | Value |
+| :--- | :--- |
+| **Insert 100k × 1536d** | **322.59 s** (~310 vec/s, single build) |
+| **Search p50** (1000 queries, top_k=10) | **1.4786 ms** |
+| **Search p95** | **2.3708 ms** |
+| **Search p99** | **3.0746 ms** |
+| **Search batch (1000 queries)** | **1.58 s** |
+
+### Environment
+
+| Field | Value |
+| :--- | :--- |
+| **CPU** | 12th Gen Intel Core i5-1235U (10 cores / 12 threads) |
+| **RAM** | 31.8 GB total (14.3 GB free at run time) |
+| **OS** | Microsoft Windows 11 Pro 10.0.26200 |
+| **Date** | 2026-08-16 |
+| **SIMD** | AVX2 (criterion-detected) |
+| **Mode** | `cargo bench -p vantadb --bench canonical_p99 -- --quick` (baseline quick — insert measured as one full build; criterion `--quick` reduces samples) |
+
+> **Regla 9 usage:** record the before/after values in the PR/task file when optimizing any hot path. A regression above the criterion noise threshold (5%) must be justified or the change rejected.*

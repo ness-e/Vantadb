@@ -566,6 +566,21 @@ Toda PR que toque paths multi-índice (vector + grafo + text), `dashmap`, `parki
 
 **Delegación obligatoria:** `vanta-chaos` (stress/deadlock) + `vanta-review` (revisión). El mismo contexto que implementó no puede auto-auditarse (P2-01).
 
+### Regla 9: No Optimizar sin Medir
+
+NUNCA optimices código (hot path, latencia, memoria, throughput) sin un **benchmark before/after** contra el benchmark canónico. La intuición de performance es sistemáticamente incorrecta — solo los datos deciden si un cambio es mejora, regresión o ruido.
+
+| Si el cambio toca... | Debes exigir... |
+|---|---|
+| Cualquier optimización de rendimiento (CPU, RAM, latencia, throughput) | Benchmark **before/after** con P99: `cargo bench -p vantadb --bench canonical_p99` antes y después del cambio |
+| Un hot path (search/ingestión, serialización, HNSW, `src/engine.rs`) | Mostrar el diff de P99 insert+search contra el baseline registrado en `docs/operations/BENCHMARKS.md` |
+| Un cambio que dice "mejora performance" sin números | Bloquear: "Sin benchmark before/after contra `canonical_p99` no se mergea. La optimización sin medición es especulación." |
+| Dependencia nueva o bump | Justificar con `cargo bloat --crates` + medición del hot path afectado |
+
+**Benchmark canónico:** `benches/canonical_p99.rs` — insert 100k × 1536d + search 1000 queries (p50/p95/p99), dataset determinístico (seed 42). Baseline registrado en `docs/operations/BENCHMARKS.md` (§ Canonical P99 Baseline). Todo cambio de rendimiento DEBE compararse contra este baseline y documentar entorno (CPU/RAM/OS), comando y fecha.
+
+**Regla de oro:** si no podés citar un número de baseline y un número después del cambio, no es una optimización — es una conjetura. La regla aplica también a "optimizaciones" de compile time y binary size (medir con `cargo build --timings` / `cargo bloat`).
+
 ### Regla 10: No Mergear Código IA sin Poder Explicarlo (AI Guardian)
 
 Nunca mergees código generado por IA que no puedas explicar **línea por línea**. La incapacidad de explicar una decisión no trivial NO es una excusa para mergear igual — es la señal de qué estudiar esa semana: **el desarrollo dicta el syllabus**, no al revés.
