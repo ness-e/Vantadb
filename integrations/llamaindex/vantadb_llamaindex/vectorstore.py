@@ -153,6 +153,11 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         filters: Optional[Dict[str, Any]] = None,
     ) -> VectorStoreQueryResult:
         """Vector + text search fused via Reciprocal Rank Fusion (RRF)."""
+        # TODO(core) FND-06: RRF fusion + dedup + score→similarity mapping are
+        # search decisions reimplemented here; the core already fuses hybrid
+        # search server-side (planner). Keep this adapter mode only if the
+        # framework contract requires it (api-contract.md R-8 exception) and
+        # delegate the primary scoring to the core.
         RRF_K = 60
 
         # Vector search — oversample 2x for the fusion pool
@@ -180,6 +185,8 @@ class VantaDBVectorStore(BasePydanticVectorStore):
 
         for rank, hit in enumerate(vector_results):
             scores[hit.key] += 1.0 / (RRF_K + rank)
+            # TODO(core) FND-06: assumes core cosine distance ∈ [0,2] for the
+            # score→similarity mapping (duplicated in langchain adapter).
             seen[hit.key] = (hit, 1.0 - hit.score / 2.0)
 
         for rank, hit in enumerate(text_results):
@@ -278,6 +285,10 @@ class VantaDBVectorStore(BasePydanticVectorStore):
 
     @staticmethod
     def _cosine_sim(a: List[float], b: List[float]) -> float:
+        # TODO(core) FND-06: cosine distance reimplemented in the adapter —
+        # core owns it in src/index/distance/. Only used for MMR diversity
+        # scoring between already-fetched candidates; move to core or document
+        # as framework-compat glue (api-contract.md R-8).
         dot = sum(x * y for x, y in zip(a, b))
         na = math.sqrt(sum(x * x for x in a))
         nb = math.sqrt(sum(x * x for x in b))

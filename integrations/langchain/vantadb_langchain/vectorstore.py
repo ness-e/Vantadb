@@ -210,6 +210,9 @@ class VantaDBVectorStore(VectorStore):
             cand_embs.append(vec)
 
         # 3. Relevance scores (cosine → [0,1])
+        # TODO(core) FND-06: assumes core cosine distance ∈ [0,2] — mapping
+        # duplicated across adapters; core owns score semantics
+        # (src/index/distance/). See api-contract.md R-8.
         relevance = [1.0 - s / 2.0 for _, s in docs_with_scores]
 
         # 4. Greedy MMR selection
@@ -239,6 +242,8 @@ class VantaDBVectorStore(VectorStore):
 
     @staticmethod
     def _cosine_sim(a: List[float], b: List[float]) -> float:
+        # TODO(core) FND-06: cosine reimplemented in adapter — core owns it
+        # (src/index/distance/); used only for MMR diversity (api-contract.md R-8).
         dot = sum(x * y for x, y in zip(a, b))
         na = math.sqrt(sum(x * x for x in a))
         nb = math.sqrt(sum(x * x for x in b))

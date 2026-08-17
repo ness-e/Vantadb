@@ -335,6 +335,11 @@ export class VantaDB {
     // (cosine = 0/0) and the engine rejects it. Tests and real queries rely on
     // a zero query vector being accepted; fall back to Euclidean distance
     // (always defined) so the search returns matches instead of an error.
+    // TODO(core) FND-06: this is a search decision (metric fallback) living in
+    // the binding — business logic belongs in src/sdk/search/mod.rs (ERR-028).
+    // native.ts does NOT do this fallback, so WASM and native diverge on the
+    // same input. Moving it to core changes public behavior → needs a spec
+    // (api-contract.md R-8); until then keep both TS backends aligned.
     const zeroNorm =
       Array.isArray(request.query_vector) &&
       request.query_vector.length > 0 &&
