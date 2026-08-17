@@ -185,6 +185,14 @@ pub fn record_hybrid_query(duration_ms: u64, candidates_fused: u64) {
     inc_counter_by!(HYBRID_CANDIDATES_FUSED, candidates_fused);
 }
 
+/// Record the execution latency of a single query (server hot path).
+///
+/// Feeds the canonical `vanta_query_latency_ms` histogram (p50/p95/p99 via
+/// PromQL `histogram_quantile`). No-op when the `prometheus` feature is off.
+pub fn record_query_latency(_duration_ms: u64) {
+    observe_histogram!(QUERY_LATENCY, _duration_ms);
+}
+
 /// Record a query planned as hybrid (text+vector).
 pub fn record_planner_hybrid_query() {
     PLANNER_HYBRID_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
@@ -757,6 +765,20 @@ mod tests {
             .hybrid_candidates_fused
             .saturating_sub(before);
         assert!(delta >= 8, "expected delta >= 8, got {delta}");
+    }
+
+    #[test]
+    #[cfg(feature = "prometheus")]
+    fn test_record_query_latency_observes_histogram() {
+        let hist = QUERY_LATENCY
+            .as_ref()
+            .expect("QUERY_LATENCY should be registered");
+        let before = hist.get_sample_count();
+        record_query_latency(42);
+        assert!(
+            hist.get_sample_count() > before,
+            "record_query_latency must observe the latency histogram"
+        );
     }
 
     #[test]

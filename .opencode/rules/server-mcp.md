@@ -19,4 +19,10 @@
 - **Must not:** bloquear el event loop del servidor con trabajo síncrono del motor ni inventar límites con mutex síncronos.
 - **Por qué:** ver `concurrency-async.md` R-3 y R-7 (INV-003) — los handlers MCP son el mismo patrón que el HTTP server.
 
+### R-3: Observabilidad real en `/metrics` — métricas alimentadas, no placeholders
+
+- **Must:** todo endpoint público expone métricas REALES vía `GET /metrics` (registry `src/metrics/core/registry.rs` + `export_metrics_text`), alimentadas desde el hot path del server: `vanta_query_latency_ms` (histograma p50/p95/p99 vía `metrics::record_query_latency` en `execute_query`), `vanta_http_request_duration_ms`/`vanta_http_requests_total` (middleware), `vanta_records_imported`/`vanta_records_exported` (ingestión).
+- **Must not:** registrar métricas que nadie observa, ni exponer contadores/histogramas vacíos, ni devolver texto placeholder/`String::new()` cuando el feature `prometheus` está activo.
+- **Por qué:** FND-07 — un dev de Show HN va a probeer `/metrics`; un histograma de latencia registrado pero jamás observado (como `QUERY_LATENCY` antes de FND-07) hace que el probe devuelva cero datos reales y el endpoint parezca decorativo.
+
 <!-- Referencias cruzadas: → ver concurrency-async.md, api-contract.md, release-ci.md -->

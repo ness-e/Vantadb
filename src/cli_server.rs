@@ -602,11 +602,15 @@ async fn execute_query(
     let storage = state.storage.clone();
     let query = payload.query.clone();
 
+    let start = Instant::now();
     let join_res = tokio::task::spawn_blocking(move || {
         let executor = Executor::new(&storage);
         executor.execute_hybrid(&query)
     })
     .await;
+    // FND-07: feed the canonical query latency histogram (vanta_query_latency_ms)
+    // with real server-side execution time — no-op without the prometheus feature.
+    metrics::record_query_latency(start.elapsed().as_millis() as u64);
 
     let execution_result = match join_res {
         Ok(r) => r,
@@ -1336,6 +1340,55 @@ mod tests {
         let peer = "198.51.100.5:4444".parse().unwrap();
         let req = request_with_xff(&peer, "203.0.113.99");
         assert_eq!(client_ip(&req, &[]), "198.51.100.5");
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "prometheus")]
+    async fn metrics_endpoint_emits_real_prometheus_text() {
+        // FND-07: /metrics must expose real, fed metrics (not placeholders).
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::util::ServiceExt;
+
+        let state = cors_test_state().await;
+        let router = app(state, 0);
+
+        // Run one query so the latency histogram and HTTP counters are observed.
+        let q = Request::builder()
+            .method("POST")
+            .uri("/api/v2/query")
+            .header("content-type", "application/json")
+            .body(Body::from(br#"{"query":"SELECT * FROM Person"}"#.to_vec()))
+            .unwrap();
+        let resp = router.clone().oneshot(q).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK, "query must succeed");
+
+        let req = Request::builder()
+            .method("GET")
+            .uri("/metrics")
+            .body(Body::empty())
+            .unwrap();
+        let resp = router.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK, "/metrics must be reachable");
+        let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let body = String::from_utf8(bytes.to_vec()).unwrap();
+
+        for metric in [
+            "vanta_query_latency_ms",
+            "vanta_http_requests_total",
+            "vanta_http_request_duration_ms",
+        ] {
+            assert!(
+                body.contains(metric),
+                "/metrics must expose `{metric}` — got: {body}"
+            );
+        }
+        assert!(
+            body.contains("vanta_query_latency_ms_count"),
+            "latency histogram must have observations, got: {body}"
+        );
     }
 
     #[tokio::test]
