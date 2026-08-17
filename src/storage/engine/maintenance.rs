@@ -297,6 +297,41 @@ impl StorageEngine {
     /// lock, which would otherwise time out after `insert_lock_timeout_ms`.
     fn consolidate_node_inner(&self, node: &UnifiedNode, lock_held: bool) -> Result<()> {
         self.ensure_writable()?;
+
+        // FND-02-M3: when the caller does not already hold insert_lock
+        // (eviction/consolidation public path), acquire it for the WHOLE
+        // critical section instead of only around the HNSW re-add.
+        // delete() removes the node from HNSW and backend under insert_lock;
+        // holding it here from the start closes the delete↔consolidate race
+        // where a delete between backend.put and the HNSW re-add left a zombie
+        // index entry (A), or a completed delete was silently resurrected (B).
+        let _guard = if lock_held {
+            None
+        } else {
+            Some(
+                self.insert_lock
+                    .try_lock_for(std::time::Duration::from_millis(
+                        self.config.insert_lock_timeout_ms,
+                    ))
+                    .ok_or_else(|| VantaError::Timeout {
+                        operation: "acquire insert_lock in consolidate_node".into(),
+                        duration_ms: self.config.insert_lock_timeout_ms,
+                    })?,
+            )
+        };
+
+        // FND-02-M3: version check under insert_lock — if a concurrent
+        // delete() already removed the node, skip consolidation entirely:
+        // re-persisting metadata / re-adding the entry would resurrect a node
+        // the caller deleted. delete() removes the node from volatile_cache
+        // under insert_lock, so its presence here is the liveness signal.
+        // (Checked against volatile_cache, not HNSW: batch_insert with
+        // InsertMode::Rebuild puts Hot nodes in the cache without indexing
+        // them, so an HNSW check would strand them in cache forever.)
+        if !self.volatile_cache.read().contains_key(&node.id) {
+            return Ok(());
+        }
+
         let mut persisted = node.clone();
         persisted.tier = NodeTier::Cold;
 
@@ -318,11 +353,10 @@ impl StorageEngine {
                 .map(|n| n.storage_offset)
                 .unwrap_or(0)
         };
-        if lock_held {
-            self.apply_index_entry_unlocked(&persisted, offset)?;
-        } else {
-            self.refresh_index(&persisted, offset)?;
-        }
+        // insert_lock is held in both branches now (caller's or ours), so the
+        // HNSW entry is always applied without re-acquiring the non-reentrant
+        // lock (FND-02-M3).
+        self.apply_index_entry_unlocked(&persisted, offset)?;
 
         if offset > 0 {
             let (seg_id, local_off) = crate::lsm::unpack_offset(offset);

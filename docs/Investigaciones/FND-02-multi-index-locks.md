@@ -156,3 +156,65 @@ cargo test -p vantadb --test core_invariants  # ✅ 2 ok
 Pendiente para el gate de cierre (lead): `cargo fmt --check`, `cargo clippy`, y la auditoría
 concurrente obligatoria (Regla 8 AGENTS.md → vanta-chaos/vanta-review, P2-01 — el
 implementador no se auto-audita).
+
+---
+
+## 9. Cierre follow-up FND-02-M3 — race delete ↔ consolidate_node
+
+**Estado:** ✅ Resuelto
+**Fecha:** 2026-08-16
+**Fuente:** `.opencode/skills/campaign-executor/tasks/FND-02-M3.md` (apertura P2-01 del audit FND-02)
+
+### Race mapeado
+
+`delete()` (delete.rs) corre su sección crítica completa bajo `insert_lock`: WAL +
+`apply_delete_inner` (remove HNSW) + `backend.delete` + remove de `volatile_cache`.
+`consolidate_node_inner(lock_held=false)` (maintenance.rs, path público de eviction)
+hacía `backend.put` FUERA del lock y re-aplicaba la entrada HNSW recién en
+`refresh_index` (adquiría `insert_lock` solo en ese punto). Interleavings:
+
+- **A (zombie):** delete corre entre `backend.put` y el refresh HNSW → nodo en HNSW sin
+  metadata en backend (ghost index entry, rompe invariante `in_index ⇒ in_backend`).
+- **B (resurrección):** delete completa antes de consolidate → el nodo eliminado vuelve a
+  persistirse (backend.put) y re-indexarse (refresh HNSW).
+
+El path `lock_held=true` (eviction desde insert) ya estaba serializado: el caller retiene
+`insert_lock` durante la evicción (insert.rs:317, batch_insert.rs:851).
+
+### Fix aplicado (maintenance.rs `consolidate_node_inner`)
+
+1. **Lock completo:** cuando `lock_held=false`, adquiere `insert_lock` al inicio de la
+   función (patrón `try_lock_for` + `VantaError::Timeout`, igual que delete.rs) y lo
+   retiene durante TODA la sección crítica (backend.put + HNSW + release mmap + cache
+   remove). Cierra el interleaving A: delete y consolidate se serializan.
+2. **Version check bajo lock:** si el nodo ya no está en `volatile_cache` (delete() lo
+   remueve bajo el mismo insert_lock) → `return Ok(())` sin persistir ni re-indexar.
+   Cierra el interleaving B: consolidación de un nodo ya eliminado es no-op.
+   - Check contra `volatile_cache`, NO contra HNSW: `batch_insert` con
+     `InsertMode::Rebuild` (o `Auto` ≥ threshold) mete nodos Hot en el cache sin
+     indexarlos (insert.rs:834-837) — un check HNSW los dejaría atrapados en cache Hot
+     sin consolidar (memory leak). `delete()` remueve de ambos bajo el mismo lock, así
+     que la presencia en cache es la señal de liveness correcta para ambos paths.
+3. **`apply_index_entry_unlocked` en ambas ramas:** el lock está retenido en los dos
+   paths (caller o nuestro), nunca se re-adquiere el no-reentrante `insert_lock`.
+   `refresh_index` público queda intacto (callers standalone: `insert_to_cf`, tests).
+
+### Tests agregados (tests/ops.rs)
+
+| Test | Qué valida |
+|---|---|
+| `test_delete_vs_consolidate_no_resurrection` | Determinista (interleaving B): insert Hot → snapshot candidato → `delete(id)` → `consolidate_node(&stale_candidate)` → no metadata en backend, no entrada HNSW, `get(id)` None. Fallaría antes del fix (resurrección). |
+| `test_delete_vs_evict_concurrent_no_zombie` | Stress (A+B): deleter + 2 evictors públicos sobre 32 nodos Hot, watchdog `recv_timeout(30s)`; invariante final: ningún nodo eliminado queda en HNSW ni en backend. |
+
+### Verificación
+
+```bash
+cargo check -p vantadb   # ✅
+cargo test -p vantadb --lib test_delete_vs_consolidate_no_resurrection   # ✅
+cargo test -p vantadb --lib test_delete_vs_evict_concurrent_no_zombie    # ✅
+cargo test -p vantadb --lib test_evict_cold_nodes_locked_no_reentrant_timeout  # ✅ (regresión)
+cargo test -p vantadb --lib test_multi_index_write_paths_no_deadlock     # ✅ (regresión)
+```
+
+API pública sin cambios; invariante mmap intacto (la entrada HNSW se re-aplica antes del
+release, `apply_index_entry_unlocked` preserva la conversión `MmapFull→Full`).

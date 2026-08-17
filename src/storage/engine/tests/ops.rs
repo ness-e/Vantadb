@@ -1366,3 +1366,132 @@ fn test_multi_index_write_paths_no_deadlock() {
     }
     watchdog.join().expect("watchdog panicked");
 }
+
+// ─── FND-02-M3: delete vs consolidate race ─────────────────────
+//
+// consolidate_node (eviction pública, lock_held=false) re-aplica la entrada
+// HNSW del nodo y re-persiste metadata en backend; delete() la elimina. Antes
+// del fix, consolidate hacía backend.put FUERA de insert_lock y solo tomaba el
+// lock para el refresh_index: un delete intermedio dejaba zombie (nodo en HNSW
+// sin metadata) o resucitaba el nodo eliminado. El fix retiene insert_lock
+// durante toda la sección crítica + version check contra HNSW.
+
+#[test]
+fn test_delete_vs_consolidate_no_resurrection() {
+    let engine = in_memory_engine();
+
+    // Seed hot node (Hot tier entra al volatile_cache).
+    let mut node = sample_node(42);
+    node.tier = NodeTier::Hot;
+    engine.insert(&node).expect("seed insert");
+    assert!(engine.get(42).expect("get after insert").is_some());
+
+    // Snapshot del candidato, como lo toma evict_cold_nodes_inner.
+    let candidate = engine
+        .volatile_cache
+        .read()
+        .get(&42)
+        .cloned()
+        .expect("candidate in volatile_cache");
+
+    // delete() completo: quita HNSW + cache + backend metadata.
+    engine.delete(42, "FND-02-M3").expect("delete");
+    assert!(engine.hnsw.load().nodes.get(&42).is_none());
+    assert!(engine.get(42).expect("get after delete").is_none());
+
+    // consolidate_node sobre el snapshot stale NO debe resucitar el nodo:
+    // el version check ve que el nodo ya no está en HNSW y skippea.
+    engine
+        .consolidate_node(&candidate)
+        .expect("consolidate of deleted node must be a no-op");
+
+    let key = 42u128.to_le_bytes();
+    assert!(
+        engine
+            .backend
+            .get(BackendPartition::Default, &key)
+            .expect("backend read")
+            .is_none(),
+        "FND-02-M3: consolidate resucitó metadata en backend de un nodo eliminado"
+    );
+    assert!(
+        engine.hnsw.load().nodes.get(&42).is_none(),
+        "FND-02-M3: consolidate resucitó la entrada HNSW de un nodo eliminado"
+    );
+    assert!(
+        engine.get(42).expect("final get").is_none(),
+        "FND-02-M3: nodo eliminado visible tras consolidate"
+    );
+}
+
+#[test]
+fn test_delete_vs_evict_concurrent_no_zombie() {
+    use std::sync::Arc;
+    let engine = Arc::new(in_memory_engine());
+
+    // Seed hot nodes: entran al volatile_cache y son candidatos de eviction.
+    const N: u128 = 32;
+    for i in 0..N {
+        let mut node = sample_node(i);
+        node.tier = NodeTier::Hot;
+        engine.insert(&node).expect("seed insert");
+    }
+
+    let mut handles = Vec::new();
+
+    // Deleter: elimina cada nodo seeded del índice + backend.
+    {
+        let engine = Arc::clone(&engine);
+        handles.push(std::thread::spawn(move || {
+            for i in 0..N {
+                engine.delete(i, "FND-02-M3 stress").expect("delete");
+            }
+        }));
+    }
+
+    // Evictor: consolidación pública concurrente con el delete — con candidatos
+    // stale puede correr después de que delete() ya eliminó el nodo.
+    for _ in 0..2 {
+        let engine = Arc::clone(&engine);
+        handles.push(std::thread::spawn(move || {
+            for _ in 0..20 {
+                let _ = engine.evict_cold_nodes_with_reason(1.0, EvictionReason::Watermark);
+                std::thread::sleep(std::time::Duration::from_micros(200));
+            }
+        }));
+    }
+
+    // Watchdog: detecta deadlock en vez de colgar CI.
+    let (tx, rx) = std::sync::mpsc::channel();
+    let watchdog = std::thread::spawn(move || {
+        for h in handles {
+            h.join().expect("worker panicked");
+        }
+        tx.send(()).unwrap();
+    });
+    match rx.recv_timeout(std::time::Duration::from_secs(30)) {
+        Ok(()) => {}
+        Err(_) => panic!("FND-02-M3: deadlock suspected — delete vs evict exceeded 30s wall-clock"),
+    }
+    watchdog.join().expect("watchdog panicked");
+
+    // Invariante: ningún nodo eliminado puede quedar en el HNSW (ni metadata
+    // en backend). El delete es la última operación sobre cada id, así que
+    // cualquier consolidación posterior debió ser skippeada por el version check.
+    let hnsw = engine.hnsw.load();
+    for i in 0..N {
+        assert!(
+            hnsw.nodes.get(&i).is_none(),
+            "FND-02-M3: zombie HNSW entry para nodo eliminado {i}"
+        );
+        let key = i.to_le_bytes();
+        assert!(
+            engine
+                .backend
+                .get(BackendPartition::Default, &key)
+                .expect("backend read")
+                .is_none(),
+            "FND-02-M3: metadata resucitada en backend para nodo eliminado {i}"
+        );
+    }
+}
