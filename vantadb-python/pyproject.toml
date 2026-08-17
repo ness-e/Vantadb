@@ -36,7 +36,6 @@ Issues = "https://github.com/ness-e/Vantadb/issues"
 
 [tool.maturin]
 module-name = "vantadb_py"
-features = ["pyo3/extension-module"]
 include = [
     "vantadb_py/py.typed",
     "vantadb_py/*.pyi",

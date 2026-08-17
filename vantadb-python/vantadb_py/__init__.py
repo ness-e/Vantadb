@@ -9,7 +9,15 @@ import asyncio
 from dataclasses import asdict, dataclass
 from functools import partial
 
-from .vantadb_py import VantaDB, VantaListResult, VantaMemoryRecord, VantaSearchHit, VantaVector, __version__
+from .vantadb_py import (
+    VantaDB,
+    VantaListResult,
+    VantaMemoryRecord,
+    VantaSearchHit,
+    VantaVector,
+    __version__,
+    connect,
+)
 
 __all__ = [
     "VantaDB",
@@ -20,6 +28,7 @@ __all__ = [
     "VantaVector",
     "SearchRequest",
     "__version__",
+    "connect",
 ]
 
 
