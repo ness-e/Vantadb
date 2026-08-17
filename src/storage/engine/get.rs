@@ -10,6 +10,40 @@ use crate::storage::engine::StorageEngine;
 use crate::storage::engine::{BufferedWrite, FLAG_TOMBSTONE};
 use crate::storage::ops::NodeMetadata;
 
+// MCP-15: re-entrancy guard for `prefetch_related`.
+//
+// `get()` (cache miss) calls `prefetch_related(id)`, which fetches each warm
+// id via a recursive `self.get(warm_id)`. Without a guard, a co-access pair
+// (A↔B) where BOTH nodes are cache misses recurses
+// `get(A)→prefetch(A)→get(B)→prefetch(B)→get(A)→…` forever: `get()` never
+// inserts the node it materializes (only `prefetch_related`'s tail does, after
+// the recursion unwinds), so A and B remain mutually uncached through the
+// whole chain and the stack overflows on the server worker thread. The guard
+// makes prefetch single-level — the OLD-20 contract (prefetch the co-accessed
+// nodes of the accessed node, not transitively).
+thread_local! {
+    static PREFETCH_IN_PROGRESS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// RAII guard that acquires the prefetch re-entrancy flag and releases it on
+/// drop (including unwind), so a panic mid-prefetch cannot leave the flag set
+/// and silently disable future prefetches on the same worker thread.
+struct PrefetchGuard;
+impl PrefetchGuard {
+    fn acquire() -> Option<Self> {
+        if PREFETCH_IN_PROGRESS.with(|f| f.replace(true)) {
+            None
+        } else {
+            Some(Self)
+        }
+    }
+}
+impl Drop for PrefetchGuard {
+    fn drop(&mut self) {
+        PREFETCH_IN_PROGRESS.with(|f| f.set(false));
+    }
+}
+
 impl StorageEngine {
     /// Retrieve a node by its numeric ID, checking the volatile cache first.
     #[tracing::instrument(skip(self), level = "debug", err)]
@@ -186,6 +220,14 @@ impl StorageEngine {
     /// Prefetch nodes that are frequently co-accessed with the given ID.
     #[inline]
     fn prefetch_related(&self, id: u128) {
+        // MCP-15: single-level prefetch. The recursive self.get() below would
+        // otherwise re-enter prefetch_related for the warm id; when the
+        // co-access pair is mutually uncached this cycles forever (stack
+        // overflow). The guard lets the outer get()'s prefetch run but makes
+        // any nested prefetch a no-op.
+        let Some(_guard) = PrefetchGuard::acquire() else {
+            return;
+        };
         let to_fetch = {
             let cache = self.volatile_cache.read();
             self.cache_warmer
@@ -195,8 +237,9 @@ impl StorageEngine {
             return;
         }
         for warm_id in to_fetch {
-            // Recursive call: checks cache first so no infinite loop.
-            // This is safe because no locks are held at the call site.
+            // Recursive call: the PrefetchGuard above stops this from cycling
+            // (a nested get() → prefetch_related is a no-op). No locks are
+            // held at the call site.
             if let Ok(Some(node)) = self.get(warm_id) {
                 let mut cache = self.volatile_cache.write();
                 if let std::collections::hash_map::Entry::Vacant(e) = cache.entry(warm_id) {

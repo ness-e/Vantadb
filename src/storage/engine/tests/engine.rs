@@ -660,3 +660,42 @@ fn test_insert_overwrite_updates_scalar_index() {
     );
     assert_eq!(sel_blue, 1.0, "new value 'blue' should have cardinality 1");
 }
+
+// ─── MCP-15: prefetch re-entrancy regression ──────────────────
+
+/// Regression for MCP-15: `get()` (cache miss) → `prefetch_related` → recursive
+/// `self.get(warm_id)` used to re-enter `prefetch_related` forever when a
+/// co-access pair (A↔B) was registered and BOTH nodes were cache misses —
+/// `get()` never inserts the node it materializes, so A and B stayed mutually
+/// uncached through the whole chain and the worker thread overflowed its stack.
+///
+/// Uses Cold-tier nodes so neither A nor B enters `volatile_cache` on insert,
+/// reproducing the exact cache-miss trigger of the MCP-15 crash.
+#[test]
+fn test_get_prefetch_does_not_recurse_forever() {
+    let engine = in_memory_engine();
+    // Cold tier (the default from UnifiedNode::new) → insert() does NOT
+    // populate volatile_cache, so get() below takes the cache-miss path.
+    let mut a = sample_node(1);
+    a.tier = NodeTier::Cold;
+    let mut b = sample_node(2);
+    b.tier = NodeTier::Cold;
+    engine.insert(&a).expect("insert a");
+    engine.insert(&b).expect("insert b");
+
+    // Register the co-access pair A↔B the way get_many does when search
+    // returns ≥2 hits. min_accesses is 3 by default, so record 3 times.
+    for _ in 0..3 {
+        engine.cache_warmer.record_co_access(&[1, 2]);
+    }
+
+    // Pre-fix this call recursed get(1)→prefetch→get(2)→prefetch→get(1)→…
+    // until the stack overflowed. Post-fix it must terminate and leave the
+    // prefetched node in the volatile cache.
+    let node = engine.get(1).expect("get(1) should terminate");
+    assert!(node.is_some(), "node 1 exists");
+    assert!(
+        engine.volatile_cache.read().contains_key(&2),
+        "co-accessed node 2 should be prefetched into the volatile cache"
+    );
+}
