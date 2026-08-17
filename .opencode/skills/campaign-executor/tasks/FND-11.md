@@ -6,6 +6,7 @@
 - **Esfuerzo:** 🟢 1h
 - **Prioridad:** 🔴
 - **Tipo:** Docs (`.opencode/AGENTS.md`)
+- **Estado:** ✅ COMPLETO (verificado en AGENTS.md §Regla 10, wave p20-tsys)
 - **Turns estimados:** 5
 - **Creado:** 2026-08-16
 - **last-synced:** 2026-08-16

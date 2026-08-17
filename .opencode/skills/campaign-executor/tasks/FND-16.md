@@ -1,6 +1,6 @@
 # Task FND-16 — Multi-target CI (wheels + WASM por PR)
 
-- **Prioridad:** 🟢 · **Wave:** P20c · **Estado:** ✅ ANALYSIS COMPLETE (pendiente aprobación lead para implementar)
+- **Prioridad:** 🟢 · **Wave:** P20c · **Estado:** ✅ IMPLEMENTADO (commit fb878cba: trigger PR con paths filter + acción wasm/ts; actionlint validado)
 - **Tipo:** research/analysis (NO implementación — aprobación del lead antes de tocar workflows)
 - **Owner:** vanta-lead
 

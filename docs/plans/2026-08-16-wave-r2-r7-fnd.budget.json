@@ -1,0 +1,20 @@
+{
+  "tasks": {
+    "1": {
+      "taskId": "1",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1786866175224,
+      "lastActivity": 1786901338468
+    },
+    "R2": {
+      "taskId": "R2",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1786866081859,
+      "lastActivity": 1786866085876
+    }
+  }
+}

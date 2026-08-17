@@ -6,6 +6,7 @@
 - **Esfuerzo:** 🟢 1h
 - **Prioridad:** 🟢
 - **Tipo:** Docs (`.opencode/AGENTS.md`)
+- **Estado:** ✅ COMPLETO (verificado en AGENTS.md §Ritual de Inicio, wave p20-tsys)
 - **Turns estimados:** 3
 - **Creado:** 2026-08-16
 - **last-synced:** 2026-08-16
