@@ -24,9 +24,9 @@ permission:
   "rust-analyzer-mcp_*": allow
   "metasearchmcp_*": allow
   "argus_*": allow
-  "playwright_*": allow
-  "discord_*": allow
-  "lottiefiles-creator_*": allow
+  "playwright_*": deny
+  "discord_*": deny
+  "lottiefiles-creator_*": deny
   task:
     "*": deny
     "vanta-*": allow
@@ -121,6 +121,8 @@ Si el cambio es significativo, escribe un ADR en `docs/architecture/adr/` con la
 
 ## 6. Relevant Skills & References
 
+> **OBLIGATORIO:** al inicio de cada sesión cargá con skill <nombre> las skills de esta sección.
+
 **Skills (load with `skill <name>`):**
 - `documentation-and-adrs` — escribir ADRs para decisiones arquitectónicas
 - `api-and-interface-design` — diseñar boundaries de módulos, interfaces, traits
@@ -130,6 +132,7 @@ Si el cambio es significativo, escribe un ADR en `docs/architecture/adr/` con la
 - `interview-me` — extraer requirements arquitectónicos cuando están vagos
 - `doubt-driven-development` — verificación adversarial en contexto fresco para decisiones críticas
 - `code-review-and-quality` — revisión arquitectónica en 5 ejes
+- `source-driven-development` — verificar decisiones contra documentación oficial antes de diseñar
 
 **References:**
 - `.opencode/references/orchestration-patterns.md` — patrones de orquestación entre módulos
@@ -144,28 +147,4 @@ Si el cambio es significativo, escribe un ADR en `docs/architecture/adr/` con la
 
 ## 7. Task System Integration
 
-- **Prompts activos:** `.opencode/task-system/prompts/` — plan.md, task.md, iter-loop-tools.md
-- **MCP tools:** `campaign_get_next_task`, `campaign_verify_cmd`, `campaign_load_skills`, `campaign_detect_task_type`, `campaign_validate_command`, `campaign_enforce_state` (30+ tools via campaign-server.mjs)
-- **State machine:** C0 en `.opencode/task-system/prompts/iter-loop-tools.md` (PLAN→ACT→VERIFY→COLLATERAL→EVALUATE→REVIEW→ACCEPT→CLOSE)
-- **Workflows por tipo:** `.opencode/task-system/workflows/bug-fix.json`, `feature-add.json`, `refactor.json`, `research.json`, `nine-second-saloon.json`
-- **Enforcement:** `.opencode/task-system/config/state-tools.mjs` — per-state tool allow/deny + pre-call checks
-- **Sesión:** `campaign_session_track` (MCP) para tracking multi-iteración
-
-### MCP Servers
-
-MCP servers disponibles según el tipo de tarea:
-
-| Server | ¿Usar? | Propósito |
-|--------|--------|-----------|
-| **codegraph** | ✅ | Code intelligence — resolver símbolos, call paths, blast radius |
-| **campaign** | ✅ | Task system — get_next_task, update_task_state, verify_cmd |
-| **cargo-mcp** | ✅ | Rust build/test/clippy |
-| **rust-analyzer-mcp** | ✅ | LSP: goto def, hover, diagnostics |
-| **metasearchmcp** | ✅ | Web search multi-provider |
-| **argus** | ✅ | URL content extraction + recovery |
-| **playwright** | ❌ | Browser automation (no relevante para este agente) |
-| **pencil** | ❌ | Design editor (no relevante para este agente) |
-| **discord** | ❌ | Social integration (no relevante para este agente) |
-| **lottiefiles-creator** | ❌ | Lottie animation (no relevante para este agente) |
-
-> **Nota:** OpenCode no soporta filtrado nativo de MCP por agente. Usa solo los servidores marcados como ✅; ignora (no invoques) los marcados como ❌ para ahorrar contexto.
+Ver `.opencode/references/task-system.md` — integración del task-system (prompts, MCP tools, state machine, workflows, enforcement) y tabla canónica de MCP servers.

@@ -21,12 +21,12 @@ permission:
   "codegraph_*": allow
   "campaign_*": allow
   "cargo-mcp_*": allow
-  "rust-analyzer-mcp_*": allow
+  "rust-analyzer-mcp_*": deny
   "metasearchmcp_*": allow
-  "argus_*": allow
-  "playwright_*": allow
-  "discord_*": allow
-  "lottiefiles-creator_*": allow
+  "argus_*": deny
+  "playwright_*": deny
+  "discord_*": deny
+  "lottiefiles-creator_*": deny
   task: deny
 ---
 
@@ -118,11 +118,14 @@ Antes de diseñar tests de caos, verifica:
 
 ## 6. Relevant Skills & References
 
+> **OBLIGATORIO:** al inicio de cada sesión cargá con skill <nombre> las skills de esta sección.
+
 **Skills (load with `skill <name>`):**
 - `test-driven-development` — escribir tests que verifiquen edge cases y condiciones de carrera
 - `systematic-debugging` — root cause de crashes y corrupción de datos
 - `code-simplification` — simplificar código que falla bajo caos para aislar el bug
 - `doubt-driven-development` — adversarial review para tests de caos: verificacion en contexto fresco
+- `source-driven-development` — verificar invariantes de durabilidad contra documentación oficial
 
 **References:**
 - `.opencode/references/testing-patterns.md` — patrones de test para fuzzing y chaos
@@ -135,28 +138,4 @@ Antes de diseñar tests de caos, verifica:
 
 ## 7. Task System Integration
 
-- **Prompts activos:** `.opencode/task-system/prompts/` — plan.md, task.md, iter-loop-tools.md
-- **MCP tools:** `campaign_get_next_task`, `campaign_verify_cmd`, `campaign_load_skills`, `campaign_detect_task_type`, `campaign_validate_command`, `campaign_enforce_state` (30+ tools via campaign-server.mjs)
-- **State machine:** C0 en `.opencode/task-system/prompts/iter-loop-tools.md` (PLAN→ACT→VERIFY→COLLATERAL→EVALUATE→REVIEW→ACCEPT→CLOSE)
-- **Workflows por tipo:** `.opencode/task-system/workflows/bug-fix.json`, `feature-add.json`, `refactor.json`, `research.json`, `nine-second-saloon.json`
-- **Enforcement:** `.opencode/task-system/config/state-tools.mjs` — per-state tool allow/deny + pre-call checks
-- **Sesión:** `campaign_session_track` (MCP) para tracking multi-iteración
-
-### MCP Servers
-
-MCP servers disponibles según el tipo de tarea:
-
-| Server | ¿Usar? | Propósito |
-|--------|--------|-----------|
-| **codegraph** | ✅ | Code intelligence — resolver símbolos, call paths, blast radius |
-| **campaign** | ✅ | Task system — get_next_task, update_task_state, verify_cmd |
-| **cargo-mcp** | ✅ | Rust build/test/clippy |
-| **rust-analyzer-mcp** | ❌ | LSP (no relevante — fuzzing usa cargo-mcp) |
-| **metasearchmcp** | ✅ | Web search multi-provider |
-| **argus** | ❌ | URL content extraction (no relevante para caos) |
-| **playwright** | ❌ | Browser automation (no relevante para este agente) |
-| **pencil** | ❌ | Design editor (no relevante para este agente) |
-| **discord** | ❌ | Social integration (no relevante para este agente) |
-| **lottiefiles-creator** | ❌ | Lottie animation (no relevante para este agente) |
-
-> **Nota:** OpenCode no soporta filtrado nativo de MCP por agente. Usa solo los servidores marcados como ✅; ignora (no invoques) los marcados como ❌ para ahorrar contexto.
+Ver `.opencode/references/task-system.md` — integración del task-system (prompts, MCP tools, state machine, workflows, enforcement) y tabla canónica de MCP servers.
