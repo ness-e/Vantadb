@@ -2,9 +2,12 @@
 //!
 //! Contract: measure **process RSS growth vs dataset size** under a sustained
 //! write workload, and compare it against the engine's *logical* memory
-//! estimate — the quantity `check_memory_pressure` (src/storage/engine/stats.rs:98)
-//! actually uses for its back-pressure decision. The delta between the two is
-//! the blind spot of the existing guard.
+//! estimate. Since FND-01-F1, `check_memory_pressure`
+//! (src/storage/engine/stats.rs:98) uses the **real process RSS** as its
+//! back-pressure signal (with fallback to the logical estimate when the host
+//! measurement is unavailable), so `pressure_ratio` in the table mirrors the
+//! guard's effective signal: `rss` when the host measurement is available,
+//! else the logical estimate.
 //!
 //! Design:
 //! - Full-stack `StorageEngine` (Fjall backend, tempdir) — includes HNSW (RAM),
@@ -100,6 +103,18 @@ fn bench_memory_budget(c: &mut Criterion) {
         let stats = storage.get_memory_stats();
         let rss = snap.process_rss_bytes;
         let logical = stats.logical_bytes;
+        // Mirror the guard's effective signal (FND-01-F1): real process RSS when
+        // the host measurement is available, else the logical estimate.
+        let guard_effective = if rss > 0 {
+            rss
+        } else {
+            stats.effective_bytes()
+        };
+        let pressure_ratio = if stats.memory_limit > 0 {
+            guard_effective as f64 / stats.memory_limit as f64
+        } else {
+            0.0
+        };
         println!(
             "{}, {:.1}, {}, {}, {}, {}, {:.3}",
             inserted,
@@ -108,10 +123,10 @@ fn bench_memory_budget(c: &mut Criterion) {
             logical,
             rss.saturating_sub(logical),
             stats.memory_limit,
-            stats.pressure_ratio()
+            pressure_ratio
         );
         println!(
-            "  -> rss={} logical_estimate={} delta={} limit={} guard_physical={}",
+            "  -> rss={} logical_estimate={} delta={} limit={} guard_physical={} guard_effective={} pressure_ratio={:.3}",
             fmt_bytes(rss),
             fmt_bytes(logical),
             fmt_bytes(rss.saturating_sub(logical)),
@@ -119,7 +134,9 @@ fn bench_memory_budget(c: &mut Criterion) {
             stats
                 .physical_rss
                 .map(fmt_bytes)
-                .unwrap_or_else(|| "none".into())
+                .unwrap_or_else(|| "none".into()),
+            fmt_bytes(guard_effective),
+            pressure_ratio
         );
     }
 

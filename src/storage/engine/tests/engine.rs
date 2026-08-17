@@ -428,11 +428,13 @@ fn test_insert_cardinality_hundred_cap() {
 fn test_insert_with_hot_node_eviction() {
     let config = VantaConfig {
         backend_kind: BackendKind::InMemory,
-        // 64 MiB — generous ceiling so node memory_size estimates (~42KB/node on
-        // Linux vs ~20KB on Windows) never trip ResourceLimit mid-test. This test
-        // verifies insert + retrieve of 50 Hot nodes; pressure/eviction paths are
+        // 8 GiB — generous ceiling so neither node memory_size estimates
+        // (~42KB/node on Linux vs ~20KB on Windows) nor the real process RSS
+        // (FND-01-F1: the guard now measures real RSS, which includes the whole
+        // test binary) ever trip ResourceLimit mid-test. This test verifies
+        // insert + retrieve of 50 Hot nodes; pressure/eviction paths are
         // covered by stats.rs tests.
-        memory_limit: Some(64 * 1024 * 1024),
+        memory_limit: Some(8 * 1024 * 1024 * 1024),
         ..VantaConfig::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).expect("open");

@@ -101,7 +101,19 @@ impl StorageEngine {
             return Ok(());
         }
         let stats = self.get_memory_stats();
-        let effective = stats.effective_bytes();
+        // FND-01-F1: usar el RSS real del proceso (Win32 GetProcessMemoryInfo /
+        // Mach task_info / /proc/self/statm con fallback sysinfo, `_get_rss_virt`
+        // en src/metrics/core/mod.rs:471). `physical_rss` (mmap) subestima ~6.5×
+        // (bench FND-01: 54 MiB vs 354 MiB a 20k nodos) y `logical_bytes`
+        // sobreestima en escalas chicas. Si la medición del host falla (0, p.ej.
+        // bajo Miri o plataforma sin soporte), fallback a la estimación actual —
+        // nunca panic.
+        let (rss, _virt) = crate::metrics::core::_get_rss_virt();
+        let effective = if rss > 0 {
+            rss
+        } else {
+            stats.effective_bytes()
+        };
         if effective == 0 {
             return Ok(());
         }

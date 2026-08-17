@@ -468,7 +468,7 @@ pub fn record_memory_breakdown(
     set_gauge!(VOLATILE_CACHE_CAP_BYTES, cache_cap_bytes);
 }
 
-fn _get_rss_virt() -> (u64, u64) {
+pub(crate) fn _get_rss_virt() -> (u64, u64) {
     #[cfg(miri)]
     {
         // Miri does not implement the host-memory (Win32 QueryWorkingSetEx /

@@ -1,12 +1,12 @@
 # FND-01: Regla de presupuesto de memoria (compute/storage separation) + benchmark OOM + back-pressure
 
-**Estado:** ✅ Resuelto (benchmark + regla normativa; fix de código documentado como pendiente)
+**Estado:** ✅ Resuelto (benchmark + regla normativa + fix FND-01-F1 aplicado)
 **Fecha:** 2026-08-16
 **Prioridad:** 🟡 (P20a)
 **Fuente:** docs/Backlog.md:483
-**Contrato DoD:** "regla + benchmark que la sustente" — ✅ regla en `.opencode/rules/memory-budget.md` + benchmark `benches/memory_budget.rs`
+**Contrato DoD:** "regla + benchmark que la sustente" — ✅ regla en `.opencode/rules/memory-budget.md` + benchmark `benches/memory_budget.rs` + fix del guard (FND-01-F1)
 **Alcance:** `src/index/` (lectura), `src/storage/` (solo lectura DISCOVERY), `src/metrics/` (solo lectura), `benches/` (bench NUEVO), `.opencode/rules/` (regla NUEVA), `docs/Investigaciones/`
-**Archivos tocados:** `benches/memory_budget.rs` (nuevo), `Cargo.toml` (entrada `[[bench]]`, ver §7), `.opencode/rules/memory-budget.md` (nuevo), `.opencode/rules/README.md` (índice), `docs/Investigaciones/FND-01-memory-budget.md` (este reporte)
+**Archivos tocados:** `benches/memory_budget.rs` (nuevo), `Cargo.toml` (entrada `[[bench]]`, ver §7), `.opencode/rules/memory-budget.md` (nuevo), `.opencode/rules/README.md` (índice), `docs/Investigaciones/FND-01-memory-budget.md` (este reporte), `src/storage/engine/stats.rs` (F1), `src/metrics/core/mod.rs` (F1), tests (F1)
 
 ---
 
@@ -83,12 +83,39 @@ MEMORY_BUDGET_SCALE=lite cargo bench -p vantadb --bench memory_budget
 
 ## 6. Fixes / pendientes
 
-| ID | Qué | Archivo | Esfuerzo |
+| ID | Qué | Archivo | Estado |
 |---|---|---|---|
-| **FND-01-F1** | Wire del RSS real en `check_memory_pressure`: `effective` debe ser `memory_breakdown_snapshot().process_rss_bytes` (o fallback lógico), no `physical_rss` mmap. Requiere spec mínima + test de `pressure_ratio` con RSS (patrón ya existente en `src/storage/engine/tests/stats.rs`) | `src/storage/engine/stats.rs` (~10 líneas) | 🟢 1 hr |
-| FND-01-F2 | Re-evaluar `DEFAULT_RSS_THRESHOLD=0.80` vs máquina real: con RSS real como señal, 0.80 de 31.78 GiB deja ~6.3 GiB de margen al SO; validar que la evicción (eviction_ratio 0.20) alcanza antes de rechazar | `src/config.rs` | 🟢 30 min |
-| FND-01-F3 | Correr escala full `[10k,25k,50k,100k]` (≈40-60 min) en CI heavy o máquina de referencia para fijar baseline absoluto | `benches/memory_budget.rs` | 🟡 2 hr |
-| FND-01-F4 | Señal de reapertura: si F1 no se implementa, re-evaluar al llegar a ~500k nodos / 10 GB RSS en producción — el guard actual no protegerá | — | — |
+| **FND-01-F1** | Wire del RSS real en `check_memory_pressure`: `effective` debe ser el RSS real del proceso (`_get_rss_virt()`, fallback lógico), no `physical_rss` mmap | `src/storage/engine/stats.rs` | ✅ **Aplicado** (ver §8) |
+| FND-01-F2 | Re-evaluar `DEFAULT_RSS_THRESHOLD=0.80` vs máquina real: con RSS real como señal, 0.80 de 31.78 GiB deja ~6.3 GiB de margen al SO; validar que la evicción (eviction_ratio 0.20) alcanza antes de rechazar | `src/config.rs` | ⬜ pendiente |
+| FND-01-F3 | Correr escala full `[10k,25k,50k,100k]` (≈40-60 min) en CI heavy o máquina de referencia para fijar baseline absoluto | `benches/memory_budget.rs` | ⬜ pendiente |
+| FND-01-F4 | Señal de reapertura: si F1 no se implementa, re-evaluar al llegar a ~500k nodos / 10 GB RSS en producción — el guard actual no protegerá | — | ⬜ superado por F1 |
+
+## 8. Fix aplicado (FND-01-F1)
+
+**Cambio:** `check_memory_pressure` (`src/storage/engine/stats.rs:98`) ahora usa el **RSS real del proceso** como señal de back-pressure, con fallback a la estimación previa (`effective_bytes()`) solo si la medición del host falla (0 — p.ej. bajo Miri o plataforma sin soporte). Sin cambio de firma pública.
+
+**Implementación:**
+- `src/storage/engine/stats.rs`: `effective = if rss > 0 { rss } else { stats.effective_bytes() }`, donde `rss` viene de `crate::metrics::core::_get_rss_virt()` (Win32 `GetProcessMemoryInfo` / Mach `task_info` / `/proc/self/statm`, con fallback sysinfo interno).
+- `src/metrics/core/mod.rs:471`: `_get_rss_virt` pasó de `fn` a `pub(crate) fn` (única visibilidad nueva; sin cambio de API pública).
+
+**Bench re-corrido (evidencia, run 2026-08-16):**
+```
+MEMORY_BUDGET_SCALE=lite cargo bench -p vantadb --bench memory_budget
+```
+| nodos | insert (s) | RSS real (MiB) | logical (MiB) | guard_physical mmap (MiB) | guard_effective (MiB) | pressure_ratio |
+|---|---|---|---|---|---|---|
+| 5,000 | 129.9 | 103.93 | 289.10 | 0 | 103.93 | **0.003** |
+| 10,000 | 110.8 | 158.64 | 322.20 | 0 | 158.64 | **0.005** |
+| 20,000 | 228.7 | 354.62 | 452.40 | 54.41 | 354.62 | **0.011** |
+
+**Antes vs después:** a 20k nodos el guard reportaba `pressure_ratio = 0.002` (54.41 MiB mmap, subestimación ~6.5×). Ahora reporta **0.011** (354.62 MiB de RSS real) — el guard ve la misma señal que el SO y la tendencia es lineal con el dataset (0.003 → 0.005 → 0.011). El bench también expone `guard_effective` (la señal exacta que el guard usa) para auditoría.
+
+**Tests ajustados (el RSS real del proceso de test rompía límites artificialmente chicos):**
+- `src/storage/engine/tests/engine.rs` `test_insert_with_hot_node_eviction`: 64 MiB → 8 GiB (el RSS del binary de test supera 64 MiB × 0.8 threshold).
+- `src/storage/engine/tests/stats.rs` `test_check_memory_pressure_governor_sync_eviction`: 80 MB → 8 GiB (mismo motivo).
+- `tests/api/python.rs`: 128 MiB → 8 GiB (SDK embedded, mismo motivo).
+
+**Verificación mecánica:** `cargo check -p vantadb` ✅; `cargo nextest run -p vantadb -E 'test(check_memory_pressure) or ...'` → 30/30 PASS ✅ (incluye `test_check_memory_pressure_governor_watermark`, `test_check_memory_pressure_triggers_on_low_threshold`, `test_backpressure_*`). Los warnings de `src/sdk/search/debug_ops.rs` son pre-existentes, fuera de alcance.
 
 ## 7. Notas
 

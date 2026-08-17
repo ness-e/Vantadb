@@ -17,7 +17,9 @@ fn python_bridge_certification() {
         let path = dir.path();
         let config = VantaConfig {
             storage_path: path.to_string_lossy().into_owned(),
-            memory_limit: Some(128 * 1024 * 1024),
+            // 8 GiB ceiling: the guard measures real process RSS (FND-01-F1),
+            // so an embedded-SDK test binary must stay far below the RSS path.
+            memory_limit: Some(8 * 1024 * 1024 * 1024),
             read_only: false,
             ..Default::default()
         };

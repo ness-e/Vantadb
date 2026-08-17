@@ -278,7 +278,10 @@ fn test_check_memory_pressure_governor_sync_eviction() {
     let config = VantaConfig {
         backend_kind: BackendKind::InMemory,
         rss_threshold: 0.9,
-        memory_limit: Some(80_000_000),
+        // 8 GiB ceiling: with real process RSS as the guard's signal (FND-01-F1)
+        // the RSS path must not trip on the test binary's own footprint; this
+        // test exercises the MemoryGovernor sync path, not the RSS threshold.
+        memory_limit: Some(8 * 1024 * 1024 * 1024),
         ..VantaConfig::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
