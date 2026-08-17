@@ -224,22 +224,41 @@ impl StorageEngine {
             .collect();
 
         let mut remaining_indices: Vec<usize> = Vec::new();
-        {
-            let mut cache = self.volatile_cache.write();
-            for (i, &id) in ids.iter().enumerate() {
-                self.quantization_governor.record_access(id);
-                if let Some(node) = cache.get_mut(&id) {
-                    if node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
-                        continue;
+        // ERR-036 (FND-02): never take a blocking write lock on the read path.
+        // try_write bumps hits/last_accessed when uncontended; when a writer is
+        // active we degrade to a read-only lookup (stats not bumped) so batch
+        // reads never serialize behind a writer — same contract as get().
+        match self.volatile_cache.try_write() {
+            Some(mut cache) => {
+                for (i, &id) in ids.iter().enumerate() {
+                    self.quantization_governor.record_access(id);
+                    if let Some(node) = cache.get_mut(&id) {
+                        if node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
+                            continue;
+                        }
+                        node.hits += 1;
+                        node.last_accessed = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_millis() as u64;
+                        results.push(node.clone());
+                    } else {
+                        remaining_indices.push(i);
                     }
-                    node.hits += 1;
-                    node.last_accessed = SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_millis() as u64;
-                    results.push(node.clone());
-                } else {
-                    remaining_indices.push(i);
+                }
+            }
+            None => {
+                let cache = self.volatile_cache.read();
+                for (i, &id) in ids.iter().enumerate() {
+                    self.quantization_governor.record_access(id);
+                    if let Some(node) = cache.get(&id) {
+                        if node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
+                            continue;
+                        }
+                        results.push(node.clone());
+                    } else {
+                        remaining_indices.push(i);
+                    }
                 }
             }
         }

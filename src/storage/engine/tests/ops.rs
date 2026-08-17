@@ -1239,3 +1239,130 @@ fn test_concurrent_insert_get_immediate_visibility() {
         h.join().expect("thread panicked");
     }
 }
+
+// ─── FND-02: multi-index lock coordination ────────────────────
+//
+// apply_insert/batch_insert call eviction while holding insert_lock
+// (ERR-010, non-reentrant). On the buggy path, eviction → consolidate_node →
+// refresh_index re-acquired insert_lock via try_lock_for(5000ms), timing out
+// per candidate; worse, the call ran while the volatile_cache write guard was
+// still held, which would deadlock the eviction's own cache read/write.
+// The fix adds *_locked variants that apply the HNSW entry without re-locking.
+
+#[test]
+fn test_evict_cold_nodes_locked_no_reentrant_timeout() {
+    let engine = in_memory_engine();
+
+    // Seed hot nodes so eviction has candidates to consolidate.
+    for i in 0..4u128 {
+        let mut node = sample_node(i);
+        node.tier = crate::node::NodeTier::Hot; // only Hot nodes enter volatile_cache
+        engine.insert(&node).expect("seed insert");
+    }
+
+    // Simulate the insert path: insert_lock held, volatile_cache free.
+    let guard = engine.insert_lock.lock();
+    let start = std::time::Instant::now();
+    let report = engine
+        .evict_cold_nodes_with_reason_locked(1.0, EvictionReason::Manual)
+        .expect("locked eviction must succeed without re-acquiring insert_lock");
+    let elapsed = start.elapsed();
+    drop(guard);
+
+    assert!(
+        elapsed.as_millis() < 1000,
+        "FND-02: locked eviction took {elapsed:?} — reentrant insert_lock \
+         re-acquire times out at 5000ms per candidate"
+    );
+    assert!(
+        report.evicted > 0,
+        "FND-02: eviction should have consolidated seeded hot nodes"
+    );
+}
+
+#[test]
+fn test_multi_index_write_paths_no_deadlock() {
+    use std::sync::Arc;
+    let engine = Arc::new(in_memory_engine());
+
+    const WRITERS: usize = 4;
+    const ITERS: usize = 40;
+    const WRITER_BASE: u128 = 10_000_000;
+    const SEED_BASE: u128 = 20_000_000;
+
+    // Pre-seed a range the deleter owns, so delete_batch exercises the full
+    // multi-index removal path (scalar/edge/text/HNSW) on real nodes.
+    for i in 0..32u128 {
+        engine
+            .insert(&sample_node(SEED_BASE + i))
+            .expect("seed insert");
+    }
+
+    let mut handles = Vec::new();
+
+    // Writers: insert (vector + graph + text index) and batch reads.
+    for t in 0..WRITERS {
+        let engine = Arc::clone(&engine);
+        handles.push(std::thread::spawn(move || {
+            for i in 0..ITERS {
+                let id = WRITER_BASE + t as u128 * ITERS as u128 + i as u128;
+                let mut node = sample_node(id);
+                // Distinct vectors avoid pathological HNSW greedy insertion.
+                node.vector = crate::node::VectorRepresentations::Full(vec![
+                    0.1 + (i % 7) as f32 / 100.0,
+                    0.2,
+                    0.3,
+                ]);
+                engine.insert(&node).expect("insert");
+                if i % 10 == 0 {
+                    let ids: Vec<u128> = (0..8)
+                        .map(|k| WRITER_BASE + t as u128 * ITERS as u128 + k)
+                        .collect();
+                    let _ = engine.get_many(&ids);
+                }
+            }
+        }));
+    }
+
+    // Deleter: batch-remove the seeded range (multi-index delete path).
+    {
+        let engine = Arc::clone(&engine);
+        handles.push(std::thread::spawn(move || {
+            for i in 0..ITERS {
+                let ids: Vec<u128> = (0..4)
+                    .map(|k| SEED_BASE + ((i * 4 + k) % 32) as u128)
+                    .collect();
+                engine.delete_batch(&ids).expect("delete_batch");
+            }
+        }));
+    }
+
+    // Evictor: standalone eviction under contention (acquires insert_lock).
+    {
+        let engine = Arc::clone(&engine);
+        handles.push(std::thread::spawn(move || {
+            for _ in 0..10 {
+                let _ = engine.evict_cold_nodes_with_reason(0.5, EvictionReason::Watermark);
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        }));
+    }
+
+    // Watchdog: join the workers on a worker thread; recv_timeout fails the
+    // test (instead of hanging CI) if any worker deadlocks.
+    let (tx, rx) = std::sync::mpsc::channel();
+    let watchdog = std::thread::spawn(move || {
+        for h in handles {
+            h.join().expect("worker panicked");
+        }
+        tx.send(()).unwrap();
+    });
+    match rx.recv_timeout(std::time::Duration::from_secs(30)) {
+        Ok(()) => {}
+        Err(_) => panic!(
+            "FND-02: deadlock suspected — mixed insert/get_many/delete_batch/evict \
+             paths exceeded 30s wall-clock"
+        ),
+    }
+    watchdog.join().expect("watchdog panicked");
+}

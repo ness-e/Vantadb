@@ -287,23 +287,34 @@ impl StorageEngine {
         }
 
         if node.tier == crate::node::NodeTier::Hot {
-            let mut cache = self.volatile_cache.write();
-            cache.insert(node.id, node.clone());
-            // ponytail: cache clone is ~3KB/insert with 768d f32 vec.
-            // Switching volatile_cache to HashMap<u128, Arc<UnifiedNode>>
-            // would share allocations across get() reads and avoid the
-            // per-insert clone. Deferred until cache write throughput is
-            // a measured bottleneck.
+            // FND-02: eviction must run AFTER dropping the cache write guard —
+            // evict_cold_nodes_with_reason_locked reads/mutates volatile_cache
+            // itself and parking_lot's RwLock is not reentrant (a write guard
+            // held here would deadlock the eviction's own cache lock).
+            let needs_eviction = {
+                let mut cache = self.volatile_cache.write();
+                cache.insert(node.id, node.clone());
+                // ponytail: cache clone is ~3KB/insert with 768d f32 vec.
+                // Switching volatile_cache to HashMap<u128, Arc<UnifiedNode>>
+                // would share allocations across get() reads and avoid the
+                // per-insert clone. Deferred until cache write throughput is
+                // a measured bottleneck.
 
-            let caps = crate::hardware::HardwareCapabilities::global();
-            let cache_cap_bytes = caps.total_memory / 4;
-            let approx_node_size = 1536;
-            let max_nodes = (cache_cap_bytes / approx_node_size) as usize;
+                let caps = crate::hardware::HardwareCapabilities::global();
+                let cache_cap_bytes = caps.total_memory / 4;
+                let approx_node_size = 1536;
+                let max_nodes = (cache_cap_bytes / approx_node_size) as usize;
 
-            if cache.len() > max_nodes {
+                cache.len() > max_nodes
+            };
+
+            if needs_eviction {
                 self.emergency_maintenance_trigger
                     .store(true, Ordering::Release);
-                if let Err(e) = self.evict_cold_nodes_with_reason(
+                // FND-02: insert_lock is held here (ERR-010), so use the
+                // locked variant — eviction → consolidate must not re-acquire
+                // the non-reentrant insert_lock.
+                if let Err(e) = self.evict_cold_nodes_with_reason_locked(
                     self.config.eviction_ratio,
                     EvictionReason::Watermark,
                 ) {
@@ -817,7 +828,7 @@ impl StorageEngine {
             }
         }
 
-        {
+        let needs_eviction = {
             let mut cache = self.volatile_cache.write();
             for node in nodes {
                 if node.tier == crate::node::NodeTier::Hot {
@@ -828,15 +839,20 @@ impl StorageEngine {
             let cache_cap_bytes = caps.total_memory / 4;
             let approx_node_size = 1536;
             let max_nodes = (cache_cap_bytes / approx_node_size) as usize;
-            if cache.len() > max_nodes {
-                self.emergency_maintenance_trigger
-                    .store(true, Ordering::Release);
-                if let Err(e) = self.evict_cold_nodes_with_reason(
-                    self.config.eviction_ratio,
-                    EvictionReason::Watermark,
-                ) {
-                    tracing::warn!("eviction failed: {e}");
-                }
+            cache.len() > max_nodes
+        };
+
+        // FND-02: eviction runs after the cache guard is dropped (RwLock is
+        // not reentrant) and uses the locked variant because insert_lock is
+        // held here (ERR-010).
+        if needs_eviction {
+            self.emergency_maintenance_trigger
+                .store(true, Ordering::Release);
+            if let Err(e) = self.evict_cold_nodes_with_reason_locked(
+                self.config.eviction_ratio,
+                EvictionReason::Watermark,
+            ) {
+                tracing::warn!("eviction failed: {e}");
             }
         }
 

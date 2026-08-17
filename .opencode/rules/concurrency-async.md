@@ -49,4 +49,15 @@
 - **Must not:** ejecutar búsquedas híbridas, `flush()` o `std::fs` directamente en el handler async del servidor.
 - **Por qué:** INV-003 verificó que el motor es síncrono y CPU/disco-bound; correrlo en el event loop de Tokio (o en el thread del runtime MCP) causa inanición y tail latency bajo carga concurrente.
 
+### 8 — Coordinación multi-índice: orden global de locks y variantes `*_locked` (FND-02)
+
+- **Must:** todo path de escritura multi-índice (insert, batch_insert, delete, delete_batch, commit_transaction, flush, eviction, consolidation) respeta el orden global de locks: `cardinality_stats → insert_lock → {wal, pending_hnsw_batch, hnsw, vstore, volatile_cache, backend}`.
+- **Must not:**
+  - re-adquirir `insert_lock` (parking_lot::FairMutex, NO reentrante) dentro de una sección crítica que ya lo retiene — `try_lock_for` expira a los `insert_lock_timeout_ms` (5000 default) y degrada silenciosamente;
+  - llamar a un método que toma `volatile_cache.write()/read()` mientras el mismo thread sostiene el write guard de `volatile_cache` (RwLock no reentrante → deadlock);
+  - tomar `volatile_cache.write()` bloqueante en paths de lectura (`get`/`get_many`) — usar `try_write()` con fallback a `read()` (ERR-036).
+- **Must:** los métodos que internamente adquieren `insert_lock` exponen una variante `*_locked` (`pub(crate)`) que asume el lock ya retenido y aplica la entrada HNSW sin re-lockear (`apply_index_entry_unlocked`). El caller dentro de una sección de insert usa SIEMPRE la variante `_locked` y suelta cualquier guard de `volatile_cache` ANTES de invocarla.
+- **Must:** el refresh HNSW en consolidación NO es un no-op — convierte `MmapFull`→`Full` (owned) antes de `release_mmap_vector`; nunca skippear el refresh, solo aplicarlo con la variante sin lock.
+- **Por qué:** FND-02 detectó que `apply_insert`/`batch_insert` llamaban a la evicción bajo `insert_lock` Y bajo el write guard de `volatile_cache`: la consolidación re-adquiría `insert_lock` (timeout 5s por candidato, eviction fallaba silenciosa) y el RwLock del cache deadlockeaba en el mismo thread. El orden global garantiza que writers tomen locks en secuencia fija y que readers nunca bloqueen detrás de un writer.
+
 <!-- Referencias cruzadas: → ver durability.md, core-engine.md, server-mcp.md -->

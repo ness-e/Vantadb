@@ -239,23 +239,21 @@ impl StorageEngine {
         Ok(())
     }
 
-    /// Update the HNSW index entry for a node with its current vector and storage offset.
-    pub fn refresh_index(&self, node: &UnifiedNode, storage_offset: u64) -> Result<()> {
+    /// Apply the HNSW index entry for a node WITHOUT acquiring `insert_lock`.
+    ///
+    /// Callers MUST already hold `insert_lock` (e.g. the `*_locked` variants of
+    /// consolidation/eviction invoked from inside an insert section), or be on a
+    /// path where no writer can concurrently mutate the HNSW index. The
+    /// `MmapFull`→`Full` copy below is load-bearing: `consolidate_node_inner`
+    /// releases the mmap pages right after this runs, so the entry must hold an
+    /// owned vector before the release happens.
+    fn apply_index_entry_unlocked(&self, node: &UnifiedNode, storage_offset: u64) -> Result<()> {
         if !storage_offset.is_multiple_of(STORAGE_ALIGNMENT) {
             return Ok(());
         }
+        let index = self.hnsw.load();
         if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
             if let VectorRepresentations::Full(vec) = &node.vector {
-                let _guard = self
-                    .insert_lock
-                    .try_lock_for(std::time::Duration::from_millis(
-                        self.config.insert_lock_timeout_ms,
-                    ))
-                    .ok_or_else(|| VantaError::Timeout {
-                        operation: "acquire insert_lock in refresh_index".into(),
-                        duration_ms: self.config.insert_lock_timeout_ms,
-                    })?;
-                let index = self.hnsw.load();
                 index.add(
                     node.id,
                     node.bitset.clone(),
@@ -264,6 +262,20 @@ impl StorageEngine {
                 )?;
                 return Ok(());
             }
+        }
+        index.add(
+            node.id,
+            node.bitset.clone(),
+            VectorRepresentations::None,
+            storage_offset,
+        )?;
+        Ok(())
+    }
+
+    /// Update the HNSW index entry for a node with its current vector and storage offset.
+    pub fn refresh_index(&self, node: &UnifiedNode, storage_offset: u64) -> Result<()> {
+        if !storage_offset.is_multiple_of(STORAGE_ALIGNMENT) {
+            return Ok(());
         }
         let _guard = self
             .insert_lock
@@ -274,18 +286,16 @@ impl StorageEngine {
                 operation: "acquire insert_lock in refresh_index".into(),
                 duration_ms: self.config.insert_lock_timeout_ms,
             })?;
-        let index = self.hnsw.load();
-        index.add(
-            node.id,
-            node.bitset.clone(),
-            VectorRepresentations::None,
-            storage_offset,
-        )?;
-        Ok(())
+        self.apply_index_entry_unlocked(node, storage_offset)
     }
 
     /// Move a hot node to cold tier, persist metadata, and release mmap pages.
-    pub fn consolidate_node(&self, node: &UnifiedNode) -> Result<()> {
+    ///
+    /// `lock_held` indicates the caller already holds `insert_lock` (insert
+    /// paths). In that case the HNSW entry is applied via
+    /// `apply_index_entry_unlocked` instead of re-acquiring the non-reentrant
+    /// lock, which would otherwise time out after `insert_lock_timeout_ms`.
+    fn consolidate_node_inner(&self, node: &UnifiedNode, lock_held: bool) -> Result<()> {
         self.ensure_writable()?;
         let mut persisted = node.clone();
         persisted.tier = NodeTier::Cold;
@@ -308,7 +318,11 @@ impl StorageEngine {
                 .map(|n| n.storage_offset)
                 .unwrap_or(0)
         };
-        self.refresh_index(&persisted, offset)?;
+        if lock_held {
+            self.apply_index_entry_unlocked(&persisted, offset)?;
+        } else {
+            self.refresh_index(&persisted, offset)?;
+        }
 
         if offset > 0 {
             let (seg_id, local_off) = crate::lsm::unpack_offset(offset);
@@ -348,16 +362,36 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Move a hot node to cold tier, persist metadata, and release mmap pages.
+    /// Acquires `insert_lock` internally; for callers that already hold it, use
+    /// [`Self::consolidate_node_locked`].
+    pub fn consolidate_node(&self, node: &UnifiedNode) -> Result<()> {
+        self.consolidate_node_inner(node, false)
+    }
+
+    /// Same as [`Self::consolidate_node`] but assumes the caller already holds
+    /// `insert_lock` (insert paths). Applies the HNSW entry without
+    /// re-acquiring the non-reentrant lock. Callers must NOT hold
+    /// `volatile_cache`'s write guard — this takes it itself.
+    pub(crate) fn consolidate_node_locked(&self, node: &UnifiedNode) -> Result<()> {
+        self.consolidate_node_inner(node, true)
+    }
+
     /// Evict a fraction of hot nodes from the volatile cache by lowest eviction score.
     pub fn evict_cold_nodes(&self, ratio: f64) -> Result<EvictionReport> {
         self.evict_cold_nodes_with_reason(ratio, EvictionReason::Periodic)
     }
 
     /// Evict a fraction of hot nodes with a specific reason for metrics.
-    pub fn evict_cold_nodes_with_reason(
+    ///
+    /// `lock_held` propagates to [`Self::consolidate_node_inner`]: when the
+    /// caller already holds `insert_lock` (insert paths), the eviction runs the
+    /// locked variants so the non-reentrant lock is never re-acquired.
+    fn evict_cold_nodes_inner(
         &self,
         ratio: f64,
         reason: EvictionReason,
+        lock_held: bool,
     ) -> Result<EvictionReport> {
         self.ensure_writable()?;
         let ratio = ratio.clamp(0.0, 1.0);
@@ -410,7 +444,12 @@ impl StorageEngine {
         let mut bytes_freed: u64 = 0;
         let mut evicted = 0;
         for (_score, node) in scored.iter().take(target) {
-            if self.consolidate_node(node).is_ok() {
+            let result = if lock_held {
+                self.consolidate_node_locked(node)
+            } else {
+                self.consolidate_node(node)
+            };
+            if result.is_ok() {
                 bytes_freed += node.memory_size() as u64;
                 evicted += 1;
             }
@@ -423,6 +462,29 @@ impl StorageEngine {
             scanned,
             reason,
         })
+    }
+
+    /// Evict a fraction of hot nodes with a specific reason for metrics.
+    /// Acquires `insert_lock` internally; for callers that already hold it, use
+    /// [`Self::evict_cold_nodes_with_reason_locked`].
+    pub fn evict_cold_nodes_with_reason(
+        &self,
+        ratio: f64,
+        reason: EvictionReason,
+    ) -> Result<EvictionReport> {
+        self.evict_cold_nodes_inner(ratio, reason, false)
+    }
+
+    /// Same as [`Self::evict_cold_nodes_with_reason`] but assumes the caller
+    /// already holds `insert_lock` (insert paths). Callers must also NOT hold
+    /// `volatile_cache`'s write guard — the eviction reads and mutates the
+    /// cache itself, and the RwLock is not reentrant.
+    pub(crate) fn evict_cold_nodes_with_reason_locked(
+        &self,
+        ratio: f64,
+        reason: EvictionReason,
+    ) -> Result<EvictionReport> {
+        self.evict_cold_nodes_inner(ratio, reason, true)
     }
 
     /// Rebuild the HNSW vector index from scratch by scanning all nodes in the VantaFile.
