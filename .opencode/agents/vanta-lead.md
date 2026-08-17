@@ -178,6 +178,7 @@ Cuando el usuario invoca `/pipeline task <ID>` o `/build <ID>`, **NO** implement
 | Seguridad, unsafe review, supply chain | `vanta-audit` | SEC-001, FFI audit, deny.toml |
 | Performance, profiling, flamegraphs | `vanta-tuner` | VFY-004, hot path optimizations |
 | Documentación, API specs, ejemplos | `vanta-docs` | VFY-011, docs/api/ updates |
+| Research/Discovery pesado (web research multi-doc, extracción de contenido) | `vanta-research` | INV-*, TIR-*, DISCOVERY de tareas 🟡/🔴 (R3) |
 | Fuzzing, crash recovery, corrupción | `vanta-chaos` | DRV-133, chaos test |
 | Release, CI/CD, packaging, dependencias | **yo mismo** | deny.toml, changelog, CI workflows |
 | Spec/planning (no código) | `vanta-lead` (pipeline) | /pipeline plan |

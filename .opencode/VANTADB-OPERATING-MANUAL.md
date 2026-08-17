@@ -520,6 +520,7 @@ Orquesta sub-agentes en paralelo, tiene sistema de perfiles YAML, y 4 modos de o
 | `vanta-worker` | Implementador general | ✅ permitido | Especialistas |
 | `vanta-engine` | Vector search / HNSW | ✅ permitido | Especialistas |
 | `vanta-lead` | Coordinador (manual) | ✅ permitido | Cualquiera |
+| `vanta-research` | Discovery/web research (read-only, digest ≤500 palabras) | ❌ denegado | Nadie (leaf) |
 | `vanta-audit` | Security/correctness | ❌ denegado | Nadie (leaf) |
 | `vanta-chaos` | Chaos engineering | ❌ denegado | Nadie (leaf) |
 | `vanta-tuner` | Performance optimization | ❌ denegado | Nadie (leaf) |
@@ -530,15 +531,18 @@ Orquesta sub-agentes en paralelo, tiene sistema de perfiles YAML, y 4 modos de o
 ```
 Orquestadores (arch, worker, engine, lead)
   │
+  ├─ task tool → vanta-research (DISCOVERY pesado / web research — read-only)
   ├─ task tool → vanta-audit (security review)
   ├─ task tool → vanta-tuner (performance)
   ├─ task tool → vanta-docs (documentation)
   └─ task tool → vanta-chaos (fuzzing)
 
-Especialistas (audit, chaos, tuner, docs)
+Especialistas (research, audit, chaos, tuner, docs)
   └─ NO pueden invocar a nadie
      Son leaf nodes del árbol de invocación
 ```
+
+> **R3:** el DISCOVERY pesado de tareas 🟡/🔴 (web research multi-doc, extracción de contenido) se delega a `vanta-research` — read-only, devuelve digest ≤500 palabras; el lead arma el task file con el digest sin gastar su contexto.
 
 ### 8.3 Cuándo Usar Cada Agent
 
@@ -551,6 +555,7 @@ Especialistas (audit, chaos, tuner, docs)
 | Hacer fuzzing o chaos testing | `vanta-chaos` |
 | Profiling y optimización | `vanta-tuner` |
 | Escribir docs de API | `vanta-docs` |
+| Investigar APIs externas / DISCOVERY pesado (tareas 🟡/🔴) | `vanta-research` |
 | Coordinar campaña multi-tarea | `vanta-lead` (manual) |
 
 ---
