@@ -10,6 +10,7 @@ last_reviewed: 2026-07-27
 
 > **Task:** MKT-04 — Reddit posts for r/rust, r/MachineLearning, r/LocalLLaMA
 > **Effort:** 🟢 2-4h
+> **Estado 2026-08-17:** 3 drafts completos (abajo), **NO publicados** — `status: draft`. Publicación pendiente (→ `MKT-04` en backlog). **⚠️ Corregir antes de publicar:** los 3 posts citan "recall@10 >0.998 on SIFT1M" y "zero deps" — verificar vs evidencia real (`docs/strategy/SHOW_HN_PREP.md` nota 2026-08-17: 0.9975 @ ef_400 en SIFT 10K, `croaring` compila C/C++).
 
 ---
 
@@ -33,7 +34,7 @@ Over the past few months I've been building [VantaDB](https://github.com/ness-e/
 - Volcano-style CBO planner that pushes down relational filters before graph traversal
 - RRF fusion for deterministic hybrid ranking
 
-**The numbers:** recall@10 >0.998 on SIFT1M, sub-ms core search, cross-platform Python wheels.
+**The numbers:** recall@10 >0.998 on SIFT1M, sub-ms core search, cross-platform Python wheels. *(⚠️ 2026-08-17: ver nota arriba — los números SIFT1M/sub-ms no están verificados a esa escala; corregir antes de publicar.)*
 
 **Code:** https://github.com/ness-e/Vantadb (Apache 2.0)
 

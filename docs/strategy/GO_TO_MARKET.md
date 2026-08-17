@@ -359,24 +359,24 @@ docs/
 **Deliverables by Vertical:**
 
 **Local LLM Stack:**
-- [ ] Docker Compose: Ollama + VantaDB + AnythingLLM
-- [ ] LanceDB → VantaDB migration guide
+- [ ] Docker Compose: Ollama + VantaDB + AnythingLLM *(parcial 2026-08-17: `docker-compose.yml` existe pero solo servicio VantaDB — falta el compose multi-servicio → MKT-18i)*
+- [x] LanceDB → VantaDB migration guide *(✅ existe: `docs/tutorials/migration-from-lancedb.md` + `vantadb-python/vantadb_py/migrate/lancedb.py`)*
 - [ ] Blog: "Local agent memory with Ollama + VantaDB"
 
 **Agentic Frameworks:**
-- [ ] langchain-vantadb on PyPI
-- [ ] llama-index-vector-stores-vantadb on PyPI
-- [ ] Mem0 integration (VantaDB as VectorStoreBackend)
+- [ ] langchain-vantadb on PyPI *(código existe en `integrations/langchain/`, NO publicado → MKT-18f)*
+- [ ] llama-index-vector-stores-vantadb on PyPI *(código existe, NO publicado → MKT-18f)*
+- [ ] Mem0 integration (VantaDB as VectorStoreBackend) *(código existe en `integrations/mem0/`, NO publicado → MKT-18f)*
 - [ ] Blog: "[[graphrag|GraphRAG]] with VantaDB — Reducing tokens 40-60%"
 
 **AI-IDE Tooling:**
-- [ ] MCP server docs for Cursor, Claude Code, Windsurf
+- [x] MCP server docs for Cursor, Claude Code, Windsurf *(✅ existe: `docs/api/MCP.md:129-215` — Cursor/Claude Code/Windsurf/OpenCode/Cline)*
 - [ ] Blog: "VantaDB as persistent memory for Claude Code"
 
 **Launch:**
-- [ ] Show HN post
-- [ ] Blog: "Introducing VantaDB"
-- [ ] Reddit posts (r/rust, r/MachineLearning, r/LocalLLaMA)
+- [ ] Show HN post *(⚠️ corregir claims falsos primero → MKT-18g)*
+- [x] Blog: "Introducing VantaDB" *(✅ draft `docs/blog/introducing_vantadb.md`, commit `f51b2263`)*
+- [ ] Reddit posts (r/rust, r/MachineLearning, r/LocalLLaMA) *(drafts listos, NO publicados → MKT-04)*
 
 ### Q4 2026: Post-Launch Growth
 
@@ -387,10 +387,10 @@ docs/
 - 20+ contributors
 
 **Deliverables:**
-- [ ] CrewAI adapter (TSK-90)
-- [ ] DSPy integration (TSK-91)
-- [ ] ARM64 Linux wheels (TSK-101)
-- [ ] Homebrew formula for macOS (TSK-100)
+- [ ] CrewAI adapter (TSK-90) *(código existe en `integrations/crewai/`, NO publicado → MKT-18f)*
+- [ ] DSPy integration (TSK-91) *(código existe en `integrations/dspy/`, NO publicado → MKT-18f)*
+- [ ] ARM64 Linux wheels (TSK-101) *(binarios aarch64 sí, wheels NO → MKT-18h)*
+- [ ] Homebrew formula for macOS (TSK-100) *(formula existe con SHA placeholders → MKT-18h)*
 - [ ] Community showcase (user projects)
 - [ ] 20+ good first issues
 

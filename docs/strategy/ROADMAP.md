@@ -11,8 +11,9 @@ aliases: [Roadmap, Milestones, Engineering Plan, Timeline, Plan de Acción]
 
 # VantaDB — Roadmap de Ejecución
 
-> **Backlog fuente:** [`docs/Backlog.md`](../Backlog.md) — 165 items abiertos
+> **Backlog fuente:** [`docs/Backlog.md`](../Backlog.md) — **24 items abiertos** (re-verificado 2026-08-17; el conteo "165" de este documento quedó obsoleto tras el triage R5 ejecutado 2026-08-07)
 > **Última revisión del proyecto:** 2026-07-16 (537 commits desde el roadmap anterior)
+> **⚠️ REVISIÓN 2026-08-17 (verificación multi-agente):** Este roadmap es **histórico** — las fases Sem 1-16 ya se ejecutaron (versión real **0.5.0** publicada 2026-08-01, no 0.2.0; ver `docs/Backlog.md` P0). Los riesgos R2/R5/R8 están **resueltos**; R4 (MSVC linker) y R6/R7 (SQ8, HNSW rebuild) **siguen vigentes** (ver tabla de riesgos). El estado actual de ejecución vive en `docs/Backlog.md` + `docs/progreso/README.md`; este documento se conserva como registro del plan original y de decisiones arquitectónicas (§6).
 > **Estas fuentes fueron analizadas para este roadmap:**
 > - Auditorías: 10 reports en `docs/audit-reports/`
 > - Deep analysis: Vector DB (372L), Graph DB (392L), Arquitectura (306L)
@@ -55,6 +56,8 @@ aliases: [Roadmap, Milestones, Engineering Plan, Timeline, Plan de Acción]
 
 ### Backlog
 
+> **Estado real 2026-08-17:** el desglose original por TIER quedó obsoleto tras el triage R5 (2026-08-07: 165 → 24 items, ver `docs/Backlog.md` Exec Summary). COMP-001..030: COMP-020 (RRF) ✅, COMP-022 (PageRank) ✅, COMP-027 (IVF/SCANN) ✅, COMP-029 (napi-rs) ✅, COMP-019 ❌ WONTFIX; el resto catalogado en P10 (Roadmap) sin implementación evidenciada. Tabla original preservada abajo como registro histórico.
+
 | Categoría | Items | Estado |
 |-----------|-------|--------|
 | TIER 0 🔴 Bloqueantes de Release | ~5 | Mayoría ⏳ |
@@ -87,16 +90,16 @@ Estos riesgos **no tienen item dedicado en el backlog** o están subestimados. S
 
 | # | Riesgo | Impacto | Mitigación | Tracking |
 |---|--------|---------|------------|----------|
-| **R1** | **CI certification inestable** — 20+ commits de fix (ASan, TSan, coverage thresholds) en 2 días. Pipeline certifica falso-negativos | 🔴 Bloquea todo release | Dedicar semana 1 a CI hardening con métricas de estabilidad | ❌ No hay item. Agregar como bloqueante |
-| **R2** | **WASM demo placeholder** — 80/219 tests fallan en Node.js. `/demo` sin build funcional | 🔴 Bloquea Show HN | Fijar demo WASM antes de cualquier marketing | MKT-13 (parcial) |
-| **R3** | **bincode deprecated** — Crate no mantenido desde 2021. Toda serialización del engine depende de él | 🟠 Migración forzosa eventual | Evaluar rkyv (ya existe para archive) como reemplazo | SEC-14 |
-| **R4** | **DRV-115: MSVC linker overflow** — No se puede build workspace completo en Windows con MSVC | 🟠 Bloquea Windows build en CI | Excluir adaptadores PyO3 de workspace build o usar rust-lld | DRV-115 |
-| **R5** | **165 items abiertos, persona-equipo 1-2** — Sin priorización estricta, el backlog es months | 🔴 Parálisis por analysis-paralysis | Congelar nuevos items hasta reducir a ≤100. No agregar COMP-031+ | ❌ No hay item |
-| **R6** | **SQ8 no expuesto en query path** — Existe como `VectorRepresentations::SQ8` pero el hot path de búsqueda solo usa f32 full precision. SIFT 1M tarda 127s | 🔴 Benchmarks no competitivos vs Qdrant/Milvus | Exponer SQ8 en `distance.rs` hot path (sem 3) | COMP-001 |
+| **R1** | **CI certification inestable** — 20+ commits de fix (ASan, TSan, coverage thresholds) en 2 días. Pipeline certifica falso-negativos | 🔴 Bloquea todo release | Dedicar semana 1 a CI hardening con métricas de estabilidad | 🟡 Mitigado de facto — batches CI-02..07 + P1-7 ejecutados (ver `Backlog.md`); sin item formal |
+| **R2** | **WASM demo placeholder** — 80/219 tests fallan en Node.js. `/demo` sin build funcional | 🔴 Bloquea Show HN | Fijar demo WASM antes de cualquier marketing | ✅ **RESUELTO** — MKT-13 ✅, `/demo` existe (`web/src/app/demo`) |
+| **R3** | **bincode deprecated** — Crate no mantenido desde 2021. Toda serialización del engine depende de él | 🟠 Migración forzosa eventual | Evaluar rkyv (ya existe para archive) como reemplazo | 🟡 Parcial — SEC-14 ✅ como cargo-deny; migración bincode→rkyv NO evidenciada |
+| **R4** | **DRV-115: MSVC linker overflow** — No se puede build workspace completo en Windows con MSVC | 🟠 Bloquea Windows build en CI | Excluir adaptadores PyO3 de workspace build o usar rust-lld | ❌ **VIGENTE** (2026-08-17) — sin task file ni fix commit |
+| **R5** | **165 items abiertos, persona-equipo 1-2** — Sin priorización estricta, el backlog es months | 🔴 Parálisis por analysis-paralysis | Congelar nuevos items hasta reducir a ≤100. No agregar COMP-031+ | ✅ **RESUELTO** — 165 → 24 (limpieza 2026-08-07); `docs/backlog-futuro.md` creado |
+| **R6** | **SQ8 no expuesto en query path** — Existe como `VectorRepresentations::SQ8` pero el hot path de búsqueda solo usa f32 full precision. SIFT 1M tarda 127s | 🔴 Benchmarks no competitivos vs Qdrant/Milvus | Exponer SQ8 en `distance.rs` hot path (sem 3) | ❌ **VIGENTE** (movido a catálogo P10) — COMP-001 sin implementación evidenciada |
 >
 > **Causa raíz documentada (histórica, 2026-05-31):** los 127s se atribuyen a *Disk Thrashing* (fallos de página masivos en el Mmap del índice) + desajuste de métricas: se transforma Distancia Coseno a Euclidiana L₂ al vuelo en el hot path.
-| **R7** | **HNSW rebuild en cada startup** — 30-60s para 1M vectores. Impide uso en serverless/edge | 🟠 Cold start inaceptable para AI agents | Serializar neighbor lists con bincode + load condicional (sem 4) | COMP-002 |
-| **R8** | **Claims falsos en landing** — "50x" vs 40x real, "SQL support" sin implementar, "auto-embeddings" sin feature, "cloud tiers" sin infra | 🟠 Riesgo reputacional en Show HN | Corregir WEB-02 antes de cualquier campaign | WEB-02 |
+| **R7** | **HNSW rebuild en cada startup** — 30-60s para 1M vectores. Impide uso en serverless/edge | 🟠 Cold start inaceptable para AI agents | Serializar neighbor lists con bincode + load condicional (sem 4) | ❌ **VIGENTE** (movido a catálogo P10) — COMP-002 sin implementación evidenciada |
+| **R8** | **Claims falsos en landing** — "50x" vs 40x real, "SQL support" sin implementar, "auto-embeddings" sin feature, "cloud tiers" sin infra | 🟠 Riesgo reputacional en Show HN | Corregir WEB-02 antes de cualquier campaign | ✅ **RESUELTO** — WEB-02 ✅ (commit `e84e3c40`); claims 2.80x/2.18x/2.14x verificados |
 
 ### Resolución de riesgos por fase
 

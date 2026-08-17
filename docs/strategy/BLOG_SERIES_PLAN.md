@@ -17,6 +17,8 @@ aliases: [BLOG_SERIES_PLAN, Blog Plan, Blog Calendar, Blog Series]
 
 ## Status Summary
 
+> **Status update 2026-08-17 (verificación multi-agente):** M1 ✅ **RESUELTO** — `docs/blog/introducing_vantadb.md` existe (commit `f51b2263`, live en `vanta-data.ts:862`). M2 ✅ author alineado (`ness-e`). M5 ✅ slugs vía frontmatter. M6 ✅ version `0.5.0` en drafts. **Pendientes:** M3 🟡 date drift (2026-06-06 vs web 2025), M4 🟡 title drift, CTA débil en 2 posts, posts 6-7 no redactados (→ BLOG-CTA en backlog).
+
 The blog series is **4 of 5 posts complete** as drafts in `docs/blog/`, but the production site exposes **4 posts** (one of them, `introducing-vantadb`, has no source draft in `docs/blog/`). Every live post has metadata drift between the web manifest and its markdown draft. See [Section 1](#1-content-inventory).
 
 | Surface | Posts | Notes |
@@ -60,12 +62,12 @@ The original backlog planned 3 articles: *Why I Built a Local Memory Engine in R
 
 | # | Gap | Severity | Detail |
 |---|-----|----------|--------|
-| M1 | **`introducing-vantadb` has no source draft** | High | The post is live on the web (4th entry, with full content) but has no `.md` in `docs/blog/`. It is the only post without an editable source. The 2026-07-28 audit already flagged that MKT-05's "4/5" inflated the count. |
-| M2 | **Author drift** | Medium | Web lists author `ness-e`; all drafts list `VantaDB Team`. One voice should win (recommendation: `ness-e` for the story post, `VantaDB Team` for engineering posts). |
-| M3 | **Date drift** | Medium | Web dates are Jan–Feb 2025; drafts are all 2026-06-06 (draft-creation date, not publish date). Dates will need reconciliation before any post is published. |
-| M4 | **Title drift** | Medium | Same topic, different titles: web `How Hybrid Search Actually Works` vs draft `How Hybrid Search Works: BM25 + HNSW + RRF in Practice`; web `SQLite for AI Agents: The Missing Memory Layer` vs draft `...: Benchmarks and Architecture Decisions`; web `Why I Built VantaDB: A Local Memory Engine` vs draft `Why I Built a Local Memory Engine for AI Agents in Rust`. |
-| M5 | **Slug convention drift** | Low | Draft files use underscores (`how_hybrid_search_works.md`); web slugs use hyphens (`how-hybrid-search-works`). No automation maps one to the other. |
-| M6 | **Version drift in copy** | High | `why_i_built.md` states "currently at version `0.1.4`"; `SHOW_HN_PREP.md` states `0.4.0`; `COMPANY_INFO` in `vanta-data.ts` states `v0.1.2`; `GO_TO_MARKET.md` states `v0.1.4`. The correct current version must be confirmed and standardized before any post ships. |
+| M1 | **`introducing-vantadb` has no source draft** | High | ✅ **RESUELTO 2026-08-17** — `docs/blog/introducing_vantadb.md` existe (commit `f51b2263`). La post está live en web con su fuente editable. |
+| M2 | **Author drift** | Medium | ✅ **RESUELTO 2026-08-17** — author alineado a `ness-e`. |
+| M3 | **Date drift** | Medium | 🟡 **VIGENTE** — web dates Jan–Feb 2025; drafts 2026-06-06. Reconciliar fechas antes de publicar. |
+| M4 | **Title drift** | Medium | 🟡 **VIGENTE** — mismos temas con títulos distintos (web vs draft). Decidir títulos finales. |
+| M5 | **Slug convention drift** | Low | ✅ **RESUELTO 2026-08-17** — slugs vía frontmatter mapean `docs/blog/*.md` a web. |
+| M6 | **Version drift in copy** | High | ✅ **RESUELTO 2026-08-17** — drafts estandarizados a `0.5.0` (publicado 2026-08-01). |
 
 ---
 

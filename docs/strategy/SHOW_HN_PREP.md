@@ -24,7 +24,7 @@ Hi HN,
 
 I'm the creator of VantaDB (https://github.com/ness-e/Vantadb). 
 
-VantaDB is an embedded, zero-dependency, local-first hybrid database engine designed specifically to act as long-term memory for autonomous AI agents. Think of it as a specialized SQLite tailored for agent payloads, integrating BM25 lexical retrieval and HNSW vector indexing in a single engine.
+VantaDB is an embedded, local-first hybrid database engine designed specifically to act as long-term memory for autonomous AI agents. Think of it as a specialized SQLite tailored for agent payloads, integrating BM25 lexical retrieval and HNSW vector indexing in a single engine. *(Nota 2026-08-17: el claim "zero-dependency" se corrigió — `croaring` (via `croaring-sys`/`cc`) compila C/C++ en build; el resto del stack es pure-Rust.)*
 
 ### Why built this?
 AI agents running locally (e.g., using Ollama or local LLMs) need persistent memory. Developers usually default to:
@@ -37,7 +37,7 @@ VantaDB was built from the ground up to solve this: a pure Rust library that exp
 ### Key Architectural Highlights
 * **Durable Storage Engine:** Powering VantaDB is a hybrid engine designed for persistence. By default, it uses Fjall (a lightweight pure-Rust LSM-tree), with RocksDB supported as a feature flag. All insertions write to a Write-Ahead Log (WAL) protected by CRC32C checksums to prevent corruption. We validate durability under hard crash simulations with injected failpoints in CI.
 * **Topological HNSW with BFS Layout:** In-memory vector graphs often suffer from massive page-fault overhead when scaled beyond RAM. VantaDB uses `memmap2` to memory-map its vector indexes. To maximize cache locality during graph traversal, we execute a post-build Breadth-First Search (BFS) layout compaction, reordering nodes topologically-sequentially to minimize random read amplification.
-* **Hardware-Accelerated Distances:** Graph distance calculations utilize SIMD intrinsics (AVX2/NEON) via `wide::f32x8` registers, maintaining high-recall (balanced recall@10 is >0.998 on SIFT) and sub-millisecond core search times.
+* **Hardware-Accelerated Distances:** Graph distance calculations utilize SIMD intrinsics (AVX2/NEON) via `wide::f32x8` registers. *(Nota 2026-08-17: el claim de recall se corrigió — lo medido es recall@10 0.9975 @ ef_400 en SIFT 10K real y 100% GloVe-100-angular 1.18M, no ">0.998 en SIFT1M"; y "sub-millisecond core search" es ~1.2ms mean @ ef_200 en 10K, no sub-ms a escala SIFT1M. Correr benchmark SIFT1M completo antes de publicar si se quiere ese claim.)*
 * **Cost-Based Query Planner (Volcano-style):** Hybrid queries (Text + Vector) are compiled into logical operators and optimized using a Cost-Based Optimizer (CBO) based on predicate selectivity estimates. Relational/attribute filters are pushed down before vector search traversal if their selectivity is $<10\%$.
 * **Reciprocal Rank Fusion (RRF):** Merges independent lexical (BM25) and dense (HNSW) rankings deterministically without requiring parameter tuning or heuristic weights.
 * **FFI Boundary & GIL Safety:** The Python SDK (`vantadb-py`) releases the Python GIL (`allow_threads`) during query execution, allowing multi-threaded batch queries (`search_batch`) to parallelize searches across all available CPU cores using Rayon.
@@ -171,7 +171,7 @@ VantaDB implements a lazy deletion model using **Tombstones**:
 > **Criticism:** If you use AVX2 instructions natively in Rust, the code will panic with an illegal instruction fault on older x86 machines that don't support it.
 
 **Response:**
-To avoid panics from missing hardware support, we use the `cpufeatures` crate and wrappers based on the `wide` crate.
+To avoid panics from missing hardware support, we use `std::is_x86_feature_detected!` (Rust std) and wrappers based on the `wide` crate. *(Nota 2026-08-17: el claim original citaba `cpufeatures` — corregido; `cpufeatures` NO es dependencia del crate. Evidencia: `src/hardware/mod.rs:236-245`.)*
 * **Dynamic Dispatch:** At runtime, the engine detects CPU capabilities. If AVX2 is available, it uses the optimized implementation with `wide::f32x8` registers. If not, it safely falls back to a highly optimized scalar implementation with loop unrolling that compiles cleanly on any Rust-compatible hardware.
 
 ---
