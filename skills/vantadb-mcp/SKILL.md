@@ -141,7 +141,8 @@ first write; list what exists with `collection_list` (or `memory_list_namespaces
 
 **search_memory** - Hybrid vector and text search in a namespace
 - Parameters: `namespace` (required), `query_vector` (optional array), `text_query` (optional string), `top_k` (default: 10), `distance_metric` (`cosine` | `euclidean`, default: `cosine`, **per-request** — has an observable effect on ranking and scores; no server-side global setting), `explain` (optional boolean), `filters` (optional object)
-- Returns: Search hits with scores and optional explanations
+- Returns: A **JSON array** of search hits. Each hit is an object with `record` (the memory record), `score` (fused relevance score), and — only when `explain: true` — an `explanation` object with the per-hit scoring breakdown: `identity` (`"namespace\0key"`), `score`, `snippet`, `matched_tokens`, `matched_phrases`, `bm25_terms`, `rrf_text_rank`, `rrf_vector_rank`.
+- ⚠️ Explain shape (T15): the response is a **flat hit array**; there is **no top-level `route` or `fusion_report`** key on `search_memory`. Those fields belong to the dedicated core/Python `explain_memory_search()` method (returns `{route, hits, fusion_report}`; `fusion_report` is currently always `null`). Do not assert `route`/`fusion_report` on `search_memory` output.
 
 **search_semantic** - Raw HNSW vector search
 - Parameters: `vector` (F32 query vector, required), `k` (required in the input schema; optional at runtime — when omitted it defaults to 5)

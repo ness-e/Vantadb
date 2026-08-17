@@ -138,7 +138,7 @@ Each `search_memory` hit produces a `PyDict` with ~10-15 key-value pairs:
 - `namespace`, `key`, `payload`, `created_at_ms`, `updated_at_ms`, `version`, `node_id`
 - `vector` (wrapped in `VantaVector` — zero-copy, but still a Python object allocation)
 - `metadata` (nested `PyDict`)
-- `score` + optional `explanation` + `fusion_report`
+- `score` (+ optional `explanation` per hit — MCP/Rust; the Python `search_memory` binding currently drops `explanation` and never emits `fusion_report`)
 
 For `top_k=10`, this means **10 PyDict allocations**, each calling `dict.set_item()` repeatedly. Each call crosses the PyO3 type boundary.
 

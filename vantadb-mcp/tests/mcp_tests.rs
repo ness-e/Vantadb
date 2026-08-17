@@ -1671,3 +1671,84 @@ fn test_mcp_text_search_requires_index_ensure() {
         "filtered text search should not error after ensure: {filter_val}"
     );
 }
+
+// ── T15: search_memory(explain=true) shape contract (regression) ──────────
+//
+// The MCP response for `search_memory(explain: true)` is a FLAT ARRAY of hits.
+// Each hit is `{record, score, explanation?}` where `explanation` is a
+// per-hit scoring breakdown: identity, score, snippet, matched_tokens,
+// matched_phrases, bm25_terms, rrf_text_rank, rrf_vector_rank.
+// There is NO top-level `route` / `fusion_report` on search_memory — those
+// belong to the dedicated `explain_memory_search` method. This test pins the
+// real shape so the docs (SKILL.md / api-reference.md) stay truthful.
+
+#[test]
+fn test_mcp_search_memory_explain_shape() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    embedded
+        .ensure_indexes_current()
+        .expect("startup index ensure should succeed");
+
+    let put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "t15_ns",
+            "key": "doc1",
+            "payload": "concise technical answer about rust",
+            "vector": [1.0, 0.0, 0.0]
+        }
+    }));
+    let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+    assert!(put_res.is_ok(), "seed memory_put should succeed");
+
+    let search_params = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "t15_ns",
+            "text_query": "concise",
+            "query_vector": [1.0, 0.0, 0.0],
+            "top_k": 5,
+            "explain": true
+        }
+    }));
+    let res = handle_tools_call(&search_params, &executor, &storage, &default_config());
+    let val = res.expect("search_memory(explain=true) should return");
+    assert!(
+        val["isError"].is_null(),
+        "search_memory(explain=true) should not error: {val}"
+    );
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let hits: Value = serde_json::from_str(text).expect("response should be JSON");
+
+    // Contract: flat ARRAY of hits — no top-level route/fusion_report envelope.
+    let arr = hits.as_array().expect("response should be a flat hit array");
+    assert!(!arr.is_empty(), "seeded search should return at least one hit");
+    for hit in arr {
+        assert!(
+            hit.get("route").is_none() && hit.get("fusion_report").is_none(),
+            "hit must not carry top-level route/fusion_report, got: {hit}"
+        );
+        assert!(
+            hit.get("record").is_some() && hit.get("score").is_some(),
+            "hit must carry record and score, got: {hit}"
+        );
+        let explanation = hit.get("explanation").expect("explain=true must attach explanation");
+        for field in [
+            "identity",
+            "score",
+            "snippet",
+            "matched_tokens",
+            "matched_phrases",
+            "bm25_terms",
+            "rrf_text_rank",
+            "rrf_vector_rank",
+        ] {
+            assert!(
+                explanation.get(field).is_some(),
+                "explanation must contain {field}, got: {explanation}"
+            );
+        }
+    }
+}

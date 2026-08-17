@@ -39,7 +39,8 @@ async_db = AsyncVantaDB("./my_brain")  # asyncio wrapper (thread-pool backed)
 **search_memory(namespace, query_vector=None, text_query=None, top_k=10, filters=None, distance_metric=None, explain=False)**
 - Hybrid vector + text search
 - `distance_metric` (`"cosine"` | `"euclidean"`) is resolved **per request**; it changes the ranking and reported scores of that call. There is no global/server-side distance metric setting — each request selects its own metric. When omitted, `"cosine"` is used.
-- Returns: List of hits with scores
+- `explain=True` appends a per-hit `explanation` object to each hit: `{identity, score, snippet, matched_tokens, matched_phrases, bm25_terms, rrf_text_rank, rrf_vector_rank}` (the per-source ranks behind the fused score).
+- Returns: **JSON array** of hits — `[{record, score, explanation?}, ...]`. There is **no top-level `route` or `fusion_report`** on this method; those belong to `explain_memory_search()`, whose `fusion_report` is currently always `null`. Do not assert them on `search_memory` output.
 
 **search(vector, top_k=10)**
 - Pure HNSW vector search
