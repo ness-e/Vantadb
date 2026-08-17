@@ -1,14 +1,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod"
-import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, rmSync, appendFileSync } from "node:fs"
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, rmSync, appendFileSync, openSync, writeSync, closeSync, renameSync } from "node:fs"
 import { fileURLToPath } from "url"
 import { resolve, join, dirname } from "node:path"
 import { execSync } from "node:child_process"
-import { randomUUID } from "node:crypto"
+import { randomUUID, createHash } from "node:crypto"
 import { emit as traceEmit, getHealth } from "../traces/tracer.mjs"
 import { getTraits, listModels, escalateTier, tierForModel, TIERS } from "../config/model-traits.mjs"
 import { STATE_TOOLS, getAllowedTools, validateAction } from "../config/state-tools.mjs"
+import { parseTasks, parseRecitation, getOrCreateCampaignId, updateState, updateRecitation } from "./parsers.mjs"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -39,62 +40,6 @@ function resolvePlan(planFile, worktree) {
   return planPath
 }
 
-function extractField(block, field) {
-  const m = block.match(new RegExp(`- \\*\\*${field}:\\*\\*\\s*(.+)`))
-  return m ? m[1].trim() : ""
-}
-
-function extractState(block) {
-  const m = block.match(/- \*\*Estado:\*\*\s*(.+)/)
-  if (!m) return "⬜ PENDING"
-  const raw = m[1].trim()
-  if (raw.includes("✅")) return "✅ COMPLETED"
-  if (raw.includes("❌")) return "❌ FAILED"
-  if (raw.includes("⏳")) return "⏳ IN PROGRESS"
-  return "⬜ PENDING"
-}
-
-function parseTasks(content) {
-  const tasks = []
-  const blocks = content.split(/\n(?=### Task \d+)/)
-  for (const block of blocks) {
-    const headerMatch = block.match(/### Task (\d+):\s*(.+)/)
-    if (!headerMatch) continue
-    tasks.push({
-      id: headerMatch[1],
-      name: headerMatch[2].trim(),
-      priority: extractField(block, "Prioridad"),
-      effort: extractField(block, "Esfuerzo"),
-      files: extractField(block, "Archivos clave"),
-      contract: extractField(block, "Contrato"),
-      state: extractState(block),
-      source: extractField(block, "Fuente"),
-      notes: extractField(block, "Notas"),
-      block,
-    })
-  }
-  return tasks
-}
-
-function parseRecitation(content) {
-  const m = content.match(/=== RECITATION ===\n([\s\S]*?)=== END RECITATION ===/)
-  if (!m) return null
-  const block = m[1]
-  const extract = (field) => {
-    const r = block.match(new RegExp(`${field}:\\s*(.+?)(?:\\n|$)`))
-    return r ? r[1].trim() : ""
-  }
-  return {
-    activeGoal: extract("Objetivo activo"),
-    status: extract("Estado"),
-    lastAction: extract("Última acción"),
-    result: extract("Resultado"),
-    nextAction: extract("Próxima acción"),
-    contract: extract("Contrato"),
-    nextTask: extract("Próxima tarea si completa"),
-  }
-}
-
 function countGateResults(content) {
   return {
     do: (content.match(/✅ DO/g) || []).length,
@@ -104,30 +49,13 @@ function countGateResults(content) {
   }
 }
 
-function extractCampaignId(content) {
-  const m = content.match(/> \*\*Campaign ID:\*\*\s*(.+)/)
-  if (!m) return null
-  const id = m[1].trim()
-  // Reject template placeholders so they never become trace filenames.
-  return /^(\([^)]*\)|TODO|TBD|<[^>]+>)$|^[^0-9a-f-]{0,}$/.test(id) ? null : id
-}
-
-function getOrCreateCampaignId(content) {
-  const existing = extractCampaignId(content)
-  if (existing) return { campaignId: existing, content }
-  const id = randomUUID()
-  const line = `> **Campaign ID:** ${id}\n`
-  const updated = content.replace(/(^>\s\*\*Inicio:\*\*)/m, `${line}$1`)
-  return { campaignId: id, content: updated }
-}
-
 // ---------- P2-04: WIP hard-limit ----------
 
 // Escanea tareas activas (in-progress): plan files en docs/plans/ (task blocks
 // con `- **Estado:**` = IN PROGRESS/in-progress) + task files en tasks/.
 function findInProgressTasks(worktree) {
   const active = []
-  const opencodeRoot = resolve(__dirname, "..", "..")
+  const opencodeRoot = resolve(worktree, ".opencode")
 
   // 1) Plan files en docs/plans/.
   const planDir = join(worktree, "docs", "plans")
@@ -244,14 +172,25 @@ const BUDGET_LIMITS = {
 
 function budgetPath(worktree) { const p = findPlanFile(worktree); return p ? p.replace(/\.md$/, ".budget.json") : null }
 
+// TSYS-06 §6.1 (C3/C7): corrupción visible — ante JSON inválido/truncado, NUNCA
+// reset silencioso: se devuelve estado vacío con `budgetCorrupted: true` para que
+// las tools lo surfacen. writeBudget strip del flag: la corrupción es transitoria,
+// nunca se persiste como dato.
 function readBudget(planPath) {
   const bp = planPath.replace(/\.md$/, ".budget.json")
   try { return JSON.parse(readFileSync(bp, "utf-8")) }
-  catch { return { tasks: {} } }
+  catch (e) {
+    // ENOENT = plan sin budget todavía (primer uso) → vacío limpio, NO es corrupción.
+    if (e.code === "ENOENT") return { tasks: {} }
+    // Cualquier otro error (JSON truncado/inválido) = corrupción visible, nunca silenciosa.
+    return { tasks: {}, budgetCorrupted: true }
+  }
 }
 
 function writeBudget(planPath, state) {
-  writeFileSync(planPath.replace(/\.md$/, ".budget.json"), JSON.stringify(state, null, 2), "utf-8")
+  const clean = { ...state }
+  delete clean.budgetCorrupted
+  writeFileSync(planPath.replace(/\.md$/, ".budget.json"), JSON.stringify(clean, null, 2), "utf-8")
 }
 
 function initTaskBudget(planPath, taskId) {
@@ -267,29 +206,33 @@ function initTaskBudget(planPath, taskId) {
 function consumeBudget(taskId, worktree) {
   const planPath = findPlanFile(worktree)
   if (!planPath) return null
-  const state = readBudget(planPath)
-  if (!state.tasks[taskId]) initTaskBudget(planPath, taskId)
+  let state = readBudget(planPath)
+  if (!state.tasks[taskId]) {
+    initTaskBudget(planPath, taskId)
+    state = readBudget(planPath) // re-read: initTaskBudget escribe un budget fresco (recupera corrupción)
+  }
   const t = state.tasks[taskId]
   t.toolCalls++
   t.lastActivity = Date.now()
   const elapsed = (t.lastActivity - t.startTime) / 60000
   const withinBudget = t.toolCalls <= BUDGET_LIMITS.maxToolCalls && elapsed <= BUDGET_LIMITS.maxDurationMinutes && t.consecutiveFails <= BUDGET_LIMITS.maxConsecutiveFails
   writeBudget(planPath, state)
-  return { withinBudget, toolCalls: t.toolCalls, consecutiveFails: t.consecutiveFails, elapsedMinutes: Math.round(elapsed), limits: BUDGET_LIMITS }
+  return { withinBudget, toolCalls: t.toolCalls, consecutiveFails: t.consecutiveFails, elapsedMinutes: Math.round(elapsed), limits: BUDGET_LIMITS, budgetCorrupted: !!state.budgetCorrupted }
 }
 
 function budgetStatus(taskId, worktree) {
   const planPath = findPlanFile(worktree)
   if (!planPath) return null
   const state = readBudget(planPath)
+  const budgetCorrupted = !!state.budgetCorrupted
   const t = state.tasks[taskId]
-  if (!t) return { exists: false }
+  if (!t) return { exists: false, budgetCorrupted }
   const elapsed = (Date.now() - t.startTime) / 60000
   return {
     exists: true, taskId, toolCalls: t.toolCalls, subAgentCalls: t.subAgentCalls,
     consecutiveFails: t.consecutiveFails, elapsedMinutes: Math.round(elapsed),
     withinBudget: t.toolCalls <= BUDGET_LIMITS.maxToolCalls && elapsed <= BUDGET_LIMITS.maxDurationMinutes && t.consecutiveFails <= BUDGET_LIMITS.maxConsecutiveFails,
-    limits: BUDGET_LIMITS,
+    limits: BUDGET_LIMITS, budgetCorrupted,
   }
 }
 
@@ -428,6 +371,8 @@ server.tool(
     const worktree = PROJECT_ROOT
     const planPath = resolvePlan(planFile, worktree)
     if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ error: "No plan file found" }) }] }
+    // TSYS-06 C3/C7: capturar corrupción ANTES de que initTaskBudget la recupere silenciosamente.
+    const budgetCorrupted = !!readBudget(planPath).budgetCorrupted
     initTaskBudget(planPath, taskId)
     const state = readBudget(planPath)
     const t = state.tasks[taskId]
@@ -438,7 +383,7 @@ server.tool(
     writeBudget(planPath, state)
     const elapsed = (t.lastActivity - t.startTime) / 60000
     const withinBudget = t.toolCalls <= BUDGET_LIMITS.maxToolCalls && elapsed <= BUDGET_LIMITS.maxDurationMinutes && t.consecutiveFails <= BUDGET_LIMITS.maxConsecutiveFails
-    return { content: [{ type: "text", text: JSON.stringify({ consumed: resource, taskId, toolCalls: t.toolCalls, consecutiveFails: t.consecutiveFails, withinBudget, limits: BUDGET_LIMITS }) }] }
+    return { content: [{ type: "text", text: JSON.stringify({ consumed: resource, taskId, toolCalls: t.toolCalls, consecutiveFails: t.consecutiveFails, withinBudget, limits: BUDGET_LIMITS, budgetCorrupted }) }] }
   },
 )
 
@@ -623,50 +568,125 @@ server.tool(
 )
 
 // ---------- Tool 2: campaign_update_task_state ----------
+//
+// TSYS-06 §6.2/§6.3 (C4/C6/C12): writes con checksum + atómicos y WIP check-and-set
+// atómico. updateTaskStateCore corre TODA la lógica bajo withPlanLock (lock file
+// exclusivo por plan): el scan WIP, el read→update y el write quedan serializados
+// contra otros writers del MISMO plan file. Checksum sha1 del contenido original +
+// re-read antes del write → si otro proceso cambió el archivo, el perdedor recibe
+// `conflict:true`/`updated:false` con el estado ganador en el payload (C4).
 
-const STATE_MAP = {
-  completed: "✅ COMPLETED",
-  failed: "❌ FAILED",
-  "in-progress": "⏳ EN PROGRESO",
-  pending: "⬜ PENDING",
+function sha1(content) {
+  return createHash("sha1").update(content).digest("hex")
 }
 
-function findTaskById(content, taskId) {
-  const pattern = new RegExp(`(### Task\\s*${taskId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^\\n]*\\n[\\s\\S]*?)(?=\n### Task |\\n## |\\n---|\\n===|$)`)
-  const m = content.match(pattern)
-  if (!m) return null
-  return { index: m.index, length: m[0].length, header: m[0] }
+function sleepSync(ms) {
+  const sab = new Int32Array(new SharedArrayBuffer(4))
+  Atomics.wait(sab, 0, 0, ms)
 }
 
-function updateState(content, taskId, newState) {
-  const mapped = STATE_MAP[newState]
-  if (!mapped) return content
-  const taskInfo = findTaskById(content, taskId)
-  if (!taskInfo) return content
-  const taskBlock = content.slice(taskInfo.index, taskInfo.index + taskInfo.length)
-  const updated = taskBlock.replace(/(- \*\*Estado:\*\*\s*).+/, `$1${mapped}`)
-  return content.slice(0, taskInfo.index) + updated + content.slice(taskInfo.index + taskInfo.length)
-}
-
-function updateRecitation(content, data) {
-  const hasRecitation = /=== RECITATION ===/.test(content)
-  if (!hasRecitation) {
-    const rec = ["=== RECITATION ===", `Campaign ID: ${data.campaignId || ""}`, `Objetivo activo: ${data.activeGoal || ""}`, `Estado: ${data.status || "in-progress"}`, `Última acción: ${data.lastAction || ""}`, `Resultado: ${data.result || ""}`, `Próxima acción: ${data.nextAction || ""}`, `Contrato: ${data.contract || ""}`, `Próxima tarea si completa: ${data.nextTask || ""}`, "=== END RECITATION ==="].join("\n")
-    return content.trimEnd() + "\n\n" + rec + "\n"
+// ponytail: lock file exclusivo (O_EXCL) con retry 50ms y stale-detection por mtime.
+// techo: serializa writers del MISMO plan file; la carrera cross-plan del claim WIP
+// queda como spec del runner diferido (TSYS-06 Fase 4) — el caso real es 2 sesiones
+// sobre el mismo plan, cubierto acá.
+function withPlanLock(planPath, fn) {
+  const lockPath = `${planPath}.lock`
+  const deadline = Date.now() + 5000
+  for (;;) {
+    let fd = null
+    try {
+      fd = openSync(lockPath, "wx")
+      writeSync(fd, JSON.stringify({ pid: process.pid, ts: Date.now() }))
+      closeSync(fd)
+      try {
+        return fn()
+      } finally {
+        try { rmSync(lockPath, { force: true }) } catch {}
+      }
+    } catch (e) {
+      if (e.code === "EEXIST") {
+        try {
+          const st = statSync(lockPath)
+          if (Date.now() - st.mtimeMs > 10000) { rmSync(lockPath, { force: true }); continue } // lock stale de un crash previo
+        } catch {}
+        if (Date.now() > deadline) throw new Error(`Timed out waiting for plan lock: ${lockPath}`)
+        sleepSync(50)
+        continue
+      }
+      throw e
+    }
   }
-  let updated = content
-  const reps = [
-    [/Campaign ID:\s*.*/, `Campaign ID: ${data.campaignId || ""}`],
-    [/Objetivo activo:\s*.*/, `Objetivo activo: ${data.activeGoal || ""}`],
-    [/Estado:\s*.*/, `Estado: ${data.status || "in-progress"}`],
-    [/Última acción:\s*.*/, `Última acción: ${data.lastAction || ""}`],
-    [/Resultado:\s*.*/, `Resultado: ${data.result || ""}`],
-    [/Próxima acción:\s*.*/, `Próxima acción: ${data.nextAction || ""}`],
-    [/Contrato:\s*.*/, `Contrato: ${data.contract || ""}`],
-    [/Próxima tarea si completa:\s*.*/, `Próxima tarea si completa: ${data.nextTask || ""}`],
-  ]
-  for (const [pat, rep] of reps) updated = updated.replace(pat, rep)
-  return updated
+}
+
+function detectConflict(currentContent, originalChecksum) {
+  return sha1(currentContent) !== originalChecksum
+}
+
+// Core exportable (tests TSYS-06): read→regex-update→checksum-check→temp+rename bajo lock.
+// Devuelve el payload del resultado; el handler agrega tracing/lessons post-write.
+export function updateTaskStateCore(planPath, taskId, newState, recitationData, worktree) {
+  return withPlanLock(planPath, () => {
+    // P2-04: WIP hard-limit — convención one-task-at-a-time. El scan corre DENTRO del
+    // lock (check-and-set atómico, C12): ningún claim puede pasar entre el scan y el write.
+    if (newState === "in-progress") {
+      const active = findInProgressTasks(worktree).filter(t => t.id !== taskId)
+      if (active.length > 0) {
+        const list = active.map(a => `${a.id} (${a.name}) en ${a.source}`).join(", ")
+        return {
+          updated: false,
+          error: `No se puede iniciar la tarea ${taskId}: ya hay otra tarea en progreso (${list}). Convención one-task-at-a-time: completala o cerrála antes de arrancar otra.`,
+          activeTasks: active,
+          wipBlocked: true,
+        }
+      }
+    }
+
+    const original = readFileSync(planPath, "utf-8")
+    const originalChecksum = sha1(original)
+    const { campaignId } = getOrCreateCampaignId(original)
+    // TSYS-09: capturar el estado previo para trazar el cambio (por qué se reabrió/cerró).
+    const fromState = (() => {
+      try { const t = parseTasks(original).find(t => t.id === taskId); return t ? t.state : null } catch { return null }
+    })()
+
+    let updated = updateState(original, taskId, newState)
+    if (recitationData) updated = updateRecitation(updated, { campaignId, ...recitationData })
+
+    if (updated === original) {
+      return { updated: false, warning: `Task ${taskId} not found or no changes needed`, campaignId }
+    }
+
+    // TSYS-06 §6.2 (C4): checksum check-and-set — si otro writer modificó el archivo
+    // entre nuestro read y este punto, el update pierde y el perdedor ve el estado ganador.
+    const current = readFileSync(planPath, "utf-8")
+    if (detectConflict(current, originalChecksum)) {
+      const currentTask = (() => { try { return parseTasks(current).find(t => t.id === taskId) || null } catch { return null } })()
+      return {
+        updated: false,
+        conflict: true,
+        warning: `Concurrent modification detected: plan file changed while updating task ${taskId}.`,
+        taskId, newState, campaignId,
+        currentState: currentTask ? currentTask.state : null,
+      }
+    }
+
+    // P2-05: traceId por tarea — se genera/persiste al entrar en in-progress.
+    let traceId = null
+    if (newState === "in-progress") {
+      traceId = getOrCreateTraceId(planPath, taskId)
+      traceIdByTask.set(taskId, traceId)
+    } else {
+      traceId = traceIdForTask(taskId)
+    }
+
+    // TSYS-06 §6.2 (C6): write atómico — temp + rename; un kill entre write y rename
+    // deja el archivo original intacto (o el update completo, nunca un write a medias).
+    const tmp = `${planPath}.tmp`
+    writeFileSync(tmp, updated, "utf-8")
+    renameSync(tmp, planPath)
+
+    return { updated: true, taskId, newState, campaignId, planFile: planPath, traceId, fromState }
+  })
 }
 
 server.tool(
@@ -691,75 +711,47 @@ server.tool(
     const planPath = resolvePlan(planFile, worktree)
     if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ error: "No plan file found" }) }] }
 
-    // P2-04: WIP hard-limit — convención one-task-at-a-time.
-    if (newState === "in-progress") {
-      const active = findInProgressTasks(worktree).filter(t => t.id !== taskId)
-      if (active.length > 0) {
-        const list = active.map(a => `${a.id} (${a.name}) en ${a.source}`).join(", ")
-        return {
-          content: [{ type: "text", text: JSON.stringify({
-            updated: false,
-            error: `No se puede iniciar la tarea ${taskId}: ya hay otra tarea en progreso (${list}). Convención one-task-at-a-time: completala o cerrála antes de arrancar otra.`,
-            activeTasks: active,
-            wipBlocked: true,
-          }, null, 2) }],
-        }
+    const recitationData = recitation ? {
+      activeGoal: recitation.activeGoal,
+      status: newState,
+      lastAction: recitation.lastAction,
+      result: recitation.result,
+      nextAction: recitation.nextAction,
+      contract: recitation.contract,
+      nextTask: recitation.nextTask,
+    } : null
+
+    let result
+    try {
+      result = updateTaskStateCore(planPath, taskId, newState, recitationData, worktree)
+    } catch (e) {
+      return { content: [{ type: "text", text: JSON.stringify({ updated: false, error: `Plan lock failed: ${e.message}` }) }] }
+    }
+
+    // Post-write side effects (best-effort; kill entre write y trace conserva el estado — §3.5).
+    if (result.updated) {
+      traceEmit(result.campaignId, `task.${newState}`, { taskId, newState, taskType: "unknown", traceId: result.traceId }, worktree)
+      // TSYS-09: evento plan.adjust — registra cuándo un plan/tarea cambia de estado con el motivo.
+      // Campos opcionales: no rompe el esquema del log (solo añade claves cuando existen).
+      traceEmit(result.campaignId, "plan.adjust", {
+        taskId, fromState: result.fromState, newState,
+        decision_reason: decision_reason || null,
+        pattern: pattern || null,
+        traceId: result.traceId,
+      }, worktree)
+      if (newState === "completed" || newState === "failed") {
+        try {
+          const tasks = parseTasks(readFileSync(planPath, "utf-8"))
+          const task = tasks.find(t => t.id === taskId)
+          const note = task ? `Task ${taskId} (${task.name}) → ${newState} | Contract: ${task.contract || "none"}` : `Task ${taskId} → ${newState}`
+          const memFile = join(MEMORY_DIR, "lessons.md")
+          const date = new Date().toISOString().slice(0, 10)
+          try { appendFileSync(memFile, `- ${date} | ${taskId} | ${note}\n`, "utf-8") } catch {}
+        } catch {}
       }
     }
 
-    const original = readFileSync(planPath, "utf-8")
-    const { campaignId } = getOrCreateCampaignId(original)
-    // TSYS-09: capturar el estado previo para trazar el cambio (por qué se reabrió/cerró).
-    const fromState = (() => {
-      try { const t = parseTasks(original).find(t => t.id === taskId); return t ? t.state : null } catch { return null }
-    })()
-    let updated = updateState(original, taskId, newState)
-
-    if (recitation) {
-      updated = updateRecitation(updated, {
-        campaignId,
-        activeGoal: recitation.activeGoal,
-        status: newState,
-        lastAction: recitation.lastAction,
-        result: recitation.result,
-        nextAction: recitation.nextAction,
-        contract: recitation.contract,
-        nextTask: recitation.nextTask,
-      })
-    }
-
-    if (updated === original) {
-      return { content: [{ type: "text", text: JSON.stringify({ updated: false, warning: `Task ${taskId} not found or no changes needed`, campaignId }) }] }
-    }
-
-    // P2-05: traceId por tarea — se genera/persiste al entrar en in-progress.
-    let traceId = null
-    if (newState === "in-progress") {
-      traceId = getOrCreateTraceId(planPath, taskId)
-      traceIdByTask.set(taskId, traceId)
-    } else {
-      traceId = traceIdForTask(taskId)
-    }
-
-    writeFileSync(planPath, updated, "utf-8")
-    traceEmit(campaignId, `task.${newState}`, { taskId, newState, taskType: "unknown", traceId }, worktree)
-    // TSYS-09: evento plan.adjust — registra cuándo un plan/tarea cambia de estado con el motivo.
-    // Campos opcionales: no rompe el esquema del log (solo añade claves cuando existen).
-    traceEmit(campaignId, "plan.adjust", {
-      taskId, fromState, newState,
-      decision_reason: decision_reason || null,
-      pattern: pattern || null,
-      traceId,
-    }, worktree)
-    if (newState === "completed" || newState === "failed") {
-      const tasks = parseTasks(updated)
-      const task = tasks.find(t => t.id === taskId)
-      const note = task ? `Task ${taskId} (${task.name}) → ${newState} | Contract: ${task.contract || "none"}` : `Task ${taskId} → ${newState}`
-      const memFile = join(MEMORY_DIR, "lessons.md")
-      const date = new Date().toISOString().slice(0, 10)
-      try { appendFileSync(memFile, `- ${date} | ${taskId} | ${note}\n`, "utf-8") } catch {}
-    }
-    return { content: [{ type: "text", text: JSON.stringify({ updated: true, taskId, newState, campaignId, planFile: planPath, traceId }) }] }
+    return { content: [{ type: "text", text: JSON.stringify(result) }] }
   },
 )
 
@@ -989,6 +981,7 @@ server.tool(
     const tasks = parseTasks(content)
     const recitation = parseRecitation(content)
     const budget = readBudget(planPath)
+    const budgetCorrupted = !!budget.budgetCorrupted
 
     const now = Date.now()
     const stalled = tasks.filter(t => {
@@ -1013,6 +1006,7 @@ server.tool(
         recitationStalled,
         recitationState: recitation ? recitation.status : null,
         recitationAction: recitation ? recitation.nextAction : null,
+        budgetCorrupted,
       }, null, 2) }],
     }
   },
@@ -1504,11 +1498,20 @@ process.on('unhandledRejection', (reason) => {
 })
 
 // ---------- start ----------
+//
+// TSYS-06-F1: exports para tests (node --test) — al importar el módulo NO se
+// conecta el transporte stdio (isMain guard). Al correr como server (bun/node
+// campaign-server.mjs) argv[1] == este archivo → conecta exactamente como antes.
 
-try {
-  const transport = new StdioServerTransport()
-  await server.connect(transport)
-} catch (error) {
-  console.error("[campaign-server] Fatal: Failed to connect transport:", error)
-  process.exit(1)
+export { readBudget, writeBudget, withPlanLock, findInProgressTasks, detectConflict, sha1, consumeBudget, budgetStatus }
+
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+if (isMain) {
+  try {
+    const transport = new StdioServerTransport()
+    await server.connect(transport)
+  } catch (error) {
+    console.error("[campaign-server] Fatal: Failed to connect transport:", error)
+    process.exit(1)
+  }
 }

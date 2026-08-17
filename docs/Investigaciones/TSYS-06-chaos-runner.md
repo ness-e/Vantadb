@@ -147,3 +147,55 @@
 
 - **Ponytail note:** la tentación de "build a chaos runner" es el fuzzer por el fuzzer; la escalera manda: ya-existe (parsers) → stdlib (`node --test`) → mínimo (unit tests del gate puro). El runner no es YAGNI definitivo (los kill/race son reales) sino **prematuro**: su valor depende de behavior changes que primero hay que implementar.
 - **Límite del veredicto:** los tests puntuales NO cubren kill real entre read/write (C6/C7) ni race de WIP (C12) — esos 4 escenarios quedan explícitamente como spec del runner diferido (Fase 4). No se afirma que "tests puntuales == runner"; se afirma que hoy cubren el 8/12 accionable al menor costo y congelan el comportamiento actual.
+
+---
+
+## 10. Implementación (TSYS-06-F1) — ✅ COMPLETO 2026-08-17
+
+> **Ejecutor:** vanta-arch · **Task:** `.opencode/skills/campaign-executor/tasks/TSYS-06-F1.md` · **Plan:** `docs/plans/2026-08-16-wave-followups.md` (W2)
+
+### 10.1 Qué se implementó
+
+Los 3 behavior changes del diseño §6 + extracción de parsers (precondiciones del runner Fase 4):
+
+| Change | Escenarios | Implementación |
+|--------|-----------|----------------|
+| **(a) Corrupción visible** | C3, C7 | `readBudget` distingue `ENOENT` (sin budget = primer uso, vacío limpio) de error real de parse → `{tasks:{}, budgetCorrupted:true}`. `writeBudget` hace strip del flag (la corrupción es transitoria, nunca se persiste). `budgetStatus`, `consumeBudget`, `campaign_budget_consume` y `campaign_stalled_tasks` surfacen `budgetCorrupted` en la respuesta. Fix colateral: `consumeBudget` re-lee el budget tras `initTaskBudget` (evita crash por state stale en budget corrupto) |
+| **(b) Writes con checksum + atómicos** | C4, C6 | `updateTaskStateCore`: checksum sha1 del contenido original (`node:crypto` `createHash`) + re-read antes del write → si cambió, el perdedor recibe `{updated:false, conflict:true, currentState}` con el estado ganador (C4). Write vía temp+rename (C6): kill entre write y rename deja el archivo original intacto. `getOrCreateCampaignId` sigue idempotente (C5) |
+| **(c) WIP atómico** | C12 | helper `withPlanLock(planPath, fn)` — lock file exclusivo (`O_EXCL`) con retry 50ms, stale-detection por mtime (10s, crash previo) y timeout 5s con error claro. El scan WIP corre DENTRO del lock (check-and-set): ningún claim pasa entre scan y write. `findInProgressTasks` ahora deriva `opencodeRoot` del worktree (`resolve(worktree, ".opencode")`) — mismo resultado en producción, testeable con worktrees temporales |
+| **Extra: parsers.mjs** | C1, C2, C11 | 9 funciones puras + `STATE_MAP` movidas verbatim a `.opencode/task-system/mcp/parsers.mjs`; `campaign-server.mjs` importa desde ahí. Refactor sin cambio de comportamiento (bodies idénticos) |
+
+### 10.2 Archivos
+
+- `.opencode/task-system/mcp/parsers.mjs` (nuevo — parsers puros)
+- `.opencode/task-system/mcp/campaign-server.mjs` (modificado — behavior changes + import parsers + exports para tests + guard `isMain` para no conectar stdio al importar)
+- `.opencode/task-system/mcp/parsers.test.mjs` (nuevo — 14 tests: fixtures corrupción C1/C2/C11, contrato parsers)
+- `.opencode/task-system/mcp/state-persistence.test.mjs` (nuevo — 15 tests: C3/C4/C6/C7/C12 + regresión ENOENT)
+
+**API MCP sin cambios:** mismos nombres/schemas de las 30+ tools; payloads iguales salvo claves ADITIVAS (`budgetCorrupted`, `conflict`, `currentState`). `state-tools.mjs` NO se tocó (gate C0 intacto).
+
+### 10.3 Contrato verificado
+
+| Check | Resultado |
+|-------|-----------|
+| `node --test ".opencode/task-system/mcp/*.test.mjs"` | ✅ 29/29 pass (exit 0) |
+| `node --check campaign-server.mjs` / `parsers.mjs` | ✅ sin errores de sintaxis |
+| Smoke MCP (bun): initialize + `campaign_health_status` | ✅ `healthy:true`, `serverLiveness:true` |
+| `rg "function (extractField\|parseTasks\|...)" campaign-server.mjs` | ✅ 0 hits — parsers solo en parsers.mjs |
+| Import del módulo bajo node (guard isMain) | ✅ 9 exports, sin conexión stdio |
+
+### 10.4 Estado de fases (§6 del doc de decisión)
+
+| Fase | Estado |
+|------|--------|
+| Fase 1 — unit tests `state-tools.mjs` | ⬜ Pendiente (tarea vanta-worker separada; `state-tools.mjs` NO se tocó por invariante) |
+| Fase 2 — extracción `parsers.mjs` + tests corrupción | ✅ HECHA (esta tarea) |
+| Behavior changes 1-3 (§6) | ✅ HECHA (esta tarea) |
+| Fase 3 — RED tests | ✅ HECHA como GREEN (esta tarea implementó los behavior changes, no solo los tests) |
+| Fase 4 — runner completo | ⏸ **Sigue DEFERIDA** — re-evaluar ≤ 2026-09; ahora los C3/C4/C5/C7/C12 ya tienen contrato verificable, así que el runner asserta contra comportamiento existente (no precondiciones ausentes) |
+
+### 10.5 Notas / deuda
+
+- **Ceiling documentado (`ponytail:`):** `withPlanLock` serializa writers del MISMO plan file; la carrera cross-plan del claim WIP (dos sesiones sobre planes distintos) sigue como spec del runner Fase 4. El caso real (2 sesiones sobre el mismo plan) queda cubierto.
+- **ENOENT vs corrupción:** `readBudget` distingue archivo inexistente (primer uso, no corrupción) de JSON inválido/truncado (corrupción visible). `tasks:null` parsea sin error → NO es corrupción detectable por `readBudget` (requeriría validación de shape, fuera de alcance de los 3 behavior changes).
+- **C6/C7 kill real** (proceso muerto entre read/write, truncado en caliente) y **race WIP real** (dos procesos paralelos) siguen siendo dominio del runner Fase 4 — los tests deterministas cubren el mecanismo (detectConflict, lock lifecycle, check-and-set secuencial).
