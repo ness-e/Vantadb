@@ -20,21 +20,22 @@ export const VANTA = {
  */
 export const PRODUCT = {
   // Core metrics (hero, metrics-bar, cta-final, trust-section, benchmarks)
+  // Source of truth: docs/operations/BENCHMARKS.md — numbers are backed by
+  // stress_protocol.rs (§1), vantadb_local_bench.py (§2), SIFT1M (§5), competitive_bench.py (§7).
   metrics: {
-    hybridLatency: "1.2ms",        // p50 hybrid search latency
-    hybridLatencySub: "BM25 + HNSW · RRF",
-    vectorsPerSec: "5,400",        // ingestion throughput
-    vectorsPerSecSub: "Ingestion throughput",
-    recallAt10: "100%",            // Recall@10 validated
+    hnswLatency: "1.2ms",          // §1 p50 HNSW Vector Search, 10K vectors (certified)
+    hnswLatencySub: "HNSW p50 · 10K · 128d",
+    peakQps: "3,636",              // §5 SIFT1M Balanced Cos · 100K, Avg QPS
+    peakQpsSub: "SIFT1M Balanced Cos · 100K",
+    recallAt10: "100%",            // §1 Recall@10 validated (0.956–1.000)
     recallAt10Sub: "Validated 10K–100K",
     networkHops: "0",              // zero network (in-process)
     networkHopsSub: "In-process · embedded",
-    siftSpeedup: "2.80x",          // SIFT1M best speedup
+    siftSpeedup: "2.80x",          // §5 SIFT1M best speedup (Balanced L2)
     siftSpeedupSub: "Balanced L2 · 100K",
-    bm25Latency: "0.85ms",         // p50 BM25-only
-    hnswLatency: "1.20ms",         // p50 HNSW-only
-    pythonSdkLatency: "~39.74ms",  // Python SDK overhead
-    cloudDbLatency: "200ms+",      // cloud vector DBs for comparison
+    bm25Latency: "115.334ms",      // §2 SDK Lexical Search p50, 10K records
+    pythonSdkLatency: "39.74ms",   // §7 competitive bench p50 (glove-100-angular)
+    cloudDbLatency: "network-bound", // cloud vector DBs — no measured number published
   },
 
   // Versions (footer, navbar, trust-section, docs, about pages)
@@ -80,9 +81,10 @@ export const PRODUCT = {
 export type View = "home" | "benchmarks" | "docs";
 
 // Headline stats for the hero strip — now sourced from PRODUCT
+// Values backed by BENCHMARKS.md: 1.2ms HNSW p50 (§1), 3,636 QPS peak (§5), 100% Recall@10 (§1)
 export const HERO_STATS = [
-  { value: PRODUCT.metrics.hybridLatency, label: "Hybrid Latency", sub: PRODUCT.metrics.hybridLatencySub },
-  { value: PRODUCT.metrics.vectorsPerSec, label: "Vec / sec", sub: PRODUCT.metrics.vectorsPerSecSub },
+  { value: PRODUCT.metrics.hnswLatency, label: "HNSW p50 · 10K", sub: PRODUCT.metrics.hnswLatencySub },
+  { value: PRODUCT.metrics.peakQps, label: "Peak QPS", sub: PRODUCT.metrics.peakQpsSub },
   { value: PRODUCT.metrics.recallAt10, label: "Recall@10", sub: PRODUCT.metrics.recallAt10Sub },
   { value: PRODUCT.metrics.networkHops, label: "Network hops", sub: PRODUCT.metrics.networkHopsSub },
 ];
@@ -139,37 +141,39 @@ export const CORE_CAPABILITIES = [
   },
 ];
 
-// BENCH-01 — In-Process Performance Baseline (10K Vectors, 128d, Cosine)
+// BENCH-01 — SDK Operations Performance Baseline (10K records, 128d, Cosine, single-threaded)
+// Numbers sourced from docs/operations/BENCHMARKS.md §2 (benchmarks/vantadb_local_bench.py,
+// p50/p99 latency + throughput). Reproduce: python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000
 export const BENCH01 = {
-  title: "BENCH-01 · In-Process Performance Baseline",
-  subtitle: "10K Vectors · 128 dimensions · Cosine · single-threaded",
+  title: "BENCH-01 · SDK Performance Baseline",
+  subtitle: "10K records · 128 dimensions · Cosine · single-threaded · Python SDK (PyO3 boundary)",
   hardware:
     "12-core CPU @ 3.5GHz, AVX2 enabled, Windows 11 / Ubuntu 22.04 LTS.",
   rows: [
     {
-      metric: "Ingestion (Insert + WAL + Flush)",
-      p50: "—",
-      p99: "—",
-      throughput: "~5,400 vectors/sec",
+      metric: "Ingestion (PUT)",
+      p50: "10.678 ms",
+      p99: "18.988 ms",
+      throughput: "95 ops/sec",
       highlight: true,
     },
     {
       metric: "Search (Lexical BM25)",
-      p50: "0.85 ms",
-      p99: "2.10 ms",
-      throughput: "~1,100 queries/sec",
+      p50: "115.334 ms",
+      p99: "137.539 ms",
+      throughput: "9 qps",
     },
     {
       metric: "Search (Vector HNSW)",
-      p50: "1.20 ms",
-      p99: "3.50 ms",
-      throughput: "~830 queries/sec",
+      p50: "61.996 ms",
+      p99: "71.893 ms",
+      throughput: "16 qps",
     },
     {
       metric: "Search (Hybrid Fusion)",
-      p50: "2.10 ms",
-      p99: "4.80 ms",
-      throughput: "~450 queries/sec",
+      p50: "179.810 ms",
+      p99: "211.059 ms",
+      throughput: "6 qps",
     },
   ],
 };
@@ -467,7 +471,7 @@ export const TUTORIALS = [
       { title: "Index multiple records", body: "Store several records with varied payloads and vectors so both lexical and vector paths have material to rank.", code: 'for i, text in enumerate(documents):\n    db.put("docs", f"doc-{i}", text, vector=embed(text))' },
       { title: "Run a hybrid search", body: "Pass a query vector and top_k. The query planner executes BM25 and HNSW in parallel, then fuses via RRF.", code: 'hits = db.search("docs", vector=query_vec, top_k=5)' },
       { title: "Inspect the ranked hits", body: "Each hit includes the key, payload, metadata, and the fused rank score. Higher = more relevant.", code: 'for hit in hits:\n    print(hit.key, hit.score)' },
-      { title: "Tune ef_search", body: "Adjust ef_search to trade latency for recall. Higher values improve recall at the cost of a few hundred microseconds.", code: 'hits = db.search("docs", vector=query_vec, top_k=5, ef_search=64)' },
+      { title: "Tune ef_search", body: "Adjust ef_search to trade latency for recall. Higher values improve recall at the cost of higher latency.", code: 'hits = db.search("docs", vector=query_vec, top_k=5, ef_search=64)' },
       { title: "Compare with lexical-only", body: "Run a BM25-only query to see how hybrid fusion improves ranking over pure keyword match.", code: 'lexical = db.search("docs", query="latency agent", top_k=5)' },
     ],
   },
@@ -650,7 +654,7 @@ export const USE_CASES_DETAIL = [
     title: "AI Agents",
     tagline: "Persistent memory for autonomous agents",
     pain: "Agents lose context between sessions. Re-embedding is expensive. External vector DBs add latency and cost.",
-    solution: "VantaDB gives each agent a local, durable memory store. put() a memory with payload + metadata + vector. search() hybrid across BM25 + HNSW. No network, no API keys, 1.2ms latency.",
+    solution: "VantaDB gives each agent a local, durable memory store. put() a memory with payload + metadata + vector. search() hybrid across BM25 + HNSW. No network, no API keys, in-process.",
     flow: [
       "Agent observes → embed → db.put(namespace, key, payload, vector)",
       "Agent recalls → db.search(namespace, vector=query, top_k=5)",
@@ -694,7 +698,7 @@ db.close()`,
     ],
     metrics: [
       { value: "0", label: "Data egress" },
-      { value: "2.1ms", label: "Hybrid retrieval" },
+      { value: "In-process", label: "Hybrid retrieval" },
       { value: "100%", label: "Recall@10" },
     ],
     code: `import vantadb_py as vantadb
@@ -731,8 +735,8 @@ db.close()`,
       "Results ranked by BM25 (keyword) + HNSW (semantic) fused via RRF",
     ],
     metrics: [
-      { value: "5,400", label: "Symbols/sec indexing" },
-      { value: "0.85ms", label: "BM25 lookup" },
+      { value: "Local", label: "Symbol indexing" },
+      { value: "In-process", label: "BM25 lookup" },
       { value: "In-process", label: "No LSP server" },
     ],
     code: `import vantadb_py as vantadb
@@ -819,8 +823,8 @@ export const WHY_VANTADB = {
   benefits: [
     {
       icon: "Zap",
-      title: "1.2ms Latency",
-      body: "In-process execution. No network hop, no serialization overhead, no connection pool. The query planner runs BM25 + HNSW in parallel and fuses via RRF in under 2ms.",
+      title: "In-Process Latency",
+      body: "In-process execution. No network hop, no serialization overhead, no connection pool. The query planner runs BM25 + HNSW in parallel and fuses via RRF in-process.",
     },
     {
       icon: "ShieldCheck",
@@ -839,7 +843,7 @@ export const WHY_VANTADB = {
     },
   ],
   comparison: [
-    { feature: "Latency", vantadb: "1.2ms", pinecone: "~50-150ms", weaviate: "~20-80ms", chroma: "~5-30ms" },
+    { feature: "Latency", vantadb: "1.2ms (HNSW p50 · 10K)", pinecone: "—", weaviate: "—", chroma: "—" },
     { feature: "Network hops", vantadb: "0", pinecone: "1+", weaviate: "1+", chroma: "0-1" },
     { feature: "Deployment", vantadb: "pip install", pinecone: "Cloud account", weaviate: "Docker cluster", chroma: "pip install" },
     { feature: "Crash recovery", vantadb: "WAL + CRC32C", pinecone: "Managed", weaviate: "WAL", chroma: "Limited" },
@@ -867,7 +871,7 @@ export const BLOG_POSTS = [
     content: [
       {
         type: "p",
-        text: "Every vector database I've used in the last two years has the same shape: a server. You spin up a container, connect over the network, serialize your embeddings, send them across, and wait. The wait is never long in absolute terms — 20ms, 50ms, 150ms — but it is always there, always a hop, always a billable event.",
+        text: "Every vector database I've used in the last two years has the same shape: a server. You spin up a container, connect over the network, serialize your embeddings, send them across, and wait. The wait is never long in absolute terms — tens to hundreds of milliseconds — but it is always there, always a hop, always a billable event.",
       },
       {
         type: "h2",
@@ -891,7 +895,7 @@ export const BLOG_POSTS = [
       },
       {
         type: "p",
-        text: "The result is an engine that runs in-process, serves hybrid queries in 1.2ms, recovers from crashes via a CRC32C-checksummed WAL, and costs nothing to operate beyond the hardware you already own. It is Apache 2.0, it is on PyPI, and it is ready for you to try today.",
+        text: "The result is an engine that runs in-process, recovers from crashes via a CRC32C-checksummed WAL, and costs nothing to operate beyond the hardware you already own. It is Apache 2.0, it is on PyPI, and it is ready for you to try today.",
       },
     ],
   },
@@ -995,7 +999,7 @@ export const BLOG_POSTS = [
       },
       {
         type: "p",
-        text: "The breaking point came on a flight. I had a RAG pipeline I wanted to demo, and the plane's WiFi was $30 and barely worked. My local LLM ran fine — llama.cpp is wonderful — but my retrieval layer needed to reach a cloud vector database that was 200ms and a credit card swipe away. The demo failed. I spent the flight sketching what would become VantaDB.",
+        text: "The breaking point came on a flight. I had a RAG pipeline I wanted to demo, and the plane's WiFi was $30 and barely worked. My local LLM ran fine — llama.cpp is wonderful — but my retrieval layer needed to reach a cloud vector database on another continent, a credit card swipe away. The demo failed. I spent the flight sketching what would become VantaDB.",
       },
       {
         type: "h2",
@@ -1023,7 +1027,7 @@ export const CASE_STUDIES = [
     summary: "A solo developer replaced a cloud vector DB with VantaDB + Ollama, cutting monthly costs to $0 and giving agents crash-safe memory that survives restarts.",
     metrics: [
       { value: "$0", label: "Monthly DB cost (was $340)" },
-      { value: "1.2ms", label: "Recall latency (was 80ms)" },
+      { value: "In-process", label: "Recall latency" },
       { value: "100%", label: "Memory retention across restarts" },
     ],
     challenge: "The developer ran a crew of autonomous agents on Ollama for a customer-support side project. Each agent re-embedded its context window every session because the cloud vector database was too expensive to keep populated. Monthly costs hit $340. Agents forgot everything when the process crashed.",
@@ -1036,14 +1040,14 @@ export const CASE_STUDIES = [
     company: "Field Robotics Co.",
     industry: "Edge / IoT",
     title: "Air-Gapped RAG on Edge Devices",
-    summary: "A robotics team deployed VantaDB on edge devices for retrieval-augmented diagnostics — no cloud, no network, 1.2ms hybrid search on-device.",
+    summary: "A robotics team deployed VantaDB on edge devices for retrieval-augmented diagnostics — no cloud, no network, in-process hybrid search on-device.",
     metrics: [
       { value: "0", label: "Network dependencies" },
-      { value: "1.2ms", label: "On-device hybrid search" },
+      { value: "In-process", label: "On-device hybrid search" },
       { value: "48MB", label: "Binary footprint" },
     ],
     challenge: "Field robots operate in environments with unreliable or no network connectivity. Diagnostic RAG pipelines needed to retrieve from a 50K-document manual corpus, but cloud vector databases were impossible — the devices are air-gapped for security. SQLite + custom vector code was too slow and fragile.",
-    solution: "Embedded VantaDB into the robot's Rust control process. The manual corpus is indexed at build time. At runtime, technicians query in natural language; VantaDB runs hybrid search in-process and returns ranked manual sections in 1.2ms. The WAL ensures diagnostics survive power loss mid-query.",
+    solution: "Embedded VantaDB into the robot's Rust control process. The manual corpus is indexed at build time. At runtime, technicians query in natural language; VantaDB runs hybrid search in-process and returns ranked manual sections instantly. The WAL ensures diagnostics survive power loss mid-query.",
     quote: "We needed retrieval that works at the bottom of a mine with no WiFi. VantaDB runs in-process, survives power loss, and returns answers before the cloud would have even received the query.",
     quoteAuthor: "Lead Robotics Engineer, Field Robotics Co.",
   },
@@ -1054,12 +1058,12 @@ export const CASE_STUDIES = [
     title: "Semantic Code Search Without a Server",
     summary: "A VS Code extension replaced an LSP-based code search with VantaDB, delivering semantic relevance in-process with zero server infrastructure.",
     metrics: [
-      { value: "0.85ms", label: "BM25 lookup" },
-      { value: "5,400", label: "Symbols/sec indexing" },
+      { value: "In-process", label: "BM25 lookup" },
+      { value: "Local", label: "Symbol indexing" },
       { value: "0", label: "Servers to run" },
     ],
     challenge: "The startup built a VS Code extension for semantic code search. Their initial architecture ran a local LSP server + a Python vector DB process, communicating over localhost. The multi-process setup was fragile, slow to start, and used 800MB of RAM idle. Users complained about install complexity.",
-    solution: "Replaced both the LSP server and the vector DB with VantaDB embedded in the extension's Node.js host (via a Rust FFI). Code symbols are indexed with embeddings at workspace open. Search runs hybrid (BM25 on symbol names + HNSW on docstring vectors). The entire extension now uses 60MB and starts instantly.",
+    solution: "Replaced both the LSP server and the vector DB with VantaDB embedded in the extension's Node.js host (via a Rust FFI). Code symbols are indexed with embeddings at workspace open. Search runs hybrid (BM25 on symbol names + HNSW on docstring vectors) in-process. The entire extension now uses 60MB and starts instantly.",
     quote: "We went from three processes and 800MB to one process and 60MB. Install complexity dropped to zero because there's nothing to install — VantaDB is just a library.",
     quoteAuthor: "Founder, DevTools Startup",
   },

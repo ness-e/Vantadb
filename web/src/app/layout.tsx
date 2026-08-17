@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://github.com/ness-e/Vantadb"),
   title: "VantaDB — Embedded Rust Engine for Local-First Hybrid Retrieval",
   description:
-    "VantaDB is a local-first, embedded Rust database engine for AI agents and local RAG. Persistent memory, crash-safe WAL recovery (CRC32C), and native hybrid search (BM25 + HNSW via RRF) — zero network, in-process, 1.2ms latency.",
+    "VantaDB is a local-first, embedded Rust database engine for AI agents and local RAG. Persistent memory, crash-safe WAL recovery (CRC32C), and native hybrid search (BM25 + HNSW via RRF) — zero network, in-process.",
   keywords: [
     "VantaDB",
     "vector database",
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "VantaDB — Embedded Rust Engine for Local-First Hybrid Retrieval",
     description:
-      "Persistent memory + crash-safe WAL + BM25/HNSW hybrid retrieval via RRF. Zero network. In-process. 1.2ms latency.",
+      "Persistent memory + crash-safe WAL + BM25/HNSW hybrid retrieval via RRF. Zero network. In-process.",
     url: "https://github.com/ness-e/Vantadb",
     siteName: "VantaDB",
     type: "website",
@@ -69,7 +69,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "VantaDB — Embedded Rust Hybrid Retrieval Engine",
     description:
-      "Local-first embedded Rust engine. BM25 + HNSW via RRF. WAL with CRC32C. 1.2ms in-process latency.",
+      "Local-first embedded Rust engine. BM25 + HNSW via RRF. WAL with CRC32C. In-process.",
   },
 };
 

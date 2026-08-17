@@ -21,7 +21,7 @@ type SuggestedLink = {
 const SUGGESTED: SuggestedLink[] = [
   { href: "/", labelKey: "notFound.suggested.0.label", labelFallback: "Home", label: "Home", descriptionKey: "notFound.suggested.0.description", descriptionFallback: "Start here", description: "Start here", icon: Home },
   { href: "/docs", labelKey: "notFound.suggested.1.label", labelFallback: "Docs", label: "Docs", descriptionKey: "notFound.suggested.1.description", descriptionFallback: "How it works", description: "How it works", icon: BookOpen },
-  { href: "/benchmarks", labelKey: "notFound.suggested.2.label", labelFallback: "Benchmarks", label: "Benchmarks", descriptionKey: "notFound.suggested.2.description", descriptionFallback: "1.2ms hybrid", description: "1.2ms hybrid", icon: Gauge },
+  { href: "/benchmarks", labelKey: "notFound.suggested.2.label", labelFallback: "Benchmarks", label: "Benchmarks", descriptionKey: "notFound.suggested.2.description", descriptionFallback: "Verifiable benchmarks", description: "Verifiable benchmarks", icon: Gauge },
   { href: "/pricing", labelKey: "notFound.suggested.3.label", labelFallback: "Pricing", label: "Pricing", descriptionKey: "notFound.suggested.3.description", descriptionFallback: "$0 forever", description: "$0 forever", icon: CreditCard },
   { href: "/blog", labelKey: "notFound.suggested.4.label", labelFallback: "Blog", label: "Blog", descriptionKey: "notFound.suggested.4.description", descriptionFallback: "Latest writing", description: "Latest writing", icon: Newspaper },
 ];

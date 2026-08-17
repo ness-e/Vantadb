@@ -157,7 +157,7 @@ export function Architecture({ onNavigate }: { onNavigate: (v: View) => void }) 
             className="lg:col-span-3"
             icon={<ArrowDown className="h-6 w-6" strokeWidth={2.5} />}
             title={tt("architecture.node.hits.title", "Ranked Hits")}
-            sub={tt("architecture.node.hits.sub", "top_k · 1.2ms")}
+            sub={tt("architecture.node.hits.sub", "top_k · HNSW p50 1.2ms")}
             tone="neon"
           >
             <p className="font-tech text-[11px] font-bold text-black">

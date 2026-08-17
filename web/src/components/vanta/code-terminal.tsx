@@ -170,7 +170,7 @@ export function CodeTerminal() {
               {running && (
                 <div className="border-t-4 border-[#FF5500] bg-[#0a0a0a] px-4 py-3 font-tech text-[11px] text-[#FF5500]">
                   <span className="animate-blink">▋</span> executing hybrid search ·
-                  BM25 + HNSW via RRF · 1.2ms · 100% Recall@10
+                  BM25 + HNSW via RRF · HNSW p50 1.2ms · 100% Recall@10
                 </div>
               )}
               {!running && !typingDone && (

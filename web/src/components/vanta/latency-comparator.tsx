@@ -17,29 +17,29 @@ type Engine = {
   barColor: string;
 };
 
-// Baseline engines for comparison (illustrative competitive context)
+// Baseline engines — sourced from docs/operations/BENCHMARKS.md §2 (SDK, 10K records, 128d, Cosine)
 const ENGINES: Engine[] = [
   {
     name: "VantaDB · Hybrid",
-    p50: 2.1,
-    p99: 4.8,
-    throughput: 450,
+    p50: 179.810,
+    p99: 211.059,
+    throughput: 6,
     color: "bg-[#FF5500]",
     barColor: "#FF5500",
   },
   {
     name: "VantaDB · HNSW",
-    p50: 1.2,
-    p99: 3.5,
-    throughput: 830,
+    p50: 61.996,
+    p99: 71.893,
+    throughput: 16,
     color: "bg-black ",
     barColor: "#000000",
   },
   {
     name: "VantaDB · BM25",
-    p50: 0.85,
-    p99: 2.1,
-    throughput: 1100,
+    p50: 115.334,
+    p99: 137.539,
+    throughput: 9,
     color: "bg-black/70 ",
     barColor: "#000000",
   },
@@ -175,7 +175,7 @@ export function LatencyComparator() {
         p99_ms: e.sP99,
         throughput_qps: e.sThroughput,
       })),
-      baseline: "BENCH-01 (10K vectors, 128d, cosine)",
+      baseline: "BENCH-01 §2 (10K records, 128d, cosine, Python SDK)",
       note: "Illustrative model with ±4% jitter. Not a real benchmark.",
       timestamp: new Date().toISOString(),
     }, null, 2);

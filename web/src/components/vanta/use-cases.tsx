@@ -52,7 +52,7 @@ const USE_CASES: UseCase[] = [
     icon: Code2,
     title: "IDE Tooling",
     tag: "code",
-    desc: "Memoria para asistentes de código. Indexa repos, símbolos y snippets como embeddings. Búsqueda semántica sub-millisecond sobre tu codebase, in-process junto al LSP.",
+    desc: "Memoria para asistentes de código. Indexa repos, símbolos y snippets como embeddings. Búsqueda semántica in-process sobre tu codebase, junto al LSP.",
     capabilities: ["CLI", "SDK", "embeddings", "export"],
     metric: "0",
     metricLabel: "network hops",

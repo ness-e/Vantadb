@@ -205,7 +205,7 @@ export function CoreEngine() {
             <PipelineStage
               index="05"
               title={tt("coreEngine.stage5.title", "Ranked Hits")}
-              tag="top_k · 1.2ms · 100% Recall@10"
+              tag="top_k · HNSW p50 1.2ms · 100% Recall@10"
               tone="cream"
               icon={<Crosshair className="h-5 w-5" strokeWidth={2.5} />}
               body={

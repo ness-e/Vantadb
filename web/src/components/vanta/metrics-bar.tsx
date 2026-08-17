@@ -18,8 +18,8 @@ type Metric = {
 };
 
 const METRICS: Metric[] = [
-  { value: "1.2ms", label: "Hybrid Latency", sub: "BM25 + HNSW · RRF", icon: Activity },
-  { value: "5,400", label: "Vec / sec", sub: "Ingestion throughput", icon: Gauge },
+  { value: "1.2ms", label: "HNSW p50 · 10K", sub: "Rust Core · 128d", icon: Activity },
+  { value: "3,636", label: "Peak QPS", sub: "SIFT1M Balanced Cos · 100K", icon: Gauge },
   { value: "100%", label: "Recall@10", sub: "Validated 10K–100K", icon: Crosshair },
   { value: "0", label: "Network hops", sub: "In-process · embedded", icon: Network },
   { value: "2.80x", label: "SIFT1M speedup", sub: "Balanced L2 · 100K", icon: TrendingUp },

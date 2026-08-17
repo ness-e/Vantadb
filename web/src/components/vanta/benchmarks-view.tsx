@@ -47,8 +47,8 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
           <Reveal direction="up" delay={100}>
           <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { v: "5,400", l: "vectors/sec", s: "ingestion", icon: Boxes },
-              { v: "2.10ms", l: "hybrid p50", s: "BM25+HNSW·RRF", icon: Gauge },
+              { v: "95", l: "ingestion ops/sec", s: "SDK · 10K · 128d", icon: Boxes },
+              { v: "1.2ms", l: "HNSW p50 · 10K", s: "Rust Core · 128d", icon: Gauge },
               { v: "2.80x", l: "best speedup", s: "SIFT1M Balanced L2", icon: TrendingDown },
               { v: "3,636", l: "QPS peak", s: "Balanced Cos 100K", icon: Zap },
             ].map((s, i) => {
@@ -151,11 +151,11 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
             </div>
             <div className="space-y-4">
               {[
-                { label: "BM25 (Lexical)", p50: 0.85, p99: 2.1, color: "bg-black" },
-                { label: "HNSW (Vector)", p50: 1.2, p99: 3.5, color: "bg-[#1A1A1A]" },
-                { label: "Hybrid Fusion", p50: 2.1, p99: 4.8, color: "bg-[#FF5500]" },
+                { label: "BM25 (Lexical)", p50: 115.334, p99: 137.539, color: "bg-black" },
+                { label: "HNSW (Vector)", p50: 61.996, p99: 71.893, color: "bg-[#1A1A1A]" },
+                { label: "Hybrid Fusion", p50: 179.810, p99: 211.059, color: "bg-[#FF5500]" },
               ].map((b) => {
-                const max = 5.0;
+                const max = 220.0;
                 return (
                   <div key={b.label}>
                     <div className="mb-1 flex items-center justify-between font-tech text-[11px]">
@@ -193,7 +193,7 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-4 bg-black opacity-50" /> p99
               </span>
-              <span className="ml-auto">scale 0–5ms</span>
+              <span className="ml-auto">scale 0–220ms</span>
             </div>
           </div>
 

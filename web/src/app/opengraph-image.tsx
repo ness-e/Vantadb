@@ -125,7 +125,7 @@ export default async function OpengraphImage() {
             }}
           >
             Embedded Rust engine for durable local memory and hybrid vector
-            retrieval. BM25 + HNSW via RRF. Zero network. 1.2ms latency.
+            retrieval. BM25 + HNSW via RRF. Zero network. In-process.
           </div>
 
           {/* Stats row */}
@@ -138,8 +138,8 @@ export default async function OpengraphImage() {
             }}
           >
             {[
-              { v: "1.2ms", l: "Latency" },
-              { v: "5,400", l: "Vec/s" },
+              { v: "1.2ms", l: "HNSW p50 · 10K" },
+              { v: "3,636", l: "Peak QPS" },
               { v: "100%", l: "Recall@10" },
               { v: "0", l: "Network" },
             ].map((s, i) => (

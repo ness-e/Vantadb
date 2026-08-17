@@ -24,7 +24,7 @@ const MARQUEE_ITEMS = [
   "pip install vantadb-py",
   "BM25 + HNSW via RRF",
   "WAL · CRC32C checksums",
-  "1.2ms in-process latency",
+  "1.2ms HNSW p50 · 10K",
   "Apache 2.0",
   "Rust 1.94.1+",
   "Zero network",

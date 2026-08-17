@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Sub-Millisecond Latency · VantaDB — 1.2ms p50 In-Process",
+  title: "In-Process Latency · VantaDB — 1.2ms p50 HNSW",
   description:
-    "VantaDB Rust Core: 1.2ms p50, 39.74ms Python SDK, vs 200ms+ cloud DBs. Zero network round-trips. Latencia sub-millisecond in-process.",
+    "VantaDB Rust Core: 1.2ms p50 (HNSW · 10K), 39.74ms Python SDK. Cloud DBs: no medidos por el harness local. Zero network round-trips. Latencia in-process.",
   openGraph: {
-    title: "Sub-Millisecond Latency · VantaDB — 1.2ms p50",
+    title: "In-Process Latency · VantaDB — 1.2ms p50",
     description:
-      "Rust Core 1.2ms p50, Python SDK ~39.74ms p50, cloud DBs 200ms+. Zero network round-trips.",
+      "Rust Core 1.2ms p50 (HNSW · 10K), Python SDK 39.74ms p50. Cloud DBs no medidos localmente. Zero network round-trips.",
     url: "https://vantadb.dev/latency",
     siteName: "VantaDB",
     type: "website",

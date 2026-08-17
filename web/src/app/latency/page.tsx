@@ -26,48 +26,48 @@ export default function LatencyPage() {
     {
       system: "VantaDB Rust Core",
       p50: "1.2ms",
-      p99: "2.8ms",
-      note: tt("latencyPage.rows.0.note", "In-process · zero network"),
+      p99: "—",
+      note: tt("latencyPage.rows.0.note", "In-process · zero network · BENCHMARKS §1"),
       pct: 100,
       vantage: true,
     },
     {
       system: "VantaDB Python SDK",
       p50: "39.74ms",
-      p99: "62.1ms",
-      note: tt("latencyPage.rows.1.note", "PyO3 boundary · 1 thread"),
+      p99: "58.2ms",
+      note: tt("latencyPage.rows.1.note", "PyO3 boundary · 1 thread · §7"),
       pct: 88,
       vantage: false,
     },
     {
       system: "Chroma (local)",
-      p50: "~8ms",
-      p99: "~45ms",
-      note: tt("latencyPage.rows.2.note", "Embedded · DuckDB backend"),
+      p50: "0.94ms",
+      p99: "3.35ms",
+      note: tt("latencyPage.rows.2.note", "Measured by competitive_bench.py · §7"),
       pct: 76,
       vantage: false,
     },
     {
       system: "Weaviate (Docker)",
-      p50: "~20ms",
-      p99: "~120ms",
-      note: tt("latencyPage.rows.3.note", "Localhost · 1 container"),
+      p50: "—",
+      p99: "—",
+      note: tt("latencyPage.rows.3.note", "Not measured locally · no number published"),
       pct: 58,
       vantage: false,
     },
     {
       system: "Pinecone (cloud)",
-      p50: "~80ms",
-      p99: "~280ms",
-      note: tt("latencyPage.rows.4.note", "US-East · TLS + auth"),
+      p50: "—",
+      p99: "—",
+      note: tt("latencyPage.rows.4.note", "Managed service · not measured by harness"),
       pct: 30,
       vantage: false,
     },
     {
       system: "Pinecone (cloud, cold)",
-      p50: "~200ms",
-      p99: "~600ms",
-      note: tt("latencyPage.rows.5.note", "Cold start · cross-region"),
+      p50: "—",
+      p99: "—",
+      note: tt("latencyPage.rows.5.note", "Managed service · not measured by harness"),
       pct: 12,
       vantage: false,
     },
@@ -77,10 +77,10 @@ export default function LatencyPage() {
     <div className="animate-rise">
       <PageHeader
         badge="§LATENCY"
-        title={tt("latencyPage.title", "Sub-Millisecond Latency")}
+        title={tt("latencyPage.title", "In-Process Latency")}
         subtitle={tt(
           "latencyPage.subtitle",
-          "VantaDB Rust Core: 1.2ms p50. Python SDK: ~39.74ms p50. Cloud DBs: 200ms+. La diferencia no es optimization — es architecture."
+          "VantaDB Rust Core: 1.2ms p50 (HNSW · 10K). Python SDK: 39.74ms p50. Cloud DBs: not measured by the harness."
         )}
         tag={tt("latencyPage.tag", "1.2ms p50 · 0 network hops")}
       />
@@ -92,7 +92,7 @@ export default function LatencyPage() {
             <div>
               <span className="inline-flex items-center gap-2 border-2 border-black bg-[#FF5500] px-2 py-0.5 font-tech text-[10px] font-bold uppercase tracking-[0.25em] text-black ">
                 <span className="h-1.5 w-1.5 bg-black" />
-                {tt("latencyPage.tableTag", "Measured")}
+                {tt("latencyPage.tableTag", "Contextual")}
               </span>
               <h2 className="glitch-hover mt-3 font-display text-3xl uppercase leading-none text-black  sm:text-4xl">
                 {tt("latencyPage.tableTitle", "p50 / p99 head-to-head")}
@@ -100,7 +100,7 @@ export default function LatencyPage() {
               <p className="mt-2 max-w-2xl font-tech text-xs text-black/70 ">
                 {tt(
                   "latencyPage.tableSubtitle",
-                  "Hybrid query (BM25 + HNSW · RRF), 1M vectors, single thread, no warm-up tricks. Medido en hardware de certificación BENCH-01."
+                  "VantaDB Rust Core p50 from BENCHMARKS §1 (HNSW · 10K). SDK and Chroma cells from §7 competitive benchmark. Cloud DBs not measured by the local harness — marked —."
                 )}
               </p>
             </div>
@@ -224,7 +224,7 @@ export default function LatencyPage() {
             <p className="mt-5 font-tech text-sm leading-relaxed text-[#FBF9F5]/80 sm:text-base">
               {tt(
                 "latencyPage.argumentBody",
-                "Una query a Pinecone hace TCP handshake → TLS → auth → routing → query → response → close. Mínimo 4 saltos. VantaDB ejecuta en el mismo proceso que tu código Python: un FFI call, un memcmp, un return. No es optimization — es arquitectura. La latencia 200ms del cloud no es un bug de Pinecone. Es el costo inevitable de poner la DB en otra máquina."
+                "Una query a una DB cloud hace TCP handshake → TLS → auth → routing → query → response → close. Mínimo 4 saltos. VantaDB ejecuta en el mismo proceso que tu código Python: un FFI call, un memcmp, un return. No es optimization — es arquitectura. La latencia del cloud no es un bug de Pinecone. Es el costo inevitable de poner la DB en otra máquina."
               )}
             </p>
             <div className="mt-8">

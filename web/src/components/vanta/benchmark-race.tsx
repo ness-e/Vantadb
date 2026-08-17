@@ -32,13 +32,13 @@ export function BenchmarkRace() {
     {
       id: "latency",
       titleKey: "benchmarkRace.groups.0.title",
-      titleFallback: "Hybrid Query · p50 Latency (ms)",
+      titleFallback: "HNSW Vector Search · p50 Latency (ms)",
       bars: [
         { label: "VantaDB", value: "1.2ms", pct: 100, durationMs: 700, vantadb: true, rank: 1 },
-        { label: "Qdrant", value: "3.1ms", pct: 80, durationMs: 1100, rank: 2 },
-        { label: "Chroma", value: "4.8ms", pct: 65, durationMs: 1500, rank: 3 },
-        { label: "Weaviate", value: "20ms", pct: 40, durationMs: 2200, rank: 4 },
-        { label: "Pinecone", value: "80ms", pct: 20, durationMs: 3000, rank: 5 },
+        { label: "Qdrant", value: "—", pct: 80, durationMs: 1100, rank: 2 },
+        { label: "Chroma", value: "—", pct: 65, durationMs: 1500, rank: 3 },
+        { label: "Weaviate", value: "—", pct: 40, durationMs: 2200, rank: 4 },
+        { label: "Pinecone", value: "—", pct: 20, durationMs: 3000, rank: 5 },
       ],
     },
     {
@@ -47,10 +47,10 @@ export function BenchmarkRace() {
       titleFallback: "Recall@10 (higher is better)",
       bars: [
         { label: "VantaDB", value: "0.998", pct: 99, durationMs: 800, vantadb: true, rank: 1 },
-        { label: "Chroma", value: "0.945", pct: 94, durationMs: 1200, rank: 2 },
-        { label: "Qdrant", value: "0.920", pct: 92, durationMs: 1600, rank: 3 },
-        { label: "Weaviate", value: "0.890", pct: 89, durationMs: 2000, rank: 4 },
-        { label: "Pinecone", value: "0.870", pct: 87, durationMs: 2500, rank: 5 },
+        { label: "Chroma", value: "—", pct: 94, durationMs: 1200, rank: 2 },
+        { label: "Qdrant", value: "—", pct: 92, durationMs: 1600, rank: 3 },
+        { label: "Weaviate", value: "—", pct: 89, durationMs: 2000, rank: 4 },
+        { label: "Pinecone", value: "—", pct: 87, durationMs: 2500, rank: 5 },
       ],
     },
   ];
