@@ -34,6 +34,7 @@ Los agentes **no cargan esta carpeta completa**. La carga es *bajo demanda*, ví
 | 9 | `js-ecosystem.md` | `vantadb-wasm` + `vantadb-ts` + `vantadb-node` | — |
 | 10 | `frontend-web.md` | `web/` (Next.js, Tailwind, motion, i18n) | — |
 | 11 | `release-ci.md` | Release, versionado, CI, changelog, publish | INV-017, REGLA 7 |
+| 12 | `memory-budget.md` | Presupuesto de memoria: RAM vs disco, límite RSS, back-pressure antes de OOM | **FND-01** |
 
 ---
 

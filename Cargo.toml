@@ -251,6 +251,10 @@ harness = false
 name = "canonical_p99"
 harness = false
 
+[[bench]]
+name = "memory_budget"
+harness = false
+
 [[bin]]
 name = "vanta-cli"
 path = "src/bin/vanta-cli.rs"
