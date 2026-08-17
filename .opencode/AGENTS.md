@@ -591,3 +591,16 @@ Nunca mergees código generado por IA que no puedas explicar **línea por línea
 | Explicar por qué el código es correcto (no solo "los tests pasan") | "Los tests verdes no prueban comprensión. Explicá el invariante que garantiza que funciona." |
 | Responder "lo escribió la IA, no sé" | "El código es tuyo al mergearlo. Sin explicación línea por línea no entra a main." |
 
+### Regla 11: Claims de Performance con Benchmark Reproducible
+
+NUNCA publiques un claim de performance (número, "X faster", latencia, throughput, QPS) sin citar el **benchmark reproducible** que lo respalda (archivo bench + comando exacto) y los números con su fuente. Un claim sin fuente reproducible es publicidad, no ingeniería. La fuente canónica de números es `docs/operations/BENCHMARKS.md`; para optimizaciones de hot path, el benchmark obligatorio es `canonical_p99` (Regla 9).
+
+| Si el documento dice... | Debes exigir... |
+|---|---|
+| Un número (latencia, QPS, rec/s, "2.14x faster", % mejora) | Citar archivo bench (`benches/*.rs` / `benchmarks/*.py`) + comando exacto + entorno (CPU/RAM/OS), o enlazar a la sección de `docs/operations/BENCHMARKS.md` que lo contiene |
+| Un adjetivo de performance ("optimizado", "de alto rendimiento", "eficiente", "rápido") sin números | Reformular con un número medido o quitar el adjetivo — el adjetivo no es evidencia |
+| Un número que no coincide con la fuente citada | Corregir el número o la fuente — la fuente citada es ley |
+| Un link a un doc/artefacto de benchmark | Verificar que la ruta existe y está versionada — los artefactos locales regenerables (p.ej. `benchmarks/vanta_benchmark_report.json`, en `.gitignore`) NO son fuente válida para claims versionados; cita el comando que los genera en su lugar |
+
+**Regla de oro:** si un lector no puede reproducir el número con un comando documentado en el repo, el claim no existe.
+

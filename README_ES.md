@@ -340,7 +340,7 @@ Los resultados de rendimiento certificados en el dataset estándar de SIFT en mo
 
 *Hardware de certificación: AMD Ryzen 12-Core @ 3,5 GHz, compilado con `-C target-cpu=native`.*
 
-*Fuente: [docs/operations/BENCHMARKS.md §5](docs/operations/BENCHMARKS.md) — "Impact of Loop and HNSW Distance Optimization (Phase 2)" (2026-07-21). Historial completo de optimización en [docs/benchmarks/BENCHMARK_OPTIMIZATION_2026.md](docs/benchmarks/BENCHMARK_OPTIMIZATION_2026.md).*
+*Fuente: [docs/operations/BENCHMARKS.md §5](docs/operations/BENCHMARKS.md) — "Impact of Loop and HNSW Distance Optimization (Phase 2)" (2026-07-21). Historial completo de optimización en [docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md](docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md).*
 
 <p align="center">
   <img src="assets/benchmark-sift1m.svg" alt="Aceleración de construcción HNSW SIFT1M — Fase 1 vs Fase 2 (2,14×–2,80×)" width="760">
