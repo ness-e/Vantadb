@@ -210,6 +210,10 @@ Al empezar cada sesión, ejecutar en orden:
    rustc --version && cargo --version
    just check                     # feedback rápido
    ```
+5. **Validar feature stack** (si la sesión toca Rust):
+   ```bash
+   cargo check --no-default-features --features fjall   # feature set mínimo compila
+   ```
 
 Al **finalizar** la sesión:
 ```
@@ -443,6 +447,14 @@ Cada vez que se tome una decisión técnica que involucre un tradeoff (elegir A 
 
 Esto previene que el mismo debate ocurra dos veces y da contexto a futuros agentes.
 
+**Forcing function (autor humano, no IA):** el ADR lo escribe el **autor humano** articulando el trade-off con sus propias palabras; la IA solo aporta evidencia (datos, comparativas, riesgos). Si la IA redacta el ADR por el autor, pierde su función: el ejercicio de articulación ES la decisión. Formato mínimo:
+
+| Campo | Contenido | Quién lo articula |
+|---|---|---|
+| **Contexto** | problema o trade-off que motiva la decisión | humano |
+| **Decisión** | qué se eligió y por qué sobre las alternativas | humano |
+| **Consecuencias** | costos, riesgos y deuda asumida | humano (IA solo aporta datos) |
+
 > **Validación web:** ante una decisión técnica con incertidumbre, validar primero con `websearch`/`webfetch` contra documentación oficial o GitHub antes de registrarla en decisiones.
 
 ### Regla 6: Límite de Deuda Técnica por PR
@@ -517,6 +529,8 @@ release-plz usa el mensaje del commit para determinar el bump semver:
 - **NUNCA** tocar `docs/CHANGELOG.md` manualmente — release-plz lo actualiza
 - **NUNCA** crear tags manualmente — release-plz los crea
 
+**Gate de explicabilidad (Regla 10):** antes de mergear cualquier PR con código generado por IA, el autor debe poder explicar cada decisión no trivial línea por línea — si no puede, es señal de qué estudiar esa semana (el desarrollo dicta el syllabus). Ver Regla 10 (AI Guardian).
+
 #### Hacer un Release (sin esperar a release-plz)
 
 Si el usuario necesita un release inmediato sin pasar por el ciclo de release-plz:
@@ -551,4 +565,14 @@ Toda PR que toque paths multi-índice (vector + grafo + text), `dashmap`, `parki
 **Carga objetivo sugerida para la auditoría:** 10k w/s + 1k r/s (o el benchmark de estrés disponible).
 
 **Delegación obligatoria:** `vanta-chaos` (stress/deadlock) + `vanta-review` (revisión). El mismo contexto que implementó no puede auto-auditarse (P2-01).
+
+### Regla 10: No Mergear Código IA sin Poder Explicarlo (AI Guardian)
+
+Nunca mergees código generado por IA que no puedas explicar **línea por línea**. La incapacidad de explicar una decisión no trivial NO es una excusa para mergear igual — es la señal de qué estudiar esa semana: **el desarrollo dicta el syllabus**, no al revés.
+
+| Si el autor no puede... | Debes responder... |
+|---|---|
+| Explicar cada decisión no trivial del código (por qué esta estructura, este algoritmo, este trade-off) | "No mergear todavía. Identificá qué parte no podés explicar → eso es lo que estudiás esta semana." |
+| Explicar por qué el código es correcto (no solo "los tests pasan") | "Los tests verdes no prueban comprensión. Explicá el invariante que garantiza que funciona." |
+| Responder "lo escribió la IA, no sé" | "El código es tuyo al mergearlo. Sin explicación línea por línea no entra a main." |
 
