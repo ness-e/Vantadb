@@ -4,6 +4,8 @@
 
 The Model Context Protocol (MCP) is a standardized protocol for AI agents to interact with external systems through a JSON-RPC interface over stdio.
 
+This document describes the standard MCP wire protocol as implemented by the VantaDB MCP server (`vantadb-mcp`). The server dispatches exactly these methods: `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/read`, `prompts/list`, `prompts/get`. The concrete tool list (15 tools) is documented in the parent `SKILL.md`; the contract source of truth is `docs/api/MCP.md`.
+
 ## Protocol Version
 
 Current version: `2024-11-05`

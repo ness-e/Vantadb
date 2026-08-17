@@ -134,6 +134,7 @@ validation_logs/
 job*_logs/
 *logs/
 *db/
+!skills/vantadb/
 tests_*/
 test_*/
 

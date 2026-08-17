@@ -1,336 +1,184 @@
 # VantaDB Configuration Guide
 
-## Core Configuration
+> Verified against `src/config.rs`. VantaDB is configured exclusively through **environment variables** (`VANTADB_*` / `VANTA_*`) and CLI flags — there is **no `config.json`** and no config file for the engine or the MCP server. All variables have sensible defaults; set only what you need to override.
 
-### Memory Limits
+## Storage
 
-Configure memory limits based on your workload:
+### VANTADB_STORAGE_PATH
 
-```json
-{
-  "memory_limit_bytes": 512000000
-}
-```
-
-**Recommendations:**
-- Small workloads: 256MB
-- Medium workloads: 512MB
-- Large workloads: 1GB+
-- Production: Monitor and adjust based on usage
-
-### Thread Pool
-
-Configure blocking thread pool for concurrent operations:
-
-```json
-{
-  "max_blocking_threads": 4
-}
-```
-
-**Recommendations:**
-- Low concurrency: 2-4 threads
-- Medium concurrency: 4-8 threads
-- High concurrency: 8-16 threads
-- CPU-bound workloads: Match physical cores
-
-### Read-Only Mode
-
-Enable read-only mode for production deployments:
-
-```json
-{
-  "read_only": true
-}
-```
-
-**Use cases:**
-- Production read replicas
-- Analytics workloads
-- Safety-critical deployments
-
-## HNSW Configuration
-
-### Dimensionality
-
-```json
-{
-  "hnsw": {
-    "dim": 1536
-  }
-}
-```
-
-**Common dimensions:**
-- OpenAI ada-002: 1536
-- OpenAI text-embedding-3-small: 1536
-- Cohere embed-v3: 1024
-- Custom embeddings: Match your model
-
-### M Parameter (Connections)
-
-```json
-{
-  "hnsw": {
-    "m": 16
-  }
-}
-```
-
-**Trade-offs:**
-- Lower m: Faster build, less memory, lower recall
-- Higher m: Slower build, more memory, higher recall
-
-**Recommendations:**
-- Small datasets (<10K): 12-16
-- Medium datasets (10K-100K): 16-24
-- Large datasets (>100K): 24-32
-
-### EF Construction
-
-```json
-{
-  "hnsw": {
-    "ef_construction": 200
-  }
-}
-```
-
-**Trade-offs:**
-- Lower ef: Faster build, lower recall
-- Higher ef: Slower build, higher recall
-
-**Recommendations:**
-- Quick prototyping: 100-150
-- Production: 200-400
-- High recall: 400-800
-
-### EF Search
-
-```json
-{
-  "hnsw": {
-    "ef_search": 50
-  }
-}
-```
-
-**Trade-offs:**
-- Lower ef: Faster search, lower recall
-- Higher ef: Slower search, higher recall
-
-**Recommendations:**
-- Fast search: 10-25
-- Balanced: 50-100
-- High recall: 100-200
-
-## Advanced Configuration
-
-### Storage Backend
-
-```json
-{
-  "backend": {
-    "type": "fjall",
-    "path": "./vantadb"
-  }
-}
-```
-
-### WAL Configuration
-
-```json
-{
-  "wal": {
-    "enabled": true,
-    "sync_mode": "fsync",
-    "max_size_bytes": 104857600
-  }
-}
-```
-
-**Sync modes:**
-- `none`: No sync (fastest, least safe)
-- `fsync`: Full fsync (safe, slower)
-- `datasync`: fdatasync (balanced)
-
-### Text Index Configuration
-
-```json
-{
-  "text_index": {
-    "tokenizer": "default",
-    "stemming": true,
-    "stopwords": true
-  }
-}
-```
-
-### Metrics Configuration
-
-```json
-{
-  "metrics": {
-    "enable_hnsw_stats": true,
-    "enable_storage_stats": true,
-    "enable_query_stats": true
-  }
-}
-```
-
-## Environment Variables
-
-### VANTADB_PATH
-
-Override storage path:
+Storage directory for the database. Used by `vantadb-server` (e.g. `vantadb-server --mcp`) and embedded engines that load config from the environment.
 
 ```bash
-export VANTADB_PATH=/custom/path
+export VANTADB_STORAGE_PATH=/custom/path
 ```
+
+Default: `vantadb_data` (relative to the working directory).
+
+> Note: the legacy name `VANTADB_PATH` does not exist. The CLI's `--db` flag (env `VANTA_DB`, default `./db`) is separate and only affects `vanta-cli`.
+
+### VANTA_BACKEND
+
+Key-value storage backend. Accepted values: `fjall` (default), `rocksdb`, `memory`.
+
+```bash
+export VANTA_BACKEND=fjall
+```
+
+### VANTA_PREFETCH
+
+Mmap vector page prefetch during HNSW search. Accepted: `enabled`, `disabled` (default), `auto`.
+
+```bash
+export VANTA_PREFETCH=disabled
+```
+
+## Memory & Performance
 
 ### VANTADB_MEMORY_LIMIT
 
-Override memory limit:
+Optional memory limit in bytes. Accepts suffixes: `KB`, `MB`, `GB` (also `KiB`, `MiB`, `GiB`), e.g. `500MB` or `2GB`.
 
 ```bash
 export VANTADB_MEMORY_LIMIT=1073741824
 ```
 
-### VANTADB_READ_ONLY
+### VANTADB_MAX_BLOCKING_THREADS
 
-Enable read-only mode:
+Maximum blocking threads for the async runtime. Default: `available_parallelism() * 2`.
+
+### VANTADB_MAX_CONNECTIONS
+
+Maximum concurrent connections for the HTTP query pool. Default: `max_blocking_threads * 2`.
+
+### VANTADB_INSERT_LOCK_TIMEOUT_MS / VANTADB_FILE_LOCK_TIMEOUT_MS
+
+Insert spin-lock timeout (default 5000 ms) and process file-lock timeout (default 1000 ms).
+
+### VANTADB_WAL_SHARDS
+
+Number of WAL shards to reduce mutex contention. Default: `4`. `0` disables the WAL; `1` is single-file (legacy).
+
+### VANTADB_WAL_BUFFER_SIZE
+
+WAL buffer size in bytes. Default: 65536 (64 KB).
+
+### VANTADB_FLUSH_THRESHOLD
+
+Number of nodes before triggering an implicit WAL flush. Default: 10000.
+
+### VANTADB_BATCH_SIZE / VANTADB_BULK_COMMIT_INTERVAL
+
+Batch ingestion size (default 1000) and bulk-import commit interval in records (default 10000).
+
+### VANTADB_FLAT_THRESHOLD
+
+Use brute-force flat scan instead of HNSW when the number of index nodes is at or below this threshold. Default: 10000. `0` disables (always HNSW).
+
+## Server (HTTP / MCP)
+
+### VANTADB_HOST / VANTADB_PORT
+
+Host (default `127.0.0.1`) and port (default `8080`) for the HTTP server.
+
+### VANTADB_API_KEY
+
+Optional Bearer token for HTTP API authentication. When set, the server requires `Authorization: Bearer <token>` on protected endpoints.
 
 ```bash
-export VANTADB_READ_ONLY=1
+export VANTADB_API_KEY=secret-token
 ```
 
-## Namespace Configuration
+### VANTADB_REQUIRE_AUTH
 
-### Default Namespace
+When `true` (or `1`), the server refuses to start unless `VANTADB_API_KEY` is configured.
 
-```json
-{
-  "default_namespace": "default"
-}
+### VANTADB_RATE_LIMIT_RPM
+
+Maximum HTTP requests per minute per remote IP. Default: 100. `0` disables rate limiting.
+
+### VANTADB_TRUSTED_PROXIES
+
+Comma-separated IPs of trusted reverse proxies whose `X-Forwarded-For` header is honored for client-IP resolution. Empty (default) means the header is ignored.
+
+### VANTADB_ALLOWED_ORIGINS
+
+Comma-separated origins allowed for CORS. Empty (default) means no CORS middleware is attached.
+
+### VANTADB_TLS_CERT / VANTADB_TLS_KEY
+
+Paths to PEM-encoded TLS certificate and private key. Requires the `tls` feature.
+
+### VANTADB_POOL_ACQUIRE_TIMEOUT_MS
+
+Pool-permit acquisition timeout in ms (default 5000).
+
+### VANTADB_CIRCUIT_BREAKER_FAILURE_THRESHOLD / VANTADB_CIRCUIT_BREAKER_OPEN_TIMEOUT_SECS
+
+HTTP query pool circuit breaker: consecutive failures before opening (default 5) and seconds it stays open (default 30).
+
+## Logging
+
+### VANTADB_LOG_FORMAT
+
+Log output format: `compact` (default), `json`, `full`.
+
+```bash
+export VANTADB_LOG_FORMAT=json
 ```
 
-### Namespace Isolation
+### VANTADB_LOG_JSON
 
-Configure separate namespaces for different contexts:
+Legacy alias: `1`/`true` forces JSON log format.
 
-```json
-{
-  "namespaces": {
-    "agent": {
-      "prefix": "agent/",
-      "auto_create": true
-    },
-    "session": {
-      "prefix": "session/",
-      "auto_create": true
-    }
-  }
-}
+## Security & Compliance
+
+### VANTADB_ENCRYPTION_KEY
+
+Optional AES-256-GCM at-rest encryption key (hex-encoded 32-byte / 64 hex chars). Requires the `encryption` feature.
+
+### VANTADB_EXPORT_BASE_DIR
+
+Base directory for export/import operations. When set, export/import paths are validated against it with canonical path resolution (including symlink protection).
+
+### VANTADB_AUDIT_LOG_PATH
+
+Optional append-only JSONL audit log of business operations (every put/delete/export/import with ISO 8601 timestamp, namespace, key, and outcome).
+
+## LLM Integration
+
+### VANTA_LLM_URL / VANTA_LLM_MODEL / VANTA_LLM_SUMMARIZE_MODEL
+
+LLM inference endpoint (default `http://localhost:11434`), embedding model (default `all-minilm`), and summarisation model (default `llama3`). Only relevant when the `remote-inference` feature is enabled.
+
+## HNSW Tuning
+
+HNSW parameters (`m`, `m_max0`, `ef_construction`, `ef_search`, `ml`, `distance_metric`, `flat_threshold`, `index_type`, `auto_tune`) are engine-level (`HnswConfig` in `src/index/graph.rs`) and are **not** exposed as environment variables. They are set programmatically when constructing the engine — see `references/api-reference.md`.
+
+## CLI Flags
+
+The `vanta-cli` binary accepts the global `--db` flag (env `VANTA_DB`, default `./db`) and `--memory-limit`, plus per-subcommand flags. For the MCP server:
+
+```bash
+vanta-cli server --mcp --db ~/.vantadb
 ```
 
-## Performance Tuning
+## Read-Only Mode
 
-### Benchmarking
-
-Test different configurations:
-
-```python
-import vantadb_py as vantadb
-
-# Test with different HNSW parameters
-configs = [
-    {"m": 16, "ef_construction": 200, "ef_search": 50},
-    {"m": 24, "ef_construction": 300, "ef_search": 100},
-    {"m": 32, "ef_construction": 400, "ef_search": 150}
-]
-
-for config in configs:
-    db = vantadb.VantaDB("./test", hnsw_config=config)
-    # Run benchmarks
-    db.close()
-```
-
-### Monitoring
-
-Monitor operational metrics:
-
-```python
-metrics = db.operational_metrics()
-print(f"HNSW nodes: {metrics['hnsw_nodes_count']}")
-print(f"Memory usage: {metrics['memory_usage_bytes']}")
-```
-
-## Security Configuration
-
-### Access Control
-
-```json
-{
-  "access_control": {
-    "enabled": true,
-    "default_policy": "read-only",
-    "namespaces": {
-      "admin": {
-        "policy": "read-write"
-      }
-    }
-  }
-}
-```
-
-### Encryption
-
-```json
-{
-  "encryption": {
-    "enabled": true,
-    "algorithm": "aes-256-gcm",
-    "key_path": "/path/to/key"
-  }
-}
-```
-
-## Migration Configuration
-
-### Import/Export
-
-```json
-{
-  "migration": {
-    "import_path": "./import",
-    "export_path": "./export",
-    "batch_size": 1000
-  }
-}
-```
+There is **no** `VANTADB_READ_ONLY` environment variable. Read-only mode is set programmatically via `VantaConfig::with_read_only(true)` (embedded SDK) or the engine's read-only construction path.
 
 ## Troubleshooting
 
 ### High Memory Usage
 
-Reduce memory limit or:
-- Decrease HNSW m parameter
-- Reduce ef_construction
-- Implement periodic cleanup
+Reduce `VANTADB_MEMORY_LIMIT` or lower HNSW `ef_construction`/`m` (programmatic) and implement periodic cleanup (`purge_expired`).
 
 ### Slow Search
 
-Increase ef_search or:
-- Rebuild index with higher ef_construction
-- Reduce dataset size
-- Use metadata filters
+Increase `VANTADB_FLAT_THRESHOLD` behavior or raise HNSW `ef_search` (programmatic); rebuild the index with higher `ef_construction`; reduce dataset size; use metadata filters.
 
 ### Low Recall
 
-Increase HNSW parameters:
-- Increase m
-- Increase ef_construction
-- Increase ef_search
+Increase HNSW parameters: higher `m`, `ef_construction`, and `ef_search` (programmatic).
 
 ## Best Practices
 

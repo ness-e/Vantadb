@@ -1,11 +1,11 @@
 ---
 name: vantadb-mcp
-description: VantaDB Model Context Protocol (MCP) server integration for persistent AI memory. Use when Claude needs to work with VantaDB as a memory backend through MCP for: (1) Storing and retrieving persistent memory records, (2) Performing hybrid vector and text search, (3) Managing namespace-scoped memory isolation, (4) Accessing operational metrics and schema information, (5) Working with AI frameworks like CrewAI, Mem0, AutoGen, Haystack, LangGraph, Semantic Kernel, or DSPy that require persistent memory storage.
+description: VantaDB Model Context Protocol (MCP) server integration for persistent AI agent memory. Use when an AI agent (OpenCode, Claude, Cursor, etc.) needs to work with VantaDB as a memory backend through MCP for: (1) Storing and retrieving persistent memory records, (2) Performing hybrid vector and text search, (3) Managing namespace-scoped memory isolation, (4) Accessing operational metrics, schema information, and collection statistics, (5) Executing IQL graph queries and rehydrating archived nodes, (6) Working with AI frameworks like CrewAI, Mem0, AutoGen, Haystack, LangGraph, Semantic Kernel, or DSPy that require persistent memory storage.
 ---
 
 # VantaDB MCP Integration
 
-VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities.
+VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes 15 tools, 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
 
 ## Quick Start
 
@@ -21,11 +21,19 @@ This installs VantaDB and creates default configuration.
 
 ### Starting the MCP Server
 
-The VantaDB MCP server runs as a stdio JSON-RPC server:
+The VantaDB MCP server runs as a stdio JSON-RPC server. Use the CLI wrapper (canonical — it spawns the server with the database path):
 
 ```bash
-vanta-server --mcp --path ~/.vantadb
+vanta-cli server --mcp --db ~/.vantadb
 ```
+
+Or run the server binary directly. `vantadb-server` has no `--db`/`--path` flags; the storage path comes from the `VANTADB_STORAGE_PATH` environment variable:
+
+```bash
+VANTADB_STORAGE_PATH=~/.vantadb vantadb-server --mcp
+```
+
+> Note: `vanta-server` is not a real binary and `--path` is not a valid flag on any VantaDB binary. Use `vanta-cli server --mcp --db <path>` or `vantadb-server --mcp` with `VANTADB_STORAGE_PATH`.
 
 ### MCP Client Configuration
 
@@ -35,8 +43,8 @@ Configure your MCP client to connect to VantaDB:
 {
   "mcpServers": {
     "vantadb": {
-      "command": "vanta-server",
-      "args": ["--mcp", "--path", "~/.vantadb"]
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "~/.vantadb"]
     }
   }
 }
@@ -46,6 +54,22 @@ Configure your MCP client to connect to VantaDB:
 - `assets/claude-desktop-config.json` - Claude Desktop configuration
 - `assets/cursor-config.json` - Cursor workspace configuration
 - `assets/config-template.json` - VantaDB configuration template
+
+### OpenCode
+
+The user's primary editor is OpenCode. Add to your `opencode.json` (project root or `~/.config/opencode/opencode.json`):
+
+```json
+{
+  "mcp": {
+    "vantadb": {
+      "type": "local",
+      "command": ["vanta-cli", "server", "--mcp", "--db", "~/.vantadb"],
+      "enabled": true
+    }
+  }
+}
+```
 
 ### Testing
 
@@ -64,12 +88,12 @@ python scripts/create-namespace.py create agent/session-001
 python scripts/create-namespace.py list
 ```
 
-## Available MCP Tools
+## Available MCP Tools (15)
 
 ### Memory CRUD Operations
 
 **memory_put** - Insert or update a memory record
-- Parameters: `namespace`, `key`, `payload`, `vector` (optional), `metadata` (optional)
+- Parameters: `namespace`, `key`, `payload` (required); `vector` (optional array of numbers), `metadata` (optional object)
 - Returns: The created/updated memory record
 
 **memory_get** - Retrieve a memory record
@@ -78,11 +102,11 @@ python scripts/create-namespace.py list
 
 **memory_delete** - Delete a memory record
 - Parameters: `namespace`, `key`
-- Returns: Success status
+- Returns: Success status (`{"deleted": true|false}`)
 
 **memory_list** - List memory records with pagination
-- Parameters: `namespace`, `limit` (default: 100), `cursor` (optional), `filters` (optional)
-- Returns: Page of records with next cursor
+- Parameters: `namespace`, `limit` (default: 100), `cursor` (optional number), `filters` (optional object)
+- Returns: `{"records": [...], "next_cursor": ...}`
 
 **memory_list_namespaces** - List all namespaces
 - Parameters: None
@@ -90,22 +114,22 @@ python scripts/create-namespace.py list
 
 ### Search Operations
 
-**search_memory** - Hybrid vector and text search
-- Parameters: `namespace`, `query_vector` (optional), `text_query` (optional), `top_k`, `distance_metric`, `explain`, `filters`
+**search_memory** - Hybrid vector and text search in a namespace
+- Parameters: `namespace` (required), `query_vector` (optional array), `text_query` (optional string), `top_k` (default: 10), `distance_metric` (`cosine` | `euclidean`, default: `cosine`), `explain` (optional boolean), `filters` (optional object)
 - Returns: Search hits with scores and optional explanations
 
 **search_semantic** - Raw HNSW vector search
-- Parameters: `vector`, `k`
+- Parameters: `vector` (F32 query vector, required), `k` (default: 5)
 - Returns: Nearest neighbors with distances
 
 ### Graph Operations
 
-**query_lisp** - Execute VantaLISP code
+**query_iql** - Execute an IQL (Interactive Query Language) statement. Allows reading structures and inserting/mutating Nodes providing semantic context. **LISP is not supported; statements must be IQL.**
 - Parameters: `query`
-- Returns: Query results or execution status
+- Returns: Query results or execution status (read nodes, write result, or stale-context rehydration hint)
 
 **get_node_neighbors** - Inspect node relationships
-- Parameters: `node_id`
+- Parameters: `node_id` (decimal string; u128 ids exceed JSON number precision)
 - Returns: Node and its neighbors
 
 **inject_context** - Inject context into a thread
@@ -114,14 +138,34 @@ python scripts/create-namespace.py list
 
 **read_axioms** - Read system axioms
 - Parameters: None
-- Returns: Active Devil's Advocate Axioms
+- Returns: Active Devil's Advocate Axioms (Iron Axioms)
+
+**rehydrate** - Recover shadow-archived nodes that belonged to a summary node from TombstoneStorage
+- Parameters: `summary_id` (u128 as string)
+- Returns: `{"recovered_count", "summary_id", "rehydration_complete"}`
+
+### Collection Operations
+
+**collection_stats** - Returns statistics for a namespace/collection
+- Parameters: `namespace`
+- Returns: `{"total_records", "total_bytes", "has_vector_index", "vector_count", "created_at"}`
+
+**collection_list** - Lists all collections with metadata
+- Parameters: None
+- Returns: Array of `{"name", "record_count", "has_vector_index", "created_at"}`
+
+**collection_delete** - Deletes an entire namespace/collection and all its records
+- Parameters: `namespace`, `confirm` (must be `"yes"`)
+- Returns: `{"deleted", "records_removed"}`
 
 ## Available MCP Resources
 
-- **metrics://** - Operational metrics (memory usage, HNSW statistics, storage information)
-- **schema://** - Database schema information (HNSW configuration, text index version)
-- **memory://{namespace}/{key}** - Individual memory records by URI
-- **namespace://{namespace}** - Namespace content listing
+The server lists 2 static resources in `resources/list`; 2 additional dynamic URIs are servable via `resources/read` (not listed):
+
+- **metrics://** - Operational metrics (memory usage, HNSW statistics, storage information) — listed
+- **schema://** - Database schema information (HNSW configuration, text index version) — listed
+- **memory://{namespace}/{key}** - Individual memory records by URI — servable, not listed
+- **namespace://{namespace}** - Namespace content listing — servable, not listed
 
 ## Available MCP Prompts
 
@@ -175,7 +219,7 @@ VantaDB provides Python SDK integrations for popular AI frameworks:
 
 ## Editor Integration
 
-For editor-specific configuration, see [docs/EDITOR_INTEGRATIONS.md](../../docs/EDITOR_INTEGRATIONS.md).
+For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see [docs/api/MCP.md](../../docs/api/MCP.md). This is the source of truth for the MCP contract; this skill stays consistent with it.
 
 Supported editors:
 - Cursor
@@ -187,7 +231,7 @@ Supported editors:
 
 ## Performance Optimization
 
-- Configure memory limits in VantaConfig
+- Configure memory limits via environment variables (see [references/configuration.md](references/configuration.md))
 - Use namespace isolation to limit scope
 - Adjust HNSW parameters for memory efficiency
 - Implement periodic cleanup of old memories
@@ -201,7 +245,7 @@ Supported editors:
 
 ## Troubleshooting
 
-**Connection issues**: Verify VantaDB server is installed and running
+**Connection issues**: Verify the VantaDB server is installed and running (`vanta-cli server --mcp --db <path>`)
 **Permission errors**: Ensure database path is writable
 **Memory issues**: Configure appropriate memory limits
 
@@ -211,7 +255,7 @@ For comprehensive documentation, see the reference files:
 
 - **[references/mcp-protocol.md](references/mcp-protocol.md)** - Complete MCP protocol specification
 - **[references/api-reference.md](references/api-reference.md)** - Full VantaDB API reference (Python and Rust)
-- **[references/configuration.md](references/configuration.md)** - Advanced configuration guide
+- **[references/configuration.md](references/configuration.md)** - Advanced configuration guide (environment variables)
 
 These files provide in-depth technical details for:
 - MCP protocol methods and error handling
@@ -220,4 +264,4 @@ These files provide in-depth technical details for:
 - Performance optimization
 - Security configuration
 
-For general documentation, see [docs/MCP.md](../../docs/MCP.md).
+For general documentation, see [docs/api/MCP.md](../../docs/api/MCP.md).
