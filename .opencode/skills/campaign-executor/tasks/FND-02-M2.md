@@ -13,11 +13,11 @@ Test de estrés que EJERZA la evicción `*_locked` bajo contención real: config
 - `src/storage/engine/tests/ops.rs` (tests existentes de FND-02: test_evict_cold_nodes_locked_no_reentrant_timeout, test_multi_index_write_paths_no_deadlock), `src/storage/engine/maintenance.rs` (eviction), `src/config.rs` (max_nodes/memory_limit/rss_threshold)
 
 ## Steps
-1. DISCOVERY: leer los 2 tests de FND-02 + cómo configurar max_nodes bajo + cómo dispara la evicción (watermark rss_threshold/eviction_ratio)
-2. Diseñar: test de estrés con max_nodes bajo + N threads (insert/delete_batch/get_many) + assert de que la evicción ocurrió (contador/estado) y no hubo timeout/deadlock (deadline wall-clock generoso)
-3. Implementar en tests/ops.rs (o archivo de tests nuevo si el tamaño lo justifica)
-4. Verificar: `cargo test -p vantadb --lib storage::engine::tests::ops` (o el path del test nuevo) — pasa, determinístico (sin flakiness)
-5. Task file + RESULTADO
+1. ✅ DISCOVERY: leídos test_evict_cold_nodes_locked_no_reentrant_timeout + test_multi_index_write_paths_no_deadlock (ops.rs:1253-1368), evict_cold_nodes_with_reason_locked/consolidate_node_locked (maintenance.rs:410-522), watermark real: NO existe config max_nodes — deriva de hardware `total_memory/4/1536` (insert.rs:294-323, 831-857). El trigger *_locked solo corre en apply_insert/batch_insert al superar el watermark (~2.7M nodos).
+2. ✅ Diseñado: test con umbral bajo local (EVICTOR_THRESHOLD=64) que simula el watermark; threads evictor toman insert_lock (como apply_insert) y llaman evict_cold_nodes_with_reason_locked(0.5, Watermark); 4 writers (insert+get_many), 1 deleter (delete_batch), 2 evictors; watchdog 60s deadline; assert acumulado total_evicted > 0.
+3. ✅ Implementado `test_evict_locked_under_contention_no_deadlock` en src/storage/engine/tests/ops.rs (tras test_multi_index_write_paths_no_deadlock, +133 líneas). Solo tests; ningún archivo de producción tocado.
+4. ✅ Verificado: `cargo test -p vantadb --lib storage::engine::tests::ops` — 74 passed, 0 failed ×2 corridas; test nuevo aislado 3.23-3.60s; `cargo fmt --check` ✅; `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` ✅ (exit 0).
+5. ✅ Task file + RESULTADO actualizado.
 
 ## Contrato (verify mecánico)
 - Test nuevo compila y pasa de forma determinista (correr ≥2 veces)
@@ -36,11 +36,11 @@ Test de estrés que EJERZA la evicción `*_locked` bajo contención real: config
 
 ## Resultado
 ```
-RESULTADO: ✅ COMPLETO | 🟡 INCOMPLETO | ❌ FALLIDO
-STEPS_OK: <n>/<M>
-PROXIMO_STEP: <...>
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 5/5
+PROXIMO_STEP: ninguno
 COMMIT_HASH: ninguno (lead commitea)
-ARCHIVOS: <paths tocados>
-VERIFY_CONTRATO: <pasa | no-corrido | falla>
-BLOQUEO: <ninguno | ...>
+ARCHIVOS: src/storage/engine/tests/ops.rs (solo tests — +133 líneas: test_evict_locked_under_contention_no_deadlock)
+VERIFY_CONTRATO: pasa
+BLOQUEO: ninguno
 ```

@@ -1367,6 +1367,139 @@ fn test_multi_index_write_paths_no_deadlock() {
     watchdog.join().expect("watchdog panicked");
 }
 
+// ─── FND-02-M2: evicción *_locked bajo contención real ─────────
+//
+// El watermark de producción deriva de hardware — max_nodes =
+// total_memory/4/1536 (~2.7M en máquinas típicas) — así que los tests de
+// estrés existentes (≤192 nodos) jamás disparan la evicción que FND-02
+// arregló: `evict_cold_nodes_with_reason_locked` / `consolidate_node_locked`
+// solo corren cuando apply_insert/batch_insert superan ese watermark.
+//
+// Este test sustituye el disparador por un umbral bajo local (64 nodos):
+// threads "evictor" toman `insert_lock` — exactamente como hace
+// `apply_insert` al superar el watermark — y llaman la variante *_locked con
+// razón Watermark mientras writers/deleters/readers corren concurrentes.
+// Verifica dos cosas: (1) la evicción SÍ ocurrió — `report.evicted` acumulado
+// > 0, no un no-op; (2) sin deadlock ni timeout — watchdog con deadline
+// generoso. Si el path regresara a re-adquirir `insert_lock` (bug FND-02),
+// consolidate fallaría por try_lock_for timeout → evicted == 0 → assert.
+
+#[test]
+fn test_evict_locked_under_contention_no_deadlock() {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc;
+    let engine = Arc::new(in_memory_engine());
+
+    const SEED: u128 = 256; // hot candidates → volatile_cache (pool de evicción)
+    const WRITER_BASE: u128 = 10_000_000;
+    const SEED_BASE: u128 = 20_000_000; // rango del deleter (no toca candidatos)
+    const WRITERS: usize = 4;
+    const ITERS: usize = 40;
+    const EVICTOR_THRESHOLD: usize = 64; // "max_nodes" bajo del test
+
+    // Candidatos de evicción: Hot tier entra a volatile_cache. Nadie más los
+    // consume (writers insertan Cold, deleter borra otro rango), así que el
+    // primer pass del evictor SIEMPRE ve el pool > umbral → evicted > 0.
+    for i in 0..SEED {
+        let mut node = sample_node(i);
+        node.tier = NodeTier::Hot;
+        engine.insert(&node).expect("seed insert");
+    }
+    // Rango del deleter: delete_batch ejercita el path multi-index en nodos reales.
+    for i in 0..32u128 {
+        engine
+            .insert(&sample_node(SEED_BASE + i))
+            .expect("seed insert");
+    }
+
+    let total_evicted = Arc::new(AtomicU64::new(0));
+    let mut handles = Vec::new();
+
+    // Writers: insert (vector + graph + text) y get_many.
+    for t in 0..WRITERS {
+        let engine = Arc::clone(&engine);
+        handles.push(std::thread::spawn(move || {
+            for i in 0..ITERS {
+                let id = WRITER_BASE + t as u128 * ITERS as u128 + i as u128;
+                let mut node = sample_node(id);
+                // Vectores distintos evitan el greedy insertion patológico del HNSW.
+                node.vector = crate::node::VectorRepresentations::Full(vec![
+                    0.1 + (i % 7) as f32 / 100.0,
+                    0.2,
+                    0.3,
+                ]);
+                engine.insert(&node).expect("insert");
+                if i % 10 == 0 {
+                    let ids: Vec<u128> = (0..8)
+                        .map(|k| WRITER_BASE + t as u128 * ITERS as u128 + k)
+                        .collect();
+                    let _ = engine.get_many(&ids);
+                }
+            }
+        }));
+    }
+
+    // Deleter: batch-remove del rango seeded (path multi-index de delete).
+    {
+        let engine = Arc::clone(&engine);
+        handles.push(std::thread::spawn(move || {
+            for i in 0..ITERS {
+                let ids: Vec<u128> = (0..4)
+                    .map(|k| SEED_BASE + ((i * 4 + k) % 32) as u128)
+                    .collect();
+                engine.delete_batch(&ids).expect("delete_batch");
+            }
+        }));
+    }
+
+    // Evictors: simulan apply_insert superando el watermark — insert_lock
+    // tomado + evicción *_locked con razón Watermark. Contención real sobre
+    // insert_lock y volatile_cache con los threads de arriba.
+    for _ in 0..2 {
+        let engine = Arc::clone(&engine);
+        let total_evicted = Arc::clone(&total_evicted);
+        handles.push(std::thread::spawn(move || {
+            for _ in 0..30 {
+                let over_watermark = engine.volatile_cache.read().len() > EVICTOR_THRESHOLD;
+                if !over_watermark {
+                    std::thread::sleep(std::time::Duration::from_micros(200));
+                    continue;
+                }
+                let guard = engine.insert_lock.lock();
+                if let Ok(report) =
+                    engine.evict_cold_nodes_with_reason_locked(0.5, EvictionReason::Watermark)
+                {
+                    total_evicted.fetch_add(report.evicted as u64, Ordering::Relaxed);
+                }
+                drop(guard);
+            }
+        }));
+    }
+
+    // Watchdog: deadline generoso — fail en vez de colgar CI ante deadlock.
+    let (tx, rx) = std::sync::mpsc::channel();
+    let watchdog = std::thread::spawn(move || {
+        for h in handles {
+            h.join().expect("worker panicked");
+        }
+        tx.send(()).unwrap();
+    });
+    match rx.recv_timeout(std::time::Duration::from_secs(60)) {
+        Ok(()) => {}
+        Err(_) => panic!(
+            "FND-02-M2: deadlock/timeout suspected — locked eviction under contention \
+             exceeded 60s wall-clock"
+        ),
+    }
+    watchdog.join().expect("watchdog panicked");
+
+    // La evicción *_locked DEBE haber corrido — no un no-op.
+    assert!(
+        total_evicted.load(Ordering::Relaxed) > 0,
+        "FND-02-M2: evict_cold_nodes_with_reason_locked nunca evictó bajo contención"
+    );
+}
+
 // ─── FND-02-M3: delete vs consolidate race ─────────────────────
 //
 // consolidate_node (eviction pública, lock_held=false) re-aplica la entrada
