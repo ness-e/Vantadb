@@ -221,6 +221,7 @@ impl StorageEngine {
         let mut vstore = self.vstore0()?;
         let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, node)?;
         let storage_offset = crate::lsm::pack_offset(0, local_off);
+        drop(vstore); // release vstore guard before refresh_index (acquires insert_lock) — Regla 8 lock order
         self.refresh_index(node, storage_offset)?;
         Ok(())
     }
