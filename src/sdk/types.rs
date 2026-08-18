@@ -239,6 +239,23 @@ pub struct VantaMemoryListPage {
     pub next_cursor: Option<usize>,
 }
 
+/// Default "expiring soon" window for [`VantaNamespaceStats`]: 24 hours.
+pub const DEFAULT_EXPIRING_SOON_WINDOW_MS: u64 = 24 * 60 * 60 * 1000;
+
+/// Per-namespace memory statistics for overview UIs (e.g. Vanta Studio HOME).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VantaNamespaceStats {
+    /// Total number of records in the namespace.
+    pub count: u64,
+    /// Records whose TTL expires within the "expiring soon" window.
+    pub expiring_soon: u64,
+    /// Records whose TTL has already passed (expired).
+    pub expired: u64,
+}
+
+/// Map of namespace → [`VantaNamespaceStats`], in BTreeMap (key-sorted) order.
+pub type VantaNamespaceStatsMap = BTreeMap<String, VantaNamespaceStats>;
+
 pub use super::serialization::vector_types::{
     VantaMemorySearchHit, VantaMemorySearchRequest, VantaSearchHit,
 };

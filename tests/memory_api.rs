@@ -416,6 +416,41 @@ fn memory_euclidean_and_explainable_ranking() {
 }
 
 #[test]
+fn namespace_stats_end_to_end() {
+    let dir = tempdir().expect("tempdir");
+    let db = VantaEmbedded::open(dir.path()).expect("open");
+
+    // ns1: 1 normal + 1 expiring soon (1h TTL, inside the default 24h window).
+    db.put(VantaMemoryInput::new("ns1", "normal", "p"))
+        .expect("put ns1 normal");
+    let mut soon = VantaMemoryInput::new("ns1", "soon", "p");
+    soon.ttl_ms = Some(60 * 60 * 1000);
+    db.put(soon).expect("put ns1 expiring soon");
+
+    // ns2: 1 normal + 1 expired (1ms TTL, then wait past the deadline).
+    db.put(VantaMemoryInput::new("ns2", "normal", "p"))
+        .expect("put ns2 normal");
+    let mut expired = VantaMemoryInput::new("ns2", "gone", "p");
+    expired.ttl_ms = Some(1);
+    db.put(expired).expect("put ns2 expiring");
+    std::thread::sleep(std::time::Duration::from_millis(5));
+
+    let stats = db.namespace_stats(None).expect("namespace stats");
+    let ns1 = &stats["ns1"];
+    assert_eq!(ns1.count, 2);
+    assert_eq!(ns1.expiring_soon, 1);
+    assert_eq!(ns1.expired, 0);
+    let ns2 = &stats["ns2"];
+    assert_eq!(ns2.count, 2);
+    assert_eq!(ns2.expiring_soon, 0);
+    assert_eq!(ns2.expired, 1);
+
+    // Stats map keys (BTreeMap → sorted) stay consistent with list_namespaces.
+    let expected: Vec<String> = stats.keys().cloned().collect();
+    assert_eq!(expected, db.list_namespaces().expect("list namespaces"));
+}
+
+#[test]
 fn snippet_with_highlighting() {
     let dir = tempdir().expect("tempdir");
     let db = VantaEmbedded::open(dir.path()).expect("open");

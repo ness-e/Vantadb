@@ -22,8 +22,8 @@ pub use types::{
     VantaFilterOp, VantaHybridFusionReport, VantaImportReport, VantaIndexRebuildReport,
     VantaMemoryFilter, VantaMemoryFilterItem, VantaMemoryInput, VantaMemoryListOptions,
     VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit,
-    VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics,
-    VantaQueryResult, VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit,
-    VantaSearchHit, VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport,
-    VantaValue,
+    VantaMemorySearchRequest, VantaNamespaceStats, VantaNamespaceStatsMap, VantaNodeInput,
+    VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile,
+    VantaSearchExplanation, VantaSearchExplanationHit, VantaSearchHit, VantaStorageTier,
+    VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
 };

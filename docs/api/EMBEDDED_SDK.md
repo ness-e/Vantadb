@@ -73,6 +73,7 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `search_all(request)` | Search across ALL known namespaces, merging results by score. Convenience wrapper that performs a complete namespace scan before searching; prefer `search_multi` when the target namespaces are known ahead of time |
 | `similar_to_key(namespace, key, top_k)` | Vector similarity search from an existing record's vector, post-filtered to `namespace`. Errors `NotFound` if the key does not exist and `NoVectorForKey` if the record carries no vector |
 | `explain_memory_search(request)` | Search with detailed score breakdown. Returns `VantaSearchExplanation` |
+| `namespace_stats(expiring_soon_window_ms)` | Per-namespace statistics: total records, records expiring within the window, already-expired records. Single full scan (no N paginated `count`/`list` calls). `None` uses the 24h default window. Returns `VantaNamespaceStatsMap` |
 
 ### `VantaMemoryInput`
 
@@ -118,6 +119,20 @@ pub struct VantaMemoryRecord {
     pub expires_at_ms: Option<u64>,
 }
 ```
+
+### `VantaNamespaceStats`
+
+```rust
+pub struct VantaNamespaceStats {
+    pub count: u64,          // total records in the namespace (includes not-yet-purged expired)
+    pub expiring_soon: u64,  // records expiring within the window (never includes expired)
+    pub expired: u64,        // records whose TTL has already passed
+}
+
+pub type VantaNamespaceStatsMap = BTreeMap<String, VantaNamespaceStats>;
+```
+
+`namespace_stats` returns one `VantaNamespaceStats` per namespace, keyed by namespace in sorted order. `count` counts all physical records (including expired ones not yet purged); the read-visible subset is available via `count`/`list` (lazy TTL eviction). A record is `expired` if `expires_at_ms <= now` and `expiring_soon` if `now < expires_at_ms <= now + window`; a record never counts as both. Records without a TTL count only toward `count`.
 
 ## Node / Graph API
 

@@ -162,9 +162,10 @@ pub use sdk::{
     VantaEmbedded, VantaExportReport, VantaFields, VantaHybridFusionReport, VantaImportReport,
     VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryListPage,
     VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest,
-    VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult,
-    VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit, VantaSearchHit,
-    VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
+    VantaNamespaceStats, VantaNamespaceStatsMap, VantaNodeInput, VantaNodeRecord,
+    VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile, VantaSearchExplanation,
+    VantaSearchExplanationHit, VantaSearchHit, VantaStorageTier, VantaTextIndexAuditReport,
+    VantaTextIndexRepairReport, VantaValue,
 };
 pub use storage::vfile::VFILE_VERSION;
 pub use storage::BackendKind;

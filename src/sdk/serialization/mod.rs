@@ -280,6 +280,22 @@ fn sparse_vector_from_field(flat: &[f64]) -> Option<SparseVector> {
 }
 
 pub fn memory_record_from_node(node: &UnifiedNode) -> Option<VantaMemoryRecord> {
+    memory_record_from_node_inner(node, true)
+}
+
+/// Like [`memory_record_from_node`] but **without** lazy TTL eviction: records
+/// whose deadline has passed are still returned so callers can observe them
+/// (e.g. per-namespace TTL statistics).
+pub(crate) fn memory_record_from_node_include_expired(
+    node: &UnifiedNode,
+) -> Option<VantaMemoryRecord> {
+    memory_record_from_node_inner(node, false)
+}
+
+fn memory_record_from_node_inner(
+    node: &UnifiedNode,
+    apply_lazy_ttl: bool,
+) -> Option<VantaMemoryRecord> {
     if !node.is_alive() {
         return None;
     }
@@ -309,11 +325,13 @@ pub fn memory_record_from_node(node: &UnifiedNode) -> Option<VantaMemoryRecord> 
 
     // Lazy TTL eviction: if expires_at_ms is set and the deadline
     // has passed, the record is treated as if it no longer exists.
-    if let Some(deadline) = expires_at_ms {
-        if deadline > 0 {
-            let now = now_ms();
-            if now > deadline {
-                return None;
+    if apply_lazy_ttl {
+        if let Some(deadline) = expires_at_ms {
+            if deadline > 0 {
+                let now = now_ms();
+                if now > deadline {
+                    return None;
+                }
             }
         }
     }

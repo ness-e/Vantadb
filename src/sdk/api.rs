@@ -1,9 +1,10 @@
 use super::builder::VantaEmbedded;
 use super::serialization::{
     is_scalar_indexable, matches_memory_filters, memory_node_id, memory_record_from_node,
-    memory_record_to_node_owned, now_ms, validate_key, validate_metadata, validate_namespace,
-    DERIVED_INDEX_SCHEMA_VERSION, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS, FIELD_KEY,
-    FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS, FIELD_VERSION,
+    memory_record_from_node_include_expired, memory_record_to_node_owned, now_ms, validate_key,
+    validate_metadata, validate_namespace, DERIVED_INDEX_SCHEMA_VERSION, FIELD_CREATED_AT_MS,
+    FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS,
+    FIELD_VERSION,
 };
 use super::types::*;
 use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
@@ -1302,6 +1303,69 @@ impl VantaEmbedded {
         Ok(total)
     }
 
+    /// Compute per-namespace statistics: total record count, records expiring
+    /// within the given window, and already-expired records.
+    ///
+    /// Performs a **single pass** over all memory records (one full scan), so
+    /// callers summarizing every namespace never need N paginated `count`/
+    /// `list` calls. Expired records are counted only as `expired`, never as
+    /// `expiring_soon`.
+    ///
+    /// Semantics: `count` includes not-yet-purged expired records (records
+    /// hidden by lazy TTL eviction in [`memory_record_from_node`]); use
+    /// [`Self::count`] / [`Self::list`] for the read-visible subset. Records
+    /// with no TTL count only toward `count`.
+    ///
+    /// # Arguments
+    /// * `expiring_soon_window_ms` — How far into the future a TTL counts as
+    ///   "expiring soon". `None` uses [`DEFAULT_EXPIRING_SOON_WINDOW_MS`]
+    ///   (24 hours).
+    ///
+    /// # Example
+    /// ```
+    /// use vantadb::{VantaEmbedded, VantaMemoryInput};
+    ///
+    /// let dir = std::env::temp_dir().join(format!(
+    ///     "vantadb-ns-stats-doctest-{}",
+    ///     std::process::id()
+    /// ));
+    /// let db = VantaEmbedded::open(&dir).unwrap();
+    /// db.put(VantaMemoryInput::new("agent", "k", "payload")).unwrap();
+    ///
+    /// let stats = db.namespace_stats(None).unwrap();
+    /// assert_eq!(stats["agent"].count, 1);
+    /// let _ = std::fs::remove_dir_all(&dir);
+    /// ```
+    #[tracing::instrument(skip(self), err)]
+    pub fn namespace_stats(
+        &self,
+        expiring_soon_window_ms: Option<u64>,
+    ) -> Result<VantaNamespaceStatsMap> {
+        let engine = self.engine_handle()?;
+        let now = now_ms();
+        let window = expiring_soon_window_ms.unwrap_or(DEFAULT_EXPIRING_SOON_WINDOW_MS);
+        let mut stats: VantaNamespaceStatsMap = BTreeMap::new();
+
+        for node in engine.scan_nodes()? {
+            // Include expired (not-yet-purged) records so `expired` is observable;
+            // the read-path variant would hide them via lazy TTL eviction.
+            let Some(record) = memory_record_from_node_include_expired(&node) else {
+                continue;
+            };
+            let entry = stats.entry(record.namespace).or_default();
+            entry.count += 1;
+            if let Some(expires_at) = record.expires_at_ms {
+                if expires_at <= now {
+                    entry.expired += 1;
+                } else if expires_at <= now.saturating_add(window) {
+                    entry.expiring_soon += 1;
+                }
+            }
+        }
+
+        Ok(stats)
+    }
+
     // ── REC-004: similar_to_key ───────────────────────────────────────────
 
     /// Find records similar to an existing record identified by `key`.
@@ -1978,6 +2042,112 @@ mod tests {
             vec!["k1"],
             "list filter must return exactly the record with matching list metadata, got {keys:?}"
         );
+    }
+
+    // ── namespace_stats (VS-CORE-02) ──
+
+    fn stats_record(namespace: &str, key: &str, expires_at_ms: Option<u64>) -> VantaMemoryRecord {
+        VantaMemoryRecord {
+            namespace: namespace.into(),
+            key: key.into(),
+            payload: "payload".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 1,
+            updated_at_ms: 1,
+            version: 1,
+            node_id: memory_node_id(namespace, key),
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms,
+        }
+    }
+
+    #[test]
+    fn namespace_stats_empty_db_returns_empty_map() {
+        let db = make_embedded_real();
+        let stats = db.namespace_stats(None).unwrap();
+        assert!(stats.is_empty());
+    }
+
+    #[test]
+    fn namespace_stats_aggregates_count_and_ttl_states() {
+        let db = make_embedded_real();
+        let now = now_ms();
+
+        // Normal (no TTL).
+        db.put(VantaMemoryInput::new("agent/a", "k1", "p")).unwrap();
+        // Expiring soon (within the default 24h window).
+        let mut soon = VantaMemoryInput::new("agent/a", "k2", "p");
+        soon.ttl_ms = Some(60 * 60 * 1000); // +1h
+        db.put(soon).unwrap();
+        // Expired (past TTL) — deterministic via put_record_exact.
+        db.put_record_exact(stats_record("agent/b", "k3", Some(now - 1)))
+            .unwrap();
+        // Normal in the second namespace.
+        db.put(VantaMemoryInput::new("agent/b", "k4", "p")).unwrap();
+
+        let stats = db.namespace_stats(None).unwrap();
+        let a = &stats["agent/a"];
+        assert_eq!(a.count, 2);
+        assert_eq!(a.expiring_soon, 1);
+        assert_eq!(a.expired, 0);
+        let b = &stats["agent/b"];
+        assert_eq!(b.count, 2);
+        assert_eq!(b.expiring_soon, 0);
+        assert_eq!(b.expired, 1);
+    }
+
+    #[test]
+    fn namespace_stats_respects_custom_window_boundaries() {
+        let db = make_embedded_real();
+        let now = now_ms();
+        // Wide window so millisecond slippage between capture and stats
+        // cannot move records across the classification boundaries.
+        let window = 60_000;
+
+        // Exactly at the window edge → expiring soon.
+        db.put_record_exact(stats_record("edge", "at", Some(now + window)))
+            .unwrap();
+        // Well past the window edge → neither expiring soon nor expired.
+        db.put_record_exact(stats_record("edge", "past", Some(now + window + window)))
+            .unwrap();
+        // Already expired → only expired, never expiring soon.
+        db.put_record_exact(stats_record("edge", "done", Some(now)))
+            .unwrap();
+
+        let stats = db.namespace_stats(Some(window)).unwrap();
+        let edge = &stats["edge"];
+        assert_eq!(edge.count, 3);
+        assert_eq!(
+            edge.expiring_soon, 1,
+            "record exactly at the window edge counts as expiring soon"
+        );
+        assert_eq!(
+            edge.expired, 1,
+            "record at `now` counts as expired, not expiring soon"
+        );
+    }
+
+    #[test]
+    fn namespace_stats_count_matches_count_method() {
+        let db = make_embedded_real();
+        for key in ["a", "b", "c"] {
+            db.put(VantaMemoryInput::new("ns", key, "p")).unwrap();
+        }
+        let mut soon = VantaMemoryInput::new("ns", "d", "p");
+        soon.ttl_ms = Some(60 * 60 * 1000);
+        db.put(soon).unwrap();
+        // Expired but not yet purged: hidden from count()/list(), visible
+        // in namespace_stats via the physical (include_expired) scan.
+        db.put_record_exact(stats_record("ns", "gone", Some(now_ms() - 1)))
+            .unwrap();
+
+        let stats = db.namespace_stats(None).unwrap();
+        let ns = &stats["ns"];
+        assert_eq!(ns.expired, 1);
+        assert_eq!(ns.count, db.count("ns", None).unwrap() + ns.expired);
+        assert_eq!(ns.count, 5);
+        assert_eq!(ns.expiring_soon, 1);
     }
 
     // ── bulk_import ──
