@@ -10,6 +10,8 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@tanstack/react-table": "^9.1.2",
+    "@tanstack/react-virtual": "^3.14.10",
     "@tauri-apps/api": "^2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
