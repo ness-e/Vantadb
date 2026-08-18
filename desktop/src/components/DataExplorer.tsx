@@ -27,6 +27,7 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { listPage, search, vantaErrorMessage, type MemoryRecord } from "../vanta";
 import { undoStore } from "../store/undo";
+import { ExportButtons } from "./export/ExportButtons";
 
 export interface ExplorerRow {
   id: string;
@@ -528,6 +529,12 @@ export default function DataExplorer({ active, busy, runError, onSelectRow }: Pr
           {mode} · {rows ? `${rows.length} loaded` : "idle"}
           {mode === "list" && nextCursor != null && " · more available"}
         </span>
+        {rows && rows.length > 0 && (
+          <ExportButtons
+            viewRecords={table.getFilteredRowModel().rows.map((r) => r.original.record)}
+            onError={runError}
+          />
+        )}
       </div>
 
       <form className="row" onSubmit={handleSubmit}>

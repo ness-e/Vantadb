@@ -2,18 +2,19 @@
 // Layout/estética replican el prototipo VS-00 (desktop/prototype/index.html) con
 // tokens/utilities de VS-01 (--color-neon, .press, .scroll-manga, font-display,
 // font-tech, dark overrides). Los paneles legacy (MetricsGrid/KpiCards/SopPanel/
-// ProcessPanel/ConnectionPanel/IngestForm/DataExplorer/ExportPanel) se reubican
+// ConnectionPanel/IngestForm/DataExplorer/ExportPanel) se reubican
 // como superficies/lentes — funcionalidad intacta, nada se borra.
 //
 // Superficies: RESUMEN (ops: connections/metrics/KPIs/SOP/export) · MEMORIAS
-// (ingest + grid master) · ACTIVITY (ProcessPanel) · ÍNDICES/IQL (lentes
-// pendientes Fase 1/2). Búsqueda global en Topbar (reemplaza SearchBar: misma
-// llamada search() + ResultsList). Inspector derecho = master-detail del
+// (ingest + grid master) · ACTIVITY (audit log: ActivityPanel + Timeline, VS-15)
+// · ÍNDICES/IQL (lentes pendientes Fase 1/2). Búsqueda global en Topbar (reemplaza
+// SearchBar: misma llamada search() + ResultsList). Inspector derecho = master-detail del
 // registro seleccionado (VS-06: tabs General/Metadata/Vector/Payload con
 // commit explícito — grid pasa el record completo, búsqueda lo completa vía get).
-import { FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RuleGroupType } from "react-querybuilder";
-import { get, list, search, SearchResult, vantaErrorMessage, type MemoryRecord } from "../../vanta";
+import { get, list, search, SearchResult, vantaErrorMessage, type MemoryRecord, type VantaDeepLink } from "../../vanta";
+import { useDeepLink } from "../../hooks/useDeepLink";
 import { ConnectionActions, VantaState } from "../../hooks/useConnectionState";
 import { EMPTY_QUERY, evaluateQuery, inferMetaFields, toVantaMemoryFilter } from "../search/filters-core";
 import ConnectionPanel from "../ConnectionPanel";
@@ -22,12 +23,15 @@ import KpiCards from "../KpiCards";
 import MetricsGrid from "../MetricsGrid";
 import DataExplorer, { ExplorerRow } from "../DataExplorer";
 import SopPanel from "../SopPanel";
-import ProcessPanel from "../ProcessPanel";
 import ExportPanel from "../ExportPanel";
+import ActivityPanel from "../activity/ActivityPanel";
 import ResultsList from "../ResultsList";
 import { MarkStudio } from "../mark/mark-studio";
 import HomeOverview from "../home/HomeOverview";
 import TrashLens from "../trash/TrashLens";
+// VS-13: lente RETRIEVAL — liviana (FiltersBuilder ya es lazy dentro), se
+// importa estática para que la surface responda al instante.
+import RetrievalLens from "../lens/retrieval/RetrievalLens";
 import { undoStore } from "../../store/undo";
 // CodeMirror/react-markdown pesan (~600 kB) y solo los usa el Inspector → chunk
 // lazy: el shell inicial no paga ese coste (Tauri local, carga on-demand).
@@ -37,7 +41,7 @@ const FiltersBuilder = lazy(() => import("../search/FiltersBuilder"));
 // CommandPalette (VS-09) + cmdk (~12 kB gzip): chunk lazy, se monta al abrir.
 const CommandPalette = lazy(() => import("../palette/CommandPalette"));
 
-export type Surface = "resumen" | "memorias" | "papelera" | "actividad" | "indices" | "iql";
+export type Surface = "resumen" | "memorias" | "papelera" | "actividad" | "retrieval" | "indices" | "iql";
 
 interface NamespaceCount {
   name: string;
@@ -280,6 +284,61 @@ export default function WorkspaceShell({
 
   const closeInspector = () => setSelected(null);
 
+  /** VS-15: evento de la tabla/timeline de ACTIVITY → registro completo en el
+   * Inspector. Los eventos export/import usan `key: "N/A"` (sin record) — el
+   * panel ya los intercepta con un notice antes de llegar acá. */
+  async function handleInspectAudit(namespace: string, key: string) {
+    try {
+      const full = await get(key, namespace);
+      openRecord(full, null);
+    } catch (err) {
+      onError(vantaErrorMessage(err));
+    }
+  }
+
+  // VS-16: deep links `vanta://`. Refs "latest" (mismo patrón VS-08) para que
+  // el callback pasado a useDeepLink sea estable — el listener no se
+  // re-suscribe en cada render.
+  const dlRefs = useRef({
+    setSurface,
+    runSearch,
+    openRecord,
+    get,
+    onError,
+    onNotice,
+  });
+  dlRefs.current = { setSurface, runSearch, openRecord, get, onError, onNotice };
+
+  const handleDeepLink = useCallback((link: VantaDeepLink) => {
+    const { setSurface, runSearch, openRecord, get, onError, onNotice } = dlRefs.current;
+    setSurface("memorias");
+
+    // vanta://ns/key → abrir el registro en el Inspector.
+    if (link.namespace && link.key) {
+      void (async () => {
+        try {
+          const full = await get(link.key!, link.namespace!);
+          openRecord(full, null);
+        } catch (err) {
+          onError(vantaErrorMessage(err));
+        }
+      })();
+      return;
+    }
+
+    // vanta://?query=x o vanta://ns?query=x → búsqueda global sobre MEMORIAS.
+    if (link.query) {
+      runSearch(link.query);
+      return;
+    }
+
+    // vanta://ns → superficie MEMORIAS (el grid lista sin filtro de namespace;
+    // los conteos de la sidebar ya muestran qué contiene).
+    onNotice(`vanta://${link.namespace ?? ""} — abriendo MEMORIAS`);
+  }, []);
+
+  useDeepLink(handleDeepLink);
+
   return (
     <div className="fixed inset-0 flex overflow-hidden bg-background text-foreground">
       {/* ========== SIDEBAR ========== */}
@@ -312,6 +371,8 @@ export default function WorkspaceShell({
             <SideButton icon="▦" label="MEMORIAS" active={surface === "memorias"} onClick={() => setSurface("memorias")} />
             <SideButton icon="♻" label="PAPELERA" hint="Ctrl+Z" active={surface === "papelera"} onClick={() => setSurface("papelera")} />
             <SideButton icon="◷" label="ACTIVITY" hint="F1" active={surface === "actividad"} onClick={() => setSurface("actividad")} />
+            {/* VS-13: lente contextual — hereda el registro seleccionado como seed (P4). */}
+            <SideButton icon="⛁" label="RETRIEVAL" active={surface === "retrieval"} onClick={() => setSurface("retrieval")} />
             <SideButton icon="⠿" label="ÍNDICES" hint="F1" active={surface === "indices"} onClick={() => setSurface("indices")} />
             <SideButton icon="⌘" label="IQL" hint="F2" active={surface === "iql"} onClick={() => setSurface("iql")} />
           </div>
@@ -566,11 +627,19 @@ export default function WorkspaceShell({
 
           {surface === "actividad" && (
             <div className="mx-auto max-w-5xl p-6">
-              <ProcessPanel
-                connections={state.connections}
-                activeId={state.activeId}
-                onShutdown={actions.disconnectId}
-                onActivate={actions.activate}
+              <ActivityPanel onNotice={onNotice} onInspect={handleInspectAudit} />
+            </div>
+          )}
+
+          {/* VS-13: Lente RETRIEVAL — slice aditivo; seed = registro seleccionado
+              del Inspector (lente contextual, no destino aparte — P4). */}
+          {surface === "retrieval" && (
+            <div className="mx-auto max-w-6xl p-6">
+              <RetrievalLens
+                seed={selected?.record ?? null}
+                onNotice={onNotice}
+                onError={onError}
+                onOpenRecord={(record, score) => openRecord(record, score)}
               />
             </div>
           )}

@@ -35,6 +35,8 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "proce
 # `cli`/`server`/`prometheus` (would pull axum/tokio heavy and duplicate the
 # server binary logic). Path `../..` = repo root, resolved from desktop/src-tauri.
 vantadb = { path = "../..", default-features = false, features = ["fjall", "fs2", "memmap2", "roaring", "advanced-tokenizer"] }
+tauri-plugin-deep-link = "2.4.9"
+tauri-plugin-single-instance = { version = "2.4.3", features = ["deep-link"] }
 
 [target.'cfg(unix)'.dependencies]
 # Signal delivery for graceful sidecar shutdown (SIGINT to the MCP child).

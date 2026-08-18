@@ -328,3 +328,53 @@ export function auditEvents(opts?: {
     cursor: opts?.cursor,
   });
 }
+
+// --- Deep links `vanta://` (VS-16) ---------------------------------------------
+// Raw `vanta://` URLs are CLI-arg / OS-scheme input — treated as untrusted
+// (official deep-link docs warn fake links can be passed as plain args).
+
+/** Rust-emitted event name for `vanta://` arrivals while the app runs (VS-16).
+ * Payload: `string[]` of raw URLs (mirrors `DEEP_LINK_EVENT` in lib.rs). */
+export const DEEP_LINK_EVENT = "vanta-deep-link";
+
+/** Parsed `vanta://` URL (VS-16). `query` preserves the raw query string so
+ * callers decide how to interpret it (semantic query, key lookup, …). */
+export interface VantaDeepLink {
+  namespace: string | null;
+  key: string | null;
+  query: string | null;
+}
+
+/** Strictly parse a raw `vanta://…` URL (VS-16).
+ * Grammar: `vanta://[namespace][/key][?query=…]` — empty segments collapse to
+ * null. Returns null for anything that isn't `vanta://`-prefixed, so callers
+ * can safely ignore fake/invalid links (official security caution). */
+export function parseVantaUrl(raw: string): VantaDeepLink | null {
+  const rest = raw.trim();
+  if (!rest.startsWith("vanta://")) return null;
+  const afterScheme = rest.slice("vanta://".length);
+  const qIdx = afterScheme.indexOf("?");
+  const rawPath = (qIdx === -1 ? afterScheme : afterScheme.slice(0, qIdx)).replace(/\/+$/, "");
+  const queryPart = qIdx === -1 ? "" : afterScheme.slice(qIdx + 1);
+  // Split first, then percent-decode each segment — decoding the whole path
+  // before splitting would break `%2F` (encoded "/") inside a segment.
+  const rawSegs = rawPath.split("/").filter((s) => s.length > 0);
+  let segs: string[];
+  try {
+    segs = rawSegs.map((s) => decodeURIComponent(s));
+  } catch {
+    return null; // malformed percent-encoding → invalid link
+  }
+  const namespace = segs[0] ?? null;
+  const key = segs[1] ?? null;
+  const query =
+    queryPart.length > 0 ? new URLSearchParams(queryPart).get("query") : null;
+  if (!namespace && !key && query === null) return null;
+  return { namespace, key, query };
+}
+
+/** Drain `vanta://` URLs buffered while the frontend was loading (VS-16).
+ * Safe to call at startup — returns [] when nothing is pending. */
+export function takeDeepLink(): Promise<string[]> {
+  return invoke<string[]>("vanta_deep_link_take");
+}
