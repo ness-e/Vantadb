@@ -11,9 +11,11 @@
 // llamada search() + ResultsList). Inspector derecho = master-detail del
 // registro seleccionado (VS-06: tabs General/Metadata/Vector/Payload con
 // commit explícito — grid pasa el record completo, búsqueda lo completa vía get).
-import { FormEvent, lazy, Suspense, useEffect, useRef, useState } from "react";
+import { FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import type { RuleGroupType } from "react-querybuilder";
 import { get, list, search, SearchResult, vantaErrorMessage, type MemoryRecord } from "../../vanta";
 import { ConnectionActions, VantaState } from "../../hooks/useConnectionState";
+import { EMPTY_QUERY, evaluateQuery, inferMetaFields, toVantaMemoryFilter } from "../search/filters-core";
 import ConnectionPanel from "../ConnectionPanel";
 import IngestForm from "../IngestForm";
 import KpiCards from "../KpiCards";
@@ -25,11 +27,17 @@ import ExportPanel from "../ExportPanel";
 import ResultsList from "../ResultsList";
 import { MarkStudio } from "../mark/mark-studio";
 import HomeOverview from "../home/HomeOverview";
+import TrashLens from "../trash/TrashLens";
+import { undoStore } from "../../store/undo";
 // CodeMirror/react-markdown pesan (~600 kB) y solo los usa el Inspector → chunk
 // lazy: el shell inicial no paga ese coste (Tauri local, carga on-demand).
 const Inspector = lazy(() => import("../inspector/Inspector"));
+// react-querybuilder (~200 kB) solo lo abre el panel de filtros → lazy igual.
+const FiltersBuilder = lazy(() => import("../search/FiltersBuilder"));
+// CommandPalette (VS-09) + cmdk (~12 kB gzip): chunk lazy, se monta al abrir.
+const CommandPalette = lazy(() => import("../palette/CommandPalette"));
 
-type Surface = "resumen" | "memorias" | "actividad" | "indices" | "iql";
+export type Surface = "resumen" | "memorias" | "papelera" | "actividad" | "indices" | "iql";
 
 interface NamespaceCount {
   name: string;
@@ -143,6 +151,12 @@ export default function WorkspaceShell({
   const [surface, setSurface] = useState<Surface>("resumen");
   const [selected, setSelected] = useState<InspectorSelection | null>(null);
 
+  // Filtros compuestos (VS-07): query builder AND/OR sobre metadata tipada.
+  // El estado vive en el shell → sobrevive a cerrar el panel y alimenta la
+  // búsqueda global; los campos se infieren de los resultados actuales.
+  const [ruleGroup, setRuleGroup] = useState<RuleGroupType>(EMPTY_QUERY);
+  const [showFilters, setShowFilters] = useState(false);
+
   // Búsqueda global (Topbar) — hereda la funcionalidad de SearchBar.
   const searchRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -151,30 +165,96 @@ export default function WorkspaceShell({
 
   const namespaces = useNamespaceCounts(!!state.active);
 
-  // Ctrl+K / ⌘K → foco en la búsqueda global (VS-09 implementa la palette real).
+  const filterActive = ruleGroup.rules.length > 0;
+  const filterFields = useMemo(() => (results ? inferMetaFields(results) : []), [results]);
+  // Filtros se aplican client-side sobre los hits de la búsqueda híbrida global
+  // (el wire del bridge solo admite el map plano Eq — VS-07 no toca src-tauri).
+  const visibleResults = useMemo(() => {
+    if (!results || !filterActive) return results;
+    return results.filter((r) => evaluateQuery(ruleGroup, r.metadata ?? {}));
+  }, [results, ruleGroup, filterActive]);
+
+  // VS-08 (Fix 4): acciones reales del store de undo/papelera. VS-09 los llama
+  // desde la palette con esta misma firma (los stubs previos se reemplazan).
+  async function handleUndo() {
+    try {
+      const label = await undoStore.undo();
+      onNotice(label);
+    } catch (err) {
+      onError(vantaErrorMessage(err));
+    }
+  }
+
+  async function handleDelete() {
+    const sel = selected;
+    if (!sel) {
+      onNotice("Seleccioná un registro para borrarlo (grid → inspector)");
+      return;
+    }
+    try {
+      await undoStore.softDelete(sel.record);
+      setSelected(null);
+      onNotice(`movido a papelera ${sel.record.id}`);
+    } catch (err) {
+      onError(vantaErrorMessage(err));
+    }
+  }
+
+  // Ctrl+K / ⌘K global → abre/cierra la command palette (VS-09). El kbd del
+  // Topbar anuncia el atajo; la búsqueda global sigue disponible en su input.
+  // Ctrl+Z / ⌘Z → undo de sesión (VS-08): deshace la última mutación destructiva
+  // (delete/restore/purge). Se saltea inputs/CodeMirror para no pisar el undo
+  // nativo de texto del navegador.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (ctrl && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        searchRef.current?.focus();
-        searchRef.current?.select();
+        setPaletteOpen((o) => !o);
+        return;
+      }
+      if (ctrl && e.key.toLowerCase() === "z") {
+        const t = e.target as HTMLElement | null;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+        e.preventDefault();
+        void handleUndo();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  async function handleSearch(e: FormEvent) {
-    e.preventDefault();
-    const q = query.trim();
-    if (!q) return;
+  async function runSearch(q: string) {
+    const qTrim = q.trim();
+    if (!qTrim) return;
     setSearching(true);
     try {
-      setResults(await search({ query: q, top_k: 8 }));
+      // Con filtro activo pedimos más hits: el filtrado es client-side, así el
+      // subconjunto resultante no se vacía con top_k=8.
+      setResults(await search({ query: qTrim, top_k: filterActive ? 50 : 8 }));
     } catch (err) {
       onError(vantaErrorMessage(err));
     } finally {
       setSearching(false);
+    }
+  }
+
+  function handleSearch(e: FormEvent) {
+    e.preventDefault();
+    runSearch(query);
+  }
+
+  /** Palette "buscar key": query vacío → foco en la búsqueda global; con texto
+   * → MEMORIAS + búsqueda global (resultados encima de la superficie). */
+  function handlePaletteSearch(q: string) {
+    setSurface("memorias");
+    if (q.trim()) {
+      setQuery(q);
+      runSearch(q);
+    } else {
+      requestAnimationFrame(() => searchRef.current?.focus());
     }
   }
 
@@ -230,6 +310,7 @@ export default function WorkspaceShell({
           <div className="mt-2 space-y-2">
             <SideButton icon="◫" label="RESUMEN" active={surface === "resumen"} onClick={() => setSurface("resumen")} />
             <SideButton icon="▦" label="MEMORIAS" active={surface === "memorias"} onClick={() => setSurface("memorias")} />
+            <SideButton icon="♻" label="PAPELERA" hint="Ctrl+Z" active={surface === "papelera"} onClick={() => setSurface("papelera")} />
             <SideButton icon="◷" label="ACTIVITY" hint="F1" active={surface === "actividad"} onClick={() => setSurface("actividad")} />
             <SideButton icon="⠿" label="ÍNDICES" hint="F1" active={surface === "indices"} onClick={() => setSurface("indices")} />
             <SideButton icon="⌘" label="IQL" hint="F2" active={surface === "iql"} onClick={() => setSurface("iql")} />
@@ -299,7 +380,7 @@ export default function WorkspaceShell({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               type="search"
-              placeholder="Buscar memoria… (Ctrl+K)"
+              placeholder="Buscar memoria…"
               aria-label="Búsqueda global"
               className="w-full border-2 border-foreground bg-background px-3 py-1.5 pl-9 text-sm placeholder:text-muted-foreground"
             />
@@ -312,6 +393,18 @@ export default function WorkspaceShell({
               </span>
             )}
           </form>
+
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            aria-pressed={showFilters}
+            title="Filtros compuestos por metadata (AND/OR, sin JSON)"
+            className={`press border-2 border-foreground px-2.5 py-1.5 text-xs font-semibold ${
+              filterActive ? "bg-neon text-background" : "bg-background"
+            }`}
+          >
+            ⧩ FILTROS{filterActive ? ` (${toVantaMemoryFilter(ruleGroup).length})` : ""}
+          </button>
 
           <div className="flex items-center gap-2">
             <div className="hidden items-center gap-1 border-2 border-foreground bg-muted px-2 py-1 font-tech text-[10px] uppercase md:flex">
@@ -345,6 +438,52 @@ export default function WorkspaceShell({
           </div>
         )}
 
+        {/* ========== FILTROS COMPUESTOS (VS-07) ========== */}
+        {showFilters && (
+          <section className="border-b-4 border-foreground bg-card" aria-label="Filtros compuestos por metadata">
+            <div className="mx-auto max-w-6xl p-4">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <span className="font-tech text-[10px] uppercase tracking-widest text-neon">
+                  filtros compuestos · metadata tipada
+                  {filterActive && (
+                    <span className="text-muted-foreground">
+                      {" "}· {toVantaMemoryFilter(ruleGroup).length} reglas → VantaMemoryFilter
+                    </span>
+                  )}
+                </span>
+                <div className="flex items-center gap-2">
+                  {filterActive && (
+                    <button
+                      type="button"
+                      onClick={() => setRuleGroup(EMPTY_QUERY)}
+                      className="press border-2 border-foreground bg-background px-2 py-0.5 text-[10px] font-semibold"
+                    >
+                      ✕ limpiar
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(false)}
+                    className="press border-2 border-foreground bg-background px-2 py-0.5 text-[10px] font-semibold"
+                  >
+                    ocultar
+                  </button>
+                </div>
+              </div>
+              {filterFields.length === 0 ? (
+                <p className="font-tech text-[11px] text-muted-foreground">
+                  Sin campos de metadata en los resultados — ejecutá una búsqueda global para
+                  inferir tipos (string/int/float/bool/datetime).
+                </p>
+              ) : (
+                <Suspense fallback={<p className="font-tech text-[11px] text-muted-foreground">Cargando builder…</p>}>
+                  <FiltersBuilder fields={filterFields} query={ruleGroup} onChange={setRuleGroup} />
+                </Suspense>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* ========== CENTRAL SURFACE ========== */}
         <main className="flex-1 overflow-y-auto scroll-manga">
           {results !== null && (
@@ -353,6 +492,11 @@ export default function WorkspaceShell({
                 <div className="flex items-center justify-between">
                   <span className="font-tech text-[10px] uppercase tracking-widest text-neon">
                     Resultados de búsqueda
+                    {filterActive && results && visibleResults && results.length !== visibleResults.length && (
+                      <span className="text-muted-foreground">
+                        {" "}· {visibleResults.length}/{results.length} tras filtro
+                      </span>
+                    )}
                   </span>
                   <button
                     type="button"
@@ -362,7 +506,7 @@ export default function WorkspaceShell({
                     ✕ cerrar
                   </button>
                 </div>
-                <ResultsList results={results} onSelect={(r) => openSearchResult(r)} />
+                <ResultsList results={visibleResults} onSelect={(r) => openSearchResult(r)} />
               </div>
             </section>
           )}
@@ -414,6 +558,12 @@ export default function WorkspaceShell({
             </div>
           )}
 
+          {surface === "papelera" && (
+            <div className="mx-auto max-w-6xl p-6">
+              <TrashLens onNotice={onNotice} onError={onError} />
+            </div>
+          )}
+
           {surface === "actividad" && (
             <div className="mx-auto max-w-5xl p-6">
               <ProcessPanel
@@ -446,6 +596,23 @@ export default function WorkspaceShell({
           />
         </Suspense>
       )}
+
+      {/* ========== COMMAND PALETTE (VS-09, Ctrl+K global) ========== */}
+      <Suspense fallback={null}>
+        <CommandPalette
+          open={paletteOpen}
+          onOpenChange={setPaletteOpen}
+          namespaces={namespaces}
+          dark={dark}
+          activeConnection={state.active ? state.active.name : null}
+          onNavigate={(s) => setSurface(s)}
+          onSearch={handlePaletteSearch}
+          onToggleTheme={onToggleTheme}
+          onUndo={handleUndo}
+          onDelete={handleDelete}
+          onError={onError}
+        />
+      </Suspense>
     </div>
   );
 }

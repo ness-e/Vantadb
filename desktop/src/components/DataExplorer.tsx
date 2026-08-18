@@ -26,6 +26,7 @@ import {
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { listPage, search, vantaErrorMessage, type MemoryRecord } from "../vanta";
+import { undoStore } from "../store/undo";
 
 export interface ExplorerRow {
   id: string;
@@ -159,7 +160,75 @@ function TtlCell({ record, now }: { record: MemoryRecord; now: number }) {
   );
 }
 
-const columns = helper.columns([
+/** Botón 🗑 por fila (VS-08, Fix 4): soft-delete con confirmación inline de
+ * dos pasos (P6). `undoStore.softDelete` hace remove en backend + tombstone de
+ * sesión; Ctrl+Z lo restaura. El click no abre el inspector (stopPropagation). */
+function DeleteButton({
+  record,
+  onDeleted,
+  onError,
+}: {
+  record: MemoryRecord;
+  onDeleted: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function handleDelete() {
+    setBusy(true);
+    try {
+      await undoStore.softDelete(record);
+      onDeleted();
+    } catch (err) {
+      onError(vantaErrorMessage(err));
+    } finally {
+      setBusy(false);
+      setConfirming(false);
+    }
+  }
+
+  return (
+    <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+      {confirming ? (
+        <>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={busy}
+            className="press border-2 border-foreground bg-neon px-2 py-1 text-[10px] font-bold text-background"
+            title="Confirmar borrado"
+          >
+            {busy ? "…" : "BORRAR"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            className="press flex h-6 w-6 items-center justify-center border-2 border-foreground text-[10px]"
+            aria-label="Cancelar borrado"
+          >
+            ✕
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className="press flex h-6 w-6 items-center justify-center border-2 border-foreground text-[10px]"
+          title="Mover a papelera (Ctrl+Z deshace)"
+          aria-label={`Mover ${record.id} a papelera`}
+        >
+          🗑
+        </button>
+      )}
+    </span>
+  );
+}
+
+// Columnas base a nivel de módulo (identidad estable para useTable). VS-08
+// agrega la columna de acciones DENTRO del componente (necesita refs latest:
+// runError/setRows) — `columns` final = baseColumns + display col, en useMemo.
+const baseColumns = helper.columns([
   helper.accessor((r) => r.id, {
     id: "key",
     header: "Key",
@@ -378,6 +447,34 @@ export default function DataExplorer({ active, busy, runError, onSelectRow }: Pr
     const q = query.trim();
     fetchFirst(q ? "search" : "list", q);
   }
+
+  // VS-08: la columna de acciones necesita runError/setRows (per-render) pero
+  // las columnas deben tener identidad estable para useTable → refs "latest"
+  // (siempre apuntan al valor actual) + useMemo([]) que se crea UNA vez.
+  const errorRef = useRef(runError);
+  errorRef.current = runError;
+  const removeRowRef = useRef<(r: ExplorerRow) => void>(() => {});
+  removeRowRef.current = (r) => {
+    setRows((prev) => prev?.filter((x) => !(x.id === r.id && x.namespace === r.namespace)) ?? prev);
+  };
+
+  const columns = useMemo(
+    () => [
+      ...baseColumns,
+      helper.display({
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <DeleteButton
+            record={row.original.record}
+            onDeleted={() => removeRowRef.current(row.original)}
+            onError={(m) => errorRef.current(m)}
+          />
+        ),
+      }),
+    ],
+    [],
+  );
 
   // v9: self-managed state when no `state`/`atoms` options are passed.
   const table = useTable({

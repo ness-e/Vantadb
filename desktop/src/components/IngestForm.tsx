@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { ingest, IngestItem, vantaErrorMessage } from "../vanta";
+import { get, ingest, IngestItem, vantaErrorMessage } from "../vanta";
 
 interface Props {
   onDone: (ids: string[]) => void;
@@ -15,6 +15,16 @@ export default function IngestForm({ onDone, runError }: Props) {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const item: IngestItem = { id: id || undefined, text, namespace: namespace || undefined };
+    // VS-08 (Fix 4): sobrescribir es destructivo → confirmación explícita (P6).
+    // `get` lanza NotFound si la key no existe → sin confirmación, crear nuevo.
+    if (item.id) {
+      try {
+        const existing = await get(item.id, item.namespace);
+        if (existing && !window.confirm(`"${item.id}" ya existe — ¿sobrescribir?`)) return;
+      } catch {
+        // key inexistente (NotFound) → crear sin confirmación
+      }
+    }
     setBusy(true);
     try {
       const ids = await ingest([item]);
