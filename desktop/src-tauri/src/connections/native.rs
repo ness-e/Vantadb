@@ -12,15 +12,17 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use serde_json::Value as JsonValue;
+use vantadb::config::VantaConfig;
 use vantadb::VantaError as CoreVantaError;
 use vantadb::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryRecord,
-    VantaMemorySearchHit, VantaMemorySearchRequest, VantaValue,
+    VantaBm25TermContribution, VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions,
+    VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest, VantaSearchExplanationHit,
+    VantaValue,
 };
 
 use super::types::{
-    Capability, ConnectionInfo, ConnectionStatus, HealthReport, HealthStatus, IngestItem, ListPage,
-    MemoryRecord, SearchQuery, SearchResult,
+    Bm25Term, Capability, ConnectionInfo, ConnectionStatus, ExplanationHit, HealthReport,
+    HealthStatus, IngestItem, ListPage, MemoryRecord, SearchQuery, SearchResult,
 };
 use super::VantaConnection;
 use crate::error::VantaError;
@@ -36,6 +38,8 @@ pub struct NativeConnection {
     id: String,
     path: PathBuf,
     db: VantaEmbedded,
+    /// Audit log path configured on open; `None` = audit disabled (VS-12).
+    audit_log_path: Option<PathBuf>,
 }
 
 impl NativeConnection {
@@ -43,11 +47,38 @@ impl NativeConnection {
     ///
     /// Fails with [`VantaError::Lock`] when another connection already holds an
     /// exclusive writer lock on the same path (the core reports `DatabaseBusy`).
+    ///
+    /// Audit (VS-12): enabled by default at `<path>/audit.jsonl`. Use
+    /// [`Self::open_with_audit`] to set a custom path or disable it.
     pub fn open(path: impl Into<PathBuf>) -> Result<Self, VantaError> {
         let path = path.into();
-        let db = VantaEmbedded::open(&path).map_err(map_core_error)?;
+        Self::open_with_audit(path.clone(), Some(path.join("audit.jsonl")))
+    }
+
+    /// Open with an explicit audit-log policy (VS-12).
+    ///
+    /// `audit_log_path`:
+    /// - `Some(p)` — write audit events to `p` (parent dirs created as needed).
+    /// - `None` — audit disabled; the connection reports no audit log and
+    ///   `vanta_audit_events` fails with `Unsupported`.
+    pub fn open_with_audit(
+        path: impl Into<PathBuf>,
+        audit_log_path: Option<PathBuf>,
+    ) -> Result<Self, VantaError> {
+        let path = path.into();
+        let config = VantaConfig {
+            storage_path: path.to_string_lossy().into_owned(),
+            audit_log_path: audit_log_path.clone(),
+            ..Default::default()
+        };
+        let db = VantaEmbedded::open_with_config(config).map_err(map_core_error)?;
         let id = format!("native:{}", path.display());
-        Ok(Self { id, path, db })
+        Ok(Self {
+            id,
+            path,
+            db,
+            audit_log_path,
+        })
     }
 }
 
@@ -101,14 +132,22 @@ fn to_vanta_value(v: JsonValue) -> VantaValue {
         JsonValue::String(s) => VantaValue::String(s),
         JsonValue::Array(items) => {
             if items.iter().all(JsonValue::is_string) {
-                VantaValue::ListString(items.iter().map(|i| i.as_str().unwrap().to_string()).collect())
+                VantaValue::ListString(
+                    items
+                        .iter()
+                        .map(|i| i.as_str().unwrap().to_string())
+                        .collect(),
+                )
             } else if items.iter().all(JsonValue::is_boolean) {
                 VantaValue::ListBool(items.iter().map(|i| i.as_bool().unwrap()).collect())
             } else if items.iter().all(JsonValue::is_i64) {
                 VantaValue::ListInt(items.iter().map(|i| i.as_i64().unwrap()).collect())
             } else if items.iter().all(JsonValue::is_number) {
                 VantaValue::ListFloat(
-                    items.iter().map(|i| i.as_f64().unwrap_or_default()).collect(),
+                    items
+                        .iter()
+                        .map(|i| i.as_f64().unwrap_or_default())
+                        .collect(),
                 )
             } else {
                 VantaValue::String(serde_json::to_string(&items).unwrap_or_default())
@@ -186,6 +225,32 @@ fn hit_to_result(h: VantaMemorySearchHit) -> SearchResult {
             .iter()
             .map(|(k, v)| (k.clone(), from_vanta_value(v)))
             .collect(),
+        explanation: h.explanation.map(explanation_to_dto),
+    }
+}
+
+/// Mirror a core `VantaSearchExplanationHit` 1:1 into the desktop wire DTO
+/// (`ExplanationHit`), which the frontend consumes (VS-CORE-03).
+fn explanation_to_dto(h: VantaSearchExplanationHit) -> ExplanationHit {
+    ExplanationHit {
+        identity: h.identity,
+        score: h.score,
+        snippet: h.snippet,
+        matched_tokens: h.matched_tokens,
+        matched_phrases: h.matched_phrases,
+        bm25_terms: h
+            .bm25_terms
+            .into_iter()
+            .map(|t: VantaBm25TermContribution| Bm25Term {
+                token: t.token,
+                tf: t.tf,
+                df: t.df,
+                doc_len: t.doc_len,
+                contribution: t.contribution,
+            })
+            .collect(),
+        rrf_text_rank: h.rrf_text_rank,
+        rrf_vector_rank: h.rrf_vector_rank,
     }
 }
 
@@ -199,11 +264,17 @@ fn search_request(q: &SearchQuery) -> VantaMemorySearchRequest {
         }
     };
     VantaMemorySearchRequest {
-        namespace: q.namespace.clone().unwrap_or_else(|| DEFAULT_NAMESPACE.into()),
+        namespace: q
+            .namespace
+            .clone()
+            .unwrap_or_else(|| DEFAULT_NAMESPACE.into()),
         query_vector: q.embedding.clone().unwrap_or_default(),
         filters: metadata_to_vanta(&q.filters),
         text_query,
         top_k: q.top_k,
+        // The core fills `VantaMemorySearchHit.explanation` when this flag is
+        // set (src/sdk/search/mod.rs), so explain mode needs no extra calls.
+        explain: q.explain,
         ..Default::default()
     }
 }
@@ -291,7 +362,9 @@ impl VantaConnection for NativeConnection {
         let not_found = format!("record not found: {ns}/{key}");
         let db = self.db.clone();
         let record = blocking(move || db.get(&ns, &key).map_err(map_core_error)).await?;
-        record.map(record_to_memory).ok_or_else(|| VantaError::Native(not_found))
+        record
+            .map(record_to_memory)
+            .ok_or_else(|| VantaError::Native(not_found))
     }
 
     async fn delete(&mut self, id: &str, namespace: Option<&str>) -> Result<(), VantaError> {
@@ -343,6 +416,10 @@ impl VantaConnection for NativeConnection {
             message: Some("backend=fjall".to_string()),
         })
     }
+
+    fn audit_log_path(&self) -> Option<PathBuf> {
+        self.audit_log_path.clone()
+    }
 }
 
 #[cfg(test)]
@@ -358,10 +435,8 @@ mod tests {
     impl TempDir {
         fn new() -> Self {
             let seq = DIR_SEQ.fetch_add(1, Ordering::Relaxed);
-            let path = std::env::temp_dir().join(format!(
-                "vantadb-desktop-05-{}-{seq}",
-                std::process::id()
-            ));
+            let path = std::env::temp_dir()
+                .join(format!("vantadb-desktop-05-{}-{seq}", std::process::id()));
             let _ = std::fs::remove_dir_all(&path);
             std::fs::create_dir_all(&path).expect("create temp dir");
             Self(path)
@@ -384,7 +459,9 @@ mod tests {
             namespace: "docs".into(),
             text: text.into(),
             embedding: None,
-            metadata: [("lang".to_string(), JsonValue::from("en"))].into_iter().collect(),
+            metadata: [("lang".to_string(), JsonValue::from("en"))]
+                .into_iter()
+                .collect(),
         }
     }
 
@@ -414,6 +491,7 @@ mod tests {
                 top_k: 10,
                 namespace: Some("docs".into()),
                 filters: Default::default(),
+                explain: false,
             })
             .await
             .expect("search");
@@ -427,7 +505,10 @@ mod tests {
         conn.delete(&id, Some("docs")).await.expect("delete again");
 
         // get after delete -> not-found error
-        let err = conn.get(&id, Some("docs")).await.expect_err("get after delete");
+        let err = conn
+            .get(&id, Some("docs"))
+            .await
+            .expect_err("get after delete");
         assert!(matches!(err, VantaError::Native(_)));
     }
 
@@ -480,7 +561,92 @@ mod tests {
         // After the holder disconnects, the path is available again.
         first.disconnect().await.expect("disconnect");
         let reopened = NativeConnection::open(dir.path());
-        assert!(reopened.is_ok(), "path should be reopenable after disconnect");
+        assert!(
+            reopened.is_ok(),
+            "path should be reopenable after disconnect"
+        );
+    }
+
+    #[tokio::test]
+    async fn search_explain_fills_breakdown() {
+        let dir = TempDir::new();
+        let mut conn = NativeConnection::open(dir.path()).expect("open");
+
+        conn.put(
+            item(Some("k1"), "the quick brown fox jumps over the lazy dog"),
+            None,
+        )
+        .await
+        .expect("put k1");
+        conn.put(
+            item(Some("k2"), "a red fox stalks prey inside the garden wall"),
+            None,
+        )
+        .await
+        .expect("put k2");
+
+        let hits = conn
+            .search(SearchQuery {
+                query: "fox".into(),
+                embedding: None,
+                top_k: 5,
+                namespace: Some("docs".into()),
+                filters: Default::default(),
+                explain: true,
+            })
+            .await
+            .expect("explain search");
+        assert_eq!(hits.len(), 2, "both fox docs should match, got: {hits:?}");
+
+        for hit in &hits {
+            let explanation = hit
+                .explanation
+                .as_ref()
+                .expect("explain mode must fill explanation");
+            assert_eq!(explanation.identity, format!("docs\0{}", hit.id));
+            assert_eq!(explanation.score, hit.score);
+            // Text query matched tokens are present with a BM25 breakdown.
+            assert!(
+                explanation.matched_tokens.contains(&"fox".to_string()),
+                "matched_tokens should contain the query token: {explanation:?}"
+            );
+            assert!(
+                !explanation.bm25_terms.is_empty(),
+                "bm25_terms should be populated: {explanation:?}"
+            );
+            let fox_term = explanation
+                .bm25_terms
+                .iter()
+                .find(|t| t.token == "fox")
+                .expect("fox term contribution present");
+            assert!(fox_term.tf >= 1);
+            assert!(fox_term.df >= 1);
+            assert!(fox_term.doc_len >= 1);
+            assert!(fox_term.contribution > 0.0);
+            // Text-only route: rrf_text_rank is populated, vector rank absent.
+            assert!(
+                explanation.rrf_text_rank.is_some(),
+                "text route must populate rrf_text_rank: {explanation:?}"
+            );
+            assert_eq!(explanation.rrf_vector_rank, None);
+        }
+
+        // Regular search (explain=false) leaves explanation empty — backward compat.
+        let plain = conn
+            .search(SearchQuery {
+                query: "fox".into(),
+                embedding: None,
+                top_k: 5,
+                namespace: Some("docs".into()),
+                filters: Default::default(),
+                explain: false,
+            })
+            .await
+            .expect("plain search");
+        assert!(
+            plain.iter().all(|h| h.explanation.is_none()),
+            "plain search must not carry explanations"
+        );
     }
 
     #[tokio::test]
@@ -498,5 +664,57 @@ mod tests {
         let conn = NativeConnection::open(dir.path()).expect("open");
         assert!(conn.capabilities().contains(&Capability::Native));
         assert_eq!(conn.info().via, Capability::Native);
+    }
+
+    // ── Audit log (VS-12) ──
+
+    #[tokio::test]
+    async fn put_and_delete_write_audit_events() {
+        let dir = TempDir::new();
+        let mut conn = NativeConnection::open(dir.path()).expect("open");
+        let audit_path = conn
+            .audit_log_path()
+            .expect("default open must configure audit at <storage>/audit.jsonl");
+
+        conn.put(item(Some("k1"), "hello audit"), None)
+            .await
+            .expect("put");
+        conn.delete("k1", Some("docs")).await.expect("delete");
+
+        // The core wrote one event per operation; parse the JSONL directly.
+        let content = std::fs::read_to_string(&audit_path).expect("read audit log");
+        let events: Vec<crate::connections::types::AuditEvent> = content
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+        let ops: Vec<&str> = events.iter().map(|e| e.op.as_str()).collect();
+        assert!(ops.contains(&"put"), "expected a put event, got: {ops:?}");
+        assert!(
+            ops.contains(&"delete"),
+            "expected a delete event, got: {ops:?}"
+        );
+        let put_ev = events.iter().find(|e| e.op == "put").expect("put event");
+        assert_eq!(put_ev.namespace, "docs");
+        assert_eq!(put_ev.key, "k1");
+        assert_eq!(put_ev.outcome, "ok");
+    }
+
+    #[test]
+    fn open_without_audit_reports_none() {
+        let dir = TempDir::new();
+        let conn = NativeConnection::open_with_audit(dir.path(), None).expect("open");
+        assert!(
+            conn.audit_log_path().is_none(),
+            "audit disabled must report no audit log"
+        );
+    }
+
+    #[test]
+    fn open_with_custom_audit_path() {
+        let dir = TempDir::new();
+        let custom = dir.path().join("custom").join("events.jsonl");
+        let conn =
+            NativeConnection::open_with_audit(dir.path(), Some(custom.clone())).expect("open");
+        assert_eq!(conn.audit_log_path(), Some(custom));
     }
 }

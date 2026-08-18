@@ -171,10 +171,12 @@ impl VantaConnection for ServerConnection {
         };
 
         // `content` is the text field the IQL search (`WHERE content ~ ...`) reads.
-        let mut fields: Vec<(String, String)> =
-            vec![("content".to_string(), item.text.clone())];
+        let mut fields: Vec<(String, String)> = vec![("content".to_string(), item.text.clone())];
         for (k, v) in item.metadata.iter() {
-            fields.push((k.clone(), serde_json::to_string(v).map_err(VantaError::from)?));
+            fields.push((
+                k.clone(),
+                serde_json::to_string(v).map_err(VantaError::from)?,
+            ));
         }
         let refs: Vec<(&str, &str)> = fields
             .iter()
@@ -214,14 +216,19 @@ impl VantaConnection for ServerConnection {
                 text: relational_str(&n.relational, "content"),
                 score: n.confidence_score,
                 metadata: n.relational.into_iter().collect(),
+                // The server backend has no explain support; the flag is
+                // ignored and results carry no breakdown.
+                explanation: None,
             })
             .collect())
     }
 
     async fn get(&self, id: &str, namespace: Option<&str>) -> Result<MemoryRecord, VantaError> {
-        let nid = id
-            .parse::<u128>()
-            .map_err(|_| VantaError::Other(format!("server connection requires numeric ids, got {id:?}")))?;
+        let nid = id.parse::<u128>().map_err(|_| {
+            VantaError::Other(format!(
+                "server connection requires numeric ids, got {id:?}"
+            ))
+        })?;
         let resp = self.timeout_ops(self.client.get(nid)).await?;
         let node = resp
             .nodes
@@ -237,9 +244,11 @@ impl VantaConnection for ServerConnection {
     }
 
     async fn delete(&mut self, id: &str, _namespace: Option<&str>) -> Result<(), VantaError> {
-        let nid = id
-            .parse::<u128>()
-            .map_err(|_| VantaError::Other(format!("server connection requires numeric ids, got {id:?}")))?;
+        let nid = id.parse::<u128>().map_err(|_| {
+            VantaError::Other(format!(
+                "server connection requires numeric ids, got {id:?}"
+            ))
+        })?;
         self.timeout_ops(self.client.delete(nid)).await?;
         Ok(())
     }
@@ -269,7 +278,7 @@ impl VantaConnection for ServerConnection {
     async fn health(&self) -> Result<HealthReport, VantaError> {
         let start = Instant::now();
         let report: WireHealthReport = self.client.health().await?;
-Ok(HealthReport {
+        Ok(HealthReport {
             status: if report.ok {
                 HealthStatus::Healthy
             } else {

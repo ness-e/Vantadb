@@ -16,6 +16,7 @@
 //! several backends become hot.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use tokio::sync::RwLock;
 
@@ -128,8 +129,23 @@ impl ConnectionManager {
     pub async fn health(&self) -> Result<HealthReport, VantaError> {
         let id = self.active_id().await?;
         let inner = self.inner.read().await;
-        let conn = inner.connections.get(&id).ok_or_else(|| Self::missing(&id))?;
+        let conn = inner
+            .connections
+            .get(&id)
+            .ok_or_else(|| Self::missing(&id))?;
         conn.health().await
+    }
+
+    /// Path of the active connection's audit log, when the transport has one
+    /// (VS-12). `None` = the transport writes no audit log.
+    pub async fn audit_log_path(&self) -> Result<Option<PathBuf>, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        let conn = inner
+            .connections
+            .get(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        Ok(conn.audit_log_path())
     }
 
     /// Store a single item on the active connection, returning its id.
@@ -160,10 +176,7 @@ impl ConnectionManager {
     }
 
     /// Store many items on the active connection, returning ids positionally.
-    pub async fn ingest_batch(
-        &self,
-        items: Vec<IngestItem>,
-    ) -> Result<Vec<String>, VantaError> {
+    pub async fn ingest_batch(&self, items: Vec<IngestItem>) -> Result<Vec<String>, VantaError> {
         let id = self.active_id().await?;
         let mut inner = self.inner.write().await;
         let conn = inner
@@ -177,7 +190,10 @@ impl ConnectionManager {
     pub async fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>, VantaError> {
         let id = self.active_id().await?;
         let inner = self.inner.read().await;
-        let conn = inner.connections.get(&id).ok_or_else(|| Self::missing(&id))?;
+        let conn = inner
+            .connections
+            .get(&id)
+            .ok_or_else(|| Self::missing(&id))?;
         conn.search(query).await
     }
 
@@ -189,7 +205,10 @@ impl ConnectionManager {
     ) -> Result<MemoryRecord, VantaError> {
         let id = self.active_id().await?;
         let inner = self.inner.read().await;
-        let conn = inner.connections.get(&id).ok_or_else(|| Self::missing(&id))?;
+        let conn = inner
+            .connections
+            .get(&id)
+            .ok_or_else(|| Self::missing(&id))?;
         conn.get(key, namespace).await
     }
 
@@ -213,7 +232,10 @@ impl ConnectionManager {
     ) -> Result<ListPage, VantaError> {
         let id = self.active_id().await?;
         let inner = self.inner.read().await;
-        let conn = inner.connections.get(&id).ok_or_else(|| Self::missing(&id))?;
+        let conn = inner
+            .connections
+            .get(&id)
+            .ok_or_else(|| Self::missing(&id))?;
         conn.list(namespace, limit.unwrap_or(100), cursor).await
     }
 
@@ -268,10 +290,8 @@ mod tests {
         fn new() -> Self {
             static SEQ: AtomicU64 = AtomicU64::new(0);
             let seq = SEQ.fetch_add(1, Ordering::Relaxed);
-            let path = std::env::temp_dir().join(format!(
-                "vantadb-desktop-06-{}-{seq}",
-                std::process::id()
-            ));
+            let path = std::env::temp_dir()
+                .join(format!("vantadb-desktop-06-{}-{seq}", std::process::id()));
             let _ = std::fs::remove_dir_all(&path);
             std::fs::create_dir_all(&path).expect("create temp dir");
             Self(path)
@@ -307,7 +327,9 @@ mod tests {
 
         // connect native and make it active
         let info = manager
-            .add(Box::new(crate::connections::native::NativeConnection::open(dir.path()).unwrap()))
+            .add(Box::new(
+                crate::connections::native::NativeConnection::open(dir.path()).unwrap(),
+            ))
             .await
             .unwrap();
         assert_eq!(info.via, Capability::Native);
@@ -321,7 +343,10 @@ mod tests {
             ])
             .await
             .unwrap();
-        assert_eq!(ids, vec!["k1".to_string(), "k2".to_string(), "k3".to_string()]);
+        assert_eq!(
+            ids,
+            vec!["k1".to_string(), "k2".to_string(), "k3".to_string()]
+        );
 
         // get roundtrip
         let rec = manager.get("k1", Some("docs")).await.unwrap();
@@ -329,7 +354,10 @@ mod tests {
 
         // put upsert roundtrip (same key + same text keeps search assertions valid)
         let rec = manager
-            .put(item("k1", "the quick brown fox jumps over the lazy dog"), None)
+            .put(
+                item("k1", "the quick brown fox jumps over the lazy dog"),
+                None,
+            )
             .await
             .unwrap();
         assert_eq!(rec.id, "k1");
@@ -342,6 +370,7 @@ mod tests {
                 top_k: 5,
                 namespace: Some("docs".into()),
                 filters: Default::default(),
+                explain: false,
             })
             .await
             .unwrap();
@@ -357,7 +386,10 @@ mod tests {
         );
 
         // list caps at limit
-        let listed = manager.list_records(Some("docs"), Some(2), None).await.unwrap();
+        let listed = manager
+            .list_records(Some("docs"), Some(2), None)
+            .await
+            .unwrap();
         assert!(listed.records.len() == 2);
 
         // delete + list registry
@@ -372,7 +404,9 @@ mod tests {
         let dir = TempDir::new();
         let manager = ConnectionManager::new();
         manager
-            .add(Box::new(crate::connections::native::NativeConnection::open(dir.path()).unwrap()))
+            .add(Box::new(
+                crate::connections::native::NativeConnection::open(dir.path()).unwrap(),
+            ))
             .await
             .unwrap();
 
@@ -410,7 +444,11 @@ mod tests {
 
         // Page 3: remaining 1 record; a short page means this was the last.
         let p3 = manager
-            .list_records(Some("docs"), Some(2), Some(p2.next_cursor.expect("page 2 is full")))
+            .list_records(
+                Some("docs"),
+                Some(2),
+                Some(p2.next_cursor.expect("page 2 is full")),
+            )
             .await
             .unwrap();
         assert_eq!(p3.records.len(), 1);
@@ -444,5 +482,38 @@ mod tests {
             .shutdown_all(std::time::Duration::from_secs(1))
             .await
             .is_empty());
+    }
+
+    /// Audit-log path follows the active connection (VS-12): a default native
+    /// open exposes `<storage>/audit.jsonl`; an audit-disabled open exposes none.
+    #[tokio::test]
+    async fn audit_log_path_follows_active_connection() {
+        let dir = TempDir::new();
+        let manager = ConnectionManager::new();
+        manager
+            .add(Box::new(
+                crate::connections::native::NativeConnection::open(dir.path()).expect("open"),
+            ))
+            .await
+            .expect("add");
+        assert_eq!(
+            manager.audit_log_path().await.expect("active connection"),
+            Some(dir.path().join("audit.jsonl"))
+        );
+
+        // A native connection opened with audit disabled reports None.
+        let dir2 = TempDir::new();
+        let manager2 = ConnectionManager::new();
+        manager2
+            .add(Box::new(
+                crate::connections::native::NativeConnection::open_with_audit(dir2.path(), None)
+                    .expect("open"),
+            ))
+            .await
+            .expect("add");
+        assert_eq!(
+            manager2.audit_log_path().await.expect("active connection"),
+            None
+        );
     }
 }

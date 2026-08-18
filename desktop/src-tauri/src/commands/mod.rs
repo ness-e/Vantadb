@@ -3,6 +3,7 @@
 //! Commands are thin wrappers over the [`crate::connections`] contract:
 //! they accept a `tauri::State<'_, AppState>` and never own business logic.
 
+pub mod audit;
 pub mod connection;
 pub mod data;
 pub mod metrics;

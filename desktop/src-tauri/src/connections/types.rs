@@ -68,6 +68,11 @@ pub struct SearchQuery {
     /// Metadata filters applied post-search.
     #[serde(default)]
     pub filters: HashMap<String, serde_json::Value>,
+    /// When true, each result carries a per-hit score breakdown in
+    /// [`SearchResult::explanation`] (core explain mode). Backends that do not
+    /// support explain ignore the flag and return `explanation: None`.
+    #[serde(default)]
+    pub explain: bool,
 }
 
 /// A single hit returned by [`crate::connections::VantaConnection::search`].
@@ -80,6 +85,58 @@ pub struct SearchResult {
     pub score: f32,
     #[serde(default)]
     pub metadata: HashMap<String, serde_json::Value>,
+    /// Per-hit score breakdown when the search ran in explain mode
+    /// ([`SearchQuery::explain`] = true). `None` for regular searches and for
+    /// backends that do not support explain.
+    #[serde(default)]
+    pub explanation: Option<ExplanationHit>,
+}
+
+/// Per-hit score breakdown for explain-mode searches ([`SearchQuery::explain`]).
+///
+/// Mirrors `VantaSearchExplanationHit` (`src/sdk/types.rs`) 1:1 so the UI can
+/// render BM25 term contributions and RRF rank positions per result.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExplanationHit {
+    /// Unique identity string (`namespace\0key`) of the matched record.
+    pub identity: String,
+    /// Combined relevance score for this hit.
+    pub score: f32,
+    /// Text snippet surrounding the matched query terms, if available.
+    #[serde(default)]
+    pub snippet: Option<String>,
+    /// Query tokens that matched in this record.
+    #[serde(default)]
+    pub matched_tokens: Vec<String>,
+    /// Query phrases that matched in this record.
+    #[serde(default)]
+    pub matched_phrases: Vec<String>,
+    /// Per-term BM25 scoring breakdown.
+    #[serde(default)]
+    pub bm25_terms: Vec<Bm25Term>,
+    /// Rank of this hit in the text-only result set, if applicable.
+    #[serde(default)]
+    pub rrf_text_rank: Option<usize>,
+    /// Rank of this hit in the vector-only result set, if applicable.
+    #[serde(default)]
+    pub rrf_vector_rank: Option<usize>,
+}
+
+/// Per-term BM25 scoring decomposition for a single explanation hit.
+///
+/// Mirrors `VantaBm25TermContribution` (`src/sdk/types.rs`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Bm25Term {
+    /// The query term token.
+    pub token: String,
+    /// Term frequency in the matched document.
+    pub tf: u32,
+    /// Document frequency across the namespace.
+    pub df: u64,
+    /// Total length (in tokens) of the matched document.
+    pub doc_len: u32,
+    /// BM25 score contribution for this term.
+    pub contribution: f32,
 }
 
 /// A stored memory record returned by `get` / `list`.
@@ -127,6 +184,42 @@ pub struct MemoryRecord {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ListPage {
     pub records: Vec<MemoryRecord>,
+    #[serde(default)]
+    pub next_cursor: Option<usize>,
+}
+
+/// A single audit-log entry (VS-12).
+///
+/// Mirrors `vantadb::audit::AuditEvent` (`src/audit.rs`). The bridge carries its
+/// own `Deserialize` because the core event is serialize-only; the wire JSONL
+/// shape is identical (`record()` writes one object per line).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AuditEvent {
+    /// ISO 8601 UTC timestamp (e.g. `2026-08-02T12:34:56Z`).
+    pub timestamp: String,
+    /// Operation name: `put`, `delete`, `delete_by_filter`, `put_batch`,
+    /// `export_namespace`, `export_all`, `import_file`.
+    pub op: String,
+    pub namespace: String,
+    /// Target record key, or `"N/A"` for operations without a single key.
+    pub key: String,
+    /// `"ok"` or `"err"`.
+    pub outcome: String,
+    /// Optional reason (e.g. the delete reason).
+    #[serde(default)]
+    pub reason: Option<String>,
+}
+
+/// A page of audit events with the cursor for the next page (VS-12).
+///
+/// Events are ordered newest-first (the audit log tail). `next_cursor` is the
+/// offset into the *filtered* newest-first list for the next older page;
+/// `None` means this was the last (oldest) page.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AuditPage {
+    /// Events ordered newest-first (audit log tail).
+    pub events: Vec<AuditEvent>,
+    /// Offset of the next older page; `None` = no older events.
     #[serde(default)]
     pub next_cursor: Option<usize>,
 }
@@ -189,7 +282,14 @@ mod tests {
 
     #[test]
     fn capability_roundtrips() {
-        for cap in [Capability::Native, Capability::Http, Capability::Mcp, Capability::Node, Capability::Python, Capability::Wasm] {
+        for cap in [
+            Capability::Native,
+            Capability::Http,
+            Capability::Mcp,
+            Capability::Node,
+            Capability::Python,
+            Capability::Wasm,
+        ] {
             assert_eq!(rt(&cap), cap);
         }
         assert_eq!(json(&Capability::Http), r#""http""#);
@@ -197,14 +297,22 @@ mod tests {
 
     #[test]
     fn connection_status_roundtrips() {
-        for s in [ConnectionStatus::Connected, ConnectionStatus::Disconnected, ConnectionStatus::Error] {
+        for s in [
+            ConnectionStatus::Connected,
+            ConnectionStatus::Disconnected,
+            ConnectionStatus::Error,
+        ] {
             assert_eq!(rt(&s), s);
         }
     }
 
     #[test]
     fn health_status_roundtrips() {
-        for s in [HealthStatus::Healthy, HealthStatus::Degraded, HealthStatus::Unhealthy] {
+        for s in [
+            HealthStatus::Healthy,
+            HealthStatus::Degraded,
+            HealthStatus::Unhealthy,
+        ] {
             assert_eq!(rt(&s), s);
         }
     }
@@ -216,7 +324,9 @@ mod tests {
             namespace: "mem".into(),
             text: "hello world".into(),
             embedding: Some(vec![0.5, -1.25, 3.0]),
-            metadata: [("lang".to_string(), serde_json::Value::from("en"))].into_iter().collect(),
+            metadata: [("lang".to_string(), serde_json::Value::from("en"))]
+                .into_iter()
+                .collect(),
         };
         assert_eq!(rt(&item), item);
     }
@@ -239,9 +349,20 @@ mod tests {
             embedding: Some(vec![0.1, 0.2, 0.3]),
             top_k: 5,
             namespace: Some("mem".into()),
-            filters: [("scope".into(), serde_json::Value::from("test"))].into_iter().collect(),
+            filters: [("scope".into(), serde_json::Value::from("test"))]
+                .into_iter()
+                .collect(),
+            explain: true,
         };
         assert_eq!(rt(&q), q);
+    }
+
+    #[test]
+    fn search_query_explain_defaults_false_when_absent() {
+        // Backward compat: JSON without `explain` must deserialize to false.
+        let json = r#"{"query":"cats","top_k":5}"#;
+        let q: SearchQuery = serde_json::from_str(json).expect("deserialize");
+        assert!(!q.explain);
     }
 
     #[test]
@@ -251,9 +372,49 @@ mod tests {
             namespace: "mem".into(),
             text: "cats".into(),
             score: 0.987,
-            metadata: [("k".to_string(), serde_json::Value::from(42))].into_iter().collect(),
+            metadata: [("k".to_string(), serde_json::Value::from(42))]
+                .into_iter()
+                .collect(),
+            explanation: None,
         };
         assert_eq!(rt(&r), r);
+    }
+
+    #[test]
+    fn search_result_explanation_wire_shape() {
+        // Explain-mode result: full ExplanationHit roundtrips and the wire shape
+        // guards the vanta.ts contract (snake_case fields, bm25_terms array).
+        let r = SearchResult {
+            id: "r1".into(),
+            namespace: "mem".into(),
+            text: "cats sleep".into(),
+            score: 1.25,
+            metadata: HashMap::new(),
+            explanation: Some(ExplanationHit {
+                identity: "mem\0r1".into(),
+                score: 1.25,
+                snippet: Some("cats sleep".into()),
+                matched_tokens: vec!["cats".into()],
+                matched_phrases: vec!["cats sleep".into()],
+                bm25_terms: vec![Bm25Term {
+                    token: "cats".into(),
+                    tf: 1,
+                    df: 2,
+                    doc_len: 2,
+                    contribution: 0.75,
+                }],
+                rrf_text_rank: Some(1),
+                rrf_vector_rank: Some(2),
+            }),
+        };
+        assert_eq!(rt(&r), r);
+        let json = json(&r);
+        // `\0` in the identity string is JSON-escaped as `\u0000` by serde_json.
+        assert!(json.contains(r#""explanation":{"identity":"mem\u0000r1""#));
+        assert!(json.contains(
+            r#""bm25_terms":[{"token":"cats","tf":1,"df":2,"doc_len":2,"contribution":0.75}]"#
+        ));
+        assert!(json.contains(r#""rrf_text_rank":1,"rrf_vector_rank":2"#));
     }
 
     #[test]
@@ -279,6 +440,39 @@ mod tests {
         assert!(json.contains(r#""node_id":"42""#));
         assert!(json.contains(r#""expires_at_ms":1700000100000"#));
         assert!(json.contains(r#""vector":[0.1,-0.2]"#));
+    }
+
+    #[test]
+    fn audit_event_roundtrip() {
+        let e = AuditEvent {
+            timestamp: "2026-08-02T12:34:56Z".into(),
+            op: "put".into(),
+            namespace: "mem".into(),
+            key: "k1".into(),
+            outcome: "ok".into(),
+            reason: Some("created".into()),
+        };
+        assert_eq!(rt(&e), e);
+        // reason null/absent both deserialize to None.
+        let json = r#"{"timestamp":"t","op":"put","namespace":"n","key":"k","outcome":"ok"}"#;
+        let parsed: AuditEvent = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(parsed.reason, None);
+    }
+
+    #[test]
+    fn audit_page_roundtrip() {
+        let page = AuditPage {
+            events: vec![AuditEvent {
+                timestamp: "2026-08-02T12:34:56Z".into(),
+                op: "put".into(),
+                namespace: "mem".into(),
+                key: "k1".into(),
+                outcome: "ok".into(),
+                reason: None,
+            }],
+            next_cursor: Some(3),
+        };
+        assert_eq!(rt(&page), page);
     }
 
     #[test]

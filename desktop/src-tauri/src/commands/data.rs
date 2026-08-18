@@ -91,5 +91,8 @@ pub async fn vanta_list(
     limit: Option<usize>,
     cursor: Option<usize>,
 ) -> Result<ListPage, VantaError> {
-    state.manager.list_records(namespace.as_deref(), limit, cursor).await
+    state
+        .manager
+        .list_records(namespace.as_deref(), limit, cursor)
+        .await
 }

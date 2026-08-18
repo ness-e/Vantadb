@@ -41,6 +41,8 @@ export interface SearchQuery {
   namespace?: string;
   filters?: Record<string, unknown>;
   embedding?: number[];
+  /** When true, each result carries a per-hit score breakdown (`explanation`). */
+  explain?: boolean;
 }
 
 export interface SearchResult {
@@ -50,6 +52,42 @@ export interface SearchResult {
   /** Relevance, higher is better (backend-defined). */
   score: number;
   metadata?: Record<string, unknown>;
+  /** Per-hit score breakdown when the search ran with `explain: true`. */
+  explanation?: ExplanationHit | null;
+}
+
+/** Mirrors the Rust `ExplanationHit` wire DTO (VS-CORE-03): per-hit BM25/RRF breakdown. */
+export interface ExplanationHit {
+  /** Unique identity string (`namespace\0key`) of the matched record. */
+  identity: string;
+  /** Combined relevance score for this hit. */
+  score: number;
+  /** Text snippet surrounding the matched query terms, if available. */
+  snippet?: string | null;
+  /** Query tokens that matched in this record. */
+  matched_tokens: string[];
+  /** Query phrases that matched in this record. */
+  matched_phrases: string[];
+  /** Per-term BM25 scoring breakdown. */
+  bm25_terms: Bm25Term[];
+  /** Rank of this hit in the text-only result set, if applicable. */
+  rrf_text_rank?: number | null;
+  /** Rank of this hit in the vector-only result set, if applicable. */
+  rrf_vector_rank?: number | null;
+}
+
+/** Per-term BM25 scoring decomposition (mirror of `Bm25Term` wire DTO). */
+export interface Bm25Term {
+  /** The query term token. */
+  token: string;
+  /** Term frequency in the matched document. */
+  tf: number;
+  /** Document frequency across the namespace. */
+  df: number;
+  /** Total length (in tokens) of the matched document. */
+  doc_len: number;
+  /** BM25 score contribution for this term. */
+  contribution: number;
 }
 
 export interface MemoryRecord {
@@ -85,6 +123,28 @@ export interface ServerClientConfig {
   port: number;
   token?: string;
   timeout?: { secs: number; nanos?: number };
+}
+
+/** A single audit-log entry (VS-12). Mirrors `src/audit.rs` `AuditEvent`. */
+export interface AuditEvent {
+  /** ISO 8601 UTC timestamp (e.g. `2026-08-02T12:34:56Z`). */
+  timestamp: string;
+  /** Operation name: `put`, `delete`, `put_batch`, ... */
+  op: string;
+  namespace: string;
+  /** Target record key, or `"N/A"` for operations without a single key. */
+  key: string;
+  /** `"ok"` or `"err"`. */
+  outcome: string;
+  /** Optional reason (e.g. the delete reason). */
+  reason?: string | null;
+}
+
+/** A page of audit events, newest first, with the cursor for the next page. */
+export interface AuditPage {
+  events: AuditEvent[];
+  /** Offset for the next older page; null/absent means last page. */
+  next_cursor?: number | null;
 }
 
 // --- Error handling ----------------------------------------------------------
@@ -248,4 +308,23 @@ export interface OperationalMetrics {
 /** Point-in-time operational metrics snapshot (ADMIN-01). */
 export function metrics(): Promise<OperationalMetrics> {
   return invoke<OperationalMetrics>("vanta_metrics");
+}
+
+/** Audit-log events from the active connection, newest first (VS-12).
+ * Rejects with `unsupported: audit log no configurado` when the active
+ * connection has no audit log configured. */
+export function auditEvents(opts?: {
+  namespace?: string;
+  op?: string;
+  outcome?: string;
+  limit?: number;
+  cursor?: number;
+}): Promise<AuditPage> {
+  return invoke<AuditPage>("vanta_audit_events", {
+    namespace: opts?.namespace,
+    op: opts?.op,
+    outcome: opts?.outcome,
+    limit: opts?.limit,
+    cursor: opts?.cursor,
+  });
 }

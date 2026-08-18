@@ -66,6 +66,7 @@ pub fn run() {
             commands::data::vanta_delete,
             commands::data::vanta_list,
             commands::metrics::vanta_metrics,
+            commands::audit::vanta_audit_events,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -77,9 +78,9 @@ pub fn run() {
             if let tauri::RunEvent::ExitRequested { .. } = event {
                 use tauri::Manager as _;
                 let manager = &app.state::<AppState>().manager;
-                let results = tauri::async_runtime::block_on(manager.shutdown_all(
-                    ConnectionManager::SHUTDOWN_GRACE,
-                ));
+                let results = tauri::async_runtime::block_on(
+                    manager.shutdown_all(ConnectionManager::SHUTDOWN_GRACE),
+                );
                 for (id, res) in results {
                     if let Err(e) = res {
                         eprintln!("[vantadb-desktop] shutdown: {id}: {e}");

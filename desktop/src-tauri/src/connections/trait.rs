@@ -78,6 +78,15 @@ pub trait VantaConnection: Send + Sync {
 
     /// Cheap liveness / latency probe.
     async fn health(&self) -> Result<HealthReport, VantaError>;
+
+    /// Path of this transport's audit log (VS-12).
+    ///
+    /// `None` means the transport has no audit log (e.g. a server connection,
+    /// or a native connection opened with audit disabled). Transports that
+    /// write one override this; the default keeps existing impls unchanged.
+    fn audit_log_path(&self) -> Option<std::path::PathBuf> {
+        None
+    }
 }
 
 #[cfg(test)]
