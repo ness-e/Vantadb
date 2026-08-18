@@ -481,8 +481,16 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let db = dir.path().to_str().unwrap();
 
-        crate::cli_handlers::cmd_put(db, "test", "k1", "hello world", Some("0.1,0.2,0.3"), false)
-            .expect("put should succeed");
+        crate::cli_handlers::cmd_put(
+            db,
+            "test",
+            "k1",
+            "hello world",
+            Some("0.1,0.2,0.3"),
+            None,
+            false,
+        )
+        .expect("put should succeed");
 
         // search with a text query on the same fresh DB, JSON output (no tty)
         cmd_search(db, "test", "hello", None, 10, true).expect("search should not error");
