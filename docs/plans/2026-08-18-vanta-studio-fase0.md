@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 7f1c9a4e-8b2d-4c3e-9a6f-2d5b8e1a9c40
 > **Inicio:** 2026-08-18
-> **Estado:** ⏳ EN PROGRESO
+> **Estado:** ✅ FASE 0 COMPLETA (2026-08-18) — 14/19 tareas HECHO (VS-00..VS-11 + VS-CORE-01/02); VS-CORE-03/04/05/06 diferidas (Fase 1/2), VS-CORE-07 pendiente (D2, bloqueante de Historial+Diff).
 > **Fuente:** `docs/research/human-facing-db-ui/06-synthesis/SYNTHESIS.md` (concepto "Vanta Studio" + Fase 0 §7) + decisiones del usuario 2026-08-18 (ver Decisiones).
 > **Modo:** secuencial — prototipo visual primero, luego implementación React.
 
@@ -78,43 +78,43 @@
 - **Archivos clave:** `desktop/src-tauri/src/commands/data.rs` (nuevo comando `vanta_put`), `desktop/src/vanta.ts`
 - **Gate Justificación:** hallazgo CRITICO del revisor: NO existe `put` en `vanta.ts` ni comando `vanta_put` en Tauri → VS-06 no puede Guardar ni editar TTL. Bloqueante de VS-06.
 - **Contrato:** comando Tauri `vanta_put(namespace, key, payload, metadata, expires_at_ms?)` mapeando a `VantaEmbedded.put`; expuesto en `vanta.ts` con tipos. Verificado con `cargo check` + `npm run build`.
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO (2026-08-18) — commit `d5453682`. Trait `Connection::put` (default Unsupported, aditivo) + impl nativa con conversión `expires_at_ms`→`ttl_ms` (VS-06 edita absoluto, core acepta relativo); `ConnectionManager::put` (write path) + e2e; comando `vanta_put` registrado en invoke_handler; `vantaPut()` tipada en vanta.ts. cargo check + cargo test 41/41 + npm run build verde.
 
 ### Task 6: VS-11 — Bridge Tauri: enriquecer DTO del registro (nuevo, crítico)
 - **Archivos clave:** `desktop/src-tauri/src/connections/types.rs` (DTO `MemoryRecord`), `src/sdk/types.rs:175-201` (fuente), `desktop/src/vanta.ts`
 - **Gate Justificación:** hallazgo CRITICO del revisor: el DTO del bridge NO tiene `version`, `node_id`, `updated_at_ms`, `expires_at_ms`, `vector` → VS-05 (columnas version/updated_at/TTL) y VS-06 (timestamps/TTL/vector) son imposibles. Bloqueante de VS-05/VS-06.
 - **Contrato:** `MemoryRecord` enriquecido con todos los campos de `VantaMemoryRecord` + mapeo completo; `vanta.ts` tipado. Verificado con `cargo check` + `npm run build`.
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO (2026-08-18) — commit `98c2d6c8`. `embedding`→`vector` + `updated_at_ms`/`version`/`node_id: Option<String>`/`sparse_vector`/`expires_at_ms` (Option + serde(default), backward-compat); test wire shape (`"version":3`, `"node_id":"42"`); native.rs rellena 6 campos; server.rs → None (NodeDTO no los expone — VS-05/06 renderizan "—"); vanta.ts `MemoryRecord` tipada. cargo check + cargo test 41/41 + npm run build verde.
 
 ### Task 7: VS-04 — HOME/overview (Fix 1)
 - **Archivos clave:** `desktop/src/components/home/HomeOverview.tsx` (nuevo), datos de contadores (depende de **VS-CORE-02**; fallback = list+count local)
 - **Gate Justificación:** P3 overview first (Shneiderman).
 - **Contrato:** 6-8 cards: conteo por namespace + tendencia (de VS-CORE-02), distribución de tipos metadata (mini-histograma), próximos a expirar (TTL) + expirados recientes, **actividad reciente = registros actualizados recientemente (updated_at desc)** — decisión de usuario: audit log real llega con ACTIVITY/Timeline en Fase 1. Nada abre si no se requiere; encoding redundante (color+ícono+texto).
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO (2026-08-18) — commit `f8250aea`. `HomeOverview.tsx`: 7 cards (total+tendencia proxy updated_at/7d, por namespace top-5, tipos metadata mini-histograma, próximos a expirar TTL 24h, expirados recientes 0 honesto — list() excluye expirados, actividad reciente updated_at desc, con vector); un solo fetch `list({limit:500})` + derive en una pasada; nada navega. Integrada en surface RESUMEN (conexión activa; MarkStudio sigue como empty state). npm run build verde 3× (49 modules). Swap a namespace_stats documentado cuando el bridge lo exponga.
 
 ### Task 8: VS-05 — MEMORIAS: grid virtualizado (reemplazar "Load more")
 - **Archivos clave:** `desktop/src/components/DataExplorer.tsx` (reescribir), deps: `@tanstack/react-table`, `@tanstack/react-virtual`; requiere VS-11 (DTO enriquecido) y VS-CORE-01 (cursor en bridge)
 - **Gate Justificación:** P2/P1; el grid es el centro permanente; "Load more" es anti-patrón (reporte 05).
 - **Contrato:** TanStack Table v9 + TanStack Virtual; paginación por cursor (usa VS-CORE-01); columnas: key (mono), payload (preview 1 línea), metadata (chips tipados), vector (badge dim), version (chip), updated_at (legible+relativa), TTL (barra countdown). Sort/filtro por columna.
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO (2026-08-18) — commit `14b6bfc8`. `DataExplorer.tsx` reescrito: 7 columnas, sort+filtro client-side, paginación por cursor via `listPage` (infinite scroll, next_cursor como condición); `ExplorerRow`/`onSelectRow` preservados (contrato VS-03) + `record` aditivo; deps @tanstack/react-table v9 + react-virtual. npm run build verde 3× (162 modules, JS 317.48 kB/gzip 97.56 kB).
 
 ### Task 9: VS-06 — Inspector de registro (master-detail + commit explícito + CodeMirror)
 - **Archivos clave:** `desktop/src/components/inspector/Inspector.tsx`, `inspector/GeneralTab.tsx`, `inspector/MetadataTab.tsx`, `inspector/VectorTab.tsx`, `inspector/PayloadTab.tsx` (nuevos), dep `@uiw/react-codemirror` + `@codemirror/lang-json` + `@codemirror/lang-markdown`; ancla en VS-10 (put) + VS-11 (DTO)
 - **Gate Justificación:** P2/P5/P6; el P0 de 02 y 05. **Decisión de usuario:** edición de payload en Fase 0 (CodeMirror 6).
 - **Contrato:** Tabs General (key/ns/node_id mono/timestamps/version/TTL editable con countdown), **Payload (preview markdown ↔ editar JSON con CodeMirror 6, lint)** — decisión de usuario, Metadata (KV editor con tipo inferido de `VantaValue`: string/int/float/bool/datetime/list/null; agregar/quitar filas), Vector (colapsado + stats norma/min/max + sparkline + copiar/pegar JSON). **Nunca auto-guardar**: Editar → ver diff → Guardar (vía VS-10 put) / Revertir (commit explícito P6).
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO (2026-08-18) — commit `399adaa6`. `inspector/` (6 archivos): GeneralTab (TTL editable countdown 1s + barra), MetadataTab (KV tipo inferido, dup keys bloquean save), VectorTab (L2/min/max, sparkline 48 barras, copy/paste), PayloadTab (preview markdown/pretty-JSON ↔ CodeMirror JSON + lint), Inspector.tsx (4 tabs, drafts, diff detallado, REVERTIR/GUARDAR vía `vantaPut`, flash "✓ guardado vN", nunca auto-guarda). WorkspaceShell: Inspector lazy + Suspense; grid pasa `row.record`; búsqueda global se enriquece con `get()` + fallback. Deps: @uiw/react-codemirror, @codemirror/lang-json/markdown/lint/theme-one-dark, react-markdown. Build verde 3× (chunk lazy Inspector 566 kB/gzip 182 kB).
 
 ### Task 10: VS-07 — Filtros compuestos en búsqueda
 - **Archivos clave:** `desktop/src/components/search/FiltersBuilder.tsx` (nuevo), dep `react-querybuilder`
 - **Gate Justificación:** P5; filtros visuales por metadata (VantaFilterOp: Eq/Neq/Gt/Lt/Gte/Lte) sin escribir JSON.
 - **Contrato:** query builder visual AND/OR sobre metadata tipada; se serializa a `VantaMemoryFilter`; compatible con la búsqueda híbrida global de la Topbar.
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO (2026-08-18) — commit `270b34ba`. `search/filters-core.ts` (lógica pura: `inferMetaFields` string/int/float/bool/datetime, `toVantaMemoryFilter` Eq/Neq/Gt/Lt/Gte/Lte aplanado AND, `evaluateQuery` árbol anidado; 0 imports runtime de react-querybuilder) + `FiltersBuilder.tsx` (react-querybuilder v8, ops restringidas 6, `maxLevels={4}`, CSS manga, lazy) + integración Topbar (botón `⧩ FILTROS (n)`, visibleResults client-side, `top_k` 8→50 con filtro) + self-check `scripts/vs07-filters-check.ts` 18/18. Build verde 3× (chunk lazy 119 kB/gzip 36).
 
 ### Task 11: VS-08 — Undo + papelera (Fix 4)
 - **Archivos clave:** `desktop/src/store/undo.ts` (nuevo), deps: `zustand`
 - **Gate Justificación:** P8 recuperación de errores (Norman).
 - **Contrato:** undo por snapshot del estado de la sesión (Ctrl+Z), soft-delete con papelera (tombstones) y restore, confirmación en destructivos (eliminar/sobrescribir).
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO (2026-08-18) — commit `270b34ba`. `store/undo.ts` (vanilla con suscripción — zustand no estaba al llegar; snapshot `{trashBefore, reverse}`, `MAX_HISTORY=50`, cola serializada, pop dentro de la cola, backend primero) + `TrashLens.tsx` (tombstones key/ns/deletedAt/version/preview, ↩ RESTORE vía vantaPut del snapshot, BORRAR DEF. confirmación 2 pasos) + columna 🗑 en grid (confirmación inline P6) + Ctrl+Z/⌘Z global con guard inputs/CodeMirror + confirmación sobrescritura IngestForm. Sin comandos nuevos al bridge (`vanta_delete` ya existía). Papelera de sesión (persistencia → Fase 1, `ponytail:`). Build verde 3×.
 
 ### Task 12: VS-09 — Command palette (Ctrl+K)
 - **Archivos clave:** `desktop/src/components/palette/CommandPalette.tsx` (nuevo), dep `cmdk`
@@ -128,7 +128,7 @@
 - **Archivos clave:** `desktop/src-tauri/src/commands/data.rs:65` (comando `vanta_list`), `desktop/src/vanta.ts:159`; el core YA tiene cursor (`list` con `options.cursor` + `next_cursor` en `src/sdk/api.rs:545` y en Python/TS/WASM) — gap §8.1 real solo para Desktop
 - **Gate Justificación:** sin cursor no hay virtualización real (VS-05). Bloqueante de VS-05.
 - **Contrato:** exponer `cursor`/`next_cursor` en el comando Tauri `vanta_list` + `vanta.ts` (aditivo, compat backward).
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO (2026-08-18) — commit `424ffe03`. DTO `ListPage {records, next_cursor}` espejo del core; trait `VantaConnection::list` con cursor `Option<usize>` (desviación documentada: prompt pedía string pero core/bindings usan número); native.rs cursor→`VantaMemoryListOptions` + next_cursor passthrough; server.rs una página (IQL no pagina); manager con test roundtrip sin solapamiento; `vanta_list` acepta `cursor?`/`limit?`; `vanta.ts` `listPage()` + `list()` backward-compat (delega en `.records`). cargo check + cargo test 42/42 + npm run build verde.
 
 ### Task 14: VS-CORE-02 — Contadores por namespace + stats TTL
 - **Archivos clave:** `src/sdk/api.rs` (`count` en :1278), `src/metrics/core/snapshot.rs:41` (50 campos, no 72)
