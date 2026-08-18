@@ -699,6 +699,121 @@ fn test_mcp_search_semantic_distance_semantics() {
     assert_eq!(dists, sorted, "distances must be ascending, got {dists:?}");
 }
 
+// ── AUD-046: memory_put validates vector dims against the live index ─────
+
+#[test]
+fn test_mcp_put_validates_vector_dimensions() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // 1. First 4-dim put on an empty index defines the dim (no index yet).
+    let first_put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "dims_ns",
+            "key": "seed",
+            "payload": "seed",
+            "vector": [1.0, 0.0, 0.0, 0.0]
+        }
+    }));
+    let first_res = handle_tools_call(&first_put, &executor, &storage, &default_config());
+    assert!(
+        first_res.is_ok(),
+        "first 4-dim put should succeed: {:?}",
+        first_res
+    );
+    let first_val = first_res.unwrap();
+    assert!(
+        first_val["isError"].is_null(),
+        "first put must not error: {:?}",
+        first_val
+    );
+
+    // 2. A put with matching dims still works.
+    let good_put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "dims_ns",
+            "key": "good",
+            "payload": "good",
+            "vector": [0.0, 1.0, 0.0, 0.0]
+        }
+    }));
+    let good_res = handle_tools_call(&good_put, &executor, &storage, &default_config());
+    assert!(
+        good_res.is_ok(),
+        "matching-dim put should succeed: {:?}",
+        good_res
+    );
+    assert!(
+        good_res.unwrap()["isError"].is_null(),
+        "matching-dim put must not error"
+    );
+
+    // 3. A put with wrong dims (2 vs 4) must fail BEFORE inserting, with an
+    // explicit DimensionMismatch error (AUD-046: no silent index corruption).
+    let bad_put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "dims_ns",
+            "key": "bad",
+            "payload": "bad",
+            "vector": [0.5, 0.5]
+        }
+    }));
+    let bad_res = handle_tools_call(&bad_put, &executor, &storage, &default_config());
+    assert!(
+        bad_res.is_ok(),
+        "handler must return Ok with isError content, got: {:?}",
+        bad_res
+    );
+    let bad_val = bad_res.unwrap();
+    assert_eq!(
+        bad_val["isError"], true,
+        "wrong-dim put must be flagged as error: {:?}",
+        bad_val
+    );
+    let bad_text = bad_val["content"][0]["text"].as_str().unwrap();
+    assert!(
+        bad_text.contains("Vector dimension mismatch: expected 4, got 2"),
+        "error must name expected and got dims, got: {}",
+        bad_text
+    );
+
+    // 4. The rejected node must NOT have been inserted.
+    let get_params = Some(json!({
+        "name": "memory_get",
+        "arguments": { "namespace": "dims_ns", "key": "bad" }
+    }));
+    let get_res = handle_tools_call(&get_params, &executor, &storage, &default_config());
+    let get_val = get_res.unwrap();
+    assert_eq!(
+        get_val["isError"], true,
+        "rejected node must not be retrievable: {:?}",
+        get_val
+    );
+
+    // 5. A put WITHOUT a vector (text-only) is unaffected by dim validation.
+    let novec_put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "dims_ns",
+            "key": "text_only",
+            "payload": "hello"
+        }
+    }));
+    let novec_res = handle_tools_call(&novec_put, &executor, &storage, &default_config());
+    assert!(
+        novec_res.is_ok(),
+        "text-only put should succeed: {:?}",
+        novec_res
+    );
+    assert!(
+        novec_res.unwrap()["isError"].is_null(),
+        "text-only put must not error"
+    );
+}
+
 // ── MCP-04: Collection Management Tests ─────────────────────────────────
 
 #[test]

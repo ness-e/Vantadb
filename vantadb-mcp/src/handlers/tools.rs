@@ -211,6 +211,26 @@ pub fn handle_tools_call(
                 None
             };
 
+            // AUD-046: reject vector puts whose dim does not match the live
+            // index dim, mirroring the search-side check (MCP-04). Without
+            // this, a mismatched vector is silently accepted into the HNSW
+            // index — `vector_count` rises but the node never surfaces in
+            // search, corrupting the index with mixed dims. An empty index
+            // (first vector put) has no dim yet and defines it.
+            if let Some(vector) = &vector {
+                if let Some(expected) = index_vector_dim(storage) {
+                    if vector.len() != expected {
+                        return Ok(error_content(
+                            vantadb::VantaError::DimensionMismatch {
+                                expected,
+                                got: vector.len(),
+                            }
+                            .to_string(),
+                        ));
+                    }
+                }
+            }
+
             // AUD-045: accept the sparse_vector object (dimension id -> weight,
             // e.g. {"0": 0.5}). Passed as JSON object, mirroring the core's
             // SparseVector(BTreeMap<u32, f32>). An absent/invalid value is
