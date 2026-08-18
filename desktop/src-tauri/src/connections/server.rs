@@ -74,9 +74,14 @@ impl ServerConnection {
             id: node.id.to_string(),
             namespace: namespace.unwrap_or("default").to_string(),
             text: relational_str(&node.relational, "content"),
-            embedding: None,
+            vector: None,
             metadata: node.relational.into_iter().collect(),
             created_at_ms: None,
+            updated_at_ms: None,
+            version: None,
+            node_id: Some(node.id.to_string()),
+            sparse_vector: None,
+            expires_at_ms: None,
         }
     }
 }

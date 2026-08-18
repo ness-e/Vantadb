@@ -83,18 +83,40 @@ pub struct SearchResult {
 }
 
 /// A stored memory record returned by `get` / `list`.
+///
+/// Mirrors `VantaMemoryRecord` (`src/sdk/types.rs`) so the UI can render
+/// version, update time, TTL and vector data. Fields are `Option` + serde
+/// default because the server backend (IQL nodes) cannot supply them — the
+/// native backend fills every one.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MemoryRecord {
     pub id: String,
     pub namespace: String,
     pub text: String,
     #[serde(default)]
-    pub embedding: Option<Vec<f32>>,
+    pub vector: Option<Vec<f32>>,
     #[serde(default)]
     pub metadata: HashMap<String, serde_json::Value>,
     /// Creation time as unix milliseconds.
     #[serde(default)]
     pub created_at_ms: Option<u64>,
+    /// Last-update time as unix milliseconds.
+    #[serde(default)]
+    pub updated_at_ms: Option<u64>,
+    /// Monotonic version counter.
+    #[serde(default)]
+    pub version: Option<u64>,
+    /// Deterministic node id derived from namespace and key (string: the core
+    /// serializes `u128` node ids as strings to avoid JS precision loss).
+    #[serde(default)]
+    pub node_id: Option<String>,
+    /// Optional sparse term-weight vector (dimension → coefficient).
+    #[serde(default)]
+    pub sparse_vector: Option<HashMap<u32, f32>>,
+    /// Absolute unix-ms timestamp after which the record is considered
+    /// expired. `None` means the record never expires.
+    #[serde(default)]
+    pub expires_at_ms: Option<u64>,
 }
 
 /// Result of [`crate::connections::VantaConnection::health`].
@@ -228,11 +250,23 @@ mod tests {
             id: "r1".into(),
             namespace: "mem".into(),
             text: "cats".into(),
-            embedding: None,
+            vector: Some(vec![0.1, -0.2]),
             metadata: HashMap::new(),
             created_at_ms: Some(1_700_000_000_000),
+            updated_at_ms: Some(1_700_000_000_100),
+            version: Some(3),
+            node_id: Some("42".into()),
+            sparse_vector: Some([(0u32, 0.5f32), (5, 1.25)].into_iter().collect()),
+            expires_at_ms: Some(1_700_000_100_000),
         };
         assert_eq!(rt(&rec), rec);
+        // Wire shape guards the vanta.ts contract: node_id is a string,
+        // version/updated_at are numbers, expires/vector may be null.
+        let json = json(&rec);
+        assert!(json.contains(r#""version":3"#));
+        assert!(json.contains(r#""node_id":"42""#));
+        assert!(json.contains(r#""expires_at_ms":1700000100000"#));
+        assert!(json.contains(r#""vector":[0.1,-0.2]"#));
     }
 
     #[test]

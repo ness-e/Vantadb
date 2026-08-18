@@ -56,9 +56,20 @@ export interface MemoryRecord {
   id: string;
   namespace: string;
   text: string;
-  embedding?: unknown;
+  /** Optional embedding vector (dense). */
+  vector?: number[] | null;
   metadata?: Record<string, unknown>;
   created_at_ms?: number | null;
+  /** Last-update time as unix milliseconds. */
+  updated_at_ms?: number | null;
+  /** Monotonic version counter. */
+  version?: number | null;
+  /** Deterministic node id derived from namespace and key (string on the wire). */
+  node_id?: string | null;
+  /** Optional sparse term-weight vector (dimension → coefficient). */
+  sparse_vector?: Record<string, number> | null;
+  /** Absolute unix-ms expiry; null/absent means the record never expires. */
+  expires_at_ms?: number | null;
 }
 
 /** `ServerClientConfig` wire shape: `timeout` is a serde `Duration` (secs+nanos). */

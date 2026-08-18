@@ -159,13 +159,18 @@ fn record_to_memory(r: VantaMemoryRecord) -> MemoryRecord {
         id: r.key,
         namespace: r.namespace,
         text: r.payload,
-        embedding: r.vector,
+        vector: r.vector,
         metadata: r
             .metadata
             .iter()
             .map(|(k, v)| (k.clone(), from_vanta_value(v)))
             .collect(),
         created_at_ms: Some(r.created_at_ms),
+        updated_at_ms: Some(r.updated_at_ms),
+        version: Some(r.version),
+        node_id: Some(r.node_id.to_string()),
+        sparse_vector: r.sparse_vector.map(|sv| sv.0.into_iter().collect()),
+        expires_at_ms: r.expires_at_ms,
     }
 }
 
