@@ -136,6 +136,9 @@ aliases: []
 - **Resultado:** ✅ `vantadb-node/Cargo.toml:24` — `vantadb = { path = "..", default-features = false, features = ["fjall", "memmap2", "rayon"] }`; único cdylib que arrastraba cli/arrow/tantivy (6.7MiB debug). `cargo check --manifest-path vantadb-node/Cargo.toml` ✅ + `cargo tree -e features` limpio. Commit `404f1625`.
 
 ### AUD-027: Least-privilege per-job permissions in release workflow — migrado 2026-08-14 (ver docs/progreso/README.md)
+
+### AUD-047: binario release con feature `server` (2026-08-18)
+- **Resultado:** ✅ `release-binaries-63.yml`: `vanta-cli` se compila con `--features "server,$ALLOC_FEATURES"` (default queda lean; `cargo install` activa solo default → nunca entraba server). README/README_ES: release binario incluye HTTP; source installs `cargo install --git ... --bin vanta-cli --features server`. Verificado runtime: `vanta-cli server --http` + `/health` OK. Commit `4ac3b9fa`. (ver docs/progreso/README.md)
 - **Resultado:** ✅ Permisos movidos de workflow-level a por-job en `release-plz.yml` (release: `contents: write, pull-requests: read, id-token: write`; PR: `contents: write, pull-requests: write`); Trusted Publishing intacto, sin `CARGO_REGISTRY_TOKEN`; pin `release-plz/action@2eb1d8bcb7 # v0.5.131` confirmado correcto (tag del action vs CLI 0.3.160). actionlint exit 0. Commit `d66b267d`.
 
 ### R2: Crear agente vanta-research (read-only research subagent) — migrado 2026-08-16 (ver docs/progreso/README.md)
