@@ -10,7 +10,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { list, search, vantaErrorMessage } from "../vanta";
 
-interface Row {
+export interface ExplorerRow {
   id: string;
   namespace: string;
   text: string;
@@ -21,13 +21,15 @@ interface Props {
   active: boolean;
   busy: boolean;
   runError: (msg: string) => void;
+  /** Master-detail (VS-03): clicking a row opens the record in the right Inspector. */
+  onSelectRow?: (row: ExplorerRow) => void;
 }
 
 const STEP = 50;
 
-export default function DataExplorer({ active, busy, runError }: Props) {
+export default function DataExplorer({ active, busy, runError, onSelectRow }: Props) {
   const [query, setQuery] = useState("");
-  const [rows, setRows] = useState<Row[] | null>(null);
+  const [rows, setRows] = useState<ExplorerRow[] | null>(null);
   const [limit, setLimit] = useState(STEP);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"list" | "search">("list");
@@ -35,7 +37,7 @@ export default function DataExplorer({ active, busy, runError }: Props) {
   async function fetchRows(kind: "list" | "search", q: string, lim: number) {
     setLoading(true);
     try {
-      const next: Row[] =
+      const next: ExplorerRow[] =
         kind === "search"
           ? (await search({ query: q, top_k: lim })).map((r) => ({
               id: r.id,
@@ -117,7 +119,12 @@ export default function DataExplorer({ active, busy, runError }: Props) {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={`${r.namespace}:${r.id}`}>
+                <tr
+                  key={`${r.namespace}:${r.id}`}
+                  onClick={onSelectRow ? () => onSelectRow(r) : undefined}
+                  className={onSelectRow ? "cursor-pointer" : undefined}
+                  title={onSelectRow ? "Ver en inspector" : undefined}
+                >
                   <td>
                     <code>{r.id}</code>
                   </td>
