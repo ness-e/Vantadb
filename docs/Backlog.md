@@ -50,7 +50,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | **P23** 🔒 VantaDB Pro (Open Core) | 6 (PRO-01..06) | ~8-12 semanas | 🔵 Futuro |
 | **P24** 🧪 I+D futura (v3.0+) | 10 (FUT-02..11) | 📆 Futuro | 🗺️ Roadmap |
 | **P25** 🔌 Exposición MCP/HTTP | 11 (MCP-16..26) | ~2-3 semanas | 🟡 Media |
-| **P26** 🖥️ Vanta Studio (consola human-facing desktop, Fase 0) | 19 (VS-00..11 + VS-CORE-01..07) | ~2-3 semanas | 🔴 Alta (diseño decidido) |
+| **P26** 🖥️ Vanta Studio (consola human-facing desktop) | Fase 0 ✅ completa (14/19) + **Fase 1 nueva** (9: VS-CORE-03/07 + VS-12..18) | Fase 1: ~1-2 semanas | 🔴 Alta (diseño decidido) |
 | **P27** 🧠 Vanta Memory Engine (TDAM, orden F1–F7) | 38 (MEM-01..38) | ~8-12 semanas | 🔴 Alta (decisión de producto) |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
