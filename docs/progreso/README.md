@@ -3956,9 +3956,75 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ 4 archivos en `desktop/src/components/mark/` (`use-mark-interaction.ts`, `Mark.tsx`, `mark-studio.tsx`, `mark.css`) — commit `2573d8a5`. Follow rAF lerp exp (τ 60/130ms), squint React puro, blink WAAPI (cierre 60ms inQuad → hold 50ms → apertura 120ms outQuad), pulse nodos CSS keyframes `transform-box: fill-box`, SMIL glow condicional a reduced-motion; variante `MarkStudio` (idle/loading/empty/error); CSS plano namespaced `.vmark-*` (VS-01 Tailwind pendiente). `npm run build` verde (3×). Web de referencia intacta.
 - **Ids:** `VS-02`
 
+### VS-CORE-03: Exponer `explain` en el bridge desktop (re-scopeado: consumir, no crear)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase1.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** el core ya produce `VantaSearchExplanation`; el bridge desktop era el único que no lo exponía. Añadir `SearchQuery.explain: bool` + `SearchResult.explanation: Option<ExplanationHit>` (espejo 1:1 de `VantaSearchExplanationHit`).
+- **Resultado:** ✅ `desktop/src-tauri/src/connections/{types,native,server,mod,manager}.rs` + `desktop/src/vanta.ts` — commit `2a1f3012`. 41 lib + 15 integración verdes; `npm run build` verde. Core intacto.
+- **Ids:** `VS-CORE-03`
+
+### VS-12: Audit log en desktop (configurar `audit_log_path` + comando `vanta_audit_events`)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase1.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** el core ya escribe el JSONL (opt-in); el desktop ni lo configuraba ni podía leerlo.
+- **Resultado:** ✅ `NativeConnection::open` configura audit (default `<storage>/audit.jsonl`), comando `vanta_audit_events` (tail/filtros/cursor) + `vanta.ts` `auditEvents()` — commit `2a1f3012`. 11 tests audit verdes; build verde.
+- **Ids:** `VS-12`
+
+### VS-CORE-07: Retención de versiones históricas en `VantaMemoryRecord` (D2 completo)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase1.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** retener snapshots de versiones (cap 32 FIFO aprobado, snapshot del record nuevo, import sin snapshots) + API `get_version`/`versions` + exposición bridge.
+- **Resultado:** ✅ `src/sdk/version_history.rs` (nuevo, 11 tests), partición Fjall `Versions`, hooks en put/put_batch/delete/purge_expired, `VantaConfig.version_history_limit`; bridge: `vanta_get_version`/`vanta_versions` + `vanta.ts` `getVersion`/`versions` — commits `be0812a4`/`b6997e59`. 1785 lib tests verdes (1 fallo preexistente `test_consolidate_node_with_binary_vector` en maintenance.rs, fuera de scope); 42 desktop lib verdes. Doble consumidor: P26 Studio (Historial+Diff) + P27 memory.
+- **Ids:** `VS-CORE-07`
+
+### VS-13: Lente RETRIEVAL (¿por qué recuperó esto?)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase1.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** barra de consulta + desglose de score como barras apiladas (BM25/HNSW/RRF) usando `explain` de VS-CORE-03.
+- **Resultado:** ✅ `desktop/src/components/lens/retrieval/` (retrieval-core.ts + ScoreBars.tsx + RetrievalLens.tsx) + slice aditivo en WorkspaceShell — commit `0411117e`. Self-check 15 asserts PASS; build verde.
+- **Ids:** `VS-13`
+
+### VS-15: ACTIVITY + Timeline (audit log filtrable y agrupado)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase1.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** Timeline agrupada por hora/día + Activity filtrable (namespace/op/outcome) con cursor de VS-12; empty state honesto si audit no configurado.
+- **Resultado:** ✅ `desktop/src/components/activity/` (logic.ts + EventChip.tsx + Timeline.tsx + ActivityPanel.tsx) + slice aditivo WorkspaceShell — commit `0411117e`. Self-check fixture JSONL PASS; build verde.
+- **Ids:** `VS-15`
+
+### VS-16: Deep links `vanta://` + export de vistas + reporte markdown
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase1.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** URI scheme `vanta://` (Tauri v2, plugins deep-link 2.4.9 + single-instance 2.4.3 verificados contra docs oficiales), export JSONL de la vista actual, reporte markdown con copiar/descargar.
+- **Resultado:** ✅ `lib.rs` (pending_deep_links + register_all), `tauri.conf.json` (scheme), `vanta.ts` `parseVantaUrl`, `components/export/`, `useDeepLink.ts` — commit `0411117e`. 14/14 tests node; deep link manual OK (1 solo proceso); build verde.
+- **Ids:** `VS-16`
+
+### VS-17: Favoritos/historial de búsqueda + Copy-as
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase1.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** favoritos ★ (localStorage) + historial de búsqueda re-ejecutable + copy-as (JSON/key/markdown) sin deps nuevas.
+- **Resultado:** ✅ `desktop/src/store/{favorites,search-history}.ts`, `components/copy/`, grupos FAVORITOS/HISTORIAL en CommandPalette, ★+copiar en DataExplorer/Inspector — commit `cdcaf268`. Self-check roundtrip PASS; build verde.
+- **Ids:** `VS-17`
+
+### VS-18: Encoding redundante (color + ícono + texto) en chips/badges (A11y)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase1.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** estados solo-color ganan ícono+texto/patrón (TTL, vector, metadata duplicada, tab activo) — AA en claro y dark, reduced-motion respetado.
+- **Resultado:** ✅ `index.css` (.stripes-neon) + DataExplorer/GeneralTab/MetadataTab/Inspector — commit `cdcaf268`. Checklist AA documentado; build verde. ScoreBars ya tenía encoding (no duplicar).
+- **Ids:** `VS-18`
+
+### VS-14: Historial+Diff entre versiones (tab en Inspector)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase1.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** lista de versiones + diff (payload line-diff / metadata KV / vector) + revert explícito P6. Desbloqueada tras VS-CORE-07.
+- **Resultado:** ✅ `historial-diff.ts` + `historial-tab.tsx` + tab HISTORIAL aditivo en Inspector — commit `5796b2f9`. Self-check 27 asserts PASS; build verde. Revert restaura payload+metadata+TTL (vector no — limitación vantaPut Fase 0, declarada en confirmación).
+- **Ids:** `VS-14`
+
 ---
 
 ## Planes archivados
 
 - **Plan archivado:** `docs/plans/archive/2026-08-17-skills-vantadb.md` - 4/4 completadas (wave SKL: skills de VantaDB corregidas)
 - **Retrospectiva:** Start: diagnóstico del lead con evidencia archivo:línea antes de delegar + contratos mecánicos accionables + waves paralelas por archivos disjuntos | Stop: contrato decía 14 tools cuando el server real tiene 15 (corregido en DISCOVERY, no bloqueó) | Continue: routing por dominio (docs→vanta-docs, scripts→vanta-worker) + gate P2-01 que encontró 1 falla real de coherencia doc↔código que los checks mecánicos no veían | Acción medida: verify retries/tarea = 1/4 (SKL-02 requirió fix post-review); baseline North Star: >90% primer intento
+
+- **Plan archivado:** `docs/plans/archive/2026-08-18-vanta-studio-fase1.md` — 9/9 completadas (P26 Studio Fase 1: explicabilidad y tiempo)
+- **Retrospectiva:** Start: checkpoint humano D2 antes de implementar (3 decisiones aprobadas: cap 32, snapshot nuevo, import sin snapshots) + waves paralelas con slices aditivos + verify mecánico del lead antes de cada commit | Stop: sub-agentes corrompieron el plan file 3 veces (recitation en Contrato + header "completed") → revertido por el lead cada vez; cargo fmt de sub-agentes reformateó archivos que no tocaban (ruido revertido) | Continue: lead es el único que toca plan/Backlog + merge de slices compartidos + pre-commit hook que atrapó fmt faltante en version_history.rs | Acción medida: corrupciones de plan file por sub-agente = 3/9 tareas; baseline: 0 (regla "no tocar plan file" ya era explícita)

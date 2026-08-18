@@ -290,3 +290,8 @@ aliases: []
 
 ### FND-08: Regla de backend validado contra patrón de acceso real + auditoría de compactación — migrado 2026-08-16 (ver docs/progreso/README.md)
 - **Resultado:** ✅ ADR-023 (backend compaction — diferir marginal, bench de lectura) + regla en `.opencode/rules/durability.md`. Commit `e5e76684`.
+
+### VS-CORE-07: Retención de versiones históricas (D2 completo)
+- **Fecha:** 2026-08-18
+- **Resultado:** ✅ src/sdk/version_history.rs (nuevo, 11 tests) + partición Fjall Versions (clave 
+s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired + VantaConfig.version_history_limit (cap 32 FIFO aprobado, snapshot del record nuevo, import sin snapshots). API get_version/ersions. Commits e0812a4/6997e59. Doble consumidor P26+P27. 1785 lib tests verdes (1 fallo preexistente maintenance.rs fuera de scope).

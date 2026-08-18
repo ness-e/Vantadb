@@ -77,6 +77,44 @@ aliases: [DESKTOP]
 - **Fecha:** 2026-08-18
 - **Resultado:** ✅ Port de la mascota MARK de `web/src/components/vanta/mark/` a `desktop/src/components/mark/` (4 archivos) sin Anime.js: `use-mark-interaction.ts` (follow rAF lerp exp τ 60/130ms, squint React puro, blink WAAPI cierre 60ms inQuad→hold 50ms→apertura 120ms outQuad con setAttribute final, reduced-motion sin follow/blink), `Mark.tsx` (grafo 10 nodos/18 edges, face ring/SMIL glow/esfera/ojos, SfxLabels, tag, hint), `mark-studio.tsx` (variante data-driven idle/loading/empty/error), `mark.css` (clases namespaced `.vmark-*`, keyframes pulse/ambient `transform-box: fill-box`, media query reduced-motion). `npm run build` verde (3×). Commit `2573d8a5`.
 
+## Vanta Studio (Fase 1 - explicabilidad y tiempo) — 9/9 ✅
+
+### VS-CORE-03: Exponer `explain` en el bridge desktop
+- **Fecha:** 2026-08-18
+- **Resultado:** ✅ `SearchQuery.explain` + `SearchResult.explanation` (espejo 1:1 de `VantaSearchExplanationHit`) en `desktop/src-tauri/src/connections/` + `vanta.ts`. Commit `2a1f3012`. Core intacto (consumir, no crear).
+
+### VS-12: Audit log en desktop
+- **Fecha:** 2026-08-18
+- **Resultado:** ✅ `NativeConnection::open` configura `audit_log_path` (default `<storage>/audit.jsonl`); comando `vanta_audit_events` (tail/filtros/cursor) + `auditEvents()` en `vanta.ts`. Commit `2a1f3012`.
+
+### VS-13: Lente RETRIEVAL (desglose de score)
+- **Fecha:** 2026-08-18
+- **Resultado:** ✅ `desktop/src/components/lens/retrieval/` (retrieval-core.ts, ScoreBars.tsx, RetrievalLens.tsx): barras apiladas BM25/HNSW/RRF con encoding redundante, consume `explain`. Commit `0411117e`.
+
+### VS-15: ACTIVITY + Timeline
+- **Fecha:** 2026-08-18
+- **Resultado:** ✅ `desktop/src/components/activity/` (ActivityPanel + Timeline agrupada hora/día, filtros namespace/op/outcome con cursor, empty state honesto). Commit `0411117e`.
+
+### VS-16: Deep links `vanta://` + export + reporte markdown
+- **Fecha:** 2026-08-18
+- **Resultado:** ✅ plugins `tauri-plugin-deep-link@2.4.9` + `single-instance@2.4.3` (verificados vs docs oficiales); `parseVantaUrl` + `useDeepLink`; export JSONL de la vista actual; reporte markdown copiar/descargar. 14/14 tests. Commit `0411117e`.
+
+### VS-17: Favoritos/historial + Copy-as
+- **Fecha:** 2026-08-18
+- **Resultado:** ✅ `store/favorites.ts` + `store/search-history.ts` (localStorage), grupos FAVORITOS/HISTORIAL en CommandPalette, botones copy-as JSON/key/markdown. Sin deps nuevas. Commit `cdcaf268`.
+
+### VS-18: Encoding redundante chips/badges (A11y)
+- **Fecha:** 2026-08-18
+- **Resultado:** ✅ `.stripes-neon` + ícono/texto en TTL/vector/metadata/tab activo — AA claro+dark, reduced-motion. Commit `cdcaf268`.
+
+### VS-14: Historial+Diff entre versiones
+- **Fecha:** 2026-08-18
+- **Resultado:** ✅ `historial-diff.ts` + `historial-tab.tsx` (tab HISTORIAL en Inspector): lista v1..vN, diff payload/metadata/vector, revert explícito P6. Desbloqueada por VS-CORE-07. Commit `5796b2f9`.
+
+### VS-CORE-07: Retención de versiones (core) — ver `activo/core-engine.md`
+- **Fecha:** 2026-08-18
+- **Resultado:** ✅ Core: `src/sdk/version_history.rs` + partición Fjall `Versions` (cap 32 FIFO aprobado); bridge: `getVersion`/`versions` en `vanta.ts`. Commits `be0812a4`/`b6997e59`.
+
 ---
 
 ## Fuentes
