@@ -236,10 +236,12 @@ Configure in VS Code settings (`settings.json`):
       "key": "ctx-001",
       "payload": "User prefers concise technical answers",
       "vector": [0.8, 0.1, 0.5],
+      "sparse_vector": { "0": 0.5, "7": 1.25 },
       "metadata": {
         "type": "preference",
         "priority": 2
-      }
+      },
+      "expires_at_ms": 1893456000000
     }
   }
 }

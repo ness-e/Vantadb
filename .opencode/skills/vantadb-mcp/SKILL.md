@@ -118,7 +118,7 @@ first write; list what exists with `collection_list` (or `memory_list_namespaces
 ### Memory CRUD Operations
 
 **memory_put** - Insert or update a memory record
-- Parameters: `namespace`, `key`, `payload` (required); `vector` (optional array of numbers), `metadata` (optional object)
+- Parameters: `namespace`, `key`, `payload` (required); `vector` (optional array of numbers), `sparse_vector` (optional object mapping dimension id → weight, e.g. `{"0": 0.5}`), `metadata` (optional object), `expires_at_ms` (optional absolute Unix-ms timestamp — the record expires at that time)
 - Returns: The created/updated memory record
 
 **memory_get** - Retrieve a memory record

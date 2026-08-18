@@ -1764,3 +1764,157 @@ fn test_mcp_search_memory_explain_shape() {
         }
     }
 }
+
+// ── AUD-045: memory_put accepts expires_at_ms + sparse_vector ─────────────
+//
+// The MCP tool schema used to omit `expires_at_ms` and `sparse_vector`, so
+// clients that sent them had the fields silently dropped and the returned
+// record showed `expires_at_ms: null` / `sparse_vector: null`. Both fields
+// must now round-trip: expires_at_ms (absolute Unix-ms) is converted to the
+// SDK input's relative ttl_ms and comes back as a non-null absolute value;
+// sparse_vector (object dim id -> weight) persists and is returned.
+
+#[test]
+fn test_mcp_memory_put_accepts_expires_at_ms_and_sparse_vector() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let future_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+        + 60_000;
+
+    let put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "aud045_ns",
+            "key": "k1",
+            "payload": "ttl + sparse payload",
+            "expires_at_ms": future_ms,
+            "sparse_vector": { "0": 0.5, "7": 1.25 }
+        }
+    }));
+    let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+    assert!(put_res.is_ok(), "memory_put with TTL+sparse should succeed");
+    let put_val = put_res.unwrap();
+    assert!(
+        put_val["isError"].is_null(),
+        "memory_put with TTL+sparse should not error: {put_val}"
+    );
+    let put_text = put_val["content"][0]["text"].as_str().unwrap();
+    let record: Value = serde_json::from_str(put_text).expect("put response should be JSON");
+    assert!(
+        record["expires_at_ms"].is_number(),
+        "record must carry a non-null expires_at_ms, got: {record}"
+    );
+    assert_eq!(
+        record["sparse_vector"]["0"], 0.5,
+        "sparse_vector dim 0 must round-trip, got: {record}"
+    );
+    assert_eq!(
+        record["sparse_vector"]["7"], 1.25,
+        "sparse_vector dim 7 must round-trip, got: {record}"
+    );
+
+    // Persistence: a get must return the same stored TTL and sparse vector.
+    let get_params = Some(json!({
+        "name": "memory_get",
+        "arguments": { "namespace": "aud045_ns", "key": "k1" }
+    }));
+    let get_res = handle_tools_call(&get_params, &executor, &storage, &default_config());
+    assert!(get_res.is_ok(), "memory_get should succeed");
+    let get_val = get_res.unwrap();
+    let get_text = get_val["content"][0]["text"].as_str().unwrap();
+    let fetched: Value = serde_json::from_str(get_text).expect("get response should be JSON");
+    assert!(
+        fetched["expires_at_ms"].is_number(),
+        "persisted record must keep expires_at_ms, got: {fetched}"
+    );
+    assert_eq!(
+        fetched["sparse_vector"]["0"], 0.5,
+        "persisted record must keep sparse_vector dim 0, got: {fetched}"
+    );
+    assert_eq!(
+        fetched["sparse_vector"]["7"], 1.25,
+        "persisted record must keep sparse_vector dim 7, got: {fetched}"
+    );
+}
+
+// AUD-045 backward compatibility: omitting both new fields must keep the
+// previous behaviour (record without TTL / sparse, no error).
+#[test]
+fn test_mcp_memory_put_without_ttl_or_sparse_stays_backward_compatible() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "aud045_plain_ns",
+            "key": "k",
+            "payload": "plain"
+        }
+    }));
+    let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+    assert!(put_res.is_ok(), "plain memory_put should succeed");
+    let put_val = put_res.unwrap();
+    assert!(
+        put_val["isError"].is_null(),
+        "plain memory_put should not error: {put_val}"
+    );
+    let put_text = put_val["content"][0]["text"].as_str().unwrap();
+    let record: Value = serde_json::from_str(put_text).expect("put response should be JSON");
+    assert!(
+        record["expires_at_ms"].is_null() || record.get("expires_at_ms").is_none(),
+        "record without TTL must have null/absent expires_at_ms, got: {record}"
+    );
+    assert!(
+        record["sparse_vector"].is_null() || record.get("sparse_vector").is_none(),
+        "record without sparse must have null/absent sparse_vector, got: {record}"
+    );
+}
+
+// AUD-045: invalid sparse_vector / expires_at_ms must fail explicitly — the
+// fix must never silently drop a field a client sent (the original bug).
+#[test]
+fn test_mcp_memory_put_rejects_invalid_sparse_and_ttl() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let bad_sparse = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "aud045_bad_ns",
+            "key": "k",
+            "payload": "p",
+            "sparse_vector": [0.5, 1.25]
+        }
+    }));
+    let sparse_res = handle_tools_call(&bad_sparse, &executor, &storage, &default_config());
+    let sparse_err = sparse_res
+        .err()
+        .expect("array sparse_vector must be rejected");
+    assert!(
+        sparse_err["code"].is_number(),
+        "array sparse_vector must fail with a JSON-RPC error, got: {sparse_err}"
+    );
+
+    let bad_ttl = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "aud045_bad_ns",
+            "key": "k",
+            "payload": "p",
+            "expires_at_ms": "not-a-number"
+        }
+    }));
+    let ttl_res = handle_tools_call(&bad_ttl, &executor, &storage, &default_config());
+    let ttl_err = ttl_res
+        .err()
+        .expect("non-numeric expires_at_ms must be rejected");
+    assert!(
+        ttl_err["code"].is_number(),
+        "non-numeric expires_at_ms must fail with a JSON-RPC error, got: {ttl_err}"
+    );
+}

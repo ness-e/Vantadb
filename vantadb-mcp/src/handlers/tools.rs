@@ -18,7 +18,7 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         "tools": [
             {
                 "name": "memory_put",
-                "description": "Inserts or updates a memory record in a namespace with payload, vector, and optional metadata.",
+                "description": "Inserts or updates a memory record in a namespace with payload, vector, optional sparse vector, optional metadata, and optional TTL.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -26,7 +26,9 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                         "key": { "type": "string", "description": "Unique key for the record" },
                         "payload": { "type": "string", "description": "Text content of the memory" },
                         "vector": { "type": "array", "items": {"type": "number"}, "description": "Optional embedding vector" },
-                        "metadata": { "type": "object", "description": "Optional metadata key-value pairs" }
+                        "sparse_vector": { "type": "object", "additionalProperties": {"type": "number"}, "description": "Optional sparse term-weight vector, e.g. {\"0\": 0.5, \"7\": 1.25} (dimension id -> weight)" },
+                        "metadata": { "type": "object", "description": "Optional metadata key-value pairs" },
+                        "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms timestamp after which the record expires (TTL)" }
                     },
                     "required": ["namespace", "key", "payload"]
                 }
@@ -209,6 +211,43 @@ pub fn handle_tools_call(
                 None
             };
 
+            // AUD-045: accept the sparse_vector object (dimension id -> weight,
+            // e.g. {"0": 0.5}). Passed as JSON object, mirroring the core's
+            // SparseVector(BTreeMap<u32, f32>). An absent/invalid value is
+            // rejected explicitly rather than silently dropped.
+            let sparse_vector = match args.get("sparse_vector") {
+                Some(Value::Null) | None => None,
+                Some(v) => {
+                    let obj = v.as_object().ok_or_else(|| {
+                        McpError::invalid_params(
+                            "'sparse_vector' must be an object mapping dimension id to weight, e.g. {\"0\": 0.5}",
+                        )
+                        .to_json()
+                    })?;
+                    Some(parse_sparse_vector(obj).map_err(|e| e.to_json())?)
+                }
+            };
+
+            // AUD-045: accept an absolute expires_at_ms (Unix ms) and convert to
+            // the SDK input's relative ttl_ms. An already-expired timestamp
+            // saturates to 0 (expire immediately) rather than overflowing.
+            let ttl_ms = match args.get("expires_at_ms") {
+                Some(Value::Null) | None => None,
+                Some(v) => {
+                    let expires = v.as_u64().ok_or_else(|| {
+                        McpError::invalid_params(
+                            "'expires_at_ms' must be an unsigned integer (Unix ms)",
+                        )
+                        .to_json()
+                    })?;
+                    let now_ms = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis() as u64)
+                        .unwrap_or(0);
+                    Some(expires.saturating_sub(now_ms))
+                }
+            };
+
             let metadata = if let Some(obj) = args["metadata"].as_object() {
                 parse_metadata(obj).map_err(|e| e.to_json())?
             } else {
@@ -220,9 +259,9 @@ pub fn handle_tools_call(
                 namespace: namespace.to_string(),
                 payload: payload.to_string(),
                 vector,
-                sparse_vector: None,
+                sparse_vector,
                 metadata,
-                ttl_ms: None,
+                ttl_ms,
             };
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());

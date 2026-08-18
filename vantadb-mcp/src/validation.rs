@@ -171,6 +171,38 @@ pub(crate) fn mixed_array_error(key: &str) -> McpError {
     ))
 }
 
+/// Parse a JSON sparse vector object into the core `SparseVector`.
+///
+/// The sparse vector format is an OBJECT mapping dimension id → weight
+/// (e.g. `{"0": 0.5, "7": 1.25}`), matching `SparseVector(BTreeMap<u32, f32>)`
+/// in `src/node/vector_data.rs`. Keys must parse as unsigned integers; values
+/// must be finite numbers. Unlike dense `vector`, an empty object is valid
+/// (a sparse vector with no entries).
+pub(crate) fn parse_sparse_vector(
+    obj: &serde_json::Map<String, Value>,
+) -> Result<vantadb::SparseVector, McpError> {
+    let mut sparse = vantadb::SparseVector::new();
+    for (dim, val) in obj {
+        let dim: u32 = dim.parse().map_err(|_| {
+            McpError::invalid_params(format!(
+                "sparse_vector key '{dim}' is not a valid dimension id (expected unsigned integer)"
+            ))
+        })?;
+        let weight = val.as_f64().ok_or_else(|| {
+            McpError::invalid_params(format!(
+                "sparse_vector dimension '{dim}' must have a numeric weight"
+            ))
+        })?;
+        if !weight.is_finite() {
+            return Err(McpError::invalid_params(format!(
+                "sparse_vector dimension '{dim}' must have a finite weight"
+            )));
+        }
+        sparse.insert(dim, weight as f32);
+    }
+    Ok(sparse)
+}
+
 pub(crate) fn parse_metadata(
     obj: &serde_json::Map<String, Value>,
 ) -> Result<vantadb::sdk::VantaMemoryMetadata, McpError> {
