@@ -158,6 +158,8 @@ pub fn run() {
             commands::data::vanta_put,
             commands::data::vanta_search,
             commands::data::vanta_get,
+            commands::data::vanta_get_version,
+            commands::data::vanta_versions,
             commands::data::vanta_delete,
             commands::data::vanta_list,
             commands::metrics::vanta_metrics,

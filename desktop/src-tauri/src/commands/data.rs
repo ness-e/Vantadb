@@ -71,6 +71,34 @@ pub async fn vanta_get(
     state.manager.get(&key, namespace.as_deref()).await
 }
 
+/// Fetch a record as it was at a specific version (VS-CORE-07). Only the
+/// native (embedded) connection implements version history; other transports
+/// reject with `Unsupported`.
+#[tauri::command]
+pub async fn vanta_get_version(
+    state: State<'_, AppState>,
+    key: String,
+    version: u64,
+    namespace: Option<String>,
+) -> Result<MemoryRecord, VantaError> {
+    state
+        .manager
+        .get_version(&key, version, namespace.as_deref())
+        .await
+}
+
+/// List every retained version of a record, ascending v1..vN (VS-CORE-07).
+/// Only the native (embedded) connection implements version history; other
+/// transports reject with `Unsupported`.
+#[tauri::command]
+pub async fn vanta_versions(
+    state: State<'_, AppState>,
+    key: String,
+    namespace: Option<String>,
+) -> Result<Vec<MemoryRecord>, VantaError> {
+    state.manager.versions(&key, namespace.as_deref()).await
+}
+
 /// Delete a record by key on the active connection. Idempotent.
 #[tauri::command]
 pub async fn vanta_delete(

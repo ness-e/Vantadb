@@ -212,6 +212,37 @@ impl ConnectionManager {
         conn.get(key, namespace).await
     }
 
+    /// Fetch a record as it was at a specific version on the active connection.
+    pub async fn get_version(
+        &self,
+        key: &str,
+        version: u64,
+        namespace: Option<&str>,
+    ) -> Result<MemoryRecord, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        let conn = inner
+            .connections
+            .get(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        conn.get_version(key, version, namespace).await
+    }
+
+    /// List every retained version of a record on the active connection.
+    pub async fn versions(
+        &self,
+        key: &str,
+        namespace: Option<&str>,
+    ) -> Result<Vec<MemoryRecord>, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        let conn = inner
+            .connections
+            .get(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        conn.versions(key, namespace).await
+    }
+
     /// Delete a record by key on the active connection. Idempotent.
     pub async fn delete(&self, key: &str, namespace: Option<&str>) -> Result<(), VantaError> {
         let id = self.active_id().await?;

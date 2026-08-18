@@ -320,6 +320,12 @@ pub struct VantaConfig {
     /// Batch size for batch ingestion operations (default: 1000).
     /// Configured via `VANTADB_BATCH_SIZE`.
     pub batch_size: Option<usize>,
+    /// Maximum number of historical versions retained per memory key (VS-CORE-07).
+    ///
+    /// Each `put` snapshots the new record under its version; when a key reaches
+    /// this cap the oldest version is evicted (FIFO). `None` disables the cap
+    /// (unbounded history per key). Default: `Some(32)`.
+    pub version_history_limit: Option<usize>,
     /// Bulk import commit interval — number of records per batch commit (default: 10000).
     /// Configured via `VANTADB_BULK_COMMIT_INTERVAL`.
     pub bulk_commit_interval: Option<usize>,
@@ -683,6 +689,15 @@ impl Default for VantaConfig {
                     .ok()
                     .filter(|&n: &usize| n > 0);
                 debug!(val = ?v, "VANTADB_BATCH_SIZE");
+                v
+            },
+            version_history_limit: {
+                // `VANTADB_VERSION_HISTORY_LIMIT=0` disables the cap entirely.
+                let v = parse_env_or::<u32>("VANTADB_VERSION_HISTORY_LIMIT", 32)
+                    .try_into()
+                    .ok()
+                    .filter(|&n: &usize| n > 0);
+                debug!(val = ?v, "VANTADB_VERSION_HISTORY_LIMIT");
                 v
             },
             bulk_commit_interval: {

@@ -9,6 +9,7 @@ mod graph;
 pub(crate) mod search;
 pub(crate) mod serialization;
 pub(crate) mod types;
+pub(crate) mod version_history;
 
 pub use api::BulkImportReport;
 pub use builder::VantaEmbedded;

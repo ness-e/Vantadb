@@ -367,6 +367,39 @@ impl VantaConnection for NativeConnection {
             .ok_or_else(|| VantaError::Native(not_found))
     }
 
+    async fn get_version(
+        &self,
+        id: &str,
+        version: u64,
+        namespace: Option<&str>,
+    ) -> Result<MemoryRecord, VantaError> {
+        let ns = namespace.unwrap_or(DEFAULT_NAMESPACE).to_string();
+        let key = id.to_string();
+        let not_found = format!("record version not found: {ns}/{key} v{version}");
+        let db = self.db.clone();
+        let record =
+            blocking(move || db.get_version(&ns, &key, version).map_err(map_core_error)).await?;
+        record
+            .map(record_to_memory)
+            .ok_or_else(|| VantaError::Native(not_found))
+    }
+
+    async fn versions(
+        &self,
+        id: &str,
+        namespace: Option<&str>,
+    ) -> Result<Vec<MemoryRecord>, VantaError> {
+        let ns = namespace.unwrap_or(DEFAULT_NAMESPACE).to_string();
+        let key = id.to_string();
+        let db = self.db.clone();
+        blocking(move || {
+            db.versions(&ns, &key)
+                .map(|records| records.into_iter().map(record_to_memory).collect())
+                .map_err(map_core_error)
+        })
+        .await
+    }
+
     async fn delete(&mut self, id: &str, namespace: Option<&str>) -> Result<(), VantaError> {
         let ns = namespace.unwrap_or(DEFAULT_NAMESPACE).to_string();
         let key = id.to_string();
@@ -716,5 +749,52 @@ mod tests {
         let conn =
             NativeConnection::open_with_audit(dir.path(), Some(custom.clone())).expect("open");
         assert_eq!(conn.audit_log_path(), Some(custom));
+    }
+
+    // ── Version history (VS-CORE-07) ──
+
+    #[tokio::test]
+    async fn version_history_roundtrip_via_trait_object() {
+        let dir = TempDir::new();
+        let mut conn: Box<dyn VantaConnection> =
+            Box::new(NativeConnection::open(dir.path()).expect("open"));
+
+        conn.put(item(Some("k1"), "v1 text"), None)
+            .await
+            .expect("put v1");
+        conn.put(item(Some("k1"), "v2 text"), None)
+            .await
+            .expect("put v2");
+        conn.put(item(Some("k1"), "v3 text"), None)
+            .await
+            .expect("put v3");
+
+        // versions: ascending v1..vN with payload per version
+        let all = conn.versions("k1", Some("docs")).await.expect("versions");
+        assert_eq!(all.len(), 3);
+        assert_eq!(all[0].version, Some(1));
+        assert_eq!(all[0].text, "v1 text");
+        assert_eq!(all[2].version, Some(3));
+        assert_eq!(all[2].text, "v3 text");
+
+        // get_version returns the exact historical snapshot
+        let v2 = conn
+            .get_version("k1", 2, Some("docs"))
+            .await
+            .expect("get_version");
+        assert_eq!(v2.version, Some(2));
+        assert_eq!(v2.text, "v2 text");
+
+        // missing version -> not-found error
+        let err = conn
+            .get_version("k1", 99, Some("docs"))
+            .await
+            .expect_err("missing version");
+        assert!(matches!(err, VantaError::Native(_)));
+
+        // delete purges history
+        conn.delete("k1", Some("docs")).await.expect("delete");
+        let after = conn.versions("k1", Some("docs")).await.expect("versions");
+        assert!(after.is_empty(), "history must be purged on delete");
     }
 }

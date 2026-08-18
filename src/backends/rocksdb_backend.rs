@@ -117,6 +117,11 @@ impl RocksDbBackend {
         let mut internal_metadata_opts = default_opts.clone();
         internal_metadata_opts.set_block_based_table_factory(&cold_bopts);
 
+        // Version-history snapshots (VS-CORE-07): bounded per key (default cap
+        // 32), LZ4 like the rest; hot reads are point-get / prefix scans.
+        let mut versions_opts = default_opts.clone();
+        versions_opts.set_block_based_table_factory(&bopts);
+
         let cf_descriptors = vec![
             rocksdb::ColumnFamilyDescriptor::new("default", default_opts),
             rocksdb::ColumnFamilyDescriptor::new("tombstone_storage", shadow_opts),
@@ -126,6 +131,7 @@ impl RocksDbBackend {
             rocksdb::ColumnFamilyDescriptor::new("payload_index", payload_index_opts),
             rocksdb::ColumnFamilyDescriptor::new("text_index", text_index_opts),
             rocksdb::ColumnFamilyDescriptor::new("internal_metadata", internal_metadata_opts),
+            rocksdb::ColumnFamilyDescriptor::new("versions", versions_opts),
         ];
 
         let db = if config.read_only {

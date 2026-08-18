@@ -30,7 +30,7 @@ use tracing::info;
 
 /// Fjall-backed implementation of `StorageBackend`.
 ///
-/// Owns a `fjall::Database` and eight `Keyspace` handles corresponding to
+/// Owns a `fjall::Database` and nine `Keyspace` handles corresponding to
 /// the `BackendPartition` variants. Created through `FjallBackend::open`.
 pub(crate) struct FjallBackend {
     db: Database,
@@ -43,6 +43,7 @@ pub(crate) struct FjallBackend {
     text_index: Keyspace,
     sparse_index: Keyspace,
     internal_metadata: Keyspace,
+    versions: Keyspace,
 }
 
 impl FjallBackend {
@@ -92,6 +93,10 @@ impl FjallBackend {
             .keyspace("internal_metadata", KeyspaceCreateOptions::default)
             .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
 
+        let versions = db
+            .keyspace("versions", KeyspaceCreateOptions::default)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+
         info!("Fjall database opened at '{}'", path);
 
         Ok(Self {
@@ -105,6 +110,7 @@ impl FjallBackend {
             text_index,
             sparse_index,
             internal_metadata,
+            versions,
         })
     }
 
@@ -120,6 +126,7 @@ impl FjallBackend {
             BackendPartition::TextIndex => &self.text_index,
             BackendPartition::SparseIndex => &self.sparse_index,
             BackendPartition::InternalMetadata => &self.internal_metadata,
+            BackendPartition::Versions => &self.versions,
         }
     }
 }

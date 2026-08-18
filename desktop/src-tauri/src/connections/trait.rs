@@ -60,6 +60,39 @@ pub trait VantaConnection: Send + Sync {
     /// Fetch a single record by id, optionally scoped to a namespace.
     async fn get(&self, id: &str, namespace: Option<&str>) -> Result<MemoryRecord, VantaError>;
 
+    /// Fetch the record as it was at a specific version (VS-CORE-07).
+    ///
+    /// Default: transports without version history report
+    /// [`VantaError::Unsupported`] — only native (embedded) implements it via
+    /// the core `get_version`.
+    async fn get_version(
+        &self,
+        id: &str,
+        version: u64,
+        namespace: Option<&str>,
+    ) -> Result<MemoryRecord, VantaError> {
+        let _ = (id, version, namespace);
+        Err(VantaError::Unsupported(
+            "get_version (version history) is not implemented by this transport".into(),
+        ))
+    }
+
+    /// List every retained version of a record, ascending v1..vN (VS-CORE-07).
+    ///
+    /// Default: transports without version history report
+    /// [`VantaError::Unsupported`] — only native (embedded) implements it via
+    /// the core `versions`.
+    async fn versions(
+        &self,
+        id: &str,
+        namespace: Option<&str>,
+    ) -> Result<Vec<MemoryRecord>, VantaError> {
+        let _ = (id, namespace);
+        Err(VantaError::Unsupported(
+            "versions (version history) is not implemented by this transport".into(),
+        ))
+    }
+
     /// Delete a single record by id, optionally scoped to a namespace. Idempotent.
     async fn delete(&mut self, id: &str, namespace: Option<&str>) -> Result<(), VantaError>;
 

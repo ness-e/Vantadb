@@ -171,6 +171,14 @@ impl VantaEmbedded {
             );
         }
 
+        // Best-effort version-history snapshot (VS-CORE-07): 1 write extra,
+        // post-commit, same durability class as ShreddedRowStore.
+        let _ = super::version_history::write_snapshot(
+            &engine,
+            &record,
+            self.config.version_history_limit,
+        );
+
         self.replace_derived_indexes(&engine, existing.as_ref(), Some(&record))?;
 
         Ok(record)
@@ -347,6 +355,15 @@ impl VantaEmbedded {
                 }
             }
 
+            // ── Version history: 1 write_batch per chunk (best-effort, post-commit) ──
+            // Records already carry the final version (seen_versions bump), so
+            // the snapshots mirror the exact bump sequence per key.
+            let _ = super::version_history::write_snapshot_batch(
+                &engine,
+                &records,
+                self.config.version_history_limit,
+            );
+
             // ponytail: no `replace_derived_indexes` for batch — derived index update
             // for UPSERTS requires per-node `engine.get()` to diff old vs new. For
             // fresh-insert workloads (common case) there is nothing to diff. Add
@@ -420,6 +437,38 @@ impl VantaEmbedded {
         }
     }
 
+    /// Retrieve the record as it was at the given version (VS-CORE-07).
+    ///
+    /// Returns `None` if that version was never persisted (unknown key or a
+    /// version already purged by the retention cap or a delete). Snapshot
+    /// durability is best-effort post-commit, so a crash window can leave a
+    /// version gap — degraded but never corrupt.
+    #[tracing::instrument(skip(self), err)]
+    pub fn get_version(
+        &self,
+        namespace: &str,
+        key: &str,
+        version: u64,
+    ) -> Result<Option<VantaMemoryRecord>> {
+        validate_namespace(namespace)?;
+        validate_key(key)?;
+        let engine = self.engine_handle()?;
+        super::version_history::get_version(&engine, namespace, key, version)
+    }
+
+    /// List every retained version of a record, ascending (v1..vN) (VS-CORE-07).
+    ///
+    /// Empty if the key does not exist or has no history. Expired versions are
+    /// included as historical data until purged. `get_version(vN)` of the last
+    /// element matches the live record.
+    #[tracing::instrument(skip(self), err)]
+    pub fn versions(&self, namespace: &str, key: &str) -> Result<Vec<VantaMemoryRecord>> {
+        validate_namespace(namespace)?;
+        validate_key(key)?;
+        let engine = self.engine_handle()?;
+        super::version_history::versions(&engine, namespace, key)
+    }
+
     /// Delete a memory record by namespace and key.
     /// Returns `true` if a record was actually deleted, `false` if it did not exist.
     ///
@@ -461,6 +510,8 @@ impl VantaEmbedded {
         let res = engine.delete(node_id, "memory delete");
         if res.is_ok() {
             self.replace_derived_indexes(&engine, Some(&existing), None)?;
+            // Purge version history (VS-CORE-07) — best-effort class.
+            let _ = super::version_history::purge_key(&engine, namespace, key);
         }
         self.audit(crate::audit::AuditEvent::new(
             "delete",
@@ -846,6 +897,8 @@ impl VantaEmbedded {
 
         for record in &to_delete {
             engine.delete(record.node_id, "purge_expired")?;
+            // Purge version history of the expired key (VS-CORE-07) — best-effort.
+            let _ = super::version_history::purge_key(&engine, &record.namespace, &record.key);
             all_ops.extend(Self::derived_delete_ops(record)?);
             total_payload_entries += record.metadata.len() as u64;
 

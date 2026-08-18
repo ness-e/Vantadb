@@ -230,6 +230,22 @@ export function get(key: string, namespace?: string): Promise<MemoryRecord> {
   return invoke<MemoryRecord>("vanta_get", { key, namespace });
 }
 
+/** Fetch a record as it was at a specific version (VS-CORE-07). Only the
+ * embedded (native) connection implements version history. */
+export function getVersion(
+  key: string,
+  version: number,
+  namespace?: string,
+): Promise<MemoryRecord> {
+  return invoke<MemoryRecord>("vanta_get_version", { key, version, namespace });
+}
+
+/** List every retained version of a record, ascending v1..vN (VS-CORE-07).
+ * Only the embedded (native) connection implements version history. */
+export function versions(key: string, namespace?: string): Promise<MemoryRecord[]> {
+  return invoke<MemoryRecord[]>("vanta_versions", { key, namespace });
+}
+
 export function remove(key: string, namespace?: string): Promise<void> {
   return invoke<void>("vanta_delete", { key, namespace });
 }

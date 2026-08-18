@@ -46,6 +46,9 @@ pub enum BackendPartition {
     SparseIndex,
     /// Internal metadata used for derived-state health markers.
     InternalMetadata,
+    /// Version-history snapshots for persistent memory records (VS-CORE-07).
+    /// Key: `ns_len(u32 LE) ‖ ns ‖ key_len(u32 LE) ‖ key ‖ version(u64 BE)`.
+    Versions,
 }
 
 impl BackendPartition {
@@ -63,6 +66,7 @@ impl BackendPartition {
             BackendPartition::TextIndex => "text_index",
             BackendPartition::SparseIndex => "sparse_index",
             BackendPartition::InternalMetadata => "internal_metadata",
+            BackendPartition::Versions => "versions",
         }
     }
 }
