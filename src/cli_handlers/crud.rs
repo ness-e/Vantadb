@@ -496,7 +496,9 @@ pub fn cmd_count(
     };
 
     let spinner = create_spinner("Opening database...");
-    let db = open_embedded(db_path, true)?;
+    // AUD-044: read-write open so index reconciliation runs on open — count
+    // with a filter can hit text/derived indexes on fresh DBs (see cmd_search).
+    let db = open_embedded(db_path, false)?;
     spinner.set_message("Counting records...");
 
     let count = db.count(namespace, filter)?;
