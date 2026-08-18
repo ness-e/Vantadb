@@ -19,7 +19,7 @@ use vantadb::{
 };
 
 use super::types::{
-    Capability, ConnectionInfo, ConnectionStatus, HealthReport, HealthStatus, IngestItem,
+    Capability, ConnectionInfo, ConnectionStatus, HealthReport, HealthStatus, IngestItem, ListPage,
     MemoryRecord, SearchQuery, SearchResult,
 };
 use super::VantaConnection;
@@ -305,16 +305,21 @@ impl VantaConnection for NativeConnection {
         &self,
         namespace: Option<&str>,
         limit: usize,
-    ) -> Result<Vec<MemoryRecord>, VantaError> {
+        cursor: Option<usize>,
+    ) -> Result<ListPage, VantaError> {
         let ns = namespace.unwrap_or(DEFAULT_NAMESPACE).to_string();
         let options = VantaMemoryListOptions {
             limit,
+            cursor,
             ..Default::default()
         };
         let db = self.db.clone();
         blocking(move || {
             db.list(&ns, options)
-                .map(|page| page.records.into_iter().map(record_to_memory).collect())
+                .map(|page| ListPage {
+                    records: page.records.into_iter().map(record_to_memory).collect(),
+                    next_cursor: page.next_cursor,
+                })
                 .map_err(map_core_error)
         })
         .await

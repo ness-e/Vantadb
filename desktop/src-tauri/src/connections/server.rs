@@ -19,7 +19,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use async_trait::async_trait;
 
 use super::types::{
-    Capability, ConnectionInfo, ConnectionStatus, HealthReport, HealthStatus, IngestItem,
+    Capability, ConnectionInfo, ConnectionStatus, HealthReport, HealthStatus, IngestItem, ListPage,
     MemoryRecord, SearchQuery, SearchResult,
 };
 use super::wire_types::{HealthReport as WireHealthReport, NodeDTO};
@@ -244,16 +244,26 @@ impl VantaConnection for ServerConnection {
         Ok(())
     }
 
-    async fn list(&self, namespace: Option<&str>, limit: usize) -> Result<Vec<MemoryRecord>, VantaError> {
+    /// The server backend has no cursor support: it returns every node and we
+    /// cap client-side at `limit`, so there is never a next page.
+    async fn list(
+        &self,
+        namespace: Option<&str>,
+        limit: usize,
+        _cursor: Option<usize>,
+    ) -> Result<ListPage, VantaError> {
         let kind = namespace.unwrap_or("default");
         let resp = self.timeout_ops(self.client.list(kind)).await?;
-        Ok(resp
-            .nodes
-            .unwrap_or_default()
-            .into_iter()
-            .take(limit)
-            .map(|n| self.node_to_record(n, namespace))
-            .collect())
+        Ok(ListPage {
+            records: resp
+                .nodes
+                .unwrap_or_default()
+                .into_iter()
+                .take(limit)
+                .map(|n| self.node_to_record(n, namespace))
+                .collect(),
+            next_cursor: None,
+        })
     }
 
     async fn health(&self) -> Result<HealthReport, VantaError> {

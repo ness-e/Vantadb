@@ -72,6 +72,13 @@ export interface MemoryRecord {
   expires_at_ms?: number | null;
 }
 
+/** A page of records with the cursor for the next page (VS-CORE-01). */
+export interface ListPage {
+  records: MemoryRecord[];
+  /** Zero-based cursor for the next page; null/absent means last page. */
+  next_cursor?: number | null;
+}
+
 /** `ServerClientConfig` wire shape: `timeout` is a serde `Duration` (secs+nanos). */
 export interface ServerClientConfig {
   url: string;
@@ -185,10 +192,26 @@ export function vantaPut(params: {
   });
 }
 
+/**
+ * @deprecated Use `listPage` (VS-CORE-01) — kept so legacy components keep
+ * receiving the bare record array. Returns only the first page's records.
+ */
 export function list(opts?: { namespace?: string; limit?: number }): Promise<MemoryRecord[]> {
-  return invoke<MemoryRecord[]>("vanta_list", {
+  return listPage(opts).then((p) => p.records);
+}
+
+/** Paginated list: one page of records plus the cursor for the next page.
+ * Pass `cursor` from a previous `next_cursor` to continue; a page with
+ * `next_cursor: null` is the last one. */
+export function listPage(opts?: {
+  namespace?: string;
+  limit?: number;
+  cursor?: number;
+}): Promise<ListPage> {
+  return invoke<ListPage>("vanta_list", {
     namespace: opts?.namespace,
     limit: opts?.limit,
+    cursor: opts?.cursor,
   });
 }
 

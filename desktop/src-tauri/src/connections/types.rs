@@ -119,6 +119,18 @@ pub struct MemoryRecord {
     pub expires_at_ms: Option<u64>,
 }
 
+/// A page of records returned by `list`, with the cursor for the next page.
+///
+/// Mirrors `VantaMemoryListPage` (`src/sdk/types.rs`) so the UI can paginate
+/// virtualized grids. `next_cursor` is a zero-based offset into the
+/// namespace's stable id order; `None` means this was the last page.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ListPage {
+    pub records: Vec<MemoryRecord>,
+    #[serde(default)]
+    pub next_cursor: Option<usize>,
+}
+
 /// Result of [`crate::connections::VantaConnection::health`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HealthReport {

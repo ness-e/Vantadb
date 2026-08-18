@@ -9,7 +9,7 @@
 
 use tauri::State;
 
-use crate::connections::{IngestItem, MemoryRecord, SearchQuery, SearchResult};
+use crate::connections::{IngestItem, ListPage, MemoryRecord, SearchQuery, SearchResult};
 use crate::error::VantaError;
 use crate::AppState;
 
@@ -81,12 +81,15 @@ pub async fn vanta_delete(
     state.manager.delete(&key, namespace.as_deref()).await
 }
 
-/// List records on the active connection, capped at `limit` (default 100).
+/// List a page of records on the active connection, capped at `limit`
+/// (default 100). `cursor` comes from a previous page's `next_cursor` and
+/// continues pagination; a page with `next_cursor: None` is the last one.
 #[tauri::command]
 pub async fn vanta_list(
     state: State<'_, AppState>,
     namespace: Option<String>,
     limit: Option<usize>,
-) -> Result<Vec<MemoryRecord>, VantaError> {
-    state.manager.list_records(namespace.as_deref(), limit).await
+    cursor: Option<usize>,
+) -> Result<ListPage, VantaError> {
+    state.manager.list_records(namespace.as_deref(), limit, cursor).await
 }

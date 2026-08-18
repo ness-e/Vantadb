@@ -24,7 +24,7 @@ pub use r#trait::VantaConnection;
 pub use server_client::ServerClient;
 pub use server::ServerConnection;
 pub use types::{
-    Capability, ConnectionInfo, ConnectionStatus, HealthReport, HealthStatus, IngestItem,
+    Capability, ConnectionInfo, ConnectionStatus, HealthReport, HealthStatus, IngestItem, ListPage,
     MemoryRecord, SearchQuery, SearchResult,
 };
 pub use wire_types::ServerClientConfig;

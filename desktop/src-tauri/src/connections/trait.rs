@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 
-use super::types::{Capability, ConnectionInfo, HealthReport, IngestItem, MemoryRecord, SearchQuery, SearchResult};
+use super::types::{
+    Capability, ConnectionInfo, HealthReport, IngestItem, ListPage, MemoryRecord, SearchQuery,
+    SearchResult,
+};
 use crate::error::VantaError;
 
 /// A single connection to a VantaDB backend.
@@ -60,8 +63,18 @@ pub trait VantaConnection: Send + Sync {
     /// Delete a single record by id, optionally scoped to a namespace. Idempotent.
     async fn delete(&mut self, id: &str, namespace: Option<&str>) -> Result<(), VantaError>;
 
-    /// List records in a namespace, capped at `limit`.
-    async fn list(&self, namespace: Option<&str>, limit: usize) -> Result<Vec<MemoryRecord>, VantaError>;
+    /// List a page of records in a namespace, capped at `limit`.
+    ///
+    /// `cursor` is a zero-based offset into the namespace's stable id order
+    /// (`None` starts from the beginning); pass the previous page's
+    /// `next_cursor` to continue. Returns the page plus the cursor for the
+    /// next page (`None` = last page).
+    async fn list(
+        &self,
+        namespace: Option<&str>,
+        limit: usize,
+        cursor: Option<usize>,
+    ) -> Result<ListPage, VantaError>;
 
     /// Cheap liveness / latency probe.
     async fn health(&self) -> Result<HealthReport, VantaError>;

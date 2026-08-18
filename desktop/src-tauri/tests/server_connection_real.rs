@@ -148,8 +148,8 @@ async fn real_server_health_put_get_search_delete() {
     assert!(rec.text.contains("integration probe"), "got {:?}", rec.text);
 
     // list sees it.
-    let listed = conn.list(Some("default"), 100).await.expect("list");
-    assert!(listed.iter().any(|r| r.id == "12345"));
+    let listed = conn.list(Some("default"), 100, None).await.expect("list");
+    assert!(listed.records.iter().any(|r| r.id == "12345"));
 
     // delete removes it.
     conn.delete("12345", Some("default")).await.expect("delete");

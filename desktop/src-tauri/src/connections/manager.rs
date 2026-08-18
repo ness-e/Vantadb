@@ -20,8 +20,8 @@ use std::collections::HashMap;
 use tokio::sync::RwLock;
 
 use super::{
-    Capability, ConnectionInfo, HealthReport, IngestItem, MemoryRecord, SearchQuery, SearchResult,
-    VantaConnection,
+    Capability, ConnectionInfo, HealthReport, IngestItem, ListPage, MemoryRecord, SearchQuery,
+    SearchResult, VantaConnection,
 };
 use crate::error::VantaError;
 
@@ -204,16 +204,17 @@ impl ConnectionManager {
         conn.delete(key, namespace).await
     }
 
-    /// List records on the active connection.
+    /// List a page of records on the active connection.
     pub async fn list_records(
         &self,
         namespace: Option<&str>,
         limit: Option<usize>,
-    ) -> Result<Vec<MemoryRecord>, VantaError> {
+        cursor: Option<usize>,
+    ) -> Result<ListPage, VantaError> {
         let id = self.active_id().await?;
         let inner = self.inner.read().await;
         let conn = inner.connections.get(&id).ok_or_else(|| Self::missing(&id))?;
-        conn.list(namespace, limit.unwrap_or(100)).await
+        conn.list(namespace, limit.unwrap_or(100), cursor).await
     }
 
     /// Tear down every registered connection on app shutdown (DESKTOP-20).
@@ -356,12 +357,64 @@ mod tests {
         );
 
         // list caps at limit
-        let listed = manager.list_records(Some("docs"), Some(2)).await.unwrap();
-        assert!(listed.len() == 2);
+        let listed = manager.list_records(Some("docs"), Some(2), None).await.unwrap();
+        assert!(listed.records.len() == 2);
 
         // delete + list registry
         manager.delete("k1", Some("docs")).await.unwrap();
         assert_eq!(manager.list_connections().await.len(), 1);
+    }
+
+    /// Cursor roundtrip (VS-CORE-01): page 1 → next_cursor → page 2 with no
+    /// overlap, and a full page is followed by a final page with no cursor.
+    #[tokio::test]
+    async fn list_records_paginates_by_cursor_without_overlap() {
+        let dir = TempDir::new();
+        let manager = ConnectionManager::new();
+        manager
+            .add(Box::new(crate::connections::native::NativeConnection::open(dir.path()).unwrap()))
+            .await
+            .unwrap();
+
+        let keys: Vec<String> = (0..5).map(|i| format!("k{i}")).collect();
+        manager
+            .ingest_batch(
+                keys.iter()
+                    .map(|k| item(k, &format!("payload for {k}")))
+                    .collect(),
+            )
+            .await
+            .unwrap();
+
+        // Page 1: first 2 records + a cursor to continue.
+        let p1 = manager
+            .list_records(Some("docs"), Some(2), None)
+            .await
+            .unwrap();
+        assert_eq!(p1.records.len(), 2);
+        let cursor = p1.next_cursor.expect("page 1 is full, must carry a cursor");
+
+        // Page 2: next 2 records, disjoint from page 1.
+        let p2 = manager
+            .list_records(Some("docs"), Some(2), Some(cursor))
+            .await
+            .unwrap();
+        assert_eq!(p2.records.len(), 2);
+        for r in &p2.records {
+            assert!(
+                !p1.records.iter().any(|x| x.id == r.id),
+                "page 2 overlaps page 1: {}",
+                r.id
+            );
+        }
+
+        // Page 3: remaining 1 record; a short page means this was the last.
+        let p3 = manager
+            .list_records(Some("docs"), Some(2), Some(p2.next_cursor.expect("page 2 is full")))
+            .await
+            .unwrap();
+        assert_eq!(p3.records.len(), 1);
+        assert_eq!(p3.next_cursor, None, "a short page is the last page");
     }
 
     /// shutdown_all empties the registry and disconnects every backend; a
