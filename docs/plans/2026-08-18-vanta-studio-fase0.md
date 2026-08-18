@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 7f1c9a4e-8b2d-4c3e-9a6f-2d5b8e1a9c40
 > **Inicio:** 2026-08-18
-> **Estado:** draft (a ejecutar)
+> **Estado:** ⏳ EN PROGRESO
 > **Fuente:** `docs/research/human-facing-db-ui/06-synthesis/SYNTHESIS.md` (concepto "Vanta Studio" + Fase 0 §7) + decisiones del usuario 2026-08-18 (ver Decisiones).
 > **Modo:** secuencial — prototipo visual primero, luego implementación React.
 
@@ -56,7 +56,7 @@
 - **Dark mode (D7):** diseñar paleta dark propia (la web NO tiene tokens dark): bg Vanta Black `#0a0a0a`, fg cream `#FBF9F5`, neon preservado, surface `#1A1A1A`; `@custom-variant dark` en Tailwind v4; **override de utilities hardcodeadas en `#000`** (`.press` shadow, `.halftone` dots, `.scroll-manga`, `.ink-divider`) para que inviertan en dark.
 - **Gate Justificación:** D4/D6/D7; sin esto ninguna tarea de Fase 0 tiene estética.
 - **Contrato:** `npm run build` (tsc + vite) verde; token `--color-neon: #FF5500` y utility `.press` presentes; toggle claro/oscuro funcional (clase `.dark`), default claro; fuentes cargadas localmente; foco visible neon + reduced-motion presentes.
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO (2026-08-18) — `desktop/src/index.css` (900+ líneas: Tailwind v4, `@custom-variant dark`, `@theme inline`/`:root` verbatim de globals.css, dark D7 propia con `--muted-foreground:#C9C0AC` porque `#3A3A3A` falla AA sobre `#0a0a0a`, utilities manga con overrides `.dark`, 12 keyframes, a11y `:focus-visible` neon + `prefers-reduced-motion` + `.skip-link`, 8 `@font-face` → `desktop/public/fonts/*.woff2`), `vite.config.ts` (+plugin tailwindcss v4.3.3), `main.tsx` (init tema pre-mount, `localStorage "vanta-theme"`, default claro), `App.tsx` (toggle `.press`), `index.html` (title "Vanta Studio"). Commit `fa6c1427`. Build verde (44 modules, CSS 36.78 kB/gzip 8.33 kB); contrato verificado en dist.
 
 ### Task 3: VS-02 — MARK variante desktop (asistente de datos)
 - **Archivos clave:** `desktop/src/components/mark/Mark.tsx` (nuevo; port de `web/src/components/vanta/mark/mark-classic.tsx` + `use-mark-interaction.ts`), `desktop/src/components/mark/mark-studio.tsx` (variante: estados idle/loading/empty/error según estado de la app)
@@ -64,7 +64,7 @@
 - **Especificación (verificada contra la web):** 2 SVGs viewBox `0 0 100 100`: (a) grafo bg `preserveAspectRatio="none"` — 10 nodos (x,y,r de `mark-classic.tsx:19-30`) + 18 edges (:32-36), edge `stroke=currentColor text-black/25 width 0.25 (0.4 hover) strokeDasharray="1 1.2" opacity 0.5 (0.95 hover)`, nodo fill `currentColor black/35` (hover `#FF5500`), hit-target transparent r=5; (b) MARK svg 78%×78%, drop-shadow `0 0 28px rgba(255,85,0,.22)`: ring `r=42 fill=none stroke=#000 width=3.5` + **glow ring SMIL** `r 42→46→42 / opacity .3→0→.3, 3.5s loop` + esfera `r=22 fill #FF5500` en `50+sphereOffset` (scale .94 si annoyed) + ojos rects `x=43/57+pupilOffset.x-2 width 4 rx=2 y=45+pupilOffset.y height=squintHeight (3–10)`. Etiquetas: 4 SfxLabels ("1.2ms" neon TL, "RRF" ink TR, "WAL · CRC32C" ink BL, "ZERO NET" neon BR) + tag "IN-PROCESS" -4deg neon + hint chip "◆ click me · move mouse"/"◆ blink".
 - **Interacción sin Anime.js (verificado viable):** squint es React puro (port directo); follow → rAF lerp `current += (target-current)*(1-exp(-dt/τ))`, τ≈60ms ojos / 130ms esfera; blink → CSS transition/WAAPI sobre height/y (cierre 60ms inQuad → hold 50ms → apertura 120ms outQuad, ciclo left→right→both); pulse nodos → keyframes CSS `transform-box: fill-box; transform: scale()`. **Mantener `prefers-reduced-motion`** (la web lo tiene). Se pierde solo el ease elástico (outElastic) del pulse ambiental — declarado.
 - **Contrato:** mismas proporciones SVG y comportamiento; interactivo (ojos siguen mouse, blink en click, squint); variante con estados data-driven (idle/loading/empty/error); reduced-motion respetado.
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO (2026-08-18) — `desktop/src/components/mark/` (4 archivos: `use-mark-interaction.ts`, `Mark.tsx`, `mark-studio.tsx`, `mark.css`) commit `2573d8a5`. Port sin Anime.js: rAF lerp exp (τ 60/130ms), squint React puro, blink WAAPI (cierre 60ms inQuad → hold 50ms → apertura 120ms outQuad, ciclo left→right→both, setAttribute final), pulse nodos CSS keyframes `transform-box: fill-box`, SMIL glow condicional a reduced-motion; variante `MarkStudio` con estados idle/loading/empty/error; CSS plano namespaced `.vmark-*` (VS-01 Tailwind aún pendiente). `npm run build` verde (3×).
 
 ## Wave 2 — Fase 0: estructura + superficies (React)
 
@@ -134,7 +134,7 @@
 - **Archivos clave:** `src/sdk/api.rs` (`count` en :1278), `src/metrics/core/snapshot.rs:41` (50 campos, no 72)
 - **Gate Justificación:** sidebar + HOME (VS-04) los necesitan; gap §8.3. Bloqueante de VS-04.
 - **Contrato:** método que devuelva `{namespace: {count, expiring_soon, expired}}` reutilizando `count`/scan; sin N llamadas paginadas.
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO (2026-08-18) — commit `822f7742`. Tipos `VantaNamespaceStats`/`Map`/`DEFAULT_EXPIRING_SOON_WINDOW_MS` en `types.rs` + re-exports; método `namespace_stats(Option<u64>)` en `api.rs` tras `count` (:1303) — UNA pasada de `scan_nodes()` con `memory_record_from_node_include_expired` (clasificación `expired <= now`, `expiring_soon <= now+window`); helper `memory_record_from_node_include_expired`/`inner` aditivo en `serialization/mod.rs` (original intacto); 4 unit tests + 1 integración (`memory_api.rs`); docs `EMBEDDED_SDK.md`. Verify: fmt ✅, clippy -D warnings ✅, namespace_stats 13/13 ✅, audit workspace 1929/1930 (1 fallo PRE-EXISTENTE ajeno `storage::engine::maintenance::test_consolidate_node_with_binary_vector`, reproducido en HEAD limpio — escalar a vanta-arch/vanta-engine).
 
 ### Task 15: VS-CORE-03 — `explain` estructurado: ya existe → consumir (re-scopeado)
 - **Archivos clave:** `src/sdk/types.rs:418` (`VantaSearchExplanation` con `fusion_report` text/vector + `rrf_k`), `types.rs:429` (`VantaSearchExplanationHit`: score, snippet, matched_tokens, `bm25_terms`, `rrf_text_rank`/`rrf_vector_rank`), expuesto en Rust `explain_memory_search`, Python, TS `explainSearch`
