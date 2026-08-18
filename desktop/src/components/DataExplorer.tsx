@@ -28,6 +28,10 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { listPage, search, vantaErrorMessage, type MemoryRecord } from "../vanta";
 import { undoStore } from "../store/undo";
 import { ExportButtons } from "./export/ExportButtons";
+// VS-17: favorito (★) + copy-as por fila — slice aditivo en la celda de acciones.
+import { favoritesStore } from "../store/favorites";
+import { CopyButton } from "./copy/CopyButton";
+import { recordToJson } from "./copy/copy-as";
 
 export interface ExplorerRow {
   id: string;
@@ -139,22 +143,28 @@ function MetaChips({ meta }: { meta: Record<string, unknown> | null }) {
   );
 }
 
+// P15 (VS-18): TTL nunca es solo-color. Estado = ícono + texto + patrón de
+// barra: ● activo (fill foreground) · ⚠ expirando (fill rayas neon) · ✕ expirado
+// (fill muted-foreground). El texto usa foreground (AA ≥4.5:1 en claro y dark;
+// text-neon sobre paper = 3.01:1, falla).
 function TtlCell({ record, now }: { record: MemoryRecord; now: number }) {
   const expires = record.expires_at_ms;
   if (!expires) return <span className="text-xs opacity-50">—</span>;
   const remain = expires - now;
   const total = expires - (record.updated_at_ms ?? record.created_at_ms ?? expires);
   const frac = total > 0 ? Math.min(1, Math.max(0, remain / total)) : 1;
-  const barColor = remain <= 0 ? "bg-smoke" : frac < 0.2 ? "bg-neon" : "bg-ink";
+  const expired = remain <= 0;
+  const expiring = !expired && frac < 0.2;
+  const barFill = expired ? "bg-muted-foreground" : expiring ? "stripes-neon" : "bg-foreground";
   return (
     <span className="block w-24" title={`expires ${fmtDateTime(expires)}`}>
-      <span className={remain <= 0 ? "font-tech text-[10px] font-bold text-neon" : "font-tech text-[10px]"}>
-        {remain <= 0 ? "EXPIRED" : `${fmtDuration(remain)} left`}
+      <span className="font-tech text-[10px] font-bold">
+        {expired ? "✕ EXPIRED" : expiring ? `⚠ ${fmtDuration(remain)} left` : `● ${fmtDuration(remain)} left`}
       </span>
       <span className="mt-0.5 block h-2 w-full border-2 border-ink bg-paper">
         <span
-          className={`block h-full ${barColor}`}
-          style={{ width: `${remain <= 0 ? 0 : Math.round(frac * 100)}%` }}
+          className={`block h-full ${barFill}`}
+          style={{ width: `${expired ? 0 : Math.round(frac * 100)}%` }}
         />
       </span>
     </span>
@@ -269,10 +279,13 @@ const baseColumns = helper.columns([
     header: "Vector",
     cell: (info) =>
       info.getValue() == null ? (
-        <span className="text-xs opacity-50">—</span>
+        // VS-18/P15: ausente = ◇ + "—" (no solo el guion opaco).
+        <span className="text-xs opacity-60">◇ —</span>
       ) : (
-        <span className="border-2 border-neon px-1 font-tech text-[10px] text-neon">
-          {info.getValue()}d
+        // VS-18/P15: presente = ◆ + dimensión; texto foreground (AA) con
+        // borde neon como acento no-texto (3:1 ✅).
+        <span className="border-2 border-neon px-1 font-tech text-[10px] text-foreground">
+          ◆ {info.getValue()}d
         </span>
       ),
     sortFn: numSort,
@@ -349,6 +362,11 @@ export default function DataExplorer({ active, busy, runError, onSelectRow }: Pr
     const t = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(t);
   }, []);
+
+  // VS-17: re-render al cambiar favoritos (★ por fila) — el store notifica y
+  // este estado fantasma fuerza el render para releer isFavorite.
+  const [, setFavTick] = useState(0);
+  useEffect(() => favoritesStore.subscribe(() => setFavTick((t) => t + 1)), []);
 
   // Guards for cursor pagination (avoid double-fetch from effect re-runs).
   const cursorRef = useRef<number | null>(null);
@@ -465,13 +483,39 @@ export default function DataExplorer({ active, busy, runError, onSelectRow }: Pr
       helper.display({
         id: "actions",
         header: "",
-        cell: ({ row }) => (
-          <DeleteButton
-            record={row.original.record}
-            onDeleted={() => removeRowRef.current(row.original)}
-            onError={(m) => errorRef.current(m)}
-          />
-        ),
+        cell: ({ row }) => {
+          const rec = row.original.record;
+          // VS-17: ★ favorito + copiar registro (JSON) — aditivo junto al 🗑.
+          const fav = favoritesStore.isFavorite(rec.namespace, rec.id);
+          return (
+            <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => favoritesStore.toggle(rec.namespace, rec.id)}
+                aria-pressed={fav}
+                className={`press flex h-6 w-6 items-center justify-center border-2 border-foreground text-[10px] ${
+                  fav ? "bg-neon text-background" : "bg-background"
+                }`}
+                title={fav ? `Quitar ${rec.id} de favoritos` : `Agregar ${rec.id} a favoritos`}
+                aria-label={fav ? `Quitar ${rec.id} de favoritos` : `Agregar ${rec.id} a favoritos`}
+              >
+                ★
+              </button>
+              <CopyButton
+                getText={() => recordToJson(rec)}
+                label="⧉"
+                title="Copiar registro completo (JSON)"
+                onError={(m) => errorRef.current(m)}
+                className="h-6 px-1.5"
+              />
+              <DeleteButton
+                record={rec}
+                onDeleted={() => removeRowRef.current(row.original)}
+                onError={(m) => errorRef.current(m)}
+              />
+            </span>
+          );
+        },
       }),
     ],
     [],

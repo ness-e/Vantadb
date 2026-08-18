@@ -16,6 +16,8 @@
 import { ReactNode, useEffect } from "react";
 import { Command, useCommandState } from "cmdk";
 import { list, vantaErrorMessage } from "../../vanta";
+// VS-17: favoritos persistidos (ns o ns/key) para el grupo FAVORITOS.
+import type { Favorite } from "../../store/favorites";
 
 export type PaletteSurface = "resumen" | "memorias" | "actividad" | "indices" | "iql";
 
@@ -40,6 +42,13 @@ interface CommandPaletteProps {
   /** Hook VS-08: soft-delete con papelera (si aún no existe, stub con notice). */
   onDelete?: () => void;
   onError: (msg: string) => void;
+  /** VS-17: favoritos persistidos — grupo FAVORITOS. */
+  favorites: Favorite[];
+  /** VS-17: abrir un favorito (key → Inspector; namespace → MEMORIAS). */
+  onOpenFavorite: (fav: Favorite) => void;
+  /** VS-17: historial de búsquedas re-ejecutables — grupo HISTORIAL. */
+  history: string[];
+  onClearHistory: () => void;
 }
 
 /** Export Fase 0: JSONL de los primeros 500 registros vía list() (el bridge no
@@ -107,6 +116,10 @@ export default function CommandPalette({
   onUndo,
   onDelete,
   onError,
+  favorites,
+  onOpenFavorite,
+  history,
+  onClearHistory,
 }: CommandPaletteProps) {
   // Atajos in-palette (Alt+…): se disparan solo mientras la palette está
   // montada. Alt+letra no inserta texto en el input → sin conflicto con typing.
@@ -198,6 +211,29 @@ export default function CommandPalette({
             </PaletteItem>
           </Command.Group>
 
+          {/* VS-17: favoritos persistidos (ns o ns/key). key → Inspector;
+              namespace → MEMORIAS (mismo comportamiento que el sidebar). */}
+          <Command.Group heading="Favoritos">
+            {favorites.length === 0 ? (
+              <Command.Item value="fav-vacio" disabled>
+                sin favoritos — usá ★
+              </Command.Item>
+            ) : (
+              favorites.map((f) => (
+                <PaletteItem
+                  key={`${f.namespace}:${f.key ?? ""}`}
+                  value={`fav:${f.namespace}:${f.key ?? ""}`}
+                  keywords={["favorito", "favorite", "star", f.namespace, f.key ?? ""]}
+                  onSelect={() => run(() => onOpenFavorite(f))}
+                >
+                  <span className="vcmd-ns">
+                    ★ {f.key ? `${f.namespace}/${f.key}` : f.namespace}
+                  </span>
+                </PaletteItem>
+              ))
+            )}
+          </Command.Group>
+
           <Command.Group heading="Abrir namespace (en MEMORIAS)">
             {namespaces.length === 0 ? (
               <Command.Item value="ns-vacio" disabled>
@@ -263,6 +299,35 @@ export default function CommandPalette({
             >
               {dark ? "☀ Tema claro" : "☾ Tema oscuro"}
             </PaletteItem>
+          </Command.Group>
+
+          {/* VS-17: últimas N búsquedas, re-ejecutables (onSearch). */}
+          <Command.Group heading="Historial de búsqueda">
+            {history.length === 0 ? (
+              <Command.Item value="hist-vacio" disabled>
+                sin búsquedas recientes
+              </Command.Item>
+            ) : (
+              history.map((q) => (
+                <PaletteItem
+                  key={q}
+                  value={`hist:${q}`}
+                  keywords={["historial", "history", "reciente", "recent", q]}
+                  onSelect={() => run(() => onSearch(q))}
+                >
+                  <span className="vcmd-ns">↺ {q}</span>
+                </PaletteItem>
+              ))
+            )}
+            {history.length > 0 && (
+              <PaletteItem
+                value="hist-limpiar"
+                keywords={["historial", "history", "limpiar", "clear"]}
+                onSelect={() => run(onClearHistory)}
+              >
+                ✕ Limpiar historial
+              </PaletteItem>
+            )}
           </Command.Group>
         </Command.List>
 

@@ -319,6 +319,16 @@
     background-size: 28px 28px;
   }
 
+  /* TTL bar "expiring" fill — diagonal neon stripes (P15: pattern ≠ color,
+     redundant with the icon+text label; no motion, reduced-motion safe). */
+  .stripes-neon {
+    background-image: repeating-linear-gradient(
+      135deg,
+      var(--color-neon, #FF5500) 0 3px,
+      transparent 3px 6px
+    );
+  }
+
   /* Stencil / ink title styling */
   .text-stencil {
     letter-spacing: -0.02em;

@@ -19,6 +19,10 @@ import {
   type MetaRow,
   type TtlDraft,
 } from "./shared";
+// VS-17: favorito (★) + copy-as (JSON / KEY / MD) — slice aditivo.
+import { favoritesStore } from "../../store/favorites";
+import { CopyButton } from "../copy/CopyButton";
+import { recordToJson, recordToMarkdown } from "../copy/copy-as";
 
 export type InspectorTab = "general" | "metadata" | "vector" | "payload";
 
@@ -47,6 +51,10 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
   const [ttl, setTtl] = useState<TtlDraft>(() => ttlFromRecord(record));
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+
+  // VS-17: re-render al cambiar favoritos (★ en header) — store notifica.
+  const [, setFavTick] = useState(0);
+  useEffect(() => favoritesStore.subscribe(() => setFavTick((t) => t + 1)), []);
 
   // Un record distinto (nuevo objeto tras save) reinicia los drafts desde el
   // record guardado. Un registro DIFERENTE remonta vía key del shell.
@@ -118,6 +126,9 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
     setTtl(ttlFromRecord(record));
   }
 
+  // VS-17: estado del favorito de este registro (★ header).
+  const isFav = favoritesStore.isFavorite(record.namespace, record.id);
+
   return (
     <aside
       className="flex w-[400px] shrink-0 flex-col overflow-hidden border-l-4 border-foreground bg-card"
@@ -147,6 +158,47 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
         </button>
       </div>
 
+      {/* VS-17: favorito + copy-as (registro JSON / key / payload markdown) —
+          fila compacta aditiva; el feedback "copiado" vive en CopyButton. */}
+      <div className="flex items-center gap-1 border-b-4 border-foreground bg-background px-3 py-1.5">
+        <button
+          type="button"
+          onClick={() => favoritesStore.toggle(record.namespace, record.id)}
+          aria-pressed={isFav}
+          className={`press flex h-6 w-6 items-center justify-center border-2 border-foreground text-sm ${
+            isFav ? "bg-neon text-background" : "bg-background"
+          }`}
+          title={isFav ? `Quitar ${record.id} de favoritos` : `Agregar ${record.id} a favoritos`}
+          aria-label={isFav ? `Quitar ${record.id} de favoritos` : `Agregar ${record.id} a favoritos`}
+        >
+          ★
+        </button>
+        <CopyButton
+          getText={() => recordToJson(record)}
+          label="JSON"
+          title="Copiar registro completo (JSON)"
+          onError={onError}
+          className="h-6 px-2"
+        />
+        <CopyButton
+          getText={() => record.id}
+          label="KEY"
+          title="Copiar key"
+          onError={onError}
+          className="h-6 px-2"
+        />
+        <CopyButton
+          getText={() => recordToMarkdown(record)}
+          label="MD"
+          title="Copiar payload (markdown)"
+          onError={onError}
+          className="h-6 px-2"
+        />
+        <span className="ml-auto font-tech text-[9px] uppercase tracking-widest text-muted-foreground">
+          copiar
+        </span>
+      </div>
+
       {/* Tabs */}
       <div className="flex border-b-4 border-foreground bg-background">
         {TABS.map((t) => (
@@ -159,7 +211,7 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
               tab === t.id ? "bg-neon text-background" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {t.label}
+            {tab === t.id ? `◆ ${t.label}` : t.label}
           </button>
         ))}
       </div>

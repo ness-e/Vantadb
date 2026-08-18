@@ -33,6 +33,9 @@ import TrashLens from "../trash/TrashLens";
 // importa estática para que la surface responda al instante.
 import RetrievalLens from "../lens/retrieval/RetrievalLens";
 import { undoStore } from "../../store/undo";
+// VS-17: favoritos + historial de búsqueda (localStorage, slice aditivo).
+import { favoritesStore, type Favorite } from "../../store/favorites";
+import { searchHistory } from "../../store/search-history";
 // CodeMirror/react-markdown pesan (~600 kB) y solo los usa el Inspector → chunk
 // lazy: el shell inicial no paga ese coste (Tauri local, carga on-demand).
 const Inspector = lazy(() => import("../inspector/Inspector"));
@@ -169,6 +172,13 @@ export default function WorkspaceShell({
 
   const namespaces = useNamespaceCounts(!!state.active);
 
+  // VS-17: favoritos (sidebar + palette) e historial (palette) reactivos a los
+  // stores de localStorage — mismo patrón de suscripción que undo/VS-08.
+  const [favorites, setFavorites] = useState<Favorite[]>(favoritesStore.getFavorites());
+  useEffect(() => favoritesStore.subscribe(() => setFavorites(favoritesStore.getFavorites())), []);
+  const [history, setHistory] = useState<string[]>(searchHistory.get());
+  useEffect(() => searchHistory.subscribe(() => setHistory(searchHistory.get())), []);
+
   const filterActive = ruleGroup.rules.length > 0;
   const filterFields = useMemo(() => (results ? inferMetaFields(results) : []), [results]);
   // Filtros se aplican client-side sobre los hits de la búsqueda híbrida global
@@ -233,6 +243,8 @@ export default function WorkspaceShell({
   async function runSearch(q: string) {
     const qTrim = q.trim();
     if (!qTrim) return;
+    // VS-17: grabar en el historial (funnel único de topbar + palette).
+    searchHistory.add(qTrim);
     setSearching(true);
     try {
       // Con filtro activo pedimos más hits: el filtrado es client-side, así el
@@ -293,6 +305,22 @@ export default function WorkspaceShell({
       openRecord(full, null);
     } catch (err) {
       onError(vantaErrorMessage(err));
+    }
+  }
+
+  /** VS-17: favorito de palette/sidebar. key → abrir registro en Inspector;
+   * namespace (key null) → superficie MEMORIAS (como los botones del sidebar). */
+  function handleOpenFavorite(fav: Favorite) {
+    if (fav.key) {
+      void (async () => {
+        try {
+          openRecord(await get(fav.key!, fav.namespace), null);
+        } catch (err) {
+          onError(vantaErrorMessage(err));
+        }
+      })();
+    } else {
+      setSurface("memorias");
     }
   }
 
@@ -377,6 +405,42 @@ export default function WorkspaceShell({
             <SideButton icon="⌘" label="IQL" hint="F2" active={surface === "iql"} onClick={() => setSurface("iql")} />
           </div>
 
+          {/* VS-17: favoritos persistidos (ns o ns/key) — slice aditivo. */}
+          <div className="mt-6 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
+            Favoritos
+          </div>
+          <div className="mt-2 space-y-2">
+            {favorites.length === 0 ? (
+              <p className="font-tech text-[10px] text-muted-foreground">sin favoritos — usá ★</p>
+            ) : (
+              favorites.map((f) => {
+                const label = f.key ? `${f.namespace}/${f.key}` : f.namespace;
+                return (
+                  <div key={`${f.namespace}:${f.key ?? ""}`} className="flex items-stretch gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenFavorite(f)}
+                      className="press flex flex-1 items-center gap-2 border-2 border-foreground bg-background px-3 py-2 text-left text-sm"
+                      title={`Abrir ${label}`}
+                    >
+                      <span className="text-neon">★</span>
+                      <span className="truncate">{label}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => favoritesStore.toggle(f.namespace, f.key)}
+                      className="press flex w-8 items-center justify-center border-2 border-foreground text-[10px]"
+                      title={`Quitar ${label} de favoritos`}
+                      aria-label={`Quitar ${label} de favoritos`}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
           <div className="mt-6 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
             Namespaces
           </div>
@@ -384,18 +448,34 @@ export default function WorkspaceShell({
             {namespaces.length === 0 ? (
               <p className="font-tech text-[10px] text-muted-foreground">sin registros</p>
             ) : (
-              namespaces.map((n) => (
-                <button
-                  key={n.name}
-                  type="button"
-                  onClick={() => setSurface("memorias")}
-                  className="press flex w-full items-center justify-between gap-2 border-2 border-foreground bg-background px-3 py-2 text-left text-sm"
-                  title={`Ver ${n.name} en MEMORIAS`}
-                >
-                  <span className="truncate">{n.name}</span>
-                  <span className="font-display text-base leading-none">{n.count}</span>
-                </button>
-              ))
+              namespaces.map((n) => {
+                const fav = favoritesStore.isFavorite(n.name, null);
+                return (
+                  <div key={n.name} className="flex items-stretch gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setSurface("memorias")}
+                      className="press flex flex-1 items-center justify-between gap-2 border-2 border-foreground bg-background px-3 py-2 text-left text-sm"
+                      title={`Ver ${n.name} en MEMORIAS`}
+                    >
+                      <span className="truncate">{n.name}</span>
+                      <span className="font-display text-base leading-none">{n.count}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => favoritesStore.toggle(n.name, null)}
+                      aria-pressed={fav}
+                      className={`press flex w-8 items-center justify-center border-2 border-foreground text-sm ${
+                        fav ? "bg-neon text-background" : "bg-background"
+                      }`}
+                      title={fav ? `Quitar ${n.name} de favoritos` : `Agregar ${n.name} a favoritos`}
+                      aria-label={fav ? `Quitar ${n.name} de favoritos` : `Agregar ${n.name} a favoritos`}
+                    >
+                      ★
+                    </button>
+                  </div>
+                );
+              })
             )}
           </div>
         </nav>
@@ -680,6 +760,10 @@ export default function WorkspaceShell({
           onUndo={handleUndo}
           onDelete={handleDelete}
           onError={onError}
+          favorites={favorites}
+          onOpenFavorite={handleOpenFavorite}
+          history={history}
+          onClearHistory={() => searchHistory.clear()}
         />
       </Suspense>
     </div>

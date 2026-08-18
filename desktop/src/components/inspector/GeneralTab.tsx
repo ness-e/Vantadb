@@ -36,7 +36,10 @@ export default function GeneralTab({ record, score, ttl, setTtl }: Props) {
     expiresMs != null ? expiresMs - (record.updated_at_ms ?? record.created_at_ms ?? expiresMs) : 0;
   const remain = expiresMs != null ? expiresMs - now : 0;
   const frac = total > 0 ? Math.min(1, Math.max(0, remain / total)) : 1;
-  const barColor = remain <= 0 ? "bg-neon" : frac < 0.2 ? "bg-neon" : "bg-ink";
+  // VS-18/P15: TTL nunca es solo-color — estado = ícono + texto + patrón/fill.
+  const expired = remain <= 0;
+  const expiring = !expired && frac < 0.2;
+  const barFill = expired ? "bg-muted-foreground" : expiring ? "stripes-neon" : "bg-foreground";
 
   return (
     <div>
@@ -107,15 +110,15 @@ export default function GeneralTab({ record, score, ttl, setTtl }: Props) {
           ) : (
             <div className="mt-2">
               <div className="flex items-center justify-between font-tech text-[10px]">
-                <span className={remain <= 0 ? "font-bold text-neon" : "text-foreground"}>
-                  {remain <= 0 ? "EXPIRED" : `${fmtDuration(remain)} left`}
+                <span className={expired ? "font-bold text-foreground" : "text-foreground"}>
+                  {expired ? "✕ EXPIRED" : expiring ? `⚠ ${fmtDuration(remain)} left` : `● ${fmtDuration(remain)} left`}
                 </span>
                 <span className="text-muted-foreground">{fmtDateTime(expiresMs)}</span>
               </div>
               <div className="mt-1 h-2 w-full border-2 border-foreground bg-card">
                 <div
-                  className={`block h-full ${barColor}`}
-                  style={{ width: `${remain <= 0 ? 0 : Math.round(frac * 100)}%` }}
+                  className={`block h-full ${barFill}`}
+                  style={{ width: `${expired ? 0 : Math.round(frac * 100)}%` }}
                 />
               </div>
             </div>

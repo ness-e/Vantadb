@@ -64,15 +64,29 @@ export default function MetadataTab({ rows, setRows }: Props) {
                 </option>
               ))}
             </select>
-            <input
-              value={row.key}
-              onChange={(e) => setRows(updateRow(rows, i, { key: e.target.value }))}
-              placeholder="key"
-              aria-label="Key de metadata"
-              className={`border-2 bg-background px-1.5 py-1 font-mono text-[11px] ${
-                isDup(row.key) ? "border-neon text-neon" : "border-foreground"
-              }`}
-            />
+            <span className="relative block">
+              <input
+                value={row.key}
+                onChange={(e) => setRows(updateRow(rows, i, { key: e.target.value }))}
+                placeholder="key"
+                aria-label="Key de metadata"
+                aria-invalid={isDup(row.key) || undefined}
+                title={isDup(row.key) ? "Key duplicada — el guardado se bloquea hasta corregirla" : undefined}
+                className={`w-full border-2 bg-background px-1.5 py-1 pr-5 font-mono text-[11px] ${
+                  isDup(row.key) ? "border-neon text-foreground" : "border-foreground"
+                }`}
+              />
+              {/* VS-18/P15: dup no es solo borde neon — ícono ⚠ + title (AA:
+                  texto foreground, borde neon como acento no-texto 3:1). */}
+              {isDup(row.key) && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[10px] leading-none"
+                >
+                  ⚠
+                </span>
+              )}
+            </span>
             {row.type === "nil" ? (
               <span className="border-2 border-dashed border-foreground px-1.5 py-1 font-tech text-[10px] text-muted-foreground">
                 null
