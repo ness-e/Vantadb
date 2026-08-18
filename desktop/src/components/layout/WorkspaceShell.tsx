@@ -9,9 +9,10 @@
 // (ingest + grid master) · ACTIVITY (ProcessPanel) · ÍNDICES/IQL (lentes
 // pendientes Fase 1/2). Búsqueda global en Topbar (reemplaza SearchBar: misma
 // llamada search() + ResultsList). Inspector derecho = master-detail del
-// registro seleccionado (placeholder fino; VS-06 lo completa con tabs).
-import { FormEvent, useEffect, useRef, useState } from "react";
-import { list, search, SearchResult, vantaErrorMessage } from "../../vanta";
+// registro seleccionado (VS-06: tabs General/Metadata/Vector/Payload con
+// commit explícito — grid pasa el record completo, búsqueda lo completa vía get).
+import { FormEvent, lazy, Suspense, useEffect, useRef, useState } from "react";
+import { get, list, search, SearchResult, vantaErrorMessage, type MemoryRecord } from "../../vanta";
 import { ConnectionActions, VantaState } from "../../hooks/useConnectionState";
 import ConnectionPanel from "../ConnectionPanel";
 import IngestForm from "../IngestForm";
@@ -24,6 +25,9 @@ import ExportPanel from "../ExportPanel";
 import ResultsList from "../ResultsList";
 import { MarkStudio } from "../mark/mark-studio";
 import HomeOverview from "../home/HomeOverview";
+// CodeMirror/react-markdown pesan (~600 kB) y solo los usa el Inspector → chunk
+// lazy: el shell inicial no paga ese coste (Tauri local, carga on-demand).
+const Inspector = lazy(() => import("../inspector/Inspector"));
 
 type Surface = "resumen" | "memorias" | "actividad" | "indices" | "iql";
 
@@ -32,14 +36,11 @@ interface NamespaceCount {
   count: number;
 }
 
-/** Shape normalizada para el Inspector (master-detail). VS-06 lo enriquece. */
-export interface InspectableRecord {
-  id: string;
-  namespace: string;
-  text: string;
+/** Selección del Inspector (master-detail): record completo (VS-11) + score
+ * opcional (resultados de búsqueda global). */
+interface InspectorSelection {
+  record: MemoryRecord;
   score: number | null;
-  metadata?: Record<string, unknown>;
-  created_at_ms?: number | null;
 }
 
 interface WorkspaceShellProps {
@@ -118,17 +119,6 @@ function SideButton({
   );
 }
 
-function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex gap-2 border-b-2 border-foreground py-2">
-      <span className="w-24 shrink-0 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-        {label}
-      </span>
-      <div className="min-w-0 flex-1 break-words">{children}</div>
-    </div>
-  );
-}
-
 function LensPlaceholder({ title, phase }: { title: string; phase: string }) {
   return (
     <section className="press-lg mx-auto mt-6 max-w-2xl border-4 border-foreground bg-card p-8 text-center">
@@ -151,7 +141,7 @@ export default function WorkspaceShell({
   onToggleTheme,
 }: WorkspaceShellProps) {
   const [surface, setSurface] = useState<Surface>("resumen");
-  const [selected, setSelected] = useState<InspectableRecord | null>(null);
+  const [selected, setSelected] = useState<InspectorSelection | null>(null);
 
   // Búsqueda global (Topbar) — hereda la funcionalidad de SearchBar.
   const searchRef = useRef<HTMLInputElement>(null);
@@ -188,9 +178,24 @@ export default function WorkspaceShell({
     }
   }
 
-  function openRecord(r: InspectableRecord) {
-    setSelected(r);
+  function openRecord(record: MemoryRecord, score: number | null) {
+    setSelected({ record, score });
     setResults(null);
+  }
+
+  /** Búsqueda global: el SearchResult no trae version/vector/node_id — se
+   * completa con `get()`; si falla, se abre un record mínimo con lo disponible. */
+  async function openSearchResult(r: SearchResult) {
+    try {
+      const full = await get(r.id, r.namespace);
+      openRecord(full, r.score);
+    } catch (err) {
+      onError(vantaErrorMessage(err));
+      openRecord(
+        { id: r.id, namespace: r.namespace, text: r.text, metadata: r.metadata } as MemoryRecord,
+        r.score,
+      );
+    }
   }
 
   const closeInspector = () => setSelected(null);
@@ -357,7 +362,7 @@ export default function WorkspaceShell({
                     ✕ cerrar
                   </button>
                 </div>
-                <ResultsList results={results} onSelect={(r) => openRecord(r)} />
+                <ResultsList results={results} onSelect={(r) => openSearchResult(r)} />
               </div>
             </section>
           )}
@@ -404,9 +409,7 @@ export default function WorkspaceShell({
                 active={!!state.active}
                 busy={state.busy}
                 runError={onError}
-                onSelectRow={(row: ExplorerRow) =>
-                  openRecord({ id: row.id, namespace: row.namespace, text: row.text, score: row.score })
-                }
+                onSelectRow={(row: ExplorerRow) => openRecord(row.record, row.score)}
               />
             </div>
           )}
@@ -429,55 +432,19 @@ export default function WorkspaceShell({
 
       {/* ========== INSPECTOR (master-detail, derecha) ========== */}
       {selected && (
-        <aside
-          className="flex w-[400px] shrink-0 flex-col overflow-hidden border-l-4 border-foreground bg-card"
-          aria-label="Inspector de registro"
+        <Suspense
+          fallback={<aside className="w-[400px] shrink-0 border-l-4 border-foreground bg-card" aria-hidden="true" />}
         >
-          <div className="flex items-center justify-between border-b-4 border-foreground px-4 py-3">
-            <span className="font-tech text-[10px] uppercase tracking-widest text-neon">Inspector</span>
-            <button
-              type="button"
-              onClick={closeInspector}
-              className="press flex h-6 w-6 items-center justify-center border-2 border-foreground text-xs"
-              aria-label="Cerrar inspector"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto scroll-manga p-4">
-            <DetailRow label="key">
-              <code className="text-sm">{selected.id}</code>
-            </DetailRow>
-            <DetailRow label="namespace">
-              <span className="border-2 border-foreground bg-background px-2 py-0.5 font-tech text-[11px]">
-                {selected.namespace}
-              </span>
-            </DetailRow>
-            {selected.score != null && (
-              <DetailRow label="score">
-                <span className="text-neon">{selected.score.toFixed(3)}</span>
-              </DetailRow>
-            )}
-            <DetailRow label="text">
-              <p className="text-sm">{selected.text}</p>
-            </DetailRow>
-            {selected.metadata && Object.keys(selected.metadata).length > 0 && (
-              <DetailRow label="metadata">
-                <pre className="whitespace-pre-wrap font-mono text-[11px]">
-                  {JSON.stringify(selected.metadata, null, 2)}
-                </pre>
-              </DetailRow>
-            )}
-            {selected.created_at_ms != null && (
-              <DetailRow label="created">
-                <span className="text-sm">{new Date(selected.created_at_ms).toLocaleString()}</span>
-              </DetailRow>
-            )}
-            <p className="mt-4 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-              inspector base — edición completa en VS-06
-            </p>
-          </div>
-        </aside>
+          <Inspector
+            key={`${selected.record.namespace}:${selected.record.id}`}
+            record={selected.record}
+            score={selected.score}
+            dark={dark}
+            onClose={closeInspector}
+            onSaved={(updated) => setSelected((cur) => (cur ? { ...cur, record: updated } : cur))}
+            onError={onError}
+          />
+        </Suspense>
       )}
     </div>
   );
