@@ -200,3 +200,11 @@ Integración **por contratos, no por ejecución** — campañas independientes. 
 | Fase 3 web/embebido | Fase 3 | D3: solo desktop por ahora |
 
 === RECITATION ===
+
+- **Estado:** ✅ FASE 0 COMPLETA — 14 tareas HECHO en 1 sesión de run (VS-00..VS-11 + VS-CORE-01/02), 16 commits en develop.
+- **Wave 0 (prototipo + fundamentos):** VS-00 (prototipo HTML Playwright), VS-01 (Tailwind v4 + tokens + dark), VS-02 (MARK desktop), VS-CORE-02 (namespace_stats single-pass).
+- **Wave 2 (Fase 0 React):** VS-03 (WorkspaceShell), VS-10 (vanta_put), VS-11 (DTO enriquecido), VS-04 (HOME 7 cards), VS-05 (grid virtual TanStack), VS-06 (Inspector + CodeMirror), VS-07 (filtros), VS-08 (undo/papelera), VS-09 (palette Ctrl+K).
+- **Wave 3 (gaps core):** VS-CORE-01 (cursor bridge). VS-CORE-03/04/05/06 diferidas Fase 1/2; VS-CORE-07 pendiente (D2).
+- **Hallazgos escalados:** (1) test pre-existente roto `storage::engine::maintenance::test_consolidate_node_with_binary_vector` (panic unwrap tras consolidate con Binary vector) — reproducido en HEAD limpio, fuera de scope worker → vanta-arch/vanta-engine; (2) vuln high nanoid pre-existente en lockfile desktop (build-time, no introducida); (3) script `validate-docs-coverage.ps1` explota en sección MCP (regex obsoleto `handle_tools_list` — vive en handlers/tools.rs).
+- **Lecciones:** MCP campaign_update_task_state corrupto (reporta todo in-progress) → plan file en disco = fuente de verdad; `git stash pop` accidental del stash ajeno en VS-CORE-02 (revertido, stash intacto); agentes en paralelo editando WorkspaceShell causaron builds intermedios rotos (resuelto al aterrizar — ordenar integración); `cargo test` sin `-j 1` falla en Windows (os error 1455 paging file).
+- **Próximo:** VS-CORE-07 (retención versiones, D2 — diseño compartido P26/P27, destraba Historial+Diff) o Fase 1 (lente RETRIEVAL, ACTIVITY, favoritos, copy-as, a11y). P27 (vanta-memory) puede arrancar: contratos ya documentados, no bloquea.
