@@ -823,6 +823,42 @@ fn test_count_with_filter() {
 }
 
 #[test]
+fn test_count_with_flat_filter_alias() {
+    // AUD-048: flat values are accepted as implicit `$eq`, matching the MCP
+    // channel's published flat semantics — `{"color":"red"}` ≡ `{"color":{"$eq":"red"}}`.
+    let (_dir, path) = setup_temp_db();
+    seed_embedded_with_meta(&path, "cntflat_ns", "k1", "payload one", "red");
+    seed_embedded_with_meta(&path, "cntflat_ns", "k2", "payload two", "blue");
+
+    // count with the flat form must parse and run (no operator-object error).
+    let filter = r#"{"color":"red"}"#;
+    let result = vantadb::cli_handlers::cmd_count(&path, "cntflat_ns", Some(filter), true, false);
+    assert!(
+        result.is_ok(),
+        "count with flat filter should succeed: {:?}",
+        result
+    );
+
+    // delete-by-filter with the flat form removes exactly the red record —
+    // proving the flat filter matched by value, not by accident.
+    let del = vantadb::cli_handlers::cmd_delete_by_filter(&path, "cntflat_ns", filter, false);
+    assert!(
+        del.is_ok(),
+        "delete-by-filter with flat filter should succeed: {:?}",
+        del
+    );
+
+    let engine = vantadb::cli_handlers::open_database(&path, true).unwrap();
+    let red_id = vantadb::cli_handlers::memory_node_id("cntflat_ns", "k1");
+    let blue_id = vantadb::cli_handlers::memory_node_id("cntflat_ns", "k2");
+    assert!(
+        engine.get(red_id).unwrap().is_none(),
+        "flat filter must delete the red record"
+    );
+    assert!(engine.get(blue_id).unwrap().is_some(), "blue record must remain");
+}
+
+#[test]
 fn test_delete_by_filter() {
     let (_dir, path) = setup_temp_db();
     seed_embedded_with_meta(&path, "dbf_ns", "k1", "payload one", "red");

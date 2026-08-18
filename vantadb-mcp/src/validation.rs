@@ -213,6 +213,59 @@ pub(crate) fn parse_metadata(
     Ok(meta)
 }
 
+/// Parse a JSON `filters` object into an operator-based `VantaMemoryFilter`,
+/// accepting BOTH published filter formats (AUD-048 — unified semantics with
+/// the CLI channel):
+///
+/// - Flat values `{"field": value}` → implicit equality (`$eq`). This is the
+///   MCP's long-published form and keeps working unchanged.
+/// - Operator objects `{"field": {"$eq": v}}` / `{"field": {"$gt": v}}` etc.
+///   → explicit operators, matching the CLI's `parse_filter_json`.
+///
+/// Any object value whose keys are not known operators is rejected explicitly
+/// (never silently ignored), same error contract as the CLI channel.
+pub(crate) fn parse_filter_ops(
+    obj: &serde_json::Map<String, Value>,
+) -> Result<vantadb::sdk::VantaMemoryFilter, McpError> {
+    use vantadb::sdk::{VantaFilterOp, VantaMemoryFilterItem};
+
+    let mut ops = Vec::with_capacity(obj.len());
+    for (field, spec) in obj {
+        let Some(spec_obj) = spec.as_object() else {
+            // Flat value → implicit equality (MCP published flat form).
+            ops.push(VantaMemoryFilterItem {
+                field: field.clone(),
+                op: VantaFilterOp::Eq,
+                value: json_value_to_vanta_value(field, spec)?,
+            });
+            continue;
+        };
+
+        for (op_str, val_json) in spec_obj {
+            let op = match op_str.as_str() {
+                "$eq" => VantaFilterOp::Eq,
+                "$neq" => VantaFilterOp::Neq,
+                "$gt" => VantaFilterOp::Gt,
+                "$gte" => VantaFilterOp::Gte,
+                "$lt" => VantaFilterOp::Lt,
+                "$lte" => VantaFilterOp::Lte,
+                other => {
+                    return Err(McpError::invalid_params(format!(
+                        "Unknown filter operator '{other}' for field '{field}'. Supported: $eq, $neq, $gt, $gte, $lt, $lte"
+                    )))
+                }
+            };
+            let value = json_value_to_vanta_value(field, val_json)?;
+            ops.push(VantaMemoryFilterItem {
+                field: field.clone(),
+                op,
+                value,
+            });
+        }
+    }
+    Ok(ops)
+}
+
 /// Parse a graph node id from a JSON-RPC value.
 ///
 /// Node ids are u128: JSON numbers lose precision above 2^53 and cannot

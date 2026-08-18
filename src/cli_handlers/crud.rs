@@ -387,10 +387,10 @@ pub fn cmd_delete(db_path: &str, namespace: &str, key: &str, verbose: bool) -> R
 
 /// Parse a JSON filter string (MongoDB-like) into a `VantaMemoryFilter`.
 ///
-/// Accepts objects like:
-/// ```json
-/// {"field": {"$eq": "value"}, "score": {"$gte": 50}}
-/// ```
+/// Accepts BOTH formats (AUD-048, unified semantics with the MCP channel):
+/// - Operator objects: `{"field": {"$eq": "value"}, "score": {"$gte": 50}}`
+/// - Flat values, interpreted as implicit `$eq` (same as the MCP flat form):
+///   `{"field": "value", "score": 50}`
 pub(crate) fn parse_filter_json(
     filter_str: &str,
 ) -> crate::error::Result<crate::sdk::VantaMemoryFilter> {
@@ -407,11 +407,17 @@ pub(crate) fn parse_filter_json(
 
     let mut items = Vec::new();
     for (field, spec) in obj {
-        let spec_obj = spec.as_object().ok_or_else(|| {
-            crate::error::VantaError::InvalidInput(format!(
-                "Filter value for '{field}' must be an object like {{\"$eq\": value}}"
-            ))
-        })?;
+        let Some(spec_obj) = spec.as_object() else {
+            // AUD-048: flat value → implicit equality, matching the MCP
+            // channel's published flat semantics `{"field": value}`.
+            let value = json_to_vanta_value(spec)?;
+            items.push(VantaMemoryFilterItem {
+                field: field.clone(),
+                op: VantaFilterOp::Eq,
+                value,
+            });
+            continue;
+        };
 
         for (op_str, val_json) in spec_obj {
             let op = match op_str.as_str() {

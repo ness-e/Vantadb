@@ -345,18 +345,27 @@ pub fn handle_tools_call(
             let limit = (raw_limit as usize).min(config.max_list_limit);
             let cursor = args["cursor"].as_u64().map(|c| c as usize);
 
-            let filters = if let Some(obj) = args["filters"].as_object() {
-                parse_metadata(obj).map_err(|e| e.to_json())?
+            let filter_ops = if let Some(obj) = args["filters"].as_object() {
+                // AUD-048: unified filter semantics with the CLI channel —
+                // accepts both flat values (implicit $eq) and operator
+                // objects ($eq/$gt/$gte/$lt/$lte/$neq). Routed through the
+                // core's `filter_ops` slot, which already supports operators.
+                let ops = parse_filter_ops(obj).map_err(|e| e.to_json())?;
+                if ops.is_empty() {
+                    None
+                } else {
+                    Some(ops)
+                }
             } else {
-                vantadb::sdk::VantaMemoryMetadata::new()
+                None
             };
 
             let options = vantadb::sdk::VantaMemoryListOptions {
                 limit,
                 cursor,
                 #[allow(deprecated)]
-                filters,
-                filter_ops: None,
+                filters: vantadb::sdk::VantaMemoryMetadata::new(),
+                filter_ops,
             };
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
@@ -489,8 +498,28 @@ pub fn handle_tools_call(
 
             let explain = args["explain"].as_bool().unwrap_or(false);
 
+            // AUD-048: unified filter semantics with the CLI channel. The
+            // search request (`VantaMemorySearchRequest`) is flat-only — it
+            // has no `filter_ops` slot — so flat values and explicit `$eq`
+            // both fold into the flat metadata (identical equality semantics).
+            // Range/inequality operators ($gt/$gte/$lt/$lte/$neq) cannot be
+            // expressed in a search request; return a clear error pointing at
+            // memory_list, which supports them via filter_ops.
             let filters = if let Some(obj) = args["filters"].as_object() {
-                parse_metadata(obj).map_err(|e| e.to_json())?
+                let ops = parse_filter_ops(obj).map_err(|e| e.to_json())?;
+                let mut flat = vantadb::sdk::VantaMemoryMetadata::new();
+                for item in ops {
+                    if item.op == vantadb::sdk::VantaFilterOp::Eq {
+                        flat.insert(item.field, item.value);
+                    } else {
+                        return Ok(error_content(format!(
+                            "search_memory filters support equality only (flat values or {{\"$eq\": value}}); \
+                             operator '{:?}' on field '{}' is available via memory_list filters",
+                            item.op, item.field
+                        )));
+                    }
+                }
+                flat
             } else {
                 vantadb::sdk::VantaMemoryMetadata::new()
             };

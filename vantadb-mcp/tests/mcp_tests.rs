@@ -1792,6 +1792,158 @@ fn test_mcp_text_search_requires_index_ensure() {
     );
 }
 
+// ── AUD-048: unified filter semantics (operators on MCP, flat on CLI) ────
+//
+// Both channels now accept BOTH filter formats, normalized at parse time:
+// - flat values `{"field": value}` → implicit `$eq`
+// - operator objects `{"field": {"$eq": v}}` / `{"field": {"$gt": v}}` etc.
+//
+// `memory_list` routes operators through the core's `filter_ops` slot (full
+// operator support). `search_memory`'s request has no filter_ops slot, so
+// `$eq` folds into the flat metadata (identical equality semantics) and
+// range operators return a clear, documented error.
+
+#[test]
+fn test_mcp_list_filters_accept_operators() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let put1 = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "aud048_list_ns",
+            "key": "low",
+            "payload": "p low",
+            "metadata": { "score": 10 }
+        }
+    }));
+    assert!(handle_tools_call(&put1, &executor, &storage, &default_config()).is_ok());
+
+    let put2 = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "aud048_list_ns",
+            "key": "high",
+            "payload": "p high",
+            "metadata": { "score": 50 }
+        }
+    }));
+    assert!(handle_tools_call(&put2, &executor, &storage, &default_config()).is_ok());
+
+    // `$gt` operator form must work on memory_list (core filter_ops).
+    let list_params = Some(json!({
+        "name": "memory_list",
+        "arguments": {
+            "namespace": "aud048_list_ns",
+            "filters": { "score": { "$gt": 20 } }
+        }
+    }));
+    let list_res = handle_tools_call(&list_params, &executor, &storage, &default_config());
+    assert!(
+        list_res.is_ok(),
+        "memory_list with $gt operator should succeed: {:?}",
+        list_res
+    );
+    let list_val = list_res.unwrap();
+    assert!(
+        list_val["isError"].is_null(),
+        "memory_list with $gt must not error: {list_val}"
+    );
+    let list_text = list_val["content"][0]["text"].as_str().unwrap();
+    let page: Value = serde_json::from_str(list_text).expect("list response should be JSON");
+    let records = page["records"].as_array().expect("records array");
+    assert_eq!(
+        records.len(),
+        1,
+        "$gt filter must match exactly the high record, got: {page}"
+    );
+    assert_eq!(records[0]["key"], json!("high"), "must match key 'high', got: {page}");
+
+    // Flat form still works unchanged (published behavior).
+    let flat_params = Some(json!({
+        "name": "memory_list",
+        "arguments": {
+            "namespace": "aud048_list_ns",
+            "filters": { "score": 10 }
+        }
+    }));
+    let flat_res = handle_tools_call(&flat_params, &executor, &storage, &default_config());
+    assert!(flat_res.is_ok(), "flat list filter must still work: {flat_res:?}");
+    let flat_val = flat_res.unwrap();
+    assert!(flat_val["isError"].is_null(), "flat list filter must not error");
+    let flat_page: Value =
+        serde_json::from_str(flat_val["content"][0]["text"].as_str().unwrap()).unwrap();
+    let flat_records = flat_page["records"].as_array().unwrap();
+    assert_eq!(flat_records.len(), 1, "flat filter must match low only: {flat_page}");
+    assert_eq!(flat_records[0]["key"], json!("low"));
+}
+
+#[test]
+fn test_mcp_search_filters_accept_eq_and_reject_range() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    embedded
+        .ensure_indexes_current()
+        .expect("startup index ensure should succeed");
+
+    let put1 = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "aud048_search_ns",
+            "key": "doc1",
+            "payload": "concise technical answer about rust",
+            "metadata": { "category": "dev" }
+        }
+    }));
+    assert!(handle_tools_call(&put1, &executor, &storage, &default_config()).is_ok());
+
+    // `$eq` operator form folds into the flat metadata — equality semantics.
+    let eq_params = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "aud048_search_ns",
+            "text_query": "concise",
+            "filters": { "category": { "$eq": "dev" } },
+            "top_k": 5
+        }
+    }));
+    let eq_res = handle_tools_call(&eq_params, &executor, &storage, &default_config());
+    let eq_val = eq_res.expect("search_memory with $eq should return");
+    assert!(
+        eq_val["isError"].is_null(),
+        "search_memory with $eq must not error: {eq_val}"
+    );
+    let eq_text = eq_val["content"][0]["text"].as_str().unwrap();
+    assert!(
+        eq_text.contains("doc1"),
+        "search_memory with $eq must return doc1, got: {eq_text}"
+    );
+
+    // Range operators cannot be expressed in a search request (flat-only slot
+    // in `VantaMemorySearchRequest`) → clear documented error, not silence.
+    let gt_params = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "aud048_search_ns",
+            "text_query": "concise",
+            "filters": { "category": { "$gt": "abc" } },
+            "top_k": 5
+        }
+    }));
+    let gt_res = handle_tools_call(&gt_params, &executor, &storage, &default_config());
+    let gt_val = gt_res.expect("search_memory with $gt should return a call result");
+    let gt_text = gt_val["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        gt_val["isError"].is_object() || gt_text.contains("equality only"),
+        "search_memory with $gt must error clearly, got: {gt_text}"
+    );
+    assert!(
+        gt_text.contains("memory_list"),
+        "range-operator error must point at memory_list, got: {gt_text}"
+    );
+}
+
 // ── T15: search_memory(explain=true) shape contract (regression) ──────────
 //
 // The MCP response for `search_memory(explain: true)` is a FLAT ARRAY of hits.

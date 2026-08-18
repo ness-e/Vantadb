@@ -35,6 +35,7 @@ The MCP server exposes the following tools for memory operations:
 
 - **`memory_list`** - List memory records in a namespace with pagination
   - Parameters: `namespace`, `limit` (default: 100), `cursor` (optional), `filters` (optional)
+  - `filters` accepts BOTH formats (AUD-048 — unified with the CLI channel): flat values `{"field": value}` (implicit `$eq`) **or** operator objects `{"field": {"$gt": value}}` (`$eq`, `$neq`, `$gt`, `$gte`, `$lt`, `$lte`)
   - Returns: Page of records with next cursor
 
 - **`memory_list_namespaces`** - List all available namespaces
@@ -45,6 +46,7 @@ The MCP server exposes the following tools for memory operations:
 
 - **`search_memory`** - [[hybrid-search|Hybrid]] vector and text search
   - Parameters: `namespace`, `query_vector` (optional), `text_query` (optional), `top_k`, `distance_metric`, `explain`, `filters`
+  - `filters` accepts flat values `{"field": value}` **or** explicit equality `{"field": {"$eq": value}}` (identical equality semantics). Range operators (`$gt`/`$gte`/`$lt`/`$lte`/`$neq`) are NOT supported in search — the search request has no operator slot; use `memory_list` for those (AUD-048).
   - Returns: Search hits with scores and optional explanations
 
 - **`search_semantic`** - Raw [[hnsw|HNSW]] vector search
