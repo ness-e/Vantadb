@@ -31,6 +31,23 @@ pub trait VantaConnection: Send + Sync {
     /// Store a single item, returning its id (assigned or supplied).
     async fn ingest(&mut self, item: IngestItem) -> Result<String, VantaError>;
 
+    /// Upsert a single record by key (creating or replacing), optionally
+    /// pinning an absolute unix-ms expiry. Returns the stored record.
+    ///
+    /// Default implementation: transports without an upsert-by-key API report
+    /// [`VantaError::Unsupported`] instead of guessing semantics. Native
+    /// (embedded) implements it via the core `put`.
+    async fn put(
+        &mut self,
+        item: IngestItem,
+        expires_at_ms: Option<u64>,
+    ) -> Result<MemoryRecord, VantaError> {
+        let _ = (item, expires_at_ms);
+        Err(VantaError::Unsupported(
+            "put (upsert by key) is not implemented by this transport".into(),
+        ))
+    }
+
     /// Store many items. Each returned id corresponds positionally to `items`.
     async fn ingest_batch(&mut self, items: Vec<IngestItem>) -> Result<Vec<String>, VantaError>;
 

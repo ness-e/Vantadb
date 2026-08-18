@@ -13,6 +13,27 @@ use crate::connections::{IngestItem, MemoryRecord, SearchQuery, SearchResult};
 use crate::error::VantaError;
 use crate::AppState;
 
+/// Upsert a single record by key on the active connection (create or replace),
+/// optionally pinning an absolute unix-ms expiry. Returns the stored record.
+#[tauri::command]
+pub async fn vanta_put(
+    state: State<'_, AppState>,
+    namespace: Option<String>,
+    key: String,
+    payload: String,
+    metadata: Option<std::collections::HashMap<String, serde_json::Value>>,
+    expires_at_ms: Option<u64>,
+) -> Result<MemoryRecord, VantaError> {
+    let item = IngestItem {
+        id: Some(key),
+        namespace: namespace.unwrap_or_else(|| "default".into()),
+        text: payload,
+        embedding: None,
+        metadata: metadata.unwrap_or_default(),
+    };
+    state.manager.put(item, expires_at_ms).await
+}
+
 /// Store one or more records on the active connection, returning assigned/kept ids.
 #[tauri::command]
 pub async fn vanta_ingest(

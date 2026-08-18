@@ -71,6 +71,14 @@ fn gen_id() -> String {
     format!("rec_{now_ms}_{seq}")
 }
 
+/// Current unix time in milliseconds.
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
 /// Run a synchronous SDK call on the blocking pool and map join errors.
 async fn blocking<T: Send + 'static>(
     f: impl FnOnce() -> Result<T, VantaError> + Send + 'static,
@@ -226,6 +234,22 @@ impl VantaConnection for NativeConnection {
         let input = ingest_to_input(&item, &key);
         let db = self.db.clone();
         blocking(move || db.put(input).map(|_| key).map_err(map_core_error)).await
+    }
+
+    async fn put(
+        &mut self,
+        item: IngestItem,
+        expires_at_ms: Option<u64>,
+    ) -> Result<MemoryRecord, VantaError> {
+        let key = item.id.clone().unwrap_or_else(gen_id);
+        let mut input = ingest_to_input(&item, &key);
+        if let Some(expires_at_ms) = expires_at_ms {
+            // Core `put` takes a *relative* ttl (expires_at = now + ttl), so
+            // convert the absolute unix-ms expiry the UI edits into a ttl.
+            input.ttl_ms = Some(expires_at_ms.saturating_sub(now_ms()));
+        }
+        let db = self.db.clone();
+        blocking(move || db.put(input).map(record_to_memory).map_err(map_core_error)).await
     }
 
     async fn ingest_batch(&mut self, items: Vec<IngestItem>) -> Result<Vec<String>, VantaError> {
@@ -395,6 +419,39 @@ mod tests {
         // get after delete -> not-found error
         let err = conn.get(&id, Some("docs")).await.expect_err("get after delete");
         assert!(matches!(err, VantaError::Native(_)));
+    }
+
+    #[tokio::test]
+    async fn put_upserts_and_sets_expiry() {
+        let dir = TempDir::new();
+        let mut conn = NativeConnection::open(dir.path()).expect("open");
+
+        // create
+        let rec = conn
+            .put(item(Some("k1"), "first"), None)
+            .await
+            .expect("put create");
+        assert_eq!(rec.id, "k1");
+        assert_eq!(rec.text, "first");
+
+        // upsert over the same key replaces the payload
+        let rec2 = conn
+            .put(item(Some("k1"), "second"), None)
+            .await
+            .expect("put upsert");
+        assert_eq!(rec2.id, "k1");
+        assert_eq!(rec2.text, "second");
+
+        // absolute unix-ms expiry lands as ttl on the underlying core record
+        let now = now_ms();
+        conn.put(item(Some("k2"), "temp"), Some(now + 60_000))
+            .await
+            .expect("put with expiry");
+        let core = conn.db.get("docs", "k2").expect("get").expect("exists");
+        assert!(
+            core.expires_at_ms.is_some(),
+            "expiry should persist on the core record"
+        );
     }
 
     #[tokio::test]

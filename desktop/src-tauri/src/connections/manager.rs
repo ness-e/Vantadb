@@ -143,6 +143,22 @@ impl ConnectionManager {
         conn.ingest(item).await
     }
 
+    /// Upsert a single record by key on the active connection, returning the
+    /// stored record.
+    pub async fn put(
+        &self,
+        item: IngestItem,
+        expires_at_ms: Option<u64>,
+    ) -> Result<MemoryRecord, VantaError> {
+        let id = self.active_id().await?;
+        let mut inner = self.inner.write().await;
+        let conn = inner
+            .connections
+            .get_mut(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        conn.put(item, expires_at_ms).await
+    }
+
     /// Store many items on the active connection, returning ids positionally.
     pub async fn ingest_batch(
         &self,
@@ -309,6 +325,13 @@ mod tests {
         // get roundtrip
         let rec = manager.get("k1", Some("docs")).await.unwrap();
         assert!(rec.text.contains("fox"));
+
+        // put upsert roundtrip (same key + same text keeps search assertions valid)
+        let rec = manager
+            .put(item("k1", "the quick brown fox jumps over the lazy dog"), None)
+            .await
+            .unwrap();
+        assert_eq!(rec.id, "k1");
 
         // search: both fox docs returned, ordered by non-increasing score
         let hits = manager

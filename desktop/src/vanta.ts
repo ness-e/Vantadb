@@ -156,6 +156,24 @@ export function remove(key: string, namespace?: string): Promise<void> {
   return invoke<void>("vanta_delete", { key, namespace });
 }
 
+/** Upsert a record by key (create or replace), optionally pinning an absolute
+ * unix-ms expiry. Returns the stored record. */
+export function vantaPut(params: {
+  namespace?: string;
+  key: string;
+  payload: string;
+  metadata?: Record<string, unknown>;
+  expires_at_ms?: number;
+}): Promise<MemoryRecord> {
+  return invoke<MemoryRecord>("vanta_put", {
+    namespace: params.namespace,
+    key: params.key,
+    payload: params.payload,
+    metadata: params.metadata,
+    expires_at_ms: params.expires_at_ms,
+  });
+}
+
 export function list(opts?: { namespace?: string; limit?: number }): Promise<MemoryRecord[]> {
   return invoke<MemoryRecord[]>("vanta_list", {
     namespace: opts?.namespace,

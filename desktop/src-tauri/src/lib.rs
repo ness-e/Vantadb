@@ -60,6 +60,7 @@ pub fn run() {
             commands::connection::vanta_set_active,
             commands::data::vanta_ingest,
             commands::data::vanta_ingest_batch,
+            commands::data::vanta_put,
             commands::data::vanta_search,
             commands::data::vanta_get,
             commands::data::vanta_delete,
