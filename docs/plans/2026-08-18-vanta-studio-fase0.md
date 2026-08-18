@@ -120,7 +120,7 @@
 - **Archivos clave:** `desktop/src/components/palette/CommandPalette.tsx` (nuevo), dep `cmdk`
 - **Gate Justificación:** P9 teclado-first.
 - **Contrato:** acciones básicas (abrir namespace, buscar key, exportar, borrar, undo, toggle tema, abrir lentes); disparo global Ctrl+K; atajos visibles. **IQL movido a Fase 2** (el bridge no expone `vanta_query` en Fase 0).
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO (2026-08-18) — `desktop/src/components/palette/CommandPalette.tsx` (nuevo; cmdk ^1.1.1, API verificada en README oficial; `Command.Dialog` + `useCommandState`; CSS local `[cmdk-*]` con vars VS-01, dark automático): grupos Navegación/Lentes (ACTIVITY·ÍNDICES·IQL)/Abrir namespace (→ MEMORIAS, igual al sidebar)/Acciones (buscar key→MEMORIAS+search global, exportar .jsonl desde `list({limit:500})`, borrar+undo→handlers REALES de VS-08 vía props, toggle tema); fallback "Buscar key '{q}'" en `Command.Empty`; atajos visibles (Alt+B/E/D/T in-palette, Ctrl+Z global VS-08). `WorkspaceShell.tsx` aditivo: `export type Surface`, Ctrl+K global → toggle palette (reemplaza foco-búsqueda de VS-03), `runSearch`/`handlePaletteSearch`, render lazy. Convivencia en vivo con VS-07/VS-08 (mismo archivo editado en paralelo; 2 builds fallaron por su WIP, resuelto al aterrizar — stubs de undo/delete eliminados al aparecer el store real). IQL solo navega placeholder (bridge sin `vanta_query` Fase 0). `npm run build` verde 3× (CommandPalette chunk 56.36 kB/gzip 19.01 kB lazy). Task file `VS-09.md`. Sin commit (worktree compartido VS-07/VS-08).
 
 ## Wave 3 — Gaps del core (backlog VS-CORE; en paralelo)
 
