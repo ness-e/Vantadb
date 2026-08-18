@@ -10,6 +10,8 @@ import GeneralTab from "./GeneralTab";
 import MetadataTab from "./MetadataTab";
 import PayloadTab from "./PayloadTab";
 import VectorTab from "./VectorTab";
+// VS-14: tab HISTORIAL — versiones retenidas + diff + revert explícito (P6).
+import HistorialTab from "./historial-tab";
 import {
   fmtDuration,
   metadataToRows,
@@ -24,7 +26,7 @@ import { favoritesStore } from "../../store/favorites";
 import { CopyButton } from "../copy/CopyButton";
 import { recordToJson, recordToMarkdown } from "../copy/copy-as";
 
-export type InspectorTab = "general" | "metadata" | "vector" | "payload";
+export type InspectorTab = "general" | "metadata" | "vector" | "payload" | "historial";
 
 interface Props {
   record: MemoryRecord;
@@ -42,6 +44,7 @@ const TABS: { id: InspectorTab; label: string }[] = [
   { id: "metadata", label: "METADATA" },
   { id: "vector", label: "VECTOR" },
   { id: "payload", label: "PAYLOAD" },
+  { id: "historial", label: "HISTORIAL" },
 ];
 
 export default function Inspector({ record, score, dark, onClose, onSaved, onError }: Props) {
@@ -222,6 +225,7 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
         {tab === "metadata" && <MetadataTab rows={metaRows} setRows={setMetaRows} />}
         {tab === "vector" && <VectorTab record={record} />}
         {tab === "payload" && <PayloadTab text={payloadText} onChange={setPayloadText} dark={dark} />}
+        {tab === "historial" && <HistorialTab record={record} onSaved={onSaved} onError={onError} />}
       </div>
 
       {/* Footer: commit explícito (P6) */}
