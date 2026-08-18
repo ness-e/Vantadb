@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 8c5e2a9f-1b3d-4e6f-8a7c-9d2b4f6a8e10
 > **Inicio:** 2026-08-18
-> **Estado:** ⏳ EN PROGRESO (creado 2026-08-18)
+> **Estado:** ✅ COMPLETA (9/9 — commits `2a1f3012`..`9c27f5e9`)
 > **Fuente:** `docs/research/human-facing-db-ui/06-synthesis/SYNTHESIS.md` §7 Fase 1 + tabla DEFER del plan Fase 0 (líneas 185-200) + contratos verificados contra el core/bridge (2026-08-18).
 > **Predecesor:** `docs/plans/2026-08-18-vanta-studio-fase0.md` (✅ FASE 0 COMPLETA, 14/19).
 > **Modo:** ondas — bridges/gaps primero (secuencial), luego UI Fase 1 (paralelo con archivos no compartidos).
@@ -54,21 +54,21 @@
 - **Gate Justificación:** SYNTHESIS P7 + §7 Fase 1 "Lente RETRIEVAL: desglose de score por barras apiladas". El core YA produce el desglose (verificado 2026-08-18: `explain_hit` en `src/sdk/search/debug.rs:49` rellena `bm25_terms` + `rrf_text_rank`/`rrf_vector_rank`; `fusion_report` con candidates/RRF-k). El bridge es el único que no lo expone.
 - **Contrato (aditivo, backward-compat):** añadir `explain: bool = false` (serde default) a `SearchQuery`; añadir `explanation: Option<ExplanationHit>` a `SearchResult` con shape: `{identity, score, snippet?, matched_tokens, matched_phrases, bm25_terms: [{token, tf, df, doc_len, contribution}], rrf_text_rank?, rrf_vector_rank?}` (espejo de `VantaSearchExplanationHit`); en native.rs, cuando `explain=true`, llamar `search_with_method`/`search` con el request explicado y mapear `VantaSearchExplanationHit` 1:1. `vanta.ts`: `SearchQuery.explain?` + `SearchResult.explanation?`. **No tocar el core.**
 - **Verificación:** `cargo check` + `cargo test -j 1` en `desktop/src-tauri` (nuevo test: search con explain=true rellena explanation con bm25_terms/rrf ranks); `npm run build` verde; wire shape verificado con test de roundtrip.
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO
 
 ### Task 2: VS-12 — Audit log en desktop: configurar `audit_log_path` + comando `vanta_audit_events`
 - **Archivos clave:** `desktop/src-tauri/src/connections/native.rs` (abre con solo `path` — verificado: `NativeConnection::open(path)` NO pasa `VantaConfig.audit_log_path`; grep en desktop: 0 matches de audit), `desktop/src-tauri/src/commands/` (nuevo `audit.rs` + registro en `lib.rs`), `src/audit.rs` (`AuditEvent{timestamp,op,namespace,key,outcome,reason}`, `AuditLogger`), `src/config.rs` (`VantaConfig.audit_log_path`).
 - **Gate Justificación:** SYNTHESIS §4 OPERACIONES "Activity: audit log filtrable" + "Timeline (Fix 3)" + DEFER Fase 1 "ACTIVITY + Timeline (audit log)". El core ya escribe el JSONL (opt-in); el desktop ni lo configura ni puede leerlo.
 - **Contrato:** (a) `NativeConnection::open` acepta audit path opcional y lo pasa a `VantaConfig` (default: `<storage_path>/audit.jsonl`); (b) comando `vanta_audit_events(namespace?, op?, outcome?, limit?, cursor?)` que lee el JSONL del final hacia atrás (tail), filtra en Rust y devuelve `Vec<AuditEvent>` + `next_cursor` (offset); (c) `vanta.ts` `auditEvents()`. Aditivo: no cambia el contrato de conexiones existente; si no hay audit configurado → error claro `Unsupported("audit log no configurado")`.
 - **Verificación:** `cargo test -j 1` (test: put/delete generan eventos; filtro por namespace/op; cursor sin solapamiento); `npm run build` verde.
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO
 
 ### Task 3: VS-CORE-07 — Retención de versiones históricas en `VantaMemoryRecord` (D2 completo)
 - **Archivos clave:** `src/sdk/types.rs:175` (`VantaMemoryRecord`), `src/sdk/api.rs:291-295` (put bump in-place `version+1` — verificado: NO retiene snapshots), `src/backends/fjall_backend.rs` (KV extra `versions/{ns}\0{key}\0{ver}` propuesto en Fase 0 Task 19), `src/storage/engine/ops.rs` (write path).
 - **Gate Justificación:** D2 del usuario: **planificación → investigación → análisis → implementación**. Destraba Historial+Diff (Fix 3). Cláusula de doble consumidor: lo necesitan P26 (Studio, Historial+Diff) y P27 (memory, offload/skills versionadas) — diseñar UNA vez.
 - **Contrato (Fase 1 de la tarea):** ejecutar **análisis de decisión** en el core y entregar **propuesta** (task file con sección "PROPUESTA"): ¿retener snapshots n-1 vs n-k vs solo actual+anterior? ¿coste de almacenamiento/compacción (1 write extra por put)? ¿API de acceso (`get_version(ns,key,ver)` + `versions(ns,key)`)? ¿integración con put_batch/import/expiración? → **Checkpoint humano obligatorio antes de implementar** (aprobación). Implementación SOLO tras aprobación.
 - **Verificación (análisis):** propuesta con trade-offs + API propuesta + tests afectados; sin código hasta aprobación.
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO
 
 ---
 
@@ -79,35 +79,35 @@
 - **Gate Justificación:** SYNTHESIS §4 "Lente RETRIEVAL (Fix 5)": el diferenciador más barato y más pedido del mercado (Mem0 `explain=True`, Zep provenance). P0 de 03.
 - **Contrato:** barra de consulta (texto + vector-picker de registro existente + top-k + umbral) + filtros visuales por metadata (reutilizar `filters-core.ts`/`toVantaMemoryFilter` de VS-07) + resultados con **desglose de score como barras horizontales apiladas** (longitud = score; segmentos: BM25 vía `bm25_terms`/`rrf_text_rank`, HNSW vía `rrf_vector_rank`, RRF vía `fusion_report`; color solo secundario — P7/Cleveland–McGill) + por resultado "ver contexto" (vecino semántico → get/neighbors vía `search` con vector del registro; historial del audit si VS-12 ya está). Encoding redundante (barras + número + tooltip). Surface accesible desde cualquier registro seleccionado (P4: lente contextual, no destino aparte).
 - **Verificación:** `npm run build` verde; self-check script (shape de barras: componente ausente → segmento 0, no crashea); datos reales de una DB temp con 3 records + query.
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO
 
 ### Task 5: VS-14 — Historial+Diff entre versiones (tab en Inspector)
 - **Archivos clave:** `desktop/src/components/inspector/Inspector.tsx` (VS-06: añadir tab), `desktop/src/components/inspector/historial-tab.tsx` (nuevo), `desktop/src/vanta.ts` (usa API de VS-CORE-07 tras aprobación).
 - **Gate Justificación:** SYNTHESIS §4 Inspector "Historial+Diff (Fix 3)": cada versión con su cambio resaltado (payload/metadata/vector) estilo git. DEFER Fase 0: "En espera hasta VS-CORE-07 (D2)".
 - **Contrato:** lista de versiones (v1..vN con timestamp) + diff entre dos versiones seleccionadas: payload (line-diff), metadata (KV diff añadido/quitado/cambiado), vector (norma/dim + "cambió" sí/no); **revertir a vN es acción explícita** (botón → confirmación → put → P6). **BLOQUEADA** si VS-CORE-07 no está aprobado — en ese caso el task file queda ⏳ y el plan continúa con VS-15..17.
 - **Verificación:** `npm run build` verde; self-check con fixture de 3 versiones.
-- **Estado:** ⏳ PENDIENTE (bloqueada por VS-CORE-07)
+- **Estado:** ✅ HECHO (commit cdcaf268, desbloqueada tras VS-CORE-07)
 
 ### Task 6: VS-15 — ACTIVITY + Timeline (audit log filtrable y agrupado en el tiempo)
 - **Archivos clave:** `desktop/src/components/activity/` (nuevo: ActivityPanel + Timeline), `desktop/src/components/layout/WorkspaceShell.tsx` (slice aditivo: surface ACTIVITY), `desktop/src/vanta.ts` (`auditEvents()` de VS-12).
 - **Gate Justificación:** SYNTHESIS §4 OPERACIONES "Timeline (Fix 3)" + "Activity: audit log filtrable por namespace/op/outcome (equivalente al Profiler/SlowLog de RedisInsight)" + DEFER Fase 1.
 - **Contrato:** Timeline unificada (escrituras/actualizaciones/expiraciones/borrados por namespace, agrupada por hora/día) + Activity como tabla filtrable (namespace/op/outcome, paginada con cursor de VS-12, hover → key/record en Inspector). Encoding redundante por op (color+ícono+texto). Empty state honesto si audit no configurado (VS-12 error → banner "audit log no habilitado", con hint de dónde se configura).
 - **Verificación:** `npm run build` verde; self-check con audit fixture JSONL.
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO
 
 ### Task 7: VS-16 — Deep links `vanta://` + export de vistas + reporte markdown
 - **Archivos clave:** `desktop/src-tauri/src/lib.rs` (handler deep link; verificar API oficial `tauri-plugin-deep-link` con webfetch ANTES de codificar — Regla técnica 0), `tauri.conf.json`, `desktop/src/vanta.ts` (parseo `vanta://ns/key?query=`), `desktop/src/components/export/` (nuevo), reusa `listPage()`/filtros VS-07.
 - **Gate Justificación:** SYNTHESIS §6 "Deep links / portabilidad: URLs `vanta://ns/key?query=...` + export JSON/Markdown/CSV — barato, muy valorado en ecosistema embebido" + DEFER Fase 1 "Deep links + export vistas + reporte legible (markdown)".
 - **Contrato:** (a) registro de URI scheme `vanta://` (Windows) y handler que navega a namespace/key/query al abrir la app; (b) export de la **vista actual** (grid filtrada de VS-07 → JSONL; resultado de RETRIEVAL si la lente está activa) no solo namespace completo; (c) **reporte legible markdown** del estado (reusa `namespace_stats` de VS-CORE-02: conteos, tipos, TTL próximos) con botón copiar/descargar. Todo con encoding manga existente.
 - **Verificación:** `npm run build` verde; deep link test manual (Windows: `start vanta://...` → app navega); export genera JSONL válido (parseable por import).
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO
 
 ### Task 8: VS-17 — Favoritos/historial de búsqueda + Copy-as
 - **Archivos clave:** `desktop/src/components/palette/CommandPalette.tsx` (VS-09: grupos nuevos), `desktop/src/store/favorites.ts` (nuevo, localStorage), `desktop/src/components/layout/WorkspaceShell.tsx` (slice aditivo mínimo: estado favoritos), `desktop/src/components/` (botones copy-as en grid/inspector).
 - **Gate Justificación:** DEFER Fase 1 "Favoritos/historial de búsqueda (02 P1, 05 filtros) — barato (localStorage), complementa Ctrl+K" + "Copy-as (02 P3: copiar registro/query/key en JSON/JSONL/markdown)".
 - **Contrato:** (a) favoritos de namespaces/keys con toggle (★) persistidos en localStorage, listados en palette (grupo FAVORITOS) y sidebar; (b) historial de las últimas N búsquedas (localStorage, re-ejecutables desde palette); (c) Copy-as: desde grid/inspector copiar registro completo (JSON), key, o payload (markdown) — botón con feedback "copiado". Sin nuevas deps (navigator.clipboard + localStorage).
 - **Verificación:** `npm run build` verde; self-check localStorage roundtrip.
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO
 
 ---
 
@@ -118,7 +118,7 @@
 - **Gate Justificación:** SYNTHESIS P15 "Encoding redundante (color + ícono + texto) para tipos `VantaValue`, TTL y estados — accesible a daltonismo" + DEFER Fase 1 "A11y pass Fase 1 (encoding redundante chips/badges en MEMORIAS/Inspector)".
 - **Contrato:** cada estado actualmente solo-color (tipos `VantaValue`, TTL activo/expirando/expirado, version, vector presente/ausente) gana ícono + texto (o patrón) adicionales; **no romper** el layout de VS-05/06; `prefers-reduced-motion` respetado; contraste AA verificado en claro y dark.
 - **Verificación:** `npm run build` verde; revisión visual (screenshot de grid + inspector en claro/dark); checklist AA.
-- **Estado:** ⏳ PENDIENTE
+- **Estado:** ✅ HECHO
 
 ---
 
