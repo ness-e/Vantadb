@@ -1857,7 +1857,11 @@ fn test_mcp_list_filters_accept_operators() {
         1,
         "$gt filter must match exactly the high record, got: {page}"
     );
-    assert_eq!(records[0]["key"], json!("high"), "must match key 'high', got: {page}");
+    assert_eq!(
+        records[0]["key"],
+        json!("high"),
+        "must match key 'high', got: {page}"
+    );
 
     // Flat form still works unchanged (published behavior).
     let flat_params = Some(json!({
@@ -1868,13 +1872,23 @@ fn test_mcp_list_filters_accept_operators() {
         }
     }));
     let flat_res = handle_tools_call(&flat_params, &executor, &storage, &default_config());
-    assert!(flat_res.is_ok(), "flat list filter must still work: {flat_res:?}");
+    assert!(
+        flat_res.is_ok(),
+        "flat list filter must still work: {flat_res:?}"
+    );
     let flat_val = flat_res.unwrap();
-    assert!(flat_val["isError"].is_null(), "flat list filter must not error");
+    assert!(
+        flat_val["isError"].is_null(),
+        "flat list filter must not error"
+    );
     let flat_page: Value =
         serde_json::from_str(flat_val["content"][0]["text"].as_str().unwrap()).unwrap();
     let flat_records = flat_page["records"].as_array().unwrap();
-    assert_eq!(flat_records.len(), 1, "flat filter must match low only: {flat_page}");
+    assert_eq!(
+        flat_records.len(),
+        1,
+        "flat filter must match low only: {flat_page}"
+    );
     assert_eq!(flat_records[0]["key"], json!("low"));
 }
 

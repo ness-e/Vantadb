@@ -855,7 +855,10 @@ fn test_count_with_flat_filter_alias() {
         engine.get(red_id).unwrap().is_none(),
         "flat filter must delete the red record"
     );
-    assert!(engine.get(blue_id).unwrap().is_some(), "blue record must remain");
+    assert!(
+        engine.get(blue_id).unwrap().is_some(),
+        "blue record must remain"
+    );
 }
 
 #[test]
