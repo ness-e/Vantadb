@@ -7,6 +7,7 @@ description: >-
   build pipeline configuration.
 mode: all
 permission:
+  question: allow
   read: allow
   edit: allow
   glob: allow
