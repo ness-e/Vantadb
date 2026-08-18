@@ -65,6 +65,7 @@ The MCP server exposes the following tools for memory operations:
 
 - **`inject_context`** - Inject context into a thread
   - Parameters: `content`, `thread_id`
+  - `thread_id` must be a numeric id (integer). A string (e.g. `"200"`) is rejected with a clear invalid-params error; the message distinguishes a missing field from a wrong type (AUD-050).
   - Returns: Context anchoring status
 
 - **`read_axioms`** - Read system axioms

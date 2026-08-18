@@ -633,9 +633,21 @@ pub fn handle_tools_call(
             let content = args["content"]
                 .as_str()
                 .ok_or_else(|| McpError::invalid_params("Missing 'content'").to_json())?;
-            let thread_id = args["thread_id"]
-                .as_u64()
-                .ok_or_else(|| McpError::invalid_params("Missing 'thread_id'").to_json())?;
+            // AUD-050: a present-but-wrong-typed thread_id (e.g. string "200")
+            // used to surface as "Missing 'thread_id'" — misleading, since the
+            // field IS present. Distinguish absence from bad type explicitly.
+            let thread_id = match args.get("thread_id") {
+                Some(Value::Null) | None => {
+                    return Err(McpError::invalid_params("Missing 'thread_id'").to_json());
+                }
+                Some(v) => v.as_u64().ok_or_else(|| {
+                    McpError::invalid_params(format!(
+                        "'thread_id' must be a numeric id (integer), got {}",
+                        json_value_type_name(v)
+                    ))
+                    .to_json()
+                })?,
+            };
 
             if content.len() > config.max_payload_length {
                 return Ok(error_content(format!(

@@ -1395,6 +1395,59 @@ fn test_inject_context_lisp_injection() {
 }
 
 #[test]
+fn test_inject_context_thread_id_type_error() {
+    // AUD-050: a string thread_id used to surface as "Missing 'thread_id'"
+    // even though the field IS present. The error must name the real problem:
+    // wrong type, not absence.
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let string_params = Some(json!({
+        "name": "inject_context",
+        "arguments": {
+            "content": "hello",
+            "thread_id": "200"
+        }
+    }));
+    let res = handle_tools_call(&string_params, &executor, &storage, &default_config());
+    let err = res.unwrap_err();
+    assert_eq!(err["code"], -32602, "should be invalid params");
+    let msg = err["message"].as_str().unwrap();
+    assert!(
+        msg.contains("thread_id"),
+        "error should name the field, got: {}",
+        msg
+    );
+    assert!(
+        msg.contains("numeric") && msg.contains("string"),
+        "error should explain numeric requirement and got type, got: {}",
+        msg
+    );
+    assert!(
+        !msg.contains("Missing"),
+        "must not claim the field is missing, got: {}",
+        msg
+    );
+
+    // Numeric thread_id must keep working.
+    let numeric_params = Some(json!({
+        "name": "inject_context",
+        "arguments": {
+            "content": "hello",
+            "thread_id": 200
+        }
+    }));
+    let res = handle_tools_call(&numeric_params, &executor, &storage, &default_config());
+    assert!(res.is_ok(), "numeric thread_id should still succeed");
+    let val = res.unwrap();
+    assert!(
+        val["isError"].is_null() || val["isError"] == false,
+        "numeric inject_context should not indicate error: {:?}",
+        val
+    );
+}
+
+#[test]
 fn test_mcp_prompt_invalid_name() {
     let res = handle_prompts_get(Some(&json!({
         "name": "nonexistent_prompt_name"

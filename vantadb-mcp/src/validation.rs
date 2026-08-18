@@ -312,6 +312,19 @@ pub(crate) fn text_content(text: String) -> Value {
     json!({"content": [{"type": "text", "text": text}]})
 }
 
+/// Human-readable name of a JSON value's type, for actionable error messages
+/// that distinguish an absent field from a present-but-wrong-typed one.
+pub(crate) fn json_value_type_name(val: &Value) -> &'static str {
+    match val {
+        Value::Null => "null",
+        Value::Bool(_) => "boolean",
+        Value::Number(_) => "number",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    }
+}
+
 pub(crate) fn error_content(msg: impl Into<String>) -> Value {
     json!({"isError": true, "content": [{"type": "text", "text": msg.into()}]})
 }
