@@ -135,6 +135,7 @@ job*_logs/
 *logs/
 *db/
 !skills/vantadb/
+!vantadb-python/vantadb/
 tests_*/
 test_*/
 
