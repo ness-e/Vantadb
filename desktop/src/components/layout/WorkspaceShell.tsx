@@ -23,6 +23,7 @@ import ProcessPanel from "../ProcessPanel";
 import ExportPanel from "../ExportPanel";
 import ResultsList from "../ResultsList";
 import { MarkStudio } from "../mark/mark-studio";
+import HomeOverview from "../home/HomeOverview";
 
 type Surface = "resumen" | "memorias" | "actividad" | "indices" | "iql";
 
@@ -373,6 +374,7 @@ export default function WorkspaceShell({
                   </p>
                 </section>
               )}
+              {state.active && <HomeOverview active />}
               <ConnectionPanel
                 connections={state.connections}
                 activeId={state.activeId}
