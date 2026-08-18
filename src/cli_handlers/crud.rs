@@ -12,13 +12,14 @@ use crate::error::{ChainedError, Result};
 use crate::node::{FieldValue, NodeFlags, VectorRepresentations};
 
 #[tracing::instrument]
-/// Store a key-value record with optional vector embedding
+/// Store a key-value record with optional vector embedding and metadata
 pub fn cmd_put(
     db_path: &str,
     namespace: &str,
     key: &str,
     payload: &str,
     vector: Option<&str>,
+    metadata: Option<&str>,
     verbose: bool,
 ) -> Result<()> {
     let spinner = create_spinner("Opening database...");
@@ -83,6 +84,45 @@ pub fn cmd_put(
     if let Some(vec) = vector_data {
         node.vector = VectorRepresentations::Full(vec);
         node.flags.set(NodeFlags::HAS_VECTOR);
+    }
+
+    // Optional metadata: JSON object -> user fields. Keys under the internal
+    // `__vanta_` prefix are rejected (same rule as the SDK `validate_metadata`),
+    // so the CLI cannot collide with internal fields or fake system timestamps.
+    if let Some(meta_str) = metadata {
+        let parsed: serde_json::Value = serde_json::from_str(meta_str).map_err(|e| {
+            spinner.finish_and_clear();
+            print_error(&format!("Invalid metadata JSON: {e}"));
+            crate::error::VantaError::CliError(ChainedError::msg(format!(
+                "Metadata must be a JSON object, e.g. '{{\"k\":\"v\"}}': {e}"
+            )))
+        })?;
+        let obj = parsed.as_object().ok_or_else(|| {
+            spinner.finish_and_clear();
+            print_error("Metadata must be a JSON object at the root level");
+            crate::error::VantaError::CliError(ChainedError::msg(
+                "Metadata must be a JSON object at the root level, e.g. '{\"k\":\"v\"}'",
+            ))
+        })?;
+        for (field, value) in obj {
+            if field.starts_with("__vanta_") {
+                spinner.finish_and_clear();
+                print_error(&format!(
+                    "Metadata key '{field}' is reserved for VantaDB internals"
+                ));
+                return Err(crate::error::VantaError::ValidationError {
+                    field: "metadata".into(),
+                    reason: format!("metadata key '{field}' is reserved for VantaDB internals"),
+                });
+            }
+            let vanta_value = json_to_vanta_value(value).map_err(|e| {
+                spinner.finish_and_clear();
+                print_error(&format!("Invalid metadata value for '{field}': {e}"));
+                e
+            })?;
+            node.relational
+                .insert(field.clone(), crate::node::FieldValue::from(vanta_value));
+        }
     }
 
     node.flags.set(NodeFlags::ACTIVE);

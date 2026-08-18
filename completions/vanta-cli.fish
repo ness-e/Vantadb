@@ -62,6 +62,7 @@ complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand put" -l namespace -d
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand put" -l key -d 'Key to store the value under' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand put" -l payload -d 'Value to store (payload text)' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand put" -l vector -d 'Optional vector embedding (comma-separated f32 values)' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand put" -l metadata -d 'Optional metadata as a JSON object, e.g. \'{"k":"v","n":1}\'' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand put" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand put" -l memory-limit -d 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand put" -s v -l verbose -d 'Enable verbose output'

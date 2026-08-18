@@ -39,6 +39,7 @@ _arguments "${_arguments_options[@]}" : \
 '--key=[Key to store the value under]:KEY:_default' \
 '--payload=[Value to store (payload text)]:PAYLOAD:_default' \
 '--vector=[Optional vector embedding (comma-separated f32 values)]:VECTOR:_default' \
+'--metadata=[Optional metadata as a JSON object, e.g. '\''{"k"\:"v","n"\:1}'\'']:METADATA:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \

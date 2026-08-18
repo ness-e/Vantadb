@@ -47,6 +47,9 @@ pub enum Commands {
         /// Optional vector embedding (comma-separated f32 values)
         #[arg(long)]
         vector: Option<String>,
+        /// Optional metadata as a JSON object, e.g. '{"k":"v","n":1}'
+        #[arg(long)]
+        metadata: Option<String>,
     },
 
     /// Retrieve a value from persistent memory

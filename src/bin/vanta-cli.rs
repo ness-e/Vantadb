@@ -33,12 +33,14 @@ fn main() -> Result<()> {
             key,
             payload,
             vector,
+            metadata,
         } => cli_handlers::cmd_put(
             &args.db,
             &namespace,
             &key,
             &payload,
             vector.as_deref(),
+            metadata.as_deref(),
             args.verbose,
         )?,
 

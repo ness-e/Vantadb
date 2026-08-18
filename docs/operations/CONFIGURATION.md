@@ -304,7 +304,7 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 
 | Command | Description |
 |---------|-------------|
-| `put --namespace <ns> --key <k> --payload <text> [--vector <v>]` | Save a key-value pair to persistent memory |
+| `put --namespace <ns> --key <k> --payload <text> [--vector <v>] [--metadata <json>]` | Save a key-value pair to persistent memory |
 | `get --namespace <ns> --key <k>` | Retrieve a value from persistent memory |
 | `delete --namespace <ns> --key <k>` | Delete a record by namespace and key |
 | `delete-by-filter --namespace <ns> --filter <json>` | Delete records matching metadata filters |
@@ -322,6 +322,8 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `rebuild-index` | Rebuild all database indexes (HNSW, text index, derived indexes) |
 | `audit-index [--namespace <ns>] [--json] [--deep]` | Validate text index integrity without repairing |
 | `repair-text-index` | Repair text index if inconsistencies are detected |
+
+> **Filter scope:** `--filter` on `list`/`delete-by-filter`/`count` matches **user metadata only**. Internal VantaDB fields (reserved prefix `__vanta_*`, e.g. `__vanta_payload`, `__vanta_vector`) are not user metadata — they are stripped from the returned `metadata` map and cannot be used as filter keys. A filter referencing a `__vanta_*` key returns no matches (they are filtered out as internal fields).
 | `backup --out <path>` | Full backup with WAL flush, file copy, CRC32 manifest |
 | `restore --from <path> [--rebuild]` | Restore from backup, verify CRC32, optional rebuild |
 | `check [--namespace <ns>]` | Validate database structural integrity |
@@ -345,6 +347,7 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 
 ```bash
 vanta-cli put --db ./vanta_data --namespace agent/main --key memory-1 --payload "hello"
+vanta-cli put --db ./vanta_data --namespace agent/main --key memory-2 --payload "hello" --metadata '{"type":"note","priority":1}'
 vanta-cli get --db ./vanta_data --namespace agent/main --key memory-1
 vanta-cli list --db ./vanta_data --namespace agent/main
 vanta-cli search --db ./vanta_data --namespace agent/main --query "hello world" --query-vector "0.1,0.2,0.3" --limit 10

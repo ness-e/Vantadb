@@ -7,13 +7,13 @@ fn setup_temp_db() -> (tempfile::TempDir, String) {
     let dir = tempfile::tempdir().expect("failed to create temp dir");
     let path = dir.path().to_string_lossy().to_string();
     // Initialize the database by opening in read-write mode first
-    vantadb::cli_handlers::cmd_put(&path, "_init", "_init", "", None, false)
+    vantadb::cli_handlers::cmd_put(&path, "_init", "_init", "", None, None, false)
         .expect("init put failed");
     (dir, path)
 }
 
 fn seed_record(db_path: &str, namespace: &str, key: &str, payload: &str) {
-    vantadb::cli_handlers::cmd_put(db_path, namespace, key, payload, None, false)
+    vantadb::cli_handlers::cmd_put(db_path, namespace, key, payload, None, None, false)
         .expect("seed put failed");
 }
 
@@ -75,8 +75,16 @@ fn test_get_nonexistent() {
 #[test]
 fn test_put_with_vector() {
     let (_dir, path) = setup_temp_db();
-    vantadb::cli_handlers::cmd_put(&path, "vec_ns", "v1", "data", Some("1.0,2.0,3.0"), false)
-        .expect("put with vector failed");
+    vantadb::cli_handlers::cmd_put(
+        &path,
+        "vec_ns",
+        "v1",
+        "data",
+        Some("1.0,2.0,3.0"),
+        None,
+        false,
+    )
+    .expect("put with vector failed");
 
     // verify vector was stored
     let engine = vantadb::cli_handlers::open_database(&path, true).unwrap();
@@ -88,8 +96,80 @@ fn test_put_with_vector() {
 #[test]
 fn test_put_invalid_vector() {
     let (_dir, path) = setup_temp_db();
-    let result = vantadb::cli_handlers::cmd_put(&path, "ns", "k", "data", Some("abc"), false);
+    let result = vantadb::cli_handlers::cmd_put(&path, "ns", "k", "data", Some("abc"), None, false);
     assert!(result.is_err(), "expected error for invalid vector");
+}
+
+#[test]
+fn test_put_with_metadata_roundtrip() {
+    let (_dir, path) = setup_temp_db();
+    vantadb::cli_handlers::cmd_put(
+        &path,
+        "meta_ns",
+        "m1",
+        "data with meta",
+        None,
+        Some(r#"{"color":"blue","count":2,"active":true}"#),
+        false,
+    )
+    .expect("put with metadata failed");
+
+    // Verify via the SDK: metadata fields are read back as record metadata
+    let config = vantadb::config::VantaConfig {
+        storage_path: path.clone(),
+        read_only: true,
+        ..Default::default()
+    };
+    let db = vantadb::VantaEmbedded::open_with_config(config).expect("open read-only");
+    let record = db
+        .get("meta_ns", "m1")
+        .expect("get record")
+        .expect("record exists");
+    assert_eq!(
+        record.metadata.get("color"),
+        Some(&vantadb::sdk::VantaValue::String("blue".into()))
+    );
+    assert_eq!(
+        record.metadata.get("count"),
+        Some(&vantadb::sdk::VantaValue::Int(2))
+    );
+    assert_eq!(
+        record.metadata.get("active"),
+        Some(&vantadb::sdk::VantaValue::Bool(true))
+    );
+}
+
+#[test]
+fn test_put_metadata_rejects_reserved_prefix() {
+    let (_dir, path) = setup_temp_db();
+    let result = vantadb::cli_handlers::cmd_put(
+        &path,
+        "meta_ns",
+        "bad",
+        "data",
+        None,
+        Some(r#"{"__vanta_payload":"spoofed"}"#),
+        false,
+    );
+    assert!(
+        result.is_err(),
+        "reserved __vanta_ metadata key must be rejected"
+    );
+}
+
+#[test]
+fn test_put_metadata_invalid_json() {
+    let (_dir, path) = setup_temp_db();
+    let result = vantadb::cli_handlers::cmd_put(
+        &path,
+        "meta_ns",
+        "bad2",
+        "data",
+        None,
+        Some(r##"{"color": "##),
+        false,
+    );
+    assert!(result.is_err(), "malformed metadata JSON must be rejected");
 }
 
 #[test]
@@ -660,7 +740,8 @@ fn test_stats_verbose() {
 #[test]
 fn test_put_verbose() {
     let (_dir, path) = setup_temp_db();
-    let result = vantadb::cli_handlers::cmd_put(&path, "v_ns", "v_key", "verbose", None, true);
+    let result =
+        vantadb::cli_handlers::cmd_put(&path, "v_ns", "v_key", "verbose", None, None, true);
     assert!(result.is_ok());
 }
 
@@ -808,6 +889,7 @@ fn test_similar_to_key() {
         "v1",
         "vector record",
         Some("1.0,2.0,3.0"),
+        None,
         false,
     )
     .expect("put with vector failed");
