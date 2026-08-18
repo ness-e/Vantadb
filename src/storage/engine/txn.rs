@@ -377,6 +377,12 @@ impl StorageEngine {
         if let crate::node::VectorRepresentations::SQ8(data, scale) = &index_node.value().vec_data {
             node.vector = crate::node::VectorRepresentations::SQ8(data.clone(), *scale);
         }
+        // Binary vectors are not stored in vstore as f32 (vector_len=0), so the
+        // Full default above would be empty. Restore the original Binary payload
+        // from the HNSW entry so get_with_snapshot returns the inserted vector.
+        if let crate::node::VectorRepresentations::Binary(b) = &index_node.value().vec_data {
+            node.vector = crate::node::VectorRepresentations::Binary(b.clone());
+        }
         node.relational = metadata.relational;
         node.edges = metadata.edges;
         node.confidence_score = header.confidence_score;

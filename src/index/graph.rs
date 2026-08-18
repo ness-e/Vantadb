@@ -644,7 +644,34 @@ impl CPIndex {
 
         let query_f32 = match vec_data.to_f32() {
             Some(v) => v,
-            None => return Ok(()),
+            // Binary (and any other non-F32-indexable, non-None) vectors must
+            // remain retrievable by get() (insert→get contract) even though
+            // they are not part of the similarity graph. Mirror the
+            // vec_data.is_none() branch of validate_node: allocate, insert the
+            // HnswNode with empty neighbor lists, count it — but do not touch
+            // the entry point or any HNSW layers. `vec_data` can only reach
+            // here when validate_node returned false (i.e. non-None), the
+            // is_none() guard is defensive only.
+            None => {
+                if !vec_data.is_none() {
+                    self.neighbor_index.allocate(id, 1);
+                    self.nodes.insert(
+                        id,
+                        HnswNode {
+                            id,
+                            bitset,
+                            vec_data,
+                            storage_offset,
+                            inv_cached_norm,
+                            norm_sq,
+                            flags: 0,
+                            neighbor_lists: Vec::new(),
+                        },
+                    );
+                    self.total_nodes.fetch_add(1, Ordering::Relaxed);
+                }
+                return Ok(());
+            }
         };
 
         // AUDREP-27: reject zero-norm vectors up-front, before any graph
@@ -795,7 +822,34 @@ impl CPIndex {
 
         let query_f32 = match vec_data.to_f32() {
             Some(v) => v,
-            None => return Ok(()),
+            // Binary (and any other non-F32-indexable, non-None) vectors must
+            // remain retrievable by get() (insert→get contract) even though
+            // they are not part of the similarity graph. Mirror the
+            // vec_data.is_none() branch of validate_node: allocate, insert the
+            // HnswNode with empty neighbor lists, count it — but do not touch
+            // the entry point or any HNSW layers. `vec_data` can only reach
+            // here when validate_node returned false (i.e. non-None), the
+            // is_none() guard is defensive only.
+            None => {
+                if !vec_data.is_none() {
+                    self.neighbor_index.allocate(id, 1);
+                    self.nodes.insert(
+                        id,
+                        HnswNode {
+                            id,
+                            bitset,
+                            vec_data,
+                            storage_offset,
+                            inv_cached_norm,
+                            norm_sq,
+                            flags: 0,
+                            neighbor_lists: Vec::new(),
+                        },
+                    );
+                    self.total_nodes.fetch_add(1, Ordering::Relaxed);
+                }
+                return Ok(());
+            }
         };
 
         // AUDREP-27: reject zero-norm up-front, before any graph mutation.

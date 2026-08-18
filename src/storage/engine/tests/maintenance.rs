@@ -271,6 +271,10 @@ fn test_consolidate_node_with_binary_vector() {
         .expect("consolidate with Binary vector");
     let retrieved = engine.get(42).expect("get").unwrap();
     assert_eq!(retrieved.id, 42);
+    assert_eq!(
+        retrieved.vector, node.vector,
+        "get() must return the original Binary payload, not an empty Full"
+    );
 }
 
 #[test]
