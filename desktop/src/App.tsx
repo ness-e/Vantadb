@@ -14,6 +14,14 @@ import ExportPanel from "./components/ExportPanel";
 function App() {
   const [state, actions] = useConnectionState();
   const [notice, setNotice] = useState<string | null>(null);
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
+
+  function toggleTheme() {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("vanta-theme", next ? "dark" : "light");
+  }
 
   function reportError(msg: string) {
     actions.clearError();
@@ -25,6 +33,15 @@ function App() {
       <header className="app-head">
         <h1>VantaDB Desktop</h1>
         <span className="muted">Embedded memory, local-first</span>
+        <button
+          type="button"
+          className="press"
+          onClick={toggleTheme}
+          style={{ marginLeft: "auto" }}
+          aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {dark ? "☀ LIGHT" : "☾ DARK"}
+        </button>
       </header>
 
       {notice && (
