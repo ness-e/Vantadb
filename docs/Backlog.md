@@ -725,5 +725,15 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | `MEM-37` | **F4 Recall en vanta-memory — integración offload↔recall** — conectar `assemble_recall` (MEM-18) con Context Engine (MEM-22): tras compresión mild/aggressive, las memorias re-inyectadas respetan budget y cursor MEM-20; degradación LLM-free completa sin LLM. (Ajuste post-bootstrap — puede fusionarse en MEM-22.) | `vanta-memory/src/recall.rs`, `context_engine.rs` | 🟢 | 🟠 | ❌ Pendiente |
 | `MEM-38` | **F4 Documentación + ADR `vanta-memory`** — ADR de arquitectura (crate LLM-driven, trait sync/async, límites, trade-offs heat/compresión/MMD); docs de diseño por módulo (L1/L2/L3/offload/recall/wiki); actualizar ROADMAP. Gate antes de release F5. | `docs/architecture/adr/`, `docs/` | 🟢 | 🟡 | ❌ Pendiente |
 
+---
+
+## P28 - Deuda técnica core — follow-ups (2026-08-18)
+
+> **Origen:** follow-up del fix `8c8eef23` (vectores Binary insertables/recuperables por `get()`). El fix resolvió el contrato insert→get en memoria; la persistencia on-disk de vectores no-F32 queda pendiente (formato).
+
+| ID | Descripción (→ Resultado) | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+| `CORE-01` | **Persistencia on-disk de vectores Binary (y no-F32) en vstore** — `write_node_to_vstore` (`ops.rs:59`) escribe `vector_len=0` y NO persiste datos para `Binary`/`Turbo`; `get()` rescata el vector desde el HNSW (fix `8c8eef23`), pero tras reopen + `rebuild_hnsw_from_vstore` el Binary original se pierde (header `vector_len=0` → rebuild lo lee como sin vector). Definir codificación on-disk (flag de formato en `DiskNodeHeader` o convención sobre `vector_len`) + escritura/lectura en `write_node_to_vstore`/`get()`/`get_with_snapshot`/rebuild + migración/versionado. Gate: ADR de formato antes de implementar. | `src/storage/ops.rs:59`, `src/node/disk.rs`, `src/storage/archive.rs:359`, `src/storage/engine/get.rs`, `src/storage/engine/txn.rs` | 🟡 | 🟡 | ❌ Pendiente |
+
 
 
