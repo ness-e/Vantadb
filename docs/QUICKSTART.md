@@ -45,8 +45,9 @@ python -m pip install --upgrade pip
 pip install vantadb-py
 ```
 
-> **Note**: The distribution name is `vantadb-py`; the importable module uses an
-> underscore: `import vantadb_py`.
+> **Note**: The distribution name is `vantadb-py`; the canonical import is
+> `import vantadb` (same as the Rust crate and npm package). `import vantadb_py`
+> remains available and is not broken.
 
 ### Alternative: Install from Source (Development)
 
@@ -77,7 +78,7 @@ pip install ./path/to/vantadb_py-0.5.0-*.whl
 Create `quickstart_memory.py`:
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 db = vantadb.VantaDB("./quickstart_data", memory_limit_bytes=128_000_000)
 

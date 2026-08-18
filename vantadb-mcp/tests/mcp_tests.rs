@@ -658,13 +658,18 @@ fn test_mcp_search_semantic_distance_semantics() {
     let text = val["content"][0]["text"].as_str().unwrap();
     let hits: Value = serde_json::from_str(text).expect("search_semantic response should be JSON");
 
-    let hits = hits.as_array().expect("search_semantic should return an array");
+    let hits = hits
+        .as_array()
+        .expect("search_semantic should return an array");
     assert_eq!(hits.len(), 2, "k=2 should return 2 hits");
 
     // Every hit must expose id, distance, and node.
     for hit in hits {
         assert!(hit["id"].is_string(), "hit must expose id field: {hit}");
-        assert!(hit["distance"].is_f64(), "hit must expose distance field: {hit}");
+        assert!(
+            hit["distance"].is_f64(),
+            "hit must expose distance field: {hit}"
+        );
         assert!(hit["node"].is_object(), "hit must expose node field: {hit}");
     }
 
@@ -1723,8 +1728,13 @@ fn test_mcp_search_memory_explain_shape() {
     let hits: Value = serde_json::from_str(text).expect("response should be JSON");
 
     // Contract: flat ARRAY of hits — no top-level route/fusion_report envelope.
-    let arr = hits.as_array().expect("response should be a flat hit array");
-    assert!(!arr.is_empty(), "seeded search should return at least one hit");
+    let arr = hits
+        .as_array()
+        .expect("response should be a flat hit array");
+    assert!(
+        !arr.is_empty(),
+        "seeded search should return at least one hit"
+    );
     for hit in arr {
         assert!(
             hit.get("route").is_none() && hit.get("fusion_report").is_none(),
@@ -1734,7 +1744,9 @@ fn test_mcp_search_memory_explain_shape() {
             hit.get("record").is_some() && hit.get("score").is_some(),
             "hit must carry record and score, got: {hit}"
         );
-        let explanation = hit.get("explanation").expect("explain=true must attach explanation");
+        let explanation = hit
+            .get("explanation")
+            .expect("explain=true must attach explanation");
         for field in [
             "identity",
             "score",

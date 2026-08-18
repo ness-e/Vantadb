@@ -63,7 +63,9 @@ VantaDB is distributed as a native Python package with pre-compiled wheels for W
 pip install vantadb-py
 ```
 
-> **Note:** The distribution name is `vantadb-py`, but the importable module uses an underscore due to Python naming conventions: `import vantadb_py`.
+> **Note:** The distribution name is `vantadb-py`, and the canonical import is
+> `import vantadb` (same as the Rust crate and npm package). `import vantadb_py`
+> remains available and is not broken.
 
 For development from source:
 
@@ -91,7 +93,7 @@ vantadb = { git = "https://github.com/ness-e/Vantadb" }
 Initialize a persistent memory store, save structured records with vectors, and execute hybrid retrieval in pure Python:
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 # 1. Open or create a local database (zero configuration)
 db = vantadb.VantaDB("./vanta_data", memory_limit_bytes=512_000_000)
@@ -262,6 +264,13 @@ Installs and registers `vanta-cli` directly into your Cargo binary directory:
 ```bash
 cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli
 ```
+
+> [!NOTE]
+> The precompiled binaries from [GitHub Releases](https://github.com/ness-e/Vantadb/releases) (and the install scripts above) already include the HTTP server feature. If you install from source via `cargo install` and need `vanta-cli server --http`, enable it explicitly:
+>
+> ```bash
+> cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli --features server
+> ```
 
 ---
 

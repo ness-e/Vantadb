@@ -39,6 +39,7 @@ module-name = "vantadb_py"
 include = [
     "vantadb_py/py.typed",
     "vantadb_py/*.pyi",
+    "vantadb/__init__.py",
 ]
 
 # pytest — FX-3 (test_load.py hang): the bulk-load/sustained-throughput tests are

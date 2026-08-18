@@ -9,7 +9,7 @@ Bindings oficiales de Python para **VantaDB**, un motor de base de datos embebid
 pip install vantadb-py
 ```
 
-> **Nota:** El nombre de distribución es `vantadb-py`, pero el módulo importable usa guion bajo: `import vantadb_py`.
+> **Nota:** El nombre de distribución es `vantadb-py` y el import canónico es `import vantadb` (igual que el crate Rust y el paquete npm). `import vantadb_py` sigue disponible y no se rompe.
 
 ### Desde TestPyPI (Pruebas de releases previas)
 ```bash
@@ -31,10 +31,10 @@ maturin develop --release
 ## 🚀 Quickstart
 
 ```python
-import vantadb_py as vdb
+import vantadb
 
 # 1. Abrir o crear una base de datos embebida
-db = vdb.VantaDB("./my_agent_memory", memory_limit_bytes=128 * 1024 * 1024)
+db = vantadb.VantaDB("./my_agent_memory", memory_limit_bytes=128 * 1024 * 1024)
 
 # 2. Almacenar memoria persistente (payload + vector + metadatos)
 db.put(
