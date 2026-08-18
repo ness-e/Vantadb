@@ -260,6 +260,13 @@ Instala y registra `vanta-cli` directamente en tu directorio binario de Cargo:
 cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli
 ```
 
+> [!NOTE]
+> Los binarios precompilados de [GitHub Releases](https://github.com/ness-e/Vantadb/releases) (y los scripts de instalación de arriba) ya incluyen la feature del servidor HTTP. Si instalas desde fuente con `cargo install` y necesitas `vanta-cli server --http`, actívala explícitamente:
+>
+> ```bash
+> cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli --features server
+> ```
+
 ---
 
 ### 🚀 Guía de uso

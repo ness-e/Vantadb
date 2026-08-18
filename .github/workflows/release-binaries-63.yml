@@ -108,7 +108,9 @@ jobs:
           else
             ALLOC_FEATURES="jemalloc"
           fi
-          cargo build --release --target ${{ matrix.target }} --features "$ALLOC_FEATURES" --package vantadb --bin vanta-cli
+          # AUD-047: published vanta-cli must include the HTTP server (server feature).
+          # default features stay lean; release binary is the one place users get server.
+          cargo build --release --target ${{ matrix.target }} --features "server,$ALLOC_FEATURES" --package vantadb --bin vanta-cli
           cargo build --release --target ${{ matrix.target }} --features "$ALLOC_FEATURES" --package vantadb-server
 
       - name: Package binaries (Unix)

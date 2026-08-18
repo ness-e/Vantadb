@@ -604,3 +604,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 
 **Regla de oro:** si un lector no puede reproducir el número con un comando documentado en el repo, el claim no existe.
 
+<!-- Learnings: AUD-047 — 2026-08-17 -->
+- `cargo install` (y `--features` en workflows) compila SOLO default features salvo que se pase `--features` explícito — la feature `server` quedaba fuera de los binarios publicados aunque existiera en el Cargo.toml.
+- El patrón que funcionó: mantener default lean y agregar la feature al build del workflow de release (`--features "server,$ALLOC_FEATURES"`) + documentar `cargo install --features server` en README — evita pagar axum/tokio en todo build de desarrollo.
+
