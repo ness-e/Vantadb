@@ -301,7 +301,10 @@ mod tests {
         assert_eq!(all[0].payload, "hello");
         assert_eq!(all[1].payload, "hola");
         assert_eq!(all[2].payload, "bonjour");
-        assert_eq!(all.iter().map(|r| r.version).collect::<Vec<_>>(), vec![1, 2, 3]);
+        assert_eq!(
+            all.iter().map(|r| r.version).collect::<Vec<_>>(),
+            vec![1, 2, 3]
+        );
 
         let live = db.get("docs", "greeting").expect("get").expect("live");
         assert_eq!(live.version, 3);
@@ -423,9 +426,12 @@ mod tests {
             namespace: "docs".into(),
             key: "vec".into(),
             payload: "sparse + dense".into(),
-            metadata: [("lang".to_string(), crate::node::FieldValue::String("en".into()).into())]
-                .into_iter()
-                .collect(),
+            metadata: [(
+                "lang".to_string(),
+                crate::node::FieldValue::String("en".into()).into(),
+            )]
+            .into_iter()
+            .collect(),
             created_at_ms: 1,
             updated_at_ms: 2,
             version: 7,
@@ -482,8 +488,10 @@ mod tests {
         // separate: length prefixes make the boundary unambiguous.
         let db = open_db(None);
         db.put(VantaMemoryInput::new("x", "a", "one")).expect("put");
-        db.put(VantaMemoryInput::new("x", "ab", "two")).expect("put");
-        db.put(VantaMemoryInput::new("xy", "a", "three")).expect("put");
+        db.put(VantaMemoryInput::new("x", "ab", "two"))
+            .expect("put");
+        db.put(VantaMemoryInput::new("xy", "a", "three"))
+            .expect("put");
         assert_eq!(db.versions("x", "a").expect("versions").len(), 1);
         assert_eq!(db.versions("x", "ab").expect("versions").len(), 1);
         assert_eq!(db.versions("xy", "a").expect("versions").len(), 1);
