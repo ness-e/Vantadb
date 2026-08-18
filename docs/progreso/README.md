@@ -3949,6 +3949,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ CHANGES-REQUIRED con 1 falla (SKILL.md:8 "4 resources" vs 2 reales en resources/list) → fix delegado a SKL-02 y re-verificado (test-mcp.py 4/4 exit 0). 13/13 checks + coherencia skill↔código OK (15/15 tools, 5/5 firmas pyi).
 - **Ids:** `SKL-04`
 
+### VS-02: MARK variante desktop (asistente de datos)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase0.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** port del componente MARK (mascota VantaDB) de web → desktop sin Anime.js, con variante data-driven para el workspace.
+- **Resultado:** ✅ 4 archivos en `desktop/src/components/mark/` (`use-mark-interaction.ts`, `Mark.tsx`, `mark-studio.tsx`, `mark.css`) — commit `2573d8a5`. Follow rAF lerp exp (τ 60/130ms), squint React puro, blink WAAPI (cierre 60ms inQuad → hold 50ms → apertura 120ms outQuad), pulse nodos CSS keyframes `transform-box: fill-box`, SMIL glow condicional a reduced-motion; variante `MarkStudio` (idle/loading/empty/error); CSS plano namespaced `.vmark-*` (VS-01 Tailwind pendiente). `npm run build` verde (3×). Web de referencia intacta.
+- **Ids:** `VS-02`
+
 ---
 
 ## Planes archivados

@@ -71,6 +71,12 @@ aliases: [DESKTOP]
 - **Fecha:** 2026-08-06
 - **Resultado:** ✅ `McpSpawn` con `tokio::process::Command`, stderr→log temporal, timeout; spawn+kill limpio; test gateado si falta binario. Localiza `vantadb-server`; flag `--mcp`; stdio piped. Commit `d62c1c0c`.
 
+## Vanta Studio (Fase 0 — consola human-facing)
+
+### VS-02: MARK variante desktop (asistente de datos)
+- **Fecha:** 2026-08-18
+- **Resultado:** ✅ Port de la mascota MARK de `web/src/components/vanta/mark/` a `desktop/src/components/mark/` (4 archivos) sin Anime.js: `use-mark-interaction.ts` (follow rAF lerp exp τ 60/130ms, squint React puro, blink WAAPI cierre 60ms inQuad→hold 50ms→apertura 120ms outQuad con setAttribute final, reduced-motion sin follow/blink), `Mark.tsx` (grafo 10 nodos/18 edges, face ring/SMIL glow/esfera/ojos, SfxLabels, tag, hint), `mark-studio.tsx` (variante data-driven idle/loading/empty/error), `mark.css` (clases namespaced `.vmark-*`, keyframes pulse/ambient `transform-box: fill-box`, media query reduced-motion). `npm run build` verde (3×). Commit `2573d8a5`.
+
 ---
 
 ## Fuentes
