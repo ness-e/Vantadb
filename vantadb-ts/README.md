@@ -76,6 +76,7 @@ db.close();
 | `.putBatch(inputs)` | Batch store |
 | `.get(namespace, key)` | Retrieve by key |
 | `.delete(namespace, key)` | Remove by key |
+| `.deleteByFilter(namespace, filter)` | Batch delete matching an AND-combined filter; returns count (rejects empty filter) |
 | `.list(namespace, options?)` | List with pagination |
 | `.listNamespaces()` | List all namespaces |
 

@@ -269,6 +269,26 @@ impl ConnectionManager {
         conn.delete(key, namespace).await
     }
 
+    /// Delete every record matching an AND-combined metadata filter on the
+    /// active connection (VS-CORE-05), returning the number deleted.
+    ///
+    /// The core rejects an empty filter to prevent accidental full-namespace
+    /// deletion — that error propagates unchanged. Transports without
+    /// batch-delete report `Unsupported`.
+    pub async fn delete_by_filter(
+        &self,
+        namespace: &str,
+        filter: Vec<MemoryFilterItem>,
+    ) -> Result<u64, VantaError> {
+        let id = self.active_id().await?;
+        let mut inner = self.inner.write().await;
+        let conn = inner
+            .connections
+            .get_mut(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        conn.delete_by_filter(namespace, filter).await
+    }
+
     /// List a page of records on the active connection.
     pub async fn list_records(
         &self,

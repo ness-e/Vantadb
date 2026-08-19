@@ -62,8 +62,8 @@
 - **Contrato:** exponer en WASM → TS → bridge Tauri; `vanta_delete_by_filter(namespace, filter) -> u64` (cantidad borrada); **protección**: el core ya rechaza filtro vacío (evita borrado total del namespace) — mantener el error visible en UI. Confirmación + undo integrado en OP-02.
 - **Verificación:** `cargo check` + test WASM/TS del wrapper + `npm run build` verde.
 - **Ruta:** vanta-worker
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-08-19T02:30
+- **Estado:** ✅ COMPLETED (2026-08-19T05:45 - vanta-worker, task file `.opencode/skills/campaign-executor/tasks/3.md`; verify full: clippy root+desktop ✅, nextest 1948/1948 (2 skip, excluido stress HNSW lento pre-existente), cargo check --workspace ✅, npm build TS+desktop ✅; sin commit - lo commitea el lead)
+- **last-synced:** 2026-08-19T05:45
 
 ## Wave 1 — Lente GRAFO (R3F propio, D5)
 

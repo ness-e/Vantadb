@@ -1082,6 +1082,23 @@ impl VantaDB {
         to_js(&report)
     }
 
+    /// Delete all records in a namespace matching an AND-combined metadata
+    /// filter (list of `{field, op, value}` items). Returns the number of
+    /// deleted records.
+    ///
+    /// The core rejects an empty filter to prevent accidental full-namespace
+    /// deletion — that error propagates to the caller unchanged.
+    pub fn delete_by_filter(&self, namespace: &str, filter: JsValue) -> Result<u64, JsValue> {
+        let _g = enter(&self.op_gate)?;
+        let filter: Vec<VantaMemoryFilterItem> = from_js(filter)?;
+        let deleted = self
+            .inner
+            .delete_by_filter(namespace, filter)
+            .map_err(to_js_err)?;
+        self.mark_cache_invalid();
+        Ok(deleted)
+    }
+
     /// Export all records across all namespaces to the given path.
     pub fn export_all(&self, path: &str) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
@@ -1548,6 +1565,50 @@ mod tests {
         let db = create_db();
         let deleted = db.delete("test", "ghost").unwrap();
         assert!(!deleted);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_delete_by_filter_counts() {
+        let db = create_db();
+        for i in 0..3 {
+            let input = serde_wasm_bindgen::to_value(&serde_json::json!({
+                "namespace": "filterdel",
+                "key": format!("hot_{i}"),
+                "payload": "x",
+                "metadata": { "tier": { "String": "hot" } }
+            }))
+            .unwrap();
+            db.put(input).unwrap();
+        }
+        let keep = serde_wasm_bindgen::to_value(&serde_json::json!({
+            "namespace": "filterdel",
+            "key": "keep",
+            "payload": "x",
+            "metadata": { "tier": { "String": "cold" } }
+        }))
+        .unwrap();
+        db.put(keep).unwrap();
+
+        let filter = serde_wasm_bindgen::to_value(&serde_json::json!([
+            { "field": "tier", "op": "Eq", "value": { "String": "hot" } }
+        ]))
+        .unwrap();
+        let deleted = db.delete_by_filter("filterdel", filter).unwrap();
+        assert_eq!(deleted, 3);
+        // Non-matching record survives.
+        assert!(!db.get("filterdel", "keep").unwrap().is_null());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_delete_by_filter_empty_rejected() {
+        let db = create_db();
+        let empty = serde_wasm_bindgen::to_value(&serde_json::json!([])).unwrap();
+        let err = db.delete_by_filter("filterdel", empty).unwrap_err();
+        let msg = err.as_string().unwrap_or_default();
+        assert!(
+            msg.contains("requires at least one filter item"),
+            "unexpected error: {msg}"
+        );
     }
 
     #[wasm_bindgen_test]

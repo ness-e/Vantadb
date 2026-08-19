@@ -140,6 +140,25 @@ pub trait VantaConnection: Send + Sync {
         ))
     }
 
+    /// Delete all records in a namespace matching an AND-combined metadata
+    /// filter (VS-CORE-05). Returns the number of deleted records.
+    ///
+    /// The core rejects an empty filter to prevent accidental full-namespace
+    /// deletion; that error propagates to the UI unchanged. Default
+    /// implementation: transports without batch-delete report
+    /// [`VantaError::Unsupported`] — only native (embedded) implements it via
+    /// the core `delete_by_filter`.
+    async fn delete_by_filter(
+        &mut self,
+        namespace: &str,
+        filter: Vec<MemoryFilterItem>,
+    ) -> Result<u64, VantaError> {
+        let _ = (namespace, filter);
+        Err(VantaError::Unsupported(
+            "delete_by_filter (batch delete) is not implemented by this transport".into(),
+        ))
+    }
+
     /// Cheap liveness / latency probe.
     async fn health(&self) -> Result<HealthReport, VantaError>;
 

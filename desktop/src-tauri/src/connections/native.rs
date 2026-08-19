@@ -536,6 +536,28 @@ impl VantaConnection for NativeConnection {
         .await
     }
 
+    async fn delete_by_filter(
+        &mut self,
+        namespace: &str,
+        filter: Vec<MemoryFilterItem>,
+    ) -> Result<u64, VantaError> {
+        let db = self.db.clone();
+        let namespace = namespace.to_string();
+        let core_filter: Vec<VantaMemoryFilterItem> = filter
+            .into_iter()
+            .map(|item| VantaMemoryFilterItem {
+                field: item.field,
+                op: item.op,
+                value: to_vanta_value(item.value),
+            })
+            .collect();
+        blocking(move || {
+            db.delete_by_filter(&namespace, core_filter)
+                .map_err(map_core_error)
+        })
+        .await
+    }
+
     async fn health(&self) -> Result<HealthReport, VantaError> {
         let started = Instant::now();
         let db = self.db.clone();

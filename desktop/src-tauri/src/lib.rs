@@ -165,6 +165,7 @@ pub fn run() {
             commands::data::vanta_query,
             commands::data::vanta_iql_autocomplete,
             commands::data::vanta_export_namespace,
+            commands::data::vanta_delete_by_filter,
             commands::metrics::vanta_metrics,
             commands::audit::vanta_audit_events,
         ])

@@ -471,6 +471,26 @@ export class VantaDB {
   }
 
   /**
+   * Delete all records in a namespace matching an AND-combined metadata filter.
+   *
+   * Returns the number of deleted records. The core rejects an empty filter to
+   * prevent accidental full-namespace deletion — that error propagates.
+   *
+   * ```ts
+   * const deleted = db.deleteByFilter("docs", [
+   *   { field: "tier", op: "Eq", value: { String: "hot" } },
+   * ]);
+   * console.log(deleted); // 3n
+   * ```
+   */
+  deleteByFilter(namespace: string, filter: VantaMemoryFilterItem[]): bigint {
+    this._assertOpen();
+    return this._wasm("deleteByFilter", () =>
+      this.inner.delete_by_filter(namespace, filter),
+    );
+  }
+
+  /**
    * Export all records across all namespaces to a file.
    *
    * @param path - Output file path.

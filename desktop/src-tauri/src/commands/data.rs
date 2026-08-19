@@ -168,3 +168,19 @@ pub async fn vanta_export_namespace(
         .export_namespace(&namespace, &path, filter)
         .await
 }
+
+/// Delete every record in a namespace matching an AND-combined metadata filter
+/// on the active connection (VS-CORE-05), returning the number deleted.
+///
+/// The core rejects an empty filter to prevent accidental full-namespace
+/// deletion — that error propagates to the UI unchanged. Only the native
+/// (embedded) connection implements batch delete; other transports reject with
+/// `Unsupported`.
+#[tauri::command]
+pub async fn vanta_delete_by_filter(
+    state: State<'_, AppState>,
+    namespace: String,
+    filter: Vec<MemoryFilterItem>,
+) -> Result<u64, VantaError> {
+    state.manager.delete_by_filter(&namespace, filter).await
+}

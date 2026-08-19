@@ -398,6 +398,40 @@ describe("VantaDB put / get / delete", () => {
   });
 });
 
+describe("VantaDB deleteByFilter", () => {
+  let db: VantaDB;
+
+  beforeAll(() => { db = VantaDB.create(); });
+  afterAll(() => { db.close(); });
+
+  it("deletes matching records and returns the count as bigint", () => {
+    for (let i = 0; i < 3; i++) {
+      db.put({
+        namespace: "filterdel",
+        key: `hot_${i}`,
+        payload: "x",
+        metadata: { tier: { String: "hot" } },
+      });
+    }
+    db.put({
+      namespace: "filterdel",
+      key: "keep",
+      payload: "x",
+      metadata: { tier: { String: "cold" } },
+    });
+
+    const deleted = db.deleteByFilter("filterdel", [
+      { field: "tier", op: "Eq", value: { String: "hot" } },
+    ]);
+    expect(deleted).toBe(3n);
+    expect(db.get("filterdel", "keep")).not.toBeNull();
+  });
+
+  it("propagates the empty-filter rejection", () => {
+    expect(() => db.deleteByFilter("filterdel", [])).toThrow();
+  });
+});
+
 describe("VantaDB putBatch", () => {
   let db: VantaDB;
 

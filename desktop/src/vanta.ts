@@ -359,6 +359,22 @@ export function exportNamespace(opts: {
   });
 }
 
+/** Delete every record in a namespace matching an AND-combined metadata filter
+ * (VS-CORE-05). Returns the number of records deleted.
+ *
+ * The core rejects an empty filter to prevent accidental full-namespace
+ * deletion — the rejection propagates as a rejected Promise; surface it to the
+ * user (batch-delete confirmation lives in OP-02). */
+export function deleteByFilter(opts: {
+  namespace: string;
+  filter: MemoryFilterItem[];
+}): Promise<number> {
+  return invoke<number>("vanta_delete_by_filter", {
+    namespace: opts.namespace,
+    filter: opts.filter,
+  });
+}
+
 // --- Metrics (ADMIN-01/04/05) ---------------------------------------------------
 // Subset of `VantaOperationalMetrics` consumed by the dashboard grid (KPI cards
 // + later live dashboard). Rust serializes every u64 field; we only declare
