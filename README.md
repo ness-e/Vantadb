@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/banner.gif" alt="VantaDB - Embedded Rust engine for durable local memory and hybrid vector retrieval">
+  <img src="assets/banner-v3.gif" alt="VantaDB - Embedded Rust engine for durable local memory and hybrid vector retrieval">
 </div>
 
 <br>
@@ -84,12 +84,8 @@ vantadb = { git = "https://github.com/ness-e/Vantadb" }
 
 ## 5-Minute Quickstart
 
-<!-- GIF PLACEHOLDER (NUEVO-01/GH-139): pip install → REPL CRUD → hybrid search.
-     Generate with: vhs doc/demo.tape  (requires vhs/chafa;
-     vhs not installed in CI yet). When a demo GIF < 5MB exists,
-     render it here:
-     <img src="assets/demo.gif" alt="VantaDB demo — pip install, CRUD, hybrid search">
--->
+<img src="assets/demo.gif" alt="VantaDB demo — pip install, CRUD, hybrid search">
+
 Initialize a persistent memory store, save structured records with vectors, and execute hybrid retrieval in pure Python:
 
 ```python

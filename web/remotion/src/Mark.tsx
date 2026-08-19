@@ -18,7 +18,8 @@ const EYE_X2_OPEN = 57;
 export const VantaMark: React.FC<{
   scale?: number;
   variant?: "default" | "orbit";
-}> = ({ scale = 1, variant = "default" }) => {
+  solid?: boolean;
+}> = ({ scale = 1, variant = "default", solid = false }) => {
   const frame = useCurrentFrame();
 
   // ── eye behavior: DISCRETE, like real eyes ──
@@ -106,24 +107,26 @@ export const VantaMark: React.FC<{
         </filter>
       </defs>
 
-      {/* Orange halo — same ring geometry, blurred, sits under the black ring.
-          Keeps the dark ring distinguishable on dark backgrounds. */}
-      <circle
-        cx="50"
-        cy="50"
-        r="42"
-        fill="none"
-        stroke="#FF5500"
-        strokeWidth="3.5"
-        opacity="0.95"
-        filter="url(#mark-ring-glow)"
-      />
+      {/* ── sin aro exterior: el mark es solo esfera + ojos (V3) ── */}
+      {/* Orange halo — SOLO en modo no-solid (V2/Manga). En solid (V3)
+          no hay anillo que envuelva: esfera naranja desnuda. */}
+      {!solid && (
+        <circle
+          cx="50"
+          cy="50"
+          r="42"
+          fill="none"
+          stroke="#FF5500"
+          strokeWidth="3.5"
+          opacity="0.95"
+          filter="url(#mark-ring-glow)"
+        />
+      )}
 
-      {/* Outer ring — black border, NO fill (transparent) */}
-      <circle cx="50" cy="50" r="42" fill="none" stroke="#000000" strokeWidth="3.5" />
-
-      {/* Subtle outer glow ring (pulses) */}
-      <circle cx="50" cy="50" r={glowR} fill="none" stroke="#FF5500" strokeWidth="0.6" opacity={glowO} />
+      {/* Subtle outer glow ring (pulses) — también envuelve; quitado en solid */}
+      {!solid && (
+        <circle cx="50" cy="50" r={glowR} fill="none" stroke="#FF5500" strokeWidth="0.6" opacity={glowO} />
+      )}
 
       {/* Orbit variant: rotating dashed ring + nodes riding the ring */}
       {variant === "orbit" && (

@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/banner.gif" alt="VantaDB — Motor embebido en Rust para memoria local duradera y recuperación híbrida de vectores.">
+  <img src="assets/banner-v3.gif" alt="VantaDB — Motor embebido en Rust para memoria local duradera y recuperación híbrida de vectores.">
 </div>
 
 <br>
@@ -81,12 +81,8 @@ vantadb = { git = "https://github.com/ness-e/Vantadb" }
 
 ## Quickstart en 5 minutos
 
-<!-- GIF PLACEHOLDER (NUEVO-01/GH-139): pip install → REPL CRUD → hybrid search.
-     Genera con: vhs doc/demo.tape  (requiere vhs/chafa;
-     vhs aún no está instalado en CI). Cuando exista un GIF demo < 5MB,
-     renderízalo aquí:
-     <img src="assets/demo.gif" alt="Demo de VantaDB — pip install, CRUD, búsqueda híbrida">
--->
+<img src="assets/demo.gif" alt="Demo de VantaDB — pip install, CRUD, búsqueda híbrida">
+
 Inicializa un almacén de memoria persistente, guarda registros estructurados con vectores y ejecuta una búsqueda híbrida en Python puro:
 
 ```python

@@ -2,6 +2,8 @@ import React from "react";
 import { Composition } from "remotion";
 import { Banner } from "./Banner";
 import { BannerV2 } from "./BannerV2";
+import { BannerV3 } from "./BannerV3";
+import { DemoTerminal } from "./DemoTerminal";
 import { MangaBrutal } from "./MangaBrutal";
 import { FavIcon } from "./FavIcon";
 
@@ -27,6 +29,22 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="MangaBrutal"
         component={MangaBrutal}
+        durationInFrames={120}
+        fps={30}
+        width={960}
+        height={320}
+      />
+      <Composition
+        id="BannerV3"
+        component={BannerV3}
+        durationInFrames={120}
+        fps={30}
+        width={960}
+        height={320}
+      />
+      <Composition
+        id="DemoTerminal"
+        component={DemoTerminal}
         durationInFrames={120}
         fps={30}
         width={960}
