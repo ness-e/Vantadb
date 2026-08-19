@@ -82,8 +82,8 @@
 - **Contrato:** canvas R3F con force-directed (simulación en worker o `d3-force` en un frame loop controlado, fuera del render React), **toon shading + outline negro** (shader propio estilo manga — neon para nodos destacados), color por tipo de nodo (fields o label), tamaño por grado (GRAFO-01 + `graph_degree_centrality` de `src/sdk/gds.rs:32` si se expone), click nodo → Inspector (reutilizar `openRecord` del shell, master-detail P2), búsqueda por key (destaca y centra), botones expand ("+ vecinos", profundidad), límite de nodos visibles (cap 200-500, aviso si se supera), `prefers-reduced-motion` respetado (04 a11y). **Nunca render completo de un namespace grande** (03 anti-pattern hairball).
 - **Verificación:** `npm run build` verde; render manual con datos de prueba (namespace con >10 nodos relacionados vía `RELATE`/`add_edge`); screenshot en `desktop/prototype/` para review visual.
 - **Ruta:** vanta-worker
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-08-19T02:30
+- **Estado:** ✅ COMPLETED (2026-08-19 — vanta-worker, task file `.opencode/skills/campaign-executor/tasks/5.md`; r3f v9+drei v10 por React 19 real en package.json, no v8; **force-directed implementado** (re-feedback D5): d3-force@3 en tick manual por useFrame fuera del render React (positionsRef mutable, meshes leen por frame sin re-render; forceLink/forceManyBody -18/forceCenter/forceCollide anti-overlap, reheat alpha en expansión, nodos nuevos nacen en el padre, prefers-reduced-motion → radial estático vía matchMedia); verify: npm run build verde (tsc 0 err) — GraphLens chunk lazy 263 kB gzip; sin commit — lo commitea el lead)
+- **last-synced:** 2026-08-19
 
 ### Task 6: GRAFO-03 — IQL console (CodeMirror + autocompletado + highlight subgrafo)
 - **Archivos clave:** `desktop/src/components/graph/IqlConsole.tsx` (nuevo), `desktop/src/components/graph/GraphLens.tsx` (integra console embebida), `desktop/src/vanta.ts` (`queryIql`, `iqlAutocomplete`), dep: `@codemirror/lang-javascript` NO — usar `@codemirror/autocomplete` + shim VS-CORE-06.

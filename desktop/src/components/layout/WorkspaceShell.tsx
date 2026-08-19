@@ -43,6 +43,9 @@ const Inspector = lazy(() => import("../inspector/Inspector"));
 const FiltersBuilder = lazy(() => import("../search/FiltersBuilder"));
 // CommandPalette (VS-09) + cmdk (~12 kB gzip): chunk lazy, se monta al abrir.
 const CommandPalette = lazy(() => import("../palette/CommandPalette"));
+// GraphLens (GRAFO-02): three + drei + r3f pesan ~600 kB → chunk lazy, solo
+// la surface IQL los paga (mitigación "Riesgos" del plan; mismo patrón).
+const GraphLens = lazy(() => import("../graph/GraphLens"));
 
 export type Surface = "resumen" | "memorias" | "papelera" | "actividad" | "retrieval" | "indices" | "iql";
 
@@ -725,7 +728,12 @@ export default function WorkspaceShell({
           )}
 
           {surface === "indices" && <LensPlaceholder title="ÍNDICES" phase="Fase 1" />}
-          {surface === "iql" && <LensPlaceholder title="IQL" phase="Fase 2" />}
+          {/* GRAFO-02: lente GRAFO montada en la surface IQL (F2). */}
+          {surface === "iql" && (
+            <Suspense fallback={<LensPlaceholder title="IQL" phase="cargando visor…" />}>
+              <GraphLens onNotice={onNotice} onError={onError} />
+            </Suspense>
+          )}
         </main>
       </div>
 

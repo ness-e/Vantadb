@@ -612,3 +612,8 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: VS-CORE-05 - 2026-08-19 -->
 - La descripcion de tipos que da el orquestador puede estar equivocada: se asumio `VantaMemoryFilter = {op, items}` cuando el core define `pub type VantaMemoryFilter = Vec<VantaMemoryFilterItem>` (src/sdk/types.rs:127). Verificar el tipo real con codegraph antes de disenar el wire de un binding; el patron de la tarea previa (`Vec<VantaMemoryFilterItem>`) era el correcto.
 - Tras anadir un metodo publico a `vantadb-wasm/src/lib.rs`, `tsc` del TS SDK falla hasta regenerar `vantadb-wasm/pkg` (artefacto ignorado por git, regenerable con `wasm-pack build --dev`) - el .d.ts del pkg es el contrato de tipos del wrapper.
+
+<!-- Learnings: GRAFO-02 — 2026-08-19 -->
+- El stack real manda sobre la asuncion del orquestador: se asumio React 18 (→ r3f v8) pero `desktop/package.json` tiene `react ^19.1.0` → r3f v9 + drei v10 (docs oficiales: v8↔React 18, v9↔React 19). Leer el package.json del target antes de elegir la linea mayor de una libreria React; `npm ls` confirma peers sin conflicto.
+- Para APIs de drei (Outlines/Html/Line), la fuente mas rapida y autoritativa es el `.d.ts` instalado en `node_modules/@react-three/drei/{core,web}/` — mas fiable que la busqueda web, que devuelve ruido.
+- `<Text>` de drei carga su fuente default de un CDN remoto (falla offline en Tauri); para labels usar `<Html>` (DOM, fuentes locales) o embeder fuente.
