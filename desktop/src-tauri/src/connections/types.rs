@@ -188,6 +188,32 @@ pub struct ListPage {
     pub next_cursor: Option<usize>,
 }
 
+/// A single AND-combined metadata filter item for export/delete operations
+/// (VS-CORE-04/05).
+///
+/// `op` reuses the core `VantaFilterOp` so wire values stay PascalCase
+/// (`"Eq"`, `"Neq"`, `"Gt"`, ...) — the same shape the UI query builder emits
+/// (`desktop/src/components/search/filters-core.ts`). `value` is untagged JSON
+/// so any JSON-able value roundtrips.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MemoryFilterItem {
+    pub field: String,
+    pub op: vantadb::sdk::VantaFilterOp,
+    pub value: serde_json::Value,
+}
+
+/// Result of a namespace export (VS-CORE-04).
+///
+/// Mirrors `VantaExportReport` (`src/sdk/types.rs`) 1:1 so the UI can show
+/// counts, path and duration.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportReport {
+    pub records_exported: u64,
+    pub namespaces: Vec<String>,
+    pub path: String,
+    pub duration_ms: u64,
+}
+
 /// A single audit-log entry (VS-12).
 ///
 /// Mirrors `vantadb::audit::AuditEvent` (`src/audit.rs`). The bridge carries its
@@ -518,6 +544,30 @@ mod tests {
             description: Some("embedded".into()),
         };
         assert_eq!(rt(&c), c);
+    }
+
+    #[test]
+    fn memory_filter_item_roundtrip_wire_shape() {
+        let item = MemoryFilterItem {
+            field: "color".into(),
+            op: vantadb::VantaFilterOp::Eq,
+            value: serde_json::Value::from("red"),
+        };
+        assert_eq!(rt(&item), item);
+        // Wire ops stay PascalCase — matches the UI query builder (filters-core.ts).
+        let json = json(&item);
+        assert_eq!(json, r#"{"field":"color","op":"Eq","value":"red"}"#);
+    }
+
+    #[test]
+    fn export_report_roundtrip() {
+        let r = ExportReport {
+            records_exported: 2,
+            namespaces: vec!["mem".into()],
+            path: "C:/tmp/export.jsonl".into(),
+            duration_ms: 7,
+        };
+        assert_eq!(rt(&r), r);
     }
 
     // ─── VantaQueryResult (VS-CORE-06) ───────────────────────────

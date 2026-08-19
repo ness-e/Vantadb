@@ -184,7 +184,7 @@ mod tests {
 
     #[test]
     fn from_io_and_serde_json() {
-        let io: VantaError = std::io::Error::new(std::io::ErrorKind::Other, "disk").into();
+        let io: VantaError = std::io::Error::other("disk").into();
         assert!(matches!(io, VantaError::Io(_)));
         let ser: VantaError = serde_json::from_str::<serde_json::Value>("")
             .unwrap_err()

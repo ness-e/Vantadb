@@ -10,7 +10,8 @@
 use tauri::State;
 
 use crate::connections::{
-    IngestItem, ListPage, MemoryRecord, SearchQuery, SearchResult, VantaQueryResult,
+    ExportReport, IngestItem, ListPage, MemoryFilterItem, MemoryRecord, SearchQuery, SearchResult,
+    VantaQueryResult,
 };
 use crate::error::VantaError;
 use crate::AppState;
@@ -147,4 +148,23 @@ pub async fn vanta_query(
 #[tauri::command]
 pub fn vanta_iql_autocomplete(prefix: String) -> Vec<String> {
     vantadb::parser::autocomplete_prefix(&prefix)
+}
+
+/// Export a namespace to a JSONL file on the active connection (VS-CORE-04).
+///
+/// `filter` is an optional AND-combined metadata filter (e.g. from the query
+/// builder); `None` (or empty) exports the full namespace. Only the native
+/// (embedded) connection implements file export; other transports reject with
+/// `Unsupported`.
+#[tauri::command]
+pub async fn vanta_export_namespace(
+    state: State<'_, AppState>,
+    namespace: String,
+    path: String,
+    filter: Option<Vec<MemoryFilterItem>>,
+) -> Result<ExportReport, VantaError> {
+    state
+        .manager
+        .export_namespace(&namespace, &path, filter)
+        .await
 }

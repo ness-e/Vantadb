@@ -21,8 +21,8 @@ use std::path::PathBuf;
 use tokio::sync::RwLock;
 
 use super::{
-    Capability, ConnectionInfo, HealthReport, IngestItem, ListPage, MemoryRecord, SearchQuery,
-    SearchResult, VantaConnection, VantaQueryResult,
+    Capability, ConnectionInfo, ExportReport, HealthReport, IngestItem, ListPage, MemoryFilterItem,
+    MemoryRecord, SearchQuery, SearchResult, VantaConnection, VantaQueryResult,
 };
 use crate::error::VantaError;
 
@@ -35,6 +35,7 @@ struct Inner {
 }
 
 /// Registry + active-connection selector shared via managed Tauri state.
+#[derive(Default)]
 pub struct ConnectionManager {
     inner: RwLock<Inner>,
 }
@@ -282,6 +283,23 @@ impl ConnectionManager {
             .get(&id)
             .ok_or_else(|| Self::missing(&id))?;
         conn.list(namespace, limit.unwrap_or(100), cursor).await
+    }
+
+    /// Export a namespace (optionally filtered) to a JSONL file on the active
+    /// connection (VS-CORE-04). `None` (or empty) exports the full namespace.
+    pub async fn export_namespace(
+        &self,
+        namespace: &str,
+        path: &str,
+        filter: Option<Vec<MemoryFilterItem>>,
+    ) -> Result<ExportReport, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        let conn = inner
+            .connections
+            .get(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        conn.export_namespace(path, namespace, filter).await
     }
 
     /// Tear down every registered connection on app shutdown (DESKTOP-20).

@@ -117,13 +117,20 @@ impl VantaEmbedded {
         Ok(records)
     }
 
+    /// Export all records in a namespace to a JSONL file.
+    ///
+    /// When `filter` is `Some`, only records matching the AND-combined filter
+    /// items are exported (e.g. `Eq` on a metadata field). `None` (or an empty
+    /// filter) exports the full namespace — backward-compatible with the
+    /// pre-filter signature.
     #[tracing::instrument(skip(self, path), err)]
     pub fn export_namespace(
         &self,
         path: impl AsRef<Path>,
         namespace: &str,
+        filter: Option<super::super::types::VantaMemoryFilter>,
     ) -> Result<super::super::types::VantaExportReport> {
-        let res = self.export_namespace_inner(path, namespace);
+        let res = self.export_namespace_inner(path, namespace, filter);
         self.audit(crate::audit::AuditEvent::new(
             "export_namespace",
             namespace,
@@ -138,12 +145,43 @@ impl VantaEmbedded {
         &self,
         path: impl AsRef<Path>,
         namespace: &str,
+        filter: Option<super::super::types::VantaMemoryFilter>,
     ) -> Result<super::super::types::VantaExportReport> {
         validate_namespace(namespace)?;
         let resolved = self.resolve_export_path(path.as_ref())?;
         let started = Instant::now();
-        let records = self
-            .records_for_namespace(namespace, &super::super::types::VantaMemoryMetadata::new())?;
+        let records = match filter {
+            Some(ops) if !ops.is_empty() => {
+                // Reuse list()'s filter_ops path (index-accelerated via the
+                // first Eq op + matches_advanced_filters) — same paginated
+                // scan as delete_by_filter. Some(vec![]) == None == full export.
+                const PAGE_SIZE: usize = 500;
+                let mut cursor: Option<usize> = None;
+                let mut records: Vec<super::super::types::VantaMemoryRecord> = Vec::new();
+                loop {
+                    let page = self.list(
+                        namespace,
+                        super::super::types::VantaMemoryListOptions {
+                            #[allow(deprecated)]
+                            filters: super::super::types::VantaMemoryMetadata::new(),
+                            filter_ops: Some(ops.clone()),
+                            limit: PAGE_SIZE,
+                            cursor,
+                        },
+                    )?;
+                    records.extend(page.records);
+                    cursor = page.next_cursor;
+                    if cursor.is_none() {
+                        break;
+                    }
+                }
+                records
+            }
+            _ => self.records_for_namespace(
+                namespace,
+                &super::super::types::VantaMemoryMetadata::new(),
+            )?,
+        };
         self.write_export_file(&resolved, records, vec![namespace.to_string()], started)
     }
 
@@ -357,7 +395,7 @@ mod tests {
 
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("export.jsonl");
-        let report = db.export_namespace(&path, "myns").unwrap();
+        let report = db.export_namespace(&path, "myns", None).unwrap();
 
         assert_eq!(report.records_exported, 2);
         assert_eq!(report.namespaces, vec!["myns"]);
@@ -376,7 +414,7 @@ mod tests {
         let db = in_memory_db();
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("empty.jsonl");
-        let report = db.export_namespace(&path, "nonexistent").unwrap();
+        let report = db.export_namespace(&path, "nonexistent", None).unwrap();
         assert_eq!(report.records_exported, 0);
     }
 
@@ -385,8 +423,33 @@ mod tests {
         let db = in_memory_db();
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("x.jsonl");
-        let err = db.export_namespace(&path, "").unwrap_err();
+        let err = db.export_namespace(&path, "", None).unwrap_err();
         assert!(err.to_string().contains("namespace must not be empty"));
+    }
+
+    #[test]
+    fn test_export_namespace_with_filter_eq_only_includes_matching() {
+        let db = in_memory_db();
+        db.put(sample_input_with_meta("myns", "red1", "red"))
+            .unwrap();
+        db.put(sample_input_with_meta("myns", "blue1", "blue"))
+            .unwrap();
+        db.put(sample_input("myns", "nocolor")).unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("filtered.jsonl");
+        let filter = vec![VantaMemoryFilterItem {
+            field: "color".into(),
+            op: VantaFilterOp::Eq,
+            value: VantaValue::String("red".into()),
+        }];
+        let report = db.export_namespace(&path, "myns", Some(filter)).unwrap();
+
+        assert_eq!(report.records_exported, 1);
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("red1"));
+        assert!(!content.contains("blue1"));
+        assert!(!content.contains("nocolor"));
     }
 
     // ─── export_all ────────────────────────────────────────────
@@ -631,7 +694,7 @@ mod tests {
 
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("rt.jsonl");
-        let report = db1.export_namespace(&path, "rt").unwrap();
+        let report = db1.export_namespace(&path, "rt", None).unwrap();
         assert_eq!(report.records_exported, 2);
 
         let db2 = in_memory_db();

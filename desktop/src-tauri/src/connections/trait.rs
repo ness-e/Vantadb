@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 
 use super::types::{
-    Capability, ConnectionInfo, HealthReport, IngestItem, ListPage, MemoryRecord, SearchQuery,
-    SearchResult, VantaQueryResult,
+    Capability, ConnectionInfo, ExportReport, HealthReport, IngestItem, ListPage, MemoryFilterItem,
+    MemoryRecord, SearchQuery, SearchResult, VantaQueryResult,
 };
 use crate::error::VantaError;
 
@@ -120,6 +120,25 @@ pub trait VantaConnection: Send + Sync {
         limit: usize,
         cursor: Option<usize>,
     ) -> Result<ListPage, VantaError>;
+
+    /// Export records in a namespace to a JSONL file, optionally filtered by
+    /// AND-combined metadata items (VS-CORE-04).
+    ///
+    /// `None` (or an empty filter) exports the full namespace. Default
+    /// implementation: transports without a file-export endpoint report
+    /// [`VantaError::Unsupported`] — only native (embedded) implements it via
+    /// the core `export_namespace`.
+    async fn export_namespace(
+        &self,
+        path: &str,
+        namespace: &str,
+        filter: Option<Vec<MemoryFilterItem>>,
+    ) -> Result<ExportReport, VantaError> {
+        let _ = (path, namespace, filter);
+        Err(VantaError::Unsupported(
+            "export_namespace is not implemented by this transport".into(),
+        ))
+    }
 
     /// Cheap liveness / latency probe.
     async fn health(&self) -> Result<HealthReport, VantaError>;

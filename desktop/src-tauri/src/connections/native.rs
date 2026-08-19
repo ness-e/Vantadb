@@ -15,14 +15,15 @@ use serde_json::Value as JsonValue;
 use vantadb::config::VantaConfig;
 use vantadb::VantaError as CoreVantaError;
 use vantadb::{
-    VantaBm25TermContribution, VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions,
-    VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest, VantaNodeRecord,
-    VantaQueryResult as CoreQueryResult, VantaSearchExplanationHit, VantaValue,
+    VantaBm25TermContribution, VantaEmbedded, VantaMemoryFilterItem, VantaMemoryInput,
+    VantaMemoryListOptions, VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest,
+    VantaNodeRecord, VantaQueryResult as CoreQueryResult, VantaSearchExplanationHit, VantaValue,
 };
 
 use super::types::{
-    Bm25Term, Capability, ConnectionInfo, ConnectionStatus, ExplanationHit, HealthReport,
-    HealthStatus, IngestItem, ListPage, MemoryRecord, SearchQuery, SearchResult, VantaQueryResult,
+    Bm25Term, Capability, ConnectionInfo, ConnectionStatus, ExplanationHit, ExportReport,
+    HealthReport, HealthStatus, IngestItem, ListPage, MemoryFilterItem, MemoryRecord, SearchQuery,
+    SearchResult, VantaQueryResult,
 };
 use super::VantaConnection;
 use crate::error::VantaError;
@@ -425,7 +426,7 @@ impl VantaConnection for NativeConnection {
         let record = blocking(move || db.get(&ns, &key).map_err(map_core_error)).await?;
         record
             .map(record_to_memory)
-            .ok_or_else(|| VantaError::Native(not_found))
+            .ok_or(VantaError::Native(not_found))
     }
 
     async fn get_version(
@@ -442,7 +443,7 @@ impl VantaConnection for NativeConnection {
             blocking(move || db.get_version(&ns, &key, version).map_err(map_core_error)).await?;
         record
             .map(record_to_memory)
-            .ok_or_else(|| VantaError::Native(not_found))
+            .ok_or(VantaError::Native(not_found))
     }
 
     async fn versions(
@@ -497,6 +498,38 @@ impl VantaConnection for NativeConnection {
                 .map(|page| ListPage {
                     records: page.records.into_iter().map(record_to_memory).collect(),
                     next_cursor: page.next_cursor,
+                })
+                .map_err(map_core_error)
+        })
+        .await
+    }
+
+    async fn export_namespace(
+        &self,
+        path: &str,
+        namespace: &str,
+        filter: Option<Vec<MemoryFilterItem>>,
+    ) -> Result<ExportReport, VantaError> {
+        let db = self.db.clone();
+        let path = path.to_string();
+        let namespace = namespace.to_string();
+        let core_filter = filter.map(|items| {
+            items
+                .into_iter()
+                .map(|item| VantaMemoryFilterItem {
+                    field: item.field,
+                    op: item.op,
+                    value: to_vanta_value(item.value),
+                })
+                .collect()
+        });
+        blocking(move || {
+            db.export_namespace(&path, &namespace, core_filter)
+                .map(|report| ExportReport {
+                    records_exported: report.records_exported,
+                    namespaces: report.namespaces,
+                    path: report.path,
+                    duration_ms: report.duration_ms,
                 })
                 .map_err(map_core_error)
         })

@@ -124,8 +124,8 @@ impl McpSpawn {
         // `take()` lets us consume the sender exactly once, on the first marker line.
         let mut ready = Some(ready_tx);
         // Detached task: tees child stderr into the log and flags readiness. It
-        // runs for the child's lifetime; no handle needed (the task outlives us).
-        let _ = tokio::spawn(async move {
+        // runs for the child's lifetime; dropping the JoinHandle detaches it.
+        tokio::spawn(async move {
             let mut lines = BufReader::new(stderr).lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 let _ = writeln!(tee, "{line}");

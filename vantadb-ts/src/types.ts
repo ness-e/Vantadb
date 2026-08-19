@@ -120,6 +120,16 @@ export interface ExportReport {
   duration_ms: number;
 }
 
+/** Filter operators (PascalCase — wire-compatible with the core `VantaFilterOp`). */
+export type VantaFilterOp = "Eq" | "Neq" | "Gt" | "Gte" | "Lt" | "Lte";
+
+/** Single AND-combined filter item for export/delete operations. */
+export interface VantaMemoryFilterItem {
+  field: string;
+  op: VantaFilterOp;
+  value: VantaValue;
+}
+
 export interface ImportReport {
   inserted: number;
   updated: number;

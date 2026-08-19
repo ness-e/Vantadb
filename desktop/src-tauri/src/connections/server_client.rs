@@ -130,7 +130,7 @@ impl ServerClient {
             }
             stmt.push_str(&format!("{k}: {:?}", v));
         }
-        stmt.push_str("}");
+        stmt.push('}');
         self.query(&stmt).await
     }
 

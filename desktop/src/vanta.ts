@@ -324,6 +324,41 @@ export function iqlAutocomplete(prefix: string): Promise<string[]> {
   return invoke<string[]>("vanta_iql_autocomplete", { prefix });
 }
 
+// --- Export (VS-CORE-04) ------------------------------------------------------
+// Mirrors `MemoryFilterItem` / `ExportReport` in
+// desktop/src-tauri/src/connections/types.rs. `op` stays PascalCase on the
+// wire ("Eq"/"Neq"/"Gt"/...) — structurally compatible with
+// `filters-core.ts`'s `VantaFilterItem` (query builder output).
+
+export interface MemoryFilterItem {
+  field: string;
+  op: "Eq" | "Neq" | "Gt" | "Lt" | "Gte" | "Lte";
+  /** JSON-able value (untagged — the bridge converts to the core `VantaValue`). */
+  value: unknown;
+}
+
+export interface ExportReport {
+  records_exported: number;
+  namespaces: string[];
+  path: string;
+  duration_ms: number;
+}
+
+/** Export a namespace to a JSONL file (VS-CORE-04). Pass `filter` (AND-combined
+ * metadata items, e.g. from the query builder) to export only matching records;
+ * omit it to export the full namespace. */
+export function exportNamespace(opts: {
+  namespace: string;
+  path: string;
+  filter?: MemoryFilterItem[];
+}): Promise<ExportReport> {
+  return invoke<ExportReport>("vanta_export_namespace", {
+    namespace: opts.namespace,
+    path: opts.path,
+    filter: opts.filter ?? null,
+  });
+}
+
 // --- Metrics (ADMIN-01/04/05) ---------------------------------------------------
 // Subset of `VantaOperationalMetrics` consumed by the dashboard grid (KPI cards
 // + later live dashboard). Rust serializes every u64 field; we only declare

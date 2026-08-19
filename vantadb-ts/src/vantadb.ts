@@ -20,6 +20,7 @@ import type {
   SearchHit,
   SearchRequest,
   VantaConfig,
+  VantaMemoryFilterItem,
   VantaValue,
 } from "./types.js";
 
@@ -444,18 +445,29 @@ export class VantaDB {
    *
    * @param path - Output file path.
    * @param namespace - Namespace to export.
+   * @param filter - Optional AND-combined metadata filter; omitting it exports the full namespace.
    * @returns Export report with counts and timing.
    * @throws {VantaError} If the instance is closed or the export fails.
    *
    * @example
    * ```ts
    * const report = db.exportNamespace("./export.jsonl", "docs");
-   * console.log(report.records_exported);
+   * const filtered = db.exportNamespace("./red.jsonl", "docs", [
+   *   { field: "color", op: "Eq", value: { String: "red" } },
+   * ]);
    * ```
    */
-  exportNamespace(path: string, namespace: string): ExportReport {
+  exportNamespace(
+    path: string,
+    namespace: string,
+    filter?: VantaMemoryFilterItem[],
+  ): ExportReport {
     this._assertOpen();
-    return this._wasm("exportNamespace", () => this.inner.export_namespace(path, namespace));
+    return this._wasm("exportNamespace", () =>
+      filter && filter.length > 0
+        ? this.inner.export_namespace_filtered(path, namespace, filter)
+        : this.inner.export_namespace(path, namespace),
+    );
   }
 
   /**

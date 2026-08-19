@@ -1060,7 +1060,24 @@ impl VantaDB {
         let _g = enter(&self.op_gate)?;
         let report = self
             .inner
-            .export_namespace(path, namespace)
+            .export_namespace(path, namespace, None)
+            .map_err(to_js_err)?;
+        to_js(&report)
+    }
+
+    /// Export records in a namespace matching an AND-combined metadata filter
+    /// (list of `{field, op, value}` items) to a JSON file at the given path.
+    pub fn export_namespace_filtered(
+        &self,
+        path: &str,
+        namespace: &str,
+        filter: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
+        let filter: Vec<VantaMemoryFilterItem> = from_js(filter)?;
+        let report = self
+            .inner
+            .export_namespace(path, namespace, Some(filter))
             .map_err(to_js_err)?;
         to_js(&report)
     }

@@ -53,7 +53,7 @@
 - **Contrato:** `export_namespace(path, namespace, filter: Option<VantaMemoryFilter>)` (backward-compat: `None` = export completo actual); expuesto en WASM/TS/bridge Tauri; report `VantaExportReport` igual. La UI batch-export consume esto (OP-02) con filtro del query builder (VS-07).
 - **Verificación:** unit test en `impl_export` (export con filtro Eq solo incluye matching) + `cargo check --workspace` + `npm run build` verde.
 - **Ruta:** vanta-worker
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-19 — vanta-worker, task file `tasks/2.md`; verify full verde: core 16/16 impl_export + integración memory_export_import/text_index_recovery/snapshot_certification, clippy/fmt root+desktop, npm build vantadb-ts+desktop; commit pendiente de vanta-lead)
 - **last-synced:** 2026-08-19T02:30
 
 ### Task 3: VS-CORE-05 — Batch delete con filtro desde UI
