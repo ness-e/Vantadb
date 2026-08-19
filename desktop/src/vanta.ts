@@ -291,6 +291,39 @@ export function listPage(opts?: {
   });
 }
 
+// --- IQL (VS-CORE-06) ------------------------------------------------------------
+// Discriminated union mirroring the Rust `VantaQueryResult` wire DTO
+// (externally tagged: the variant name is the discriminant).
+
+export interface QueryWrite {
+  affected_nodes: number;
+  message: string;
+  /** Node id as a string (u128 ids exceed JS safe integers). */
+  node_id?: string | null;
+}
+
+export interface QueryStaleContext {
+  node_id: string;
+}
+
+export type VantaQueryResult =
+  | { Read: MemoryRecord[] }
+  | { Write: QueryWrite }
+  | { StaleContext: QueryStaleContext };
+
+/** Execute an IQL statement against the active connection (VS-CORE-06).
+ * Rejects with `unsupported` when the active connection has no IQL endpoint
+ * (only the native/embedded transport implements it). */
+export function queryIql(iql: string): Promise<VantaQueryResult> {
+  return invoke<VantaQueryResult>("vanta_query", { iql });
+}
+
+/** IQL editor autocomplete candidates for the token being typed (VS-CORE-06).
+ * Pure string shim — keywords + identifiers already in the statement. */
+export function iqlAutocomplete(prefix: string): Promise<string[]> {
+  return invoke<string[]>("vanta_iql_autocomplete", { prefix });
+}
+
 // --- Metrics (ADMIN-01/04/05) ---------------------------------------------------
 // Subset of `VantaOperationalMetrics` consumed by the dashboard grid (KPI cards
 // + later live dashboard). Rust serializes every u64 field; we only declare

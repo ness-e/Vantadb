@@ -12,7 +12,9 @@
 
 use reqwest::header::CONTENT_TYPE;
 
-use crate::connections::wire_types::{HealthReport, QueryRequest, QueryResponse, ServerClientConfig};
+use crate::connections::wire_types::{
+    HealthReport, QueryRequest, QueryResponse, ServerClientConfig,
+};
 use crate::error::VantaError;
 
 /// Typed client over the VantaDB HTTP server.

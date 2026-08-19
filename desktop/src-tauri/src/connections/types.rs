@@ -252,6 +252,27 @@ pub struct ConnectionInfo {
     pub description: Option<String>,
 }
 
+/// Wire result of an IQL statement (VS-CORE-06).
+///
+/// Mirrors the core `VantaQueryResult` enum externally-tagged (no
+/// `rename_all`): variant names serialize exactly as `Read` / `Write` /
+/// `StaleContext`. `node_id` is a string on the wire (u128 ids exceed JS
+/// `Number.MAX_SAFE_INTEGER`), consistent with [`MemoryRecord::node_id`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum VantaQueryResult {
+    /// Successful SELECT/QUERY/FETCH — the matching nodes.
+    Read(Vec<MemoryRecord>),
+    /// Successful INSERT/UPDATE/DELETE/RELATE — how many nodes were affected.
+    Write {
+        affected_nodes: u64,
+        message: String,
+        node_id: Option<String>,
+    },
+    /// Context-aware write returned a stale-context marker (client must
+    /// re-sync the node's revision before retrying).
+    StaleContext { node_id: String },
+}
+
 fn default_namespace() -> String {
     "default".to_string()
 }
@@ -497,5 +518,52 @@ mod tests {
             description: Some("embedded".into()),
         };
         assert_eq!(rt(&c), c);
+    }
+
+    // ─── VantaQueryResult (VS-CORE-06) ───────────────────────────
+
+    #[test]
+    fn query_result_read_roundtrip() {
+        let rec = MemoryRecord {
+            id: "100".into(),
+            namespace: "default".into(),
+            text: "hello iql".into(),
+            vector: None,
+            metadata: [("name".to_string(), serde_json::json!("Ada"))].into(),
+            created_at_ms: None,
+            updated_at_ms: Some(1_700_000_000_000),
+            version: Some(1),
+            node_id: Some("100".into()),
+            sparse_vector: None,
+            expires_at_ms: None,
+        };
+        let res = VantaQueryResult::Read(vec![rec]);
+        assert_eq!(rt(&res), res);
+        // Wire shape mirrors the core enum: externally tagged variant names.
+        let json = json(&res);
+        assert!(json.starts_with(r#"{"Read":"#), "got {json}");
+    }
+
+    #[test]
+    fn query_result_write_roundtrip() {
+        let res = VantaQueryResult::Write {
+            affected_nodes: 1,
+            message: "inserted".into(),
+            node_id: Some("100".into()),
+        };
+        assert_eq!(rt(&res), res);
+        let json = json(&res);
+        assert!(json.starts_with(r#"{"Write":"#), "got {json}");
+        assert!(json.contains(r#""node_id":"100""#));
+    }
+
+    #[test]
+    fn query_result_stale_context_wire_shape() {
+        let res = VantaQueryResult::StaleContext {
+            node_id: "42".into(),
+        };
+        assert_eq!(rt(&res), res);
+        // Exact wire shape guards the vanta.ts contract.
+        assert_eq!(json(&res), r#"{"StaleContext":{"node_id":"42"}}"#);
     }
 }

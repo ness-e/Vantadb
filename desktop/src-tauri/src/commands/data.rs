@@ -9,7 +9,9 @@
 
 use tauri::State;
 
-use crate::connections::{IngestItem, ListPage, MemoryRecord, SearchQuery, SearchResult};
+use crate::connections::{
+    IngestItem, ListPage, MemoryRecord, SearchQuery, SearchResult, VantaQueryResult,
+};
 use crate::error::VantaError;
 use crate::AppState;
 
@@ -123,4 +125,26 @@ pub async fn vanta_list(
         .manager
         .list_records(namespace.as_deref(), limit, cursor)
         .await
+}
+
+/// Execute an IQL statement against the active connection (VS-CORE-06).
+///
+/// Only the native (embedded) connection implements IQL; other transports
+/// reject with `Unsupported`. The result is a `Read` (records), `Write`
+/// (affected count), or `StaleContext` marker, as a discriminated union.
+#[tauri::command]
+pub async fn vanta_query(
+    state: State<'_, AppState>,
+    iql: String,
+) -> Result<VantaQueryResult, VantaError> {
+    state.manager.query(&iql).await
+}
+
+/// IQL editor autocomplete candidates for the token being typed (VS-CORE-06).
+///
+/// Pure string shim over the parser's keyword/identifier table — no
+/// connection or backend access, so it is synchronous and always available.
+#[tauri::command]
+pub fn vanta_iql_autocomplete(prefix: String) -> Vec<String> {
+    vantadb::parser::autocomplete_prefix(&prefix)
 }

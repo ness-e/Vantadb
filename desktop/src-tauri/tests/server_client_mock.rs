@@ -42,12 +42,9 @@ async fn health() -> Json<serde_json::Value> {
     Json(json!({"success": true, "data": "OK"}))
 }
 
-async fn metrics(
-    State(shared): State<Shared>,
-    headers: HeaderMap,
-) -> Result<String, StatusCode> {
-    let auth_ok = headers.get("authorization")
-        == Some(&format!("Bearer {TEST_TOKEN}").parse().unwrap());
+async fn metrics(State(shared): State<Shared>, headers: HeaderMap) -> Result<String, StatusCode> {
+    let auth_ok =
+        headers.get("authorization") == Some(&format!("Bearer {TEST_TOKEN}").parse().unwrap());
     {
         let mut rec = shared.lock().unwrap();
         rec.saw_bearer.push(auth_ok);
@@ -63,7 +60,8 @@ async fn query(
     headers: HeaderMap,
     Json(payload): Json<serde_json::Value>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let auth_ok = headers.get("authorization") == Some(&format!("Bearer {TEST_TOKEN}").parse().unwrap());
+    let auth_ok =
+        headers.get("authorization") == Some(&format!("Bearer {TEST_TOKEN}").parse().unwrap());
     let statement = payload["query"].as_str().unwrap_or_default().to_string();
 
     {
@@ -224,7 +222,10 @@ async fn list_maps_from_statement() {
 #[tokio::test]
 async fn search_maps_vector_statement_with_auth() {
     let (client, shared, _port) = spawn().await;
-    let resp = client.search("memory", "content", "neural memory", 0.5).await.unwrap();
+    let resp = client
+        .search("memory", "content", "neural memory", 0.5)
+        .await
+        .unwrap();
     assert!(resp.success);
 
     let rec = recorded(&shared);
@@ -242,7 +243,11 @@ async fn domain_failure_success_false_maps_to_http_domain_error() {
     let err = client.query("MATCH NODE#999 FAIL").await.unwrap_err();
 
     match err {
-        vantadb_desktop_lib::VantaError::Http { kind, message, status } => {
+        vantadb_desktop_lib::VantaError::Http {
+            kind,
+            message,
+            status,
+        } => {
             assert_eq!(
                 kind,
                 vantadb_desktop_lib::error::HttpErrorKind::Domain,
@@ -293,8 +298,5 @@ async fn timeout_yields_http_error() {
     };
     let client = ServerClient::new(cfg).unwrap();
     let err = client.health().await.expect_err("must fail");
-    assert!(matches!(
-        err,
-        vantadb_desktop_lib::VantaError::Http { .. }
-    ));
+    assert!(matches!(err, vantadb_desktop_lib::VantaError::Http { .. }));
 }

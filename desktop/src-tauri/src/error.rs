@@ -186,7 +186,9 @@ mod tests {
     fn from_io_and_serde_json() {
         let io: VantaError = std::io::Error::new(std::io::ErrorKind::Other, "disk").into();
         assert!(matches!(io, VantaError::Io(_)));
-        let ser: VantaError = serde_json::from_str::<serde_json::Value>("").unwrap_err().into();
+        let ser: VantaError = serde_json::from_str::<serde_json::Value>("")
+            .unwrap_err()
+            .into();
         assert!(matches!(ser, VantaError::Serialization(_)));
     }
 
@@ -194,11 +196,18 @@ mod tests {
     fn from_http_status_classifies() {
         assert!(matches!(
             VantaError::from_http_status(200, "x"),
-            VantaError::Http { kind: HttpErrorKind::Domain, status: Some(200), .. }
+            VantaError::Http {
+                kind: HttpErrorKind::Domain,
+                status: Some(200),
+                ..
+            }
         ));
         assert!(matches!(
             VantaError::from_http_status(503, "x"),
-            VantaError::Http { kind: HttpErrorKind::ServiceUnavailable, .. }
+            VantaError::Http {
+                kind: HttpErrorKind::ServiceUnavailable,
+                ..
+            }
         ));
     }
 }

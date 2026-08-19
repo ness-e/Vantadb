@@ -15,9 +15,7 @@ use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use vantadb_desktop_lib::connections::{
-    IngestItem, ServerClientConfig, ServerConnection,
-};
+use vantadb_desktop_lib::connections::{IngestItem, ServerClientConfig, ServerConnection};
 use vantadb_desktop_lib::error::HttpErrorKind;
 use vantadb_desktop_lib::{HealthStatus, VantaConnection, VantaError};
 
@@ -54,7 +52,9 @@ fn ephemeral_port() -> u16 {
 
 /// Spawn `vantadb-server` with forced auth on an ephemeral port.
 fn spawn_server(port: u16, storage: &std::path::Path) -> Child {
-    let bin = server_binary().expect("vantadb-server binary not found; run `cargo build -p vantadb-server` at repo root");
+    let bin = server_binary().expect(
+        "vantadb-server binary not found; run `cargo build -p vantadb-server` at repo root",
+    );
     Command::new(bin)
         .env("VANTADB_API_KEY", TEST_TOKEN)
         .env("VANTADB_REQUIRE_AUTH", "true")

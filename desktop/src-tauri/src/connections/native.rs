@@ -16,13 +16,13 @@ use vantadb::config::VantaConfig;
 use vantadb::VantaError as CoreVantaError;
 use vantadb::{
     VantaBm25TermContribution, VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions,
-    VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest, VantaSearchExplanationHit,
-    VantaValue,
+    VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest, VantaNodeRecord,
+    VantaQueryResult as CoreQueryResult, VantaSearchExplanationHit, VantaValue,
 };
 
 use super::types::{
     Bm25Term, Capability, ConnectionInfo, ConnectionStatus, ExplanationHit, HealthReport,
-    HealthStatus, IngestItem, ListPage, MemoryRecord, SearchQuery, SearchResult,
+    HealthStatus, IngestItem, ListPage, MemoryRecord, SearchQuery, SearchResult, VantaQueryResult,
 };
 use super::VantaConnection;
 use crate::error::VantaError;
@@ -213,6 +213,67 @@ fn record_to_memory(r: VantaMemoryRecord) -> MemoryRecord {
     }
 }
 
+/// Map the core `VantaQueryResult` into the desktop wire DTO (VS-CORE-06).
+fn core_query_to_wire(r: CoreQueryResult) -> VantaQueryResult {
+    match r {
+        CoreQueryResult::Read(records) => {
+            VantaQueryResult::Read(records.into_iter().map(node_record_to_memory).collect())
+        }
+        CoreQueryResult::Write {
+            affected_nodes,
+            message,
+            node_id,
+        } => VantaQueryResult::Write {
+            affected_nodes: affected_nodes as u64,
+            message,
+            node_id: node_id.map(|id| id.to_string()),
+        },
+        CoreQueryResult::StaleContext { node_id } => VantaQueryResult::StaleContext {
+            node_id: node_id.to_string(),
+        },
+    }
+}
+
+/// Convert a `VantaNodeRecord` (IQL result) into a desktop `MemoryRecord`.
+///
+/// IQL nodes don't carry memory-SDK timestamps/version; those stay `None`
+/// (the UI already treats them as optional). The `__vanta_*` reserved fields
+/// (namespace, payload, key, ...) are stripped from metadata, mirroring the
+/// memory SDK's `record_to_memory`; namespace and text are recovered from
+/// them, falling back to `text`/`content` for nodes created via IQL.
+fn node_record_to_memory(n: VantaNodeRecord) -> MemoryRecord {
+    let metadata: std::collections::HashMap<String, JsonValue> = n
+        .fields
+        .iter()
+        .filter(|(k, _)| !k.starts_with("__vanta_"))
+        .map(|(k, v)| (k.clone(), from_vanta_value(v)))
+        .collect();
+    let text = ["__vanta_payload", "text", "content"]
+        .into_iter()
+        .find_map(|k| match n.fields.get(k) {
+            Some(VantaValue::String(s)) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    let namespace = match n.fields.get("__vanta_namespace") {
+        Some(VantaValue::String(s)) => s.clone(),
+        _ => DEFAULT_NAMESPACE.to_string(),
+    };
+    MemoryRecord {
+        id: n.id.to_string(),
+        namespace,
+        text,
+        vector: n.vector,
+        metadata,
+        created_at_ms: None,
+        updated_at_ms: None,
+        version: None,
+        node_id: Some(n.id.to_string()),
+        sparse_vector: None,
+        expires_at_ms: None,
+    }
+}
+
 fn hit_to_result(h: VantaMemorySearchHit) -> SearchResult {
     SearchResult {
         id: h.record.key,
@@ -395,6 +456,17 @@ impl VantaConnection for NativeConnection {
         blocking(move || {
             db.versions(&ns, &key)
                 .map(|records| records.into_iter().map(record_to_memory).collect())
+                .map_err(map_core_error)
+        })
+        .await
+    }
+
+    async fn query(&self, query: &str) -> Result<VantaQueryResult, VantaError> {
+        let db = self.db.clone();
+        let query = query.to_string();
+        blocking(move || {
+            db.query(&query)
+                .map(core_query_to_wire)
                 .map_err(map_core_error)
         })
         .await

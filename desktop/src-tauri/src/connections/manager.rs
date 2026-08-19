@@ -22,7 +22,7 @@ use tokio::sync::RwLock;
 
 use super::{
     Capability, ConnectionInfo, HealthReport, IngestItem, ListPage, MemoryRecord, SearchQuery,
-    SearchResult, VantaConnection,
+    SearchResult, VantaConnection, VantaQueryResult,
 };
 use crate::error::VantaError;
 
@@ -243,6 +243,20 @@ impl ConnectionManager {
         conn.versions(key, namespace).await
     }
 
+    /// Execute an IQL statement on the active connection (VS-CORE-06).
+    ///
+    /// Read-only dispatch: IQL `SELECT`/`FETCH` only. Transports without an
+    /// IQL endpoint report [`VantaError::Unsupported`] via the trait default.
+    pub async fn query(&self, query: &str) -> Result<VantaQueryResult, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        let conn = inner
+            .connections
+            .get(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        conn.query(query).await
+    }
+
     /// Delete a record by key on the active connection. Idempotent.
     pub async fn delete(&self, key: &str, namespace: Option<&str>) -> Result<(), VantaError> {
         let id = self.active_id().await?;
@@ -426,6 +440,72 @@ mod tests {
         // delete + list registry
         manager.delete("k1", Some("docs")).await.unwrap();
         assert_eq!(manager.list_connections().await.len(), 1);
+    }
+
+    /// IQL roundtrip (VS-CORE-06): INSERT → FROM (Read with mapped record) →
+    /// DELETE → FROM (empty Read) on the native connection.
+    #[tokio::test]
+    async fn e2e_native_iql_query_roundtrip() {
+        let dir = TempDir::new();
+        let manager = ConnectionManager::new();
+        manager
+            .add(Box::new(
+                crate::connections::native::NativeConnection::open(dir.path()).unwrap(),
+            ))
+            .await
+            .unwrap();
+
+        // INSERT — Write result carries the affected count + node id (string).
+        let res = manager
+            .query(r#"INSERT NODE#100 TYPE Person {name: "Ada", content: "hello iql"}"#)
+            .await
+            .unwrap();
+        match res {
+            VantaQueryResult::Write {
+                affected_nodes,
+                node_id,
+                ..
+            } => {
+                assert_eq!(affected_nodes, 1);
+                assert_eq!(node_id.as_deref(), Some("100"));
+            }
+            other => panic!("expected Write, got {other:?}"),
+        }
+
+        // SELECT by type — the node maps into a MemoryRecord (text + metadata).
+        let res = manager.query(r#"FROM Person"#).await.unwrap();
+        match res {
+            VantaQueryResult::Read(records) => {
+                assert_eq!(records.len(), 1, "expected 1 Person, got {records:?}");
+                assert_eq!(records[0].node_id.as_deref(), Some("100"));
+                assert_eq!(records[0].text, "hello iql");
+                assert_eq!(
+                    records[0].metadata.get("name").and_then(|v| v.as_str()),
+                    Some("Ada")
+                );
+            }
+            other => panic!("expected Read, got {other:?}"),
+        }
+
+        // DELETE — idempotent Write.
+        let res = manager.query(r#"DELETE NODE#100"#).await.unwrap();
+        assert!(
+            matches!(
+                res,
+                VantaQueryResult::Write {
+                    affected_nodes: 1,
+                    ..
+                }
+            ),
+            "expected Write(1), got {res:?}"
+        );
+
+        // The type no longer matches anything.
+        let res = manager.query(r#"FROM Person"#).await.unwrap();
+        match res {
+            VantaQueryResult::Read(records) => assert!(records.is_empty()),
+            other => panic!("expected empty Read, got {other:?}"),
+        }
     }
 
     /// Cursor roundtrip (VS-CORE-01): page 1 → next_cursor → page 2 with no

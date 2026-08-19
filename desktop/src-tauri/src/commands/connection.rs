@@ -13,9 +13,7 @@ use tauri::State;
 use vantadb::VantaEmbedded;
 
 use crate::connections::native::NativeConnection;
-use crate::connections::{
-    ConnectionInfo, ServerClientConfig, ServerConnection, VantaConnection,
-};
+use crate::connections::{ConnectionInfo, ServerClientConfig, ServerConnection, VantaConnection};
 use crate::error::VantaError;
 use crate::{AppState, HealthReport, HealthStatus};
 
@@ -26,7 +24,11 @@ fn probe_dir() -> String {
         .map(|d| d.as_nanos())
         .unwrap_or(0);
     std::env::temp_dir()
-        .join(format!("vantadb-desktop-health-{}-{:x}", std::process::id(), ts))
+        .join(format!(
+            "vantadb-desktop-health-{}-{:x}",
+            std::process::id(),
+            ts
+        ))
         .to_string_lossy()
         .into_owned()
 }
@@ -119,9 +121,6 @@ pub async fn vanta_list_connections(
 
 /// Mark the connection `id` as the active target for data commands.
 #[tauri::command]
-pub async fn vanta_set_active(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<(), VantaError> {
+pub async fn vanta_set_active(state: State<'_, AppState>, id: String) -> Result<(), VantaError> {
     state.manager.set_active(&id).await
 }

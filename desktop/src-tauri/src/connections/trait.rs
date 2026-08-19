@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use super::types::{
     Capability, ConnectionInfo, HealthReport, IngestItem, ListPage, MemoryRecord, SearchQuery,
-    SearchResult,
+    SearchResult, VantaQueryResult,
 };
 use crate::error::VantaError;
 
@@ -95,6 +95,18 @@ pub trait VantaConnection: Send + Sync {
 
     /// Delete a single record by id, optionally scoped to a namespace. Idempotent.
     async fn delete(&mut self, id: &str, namespace: Option<&str>) -> Result<(), VantaError>;
+
+    /// Execute an IQL statement (VS-CORE-06).
+    ///
+    /// Default implementation: transports without an IQL endpoint report
+    /// [`VantaError::Unsupported`] — only native (embedded) implements it via
+    /// the core `VantaEmbedded::query`.
+    async fn query(&self, query: &str) -> Result<VantaQueryResult, VantaError> {
+        let _ = query;
+        Err(VantaError::Unsupported(
+            "query (IQL) is not implemented by this transport".into(),
+        ))
+    }
 
     /// List a page of records in a namespace, capped at `limit`.
     ///

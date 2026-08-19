@@ -547,6 +547,60 @@ pub fn parse_statement(i: &str) -> IResult<&str, Statement> {
     ))(i)
 }
 
+// ─── Autocomplete (VS-CORE-06) ──────────────────────────────────
+
+/// Multi-token keywords the grammar parses as a single clause. Offered as one
+/// completion on top of [`RESERVED_KEYWORDS`].
+const EXTRA_AUTOCOMPLETE_KEYWORDS: &[&str] = &["RANK BY", "WITH TEMPERATURE"];
+
+fn is_keyword_token(token: &str) -> bool {
+    RESERVED_KEYWORDS
+        .iter()
+        .any(|k| k.eq_ignore_ascii_case(token))
+}
+
+/// Autocomplete candidates for an IQL editor prefix (VS-CORE-06).
+///
+/// Returns the completions for the token being typed at the end of `prefix`:
+/// IQL keywords (single and multi-word, case-insensitive prefix match) plus
+/// identifier tokens already present in the typed text (entity / alias / field
+/// names) that extend the current token. Sorted and deduplicated.
+///
+/// Token-level shim over the statement grammar: `parse_statement` rejects
+/// partial input, so completion matches the token stream against the same
+/// keyword table the parser uses instead of parsing the prefix.
+pub fn autocomplete_prefix(prefix: &str) -> Vec<String> {
+    let current = prefix.split_whitespace().next_back().unwrap_or_default();
+    let current_lower = current.to_ascii_lowercase();
+
+    let mut out: Vec<String> = RESERVED_KEYWORDS
+        .iter()
+        .chain(EXTRA_AUTOCOMPLETE_KEYWORDS)
+        .filter(|kw| kw.to_ascii_lowercase().starts_with(&current_lower))
+        .map(|s| s.to_string())
+        .collect();
+
+    // Identifier tokens already present in the statement that extend the
+    // current token (e.g. reusing the entity name while typing a WHERE
+    // condition). Skip when the current token is empty — at a clause boundary
+    // the full keyword list is the useful suggestion, not a dump of every
+    // identifier.
+    if !current.is_empty() {
+        for token in prefix.split_whitespace() {
+            if token != current
+                && !is_keyword_token(token)
+                && token.to_ascii_lowercase().starts_with(&current_lower)
+            {
+                out.push(token.to_string());
+            }
+        }
+    }
+
+    out.sort();
+    out.dedup();
+    out
+}
+
 #[cfg(test)]
 #[allow(unused_imports, dead_code)]
 mod tests {
@@ -1714,5 +1768,67 @@ mod tests {
     fn test_parse_statement_select_is_dispatched() {
         let (_, stmt) = parse_statement("SELECT * FROM Node").unwrap();
         assert!(matches!(stmt, Statement::Select(_)));
+    }
+
+    // ─── Autocomplete (VS-CORE-06) ───────────────────────────────
+
+    #[test]
+    fn autocomplete_suggests_keywords_by_prefix() {
+        let out = autocomplete_prefix("F");
+        assert!(out.contains(&"FROM".to_string()));
+        assert!(out.contains(&"FETCH".to_string()));
+        assert!(!out.contains(&"WHERE".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_is_case_insensitive() {
+        let out = autocomplete_prefix("from");
+        assert!(out.contains(&"FROM".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_offers_multiword_keywords() {
+        // Two-word clause completes as one token while typing its first word.
+        let out = autocomplete_prefix("RAN");
+        assert!(out.contains(&"RANK BY".to_string()));
+        // Mid-phrase, the last word completes on its own ("TEMPERATURE" is
+        // itself a RESERVED_KEYWORDS entry, so it is suggested too).
+        let out = autocomplete_prefix("WITH TEM");
+        assert!(out.contains(&"TEMPERATURE".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_empty_prefix_offers_all_keywords() {
+        let out = autocomplete_prefix("");
+        let expected: Vec<String> = RESERVED_KEYWORDS
+            .iter()
+            .chain(EXTRA_AUTOCOMPLETE_KEYWORDS)
+            .map(|s| s.to_string())
+            .collect();
+        for kw in expected {
+            assert!(out.contains(&kw), "missing {kw}");
+        }
+    }
+
+    #[test]
+    fn autocomplete_reuses_identifiers_from_statement() {
+        // `FROM Person WHERE p` — the typed `p` should suggest the entity.
+        let out = autocomplete_prefix("FROM Person WHERE p");
+        assert!(out.contains(&"Person".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_does_not_suggest_self_or_keywords_as_identifiers() {
+        assert!(!autocomplete_prefix("FROM Per").contains(&"Per".to_string()));
+        assert!(!autocomplete_prefix("WHE").contains(&"WHE".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_sorted_and_deduped() {
+        let out = autocomplete_prefix("F");
+        let mut sorted = out.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(out, sorted);
     }
 }
