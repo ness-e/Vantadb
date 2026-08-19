@@ -262,7 +262,7 @@ fn export_format_schema_version_roundtrip() {
         source.flush().expect("flush");
 
         source
-            .export_namespace(&export_path, "ns/snap")
+            .export_namespace(&export_path, "ns/snap", None)
             .expect("export");
 
         // Read the raw JSONL and verify schema_version field

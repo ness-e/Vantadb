@@ -353,7 +353,7 @@ mod tests {
     fn cap_evicts_oldest_fifo() {
         let db = open_db(Some(2));
         for i in 1..=3 {
-            db.put(VantaMemoryInput::new("docs", "k", &format!("v{i}")))
+            db.put(VantaMemoryInput::new("docs", "k", format!("v{i}")))
                 .expect("put");
         }
         let all = db.versions("docs", "k").expect("versions");

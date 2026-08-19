@@ -608,3 +608,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 - `cargo install` (y `--features` en workflows) compila SOLO default features salvo que se pase `--features` explícito — la feature `server` quedaba fuera de los binarios publicados aunque existiera en el Cargo.toml.
 - El patrón que funcionó: mantener default lean y agregar la feature al build del workflow de release (`--features "server,$ALLOC_FEATURES"`) + documentar `cargo install --features server` en README — evita pagar axum/tokio en todo build de desarrollo.
 
+
+<!-- Learnings: VS-CORE-05 - 2026-08-19 -->
+- La descripcion de tipos que da el orquestador puede estar equivocada: se asumio `VantaMemoryFilter = {op, items}` cuando el core define `pub type VantaMemoryFilter = Vec<VantaMemoryFilterItem>` (src/sdk/types.rs:127). Verificar el tipo real con codegraph antes de disenar el wire de un binding; el patron de la tarea previa (`Vec<VantaMemoryFilterItem>`) era el correcto.
+- Tras anadir un metodo publico a `vantadb-wasm/src/lib.rs`, `tsc` del TS SDK falla hasta regenerar `vantadb-wasm/pkg` (artefacto ignorado por git, regenerable con `wasm-pack build --dev`) - el .d.ts del pkg es el contrato de tipos del wrapper.

@@ -479,7 +479,7 @@ fn text_index_export_import_round_trip_rebuildable() {
         .put(input("agent/main", "portable", "portable alpha alpha"))
         .expect("put source");
     source
-        .export_namespace(&export_path, "agent/main")
+        .export_namespace(&export_path, "agent/main", None)
         .expect("export namespace");
 
     let target = VantaEmbedded::open(target_dir.path()).expect("open target");
@@ -793,7 +793,7 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
     assert!(empty.is_empty());
 
     source
-        .export_namespace(&export_path, "agent/main")
+        .export_namespace(&export_path, "agent/main", None)
         .expect("export");
     source.close().expect("close source");
 

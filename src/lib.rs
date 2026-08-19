@@ -159,13 +159,14 @@ pub use node::{
 };
 pub use sdk::{
     connect, BulkImportReport, VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord,
-    VantaEmbedded, VantaExportReport, VantaFields, VantaHybridFusionReport, VantaImportReport,
-    VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryListPage,
-    VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest,
-    VantaNamespaceStats, VantaNamespaceStatsMap, VantaNodeInput, VantaNodeRecord,
-    VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile, VantaSearchExplanation,
-    VantaSearchExplanationHit, VantaSearchHit, VantaStorageTier, VantaTextIndexAuditReport,
-    VantaTextIndexRepairReport, VantaValue,
+    VantaEmbedded, VantaExportReport, VantaFields, VantaFilterOp, VantaHybridFusionReport,
+    VantaImportReport, VantaIndexRebuildReport, VantaMemoryFilter, VantaMemoryFilterItem,
+    VantaMemoryInput, VantaMemoryListOptions, VantaMemoryListPage, VantaMemoryMetadata,
+    VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest, VantaNamespaceStats,
+    VantaNamespaceStatsMap, VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics,
+    VantaQueryResult, VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit,
+    VantaSearchHit, VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport,
+    VantaValue,
 };
 pub use storage::vfile::VFILE_VERSION;
 pub use storage::BackendKind;

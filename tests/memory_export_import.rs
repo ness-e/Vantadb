@@ -53,7 +53,7 @@ fn export_import_namespace_round_trip() {
     source.flush().expect("flush source");
 
     let export = source
-        .export_namespace(&export_path, "agent/main")
+        .export_namespace(&export_path, "agent/main", None)
         .expect("export namespace");
     assert_eq!(export.records_exported, 2);
     assert_eq!(export.namespaces, vec!["agent/main".to_string()]);
