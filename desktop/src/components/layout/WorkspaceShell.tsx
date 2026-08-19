@@ -43,6 +43,9 @@ const Inspector = lazy(() => import("../inspector/Inspector"));
 const FiltersBuilder = lazy(() => import("../search/FiltersBuilder"));
 // CommandPalette (VS-09) + cmdk (~12 kB gzip): chunk lazy, se monta al abrir.
 const CommandPalette = lazy(() => import("../palette/CommandPalette"));
+// ImportPaste (OP-01): modal de import CSV/JSON pegado — chunk lazy, solo el
+// botón IMPORT lo monta.
+const ImportPaste = lazy(() => import("../ingest/ImportPaste"));
 // GraphLens (GRAFO-02): three + drei + r3f pesan ~600 kB → chunk lazy, solo
 // la surface IQL los paga (mitigación "Riesgos" del plan; mismo patrón).
 const GraphLens = lazy(() => import("../graph/GraphLens"));
@@ -163,6 +166,10 @@ export default function WorkspaceShell({
 }: WorkspaceShellProps) {
   const [surface, setSurface] = useState<Surface>("resumen");
   const [selected, setSelected] = useState<InspectorSelection | null>(null);
+
+  // OP-01: modal de import CSV/JSON + remount del grid tras importar.
+  const [importOpen, setImportOpen] = useState(false);
+  const [gridKey, setGridKey] = useState(0);
 
   // Filtros compuestos (VS-07): query builder AND/OR sobre metadata tipada.
   // El estado vive en el shell → sobrevive a cerrar el panel y alimenta la
@@ -696,8 +703,18 @@ export default function WorkspaceShell({
 
           {surface === "memorias" && (
             <div className="mx-auto max-w-6xl space-y-5 p-6">
+              <div className="flex items-center justify-end">
+                <button
+                  className="press border-2 border-foreground bg-background px-2 py-1 font-tech text-[10px] uppercase tracking-widest"
+                  onClick={() => setImportOpen(true)}
+                  title="Importar CSV o JSON pegado (hasta 1000 registros)"
+                >
+                  ⤒ IMPORT CSV/JSON
+                </button>
+              </div>
               <IngestForm onDone={(ids) => onNotice(`Stored ${ids.length} record(s).`)} runError={onError} />
               <DataExplorer
+                key={gridKey}
                 active={!!state.active}
                 busy={state.busy}
                 runError={onError}
@@ -787,6 +804,21 @@ export default function WorkspaceShell({
           onOpenFavorite={handleOpenFavorite}
           history={history}
           onClearHistory={() => searchHistory.clear()}
+        />
+      </Suspense>
+
+      {/* ========== IMPORT PASTE (OP-01, botón en MEMORIAS) ========== */}
+      <Suspense fallback={null}>
+        <ImportPaste
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          defaultNamespace={state.active?.name ?? "default"}
+          onImported={(count) => {
+            setGridKey((k) => k + 1);
+            setSurface("memorias");
+            onNotice(`Importados ${count} registros.`);
+          }}
+          onError={onError}
         />
       </Suspense>
     </div>

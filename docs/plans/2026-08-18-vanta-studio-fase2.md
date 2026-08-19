@@ -122,8 +122,8 @@
 - **Contrato:** textarea pegado (CSV: `key,payload,metadata_json` o JSONL/array) → parse + **preview editable** (tabla con filas válidas/inválidas marcadas, columna metadata parseable) → confirmación ("importar N registros a ns X") → `ingestBatch` → report (creados/errores). Errores de parse nunca silenciosos (05 anti-patrón: validar antes de escribir). Máx 1000 registros por paste (aviso).
 - **Verificación:** `npm run build` verde; pegar CSV de 10 filas → preview 10 → import → grid muestra 10; fila inválida se marca sin romper el resto.
 - **Ruta:** vanta-worker
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-08-19T02:30
+- **Estado:** ✅ COMPLETED (2026-08-19T10:35 — `parseImport.ts` + `parseImport.test.ts` (18/18 vitest: CSV/JSON/NDJSON, filas inválidas sin romper resto, >1000 truncated, runImport chunking 50 con errores por rango), `ImportPaste.tsx` lazy (auto-parse preview 8 filas ✓/✗, EJEMPLO, namespace, IMPORTAR N con confirmación, reporte), botón ⤒ IMPORT en MEMORIAS + `key={gridKey}` remount del grid en `WorkspaceShell.tsx`. Build tsc+vite verde; ImportPaste en chunk propio 10.9 kB/3.79 kB gzip. Id core-generado, `put_batch` atómico → errores por fila en parse + rango por chunk en ingest)
+- **last-synced:** 2026-08-19T10:35
 
 ### Task 10: OP-02 — Batch ops en grid con confirmación + undo
 - **Archivos clave:** `desktop/src/components/DataExplorer.tsx` (checkbox de fila + barra de selección), `desktop/src/store/undo.ts` (reusa VS-08 para batch), `desktop/src/vanta.ts` (consume VS-CORE-04/05), `desktop/src/components/layout/WorkspaceShell.tsx` (handlers).
