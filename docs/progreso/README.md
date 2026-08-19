@@ -3949,6 +3949,87 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ CHANGES-REQUIRED con 1 falla (SKILL.md:8 "4 resources" vs 2 reales en resources/list) → fix delegado a SKL-02 y re-verificado (test-mcp.py 4/4 exit 0). 13/13 checks + coherencia skill↔código OK (15/15 tools, 5/5 firmas pyi).
 - **Ids:** `SKL-04`
 
+## Vanta Studio (P26): Fase 0 — consola human-facing desktop (2026-08-18)
+
+> Plan `docs/plans/2026-08-18-vanta-studio-fase0.md` (archivado). Registro completo por tarea; resumen ejecutivo en `docs/Backlog.md` P26.
+
+### VS-00: Prototipo HTML Fase 0 core (3 pantallas navegables)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase0.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** fijar el diseño (HOME/MEMORIAS/Inspector) antes de codificar React; Tailwind v4 browser CDN con tokens reales de `web/`.
+- **Resultado:** ✅ `desktop/prototype/index.html` + 3 screenshots (validado con Playwright 1440×900).
+- **Ids:** `VS-00`
+
+### VS-01: Tailwind v4 + tokens manga/linocut + tema toggle
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase0.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** base estética de toda la Fase 0 — tokens de `web/` replicados, paleta dark propia, a11y focus + reduced-motion.
+- **Resultado:** ✅ `desktop/package.json`, `desktop/src/index.css`, `main.tsx`, `index.html` — commit `fa6c1427`. Build verde.
+- **Ids:** `VS-01`
+
+### VS-03: Workspace unificado (WorkspaceShell)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase0.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** reestructurar App.tsx a Sidebar + Topbar + superficie central + Inspector (P4 anti split-attention).
+- **Resultado:** ✅ `desktop/src/App.tsx` + `WorkspaceShell.tsx` — commits incrementales `f8250aea`/`399adaa6`/`270b34ba` (sin commit propio, shell creció con las tareas que monta).
+- **Ids:** `VS-03`
+
+### VS-04: HOME/overview (Fix 1)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase0.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** 7 cards de resumen con encoding redundante (Shneiderman overview-first).
+- **Resultado:** ✅ `desktop/src/components/home/HomeOverview.tsx` — commit `f8250aea`.
+- **Ids:** `VS-04`
+
+### VS-05: MEMORIAS grid virtualizado
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase0.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** TanStack Table v9 + Virtual con paginación por cursor (VS-CORE-01).
+- **Resultado:** ✅ `desktop/src/components/DataExplorer.tsx` — commit `14b6bfc8`.
+- **Ids:** `VS-05`
+
+### VS-06: Inspector master-detail (4 tabs + CodeMirror + commit explícito)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase0.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** General/Payload/Metadata/Vector con edición JSON (CodeMirror 6), nunca auto-guardar.
+- **Resultado:** ✅ `desktop/src/components/inspector/*.tsx` + slice WorkspaceShell — commit `399adaa6`.
+- **Ids:** `VS-06`
+
+### VS-07/VS-08/VS-09: Filtros compuestos + undo/papelera + command palette
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase0.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** P5 filtros AND/OR visuales; P8 soft-delete + restore; P9 Ctrl+K con acciones.
+- **Resultado:** ✅ `FiltersBuilder.tsx`/`undo.ts`/`TrashLens.tsx`/`CommandPalette.tsx` — commit `270b34ba` (VS-07/08/09 juntos).
+- **Ids:** `VS-07`, `VS-08`, `VS-09`
+
+### VS-10: Bridge Tauri put/update (crítico)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase0.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** hallazgo del revisor — no existía `put` en el bridge; destraba el Inspector (Guardar/TTL).
+- **Resultado:** ✅ `desktop/src-tauri/src/commands/data.rs` + `vanta.ts` — commit `d5453682`.
+- **Ids:** `VS-10`
+
+### VS-11: Bridge DTO enriquecido (crítico)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase0.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** `MemoryRecord` sin version/node_id/timestamps/TTL/vector → imposible grid + inspector.
+- **Resultado:** ✅ `desktop/src-tauri/src/connections/types.rs` + `vanta.ts` — commit `98c2d6c8`.
+- **Ids:** `VS-11`
+
+### VS-CORE-01: Cursor/paginación en bridge desktop
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase0.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** el core ya tenía cursor; faltaba exponerlo en Desktop (`vanta_list` + `listPage`).
+- **Resultado:** ✅ bridge Tauri + `vanta.ts` — commit `424ffe03`.
+- **Ids:** `VS-CORE-01`
+
+### VS-CORE-02: Contadores por namespace + stats TTL
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase0.md`
+- **Fecha:** 2026-08-18
+- **Objetivo:** `namespace_stats` single-pass para sidebar + HOME.
+- **Resultado:** ✅ `src/sdk/api.rs` + `types.rs` + serialización — commit `822f7742`. 1785 lib tests verdes.
+- **Ids:** `VS-CORE-02`
+
 ### VS-02: MARK variante desktop (asistente de datos)
 - **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase0.md`
 - **Fecha:** 2026-08-18

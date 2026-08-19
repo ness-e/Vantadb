@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 8c5e2a9f-1b3d-4e6f-8a7c-9d2b4f6a8e10
 > **Inicio:** 2026-08-18
-> **Estado:** ✅ COMPLETA (9/9 — commits `2a1f3012`..`9c27f5e9`)
+> **Estado:** ✅ COMPLETA (9/9 — commits `2a1f3012`..`4c26b285`)
 > **Fuente:** `docs/research/human-facing-db-ui/06-synthesis/SYNTHESIS.md` §7 Fase 1 + tabla DEFER del plan Fase 0 (líneas 185-200) + contratos verificados contra el core/bridge (2026-08-18).
 > **Predecesor:** `docs/plans/2026-08-18-vanta-studio-fase0.md` (✅ FASE 0 COMPLETA, 14/19).
 > **Modo:** ondas — bridges/gaps primero (secuencial), luego UI Fase 1 (paralelo con archivos no compartidos).
