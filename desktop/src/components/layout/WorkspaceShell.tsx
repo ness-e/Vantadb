@@ -46,8 +46,11 @@ const CommandPalette = lazy(() => import("../palette/CommandPalette"));
 // GraphLens (GRAFO-02): three + drei + r3f pesan ~600 kB → chunk lazy, solo
 // la surface IQL los paga (mitigación "Riesgos" del plan; mismo patrón).
 const GraphLens = lazy(() => import("../graph/GraphLens"));
+// SpaceLens (ESPACIO-01): regl-scatterplot + regl pesan ~200 kB → chunk lazy,
+// solo la surface ESPACIO los paga (mismo patrón que GraphLens/Inspector).
+const SpaceLens = lazy(() => import("../space/SpaceLens"));
 
-export type Surface = "resumen" | "memorias" | "papelera" | "actividad" | "retrieval" | "indices" | "iql";
+export type Surface = "resumen" | "memorias" | "papelera" | "actividad" | "retrieval" | "indices" | "iql" | "espacio";
 
 interface NamespaceCount {
   name: string;
@@ -406,6 +409,7 @@ export default function WorkspaceShell({
             <SideButton icon="⛁" label="RETRIEVAL" active={surface === "retrieval"} onClick={() => setSurface("retrieval")} />
             <SideButton icon="⠿" label="ÍNDICES" hint="F1" active={surface === "indices"} onClick={() => setSurface("indices")} />
             <SideButton icon="⌘" label="IQL" hint="F2" active={surface === "iql"} onClick={() => setSurface("iql")} />
+            <SideButton icon="✳" label="ESPACIO" active={surface === "espacio"} onClick={() => setSurface("espacio")} />
           </div>
 
           {/* VS-17: favoritos persistidos (ns o ns/key) — slice aditivo. */}
@@ -732,6 +736,17 @@ export default function WorkspaceShell({
           {surface === "iql" && (
             <Suspense fallback={<LensPlaceholder title="IQL" phase="cargando visor…" />}>
               <GraphLens onNotice={onNotice} onError={onError} dark={dark} />
+            </Suspense>
+          )}
+          {/* ESPACIO-01: scatterplot WebGL de embeddings (worker UMAP-js). */}
+          {surface === "espacio" && (
+            <Suspense fallback={<LensPlaceholder title="ESPACIO" phase="cargando visor…" />}>
+              <SpaceLens
+                onNotice={onNotice}
+                onError={onError}
+                dark={dark}
+                onOpenRecord={(record, score) => openRecord(record, score)}
+              />
             </Suspense>
           )}
         </main>

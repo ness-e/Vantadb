@@ -102,8 +102,8 @@
 - **Contrato:** proyección 2D de vectores del namespace activo (o selección) en **web worker** (UMAP-js, cap 10k-100k puntos; <1k → PCA rápido en worker), render con **regl-scatterplot** (zoom/pan, hover tooltip = payload preview, click → Inspector), color por **cluster (k-means simple en worker, k≈8-12)** con leyenda o por namespace/tier, encoding redundante (color+ícono+texto, P15), **aviso de distorsión** ("el mapa distorsiona distancias" — 04 anti-patrón 2), control "mostrar solo con vector". La proyección es opcional: tabla de resultados sigue disponible (04 regla 6).
 - **Verificación:** `npm run build` verde; render con namespace de prueba (100+ registros con vector); worker no bloquea UI (proyección de 10k puntos < 2s en background).
 - **Ruta:** vanta-worker
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-08-19T02:30
+- **Estado:** ✅ COMPLETED (2026-08-19T08:00 — vanta-worker, task file `.opencode/skills/campaign-executor/tasks/7.md`; verify: build exit 0, tsc exit 0, vitest 3/3; commit pendiente vanta-lead)
+- **last-synced:** 2026-08-19T08:00
 
 ### Task 8: ESPACIO-02 — Mapa como herramienta (selección → batch ops)
 - **Archivos clave:** `desktop/src/components/space/SpaceLens.tsx` (selección lasso/multi-punto + barra de acciones), `desktop/src/components/space/batchActions.ts` (nuevo: borrar/exportar/ajustar TTL), `desktop/src/vanta.ts` (consume VS-CORE-04/05).
