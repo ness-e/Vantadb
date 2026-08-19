@@ -37,6 +37,8 @@ interface Props {
    * cambió el contenido, no en re-renders por setActiveId. */
   revision: number;
   activeId: string | null;
+  /** Nodos resaltados por la consola IQL (resultado Read) — GRAFO-03. */
+  highlightIds: ReadonlySet<string>;
   showLabels: boolean;
   fitSignal: number;
   onSelectNode: (id: string) => void;
@@ -71,7 +73,7 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-export default function GraphScene({ nodes, edges, revision, activeId, showLabels, fitSignal, onSelectNode }: Props) {
+export default function GraphScene({ nodes, edges, revision, activeId, highlightIds, showLabels, fitSignal, onSelectNode }: Props) {
   const reducedMotion = usePrefersReducedMotion();
   const controlsRef = useRef<OrbitControlsImpl>(null);
   // Posiciones vivas: la simulación (o el fallback radial) las escribe aquí;
@@ -220,6 +222,7 @@ export default function GraphScene({ nodes, edges, revision, activeId, showLabel
           node={node}
           size={nodeSize(node.degree)}
           active={node.id === activeId}
+          highlighted={highlightIds.has(node.id)}
           showLabel={showLabels && topLabelIds.has(node.id)}
           positionsRef={positionsRef}
           onSelect={onSelectNode}

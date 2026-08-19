@@ -731,7 +731,7 @@ export default function WorkspaceShell({
           {/* GRAFO-02: lente GRAFO montada en la surface IQL (F2). */}
           {surface === "iql" && (
             <Suspense fallback={<LensPlaceholder title="IQL" phase="cargando visor…" />}>
-              <GraphLens onNotice={onNotice} onError={onError} />
+              <GraphLens onNotice={onNotice} onError={onError} dark={dark} />
             </Suspense>
           )}
         </main>

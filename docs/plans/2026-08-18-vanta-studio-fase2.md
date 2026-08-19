@@ -91,8 +91,8 @@
 - **Contrato:** consola embebida en la lente GRAFO: editor CodeMirror con autocompletado (VS-CORE-06: keywords FROM/MATCH/WHERE/AND/FETCH/RANK BY/WITH TEMPERATURE/ROLE + identificadores de namespaces/nodos), ejecutar (Ctrl+Enter) → `queryIql()` → resultado `Read` resalta nodos en el canvas R3F; `Write`/`StaleContext` muestran mensaje; errores de parse legibles (sin stack). Historial de queries en sesión (re-ejecutable, patrón VS-17 localStorage).
 - **Verificación:** `npm run build` verde; ejecutar IQL `FROM x FETCH y` contra datos de prueba → nodos resaltados; autocompletado muestra keywords al teclear.
 - **Ruta:** vanta-worker
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-08-19T02:30
+- **Estado:** ✅ COMPLETED (2026-08-19T06:15 — vanta-worker, task file `.opencode/skills/campaign-executor/tasks/6.md`; `IqlConsole.tsx` con CodeMirror + autocompletado (CompletionSource → `iqlAutocomplete`) + Ctrl+Enter → `queryIql` + historial localStorage `vanta.iql.history`; GraphLens integra consola panel inferior colapsable + highlightIds → GraphScene → halo cian en GraphNode; WorkspaceShell pasa `dark`; verify: npm run build verde (tsc 0 err), cargo fmt/clippy workspace 0 warnings, tests parser autocomplete 7/7; docs-coverage falla por bug interno pre-existente del script (línea 172) + gap pre-existente config.rs — sin cambios Rust; sin commit — lo commitea el lead)
+- **last-synced:** 2026-08-19T06:15
 
 ## Wave 2 — Lente ESPACIO (embeddings)
 

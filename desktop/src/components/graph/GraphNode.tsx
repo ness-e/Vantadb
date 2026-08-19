@@ -15,19 +15,22 @@ import type { GraphNode as GraphNodeData, PositionsRef } from "./useGraphData";
 
 export const NODE_COLOR = "#FF6B35"; // naranja toon (D4/D5)
 const ACTIVE_HALO = "#FFB800";
+const HIGHLIGHT_HALO = "#22D3EE"; // cian — resultado Read de la consola IQL (GRAFO-03)
 const LABEL_MAX = 24;
 
 interface Props {
   node: GraphNodeData;
   size: number;
   active: boolean;
+  /** Nodo resaltado por la consola IQL (resultado Read) — GRAFO-03. */
+  highlighted: boolean;
   /** true solo para top-N labels (evita saturar la escena). */
   showLabel: boolean;
   positionsRef: PositionsRef;
   onSelect: (id: string) => void;
 }
 
-export default function GraphNode({ node, size, active, showLabel, positionsRef, onSelect }: Props) {
+export default function GraphNode({ node, size, active, highlighted, showLabel, positionsRef, onSelect }: Props) {
   const groupRef = useRef<Group>(null);
 
   useFrame(() => {
@@ -65,6 +68,13 @@ export default function GraphNode({ node, size, active, showLabel, positionsRef,
         <mesh scale={1.7}>
           <sphereGeometry args={[size, 14, 14]} />
           <meshBasicMaterial color={ACTIVE_HALO} transparent opacity={0.22} depthWrite={false} />
+        </mesh>
+      )}
+      {/* halo de resultado IQL (GRAFO-03): cian, más grande que el activo */}
+      {highlighted && (
+        <mesh scale={2}>
+          <sphereGeometry args={[size, 14, 14]} />
+          <meshBasicMaterial color={HIGHLIGHT_HALO} transparent opacity={0.35} depthWrite={false} />
         </mesh>
       )}
       {showLabel && (
