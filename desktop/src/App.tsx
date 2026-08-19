@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./App.css";
+import { isEmbedded } from "./transport";
 import { useConnectionState } from "./hooks/useConnectionState";
 import WorkspaceShell from "./components/layout/WorkspaceShell";
 
@@ -27,6 +28,9 @@ function App() {
 
   return (
     <WorkspaceShell
+      // WEB-05: web build hides the Tauri-only connection selector; the
+      // embedded HTTP connection is active by default (useConnectionState).
+      embedded={isEmbedded}
       state={state}
       actions={actions}
       notice={notice}

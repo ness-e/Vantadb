@@ -1,6 +1,7 @@
 // Orchestrates connection lifecycle + health + active-connection state.
 // Drives DActions purely through the typed bridge (src/vanta.ts).
 import { useCallback, useEffect, useState } from "react";
+import { isEmbedded } from "../transport";
 import {
   connectNative,
   ConnectionInfo,
@@ -57,7 +58,24 @@ export function useConnectionState(): [VantaState, ConnectionActions] {
 
   const refresh = useCallback(async () => {
     try {
-      const pairs = await listConnections();
+      // WEB-05: in embedded (web) mode there is no multi-connection manager —
+      // the app talks to the embedded server directly, so the connection list
+      // is one implicit HTTP connection ("modo embebido = HTTP activo por
+      // defecto"). listConnections() throws on the HTTP transport (unsupported).
+      const pairs: [string, ConnectionInfo][] = isEmbedded
+        ? [
+            [
+              "embedded",
+              {
+                id: "embedded",
+                name: "embedded",
+                via: "http",
+                status: "connected",
+                description: "servidor embebido (HTTP)",
+              },
+            ],
+          ]
+        : await listConnections();
       const conns = pairs.map(([, info]) => info);
       setState((s) => {
         const activeId =

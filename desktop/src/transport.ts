@@ -85,3 +85,7 @@ export function getTransport(): VantaTransport {
 
 /** Module-level transport — the environment is fixed at load time. */
 export const transport: VantaTransport = getTransport();
+
+/** WEB-05: true outside Tauri (plain browser serving the embedded console).
+ * One implicit server connection instead of the multi-connection manager. */
+export const isEmbedded = !(transport instanceof TauriBackend);

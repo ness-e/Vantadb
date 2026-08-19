@@ -7,10 +7,19 @@
 // parsed links.
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { isEmbedded } from "../transport";
 import { DEEP_LINK_EVENT, parseVantaUrl, takeDeepLink, type VantaDeepLink } from "../vanta";
 
 export function useDeepLink(onLink: (link: VantaDeepLink) => void): void {
   useEffect(() => {
+    // WEB-05: deep links are an OS-scheme/IPC feature — they cannot arrive in
+    // the web build. Guard runtime (no dynamic import needed: @tauri-apps/api
+    // bundles fine, only calling `listen` outside Tauri would reject).
+    if (isEmbedded) {
+      console.info("[vanta] deep links no disponibles en modo web (Tauri-only)");
+      return;
+    }
+
     let disposed = false;
 
     async function handle(raw: string) {

@@ -68,6 +68,8 @@ interface InspectorSelection {
 }
 
 interface WorkspaceShellProps {
+  /** WEB-05: true outside Tauri (web build) — hides Tauri-only connection UI. */
+  embedded?: boolean;
   state: VantaState;
   actions: ConnectionActions;
   notice: string | null;
@@ -155,6 +157,7 @@ function LensPlaceholder({ title, phase }: { title: string; phase: string }) {
 }
 
 export default function WorkspaceShell({
+  embedded = false,
   state,
   actions,
   notice,
@@ -679,17 +682,21 @@ export default function WorkspaceShell({
                 </section>
               )}
               {state.active && <HomeOverview active />}
-              <ConnectionPanel
-                connections={state.connections}
-                activeId={state.activeId}
-                health={state.health}
-                healthStatus={state.healthStatus}
-                busy={state.busy}
-                onConnectNative={actions.connectNativePath}
-                onDisconnect={actions.disconnectId}
-                onActivate={actions.activate}
-                onProbeHealth={actions.probeHealth}
-              />
+              {/* WEB-05: connection manager is Tauri-only (multi-connection);
+                  embedded mode = single implicit HTTP connection. */}
+              {!embedded && (
+                <ConnectionPanel
+                  connections={state.connections}
+                  activeId={state.activeId}
+                  health={state.health}
+                  healthStatus={state.healthStatus}
+                  busy={state.busy}
+                  onConnectNative={actions.connectNativePath}
+                  onDisconnect={actions.disconnectId}
+                  onActivate={actions.activate}
+                  onProbeHealth={actions.probeHealth}
+                />
+              )}
               <MetricsGrid
                 health={state.health}
                 healthStatus={state.healthStatus}
