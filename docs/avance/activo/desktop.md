@@ -115,6 +115,46 @@ aliases: [DESKTOP]
 - **Fecha:** 2026-08-18
 - **Resultado:** ✅ Core: `src/sdk/version_history.rs` + partición Fjall `Versions` (cap 32 FIFO aprobado); bridge: `getVersion`/`versions` en `vanta.ts`. Commits `be0812a4`/`b6997e59`.
 
+### VS-CORE-04: Exportar selección/query con filtro
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ `export_namespace(path, namespace, filter: Option<VantaMemoryFilter>)` aditivo + WASM `export_namespace_filtered` + TS `exportNamespace(path, namespace, filter?)` + comando Tauri `vanta_export_namespace`. Commits `a62088b7`/`7429f81a`. Desbloquea batch export (OP-02).
+
+### VS-CORE-05: Batch delete con filtro desde UI
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ `delete_by_filter` en WASM → TS → bridge Tauri (`vanta_delete_by_filter(namespace, filter) -> u64`) con protección anti borrado total (filtro vacío rechazado). Commits `15172349`/`39a6369c`. Desbloquea batch delete (OP-02).
+
+### VS-CORE-06: IQL en desktop (bridge vanta_query + autocompletado)
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ DTO `VantaQueryResult` (Read/Write/StaleContext) + comando `vanta_query` + `vanta_iql_autocomplete` (shim core-side sobre `parse_statement`) + wrapper `queryIql()` en `vanta.ts`. Commit `ebf9acc1`. Desbloquea IQL console (GRAFO-03).
+
+### GRAFO-01: Bridge Tauri de grafos (bfs/dfs + degree)
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ DTOs `VantaGraphNodeInfo`/`VantaGraphEdgeInfo`/`VantaGraphTraversalResult` + trait graph_bfs/graph_dfs/graph_degree (default Unsupported) + comandos `vanta_graph_bfs/dfs/degree` + WASM `graph_filtered_traversal`/`graph_degree`. Commit `b5eaabad`.
+
+### GRAFO-02: Visor R3F force-directed (toon+outline manga)
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ Canvas R3F (r3f v9 + drei v10 — React 19.1.0 real) con d3-force@3 en tick manual por useFrame (positionsRef, cero re-renders), toon+outline, expand incremental con reheat alpha, prefers-reduced-motion → radial estático. Commit `c23b1761`. Re-feedback D5 del usuario: force-directed obligatorio.
+
+### GRAFO-03: IQL console embebida (CodeMirror + autocompletado + highlight)
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ `IqlConsole.tsx` (@uiw/react-codemirror@4.25.11) + CompletionSource → `iqlAutocomplete` + Ctrl+Enter → `queryIql()` → highlightIds → halo cian; historial localStorage `vanta.iql.history`. Commit `f62548a2`.
+
+### ESPACIO-01: Scatterplot UMAP en worker (regl-scatterplot + lasso)
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ `projection.worker.ts` (UMAP-js fitAsync cancelable, seed mulberry32, NDC [-1,1], cap 100k) + `SpaceLens.tsx` (regl-scatterplot: zoom/pan, hover tooltip, lasso SHIFT+drag, color por namespace) + surface "espacio". Commit `0e772ba3`.
+
+### ESPACIO-02: Mapa como herramienta (selección lasso → batch ops + undo)
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ Selección lasso → export JSONL client-side (`recordsToJsonl`+`downloadText`) + eliminar con undo batch (`undoStore.softDeleteBatch`, 1 entry + snapshot) + confirmación con cantidad. Decisión: `deleteByFilter`/`exportNamespace` no expresan "key ∈ set" → client-side. Commit `889000ed`.
+
+### OP-01: Import CSV/JSON pegado
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ `parseImport.ts` (CSV `key,payload,metadata_json`/JSONL/array, preview editable ✓/✗, máx 1000, chunking 50) + `ImportPaste.tsx` lazy + botón ⤒ IMPORT en MEMORIAS + `key={gridKey}` remount. Commit `6fc4df91`. 18/18 vitest.
+
+### OP-02: Batch ops en grid (selección múltiple + export/eliminar con undo)
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ Checkbox de fila + select-all (página actual) → barra: Exportar (n) .jsonl client-side + Eliminar (n) con confirmación + undo snapshot (`softDeleteBatch`). Selección por `Set<string>` de `${ns}:${id}`. Fix a11y (sort button solo envuelve columnas sortables). Commit `a88cd1b0`. Retomado de sub-agente cancelado.
+
 ---
 
 ## Fuentes

@@ -4019,9 +4019,82 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ `historial-diff.ts` + `historial-tab.tsx` + tab HISTORIAL aditivo en Inspector — commit `5796b2f9`. Self-check 27 asserts PASS; build verde. Revert restaura payload+metadata+TTL (vector no — limitación vantaPut Fase 0, declarada en confirmación).
 - **Ids:** `VS-14`
 
+### VS-CORE-06: IQL en desktop (bridge vanta_query + autocompletado)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase2.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** exponer `VantaEmbedded.query` en bridge Tauri (`vanta_query` → `VantaQueryResult` con Read/Write/StaleContext) + autocompletado IQL core-side (`autocomplete_prefix` sobre `parse_statement`) → `vanta_iql_autocomplete`; wrapper `queryIql()` tipado. Desbloquea GRAFO-03.
+- **Resultado:** ✅ commit `ebf9acc1`. verify full verde (cargo check, tests trait query roundtrip, npm build).
+- **Ids:** `VS-CORE-06`
+
+### VS-CORE-04: Exportar selección/query con filtro
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase2.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** `export_namespace(path, namespace, filter: Option<VantaMemoryFilter>)` aditivo (None = export completo actual) + `export_namespace_filtered` WASM + `exportNamespace(path, namespace, filter?)` TS + comando Tauri `vanta_export_namespace`. Desbloquea OP-02 batch export.
+- **Resultado:** ✅ commit `a62088b7` + repair `7429f81a` (callers vantadb-python + clippy mcp_tests). 16/16 impl_export + integración; npm build TS+desktop verde.
+- **Ids:** `VS-CORE-04`
+
+### VS-CORE-05: Batch delete con filtro desde UI
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase2.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** exponer `delete_by_filter` en WASM → TS → bridge Tauri (`vanta_delete_by_filter(namespace, filter) -> u64`) con protección anti borrado total (filtro vacío rechazado). Desbloquea OP-02 batch delete.
+- **Resultado:** ✅ commit `15172349` + repair `39a6369c` (re-exports filtros root + clippy tests + learnings). nextest 1948/1948 (2 skip).
+- **Ids:** `VS-CORE-05`
+
+### GRAFO-01: Bridge Tauri de grafos (bfs/dfs + degree)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase2.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** DTOs `VantaGraphNodeInfo`/`VantaGraphEdgeInfo`/`VantaGraphTraversalResult` + trait methods graph_bfs/graph_dfs/graph_degree (default Unsupported) + comandos `vanta_graph_bfs/dfs/degree` + WASM `graph_filtered_traversal`/`graph_degree` + TS wrappers. Base de datos del visor R3F.
+- **Resultado:** ✅ commit `b5eaabad`. 1917 core + 53 desktop lib tests.
+- **Ids:** `GRAFO-01`
+
+### GRAFO-02: Visor R3F force-directed (toon+outline manga)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase2.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** canvas R3F con force-directed (d3-force en tick manual por useFrame fuera del render React — positionsRef, cero re-renders), toon shading + outline negro, tamaño por grado, expand incremental con reheat alpha, prefers-reduced-motion → radial estático (matchMedia; drei v10 no exporta useReducedMotion). Re-feedback del usuario: "Implementar force-directed (Recommended)".
+- **Resultado:** ✅ commit `c23b1761`. r3f v9 + drei v10 (React 19.1.0 real en desktop, no 18). npm build verde (tsc 0 err), chunk lazy 263 kB gzip.
+- **Ids:** `GRAFO-02`
+
+### GRAFO-03: IQL console embebida (CodeMirror + autocompletado + highlight)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase2.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** consola IQL en lente GRAFO: CodeMirror (@uiw/react-codemirror@4.25.11, React 19 compat) + autocompletado (CompletionSource → `iqlAutocomplete`) + Ctrl+Enter → `queryIql()` → highlightIds → halo cian en GraphNode; historial localStorage `vanta.iql.history`.
+- **Resultado:** ✅ commit `f62548a2`. Primer intento devolvió resultado vacío → RESUME misma sesión funcionó. npm build verde; tests parser autocomplete 7/7.
+- **Ids:** `GRAFO-03`
+
+### ESPACIO-01: Scatterplot UMAP en worker (regl-scatterplot + lasso)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase2.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** proyección 2D UMAP-js en web worker (fitAsync cancelable, seed mulberry32, NDC [-1,1], cap 100k) + regl-scatterplot (zoom/pan, hover tooltip, lasso SHIFT+drag, color por namespace) + surface "espacio" en WorkspaceShell. La proyección nunca en hilo principal (04 anti-patrón 5).
+- **Resultado:** ✅ commit `0e772ba3`. Primer intento vacío con deps instaladas → RESUME. vitest worker 3/3; build verde.
+- **Ids:** `ESPACIO-01`
+
+### ESPACIO-02: Mapa como herramienta (selección lasso → batch ops + undo)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase2.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** selección lasso → barra de acciones: export JSONL client-side (`recordsToJsonl`+`downloadText`) y eliminar con undo batch (`undoStore.softDeleteBatch`, 1 entry + snapshot) + confirmación que muestra cantidad. Decisión: `deleteByFilter`/`exportNamespace` NO expresan "key ∈ {k1..kN}" (AND-filter) → client-side.
+- **Resultado:** ✅ commit `889000ed`. undo.test 3/3, node:test 14/14; fix timeout vitest worker (`vi.setConfig({testTimeout: 60_000})` — test.setTimeout no existe en vitest 4).
+- **Ids:** `ESPACIO-02`
+
+### OP-01: Import CSV/JSON pegado (parser + preview + ingest lote)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase2.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** textarea pegado (CSV `key,payload,metadata_json` / JSONL / array) → parse + preview editable (filas ✓/✗) → confirmación con cantidad → `ingestBatch` → report. Máx 1000 registros (truncation + aviso), chunking 50. Errores de parse nunca silenciosos.
+- **Resultado:** ✅ commit `6fc4df91`. parseImport.test 18/18 vitest; chunk lazy 10.9 kB gzip; botón ⤒ IMPORT en MEMORIAS + `key={gridKey}` remount.
+- **Ids:** `OP-01`
+
+### OP-02: Batch ops en grid (selección múltiple + export/eliminar con undo)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase2.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** checkbox de fila + select-all (página actual) → barra: Exportar (n) .jsonl client-side y Eliminar (n) con confirmación que muestra cantidad + undo snapshot (`softDeleteBatch`). Selección por `Set<string>` de `${ns}:${id}`. Retomado de sub-agente cancelado (abort sin task_id → digest del task file a agente fresco).
+- **Resultado:** ✅ commit `a88cd1b0`. batchSelection.test 4/4 vitest; build tsc+vite verde; fix a11y (sort button solo envuelve columnas sortables).
+- **Ids:** `OP-02`
+
 ---
 
 ## Planes archivados
+
+- **Plan archivado:** `docs/plans/archive/2026-08-18-vanta-studio-fase2.md` — 10/10 completadas (Vanta Studio Fase 2: gaps core VS-CORE-04/05/06 + lente GRAFO R3F + lente ESPACIO + operaciones import/batch)
+- **Retrospectiva:** Start: doble gate del lead (verify mecánico + commit selectivo) por tarea — 0 regresiones en 10/10 | DAG secuencial corregido a tiempo (Tasks 2/3 NO disjuntas) | relanzar tareas con digest del task file tras abort sin task_id (Task 10) | force-directed en frame loop fuera del render React (positionsRef) | Stop: confiar en descripciones de tipos del orquestador (VS-CORE-05: `VantaMemoryFilter` es `Vec<VantaMemoryFilterItem>`, no `{op,items}`) | dejar que sub-agentes corrompan plan file (lead único dueño) | asumir React 18 en desktop (real: 19.1.0 → r3f v9+drei v10) | Continue: skills warmup obligatorio al delegar | verify mecánico con `campaign_verify_cmd` en cada step | decisiones de contrato del usuario (D5 force-directed) antes de delegar | Acción medida: verify retries/tarea = 1/10 (solo ESPACIO-02 requirió fix post-commit); baseline North Star: >90% primer intento ✅ (90%)
 
 - **Plan archivado:** `docs/plans/archive/2026-08-17-skills-vantadb.md` - 4/4 completadas (wave SKL: skills de VantaDB corregidas)
 - **Retrospectiva:** Start: diagnóstico del lead con evidencia archivo:línea antes de delegar + contratos mecánicos accionables + waves paralelas por archivos disjuntos | Stop: contrato decía 14 tools cuando el server real tiene 15 (corregido en DISCOVERY, no bloqueó) | Continue: routing por dominio (docs→vanta-docs, scripts→vanta-worker) + gate P2-01 que encontró 1 falla real de coherencia doc↔código que los checks mecánicos no veían | Acción medida: verify retries/tarea = 1/4 (SKL-02 requirió fix post-review); baseline North Star: >90% primer intento
