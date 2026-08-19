@@ -209,3 +209,19 @@ export interface GraphTopologicalSortResult {
   sorted: number[];
   has_cycle: boolean;
 }
+
+/** Optional edge label/time filter for `graphFilteredTraversal` (GRAFO-01). */
+export interface GraphTraversalFilter {
+  /** Only follow edges whose label id is in this set. Empty = no label filter. */
+  labels?: number[];
+  /** Inclusive [from_ms, to_ms] window on edge creation time. Absent = no filter. */
+  time_range?: [number, number] | null;
+}
+
+/** Degree centrality entry for a graph node (GRAFO-01). */
+export interface GraphDegreeEntry {
+  /** Node id as a string (u128 ids exceed JS safe integers). */
+  id: string;
+  in_degree: number;
+  out_degree: number;
+}

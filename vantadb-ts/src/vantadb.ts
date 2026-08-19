@@ -7,8 +7,10 @@ import type {
   Capabilities,
   ExportReport,
   GraphBfsResult,
+  GraphDegreeEntry,
   GraphDfsResult,
   GraphTopologicalSortResult,
+  GraphTraversalFilter,
   ImportReport,
   ListOptions,
   MemoryInput,
@@ -920,6 +922,59 @@ export class VantaDB {
     this._assertOpen();
     return this._wasm("graphIsDag", () =>
       this.inner.graph_is_dag(roots.map(String)),
+    );
+  }
+
+  /**
+   * Breadth-first traversal with optional edge label/time filtering (GRAFO-01).
+   *
+   * @param roots - Array of root node IDs to start from.
+   * @param maxDepth - Maximum traversal depth (default: 10).
+   * @param direction - "Forward" | "Reverse" | "Both" (default: "Forward").
+   * @param filter - Optional `{labels?: number[], time_range?: [number, number]}`
+   *   to follow only matching edges. `null`/`undefined` disables filtering.
+   * @returns Visited node ids (same shape as `graphBfs`).
+   * @throws {VantaError} If the instance is closed.
+   *
+   * @example
+   * ```ts
+   * const result = db.graphFilteredTraversal([1], 5, "Forward", { labels: [42] });
+   * ```
+   */
+  graphFilteredTraversal(
+    roots: number[],
+    maxDepth: number = 10,
+    direction: "Forward" | "Reverse" | "Both" = "Forward",
+    filter?: GraphTraversalFilter | null,
+  ): GraphBfsResult {
+    this._assertOpen();
+    return this._wasm("graphFilteredTraversal", () =>
+      this.inner.graph_filtered_traversal(
+        roots.map(String),
+        maxDepth,
+        direction,
+        filter ?? null,
+      ) as GraphBfsResult,
+    );
+  }
+
+  /**
+   * Degree centrality (in/out counts) for the subgraph reachable from the
+   * given roots (GRAFO-01).
+   *
+   * @param roots - Array of root node IDs.
+   * @returns Array of `{id, in_degree, out_degree}` entries.
+   * @throws {VantaError} If the instance is closed.
+   *
+   * @example
+   * ```ts
+   * const degrees = db.graphDegree([1]);
+   * ```
+   */
+  graphDegree(roots: number[]): GraphDegreeEntry[] {
+    this._assertOpen();
+    return this._wasm("graphDegree", () =>
+      this.inner.graph_degree(roots.map(String)) as GraphDegreeEntry[],
     );
   }
 

@@ -13,6 +13,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use async_trait::async_trait;
 use serde_json::Value as JsonValue;
 use vantadb::config::VantaConfig;
+use vantadb::graph::TraversalDirection;
 use vantadb::VantaError as CoreVantaError;
 use vantadb::{
     VantaBm25TermContribution, VantaEmbedded, VantaMemoryFilterItem, VantaMemoryInput,
@@ -23,7 +24,8 @@ use vantadb::{
 use super::types::{
     Bm25Term, Capability, ConnectionInfo, ConnectionStatus, ExplanationHit, ExportReport,
     HealthReport, HealthStatus, IngestItem, ListPage, MemoryFilterItem, MemoryRecord, SearchQuery,
-    SearchResult, VantaQueryResult,
+    SearchResult, VantaGraphEdgeInfo, VantaGraphNodeInfo, VantaGraphTraversalResult,
+    VantaQueryResult,
 };
 use super::VantaConnection;
 use crate::error::VantaError;
@@ -80,6 +82,34 @@ impl NativeConnection {
             db,
             audit_log_path,
         })
+    }
+
+    /// Build the wire traversal result (nodes + edges) from visited node ids
+    /// (GRAFO-01). Capped at `cap` nodes; each node's outgoing edges become
+    /// the edge list (source = node, target = edge target).
+    async fn graph_traversal_result(
+        &self,
+        ids: &[u128],
+        cap: usize,
+    ) -> Result<VantaGraphTraversalResult, VantaError> {
+        let mut result = VantaGraphTraversalResult::default();
+        for id in ids.iter().take(cap) {
+            let db = self.db.clone();
+            let id = *id;
+            let node = blocking(move || db.get_node(id).map_err(map_core_error)).await?;
+            if let Some(node) = node {
+                result.nodes.push(node_record_to_graph_node(&node));
+                for edge in &node.edges {
+                    result.edges.push(VantaGraphEdgeInfo {
+                        source: id.to_string(),
+                        target: edge.target.to_string(),
+                        label: Some(edge.label.clone()),
+                        weight: Some(edge.weight),
+                    });
+                }
+            }
+        }
+        Ok(result)
     }
 }
 
@@ -272,6 +302,51 @@ fn node_record_to_memory(n: VantaNodeRecord) -> MemoryRecord {
         node_id: Some(n.id.to_string()),
         sparse_vector: None,
         expires_at_ms: None,
+    }
+}
+
+/// Map a core `VantaNodeRecord` into the desktop graph node DTO (GRAFO-01).
+///
+/// `label` reuses the memory-SDK text recovery order (`__vanta_payload` →
+/// `text` → `content`), falling back to the numeric id so the visor always
+/// has something to render. `group` is the node `type` field when present
+/// (the visor colors by it); `degree` is filled in by degree queries, which
+/// take a different code path.
+fn node_record_to_graph_node(n: &VantaNodeRecord) -> VantaGraphNodeInfo {
+    let label = ["__vanta_payload", "text", "content"]
+        .into_iter()
+        .find_map(|k| match n.fields.get(k) {
+            Some(VantaValue::String(s)) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| n.id.to_string());
+    let group = match n.fields.get("type") {
+        Some(VantaValue::String(s)) => Some(s.clone()),
+        _ => None,
+    };
+    VantaGraphNodeInfo {
+        id: n.id.to_string(),
+        label,
+        group,
+        degree: 0,
+    }
+}
+
+/// Parse a wire node-id string into the core's u128 id.
+fn parse_node_id(id: &str) -> Result<u128, VantaError> {
+    id.parse::<u128>()
+        .map_err(|_| VantaError::Native(format!("invalid node id: {id}")))
+}
+
+/// Parse the wire direction string into the core `TraversalDirection`.
+fn parse_direction(direction: &str) -> Result<TraversalDirection, VantaError> {
+    match direction {
+        "Forward" => Ok(TraversalDirection::Forward),
+        "Reverse" => Ok(TraversalDirection::Reverse),
+        "Both" => Ok(TraversalDirection::Both),
+        other => Err(VantaError::Native(format!(
+            "invalid direction '{other}': expected 'Forward', 'Reverse', or 'Both'"
+        ))),
     }
 }
 
@@ -502,6 +577,92 @@ impl VantaConnection for NativeConnection {
                 .map_err(map_core_error)
         })
         .await
+    }
+
+    async fn graph_bfs(
+        &self,
+        roots: Vec<String>,
+        max_depth: usize,
+        direction: String,
+        limit: Option<usize>,
+    ) -> Result<VantaGraphTraversalResult, VantaError> {
+        let roots = roots
+            .iter()
+            .map(|r| parse_node_id(r))
+            .collect::<Result<Vec<u128>, VantaError>>()?;
+        let dir = parse_direction(&direction)?;
+        let cap = limit.unwrap_or(50);
+        let db = self.db.clone();
+        let ids = blocking(move || {
+            db.graph_bfs(&roots, max_depth, dir)
+                .map_err(map_core_error)
+        })
+        .await?;
+        self.graph_traversal_result(&ids, cap).await
+    }
+
+    async fn graph_dfs(
+        &self,
+        roots: Vec<String>,
+        max_depth: usize,
+        direction: String,
+        limit: Option<usize>,
+    ) -> Result<VantaGraphTraversalResult, VantaError> {
+        let roots = roots
+            .iter()
+            .map(|r| parse_node_id(r))
+            .collect::<Result<Vec<u128>, VantaError>>()?;
+        let dir = parse_direction(&direction)?;
+        let cap = limit.unwrap_or(50);
+        let db = self.db.clone();
+        let ids = blocking(move || {
+            db.graph_dfs(&roots, max_depth, dir)
+                .map_err(map_core_error)
+        })
+        .await?;
+        self.graph_traversal_result(&ids, cap).await
+    }
+
+    async fn graph_degree(
+        &self,
+        namespace: &str,
+        limit: Option<usize>,
+    ) -> Result<Vec<VantaGraphNodeInfo>, VantaError> {
+        let ns = namespace.to_string();
+        let cap = limit.unwrap_or(50);
+        let options = VantaMemoryListOptions {
+            limit: cap,
+            cursor: None,
+            ..Default::default()
+        };
+        let db = self.db.clone();
+        let ns_for_list = ns.clone();
+        let page =
+            blocking(move || db.list(&ns_for_list, options).map_err(map_core_error)).await?;
+        if page.records.is_empty() {
+            // Empty/unknown namespace → empty list, not an error (GRAFO-01).
+            return Ok(Vec::new());
+        }
+        let node_ids: Vec<u128> = page.records.iter().map(|r| r.node_id).collect();
+        let db = self.db.clone();
+        let degrees = blocking(move || {
+            db.graph_degree_centrality(&node_ids)
+                .map_err(map_core_error)
+        })
+        .await?;
+        Ok(page
+            .records
+            .into_iter()
+            .map(|r| VantaGraphNodeInfo {
+                id: r.node_id.to_string(),
+                label: r.payload.clone(),
+                group: Some(ns.clone()),
+                degree: degrees
+                    .get(&r.node_id)
+                    .map(|(in_d, out_d)| (*in_d + *out_d) as u64)
+                    .unwrap_or(0),
+            })
+            .collect())
     }
 
     async fn export_namespace(

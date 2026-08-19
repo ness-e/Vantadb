@@ -11,7 +11,7 @@ use tauri::State;
 
 use crate::connections::{
     ExportReport, IngestItem, ListPage, MemoryFilterItem, MemoryRecord, SearchQuery, SearchResult,
-    VantaQueryResult,
+    VantaGraphNodeInfo, VantaGraphTraversalResult, VantaQueryResult,
 };
 use crate::error::VantaError;
 use crate::AppState;
@@ -183,4 +183,53 @@ pub async fn vanta_delete_by_filter(
     filter: Vec<MemoryFilterItem>,
 ) -> Result<u64, VantaError> {
     state.manager.delete_by_filter(&namespace, filter).await
+}
+
+/// Breadth-first graph traversal from root node ids on the active connection
+/// (GRAFO-01). Returns the visited nodes plus their outgoing edges.
+///
+/// `roots` are node ids (u128, string-serialized on the wire). `direction` is
+/// `"Forward"` / `"Reverse"` / `"Both"`. `limit` caps the result (default 50).
+/// Only the native (embedded) connection implements graph traversal; other
+/// transports reject with `Unsupported`.
+#[tauri::command]
+pub async fn vanta_graph_bfs(
+    state: State<'_, AppState>,
+    roots: Vec<String>,
+    max_depth: usize,
+    direction: String,
+    limit: Option<usize>,
+) -> Result<VantaGraphTraversalResult, VantaError> {
+    state
+        .manager
+        .graph_bfs(roots, max_depth, direction, limit)
+        .await
+}
+
+/// Depth-first graph traversal from root node ids on the active connection
+/// (GRAFO-01). Same contract as [`vanta_graph_bfs`].
+#[tauri::command]
+pub async fn vanta_graph_dfs(
+    state: State<'_, AppState>,
+    roots: Vec<String>,
+    max_depth: usize,
+    direction: String,
+    limit: Option<usize>,
+) -> Result<VantaGraphTraversalResult, VantaError> {
+    state
+        .manager
+        .graph_dfs(roots, max_depth, direction, limit)
+        .await
+}
+
+/// Degree centrality (in+out) for every node in `namespace` on the active
+/// connection (GRAFO-01), up to `limit` (default 50). An empty/unknown
+/// namespace returns an empty list, not an error.
+#[tauri::command]
+pub async fn vanta_graph_degree(
+    state: State<'_, AppState>,
+    namespace: String,
+    limit: Option<usize>,
+) -> Result<Vec<VantaGraphNodeInfo>, VantaError> {
+    state.manager.graph_degree(&namespace, limit).await
 }

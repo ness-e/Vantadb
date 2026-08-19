@@ -1400,6 +1400,73 @@ impl VantaDB {
         self.inner.graph_is_dag(&roots).map_err(to_js_err)
     }
 
+    /// Breadth-first traversal with optional edge label/time filtering
+    /// (GRAFO-01).
+    ///
+    /// `filter` is `{labels?: number[], time_range?: [number, number]}` —
+    /// only edges whose label id is in `labels` (and, when given, created
+    /// inside the inclusive `time_range` window) are followed. `null`/
+    /// `undefined` disables both filters. Delegates to the core
+    /// `graph_bfs_filtered`; returns visited node ids in BFS order.
+    pub fn graph_filtered_traversal(
+        &self,
+        roots: Vec<String>,
+        max_depth: usize,
+        direction: String,
+        filter: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let dir = match direction.as_str() {
+            "Forward" => TraversalDirection::Forward,
+            "Reverse" => TraversalDirection::Reverse,
+            "Both" => TraversalDirection::Both,
+            _ => {
+                return Err(JsValue::from_str(&format!(
+                    "invalid direction '{direction}': expected 'Forward', 'Reverse', or 'Both'"
+                )))
+            }
+        };
+        let roots: Vec<u128> = roots
+            .into_iter()
+            .map(|r| parse_node_id(&r))
+            .collect::<Result<Vec<u128>, JsValue>>()?;
+        let filter: Option<GraphTraversalFilter> = if filter.is_null() || filter.is_undefined() {
+            None
+        } else {
+            Some(from_js(filter)?)
+        };
+        let (labels, time_range) = filter.map(|f| (f.labels, f.time_range)).unwrap_or_default();
+        let _g = enter(&self.op_gate)?;
+        let result = self
+            .inner
+            .graph_bfs_filtered(&roots, max_depth, dir, &labels, time_range)
+            .map_err(to_js_err)?;
+        to_js(&result)
+    }
+
+    /// Degree centrality (in/out counts) for the subgraph reachable from the
+    /// given root node IDs (GRAFO-01). Returns an array of
+    /// `{id, in_degree, out_degree}` entries (u128 ids as strings).
+    pub fn graph_degree(&self, roots: Vec<String>) -> Result<JsValue, JsValue> {
+        let roots: Vec<u128> = roots
+            .into_iter()
+            .map(|r| parse_node_id(&r))
+            .collect::<Result<Vec<u128>, JsValue>>()?;
+        let _g = enter(&self.op_gate)?;
+        let degrees = self
+            .inner
+            .graph_degree_centrality(&roots)
+            .map_err(to_js_err)?;
+        let entries: Vec<GraphDegreeEntry> = degrees
+            .into_iter()
+            .map(|(id, (in_degree, out_degree))| GraphDegreeEntry {
+                id: id.to_string(),
+                in_degree,
+                out_degree,
+            })
+            .collect();
+        to_js(&entries)
+    }
+
     /// Generate a text snippet with optional highlighting for a given query.
     pub fn generate_snippet(
         &self,
@@ -1421,6 +1488,25 @@ fn init() {
         #[cfg(feature = "tracing-wasm")]
         tracing_wasm::set_as_global_default();
     }
+}
+
+/// Optional label/time filter for filtered graph traversal (GRAFO-01).
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+struct GraphTraversalFilter {
+    /// Only follow edges whose label id is in this set. Empty = no label filter.
+    labels: Vec<u32>,
+    /// Inclusive (from_ms, to_ms) window on edge creation time. Absent = no filter.
+    time_range: Option<(u64, u64)>,
+}
+
+/// One degree-centrality entry (GRAFO-01). u128 ids don't serialize as JSON
+/// object keys in serde_wasm_bindgen, so the map becomes an array of entries.
+#[derive(Debug, Clone, Serialize)]
+struct GraphDegreeEntry {
+    id: String,
+    in_degree: usize,
+    out_degree: usize,
 }
 
 fn to_js_err(e: VantaError) -> JsValue {

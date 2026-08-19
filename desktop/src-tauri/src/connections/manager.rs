@@ -22,7 +22,8 @@ use tokio::sync::RwLock;
 
 use super::{
     Capability, ConnectionInfo, ExportReport, HealthReport, IngestItem, ListPage, MemoryFilterItem,
-    MemoryRecord, SearchQuery, SearchResult, VantaConnection, VantaQueryResult,
+    MemoryRecord, SearchQuery, SearchResult, VantaConnection, VantaGraphNodeInfo,
+    VantaGraphTraversalResult, VantaQueryResult,
 };
 use crate::error::VantaError;
 
@@ -289,6 +290,60 @@ impl ConnectionManager {
         conn.delete_by_filter(namespace, filter).await
     }
 
+    /// Breadth-first graph traversal on the active connection (GRAFO-01).
+    ///
+    /// `direction` is `"Forward"` / `"Reverse"` / `"Both"`; `limit` caps the
+    /// result (default 50). Transports without graph traversal report
+    /// `Unsupported` via the trait default.
+    pub async fn graph_bfs(
+        &self,
+        roots: Vec<String>,
+        max_depth: usize,
+        direction: String,
+        limit: Option<usize>,
+    ) -> Result<VantaGraphTraversalResult, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        let conn = inner
+            .connections
+            .get(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        conn.graph_bfs(roots, max_depth, direction, limit).await
+    }
+
+    /// Depth-first graph traversal on the active connection (GRAFO-01).
+    pub async fn graph_dfs(
+        &self,
+        roots: Vec<String>,
+        max_depth: usize,
+        direction: String,
+        limit: Option<usize>,
+    ) -> Result<VantaGraphTraversalResult, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        let conn = inner
+            .connections
+            .get(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        conn.graph_dfs(roots, max_depth, direction, limit).await
+    }
+
+    /// Degree centrality (in+out) for every node in `namespace` on the active
+    /// connection (GRAFO-01). Empty/unknown namespace → empty list.
+    pub async fn graph_degree(
+        &self,
+        namespace: &str,
+        limit: Option<usize>,
+    ) -> Result<Vec<VantaGraphNodeInfo>, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        let conn = inner
+            .connections
+            .get(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        conn.graph_degree(namespace, limit).await
+    }
+
     /// List a page of records on the active connection.
     pub async fn list_records(
         &self,
@@ -544,6 +599,86 @@ mod tests {
             VantaQueryResult::Read(records) => assert!(records.is_empty()),
             other => panic!("expected empty Read, got {other:?}"),
         }
+    }
+
+    /// Graph roundtrip (GRAFO-01): put records → RELATE edges between their
+    /// deterministic node ids → bfs/dfs return nodes + edges; degree centrality
+    /// covers every node in the namespace; unknown namespace → empty list.
+    #[tokio::test]
+    async fn e2e_native_graph_roundtrip() {
+        let dir = TempDir::new();
+        let manager = ConnectionManager::new();
+        manager
+            .add(Box::new(
+                crate::connections::native::NativeConnection::open(dir.path()).unwrap(),
+            ))
+            .await
+            .unwrap();
+
+        // Put three records; capture their deterministic graph node ids.
+        let mut node_ids = Vec::new();
+        for key in ["k1", "k2", "k3"] {
+            let rec = manager.put(item(key, &format!("record {key}")), None).await.unwrap();
+            node_ids.push(rec.node_id.expect("put returns node_id"));
+        }
+        let (n1, n2, n3) = (&node_ids[0], &node_ids[1], &node_ids[2]);
+
+        // Relate n1 → n2 and n2 → n3 (both endpoints must already exist).
+        manager
+            .query(&format!(r#"RELATE NODE#{n1} --"knows"--> NODE#{n2}"#))
+            .await
+            .unwrap();
+        manager
+            .query(&format!(r#"RELATE NODE#{n2} --"knows"--> NODE#{n3}"#))
+            .await
+            .unwrap();
+
+        // BFS from n1 reaches all three, carrying nodes + edges.
+        let res = manager
+            .graph_bfs(vec![n1.clone()], 5, "Forward".into(), None)
+            .await
+            .unwrap();
+        assert_eq!(res.nodes.len(), 3, "bfs should visit 3 nodes: {res:?}");
+        assert_eq!(res.edges.len(), 2, "bfs should carry 2 edges: {res:?}");
+        assert!(res.nodes.iter().any(|n| &n.id == n1), "n1 in result");
+        assert!(res.nodes.iter().any(|n| &n.id == n3), "n3 in result");
+        // Labels recover the record payload (memory SDK puts `content`).
+        let n1_dto = res.nodes.iter().find(|n| &n.id == n1).unwrap();
+        assert_eq!(n1_dto.label, "record k1");
+        // Edges connect n1→n2 and n2→n3 with the related label.
+        assert!(res.edges.iter().any(|e| &e.source == n1 && &e.target == n2
+            && e.label.as_deref() == Some("knows")));
+        assert!(res.edges.iter().any(|e| &e.source == n2 && &e.target == n3));
+
+        // DFS also reaches all three.
+        let res = manager
+            .graph_dfs(vec![n1.clone()], 5, "Forward".into(), None)
+            .await
+            .unwrap();
+        assert_eq!(res.nodes.len(), 3, "dfs should visit 3 nodes: {res:?}");
+
+        // Degree centrality covers every node in the namespace: n1 has 1 out,
+        // n2 has 1 in + 1 out = 2, n3 has 1 in.
+        let degrees = manager.graph_degree("docs", None).await.unwrap();
+        assert_eq!(degrees.len(), 3, "degree covers all records: {degrees:?}");
+        let d1 = degrees.iter().find(|n| &n.id == n1).unwrap();
+        let d2 = degrees.iter().find(|n| &n.id == n2).unwrap();
+        let d3 = degrees.iter().find(|n| &n.id == n3).unwrap();
+        assert_eq!(d1.degree, 1);
+        assert_eq!(d2.degree, 2);
+        assert_eq!(d3.degree, 1);
+        assert_eq!(d1.group.as_deref(), Some("docs"));
+
+        // Unknown namespace → empty list, not an error.
+        let empty = manager.graph_degree("missing-ns", None).await.unwrap();
+        assert!(empty.is_empty());
+
+        // limit caps the result.
+        let limited = manager
+            .graph_bfs(vec![n1.clone()], 5, "Forward".into(), Some(2))
+            .await
+            .unwrap();
+        assert!(limited.nodes.len() <= 2);
     }
 
     /// Cursor roundtrip (VS-CORE-01): page 1 → next_cursor → page 2 with no

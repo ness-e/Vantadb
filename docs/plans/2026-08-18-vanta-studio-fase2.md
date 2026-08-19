@@ -70,11 +70,11 @@
 ### Task 4: GRAFO-01 — Bridge Tauri: datos de grafo (bfs/dfs + nodos)
 - **Archivos clave:** `desktop/src-tauri/src/connections/` (trait `Connection::graph_bfs`/`graph_dfs` + native.rs usando `VantaEmbedded.graph_bfs`/`graph_dfs` de `src/sdk/graph.rs:50,67`), `desktop/src-tauri/src/connections/types.rs` (DTO `GraphNode {id, payload, fields, edges[]}`, `GraphEdge {target, label_id, weight, created_at_ms}`), `desktop/src-tauri/src/commands/data.rs` (comandos `vanta_graph_bfs(roots: Vec<u128>, max_depth, direction)` y `vanta_graph_nodes(ids)`), `desktop/src/vanta.ts` (wrappers tipados).
 - **Gate Justificación:** P11 (grafos con navegación, nunca render completo); el bridge NO expone nada de grafo hoy. Base de datos para el visor R3F.
-- **Contrato:** `vanta_graph_bfs(roots, max_depth, direction)` → `{node_ids: u128[]}`; `vanta_graph_nodes(ids)` → `GraphNode[]` (payload + fields + edges con label/weight); ambos aditivos sobre el core (`graph_bfs`/`get_many` internos). El visor hace expand incremental (1-2 nodos → vecinos), no render total (anti-hairball 03).
-- **Verificación:** `cargo test` (roundtrip bfs en native) + `npm run build` verde.
+- **Contrato (supersede por orquestador GRAFO-01):** `vanta_graph_bfs(roots: Vec<String>, max_depth, direction: String, limit)` / `vanta_graph_dfs(...)` → `VantaGraphTraversalResult {nodes: VantaGraphNodeInfo[], edges: VantaGraphEdgeInfo[]}`; `vanta_graph_degree(namespace, limit)` → `VantaGraphNodeInfo[]` (degree in+out); DTOs wire en `types.rs`; nodos con id String (u128) + label + group; namespace vacío → lista vacía, no error; `graph_filtered_traversal` (filtro labels/time_range) y `graph_degree` solo WASM/TS. Aditivo sobre el core (`graph_bfs`/`graph_dfs`/`graph_bfs_filtered`/`graph_degree_centrality`). El visor hace expand incremental (1-2 nodos → vecinos), no render total (anti-hairball 03).
+- **Verificación:** `cargo test -p vantadb-desktop --lib` (roundtrip bfs/degree en native, e2e manager) + `npm run build` verde + TS graph tests (`npx vitest -t "graph"`, 11 passed).
 - **Ruta:** vanta-worker
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-08-19T02:30
+- **Estado:** ✅ COMPLETED (2026-08-19T01:30 - vanta-worker, task file `.opencode/skills/campaign-executor/tasks/4.md`)
+- **last-synced:** 2026-08-19T01:30
 
 ### Task 5: GRAFO-02 — Visor R3F force-directed (toon+outline manga)
 - **Archivos clave:** `desktop/src/components/graph/GraphLens.tsx` (nuevo, lazy), `desktop/src/components/graph/useGraphData.ts` (nuevo: estado nodos/aristas + expand incremental), `desktop/src/components/graph/GraphCanvas.tsx` (nuevo, R3F), `desktop/src/components/layout/WorkspaceShell.tsx` (surface `"iql"` → GraphLens; `Surface` type), deps: `three`, `@react-three/fiber`, `@react-three/drei`.

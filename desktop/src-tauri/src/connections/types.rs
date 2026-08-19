@@ -299,6 +299,48 @@ pub enum VantaQueryResult {
     StaleContext { node_id: String },
 }
 
+/// A single graph node on the wire (GRAFO-01).
+///
+/// `id` is a string on the wire (u128 ids exceed JS `Number.MAX_SAFE_INTEGER`,
+/// consistent with [`MemoryRecord::node_id`]). `degree` carries the
+/// in+out degree centrality when produced by a degree query; traversals leave
+/// it at its default (0) since computing it requires a full-neighborhood scan.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VantaGraphNodeInfo {
+    /// Unique numeric node id, serialized as a string.
+    pub id: String,
+    /// Display label for the visor (content/text/__vanta_payload field, id fallback).
+    pub label: String,
+    /// Grouping key for coloring (namespace or node `type`), when known.
+    #[serde(default)]
+    pub group: Option<String>,
+    /// In+out degree centrality (0 when not computed by the backend).
+    #[serde(default)]
+    pub degree: u64,
+}
+
+/// A directed graph edge on the wire (GRAFO-01).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VantaGraphEdgeInfo {
+    /// Source node id (string — u128 on the core side).
+    pub source: String,
+    /// Target node id (string — u128 on the core side).
+    pub target: String,
+    /// Edge label, when the backend exposes one.
+    #[serde(default)]
+    pub label: Option<String>,
+    /// Edge weight, when the backend exposes one.
+    #[serde(default)]
+    pub weight: Option<f32>,
+}
+
+/// Result of a graph traversal (bfs/dfs) on the wire (GRAFO-01).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct VantaGraphTraversalResult {
+    pub nodes: Vec<VantaGraphNodeInfo>,
+    pub edges: Vec<VantaGraphEdgeInfo>,
+}
+
 fn default_namespace() -> String {
     "default".to_string()
 }
@@ -615,5 +657,70 @@ mod tests {
         assert_eq!(rt(&res), res);
         // Exact wire shape guards the vanta.ts contract.
         assert_eq!(json(&res), r#"{"StaleContext":{"node_id":"42"}}"#);
+    }
+
+    // ─── Graph DTOs (GRAFO-01) ────────────────────────────────────
+
+    #[test]
+    fn graph_node_info_roundtrip() {
+        let n = VantaGraphNodeInfo {
+            id: "42".into(),
+            label: "Ada".into(),
+            group: Some("people".into()),
+            degree: 3,
+        };
+        assert_eq!(rt(&n), n);
+        // Wire shape guards the vanta.ts contract: degree serialized, group present.
+        let json = json(&n);
+        assert_eq!(
+            json,
+            r#"{"id":"42","label":"Ada","group":"people","degree":3}"#
+        );
+    }
+
+    #[test]
+    fn graph_node_info_defaults_when_absent() {
+        // Backward compat: group/degree optional on the wire.
+        let json = r#"{"id":"42","label":"Ada"}"#;
+        let n: VantaGraphNodeInfo = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(n.group, None);
+        assert_eq!(n.degree, 0);
+    }
+
+    #[test]
+    fn graph_edge_info_roundtrip() {
+        let e = VantaGraphEdgeInfo {
+            source: "1".into(),
+            target: "2".into(),
+            label: Some("knows".into()),
+            weight: Some(0.5),
+        };
+        assert_eq!(rt(&e), e);
+        // Optional label/weight absent → null/None on the wire.
+        let json = json(&e);
+        assert_eq!(json, r#"{"source":"1","target":"2","label":"knows","weight":0.5}"#);
+    }
+
+    #[test]
+    fn graph_traversal_result_roundtrip() {
+        let r = VantaGraphTraversalResult {
+            nodes: vec![VantaGraphNodeInfo {
+                id: "1".into(),
+                label: "a".into(),
+                group: None,
+                degree: 0,
+            }],
+            edges: vec![VantaGraphEdgeInfo {
+                source: "1".into(),
+                target: "2".into(),
+                label: None,
+                weight: None,
+            }],
+        };
+        assert_eq!(rt(&r), r);
+        // Empty traversal serializes to empty arrays (not null) — the visor
+        // expects nodes/edges to always be iterable.
+        let json = json(&VantaGraphTraversalResult::default());
+        assert_eq!(json, r#"{"nodes":[],"edges":[]}"#);
     }
 }

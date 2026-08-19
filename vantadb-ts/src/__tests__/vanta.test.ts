@@ -619,6 +619,19 @@ describe("VantaDB graph operations", () => {
     expect(result).toBeDefined();
   });
 
+  it("graphFilteredTraversal traverses with filter", () => {
+    db.insertNode(60, "f1");
+    db.insertNode(61, "f2");
+    db.addEdge(60, 61, "link");
+    const result = db.graphFilteredTraversal([60], 5, "Forward", { labels: [] });
+    expect(result).toBeDefined();
+  });
+
+  it("graphDegree computes centrality", () => {
+    const degrees = db.graphDegree([60]);
+    expect(Array.isArray(degrees)).toBe(true);
+  });
+
   it("graphTopologicalSort works on DAG", () => {
     const result = db.graphTopologicalSort([40]);
     expect(result).toBeDefined();

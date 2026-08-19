@@ -375,6 +375,78 @@ export function deleteByFilter(opts: {
   });
 }
 
+// --- Graph (GRAFO-01) ------------------------------------------------------------
+// Mirrors the wire DTOs in desktop/src-tauri/src/connections/types.rs. Node ids
+// are strings (u128 ids exceed JS safe integers). `degree` is populated by
+// `graphDegree`; traversals leave it at 0.
+
+export interface VantaGraphNodeInfo {
+  id: string;
+  /** Display label (content/text payload, id fallback). */
+  label: string;
+  /** Grouping key for coloring (namespace or node type), when known. */
+  group?: string | null;
+  /** In+out degree centrality (0 when not computed). */
+  degree?: number;
+}
+
+export interface VantaGraphEdgeInfo {
+  source: string;
+  target: string;
+  label?: string | null;
+  weight?: number | null;
+}
+
+export interface VantaGraphTraversalResult {
+  nodes: VantaGraphNodeInfo[];
+  edges: VantaGraphEdgeInfo[];
+}
+
+export type GraphDirection = "Forward" | "Reverse" | "Both";
+
+/** Breadth-first graph traversal from root node ids (GRAFO-01). `direction`
+ * controls which edges are followed; `limit` caps the result (default 50). */
+export function graphBfs(opts: {
+  roots: string[];
+  maxDepth: number;
+  direction?: GraphDirection;
+  limit?: number;
+}): Promise<VantaGraphTraversalResult> {
+  return invoke<VantaGraphTraversalResult>("vanta_graph_bfs", {
+    roots: opts.roots,
+    maxDepth: opts.maxDepth,
+    direction: opts.direction ?? "Forward",
+    limit: opts.limit ?? null,
+  });
+}
+
+/** Depth-first graph traversal from root node ids (GRAFO-01). */
+export function graphDfs(opts: {
+  roots: string[];
+  maxDepth: number;
+  direction?: GraphDirection;
+  limit?: number;
+}): Promise<VantaGraphTraversalResult> {
+  return invoke<VantaGraphTraversalResult>("vanta_graph_dfs", {
+    roots: opts.roots,
+    maxDepth: opts.maxDepth,
+    direction: opts.direction ?? "Forward",
+    limit: opts.limit ?? null,
+  });
+}
+
+/** Degree centrality (in+out) for every node in a namespace (GRAFO-01). An
+ * empty/unknown namespace resolves to an empty array, not an error. */
+export function graphDegree(opts: {
+  namespace: string;
+  limit?: number;
+}): Promise<VantaGraphNodeInfo[]> {
+  return invoke<VantaGraphNodeInfo[]>("vanta_graph_degree", {
+    namespace: opts.namespace,
+    limit: opts.limit ?? null,
+  });
+}
+
 // --- Metrics (ADMIN-01/04/05) ---------------------------------------------------
 // Subset of `VantaOperationalMetrics` consumed by the dashboard grid (KPI cards
 // + later live dashboard). Rust serializes every u64 field; we only declare
