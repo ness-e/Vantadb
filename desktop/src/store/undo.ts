@@ -22,6 +22,7 @@ export interface Tombstone {
 /** Operación inversa que el caller del bridge debe ejecutar para deshacer. */
 type Reverse =
   | { kind: "put"; record: MemoryRecord }
+  | { kind: "put-batch"; records: MemoryRecord[] }
   | { kind: "remove"; record: MemoryRecord };
 
 interface UndoEntry {
@@ -85,6 +86,30 @@ class UndoStore {
     });
   }
 
+  /** Soft-delete de un lote (ESPACIO-02/OP-02): borra cada record por key y
+   * guarda UN entry de undo con el snapshot completo del lote — un solo Ctrl+Z
+   * restaura todos (mismo mecanismo VS-08 que softDelete). El backend se toca
+   * PRIMERO: si un remove falla a mitad, ningún tombstone queda registrado y
+   * el error propaga; los ya borrados quedaron borrados (fallo atómico de
+   * backend no es simulable client-side — Ctrl+Z no puede deshacer algo que
+   * no registró snapshot). */
+  async softDeleteBatch(records: MemoryRecord[]): Promise<void> {
+    return this.run(async () => {
+      for (const r of records) {
+        await remove(r.id, r.namespace);
+      }
+      this.pushEntry({
+        trashBefore: [...this.trash],
+        reverse: { kind: "put-batch", records },
+      });
+      this.trash = [
+        ...records.map((record) => ({ record, deletedAtMs: Date.now() })),
+        ...this.trash,
+      ];
+      this.notify();
+    });
+  }
+
   /** Restore: vantaPut con el snapshot del tombstone; la entrada queda
    * deshacible (Ctrl+Z la vuelve a borrar). */
   async restore(tombstone: Tombstone): Promise<void> {
@@ -127,21 +152,32 @@ class UndoStore {
     return this.run(async () => {
       const entry = this.history.pop();
       if (!entry) return "nada que deshacer";
-      const r = entry.reverse.record;
+      const putRecord = async (r: MemoryRecord) => {
+        await vantaPut({
+          namespace: r.namespace,
+          key: r.id,
+          payload: r.text,
+          metadata: r.metadata ?? undefined,
+          expires_at_ms: r.expires_at_ms ?? undefined,
+        });
+      };
       try {
-        if (entry.reverse.kind === "put") {
-          await vantaPut({
-            namespace: r.namespace,
-            key: r.id,
-            payload: r.text,
-            metadata: r.metadata ?? undefined,
-            expires_at_ms: r.expires_at_ms ?? undefined,
-          });
+        if (entry.reverse.kind === "put-batch") {
+          for (const r of entry.reverse.records) {
+            await putRecord(r);
+          }
+        } else if (entry.reverse.kind === "put") {
+          await putRecord(entry.reverse.record);
         } else {
+          const r = entry.reverse.record;
           await remove(r.id, r.namespace);
         }
         this.trash = entry.trashBefore;
         this.notify();
+        if (entry.reverse.kind === "put-batch") {
+          return `deshecho · restaurados ${entry.reverse.records.length}`;
+        }
+        const r = entry.reverse.record;
         return entry.reverse.kind === "put"
           ? `deshecho · restaurado ${r.id}`
           : `deshecho · eliminado ${r.id}`;

@@ -7,6 +7,10 @@
 // valida correctness, no performance (perf → vanta-tuner, pipeline §1a).
 import { describe, expect, it, vi } from "vitest";
 
+// UMAP-js es lento en node (~15s/100 pts en máquina cargada); el default de
+// vitest (5s) mata el test antes del "done". El waitForDone ya espera 20s.
+vi.setConfig({ testTimeout: 60_000 });
+
 function makeVectors(n: number, dim: number, cluster: number, noise: number): number[][] {
   const rng = (() => {
     let a = 1234;

@@ -1,14 +1,23 @@
-// SpaceLens.tsx (ESPACIO-01): lente ESPACIO — scatterplot WebGL de embeddings.
+// SpaceLens.tsx (ESPACIO-01/02): lente ESPACIO — scatterplot WebGL de embeddings.
 // Contrato: list → worker UMAP-js (seed fijo, reproducible) → regl-scatterplot
-// con hover (tooltip: key + payload) + selección por lasso (SHIFT+drag) que
-// queda lista para ESPACIO-02 (batch ops). Color por namespace (valueA).
+// con hover (tooltip: key + payload) + selección por lasso (SHIFT+drag).
+// ESPACIO-02: la selección habilita la SelectionBar — Exportar (JSONL
+// client-side, importable 1:1) y Eliminar (softDeleteBatch → papelera + undo).
 //
 // Chunk lazy en WorkspaceShell (patrón GraphLens/Inspector): regl-scatterplot
 // + regl pesan ~200 kB y solo los paga esta surface.
 import createScatterplot from "regl-scatterplot";
 import { useEffect, useRef, useState } from "react";
 import type { MemoryRecord } from "../../vanta";
+import { vantaErrorMessage } from "../../vanta";
 import { useProjection, type ProjectionPoint } from "./useProjection";
+import SelectionBar, { type SelectionBusy } from "./SelectionBar";
+import { recordsToJsonl, downloadText } from "../export/export-jsonl";
+import { undoStore } from "../../store/undo";
+
+function filenameStamp(): string {
+  return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+}
 
 interface Props {
   onNotice: (msg: string) => void;
@@ -49,11 +58,17 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
   const pointsRef = useRef<ProjectionPoint[]>([]);
   const [namespace, setNamespace] = useState<string>("");
   const [hovered, setHovered] = useState<number | null>(null);
+  const [busy, setBusy] = useState<SelectionBusy>(null);
 
   const { points, namespaces } = state;
   pointsRef.current = points;
   const hoverPoint: ProjectionPoint | undefined =
     hovered != null ? points[hovered] : undefined;
+
+  // ESPACIO-02: la selección del lasso (índices en `points`) → records reales.
+  const selectedRecords: MemoryRecord[] = [...state.selected]
+    .map((i) => points[i]?.record)
+    .filter((r): r is MemoryRecord => r != null);
 
   // Crear el scatterplot una sola vez; draw ocurre en `tick` (ver abajo).
   useEffect(() => {
@@ -154,6 +169,45 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
 
   const selectedCount = state.selected.size;
 
+  /** ESPACIO-02: exportar la selección como JSONL importable 1:1 (patrón
+   * ExportButtons — la app no tiene plugin de dialog; download es el mínimo). */
+  async function handleExport() {
+    if (busy || selectedRecords.length === 0) return;
+    setBusy("export");
+    try {
+      downloadText(`vanta-selection-${filenameStamp()}.jsonl`, recordsToJsonl(selectedRecords));
+      onNotice(`exportados ${selectedRecords.length} registros (JSONL importable 1:1)`);
+    } catch (err) {
+      onError(vantaErrorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** ESPACIO-02: eliminar la selección → papelera (undoStore, snapshot previo).
+   * Confirmación explícita nombra el impacto (05 anti-patrón 7); un solo
+   * Ctrl+Z restaura el lote completo (VS-08 softDeleteBatch). */
+  async function handleDelete() {
+    if (busy || selectedRecords.length === 0) return;
+    const ok = window.confirm(
+      `Borrar ${selectedRecords.length} registro(s) seleccionado(s)?\n` +
+        "Se mueven a la papelera de sesión — Ctrl+Z los restaura.",
+    );
+    if (!ok) return;
+    setBusy("delete");
+    try {
+      await undoStore.softDeleteBatch(selectedRecords);
+      setSelected(new Set());
+      onNotice(
+        `movidos a papelera ${selectedRecords.length} registros — Ctrl+Z deshace el lote`,
+      );
+    } catch (err) {
+      onError(vantaErrorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="flex h-[calc(100dvh-112px)] min-h-[480px] flex-col">
       {/* Toolbar */}
@@ -164,11 +218,6 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
         <span className="font-tech text-[10px] text-muted-foreground">
           {state.phase === "done" ? `${points.length} puntos` : state.phase}
         </span>
-        {selectedCount > 0 && (
-          <span className="font-tech text-[10px] font-bold text-cyan-700" role="status">
-            ● {selectedCount} seleccionados
-          </span>
-        )}
         {state.phase === "loading" && (
           <span className="font-tech text-[10px] text-muted-foreground">proyectando…</span>
         )}
@@ -199,22 +248,22 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
           >
             ⤒ proyectar
           </button>
-          {selectedCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setSelected(new Set())}
-              className="press border-2 border-foreground bg-background px-2 py-1 text-[10px] font-semibold"
-            >
-              ✕ limpiar selección
-            </button>
-          )}
         </div>
       </div>
+
+      {/* ESPACIO-02: batch ops sobre la selección (contador + export/delete/clear). */}
+      <SelectionBar
+        count={selectedCount}
+        busy={busy}
+        onExport={() => void handleExport()}
+        onDelete={() => void handleDelete()}
+        onClear={() => setSelected(new Set())}
+      />
 
       {/* Pista de interacción */}
       <p className="border-b border-foreground/40 bg-background px-4 py-1 font-tech text-[10px] text-muted-foreground">
         hover = ver payload · click en un punto = abrir en Inspector · shift+arrastrar = lasso
-        (selección lista para batch ops)
+        → barra de batch ops
         <span className="text-amber-700"> · UMAP-js distorsiona distancias — solo agrupa por vecindad</span>
       </p>
 

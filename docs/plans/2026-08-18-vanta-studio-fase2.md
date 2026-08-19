@@ -111,8 +111,8 @@
 - **Contrato:** lasso/selección múltiple de puntos → barra de acciones: **Borrar (n)** con confirmación que muestra cantidad (vía VS-CORE-05 `delete_by_filter` si aplica filtro, o `remove` por key) + **undo** (papelera VS-08: tombstones de sesión), **Exportar selección (.jsonl)** vía VS-CORE-04 con filtro, **Editar TTL** (batch). Confirmación destructiva nombra impacto (05 anti-patrón 7). Ninguna acción sin confirmación explícita.
 - **Verificación:** `npm run build` verde; selección de 5 puntos → borrar → confirmación muestra "5 registros" → undo restaura; export genera archivo con solo la selección.
 - **Ruta:** vanta-worker
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-08-19T02:30
+- **Estado:** ✅ COMPLETED (2026-08-19T09:55 — vanta-worker, task file `.opencode/skills/campaign-executor/tasks/8.md`; verificación: `npm run build` verde, undo.test 3/3, node:test 14/14. Decisión: delete por `remove` con undo batch VS-08 y export client-side (`recordsToJsonl`+`downloadText`) — `deleteByFilter`/`exportNamespace` con filtro AND no expresan "key ∈ {k1..kN}". Sin commit — lo commitea vanta-lead)
+- **last-synced:** 2026-08-19T09:55
 
 ## Wave 3 — Operaciones
 
