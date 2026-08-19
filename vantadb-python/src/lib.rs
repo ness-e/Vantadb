@@ -1103,7 +1103,7 @@ impl VantaDB {
         let namespace = namespace.to_string();
         let report = py.detach(move || {
             engine
-                .export_namespace(&path, &namespace)
+                .export_namespace(&path, &namespace, None)
                 .map_err(map_vanta_error)
         })?;
         export_report_to_pydict(py, &report)

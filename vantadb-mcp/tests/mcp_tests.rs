@@ -2226,9 +2226,7 @@ fn test_mcp_memory_put_rejects_invalid_sparse_and_ttl() {
         }
     }));
     let sparse_res = handle_tools_call(&bad_sparse, &executor, &storage, &default_config());
-    let sparse_err = sparse_res
-        .err()
-        .expect("array sparse_vector must be rejected");
+    let sparse_err = sparse_res.expect_err("array sparse_vector must be rejected");
     assert!(
         sparse_err["code"].is_number(),
         "array sparse_vector must fail with a JSON-RPC error, got: {sparse_err}"
@@ -2244,9 +2242,7 @@ fn test_mcp_memory_put_rejects_invalid_sparse_and_ttl() {
         }
     }));
     let ttl_res = handle_tools_call(&bad_ttl, &executor, &storage, &default_config());
-    let ttl_err = ttl_res
-        .err()
-        .expect("non-numeric expires_at_ms must be rejected");
+    let ttl_err = ttl_res.expect_err("non-numeric expires_at_ms must be rejected");
     assert!(
         ttl_err["code"].is_number(),
         "non-numeric expires_at_ms must fail with a JSON-RPC error, got: {ttl_err}"
