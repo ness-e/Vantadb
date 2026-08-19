@@ -155,6 +155,36 @@ aliases: [DESKTOP]
 - **Fecha:** 2026-08-19
 - **Resultado:** ✅ Checkbox de fila + select-all (página actual) → barra: Exportar (n) .jsonl client-side + Eliminar (n) con confirmación + undo snapshot (`softDeleteBatch`). Selección por `Set<string>` de `${ns}:${id}`. Fix a11y (sort button solo envuelve columnas sortables). Commit `a88cd1b0`. Retomado de sub-agente cancelado.
 
+## Fase 3 — Web/embebido (2026-08-19) — REST completo + dashboard servido por el server
+
+### WEB-00: Abstraer `vanta.ts` de Tauri invoke (transporte pluggable)
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ `desktop/src/transport.ts` (interface `VantaTransport` + `TauriBackend` + `HttpBackend` stub + factory) + `desktop/src/vanta.ts` refactor mecánico 1:1 (55 exports intactos). Commit `0cccd326`. ADR-026 (D11/D12).
+
+### WEB-01: REST: superficie de la consola (CRUD + search + list + IQL + health/metrics/audit)
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ `src/cli_server.rs` 11 rutas v2 + helpers (`run_db_op`, `vanta_error_status`); `src/audit.rs` AuditEvent Deserialize. Commit `c81bc23a`. 17/17 tests + smoke real.
+
+### WEB-02: REST: resto del SDK (export/import, graph, mantenimiento, threads, snapshots)
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ `src/cli_server.rs` 16 rutas nuevas (export/import, graph bfs/dfs/degree/pagerank/centrality, maintenance purge/compact/flush/rebuild-index, threads, snapshots). Commit `c856b3bd`. 22/22 tests. Divergencias documentadas en task file.
+
+### WEB-03: Servir estáticos `/dashboard` + SPA fallback + flag CLI
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ `mount_dashboard` (ServeDir + fallback SPA sin extensión + 404 hint), flag `--dashboard-dir` (config/cli/bin/handlers), tower-http fs + tower directa. Commits `62d63377` + `0da6d33c`. Smoke 5/5.
+
+### WEB-04: `HttpBackend` real (fetch REST) + factory por entorno
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ `desktop/src/vanta-http-map.ts` (23 comandos: 15 REST, 8 rechazos descriptivos) + tests 14/14 + `HttpBackend` real. Commit `8b2bc14f`.
+
+### WEB-05: Build web de la consola (Vite base `/dashboard/`, sin Tauri)
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ `vite.config.ts` por mode, guards runtime Tauri-only (useDeepLink, useConnectionState), ConnectionPanel oculto en web, `.gitignore` dist-web. Commit `42d2b26a`. Builds desktop+web verdes.
+
+### WEB-06: E2E Playwright contra server real + docs/ADR
+- **Fecha:** 2026-08-19
+- **Resultado:** ✅ `desktop/scripts/selfcheck-web-e2e.ts` (11 checks exit 0) + fix namespace default REST (bug cazado por E2E: `ListParams.namespace` default `"default"`). Commit `583dad9a`. ADR-026 en `docs/architecture/`.
+
 ---
 
 ## Fuentes

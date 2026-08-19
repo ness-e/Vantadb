@@ -4089,9 +4089,61 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ commit `a88cd1b0`. batchSelection.test 4/4 vitest; build tsc+vite verde; fix a11y (sort button solo envuelve columnas sortables).
 - **Ids:** `OP-02`
 
+### WEB-00: Abstraer `vanta.ts` de Tauri invoke (transporte pluggable)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase3.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** interface `VantaTransport { call<T>(cmd, args?) }` + `TauriBackend` (invoke) + `HttpBackend` stub + factory por entorno; TODAS las funciones de `vanta.ts` delegan a `transport.call` (refactor mecánico 1:1, 55 exports sin cambio de firma).
+- **Resultado:** ✅ `desktop/src/transport.ts` (nuevo) + `desktop/src/vanta.ts` — commit `0cccd326`. npm build verde; node:test deep-link 8/8 (vitest da falso negativo pre-existente: el test usa node:test). Hallazgo: contrato del plan pedía vitest pero el runner real del repo es node:test.
+- **Ids:** `WEB-00`
+
+### WEB-01: REST: superficie de la consola (CRUD + search + list + IQL + health/metrics/audit)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase3.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** endpoints v2 que la UI consume: health, records CRUD (+batch, +versions, +delete_by_filter), list con cursor, search, autocomplete, audit. Patrón `/api/v2/query` existente, errores `{success:false,error}` + status HTTP.
+- **Resultado:** ✅ `src/cli_server.rs` (11 rutas + helpers `run_db_op`/`vanta_error_status`) + `src/audit.rs` (AuditEvent Deserialize) + literales ServerState en tests — commit `c81bc23a`. 17/17 tests cli_server, smoke real con Invoke-RestMethod OK (search requiere `query_vector` no null + `text_query`).
+- **Ids:** `WEB-01`
+
+### WEB-02: REST: resto del SDK (export/import, graph, mantenimiento, threads, snapshots)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase3.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** export/import, graph bfs/dfs/degree/pagerank/centrality, maintenance purge/compact/flush/rebuild-index, threads CRUD, snapshots list/create. Mismo contrato de errores que WEB-01.
+- **Resultado:** ✅ `src/cli_server.rs` (16 rutas nuevas, +801 líneas) — commit `c856b3bd`. 22/22 tests cli_server; smoke real 18 endpoints. Divergencias documentadas: graph/centrality→degree_centrality (GDS real), compact→compact_layout, thread_id viaja string en wire (u128 > u64::MAX), create_snapshot requiere fjall (no InMemory).
+- **Ids:** `WEB-02`
+
+### WEB-03: Servir estáticos `/dashboard` + SPA fallback + flag CLI
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase3.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** flag `vanta serve --dashboard-dir <path>` (real: `vanta-cli server --dashboard-dir`), ServeDir + fallback index.html solo para rutas sin extensión, 404 con hint si no configurado, fuera del middleware auth (D12).
+- **Resultado:** ✅ `src/cli_server.rs` (`mount_dashboard`), `src/config.rs`, `src/cli.rs`, `src/bin/vanta-cli.rs`, `src/cli_handlers/server.rs`, Cargo.toml (tower-http fs + tower directa — axum 0.8 no re-exporta service_fn) — commit `62d63377` + `0da6d33c` (completions/Cargo.lock). 24/24 tests; smoke 5/5.
+- **Ids:** `WEB-03`
+
+### WEB-04: `HttpBackend` real (fetch REST) + factory por entorno
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase3.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** completar el stub de WEB-00: `HttpBackend.call` → fetch REST vía `vanta-http-map.ts` (mapeo cmd→método/URL), errores deserializados del shape del server, base `""` o `VITE_VANTA_API_BASE`.
+- **Resultado:** ✅ `desktop/src/vanta-http-map.ts` + `desktop/src/vanta-http-map.test.ts` (14 tests) + `desktop/src/transport.ts` — commit `8b2bc14f`. 23 comandos reales (no ~55 como estimaba el plan): 15 mapeados a REST, 8 rechazos descriptivos (multi-conexión Tauri-only: connect/disconnect/list/set_active; metrics no-JSON; graph DTO incompatible), deep-link ya no-op.
+- **Ids:** `WEB-04`
+
+### WEB-05: Build web de la consola (Vite base `/dashboard/`, sin Tauri)
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase3.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** `vite build --mode web` → `dist-web/` (base `/dashboard/`), guard runtime Tauri-only (useDeepLink skip listen, useConnectionState sintetiza conexión embebida), ocultar ConnectionPanel en web, build desktop intacto.
+- **Resultado:** ✅ `desktop/vite.config.ts` (defineConfig por mode), `useDeepLink.ts`, `useConnectionState.ts`, `App.tsx`, `WorkspaceShell.tsx`, `.gitignore` (dist-web) — commit `42d2b26a`. Builds desktop+web verdes; preview 4173 OK. Hallazgo: imports `@tauri-apps/api/*` no rompen build (romperían runtime) → guards runtime, no import dinámico.
+- **Ids:** `WEB-05`
+
+### WEB-06: E2E Playwright contra server real + docs/ADR
+- **Fuente:** Plan `docs/plans/2026-08-18-vanta-studio-fase3.md`
+- **Fecha:** 2026-08-19
+- **Objetivo:** `desktop/scripts/selfcheck-web-e2e.ts` (Playwright): server real + dist-web → HOME con datos, grid, edición, borrado con undo, search híbrida. ADR D11/D12 + Backlog.
+- **Resultado:** ✅ script E2E 11 checks exit 0 — commit `583dad9a` (incluye fix namespace default REST: `ListParams.namespace` default `"default"` — bug real cazado por el E2E: la consola web lista/busca sin namespace y REST 400eaba). devDep playwright@1.61.1. ADR-026 en `docs/architecture/`. Lead arregló `tests/cli_tests.rs` (firma cmd_server 9 args — roto por WEB-03, no detectado por verify `--lib`).
+- **Ids:** `WEB-06`
+
 ---
 
 ## Planes archivados
+
+- **Plan archivado:** `docs/plans/archive/2026-08-18-vanta-studio-fase3.md` — 7/7 completadas (Vanta Studio Fase 3: web/embebido — transporte pluggable, REST completo del SDK, dashboard `/dashboard` servido por el server)
+- **Retrospectiva:** Start: FAIL_MODE=parallel con waves por archivos disjuntos (WEB-00 desktop vs WEB-01 server) | verify mecánico del lead (`cargo check --tests`, no solo `--lib`) antes de cada commit | hallazgo de sub-agente (E2E cazó bug real de namespace default en REST) validado y fixeado por el lead | Stop: aceptar resultado vacío de sub-agente como completado (2 sub-agentes devolvieron `task_result` vacío sin tocar nada → RESUME misma sesión con feedback arregló ambos) | dejar `cargo check --lib` como único gate server (no detectó `cli_tests` roto por WEB-03 — gap corregido con `--tests`) | asumir counts de comandos de planes (~55) sin verificar repo (real: 23) | Continue: relanzar con `task_id` (RESUME) en vez de agente fresco cuando el trabajo previo es cero | correr `cargo fmt` en el verify del sub-agente (pre-commit lo exige — WEB-01 falló por esto) | Acción medida: verify retries/tarea = 1/7 (solo WEB-01 requirió fix post-verify por fmt); baseline North Star: >90% primer intento ✅ (86%)
 
 - **Plan archivado:** `docs/plans/archive/2026-08-18-vanta-studio-fase2.md` — 10/10 completadas (Vanta Studio Fase 2: gaps core VS-CORE-04/05/06 + lente GRAFO R3F + lente ESPACIO + operaciones import/batch)
 - **Retrospectiva:** Start: doble gate del lead (verify mecánico + commit selectivo) por tarea — 0 regresiones en 10/10 | DAG secuencial corregido a tiempo (Tasks 2/3 NO disjuntas) | relanzar tareas con digest del task file tras abort sin task_id (Task 10) | force-directed en frame loop fuera del render React (positionsRef) | Stop: confiar en descripciones de tipos del orquestador (VS-CORE-05: `VantaMemoryFilter` es `Vec<VantaMemoryFilterItem>`, no `{op,items}`) | dejar que sub-agentes corrompan plan file (lead único dueño) | asumir React 18 en desktop (real: 19.1.0 → r3f v9+drei v10) | Continue: skills warmup obligatorio al delegar | verify mecánico con `campaign_verify_cmd` en cada step | decisiones de contrato del usuario (D5 force-directed) antes de delegar | Acción medida: verify retries/tarea = 1/10 (solo ESPACIO-02 requirió fix post-commit); baseline North Star: >90% primer intento ✅ (90%)

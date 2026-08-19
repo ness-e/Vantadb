@@ -457,6 +457,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### 🚀 Features
 
+- Feat: Vanta Studio Fase 3 — transporte pluggable (Tauri/HTTP) + REST completo del SDK (`/api/v2/*`, ~27 endpoints: health, records CRUD/batch/versions/delete_by_filter, list con cursor, search, autocomplete, query, audit, export/import, graph, maintenance, threads, snapshots) + dashboard web embebido `/dashboard` servido por `vanta-cli server --dashboard-dir <dir>` (WEB-00..06, ADR-026)
+
 - Feat: add Chroma/LanceDB migration scripts + fix tutorials API (NUEVO-07)
 
 - Feat: add enterprise audit logging (JSONL, timestamp + op) (TSK-107b)
