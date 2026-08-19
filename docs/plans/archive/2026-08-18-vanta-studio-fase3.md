@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 9d4f2b8e-7c1a-4e6f-9d3b-5a8c2f7e1d60
 > **Inicio:** 2026-08-19
-> **Estado:** ✅ FASE 3 COMPLETA (2026-08-19) — 7/7 tareas (WEB-00..06), 7 commits en develop (0cccd326, c81bc23a, c856b3bd, 62d63377, 8b2bc14f, 42d2b26a, 583dad9a + 0da6d33c completions/Cargo.lock). Archivo movido a archive/ al cierre.
+> **Estado:** ✅ FASE 3 COMPLETA (2026-08-19) — 7/7 tareas (WEB-00..06), 8 commits en develop (0cccd326, c81bc23a, c856b3bd, 62d63377, 0da6d33c, 8b2bc14f, 42d2b26a, 583dad9a). Archivo movido a archive/ al cierre.
 > **Fuente:** `docs/research/human-facing-db-ui/06-synthesis/SYNTHESIS.md` (§7 Fase 3: "Servir la misma consola desde el proceso embebido `:puerto/dashboard` estilo Qdrant") + `01-vector-db-consoles/RESEARCH.md` (patrón Qdrant Web UI `localhost:6333/dashboard`, SPA servida por el propio binary) + backlog P25 (server "deliberadamente mínimo", embedded-first) + decisiones del usuario 2026-08-19 (ver Decisiones).
 > **Modo:** secuencial con paralelismo en Wave 0/1 (archivos disjuntos).
 
@@ -99,7 +99,7 @@
 - **Gate Justificación:** cierre de fase — probar el flujo completo `vanta serve --dashboard-dir dist-web` → browser `:8080/dashboard` → CRUD/search/graph/export funcionales; documentar D11 (server as primary boundary re-considerado) y D12.
 - **Contrato:** e2e: arranca server con DB temp + dist-web, Playwright navega `http://127.0.0.1:8080/dashboard/`, verifica HOME con datos, ingesta un registro, aparece en grid, se edita, se borra (con undo), search híbrida devuelve hits; ADR en `docs/architecture/` (o `docs/plans/` si no existe dir) documentando REST completo + sin-auth-loopback + WASM diferido a Fase 4; Backlog: P25 nota actualizada, tasks WEB-00..06 registradas como completadas.
 - **Verificación:** `npx tsx scripts/selfcheck-web-e2e.ts` exit 0; docs presentes.
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETO (commit `583dad9a` — verificación e2e + ADR; registro en progreso/README §Vanta Studio)
 
 ---
 

@@ -115,6 +115,8 @@ aliases: [DESKTOP]
 - **Fecha:** 2026-08-18
 - **Resultado:** ✅ Core: `src/sdk/version_history.rs` + partición Fjall `Versions` (cap 32 FIFO aprobado); bridge: `getVersion`/`versions` en `vanta.ts`. Commits `be0812a4`/`b6997e59`.
 
+## Vanta Studio (Fase 2 - grafo R3F, espacio y operaciones) — 10/10 ✅
+
 ### VS-CORE-04: Exportar selección/query con filtro
 - **Fecha:** 2026-08-19
 - **Resultado:** ✅ `export_namespace(path, namespace, filter: Option<VantaMemoryFilter>)` aditivo + WASM `export_namespace_filtered` + TS `exportNamespace(path, namespace, filter?)` + comando Tauri `vanta_export_namespace`. Commits `a62088b7`/`7429f81a`. Desbloquea batch export (OP-02).

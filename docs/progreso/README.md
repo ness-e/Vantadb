@@ -2,13 +2,13 @@
 title: "General Progress of VantaDB Project"
 status: active
 tags: [vantadb, progress, documentation]
-last_reviewed: 2026-08-02
+last_reviewed: 2026-08-19
 aliases: []
 ---
 
 # Progreso General del Proyecto VantaDB
 
-> **Última actualización:** 2026-08-02
+> **Última actualización:** 2026-08-19
 > **Versión release:** [`docs/CHANGELOG.md`](../CHANGELOG.md) — changelog formal por versión
 > **Activar backlog:** [`docs/Backlog.md`](../Backlog.md) — tareas priorizadas
 >
@@ -18,7 +18,7 @@ aliases: []
 
 VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNSW híbrido, GraphRAG, CLIP y el ecosistema Python/LLM.
 
-**Estado:** 🟢 FASE 3 pre-lanzamiento (~95%)
+**Estado:** 🟢 FASE 4 en ejecución (2026-08-19) — Vanta Studio: cierre deuda REST + WASM/OPFS + diferenciadores. Fases 0-3 de Vanta Studio completadas (Backlog P26, progreso §Vanta Studio).
 
 ### Progreso general
 
@@ -627,7 +627,6 @@ Los 3 planes activos restantes quedaron 100% completados (26/26, 16/16, 24/24 DO
 
 **Ids:** `COMP-021`
 
-<!-- movido a ARCHIVO_HISTORICO.md -->
 ### 2026-07-31 — Plan de Recuperación de VantaDB (REC-001 a REC-010, REC-999) ✅
 
 **Fuente:** Recovery Plan (`docs/plans/2026-07-28-recovery-plan.md`)
