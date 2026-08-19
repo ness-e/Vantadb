@@ -943,7 +943,9 @@ async fn records_delete_by_filter(
 /// Query params for `GET /api/v2/list`.
 #[derive(Deserialize, Debug)]
 struct ListParams {
-    namespace: String,
+    // Option: la consola web lista sin namespace → default a "default" (igual
+    // que el bridge nativo). Un campo String requerido 400ea en axum antes del handler.
+    namespace: Option<String>,
     limit: Option<usize>,
     cursor: Option<usize>,
     /// JSON array of `VantaMemoryFilterItem`.
@@ -955,16 +957,13 @@ async fn records_list(
     State(state): State<Arc<ServerState>>,
     Query(params): Query<ListParams>,
 ) -> Response {
-    if params.namespace.trim().is_empty() {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({
-                "success": false,
-                "error": "namespace query parameter is required",
-            })),
-        )
-            .into_response();
-    }
+    // La consola web lista sin namespace (HomeOverview/sidebar/grid) — el bridge
+    // nativo (desktop/src-tauri/connections/native.rs) defaulta vacío a "default".
+    // Alinear el wire REST para que el modo embebido se comporte igual que Tauri.
+    let ns = match params.namespace.as_deref() {
+        Some(n) if !n.trim().is_empty() => n.to_string(),
+        _ => "default".to_string(),
+    };
     let filter_ops = match params.filter_ops.as_deref() {
         None => None,
         Some(raw) => match serde_json::from_str::<VantaMemoryFilter>(raw) {
@@ -981,7 +980,6 @@ async fn records_list(
             }
         },
     };
-    let ns = params.namespace;
     let options = VantaMemoryListOptions {
         filter_ops,
         limit: params.limit.unwrap_or(100),
@@ -999,6 +997,11 @@ async fn records_search(
     State(state): State<Arc<ServerState>>,
     Json(request): Json<VantaMemorySearchRequest>,
 ) -> Response {
+    // La Topbar de la consola web busca sin namespace — mismo default que list.
+    let mut request = request;
+    if request.namespace.trim().is_empty() {
+        request.namespace = "default".to_string();
+    }
     match run_db_op(&state, move |db| db.search(request)).await {
         Ok(hits) => Json(hits).into_response(),
         Err(resp) => resp,
@@ -2445,9 +2448,10 @@ mod tests {
         let (status, body) = raw_delete(addr, "/api/v2/records/mem/missing").await;
         assert_eq!(status, 404, "delete missing: {body}");
 
-        // LIST without namespace → 400.
+        // LIST without namespace → 200 (defaults to "default", igual que el bridge
+        // nativo native.rs — la consola web lista sin namespace).
         let (status, body) = raw_get(addr, "/api/v2/list").await;
-        assert_eq!(status, 400, "list no namespace: {body}");
+        assert_eq!(status, 200, "list no namespace: {body}");
 
         // DELETE by filter with invalid JSON → 400.
         let (status, body) = raw_delete(addr, "/api/v2/records?namespace=mem&filter=notjson").await;
