@@ -12,7 +12,7 @@ use crate::circuit_breaker::CircuitBreaker;
 use crate::connection_pool::{ConnectionPool, PoolError};
 use crate::error::ChainedError;
 use crate::sdk::{
-    VantaEmbedded, VantaMemoryFilter, VantaMemoryInput, VantaMemoryListOptions,
+    VantaEmbedded, VantaMemoryFilter, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryRecord,
     VantaMemorySearchRequest,
 };
 use crate::VantaError;
@@ -169,6 +169,29 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
         .route("/api/v2/search", post(records_search))
         .route("/api/v2/autocomplete", get(iql_autocomplete))
         .route("/api/v2/audit", get(audit_events))
+        .route("/api/v2/export", post(export_v2))
+        .route("/api/v2/import", post(import_v2))
+        .route("/api/v2/graph/bfs", post(graph_bfs))
+        .route("/api/v2/graph/dfs", post(graph_dfs))
+        .route("/api/v2/graph/degree", post(graph_degree))
+        .route("/api/v2/graph/centrality", post(graph_centrality))
+        .route("/api/v2/graph/pagerank", post(graph_pagerank))
+        .route("/api/v2/maintenance/purge", post(maintenance_purge))
+        .route("/api/v2/maintenance/compact", post(maintenance_compact))
+        .route("/api/v2/maintenance/flush", post(maintenance_flush))
+        .route(
+            "/api/v2/maintenance/rebuild-index",
+            post(maintenance_rebuild_index),
+        )
+        .route("/api/v2/threads", get(threads_list).post(threads_create))
+        .route(
+            "/api/v2/threads/{id}",
+            get(threads_get)
+                .post(threads_send_message)
+                .delete(threads_delete),
+        )
+        .route("/api/v2/snapshots", get(snapshots_list))
+        .route("/api/v2/snapshots/{name}", post(snapshots_create))
         .route("/metrics", get(metrics_endpoint))
         .layer(middleware::from_fn(auth_middleware));
 
@@ -1545,6 +1568,427 @@ async fn serve_http_or_tls(
     true
 }
 
+// ─── /api/v2 extended SDK surface (WEB-02) ─────────────────────────────────
+//
+// Second slice of the console API: export/import, graph traversal + GDS,
+// maintenance, threads, and snapshots. Same rules as WEB-01: the wire format
+// is the SDK's own serde, errors are `{success: false, error}` with the
+// status from `vanta_error_status`, and all engine work runs under a pool
+// permit in `spawn_blocking` via `run_db_op`.
+
+/// Body for `POST /api/v2/export`.
+#[derive(Deserialize, Debug)]
+struct ExportRequest {
+    /// Target path for the export file (JSONL).
+    path: String,
+    /// When present, exports only this namespace; otherwise exports all.
+    namespace: Option<String>,
+    /// Optional AND-combined filter applied to the exported records.
+    filter: Option<VantaMemoryFilter>,
+}
+
+/// Body for `POST /api/v2/import`.
+#[derive(Deserialize, Debug)]
+struct ImportRequest {
+    /// Inline records to import (export wire format). Mutually exclusive with `path`.
+    records: Option<Vec<VantaMemoryRecord>>,
+    /// Path to a JSONL export (default) or a `.vdbdump` bulk file (`format: "bulk"`).
+    path: Option<String>,
+    /// File format when `path` is set: `"jsonl"` (default) or `"bulk"`.
+    format: Option<String>,
+}
+
+#[tracing::instrument(skip(state))]
+async fn export_v2(
+    State(state): State<Arc<ServerState>>,
+    Json(req): Json<ExportRequest>,
+) -> Response {
+    let namespace = req.namespace.clone();
+    let filter = req.filter.clone();
+    match run_db_op(&state, move |db| match namespace.as_deref() {
+        Some(ns) => db.export_namespace(&req.path, ns, filter),
+        None => db.export_all(&req.path),
+    })
+    .await
+    {
+        Ok(report) => Json(report).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn import_v2(
+    State(state): State<Arc<ServerState>>,
+    Json(req): Json<ImportRequest>,
+) -> Response {
+    let records = req.records.clone();
+    let path = req.path.clone();
+    let format = req.format.clone();
+    // The three import ops return two report types (VantaImportReport vs
+    // BulkImportReport); normalize to a JSON value to keep one response path.
+    match run_db_op(&state, move |db| -> Result<serde_json::Value> {
+        let value = if let Some(records) = records {
+            serde_json::to_value(db.import_records(records)?).map_err(VantaError::serialization)?
+        } else if let Some(path) = path {
+            if format.as_deref() == Some("bulk") {
+                serde_json::to_value(db.bulk_import_file(&path)?)
+                    .map_err(VantaError::serialization)?
+            } else {
+                serde_json::to_value(db.import_file(&path)?).map_err(VantaError::serialization)?
+            }
+        } else {
+            return Err(VantaError::InvalidInput(
+                "import requires `records` or `path`".into(),
+            ));
+        };
+        Ok(value)
+    })
+    .await
+    {
+        Ok(report) => Json(report).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+/// Direction wire enum — `TraversalDirection` (src/graph.rs) is not serde.
+#[derive(Deserialize, Debug, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+enum GraphDirection {
+    Forward,
+    Reverse,
+    Both,
+}
+
+impl From<GraphDirection> for crate::graph::TraversalDirection {
+    fn from(d: GraphDirection) -> Self {
+        match d {
+            GraphDirection::Forward => crate::graph::TraversalDirection::Forward,
+            GraphDirection::Reverse => crate::graph::TraversalDirection::Reverse,
+            GraphDirection::Both => crate::graph::TraversalDirection::Both,
+        }
+    }
+}
+
+/// Body for `POST /api/v2/graph/bfs` and `/dfs`.
+#[derive(Deserialize, Debug)]
+struct GraphTraversalRequest {
+    /// Node ids to start from.
+    roots: Vec<u128>,
+    /// Maximum hop depth from the roots.
+    max_depth: usize,
+    /// Edge direction: `"forward"` (default), `"reverse"`, or `"both"`.
+    direction: Option<GraphDirection>,
+}
+
+/// Body for `POST /api/v2/graph/degree` and `/centrality`.
+#[derive(Deserialize, Debug)]
+struct GraphRootsRequest {
+    /// Node ids to score.
+    roots: Vec<u128>,
+}
+
+fn default_pagerank_iterations() -> usize {
+    100
+}
+fn default_pagerank_damping() -> f64 {
+    0.85
+}
+fn default_pagerank_tolerance() -> f64 {
+    1e-6
+}
+
+/// Body for `POST /api/v2/graph/pagerank`.
+#[derive(Deserialize, Debug)]
+struct GraphPageRankRequest {
+    /// Node ids to score.
+    roots: Vec<u128>,
+    #[serde(default = "default_pagerank_iterations")]
+    max_iterations: usize,
+    #[serde(default = "default_pagerank_damping")]
+    damping: f64,
+    #[serde(default = "default_pagerank_tolerance")]
+    tolerance: f64,
+}
+
+#[tracing::instrument(skip(state))]
+async fn graph_bfs(
+    State(state): State<Arc<ServerState>>,
+    Json(req): Json<GraphTraversalRequest>,
+) -> Response {
+    let roots = req.roots.clone();
+    let max_depth = req.max_depth;
+    let direction = req.direction.unwrap_or(GraphDirection::Forward).into();
+    match run_db_op(&state, move |db| db.graph_bfs(&roots, max_depth, direction)).await {
+        Ok(ids) => Json(ids).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn graph_dfs(
+    State(state): State<Arc<ServerState>>,
+    Json(req): Json<GraphTraversalRequest>,
+) -> Response {
+    let roots = req.roots.clone();
+    let max_depth = req.max_depth;
+    let direction = req.direction.unwrap_or(GraphDirection::Forward).into();
+    match run_db_op(&state, move |db| db.graph_dfs(&roots, max_depth, direction)).await {
+        Ok(ids) => Json(ids).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn graph_degree(
+    State(state): State<Arc<ServerState>>,
+    Json(req): Json<GraphRootsRequest>,
+) -> Response {
+    let roots = req.roots.clone();
+    match run_db_op(&state, move |db| db.graph_degree_centrality(&roots)).await {
+        Ok(scores) => Json(scores).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+/// The GDS module exposes a single centrality op (`degree_centrality`), so
+/// `/graph/centrality` maps to the same SDK call as `/graph/degree`.
+#[tracing::instrument(skip(state))]
+async fn graph_centrality(
+    State(state): State<Arc<ServerState>>,
+    Json(req): Json<GraphRootsRequest>,
+) -> Response {
+    let roots = req.roots.clone();
+    match run_db_op(&state, move |db| db.graph_degree_centrality(&roots)).await {
+        Ok(scores) => Json(scores).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn graph_pagerank(
+    State(state): State<Arc<ServerState>>,
+    Json(req): Json<GraphPageRankRequest>,
+) -> Response {
+    let roots = req.roots.clone();
+    let max_iterations = req.max_iterations;
+    let damping = req.damping;
+    let tolerance = req.tolerance;
+    match run_db_op(&state, move |db| {
+        db.graph_page_rank(&roots, max_iterations, damping, tolerance)
+    })
+    .await
+    {
+        Ok(scores) => Json(scores).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn maintenance_purge(State(state): State<Arc<ServerState>>) -> Response {
+    match run_db_op(&state, move |db| db.purge_expired()).await {
+        Ok(purged) => Json(serde_json::json!({ "purged": purged })).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn maintenance_compact(State(state): State<Arc<ServerState>>) -> Response {
+    match run_db_op(&state, move |db| db.compact_layout()).await {
+        Ok(freed_bytes) => Json(serde_json::json!({ "freed_bytes": freed_bytes })).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn maintenance_flush(State(state): State<Arc<ServerState>>) -> Response {
+    match run_db_op(&state, move |db| db.flush()).await {
+        Ok(()) => Json(serde_json::json!({ "flushed": true })).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn maintenance_rebuild_index(State(state): State<Arc<ServerState>>) -> Response {
+    match run_db_op(&state, move |db| db.rebuild_index()).await {
+        Ok(report) => Json(report).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+/// Query params for `GET /api/v2/threads`.
+#[derive(Deserialize, Debug)]
+struct ThreadsListParams {
+    /// Maximum number of threads to return.
+    #[serde(default = "default_threads_limit")]
+    limit: usize,
+    /// Offset into the thread list.
+    #[serde(default)]
+    offset: usize,
+}
+
+fn default_threads_limit() -> usize {
+    100
+}
+
+/// Body for `POST /api/v2/threads`.
+#[derive(Deserialize, Debug)]
+struct ThreadCreateRequest {
+    /// Human-readable thread title.
+    title: String,
+    /// Optional time-to-live in seconds for the thread.
+    ttl_secs: Option<u64>,
+}
+
+/// Body for `POST /api/v2/threads/{id}` (send a message).
+#[derive(Deserialize, Debug)]
+struct ThreadMessageRequest {
+    /// Message role (`user`, `assistant`, ...).
+    role: String,
+    /// Message content.
+    content: String,
+}
+
+/// 404 body for a missing thread.
+fn thread_not_found_response(id: u128) -> Response {
+    (
+        StatusCode::NOT_FOUND,
+        Json(serde_json::json!({
+            "success": false,
+            "error": format!("thread not found: {id}"),
+        })),
+    )
+        .into_response()
+}
+
+/// Wire view of a thread — `MessageThread.thread_id` is a bare `u128` that
+/// serde cannot emit as a JSON number (out of u64 range), so it travels as a
+/// string, consistent with `u128_serde` elsewhere in the SDK wire format.
+#[derive(Serialize)]
+struct ThreadDTO {
+    thread_id: String,
+    title: String,
+    messages: Vec<crate::agentic::Message>,
+    created_at: u64,
+    updated_at: u64,
+    metadata: std::collections::HashMap<String, String>,
+}
+
+impl From<crate::agentic::MessageThread> for ThreadDTO {
+    fn from(t: crate::agentic::MessageThread) -> Self {
+        Self {
+            thread_id: t.thread_id.to_string(),
+            title: t.title,
+            messages: t.messages,
+            created_at: t.created_at,
+            updated_at: t.updated_at,
+            metadata: t.metadata,
+        }
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn threads_list(
+    State(state): State<Arc<ServerState>>,
+    Query(params): Query<ThreadsListParams>,
+) -> Response {
+    let limit = params.limit;
+    let offset = params.offset;
+    match run_db_op(&state, move |db| db.list_threads(limit, offset)).await {
+        Ok(threads) => {
+            let dtos: Vec<ThreadDTO> = threads.into_iter().map(ThreadDTO::from).collect();
+            Json(dtos).into_response()
+        }
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn threads_create(
+    State(state): State<Arc<ServerState>>,
+    Json(req): Json<ThreadCreateRequest>,
+) -> Response {
+    let title = req.title.clone();
+    let ttl_secs = req.ttl_secs;
+    match run_db_op(&state, move |db| db.create_thread(&title, ttl_secs)).await {
+        Ok(thread_id) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!({ "thread_id": thread_id.to_string() })),
+        )
+            .into_response(),
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn threads_get(
+    State(state): State<Arc<ServerState>>,
+    AxumPath(thread_id): AxumPath<u128>,
+) -> Response {
+    match run_db_op(&state, move |db| db.get_thread(thread_id)).await {
+        Ok(Some(thread)) => Json(ThreadDTO::from(thread)).into_response(),
+        Ok(None) => thread_not_found_response(thread_id),
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn threads_send_message(
+    State(state): State<Arc<ServerState>>,
+    AxumPath(thread_id): AxumPath<u128>,
+    Json(req): Json<ThreadMessageRequest>,
+) -> Response {
+    let role = req.role.clone();
+    let content = req.content.clone();
+    match run_db_op(&state, move |db| {
+        db.send_message(thread_id, &role, &content)
+    })
+    .await
+    {
+        Ok(()) => Json(serde_json::json!({ "sent": true })).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn threads_delete(
+    State(state): State<Arc<ServerState>>,
+    AxumPath(thread_id): AxumPath<u128>,
+) -> Response {
+    match run_db_op(&state, move |db| db.delete_thread(thread_id)).await {
+        Ok(()) => Json(serde_json::json!({ "deleted": true })).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn snapshots_list(State(state): State<Arc<ServerState>>) -> Response {
+    match run_db_op(&state, move |db| db.list_snapshots()).await {
+        Ok(names) => Json(names).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+/// `FsSnapshot` (storage/engine) is not serializable (`created_at` is a
+/// monotonic `Instant`), so the wire shape carries name + path only.
+#[tracing::instrument(skip(state))]
+async fn snapshots_create(
+    State(state): State<Arc<ServerState>>,
+    AxumPath(name): AxumPath<String>,
+) -> Response {
+    let name_label = name.clone();
+    match run_db_op(&state, move |db| db.create_snapshot(&name)).await {
+        Ok(snapshot) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!({
+                "name": name_label,
+                "path": snapshot.path.to_string_lossy(),
+            })),
+        )
+            .into_response(),
+        Err(resp) => resp,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2173,5 +2617,360 @@ mod tests {
                 "governor config must build for rpm={rpm} (period={period_ms}, burst={burst_size})"
             );
         }
+    }
+
+    /// Spawn the app over an on-disk fjall DB in a temp dir (needed by
+    /// maintenance/snapshot endpoints whose ops are disk-backed).
+    async fn disk_test_state() -> (Arc<ServerState>, tempfile::TempDir) {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = VantaConfig {
+            backend_kind: crate::backend::BackendKind::Fjall,
+            ..Default::default()
+        };
+        let storage = Arc::new(
+            StorageEngine::open_with_config(&dir.path().to_string_lossy(), Some(cfg)).unwrap(),
+        );
+        let db = VantaEmbedded::from_engine(storage.clone());
+        (
+            Arc::new(ServerState {
+                storage,
+                db,
+                circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+                pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+                api_key: None,
+                rbac_config: RbacConfig::default(),
+                trusted_proxies: Vec::new(),
+            }),
+            dir,
+        )
+    }
+
+    #[tokio::test]
+    async fn v2_export_import_roundtrip() {
+        let state = cors_test_state().await;
+        let addr = spawn_app(app(state, 0)).await;
+
+        // Seed a record through the REST surface so the export has data.
+        let put_body = r#"{"namespace":"mem","key":"k1","payload":"hello export","metadata":{"kind":{"String":"note"}},"vector":null,"ttl_ms":null}"#;
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request("POST", "/api/v2/records", addr, put_body),
+            )
+            .await,
+        );
+        assert_eq!(status, 201, "seed put status: {body}");
+
+        // Export all namespaces to a JSONL file.
+        let dir = tempfile::tempdir().unwrap();
+        let export_path = dir.path().join("export.jsonl");
+        let export_body = format!(
+            r#"{{"path":"{}"}}"#,
+            export_path.to_string_lossy().replace('\\', "\\\\")
+        );
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request("POST", "/api/v2/export", addr, &export_body),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "export status: {body}");
+        let report: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(report["records_exported"], 1, "export report: {report}");
+        assert!(export_path.exists(), "export file must exist");
+
+        // Re-import the JSONL file.
+        let import_body = format!(
+            r#"{{"path":"{}"}}"#,
+            export_path.to_string_lossy().replace('\\', "\\\\")
+        );
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request("POST", "/api/v2/import", addr, &import_body),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "file import status: {body}");
+        let report: serde_json::Value = serde_json::from_str(&body).unwrap();
+        // The record already exists (same key), so the re-import updates it.
+        assert_eq!(report["updated"], 1, "import report: {report}");
+
+        // Inline-records import path.
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request("POST", "/api/v2/import", addr, r#"{"records":[]}"#),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "records import status: {body}");
+
+        // Missing both records and path → 400 with the error shape.
+        let (status, body) = parse_response(
+            &raw_request(addr, json_request("POST", "/api/v2/import", addr, r#"{}"#)).await,
+        );
+        assert_eq!(status, 400, "import without source must 400: {body}");
+        let err: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(err["success"], false);
+        assert!(
+            err["error"].as_str().unwrap().contains("records"),
+            "error should mention the missing source, got: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn v2_threads_roundtrip() {
+        let state = cors_test_state().await;
+        let addr = spawn_app(app(state, 0)).await;
+
+        // Create → 201 with a numeric thread_id.
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request("POST", "/api/v2/threads", addr, r#"{"title":"t1"}"#),
+            )
+            .await,
+        );
+        assert_eq!(status, 201, "create status: {body}");
+        let created: serde_json::Value = serde_json::from_str(&body).unwrap();
+        let thread_id = created["thread_id"].as_str().unwrap().to_string();
+
+        // List → contains the thread.
+        let (status, body) = raw_get(addr, "/api/v2/threads").await;
+        assert_eq!(status, 200, "list status: {body}");
+        let threads: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(threads.as_array().unwrap().len(), 1, "list: {threads}");
+
+        // Send a message → 200.
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request(
+                    "POST",
+                    &format!("/api/v2/threads/{thread_id}"),
+                    addr,
+                    r#"{"role":"user","content":"hello"}"#,
+                ),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "send message status: {body}");
+
+        // Get → thread with 1 message.
+        let (status, body) = raw_get(addr, &format!("/api/v2/threads/{thread_id}")).await;
+        assert_eq!(status, 200, "get status: {body}");
+        let thread: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(thread["title"], "t1", "thread: {thread}");
+        assert_eq!(thread["messages"].as_array().unwrap().len(), 1);
+
+        // Delete → 200, then GET → 404.
+        let (status, body) = raw_delete(addr, &format!("/api/v2/threads/{thread_id}")).await;
+        assert_eq!(status, 200, "delete status: {body}");
+        let (status, body) = raw_get(addr, &format!("/api/v2/threads/{thread_id}")).await;
+        assert_eq!(status, 404, "get after delete: {body}");
+    }
+
+    #[tokio::test]
+    async fn v2_graph_roundtrip() {
+        let state = cors_test_state().await;
+        // Seed a small graph: 1 → 2, 2 → 3.
+        state
+            .db
+            .insert_node(crate::sdk::VantaNodeInput::new(1))
+            .unwrap();
+        state
+            .db
+            .insert_node(crate::sdk::VantaNodeInput::new(2))
+            .unwrap();
+        state
+            .db
+            .insert_node(crate::sdk::VantaNodeInput::new(3))
+            .unwrap();
+        state.db.add_edge(1, 2, "next", None, None).unwrap();
+        state.db.add_edge(2, 3, "next", None, None).unwrap();
+        let addr = spawn_app(app(state, 0)).await;
+
+        // BFS from node 1 reaches node 3.
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request(
+                    "POST",
+                    "/api/v2/graph/bfs",
+                    addr,
+                    r#"{"roots":[1],"max_depth":2}"#,
+                ),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "bfs status: {body}");
+        let ids: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert!(
+            ids.as_array().unwrap().contains(&serde_json::json!(3)),
+            "bfs should reach 3, got: {ids}"
+        );
+
+        // DFS same shape.
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request(
+                    "POST",
+                    "/api/v2/graph/dfs",
+                    addr,
+                    r#"{"roots":[1],"max_depth":2}"#,
+                ),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "dfs status: {body}");
+
+        // Reverse direction reaches the root's ancestors.
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request(
+                    "POST",
+                    "/api/v2/graph/bfs",
+                    addr,
+                    r#"{"roots":[3],"max_depth":2,"direction":"reverse"}"#,
+                ),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "reverse bfs status: {body}");
+        let ids: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert!(
+            ids.as_array().unwrap().contains(&serde_json::json!(1)),
+            "reverse bfs should reach 1, got: {ids}"
+        );
+
+        // Degree + centrality (same SDK op).
+        for path in ["/api/v2/graph/degree", "/api/v2/graph/centrality"] {
+            let (status, body) = parse_response(
+                &raw_request(addr, json_request("POST", path, addr, r#"{"roots":[1]}"#)).await,
+            );
+            assert_eq!(status, 200, "{path} status: {body}");
+            let scores: serde_json::Value = serde_json::from_str(&body).unwrap();
+            assert!(
+                scores.as_object().unwrap().contains_key("1"),
+                "{path} should score node 1, got: {scores}"
+            );
+        }
+
+        // PageRank with defaults.
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request("POST", "/api/v2/graph/pagerank", addr, r#"{"roots":[1]}"#),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "pagerank status: {body}");
+        let ranks: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert!(
+            ranks.as_object().unwrap().contains_key("1"),
+            "pagerank should score node 1, got: {ranks}"
+        );
+
+        // Invalid direction → axum's Json rejection (422, same as malformed
+        // bodies elsewhere on the server).
+        let (status, _) = parse_response(
+            &raw_request(
+                addr,
+                json_request(
+                    "POST",
+                    "/api/v2/graph/bfs",
+                    addr,
+                    r#"{"roots":[1],"max_depth":1,"direction":"sideways"}"#,
+                ),
+            )
+            .await,
+        );
+        assert_eq!(status, 422, "invalid direction must 422");
+    }
+
+    #[tokio::test]
+    async fn v2_maintenance_roundtrip() {
+        let (state, _dir) = disk_test_state().await;
+        let addr = spawn_app(app(state, 0)).await;
+
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request("POST", "/api/v2/maintenance/purge", addr, "{}"),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "purge status: {body}");
+        let out: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(out["purged"], 0, "purge output: {out}");
+
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request("POST", "/api/v2/maintenance/flush", addr, "{}"),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "flush status: {body}");
+        let out: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(out["flushed"], true, "flush output: {out}");
+
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request("POST", "/api/v2/maintenance/compact", addr, "{}"),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "compact status: {body}");
+        let out: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert!(out["freed_bytes"].is_u64(), "compact output: {out}");
+
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request("POST", "/api/v2/maintenance/rebuild-index", addr, "{}"),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "rebuild-index status: {body}");
+        let out: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert!(out["scanned_nodes"].is_u64(), "rebuild output: {out}");
+    }
+
+    #[tokio::test]
+    async fn v2_snapshots_roundtrip() {
+        let (state, _dir) = disk_test_state().await;
+        let addr = spawn_app(app(state, 0)).await;
+
+        // Empty list first.
+        let (status, body) = raw_get(addr, "/api/v2/snapshots").await;
+        assert_eq!(status, 200, "list status: {body}");
+        let names: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(names.as_array().unwrap().len(), 0, "snapshots: {names}");
+
+        // Create → 201 with name + path (FsSnapshot is not serializable).
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request("POST", "/api/v2/snapshots/snap1", addr, "{}"),
+            )
+            .await,
+        );
+        assert_eq!(status, 201, "create snapshot status: {body}");
+        let snap: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(snap["name"], "snap1", "snapshot: {snap}");
+        assert!(snap["path"].as_str().unwrap().contains("snap1"));
+
+        // List now contains it.
+        let (status, body) = raw_get(addr, "/api/v2/snapshots").await;
+        assert_eq!(status, 200, "list after create: {body}");
+        let names: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(names.as_array().unwrap().len(), 1, "snapshots: {names}");
+        assert_eq!(names[0], "snap1");
     }
 }
