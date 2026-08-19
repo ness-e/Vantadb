@@ -719,6 +719,8 @@ export default function WorkspaceShell({
                 busy={state.busy}
                 runError={onError}
                 onSelectRow={(row: ExplorerRow) => openRecord(row.record, row.score)}
+                // OP-02: batch delete refresca el grid via remount (patrón Task 9).
+                onRefresh={() => setGridKey((k) => k + 1)}
               />
             </div>
           )}

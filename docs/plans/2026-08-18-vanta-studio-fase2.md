@@ -131,8 +131,8 @@
 - **Contrato:** selección múltiple en grid (checkbox + Shift+Space, 05 a11y) → barra: "Editar TTL…", "Eliminar (n)" (confirmación con cantidad y consecuencia — usa `delete_by_filter` con filtro Eq por keys, o bucle `remove` con undo snapshot VS-08), "Exportar (n) .jsonl" (VS-CORE-04 con filtro de keys). La selección se serializa a `VantaMemoryFilter` para batch delete/export (evita N comandos). Undo de batch = snapshot previo (mismo mecanismo VS-08).
 - **Verificación:** `npm run build` verde; seleccionar 3 filas → eliminar con confirmación "3 registros" → Ctrl+Z restaura; exportar selección genera archivo con 3 líneas.
 - **Ruta:** vanta-worker
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-08-19T02:30
+- **Estado:** ✅ COMPLETED (2026-08-19T10:45 — vanta-worker, OP-02; task file `.opencode/skills/campaign-executor/tasks/10.md`; retomado de sub-agente cancelado: Steps 2-3 ya implementados, yo completé Step 4 (onRefresh wiring en WorkspaceShell) + fix a11y (sort button solo envuelve columnas sortables, columna select con enableSorting:false) + cierre. Gates: `npm run build` tsc+vite verde, vitest batchSelection 4/4, node --test 14/14 (3 archivos node:test pre-existentes). Sin commit — lo commitea el lead)
+- **last-synced:** 2026-08-19
 
 ---
 

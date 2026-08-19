@@ -28,6 +28,9 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { listPage, search, vantaErrorMessage, type MemoryRecord } from "../vanta";
 import { undoStore } from "../store/undo";
 import { ExportButtons } from "./export/ExportButtons";
+import { recordsToJsonl, downloadText } from "./export/export-jsonl";
+// OP-02: selección múltiple del grid (batch ops) — ops puras testeadas.
+import { rowKey, selectAll, toggleId } from "./batchSelection";
 // VS-17: favorito (★) + copy-as por fila — slice aditivo en la celda de acciones.
 import { favoritesStore } from "../store/favorites";
 import { CopyButton } from "./copy/CopyButton";
@@ -49,6 +52,12 @@ interface Props {
   runError: (msg: string) => void;
   /** Master-detail (VS-03): clicking a row opens the record in the right Inspector. */
   onSelectRow?: (row: ExplorerRow) => void;
+  /** OP-02: feedback de éxito de las batch ops (default noop). */
+  onNotice?: (msg: string) => void;
+  /** OP-02: remount del grid tras una mutación batch (patrón `key={gridKey}`
+   * de WorkspaceShell, Task 9). Si no se provee, las filas borradas se quitan
+   * localmente del estado. */
+  onRefresh?: () => void;
 }
 
 const PAGE = 100;
@@ -348,7 +357,7 @@ const baseColumns = helper.columns([
   }),
 ]);
 
-export default function DataExplorer({ active, busy, runError, onSelectRow }: Props) {
+export default function DataExplorer({ active, busy, runError, onSelectRow, onNotice, onRefresh }: Props) {
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<ExplorerRow[] | null>(null);
   const [mode, setMode] = useState<"list" | "search">("list");
@@ -356,6 +365,14 @@ export default function DataExplorer({ active, busy, runError, onSelectRow }: Pr
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [, setNow] = useState(() => Date.now());
+
+  // OP-02: selección múltiple (Set de `${namespace}:${id}` — mismo keying que
+  // getRowId). select-all aplica a las filas cargadas (página actual), no al
+  // namespace completo.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [batchBusy, setBatchBusy] = useState<"export" | "delete" | null>(null);
+  const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   // Live TTL countdown: re-render periodically so bars/relative times move.
   useEffect(() => {
@@ -383,6 +400,9 @@ export default function DataExplorer({ active, busy, runError, onSelectRow }: Pr
     setRows(null);
     setNextCursor(null);
     cursorRef.current = null;
+    // OP-02: nueva query → la selección previa ya no aplica a las filas nuevas.
+    setSelected(new Set());
+    setConfirmBatchDelete(false);
     try {
       if (kind === "search") {
         const results = await search({ query: q, top_k: SEARCH_TOP_K });
@@ -477,8 +497,112 @@ export default function DataExplorer({ active, busy, runError, onSelectRow }: Pr
     setRows((prev) => prev?.filter((x) => !(x.id === r.id && x.namespace === r.namespace)) ?? prev);
   };
 
+  // OP-02: derivados de selección. `selected`/`loadedKeys` cambian por render y
+  // las columnas tienen identidad estable (useMemo []) → refs "latest" (mismo
+  // patrón errorRef/removeRowRef de VS-08).
+  const loadedKeys = useMemo(() => (rows ?? []).map((r) => rowKey(r.record)), [rows]);
+  const selectedRecords = useMemo(
+    () => (rows ?? []).filter((r) => selected.has(rowKey(r.record))).map((r) => r.record),
+    [rows, selected],
+  );
+  const loadedKeysRef = useRef(loadedKeys);
+  loadedKeysRef.current = loadedKeys;
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+
+  const allLoadedSelected = loadedKeys.length > 0 && loadedKeys.every((k) => selected.has(k));
+  const someLoadedSelected = loadedKeys.some((k) => selected.has(k));
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someLoadedSelected && !allLoadedSelected;
+    }
+  }, [someLoadedSelected, allLoadedSelected]);
+
+  // OP-02: batch ops sobre la selección. Export client-side JSONL (mismo path
+  // que ExportButtons/ESPACIO-02); delete vía softDeleteBatch (UN entry de
+  // undo — un solo Ctrl+Z restaura todo el lote).
+  function batchStamp(): string {
+    return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  }
+
+  async function handleBatchExport() {
+    setBatchBusy("export");
+    try {
+      const jsonl = recordsToJsonl(selectedRecords);
+      downloadText(`vanta-selection-${batchStamp()}.jsonl`, jsonl);
+      onNotice?.(`exportados ${selectedRecords.length} registros (JSONL)`);
+    } catch (err) {
+      runError(vantaErrorMessage(err));
+    } finally {
+      setBatchBusy(null);
+    }
+  }
+
+  async function handleBatchDelete() {
+    setBatchBusy("delete");
+    try {
+      await undoStore.softDeleteBatch(selectedRecords);
+      setConfirmBatchDelete(false);
+      setSelected(new Set());
+      if (onRefresh) onRefresh();
+      else {
+        const gone = new Set(selected);
+        setRows((prev) => prev?.filter((r) => !gone.has(rowKey(r.record))) ?? prev);
+      }
+      onNotice?.(`movidos ${selectedRecords.length} registros a papelera (Ctrl+Z deshace)`);
+    } catch (err) {
+      runError(vantaErrorMessage(err));
+    } finally {
+      setBatchBusy(null);
+    }
+  }
+
   const columns = useMemo(
     () => [
+      // OP-02: columna de selección (checkbox + select-all de la página actual).
+      // Native checkbox → Space/aria-label gratis (05 a11y). stopPropagation:
+      // el click no abre el inspector (onSelectRow del <tr>).
+      helper.display({
+        id: "select",
+        // 05 a11y: sin sort (el checkbox no va dentro de un <button>).
+        enableSorting: false,
+        header: () => {
+          const keys = loadedKeysRef.current;
+          const sel = selectedRef.current;
+          const all = keys.length > 0 && keys.every((k) => sel.has(k));
+          return (
+            <input
+              ref={selectAllRef}
+              type="checkbox"
+              checked={all}
+              onChange={() => setSelected((s) => selectAll(s, keys))}
+              aria-label={
+                all
+                  ? "Quitar selección de todas las filas cargadas"
+                  : "Seleccionar todas las filas cargadas"
+              }
+              title="Seleccionar todas las filas cargadas (página actual)"
+              className="h-4 w-4 cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            />
+          );
+        },
+        cell: ({ row }) => {
+          const key = rowKey(row.original.record);
+          const checked = selectedRef.current.has(key);
+          return (
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => setSelected((s) => toggleId(s, key))}
+              aria-label={`Seleccionar ${row.original.id}`}
+              title="Seleccionar para operaciones por lote"
+              className="h-4 w-4 cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            />
+          );
+        },
+      }),
       ...baseColumns,
       helper.display({
         id: "actions",
@@ -581,6 +705,71 @@ export default function DataExplorer({ active, busy, runError, onSelectRow }: Pr
         )}
       </div>
 
+      {/* OP-02: barra de batch ops — visible con selección; eliminar con
+          confirmación que nombra la cantidad (05 anti-patrón 7). */}
+      {selected.size > 0 && (
+        <div
+          role="toolbar"
+          aria-label="Operaciones por lote"
+          className="mt-2 flex flex-wrap items-center gap-2 border-2 border-neon bg-paper px-2 py-1.5 font-tech text-[10px] uppercase tracking-widest"
+        >
+          <span className="font-bold text-foreground">{selected.size} seleccionados</span>
+          <button
+            type="button"
+            className="press border-2 border-foreground bg-background px-2 py-1"
+            disabled={batchBusy !== null}
+            onClick={handleBatchExport}
+            title={`Exportar ${selectedRecords.length} registros seleccionados como JSONL`}
+          >
+            {batchBusy === "export" ? "…" : `Exportar (${selectedRecords.length})`}
+          </button>
+          {confirmBatchDelete ? (
+            <>
+              <button
+                type="button"
+                className="press border-2 border-foreground bg-neon px-2 py-1 font-bold text-background"
+                disabled={batchBusy !== null}
+                onClick={handleBatchDelete}
+                title="Confirmar borrado (Ctrl+Z deshace)"
+              >
+                {batchBusy === "delete" ? "…" : `BORRAR ${selectedRecords.length}`}
+              </button>
+              <button
+                type="button"
+                className="press flex h-6 w-6 items-center justify-center border-2 border-foreground text-[10px]"
+                onClick={() => setConfirmBatchDelete(false)}
+                aria-label="Cancelar borrado por lote"
+              >
+                ✕
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="press border-2 border-foreground bg-background px-2 py-1"
+              disabled={batchBusy !== null}
+              onClick={() => setConfirmBatchDelete(true)}
+              title="Mover a papelera (Ctrl+Z deshace)"
+            >
+              Eliminar ({selectedRecords.length})
+            </button>
+          )}
+          <span className="flex-1" />
+          <button
+            type="button"
+            className="press flex h-6 w-6 items-center justify-center border-2 border-foreground text-[10px]"
+            onClick={() => {
+              setSelected(new Set());
+              setConfirmBatchDelete(false);
+            }}
+            aria-label="Limpiar selección"
+            title="Limpiar selección"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <form className="row" onSubmit={handleSubmit}>
         <input
           value={query}
@@ -622,17 +811,23 @@ export default function DataExplorer({ active, busy, runError, onSelectRow }: Pr
                           key={header.id}
                           className="border-2 border-ink bg-paper px-2 py-1 align-bottom font-tech text-[10px] uppercase tracking-widest"
                         >
-                          <button
-                            type="button"
-                            className="flex items-center gap-1 hover:text-neon"
-                            onClick={() => header.column.toggleSorting(sorted === "asc")}
-                            title="Sort by column"
-                          >
-                            {flexRender(header.column.columnDef.header, header.getContext())}
-                            <span className="text-neon">
-                              {sorted === "asc" ? "▲" : sorted === "desc" ? "▼" : ""}
-                            </span>
-                          </button>
+                          {/* 05 a11y: el <button> de sort solo envuelve columnas sortables —
+                              la columna select (checkbox) y actions se renderizan planas. */}
+                          {header.column.getCanSort() ? (
+                            <button
+                              type="button"
+                              className="flex items-center gap-1 hover:text-neon"
+                              onClick={() => header.column.toggleSorting(sorted === "asc")}
+                              title="Sort by column"
+                            >
+                              {flexRender(header.column.columnDef.header, header.getContext())}
+                              <span className="text-neon">
+                                {sorted === "asc" ? "▲" : sorted === "desc" ? "▼" : ""}
+                              </span>
+                            </button>
+                          ) : (
+                            flexRender(header.column.columnDef.header, header.getContext())
+                          )}
                           {header.column.getCanFilter() && (
                             <input
                               value={(header.column.getFilterValue() as string) ?? ""}
