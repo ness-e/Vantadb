@@ -1,7 +1,9 @@
-// Typed bridge over the Tauri v2 IPC commands (DESK-03/06).
+// Typed bridge over the console's IPC transport (DESK-03/06, WEB-00).
 // Every type mirrors the serde DTOs in desktop/src-tauri/src/connections/types.rs.
 // Command names must NOT be renamed — they're wired in src-tauri/src/lib.rs.
-import { invoke } from "@tauri-apps/api/core";
+// All calls go through the pluggable transport (Tauri IPC today, HTTP in
+// WEB-04) so the React components stay backend-agnostic.
+import { transport, TauriBackend } from "./transport.ts";
 
 // --- Enums (serde rename_all = "snake_case") ---------------------------------
 export type Capability = "native" | "http" | "mcp" | "node" | "python" | "wasm";
@@ -185,15 +187,15 @@ export function vantaErrorMessage(err: unknown): string {
 
 // --- Command wrappers ---------------------------------------------------------
 export function health(): Promise<HealthReport> {
-  return invoke<HealthReport>("vanta_health");
+  return transport.call<HealthReport>("vanta_health");
 }
 
 export function connectNative(path: string): Promise<ConnectionInfo> {
-  return invoke<ConnectionInfo>("vanta_connect", { target: { via: "native", path } });
+  return transport.call<ConnectionInfo>("vanta_connect", { target: { via: "native", path } });
 }
 
 export function connectServer(cfg: ServerClientConfig): Promise<ConnectionInfo> {
-  return invoke<ConnectionInfo>("vanta_connect", {
+  return transport.call<ConnectionInfo>("vanta_connect", {
     target: {
       via: "server",
       config: { ...cfg, timeout: cfg.timeout ?? { secs: 15, nanos: 0 } },
@@ -202,32 +204,32 @@ export function connectServer(cfg: ServerClientConfig): Promise<ConnectionInfo> 
 }
 
 export function disconnect(id: string): Promise<void> {
-  return invoke<void>("vanta_disconnect", { id });
+  return transport.call<void>("vanta_disconnect", { id });
 }
 
 /** Returns `[id, info]` pairs straight from Rust. */
 export function listConnections(): Promise<[string, ConnectionInfo][]> {
-  return invoke<[string, ConnectionInfo][]>("vanta_list_connections");
+  return transport.call<[string, ConnectionInfo][]>("vanta_list_connections");
 }
 
 export function setActive(id: string): Promise<void> {
-  return invoke<void>("vanta_set_active", { id });
+  return transport.call<void>("vanta_set_active", { id });
 }
 
 export function ingest(records: IngestItem[]): Promise<string[]> {
-  return invoke<string[]>("vanta_ingest", { records });
+  return transport.call<string[]>("vanta_ingest", { records });
 }
 
 export function ingestBatch(records: IngestItem[]): Promise<string[]> {
-  return invoke<string[]>("vanta_ingest_batch", { records });
+  return transport.call<string[]>("vanta_ingest_batch", { records });
 }
 
 export function search(query: SearchQuery): Promise<SearchResult[]> {
-  return invoke<SearchResult[]>("vanta_search", { query });
+  return transport.call<SearchResult[]>("vanta_search", { query });
 }
 
 export function get(key: string, namespace?: string): Promise<MemoryRecord> {
-  return invoke<MemoryRecord>("vanta_get", { key, namespace });
+  return transport.call<MemoryRecord>("vanta_get", { key, namespace });
 }
 
 /** Fetch a record as it was at a specific version (VS-CORE-07). Only the
@@ -237,17 +239,17 @@ export function getVersion(
   version: number,
   namespace?: string,
 ): Promise<MemoryRecord> {
-  return invoke<MemoryRecord>("vanta_get_version", { key, version, namespace });
+  return transport.call<MemoryRecord>("vanta_get_version", { key, version, namespace });
 }
 
 /** List every retained version of a record, ascending v1..vN (VS-CORE-07).
  * Only the embedded (native) connection implements version history. */
 export function versions(key: string, namespace?: string): Promise<MemoryRecord[]> {
-  return invoke<MemoryRecord[]>("vanta_versions", { key, namespace });
+  return transport.call<MemoryRecord[]>("vanta_versions", { key, namespace });
 }
 
 export function remove(key: string, namespace?: string): Promise<void> {
-  return invoke<void>("vanta_delete", { key, namespace });
+  return transport.call<void>("vanta_delete", { key, namespace });
 }
 
 /** Upsert a record by key (create or replace), optionally pinning an absolute
@@ -259,7 +261,7 @@ export function vantaPut(params: {
   metadata?: Record<string, unknown>;
   expires_at_ms?: number;
 }): Promise<MemoryRecord> {
-  return invoke<MemoryRecord>("vanta_put", {
+  return transport.call<MemoryRecord>("vanta_put", {
     namespace: params.namespace,
     key: params.key,
     payload: params.payload,
@@ -284,7 +286,7 @@ export function listPage(opts?: {
   limit?: number;
   cursor?: number;
 }): Promise<ListPage> {
-  return invoke<ListPage>("vanta_list", {
+  return transport.call<ListPage>("vanta_list", {
     namespace: opts?.namespace,
     limit: opts?.limit,
     cursor: opts?.cursor,
@@ -315,13 +317,13 @@ export type VantaQueryResult =
  * Rejects with `unsupported` when the active connection has no IQL endpoint
  * (only the native/embedded transport implements it). */
 export function queryIql(iql: string): Promise<VantaQueryResult> {
-  return invoke<VantaQueryResult>("vanta_query", { iql });
+  return transport.call<VantaQueryResult>("vanta_query", { iql });
 }
 
 /** IQL editor autocomplete candidates for the token being typed (VS-CORE-06).
  * Pure string shim — keywords + identifiers already in the statement. */
 export function iqlAutocomplete(prefix: string): Promise<string[]> {
-  return invoke<string[]>("vanta_iql_autocomplete", { prefix });
+  return transport.call<string[]>("vanta_iql_autocomplete", { prefix });
 }
 
 // --- Export (VS-CORE-04) ------------------------------------------------------
@@ -352,7 +354,7 @@ export function exportNamespace(opts: {
   path: string;
   filter?: MemoryFilterItem[];
 }): Promise<ExportReport> {
-  return invoke<ExportReport>("vanta_export_namespace", {
+  return transport.call<ExportReport>("vanta_export_namespace", {
     namespace: opts.namespace,
     path: opts.path,
     filter: opts.filter ?? null,
@@ -369,7 +371,7 @@ export function deleteByFilter(opts: {
   namespace: string;
   filter: MemoryFilterItem[];
 }): Promise<number> {
-  return invoke<number>("vanta_delete_by_filter", {
+  return transport.call<number>("vanta_delete_by_filter", {
     namespace: opts.namespace,
     filter: opts.filter,
   });
@@ -412,7 +414,7 @@ export function graphBfs(opts: {
   direction?: GraphDirection;
   limit?: number;
 }): Promise<VantaGraphTraversalResult> {
-  return invoke<VantaGraphTraversalResult>("vanta_graph_bfs", {
+  return transport.call<VantaGraphTraversalResult>("vanta_graph_bfs", {
     roots: opts.roots,
     maxDepth: opts.maxDepth,
     direction: opts.direction ?? "Forward",
@@ -427,7 +429,7 @@ export function graphDfs(opts: {
   direction?: GraphDirection;
   limit?: number;
 }): Promise<VantaGraphTraversalResult> {
-  return invoke<VantaGraphTraversalResult>("vanta_graph_dfs", {
+  return transport.call<VantaGraphTraversalResult>("vanta_graph_dfs", {
     roots: opts.roots,
     maxDepth: opts.maxDepth,
     direction: opts.direction ?? "Forward",
@@ -441,7 +443,7 @@ export function graphDegree(opts: {
   namespace: string;
   limit?: number;
 }): Promise<VantaGraphNodeInfo[]> {
-  return invoke<VantaGraphNodeInfo[]>("vanta_graph_degree", {
+  return transport.call<VantaGraphNodeInfo[]>("vanta_graph_degree", {
     namespace: opts.namespace,
     limit: opts.limit ?? null,
   });
@@ -479,7 +481,7 @@ export interface OperationalMetrics {
 
 /** Point-in-time operational metrics snapshot (ADMIN-01). */
 export function metrics(): Promise<OperationalMetrics> {
-  return invoke<OperationalMetrics>("vanta_metrics");
+  return transport.call<OperationalMetrics>("vanta_metrics");
 }
 
 /** Audit-log events from the active connection, newest first (VS-12).
@@ -492,7 +494,7 @@ export function auditEvents(opts?: {
   limit?: number;
   cursor?: number;
 }): Promise<AuditPage> {
-  return invoke<AuditPage>("vanta_audit_events", {
+  return transport.call<AuditPage>("vanta_audit_events", {
     namespace: opts?.namespace,
     op: opts?.op,
     outcome: opts?.outcome,
@@ -546,7 +548,12 @@ export function parseVantaUrl(raw: string): VantaDeepLink | null {
 }
 
 /** Drain `vanta://` URLs buffered while the frontend was loading (VS-16).
- * Safe to call at startup — returns [] when nothing is pending. */
+ * Safe to call at startup — returns [] when nothing is pending.
+ * Tauri-only: deep links are an OS-scheme/IPC feature, so this is a no-op
+ * (empty array) on any other transport (web/WASM, WEB-04+). */
 export function takeDeepLink(): Promise<string[]> {
-  return invoke<string[]>("vanta_deep_link_take");
+  if (transport instanceof TauriBackend) {
+    return transport.call<string[]>("vanta_deep_link_take");
+  }
+  return Promise.resolve([]);
 }
