@@ -659,6 +659,7 @@ _arguments "${_arguments_options[@]}" : \
 '-p+[Port for the HTTP server]:PORT:_default' \
 '--port=[Port for the HTTP server]:PORT:_default' \
 '--host=[Host for the HTTP server]:HOST:_default' \
+'--dashboard-dir=[Directory of static files to serve at /dashboard (Vanta Studio web console). When unset, /dashboard responds 404 with a hint]:DASHBOARD_DIR:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \

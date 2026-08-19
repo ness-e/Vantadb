@@ -285,6 +285,7 @@ complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search-all" -s v -l 
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search-all" -s h -l help -d 'Print help'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -s p -l port -d 'Port for the HTTP server' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l host -d 'Host for the HTTP server' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l dashboard-dir -d 'Directory of static files to serve at /dashboard (Vanta Studio web console). When unset, /dashboard responds 404 with a hint' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l memory-limit -d 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l http -d 'Start HTTP server wrapper (default)'
