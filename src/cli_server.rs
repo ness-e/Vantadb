@@ -1335,6 +1335,62 @@ fn validate_auth_config(config: &VantaConfig) -> Result<()> {
     Ok(())
 }
 
+/// Mount the Vanta Studio dashboard at `/dashboard`.
+///
+/// With `dir`, serves static files via [`tower_http::services::ServeDir`] with
+/// an SPA fallback: routes **without** a file extension (deep links) get
+/// `index.html`, while real asset misses still 404. Without `dir`, `/dashboard`
+/// returns a 404 with a hint telling the user to pass `--dashboard-dir` (WEB-03).
+///
+/// Mounted here (after `app_with_cors`) on purpose: it stays **outside** the
+/// auth middleware, so `/dashboard` is public on loopback (D12) even when
+/// `require_auth` guards `/api/v2/*`.
+fn mount_dashboard(router: Router, dir: Option<&std::path::Path>) -> Router {
+    match dir {
+        Some(dir) => {
+            let index = dir.join("index.html");
+            let fallback = tower::service_fn(move |req: axum::http::Request<axum::body::Body>| {
+                let index = index.clone();
+                async move {
+                    // Asset miss (path has an extension) is a real 404 — never
+                    // swallow it with index.html (SPA fallback is for deep links).
+                    if std::path::Path::new(req.uri().path()).extension().is_some() {
+                        return Ok::<_, std::convert::Infallible>(
+                            (StatusCode::NOT_FOUND, "Not found").into_response(),
+                        );
+                    }
+                    let body = match tokio::fs::read(&index).await {
+                        Ok(bytes) => ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], bytes)
+                            .into_response(),
+                        Err(_) => (
+                            StatusCode::NOT_FOUND,
+                            format!("index.html not found in dashboard dir: {}", index.display()),
+                        )
+                            .into_response(),
+                    };
+                    Ok::<_, std::convert::Infallible>(body)
+                }
+            });
+            router.nest_service(
+                "/dashboard",
+                tower_http::services::ServeDir::new(dir).fallback(fallback),
+            )
+        }
+        None => router
+            .route("/dashboard", get(dashboard_disabled))
+            .route("/dashboard/{*path}", get(dashboard_disabled)),
+    }
+}
+
+/// 404 hint returned when no `--dashboard-dir` is configured (WEB-03).
+async fn dashboard_disabled() -> Response {
+    (
+        StatusCode::NOT_FOUND,
+        "Dashboard not enabled. Start the server with --dashboard-dir <path> to serve the Vanta Studio console at /dashboard.",
+    )
+        .into_response()
+}
+
 /// Start the HTTP (or TLS) server, binding to the address in the config.
 pub async fn run(config: VantaConfig) -> Result<()> {
     init_telemetry(false, Some(config.log_format));
@@ -1381,6 +1437,7 @@ pub async fn run(config: VantaConfig) -> Result<()> {
 
     let rpm = config.rate_limit_rpm;
     let router = app_with_cors(state, rpm, &config.allowed_origins);
+    let router = mount_dashboard(router, config.dashboard_dir.as_deref());
     let addr = format!("{}:{}", config.host, config.port);
 
     if !serve_http_or_tls(router, addr, &config, storage.clone()).await {
@@ -2972,5 +3029,70 @@ mod tests {
         let names: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert_eq!(names.as_array().unwrap().len(), 1, "snapshots: {names}");
         assert_eq!(names[0], "snap1");
+    }
+
+    /// Write a minimal SPA dashboard (index.html + one asset) into `dir`.
+    fn write_test_dashboard(dir: &std::path::Path) {
+        std::fs::create_dir_all(dir.join("assets")).unwrap();
+        std::fs::write(dir.join("index.html"), "<html>vanta-studio-test</html>").unwrap();
+        std::fs::write(dir.join("assets/app.js"), "console.log('vanta')").unwrap();
+    }
+
+    #[tokio::test]
+    async fn dashboard_serves_static_files_and_spa_fallback() {
+        let state = cors_test_state().await;
+        let dir = std::env::temp_dir().join(format!("vanta-web03-static-{}", std::process::id()));
+        write_test_dashboard(&dir);
+        let addr = spawn_app(mount_dashboard(app(state, 0), Some(&dir))).await;
+
+        // /dashboard/ → index.html
+        let (status, body) = raw_get(addr, "/dashboard/").await;
+        assert_eq!(status, 200, "index: {body}");
+        assert!(body.contains("vanta-studio-test"), "body: {body}");
+
+        // /dashboard without trailing slash → index.html (ServeDir "/" → index)
+        let (status, body) = raw_get(addr, "/dashboard").await;
+        assert_eq!(status, 200, "no-slash: {body}");
+        assert!(body.contains("vanta-studio-test"), "body: {body}");
+
+        // Deep link without extension → SPA fallback to index.html
+        let (status, body) = raw_get(addr, "/dashboard/alguna-ruta-spa").await;
+        assert_eq!(status, 200, "spa fallback: {body}");
+        assert!(body.contains("vanta-studio-test"), "body: {body}");
+
+        // Real asset → served as-is
+        let (status, body) = raw_get(addr, "/dashboard/assets/app.js").await;
+        assert_eq!(status, 200, "asset: {body}");
+        assert!(body.contains("console.log('vanta')"), "body: {body}");
+
+        // Missing asset WITH extension → real 404, never index.html
+        let (status, body) = raw_get(addr, "/dashboard/assets/missing.js").await;
+        assert_eq!(status, 404, "missing asset: {body}");
+        assert!(
+            !body.contains("vanta-studio-test"),
+            "missing asset must not return index.html: {body}"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn dashboard_disabled_returns_404_hint() {
+        let state = cors_test_state().await;
+        let addr = spawn_app(mount_dashboard(app(state, 0), None)).await;
+
+        let (status, body) = raw_get(addr, "/dashboard").await;
+        assert_eq!(status, 404, "disabled dashboard: {body}");
+        assert!(
+            body.contains("--dashboard-dir"),
+            "hint expected, got: {body}"
+        );
+
+        let (status, body) = raw_get(addr, "/dashboard/alguna-ruta").await;
+        assert_eq!(status, 404, "disabled dashboard path: {body}");
+        assert!(
+            body.contains("--dashboard-dir"),
+            "hint expected, got: {body}"
+        );
     }
 }

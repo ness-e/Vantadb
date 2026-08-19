@@ -317,6 +317,11 @@ pub struct VantaConfig {
     /// `Access-Control-Allow-Origin` header — browsers block cross-origin web
     /// calls unless a reverse proxy handles CORS. Defaults off.
     pub allowed_origins: Vec<String>,
+    /// Directory whose static files are served at `/dashboard` (Vanta Studio
+    /// web console, WEB-03). When `None` (default), `/dashboard` responds
+    /// 404 with a hint. Configured via `VANTADB_DASHBOARD_DIR` or the
+    /// `vanta serve --dashboard-dir` flag.
+    pub dashboard_dir: Option<std::path::PathBuf>,
     /// Batch size for batch ingestion operations (default: 1000).
     /// Configured via `VANTADB_BATCH_SIZE`.
     pub batch_size: Option<usize>,
@@ -789,6 +794,13 @@ impl Default for VantaConfig {
                     .ok()
                     .map(std::path::PathBuf::from);
                 debug!(?v, "VANTADB_AUDIT_LOG_PATH");
+                v
+            },
+            dashboard_dir: {
+                let v = env::var("VANTADB_DASHBOARD_DIR")
+                    .ok()
+                    .map(std::path::PathBuf::from);
+                debug!(?v, "VANTADB_DASHBOARD_DIR");
                 v
             },
             rbac_config: RbacConfig::default(),

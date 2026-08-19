@@ -313,6 +313,11 @@ pub enum Commands {
         /// Force authentication: refuse to start without an API key
         #[arg(long, env = "VANTADB_REQUIRE_AUTH")]
         require_auth: bool,
+
+        /// Directory of static files to serve at /dashboard (Vanta Studio web
+        /// console). When unset, /dashboard responds 404 with a hint.
+        #[arg(long, env = "VANTADB_DASHBOARD_DIR")]
+        dashboard_dir: Option<String>,
     },
 }
 
