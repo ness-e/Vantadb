@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/banner.gif" alt="VantaDB — Embedded Rust engine for durable local memory and hybrid vector retrieval">
+  <img src="assets/banner.gif" alt="VantaDB - Embedded Rust engine for durable local memory and hybrid vector retrieval">
 </div>
 
 <br>
