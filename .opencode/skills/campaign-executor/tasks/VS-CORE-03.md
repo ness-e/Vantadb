@@ -1,7 +1,7 @@
 # VS-CORE-03 — Exponer `explain` en el bridge desktop
 
 > **Plan:** `docs/plans/2026-08-18-vanta-studio-fase1.md` Task 1 · **Wave 0** (gaps bridge/core)
-> **Estado:** ⏳ IN PROGRESS (creado 2026-08-18)
+> **Estado:** ✅ COMPLETO (commit 2a1f3012 - fase 1)
 > **Rol:** vanta-worker (implementación bridge; NO core)
 > **OJO paralelismo:** VS-12 edita `native.rs` en paralelo — este cambio es SOLO aditivo (nunca reescribir el archivo completo ni la lógica de open/audit).
 

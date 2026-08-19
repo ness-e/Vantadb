@@ -1,7 +1,7 @@
 # WEB-02 — REST: resto del SDK (export/import, graph avanzado, mantenimiento, threads, snapshots)
 
 > Plan: `docs/plans/2026-08-18-vanta-studio-fase3.md` (Task 3, Wave 1)
-> Estado: ⏳ IN PROGRESS — 2026-08-19
+> Estado: ✅ COMPLETO (commit c856b3bd - fase 3)
 > Pre-requisito: WEB-01 (commit c81bc23a) — patrón de handlers `run_db_op`, helpers `vanta_error_status`/`vanta_error_response`, tests `raw_request`/`json_request`/`parse_response` en `src/cli_server.rs`.
 
 ## Contrato (mapeo 1:1 con el SDK `VantaEmbedded`)

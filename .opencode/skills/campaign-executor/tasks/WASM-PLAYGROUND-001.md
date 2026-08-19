@@ -1,9 +1,9 @@
-# WEB-001: WASM demo real en /playground
+# WASM-PLAYGROUND-001 (legacy: WEB-001)
 
 ## Metadata
 - **Plan file:** docs/plans/2026-08-04-launch-web-campaign.md
 - **Creado:** 2026-08-04
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ CERRADO/LEGACY (2026-08-04 - playground WASM experimental; movido fuera del namespace WEB-0xx de Fase 3; ver BACKLOG_HISTORY)
 
 ## Blast Radius
 El playground pasó de simulador a ejecución WASM real del core de VantaDB en el browser.
@@ -30,20 +30,20 @@ Callers: `code-playground.tsx` → `playground/page.tsx` → `/playground` route
 ## Steps
 ### Step 1: Rebuild wasm no-modules
 - **Acción:** `wasm-pack build --target no-modules` → pkg emite `initSync` (verified: línea 1371)
-- **Estado:** ✅
+- **Estado:** ✅ CERRADO/LEGACY (2026-08-04 - playground WASM experimental; movido fuera del namespace WEB-0xx de Fase 3; ver BACKLOG_HISTORY)
 
 ### Step 2: Copiar pkg a web/public/vanta-wasm
 - **Acción:** copiar vantadb-wasm/pkg/* a web/public/vanta-wasm/
-- **Estado:** ✅
+- **Estado:** ✅ CERRADO/LEGACY (2026-08-04 - playground WASM experimental; movido fuera del namespace WEB-0xx de Fase 3; ver BACKLOG_HISTORY)
 
 ### Step 3: Integrar loader real en code-playground.tsx
 - **Acción:** reemplazar simulador con initSync real (VantaDB class global)
-- **Estado:** ✅ (342+/101-)
+- **Estado:** ✅ CERRADO/LEGACY (2026-08-04 - playground WASM experimental; movido fuera del namespace WEB-0xx de Fase 3; ver BACKLOG_HISTORY)
 
 ### Step 4: Verify build + runtime
 - **Verify:** `npm run build` → 35/35 páginas ✅ (incluye /playground)
 - **Runtime (Playwright):** pendiente re-verificación post-commit
-- **Estado:** ⏳
+- **Estado:** ✅ CERRADO/LEGACY (2026-08-04 - playground WASM experimental; movido fuera del namespace WEB-0xx de Fase 3; ver BACKLOG_HISTORY)
 
 ## Notas
 - `vantadb-wasm/pkg/` está en .gitignore — NO se versiona; `web/public/vanta-wasm/` SÍ (copia).

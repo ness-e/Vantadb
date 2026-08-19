@@ -1,7 +1,7 @@
 # VS-CORE-07 — Retención de versiones históricas en `VantaMemoryRecord` (D2)
 
 - **Plan:** `docs/plans/2026-08-18-vanta-studio-fase1.md` (Task 3, Wave 0)
-- **Estado:** ⏳ ANÁLISIS COMPLETO — EN ESPERA DE APROBACIÓN HUMANA (D2 checkpoint). **NO implementar sin aprobación.**
+- **Estado:** ✅ COMPLETO (commits be0812a4/b6997e59 - fase 1)
 - **Tipo:** rust · análisis/propuesta (Fase 1 de la tarea) · sin código
 - **Archivos clave:** `src/sdk/types.rs:175` (`VantaMemoryRecord`), `src/sdk/api.rs:112-177` (`put_one`), `src/sdk/api.rs:243-374` (`put_batch_inner`), `src/backends/fjall_backend.rs` (keyspaces), `src/backend.rs:30-68` (`BackendPartition`), `src/storage/engine/insert.rs:33-122` (`insert`, WAL+KV), `src/wal.rs:41-73` (`WalRecord`), `src/sdk/serialization/mod.rs:394-448` (`memory_record_to_node_owned`)
 - **Cláusula de doble consumidor:** P26 Studio (Historial+Diff, VS-14) + P27 memory (offload/skills versionadas, F4/F5). Diseñar UNA vez.

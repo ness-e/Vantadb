@@ -9,7 +9,7 @@
 - **Turns estimados:** 7
 - **Creado:** 2026-08-18T12:55
 - **last-synced:** 2026-08-18T12:55
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETO (commit 822f7742 - fase 0)
 - **Incógnitas (uphill):** 0
 - **Pendientes (downhill):** 0 steps (implementación completa; falta REVIEW gate + commit por lead)
 
@@ -93,34 +93,34 @@
 - **Archivos:** `src/sdk/types.rs` (+ re-export en `src/sdk/mod.rs` y `src/lib.rs`)
 - **Acción:** agregar `VantaNamespaceStats` (struct derive Debug/Clone/Default/PartialEq/Eq/Serialize/Deserialize, campos `count`, `expiring_soon`, `expired` — u64), `VantaNamespaceStatsMap` (type alias `BTreeMap<String, VantaNamespaceStats>`), y `DEFAULT_EXPIRING_SOON_WINDOW_MS: u64 = 24 * 60 * 60 * 1000` con doc comments. Insertar tras `VantaMemoryListPage` (≈ línea 240), antes del `pub use`. Re-export en `sdk/mod.rs` y `lib.rs` (types es pub(crate) → sin re-export el tipo no es alcanzable).
 - **Verify:** `cargo check -p vantadb`
-- **Estado:** ✅ (2026-08-18 — cargo check -p vantadb exit 0)
+- **Estado:** ✅ COMPLETO (commit 822f7742 - fase 0)
 
 ### Step 2: Método namespace_stats en api.rs
 - **Archivos:** `src/sdk/api.rs`
 - **Acción:** implementar `pub fn namespace_stats(&self, expiring_soon_window_ms: Option<u64>) -> Result<VantaNamespaceStatsMap>` después de `count` (:1303). Single pass: `engine.scan_nodes()`, `memory_record_from_node`, `now = now_ms()`, `window = expiring_soon_window_ms.unwrap_or(DEFAULT_EXPIRING_SOON_WINDOW_MS)`, clasificación if/else-if TTL, `now.saturating_add(window)`. `#[tracing::instrument(skip(self), err)]` + doc con ejemplo.
 - **Verify:** `cargo check -p vantadb` && `cargo clippy -p vantadb --all-targets -- -D warnings`
-- **Estado:** ✅ (2026-08-18 — cargo check exit 0; clippy -D warnings exit 0 en verify final)
+- **Estado:** ✅ COMPLETO (commit 822f7742 - fase 0)
 - **Nota:** helper `memory_record_from_node_include_expired`/`memory_record_from_node_inner` agregado en `src/sdk/serialization/mod.rs` (pub(crate), aditivo — `memory_record_from_node` original intacto) para que el scan observe registros expirados no purgados.
 
 ### Step 3: Unit tests deterministas en api.rs
 - **Archivos:** `src/sdk/api.rs` (mod tests)
 - **Acción:** tests: (1) db vacía → mapa vacío; (2) multi-namespace mixto (normal / expiring soon via ttl / expired via `put_record_exact` con expires_at pasado) → counts exactos; (3) boundaries de ventana (`expires_at == now+window` → expiring_soon; `== now+window+1` → no); (4) cross-check `namespace_stats().count == count(ns, None)`. Helper local `memory_record(ns, key, expires_at_ms)`.
 - **Verify:** `cargo nextest run -p vantadb --lib -E 'test(namespace_stats)'`
-- **Estado:** ✅ (2026-08-18 — 4 tests nuevos pasan: 13 run 13 passed con el filtro)
+- **Estado:** ✅ COMPLETO (commit 822f7742 - fase 0)
 - **Nota:** 4 tests implementados (empty db, mixed aggregation, window boundaries, count cross-check). Cross-check tolera expired: `ns.count == db.count(ns, None) + ns.expired` (el expired es invisible a count() por lazy TTL pero visible en el scan físico).
 
 ### Step 4: Test de integración en tests/memory_api.rs
 - **Archivos:** `tests/memory_api.rs`
 - **Acción:** test end-to-end con `VantaEmbedded::open(tempdir)`: ns1 (1 normal + 1 ttl 1h expiring), ns2 (1 normal) → `namespace_stats(None)` con assert de counts + expiring_soon + expired + consistencia con `list_namespaces`.
 - **Verify:** `cargo nextest run -p vantadb --test memory_api`
-- **Estado:** ✅ (2026-08-18 — `namespace_stats_end_to_end` PASS)
+- **Estado:** ✅ COMPLETO (commit 822f7742 - fase 0)
 - **Nota:** binary `memory_api` está excluido del default-filter de nextest → correr con `--ignore-default-filter`. Expired determinista con `ttl_ms = Some(1)` + `sleep(5ms)` (mismo patrón que `edge_cases.rs:delete_expired_ttl_record`).
 
 ### Step 5: Docs EMBEDDED_SDK.md
 - **Archivos:** `docs/api/EMBEDDED_SDK.md`
 - **Acción:** fila `namespace_stats(expiring_soon_window_ms)` en tabla Memory API + bloque `### VantaNamespaceStats` con campos. (R-1: apunta a símbolo real.)
 - **Verify:** `pwsh scripts/validate-docs-coverage.ps1`
-- **Estado:** ✅ (2026-08-18 — 58 items ok en EMBEDDED_SDK.md, "0 gaps")
+- **Estado:** ✅ COMPLETO (commit 822f7742 - fase 0)
 - **Nota:** el script explota en la sección MCP (regex busca `fn handle_tools_list` en `vantadb-mcp/src/lib.rs`, pero vive en `handlers/tools.rs`) — bug PRE-EXISTENTE del script, ajeno a esta tarea; la sección SDK (la que valida este cambio) pasa.
 
 ## Dependencias

@@ -9,7 +9,7 @@
 - **Turns estimados:** 15-20
 - **Creado:** 2026-08-04T00:00
 - **last-synced:** 2026-08-04T00:00
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (evidencia: desktop/ implementado en Vanta Studio Fase 0-3, 2026-08)
 
 ## Blast Radius
 
@@ -46,37 +46,37 @@
 - **Archivos:** — (planning)
 - **Acción:** descomponer en 4-5 sub-queries: (1) Tauri v2 estado actual + stack Rust, (2) integración de una crate Rust nativa como backend desktop (command API, events), (3) casos de uso desktop AI/local-first y qué se necesita (memoria local, embeddings, UI), (4) comparativa Tauri vs Electron (bundle size, RAM, performance, madurez, DX), (5) effort estimate MVP (scaffold, integración `vantadb`, UI con memoria + search).
 - **Verify:** las 5 sub-queries listadas y documentadas en el task file
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (evidencia: desktop/ implementado en Vanta Studio Fase 0-3, 2026-08)
 
 ### Step 2: Searching — recolectar fuentes por sub-query
 - **Archivos:** — (research)
 - **Acción:** ejecutar cada sub-query con MetaSearchMCP/Argus. Priorizar fuentes oficiales (docs.tauri.app, tauri.app, electronjs.org, GitHub tauri-apps) + benchmarks/publicaciones comparativas recientes. Guardar URLs + snippets.
 - **Verify:** al menos 1 fuente oficial Tauri + 1 oficial Electron + 2 comparativas/benchmarks con URL
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (evidencia: desktop/ implementado en Vanta Studio Fase 0-3, 2026-08)
 
 ### Step 3: Extracting — extraer hechos clave de las 5-10 URLs más relevantes
 - **Archivos:** — (research)
 - **Acción:** extraer datos: bundle size típico Tauri vs Electron, RAM en idle, tiempo de build, soporte Windows/macOS/Linux, plugin system (window, tray, notifications, deep-link), cómo se llama Rust desde el frontend (invoke/commands), y si existe patrón de integrar una DB vectorial nativa como dependency.
 - **Verify:** cada hecho tiene URL de origen anotada
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (evidencia: desktop/ implementado en Vanta Studio Fase 0-3, 2026-08)
 
 ### Step 4: Synthesizing — redactar reporte en `docs/Investigaciones/`
 - **Archivos:** `docs/Investigaciones/DESKTOP-01-tauri-plataforma-desktop.md`
 - **Acción:** redactar reporte con: contexto VantaDB, comparativa Tauri vs Electron (tabla), vía de integración recomendada (`vantadb` como dep Rust directa en `src-tauri`, comandos backend para search/ingest, sin WASM/OPFS), casos de uso desktop AI app privada con memoria local, effort estimate MVP (scaffold + integración + UI mínima) desglosado, riesgos, y recomendación final explícita.
 - **Verify:** reporte escrito con todas las secciones del contrato
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (evidencia: desktop/ implementado en Vanta Studio Fase 0-3, 2026-08)
 
 ### Step 5: Verifying + coverage — revisar citas y validar docs
 - **Archivos:** `docs/Investigaciones/DESKTOP-01-tauri-plataforma-desktop.md`
 - **Acción:** auto-revisión: toda afirmación técnica tiene fuente; sin contradicciones sin resolver; gaps documentados explícitamente. Correr `pwsh scripts/validate-docs-coverage.ps1`.
 - **Verify:** `pwsh scripts/validate-docs-coverage.ps1` pasa; reporte sin afirmaciones sin fuente
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (evidencia: desktop/ implementado en Vanta Studio Fase 0-3, 2026-08)
 
 ### Step 6: Cierre — registrar en progreso y commit
 - **Archivos:** `docs/Backlog.md`, `docs/progreso/README.md`
 - **Acción:** skill progreso (Trigger 1): tachar DESKTOP-01 en Backlog con nota de fecha y link al reporte; migrar a progreso; commit `docs: DESKTOP-01 tauri platform research report`
 - **Verify:** commit creado; Backlog y progreso actualizados; reporte linkeado
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (evidencia: desktop/ implementado en Vanta Studio Fase 0-3, 2026-08)
 
 ## Dependencias
 - Ninguna (tarea independiente)

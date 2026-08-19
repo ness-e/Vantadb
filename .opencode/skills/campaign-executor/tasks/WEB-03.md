@@ -1,6 +1,6 @@
 # WEB-03 — Servir estáticos `/dashboard` + SPA fallback + flag CLI
 
-> Plan: `docs/plans/2026-08-18-vanta-studio-fase3.md` · Wave 1 · Estado: ⏳ IN PROGRESS (2026-08-19)
+> Plan: `docs/plans/2026-08-18-vanta-studio-fase3.md` · Wave 1 · Estado: ✅ COMPLETO (commits 62d63377/0da6d33c - fase 3)
 > Contexto: WEB-01 (c81bc23a) / WEB-02 (c856b3bd) ya agregaron los REST v2 en `src/cli_server.rs`. Esta tarea agrega el server de estáticos sin tocar endpoints existentes.
 
 ## Impacto mapeado (Regla 0)
