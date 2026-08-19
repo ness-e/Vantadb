@@ -1,6 +1,7 @@
 import React from "react";
 import { Composition } from "remotion";
 import { Banner } from "./Banner";
+import { BannerV2 } from "./BannerV2";
 import { MangaBrutal } from "./MangaBrutal";
 import { FavIcon } from "./FavIcon";
 
@@ -10,6 +11,14 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="Banner"
         component={Banner}
+        durationInFrames={120}
+        fps={30}
+        width={960}
+        height={320}
+      />
+      <Composition
+        id="BannerV2"
+        component={BannerV2}
         durationInFrames={120}
         fps={30}
         width={960}

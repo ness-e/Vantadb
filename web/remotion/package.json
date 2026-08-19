@@ -6,6 +6,8 @@
   "scripts": {
     "studio": "remotion studio",
     "render:banner": "remotion render Banner out/banner.gif --codec=gif --image-format=png --pixel-format=yuva444p10le --every-nth-frame=1 --number-of-gif-loops=0",
+    "render:banner-v2": "remotion render BannerV2 out/banner-v2-frames --sequence --scale=2 --image-format=png",
+    "gif:banner-v2": "C:\\Users\\Eros\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0-full_build\\bin\\ffmpeg.exe -y -framerate 30 -start_number 0 -i out/banner-v2-frames/element-%03d.png -filter_complex \"[0:v]scale=960:320:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5\" -loop 0 out/banner-v2.gif",
     "render:manga": "remotion render MangaBrutal out/banner-manga.gif --codec=gif --image-format=png --pixel-format=yuva444p10le --every-nth-frame=1 --number-of-gif-loops=0",
     "render:favicon": "remotion still FavIcon out/favicon.png --image-format=png"
   },
