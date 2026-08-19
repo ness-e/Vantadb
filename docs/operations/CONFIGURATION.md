@@ -44,6 +44,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `rate_limit_rpm` | `u32` | `100` | `VANTADB_RATE_LIMIT_RPM` | Rate limit in requests per minute |
 | `trusted_proxies` | `Vec<IpAddr>` | `[]` | `VANTADB_TRUSTED_PROXIES` | Comma-separated reverse-proxy IPs whose `X-Forwarded-For` header is honored for client-IP resolution (rate limiter / logs). Empty = header ignored; direct socket addr is authoritative (clients cannot spoof their IP). |
 | `allowed_origins` | `Vec<String>` | `[]` | `VANTADB_ALLOWED_ORIGINS` | Comma-separated origins allowed to make cross-origin (CORS) requests to the HTTP server (e.g. `https://app.example.com,https://admin.example.com`). Empty (default) = CORS middleware omitted; the server sends no `Access-Control-Allow-Origin` header and browsers block cross-origin web calls. Repeatable via `VantaConfig::with_allowed_origins`. |
+| `dashboard_dir` | `Option<PathBuf>` | `None` | `VANTADB_DASHBOARD_DIR` | Directory of static files served at `/dashboard` (Vanta Studio web console, WEB-03). When `None` (default), `/dashboard` responds 404 with a hint telling the caller to pass `--dashboard-dir`. Also settable via `server --dashboard-dir <path>`. |
 | `tls_cert_path` | `Option<String>` | `None` | `VANTADB_TLS_CERT` | Path to TLS certificate PEM file |
 | `tls_key_path` | `Option<String>` | `None` | `VANTADB_TLS_KEY` | Path to TLS private key PEM file |
 | `log_format` | `LogFormat` | `Compact` | `VANTADB_LOG_FORMAT`, `VANTADB_LOG_JSON` | Log output: `compact`, `json`, `full` |
@@ -55,6 +56,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `flush_threshold` | `Option<usize>` | `10000` | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
 | `advanced_tokenizer_config` | `Option<...>` | `None` | — | Advanced tokenizer config (feature-gated) |
 | `batch_size` | `Option<usize>` | `None` (1000) | `VANTADB_BATCH_SIZE` | Max nodes per batch ingestion operation |
+| `version_history_limit` | `Option<usize>` | `Some(32)` | `VANTADB_VERSION_HISTORY_LIMIT` | Max historical versions retained per memory key (VS-CORE-07). Each `put` snapshots the new record; FIFO evicts the oldest beyond the cap. `0` or `None` disables the cap (unbounded history per key). See `docs/api/EMBEDDED_SDK.md` → Version History. |
 | `bulk_commit_interval` | `Option<usize>` | `None` (10000) | `VANTADB_BULK_COMMIT_INTERVAL` | Number of records per batch commit during bulk import |
 | `encryption_key` | `Option<String>` | `None` | `VANTADB_ENCRYPTION_KEY` | AES-256-GCM key (hex 32-byte) for at-rest encryption (feature-gated: `encryption`) |
 | `flat_threshold` | `Option<usize>` | `10000` | `VANTADB_FLAT_THRESHOLD` | Brute-force flat scan threshold; ≤ this many nodes skips HNSW |
@@ -338,7 +340,7 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `snapshot list` | List all existing snapshots |
 | `wal compact` | Compact the WAL: flush all data, archive the current WAL file, and start a fresh one |
 | `wal vacuum` | Remove tombstoned nodes from HNSW and reclaim space |
-| `server [--http] [--mcp] [--port <N>] [--host <host>]` | Start the HTTP or MCP server wrapper |
+| `server [--http] [--mcp] [--port <N>] [--host <host>] [--dashboard-dir <dir>]` | Start the HTTP or MCP server wrapper; `--dashboard-dir` (env `VANTADB_DASHBOARD_DIR`) serves the Vanta Studio static console at `/dashboard` (WEB-03) |
 | `repl` | Interactive rustyline REPL with tab autocomplete |
 | `tui` | Live dashboard refreshing every 2s |
 | `completions --shell <bash|zsh|fish|powershell>` | Generate shell completion scripts |

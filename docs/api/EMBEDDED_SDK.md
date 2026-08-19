@@ -64,6 +64,8 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `put(input: VantaMemoryInput)` | Insert or update a memory record. Returns `VantaMemoryRecord` |
 | `put_batch(inputs: Vec<VantaMemoryInput>)` | Batch insert/update (parallel, up to 5x faster). Returns `Vec<VantaMemoryRecord>` |
 | `get(namespace, key)` | Retrieve a record by namespace+key. Returns `Option<VantaMemoryRecord>` |
+| `get_version(namespace, key, version)` | Retrieve the record as it was at the given version (VS-CORE-07). Returns `Option<VantaMemoryRecord>` — `None` if that version was never persisted (unknown key, purged by the retention cap, or deleted). Snapshot durability is best-effort post-commit, so a crash window can leave a version gap — degraded but never corrupt |
+| `versions(namespace, key)` | List every retained version of a record, ascending (v1..vN) (VS-CORE-07). Returns `Vec<VantaMemoryRecord>` — empty if the key does not exist or has no history; expired versions are included as historical data until purged. `get_version(namespace, key, vN)` of the last element matches the live record |
 | `delete(namespace, key)` | Delete a record. Returns `bool` (true if existed) |
 | `list(namespace, options)` | List records in a namespace with cursor pagination. Returns `VantaMemoryListPage` |
 | `list_namespaces()` | List all namespaces. Returns `Vec<String>` |
@@ -74,6 +76,10 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `similar_to_key(namespace, key, top_k)` | Vector similarity search from an existing record's vector, post-filtered to `namespace`. Errors `NotFound` if the key does not exist and `NoVectorForKey` if the record carries no vector |
 | `explain_memory_search(request)` | Search with detailed score breakdown. Returns `VantaSearchExplanation` |
 | `namespace_stats(expiring_soon_window_ms)` | Per-namespace statistics: total records, records expiring within the window, already-expired records. Single full scan (no N paginated `count`/`list` calls). `None` uses the 24h default window. Returns `VantaNamespaceStatsMap` |
+
+### Version History (VS-CORE-07)
+
+Every `put`/`put_batch` snapshots the new record into a `Versions` partition keyed by `(namespace, key, version)`; `version` increments monotonically per key. `VantaConfig.version_history_limit` caps retained snapshots per key (default `Some(32)`, FIFO eviction of the oldest beyond the cap — see `docs/operations/CONFIGURATION.md`); `delete` and `purge_expired` purge the full history. Imports (`import_file`/`bulk_import_*`) do **not** write snapshots. Only the embedded (native) SDK and the CLI/bridge expose version history.
 
 ### `VantaMemoryInput`
 
