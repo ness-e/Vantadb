@@ -230,7 +230,8 @@ async fn test_e2e_persistence_across_restart() {
     // Second server, same storage directory
     let storage2 = Arc::new(StorageEngine::open(&storage_path).unwrap());
     let state2 = Arc::new(ServerState {
-        storage: storage2,
+        storage: storage2.clone(),
+        db: vantadb::VantaEmbedded::from_engine(storage2.clone()),
         circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: None,

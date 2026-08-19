@@ -5,14 +5,14 @@
 //! via [`VantaConfig::audit_log_path`](crate::config::VantaConfig::audit_log_path);
 //! when unset, `VantaEmbedded` operations skip audit entirely.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::sync::Mutex;
 
 /// A single audit record: timestamp + operation + subject + target + outcome.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditEvent {
     /// ISO 8601 UTC timestamp (e.g. `2026-08-02T12:34:56Z`).
     pub timestamp: String,

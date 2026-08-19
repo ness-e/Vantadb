@@ -277,8 +277,10 @@ async fn bench_latency_health_serial() {
 async fn bench_latency_with_auth() {
     let dir = tempfile::tempdir().unwrap();
     let storage = Arc::new(StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap());
+    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
     let state = Arc::new(ServerState {
         storage,
+        db,
         circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
         pool: Arc::new(ConnectionPool::new(100, Duration::from_millis(5000))),
         api_key: Some(Arc::from("bench-key")),

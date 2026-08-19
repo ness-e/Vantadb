@@ -7,9 +7,14 @@
 //! flow through `run()` → `app()` → Router. Telemetry is verbose (tracing-subscriber
 //! config) but not complex — not worth splitting.
 
+use crate::audit::AuditEvent;
 use crate::circuit_breaker::CircuitBreaker;
 use crate::connection_pool::{ConnectionPool, PoolError};
 use crate::error::ChainedError;
+use crate::sdk::{
+    VantaEmbedded, VantaMemoryFilter, VantaMemoryInput, VantaMemoryListOptions,
+    VantaMemorySearchRequest,
+};
 use crate::VantaError;
 use lru::LruCache;
 use std::collections::HashMap;
@@ -20,7 +25,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use axum::{
-    extract::{DefaultBodyLimit, State},
+    extract::{DefaultBodyLimit, Path as AxumPath, Query, State},
     http::{header, HeaderValue, Method, StatusCode},
     middleware,
     response::{IntoResponse, Response},
@@ -101,6 +106,11 @@ impl From<&UnifiedNode> for NodeDTO {
 pub struct ServerState {
     /// The underlying storage engine.
     pub storage: Arc<StorageEngine>,
+    /// Embedded SDK handle sharing the storage engine — source of operations
+    /// for the `/api/v2` record endpoints. Shared (not per-request) so the
+    /// audit logger has a single file handle with its own mutex; per-request
+    /// handles would interleave appends to the audit JSONL.
+    pub db: VantaEmbedded,
     /// Circuit breaker for fast-failing when the backend is failing.
     pub circuit_breaker: Arc<CircuitBreaker>,
     /// Connection pool bounding concurrent query execution.
@@ -144,6 +154,21 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
 
     let protected = Router::new()
         .route("/api/v2/query", post(execute_query))
+        .route("/api/v2/health", get(health_v2))
+        .route(
+            "/api/v2/records",
+            post(records_put).delete(records_delete_by_filter),
+        )
+        .route("/api/v2/records/batch", post(records_put_batch))
+        .route(
+            "/api/v2/records/{ns}/{key}",
+            get(records_get).delete(records_delete),
+        )
+        .route("/api/v2/records/{ns}/{key}/versions", get(records_versions))
+        .route("/api/v2/list", get(records_list))
+        .route("/api/v2/search", post(records_search))
+        .route("/api/v2/autocomplete", get(iql_autocomplete))
+        .route("/api/v2/audit", get(audit_events))
         .route("/metrics", get(metrics_endpoint))
         .layer(middleware::from_fn(auth_middleware));
 
@@ -536,14 +561,13 @@ fn panic_error_response(panic_detail: &dyn std::fmt::Display) -> Response {
         .into_response()
 }
 
-/// Build a 4xx/5xx response for a query execution error (ERR-027).
+/// Map a `VantaError` to the HTTP status clients receive (ERR-027).
 ///
 /// Client mistakes (bad IQL, missing nodes, validation) map to explicit 4xx
-/// statuses; anything server-side stays a 500. Proxies and monitoring can then
-/// distinguish query errors from healthy traffic instead of relying on the
-/// body's `success` flag.
-fn query_error_response(e: &VantaError) -> Response {
-    let status = match e {
+/// statuses; anything server-side stays a 500. Shared by the IQL endpoint and
+/// the `/api/v2` console surface so both speak the same error status language.
+fn vanta_error_status(e: &VantaError) -> StatusCode {
+    match e {
         VantaError::IqlParseError { .. }
         | VantaError::IqlError(_)
         | VantaError::InvalidInput(_)
@@ -558,9 +582,18 @@ fn query_error_response(e: &VantaError) -> Response {
         | VantaError::ExecutionConflict { .. } => StatusCode::CONFLICT,
         // Storage/WAL/IO/resource failures and anything unclassified.
         _ => StatusCode::INTERNAL_SERVER_ERROR,
-    };
+    }
+}
+
+/// Build a 4xx/5xx response for a query execution error (ERR-027).
+///
+/// Client mistakes (bad IQL, missing nodes, validation) map to explicit 4xx
+/// statuses; anything server-side stays a 500. Proxies and monitoring can then
+/// distinguish query errors from healthy traffic instead of relying on the
+/// body's `success` flag.
+fn query_error_response(e: &VantaError) -> Response {
     (
-        status,
+        vanta_error_status(e),
         Json(QueryResponse {
             success: false,
             data: format!("Execution Error: {}", e),
@@ -650,6 +683,424 @@ async fn execute_query(
         })
         .into_response(),
         Err(e) => query_error_response(&e),
+    }
+}
+
+// ─── /api/v2 console surface (WEB-01) ───────────────────────────────────────
+//
+// Endpoints map 1:1 to the embedded SDK (`VantaEmbedded`) so the wire format
+// is the SDK's own serde. Errors are `{success: false, error}` with the status
+// from `vanta_error_status` — the same shape the auth middleware and circuit
+// breaker already emit. All engine work runs under a pool permit in
+// `spawn_blocking` (never on the Tokio runtime, R-2 server-mcp).
+
+/// Error body shared by the `/api/v2` console endpoints.
+fn vanta_error_response(e: &VantaError) -> Response {
+    (
+        vanta_error_status(e),
+        Json(serde_json::json!({
+            "success": false,
+            "error": e.to_string(),
+        })),
+    )
+        .into_response()
+}
+
+/// Map a connection-pool acquisition failure to a 503 (mirrors `execute_query`).
+fn pool_error_response(e: PoolError) -> Response {
+    let msg = match e {
+        PoolError::Closed => "Server query pool closed".to_string(),
+        PoolError::Timeout => "Server concurrency limit reached; retry shortly".to_string(),
+    };
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        [(header::RETRY_AFTER, "1")],
+        Json(serde_json::json!({ "success": false, "error": msg })),
+    )
+        .into_response()
+}
+
+/// Run a blocking SDK operation under a connection-pool permit.
+///
+/// Pool, panic, and `VantaError` failures become HTTP responses; success
+/// returns the raw SDK value for the handler to serialize.
+async fn run_db_op<T>(
+    state: &ServerState,
+    op: impl FnOnce(&VantaEmbedded) -> Result<T> + Send + 'static,
+) -> std::result::Result<T, Response>
+where
+    T: Send + 'static,
+{
+    let _permit = state.pool.acquire().await.map_err(pool_error_response)?;
+    let db = state.db.clone();
+    match tokio::task::spawn_blocking(move || op(&db)).await {
+        Ok(Ok(v)) => Ok(v),
+        Ok(Err(e)) => Err(vanta_error_response(&e)),
+        Err(e) => Err(panic_error_response(&e)),
+    }
+}
+
+/// Health report shape for `GET /api/v2/health` (mirrors the desktop
+/// `HealthReport` wire contract).
+#[derive(Serialize)]
+struct HealthReportV2 {
+    status: &'static str,
+    backend: String,
+    latency_ms: u64,
+    checked_at_ms: u64,
+    message: Option<String>,
+}
+
+/// Human label for the configured storage backend.
+fn backend_label(kind: &crate::backend::BackendKind) -> &'static str {
+    match kind {
+        crate::backend::BackendKind::Fjall => "fjall",
+        crate::backend::BackendKind::RocksDb => "rocksdb",
+        crate::backend::BackendKind::InMemory => "in-memory",
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn health_v2(State(state): State<Arc<ServerState>>) -> Response {
+    let start = Instant::now();
+    let db = state.db.clone();
+    let result = tokio::task::spawn_blocking(move || db.list_namespaces()).await;
+    let latency_ms = start.elapsed().as_millis() as u64;
+    let checked_at_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+
+    let (status, message) = match result {
+        Ok(Ok(_)) => ("healthy", None),
+        Ok(Err(e)) => ("degraded", Some(e.to_string())),
+        Err(e) => ("degraded", Some(format!("execution task panicked: {e}"))),
+    };
+    Json(HealthReportV2 {
+        status,
+        backend: backend_label(&state.db.config.backend_kind).to_string(),
+        latency_ms,
+        checked_at_ms,
+        message,
+    })
+    .into_response()
+}
+
+#[tracing::instrument(skip(state))]
+async fn records_put(
+    State(state): State<Arc<ServerState>>,
+    Json(input): Json<VantaMemoryInput>,
+) -> Response {
+    match run_db_op(&state, move |db| db.put(input)).await {
+        Ok(record) => (StatusCode::CREATED, Json(record)).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn records_put_batch(
+    State(state): State<Arc<ServerState>>,
+    Json(inputs): Json<Vec<VantaMemoryInput>>,
+) -> Response {
+    match run_db_op(&state, move |db| db.put_batch(inputs)).await {
+        Ok(records) => (StatusCode::CREATED, Json(records)).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+/// 404 body for a missing record lookup (REST convention: GET/DELETE of a
+/// nonexistent key is a client mistake, not a server fault).
+fn not_found_response(key: &str) -> Response {
+    (
+        StatusCode::NOT_FOUND,
+        Json(serde_json::json!({
+            "success": false,
+            "error": format!("record not found: {key}"),
+        })),
+    )
+        .into_response()
+}
+
+#[tracing::instrument(skip(state))]
+async fn records_get(
+    State(state): State<Arc<ServerState>>,
+    AxumPath((ns, key)): AxumPath<(String, String)>,
+) -> Response {
+    let key_label = key.clone();
+    match run_db_op(&state, move |db| db.get(&ns, &key)).await {
+        Ok(Some(record)) => Json(record).into_response(),
+        Ok(None) => not_found_response(&key_label),
+        Err(resp) => resp,
+    }
+}
+
+/// Query params for `GET /api/v2/records/{ns}/{key}/versions`.
+#[derive(Deserialize, Debug)]
+struct RecordsVersionsParams {
+    /// When present, returns only that version instead of the full list.
+    version: Option<u64>,
+}
+
+#[tracing::instrument(skip(state))]
+async fn records_versions(
+    State(state): State<Arc<ServerState>>,
+    AxumPath((ns, key)): AxumPath<(String, String)>,
+    Query(params): Query<RecordsVersionsParams>,
+) -> Response {
+    match params.version {
+        Some(version) => {
+            let key_label = key.clone();
+            match run_db_op(&state, move |db| db.get_version(&ns, &key, version)).await {
+                Ok(Some(record)) => Json(record).into_response(),
+                Ok(None) => (
+                    StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": format!("version {version} not found for key {key_label}"),
+                    })),
+                )
+                    .into_response(),
+                Err(resp) => resp,
+            }
+        }
+        None => match run_db_op(&state, move |db| db.versions(&ns, &key)).await {
+            Ok(records) => Json(records).into_response(),
+            Err(resp) => resp,
+        },
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn records_delete(
+    State(state): State<Arc<ServerState>>,
+    AxumPath((ns, key)): AxumPath<(String, String)>,
+) -> Response {
+    let key_label = key.clone();
+    match run_db_op(&state, move |db| db.delete(&ns, &key)).await {
+        Ok(true) => Json(serde_json::json!({ "deleted": true })).into_response(),
+        Ok(false) => not_found_response(&key_label),
+        Err(resp) => resp,
+    }
+}
+
+/// Query params for `DELETE /api/v2/records?namespace=&filter=`.
+#[derive(Deserialize, Debug)]
+struct DeleteByFilterParams {
+    namespace: String,
+    /// JSON array of `VantaMemoryFilterItem` (e.g.
+    /// `[{"field":"kind","op":"Eq","value":{"String":"note"}}]`).
+    filter: String,
+}
+
+#[tracing::instrument(skip(state))]
+async fn records_delete_by_filter(
+    State(state): State<Arc<ServerState>>,
+    Query(params): Query<DeleteByFilterParams>,
+) -> Response {
+    let filter: VantaMemoryFilter = match serde_json::from_str(&params.filter) {
+        Ok(f) => f,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": format!("invalid filter JSON: {e}"),
+                })),
+            )
+                .into_response();
+        }
+    };
+    let ns = params.namespace;
+    match run_db_op(&state, move |db| db.delete_by_filter(&ns, filter)).await {
+        Ok(deleted) => Json(serde_json::json!({ "deleted": deleted })).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+/// Query params for `GET /api/v2/list`.
+#[derive(Deserialize, Debug)]
+struct ListParams {
+    namespace: String,
+    limit: Option<usize>,
+    cursor: Option<usize>,
+    /// JSON array of `VantaMemoryFilterItem`.
+    filter_ops: Option<String>,
+}
+
+#[tracing::instrument(skip(state))]
+async fn records_list(
+    State(state): State<Arc<ServerState>>,
+    Query(params): Query<ListParams>,
+) -> Response {
+    if params.namespace.trim().is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "namespace query parameter is required",
+            })),
+        )
+            .into_response();
+    }
+    let filter_ops = match params.filter_ops.as_deref() {
+        None => None,
+        Some(raw) => match serde_json::from_str::<VantaMemoryFilter>(raw) {
+            Ok(f) => Some(f),
+            Err(e) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": format!("invalid filter_ops JSON: {e}"),
+                    })),
+                )
+                    .into_response();
+            }
+        },
+    };
+    let ns = params.namespace;
+    let options = VantaMemoryListOptions {
+        filter_ops,
+        limit: params.limit.unwrap_or(100),
+        cursor: params.cursor,
+        ..Default::default()
+    };
+    match run_db_op(&state, move |db| db.list(&ns, options)).await {
+        Ok(page) => Json(page).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+#[tracing::instrument(skip(state))]
+async fn records_search(
+    State(state): State<Arc<ServerState>>,
+    Json(request): Json<VantaMemorySearchRequest>,
+) -> Response {
+    match run_db_op(&state, move |db| db.search(request)).await {
+        Ok(hits) => Json(hits).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+/// Query params for `GET /api/v2/autocomplete`.
+#[derive(Deserialize, Debug)]
+struct AutocompleteParams {
+    prefix: Option<String>,
+}
+
+#[tracing::instrument]
+async fn iql_autocomplete(Query(params): Query<AutocompleteParams>) -> Json<Vec<String>> {
+    let prefix = params.prefix.unwrap_or_default();
+    Json(crate::parser::autocomplete_prefix(&prefix))
+}
+
+/// Query params for `GET /api/v2/audit`.
+#[derive(Deserialize, Debug)]
+struct AuditParams {
+    namespace: Option<String>,
+    op: Option<String>,
+    outcome: Option<String>,
+    limit: Option<usize>,
+    cursor: Option<usize>,
+}
+
+/// Default page size when the caller omits `limit` (mirrors the desktop).
+const AUDIT_DEFAULT_LIMIT: usize = 100;
+
+/// A page of audit events ordered newest-first (mirrors the desktop `AuditPage`).
+#[derive(Serialize)]
+struct AuditPageV2 {
+    events: Vec<AuditEvent>,
+    next_cursor: Option<usize>,
+}
+
+/// Resolve the audit log path from the embedded config.
+///
+/// `None` means audit is not configured — the endpoint reports 404 rather than
+/// inventing a path that would never be written (mirrors the desktop, which
+/// errors with "audit log no configurado").
+fn audit_log_path(state: &ServerState) -> Option<std::path::PathBuf> {
+    state.db.config.audit_log_path.clone()
+}
+
+/// Read the audit JSONL at `path`, apply filters, and paginate newest-first.
+///
+/// `cursor` is a zero-based offset into the *filtered* newest-first list;
+/// `next_cursor` is `Some(end)` when older events remain, `None` otherwise.
+///
+/// ponytail: whole-file read (fine for console-sized audit logs); a byte-offset
+/// tail read is the upgrade if the log grows large.
+fn read_audit_page(
+    path: &std::path::Path,
+    namespace: Option<&str>,
+    op: Option<&str>,
+    outcome: Option<&str>,
+    limit: usize,
+    cursor: Option<usize>,
+) -> std::io::Result<AuditPageV2> {
+    let content = std::fs::read_to_string(path)?;
+    let mut matched: Vec<AuditEvent> = content
+        .lines()
+        .filter_map(|line| serde_json::from_str::<AuditEvent>(line).ok())
+        .filter(|e| namespace.is_none_or(|n| e.namespace == n))
+        .filter(|e| op.is_none_or(|o| e.op == o))
+        .filter(|e| outcome.is_none_or(|o| e.outcome == o))
+        .collect();
+    matched.reverse();
+    let start = cursor.unwrap_or(0).min(matched.len());
+    let end = (start + limit).min(matched.len());
+    let events = matched[start..end].to_vec();
+    let next_cursor = (end < matched.len()).then_some(end);
+    Ok(AuditPageV2 {
+        events,
+        next_cursor,
+    })
+}
+
+#[tracing::instrument(skip(state))]
+async fn audit_events(
+    State(state): State<Arc<ServerState>>,
+    Query(params): Query<AuditParams>,
+) -> Response {
+    let Some(path) = audit_log_path(&state) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "audit log no configurado",
+            })),
+        )
+            .into_response();
+    };
+    let namespace = params.namespace;
+    let op = params.op;
+    let outcome = params.outcome;
+    let limit = params.limit.unwrap_or(AUDIT_DEFAULT_LIMIT);
+    let cursor = params.cursor;
+
+    let join = tokio::task::spawn_blocking(move || {
+        read_audit_page(
+            &path,
+            namespace.as_deref(),
+            op.as_deref(),
+            outcome.as_deref(),
+            limit,
+            cursor,
+        )
+    })
+    .await;
+
+    match join {
+        Ok(Ok(page)) => Json(page).into_response(),
+        Ok(Err(e)) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "success": false,
+                "error": format!("failed to read audit log: {e}"),
+            })),
+        )
+            .into_response(),
+        Err(e) => panic_error_response(&e),
     }
 }
 
@@ -897,6 +1348,7 @@ pub async fn run(config: VantaConfig) -> Result<()> {
     let rbac_config = config.rbac_config.clone();
     let state = Arc::new(ServerState {
         storage: storage.clone(),
+        db: VantaEmbedded::from_engine(storage.clone()),
         circuit_breaker,
         pool,
         api_key,
@@ -1152,8 +1604,10 @@ mod tests {
             ..Default::default()
         };
         let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(cfg)).unwrap());
+        let db = VantaEmbedded::from_engine(storage.clone());
         let state = Arc::new(ServerState {
             storage,
+            db,
             circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
             pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
             api_key: None,
@@ -1239,8 +1693,10 @@ mod tests {
             ..Default::default()
         };
         let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(cfg)).unwrap());
+        let db = VantaEmbedded::from_engine(storage.clone());
         Arc::new(ServerState {
             storage,
+            db,
             circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
             pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
             api_key: None,
@@ -1279,6 +1735,230 @@ mod tests {
                 .contains("access-control-allow-origin: http://app.example.com"),
             "expected CORS allow-origin header, got: {resp}"
         );
+    }
+
+    /// Send a raw HTTP/1.1 request and return the full response text.
+    async fn raw_request(addr: std::net::SocketAddr, request: String) -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        stream.write_all(request.as_bytes()).await.unwrap();
+        let mut response = String::new();
+        stream.read_to_string(&mut response).await.unwrap();
+        response
+    }
+
+    /// Build an HTTP/1.1 request with a JSON body.
+    fn json_request(method: &str, path: &str, addr: std::net::SocketAddr, body: &str) -> String {
+        format!(
+            "{method} {path} HTTP/1.1\r\nHost: {addr}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        )
+    }
+
+    /// Split a raw HTTP response into (status_code, body).
+    fn parse_response(raw: &str) -> (u16, String) {
+        let status = raw
+            .lines()
+            .next()
+            .and_then(|l| l.split_whitespace().nth(1))
+            .and_then(|s| s.parse::<u16>().ok())
+            .unwrap_or(0);
+        let body = raw
+            .split_once("\r\n\r\n")
+            .map(|(_, b)| b.to_string())
+            .unwrap_or_default();
+        (status, body)
+    }
+
+    async fn raw_get(addr: std::net::SocketAddr, path: &str) -> (u16, String) {
+        parse_response(
+            &raw_request(
+                addr,
+                format!("GET {path} HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n"),
+            )
+            .await,
+        )
+    }
+
+    async fn raw_delete(addr: std::net::SocketAddr, path: &str) -> (u16, String) {
+        parse_response(
+            &raw_request(
+                addr,
+                format!("DELETE {path} HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n"),
+            )
+            .await,
+        )
+    }
+
+    /// Percent-encode a query parameter value (RFC 3986 unreserved passthrough).
+    fn urlencode(s: &str) -> String {
+        let mut out = String::new();
+        for b in s.bytes() {
+            match b {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                    out.push(b as char)
+                }
+                _ => out.push_str(&format!("%{b:02X}")),
+            }
+        }
+        out
+    }
+
+    #[tokio::test]
+    async fn v2_records_roundtrip() {
+        // In-memory engine + a temp audit log so the full /api/v2 surface
+        // (records, list, health, audit) is exercised end to end.
+        let dir = tempfile::tempdir().unwrap();
+        let audit_path = dir.path().join("audit.jsonl");
+        let cfg = VantaConfig {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            audit_log_path: Some(audit_path),
+            ..Default::default()
+        };
+        let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(cfg)).unwrap());
+        let db = VantaEmbedded::from_engine(storage.clone());
+        let state = Arc::new(ServerState {
+            storage,
+            db,
+            circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+            pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+            api_key: None,
+            rbac_config: RbacConfig::default(),
+            trusted_proxies: Vec::new(),
+        });
+        let addr = spawn_app(app(state, 0)).await;
+
+        // PUT /api/v2/records → 201 with the stored record.
+        let put_body = r#"{"namespace":"mem","key":"k1","payload":"hello world","metadata":{"kind":{"String":"note"}},"vector":null,"ttl_ms":null}"#;
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request("POST", "/api/v2/records", addr, put_body),
+            )
+            .await,
+        );
+        assert_eq!(status, 201, "put status: {body}");
+        let record: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(record["namespace"], "mem");
+        assert_eq!(record["key"], "k1");
+        assert_eq!(record["payload"], "hello world");
+
+        // PUT batch → 201 with two records.
+        let batch_body = concat!(
+            r#"[{"namespace":"mem","key":"k2","payload":"two","metadata":{"kind":{"String":"note"}},"vector":null,"ttl_ms":null},"#,
+            r#"{"namespace":"mem","key":"k3","payload":"three","metadata":{"kind":{"String":"todo"}},"vector":null,"ttl_ms":null}]"#
+        );
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request("POST", "/api/v2/records/batch", addr, batch_body),
+            )
+            .await,
+        );
+        assert_eq!(status, 201, "batch status: {body}");
+        let records: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(records.as_array().unwrap().len(), 2);
+
+        // GET record → 200 with the payload.
+        let (status, body) = raw_get(addr, "/api/v2/records/mem/k1").await;
+        assert_eq!(status, 200, "get status: {body}");
+        let record: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(record["payload"], "hello world");
+
+        // GET versions → 200 array; GET version=N → single record.
+        let (status, body) = raw_get(addr, "/api/v2/records/mem/k1/versions").await;
+        assert_eq!(status, 200, "versions status: {body}");
+        let versions: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(versions.as_array().unwrap().len(), 1);
+        let (status, body) = raw_get(addr, "/api/v2/records/mem/k1/versions?version=1").await;
+        assert_eq!(status, 200, "get_version status: {body}");
+
+        // LIST with cursor → 200 page with the 3 records.
+        let (status, body) = raw_get(addr, "/api/v2/list?namespace=mem").await;
+        assert_eq!(status, 200, "list status: {body}");
+        let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(page["records"].as_array().unwrap().len(), 3);
+
+        // DELETE single → 200 {deleted: true}.
+        let (status, body) = raw_delete(addr, "/api/v2/records/mem/k3").await;
+        assert_eq!(status, 200, "delete status: {body}");
+        let deleted: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(deleted["deleted"], true);
+
+        // DELETE by filter (kind == note) → removes k1 + k2.
+        let filter = r#"[{"field":"kind","op":"Eq","value":{"String":"note"}}]"#;
+        let path = format!("/api/v2/records?namespace=mem&filter={}", urlencode(filter));
+        let (status, body) = raw_delete(addr, &path).await;
+        assert_eq!(status, 200, "delete_by_filter status: {body}");
+        let deleted: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(deleted["deleted"], 2);
+
+        // HEALTH → 200 healthy.
+        let (status, body) = raw_get(addr, "/api/v2/health").await;
+        assert_eq!(status, 200, "health status: {body}");
+        let health: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(health["status"], "healthy");
+        assert_eq!(health["backend"], "in-memory");
+
+        // AUTOCOMPLETE → 200 array.
+        let (status, body) = raw_get(addr, "/api/v2/autocomplete?prefix=FRO").await;
+        assert_eq!(status, 200, "autocomplete status: {body}");
+        let completions: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert!(completions.is_array());
+
+        // AUDIT → 200 with the put events written through the shared logger.
+        let (status, body) = raw_get(addr, "/api/v2/audit").await;
+        assert_eq!(status, 200, "audit status: {body}");
+        let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+        let events = page["events"].as_array().unwrap();
+        assert!(!events.is_empty(), "expected audit events, got: {body}");
+        assert!(
+            events.iter().any(|e| e["op"] == "put"),
+            "expected a put event, got: {body}"
+        );
+    }
+
+    #[tokio::test]
+    async fn v2_errors_map_status() {
+        let cfg = VantaConfig {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(cfg)).unwrap());
+        let db = VantaEmbedded::from_engine(storage.clone());
+        let state = Arc::new(ServerState {
+            storage,
+            db,
+            circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+            pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+            api_key: None,
+            rbac_config: RbacConfig::default(),
+            trusted_proxies: Vec::new(),
+        });
+        let addr = spawn_app(app(state, 0)).await;
+
+        // GET/DELETE of a missing record → 404 with the error shape.
+        let (status, body) = raw_get(addr, "/api/v2/records/mem/missing").await;
+        assert_eq!(status, 404, "get missing: {body}");
+        assert!(body.contains("\"success\":false"), "error shape: {body}");
+        let (status, body) = raw_delete(addr, "/api/v2/records/mem/missing").await;
+        assert_eq!(status, 404, "delete missing: {body}");
+
+        // LIST without namespace → 400.
+        let (status, body) = raw_get(addr, "/api/v2/list").await;
+        assert_eq!(status, 400, "list no namespace: {body}");
+
+        // DELETE by filter with invalid JSON → 400.
+        let (status, body) = raw_delete(addr, "/api/v2/records?namespace=mem&filter=notjson").await;
+        assert_eq!(status, 400, "filter parse: {body}");
+
+        // DELETE by filter with an empty filter → 400 (SDK guard).
+        let (status, body) = raw_delete(addr, "/api/v2/records?namespace=mem&filter=%5B%5D").await;
+        assert_eq!(status, 400, "empty filter: {body}");
+
+        // AUDIT without audit_log_path → 404.
+        let (status, body) = raw_get(addr, "/api/v2/audit").await;
+        assert_eq!(status, 404, "audit not configured: {body}");
     }
 
     /// Build a request with a forged `X-Forwarded-For` header and the given

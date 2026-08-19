@@ -148,8 +148,10 @@ async fn test_auth_health_exempt() {
 fn build_rbac_context(api_key: &str, role: &str) -> TestContext {
     let dir = tempfile::tempdir().unwrap();
     let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
+    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
     let state = Arc::new(ServerState {
         storage,
+        db,
         circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: Some(Arc::from(api_key)),
@@ -341,8 +343,10 @@ async fn test_circuit_breaker_open_returns_503_with_retry_after() {
     let dir = tempfile::tempdir().unwrap();
     let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
     let breaker = Arc::new(CircuitBreaker::new(1, Duration::from_secs(30)));
+    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
     let state = Arc::new(ServerState {
         storage,
+        db,
         circuit_breaker: breaker.clone(),
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: None,
@@ -383,8 +387,10 @@ async fn test_circuit_breaker_half_open_probe_success_closes() {
     let dir = tempfile::tempdir().unwrap();
     let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
     let breaker = Arc::new(CircuitBreaker::new(1, Duration::from_secs(0)));
+    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
     let state = Arc::new(ServerState {
         storage,
+        db,
         circuit_breaker: breaker.clone(),
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: None,
@@ -483,8 +489,10 @@ async fn test_tls_server_health_and_query() {
         .unwrap();
 
     let storage = Arc::new(StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap());
+    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
     let state = Arc::new(ServerState {
         storage,
+        db,
         circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: Some(Arc::from("tls-key")),
@@ -574,8 +582,10 @@ async fn api_server_certification() {
         futures::executor::block_on(async {
             let temp_dir = tempfile::tempdir().unwrap();
             let storage = Arc::new(StorageEngine::open(temp_dir.path().to_str().unwrap()).unwrap());
+            let db = vantadb::VantaEmbedded::from_engine(storage.clone());
             let state = Arc::new(ServerState {
                 storage,
+                db,
                 circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
                 pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
                 api_key: None,

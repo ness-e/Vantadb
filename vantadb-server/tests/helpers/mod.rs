@@ -14,8 +14,10 @@ pub fn build_server_state(
     let dir = tempfile::tempdir().unwrap();
     let storage_path = dir.path().join(path);
     let storage = Arc::new(StorageEngine::open(storage_path.to_str().unwrap()).unwrap());
+    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
     let state = Arc::new(ServerState {
         storage,
+        db,
         circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
         pool: Arc::new(ConnectionPool::new(
             concurrency,
