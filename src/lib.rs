@@ -81,6 +81,8 @@ pub mod console;
 pub(crate) mod cost_estimator;
 pub(crate) mod edge_index;
 pub mod engine;
+/// Scoped entity metadata store (teams, users, agents, tasks, assets).
+pub mod entity;
 /// Core error types for all VantaDB operations.
 pub mod error;
 /// Eviction policies: weighted scoring and Bayesian Beta-Binomial decay.
