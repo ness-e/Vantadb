@@ -7,7 +7,7 @@
 // registro + historial del audit vía auditEvents si está disponible).
 //
 // Estética manga/linocut (tokens VS-01). Sin charts lib — barras CSS.
-import { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { FormEvent, lazy, Suspense, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { RuleGroupType } from "react-querybuilder";
 import {
   auditEvents,
@@ -26,6 +26,7 @@ import {
   toVantaMemoryFilter,
 } from "../../search/filters-core";
 import ScoreBars from "./ScoreBars";
+import { rerankByWeight, weightFromSlider } from "./retrieval-core";
 
 // react-querybuilder (~200 kB) solo lo abre el panel de filtros → lazy igual
 // que el shell (VS-07).
@@ -62,7 +63,10 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
   const [showFilters, setShowFilters] = useState(false);
 
   const [results, setResults] = useState<ResultRow[] | null>(null);
-  const [maxScore, setMaxScore] = useState(1);
+  // Slider de pesos híbridos (FEAT-01): 0 = BM25 puro, 50 = RRF, 100 = vector
+  // puro. Se aplica client-side sobre los candidatos que fusiona el core (RRF
+  // fijo — el core no acepta pesos; ver retrieval-core.ts weighted RRF).
+  const [weight, setWeight] = useState(50);
 
   // Carga registros con vector para el picker (una página; ponytail: 200 es
   // suficiente para una DB local de studio — swap a cursor si se escala).
@@ -102,12 +106,42 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
 
   const filterActive = ruleGroup.rules.length > 0;
   const filterFields = useMemo(() => (results ? inferMetaFields(results) : []), [results]);
-  const visibleResults = useMemo(() => {
+
+  // --- FEAT-01: re-rank por peso híbrido (client-side, debounce via
+  // useDeferredValue). El slider SOLO re-ordena los candidatos del core — la
+  // fusión RRF del core es fija (gap documentado; pesos reales = follow-up).
+  const alpha = weightFromSlider(weight);
+  const deferredAlpha = useDeferredValue(alpha);
+  const branchInfo = useMemo(() => {
+    if (!results) return { hasText: false, hasVector: false };
+    return {
+      hasText: results.some((r) => r.explanation?.rrf_text_rank != null),
+      hasVector: results.some((r) => r.explanation?.rrf_vector_rank != null),
+    };
+  }, [results]);
+  // Con una sola rama activa el peso no cambia nada: deshabilitar (no mentir
+  // en UI — FEAT-02 pattern).
+  const sliderActive = branchInfo.hasText && branchInfo.hasVector;
+  const weightedResults = useMemo(() => {
     if (!results) return null;
-    let out = filterActive ? results.filter((r) => evaluateQuery(ruleGroup, r.metadata ?? {})) : results;
+    return sliderActive ? rerankByWeight(results, deferredAlpha) : results;
+  }, [results, sliderActive, deferredAlpha]);
+
+  const visibleResults = useMemo(() => {
+    if (!weightedResults) return null;
+    let out = filterActive
+      ? weightedResults.filter((r) => evaluateQuery(ruleGroup, r.metadata ?? {}))
+      : weightedResults;
     if (threshold > 0) out = out.filter((r) => r.score >= threshold);
     return out;
-  }, [results, ruleGroup, filterActive, threshold]);
+  }, [weightedResults, ruleGroup, filterActive, threshold]);
+
+  // Escala común de barras sobre el ranking activo (no sobre el RRF crudo).
+  const displayMax = useMemo(() => {
+    if (!visibleResults || visibleResults.length === 0) return 1;
+    const m = Math.max(...visibleResults.map((r) => r.score));
+    return m > 0 ? m : 1;
+  }, [visibleResults]);
 
   // --- Búsqueda con explain ---------------------------------------------------
   async function runSearch(e?: FormEvent) {
@@ -125,9 +159,6 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
         top_k: topK,
         explain: true,
       });
-      if (hits.length > 0) {
-        setMaxScore(Math.max(...hits.map((h) => h.score)));
-      }
       setResults(hits);
     } catch (err) {
       onError(vantaErrorMessage(err));
@@ -199,11 +230,13 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-display text-3xl text-stencil">RETRIEVAL</h2>
           <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-            ¿por qué recuperó esto? · explain on · RRF_K=60
+            ¿por qué recuperó esto? · explain on · RRF_K=60 · peso híbrido client-side
           </span>
         </div>
         <p className="mt-1 font-tech text-[11px] text-muted-foreground">
-          desglose de score por rama (texto BM25 · vector HNSW · fusión RRF) — longitud ∝ score
+          desglose por rama (texto BM25 · vector HNSW) — el slider re-pondera el orden de los
+          candidatos del core (fusión RRF fija: {Math.round(weight)} ={" "}
+          {weight === 0 ? "BM25 puro" : weight === 100 ? "vector puro" : weight === 50 ? "RRF" : "híbrido"})
         </p>
       </div>
 
@@ -284,6 +317,36 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
             </button>
           )}
         </div>
+
+        {/* Slider de pesos híbridos (FEAT-01): 0=BM25 puro · 50=RRF · 100=vector puro */}
+        <label
+          className={`flex flex-col gap-1 border-2 border-foreground p-2 ${
+            sliderActive ? "bg-background" : "bg-muted/40 opacity-70"
+          }`}
+          title={
+            sliderActive
+              ? "0 = solo texto (BM25), 50 = RRF (default del core), 100 = solo vector"
+              : "una sola rama activa (texto o vector): el peso no cambia el orden — el core fusiona los candidatos con RRF fijo"
+          }
+        >
+          <span className="flex items-baseline justify-between font-tech text-[10px] uppercase tracking-widest text-neon">
+            <span>peso híbrido · BM25 ⟷ vector</span>
+            <span className="text-foreground">
+              {weight === 0 ? "BM25 puro" : weight === 100 ? "vector puro" : weight === 50 ? "RRF" : `${weight}% vector`}
+            </span>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={weight}
+            onChange={(e) => setWeight(Number(e.target.value))}
+            disabled={!sliderActive}
+            className="vanta-slider w-full"
+            aria-label="Peso híbrido BM25 vs vector: 0 = solo texto, 50 = RRF, 100 = solo vector"
+          />
+        </label>
 
         {/* Filtros visuales por metadata (c) — REUSO VS-07 */}
         <div className="flex items-center gap-2">
@@ -376,7 +439,12 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
 
                   {/* Barras apiladas: desglose de score (d) + número (f) */}
                   <div className="mt-2">
-                    <ScoreBars explanation={r.explanation} score={r.score} maxScore={maxScore} />
+                    <ScoreBars
+                      explanation={r.explanation}
+                      score={r.score}
+                      maxScore={displayMax}
+                      alpha={sliderActive ? deferredAlpha : undefined}
+                    />
                   </div>
 
                   <div className="mt-2 flex items-center gap-2">

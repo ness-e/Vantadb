@@ -5,7 +5,11 @@
 // tooltip (title). Sin explanation → barra de score sola, NO crashea.
 import type { CSSProperties } from "react";
 import type { ExplanationHit } from "../../../vanta";
-import { computeSegments, type ScoreSegment } from "./retrieval-core";
+import {
+  computeSegments,
+  computeSegmentsWeighted,
+  type ScoreSegment,
+} from "./retrieval-core";
 
 interface Props {
   /** Explanation del hit (puede faltar: search sin explain o backend sin soporte). */
@@ -14,6 +18,10 @@ interface Props {
   score: number;
   /** Mayor score del conjunto — escala común para todas las barras. */
   maxScore: number;
+  /** Peso híbrido activo α ∈ [0,1] (FEAT-01). Cuando está presente, los
+   * segmentos muestran la contribución ponderada (1−α)·texto + α·vector;
+   * ausente → contribuciones RRF planas del core. */
+  alpha?: number;
 }
 
 /** Estilo por tipo de segmento — gris escala + rayado CSS inline para el vector
@@ -27,8 +35,11 @@ const SEGMENT_STYLE: Record<ScoreSegment["key"], CSSProperties> = {
   rrf: { background: "var(--color-neon, #FF5500)" },
 };
 
-export default function ScoreBars({ explanation, score, maxScore }: Props) {
-  const bd = computeSegments(explanation, maxScore);
+export default function ScoreBars({ explanation, score, maxScore, alpha }: Props) {
+  const weighted = alpha != null;
+  const bd = weighted
+    ? computeSegmentsWeighted(explanation, maxScore, alpha)
+    : computeSegments(explanation, maxScore);
   const hasSegments = bd.segments.length > 0;
 
   // Tooltip: desglose por término BM25 (tf/df/doc_len/contribution) + ranks.
@@ -42,6 +53,7 @@ export default function ScoreBars({ explanation, score, maxScore }: Props) {
       : null;
   const tooltip = [
     `score ${score.toFixed(4)}`,
+    weighted ? `peso α=${alpha.toFixed(2)} (${alpha === 0 ? "BM25 puro" : alpha === 1 ? "vector puro" : alpha === 0.5 ? "RRF" : "híbrido"})` : null,
     ...bd.segments.map((s) => `${s.label}: ${s.value.toFixed(4)} (${s.widthPct.toFixed(1)}%)`),
     rankLine,
     termLines.length ? `términos: ${termLines.join(", ")}` : null,
