@@ -4,7 +4,7 @@
 - **Plan file:** `docs/plans/2026-08-18-vanta-memory.md`
 - **Creado:** 2026-08-20T16:30
 - **last-synced:** 2026-08-20T16:30
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (commit `92cf709f`, 2026-08-20)
 
 ## Blast Radius
 
@@ -122,7 +122,12 @@
 - **Estado:** ✅ COMPLETED
 
 ### Step 6: Verify full + docs + commit
-- **Estado:** ⏳ IN PROGRESS
+- **Acción:** (ejecutado)
+  - Verify full: `cargo fmt --check` ✅ + `cargo clippy -p vantadb -- -D warnings` ✅ + `cargo nextest run -p vantadb -- skills` ✅ 14/14
+  - Docs: `docs/api/EMBEDDED_SDK.md` — sección Skills API (Regla 3)
+  - Commit conventional con task ID: `feat(core): esquema skills multi-versión con optimistic lock (MEM-06)`
+- **Verify:** contrato completo ✅ (cargo check + tests skills 14/14 + fmt + clippy)
+- **Estado:** ✅ COMPLETED (commit `92cf709f`, verify `cargo nextest run -p vantadb -- skills` 14/14 ✅ 2026-08-20)
 - **Archivos:** `src/skills.rs`, `src/sdk/types.rs`, `src/lib.rs`, `docs/api/EMBEDDED_SDK.md`
 - **Acción:**
   - Verify full: `cargo fmt --check` + `cargo clippy -p vantadb -- -D warnings` + `cargo nextest run --profile audit --workspace --build-jobs 2` + `scripts/validate-docs-coverage.ps1`.
