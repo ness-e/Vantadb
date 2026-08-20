@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID: 8710baee-330d-4cce-b255-dc4aa4fd6122
+> **Campaign ID: 0251922a-d9f0-4f90-a59f-c184d4f1d0f6
 > **Inicio:** 2026-08-18
-> **Estado: completed
+> **Estado: in-progress
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
 
@@ -52,7 +52,7 @@
 ## Orden de ejecución (dependencias verificadas, actualizado 2026-08-20)
 
 1. **F1 (MEM-01→02→34):** parametrizar planner (core) con `SearchProfileConfig` → exponer en **IQL + API + MCP** → telemetría adelantada (MEM-34). Sin dependencias previas. LLM-free. **Checkpoint tras F1+F2.**
-2. **F2 (MEM-03→04→05):** entidades → checker → auth server + **audit log server `/api/v2/audit`** (D15). Core LLM-free. `src/rbac.rs` dead code evaluado en MEM-04.
+2. **F2 (MEM-03→04→05):** entidades → checker → auth server + **audit log server `/api/v2/audit`** (D15). Core LLM-free. `src/rbac.rs` NO es dead code — es auth de capa transporte (token→role, `cli_server.rs:527` `auth.rbac.has_permission`, `cli_server.rs:198-205` `Rbac::new()`, `config.rs:114` `RbacConfig`); el checker (MEM-04) es autorización de recursos entity_* con ACL allow-only — coexisten (verificado en MEM-04, resolución del SYNTHESIS en task file MEM-04).
 3. **F3 (MEM-06→07):** skills multi-versión core → tools MCP.
 4. **F4 (MEM-08a→08b→09→10→11→12→13→14→15→16→17→18→19→20→21):** fundación crate → contratos+trait → L0 → L1 → L2 → L3 → triggers → skill extract → recall → cursor → MCP scenes. **Checkpoint tras F4.**
 5. **F5 (MEM-22→23→24):** Context Engine cascade → emergency/tokens → MMD. **Checkpoint tras F5 (release candidate).**
@@ -117,7 +117,7 @@
 ### Task 1: MEM-01 — F1 Search profile por namespace en core
 - **Archivos clave:** `src/planner.rs`, `src/sdk/serialization/vector_types.rs`, `src/sdk/types.rs`, `src/sdk/search/mod.rs`, `src/cli_server.rs` (parser IQL)
 - **Gate Justificación:** F1 base — parametriza planner con `SearchProfileConfig`, expone en IQL/API/MCP (D13), report RRF incluye `rrf_k` (D20)
-- **Contrato: cargo check -p vantadb + tests CRUD
+- **Contrato: cargo check -p vantadb + tests checker
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
 - **Estado:** ✅ COMPLETED (commit `6a50b8ee`, verify `cargo check -p vantadb` ✅ 2026-08-20)
 - **last-synced:** 2026-08-20T08:00
@@ -148,12 +148,12 @@
 - **last-synced:** 2026-08-20T13:00
 
 ### Task 5: MEM-04 — F2 Permission-checker allow-only
-- **Archivos clave:** `src/permissions.rs` (nuevo) o `src/entity/checker.rs`, `src/lib.rs`, `src/rbac.rs`
-- **Gate Justificación:** cadena 7 eslabones (D7); `src/rbac.rs` dead code — decidir reemplazo vs coexistencia; resuelve contradicción SYNTHESIS (96 vs ~40 líneas)
+- **Archivos clave:** `src/entity/checker.rs`, `src/entity/checker_tests.rs`, `src/entity/mod.rs`
+- **Gate Justificación:** cadena 7 eslabones (D7); `src/rbac.rs` evaluado → **NO dead code** (coexistencia, ver línea 55); resuelve contradicción SYNTHESIS (172 líneas reales del clon TDAM @ `97f9465`)
 - **Contrato:** `cargo check -p vantadb` pasa; tests dedicados del checker (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-04.md`
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-08-20T13:00
+- **Estado:** ✅ COMPLETED (commit pendiente — vanta-lead ejecuta `feat(core): permission-checker allow-only sobre entity_* (MEM-04)` y rellena el hash; verify `cargo nextest run -p vantadb -- entity` ✅ 37/37, clippy workspace -D warnings ✅, fmt ✅ 2026-08-20)
+- **last-synced:** 2026-08-20T14:10
 
 ### Task 6: MEM-05 — F2 Auth 3 capas en server + audit log
 - **Archivos clave:** `src/cli_server.rs`, `vantadb-server/src/middleware.rs`, `vantadb-server/src/server.rs`
@@ -170,7 +170,7 @@
 | Coste LLM por flush (3 llamadas L1/L1.5/L2) | Alto | Modo LLM-free + control triggers (SYNTHESIS §4); defaults configurables |
 | Compresión pierde detalle (refs solo a demanda) | Medio | Documentar trade-off en report; cursor idempotente (MEM-20) |
 | Heat lo mantiene el LLM (no contador real) | Medio | Documentar; MCP scene_* depende de confiabilidad (MEM-21) |
-| `src/rbac.rs` dead code ↔ checker nuevo | Bajo | Decisión explícita en MEM-04 (reemplazo vs coexistencia) |
+| `src/rbac.rs` dead code ↔ checker nuevo | Bajo | Decisión explícita en MEM-04 (reemplazo vs coexistencia) → **RESUELTO: coexistencia** — rbac.rs es auth transporte (token→role, cli_server.rs:527), checker es auth de recursos entity_* (ACL allow-only); ambos necesarios (verificado en MEM-04) |
 | CreditCalculator ÷1000 vs ÷10000 TDAM | Bajo (diferido) | Elegir UNA al portar billing (post-F7) |
 | Prompts Kenty en chino | Medio | Reescribir principios, no traducir (MEM-10) |
 | **RRF_K=60 hardcodeado en frontend Studio** (`retrieval-core.ts`) | Medio (resuelto D20) | MEM-01: report RRF incluye `rrf_k` usado; Studio actualizado en paralelo para leerlo dinámicamente |
@@ -204,11 +204,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
-Objetivo activo: MEM-03 Entidades entity_* + CRUD
+Objetivo activo: MEM-04 Permission-checker allow-only
 Estado: completed ✅
-Última acción: MEM-03 verificado (commit 23719e23, 14/14 tests)
+Última acción: Cierre MEM-04 — verify full (fmt ✅, clippy workspace -D warnings ✅, tests entity 37/37 ✅) + task/plan file actualizados a ✅ COMPLETED; commit staged y delegado a vanta-lead
 Resultado: ✅
-Próxima acción: MEM-04 permission-checker
-Contrato: cargo check -p vantadb + tests dedicados CRUD entity (D19)
-Próxima tarea si completa: MEM-04
+Próxima acción: vanta-lead ejecuta `feat(core): permission-checker allow-only sobre entity_* (MEM-04)` (staging listo, 5 archivos) y rellena el hash en task file MEM-04 + Task 5 del plan
+Contrato: cargo check -p vantadb + tests dedicados del checker (D19) — `cargo nextest run -p vantadb -- entity` ✅ 37/37
+Próxima tarea si completa: MEM-05
 === END RECITATION ===

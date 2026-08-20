@@ -22,6 +22,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use web_time::{SystemTime, UNIX_EPOCH};
 
+/// Allow-only permission checker over `entity_*` records (MEM-04).
+pub mod checker;
+
 // ── Types ──
 
 /// A single stored entity (e.g. a user, team, agent, task or asset).
