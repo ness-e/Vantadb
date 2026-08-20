@@ -45,8 +45,9 @@ The MCP server exposes the following tools for memory operations:
 #### Search Operations
 
 - **`search_memory`** - [[hybrid-search|Hybrid]] vector and text search
-  - Parameters: `namespace`, `query_vector` (optional), `text_query` (optional), `top_k`, `distance_metric`, `explain`, `filters`
+  - Parameters: `namespace`, `query_vector` (optional), `text_query` (optional), `top_k`, `distance_metric`, `explain`, `filters`, `search_profile` (optional)
   - `filters` accepts flat values `{"field": value}` **or** explicit equality `{"field": {"$eq": value}}` (identical equality semantics). Range operators (`$gt`/`$gte`/`$lt`/`$lte`/`$neq`) are NOT supported in search — the search request has no operator slot; use `memory_list` for those (AUD-048).
+  - `search_profile` (MEM-02): optional object `{"mode": "keyword"|"vector"|"hybrid", "rrf_k": <int>, "candidate_k": <int>}` mirroring the native API and the IQL `PROFILE` clause. `mode` forces the retrieval channel; `rrf_k`/`candidate_k` tune RRF fusion (defaults = core constants). Bounds: `rrf_k` in `1..=max_rrf_k` (default 100), `candidate_k` in `1..=max_candidate_k` (default 10 000); out-of-bounds or unknown `mode` values return an explicit error.
   - Returns: Search hits with scores and optional explanations
 
 - **`search_semantic`** - Raw [[hnsw|HNSW]] vector search

@@ -70,6 +70,41 @@ pub(crate) fn validate_vector(array: &[Value], max_dim: usize) -> Result<Vec<f32
     Ok(v)
 }
 
+/// Validate an MCP `search_profile` object against the config bounds.
+///
+/// The wire format is the serde shape of `SearchProfileConfig` itself
+/// (mode + optional rrf_k/candidate_k), so parsing delegates to the core's
+/// `Deserialize` — single source of truth (MEM-01) and guaranteed shape
+/// parity with the native API and the IQL `PROFILE` clause (D13/D19).
+/// Explicit numeric bounds are enforced here: `candidate_k` is a per-channel
+/// candidate budget that could inflate memory (same trust-boundary pattern as
+/// MCP-04's dimension check); `rrf_k = 0` would produce a degenerate fusion.
+pub(crate) fn validate_search_profile(
+    obj: &serde_json::Map<String, Value>,
+    config: &McpConfig,
+) -> Result<vantadb::sdk::SearchProfileConfig, McpError> {
+    let profile: vantadb::sdk::SearchProfileConfig =
+        serde_json::from_value(Value::Object(obj.clone()))
+            .map_err(|e| McpError::invalid_params(format!("search_profile: {}", e)))?;
+    if let Some(k) = profile.rrf_k {
+        if k < 1 || k > config.max_rrf_k {
+            return Err(McpError::invalid_params(format!(
+                "search_profile.rrf_k must be in 1..={} (got {})",
+                config.max_rrf_k, k
+            )));
+        }
+    }
+    if let Some(k) = profile.candidate_k {
+        if k < 1 || k > config.max_candidate_k {
+            return Err(McpError::invalid_params(format!(
+                "search_profile.candidate_k must be in 1..={} (got {})",
+                config.max_candidate_k, k
+            )));
+        }
+    }
+    Ok(profile)
+}
+
 /// Convert a single JSON metadata value into a `VantaValue`.
 ///
 /// Scalars map 1:1. `null` and homogeneous arrays are delegated to the core,
@@ -374,6 +409,55 @@ pub(crate) fn for_each_record(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `validate_search_profile` delegates parsing to `SearchProfileConfig`'s
+    /// Deserialize (single source of truth) and enforces explicit bounds.
+    #[test]
+    fn validate_search_profile_parses_and_bounds() {
+        use serde_json::json;
+        let config = McpConfig::default();
+
+        let ok = json!({"mode": "keyword", "rrf_k": 30, "candidate_k": 64});
+        let profile = validate_search_profile(ok.as_object().unwrap(), &config)
+            .expect("valid profile should parse");
+        assert_eq!(profile.mode, vantadb::sdk::SearchProfileMode::Keyword);
+        assert_eq!(profile.rrf_k, Some(30));
+        assert_eq!(profile.candidate_k, Some(64));
+
+        // Empty object → serde defaults (mode Hybrid, None rrf/candidate).
+        let empty = json!({});
+        let profile = validate_search_profile(empty.as_object().unwrap(), &config)
+            .expect("empty profile should default to hybrid");
+        assert_eq!(profile.mode, vantadb::sdk::SearchProfileMode::Hybrid);
+        assert_eq!(profile.rrf_k, None);
+
+        // Unknown mode → serde enum error with a search_profile prefix.
+        let bad_mode = json!({"mode": "bogus"});
+        let err = validate_search_profile(bad_mode.as_object().unwrap(), &config).unwrap_err();
+        assert!(
+            err.message.contains("search_profile"),
+            "mode error should name search_profile, got: {}",
+            err.message
+        );
+
+        // rrf_k = 0 is degenerate (RRF would divide by zero-ish) → rejected.
+        let bad_k = json!({"mode": "hybrid", "rrf_k": 0});
+        let err = validate_search_profile(bad_k.as_object().unwrap(), &config).unwrap_err();
+        assert!(
+            err.message.contains("rrf_k"),
+            "rrf_k error should name the field, got: {}",
+            err.message
+        );
+
+        // candidate_k over the budget is a memory-inflation risk → rejected.
+        let big_candidate = json!({"mode": "hybrid", "candidate_k": config.max_candidate_k + 1});
+        let err = validate_search_profile(big_candidate.as_object().unwrap(), &config).unwrap_err();
+        assert!(
+            err.message.contains("candidate_k"),
+            "candidate_k error should name the field, got: {}",
+            err.message
+        );
+    }
 
     /// `parse_metadata` used to silently drop non-scalar metadata values
     /// (array/object/null), which turned a filter into no filter and returned

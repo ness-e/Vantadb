@@ -612,6 +612,262 @@ fn test_mcp_tool_search() {
     );
 }
 
+// ── MEM-02: search_profile passthrough + paridad IQL/API/MCP (D13/D19) ─────
+//
+// The MCP search_memory tool must behave EXACTLY like the native API for the
+// same SearchProfileConfig (same struct, same serde shape → passthrough) and
+// force the same retrieval channels the IQL PROFILE clause forces. Exact
+// score parity MCP↔IQL is NOT asserted: IQL text matching is a scan +
+// `text_contains_query` substring filter (src/physical_plan/filter.rs) while
+// the SDK uses BM25 postings (src/sdk/search/lexical.rs) — mechanically
+// different engines by design (planner.rs `ponytail:` note: IQL applies mode
+// only; rrf_k/candidate_k are SDK-side). Parity is asserted where the
+// channels are semantically comparable: exact passthrough MCP↔API, and
+// mode-driven channel selection identical in all three.
+
+fn hits_from_mcp_search(res: Value) -> Vec<(String, f32)> {
+    let text = res["content"][0]["text"]
+        .as_str()
+        .expect("search_memory text content");
+    let hits: Vec<Value> = serde_json::from_str(text).expect("hits JSON");
+    hits.iter()
+        .map(|h| {
+            let key = h["record"]["key"].as_str().unwrap_or_default().to_string();
+            let score = h["score"].as_f64().unwrap_or(0.0) as f32;
+            (key, score)
+        })
+        .collect()
+}
+
+fn error_text_from(res: Result<Value, Value>) -> String {
+    match res {
+        Ok(v) => v["content"][0]["text"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string(),
+        Err(v) => v["message"].as_str().unwrap_or_default().to_string(),
+    }
+}
+
+#[test]
+fn test_search_profile_mcp_passthrough_parity_with_native() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Seed via the MCP memory_put path (same write pipeline as the SDK).
+    for (key, payload, vec) in [
+        ("a", "cat chases mouse", vec![1.0, 0.0, 0.0]),
+        ("b", "dog sleeps all day", vec![0.0, 1.0, 0.0]),
+        ("c", "cat food recipe", vec![0.5, 0.5, 0.0]),
+    ] {
+        let put_params = Some(json!({
+            "name": "memory_put",
+            "arguments": { "namespace": "parity_ns", "key": key, "payload": payload, "vector": vec }
+        }));
+        handle_tools_call(&put_params, &executor, &storage, &default_config()).unwrap();
+    }
+
+    // StorageEngine::open alone leaves the text_index state missing; rebuild
+    // so text queries work (AUD-044: "reopen writable or run rebuild_index").
+    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    embedded.rebuild_index().expect("text index build");
+
+    // Explicit profile → MCP and native API return IDENTICAL hits (keys + scores).
+    let search_params = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "parity_ns",
+            "text_query": "cat",
+            "query_vector": [0.9, 0.1, 0.0],
+            "top_k": 10,
+            "search_profile": { "mode": "hybrid", "rrf_k": 30, "candidate_k": 64 }
+        }
+    }));
+    let res = handle_tools_call(&search_params, &executor, &storage, &default_config()).unwrap();
+    let mcp_hits = hits_from_mcp_search(res);
+
+    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    embedded.rebuild_index().expect("text index build");
+
+    let native_req = vantadb::sdk::VantaMemorySearchRequest {
+        namespace: "parity_ns".into(),
+        query_vector: vec![0.9, 0.1, 0.0],
+        text_query: Some("cat".into()),
+        top_k: 10,
+        search_profile: Some(vantadb::sdk::SearchProfileConfig {
+            mode: vantadb::sdk::SearchProfileMode::Hybrid,
+            rrf_k: Some(30),
+            candidate_k: Some(64),
+        }),
+        ..Default::default()
+    };
+    let native_hits = embedded.search(native_req).expect("native search");
+    let native: Vec<(String, f32)> = native_hits
+        .iter()
+        .map(|h| (h.record.key.clone(), h.score))
+        .collect();
+
+    assert_eq!(mcp_hits.len(), native.len(), "same hit count");
+    for (m, n) in mcp_hits.iter().zip(native.iter()) {
+        assert_eq!(m.0, n.0, "same key order");
+        assert!(
+            (m.1 - n.1).abs() < 1e-4,
+            "same score: MCP {} vs native {}",
+            m.1,
+            n.1
+        );
+    }
+
+    // No profile on both sides → identical defaults (MEM-01 constants).
+    let search_none = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "parity_ns",
+            "text_query": "cat",
+            "query_vector": [0.9, 0.1, 0.0],
+            "top_k": 10
+        }
+    }));
+    let res_none = handle_tools_call(&search_none, &executor, &storage, &default_config()).unwrap();
+    let mcp_none = hits_from_mcp_search(res_none);
+    let native_none_req = vantadb::sdk::VantaMemorySearchRequest {
+        namespace: "parity_ns".into(),
+        query_vector: vec![0.9, 0.1, 0.0],
+        text_query: Some("cat".into()),
+        top_k: 10,
+        ..Default::default()
+    };
+    let native_none = embedded
+        .search(native_none_req)
+        .expect("native default search");
+    let native_none: Vec<(String, f32)> = native_none
+        .iter()
+        .map(|h| (h.record.key.clone(), h.score))
+        .collect();
+    assert_eq!(mcp_none, native_none, "no-profile parity");
+}
+
+#[test]
+fn test_search_profile_mode_force_channels() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Same dataset as the MEM-01 core test (src/sdk/search/tests.rs:968):
+    // the vector favors "b" but the text "cat" only matches "a".
+    for (key, payload, vec) in [
+        ("a", "cat chases mouse", vec![1.0, 0.0, 0.0]),
+        ("b", "dog sleeps all day", vec![0.0, 1.0, 0.0]),
+    ] {
+        let put_params = Some(json!({
+            "name": "memory_put",
+            "arguments": { "namespace": "mode_ns", "key": key, "payload": payload, "vector": vec }
+        }));
+        handle_tools_call(&put_params, &executor, &storage, &default_config()).unwrap();
+    }
+
+    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    embedded.rebuild_index().expect("text index build");
+
+    let search_with_mode = |mode: &str| {
+        handle_tools_call(
+            &Some(json!({
+                "name": "search_memory",
+                "arguments": {
+                    "namespace": "mode_ns",
+                    "text_query": "cat",
+                    "query_vector": [0.0, 1.0, 0.0],
+                    "top_k": 10,
+                    "search_profile": { "mode": mode }
+                }
+            })),
+            &executor,
+            &storage,
+            &default_config(),
+        )
+        .unwrap()
+    };
+
+    // keyword → lexical channel only: "a" (vector-only "b" excluded), matching
+    // the IQL PROFILE keyword channel selection (planner mode forcing).
+    let kw = hits_from_mcp_search(search_with_mode("keyword"));
+    let kw_keys: Vec<&str> = kw.iter().map(|(k, _)| k.as_str()).collect();
+    assert_eq!(
+        kw_keys,
+        vec!["a"],
+        "keyword mode must ignore the vector channel"
+    );
+
+    // vector → pure vector ordering ["b", "a"] — text ignored. Mirrors the
+    // MEM-01 core assertion (tests.rs:1041) and equals a vector-only search.
+    let vec_hits = hits_from_mcp_search(search_with_mode("vector"));
+    let vec_keys: Vec<&str> = vec_hits.iter().map(|(k, _)| k.as_str()).collect();
+    assert_eq!(
+        vec_keys,
+        vec!["b", "a"],
+        "vector mode: pure vector ordering"
+    );
+
+    // Control: same search without text_query must produce the same order.
+    let control = handle_tools_call(
+        &Some(json!({
+            "name": "search_memory",
+            "arguments": {
+                "namespace": "mode_ns",
+                "query_vector": [0.0, 1.0, 0.0],
+                "top_k": 10
+            }
+        })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap();
+    let control_hits = hits_from_mcp_search(control);
+    let control_keys: Vec<&str> = control_hits.iter().map(|(k, _)| k.as_str()).collect();
+    assert_eq!(
+        vec_keys, control_keys,
+        "mode Vector == vector-only puro (texto ignorado)"
+    );
+}
+
+#[test]
+fn test_search_profile_validation_errors() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let search_with = |profile: Value| {
+        handle_tools_call(
+            &Some(json!({
+                "name": "search_memory",
+                "arguments": { "namespace": "val_ns", "search_profile": profile }
+            })),
+            &executor,
+            &storage,
+            &default_config(),
+        )
+    };
+
+    // Unknown mode → serde enum error naming search_profile (no panic).
+    let text = error_text_from(search_with(json!({"mode": "bogus"})));
+    assert!(text.contains("search_profile"), "bad mode: {}", text);
+
+    // rrf_k = 0 → degenerate RRF fusion → rejected.
+    let text = error_text_from(search_with(json!({"rrf_k": 0})));
+    assert!(text.contains("rrf_k"), "rrf_k=0: {}", text);
+
+    // candidate_k over the budget → memory-inflation risk → rejected.
+    let text = error_text_from(search_with(json!({"candidate_k": 999_999})));
+    assert!(
+        text.contains("candidate_k"),
+        "candidate_k too big: {}",
+        text
+    );
+
+    // Wrong top-level type → clear error, not a panic.
+    let text = error_text_from(search_with(json!("hybrid")));
+    assert!(text.contains("object"), "non-object: {}", text);
+}
+
 // ── MCP-03: search_semantic.distance semantics ─────────────────────────────
 //
 // The `distance` field must be a real distance (lower = more similar), NOT the

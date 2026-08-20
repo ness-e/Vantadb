@@ -91,7 +91,7 @@ pub fn handle_tools_list() -> Result<Value, Value> {
             },
             {
                 "name": "search_memory",
-                "description": "Performs memory search in a given namespace supporting optional text queries, filters, distance metric, and explain.",
+                "description": "Performs memory search in a given namespace supporting optional text queries, filters, distance metric, explain, and a search profile.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -101,7 +101,12 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                         "top_k": { "type": "number", "description": "Top K hits, default 10" },
                         "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
                         "explain": { "type": "boolean" },
-                        "filters": { "type": "object" }
+                        "filters": { "type": "object" },
+                        "search_profile": { "type": "object", "properties": {
+                            "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
+                            "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
+                            "candidate_k": { "type": "number", "description": "Per-channel candidate budget (1..max_candidate_k, default core)" }
+                        }, "description": "Optional search profile (MEM-01): mode forces the retrieval channel (keyword/vector/hybrid); rrf_k/candidate_k tune RRF. Wire format matches the native API and the IQL PROFILE clause." }
                     },
                     "required": ["namespace"]
                 }
@@ -525,6 +530,23 @@ pub fn handle_tools_call(
                 vantadb::sdk::VantaMemoryMetadata::new()
             };
 
+            // MEM-02: passthrough del SearchProfileConfig. La forma de wire es
+            // EXACTAMENTE la forma serde de SearchProfileConfig (src/sdk/types.rs),
+            // la misma que deserializa la API nativa y la cláusula IQL PROFILE →
+            // paridad de shape entre canales (D13/D19). Ausente o {} → None
+            // (modo Hybrid + constantes core).
+            let search_profile = match args.get("search_profile") {
+                Some(Value::Object(obj)) => {
+                    Some(validate_search_profile(obj, config).map_err(|e| e.to_json())?)
+                }
+                Some(_) => {
+                    return Ok(error_content(
+                        "search_profile must be an object {mode, rrf_k, candidate_k}".to_string(),
+                    ));
+                }
+                None => None,
+            };
+
             let request = vantadb::sdk::VantaMemorySearchRequest {
                 namespace: namespace.to_string(),
                 query_vector,
@@ -535,7 +557,7 @@ pub fn handle_tools_call(
                 distance_metric,
                 explain,
                 exclude_superseded: false,
-                search_profile: None,
+                search_profile,
             };
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());

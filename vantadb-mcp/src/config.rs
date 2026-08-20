@@ -28,6 +28,10 @@ pub struct McpConfig {
     pub default_top_k: usize,
     /// Max top_k for search_memory (default: 1000).
     pub max_top_k: usize,
+    /// Max explicit `rrf_k` in search_memory.search_profile (default: 100).
+    pub max_rrf_k: usize,
+    /// Max explicit `candidate_k` in search_memory.search_profile (default: 10_000).
+    pub max_candidate_k: usize,
 }
 
 impl Default for McpConfig {
@@ -44,6 +48,8 @@ impl Default for McpConfig {
             max_list_limit: 10_000,
             default_top_k: 10,
             max_top_k: 1000,
+            max_rrf_k: 100,
+            max_candidate_k: 10_000,
         }
     }
 }

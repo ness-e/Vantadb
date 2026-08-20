@@ -127,8 +127,8 @@
 - **Gate Justificación:** paridad IQL/API/MCP (D13) — depende de MEM-01 (mismo `SearchProfileConfig`)
 - **Contrato:** `cargo check -p vantadb-mcp` pasa; test de paridad IQL/API/MCP (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-02.md`
-- **Estado:** ⏳ EN PROGRESO
-- **last-synced:** 2026-08-20T04:00
+- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-08-20T08:00
 
 ### Task 3: MEM-34 — F1 Core Telemetría por capa (adelantada, D17)
 - **Archivos clave:** `src/metrics/core/mod.rs`, `src/metrics/core/state.rs`, `src/cli_server.rs`, `vantadb-server/src/audit.rs` (crear)
