@@ -199,12 +199,85 @@ async function main(): Promise<void> {
       body: JSON.stringify(searchReq),
     });
     // REST-04: search devuelve página {records, next_cursor} (no array plano).
-    const page = (searchRest.body as { records?: { record?: { key?: string } }[] } | null) ?? {};
-    const hits = page.records ?? [];
+    const searchPage = (searchRest.body as { records?: { record?: { key?: string; node_id?: number } }[] } | null) ?? {};
+    const hits = searchPage.records ?? [];
     check(
       searchRest.status === 200 &&
         hits.some((h) => (h.record as { key?: string } | undefined)?.key === K_VEC),
       `POST /api/v2/search "gato" → ${searchRest.status}, hit ${K_VEC} presente (híbrido)`,
+    );
+
+    // --- REST-02: /api/v2/metrics devuelve el snapshot operacional JSON (no Prometheus text).
+    const metrics = await fetchJson("/api/v2/metrics");
+    const metricsBody = metrics.body as Record<string, unknown> | null;
+    check(
+      metrics.status === 200 &&
+        metricsBody !== null &&
+        typeof metricsBody === "object" &&
+        !Array.isArray(metricsBody),
+      `GET /api/v2/metrics → ${metrics.status}, JSON object (REST-02)`,
+    );
+    // El snapshot debe exponer al menos las métricas reales del engine (namespace/record counts).
+    const hasOpMetric = Object.keys(metricsBody ?? {}).some((k) =>
+      /namespace|record|store|index|memory|query/i.test(k),
+    );
+    check(hasOpMetric, `GET /api/v2/metrics → snapshot con métricas operacionales (keys: ${Object.keys(metricsBody ?? {}).slice(0, 8).join(", ")}) (REST-02)`);
+
+    // --- REST-03: graph_v2 roundtrip — BFS desde el node_id del hit k-vector.
+    const hitRecord = hits.find((h) => (h.record as { key?: string } | undefined)?.key === K_VEC)
+      ?.record as { node_id?: number } | undefined;
+    const rootId = hitRecord?.node_id;
+    const graphReq = { roots: rootId !== undefined ? [String(rootId)] : [], max_depth: 3, direction: "forward" };
+    const graph = await fetchJson("/api/v2/graph/v2/bfs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(graphReq),
+    });
+    const graphBody = graph.body as { nodes?: { id?: string }[]; edges?: unknown[] } | null;
+    check(
+      graph.status === 200 &&
+        Array.isArray(graphBody?.nodes) &&
+        Array.isArray(graphBody?.edges) &&
+        (rootId === undefined || graphBody!.nodes!.some((n) => n.id === String(rootId))),
+      `POST /api/v2/graph/v2/bfs (root ${rootId}) → ${graph.status}, {nodes, edges} con id string (REST-03)`,
+    );
+
+    // --- REST-06: IQL completo (VantaQL) via /api/v2/query — SELECT + INSERT + roundtrip.
+    const iqlRead = await fetchJson("/api/v2/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: "SELECT * FROM Node LIMIT 5" }),
+    });
+    const iqlBody = iqlRead.body as { success?: boolean; nodes?: unknown[] } | null;
+    check(
+      iqlRead.status === 200 && iqlBody?.success === true && Array.isArray(iqlBody?.nodes),
+      `POST /api/v2/query "SELECT * FROM Node" → ${iqlRead.status}, success + nodes (REST-06)`,
+    );
+    // Id u128 grande (> u64::MAX) → prueba la safety del wire id-string de graph_v2.
+    const IQL_ID = "18446744073709551617";
+    const iqlWrite = await fetchJson("/api/v2/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: `INSERT NODE#${IQL_ID} TYPE Test { content: "registro iql e2e" }` }),
+    });
+    const iqlWriteBody = iqlWrite.body as { success?: boolean; node_id?: number | string } | null;
+    check(
+      iqlWrite.status === 200 && iqlWriteBody?.success === true && iqlWriteBody?.node_id !== undefined,
+      `POST /api/v2/query "INSERT NODE#${IQL_ID}" → ${iqlWrite.status}, success + node_id (REST-06)`,
+    );
+    // Roundtrip con el id que insertamos (exacto, string): el response del query
+    // legacy serializa node_id como número (u128 serde default) y JS pierde
+    // precisión >2^53 — por eso NO se re-lee del body. Los endpoints v2 del
+    // console (search/graph_v2) ya usan u128_serde/id-string (REST-03).
+    const iqlRoundtrip = await fetchJson("/api/v2/graph/v2/bfs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roots: [IQL_ID], max_depth: 1, direction: "forward" }),
+    });
+    const rtBody = iqlRoundtrip.body as { nodes?: { id?: string }[] } | null;
+    check(
+      iqlRoundtrip.status === 200 && rtBody?.nodes?.some((n) => n.id === IQL_ID),
+      `graph_v2 roundtrip sobre node ${IQL_ID} (u128 grande) → id string presente (REST-06 + REST-03)`,
     );
 
     // --- Browser (contrato #2) ------------------------------------------------

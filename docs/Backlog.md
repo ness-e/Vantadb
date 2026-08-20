@@ -50,7 +50,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | **P23** 🔒 VantaDB Pro (Open Core) | 6 (PRO-01..06) | ~8-12 semanas | 🔵 Futuro |
 | **P24** 🧪 I+D futura (v3.0+) | 10 (FUT-02..11) | 📆 Futuro | 🗺️ Roadmap |
 | **P25** 🔌 Exposición MCP/HTTP | 11 (MCP-16..26) | ~2-3 semanas | 🟡 Media |
-| **P26** 🖥️ Vanta Studio (consola human-facing desktop) | Fase 0 ✅ (14/19) + Fase 1 ✅ (9/9) + Fase 2 ✅ (10/10: VS-CORE-04/05/06 + GRAFO-01..03 + ESPACIO-01..02 + OP-01..02) + Fase 3 ✅ (7/7: WEB-00..06) | Planes archivados `docs/plans/archive/2026-08-18-vanta-studio-fase{1,2,3}.md` | 🔴 Alta (Fase 4: WASM/OPFS + diferenciadores research — en ejecución) |
+| **P26** 🖥️ Vanta Studio (consola human-facing desktop) | Fase 0 ✅ (14/19) + Fase 1 ✅ (9/9) + Fase 2 ✅ (10/10: VS-CORE-04/05/06 + GRAFO-01..03 + ESPACIO-01..02 + OP-01..02) + Fase 3 ✅ (7/7: WEB-00..06) + **Fase 4 ✅ (18/18: DOC-01..04 + REST-01..06 + WASM-01..04 + FEAT-01..03 + VER-01)** | Planes archivados `docs/plans/archive/2026-08-18-vanta-studio-fase{1,2,3}.md` + `docs/plans/archive/2026-08-19-vanta-studio-fase4.md` | 🟢 Completada 2026-08-20 (ADR-027; E2E server + standalone WASM/OPFS PASS) |
 | **P27** 🧠 Vanta Memory Engine (TDAM, orden F1–F7) | 38 (MEM-01..38) | ~8-12 semanas | 🔴 Alta (decisión de producto) |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.

@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### ✨ Features
+
+- **Fase 4 Vanta Studio (2026-08-20, 18/18):** consola standalone 100% browser (WASM/OPFS con persistencia y reload), import drag&drop `.vdbdump`/JSONL/CSV, slider de pesos híbridos BM25/vector (RRF weighted client-side), superficie Índices/salud real, consolidación asistida con diff visible, y supersession durable en core (ADR-028): `VantaMemoryRecord.superseded_by`/`superseded_at_ms`, `supersede()`, filtro `exclude_superseded` en search/list (core + Python sync/async + export/import JSONL).
+
+### Fixed
+
+- **server:** cierre de deuda REST — `/api/v2/metrics` JSON operacional, graph_v2 con ids u128-safe (string wire), paginación cursor, IQL completo vía `/api/v2/query` (SELECT/INSERT + roundtrip graph).
+
 ### Other
 
 - **core:** Bench(MKT-16): GraphRAG benchmark reproducible + metodologia (numeros indexacion reales; query PENDING por stack overflow engine)

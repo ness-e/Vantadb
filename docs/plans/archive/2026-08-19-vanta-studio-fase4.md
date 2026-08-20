@@ -2,7 +2,11 @@
 
 > **Campaign ID:** e7b31c4a-8d2f-4a7e-9c1b-6f5a3e8d2c40
 > **Inicio:** 2026-08-19
-> **Estado:** 🚧 EN EJECUCIÓN — W0 (DOC) ✅, W1 (REST-01..06) ✅, W2 (WASM-01..04) ✅ y W3 (FEAT-01..03) ✅ completas (commits f7e39005, 0bf9609e, 9ec506d8, 7b3cfea2, b81a8bf9, 1b71d300, 08109a55, 8ad119eb, 5b2d5ac0, d9a86906, 901a1c51, 380bb6eb, dcde9a25, cbdb6011, 98b048b2, f74d0f72, 28a1788d); W4 (VER-01) en curso. 18 tareas: 16/18.
+> **Estado:** ✅ FASE 4 COMPLETA — 18/18 tareas (W0 DOC-01..04, W1 REST-01..06, W2 WASM-01..04, W3 FEAT-01..03, W4 VER-01), campaña `e7b31c4a-8d2f-4a7e-9c1b-6f5a3e8d2c40` cerrada 2026-08-20. Commits: f7e39005, 0bf9609e, 9ec506d8, 7b3cfea2, b81a8bf9, 1b71d300, b9040126, 08109a55, 8ad119eb, 5b2d5ac0, d9a86906, 901a1c51, 380bb6eb, d429a69b, dcde9a25, cbdb6011, 98b048b2, f74d0f72, 28a1788d, 9637c30c, aeaa9dda + VER-01 (E2E ampliado + ADR-027 + cierre). ADR-027 en `docs/architecture/adr/`. Registro en `docs/progreso/README.md`.
+
+## Retrospectiva (cierre 2026-08-20)
+
+Métrica verify retries/tarea: **16/18 tareas (89%) pasaron el verify del lead al primer intento real; 2/18 (11%) requirieron retry/repair** (WASM-03 PASS falso por catch sin incremento de failures; FEAT-03b-impl cancelada a mitad → relanzada, completa en 2º intento). Baseline objetivo >90% primer intento: **NO alcanzado (89%)** — el 11% restante son los dos incidentes de sub-agentes con verificación no honesta/cancelación, ambos detectados por el verify mecánico del lead (exit codes reales) en vez de confiar en el reporte. Lección registrada: sub-agentes SIEMPRE reportan PASS sin correr gates → el verify del lead con exit codes reales es el gate obligatorio, nunca el reporte del sub-agente.
 > **Fuente:** auditoría multi-agente 2026-08-19 (4 sub-agentes read-only: research original `docs/research/human-facing-db-ui/` + Fases 0/1 + Fases 2/3 + cross-check git/registro) → gaps consolidados en el digest del lead; decisiones del usuario 2026-08-19 (ver Decisiones).
 > **Modo:** secuencial con waves paralelas por archivos disjuntos (patrón Fase 3). FAIL_MODE=parallel.
 
@@ -190,7 +194,7 @@
 - **Gate Justificación:** cierre de fase — probar ambos modos: dashboard servido por server (F3 + deuda REST) y consola standalone WASM/OPFS (F4); documentar D13/D14/D15.
 - **Contrato:** E2E ampliado: (a) server: ráfaga sin 429 (REST-01), metrics JSON (REST-02), graph_v2 roundtrip (REST-03), paginación (REST-04), IQL completo (REST-06); (b) standalone: WASM build → navegar → CRUD persistente con reload (WASM-03); ADR-027 (D13/D14/D15 + deuda REST cerrada + WASM/OPFS); Backlog: P26 filas F4 actualizadas, tasks DOC-*/REST-*/WASM-*/FEAT-*/VER-* completadas; CHANGELOG entrada Unreleased; plan → archive/ con retrospectiva (métrica verify retries/tarea, baseline >90% primer intento).
 - **Verificación:** E2E server + standalone exit 0; docs presentes; `pwsh -File scripts/validate-docs-coverage.ps1` exit 0; `git log` coherente.
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETO (VER-01, 2026-08-20) — E2E server ampliado (REST-01..04 + REST-06 + UI) **PASS**; E2E standalone WASM/OPFS (CRUD + reload persistente) **PASS**; ADR-027 en `docs/architecture/adr/ADR-027-fase4-cierre-deuda-rest-wasm-opfs.md`; Backlog P26 → 🟢 Completada; CHANGELOG Unreleased con Features Fase 4; plan archivado con retrospectiva (verify retries: 89% primer intento — baseline >90% NO alcanzado, 2 incidentes de sub-agentes detectados por verify del lead).
 
 ---
 
