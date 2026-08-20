@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
+> **Campaign ID: 7a099784-b9e8-4c3c-bd8c-2c0869ffab59
 > **Inicio:** 2026-08-18
-> **Estado: ⏳ EN PROGRESO (F1+F2 ✅ — checkpoint 1 aprobado — F3: MEM-06 ✅, MEM-07/35 pendientes)
+> **Estado: completed
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
 
@@ -117,7 +117,7 @@
 ### Task 1: MEM-01 — F1 Search profile por namespace en core
 - **Archivos clave:** `src/planner.rs`, `src/sdk/serialization/vector_types.rs`, `src/sdk/types.rs`, `src/sdk/search/mod.rs`, `src/cli_server.rs` (parser IQL)
 - **Gate Justificación:** F1 base — parametriza planner con `SearchProfileConfig`, expone en IQL/API/MCP (D13), report RRF incluye `rrf_k` (D20)
-- **Contrato:** `cargo check -p vantadb` pasa; tests dedicados de `SearchProfileConfig` + parser IQL (D19) — CUMPLIDO
+- **Contrato: cargo check -p vantadb-mcp + tests skills tools
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
 - **Estado:** ✅ COMPLETED (commit `6a50b8ee`, verify `cargo check -p vantadb` ✅ 2026-08-20)
 - **last-synced:** 2026-08-20T08:00
@@ -175,8 +175,8 @@
 - **Gate Justificación:** 6 tools del review agent (`skill_list/view/create/update/patch/files_write`) sobre MEM-06; writes exigen `expected_version`; owner check → 404 sin filtrar existencia; límites 5MB/recurso, 50MB/skill. Paridad con API nativa (D13).
 - **Contrato:** `cargo check -p vantadb-mcp` pasa; tests dedicados de skills tools (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-07.md`
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-08-20T16:00
+- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-08-20T17:00
 
 ### Task 9: MEM-35 — F3 Core Data plane de referencia en server
 - **Archivos clave:** `src/cli_server.rs`, `vantadb-server/src/server.rs`, `vantadb-server/tests/e2e.rs`
@@ -227,11 +227,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
-Objetivo activo: MEM-06 Esquema skills multi-versión
+Objetivo activo: MEM-07 MCP tools skill_*
 Estado: completed ✅
-Última acción: MEM-06 verificado (92cf709f, 14/14 skills tests)
+Última acción: MEM-07 verificado (4763bf44, 13/13 + 44/44)
 Resultado: ✅
-Próxima acción: MEM-07 MCP skill_* tools
+Próxima acción: MEM-35 data plane REST
 Contrato: cargo check -p vantadb + tests dedicados del checker (D19) — `cargo nextest run -p vantadb -- entity` ✅ 37/37
-Próxima tarea si completa: MEM-07
+Próxima tarea si completa: MEM-35
 === END RECITATION ===

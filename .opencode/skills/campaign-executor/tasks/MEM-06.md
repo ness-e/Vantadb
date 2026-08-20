@@ -4,7 +4,7 @@
 - **Plan file:** `docs/plans/2026-08-18-vanta-memory.md`
 - **Creado:** 2026-08-20T16:30
 - **last-synced:** 2026-08-20T16:30
-- **Estado:** ✅ COMPLETED (commit `92cf709f`, 2026-08-20)
+- **Estado:** ✅ COMPLETED (commit 92cf709f, verify 14/14 skills tests ✅ 2026-08-20)
 
 ## Blast Radius
 
@@ -73,10 +73,10 @@
   - `SkillWriteResult { record: SkillRecord, idempotent: bool }` (idempotent=true cuando content_hash no cambió → no-op)
   - Extender `pub use sdk::{...}` en `src/lib.rs` con los nuevos tipos.
 - **Verify:** `cargo check -p vantadb` — ✅ 2026-08-20
-- **Estado:** ✅ COMPLETED
+- **Estado:** ✅ COMPLETED (commit 92cf709f, verify 14/14 skills tests ✅ 2026-08-20)
 
 ### Step 2: SkillStore base — reads + helpers en `src/skills.rs`
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (commit 92cf709f, verify 14/14 skills tests ✅ 2026-08-20)
 - **Archivos:** `src/skills.rs` (nuevo), `src/lib.rs`
 - **Acción:** Crear `src/skills.rs`:
   - `pub struct SkillStore<'a> { engine: &'a StorageEngine }` + `new()`.
@@ -87,7 +87,7 @@
   - Reads: `get_version(skill_id, version)`, `get_head(skill_id)` (scan versión prefix, is_head=true), `list_versions(skill_id, limit, offset)` (DESC), `list(opts)` (scan `skill_head`, resolve head por skill_id). Errores con `NotFound`.
   - Registrar `pub mod skills;` en `src/lib.rs`.
 - **Verify:** `cargo check -p vantadb` — ✅ 2026-08-20 (src/skills.rs completo)
-- **Estado:** ✅ COMPLETED
+- **Estado:** ✅ COMPLETED (commit 92cf709f, verify 14/14 skills tests ✅ 2026-08-20)
 
 ### Step 3: Writes — create/update/patch/delete con optimistic lock + idempotencia + índice único
 - **Archivos:** `src/skills.rs`
@@ -99,16 +99,16 @@
   - Helper `write_head_batch(...)` para construir ops.
   - **Concurrencia (Regla 8):** `write_backend_batch` es atómico por backend → sin lock manual intra-proceso; el optimistic lock `expected_version` es el mecanismo de serialización para writes concurrentes (chequeo + batch atómico). Documentar invariante.
 - **Verify:** `cargo check -p vantadb` — ✅ 2026-08-20 (create/update/patch/delete batch atómico)
-- **Estado:** ✅ COMPLETED
+- **Estado:** ✅ COMPLETED (commit 92cf709f, verify 14/14 skills tests ✅ 2026-08-20)
 
 ### Step 4: TTL keep-recent=3
 - **Archivos:** `src/skills.rs`
 - **Acción:** `cleanup_expired_versions(skill_id, now: u64) -> Result<usize>`: lista versiones del skill; borra versiones no-head con `expires_at < now` EXCEPTO los 3 no-head más recientes (KEEP_RECENT=3, por version DESC) — port fiel de TDAM `SkillVersioning.cleanupExpiredVersionsForSkill` (líneas 388-430). `expires_at` se setea en create/update si `ttl_secs > 0`. Borrado vía batch.
 - **Verify:** `cargo check -p vantadb` — ✅ 2026-08-20 (cleanup_expired_versions + KEEP_RECENT)
-- **Estado:** ✅ COMPLETED
+- **Estado:** ✅ COMPLETED (commit 92cf709f, verify 14/14 skills tests ✅ 2026-08-20)
 
 ### Step 5: Tests dedicados D19 — `src/skills/tests.rs`
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (commit 92cf709f, verify 14/14 skills tests ✅ 2026-08-20)
 - **Archivos:** `src/skills/tests.rs` (nuevo), `src/skills.rs` (registrar `#[cfg(test)] mod tests;`)
 - **Acción:** Tests con engine in-memory (patrón `src/entity/tests.rs`):
   1. CRUD: create→get_head→update→patch→delete roundtrip.
@@ -119,7 +119,7 @@
   6. Índice único: create v1 owner A name X; create otro con owner A name X → `ExecutionConflict`; owner B name X → OK; delete → recreate same name → OK.
   7. Expiración: `expires_at` presente con ttl_secs, ausente sin.
 - **Verify:** `cargo nextest run -p vantadb -- skills` — ✅ 14/14 (2026-08-20)
-- **Estado:** ✅ COMPLETED
+- **Estado:** ✅ COMPLETED (commit 92cf709f, verify 14/14 skills tests ✅ 2026-08-20)
 
 ### Step 6: Verify full + docs + commit
 - **Acción:** (ejecutado)
@@ -127,14 +127,14 @@
   - Docs: `docs/api/EMBEDDED_SDK.md` — sección Skills API (Regla 3)
   - Commit conventional con task ID: `feat(core): esquema skills multi-versión con optimistic lock (MEM-06)`
 - **Verify:** contrato completo ✅ (cargo check + tests skills 14/14 + fmt + clippy)
-- **Estado:** ✅ COMPLETED (commit `92cf709f`, verify `cargo nextest run -p vantadb -- skills` 14/14 ✅ 2026-08-20)
+- **Estado:** ✅ COMPLETED (commit 92cf709f, verify 14/14 skills tests ✅ 2026-08-20)
 - **Archivos:** `src/skills.rs`, `src/sdk/types.rs`, `src/lib.rs`, `docs/api/EMBEDDED_SDK.md`
 - **Acción:**
   - Verify full: `cargo fmt --check` + `cargo clippy -p vantadb -- -D warnings` + `cargo nextest run --profile audit --workspace --build-jobs 2` + `scripts/validate-docs-coverage.ps1`.
   - Docs: actualizar `docs/api/EMBEDDED_SDK.md` con la API de skills (Regla 3: doc en mismo PR para struct pub nuevo).
   - Commit conventional con task ID: `feat(core): esquema skills multi-versión con optimistic lock (MEM-06)`.
 - **Verify:** contrato completo ✅
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (commit 92cf709f, verify 14/14 skills tests ✅ 2026-08-20)
 
 ## Dependencias
 - MEM-03 (EntityStore) ✅ commit `23719e23`
