@@ -8,3 +8,11 @@
 ///
 /// [`LlmRunner`]: abstractions::LlmRunner
 pub mod abstractions;
+
+/// L0 conversation capture: raw turn recording, idempotent and LLM-free
+/// (MEM-09).
+pub mod conversation;
+
+/// Automatic capture hooks plugging the pipeline into a host conversation
+/// stream (MEM-09).
+pub mod hooks;

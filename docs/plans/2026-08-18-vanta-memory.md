@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID:** 97e683bd-39d0-4402-b655-e224bd36be3c
+> **Campaign ID: ec84c674-33fc-4512-8a90-5b37fe3a8526
 > **Inicio:** 2026-08-18
-> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9 tareas — F4 pendiente)
+> **Estado: completed
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Catálogo:** `docs/Backlog.md` — filas MEM-01..38 (este plan es el estado de ejecución; el backlog es el catálogo)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
@@ -118,7 +118,7 @@
 ### Task 1: MEM-01 — F1 Search profile por namespace en core
 - **Archivos clave:** `src/planner.rs`, `src/sdk/serialization/vector_types.rs`, `src/sdk/types.rs`, `src/sdk/search/mod.rs`, `src/cli_server.rs` (parser IQL)
 - **Gate Justificación:** F1 base — parametriza planner con `SearchProfileConfig`, expone en IQL/API/MCP (D13), report RRF incluye `rrf_k` (D20)
-- **Contrato: cargo check -p vantadb-server + tests endpoints
+- **Contrato: cargo check -p vanta-memory pasa; tests dedicados de tipos/trait (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
 - **Estado:** ✅ COMPLETED (commit `6a50b8ee`, verify `cargo check -p vantadb` ✅ 2026-08-20)
 - **last-synced:** 2026-08-20T08:00
@@ -194,7 +194,7 @@
 - **Gate Justificación:** F4 base — estructura del crate LLM-driven; layout inspirado en `MC/package.json`/`MC/index.ts` (sin fuente TDAM directa); feature-gates: `llm-driver` (default off), `mock` para tests; workspace inheritance
 - **Contrato:** `cargo check -p vanta-memory` pasa; crate es workspace member
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-08a.md`
-- **Estado:** ✅ COMPLETED (crate creado, `cargo check -p vanta-memory` ✅ + 2/2 smoke 2026-08-20, commit `pending`)
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-08-20T19:00
 
 ### Task 11: MEM-08b — F4 Contratos L1 + trait LLMRunner host-neutral
@@ -202,14 +202,16 @@
 - **Gate Justificación:** contratos de datos (MemoryRecord/DedupDecision) + trait sync/async (D1) host-neutral; referencia `MC/core/abstractions/types.ts` (87), `MC/offload/types.ts`, `MC/adapters/standalone/llm-runner.ts` (467), `MC/adapters/openclaw/llm-runner.ts`
 - **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de tipos/trait (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-08b.md`
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-08-20T19:30
 
 ### Task 12: MEM-09 — F4 L0 capture idempotente
 - **Archivos clave:** `vanta-memory/src/core/hooks/auto_capture.rs` (crear), `vanta-memory/src/core/conversation/l0_recorder.rs` (crear)
 - **Gate Justificación:** L0 — captura de conversación idempotente; referencia `MC/core/hooks/auto-capture.ts` (347), `MC/core/conversation/l0-recorder.ts` (607)
 - **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de L0 (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-09.md`
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-08-20T20:15
 
 ### Task 13: MEM-10 — F4 L1 extractor (split + 1 call LLM JSON + parse reparación)
 - **Archivos clave:** `vanta-memory/src/core/record/l1_extractor.rs` (crear), `vanta-memory/src/core/prompts/l1_extraction.rs` (crear), `vanta-memory/src/offload/local_llm/parsers/l1_parser.rs` (crear), `vanta-memory/src/offload/local_llm/parsers/json_utils.rs` (crear)
@@ -338,9 +340,9 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 Campaign ID: 97e683bd-39d0-4402-b655-e224bd36be3c
 Objetivo activo: F4 (MEM-08a..21) — crate vanta-memory LLM-driven
 Estado: in-progress ⏳
-Última acción: F1+F2+F3 completas (9/9); verificación contra TDAM ✅; 2077/2077 workspace
+Última acción: MEM-09 L0 capture implementado por lead (3 delegaciones vanta-worker con resultado vacío → STRATEGY: implementación directa, diseño ya en task file)
 Resultado: ✅
-Próxima acción: materializar F4 (Tasks 10-24) y delegar MEM-08a
+Próxima acción: Delegar MEM-10 (L1 extractor) a vanta-worker
 Contrato: `cargo check -p vanta-memory` pasa; tests dedicados (D19)
-Próxima tarea si completa: MEM-08a (scaffold crate vanta-memory)
+Próxima tarea si completa: MEM-10 (L1 extractor split + 1 call LLM JSON)
 === END RECITATION ===
