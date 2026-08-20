@@ -33,6 +33,9 @@
 | D15 | Audit log contrato 3 (2026-08-20) | **Crear audit log en server (`/api/v2/audit`, JSONL)** — Memory y Studio escriben/leen el mismo canal en server mode; modo nativo de Studio se mantiene |
 | D16 | Alcance de campaña (2026-08-20) | **F1–F3 primero con checkpoint** (entrega LLM-free verificable + review humano), luego F4–F5 |
 | D17 | Adelantar MEM-34 (2026-08-20) | **Telemetría L1/L2/L3/recall se ejecuta en F1** — extiende `operational_metrics_snapshot()` que Studio ya consume; contrato de datos probado temprano |
+| D18 | MEM-35 data plane (2026-08-20) | **REST `/conversation/add` + `/skill/listing` — data plane orientado a AGENTES, no a Studio.** Razones: (a) `/conversation/add` es pipeline multi-paso (validar → ThreadStore → notify), forzarlo a IQL contaminaría el query language con side-effects; (b) Studio es consola/viewer — no ingesta conversaciones; (c) consistencia con `/api/v2/audit` (D15, también REST). Studio NO lo consume (no lo necesita); si algún día Studio lista skills → 1 wrapper en `server_client.rs` (documentado, trivial) |
+| D19 | Tests en F1/F2 (2026-08-20) | **Tests dedicados por tarea** — contrato de tarea incluye tests propios (SearchProfileConfig, paridad IQL/API/MCP, snapshot metrics), no solo `cargo test` global |
+| D20 | RRF_K en Studio (2026-08-20) | **Actualizar Studio en paralelo** — tras F1, `retrieval-core.ts` + `selfcheck-retrieval.ts` leen `rrf_k` dinámico del report en vez del literal 60 |
 
 ## Principios de adaptación (TDAM → VantaDB)
 
@@ -119,10 +122,11 @@
 | `src/rbac.rs` dead code ↔ checker nuevo | Bajo | Decisión explícita en MEM-04 (reemplazo vs coexistencia) |
 | CreditCalculator ÷1000 vs ÷10000 TDAM | Bajo (diferido) | Elegir UNA al portar billing (post-F7) |
 | Prompts Kenty en chino | Medio | Reescribir principios, no traducir (MEM-10) |
-| **RRF_K=60 hardcodeado en frontend Studio** (`retrieval-core.ts`) | Medio (2026-08-20) | MEM-01: report RRF incluye `rrf_k` usado; Studio lee el valor dinámico (cambio pequeño en P26, no bloqueante) |
+| **RRF_K=60 hardcodeado en frontend Studio** (`retrieval-core.ts`) | Medio (resuelto D20) | MEM-01: report RRF incluye `rrf_k` usado; Studio actualizado en paralelo para leerlo dinámicamente |
 | **`SearchProfile` existente es profiler I/O, no perfil configurable** | Bajo (resuelto D14) | `SearchProfileConfig` como nombre nuevo; profiler conserva su nombre |
 | **Audit log vive hoy en desktop nativo, no en server** | Medio (resuelto D15) | MEM-05/MEM-34 crean `/api/v2/audit` en server; Studio lo lee por contrato en server mode |
-| **`operational_metrics_snapshot` y `SearchProfile` sin tests covering** | Medio (2026-08-20) | Checkpoints F1/F2 exigen tests para MEM-01/MEM-34 (no solo `cargo test` global) |
+| **`operational_metrics_snapshot` y `SearchProfile` sin tests covering** | Medio (resuelto D19) | Tests dedicados por tarea en F1/F2 (no solo `cargo test` global) |
+| **MEM-35 REST invisible para Studio** | Bajo (resuelto D18) | Data plane agent-facing; Studio es viewer, no lo necesita; wrapper documentado si algún día lista skills |
 
 ## Relación con P26 (Vanta Studio)
 
@@ -144,4 +148,5 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 3. ✅ Publicación → **interno del workspace** (D12).
 4. ⚠️ D3 (tiktoken): validar que `tiktoken-rs` compile en WASM antes de fijar MEM-23; si no, fallback 3 chars/token documentado.
 5. ✅ D13–D17 **confirmadas por el usuario 2026-08-20** (IQL+API+MCP, SearchProfileConfig, audit log server, F1–F3 primero, MEM-34 adelantada).
-6. ⏳ MEM-35 data plane: ¿rutas REST (`/conversation/add`, `/skill/listing`) o sentencias IQL? El desktop no consume REST nuevo sin wrapper en `server_client.rs` — decidir al llegar a F3 (pendiente, no bloquea F1/F2).
+6. ✅ D18–D20 **resueltas 2026-08-20** — MEM-35 = REST agent-facing (D18, no bloquea F1/F2); tests dedicados por tarea (D19); Studio lee rrf_k dinámico en paralelo (D20).
+7. ⏳ Contrato 1 (explain): el `explain` core debe exponer el `rrf_k` usado en su report para que Studio lo consuma — se resuelve junto a MEM-01/D20 (no bloqueante).
