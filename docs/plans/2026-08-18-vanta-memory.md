@@ -28,16 +28,79 @@
 | D10 | Callback S2S | **Hook síncrono local + estado en store** (MEM-28); Vanta Studio lee el estado; S2S real diferido |
 | D11 | Alcance F6/F7 | **Segunda iteración** de P27 (F1–F5 primero) |
 | D12 | Publicación vanta-memory | **Interno del workspace**; publicar como `vantadb-memory` cuando F4-F5 estables |
+| D13 | Exposición search profile (2026-08-20) | **IQL + API nativa + MCP** — sintaxis IQL opcional (Studio habla solo IQL vía `/api/v2/query`) |
+| D14 | Nombre del perfil configurable (2026-08-20) | **`SearchProfileConfig`** — el `SearchProfile` existente (`src/index/search/profile.rs`, profiler I/O) conserva su nombre; cero riesgo de colisión |
+| D15 | Audit log contrato 3 (2026-08-20) | **Crear audit log en server (`/api/v2/audit`, JSONL)** — Memory y Studio escriben/leen el mismo canal en server mode; modo nativo de Studio se mantiene |
+| D16 | Alcance de campaña (2026-08-20) | **F1–F3 primero con checkpoint** (entrega LLM-free verificable + review humano), luego F4–F5 |
+| D17 | Adelantar MEM-34 (2026-08-20) | **Telemetría L1/L2/L3/recall se ejecuta en F1** — extiende `operational_metrics_snapshot()` que Studio ya consume; contrato de datos probado temprano |
 
-## Orden de ejecución (dependencias verificadas)
+## Principios de adaptación (TDAM → VantaDB)
 
-1. **F1 (MEM-01→02):** parametrizar planner (core) → exponer en MCP. Sin dependencias previas. LLM-free.
-2. **F2 (MEM-03→04→05):** entidades → checker → auth server. Core LLM-free. `src/rbac.rs` dead code evaluado en MEM-04.
+> Contrato transversal obligatorio para TODAS las tareas MEM-01..38. Los archivos TDAM son **referencia de algoritmos, modelos de datos y prompts** — NUNCA código a portar línea a línea. Cada tarea reimplementa en Rust sobre el stack VantaDB existente.
+
+1. **Todo en Rust, workspace VantaDB.** Nada de TypeScript/Python/Node en runtime. Los crates se integran al workspace raíz (`Cargo.toml` inheritance, `default-members` coherente, features bien declaradas).
+2. **Persistencia = VantaDB, siempre.** Todo dato vive en el store de VantaDB (nodos, particiones `InternalMetadata`, `text_index`, HNSW, grafo core). Prohibido: SQLite, Mongo, Redis, JSONL de TDAM, vectores propios fuera del store. El patrón `entity_*`/`skills`/MMD/escenas = nodos + metadata + índices VantaDB, no tablas.
+3. **WASM-compatible y local-first.** El core (F1–F3, transversales) no rompe WASM ni añade deps de red. Lo LLM-driven vive en `vanta-memory` (crate LLM-free si no hay LLM); cualquier dep nueva (p.ej. tiktoken) se valida contra WASM antes de fijarse (D3).
+4. **LLM opcional, no requerido.** VantaDB no tiene LLM generativo (`src/llm.rs` solo embeddings). El trait `LLMRunner` (MEM-08b) es host-neutral: en modo LLM-free, las rutas degradan (compresión local, store-all, dedup por heurística) — nunca bloquean ni pierden datos.
+5. **Reusar antes que crear.** Si el grafo (`src/graph.rs`, graphrag), el planner, la auth, los metrics snapshot o los bindings existentes ya cubren una necesidad → se extienden, no se duplican (MEM-04 evalúa `src/rbac.rs`, MEM-32 expone grafo existente, MEM-34 extiende metrics existente).
+6. **Bindings actualizados por contrato.** Python (`vantadb-python`) y TS (`vantadb-ts`) reflejan los nuevos endpoints/tools sin romper backward-compat (MEM-36); los MCP tools se añaden al servidor MCP existente.
+7. **Sin deuda del stack TDAM.** No se copia: split 4 servicios, Redis/locks multi-nodo, dual-write, store Mongo, `@colbymchenry/codegraph`, agent-adapters, imágenes Docker, prompts Kenty en chino (reescribir principios, no traducir) — SYNTHESIS §2.4.
+
+## Orden de ejecución (dependencias verificadas, actualizado 2026-08-20)
+
+1. **F1 (MEM-01→02→34):** parametrizar planner (core) con `SearchProfileConfig` → exponer en **IQL + API + MCP** → telemetría adelantada (MEM-34). Sin dependencias previas. LLM-free. **Checkpoint tras F1+F2.**
+2. **F2 (MEM-03→04→05):** entidades → checker → auth server + **audit log server `/api/v2/audit`** (D15). Core LLM-free. `src/rbac.rs` dead code evaluado en MEM-04.
 3. **F3 (MEM-06→07):** skills multi-versión core → tools MCP.
 4. **F4 (MEM-08a→08b→09→10→11→12→13→14→15→16→17→18→19→20→21):** fundación crate → contratos+trait → L0 → L1 → L2 → L3 → triggers → skill extract → recall → cursor → MCP scenes. **Checkpoint tras F4.**
 5. **F5 (MEM-22→23→24):** Context Engine cascade → emergency/tokens → MMD. **Checkpoint tras F5 (release candidate).**
 6. **Segunda iteración (F6 MEM-25..27, F7 MEM-28..33):** proxy → wiki. Opcional.
-7. **Transversales:** MEM-34 (telemetría) en paralelo con F4; MEM-35 (data plane) tras F3; MEM-36 (SDK) tras F3; MEM-37 (integración) tras F4/F5; MEM-38 (ADR+docs) gate pre-release.
+7. **Transversales:** MEM-35 (data plane) tras F3; MEM-36 (SDK) tras F3; MEM-37 (integración) tras F4/F5; MEM-38 (ADR+docs) gate pre-release. MEM-34 ya NO es transversal — se adelantó a F1 (D17).
+
+## Referencias de extracción (clon TDAM)
+
+> Clon: `C:\Users\Eros\AppData\Local\Temp\opencode\tdam` @ `97f9465`. Prefijos: `MC` = `MemoryCore/src/`, `MP` = `MemoryProxy/src/`, `MK` = `MemoryKnowledge/src/`. Los archivos listados son la **referencia directa de port** — leer antes de implementar cada tarea, NO reimplementar desde 0. Verificados contra el clon (ronda 2026-08-20). Aviso SYNTHESIS §2.4: portar modelo/algoritmos/patrones, nunca el stack (SQLite/Mongo/Redis/Docker).
+
+| Tarea | Archivo(s) fuente TDAM | Qué portar |
+|---|---|---|
+| MEM-01 | `MC/core/store/types.ts`, `MC/core/store/search-utils.ts`, `MC/core/tools/memory-search.ts` | SearchProfile (mode/rrf_k/candidate_k), search-utils |
+| MEM-02 | `MC/core/tools/memory-search.ts`, `MC/core/tools/conversation-search.ts` | Passthrough profile en tools MCP |
+| MEM-03 | `MC/metadata/types.ts`, `MC/metadata/store/interface.ts`, `MC/metadata/constants.ts`, `MC/metadata/utils/id-generator.ts` | Modelo entidades + CRUD (DDL SQLite es referencia, NO copiar — VantaDB es nodos InternalMetadata) |
+| MEM-04 | `MC/metadata/service/permission-checker.ts` (172 líneas reales) | Cadena allow-only resource→owner→member→visibility→role-default→ACL |
+| MEM-05 | `MC/metadata/router/auth.ts`, `MC/metadata/service/resolve-user-id.ts`, `MC/metadata/service/user-visibility.ts`, `MC/metadata/router/pagination.ts` | Auth 3 capas + resolución user |
+| MEM-06 | `MC/core/skill/skill-store-ddl.ts` (104), `skill-store.ts` (733), `skill-versioning.ts` (435), `skill-format.ts`, `skill-config.ts`, `skill-core.ts` | Esquema multi-versión, optimistic lock, TTL, idempotencia |
+| MEM-07 | `MC/core/skill/skill-tools.ts`, `skill-permission.ts`, `MC/gateway/skill-handlers.ts`, `skill-schemas.ts` | Tools skill_* (6), límites, owner check |
+| MEM-08a | (scaffold — sin fuente TDAM directa; ver `MC/package.json`, `MC/index.ts` para layout) | Estructura crate |
+| MEM-08b | `MC/core/abstractions/types.ts` (87), `MC/offload/types.ts`, `MC/adapters/standalone/llm-runner.ts` (467), `MC/adapters/openclaw/llm-runner.ts` | MemoryRecord/DedupDecision + trait LLMRunner host-neutral |
+| MEM-09 | `MC/core/hooks/auto-capture.ts` (347), `MC/core/conversation/l0-recorder.ts` (607) | L0 capture idempotente |
+| MEM-10 | `MC/core/record/l1-extractor.ts` (738), `MC/core/prompts/l1-extraction.ts` (417), `MC/offload/local-llm/parsers/l1-parser.ts`, `json-utils.ts`, `MC/offload/local-llm/prompts/l1-prompt.ts` | Split + 1 call LLM JSON + parse con reparación |
+| MEM-11 | `MC/core/record/l1-dedup.ts` (408), `l1-reader.ts`, `l1-writer.ts`, `MC/core/prompts/l1-dedup.ts` (236) | Dedup 2 fases store/update/merge/skip |
+| MEM-12 | `MC/core/scene/scene-format.ts` (75), `scene-index.ts` (137) | Contrato META + nodo escena |
+| MEM-13 | `MC/core/scene/scene-extractor.ts` (604 — tools sandbox) | Tools read/write/edit sandboxed + store |
+| MEM-14 | `MC/core/scene/scene-extractor.ts` (604), `MC/core/prompts/scene-extraction.ts` (572), `scene/filename-normalizer.ts`, `scene-format.ts` | Strategy UPDATE>MERGE>CREATE, heat, soft-delete, emptyExtraction |
+| MEM-15 | `MC/core/persona/persona-generator.ts` (304), `persona-trigger.ts` (136), `MC/core/prompts/persona-generation.ts` (329), `MC/core/scene/scene-navigation.ts` (76) | Modos first/incremental, límites, escapeXml, triggers |
+| MEM-16 | `MC/utils/stateful-pipeline-manager.ts` (500), `pipeline-manager.ts` (1218), `pipeline-factory.ts` (1231), `MC/services/pipeline-worker.ts` (843), `timer-scanner.ts`, `MC/utils/managed-timer.ts`, `checkpoint.ts` (745), `MC/core/state/types.ts`, `local-backend.ts` | Orquestación timers+locks, estado local sin Redis, reloj fake |
+| MEM-17 | `MC/core/skill/skill-extractor.ts` (587), `MC/core/skill/conversation-add/{trigger-service,extract-worker,worker-pool,message-compressor,oversize-strategy,prepare-archive,skill-core-sink,wire,agent-task-queue,buffer-storage}.ts`, `MC/core/skill/prompts/skill-review-prompt.ts` (198), `skill-listing-prompt.ts` | Transcript marcadores, truncado, review taxonomía, sink idempotente |
+| MEM-18 | `MC/core/hooks/auto-recall.ts` (999), `MC/core/memory-prompt/composer.ts` (41), `resolver.ts` (102), `types.ts` (142), `MC/core/profile/profile-sync.ts` (494) | prepend/append + 3 modos recall |
+| MEM-19 | `MC/utils/sanitize.ts` (405), `MC/utils/text-utils.ts` (31) | sanitize_text + truncación code-point |
+| MEM-20 | `MC/offload/state-manager.ts` (460 — lastOffloadedToolCallId), `MC/offload/storage.ts` (664), `MC/offload/hooks/after-tool-call.ts` (594) | Cursor persistente por sesión |
+| MEM-21 | `MC/core/scene/scene-navigation.ts` (76), `scene-index.ts`, `MC/gateway/knowledge-handlers.ts` | Tools scene_read/list/query |
+| MEM-22 | `MC/offload-client/context-engine.ts` (526), `MC/offload_server/compact/{compaction-handler.ts (328), compressor.ts (1194), fast-path.ts (189), helpers.ts, mmd-injector.ts}` | assemble + cascada mild/aggressive + revert si summary>original |
+| MEM-23 | `MC/offload/fast-token-estimate.ts` (307), `l3-token-counter.ts` (35), `benchmark-token-estimate.ts` (89), `context-token-tracker.ts` (166) | Emergency + estimador tokens |
+| MEM-24 | `MC/offload/mmd-injector.ts` (374), `mmd-meta.ts` (66), `MC/offload/pipelines/l2-mermaid.ts` | MMD persistente, fingerprint, marker _mmdContextMessage |
+| MEM-25 | `MP/handler.ts`, `MP/server.ts`, `MP/auth.ts`, `MP/anthropicHandler.ts`, `MP/codexHandler.ts`, `MP/workbuddyHandler.ts` | 3 protocolos wire verbatim + rutas |
+| MEM-26 | `MP/session/index.ts` (203), `MP/auth.ts`, `MP/identity.ts`, `MP/injection/` (8 archivos), `MP/mem-command/index.ts` (72) | Ciclo auth→session→injection local |
+| MEM-27 | `MP/rate-limit/`, `MP/report/`, `MP/clickhouse.ts`, `MP/langfuse.ts`, `MP/opik.ts`, `MP/credit-reporter.ts`, `MP/mem-command/commands/` | Rate-limit sliding window, write-back, reporting (SIN Opik/Langfuse), mem: |
+| MEM-28 | `MK/engines/wiki/index.ts` (23), `MK/engines/wiki/ingest-v2/{index.ts, cascade.ts, frontmatter.ts, slug.ts, template.ts}` | State machine pending→ready, locked:true, dedup |
+| MEM-29 | `MK/engines/wiki/ingest-v2/chunker.ts`, `MK/source-fetcher/` (4 archivos), `file-protocol.ts` | SSRF blocklist + chunker 12k/400 |
+| MEM-30 | `MK/engines/wiki/ingest-v2/{merge.ts, llm.ts, index-builder.ts, overview.ts, prompts.ts}` | Merge serial + pLimit + ensureSources |
+| MEM-31 | `MK/engines/wiki/ingest-v2/index.ts` (progress/callback), `log-writer.ts` | Callback run_id + throttle |
+| MEM-32 | `MK/engines/code/index.ts` (2), `MK/mcp/` (3), `MK/routes/` (6) | Tools code_* sobre graphrag EXISTENTE (patrón de rutas, no el grafo) |
+| MEM-33 | `MK/mcp/` (3), `MK/routes/` (6), `MK/store/index.ts` (80) | Tools wiki_* sobre MEM-28 |
+| MEM-34 | `MC/core/report/metric-tracking-{l1,l2,l3,recall}-latency.ts`, `metric-tracking-runner.ts`, `MC/offload/state-reporter.ts` (348), `MC/api-trace/*` | Latências por capa + envelope |
+| MEM-35 | `MC/gateway/chat-memory-handlers.ts` (476), `knowledge-handlers.ts`, `memory-prompt-handlers.ts` | Data plane /conversation/add + /skill/listing (patrón, no endpoints TDAM) |
+| MEM-36 | `sdk/memory-core/typescript/src/index.ts` (45), `sdk/memory-core/typescript/src/v3/index.ts` (177), `sdk/memory-core/python/` | Estructura sub-clientes por dominio |
+| MEM-37 | `MC/core/hooks/auto-recall.ts` (999), `MC/offload-client/context-engine.ts` (526) | Integración offload↔recall |
+| MEM-38 | (ADR/docs — sin fuente TDAM) | Documentación |
 
 ## Checkpoints
 
@@ -56,6 +119,10 @@
 | `src/rbac.rs` dead code ↔ checker nuevo | Bajo | Decisión explícita en MEM-04 (reemplazo vs coexistencia) |
 | CreditCalculator ÷1000 vs ÷10000 TDAM | Bajo (diferido) | Elegir UNA al portar billing (post-F7) |
 | Prompts Kenty en chino | Medio | Reescribir principios, no traducir (MEM-10) |
+| **RRF_K=60 hardcodeado en frontend Studio** (`retrieval-core.ts`) | Medio (2026-08-20) | MEM-01: report RRF incluye `rrf_k` usado; Studio lee el valor dinámico (cambio pequeño en P26, no bloqueante) |
+| **`SearchProfile` existente es profiler I/O, no perfil configurable** | Bajo (resuelto D14) | `SearchProfileConfig` como nombre nuevo; profiler conserva su nombre |
+| **Audit log vive hoy en desktop nativo, no en server** | Medio (resuelto D15) | MEM-05/MEM-34 crean `/api/v2/audit` en server; Studio lo lee por contrato en server mode |
+| **`operational_metrics_snapshot` y `SearchProfile` sin tests covering** | Medio (2026-08-20) | Checkpoints F1/F2 exigen tests para MEM-01/MEM-34 (no solo `cargo test` global) |
 
 ## Relación con P26 (Vanta Studio)
 
@@ -65,10 +132,10 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 |---|----------|-------------------|-------------------|--------|
 | 1 | `explain_memory_search` (VS-CORE-03, ya existe en core) | Lente RETRIEVAL (Fase 1) muestra por qué | Recall (F4) usa el mismo search | Un contrato, dos consumidores — ya resuelto en core |
 | 2 | Nodos escena + META `{created,updated,summary,heat}` | Grafo/IQL (Fase 2) + Inspector renderizan escenas/skills/entities | F4 añade nodo escena al grafo core (L2, MEM-12) | Inspector KV genérico ya los cubre — sin código ahora |
-| 3 | Audit log JSONL compartido | ACTIVITY + Timeline (Fase 1) | Telemetría por capa (MEM-34): eventos L1/L2/L3/offload | Memory escribe en el MISMO audit log que Studio lee — disciplina, no código |
+| 3 | Audit log JSONL compartido | ACTIVITY + Timeline (Fase 1) | Telemetría por capa (MEM-34, adelantada a F1): eventos L1/L2/L3/offload | **Resuelto 2026-08-20 (D15):** `vantadb-server` gana `/api/v2/audit` (MEM-05); Memory escribe, Studio lee en server mode. Modo nativo de Studio (`commands/audit.rs`) se mantiene |
 | 4 | DTO estado (MEM-28) | Studio lee estado vía bridge Tauri | State store (pending→ready, run_id) | Mismo patrón que VS-11 (DTO enriquecido); definir cuando exista F7 |
 
-**Punto de diseño compartido (no bloqueante):** VS-CORE-07 (retención de versiones) lo necesitan ambos — Studio para Historial+Diff, memory para offload/skills versionadas. Acordar el diseño una sola vez cuando VS-CORE-07 se ejecute (task file con cláusula de doble consumidor). Ver también: MEM-01 debe exponer el search profile en las mismas estructuras que `explain` (consumible por la lente RETRIEVAL).
+**Punto de diseño compartido (no bloqueante):** VS-CORE-07 (retención de versiones) lo necesitan ambos — Studio para Historial+Diff, memory para offload/skills versionadas. Acordar el diseño una sola vez cuando VS-CORE-07 se ejecute (task file con cláusula de doble consumidor). Ver también: MEM-01 debe exponer el search profile en las mismas estructuras que `explain` (consumible por la lente RETRIEVAL) — y **el report RRF debe incluir `rrf_k` usado**, porque el frontend Studio (`retrieval-core.ts`, `selfcheck-retrieval.ts`) hardcodea RRF_K=60; con profiles rrf_k≠60 la lente mostraría números incorrectos sin ese campo (D13 + cambio pequeño en P26, no bloqueante).
 
 ## Open Questions
 
@@ -76,3 +143,5 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 2. ✅ F6/F7 → **segunda iteración** de P27 (D11).
 3. ✅ Publicación → **interno del workspace** (D12).
 4. ⚠️ D3 (tiktoken): validar que `tiktoken-rs` compile en WASM antes de fijar MEM-23; si no, fallback 3 chars/token documentado.
+5. ✅ D13–D17 **confirmadas por el usuario 2026-08-20** (IQL+API+MCP, SearchProfileConfig, audit log server, F1–F3 primero, MEM-34 adelantada).
+6. ⏳ MEM-35 data plane: ¿rutas REST (`/conversation/add`, `/skill/listing`) o sentencias IQL? El desktop no consume REST nuevo sin wrapper en `server_client.rs` — decidir al llegar a F3 (pendiente, no bloquea F1/F2).
