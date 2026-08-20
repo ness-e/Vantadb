@@ -107,7 +107,7 @@
 
 ## Checkpoints
 
-- **Checkpoint 1 (tras F1+F2):** `cargo test -p vantadb` verde; search profile y entidades/checker con tests; review con humano antes de F3.
+- **Checkpoint 1 (tras F1+F2):** `cargo test -p vantadb` verde; search profile y entidades/checker con tests; review con humano antes de F3. → **✅ APROBADO 2026-08-20 por review humano (GO, sin push, orden secuencial 06→07→35)**
 - **Checkpoint 2 (tras F4):** `cargo test -p vanta-memory` verde con LLM mock; pipeline L0→L3 end-to-end con mock; `cargo check -p vantadb` sin regresiones; review.
 - **Checkpoint 3 (tras F5):** offload assemble/mild/aggressive/emergency verde; report correcto; decide D3 definitivamente.
 - **Checkpoint 4 (release):** unified-review certify (Pre-Launch Gate, 8 capas) + semver-checks + ADR.
@@ -161,6 +161,30 @@
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-05.md`
 - **Estado:** ✅ COMPLETED (commit `01a5de66`, verify `cargo check -p vantadb-server` ✅ + tests auth 16/16 2026-08-20)
 - **last-synced:** 2026-08-20T15:15
+
+### Task 7: MEM-06 — F3 Esquema skills multi-versión en core
+- **Archivos clave:** `src/skills.rs` (crear), `src/sdk/types.rs`, `src/lib.rs`, `tests/`
+- **Gate Justificación:** F3 base — VantaDB no es SQL: namespace `skills` + nodos por versión con metadata (`version`, `is_head`, `content_hash`, `expires_at`, owner_agent), índice único parcial por `(owner,name)` donde is_head, optimistic lock `expected_version`, TTL keep-recent=3, idempotencia por content-hash; CRUD create/update/patch/delete/versions. Reusar text_index + HNSW propios (NO vec0). Consumido por MEM-07 (MCP skill_*) y MEM-35 (`GET /skill/listing`). Reusa EntityStore de MEM-03 como base de persistencia.
+- **Contrato:** `cargo check -p vantadb` pasa; tests dedicados de skills multi-versión (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-06.md`
+- **Estado:** ⬜ PENDING
+- **last-synced:** 2026-08-20T16:00
+
+### Task 8: MEM-07 — F3 MCP tools skill_*
+- **Archivos clave:** `vantadb-mcp/src/handlers/tools.rs`, `vantadb-mcp/src/skills.rs` (crear)
+- **Gate Justificación:** 6 tools del review agent (`skill_list/view/create/update/patch/files_write`) sobre MEM-06; writes exigen `expected_version`; owner check → 404 sin filtrar existencia; límites 5MB/recurso, 50MB/skill. Paridad con API nativa (D13).
+- **Contrato:** `cargo check -p vantadb-mcp` pasa; tests dedicados de skills tools (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-07.md`
+- **Estado:** ⬜ PENDING
+- **last-synced:** 2026-08-20T16:00
+
+### Task 9: MEM-35 — F3 Core Data plane de referencia en server
+- **Archivos clave:** `src/cli_server.rs`, `vantadb-server/src/server.rs`, `vantadb-server/tests/e2e.rs`
+- **Gate Justificación:** rutas **REST** `POST /conversation/add` (01 §10, vía ThreadStore) y `GET /skill/listing` (03 §4, sobre MEM-06) protegidas por auth existente; **orientado a AGENTES, no a Studio (D18)** — `/conversation/add` es pipeline multi-paso, forzarlo a IQL contaminaría el query language; Studio es viewer y no ingesta; si Studio lista skills algún día → 1 wrapper en `server_client.rs`. NO copiar `/v3/session/init` ni `/v3/knowledge/query` (no existen en TDAM — endpoints propios VantaDB). Auth 3 capas de MEM-05 protege.
+- **Contrato:** `cargo check -p vantadb-server` pasa; tests dedicados de endpoints data plane (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-35.md`
+- **Estado:** ⬜ PENDING
+- **last-synced:** 2026-08-20T16:00
 
 ## Riesgos
 
