@@ -1,9 +1,10 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID: 7a099784-b9e8-4c3c-bd8c-2c0869ffab59
+> **Campaign ID: ee23c737-bc0a-4854-ad23-eb9859b4517f
 > **Inicio:** 2026-08-18
-> **Estado: completed
+> **Estado: in-progress
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
+> **Catálogo:** `docs/Backlog.md` — filas MEM-01..38 (este plan es el estado de ejecución; el backlog es el catálogo)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
 
 ## Resumen
@@ -117,7 +118,7 @@
 ### Task 1: MEM-01 — F1 Search profile por namespace en core
 - **Archivos clave:** `src/planner.rs`, `src/sdk/serialization/vector_types.rs`, `src/sdk/types.rs`, `src/sdk/search/mod.rs`, `src/cli_server.rs` (parser IQL)
 - **Gate Justificación:** F1 base — parametriza planner con `SearchProfileConfig`, expone en IQL/API/MCP (D13), report RRF incluye `rrf_k` (D20)
-- **Contrato: cargo check -p vantadb-mcp + tests skills tools
+- **Contrato: cargo check -p vantadb-server + tests endpoints
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
 - **Estado:** ✅ COMPLETED (commit `6a50b8ee`, verify `cargo check -p vantadb` ✅ 2026-08-20)
 - **last-synced:** 2026-08-20T08:00
@@ -183,7 +184,7 @@
 - **Gate Justificación:** rutas **REST** `POST /conversation/add` (01 §10, vía ThreadStore) y `GET /skill/listing` (03 §4, sobre MEM-06) protegidas por auth existente; **orientado a AGENTES, no a Studio (D18)** — `/conversation/add` es pipeline multi-paso, forzarlo a IQL contaminaría el query language; Studio es viewer y no ingesta; si Studio lista skills algún día → 1 wrapper en `server_client.rs`. NO copiar `/v3/session/init` ni `/v3/knowledge/query` (no existen en TDAM — endpoints propios VantaDB). Auth 3 capas de MEM-05 protege.
 - **Contrato:** `cargo check -p vantadb-server` pasa; tests dedicados de endpoints data plane (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-35.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **last-synced:** 2026-08-20T16:00
 
 ## Riesgos
@@ -227,11 +228,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
-Objetivo activo: MEM-07 MCP tools skill_*
+Objetivo activo: MEM-35 Data plane REST server
 Estado: completed ✅
-Última acción: MEM-07 verificado (4763bf44, 13/13 + 44/44)
-Resultado: ✅
-Próxima acción: MEM-35 data plane REST
+Última acción: MEM-07 completado (4763bf44); MEM-06 task file cerrado
+Resultado: ⏳
+Próxima acción: Delegar MEM-35 a vanta-worker
 Contrato: cargo check -p vantadb + tests dedicados del checker (D19) — `cargo nextest run -p vantadb -- entity` ✅ 37/37
-Próxima tarea si completa: MEM-35
+Próxima tarea si completa: Checkpoint tras F1+F2+F3
 === END RECITATION ===
