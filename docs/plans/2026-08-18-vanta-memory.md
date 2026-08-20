@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID:** ee356372-111c-481e-bcce-e73b0ee7c348
+> **Campaign ID:** 09f41667-6ab8-40bf-a110-3a764ea26d8c
 > **Inicio:** 2026-08-18
-> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..12 ✅ — 15/24)
+> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..13 ✅ — 16/24)
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Catálogo:** `docs/Backlog.md` — filas MEM-01..38 (este plan es el estado de ejecución; el backlog es el catálogo)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
@@ -239,7 +239,7 @@
 - **Gate Justificación:** tools sandboxed (read/write/edit) sobre store; referencia `MC/core/scene/scene-extractor.ts` (604 — tools sandbox)
 - **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de tools escena (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-13.md`
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 17: MEM-14 — F4 Strategy UPDATE>MERGE>CREATE + heat + soft-delete
 - **Archivos clave:** `vanta-memory/src/core/scene/scene_extractor.rs` (crear), `vanta-memory/src/core/prompts/scene_extraction.rs` (crear), `vanta-memory/src/core/scene/filename_normalizer.rs` (crear), `vanta-memory/src/core/scene/scene_format.rs`
@@ -338,11 +338,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 97e683bd-39d0-4402-b655-e224bd36be3c
-Objetivo activo: MEM-12: F4 Contrato META + nodo escena (ancla L2)
+Objetivo activo: MEM-13: F4 Tools read/write/edit sandboxed + store
 Estado: in-progress ⏳
-Última acción: Core: src/entity/scene.rs (SceneNodeStore, keys scene:{ns}:{session}::{scene_name}, particion InternalMetadata, reuso validate_key) + scene_tests.rs (6 tests) + wiring entity/mod.rs. vanta-memory: core/scene/scene_format.rs (SceneBlock serde + index_entry, reusa SceneMeta MEM-08b) + scene_index.rs (SceneError, scene_namespace, upsert_scene CREATE=1/UPDATE=heat+1, get, list heat desc, current max updated; reusa sanitize/now_ms/epoch_ms_to_rfc3339) + tests/scene.rs D19 (9 tests).
-Resultado: ✅ COMPLETO — verify mecanico todo exit 0; sin deps nuevas, sin unwrap/expect, sin tocar storage/vector/wal
-Próxima acción: Limpieza de estado WIP del MCP (16-24 + MEM-08b corruptos) por orquestador, luego Task 16 (MEM-13)
+Última acción: Creé scene_tools.rs (SceneToolCall/SceneToolResult serde tagged, SceneToolError #[non_exhaustive], caps 512/4096/1MiB, validators boundary, read/write/edit/execute_scene_tool sobre scene_index) + re-exports en core/scene/mod.rs + tests D19 tests/scene_tools.rs (13 tests)
+Resultado: ✅
+Próxima acción: Commit por vanta-lead (feat: MEM-13); cierre MCP pendiente limpieza WIP corrupto
 Contrato: `cargo check -p vanta-memory` pasa; tests dedicados (D19)
-Próxima tarea si completa: 16
+Próxima tarea si completa: 17
 === END RECITATION ===
