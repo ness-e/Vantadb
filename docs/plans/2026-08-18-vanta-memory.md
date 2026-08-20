@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID:** 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
+> **Campaign ID: 966d3b2c-2587-455e-bb7b-ffafe1f222b8
 > **Inicio:** 2026-08-18
-> **Estado:** ⏳ EN PROGRESO (F1)
+> **Estado: in-progress
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
 
@@ -117,17 +117,17 @@
 ### Task 1: MEM-01 — F1 Search profile por namespace en core
 - **Archivos clave:** `src/planner.rs`, `src/sdk/serialization/vector_types.rs`, `src/sdk/types.rs`, `src/sdk/search/mod.rs`, `src/cli_server.rs` (parser IQL)
 - **Gate Justificación:** F1 base — parametriza planner con `SearchProfileConfig`, expone en IQL/API/MCP (D13), report RRF incluye `rrf_k` (D20)
-- **Contrato:** `cargo check -p vantadb` pasa; tests dedicados de `SearchProfileConfig` + parser IQL (D19)
+- **Contrato: cargo check -p vantadb-mcp + test paridad IQL/API/MCP
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
-- **Estado:** ✅ COMPLETED 2026-08-20 — commit `6a50b8ee` (sin push); audit 1992/1992, clippy -D warnings, fmt, doc verdes. Siguiente: MEM-02.
-- **last-synced:** 2026-08-20T04:00
+- **Estado:** ✅ COMPLETED (commit `6a50b8ee`, verify `cargo check -p vantadb` ✅ 2026-08-20)
+- **last-synced:** 2026-08-20T08:00
 
 ### Task 2: MEM-02 — F1 Exponer search profile en MCP/search
 - **Archivos clave:** `vantadb-mcp/src/handlers/tools.rs`, `vantadb-mcp/src/validation.rs`, `vantadb-mcp/src/config.rs`, `src/cli_server.rs`
 - **Gate Justificación:** paridad IQL/API/MCP (D13) — depende de MEM-01 (mismo `SearchProfileConfig`)
 - **Contrato:** `cargo check -p vantadb-mcp` pasa; test de paridad IQL/API/MCP (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-02.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **last-synced:** 2026-08-20T04:00
 
 ### Task 3: MEM-34 — F1 Core Telemetría por capa (adelantada, D17)
@@ -179,11 +179,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
-Objetivo activo: MEM-01 SearchProfileConfig + IQL
+Objetivo activo: MEM-02 Exponer search profile en MCP/search
 Estado: completed ✅
-Última acción: MEM-01 completo (S1-S7) — SearchProfileConfig per request (mode/rrf_k/candidate_k) + parametrización fuse_rrf/hybrid_candidate_budget + cláusula IQL PROFILE con efecto mode en CBO + fusion_report expuesto en explain
-Resultado: ✅ — audit 1992/1992, clippy -D warnings, fmt, doc verdes. Commit `6a50b8ee` en develop (sin push)
-Próxima acción: Delegar MEM-02 (exponer SearchProfileConfig en API REST + MCP)
+Última acción: MEM-01 completado y verificado
+Resultado: ⏳
+Próxima acción: Delegar MEM-02 a vanta-worker
 Contrato: cargo check -p vantadb + tests dedicados (parser 117/117, search 146/146, lib 1819/1819)
-Próxima tarea si completa: MEM-02
+Próxima tarea si completa: MEM-34
 === END RECITATION ===
