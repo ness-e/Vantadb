@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID:** (generar al ejecutar — P27 backlog)
+> **Campaign ID:** 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
 > **Inicio:** 2026-08-18
-> **Estado:** draft (a ejecutar)
+> **Estado:** ⏳ EN PROGRESO (F1)
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
 
@@ -111,6 +111,32 @@
 - **Checkpoint 2 (tras F4):** `cargo test -p vanta-memory` verde con LLM mock; pipeline L0→L3 end-to-end con mock; `cargo check -p vantadb` sin regresiones; review.
 - **Checkpoint 3 (tras F5):** offload assemble/mild/aggressive/emergency verde; report correcto; decide D3 definitivamente.
 - **Checkpoint 4 (release):** unified-review certify (Pre-Launch Gate, 8 capas) + semver-checks + ADR.
+
+## Tasks (F1 — ejecutando)
+
+### Task 1: MEM-01 — F1 Search profile por namespace en core
+- **Archivos clave:** `src/planner.rs`, `src/sdk/serialization/vector_types.rs`, `src/sdk/types.rs`, `src/sdk/search/mod.rs`, `src/cli_server.rs` (parser IQL)
+- **Gate Justificación:** F1 base — parametriza planner con `SearchProfileConfig`, expone en IQL/API/MCP (D13), report RRF incluye `rrf_k` (D20)
+- **Contrato:** `cargo check -p vantadb` pasa; tests dedicados de `SearchProfileConfig` + parser IQL (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
+- **Estado:** ⬜ PENDING
+- **last-synced:** 2026-08-20T04:00
+
+### Task 2: MEM-02 — F1 Exponer search profile en MCP/search
+- **Archivos clave:** `vantadb-mcp/src/handlers/tools.rs`, `vantadb-mcp/src/validation.rs`, `vantadb-mcp/src/config.rs`, `src/cli_server.rs`
+- **Gate Justificación:** paridad IQL/API/MCP (D13) — depende de MEM-01 (mismo `SearchProfileConfig`)
+- **Contrato:** `cargo check -p vantadb-mcp` pasa; test de paridad IQL/API/MCP (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-02.md`
+- **Estado:** ⬜ PENDING
+- **last-synced:** 2026-08-20T04:00
+
+### Task 3: MEM-34 — F1 Core Telemetría por capa (adelantada, D17)
+- **Archivos clave:** `src/metrics/core/mod.rs`, `src/metrics/core/state.rs`, `src/cli_server.rs`, `vantadb-server/src/audit.rs` (crear)
+- **Gate Justificación:** extiende `operational_metrics_snapshot()` que Studio ya consume; audit log server `/api/v2/audit` (D15)
+- **Contrato:** `cargo check -p vantadb` pasa; tests dedicados de snapshot metrics (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-34.md`
+- **Estado:** ⬜ PENDING
+- **last-synced:** 2026-08-20T04:00
 
 ## Riesgos
 
