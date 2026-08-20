@@ -1,6 +1,13 @@
 # WASM-04 — Drag&drop `.vdbdump`/JSONL (import de archivos reales)
 
-> Plan: `docs/plans/2026-08-19-vanta-studio-fase4.md` (Task 14) · Estado: ⏳ PENDING → in-progress al delegar
+> Plan: `docs/plans/2026-08-19-vanta-studio-fase4.md` (Task 14) · Estado: ✅ COMPLETO (commit `380bb6eb`; verify del lead 2026-08-20)
+
+## Verify REAL del lead (post-delegación, 2026-08-20)
+- `node --test src/*.test.ts` — **53/53 pass, EXIT=0** (41 previos + 12 nuevos `importDrop.test.ts`)
+- `npm run build` (Tauri) — EXIT=0 (chunk-size warning solo)
+- `npm run build:wasm` — EXIT=0
+- `node scripts/selfcheck-wasm-e2e.ts` — **PASS, EXIT=0** (boot/health/ingest/grid/**drop-preview/drop-reporte/drop-grid**/persistencia tras reload/sin console errors)
+- Commit: `feat: WASM-04 — drag&drop .vdbdump/JSONL/CSV` — 7 archivos, 767 insertions
 
 ## Contexto (verify del lead, 2026-08-20)
 - OP-01 textarea pegado existe: `desktop/src/components/ingest/ImportPaste.tsx` — `parseImport(paste, ns)` → preview → `runImport(rows, ingestBatch)` → `onImported(count)`.
