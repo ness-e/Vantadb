@@ -135,9 +135,33 @@
 - **Gate Justificación:** extiende `operational_metrics_snapshot()` que Studio ya consume; audit log server `/api/v2/audit` (D15)
 - **Contrato:** `cargo check -p vantadb` pasa; tests dedicados de snapshot metrics (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-34.md`
-- **Estado:** ✅ COMPLETED
+- **Estado:** ✅ COMPLETED (commit `84f28a18`, verify `cargo nextest run --profile audit --workspace` ✅ 2002/2002, clippy -D warnings ✅ 2026-08-20)
 - **last-synced:** 2026-08-20T12:45
 - **Nota:** `src/metrics/core/state.rs` no existe (estado vive en mod.rs); `vantadb-server/src/audit.rs` NO se creó — audit server ya existía en core (WEB-01, `src/audit.rs` + `/api/v2/audit` auth-protegido); MEM-34 aporta 13 campos de telemetría + `AuditEvent::memory` para F4
+
+### Task 4: MEM-03 — F2 Entidades entity_* + CRUD en core
+- **Archivos clave:** `src/entity.rs` (nuevo), `src/entity/tests.rs`, `src/lib.rs`
+- **Gate Justificación:** F2 base — modelo teams/users/agents/tasks/assets (hoy NO existe; modelo actual namespace+key); D4: persistencia = nodos partición InternalMetadata (patrón thread.rs)
+- **Contrato:** `cargo check -p vantadb` pasa; tests dedicados de CRUD entity (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-03.md`
+- **Estado:** ⬜ PENDING
+- **last-synced:** 2026-08-20T13:00
+
+### Task 5: MEM-04 — F2 Permission-checker allow-only
+- **Archivos clave:** `src/permissions.rs` (nuevo) o `src/entity/checker.rs`, `src/lib.rs`, `src/rbac.rs`
+- **Gate Justificación:** cadena 7 eslabones (D7); `src/rbac.rs` dead code — decidir reemplazo vs coexistencia; resuelve contradicción SYNTHESIS (96 vs ~40 líneas)
+- **Contrato:** `cargo check -p vantadb` pasa; tests dedicados del checker (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-04.md`
+- **Estado:** ⬜ PENDING
+- **last-synced:** 2026-08-20T13:00
+
+### Task 6: MEM-05 — F2 Auth 3 capas en server + audit log
+- **Archivos clave:** `src/cli_server.rs`, `vantadb-server/src/middleware.rs`, `vantadb-server/src/server.rs`
+- **Gate Justificación:** L1 Bearer timingSafeEqual, L2 service-id, L3 user-key → userId/isSystemAdmin desde entity_* (MEM-03); `/health` pública; **audit log server YA EXISTE (WEB-01, `src/audit.rs` + `/api/v2/audit`)** — extender, no duplicar (descubierto en MEM-34)
+- **Contrato:** `cargo check -p vantadb-server` pasa; tests dedicados de auth 3 capas (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-05.md`
+- **Estado:** ⬜ PENDING
+- **last-synced:** 2026-08-20T13:00
 
 ## Riesgos
 
