@@ -32,6 +32,9 @@ import TrashLens from "../trash/TrashLens";
 // VS-13: lente RETRIEVAL — liviana (FiltersBuilder ya es lazy dentro), se
 // importa estática para que la surface responda al instante.
 import RetrievalLens from "../lens/retrieval/RetrievalLens";
+// FEAT-02: lente ÍNDICES real (reemplaza el placeholder VS-03) — liviana,
+// sin dependencias pesadas, import estática como RETRIEVAL.
+import IndicesLens from "../indices/IndicesLens";
 import { undoStore } from "../../store/undo";
 // VS-17: favoritos + historial de búsqueda (localStorage, slice aditivo).
 import { favoritesStore, type Favorite } from "../../store/favorites";
@@ -779,7 +782,17 @@ export default function WorkspaceShell({
             </div>
           )}
 
-          {surface === "indices" && <LensPlaceholder title="ÍNDICES" phase="Fase 1" />}
+          {/* FEAT-02: lente ÍNDICES real (counts por namespace, HNSW, BM25,
+              WAL, salud) — reemplaza el placeholder VS-03. */}
+          {surface === "indices" && (
+            <div className="mx-auto max-w-6xl p-6">
+              <IndicesLens
+                health={state.health}
+                healthStatus={state.healthStatus}
+                activeName={state.active ? state.active.name : null}
+              />
+            </div>
+          )}
           {/* GRAFO-02: lente GRAFO montada en la surface IQL (F2). */}
           {surface === "iql" && (
             <Suspense fallback={<LensPlaceholder title="IQL" phase="cargando visor…" />}>
