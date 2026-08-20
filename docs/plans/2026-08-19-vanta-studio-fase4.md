@@ -2,7 +2,7 @@
 
 > **Campaign ID:** e7b31c4a-8d2f-4a7e-9c1b-6f5a3e8d2c40
 > **Inicio:** 2026-08-19
-> **Estado:** 🚧 EN EJECUCIÓN — W0 (DOC) y W1 (REST-01..06) ✅ completas (commits f7e39005, 0bf9609e, 9ec506d8, 7b3cfea2, b81a8bf9, 1b71d300, 08109a55, 8ad119eb); W2 (WASM-01..04) en curso. 18 tareas: 10/18.
+> **Estado:** 🚧 EN EJECUCIÓN — W0 (DOC) ✅, W1 (REST-01..06) ✅ y W2 (WASM-01..04) ✅ completas (commits f7e39005, 0bf9609e, 9ec506d8, 7b3cfea2, b81a8bf9, 1b71d300, 08109a55, 8ad119eb, 5b2d5ac0, d9a86906, 901a1c51, 380bb6eb); W3 (FEAT-01..03) en curso. 18 tareas: 12/18.
 > **Fuente:** auditoría multi-agente 2026-08-19 (4 sub-agentes read-only: research original `docs/research/human-facing-db-ui/` + Fases 0/1 + Fases 2/3 + cross-check git/registro) → gaps consolidados en el digest del lead; decisiones del usuario 2026-08-19 (ver Decisiones).
 > **Modo:** secuencial con waves paralelas por archivos disjuntos (patrón Fase 3). FAIL_MODE=parallel.
 
@@ -152,7 +152,7 @@
 - **Gate Justificación:** auditoría research Media — OP-01 es textarea pegado, no drag&drop; el research (01 lección 8:183, 02 §9:120) pide snapshots Qdrant-style `.vdbdump`/JSONL por drag&drop; natural en consola browser (File API + OPFS).
 - **Contrato:** drop zone en MEMORIAS/import: arrastrar `.vdbdump`/`.jsonl`/`.csv` → parse (reuso parser OP-01) → preview → ingest; en modo WASM: leer File via FileReader/File System Access → persistir; modo server: subir multipart o base64 al endpoint import existente.
 - **Verificación:** E2E: drop file real → records en grid; node:test parser reusado verde; build verde.
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETO (commit `380bb6eb`; verify del lead: 53/53 tests, builds Tauri+WASM verdes, E2E PASS real con drop file → grid)
 
 ---
 
