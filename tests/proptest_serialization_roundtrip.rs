@@ -210,6 +210,8 @@ fn arb_memory_record_json() -> impl Strategy<Value = VantaMemoryRecord> {
                     vector,
                     sparse_vector: None,
                     expires_at_ms,
+                    superseded_by: None,
+                    superseded_at_ms: None,
                 }
             },
         )
@@ -248,6 +250,7 @@ fn arb_list_options_full() -> impl Strategy<Value = VantaMemoryListOptions> {
                 filter_ops: None,
                 limit,
                 cursor,
+                exclude_superseded: false,
             }
         })
 }
@@ -282,6 +285,7 @@ fn arb_search_request_full() -> impl Strategy<Value = VantaMemorySearchRequest> 
                     distance_metric,
                     explain,
                     query_sparse: None,
+                    exclude_superseded: false,
                 }
             },
         )

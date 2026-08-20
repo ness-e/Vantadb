@@ -198,6 +198,15 @@ pub struct VantaMemoryRecord {
     /// Absolute Unix-ms timestamp after which the record is considered
     /// expired.  ``None`` means the record never expires.
     pub expires_at_ms: Option<u64>,
+    /// Key (same namespace) of the record that supersedes this one (ADR-028).
+    /// ``None`` means the record is current. Superseded records stay in
+    /// storage (soft-dead, recoverable) but can be hidden via
+    /// ``exclude_superseded`` on search/list.
+    #[serde(default)]
+    pub superseded_by: Option<String>,
+    /// Unix-ms timestamp when the supersession was recorded (ADR-028).
+    #[serde(default)]
+    pub superseded_at_ms: Option<u64>,
 }
 
 /// Stable list options for namespace-scoped memory records.
@@ -216,6 +225,10 @@ pub struct VantaMemoryListOptions {
     pub limit: usize,
     /// Zero-based cursor for pagination. `None` starts from the beginning.
     pub cursor: Option<usize>,
+    /// When true, records marked as superseded (ADR-028) are dropped from the
+    /// page. Defaults to false: superseded records remain visible.
+    #[serde(default)]
+    pub exclude_superseded: bool,
 }
 
 impl Default for VantaMemoryListOptions {
@@ -226,6 +239,7 @@ impl Default for VantaMemoryListOptions {
             filter_ops: None,
             limit: 100,
             cursor: None,
+            exclude_superseded: false,
         }
     }
 }
@@ -650,6 +664,12 @@ pub struct VantaMemoryExportLine {
     pub version: u64,
     /// Optional Unix-ms expiry deadline.
     pub expires_at_ms: Option<u64>,
+    /// Key (same namespace) of the record that supersedes this one (ADR-028).
+    #[serde(default)]
+    pub superseded_by: Option<String>,
+    /// Unix-ms timestamp when the supersession was recorded (ADR-028).
+    #[serde(default)]
+    pub superseded_at_ms: Option<u64>,
 }
 
 pub use super::serialization::graph_types::{VantaEdgeRecord, VantaNodeInput, VantaNodeRecord};
@@ -1020,6 +1040,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         assert_eq!(rec.namespace, "ns");
         assert_eq!(rec.node_id, 42);
@@ -1042,6 +1064,8 @@ mod tests {
             updated_at_ms: 1000,
             version: 1,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         assert_eq!(line.schema_version, 1);
         assert_eq!(line.namespace, "ns");
@@ -1277,6 +1301,8 @@ mod tests {
             vector: Some(vec![0.5, 0.6]),
             sparse_vector: None,
             expires_at_ms: Some(99999),
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         assert_eq!(rec.version, 5);
         assert_eq!(rec.expires_at_ms, Some(99999));
@@ -1297,6 +1323,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         let cloned = rec.clone();
         assert_eq!(rec, cloned);
@@ -1341,6 +1369,7 @@ mod tests {
             filter_ops: None,
             limit: 50,
             cursor: Some(10),
+            exclude_superseded: false,
         };
         assert_eq!(opts.limit, 50);
         assert_eq!(opts.cursor, Some(10));
@@ -1526,6 +1555,8 @@ mod tests {
             updated_at_ms: 2000,
             version: 3,
             expires_at_ms: Some(99999),
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         assert_eq!(line.schema_version, 2);
         assert_eq!(line.version, 3);
@@ -1597,6 +1628,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         let page = VantaMemoryListPage {
             records: vec![rec],

@@ -121,6 +121,16 @@ impl VantaPyMemoryRecord {
         self.inner.expires_at_ms
     }
 
+    #[getter]
+    fn superseded_by(&self) -> Option<String> {
+        self.inner.superseded_by.clone()
+    }
+
+    #[getter]
+    fn superseded_at_ms(&self) -> Option<u64> {
+        self.inner.superseded_at_ms
+    }
+
     fn __getitem__<'py>(&self, py: Python<'py>, key: &str) -> PyResult<Bound<'py, PyAny>> {
         use pyo3::conversion::IntoPyObject;
         Ok(match key {
@@ -137,6 +147,8 @@ impl VantaPyMemoryRecord {
             "version" => self.version().into_pyobject(py)?.into_any(),
             "node_id" => self.node_id().into_pyobject(py)?.into_any(),
             "expires_at_ms" => self.expires_at_ms().into_pyobject(py)?.into_any(),
+            "superseded_by" => self.superseded_by().into_pyobject(py)?.into_any(),
+            "superseded_at_ms" => self.superseded_at_ms().into_pyobject(py)?.into_any(),
             _ => {
                 return Err(pyo3::exceptions::PyKeyError::new_err(format!(
                     "VantaMemoryRecord has no field '{key}'"
@@ -350,6 +362,16 @@ impl VantaPySearchHit {
     #[getter]
     fn expires_at_ms(&self) -> Option<u64> {
         self.inner.expires_at_ms
+    }
+
+    #[getter]
+    fn superseded_by(&self) -> Option<String> {
+        self.inner.superseded_by.clone()
+    }
+
+    #[getter]
+    fn superseded_at_ms(&self) -> Option<u64> {
+        self.inner.superseded_at_ms
     }
 
     fn __repr__(&self) -> String {

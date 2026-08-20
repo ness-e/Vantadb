@@ -38,6 +38,7 @@ fn measure_search_latency(
             distance_metric: DistanceMetric::Cosine,
             explain: false,
             query_sparse: None,
+            exclude_superseded: false,
         };
         let _ = db.search(request);
     }
@@ -56,6 +57,7 @@ fn measure_search_latency(
             distance_metric: DistanceMetric::Cosine,
             explain: false,
             query_sparse: None,
+            exclude_superseded: false,
         };
         let _ = db.search(request);
     }

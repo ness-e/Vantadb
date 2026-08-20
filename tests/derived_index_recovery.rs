@@ -46,6 +46,7 @@ fn corrupt_state_and_missing_entries_rebuild_on_reopen() {
                 filter_ops: None,
                 limit: 10,
                 cursor: None,
+                exclude_superseded: false,
             },
         )
         .expect("filtered after repair");

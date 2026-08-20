@@ -116,6 +116,7 @@ fn memory_volume_kpi_10k_records_namespaces_filters_export_import_rebuild() {
                 filter_ops: None,
                 limit: 50,
                 cursor: None,
+                exclude_superseded: false,
             },
         )
         .expect("filtered list");

@@ -155,6 +155,8 @@ impl VantaEmbedded {
             vector: input.vector.filter(|v| Self::usable_vector(v)),
             sparse_vector: input.sparse_vector,
             expires_at_ms,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         let (node, record) = memory_record_to_node_owned(record);
 
@@ -316,6 +318,8 @@ impl VantaEmbedded {
                     vector: input.vector.clone().filter(|v| Self::usable_vector(v)),
                     sparse_vector: input.sparse_vector.clone(),
                     expires_at_ms: input.ttl_ms.map(|ttl| timestamp.saturating_add(ttl)),
+                    superseded_by: None,
+                    superseded_at_ms: None,
                 };
                 let (node, record) = memory_record_to_node_owned(record);
                 nodes.push(node);
@@ -692,6 +696,13 @@ impl VantaEmbedded {
             }
         }
 
+        // ADR-028: drop superseded records at final assembly. Pagination may
+        // yield a page with fewer than `limit` records when the flag is set —
+        // same guarantee as the post-filter path (a non-full page is last).
+        if options.exclude_superseded {
+            records.retain(|record| record.superseded_by.is_none());
+        }
+
         let end_cursor = cursor.saturating_add(limit);
         // A trailing cursor is only valid when this page was actually FULL after
         // the post-filter/dedup pass. `unique_ids.len()` is the pre-filter candidate
@@ -754,6 +765,7 @@ impl VantaEmbedded {
                     filter_ops: None,
                     limit: batch_size,
                     cursor,
+                    exclude_superseded: false,
                 },
             )?;
             if page.records.is_empty() {
@@ -814,6 +826,71 @@ impl VantaEmbedded {
     pub fn compact_wal(&self) -> Result<()> {
         self.check_read_only()?;
         self.engine_handle()?.compact_wal()
+    }
+
+    /// Mark an existing record as superseded by another existing record (ADR-028).
+    ///
+    /// Supersession is durable and first-class: the old record keeps its data
+    /// (soft-dead, recoverable) but gains `superseded_by`/`superseded_at_ms`,
+    /// and can be hidden from search/list with `exclude_superseded`.
+    ///
+    /// Errors if either key is missing, if `old_key == new_key`, or if the old
+    /// record is already superseded (idempotency guard).
+    #[tracing::instrument(skip(self), err)]
+    pub fn supersede(&self, namespace: &str, old_key: &str, new_key: &str) -> Result<()> {
+        self.check_read_only()?;
+        validate_namespace(namespace)?;
+        validate_key(old_key)?;
+        validate_key(new_key)?;
+        if old_key == new_key {
+            return Err(VantaError::InvalidInput(
+                "supersede: old_key and new_key must be different".into(),
+            ));
+        }
+
+        let old = self
+            .get(namespace, old_key)?
+            .ok_or_else(|| VantaError::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{old_key}"),
+            })?;
+        if old.superseded_by.is_some() {
+            return Err(VantaError::InvalidInput(format!(
+                "record '{old_key}' is already superseded by '{}'",
+                old.superseded_by.as_deref().unwrap_or_default()
+            )));
+        }
+        if self.get(namespace, new_key)?.is_none() {
+            return Err(VantaError::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{new_key}"),
+            });
+        }
+
+        let now = now_ms();
+        let mut record = old;
+        record.superseded_by = Some(new_key.to_string());
+        record.superseded_at_ms = Some(now);
+        record.updated_at_ms = now;
+        record.version = record.version.saturating_add(1);
+
+        // Reuse the put/upsert serialization path (WAL + KV + HNSW via
+        // engine.insert); payload/metadata/vector are unchanged, so the
+        // derived text/scalar indexes stay consistent with no index writes.
+        // ponytail: two WAL appends (old marked, new untouched) — not atomic;
+        // a crash between them leaves a dangling marker, which is still
+        // self-consistent (old marked, new present). Full 2PC deferred to
+        // ACID Phase 0, same as insert.
+        let engine = self.engine_handle()?;
+        let (node, record) = memory_record_to_node_owned(record);
+        engine.insert(&node)?;
+        // Best-effort version-history snapshot, same durability class as put_one.
+        let _ = super::version_history::write_snapshot(
+            &engine,
+            &record,
+            self.config.version_history_limit,
+        );
+        Ok(())
     }
 
     /// Scan all memory records and physically delete those whose expiry deadline has passed.
@@ -879,6 +956,8 @@ impl VantaEmbedded {
                     vector: None,
                     sparse_vector: None,
                     expires_at_ms: Some(expires),
+                    superseded_by: None,
+                    superseded_at_ms: None,
                 });
             }
         }
@@ -1287,6 +1366,7 @@ impl VantaEmbedded {
                     filter_ops: Some(filter.clone()),
                     limit: PAGE_SIZE,
                     cursor,
+                    exclude_superseded: false,
                 },
             )?;
             for record in &page.records {
@@ -1345,6 +1425,7 @@ impl VantaEmbedded {
                     filter_ops: filter.clone(),
                     limit: PAGE_SIZE,
                     cursor,
+                    exclude_superseded: false,
                 },
             )?;
             total += page.records.len() as u64;
@@ -1981,6 +2062,7 @@ mod tests {
             filter_ops: Some(filter_ops),
             limit: 4,
             cursor: None,
+            exclude_superseded: false,
         };
 
         let page = e.list("ns", opts).unwrap();
@@ -2022,6 +2104,7 @@ mod tests {
             filter_ops: None,
             limit: 0,
             cursor: None,
+            exclude_superseded: false,
         };
         let page = e.list("ns", opts).unwrap();
         assert!(
@@ -2087,6 +2170,7 @@ mod tests {
             filter_ops: None,
             limit: 10,
             cursor: None,
+            exclude_superseded: false,
         };
         let page = e.list("ns", opts).unwrap();
         let keys: Vec<_> = page.records.iter().map(|r| r.key.as_str()).collect();
@@ -2112,6 +2196,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms,
+            superseded_by: None,
+            superseded_at_ms: None,
         }
     }
 
@@ -2244,5 +2330,168 @@ mod tests {
         let mut cursor = std::io::Cursor::new(&buf);
         let err = e.bulk_import_stream(&mut cursor).unwrap_err();
         assert!(err.to_string().contains("count"), "got: {:?}", err);
+    }
+
+    // ── ADR-028 supersede ──
+
+    fn put_mem(db: &VantaEmbedded, ns: &str, key: &str, payload: &str) {
+        db.put(VantaMemoryInput {
+            namespace: ns.into(),
+            key: key.into(),
+            payload: payload.into(),
+            metadata: VantaMemoryMetadata::new(),
+            vector: Some(vec![1.0, 0.0, 0.0]),
+            sparse_vector: None,
+            ttl_ms: None,
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_supersede_marks_old_and_leaves_new_intact() {
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "old", "old payload");
+        put_mem(&db, "ns", "new", "new payload");
+        let before_old = db.get("ns", "old").unwrap().unwrap();
+        let before_new = db.get("ns", "new").unwrap().unwrap();
+
+        db.supersede("ns", "old", "new").unwrap();
+
+        let old = db.get("ns", "old").unwrap().unwrap();
+        assert_eq!(old.superseded_by.as_deref(), Some("new"));
+        assert!(
+            old.superseded_at_ms.is_some(),
+            "superseded_at_ms must be recorded"
+        );
+        assert_eq!(old.version, before_old.version + 1, "old version must bump");
+        assert_eq!(old.payload, "old payload", "old payload must be preserved");
+        assert_eq!(old.vector, Some(vec![1.0, 0.0, 0.0]));
+
+        let new = db.get("ns", "new").unwrap().unwrap();
+        assert_eq!(new.superseded_by, None, "new record must stay intact");
+        assert_eq!(new.superseded_at_ms, None);
+        assert_eq!(new.version, before_new.version, "new version must not bump");
+        assert_eq!(new.payload, "new payload");
+    }
+
+    #[test]
+    fn test_supersede_errors_on_missing_keys() {
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "old", "old payload");
+        put_mem(&db, "ns", "new", "new payload");
+
+        // Old missing.
+        let err = db.supersede("ns", "ghost", "new").unwrap_err();
+        assert!(err.to_string().contains("not found"), "got: {err:?}");
+        // New missing.
+        let err = db.supersede("ns", "old", "ghost").unwrap_err();
+        assert!(err.to_string().contains("not found"), "got: {err:?}");
+        // Both missing.
+        assert!(db.supersede("ns", "a", "b").is_err());
+    }
+
+    #[test]
+    fn test_supersede_errors_when_old_equals_new() {
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "k", "payload");
+        let err = db.supersede("ns", "k", "k").unwrap_err();
+        assert!(
+            err.to_string().contains("different"),
+            "expected different-keys error, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_supersede_idempotency_second_call_errors() {
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "old", "old payload");
+        put_mem(&db, "ns", "new", "new payload");
+        db.supersede("ns", "old", "new").unwrap();
+
+        let err = db.supersede("ns", "old", "new").unwrap_err();
+        assert!(
+            err.to_string().contains("already superseded"),
+            "expected idempotency guard, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_list_exclude_superseded_hides_and_default_keeps() {
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "old", "old payload");
+        put_mem(&db, "ns", "new", "new payload");
+        db.supersede("ns", "old", "new").unwrap();
+
+        let opts_all = VantaMemoryListOptions {
+            #[allow(deprecated)]
+            filters: VantaMemoryMetadata::new(),
+            filter_ops: None,
+            limit: 10,
+            cursor: None,
+            exclude_superseded: false,
+        };
+        let all: Vec<String> = db
+            .list("ns", opts_all)
+            .unwrap()
+            .records
+            .into_iter()
+            .map(|r| r.key)
+            .collect();
+        assert_eq!(all, vec!["new", "old"], "default keeps superseded records");
+
+        let opts_hidden = VantaMemoryListOptions {
+            #[allow(deprecated)]
+            filters: VantaMemoryMetadata::new(),
+            filter_ops: None,
+            limit: 10,
+            cursor: None,
+            exclude_superseded: true,
+        };
+        let visible: Vec<String> = db
+            .list("ns", opts_hidden)
+            .unwrap()
+            .records
+            .into_iter()
+            .map(|r| r.key)
+            .collect();
+        assert_eq!(visible, vec!["new"], "exclude_superseded hides old");
+    }
+
+    #[test]
+    fn test_search_exclude_superseded_hides_and_default_keeps() {
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "old", "old payload");
+        put_mem(&db, "ns", "new", "new payload");
+        db.supersede("ns", "old", "new").unwrap();
+
+        let req_all = VantaMemorySearchRequest {
+            namespace: "ns".into(),
+            query_vector: vec![1.0, 0.0, 0.0],
+            top_k: 10,
+            ..Default::default()
+        };
+        let mut keys: Vec<String> = db
+            .search(req_all)
+            .unwrap()
+            .into_iter()
+            .map(|h| h.record.key)
+            .collect();
+        keys.sort();
+        assert_eq!(keys, vec!["new", "old"], "default keeps superseded records");
+
+        let req_hidden = VantaMemorySearchRequest {
+            namespace: "ns".into(),
+            query_vector: vec![1.0, 0.0, 0.0],
+            top_k: 10,
+            exclude_superseded: true,
+            ..Default::default()
+        };
+        let keys: Vec<String> = db
+            .search(req_hidden)
+            .unwrap()
+            .into_iter()
+            .map(|h| h.record.key)
+            .collect();
+        assert_eq!(keys, vec!["new"], "exclude_superseded hides old");
     }
 }

@@ -152,6 +152,7 @@ fn memory_api_filters() {
                 filter_ops: None,
                 limit: 10,
                 cursor: None,
+                exclude_superseded: false,
             },
         )
         .expect("filtered list");
@@ -383,6 +384,7 @@ fn memory_euclidean_and_explainable_ranking() {
         distance_metric: vantadb::DistanceMetric::Euclidean,
         explain: true,
         query_sparse: None,
+        exclude_superseded: false,
     };
 
     let hits_explain = db.search(request_explain).expect("search with explain");
@@ -405,6 +407,7 @@ fn memory_euclidean_and_explainable_ranking() {
         distance_metric: vantadb::DistanceMetric::Euclidean,
         explain: false,
         query_sparse: None,
+        exclude_superseded: false,
     };
 
     let hits_no_explain = db
@@ -477,6 +480,7 @@ fn snippet_with_highlighting() {
         distance_metric: vantadb::DistanceMetric::Euclidean,
         explain: true,
         query_sparse: None,
+        exclude_superseded: false,
     };
 
     let hits = db.search(request).expect("search");

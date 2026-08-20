@@ -125,6 +125,7 @@ class AsyncVantaDB:
         distance_metric: str | None = None,
         method: str | None = None,
         explain: bool = False,
+        exclude_superseded: bool = False,
     ):
         return await self._run(
             self._sync.search_memory,
@@ -136,6 +137,7 @@ class AsyncVantaDB:
             distance_metric,
             method,
             explain,
+            exclude_superseded,
         )
 
     async def get_memory(self, namespace: str, key: str):
@@ -148,6 +150,7 @@ class AsyncVantaDB:
         filters: dict | None = None,
         limit: int = 100,
         cursor: int | None = None,
+        exclude_superseded: bool = False,
     ):
         return await self._run(
             self._sync.list_memory,
@@ -155,6 +158,7 @@ class AsyncVantaDB:
             filters,
             limit,
             cursor,
+            exclude_superseded,
         )
 
     # ── Mutations (sync wrappers for completeness) ──
@@ -178,6 +182,9 @@ class AsyncVantaDB:
 
     async def compact_wal(self):
         return await self._run(self._sync.compact_wal)
+
+    async def supersede(self, namespace: str, old_key: str, new_key: str):
+        return await self._run(self._sync.supersede, namespace, old_key, new_key)
 
     async def purge_expired(self) -> int:
         return await self._run(self._sync.purge_expired)

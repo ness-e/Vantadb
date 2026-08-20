@@ -123,6 +123,8 @@ impl From<SnapshotRecord> for VantaMemoryRecord {
             vector: s.vector,
             sparse_vector: s.sparse_vector,
             expires_at_ms: s.expires_at_ms,
+            superseded_by: None,
+            superseded_at_ms: None,
         }
     }
 }
@@ -439,6 +441,8 @@ mod tests {
             vector: Some(vec![0.5; 1536]),
             sparse_vector: Some(SparseVector(BTreeMap::from([(0, 1.0), (5, 0.25)]))),
             expires_at_ms: Some(1_700_000_000_000),
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         let bytes = encode_snapshot(&rec).expect("serialize");
         let back = decode_snapshot(&bytes).expect("deserialize");

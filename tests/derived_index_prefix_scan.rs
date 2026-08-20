@@ -41,6 +41,7 @@ fn namespace_and_filter_paths_use_prefix_scans() {
                 filter_ops: None,
                 limit: 100,
                 cursor: None,
+                exclude_superseded: false,
             },
         )
         .expect("filtered list");

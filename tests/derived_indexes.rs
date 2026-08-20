@@ -44,6 +44,7 @@ fn derived_indexes_isolate_namespaces_and_filters() {
                 filter_ops: None,
                 limit: 10,
                 cursor: None,
+                exclude_superseded: false,
             },
         )
         .expect("filtered list");
@@ -76,6 +77,7 @@ fn upsert_and_delete_keep_payload_indexes_current() {
                 filter_ops: None,
                 limit: 10,
                 cursor: None,
+                exclude_superseded: false,
             },
         )
         .expect("old filter");
@@ -92,6 +94,7 @@ fn upsert_and_delete_keep_payload_indexes_current() {
                 filter_ops: None,
                 limit: 10,
                 cursor: None,
+                exclude_superseded: false,
             },
         )
         .expect("new filter");

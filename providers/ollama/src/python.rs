@@ -290,7 +290,7 @@ impl VantaDBOllama {
             filter_ops: None,
             limit,
             cursor,
-        };
+            exclude_superseded: false,        };
 
         let engine = self.engine.clone();
         let ns = namespace.to_string();

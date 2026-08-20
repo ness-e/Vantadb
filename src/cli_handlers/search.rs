@@ -59,6 +59,7 @@ pub fn cmd_search(
         top_k: limit,
         distance_metric: crate::node::DistanceMetric::Cosine,
         explain: false,
+        exclude_superseded: false,
     };
 
     let hits = db.search(request)?;
@@ -404,6 +405,7 @@ pub fn cmd_search_multi(
         top_k,
         distance_metric: crate::node::DistanceMetric::Cosine,
         explain: false,
+        exclude_superseded: false,
     };
 
     let hits = db.search_multi(&namespaces, request)?;
@@ -459,6 +461,7 @@ pub fn cmd_search_all(
         top_k,
         distance_metric: crate::node::DistanceMetric::Cosine,
         explain: false,
+        exclude_superseded: false,
     };
 
     let hits = db.search_all(request)?;

@@ -67,7 +67,13 @@ impl VantaEmbedded {
     /// db.close().expect("close database");
     /// ```
     pub fn search(&self, request: VantaMemorySearchRequest) -> Result<Vec<VantaMemorySearchHit>> {
-        self.search_impl(request, None)
+        let exclude_superseded = request.exclude_superseded;
+        let mut hits = self.search_impl(request, None)?;
+        if exclude_superseded {
+            // ADR-028: drop superseded records at final assembly — no index change.
+            hits.retain(|hit| hit.record.superseded_by.is_none());
+        }
+        Ok(hits)
     }
 
     /// Same as [`search`](Self::search) with an explicit index backend override
@@ -80,7 +86,13 @@ impl VantaEmbedded {
         request: VantaMemorySearchRequest,
         method: Option<crate::index::IndexType>,
     ) -> Result<Vec<VantaMemorySearchHit>> {
-        self.search_impl(request, method)
+        let exclude_superseded = request.exclude_superseded;
+        let mut hits = self.search_impl(request, method)?;
+        if exclude_superseded {
+            // ADR-028: drop superseded records at final assembly — no index change.
+            hits.retain(|hit| hit.record.superseded_by.is_none());
+        }
+        Ok(hits)
     }
 
     #[tracing::instrument(skip(self, request), err)]

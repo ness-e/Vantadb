@@ -869,7 +869,7 @@ impl VantaDB {
     ///     >>> page[0].key
     ///     'task-1'
     ///     ```
-    #[pyo3(signature = (namespace, filters=None, limit=100, cursor=None))]
+    #[pyo3(signature = (namespace, filters=None, limit=100, cursor=None, exclude_superseded=false))]
     fn list_memory(
         &self,
         py: Python,
@@ -877,6 +877,7 @@ impl VantaDB {
         filters: Option<&Bound<'_, PyDict>>,
         limit: usize,
         cursor: Option<usize>,
+        exclude_superseded: bool,
     ) -> PyResult<VantaPyListResult> {
         let _g = enter(&self.op_gate)?;
         let namespace = namespace.to_string();
@@ -892,6 +893,7 @@ impl VantaDB {
                         filter_ops: None,
                         limit,
                         cursor,
+                        exclude_superseded,
                     },
                 )
                 .map_err(map_vanta_error)
@@ -951,7 +953,7 @@ impl VantaDB {
     ///     True
     ///     ```
     // PyO3 keyword argument binding requires matching function parameters in Rust.
-    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false))]
+    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false, exclude_superseded=false))]
     #[allow(clippy::too_many_arguments)]
     fn search_memory(
         &self,
@@ -964,6 +966,7 @@ impl VantaDB {
         distance_metric: Option<&str>,
         method: Option<&str>,
         explain: bool,
+        exclude_superseded: bool,
     ) -> PyResult<Vec<VantaPySearchHit>> {
         let _g = enter(&self.op_gate)?;
         let metric = match distance_metric {
@@ -988,6 +991,7 @@ impl VantaDB {
             top_k: top_k.min(MAX_K),
             distance_metric: metric,
             explain,
+            exclude_superseded,
         };
 
         let engine = self.engine.clone();
@@ -1487,6 +1491,28 @@ impl VantaDB {
         py.detach(move || engine.purge_expired().map_err(map_vanta_error))
     }
 
+    /// Mark an existing record as superseded by another existing record
+    /// (ADR-028). The old record keeps its data but gains
+    /// ``superseded_by``/``superseded_at_ms`` and can be hidden from
+    /// search/list with ``exclude_superseded=True``.
+    ///
+    /// Raises:
+    ///     RuntimeError: If either key is missing, ``old_key == new_key``,
+    ///         or the old record is already superseded.
+    #[pyo3(signature = (namespace, old_key, new_key))]
+    fn supersede(&self, py: Python, namespace: &str, old_key: &str, new_key: &str) -> PyResult<()> {
+        let _g = enter(&self.op_gate)?;
+        let namespace = namespace.to_string();
+        let old_key = old_key.to_string();
+        let new_key = new_key.to_string();
+        let engine = self.engine.clone();
+        py.detach(move || {
+            engine
+                .supersede(&namespace, &old_key, &new_key)
+                .map_err(map_vanta_error)
+        })
+    }
+
     /// Introspect the stable runtime capabilities exposed by the SDK boundary.
     fn capabilities(&self, py: Python) -> PyResult<Py<PyAny>> {
         let capabilities = self.engine.capabilities();
@@ -1795,6 +1821,7 @@ impl VantaDB {
             top_k: top_k.min(MAX_K),
             distance_metric: metric,
             explain: true,
+            exclude_superseded: false,
         };
 
         let _g = enter(&self.op_gate)?;
@@ -1904,6 +1931,7 @@ impl VantaDB {
                 top_k,
                 distance_metric,
                 explain,
+                exclude_superseded: false,
             },
             method,
         ))

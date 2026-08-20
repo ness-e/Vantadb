@@ -24,6 +24,10 @@ pub const FIELD_UPDATED_AT_MS: &str = "__vanta_updated_at_ms";
 pub const FIELD_VERSION: &str = "__vanta_version";
 /// Internal field name storing the optional Unix-ms expiry deadline.
 pub const FIELD_EXPIRES_AT_MS: &str = "__vanta_expires_at_ms";
+/// Internal field name storing the key of the record that supersedes this one (ADR-028).
+pub const FIELD_SUPERSEDED_BY: &str = "__vanta_superseded_by";
+/// Internal field name storing the Unix-ms timestamp when the supersession was recorded (ADR-028).
+pub const FIELD_SUPERSEDED_AT_MS: &str = "__vanta_superseded_at_ms";
 /// Internal `ext_metadata` key storing the sparse vector on a memory record
 /// node as interleaved `ListFloat` pairs (ADR-019). Kept out of the
 /// bincode-graph so old databases read missing keys as `None`.
@@ -313,6 +317,8 @@ fn memory_record_from_node_inner(
     let updated_at_ms = get_u64_field(&fields, FIELD_UPDATED_AT_MS)?;
     let version = get_u64_field(&fields, FIELD_VERSION)?;
     let expires_at_ms = get_u64_field(&fields, FIELD_EXPIRES_AT_MS);
+    let superseded_by = get_string_field(&fields, FIELD_SUPERSEDED_BY);
+    let superseded_at_ms = get_u64_field(&fields, FIELD_SUPERSEDED_AT_MS);
 
     fields.remove(FIELD_NAMESPACE);
     fields.remove(FIELD_KEY);
@@ -321,6 +327,8 @@ fn memory_record_from_node_inner(
     fields.remove(FIELD_UPDATED_AT_MS);
     fields.remove(FIELD_VERSION);
     fields.remove(FIELD_EXPIRES_AT_MS);
+    fields.remove(FIELD_SUPERSEDED_BY);
+    fields.remove(FIELD_SUPERSEDED_AT_MS);
     fields.remove(SPARSE_VECTOR_EXT_KEY);
 
     // Lazy TTL eviction: if expires_at_ms is set and the deadline
@@ -388,6 +396,8 @@ fn memory_record_from_node_inner(
         vector,
         sparse_vector,
         expires_at_ms,
+        superseded_by,
+        superseded_at_ms,
     })
 }
 
@@ -417,6 +427,16 @@ pub(crate) fn memory_record_to_node_owned(
 
     if let Some(expires_at) = record.expires_at_ms {
         node.set_field(FIELD_EXPIRES_AT_MS, FieldValue::Int(expires_at as i64));
+    }
+
+    if let Some(superseded_by) = record.superseded_by.clone() {
+        node.set_field(FIELD_SUPERSEDED_BY, FieldValue::String(superseded_by));
+    }
+    if let Some(superseded_at) = record.superseded_at_ms {
+        node.set_field(
+            FIELD_SUPERSEDED_AT_MS,
+            FieldValue::Int(superseded_at as i64),
+        );
     }
 
     // ponytail: iterar por referencia, no clonar todo el HashMap solo para leerlo
@@ -461,6 +481,8 @@ pub fn export_line_from_record(record: VantaMemoryRecord) -> VantaMemoryExportLi
         updated_at_ms: record.updated_at_ms,
         version: record.version,
         expires_at_ms: record.expires_at_ms,
+        superseded_by: record.superseded_by,
+        superseded_at_ms: record.superseded_at_ms,
     }
 }
 
@@ -488,6 +510,8 @@ pub(crate) fn record_from_export_line(line: VantaMemoryExportLine) -> Result<Van
         vector: line.vector,
         sparse_vector: line.sparse_vector,
         expires_at_ms: line.expires_at_ms,
+        superseded_by: line.superseded_by,
+        superseded_at_ms: line.superseded_at_ms,
     })
 }
 
@@ -974,6 +998,8 @@ mod tests {
             vector: Some(vec![0.5, 0.5]),
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
 
         let (node, returned_record) = memory_record_to_node_owned(record);
@@ -1009,6 +1035,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms: Some(999_999_999_999),
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         let (node, _) = memory_record_to_node_owned(record);
         assert_eq!(
@@ -1031,6 +1059,8 @@ mod tests {
             vector: Some(vec![]),
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         let (node, returned) = memory_record_to_node_owned(record);
         assert!(returned.vector.is_none());
@@ -1059,6 +1089,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
 
         let line = export_line_from_record(record.clone());
@@ -1089,6 +1121,8 @@ mod tests {
             updated_at_ms: 0,
             version: 0,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         let err = record_from_export_line(line).unwrap_err();
         assert!(err.to_string().contains("unsupported"));
@@ -1109,6 +1143,8 @@ mod tests {
             updated_at_ms: 200,
             version: 5,
             expires_at_ms: None,
+            superseded_by: Some("successor".into()),
+            superseded_at_ms: Some(1234),
         };
         let json = serde_json::to_string(&line).unwrap();
         let deserialized: VantaMemoryExportLine = serde_json::from_str(&json).unwrap();
@@ -1123,6 +1159,91 @@ mod tests {
         assert_eq!(deserialized.updated_at_ms, line.updated_at_ms);
         assert_eq!(deserialized.version, line.version);
         assert_eq!(deserialized.expires_at_ms, line.expires_at_ms);
+        assert_eq!(deserialized.superseded_by, line.superseded_by);
+        assert_eq!(deserialized.superseded_at_ms, line.superseded_at_ms);
+    }
+
+    #[test]
+    fn test_export_line_superseded_roundtrip() {
+        let record = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "old".into(),
+            payload: "data".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 10,
+            updated_at_ms: 20,
+            version: 2,
+            node_id: memory_node_id("ns", "old"),
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: Some("new".into()),
+            superseded_at_ms: Some(4321),
+        };
+
+        let line = export_line_from_record(record.clone());
+        assert_eq!(line.superseded_by.as_deref(), Some("new"));
+        assert_eq!(line.superseded_at_ms, Some(4321));
+
+        let recovered = record_from_export_line(line).unwrap();
+        assert_eq!(recovered.superseded_by, record.superseded_by);
+        assert_eq!(recovered.superseded_at_ms, record.superseded_at_ms);
+        assert_eq!(recovered.version, record.version);
+    }
+
+    #[test]
+    fn test_memory_record_superseded_node_roundtrip() {
+        // ADR-028: superseded fields must survive record → node → record.
+        let record = VantaMemoryRecord {
+            namespace: "ns".into(),
+            key: "old".into(),
+            payload: "data".into(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 10,
+            updated_at_ms: 20,
+            version: 2,
+            node_id: memory_node_id("ns", "old"),
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: Some("new".into()),
+            superseded_at_ms: Some(4321),
+        };
+
+        let (node, _) = memory_record_to_node_owned(record.clone());
+        assert_eq!(
+            node.get_field(FIELD_SUPERSEDED_BY),
+            Some(&crate::node::FieldValue::String("new".into()))
+        );
+        assert_eq!(
+            node.get_field(FIELD_SUPERSEDED_AT_MS),
+            Some(&crate::node::FieldValue::Int(4321))
+        );
+
+        let recovered = memory_record_from_node(&node).unwrap();
+        assert_eq!(recovered.superseded_by, record.superseded_by);
+        assert_eq!(recovered.superseded_at_ms, record.superseded_at_ms);
+    }
+
+    #[test]
+    fn test_memory_record_backward_compat_no_superseded_fields() {
+        // ADR-028: dumps written before the fields existed deserialize to None.
+        let json = serde_json::json!({
+            "namespace": "ns",
+            "key": "k",
+            "payload": "data",
+            "metadata": {},
+            "created_at_ms": 10,
+            "updated_at_ms": 20,
+            "version": 1,
+            "node_id": "42",
+            "vector": null,
+            "sparse_vector": null,
+            "expires_at_ms": null
+        });
+        let record: VantaMemoryRecord = serde_json::from_value(json).unwrap();
+        assert_eq!(record.superseded_by, None);
+        assert_eq!(record.superseded_at_ms, None);
     }
 
     // ΓöÇΓöÇΓöÇ matches_memory_filters ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
@@ -1141,6 +1262,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         record
             .metadata
@@ -1169,6 +1292,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         assert!(matches_memory_filters(&record, &VantaMemoryMetadata::new()));
     }
@@ -1187,6 +1312,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         record.metadata.insert("a".into(), VantaValue::Int(1));
         record
@@ -1219,6 +1346,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         for (k, v) in pairs {
             record.metadata.insert(k.to_string(), v.clone());
@@ -1368,6 +1497,8 @@ mod tests {
             vector: None,
             sparse_vector: sparse,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         }
     }
 

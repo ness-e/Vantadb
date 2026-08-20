@@ -115,6 +115,8 @@ fn make_hits(n: usize) -> Vec<VantaMemorySearchHit> {
                 vector: None,
                 sparse_vector: None,
                 expires_at_ms: None,
+                superseded_by: None,
+                superseded_at_ms: None,
             },
             score: ((i % 97) as f32) * 0.01,
             explanation: None,

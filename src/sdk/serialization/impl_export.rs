@@ -167,6 +167,7 @@ impl VantaEmbedded {
                             filter_ops: Some(ops.clone()),
                             limit: PAGE_SIZE,
                             cursor,
+                            exclude_superseded: false,
                         },
                     )?;
                     records.extend(page.records);
@@ -497,6 +498,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         let report = db.import_records(vec![record]).unwrap();
         assert_eq!(report.inserted, 1);
@@ -531,6 +534,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         let report = db.import_records(vec![record]).unwrap();
         assert_eq!(report.updated, 1);
@@ -554,6 +559,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         let report = db.import_records(vec![record]).unwrap();
         assert_eq!(report.errors, 1);
@@ -579,6 +586,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         let line = super::super::export_line_from_record(record);
         let json = serde_json::to_string(&line).unwrap();
@@ -612,6 +621,8 @@ mod tests {
             vector: None,
             sparse_vector: None,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         };
         let line = super::super::export_line_from_record(record);
         content.push_str(&serde_json::to_string(&line).unwrap());

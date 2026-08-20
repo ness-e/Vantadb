@@ -352,6 +352,8 @@ mod tests {
             vector: None,
             sparse_vector: sparse,
             expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
         }
     }
 

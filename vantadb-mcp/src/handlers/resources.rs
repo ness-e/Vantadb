@@ -101,6 +101,7 @@ pub fn handle_resources_read(
             #[allow(deprecated)]
             filters: vantadb::sdk::VantaMemoryMetadata::new(),
             filter_ops: None,
+            exclude_superseded: false,
         };
         match embedded.list(namespace, options) {
             Ok(page) => {

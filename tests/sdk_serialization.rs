@@ -70,6 +70,8 @@ fn test_memory_record_serialize() {
         vector: None,
         sparse_vector: None,
         expires_at_ms: None,
+        superseded_by: None,
+        superseded_at_ms: None,
     };
     let json = serde_json::to_string(&record).unwrap();
     let back: VantaMemoryRecord = serde_json::from_str(&json).unwrap();
@@ -90,6 +92,7 @@ fn test_search_request_serialize() {
         distance_metric: DistanceMetric::Cosine,
         explain: true,
         query_sparse: None,
+        exclude_superseded: false,
     };
     let json = serde_json::to_string(&req).unwrap();
     let back: VantaMemorySearchRequest = serde_json::from_str(&json).unwrap();
@@ -112,6 +115,8 @@ fn test_search_hit_serialize() {
         vector: None,
         sparse_vector: None,
         expires_at_ms: None,
+        superseded_by: None,
+        superseded_at_ms: None,
     };
     let hit = VantaMemorySearchHit {
         record: record.clone(),

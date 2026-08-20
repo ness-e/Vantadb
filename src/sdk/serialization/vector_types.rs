@@ -28,6 +28,10 @@ pub struct VantaMemorySearchRequest {
     pub distance_metric: DistanceMetric,
     /// When true, each result will carry a `VantaSearchExplanation`.
     pub explain: bool,
+    /// When true, records marked as superseded (ADR-028) are dropped from the
+    /// results. Defaults to false: superseded records remain searchable.
+    #[serde(default)]
+    pub exclude_superseded: bool,
 }
 
 impl Default for VantaMemorySearchRequest {
@@ -41,6 +45,7 @@ impl Default for VantaMemorySearchRequest {
             top_k: 10,
             distance_metric: DistanceMetric::Cosine,
             explain: false,
+            exclude_superseded: false,
         }
     }
 }
@@ -97,6 +102,7 @@ mod tests {
             distance_metric: DistanceMetric::Euclidean,
             explain: true,
             query_sparse: None,
+            exclude_superseded: false,
         };
         assert_eq!(req.namespace, "test");
         assert_eq!(req.query_vector.len(), 3);
@@ -116,6 +122,7 @@ mod tests {
             distance_metric: DistanceMetric::Cosine,
             explain: false,
             query_sparse: None,
+            exclude_superseded: false,
         };
         let json = serde_json::to_string(&req).unwrap();
         let deserialized: VantaMemorySearchRequest = serde_json::from_str(&json).unwrap();
@@ -148,6 +155,8 @@ mod tests {
                 vector: None,
                 sparse_vector: None,
                 expires_at_ms: None,
+                superseded_by: None,
+                superseded_at_ms: None,
             },
             score: 0.95,
             explanation: None,

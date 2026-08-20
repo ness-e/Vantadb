@@ -185,7 +185,7 @@ impl VantaDBLiteLLM {
                         filter_ops: None,
                         limit,
                         cursor,
-                    },
+                        exclude_superseded: false,                    },
                 )
                 .map_err(err_to_py)
         })?;

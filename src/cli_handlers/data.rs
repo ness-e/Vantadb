@@ -48,6 +48,7 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
                     filter_ops: None,
                     limit: 1,
                     cursor: None,
+                    exclude_superseded: false,
                 },
             )
             .map(|p| !p.records.is_empty())
@@ -75,6 +76,7 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
                 filter_ops: None,
                 limit: BATCH_SIZE,
                 cursor,
+                exclude_superseded: false,
             };
             let page = embedded.list(ns, opts)?;
             if page.records.is_empty() {

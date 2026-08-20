@@ -571,6 +571,7 @@ impl VantaDB {
                     filter_ops: None,
                     limit: 10_000,
                     cursor,
+                    exclude_superseded: false,
                 };
                 let page = self.inner.list(ns, opts).map_err(to_js_err)?;
                 for record in page.records {
@@ -929,6 +930,7 @@ impl VantaDB {
             filter_ops: None,
             limit: opts.limit,
             cursor: opts.cursor,
+            exclude_superseded: false,
         };
         let page = self.inner.list(namespace, vanta_opts).map_err(to_js_err)?;
         let obj = js_sys::Object::new();
@@ -990,6 +992,7 @@ impl VantaDB {
             top_k: req.top_k.min(MAX_K),
             distance_metric: distance,
             explain: req.explain,
+            exclude_superseded: false,
         };
         let hits = self.inner.search(vanta_req).map_err(to_js_err)?;
         let arr = js_sys::Array::new();
@@ -1047,6 +1050,7 @@ impl VantaDB {
             top_k: req.top_k.min(MAX_K),
             distance_metric: distance,
             explain: true,
+            exclude_superseded: false,
         };
         let explanation = self
             .inner

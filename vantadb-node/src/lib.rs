@@ -363,7 +363,7 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<VantaMemoryListOpti
         filter_ops: None,
         limit,
         cursor,
-    })
+        exclude_superseded: false,    })
 }
 
 fn parse_search_request(value: &Value) -> napi::Result<VantaMemorySearchRequest> {

@@ -490,6 +490,8 @@ mod tests {
                 node_id,
                 vector: None,
                 sparse_vector: None,
+                superseded_by: None,
+                superseded_at_ms: None,
             },
             score,
             explanation: None,

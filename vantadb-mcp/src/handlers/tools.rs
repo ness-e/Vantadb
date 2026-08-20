@@ -366,6 +366,7 @@ pub fn handle_tools_call(
                 #[allow(deprecated)]
                 filters: vantadb::sdk::VantaMemoryMetadata::new(),
                 filter_ops,
+                exclude_superseded: false,
             };
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
@@ -533,6 +534,7 @@ pub fn handle_tools_call(
                 top_k,
                 distance_metric,
                 explain,
+                exclude_superseded: false,
             };
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());

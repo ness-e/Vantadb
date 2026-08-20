@@ -1386,6 +1386,73 @@ class TestVantaSearchHit:
         assert "VantaSearchHit(" in r, f"repr should contain 'VantaSearchHit(', got {r}"
         assert "repr-test" in r, f"repr should contain 'repr-test', got {r}"
 
+    def test_supersede_smoke(self):
+        """ADR-028: supersede + getters + exclude_superseded filter."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+
+        db.put("ns", "old", "old payload", vector=[1.0, 0.0, 0.0])
+        db.put("ns", "new", "new payload", vector=[1.0, 0.0, 0.0])
+
+        # Both records start current.
+        old_before = db.get_memory("ns", "old")
+        assert old_before["superseded_by"] is None
+        assert old_before["superseded_at_ms"] is None
+
+        db.supersede("ns", "old", "new")
+
+        # Old record carries the marker; new record stays intact.
+        old = db.get_memory("ns", "old")
+        assert old["superseded_by"] == "new", f"expected superseded_by='new', got {old['superseded_by']}"
+        assert old["superseded_at_ms"] is not None, "superseded_at_ms must be recorded"
+        assert old["payload"] == "old payload", "old payload must be preserved"
+        new = db.get_memory("ns", "new")
+        assert new["superseded_by"] is None, "new record must stay intact"
+        assert new["superseded_at_ms"] is None
+
+        # Idempotency guard: second supersede errors.
+        try:
+            db.supersede("ns", "old", "new")
+            assert False, "second supersede should raise"
+        except ValueError as exc:
+            assert "already superseded" in str(exc), f"got {exc}"
+
+        # Default search keeps superseded records.
+        hits = db.search_memory("ns", [1.0, 0.0, 0.0], top_k=5)
+        keys = sorted(hit.key for hit in hits)
+        assert keys == ["new", "old"], f"default search should keep both, got {keys}"
+
+        # exclude_superseded=True hides the old record.
+        hits = db.search_memory("ns", [1.0, 0.0, 0.0], top_k=5, exclude_superseded=True)
+        keys = [hit.key for hit in hits]
+        assert keys == ["new"], f"exclude_superseded search should hide old, got {keys}"
+
+        # Default list keeps superseded records.
+        page = db.list_memory("ns")
+        keys = sorted(r["key"] for r in page["records"])
+        assert keys == ["new", "old"], f"default list should keep both, got {keys}"
+
+        # exclude_superseded=True hides the old record from list.
+        page = db.list_memory("ns", exclude_superseded=True)
+        keys = [r["key"] for r in page["records"]]
+        assert keys == ["new"], f"exclude_superseded list should hide old, got {keys}"
+
+        # Search hit getters expose the marker.
+        hit = next(h for h in db.search_memory("ns", [1.0, 0.0, 0.0], top_k=5) if h.key == "old")
+        assert hit.superseded_by == "new", f"got {hit.superseded_by}"
+        assert hit.superseded_at_ms is not None
+
+    def test_supersede_missing_and_same_key_errors(self):
+        """ADR-028: supersede errors on missing keys and old == new."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("ns", "k", "payload")
+
+        with pytest.raises(KeyError):
+            db.supersede("ns", "ghost", "k")
+        with pytest.raises(KeyError):
+            db.supersede("ns", "k", "ghost")
+        with pytest.raises(ValueError):
+            db.supersede("ns", "k", "k")
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

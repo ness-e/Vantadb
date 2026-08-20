@@ -349,6 +349,7 @@ pub(crate) fn for_each_record(
             #[allow(deprecated)]
             filters: vantadb::sdk::VantaMemoryMetadata::new(),
             filter_ops: None,
+            exclude_superseded: false,
         };
         match embedded.list(namespace, options) {
             Ok(page) => {
