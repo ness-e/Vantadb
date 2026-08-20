@@ -4,7 +4,7 @@
 - **Plan file:** `docs/plans/2026-08-18-vanta-memory.md`
 - **Creado:** 2026-08-20T16:30
 - **last-synced:** 2026-08-20T16:30
-- **Estado:** ✅ COMPLETED (commit <hash>, verify 13/13 nextest + 44/44 mcp_tests + clippy -D warnings)
+- **Estado:** ✅ COMPLETED (commit 4763bf44, verify 13/13 nextest + 44/44 mcp_tests + clippy -D warnings)
 - **Workflow:** feature-add (spec → implement → verify → review → accept → close)
 
 ## Blast Radius
@@ -120,7 +120,7 @@
 
 ### Step 8: Verify full + docs + commit
 - **Acción:** Verify full: `cargo fmt --check` + `cargo clippy -p vantadb-mcp -- -D warnings` + `cargo nextest run -p vantadb-mcp` (13/13) + `cargo test -p vantadb-mcp --test mcp_tests` (44/44, binary excluido de nextest) + `scripts/validate-docs-coverage.ps1` (vantadb-mcp 15/15 ok). Docs: `docs/api/MCP.md` — sección Skill Operations (Regla 3). Commit conventional con task ID: `feat(mcp): tools skill_* sobre SkillStore con owner check (MEM-07)`.
-- **Estado:** ✅ DONE (commit <hash>)
+- **Estado:** ✅ DONE (commit 4763bf44)
 
 ## Dependencias
 - MEM-06 (SkillStore + tipos) ✅ commit `92cf709f`
