@@ -1,7 +1,15 @@
 # FEAT-03b-impl — Core decay: implementación (supersession durable, ADR-028)
 
-> Plan: `docs/plans/2026-08-19-vanta-studio-fase4.md` (Task 17, alcance D16 "b") · Estado: ⏳ PENDING → in-progress al delegar
-> Diseño aprobado: `docs/architecture/adr/ADR-028-core-decay-supersession.md` (accepted) · Contrato: `docs/architecture/FEAT-03b-core-decay-contract.md`
+> Plan: `docs/plans/2026-08-19-vanta-studio-fase4.md` (Task 17, alcance D16 "b") · Estado: ✅ COMPLETO (commit `28a1788d`; verify del lead 2026-08-20)
+
+## Verify REAL del lead (post-delegación, 2026-08-20)
+- Primera delegación CANCELADA a mitad de camino → trabajo incompleto en worktree (NO daño). El lead completó 5 call sites (mcp x3, wasm x2) + cargo fmt; relanzó el sub-agente que terminó struct export + constructores de tests + tests del contrato.
+- `cargo test -p vantadb` — **1803 passed, 0 failed** (incluye supersede/filtros/roundtrip/backward-compat)
+- `cargo test -p vantadb --test memory_api --test sdk_serialization --test proptest_serialization_roundtrip` — 42 passed
+- `cargo clippy --workspace --all-targets --all-features -- -D warnings` — EXIT=0
+- `cargo fmt --all -- --check` — EXIT=0
+- pytest: tests nuevos 2/2 aislados (supersede_smoke + missing/same-key errors); suite completa 23 fallos = TODOS "Memory pressure" (OOM conocido de esta máquina, no defectos)
+- Commit: `feat: FEAT-03b — core decay como supersession durable (ADR-028)` — 35 archivos, 653 insertions
 
 ## Contexto (verify del lead, 2026-08-20)
 - ADR-028 (accepted): supersession durable first-class, NO scoring/deleción automática. TTL duro ya existe; falta el marcador `superseded_by`/`superseded_at_ms` + `supersede()` + `exclude_superseded` en search/list.

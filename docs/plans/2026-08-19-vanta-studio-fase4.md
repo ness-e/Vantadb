@@ -2,7 +2,7 @@
 
 > **Campaign ID:** e7b31c4a-8d2f-4a7e-9c1b-6f5a3e8d2c40
 > **Inicio:** 2026-08-19
-> **Estado:** 🚧 EN EJECUCIÓN — W0 (DOC) ✅, W1 (REST-01..06) ✅ y W2 (WASM-01..04) ✅ completas (commits f7e39005, 0bf9609e, 9ec506d8, 7b3cfea2, b81a8bf9, 1b71d300, 08109a55, 8ad119eb, 5b2d5ac0, d9a86906, 901a1c51, 380bb6eb); W3 (FEAT-01..03) en curso. 18 tareas: 12/18.
+> **Estado:** 🚧 EN EJECUCIÓN — W0 (DOC) ✅, W1 (REST-01..06) ✅, W2 (WASM-01..04) ✅ y W3 (FEAT-01..03) ✅ completas (commits f7e39005, 0bf9609e, 9ec506d8, 7b3cfea2, b81a8bf9, 1b71d300, 08109a55, 8ad119eb, 5b2d5ac0, d9a86906, 901a1c51, 380bb6eb, dcde9a25, cbdb6011, 98b048b2, f74d0f72, 28a1788d); W4 (VER-01) en curso. 18 tareas: 16/18.
 > **Fuente:** auditoría multi-agente 2026-08-19 (4 sub-agentes read-only: research original `docs/research/human-facing-db-ui/` + Fases 0/1 + Fases 2/3 + cross-check git/registro) → gaps consolidados en el digest del lead; decisiones del usuario 2026-08-19 (ver Decisiones).
 > **Modo:** secuencial con waves paralelas por archivos disjuntos (patrón Fase 3). FAIL_MODE=parallel.
 
@@ -179,7 +179,7 @@
 - **Gate Justificación:** auditoría research Alta #2 — nunca tocado (SYNTHESIS §4 OPERACIONES:155, 03 lección 5:252, 07 Fix 3:89); diferenciador de memoria: marcar registros duplicados/superados (misma entidad, versiones nuevas) con diff visible.
 - **Contrato:** definir con el usuario el alcance mínimo viable (D16): (a) UI-only: detectar candidatos por similitud (search kNN) + diff visible entre pares + sugerencia de "superado por" (metadata `superseded_by`); (b) core decay: si requiere decay automático → task core separada con contrato. Entregar al menos (a) en esta fase; (b) documentado como follow-up.
 - **Verificación:** node:test (lógica de detección/diff) verde; smoke: DB temp con duplicados → surface los marca con diff; build verde.
-- **Estado:** ⏳ PENDING (requiere decisión D16 del usuario antes de ejecutar)
+- **Estado:** ✅ COMPLETO (D16 "todo" 2026-08-20 — (a) FEAT-03a commit `98b048b2`; (b) ADR-028 `f74d0f72` + core `28a1788d`; verify lead: 77/77 desktop tests, 1803 core, clippy/fmt verdes)
 
 ---
 
