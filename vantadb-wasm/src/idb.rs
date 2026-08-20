@@ -65,6 +65,11 @@ extern "C" {
 }
 
 fn storage() -> Result<JsValue, JsValue> {
+    // Ensure the inline JS bridge has registered globalThis.vantaIdbStorage.
+    // The generated __vanta_ensure_idb_bridge import is idempotent: the bridge
+    // IIFE re-enters early when vantaIdbStorage already exists. Without this
+    // call the bridge never registers and every IDB operation fails.
+    __vanta_ensure_idb_bridge();
     let val = Reflect::get(&js_sys::global(), &"vantaIdbStorage".into())?;
     if val.is_undefined() {
         return Err(JsValue::from_str(

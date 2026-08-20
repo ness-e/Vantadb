@@ -30,7 +30,24 @@ impl OpfsFile {
                 let promise = v
                     .dyn_into::<Promise>()
                     .map_err(|_| JsValue::from_str("expected Promise from getFileHandle"))?;
-                wasm_bindgen_futures::JsFuture::from(promise).await?
+                match wasm_bindgen_futures::JsFuture::from(promise).await {
+                    Ok(v) => v,
+                    Err(e) => {
+                        // getFileHandle rejects with NotFoundError when the file
+                        // does not exist and create=false. Treat that as "absent"
+                        // (Ok(None)) instead of an error, so read_file/load can
+                        // open a fresh storage directory on first run.
+                        if !create {
+                            let name = Reflect::get(&e, &"name".into())
+                                .ok()
+                                .and_then(|v| v.as_string());
+                            if name.as_deref() == Some("NotFoundError") {
+                                return Ok(None);
+                            }
+                        }
+                        return Err(e);
+                    }
+                }
             }
             Err(_) => {
                 if create {
