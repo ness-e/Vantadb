@@ -194,7 +194,8 @@
 - **Gate Justificación:** F4 base — estructura del crate LLM-driven; layout inspirado en `MC/package.json`/`MC/index.ts` (sin fuente TDAM directa); feature-gates: `llm-driver` (default off), `mock` para tests; workspace inheritance
 - **Contrato:** `cargo check -p vanta-memory` pasa; crate es workspace member
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-08a.md`
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETED (crate creado, `cargo check -p vanta-memory` ✅ + 2/2 smoke 2026-08-20, commit `pending`)
+- **last-synced:** 2026-08-20T19:00
 
 ### Task 11: MEM-08b — F4 Contratos L1 + trait LLMRunner host-neutral
 - **Archivos clave:** `vanta-memory/src/core/abstractions/types.rs` (crear), `vanta-memory/src/offload/types.rs` (crear), `vanta-memory/src/adapters/standalone/llm_runner.rs` (crear), `vanta-memory/src/adapters/openclaw/llm_runner.rs` (crear)

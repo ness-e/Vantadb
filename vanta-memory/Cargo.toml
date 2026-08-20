@@ -1,0 +1,29 @@
+[package]
+name = "vanta-memory"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "VantaDB Memory Engine: four-layer (L0-L3) LLM-driven memory pipeline (port of TDAM, host-neutral)"
+publish = false
+
+[dependencies]
+vantadb = { path = "../", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2"
+tracing = "0.1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+# LLM-driven paths (L1 extraction, L2 scenes, L3 persona, recall composer).
+# Default off: the crate degrades to LLM-free capture/dedup/store (never blocks,
+# never loses data) when no LLM runner is plugged in.
+llm-driver = []
+
+# Deterministic fake LLM runner for tests (see MEM-08b).
+mock = []
+
+[lints]
+workspace = true
