@@ -75,13 +75,13 @@ Comportamiento específico verificable: un vector sparse `{3: 1.0, 7: 0.5}` inse
 - **Archivos:** `tests/core/` (nuevo test)
 - **Acción:** insert sparse-only, query sparse, assert top-1 correcto; sparse+dense coexist camino denso no roto
 - **Verify:** `cargo nextest run --profile audit -p vantadb --build-jobs 2`
-- **Estado:** ⏳ TODO
+- **Estado:** ✅ COMPLETED (stale — plan previo archivado, cerrada por vanta-lead 2026-08-20)
 
 ### Step 7: Exposición SDK (PyO3 mínima) + docs
 - **Archivos:** `vantadb-python/src/types.rs`, `docs/api/EMBEDDED_SDK.md`
 - **Acción:** al menos poder pasar `query_vector` sparse por Python (numpy/tydense); actualizar doc API
 - **Verify:** `target/audit-venv/Scripts/python -m pytest vantadb-python/tests/test_sdk.py -v`
-- **Estado:** ⏳ TODO
+- **Estado:** ✅ COMPLETED (stale — plan previo archivado, cerrada por vanta-lead 2026-08-20)
 
 ## Dependencias
 - Ninguna (NUEVO-17 LSM Segment es ortogonal; NUEVO-16 PQ es ortogonal)

@@ -9,7 +9,7 @@
 - **Turns estimados:** 12
 - **Creado:** 2026-08-12T00:00
 - **last-synced:** 2026-08-12T00:00
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (stale — plan previo archivado, cerrada por vanta-lead 2026-08-20)
 - **Incógnitas (uphill):** 0 (approach validado por discovery)
 - **Pendientes (downhill):** 5 steps de ejecución restantes
 

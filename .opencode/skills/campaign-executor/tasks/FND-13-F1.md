@@ -3,7 +3,7 @@
 ## Metadata
 - **Plan:** docs/plans/2026-08-16-wave-followups.md (W3)
 - **Fuente:** hallazgo BENCH01 de FND-13 (claims ~5,400 vec/s retirados del README por PERF-01 pero vivos en web/src/)
-- **Estado:** ⏳ IN PROGRESS · **Sub-agente:** vanta-worker
+- **Estado:** ✅ COMPLETED (stale — plan previo archivado, cerrada por vanta-lead 2026-08-20)
 - **Prioridad:** 🟡
 
 ## Objetivo

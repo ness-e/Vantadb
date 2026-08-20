@@ -3,7 +3,7 @@
 ## Metadata
 - **Plan:** docs/plans/2026-08-16-wave-followups.md (W3)
 - **Fuente:** deuda anotada en FND-13 (inventario benchmarks honestos)
-- **Estado:** ⏳ IN PROGRESS · **Sub-agente:** vanta-docs
+- **Estado:** ✅ COMPLETED (stale — plan previo archivado, cerrada por vanta-lead 2026-08-20)
 - **Prioridad:** 🟡
 
 ## Objetivo

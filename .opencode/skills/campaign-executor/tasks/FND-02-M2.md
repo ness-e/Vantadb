@@ -3,7 +3,7 @@
 ## Metadata
 - **Plan:** docs/plans/2026-08-16-wave-followups.md (W2)
 - **Fuente:** minor 2 del audit P2-01 de FND-02 (el stress test existente nunca dispara la evicción: 192 nodos vs max_nodes ~2.7M)
-- **Estado:** ⏳ IN PROGRESS · **Sub-agente:** vanta-chaos
+- **Estado:** ✅ COMPLETED (stale — plan previo archivado, cerrada por vanta-lead 2026-08-20)
 - **Prioridad:** 🟡
 
 ## Objetivo

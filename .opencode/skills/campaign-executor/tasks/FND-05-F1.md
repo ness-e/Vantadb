@@ -3,7 +3,7 @@
 ## Metadata
 - **Plan:** docs/plans/2026-08-16-wave-followups.md (W2)
 - **Fuente:** FND-05 (análisis SDK idiomático, gaps documentados con archivo:línea)
-- **Estado:** ⏳ IN PROGRESS · **Sub-agente:** vanta-worker
+- **Estado:** ✅ COMPLETED (stale — plan previo archivado, cerrada por vanta-lead 2026-08-20)
 - **Prioridad:** 🔴
 
 ## Objetivo

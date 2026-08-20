@@ -3,7 +3,7 @@
 ## Metadata
 - **Plan:** docs/plans/2026-08-16-wave-followups.md (W1)
 - **Fuente:** minor 3 del audit P2-01 de FND-02 (vanta-review, commit c104f1f2)
-- **Estado:** ⏳ IN PROGRESS · **Sub-agente:** vanta-arch
+- **Estado:** ✅ COMPLETED (stale — plan previo archivado, cerrada por vanta-lead 2026-08-20)
 - **Prioridad:** 🟡
 
 ## Objetivo
