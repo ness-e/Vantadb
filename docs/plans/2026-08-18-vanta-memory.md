@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID: 8f32192f-fd29-4608-823a-18a9fb74c1e6
+> **Campaign ID:** 97e683bd-39d0-4402-b655-e224bd36be3c
 > **Inicio:** 2026-08-18
-> **Estado: completed
+> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9 tareas — F4 pendiente)
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Catálogo:** `docs/Backlog.md` — filas MEM-01..38 (este plan es el estado de ejecución; el backlog es el catálogo)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
@@ -187,6 +187,113 @@
 - **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-08-20T18:00
 
+## Tasks (F4 — ejecutando)
+
+### Task 10: MEM-08a — F4 Fundación crate vanta-memory
+- **Archivos clave:** `vanta-memory/Cargo.toml` (crear), `vanta-memory/src/lib.rs` (crear), `Cargo.toml` raíz (workspace member), `vanta-memory/tests/`
+- **Gate Justificación:** F4 base — estructura del crate LLM-driven; layout inspirado en `MC/package.json`/`MC/index.ts` (sin fuente TDAM directa); feature-gates: `llm-driver` (default off), `mock` para tests; workspace inheritance
+- **Contrato:** `cargo check -p vanta-memory` pasa; crate es workspace member
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-08a.md`
+- **Estado:** ⏳ PENDING
+
+### Task 11: MEM-08b — F4 Contratos L1 + trait LLMRunner host-neutral
+- **Archivos clave:** `vanta-memory/src/core/abstractions/types.rs` (crear), `vanta-memory/src/offload/types.rs` (crear), `vanta-memory/src/adapters/standalone/llm_runner.rs` (crear), `vanta-memory/src/adapters/openclaw/llm_runner.rs` (crear)
+- **Gate Justificación:** contratos de datos (MemoryRecord/DedupDecision) + trait sync/async (D1) host-neutral; referencia `MC/core/abstractions/types.ts` (87), `MC/offload/types.ts`, `MC/adapters/standalone/llm-runner.ts` (467), `MC/adapters/openclaw/llm-runner.ts`
+- **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de tipos/trait (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-08b.md`
+- **Estado:** ⏳ PENDING
+
+### Task 12: MEM-09 — F4 L0 capture idempotente
+- **Archivos clave:** `vanta-memory/src/core/hooks/auto_capture.rs` (crear), `vanta-memory/src/core/conversation/l0_recorder.rs` (crear)
+- **Gate Justificación:** L0 — captura de conversación idempotente; referencia `MC/core/hooks/auto-capture.ts` (347), `MC/core/conversation/l0-recorder.ts` (607)
+- **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de L0 (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-09.md`
+- **Estado:** ⏳ PENDING
+
+### Task 13: MEM-10 — F4 L1 extractor (split + 1 call LLM JSON + parse reparación)
+- **Archivos clave:** `vanta-memory/src/core/record/l1_extractor.rs` (crear), `vanta-memory/src/core/prompts/l1_extraction.rs` (crear), `vanta-memory/src/offload/local_llm/parsers/l1_parser.rs` (crear), `vanta-memory/src/offload/local_llm/parsers/json_utils.rs` (crear)
+- **Gate Justificación:** L1 — split por marcadores + 1 call LLM JSON + parse con reparación; prompts reescritos (no traducidos, riesgo promos chino); referencia `MC/core/record/l1-extractor.ts` (738), `MC/core/prompts/l1-extraction.ts` (417), `MC/offload/local-llm/parsers/l1-parser.ts`, `json-utils.ts`, `l1-prompt.ts`
+- **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de L1 (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-10.md`
+- **Estado:** ⏳ PENDING
+
+### Task 14: MEM-11 — F4 L1 dedup 2 fases (store/update/merge/skip)
+- **Archivos clave:** `vanta-memory/src/core/record/l1_dedup.rs` (crear), `vanta-memory/src/core/record/l1_reader.rs` (crear), `vanta-memory/src/core/record/l1_writer.rs` (crear), `vanta-memory/src/core/prompts/l1_dedup.rs` (crear)
+- **Gate Justificación:** dedup 2 fases store/update/merge/skip; referencia `MC/core/record/l1-dedup.ts` (408), `l1-reader.ts`, `l1-writer.ts`, `MC/core/prompts/l1-dedup.ts` (236)
+- **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de dedup (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-11.md`
+- **Estado:** ⏳ PENDING
+
+### Task 15: MEM-12 — F4 Contrato META + nodo escena (ancla L2)
+- **Archivos clave:** `vanta-memory/src/core/scene/scene_format.rs` (crear), `vanta-memory/src/core/scene/scene_index.rs` (crear), `src/entity.rs` (reuso patrón nodos InternalMetadata, D4)
+- **Gate Justificación:** contrato META `{created,updated,summary,heat}` + nodo escena en grafo core (D2, ancla LLM-free de L2); referencia `MC/core/scene/scene-format.ts` (75), `scene-index.ts` (137)
+- **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de META/escena (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-12.md`
+- **Estado:** ⏳ PENDING
+
+### Task 16: MEM-13 — F4 Tools read/write/edit sandboxed + store
+- **Archivos clave:** `vanta-memory/src/core/scene/scene_tools.rs` (crear)
+- **Gate Justificación:** tools sandboxed (read/write/edit) sobre store; referencia `MC/core/scene/scene-extractor.ts` (604 — tools sandbox)
+- **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de tools escena (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-13.md`
+- **Estado:** ⏳ PENDING
+
+### Task 17: MEM-14 — F4 Strategy UPDATE>MERGE>CREATE + heat + soft-delete
+- **Archivos clave:** `vanta-memory/src/core/scene/scene_extractor.rs` (crear), `vanta-memory/src/core/prompts/scene_extraction.rs` (crear), `vanta-memory/src/core/scene/filename_normalizer.rs` (crear), `vanta-memory/src/core/scene/scene_format.rs`
+- **Gate Justificación:** estrategia UPDATE>MERGE>CREATE, heat, soft-delete, emptyExtraction; referencia `MC/core/scene/scene-extractor.ts` (604), `MC/core/prompts/scene-extraction.ts` (572), `filename-normalizer.ts`, `scene-format.ts`
+- **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de strategy escena (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-14.md`
+- **Estado:** ⏳ PENDING
+
+### Task 18: MEM-15 — F4 Persona first/incremental + triggers
+- **Archivos clave:** `vanta-memory/src/core/persona/persona_generator.rs` (crear), `vanta-memory/src/core/persona/persona_trigger.rs` (crear), `vanta-memory/src/core/prompts/persona_generation.rs` (crear), `vanta-memory/src/core/scene/scene_navigation.rs` (crear)
+- **Gate Justificación:** modos first/incremental, límites, escapeXml, triggers; referencia `MC/core/persona/persona-generator.ts` (304), `persona-trigger.ts` (136), `MC/core/prompts/persona-generation.ts` (329), `MC/core/scene/scene-navigation.ts` (76)
+- **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de persona (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-15.md`
+- **Estado:** ⏳ PENDING
+
+### Task 19: MEM-16 — F4 Orquestación timers+locks (estado local, reloj fake)
+- **Archivos clave:** `vanta-memory/src/utils/stateful_pipeline_manager.rs` (crear), `vanta-memory/src/utils/pipeline_manager.rs` (crear), `vanta-memory/src/utils/pipeline_factory.rs` (crear), `vanta-memory/src/services/pipeline_worker.rs` (crear), `vanta-memory/src/utils/timer_scanner.rs` (crear), `vanta-memory/src/utils/managed_timer.rs` (crear), `vanta-memory/src/utils/checkpoint.rs` (crear), `vanta-memory/src/core/state/types.rs` (crear), `vanta-memory/src/utils/local_backend.rs` (crear)
+- **Gate Justificación:** orquestación timers+locks sin Redis (estado local), reloj fake para tests; referencia `MC/utils/stateful-pipeline-manager.ts` (500), `pipeline-manager.ts` (1218), `pipeline-factory.ts` (1231), `MC/services/pipeline-worker.ts` (843), `timer-scanner.ts`, `MC/utils/managed-timer.ts`, `checkpoint.ts` (745), `MC/core/state/types.ts`, `local-backend.ts`
+- **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de pipeline manager (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-16.md`
+- **Estado:** ⏳ PENDING
+
+### Task 20: MEM-17 — F4 Skill extract transcript + sink idempotente
+- **Archivos clave:** `vanta-memory/src/core/skill/skill_extractor.rs` (crear), `vanta-memory/src/core/skill/conversation_add/` (módulo trigger/extract/worker/compressor/oversize/archive/sink), `vanta-memory/src/core/skill/prompts/skill_review_prompt.rs` (crear), `skill_listing_prompt.rs` (crear)
+- **Gate Justificación:** transcript marcadores, truncado, review taxonomía, sink idempotente (integra MEM-06 skills core); referencia `MC/core/skill/skill-extractor.ts` (587), `MC/core/skill/conversation-add/*`, `MC/core/skill/prompts/skill-review-prompt.ts` (198), `skill-listing-prompt.ts`
+- **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de skill extract (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-17.md`
+- **Estado:** ⏳ PENDING
+
+### Task 21: MEM-18 — F4 Recall prepend/append + 3 modos
+- **Archivos clave:** `vanta-memory/src/core/hooks/auto_recall.rs` (crear), `vanta-memory/src/core/memory_prompt/composer.rs` (crear), `resolver.rs` (crear), `types.rs` (crear), `vanta-memory/src/core/profile/profile_sync.rs` (crear)
+- **Gate Justificación:** prepend/append + 3 modos recall; referencia `MC/core/hooks/auto-recall.ts` (999), `MC/core/memory-prompt/composer.ts` (41), `resolver.ts` (102), `types.ts` (142), `MC/core/profile/profile-sync.ts` (494)
+- **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de recall (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-18.md`
+- **Estado:** ⏳ PENDING
+
+### Task 22: MEM-19 — F4 sanitize_text + truncación code-point
+- **Archivos clave:** `vanta-memory/src/utils/sanitize.rs` (crear), `vanta-memory/src/utils/text_utils.rs` (crear)
+- **Gate Justificación:** utilidades transversales sanitize + truncación por code-point; referencia `MC/utils/sanitize.ts` (405), `MC/utils/text-utils.ts` (31)
+- **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de sanitize (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-19.md`
+- **Estado:** ⏳ PENDING
+
+### Task 23: MEM-20 — F4 Cursor persistente por sesión
+- **Archivos clave:** `vanta-memory/src/offload/state_manager.rs` (crear), `vanta-memory/src/offload/storage.rs` (crear), `vanta-memory/src/offload/hooks/after_tool_call.rs` (crear)
+- **Gate Justificación:** cursor `lastOffloadedToolCallId` persistente por sesión; referencia `MC/offload/state-manager.ts` (460), `MC/offload/storage.ts` (664), `MC/offload/hooks/after-tool-call.ts` (594)
+- **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de cursor (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-20.md`
+- **Estado:** ⏳ PENDING
+
+### Task 24: MEM-21 — F4 Tools MCP scene_read/list/query
+- **Archivos clave:** `vanta-memory/src/core/scene/scene_navigation.rs`, `vanta-memory/src/core/scene/scene_index.rs`, `vanta-memory/src/gateway/knowledge_handlers.rs` (crear)
+- **Gate Justificación:** tools scene_read/list/query (sobre MEM-12/MEM-15); referencia `MC/core/scene/scene-navigation.ts` (76), `scene-index.ts`, `MC/gateway/knowledge-handlers.ts`
+- **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de scene tools (D19)
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-21.md`
+- **Estado:** ⏳ PENDING
+
 ## Riesgos
 
 | Riesgo | Impacto | Mitigación |
@@ -227,12 +334,12 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 7. ⏳ Contrato 1 (explain): el `explain` core debe exponer el `rrf_k` usado en su report para que Studio lo consuma — se resuelve junto a MEM-01/D20 (no bloqueante).
 
 === RECITATION ===
-Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
-Objetivo activo: MEM-35 Data plane REST server
-Estado: completed ✅
-Última acción: MEM-35 verificado (9693d0ff, 11/11 e2e + 2077/2077)
+Campaign ID: 97e683bd-39d0-4402-b655-e224bd36be3c
+Objetivo activo: F4 (MEM-08a..21) — crate vanta-memory LLM-driven
+Estado: in-progress ⏳
+Última acción: F1+F2+F3 completas (9/9); verificación contra TDAM ✅; 2077/2077 workspace
 Resultado: ✅
-Próxima acción: Checkpoint tras F1+F2+F3 — reportar al usuario
-Contrato: cargo check -p vantadb + tests dedicados del checker (D19) — `cargo nextest run -p vantadb -- entity` ✅ 37/37
-Próxima tarea si completa: F4 (MEM-08a..21) tras aprobación
+Próxima acción: materializar F4 (Tasks 10-24) y delegar MEM-08a
+Contrato: `cargo check -p vanta-memory` pasa; tests dedicados (D19)
+Próxima tarea si completa: MEM-08a (scaffold crate vanta-memory)
 === END RECITATION ===
