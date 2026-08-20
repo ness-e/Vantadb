@@ -717,7 +717,10 @@ mod tests {
         assert_eq!(rt(&e), e);
         // Optional label/weight absent → null/None on the wire.
         let json = json(&e);
-        assert_eq!(json, r#"{"source":"1","target":"2","label":"knows","weight":0.5}"#);
+        assert_eq!(
+            json,
+            r#"{"source":"1","target":"2","label":"knows","weight":0.5}"#
+        );
     }
 
     #[test]
@@ -772,6 +775,9 @@ mod tests {
             },
         );
         assert_eq!(rt(&map), map);
-        assert_eq!(json(&map), r#"{"docs":{"count":2,"expiring_soon":0,"expired":0}}"#);
+        assert_eq!(
+            json(&map),
+            r#"{"docs":{"count":2,"expiring_soon":0,"expired":0}}"#
+        );
     }
 }

@@ -22,8 +22,8 @@ use tokio::sync::RwLock;
 
 use super::{
     Capability, ConnectionInfo, ExportReport, HealthReport, IngestItem, ListPage, MemoryFilterItem,
-    MemoryRecord, NamespaceStatsMap, SearchQuery, SearchResult, VantaConnection, VantaGraphNodeInfo,
-    VantaGraphTraversalResult, VantaQueryResult,
+    MemoryRecord, NamespaceStatsMap, SearchQuery, SearchResult, VantaConnection,
+    VantaGraphNodeInfo, VantaGraphTraversalResult, VantaQueryResult,
 };
 use crate::error::VantaError;
 
@@ -635,7 +635,10 @@ mod tests {
         // Put three records; capture their deterministic graph node ids.
         let mut node_ids = Vec::new();
         for key in ["k1", "k2", "k3"] {
-            let rec = manager.put(item(key, &format!("record {key}")), None).await.unwrap();
+            let rec = manager
+                .put(item(key, &format!("record {key}")), None)
+                .await
+                .unwrap();
             node_ids.push(rec.node_id.expect("put returns node_id"));
         }
         let (n1, n2, n3) = (&node_ids[0], &node_ids[1], &node_ids[2]);
@@ -663,8 +666,10 @@ mod tests {
         let n1_dto = res.nodes.iter().find(|n| &n.id == n1).unwrap();
         assert_eq!(n1_dto.label, "record k1");
         // Edges connect n1→n2 and n2→n3 with the related label.
-        assert!(res.edges.iter().any(|e| &e.source == n1 && &e.target == n2
-            && e.label.as_deref() == Some("knows")));
+        assert!(res
+            .edges
+            .iter()
+            .any(|e| &e.source == n1 && &e.target == n2 && e.label.as_deref() == Some("knows")));
         assert!(res.edges.iter().any(|e| &e.source == n2 && &e.target == n3));
 
         // DFS also reaches all three.

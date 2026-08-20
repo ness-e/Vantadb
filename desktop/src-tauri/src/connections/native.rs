@@ -622,11 +622,8 @@ impl VantaConnection for NativeConnection {
         let dir = parse_direction(&direction)?;
         let cap = limit.unwrap_or(50);
         let db = self.db.clone();
-        let ids = blocking(move || {
-            db.graph_bfs(&roots, max_depth, dir)
-                .map_err(map_core_error)
-        })
-        .await?;
+        let ids =
+            blocking(move || db.graph_bfs(&roots, max_depth, dir).map_err(map_core_error)).await?;
         self.graph_traversal_result(&ids, cap).await
     }
 
@@ -644,11 +641,8 @@ impl VantaConnection for NativeConnection {
         let dir = parse_direction(&direction)?;
         let cap = limit.unwrap_or(50);
         let db = self.db.clone();
-        let ids = blocking(move || {
-            db.graph_dfs(&roots, max_depth, dir)
-                .map_err(map_core_error)
-        })
-        .await?;
+        let ids =
+            blocking(move || db.graph_dfs(&roots, max_depth, dir).map_err(map_core_error)).await?;
         self.graph_traversal_result(&ids, cap).await
     }
 
@@ -666,8 +660,7 @@ impl VantaConnection for NativeConnection {
         };
         let db = self.db.clone();
         let ns_for_list = ns.clone();
-        let page =
-            blocking(move || db.list(&ns_for_list, options).map_err(map_core_error)).await?;
+        let page = blocking(move || db.list(&ns_for_list, options).map_err(map_core_error)).await?;
         if page.records.is_empty() {
             // Empty/unknown namespace → empty list, not an error (GRAFO-01).
             return Ok(Vec::new());
