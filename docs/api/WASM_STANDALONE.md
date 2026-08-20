@@ -33,6 +33,13 @@ same React code as Tauri/web. The implicit connection shows `via: wasm` and
 - `vanta_health`, `vanta_metrics`
 - `vanta_ingest`, `vanta_ingest_batch`, `vanta_put`, `vanta_get`, `vanta_delete`
 - `vanta_list`, `vanta_delete_by_filter`, `vanta_search`
+- **Import por archivo (drag&drop, WASM-04)**: MEMORIAS → `IMPORT ARCHIVO`
+  arrastra/suelta un `.vdbdump`/`.jsonl`/`.csv` (o `<input type="file">`
+  como fallback accesible) → File API (`file.text()`) → preview ✓/✗ con el
+  parser de OP-01 → `vanta_ingest_batch` (mismos rows que pegar su contenido).
+  `.vdbdump` acepta export real de VantaDB (`VantaMemoryExportLine`, los campos
+  de transporte se descartan) y snapshots Qdrant-style (`{id, vector, payload}`
+  → text de `payload.content`/text-ish, resto del payload a metadata).
 - Persistence after every mutation (`connect_persistent` → `save()`; IndexedDB
   fallback → `save_idb()`)
 
@@ -63,5 +70,6 @@ Commands with no wire-compatible WASM method degrade with a descriptive error
 ## Verification
 
 `desktop/scripts/selfcheck-wasm-e2e.ts` runs an E2E smoke (Playwright Edge +
-node:http static server): boot → health → ingest via UI → grid row → real
+node:http static server): boot → health → ingest via UI → grid row → import by
+file drop (`.jsonl` real via `setInputFiles`, WASM-04) → grid row → real
 reload → record persists in OPFS. Exit 0 only when everything passes.

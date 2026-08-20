@@ -85,6 +85,9 @@ async function main(): Promise<void> {
   page.on("console", (m) => {
     if (m.type() === "error") errors.push(`console.error: ${m.text()}`);
   });
+  // WASM-04: los modales de import confirman con window.confirm — Playwright
+  // los auto-descarta (devuelve false) por defecto; aceptar para no cancelar.
+  page.on("dialog", (d) => d.accept());
 
   try {
     // --- Fase 1: boot + HOME + health (instantiation WASM real) ------------
@@ -119,6 +122,51 @@ async function main(): Promise<void> {
     const row = grid.getByRole("row").filter({ hasText: key });
     await row.waitFor({ state: "visible" });
     check(true, "grid MEMORIAS: fila e2e-<ts> visible");
+
+    // --- Fase 2.5: import por ARCHIVO (WASM-04) — drop de un .jsonl real ---
+    // setInputFiles con payload en memoria (sin tocar disco): el archivo se lee
+    // con File API (`file.text()`), se parsea con el parser de OP-01 y el
+    // reporte + gridKey++ remontan el grid con los records importados.
+    await page.getByRole("button", { name: /IMPORT ARCHIVO/ }).click();
+    await page
+      .getByRole("dialog", { name: /Importar archivo/ })
+      .waitFor({ state: "visible" });
+    // El modal por defecto usa el nombre de la conexión implícita ("embedded")
+    // como namespace; fijar "default" para que el grid (list("")) lo vea.
+    // Scope al dialog: la surface MEMORIAS tiene su propio input Namespace
+    // (IngestForm) — getByLabel sin scope sería ambiguo (strict mode).
+    const dropDialog = page.getByRole("dialog", { name: /Importar archivo/ });
+    await dropDialog.getByLabel("namespace").fill("default");
+    const dropKey = `e2e-drop-${Date.now()}`;
+    await page.setInputFiles('input[type="file"]', {
+      name: "memorias.jsonl",
+      mimeType: "application/x-ndjson",
+      buffer: Buffer.from(
+        [
+          JSON.stringify({ key: dropKey, text: `payload drop ${dropKey}` }),
+          JSON.stringify({ key: `${dropKey}-2`, text: `segundo drop ${dropKey}` }),
+        ].join("\n"),
+      ),
+    });
+    // Preview del archivo parseado (key del primer record visible en la tabla).
+    await page.getByText(dropKey).first().waitFor({ state: "visible" });
+    check(true, "drop: preview con filas del .jsonl parseado");
+    await dropDialog.getByRole("button", { name: /IMPORTAR/ }).click();
+    // Reporte (aria-live) + notice del shell (role=alert) tras onImported.
+    await page.getByRole("alert").getByText(/Importados 2 registros/).waitFor({ state: "visible" });
+    check(true, "drop: reporte '✓ 2 importados' + notice del shell");
+    // El botón de cierre expone aria-label="Cerrar" (el texto "✕ CERRAR" queda
+    // anulado por el label accesible) — matchear por el nombre accesible.
+    await dropDialog.getByRole("button", { name: "Cerrar" }).click();
+    // onImported remonta el grid (gridKey++) — la fila del drop aparece sin
+    // re-navegar (contrato: "drop file real → records en grid"). El archivo
+    // importa 2 records; el hasText del key corto matchearía ambos (el segundo
+    // id es `${dropKey}-2`) → anclar al nombre accesible de la fila exacta.
+    const dropRow = grid.getByRole("row", {
+      name: new RegExp(`^Seleccionar ${dropKey} `),
+    });
+    await dropRow.waitFor({ state: "visible" });
+    check(true, "grid MEMORIAS: fila del archivo dropeado visible tras import");
 
     // --- Fase 3: RELOAD real → persistencia OPFS ----------------------------
     await page.reload({ waitUntil: "domcontentloaded" });

@@ -331,6 +331,170 @@ export function parseImport(text: string, namespace: string, limit = MAX_IMPORT)
   return { rows, valid, invalid: rows.length - valid, truncated, error: undefined };
 }
 
+// ── .vdbdump (WASM-04) ─────────────────────────────────────────────────────
+// Un `.vdbdump` es NDJSON de dos familias:
+//   - Export real de VantaDB (`VantaMemoryExportLine`): {schema_version,
+//     namespace, key, payload, metadata, vector, created_at_ms, ...} — los
+//     campos de transporte (timestamps, version, vector) NO son metadata de
+//     usuario y se descartan.
+//   - Snapshot Qdrant-style: {id, vector, payload} donde `payload` es el
+//     objeto del record — su key text-ish (content/text/...) es el texto y el
+//     resto del payload pasa a metadata (nunca se pierde data).
+// `parseVdbDump` acepta array JSON, objeto único o NDJSON (igual que
+// `parseJson`), pero con el mapper de dump en vez de `jsonRow`.
+
+/** Campos de transporte de un export VantaDB que no son metadata de usuario. */
+const VDB_SKIP_KEYS = new Set([
+  "schema_version",
+  "vector",
+  "sparse_vector",
+  "created_at_ms",
+  "updated_at_ms",
+  "version",
+  "node_id",
+  "expires_at_ms",
+]);
+
+/** Fila desde un objeto de dump (export VantaDB o punto Qdrant-style). */
+function vdbRow(index: number, obj: unknown, ns: string): ParsedRow {
+  if (!isRecord(obj)) {
+    return { index, item: null, error: `fila ${index}: se esperaba un objeto JSON` };
+  }
+  const item: ImportItem = { text: "", namespace: ns };
+  const meta: Record<string, unknown> = {};
+  let textSet = false;
+
+  for (const [rawK, v] of Object.entries(obj)) {
+    const k = norm(rawK);
+    if (VDB_SKIP_KEYS.has(k)) continue; // transporte, no metadata de usuario
+    if (ID_KEYS.includes(k)) {
+      const id = asId(v);
+      if (id) item.id = id;
+    } else if (k === "payload" && isRecord(v)) {
+      // Qdrant-style: payload es el objeto del record → su key text-ish es el
+      // texto; el resto del payload va a metadata.
+      let found = false;
+      for (const [pk, pv] of Object.entries(v)) {
+        if (TEXT_KEYS.includes(norm(pk))) {
+          item.text = textOf(pv);
+          textSet = true;
+          found = true;
+        } else {
+          meta[pk] = pv;
+        }
+      }
+      // Payload sin key text-ish → serializar el payload entero como texto.
+      if (!found) {
+        item.text = textOf(v);
+        textSet = true;
+      }
+    } else if (TEXT_KEYS.includes(k)) {
+      item.text = textOf(v);
+      textSet = true;
+    } else if (NS_KEYS.includes(k)) {
+      if (typeof v === "string" && v.trim()) item.namespace = v.trim();
+    } else if (META_KEYS.includes(k)) {
+      if (isRecord(v)) {
+        Object.assign(meta, v);
+      } else if (typeof v === "string") {
+        try {
+          const parsed: unknown = JSON.parse(v);
+          if (isRecord(parsed)) Object.assign(meta, parsed);
+        } catch {
+          return { index, item: null, error: `fila ${index}: metadata no es JSON válido` };
+        }
+      }
+    } else {
+      // Keys no reconocidas → metadata (nunca se pierde data).
+      meta[rawK] = v;
+    }
+  }
+
+  if (!textSet || !item.text.trim()) {
+    return { index, item: null, error: `fila ${index}: falta text/payload/content` };
+  }
+  if (Object.keys(meta).length > 0) item.metadata = meta;
+  return { index, item };
+}
+
+/** Parse de un `.vdbdump` (export VantaDB o snapshot Qdrant-style): array JSON,
+ * objeto único o NDJSON. Misma firma/contrato que `parseImport`. */
+export function parseVdbDump(
+  text: string,
+  namespace: string,
+  limit = MAX_IMPORT,
+): ParseResult {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return { rows: [], valid: 0, invalid: 0, truncated: false, error: "El archivo está vacío." };
+  }
+
+  const rows: ParsedRow[] = [];
+  let truncated = false;
+  const onTruncate = () => {
+    truncated = true;
+  };
+
+  // JSON.parse del input completo: array de objetos u objeto único.
+  try {
+    const parsed: unknown = JSON.parse(trimmed);
+    const arr = Array.isArray(parsed) ? parsed : [parsed];
+    for (const obj of arr) {
+      if (rows.length >= limit) {
+        onTruncate();
+        break;
+      }
+      rows.push(vdbRow(rows.length + 1, obj, namespace));
+    }
+  } catch (wholeErr) {
+    // No es JSON completo → NDJSON (una línea = un objeto).
+    let lineNo = 0;
+    let parsedAny = false;
+    let lastErr: unknown = wholeErr;
+    for (const line of trimmed.split(/\r?\n/)) {
+      const t = line.trim();
+      if (!t) continue;
+      lineNo++;
+      if (rows.length >= limit) {
+        onTruncate();
+        break;
+      }
+      try {
+        rows.push(vdbRow(lineNo, JSON.parse(t), namespace));
+        parsedAny = true;
+      } catch (e) {
+        rows.push({
+          index: lineNo,
+          item: null,
+          error: `línea ${lineNo}: JSON inválido — ${(e as Error).message}`,
+        });
+        lastErr = e;
+      }
+    }
+    if (!parsedAny) {
+      const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+      return { rows: [], valid: 0, invalid: 0, truncated, error: `JSON inválido — ${msg}` };
+    }
+  }
+
+  const valid = rows.filter((r) => r.item !== null).length;
+  return { rows, valid, invalid: rows.length - valid, truncated, error: undefined };
+}
+
+/** Dispatch por extensión de archivo (ImportDrop, WASM-04): `.vdbdump` →
+ * `parseVdbDump` (export VantaDB + Qdrant-style); el resto (`.json`/`.jsonl`/
+ * `.csv`) → `parseImport` de OP-01. El texto del archivo ES el mismo input del
+ * paste, así que el preview/reporte del drop es idéntico al del modal Pegar. */
+export function parseImportFile(
+  fileName: string,
+  text: string,
+  namespace: string,
+  limit = MAX_IMPORT,
+): ParseResult {
+  const ext = fileName.toLowerCase().split(".").pop() ?? "";
+  return ext === "vdbdump" ? parseVdbDump(text, namespace, limit) : parseImport(text, namespace, limit);
+}
+
 /** Importa las filas válidas en chunks (bridge `put_batch` atómico por llamada).
  * `ingestFn` inyectable (en la app: `ingestBatch` de vanta.ts). Las fallas de
  * chunk se reportan con el rango de filas ORIGINALES del paste. */
