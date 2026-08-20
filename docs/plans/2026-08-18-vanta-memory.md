@@ -119,7 +119,7 @@
 - **Gate Justificación:** F1 base — parametriza planner con `SearchProfileConfig`, expone en IQL/API/MCP (D13), report RRF incluye `rrf_k` (D20)
 - **Contrato:** `cargo check -p vantadb` pasa; tests dedicados de `SearchProfileConfig` + parser IQL (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED 2026-08-20 — commit `6a50b8ee` (sin push); audit 1992/1992, clippy -D warnings, fmt, doc verdes. Siguiente: MEM-02.
 - **last-synced:** 2026-08-20T04:00
 
 ### Task 2: MEM-02 — F1 Exponer search profile en MCP/search
@@ -180,10 +180,10 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 === RECITATION ===
 Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
 Objetivo activo: MEM-01 SearchProfileConfig + IQL
-Estado: in-progress
-Última acción: Cerrar 16 task files stale WIP; plan P27 F1 en progreso
-Resultado: ⏳
-Próxima acción: Delegar MEM-01 a vanta-worker
-Contrato: cargo check -p vantadb + tests dedicados
+Estado: completed ✅
+Última acción: MEM-01 completo (S1-S7) — SearchProfileConfig per request (mode/rrf_k/candidate_k) + parametrización fuse_rrf/hybrid_candidate_budget + cláusula IQL PROFILE con efecto mode en CBO + fusion_report expuesto en explain
+Resultado: ✅ — audit 1992/1992, clippy -D warnings, fmt, doc verdes. Commit `6a50b8ee` en develop (sin push)
+Próxima acción: Delegar MEM-02 (exponer SearchProfileConfig en API REST + MCP)
+Contrato: cargo check -p vantadb + tests dedicados (parser 117/117, search 146/146, lib 1819/1819)
 Próxima tarea si completa: MEM-02
 === END RECITATION ===
