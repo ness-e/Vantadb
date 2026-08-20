@@ -9,7 +9,7 @@
 //! VantaDB store (nodes, `InternalMetadata` partitions, text index, HNSW,
 //! core graph) — never external storage.
 //!
-//! The crate is **host-neutral**: it defines the [`LLMRunner`] abstraction and
+//! The crate is **host-neutral**: it defines the [`LlmRunner`] abstraction and
 //! ships no LLM runtime. With `llm-driver` off (default), every LLM-dependent
 //! path degrades to an LLM-free equivalent (local compression, store-all,
 //! heuristic dedup) — it never blocks and never loses data.
@@ -17,6 +17,8 @@
 //! F4 task order: MEM-08a (this scaffold) → MEM-08b (contracts + trait) →
 //! MEM-09..21 (L0→L1→L2→L3, triggers, skill extract, recall, cursor, MCP
 //! scenes). See `docs/plans/2026-08-18-vanta-memory.md`.
+//!
+//! [`LlmRunner`]: core::abstractions::LlmRunner
 
 /// Core memory pipeline (L0 capture → L1 extraction/dedup → L2 scenes →
 /// L3 persona) and skill extraction. Host-neutral.

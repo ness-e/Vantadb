@@ -10,5 +10,8 @@ fn crate_links() {
 #[test]
 fn llm_driver_feature_is_opt_in() {
     // Default build must NOT enable llm-driver (LLM-free guarantee).
-    assert!(!cfg!(feature = "llm-driver"));
+    // Compile-time check: with `--features mock` this must still hold.
+    const {
+        assert!(cfg!(not(feature = "llm-driver")));
+    }
 }
