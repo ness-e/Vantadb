@@ -431,6 +431,36 @@ pub struct VantaMemorySearchDebugReport {
     pub top_identities: Vec<String>,
 }
 
+/// Modo de fusión híbrida para un [`SearchProfileConfig`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SearchProfileMode {
+    /// Solo búsqueda BM25 lexical: ignora el vector denso y el sparse.
+    Keyword,
+    /// Solo búsqueda por similitud vectorial: ignora el texto (mantiene sparse si viene).
+    Vector,
+    /// Fusión híbrida completa (texto + vector + sparse según los inputs). Default.
+    #[default]
+    Hybrid,
+}
+
+/// Perfil de búsqueda configurable por request/namespace (MEM-01).
+///
+/// Los campos `None` delegan en las constantes core (`RRF_K`,
+/// `hybrid_candidate_budget`) de `planner.rs`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct SearchProfileConfig {
+    /// Modo de búsqueda. Default: `Hybrid`.
+    #[serde(default)]
+    pub mode: SearchProfileMode,
+    /// Parámetro `k` de fusión RRF. `None` usa `RRF_K` (60).
+    #[serde(default)]
+    pub rrf_k: Option<usize>,
+    /// Presupuesto de candidatos por canal. `None` usa `hybrid_candidate_budget`.
+    #[serde(default)]
+    pub candidate_k: Option<usize>,
+}
+
 /// Counts and configuration for a hybrid (text+vector) fusion pass.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaHybridFusionReport {

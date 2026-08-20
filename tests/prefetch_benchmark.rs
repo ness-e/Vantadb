@@ -39,6 +39,7 @@ fn measure_search_latency(
             explain: false,
             query_sparse: None,
             exclude_superseded: false,
+            search_profile: None,
         };
         let _ = db.search(request);
     }
@@ -58,6 +59,7 @@ fn measure_search_latency(
             explain: false,
             query_sparse: None,
             exclude_superseded: false,
+            search_profile: None,
         };
         let _ = db.search(request);
     }

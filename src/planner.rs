@@ -17,7 +17,9 @@ use std::collections::BTreeMap;
 
 use crate::node::FieldValue;
 use crate::query::RelOp;
-use crate::sdk::{VantaHybridFusionReport, VantaMemorySearchHit, VantaMemorySearchRequest};
+use crate::sdk::{
+    SearchProfileMode, VantaHybridFusionReport, VantaMemorySearchHit, VantaMemorySearchRequest,
+};
 
 // ── RRF constants ─────────────────────────────────────────────────────────
 
@@ -91,11 +93,34 @@ pub fn classify(text_query: Option<&str>, has_vector: bool) -> SearchRoute {
 /// The budget is clamped to `[MIN_CANDIDATE_BUDGET, MAX_CANDIDATE_BUDGET]`
 /// and never falls below `top_k` so that `fuse_rrf` always has enough
 /// candidates to fill the requested result set.
-pub fn hybrid_candidate_budget(top_k: usize) -> usize {
-    top_k
-        .saturating_mul(CANDIDATE_MULTIPLIER)
-        .clamp(MIN_CANDIDATE_BUDGET, MAX_CANDIDATE_BUDGET)
-        .max(top_k)
+pub fn hybrid_candidate_budget(top_k: usize, candidate_k: Option<usize>) -> usize {
+    match candidate_k {
+        Some(k) => k.max(top_k),
+        None => top_k
+            .saturating_mul(CANDIDATE_MULTIPLIER)
+            .clamp(MIN_CANDIDATE_BUDGET, MAX_CANDIDATE_BUDGET)
+            .max(top_k),
+    }
+}
+
+/// Valores efectivos de fusión para un request con profile opcional (MEM-01).
+///
+/// Devuelve `(rrf_k, candidate_k)` efectivos: los valores del
+/// [`SearchProfileConfig`](crate::sdk::SearchProfileConfig) si están presentes,
+/// o las constantes core (`RRF_K`, `hybrid_candidate_budget`) en caso contrario.
+pub fn resolve_search_profile(request: &VantaMemorySearchRequest) -> (f32, Option<usize>) {
+    let profile = request.search_profile;
+    let rrf_k = profile
+        .and_then(|p| p.rrf_k)
+        .map(|k| k as f32)
+        .unwrap_or(RRF_K);
+    let candidate_k = profile.and_then(|p| p.candidate_k);
+    (rrf_k, candidate_k)
+}
+
+/// Modo de búsqueda efectivo de un request (default `Hybrid`, MEM-01).
+pub fn search_mode(request: &VantaMemorySearchRequest) -> SearchProfileMode {
+    request.search_profile.map(|p| p.mode).unwrap_or_default()
 }
 
 // ── Normalised request fields ─────────────────────────────────────────────
@@ -120,16 +145,17 @@ pub fn trimmed_text_query(request: &VantaMemorySearchRequest) -> Option<&str> {
 pub fn fuse_rrf(
     lexical_hits: Vec<VantaMemorySearchHit>,
     vector_hits: Vec<VantaMemorySearchHit>,
+    rrf_k: f32,
 ) -> Vec<VantaMemorySearchHit> {
     tracing::debug!(
         "Fusing lexical candidates ({}) and vector candidates ({}) with RRF_K = {}",
         lexical_hits.len(),
         vector_hits.len(),
-        RRF_K
+        rrf_k
     );
     let mut fused: BTreeMap<(String, String), VantaMemorySearchHit> = BTreeMap::new();
-    apply_rrf_contributions(&mut fused, lexical_hits);
-    apply_rrf_contributions(&mut fused, vector_hits);
+    apply_rrf_contributions(&mut fused, lexical_hits, rrf_k);
+    apply_rrf_contributions(&mut fused, vector_hits, rrf_k);
 
     let mut hits: Vec<_> = fused.into_values().collect();
     sort_hits(&mut hits);
@@ -141,10 +167,13 @@ pub fn fuse_rrf(
 /// ...) via reciprocal rank fusion. Each channel contributes RRF score by rank;
 /// hits appearing in several channels accumulate contributions. Sorted
 /// descending by score with deterministic tie-breaking (see `sort_hits`).
-pub fn fuse_rrf_many(channels: Vec<Vec<VantaMemorySearchHit>>) -> Vec<VantaMemorySearchHit> {
+pub fn fuse_rrf_many(
+    channels: Vec<Vec<VantaMemorySearchHit>>,
+    rrf_k: f32,
+) -> Vec<VantaMemorySearchHit> {
     let mut fused: BTreeMap<(String, String), VantaMemorySearchHit> = BTreeMap::new();
     for channel in channels {
-        apply_rrf_contributions(&mut fused, channel);
+        apply_rrf_contributions(&mut fused, channel, rrf_k);
     }
     let mut hits: Vec<_> = fused.into_values().collect();
     sort_hits(&mut hits);
@@ -153,15 +182,16 @@ pub fn fuse_rrf_many(channels: Vec<Vec<VantaMemorySearchHit>>) -> Vec<VantaMemor
 pub fn fuse_rrf_with_report(
     lexical_hits: Vec<VantaMemorySearchHit>,
     vector_hits: Vec<VantaMemorySearchHit>,
+    rrf_k: f32,
 ) -> (Vec<VantaMemorySearchHit>, VantaHybridFusionReport) {
     let text_candidates = lexical_hits.len();
     let vector_candidates = vector_hits.len();
-    let fused_hits = fuse_rrf(lexical_hits, vector_hits);
+    let fused_hits = fuse_rrf(lexical_hits, vector_hits, rrf_k);
     let report = VantaHybridFusionReport {
         text_candidates,
         vector_candidates,
         fused_candidates: fused_hits.len(),
-        rrf_k: RRF_K as usize,
+        rrf_k: rrf_k as usize,
     };
     (fused_hits, report)
 }
@@ -169,9 +199,10 @@ pub fn fuse_rrf_with_report(
 fn apply_rrf_contributions(
     fused: &mut BTreeMap<(String, String), VantaMemorySearchHit>,
     hits: Vec<VantaMemorySearchHit>,
+    rrf_k: f32,
 ) {
     for (rank, hit) in hits.into_iter().enumerate() {
-        let contribution = 1.0 / (RRF_K + rank as f32 + 1.0);
+        let contribution = 1.0 / (rrf_k + rank as f32 + 1.0);
         let identity = (hit.record.namespace.clone(), hit.record.key.clone());
         fused
             .entry(identity)
@@ -280,6 +311,19 @@ pub fn optimize_and_compile<'a>(
                 sort = Some((field.clone(), *desc));
             }
             _ => {} // Traverse and other operators are handled by the executor cycle
+        }
+    }
+
+    // MEM-01: el perfil de búsqueda puede forzar el modo en el plan físico.
+    // Keyword descarta el vector search (queda solo el filtro léxico);
+    // Vector descarta los filtros de texto (queda solo el vector search).
+    // ponytail: rrf_k/candidate_k del profile se propagan al LogicalPlan pero no
+    // afectan el path IQL: el CBO no fusiona RRF (solo el path SDK lo usa).
+    if let Some(profile) = plan.search_profile {
+        match profile.mode {
+            crate::sdk::SearchProfileMode::Keyword => vector_search = None,
+            crate::sdk::SearchProfileMode::Vector => text_matches.clear(),
+            crate::sdk::SearchProfileMode::Hybrid => {}
         }
     }
 
@@ -440,13 +484,13 @@ mod tests {
 
     #[test]
     fn budget_is_clamped_at_min() {
-        assert_eq!(hybrid_candidate_budget(1), MIN_CANDIDATE_BUDGET);
+        assert_eq!(hybrid_candidate_budget(1, None), MIN_CANDIDATE_BUDGET);
     }
 
     #[test]
     fn budget_is_clamped_at_max_for_mid_range_top_k() {
         // top_k=64 → 64*4=256 = MAX_CANDIDATE_BUDGET; max(256, 64)=256
-        let budget = hybrid_candidate_budget(64);
+        let budget = hybrid_candidate_budget(64, None);
         assert_eq!(budget, MAX_CANDIDATE_BUDGET);
     }
 
@@ -454,14 +498,14 @@ mod tests {
     fn budget_returns_top_k_when_top_k_exceeds_max() {
         // top_k=10_000 → 10_000*4 clamped to 256; but max(256, 10_000)=10_000
         // The guardrail ensures we always fetch at least top_k candidates.
-        let budget = hybrid_candidate_budget(10_000);
+        let budget = hybrid_candidate_budget(10_000, None);
         assert!(budget >= 10_000);
     }
 
     #[test]
     fn budget_is_at_least_top_k() {
         // top_k=50 → 50*4=200 which is within [32,256]
-        let budget = hybrid_candidate_budget(50);
+        let budget = hybrid_candidate_budget(50, None);
         assert!(budget >= 50);
         assert_eq!(budget, 200);
     }
@@ -469,7 +513,7 @@ mod tests {
     #[test]
     fn budget_never_below_top_k_for_large_top_k() {
         // top_k=200 → 200*4=800 clamped to 256; but max(256, 200)=256 ≥ top_k
-        let budget = hybrid_candidate_budget(200);
+        let budget = hybrid_candidate_budget(200, None);
         assert!(budget >= 200);
     }
 
@@ -502,7 +546,7 @@ mod tests {
     fn fuse_rrf_returns_deterministic_order() {
         let lex = vec![make_hit("ns", "a", 0.9, 1), make_hit("ns", "b", 0.8, 2)];
         let vec = vec![make_hit("ns", "b", 0.95, 2), make_hit("ns", "c", 0.7, 3)];
-        let result = fuse_rrf(lex, vec);
+        let result = fuse_rrf(lex, vec, RRF_K);
         // "b" appears in both lists → highest combined RRF score
         assert_eq!(result[0].record.key, "b");
     }
@@ -511,7 +555,7 @@ mod tests {
     fn fuse_rrf_scores_are_positive() {
         let lex = vec![make_hit("ns", "x", 0.5, 10)];
         let vec = vec![make_hit("ns", "x", 0.5, 10)];
-        let result = fuse_rrf(lex, vec);
+        let result = fuse_rrf(lex, vec, RRF_K);
         assert_eq!(result.len(), 1);
         assert!(result[0].score > 0.0);
     }
@@ -520,7 +564,7 @@ mod tests {
     fn fuse_rrf_deduplicates_same_namespace_key() {
         let lex = vec![make_hit("ns", "dup", 0.9, 99)];
         let vec = vec![make_hit("ns", "dup", 0.9, 99)];
-        let result = fuse_rrf(lex, vec);
+        let result = fuse_rrf(lex, vec, RRF_K);
         assert_eq!(result.len(), 1, "same (namespace, key) must be merged");
     }
 
@@ -594,7 +638,7 @@ mod tests {
     fn fuse_rrf_with_report_counts() {
         let lex = vec![make_hit("ns", "a", 0.9, 1)];
         let vec = vec![make_hit("ns", "b", 0.8, 2)];
-        let (_hits, report) = fuse_rrf_with_report(lex.clone(), vec.clone());
+        let (_hits, report) = fuse_rrf_with_report(lex.clone(), vec.clone(), RRF_K);
         assert_eq!(report.text_candidates, 1);
         assert_eq!(report.vector_candidates, 1);
         assert_eq!(report.rrf_k, RRF_K as usize);
@@ -604,10 +648,65 @@ mod tests {
     fn fuse_rrf_with_report_fused_results() {
         let lex = vec![make_hit("ns", "a", 0.9, 1)];
         let vec = vec![make_hit("ns", "a", 0.8, 1)];
-        let (hits, _report) = fuse_rrf_with_report(lex, vec);
+        let (hits, _report) = fuse_rrf_with_report(lex, vec, RRF_K);
         assert_eq!(hits.len(), 1, "same key merged into one");
         let expected = 2.0 / (RRF_K + 1.0);
         assert!((hits[0].score - expected).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fuse_rrf_with_report_reports_custom_k() {
+        let lex = vec![make_hit("ns", "a", 0.9, 1)];
+        let vec = vec![make_hit("ns", "b", 0.8, 2)];
+        let (_hits, report) = fuse_rrf_with_report(lex, vec, 100.0);
+        assert_eq!(report.rrf_k, 100);
+    }
+
+    #[test]
+    fn fuse_rrf_custom_k_changes_scores() {
+        let lex = vec![make_hit("ns", "b", 0.8, 2)];
+        let vec = vec![make_hit("ns", "b", 0.95, 2)];
+        let default = fuse_rrf(lex.clone(), vec.clone(), RRF_K);
+        let custom = fuse_rrf(lex, vec, 1.0);
+        assert_eq!(default[0].record.key, "b");
+        assert!(
+            custom[0].score > default[0].score,
+            "k menor => contribuciones mayores"
+        );
+    }
+
+    #[test]
+    fn resolve_search_profile_defaults_to_core_constants() {
+        let req = VantaMemorySearchRequest::default();
+        let (rrf_k, candidate_k) = resolve_search_profile(&req);
+        assert_eq!(rrf_k, RRF_K);
+        assert_eq!(candidate_k, None);
+    }
+
+    #[test]
+    fn resolve_search_profile_uses_profile_values() {
+        use crate::sdk::SearchProfileConfig;
+        let req = VantaMemorySearchRequest {
+            search_profile: Some(SearchProfileConfig {
+                rrf_k: Some(100),
+                candidate_k: Some(128),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let (rrf_k, candidate_k) = resolve_search_profile(&req);
+        assert_eq!(rrf_k, 100.0);
+        assert_eq!(candidate_k, Some(128));
+    }
+
+    #[test]
+    fn hybrid_candidate_budget_with_explicit_candidate_k() {
+        assert_eq!(hybrid_candidate_budget(5, Some(50)), 50);
+        assert_eq!(
+            hybrid_candidate_budget(100, Some(50)),
+            100,
+            "nunca por debajo de top_k"
+        );
     }
 
     // ── sort_hits edge cases ────────────────────────────────────────────
@@ -675,6 +774,7 @@ mod tests {
             operators: vec![LogicalOperator::Scan { entity: "*".into() }],
             temperature: 0.0,
             enforce_role: None,
+            search_profile: None,
         };
 
         let mut op = optimize_and_compile(&plan, &storage).unwrap();
@@ -715,6 +815,7 @@ mod tests {
             ],
             temperature: 0.0,
             enforce_role: None,
+            search_profile: None,
         };
 
         let mut op = optimize_and_compile(&plan, &storage).unwrap();
@@ -758,6 +859,7 @@ mod tests {
             ],
             temperature: 0.0,
             enforce_role: None,
+            search_profile: None,
         };
 
         let mut op = optimize_and_compile(&plan, &storage).unwrap();
@@ -805,6 +907,7 @@ mod tests {
             ],
             temperature: 0.0,
             enforce_role: None,
+            search_profile: None,
         };
 
         let mut op = optimize_and_compile(&plan, &storage).unwrap();
@@ -858,6 +961,7 @@ mod tests {
             ],
             temperature: 0.0,
             enforce_role: None,
+            search_profile: None,
         };
 
         let mut op = optimize_and_compile(&plan, &storage).unwrap();

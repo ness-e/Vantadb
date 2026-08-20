@@ -385,6 +385,7 @@ fn memory_euclidean_and_explainable_ranking() {
         explain: true,
         query_sparse: None,
         exclude_superseded: false,
+        search_profile: None,
     };
 
     let hits_explain = db.search(request_explain).expect("search with explain");
@@ -408,6 +409,7 @@ fn memory_euclidean_and_explainable_ranking() {
         explain: false,
         query_sparse: None,
         exclude_superseded: false,
+        search_profile: None,
     };
 
     let hits_no_explain = db
@@ -481,6 +483,7 @@ fn snippet_with_highlighting() {
         explain: true,
         query_sparse: None,
         exclude_superseded: false,
+        search_profile: None,
     };
 
     let hits = db.search(request).expect("search");

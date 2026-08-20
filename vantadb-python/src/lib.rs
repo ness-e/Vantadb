@@ -992,6 +992,7 @@ impl VantaDB {
             distance_metric: metric,
             explain,
             exclude_superseded,
+            search_profile: None,
         };
 
         let engine = self.engine.clone();
@@ -1822,6 +1823,7 @@ impl VantaDB {
             distance_metric: metric,
             explain: true,
             exclude_superseded: false,
+            search_profile: None,
         };
 
         let _g = enter(&self.op_gate)?;
@@ -1932,6 +1934,7 @@ impl VantaDB {
                 distance_metric,
                 explain,
                 exclude_superseded: false,
+                search_profile: None,
             },
             method,
         ))

@@ -104,12 +104,27 @@ impl VantaEmbedded {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
 
-        let text_query = crate::planner::trimmed_text_query(&request);
-        let has_vector = !request.query_vector.is_empty();
-        let has_sparse = request
+        let (rrf_k, candidate_k) = crate::planner::resolve_search_profile(&request);
+        let mode = crate::planner::search_mode(&request);
+        let mut text_query = crate::planner::trimmed_text_query(&request);
+        let mut has_vector = !request.query_vector.is_empty();
+        let mut has_sparse = request
             .query_sparse
             .as_ref()
             .is_some_and(|sparse| !sparse.is_empty());
+
+        // MEM-01: el profile puede forzar el modo de búsqueda. Keyword ignora el
+        // canal vectorial (denso + sparse); Vector ignora el texto.
+        match mode {
+            SearchProfileMode::Keyword => {
+                has_vector = false;
+                has_sparse = false;
+            }
+            SearchProfileMode::Vector => {
+                text_query = None;
+            }
+            SearchProfileMode::Hybrid => {}
+        }
 
         if request.top_k == 0 {
             return Ok(Vec::new());
@@ -135,7 +150,8 @@ impl VantaEmbedded {
             let engine = self.engine_handle()?;
             let (hits, text_ranks, vector_ranks) = match (text_query, has_vector, has_sparse) {
                 (Some(text_query), true, _) => {
-                    let budget = crate::planner::hybrid_candidate_budget(request.top_k);
+                    let budget =
+                        crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
                     let lexical_hits = self.lexical_search(
                         &request.namespace,
                         text_query,
@@ -160,15 +176,17 @@ impl VantaEmbedded {
                                 &request.filters,
                                 budget,
                             )?;
-                            crate::planner::fuse_rrf_many(vec![
-                                lexical_hits,
-                                vector_hits,
-                                sparse_hits,
-                            ])
+                            crate::planner::fuse_rrf_many(
+                                vec![lexical_hits, vector_hits, sparse_hits],
+                                rrf_k,
+                            )
                         }
                         _ => {
-                            let (hits, _report) =
-                                crate::planner::fuse_rrf_with_report(lexical_hits, vector_hits);
+                            let (hits, _report) = crate::planner::fuse_rrf_with_report(
+                                lexical_hits,
+                                vector_hits,
+                                rrf_k,
+                            );
                             hits
                         }
                     };
@@ -176,7 +194,8 @@ impl VantaEmbedded {
                     (hits, text_ranks, vector_ranks)
                 }
                 (Some(text_query), false, true) => {
-                    let budget = crate::planner::hybrid_candidate_budget(request.top_k);
+                    let budget =
+                        crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
                     let lexical_hits = self.lexical_search(
                         &request.namespace,
                         text_query,
@@ -190,7 +209,8 @@ impl VantaEmbedded {
                         budget,
                     )?;
                     let text_ranks = debug::rank_map(&lexical_hits);
-                    let mut hits = crate::planner::fuse_rrf_many(vec![lexical_hits, sparse_hits]);
+                    let mut hits =
+                        crate::planner::fuse_rrf_many(vec![lexical_hits, sparse_hits], rrf_k);
                     hits.truncate(request.top_k);
                     (hits, text_ranks, BTreeMap::new())
                 }
@@ -205,7 +225,8 @@ impl VantaEmbedded {
                     (hits, text_ranks, BTreeMap::new())
                 }
                 (None, true, true) => {
-                    let budget = crate::planner::hybrid_candidate_budget(request.top_k);
+                    let budget =
+                        crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
                     let vector_hits = self.vector_memory_search(
                         &request.namespace,
                         &request.query_vector,
@@ -221,7 +242,8 @@ impl VantaEmbedded {
                         budget,
                     )?;
                     let vector_ranks = debug::rank_map(&vector_hits);
-                    let mut hits = crate::planner::fuse_rrf_many(vec![vector_hits, sparse_hits]);
+                    let mut hits =
+                        crate::planner::fuse_rrf_many(vec![vector_hits, sparse_hits], rrf_k);
                     hits.truncate(request.top_k);
                     (hits, BTreeMap::new(), vector_ranks)
                 }
@@ -279,11 +301,13 @@ impl VantaEmbedded {
                     request.distance_metric,
                     request.query_sparse.as_ref(),
                     method,
+                    rrf_k,
+                    candidate_k,
                 )
             }
             (Some(text_query), false, true) => {
                 crate::metrics::record_planner_hybrid_query();
-                let budget = crate::planner::hybrid_candidate_budget(request.top_k);
+                let budget = crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
                 let lexical_hits =
                     self.lexical_search(&request.namespace, text_query, &request.filters, budget)?;
                 let sparse_hits = self.sparse_memory_search(
@@ -292,7 +316,8 @@ impl VantaEmbedded {
                     &request.filters,
                     budget,
                 )?;
-                let mut hits = crate::planner::fuse_rrf_many(vec![lexical_hits, sparse_hits]);
+                let mut hits =
+                    crate::planner::fuse_rrf_many(vec![lexical_hits, sparse_hits], rrf_k);
                 hits.truncate(request.top_k);
                 Ok(hits)
             }
@@ -307,7 +332,7 @@ impl VantaEmbedded {
             }
             (None, true, true) => {
                 crate::metrics::record_planner_hybrid_query();
-                let budget = crate::planner::hybrid_candidate_budget(request.top_k);
+                let budget = crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
                 let vector_hits = self.vector_memory_search(
                     &request.namespace,
                     &request.query_vector,
@@ -322,7 +347,7 @@ impl VantaEmbedded {
                     &request.filters,
                     budget,
                 )?;
-                let mut hits = crate::planner::fuse_rrf_many(vec![vector_hits, sparse_hits]);
+                let mut hits = crate::planner::fuse_rrf_many(vec![vector_hits, sparse_hits], rrf_k);
                 hits.truncate(request.top_k);
                 Ok(hits)
             }

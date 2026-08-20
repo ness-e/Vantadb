@@ -4,6 +4,7 @@
 //! related types that represent parsed queries before execution.
 
 use crate::node::FieldValue;
+use crate::sdk::SearchProfileConfig;
 use std::collections::BTreeMap;
 
 /// Top-level statement type after parsing.
@@ -99,6 +100,9 @@ pub struct Query {
     pub temperature: Option<f32>,
     /// RBAC owner role filter.
     pub owner_role: Option<String>,
+    /// Optional search profile (mode, RRF k, candidate budget) — cláusula IQL
+    /// PROFILE (MEM-01).
+    pub search_profile: Option<SearchProfileConfig>,
 }
 
 /// Graph traversal specification.
@@ -285,6 +289,7 @@ impl SelectStatement {
             operators: ops,
             temperature: self.temperature.unwrap_or(0.0),
             enforce_role: None,
+            search_profile: None,
         }
     }
 
@@ -313,6 +318,7 @@ impl SelectStatement {
             operators: ops,
             temperature: 0.0,
             enforce_role: None,
+            search_profile: None,
         }
     }
 
@@ -413,6 +419,8 @@ pub struct LogicalPlan {
     pub temperature: f32,
     /// RBAC role to enforce during execution.
     pub enforce_role: Option<String>,
+    /// Optional search profile (MEM-01): mode/RRF k/candidate budget.
+    pub search_profile: Option<SearchProfileConfig>,
 }
 
 impl Query {
@@ -471,6 +479,7 @@ impl Query {
             operators: ops,
             temperature: self.temperature.unwrap_or(0.0), // 0.0 default (Exhaustive)
             enforce_role: self.owner_role,
+            search_profile: self.search_profile,
         }
     }
 }
@@ -595,6 +604,7 @@ mod tests {
             rank_by: None,
             temperature: None,
             owner_role: None,
+            search_profile: None,
         };
         assert_eq!(q.from_entity, "Node");
         assert!(q.traversal.is_none());
@@ -618,6 +628,7 @@ mod tests {
             rank_by: None,
             temperature: None,
             owner_role: None,
+            search_profile: None,
         };
         assert_eq!(q.traversal.as_ref().unwrap().min_depth, 1);
         assert_eq!(q.traversal.as_ref().unwrap().max_depth, 3);
@@ -637,6 +648,7 @@ mod tests {
             rank_by: None,
             temperature: None,
             owner_role: None,
+            search_profile: None,
         };
         let plan = q.into_logical_plan();
         assert_eq!(plan.operators.len(), 1);
@@ -665,6 +677,7 @@ mod tests {
             rank_by: None,
             temperature: None,
             owner_role: None,
+            search_profile: None,
         };
         let plan = q.into_logical_plan();
         assert_eq!(plan.operators.len(), 2);
@@ -688,6 +701,7 @@ mod tests {
             }),
             temperature: None,
             owner_role: None,
+            search_profile: None,
         };
         let plan = q.into_logical_plan();
         let ops: Vec<&str> = plan

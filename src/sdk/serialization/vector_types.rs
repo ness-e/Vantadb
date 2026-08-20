@@ -1,7 +1,8 @@
 //! Vector-related SDK types: search requests, hits, and search results.
 
 use super::super::types::{
-    u128_serde, VantaMemoryMetadata, VantaMemoryRecord, VantaSearchExplanationHit,
+    u128_serde, SearchProfileConfig, VantaMemoryMetadata, VantaMemoryRecord,
+    VantaSearchExplanationHit,
 };
 use crate::node::{DistanceMetric, SparseVector};
 use serde::{Deserialize, Serialize};
@@ -32,6 +33,10 @@ pub struct VantaMemorySearchRequest {
     /// results. Defaults to false: superseded records remain searchable.
     #[serde(default)]
     pub exclude_superseded: bool,
+    /// Optional search profile (mode, RRF k, candidate budget) for this request.
+    /// `None` uses the core defaults (MEM-01).
+    #[serde(default)]
+    pub search_profile: Option<SearchProfileConfig>,
 }
 
 impl Default for VantaMemorySearchRequest {
@@ -46,6 +51,7 @@ impl Default for VantaMemorySearchRequest {
             distance_metric: DistanceMetric::Cosine,
             explain: false,
             exclude_superseded: false,
+            search_profile: None,
         }
     }
 }
@@ -76,6 +82,7 @@ pub struct VantaMemorySearchHit {
 mod tests {
     use super::*;
     use crate::sdk::types::VantaValue;
+    use crate::sdk::types::{SearchProfileConfig, SearchProfileMode};
 
     #[test]
     fn test_search_request_default() {
@@ -103,6 +110,7 @@ mod tests {
             explain: true,
             query_sparse: None,
             exclude_superseded: false,
+            search_profile: None,
         };
         assert_eq!(req.namespace, "test");
         assert_eq!(req.query_vector.len(), 3);
@@ -123,6 +131,7 @@ mod tests {
             explain: false,
             query_sparse: None,
             exclude_superseded: false,
+            search_profile: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let deserialized: VantaMemorySearchRequest = serde_json::from_str(&json).unwrap();
@@ -174,5 +183,73 @@ mod tests {
         };
         let json = serde_json::to_string(&hit).unwrap();
         assert!(json.contains("\"999888777666\""));
+    }
+
+    // --- SearchProfileConfig (MEM-01) ---
+
+    #[test]
+    fn test_search_profile_defaults() {
+        let p = SearchProfileConfig::default();
+        assert_eq!(p.mode, SearchProfileMode::Hybrid);
+        assert_eq!(p.rrf_k, None);
+        assert_eq!(p.candidate_k, None);
+        let req = VantaMemorySearchRequest::default();
+        assert_eq!(req.search_profile, None);
+    }
+
+    #[test]
+    fn test_search_profile_serialization_roundtrip() {
+        let p = SearchProfileConfig {
+            mode: SearchProfileMode::Keyword,
+            rrf_k: Some(100),
+            candidate_k: Some(128),
+        };
+        let json = serde_json::to_string(&p).unwrap();
+        let back: SearchProfileConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, p);
+    }
+
+    #[test]
+    fn test_search_profile_serde_lowercase() {
+        let json = r#"{"mode":"keyword","rrf_k":100,"candidate_k":128}"#;
+        let p: SearchProfileConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(p.mode, SearchProfileMode::Keyword);
+        assert_eq!(p.rrf_k, Some(100));
+        assert_eq!(p.candidate_k, Some(128));
+        assert!(serde_json::to_string(&p).unwrap().contains("\"keyword\""));
+    }
+
+    #[test]
+    fn test_search_profile_partial_json_defaults() {
+        // Clientes que solo mandan el modo: los demás campos caen a None.
+        let json = r#"{"mode":"vector"}"#;
+        let p: SearchProfileConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(p.mode, SearchProfileMode::Vector);
+        assert_eq!(p.rrf_k, None);
+        assert_eq!(p.candidate_k, None);
+    }
+
+    #[test]
+    fn test_search_request_with_profile_roundtrip() {
+        let req = VantaMemorySearchRequest {
+            namespace: "ns".into(),
+            search_profile: Some(SearchProfileConfig {
+                mode: SearchProfileMode::Hybrid,
+                rrf_k: Some(75),
+                candidate_k: Some(96),
+            }),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let back: VantaMemorySearchRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, req);
+    }
+
+    #[test]
+    fn test_search_request_without_profile_field_is_none() {
+        // Retrocompat: JSON antiguo sin `search_profile` deserializa a None.
+        let json = r#"{"namespace":"ns","query_vector":[],"query_sparse":null,"filters":{},"text_query":null,"top_k":10,"distance_metric":"Cosine","explain":false,"exclude_superseded":false}"#;
+        let req: VantaMemorySearchRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.search_profile, None);
     }
 }

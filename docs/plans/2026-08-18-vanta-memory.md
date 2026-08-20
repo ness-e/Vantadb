@@ -119,7 +119,7 @@
 - **Gate Justificación:** F1 base — parametriza planner con `SearchProfileConfig`, expone en IQL/API/MCP (D13), report RRF incluye `rrf_k` (D20)
 - **Contrato:** `cargo check -p vantadb` pasa; tests dedicados de `SearchProfileConfig` + parser IQL (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **last-synced:** 2026-08-20T04:00
 
 ### Task 2: MEM-02 — F1 Exponer search profile en MCP/search
@@ -176,3 +176,14 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 5. ✅ D13–D17 **confirmadas por el usuario 2026-08-20** (IQL+API+MCP, SearchProfileConfig, audit log server, F1–F3 primero, MEM-34 adelantada).
 6. ✅ D18–D20 **resueltas 2026-08-20** — MEM-35 = REST agent-facing (D18, no bloquea F1/F2); tests dedicados por tarea (D19); Studio lee rrf_k dinámico en paralelo (D20).
 7. ⏳ Contrato 1 (explain): el `explain` core debe exponer el `rrf_k` usado en su report para que Studio lo consuma — se resuelve junto a MEM-01/D20 (no bloqueante).
+
+=== RECITATION ===
+Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
+Objetivo activo: MEM-01 SearchProfileConfig + IQL
+Estado: in-progress
+Última acción: Cerrar 16 task files stale WIP; plan P27 F1 en progreso
+Resultado: ⏳
+Próxima acción: Delegar MEM-01 a vanta-worker
+Contrato: cargo check -p vantadb + tests dedicados
+Próxima tarea si completa: MEM-02
+=== END RECITATION ===

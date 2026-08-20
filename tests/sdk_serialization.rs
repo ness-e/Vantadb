@@ -93,6 +93,7 @@ fn test_search_request_serialize() {
         explain: true,
         query_sparse: None,
         exclude_superseded: false,
+        search_profile: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     let back: VantaMemorySearchRequest = serde_json::from_str(&json).unwrap();

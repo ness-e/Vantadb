@@ -167,6 +167,7 @@ mod tests {
             }],
             temperature: 0.0,
             enforce_role: None,
+            search_profile: None,
         };
 
         let gov = ResourceGovernor::new(2 * 1024 * 1024 * 1024, 50);
@@ -192,6 +193,7 @@ mod tests {
             }],
             temperature: 0.3,
             enforce_role: None,
+            search_profile: None,
         };
         let gov = ResourceGovernor::new(1000, 5000);
         gov.apply_temperature_limits(&mut plan);
@@ -212,6 +214,7 @@ mod tests {
             }],
             temperature: 0.9,
             enforce_role: None,
+            search_profile: None,
         };
         let gov = ResourceGovernor::new(1000, 5000);
         gov.apply_temperature_limits(&mut plan);

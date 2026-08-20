@@ -535,6 +535,7 @@ pub fn handle_tools_call(
                 distance_metric,
                 explain,
                 exclude_superseded: false,
+                search_profile: None,
             };
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());

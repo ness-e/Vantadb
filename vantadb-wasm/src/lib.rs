@@ -993,6 +993,7 @@ impl VantaDB {
             distance_metric: distance,
             explain: req.explain,
             exclude_superseded: false,
+            search_profile: None,
         };
         let hits = self.inner.search(vanta_req).map_err(to_js_err)?;
         let arr = js_sys::Array::new();
@@ -1051,6 +1052,7 @@ impl VantaDB {
             distance_metric: distance,
             explain: true,
             exclude_superseded: false,
+            search_profile: None,
         };
         let explanation = self
             .inner

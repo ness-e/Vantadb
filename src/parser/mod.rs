@@ -15,6 +15,7 @@ use nom::{
 
 use crate::node::FieldValue;
 use crate::query::*;
+use crate::sdk::{SearchProfileConfig, SearchProfileMode};
 
 /// Strip leading and trailing whitespace around a parser.
 pub fn ws<'a, F, O, E: nom::error::ParseError<&'a str>>(
@@ -50,6 +51,7 @@ const RESERVED_KEYWORDS: &[&str] = &[
     "MATCH",
     "MESSAGE",
     "ON",
+    "PROFILE",
     "RANK",
     "RELATE",
     "ROLE",
@@ -232,6 +234,13 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
 
     let (i, owner_role) = opt(tuple((ws(tag("ROLE")), ws(string_literal))))(i)?;
 
+    let (i, search_profile) = opt(tuple((
+        ws(tag("PROFILE")),
+        ws(parse_profile_mode),
+        opt(tuple((ws(tag("rrf_k")), ws(parse_number)))),
+        opt(tuple((ws(tag("candidate_k")), ws(parse_number)))),
+    )))(i)?;
+
     Ok((
         i,
         Query {
@@ -246,8 +255,22 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
             }),
             temperature: temperature.map(|(_, _, t)| t),
             owner_role: owner_role.map(|(_, r)| r),
+            search_profile: search_profile.map(|(_, mode, rrf, cand)| SearchProfileConfig {
+                mode,
+                rrf_k: rrf.map(|(_, n)| n as usize),
+                candidate_k: cand.map(|(_, n)| n as usize),
+            }),
         },
     ))
+}
+
+/// Parse el modo de un perfil de búsqueda: keyword | vector | hybrid (MEM-01).
+fn parse_profile_mode(i: &str) -> IResult<&str, SearchProfileMode> {
+    alt((
+        map(tag("keyword"), |_| SearchProfileMode::Keyword),
+        map(tag("vector"), |_| SearchProfileMode::Vector),
+        map(tag("hybrid"), |_| SearchProfileMode::Hybrid),
+    ))(i)
 }
 
 // ─── DML (Data Manipulation Language) ──────────────────────────
@@ -1234,6 +1257,46 @@ mod tests {
     fn test_parse_query_with_role() {
         let (_, q) = parse_query(r#"FROM Person p ROLE "admin""#).unwrap();
         assert_eq!(q.owner_role, Some("admin".to_string()));
+    }
+
+    #[test]
+    fn test_parse_query_profile_full() {
+        // MEM-01: cláusula PROFILE con mode + rrf_k + candidate_k (sintaxis IQL).
+        let (_, q) = parse_query(
+            r#"FROM Person WHERE bio ~ "rust" PROFILE keyword rrf_k 20 candidate_k 64"#,
+        )
+        .unwrap();
+        let profile = q.search_profile.expect("profile parseado");
+        assert_eq!(profile.mode, SearchProfileMode::Keyword);
+        assert_eq!(profile.rrf_k, Some(20));
+        assert_eq!(profile.candidate_k, Some(64));
+    }
+
+    #[test]
+    fn test_parse_query_profile_vector_defaults() {
+        // Mode solo, sin rrf_k/candidate_k → None (constantes core).
+        let (_, q) = parse_query("FROM Node PROFILE vector").unwrap();
+        let profile = q.search_profile.expect("profile parseado");
+        assert_eq!(profile.mode, SearchProfileMode::Vector);
+        assert_eq!(profile.rrf_k, None);
+        assert_eq!(profile.candidate_k, None);
+    }
+
+    #[test]
+    fn test_parse_query_profile_absent() {
+        // Retrocompat: sin cláusula PROFILE → None.
+        let (_, q) = parse_query("FROM Node").unwrap();
+        assert!(q.search_profile.is_none());
+    }
+
+    #[test]
+    fn test_parse_query_profile_invalid_mode_unconsumed() {
+        // Un mode inválido no consume la cláusula: queda unconsumed (diseño
+        // tolerante del parser, igual que extra_tokens_remain) y search_profile
+        // queda None. El caller (executor) puede rechazar tokens sobrantes.
+        let (remaining, q) = parse_query("FROM Node PROFILE bogus").unwrap();
+        assert!(q.search_profile.is_none());
+        assert_eq!(remaining.trim(), "PROFILE bogus");
     }
 
     #[test]

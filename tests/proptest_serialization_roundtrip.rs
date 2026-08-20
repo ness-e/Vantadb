@@ -286,6 +286,7 @@ fn arb_search_request_full() -> impl Strategy<Value = VantaMemorySearchRequest> 
                     explain,
                     query_sparse: None,
                     exclude_superseded: false,
+                    search_profile: None,
                 }
             },
         )

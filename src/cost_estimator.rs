@@ -350,6 +350,7 @@ mod tests {
             }],
             temperature: 0.0,
             enforce_role: None,
+            search_profile: None,
         };
         let cost = CostEstimator::new(&engine).estimate_plan(&plan);
         assert!(

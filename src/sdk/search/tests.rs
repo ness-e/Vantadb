@@ -961,3 +961,209 @@ fn test_sparse_search_roundtrip_recall_identical() {
     assert!(!hits.is_empty(), "sparse query should hit the record");
     assert_eq!(hits[0].record.key, "sparse-doc");
 }
+
+// ── SearchProfileConfig (MEM-01) ──────────────────────────
+
+#[test]
+fn test_search_profile_mode_keyword_forces_lexical_only() {
+    let db = setup();
+    insert(
+        &db,
+        "test",
+        "a",
+        "cat chases mouse",
+        Some(vec![1.0, 0.0, 0.0]),
+        VantaMemoryMetadata::new(),
+    );
+    insert(
+        &db,
+        "test",
+        "b",
+        "dog sleeps all day",
+        Some(vec![0.0, 1.0, 0.0]),
+        VantaMemoryMetadata::new(),
+    );
+
+    // El vector favorece a "b", pero el modo Keyword ignora el canal vectorial:
+    // solo "a" matchea el texto "cat".
+    let req = VantaMemorySearchRequest {
+        namespace: "test".into(),
+        text_query: Some("cat".into()),
+        query_vector: vec![0.0, 1.0, 0.0],
+        top_k: 10,
+        search_profile: Some(SearchProfileConfig {
+            mode: SearchProfileMode::Keyword,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let hits = db.search(req).expect("keyword-mode search");
+    let keys: Vec<_> = hits.iter().map(|h| h.record.key.as_str()).collect();
+    assert_eq!(keys, vec!["a"], "keyword mode debe ignorar el vector");
+}
+
+#[test]
+fn test_search_profile_mode_vector_ignores_text() {
+    let db = setup();
+    insert(
+        &db,
+        "test",
+        "a",
+        "cat chases mouse",
+        Some(vec![1.0, 0.0, 0.0]),
+        VantaMemoryMetadata::new(),
+    );
+    insert(
+        &db,
+        "test",
+        "b",
+        "dog sleeps all day",
+        Some(vec![0.0, 1.0, 0.0]),
+        VantaMemoryMetadata::new(),
+    );
+
+    // El texto favorece a "a", pero el modo Vector ignora el texto: el orden
+    // es puramente vectorial (b mas cercano, luego a) — identico a un search
+    // sin text_query. Si el texto influyera (hybrid), "a" subiria por BM25.
+    let req = VantaMemorySearchRequest {
+        namespace: "test".into(),
+        text_query: Some("cat".into()),
+        query_vector: vec![0.0, 1.0, 0.0],
+        top_k: 10,
+        search_profile: Some(SearchProfileConfig {
+            mode: SearchProfileMode::Vector,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let hits = db.search(req).expect("vector-mode search");
+    let keys: Vec<_> = hits.iter().map(|h| h.record.key.as_str()).collect();
+    assert_eq!(
+        keys,
+        vec!["b", "a"],
+        "vector mode: orden puramente vectorial"
+    );
+
+    // Control: vector-only sin texto produce el mismo orden.
+    let req_control = VantaMemorySearchRequest {
+        namespace: "test".into(),
+        query_vector: vec![0.0, 1.0, 0.0],
+        top_k: 10,
+        ..Default::default()
+    };
+    let control_hits = db.search(req_control).expect("vector-only control");
+    let control_keys: Vec<_> = control_hits.iter().map(|h| h.record.key.as_str()).collect();
+    assert_eq!(keys, control_keys, "mode Vector == vector-only puro");
+}
+
+#[test]
+fn test_search_profile_hybrid_uses_both_channels() {
+    let db = setup();
+    insert(
+        &db,
+        "test",
+        "a",
+        "cat chases mouse",
+        Some(vec![1.0, 0.0, 0.0]),
+        VantaMemoryMetadata::new(),
+    );
+    insert(
+        &db,
+        "test",
+        "b",
+        "dog sleeps all day",
+        Some(vec![0.0, 1.0, 0.0]),
+        VantaMemoryMetadata::new(),
+    );
+
+    // Modo Hybrid (default): ambos canales participan, por lo que ambos keys
+    // aparecen (a por texto, b por vector).
+    let req = VantaMemorySearchRequest {
+        namespace: "test".into(),
+        text_query: Some("cat".into()),
+        query_vector: vec![0.0, 1.0, 0.0],
+        top_k: 10,
+        ..Default::default()
+    };
+    let hits = db.search(req).expect("hybrid search");
+    let mut keys: Vec<_> = hits.iter().map(|h| h.record.key.as_str()).collect();
+    keys.sort_unstable();
+    assert_eq!(keys, vec!["a", "b"], "hybrid mode usa ambos canales");
+}
+
+#[test]
+fn test_search_profile_candidate_k_affects_budget() {
+    let db = setup();
+    insert(
+        &db,
+        "test",
+        "a",
+        "cat chases mouse",
+        Some(vec![1.0, 0.0, 0.0]),
+        VantaMemoryMetadata::new(),
+    );
+
+    // candidate_k Some(64) con top_k=5 => budget = max(64, 5) = 64 (vs clamp core = 32).
+    let req = VantaMemorySearchRequest {
+        namespace: "test".into(),
+        text_query: Some("cat".into()),
+        query_vector: vec![1.0, 0.0, 0.0],
+        top_k: 5,
+        search_profile: Some(SearchProfileConfig {
+            candidate_k: Some(64),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let plan = db
+        .debug_memory_search_plan_for_tests(req)
+        .expect("debug plan should succeed");
+    assert_eq!(plan.budget, 64, "candidate_k del perfil define el budget");
+
+    // Sin profile: clamp core (5*4=20 => 32).
+    let req_default = VantaMemorySearchRequest {
+        namespace: "test".into(),
+        text_query: Some("cat".into()),
+        query_vector: vec![1.0, 0.0, 0.0],
+        top_k: 5,
+        ..Default::default()
+    };
+    let plan_default = db
+        .debug_memory_search_plan_for_tests(req_default)
+        .expect("debug plan should succeed");
+    assert_eq!(plan_default.budget, 32, "sin profile usa el clamp core");
+}
+
+#[test]
+fn test_search_profile_rrf_k_reported_in_explain() {
+    let db = setup();
+    insert(
+        &db,
+        "test",
+        "a",
+        "cat chases mouse",
+        Some(vec![1.0, 0.0, 0.0]),
+        VantaMemoryMetadata::new(),
+    );
+
+    // explain + profile rrf_k=100 => el fusion report expone rrf_k=100 (D20).
+    let req = VantaMemorySearchRequest {
+        namespace: "test".into(),
+        text_query: Some("cat".into()),
+        query_vector: vec![1.0, 0.0, 0.0],
+        top_k: 5,
+        explain: true,
+        search_profile: Some(SearchProfileConfig {
+            rrf_k: Some(100),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let explanation = db
+        .explain_memory_search(req)
+        .expect("explain should succeed");
+    let report = explanation
+        .fusion_report
+        .expect("hybrid route debe tener fusion report");
+    assert_eq!(report.rrf_k, 100, "rrf_k del perfil llega al report");
+}

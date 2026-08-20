@@ -19,12 +19,13 @@ pub use serialization::{
     FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS, FIELD_VERSION,
 };
 pub use types::{
-    VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord, VantaExportReport, VantaFields,
-    VantaFilterOp, VantaHybridFusionReport, VantaImportReport, VantaIndexRebuildReport,
-    VantaMemoryFilter, VantaMemoryFilterItem, VantaMemoryInput, VantaMemoryListOptions,
-    VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit,
-    VantaMemorySearchRequest, VantaNamespaceStats, VantaNamespaceStatsMap, VantaNodeInput,
-    VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile,
-    VantaSearchExplanation, VantaSearchExplanationHit, VantaSearchHit, VantaStorageTier,
-    VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
+    SearchProfileConfig, SearchProfileMode, VantaBm25TermContribution, VantaCapabilities,
+    VantaEdgeRecord, VantaExportReport, VantaFields, VantaFilterOp, VantaHybridFusionReport,
+    VantaImportReport, VantaIndexRebuildReport, VantaMemoryFilter, VantaMemoryFilterItem,
+    VantaMemoryInput, VantaMemoryListOptions, VantaMemoryListPage, VantaMemoryMetadata,
+    VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest, VantaNamespaceStats,
+    VantaNamespaceStatsMap, VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics,
+    VantaQueryResult, VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit,
+    VantaSearchHit, VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport,
+    VantaValue,
 };
