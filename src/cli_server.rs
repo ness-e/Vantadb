@@ -13,7 +13,7 @@ use crate::connection_pool::{ConnectionPool, PoolError};
 use crate::error::ChainedError;
 use crate::sdk::{
     VantaEmbedded, VantaMemoryFilter, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryRecord,
-    VantaMemorySearchRequest, VantaNamespaceStatsMap, VantaOperationalMetrics,
+    VantaMemorySearchHit, VantaMemorySearchRequest, VantaNamespaceStatsMap, VantaOperationalMetrics,
 };
 use crate::VantaError;
 use lru::LruCache;
@@ -1082,18 +1082,55 @@ async fn records_list(
     }
 }
 
+/// JSON body for `POST /api/v2/search`: the SDK search request plus optional
+/// offset pagination (REST-04). `cursor`/`limit` are server-only — the core
+/// `search()` is a top_k window without its own cursor, so the wire pages by
+/// offset over the same score-ranked result set.
+#[derive(Debug, Deserialize)]
+struct SearchPageRequest {
+    #[serde(flatten)]
+    request: VantaMemorySearchRequest,
+    /// Zero-based offset into the ranked result set.
+    #[serde(default)]
+    cursor: Option<usize>,
+    /// Page size; defaults to `top_k`.
+    #[serde(default)]
+    limit: Option<usize>,
+}
+
+/// Page-shaped search response mirroring `VantaMemoryListPage` so the web
+/// console paginates search the same way it paginates list (REST-04).
+#[derive(Serialize)]
+struct SearchPageV2 {
+    records: Vec<VantaMemorySearchHit>,
+    next_cursor: Option<usize>,
+}
+
 #[tracing::instrument(skip(state))]
 async fn records_search(
     State(state): State<Arc<ServerState>>,
-    Json(request): Json<VantaMemorySearchRequest>,
+    Json(page_request): Json<SearchPageRequest>,
 ) -> Response {
     // La Topbar de la consola web busca sin namespace — mismo default que list.
-    let mut request = request;
+    let mut request = page_request.request;
     if request.namespace.trim().is_empty() {
         request.namespace = "default".to_string();
     }
+    // Paginación offset (REST-04): el core `search()` es una ventana top_k sin
+    // cursor propio, así que el server traduce cursor/limit → top_k+1 (un extra
+    // para saber si hay más página) y recorta. Los resultados se ordenan por
+    // score, así que offset sobre el mismo ranking es estable entre páginas.
+    let page_size = page_request.limit.unwrap_or(request.top_k.max(1));
+    let cursor = page_request.cursor.unwrap_or(0);
+    request.top_k = cursor.saturating_add(page_size).saturating_add(1);
     match run_db_op(&state, move |db| db.search(request)).await {
-        Ok(hits) => Json(hits).into_response(),
+        Ok(hits) => {
+            let start = cursor.min(hits.len());
+            let end = (start + page_size).min(hits.len());
+            let records = hits[start..end].to_vec();
+            let next_cursor = (end < hits.len()).then_some(end);
+            Json(SearchPageV2 { records, next_cursor }).into_response()
+        }
         Err(resp) => resp,
     }
 }
@@ -2725,6 +2762,102 @@ mod tests {
             events.iter().any(|e| e["op"] == "put"),
             "expected a put event, got: {body}"
         );
+    }
+
+    #[tokio::test]
+    async fn v2_list_and_search_paginate() {
+        // REST-04: paginación verificable — 2 llamadas con limit N devuelven
+        // N y el resto, sin duplicados entre páginas, para list Y search.
+        let cfg = VantaConfig {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(cfg)).unwrap());
+        let db = VantaEmbedded::from_engine(storage.clone());
+        let state = Arc::new(ServerState {
+            storage,
+            db,
+            circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+            pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+            api_key: None,
+            rbac_config: RbacConfig::default(),
+            trusted_proxies: Vec::new(),
+        });
+        let addr = spawn_app(app(state, 0)).await;
+
+        // 5 records con vectores de distinta similitud al query → ranking estable.
+        for (key, vec) in [
+            ("k1", "[1.0,0.0,0.0]"),
+            ("k2", "[0.8,0.2,0.0]"),
+            ("k3", "[0.6,0.4,0.0]"),
+            ("k4", "[0.4,0.6,0.0]"),
+            ("k5", "[0.2,0.8,0.0]"),
+        ] {
+            let body = format!(
+                r#"{{"namespace":"ns","key":"{key}","payload":"p-{key}","metadata":{{}},"vector":{vec},"ttl_ms":null}}"#
+            );
+            let (status, body) = parse_response(
+                &raw_request(addr, json_request("POST", "/api/v2/records", addr, &body)).await,
+            );
+            assert_eq!(status, 201, "put {key}: {body}");
+        }
+
+        // LIST paginado: 2 → next_cursor → 2 → next_cursor → 1, sin duplicados.
+        let mut seen: Vec<String> = Vec::new();
+        let mut cursor = None;
+        loop {
+            let path = match cursor {
+                Some(c) => format!("/api/v2/list?namespace=ns&limit=2&cursor={c}"),
+                None => "/api/v2/list?namespace=ns&limit=2".to_string(),
+            };
+            let (status, body) = raw_get(addr, &path).await;
+            assert_eq!(status, 200, "list status: {body}");
+            let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+            let records = page["records"].as_array().unwrap();
+            assert!(
+                records.len() <= 2,
+                "page has more than limit records: {body}"
+            );
+            for r in records {
+                let key = r["key"].as_str().unwrap().to_string();
+                assert!(!seen.contains(&key), "duplicate key {key} in {body}");
+                seen.push(key);
+            }
+            cursor = page["next_cursor"].as_u64().map(|v| v as usize);
+            if cursor.is_none() {
+                break;
+            }
+        }
+        assert_eq!(seen.len(), 5, "list pagination must yield all 5, got: {seen:?}");
+
+        // SEARCH paginado: limit=2 + cursor offset sobre el mismo ranking.
+        // Base sin llave de cierre: el cursor se concatena cuando corresponde.
+        let search_base = r#"{"namespace":"ns","query_vector":[1.0,0.0,0.0],"query_sparse":null,"filters":{},"text_query":null,"top_k":5,"distance_metric":"Cosine","explain":false,"limit":2"#;
+        let mut seen: Vec<String> = Vec::new();
+        let mut cursor: Option<usize> = None;
+        loop {
+            let body = match cursor {
+                Some(c) => format!(r#"{search_base},"cursor":{c}}}"#),
+                None => format!(r#"{search_base}}}"#),
+            };
+            let (status, resp) = parse_response(
+                &raw_request(addr, json_request("POST", "/api/v2/search", addr, &body)).await,
+            );
+            assert_eq!(status, 200, "search status: {resp}");
+            let page: serde_json::Value = serde_json::from_str(&resp).unwrap();
+            let records = page["records"].as_array().unwrap();
+            assert!(records.len() <= 2, "page has more than limit: {resp}");
+            for r in records {
+                let key = r["record"]["key"].as_str().unwrap().to_string();
+                assert!(!seen.contains(&key), "duplicate search key {key} in {resp}");
+                seen.push(key);
+            }
+            cursor = page["next_cursor"].as_u64().map(|v| v as usize);
+            if cursor.is_none() {
+                break;
+            }
+        }
+        assert_eq!(seen.len(), 5, "search pagination must yield all 5, got: {seen:?}");
     }
 
     #[tokio::test]

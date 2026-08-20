@@ -35,9 +35,12 @@ test("vanta_get: SDK record → desktop MemoryRecord (key→id, payload→text)"
   assert.deepEqual(out.metadata, { kind: "doc", n: 3 });
 });
 
-test("vanta_search: SDK hit → desktop SearchResult", () => {
+test("vanta_search: SDK page {records, next_cursor} → desktop SearchResult[]", () => {
   const hits = [{ record: sdkRecord, score: 0.9, explanation: null }];
-  const [r] = getHttpMapping("vanta_search").transform?.(hits) as SearchResult[];
+  const [r] = getHttpMapping("vanta_search").transform?.({
+    records: hits,
+    next_cursor: null,
+  }) as SearchResult[];
   assert.equal(r.id, "k1");
   assert.equal(r.text, "hello");
   assert.equal(r.score, 0.9);

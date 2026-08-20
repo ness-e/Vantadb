@@ -198,7 +198,9 @@ async function main(): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(searchReq),
     });
-    const hits = (searchRest.body as { record?: { key?: string } }[] | null) ?? [];
+    // REST-04: search devuelve página {records, next_cursor} (no array plano).
+    const page = (searchRest.body as { records?: { record?: { key?: string } }[] } | null) ?? {};
+    const hits = page.records ?? [];
     check(
       searchRest.status === 200 &&
         hits.some((h) => (h.record as { key?: string } | undefined)?.key === K_VEC),

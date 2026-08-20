@@ -227,10 +227,14 @@ const mappings: Record<string, HttpMapping | string> = {
     method: "POST",
     path: () => "/api/v2/search",
     body: (args) => searchToRequest(args.query as SearchQuery),
-    transform: (data) =>
-      ((data as Record<string, unknown>[]) ?? []).map((h) =>
+    // REST-04: el server devuelve {records, next_cursor}; el desktop search()
+    // es one-shot (firma de vanta.ts intacta) → unwrap de records.
+    transform: (data) => {
+      const page = (data ?? {}) as { records?: Record<string, unknown>[] };
+      return (page.records ?? []).map((h) =>
         searchHitFromSdk(h as Record<string, unknown>),
-      ),
+      );
+    },
   },
   vanta_get: {
     method: "GET",
