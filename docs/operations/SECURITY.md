@@ -135,7 +135,7 @@ General HTTP rate limiting is configured via `VANTADB_RATE_LIMIT_RPM`:
 
 | Setting | Behavior |
 |---------|----------|
-| `100` (default) | Burst-aware token bucket limiter at N requests/minute |
+| `600` (default) | Burst-aware token bucket limiter at N requests/minute |
 | `0` | Rate limiting disabled |
 
 ## Deployment Security Best Practices

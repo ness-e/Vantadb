@@ -13,7 +13,7 @@ use crate::connection_pool::{ConnectionPool, PoolError};
 use crate::error::ChainedError;
 use crate::sdk::{
     VantaEmbedded, VantaMemoryFilter, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryRecord,
-    VantaMemorySearchRequest,
+    VantaMemorySearchRequest, VantaNamespaceStatsMap, VantaOperationalMetrics,
 };
 use crate::VantaError;
 use lru::LruCache;
@@ -26,7 +26,7 @@ use std::time::Instant;
 
 use axum::{
     extract::{DefaultBodyLimit, Path as AxumPath, Query, State},
-    http::{header, HeaderValue, Method, StatusCode},
+    http::{header, HeaderMap, HeaderValue, Method, StatusCode},
     middleware,
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -37,7 +37,8 @@ use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 use tokio::net::TcpListener;
 use tower_governor::{
-    governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor, GovernorLayer,
+    governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor, GovernorError,
+    GovernorLayer,
 };
 use tracing_subscriber::EnvFilter;
 #[cfg(feature = "opentelemetry")]
@@ -124,6 +125,60 @@ pub struct ServerState {
     pub trusted_proxies: Vec<std::net::IpAddr>,
 }
 
+/// Rate limiter period: one request every `60_000 / rpm` ms, floor 1ms.
+fn rate_limit_period_ms(rpm: u32) -> u64 {
+    (60_000u64 / rpm as u64).max(1)
+}
+
+/// Rate limiter burst size for the given rpm.
+///
+/// REST-01: without an API key the server is in local dev mode and the web
+/// console fires bursts of ~12 requests (grid + inspector + sidebar) — allow
+/// the full rpm as burst so the UI never 429s. With an API key configured,
+/// stay conservative (`rpm/10`, the AUD-021 fail-closed posture) so a remote
+/// client cannot exhaust the limiter with an instant burst.
+fn rate_limit_burst(rpm: u32, auth_active: bool) -> u32 {
+    if auth_active {
+        (rpm / 10).max(1)
+    } else {
+        rpm.max(1)
+    }
+}
+
+/// Build the response for a rate-limit rejection (REST-01).
+///
+/// Same JSON `{success:false, error}` shape as the rest of the API surface.
+/// tower_governor already computes the wait time and populates `retry-after`
+/// / `x-ratelimit-after` on [`GovernorError::TooManyRequests`]; those headers
+/// are forwarded verbatim so clients know when to retry.
+fn rate_limit_error_response(err: GovernorError) -> Response {
+    let (status, headers, message) = match err {
+        GovernorError::TooManyRequests { wait_time, headers } => (
+            StatusCode::TOO_MANY_REQUESTS,
+            headers.unwrap_or_default(),
+            format!("Rate limit exceeded; retry after {wait_time}s"),
+        ),
+        GovernorError::UnableToExtractKey => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            HeaderMap::new(),
+            "Unable to extract rate limit key".to_string(),
+        ),
+        GovernorError::Other { code, msg, headers } => (
+            code,
+            headers.unwrap_or_default(),
+            msg.unwrap_or_else(|| "Other Error".to_string()),
+        ),
+    };
+
+    let mut response = (
+        status,
+        Json(serde_json::json!({ "success": false, "error": message })),
+    )
+        .into_response();
+    *response.headers_mut() = headers;
+    response
+}
+
 /// Build the axum Router with public and protected routes, rate-limiting, and middleware.
 ///
 /// No CORS is configured (see [`app_with_cors`] to allow specific origins).
@@ -176,6 +231,9 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
         .route("/api/v2/graph/degree", post(graph_degree))
         .route("/api/v2/graph/centrality", post(graph_centrality))
         .route("/api/v2/graph/pagerank", post(graph_pagerank))
+        .route("/api/v2/graph/v2/bfs", post(graph_v2_bfs))
+        .route("/api/v2/graph/v2/dfs", post(graph_v2_dfs))
+        .route("/api/v2/graph/v2/degree", post(graph_v2_degree))
         .route("/api/v2/maintenance/purge", post(maintenance_purge))
         .route("/api/v2/maintenance/compact", post(maintenance_compact))
         .route("/api/v2/maintenance/flush", post(maintenance_flush))
@@ -193,11 +251,14 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
         .route("/api/v2/snapshots", get(snapshots_list))
         .route("/api/v2/snapshots/{name}", post(snapshots_create))
         .route("/metrics", get(metrics_endpoint))
+        .route("/api/v2/metrics", get(metrics_v2))
         .layer(middleware::from_fn(auth_middleware));
 
     let protected = if rpm > 0 {
-        let period_ms = (60_000u64 / rpm as u64).max(1);
-        let burst_size = (rpm / 10).max(1);
+        let period_ms = rate_limit_period_ms(rpm);
+        // REST-01: full burst without auth (local web console), conservative
+        // burst with auth (AUD-021 fail-closed posture).
+        let burst_size = rate_limit_burst(rpm, state.api_key.is_some());
 
         // AUD-021: fail-closed. Should the governor config ever fail to build,
         // refuse to start rather than serving requests without a rate limit.
@@ -208,7 +269,7 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
             .key_extractor(SmartIpKeyExtractor)
             .finish()
             .expect("governor config must build: period_ms and burst_size are >= 1 for rpm > 0");
-        protected.layer(GovernorLayer::new(gc))
+        protected.layer(GovernorLayer::new(gc).error_handler(rate_limit_error_response))
     } else {
         protected
     };
@@ -515,6 +576,35 @@ async fn metrics_endpoint() -> impl IntoResponse {
             format!("Failed to build metrics response: {e}"),
         )
             .into_response(),
+    }
+}
+
+/// JSON wire shape for `GET /api/v2/metrics` (REST-02): the operational
+/// snapshot (same `VantaOperationalMetrics` shape the desktop `vanta_metrics`
+/// wrapper consumes) plus per-namespace collection counts for the
+/// Índices/salud surface (FEAT-02). Both fields reuse existing SDK types.
+#[derive(Serialize)]
+struct MetricsV2Response {
+    metrics: VantaOperationalMetrics,
+    namespaces: VantaNamespaceStatsMap,
+}
+
+/// `GET /api/v2/metrics` — engine metrics as JSON for the web console.
+///
+/// Runs under the connection pool like every `/api/v2` console op and inherits
+/// the same auth, rate-limit and CORS layers as the other protected routes.
+#[tracing::instrument(skip(state))]
+async fn metrics_v2(State(state): State<Arc<ServerState>>) -> Response {
+    match run_db_op(&state, move |db| {
+        Ok(MetricsV2Response {
+            metrics: db.operational_metrics(),
+            namespaces: db.namespace_stats(None)?,
+        })
+    })
+    .await
+    {
+        Ok(resp) => Json(resp).into_response(),
+        Err(resp) => resp,
     }
 }
 
@@ -1843,6 +1933,221 @@ async fn graph_pagerank(
     }
 }
 
+// --- Graph v2 (REST-03): desktop-DTO wire with u128-safe string ids --------
+
+/// Wire node — mirror of the desktop `VantaGraphNodeInfo`
+/// (desktop/src-tauri/src/connections/types.rs).
+#[derive(Serialize, Debug)]
+struct GraphNodeDTO {
+    /// Numeric node id, serialized as a string (u128 on the core side).
+    id: String,
+    /// Display label (content/text/__vanta_payload field, id fallback).
+    label: String,
+    /// Grouping key for coloring (namespace or node type), when known.
+    group: Option<String>,
+    /// In+out degree centrality (0 when not computed).
+    degree: u64,
+}
+
+/// Wire edge — mirror of the desktop `VantaGraphEdgeInfo`.
+#[derive(Serialize, Debug)]
+struct GraphEdgeDTO {
+    /// Source node id (string — u128 on the core side).
+    source: String,
+    /// Target node id (string — u128 on the core side).
+    target: String,
+    /// Edge label, when the backend exposes one.
+    label: Option<String>,
+    /// Edge weight, when the backend exposes one.
+    weight: Option<f32>,
+}
+
+/// Wire traversal result — mirror of the desktop `VantaGraphTraversalResult`.
+#[derive(Serialize, Debug, Default)]
+struct GraphTraversalDTO {
+    nodes: Vec<GraphNodeDTO>,
+    edges: Vec<GraphEdgeDTO>,
+}
+
+/// Body for `POST /api/v2/graph/v2/bfs` and `/dfs`. Roots are decimal strings
+/// so ids above u64::MAX survive the JSON wire (the legacy `/api/v2/graph/*`
+/// endpoints take bare u128 numbers, which the browser cannot parse).
+#[derive(Deserialize, Debug)]
+struct GraphV2TraversalRequest {
+    /// Node ids to start from (decimal u128 strings).
+    roots: Vec<String>,
+    /// Maximum hop depth from the roots.
+    max_depth: usize,
+    /// Edge direction: `"forward"` (default), `"reverse"`, or `"both"`.
+    direction: Option<GraphDirection>,
+    /// Cap on the returned node count (default 50).
+    limit: Option<usize>,
+}
+
+/// Body for `POST /api/v2/graph/v2/degree`.
+#[derive(Deserialize, Debug)]
+struct GraphV2DegreeRequest {
+    /// Namespace whose records are scored.
+    namespace: String,
+    /// Cap on the returned node count (default 50).
+    limit: Option<usize>,
+}
+
+/// Parse a wire node-id string into the core's u128 id (native.rs
+/// `parse_node_id`).
+fn parse_node_id_str(id: &str) -> Result<u128> {
+    id.parse::<u128>().map_err(|_| {
+        VantaError::InvalidInput(format!(
+            "invalid node id '{id}': expected a decimal u128 string"
+        ))
+    })
+}
+
+/// Label/group extraction mirror of native.rs `node_record_to_graph_node`.
+fn node_record_to_graph_dto(n: &crate::sdk::VantaNodeRecord) -> GraphNodeDTO {
+    let label = ["__vanta_payload", "text", "content"]
+        .into_iter()
+        .find_map(|k| match n.fields.get(k) {
+            Some(crate::sdk::VantaValue::String(s)) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| n.id.to_string());
+    let group = match n.fields.get("type") {
+        Some(crate::sdk::VantaValue::String(s)) => Some(s.clone()),
+        _ => None,
+    };
+    GraphNodeDTO {
+        id: n.id.to_string(),
+        label,
+        group,
+        degree: 0,
+    }
+}
+
+/// Build the wire traversal result from visited node ids, mirror of native.rs
+/// `graph_traversal_result`: capped at `cap` nodes; each node's outgoing edges
+/// become the edge list (source = node, target = edge target).
+fn graph_traversal_dto(db: &VantaEmbedded, ids: &[u128], cap: usize) -> Result<GraphTraversalDTO> {
+    let mut result = GraphTraversalDTO::default();
+    for id in ids.iter().take(cap) {
+        if let Some(node) = db.get_node(*id)? {
+            result.nodes.push(node_record_to_graph_dto(&node));
+            for edge in &node.edges {
+                result.edges.push(GraphEdgeDTO {
+                    source: id.to_string(),
+                    target: edge.target.to_string(),
+                    label: Some(edge.label.clone()),
+                    weight: Some(edge.weight),
+                });
+            }
+        }
+    }
+    Ok(result)
+}
+
+/// POST `/api/v2/graph/v2/bfs` — desktop `VantaGraphTraversalResult` wire with
+/// u128-safe string ids (REST-03).
+#[tracing::instrument(skip(state))]
+async fn graph_v2_bfs(
+    State(state): State<Arc<ServerState>>,
+    Json(req): Json<GraphV2TraversalRequest>,
+) -> Response {
+    let roots = match req
+        .roots
+        .iter()
+        .map(|r| parse_node_id_str(r))
+        .collect::<Result<Vec<u128>>>()
+    {
+        Ok(roots) => roots,
+        Err(e) => return vanta_error_response(&e),
+    };
+    let max_depth = req.max_depth;
+    let direction = req.direction.unwrap_or(GraphDirection::Forward).into();
+    let cap = req.limit.unwrap_or(50);
+    match run_db_op(&state, move |db| {
+        let ids = db.graph_bfs(&roots, max_depth, direction)?;
+        graph_traversal_dto(db, &ids, cap)
+    })
+    .await
+    {
+        Ok(dto) => Json(dto).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+/// POST `/api/v2/graph/v2/dfs` — desktop `VantaGraphTraversalResult` wire with
+/// u128-safe string ids (REST-03).
+#[tracing::instrument(skip(state))]
+async fn graph_v2_dfs(
+    State(state): State<Arc<ServerState>>,
+    Json(req): Json<GraphV2TraversalRequest>,
+) -> Response {
+    let roots = match req
+        .roots
+        .iter()
+        .map(|r| parse_node_id_str(r))
+        .collect::<Result<Vec<u128>>>()
+    {
+        Ok(roots) => roots,
+        Err(e) => return vanta_error_response(&e),
+    };
+    let max_depth = req.max_depth;
+    let direction = req.direction.unwrap_or(GraphDirection::Forward).into();
+    let cap = req.limit.unwrap_or(50);
+    match run_db_op(&state, move |db| {
+        let ids = db.graph_dfs(&roots, max_depth, direction)?;
+        graph_traversal_dto(db, &ids, cap)
+    })
+    .await
+    {
+        Ok(dto) => Json(dto).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+/// POST `/api/v2/graph/v2/degree` — desktop `VantaGraphNodeInfo[]` wire with
+/// u128-safe string ids (REST-03). Mirrors native.rs `graph_degree`; an
+/// empty/unknown namespace resolves to an empty array, not an error (GRAFO-01).
+#[tracing::instrument(skip(state))]
+async fn graph_v2_degree(
+    State(state): State<Arc<ServerState>>,
+    Json(req): Json<GraphV2DegreeRequest>,
+) -> Response {
+    let ns = req.namespace;
+    let cap = req.limit.unwrap_or(50);
+    match run_db_op(&state, move |db| {
+        let options = VantaMemoryListOptions {
+            limit: cap,
+            cursor: None,
+            ..Default::default()
+        };
+        let page = db.list(&ns, options)?;
+        if page.records.is_empty() {
+            return Ok(Vec::new());
+        }
+        let node_ids: Vec<u128> = page.records.iter().map(|r| r.node_id).collect();
+        let degrees = db.graph_degree_centrality(&node_ids)?;
+        Ok(page
+            .records
+            .into_iter()
+            .map(|r| GraphNodeDTO {
+                id: r.node_id.to_string(),
+                label: r.payload.clone(),
+                group: Some(ns.clone()),
+                degree: degrees
+                    .get(&r.node_id)
+                    .map(|(in_d, out_d)| (*in_d + *out_d) as u64)
+                    .unwrap_or(0),
+            })
+            .collect())
+    })
+    .await
+    {
+        Ok(nodes) => Json(nodes).into_response(),
+        Err(resp) => resp,
+    }
+}
+
 #[tracing::instrument(skip(state))]
 async fn maintenance_purge(State(state): State<Arc<ServerState>>) -> Response {
     match run_db_op(&state, move |db| db.purge_expired()).await {
@@ -2577,6 +2882,54 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn metrics_v2_returns_json_operational_snapshot() {
+        // REST-02: /api/v2/metrics must return the operational snapshot plus
+        // per-namespace counts as JSON (not Prometheus text).
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::util::ServiceExt;
+
+        let state = cors_test_state().await;
+        // Seed one memory record so the namespaces map is non-empty.
+        state
+            .db
+            .put(VantaMemoryInput::new("agent/a", "k1", "hello"))
+            .unwrap();
+        let router = app(state, 0);
+
+        let req = Request::builder()
+            .method("GET")
+            .uri("/api/v2/metrics")
+            .body(Body::empty())
+            .unwrap();
+        let resp = router.oneshot(req).await.unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::OK,
+            "/api/v2/metrics must be reachable"
+        );
+
+        let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+
+        assert!(
+            json["metrics"]["hnsw_nodes_count"].is_u64(),
+            "metrics.hnsw_nodes_count must be present — got: {json}"
+        );
+        assert!(
+            json["metrics"]["process_rss_bytes"].is_u64(),
+            "metrics.process_rss_bytes must be present — got: {json}"
+        );
+        assert_eq!(
+            json["namespaces"]["agent/a"]["count"].as_u64(),
+            Some(1),
+            "namespaces must include the seeded record — got: {json}"
+        );
+    }
+
+    #[tokio::test]
     async fn query_error_returns_4xx_not_200() {
         // ERR-027: a failing query must surface as an explicit 4xx/5xx so
         // proxies and monitoring can distinguish client errors from success.
@@ -2664,20 +3017,89 @@ mod tests {
         // AUD-021: the server must never fall open (serve without a rate
         // limit). The eager .expect() in app_with_cors fails closed at
         // startup instead; this test proves the fail path is unreachable for
-        // every rpm > 0 because the derived period/burst are always >= 1.
+        // every rpm > 0 because the derived period/burst are always >= 1 —
+        // in both the no-auth (full burst) and auth (conservative) branches.
         for rpm in 1..=10_000u32 {
-            let period_ms = (60_000u64 / rpm as u64).max(1);
-            let burst_size = (rpm / 10).max(1);
-            let cfg = GovernorConfigBuilder::default()
-                .per_millisecond(period_ms)
-                .burst_size(burst_size)
-                .key_extractor(SmartIpKeyExtractor)
-                .finish();
-            assert!(
-                cfg.is_some(),
-                "governor config must build for rpm={rpm} (period={period_ms}, burst={burst_size})"
+            for auth_active in [false, true] {
+                let period_ms = rate_limit_period_ms(rpm);
+                let burst_size = rate_limit_burst(rpm, auth_active);
+                let cfg = GovernorConfigBuilder::default()
+                    .per_millisecond(period_ms)
+                    .burst_size(burst_size)
+                    .key_extractor(SmartIpKeyExtractor)
+                    .finish();
+                assert!(
+                    cfg.is_some(),
+                    "governor config must build for rpm={rpm} auth={auth_active} (period={period_ms}, burst={burst_size})"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn rate_limiter_allows_ui_burst_without_auth() {
+        // REST-01: the web console (grid + inspector + sidebar) fires bursts
+        // of ~12 requests. Without auth (dev mode) the burst size equals the
+        // full rpm, so a 20-request burst on a loopback client must all pass.
+        // rpm=100 would have tripped the old conservative burst of 10.
+        let state = cors_test_state().await; // api_key: None -> dev mode
+        let addr = spawn_app(app(state, 100)).await;
+
+        for _ in 0..20 {
+            let (status, body) = raw_get(addr, "/api/v2/health").await;
+            assert_eq!(
+                status, 200,
+                "burst request must pass the no-auth limiter, got {status}: {body}"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn rate_limiter_stays_conservative_with_auth() {
+        // REST-01 contract: the burst relaxation only applies without auth.
+        // With an API key the conservative burst (rpm/10) stays, so a burst
+        // beyond it must yield 429 with the JSON error shape and a
+        // Retry-After header (AUD-021 fail-closed posture).
+        let mut state = cors_test_state().await;
+        Arc::get_mut(&mut state).unwrap().api_key = Some("sk-test".into());
+        let addr = spawn_app(app(state, 100)).await; // conservative burst = 10
+
+        let mut saw_429 = false;
+        for _ in 0..20 {
+            let request = format!(
+                "GET /api/v2/health HTTP/1.1\r\nHost: {addr}\r\nAuthorization: Bearer sk-test\r\nConnection: close\r\n\r\n"
+            );
+            let raw = raw_request(addr, request).await;
+            if raw.starts_with("HTTP/1.1 429") {
+                saw_429 = true;
+                assert!(
+                    raw.to_lowercase().contains("retry-after:"),
+                    "429 must carry Retry-After, got: {raw}"
+                );
+                let (_, body) = parse_response(&raw);
+                let json: serde_json::Value = serde_json::from_str(&body)
+                    .unwrap_or_else(|_| panic!("429 body must be JSON, got: {body}"));
+                assert_eq!(json["success"], false);
+                assert!(
+                    json["error"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_lowercase()
+                        .contains("rate limit"),
+                    "error must mention the rate limit, got: {json}"
+                );
+                break;
+            }
+            assert_eq!(
+                raw.lines()
+                    .next()
+                    .map(|l| l.split_whitespace().nth(1).unwrap_or(""))
+                    .unwrap_or(""),
+                "200",
+                "requests before the limit trips must pass, got: {raw}"
+            );
+        }
+        assert!(saw_429, "with auth the conservative burst must trip a 429");
     }
 
     /// Spawn the app over an on-disk fjall DB in a temp dir (needed by
@@ -2951,6 +3373,144 @@ mod tests {
             .await,
         );
         assert_eq!(status, 422, "invalid direction must 422");
+    }
+
+    #[tokio::test]
+    async fn v2_graph_v2_roundtrip_u128_safe() {
+        // REST-03: the graph_v2 endpoints serialize node/edge ids as decimal
+        // strings, so ids above u64::MAX survive the JSON wire (the legacy
+        // /api/v2/graph/* endpoints return bare u128 values the browser cannot
+        // parse — ERR-025 pattern).
+        let state = cors_test_state().await;
+        let big_id: u128 = 18_446_744_073_709_551_616; // 2^64 > u64::MAX
+        state
+            .db
+            .insert_node(crate::sdk::VantaNodeInput::new(1))
+            .unwrap();
+        state
+            .db
+            .insert_node(crate::sdk::VantaNodeInput::new(2))
+            .unwrap();
+        state
+            .db
+            .insert_node(crate::sdk::VantaNodeInput::new(big_id))
+            .unwrap();
+        state.db.add_edge(1, 2, "next", None, None).unwrap();
+        state.db.add_edge(1, big_id, "next", None, None).unwrap();
+        let addr = spawn_app(app(state.clone(), 0)).await;
+
+        // BFS with string roots reaches the > u64::MAX node; its id must
+        // round-trip as a JSON string, never a number.
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request(
+                    "POST",
+                    "/api/v2/graph/v2/bfs",
+                    addr,
+                    r#"{"roots":["1"],"max_depth":2}"#,
+                ),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "graph_v2 bfs status: {body}");
+        let result: serde_json::Value = serde_json::from_str(&body).unwrap();
+        let big = result["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"].as_str() == Some("18446744073709551616"));
+        assert!(big.is_some(), "bfs must reach the u128 node, got: {result}");
+        assert_eq!(
+            big.unwrap()["id"],
+            serde_json::Value::String("18446744073709551616".to_string()),
+            "u128 id must be a string on the wire, got: {result}"
+        );
+        // Edges carry source/target as strings too.
+        assert!(
+            result["edges"].as_array().unwrap().iter().any(|e| {
+                e["source"].as_str() == Some("1")
+                    && e["target"].as_str() == Some("18446744073709551616")
+            }),
+            "edge to the u128 node must serialize string ids, got: {result}"
+        );
+
+        // DFS same wire shape.
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request(
+                    "POST",
+                    "/api/v2/graph/v2/dfs",
+                    addr,
+                    r#"{"roots":["1"],"max_depth":2}"#,
+                ),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "graph_v2 dfs status: {body}");
+        let result: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert!(
+            result["nodes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|n| n["id"].as_str() == Some("18446744073709551616")),
+            "dfs must reach the u128 node, got: {result}"
+        );
+
+        // Degree → VantaGraphNodeInfo[] shape: string ids, label, group.
+        state
+            .db
+            .put(VantaMemoryInput::new("mem", "k1", "hello degree"))
+            .unwrap();
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request(
+                    "POST",
+                    "/api/v2/graph/v2/degree",
+                    addr,
+                    r#"{"namespace":"mem"}"#,
+                ),
+            )
+            .await,
+        );
+        assert_eq!(status, 200, "graph_v2 degree status: {body}");
+        let nodes: serde_json::Value = serde_json::from_str(&body).unwrap();
+        let nodes = nodes.as_array().unwrap();
+        assert_eq!(nodes.len(), 1, "degree nodes: {nodes:?}");
+        assert!(
+            nodes[0]["id"].is_string(),
+            "degree id must be a string, got: {nodes:?}"
+        );
+        assert_eq!(nodes[0]["label"], "hello degree", "degree: {nodes:?}");
+        assert_eq!(nodes[0]["group"], "mem", "degree: {nodes:?}");
+        assert!(
+            nodes[0]["degree"].is_u64(),
+            "degree must be numeric, got: {nodes:?}"
+        );
+
+        // Invalid root string → 400 (VantaError::InvalidInput), not 422.
+        let (status, body) = parse_response(
+            &raw_request(
+                addr,
+                json_request(
+                    "POST",
+                    "/api/v2/graph/v2/bfs",
+                    addr,
+                    r#"{"roots":["not-a-number"],"max_depth":1}"#,
+                ),
+            )
+            .await,
+        );
+        assert_eq!(status, 400, "invalid root must 400: {body}");
+        let err: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(err["success"], false);
+        assert!(
+            err["error"].as_str().unwrap().contains("node id"),
+            "error should name the bad id, got: {err}"
+        );
     }
 
     #[tokio::test]

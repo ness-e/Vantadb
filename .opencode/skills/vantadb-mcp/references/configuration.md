@@ -94,7 +94,7 @@ When `true` (or `1`), the server refuses to start unless `VANTADB_API_KEY` is co
 
 ### VANTADB_RATE_LIMIT_RPM
 
-Maximum HTTP requests per minute per remote IP. Default: 100. `0` disables rate limiting.
+Maximum HTTP requests per minute per remote IP. Default: 600. `0` disables rate limiting.
 
 ### VANTADB_TRUSTED_PROXIES
 

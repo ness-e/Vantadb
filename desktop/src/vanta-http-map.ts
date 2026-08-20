@@ -8,8 +8,8 @@
 // receiving the exact desktop DTOs — components read `record.text`/`record.id`,
 // the SDK wire sends `key`/`payload`, and this file bridges the two.
 //
-// Commands with NO wire-compatible REST endpoint (multi-connection, metrics,
-// graph) are rejected with a descriptive error — never an invented path.
+// Commands with NO wire-compatible REST endpoint (multi-connection only)
+// are rejected with a descriptive error — never an invented path.
 // vanta.ts must NOT change signature (its callers are the 33 components using
 // `../vanta`).
 import type {
@@ -342,24 +342,49 @@ const mappings: Record<string, HttpMapping | string> = {
     // VantaExportReport serializes identically to the desktop ExportReport.
   },
 
-  // --- Graph (GRAFO-01): REST returns bare u128 id arrays (numeric roots, no
-  // labels/edges) — not wire-compatible with VantaGraphTraversalResult. A
-  // graph_v2 endpoint returning the desktop DTO is the follow-up.
-  vanta_graph_bfs: unsupported(
-    "REST /api/v2/graph/bfs returns bare u128 node-id arrays (numeric roots, no labels/edges); not wire-compatible with VantaGraphTraversalResult — needs a graph_v2 DTO endpoint",
-  ),
-  vanta_graph_dfs: unsupported(
-    "REST /api/v2/graph/dfs returns bare u128 node-id arrays (numeric roots, no labels/edges); not wire-compatible with VantaGraphTraversalResult — needs a graph_v2 DTO endpoint",
-  ),
-  vanta_graph_degree: unsupported(
-    "REST /api/v2/graph/degree returns a bare u128→score map (numeric roots); not wire-compatible with VantaGraphNodeInfo[] — needs a graph_v2 DTO endpoint",
-  ),
+  // --- Graph (GRAFO-01 / REST-03): the graph_v2 endpoints mirror the desktop
+  // DTOs (desktop/src-tauri/src/connections/types.rs) with u128 node/edge ids
+  // as decimal strings, so ids above u64::MAX survive the JSON wire (the
+  // legacy /api/v2/graph/* endpoints return bare u128 values the browser
+  // cannot parse). Responses are passthrough: GraphTraversalDTO ↔
+  // VantaGraphTraversalResult, GraphNodeDTO[] ↔ VantaGraphNodeInfo[].
+  vanta_graph_bfs: {
+    method: "POST",
+    path: () => "/api/v2/graph/v2/bfs",
+    body: (args) => ({
+      roots: args.roots,
+      max_depth: args.maxDepth,
+      direction: ((args.direction as string) ?? "Forward").toLowerCase(),
+      limit: args.limit ?? null,
+    }),
+  },
+  vanta_graph_dfs: {
+    method: "POST",
+    path: () => "/api/v2/graph/v2/dfs",
+    body: (args) => ({
+      roots: args.roots,
+      max_depth: args.maxDepth,
+      direction: ((args.direction as string) ?? "Forward").toLowerCase(),
+      limit: args.limit ?? null,
+    }),
+  },
+  vanta_graph_degree: {
+    method: "POST",
+    path: () => "/api/v2/graph/v2/degree",
+    body: (args) => ({
+      namespace: args.namespace,
+      limit: args.limit ?? null,
+    }),
+  },
 
-  // --- Metrics (ADMIN-01): only /metrics (Prometheus text, feature-gated)
-  // exists — no JSON /api/v2/metrics. Follow-up endpoint required.
-  vanta_metrics: unsupported(
-    "no JSON metrics endpoint on the server (only /metrics Prometheus text); /api/v2/metrics is the follow-up",
-  ),
+  // --- Metrics (ADMIN-01 / REST-02): /api/v2/metrics returns
+  // { metrics: VantaOperationalMetrics, namespaces: {...} }; the desktop
+  // OperationalMetrics interface is a subset of `metrics`.
+  vanta_metrics: {
+    method: "GET",
+    path: () => "/api/v2/metrics",
+    transform: (data) => (data as { metrics: unknown }).metrics,
+  },
 
   // --- Audit (VS-12) ---
   vanta_audit_events: {
@@ -379,7 +404,7 @@ const mappings: Record<string, HttpMapping | string> = {
 /**
  * Resolve a `vanta_*` command to its HTTP mapping.
  * @throws Error with a descriptive message when the command has no wire-
- * compatible REST endpoint (connection management, metrics, graph).
+ * compatible REST endpoint (connection management).
  */
 export function getHttpMapping(cmd: string): HttpMapping {
   const m = mappings[cmd];

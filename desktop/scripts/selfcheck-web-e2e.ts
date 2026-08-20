@@ -127,10 +127,9 @@ async function main(): Promise<void> {
       {
         windowsHide: true,
         stdio: ["ignore", "pipe", "pipe"],
-        // El rate limiter (100 rpm, burst 10) es un control de exposición pública;
-        // la consola local embebida hace ráfagas normales que lo pisan (ver
-        // Notas WEB-06). Para el harness E2E se desactiva vía env.
-        env: { ...process.env, VANTADB_RATE_LIMIT_RPM: "0" },
+        // REST-01: ya no se escapa del rate limiter con VANTADB_RATE_LIMIT_RPM=0.
+        // El default (600 rpm, burst completo sin auth) deja pasar las ráfagas
+        // normales de la consola (~12 reqs: grid + inspector + sidebar).
       },
     );
     child.stdout?.on("data", (d: Buffer) => serverLog.push(d.toString()));

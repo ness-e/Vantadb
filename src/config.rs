@@ -145,7 +145,7 @@ impl Default for HotReloadConfig {
         Self {
             prefetch_mode: PrefetchMode::Disabled,
             log_format: LogFormat::Compact,
-            rate_limit_rpm: 100,
+            rate_limit_rpm: 600,
             batch_size: None,
             wal_buffer_size: None,
             flush_threshold: None,
@@ -296,8 +296,10 @@ pub struct VantaConfig {
     pub require_auth: bool,
     /// Maximum HTTP requests per minute per remote IP for the rate limiter.
     ///
-    /// Configured via `VANTADB_RATE_LIMIT_RPM`. Set to `0` to disable rate
-    /// limiting entirely (useful for tests and embedded-local usage).
+    /// Configured via `VANTADB_RATE_LIMIT_RPM` (default: 600). Set to `0` to
+    /// disable rate limiting entirely (useful for tests and embedded-local
+    /// usage). When no API key is configured (dev mode) the burst size equals
+    /// the full rpm so local web-console bursts are not throttled (REST-01).
     pub rate_limit_rpm: u32,
     /// IP addresses of trusted reverse proxies whose `X-Forwarded-For` header
     /// is honored when resolving the client IP for rate limiting and logging.
@@ -654,7 +656,7 @@ impl Default for VantaConfig {
                 v
             },
             rate_limit_rpm: {
-                let v = parse_env_or("VANTADB_RATE_LIMIT_RPM", 100u32);
+                let v = parse_env_or("VANTADB_RATE_LIMIT_RPM", 600u32);
                 debug!(val = v, "VANTADB_RATE_LIMIT_RPM");
                 v
             },
@@ -1318,7 +1320,7 @@ mod tests {
         assert_eq!(cfg.max_blocking_threads, expected_threads);
         assert_eq!(cfg.sync_mode, SyncMode::Periodic);
         assert_eq!(cfg.api_key, None);
-        assert_eq!(cfg.rate_limit_rpm, 100);
+        assert_eq!(cfg.rate_limit_rpm, 600);
         assert_eq!(cfg.batch_size, None);
         assert_eq!(cfg.bulk_commit_interval, None);
         assert_eq!(cfg.wal_buffer_size, None);

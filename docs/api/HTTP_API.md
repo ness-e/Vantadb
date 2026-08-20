@@ -58,6 +58,35 @@ Prometheus-formatted metrics text. Exposes operational metrics at `/metrics` for
 curl http://127.0.0.1:8080/metrics
 ```
 
+### `GET /api/v2/metrics`
+
+Engine metrics as JSON for the web console: the operational snapshot (`VantaOperationalMetrics` — HNSW node count, WAL replay stats, memory breakdown, query/import counters) plus per-namespace collection counts.
+
+**Auth:** Bearer token (if `api_key` configured)
+
+**Example:**
+```bash
+curl http://127.0.0.1:8080/api/v2/metrics
+```
+
+**Response:**
+```json
+{
+  "metrics": {
+    "startup_ms": 12,
+    "wal_replay_ms": 0,
+    "wal_records_replayed": 0,
+    "hnsw_nodes_count": 1000,
+    "hnsw_logical_bytes": 52428800,
+    "process_rss_bytes": 52428800,
+    "records_imported": 1000
+  },
+  "namespaces": {
+    "agent/main": { "count": 1000, "expiring_soon": 3, "expired": 0 }
+  }
+}
+```
+
 ### `POST /api/v2/query`
 
 Execute an IQL (Interactive Query Language) or hybrid query against the database.
@@ -109,7 +138,7 @@ curl -X POST http://127.0.0.1:8080/api/v2/query \
 
 ## Rate Limiting
 
-Configurable via `rate_limit_rpm` in `VantaConfig` (default: 100 requests per minute). When the limit is exceeded, the server returns HTTP 429.
+Configurable via `rate_limit_rpm` in `VantaConfig` (default: 600 requests per minute). When the limit is exceeded, the server returns HTTP 429.
 
 ## TLS
 
@@ -136,11 +165,12 @@ vanta-cli server --http --port 443 --db ./vanta_data
 |--------|------|------|-------------|
 | `GET` | `/health` | No | Liveness check |
 | `GET` | `/metrics` | Bearer (if configured) | Prometheus metrics (OpenMetrics format) |
+| `GET` | `/api/v2/metrics` | Bearer (if configured) | Engine metrics as JSON (`VantaOperationalMetrics` + per-namespace counts) |
 | `POST` | `/api/v2/query` | Bearer | Execute IQL query |
 
 ## Rate Limiting
 
-Configurable via `rate_limit_rpm` in `VantaConfig` (default: 100 req/min). When exceeded, returns `HTTP 429 Too Many Requests` with a `Retry-After` header.
+Configurable via `VANTADB_RATE_LIMIT_RPM` (default: 600 req/min). When exceeded, returns `HTTP 429 Too Many Requests` with a `Retry-After` header and a `{success:false, error}` JSON body. Without an API key (dev mode) the burst size equals the full rpm so local web-console bursts pass; with an API key the burst is `rpm/10` (fail-closed posture, AUD-021).
 
 ## TLS
 

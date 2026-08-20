@@ -192,6 +192,74 @@ test("vanta_delete_by_filter: filter tagged to VantaMemoryFilter wire", () => {
   assert.equal(out, 7);
 });
 
+test("vanta_metrics: maps /api/v2/metrics and unwraps the operational snapshot", () => {
+  const m = getHttpMapping("vanta_metrics");
+  assert.equal(m.method, "GET");
+  assert.equal(m.path({}), "/api/v2/metrics");
+  const out = m.transform?.({
+    metrics: { hnsw_nodes_count: 7, process_rss_bytes: 123 },
+    namespaces: { agent: { count: 1, expiring_soon: 0, expired: 0 } },
+  });
+  assert.deepEqual(out, { hnsw_nodes_count: 7, process_rss_bytes: 123 });
+});
+
+test("vanta_graph_bfs/dfs: camelCase args → graph_v2 wire (string roots, lowercase direction)", () => {
+  const bfs = getHttpMapping("vanta_graph_bfs");
+  assert.equal(bfs.method, "POST");
+  assert.equal(bfs.path({}), "/api/v2/graph/v2/bfs");
+  assert.deepEqual(
+    bfs.body?.({
+      roots: ["1", "18446744073709551616"],
+      maxDepth: 2,
+      direction: "Forward",
+      limit: 50,
+    }),
+    { roots: ["1", "18446744073709551616"], max_depth: 2, direction: "forward", limit: 50 },
+  );
+  // Defaults: no direction/limit → forward + null.
+  assert.deepEqual(bfs.body?.({ roots: ["1"], maxDepth: 1 }), {
+    roots: ["1"],
+    max_depth: 1,
+    direction: "forward",
+    limit: null,
+  });
+  const dfs = getHttpMapping("vanta_graph_dfs");
+  assert.equal(dfs.path({}), "/api/v2/graph/v2/dfs");
+  assert.deepEqual(dfs.body?.({ roots: ["2"], maxDepth: 1, direction: "Both" }), {
+    roots: ["2"],
+    max_depth: 1,
+    direction: "both",
+    limit: null,
+  });
+});
+
+test("vanta_graph_degree: namespace/limit → graph_v2 wire, response passthrough", () => {
+  const m = getHttpMapping("vanta_graph_degree");
+  assert.equal(m.method, "POST");
+  assert.equal(m.path({}), "/api/v2/graph/v2/degree");
+  assert.deepEqual(m.body?.({ namespace: "mem", limit: 10 }), { namespace: "mem", limit: 10 });
+  assert.equal(m.transform, undefined, "graph DTOs are passthrough (ids already strings)");
+});
+
+test("vanta_graph_bfs: u128 (> u64::MAX) ids survive as strings (roundtrip)", () => {
+  const m = getHttpMapping("vanta_graph_bfs");
+  const body = m.body?.({ roots: ["18446744073709551616"], maxDepth: 1 }) as {
+    roots: string[];
+  };
+  assert.deepEqual(body.roots, ["18446744073709551616"]);
+  // A GraphTraversalDTO response (server wire) is consumed verbatim by the
+  // desktop VantaGraphTraversalResult type — the id string must not coerce.
+  const wire = JSON.parse(
+    JSON.stringify({
+      nodes: [{ id: "18446744073709551616", label: "big", group: null, degree: 1 }],
+      edges: [{ source: "1", target: "18446744073709551616", label: "next", weight: 1 }],
+    }),
+  ) as { nodes: { id: unknown }[]; edges: { source: unknown; target: unknown }[] };
+  assert.equal(typeof wire.nodes[0].id, "string");
+  assert.equal(wire.nodes[0].id, "18446744073709551616");
+  assert.equal(wire.edges[0].target, "18446744073709551616");
+});
+
 test("coverage: every vanta_* command has a mapping entry (real or documented unsupported)", () => {
   const allCommands = [
     "vanta_health",
