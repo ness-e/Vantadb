@@ -14,168 +14,174 @@ use vantadb::storage::StorageEngine;
 
 /// Handle `tools/list`, returning all available MCP tool definitions.
 pub fn handle_tools_list() -> Result<Value, Value> {
-    Ok(json!({
-        "tools": [
-            {
-                "name": "memory_put",
-                "description": "Inserts or updates a memory record in a namespace with payload, vector, optional sparse vector, optional metadata, and optional TTL.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "namespace": { "type": "string", "description": "Target namespace" },
-                        "key": { "type": "string", "description": "Unique key for the record" },
-                        "payload": { "type": "string", "description": "Text content of the memory" },
-                        "vector": { "type": "array", "items": {"type": "number"}, "description": "Optional embedding vector" },
-                        "sparse_vector": { "type": "object", "additionalProperties": {"type": "number"}, "description": "Optional sparse term-weight vector, e.g. {\"0\": 0.5, \"7\": 1.25} (dimension id -> weight)" },
-                        "metadata": { "type": "object", "description": "Optional metadata key-value pairs" },
-                        "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms timestamp after which the record expires (TTL)" }
-                    },
-                    "required": ["namespace", "key", "payload"]
-                }
-            },
-            {
-                "name": "memory_get",
-                "description": "Retrieves a memory record by namespace and key.",
-                "inputSchema": {
-                    "type": "object", "properties": {
-                        "namespace": { "type": "string" }, "key": { "type": "string" }
-                    }, "required": ["namespace", "key"]
-                }
-            },
-            {
-                "name": "memory_delete",
-                "description": "Deletes a memory record by namespace and key.",
-                "inputSchema": {
-                    "type": "object", "properties": {
-                        "namespace": { "type": "string" }, "key": { "type": "string" }
-                    }, "required": ["namespace", "key"]
-                }
-            },
-            {
-                "name": "memory_list",
-                "description": "Lists memory records in a namespace with optional pagination and filters.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "namespace": { "type": "string" },
-                        "limit": { "type": "number", "description": "Max records, default 100" },
-                        "cursor": { "type": "number", "description": "Optional pagination cursor" },
-                        "filters": { "type": "object", "description": "Optional metadata filters" }
-                    },
-                    "required": ["namespace"]
-                }
-            },
-            {
-                "name": "memory_list_namespaces",
-                "description": "Lists all available namespaces in the database.",
-                "inputSchema": { "type": "object", "properties": {}, "required": [] }
-            },
-            {
-                "name": "query_iql",
-                "description": "Executes an IQL (Interactive Query Language) statement. Allows reading structures and inserting/mutating Nodes providing semantic context. LISP is not supported; statements must be IQL.",
-                "inputSchema": {
-                    "type": "object", "properties": {
-                        "query": { "type": "string", "description": "IQL statement" }
-                    }, "required": ["query"]
-                }
-            },
-            {
-                "name": "search_semantic",
-                "description": "Raw semantic vector search directly in the HNSW index.",
-                "inputSchema": {
-                    "type": "object", "properties": {
-                        "vector": { "type": "array", "items": {"type": "number"}, "description": "F32 query vector" },
-                        "k": { "type": "number", "description": "Top K neighbors" }
-                    }, "required": ["vector", "k"]
-                }
-            },
-            {
-                "name": "search_memory",
-                "description": "Performs memory search in a given namespace supporting optional text queries, filters, distance metric, explain, and a search profile.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "namespace": { "type": "string" },
-                        "query_vector": { "type": "array", "items": {"type": "number"} },
-                        "text_query": { "type": "string" },
-                        "top_k": { "type": "number", "description": "Top K hits, default 10" },
-                        "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
-                        "explain": { "type": "boolean" },
-                        "filters": { "type": "object" },
-                        "search_profile": { "type": "object", "properties": {
-                            "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
-                            "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
-                            "candidate_k": { "type": "number", "description": "Per-channel candidate budget (1..max_candidate_k, default core)" }
-                        }, "description": "Optional search profile (MEM-01): mode forces the retrieval channel (keyword/vector/hybrid); rrf_k/candidate_k tune RRF. Wire format matches the native API and the IQL PROFILE clause." }
-                    },
-                    "required": ["namespace"]
-                }
-            },
-            {
-                "name": "get_node_neighbors",
-                "description": "Inspects neighbors or lineage of a node.",
-                "inputSchema": {
-                    "type": "object", "properties": {
-                        "node_id": { "type": "string", "description": "Node ID to explore (decimal string; u128 ids exceed JSON number precision)" }
-                    }, "required": ["node_id"]
-                }
-            },
-            {
-                "name": "inject_context",
-                "description": "Injects external state or context connecting it to a specific thread for subsequent consolidation.",
-                "inputSchema": {
-                    "type": "object", "properties": {
-                        "content": { "type": "string", "description": "Context content" },
-                        "thread_id": { "type": "number", "description": "Thread ID it belongs to" }
-                    }, "required": ["content", "thread_id"]
-                }
-            },
-            {
-                "name": "read_axioms",
-                "description": "Returns the active Devil's Advocate Axioms (Iron Axioms) in the database.",
-                "inputSchema": { "type": "object", "properties": {}, "required": [] }
-            },
-            {
-                "name": "collection_stats",
-                "description": "Returns statistics for a namespace/collection including record count, byte size, vector index info, and creation time.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "namespace": { "type": "string", "description": "Target namespace" }
-                    },
-                    "required": ["namespace"]
-                }
-            },
-            {
-                "name": "collection_list",
-                "description": "Lists all collections with metadata including record count, vector index status, and creation time.",
-                "inputSchema": { "type": "object", "properties": {}, "required": [] }
-            },
-            {
-                "name": "collection_delete",
-                "description": "Deletes an entire namespace/collection and all its records. Requires 'confirm' set to 'yes'.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "namespace": { "type": "string", "description": "Target namespace to delete" },
-                        "confirm": { "type": "string", "description": "Must be 'yes' to confirm deletion" }
-                    },
-                    "required": ["namespace", "confirm"]
-                }
-            },
-            {
-                "name": "rehydrate",
-                "description": "Recover shadow-archived nodes that belonged to a summary node from TombstoneStorage.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "summary_id": { "type": "string", "description": "Summary node ID (u128 as string) whose archived nodes to recover" }
-                    },
-                    "required": ["summary_id"]
-                }
+    let base_tools = json!([
+        {
+            "name": "memory_put",
+            "description": "Inserts or updates a memory record in a namespace with payload, vector, optional sparse vector, optional metadata, and optional TTL.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string", "description": "Target namespace" },
+                    "key": { "type": "string", "description": "Unique key for the record" },
+                    "payload": { "type": "string", "description": "Text content of the memory" },
+                    "vector": { "type": "array", "items": {"type": "number"}, "description": "Optional embedding vector" },
+                    "sparse_vector": { "type": "object", "additionalProperties": {"type": "number"}, "description": "Optional sparse term-weight vector, e.g. {\"0\": 0.5, \"7\": 1.25} (dimension id -> weight)" },
+                    "metadata": { "type": "object", "description": "Optional metadata key-value pairs" },
+                    "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms timestamp after which the record expires (TTL)" }
+                },
+                "required": ["namespace", "key", "payload"]
             }
-        ]
-    }))
+        },
+        {
+            "name": "memory_get",
+            "description": "Retrieves a memory record by namespace and key.",
+            "inputSchema": {
+                "type": "object", "properties": {
+                    "namespace": { "type": "string" }, "key": { "type": "string" }
+                }, "required": ["namespace", "key"]
+            }
+        },
+        {
+            "name": "memory_delete",
+            "description": "Deletes a memory record by namespace and key.",
+            "inputSchema": {
+                "type": "object", "properties": {
+                    "namespace": { "type": "string" }, "key": { "type": "string" }
+                }, "required": ["namespace", "key"]
+            }
+        },
+        {
+            "name": "memory_list",
+            "description": "Lists memory records in a namespace with optional pagination and filters.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string" },
+                    "limit": { "type": "number", "description": "Max records, default 100" },
+                    "cursor": { "type": "number", "description": "Optional pagination cursor" },
+                    "filters": { "type": "object", "description": "Optional metadata filters" }
+                },
+                "required": ["namespace"]
+            }
+        },
+        {
+            "name": "memory_list_namespaces",
+            "description": "Lists all available namespaces in the database.",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "query_iql",
+            "description": "Executes an IQL (Interactive Query Language) statement. Allows reading structures and inserting/mutating Nodes providing semantic context. LISP is not supported; statements must be IQL.",
+            "inputSchema": {
+                "type": "object", "properties": {
+                    "query": { "type": "string", "description": "IQL statement" }
+                }, "required": ["query"]
+            }
+        },
+        {
+            "name": "search_semantic",
+            "description": "Raw semantic vector search directly in the HNSW index.",
+            "inputSchema": {
+                "type": "object", "properties": {
+                    "vector": { "type": "array", "items": {"type": "number"}, "description": "F32 query vector" },
+                    "k": { "type": "number", "description": "Top K neighbors" }
+                }, "required": ["vector", "k"]
+            }
+        },
+        {
+            "name": "search_memory",
+            "description": "Performs memory search in a given namespace supporting optional text queries, filters, distance metric, explain, and a search profile.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string" },
+                    "query_vector": { "type": "array", "items": {"type": "number"} },
+                    "text_query": { "type": "string" },
+                    "top_k": { "type": "number", "description": "Top K hits, default 10" },
+                    "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
+                    "explain": { "type": "boolean" },
+                    "filters": { "type": "object" },
+                    "search_profile": { "type": "object", "properties": {
+                        "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
+                        "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
+                        "candidate_k": { "type": "number", "description": "Per-channel candidate budget (1..max_candidate_k, default core)" }
+                    }, "description": "Optional search profile (MEM-01): mode forces the retrieval channel (keyword/vector/hybrid); rrf_k/candidate_k tune RRF. Wire format matches the native API and the IQL PROFILE clause." }
+                },
+                "required": ["namespace"]
+            }
+        },
+        {
+            "name": "get_node_neighbors",
+            "description": "Inspects neighbors or lineage of a node.",
+            "inputSchema": {
+                "type": "object", "properties": {
+                    "node_id": { "type": "string", "description": "Node ID to explore (decimal string; u128 ids exceed JSON number precision)" }
+                }, "required": ["node_id"]
+            }
+        },
+        {
+            "name": "inject_context",
+            "description": "Injects external state or context connecting it to a specific thread for subsequent consolidation.",
+            "inputSchema": {
+                "type": "object", "properties": {
+                    "content": { "type": "string", "description": "Context content" },
+                    "thread_id": { "type": "number", "description": "Thread ID it belongs to" }
+                }, "required": ["content", "thread_id"]
+            }
+        },
+        {
+            "name": "read_axioms",
+            "description": "Returns the active Devil's Advocate Axioms (Iron Axioms) in the database.",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "collection_stats",
+            "description": "Returns statistics for a namespace/collection including record count, byte size, vector index info, and creation time.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string", "description": "Target namespace" }
+                },
+                "required": ["namespace"]
+            }
+        },
+        {
+            "name": "collection_list",
+            "description": "Lists all collections with metadata including record count, vector index status, and creation time.",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "collection_delete",
+            "description": "Deletes an entire namespace/collection and all its records. Requires 'confirm' set to 'yes'.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string", "description": "Target namespace to delete" },
+                    "confirm": { "type": "string", "description": "Must be 'yes' to confirm deletion" }
+                },
+                "required": ["namespace", "confirm"]
+            }
+        },
+        {
+            "name": "rehydrate",
+            "description": "Recover shadow-archived nodes that belonged to a summary node from TombstoneStorage.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "summary_id": { "type": "string", "description": "Summary node ID (u128 as string) whose archived nodes to recover" }
+                },
+                "required": ["summary_id"]
+            }
+        }
+    ]);
+    // MEM-07: six review-agent skill tools over SkillStore. Definitions live
+    // in crate::skills so this array stays readable; the wire shape is part
+    // of the public MCP API.
+    let mut result = json!({ "tools": base_tools });
+    if let Some(tools) = result["tools"].as_array_mut() {
+        tools.extend(crate::skills::skill_tool_definitions());
+    }
+    Ok(result)
 }
 
 /// Dispatch a `tools/call` request, validating inputs against config limits.
@@ -865,6 +871,8 @@ pub fn handle_tools_call(
             Ok(text_content(serialize_content(&result)))
         }
 
+        "skill_list" | "skill_view" | "skill_create" | "skill_update" | "skill_patch"
+        | "skill_files_write" => crate::skills::handle_skill_tool(name, args, storage, config),
         _ => McpError::method_not_found(format!("Tool not found: {}", name)).into_err(),
     }
 }

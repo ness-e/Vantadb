@@ -32,6 +32,10 @@ pub struct McpConfig {
     pub max_rrf_k: usize,
     /// Max explicit `candidate_k` in search_memory.search_profile (default: 10_000).
     pub max_candidate_k: usize,
+    /// Max bytes for a single skill resource file in skill_files_write (default: 5 MB).
+    pub max_skill_resource_bytes: usize,
+    /// Max total bytes for a skill — content plus all resource files (default: 50 MB).
+    pub max_skill_total_bytes: usize,
 }
 
 impl Default for McpConfig {
@@ -50,6 +54,8 @@ impl Default for McpConfig {
             max_top_k: 1000,
             max_rrf_k: 100,
             max_candidate_k: 10_000,
+            max_skill_resource_bytes: 5_000_000,
+            max_skill_total_bytes: 50_000_000,
         }
     }
 }

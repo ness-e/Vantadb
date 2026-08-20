@@ -12,6 +12,7 @@ mod handlers;
 mod metrics;
 mod protocol;
 mod server;
+mod skills;
 mod validation;
 
 /// Tuning knobs for the MCP server.

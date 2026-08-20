@@ -91,6 +91,39 @@ The MCP server exposes the following tools for memory operations:
   - Parameters: `namespace`, `confirm` (must be `"yes"`)
   - Returns: Deletion status
 
+#### Skill Operations (MEM-07)
+
+Versioned agent skills over the core `SkillStore`. All six tools take
+`owner_agent` as caller identity (the embedded server has no HTTP auth layer):
+a skill owned by a different agent responds exactly like a missing skill
+(not found — no existence leak). Writes (`skill_update`, `skill_patch`,
+`skill_files_write`) require `expected_version` (optimistic lock).
+
+- **`skill_list`** - List skills owned by an agent
+  - Parameters: `owner_agent` (required scope), `name_prefix` (optional), `limit` (default: 50), `offset`
+  - Returns: `{items: [{skill_id, version, name, description}], total}`
+
+- **`skill_view`** - Read a skill (head or a specific version) including its files
+  - Parameters: `skill_id`, `owner_agent`, `version` (optional, defaults to head)
+  - Returns: `{skill_id, version, name, description, content, files: [{path, content, encoding, mime_type, is_executable, size_bytes}]}`
+
+- **`skill_create`** - Create a skill (version 1). Idempotent for the same owner, name and content; a different content under an existing name is a conflict.
+  - Parameters: `name`, `owner_agent`, `content`, `description` (optional), `metadata` (optional), `ttl_secs` (optional)
+  - Returns: `{ok, skill_id, version, idempotent}`
+
+- **`skill_update`** - Replace a skill's head content, appending a new version
+  - Parameters: `skill_id`, `owner_agent`, `expected_version`, `content`, `description` (optional; omitted keeps the current one)
+  - Returns: `{ok, version, idempotent}`
+
+- **`skill_patch`** - Substring replacement in a skill's content (TDAM-compatible)
+  - Parameters: `skill_id`, `owner_agent`, `expected_version`, `old_string`, `new_string`, `replace_all` (required when `old_string` occurs more than once)
+  - Returns: `{ok, version, idempotent}`
+
+- **`skill_files_write`** - Write a resource file into a skill (stored in the skill's metadata manifest, versioned with the head)
+  - Parameters: `skill_id`, `owner_agent`, `expected_version`, `path` (relative; no absolute paths, no `..` segments, no null bytes), `content`, `encoding` (`utf-8` default | `base64`), `mime_type` (optional), `is_executable` (optional)
+  - Limits (configurable via `McpConfig`): 5 MB per resource, 50 MB total per skill (content + all files)
+  - Returns: `{ok, version, idempotent}`
+
 ### Resources
 
 The MCP server exposes the following resources:
