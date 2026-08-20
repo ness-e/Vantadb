@@ -6,6 +6,8 @@
 // or WASM (Fase 4) — without being rewritten.
 import { invoke } from "@tauri-apps/api/core";
 import { getHttpMapping } from "./vanta-http-map.ts";
+import { getWasmMapping } from "./vanta-wasm-map.ts";
+import type { VantaDB } from "../../vantadb-wasm/pkg/vantadb_wasm.js";
 
 export interface VantaTransport {
   call<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
@@ -72,14 +74,57 @@ async function httpError(res: Response, cmd: string): Promise<Error> {
   return new Error(`[vanta] ${msg}`);
 }
 
+/** WASM backend (WASM-02): runs the console 100% in the browser against the
+ * wasm-bindgen `VantaDB` wrapper (OPFS persistence, IndexedDB fallback).
+ * Command resolution + DTO adaptation live in vanta-wasm-map.ts. The wasm
+ * module is imported lazily on first call, so Tauri/HTTP builds never load it
+ * (code-split chunk). */
+export class WasmBackend implements VantaTransport {
+  private dbPromise: Promise<VantaDB> | null = null;
+  private storage: "opfs" | "idb" = "opfs";
+
+  private db(): Promise<VantaDB> {
+    if (!this.dbPromise) {
+      this.dbPromise = (async () => {
+        const mod = await import("../../vantadb-wasm/pkg/vantadb_wasm.js");
+        try {
+          const db = await mod.VantaDB.connect_persistent("vantadb"); // OPFS (auto-load)
+          this.storage = "opfs";
+          return db;
+        } catch {
+          // OPFS unavailable (e.g. private mode) → IndexedDB.
+          this.storage = "idb";
+          return await mod.VantaDB.connect_idb("vantadb");
+        }
+      })();
+    }
+    return this.dbPromise;
+  }
+
+  private async persist(db: VantaDB): Promise<void> {
+    if (this.storage === "idb") await db.save_idb();
+    else await db.save();
+  }
+
+  async call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+    const mapping = getWasmMapping(cmd);
+    const db = await this.db();
+    const out = mapping.run(db, args ?? {});
+    if (mapping.persist) await this.persist(db);
+    return out as T;
+  }
+}
+
 /** Pick the backend for the current environment. Tauri v2 exposes
  * `window.__TAURI_INTERNALS__`; in a plain browser it is absent, so the app
  * talks to the embedded server over REST (`VITE_VANTA_API_BASE` overrides the
- * origin, e.g. for a remote dev server). */
+ * origin, e.g. for a remote dev server). WASM standalone (WASM-02/03) is an
+ * explicit `VITE_VANTA_MODE=wasm` or a `vite build --mode wasm` — no server. */
 export function getTransport(): VantaTransport {
   const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
   if (inTauri) return new TauriBackend();
   const env = (import.meta as { env?: Record<string, string | undefined> }).env;
+  if (env?.VITE_VANTA_MODE === "wasm" || env?.MODE === "wasm") return new WasmBackend();
   return new HttpBackend(env?.VITE_VANTA_API_BASE ?? "");
 }
 

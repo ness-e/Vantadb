@@ -42,7 +42,7 @@ function toVantaValue(v: unknown): unknown {
 }
 
 /** SDK `VantaValue` (tagged) → plain JSON (mirror of native.rs from_vanta_value). */
-function fromVantaValue(v: unknown): unknown {
+export function fromVantaValue(v: unknown): unknown {
   if (v && typeof v === "object") {
     const entry = Object.entries(v as Record<string, unknown>)[0];
     if (entry) return entry[1];
@@ -58,7 +58,7 @@ function mapValues(
 }
 
 /** SDK `VantaMemoryRecord` → desktop `MemoryRecord` (native.rs record_to_memory). */
-function recordFromSdk(r: Record<string, unknown>): MemoryRecord {
+export function recordFromSdk(r: Record<string, unknown>): MemoryRecord {
   return {
     id: r.key as string,
     namespace: r.namespace as string,
@@ -75,7 +75,7 @@ function recordFromSdk(r: Record<string, unknown>): MemoryRecord {
 }
 
 /** SDK `VantaMemorySearchHit` → desktop `SearchResult`. */
-function searchHitFromSdk(hit: Record<string, unknown>): SearchResult {
+export function searchHitFromSdk(hit: Record<string, unknown>): SearchResult {
   const rec = (hit.record ?? {}) as Record<string, unknown>;
   return {
     id: rec.key as string,
@@ -88,7 +88,7 @@ function searchHitFromSdk(hit: Record<string, unknown>): SearchResult {
 }
 
 /** Desktop `IngestItem` → SDK `VantaMemoryInput` (native.rs ingest_to_input). */
-function ingestToInput(item: IngestItem, key: string): Record<string, unknown> {
+export function ingestToInput(item: IngestItem, key: string): Record<string, unknown> {
   return {
     namespace: item.namespace ?? "",
     key,
@@ -102,13 +102,13 @@ function ingestToInput(item: IngestItem, key: string): Record<string, unknown> {
 
 let idSeq = 0;
 /** Bridge `gen_id` equivalent: `rec_{now_ms}_{seq}` (native.rs:127). */
-function genId(): string {
+export function genId(): string {
   const now = typeof performance !== "undefined" ? performance.timeOrigin + performance.now() : Date.now();
   return `rec_${Math.floor(now)}_${idSeq++}`;
 }
 
 /** Desktop `SearchQuery` → SDK `VantaMemorySearchRequest` (native.rs search_request). */
-function searchToRequest(q: SearchQuery): Record<string, unknown> {
+export function searchToRequest(q: SearchQuery): Record<string, unknown> {
   const text = q.query.trim();
   return {
     namespace: q.namespace ?? "",
@@ -123,7 +123,7 @@ function searchToRequest(q: SearchQuery): Record<string, unknown> {
 }
 
 /** Desktop `MemoryFilterItem[]` → SDK `VantaMemoryFilter` (tagged values). */
-function filterToWire(filter: MemoryFilterItem[]): Record<string, unknown>[] {
+export function filterToWire(filter: MemoryFilterItem[]): Record<string, unknown>[] {
   return filter.map((f) => ({ field: f.field, op: f.op, value: toVantaValue(f.value) }));
 }
 

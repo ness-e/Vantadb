@@ -15,7 +15,18 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     base: web ? "/dashboard/" : undefined,
-    build: web ? { outDir: "dist-web" } : undefined,
+    build: {
+      ...(web ? { outDir: "dist-web" } : {}),
+      rollupOptions: {
+        // WASM-02: the wasm-bindgen glue (vantadb-wasm/pkg) imports its .wasm
+        // via ESM, which Vite 7 cannot bundle without a plugin. The WASM
+        // backend is only reachable in `--mode wasm` (WASM-03 wires the
+        // standalone build); Tauri/web builds never execute it, so the module
+        // is externalized — the lazy import stays as a runtime import() that
+        // is never called in these modes.
+        external: [/vantadb-wasm\/pkg\/vantadb_wasm\.js/],
+      },
+    },
 
     // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
     //
