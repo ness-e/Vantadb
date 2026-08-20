@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID: ee23c737-bc0a-4854-ad23-eb9859b4517f
+> **Campaign ID: 8f32192f-fd29-4608-823a-18a9fb74c1e6
 > **Inicio:** 2026-08-18
-> **Estado: in-progress
+> **Estado: completed
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Catálogo:** `docs/Backlog.md` — filas MEM-01..38 (este plan es el estado de ejecución; el backlog es el catálogo)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
@@ -184,8 +184,8 @@
 - **Gate Justificación:** rutas **REST** `POST /conversation/add` (01 §10, vía ThreadStore) y `GET /skill/listing` (03 §4, sobre MEM-06) protegidas por auth existente; **orientado a AGENTES, no a Studio (D18)** — `/conversation/add` es pipeline multi-paso, forzarlo a IQL contaminaría el query language; Studio es viewer y no ingesta; si Studio lista skills algún día → 1 wrapper en `server_client.rs`. NO copiar `/v3/session/init` ni `/v3/knowledge/query` (no existen en TDAM — endpoints propios VantaDB). Auth 3 capas de MEM-05 protege.
 - **Contrato:** `cargo check -p vantadb-server` pasa; tests dedicados de endpoints data plane (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-35.md`
-- **Estado:** ⏳ EN PROGRESO
-- **last-synced:** 2026-08-20T16:00
+- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-08-20T18:00
 
 ## Riesgos
 
@@ -230,9 +230,9 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
 Objetivo activo: MEM-35 Data plane REST server
 Estado: completed ✅
-Última acción: MEM-07 completado (4763bf44); MEM-06 task file cerrado
-Resultado: ⏳
-Próxima acción: Delegar MEM-35 a vanta-worker
+Última acción: MEM-35 verificado (9693d0ff, 11/11 e2e + 2077/2077)
+Resultado: ✅
+Próxima acción: Checkpoint tras F1+F2+F3 — reportar al usuario
 Contrato: cargo check -p vantadb + tests dedicados del checker (D19) — `cargo nextest run -p vantadb -- entity` ✅ 37/37
-Próxima tarea si completa: Checkpoint tras F1+F2+F3
+Próxima tarea si completa: F4 (MEM-08a..21) tras aprobación
 === END RECITATION ===

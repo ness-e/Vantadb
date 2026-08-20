@@ -4,7 +4,7 @@
 - **Plan file:** docs/plans/2026-08-18-vanta-memory.md
 - **Creado:** 2026-08-20T16:30
 - **last-synced:** 2026-08-20T16:30
-- **Estado:** ✅ COMPLETED — commit `9693d0ff` en `develop`
+- **Estado:** ✅ COMPLETED (commit 9693d0ff, verify 11/11 e2e + 2077/2077 ✅ 2026-08-20)
 
 ## Blast Radius
 
@@ -36,31 +36,31 @@
 - **Archivos:** `.opencode/skills/campaign-executor/tasks/MEM-35.md`
 - **Acción:** verificar asunciones del lead con codegraph (ThreadStore existe; SkillStore::list; auth_middleware; AuditEvent::memory; e2e pattern), diseñar wire contract, crear este task file.
 - **Verify:** archivo existe + plan file MEM-35 ⏳ EN PROGRESO
-- **Estado:** ✅ (este archivo)
+- **Estado:** ✅ COMPLETED (commit 9693d0ff, verify 11/11 e2e + 2077/2077 ✅ 2026-08-20)
 
 ### Step 2: POST /conversation/add — handler + route en cli_server.rs
 - **Archivos:** `src/cli_server.rs`
 - **Acción:** struct `ConversationAddRequest { thread_id: Option<String>, title: Option<String>, role: String, content: String, ttl_secs: Option<u64> }`; handler `conversation_add` — si `thread_id` presente → `db.send_message(id, role, content)` (404 si no existe vía NodeNotFound→vanta_error_status); si ausente → `db.create_thread(title.unwrap_or_default(), ttl_secs)` + `send_message`; audit `AuditEvent::memory("conversation", "threads", id, "ok", None)`; response `(CREATED, {success:true, thread_id})`. Route `.route("/conversation/add", post(conversation_add))` en router `protected`.
 - **Verify:** `cargo check -p vantadb --features server`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (commit 9693d0ff, verify 11/11 e2e + 2077/2077 ✅ 2026-08-20)
 
 ### Step 3: GET /skill/listing — handler + route en cli_server.rs
 - **Archivos:** `src/cli_server.rs`
 - **Acción:** struct `SkillListingParams { owner_agent: Option<String>, name_prefix: Option<String>, limit: Option<usize>, offset: Option<usize> }`; handler `skill_listing` — `db.engine_handle()` → `SkillStore::new(&engine)` → `store.list(SkillListOptions{...})` (limit default 50, cap 200); response DTO lean `{items:[{skill_id,version,name,description}], total}`. Route `.route("/skill/listing", get(skill_listing))` en router `protected`.
 - **Verify:** `cargo check -p vantadb --features server`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (commit 9693d0ff, verify 11/11 e2e + 2077/2077 ✅ 2026-08-20)
 
 ### Step 4: E2E tests data plane en vantadb-server/tests/e2e.rs
 - **Archivos:** `vantadb-server/tests/e2e.rs`
 - **Acción:** tests TCP reales: (a) conversation/add crea thread y devuelve thread_id; (b) conversation/add con thread_id existente appendea (get_thread verifica 2 mensajes); (c) conversation/add sin auth → 401 (context con api_key); (d) skill/listing vacío; (e) skill/listing con skills seedeadas vía `SkillStore::create` sobre `state.storage` + filtro owner_agent/name_prefix. Sin deps nuevas (reqwest/axum ya en dev-deps).
 - **Verify:** `cargo nextest run -p vantadb-server --test e2e`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (commit 9693d0ff, verify 11/11 e2e + 2077/2077 ✅ 2026-08-20)
 
 ### Step 5: Cierre — verify full + commit
 - **Archivos:** — (solo archivos tocados)
 - **Acción:** `cargo fmt --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo nextest run --profile audit --workspace --build-jobs 2`; `git add` solo archivos de la tarea; commit convencional `feat(server): data plane REST /conversation/add + /skill/listing (MEM-35)` (lo ejecuta vanta-lead si aplica).
 - **Verify:** todos los checks ✅
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (commit 9693d0ff, verify 11/11 e2e + 2077/2077 ✅ 2026-08-20)
 
 ## Impacto mapeado (Regla 0)
 - **Archivos leídos completos:** `src/cli_server.rs` (app_with_cors 198-299, threads_* 2417-2560, audit_events 1411-1455, vanta_error_status 875-892, auth_middleware 578-746), `src/sdk/builder.rs` (create_thread/send_message/engine_handle/audit), `src/agentic/thread.rs` (ThreadStore completo), `src/skills.rs` (SkillStore::list), `src/sdk/types.rs` (SkillListOptions/SkillRecord), `src/audit.rs` (AuditEvent::memory), `vantadb-server/src/server.rs`, `vantadb-server/tests/e2e.rs`, `vantadb-server/Cargo.toml`, `.opencode/rules/server-mcp.md`, TDAM 01 §10 + 03 §4 (docs/research/tdam/).
