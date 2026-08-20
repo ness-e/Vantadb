@@ -767,6 +767,139 @@ pub struct VantaCapabilities {
     pub read_only: bool,
 }
 
+/// A single immutable version of a skill (agent skill / memory skill).
+///
+/// Skills are versioned: every successful `update`/`patch` appends a new
+/// version and flips `is_head` on the previous head. `content_hash` enables
+/// idempotent writes (same content → no-op), `expires_at` drives TTL cleanup
+/// that keeps the most recent non-head versions (KEEP_RECENT = 3).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillRecord {
+    /// Stable skill identifier (e.g. `skl-...`), immutable across versions.
+    pub skill_id: String,
+    /// Monotonic version number, starting at 1.
+    pub version: u64,
+    /// Whether this version is the current head of the skill.
+    pub is_head: bool,
+    /// Owning agent identifier — part of the unique `(owner_agent, name)` key.
+    pub owner_agent: String,
+    /// Skill name — part of the unique `(owner_agent, name)` key. Immutable.
+    pub name: String,
+    /// Human-readable skill description.
+    pub description: String,
+    /// Skill body content (e.g. the SKILL.md text).
+    pub content: String,
+    /// Non-cryptographic content hash (FNV-1a 64-bit, hex) for idempotency.
+    pub content_hash: String,
+    /// Arbitrary skill metadata.
+    pub metadata: BTreeMap<String, String>,
+    /// Unix seconds when this version was created.
+    pub created_at: u64,
+    /// Unix seconds when this version was last written.
+    pub updated_at: u64,
+    /// Unix seconds after which this version is eligible for TTL cleanup
+    /// (`None` = never expires).
+    pub expires_at: Option<u64>,
+}
+
+/// Input for creating a new skill (version 1).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillCreateInput {
+    /// Skill name — unique per `owner_agent`. Immutable after creation.
+    pub name: String,
+    /// Human-readable skill description.
+    #[serde(default)]
+    pub description: String,
+    /// Skill body content.
+    pub content: String,
+    /// Owning agent identifier.
+    pub owner_agent: String,
+    /// Arbitrary skill metadata.
+    #[serde(default)]
+    pub metadata: BTreeMap<String, String>,
+    /// Optional TTL: when set, this and future versions expire after `ttl_secs`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ttl_secs: Option<u64>,
+}
+
+/// Input for updating a skill: replaces description and content, appends a
+/// new version. `metadata: None` keeps the previous metadata.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillUpdateInput {
+    /// New description (replaces the previous one).
+    pub description: String,
+    /// New content (replaces the previous one).
+    pub content: String,
+    /// New metadata, or `None` to keep the previous metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<BTreeMap<String, String>>,
+}
+
+/// Input for patching a skill: only the provided fields change.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillPatchInput {
+    /// New description, or `None` to keep the previous one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// New content, or `None` to keep the previous one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    /// New metadata, or `None` to keep the previous one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<BTreeMap<String, String>>,
+}
+
+/// Options for listing skills (heads only).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillListOptions {
+    /// Only list skills owned by this agent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner_agent: Option<String>,
+    /// Only list skills whose name starts with this prefix.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name_prefix: Option<String>,
+    /// Maximum number of items to return (default 50).
+    #[serde(default = "default_skill_list_limit")]
+    pub limit: usize,
+    /// Number of items to skip.
+    #[serde(default)]
+    pub offset: usize,
+}
+
+fn default_skill_list_limit() -> usize {
+    50
+}
+
+impl Default for SkillListOptions {
+    fn default() -> Self {
+        Self {
+            owner_agent: None,
+            name_prefix: None,
+            limit: default_skill_list_limit(),
+            offset: 0,
+        }
+    }
+}
+
+/// A page of skills returned by [`SkillListOptions`]-based listing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillListPage {
+    /// The listed skill heads.
+    pub items: Vec<SkillRecord>,
+    /// Total number of matching skills (before pagination).
+    pub total: usize,
+}
+
+/// Result of a skill write. `idempotent = true` means the write was a no-op
+/// because the content hash already matched the head (no new version appended).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillWriteResult {
+    /// The head version after the write.
+    pub record: SkillRecord,
+    /// Whether the write was skipped as idempotent (no version appended).
+    pub idempotent: bool,
+}
+
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {

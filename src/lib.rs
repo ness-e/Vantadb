@@ -118,6 +118,8 @@ pub mod sdk;
 pub mod serialization;
 /// Typed columnar storage for metadata fields (JSON Shredding).
 pub mod shred;
+/// Versioned skill store (agent skills / memory skills).
+pub mod skills;
 pub mod sync_ext;
 
 pub(crate) mod scalar_index;
@@ -169,6 +171,10 @@ pub use sdk::{
     VantaQueryResult, VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit,
     VantaSearchHit, VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport,
     VantaValue,
+};
+pub use sdk::{
+    SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord,
+    SkillUpdateInput, SkillWriteResult,
 };
 pub use storage::vfile::VFILE_VERSION;
 pub use storage::BackendKind;

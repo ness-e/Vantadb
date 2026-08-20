@@ -218,6 +218,47 @@ Instant filesystem snapshots via hard links (Unix) or copy (Windows).
 | `create_snapshot(name)` | Create an instant point-in-time snapshot. All data files in the storage directory are hard-linked into `<data_dir>/snapshots/<name>` (O(1)) |
 | `list_snapshots()` | List all existing snapshot names |
 
+## Skills API
+
+Versioned skill store (agent skills / memory skills) — port of the TDAM
+`skill_store`/`skill_versioning` modules onto the entity pattern. Each skill
+is append-only: every write appends a new version and demotes the previous
+head. All writes use an optimistic lock: pass the current `version` you read,
+or the write fails with `ExecutionConflict`.
+
+| Method | Description |
+|--------|-------------|
+| `SkillStore::new(&engine)` | Wrap a storage engine reference |
+| `create(input)` | Create a skill as version 1. Idempotent: same `(owner_agent, name)` + same content returns the existing head (`idempotent = true`) |
+| `update(skill_id, expected_version, input)` | Append a new version replacing description/content. Fails with `ExecutionConflict` when `expected_version` is stale |
+| `patch(skill_id, expected_version, input)` | Append a new version changing only the provided fields |
+| `delete(skill_id, expected_version)` | Delete all versions plus the head index row. Returns `true` when the skill existed |
+| `get_head(skill_id)` | Current head version, or `None` |
+| `get_version(skill_id, version)` | A specific immutable version, or `None` |
+| `list_versions(skill_id, limit, offset)` | All versions, newest first |
+| `list(options)` | Skill heads with optional `owner_agent` / `name_prefix` filters, ordered by name |
+| `cleanup_expired_versions(skill_id, now)` | Delete expired non-head versions, keeping the 3 most recent (TTL keep-recent=3) |
+
+### Types
+
+- **`SkillRecord`** — one immutable version: `skill_id`, `version`, `is_head`,
+  `owner_agent`, `name`, `description`, `content`, `content_hash` (FNV-1a
+  64-bit hex, idempotency only), `metadata` (map), `created_at`, `updated_at`,
+  `expires_at`.
+- **`SkillCreateInput`** — `name`, `description`, `content`, `owner_agent`,
+  `metadata`, optional `ttl_secs`.
+- **`SkillUpdateInput`** — `description`, `content`, optional `metadata`
+  (`None` keeps the previous metadata).
+- **`SkillPatchInput`** — optional `description`, `content`, `metadata`.
+- **`SkillListOptions`** — optional `owner_agent`, `name_prefix`, `limit`
+  (default 50), `offset`.
+- **`SkillListPage`** — `items`, `total`.
+- **`SkillWriteResult`** — `record`, `idempotent` (no version appended).
+
+Name and `owner_agent` are immutable across versions; uniqueness is enforced
+per `(owner_agent, name)` while a head exists. Content is stored as-is
+(no FTS/vector index in v1 — listing is by name/owner, not semantic search).
+
 ## GraphRAG
 
 | Method | Description |
