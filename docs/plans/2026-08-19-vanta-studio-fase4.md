@@ -204,7 +204,7 @@
 | Temporalidad del grafo (valid_at/invalid_at) | Fase 5+ | el core no modela tiempo; cambio de modelo de datos grande |
 | 3D toggle en ESPACIO | solo si el usuario pide | anti-patrón 6 del research ("3D por moda") |
 | SSE streaming en `/api/v2/query` | — | no requerido por la consola actual |
-| Decay automático (Mem0/memify) en core | follow-up FEAT-03 (b) | definir D16 primero |
+| Decay automático (Mem0/memify) en core | ✅ implementado FEAT-03b (ADR-028) como supersession durable; recency-scoring descartado (ADR-028) | D16 "todo" 2026-08-20 |
 | Matriz de duplicados por embedding (vs textual) | FEAT-03 iteración | MVP textual primero |
 
 ## Riesgos
