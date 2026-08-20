@@ -316,3 +316,214 @@ async fn test_e2e_bad_request_returns_400() {
         .unwrap();
     assert_eq!(resp.status(), 400);
 }
+
+#[tokio::test]
+async fn test_e2e_conversation_add_creates_thread() {
+    let (_dir, state) = build_e2e_context(None, 10);
+    let (base, _handle) = spawn_server(state, 0).await;
+
+    let client = reqwest::Client::new();
+
+    // No thread_id -> server creates the thread and appends the first message
+    let resp = client
+        .post(format!("{}/conversation/add", base))
+        .json(&serde_json::json!({
+            "title": "e2e-convo",
+            "role": "user",
+            "content": "hello from e2e",
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["success"], true);
+    let thread_id = body["thread_id"].as_str().unwrap().to_string();
+
+    // The thread exists and carries exactly the one message
+    let resp = client
+        .get(format!("{}/api/v2/threads/{}", base, thread_id))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let thread: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(thread["title"], "e2e-convo");
+    assert_eq!(thread["messages"].as_array().unwrap().len(), 1);
+    assert_eq!(thread["messages"][0]["role"], "user");
+    assert_eq!(thread["messages"][0]["content"], "hello from e2e");
+}
+
+#[tokio::test]
+async fn test_e2e_conversation_add_appends_to_existing_thread() {
+    let (_dir, state) = build_e2e_context(None, 10);
+    let (base, _handle) = spawn_server(state, 0).await;
+
+    let client = reqwest::Client::new();
+
+    // First message creates the thread
+    let resp = client
+        .post(format!("{}/conversation/add", base))
+        .json(&serde_json::json!({
+            "role": "user",
+            "content": "first",
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201);
+    let thread_id = resp.json::<serde_json::Value>().await.unwrap()["thread_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    // Second message appends to the same thread
+    let resp = client
+        .post(format!("{}/conversation/add", base))
+        .json(&serde_json::json!({
+            "thread_id": thread_id,
+            "role": "assistant",
+            "content": "second",
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201);
+
+    let resp = client
+        .get(format!("{}/api/v2/threads/{}", base, thread_id))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let thread: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(thread["messages"].as_array().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn test_e2e_conversation_add_invalid_thread_id() {
+    let (_dir, state) = build_e2e_context(None, 10);
+    let (base, _handle) = spawn_server(state, 0).await;
+
+    let client = reqwest::Client::new();
+
+    let resp = client
+        .post(format!("{}/conversation/add", base))
+        .json(&serde_json::json!({
+            "thread_id": "not-a-u128",
+            "role": "user",
+            "content": "boom",
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 400);
+}
+
+#[tokio::test]
+async fn test_e2e_conversation_add_requires_auth() {
+    let (_dir, state) = build_e2e_context(Some("e2e-secret"), 10);
+    let (base, _handle) = spawn_server(state, 0).await;
+
+    let client = reqwest::Client::new();
+
+    // Without a token -> 401
+    let resp = client
+        .post(format!("{}/conversation/add", base))
+        .json(&serde_json::json!({ "role": "user", "content": "x" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+
+    // With a valid token -> 201
+    let resp = client
+        .post(format!("{}/conversation/add", base))
+        .header("Authorization", "Bearer e2e-secret")
+        .json(&serde_json::json!({ "role": "user", "content": "x" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201);
+}
+
+#[tokio::test]
+async fn test_e2e_skill_listing_empty_and_filtered() {
+    let (_dir, state) = build_e2e_context(None, 10);
+    let (base, _handle) = spawn_server(state.clone(), 0).await;
+
+    let client = reqwest::Client::new();
+
+    // Empty listing first
+    let resp = client
+        .get(format!("{}/skill/listing", base))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["items"].as_array().unwrap().len(), 0);
+    assert_eq!(body["total"], 0);
+
+    // Seed skills directly on the store the endpoint reads (no REST create)
+    let store = vantadb::skills::SkillStore::new(&state.storage);
+    store
+        .create(vantadb::sdk::SkillCreateInput {
+            name: "greeting".into(),
+            description: "how to greet".into(),
+            content: "# greeting\nSay hello.".into(),
+            owner_agent: "agent-a".into(),
+            metadata: Default::default(),
+            ttl_secs: None,
+        })
+        .unwrap();
+    store
+        .create(vantadb::sdk::SkillCreateInput {
+            name: "coding".into(),
+            description: "how to code".into(),
+            content: "# coding\nWrite Rust.".into(),
+            owner_agent: "agent-b".into(),
+            metadata: Default::default(),
+            ttl_secs: None,
+        })
+        .unwrap();
+
+    // Unfiltered listing returns both heads
+    let resp = client
+        .get(format!("{}/skill/listing", base))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["total"], 2);
+    let items = body["items"].as_array().unwrap();
+    assert_eq!(items.len(), 2);
+    // Listing is lean: no content body in the wire view
+    for item in items {
+        assert!(item.get("content").is_none(), "listing leaks skill content");
+        assert!(item["name"].is_string());
+        assert!(item["description"].is_string());
+    }
+
+    // owner_agent filter
+    let resp = client
+        .get(format!("{}/skill/listing?owner_agent=agent-a", base))
+        .send()
+        .await
+        .unwrap();
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["total"], 1);
+    assert_eq!(body["items"][0]["owner_agent"], "agent-a");
+    assert_eq!(body["items"][0]["name"], "greeting");
+
+    // name_prefix filter
+    let resp = client
+        .get(format!("{}/skill/listing?name_prefix=cod", base))
+        .send()
+        .await
+        .unwrap();
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["total"], 1);
+    assert_eq!(body["items"][0]["name"], "coding");
+}

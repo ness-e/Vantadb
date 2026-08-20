@@ -252,6 +252,8 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
                 .post(threads_send_message)
                 .delete(threads_delete),
         )
+        .route("/conversation/add", post(conversation_add))
+        .route("/skill/listing", get(skill_listing))
         .route("/api/v2/snapshots", get(snapshots_list))
         .route("/api/v2/snapshots/{name}", post(snapshots_create))
         .route("/metrics", get(metrics_endpoint))
@@ -2555,6 +2557,141 @@ async fn threads_delete(
 ) -> Response {
     match run_db_op(&state, move |db| db.delete_thread(thread_id)).await {
         Ok(()) => Json(serde_json::json!({ "deleted": true })).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+/// Body for `POST /conversation/add` (F3 data plane): record one message in a
+/// conversation. When `thread_id` is absent, a new thread is created first —
+/// the agent does not need to pre-create a thread to accumulate context.
+#[derive(Deserialize, Debug)]
+struct ConversationAddRequest {
+    /// Existing thread id (u128 as decimal string). When absent, a thread is
+    /// created with `title` (defaults to `"conversation"`) and `ttl_secs`.
+    thread_id: Option<String>,
+    /// Human-readable thread title, used only when creating a new thread.
+    title: Option<String>,
+    /// Message role (`user`, `assistant`, ...).
+    role: String,
+    /// Message content.
+    content: String,
+    /// Optional time-to-live in seconds for a newly created thread.
+    ttl_secs: Option<u64>,
+}
+
+#[tracing::instrument(skip(state))]
+async fn conversation_add(
+    State(state): State<Arc<ServerState>>,
+    Json(req): Json<ConversationAddRequest>,
+) -> Response {
+    let thread_id = match req.thread_id.as_deref() {
+        Some(raw) => match raw.parse::<u128>() {
+            Ok(id) => Some(id),
+            Err(_) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": format!("invalid thread_id: {raw:?}"),
+                    })),
+                )
+                    .into_response();
+            }
+        },
+        None => None,
+    };
+    let title = req
+        .title
+        .clone()
+        .unwrap_or_else(|| "conversation".to_string());
+    let ttl_secs = req.ttl_secs;
+    let role = req.role.clone();
+    let content = req.content.clone();
+
+    match run_db_op(&state, move |db| {
+        let id = match thread_id {
+            Some(id) => id,
+            None => db.create_thread(&title, ttl_secs)?,
+        };
+        db.send_message(id, &role, &content)?;
+        db.audit(AuditEvent::memory(
+            "conversation",
+            "threads",
+            &id.to_string(),
+            "ok",
+            None,
+        ));
+        Ok(id)
+    })
+    .await
+    {
+        Ok(id) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!({ "success": true, "thread_id": id.to_string() })),
+        )
+            .into_response(),
+        Err(resp) => resp,
+    }
+}
+
+/// Query params for `GET /skill/listing` (F3 data plane): head rows of the
+/// skill store with optional filters — enough for prompt-injection use cases.
+#[derive(Deserialize, Debug)]
+struct SkillListingParams {
+    /// Only list skills owned by this agent.
+    owner_agent: Option<String>,
+    /// Only list skills whose name starts with this prefix.
+    name_prefix: Option<String>,
+    /// Maximum number of items to return (default 50, capped at 200).
+    limit: Option<usize>,
+    /// Number of items to skip.
+    offset: Option<usize>,
+}
+
+/// Lean wire view of a skill head row — skill metadata without the content
+/// body (the listing is for prompt injection, not for dumping full skills).
+#[derive(Serialize)]
+struct SkillListingItem {
+    skill_id: String,
+    version: u64,
+    name: String,
+    owner_agent: String,
+    description: String,
+}
+
+#[tracing::instrument(skip(state))]
+async fn skill_listing(
+    State(state): State<Arc<ServerState>>,
+    Query(params): Query<SkillListingParams>,
+) -> Response {
+    let limit = params.limit.unwrap_or(50).min(200);
+    let offset = params.offset.unwrap_or(0);
+    match run_db_op(&state, move |db| {
+        let engine = db.engine_handle()?;
+        let store = crate::skills::SkillStore::new(&engine);
+        store.list(crate::sdk::SkillListOptions {
+            owner_agent: params.owner_agent,
+            name_prefix: params.name_prefix,
+            limit,
+            offset,
+        })
+    })
+    .await
+    {
+        Ok(page) => {
+            let items: Vec<SkillListingItem> = page
+                .items
+                .into_iter()
+                .map(|r| SkillListingItem {
+                    skill_id: r.skill_id,
+                    version: r.version,
+                    name: r.name,
+                    owner_agent: r.owner_agent,
+                    description: r.description,
+                })
+                .collect();
+            Json(serde_json::json!({ "items": items, "total": page.total })).into_response()
+        }
         Err(resp) => resp,
     }
 }
