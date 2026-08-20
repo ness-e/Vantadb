@@ -1,8 +1,9 @@
 //! Typed HTTP client for the VantaDB server.
 //!
-//! The real server exposes exactly 3 endpoints:
+//! The real server exposes exactly 4 endpoints:
 //!   - `GET  /health`       (no auth)
 //!   - `GET  /metrics`      (Bearer, if api_key configured)
+//!   - `GET  /api/v2/metrics` (Bearer) — JSON metrics + per-namespace stats.
 //!   - `POST /api/v2/query` (Bearer) — executes an IQL statement.
 //!
 //! There is NO REST per-operation API. put/get/delete/list/search are IQL
@@ -10,12 +11,23 @@
 //! wrapper maps the semantic ops to IQL statements, authenticates them, and
 //! treats a `success:false` envelope as a *domain* error (not transport).
 
+use std::collections::BTreeMap;
+
 use reqwest::header::CONTENT_TYPE;
 
+use crate::connections::types::NamespaceStats;
 use crate::connections::wire_types::{
     HealthReport, QueryRequest, QueryResponse, ServerClientConfig,
 };
 use crate::error::VantaError;
+
+/// Wire envelope of `GET /api/v2/metrics` (REST-02): we only read the
+/// per-namespace stats; the `metrics` half is ignored.
+#[derive(serde::Deserialize)]
+struct MetricsV2Envelope {
+    #[serde(default)]
+    namespaces: BTreeMap<String, NamespaceStats>,
+}
 
 /// Typed client over the VantaDB HTTP server.
 #[derive(Clone)]
@@ -80,6 +92,31 @@ impl ServerClient {
             return Err(VantaError::from_http_status(status.as_u16(), text));
         }
         resp.text().await.map_err(transport)
+    }
+
+    /// `GET /api/v2/metrics` — JSON metrics + per-namespace stats (REST-02),
+    /// Bearer. Returns the `namespaces` map (`count`/`expiring_soon`/`expired`
+    /// per namespace); the operational `metrics` half is not part of the
+    /// connection contract.
+    pub async fn namespace_stats(&self) -> Result<BTreeMap<String, NamespaceStats>, VantaError> {
+        let resp = self
+            .inner
+            .get(format!("{}/api/v2/metrics", self.base_url))
+            .bearer_auth(self.token.as_deref().unwrap_or(""))
+            .send()
+            .await
+            .map_err(transport)?;
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(VantaError::from_http_status(status.as_u16(), body));
+        }
+        let envelope: MetricsV2Envelope = resp.json().await.map_err(|e| VantaError::Http {
+            kind: crate::error::HttpErrorKind::Other,
+            message: format!("invalid /api/v2/metrics response: {e}"),
+            status: Some(status.as_u16()),
+        })?;
+        Ok(envelope.namespaces)
     }
 
     /// Execute a raw IQL statement via `POST /api/v2/query`, Bearer auth.

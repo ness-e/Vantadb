@@ -119,6 +119,19 @@ export interface ListPage {
   next_cursor?: number | null;
 }
 
+/** Per-namespace record statistics (VS-CORE-02). Mirrors the Rust `NamespaceStats` DTO. */
+export interface NamespaceStats {
+  /** Total records in the namespace, including expired (not-yet-purged) ones. */
+  count: number;
+  /** Records expiring within the window (core default: 24h). */
+  expiring_soon: number;
+  /** Records already past their expiry (still present until purged). */
+  expired: number;
+}
+
+/** Namespace → stats map (mirror of `NamespaceStatsMap`). */
+export type NamespaceStatsMap = Record<string, NamespaceStats>;
+
 /** `ServerClientConfig` wire shape: `timeout` is a serde `Duration` (secs+nanos). */
 export interface ServerClientConfig {
   url: string;
@@ -482,6 +495,16 @@ export interface OperationalMetrics {
 /** Point-in-time operational metrics snapshot (ADMIN-01). */
 export function metrics(): Promise<OperationalMetrics> {
   return transport.call<OperationalMetrics>("vanta_metrics");
+}
+
+/** Per-namespace record statistics (VS-CORE-02). `count` includes expired
+ * (not-yet-purged) records. Pass `expiringSoonWindowMs` to override the core's
+ * 24h default. Rejects with `unsupported` when the active connection has no
+ * stats endpoint (fall back to a client-side `list()` count). */
+export function namespaceStats(expiringSoonWindowMs?: number): Promise<NamespaceStatsMap> {
+  return transport.call<NamespaceStatsMap>("vanta_namespace_stats", {
+    expiring_soon_window_ms: expiringSoonWindowMs ?? null,
+  });
 }
 
 /** Audit-log events from the active connection, newest first (VS-12).

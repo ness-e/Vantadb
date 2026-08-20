@@ -10,8 +10,8 @@
 use tauri::State;
 
 use crate::connections::{
-    ExportReport, IngestItem, ListPage, MemoryFilterItem, MemoryRecord, SearchQuery, SearchResult,
-    VantaGraphNodeInfo, VantaGraphTraversalResult, VantaQueryResult,
+    ExportReport, IngestItem, ListPage, MemoryFilterItem, MemoryRecord, NamespaceStatsMap,
+    SearchQuery, SearchResult, VantaGraphNodeInfo, VantaGraphTraversalResult, VantaQueryResult,
 };
 use crate::error::VantaError;
 use crate::AppState;
@@ -139,6 +139,21 @@ pub async fn vanta_query(
     iql: String,
 ) -> Result<VantaQueryResult, VantaError> {
     state.manager.query(&iql).await
+}
+
+/// Per-namespace record statistics on the active connection (VS-CORE-02).
+///
+/// Returns a `{namespace: {count, expiring_soon, expired}}` map. `count`
+/// includes expired (not-yet-purged) records. `expiring_soon_window_ms`
+/// defaults to the core's 24h window when omitted. Transports without a stats
+/// endpoint (e.g. a server without `/api/v2/metrics`) reject with
+/// `Unsupported`.
+#[tauri::command]
+pub async fn vanta_namespace_stats(
+    state: State<'_, AppState>,
+    expiring_soon_window_ms: Option<u64>,
+) -> Result<NamespaceStatsMap, VantaError> {
+    state.manager.namespace_stats(expiring_soon_window_ms).await
 }
 
 /// IQL editor autocomplete candidates for the token being typed (VS-CORE-06).

@@ -4,17 +4,19 @@
 // texto). Estética manga/linocut de VS-01/VS-00 (tokens --color-neon, .press-lg,
 // .ink-divider, .stagger-children, dark overrides).
 //
-// Fuente de datos: únicamente lo que el bridge expone hoy (list + count
-// client-side, mismo fallback que la sidebar de VS-03). namespace_stats
-// (VS-CORE-02) se integra cuando el bridge desktop lo exponga — ver Notas.
+// Fuente de datos (VS-CORE-02): namespace_stats reales del bridge para
+// total/namespaces/expiring/expired (incluyen expirados no purgados que list()
+// oculta), con fallback client-side desde list() solo si el backend no las
+// expone. Los detalles por record (types, actividad, TTL próximos) siguen
+// viniendo de list().
 import { useCallback, useEffect, useState } from "react";
-import { list, MemoryRecord } from "../../vanta";
+import { list, namespaceStats, MemoryRecord, NamespaceStatsMap } from "../../vanta";
 
 // 24h — espeja DEFAULT_EXPIRING_SOON_WINDOW_MS del core (src/sdk/types.rs:243).
 const EXPIRING_WINDOW_MS = 24 * 60 * 60 * 1000;
-// 7d — proxy local de "tendencia" (el delta real llega con VS-CORE-02).
+// 7d — proxy local de "tendencia" (namespace_stats no expone actualizaciones).
 const TREND_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-// Mismo límite que la sidebar (VS-03); paginación real con VS-CORE-01.
+// Mismo límite que la sidebar (VS-03); los totales exactos vienen de las stats.
 const LIST_LIMIT = 500;
 
 interface NamespaceRow {
@@ -128,6 +130,24 @@ function deriveHomeData(records: MemoryRecord[], now: number): HomeData {
   };
 }
 
+/** Reemplaza los conteos derivados de list() con las stats reales del bridge
+ * (VS-CORE-02): total/namespaces/expiring/expired exactos (incluyen expirados
+ * no purgados, que list() oculta). Los detalles por record (types, actividad,
+ * próximos a expirar) siguen viniendo de list(). */
+function mergeStats(base: HomeData, stats: NamespaceStatsMap): HomeData {
+  const entries = Object.entries(stats);
+  return {
+    ...base,
+    total: entries.reduce((sum, [, s]) => sum + s.count, 0),
+    namespaces: entries
+      .map(([name, s]) => ({ name, count: s.count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5),
+    expiringCount: entries.reduce((sum, [, s]) => sum + s.expiring_soon, 0),
+    expiredCount: entries.reduce((sum, [, s]) => sum + s.expired, 0),
+  };
+}
+
 /** Cuenta regresiva compacta ("02:13:44", "1d 3h"). */
 function fmtCountdown(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -185,7 +205,17 @@ export default function HomeOverview({ active }: { active: boolean }) {
     setFailed(false);
     list({ limit: LIST_LIMIT })
       .then((records) => {
-        if (alive) setData(deriveHomeData(records, Date.now()));
+        if (!alive) return;
+        const base = deriveHomeData(records, Date.now());
+        namespaceStats()
+          .then((stats) => {
+            // Stats reales (VS-CORE-02): override de total/ns/expiring/expired.
+            if (alive) setData(mergeStats(base, stats));
+          })
+          .catch(() => {
+            // Fallback local: backend sin stats (o error transitorio).
+            if (alive) setData(base);
+          });
       })
       .catch(() => {
         if (alive) setFailed(true);
@@ -329,9 +359,9 @@ export default function HomeOverview({ active }: { active: boolean }) {
         {/* Expirados recientes */}
         <Card icon="∅" title="Expirados recientes">
           <div className="mt-2 font-display text-5xl">{data.expiredCount}</div>
-          <div className="mt-1 font-tech text-[11px] text-muted-foreground">últimas 24h · auto-limpiados por WAL</div>
+          <div className="mt-1 font-tech text-[11px] text-muted-foreground">expirados no purgados · auto-limpiados por WAL</div>
           <p className="mt-3 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-            list() no trae expirados — puebla con namespace_stats (VS-CORE-02)
+            incluye expirados que list() no trae — via namespace_stats (VS-CORE-02)
           </p>
         </Card>
 

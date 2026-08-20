@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::{Deserialize, Serialize};
 
@@ -187,6 +187,25 @@ pub struct ListPage {
     #[serde(default)]
     pub next_cursor: Option<usize>,
 }
+
+/// Per-namespace record statistics (VS-CORE-02).
+///
+/// Mirrors `VantaNamespaceStats` (`src/sdk/types.rs`) 1:1 so the UI can show
+/// real counts, expiring-soon and expired buckets per namespace without a
+/// client-side `list()` scan.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct NamespaceStats {
+    /// Total records in the namespace, including expired (not-yet-purged) ones.
+    pub count: u64,
+    /// Records expiring within the `expiring_soon_window_ms` window (core
+    /// default: 24h).
+    pub expiring_soon: u64,
+    /// Records already past their expiry (still present until purged).
+    pub expired: u64,
+}
+
+/// Namespace → stats map (mirror of `VantaNamespaceStatsMap`).
+pub type NamespaceStatsMap = BTreeMap<String, NamespaceStats>;
 
 /// A single AND-combined metadata filter item for export/delete operations
 /// (VS-CORE-04/05).
@@ -722,5 +741,37 @@ mod tests {
         // expects nodes/edges to always be iterable.
         let json = json(&VantaGraphTraversalResult::default());
         assert_eq!(json, r#"{"nodes":[],"edges":[]}"#);
+    }
+
+    // ─── Namespace stats (VS-CORE-02) ────────────────────────────────
+
+    #[test]
+    fn namespace_stats_roundtrip_and_wire_shape() {
+        let stats = NamespaceStats {
+            count: 12,
+            expiring_soon: 3,
+            expired: 1,
+        };
+        assert_eq!(rt(&stats), stats);
+        // Wire shape guards the vanta.ts contract (snake_case fields).
+        assert_eq!(
+            json(&stats),
+            r#"{"count":12,"expiring_soon":3,"expired":1}"#
+        );
+    }
+
+    #[test]
+    fn namespace_stats_map_roundtrip() {
+        let mut map = NamespaceStatsMap::new();
+        map.insert(
+            "docs".into(),
+            NamespaceStats {
+                count: 2,
+                expiring_soon: 0,
+                expired: 0,
+            },
+        );
+        assert_eq!(rt(&map), map);
+        assert_eq!(json(&map), r#"{"docs":{"count":2,"expiring_soon":0,"expired":0}}"#);
     }
 }

@@ -20,7 +20,7 @@ use async_trait::async_trait;
 
 use super::types::{
     Capability, ConnectionInfo, ConnectionStatus, HealthReport, HealthStatus, IngestItem, ListPage,
-    MemoryRecord, SearchQuery, SearchResult,
+    MemoryRecord, NamespaceStatsMap, SearchQuery, SearchResult,
 };
 use super::wire_types::{HealthReport as WireHealthReport, NodeDTO};
 use super::{ServerClient, ServerClientConfig, VantaConnection};
@@ -289,5 +289,14 @@ impl VantaConnection for ServerConnection {
             checked_at_ms: now_ms(),
             message: Some(report.data),
         })
+    }
+
+    async fn namespace_stats(
+        &self,
+        _expiring_soon_window_ms: Option<u64>,
+    ) -> Result<NamespaceStatsMap, VantaError> {
+        // The server computes stats with its own 24h window; the per-request
+        // override is a native-only knob, so it is ignored here.
+        self.timeout_ops(self.client.namespace_stats()).await
     }
 }

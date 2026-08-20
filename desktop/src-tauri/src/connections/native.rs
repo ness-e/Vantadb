@@ -23,9 +23,9 @@ use vantadb::{
 
 use super::types::{
     Bm25Term, Capability, ConnectionInfo, ConnectionStatus, ExplanationHit, ExportReport,
-    HealthReport, HealthStatus, IngestItem, ListPage, MemoryFilterItem, MemoryRecord, SearchQuery,
-    SearchResult, VantaGraphEdgeInfo, VantaGraphNodeInfo, VantaGraphTraversalResult,
-    VantaQueryResult,
+    HealthReport, HealthStatus, IngestItem, ListPage, MemoryFilterItem, MemoryRecord,
+    NamespaceStats, NamespaceStatsMap, SearchQuery, SearchResult, VantaGraphEdgeInfo,
+    VantaGraphNodeInfo, VantaGraphTraversalResult, VantaQueryResult,
 };
 use super::VantaConnection;
 use crate::error::VantaError;
@@ -338,6 +338,17 @@ fn parse_node_id(id: &str) -> Result<u128, VantaError> {
         .map_err(|_| VantaError::Native(format!("invalid node id: {id}")))
 }
 
+/// Map the core `VantaNamespaceStats` into the desktop wire DTO (VS-CORE-02).
+impl From<vantadb::VantaNamespaceStats> for NamespaceStats {
+    fn from(s: vantadb::VantaNamespaceStats) -> Self {
+        Self {
+            count: s.count,
+            expiring_soon: s.expiring_soon,
+            expired: s.expired,
+        }
+    }
+}
+
 /// Parse the wire direction string into the core `TraversalDirection`.
 fn parse_direction(direction: &str) -> Result<TraversalDirection, VantaError> {
     match direction {
@@ -573,6 +584,24 @@ impl VantaConnection for NativeConnection {
                 .map(|page| ListPage {
                     records: page.records.into_iter().map(record_to_memory).collect(),
                     next_cursor: page.next_cursor,
+                })
+                .map_err(map_core_error)
+        })
+        .await
+    }
+
+    async fn namespace_stats(
+        &self,
+        expiring_soon_window_ms: Option<u64>,
+    ) -> Result<NamespaceStatsMap, VantaError> {
+        let db = self.db.clone();
+        blocking(move || {
+            db.namespace_stats(expiring_soon_window_ms)
+                .map(|stats| {
+                    stats
+                        .into_iter()
+                        .map(|(ns, s)| (ns, NamespaceStats::from(s)))
+                        .collect()
                 })
                 .map_err(map_core_error)
         })
@@ -1084,5 +1113,43 @@ mod tests {
         conn.delete("k1", Some("docs")).await.expect("delete");
         let after = conn.versions("k1", Some("docs")).await.expect("versions");
         assert!(after.is_empty(), "history must be purged on delete");
+    }
+
+    // ── Namespace stats (VS-CORE-02) ──
+
+    #[tokio::test]
+    async fn namespace_stats_aggregates_count_and_ttl_states() {
+        let dir = TempDir::new();
+        let mut conn = NativeConnection::open(dir.path()).expect("open");
+        let now = now_ms();
+
+        // No TTL → count only.
+        conn.put(item(Some("k1"), "no ttl"), None)
+            .await
+            .expect("put k1");
+        // Expiring soon (within the default 24h window).
+        conn.put(item(Some("k2"), "expiring soon"), Some(now + 60_000))
+            .await
+            .expect("put k2");
+        // ttl 0 → expires immediately (expires_at = now) → expired bucket.
+        conn.put(item(Some("k3"), "expired"), Some(now))
+            .await
+            .expect("put k3");
+
+        let stats = conn.namespace_stats(None).await.expect("namespace_stats");
+        let docs = stats.get("docs").expect("docs namespace present");
+        assert_eq!(docs.count, 3, "count includes expired records");
+        assert_eq!(docs.expiring_soon, 1);
+        assert_eq!(docs.expired, 1);
+
+        // A zero-width window leaves only already-expired records "expiring".
+        let zero = conn
+            .namespace_stats(Some(0))
+            .await
+            .expect("namespace_stats(0)");
+        let docs0 = zero.get("docs").expect("docs present");
+        assert_eq!(docs0.count, 3);
+        assert_eq!(docs0.expiring_soon, 0);
+        assert_eq!(docs0.expired, 1);
     }
 }

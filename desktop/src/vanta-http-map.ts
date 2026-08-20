@@ -389,6 +389,13 @@ const mappings: Record<string, HttpMapping | string> = {
     path: () => "/api/v2/metrics",
     transform: (data) => (data as { metrics: unknown }).metrics,
   },
+  // vanta_namespace_stats (VS-CORE-02) reuses the same endpoint — the
+  // per-namespace half of the payload is the NamespaceStatsMap.
+  vanta_namespace_stats: {
+    method: "GET",
+    path: () => "/api/v2/metrics",
+    transform: (data) => (data as { namespaces: unknown }).namespaces,
+  },
 
   // --- Audit (VS-12) ---
   vanta_audit_events: {

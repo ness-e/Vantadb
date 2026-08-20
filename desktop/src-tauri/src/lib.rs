@@ -163,6 +163,7 @@ pub fn run() {
             commands::data::vanta_delete,
             commands::data::vanta_list,
             commands::data::vanta_query,
+            commands::data::vanta_namespace_stats,
             commands::data::vanta_iql_autocomplete,
             commands::data::vanta_export_namespace,
             commands::data::vanta_delete_by_filter,

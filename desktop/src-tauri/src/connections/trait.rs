@@ -2,8 +2,8 @@ use async_trait::async_trait;
 
 use super::types::{
     Capability, ConnectionInfo, ExportReport, HealthReport, IngestItem, ListPage, MemoryFilterItem,
-    MemoryRecord, SearchQuery, SearchResult, VantaGraphNodeInfo, VantaGraphTraversalResult,
-    VantaQueryResult,
+    MemoryRecord, NamespaceStatsMap, SearchQuery, SearchResult, VantaGraphNodeInfo,
+    VantaGraphTraversalResult, VantaQueryResult,
 };
 use crate::error::VantaError;
 
@@ -216,6 +216,24 @@ pub trait VantaConnection: Send + Sync {
 
     /// Cheap liveness / latency probe.
     async fn health(&self) -> Result<HealthReport, VantaError>;
+
+    /// Per-namespace record statistics (VS-CORE-02).
+    ///
+    /// `expiring_soon_window_ms` defaults to the core's 24h window when
+    /// `None`. `count` includes expired (not-yet-purged) records so the
+    /// `expired` bucket is observable. Default implementation: transports
+    /// without a stats endpoint report [`VantaError::Unsupported`] — native
+    /// implements it via the core `namespace_stats`, server via
+    /// `/api/v2/metrics`.
+    async fn namespace_stats(
+        &self,
+        expiring_soon_window_ms: Option<u64>,
+    ) -> Result<NamespaceStatsMap, VantaError> {
+        let _ = expiring_soon_window_ms;
+        Err(VantaError::Unsupported(
+            "namespace_stats is not implemented by this transport".into(),
+        ))
+    }
 
     /// Path of this transport's audit log (VS-12).
     ///

@@ -22,7 +22,7 @@ use tokio::sync::RwLock;
 
 use super::{
     Capability, ConnectionInfo, ExportReport, HealthReport, IngestItem, ListPage, MemoryFilterItem,
-    MemoryRecord, SearchQuery, SearchResult, VantaConnection, VantaGraphNodeInfo,
+    MemoryRecord, NamespaceStatsMap, SearchQuery, SearchResult, VantaConnection, VantaGraphNodeInfo,
     VantaGraphTraversalResult, VantaQueryResult,
 };
 use crate::error::VantaError;
@@ -257,6 +257,23 @@ impl ConnectionManager {
             .get(&id)
             .ok_or_else(|| Self::missing(&id))?;
         conn.query(query).await
+    }
+
+    /// Per-namespace record statistics on the active connection (VS-CORE-02).
+    ///
+    /// `expiring_soon_window_ms` defaults to the core's 24h window when
+    /// `None`. Transports without a stats endpoint report `Unsupported`.
+    pub async fn namespace_stats(
+        &self,
+        expiring_soon_window_ms: Option<u64>,
+    ) -> Result<NamespaceStatsMap, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        let conn = inner
+            .connections
+            .get(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        conn.namespace_stats(expiring_soon_window_ms).await
     }
 
     /// Delete a record by key on the active connection. Idempotent.

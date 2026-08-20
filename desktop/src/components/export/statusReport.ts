@@ -1,9 +1,10 @@
 // Status report (VS-16): readable markdown summary of the current view.
 // Pure functions — no DOM, testable with node --test.
 //
-// `namespace_stats` is not exposed on the desktop bridge (per VS-16 contract),
-// so the report derives counts from the records the UI already has (the
-// filtered view) or a `list({limit})` fetch done by the caller.
+// The report describes the *current view*, so it derives counts from the
+// records the UI already has (the filtered view) or a `list({limit})` fetch
+// done by the caller — per-namespace totals for the whole store come from
+// `namespaceStats()` (VS-CORE-02), not here.
 import type { MemoryRecord } from "../../vanta.ts";
 import { inferMetaFields } from "../search/filters-core.ts";
 

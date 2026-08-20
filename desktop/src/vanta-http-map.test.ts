@@ -206,6 +206,17 @@ test("vanta_metrics: maps /api/v2/metrics and unwraps the operational snapshot",
   assert.deepEqual(out, { hnsw_nodes_count: 7, process_rss_bytes: 123 });
 });
 
+test("vanta_namespace_stats: same endpoint, unwraps the per-namespace stats (VS-CORE-02)", () => {
+  const m = getHttpMapping("vanta_namespace_stats");
+  assert.equal(m.method, "GET");
+  assert.equal(m.path({}), "/api/v2/metrics");
+  const out = m.transform?.({
+    metrics: { hnsw_nodes_count: 7 },
+    namespaces: { agent: { count: 3, expiring_soon: 1, expired: 0 } },
+  });
+  assert.deepEqual(out, { agent: { count: 3, expiring_soon: 1, expired: 0 } });
+});
+
 test("vanta_graph_bfs/dfs: camelCase args → graph_v2 wire (string roots, lowercase direction)", () => {
   const bfs = getHttpMapping("vanta_graph_bfs");
   assert.equal(bfs.method, "POST");
@@ -287,6 +298,7 @@ test("coverage: every vanta_* command has a mapping entry (real or documented un
     "vanta_graph_dfs",
     "vanta_graph_degree",
     "vanta_metrics",
+    "vanta_namespace_stats",
     "vanta_audit_events",
   ];
   const known = new Set([...mappedCommands(), ...unsupportedCommands()]);

@@ -13,7 +13,7 @@
 // commit explícito — grid pasa el record completo, búsqueda lo completa vía get).
 import { FormEvent, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RuleGroupType } from "react-querybuilder";
-import { get, list, search, SearchResult, vantaErrorMessage, type MemoryRecord, type VantaDeepLink } from "../../vanta";
+import { get, list, namespaceStats, search, SearchResult, vantaErrorMessage, type MemoryRecord, type NamespaceStatsMap, type VantaDeepLink } from "../../vanta";
 import { useDeepLink } from "../../hooks/useDeepLink";
 import { ConnectionActions, VantaState } from "../../hooks/useConnectionState";
 import { EMPTY_QUERY, evaluateQuery, inferMetaFields, toVantaMemoryFilter } from "../search/filters-core";
@@ -80,9 +80,8 @@ interface WorkspaceShellProps {
   onToggleTheme: () => void;
 }
 
-/** Conteos por namespace, derivados del list del bridge activo. */
-// ponytail: conteos client-side desde list(limit 500). Swap a namespace_stats
-// (VS-CORE-02) cuando el bridge desktop lo exponga (lo hace VS-04).
+/** Conteos por namespace: stats reales del bridge (VS-CORE-02) con fallback
+ * client-side desde list(limit 500) solo cuando el backend no las expone. */
 function useNamespaceCounts(active: boolean): NamespaceCount[] {
   const [namespaces, setNamespaces] = useState<NamespaceCount[]>([]);
 
@@ -92,21 +91,33 @@ function useNamespaceCounts(active: boolean): NamespaceCount[] {
       setNamespaces([]);
       return;
     }
-    list({ limit: 500 })
-      .then((records) => {
-        if (!alive) return;
-        const counts = new Map<string, number>();
-        for (const r of records) {
-          counts.set(r.namespace, (counts.get(r.namespace) ?? 0) + 1);
-        }
-        setNamespaces(
-          [...counts.entries()]
-            .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => b.count - a.count),
-        );
+    const fromStats = (stats: NamespaceStatsMap): NamespaceCount[] =>
+      Object.entries(stats)
+        .map(([name, s]) => ({ name, count: s.count }))
+        .sort((a, b) => b.count - a.count);
+    const fromList = (records: MemoryRecord[]): NamespaceCount[] => {
+      const counts = new Map<string, number>();
+      for (const r of records) {
+        counts.set(r.namespace, (counts.get(r.namespace) ?? 0) + 1);
+      }
+      return [...counts.entries()]
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count);
+    };
+    namespaceStats()
+      .then((stats) => {
+        if (alive) setNamespaces(fromStats(stats));
       })
       .catch(() => {
-        if (alive) setNamespaces([]);
+        // Fallback: transporte sin stats (o error transitorio) → conteo local.
+        if (!alive) return;
+        list({ limit: 500 })
+          .then((records) => {
+            if (alive) setNamespaces(fromList(records));
+          })
+          .catch(() => {
+            if (alive) setNamespaces([]);
+          });
       });
     return () => {
       alive = false;
