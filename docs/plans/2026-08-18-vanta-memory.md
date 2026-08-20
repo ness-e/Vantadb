@@ -160,7 +160,7 @@
 - **Gate Justificación:** L1 Bearer timingSafeEqual, L2 service-id, L3 user-key → userId/isSystemAdmin desde entity_* (MEM-03); `/health` pública; **audit log server YA EXISTE (WEB-01, `src/audit.rs` + `/api/v2/audit`)** — extender, no duplicar (descubierto en MEM-34)
 - **Contrato:** `cargo check -p vantadb-server` pasa; tests dedicados de auth 3 capas (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-05.md`
-- **Estado:** ⏳ EN PROGRESO → ✅ COMPLETED (commit en preparación, verify cargo check -p vantadb-server ✅ + tests auth 16/16 ✅ 2026-08-20)
+- **Estado:** ✅ COMPLETED (commit `01a5de66`, verify cargo check -p vantadb-server ✅ + tests auth 16/16 ✅ 2026-08-20)
 - **last-synced:** 2026-08-20T15:15
 
 ## Riesgos

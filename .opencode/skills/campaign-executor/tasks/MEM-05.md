@@ -4,7 +4,7 @@
 - **Plan file:** `docs/plans/2026-08-18-vanta-memory.md`
 - **Creado:** 2026-08-20T14:30
 - **last-synced:** 2026-08-20T15:15
-- **Estado:** ✅ COMPLETED (commit `CAMBIO_POR_VANTA_LEAD`, verify `cargo check -p vantadb-server` ✅ + tests auth 16/16 ✅)
+- **Estado:** ✅ COMPLETED (commit `01a5de66`, verify `cargo check -p vantadb-server` ✅ + tests auth 16/16 ✅)
 
 ## Blast Radius
 
