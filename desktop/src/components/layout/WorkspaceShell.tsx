@@ -35,6 +35,8 @@ import RetrievalLens from "../lens/retrieval/RetrievalLens";
 // FEAT-02: lente ÍNDICES real (reemplaza el placeholder VS-03) — liviana,
 // sin dependencias pesadas, import estática como RETRIEVAL.
 import IndicesLens from "../indices/IndicesLens";
+// FEAT-03a: lente CONSOLIDAR (D16 (a) UI-only) — liviana, import estática.
+import ConsolidateLens from "../consolidate/ConsolidateLens";
 import { undoStore } from "../../store/undo";
 // VS-17: favoritos + historial de búsqueda (localStorage, slice aditivo).
 import { favoritesStore, type Favorite } from "../../store/favorites";
@@ -59,7 +61,7 @@ const GraphLens = lazy(() => import("../graph/GraphLens"));
 // solo la surface ESPACIO los paga (mismo patrón que GraphLens/Inspector).
 const SpaceLens = lazy(() => import("../space/SpaceLens"));
 
-export type Surface = "resumen" | "memorias" | "papelera" | "actividad" | "retrieval" | "indices" | "iql" | "espacio";
+export type Surface = "resumen" | "memorias" | "papelera" | "actividad" | "retrieval" | "indices" | "consolidar" | "iql" | "espacio";
 
 interface NamespaceCount {
   name: string;
@@ -436,6 +438,7 @@ export default function WorkspaceShell({
             {/* VS-13: lente contextual — hereda el registro seleccionado como seed (P4). */}
             <SideButton icon="⛁" label="RETRIEVAL" active={surface === "retrieval"} onClick={() => setSurface("retrieval")} />
             <SideButton icon="⠿" label="ÍNDICES" hint="F1" active={surface === "indices"} onClick={() => setSurface("indices")} />
+            <SideButton icon="⇄" label="CONSOLIDAR" active={surface === "consolidar"} onClick={() => setSurface("consolidar")} />
             <SideButton icon="⌘" label="IQL" hint="F2" active={surface === "iql"} onClick={() => setSurface("iql")} />
             <SideButton icon="✳" label="ESPACIO" active={surface === "espacio"} onClick={() => setSurface("espacio")} />
           </div>
@@ -790,6 +793,18 @@ export default function WorkspaceShell({
                 health={state.health}
                 healthStatus={state.healthStatus}
                 activeName={state.active ? state.active.name : null}
+              />
+            </div>
+          )}
+          {/* FEAT-03a: lente CONSOLIDAR (D16 (a)) — pares por similitud textual
+              + diff visible + metadata.superseded_by (vanta_put). */}
+          {surface === "consolidar" && (
+            <div className="mx-auto max-w-6xl p-6">
+              <ConsolidateLens
+                active={!!state.active}
+                activeName={state.active ? state.active.name : null}
+                onNotice={onNotice}
+                onError={onError}
               />
             </div>
           )}
