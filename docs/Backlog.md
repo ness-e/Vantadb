@@ -42,7 +42,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | **P9** 📚 Old Docs Rescue (reference) | 1 (OLD-01) | — | 📖 Referencia |
 | **P10** 🏗️ Competitive Features (catalog) | 0 | — | 🗺️ Roadmap |
 | **P11** 🐛 GitHub Issues | 0 | — | ✅ Cerrado |
-| **P12** 🖥️ DESKTOP App (Tauri) + Consola Admin | 25 (DESKTOP-12..27 + ADMIN-01..09) | ~4-6 semanas | 🔵 Futuro |
+| **P12** 🖥️ DESKTOP App (Tauri) + Consola Admin | 5 pendientes (DESKTOP-23/24/25/26/27 — re-scopeadas 2026-08-20; ADMIN-01..09 + DESKTOP-20 ✅; 10 archivadas por dirección P26) | 📆 Backlog | 🟡 Media |
 | **P13** 🔎 AUDREP — Audit Report 2025 | 0 | — | ✅ Cerrado |
 | **P14** 🔍 REVIEW items | 0 | — | ✅ Cerrada |
 | **P15** 🔍 ERR items (revisión multi-agente 2026-08-08) | 0 — ✅ todos resueltos (36 por plan 2026-08-09 + 10 migradas 2026-08-12 + ERR-007 ban-skip 2026-08-12) | — | ✅ Cerrada |
@@ -265,6 +265,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 > **Contexto de integraciones (investigado 2026-08-04):** server = HTTP REST `/api/v2/query` (IQL) en `127.0.0.1:8080`, auth Bearer, sin streaming; MCP = JSON-RPC 2.0 **solo stdio** (15 tools), proceso es la DB; node = addon napi-rs (Tauri no puede `require()`, solo sidecar); python = PyO3, sin CLI (requiere driver script); ts/wasm = snapshot JSON in-memory, read-only/demo.
 > **Regla de fragmentación:** 1 tarea = 1 concepto; nunca mezclar 2 integraciones en una tarea. `desktop/` usa `[workspace]` vacío en `src-tauri/Cargo.toml` → desacoplado del workspace raíz (no toca CI/versiones de core).
 > **Scoping 2026-08-05 (plan Task 54 — MVP multi-connection recortado):** incluir 13 tareas (DESKTOP-02/03/04/05/08-14/19/20/24/26), defer 4 a Fase 7 futura (DESKTOP-15/16/17/18 Node/Python — valor marginal, empaquetado frágil). `desktop/` aún NO existe — **build pendiente desde cero**, solo scoping realizado.
+> **Re-scope 2026-08-20 (P26 Vanta Studio completada):** la dirección cambió de "app multi-connection con 6 vías" a **transporte pluggable** (nativa embebida / HTTP `/api/v2/*` / WASM-OPFS standalone) con `ConnectionSelector.tsx` eliminado (ADMIN-03, `847ab080`). DESKTOP-12/13/14 (MCP client), 15/16/17/18 (Node/Python), 19 (manager completo), 21 (UI multi-connection) y 22 (eventos streaming) → **obsoletas por dirección, archivadas** (ver `docs/progreso/BACKLOG_HISTORY.md`). DESKTOP-23/26/27 re-scopeadas al modelo Studio. DESKTOP-24/25 priorizadas como pendientes del desktop.
 
 ### Fase 0 — Scaffold
 
@@ -283,39 +284,37 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 ### Fase 3 — Adaptador MCP (stdio)
 
+> ~~DESKTOP-12/13/14~~ **Archivadas 2026-08-20** — obsoletas por dirección P26 (ver header re-scope): el motor está embebido (doble escritor → Lock); `McpSpawn` (DESKTOP-11) ya existe solo como sidecar del server, no como vía UI. Registro en `docs/progreso/BACKLOG_HISTORY.md`.
+
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `DESKTOP-12` | **Cliente rmcp** — Dep `rmcp` (`client`, `transport-child-process`); `TokioChildProcess` + init handshake, `list_tools`, `call_tool` con params serde_json. **DoD:** conecta al binario real; `list_tools` devuelve las 15 tools (memory_put/get/delete/list, search_memory, query_lisp, collection_*...). | `src/connections/mcp_client.rs` | 🟢 | 🔵 | ❌ Desde cero |
-| `DESKTOP-13` | **`McpConnection`** — Mapea las 15 tools al trait (`memory_put`→ingest, `memory_get`→get, `memory_delete`→delete, `memory_list`/`collection_list`→list, `search_semantic`/`search_memory`→search, `query_lisp`+`collection_*` fuera del trait MVP); `VantaError::Mcp`. **DoD:** integración real: ingest + search vía MCP en temp dir; tool inexistente → error mapeado. | `src/connections/mcp.rs` | 🟡 | 🔵 | ❌ Desde cero |
-| `DESKTOP-14` | **Healthcheck/reconnect/UI MCP** — Healthcheck por tool trivial; `close` = `graceful_shutdown` con kill-timeout; selector "MCP" en UI. **DoD:** desconectar mata el proceso (verificado); reconectar funciona. | `src/connections/mcp.rs`, `ConnectionSelector.tsx` | 🟢 | 🔵 | ❌ Desde cero |
 
 ### Fase 4 — Node y Python (opcionales, feature-gate)
 
+> ~~DESKTOP-15/16/17/18~~ **Archivadas 2026-08-20** — obsoletas por dirección P26: ya deferidas en scoping 2026-08-05 (valor marginal, empaquetado frágil); F4 WASM/OPFS las supera como vía alternativa; Tauri no puede `require()` napi. Registro en `docs/progreso/BACKLOG_HISTORY.md`.
+
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `DESKTOP-15` | **JSON-RPC cliente + driver Node** — Framing newline-delimited, ids incrementales, mapa de respuestas pendientes, timeout (`connections/jsonrpc.rs`, compartido con Python); driver `drivers/node/driver.js` que `require('vantadb_native')` y sirve stdio. **DoD:** `node driver.js` responde put/search por stdio (test manual con pipe). | `src/connections/jsonrpc.rs`, `drivers/node/driver.js` | 🟡 | 🔵 | ❌ Desde cero |
-| `DESKTOP-16` | **`NodeConnection`** — Spawn node (dev: sistema; release: sidecar `externalBin`), IPC vía jsonrpc, mapeo `VantaError::Node`, capabilities. **DoD:** integración: put/search vía node en temp dir. | `src/connections/node.rs`, `tauri.conf.json` | 🟡 | 🔵 | ❌ Desde cero |
-| `DESKTOP-17` | **Driver Python + decisión runtime** — `drivers/python/python_driver.py` (import `vantadb_py`, JSON-RPC stdio); **decisión documentada aquí**: runtime python del sistema vs bundled (MVP = sistema primero). **DoD:** driver responde put/search con python local (si hay runtime; si no, skip documentado). | `drivers/python/python_driver.py` | 🟡 | 🔵 | ❌ Desde cero |
-| `DESKTOP-18` | **`PythonConnection`** — Spawn python + driver, reusa `jsonrpc.rs`, mapeo `VantaError::Python`. **DoD:** integración opcional (skippable sin runtime python). | `src/connections/python.rs` | 🟡 | 🔵 | ❌ Desde cero |
 
 ### Fase 5 — ConnectionManager multi-connection
 
+> ~~DESKTOP-19, DESKTOP-21~~ **Archivadas 2026-08-20** — obsoletas por dirección P26: `ConnectionManager` ya existe (DESKTOP-06: registry + active_id + 14 métodos); path lock ya lo da NativeConnection (DESKTOP-05 → `VantaError::Lock`); UI multi-connection contradice ADMIN-03 (`ConnectionSelector.tsx` eliminado). Registro en `docs/progreso/BACKLOG_HISTORY.md`.
+
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `DESKTOP-19` | **ConnectionManager completo** — Registry multi (`HashMap<id, Arc<dyn VantaConnection>>`), active, `path_holders` (regla 1-escritor por path → `VantaError::Lock` + hint), routing por `connection` id, capability gate (write sobre read-only → `Unsupported`). **DoD:** Nativa + Server (paths distintos) conectadas simultáneamente; conectar segunda vía sobre el mismo path → rechazada con hint. | `src/connections/manager.rs` | 🟡 | 🔵 | ❌ Desde cero |
 | `DESKTOP-20` | ~~**Lifecycle shutdown_all** — `shutdown_all` en `RunEvent::ExitRequested`: orden webview → subprocesos → nativa última (flush); timeout configurable + kill forzoso.~~ ✅ 2026-08-08 — commit `45f8bed8` (`shutdown_all(grace)` + `RunEvent::ExitRequested`, manager.rs + lib.rs, test) | `src/lib.rs`, `src/connections/manager.rs` | 🟢 | 🔵 | ✅ |
-| `DESKTOP-21` | **UI multi-connection** — Selector con N vías conectadas, switch de activa, health badge por vía, warning de conflicto de path. **DoD:** UI muestra 2 vías vivas; la op va a la activa; warning al intentar conflicto. | `ConnectionSelector.tsx`, `ConnectionPanel.tsx` | 🟡 | 🔵 | ❌ Desde cero |
 
-### Fase 6 — Streaming, config, empaquetado, CI, tests, docs
+### Fase 6 — Config, empaquetado, CI, tests, docs (re-scopeada al modelo Vanta Studio 2026-08-20)
+
+> **Re-scope 2026-08-20 (P26):** DESKTOP-22 (eventos streaming) **archivada** — progreso de import ya cubierto por F2 (ImportDrop); SSE quedó sin asignar en DEFER table de F4. DESKTOP-23/26/27 re-scopeadas al modelo Studio (transporte pluggable, no multi-connection 6 vías). DESKTOP-24/25 priorizadas como pendientes del desktop.
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `DESKTOP-22` | **Eventos Tauri (streaming)** — `vanta://connection-state` (obligatorio) + `ingress-progress`/`search-progress` (flag `progress`); listeners en frontend. **DoD:** ingest batch de 1000 items emite progreso sin bloquear la UI. | `src/lib.rs`, `desktop/src/hooks/*` | 🟢 | 🔵 | ❌ Desde cero |
-| `DESKTOP-23` | **Persistencia de config** — JSON en `app_config_dir`, load en setup, save atómico (`temp + rename`), defaults, vías guardadas. **DoD:** reiniciar la app conserva vías guardadas y vía activa. | `src/config.rs` | 🟢 | 🔵 | ❌ Desde cero |
-| `DESKTOP-24` | **Empaquetado** — Bundle NSIS/MSI (Windows primero), `externalBin` (node + `vantadb-server.exe` + runtime python si procede), identifier, icons, auto-update opcional. **DoD:** instalador produce una app que conecta nativo + server + node sin entorno de dev. | `tauri.conf.json`, `src-tauri/build.rs` | 🔴 | 🔵 | ❌ Desde cero |
-| `DESKTOP-25` | **CI GitHub Actions** — Build Windows (tauri-action), `cargo test` en `src-tauri` (workspace desacoplado), `npm build` frontend, artefacto instalador; matrix por features de vías (con/sin server/mcp). **DoD:** pipeline verde; artefacto instalador subido. | `.github/workflows/desktop.yml` | 🟡 | 🔵 | ❌ Desde cero |
-| `DESKTOP-26` | **Tests** — Unit: tipos, mapping de errores, framing jsonrpc; integración por adaptador (mock HTTP, MCP real, nativa temp); **contrato de errores**: misma op en N vías → mismo shape `VantaError`. **DoD:** `cargo test` + integraciones en CI. | `src/**/*_tests.rs` | 🟢 | 🔵 | ❌ Desde cero |
-| `DESKTOP-27` | **Docs + ADR** — README desktop, `ARCHITECTURE.md` (modelo conexión), **ADR** multi-connection + regla 1-escritor (siguiente número libre en `docs/architecture/adr/`), guía de usuario por vía, actualizar DESKTOP-01 con decisiones. **DoD:** ADR revisado por vanta-arch; guía cubre las 6 vías. | `docs/desktop/*`, `docs/architecture/adr/ADR-0XX.md` | 🟢 | 🔵 | ❌ Desde cero |
+| `DESKTOP-23` | **Persistencia de preferencias UI (re-scopeada)** — Persistir preferencias de Vanta Studio (tema ya en `localStorage "vanta-theme"`; extender a layout/lentes/filtros según research 05) en `app_config_dir` con save atómico (`temp + rename`). ~~"Vías guardadas"~~ sin sentido sin multi-connection. **DoD:** reiniciar la app conserva tema/layout/filtros. | `src/config.rs`, `desktop/src/lib/store.ts` | 🟢 | 🔵 | ❌ Pendiente |
+| `DESKTOP-24` | **Empaquetado (priorizado)** — Bundle NSIS/MSI (Windows primero), `externalBin` si aplica, identifier, icons, auto-update opcional. **DoD:** instalador produce una app que conecta nativo + server sin entorno de dev. | `tauri.conf.json`, `src-tauri/build.rs` | 🔴 | 🟡 | ❌ Pendiente (priorizado 2026-08-20) |
+| `DESKTOP-25` | **CI GitHub Actions (priorizado)** — Build Windows (tauri-action), `cargo test` en `src-tauri` (workspace desacoplado), `npm build` frontend, artefacto instalador. **DoD:** pipeline verde; artefacto instalador subido. | `.github/workflows/desktop.yml` | 🟡 | 🟡 | ❌ Pendiente (priorizado 2026-08-20) |
+| `DESKTOP-26` | **Tests frontend Vanta Studio (re-scopeada)** — Unit de stores/lentes del Studio con vitest (hoy no configurado; `desktop/package.json` sin test script); integración bridge `vanta.ts`↔Tauri con mock. Rust ya tiene tests (17+4+24+28+21+2). **DoD:** `npm test` verde en CI. | `desktop/src/**/*.test.ts(x)`, `desktop/vitest.config.ts` | 🟢 | 🔵 | ❌ Pendiente |
+| `DESKTOP-27` | **Docs + ADR Vanta Studio (re-scopeada)** — README desktop + `ARCHITECTURE.md` del modelo **real** (transporte pluggable: nativa embebida / HTTP `/api/v2/*` / WASM-OPFS; ADR-026/027/028 ya existen — no duplicar). Guía de usuario por modo de transporte. **DoD:** ADR del modelo Studio revisado por vanta-arch; guía cubre nativo + server + wasm. | `docs/desktop/*`, `docs/architecture/adr/` | 🟢 | 🔵 | ❌ Pendiente |
 
 ### Fase 7 — Consola Administrativa (ADMIN)
 
@@ -335,7 +334,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 > **Secuencia:** ADMIN-01 → ADMIN-03 (base) → ADMIN-02/04/05 en paralelo → ADMIN-06 → ADMIN-07 → ADMIN-08 → ADMIN-09. Reutiliza `operational_metrics_snapshot()` — NO crear telemetría nueva de cero; el snapshot core es la fuente única de KPIs.
 
-> **Total:** 35 tareas (DESKTOP-02..27 + ADMIN-01..09) — 15 🟢, 16 🟡, 2 🔴, 2 condicionales (Node/Python feature-gate). Secuencia: Fase 0 → 1 → (2/3/4 en paralelo) → 5 → 6 → 7.
+> **Total:** 35 tareas (DESKTOP-02..27 + ADMIN-01..09) — 15 🟢, 16 🟡, 2 🔴, 2 condicionales (Node/Python feature-gate). **Re-scope 2026-08-20:** DESKTOP-12/13/14/15/16/17/18/19/21/22 archivadas por dirección P26; quedan 5 pendientes (DESKTOP-23/24/25/26/27). Secuencia: Fase 0 → 1 → (2/3/4 en paralelo) → 5 → 6 → 7.
 
 ---
 
