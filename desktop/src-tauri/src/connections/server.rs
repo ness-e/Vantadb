@@ -20,9 +20,9 @@ use async_trait::async_trait;
 
 use super::types::{
     Capability, ConnectionInfo, ConnectionStatus, HealthReport, HealthStatus, IngestItem, ListPage,
-    MemoryRecord, NamespaceStatsMap, SearchQuery, SearchResult,
+    MemoryRecord, NamespaceStatsMap, SearchQuery, SearchResult, VantaQueryResult,
 };
-use super::wire_types::{HealthReport as WireHealthReport, NodeDTO};
+use super::wire_types::{HealthReport as WireHealthReport, NodeDTO, QueryResponse};
 use super::{ServerClient, ServerClientConfig, VantaConnection};
 use crate::error::{HttpErrorKind, VantaError};
 
@@ -298,5 +298,143 @@ impl VantaConnection for ServerConnection {
         // The server computes stats with its own 24h window; the per-request
         // override is a native-only knob, so it is ignored here.
         self.timeout_ops(self.client.namespace_stats()).await
+    }
+
+    async fn query(&self, query: &str) -> Result<VantaQueryResult, VantaError> {
+        let resp = self.timeout_ops(self.client.query(query)).await?;
+        query_response_to_result(resp)
+    }
+}
+
+/// Map the server's `QueryResponse` envelope to the desktop contract DTO.
+///
+/// The server serializes the three execution outcomes as follows
+/// (`src/cli_server.rs` `execute_query`):
+/// - Read: `nodes` populated, `data` = "Read N nodes."
+/// - Write: `data` = "Mutated N nodes: <message>", `node_id` set
+/// - StaleContext: `data` = "STALE_CONTEXT: …", `node_id` set
+///
+/// Domain failures never reach here: `ServerClient::query` already maps
+/// `success:false` to `VantaError::Http { kind: Domain }`.
+fn query_response_to_result(resp: QueryResponse) -> Result<VantaQueryResult, VantaError> {
+    if let Some(nodes) = resp.nodes {
+        return Ok(VantaQueryResult::Read(
+            nodes
+                .into_iter()
+                .map(|n| MemoryRecord {
+                    id: n.id.to_string(),
+                    namespace: "default".to_string(),
+                    text: relational_str(&n.relational, "content"),
+                    vector: None,
+                    metadata: n.relational.into_iter().collect(),
+                    created_at_ms: None,
+                    updated_at_ms: None,
+                    version: None,
+                    node_id: Some(n.id.to_string()),
+                    sparse_vector: None,
+                    expires_at_ms: None,
+                })
+                .collect(),
+        ));
+    }
+    let node_id = resp.node_id.map(|id| id.to_string());
+    if let Some(rest) = resp.data.strip_prefix("Mutated ") {
+        let mut parts = rest.splitn(2, " nodes: ");
+        let affected = parts
+            .next()
+            .and_then(|s| s.parse::<u64>().ok())
+            .ok_or_else(|| VantaError::Other(format!("unparseable write result: {}", resp.data)))?;
+        let message = parts.next().unwrap_or_default().to_string();
+        return Ok(VantaQueryResult::Write {
+            affected_nodes: affected,
+            message,
+            node_id,
+        });
+    }
+    // StaleContext marker (or an unexpected-but-successful shape); the node_id
+    // is the summary node the client must rehydrate.
+    let stale_node = node_id.ok_or_else(|| {
+        VantaError::Other(format!(
+            "stale-context result missing node_id: {}",
+            resp.data
+        ))
+    })?;
+    Ok(VantaQueryResult::StaleContext {
+        node_id: stale_node,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn node_dto(id: u128, content: &str) -> NodeDTO {
+        NodeDTO {
+            id,
+            semantic_cluster: 0,
+            relational: serde_json::json!({"content": content})
+                .as_object()
+                .unwrap()
+                .clone(),
+            hits: 0,
+            confidence_score: 0.0,
+        }
+    }
+
+    #[test]
+    fn read_maps_nodes_to_records() {
+        let resp = QueryResponse {
+            success: true,
+            data: "Read 1 nodes.".into(),
+            node_id: None,
+            nodes: Some(vec![node_dto(7, "hello")]),
+        };
+        let result = query_response_to_result(resp).unwrap();
+        match result {
+            VantaQueryResult::Read(records) => {
+                assert_eq!(records.len(), 1);
+                assert_eq!(records[0].id, "7");
+                assert_eq!(records[0].text, "hello");
+                assert_eq!(records[0].node_id, Some("7".into()));
+            }
+            other => panic!("expected Read, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn write_parses_mutated_message() {
+        let resp = QueryResponse {
+            success: true,
+            data: "Mutated 3 nodes: inserted".into(),
+            node_id: Some(42),
+            nodes: None,
+        };
+        match query_response_to_result(resp).unwrap() {
+            VantaQueryResult::Write {
+                affected_nodes,
+                message,
+                node_id,
+            } => {
+                assert_eq!(affected_nodes, 3);
+                assert_eq!(message, "inserted");
+                assert_eq!(node_id, Some("42".into()));
+            }
+            other => panic!("expected Write, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn stale_context_requires_node_id() {
+        let resp = QueryResponse {
+            success: true,
+            data: "STALE_CONTEXT: Confidence Score critical. Rehydration available for summary 9"
+                .into(),
+            node_id: Some(9),
+            nodes: None,
+        };
+        match query_response_to_result(resp).unwrap() {
+            VantaQueryResult::StaleContext { node_id } => assert_eq!(node_id, "9"),
+            other => panic!("expected StaleContext, got {other:?}"),
+        }
     }
 }
