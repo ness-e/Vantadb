@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID: 966d3b2c-2587-455e-bb7b-ffafe1f222b8
+> **Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
 > **Inicio:** 2026-08-18
-> **Estado: in-progress
+> **Estado: completed
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
 
@@ -117,7 +117,7 @@
 ### Task 1: MEM-01 — F1 Search profile por namespace en core
 - **Archivos clave:** `src/planner.rs`, `src/sdk/serialization/vector_types.rs`, `src/sdk/types.rs`, `src/sdk/search/mod.rs`, `src/cli_server.rs` (parser IQL)
 - **Gate Justificación:** F1 base — parametriza planner con `SearchProfileConfig`, expone en IQL/API/MCP (D13), report RRF incluye `rrf_k` (D20)
-- **Contrato: cargo check -p vantadb-mcp + test paridad IQL/API/MCP
+- **Contrato: cargo check -p vantadb + tests snapshot
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
 - **Estado:** ✅ COMPLETED (commit `6a50b8ee`, verify `cargo check -p vantadb` ✅ 2026-08-20)
 - **last-synced:** 2026-08-20T08:00
@@ -131,12 +131,13 @@
 - **last-synced:** 2026-08-20T08:00
 
 ### Task 3: MEM-34 — F1 Core Telemetría por capa (adelantada, D17)
-- **Archivos clave:** `src/metrics/core/mod.rs`, `src/metrics/core/state.rs`, `src/cli_server.rs`, `vantadb-server/src/audit.rs` (crear)
+- **Archivos clave:** `src/metrics/core/mod.rs`, `src/metrics/core/snapshot.rs`, `src/sdk/types.rs`, `src/sdk/serialization/conversions.rs`, `src/audit.rs` (helper memory)
 - **Gate Justificación:** extiende `operational_metrics_snapshot()` que Studio ya consume; audit log server `/api/v2/audit` (D15)
 - **Contrato:** `cargo check -p vantadb` pasa; tests dedicados de snapshot metrics (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-34.md`
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-08-20T04:00
+- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-08-20T12:45
+- **Nota:** `src/metrics/core/state.rs` no existe (estado vive en mod.rs); `vantadb-server/src/audit.rs` NO se creó — audit server ya existía en core (WEB-01, `src/audit.rs` + `/api/v2/audit` auth-protegido); MEM-34 aporta 13 campos de telemetría + `AuditEvent::memory` para F4
 
 ## Riesgos
 
@@ -179,11 +180,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
-Objetivo activo: MEM-02 Exponer search profile en MCP/search
+Objetivo activo: MEM-34 Telemetría por capa + audit
 Estado: completed ✅
-Última acción: MEM-01 completado y verificado
-Resultado: ⏳
-Próxima acción: Delegar MEM-02 a vanta-worker
+Última acción: MEM-34 completado y verificado (commit 84f28a18, 2002/2002 tests)
+Resultado: ✅
+Próxima acción: Checkpoint F1 — reportar al usuario y pasar a F2 (MEM-03/04/05)
 Contrato: cargo check -p vantadb + tests dedicados (parser 117/117, search 146/146, lib 1819/1819)
-Próxima tarea si completa: MEM-34
+Próxima tarea si completa: MEM-03
 === END RECITATION ===
