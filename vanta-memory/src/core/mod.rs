@@ -23,3 +23,6 @@ pub mod record;
 
 /// LLM prompts for the memory pipeline: L1 extraction (MEM-10).
 pub mod prompts;
+
+/// L2 scene contracts + LLM-free scene index (MEM-12).
+pub mod scene;

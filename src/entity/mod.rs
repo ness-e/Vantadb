@@ -12,6 +12,9 @@
 //! Keys are `entity:{namespace}:{collection}::{entity_id}`; listing scans
 //! the collection prefix. Values must not contain `{`, `}` or `:` (ids from
 //! [`generate_id`] never do).
+//!
+//! Scene node anchors (MEM-12) live in the same `InternalMetadata` partition
+//! under the `scene:` key family — see [`scene::SceneNodeStore`].
 
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::{ChainedError, Result, VantaError};
@@ -24,6 +27,11 @@ use web_time::{SystemTime, UNIX_EPOCH};
 
 /// Allow-only permission checker over `entity_*` records (MEM-04).
 pub mod checker;
+
+/// Scene node anchors in the core graph (MEM-12, F4).
+pub mod scene;
+
+pub use scene::{SceneNode, SceneNodePage, SceneNodeStore};
 
 // ── Types ──
 
@@ -251,3 +259,6 @@ fn validate_key(namespace: &str, collection: &str, entity_id: &str) -> Result<()
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod scene_tests;
