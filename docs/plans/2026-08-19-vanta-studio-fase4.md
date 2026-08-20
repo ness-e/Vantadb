@@ -2,7 +2,7 @@
 
 > **Campaign ID:** e7b31c4a-8d2f-4a7e-9c1b-6f5a3e8d2c40
 > **Inicio:** 2026-08-19
-> **Estado:** ⏳ PLANEADO — 18 tareas (DOC-01..04, REST-01..06, WASM-01..04, FEAT-01..03, VER-01). No ejecutado aún.
+> **Estado:** 🚧 EN EJECUCIÓN — W0 (DOC) y W1 (REST-01..06) ✅ completas (commits f7e39005, 0bf9609e, 9ec506d8, 7b3cfea2, b81a8bf9, 1b71d300, 08109a55, 8ad119eb); W2 (WASM-01..04) en curso. 18 tareas: 10/18.
 > **Fuente:** auditoría multi-agente 2026-08-19 (4 sub-agentes read-only: research original `docs/research/human-facing-db-ui/` + Fases 0/1 + Fases 2/3 + cross-check git/registro) → gaps consolidados en el digest del lead; decisiones del usuario 2026-08-19 (ver Decisiones).
 > **Modo:** secuencial con waves paralelas por archivos disjuntos (patrón Fase 3). FAIL_MODE=parallel.
 
@@ -83,42 +83,42 @@
 - **Gate Justificación:** auditoría F2/F3 Alta #1 — una ráfaga UI normal (~12 reqs: grid + inspector + sidebar) recibe 429; la consola web degrada. E2E usa `VANTADB_RATE_LIMIT_RPM=0` (escape, no solución).
 - **Contrato:** default revisado para ráfagas UI locales (ej. rpm 600 / burst 60, o burst≥rpm completo en loopback) con env var documentada; respuesta 429 con `Retry-After` y shape `{success:false,error}`; NO relajar si `require_auth` activo (sigue fail-closed AUD-021); tests de ráfaga (12+ reqs consecutivas sin 429 en loopback).
 - **Verificación:** `cargo test --features server` verde; script de humo: 20 GETs secuenciales → 0×429; E2E sin `VANTADB_RATE_LIMIT_RPM=0` pasa.
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETO (commit b81a8bf9)
 
 ### Task 6: REST-02 — `/api/v2/metrics` JSON (métricas del motor en shape JSON)
 - **Archivos clave:** `src/cli_server.rs` (L195 hoy solo `/metrics` Prometheus), `src/sdk/` (fuente de métricas: hnsw_nodes_count, dims, LSM/WAL, collection stats)
 - **Gate Justificación:** auditoría F2/F3 Alta #1 — 1 de 8 rechazos de `vanta-http-map` es `vanta_metrics` (sin endpoint JSON); además FEAT-02 (superficie Índices/salud) lo consume.
 - **Contrato:** `GET /api/v2/metrics` → JSON con métricas del motor (mismo shape que `namespace_stats`/`VantaMetrics` existente — verificar fuente real); CORS igual que resto; documentado en CONFIGURATION.md/API.md.
 - **Verificación:** `cargo test --features server` verde; curl `/api/v2/metrics` → 200 JSON con campos esperados; `vanta_metrics` deja de estar en la lista de rechazos vanta-http-map.
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETO (commit b81a8bf9)
 
 ### Task 7: REST-03 — Endpoint `graph_v2` con DTO desktop (cierra 3 rechazos vanta-http-map)
 - **Archivos clave:** `src/cli_server.rs`, `desktop/src/vanta-http-map.ts` (+test), `src/sdk/gds.rs`/graph DTOs
 - **Gate Justificación:** auditoría F2/F3 Alta #1 — graph_bfs/dfs/degree rechazados en web por DTO incompatible (u128 > u64::MAX en wire JSON). La lente GRAFO no existe en web por esto.
 - **Contrato:** endpoint(s) `/api/v2/graph/v2/*` (o ajuste del existente) que serialice DTO con u128 seguro (string en wire, patrón thread_id de Fase 3); mapeo `vanta_graph_bfs/dfs/degree` en vanta-http-map → dejan de ser rechazos; test de roundtrip con IDs u128 grandes.
 - **Verificación:** `cargo test --features server` verde; node:test vanta-http-map verde (8 rechazos → 5); curl con id > u64::MAX.
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETO (commit b81a8bf9)
 
 ### Task 8: REST-04 — Cursor real en server (paginación list/search — gap VS-CORE-01)
 - **Archivos clave:** `src/cli_server.rs` (hoy `next_cursor: None` — server no pagina), `src/sdk/api.rs` (listPage con cursor)
 - **Gate Justificación:** auditoría F0/F1 Alta #3 — VS-CORE-01 expuso cursor en native/WASM pero `server.rs` lo ignora; la consola web/Fase 3 no pagina; afecta ServerConnection.
 - **Contrato:** `GET /api/v2/list` y `POST /api/v2/search` devuelven `next_cursor` real (mismo cursor del core, serialización string segura); paginación verificable: 2 llamadas con limit N devuelven N y resto; tests.
 - **Verificación:** `cargo test --features server` verde; curl list con limit=2 → cursor → 2ª página sin duplicados.
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETO (commit 1b71d300)
 
 ### Task 9: REST-05 — `namespace_stats` en bridge desktop (gap VS-CORE-02)
 - **Archivos clave:** `desktop/src-tauri/src/connections/{mod,native,server}.rs`, `desktop/src/vanta.ts`, `desktop/src/components/` (sidebar/HOME)
 - **Gate Justificación:** auditoría F0/F1 Alta #4 — `namespace_stats` implementado en core pero ausente en bridge desktop → fallback local `list+count` (VS-04); sidebar/HOME con stats aproximadas; FEAT-02 lo necesita.
 - **Contrato:** comando `vanta_namespace_stats` (espejo core) + wrapper `vanta.ts` `namespaceStats()`; Sidebar/HOME consumen stats reales (counts por namespace, dims, hnsw_nodes_count si disponibles); fallback local solo si el backend no lo soporta; build desktop verde.
 - **Verificación:** `cargo test` desktop verde; `npm run build` verde; sidebar muestra stats reales de DB temp.
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETO (commit 08109a55)
 
 ### Task 10: REST-06 — IQL vía ServerConnection (consola IQL completa en web)
 - **Archivos clave:** `desktop/src-tauri/src/connections/server_client.rs` (default `Unsupported`), `desktop/src/vanta-http-map.ts` (+test), `src/cli_server.rs` (query ya existe)
 - **Gate Justificación:** auditoría F2/F3 Alta #4 — `queryResultFromResponse` truncado (ponytail) + `ServerConnection` hereda `Unsupported` → consola IQL degrada en web (sin graph_bfs, Read/Write/StaleContext truncados).
 - **Contrato:** `ServerConnection.query` implementado (HTTP `/api/v2/query`), `queryResultFromResponse` completo (Read/Write/StaleContext, sin truncar); mapeo `vanta_query` + `vanta_iql_autocomplete` en vanta-http-map; tests roundtrip IQL en web.
 - **Verificación:** node:test vanta-http-map verde; smoke: query IQL real desde browser contra server devuelve contexto completo.
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETO (commit 8ad119eb)
 
 ---
 
