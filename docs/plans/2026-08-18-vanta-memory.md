@@ -1,6 +1,6 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
+> **Campaign ID: 8710baee-330d-4cce-b255-dc4aa4fd6122
 > **Inicio:** 2026-08-18
 > **Estado: completed
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
@@ -117,7 +117,7 @@
 ### Task 1: MEM-01 — F1 Search profile por namespace en core
 - **Archivos clave:** `src/planner.rs`, `src/sdk/serialization/vector_types.rs`, `src/sdk/types.rs`, `src/sdk/search/mod.rs`, `src/cli_server.rs` (parser IQL)
 - **Gate Justificación:** F1 base — parametriza planner con `SearchProfileConfig`, expone en IQL/API/MCP (D13), report RRF incluye `rrf_k` (D20)
-- **Contrato: cargo check -p vantadb + tests snapshot
+- **Contrato: cargo check -p vantadb + tests CRUD
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
 - **Estado:** ✅ COMPLETED (commit `6a50b8ee`, verify `cargo check -p vantadb` ✅ 2026-08-20)
 - **last-synced:** 2026-08-20T08:00
@@ -144,7 +144,7 @@
 - **Gate Justificación:** F2 base — modelo teams/users/agents/tasks/assets (hoy NO existe; modelo actual namespace+key); D4: persistencia = nodos partición InternalMetadata (patrón thread.rs)
 - **Contrato:** `cargo check -p vantadb` pasa; tests dedicados de CRUD entity (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-08-20T13:00
 
 ### Task 5: MEM-04 — F2 Permission-checker allow-only
@@ -204,11 +204,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
-Objetivo activo: MEM-34 Telemetría por capa + audit
+Objetivo activo: MEM-03 Entidades entity_* + CRUD
 Estado: completed ✅
-Última acción: MEM-34 completado y verificado (commit 84f28a18, 2002/2002 tests)
+Última acción: MEM-03 verificado (commit 23719e23, 14/14 tests)
 Resultado: ✅
-Próxima acción: Checkpoint F1 — reportar al usuario y pasar a F2 (MEM-03/04/05)
-Contrato: cargo check -p vantadb + tests dedicados (parser 117/117, search 146/146, lib 1819/1819)
-Próxima tarea si completa: MEM-03
+Próxima acción: MEM-04 permission-checker
+Contrato: cargo check -p vantadb + tests dedicados CRUD entity (D19)
+Próxima tarea si completa: MEM-04
 === END RECITATION ===
