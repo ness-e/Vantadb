@@ -46,6 +46,25 @@ impl AuditEvent {
             reason,
         }
     }
+
+    /// Build a memory-pipeline audit event (`memory_{layer}` op) for the
+    /// vanta-memory layer (F4): `l1`, `l2`, `l3`, `recall`, `offload`.
+    ///
+    /// `layer` is validated against the known layers; unknown layers fall back
+    /// to the raw string so the JSONL remains appendable (error-silent).
+    pub fn memory(
+        layer: &str,
+        namespace: &str,
+        key: &str,
+        outcome: &str,
+        reason: Option<String>,
+    ) -> Self {
+        let op = match layer {
+            "l1" | "l2" | "l3" | "recall" | "offload" => format!("memory_{layer}"),
+            other => format!("memory_{other}"),
+        };
+        Self::new(&op, namespace, key, outcome, reason)
+    }
 }
 
 /// Append-only JSONL writer for audit events. One JSON object per line.
@@ -93,4 +112,51 @@ pub fn now_iso() -> String {
     chrono::DateTime::from_timestamp(secs, 0)
         .map(|dt| dt.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
         .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_memory_event_op_names() {
+        assert_eq!(
+            AuditEvent::memory("l1", "ns", "k", "ok", None).op,
+            "memory_l1"
+        );
+        assert_eq!(
+            AuditEvent::memory("l2", "ns", "k", "ok", None).op,
+            "memory_l2"
+        );
+        assert_eq!(
+            AuditEvent::memory("l3", "ns", "k", "ok", None).op,
+            "memory_l3"
+        );
+        assert_eq!(
+            AuditEvent::memory("recall", "ns", "k", "ok", None).op,
+            "memory_recall"
+        );
+        assert_eq!(
+            AuditEvent::memory("offload", "ns", "k", "ok", None).op,
+            "memory_offload"
+        );
+        // Unknown layers stay error-silent and appendable.
+        assert_eq!(
+            AuditEvent::memory("bogus", "ns", "k", "ok", None).op,
+            "memory_bogus"
+        );
+    }
+
+    #[test]
+    fn test_memory_event_jsonl_roundtrip() {
+        let event = AuditEvent::memory("l3", "persona", "alice", "ok", Some("drift=0.25".into()));
+        let json = serde_json::to_string(&event).unwrap();
+        let back: AuditEvent = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.op, "memory_l3");
+        assert_eq!(back.namespace, "persona");
+        assert_eq!(back.key, "alice");
+        assert_eq!(back.outcome, "ok");
+        assert_eq!(back.reason.as_deref(), Some("drift=0.25"));
+        assert!(!back.timestamp.is_empty());
+    }
 }

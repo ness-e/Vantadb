@@ -331,11 +331,26 @@ fn test_operational_metrics_serialize() {
         jemalloc_resident_bytes: None,
         jemalloc_mapped_bytes: None,
         jemalloc_retained_bytes: None,
+        l1_extraction_latency_ms: 15,
+        l1_dedup_latency_ms: 5,
+        l2_extraction_latency_ms: 25,
+        l2_llm_duration_ms: 80,
+        l3_generation_latency_ms: 45,
+        persona_length_before: 120,
+        persona_length_after: 150,
+        persona_drift_ratio: 2500,
+        recall_hit_count: 7,
+        recall_top_score: 9500,
+        recall_latency_ms: 30,
+        recall_strategy: 3,
+        offload_latency_ms: 60,
     };
     let json = serde_json::to_string(&metrics).unwrap();
     let back: VantaOperationalMetrics = serde_json::from_str(&json).unwrap();
     assert_eq!(metrics.startup_ms, back.startup_ms);
     assert_eq!(metrics.hnsw_nodes_count, back.hnsw_nodes_count);
+    assert_eq!(back.l1_extraction_latency_ms, 15);
+    assert_eq!(back.recall_strategy, 3);
 }
 
 #[test]

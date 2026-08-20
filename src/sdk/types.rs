@@ -417,6 +417,32 @@ pub struct VantaOperationalMetrics {
     pub jemalloc_mapped_bytes: Option<u64>,
     /// Bytes in retained pages by jemalloc, if available.
     pub jemalloc_retained_bytes: Option<u64>,
+    /// L1 extraction latency in milliseconds (last observed; TDAM metric-tracking-l1).
+    pub l1_extraction_latency_ms: u64,
+    /// L1 dedup latency in milliseconds (last observed).
+    pub l1_dedup_latency_ms: u64,
+    /// L2 extraction latency in milliseconds (last observed; TDAM metric-tracking-l2).
+    pub l2_extraction_latency_ms: u64,
+    /// L2 LLM call duration in milliseconds (last observed).
+    pub l2_llm_duration_ms: u64,
+    /// L3 generation latency in milliseconds (last observed; TDAM metric-tracking-l3).
+    pub l3_generation_latency_ms: u64,
+    /// Persona context length before L3 update.
+    pub persona_length_before: u64,
+    /// Persona context length after L3 update.
+    pub persona_length_after: u64,
+    /// Persona drift ratio scaled by 10_000 (basis points; 10_000 == 1.0).
+    pub persona_drift_ratio: u64,
+    /// Total recall queries that produced at least one hit.
+    pub recall_hit_count: u64,
+    /// Best recall hit score scaled by 10_000 (basis points; 10_000 == 1.0).
+    pub recall_top_score: u64,
+    /// Recall query latency in milliseconds (last observed; TDAM metric-tracking-recall).
+    pub recall_latency_ms: u64,
+    /// Recall strategy code used by the last query: 0=skipped, 1=keyword, 2=embedding, 3=hybrid.
+    pub recall_strategy: u64,
+    /// Offload (memory compaction) latency in milliseconds (last observed).
+    pub offload_latency_ms: u64,
 }
 
 #[cfg(debug_assertions)]
@@ -1239,6 +1265,19 @@ mod tests {
             jemalloc_resident_bytes: Some(1_800_000),
             jemalloc_mapped_bytes: Some(3_000_000),
             jemalloc_retained_bytes: Some(500_000),
+            l1_extraction_latency_ms: 15,
+            l1_dedup_latency_ms: 5,
+            l2_extraction_latency_ms: 25,
+            l2_llm_duration_ms: 80,
+            l3_generation_latency_ms: 45,
+            persona_length_before: 120,
+            persona_length_after: 150,
+            persona_drift_ratio: 2_500,
+            recall_hit_count: 7,
+            recall_top_score: 9_500,
+            recall_latency_ms: 30,
+            recall_strategy: 3,
+            offload_latency_ms: 60,
         };
         assert_eq!(m.startup_ms, 100);
         assert_eq!(m.hnsw_nodes_count, 500);
@@ -1285,6 +1324,19 @@ mod tests {
             jemalloc_resident_bytes: None,
             jemalloc_mapped_bytes: None,
             jemalloc_retained_bytes: None,
+            l1_extraction_latency_ms: 31,
+            l1_dedup_latency_ms: 32,
+            l2_extraction_latency_ms: 33,
+            l2_llm_duration_ms: 34,
+            l3_generation_latency_ms: 35,
+            persona_length_before: 36,
+            persona_length_after: 37,
+            persona_drift_ratio: 38,
+            recall_hit_count: 39,
+            recall_top_score: 40,
+            recall_latency_ms: 41,
+            recall_strategy: 42,
+            offload_latency_ms: 43,
         };
         let cloned = m.clone();
         assert_eq!(m, cloned);

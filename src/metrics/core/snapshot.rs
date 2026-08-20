@@ -107,6 +107,32 @@ pub struct OperationalMetricsSnapshot {
     pub promoted_nodes_total: u64,
     /// Current number of SQ8-quantized nodes.
     pub current_quantized_nodes: u64,
+    /// L1 extraction latency in milliseconds (last observed; TDAM metric-tracking-l1).
+    pub l1_extraction_latency_ms: u64,
+    /// L1 dedup latency in milliseconds (last observed).
+    pub l1_dedup_latency_ms: u64,
+    /// L2 extraction latency in milliseconds (last observed; TDAM metric-tracking-l2).
+    pub l2_extraction_latency_ms: u64,
+    /// L2 LLM call duration in milliseconds (last observed).
+    pub l2_llm_duration_ms: u64,
+    /// L3 generation latency in milliseconds (last observed; TDAM metric-tracking-l3).
+    pub l3_generation_latency_ms: u64,
+    /// Persona context length (in tokens/entries) before L3 update.
+    pub persona_length_before: u64,
+    /// Persona context length (in tokens/entries) after L3 update.
+    pub persona_length_after: u64,
+    /// Persona drift ratio scaled by 10_000 (basis points; 10_000 == 1.0 == 100% drift).
+    pub persona_drift_ratio: u64,
+    /// Total recall (hybrid) queries that produced at least one hit.
+    pub recall_hit_count: u64,
+    /// Best recall hit score scaled by 10_000 (basis points; 10_000 == 1.0).
+    pub recall_top_score: u64,
+    /// Recall query latency in milliseconds (last observed; TDAM metric-tracking-recall).
+    pub recall_latency_ms: u64,
+    /// Recall strategy code used by the last query: 0=skipped, 1=keyword, 2=embedding, 3=hybrid.
+    pub recall_strategy: u64,
+    /// Offload (memory compaction) latency in milliseconds (last observed).
+    pub offload_latency_ms: u64,
     /// Per-subsystem memory breakdown at snapshot time.
     pub memory: MemoryBreakdownSnapshot,
 }

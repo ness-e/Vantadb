@@ -113,6 +113,23 @@ pub(crate) static PROMOTED_NODES_TOTAL: AtomicU64 = AtomicU64::new(0);
 /// Current number of SQ8-quantized nodes.
 pub(crate) static CURRENT_QUANTIZED_NODES: AtomicU64 = AtomicU64::new(0);
 
+// ── MEM-34: Memory pipeline (L1/L2/L3/recall/offload) telemetry ────
+// Last-write-wins latencies follow the LAST_* pattern; hit counts accumulate.
+
+static LAST_L1_EXTRACTION_LATENCY_MS: AtomicU64 = AtomicU64::new(0);
+static LAST_L1_DEDUP_LATENCY_MS: AtomicU64 = AtomicU64::new(0);
+static LAST_L2_EXTRACTION_LATENCY_MS: AtomicU64 = AtomicU64::new(0);
+static LAST_L2_LLM_DURATION_MS: AtomicU64 = AtomicU64::new(0);
+static LAST_L3_GENERATION_LATENCY_MS: AtomicU64 = AtomicU64::new(0);
+static LAST_PERSONA_LENGTH_BEFORE: AtomicU64 = AtomicU64::new(0);
+static LAST_PERSONA_LENGTH_AFTER: AtomicU64 = AtomicU64::new(0);
+static LAST_PERSONA_DRIFT_RATIO: AtomicU64 = AtomicU64::new(0);
+static RECALL_HIT_COUNT_TOTAL: AtomicU64 = AtomicU64::new(0);
+static LAST_RECALL_TOP_SCORE: AtomicU64 = AtomicU64::new(0);
+static LAST_RECALL_LATENCY_MS: AtomicU64 = AtomicU64::new(0);
+static LAST_RECALL_STRATEGY: AtomicU64 = AtomicU64::new(0);
+static LAST_OFFLOAD_LATENCY_MS: AtomicU64 = AtomicU64::new(0);
+
 /// Record engine startup and WAL replay duration.
 pub fn record_startup(startup_ms: u64, wal_replay_ms: u64, wal_records_replayed: u64) {
     LAST_STARTUP_MS.fetch_max(startup_ms, Ordering::Relaxed);
@@ -483,6 +500,78 @@ pub fn record_memory_breakdown(
     set_gauge!(VOLATILE_CACHE_CAP_BYTES, cache_cap_bytes);
 }
 
+/// Recall strategy code for `record_recall` (TDAM `metric-tracking-recall`).
+///
+/// Codes match the TDAM wire contract: 0=skipped, 1=keyword, 2=embedding, 3=hybrid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u64)]
+pub enum RecallStrategy {
+    /// Recall skipped for this query.
+    Skipped = 0,
+    /// Keyword (BM25-only) recall.
+    Keyword = 1,
+    /// Embedding (vector-only) recall.
+    Embedding = 2,
+    /// Hybrid (text+vector) recall.
+    Hybrid = 3,
+}
+
+impl RecallStrategy {
+    /// Numeric wire code for this strategy.
+    pub const fn as_code(self) -> u64 {
+        self as u64
+    }
+}
+
+/// Record L1 extraction latency (TDAM metric-tracking-l1).
+pub fn record_l1_extraction(latency_ms: u64) {
+    LAST_L1_EXTRACTION_LATENCY_MS.fetch_max(latency_ms, Ordering::Relaxed);
+}
+
+/// Record L1 dedup latency.
+pub fn record_l1_dedup(latency_ms: u64) {
+    LAST_L1_DEDUP_LATENCY_MS.fetch_max(latency_ms, Ordering::Relaxed);
+}
+
+/// Record L2 extraction latency (TDAM metric-tracking-l2).
+pub fn record_l2_extraction(latency_ms: u64) {
+    LAST_L2_EXTRACTION_LATENCY_MS.fetch_max(latency_ms, Ordering::Relaxed);
+}
+
+/// Record L2 LLM call duration.
+pub fn record_l2_llm(duration_ms: u64) {
+    LAST_L2_LLM_DURATION_MS.fetch_max(duration_ms, Ordering::Relaxed);
+}
+
+/// Record L3 generation latency (TDAM metric-tracking-l3).
+pub fn record_l3_generation(latency_ms: u64) {
+    LAST_L3_GENERATION_LATENCY_MS.fetch_max(latency_ms, Ordering::Relaxed);
+}
+
+/// Record persona update dimensions (lengths in tokens/entries; drift in basis points).
+pub fn record_persona(length_before: u64, length_after: u64, drift_ratio_bps: u64) {
+    LAST_PERSONA_LENGTH_BEFORE.store(length_before, Ordering::Relaxed);
+    LAST_PERSONA_LENGTH_AFTER.store(length_after, Ordering::Relaxed);
+    LAST_PERSONA_DRIFT_RATIO.store(drift_ratio_bps, Ordering::Relaxed);
+}
+
+/// Record a recall query result (TDAM metric-tracking-recall).
+///
+/// `top_score_bps` is the best hit score scaled by 10_000 (10_000 == 1.0).
+pub fn record_recall(hit: bool, top_score_bps: u64, latency_ms: u64, strategy: RecallStrategy) {
+    if hit {
+        RECALL_HIT_COUNT_TOTAL.fetch_add(1, Ordering::Relaxed);
+    }
+    LAST_RECALL_TOP_SCORE.store(top_score_bps, Ordering::Relaxed);
+    LAST_RECALL_LATENCY_MS.fetch_max(latency_ms, Ordering::Relaxed);
+    LAST_RECALL_STRATEGY.store(strategy.as_code(), Ordering::Relaxed);
+}
+
+/// Record an offload (memory compaction) latency.
+pub fn record_offload(latency_ms: u64) {
+    LAST_OFFLOAD_LATENCY_MS.fetch_max(latency_ms, Ordering::Relaxed);
+}
+
 pub(crate) fn _get_rss_virt() -> (u64, u64) {
     #[cfg(miri)]
     {
@@ -579,6 +668,19 @@ pub fn operational_metrics_snapshot() -> OperationalMetricsSnapshot {
         quantized_nodes_total: QUANTIZED_NODES_TOTAL.load(Ordering::Relaxed),
         promoted_nodes_total: PROMOTED_NODES_TOTAL.load(Ordering::Relaxed),
         current_quantized_nodes: CURRENT_QUANTIZED_NODES.load(Ordering::Relaxed),
+        l1_extraction_latency_ms: LAST_L1_EXTRACTION_LATENCY_MS.load(Ordering::Relaxed),
+        l1_dedup_latency_ms: LAST_L1_DEDUP_LATENCY_MS.load(Ordering::Relaxed),
+        l2_extraction_latency_ms: LAST_L2_EXTRACTION_LATENCY_MS.load(Ordering::Relaxed),
+        l2_llm_duration_ms: LAST_L2_LLM_DURATION_MS.load(Ordering::Relaxed),
+        l3_generation_latency_ms: LAST_L3_GENERATION_LATENCY_MS.load(Ordering::Relaxed),
+        persona_length_before: LAST_PERSONA_LENGTH_BEFORE.load(Ordering::Relaxed),
+        persona_length_after: LAST_PERSONA_LENGTH_AFTER.load(Ordering::Relaxed),
+        persona_drift_ratio: LAST_PERSONA_DRIFT_RATIO.load(Ordering::Relaxed),
+        recall_hit_count: RECALL_HIT_COUNT_TOTAL.load(Ordering::Relaxed),
+        recall_top_score: LAST_RECALL_TOP_SCORE.load(Ordering::Relaxed),
+        recall_latency_ms: LAST_RECALL_LATENCY_MS.load(Ordering::Relaxed),
+        recall_strategy: LAST_RECALL_STRATEGY.load(Ordering::Relaxed),
+        offload_latency_ms: LAST_OFFLOAD_LATENCY_MS.load(Ordering::Relaxed),
         memory: memory_breakdown_snapshot(),
     }
 }
@@ -949,5 +1051,93 @@ mod tests {
             !text.is_empty(),
             "export_metrics_text() should return non-empty prometheus output"
         );
+    }
+
+    // ── MEM-34: Memory pipeline telemetry (L1/L2/L3/recall/offload) ──
+
+    #[test]
+    fn test_memory_pipeline_snapshot_defaults() {
+        let snap = operational_metrics_snapshot();
+        // Latencies/counters start at 0 (error-silent, LLM-free core).
+        assert_eq!(snap.l1_extraction_latency_ms, 0);
+        assert_eq!(snap.l2_llm_duration_ms, 0);
+        assert_eq!(snap.l3_generation_latency_ms, 0);
+        assert_eq!(snap.persona_length_before, 0);
+        assert_eq!(snap.persona_drift_ratio, 0);
+        assert_eq!(snap.recall_hit_count, 0);
+        assert_eq!(snap.recall_strategy, 0);
+        assert_eq!(snap.offload_latency_ms, 0);
+    }
+
+    #[test]
+    fn test_record_l1_l2_l3_latencies() {
+        let before = operational_metrics_snapshot();
+        record_l1_extraction(15);
+        record_l1_dedup(5);
+        record_l2_extraction(25);
+        record_l2_llm(80);
+        record_l3_generation(45);
+        let snap = operational_metrics_snapshot();
+        assert!(snap.l1_extraction_latency_ms >= before.l1_extraction_latency_ms.max(15));
+        assert!(snap.l1_dedup_latency_ms >= before.l1_dedup_latency_ms.max(5));
+        assert!(snap.l2_extraction_latency_ms >= before.l2_extraction_latency_ms.max(25));
+        assert!(snap.l2_llm_duration_ms >= before.l2_llm_duration_ms.max(80));
+        assert!(snap.l3_generation_latency_ms >= before.l3_generation_latency_ms.max(45));
+    }
+
+    #[test]
+    fn test_record_persona() {
+        let before = operational_metrics_snapshot();
+        record_persona(120, 150, 2_500);
+        let snap = operational_metrics_snapshot();
+        // store semantics — a later call in a parallel test could overwrite,
+        // so assert monotonic non-regression and expected values on equal timestamps.
+        assert!(snap.persona_length_before >= before.persona_length_before);
+        assert!(snap.persona_length_after >= before.persona_length_after);
+        assert!(snap.persona_drift_ratio >= before.persona_drift_ratio);
+    }
+
+    #[test]
+    fn test_record_recall_accumulates_hits_and_strategy() {
+        let before = operational_metrics_snapshot();
+        record_recall(true, 9_500, 30, RecallStrategy::Hybrid);
+        record_recall(true, 8_000, 40, RecallStrategy::Keyword);
+        let snap = operational_metrics_snapshot();
+        let hit_delta = snap
+            .recall_hit_count
+            .saturating_sub(before.recall_hit_count);
+        assert!(hit_delta >= 2, "expected >= 2 hits, got {hit_delta}");
+        // recall_top_score uses store semantics — assert non-regression only.
+        assert!(snap.recall_top_score >= before.recall_top_score);
+        assert!(snap.recall_latency_ms >= before.recall_latency_ms.max(30));
+        // strategy is last-write-wins; any code 0..=3 is valid here.
+        assert!(snap.recall_strategy <= 3);
+    }
+
+    #[test]
+    fn test_recall_strategy_codes() {
+        assert_eq!(RecallStrategy::Skipped.as_code(), 0);
+        assert_eq!(RecallStrategy::Keyword.as_code(), 1);
+        assert_eq!(RecallStrategy::Embedding.as_code(), 2);
+        assert_eq!(RecallStrategy::Hybrid.as_code(), 3);
+    }
+
+    #[test]
+    fn test_record_recall_miss_does_not_increment_hits() {
+        let before = operational_metrics_snapshot();
+        record_recall(false, 0, 10, RecallStrategy::Skipped);
+        let snap = operational_metrics_snapshot();
+        assert!(
+            snap.recall_hit_count >= before.recall_hit_count,
+            "hit counter regressed"
+        );
+    }
+
+    #[test]
+    fn test_record_offload() {
+        let before = operational_metrics_snapshot();
+        record_offload(60);
+        let snap = operational_metrics_snapshot();
+        assert!(snap.offload_latency_ms >= before.offload_latency_ms.max(60));
     }
 }

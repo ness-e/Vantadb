@@ -60,6 +60,19 @@ impl From<crate::metrics::OperationalMetricsSnapshot> for VantaOperationalMetric
             jemalloc_resident_bytes: metrics.memory.jemalloc_resident_bytes,
             jemalloc_mapped_bytes: metrics.memory.jemalloc_mapped_bytes,
             jemalloc_retained_bytes: metrics.memory.jemalloc_retained_bytes,
+            l1_extraction_latency_ms: metrics.l1_extraction_latency_ms,
+            l1_dedup_latency_ms: metrics.l1_dedup_latency_ms,
+            l2_extraction_latency_ms: metrics.l2_extraction_latency_ms,
+            l2_llm_duration_ms: metrics.l2_llm_duration_ms,
+            l3_generation_latency_ms: metrics.l3_generation_latency_ms,
+            persona_length_before: metrics.persona_length_before,
+            persona_length_after: metrics.persona_length_after,
+            persona_drift_ratio: metrics.persona_drift_ratio,
+            recall_hit_count: metrics.recall_hit_count,
+            recall_top_score: metrics.recall_top_score,
+            recall_latency_ms: metrics.recall_latency_ms,
+            recall_strategy: metrics.recall_strategy,
+            offload_latency_ms: metrics.offload_latency_ms,
         }
     }
 }
@@ -227,6 +240,19 @@ mod tests {
             quantized_nodes_total: 100,
             promoted_nodes_total: 20,
             current_quantized_nodes: 80,
+            l1_extraction_latency_ms: 15,
+            l1_dedup_latency_ms: 5,
+            l2_extraction_latency_ms: 25,
+            l2_llm_duration_ms: 80,
+            l3_generation_latency_ms: 45,
+            persona_length_before: 120,
+            persona_length_after: 150,
+            persona_drift_ratio: 2_500,
+            recall_hit_count: 7,
+            recall_top_score: 9_500,
+            recall_latency_ms: 30,
+            recall_strategy: 3,
+            offload_latency_ms: 60,
             memory,
         };
         let vanta: VantaOperationalMetrics = metrics.into();
@@ -237,6 +263,16 @@ mod tests {
         assert_eq!(vanta.jemalloc_allocated_bytes, Some(10_000_000));
         assert_eq!(vanta.hnsw_nodes_count, 500);
         assert!(vanta.hnsw_logical_bytes > 0);
+        assert_eq!(vanta.l1_extraction_latency_ms, 15);
+        assert_eq!(vanta.l2_llm_duration_ms, 80);
+        assert_eq!(vanta.l3_generation_latency_ms, 45);
+        assert_eq!(vanta.persona_length_before, 120);
+        assert_eq!(vanta.persona_length_after, 150);
+        assert_eq!(vanta.persona_drift_ratio, 2_500);
+        assert_eq!(vanta.recall_hit_count, 7);
+        assert_eq!(vanta.recall_top_score, 9_500);
+        assert_eq!(vanta.recall_strategy, 3);
+        assert_eq!(vanta.offload_latency_ms, 60);
     }
 
     // ─── VantaValue ↔ FieldValue ───────────────────────────────
