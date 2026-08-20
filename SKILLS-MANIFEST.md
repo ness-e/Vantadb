@@ -1,17 +1,17 @@
 ﻿# VantaDB Skills Manifest
 
-**Location:** 82 skills en `.agents/skills/` + 29 en `.opencode/skills/`; total **111** (project-local; curated essential list below)
-**Updated:** 2026-08-10
-**Purpose:** Reference for AI agents to know which skills are available and when to use them.
+**Location:** 162 skills en `.agents/skills/` + 31 en `.opencode/skills/`; total **193** (project-local; curated essential list below)
+**Updated:** 2026-08-19
 
-> **AUDIT 2026-08-10 (P3-08) — Conteo verificado contra disk:**
-> - `.agents/skills/` = **82** skills (82 dirs, todas con SKILL.md) ✅
-> - `.opencode/skills/` = **29** skills (29 dirs, todas con SKILL.md) — antes se afirmaba 32 en AGENTS.md; 29 es el real
-> - **Total proyecto = 111** (82 + 29)
-> - Global `~/.agents/skills/` = 153 dirs (139 con SKILL.md, 14 sin) — antes se afirmaba 154; `~/.claude/skills/` = 26 dirs
-> - Stub detectado: `debugging-and-error-recovery` (`.opencode/skills/`) está DEPRECADO → delega en `systematic-debugging` (EVAL-03). Se mantiene listado porque existe en disk, pero NO se debe cargar.
-> - `impeccable` (Essential, KEEP) solo existe en la copia global `~/.agents/skills/`, no en `.agents/skills/` del proyecto — pendiente de sync.
-> - Corregido: "104 essential skills" (Source Locations) → **82** reales; 82 on-disk skills de `.agents/skills/` están todas referenciadas en el manifest (0 missing, 0 stale KEEP).
+> **AUDIT 2026-08-19 — Conteo verificado contra disk + batch de skills nuevas documentado:**
+> - `.agents/skills/` = **162** skills (163 dirs; `a11y-shared` es carpeta de recursos compartidos, no skill)
+> - `.opencode/skills/` = **31** skills
+> - **Total proyecto = 193** (162 + 31)
+> - Global `~/.agents/skills/` = 153 dirs (139 con SKILL.md, 14 sin); `~/.claude/skills/` = 26 dirs
+> - **87 skills nuevas documentadas hoy** (batch 2026-08-19): 63 de accesibilidad (5 `a11y-*` + 58 `incl-*`), 17 de diseño/UX/utilidad, 7 de pipeline/VantaDB core
+> - Stub detectado: `debugging-and-error-recovery` (`.opencode/skills/`) está DEPRECADO — delega en `systematic-debugging` (EVAL-03). Se mantiene listado porque existe en disk, pero NO se debe cargar.
+> - `impeccable` (Essential, KEEP) solo existe en la copia global `~/.agents/skills/`, no en `.agents/skills/` del proyecto - pendiente de sync.
+> - Audit 2026-08-10: corrigió "104 essential skills" → 82 reales; 82 on-disk skills de `.agents/skills/` referenciadas (0 missing, 0 stale KEEP).
 
 ---
 
@@ -19,6 +19,8 @@
 
 - [Essential Skillset (37)](#essential-skillset-37)
 - [All Skills by Category](#all-skills-by-category)
+- [Accessibility / Inclusive Design (63)](#accessibility--inclusive-design-63)
+- [Pipeline / VantaDB Core (7)](#pipeline--vantadb-core-7)
 - [Skill Loading Guide](#skill-loading-guide)
 
 ---
@@ -154,8 +156,8 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | shader-dev | 5 | REMOVED | GLSL reference — no shaders. |
 | video-hyperframes | 6 | REMOVED | Hyperframes bridge — no video. |
 | vfx-text-cursor | 6 | REMOVED | VFX text reveal — no video. |
-| remotion | 5 | REMOVED | React video — no video production. |
-| remotion-best-practices | 6 | REMOVED | Remotion patterns — no video. |
+| remotion | 5 | REMOVED | Stub catálogo — usar `remotion-best-practices` (canónica). |
+| remotion-best-practices | 6 | KEEP | **Canónica video (2026-08-19):** reglas reales de API Remotion (`rules/timing.md`, `transitions.md`, `text-animations.md`, `gifs.md`). Usada en `web/remotion/` para los GIFs del README. |
 
 ### Deck / Slide / Video Templates
 
@@ -343,6 +345,139 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 
 ---
 
+### Accessibility / Inclusive Design (63)
+
+Batch 2026-08-19 (5 `a11y-*` pipeline WCAG 2.2 + 58 `incl-*` inclusive design). Para todo trabajo de accesibilidad: usar `a11y-*` para el pipeline automatizado/manual WCAG, `incl-*` para diseño inclusivo por plugin.
+
+| Skill | Rating | Keep | Notes |
+|-------|:------:|:----:|-------|
+| `a11y-accessibility-audit` | 8 | KEEP | Auditoría a11y completa de sitio/producto (WCAG 2.2, WCAG-EM). Usar para «audita mi sitio por accesibilidad» o informes de conformidad. |
+| `a11y-accessibility-diff` | 8 | KEEP | Diff de violaciones a11y contra baseline; detecta regresiones por PR o rama. Usar como gate de CI o «¿mi cambio rompió accesibilidad?». |
+| `a11y-accessibility-fix` | 8 | KEEP | Remediación de violaciones WCAG 2.2 (baseline → editar → verificar). Usar para «arregla los issues de a11y de X». |
+| `a11y-accessibility-inspect` | 8 | KEEP | Tier manual por página: teclado, foco, screen-reader, zoom 200%. Usar para operabilidad real, no solo lint-clean. |
+| `a11y-accessibility-scan` | 8 | KEEP | Tier automatizado: rule engine WCAG 2.2 sobre DOM vivo. Usar para «¿esta página es accesible?» o verificar un cambio de UI. |
+| `incl-accessibility-decisions-accessibility-debt-tracking` | 7 | KEEP | Gestiona deuda de accesibilidad diferida y backlog de remediación. |
+| `incl-accessibility-decisions-accessibility-testing-strategy` | 7 | KEEP | Plan de testing a11y: qué, cómo y quién debe testear. |
+| `incl-accessibility-decisions-compliance-mapping` | 7 | KEEP | Mapea decisiones a estándares y requisitos legales (WCAG, VPAT, ADA, EAA). |
+| `incl-accessibility-decisions-decision-documentation` | 7 | KEEP | Documenta decisiones de accesibilidad y su razonamiento (ADR). |
+| `incl-accessibility-decisions-document` | 7 | KEEP | Captura decisiones y tradeoffs de accesibilidad por feature. |
+| `incl-accessibility-decisions-handoff` | 7 | KEEP | Genera handoff de requisitos de accesibilidad para ingeniería. |
+| `incl-accessibility-decisions-review` | 7 | KEEP | Expone supuestos de accesibilidad no documentados en producto existente. |
+| `incl-accessibility-decisions-stakeholder-communication` | 7 | KEEP | Comunica valor y requisitos de a11y a stakeholders no técnicos. |
+| `incl-accessibility-decisions-tradeoff-analysis` | 7 | KEEP | Analiza tradeoffs cuando la accesibilidad compite con otros requisitos. |
+| `incl-accessible-content-alt-text-design` | 7 | KEEP | Redacta alt text significativo para imágenes, charts y diagramas. |
+| `incl-accessible-content-form-labelling` | 7 | KEEP | Diseña labels, instrucciones y agrupación de formularios accesibles. |
+| `incl-accessible-content-heading-structure` | 7 | KEEP | Diseña jerarquías de headings y estructura semántica de contenido. |
+| `incl-accessible-content-link-text-design` | 7 | KEEP | Escribe texto de enlace comprensible fuera de contexto. |
+| `incl-accessible-content-multimedia-accessibility` | 7 | KEEP | Diseña video/audio accesibles con captions, transcripts y audio descriptions. |
+| `incl-accessible-content-readable-content` | 7 | KEEP | Escribe contenido legible para diversas habilidades de lectura. |
+| `incl-accessible-content-review` | 7 | KEEP | Revisa contenido por accesibilidad cognitiva y de alfabetización. |
+| `incl-accessible-content-rewrite` | 7 | KEEP | Reescribe contenido en lenguaje claro preservando el significado. |
+| `incl-accessible-content-structure` | 7 | KEEP | Estructura contenido para lectores de pantalla y tecnología de asistencia. |
+| `incl-accessible-content-table-accessibility` | 7 | KEEP | Diseña tablas de datos que funcionen con screen readers. |
+| `incl-adaptive-interfaces-colour-independence` | 7 | KEEP | Diseña sin que el color sea el único canal de información. |
+| `incl-adaptive-interfaces-flexible-typography` | 7 | KEEP | Diseña tipografía adaptable a escala, spacing y preferencias de fuente. |
+| `incl-adaptive-interfaces-information-density` | 7 | KEEP | Diseña densidad de información ajustable a necesidades cognitivas. |
+| `incl-adaptive-interfaces-preference-audit` | 7 | KEEP | Audita respeto de preferencias de usuario (motion, contraste, color, escala). |
+| `incl-adaptive-interfaces-responsive-accessibility` | 7 | KEEP | Diseña layouts responsive accesibles en tamaños, zoom y orientaciones. |
+| `incl-adaptive-interfaces-responsive-review` | 7 | KEEP | Revisa layout responsive por accesibilidad en dispositivos y niveles de zoom. |
+| `incl-adaptive-interfaces-simplified-views` | 7 | KEEP | Diseña vistas simplificadas con menos ruido visual y opciones. |
+| `incl-adaptive-interfaces-specify` | 7 | KEEP | Especifica comportamiento adaptativo de la interfaz. |
+| `incl-adaptive-interfaces-user-preference-respect` | 7 | KEEP | Diseña interfaces que responden a preferencias del sistema (dark mode, reduced motion). |
+| `incl-cognitive-accessibility-adaptive-personalisation` | 7 | KEEP | Diseña sistemas de ayuda y soporte para discapacidad cognitiva. |
+| `incl-cognitive-accessibility-assess-load` | 7 | KEEP | Evalúa carga cognitiva de procesos multi-paso y genera load map. |
+| `incl-cognitive-accessibility-cognitive-load-assessment` | 7 | KEEP | Evalúa y reduce carga cognitiva en interfaces, flows y contenido. |
+| `incl-cognitive-accessibility-contextual-help-design` | 7 | KEEP | Diseña ayuda contextual (tooltips, onboarding, FAQs) para discapacidad cognitiva. |
+| `incl-cognitive-accessibility-error-prevention-recovery` | 7 | KEEP | Diseña prevención de errores, mensajes y flujos de recuperación. |
+| `incl-cognitive-accessibility-focus-attention-design` | 7 | KEEP | Diseña interfaces que sostienen el foco y reducen distracciones. |
+| `incl-cognitive-accessibility-memory-load-reduction` | 7 | KEEP | Minimiza demandas de memoria de trabajo en flows multi-paso. |
+| `incl-cognitive-accessibility-plain-language-design` | 7 | KEEP | Escribe contenido de interfaz en lenguaje claro. |
+| `incl-cognitive-accessibility-review` | 7 | KEEP | Ejecuta revisión completa de accesibilidad cognitiva de un flow o pantalla. |
+| `incl-cognitive-accessibility-simplify` | 7 | KEEP | Simplifica contenido e interacciones para reducir carga cognitiva. |
+| `incl-cognitive-accessibility-wayfinding-navigation` | 7 | KEEP | Diseña navegación y arquitectura de información para accesibilidad cognitiva. |
+| `incl-inclusive-interaction-audit` | 7 | KEEP | Audita soporte de interacción multi-modal en interfaz existente. |
+| `incl-inclusive-interaction-design-flow` | 7 | KEEP | Diseña flujos de interacción inclusivos desde el inicio (input/output). |
+| `incl-inclusive-interaction-feedback-and-status` | 7 | KEEP | Diseña feedback y estado multi-sensorial: visual, auditivo y háptico. |
+| `incl-inclusive-interaction-gesture-alternatives` | 7 | KEEP | Diseña alternativas a gestos (swipe, pinch, shake, tilt). |
+| `incl-inclusive-interaction-keyboard-navigation` | 7 | KEEP | Diseña navegación por teclado y gestión de foco. |
+| `incl-inclusive-interaction-keyboard-review` | 7 | KEEP | Revisa navegación por teclado y gestión de foco en interfaz existente. |
+| `incl-inclusive-interaction-motion-sensitivity` | 7 | KEEP | Diseña para sensibilidad al movimiento, vértigo y convulsiones. |
+| `incl-inclusive-interaction-multi-modal-input` | 7 | KEEP | Diseña múltiples métodos de entrada seleccionables por habilidad. |
+| `incl-inclusive-interaction-touch-target-design` | 7 | KEEP | Diseña touch targets y pointer interactions para dificultad motora. |
+| `incl-inclusive-interaction-voice-interaction` | 7 | KEEP | Diseña voice interactions para patrones diversos de habla y acentos. |
+| `incl-inclusive-personas-ability-spectrum-mapping` | 7 | KEEP | Mapea el producto al espectro completo de habilidad humana. |
+| `incl-inclusive-personas-assistive-technology-scenarios` | 7 | KEEP | Escribe escenarios de uso con tecnología de asistencia. |
+| `incl-inclusive-personas-audit-stories` | 7 | KEEP | Audita user stories por inclusión de discapacidad. |
+| `incl-inclusive-personas-disability-inclusive-personas` | 7 | KEEP | Crea personas con discapacidad como dimensión natural de diversidad. |
+| `incl-inclusive-personas-edge-case-identification` | 7 | KEEP | Identifica edge cases que afectan a usuarios con discapacidad. |
+| `incl-inclusive-personas-generate` | 7 | KEEP | Genera un set de personas diverso e inclusivo. |
+| `incl-inclusive-personas-inclusive-user-stories` | 7 | KEEP | Escribe user stories que consideran discapacidad desde el inicio. |
+| `incl-inclusive-personas-scenario-map` | 7 | KEEP | Mapea escenarios inclusivos a través de espectros de habilidad. |
+| `incl-inclusive-personas-situational-impairment-mapping` | 7 | KEEP | Mapea deterioros situacionales (entorno, contexto, multitasking). |
+
+### Adiciones 2026-08-19 — 17 skills (batch UX/Design)
+
+#### Frontend / UI Design
+
+| Skill | Rating | Keep | Notes |
+|-------|:------:|:----:|-------|
+| `frontend-designer` | 8 | KEEP | Sistemas de diseño UI producción: CSS architecture, tokens, responsive, a11y, motion. |
+| `responsive-craft` | 8 | KEEP | Responsive mobile-first y patrones complejos (sticky, scroll, tablas, dashboards). 3 modos: audit/build/preview. |
+| `wireframer` | 7 | KEEP | Wireframes low-fi clickeables estilo sketch (React/Vue/HTML). |
+| `ux-flow-designer` | 7 | KEEP | User flows, wireframes HTML y diagramas Mermaid; puente PRD→diseño visual. |
+| `figma-implement-design` | 6 | REMOVED | Requiere Figma MCP no configurado (ya removida en Phase 1 por la misma razón). |
+
+#### Animation / Motion / 3D
+
+| Skill | Rating | Keep | Notes |
+|-------|:------:|:----:|-------|
+| `motion-design` | 7 | KEEP | Principios de motion (timing, easing, choreografía, Disney) para UI; CSS/Framer/GSAP/Lottie. Complementa design-motion-principles. |
+
+#### Image / Video / AI Media
+
+| Skill | Rating | Keep | Notes |
+|-------|:------:|:----:|-------|
+| `icon-generator` | 6 | REMOVED | Iconos app iOS/Android — VantaDB no es mobile app. |
+| `slack-gif-creator` | 5 | REMOVED | GIFs para Slack — VantaDB no produce GIFs/video. |
+
+#### Design Systems / Tokens
+
+| Skill | Rating | Keep | Notes |
+|-------|:------:|:----:|-------|
+| `brand-guidelines` | 5 | REMOVED | Marca Anthropic (colores/tipografía) — no aplica: VantaDB tiene su propia marca. |
+
+#### Content / Writing
+
+| Skill | Rating | Keep | Notes |
+|-------|:------:|:----:|-------|
+| `doc-coauthoring` | 5 | KEEP | Workflow de co-autoría de docs (specs, propuestas, RFCs) en 3 etapas. |
+| `internal-comms` | 4 | REMOVED | Comms internas formato Anthropic (3P, newsletters) — no aplica. |
+| `academy-guide` | 4 | REMOVED | Recomienda cursos de Claude Academy — no aplica. |
+
+#### Utility / Tool
+
+| Skill | Rating | Keep | Notes |
+|-------|:------:|:----:|-------|
+| `webapp-testing` | 7 | KEEP | Testing de webapps locales con Playwright: verificar UI, screenshots, logs. |
+| `mcp-builder` | 6 | KEEP | Guía para crear servidores MCP (FastMCP / MCP SDK TS). Útil para vantadb-mcp. |
+| `xlsx` | 6 | KEEP | Crear/editar/limpiar .xlsx/.xlsm/.csv/.tsv (openpyxl, pandas). |
+| `discernment-nudge` | 6 | KEEP | Nudge post-respuesta: 2-3 preguntas para verificar hechos/razonamiento/contexto. |
+| `claude-api` | 7 | REMOVED | Referencia API Claude/Anthropic (alta calidad, 553 líneas) — no aplica: uso solo en `.opencode/references/`, no en producto. |
+
+### Pipeline / VantaDB Core (7)
+
+| Skill | Rating | Keep | Notes |
+|-------|:------:|:----:|-------|
+| `campaign-executor` | 9 | KEEP | Núcleo del task system; unifica backlog-executor (SUPERSEDED) + task-executor. Entry point `/pipeline plan\|task\|run`, states PLAN/ACT/VERIFY, budget, SARL. |
+| `unified-review` | 9 | KEEP | Gate universal de review/certify; reemplaza vantadb-full-review, vantadb-certify y vantadb-audit. Modos quick/certify/review/full, fan-out paralelo, perfil `vantadb`. |
+| `vantadb` | 8 | KEEP | Guía experta del producto: put/get/search/list, hybrid search (BM25 + HNSW + RRF), Python SDK, integraciones LangChain/LlamaIndex, benchmarks. |
+| `vantadb-mcp` | 8 | KEEP | Referencia del MCP server propio (15 tools, 2 resources, 4 prompts); uso de VantaDB como memoria desde agentes OpenCode/Claude/Cursor. |
+| `review-deep` | 7 | KEEP | Loop de revisión profunda módulo por módulo (análisis → web research → competidores → triage → Backlog). Complementa unified-review (one-shot). |
+| `progreso` | 7 | KEEP | Migración Backlog → docs/progreso + reconciliación de memorias + sync de reportes. MUST al inicio y cierre de sesión (AGENTS.md). |
+| `playwright-cli` | 7 | KEEP | Automatización de browser por CLI (snapshots, forms, screenshots, sessions, DevTools). Canónico para testing de web/; reemplaza a agent-browser/browser-use (removidas). |
+
+---
+
 ## Skill Loading Guide
 
 ### For Design Tasks
@@ -384,6 +519,32 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 3. audit-website (230+ rules)
 ```
 
+### For Accessibility
+```
+1. a11y-accessibility-scan  (automated check of a live page)
+2. a11y-accessibility-audit (full WCAG 2.2 site audit)
+3. a11y-accessibility-fix   (remediate violations)
+4. incl-inclusive-interaction-keyboard-review (manual keyboard/focus pass)
+```
+Ejemplos: «audita la accesibilidad de la landing» → a11y-accessibility-audit; «¿mi cambio rompió la accesibilidad del dashboard?» → a11y-accessibility-diff; «revisa la navegación por teclado antes del release» → incl-inclusive-interaction-keyboard-review.
+
+### For Wireframing / UX Flow
+```
+1. wireframer      (low-fi clickable prototype)
+2. ux-flow-designer (flows + screens + use cases in Mermaid/HTML)
+3. frontend-design  (then implement)
+```
+Ejemplos: «hazme un wireframe de la dashboard» → wireframer; «dibujá el flujo de onboarding del usuario» → ux-flow-designer.
+
+### For Pipeline / VantaDB Core
+```
+1. campaign-executor (task system — /pipeline plan|task|run)
+2. unified-review    (certify/review/audit gates)
+3. progreso          (backlog → progreso at session start/end)
+4. vantadb-mcp       (MCP server usage)
+```
+Ejemplos: «/pipeline task DRV-012» → campaign-executor; «/review certify --profile vantadb» → unified-review; «¿cómo uso VantaDB desde MCP?» → vantadb-mcp.
+
 ---
 
 ## What Was Removed
@@ -404,7 +565,9 @@ The following skills were removed during cleanup (158 total):
 
 ### Phase 2 — Irrelevant to VantaDB (85 skills, 2026-07-10)
 
-**Video/Deck/Slide Production (29):** hyperframes, hyperframes-animation, deck-open-slide-canvas, deck-swiss-international, deck-guizang-editorial, field-notes-editorial-template, digits-fintech-swiss-template, editorial-burgundy-principles-template, html-ppt-retro-quarterly-review, after-hours-editorial-template, swiss-creative-mode-template, swiss-user-research-video-template, weread-year-in-review-video-template, ppt-keynote, pptx, pptx-html-fidelity-audit, frame-data-chart-nyt, frame-flowchart-sticky, frame-glitch-title, frame-light-leak-cinema, frame-liquid-bg-hero, frame-logo-outro, frame-macos-notification, 8-bit-orbit-video-template, video-hyperframes, vfx-text-cursor, remotion, remotion-best-practices, speech
+**Video/Deck/Slide Production (28):** hyperframes, hyperframes-animation, deck-open-slide-canvas, deck-swiss-international, deck-guizang-editorial, field-notes-editorial-template, digits-fintech-swiss-template, editorial-burgundy-principles-template, html-ppt-retro-quarterly-review, after-hours-editorial-template, swiss-creative-mode-template, swiss-user-research-video-template, weread-year-in-review-video-template, ppt-keynote, pptx, pptx-html-fidelity-audit, frame-data-chart-nyt, frame-flowchart-sticky, frame-glitch-title, frame-light-leak-cinema, frame-liquid-bg-hero, frame-logo-outro, frame-macos-notification, 8-bit-orbit-video-template, video-hyperframes, vfx-text-cursor, remotion, speech
+
+**Video canónica (1):** remotion-best-practices — reglas oficiales para `web/remotion/` (GIFs README).
 
 **3D/Shaders/Art (8):** threejs-fundamentals, threejs-geometry, threejs-materials, threejs-animation, threejs-interaction, threejs-shaders, shader-dev, algorithmic-art
 
@@ -428,5 +591,9 @@ The following skills were removed during cleanup (158 total):
 
 ## Source Locations
 
-All skills are now consolidated in the project: **82 skills en `.agents/skills/` + 29 en `.opencode/skills/`; total 111** (audited 2026-08-10). Skills not relevant to VantaDB live in `~/.agents/skills/` (153 dirs global) and `~/.claude/skills/` (26 dirs).
+All skills are now consolidated in the project: **162 skills en `.agents/skills/` + 31 en `.opencode/skills/`; total 193** (audited 2026-08-19). Skills not relevant to VantaDB live in `~/.agents/skills/` (153 dirs global) and `~/.claude/skills/` (26 dirs).
 The global locations still exist but are secondary — prefer the project-local copy. Regla de resolución (AGENTS.md): `.opencode/` → `.agents/` → global, usar la primera que exista.
+
+### Removidas en batch 2026-08-19 (7)
+
+`figma-implement-design` (sin Figma MCP configurado), `icon-generator` (assets mobile — VantaDB no es app móvil), `slack-gif-creator` (GIFs Slack), `brand-guidelines` (marca Anthropic), `academy-guide` (cursos Claude Academy), `claude-api` (referencia API Claude — no aplica al producto), `internal-comms` (comms internas Anthropic). Todas existen en `.agents/skills/` en disk pero NO deben cargarse para trabajo de VantaDB; se documentan para registro histórico.
