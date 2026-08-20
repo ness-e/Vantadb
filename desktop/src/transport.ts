@@ -134,3 +134,7 @@ export const transport: VantaTransport = getTransport();
 /** WEB-05: true outside Tauri (plain browser serving the embedded console).
  * One implicit server connection instead of the multi-connection manager. */
 export const isEmbedded = !(transport instanceof TauriBackend);
+
+/** WASM-03: true in the standalone browser build (`vite build --mode wasm`) —
+ * the console runs 100% in the browser against WASM + OPFS/IndexedDB. */
+export const isWasm = transport instanceof WasmBackend;

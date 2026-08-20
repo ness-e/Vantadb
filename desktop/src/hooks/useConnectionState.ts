@@ -1,7 +1,7 @@
 // Orchestrates connection lifecycle + health + active-connection state.
 // Drives DActions purely through the typed bridge (src/vanta.ts).
 import { useCallback, useEffect, useState } from "react";
-import { isEmbedded } from "../transport";
+import { isEmbedded, isWasm } from "../transport";
 import {
   connectNative,
   ConnectionInfo,
@@ -61,7 +61,9 @@ export function useConnectionState(): [VantaState, ConnectionActions] {
       // WEB-05: in embedded (web) mode there is no multi-connection manager —
       // the app talks to the embedded server directly, so the connection list
       // is one implicit HTTP connection ("modo embebido = HTTP activo por
-      // defecto"). listConnections() throws on the HTTP transport (unsupported).
+      // defecto"). WASM-03: in the standalone build the implicit connection
+      // is the WASM engine (OPFS/IndexedDB), not HTTP. listConnections()
+      // throws on both transports (unsupported).
       const pairs: [string, ConnectionInfo][] = isEmbedded
         ? [
             [
@@ -69,9 +71,11 @@ export function useConnectionState(): [VantaState, ConnectionActions] {
               {
                 id: "embedded",
                 name: "embedded",
-                via: "http",
+                via: isWasm ? "wasm" : "http",
                 status: "connected",
-                description: "servidor embebido (HTTP)",
+                description: isWasm
+                  ? "WASM local (OPFS/IndexedDB, sin server)"
+                  : "servidor embebido (HTTP)",
               },
             ],
           ]

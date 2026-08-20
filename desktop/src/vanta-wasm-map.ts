@@ -40,6 +40,10 @@ export interface WasmMapping {
 /** Commands with no wire-compatible WASM method (documented divergence). */
 const unsupported = (reason: string) => reason;
 
+/** Namespace default igual que el server HTTP/native (`unwrap_or("default")`) —
+ * el core rechaza namespace vacío, así que nunca pasar "" al binding. */
+const DEFAULT_NS = "default";
+
 const mappings: Record<string, WasmMapping | string> = {
   // --- Health ---
   vanta_health: {
@@ -74,7 +78,9 @@ const mappings: Record<string, WasmMapping | string> = {
     persist: true,
     run: (db, args) => {
       const records = (args.records ?? []) as IngestItem[];
-      const inputs = records.map((item) => ingestToInput(item, item.id ?? genId()));
+      const inputs = records.map((item) =>
+        ingestToInput({ ...item, namespace: item.namespace || DEFAULT_NS }, item.id ?? genId()),
+      );
       return (db.put_batch(inputs) as Record<string, unknown>[]).map((r) => r.key as string);
     },
   },
@@ -82,19 +88,23 @@ const mappings: Record<string, WasmMapping | string> = {
     persist: true,
     run: (db, args) => {
       const records = (args.records ?? []) as IngestItem[];
-      const inputs = records.map((item) => ingestToInput(item, item.id ?? genId()));
+      const inputs = records.map((item) =>
+        ingestToInput({ ...item, namespace: item.namespace || DEFAULT_NS }, item.id ?? genId()),
+      );
       return (db.put_batch(inputs) as Record<string, unknown>[]).map((r) => r.key as string);
     },
   },
   vanta_search: {
     run: (db, args) => {
-      const hits = db.search(searchToRequest(args.query as SearchQuery)) as Record<string, unknown>[];
+      const q = searchToRequest(args.query as SearchQuery);
+      q.namespace = (q.namespace as string) || DEFAULT_NS;
+      const hits = db.search(q) as Record<string, unknown>[];
       return (hits ?? []).map((h) => searchHitFromSdk(h));
     },
   },
   vanta_get: {
     run: (db, args) => {
-      const ns = (args.namespace as string) ?? "";
+      const ns = (args.namespace as string) || DEFAULT_NS;
       const rec = db.get(ns, args.key as string);
       if (rec == null) {
         throw new Error(`record not found: ${ns}/${args.key}`);
@@ -107,7 +117,7 @@ const mappings: Record<string, WasmMapping | string> = {
   vanta_delete: {
     persist: true,
     run: (db, args) => {
-      db.delete((args.namespace as string) ?? "", args.key as string);
+      db.delete((args.namespace as string) || DEFAULT_NS, args.key as string);
     },
   },
   vanta_put: {
@@ -118,7 +128,7 @@ const mappings: Record<string, WasmMapping | string> = {
         {
           id: args.key as string,
           text: args.payload as string,
-          namespace: args.namespace as string,
+          namespace: (args.namespace as string) || DEFAULT_NS,
           metadata: args.metadata as Record<string, unknown>,
         },
         args.key as string,
@@ -132,7 +142,7 @@ const mappings: Record<string, WasmMapping | string> = {
       const opts: Record<string, unknown> = {};
       if (args.limit != null) opts.limit = args.limit;
       if (args.cursor != null) opts.cursor = args.cursor;
-      const page = db.list((args.namespace as string) ?? "", opts) as {
+      const page = db.list((args.namespace as string) || DEFAULT_NS, opts) as {
         records?: Record<string, unknown>[];
         next_cursor?: number | null;
       };
@@ -146,7 +156,12 @@ const mappings: Record<string, WasmMapping | string> = {
     persist: true,
     // wasm-bindgen maps u64 → JS bigint; the desktop surface is a number.
     run: (db, args) =>
-      Number(db.delete_by_filter(args.namespace as string, filterToWire(args.filter as MemoryFilterItem[]))),
+      Number(
+        db.delete_by_filter(
+          (args.namespace as string) || DEFAULT_NS,
+          filterToWire(args.filter as MemoryFilterItem[]),
+        ),
+      ),
   },
 
   // --- IQL (VS-CORE-06): the WASM binding's query() resolves reads against
