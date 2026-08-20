@@ -16,3 +16,10 @@ pub mod conversation;
 /// Automatic capture hooks plugging the pipeline into a host conversation
 /// stream (MEM-09).
 pub mod hooks;
+
+/// L1 memory extraction: quality gate, scene segmentation + extraction in one
+/// LLM call, tolerant parse (MEM-10). Write/dedup lands in MEM-11.
+pub mod record;
+
+/// LLM prompts for the memory pipeline: L1 extraction (MEM-10).
+pub mod prompts;

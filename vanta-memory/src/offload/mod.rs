@@ -4,3 +4,6 @@
 
 /// Data contracts for context offload (cursor state, buffered tool pairs).
 pub mod types;
+
+/// Local-LLM offload: tolerant parsing of LLM-produced JSON (MEM-10).
+pub mod local_llm;
