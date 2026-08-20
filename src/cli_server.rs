@@ -13,7 +13,8 @@ use crate::connection_pool::{ConnectionPool, PoolError};
 use crate::error::ChainedError;
 use crate::sdk::{
     VantaEmbedded, VantaMemoryFilter, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryRecord,
-    VantaMemorySearchHit, VantaMemorySearchRequest, VantaNamespaceStatsMap, VantaOperationalMetrics,
+    VantaMemorySearchHit, VantaMemorySearchRequest, VantaNamespaceStatsMap,
+    VantaOperationalMetrics,
 };
 use crate::VantaError;
 use lru::LruCache;
@@ -1129,7 +1130,11 @@ async fn records_search(
             let end = (start + page_size).min(hits.len());
             let records = hits[start..end].to_vec();
             let next_cursor = (end < hits.len()).then_some(end);
-            Json(SearchPageV2 { records, next_cursor }).into_response()
+            Json(SearchPageV2 {
+                records,
+                next_cursor,
+            })
+            .into_response()
         }
         Err(resp) => resp,
     }
@@ -2828,7 +2833,11 @@ mod tests {
                 break;
             }
         }
-        assert_eq!(seen.len(), 5, "list pagination must yield all 5, got: {seen:?}");
+        assert_eq!(
+            seen.len(),
+            5,
+            "list pagination must yield all 5, got: {seen:?}"
+        );
 
         // SEARCH paginado: limit=2 + cursor offset sobre el mismo ranking.
         // Base sin llave de cierre: el cursor se concatena cuando corresponde.
@@ -2857,7 +2866,11 @@ mod tests {
                 break;
             }
         }
-        assert_eq!(seen.len(), 5, "search pagination must yield all 5, got: {seen:?}");
+        assert_eq!(
+            seen.len(),
+            5,
+            "search pagination must yield all 5, got: {seen:?}"
+        );
     }
 
     #[tokio::test]
