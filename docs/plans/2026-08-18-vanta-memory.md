@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID:** f22e7ec8-d5a2-445f-b0f3-93d634b8b366
+> **Campaign ID:** 945bf1e5-29c8-4248-b76b-5eef9655f952
 > **Inicio:** 2026-08-18
-> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..10 ✅ — 13/24)
+> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..11 ✅ — 14/24)
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Catálogo:** `docs/Backlog.md` — filas MEM-01..38 (este plan es el estado de ejecución; el backlog es el catálogo)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
@@ -225,7 +225,7 @@
 - **Gate Justificación:** dedup 2 fases store/update/merge/skip; referencia `MC/core/record/l1-dedup.ts` (408), `l1-reader.ts`, `l1-writer.ts`, `MC/core/prompts/l1-dedup.ts` (236)
 - **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de dedup (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-11.md`
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 15: MEM-12 — F4 Contrato META + nodo escena (ancla L2)
 - **Archivos clave:** `vanta-memory/src/core/scene/scene_format.rs` (crear), `vanta-memory/src/core/scene/scene_index.rs` (crear), `src/entity.rs` (reuso patrón nodos InternalMetadata, D4)
@@ -338,11 +338,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 97e683bd-39d0-4402-b655-e224bd36be3c
-Objetivo activo: MEM-10: F4 L1 extractor (split + 1 call LLM JSON + parse reparación)
+Objetivo activo: ✅ COMPLETED — MEM-11: F4 L1 dedup 2 fases (store/update/merge/skip)
 Estado: in-progress ⏳
-Última acción: Implementacion completa: json_utils.rs (extract_json 4 estrategias + fix_trailing_commas string-aware), l1_parser.rs (parse_l1_extraction + normalize_type aliases legacy), l1_extraction.rs (PromptMode Chat/Code + 2 prompts ingles + epoch_ms_to_rfc3339 civil-from-days), l1_extractor.rs (extract_l1_memories generico + should_extract_l1 + truncate), 3 mod.rs, 2 mod.rs editados, 9 tests D19 CapturingRunner; correccion dyn-compat (E0038 -> firma generica R: LlmRunner) y test split parametrizado
-Resultado: ✅
-Próxima acción: Gate P2-01: delegar review a vanta-audit (doubt-driven-development fallback); luego vanta-lead commitea (feat: MEM-10). Proxima tarea: Task 14 MEM-11 (write MemoryRecord + dedup store/update/merge/skip)
+Última acción: 4 módulos nuevos (prompts/l1_dedup.rs, record/l1_reader.rs, record/l1_writer.rs, record/l1_dedup.rs) + reexports mod.rs + tests D19 (12 tests) + helpers sanitize/now_ms pub(crate) en l0_recorder
+Resultado: ✅ verify mecánico: check ✅ nextest 101/101 ✅ fmt ✅ clippy -D warnings ✅ (0 warnings crate)
+Próxima acción: nil — tarea cerrada; MEM-16 integra run_l1_dedup
 Contrato: `cargo check -p vanta-memory` pasa; tests dedicados (D19)
-Próxima tarea si completa: 14
+Próxima tarea si completa: Task 15 (MEM-12 — F4 Contrato META + nodo escena)
 === END RECITATION ===

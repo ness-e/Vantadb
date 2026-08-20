@@ -103,7 +103,7 @@ const META_RECORDED_AT: &str = "recorded_at";
 const CURSOR_KEY: &str = "__cursor";
 
 /// Character set allowed in VantaDB namespaces: `[A-Za-z0-9._/-]`, ≤128 bytes.
-fn sanitize_component(s: &str, max_bytes: usize, allow_slash: bool) -> String {
+pub(crate) fn sanitize_component(s: &str, max_bytes: usize, allow_slash: bool) -> String {
     let mut out = String::with_capacity(s.len());
     for ch in s.chars() {
         if out.len() + ch.len_utf8() > max_bytes {
@@ -120,7 +120,7 @@ fn sanitize_component(s: &str, max_bytes: usize, allow_slash: bool) -> String {
 }
 
 /// Message keys use the same safe set minus `/` (namespace separator).
-fn sanitize_key(s: &str) -> String {
+pub(crate) fn sanitize_key(s: &str) -> String {
     sanitize_component(s, 512, false)
 }
 
