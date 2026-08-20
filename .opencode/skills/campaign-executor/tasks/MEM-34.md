@@ -4,7 +4,7 @@
 - **Plan file:** `docs/plans/2026-08-18-vanta-memory.md`
 - **Creado:** 2026-08-20T12:30
 - **last-synced:** 2026-08-20T12:30
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (commit 84f28a18, verify 2002/2002 ✅ 2026-08-20)
 
 ## Blast Radius
 **Callers** (del código que voy a tocar):
@@ -38,36 +38,36 @@
 - **Archivos:** `src/metrics/core/snapshot.rs`, `src/sdk/types.rs`
 - **Acción:** agregar 13 campos u64 documentados a `OperationalMetricsSnapshot` (l1_extraction_latency_ms, l1_dedup_latency_ms, l2_extraction_latency_ms, l2_llm_duration_ms, l3_generation_latency_ms, persona_length_before, persona_length_after, persona_drift_ratio [bps ×10000], recall_hit_count, recall_top_score [bps ×10000], recall_latency_ms, recall_strategy [0-3 TDAM], offload_latency_ms) y espejo en `VantaOperationalMetrics` (types.rs).
 - **Verify:** `cargo check -p vantadb` (falla en conversión — esperado, se completa en Step 3)
-- **Estado:** ✅ DONE
+- **Estado:** ✅ COMPLETED (commit 84f28a18, verify 2002/2002 ✅ 2026-08-20)
 
 ### Step 2: Statics AtomicU64 + record functions + snapshot wiring
 - **Archivos:** `src/metrics/core/mod.rs`
 - **Acción:** 13 statics AtomicU64 (patrón error-silent existente) + `pub enum RecallStrategy { Skipped=0, Keyword=1, Embedding=2, Hybrid=3 }` con `as_code()`; funciones `record_l1_extraction`, `record_l1_dedup`, `record_l2_extraction`, `record_l2_llm`, `record_l3_generation`, `record_persona(before, after, drift_ratio_bps)`, `record_recall(hit_count, top_score_bps, latency_ms, strategy)`, `record_offload`; poblar en `operational_metrics_snapshot()`.
 - **Verify:** `cargo check -p vantadb`
-- **Estado:** ✅ DONE
+- **Estado:** ✅ COMPLETED (commit 84f28a18, verify 2002/2002 ✅ 2026-08-20)
 
 ### Step 3: Conversión From + fix test literal
 - **Archivos:** `src/sdk/serialization/conversions.rs`
 - **Acción:** mapear 13 campos nuevos en `From<OperationalMetricsSnapshot> for VantaOperationalMetrics`; actualizar `test_operational_metrics_conversion` con los campos nuevos.
 - **Verify:** `cargo check -p vantadb` + `cargo nextest run -p vantadb --test metrics`
-- **Estado:** ✅ DONE (también actualizados literales en types.rs tests y tests/sdk_serialization.rs)
+- **Estado:** ✅ COMPLETED (commit 84f28a18, verify 2002/2002 ✅ 2026-08-20)
 
 ### Step 4: Tests dedicados (D19)
 - **Archivos:** `src/metrics/core/mod.rs` (mod tests)
 - **Acción:** tests: defaults 0; record_l1/l2/l3/offload round-trip (fetch_max); record_persona (store semantics); record_recall acumula hit_count, strategy code correcto (Skipped→0, Keyword→1, Embedding→2, Hybrid→3), top_score store; snapshot incluye campos nuevos.
 - **Verify:** `cargo nextest run -p vantadb --test metrics`
-- **Estado:** ✅ DONE (7 tests nuevos, 7/7 PASS)
+- **Estado:** ✅ COMPLETED (commit 84f28a18, verify 2002/2002 ✅ 2026-08-20)
 
 ### Step 5: Helper audit para eventos memory (L1/L2/L3/offload)
 - **Archivos:** `src/audit.rs` + test
 - **Acción:** `AuditEvent::memory(layer: &str, namespace: &str, outcome: &str, reason: Option<String>)` → op `memory_{layer}` para eventos L1/L2/L3/offload; test JSONL round-trip (escribir con AuditLogger en tempfile + leer línea).
 - **Verify:** `cargo nextest run -p vantadb audit`
-- **Estado:** ✅ DONE (2 tests nuevos, 2/2 PASS)
+- **Estado:** ✅ COMPLETED (commit 84f28a18, verify 2002/2002 ✅ 2026-08-20)
 
 ### Step 6: Verify full + commit
 - **Acción:** fmt/clippy/nextest/docs; commit conventional con MEM-34.
 - **Verify:** `cargo fmt --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo nextest run --profile audit --workspace --build-jobs 2`, `scripts/validate-docs-coverage.ps1`
-- **Estado:** ✅ DONE (fmt 0, clippy 0, 2002/2002 nextest; docs coverage gaps `supersede` preexistentes, no de MEM-34)
+- **Estado:** ✅ COMPLETED (commit 84f28a18, verify 2002/2002 ✅ 2026-08-20)
 
 ## Dependencias
 - MEM-01 ✅ (6a50b8ee — SearchProfileConfig), MEM-02 ✅ (32b09daf — MCP passthrough). Telemetría registra strategy usado por esos paths.
