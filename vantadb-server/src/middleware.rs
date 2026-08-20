@@ -1,1 +1,1 @@
-pub use vantadb::cli_server::{auth_middleware, AuthState};
+pub use vantadb::cli_server::{auth_middleware, AuthIdentity, AuthState};

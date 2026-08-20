@@ -7,9 +7,10 @@
 //! flow through `run()` → `app()` → Router. Telemetry is verbose (tracing-subscriber
 //! config) but not complex — not worth splitting.
 
-use crate::audit::AuditEvent;
+use crate::audit::{AuditEvent, AuditLogger};
 use crate::circuit_breaker::CircuitBreaker;
 use crate::connection_pool::{ConnectionPool, PoolError};
+use crate::entity::EntityStore;
 use crate::error::ChainedError;
 use crate::sdk::{
     VantaEmbedded, VantaMemoryFilter, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryRecord,
@@ -204,6 +205,8 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
         state.rbac_config.clone(),
         rbac,
         &state.trusted_proxies,
+        Some(state.storage.clone()),
+        state.db.audit_logger(),
     );
 
     let public = Router::new().route("/health", get(health_check));
@@ -391,6 +394,10 @@ pub struct AuthState {
     /// Reverse-proxy IPs whose `X-Forwarded-For` header is honored for client IP
     /// resolution. Empty = the header is ignored.
     pub(crate) trusted_proxies: Vec<std::net::IpAddr>,
+    /// Storage engine for L3 user-key → user entity resolution (entity_*).
+    pub(crate) storage: Option<Arc<StorageEngine>>,
+    /// Audit logger for auth events (`auth_l1`/`auth_l2`/`auth_l3`).
+    pub(crate) audit: Option<Arc<AuditLogger>>,
 }
 
 impl AuthState {
@@ -399,6 +406,8 @@ impl AuthState {
         rbac_config: RbacConfig,
         rbac: Arc<Rbac>,
         trusted_proxies: &[std::net::IpAddr],
+        storage: Option<Arc<StorageEngine>>,
+        audit: Option<Arc<AuditLogger>>,
     ) -> Self {
         Self {
             api_key: api_key.map(|k| Arc::from(k.as_str())),
@@ -406,8 +415,122 @@ impl AuthState {
             rbac,
             rate_limiter: Arc::new(AuthRateLimiter::new(5, 60)),
             trusted_proxies: trusted_proxies.to_vec(),
+            storage,
+            audit,
         }
     }
+}
+
+/// Identity resolved by the 3-layer auth middleware (MEM-05).
+///
+/// Inserted into request extensions for downstream handlers so they can
+/// authorize against the resolved principal (e.g. with `PermissionChecker`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AuthIdentity {
+    /// Bare valid Bearer token — transport-level identity (L1 only).
+    Transport,
+    /// L2: valid Bearer + `x-vanta-service-id` — service credential
+    /// (admin-level, TDAM `Bearer + n` semantics).
+    Service { service_id: String },
+    /// L3: valid Bearer + `x-vanta-user-key` resolved against the `user`
+    /// entity collection — the caller is a known user.
+    User {
+        user_id: String,
+        is_system_admin: bool,
+    },
+}
+
+/// Namespace holding auth entities (`user` collection) for L3 resolution.
+/// ponytail: single fixed namespace; make configurable when multi-namespace
+/// servers appear.
+pub(crate) const AUTH_ENTITY_NS: &str = "default";
+
+/// L3 header carrying the caller's user key (TDAM `x-tdai-user-key` port).
+pub(crate) const USER_KEY_HEADER: &str = "x-vanta-user-key";
+
+/// L2 header carrying the service/instance id (TDAM `x-tdai-service-id` port).
+pub(crate) const SERVICE_ID_HEADER: &str = "x-vanta-service-id";
+
+/// Record an auth audit event, never failing the request on write errors.
+fn audit_auth(auth: &AuthState, event: AuditEvent) {
+    if let Some(logger) = &auth.audit {
+        if let Err(e) = logger.record(&event) {
+            tracing::warn!(op = %event.op, error = %e, "auth audit record failed");
+        }
+    }
+}
+
+/// Resolve a user-key to `(user_id, is_system_admin)` by scanning the `user`
+/// entity collection (MEM-03) and comparing `fields.user_key` in constant time.
+///
+/// ponytail: linear scan over all users; add a user_key→user_id index when
+/// the user collection grows past ~1k entries.
+pub(crate) fn resolve_user_key(
+    store: &EntityStore<'_>,
+    namespace: &str,
+    user_key: &str,
+) -> crate::error::Result<Option<(String, bool)>> {
+    let page = store.entity_list(namespace, "user", 10_000, 0)?;
+    let key_bytes = user_key.as_bytes();
+    for entity in page.items {
+        let Some(FieldValue::String(candidate)) = entity.fields.get("user_key") else {
+            continue;
+        };
+        if candidate.as_bytes().ct_eq(key_bytes).into() {
+            let is_system_admin = matches!(
+                entity.fields.get("user_type"),
+                Some(FieldValue::String(t)) if t == "system_admin"
+            );
+            return Ok(Some((entity.entity_id, is_system_admin)));
+        }
+    }
+    Ok(None)
+}
+
+/// Resolve the auth identity from headers: L3 (user-key) wins over L2
+/// (service-id); neither present → bare transport identity.
+///
+/// Any resolution failure yields 401 (fail closed — internal state is never
+/// leaked to the caller).
+pub(crate) fn resolve_identity(
+    req: &axum::extract::Request,
+    auth: &AuthState,
+) -> std::result::Result<AuthIdentity, (StatusCode, &'static str)> {
+    let user_key = req
+        .headers()
+        .get(USER_KEY_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    if let Some(user_key) = user_key {
+        let Some(storage) = &auth.storage else {
+            return Err((StatusCode::UNAUTHORIZED, "invalid_user_key"));
+        };
+        let store = EntityStore::new(storage.as_ref());
+        return match resolve_user_key(&store, AUTH_ENTITY_NS, user_key) {
+            Ok(Some((user_id, is_system_admin))) => Ok(AuthIdentity::User {
+                user_id,
+                is_system_admin,
+            }),
+            Ok(None) | Err(_) => Err((StatusCode::UNAUTHORIZED, "invalid_user_key")),
+        };
+    }
+
+    let service_id = req
+        .headers()
+        .get(SERVICE_ID_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    if let Some(service_id) = service_id {
+        return Ok(AuthIdentity::Service {
+            service_id: service_id.to_string(),
+        });
+    }
+
+    Ok(AuthIdentity::Transport)
 }
 
 /// Resolve the real client IP used for rate limiting and logging.
@@ -452,7 +575,7 @@ pub fn client_ip(req: &axum::extract::Request, trusted_proxies: &[std::net::IpAd
 ///
 /// Returns 401 instead of panicking if `AuthState` is missing from request
 /// extensions (invariant violated — e.g. router misconfigured).
-pub async fn auth_middleware(req: axum::extract::Request, next: middleware::Next) -> Response {
+pub async fn auth_middleware(mut req: axum::extract::Request, next: middleware::Next) -> Response {
     // Health endpoint is always public
     if req.uri().path() == "/health" {
         return next.run(req).await;
@@ -489,6 +612,10 @@ pub async fn auth_middleware(req: axum::extract::Request, next: middleware::Next
 
     // Check rate limiting before processing auth
     if auth.rate_limiter.is_rate_limited(&client_ip) {
+        audit_auth(
+            &auth,
+            AuditEvent::auth("l1", "auth", "N/A", "err", Some("rate_limited".into())),
+        );
         return (
             StatusCode::TOO_MANY_REQUESTS,
             Json(serde_json::json!({
@@ -514,8 +641,54 @@ pub async fn auth_middleware(req: axum::extract::Request, next: middleware::Next
         None => false,
     };
 
-    if authorized {
-        // Check RBAC permissions
+    if !authorized {
+        auth.rate_limiter.record_failure(&client_ip);
+        let reason = if token.is_some() {
+            "invalid_token"
+        } else {
+            "missing_token"
+        };
+        audit_auth(
+            &auth,
+            AuditEvent::auth("l1", "auth", "N/A", "err", Some(reason.into())),
+        );
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "Unauthorized",
+                "hint": "Provide a valid Bearer token in the Authorization header."
+            })),
+        )
+            .into_response();
+    }
+
+    // L1 passed → resolve L2/L3 identity (MEM-05). Resolution is
+    // deny-by-default: any failure fails closed with 401 and never leaks
+    // internal state.
+    let identity = match resolve_identity(&req, &auth) {
+        Ok(identity) => identity,
+        Err((status, reason)) => {
+            audit_auth(
+                &auth,
+                AuditEvent::auth("l3", "auth", "N/A", "err", Some(reason.into())),
+            );
+            return (
+                status,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "Unauthorized",
+                    "hint": "Provide a valid x-vanta-user-key header."
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    // Coarse transport RBAC applies only to bare Bearer (L1) identities —
+    // service (L2) and user (L3) identities authorize downstream via their
+    // resolved principal (PermissionChecker).
+    if identity == AuthIdentity::Transport {
         if let Some(token_val) = token {
             if let Some(role) = auth.token_role_map.get(token_val) {
                 let is_write = matches!(req.method().as_str(), "POST" | "PUT" | "PATCH" | "DELETE");
@@ -537,20 +710,39 @@ pub async fn auth_middleware(req: axum::extract::Request, next: middleware::Next
                 }
             }
         }
-        auth.rate_limiter.reset(&client_ip);
-        next.run(req).await
-    } else {
-        auth.rate_limiter.record_failure(&client_ip);
-        (
-            StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({
-                "success": false,
-                "error": "Unauthorized",
-                "hint": "Provide a valid Bearer token in the Authorization header."
-            })),
-        )
-            .into_response()
     }
+    auth.rate_limiter.reset(&client_ip);
+
+    // Audit identity-establishing outcomes (L2/L3). Bare L1 successes are the
+    // transport baseline and are not recorded — avoids flooding the log with
+    // one `auth_l1 ok` per request.
+    match &identity {
+        AuthIdentity::Service { service_id } => {
+            audit_auth(
+                &auth,
+                AuditEvent::auth("l2", "auth", service_id, "ok", None),
+            );
+        }
+        AuthIdentity::User {
+            user_id,
+            is_system_admin,
+        } => {
+            audit_auth(
+                &auth,
+                AuditEvent::auth(
+                    "l3",
+                    "auth",
+                    user_id,
+                    "ok",
+                    Some(format!("is_system_admin={is_system_admin}")),
+                ),
+            );
+        }
+        AuthIdentity::Transport => {}
+    }
+
+    req.extensions_mut().insert(identity);
+    next.run(req).await
 }
 
 #[tracing::instrument]
@@ -3806,3 +3998,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "cli_server_auth_tests.rs"]
+mod auth_tests;

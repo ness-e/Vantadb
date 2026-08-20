@@ -65,6 +65,27 @@ impl AuditEvent {
         };
         Self::new(&op, namespace, key, outcome, reason)
     }
+
+    /// Build an authentication event (`auth_{l1|l2|l3}` op) for the 3-layer
+    /// server auth (MEM-05): `l1` (Bearer token), `l2` (service-id), `l3`
+    /// (user-key → user identity).
+    ///
+    /// `layer` is validated against the known layers; unknown layers fall back
+    /// to the raw string so the JSONL remains appendable (error-silent).
+    /// `key` carries the *subject* (user_id / service_id), never the secret.
+    pub fn auth(
+        layer: &str,
+        namespace: &str,
+        key: &str,
+        outcome: &str,
+        reason: Option<String>,
+    ) -> Self {
+        let op = match layer {
+            "l1" | "l2" | "l3" => format!("auth_{layer}"),
+            other => format!("auth_{other}"),
+        };
+        Self::new(&op, namespace, key, outcome, reason)
+    }
 }
 
 /// Append-only JSONL writer for audit events. One JSON object per line.
@@ -157,6 +178,46 @@ mod tests {
         assert_eq!(back.key, "alice");
         assert_eq!(back.outcome, "ok");
         assert_eq!(back.reason.as_deref(), Some("drift=0.25"));
+        assert!(!back.timestamp.is_empty());
+    }
+
+    #[test]
+    fn test_auth_event_op_names() {
+        assert_eq!(
+            AuditEvent::auth("l1", "auth", "N/A", "err", None).op,
+            "auth_l1"
+        );
+        assert_eq!(
+            AuditEvent::auth("l2", "auth", "svc-1", "ok", None).op,
+            "auth_l2"
+        );
+        assert_eq!(
+            AuditEvent::auth("l3", "auth", "usr-1", "ok", None).op,
+            "auth_l3"
+        );
+        // Unknown layers stay error-silent and appendable.
+        assert_eq!(
+            AuditEvent::auth("bogus", "auth", "k", "ok", None).op,
+            "auth_bogus"
+        );
+    }
+
+    #[test]
+    fn test_auth_event_jsonl_roundtrip() {
+        let event = AuditEvent::auth(
+            "l3",
+            "auth",
+            "usr-1",
+            "err",
+            Some("invalid_user_key".into()),
+        );
+        let json = serde_json::to_string(&event).unwrap();
+        let back: AuditEvent = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.op, "auth_l3");
+        assert_eq!(back.namespace, "auth");
+        assert_eq!(back.key, "usr-1");
+        assert_eq!(back.outcome, "err");
+        assert_eq!(back.reason.as_deref(), Some("invalid_user_key"));
         assert!(!back.timestamp.is_empty());
     }
 }

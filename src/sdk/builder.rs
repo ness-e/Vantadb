@@ -121,6 +121,13 @@ impl VantaEmbedded {
         }
     }
 
+    /// The configured audit logger, if any. Lets sibling modules (e.g. the
+    /// CLI server middleware) record auth events without owning the DB handle.
+    #[cfg(feature = "server")]
+    pub(crate) fn audit_logger(&self) -> Option<Arc<crate::audit::AuditLogger>> {
+        self.audit.clone()
+    }
+
     /// Create an empty handle (no engine) for tests.
     /// Produces `NotInitialized` errors on any engine-dependent operation.
     #[doc(hidden)]
