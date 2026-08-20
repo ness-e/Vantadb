@@ -152,7 +152,7 @@
 - **Gate Justificación:** cadena 7 eslabones (D7); `src/rbac.rs` evaluado → **NO dead code** (coexistencia, ver línea 55); resuelve contradicción SYNTHESIS (172 líneas reales del clon TDAM @ `97f9465`)
 - **Contrato:** `cargo check -p vantadb` pasa; tests dedicados del checker (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-04.md`
-- **Estado:** ✅ COMPLETED (commit pendiente — vanta-lead ejecuta `feat(core): permission-checker allow-only sobre entity_* (MEM-04)` y rellena el hash; verify `cargo nextest run -p vantadb -- entity` ✅ 37/37, clippy workspace -D warnings ✅, fmt ✅ 2026-08-20)
+- **Estado:** ✅ COMPLETED (commit 9717bf03, verify cargo nextest run -p vantadb -- entity ✅ 37/37, clippy workspace -D warnings ✅, fmt ✅ 2026-08-20)
 - **last-synced:** 2026-08-20T14:10
 
 ### Task 6: MEM-05 — F2 Auth 3 capas en server + audit log

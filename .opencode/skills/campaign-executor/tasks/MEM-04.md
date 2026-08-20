@@ -78,7 +78,7 @@
   - `cargo fmt --check` → ✅ (1 archivo formateado: `checker_tests.rs` — 2 diffs de rustfmt, aplicado con `cargo fmt -- src/entity/checker_tests.rs`)
   - `cargo clippy --workspace --all-targets --all-features -- -D warnings` → ✅ (vantadb + vantadb-mcp + vantadb-wasm + vantadb-server + vantadb_py, 0 warnings)
   - Regla 1: 0 `unwrap()`/`expect()` en `checker.rs` (core) — los 35 matches del grep están solo en `checker_tests.rs` (tests, patrón AAA de MEM-03) ✅
-  - Commit: preparado en staging (5 archivos), vanta-lead ejecuta `feat(core): permission-checker allow-only sobre entity_* (MEM-04)` y rellena el hash aquí y en el plan file
+  - Commit: 9717bf03
 
 ## Dependencias
 - Task 4 (MEM-03): ✅ COMPLETED — EntityStore/Entity consumidos (no tocar `src/entity/mod.rs` CRUD, solo agregar submódulo).
