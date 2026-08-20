@@ -2,7 +2,7 @@
 
 > **Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
 > **Inicio:** 2026-08-18
-> **Estado: ⏳ EN PROGRESO (F1+F2 ✅ — checkpoint 1 — F3 pendiente)
+> **Estado: ⏳ EN PROGRESO (F1+F2 ✅ — checkpoint 1 aprobado — F3: MEM-06 ✅, MEM-07/35 pendientes)
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
 
@@ -167,7 +167,7 @@
 - **Gate Justificación:** F3 base — VantaDB no es SQL: namespace `skills` + nodos por versión con metadata (`version`, `is_head`, `content_hash`, `expires_at`, owner_agent), índice único parcial por `(owner,name)` donde is_head, optimistic lock `expected_version`, TTL keep-recent=3, idempotencia por content-hash; CRUD create/update/patch/delete/versions. Reusar text_index + HNSW propios (NO vec0). Consumido por MEM-07 (MCP skill_*) y MEM-35 (`GET /skill/listing`). Reusa EntityStore de MEM-03 como base de persistencia.
 - **Contrato:** `cargo check -p vantadb` pasa; tests dedicados de skills multi-versión (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-06.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-08-20T16:00
 
 ### Task 8: MEM-07 — F3 MCP tools skill_*
@@ -227,11 +227,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
-Objetivo activo: MEM-05 Auth 3 capas en server
+Objetivo activo: MEM-06 Esquema skills multi-versión
 Estado: completed ✅
-Última acción: MEM-05 verificado (01a5de66, 16/16 auth tests)
+Última acción: MEM-06 verificado (92cf709f, 14/14 skills tests)
 Resultado: ✅
-Próxima acción: Checkpoint F1+F2 — reportar al usuario
+Próxima acción: MEM-07 MCP skill_* tools
 Contrato: cargo check -p vantadb + tests dedicados del checker (D19) — `cargo nextest run -p vantadb -- entity` ✅ 37/37
-Próxima tarea si completa: Checkpoint F1+F2
+Próxima tarea si completa: MEM-07
 === END RECITATION ===
