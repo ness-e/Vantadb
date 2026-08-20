@@ -1,6 +1,6 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID: 0251922a-d9f0-4f90-a59f-c184d4f1d0f6
+> **Campaign ID: f9421de2-eab5-48a2-819b-637b48882747
 > **Inicio:** 2026-08-18
 > **Estado: in-progress
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
@@ -117,7 +117,7 @@
 ### Task 1: MEM-01 — F1 Search profile por namespace en core
 - **Archivos clave:** `src/planner.rs`, `src/sdk/serialization/vector_types.rs`, `src/sdk/types.rs`, `src/sdk/search/mod.rs`, `src/cli_server.rs` (parser IQL)
 - **Gate Justificación:** F1 base — parametriza planner con `SearchProfileConfig`, expone en IQL/API/MCP (D13), report RRF incluye `rrf_k` (D20)
-- **Contrato: cargo check -p vantadb + tests checker
+- **Contrato: cargo check -p vantadb-server + tests auth
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
 - **Estado:** ✅ COMPLETED (commit `6a50b8ee`, verify `cargo check -p vantadb` ✅ 2026-08-20)
 - **last-synced:** 2026-08-20T08:00
@@ -152,7 +152,7 @@
 - **Gate Justificación:** cadena 7 eslabones (D7); `src/rbac.rs` evaluado → **NO dead code** (coexistencia, ver línea 55); resuelve contradicción SYNTHESIS (172 líneas reales del clon TDAM @ `97f9465`)
 - **Contrato:** `cargo check -p vantadb` pasa; tests dedicados del checker (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-04.md`
-- **Estado:** ✅ COMPLETED (commit 9717bf03, verify cargo nextest run -p vantadb -- entity ✅ 37/37, clippy workspace -D warnings ✅, fmt ✅ 2026-08-20)
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-08-20T14:10
 
 ### Task 6: MEM-05 — F2 Auth 3 capas en server + audit log
@@ -160,8 +160,8 @@
 - **Gate Justificación:** L1 Bearer timingSafeEqual, L2 service-id, L3 user-key → userId/isSystemAdmin desde entity_* (MEM-03); `/health` pública; **audit log server YA EXISTE (WEB-01, `src/audit.rs` + `/api/v2/audit`)** — extender, no duplicar (descubierto en MEM-34)
 - **Contrato:** `cargo check -p vantadb-server` pasa; tests dedicados de auth 3 capas (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-05.md`
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-08-20T13:00
+- **Estado:** ⏳ EN PROGRESO → ✅ COMPLETED (commit en preparación, verify cargo check -p vantadb-server ✅ + tests auth 16/16 ✅ 2026-08-20)
+- **last-synced:** 2026-08-20T15:15
 
 ## Riesgos
 
@@ -204,11 +204,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 2e7f046b-34d3-4d60-9b11-88d3c5f910a7
-Objetivo activo: MEM-04 Permission-checker allow-only
+Objetivo activo: MEM-05 Auth 3 capas en server
 Estado: completed ✅
-Última acción: Cierre MEM-04 — verify full (fmt ✅, clippy workspace -D warnings ✅, tests entity 37/37 ✅) + task/plan file actualizados a ✅ COMPLETED; commit staged y delegado a vanta-lead
-Resultado: ✅
-Próxima acción: vanta-lead ejecuta `feat(core): permission-checker allow-only sobre entity_* (MEM-04)` (staging listo, 5 archivos) y rellena el hash en task file MEM-04 + Task 5 del plan
+Última acción: MEM-04 completado y verificado (9717bf03, 37/37)
+Resultado: ⏳
+Próxima acción: Delegar MEM-05 a vanta-worker
 Contrato: cargo check -p vantadb + tests dedicados del checker (D19) — `cargo nextest run -p vantadb -- entity` ✅ 37/37
-Próxima tarea si completa: MEM-05
+Próxima tarea si completa: Checkpoint F1+F2
 === END RECITATION ===
