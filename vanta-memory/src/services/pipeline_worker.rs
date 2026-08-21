@@ -188,6 +188,28 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
     }
 
     fn run_l1(&mut self, session_id: &str) -> Result<(), String> {
+        match self.run_l1_inner(session_id) {
+            Ok(()) => Ok(()),
+            Err(err) => {
+                // MEM-41 provenance: the L1 writer never sees extraction/LLM
+                // failures, so the failed generation is logged here.
+                // Best-effort (P4).
+                crate::core::memory_generation_log::record_best_effort(
+                    &self.db,
+                    &crate::core::memory_generation_log::GenerationLogEntry::new(
+                        crate::core::memory_generation_log::GenerationLayer::L1,
+                        crate::core::memory_generation_log::GenerationStatus::Failed,
+                        session_id,
+                        None,
+                        Some(err.clone()),
+                    ),
+                );
+                Err(err)
+            }
+        }
+    }
+
+    fn run_l1_inner(&mut self, session_id: &str) -> Result<(), String> {
         let recorder = L0Recorder::new(self.db.clone());
         let messages = recorder
             .read_messages(session_id)

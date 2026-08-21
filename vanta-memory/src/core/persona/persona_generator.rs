@@ -205,6 +205,36 @@ pub fn generate_persona<R: LlmRunner>(
     runner: &R,
     params: &PersonaGenerateParams<'_>,
 ) -> PersonaGenerationResult {
+    let result = generate_persona_inner(db, runner, params);
+    // MEM-41 provenance: log real generations (updated) and failures; a
+    // no-change skip is not a generation. Best-effort (P4).
+    if result.updated || !result.success {
+        use crate::core::memory_generation_log::{
+            record_best_effort, GenerationLayer, GenerationLogEntry, GenerationStatus,
+        };
+        record_best_effort(
+            db,
+            &GenerationLogEntry::new(
+                GenerationLayer::L3,
+                if result.success {
+                    GenerationStatus::Succeeded
+                } else {
+                    GenerationStatus::Failed
+                },
+                params.session_key,
+                None,
+                result.error.clone(),
+            ),
+        );
+    }
+    result
+}
+
+fn generate_persona_inner<R: LlmRunner>(
+    db: &vantadb::sdk::VantaEmbedded,
+    runner: &R,
+    params: &PersonaGenerateParams<'_>,
+) -> PersonaGenerationResult {
     let fail = |error: String| PersonaGenerationResult {
         success: false,
         updated: false,

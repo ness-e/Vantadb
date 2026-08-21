@@ -44,3 +44,7 @@ pub mod memory_prompt;
 
 /// Team+agent profile scoping + persona sync (MEM-18).
 pub mod profile;
+
+/// Generation-log provenance for L1/L2/L3 generations, best-effort and
+/// consultable per session/layer (MEM-41).
+pub mod memory_generation_log;

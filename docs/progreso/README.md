@@ -4238,6 +4238,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ `vanta-memory/src/gateway/knowledge_handlers.rs` (nuevo): 3 handlers puros + `KnowledgeError` (`#[non_exhaustive]`) + tipos wire snake_case. Soft-delete respetado (read→NotFound, list/query excluidos, MEM-14); query LLM-free vía `overlap_score`/`significant_terms` reutilizados de l1_reader; validación boundary (`validate_scene_name`, session/keyword no vacíos). Wiring en `gateway/mod.rs`; `read_blocks` → pub(crate) (1 token). 10 tests D19 nuevos; suite vanta-memory 361 ✅; fmt+clippy -D warnings ✅. Commit pendiente del lead.
 - **Ids:** `MEM-21`
 
+### MEM-41: F5 Generation-log provenance L1/L2/L3 consultable
+- **Fuente:** Plan `docs/plans/2026-08-21-vanta-context-engine.md` (Task 3)
+- **Fecha:** 2026-08-21
+- **Objetivo:** Log consultable de provenance de generaciones L1/L2/L3 (layer/status/anchor/session/ts), best-effort (nunca bloquea el pipeline — Principio 4), con cap por sesión.
+- **Resultado:** ✅ `vanta-memory/src/core/memory_generation_log/{mod,store}.rs` (nuevos): entry `{layer, status, anchor_id?, session_key, ts_ms, error?}`; ns `genlog/<session>` sanitizado; key `{ts:013}_{seq}`; `record_best_effort` traga errores con tracing::warn; cap 100 keep-recent; `query_session(db, session, layer?)` ordenado por ts. Hooks aditivos: l1_writer (succeeded, anchor=record.id), scene_extractor/persona_generator (wrappers inner+log, solo generaciones reales o fallos), pipeline_worker run_l1 (failed). 11 tests D19 nuevos (7 unit + 4 integración); suite vanta-memory 389 ✅; check/fmt/clippy -p vanta-memory exit 0. Commit pendiente del lead.
+- **Ids:** `MEM-41`
+
 ---
 
 ## Planes archivados

@@ -617,3 +617,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 - El stack real manda sobre la asuncion del orquestador: se asumio React 18 (→ r3f v8) pero `desktop/package.json` tiene `react ^19.1.0` → r3f v9 + drei v10 (docs oficiales: v8↔React 18, v9↔React 19). Leer el package.json del target antes de elegir la linea mayor de una libreria React; `npm ls` confirma peers sin conflicto.
 - Para APIs de drei (Outlines/Html/Line), la fuente mas rapida y autoritativa es el `.d.ts` instalado en `node_modules/@react-three/drei/{core,web}/` — mas fiable que la busqueda web, que devuelve ruido.
 - `<Text>` de drei carga su fuente default de un CDN remoto (falla offline en Tauri); para labels usar `<Html>` (DOM, fuentes locales) o embeder fuente.
+
+<!-- Learnings: MEM-41 — 2026-08-21 -->
+- `cargo clippy -p <crate> -- -D warnings` aplica `-D warnings` a TODAS las crates del grafo (deps incluidas): warnings pre-existentes en `vantadb` core fallan el gate aunque el crate propio esté limpio. Verificar con `cargo clippy -p <crate> --all-targets` (sin -D) + grep de warnings propios; el -D estricto es gate del lead en workspace.
+- Patrón wrapper para hooks best-effort sin tocar firmas públicas: renombrar `fn X` → `fn X_inner` y agregar wrapper `X` que llama inner + log — 16 callers de `generate_persona` no cambian. Loguear solo generaciones REALES (updated/non-empty) o fallos; los skip/no-change no son generaciones.

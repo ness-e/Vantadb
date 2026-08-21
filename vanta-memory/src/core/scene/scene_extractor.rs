@@ -357,6 +357,41 @@ pub fn extract_scenes_with_llm<R: LlmRunner>(
     memories: &[SceneMemoryInput],
     previous_scene_name: Option<&str>,
 ) -> SceneExtractionResult {
+    let result =
+        extract_scenes_with_llm_inner(db, session_key, runner, memories, previous_scene_name);
+    // MEM-41 provenance: log real generations (success) and LLM failures;
+    // skipped/empty runs are not generations. Best-effort (P4).
+    let generated = result.success && !result.empty_extraction;
+    let failed = !result.success;
+    if generated || failed {
+        use crate::core::memory_generation_log::{
+            record_best_effort, GenerationLayer, GenerationLogEntry, GenerationStatus,
+        };
+        record_best_effort(
+            db,
+            &GenerationLogEntry::new(
+                GenerationLayer::L2,
+                if failed {
+                    GenerationStatus::Failed
+                } else {
+                    GenerationStatus::Succeeded
+                },
+                session_key,
+                None,
+                result.error.clone(),
+            ),
+        );
+    }
+    result
+}
+
+fn extract_scenes_with_llm_inner<R: LlmRunner>(
+    db: &vantadb::sdk::VantaEmbedded,
+    session_key: &str,
+    runner: &R,
+    memories: &[SceneMemoryInput],
+    previous_scene_name: Option<&str>,
+) -> SceneExtractionResult {
     // No memories → emptyExtraction without a pointless LLM call.
     if memories.is_empty() {
         return SceneExtractionResult {

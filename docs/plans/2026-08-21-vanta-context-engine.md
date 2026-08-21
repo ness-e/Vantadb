@@ -2,7 +2,7 @@
 
 > **Campaign ID:** e03c2c9f-4076-4cda-a1a8-44828dc8bf30
 > **Inicio:** 2026-08-21
-> **Estado:** ⏳ EN PROGRESO (2/9 tareas)
+> **Estado:** ⏳ EN PROGRESO (3/9 tareas)
 > **Fuente:** `docs/Backlog.md` filas MEM-22..24, 37..42 + `docs/research/tdam/05-offload.md` + `SYNTHESIS.md` §2.2/§3 + auditoría post-P27 (2026-08-21) + decisiones del usuario (2026-08-21)
 > **Predecesor:** `docs/plans/archive/2026-08-18-vanta-memory.md` (P27, F1-F4 ✅ 24/24 — crate vanta-memory con L0/L1/L2/L3/recall/offload-cursor/gateway, suite 364/364)
 > **Modo:** waves por dependencias — Wave 0 (fundaciones independientes) → Wave 1 (MEM-22 núcleo) → Wave 2 (consumidores de MEM-22) → Wave 3 (gate docs).
@@ -38,7 +38,7 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 - **Verificación real:** ✅ CÓDIGO-REAL — `context_engine/` NO existe (Test-Path False); TDAM refs verificadas: `fast-token-estimate.ts` (274L), emergency trunca ~2000 chars (`llm-input-l3.ts:968,:121`), report `{messages, report}` (`compaction-handler.ts:254`)
 - **Gate Justificación:** fundación sin dependencias; gap real (no existe nada del context engine); D21 decide estimator chars/3 sin deps
 - **Gate Result:** ✅ DO
-- **Contrato:** "`cargo check -p vanta-memory` pasa; tests D19: estimate_tokens determinista (casos conocido vacío/ascii/unicode), truncado respeta pares tool_call/tool_result (nunca los parte), CompactionReport serde roundtrip"
+- **Contrato:** "`cargo check -p vanta-memory` pasa; tests D19: (a) cada generación L1/L2/L3 exitosa registra entry {layer, status, anchor_id, session, ts}; (b) fallo LLM registra status=failed best-effort (nunca bloquea el pipeline — Principio 4); (c) consulta por session/layer devuelve ordenado por ts"
 - **Pre-mortem:** (1) estimator chars/3 subestima CJK → documentar techo, D21 lo acepta; (2) truncar pares tool_call rompe wire OpenAI/Anthropic → guard adjustForToolCallPair desde el día 1 (TDAM mmd-injector.ts:231)
 - **Stop conditions:** appetite 1d excedido sin estimator+truncate+report green → ⬛ CANCELADO y partir en 2 tareas
 - **Risk Register:**
@@ -99,7 +99,7 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
   | 🟢×🟡 | crecimiento sin límite | cap N entries por sesión (keep-recent) | diseño |
 - **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 3 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-41.md`
 - **Branch:** | **Commit:**
 - **Iteraciones:** | — | — | — | — |
@@ -277,11 +277,11 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: MEM-40 recall_scope híbrido session|agent|team default agent (Task 2 plan P29)
+Objetivo activo: MEM-41 generation-log provenance L1/L2/L3 consultable (Task 3 plan P29)
 Estado: pending ⏳
-Última acción: Implementado RecallScope{Session,Agent,Team} default Agent (D22): pool = sesión actual siempre + cross-sesión vía list_namespaces→read_namespace_records con post-filtro agent_id/team_id del MemoryRecord; search_keyword mantiene el ranking LLM-free; search_multi cubierto por test dedicado; probe perf 500 sesiones = 22ms descarta stop condition; fix colateral WIP MCP (MEM-08b/MEM-12 stale)
+Última acción: Implementado módulo memory_generation_log (types+store+query+cap) con TDD; hooks aditivos en l1_writer/scene_extractor/persona_generator/pipeline_worker vía patrón wrapper inner+log; 11 tests D19 nuevos; verify mecánico completo verde (check/fmt/clippy exit 0, nextest 389/389); Backlog row MEM-41 migrada a docs/progreso/README.md
 Resultado: OK
-Próxima acción: Lead commitea feat(vanta-memory): MEM-40 recall_scope híbrido; orquestador asigna Task 3 (MEM-41 generation-log provenance)
+Próxima acción: Lead commitea feat(vanta-memory): MEM-41 generation-log provenance; orquestador asigna Task 4 (MEM-39 seed/import CLI)
 Contrato: por tarea — cargo check/nextest/fmt/clippy -p vanta-memory exit 0 + tests D19
-Próxima tarea si completa: 3
+Próxima tarea si completa: 4
 === END RECITATION ===

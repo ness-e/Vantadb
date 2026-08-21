@@ -83,6 +83,17 @@ pub fn write_memory(
                 agent_id: None,
             };
             put_record(db, &ns, &record)?;
+            // MEM-41 provenance: best-effort, never blocks the write (P4).
+            crate::core::memory_generation_log::record_best_effort(
+                db,
+                &crate::core::memory_generation_log::GenerationLogEntry::new(
+                    crate::core::memory_generation_log::GenerationLayer::L1,
+                    crate::core::memory_generation_log::GenerationStatus::Succeeded,
+                    session_key,
+                    Some(&record.id),
+                    None,
+                ),
+            );
             Ok(Some(record))
         }
         DedupAction::Update | DedupAction::Merge => {
@@ -135,6 +146,17 @@ pub fn write_memory(
                 agent_id: None,
             };
             put_record(db, &ns, &record)?;
+            // MEM-41 provenance: best-effort, never blocks the write (P4).
+            crate::core::memory_generation_log::record_best_effort(
+                db,
+                &crate::core::memory_generation_log::GenerationLogEntry::new(
+                    crate::core::memory_generation_log::GenerationLayer::L1,
+                    crate::core::memory_generation_log::GenerationStatus::Succeeded,
+                    session_key,
+                    Some(&record.id),
+                    None,
+                ),
+            );
             Ok(Some(record))
         }
     }
