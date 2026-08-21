@@ -2,7 +2,7 @@
 
 > **Campaign ID:** e03c2c9f-4076-4cda-a1a8-44828dc8bf30
 > **Inicio:** 2026-08-21
-> **Estado:** ⏳ EN PROGRESO (4/9 tareas)
+> **Estado:** ⏳ EN PROGRESO (5/9 tareas)
 > **Fuente:** `docs/Backlog.md` filas MEM-22..24, 37..42 + `docs/research/tdam/05-offload.md` + `SYNTHESIS.md` §2.2/§3 + auditoría post-P27 (2026-08-21) + decisiones del usuario (2026-08-21)
 > **Predecesor:** `docs/plans/archive/2026-08-18-vanta-memory.md` (P27, F1-F4 ✅ 24/24 — crate vanta-memory con L0/L1/L2/L3/recall/offload-cursor/gateway, suite 364/364)
 > **Modo:** waves por dependencias — Wave 0 (fundaciones independientes) → Wave 1 (MEM-22 núcleo) → Wave 2 (consumidores de MEM-22) → Wave 3 (gate docs).
@@ -38,7 +38,7 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 - **Verificación real:** ✅ CÓDIGO-REAL — `context_engine/` NO existe (Test-Path False); TDAM refs verificadas: `fast-token-estimate.ts` (274L), emergency trunca ~2000 chars (`llm-input-l3.ts:968,:121`), report `{messages, report}` (`compaction-handler.ts:254`)
 - **Gate Justificación:** fundación sin dependencias; gap real (no existe nada del context engine); D21 decide estimator chars/3 sin deps
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: cargo nextest run -p vanta-memory 395/395 PASS + check/fmt/clippy -p vanta-memory exit 0. evidencia: [claim: import idempotente por content-hash — evidencia: vanta-memory/tests/seed.rs::replay_is_fully_idempotent_no_duplicates PASS (replay=unchanged 3, contenido cambiado=updated 1 sin duplicar) — confianza alta] [claim: CLI importa JSON a namespaces sanitizados — evidencia: smoke test real `cargo run -p vanta-memory --bin vanta-seed -- <tmp>.json` → created=2; error path exit 1 — confianza alta] [claim: schema TDAM no portable — evidencia: input.ts 492L leído completo, formato sessions/rounds/messages acoplado a OpenClaw capture; desviación schema propio mínimo documentada en vanta-memory/src/seed/input.rs header — confianza alta]. artefactos: vanta-memory/src/seed/{mod,input}.rs, vanta-memory/src/bin/vanta-seed.rs, vanta-memory/tests/seed.rs, feature fjall en vanta-memory/Cargo.toml. invariantes: payload StoredSkill/PersonaRecord parity con MEM-06/L3 (readers existentes no se rompen); sin deps nuevas (JSON only, sin serde_yaml); sin unwrap/expect en producción. deuda: docs/api del módulo seed queda para MEM-38 (gate docs F5). queda_pendiente: lead commitea feat(vanta-memory): MEM-39 seed/import
+- **Contrato: verificacion: cargo check -p vanta-memory ✅ · cargo nextest run -p vanta-memory ✅ 408/408 · cargo fmt --check ✅ · cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings ✅ | evidencia: [contrato D19 (a)-(f) cubierto → vanta-memory/tests/context_engine.rs (7 tests), alta; pares tool_call jamás partidos → unidades atómicas build_units + assert_no_orphan_results, alta; prefijo protegido cursor MEM-20 jamás tocado → test protected_prefix_never_touched + emergency prefix-aware, alta; fingerprint idempotente → test d_aggressive_one_shot_boundary_idempotent, alta] | artefactos: vanta-memory/src/context_engine/{compressor.rs, engine.rs, mod.rs, token_estimator.rs (build_units pub(crate))}, vanta-memory/tests/context_engine.rs | invariantes: sin deps nuevas · sin unwrap/expect en código nuevo · LLM-free 100% · core vantadb intacto · último User + min_keep=2 intactos | deuda: scoring heurístico sustituye score LLM L1 (upgrade post-MEM-24); stub [compacted N chars] sin semántica; prefijo protegido que solo exceda el budget devuelve over-budget sin violar el cursor | queda_pendiente: commit (orquestador ordenó NO commitear); lead decide commit + siguiente tarea
 - **Pre-mortem:** (1) estimator chars/3 subestima CJK → documentar techo, D21 lo acepta; (2) truncar pares tool_call rompe wire OpenAI/Anthropic → guard adjustForToolCallPair desde el día 1 (TDAM mmd-injector.ts:231)
 - **Stop conditions:** appetite 1d excedido sin estimator+truncate+report green → ⬛ CANCELADO y partir en 2 tareas
 - **Risk Register:**
@@ -148,7 +148,7 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 - **Cynefin:** 🟨 complicado — algoritmos TDAM conocidos y verificados; port analizable paso a paso
 - **Top 3 riesgos:** (1) pérdida de detalle sin refs, (2) rotura prompt-cache, (3) cursor interaction
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 6 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-22.md`
 - **Branch:** | **Commit:**
 - **Iteraciones:** | — | — | — | — |
@@ -277,11 +277,11 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: MEM-39 seed/import CLI skills+persona (Task 4 plan P29) — COMPLETADA
+Objetivo activo: MEM-22 — Context Engine assemble + cascada mild/aggressive (Task 5)
 Estado: pending ⏳
-Última acción: Implementado módulo seed (input.rs parser+validación, mod.rs persistencia idempotente content-hash) + bin vanta-seed + feature fjall passthrough; 6 tests D19 nuevos; verify mecánico completo verde (check/fmt/clippy exit 0, nextest 395/395); fila Backlog MEM-39 migrada a docs/progreso/README.md; learnings en AGENTS.md
+Última acción: Implementados compressor.rs (msg_fingerprint role+200chars, score_message heurístico, AggressiveBoundary+apply_boundary), engine.rs (assemble ratio-gate <0.5 → mild_cascade 7→1 cap10 → aggressive_one_shot ≥20% head-delete → emergency prefix-aware), wiring mod.rs, tests D19 (a)-(f) + protected_prefix. Verify completo exit 0.
 Resultado: OK
-Próxima acción: Lead commitea feat(vanta-memory): MEM-39 seed/import CLI; orquestador asigna Task 5 (MEM-22 Context Engine, killer feature)
+Próxima acción: Ninguna para MEM-22; orquestador lanza próxima tarea del plan
 Contrato: por tarea — cargo check/nextest/fmt/clippy -p vanta-memory exit 0 + tests D19
-Próxima tarea si completa: 5
+Próxima tarea si completa: Task 6 del plan 2026-08-21-vanta-context-engine
 === END RECITATION ===

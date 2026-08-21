@@ -76,7 +76,7 @@ pub fn truncate_content(content: &str, max_chars: usize) -> String {
 /// One atomic compaction unit: a standalone message, or a tool call plus its
 /// contiguous results. The pair guard lives HERE — by construction a unit is
 /// dropped whole, so a tool_call/tool_result pair can never be split.
-fn build_units(msgs: Vec<ChatMessage>) -> Vec<Vec<ChatMessage>> {
+pub(crate) fn build_units(msgs: Vec<ChatMessage>) -> Vec<Vec<ChatMessage>> {
     let mut units: Vec<Vec<ChatMessage>> = Vec::new();
     let mut iter = msgs.into_iter().peekable();
     while let Some(msg) = iter.next() {
