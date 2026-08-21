@@ -2,7 +2,7 @@
 
 > **Campaign ID:** e03c2c9f-4076-4cda-a1a8-44828dc8bf30
 > **Inicio:** 2026-08-21
-> **Estado:** ⏳ EN PROGRESO (6/9 tareas)
+> **Estado:** ⏳ EN PROGRESO (7/9 tareas)
 > **Fuente:** `docs/Backlog.md` filas MEM-22..24, 37..42 + `docs/research/tdam/05-offload.md` + `SYNTHESIS.md` §2.2/§3 + auditoría post-P27 (2026-08-21) + decisiones del usuario (2026-08-21)
 > **Predecesor:** `docs/plans/archive/2026-08-18-vanta-memory.md` (P27, F1-F4 ✅ 24/24 — crate vanta-memory con L0/L1/L2/L3/recall/offload-cursor/gateway, suite 364/364)
 > **Modo:** waves por dependencias — Wave 0 (fundaciones independientes) → Wave 1 (MEM-22 núcleo) → Wave 2 (consumidores de MEM-22) → Wave 3 (gate docs).
@@ -38,7 +38,7 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 - **Verificación real:** ✅ CÓDIGO-REAL — `context_engine/` NO existe (Test-Path False); TDAM refs verificadas: `fast-token-estimate.ts` (274L), emergency trunca ~2000 chars (`llm-input-l3.ts:968,:121`), report `{messages, report}` (`compaction-handler.ts:254`)
 - **Gate Justificación:** fundación sin dependencias; gap real (no existe nada del context engine); D21 decide estimator chars/3 sin deps
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: cargo check -p vanta-memory ✅ · cargo nextest run -p vanta-memory ✅ 416/416 · cargo fmt --check ✅ · cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings ✅ exit 0. evidencia: [claim: entradas pre-cursor más viejas que retention_days se eliminan y recientes/post-cursor sobreviven → evidencia: vanta-memory/src/offload/reclaimer.rs tests stale_precursor_entries_are_deleted_recent_survive + post_cursor_entries_survive_even_when_stale → confianza: alta; claim: retention_days < 3 desactiva el reclaimer (paridad TDAM reclaimer.ts:75-78) → evidencia: test retention_below_minimum_disables_reclaimer (retention 0,1,2 → deleted=0) → confianza: alta; claim: el cursor last_offloaded_tool_call_id nunca apunta a entradas GC-eadas → evidencia: criterio ts < cursor_ts estricto + test cursor_never_points_at_deleted_entry → confianza: alta; claim: GC LLM-free e idempotente ante crash → evidencia: test reclaim_is_idempotent_across_reruns (2da pasada deleted=0), delete-by-key vía SDK idempotente (src/sdk/api.rs:503) → confianza: alta]. artefactos: vanta-memory/src/offload/reclaimer.rs (nuevo, 416L con tests), vanta-memory/src/offload/storage.rs (entries_namespace pub(crate)), vanta-memory/src/offload/mod.rs (pub mod reclaimer). invariantes: NO tocar core vantadb ni schema de OffloadEntry; sin deps nuevas (parse ISO manual days-from-civil); sin unwrap/expect en código no-test; timestamps sin TZ marker se rechazan (conservador); sin commit (instrucción explícita del orquestador). deuda: ninguna funcional — API manual/API-driven esta iteración; timer automático queda para MEM-16 post-F5. queda_pendiente: orquestador decide commit (feat: MEM-42) y ejecuta skill progreso.
+- **Contrato: verificacion: cargo check -p vanta-memory OK | cargo nextest run -p vanta-memory 427/427 (default) y 428/428 con --features fjall | cargo fmt --check OK | cargo clippy -p vanta-memory --all-targets --no-deps -D warnings OK (default y fjall). evidencia: claim MMD persiste tras reopen -> test persistence_survives_reopen (vanta-memory/src/context_engine/mmd.rs, cfg fjall), confianza alta | claim pares tool_call intactos tras inyeccion -> test c_tool_pairs_intact_after_injection (mmd_injector.rs), confianza alta | claim dedup fingerprint TDAM parity -> test b_dedup_does_not_reinject_same_content + save_active_dedup_skips_identical_content, confianza alta. artefactos: vanta-memory/src/context_engine/{mmd.rs,mmd_injector.rs,mod.rs,types.rs} + .opencode/skills/campaign-executor/tasks/MEM-24.md. invariantes: no tocar core vantadb; sin unwrap/expect en produccion; sin deps nuevas; formato SceneMeta (D23). deuda: ninguna funcional; test D19(d) solo corre con --features fjall (documentado en task file). queda_pendiente: integracion LLM para GENERAR content (out of scope aca, proxima tarea del plan); commit pendiente (prohibido por orquestador).
 - **Pre-mortem:** (1) estimator chars/3 subestima CJK → documentar techo, D21 lo acepta; (2) truncar pares tool_call rompe wire OpenAI/Anthropic → guard adjustForToolCallPair desde el día 1 (TDAM mmd-injector.ts:231)
 - **Stop conditions:** appetite 1d excedido sin estimator+truncate+report green → ⬛ CANCELADO y partir en 2 tareas
 - **Risk Register:**
@@ -172,7 +172,7 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 - **Cynefin:** 🟨 complicado — una decisión de diseño abierta (D23), resto mecánico
 - **Top 3 riesgos:** formato, budget, dedup
 - **Uphill/Downhill:** ⬆️ 1 (D23) · ⬇️ 4 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-24.md`
 - **Branch:** | **Commit:**
 - **Iteraciones:** | — | — | — | — |
@@ -277,11 +277,11 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: MEM-42: Reclaimer GC de artefactos offload (Task 8, plan P29)
+Objetivo activo: MEM-24: MMD persistente (Task 6 P29)
 Estado: pending ⏳
-Última acción: Completé el trabajo parcial heredado: corregí entries_namespace a pub(crate) en storage.rs, declaré pub mod reclaimer en mod.rs, arreglé 3 tests con OffloadStorage::new(&db)→db.clone(), hice obligatorio el TZ marker en iso_to_epoch_secs (naive→None, conservador), reemplacé NOW_DAY_30 (día 30 desde 1970 vs entradas 2026 — cutoff anterior a todo) por now()=epoch real de 2026-08-31, y corregí el test post-cursor que sembraba timestamp anterior al cursor contradiciendo el criterio timestamp-based. Verify completo verde.
+Última acción: Implementados mmd.rs (TaskMemory/SceneMeta, save/load_active, push/list_history, fingerprint, budget 4000) + mmd_injector.rs (inject_mmd post-prefix pair-safe, descuenta budget) + wiring mod.rs + variantes ContextError::Store/Payload. Tests D19 (a)-(d): 20 tests nuevos, suite completa 427/427 (428 con fjall). Verify contract completo exit 0.
 Resultado: OK
-Próxima acción: Ninguna para esta tarea. Próxima tarea del plan P29 (Wave 2) según orden del plan file.
+Próxima acción: Orquestador: commitear (feat: MEM-24) y lanzar proxima tarea del plan (integracion LLM content)
 Contrato: por tarea — cargo check/nextest/fmt/clippy -p vanta-memory exit 0 + tests D19
-Próxima tarea si completa: 9
+Próxima tarea si completa: 7
 === END RECITATION ===

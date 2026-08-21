@@ -63,6 +63,10 @@ pub struct CompactionReport {
 pub enum ContextError {
     #[error("chars_per_token must be greater than zero")]
     InvalidConfig,
+    #[error("vantadb store error: {0}")]
+    Store(#[from] vantadb::error::VantaError),
+    #[error("malformed task-memory payload: {0}")]
+    Payload(#[from] serde_json::Error),
 }
 
 #[cfg(test)]
