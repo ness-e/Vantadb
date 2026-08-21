@@ -15,10 +15,17 @@ pub mod l1_dedup;
 /// L2 scene extraction prompt family (MEM-14, F4).
 pub mod scene_extraction;
 
+/// L3 persona generation prompt family (MEM-15, F4).
+pub mod persona_generation;
+
 pub use l1_dedup::{
     format_batch_conflict_prompt, get_conflict_detection_system_prompt, CandidateMatch,
 };
 pub use l1_extraction::{extract_memories_system_prompt, format_extraction_prompt, PromptMode};
+pub use persona_generation::{
+    build_persona_prompt, persona_char_limit, PersonaPromptParams, PersonaPromptResult,
+    MAX_PERSONA_CHARS_CHAT, MAX_PERSONA_CHARS_WORK,
+};
 pub use scene_extraction::{
     build_scene_extraction_prompt, SceneExtractionPromptParams, SceneExtractionPromptResult,
 };

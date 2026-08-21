@@ -26,3 +26,6 @@ pub mod prompts;
 
 /// L2 scene contracts + LLM-free scene index (MEM-12).
 pub mod scene;
+
+/// L3 persona: trigger heuristics + first/incremental generation (MEM-15).
+pub mod persona;

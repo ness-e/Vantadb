@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID:** a94098b3-63c6-478e-b8e5-6f117b8d7aa5
+> **Campaign ID:** 15650961-5275-4137-b16b-d9d110f790ba
 > **Inicio:** 2026-08-18
-> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..14 ✅ — 17/24)
+> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..15 ✅ — 18/24)
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Catálogo:** `docs/Backlog.md` — filas MEM-01..38 (este plan es el estado de ejecución; el backlog es el catálogo)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
@@ -253,7 +253,7 @@
 - **Gate Justificación:** modos first/incremental, límites, escapeXml, triggers; referencia `MC/core/persona/persona-generator.ts` (304), `persona-trigger.ts` (136), `MC/core/prompts/persona-generation.ts` (329), `MC/core/scene/scene-navigation.ts` (76)
 - **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de persona (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-15.md`
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 19: MEM-16 — F4 Orquestación timers+locks (estado local, reloj fake)
 - **Archivos clave:** `vanta-memory/src/utils/stateful_pipeline_manager.rs` (crear), `vanta-memory/src/utils/pipeline_manager.rs` (crear), `vanta-memory/src/utils/pipeline_factory.rs` (crear), `vanta-memory/src/services/pipeline_worker.rs` (crear), `vanta-memory/src/utils/timer_scanner.rs` (crear), `vanta-memory/src/utils/managed_timer.rs` (crear), `vanta-memory/src/utils/checkpoint.rs` (crear), `vanta-memory/src/core/state/types.rs` (crear), `vanta-memory/src/utils/local_backend.rs` (crear)
@@ -338,11 +338,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 97e683bd-39d0-4402-b655-e224bd36be3c
-Objetivo activo: MEM-14: F4 Strategy UPDATE>MERGE>CREATE + heat + soft-delete
+Objetivo activo: F4 (MEM-08a..21) — crate vanta-memory LLM-driven
 Estado: in-progress ⏳
-Última acción: Implementada estrategia L2 completa en vanta-memory: scene_format.rs (+SOFT_DELETE_MARKER, deleted flag serde-default), scene_index.rs (write_scene_block pub, soft_delete_scene idempotente, filtro deleted en list/current), scene_tools.rs (validators pub(crate)), filename_normalizer.rs (nuevo, resuelve deuda MEM-12 a/b→ab≠a_b), scene_extractor.rs (nuevo: decide_strategy pura + apply_strategy + extract_scenes_with_llm genérico con degrade Principio 4), prompts/scene_extraction.rs (nuevo, inglés), wiring mod.rs ×2, tests D19 tests/scene_strategy.rs
-Resultado: ✅ 4/4 gates exit 0: check ✅, nextest 177/177 (+48 nuevos) ✅, fmt ✅, clippy -D warnings ✅
-Próxima acción: Ninguna para MEM-14; lead commitea (feat: MEM-14); siguiente tarea del plan: Task 18 MEM-15 (F4 Persona first/incremental + triggers)
+Última acción: MEM-15 implementada: scene_navigation.rs (NAV_HEADER paridad TDAM, heat_emoji, generate/strip), prompts/persona_generation.rs (system chat 4 capas + work doctrine EN inglés Principio 7, contrato JSON {"persona":...}, límites 2000/1200), persona_trigger.rs (P1-P4 puros sobre enum MEM-08b), persona_generator.rs (namespace persona/<session>, PersonaRecord, escape_xml_tags port exacto de sanitize.ts:288, generate_persona<R: LlmRunner> con detección de cambios RFC3339 lexicográfica, skip sin llamar al LLM, post-proceso strip→trim→escape→límite con rechazo preservando persona previa, append nav fresca); wiring ×3 mod.rs; tests D19 tests/persona.rs (14) + unit tests en 4 módulos
+Resultado: OK
+Próxima acción: Ninguna para MEM-15. El lead commitea (feat: MEM-15) y delega Task 19 (MEM-16 — F4 Orquestación timers+locks)
 Contrato: `cargo check -p vanta-memory` pasa; tests dedicados (D19)
-Próxima tarea si completa: Task 18 (MEM-15)
+Próxima tarea si completa: 19
 === END RECITATION ===
