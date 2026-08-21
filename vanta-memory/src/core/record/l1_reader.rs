@@ -76,7 +76,7 @@ pub fn read_record(
 /// Tokenize content into a lowercased set of significant terms (words of ≥3
 /// chars). Stopword-free on purpose: the heuristic is a cheap recall gate, not
 /// a ranking engine — see [`recall_candidates`] for the documented ceiling.
-fn significant_terms(content: &str) -> HashSet<String> {
+pub(crate) fn significant_terms(content: &str) -> HashSet<String> {
     content
         .split(|c: char| !c.is_alphanumeric() && c != '_')
         .map(str::to_lowercase)
@@ -85,7 +85,7 @@ fn significant_terms(content: &str) -> HashSet<String> {
 }
 
 /// Overlap score between two contents (count of shared significant terms).
-fn overlap_score(a: &str, b: &str) -> usize {
+pub(crate) fn overlap_score(a: &str, b: &str) -> usize {
     let a_terms = significant_terms(a);
     let b_terms = significant_terms(b);
     a_terms.intersection(&b_terms).count()

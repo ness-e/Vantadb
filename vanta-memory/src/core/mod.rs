@@ -37,3 +37,10 @@ pub mod state;
 /// Skill extraction from transcripts + conversation-add pipeline with an
 /// idempotent sink (MEM-17).
 pub mod skill;
+
+/// Auto-recall: prepend/append context injection with 3 recall modes
+/// (MEM-18).
+pub mod memory_prompt;
+
+/// Team+agent profile scoping + persona sync (MEM-18).
+pub mod profile;

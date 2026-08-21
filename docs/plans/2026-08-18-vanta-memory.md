@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID:** b700d4e9-1ce3-4b9f-969f-dfa32b566250
+> **Campaign ID:** 0428be74-3626-4da5-8ac1-53b12dd562d8
 > **Inicio:** 2026-08-18
-> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..17 ✅ — 20/24)
+> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..18 ✅ — 21/24)
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Catálogo:** `docs/Backlog.md` — filas MEM-01..38 (este plan es el estado de ejecución; el backlog es el catálogo)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
@@ -274,7 +274,7 @@
 - **Gate Justificación:** prepend/append + 3 modos recall; referencia `MC/core/hooks/auto-recall.ts` (999), `MC/core/memory-prompt/composer.ts` (41), `resolver.ts` (102), `types.ts` (142), `MC/core/profile/profile-sync.ts` (494)
 - **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de recall (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-18.md`
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 22: MEM-19 — F4 sanitize_text + truncación code-point
 - **Archivos clave:** `vanta-memory/src/utils/sanitize.rs` (crear), `vanta-memory/src/utils/text_utils.rs` (crear)
@@ -338,11 +338,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 97e683bd-39d0-4402-b655-e224bd36be3c
-Objetivo activo: MEM-17: F4 Skill extract transcript + sink idempotente
+Objetivo activo: MEM-18: F4 Recall prepend/append + 3 modos
 Estado: in-progress ⏳
-Última acción: Pipeline skill-extract completo: prompts review v2 (taxonomía SOP/Background/Preference) + listing; extractor con transcript markers <<past-*>> + end-anchor, truncado head/tail 8000/32000, query sanitizer FTS5-safe; conversation_add consolidado a 5 módulos (compressor char-boundary-safe, oversize TDAM-parity, archive VantaDB con orden archive→task, sink IDEMPOTENTE doble capa cursor+content-hash, worker con ghost-check y retry pending). 28 tests D19. Verify 4/4 gates exit 0.
+Última acción: Implementado recall completo: auto_recall.rs (3 modos keyword/embedding/hybrid con degradacion documentada, split prepend_context L1-dinamico vs append_system_context persona+scene-nav+tools-guide, budget per-memory+total char-boundary-safe), memory_prompt types/composer/resolver (cadena agent>team>instance, passthrough byte-for-byte, escape closing tags), profile_sync (scope team|agent, sync persona idempotente por igualdad de contenido). 27 tests D19 nuevos. 4/4 gates exit 0
 Resultado: OK
-Próxima acción: Ninguna para MEM-17. Siguiente: Task 21 (MEM-18 — recall prepend/append + 3 modos); el lead commitea feat: MEM-17
+Próxima acción: Ninguna para MEM-18. El lead commitea (feat: MEM-18) y delega Task 22 (MEM-19 — sanitize_text + truncacion code-point)
 Contrato: `cargo check -p vanta-memory` pasa; tests dedicados (D19)
-Próxima tarea si completa: 21
+Próxima tarea si completa: 22
 === END RECITATION ===
