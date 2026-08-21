@@ -25,10 +25,18 @@
 - **D27:** F7 = **worker único** (research 08 §6: "1 servicio, no 2" — NO copiar KS+Panel separados). Wiki store state machine LLM-free en core `src/wiki/`; ingest con LLM en `vanta-memory/src/ingest/`.
 - **D28:** tools code_* sobre graphrag PROPIO (`src/graph.rs` bfs/dfs/topological + graphrag existente) — NO `@colbymchenry/codegraph`.
 - **D29:** inyección L2/L3 en system prompt; L0/L1 expuestos como tools (no invalidar KV-cache — TDAM README:28).
-- **D30:** SSRF blocklist https-only **NO desactivable** (research 08 §7 advierte no propagar el env-off de TDAM).
+- **D30:** SSRF blocklist https-only **NO desactivable** cuando se implemente fetch remoto (research 08 §7 advierte no propagar el env-off de TDAM). **Con D36 (paths locales), el fetcher HTTPS queda FUERA de scope P30** — diferido documentado hasta que haya fuentes git.
+- **D31:** config del proxy en **TOML** (upstream URL/apiKey, puerto, rate-limits, features).
+- **D32:** callbacks de progreso del ingest = **canal interno (trait/callback) + polling `wiki_status(run_id)`** — sin HTTP. El desktop lo puentea a eventos Tauri; el CLI hace poll.
+- **D33:** mem-command = **mismos 3 de TDAM** (`mem:sync | mem:create-skill | mem:help`), deshabilitado por defecto.
+- **D34:** auth del proxy **obligatoria por defecto** (user_key contra RBAC entity_*; toda request sin key válida → 401).
+- **D35:** rate-limit default **60 req/min** por spaceId×model, configurable.
+- **D36:** fuentes del wiki v1 = **paths locales** de .md (sin red). Fetcher HTTPS/git diferido (solo tendría sentido para code-graph futuro).
+- **D37:** riesgos aceptados conscientemente y confirmados por el usuario (2026-08-21): rate-limit multi-instancia, chars/3 subestima CJK, keyword-overlap sin vectores — los 3 con upgrade path documentado.
+- **Estrategia sub-agentes:** ejecutar y monitorear — si primer-intento <50%, parar e investigar el patrón vanta-worker antes de seguir.
 - **Principios heredados (vigentes):** P4 LLM opcional · P7 prompts inglés · sanitización namespace/keys · D19 tests por tarea · sin unwrap/expect en producción · errores tipados #[non_exhaustive] · conventional commits · verify mecánico del lead por tarea.
 
-Status: ⬆️ uphill = 3 (wire format Responses API mínimo viable; modelo de config del proxy; binding LLM para ingest wiki) · ⬇️ downhill = ~35 steps estimados
+Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ downhill = ~35 steps estimados
 
 ---
 
@@ -80,28 +88,28 @@ Status: ⬆️ uphill = 3 (wire format Responses API mínimo viable; modelo de c
 - **Iteraciones:** | — | — | — | — |
 - **Notas:** Ruta: vanta-worker. Toca core `vantadb` — leer `.opencode/rules/core-engine.md` + api-contract.md antes de editar.
 
-### Task 3: MEM-29 — Fetcher SSRF https-only + chunker 12k/400
+### Task 3: MEM-29 — Fuentes locales del wiki + chunker 12k/400
 - **Appetite:** max 1d
 - **Esfuerzo:** 🟢 | **Prioridad:** 🟠
-- **Archivos clave:** `src/wiki/fetcher.rs` (crear), `src/wiki/chunker.rs` (crear)
-- **Verificación real:** ✅ CÓDIGO-REAL — no existen; TDAM refs: git-fetcher.ts:59-63 https-only, SSRF blocklist PRIVATE_ADDR_RE 10./172.16-31./192.168./169.254./127./0./localhost/::1/fe80: (l.25-26), chunker defaults 12000/400 (chunker.ts:19-20), SOURCE_CHAR_BUDGET=28000 (ingest-v2/index.ts:78)
-- **Gate Justificación:** seguridad (trust boundary — fetch de repos remotos) + fundación del ingest; D30 fija SSRF NO desactivable
+- **Archivos clave:** `src/wiki/sources.rs` (crear — scanner de paths locales), `src/wiki/chunker.rs` (crear)
+- **Verificación real:** ✅ CÓDIGO-REAL — no existen; TDAM refs: chunker defaults 12000/400 (chunker.ts:19-20), SOURCE_CHAR_BUDGET=28000 (ingest-v2/index.ts:78)
+- **Gate Justificación:** fundación del ingest; D36 fija paths locales (sin red) — el fetcher HTTPS/SSRF queda FUERA de scope P30 (diferido documentado hasta que haya fuentes git; el riesgo 🔴×🔴 SSRF desaparece de esta campaña)
 - **Gate Result:** ✅ DO
-- **Contrato:** "`cargo check -p vantadb` pasa; tests D19: (a) URL http:// rechazada; (b) IPs privadas/localhost/link-local rechazadas post-DNS-resolución simulada; (c) chunker 12000/400 produce chunks esperados; (d) SOURCE_CHAR_BUDGET 28000 respeta; (e) pares/estructura no corrompida en boundaries"
-- **Pre-mortem:** (1) validación post-DNS en Rust sin deps async pesadas → resolver DNS con std::net::ToSocketAddrs (sync, suficiente); (2) dep de red → feature-gate para WASM (backlog row lo exige)
-- **Stop conditions:** si fetch HTTPS real requiere deps nuevas (reqwest ya está detrás de feature llm-driver — reusarla) → feature-gate y documentar
+- **Contrato:** "`cargo check -p vantadb` pasa; tests D19: (a) scanner descubre .md en path local recursivo; (b) chunker 12000/400 produce chunks esperados; (c) SOURCE_CHAR_BUDGET 28000 respeta; (d) boundaries sin corromper estructura; (e) path inexistente/fuera de raíz permitida → error claro (path traversal guard)"
+- **Pre-mortem:** (1) path traversal (../ fuera de la raíz del wiki) → canonicalizar y validar prefijo; (2) archivos binarios/no-.md mezclados → filtrar por extensión + skip con log
+- **Stop conditions:** ninguno previsto — tarea mecánica
 - **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger/Due |
   |---|---|---|---|
-  | 🔴×🔴 | SSRF bypass (DNS rebinding) | validar IP post-resolución + blocklist; test con hostnames mockeados | test b |
-  | 🟡×🟡 | reqwest en WASM | feature-gate `wiki-fetch` (nunca default) | build wasm check |
-- **Cynefin:** 🟦 obvio (con rigor de seguridad)
+  | 🟡×🟠 | path traversal lee fuera de la raíz | canonicalize + starts_with(raíz) + test | test e |
+  | 🟢×🟡 | symlinks escapando la raíz | seguir solo files regulares post-canonicalize | diseño |
+- **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 3 steps
 - **Estado:** ⬜ PENDING
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-29.md`
 - **Branch:** | **Commit:**
 - **Iteraciones:** | — | — | — | — |
-- **Notas:** Ruta: vanta-worker. SECURITY phase obligatoria (trust boundary) — skill security-and-hardening.
+- **Notas:** Ruta: vanta-worker. SECURITY phase (path traversal es trust boundary). Fetcher HTTPS+SSRF diferido — cuando se implemente, aplicar D30 (no desactivable).
 
 ### Task 4: MEM-25 — vanta-proxy crate + 3 protocolos wire verbatim
 - **Appetite:** max 3d
@@ -111,7 +119,7 @@ Status: ⬆️ uphill = 3 (wire format Responses API mínimo viable; modelo de c
 - **Gate Justificación:** alta adopción coding agents (SYNTHESIS fila 8); D5 decisión previa: crate aparte
 - **Gate Result:** ✅ DO
 - **Contrato:** "`cargo check -p vanta-proxy` pasa; tests D19 con upstream mockeado (axum test server): (a) /v1/chat/completions forward verbatim (body/headers intactos); (b) /v1/messages ídem; (c) /v1/responses ídem (subset mínimo documentado); (d) upstream timeout → 504/502 claro; (e) upstream caído → 502; (f) /health; (g) streaming passthrough (SSE intacto)"
-- **Pre-mortem:** (1) Responses API de TDAM acoplada a Codex/WorkBuddy handlers → portar SOLO el subset genérico /v1/responses, documentar recorte; (2) SSE streaming por axum → usar body stream passthrough sin buffering; (3) config model → decidir formato (YAML/TOML/env) en DISCOVERY, minimal
+- **Pre-mortem:** (1) Responses API de TDAM acoplada a Codex/WorkBuddy handlers → portar SOLO el subset genérico /v1/responses, documentar recorte; (2) SSE streaming por axum → usar body stream passthrough sin buffering; (3) ~~config model~~ → **D31: TOML** (`vanta-proxy/config.toml` con serde).
 - **Stop conditions:** appetite 3d excedido → entregar OpenAI+Anthropic (Responses a tarea propia ⬛)
 - **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger/Due |
@@ -121,7 +129,7 @@ Status: ⬆️ uphill = 3 (wire format Responses API mínimo viable; modelo de c
   | 🟡×🟡 | headers hop-by-hop mal reenviados | whitelist de headers; test | diseño |
 - **Cynefin:** 🟨 complicado — protocolos conocidos, detalles de streaming analizable
 - **Top 3 riesgos:** SSE, scope Responses, headers
-- **Uphill/Downhill:** ⬆️ 1 (config format) · ⬇️ 5 steps
+- **Uphill/Downhill:** ⬆️ 0 (D31 TOML) · ⬇️ 5 steps
 - **Estado:** ⬜ PENDING
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-25.md`
 - **Branch:** | **Commit:**
@@ -146,7 +154,7 @@ Status: ⬆️ uphill = 3 (wire format Responses API mínimo viable; modelo de c
   | 🟢×🟠 | fallo parcial deja índice inconsistente | write por página atómico + log de fallos | test c |
 - **Cynefin:** 🟧 complejo — el comportamiento emerge al probar con contenido real; steps cortos con verify frecuente
 - **Top 3 riesgos:** alucinación merge, concurrencia, consistencia parcial
-- **Uphill/Downhill:** ⬆️ 1 (binding LLM para ingest — reusar LlmRunner del crate) · ⬇️ 5 steps
+- **Uphill/Downhill:** ⬆️ 0 (binding = LlmRunner del crate, decisión fija) · ⬇️ 5 steps
 - **Estado:** ⬜ PENDING
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-30.md`
 - **Branch:** | **Commit:**
@@ -160,7 +168,7 @@ Status: ⬆️ uphill = 3 (wire format Responses API mínimo viable; modelo de c
 - **Verificación real:** ✅ CÓDIGO-REAL — depende de Task 4; TDAM refs verificadas: sessionKey headers (session-key.ts:9-19), state machine local form team→agent→task TTL 30min solo pending (store.ts:31,116), inyección L2/L3 system prompt + L0/L1 como tools (README:28), resolución apiKey server-key|passthrough (handler.ts:1095-1104)
 - **Gate Justificación:** el ciclo es el valor del proxy (sin él es reverse-proxy tonto); D25/D26/D29 fijan el diseño local-first
 - **Gate Result:** ✅ DO
-- **Contrato:** "`cargo check -p vanta-proxy` pasa; tests D19 con upstream+db mockeados: (a) auth user_key válida/inválida contra RBAC local; (b) sessionKey extraído de cada header alias; (c) state machine team→agent→task con TTL pending; (d) inyección persona/escenas en system prompt (desde vanta-memory vía lib); (e) L0/L1 expuestos como tools en el request; (f) sin sesión previa → init limpio"
+- **Contrato:** "`cargo check -p vanta-proxy` pasa; tests D19 con upstream+db mockeados: (a) auth user_key válida/inválida contra RBAC local — **D34: toda request sin key válida → 401, sin modo open** contra RBAC local; (b) sessionKey extraído de cada header alias; (c) state machine team→agent→task con TTL pending; (d) inyección persona/escenas en system prompt (desde vanta-memory vía lib); (e) L0/L1 expuestos como tools en el request; (f) sin sesión previa → init limpio"
 - **Pre-mortem:** (1) vanta-proxy depende de vanta-memory (inyección) + vantadb (auth) → deps de workspace dirigidas, cuidado ciclos (vanta-memory→vantadb ya existe; proxy→ambas OK); (2) inyección rompe KV-cache si va al history → D29: solo system prompt + tools
 - **Stop conditions:** si la integración con vanta-memory exige cambios en el crate → exponer trait/facade mínima en vanta-memory (task aditiva pequeña) y documentar
 - **Risk Register:**
@@ -200,23 +208,23 @@ Status: ⬆️ uphill = 3 (wire format Responses API mínimo viable; modelo de c
 - **Iteraciones:** | — | — | — | — |
 - **Notas:** Ruta: vanta-worker. DEPENDE de Tasks 2+5.
 
-### Task 8: MEM-31 — Callback S2S con run_id + progreso throttled
+### Task 8: MEM-31 — Progreso de ingest: canal interno + polling con run_id
 - **Appetite:** max 1d
 - **Esfuerzo:** 🟢 | **Prioridad:** 🟡
-- **Archivos clave:** `vanta-memory/src/ingest/callback.rs` (crear), receptor en vantadb-server o hook local (decidir en DISCOVERY según D27: destino propio, NO Panel)
-- **Verificación real:** ✅ CÓDIGO-REAL — callback.rs NO existe; TDAM refs: callback.ts:60 (URL status-callback), run_id randomUUID compartido con progress (:1026), throttle PROGRESS_THROTTLE_MS=500 (manager.ts:110,121), summary ≤100 chars ≤20 páginas slice(0,256) (callback.ts:134-173), fire-and-forget (:90-101)
-- **Gate Justificación:** rechazo de paquetes tardíos (build anterior) es el patrón clave; backlog lo marca con decisión de destino pendiente → D27: destino = endpoint propio en vantadb-server o hook local; DECIDIR en DISCOVERY con evidencia y documentar
+- **Archivos clave:** `vanta-memory/src/ingest/callback.rs` (crear — canal interno + `wiki_status(run_id)` consultable)
+- **Verificación real:** ✅ CÓDIGO-REAL — callback.rs NO existe; TDAM refs: run_id randomUUID compartido con progress (wiki-service.ts:1026), throttle PROGRESS_THROTTLE_MS=500 (manager.ts:110,121), fases extracting|merging|indexing con {total,completed,failed,skipped,percent}; **D32: canal interno + polling, sin HTTP**
+- **Gate Justificación:** rechazo de paquetes tardíos (build anterior) es el patrón clave; D32 cierra el destino: canal interno + polling `wiki_status(run_id)` — sin HTTP ni auth S2S. El desktop lo puentea a eventos Tauri después.
 - **Gate Result:** ✅ DO
-- **Contrato:** "`cargo check -p vanta-memory` pasa; tests D19: (a) callback con run_id viejo es descartado; (b) throttle 500ms entre emisiones; (c) summary truncado a los límites; (d) fire-and-forget: fallo de red no bloquea ingest; (e) fases extracting|merging|indexing con {total,completed,failed,skipped,percent}"
-- **Pre-mortem:** (1) HTTP client para callback → reqwest ya existe tras feature llm-driver; si el destino es hook local, ni eso hace falta; (2) run_id sin persistir → guardar en el store del wiki (MEM-28)
-- **Stop conditions:** si el destino HTTP exige auth S2S compleja → hook local síncrono y documentar (el valor es el run_id + throttle)
+- **Contrato:** "`cargo check -p vanta-memory` pasa; tests D19: (a) consulta con run_id viejo es descartada; (b) throttle 500ms entre actualizaciones de progreso; (c) summary truncado a los límites; (d) el canal interno nunca bloquea el ingest; (e) fases extracting|merging|indexing con {total,completed,failed,skipped,percent}; (f) wiki_status(run_id) consultable desde otro handle"
+- **Pre-mortem:** (1) progreso live en desktop → puente Tauri event sobre el canal interno (fuera de scope acá, solo el trait); (2) run_id sin persistir → guardar en el store del wiki (MEM-28)
+- **Stop conditions:** ninguno previsto — canal interno es mecánico
 - **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger/Due |
   |---|---|---|---|
   | 🟡×🟡 | paquetes tardíos corrompen estado | filtro run_id estricto + test a | test a |
-  | 🟢×🟢 | callback flood | throttle 500ms | test b |
+  | 🟢×🟢 | update flood | throttle 500ms | test b |
 - **Cynefin:** 🟦 obvio
-- **Uphill/Downhill:** ⬆️ 1 (destino del callback) · ⬇️ 3 steps
+- **Uphill/Downhill:** ⬆️ 0 (D32) · ⬇️ 3 steps
 - **Estado:** ⬜ PENDING
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-31.md`
 - **Branch:** | **Commit:**
@@ -230,8 +238,8 @@ Status: ⬆️ uphill = 3 (wire format Responses API mínimo viable; modelo de c
 - **Verificación real:** ✅ CÓDIGO-REAL — depende de Tasks 4+6; TDAM refs: sliding window 60s bucket spaceId×model (redis-store.ts:324-326), fail-open (guard.ts:40-51), 429 Retry-After (:111-121), write-back withL0Retry 3 intentos backoff 500ms→1s→2s (handler.ts:1986-1996, pending-writes.ts:38-108), flush SIGTERM (index.ts:154-169), mem-command mem:sync|create-skill|help deshabilitado por defecto (index.ts:24)
 - **Gate Justificación:** completa el ciclo del proxy; D24 fija in-process sin Redis
 - **Gate Result:** ✅ DO
-- **Contrato:** "`cargo check -p vanta-proxy` pasa; tests D19: (a) sliding window 60s por spaceId×model bloquea el exceso con 429+Retry-After; (b) fail-open consciente (degraded → allow + log warn); (c) write-back L0 fire-and-forget retry 3 backoff exponencial; (d) flush de pendientes en shutdown graceful; (e) mem-command deshabilitado por defecto, habilitado por config responde sync/help; (f) reporting log por turno (sin Opik/Langfuse/ClickHouse — log estructurado local)"
-- **Pre-mortem:** (1) sliding window in-process pierde estado multi-instancia → documentado: single-instance por diseño (local-first); (2) reporting externo (Opik/Langfuse/ClickHouse) es scope creep → log estructurado JSON local, hooks para backends futuros
+- **Contrato:** "`cargo check -p vanta-proxy` pasa; tests D19: (a) sliding window 60s por spaceId×model con default **60 req/min (D35)** bloquea el exceso con 429+Retry-After; (b) fail-open consciente (degraded → allow + log warn); (c) write-back L0 fire-and-forget retry 3 backoff exponencial; (d) flush de pendientes en shutdown graceful; (e) mem-command con los **3 comandos de TDAM (D33)**: mem:sync | mem:create-skill | mem:help — deshabilitado por defecto, habilitado por config responde sync/help; (f) reporting log por turno (sin Opik/Langfuse/ClickHouse — log estructurado local); (g) toda request sin user_key válida → 401 (**D34 auth obligatoria**)"
+- **Pre-mortem:** (1) sliding window in-process pierde estado multi-instancia → **D37 aceptado**: single-instance por diseño (local-first); (2) reporting externo (Opik/Langfuse/ClickHouse) es scope creep → log estructurado JSON local, hooks para backends futuros
 - **Stop conditions:** appetite 2d excedido → entregar rate-limit + write-back (reporting/mem-command a tarea propia ⬛)
 - **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger/Due |
