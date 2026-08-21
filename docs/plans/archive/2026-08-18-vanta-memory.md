@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID:** 41757e63-d72d-423a-95eb-12d5ea849d1a
+> **Campaign ID: 41757e63-d72d-423a-95eb-12d5ea849d1a
 > **Inicio:** 2026-08-18
-> **Estado:** ✅ COMPLETADO (F1+F2+F3+F4 — 24/24 tareas)
+> **Estado: completed
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Catálogo:** `docs/Backlog.md` — filas MEM-01..38 (este plan es el estado de ejecución; el backlog es el catálogo)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
@@ -118,7 +118,7 @@
 ### Task 1: MEM-01 — F1 Search profile por namespace en core
 - **Archivos clave:** `src/planner.rs`, `src/sdk/serialization/vector_types.rs`, `src/sdk/types.rs`, `src/sdk/search/mod.rs`, `src/cli_server.rs` (parser IQL)
 - **Gate Justificación:** F1 base — parametriza planner con `SearchProfileConfig`, expone en IQL/API/MCP (D13), report RRF incluye `rrf_k` (D20)
-- **Contrato: verificacion: cargo check -p vanta-memory ✅; cargo nextest run -p vanta-memory ✅ (361 tests, 10 nuevos D19); cargo fmt --check ✅; cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings ✅. evidencia: claim=3 handlers scene_read/list/query implementados como capa tipada serde sobre scene_index → evidencia=vanta-memory/src/gateway/knowledge_handlers.rs (alta); claim=soft-delete respetado (read→NotFound, list/query excluidos) → evidencia=tests read_soft_deleted_scene_is_not_found + list_matches_index_parity + query_scores_summary_and_content_and_excludes_deleted (alta); claim=query keyword LLM-free via overlap_score/significant_terms → evidencia=l1_reader.rs:79-92 reutilizado, sin deps nuevas (alta). artefactos: vanta-memory/src/gateway/knowledge_handlers.rs, vanta-memory/src/gateway/mod.rs, vanta-memory/src/core/scene/scene_index.rs (read_blocks pub(crate)), .opencode/skills/campaign-executor/tasks/MEM-21.md
+- **Contrato: cargo check -p vanta-memory pasa; tests dedicados (D19) — evidencia: nextest 361/361 exit 0, fmt exit 0, clippy -D warnings exit 0; commit 31e676b1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
 - **Estado:** ✅ COMPLETED (commit `6a50b8ee`, verify `cargo check -p vantadb` ✅ 2026-08-20)
 - **last-synced:** 2026-08-20T08:00
@@ -338,11 +338,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 97e683bd-39d0-4402-b655-e224bd36be3c
-Objetivo activo: MEM-21 (Task 24): F4 Tools MCP scene_read/list/query — última de F4
+Objetivo activo: F4 (MEM-08a..21) — crate vanta-memory LLM-driven — COMPLETADA
 Estado: in-progress ⏳
-Última acción: MEM-21 completado: knowledge_handlers.rs con 3 handlers puros (scene_read→NotFound si missing/deleted; scene_list paridad list_scenes heat desc; scene_query overlap_score sobre content+summary con top_k default 5), KnowledgeError non_exhaustive, wiring gateway/mod.rs, read_blocks pub(crate); 10 tests D19 nuevos; verify fmt+clippy+nextest 3/3 exit 0
+Última acción: MEM-21 tools MCP scene_read/list/query: gateway/knowledge_handlers.rs con 3 handlers puros (scene_read respeta soft-delete→NotFound, scene_list heat desc excluye deleted, scene_query ranking overlap_score top_k=5), tipos wire serde snake_case, KnowledgeError #[non_exhaustive], read_blocks pub(crate); lead verificó mecánicamente (361/361) y commiteó. CAMPAÑA P27 COMPLETA 24/24
 Resultado: OK
-Próxima acción: ninguna — tarea completada; commit pendiente del lead (F4 completa MEM-08a..21)
+Próxima acción: Campaña completada — ejecutar skill progreso Trigger 1 + checkpoint + reporte final al usuario
 Contrato: `cargo check -p vanta-memory` pasa; tests dedicados (D19)
-Próxima tarea si completa: ninguna (última de F4)
+Próxima tarea si completa: ninguna
 === END RECITATION ===

@@ -253,6 +253,20 @@ Delete a graph node by ID with an auditable reason (recorded as a tombstone). GI
 db.delete(id=42, reason="stale training data cleaned up")
 ```
 
+#### `supersede()`
+```python
+db.supersede(
+    namespace: str,
+    old_key: str,
+    new_key: str,
+) -> None
+```
+Mark an existing memory record as superseded by another existing record (ADR-028). The old record keeps its data but gains `superseded_by`/`superseded_at_ms` and can be hidden from search/list with `exclude_superseded=True`. Raises `RuntimeError` if either key is missing, if `old_key == new_key`, or if the old record is already superseded. GIL-released.
+
+```python
+db.supersede(namespace="agents/summary", old_key="draft-v1", new_key="draft-v2")
+```
+
 #### `search()`
 ```python
 db.search(

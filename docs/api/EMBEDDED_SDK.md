@@ -76,6 +76,7 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `similar_to_key(namespace, key, top_k)` | Vector similarity search from an existing record's vector, post-filtered to `namespace`. Errors `NotFound` if the key does not exist and `NoVectorForKey` if the record carries no vector |
 | `explain_memory_search(request)` | Search with detailed score breakdown. Returns `VantaSearchExplanation` |
 | `namespace_stats(expiring_soon_window_ms)` | Per-namespace statistics: total records, records expiring within the window, already-expired records. Single full scan (no N paginated `count`/`list` calls). `None` uses the 24h default window. Returns `VantaNamespaceStatsMap` |
+| `supersede(namespace, old_key, new_key)` | Mark `old_key` as superseded by `new_key`: the old record keeps its data (soft-dead, recoverable) but gains `superseded_by`/`superseded_at_ms`, and can be hidden from search/list with `exclude_superseded`. Errors if either key is missing, if `old_key == new_key`, or if the old record is already superseded (idempotency guard) |
 
 ### Version History (VS-CORE-07)
 
