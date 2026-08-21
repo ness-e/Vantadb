@@ -18,3 +18,6 @@ pub use state_manager::OffloadError;
 
 /// Local-LLM offload: tolerant parsing of LLM-produced JSON (MEM-10).
 pub mod local_llm;
+
+/// Reclaimer GC of stale offloaded entries, cursor-safe (MEM-42).
+pub mod reclaimer;

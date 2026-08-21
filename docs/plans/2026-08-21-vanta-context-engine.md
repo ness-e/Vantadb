@@ -2,7 +2,7 @@
 
 > **Campaign ID:** e03c2c9f-4076-4cda-a1a8-44828dc8bf30
 > **Inicio:** 2026-08-21
-> **Estado:** ⏳ EN PROGRESO (5/9 tareas)
+> **Estado:** ⏳ EN PROGRESO (6/9 tareas)
 > **Fuente:** `docs/Backlog.md` filas MEM-22..24, 37..42 + `docs/research/tdam/05-offload.md` + `SYNTHESIS.md` §2.2/§3 + auditoría post-P27 (2026-08-21) + decisiones del usuario (2026-08-21)
 > **Predecesor:** `docs/plans/archive/2026-08-18-vanta-memory.md` (P27, F1-F4 ✅ 24/24 — crate vanta-memory con L0/L1/L2/L3/recall/offload-cursor/gateway, suite 364/364)
 > **Modo:** waves por dependencias — Wave 0 (fundaciones independientes) → Wave 1 (MEM-22 núcleo) → Wave 2 (consumidores de MEM-22) → Wave 3 (gate docs).
@@ -38,7 +38,7 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 - **Verificación real:** ✅ CÓDIGO-REAL — `context_engine/` NO existe (Test-Path False); TDAM refs verificadas: `fast-token-estimate.ts` (274L), emergency trunca ~2000 chars (`llm-input-l3.ts:968,:121`), report `{messages, report}` (`compaction-handler.ts:254`)
 - **Gate Justificación:** fundación sin dependencias; gap real (no existe nada del context engine); D21 decide estimator chars/3 sin deps
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: cargo check -p vanta-memory ✅ · cargo nextest run -p vanta-memory ✅ 408/408 · cargo fmt --check ✅ · cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings ✅ | evidencia: [contrato D19 (a)-(f) cubierto → vanta-memory/tests/context_engine.rs (7 tests), alta; pares tool_call jamás partidos → unidades atómicas build_units + assert_no_orphan_results, alta; prefijo protegido cursor MEM-20 jamás tocado → test protected_prefix_never_touched + emergency prefix-aware, alta; fingerprint idempotente → test d_aggressive_one_shot_boundary_idempotent, alta] | artefactos: vanta-memory/src/context_engine/{compressor.rs, engine.rs, mod.rs, token_estimator.rs (build_units pub(crate))}, vanta-memory/tests/context_engine.rs | invariantes: sin deps nuevas · sin unwrap/expect en código nuevo · LLM-free 100% · core vantadb intacto · último User + min_keep=2 intactos | deuda: scoring heurístico sustituye score LLM L1 (upgrade post-MEM-24); stub [compacted N chars] sin semántica; prefijo protegido que solo exceda el budget devuelve over-budget sin violar el cursor | queda_pendiente: commit (orquestador ordenó NO commitear); lead decide commit + siguiente tarea
+- **Contrato: verificacion: cargo check -p vanta-memory ✅ · cargo nextest run -p vanta-memory ✅ 416/416 · cargo fmt --check ✅ · cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings ✅ exit 0. evidencia: [claim: entradas pre-cursor más viejas que retention_days se eliminan y recientes/post-cursor sobreviven → evidencia: vanta-memory/src/offload/reclaimer.rs tests stale_precursor_entries_are_deleted_recent_survive + post_cursor_entries_survive_even_when_stale → confianza: alta; claim: retention_days < 3 desactiva el reclaimer (paridad TDAM reclaimer.ts:75-78) → evidencia: test retention_below_minimum_disables_reclaimer (retention 0,1,2 → deleted=0) → confianza: alta; claim: el cursor last_offloaded_tool_call_id nunca apunta a entradas GC-eadas → evidencia: criterio ts < cursor_ts estricto + test cursor_never_points_at_deleted_entry → confianza: alta; claim: GC LLM-free e idempotente ante crash → evidencia: test reclaim_is_idempotent_across_reruns (2da pasada deleted=0), delete-by-key vía SDK idempotente (src/sdk/api.rs:503) → confianza: alta]. artefactos: vanta-memory/src/offload/reclaimer.rs (nuevo, 416L con tests), vanta-memory/src/offload/storage.rs (entries_namespace pub(crate)), vanta-memory/src/offload/mod.rs (pub mod reclaimer). invariantes: NO tocar core vantadb ni schema de OffloadEntry; sin deps nuevas (parse ISO manual days-from-civil); sin unwrap/expect en código no-test; timestamps sin TZ marker se rechazan (conservador); sin commit (instrucción explícita del orquestador). deuda: ninguna funcional — API manual/API-driven esta iteración; timer automático queda para MEM-16 post-F5. queda_pendiente: orquestador decide commit (feat: MEM-42) y ejecuta skill progreso.
 - **Pre-mortem:** (1) estimator chars/3 subestima CJK → documentar techo, D21 lo acepta; (2) truncar pares tool_call rompe wire OpenAI/Anthropic → guard adjustForToolCallPair desde el día 1 (TDAM mmd-injector.ts:231)
 - **Stop conditions:** appetite 1d excedido sin estimator+truncate+report green → ⬛ CANCELADO y partir en 2 tareas
 - **Risk Register:**
@@ -218,7 +218,7 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
   | 🟢×🟡 | GC no idempotente tras crash | operación delete-by-key naturalmente idempotente | diseño |
 - **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 3 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-42.md`
 - **Branch:** | **Commit:**
 - **Iteraciones:** | — | — | — | — |
@@ -277,11 +277,11 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: MEM-22 — Context Engine assemble + cascada mild/aggressive (Task 5)
+Objetivo activo: MEM-42: Reclaimer GC de artefactos offload (Task 8, plan P29)
 Estado: pending ⏳
-Última acción: Implementados compressor.rs (msg_fingerprint role+200chars, score_message heurístico, AggressiveBoundary+apply_boundary), engine.rs (assemble ratio-gate <0.5 → mild_cascade 7→1 cap10 → aggressive_one_shot ≥20% head-delete → emergency prefix-aware), wiring mod.rs, tests D19 (a)-(f) + protected_prefix. Verify completo exit 0.
+Última acción: Completé el trabajo parcial heredado: corregí entries_namespace a pub(crate) en storage.rs, declaré pub mod reclaimer en mod.rs, arreglé 3 tests con OffloadStorage::new(&db)→db.clone(), hice obligatorio el TZ marker en iso_to_epoch_secs (naive→None, conservador), reemplacé NOW_DAY_30 (día 30 desde 1970 vs entradas 2026 — cutoff anterior a todo) por now()=epoch real de 2026-08-31, y corregí el test post-cursor que sembraba timestamp anterior al cursor contradiciendo el criterio timestamp-based. Verify completo verde.
 Resultado: OK
-Próxima acción: Ninguna para MEM-22; orquestador lanza próxima tarea del plan
+Próxima acción: Ninguna para esta tarea. Próxima tarea del plan P29 (Wave 2) según orden del plan file.
 Contrato: por tarea — cargo check/nextest/fmt/clippy -p vanta-memory exit 0 + tests D19
-Próxima tarea si completa: Task 6 del plan 2026-08-21-vanta-context-engine
+Próxima tarea si completa: 9
 === END RECITATION ===

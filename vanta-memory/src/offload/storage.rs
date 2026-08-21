@@ -90,7 +90,7 @@ impl OffloadStorage {
 }
 
 /// `offload/<sanitized-session>` — offloaded-entry records namespace.
-fn entries_namespace(session_id: &str) -> String {
+pub(crate) fn entries_namespace(session_id: &str) -> String {
     format!("offload/{}", sanitize_component(session_id, 128, false))
 }
 
