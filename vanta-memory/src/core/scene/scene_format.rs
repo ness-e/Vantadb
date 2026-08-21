@@ -17,6 +17,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::core::abstractions::{SceneIndexEntry, SceneMeta};
 
+/// Content marker of a soft-deleted scene (TDAM parity: the LLM "deletes" by
+/// writing this marker; the record store keeps the block with `deleted: true`
+/// instead of unlinking — see [`SceneBlock::deleted`]).
+pub const SOFT_DELETE_MARKER: &str = "[DELETED]";
+
 /// A persisted scene block: identity + META contract + content.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -28,16 +33,27 @@ pub struct SceneBlock {
     pub meta: SceneMeta,
     /// Scene content (narrative/notes of the episode).
     pub content: String,
+    /// Soft-delete flag (MEM-14). `#[serde(default)]` keeps records written
+    /// before MEM-14 parse as live (backward compatible).
+    #[serde(default)]
+    pub deleted: bool,
 }
 
 impl SceneBlock {
-    /// Build a new scene block.
+    /// Build a new scene block (live: `deleted = false`).
     pub fn new(scene_name: impl Into<String>, meta: SceneMeta, content: impl Into<String>) -> Self {
         Self {
             scene_name: scene_name.into(),
             meta,
             content: content.into(),
+            deleted: false,
         }
+    }
+
+    /// Whether the block was soft-deleted (hidden from navigation, still
+    /// recoverable via [`crate::core::scene::scene_index::get_scene`]).
+    pub fn is_deleted(&self) -> bool {
+        self.deleted
     }
 
     /// Derive the scene index entry used for listing/navigation.
@@ -99,5 +115,36 @@ mod tests {
         // SceneSegment.scene_name (L1 wire) feeds SceneBlock.scene_name directly.
         let block = SceneBlock::new("2024-08-01-22-10", meta(), "");
         assert_eq!(block.scene_name, "2024-08-01-22-10");
+    }
+
+    #[test]
+    fn new_block_is_live() {
+        let block = SceneBlock::new("s", meta(), "c");
+        assert!(!block.is_deleted());
+        assert!(!block.deleted);
+    }
+
+    #[test]
+    fn serde_roundtrip_preserves_deleted_flag() {
+        let mut block = SceneBlock::new("s", meta(), "c");
+        block.deleted = true;
+        let json = serde_json::to_string(&block).expect("serialize");
+        assert!(json.contains("\"deleted\":true"), "flag serialized: {json}");
+        let back: SceneBlock = serde_json::from_str(&json).expect("deserialize");
+        assert!(back.is_deleted());
+    }
+
+    #[test]
+    fn old_record_without_deleted_field_parses_as_live() {
+        // Backward compatibility: records written before MEM-14 have no
+        // `deleted` field — they must parse as live.
+        let json = r#"{"scene_name":"s","meta":{"created":"c","updated":"u","summary":"s","heat":1},"content":"c"}"#;
+        let block: SceneBlock = serde_json::from_str(json).expect("deserialize old record");
+        assert!(!block.is_deleted());
+    }
+
+    #[test]
+    fn soft_delete_marker_matches_tdam() {
+        assert_eq!(SOFT_DELETE_MARKER, "[DELETED]");
     }
 }

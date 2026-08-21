@@ -12,7 +12,13 @@ pub mod l1_extraction;
 /// L1 conflict-detection (dedup) prompt family (MEM-11).
 pub mod l1_dedup;
 
+/// L2 scene extraction prompt family (MEM-14, F4).
+pub mod scene_extraction;
+
 pub use l1_dedup::{
     format_batch_conflict_prompt, get_conflict_detection_system_prompt, CandidateMatch,
 };
 pub use l1_extraction::{extract_memories_system_prompt, format_extraction_prompt, PromptMode};
+pub use scene_extraction::{
+    build_scene_extraction_prompt, SceneExtractionPromptParams, SceneExtractionPromptResult,
+};

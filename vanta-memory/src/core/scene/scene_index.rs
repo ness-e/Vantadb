@@ -22,7 +22,7 @@ use thiserror::Error;
 use crate::core::abstractions::{SceneIndexEntry, SceneMeta};
 use crate::core::conversation::{now_ms, sanitize_component, sanitize_key};
 use crate::core::prompts::l1_extraction::epoch_ms_to_rfc3339;
-use crate::core::scene::scene_format::SceneBlock;
+use crate::core::scene::scene_format::{SceneBlock, SOFT_DELETE_MARKER};
 
 /// Errors from the LLM-free scene index.
 #[derive(Debug, Error)]
@@ -69,8 +69,32 @@ pub fn upsert_scene(
         },
     };
     let block = SceneBlock::new(scene_name, meta, content);
-    write_block(db, session_key, &block)?;
+    write_scene_block(db, session_key, &block)?;
     Ok(block)
+}
+
+/// Mark a scene block as soft-deleted (MEM-14): sets `deleted: true` and
+/// replaces the content with [`SOFT_DELETE_MARKER`][crate::core::scene::scene_format::SOFT_DELETE_MARKER],
+/// preserving the META contract (`created`/`updated`/`summary`/`heat` — parity
+/// with the TDAM cleanup that never touches META).
+///
+/// Idempotent: a missing scene returns `Ok(None)`; an already-deleted scene
+/// returns the existing block unchanged. Returns the written block on success.
+pub fn soft_delete_scene(
+    db: &vantadb::sdk::VantaEmbedded,
+    session_key: &str,
+    scene_name: &str,
+) -> Result<Option<SceneBlock>, SceneError> {
+    let Some(mut block) = get_scene(db, session_key, scene_name)? else {
+        return Ok(None);
+    };
+    if block.deleted {
+        return Ok(Some(block));
+    }
+    block.deleted = true;
+    block.content = SOFT_DELETE_MARKER.to_string();
+    write_scene_block(db, session_key, &block)?;
+    Ok(Some(block))
 }
 
 /// Read a scene block by name, if present.
@@ -88,18 +112,24 @@ pub fn get_scene(
 }
 
 /// List the scene index entries of a session, ordered for navigation
-/// (heat descending, then `updated` descending).
+/// (heat descending, then `updated` descending). Soft-deleted scenes are
+/// excluded (MEM-14); recover them via [`get_scene`].
 pub fn list_scenes(
     db: &vantadb::sdk::VantaEmbedded,
     session_key: &str,
 ) -> Result<Vec<SceneIndexEntry>, SceneError> {
     let blocks = read_blocks(db, session_key)?;
-    let mut entries: Vec<SceneIndexEntry> = blocks.iter().map(SceneBlock::index_entry).collect();
+    let mut entries: Vec<SceneIndexEntry> = blocks
+        .iter()
+        .filter(|b| !b.is_deleted())
+        .map(SceneBlock::index_entry)
+        .collect();
     entries.sort_by(|a, b| b.heat.cmp(&a.heat).then_with(|| b.updated.cmp(&a.updated)));
     Ok(entries)
 }
 
 /// The current (most recently updated) scene block of a session, if any.
+/// Soft-deleted scenes are excluded (MEM-14).
 ///
 /// Compares `updated` lexicographically: every timestamp comes from
 /// [`epoch_ms_to_rfc3339`] with a fixed-width format, so string order equals
@@ -111,12 +141,19 @@ pub fn current_scene(
     let blocks = read_blocks(db, session_key)?;
     Ok(blocks
         .into_iter()
+        .filter(|b| !b.is_deleted())
         .max_by(|a, b| a.meta.updated.cmp(&b.meta.updated)))
 }
 
 // ── helpers ──
 
-fn write_block(
+/// Write a scene block exactly as given (payload = serialized block).
+///
+/// Public because the L2 strategy (MEM-14) needs exact-write for the MERGE
+/// branch — `upsert_scene` cannot express `heat = sum + 1`. All other callers
+/// go through [`upsert_scene`] (CREATE/UPDATE heat semantics) or
+/// [`soft_delete_scene`].
+pub fn write_scene_block(
     db: &vantadb::sdk::VantaEmbedded,
     session_key: &str,
     block: &SceneBlock,
@@ -177,6 +214,17 @@ fn read_blocks(
 mod tests {
     use super::*;
     use crate::core::abstractions::SceneSegment;
+    use vantadb::config::VantaConfig;
+    use vantadb::storage::BackendKind;
+
+    fn open_db() -> vantadb::sdk::VantaEmbedded {
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            read_only: false,
+            ..VantaConfig::default()
+        };
+        vantadb::sdk::VantaEmbedded::open_with_config(config).expect("open in-memory db")
+    }
 
     #[test]
     fn namespace_is_scene_prefixed_and_sanitized() {
@@ -210,5 +258,83 @@ mod tests {
             "",
         );
         assert_eq!(block.scene_name, "2024-08-01-22-10");
+    }
+
+    #[test]
+    fn soft_delete_marks_and_preserves_meta() {
+        let db = open_db();
+        let block = upsert_scene(&db, "sess-1", "scene-a", "summary", "content").expect("create");
+        let created = block.meta.created.clone();
+        let heat = block.meta.heat;
+
+        let deleted = soft_delete_scene(&db, "sess-1", "scene-a")
+            .expect("soft delete")
+            .expect("exists");
+        assert!(deleted.is_deleted());
+        assert_eq!(deleted.content, SOFT_DELETE_MARKER);
+        assert_eq!(deleted.meta.created, created, "created preserved");
+        assert_eq!(deleted.meta.heat, heat, "heat preserved");
+    }
+
+    #[test]
+    fn soft_delete_missing_returns_none() {
+        let db = open_db();
+        let result = soft_delete_scene(&db, "sess-1", "ghost").expect("no error");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn soft_delete_is_idempotent() {
+        let db = open_db();
+        upsert_scene(&db, "sess-1", "scene-a", "s", "c").expect("create");
+        soft_delete_scene(&db, "sess-1", "scene-a").expect("first delete");
+        let again = soft_delete_scene(&db, "sess-1", "scene-a")
+            .expect("second delete")
+            .expect("exists");
+        assert!(again.is_deleted());
+    }
+
+    #[test]
+    fn list_and_current_exclude_deleted_but_get_recovers() {
+        let db = open_db();
+        upsert_scene(&db, "sess-1", "scene-live", "s", "c").expect("create live");
+        upsert_scene(&db, "sess-1", "scene-dead", "s", "c").expect("create dead");
+        soft_delete_scene(&db, "sess-1", "scene-dead").expect("delete");
+
+        let names: Vec<String> = list_scenes(&db, "sess-1")
+            .expect("list")
+            .iter()
+            .map(|e| e.filename.clone())
+            .collect();
+        assert_eq!(
+            names,
+            vec!["scene-live"],
+            "deleted excluded from list: {names:?}"
+        );
+
+        let current = current_scene(&db, "sess-1")
+            .expect("current")
+            .expect("live exists");
+        assert_eq!(
+            current.scene_name, "scene-live",
+            "deleted excluded from current"
+        );
+
+        let recovered = get_scene(&db, "sess-1", "scene-dead")
+            .expect("get")
+            .expect("recover");
+        assert!(recovered.is_deleted(), "get_scene returns deleted blocks");
+    }
+
+    #[test]
+    fn upsert_resurrects_deleted_scene() {
+        let db = open_db();
+        upsert_scene(&db, "sess-1", "scene-a", "old", "old content").expect("create");
+        soft_delete_scene(&db, "sess-1", "scene-a").expect("delete");
+
+        let revived = upsert_scene(&db, "sess-1", "scene-a", "new", "new content").expect("upsert");
+        assert!(!revived.is_deleted(), "upsert writes a live block");
+        assert_eq!(revived.content, "new content");
+        assert_eq!(revived.meta.heat, 2, "heat bumps from old+1 (old was 1)");
     }
 }

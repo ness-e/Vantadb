@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID:** 09f41667-6ab8-40bf-a110-3a764ea26d8c
+> **Campaign ID:** a94098b3-63c6-478e-b8e5-6f117b8d7aa5
 > **Inicio:** 2026-08-18
-> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..13 ✅ — 16/24)
+> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..14 ✅ — 17/24)
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Catálogo:** `docs/Backlog.md` — filas MEM-01..38 (este plan es el estado de ejecución; el backlog es el catálogo)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
@@ -246,7 +246,7 @@
 - **Gate Justificación:** estrategia UPDATE>MERGE>CREATE, heat, soft-delete, emptyExtraction; referencia `MC/core/scene/scene-extractor.ts` (604), `MC/core/prompts/scene-extraction.ts` (572), `filename-normalizer.ts`, `scene-format.ts`
 - **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de strategy escena (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-14.md`
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 18: MEM-15 — F4 Persona first/incremental + triggers
 - **Archivos clave:** `vanta-memory/src/core/persona/persona_generator.rs` (crear), `vanta-memory/src/core/persona/persona_trigger.rs` (crear), `vanta-memory/src/core/prompts/persona_generation.rs` (crear), `vanta-memory/src/core/scene/scene_navigation.rs` (crear)
@@ -338,11 +338,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 97e683bd-39d0-4402-b655-e224bd36be3c
-Objetivo activo: MEM-13: F4 Tools read/write/edit sandboxed + store
+Objetivo activo: MEM-14: F4 Strategy UPDATE>MERGE>CREATE + heat + soft-delete
 Estado: in-progress ⏳
-Última acción: Creé scene_tools.rs (SceneToolCall/SceneToolResult serde tagged, SceneToolError #[non_exhaustive], caps 512/4096/1MiB, validators boundary, read/write/edit/execute_scene_tool sobre scene_index) + re-exports en core/scene/mod.rs + tests D19 tests/scene_tools.rs (13 tests)
-Resultado: ✅
-Próxima acción: Commit por vanta-lead (feat: MEM-13); cierre MCP pendiente limpieza WIP corrupto
+Última acción: Implementada estrategia L2 completa en vanta-memory: scene_format.rs (+SOFT_DELETE_MARKER, deleted flag serde-default), scene_index.rs (write_scene_block pub, soft_delete_scene idempotente, filtro deleted en list/current), scene_tools.rs (validators pub(crate)), filename_normalizer.rs (nuevo, resuelve deuda MEM-12 a/b→ab≠a_b), scene_extractor.rs (nuevo: decide_strategy pura + apply_strategy + extract_scenes_with_llm genérico con degrade Principio 4), prompts/scene_extraction.rs (nuevo, inglés), wiring mod.rs ×2, tests D19 tests/scene_strategy.rs
+Resultado: ✅ 4/4 gates exit 0: check ✅, nextest 177/177 (+48 nuevos) ✅, fmt ✅, clippy -D warnings ✅
+Próxima acción: Ninguna para MEM-14; lead commitea (feat: MEM-14); siguiente tarea del plan: Task 18 MEM-15 (F4 Persona first/incremental + triggers)
 Contrato: `cargo check -p vanta-memory` pasa; tests dedicados (D19)
-Próxima tarea si completa: 17
+Próxima tarea si completa: Task 18 (MEM-15)
 === END RECITATION ===

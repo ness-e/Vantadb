@@ -200,8 +200,11 @@ pub fn execute_scene_tool(
 }
 
 // ── boundary validation (LLM output / host input is untrusted) ──
+//
+// `pub(crate)`: reused by the L2 strategy (MEM-14) for the MERGE branch,
+// which bypasses the tools (heat = sum + 1 cannot go through `upsert_scene`).
 
-fn validate_scene_name(name: &str) -> Result<(), SceneToolError> {
+pub(crate) fn validate_scene_name(name: &str) -> Result<(), SceneToolError> {
     if name.is_empty() {
         return Err(SceneToolError::Invalid(
             "scene_name must not be empty".into(),
@@ -220,7 +223,11 @@ fn validate_scene_name(name: &str) -> Result<(), SceneToolError> {
     Ok(())
 }
 
-fn validate_text(field: &str, value: &str, max_bytes: usize) -> Result<(), SceneToolError> {
+pub(crate) fn validate_text(
+    field: &str,
+    value: &str,
+    max_bytes: usize,
+) -> Result<(), SceneToolError> {
     if value.len() > max_bytes {
         return Err(SceneToolError::Invalid(format!(
             "{field} exceeds {max_bytes} bytes"
@@ -232,7 +239,7 @@ fn validate_text(field: &str, value: &str, max_bytes: usize) -> Result<(), Scene
 /// Rejects empty/whitespace-only content, mirroring the TDAM write-tool
 /// validation that prevents the LLM from "deleting" a file by writing
 /// whitespace (`scene-extractor.ts:302`).
-fn validate_content(content: &str) -> Result<(), SceneToolError> {
+pub(crate) fn validate_content(content: &str) -> Result<(), SceneToolError> {
     if content.trim().is_empty() {
         return Err(SceneToolError::Invalid(
             "content must not be empty or whitespace-only".into(),
