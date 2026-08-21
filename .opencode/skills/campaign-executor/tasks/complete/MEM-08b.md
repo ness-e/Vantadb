@@ -4,7 +4,7 @@
 - **Plan file:** docs/plans/2026-08-18-vanta-memory.md (NO editar — lead)
 - **Creado:** 2026-08-20T20:15
 - **last-synced:** 2026-08-20T20:15
-- **Estado:** ⏳ IN PROGRESS (delegado a vanta-worker)
+- **Estado:** ✅ COMPLETED (cerrado post-P27, plan archivado 2026-08-18-vanta-memory.md)
 - **Fuentes TDAM (clon `C:\Users\Eros\AppData\Local\Temp\opencode\tdam`):**
   - `MemoryCore/src/core/record/l1-writer.ts` — MemoryRecord/ExtractedMemory/DedupDecision (tipos reales; `core/abstractions/types.ts` NO contiene estos — contiene IConfigSource/Quota)
   - `MemoryCore/src/core/record/l1-dedup.ts` — DedupDecision + parse LLM (snake_case wire)

@@ -21,7 +21,9 @@ use vantadb::sdk::VantaEmbedded;
 use crate::core::abstractions::MemoryRecord;
 use crate::core::persona::persona_generator::{get_persona, PersonaError};
 use crate::core::profile::profile_sync::{read_scoped_persona, ProfileIsolation};
-use crate::core::record::l1_reader::{overlap_score, read_session_records, significant_terms};
+use crate::core::record::l1_reader::{
+    l1_namespace, overlap_score, read_namespace_records, read_session_records, significant_terms,
+};
 use crate::core::record::L1Error;
 use crate::core::scene::scene_index::{list_scenes, SceneError};
 use crate::core::scene::scene_navigation::{generate_scene_navigation, strip_scene_navigation};
@@ -79,11 +81,30 @@ impl RecallMode {
     }
 }
 
+/// Cross-session reach of the L1 recall pool (D22). `Session` replicates the
+/// pre-MEM-40 behavior; `Agent`/`Team` widen it to other sessions whose
+/// records carry a matching `agent_id` / `team_id`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecallScope {
+    /// Only the current session's L1 records.
+    Session,
+    /// Current session + other sessions of the same agent (default: memory
+    /// accumulates across sessions of one agent, TDAM de-facto behavior,
+    /// without its cross-agent leak).
+    #[default]
+    Agent,
+    /// Current session + every session of the same team.
+    Team,
+}
+
 /// Configuration for the auto-recall hook (TDAM `cfg.recall` subset).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecallConfig {
     /// Search strategy (default: hybrid, TDAM default).
     pub mode: RecallMode,
+    /// Cross-session scope of the L1 recall pool (default: agent, D22).
+    pub scope: RecallScope,
     /// Maximum memories injected per turn (TDAM `maxResults`, default 5).
     pub max_results: usize,
     /// Minimum shared-term score for a record to be recalled (analog of the
@@ -100,6 +121,7 @@ impl Default for RecallConfig {
     fn default() -> Self {
         Self {
             mode: RecallMode::Hybrid,
+            scope: RecallScope::Agent,
             max_results: 5,
             min_overlap: 1,
             max_chars_per_memory: None,
@@ -162,16 +184,26 @@ pub fn perform_auto_recall(
     params: AutoRecallParams<'_>,
 ) -> Result<Option<RecallResult>, RecallError> {
     let config = params.config;
+    let isolation = params.isolation.unwrap_or_default();
 
     // ── L1 search (skipped on empty user text) ──
     let mut recalled = Vec::new();
     if !params.user_text.trim().is_empty() {
-        let records = read_session_records(db, params.session_key)?;
+        // Own-session records are always visible (legacy records carry no
+        // agent/team metadata and must not vanish when the scope widens).
+        let mut records = read_session_records(db, params.session_key)?;
+        if config.scope != RecallScope::Session {
+            records.extend(read_scoped_records(
+                db,
+                config.scope,
+                &isolation,
+                params.session_key,
+            )?);
+        }
         recalled = search_keyword(&records, params.user_text, &config);
     }
 
     // ── L3 persona (scoped by team+agent via profile_sync) ──
-    let isolation = params.isolation.unwrap_or_default();
     let scoped = read_scoped_persona(db, &isolation)?;
     let persona_body = match scoped {
         Some(content) => {
@@ -224,6 +256,42 @@ pub fn perform_auto_recall(
         persona: persona_body,
         effective_mode: config.mode.effective(),
     }))
+}
+
+/// Cross-session L1 records visible under the given scope (D22): every
+/// `l1/*` namespace except the current session's, filtered by the record's
+/// own `agent_id` / `team_id`. Records without the matching metadata are
+/// invisible cross-session — they stay session-only (legacy fallback).
+///
+/// # ponytail: full scan of all `l1/*` namespaces per recall
+/// O(#sessions + #records) via `list_namespaces`; fine at hundreds of
+/// sessions. Upgrade path (plan stop-condition): sessions-per-agent index.
+fn read_scoped_records(
+    db: &VantaEmbedded,
+    scope: RecallScope,
+    isolation: &ProfileIsolation,
+    current_session: &str,
+) -> Result<Vec<MemoryRecord>, RecallError> {
+    let current_ns = l1_namespace(current_session);
+    let mut out = Vec::new();
+    for ns in db.list_namespaces()? {
+        if !ns.starts_with("l1/") || ns == current_ns {
+            continue;
+        }
+        for record in read_namespace_records(db, &ns)? {
+            let visible = match scope {
+                RecallScope::Session => true,
+                RecallScope::Agent => {
+                    record.agent_id.as_deref() == Some(isolation.agent_id.as_str())
+                }
+                RecallScope::Team => record.team_id.as_deref() == Some(isolation.team_id.as_str()),
+            };
+            if visible {
+                out.push(record);
+            }
+        }
+    }
+    Ok(out)
 }
 
 /// Parameters of one auto-recall pass.

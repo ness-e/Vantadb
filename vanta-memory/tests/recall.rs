@@ -3,7 +3,9 @@
 //! VantaDB; no LLM involved (recall is LLM-free).
 
 use vanta_memory::core::abstractions::{MemoryRecord, MemoryType, PersonaMode, SceneIndexEntry};
-use vanta_memory::core::hooks::{perform_auto_recall, AutoRecallParams, RecallConfig, RecallMode};
+use vanta_memory::core::hooks::{
+    perform_auto_recall, AutoRecallParams, RecallConfig, RecallMode, RecallScope,
+};
 use vanta_memory::core::memory_prompt::{
     compose_memory_system_prompt, resolve_memory_prompt, MemoryPromptLayer, MemoryPromptRecord,
     MemoryPromptSettingRecord, MemoryPromptSource, MemoryPromptStore, PromptStatus, ResolveTarget,
@@ -341,4 +343,247 @@ fn resolver_finds_active_agent_prompt_and_composer_appends_it() {
 #[test]
 fn composer_passthrough_without_resolution() {
     assert_eq!(compose_memory_system_prompt("SYSTEM", None), "SYSTEM");
+}
+
+// ── MEM-40: recall scope híbrido (D22) ──
+
+/// L1 record with explicit cross-session scope metadata.
+fn scoped_record(
+    id: &str,
+    content: &str,
+    session_key: &str,
+    team_id: Option<&str>,
+    agent_id: Option<&str>,
+) -> MemoryRecord {
+    MemoryRecord {
+        session_key: session_key.into(),
+        team_id: team_id.map(Into::into),
+        agent_id: agent_id.map(Into::into),
+        ..record(id, content)
+    }
+}
+
+fn recall_with_scope(
+    db: &VantaEmbedded,
+    scope: RecallScope,
+    isolation: ProfileIsolation,
+) -> Option<vanta_memory::core::hooks::RecallResult> {
+    perform_auto_recall(
+        db,
+        AutoRecallParams {
+            user_text: "user prefers dark mode",
+            session_key: "sess-1",
+            isolation: Some(isolation),
+            config: RecallConfig {
+                scope,
+                ..RecallConfig::default()
+            },
+        },
+    )
+    .expect("recall")
+}
+
+#[test]
+fn scope_session_replicates_current_behavior() {
+    let db = db();
+    put_l1(&db, &record("m1", "user prefers dark mode"));
+    // Same agent, different session — NOT visible under Session scope.
+    put_l1(
+        &db,
+        &scoped_record(
+            "m2",
+            "user prefers dark mode too",
+            "sess-2",
+            None,
+            Some("agent-1"),
+        ),
+    );
+
+    let out = recall_with_scope(
+        &db,
+        RecallScope::Session,
+        ProfileIsolation {
+            team_id: "team-a".into(),
+            agent_id: "agent-1".into(),
+        },
+    )
+    .expect("content");
+
+    let prepend = out.prepend_context.expect("prepend");
+    assert!(prepend.contains("dark mode"));
+    assert!(
+        !prepend.contains("too"),
+        "cross-session record leaked into Session scope"
+    );
+    assert_eq!(out.recalled_memories.len(), 1);
+}
+
+#[test]
+fn scope_agent_finds_other_session_of_same_agent() {
+    let db = db();
+    put_l1(&db, &record("m1", "user prefers dark mode"));
+    put_l1(
+        &db,
+        &scoped_record(
+            "m2",
+            "user likes vim editor",
+            "sess-2",
+            None,
+            Some("agent-1"),
+        ),
+    );
+
+    let out = recall_with_scope(
+        &db,
+        RecallScope::Agent,
+        ProfileIsolation {
+            team_id: "team-a".into(),
+            agent_id: "agent-1".into(),
+        },
+    )
+    .expect("content");
+
+    let prepend = out.prepend_context.expect("prepend");
+    assert!(prepend.contains("dark mode"));
+    assert!(
+        prepend.contains("vim editor"),
+        "same-agent cross-session record not recalled"
+    );
+}
+
+#[test]
+fn scope_team_filters_by_team_id_across_agents() {
+    let db = db();
+    put_l1(&db, &record("m1", "user prefers dark mode"));
+    // Different agent, same team — visible under Team scope only.
+    put_l1(
+        &db,
+        &scoped_record(
+            "m2",
+            "user wants dark dashboards",
+            "sess-3",
+            Some("team-a"),
+            Some("agent-9"),
+        ),
+    );
+
+    let out = recall_with_scope(
+        &db,
+        RecallScope::Team,
+        ProfileIsolation {
+            team_id: "team-a".into(),
+            agent_id: "agent-1".into(),
+        },
+    )
+    .expect("content");
+
+    let prepend = out.prepend_context.expect("prepend");
+    assert!(
+        prepend.contains("dashboards"),
+        "same-team record not recalled under Team scope"
+    );
+
+    // Same record is invisible to a DIFFERENT team.
+    let other_team = recall_with_scope(
+        &db,
+        RecallScope::Team,
+        ProfileIsolation {
+            team_id: "team-b".into(),
+            agent_id: "agent-1".into(),
+        },
+    );
+    if let Some(out) = other_team {
+        if let Some(prepend) = out.prepend_context {
+            assert!(!prepend.contains("dashboards"));
+        }
+    }
+}
+
+#[test]
+fn scope_agent_isolates_other_agents_and_legacy_records() {
+    let db = db();
+    put_l1(&db, &record("m1", "user prefers dark mode"));
+    // Agent B's memory.
+    put_l1(
+        &db,
+        &scoped_record(
+            "mb",
+            "agent b stores dark mode secrets",
+            "sess-b",
+            Some("team-a"),
+            Some("agent-b"),
+        ),
+    );
+    // Legacy record without metadata in another session.
+    put_l1(
+        &db,
+        &scoped_record("ml", "legacy dark mode note", "sess-l", None, None),
+    );
+
+    let out = recall_with_scope(
+        &db,
+        RecallScope::Agent,
+        ProfileIsolation {
+            team_id: "team-a".into(),
+            agent_id: "agent-a".into(),
+        },
+    )
+    .expect("own-session content");
+
+    let prepend = out.prepend_context.expect("prepend");
+    assert!(prepend.contains("dark mode")); // own session still visible
+    assert!(
+        !prepend.contains("secrets"),
+        "ISOLATION LEAK: agent A saw agent B's memory"
+    );
+    assert!(
+        !prepend.contains("legacy"),
+        "metadata-less record from another session must stay session-only"
+    );
+}
+
+#[test]
+fn search_multi_merges_hits_across_namespaces() {
+    use vantadb::sdk::{VantaMemoryInput, VantaMemoryMetadata, VantaMemorySearchRequest};
+
+    let db = db();
+    for (ns, key, text) in [
+        ("l1/sess-a", "m1", "user prefers dark mode"),
+        ("l1/sess-b", "m2", "team uses dark dashboards"),
+    ] {
+        db.put(VantaMemoryInput {
+            namespace: ns.into(),
+            key: key.into(),
+            payload: text.into(),
+            metadata: VantaMemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            ttl_ms: None,
+        })
+        .expect("put l1 payload");
+    }
+
+    let hits = db
+        .search_multi(
+            &["l1/sess-a", "l1/sess-b"],
+            VantaMemorySearchRequest {
+                text_query: Some("dark".into()),
+                top_k: 10,
+                ..VantaMemorySearchRequest::default()
+            },
+        )
+        .expect("search_multi");
+
+    let namespaces: std::collections::HashSet<&str> =
+        hits.iter().map(|h| h.record.namespace.as_str()).collect();
+    assert!(
+        namespaces.contains("l1/sess-a") && namespaces.contains("l1/sess-b"),
+        "search_multi did not cover both namespaces: {namespaces:?}"
+    );
+    for pair in hits.windows(2) {
+        assert!(
+            pair[0].score >= pair[1].score,
+            "hits not sorted by descending score"
+        );
+    }
 }

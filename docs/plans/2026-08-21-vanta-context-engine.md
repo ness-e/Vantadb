@@ -2,7 +2,7 @@
 
 > **Campaign ID:** e03c2c9f-4076-4cda-a1a8-44828dc8bf30
 > **Inicio:** 2026-08-21
-> **Estado:** ⏳ EN PROGRESO (1/9 tareas)
+> **Estado:** ⏳ EN PROGRESO (2/9 tareas)
 > **Fuente:** `docs/Backlog.md` filas MEM-22..24, 37..42 + `docs/research/tdam/05-offload.md` + `SYNTHESIS.md` §2.2/§3 + auditoría post-P27 (2026-08-21) + decisiones del usuario (2026-08-21)
 > **Predecesor:** `docs/plans/archive/2026-08-18-vanta-memory.md` (P27, F1-F4 ✅ 24/24 — crate vanta-memory con L0/L1/L2/L3/recall/offload-cursor/gateway, suite 364/364)
 > **Modo:** waves por dependencias — Wave 0 (fundaciones independientes) → Wave 1 (MEM-22 núcleo) → Wave 2 (consumidores de MEM-22) → Wave 3 (gate docs).
@@ -76,7 +76,7 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 - **Cynefin:** 🟨 complicado — diseño ya resuelto por investigación; ejecución analizable
 - **Uphill/Downhill:** ⬆️ 0 (resuelto por investigación) · ⬇️ 4 steps
 - **DoD task:** estándar + test de aislamiento verde
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-40.md`
 - **Branch:** | **Commit:**
 - **Iteraciones:** | — | — | — | — |
@@ -277,11 +277,11 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: Task 1 — MEM-23: token estimator + emergency truncate + report types
+Objetivo activo: MEM-40 recall_scope híbrido session|agent|team default agent (Task 2 plan P29)
 Estado: pending ⏳
-Última acción: Implementado context_engine/ (types.rs ChatRole/ChatMessage/CompactionMode/CompactionReport/ContextError; token_estimator.rs TokenEstimator chars/3 + emergency_truncate con guard de pares por construcción + truncate_content char-boundary safe; mod.rs re-exports) + wiring en lib.rs. 9 tests D19 inline.
+Última acción: Implementado RecallScope{Session,Agent,Team} default Agent (D22): pool = sesión actual siempre + cross-sesión vía list_namespaces→read_namespace_records con post-filtro agent_id/team_id del MemoryRecord; search_keyword mantiene el ranking LLM-free; search_multi cubierto por test dedicado; probe perf 500 sesiones = 22ms descarta stop condition; fix colateral WIP MCP (MEM-08b/MEM-12 stale)
 Resultado: OK
-Próxima acción: Ninguna — tarea cerrada. MEM-22 (Task 5) consume types::{ChatMessage, CompactionReport, CompactionMode} y token_estimator::{TokenEstimator, emergency_truncate}
+Próxima acción: Lead commitea feat(vanta-memory): MEM-40 recall_scope híbrido; orquestador asigna Task 3 (MEM-41 generation-log provenance)
 Contrato: por tarea — cargo check/nextest/fmt/clippy -p vanta-memory exit 0 + tests D19
-Próxima tarea si completa: 5
+Próxima tarea si completa: 3
 === END RECITATION ===

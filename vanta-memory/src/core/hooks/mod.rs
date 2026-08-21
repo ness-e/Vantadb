@@ -9,5 +9,5 @@ pub mod auto_recall;
 pub use auto_capture::{AutoCaptureConfig, AutoCaptureHook, AutoCaptureResult, RawMessage};
 pub use auto_recall::{
     perform_auto_recall, AutoRecallParams, RecallConfig, RecallError, RecallMode, RecallResult,
-    RecalledMemory, MEMORY_TOOLS_GUIDE,
+    RecallScope, RecalledMemory, MEMORY_TOOLS_GUIDE,
 };
