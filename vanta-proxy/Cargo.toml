@@ -1,0 +1,25 @@
+[package]
+name = "vanta-proxy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+description = "Transparent LLM wire proxy (OpenAI Chat / Anthropic Messages / Responses API)"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "net", "signal"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+bytes = "1"
+toml = "0.9"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[dev-dependencies]
+futures = "0.3"
+
+[lints]
+workspace = true

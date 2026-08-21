@@ -1,0 +1,16 @@
+# vanta-proxy configuration (D31: TOML + serde).
+# Usage: vanta-proxy [path/to/config.toml]  (default: ./config.toml)
+
+[server]
+host = "0.0.0.0"
+port = 8096
+# Rate-limit placeholder (enforced in MEM-27): requests per minute per spaceId×model.
+rate_limit_per_minute = 60
+
+[upstream]
+# Base URL of the LLM upstream; wire paths (/v1/...) are appended as received.
+url = "https://api.anthropic.com"
+# If non-empty, overrides the Authorization header sent upstream.
+api_key = ""
+# Forward timeout in seconds (default 600, TDAM parity).
+forward_timeout_secs = 600
