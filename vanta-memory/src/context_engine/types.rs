@@ -25,6 +25,10 @@ pub enum ChatRole {
 pub struct ChatMessage {
     pub role: ChatRole,
     pub content: String,
+    /// Optional wire id (e.g. a tool-call id). The offload cursor (MEM-20)
+    /// references it to mark how far the history is already compacted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
 }
 
 impl ChatMessage {
@@ -32,7 +36,14 @@ impl ChatMessage {
         Self {
             role,
             content: content.into(),
+            id: None,
         }
+    }
+
+    /// Attach a wire id (builder-style).
+    pub fn with_id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
     }
 }
 

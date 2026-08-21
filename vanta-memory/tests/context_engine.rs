@@ -6,9 +6,15 @@
 //! fingerprint-idempotent boundary · (e) report fields · (f) 100% LLM-free.
 
 use vanta_memory::context_engine::{
-    apply_boundary, assemble, msg_fingerprint, AssembleConfig, CompactionMode, TokenEstimator,
+    apply_boundary, assemble, assemble_with_recall, msg_fingerprint, AssembleConfig,
+    CompactionMode, TokenEstimator, MMD_CONTEXT_MARKER,
 };
 use vanta_memory::context_engine::{ChatMessage, ChatRole};
+use vanta_memory::core::abstractions::SceneMeta;
+use vanta_memory::offload::state_manager::OffloadStateManager;
+use vantadb::config::VantaConfig;
+use vantadb::sdk::VantaEmbedded;
+use vantadb::storage::BackendKind;
 
 fn est() -> TokenEstimator {
     TokenEstimator::default()
@@ -211,4 +217,125 @@ fn protected_prefix_never_touched() {
         "prefix byte-identical"
     );
     assert_no_orphan_results(&out.messages);
+}
+
+// ═══ MEM-37: integración offload↔recall (budget + cursor compartidos) ═══
+
+fn task_memory(content: &str) -> vanta_memory::context_engine::TaskMemory {
+    vanta_memory::context_engine::TaskMemory {
+        meta: SceneMeta {
+            created: "2026-08-21T10:00:00.000Z".into(),
+            updated: "2026-08-21T10:05:00.000Z".into(),
+            summary: "task".into(),
+            heat: 1,
+        },
+        content: content.into(),
+    }
+}
+
+/// D19 (a): tras compresión aggressive, recall + MMD + memories respetan el
+/// budget TOTAL — la unión final nunca lo excede.
+///
+/// Unidades gruesas (~203 tokens c/u): la cascada mild queda limitada por
+/// MIN_REPLACEMENTS_PER_PASS=10 (4150 > 1150 → falla), así que corre
+/// aggressive, que deja headroom (1015 + 135 libre) para las 3 inyecciones.
+#[test]
+fn mem37_a_post_aggressive_recall_mmd_respect_total_budget() {
+    let msgs: Vec<ChatMessage> = (0..30)
+        .map(|i| ChatMessage::new(ChatRole::User, format!("m{i:02} {}", "y".repeat(600))))
+        .collect();
+    let budget = 1150u64;
+    let out = assemble_with_recall(
+        msgs,
+        budget,
+        &est(),
+        0,
+        &cfg(),
+        Some(task_memory("current task: build parser")),
+        Some("<relevant-memories>\n- User prefers dark mode\n</relevant-memories>"),
+        Some("<user-persona>\nNight owl builder.\n</user-persona>"),
+        None,
+    )
+    .expect("valid budget");
+
+    // Aggressive ran (mild's 10-stub cap can't reach the budget).
+    assert_eq!(out.report.mode, CompactionMode::Aggressive);
+    // The three injections happened...
+    assert!(out.mmd_injected);
+    assert!(out.recall_injected);
+    let joined = out
+        .messages
+        .iter()
+        .map(|m| m.content.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(joined.contains(MMD_CONTEXT_MARKER));
+    assert!(joined.contains("<relevant-memories>"));
+    assert!(joined.contains("<user-persona>"));
+    // ...and the union still fits the total budget.
+    assert!(
+        est().estimate_messages(&out.messages) <= budget,
+        "recall + MMD + memories exceed the total budget"
+    );
+}
+
+/// D19 (b): mensajes ≤ cursor MEM-20 no se recomprimen ni duplican.
+#[test]
+fn mem37_b_messages_at_or_below_cursor_not_recompressed_nor_duplicated() {
+    let db = VantaEmbedded::open_with_config(VantaConfig {
+        backend_kind: BackendKind::InMemory,
+        ..VantaConfig::default()
+    })
+    .expect("open in-memory db");
+
+    let mut msgs = vec![
+        ChatMessage::new(ChatRole::User, "old question"),
+        ChatMessage::new(ChatRole::ToolCall, "{\"name\":\"search\"}").with_id("call_42"),
+        ChatMessage::new(ChatRole::ToolResult, "[1,2,3]"),
+    ];
+    msgs.extend(
+        (0..30).map(|i| ChatMessage::new(ChatRole::User, format!("m{i:02} {}", "y".repeat(90)))),
+    );
+
+    // Cursor persisted exactly like the offload hook does.
+    let mgr = OffloadStateManager::new(db);
+    mgr.set_last_offloaded_tool_call_id("sess", Some("call_42"))
+        .expect("set cursor");
+    let cursor = mgr
+        .last_offloaded_tool_call_id("sess")
+        .expect("read cursor");
+
+    let budget = 150u64;
+    let run = |m: Vec<ChatMessage>| {
+        assemble_with_recall(
+            m,
+            budget,
+            &est(),
+            0,
+            &cfg(),
+            None,
+            None,
+            None,
+            cursor.as_deref(),
+        )
+        .expect("assemble")
+    };
+    let out = run(msgs.clone());
+
+    // Compression happened somewhere in the tail (the cursor-covered head is
+    // protected, so the engine's front-splice aggressive pass is blocked and
+    // the emergency fallback does the tail work — either way, something ran).
+    assert_ne!(out.report.mode, CompactionMode::None);
+    assert!(out.report.msgs_conserved < out.report.msgs_before);
+    // ...but the messages at/below the cursor survive verbatim, exactly once.
+    for original in &msgs[..3] {
+        assert_eq!(
+            out.messages.iter().filter(|m| *m == original).count(),
+            1,
+            "cursor-covered message lost or duplicated"
+        );
+    }
+    // Re-running the same flow is idempotent — nothing duplicates.
+    let again = run(msgs);
+    assert_eq!(out.messages, again.messages);
 }

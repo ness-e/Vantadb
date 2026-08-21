@@ -12,7 +12,10 @@ mod token_estimator;
 mod types;
 
 pub use compressor::{apply_boundary, msg_fingerprint, score_message, AggressiveBoundary};
-pub use engine::{assemble, AssembleConfig, AssembleOutput};
+pub use engine::{
+    assemble, assemble_with_recall, AssembleConfig, AssembleOutput, IntegratedContext,
+    RECALL_APPEND_MARKER, RECALL_PREPEND_MARKER,
+};
 pub use mmd::{
     fingerprint, list_history, load_active, push_history, save_active, TaskMemory,
     MAX_MMD_CONTENT_CHARS,

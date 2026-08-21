@@ -17,6 +17,7 @@ use crate::context_engine::compressor::{
     score_message, AggressiveBoundary, FLOOR_THRESHOLD, INITIAL_THRESHOLD,
     MIN_REPLACEMENTS_PER_PASS,
 };
+use crate::context_engine::mmd::TaskMemory;
 use crate::context_engine::token_estimator::{build_units, emergency_truncate, TokenEstimator};
 use crate::context_engine::types::{
     ChatMessage, ChatRole, CompactionMode, CompactionReport, ContextError,
@@ -164,6 +165,128 @@ pub fn assemble(
         messages,
         report,
     })
+}
+
+/// Dedup markers of the injected recall blocks (MEM-37).
+pub const RECALL_PREPEND_MARKER: &str = "_recallDynamicContext";
+/// Dedup marker of the stable recall block (persona + scene navigation).
+pub const RECALL_APPEND_MARKER: &str = "_recallStableContext";
+
+/// Output of [`assemble_with_recall`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IntegratedContext {
+    pub messages: Vec<ChatMessage>,
+    /// Report of the compaction pass that ran inside [`assemble`].
+    pub report: CompactionReport,
+    pub mmd_injected: bool,
+    /// `true` when at least one recall block was injected.
+    pub recall_injected: bool,
+}
+
+/// Single shared-budget coordinator (MEM-37): compress → inject MMD → inject
+/// recall blocks, all against ONE mutable token budget. The union is
+/// guaranteed ≤ `budget_tokens`: compression leaves headroom and every
+/// injection is whole-or-skip against what remains.
+///
+/// Cursor guard (MEM-20): everything up to and including the message whose
+/// [`ChatMessage::id`] equals `cursor_tool_call_id` is already compacted — it
+/// is folded into the protected prefix so no pass touches or duplicates it.
+///
+/// # Errors
+/// [`ContextError::InvalidConfig`] if `budget_tokens == 0`.
+pub fn assemble_with_recall(
+    msgs: Vec<ChatMessage>,
+    budget_tokens: u64,
+    estimator: &TokenEstimator,
+    protected_prefix: usize,
+    cfg: &AssembleConfig,
+    active_mmd: Option<TaskMemory>,
+    recall_prepend: Option<&str>,
+    recall_append: Option<&str>,
+    cursor_tool_call_id: Option<&str>,
+) -> Result<IntegratedContext, ContextError> {
+    if budget_tokens == 0 {
+        return Err(ContextError::InvalidConfig);
+    }
+    let cursor_boundary = cursor_tool_call_id
+        .and_then(|id| {
+            let pos = msgs.iter().rposition(|m| m.id.as_deref() == Some(id))?;
+            // The cursor covers the whole atomic unit: the call plus its
+            // contiguous results (build_units keeps them together).
+            let mut end = pos + 1;
+            while msgs
+                .get(end)
+                .is_some_and(|m| m.role == ChatRole::ToolResult)
+            {
+                end += 1;
+            }
+            Some(end)
+        })
+        .map_or(0, |boundary| boundary);
+
+    let out = assemble(
+        msgs,
+        budget_tokens,
+        estimator,
+        protected_prefix.max(cursor_boundary),
+        cfg,
+    )?;
+    let mut remaining = budget_tokens.saturating_sub(estimator.estimate_messages(&out.messages));
+    let messages = out.messages;
+
+    let len_before = messages.len();
+    let mut messages = crate::context_engine::inject_mmd(messages, active_mmd, &mut remaining);
+    let mmd_injected = messages.len() != len_before;
+
+    let mut recall_injected = false;
+    if let Some(prepend) = recall_prepend {
+        recall_injected |= inject_recall_block(
+            &mut messages,
+            RECALL_PREPEND_MARKER,
+            prepend,
+            estimator,
+            &mut remaining,
+        );
+    }
+    if let Some(append) = recall_append {
+        recall_injected |= inject_recall_block(
+            &mut messages,
+            RECALL_APPEND_MARKER,
+            append,
+            estimator,
+            &mut remaining,
+        );
+    }
+
+    Ok(IntegratedContext {
+        messages,
+        report: out.report,
+        mmd_injected,
+        recall_injected,
+    })
+}
+
+/// Appends one recall block as a trailing System message if it fits the
+/// remaining budget — whole or not at all. Marker-based dedup makes a second
+/// call with the same content a no-op.
+fn inject_recall_block(
+    messages: &mut Vec<ChatMessage>,
+    marker: &str,
+    content: &str,
+    estimator: &TokenEstimator,
+    budget: &mut u64,
+) -> bool {
+    if content.trim().is_empty() || messages.iter().any(|m| m.content.contains(marker)) {
+        return false;
+    }
+    let msg = ChatMessage::new(ChatRole::System, format!("{marker}\n{content}"));
+    let cost = estimator.estimate_message(&msg);
+    if cost > *budget {
+        return false;
+    }
+    *budget -= cost;
+    messages.push(msg);
+    true
 }
 
 /// Unit score = max replaceability among its non-System messages (`None` =

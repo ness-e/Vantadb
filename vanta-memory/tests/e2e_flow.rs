@@ -12,7 +12,11 @@
 //! 3. Flow idempotency: replaying the same turn and re-running L1/L2 does not
 //!    duplicate memories or scenes (L0 cursor + dedup skip + scene UPDATE).
 
-use vanta_memory::core::abstractions::{LlmError, LlmRunParams, LlmRunner};
+use vanta_memory::context_engine::{
+    assemble_with_recall, load_active, save_active, AssembleConfig, ChatMessage, ChatRole,
+    CompactionMode, TaskMemory, TokenEstimator, MMD_CONTEXT_MARKER,
+};
+use vanta_memory::core::abstractions::{LlmError, LlmRunParams, LlmRunner, SceneMeta};
 use vanta_memory::core::conversation::{L0Capture, L0Message, L0Recorder, L0Role};
 use vanta_memory::core::hooks::{
     perform_auto_recall, AutoRecallParams, RecallConfig, RecallResult,
@@ -300,5 +304,81 @@ fn replayed_turn_does_not_duplicate_memories_or_scenes() {
     assert_eq!(
         scenes[0].heat, 2,
         "second pass bumped heat instead of duplicating"
+    );
+}
+
+// ═══ 4. MEM-37: capture → extract → compress → inject → recall, un flujo ═══
+
+#[test]
+fn compress_then_recall_shares_one_budget_end_to_end() {
+    let db = open_db();
+    let session = "flow-mem37";
+    let runner = E2eRunner { fail_task: None };
+
+    // L0 capture + full pipeline pass → real L1 records and L3 persona.
+    capture_turn(&db, session);
+    run_full_pass(&db, &runner, session).expect("full pass");
+
+    // Real recall over the stored data (MEM-40).
+    let recalled =
+        recall(&db, session, "what does the user prefer about dark mode?").expect("recall content");
+    let prepend = recalled.prepend_context.expect("prepend");
+    assert!(prepend.contains("User prefers dark mode"));
+    let append = recalled.append_system_context.expect("append");
+
+    // Active MMD persisted through the real store path (MEM-24).
+    save_active(
+        &db,
+        session,
+        &TaskMemory {
+            meta: SceneMeta {
+                created: "2026-08-21T10:00:00.000Z".into(),
+                updated: "2026-08-21T10:05:00.000Z".into(),
+                summary: "integration task".into(),
+                heat: 1,
+            },
+            content: "current task: integrate offload with recall".into(),
+        },
+    )
+    .expect("save mmd");
+    let active = load_active(&db, session).expect("load mmd");
+
+    // Long synthetic chat history that forces aggressive compression; the
+    // shared-budget coordinator assembles everything in one pass (MEM-37).
+    // Fat units (~203 tokens): mild's 10-stub cap can't reach the budget, so
+    // aggressive runs and leaves headroom for the injections.
+    let est = TokenEstimator::default();
+    let msgs: Vec<ChatMessage> = (0..30)
+        .map(|i| ChatMessage::new(ChatRole::User, format!("m{i:02} {}", "y".repeat(600))))
+        .collect();
+    let budget = 1400u64;
+    let out = assemble_with_recall(
+        msgs,
+        budget,
+        &est,
+        0,
+        &AssembleConfig::default(),
+        active,
+        Some(&prepend),
+        Some(&append),
+        None,
+    )
+    .expect("assemble with recall");
+
+    // Compression ran AND the injected blocks are present...
+    assert_ne!(out.report.mode, CompactionMode::None);
+    assert!(out.report.msgs_conserved < out.report.msgs_before);
+    let joined = out
+        .messages
+        .iter()
+        .map(|m| m.content.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(joined.contains(MMD_CONTEXT_MARKER), "MMD injected");
+    assert!(joined.contains("<relevant-memories>"), "recall prepend");
+    // ...and the union respects the total shared budget.
+    assert!(
+        est.estimate_messages(&out.messages) <= budget,
+        "total context exceeds the shared budget"
     );
 }
