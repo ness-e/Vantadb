@@ -295,6 +295,19 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 
 ## Progreso Reciente
 
+### Campaña P29 Vanta Context Engine completada 2026-08-21 - 9/9 tareas F5 (plan `2026-08-21-vanta-context-engine.md`)
+
+Cierre de campaña: **F5 Context Engine completo** — compresión LLM-free + MMD + recall híbrido + GC, suite final **430/430 tests** (`cargo nextest run -p vanta-memory`), fmt/clippy `-D warnings` limpios, docs coverage 0 gaps.
+
+- **Wave 0:** MEM-23 token estimator chars/3 + emergency truncate pair-safe (`8de35359`); MEM-40 recall_scope híbrido session|agent|team default agent + primer test search_multi (`89777704`); MEM-41 generation-log provenance best-effort genlog/<session> cap 100 (`1f89c0b6`); MEM-39 seed CLI vanta-seed idempotente por content-hash (`d3eba4fc`).
+- **Wave 1:** MEM-22 assemble + cascada mild (MIN=10/INITIAL=7/FLOOR=1) + aggressive one-shot fingerprint idempotente + emergency prefix-aware; cursor MEM-20 vía protected_prefix (`4d1363ec`).
+- **Wave 2:** MEM-42 reclaimer GC retention_days post-cursor estricto (`214a7820`); MEM-24 MMD persistente TaskMemory META dedup fingerprint + injector pair-safe (`ddc5671f`, D23 cerrada por lead tras 2 sub-agentes vacíos — STRATEGY SARL); MEM-37 assemble_with_recall budget coordinator único + e2e compress→recall (`ae7fe30b`).
+- **Gate:** MEM-38 ADR-029 borrador técnico (revisión del autor humano pendiente — Regla 5) + superficies F5 en EMBEDDED_SDK.md, docs coverage 0 gaps (`badb5b9c`).
+
+**Retrospectiva (D2):** Start: prompts con decisiones cerradas (MEM-24 con D23 abierta falló 2×; con decisión fijada completó 1ª vez). Stop: asumir que el sub-agente cerró el verify — 1 test e2e llegó roto. Continue: RESUME con feedback exacto del fallo mecánico. Acción medida: primer-intento de sub-agentes 3/9 (33%) vs objetivo >90% — investigar cutoff de contexto de vanta-worker antes de F6.
+
+**Plan archivado:** `docs/plans/archive/2026-08-21-vanta-context-engine.md` — 9/9 completadas.
+
 ### Campaña P27 Vanta Memory Engine completada 2026-08-20 - 24/24 tareas F1-F4 (plan `2026-08-18-vanta-memory.md`)
 
 Cierre de campaña: **MEM-01..21 (+08a/08b, 34, 35) completadas** entre 2026-08-18 y 2026-08-20. Crate nuevo `vanta-memory/` (LLM-driven, publish=false) + integración core/server/MCP. Suite final: **361/361 tests** (`cargo nextest run -p vanta-memory`), fmt/clippy `-D warnings` limpios.
