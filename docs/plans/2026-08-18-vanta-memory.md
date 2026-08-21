@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID:** a617737f-a792-48c4-bd78-213ffb2decc1
+> **Campaign ID:** 41757e63-d72d-423a-95eb-12d5ea849d1a
 > **Inicio:** 2026-08-18
-> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..20 ✅ — 23/24)
+> **Estado:** ✅ COMPLETADO (F1+F2+F3+F4 — 24/24 tareas)
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Catálogo:** `docs/Backlog.md` — filas MEM-01..38 (este plan es el estado de ejecución; el backlog es el catálogo)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
@@ -118,7 +118,7 @@
 ### Task 1: MEM-01 — F1 Search profile por namespace en core
 - **Archivos clave:** `src/planner.rs`, `src/sdk/serialization/vector_types.rs`, `src/sdk/types.rs`, `src/sdk/search/mod.rs`, `src/cli_server.rs` (parser IQL)
 - **Gate Justificación:** F1 base — parametriza planner con `SearchProfileConfig`, expone en IQL/API/MCP (D13), report RRF incluye `rrf_k` (D20)
-- **Contrato: cargo check -p vanta-memory pasa; tests dedicados de tipos/trait (D19)
+- **Contrato: verificacion: cargo check -p vanta-memory ✅; cargo nextest run -p vanta-memory ✅ (361 tests, 10 nuevos D19); cargo fmt --check ✅; cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings ✅. evidencia: claim=3 handlers scene_read/list/query implementados como capa tipada serde sobre scene_index → evidencia=vanta-memory/src/gateway/knowledge_handlers.rs (alta); claim=soft-delete respetado (read→NotFound, list/query excluidos) → evidencia=tests read_soft_deleted_scene_is_not_found + list_matches_index_parity + query_scores_summary_and_content_and_excludes_deleted (alta); claim=query keyword LLM-free via overlap_score/significant_terms → evidencia=l1_reader.rs:79-92 reutilizado, sin deps nuevas (alta). artefactos: vanta-memory/src/gateway/knowledge_handlers.rs, vanta-memory/src/gateway/mod.rs, vanta-memory/src/core/scene/scene_index.rs (read_blocks pub(crate)), .opencode/skills/campaign-executor/tasks/MEM-21.md
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
 - **Estado:** ✅ COMPLETED (commit `6a50b8ee`, verify `cargo check -p vantadb` ✅ 2026-08-20)
 - **last-synced:** 2026-08-20T08:00
@@ -295,7 +295,7 @@
 - **Gate Justificación:** tools scene_read/list/query (sobre MEM-12/MEM-15); referencia `MC/core/scene/scene-navigation.ts` (76), `scene-index.ts`, `MC/gateway/knowledge-handlers.ts`
 - **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de scene tools (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-21.md`
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETED
 
 ## Riesgos
 
@@ -338,11 +338,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 97e683bd-39d0-4402-b655-e224bd36be3c
-Objetivo activo: MEM-20: F4 Cursor persistente por sesión
+Objetivo activo: MEM-21 (Task 24): F4 Tools MCP scene_read/list/query — última de F4
 Estado: in-progress ⏳
-Última acción: Implementé OffloadStateManager (PluginState JSON en offload_state/<session> key __state, fallback default en corrupto), OffloadStorage (entradas keyed por tool_call_id sanitizado, dedup get-before-put), AfterToolCallHook (umbral de tamaño → entry → cursor); 14 tests D19 nuevos; verify 4/4 exit 0
+Última acción: MEM-21 completado: knowledge_handlers.rs con 3 handlers puros (scene_read→NotFound si missing/deleted; scene_list paridad list_scenes heat desc; scene_query overlap_score sobre content+summary con top_k default 5), KnowledgeError non_exhaustive, wiring gateway/mod.rs, read_blocks pub(crate); 10 tests D19 nuevos; verify fmt+clippy+nextest 3/3 exit 0
 Resultado: OK
-Próxima acción: ninguna — tarea completada; lead commitea y delega Task 24 (MEM-21)
+Próxima acción: ninguna — tarea completada; commit pendiente del lead (F4 completa MEM-08a..21)
 Contrato: `cargo check -p vanta-memory` pasa; tests dedicados (D19)
-Próxima tarea si completa: 24
+Próxima tarea si completa: ninguna (última de F4)
 === END RECITATION ===

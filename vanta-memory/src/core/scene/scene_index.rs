@@ -177,7 +177,10 @@ pub fn write_scene_block(
 
 /// Read every scene block of a session (paged via list, tolerant of
 /// individual corrupt records — same pattern as `l1_reader::read_session_records`).
-fn read_blocks(
+///
+/// `pub(crate)`: the gateway query handler (MEM-21) needs full blocks
+/// (content) which the index entries do not carry.
+pub(crate) fn read_blocks(
     db: &vantadb::sdk::VantaEmbedded,
     session_key: &str,
 ) -> Result<Vec<SceneBlock>, SceneError> {
