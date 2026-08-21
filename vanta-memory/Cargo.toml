@@ -29,5 +29,9 @@ llm-driver = ["dep:reqwest"]
 # Deterministic fake LLM runner for tests (see MEM-08b).
 mock = []
 
+# Persistent backend for the `vanta-seed` binary (MEM-39). Without it the
+# binary falls back to in-memory storage (import is not persisted).
+fjall = ["vantadb/fjall"]
+
 [lints]
 workspace = true

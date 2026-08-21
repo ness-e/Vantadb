@@ -4245,6 +4245,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ✅ `vanta-memory/src/core/memory_generation_log/{mod,store}.rs` (nuevos): entry `{layer, status, anchor_id?, session_key, ts_ms, error?}`; ns `genlog/<session>` sanitizado; key `{ts:013}_{seq}`; `record_best_effort` traga errores con tracing::warn; cap 100 keep-recent; `query_session(db, session, layer?)` ordenado por ts. Hooks aditivos: l1_writer (succeeded, anchor=record.id), scene_extractor/persona_generator (wrappers inner+log, solo generaciones reales o fallos), pipeline_worker run_l1 (failed). 11 tests D19 nuevos (7 unit + 4 integración); suite vanta-memory 389 ✅; check/fmt/clippy -p vanta-memory exit 0. Commit pendiente del lead.
 - **Ids:** `MEM-41`
 
+### MEM-39: F5 Seed/import CLI (skills/persona iniciales)
+- **Fuente:** Plan `docs/plans/2026-08-21-vanta-context-engine.md` (Task 4)
+- **Fecha:** 2026-08-21
+- **Objetivo:** Comando de import/seed inicial para vanta-memory: importa un JSON de seed (skills + persona) a namespaces sanitizados, idempotente por content-hash.
+- **Resultado:** ? `vanta-memory/src/seed/{mod,input}.rs` (nuevos): schema propio mínimo JSON-only (desviación documentada del schema TDAM sessions/messages, acoplado a OpenClaw); skills → `skills_extract/<scope>` con payload StoredSkill parity MEM-06; persona → `persona/<session>`/`persona.md` como PersonaRecord legible por get_persona. Idempotencia content-hash (replay → todo unchanged); counts created/updated/unchanged; errores tipados `SeedError`. CLI: bin target `vanta-seed` (`cargo run -p vanta-memory --bin vanta-seed -- <seed.json> [--db <path>]`) — glue en src/cli.rs imposible por ciclo de dependencias vanta-memory→vantadb (documentado en task file); feature passthrough `fjall` para persistencia. 6 tests D19 nuevos (4 integración con archivo temporal + 2 unit parser); suite vanta-memory 395 ?; check/fmt/clippy -p vanta-memory exit 0. Commit pendiente del lead.
+- **Ids:** `MEM-39`
+
 ---
 
 ## Planes archivados

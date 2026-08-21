@@ -42,6 +42,9 @@ pub mod context_engine;
 /// Gateway-facing handlers (MCP scene/knowledge tools).
 pub mod gateway;
 
+/// Seed/import: bootstrap initial skills + persona into a store (MEM-39).
+pub mod seed;
+
 /// Crate name (used by smoke test; kept trivial on purpose).
 pub fn name() -> &'static str {
     "vanta-memory"

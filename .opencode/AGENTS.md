@@ -621,3 +621,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: MEM-41 — 2026-08-21 -->
 - `cargo clippy -p <crate> -- -D warnings` aplica `-D warnings` a TODAS las crates del grafo (deps incluidas): warnings pre-existentes en `vantadb` core fallan el gate aunque el crate propio esté limpio. Verificar con `cargo clippy -p <crate> --all-targets` (sin -D) + grep de warnings propios; el -D estricto es gate del lead en workspace.
 - Patrón wrapper para hooks best-effort sin tocar firmas públicas: renombrar `fn X` → `fn X_inner` y agregar wrapper `X` que llama inner + log — 16 callers de `generate_persona` no cambian. Loguear solo generaciones REALES (updated/non-empty) o fallos; los skip/no-change no son generaciones.
+
+<!-- Learnings: MEM-39 — 2026-08-21 -->
+- Glue CLI en `src/cli.rs` del crate core es imposible cuando el módulo vive en un crate hijo: vanta-memory ya depende de vantadb, y Cargo prohíbe ciclos de paquetes. Patrón que funcionó: bin target propio del crate (`src/bin/vanta-seed.rs`) + feature passthrough (`fjall = ["vantadb/fjall"]`) para el backend persistente; el parser vive en la lib, el bin es thin wrapper.
+- Raw strings `r#"..."#` rompen si el JSON embebido contiene `"#` (p.ej. `"# User Narrative Profile"`): usar delimitador `r##"..."##` para seeds/docs con markdown headers.
