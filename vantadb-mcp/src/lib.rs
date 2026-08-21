@@ -6,6 +6,7 @@
 //! exposing tools, resources, and prompts for AI agent integration.
 
 mod axioms;
+mod code;
 mod config;
 mod error;
 mod handlers;

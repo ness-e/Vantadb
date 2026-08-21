@@ -180,6 +180,7 @@ pub fn handle_tools_list() -> Result<Value, Value> {
     let mut result = json!({ "tools": base_tools });
     if let Some(tools) = result["tools"].as_array_mut() {
         tools.extend(crate::skills::skill_tool_definitions());
+        tools.extend(crate::code::code_tool_definitions());
     }
     Ok(result)
 }
@@ -873,6 +874,10 @@ pub fn handle_tools_call(
 
         "skill_list" | "skill_view" | "skill_create" | "skill_update" | "skill_patch"
         | "skill_files_write" => crate::skills::handle_skill_tool(name, args, storage, config),
+        "code_search" | "code_explore" | "code_callers" | "code_callees" | "code_impact"
+        | "code_node" | "code_status" | "code_files" => {
+            crate::code::handle_code_tool(name, args, storage, config)
+        }
         _ => McpError::method_not_found(format!("Tool not found: {}", name)).into_err(),
     }
 }

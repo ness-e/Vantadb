@@ -625,3 +625,8 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: MEM-39 — 2026-08-21 -->
 - Glue CLI en `src/cli.rs` del crate core es imposible cuando el módulo vive en un crate hijo: vanta-memory ya depende de vantadb, y Cargo prohíbe ciclos de paquetes. Patrón que funcionó: bin target propio del crate (`src/bin/vanta-seed.rs`) + feature passthrough (`fjall = ["vantadb/fjall"]`) para el backend persistente; el parser vive en la lib, el bin es thin wrapper.
 - Raw strings `r#"..."#` rompen si el JSON embebido contiene `"#` (p.ej. `"# User Narrative Profile"`): usar delimitador `r##"..."##` para seeds/docs con markdown headers.
+
+<!-- Learnings: MEM-32 — 2026-08-21 -->
+- Errores de dominio en handlers MCP deben salir como Ok(error_content(...)), nunca Err propagado via ?: el ? convierte el shape {content:[...]} en error JSON-RPC sin message y el cliente LLM no ve el texto auto-correctable. Patron: match explicito con early-return Ok(error_content) (igual que memory_get "Record not found").
+- Tests que abren StorageEngine::open directo necesitan mbedded.ensure_indexes_current() ANTES de cualquier path BM25/graphrag, si no falla con "text_index not found: bm25" (patron MCP-01/AUD-044 ya documentado en cli_handlers).
+- Read-only en tests de grafo NO se verifica comparando snapshots completos del nodo: get_node incrementa hits/last_accessed (AccessTracker core) en cualquier canal de lectura. Comparar estructura (ids/edges/counts) o strip digits, y documentar la distincion telemetria-vs-mutacion.

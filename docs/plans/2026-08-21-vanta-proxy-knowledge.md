@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Proxy + Knowledge (F6+F7) — proxy transparente + wiki/code-graph
 
-> **Campaign ID:** (asignado por MCP al primer update_task_state)
+> **Campaign ID:** e88295b0-974b-4009-b291-8c479d19b8a9
 > **Inicio:** 2026-08-21
-> **Estado:** ⏳ EN PROGRESO (0/9 tareas)
+> **Estado:** ⏳ EN PROGRESO (1/9 tareas)
 > **Fuente:** `docs/Backlog.md` filas MEM-25..33 + `docs/research/tdam/07-proxy.md` + `08-knowledge-panel-sdk.md` + `06-metadata-acl.md` (quota diferido) + SYNTHESIS §2.3/§3 + decisiones del usuario (2026-08-21)
 > **Predecesores:** P27 F1-F4 ✅ 24/24 (`docs/plans/archive/2026-08-18-vanta-memory.md`) · P29 F5 ✅ 9/9 (`docs/plans/archive/2026-08-21-vanta-context-engine.md`) — crate vanta-memory completo (L0-L3/recall/context_engine/offload/gateway/seed/genlog), suite 430/430
 > **Modo:** waves por dependencias — Wave 0 (fundaciones independientes) → Wave 1 (proxy wire + ingest) → Wave 2 (ciclo proxy + tools wiki + callback) → Wave 3 (rate-limit/write-back).
@@ -49,7 +49,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
 - **Verificación real:** ✅ CÓDIGO-REAL — `src/graph.rs` bfs_traverse:61 / dfs_traverse:234 / topological_sort:258 existen; graphrag existe; `vantadb-mcp/src/handlers/tools.rs` existe; costo = solo exposición (backlog row)
 - **Gate Justificación:** barato y visible; D28 elimina la dependencia externa de TDAM
 - **Gate Result:** ✅ DO
-- **Contrato:** "`cargo check -p vantadb-mcp` pasa; tests D19: 8 tools `code_search/explore/callers/callees/impact/node/status/files` responden sobre un grafo seedeado; respetan dirección de aristas; read-only (sin mutación); tool desconocida → error claro"
+- **Contrato: verificacion: cargo check -p vantadb-mcp ✅ | cargo nextest run -p vantadb-mcp 22/22 ✅ (9 nuevos code_tests + 13 pre-existentes) | cargo fmt --check ✅ | cargo clippy -p vantadb-mcp --all-targets --no-deps -- -D warnings ✅ | evidencia: vantadb-mcp/src/code.rs (7 tools reales + code_files stub documentado); tests/code_tests.rs 9/9 sobre diamante seedeado con dirección respetada (callers=Reverse bfs, callees=Forward bfs); read-only estructural verificado; unknown tool -> method_not_found | artefactos: vantadb-mcp/src/code.rs, vantadb-mcp/tests/code_tests.rs, wiring en src/handlers/tools.rs + src/lib.rs, task file .opencode/skills/campaign-executor/tasks/MEM-32.md | invariantes: read-only estricto; no tocar core vantadb (respetado); sin unwrap/expect en código nuevo; D28 sin dependencia externa; errores de dominio como Ok(error_content) | deuda: ninguna nueva; code_files es stub not-supported DOCUMENTADO (semántica TDAM no portable, stop condition del plan) | queda_pendiente: commit lo hace el lead (regla usuario NO commit)
 - **Pre-mortem:** (1) semántica de impact/callers difiere entre codegraph de TDAM y graphrag propio → mapear cada tool a la primitiva local equivalente y documentar el mapping; (2) tools sin grafo cargado → error claro, no panic
 - **Stop conditions:** si impact requiere análisis que graphrag no soporta → exponer stub con error "not supported" documentado (no inventar semántica)
 - **Risk Register:**
@@ -59,7 +59,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
   | 🟢×🟡 | grafo vacío en tests | fixture seedeado reutilizable | primer test |
 - **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 3 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-32.md`
 - **Branch:** | **Commit:**
 - **Iteraciones:** | — | — | — | — |
@@ -286,11 +286,10 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: F6 vanta-proxy (3 protocolos wire + ciclo inject/forward/write-back) + F7 knowledge (wiki state machine + ingest + 12 tools MCP query-only)
+Objetivo activo: MEM-32: 8 tools MCP code_* query-only sobre graphrag propio (D28) — COMPLETADA
 Estado: pending ⏳
-Última acción: plan creado 2026-08-21 desde Backlog + research 07/08 + Paso 0 verificado (graph.rs:61/234/258, handlers/tools.rs existe, vanta-proxy y src/wiki no existen)
-Resultado: —
-Próxima acción: `/pipeline run docs/plans/2026-08-21-vanta-proxy-knowledge.md` (Wave 0: Tasks 1-3)
+Última acción: Implementadas 8 tools MCP code_* en nuevo módulo vantadb-mcp/src/code.rs con mapping tool<->primitiva documentado; wiring aditivo en handlers/tools.rs y lib.rs; 9 tests D19 green tras 3 fixes (errores dominio como error_content, ensure_indexes_current para BM25, read-only estructural vs telemetría hits). Verify completo exit 0.
+Resultado: OK
+Próxima acción: Orquestador: Task 2 MEM-28 wiki store + state machine pending->ready en core src/wiki/
 Contrato: por tarea — cargo check/nextest/fmt/clippy del crate tocado exit 0 + tests D19
-Próxima tarea si completa: Task 1 (MEM-32)
-=== END RECITATION ===
+Próxima tarea si completa: 2
