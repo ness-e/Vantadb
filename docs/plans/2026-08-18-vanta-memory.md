@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID:** 94f94535-b897-4e6c-9481-6760c9760dc3
+> **Campaign ID:** b700d4e9-1ce3-4b9f-969f-dfa32b566250
 > **Inicio:** 2026-08-18
-> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..16 ✅ — 19/24)
+> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..17 ✅ — 20/24)
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Catálogo:** `docs/Backlog.md` — filas MEM-01..38 (este plan es el estado de ejecución; el backlog es el catálogo)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
@@ -267,7 +267,7 @@
 - **Gate Justificación:** transcript marcadores, truncado, review taxonomía, sink idempotente (integra MEM-06 skills core); referencia `MC/core/skill/skill-extractor.ts` (587), `MC/core/skill/conversation-add/*`, `MC/core/skill/prompts/skill-review-prompt.ts` (198), `skill-listing-prompt.ts`
 - **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de skill extract (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-17.md`
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 21: MEM-18 — F4 Recall prepend/append + 3 modos
 - **Archivos clave:** `vanta-memory/src/core/hooks/auto_recall.rs` (crear), `vanta-memory/src/core/memory_prompt/composer.rs` (crear), `resolver.rs` (crear), `types.rs` (crear), `vanta-memory/src/core/profile/profile_sync.rs` (crear)
@@ -338,11 +338,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 97e683bd-39d0-4402-b655-e224bd36be3c
-Objetivo activo: MEM-16: F4 Orquestación timers+locks (estado local, reloj fake)
+Objetivo activo: MEM-17: F4 Skill extract transcript + sink idempotente
 Estado: in-progress ⏳
-Última acción: Implementada la capa de orquestación MEM-16: trait Clock inyectable (SystemClock + FakeClock determinista) con ManagedTimer pull-based (schedule/schedule_at/try_advance_to downward-only/cancel/flush/poll, guard destroyed); LocalStateBackend (buffers, session states, timers, cola priorizada priority+created_at estilo TDAM, locks TTL owner-scoped, capture_atomic); TimerScanner pull-based; CheckpointManager sobre store VantaDB (namespace pipeline_checkpoint sanitizado; mark_persona_generated/set-clear_persona_request/increment_scenes_processed/add_memories_extracted/merge_pipeline_states/persona_trigger_input — PAGA deuda MEM-15); MemoryPipelineManager (warmup 1→2→4→cap, idle timer) + StatefulPipelineManager (backend-backed + persister); PipelineFactory mínimo; PipelineWorker (consume priorizado, lock por sesión, retry attempts→dead-letter, release SIEMPRE antes de actuar) + MemoryTaskHandler<R: LlmRunner> orquestando L0(read_messages)→L1(extract_l1_segments+run_l1_dedup+contadores checkpoint)→L2(read_session_records→extract_scenes_with_llm)→L3(persona_trigger_input→evaluate_persona_trigger→generate_persona→mark_persona_generated). Extensión aditiva en l1_extractor.rs: extract_l1_segments devuelve las memorias para el dedup sin romper extract_l1_memories. 21 tests nuevos D19 (6 unit ManagedTimer + 15 integration tests/pipeline_manager.rs), todo FakeClock, cero sleeps, cero threads/tokio
+Última acción: Pipeline skill-extract completo: prompts review v2 (taxonomía SOP/Background/Preference) + listing; extractor con transcript markers <<past-*>> + end-anchor, truncado head/tail 8000/32000, query sanitizer FTS5-safe; conversation_add consolidado a 5 módulos (compressor char-boundary-safe, oversize TDAM-parity, archive VantaDB con orden archive→task, sink IDEMPOTENTE doble capa cursor+content-hash, worker con ghost-check y retry pending). 28 tests D19. Verify 4/4 gates exit 0.
 Resultado: OK
-Próxima acción: Ninguna para MEM-16. Siguiente tarea del plan: Task 20 (MEM-17 — skill extractor); el lead commitea (feat: MEM-16)
+Próxima acción: Ninguna para MEM-17. Siguiente: Task 21 (MEM-18 — recall prepend/append + 3 modos); el lead commitea feat: MEM-17
 Contrato: `cargo check -p vanta-memory` pasa; tests dedicados (D19)
-Próxima tarea si completa: 20
+Próxima tarea si completa: 21
 === END RECITATION ===

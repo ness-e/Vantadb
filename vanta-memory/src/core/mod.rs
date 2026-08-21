@@ -33,3 +33,7 @@ pub mod persona;
 /// Pipeline state contracts shared by managers, backends and the worker
 /// (MEM-16).
 pub mod state;
+
+/// Skill extraction from transcripts + conversation-add pipeline with an
+/// idempotent sink (MEM-17).
+pub mod skill;
