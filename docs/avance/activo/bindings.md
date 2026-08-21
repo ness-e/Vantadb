@@ -177,6 +177,9 @@ aliases: []
 ### AUD-050: `inject_context` error claro thread_id (2026-08-18)
 - **Resultado:** ✅ distingue `Missing 'thread_id'` (ausente/null) vs `'thread_id' must be a numeric id (integer), got string` (tipo inválido — el error anterior decía "Missing" con el campo presente). mcp_tests 41/41. Commit (wave 4). (ver docs/progreso/README.md)
 
+### MEM-21: F4 Tools MCP scene_read/list/query — gateway handlers (2026-08-20)
+- **Resultado:** ✅ `vanta-memory/src/gateway/knowledge_handlers.rs` (nuevo): capa de entrada tipada serde para `scene_read`/`scene_list`/`scene_query` sobre el store de escenas (MEM-12/MEM-15); server MCP la expone después. Soft-delete respetado (read→NotFound, list/query excluidos); query LLM-free (`overlap_score`, techo documentado); `KnowledgeError` non_exhaustive. 10 tests D19; suite 361 ✅. Commit `31e676b1`. (ver docs/progreso/README.md)
+
 ### MCP-16 (edge? — ver fuente)
 - **Estado:** Pendiente verificar.
 
