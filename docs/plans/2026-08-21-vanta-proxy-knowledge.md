@@ -1,8 +1,7 @@
 # Plan de Ejecución: Vanta Proxy + Knowledge (F6+F7) — proxy transparente + wiki/code-graph
 
-> **Campaign ID:** e88295b0-974b-4009-b291-8c479d19b8a9
 > **Inicio:** 2026-08-21
-> **Estado:** ⏳ EN PROGRESO (4/9 tareas)
+> **Estado:** ⏳ EN PROGRESO (5/9 tareas)
 > **Fuente:** `docs/Backlog.md` filas MEM-25..33 + `docs/research/tdam/07-proxy.md` + `08-knowledge-panel-sdk.md` + `06-metadata-acl.md` (quota diferido) + SYNTHESIS §2.3/§3 + decisiones del usuario (2026-08-21)
 > **Predecesores:** P27 F1-F4 ✅ 24/24 (`docs/plans/archive/2026-08-18-vanta-memory.md`) · P29 F5 ✅ 9/9 (`docs/plans/archive/2026-08-21-vanta-context-engine.md`) — crate vanta-memory completo (L0-L3/recall/context_engine/offload/gateway/seed/genlog), suite 430/430
 > **Modo:** waves por dependencias — Wave 0 (fundaciones independientes) → Wave 1 (proxy wire + ingest) → Wave 2 (ciclo proxy + tools wiki + callback) → Wave 3 (rate-limit/write-back).
@@ -49,7 +48,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
 - **Verificación real:** ✅ CÓDIGO-REAL — `src/graph.rs` bfs_traverse:61 / dfs_traverse:234 / topological_sort:258 existen; graphrag existe; `vantadb-mcp/src/handlers/tools.rs` existe; costo = solo exposición (backlog row)
 - **Gate Justificación:** barato y visible; D28 elimina la dependencia externa de TDAM
 - **Gate Result:** ✅ DO
-- **Contrato: cargo check -p vantadb pasa; tests D19 — evidencia: nextest wiki:: 24/24 exit 0, fmt exit 0, clippy -D warnings exit 0; commit e4767c0a
+- **Contrato:** "`cargo check -p vantadb-mcp` pasa; tests D19: 8 tools `code_search/explore/callers/callees/impact/node/status/files` responden sobre un grafo seedeado; respetan dirección de aristas; read-only (sin mutación); tool desconocida → error claro"un -p vanta-memory 443/443 ✅ · cargo fmt --check exit 0 · cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings exit 0 | evidencia: [claim: pipeline begin_processing→scan/chunk→extract→merge serial→put_page→complete/fail implementado / evidencia: vanta-memory/src/ingest/{mod,prompts,merge,worker}.rs + worker::run test end_to_end_build_completes_ready_with_written_pages / confianza: alta] [claim: candidates agregados por relPath (a) / evidencia: tests candidates_from_two_sources_aggregate_by_rel_path + file_blocks_parse_into_candidates / confianza: alta] [claim: límite global configurable default 5 clamp 1-20, merge serial (b) / evidencia: clamp_llm_concurrency + IngestConfig::new, test llm_concurrency_defaults_to_five_and_clamps; decisión documentada en mod.rs y task file / confianza: alta] [claim: fallo página N no bloquea N+1 (c) / evidencia: test page_failure_does_not_block_next_pages / confianza: alta] [claim: ensureSources inyecta frontmatter idempotente (d) / evidencia: test ensure_sources_injects_and_is_idempotent / confianza: alta] [claim: STRUCTURAL_FILES nunca sobrescritos (e) / evidencia: test structural_files_never_overwritten + end_to_end ignora wiki/index.md / confianza: alta] [claim: LLM opcional P4 fallback determinístico (f) / evidencia: tests llm_free_mode_new_pages_written_verbatim_existing_merged_skipped + not_configured_runner_degrades_like_no_runner / confianza: alta] | artefactos: vanta-memory/src/ingest/{mod,prompts,merge,worker}.rs · vanta-memory/tests/ingest.rs · .opencode/skills/campaign-executor/tasks/MEM-30.md | invariantes: NO tocar core vantadb (respetado — solo consumo vía vantadb::wiki SDK); sin deps nuevas; sin unwrap/expect en producción; prompts inglés P7 | deuda: extracción LLM-free no produce candidatos (skip documentado, TDAM-parity); canonicalización de path usa dir/stem del relPath (no frontmatter type/title preferente como TDAM canonicalizePagePath); semaphore/threadpool diferido — merge serial ES el requisito, límite configurable expuesto para pools futuros | queda_pendiente: orquestador decide commit (lead); próxima tarea 6 (MEM-26 proxy ciclo auth/session/injection)
 - **Pre-mortem:** (1) semántica de impact/callers difiere entre codegraph de TDAM y graphrag propio → mapear cada tool a la primitiva local equivalente y documentar el mapping; (2) tools sin grafo cargado → error claro, no panic
 - **Stop conditions:** si impact requiere análisis que graphrag no soporta → exponer stub con error "not supported" documentado (no inventar semántica)
 - **Risk Register:**
@@ -130,7 +129,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
 - **Cynefin:** 🟨 complicado — protocolos conocidos, detalles de streaming analizable
 - **Top 3 riesgos:** SSE, scope Responses, headers
 - **Uphill/Downhill:** ⬆️ 0 (D31 TOML) · ⬇️ 5 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-25.md`
 - **Branch:** | **Commit:**
 - **Iteraciones:** | — | — | — | — |
@@ -155,7 +154,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
 - **Cynefin:** 🟧 complejo — el comportamiento emerge al probar con contenido real; steps cortos con verify frecuente
 - **Top 3 riesgos:** alucinación merge, concurrencia, consistencia parcial
 - **Uphill/Downhill:** ⬆️ 0 (binding = LlmRunner del crate, decisión fija) · ⬇️ 5 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-30.md`
 - **Branch:** | **Commit:**
 - **Iteraciones:** | — | — | — | — |
@@ -286,10 +285,10 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: F6 vanta-proxy + F7 knowledge — cierre roadmap TDAM
+Objetivo activo: MEM-30 ingest merge serial + límite concurrencia LLM global (Task 5 P30)
 Estado: pending ⏳
-Última acción: MEM-29 fuentes locales + chunker: scan_local_sources recursivo orden lexicográfico + SOURCE_CHAR_BUDGET 28000, chunk_text 12000/400 split headings→párrafos→hard-cut con overlap tail; guard path traversal canonicalize+starts_with (ensure_within_root); skip no-.md/binarios/symlinks con tracing. Wave 0 completa (3/9)
+Última acción: MEM-30 completo: módulo ingest (config clamp 1-20, STRUCTURAL_FILES, frontmatter+ensureSources, FILE protocol parser, normalizeWikiPath guards, merge_page con fallback P4, commit serial no-bloqueante, worker state-machine bound a WikiStore core), prompts inglés, 13 tests D19, verify 4/4 verde
 Resultado: OK
-Próxima acción: Wave 1: delegar MEM-25 (Task 4, vanta-proxy crate + 3 wire protocols, appetite 3d) a vanta-worker
+Próxima acción: Delegar Task 6 (MEM-26) a vanta-worker
 Contrato: por tarea — cargo check/nextest/fmt/clippy del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 4
+Próxima tarea si completa: 6

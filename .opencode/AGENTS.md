@@ -638,3 +638,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: MEM-29 — 2026-08-21 -->
 - Test data con trailing whitespace rompe asserts de round-trip exacto contra funciones que trim()ean input (chunker TDAM-port): filler("x ") cortado en par termina en espacio y trim se lo come. Usar contenido sin ws de borde al verificar reensamblado 1:1.
 - `std::os::unix::fs` NO existe como modulo en builds Windows: un test portable de symlink necesita cfg-gates separados por rama (`#[cfg(unix)] { ... } #[cfg(windows)] { ... }`), no `unix(...) || windows(...)`.
+
+<!-- Learnings: MEM-30 — 2026-08-21 -->
+- El trait LlmRunner de vanta-memory NO es dyn-compatible (complete_json tiene método genérico sin where Self: Sized): las APIs que reciben runners deben ser genéricas (`fn f<R: LlmRunner>(runner: Option<&R>)`), no `&dyn LlmRunner`. No se puede tocar core para arreglarlo (Regla blast-radius).
+- Patrón test-first para pipelines con runner scripted: el runner fake debe ser FIFO (`remove(0)`), no pop() LIFO — el orden del script es parte del contrato del test; y las páginas NUEVAS se escriben verbatim sin LLM (short-circuit TDAM), así los tests de fallo-de-merge requieren páginas preexistentes.
