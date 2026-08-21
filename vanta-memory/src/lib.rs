@@ -36,6 +36,9 @@ pub mod adapters;
 /// Context offload: state manager, cursor, storage, after-tool-call hooks.
 pub mod offload;
 
+/// Context engine: token estimator, emergency truncate, compaction reports.
+pub mod context_engine;
+
 /// Gateway-facing handlers (MCP scene/knowledge tools).
 pub mod gateway;
 
