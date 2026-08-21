@@ -630,3 +630,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 - Errores de dominio en handlers MCP deben salir como Ok(error_content(...)), nunca Err propagado via ?: el ? convierte el shape {content:[...]} en error JSON-RPC sin message y el cliente LLM no ve el texto auto-correctable. Patron: match explicito con early-return Ok(error_content) (igual que memory_get "Record not found").
 - Tests que abren StorageEngine::open directo necesitan mbedded.ensure_indexes_current() ANTES de cualquier path BM25/graphrag, si no falla con "text_index not found: bm25" (patron MCP-01/AUD-044 ya documentado en cli_handlers).
 - Read-only en tests de grafo NO se verifica comparando snapshots completos del nodo: get_node incrementa hits/last_accessed (AccessTracker core) en cualquier canal de lectura. Comparar estructura (ids/edges/counts) o strip digits, y documentar la distincion telemetria-vs-mutacion.
+
+<!-- Learnings: MEM-28 — 2026-08-21 -->
+- El patrón EntityStore/SceneNodeStore (InternalMetadata + keys prefijadas + serde_json) replica casi 1:1 para cualquier store nuevo: el costo real de un store core LLM-free es solo la state machine, no la persistencia.
+- `cargo nextest run -p vantadb --wiki` falla porque nextest trata `--wiki` como flag propio; los filtros de test van posicionales (`cargo nextest run -p vantadb wiki::`) o tras `--`.

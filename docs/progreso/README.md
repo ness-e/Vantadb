@@ -295,6 +295,11 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 
 ## Progreso Reciente
 
+### Campaña P30 Vanta Proxy + Knowledge en ejecución 2026-08-21 - Wave 0 (plan `2026-08-21-vanta-proxy-knowledge.md`)
+
+- **MEM-32** MCP tools code_* query-only (8 tools sobre graphrag propio + `src/graph.rs`, D28) ✅ commit `70048abf` — nextest 22/22, fmt/clippy `-D warnings` limpios.
+- **MEM-28** F7 Wiki store + state machine pending→ready en core (`src/wiki/{mod,state,store}.rs` + wiring `lib.rs`) ✅ código verificado: patrón InternalMetadata (EntityStore/SceneNodeStore D4), CAS por estado con `version` optimista, `run_id` por build, re-ingest → `ExecutionConflict` (409-equivalente), sync_error truncado 500 chars, páginas gestionadas `locked:true` con cascade delete y dedup por path canónico type+title. Tests D19 11/11 (`cargo nextest run -p vantadb wiki::`), fmt/clippy `-D warnings` exit 0, `cargo check` de vanta-memory y vantadb-mcp sin regresión. Commit pendiente del lead.
+
 ### Campaña P29 Vanta Context Engine completada 2026-08-21 - 9/9 tareas F5 (plan `2026-08-21-vanta-context-engine.md`)
 
 Cierre de campaña: **F5 Context Engine completo** — compresión LLM-free + MMD + recall híbrido + GC, suite final **430/430 tests** (`cargo nextest run -p vanta-memory`), fmt/clippy `-D warnings` limpios, docs coverage 0 gaps.

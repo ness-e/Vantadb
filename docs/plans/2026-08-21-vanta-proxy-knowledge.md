@@ -2,7 +2,7 @@
 
 > **Campaign ID:** e88295b0-974b-4009-b291-8c479d19b8a9
 > **Inicio:** 2026-08-21
-> **Estado:** ⏳ EN PROGRESO (1/9 tareas)
+> **Estado:** ⏳ EN PROGRESO (2/9 tareas)
 > **Fuente:** `docs/Backlog.md` filas MEM-25..33 + `docs/research/tdam/07-proxy.md` + `08-knowledge-panel-sdk.md` + `06-metadata-acl.md` (quota diferido) + SYNTHESIS §2.3/§3 + decisiones del usuario (2026-08-21)
 > **Predecesores:** P27 F1-F4 ✅ 24/24 (`docs/plans/archive/2026-08-18-vanta-memory.md`) · P29 F5 ✅ 9/9 (`docs/plans/archive/2026-08-21-vanta-context-engine.md`) — crate vanta-memory completo (L0-L3/recall/context_engine/offload/gateway/seed/genlog), suite 430/430
 > **Modo:** waves por dependencias — Wave 0 (fundaciones independientes) → Wave 1 (proxy wire + ingest) → Wave 2 (ciclo proxy + tools wiki + callback) → Wave 3 (rate-limit/write-back).
@@ -49,7 +49,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
 - **Verificación real:** ✅ CÓDIGO-REAL — `src/graph.rs` bfs_traverse:61 / dfs_traverse:234 / topological_sort:258 existen; graphrag existe; `vantadb-mcp/src/handlers/tools.rs` existe; costo = solo exposición (backlog row)
 - **Gate Justificación:** barato y visible; D28 elimina la dependencia externa de TDAM
 - **Gate Result:** ✅ DO
-- **Contrato:** "`cargo check -p vantadb-mcp` pasa; tests D19: 8 tools `code_search/explore/callers/callees/impact/node/status/files` responden sobre un grafo seedeado; respetan dirección de aristas; read-only (sin mutación); tool desconocida → error claro"
+- **Contrato: verificacion: cargo check -p vantadb exit 0; cargo nextest run -p vantadb wiki:: 11/11 PASS; cargo fmt --check exit 0; cargo clippy -p vantadb --all-targets --no-deps -- -D warnings exit 0; cargo check -p vanta-memory exit 0; cargo check -p vantadb-mcp exit 0. evidencia — [claim: tests D19 (a)-(f) green | evidencia: src/wiki/tests.rs nextest 11/11 PASS (create pending, conflict busy, full transition run_id, stale run_id, truncate 500, dedup canonical_path, locked:true+cascade, sanitización, NotFound) | confianza: alta] [claim: sin regresión consumidores core | evidencia: cargo check -p vanta-memory y -p vantadb-mcp exit 0 | confianza: alta] [claim: persistencia sin mecanismo nuevo | evidencia: src/wiki/store.rs usa BackendPartition::InternalMetadata (patrón src/entity/scene.rs) | confianza: alta]. artefactos: src/wiki/{mod,state,store,tests}.rs · src/lib.rs (+2 líneas wiring) · .opencode/skills/campaign-executor/tasks/MEM-28.md · docs/Backlog.md (fila MEM-28 removida) · docs/progreso/README.md (sección P30). invariantes: NO tocar src/wal.rs, src/vector/, src/storage/* (7 warnings unsafe intocados); API pública solo aditiva (semver-safe): vantadb::wiki::{WikiState, Wiki, WikiPage, WikiStore, canonical_path}; store LLM-free (ingest con LLM = MEM-30 en vanta-memory vía SDK). deuda: commit NO hecho (instrucción explícita del orquestador); CAS read-validate-write sin txn cross-key documentado con comentario ponytail (callers single-process D27). queda_pendiente: lead commitea (feat: MEM-28) + corrige header del plan file tras update_task_state.
 - **Pre-mortem:** (1) semántica de impact/callers difiere entre codegraph de TDAM y graphrag propio → mapear cada tool a la primitiva local equivalente y documentar el mapping; (2) tools sin grafo cargado → error claro, no panic
 - **Stop conditions:** si impact requiere análisis que graphrag no soporta → exponer stub con error "not supported" documentado (no inventar semántica)
 - **Risk Register:**
@@ -82,7 +82,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
   | 🟢×🟡 | sync_error sin truncar crece ilimitado | truncate 500 chars en setter | diseño |
 - **Cynefin:** 🟨 complicado — state machine conocida, persistencia a decidir detalle
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 4 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-28.md`
 - **Branch:** | **Commit:**
 - **Iteraciones:** | — | — | — | — |
@@ -286,10 +286,10 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: MEM-32: 8 tools MCP code_* query-only sobre graphrag propio (D28) — COMPLETADA
+Objetivo activo: MEM-28: wiki store + state machine pending→ready en core vantadb (LLM-free, patrón InternalMetadata)
 Estado: pending ⏳
-Última acción: Implementadas 8 tools MCP code_* en nuevo módulo vantadb-mcp/src/code.rs con mapping tool<->primitiva documentado; wiring aditivo en handlers/tools.rs y lib.rs; 9 tests D19 green tras 3 fixes (errores dominio como error_content, ensure_indexes_current para BM25, read-only estructural vs telemetría hits). Verify completo exit 0.
+Última acción: Implementado módulo wiki completo (state machine + store de páginas) siguiendo patrón EntityStore; tests D19 11/11; verify mecánico completo verde; Backlog→progreso migrado; task file actualizado
 Resultado: OK
-Próxima acción: Orquestador: Task 2 MEM-28 wiki store + state machine pending->ready en core src/wiki/
+Próxima acción: Lead commitea; luego delegar MEM-29 (Task 3, fuentes locales .md + chunker 12k/400 en src/wiki/sources.rs + chunker.rs)
 Contrato: por tarea — cargo check/nextest/fmt/clippy del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 2
+Próxima tarea si completa: 3

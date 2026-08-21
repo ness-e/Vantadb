@@ -137,6 +137,9 @@ pub mod vector;
 pub mod wal;
 pub(crate) mod wal_sharded;
 
+/// Wiki knowledge store with pending→ready lifecycle (F7, MEM-28).
+pub mod wiki;
+
 /// Async WAL shipping to remote replica (behind feature "wal-shipping").
 #[cfg(feature = "wal-shipping")]
 pub mod wal_shipping;
