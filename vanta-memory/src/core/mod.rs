@@ -29,3 +29,7 @@ pub mod scene;
 
 /// L3 persona: trigger heuristics + first/incremental generation (MEM-15).
 pub mod persona;
+
+/// Pipeline state contracts shared by managers, backends and the worker
+/// (MEM-16).
+pub mod state;

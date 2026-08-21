@@ -15,7 +15,7 @@
 
 use std::time::Duration;
 
-use crate::core::abstractions::{L1ExtractionResult, LlmRunParams, LlmRunner};
+use crate::core::abstractions::{ExtractedMemory, L1ExtractionResult, LlmRunParams, LlmRunner};
 use crate::core::conversation::L0Message;
 use crate::core::prompts::l1_extraction::{
     extract_memories_system_prompt, format_extraction_prompt, PromptMode,
@@ -63,13 +63,25 @@ pub fn extract_l1_memories<R: LlmRunner>(
     previous_scene_name: Option<&str>,
     config: &L1ExtractorConfig,
 ) -> L1ExtractionResult {
+    extract_l1_segments(runner, messages, previous_scene_name, config).0
+}
+
+/// Like [`extract_l1_memories`] but also returns the extracted memories so
+/// the pipeline worker (MEM-16) can feed dedup without re-parsing. Behavior
+/// is otherwise identical.
+pub fn extract_l1_segments<R: LlmRunner>(
+    runner: &R,
+    messages: &[L0Message],
+    previous_scene_name: Option<&str>,
+    config: &L1ExtractorConfig,
+) -> (L1ExtractionResult, Vec<ExtractedMemory>) {
     let qualified: Vec<L0Message> = messages
         .iter()
         .filter(|m| should_extract_l1(&m.content))
         .cloned()
         .collect();
     if qualified.is_empty() {
-        return empty_result();
+        return (empty_result(), Vec::new());
     }
 
     // Split: new = last max_new; background = up to max_bg immediately before.
@@ -97,7 +109,7 @@ pub fn extract_l1_memories<R: LlmRunner>(
         Ok(raw) => raw,
         Err(err) => {
             tracing::warn!(error = %err, "L1 extraction LLM call failed; degrading to empty result");
-            return failed_result();
+            return (failed_result(), Vec::new());
         }
     };
 
@@ -113,14 +125,17 @@ pub fn extract_l1_memories<R: LlmRunner>(
 
     let extracted_count = extracted.len();
     let last_scene_name = scene_names.last().cloned();
-    L1ExtractionResult {
-        success: true,
-        extracted_count,
-        stored_count: 0,
-        records: Vec::new(),
-        scene_names,
-        last_scene_name,
-    }
+    (
+        L1ExtractionResult {
+            success: true,
+            extracted_count,
+            stored_count: 0,
+            records: Vec::new(),
+            scene_names,
+            last_scene_name,
+        },
+        extracted,
+    )
 }
 
 /// Strict L1 quality gate (port of TDAM `sanitize.ts:shouldExtractL1`).

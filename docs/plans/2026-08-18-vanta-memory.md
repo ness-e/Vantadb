@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID:** 15650961-5275-4137-b16b-d9d110f790ba
+> **Campaign ID:** 94f94535-b897-4e6c-9481-6760c9760dc3
 > **Inicio:** 2026-08-18
-> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..15 ✅ — 18/24)
+> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..16 ✅ — 19/24)
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Catálogo:** `docs/Backlog.md` — filas MEM-01..38 (este plan es el estado de ejecución; el backlog es el catálogo)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
@@ -260,7 +260,7 @@
 - **Gate Justificación:** orquestación timers+locks sin Redis (estado local), reloj fake para tests; referencia `MC/utils/stateful-pipeline-manager.ts` (500), `pipeline-manager.ts` (1218), `pipeline-factory.ts` (1231), `MC/services/pipeline-worker.ts` (843), `timer-scanner.ts`, `MC/utils/managed-timer.ts`, `checkpoint.ts` (745), `MC/core/state/types.ts`, `local-backend.ts`
 - **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de pipeline manager (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-16.md`
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 20: MEM-17 — F4 Skill extract transcript + sink idempotente
 - **Archivos clave:** `vanta-memory/src/core/skill/skill_extractor.rs` (crear), `vanta-memory/src/core/skill/conversation_add/` (módulo trigger/extract/worker/compressor/oversize/archive/sink), `vanta-memory/src/core/skill/prompts/skill_review_prompt.rs` (crear), `skill_listing_prompt.rs` (crear)
@@ -338,11 +338,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 97e683bd-39d0-4402-b655-e224bd36be3c
-Objetivo activo: F4 (MEM-08a..21) — crate vanta-memory LLM-driven
+Objetivo activo: MEM-16: F4 Orquestación timers+locks (estado local, reloj fake)
 Estado: in-progress ⏳
-Última acción: MEM-15 implementada: scene_navigation.rs (NAV_HEADER paridad TDAM, heat_emoji, generate/strip), prompts/persona_generation.rs (system chat 4 capas + work doctrine EN inglés Principio 7, contrato JSON {"persona":...}, límites 2000/1200), persona_trigger.rs (P1-P4 puros sobre enum MEM-08b), persona_generator.rs (namespace persona/<session>, PersonaRecord, escape_xml_tags port exacto de sanitize.ts:288, generate_persona<R: LlmRunner> con detección de cambios RFC3339 lexicográfica, skip sin llamar al LLM, post-proceso strip→trim→escape→límite con rechazo preservando persona previa, append nav fresca); wiring ×3 mod.rs; tests D19 tests/persona.rs (14) + unit tests en 4 módulos
+Última acción: Implementada la capa de orquestación MEM-16: trait Clock inyectable (SystemClock + FakeClock determinista) con ManagedTimer pull-based (schedule/schedule_at/try_advance_to downward-only/cancel/flush/poll, guard destroyed); LocalStateBackend (buffers, session states, timers, cola priorizada priority+created_at estilo TDAM, locks TTL owner-scoped, capture_atomic); TimerScanner pull-based; CheckpointManager sobre store VantaDB (namespace pipeline_checkpoint sanitizado; mark_persona_generated/set-clear_persona_request/increment_scenes_processed/add_memories_extracted/merge_pipeline_states/persona_trigger_input — PAGA deuda MEM-15); MemoryPipelineManager (warmup 1→2→4→cap, idle timer) + StatefulPipelineManager (backend-backed + persister); PipelineFactory mínimo; PipelineWorker (consume priorizado, lock por sesión, retry attempts→dead-letter, release SIEMPRE antes de actuar) + MemoryTaskHandler<R: LlmRunner> orquestando L0(read_messages)→L1(extract_l1_segments+run_l1_dedup+contadores checkpoint)→L2(read_session_records→extract_scenes_with_llm)→L3(persona_trigger_input→evaluate_persona_trigger→generate_persona→mark_persona_generated). Extensión aditiva en l1_extractor.rs: extract_l1_segments devuelve las memorias para el dedup sin romper extract_l1_memories. 21 tests nuevos D19 (6 unit ManagedTimer + 15 integration tests/pipeline_manager.rs), todo FakeClock, cero sleeps, cero threads/tokio
 Resultado: OK
-Próxima acción: Ninguna para MEM-15. El lead commitea (feat: MEM-15) y delega Task 19 (MEM-16 — F4 Orquestación timers+locks)
+Próxima acción: Ninguna para MEM-16. Siguiente tarea del plan: Task 20 (MEM-17 — skill extractor); el lead commitea (feat: MEM-16)
 Contrato: `cargo check -p vanta-memory` pasa; tests dedicados (D19)
-Próxima tarea si completa: 19
+Próxima tarea si completa: 20
 === END RECITATION ===
