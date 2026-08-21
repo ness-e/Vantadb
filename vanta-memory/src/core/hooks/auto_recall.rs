@@ -387,16 +387,10 @@ fn normalize_budget(value: Option<usize>) -> Option<usize> {
 }
 
 /// Truncate to `max_chars` code points, appending the suffix when it fits.
+/// Consolidated in `utils::text_utils` (MEM-19); kept as a thin alias so the
+/// two internal call sites stay readable.
 fn truncate_line(line: &str, max_chars: usize) -> String {
-    if line.chars().count() <= max_chars {
-        return line.to_string();
-    }
-    if max_chars <= TRUNCATION_SUFFIX.chars().count() {
-        return line.chars().take(max_chars).collect();
-    }
-    let keep = max_chars - TRUNCATION_SUFFIX.chars().count();
-    let head: String = line.chars().take(keep).collect();
-    format!("{}{TRUNCATION_SUFFIX}", head.trim_end())
+    crate::utils::text_utils::truncate_with_suffix(line, max_chars, TRUNCATION_SUFFIX)
 }
 
 #[cfg(test)]

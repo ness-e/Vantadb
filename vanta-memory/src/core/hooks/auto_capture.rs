@@ -164,7 +164,7 @@ fn sanitize_content(
 
 /// Remove fenced code blocks (```...```) from a string by toggling a flag on
 /// fence lines. Unbalanced fences leave the tail visible (never panic).
-fn strip_fenced_code_blocks(content: &str) -> String {
+pub(crate) fn strip_fenced_code_blocks(content: &str) -> String {
     let mut in_block = false;
     let mut out = String::with_capacity(content.len());
     for line in content.lines() {

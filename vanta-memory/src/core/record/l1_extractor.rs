@@ -142,7 +142,7 @@ pub fn extract_l1_segments<R: LlmRunner>(
 /// Rejects structural noise, slash commands, and pure-symbol content that
 /// could never become a meaningful memory. L0 captures everything; L1 keeps
 /// only what the extractor should see.
-fn should_extract_l1(text: &str) -> bool {
+pub(crate) fn should_extract_l1(text: &str) -> bool {
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return false;
@@ -173,7 +173,7 @@ fn should_extract_l1(text: &str) -> bool {
 /// Framework-injected noise that should never be captured: bootstrap
 /// placeholders, session-reset instructions, session-start acks and
 /// memory-flush acks (port of TDAM `sanitize.ts:isFrameworkNoise`, 233-255).
-fn is_framework_noise(t: &str) -> bool {
+pub(crate) fn is_framework_noise(t: &str) -> bool {
     // Google turn-order bootstrap placeholder.
     if t == "(session bootstrap)" {
         return true;
