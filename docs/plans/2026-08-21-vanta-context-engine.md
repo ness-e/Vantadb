@@ -2,7 +2,7 @@
 
 > **Campaign ID:** e03c2c9f-4076-4cda-a1a8-44828dc8bf30
 > **Inicio:** 2026-08-21
-> **Estado:** ⏳ EN PROGRESO (8/9 tareas)
+> **Estado:** ✅ COMPLETADO (9/9 tareas — F5)
 > **Fuente:** `docs/Backlog.md` filas MEM-22..24, 37..42 + `docs/research/tdam/05-offload.md` + `SYNTHESIS.md` §2.2/§3 + auditoría post-P27 (2026-08-21) + decisiones del usuario (2026-08-21)
 > **Predecesor:** `docs/plans/archive/2026-08-18-vanta-memory.md` (P27, F1-F4 ✅ 24/24 — crate vanta-memory con L0/L1/L2/L3/recall/offload-cursor/gateway, suite 364/364)
 > **Modo:** waves por dependencias — Wave 0 (fundaciones independientes) → Wave 1 (MEM-22 núcleo) → Wave 2 (consumidores de MEM-22) → Wave 3 (gate docs).
@@ -38,7 +38,7 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 - **Verificación real:** ✅ CÓDIGO-REAL — `context_engine/` NO existe (Test-Path False); TDAM refs verificadas: `fast-token-estimate.ts` (274L), emergency trunca ~2000 chars (`llm-input-l3.ts:968,:121`), report `{messages, report}` (`compaction-handler.ts:254`)
 - **Gate Justificación:** fundación sin dependencias; gap real (no existe nada del context engine); D21 decide estimator chars/3 sin deps
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: cargo check -p vanta-memory ✅ · cargo nextest run -p vanta-memory ✅ 430/430 · cargo fmt --check ✅ · cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings ✅ | evidencia: [claim: post-aggressive recall+MMD+memories ≤ budget total → evidencia: tests/context_engine.rs::mem37_a verde en nextest 430/430 → confianza: alta; claim: mensajes ≤ cursor MEM-20 no se recomprimen ni duplican → evidencia: mem37_b con OffloadStateManager real + idempotencia byte-igual → confianza: alta; claim: e2e capture→extract→compress→inject→recall un flujo → evidencia: e2e_flow::compress_then_recall_shares_one_budget_end_to_end verde → confianza: alta] | artefactos: vanta-memory/src/context_engine/engine.rs (assemble_with_recall, IntegratedContext, RECALL_*_MARKER), types.rs (ChatMessage.id + with_id), mod.rs (exports), tests/context_engine.rs (mem37_a/b), tests/e2e_flow.rs (test c), .opencode/skills/campaign-executor/tasks/MEM-37.md | invariantes: assemble/inject_mmd NO reescritos (stop condition respetada); sin deps nuevas; sin unwrap/expect en producción; ChatMessage.id serde-default → wire backward-compatible | deuda: ninguna | queda_pendiente: Task 9 (MEM-38) docs/api context_engine + ADR crate; escalar a Arch el hallazgo aggressive-vs-protected-prefix
+- **Contrato: validate-docs-coverage.ps1 → 0 gaps; ADR borrador técnico publicado; docs/api F5 + scene
 - **Pre-mortem:** (1) estimator chars/3 subestima CJK → documentar techo, D21 lo acepta; (2) truncar pares tool_call rompe wire OpenAI/Anthropic → guard adjustForToolCallPair desde el día 1 (TDAM mmd-injector.ts:231)
 - **Stop conditions:** appetite 1d excedido sin estimator+truncate+report green → ⬛ CANCELADO y partir en 2 tareas
 - **Risk Register:**
@@ -241,7 +241,7 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
   | 🟢×🟡 | superficie doc grande (4 tareas nuevas) | solo APIs públicas; internals a docstrings | alcance |
 - **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 3 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-38.md`
 - **Branch:** | **Commit:**
 - **Iteraciones:** | — | — | — | — |
@@ -277,11 +277,11 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: P29 Task 7 — MEM-37: integración offload↔recall con budget + cursor compartidos
+Objetivo activo: MEM-38 — Docs + ADR gate de cierre F5 (Task 9)
 Estado: pending ⏳
-Última acción: Coordinator único assemble_with_recall en engine.rs (~60 líneas): assemble → inject_mmd → inject_recall_block×2 contra UN budget mutable restante (whole-or-skip ⇒ unión ≤ budget). Cursor MEM-20 → boundary = fin de unidad atómica (call+ToolResults contiguos) → protected_prefix.max(boundary). Campo opcional ChatMessage.id (serde default, backward-compat). 3 tests D19 nuevos. Root-cause fixes: boundary pos+1 excluía ToolResults del prefijo; tests recalibrados a unidades ~203t porque aggressive llena el budget al tope y con prefijo protegido degrada a emergency (hallazgo MEM-22 documentado, motor NO tocado).
-Resultado: OK
-Próxima acción: Delegar Task 9 (MEM-38, gate docs+ADR F5) — incluye deuda docs/api acumulada de F4+F5
+Última acción: Discovery completo: fuentes leídas, task file creado, impacto mapeado. Inicio redacción ADR-029 + docs/api.
+Resultado: PARTIAL
+Próxima acción: Escribir ADR-029, docs/api/VANTA_MEMORY.md, sección scene en EMBEDDED_SDK.md, verify
 Contrato: por tarea — cargo check/nextest/fmt/clippy -p vanta-memory exit 0 + tests D19
-Próxima tarea si completa: 9
+Próxima tarea si completa: 
 === END RECITATION ===

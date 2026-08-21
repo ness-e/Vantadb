@@ -141,6 +141,50 @@ pub type VantaNamespaceStatsMap = BTreeMap<String, VantaNamespaceStats>;
 
 `namespace_stats` returns one `VantaNamespaceStats` per namespace, keyed by namespace in sorted order. `count` counts all physical records (including expired ones not yet purged); the read-visible subset is available via `count`/`list` (lazy TTL eviction). A record is `expired` if `expires_at_ms <= now` and `expiring_soon` if `now < expires_at_ms <= now + window`; a record never counts as both. Records without a TTL count only toward `count`.
 
+## Scene Nodes (L2 Memory Anchors)
+
+> **Source:** `src/entity/scene.rs` (`entity::scene`) — documented as part of the
+> F5 memory pipeline closure (MEM-12 debt).
+
+A **scene** is the L2 memory unit that groups an episode of conversation. The
+scene NODE is the LLM-free anchor the L2 strategy reads/writes when it updates
+the graph (CREATE/UPDATE/MERGE). Each node carries the META contract
+`{created, updated, summary, heat}` plus its identity: `namespace`
+(deployment/tenant), `session_id` (L0/L1 session), and `scene_name`.
+
+Storage reuses the `EntityStore` partition pattern: a JSON record in the
+`InternalMetadata` partition under key
+`scene:{namespace}:{session_id}::{scene_name}`.
+
+```rust
+use vantadb::entity::scene::{SceneNode, SceneNodePage, SceneNodeStore};
+
+let store = SceneNodeStore::new(&engine);
+
+// Insert or replace (wholesale — caller computes META; store never mutates it)
+let node = store.scene_node_set(
+    "default",                    // namespace
+    "session-42",                 // session_id
+    "2026-08-21-10-00",           // scene_name
+    "2026-08-21T10:00:00.000Z",   // created (RFC 3339 UTC)
+    "2026-08-21T10:05:00.000Z",   // updated (bumped by the L2 strategy)
+    "Debugging WAL replay",       // summary
+    3,                            // heat (CREATE = 1, UPDATE = old + 1)
+)?;
+
+store.scene_node_get("default", "session-42", "2026-08-21-10-00")?; // Option<SceneNode>
+let existed = store.scene_node_delete("default", "session-42", "2026-08-21-10-00")?;
+
+// Paginated listing ordered by scene_name; total = full session size pre-pagination
+let page: SceneNodePage = store.scene_node_list("default", "session-42", 20, 0)?;
+```
+
+**Semantics:** the store is intentionally dumb CRUD. META semantics
+(preserve `created` on update, bump `updated`, heat increment) live in the L2
+strategy (`vanta-memory/src/core/scene/scene_index.rs::upsert_scene`), not here.
+Keys are validated (`validate_key` / `validate_scope`); invalid scope names are
+rejected with `VantaError::InvalidInput`.
+
 ## Node / Graph API
 
 Low-level operations on the node-graph model (numeric node IDs, edges, graph traversal).
