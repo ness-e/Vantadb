@@ -69,7 +69,7 @@ pub struct ToolPair {
 /// context has summarized — the core of the MEM-20 cursor task.
 ///
 /// Source: TDAM `offload/types.ts:44-57`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct PluginState {
     /// Path to the currently active MMD file.

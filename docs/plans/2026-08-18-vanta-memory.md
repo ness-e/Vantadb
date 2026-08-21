@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
-> **Campaign ID:** ef32e96d-234a-488e-b022-03e9347d62b0
+> **Campaign ID:** a617737f-a792-48c4-bd78-213ffb2decc1
 > **Inicio:** 2026-08-18
-> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..19 ✅ — 22/24)
+> **Estado:** ⏳ EN PROGRESO (F1+F2+F3 ✅ — 9/9; F4: MEM-08a..20 ✅ — 23/24)
 > **Fuente:** `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) + análisis multi-agente 2026-08-18 (3× vanta-research)
 > **Catálogo:** `docs/Backlog.md` — filas MEM-01..38 (este plan es el estado de ejecución; el backlog es el catálogo)
 > **Modo:** secuencial por fases — core LLM-free primero (F1–F3), crate LLM-driven después (F4–F5), opcionales (F6–F7) en segunda iteración.
@@ -288,7 +288,7 @@
 - **Gate Justificación:** cursor `lastOffloadedToolCallId` persistente por sesión; referencia `MC/offload/state-manager.ts` (460), `MC/offload/storage.ts` (664), `MC/offload/hooks/after-tool-call.ts` (594)
 - **Contrato:** `cargo check -p vanta-memory` pasa; tests dedicados de cursor (D19)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-20.md`
-- **Estado:** ⏳ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 24: MEM-21 — F4 Tools MCP scene_read/list/query
 - **Archivos clave:** `vanta-memory/src/core/scene/scene_navigation.rs`, `vanta-memory/src/core/scene/scene_index.rs`, `vanta-memory/src/gateway/knowledge_handlers.rs` (crear)
@@ -338,11 +338,11 @@ Integración **por contratos, no por ejecución** — campañas independientes (
 
 === RECITATION ===
 Campaign ID: 97e683bd-39d0-4402-b655-e224bd36be3c
-Objetivo activo: MEM-19: F4 sanitize_text + truncación code-point
+Objetivo activo: MEM-20: F4 Cursor persistente por sesión
 Estado: in-progress ⏳
-Última acción: sanitize.rs consolidado + tests D19 (27 nuevos) + verify 4/4 exit 0; task cerrada
-Resultado: ✅
-Próxima acción: ninguna — commit pendiente del lead
+Última acción: Implementé OffloadStateManager (PluginState JSON en offload_state/<session> key __state, fallback default en corrupto), OffloadStorage (entradas keyed por tool_call_id sanitizado, dedup get-before-put), AfterToolCallHook (umbral de tamaño → entry → cursor); 14 tests D19 nuevos; verify 4/4 exit 0
+Resultado: OK
+Próxima acción: ninguna — tarea completada; lead commitea y delega Task 24 (MEM-21)
 Contrato: `cargo check -p vanta-memory` pasa; tests dedicados (D19)
-Próxima tarea si completa: Task 23
+Próxima tarea si completa: 24
 === END RECITATION ===
