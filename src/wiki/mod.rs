@@ -16,9 +16,13 @@
 //! sanitization and cascade delete. Content merging/ingest (LLM) lives in
 //! `vanta-memory` (MEM-30) and drives these transitions via the SDK.
 
+pub mod chunker;
+pub mod sources;
 pub mod state;
 pub mod store;
 
+pub use chunker::{chunk_text, DEFAULT_OVERLAP_CHARS, DEFAULT_TARGET_CHARS};
+pub use sources::{scan_local_sources, SourceFile, SOURCE_CHAR_BUDGET};
 pub use state::WikiState;
 pub use store::{canonical_path, Wiki, WikiPage, WikiStore};
 
