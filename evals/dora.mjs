@@ -200,6 +200,31 @@ const attempts = entries.filter((e) => typeof e.passed === "boolean")
 const failures = attempts.filter((e) => !e.passed)
 const cfr = attempts.length ? (failures.length / attempts.length) * 100 : 0
 
+// Recovery time (TIR-02a): pair each failed verify attempt with the next passing
+// attempt of the same task. Command equality is NOT required as key — retries
+// usually tweak flags between attempts, so the unit of recovery is the task.
+// exitCode:-1 = "no-ejecutado" (timeout/spurious), still paired but tagged.
+function recoveryPairs(entries) {
+  const pairs = []
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i]
+    if (e.passed !== false || !e.taskId || !e.ts) continue // taskId:null → not pairable (see Limitaciones)
+    for (let j = i + 1; j < entries.length; j++) {
+      const r = entries[j]
+      if (r.taskId === e.taskId && r.passed === true && r.ts) {
+        const dtMs = new Date(r.ts) - new Date(e.ts)
+        if (!Number.isNaN(dtMs)) pairs.push({ taskId: e.taskId, cmd: e.command, exit: e.exitCode, hours: dtMs / 3600000 })
+        break
+      }
+    }
+  }
+  return pairs
+}
+const recoveries = recoveryPairs(entries)
+const fmtDt = (h) => (h < 1 / 60 ? `${(h * 3600).toFixed(1)}s` : h < 1 ? `${(h * 60).toFixed(0)}min` : `${h.toFixed(2)}h`)
+const realRecoveries = recoveries.filter((p) => p.exit !== -1)
+const avgRecovery = avg(realRecoveries.map((p) => p.hours))
+
 // Throughput
 const cutoff7 = dayKey(new Date(Date.now() - 7 * DAY))
 const cutoff30 = dayKey(new Date(Date.now() - 30 * DAY))
@@ -263,7 +288,20 @@ ${attempts.length === 0
   ? `> ⚠️ Sin intentos registrados en ${code("verify-log.jsonl")} — CFR 0% es **baseline sin datos**, no un resultado real. El log se alimenta desde ${code("campaign_verify_cmd")}.`
   : `> Detalle de fallos por tarea: ${failures.length ? failures.map((f) => `${f.taskId || "?"}(${f.exitCode ?? "?"})`).join(", ") : "ninguno."}`}
 
-## 3. Throughput
+## 3. Recovery Time
+
+| Task | Fallo (exit) | Comando | Clasificación | Δt |
+|---|---|---|---|---|
+${recoveries.length
+    ? recoveries.map((p) => `| ${p.taskId} | ${p.exit} | ${code(String(p.cmd).slice(0, 60))} | ${p.exit === -1 ? "no-ejecutado (espurio)" : "fallo real"} | ${fmtDt(p.hours)} |`).join("\n")
+    : "| _(sin pares fail→pass detectados)_ | | | | |"}
+
+**Δt promedio (solo fallos reales, exit ≠ -1):** ${f1(avgRecovery)}h sobre ${realRecoveries.length} pares (${recoveries.length - realRecoveries.length} espurios excluidos del promedio).
+
+${attempts.length === 0 ? `> ⚠️ verify-log.jsonl ausente o vacío — no hay pares fail→pass que reportar.\n` : ""}
+> Caveat: entradas con ${code("taskId:null")} (${entries.filter((e) => !e.taskId).length} en el log actual) no son pareables — quedan fuera de esta métrica.
+
+## 4. Throughput
 
 | Periodo (días) | Tareas completadas |
 |---|---|
@@ -272,7 +310,7 @@ ${attempts.length === 0
 
 ${completed.length === 0 ? "> ⚠️ Sin tareas ✅ COMPLETED detectadas con fecha de completado — throughput 0." : ""}
 
-## 4. Flow table
+## 5. Flow table
 
 ### Por tipo de tarea
 
@@ -305,13 +343,14 @@ ${["task:flat", "task:complete", "task:closed"].map((src) => {
   return `| ${src} | ${ts.length} | ${ts.filter((t) => t.state && t.state !== "completed").length} | ${ts.filter((t) => t.state === "completed").length} |`
 }).join("\n") || "| — | 0 | 0 | 0 |"}
 
-## 5. Limitaciones
+## 6. Limitaciones
 
 - **Fechas no estructuradas**: los plan files no tienen un campo de timestamp por tarea normalizado; las fechas se extraen de markers ad-hoc (varían entre ${code("✅ COMPLETADO (2026-08-10)")}, ${code("**Estado: completed")}, ${code("**Fecha:**")}, ISO en task files, epoch ms en budget). Donde no hay marker se usó **file mtime** → esas filas son aproximaciones del día en que el archivo se tocó, no el día real del evento.
 - **Cycle vs Lead**: sin budget ${code("startTime")} ni ${code("**Creado:**")}, startOfWork cae al plan ${code("**Inicio:**")} y cycle == lead. Los avgs por tipo mezclan ambas calidades.
 - **CFR**: con ${code("verify-log.jsonl")} vacío (0 líneas) el 0% es baseline sin telemetría; no es evidencia de ausencia de fallos.
 - **Throughput**: cuenta tareas ✅ COMPLETED con fecha de completado derivada; tareas completadas sin fecha quedan fuera.
 - **Numeric budget keys**: claves numéricas de budget.json se resolvieron vía mapeo ${code("Task N → id")} del plan; si no hay match quedan como id numérico (tarea desconocida, cuenta como ${code("unknown")}).
+- **Recovery time**: el emparejamiento fail→pass usa solo ${code("taskId")} (no ${code("taskId+command")}) porque los reintentos cambian flags entre intentos; un par con fallo ${code("exitCode:-1")} es "no-ejecutado" (timeout/kill, espurio), no evidencia de recovery real. Entradas sin taskId no son pareables.
 - **P2-05 traceId**: con traceId por tarea, plan files deberán persistir ${code("createdAt")}/${code("completedAt")} estructurados; este reporte se recalculará sin fallback mtime.
 - **Cobertura de task files**: los plan files P0/P1/P2/P3 no tienen todavía task files propios en ${code("tasks/")} (referencian ${code("skills/campaign-executor/tasks/P*-NN.md")} que aún no existen) — sus estados vienen del plan; los task files existentes (AUD/ERR/INV/COMP/DESKTOP/…) alimentan la vista de detalle.
 `

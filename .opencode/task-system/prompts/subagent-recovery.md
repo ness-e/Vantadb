@@ -42,10 +42,11 @@ Nivel 3  STRATEGY — enfoque materialmente distinto
          Otro ángulo de solución (puede escalar de modelo con campaign_mom_escalate).
          Si la tarea es ambigua también podés forkear a un sub-agente de research.
 
-Nivel 4  ESCALATE — a humano
-         Documentar intentos (los 4 niveles), commit WIP si hay cambios, 
-         campaign_update_task_state "failed", aplicar FAIL_MODE (stop/skip).
-         Si FAIL_MODE=stop → detener el pipeline.
+ Nivel 4  ESCALATE — a humano
+          Documentar intentos (los 4 niveles), commit WIP si hay cambios, 
+          campaign_update_task_state "failed", aplicar FAIL_MODE (stop/skip).
+          Mover el task file a `tasks/closed/<ID>.md` — reglas en RULES.md Apéndice B.
+          Si FAIL_MODE=stop → detener el pipeline.
 ```
 
 ## 3. Reglas del protocolo

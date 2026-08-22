@@ -456,3 +456,15 @@ No implementar como dependency — implementar como convention en el pipeline ex
 - Budget tracking via JSON es el estado durable
 - C0 state machine en iter-loop-tools.md maneja transiciones
 - Retry con backoff: `Start-Sleep -Seconds [Math]::Pow(2, $retryCount)`
+
+## Apéndice B: Contenedor de tareas fallidas (tasks/closed/) — TIR-04
+
+> Decisión 2026-08-17 (TIR-04): contenedor citado desde el plan; WONTFIT infraestructura DLQ nueva.
+
+**Las 3 reglas del contenedor:**
+
+1. **Al ESCALATE (SARL nivel 4):** mover el task file a 	asks/closed/<ID>.md (nunca borrarlo). El plan file conserva la fila ❌ FAILED + recitation.
+2. **Re-procesamiento:** una tarea en 	asks/closed/ se re-abre con campaign_update_task_state "pending" tras revisión humana; el task file vuelve a la raíz de 	asks/ para reanudar desde el primer step ⬜ PENDING.
+3. **Índice único de fallidas:** g "❌ FAILED" docs/plans/ lista todas las tareas fallidas vivas cruzando planes.
+
+**Glosario:** 	asks/complete/ = completadas y archivadas · 	asks/closed/ = fallidas que agotaron la escalera SARL y esperan decisión humana · docs/plans/archive/ = planes cerrados (uno u otro estado).
