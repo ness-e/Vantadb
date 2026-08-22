@@ -5,7 +5,7 @@ description: VantaDB Model Context Protocol (MCP) server integration for persist
 
 # VantaDB MCP Integration
 
-VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes 15 tools, 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
+VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **33 tools** (15 core + 6 `skill_*` + 8 `code_*` + 4 `wiki_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
 
 ## Quick Start
 
@@ -113,7 +113,19 @@ first write; list what exists with `collection_list` (or `memory_list_namespaces
 }
 ```
 
-## Available MCP Tools (15)
+## Available MCP Tools (33)
+
+The full contract for all **33 tools** lives in
+[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 15 core tools in detail; the other 18 are summarized here.
+
+| Group | Count | Tools | Precondition |
+|-------|-------|-------|--------------|
+| Core (Memory/Search/Collections/Graph/IQL) | 15 | documented below | none beyond an open DB |
+| Review-agent Skills (`skill_*`) | 6 | `skill_list`, `skill_view`, `skill_create`, `skill_update`, `skill_patch`, `skill_files_write` | `owner_agent` caller identity; writes need `expected_version` |
+| Code Intelligence (`code_*`) | 8 | `code_search`, `code_explore`, `code_callers`, `code_callees`, `code_impact`, `code_node`, `code_status`, `code_files`* | graph nodes/edges ingested first; query-only |
+| Wiki Knowledge (`wiki_*`) | 4 | `wiki_search`, `wiki_read`, `wiki_list`, `wiki_graph` | wiki lifecycle in `ready` state |
+
+\* `code_files` is a documented not-supported stub: the built-in GraphRAG has no file-per-node concept.
 
 ### Memory CRUD Operations
 
@@ -175,7 +187,7 @@ Notes:
 - **LISP is not supported** — `query_iql` rejects LISP-style expressions.
 - `UPDATE` uses `SET <field> = <value>`, not the `{ field: value }` object syntax of `INSERT`.
 - `LINK` is not a valid clause; see [Behavior Notes](#behavior-notes).
-- See `docs/api/MCP.md` and the IQL parser (`src/parser/mod.rs`) for the full grammar.
+- See the IQL parser (`src/parser/mod.rs`) and `vantadb-mcp/tests/mcp_tests.rs` for the full grammar.
 
 **get_node_neighbors** - Inspect node relationships
 - Parameters: `node_id` (decimal string; u128 ids exceed JSON number precision)
@@ -279,7 +291,7 @@ The server lists 2 static resources in `resources/list`; 2 additional dynamic UR
 
 ## Behavior Notes
 
-Verified edge-case behaviors (2026-08-17 battery; see `docs/api/MCP.md` and the
+Verified edge-case behaviors (2026-08-17 battery; see the
 Rust test suite for sources). These are **documented behavior**, not bugs:
 
 - **F4 — `memory_get` not-found:** returns `isError` content `"Record not found"` (not a JSON-RPC error).
@@ -362,7 +374,7 @@ VantaDB provides Python SDK integrations for popular AI frameworks:
 
 ## Editor Integration
 
-For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see [docs/api/MCP.md](../../docs/api/MCP.md). This is the source of truth for the MCP contract; this skill stays consistent with it.
+For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see [docs/api/MCP.md](../../docs/api/MCP.md) (a stub). The source of truth for the MCP contract is this skill — [references/api-reference.md](references/api-reference.md) § "MCP Tools (33)".
 
 Supported editors:
 - Cursor
@@ -407,4 +419,4 @@ These files provide in-depth technical details for:
 - Performance optimization
 - Security configuration
 
-For general documentation, see [docs/api/MCP.md](../../docs/api/MCP.md).
+For general documentation, see [docs/api/MCP.md](../../docs/api/MCP.md) — a stub pointing back to this skill as the source of truth.

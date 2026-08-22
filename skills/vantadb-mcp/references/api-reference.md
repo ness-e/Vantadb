@@ -2,6 +2,79 @@
 
 > Verified against the real SDK boundary: `src/sdk/types.rs`, `src/sdk/api.rs`, `src/sdk/builder.rs`, `src/index/graph.rs`, `src/error.rs`. Only symbols that exist in the code are documented here.
 
+## MCP Tools (33)
+
+> **This is the single source of truth for the VantaDB MCP contract.**
+> Verified against `vantadb-mcp/src/`: exactly **33 tools** = 15 core
+> (`handlers/tools.rs` `base_tools`) + 6 `skill_*` (`skills.rs`) + 8 `code_*`
+> (`code.rs`) + 4 `wiki_*` (`wiki.rs`). All four sets are announced together
+> in `tools/list` via extend (`handlers/tools.rs:180-184`).
+> Last synced against code: 2026-08-22.
+
+### Core — Memory / Search / Collections / Graph / IQL (15)
+
+| Tool | Purpose | Main params |
+|------|---------|-------------|
+| `memory_put` | Insert or update a memory record | `namespace`, `key`, `payload` (req); `vector`, `sparse_vector` (dim-id → weight object), `metadata`, `expires_at_ms` |
+| `memory_get` | Retrieve a record by namespace + key | `namespace`, `key` |
+| `memory_delete` | Delete a record | `namespace`, `key` |
+| `memory_list` | List records with pagination + filters | `namespace`; `limit` (default 100), `cursor` (numeric offset), `filters` |
+| `memory_list_namespaces` | List all namespaces | none |
+| `query_iql` | Execute an IQL statement (reads + node mutations; LISP NOT supported) | `query` |
+| `search_memory` | Hybrid vector + text search with filters/profile/explain | `namespace`; `query_vector`, `text_query`, `top_k` (10), `distance_metric` (cosine \| euclidean, per-request), `explain`, `filters`, `search_profile` `{mode, rrf_k, candidate_k}` |
+| `search_semantic` | Raw HNSW vector search | `vector`, `k` (required in schema, defaults 5 if omitted); returns real distances (`1 − cosine_similarity`) ascending |
+| `get_node_neighbors` | Inspect node's outgoing edges (alive targets only) | `node_id` (u128 decimal string) |
+| `inject_context` | Inject context into a thread for consolidation | `content`, `thread_id` (number) |
+| `read_axioms` | Read active Iron Axioms | none |
+| `collection_stats` | Stats for a namespace/collection | `namespace` |
+| `collection_list` | List collections with metadata | none |
+| `collection_delete` | Delete an entire namespace/collection | `namespace`, `confirm` (must be `"yes"`) |
+| `rehydrate` | Recover shadow-archived nodes of a summary node | `summary_id` (u128 string) |
+
+Detailed behavior notes (response envelope, error channels, IQL syntax, edge cases F4–F11): see [`SKILL.md`](../SKILL.md).
+
+### Review-agent Skills (6 × `skill_*`)
+
+Versioned agent skills over the core `SkillStore` (MEM-07).
+**Precondition:** every call takes `owner_agent` as caller identity — skills owned by another agent respond exactly like missing ones (no existence leak). Writes require `expected_version` (optimistic lock).
+
+| Tool | Purpose | Main params |
+|------|---------|-------------|
+| `skill_list` | List an agent's skills | `owner_agent` (req); `name_prefix`, `limit` (50), `offset` |
+| `skill_view` | Read head or specific version incl. resource files | `skill_id`, `owner_agent`; `version` |
+| `skill_create` | Create a skill (v1); idempotent on owner+name+content | `name`, `owner_agent`, `content`; `description`, `metadata`, `ttl_secs` |
+| `skill_update` | Replace head content, appending a version | `skill_id`, `owner_agent`, `expected_version`, `content`; `description` |
+| `skill_patch` | Substring replacement in skill content (TDAM-compatible) | `skill_id`, `owner_agent`, `expected_version`, `old_string`, `new_string`; `replace_all` (required when >1 occurrence) |
+| `skill_files_write` | Write a resource file into the skill manifest (5 MB/file, 50 MB/skill) | `skill_id`, `owner_agent`, `expected_version`, `path` (relative only), `content`; `encoding` (utf-8 \| base64), `mime_type`, `is_executable` |
+
+### Code Intelligence (8 × `code_*`)
+
+Read-only wrappers over the **built-in** GraphRAG pipeline + graph traversal primitives (MEM-32; no external codegraph dependency).
+**Precondition:** the target database must contain ingested graph nodes/edges first (via `query_iql` `INSERT NODE`, the SDK node API, or an ingestion pipeline). All are query-only; domain errors come back as `isError` content.
+
+| Tool | Purpose | Main params |
+|------|---------|-------------|
+| `code_search` | GraphRAG search (seed → expand → retrieve → context) | `namespace`, `query` |
+| `code_explore` | Node + direct neighborhood split into callers/callees | `node_id` |
+| `code_callers` | Incoming edges (reverse traversal minus root) | `node_id` |
+| `code_callees` | Outgoing edges (forward traversal minus root) | `node_id` |
+| `code_impact` | Reachable subgraph within max_depth hops | `node_id`; `max_depth` (3, cap 10), `direction` (Forward \| Reverse \| Both) |
+| `code_node` | Fetch one node as a full record | `node_id` |
+| `code_status` | Operational-metrics snapshot of the backing engine | none |
+| `code_files` | **Not supported** — built-in graphrag has no file-per-node concept; always errors by design | none |
+
+### Wiki Knowledge (4 × `wiki_*`)
+
+Query-only wrappers over the core `WikiStore` (MEM-33). BM25-style ranking (k1=1.5, b=0.75, title terms ×5); `[[wikilink]]` edges extracted from page content.
+**Precondition:** the wiki lifecycle must be in `ready` state (`pending → processing → ready | failed`); while not ready every tool refuses with the current state surfaced so the caller can retry.
+
+| Tool | Purpose | Main params |
+|------|---------|-------------|
+| `wiki_search` | Full-text search over pages of a ready wiki | `namespace`, `slug`, `query`; `top_k` (10) |
+| `wiki_read` | Read one page by canonical path (`locked:true` visible on managed pages) | `namespace`, `slug`, `path` |
+| `wiki_list` | List every page ordered by canonical path | `namespace`, `slug` |
+| `wiki_graph` | BFS multi-hop over wikilink edges (cap 200 visited nodes) | `namespace`, `slug`, `root_path`; `max_hops` (2, cap 10) |
+
 ## Python SDK
 
 ### VantaDB Class
