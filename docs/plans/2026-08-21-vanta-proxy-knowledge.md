@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Proxy + Knowledge (F6+F7) — proxy transparente + wiki/code-graph
 
 > **Inicio:** 2026-08-21
-> **Estado:** ⏳ EN PROGRESO (6/9 tareas)
+> **Estado:** ⏳ EN PROGRESO (7/9 tareas)
 > **Fuente:** `docs/Backlog.md` filas MEM-25..33 + `docs/research/tdam/07-proxy.md` + `08-knowledge-panel-sdk.md` + `06-metadata-acl.md` (quota diferido) + SYNTHESIS §2.3/§3 + decisiones del usuario (2026-08-21)
 > **Predecesores:** P27 F1-F4 ✅ 24/24 (`docs/plans/archive/2026-08-18-vanta-memory.md`) · P29 F5 ✅ 9/9 (`docs/plans/archive/2026-08-21-vanta-context-engine.md`) — crate vanta-memory completo (L0-L3/recall/context_engine/offload/gateway/seed/genlog), suite 430/430
 > **Modo:** waves por dependencias — Wave 0 (fundaciones independientes) → Wave 1 (proxy wire + ingest) → Wave 2 (ciclo proxy + tools wiki + callback) → Wave 3 (rate-limit/write-back).
@@ -48,7 +48,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
 - **Verificación real:** ✅ CÓDIGO-REAL — `src/graph.rs` bfs_traverse:61 / dfs_traverse:234 / topological_sort:258 existen; graphrag existe; `vantadb-mcp/src/handlers/tools.rs` existe; costo = solo exposición (backlog row)
 - **Gate Justificación:** barato y visible; D28 elimina la dependencia externa de TDAM
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: cargo check -p vanta-proxy ✅ exit 0 · cargo nextest run -p vanta-proxy ✅ 26/26 · cargo fmt --check ✅ exit 0 · cargo clippy -p vanta-proxy --all-targets --no-deps -- -D warnings ✅ exit 0; evidencia: [claim: D34 auth obligatoria sin modo open — evidencia: tests/pipeline.rs::a_auth_valid_key_forwards_invalid_and_missing_rejected + auth.rs fail-closed, confianza alta] [claim: sessionKey por cada alias header con prioridad TDAM — evidencia: session.rs unit tests + pipeline.rs::b_session_key_from_each_alias_header, confianza alta] [claim: state machine team→agent→task monotónica con TTL 30min solo pending sweep lazy — evidencia: session.rs::init_clean/skipping/pending_ttl tests, confianza alta] [claim: inyección SOLO en system prompt, historia intacta (D29 KV-cache) — evidencia: pipeline.rs::d_injection_only_system_prompt_with_persona_and_scenes + inject.rs unit tests OpenAI/Anthropic/Responses, confianza alta] [claim: L0/L1 como tools presentes en body solo con sesión activa — evidencia: inject.rs::tools_added_once_per_protocol_shape + pipeline b/f tests, confianza alta] [claim: sin sesión previa init limpio verbatim — evidencia: pipeline.rs::f_no_session_header_forwards_verbatim, confianza alta]; artefactos: vanta-proxy/src/{auth,session,inject}.rs, vanta-proxy/src/{server,error,config,forward}.rs editados, vanta-proxy/src/handlers/*.rs wiring, vanta-proxy/Cargo.toml (deps workspace vantadb+vanta-memory), vanta-proxy/tests/{pipeline.rs nuevo, proxy_wire.rs actualizado}, .opencode/skills/campaign-executor/tasks/MEM-26.md; invariantes: NO tocar core vantadb/vanta-memory código (solo SDK público), inyección jamás en history, x-vanta-user-key nunca se filtra al upstream (hop-by-hop), sin deps nuevas de crates.io; deuda: ninguna; queda_pendiente: commit lo ejecuta el lead (regla invocación); próxima tarea Task 7 MEM-33
+- **Contrato: cargo check/nextest/fmt/clippy -p vantadb-mcp exit 0 + tests D19 (a)-(f)
 - **Pre-mortem:** (1) semántica de impact/callers difiere entre codegraph de TDAM y graphrag propio → mapear cada tool a la primitiva local equivalente y documentar el mapping; (2) tools sin grafo cargado → error claro, no panic
 - **Stop conditions:** si impact requiere análisis que graphrag no soporta → exponer stub con error "not supported" documentado (no inventar semántica)
 - **Risk Register:**
@@ -201,7 +201,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
   | 🟢×🟢 | BFS sin cap explota | cap 200 hardcodeado + test | test d |
 - **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 3 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-33.md`
 - **Branch:** | **Commit:**
 - **Iteraciones:** | — | — | — | — |
@@ -284,11 +284,11 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
 ---
 
 === RECITATION ===
-Campaign ID: 187cf901-fec8-45df-b094-f292714f5703
-Objetivo activo: MEM-26: vanta-proxy ciclo auth→session→injection (D25/D26/D29/D34)
+Campaign ID: 50561719-40af-48ae-83a2-db222bbe9689
+Objetivo activo: P30 Task 7: MEM-33 tools MCP wiki_* query-only
 Estado: pending ⏳
-Última acción: Implementado ciclo completo: auth.rs (resolve_user_key port MEM-05 con ct-compare manual, authenticate fail-closed D34, entity_exists), session.rs (5 aliases headers prioridad TDAM, Stage Team→Agent→Task monotónico validando contra entity_* locales, TTL 30min solo pending con sweep lazy), inject.rs (persona+escenas vía get_persona/current_scene/list_scenes SOLO a system prompt OpenAI messages[0]/Anthropic system/Responses instructions, L0/L1 tools vanta_memory_capture/search merge sin duplicar, no-JSON pasa verbatim), wiring AppState.process en los 3 handlers, user-key agregada a hop-by-hop
-Resultado: OK
-Próxima acción: Delegar MEM-33 (Task 7, wiki_* MCP tools) a vanta-worker
+Última acción: wiki.rs (4 tools) + wiring + 6 tests D19; verify mecánico completo exit 0
+Resultado: ✅
+Próxima acción: Orquestador: delegar Task 8 (MEM-31 progreso ingest run_id)
 Contrato: por tarea — cargo check/nextest/fmt/clippy del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 7
+Próxima tarea si completa: 8

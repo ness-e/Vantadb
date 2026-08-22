@@ -15,6 +15,7 @@ mod protocol;
 mod server;
 mod skills;
 mod validation;
+mod wiki;
 
 /// Tuning knobs for the MCP server.
 pub use config::McpConfig;
