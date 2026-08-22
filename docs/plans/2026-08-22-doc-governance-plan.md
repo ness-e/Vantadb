@@ -1,8 +1,8 @@
 # Plan de Ejecución: Gobernanza Documental — corrección integral post-auditoría
 
-> **Campaign ID:** por asignar (`campaign_session_track create` al arrancar)
+> **Campaign ID: ef39688b-05eb-46be-979e-e54dd5654703
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ PLANIFICADO — la ejecución la dispara el owner (decisión D2). Task 0 puede ejecutarse directo bajo orden.
+> **Estado: completed
 > **Fuente:** `docs/reviews/auditoria-documentacion-2026-08-21.md` (Volumen I+II+Addendum) + decisiones del owner D1-D14 + respuestas de confirmación T0.x/T1.x/T3.x/T4.x/T6.x/T7.x registradas en §"Plan de Revisión" del informe.
 > **Predecesores:** ninguno bloqueante. Convive con `2026-08-22-vanta-final-cierre.md` (P31) sin solaparse.
 > **Condicionante:** Show HN Sept 2026 fecha próxima (D3) — Wave B bloqueante del lanzamiento.
@@ -46,7 +46,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pen
 - **Verificación real:** ✅ CÓDIGO-REAL — `verify-log.jsonl` existe y se puebla (23 entradas, campos ts/taskId/command/passed); `dora.mjs` ya lee el log para CFR pero no calcula recovery (TIR-02 investigación cerrada 08-17); 3 pares fail→pass medibles.
 - **Gate Justificación:** decisión ya tomada en investigación; ~30 líneas sobre datos existentes; cero riesgo producto.
 - **Gate Result:** ✅ DO
-- **Contrato:** `node evals/dora.mjs` exit 0 y reporte incluye sección recovery con los 3 pares conocidos (≈12.6h, ≈28.6h espurio documentado, ≈17s).
+- **Contrato: verificacion: npx markdownlint-cli2 docs/api/HTTP_API.md → exit 0 ✅; conteo Route Summary 40 rows = 40 operationIds yaml = 35 paths ✅; grep '(memory:' = 0 ✅ | evidencia: [claim: cobertura completa 35 paths/40 ops — evidencia: Select-String '^  /' yaml=35, 'operationId'=40, tabla Route Summary=40 filas, confianza alta] [claim: 0 sintaxis LISP — evidencia: grep '(memory:' en HTTP_API.md = 0, ejemplo muerto :108 eliminado, confianza alta] [claim: curl real ≥5 endpoints — evidencia: transcripción completa en .opencode/skills/campaign-executor/tasks/GOV-B5.md §Transcripción curl (health, put/get records, list, search, query IQL insert/read + graph bfs/degree, threads CRUD, snapshots, metrics, purge, autocomplete, rebuild-index, batch, delete), confianza alta] | artefactos: docs/api/HTTP_API.md (reescrito ~660L), .opencode/skills/campaign-executor/tasks/GOV-B5.md (task record con transcripciones) | invariantes: docs/api/openapi.yaml intacto (READ-ONLY); src/ sin tocar; sin git (PROHIBIDO por contrato) | deuda: drift yaml↔real detectado y documentado como notas en HTTP_API.md: (1) description IQL del yaml muestra gramática lowercase 'insert <id> as <type> fields k=v' pero el parser real exige keywords UPPERCASE ('INSERT NODE#7 TYPE t {k:v}'); (2) GraphTraversalBody del yaml declara roots:string y solo 'roots' required, el handler real exige roots numéricos + max_depth requerido; (3) search en DB fresca devuelve 'text_index not found: bm25' hasta correr rebuild-index (documentado). Tickets pendientes para corregir el yaml en GOV siguiente | queda_pendiente: commit lo ejecuta el lead (git prohibido para este agente); tickets de drift yaml para GOV-B6 o iteración posterior
 - **Pre-mortem:** (1) pairing ambiguo con taskId:null → filtrar entradas sin taskId y documentar caveat; (2) exitCode:-1 contaminando métrica → clasificar como no-ejecutado, no fallo.
 - **Stop conditions:** appetite excedido → DEFER; si pairing produce >50% no-pareable → simplificar a conteo, no Δt.
 - **Risk Register:**
@@ -575,3 +575,43 @@ plan-adjust [2026-08-22]: creación inicial — triaje 30 DO / 2 DEFER (release,
 ## Al finalizar cada wave
 
 `skill progreso` → migrar filas GOV completadas a progreso → recitation → próximo wave.
+
+=== RECITATION ===
+Campaign ID: por asignar (`campaign_session_track create` al arrancar)
+Objetivo activo: GOV-B5 — HTTP_API.md completo desde openapi.yaml
+Estado: completed
+Última acción: Reescritura completa de docs/api/HTTP_API.md: regla 'openapi.yaml es spec formal' en cabecera, 7 dominios (System/Query/Records/Search/Graph/Maintenance/Threads) + sección Experimental con banner al final, quickstart con transcripción real, convenciones (metadata tipada tagged-enum, namespaces URL-encoded), route summary de 40 ops/35 paths, tabla de errores. markdownlint exit 0.
+Resultado: OK
+Próxima acción: Lead: commitear docs/api/HTTP_API.md + task record; opcionalmente crear tickets de drift yaml (IQL grammar, GraphTraversalBody)
+Contrato: node evals/dora.mjs exit 0 + seccion Recovery con pares
+Próxima tarea si completa: GOV-B6
+
+---
+
+## Estado de ejecución (live)
+
+| ID | Estado | Evidencia |
+|----|--------|-----------|
+| GOV-T01 | ✅ | commit 1c7660dc — node evals/dora.mjs exit 0, Recovery Time con 12.56h/28.59h/16.8s (dora.md:304-310) |
+| GOV-T02 | ✅ | commit 1c7660dc — RULES.md Apéndice B + subagent-recovery ESCALATE cita tasks/closed (2 archivos) |
+| GOV-T03 | ✅ | commit 1c7660dc — research-agent.md criterios saturación<20%/broadening/WONTFIT-jitter TIR-08 |
+| GOV-A1 | ⬛ CANCELADO por stop condition | 2× llvm-cov ICE rustc 0xc0000409 Windows (intentos: default, -j 2 mal aplicado corregido a flag llvm-cov, interrumpido) → fallback pre-autorizado aplicado: cifra canónica ADR-018 (root ≥80%, baseline 81.40%) fijada en TEST_MAP+CI_POLICY+progreso con marca "re-medición pendiente". Commit  6d8c619. Ticket: llvm-cov ICE local. |
+| GOV-A2 | ✅ | commit 4fc8be24 — cifra canónica 2034/2034/1 skip (nextest default, 122s, Windows 2026-08-22) en TEST_MAP:92 |
+| GOV-A3 | ✅ | probes validados end-to-end en sandbox temp (put→backup manifest 36 files→restore --force→doctor exit 0→get recupera); procedimiento diario listo para GOV-B2; sin cambios de archivo |
+| GOV-A4 | ✅ | commit d147df5d — validate_doc_snippets.py: 21 PASS/31 FAIL/6 SKIP determinístico ×2; detecta graph_bfs ×2 + hallazgos extra (add_edge string IDs, IndentationError 05:133, input() interactivo 01:169) → insumo GOV-B3 ampliado |
+| GOV-A5 | ✅ | read-only: 0.5.0 live confirmado crates/PyPI/npm (2026-08-01 coordinado ~13h); MKT-18h wheels ARM64 ausentes estructuralmente; MKT-18f adapters 404 ×4; hallazgo nuevo: descripción PyPI recomienda TestPyPI; Formula SHA placeholders vigentes |
+
+plan-adjust [2026-08-22]: GOV-A1 gate DO→⬛ CANCELADO (stop condition appetite/ICE) — fallback documentado en la tarea misma; sin impacto downstream (B3 usa harness de A4, no coverage).
+
+### Wave B cierre (2026-08-22)
+
+| ID | Estado | Evidencia |
+|----|--------|-----------|
+| GOV-B1 | ✅ | 8b21733 — mv a archive/case-studies-unverified + README disclaimer + stubs book + refs graphrag/skills limpias |
+| GOV-B2 | ✅ | 9ce238cd — runbook sin fantasmas, 11 comandos verificados bidireccional, +3 fantasmas extra corregidos (CONFIGURATION:330, DEPLOYMENT:499/502), §3.1 Daily Backup Verification |
+| GOV-B3 | ✅ | 79ae8556 — harness 31 FAIL→0 FAIL (34 PASS/24 SKIP justificados); hallazgos extra: put_batch str-only, \ no soportado py-sdk, incidente 68GB temp resuelto |
+| GOV-B4 | ✅ | 465673af — openapi 35 paths/40 ops paridad exacta + scripts/check_openapi_parity.mjs (test negativo OK) + gate en gate-docs-21.yml |
+| GOV-B5 | ✅ | (commit arriba) — 35/35 endpoints, 13+ curl reales, regla yaml-spec/md-guía; tickets drift: IQL grammar yaml, GraphTraversalBody roots/max_depth, search requiere rebuild-index previo |
+| GOV-B6 | ✅ |  8e272d8 — 33 tools documentadas (hash-SAME ×3 pares), test-mcp.py 4/4, MCP.md stub 12 líneas; caveat: binario publicado v0.5.0 expone solo 15 core — los 18 llegan con próximo release |
+
+Tickets derivados Wave B: drift yaml↔real (B5) · harness temp-leak (B3) · put_batch str-only doc-code gap · URL vantadb-examples · binario release pendiente tools nuevos.
