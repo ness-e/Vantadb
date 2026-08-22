@@ -327,7 +327,7 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 
 > **Filter scope:** `--filter` on `list`/`delete-by-filter`/`count` matches **user metadata only**. Internal VantaDB fields (reserved prefix `__vanta_*`, e.g. `__vanta_payload`, `__vanta_vector`) are not user metadata — they are stripped from the returned `metadata` map and cannot be used as filter keys. A filter referencing a `__vanta_*` key returns no matches (they are filtered out as internal fields).
 | `backup --out <path>` | Full backup with WAL flush, file copy, CRC32 manifest |
-| `restore --from <path> [--rebuild]` | Restore from backup, verify CRC32, optional rebuild |
+| `restore --input <path> [--force] [--rebuild]` | Restore from backup into the `--db` directory, optional rebuild |
 | `check [--namespace <ns>]` | Validate database structural integrity |
 | `migrate [--target-version <v>]` | Migrate storage format between versions |
 | `plan` | Preview migration steps without executing |

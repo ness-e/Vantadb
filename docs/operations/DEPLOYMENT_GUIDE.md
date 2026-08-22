@@ -495,11 +495,11 @@ See [BACKUP_POLICY.md](BACKUP_POLICY.md) for the full backup operational policy.
 # Online backup (Fjall backend)
 vanta-cli backup --out /backups/vantadb-$(date +%F)
 
-# Restore
-vanta-cli restore --from /backups/vantadb-2026-07-10
+# Restore (target DB dir must be empty; add --force to overwrite)
+vanta-cli restore --input /backups/vantadb-2026-07-10 --db /var/lib/vantadb/data
 
 # Restore with index rebuild
-vanta-cli restore --from /backups/vantadb-2026-07-10 --rebuild
+vanta-cli restore --input /backups/vantadb-2026-07-10 --rebuild --force --db /var/lib/vantadb/data
 ```
 
 ---

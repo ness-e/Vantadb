@@ -3,11 +3,13 @@ title: VantaDB Disaster Recovery Runbook
 type: operations
 status: active
 tags: [vantadb, operations, dr]
-last_reviewed: 2026-07-10
+last_reviewed: 2026-08-22
 aliases: []
 ---
 
 # VantaDB Disaster Recovery Runbook
+
+> **Actualizado 2026-08-22 — comandos verificados contra cli.rs**
 
 ## Overview
 
@@ -58,15 +60,15 @@ journalctl -u vantadb-server --since "1 hour ago" --no-pager
    cp -a /var/lib/vantadb/data /var/lib/vantadb/data.corrupted-$(date +%F-%H%M)
    ```
 
-3. **Restore from latest backup:**
+3. **Restore from latest backup** (the target directory must be empty or use `--force` to overwrite):
    ```bash
-   vanta-cli restore --from /backups/vantadb-latest --rebuild
+   vanta-cli restore --input /backups/vantadb-latest --rebuild --force --db /var/lib/vantadb/data
    ```
 
 4. **Verify restored data:**
    ```bash
    vanta-cli doctor -d /var/lib/vantadb/data/
-   vanta-cli count -d /var/lib/vantadb/data/
+   vanta-cli count -d /var/lib/vantadb/data/ --namespace <primary-ns>
    ```
 
 5. **Restart the service:**
@@ -138,17 +140,21 @@ sudo -u vantadb vanta-cli server --http -d /var/lib/vantadb/data/
 # Stop service
 sudo systemctl stop vantadb-server
 
-# Run WAL repair
-vanta-cli doctor -d /var/lib/vantadb/data/ --fix
+# Confirm the corruption report with health diagnostics
+vanta-cli doctor -d /var/lib/vantadb/data/
 
-# If doctor cannot fix:
+# Native WAL repair is NOT available yet (there is no `doctor --fix` flag).
+# If doctor reports inconsistent WAL state:
 # 1. Remove corrupted WAL segments (data since last flush is lost)
 mv /var/lib/vantadb/data/*.wal /tmp/wal-corrupted/
 
 # 2. Verify data integrity
 vanta-cli doctor -d /var/lib/vantadb/data/
 
-# 3. Restart
+# 3. Rebuild indexes (WAL replay was skipped)
+vanta-cli rebuild-index -d /var/lib/vantadb/data/
+
+# 4. Restart
 sudo systemctl start vantadb-server
 ```
 
@@ -229,9 +235,13 @@ vanta-cli rebuild-index -d /var/lib/vantadb/data/
 # Check backup command output
 vanta-cli backup --out /backups/vantadb-$(date +%F) 2>&1
 
-# Verify existing backup integrity
-vanta-cli restore --dry-run --from /backups/vantadb-latest
+# Light integrity check on an existing backup (see "Daily Backup Verification" in §3)
+cat /backups/vantadb-latest/MANIFEST.json | python3 -m json.tool
 ```
+
+> **Note:** there is no `vanta-cli restore --dry-run`. To validate a backup fully,
+> restore it to a temporary directory and run `doctor` — see the verified
+> procedure in §3.1.
 
 **Recovery:**
 1. Ensure the backup target directory exists and is writable:
@@ -263,7 +273,49 @@ vanta-cli restore --dry-run --from /backups/vantadb-latest
 | Every 15 min | Database integrity | `vanta-cli doctor -d /data` |
 | Every hour | Record count baseline | `vanta-cli count -d /data --namespace <ns>` |
 | Every day | Deep index audit | `vanta-cli audit-index -d /data --deep` |
-| Every day | Backup verification | `vanta-cli restore --dry-run --from /backups/latest` |
+| Every day | Backup verification | See [Daily Backup Verification](#daily-backup-verification) below |
+
+### Daily Backup Verification
+
+> Verificado end-to-end 2026-08-22 contra `vanta-cli` (sandbox temporal, procedimiento validado en GOV-A3).
+
+**Full procedure** (preferred — proves the backup actually restores):
+
+1. **Back up the live database:**
+   ```bash
+   vanta-cli backup --db /var/lib/vantadb/data --out /tmp/verify-backup
+   ```
+   This writes a `MANIFEST.json` with per-file CRC32C checksums.
+
+2. **Restore to a temporary directory** (never the live data dir):
+   ```bash
+   vanta-cli restore --input /tmp/verify-backup --force --db /tmp/verify-restore
+   ```
+
+3. **Run health diagnostics on the restored copy** (must exit 0):
+   ```bash
+   vanta-cli doctor -d /tmp/verify-restore
+   ```
+
+4. **Compare record counts and spot-check a record** via `get` against the restored DB:
+   ```bash
+   vanta-cli count -d /var/lib/vantadb/data --namespace <ns>
+   vanta-cli count -d /tmp/verify-restore --namespace <ns>
+   vanta-cli get -d /tmp/verify-restore --namespace <ns> --key <known-key>
+   ```
+
+5. **Clean up:** `rm -rf /tmp/verify-backup /tmp/verify-restore`
+
+**Light variant** (accepted when there is no space/time for a full restore):
+
+```bash
+# MANIFEST.json must exist and every file entry must carry name, size, and crc32c
+cat /backups/latest/MANIFEST.json | python3 -m json.tool
+```
+If any file entry is missing or its `crc32c` field is absent, treat the backup as unverified and run the full procedure.
+
+> **Native backup verification (`--dry-run` / `verify` subcommand): PENDING — CLI ticket in backlog.**
+> Until then, the full restore procedure above is the only way to prove restorability.
 
 ### Prometheus Alert Rules
 
@@ -347,9 +399,10 @@ After every incident:
 ```text
 STOP ──► DIAGNOSE ──► RESTORE ──► VERIFY ──► RESTART
 │         │            │            │
-├─ systemctl stop     ├─ doctor    ├─ restore --rebuild  ├─ doctor
-├─ forensic copy      ├─ stats     ├─ rebuild-index      ├─ count
-└─ journalctl         ├─ audit     └─ re-ingest source   └─ search
+├─ systemctl stop     ├─ doctor    ├─ restore --input …  ├─ doctor
+├─ forensic copy      ├─ stats     │   --force --rebuild ├─ count
+└─ journalctl         ├─ audit     ├─ rebuild-index      └─ search
+                                   └─ re-ingest source
 ```
 
 ### B. Common Commands
@@ -361,8 +414,11 @@ curl -f http://localhost:8080/health && vanta-cli doctor -d /data
 # Full backup
 vanta-cli backup --out /backups/vantadb-$(date +%F)
 
-# Restore latest
-vanta-cli restore --from /backups/vantadb-latest --rebuild
+# Restore latest (to an empty target dir; add --force to overwrite)
+vanta-cli restore --input /backups/vantadb-latest --rebuild --force --db /var/lib/vantadb/data
+
+# Verify a backup (full procedure in §3 Daily Backup Verification)
+cat /backups/latest/MANIFEST.json | python3 -m json.tool
 
 # Index repair
 vanta-cli audit-index -d /data --deep
@@ -383,6 +439,7 @@ set -euo pipefail
 
 DATA_DIR="${1:-/var/lib/vantadb/data}"
 BACKUP_DIR="${2:-/backups}"
+NS="${3:-default}"
 LOG="/var/log/vantadb-dr-$(date +%F-%H%M).log"
 
 log() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG"; }
@@ -402,11 +459,11 @@ if [ -z "$LATEST" ]; then
 fi
 
 log "Restoring from $LATEST..."
-vanta-cli restore --from "$LATEST" --rebuild -d "$DATA_DIR"
+vanta-cli restore --input "$LATEST" --rebuild --force --db "$DATA_DIR"
 
 log "Verifying..."
 vanta-cli doctor -d "$DATA_DIR"
-echo "ok" | vanta-cli count -d "$DATA_DIR"
+vanta-cli count -d "$DATA_DIR" --namespace "$NS"
 
 log "Starting service..."
 sudo systemctl start vantadb-server
