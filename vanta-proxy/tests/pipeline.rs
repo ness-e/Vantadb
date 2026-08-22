@@ -57,6 +57,8 @@ fn state_for(upstream_url: &str) -> vanta_proxy::server::AppState {
             forward_timeout_secs: 600,
         },
         auth: vanta_proxy::config::AuthConfig::default(),
+        mem_command: vanta_proxy::config::MemCommandConfig::default(),
+        writeback: vanta_proxy::config::WritebackConfig::default(),
     };
     vanta_proxy::server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }

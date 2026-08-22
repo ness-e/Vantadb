@@ -110,6 +110,8 @@ async fn setup(extra_upstream_routes: Router) -> TestEnv {
             forward_timeout_secs: 600,
         },
         auth: vanta_proxy::config::AuthConfig::default(),
+        mem_command: vanta_proxy::config::MemCommandConfig::default(),
+        writeback: vanta_proxy::config::WritebackConfig::default(),
     };
     let state = server::AppState::from_engine(cfg, seeded_engine()).unwrap();
     let proxy_url = spawn(server::router(state)).await;
@@ -128,6 +130,8 @@ fn cfg_with(upstream: &str, timeout_secs: u64) -> ProxyConfig {
             forward_timeout_secs: timeout_secs,
         },
         auth: vanta_proxy::config::AuthConfig::default(),
+        mem_command: vanta_proxy::config::MemCommandConfig::default(),
+        writeback: vanta_proxy::config::WritebackConfig::default(),
     }
 }
 
@@ -362,4 +366,131 @@ async fn g_sse_streaming_passthrough_no_buffering() {
             .contains("message_stop"),
         "chunks must arrive in order"
     );
+}
+
+// ── MEM-27 (a) rate limit: sliding window blocks excess with 429 ────────────
+#[tokio::test]
+async fn rate_limit_blocks_excess_with_429_and_retry_after_headers() {
+    let upstream_url = spawn(Router::new().route(
+        "/v1/chat/completions",
+        post(|| async { Json(json!({ "id": "ok" })) }),
+    ))
+    .await;
+    let cfg = ProxyConfig {
+        server: ServerConfig {
+            rate_limit_per_minute: 2,
+            ..ServerConfig::default()
+        },
+        ..cfg_with(&upstream_url, 600)
+    };
+    let proxy_url = spawn(server::router(
+        server::AppState::from_engine(cfg, seeded_engine()).unwrap(),
+    ))
+    .await;
+
+    let payload = json!({ "model": "gpt-test", "messages": [{"role": "user", "content": "hi"}] });
+    for _ in 0..2 {
+        let resp = post_json(
+            &proxy_url,
+            "/claude-code/sp1/v1/chat/completions",
+            payload.clone(),
+        )
+        .await;
+        assert_eq!(
+            resp.status(),
+            200,
+            "first two requests within the window pass"
+        );
+    }
+    // Concurrent burst from N clients against the same spaceId×model bucket.
+    let mut handles = Vec::new();
+    for _ in 0..6 {
+        let url = proxy_url.clone();
+        let payload = payload.clone();
+        handles.push(tokio::spawn(async move {
+            post_json(&url, "/claude-code/sp1/v1/chat/completions", payload).await
+        }));
+    }
+    let mut limited = 0;
+    for h in handles {
+        let resp = h.await.unwrap();
+        if resp.status() == 429 {
+            limited += 1;
+            let retry_after = resp.headers()["retry-after"]
+                .to_str()
+                .ok()
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(0);
+            assert!(
+                (1..=60).contains(&retry_after),
+                "retry-after within window, got {retry_after}"
+            );
+            assert_eq!(resp.headers()["x-ratelimit-limit"], "2");
+            assert_eq!(resp.headers()["x-ratelimit-remaining"], "0");
+            let body: Value = resp.json().await.unwrap();
+            assert_eq!(body["error"]["type"], "rate_limit_error");
+        } else {
+            assert_eq!(resp.status(), 200);
+        }
+    }
+    assert!(
+        limited >= 1,
+        "at least one concurrent request must be 429-limited"
+    );
+
+    // Independent bucket: a different model is not affected.
+    let resp = post_json(
+        &proxy_url,
+        "/claude-code/sp1/v1/chat/completions",
+        json!({ "model": "other-model", "messages": [] }),
+    )
+    .await;
+    assert_eq!(
+        resp.status(),
+        200,
+        "separate spaceId×model buckets are independent"
+    );
+}
+
+// ── MEM-27 (e) mem-command: disabled by default / enabled responds locally ──
+#[tokio::test]
+async fn mem_command_disabled_by_default_forwards_verbatim() {
+    let env = setup(Router::new()).await;
+    let payload = json!({ "messages": [{ "role": "user", "content": "mem:help" }] });
+    let resp = post_json(&env.proxy_url, "/cc/sp1/v1/chat/completions", payload).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["id"], "chatcmpl-1", "disabled → forwarded to upstream");
+}
+
+#[tokio::test]
+async fn mem_command_enabled_intercepts_sync_and_help_locally() {
+    let upstream_url = spawn(Router::new()).await; // nothing reachable should be called
+    let cfg = ProxyConfig {
+        mem_command: vanta_proxy::config::MemCommandConfig { enabled: true },
+        ..cfg_with(&upstream_url, 600)
+    };
+    let proxy_url = spawn(server::router(
+        server::AppState::from_engine(cfg, seeded_engine()).unwrap(),
+    ))
+    .await;
+
+    for (msg, expect_contains) in [("mem:sync", "refreshed"), ("mem:help", "mem:create-skill")] {
+        let resp = post_json(
+            &proxy_url,
+            "/cc/sp1/v1/chat/completions",
+            json!({ "messages": [{ "role": "user", "content": &msg }] }),
+        )
+        .await;
+        let status = resp.status();
+        let raw_body = resp.text().await.unwrap_or_default();
+        assert_eq!(status, 200, "mem-cmd {msg} body: {raw_body}");
+        let body: Value = serde_json::from_str(&raw_body).expect("json body");
+        assert_eq!(body["object"], "mem.command");
+        let message = body["message"].as_str().expect("message text");
+        assert!(
+            message.to_ascii_lowercase().contains(expect_contains),
+            "`{msg}` reply `{message}` must mention `{expect_contains}`"
+        );
+    }
 }

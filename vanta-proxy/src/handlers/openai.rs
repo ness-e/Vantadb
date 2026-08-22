@@ -16,6 +16,12 @@ pub async fn chat_completions(
 ) -> Response {
     tracing::debug!(agent = %agent, space_id = %space_id, "chat/completions");
     state
-        .process(Protocol::OpenAI, "/v1/chat/completions", &headers, body)
+        .process(
+            Protocol::OpenAI,
+            "/v1/chat/completions",
+            &headers,
+            body,
+            &space_id,
+        )
         .await
 }

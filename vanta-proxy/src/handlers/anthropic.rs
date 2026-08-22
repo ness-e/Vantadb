@@ -16,6 +16,12 @@ pub async fn messages(
 ) -> Response {
     tracing::debug!(agent = %agent, space_id = %space_id, "messages");
     state
-        .process(Protocol::Anthropic, "/v1/messages", &headers, body)
+        .process(
+            Protocol::Anthropic,
+            "/v1/messages",
+            &headers,
+            body,
+            &space_id,
+        )
         .await
 }

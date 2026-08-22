@@ -13,6 +13,9 @@ use crate::inject::Protocol;
 use crate::server::AppState;
 
 /// POST `/v1/responses` — auth→session→inject→forward (generic subset).
+///
+/// No `{spaceId}` segment in this route (TDAM parity) — the empty string is
+/// the limiter/report space key.
 pub async fn responses(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -20,6 +23,6 @@ pub async fn responses(
 ) -> Response {
     tracing::debug!("responses (generic subset)");
     state
-        .process(Protocol::Responses, "/v1/responses", &headers, body)
+        .process(Protocol::Responses, "/v1/responses", &headers, body, "")
         .await
 }

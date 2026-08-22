@@ -29,6 +29,7 @@ async fn main() -> Result<(), ProxyError> {
     );
 
     let state = server::AppState::new(config.clone())?;
+    let writeback = state.writeback.clone();
     let app = server::router(state);
 
     let addr = format!("{}:{}", config.server.host, config.server.port);
@@ -40,11 +41,34 @@ async fn main() -> Result<(), ProxyError> {
         .with_graceful_shutdown(shutdown_signal())
         .await
         .map_err(|e| ProxyError::Forward(format!("serve: {e}")))?;
-    tracing::info!("vanta-proxy stopped");
+
+    // Graceful flush (TDAM index.ts:154-169): drain pending L0 writes on
+    // SIGTERM/SIGINT before exit.
+    let remaining = writeback.flush(std::time::Duration::from_secs(10)).await;
+    tracing::info!(remaining, "vanta-proxy stopped");
     Ok(())
 }
 
 async fn shutdown_signal() {
-    let _ = tokio::signal::ctrl_c().await;
-    tracing::info!("shutdown signal received");
+    let ctrl_c = tokio::signal::ctrl_c();
+    #[cfg(unix)]
+    {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut sigterm) => {
+                tokio::select! {
+                    _ = ctrl_c => {},
+                    _ = sigterm.recv() => {},
+                }
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "SIGTERM handler unavailable — waiting on Ctrl+C only");
+                let _ = ctrl_c.await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = ctrl_c.await;
+    }
+    tracing::info!("shutdown signal received (SIGTERM/SIGINT)");
 }

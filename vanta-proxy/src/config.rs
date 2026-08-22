@@ -21,6 +21,10 @@ pub struct ProxyConfig {
     pub upstream: UpstreamConfig,
     /// Local auth/session store (D25/D34).
     pub auth: AuthConfig,
+    /// In-band `mem:` commands (D33) — disabled by default (TDAM parity).
+    pub mem_command: MemCommandConfig,
+    /// L0 write-back persistence settings.
+    pub writeback: WritebackConfig,
 }
 
 impl ProxyConfig {
@@ -29,6 +33,33 @@ impl ProxyConfig {
         let raw = std::fs::read_to_string(path)
             .map_err(|e| ProxyError::Config(format!("cannot read {}: {e}", path.display())))?;
         toml::from_str(&raw).map_err(|e| ProxyError::Config(format!("invalid TOML: {e}")))
+    }
+}
+
+/// In-band `mem:` command interception (D33). Disabled by default so the
+/// wire stays a transparent proxy unless explicitly opted in (TDAM parity).
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct MemCommandConfig {
+    /// When false (default), `mem:*` messages are forwarded verbatim to the
+    /// upstream LLM.
+    pub enabled: bool,
+}
+
+/// L0 write-back queue persistence.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct WritebackConfig {
+    /// File holding labels of writes that exhausted retries (crash audit
+    /// trail). Empty string disables persistence.
+    pub persist_path: String,
+}
+
+impl Default for WritebackConfig {
+    fn default() -> Self {
+        Self {
+            persist_path: "vanta-proxy-writeback-pending.json".to_string(),
+        }
     }
 }
 
