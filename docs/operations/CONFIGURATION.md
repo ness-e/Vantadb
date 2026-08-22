@@ -41,7 +41,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `insert_lock_timeout_ms` | `u64` | `5000` | `VANTADB_INSERT_LOCK_TIMEOUT_MS` | [[hnsw\|HNSW]] insert lock timeout in ms |
 | `file_lock_timeout_ms` | `u64` | `1000` | `VANTADB_FILE_LOCK_TIMEOUT_MS` | .vanta.lock file lock timeout in ms |
 | `api_key` | `Option<String>` | `None` | `VANTADB_API_KEY` | Bearer token for HTTP auth |
-| `rate_limit_rpm` | `u32` | `100` | `VANTADB_RATE_LIMIT_RPM` | Rate limit in requests per minute |
+| `rate_limit_rpm` | `u32` | `600` | `VANTADB_RATE_LIMIT_RPM` | Rate limit in requests per minute (`0` = disabled) |
 | `trusted_proxies` | `Vec<IpAddr>` | `[]` | `VANTADB_TRUSTED_PROXIES` | Comma-separated reverse-proxy IPs whose `X-Forwarded-For` header is honored for client-IP resolution (rate limiter / logs). Empty = header ignored; direct socket addr is authoritative (clients cannot spoof their IP). |
 | `allowed_origins` | `Vec<String>` | `[]` | `VANTADB_ALLOWED_ORIGINS` | Comma-separated origins allowed to make cross-origin (CORS) requests to the HTTP server (e.g. `https://app.example.com,https://admin.example.com`). Empty (default) = CORS middleware omitted; the server sends no `Access-Control-Allow-Origin` header and browsers block cross-origin web calls. Repeatable via `VantaConfig::with_allowed_origins`. |
 | `dashboard_dir` | `Option<PathBuf>` | `None` | `VANTADB_DASHBOARD_DIR` | Directory of static files served at `/dashboard` (Vanta Studio web console, WEB-03). When `None` (default), `/dashboard` responds 404 with a hint telling the caller to pass `--dashboard-dir`. Also settable via `server --dashboard-dir <path>`. |
@@ -53,7 +53,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `llm_summarize_model` | `String` | `llama3` | `VANTA_LLM_SUMMARIZE_MODEL` | Model name for summarization |
 | `wal_shards` | `usize` | `4` | `VANTADB_WAL_SHARDS` | Number of round-robin [[wal\|WAL]] shard files for write parallelism |
 | `wal_buffer_size` | `Option<usize>` | `65536` (64KB) | `VANTADB_WAL_BUFFER_SIZE` | Per-shard WAL buffer in bytes (`None` = OS default) |
-| `flush_threshold` | `Option<usize>` | `10000` | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
+| `flush_threshold` | `Option<usize>` | `None` (disabled) | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
 | `advanced_tokenizer_config` | `Option<...>` | `None` | — | Advanced tokenizer config (feature-gated) |
 | `batch_size` | `Option<usize>` | `None` (1000) | `VANTADB_BATCH_SIZE` | Max nodes per batch ingestion operation |
 | `version_history_limit` | `Option<usize>` | `Some(32)` | `VANTADB_VERSION_HISTORY_LIMIT` | Max historical versions retained per memory key (VS-CORE-07). Each `put` snapshots the new record; FIFO evicts the oldest beyond the cap. `0` or `None` disables the cap (unbounded history per key). See `docs/api/EMBEDDED_SDK.md` → Version History. |
@@ -67,6 +67,18 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `export_base_dir` | `Option<PathBuf>` | `None` | `VANTADB_EXPORT_BASE_DIR` | Base directory for export/import path validation. When set, export and import paths are resolved canonically against this directory (symlink protection included). When `None`, only bare `..` traversal is blocked. |
 | `audit_log_path` | `Option<PathBuf>` | `None` | `VANTADB_AUDIT_LOG_PATH` | Append-only JSONL audit log (ISO 8601 timestamp + op per write/delete/export/import). When `None`, audit is disabled. |
 | `segment_optimizer` | `SegmentOptimizerConfig` | `{enabled: true, vacuum_threshold_pct: 15.0, auto_run_interval_secs: 3600, max_pipeline_duration_secs: 300}` | — | Segment optimizer configuration: master switch, tombstone vacuum threshold (%), auto-run interval (s), max pipeline duration (s), and per-level LSM compaction config. See also `pipeline()` / `optimizer_config()` / `set_optimizer_config()` in the SDK. |
+
+### Environment Variables Outside `VantaConfig`
+
+These env vars are read at runtime outside `VantaConfig::from_env()`:
+
+| Env Var | Default | Description |
+|---------|---------|-------------|
+| `VANTA_EMBEDDING_PROVIDER` | `ollama` | Embedding provider selection: `openai` uses the OpenAI API, any other value (or unset) uses local Ollama (`src/llm.rs:40`) |
+| `VANTA_OPENAI_API_KEY` | — (required) | API key for OpenAI embeddings; startup panics if provider is `openai` and this is unset (`src/llm.rs:145`) |
+| `VANTA_OPENAI_MODEL` | `text-embedding-3-small` | Model name for OpenAI embeddings (`src/llm.rs:147`) |
+| `VANTA_BACKUP_DIR` | `./vantadb_snapshots` | Overrides the output directory for live backups / checkpoints (`src/storage/engine/maintenance.rs:658`) |
+| `VANTADB_REPORTED_VERSION` | crate version | Overrides the version string reported by banners and MCP surfaces (must be a valid semver, e.g. `1.2.3-rc1`; `src/metadata.rs:22`) |
 
 ### Audit Log Format
 
