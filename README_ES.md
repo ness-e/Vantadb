@@ -7,7 +7,7 @@
 <div align="left">
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust-10.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/ci-rust-10.yml?label=Rust+CI" alt="Rust CI"></a>
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/gate-docs-21.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/gate-docs-21.yml?label=Docs" alt="Docs"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust-10.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/ci-rust-10.yml?label=Security+Audit" alt="Security Audit"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/sec-codeql-30.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/sec-codeql-30.yml?label=Security+Audit" alt="Security Audit"></a>
 
   <br>
 
@@ -49,8 +49,8 @@ VantaDB es un motor de base de datos embebido, local-first, diseñado para agent
 | Leer el blog | [Entradas del blog](docs/blog/) |
 | Leer la documentación de arquitectura | [Documentación](#documentación) |
 | Contribuir de forma segura | [CONTRIBUTING.md](CONTRIBUTING.md) |
-<!-- | Reportar una vulnerabilidad | SECURITY.md (planificado) | -->
-<!-- | Obtener soporte | SUPPORT.md (planificado) | -->
+| Reportar una vulnerabilidad | [SECURITY.md](SECURITY.md) |
+| Obtener soporte | [SUPPORT.md](SUPPORT.md) |
 
 ---
 
@@ -62,7 +62,9 @@ VantaDB se distribuye como un paquete nativo de Python con wheels precompilados 
 pip install vantadb-py
 ```
 
-> **Nota:** El nombre de distribución es `vantadb-py`, pero el módulo importable usa un guion bajo siguiendo las convenciones de nombres de Python: `import vantadb_py`.
+> **Nota:** El nombre de distribución es `vantadb-py`, y el import canónico es
+> `import vantadb` (igual que el crate de Rust y el paquete de npm). `import vantadb_py`
+> sigue disponible sin cambios.
 
 Para desarrollo desde el código fuente:
 
@@ -86,7 +88,7 @@ vantadb = { git = "https://github.com/ness-e/Vantadb" }
 Inicializa un almacén de memoria persistente, guarda registros estructurados con vectores y ejecuta una búsqueda híbrida en Python puro:
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 # 1. Abre o crea una base de datos local (cero configuración)
 db = vantadb.VantaDB("./vanta_data", memory_limit_bytes=512_000_000)
@@ -319,13 +321,13 @@ VantaDB incluye una suite formal de benchmarks nativos de Python (**BENCH-01**) 
 
 Las líneas base medidas del SDK de un solo hilo (incluido el límite PyO3/GIL) están publicadas en [docs/operations/BENCHMARKS.md](docs/operations/BENCHMARKS.md): latencias de operación del SDK (`put`, BM25, HNSW, híbrido) y los resultados certificados del stress protocol Rust (10K–100K, recall, memoria, escalado). Los números dependen del hardware y del build — regenera localmente con la suite inferior para reproducirlos en tu máquina.
 
-| Métrica | Línea base real commiteada (`vanta_benchmark_report.json`, 10K×128d) |
+| Métrica | Línea base local más reciente (`vanta_benchmark_report.json`, 10K×128d, regenerar localmente) |
 | :--- | :--- |
-| **Ingesta** (Insert + WAL + Flush) | 61,5 registros/seg (p50 16,0 ms) |
-| **Búsqueda (HNSW vectorial)** | p50 3,3 ms (~300 consultas/seg) |
-| **Búsqueda (fusión híbrida)** | p50 12,1 ms (~83 consultas/seg) |
+| **Ingesta** (Insert + WAL + Flush) | 74,0 registros/seg (p50 13,2 ms) |
+| **Búsqueda (HNSW vectorial)** | p50 2,0 ms (~500 consultas/seg) |
+| **Búsqueda (fusión híbrida)** | p50 3,1 ms (~320 consultas/seg) |
 
-*Fuente: [`benchmarks/vanta_benchmark_report.json`](benchmarks/vanta_benchmark_report.json).* La latencia de búsqueda de texto BM25 se excluye arriba porque el artefacto commiteado reporta un outlier degenerado (p50 0,009 ms para una consulta de texto de documento único); ver la tabla completa de la serie CI en [BENCHMARKS.md §2](docs/operations/BENCHMARKS.md).
+*Fuente: [`benchmarks/vanta_benchmark_report.json`](benchmarks/vanta_benchmark_report.json) — regenerable con `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000` (gitignored; no es un artefacto commiteado).* La latencia de búsqueda de texto BM25 se excluye arriba porque el artefacto local reporta un outlier degenerado (p50 0,0035 ms para una consulta de texto de documento único); ver la tabla completa de la serie CI en [BENCHMARKS.md §2](docs/operations/BENCHMARKS.md).
 
 ### Benchmarks competitivos SIFT-1M (escala 100K) — Fase 2
 

@@ -191,8 +191,10 @@ When a crash artifact is produced:
 
 ### CI Integration
 
-Fuzzing runs as a scheduled job in `.github/workflows/heavy-certification-50.yml`
-on Linux runners only. It is **not** part of standard PR validation because it
+Fuzzing runs as a scheduled job in `.github/workflows/fuzz-40.yml`
+(LibFuzzer corpus + regression, Linux runners only). The
+`heavy-certification-50.yml` workflow additionally runs the `fuzz_proptest`
+integration test. Fuzzing is **not** part of standard PR validation because it
 requires nightly and long wall-clock time.
 
 ---
