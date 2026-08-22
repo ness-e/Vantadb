@@ -151,7 +151,11 @@ if (Test-Path $pyLib) {
     'text_index_audit_report_to_pydict','operational_metrics_to_pydict',
     'py_dict_to_metadata','search_batch','__repr__',
     'try_enter','drain','drop',
-    'request_field','parse_search_request'
+    'request_field','parse_search_request',
+    # PyO3 #[getter] fns renamed via #[pyo3(name = "...")]: public Python
+    # surface is db.memory/graph/system/wiki, documented in the Domain
+    # Sub-clients section of PYTHON_SDK.md (SDKB-04).
+    'memory_client','graph_client','system_client','wiki_client'
   )
   $pyAll = Select-String -Path $pyLib -Pattern '^\s{4}fn (\w+)' |
     ForEach-Object { $_.Matches[0].Groups[1].Value } |

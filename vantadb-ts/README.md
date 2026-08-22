@@ -137,6 +137,39 @@ db.close();
 | `.query(iqlQuery)` | Execute IQL query |
 | `.generateSnippet(payload, query, withHighlighting?)` | Generate highlighted text snippet |
 
+## Domain Sub-clients
+
+Every flat method is also reachable through a **domain sub-client**: `db.memory.*`, `db.graph.*`, `db.wiki.*`, `db.system.*`. Sub-clients are pure organizational sugar over the flat API — each call forwards verbatim to the flat method of the same behavior.
+
+> **Backward-compat guarantee:** the flat API is unchanged. `db.memory.put(x)` and `db.put(x)` are the same call; existing code keeps working as-is. Canonical method→domain map: [`docs/api/BINDINGS_NAMESPACES.md`](../docs/api/BINDINGS_NAMESPACES.md).
+
+```ts
+// memory — namespace+key records, search, TTL
+await db.memory.put({ namespace: "docs", key: "intro", payload: "...", vector: [0.1, 0.2] });
+const hits = await db.memory.search({ namespace: "docs", query_vector: [0.15, 0.25], top_k: 5 });
+await db.memory.purgeExpired();
+
+// graph — node/edge CRUD + traversals (traversals use short names)
+const node = await db.graph.getNode(42);
+const reachable = await db.graph.bfs([42], 3);
+const order = await db.graph.topologicalSort([1, 2, 3]);
+if (await db.graph.isDag([1, 2])) { /* safe to topologically sort */ }
+
+// wiki — empty in v1: wiki features are core-only (not exposed via WASM yet)
+Object.keys(db.wiki); // []
+
+// system — lifecycle, metrics, IQL, maintenance, import/export
+console.log(await db.system.capabilities());
+const result = await db.system.query("(match (node :content \"rust\") (return node))");
+await db.system.flush();
+```
+
+Notes:
+
+- Sub-clients are lazy, frozen (`Readonly`) singletons — accessing `db.graph` twice returns the same object.
+- `conversation` / `skills` sub-clients do not exist yet; their capabilities live in the core crate only.
+- Python exposes the equivalent grouping via `db.memory`, `db.graph`, `db.system`, `db.wiki` — see [PYTHON_SDK.md → Domain Sub-clients](../docs/api/PYTHON_SDK.md).
+
 ## Runtimes
 
 | Runtime | Status |

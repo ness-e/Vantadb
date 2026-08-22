@@ -3,6 +3,8 @@
 > **Status:** canonical contract for SDKB campaign (`docs/plans/2026-08-22-vantadb-bindings-sdk.md`).
 > **Decisions:** D42 (sub-clients TS/Python only — zero WASM/Rust changes), D43 (v1 groups already-exposed methods only; vanta-memory pipeline is core-only and deferred), D45 (additive → minor bump).
 > **Rule:** every public method of every SDK maps to **exactly one** domain. `system` is the catch-all for orphan operations (capabilities, import/export, metrics, lifecycle).
+>
+> **Sub-client docs:** TypeScript examples in [`vantadb-ts/README.md` → Domain Sub-clients](../../vantadb-ts/README.md#domain-sub-clients) · Python examples in [`PYTHON_SDK.md` → Domain Sub-clients](./PYTHON_SDK.md#domain-sub-clients).
 
 ## Domain Taxonomy
 

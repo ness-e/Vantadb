@@ -51,6 +51,41 @@ if results and results.get("records"):
 ```
 *Note: For more details on search execution, see [[hybrid-search|Hybrid Search]].*
 
+## Domain Sub-clients
+
+Every flat method is also reachable through a **domain sub-client**: `db.memory`, `db.graph`, `db.system`, `db.wiki`. Sub-clients are pure organizational sugar over the flat API — each call forwards verbatim to the same-named method on the parent handle.
+
+> **Backward-compat guarantee:** the flat API is unchanged. `db.memory.get_memory(...)` and `db.get_memory(...)` are the same call; existing code keeps working as-is. Canonical method→domain map: [BINDINGS_NAMESPACES.md](BINDINGS_NAMESPACES.md).
+
+```python
+# memory — namespace+key records, search, supersede, TTL
+record = db.memory.put(namespace="ns", key="k", payload="...", vector=[0.1] * 384)
+hits = db.memory.search_memory(namespace="ns", query_vector=[0.1] * 384)
+db.memory.supersede(namespace="ns", old_key="draft-v1", new_key="draft-v2")
+
+# graph — node/edge CRUD + traversals
+# NOTE: insert/get/delete are NODE-level ops here (id: u128), unlike the
+# memory-record semantics those names carry in the TS/WASM bindings.
+db.graph.insert(id=42, content="...", vector=[0.1] * 384)
+node = db.graph.get(id=42)
+reachable = db.graph.graph_bfs(roots=[42], max_depth=3)
+ranks = db.graph.graph_page_rank(roots=[42])
+
+# wiki — summary-node archive recovery
+nodes = db.wiki.recover_archived_nodes(summary_id="42")
+
+# system — lifecycle, metrics, IQL, maintenance, import/export
+print(db.system.capabilities())
+result = db.system.query("(match (node :content \"rust\") (return node))")
+db.system.flush()
+```
+
+Notes:
+
+- Each attribute returns a lightweight delegate that holds a reference to the parent `VantaDB`; calls are forwarded with identical signatures and results.
+- The full member lists per sub-client are fixed by [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md) (Python section): memory 15 · graph 10 · system 17 · wiki 1.
+- `AsyncVantaDB` does not expose sub-clients yet.
+
 ## API Reference
 
 ### Constructor
