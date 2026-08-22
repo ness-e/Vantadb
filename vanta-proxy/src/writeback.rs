@@ -17,8 +17,8 @@ use serde_json::json;
 pub type L0Job = Arc<dyn Fn() -> L0Future + Send + Sync>;
 pub type L0Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send>>;
 
-const DEFAULT_ATTEMPTS: u32 = 3;
-const DEFAULT_BASE_MS: u64 = 500;
+pub(crate) const DEFAULT_ATTEMPTS: u32 = 3;
+pub(crate) const DEFAULT_BASE_MS: u64 = 500;
 
 struct PendingEntry {
     label: String,

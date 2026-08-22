@@ -49,7 +49,9 @@ pub fn parse(body: &[u8]) -> Option<MemCommand> {
     parse_text(&text)
 }
 
-fn extract_text(content: &Value) -> Option<String> {
+/// Plain text of a message `content`: string → itself; array → concatenation
+/// of `text` blocks. Shared with turn capture (MEM-50).
+pub(crate) fn extract_text(content: &Value) -> Option<String> {
     match content {
         Value::String(s) => Some(s.clone()),
         Value::Array(blocks) => {

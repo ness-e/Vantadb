@@ -15,6 +15,7 @@ use vantadb::sdk::VantaEmbedded;
 use vantadb::storage::StorageEngine;
 
 use crate::auth::AuthDb;
+use crate::capture;
 use crate::config::ProxyConfig;
 use crate::forward::Forwarder;
 use crate::handlers;
@@ -96,8 +97,14 @@ impl AppState {
         let timer = TurnTimer::start();
         let model = model_from_body(&body);
         let response = self
-            .process_inner(protocol, wire_path, headers, body, space_id, &model)
+            .process_inner(protocol, wire_path, headers, body.clone(), space_id, &model)
             .await;
+        // D47/MEM-50: completed request → L0 turn capture. Fire-and-forget
+        // AFTER the response is built — a slow or failing memory write can
+        // never delay or break the forward.
+        if response.status().is_success() {
+            self.capture_turn(protocol, headers, space_id, &model, &body);
+        }
         self.reporter.emit(&TurnReport {
             timestamp_ms: now_ms_u64(),
             space_id: space_id.to_string(),
@@ -167,6 +174,34 @@ impl AppState {
         };
 
         self.forward_raw(wire_path, headers, body).await
+    }
+
+    /// D47: single L0 write path — track the conversation turn through
+    /// [`WriteBack::track`]. Requires a session key (no session → no capture,
+    /// matching the verbatim-forward path) and a non-empty user text.
+    fn capture_turn(
+        &self,
+        protocol: Protocol,
+        headers: &HeaderMap,
+        space_id: &str,
+        model: &str,
+        body: &[u8],
+    ) {
+        let Some(session) = session_key_from_headers(headers) else {
+            return;
+        };
+        let Some(text) = capture::last_user_text(body).filter(|t| !t.is_empty()) else {
+            return;
+        };
+        let job = capture::turn_job(
+            self.memory.as_ref().clone(),
+            &session,
+            protocol_name(protocol),
+            space_id,
+            model,
+            &text,
+        );
+        self.writeback.track(format!("turn:{session}"), job);
     }
 
     /// Verbatim forward (streaming passthrough).

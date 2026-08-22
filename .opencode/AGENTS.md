@@ -662,3 +662,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: GOV-D2 - 2026-08-22 -->
 - Split de monolitos por rangos de linea verificados en DISCOVERY (headers rg + lectura de las 60 fronteras) permite mover 4335 lineas sin perder una sola: cobertura mecanica comprobada con HashSet de lineas antes de escribir.
 - Al mover markdown a un subdirectorio nuevo, los links relativos `](../` necesitan un nivel mas (`](../../`): correccion regex en el script de split, no edicion manual; las citas historicas con backticks (paths y `file:line`) no se tocan porque son evidencia congelada.
+
+<!-- Learnings: MEM-50 — 2026-08-22 -->
+- `cargo nextest run -p <crate>` falla parseando el default-filter del workspace (.config/nextest.toml) porque referencia binarios de otros crates: verificar single-crate con un config mínimo temporal (`--config-file` con `[profile.default]` vacío).
+- Test de retry-exhaustion: un flag "falla 1 vez" hace que el reintento 2 tenga éxito y el job NUNCA llegue al pending queue — hay que fallar exactamente DEFAULT_ATTEMPTS intentos (contador countdown) y dejar pasar solo la invocación post-flush; y asertar con polling (sleep fijo es flaky contra backoff 500ms→1s bajo carga).

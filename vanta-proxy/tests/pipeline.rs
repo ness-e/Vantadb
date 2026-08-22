@@ -298,3 +298,65 @@ async fn d_injection_only_system_prompt_with_persona_and_scenes() {
     assert!(names.contains(&"vanta_memory_capture"), "L0 tool exposed");
     assert!(names.contains(&"vanta_memory_search"), "L1 tool exposed");
 }
+
+// ── (g) MEM-50/D47: completed request captures the L0 turn via WriteBack ────
+#[tokio::test]
+async fn g_completed_request_tracks_l0_turn() {
+    use std::time::Duration;
+    use vanta_proxy::capture::list_turns;
+
+    let captured: Shared = Arc::new(Mutex::new(None));
+    let c = captured.clone();
+    let upstream = Router::new().route(
+        "/v1/chat/completions",
+        post(move |headers: HeaderMap, body: bytes::Bytes| {
+            let c = c.clone();
+            async move {
+                *c.lock().unwrap() = Some(Captured {
+                    body: body.to_vec(),
+                    headers,
+                });
+                Json(json!({}))
+            }
+        }),
+    );
+    let upstream_url = spawn(upstream).await;
+    // Keep a memory handle before the state is moved into the router.
+    let state = state_for(&upstream_url);
+    let memory = state.memory.clone();
+    let env = TestEnv {
+        proxy_url: spawn(vanta_proxy::server::router(state)).await,
+        upstream_captured: captured,
+    };
+
+    // With session: 200 + turn persisted asynchronously (fire-and-forget).
+    let payload = json!({
+        "model": "m",
+        "messages": [
+            { "role": "system", "content": "S" },
+            { "role": "user", "content": "capture me please" }
+        ]
+    });
+    let resp = post_chat(&env, &[("x-conversation-id", "sess-capture")], payload).await;
+    assert_eq!(resp.status(), 200);
+
+    let mut turns = Vec::new();
+    for _ in 0..40 {
+        turns = list_turns(&memory);
+        if !turns.is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert_eq!(turns.len(), 1, "exactly one L0 turn captured");
+    assert!(turns[0].payload.contains("capture me please"));
+    assert!(turns[0].payload.contains("sess-capture"));
+    assert!(turns[0].payload.contains("openai"));
+
+    // Without session header: verbatim path → no capture.
+    let payload = json!({ "model": "m", "messages": [{ "role": "user", "content": "anon" }] });
+    let resp = post_chat(&env, &[], payload).await;
+    assert_eq!(resp.status(), 200);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(list_turns(&memory).len(), 1, "no session → no capture");
+}

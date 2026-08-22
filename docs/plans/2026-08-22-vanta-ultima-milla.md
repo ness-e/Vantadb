@@ -1,9 +1,8 @@
 # Plan de Ejecución: Vanta Última Milla — integración producto end-to-end
 
-> **Campaign ID: ce95e9c2-8bc1-41f3-9fe1-a67a88328d0a
 > **Campaign ID:** 2b31b4d5-551f-499a-b648-3c995207db3e
 > **Inicio:** 2026-08-22
-> **Estado: completed
+> **Estado:** ⏳ EN PROGRESO (1/10 tareas)
 > **Fuente:** auditoría de integración final (`docs/reviews/2026-08-22-auditoria-integracion-final.md`) + decisiones del usuario (2026-08-22)
 > **Predecesores:** P27+P29+P30+P31+P32 ✅ (54 tareas) — roadmap TDAM 100% + bindings
 > **Modo:** waves por dependencias. Sin release durante la campaña (decisión usuario).
@@ -37,10 +36,10 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Archivos clave:** `vanta-proxy/src/handlers/{openai,anthropic,responses}.rs` (editar), `writeback.rs` (API si falta)
 - **Verificación real:** ✅ AUDITORÍA — WriteBack construido+flusheado pero cero llamadas track() (auditoría H1)
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: npx markdownlint-cli2 README+campanas/*.md+avance/activo/{desktop,core-engine}.md = 0 issues EXIT=0 ✅; cobertura de líneas 49-4335 = 100% salvo header reemplazado/dedup fusionado/blanks ✅; links del índice 44/44 resuelven (1 falso positivo AUD-007 documentado) ✅ | evidencia: [bytes 391751/376759 = 103.98% ≥97% → cálculo Get-Item Length, alta] [0 líneas perdidas → HashSet de rangos vs original, alta] [dedup residuo-consolidado ×3→×1 con hechos únicos conservados → campanas/archivados-planes.md, alta] [spot-checks ×5 OK: MEM-43 a0bcb112, REV-003 53.85%, AUD-WORK, DESKTOP-01 Tauri, fleet 78 CODE → rg en archivos destino, alta] [0 consumidores automáticos rotos → rg progreso/README en scripts/dev-tools/.github/.opencode, alta] | artefactos: docs/progreso/campanas/*.md (37), docs/progreso/README.md (índice 10KB), .opencode/skills/campaign-executor/tasks/GOV-D2.md | invariantes: NO editar docs/plans/*bindings-sdk*, vantadb-ts/, evals/, Backlog.md, bitacora.md; plan file no tocado; citas históricas file:line en historial/reviews-archive intactas (evidencia congelada) | deuda: commit pendiente — PROHIBIDO git para este agente, delegar al lead; meta.md:92 §Housekeeping era puntero muerto PRE-split (no tocado); docs/avance/historial snapshots contienen refs §Auditoría Integral congeladas por diseño | queda_pendiente: orquestador commitea los 41 archivos (37 campanas + README + 2 avance/activo + task file)
+- **Contrato: verificacion: cargo check -p vanta-proxy --all-targets ✅ | cargo nextest run -p vanta-proxy 57/57 ✅ (config minimo temporal por default-filter del workspace) | cargo fmt --check ✅ | cargo clippy -p vanta-proxy --all-targets --no-deps -- -D warnings exit 0 ✅ | evidencia: claim=request 2xx con session header persiste turno L0 en proxy-turns legible via list → file vanta-proxy/tests/pipeline.rs test g_completed_request_tracks_l0_turn ✅ confianza alta; claim=fallo de enqueue no rompe forward y flush lo persiste → capture.rs test failed_enqueue_lands_in_pending_and_flush_persists ✅ alta; claim=extraccion user-text string/blocks/no-user/garbage → capture.rs unit tests ✅ alta | artefactos: vanta-proxy/src/capture.rs, .opencode/skills/campaign-executor/tasks/MEM-50.md | invariantes: NO tocar core ni wal/vector/storage (blast radius=vanta-proxy respetado); fallo de track/enqueue jamas afecta la respuesta HTTP (fire-and-forget post-respuesta); sin deps nuevas ni unwrap/expect | deuda: extraccion user-text solo shape messages (refina Task 8/MEM-57); sin commit (regla del lead); progreso-skill Backlog migration diferida al orquestador
 - **Risk Register:** 🟢×🟠 extraer user-text del request puede necesitar MEM-57 parcial → implementar extracción mínima inline, refinar con Task 8
 - **Cynefin:** 🟦 obvio
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-50.md`
 - **Notas:** Ruta: vanta-worker.
 
@@ -185,11 +184,11 @@ Verify del lead SIEMPRE `--all-targets` (lección MEM-48) · SARL con feedback e
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: GOV-D2 — Split del monolito docs/progreso/README.md por campaña (D9: split POR CAMPAÑA)
+Objetivo activo: MEM-50: WriteBack::track wireado al request path de vanta-proxy (H1) — un solo camino L0 (D47)
 Estado: pending ⏳
-Última acción: Split ejecutado: 37 archivos en docs/progreso/campanas/ (campañas limpias P32/P31/P30/P29/P27/P20-TSYS/P26-VS/SKL/GOV + ~28 bloques legacy temático-contiguos); README reescrito como índice de 10KB con Resumen Ejecutivo real (P31 cerrada, P32 inline) y P32+P31 verbatim; dedup del evento residuo-consolidado ×3→×1; 2 links entrantes vivos corregidos (avance/activo/desktop.md, core-engine.md); markdownlint 40 files 0 issues
+Última acción: Implementado modulo capture.rs (last_user_text reutilizando mem_command::extract_text pub(crate); turn_job escribe VantaMemoryInput namespace=proxy-turns key={ms}-{seq} payload JSON{session,protocol,space,model,text}; list_turns helper). Wiring: server.rs process() clona Bytes barato y si status 2xx llama capture_turn() → writeback.track(turn:{session}, job). Tests: 3 unit extraccion + D19 mecanica (3 fallos→pending queue→flush persiste) + integracion end-to-end g_. Suite 57/57.
 Resultado: OK
-Próxima acción: Orquestador: commitear docs/progreso/ (README + campanas/), docs/avance/activo/{desktop,core-engine}.md
+Próxima acción: Orquestador: commitear archivos tocados (git add vanta-proxy/src/{capture.rs,lib.rs,mem_command.rs,server.rs,writeback.rs} vanta-proxy/tests/pipeline.rs) como feat: MEM-50 — wire WriteBack::track al request path y lanzar Task 2 del plan P33
 Contrato: por tarea — cargo check/nextest/fmt/clippy --all-targets del crate tocado exit 0 + tests D19
-Próxima tarea si completa: siguiente según plan (wave D restante o asignación del orquestador)
+Próxima tarea si completa: 2
 === END RECITATION ===
