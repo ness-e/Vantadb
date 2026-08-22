@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Cierre Final — integración, recall semántico y gobierno de decisiones
 
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (7/8 tareas)
+> **Estado: completed
 > **Fuente:** auditoría final post-P30 (vanta-research `ses_fd8c2c26`, 2026-08-22) + decisiones del usuario (2026-08-21/22) + deudas vigentes de task files
 > **Predecesores:** P27 F1-F4 ✅ 24/24 · P29 F5 ✅ 9/9 · P30 F6+F7 ✅ 9/9 — **roadmap TDAM F1-F7 cerrado**, suites 2568+ tests
 > **Modo:** waves — Wave 0 (integraciones y tests independientes) → Wave 1 (embeddings fundación) → Wave 2 (semantic recall + scoring) → Wave 3 (gobierno humano + meta-tarea).
@@ -37,7 +37,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 - **Verificación real:** ✅ AUDITORÍA — cero referencias a context_engine en services/ (solo tests e2e_flow.rs); decisión usuario: wire productivo
 - **Gate Justificación:** convierte la killer feature F5 en productiva dentro del ciclo L0→L1→L2→L3
 - **Gate Result:** ✅ DO
-- **Contrato: cargo check -p vanta-memory --all-targets pasa; tests D19 — evidencia: nextest 472/472 exit 0 (+2 scoring: priority 90 antes que 10, fallback heurístico), fmt/clippy exit 0; commit 4fbaa4a3
+- **Contrato: entregable meta — evidencia: docs/plans/2026-08-22-vantadb-bindings-sdk.md con ≥4 tareas DO + mapa superficie verificado; commit a43f0490
 - **Pre-mortem:** (1) doble compresión (worker + caller externo) → el worker es UNO de los callers; API existente intacta; (2) compresión automática puede sorprender → config flag `context_compression_enabled` default true documentado
 - **Stop conditions:** si el wiring exige reescribir assemble → ⬛ y escalar diseño
 - **Risk Register:**
@@ -188,7 +188,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
   | 🟢×🟡 | plan genérico sin superficie real | Step 1 obligatorio: listar métodos públicos hoy | DISCOVERY |
 - **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 (spec completa) · ⬇️ 2 steps
-- **Estado:** ✅ COMPLETED (commit del meta-plan `docs/plans/2026-08-22-vantadb-bindings-sdk.md`)
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-36.md` (YA EXISTE)
 - **Notas:** Ruta: vanta-lead (planning). Independiente — cualquier wave.
 
@@ -213,11 +213,11 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 ---
 
 === RECITATION ===
-Campaign ID: 1fe213b7-6eb7-41d5-8c6c-d238af79eaa0
-Objetivo activo: P31 cierre final — wiring context engine, roundtrip wiki, auto-sync, recall semántico, scoring real, ADR humano, meta-plan bindings
+Campaign ID: 584b96eb-9099-40f2-93a3-9ee898f715df
+Objetivo activo: P31 cierre final — COMPLETADA (8/8)
 Estado: pending ⏳
-Última acción: MEM-48 compresión consume scores L1 reales: MemoryScoreMap HashMap msg_id→max(priority) vía source_message_ids threadeado por assemble→mild_cascade; fallback heurístico sin memories; reparados 16 callers de test rotos por firma nueva (lección: verify sin --all-targets da ✅ falsos — adoptada en gate del lead)
+Última acción: MEM-36 meta-tarea: plan de campaña Bindings SDK creado por el lead desde la spec del task file. Paso 0: 43 métodos wasm planos / TS clase única / ~26 python. D42: sub-clientes SOLO capa TS/Python (cero cambios WASM — fricción wasm-pack eliminada); D43: capacidades vanta-memory vía bindings diferidas documentadas
 Resultado: OK
-Próxima acción: Delegar MEM-49 (Task 7, ADR-029 articulación humana — prep IA vanta-docs) y MEM-36 (Task 8, meta-plan bindings) a sub-agentes
+Próxima acción: Campaña P31 COMPLETA 8/8 — cierre final: progreso milestone + archive plan + reporte al usuario
 Contrato: por tarea — cargo check/nextest/fmt/clippy del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 7
+Próxima tarea si completa: ninguna
