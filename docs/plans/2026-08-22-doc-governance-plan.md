@@ -1,6 +1,6 @@
 # Plan de Ejecución: Gobernanza Documental — corrección integral post-auditoría
 
-> **Campaign ID: ef39688b-05eb-46be-979e-e54dd5654703
+> **Campaign ID: 3f955847-b362-422f-a281-005bfbb62e0d
 > **Inicio:** 2026-08-22
 > **Estado: completed
 > **Fuente:** `docs/reviews/auditoria-documentacion-2026-08-21.md` (Volumen I+II+Addendum) + decisiones del owner D1-D14 + respuestas de confirmación T0.x/T1.x/T3.x/T4.x/T6.x/T7.x registradas en §"Plan de Revisión" del informe.
@@ -46,7 +46,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pen
 - **Verificación real:** ✅ CÓDIGO-REAL — `verify-log.jsonl` existe y se puebla (23 entradas, campos ts/taskId/command/passed); `dora.mjs` ya lee el log para CFR pero no calcula recovery (TIR-02 investigación cerrada 08-17); 3 pares fail→pass medibles.
 - **Gate Justificación:** decisión ya tomada en investigación; ~30 líneas sobre datos existentes; cero riesgo producto.
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: npx markdownlint-cli2 docs/api/HTTP_API.md → exit 0 ✅; conteo Route Summary 40 rows = 40 operationIds yaml = 35 paths ✅; grep '(memory:' = 0 ✅ | evidencia: [claim: cobertura completa 35 paths/40 ops — evidencia: Select-String '^  /' yaml=35, 'operationId'=40, tabla Route Summary=40 filas, confianza alta] [claim: 0 sintaxis LISP — evidencia: grep '(memory:' en HTTP_API.md = 0, ejemplo muerto :108 eliminado, confianza alta] [claim: curl real ≥5 endpoints — evidencia: transcripción completa en .opencode/skills/campaign-executor/tasks/GOV-B5.md §Transcripción curl (health, put/get records, list, search, query IQL insert/read + graph bfs/degree, threads CRUD, snapshots, metrics, purge, autocomplete, rebuild-index, batch, delete), confianza alta] | artefactos: docs/api/HTTP_API.md (reescrito ~660L), .opencode/skills/campaign-executor/tasks/GOV-B5.md (task record con transcripciones) | invariantes: docs/api/openapi.yaml intacto (READ-ONLY); src/ sin tocar; sin git (PROHIBIDO por contrato) | deuda: drift yaml↔real detectado y documentado como notas en HTTP_API.md: (1) description IQL del yaml muestra gramática lowercase 'insert <id> as <type> fields k=v' pero el parser real exige keywords UPPERCASE ('INSERT NODE#7 TYPE t {k:v}'); (2) GraphTraversalBody del yaml declara roots:string y solo 'roots' required, el handler real exige roots numéricos + max_depth requerido; (3) search en DB fresca devuelve 'text_index not found: bm25' hasta correr rebuild-index (documentado). Tickets pendientes para corregir el yaml en GOV siguiente | queda_pendiente: commit lo ejecuta el lead (git prohibido para este agente); tickets de drift yaml para GOV-B6 o iteración posterior
+- **Contrato: verificacion: npx markdownlint-cli2 docs/operations/CONFIGURATION.md → 0 issues, EXIT=0 | evidencia: [rate_limit_rpm default=600 → src/config.rs:659 parse_env_or("VANTADB_RATE_LIMIT_RPM", 600u32), confianza alta] [0 desactiva rate limiter → src/cli_server.rs:263 if rpm>0, alta] [5 env vars faltantes añadidas con file:line → src/llm.rs:40,145,147; src/storage/engine/maintenance.rs:658; src/metadata.rs:22, alta] [fallback HOST real (config.rs:512), fallback PORT y flush_interval_ms ausentes del doc actual, alta] | artefactos: docs/operations/CONFIGURATION.md, .opencode/skills/campaign-executor/tasks/GOV-C6.md (tabla sweep) | invariantes: no tocar src/, docs/plans/, Backlog/progreso; sin git commit (orden orquestador) | deuda: commit pendiente — delegar al lead | queda_pendiente: commit del cambio por parte del orquestador
 - **Pre-mortem:** (1) pairing ambiguo con taskId:null → filtrar entradas sin taskId y documentar caveat; (2) exitCode:-1 contaminando métrica → clasificar como no-ejecutado, no fallo.
 - **Stop conditions:** appetite excedido → DEFER; si pairing produce >50% no-pareable → simplificar a conteo, no Δt.
 - **Risk Register:**
@@ -578,13 +578,13 @@ plan-adjust [2026-08-22]: creación inicial — triaje 30 DO / 2 DEFER (release,
 
 === RECITATION ===
 Campaign ID: por asignar (`campaign_session_track create` al arrancar)
-Objetivo activo: GOV-B5 — HTTP_API.md completo desde openapi.yaml
+Objetivo activo: GOV-C6 — Sweep bidireccional env vars en CONFIGURATION.md
 Estado: completed
-Última acción: Reescritura completa de docs/api/HTTP_API.md: regla 'openapi.yaml es spec formal' en cabecera, 7 dominios (System/Query/Records/Search/Graph/Maintenance/Threads) + sección Experimental con banner al final, quickstart con transcripción real, convenciones (metadata tipada tagged-enum, namespaces URL-encoded), route summary de 40 ops/35 paths, tabla de errores. markdownlint exit 0.
+Última acción: Corregido rate_limit_rpm 100→600 (config.rs:659) + nota 0=disabled (cli_server.rs:263); corregido flush_threshold 10000→None (config.rs:727); añadida sección 'Environment Variables Outside VantaConfig' con VANTA_EMBEDDING_PROVIDER/VANTA_OPENAI_API_KEY/VANTA_OPENAI_MODEL/VANTA_BACKUP_DIR/VANTADB_REPORTED_VERSION; sweep bidireccional 44 vars código vs doc (5 añadidas, 0 eliminadas, 2 fantasmas verificados reales/inexistentes); spot-check 14 defaults; markdownlint exit 0; task record creado con tabla resumen
 Resultado: OK
-Próxima acción: Lead: commitear docs/api/HTTP_API.md + task record; opcionalmente crear tickets de drift yaml (IQL grammar, GraphTraversalBody)
+Próxima acción: Orquestador: commitear docs/operations/CONFIGURATION.md y asignar próxima tarea del plan
 Contrato: node evals/dora.mjs exit 0 + seccion Recovery con pares
-Próxima tarea si completa: GOV-B6
+Próxima tarea si completa: siguiente según plan file
 
 ---
 
@@ -615,3 +615,17 @@ plan-adjust [2026-08-22]: GOV-A1 gate DO→⬛ CANCELADO (stop condition appetit
 | GOV-B6 | ✅ |  8e272d8 — 33 tools documentadas (hash-SAME ×3 pares), test-mcp.py 4/4, MCP.md stub 12 líneas; caveat: binario publicado v0.5.0 expone solo 15 core — los 18 llegan con próximo release |
 
 Tickets derivados Wave B: drift yaml↔real (B5) · harness temp-leak (B3) · put_batch str-only doc-code gap · URL vantadb-examples · binario release pendiente tools nuevos.
+
+### Wave C cierre (2026-08-22)
+
+| ID | Estado | Evidencia |
+|----|--------|-----------|
+| GOV-C1 | ✅ | 67384785 — nextest.toml filtra binarios reales (python/hnsw_recall), verificado con cargo nextest list; TEST_MAP alineado |
+| GOV-C2 | ✅ | 89b0b484 — sección P29/P30/P31 en Backlog (MEM-43/44/45 ya migradas por sesión SDKB en 48016b89 — sin duplicar) |
+| GOV-C3 | ✅ | 89b0b484 — nota GOV-C3 en Referencias Cruzadas: 0 links md rotos (las 15 refs eran backticks históricos); reportes disueltos documentados |
+| GOV-C4 | ✅ | 1655fede — master-index regenerado: 136 links verificados, 0 rotos, todas las carpetas indexadas o excluidas con motivo |
+| GOV-C5 | ✅ | 89b0b484 — operations/master-index +7 archivos + regla same-PR |
+| GOV-C6 | ✅ |  7c330c9 — sweep 44 env vars (+5 añadidas), rate_limit_rpm 600, flush_threshold None, spot-check 14 defaults |
+| GOV-C7 | ✅ | 89b0b484 — contador ~45 activas + regla sync en Backlog header; ROADMAP banner alineado |
+
+plan-adjust [2026-08-22]: GOV-C2 parcialmente pre-ejecutado por sesión SDKB (48016b89 limpió MEM-36/43/44/45 como pagadas) — se registró P29/P30/P31 compacto en vez de duplicar.
