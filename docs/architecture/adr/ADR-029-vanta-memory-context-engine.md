@@ -1,7 +1,7 @@
 ---
 title: "ADR-029: vanta-memory — LLM-driven context engine (D21-D23)"
 type: adr
-status: draft
+status: accepted
 tags: [vantadb, architecture, adr, vanta-memory]
 created: 2026-08-21
 last_reviewed: 2026-08-21
@@ -157,3 +157,35 @@ de resúmenes semánticos llega con L1); dedup por fingerprint `{len}:{primeros
 src/sdk, config, error, cli, python bindings, MCP tools): la cobertura de docs
 de este crate no está enforceada por CI. La referencia canónica de las
 superficies públicas F5 vive en `docs/api/VANTA_MEMORY.md`.
+
+---
+
+## Articulación del autor (2026-08-22 — walkthrough Regla 5)
+
+Las siguientes justificaciones fueron articuladas por el autor humano durante el
+walkthrough de revisión. Transcripción literal de sus elecciones:
+
+| Decisión | Articulación del autor |
+|---|---|
+| **D21** tokens | **REVISADA → tiktoken feature-gate** (`precise-tokens`, opt-in). El autor cuestionó chars/3 ("tiktoken es más completo") y tras evaluar las 4 opciones (chars/3, calibración por script, feature-gate, status quo) eligió precisión exacta opt-in manteniendo el binario default liviano |
+| **D22** recall scope | **Aislamiento first** — multi-tenancy exige aislamiento por defecto; session queda disponible para quien quiera el comportamiento viejo |
+| **D23** MMD META | **META da más que Mermaid** — Mermaid literal habría sido paridad cosmética sin consumidor real; META aporta heat/timestamps para priorización futura |
+| **D24** rate-limit | **Local-first honesto** — in-process es suficiente para single-instance local-first; Redis sería infraestructura para un problema que no existe |
+| **D25+D34** auth | **Memoria personal = trust boundary** — sin auth obligatoria cualquiera en la red podría leer/escribir memories de otro; fail-closed es lo único aceptable |
+| **D26** sesión | **YAGNI multi-nodo** — la sesión es derivable del transporte; storage multi-nodo propio espera que exista multi-nodo |
+| **D29** inyección | **Mejor diseño de contexto** — separar estable (persona/escenas) de dinámico (memories) es diseño correcto independientemente del KV-cache |
+| **D31** config | **Idiomático y presente** — TOML: config jerárquica legible, ya en el árbol de deps |
+| **D32** progreso | **Sin problema no hay callback** — los HTTP callbacks resolvían arquitectura distribuida que VantaDB no tiene; run_id filtra builds tardíos (eso es lo importante) |
+| **D27** worker único | **Menos interfaces menos fallos** — cada servicio separado es una interfaz de red que puede romperse |
+| **D28** graphrag | **El grafo ya es nuestro** — instalar dependencia externa con packages por-plataforma para usar el propio grafo testado sería absurdo |
+| **D30** SSRF | **Exfiltración vector real** — un flag que desactiva seguridad termina activado en producción por alguien con prisa |
+| **D33** mem-command | **Port validado primero** — paridad TDAM valida el diseño; comandos propios sin usuarios reales serían especulación |
+| **D35** 60 req/min | **Default necesario** — sin default el fail-open haría el límite inútil para quien no configure |
+| **D36** fuentes locales | **v1 cubre caso real** — .md locales cubren documentar repos propios; upload/git esperan demanda demostrada |
+| **D42** bindings capa | **Azúcar no toca el motor** — sub-clientes son organización de API, no funcionalidad; tocar WASM pagaría fricción wasm-pack por cero valor runtime |
+| **Principios** | P4 + P2 + local-first confirmados como restricciones madre del diseño |
+
+### Enmienda D21
+La revisión del autor modificó la decisión original: se agregará tarea para integrar
+tiktoken detrás de feature-gate `precise-tokens` (opt-in). El default liviano chars/3
+se mantiene. Estado: pendiente de implementación (ver Backlog).
