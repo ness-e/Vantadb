@@ -19,6 +19,8 @@ pub struct ProxyConfig {
     pub server: ServerConfig,
     /// Upstream LLM endpoint.
     pub upstream: UpstreamConfig,
+    /// Local auth/session store (D25/D34).
+    pub auth: AuthConfig,
 }
 
 impl ProxyConfig {
@@ -46,6 +48,23 @@ impl Default for ServerConfig {
             host: "0.0.0.0".to_string(),
             port: DEFAULT_PORT,
             rate_limit_per_minute: 60,
+        }
+    }
+}
+
+/// Local auth/session store settings (D25: RBAC local entity_*, no remote gateway).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct AuthConfig {
+    /// Path of the local VantaDB store holding the `user`/`team`/`agent`/`task`
+    /// entity collections used for auth (D34) and session validation (D26).
+    pub db_path: String,
+}
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            db_path: "vantadb_data".to_string(),
         }
     }
 }

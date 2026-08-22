@@ -12,6 +12,29 @@ use serde_json::{json, Value};
 use vanta_proxy::config::{ProxyConfig, ServerConfig, UpstreamConfig};
 use vanta_proxy::server;
 
+const USER_KEY: &str = "sk-wire-test";
+
+/// In-memory engine seeded with the wire-test user (D34: auth is mandatory).
+fn seeded_engine() -> std::sync::Arc<vantadb::storage::StorageEngine> {
+    let config = vantadb::config::VantaConfig {
+        backend_kind: vantadb::storage::BackendKind::InMemory,
+        read_only: false,
+        ..vantadb::config::VantaConfig::default()
+    };
+    let engine =
+        vantadb::storage::StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
+    let mut fields: std::collections::HashMap<String, vantadb::node::FieldValue> =
+        std::collections::HashMap::new();
+    fields.insert(
+        "user_key".to_string(),
+        vantadb::node::FieldValue::String(USER_KEY.to_string()),
+    );
+    vantadb::entity::EntityStore::new(&engine)
+        .entity_set("default", "user", "usr-wire", fields)
+        .unwrap();
+    std::sync::Arc::new(engine)
+}
+
 /// Captured upstream request for assertions.
 #[derive(Default)]
 struct Captured {
@@ -86,8 +109,9 @@ async fn setup(extra_upstream_routes: Router) -> TestEnv {
             api_key: String::new(),
             forward_timeout_secs: 600,
         },
+        auth: vanta_proxy::config::AuthConfig::default(),
     };
-    let state = server::AppState::new(cfg).unwrap();
+    let state = server::AppState::from_engine(cfg, seeded_engine()).unwrap();
     let proxy_url = spawn(server::router(state)).await;
     TestEnv {
         proxy_url,
@@ -103,7 +127,13 @@ fn cfg_with(upstream: &str, timeout_secs: u64) -> ProxyConfig {
             api_key: String::new(),
             forward_timeout_secs: timeout_secs,
         },
+        auth: vanta_proxy::config::AuthConfig::default(),
     }
+}
+
+fn state_with(upstream: &str, timeout_secs: u64) -> server::AppState {
+    let cfg = cfg_with(upstream, timeout_secs);
+    server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }
 
 async fn post_json(proxy_url: &str, path: &str, body: Value) -> reqwest::Response {
@@ -112,6 +142,7 @@ async fn post_json(proxy_url: &str, path: &str, body: Value) -> reqwest::Respons
         .post(format!("{proxy_url}{path}"))
         .header("content-type", "application/json")
         .header("authorization", "Bearer test-key-123")
+        .header("x-vanta-user-key", USER_KEY)
         .json(&body)
         .send()
         .await
@@ -214,7 +245,7 @@ async fn d_upstream_timeout_maps_to_504() {
     );
     let upstream_url = spawn(slow).await;
     // Proxy timeout (1s) < upstream delay (1.5s) → 504 GATEWAY_TIMEOUT.
-    let state = server::AppState::new(cfg_with(&upstream_url, 1)).unwrap();
+    let state = state_with(&upstream_url, 1);
     let proxy_url = spawn(server::router(state)).await;
     let resp = post_json(&proxy_url, "/agent/s1/v1/chat/completions", json!({"a": 1})).await;
     assert_eq!(resp.status(), 504);
@@ -232,7 +263,7 @@ async fn e_upstream_down_maps_to_502() {
     let dead_addr = listener.local_addr().unwrap();
     drop(listener);
 
-    let state = server::AppState::new(cfg_with(&format!("http://{dead_addr}"), 5)).unwrap();
+    let state = state_with(&format!("http://{dead_addr}"), 5);
     let proxy_url = spawn(server::router(state)).await;
     let resp = post_json(&proxy_url, "/agent/s1/v1/chat/completions", json!({"a": 1})).await;
     assert_eq!(resp.status(), 502);
@@ -294,13 +325,14 @@ async fn g_sse_streaming_passthrough_no_buffering() {
         }),
     );
     let upstream_url = spawn(sse).await;
-    let state = server::AppState::new(cfg_with(&upstream_url, 600)).unwrap();
+    let state = state_with(&upstream_url, 600);
     let proxy_url = spawn(server::router(state)).await;
 
     let client = reqwest::Client::new();
     let resp = client
         .post(format!("{proxy_url}/claude-code/s1/v1/messages"))
         .header("accept", "text/event-stream")
+        .header("x-vanta-user-key", USER_KEY)
         .body("{}")
         .send()
         .await

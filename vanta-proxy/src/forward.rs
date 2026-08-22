@@ -26,6 +26,9 @@ const HOP_BY_HOP: &[&str] = &[
     // Framing / routing headers owned by the forwarder:
     "host",
     "content-length",
+    // Proxy-consumed credential (D34): the internal user key must never leak
+    // to the upstream.
+    "x-vanta-user-key",
 ];
 
 fn is_hop_by_hop(name: &str) -> bool {

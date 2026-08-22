@@ -7,26 +7,19 @@
 
 use axum::extract::State;
 use axum::http::HeaderMap;
-use axum::response::{IntoResponse, Response};
+use axum::response::Response;
 
+use crate::inject::Protocol;
 use crate::server::AppState;
 
-/// POST `/v1/responses` — forward verbatim (generic subset, no agent adapters).
+/// POST `/v1/responses` — auth→session→inject→forward (generic subset).
 pub async fn responses(
     State(state): State<AppState>,
     headers: HeaderMap,
     body: bytes::Bytes,
 ) -> Response {
-    tracing::debug!("forwarding responses (generic subset)");
+    tracing::debug!("responses (generic subset)");
     state
-        .forwarder
-        .forward(
-            &state.config.upstream,
-            axum::http::Method::POST,
-            "/v1/responses",
-            &headers,
-            body,
-        )
+        .process(Protocol::Responses, "/v1/responses", &headers, body)
         .await
-        .unwrap_or_else(IntoResponse::into_response)
 }

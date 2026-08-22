@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Proxy + Knowledge (F6+F7) — proxy transparente + wiki/code-graph
 
 > **Inicio:** 2026-08-21
-> **Estado:** ⏳ EN PROGRESO (5/9 tareas)
+> **Estado:** ⏳ EN PROGRESO (6/9 tareas)
 > **Fuente:** `docs/Backlog.md` filas MEM-25..33 + `docs/research/tdam/07-proxy.md` + `08-knowledge-panel-sdk.md` + `06-metadata-acl.md` (quota diferido) + SYNTHESIS §2.3/§3 + decisiones del usuario (2026-08-21)
 > **Predecesores:** P27 F1-F4 ✅ 24/24 (`docs/plans/archive/2026-08-18-vanta-memory.md`) · P29 F5 ✅ 9/9 (`docs/plans/archive/2026-08-21-vanta-context-engine.md`) — crate vanta-memory completo (L0-L3/recall/context_engine/offload/gateway/seed/genlog), suite 430/430
 > **Modo:** waves por dependencias — Wave 0 (fundaciones independientes) → Wave 1 (proxy wire + ingest) → Wave 2 (ciclo proxy + tools wiki + callback) → Wave 3 (rate-limit/write-back).
@@ -48,7 +48,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
 - **Verificación real:** ✅ CÓDIGO-REAL — `src/graph.rs` bfs_traverse:61 / dfs_traverse:234 / topological_sort:258 existen; graphrag existe; `vantadb-mcp/src/handlers/tools.rs` existe; costo = solo exposición (backlog row)
 - **Gate Justificación:** barato y visible; D28 elimina la dependencia externa de TDAM
 - **Gate Result:** ✅ DO
-- **Contrato:** "`cargo check -p vantadb-mcp` pasa; tests D19: 8 tools `code_search/explore/callers/callees/impact/node/status/files` responden sobre un grafo seedeado; respetan dirección de aristas; read-only (sin mutación); tool desconocida → error claro"un -p vanta-memory 443/443 ✅ · cargo fmt --check exit 0 · cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings exit 0 | evidencia: [claim: pipeline begin_processing→scan/chunk→extract→merge serial→put_page→complete/fail implementado / evidencia: vanta-memory/src/ingest/{mod,prompts,merge,worker}.rs + worker::run test end_to_end_build_completes_ready_with_written_pages / confianza: alta] [claim: candidates agregados por relPath (a) / evidencia: tests candidates_from_two_sources_aggregate_by_rel_path + file_blocks_parse_into_candidates / confianza: alta] [claim: límite global configurable default 5 clamp 1-20, merge serial (b) / evidencia: clamp_llm_concurrency + IngestConfig::new, test llm_concurrency_defaults_to_five_and_clamps; decisión documentada en mod.rs y task file / confianza: alta] [claim: fallo página N no bloquea N+1 (c) / evidencia: test page_failure_does_not_block_next_pages / confianza: alta] [claim: ensureSources inyecta frontmatter idempotente (d) / evidencia: test ensure_sources_injects_and_is_idempotent / confianza: alta] [claim: STRUCTURAL_FILES nunca sobrescritos (e) / evidencia: test structural_files_never_overwritten + end_to_end ignora wiki/index.md / confianza: alta] [claim: LLM opcional P4 fallback determinístico (f) / evidencia: tests llm_free_mode_new_pages_written_verbatim_existing_merged_skipped + not_configured_runner_degrades_like_no_runner / confianza: alta] | artefactos: vanta-memory/src/ingest/{mod,prompts,merge,worker}.rs · vanta-memory/tests/ingest.rs · .opencode/skills/campaign-executor/tasks/MEM-30.md | invariantes: NO tocar core vantadb (respetado — solo consumo vía vantadb::wiki SDK); sin deps nuevas; sin unwrap/expect en producción; prompts inglés P7 | deuda: extracción LLM-free no produce candidatos (skip documentado, TDAM-parity); canonicalización de path usa dir/stem del relPath (no frontmatter type/title preferente como TDAM canonicalizePagePath); semaphore/threadpool diferido — merge serial ES el requisito, límite configurable expuesto para pools futuros | queda_pendiente: orquestador decide commit (lead); próxima tarea 6 (MEM-26 proxy ciclo auth/session/injection)
+- **Contrato: verificacion: cargo check -p vanta-proxy ✅ exit 0 · cargo nextest run -p vanta-proxy ✅ 26/26 · cargo fmt --check ✅ exit 0 · cargo clippy -p vanta-proxy --all-targets --no-deps -- -D warnings ✅ exit 0; evidencia: [claim: D34 auth obligatoria sin modo open — evidencia: tests/pipeline.rs::a_auth_valid_key_forwards_invalid_and_missing_rejected + auth.rs fail-closed, confianza alta] [claim: sessionKey por cada alias header con prioridad TDAM — evidencia: session.rs unit tests + pipeline.rs::b_session_key_from_each_alias_header, confianza alta] [claim: state machine team→agent→task monotónica con TTL 30min solo pending sweep lazy — evidencia: session.rs::init_clean/skipping/pending_ttl tests, confianza alta] [claim: inyección SOLO en system prompt, historia intacta (D29 KV-cache) — evidencia: pipeline.rs::d_injection_only_system_prompt_with_persona_and_scenes + inject.rs unit tests OpenAI/Anthropic/Responses, confianza alta] [claim: L0/L1 como tools presentes en body solo con sesión activa — evidencia: inject.rs::tools_added_once_per_protocol_shape + pipeline b/f tests, confianza alta] [claim: sin sesión previa init limpio verbatim — evidencia: pipeline.rs::f_no_session_header_forwards_verbatim, confianza alta]; artefactos: vanta-proxy/src/{auth,session,inject}.rs, vanta-proxy/src/{server,error,config,forward}.rs editados, vanta-proxy/src/handlers/*.rs wiring, vanta-proxy/Cargo.toml (deps workspace vantadb+vanta-memory), vanta-proxy/tests/{pipeline.rs nuevo, proxy_wire.rs actualizado}, .opencode/skills/campaign-executor/tasks/MEM-26.md; invariantes: NO tocar core vantadb/vanta-memory código (solo SDK público), inyección jamás en history, x-vanta-user-key nunca se filtra al upstream (hop-by-hop), sin deps nuevas de crates.io; deuda: ninguna; queda_pendiente: commit lo ejecuta el lead (regla invocación); próxima tarea Task 7 MEM-33
 - **Pre-mortem:** (1) semántica de impact/callers difiere entre codegraph de TDAM y graphrag propio → mapear cada tool a la primitiva local equivalente y documentar el mapping; (2) tools sin grafo cargado → error claro, no panic
 - **Stop conditions:** si impact requiere análisis que graphrag no soporta → exponer stub con error "not supported" documentado (no inventar semántica)
 - **Risk Register:**
@@ -178,7 +178,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
   | 🟢×🟡 | TTL pending leak | sweep en cada request (lazy) | diseño |
 - **Cynefin:** 🟨 complicado
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 4 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-26.md`
 - **Branch:** | **Commit:**
 - **Iteraciones:** | — | — | — | — |
@@ -284,11 +284,11 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
 ---
 
 === RECITATION ===
-Campaign ID: (pendiente MCP)
-Objetivo activo: MEM-30 ingest merge serial + límite concurrencia LLM global (Task 5 P30)
+Campaign ID: 187cf901-fec8-45df-b094-f292714f5703
+Objetivo activo: MEM-26: vanta-proxy ciclo auth→session→injection (D25/D26/D29/D34)
 Estado: pending ⏳
-Última acción: MEM-30 completo: módulo ingest (config clamp 1-20, STRUCTURAL_FILES, frontmatter+ensureSources, FILE protocol parser, normalizeWikiPath guards, merge_page con fallback P4, commit serial no-bloqueante, worker state-machine bound a WikiStore core), prompts inglés, 13 tests D19, verify 4/4 verde
+Última acción: Implementado ciclo completo: auth.rs (resolve_user_key port MEM-05 con ct-compare manual, authenticate fail-closed D34, entity_exists), session.rs (5 aliases headers prioridad TDAM, Stage Team→Agent→Task monotónico validando contra entity_* locales, TTL 30min solo pending con sweep lazy), inject.rs (persona+escenas vía get_persona/current_scene/list_scenes SOLO a system prompt OpenAI messages[0]/Anthropic system/Responses instructions, L0/L1 tools vanta_memory_capture/search merge sin duplicar, no-JSON pasa verbatim), wiring AppState.process en los 3 handlers, user-key agregada a hop-by-hop
 Resultado: OK
-Próxima acción: Delegar Task 6 (MEM-26) a vanta-worker
+Próxima acción: Delegar MEM-33 (Task 7, wiki_* MCP tools) a vanta-worker
 Contrato: por tarea — cargo check/nextest/fmt/clippy del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 6
+Próxima tarea si completa: 7
