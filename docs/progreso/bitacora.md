@@ -3,7 +3,7 @@ title: Bitacora — Development Log
 type: documentation
 status: active
 tags: [vantadb]
-last_reviewed: 2026-07-13
+last_reviewed: 2026-08-22
 aliases: []
 ---
 
