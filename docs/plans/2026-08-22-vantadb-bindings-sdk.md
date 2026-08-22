@@ -45,7 +45,7 @@
 - **Verificación real:** ✅ CÓDIGO-REAL — superficie listada arriba (43 wasm / TS clase / ~26 python)
 - **Gate Justificación:** fundación — el mapa es el contrato que SDKB-02/03 ejecutan
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: 'target\audit-venv\Scripts\python.exe -m pytest vantadb-python\tests -v' → 105 passed, 4 skipped, 4 deselected, exit 0 ✅. Evidencia por claim: [claim=delegación db.memory.*/db.graph.*/db.system.*/db.wiki.* idéntica al método plano → evidencia=vantadb-python/tests/test_subclients.py 16/16 PASSED → confianza alta] [claim=suite existente intacta (backward-compat) → evidencia=test_sdk.py/test_async_smoke/test_load/test_perf_15_16 PASSED sin modificaciones → confianza alta]. artefactos: vantadb-python/src/lib.rs, vantadb-python/vantadb_py/__init__.pyi, vantadb-python/tests/test_subclients.py. invariantes: métodos planos NO tocar; cero lógica nueva en delegantes (D43); solo capa Python (D42). deuda: ninguna (4 skipped = test_migration pre-existente por chromadb/lancedb ausentes; 4 deselected = marker slow FX-3). queda_pendiente: commit — orden explícito del orquestador NO commitear.
+- **Contrato:** "`pytest` pasa (suite existente intacta); tests nuevos espejo de SDKB-02: `db.memory.*`, `db.graph.*` delegan al método plano idéntico"
 - **Pre-mortem:** métodos huérfanos (capabilities, import/export, metrics) → dominio `system`
 - **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger/Due |
