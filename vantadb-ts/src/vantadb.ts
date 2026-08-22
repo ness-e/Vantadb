@@ -26,6 +26,98 @@ import type {
   VantaValue,
 } from "./types.js";
 
+// ---------------------------------------------------------------------------
+// Sub-client interfaces (SDKB-02) — domain-grouped views over VantaDB's flat
+// methods. Pure delegation only (D43); signatures mirror the flat methods
+// exactly and reuse types.ts (no duplicates). Domain map:
+// docs/api/BINDINGS_NAMESPACES.md.
+// ---------------------------------------------------------------------------
+
+export interface MemoryClient {
+  put(input: MemoryInput): MemoryRecord;
+  putBatch(inputs: MemoryInput[]): MemoryRecord[];
+  get(namespace: string, key: string): MemoryRecord | null;
+  delete(namespace: string, key: string): boolean;
+  deleteByFilter(namespace: string, filter: VantaMemoryFilterItem[]): bigint;
+  list(namespace: string, options?: ListOptions): MemoryListPage;
+  listNamespaces(): string[];
+  search(request: SearchRequest): SearchHit[];
+  searchVector(
+    vector: number[],
+    topK?: number,
+  ): { node_id: string; distance: number }[];
+  explainSearch(request: SearchRequest): Record<string, unknown>;
+  generateSnippet(
+    payload: string,
+    query: string,
+    withHighlighting?: boolean,
+  ): string | undefined;
+  purgeExpired(): bigint;
+}
+
+export interface GraphClient {
+  insertNode(
+    id: number | bigint,
+    content?: string,
+    vector?: number[],
+    fields?: Record<string, VantaValue>,
+  ): void;
+  getNode(id: number): NodeRecord | null;
+  deleteNode(id: number, reason?: string): void;
+  addEdge(
+    source: number,
+    target: number,
+    label?: string,
+    weight?: number,
+    createdAtMs?: number,
+  ): void;
+  bfs(
+    roots: number[],
+    maxDepth?: number,
+    direction?: "Forward" | "Reverse" | "Both",
+  ): GraphBfsResult;
+  dfs(
+    roots: number[],
+    maxDepth?: number,
+    direction?: "Forward" | "Reverse" | "Both",
+  ): GraphDfsResult;
+  topologicalSort(roots: number[]): GraphTopologicalSortResult;
+  isDag(roots: number[]): boolean;
+  filteredTraversal(
+    roots: number[],
+    maxDepth?: number,
+    direction?: "Forward" | "Reverse" | "Both",
+    filter?: GraphTraversalFilter | null,
+  ): GraphBfsResult;
+  degree(roots: number[]): GraphDegreeEntry[];
+}
+
+/** Empty in TS v1: wiki features are core-only per D43 (no WASM binding yet). */
+export interface WikiClient {}
+
+export interface SystemClient {
+  close(): void;
+  capabilities(): Capabilities;
+  operationalMetrics(): OperationalMetrics;
+  query(query: string): QueryResult;
+  flush(): void;
+  compactWal(): void;
+  compactLayout(): bigint;
+  rebuildIndex(): unknown;
+  reindexHnswFromText(namespace: string, pageSize?: number): unknown;
+  repairTextIndex(): unknown;
+  auditTextIndex(namespace?: string): unknown;
+  auditTextIndexDeep(namespace?: string): unknown;
+  exportAll(path: string): ExportReport;
+  exportNamespace(
+    path: string,
+    namespace: string,
+    filter?: VantaMemoryFilterItem[],
+  ): ExportReport;
+  importRecords(records: MemoryInput[]): ImportReport;
+  importFile(path: string): ImportReport;
+}
+
 function _mapRecord(r: unknown): MemoryRecord {
   if (!r || typeof r !== "object") {
     throw new VantaError(
@@ -143,6 +235,112 @@ export class VantaDB {
       throw new VantaError("CLOSED", "VantaDB instance is closed");
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Sub-clients (SDKB-02) — domain-grouped views over the flat methods.
+  //
+  // Pure delegation only (D43): every arrow forwards to the identical flat
+  // method on `this`, so results and signatures match exactly. Arrows capture
+  // `this` lexically — no bind drift. Getters are lazy and memoized; each
+  // client is frozen (read-only surface). Domain map:
+  // docs/api/BINDINGS_NAMESPACES.md.
+  // ---------------------------------------------------------------------------
+
+  /** Grouped memory-record operations (namespace+key records, search, TTL). */
+  get memory(): Readonly<MemoryClient> {
+    return (this._memory ??= Object.freeze({
+      put: (input: MemoryInput) => this.put(input),
+      putBatch: (inputs: MemoryInput[]) => this.putBatch(inputs),
+      get: (namespace: string, key: string) => this.get(namespace, key),
+      delete: (namespace: string, key: string) => this.delete(namespace, key),
+      deleteByFilter: (namespace: string, filter: VantaMemoryFilterItem[]) =>
+        this.deleteByFilter(namespace, filter),
+      list: (namespace: string, options?: ListOptions) =>
+        this.list(namespace, options),
+      listNamespaces: () => this.listNamespaces(),
+      search: (request: SearchRequest) => this.search(request),
+      searchVector: (vector: number[], topK?: number) =>
+        this.searchVector(vector, topK),
+      explainSearch: (request: SearchRequest) => this.explainSearch(request),
+      generateSnippet: (payload: string, query: string, withHighlighting?: boolean) =>
+        this.generateSnippet(payload, query, withHighlighting),
+      purgeExpired: () => this.purgeExpired(),
+    }));
+  }
+  private _memory?: Readonly<MemoryClient>;
+
+  /** Grouped graph operations (node/edge CRUD and traversals). */
+  get graph(): Readonly<GraphClient> {
+    return (this._graph ??= Object.freeze({
+      insertNode: (
+        id: number | bigint,
+        content?: string,
+        vector?: number[],
+        fields?: Record<string, VantaValue>,
+      ) => this.insertNode(id, content, vector, fields),
+      getNode: (id: number) => this.getNode(id),
+      deleteNode: (id: number, reason?: string) =>
+        this.deleteNode(id, reason),
+      addEdge: (
+        source: number,
+        target: number,
+        label?: string,
+        weight?: number,
+        createdAtMs?: number,
+      ) => this.addEdge(source, target, label, weight, createdAtMs),
+      bfs: (roots: number[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
+        this.graphBfs(roots, maxDepth, direction),
+      dfs: (roots: number[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
+        this.graphDfs(roots, maxDepth, direction),
+      topologicalSort: (roots: number[]) =>
+        this.graphTopologicalSort(roots),
+      isDag: (roots: number[]) => this.graphIsDag(roots),
+      filteredTraversal: (
+        roots: number[],
+        maxDepth?: number,
+        direction?: "Forward" | "Reverse" | "Both",
+        filter?: GraphTraversalFilter | null,
+      ) => this.graphFilteredTraversal(roots, maxDepth, direction, filter),
+      degree: (roots: number[]) => this.graphDegree(roots),
+    }));
+  }
+  private _graph?: Readonly<GraphClient>;
+
+  /**
+   * Wiki domain — empty in TS v1: wiki operations (`recover_archived_nodes`,
+   * pages, TDAM) are core-only per D43 and not exposed via WASM bindings yet.
+   * The getter exists so `db.wiki.*` has an explicit, documented surface.
+   */
+  get wiki(): Readonly<WikiClient> {
+    return (this._wiki ??= Object.freeze({}));
+  }
+  private _wiki?: Readonly<WikiClient>;
+
+  /** Catch-all system domain (lifecycle, metrics, IQL, maintenance, portability). */
+  get system(): Readonly<SystemClient> {
+    return (this._system ??= Object.freeze({
+      close: () => this.close(),
+      capabilities: () => this.capabilities(),
+      operationalMetrics: () => this.operationalMetrics(),
+      query: (query: string) => this.query(query),
+      flush: () => this.flush(),
+      compactWal: () => this.compactWal(),
+      compactLayout: () => this.compactLayout(),
+      rebuildIndex: () => this.rebuildIndex(),
+      reindexHnswFromText: (namespace: string, pageSize?: number) =>
+        this.reindexHnswFromText(namespace, pageSize),
+      repairTextIndex: () => this.repairTextIndex(),
+      auditTextIndex: (namespace?: string) => this.auditTextIndex(namespace),
+      auditTextIndexDeep: (namespace?: string) =>
+        this.auditTextIndexDeep(namespace),
+      exportAll: (path: string) => this.exportAll(path),
+      exportNamespace: (path: string, namespace: string, filter?: VantaMemoryFilterItem[]) =>
+        this.exportNamespace(path, namespace, filter),
+      importRecords: (records: MemoryInput[]) => this.importRecords(records),
+      importFile: (path: string) => this.importFile(path),
+    }));
+  }
+  private _system?: Readonly<SystemClient>;
 
   /**
    * Close the database and release underlying WASM engine resources.

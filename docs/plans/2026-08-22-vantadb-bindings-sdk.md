@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 93d6303b-4902-443e-a765-6042392d0577
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (1/4 tareas)
+> **Estado:** ⏳ EN PROGRESO (2/4 tareas)
 > **Fuente:** meta-tarea MEM-36 (`.opencode/skills/campaign-executor/tasks/MEM-36.md`, spec completa) + decisión usuario 2026-08-21 (campaña separada)
 > **Predecesores:** P27+P29+P30 (roadmap TDAM F1-F7 ✅ 42 tareas) · P31 cierre final (en curso)
 
@@ -46,7 +46,7 @@
 - **Verificación real:** ✅ CÓDIGO-REAL — superficie listada arriba (43 wasm / TS clase / ~26 python)
 - **Gate Justificación:** fundación — el mapa es el contrato que SDKB-02/03 ejecutan
 - **Gate Result:** ✅ DO
-- **Contrato:** "tabla committeada cubriendo el 100% de métodos públicos de cada SDK, cada uno asignado a exactamente un dominio (memory/graph/conversation/skills/wiki/system), con los aún-no-reexpuestos marcados"
+- **Contrato:** "`npm test` pasa (suite existente intacta = backward-compat); tests nuevos: `db.memory.put/get/search/supersede`, `db.graph.bfs/topological`, `db.wiki.*` según mapa SDKB-01 delegan al método plano idéntico (mismo resultado, misma firma)"
 - **Pre-mortem:** métodos huérfanos (capabilities, import/export, metrics) → dominio `system`
 - **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger/Due |
@@ -72,7 +72,7 @@
   | 🟡×🟡 | this-binding roto en getters | bind explícito + test por sub-cliente | primer test |
 - **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 3 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/SDKB-02.md`
 - **Notas:** Ruta: vanta-worker. DEPENDE de Task 1.
 
@@ -118,11 +118,11 @@
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: SDKB-01: mapa namespace↔método canon + diseño sub-clientes v1
+Objetivo activo: SDKB-02: sub-clientes TypeScript (memory/graph/wiki/system) como getters frozen delegantes en vantadb.ts
 Estado: pending ⏳
-Última acción: Doc canon creado (3 tablas por SDK, diferencias inter-SDK, capacidades core-only D43, diseño sub-clientes v1) + verify mecánico 100% cobertura + task file cerrado. Sin commit según regla de la tarea.
+Última acción: Implementados 4 getters frozen delegantes con arrows (this-binding seguro), interfaces reusando types.ts, 17 tests de identidad de delegación. Desbloqueado LinkError pre-existente del pkg con parche local gitignored; verify mecánico completo verde.
 Resultado: OK
-Próxima acción: Ejecutar SDKB-02 (sub-clientes TypeScript) leyendo docs/api/BINDINGS_NAMESPACES.md como contrato
+Próxima acción: Ninguna para esta tarea. Próxima tarea del plan: Task 3 (SDKB-03 Python).
 Contrato: por tarea — suites existentes intactas (backward-compat) + tests nuevos de delegación
-Próxima tarea si completa: 2 (SDKB-02)
+Próxima tarea si completa: 3
 === END RECITATION ===

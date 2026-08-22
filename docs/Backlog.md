@@ -745,3 +745,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | GOV-F2 | Auditoría zonas internas: Manual Estratégico 164KB, SKILLS-MANIFEST, .opencode/, integrations/, workflows profundos | varias | 🟡 | 🟡 | ❌ Pendiente |
 
 > **Tickets derivados (fuera de esta campaña):** ACID 4a-4d post-launch (D14) · CLI flags restore --dry-run/doctor --fix/verify backups (D4b) · release triage semver 0.6.0 (D5, diferido).
+
+| `BND-01` | **Colateral SDKB-02: LinkError wasm pkg snippet idb.rs** — el pkg WASM gitignored tiene un LinkError pre-existente en HEAD (snippet `idb.rs` sin export vs import del `.wasm`); parche local al pkg lo esquivó en tests. Fix Rust real → dueño vanta-arch/engine. Detectado en SDKB-02 (P32). | `vantadb-wasm/src/`, `web/public/vanta-wasm/` | 🟡 | 🟠 | ❌ Pendiente |
+| `BND-02` | **Colateral SDKB-02: drift types.ts ↔ pkg topological_sort** — los tipos escritos a mano de `vantadb-ts/src/types.ts` divergen del `.d.ts` regenerado del pkg para `topological_sort`. Regla VS-CORE-05: generar, nunca editar a mano. Detectado en SDKB-02 (P32). | `vantadb-ts/src/types.ts` | 🟢 | 🟡 | ❌ Pendiente |
