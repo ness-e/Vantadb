@@ -188,7 +188,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
   | 🟢×🟡 | plan genérico sin superficie real | Step 1 obligatorio: listar métodos públicos hoy | DISCOVERY |
 - **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 (spec completa) · ⬇️ 2 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (commit del meta-plan `docs/plans/2026-08-22-vantadb-bindings-sdk.md`)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-36.md` (YA EXISTE)
 - **Notas:** Ruta: vanta-lead (planning). Independiente — cualquier wave.
 
