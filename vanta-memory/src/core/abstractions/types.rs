@@ -112,6 +112,13 @@ pub struct MemoryRecord {
     /// Tenancy isolation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_id: Option<String>,
+    /// Dense embedding of [`Self::content`] when the write path had an
+    /// embedding provider (MEM-46/47). `None` = legacy / vector-free record —
+    /// recall falls back to keyword overlap (D38). Not serialized into the L1
+    /// payload: the vector lives on the VantaDB node itself and is attached
+    /// here at read time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vector: Option<Vec<f32>>,
 }
 
 fn default_version() -> u32 {
@@ -294,6 +301,7 @@ mod tests {
             team_id: Some("team_a".into()),
             user_id: None,
             agent_id: None,
+            vector: None,
         };
         let json = serde_json::to_string(&record).unwrap();
         // Wire contract is snake_case + `type` (same alias as the LLM wire) +

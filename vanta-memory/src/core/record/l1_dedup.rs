@@ -80,17 +80,22 @@ pub fn prepare_pending(memories: &[ExtractedMemory], now_ms: u64) -> Vec<Pending
 /// Phase 1: recall top-k candidate pools per new memory from persisted
 /// session records. Returns `(pending, matches)` where a match is only
 /// produced when at least one candidate was found.
+///
+/// `embed` (MEM-47/D38): optional embedding hook — when present AND the pool
+/// carries vectors, semantic similarity joins candidate ranking; records
+/// without a vector keep the keyword-overlap gate.
 pub fn recall_candidate_matches(
     pending: &[PendingMemory],
     existing: &[MemoryRecord],
     top_k: usize,
+    embed: Option<&EmbedFn>,
 ) -> Vec<CandidateMatch> {
     pending
         .iter()
         .map(|p| CandidateMatch {
             record_id: p.record_id.clone(),
             memory: p.memory.clone(),
-            candidates: recall_candidates(existing, p.memory.content.as_str(), top_k),
+            candidates: recall_candidates(existing, p.memory.content.as_str(), top_k, embed),
         })
         .collect()
 }
@@ -103,7 +108,12 @@ pub fn batch_dedup<R: LlmRunner>(
     existing: &[MemoryRecord],
     config: &L1DedupConfig,
 ) -> Vec<DedupDecision> {
-    let matches = recall_candidate_matches(pending, existing, config.recall_top_k);
+    let matches = recall_candidate_matches(
+        pending,
+        existing,
+        config.recall_top_k,
+        config.embed.as_ref(),
+    );
     let any_candidates = matches.iter().any(|m| !m.candidates.is_empty());
 
     if pending.is_empty() || !any_candidates {
@@ -305,6 +315,7 @@ mod tests {
             team_id: None,
             user_id: None,
             agent_id: None,
+            vector: None,
         }
     }
 
@@ -331,12 +342,12 @@ mod tests {
     fn recall_matches_only_with_candidates() {
         let pending = prepare_pending(&[memory("user prefers dark mode")], 0);
         let existing = vec![record("m1", "user prefers dark mode")];
-        let matches = recall_candidate_matches(&pending, &existing, 5);
+        let matches = recall_candidate_matches(&pending, &existing, 5, None);
         assert_eq!(matches.len(), 1);
         assert_eq!(matches[0].candidates.len(), 1);
 
         let no_existing: Vec<MemoryRecord> = vec![];
-        let empty = recall_candidate_matches(&pending, &no_existing, 5);
+        let empty = recall_candidate_matches(&pending, &no_existing, 5, None);
         assert_eq!(empty[0].candidates.len(), 0);
     }
 

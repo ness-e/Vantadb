@@ -650,3 +650,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: MEM-46 — 2026-08-22 -->
 - `vantadb::llm` es pub pero feature-gated (`remote-inference` = reqwest): para que tests de crates hijos usen el trait real sin engordar el build default, unificar features via dev-deps (`[dev-dependencies] vantadb = { path = "../", features = ["remote-inference"] }`) — la unificación solo aplica al compilar tests.
 - El SDK lee records "sin vector" como `Some([])`, no `None` (`usable_vector` filtra vacíos/ceros antes de indexar, src/sdk/api.rs:24): asserts de ausencia de vector deben ser None-or-empty. Y rustc puede crashear (0xc0000409/E0463) con jobs paralelos altos al agregar reqwest al grafo — `-j 2` lo resuelve (agotamiento de recursos).
+
+<!-- Learnings: MEM-47 — 2026-08-22 -->
+- Hash-based fake embeddings para tests: dimensiones bajas (8) dan E[|cos|]~1/sqrt(d)=0.35 justo en el umbral de filtrado, y un shift >>33 sobre u64 produce solo 31 bits -> rango [0,0.5) y vectores sesgados a un octante (cos 0.7-0.85 entre "aleatorios"). Usar >=64 dims + mask de 32 bits + componentes zero-centered.
+- rustc 0xc0000409 puede dejar fingerprints/rlibs fantasma que fallan con E0463 "can't find crate" en builds posteriores: la cura no es reintentar sino borrar target\debug\deps\lib<crate>* + target\debug\.fingerprint\<crate>* y recompilar.

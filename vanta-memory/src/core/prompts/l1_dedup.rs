@@ -179,6 +179,7 @@ mod tests {
             team_id: None,
             user_id: None,
             agent_id: None,
+            vector: None,
         }
     }
 

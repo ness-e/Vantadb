@@ -9,10 +9,12 @@
 //!   cache-friendly providers can reuse the region.
 //!
 //! Three recall modes ([`RecallMode`]): `keyword`, `embedding`, `hybrid`
-//! (TDAM strategy names). The crate has no LLM-free embeddings and no vector
-//! API exposed yet, so `embedding`/`hybrid` degrade to keyword overlap — the
-//! same documented ceiling as MEM-11's `recall_candidates` (Principio 4:
-//! degrade, never block).
+//! (TDAM strategy names). Since MEM-47 the embedding/hybrid modes actually
+//! run when the caller passes an [`crate::core::record::l1_writer::EmbedFn`]
+//! hook AND the pool carries vectors (D38 dual-pool ranking): records with a
+//! usable vector rank by cosine similarity, records without one keep the
+//! keyword-overlap gate — a legacy record is never dropped. Without a hook,
+//! everything degrades to keyword overlap exactly as before MEM-47.
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -22,8 +24,10 @@ use crate::core::abstractions::MemoryRecord;
 use crate::core::persona::persona_generator::{get_persona, PersonaError};
 use crate::core::profile::profile_sync::{read_scoped_persona, ProfileIsolation};
 use crate::core::record::l1_reader::{
-    l1_namespace, overlap_score, read_namespace_records, read_session_records, significant_terms,
+    cosine_similarity, l1_namespace, overlap_score, read_namespace_records, read_session_records,
+    rrf_merge, significant_terms, MIN_COSINE_SIMILARITY,
 };
+use crate::core::record::l1_writer::EmbedFn;
 use crate::core::record::L1Error;
 use crate::core::scene::scene_index::{list_scenes, SceneError};
 use crate::core::scene::scene_navigation::{generate_scene_navigation, strip_scene_navigation};
@@ -70,12 +74,13 @@ pub enum RecallMode {
 }
 
 impl RecallMode {
-    /// The mode actually executed after resource-based degradation.
-    pub fn effective(self) -> Self {
+    /// The mode actually executed after resource-based degradation. The
+    /// embedding/hybrid strategies only "take" when the caller supplied an
+    /// embedding hook (MEM-47) — otherwise they degrade to [`RecallMode::Keyword`].
+    pub fn effective(self, embeddings_available: bool) -> Self {
         match self {
             Self::Keyword => Self::Keyword,
-            // ponytail: embedding/hybrid collapse to keyword overlap; wire the
-            // VantaDB vector index once its search API reaches this crate.
+            Self::Embedding | Self::Hybrid if embeddings_available => self,
             Self::Embedding | Self::Hybrid => Self::Keyword,
         }
     }
@@ -182,12 +187,14 @@ searches, the information is not in memory — answer with what you have.\n\
 pub fn perform_auto_recall(
     db: &VantaEmbedded,
     params: AutoRecallParams<'_>,
+    embed: Option<&EmbedFn>,
 ) -> Result<Option<RecallResult>, RecallError> {
     let config = params.config;
     let isolation = params.isolation.unwrap_or_default();
 
     // ── L1 search (skipped on empty user text) ──
     let mut recalled = Vec::new();
+    let mut semantic_ran = false;
     if !params.user_text.trim().is_empty() {
         // Own-session records are always visible (legacy records carry no
         // agent/team metadata and must not vanish when the scope widens).
@@ -200,7 +207,9 @@ pub fn perform_auto_recall(
                 params.session_key,
             )?);
         }
-        recalled = search_keyword(&records, params.user_text, &config);
+        let (hits, used_semantic) = search_records(&records, params.user_text, &config, embed);
+        semantic_ran = used_semantic;
+        recalled = hits;
     }
 
     // ── L3 persona (scoped by team+agent via profile_sync) ──
@@ -254,7 +263,7 @@ pub fn perform_auto_recall(
         append_system_context,
         recalled_memories: recalled.into_iter().map(|m| m.memory).collect(),
         persona: persona_body,
-        effective_mode: config.mode.effective(),
+        effective_mode: config.mode.effective(semantic_ran),
     }))
 }
 
@@ -313,31 +322,86 @@ struct RecallHit {
     memory: RecalledMemory,
 }
 
-/// Keyword-overlap search over the session's L1 records, formatted into
-/// `- [type|scene] content` lines with budget applied.
-fn search_keyword(records: &[MemoryRecord], query: &str, config: &RecallConfig) -> Vec<RecallHit> {
+/// D38 dual-pool search over L1 records (MEM-47): records WITH a usable
+/// vector rank by cosine similarity against the embedded query; records
+/// WITHOUT one keep the keyword-overlap gate — a legacy record is never
+/// dropped just because it has no vector. Both pools fuse via reciprocal-rank
+/// fusion so term counts and similarities never compete directly. Without an
+/// embed hook (or with mode `Keyword`) this is byte-identical to the
+/// pre-MEM-47 keyword path.
+///
+/// Returns `(hits, semantic_ran)` — `semantic_ran` reports whether vector
+/// ranking actually contributed, keeping [`RecallMode::effective`] honest.
+/// Note on scores: [`RecalledMemory::score`] stays the keyword-overlap count;
+/// a record matched purely via similarity reports `0` there (its cosine lives
+/// in the internal ranking only).
+fn search_records(
+    records: &[MemoryRecord],
+    query: &str,
+    config: &RecallConfig,
+    embed: Option<&EmbedFn>,
+) -> (Vec<RecallHit>, bool) {
     let terms = significant_terms(query);
-    if terms.is_empty() {
-        return Vec::new();
+    let query_vector = match (config.mode != RecallMode::Keyword, embed) {
+        (true, Some(hook)) => hook(query),
+        _ => None,
+    }
+    .filter(|v| !v.is_empty() && v.iter().any(|&x| x != 0.0));
+    if terms.is_empty() && query_vector.is_none() {
+        return (Vec::new(), false);
     }
 
-    let mut scored: Vec<(usize, &MemoryRecord)> = records
-        .iter()
-        .map(|r| (overlap_score(&r.content, query), r))
-        .filter(|(score, _)| *score >= config.min_overlap.max(1))
-        .collect();
-    scored.sort_by(|a, b| {
+    // Partition into pools. A record whose stored vector mismatches the query
+    // dimensions (or is zero-norm) falls back to keyword scoring like any
+    // vector-free record.
+    let min_overlap = config.min_overlap.max(1);
+    let mut keyword_pool: Vec<(usize, &MemoryRecord)> = Vec::new();
+    let mut vector_pool: Vec<(f32, &MemoryRecord)> = Vec::new();
+    for record in records {
+        let semantic_score = match (&record.vector, &query_vector) {
+            (Some(record_vector), Some(query_vec)) => cosine_similarity(record_vector, query_vec),
+            _ => None,
+        };
+        match semantic_score {
+            Some(sim) if sim >= MIN_COSINE_SIMILARITY => vector_pool.push((sim, record)),
+            _ => {
+                let score = overlap_score(&record.content, query);
+                if score >= min_overlap {
+                    keyword_pool.push((score, record));
+                }
+            }
+        }
+    }
+    keyword_pool.sort_by(|a, b| {
         b.0.cmp(&a.0)
             .then_with(|| b.1.updated_at.cmp(&a.1.updated_at))
     });
+    vector_pool.sort_by(|a, b| {
+        b.0.total_cmp(&a.0)
+            .then_with(|| b.1.updated_at.cmp(&a.1.updated_at))
+    });
 
-    let hits: Vec<RecallHit> = scored
+    let semantic_ran = !vector_pool.is_empty();
+    let ordered: Vec<&MemoryRecord> = if !semantic_ran {
+        keyword_pool.iter().map(|(_, r)| *r).collect()
+    } else if keyword_pool.is_empty() {
+        vector_pool.iter().map(|(_, r)| *r).collect()
+    } else {
+        let keyword_ids: Vec<String> = keyword_pool.iter().map(|(_, r)| r.id.clone()).collect();
+        let vector_ids: Vec<String> = vector_pool.iter().map(|(_, r)| r.id.clone()).collect();
+        rrf_merge(&keyword_ids, &vector_ids, usize::MAX)
+            .into_iter()
+            .filter_map(|id| records.iter().find(|r| r.id == id))
+            .collect()
+    };
+
+    let hits: Vec<RecallHit> = ordered
         .into_iter()
         .take(config.max_results)
-        .map(|(score, r)| {
-            let line = format_memory_line(r);
-            let memory_type =
-                serde_json::to_string(&r.memory_type).unwrap_or_else(|_| "\"unknown\"".to_string());
+        .map(|record| {
+            let line = format_memory_line(record);
+            let memory_type = serde_json::to_string(&record.memory_type)
+                .unwrap_or_else(|_| "\"unknown\"".to_string());
             let memory_type = memory_type.trim_matches('"').to_string();
             let content = line
                 .split_once("] ")
@@ -347,7 +411,10 @@ fn search_keyword(records: &[MemoryRecord], query: &str, config: &RecallConfig) 
                 line,
                 memory: RecalledMemory {
                     content,
-                    score,
+                    score: keyword_pool
+                        .iter()
+                        .find(|(_, r)| r.id == record.id)
+                        .map_or(0, |(score, _)| *score),
                     memory_type,
                 },
             }
@@ -357,7 +424,7 @@ fn search_keyword(records: &[MemoryRecord], query: &str, config: &RecallConfig) 
     // Budget operates on lines; re-pair the surviving lines with their
     // structured payloads by position.
     let budgeted_lines = apply_recall_budget(hits.iter().map(|h| h.line.clone()).collect(), config);
-    budgeted_lines
+    let budgeted = budgeted_lines
         .into_iter()
         .zip(hits)
         .map(|(line, mut hit)| {
@@ -368,7 +435,8 @@ fn search_keyword(records: &[MemoryRecord], query: &str, config: &RecallConfig) 
             hit.line = line;
             hit
         })
-        .collect()
+        .collect();
+    (budgeted, semantic_ran)
 }
 
 /// Format one record as a rich natural-language line (TDAM
@@ -485,14 +553,18 @@ mod tests {
             team_id: None,
             user_id: None,
             agent_id: None,
+            vector: None,
         }
     }
 
     #[test]
     fn modes_degrade_to_keyword_without_embedding_resources() {
-        assert_eq!(RecallMode::Keyword.effective(), RecallMode::Keyword);
-        assert_eq!(RecallMode::Embedding.effective(), RecallMode::Keyword);
-        assert_eq!(RecallMode::Hybrid.effective(), RecallMode::Keyword);
+        assert_eq!(RecallMode::Keyword.effective(false), RecallMode::Keyword);
+        assert_eq!(RecallMode::Embedding.effective(false), RecallMode::Keyword);
+        assert_eq!(RecallMode::Hybrid.effective(false), RecallMode::Keyword);
+        // With an embedding hook the declared modes actually run (MEM-47).
+        assert_eq!(RecallMode::Embedding.effective(true), RecallMode::Embedding);
+        assert_eq!(RecallMode::Hybrid.effective(true), RecallMode::Hybrid);
     }
 
     #[test]

@@ -177,6 +177,7 @@ fn recall(db: &VantaEmbedded, session: &str, query: &str) -> Option<RecallResult
             isolation: None,
             config: RecallConfig::default(),
         },
+        None,
     )
     .expect("auto recall must never error")
 }

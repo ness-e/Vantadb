@@ -50,7 +50,8 @@ pub fn read_namespace_records(
         };
         let page: VantaMemoryListPage = db.list(namespace, options)?;
         for record in page.records {
-            if let Ok(mem) = serde_json::from_str::<MemoryRecord>(&record.payload) {
+            if let Ok(mut mem) = serde_json::from_str::<MemoryRecord>(&record.payload) {
+                mem.vector = usable_vector_filter(record.vector.as_deref());
                 records.push(mem);
             } else {
                 tracing::debug!(key = %record.key, "l1 record failed to deserialize; skipped");
@@ -75,11 +76,21 @@ pub fn read_record(
     let key = sanitize_key(record_id);
     match db.get(&ns, &key)? {
         Some(record) => {
-            let mem = serde_json::from_str(&record.payload)?;
+            let mut mem: MemoryRecord = serde_json::from_str(&record.payload)?;
+            mem.vector = usable_vector_filter(record.vector.as_deref());
             Ok(Some(mem))
         }
         None => Ok(None),
     }
+}
+
+/// Attach the node vector to a record, treating empty/all-zero vectors (how
+/// the SDK reports "no vector") as `None` (MEM-46 learning; mirrors
+/// `usable_vector` in the core SDK).
+pub(crate) fn usable_vector_filter(vector: Option<&[f32]>) -> Option<Vec<f32>> {
+    vector
+        .filter(|v| !v.is_empty() && v.iter().any(|&x| x != 0.0))
+        .map(<[f32]>::to_vec)
 }
 
 /// Tokenize content into a lowercased set of significant terms (words of ≥3
@@ -100,34 +111,120 @@ pub(crate) fn overlap_score(a: &str, b: &str) -> usize {
     a_terms.intersection(&b_terms).count()
 }
 
-/// LLM-free candidate recall: rank existing records by keyword overlap with
-/// the new memory and return the top `k`.
+/// LLM-free candidate recall: rank existing records against the new memory's
+/// content and return the top `k` (MEM-11).
 ///
-/// # ponytail: naive overlap recall, no vector search
-/// `vanta-memory` has no LLM-free embeddings, so this is a cheap token-overlap
-/// gate. Same degradation as TDAM when vector/FTS are unavailable
-/// (l1-dedup.ts:89-97 skips dedup → store-all). Upgrade path: wire the
-/// VantaDB vector index once the core search API is exposed to this crate.
+/// D38 dual-pool (MEM-47): records WITH a usable vector are scored by cosine
+/// similarity against the embedded content (semantic pool); records WITHOUT
+/// one keep the keyword-overlap gate — a legacy record is never dropped just
+/// because it has no vector. Both pools fuse via reciprocal-rank fusion, so
+/// overlap counts and cosine similarities never compete directly.
+///
+/// # ponytail: full scan per new memory
+/// O(records × dims) per call; fine at session-sized pools. Upgrade path:
+/// HNSW query via the SDK if dedup ever needs cross-session reach.
 pub fn recall_candidates(
     records: &[MemoryRecord],
     content: &str,
     top_k: usize,
+    embed: Option<&crate::core::record::l1_writer::EmbedFn>,
 ) -> Vec<MemoryRecord> {
-    let mut scored: Vec<(usize, &MemoryRecord)> = records
+    let query_vector = embed.and_then(|hook| hook(content));
+
+    // Pool 1 — legacy keyword overlap (doubles as the no-vector fallback).
+    let mut keyword_pool: Vec<(usize, &MemoryRecord)> = records
         .iter()
         .map(|r| (overlap_score(&r.content, content), r))
         .filter(|(score, _)| *score > 0)
         .collect();
-    // Higher overlap first; ties break by newest updated_at (stable-ish).
-    scored.sort_by(|a, b| {
+    keyword_pool.sort_by(|a, b| {
         b.0.cmp(&a.0)
             .then_with(|| b.1.updated_at.cmp(&a.1.updated_at))
     });
-    scored
+
+    // Pool 2 — semantic similarity over records that carry a usable vector.
+    let vector_pool: Vec<(f32, &MemoryRecord)> = match query_vector.as_deref() {
+        Some(query) => records
+            .iter()
+            .filter_map(|r| {
+                let record_vector = r.vector.as_deref()?;
+                cosine_similarity(record_vector, query)
+                    .filter(|sim| *sim >= MIN_COSINE_SIMILARITY)
+                    .map(|sim| (sim, r))
+            })
+            .collect(),
+        None => Vec::new(),
+    };
+
+    if vector_pool.is_empty() {
+        // No semantic hits: byte-identical legacy ordering (regression-safe).
+        return keyword_pool
+            .into_iter()
+            .take(top_k)
+            .map(|(_, r)| r.clone())
+            .collect();
+    }
+    let mut sorted_vector_pool = vector_pool;
+    sorted_vector_pool.sort_by(|a, b| {
+        b.0.total_cmp(&a.0)
+            .then_with(|| b.1.updated_at.cmp(&a.1.updated_at))
+    });
+
+    let keyword_ids: Vec<String> = keyword_pool.iter().map(|(_, r)| r.id.clone()).collect();
+    let vector_ids: Vec<String> = sorted_vector_pool
+        .iter()
+        .map(|(_, r)| r.id.clone())
+        .collect();
+    rrf_merge(&keyword_ids, &vector_ids, top_k)
         .into_iter()
-        .take(top_k)
-        .map(|(_, r)| r.clone())
+        .filter_map(|id| records.iter().find(|r| r.id == id))
+        .cloned()
         .collect()
+}
+
+/// Minimum cosine similarity for a stored vector to enter the semantic pool
+/// (D38). Below the threshold the record simply stays with its keyword score.
+pub(crate) const MIN_COSINE_SIMILARITY: f32 = 0.35;
+
+/// Cosine similarity; `None` on dimension mismatch or zero norm (mirrors the
+/// core SDK's zero-norm guard: an unusable vector never ranks).
+pub(crate) fn cosine_similarity(a: &[f32], b: &[f32]) -> Option<f32> {
+    if a.is_empty() || a.len() != b.len() {
+        return None;
+    }
+    let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
+    let norm_a = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+    let norm_b = b.iter().map(|y| y * y).sum::<f32>().sqrt();
+    if norm_a == 0.0 || norm_b == 0.0 {
+        return None;
+    }
+    Some(dot / (norm_a * norm_b))
+}
+
+/// Reciprocal-rank fusion (k=60, Cormack et al. 2009) of two ranked pools.
+/// Inputs are ordered ids (rank 1 first); returns the top `top_k` fused ids.
+/// Rank-based gains make heterogeneous scores (term counts vs cosine) merge
+/// without normalization. Stable sort keeps keyword-pool order on ties.
+pub(crate) fn rrf_merge(
+    keyword_ranked: &[String],
+    vector_ranked: &[String],
+    top_k: usize,
+) -> Vec<String> {
+    const RRF_K: f32 = 60.0;
+    let mut fused: Vec<(String, f32)> = Vec::new();
+    let mut bump = |ranked: &[String]| {
+        for (idx, id) in ranked.iter().enumerate() {
+            let gain = 1.0 / (RRF_K + idx as f32 + 1.0);
+            match fused.iter_mut().find(|(existing, _)| existing == id) {
+                Some((_, score)) => *score += gain,
+                None => fused.push((id.clone(), gain)),
+            }
+        }
+    };
+    bump(keyword_ranked);
+    bump(vector_ranked);
+    fused.sort_by(|a, b| b.1.total_cmp(&a.1));
+    fused.into_iter().take(top_k).map(|(id, _)| id).collect()
 }
 
 /// Marker types so the reader surface is self-describing in docs/tests.
@@ -162,6 +259,7 @@ mod tests {
             team_id: None,
             user_id: None,
             agent_id: None,
+            vector: None,
         }
     }
 
@@ -206,12 +304,12 @@ mod tests {
             record("m2", "user prefers light theme", "2026-08-20T10:00:00.000Z"),
             record("m3", "team uses postgres", "2026-08-20T10:00:00.000Z"),
         ];
-        let candidates = recall_candidates(&records, "user prefers dark mode", 2);
+        let candidates = recall_candidates(&records, "user prefers dark mode", 2, None);
         assert_eq!(candidates.len(), 2);
         assert_eq!(candidates[0].id, "m1");
         assert_eq!(candidates[1].id, "m2");
 
-        let none = recall_candidates(&records, "rust cargo build", 5);
+        let none = recall_candidates(&records, "rust cargo build", 5, None);
         assert!(none.is_empty());
     }
 }

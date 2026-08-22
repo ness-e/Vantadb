@@ -60,6 +60,7 @@ fn record(id: &str, content: &str) -> MemoryRecord {
         team_id: None,
         user_id: None,
         agent_id: None,
+        vector: None,
     }
 }
 

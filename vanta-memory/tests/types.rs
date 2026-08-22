@@ -28,6 +28,7 @@ fn memory_record_roundtrip() {
         team_id: None,
         user_id: None,
         agent_id: None,
+        vector: None,
     };
     let json = serde_json::to_string(&record).unwrap();
     let back: MemoryRecord = serde_json::from_str(&json).unwrap();

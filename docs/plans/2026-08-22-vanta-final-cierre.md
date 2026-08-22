@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Cierre Final — integración, recall semántico y gobierno de decisiones
 
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (4/8 tareas)
+> **Estado:** ⏳ EN PROGRESO (5/8 tareas)
 > **Fuente:** auditoría final post-P30 (vanta-research `ses_fd8c2c26`, 2026-08-22) + decisiones del usuario (2026-08-21/22) + deudas vigentes de task files
 > **Predecesores:** P27 F1-F4 ✅ 24/24 · P29 F5 ✅ 9/9 · P30 F6+F7 ✅ 9/9 — **roadmap TDAM F1-F7 cerrado**, suites 2568+ tests
 > **Modo:** waves — Wave 0 (integraciones y tests independientes) → Wave 1 (embeddings fundación) → Wave 2 (semantic recall + scoring) → Wave 3 (gobierno humano + meta-tarea).
@@ -37,7 +37,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 - **Verificación real:** ✅ AUDITORÍA — cero referencias a context_engine en services/ (solo tests e2e_flow.rs); decisión usuario: wire productivo
 - **Gate Justificación:** convierte la killer feature F5 en productiva dentro del ciclo L0→L1→L2→L3
 - **Gate Result:** ✅ DO
-- **Contrato:** "`cargo check -p vanta-memory` pasa; tests D19: el worker ejecuta assemble_with_recall como fase post-L3 (compresión del historial + inyección MMD + recall con budget compartido); e2e extendido demuestra compresión activa dentro del pass completo"
+- **Contrato: verificacion: cargo check -p vanta-memory ✅ · cargo nextest run -p vanta-memory 470/470 ✅ (465 previos + 5 D19, cero regresiones) · cargo fmt --check ✅ · cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings ✅ | evidencia: claim swap dual-pool RRF en 3 consumidores → auto_recall.rs search_records + l1_reader.rs recall_candidates + knowledge_handlers.rs scene_query (confianza alta) ; claim fallback legacy byte-identical sin hook → tests/semantic_recall.rs legacy_record_without_vector... paridad con/sin hook (confianza alta) ; claim scope respeta en modo vector → recall_scope_gates_semantic_hits_across_sessions (confianza alta) | artefactos: .opencode/skills/campaign-executor/tasks/MEM-47.md, vanta-memory/tests/semantic_recall.rs | invariantes: core vantadb intocado; wire contract score queda usize; records legacy sin vector nunca desaparecen del pool (D38); hook None = comportamiento pre-MEM-47 | deuda: scene_query embebe cada bloque por query (O(N), upgrade = persistir vectors de bloques); hits puramente semánticos reportan score=0 en RecalledMemory | queda_pendiente: lead verifica y commitea (trabajo en worktree sin commit por regla de la tarea); próxima tarea Task 6 MEM-48 compresión consume scores L1
 - **Pre-mortem:** (1) doble compresión (worker + caller externo) → el worker es UNO de los callers; API existente intacta; (2) compresión automática puede sorprender → config flag `context_compression_enabled` default true documentado
 - **Stop conditions:** si el wiring exige reescribir assemble → ⬛ y escalar diseño
 - **Risk Register:**
@@ -132,7 +132,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
   | 🟡×🟡 | regresión en tests keyword existentes | fallback D38 preserva comportamiento | suite completa |
 - **Cynefin:** 🟧 complejo
 - **Uphill/Downhill:** ⬆️ 0 (post Task 4) · ⬇️ 4 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-47.md`
 - **Notas:** Ruta: vanta-worker. DEPENDE de Task 4.
 
@@ -213,11 +213,11 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 ---
 
 === RECITATION ===
-Campaign ID: bfb071a9-aafa-4bdc-ab9b-43e5051644d3
-Objetivo activo: MEM-46: cablear EmbeddingProvider del core al pipeline de escritura L1 en vanta-memory (best-effort, P4, default off)
+Campaign ID: 1c1a36bd-d27c-49f6-919b-e4fd231e7240
+Objetivo activo: MEM-47 semantic recall end-to-end: swap overlap→vector + fallback D38 en auto_recall/l1_dedup/knowledge_handlers
 Estado: pending ⏳
-Última acción: Implementado wiring completo: EmbedFn inyectable via L1DedupConfig.embed (default None), embed best-effort con warn log en write_memory Store/Update/Merge, put_record persiste vector via VantaMemoryInput.vector, core_embedding_hook() tras feature passthrough embeddings=[vantadb/remote-inference], dev-deps unification para tests. 5 tests D19 nuevos. Verify completo verde.
+Última acción: MEM-47 completo: campo MemoryRecord.vector poblado en reads; helpers cosine_similarity/rrf_merge(k=60)/MIN_COSINE_SIMILARITY(0.35) en l1_reader; swap dual-pool+RRF en perform_auto_recall(embed), recall_candidates(embed)→batch_dedup vía config.embed, scene_query(embed query-time); pipeline_worker pasa dedup_config.embed al recall; RecallMode.effective(bool) honesto; 5 tests D19 nuevos con fake embedding determinista 64-dim
 Resultado: OK
-Próxima acción: Lead: revisar diff + commitear 'feat(vanta-memory): MEM-46 embeddings best-effort para records L1'. Siguiente tarea del plan: Task 5 MEM-47 (semantic recall end-to-end)
+Próxima acción: Lead: git add vanta-memory/ && verify_changed.ps1 && commit feat(vanta-memory): MEM-47 — luego delegar Task 6 (MEM-48)
 Contrato: por tarea — cargo check/nextest/fmt/clippy del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 5
+Próxima tarea si completa: 6

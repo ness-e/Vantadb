@@ -47,6 +47,7 @@ fn record(id: &str, content: &str) -> MemoryRecord {
         team_id: None,
         user_id: None,
         agent_id: None,
+        vector: None,
     }
 }
 fn write_persona(db: &VantaEmbedded, body: &str) {
@@ -108,6 +109,7 @@ fn recall_splits_dynamic_prepend_from_stable_append() {
             isolation: Some(ProfileIsolation::default()),
             config: RecallConfig::default(),
         },
+        None,
     )
     .expect("recall")
     .expect("content to inject");
@@ -140,6 +142,7 @@ fn empty_user_text_still_injects_persona_and_scenes() {
             isolation: None,
             config: RecallConfig::default(),
         },
+        None,
     )
     .expect("recall")
     .expect("persona to inject");
@@ -162,6 +165,7 @@ fn nothing_to_inject_returns_none() {
             isolation: None,
             config: RecallConfig::default(),
         },
+        None,
     )
     .expect("recall");
     assert!(out.is_none());
@@ -187,6 +191,7 @@ fn all_three_modes_declared_and_degrade_to_keyword() {
                     ..RecallConfig::default()
                 },
             },
+            None,
         )
         .expect("recall")
         .expect("hit");
@@ -216,6 +221,7 @@ fn budget_limits_total_prepended_chars() {
                 ..RecallConfig::default()
             },
         },
+        None,
     )
     .expect("recall")
     .expect("hits");
@@ -379,6 +385,7 @@ fn recall_with_scope(
                 ..RecallConfig::default()
             },
         },
+        None,
     )
     .expect("recall")
 }

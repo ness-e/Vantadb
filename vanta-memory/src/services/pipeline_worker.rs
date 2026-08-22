@@ -431,6 +431,9 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
                 isolation: None,
                 config: RecallConfig::default(),
             },
+            // MEM-47/D38: reuse the dedup embedding hook — records with a
+            // vector rank semantically, legacy ones keep keyword overlap.
+            self.dedup_config.embed.as_ref(),
         )
         .map_err(|e| format!("auto-recall failed: {e}"))?;
         let (prepend, append) = match recalled {
