@@ -29,7 +29,7 @@ VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNS
 | API/Servidor | 9 | 9 | ✅ |
 | Observability | 6 | 6 | ✅ |
 | **Documentation** | 🟢 Consolidada (Wikilinks, Glosario, Unicode normalizado) | 95% | ✅ |
-| **Testing** | 🟢 Cobertura CII Silver (80.55% línea, 1492 tests) | 100% | ✅ |
+| **Testing** | 🟢 Gate coverage root crate ≥80% (ADR-018, baseline 81.40%; re-medición local pendiente — llvm-cov ICE 2026-08-22) | 100% | ✅ |
 | DX Tools | 15 | 15 | ✅ |
 | CLI | 8 | 8 | ✅ |
 | Infraestructura & CI | 4 | 4 | ✅ |

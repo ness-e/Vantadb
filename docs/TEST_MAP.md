@@ -51,7 +51,7 @@
 
 | Gate workflow | What it covers | Frequency | Required for merge |
 |---|---|---|---|
-| **ci-rust-10** | Build, clippy, nextest audit (Linux/Win/macOS), coverage ≥59%, cargo-deny, cargo-audit, miri (UB), MSRV, ASan/TSan | Every push/PR to main | **Yes** (fmt+clippy+test+deny+audit) |
+| **ci-rust-10** | Build, clippy, nextest audit (Linux/Win/macOS), coverage gate root crate ≥80% (ADR-018), cargo-deny, cargo-audit, miri (UB), MSRV, ASan/TSan | Every push/PR to main | **Yes** (fmt+clippy+test+deny+audit) |
 | **ci-web-11** | Web build, lint, tsc | Every push/PR touching `web/` | **Yes** for web changes |
 | **heavy-certification-50** | Full test suite: stress, HNSW validation, storage persistence, failpoints, text index, memory concurrency, benchmarks | Weekly (Sun) + manual trigger | No (weekly quality signal) |
 | **heavy-bench-nightly-51** | Performance benchmarks | Nightly | No (regression signal) |
@@ -88,7 +88,7 @@ Tests are organized in `tests/` (core crate) by category:
 
 ## Coverage
 
-- **CI threshold**: ≥59% line coverage (enforced in `ci-rust-10.yml` via `cargo-llvm-cov`)
+- **CI threshold**: root crate `vantadb` ≥80% line (gate canónico ADR-018/COV-004, baseline 81.40%; workspace aggregate solo reportado). Cifra medida local: PENDIENTE re-medición — llvm-cov ICE Windows 2026-08-22 (ticket GOV-A1).
 - **Coverage exclusions**: `tests/`, `benches/`, `packages/experimental`, `crash_injection` source
 - **Report**: Generated to `lcov.info` artifact in CI
 

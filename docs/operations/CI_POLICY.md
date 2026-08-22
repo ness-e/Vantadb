@@ -56,7 +56,7 @@ governance semantics are excluded from the default fast lane.
 | `test-macos` | Tests (macOS) — nextest audit profile |
 | `msrv` | MSRV Check (1.94.1) |
 | `minimal-versions` | Minimal Versions Check (`-Zminimal-versions`, nightly, continue-on-error) |
-| `coverage` | Code Coverage (`cargo-llvm-cov`, ≥59% threshold) |
+| `coverage` | Code Coverage (`cargo-llvm-cov`, gate root crate ≥80% por ADR-018) |
 | `audit` | Security Audit (`cargo audit`) |
 | `miri` | Miri UB Detection (nightly) |
 | `deny` | Dependency Policy Check (`cargo deny`) |
@@ -172,7 +172,7 @@ Certification pass must record the real current level and adjust the threshold t
 set it below the current level).
 
 **Escalation policy:** the threshold ratchets upward over time (e.g. +5 points per quarter or per
-release), converging with the Fast Gate coverage job (currently ≥59%). The threshold is never
+release), converging with the Fast Gate coverage job (gate canónico ADR-018: root crate ≥80%). The threshold is never
 lowered without a documented justification and review.
 
 **Merge / union:** multiple coverage runs under different feature/test conditions are merged with
@@ -190,9 +190,9 @@ the default local `just verify` flow is never blocked by a missing tool.
 aggregate vs per-runner binding measurement — is decided in
 [ADR-015](../architecture/adr/ADR-015-coverage-policy.md) (accepted, owner TBD). In force:
 
-- Keep the enforced workspace-wide ≥ 80% line gate in `ci-rust-10.yml`. Root `vantadb` (81.40%
-  baseline) is the primary quality signal; the workspace aggregate (root + `vantadb-python`,
-  72.76% measured) is reported, not treated as a per-crate target. Never lower the 80% threshold
+- Gate canónico (ADR-018, supersede ADR-015 §D1): root crate antadb ≥ 80% line (baseline
+  81.40%). Workspace aggregate (root + antadb-python, 72.76% medida) se reporta solo para
+  visibilidad. Nunca bajar el umbral de 80% para acomodar un baseline.
   to accommodate a baseline.
 - Bindings are measured on their native runners: Python wrapper coverage ≥ 85% via pytest;
   WASM/MCP/server carry no coverage gate while experimental (Tier 3).
