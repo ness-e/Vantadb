@@ -3,10 +3,10 @@ name: 'GATE: Docs — Lint & Frontmatter'
 on:
   push:
     branches: [main]
-    paths: ["docs/**"]
+    paths: ["docs/**", "src/cli_server.rs", "scripts/**"]
   pull_request:
     branches: [main]
-    paths: ["docs/**"]
+    paths: ["docs/**", "src/cli_server.rs", "scripts/**"]
   workflow_dispatch:
 
 concurrency:
@@ -59,6 +59,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Check OpenAPI/router parity (GOV-B4)
+        run: node scripts/check_openapi_parity.mjs
       - name: Check docs/api headers match workspace version
         run: |
           VER=$(sed -n '/^\[workspace.package\]/,/^\[/p' Cargo.toml | grep '^version' | head -1 | awk '{print $3}' | tr -d '"')

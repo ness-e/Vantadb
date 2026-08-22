@@ -720,7 +720,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | GOV-B1 | case_studies ficticios → archive interno + 0 refs vivas | docs/case_studies/, docs/archive/ | 🟢 | 🔴 | ❌ Pendiente |
 | GOV-B2 | Runbook DR sin comandos fantasma (restore-tmp+doctor validado GOV-A3) | docs/operations/DISASTER_RECOVERY_RUNBOOK.md | 🟢 | 🔴 | ❌ Pendiente |
 | GOV-B3 | Fix snippets rotos + guard anti-regresión integrado a gate-docs | docs/tutorials/, docs/glosario/, docs/FAQ.md | 🟡 | 🔴 | ❌ Pendiente |
-| GOV-B4 | openapi.yaml completo (~29 paths desde cli_server.rs) + gate paridad | docs/api/openapi.yaml, src/cli_server.rs | 🟡 | 🔴 | ❌ Pendiente |
 | GOV-B5 | HTTP_API.md completo (29 endpoints, matar ejemplo LISP :108) | docs/api/HTTP_API.md | 🟡 | 🔴 | ❌ Pendiente |
 | GOV-B6 | Skill MCP fuente única 33 tools + MCP.md stub (hash-SAME) | skills/vantadb-mcp/, docs/api/MCP.md | 🟡 | 🟠 | ❌ Pendiente |
 | GOV-C1 | Filtro nextest python_sdk_boundary→python + TEST_MAP binarios (.config/nextest.toml:27) | .config/nextest.toml, docs/TEST_MAP.md | 🟢 | 🔴 | ❌ Pendiente |

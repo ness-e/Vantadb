@@ -4311,6 +4311,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - **Resultado:** ? `vanta-memory/src/seed/{mod,input}.rs` (nuevos): schema propio mínimo JSON-only (desviación documentada del schema TDAM sessions/messages, acoplado a OpenClaw); skills → `skills_extract/<scope>` con payload StoredSkill parity MEM-06; persona → `persona/<session>`/`persona.md` como PersonaRecord legible por get_persona. Idempotencia content-hash (replay → todo unchanged); counts created/updated/unchanged; errores tipados `SeedError`. CLI: bin target `vanta-seed` (`cargo run -p vanta-memory --bin vanta-seed -- <seed.json> [--db <path>]`) — glue en src/cli.rs imposible por ciclo de dependencias vanta-memory→vantadb (documentado en task file); feature passthrough `fjall` para persistencia. 6 tests D19 nuevos (4 integración con archivo temporal + 2 unit parser); suite vanta-memory 395 ?; check/fmt/clippy -p vanta-memory exit 0. Commit pendiente del lead.
 - **Ids:** `MEM-39`
 
+### GOV-B4: openapi.yaml completo (~29 paths desde cli_server.rs) + gate paridad
+- **Fuente:** Plan `docs/plans/2026-08-22-doc-governance-plan.md` (Task 12)
+- **Fecha:** 2026-08-22
+- **Objetivo:** Regenerar `docs/api/openapi.yaml` contract-first cubriendo TODAS las rutas del router HTTP (`src/cli_server.rs`, READ-ONLY) y agregar gate CI de paridad router↔spec.
+- **Resultado:** ✅ `docs/api/openapi.yaml` regenerado: 35 paths / 40 operaciones (29 bajo `/api/v2/*`), version "0.5.0" sincronizada al workspace, tags por dominio (Query/Records/Search/Graph/Maintenance/Threads/System), schemas detallados solo core (query, records CRUD, search, export/import — wire shapes desde `VantaMemoryInput`/`VantaMemorySearchRequest`/`ExportRequest`/`ImportRequest`), envelopes genéricos para el resto, `x-experimental: true` en `/dashboard`, `/dashboard/{path}`, `/conversation/add`, `/skill/listing`. `scripts/check_openapi_parity.mjs` (nuevo, node stdlib-only): scanner de parens extrae `.route()` multi-line del .rs (normaliza `{*name}`→`{name}`), lector yaml por indentación, exit 0 en paridad / exit 1 listando missing+extra+method-diffs (test negativo verificado). `.github/workflows/gate-docs-21.yml`: step "Check OpenAPI/router parity" en job check-api-version (check-api-version intacto) + triggers extendidos (`src/cli_server.rs`, `scripts/**`). Verify: parity exit 0 ✅; pyyaml safe_load OK ✅; 27 $refs sin rotos ✅; markdownlint docs/api/*.md 0 issues ✅. Commit pendiente del lead (git prohibido en la invocación).
+- **Ids:** `GOV-B4`
+
 ---
 
 ## Planes archivados

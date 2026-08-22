@@ -12,6 +12,11 @@ info:
     The HTTP server is optional and enabled via `vanta-cli server --http`
     or the `server` Cargo feature.
 
+    Parity contract: every route registered in `src/cli_server.rs`
+    (`app_with_cors` + dashboard fallback) must appear here with matching
+    methods — enforced by `scripts/check_openapi_parity.mjs` in CI
+    (gate-docs-21). Endpoints marked `x-experimental: true` are unstable
+    and may change without notice.
   contact:
     name: VantaDB Project
   license:
@@ -27,6 +32,22 @@ servers:
         default: localhost
       port:
         default: "443"
+
+tags:
+  - name: System
+    description: Health, metrics, audit and platform endpoints
+  - name: Query
+    description: IQL query execution
+  - name: Records
+    description: Record CRUD, listing, versions and data transfer
+  - name: Search
+    description: Vector / hybrid search and autocomplete
+  - name: Graph
+    description: Graph traversal and analytics
+  - name: Maintenance
+    description: Storage maintenance operations and snapshots
+  - name: Threads
+    description: Conversation threads
 
 paths:
   /health:
@@ -53,9 +74,11 @@ paths:
         Exposes operational metrics in Prometheus/OpenMetrics text format
         (Content-Type: text/plain; version=0.0.4) for scraping by Prometheus
         or any OpenMetrics-compatible collector.
-      operationId: getMetrics
+      operationId: prometheusMetrics
       tags:
         - System
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: Metrics text
@@ -67,6 +90,54 @@ paths:
                   # HELP vantadb_http_requests_total Total HTTP requests
                   # TYPE vantadb_http_requests_total counter
                   vantadb_http_requests_total{method="GET",route="/health",status="200"} 42
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /dashboard:
+    get:
+      summary: Web console entry point
+      description: |
+        Serves the Vanta Studio console when started with `--dashboard-dir`;
+        otherwise returns 404 with a hint to enable it (WEB-03).
+      operationId: dashboardDisabled
+      x-experimental: true
+      tags:
+        - System
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard index.html (when --dashboard-dir configured)
+          content:
+            text/html:
+              schema:
+                type: string
+        "404":
+          description: Dashboard not enabled
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /dashboard/{path}:
+    get:
+      summary: Web console static assets
+      description: Static file serving fallback for the dashboard SPA.
+      operationId: dashboardStaticPath
+      x-experimental: true
+      tags:
+        - System
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Static asset or index.html fallback
+        "404":
+          description: Asset not found or dashboard not enabled
         "429":
           $ref: "#/components/responses/TooManyRequests"
 
@@ -152,6 +223,1120 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/v2/health:
+    get:
+      summary: Authenticated health check
+      description: Same liveness probe as `/health`, served behind auth middleware.
+      operationId: healthV2
+      tags:
+        - System
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v2/records:
+    post:
+      summary: Put record
+      description: Create or overwrite a memory record (upsert by namespace+key).
+      operationId: putRecord
+      tags:
+        - Records
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordInput"
+      responses:
+        "200":
+          description: Record stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AckResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      summary: Delete records by metadata filter
+      description: Deletes all records in a namespace whose metadata matches the JSON filter string passed as query parameter.
+      operationId: deleteRecordsByFilter
+      tags:
+        - Records
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: namespace
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: filter
+          in: query
+          required: true
+          description: JSON-encoded metadata filter (`VantaMemoryFilter`)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching records deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AckResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/records/batch:
+    post:
+      summary: Put records batch
+      description: Upsert multiple records in one call (array of `RecordInput`).
+      operationId: putRecordsBatch
+      tags:
+        - Records
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/RecordInput"
+      responses:
+        "200":
+          description: Batch stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AckResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/records/{ns}/{key}:
+    get:
+      summary: Get record
+      description: Fetch a single record by namespace and key.
+      operationId: getRecord
+      tags:
+        - Records
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/NamespacePath"
+        - $ref: "#/components/parameters/KeyPath"
+      responses:
+        "200":
+          description: The stored record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      summary: Delete record
+      description: Soft-delete (tombstone) a record by namespace and key.
+      operationId: deleteRecord
+      tags:
+        - Records
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/NamespacePath"
+        - $ref: "#/components/parameters/KeyPath"
+      responses:
+        "200":
+          description: Record deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AckResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/records/{ns}/{key}/versions:
+    get:
+      summary: List record versions
+      description: Version history of a record.
+      operationId: listRecordVersions
+      tags:
+        - Records
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/NamespacePath"
+        - $ref: "#/components/parameters/KeyPath"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Version list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/list:
+    get:
+      summary: List records
+      description: Paginated listing of records in a namespace, with optional metadata filter ops.
+      operationId: listRecords
+      tags:
+        - Records
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: namespace
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: filter_ops
+          in: query
+          description: JSON-encoded filter ops
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Page of records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListPageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/search:
+    post:
+      summary: Hybrid search
+      description: |
+        Vector / sparse / BM25 hybrid similarity search over a namespace,
+        with offset pagination (`cursor` = zero-based offset, `limit` = page
+        size; defaults to `top_k`). Wire format mirrors the SDK's
+        `VantaMemorySearchRequest`.
+      operationId: searchRecords
+      tags:
+        - Search
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchPageRequest"
+      responses:
+        "200":
+          description: Score-ranked page of results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchPageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/autocomplete:
+    get:
+      summary: IQL autocomplete
+      description: Returns completion suggestions for an IQL prefix.
+      operationId: iqlAutocomplete
+      tags:
+        - Search
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: prefix
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Suggestion strings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v2/audit:
+    get:
+      summary: Audit events
+      description: Query the audit event log written when auditing is enabled.
+      operationId: listAuditEvents
+      tags:
+        - System
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Audit events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Audit log not enabled/configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/export:
+    post:
+      summary: Export records
+      description: Export records to a JSONL file on the server, optionally filtered by namespace/metadata filter.
+      operationId: exportRecords
+      tags:
+        - Records
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "200":
+          description: Export completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AckResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/import:
+    post:
+      summary: Import records
+      description: 'Import records inline (`records`) or from a server-side file (`path`, JSONL default or `.vdbdump` bulk via `format: "bulk"`).'
+      operationId: importRecords
+      tags:
+        - Records
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportRequest"
+      responses:
+        "200":
+          description: Import completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AckResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/graph/bfs:
+    post:
+      summary: Breadth-first traversal
+      description: BFS from root nodes following edges (optionally label-filtered).
+      operationId: graphBfs
+      tags:
+        - Graph
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: "#/components/requestBodies/GraphTraversalBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/GraphNodeList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/graph/dfs:
+    post:
+      summary: Depth-first traversal
+      description: DFS from root nodes following edges (optionally label-filtered).
+      operationId: graphDfs
+      tags:
+        - Graph
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: "#/components/requestBodies/GraphTraversalBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/GraphNodeList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/graph/degree:
+    post:
+      summary: Node degree
+      description: In/out degree counts for the given nodes.
+      operationId: graphDegree
+      tags:
+        - Graph
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: "#/components/requestBodies/GraphTraversalBody"
+      responses:
+        "200":
+          description: Degree map per node
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/graph/centrality:
+    post:
+      summary: Centrality scores
+      description: Centrality analytics over the graph (generic request/response envelope).
+      operationId: graphCentrality
+      tags:
+        - Graph
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: "#/components/requestBodies/GraphTraversalBody"
+      responses:
+        "200":
+          description: Centrality scores per node
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/graph/pagerank:
+    post:
+      summary: PageRank scores
+      description: PageRank analytics over the graph (generic request/response envelope).
+      operationId: graphPagerank
+      tags:
+        - Graph
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: "#/components/requestBodies/GraphTraversalBody"
+      responses:
+        "200":
+          description: PageRank score per node
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/graph/v2/bfs:
+    post:
+      summary: Breadth-first traversal (v2 engine)
+      description: Second-generation BFS implementation (WEB-02 extended SDK surface).
+      operationId: graphV2Bfs
+      tags:
+        - Graph
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: "#/components/requestBodies/GraphTraversalBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/GraphNodeList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/graph/v2/dfs:
+    post:
+      summary: Depth-first traversal (v2 engine)
+      description: Second-generation DFS implementation (WEB-02 extended SDK surface).
+      operationId: graphV2Dfs
+      tags:
+        - Graph
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: "#/components/requestBodies/GraphTraversalBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/GraphNodeList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/graph/v2/degree:
+    post:
+      summary: Node degree (v2 engine)
+      description: Second-generation degree computation (WEB-02 extended SDK surface).
+      operationId: graphV2Degree
+      tags:
+        - Graph
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: "#/components/requestBodies/GraphTraversalBody"
+      responses:
+        "200":
+          description: Degree map per node
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/maintenance/purge:
+    post:
+      summary: Purge expired records
+      description: Removes all expired (TTL elapsed) records. Returns the count purged.
+      operationId: purgeExpired
+      tags:
+        - Maintenance
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Number of purged records
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - purged
+                properties:
+                  purged:
+                    type: integer
+                    minimum: 0
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/maintenance/compact:
+    post:
+      summary: Compact storage
+      description: Compacts underlying storage layers (generic acknowledgement).
+      operationId: compactStorage
+      tags:
+        - Maintenance
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Compaction result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/maintenance/flush:
+    post:
+      summary: Flush pending writes
+      description: Forces pending WAL/memory writes down to durable storage.
+      operationId: flushStorage
+      tags:
+        - Maintenance
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Flush result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/maintenance/rebuild-index:
+    post:
+      summary: Rebuild indexes
+      description: Rebuilds secondary indexes (text/HNSW) for the database or a target namespace.
+      operationId: rebuildIndex
+      tags:
+        - Maintenance
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Rebuild result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/threads:
+    get:
+      summary: List threads
+      description: Lists conversation threads (paginated by `limit`).
+      operationId: listThreads
+      tags:
+        - Threads
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Thread list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      summary: Create thread
+      description: Creates a conversation thread with an optional title.
+      operationId: createThread
+      tags:
+        - Threads
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: Human-readable thread title
+      responses:
+        "200":
+          description: Created thread
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/threads/{id}:
+    get:
+      summary: Get thread
+      description: Fetches a conversation thread with its messages.
+      operationId: getThread
+      tags:
+        - Threads
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ThreadIdPath"
+      responses:
+        "200":
+          description: Thread contents
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      summary: Send message to thread
+      description: Appends a role-tagged message to the thread (auto-embedded).
+      operationId: sendThreadMessage
+      tags:
+        - Threads
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ThreadIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+                - content
+              properties:
+                role:
+                  type: string
+                content:
+                  type: string
+      responses:
+        "200":
+          description: Message stored
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      summary: Delete thread
+      description: Deletes a conversation thread and its messages.
+      operationId: deleteThread
+      tags:
+        - Threads
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ThreadIdPath"
+      responses:
+        "200":
+          description: Thread deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AckResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /conversation/add:
+    post:
+      summary: Add conversation turn
+      description: Legacy conversational ingestion endpoint (auto-selects or creates a thread).
+      operationId: conversationAdd
+      x-experimental: true
+      tags:
+        - Threads
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                thread_id:
+                  type: string
+                  nullable: true
+                  description: Target thread; omitted creates/reuses the default thread
+      responses:
+        "200":
+          description: Turn stored
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /skill/listing:
+    get:
+      summary: Skill listing
+      description: Lists skill-like records (capped at 200 items).
+      operationId: skillListing
+      x-experimental: true
+      tags:
+        - System
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        "200":
+          description: Skill entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/snapshots:
+    get:
+      summary: List snapshots
+      description: Returns snapshot names available on this database.
+      operationId: listSnapshots
+      tags:
+        - Maintenance
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Snapshot names
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/snapshots/{name}:
+    post:
+      summary: Create snapshot
+      description: Creates a named snapshot of the current database state.
+      operationId: createSnapshot
+      tags:
+        - Maintenance
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Snapshot created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AckResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/metrics:
+    get:
+      summary: Engine metrics (JSON)
+      description: Operational snapshot (`VantaOperationalMetrics`) plus per-namespace collection counts, for the web console.
+      operationId: engineMetrics
+      tags:
+        - System
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Engine metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metrics
+                  - namespaces
+                properties:
+                  metrics:
+                    type: object
+                    additionalProperties: true
+                  namespaces:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        count:
+                          type: integer
+                        expiring_soon:
+                          type: integer
+                        expired:
+                          type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -164,7 +1349,7 @@ components:
         Use the environment variable `VANTADB_API_KEY` to set the key.
 
   schemas:
-    # ── Requests ──
+    # ── Core requests ──
 
     QueryRequest:
       description: Payload for executing an IQL query.
@@ -176,6 +1361,234 @@ components:
           type: string
           description: IQL query string
           example: (memory:get "agent/main" "memory-1")
+
+    RecordInput:
+      description: Upsert payload mirroring the SDK `VantaMemoryInput`.
+      type: object
+      required:
+        - namespace
+        - key
+        - payload
+        - metadata
+        - vector
+        - ttl_ms
+      properties:
+        namespace:
+          type: string
+          description: Namespace to scope the record under
+        key:
+          type: string
+          description: Unique key within the namespace
+        payload:
+          type: string
+          description: Payload text content
+        metadata:
+          type: object
+          description: Arbitrary metadata key-value pairs
+          additionalProperties: true
+        vector:
+          type: array
+          nullable: true
+          items:
+            type: number
+            format: float
+          description: Optional dense embedding vector
+        sparse_vector:
+          description: Optional sparse term-weight vector (raw-keyword weights)
+          type: object
+          nullable: true
+          additionalProperties:
+            type: number
+            format: float
+        ttl_ms:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 0
+          description: Time-to-live in milliseconds from now; null means never expires
+
+    SearchPageRequest:
+      description: |
+        SDK hybrid-search request (`VantaMemorySearchRequest` fields flattened)
+        plus offset pagination. Empty `query_vector` skips dense search;
+        `text_query` drives BM25 lexical scoring.
+      type: object
+      required:
+        - namespace
+        - query_vector
+        - filters
+        - top_k
+        - distance_metric
+        - explain
+      properties:
+        namespace:
+          type: string
+        query_vector:
+          type: array
+          items:
+            type: number
+            format: float
+          description: Dense query vector; empty skips dense search
+        query_sparse:
+          description: Optional sparse query vector for sparse-dot similarity
+          type: object
+          nullable: true
+          additionalProperties:
+            type: number
+            format: float
+        filters:
+          type: object
+          description: Metadata key-value filters
+          additionalProperties: true
+        text_query:
+          type: string
+          nullable: true
+          description: Text query for BM25 lexical search
+        top_k:
+          type: integer
+          minimum: 1
+          default: 10
+        distance_metric:
+          type: string
+          enum: [Cosine, Euclidean, Dot]
+          default: Cosine
+        explain:
+          type: boolean
+          default: false
+          description: Include a `VantaSearchExplanation` per result
+        exclude_superseded:
+          type: boolean
+          default: false
+          description: Drop superseded records (ADR-028) from results
+        search_profile:
+          description: Optional search profile (mode, RRF k, candidate budget); null uses core defaults
+          type: object
+          nullable: true
+          additionalProperties: true
+        cursor:
+          type: integer
+          minimum: 0
+          description: Zero-based offset into the ranked result set (server-side pagination)
+        limit:
+          type: integer
+          minimum: 1
+          description: Page size; defaults to `top_k`
+
+    ExportRequest:
+      description: Body for `POST /api/v2/export`.
+      type: object
+      required:
+        - path
+      properties:
+        path:
+          type: string
+          description: Target path for the export file (JSONL)
+        namespace:
+          type: string
+          nullable: true
+          description: When present, exports only this namespace
+        filter:
+          description: Optional AND-combined metadata filter applied to exported records
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+
+    ImportRequest:
+      description: Body for `POST /api/v2/import`. `records` and `path` are mutually exclusive.
+      type: object
+      properties:
+        records:
+          type: array
+          nullable: true
+          description: Inline records to import (export wire format)
+          items:
+            type: object
+            additionalProperties: true
+        path:
+          type: string
+          nullable: true
+          description: Path to a JSONL export or `.vdbdump` bulk file
+        format:
+          type: string
+          nullable: true
+          enum: [jsonl, bulk]
+          description: File format when `path` is set; default jsonl
+
+    # ── Generic envelopes ──
+
+    AckResponse:
+      description: Generic success envelope returned by write endpoints.
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        data:
+          description: Endpoint-specific payload (count, id, etc.)
+          nullable: true
+
+    RecordEnvelope:
+      description: Single-record response envelope (`{success, data|error}`).
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        data:
+          description: Record wire shape (namespace/key/payload/metadata/vector/ttl)
+          type: object
+          nullable: true
+          additionalProperties: true
+
+    ListPageResponse:
+      description: Cursor-paginated record list.
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        records:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        next_cursor:
+          type: string
+          nullable: true
+
+    SearchPageResponse:
+      description: Offset-paginated search results mirroring `VantaMemoryListPage`.
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        records:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        next_cursor:
+          type: string
+          nullable: true
 
     # ── Responses ──
 
@@ -407,9 +1820,39 @@ components:
               type: integer
               description: Seconds to wait before retrying (also set in Retry-After header)
 
+  # ── Request bodies ──
+
+  requestBodies:
+    GraphTraversalBody:
+      description: |
+        Generic graph request envelope: root node ids plus optional options
+        (max depth, edge-label filter, etc.). Exact keys vary per algorithm.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - roots
+            properties:
+              roots:
+                type: array
+                items:
+                  type: string
+                description: Root node ids to start from
+
   # ── Reusable responses ──
 
   responses:
+    GraphNodeList:
+      description: Traversed nodes in visit order
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/NodeDTO"
+
     BadRequest:
       description: Invalid request (parse error, malformed query, etc.)
       content:
@@ -484,6 +1927,27 @@ components:
   # ── Parameters ──
 
   parameters:
+    NamespacePath:
+      name: ns
+      in: path
+      required: true
+      description: Record namespace
+      schema:
+        type: string
+    KeyPath:
+      name: key
+      in: path
+      required: true
+      description: Record key within the namespace
+      schema:
+        type: string
+    ThreadIdPath:
+      name: id
+      in: path
+      required: true
+      description: Thread identifier
+      schema:
+        type: string
     AuthorizationHeader:
       name: Authorization
       in: header

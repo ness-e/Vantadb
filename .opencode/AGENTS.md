@@ -654,3 +654,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: MEM-47 — 2026-08-22 -->
 - Hash-based fake embeddings para tests: dimensiones bajas (8) dan E[|cos|]~1/sqrt(d)=0.35 justo en el umbral de filtrado, y un shift >>33 sobre u64 produce solo 31 bits -> rango [0,0.5) y vectores sesgados a un octante (cos 0.7-0.85 entre "aleatorios"). Usar >=64 dims + mask de 32 bits + componentes zero-centered.
 - rustc 0xc0000409 puede dejar fingerprints/rlibs fantasma que fallan con E0463 "can't find crate" en builds posteriores: la cura no es reintentar sino borrar target\debug\deps\lib<crate>* + target\debug\.fingerprint\<crate>* y recompilar.
+
+<!-- Learnings: GOV-B4 — 2026-08-22 -->
+- El parity check openapi↔router sin deps se resuelve con un scanner de parens sobre `.route(` (regex sola rompe con chains multi-line `get(h).post(h2)`); el yaml se lee por indentación (2-space paths, 4-space methods) en vez de parsear YAML completo — contract-first: el formato del archivo ES parte del contrato del script.
+- Los `description:` de YAML no pueden contener `key: value` literal sin comillas (`format: "bulk"` dentro de un string → ScannerError "mapping values are not allowed here"); envolver en single quotes.
