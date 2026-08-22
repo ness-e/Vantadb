@@ -89,6 +89,7 @@ Tests are organized in `tests/` (core crate) by category:
 ## Coverage
 
 - **CI threshold**: root crate `vantadb` ≥80% line (gate canónico ADR-018/COV-004, baseline 81.40%; workspace aggregate solo reportado). Cifra medida local: PENDIENTE re-medición — llvm-cov ICE Windows 2026-08-22 (ticket GOV-A1).
+- **Cifra canónica de tests**: 2034 tests / 2034 passed / 1 skipped — cargo nextest run (perfil default, excluye heavy), Windows local, 2026-08-22. Cifras históricas (1492/1902/2568+) son snapshots anteriores con perfiles distintos.
 - **Coverage exclusions**: `tests/`, `benches/`, `packages/experimental`, `crash_injection` source
 - **Report**: Generated to `lcov.info` artifact in CI
 
