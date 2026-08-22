@@ -173,7 +173,7 @@ pub const RECALL_PREPEND_MARKER: &str = "_recallDynamicContext";
 pub const RECALL_APPEND_MARKER: &str = "_recallStableContext";
 
 /// Output of [`assemble_with_recall`].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct IntegratedContext {
     pub messages: Vec<ChatMessage>,
     /// Report of the compaction pass that ran inside [`assemble`].

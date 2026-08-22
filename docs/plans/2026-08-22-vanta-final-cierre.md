@@ -1,8 +1,8 @@
 # Plan de Ejecución: Vanta Cierre Final — integración, recall semántico y gobierno de decisiones
 
-> **Campaign ID:** (asignado por MCP al primer update_task_state)
+> **Campaign ID:** 0129fca7-0fcf-413d-aa61-7db6ba861450
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (0/8 tareas)
+> **Estado: completed
 > **Fuente:** auditoría final post-P30 (vanta-research `ses_fd8c2c26`, 2026-08-22) + decisiones del usuario (2026-08-21/22) + deudas vigentes de task files
 > **Predecesores:** P27 F1-F4 ✅ 24/24 · P29 F5 ✅ 9/9 · P30 F6+F7 ✅ 9/9 — **roadmap TDAM F1-F7 cerrado**, suites 2568+ tests
 > **Modo:** waves — Wave 0 (integraciones y tests independientes) → Wave 1 (embeddings fundación) → Wave 2 (semantic recall + scoring) → Wave 3 (gobierno humano + meta-tarea).
@@ -48,7 +48,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
   | 🟢×🟡 | orden de fases ambiguo | test e2e assertiona orden L0→L1→L2→L3→compress→recall | primer test |
 - **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 3 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-43.md`
 - **Notas:** Ruta: vanta-worker. Auditoría: ses_fd8c2c26 hallazgo C3.
 
@@ -215,11 +215,11 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: cierre final del port TDAM — wiring context engine, roundtrip wiki, auto-sync, recall semántico con embeddings, scoring real, gobierno ADR humano, meta-plan bindings
+Objetivo activo: MEM-43 — wire context engine → pipeline worker como fase post-L3 productiva
 Estado: pending ⏳
-Última acción: plan creado 2026-08-22 desde auditoría final ses_fd8c2c26 + decisiones usuario (wire/potar/semántico-ahora/sin-release/ADR-en-plan/bindings-separado)
-Resultado: —
-Próxima acción: `/pipeline run docs/plans/2026-08-22-vanta-final-cierre.md` (Wave 0: Tasks 1-3 + 8)
+Última acción: Wiring completo: ContextAssemblyConfig{enabled:true default, budget_tokens:8192} + builder with_context_config + run_context_assembly en handle() TaskKind::L3 (run_l3 → assembly si enabled) + load_assembled_context reader; IntegratedContext gana derives serde; 2 tests D19 en e2e_flow.rs. Verify 4/4 exit 0.
+Resultado: OK
+Próxima acción: Orquestador: commit de los 4 archivos tocados y lanzar Task 2 del plan via /pipeline task
 Contrato: por tarea — cargo check/nextest/fmt/clippy del crate tocado exit 0 + tests D19
-Próxima tarea si completa: Task 1 (MEM-43)
+Próxima tarea si completa: Task 2 del plan 2026-08-22-vanta-final-cierre.md
 === END RECITATION ===

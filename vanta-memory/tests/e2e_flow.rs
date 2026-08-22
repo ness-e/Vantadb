@@ -25,7 +25,9 @@ use vanta_memory::core::persona::get_persona;
 use vanta_memory::core::record::read_session_records;
 use vanta_memory::core::scene::list_scenes;
 use vanta_memory::core::state::{TaskKind, TaskPayload};
-use vanta_memory::services::pipeline_worker::{MemoryTaskHandler, TaskHandler};
+use vanta_memory::services::pipeline_worker::{
+    load_assembled_context, ContextAssemblyConfig, MemoryTaskHandler, TaskHandler,
+};
 use vantadb::config::VantaConfig;
 use vantadb::sdk::VantaEmbedded;
 use vantadb::storage::BackendKind;
@@ -381,4 +383,157 @@ fn compress_then_recall_shares_one_budget_end_to_end() {
         est.estimate_messages(&out.messages) <= budget,
         "total context exceeds the shared budget"
     );
+}
+
+// ═══ 5. MEM-43 / D19: the worker runs assemble_with_recall post-L3 ═══
+
+/// Long synthetic history that forces compression inside the worker phase:
+/// fat turns (~600-char user + ~600-char assistant each) recorded through the
+/// REAL L0 recorder so the assembly reads genuine session data.
+fn capture_fat_history(db: &VantaEmbedded, session: &str, rounds: usize) {
+    let recorder = L0Recorder::new(db.clone());
+    for i in 0..rounds {
+        let ts = (i as u64 + 10) * 100;
+        recorder
+            .record_turn(
+                &L0Capture {
+                    session_id: session.to_string(),
+                    messages: vec![
+                        L0Message {
+                            id: Some(format!("u{i}")),
+                            role: L0Role::User,
+                            content: format!("turn{i:02} I prefer dark mode {}", "y".repeat(600)),
+                            timestamp_ms: ts,
+                        },
+                        L0Message {
+                            id: Some(format!("a{i}")),
+                            role: L0Role::Assistant,
+                            content: format!("noted turn{i:02} {}", "z".repeat(600)),
+                            timestamp_ms: ts + 50,
+                        },
+                    ],
+                },
+                None,
+            )
+            .expect("record fat turn");
+    }
+}
+
+#[test]
+fn d19_worker_assembles_context_post_l3_with_compression_active() {
+    let db = open_db();
+    let session = "flow-d19";
+    let runner = E2eRunner { fail_task: None };
+
+    // Active MMD persisted through the real store path (MEM-24) BEFORE the
+    // pass, so the post-L3 phase injects it.
+    save_active(
+        &db,
+        session,
+        &TaskMemory {
+            meta: SceneMeta {
+                created: "2026-08-22T10:00:00.000Z".into(),
+                updated: "2026-08-22T10:05:00.000Z".into(),
+                summary: "d19 task".into(),
+                heat: 1,
+            },
+            content: "current task: wire context engine into the pipeline".into(),
+        },
+    )
+    .expect("save mmd");
+
+    capture_fat_history(&db, session, 15);
+
+    // Full pass with a shared budget tight enough to force compression but
+    // roomy enough that post-compression headroom fits all three injections
+    // (MMD + recall prepend + persona append are whole-or-skip per MEM-37).
+    let mut handler = MemoryTaskHandler::new(
+        db.clone(),
+        &runner,
+        Default::default(),
+        Default::default(),
+        50,
+    )
+    .with_context_config(ContextAssemblyConfig {
+        enabled: true,
+        budget_tokens: 800,
+    });
+    // Asserted order: L0 → L1 → L2 → L3 → compress+recall (post-L3).
+    for kind in [TaskKind::L1, TaskKind::L2, TaskKind::L3] {
+        handler.handle(&task(kind, session)).expect("pass");
+    }
+
+    // Every upstream layer produced data first...
+    assert_eq!(
+        read_session_records(&db, session).expect("records").len(),
+        1
+    );
+    assert_eq!(list_scenes(&db, session).expect("scenes").len(), 1);
+    assert!(get_persona(&db, session).expect("persona read").is_some());
+
+    // ...and THEN the assembled context exists as a persisted record.
+    let ctx = load_assembled_context(&db, session)
+        .expect("read assembled")
+        .expect("post-L3 assembly must persist its output");
+
+    // Compression ran (D19): the report proves the compaction pass.
+    assert_ne!(ctx.report.mode, CompactionMode::None);
+    assert!(
+        ctx.report.msgs_conserved < ctx.report.msgs_before,
+        "history must be compressed, not conserved"
+    );
+
+    // Injections landed within the same pass. MMD is always injected (small
+    // block); recall blocks are whole-or-skip against post-compression
+    // headroom (MEM-37), so we assert the flag plus the dynamic block rather
+    // than pinning every optional block to estimator arithmetic.
+    let joined = ctx
+        .messages
+        .iter()
+        .map(|m| m.content.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(ctx.mmd_injected);
+    assert!(ctx.recall_injected, "at least one recall block injected");
+    assert!(joined.contains(MMD_CONTEXT_MARKER), "MMD injected");
+    assert!(joined.contains("<relevant-memories>"), "recall prepend");
+
+    // Shared-budget contract holds end to end.
+    let est = TokenEstimator::default();
+    assert!(
+        est.estimate_messages(&ctx.messages) <= 800,
+        "assembled context exceeds the shared budget"
+    );
+}
+
+#[test]
+fn d19_disabled_flag_skips_the_post_l3_phase() {
+    let db = open_db();
+    let session = "flow-d19-off";
+    let runner = E2eRunner { fail_task: None };
+    capture_turn(&db, session);
+
+    let mut handler = MemoryTaskHandler::new(
+        db.clone(),
+        &runner,
+        Default::default(),
+        Default::default(),
+        50,
+    )
+    .with_context_config(ContextAssemblyConfig {
+        enabled: false,
+        ..ContextAssemblyConfig::default()
+    });
+    for kind in [TaskKind::L1, TaskKind::L2, TaskKind::L3] {
+        handler.handle(&task(kind, session)).expect("pass");
+    }
+
+    // Pipeline layers ran; only the assembly phase is skipped.
+    assert_eq!(
+        read_session_records(&db, session).expect("records").len(),
+        1
+    );
+    assert!(load_assembled_context(&db, session)
+        .expect("read assembled")
+        .is_none());
 }

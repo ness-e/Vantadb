@@ -12,8 +12,12 @@
 //! Not ported from TDAM: multi-worker pending recovery, `claimStaleTasks`,
 //! Prometheus metrics (single-process scope).
 
+use crate::context_engine::{
+    assemble_with_recall, load_active, AssembleConfig, ChatMessage, ChatRole, TokenEstimator,
+};
 use crate::core::abstractions::LlmRunner;
-use crate::core::conversation::L0Recorder;
+use crate::core::conversation::{L0Recorder, L0Role};
+use crate::core::hooks::{perform_auto_recall, AutoRecallParams, RecallConfig};
 use crate::core::persona::{
     evaluate_persona_trigger, generate_persona, get_persona, has_persona_body,
     PersonaGenerateParams,
@@ -24,9 +28,11 @@ use crate::core::record::{
 };
 use crate::core::scene::{extract_scenes_with_llm, list_scenes, SceneMemoryInput};
 use crate::core::state::{TaskKind, TaskPayload};
+use crate::offload::state_manager::OffloadStateManager;
 use crate::utils::checkpoint::CheckpointManager;
 use crate::utils::local_backend::LocalStateBackend;
 use crate::utils::managed_timer::Clock;
+use crate::utils::sanitize::sanitize_key;
 
 /// Handles one task. Errors are retryable; after `max_retries` the task is
 /// dead-lettered.
@@ -69,6 +75,30 @@ pub struct RunStats {
     pub processed: usize,
     pub failed: usize,
     pub skipped_locked: usize,
+}
+
+/// Configuration of the post-L3 context-assembly phase (MEM-43).
+///
+/// The worker is ONE caller of [`assemble_with_recall`]; external hosts keep
+/// calling it directly — this phase makes the engine productive inside the
+/// L0→L3 cycle without changing its API.
+#[derive(Debug, Clone)]
+pub struct ContextAssemblyConfig {
+    /// Master switch (`context_compression_enabled`): when `false` the
+    /// handler skips assembly entirely (no silent-compression surprise).
+    pub enabled: bool,
+    /// Shared token budget for compress → MMD → recall (MEM-37 contract:
+    /// the union is guaranteed ≤ budget).
+    pub budget_tokens: u64,
+}
+
+impl Default for ContextAssemblyConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            budget_tokens: 8192,
+        }
+    }
 }
 
 /// Task consumer over a [`LocalStateBackend`].
@@ -168,6 +198,7 @@ pub struct MemoryTaskHandler<'a, R: LlmRunner> {
     extractor_config: L1ExtractorConfig,
     dedup_config: L1DedupConfig,
     trigger_every_n: usize,
+    context_config: ContextAssemblyConfig,
 }
 
 impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
@@ -184,7 +215,15 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
             extractor_config,
             dedup_config,
             trigger_every_n,
+            context_config: ContextAssemblyConfig::default(),
         }
+    }
+
+    /// Override the post-L3 context-assembly configuration (builder-style).
+    /// `new()` keeps its signature so existing callers are untouched.
+    pub fn with_context_config(mut self, config: ContextAssemblyConfig) -> Self {
+        self.context_config = config;
+        self
     }
 
     fn run_l1(&mut self, session_id: &str) -> Result<(), String> {
@@ -345,6 +384,100 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
             .map(|_| ())
             .map_err(|e| e.to_string())
     }
+
+    /// Post-L3 context assembly (MEM-43): runs [`assemble_with_recall`] over
+    /// the session history — compress → inject active MMD → inject recall
+    /// blocks — against ONE shared token budget, and persists the assembled
+    /// context under `context/<session>` key `__assembled` (read it back with
+    /// [`load_assembled_context`]).
+    ///
+    /// LLM-free by construction (the engine never calls the runner), so the
+    /// only failures are store-level and propagate into the worker's
+    /// retry/dead-letter path (Principio 4 — nothing partial is written: the
+    /// record is a single upsert).
+    fn run_context_assembly(&self, session_id: &str) -> Result<(), String> {
+        let l0 = L0Recorder::new(self.db.clone())
+            .read_messages(session_id)
+            .map_err(|e| format!("L0 read failed: {e}"))?;
+        let msgs: Vec<ChatMessage> = l0
+            .iter()
+            .map(|m| ChatMessage {
+                role: match m.role {
+                    L0Role::User => ChatRole::User,
+                    L0Role::Assistant => ChatRole::Assistant,
+                },
+                content: m.content.clone(),
+                id: m.id.clone().map(|s| sanitize_key(&s)),
+            })
+            .collect();
+
+        let active_mmd = load_active(&self.db, session_id)
+            .map_err(|e| format!("active MMD load failed: {e}"))?;
+
+        // Recall query: what the user last asked — the natural "what would
+        // the host need injected next" signal. Empty session → empty query,
+        // which `perform_auto_recall` treats as skip-L1-search.
+        let query = l0
+            .iter()
+            .rev()
+            .find(|m| m.role == L0Role::User)
+            .map(|m| m.content.as_str())
+            .unwrap_or("");
+        let recalled = perform_auto_recall(
+            &self.db,
+            AutoRecallParams {
+                user_text: query,
+                session_key: session_id,
+                isolation: None,
+                config: RecallConfig::default(),
+            },
+        )
+        .map_err(|e| format!("auto-recall failed: {e}"))?;
+        let (prepend, append) = match recalled {
+            Some(r) => (r.prepend_context, r.append_system_context),
+            None => (None, None),
+        };
+
+        let cursor = OffloadStateManager::new(self.db.clone())
+            .last_offloaded_tool_call_id(session_id)
+            .map_err(|e| format!("offload cursor read failed: {e}"))?;
+
+        let out = assemble_with_recall(
+            msgs,
+            self.context_config.budget_tokens,
+            &TokenEstimator::default(),
+            0,
+            &AssembleConfig::default(),
+            active_mmd,
+            prepend.as_deref(),
+            append.as_deref(),
+            cursor.as_deref(),
+        )
+        .map_err(|e| format!("context assembly failed: {e}"))?;
+        tracing::debug!(
+            session = %session_id,
+            mode = ?out.report.mode,
+            msgs_before = out.report.msgs_before,
+            msgs_conserved = out.report.msgs_conserved,
+            mmd_injected = out.mmd_injected,
+            recall_injected = out.recall_injected,
+            "context assembled post-L3"
+        );
+
+        let payload = serde_json::to_string(&out).map_err(|e| e.to_string())?;
+        self.db
+            .put(vantadb::sdk::VantaMemoryInput {
+                namespace: assembled_namespace(session_id),
+                key: sanitize_key(ASSEMBLED_KEY),
+                payload,
+                metadata: vantadb::sdk::VantaMemoryMetadata::new(),
+                vector: None,
+                sparse_vector: None,
+                ttl_ms: None,
+            })
+            .map(|_| ())
+            .map_err(|e| format!("assembled context write failed: {e}"))
+    }
 }
 
 impl<'a, R: LlmRunner> TaskHandler for MemoryTaskHandler<'a, R> {
@@ -352,8 +485,51 @@ impl<'a, R: LlmRunner> TaskHandler for MemoryTaskHandler<'a, R> {
         match task.kind {
             TaskKind::L1 | TaskKind::Flush => self.run_l1(&task.session_id),
             TaskKind::L2 => self.run_l2(&task.session_id),
-            TaskKind::L3 => self.run_l3(&task.session_id),
+            // L3 runs first; the context-assembly phase is strictly post-L3
+            // (order asserted by the D19 e2e test).
+            TaskKind::L3 => {
+                self.run_l3(&task.session_id)?;
+                if self.context_config.enabled {
+                    self.run_context_assembly(&task.session_id)?;
+                }
+                Ok(())
+            }
         }
+    }
+}
+
+/// Assembled-context record key inside `context/<session>`.
+const ASSEMBLED_KEY: &str = "__assembled";
+
+/// `context/<sanitized-session>` — assembled-context records namespace.
+fn assembled_namespace(session_id: &str) -> String {
+    format!(
+        "context/{}",
+        crate::utils::sanitize::sanitize_component(session_id, 128, false)
+    )
+}
+
+/// Read back the last persisted post-L3 assembly for a session. Missing or
+/// corrupt record → `None` (never fatal, mirrors `load_active`).
+pub fn load_assembled_context(
+    db: &vantadb::sdk::VantaEmbedded,
+    session_id: &str,
+) -> Result<Option<crate::context_engine::IntegratedContext>, String> {
+    match db
+        .get(
+            &assembled_namespace(session_id),
+            &sanitize_key(ASSEMBLED_KEY),
+        )
+        .map_err(|e| format!("assembled context read failed: {e}"))?
+    {
+        None => Ok(None),
+        Some(record) => match serde_json::from_str(&record.payload) {
+            Ok(ctx) => Ok(Some(ctx)),
+            Err(err) => {
+                tracing::warn!(session = %session_id, "corrupt assembled context, ignoring: {err}");
+                Ok(None)
+            }
+        },
     }
 }
 
