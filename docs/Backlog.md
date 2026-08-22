@@ -15,7 +15,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 > **Verification method:** All items cross-checked against actual codebase (Jul 27, 2026). 8 tareas ejecutadas en sesión: TSK-106, MKT-03, NUEVO-21, MKT-04, TSK-107, DISC-02, DISC-03, Good first issues (18 creadas).
 > **Sync 2026-08-06:** 30 tareas ejecutadas por el plan `docs/plans/2026-08-05-backlog-validation-actions.md` tachadas y migradas a `docs/progreso/README.md`: AUDIT-01/03/04, DEBT-01, TECH-01..08, AUDIT-05/08, NUEVO-01, MKT-10/16, AUD-001..011 (AUD-010 fusionada en TECH-04/ADR-012), GH-123/141.
 > **Sync 2026-08-07:** 214 filas completadas eliminadas del backlog (210 IDs únicos) — migradas/verificadas en `docs/progreso/README.md` y `docs/progreso/BACKLOG_HISTORY.md`. Quedan 35 tareas activas (ver Exec Summary).
-> **Total open items:** ~24 activas — previas (DISC-01..03, LEG-01, BIZ-01b, OLD-01, DESKTOP-15..27, [ADMIN-XX pending W4]) + P15 residuales (ERR-006/007/008/009/015/026/031/032/033/036/037/042/043/044/045/047/048/049) + P16 residuales (PERF-07/08/09, CI-01) + **P25 (MCP-16..26) + P26 (VS-00..11 + VS-CORE-01..07)**. P15/P16 principales ejecutadas por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` (49/49 ✅). P19 CI batch (CI-02..07) ejecutado y migrado 2026-08-12 — plan archivado `docs/plans/archive/2026-08-12-ci-deuda.md`. Origen: investigación multi-agente 2026-08-09 → `docs/Investigaciones/investigacion-equipo-2026-08-09.md`
+> **Total open items:** ~45 activas (conteo real 2026-08-22; regla GOV-C7: actualizar contando filas pendientes en cada sync) — previas (DISC-01..03, LEG-01, BIZ-01b, OLD-01, DESKTOP-15..27, [ADMIN-XX pending W4]) + P15 residuales (ERR-006/007/008/009/015/026/031/032/033/036/037/042/043/044/045/047/048/049) + P16 residuales (PERF-07/08/09, CI-01) + **P25 (MCP-16..26) + P26 (VS-00..11 + VS-CORE-01..07)**. P15/P16 principales ejecutadas por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` (49/49 ✅). P19 CI batch (CI-02..07) ejecutado y migrado 2026-08-12 — plan archivado `docs/plans/archive/2026-08-12-ci-deuda.md`. Origen: investigación multi-agente 2026-08-09 → `docs/Investigaciones/investigacion-equipo-2026-08-09.md`
 > **Nuevo 2026-08-18:** **P26 Vanta Studio** creada (17 tareas) desde investigación `docs/research/human-facing-db-ui/` + decisiones del usuario (Fase 0 completa, solo desktop, estética manga/linocut, R3F para grafo, MARK variante desktop). Plan: `docs/plans/2026-08-18-vanta-studio-fase0.md`. Historial+Diff en espera hasta VS-CORE-07 (retención de versiones). Auditoría multi-agente 2026-08-18 → 19 tareas finales (VS-10/VS-11 nuevos, re-scopes VS-CORE-01/03/06, dark palette, DEFERs ampliados).
 > **Nuevo 2026-08-18:** **P27 Vanta Memory Engine** creada (38 tareas MEM-01..38) desde investigación TDAM `docs/research/tdam/` (9 reportes verificados + SYNTHESIS, orden F1–F7) — análisis multi-agente (3× vanta-research). Plan: `docs/plans/2026-08-18-vanta-memory.md`.
 > **Sync 2026-08-09:** plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` archivado — 49/49 tareas delegables completadas (Wave 0-3: RELEASE-01/02/03, SEC-01, 24 ERR, 7 FEAT, REVISAR-01, COV-001/003/004, PERF-01/04/06, DOC-02..08). RELEASE-02 verificado live: 0.5.0 publicado (crates.io/PyPI/npm/GitHub 2026-08-01). Filas completadas eliminadas de P15/P16; residuales siguen activas. Task 50 COM-02/03 (humana) queda en la tabla.
@@ -425,7 +425,8 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 ## Referencias Cruzadas
 
-- **RC items:** `docs/reviews/PROJECT_FULL_REVIEW_2026-07-13.md` (generado por `vantadb-full-review` skill)
+- **RC items:** PROJECT_FULL_REVIEW_2026-07-13 (ARCHIVADO - generado por vantadb-full-review; ver docs/reviews/)
+> **Nota GOV-C3 2026-08-22:** los reportes citados en esta seccion (audit-reports/*, REPORTE_EVALUACION_COMPLETO.md, FULL_CODEBASE_AUDIT_2026-07-11, PROJECT_FULL_REVIEW_2026-07-13) fueron disueltos/archivados; contenido procesado en docs/reviews/ y BACKLOG_HISTORY.md. Rutas = referencia historica.
 - **REV items:** `docs/reviews/2026-07-13-full-review.md`
 - **DRV findings:** `docs/plans/2026-07-15-cross-ref-docs-vs-code.md` + `docs/audit-reports/cross-ref-wave3-final-report.md`
 - **OLD items:** `docs/REPORTE_EVALUACION_COMPLETO.md` secciones 6 y 7 — ~280 archivos VANTADB DOC OLD analizados
@@ -743,3 +744,15 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | `BND-01` | **Colateral SDKB-02: LinkError wasm pkg snippet idb.rs** — el pkg WASM gitignored tiene un LinkError pre-existente en HEAD (snippet `idb.rs` sin export vs import del `.wasm`); parche local al pkg lo esquivó en tests. Fix Rust real → dueño vanta-arch/engine. Detectado en SDKB-02 (P32). | `vantadb-wasm/src/`, `web/public/vanta-wasm/` | 🟡 | 🟠 | ❌ Pendiente |
 | `BND-02` | **Colateral SDKB-02: drift types.ts ↔ pkg topological_sort** — los tipos escritos a mano de `vantadb-ts/src/types.ts` divergen del `.d.ts` regenerado del pkg para `topological_sort`. Regla VS-CORE-05: generar, nunca editar a mano. Detectado en SDKB-02 (P32). | `vantadb-ts/src/types.ts` | 🟢 | 🟡 | ❌ Pendiente |
+
+## P29 / P30 / P31 — Campañas TDAM finales (cerradas; registro 2026-08-22, GOV-C2)
+
+> **GOV-C2:** estas campañas vivían solo en plan files sin reflejo en el Backlog. Registro compacto:
+
+| Fase | Alcance | Estado | Plan / Evidencia |
+|------|---------|--------|------------------|
+| **P29** | MEM-22..24+37..42 (F5 context engine + offload) | ✅ Cerrada 9/9 | docs/plans/archive/ (vanta-context-engine); progreso README §P29 |
+| **P30** | vanta-proxy + wiki knowledge (MEM-25..34, F6-F7) | ✅ Cerrada 9/9 | 48016b89 previos; commits eb354c0d..11d443cd; progreso README:315 |
+| **P31** | Cierre final: wiring MEM-43, roundtrip MEM-44, auto-sync MEM-45, embeddings, ADR humano | ✅ 8/8 cerrada 2026-08-22 | plan 2026-08-22-vanta-final-cierre.md; commits a0bcb112, 785db22c, f76502b2 |
+
+> Sucesor directo activo: campaña **SDKB Bindings SDK** (docs/plans/2026-08-22-vantadb-bindings-sdk.md) — MEM-36 sub-clientes.

@@ -11,7 +11,7 @@ aliases: [Roadmap, Milestones, Engineering Plan, Timeline, Plan de Acción]
 
 # VantaDB — Roadmap de Ejecución
 
-> **Backlog fuente:** [`docs/Backlog.md`](../Backlog.md) — **24 items abiertos** (re-verificado 2026-08-17; el conteo "165" de este documento quedó obsoleto tras el triage R5 ejecutado 2026-08-07)
+> **Backlog fuente:** [`docs/Backlog.md`](../Backlog.md) — **~45 items abiertos** (conteo real GOV-C7 2026-08-22, regla de sync en Backlog header; el "165" original y el "~24" intermedio quedaron obsoletos)
 > **Última revisión del proyecto:** 2026-07-16 (537 commits desde el roadmap anterior)
 > **⚠️ REVISIÓN 2026-08-17 (verificación multi-agente):** Este roadmap es **histórico** — las fases Sem 1-16 ya se ejecutaron (versión real **0.5.0** publicada 2026-08-01, no 0.2.0; ver `docs/Backlog.md` P0). Los riesgos R2/R5/R8 están **resueltos**; R4 (MSVC linker) y R6/R7 (SQ8, HNSW rebuild) **siguen vigentes** (ver tabla de riesgos). El estado actual de ejecución vive en `docs/Backlog.md` + `docs/progreso/README.md`; este documento se conserva como registro del plan original y de decisiones arquitectónicas (§6).
 > **Estas fuentes fueron analizadas para este roadmap:**

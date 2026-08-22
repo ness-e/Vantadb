@@ -40,3 +40,16 @@
 | [legacy-docs-investigacion-2026-07-16.md](../archive/legacy-docs-investigacion-2026-07-16.md) | Docs legacy de investigación (2026-07-16) |
 
 > Optional: `docs/backlog-futuro.md` vive suelto en la raíz de `docs/` (no archivado); plan Open Core archivado en `docs/plans/archive/2026-08-06-oc-vantadb-pro.md`.
+
+## Adiciones GOV-C5 (2026-08-22)
+
+| Document | Description |
+|----------|-------------|
+| [chaos-testing.md](chaos-testing.md) | Chaos/failpoint testing guide (failpoint paths vigentes) |
+| [ci-cd-guide.md](ci-cd-guide.md) | CI/CD setup and operations guide |
+| [TEST_MAP.md](TEST_MAP.md) | Test map: qué suite correr por cambio (cifra canónica de tests) |
+| [pilot-agreement-template.md](pilot-agreement-template.md) | Pilot program agreement template |
+| [pilot-feedback-template.md](pilot-feedback-template.md) | Pilot feedback collection template |
+| [pilot-onboarding-checklist.md](pilot-onboarding-checklist.md) | Pilot onboarding checklist |
+
+> Regla (GOV-C5): todo doc nuevo en operations/ se agrega a este índice en el mismo PR. Este archivo se auto-indexa (master-index.md).
