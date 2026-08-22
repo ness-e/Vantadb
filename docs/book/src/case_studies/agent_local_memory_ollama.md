@@ -1,1 +1,1 @@
-{{#include ../../../case_studies/agent_local_memory_ollama.md}}
+ARCHIVED - see docs/archive/case-studies-unverified/ (internal only, unverified).

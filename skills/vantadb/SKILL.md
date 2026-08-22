@@ -639,7 +639,7 @@ db.flush()
 - **Agent Memory:** `examples/python/agent_memory.py`
 - **LangChain RAG (Ollama):** `examples/python/langchain_ollama_rag.py`
 - **More integrations:** `examples/python/` (autogen, crewai, dspy, haystack, langgraph, mem0, semantic_kernel)
-- **Case Studies:** `docs/case_studies/`
+- Case Studies: archivados en `docs/archive/case-studies-unverified/` (internos, no verificados)
 
 ### Integration Packages
 
