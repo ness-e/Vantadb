@@ -190,7 +190,7 @@ aliases: [DESKTOP]
 ---
 
 ## Fuentes
-- `docs/progreso/README.md` §Detalle de Tareas Completadas (DESKTOP-01..11) / snapshot-2026-08-07.
+- `docs/progreso/campanas/admin-desktop.md` (split GOV-D2) / snapshot-2026-08-07.
 - `docs/Investigaciones/DESKTOP-01-tauri-plataforma-desktop.md`.
 
 ### ERR-015 (shutdown gracioso) — migrado 2026-08-12 (ver docs/progreso/README.md)

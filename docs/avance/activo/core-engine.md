@@ -26,7 +26,7 @@ aliases: []
 ### MEM-01..21 (+08a/08b, 34, 35): Campaña P27 completa — F1-F4
 - **Fecha:** 2026-08-18 → 2026-08-20
 - **Objetivo:** Port de TDAM a VantaDB — search profile por request (IQL `PROFILE`), entidades entity_* + RBAC allow-only, auth 3 capas + audit JSONL, skills multi-versión + tools MCP, y crate nuevo `vanta-memory/` (L0 capture → L1 extract/dedup → L2 escenas → L3 persona → recall 3 modos → offload → gateway), LLM-driven vía trait host-neutral `LlmRunner` con degradación LLM-free (Principio 4).
-- **Resultado:** ✅ 24/24 tareas. Suite final 361/361 tests en vanta-memory; fmt/clippy `-D warnings` limpios. Registro completo: `docs/progreso/README.md` § Progreso Reciente. Plan: `docs/plans/archive/2026-08-18-vanta-memory.md`.
+- **Resultado:** ✅ 24/24 tareas. Suite final 361/361 tests en vanta-memory; fmt/clippy `-D warnings` limpios. Registro completo: `docs/progreso/campanas/p27-memory-engine.md` (split GOV-D2). Plan: `docs/plans/archive/2026-08-18-vanta-memory.md`.
 - **Ids:** `MEM-01`..`MEM-21`, `MEM-34`, `MEM-35`
 
 ---

@@ -658,3 +658,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: GOV-B4 — 2026-08-22 -->
 - El parity check openapi↔router sin deps se resuelve con un scanner de parens sobre `.route(` (regex sola rompe con chains multi-line `get(h).post(h2)`); el yaml se lee por indentación (2-space paths, 4-space methods) en vez de parsear YAML completo — contract-first: el formato del archivo ES parte del contrato del script.
 - Los `description:` de YAML no pueden contener `key: value` literal sin comillas (`format: "bulk"` dentro de un string → ScannerError "mapping values are not allowed here"); envolver en single quotes.
+
+<!-- Learnings: GOV-D2 - 2026-08-22 -->
+- Split de monolitos por rangos de linea verificados en DISCOVERY (headers rg + lectura de las 60 fronteras) permite mover 4335 lineas sin perder una sola: cobertura mecanica comprobada con HashSet de lineas antes de escribir.
+- Al mover markdown a un subdirectorio nuevo, los links relativos `](../` necesitan un nivel mas (`](../../`): correccion regex en el script de split, no edicion manual; las citas historicas con backticks (paths y `file:line`) no se tocan porque son evidencia congelada.
