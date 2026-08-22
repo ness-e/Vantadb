@@ -24,9 +24,9 @@ and not binary(property_durability) \
 and not binary(schema_evolution) \
 and not binary(text_index_recovery) \
 and not binary(wal_resilience) \
-and not binary(python_sdk_boundary) \
+and not binary(python) \
 and not binary(structured_api_v2) \
-and not binary(hnsw_recall_certification) \
+and not binary(hnsw_recall) \
 and not binary(hnsw_validation) \
 and not binary(hybrid_ranking_metrics) \
 and not binary(hybrid_retrieval_quality) \

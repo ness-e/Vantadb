@@ -9,7 +9,7 @@
 | **Core engine** (`src/`) | `cargo nextest run --profile audit -p vantadb` | `just verify` | ci-rust-10 |
 | **Core + heavy tests** | `just test` (audit profile) | `just certify` for weekly-level coverage | heavy-certification-50 |
 | **Storage layer** (`tests/storage/`) | `cargo nextest run --profile audit --test <name>` | `cargo test --release --test storage --test wal_resilience --test …` | heavy-certification-50 (storage-persistence) |
-| **HNSW / vector index** (`src/index/hnsw/`) | `cargo nextest run --profile audit --test hnsw` | `cargo test --release --test hnsw_validation --test hnsw_recall_certification` | heavy-certification-50 (hnsw-*) |
+| **HNSW / vector index** (`src/index/hnsw/`) | `cargo nextest run --profile audit --test hnsw` | `cargo test --release --test hnsw_validation --test hnsw_recall` | heavy-certification-50 (hnsw-*) |
 | **Query logic / parser** (`src/query/`, `src/lang/`) | `cargo nextest run --profile experimental` | `cargo test --release --test integration --test executor --test governor` | heavy-certification-50 (other-heavy) |
 | **Python bindings** (`vantadb-python/`) | `cd vantadb-python && cargo test` | `maturin develop && pytest tests/` | ci-rust-10 (via workspace) |
 | **Python integrations** (`integrations/*/`) | `pytest integrations/<name>/tests/` | — | — (no CI gate) |
@@ -80,10 +80,10 @@ Tests are organized in `tests/` (core crate) by category:
 | `tests/core/` | `basic_node`, `graph`, `hnsw`, `regression_certification`, `snapshot_certification`, `vector_scale_check` | Core data structures, graph operations, HNSW index integrity, snapshot stability |
 | `tests/storage/` | `storage`, `mutations`, `core_invariants`, `gc`, `mmap_index`, `antilocality_layout`, `backend_tests`, `wal_resilience`, `tombstone_ann_vstore`, `crash_injection`, `multi_process_lock`, `chaos_integrity` | Storage backend (fjall/rocksdb), WAL, tombstone GC, mmap, crash recovery, failpoints |
 | `tests/logic/` | `integration`, `parser`, `executor`, `governor`, `columnar` | Query parsing, execution, governance, columnar (arrow) |
-| `tests/certification/` | `stress_protocol`, `hnsw_validation`, `hnsw_recall_certification`, `sift_validation`, `competitive_bench`, `hybrid_retrieval_quality`, `hybrid_ranking_metrics`, `hardware_profiles` | Heavy recall/quality validation, cross-backend parity |
+| `tests/certification/` | `stress_protocol`, `hnsw_validation`, `hnsw_recall`, `sift_validation`, `competitive_bench`, `hybrid_retrieval_quality`, `hybrid_ranking_metrics`, `hardware_profiles` | Heavy recall/quality validation, cross-backend parity |
 | `tests/memory/` | `backpressure`, `eviction`, `mmap_hnsw` | Memory management, LRU eviction, mmap index |
 | `tests/security/` | `security_audit` | Security boundary audit |
-| `tests/api/` | `structured_api_v2`, `python_sdk_boundary` | Public API contract, Python FFI boundary |
+| `tests/api/` | `structured_api_v2`, `python` | Public API contract, Python FFI boundary |
 | `tests/` (root) | `durability_recovery`, `index_reconstruction`, `schema_evolution`, `concurrency_parity`, `memory_*`, `derived_*`, `text_index_recovery`, `version_coherence`, `edge_cases`, `fuzz_proptest`, `cli_tests`, `file_locking_stress`, `benchmark_*`, `prefetch_benchmark`, `property_durability`, `fjall_cold_copy_restore`, `multilingual_tokenizer_integration`, `miri_unsafe` | Root-level integration, durability, concurrency, fuzz, benchmarks |
 
 ## Coverage
