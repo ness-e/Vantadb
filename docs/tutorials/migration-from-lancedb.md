@@ -81,7 +81,7 @@ db = lancedb.connect("./lancedb_data")
 table = db.create_table(
     "my_table",
     data=[
-        {"vector": [0.1, 0.2, ...], "text": "hello", "category": "greeting"}
+        {"vector": [0.1, 0.2, 0.3], "text": "hello", "category": "greeting"}
     ],
 )
 ```
@@ -105,6 +105,7 @@ db = VantaDB("./vantadb_data")
 **LanceDB:**
 
 ```python
+# vanta-skip: continues the LanceDB table created in §1 (LanceDB side of the comparison)
 table.add([
     {"id": "doc1", "vector": [0.1, 0.2, 0.3], "text": "VantaDB is an embedded vector database.", "source": "docs", "page": 1},
     {"id": "doc2", "vector": [0.4, 0.5, 0.6], "text": "It supports Python, TypeScript, and Rust.", "source": "docs", "page": 2},
@@ -131,6 +132,7 @@ Key differences:
 **LanceDB (vector search with metadata filter):**
 
 ```python
+# vanta-skip: continues the LanceDB table created in §1 (LanceDB side of the comparison)
 results = (
     table.search([0.1, 0.2, 0.3])
     .limit(5)
@@ -153,9 +155,11 @@ results = db.search_memory(
 **VantaDB — what LanceDB cannot do (hybrid search):**
 
 ```python
+query_vector = [0.1, 0.2, 0.3]  # your query embedding
+
 results = db.search_memory(
     "my_table",
-    query_vector,        # your query embedding
+    query_vector,
     text_query="embedded database",   # BM25 component
     top_k=5,
     filters={"source": "docs"},
@@ -274,16 +278,24 @@ Once your data is in VantaDB, you can immediately use features LanceDB cannot of
 ### GraphRAG — connect documents with edges
 
 ```python
-db.add_edge("doc1", "doc2", label="related")
-db.add_edge("doc1", "doc3", label="supersedes")
+# Graph nodes take integer node IDs — link migrated records via their node_id:
+r1 = db.put("my_table", "doc1", "VantaDB is an embedded vector database.",
+            vector=[0.1, 0.2, 0.3])
+r2 = db.put("my_table", "doc2", "It supports Python, TypeScript, and Rust.",
+            vector=[0.4, 0.5, 0.6])
 
-# Traverse the knowledge graph
-path = db.graph_bfs("doc1", "doc3")   # shortest path
+db.add_edge(r1.node_id, r2.node_id, "related")
+
+# Traverse forward from doc1's node up to max_depth hops
+path = db.graph_bfs([r1.node_id], 3)
+print(path)   # [node_id of doc1, node_id of doc2]
 ```
 
 ### Hybrid search (vector + BM25 fusion)
 
 ```python
+query_vector = [0.1, 0.2, 0.3]
+
 results = db.search_memory(
     "my_table",
     query_vector,
@@ -347,9 +359,14 @@ Requires the `vantadb-litellm` integration package for the cross-encoder model.
 LanceDB supports SQL WHERE clauses for metadata filtering. VantaDB does **not** support SQL — it uses direct SDK methods or the structured metadata filter API:
 
 ```python
-# VantaDB equivalent of LanceDB's WHERE "price >= 100 AND category = 'electronics'"
-filter = {"price": {"$gte": 100}, "category": "electronics"}
-results = db.search_memory("my_table", query_vector, top_k=10, filters=filter)
+# The Python SDK matches metadata with equality semantics — range operators
+# ($gt, $gte, ...) are available on the Rust SDK. Filter by equality first,
+# then apply the range condition client-side:
+query_vector = [0.1, 0.2, 0.3]
+
+results = db.search_memory("my_table", query_vector, top_k=10,
+                           filters={"category": "electronics"})
+matches = [r for r in results if r.metadata.get("price", 0) >= 100]
 ```
 
 For ad-hoc analysis, use VantaDB's built-in JSONL export and process with your favorite tools:

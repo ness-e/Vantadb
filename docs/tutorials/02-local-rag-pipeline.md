@@ -49,6 +49,7 @@ VantaDB is **BYO-vector**: you compute the embedding (OpenAI, Ollama, LiteLLM, o
 Let's ingest a text file by splitting it into overlapping chunks:
 
 ```python
+# vanta-skip: requires Ollama running (embed()) and a knowledge-base.md fixture
 def chunk_text(text: str, chunk_size: int = 512, overlap: int = 64) -> list[str]:
     """Split text into overlapping chunks at word boundaries."""
     words = text.split()
@@ -120,7 +121,7 @@ ingest_pdf("manual.pdf")
 >     keys=[f"{stem}-{i}" for i in range(len(chunks))],
 >     vectors=[embed(c) for c in chunks],
 >     payloads=chunks,
->     metadatas=[{"source": name, "chunk_index": i, "total_chunks": len(chunks)} for i in range(len(chunks))],
+>     metadatas=[{"source": name, "chunk_index": str(i), "total_chunks": str(len(chunks))} for i in range(len(chunks))],
 >     namespace="documents",
 > )
 > ```
@@ -128,6 +129,7 @@ ingest_pdf("manual.pdf")
 ## 3. Query the knowledge base
 
 ```python
+# vanta-skip: requires Ollama running (embed() calls the local Ollama service)
 def query_knowledge_base(question: str, top_k: int = 4):
     """Search for the most relevant document chunks."""
     return db.search_memory("documents", embed(question), top_k=top_k)
@@ -147,6 +149,7 @@ for r in results:
 Now feed the retrieved chunks as context to a local LLM:
 
 ```python
+# vanta-skip: requires Ollama running (embed() calls the local Ollama service)
 def ask(question: str, top_k: int = 4) -> str:
     # 1. Retrieve
     results = db.search_memory("documents", embed(question), top_k=top_k)

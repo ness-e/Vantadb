@@ -70,6 +70,7 @@ def store_message(db, session_id: str, role: str, content: str, seq: int):
 ## 2. Store messages
 
 ```python
+# vanta-skip: requires OPENAI_API_KEY — embed() calls the OpenAI embeddings API
 session_id = str(uuid.uuid4())
 
 messages = [
@@ -93,6 +94,7 @@ print(f"Stored {len(records)} messages in session {session_id[:8]}...")
 Embed the query, then search:
 
 ```python
+# vanta-skip: requires OPENAI_API_KEY — embed() calls the OpenAI embeddings API
 query = "What should I use instead of SQLite on Railway?"
 hits = db.search_memory(
     "chat_history",
@@ -121,6 +123,7 @@ Expected output — the top result is the assistant message about PostgreSQL:
 `search_memory()` accepts a `filters` dict. The Python SDK matches metadata values with **equality semantics**:
 
 ```python
+# vanta-skip: requires OPENAI_API_KEY — embed() calls the OpenAI embeddings API
 # Filter to a specific session
 hits = db.search_memory(
     "chat_history",
@@ -147,6 +150,7 @@ hits = db.search_memory(
 Sometimes you need exact keyword matches alongside semantic ones. Pass `text_query` and VantaDB fuses the BM25 lexical score with the vector score:
 
 ```python
+# vanta-skip: requires OPENAI_API_KEY — embed() calls the OpenAI embeddings API
 hits = db.search_memory(
     "chat_history",
     embed("ephemeral filesystem PostgreSQL"),
@@ -167,6 +171,7 @@ for h in hits:
 Putting it all together — a REPL that remembers past conversations:
 
 ```python
+# vanta-skip: interactive REPL (input()) and requires OPENAI_API_KEY
 import time
 import uuid
 from vantadb_py import VantaDB

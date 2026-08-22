@@ -86,7 +86,7 @@ Input: query q, K (top-K), ef (ef search)
 |-----------|-------------|--------------|---------|
 | **M** | Máximo de conexiones por nodo | 16-32 | Mayor M = más memoria, mejor recall |
 | **ef_construction** | Candidatos durante construcción | 200-500 | Mayor = mejor grafo, más lento construir |
-| **ef_search** | Candidatos durante búsqueda | 50-200 | Mayor = mejor recall, más lento buscar |
+| **ef** | Candidatos durante búsqueda | 50-200 | Mayor = mejor recall, más lento buscar |
 
 ## Implementation in VantaDB
 
@@ -118,7 +118,7 @@ pub struct HnswNode {
 results = db.search(
     vector=[0.12, -0.34, ...],  # Query vector
     top_k=10,                    # Retornar 10 más cercanos
-    ef_search=100                # Parámetro de calidad
+    ef=100                # Parámetro de calidad
 )
 ```
 
@@ -143,7 +143,7 @@ Runtime: mmap() → shortcut without copying to RAM
 
 ### Recall vs Latencia (SIFT1M, 128d)
 
-| ef_search | Recall@10 | Latencia p50 | Latencia p99 |
+| ef | Recall@10 | Latencia p50 | Latencia p99 |
 |-----------|-----------|--------------|--------------|
 | 50 | 0.92 | 3 ms | 12 ms |
 | 100 | 0.96 | 6 ms | 18 ms |

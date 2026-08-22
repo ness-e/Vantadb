@@ -54,6 +54,12 @@ ChromaDB separates collections from their documents. VantaDB stores records unde
 **ChromaDB:**
 
 ```python
+# vanta-skip: requires the chromadb package; first call downloads its ONNX embedding model
+import chromadb
+
+client = chromadb.PersistentClient(path="./chroma_data")
+collection = client.get_or_create_collection(name="my_docs")
+
 collection.add(
     ids=["doc1", "doc2"],
     documents=["VantaDB is an embedded vector database.", "It supports Python, TS, and Rust."],
@@ -91,6 +97,12 @@ Key differences:
 **ChromaDB:**
 
 ```python
+# vanta-skip: requires the chromadb package; first call downloads its ONNX embedding model
+import chromadb
+
+client = chromadb.PersistentClient(path="./chroma_data")
+collection = client.get_or_create_collection(name="my_docs")
+
 results = collection.query(
     query_texts=["embedded database"],
     n_results=5,
@@ -172,15 +184,24 @@ After migrating, you can immediately start using VantaDB-specific features:
 ### Add graph edges between documents
 
 ```python
-db.add_edge("doc1", "doc2", label="related")
-db.add_edge("doc1", "doc3", label="supersedes")
-# Later: traverse from any document
-path = db.graph_bfs("doc1", "doc3")
+# Graph nodes take integer node IDs — link records via their node_id:
+r1 = db.put("my_docs", "doc1", "VantaDB is an embedded vector database.",
+            vector=[0.1, 0.2, 0.3])
+r2 = db.put("my_docs", "doc2", "It supports Python, TS, and Rust.",
+            vector=[0.4, 0.5, 0.6])
+
+db.add_edge(r1.node_id, r2.node_id, "related")
+
+# Traverse forward from a root node up to max_depth hops
+path = db.graph_bfs([r1.node_id], 3)
+print(path)   # [node_id of doc1, node_id of doc2]
 ```
 
 ### Enable hybrid search
 
 ```python
+query_vector = [0.1, 0.2, 0.3]  # embeddings from your embedding model
+
 # Hybrid (BM25 + HNSW) search on a text query:
 results = db.search_memory(
     "my_docs",

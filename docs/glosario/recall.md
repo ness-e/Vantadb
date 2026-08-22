@@ -94,19 +94,19 @@ fn test_hnsw_recall_sift1m() {
 |-----------|------------------|-----------|
 | `M` (conexiones) | ↑ M → ↑ Recall | ↑ Memoria |
 | `ef_construction` | ↑ ef_c → ↑ Recall | ↑ Tiempo de construcción |
-| `ef_search` | ↑ ef_s → ↑ Recall | ↑ Latencia |
+| `ef` | ↑ ef_s → ↑ Recall | ↑ Latencia |
 
 ### Configuración Recomendada
 
 ```python
 import vantadb_py as vantadb
 
-# HNSW params (M, ef_construction, ef_search) live in the Rust engine config,
+# HNSW params (M, ef_construction, ef) live in the Rust engine config,
 # not the constructor.
 db = vantadb.VantaDB("./data")
-# Alta precisión (recall > 0.98): M=32, ef_construction=400, ef_search=200
-# Balanceado (recall ~0.95): M=16, ef_construction=200, ef_search=100
-# Baja latencia (recall ~0.90): M=8, ef_construction=100, ef_search=50
+# Alta precisión (recall > 0.98): M=32, ef_construction=400, ef=200
+# Balanceado (recall ~0.95): M=16, ef_construction=200, ef=100
+# Baja latencia (recall ~0.90): M=8, ef_construction=100, ef=50
 ```
 
 ## Recall vs Precision
@@ -123,8 +123,8 @@ En busqueda-vectorial, Recall@K y Precision@K son equivalentes cuando el ground 
 Existe un trade-off fundamental:
 
 ```
-Recall ↑  →  ef_search ↑  →  Latencia ↑
-Recall ↓  →  ef_search ↓  →  Latencia ↓
+Recall ↑  →  ef ↑  →  Latencia ↑
+Recall ↓  →  ef ↓  →  Latencia ↓
 ```
 
 **Curva típica:**
@@ -140,7 +140,7 @@ Recall
   0.7 ┤    │
       └────┴───────────────────────
       0   50   100   200   400
-                ef_search
+                ef
 ```
 
 ## Véase También

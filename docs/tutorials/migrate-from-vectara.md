@@ -40,6 +40,7 @@ This tutorial walks you through the full migration: exporting your Vectara corpo
 The script below authenticates with Vectara's OAuth2 client-credentials flow, pages through all documents in a corpus, fetches each document's full content, and writes one JSON line per document part to `corpus-export.jsonl`.
 
 ```python
+# vanta-skip: requires VECTARA_CLIENT_ID/SECRET/CORPUS_KEY credentials and network access
 """Export a Vectara corpus to corpus-export.jsonl (Vectara API v2)."""
 import json
 import os
@@ -141,6 +142,7 @@ VantaDB's `import_file()` reads the same JSONL format its own exports use — on
 | your embedding model's output | `vector` (optional, see below) |
 
 ```python
+# vanta-skip: reads corpus-export.jsonl produced by the step 1 export (needs real Vectara data)
 """Convert corpus-export.jsonl (Vectara) to vantadb-import.jsonl (VantaDB)."""
 import json
 
@@ -190,6 +192,7 @@ if __name__ == "__main__":
 ## 3. Import into VantaDB
 
 ```python
+# vanta-skip: imports vantadb-import.jsonl produced by the step 2 conversion
 from vantadb_py import VantaDB
 
 db = VantaDB("./vantadb_data")
@@ -215,6 +218,7 @@ db.flush()
 ## 4. Verify the migration
 
 ```python
+# vanta-skip: depends on records imported in step 3 and a user-defined my_embedding()
 # Spot-check a record by its Vectara document id
 record = db.get_memory("vectara_docs", "my-vectara-doc-id#0")
 print(record.key, record.payload[:80], record.metadata)

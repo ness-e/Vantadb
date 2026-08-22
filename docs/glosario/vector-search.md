@@ -52,7 +52,7 @@ impl CPIndex {
         &self,
         query: &[f32],
         k: usize,
-        ef_search: usize,
+        ef: usize,
     ) -> Vec<(u64, f32)> {
         // Búsqueda greedy multi-capa
         let mut candidates = BinaryHeap::new();
@@ -65,7 +65,7 @@ impl CPIndex {
         }
         
         // Búsqueda exhaustiva en capa 0
-        self.search_layer_0(query, current, k, ef_search)
+        self.search_layer_0(query, current, k, ef)
     }
 }
 ```
@@ -75,7 +75,7 @@ impl CPIndex {
 ```python
 import vantadb_py as vantadb
 
-# HNSW params (M, ef_construction, ef_search) + metric live in the Rust engine
+# HNSW params (M, ef_construction, ef) + metric live in the Rust engine
 # config, not the constructor.
 db = vantadb.VantaDB("./data")  # metric: "cosine" (default), "euclidean", "dot"
 ```

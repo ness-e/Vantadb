@@ -180,7 +180,7 @@ If the backend KV store (Fjall/RocksDB) is also corrupt, restore from a JSONL ba
 
 ### How do I file a bug report?
 
-Open an issue at [github.com/vantadb/vantadb/issues](https://github.com/vantadb/vantadb/issues) with:
+Open an issue at [github.com/ness-e/Vantadb/issues](https://github.com/ness-e/Vantadb/issues) with:
 
 - VantaDB version (`vantadb --version` or `Cargo.toml` version)
 - Operating system and architecture
@@ -190,7 +190,7 @@ Open an issue at [github.com/vantadb/vantadb/issues](https://github.com/vantadb/
 
 ### Where can I get help?
 
-- **GitHub Issues:** [github.com/vantadb/vantadb/issues](https://github.com/vantadb/vantadb/issues) — bug reports, feature requests
+- **GitHub Issues:** [github.com/ness-e/Vantadb/issues](https://github.com/ness-e/Vantadb/issues) — bug reports, feature requests
 - **Documentation:** [docs.rs/vantadb](https://docs.rs/vantadb) — Rust API reference
 - **SDK References:** `docs/api/EMBEDDED_SDK.md` for Rust, `docs/api/PYTHON_SDK.md` for Python
 - **Operations Manual:** `docs/operations/CONFIGURATION.md` for all configuration knobs and CLI commands
@@ -239,4 +239,4 @@ VantaDB uses a WAL-first architecture with CRC32C checksums on every record. Key
 - **Atomic checkpoint** — `checkpoint_seq` ensures WAL replay only covers unflushed mutations
 - **Multi-process isolation** — exclusive `.vanta.lock` prevents concurrent write access
 
-Default sync mode is `Periodic` (fsync every 5s). For maximum durability, use `SyncMode::Always` at the cost of throughput.
+Default sync mode is `Periodic` with flush threshold 1 — i.e., VantaDB **fsyncs after every write** by default (`wal.rs::maybe_sync`, `DEFAULT_PERIODIC_THRESHOLD = 1`), so a crash loses at most the record being written. To trade durability for throughput on write-heavy workloads, raise the flush threshold or switch sync modes in your config.

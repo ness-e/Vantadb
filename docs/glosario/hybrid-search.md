@@ -86,7 +86,7 @@ impl HybridSearch {
         let vector_results = self.vector_index.search_nearest(
             query_vector,
             top_k * 2,  // Over-fetch para RRF
-            self.ef_search
+            self.ef
         );
         
         let text_results = self.text_index.search(

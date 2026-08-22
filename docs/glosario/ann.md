@@ -95,15 +95,15 @@ $$
 |-----------|---------|--------|
 | `M` | 16 | Conexiones por nodo |
 | `ef_construction` | 200 | Calidad de construcción |
-| `ef_search` | 100 | Calidad de búsqueda |
+| `ef` | 100 | Calidad de búsqueda |
 
 ### Recall vs Latency Trade-off
 
 ```python
 import vantadb_py as vantadb
 
-# HNSW params (M, ef_construction, ef_search) live in the Rust engine config,
-# not the constructor. ef_search is auto-tuned at runtime.
+# HNSW params (M, ef_construction, ef) live in the Rust engine config,
+# not the constructor. ef is auto-tuned at runtime.
 db = vantadb.VantaDB("./data")
 # Alta calidad (más lento) — Recall: 0.998, Latencia: 15ms
 # Balanced — Recall: 0.956, Latency: 6ms
@@ -114,10 +114,10 @@ db = vantadb.VantaDB("./data")
 
 | Configuración | Recall@10 | p50 Latency | QPS |
 |---------------|-----------|-------------|-----|
-| ef_search=50 | 0.912 | 4.2ms | 238 |
-| ef_search=100 | 0.956 | 6.1ms | 164 |
-| ef_search=200 | 0.981 | 9.8ms | 102 |
-| ef_search=500 | 0.998 | 15.4ms | 65 |
+| ef=50 | 0.912 | 4.2ms | 238 |
+| ef=100 | 0.956 | 6.1ms | 164 |
+| ef=200 | 0.981 | 9.8ms | 102 |
+| ef=500 | 0.998 | 15.4ms | 65 |
 
 ## See Also
 

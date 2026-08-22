@@ -32,7 +32,7 @@ description: "Translation layer for web developers learning VantaDB. Maps famili
 | Connection timeout | `FairMutex` with `try_lock_for(insert_lock_timeout_ms)` | `src/storage/engine/mod.rs:161` |
 | Table / Collection | `BackendPartition` (8 typed partitions) | `src/backend.rs:30` |
 | Row / Document | `UnifiedNode` (u128 id + fields + vector + edges) | `src/node.rs:705` |
-| Index maintenance | `CPIndex` HNSW graph rebuild + auto-tune `ef_search` | `src/index/refresh.rs`, `src/index/auto_tune.rs` |
+| Index maintenance | `CPIndex` HNSW graph rebuild + auto-tune `ef` | `src/index/refresh.rs`, `src/index/auto_tune.rs` |
 
 ## Search & Indexing
 

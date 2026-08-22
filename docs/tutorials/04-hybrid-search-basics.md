@@ -59,6 +59,11 @@ print(f"Indexed {len(docs)} documents")
 Pass a query vector and no `text_query`:
 
 ```python
+# Stand-in from Setup — deterministic hash embedding (runs offline)
+def embed(text: str, dim: int = 8) -> list[float]:
+    import hashlib
+    return [int.from_bytes(hashlib.sha256(f"{text}:{i}".encode()).digest()[:4], "big") / 2**32 for i in range(dim)]
+
 hits = db.search_memory("docs", embed("database written in rust"), top_k=2)
 for h in hits:
     print(f"  {h.key}: {h.payload[:60]}  (score={h.score:.3f})")
@@ -83,6 +88,11 @@ Expected top hit: `d3`. BM25 indexes the `payload` field, so exact terms like *"
 Pass both a query vector **and** `text_query` — VantaDB fuses the two scores:
 
 ```python
+# Stand-in from Setup — deterministic hash embedding (runs offline)
+def embed(text: str, dim: int = 8) -> list[float]:
+    import hashlib
+    return [int.from_bytes(hashlib.sha256(f"{text}:{i}".encode()).digest()[:4], "big") / 2**32 for i in range(dim)]
+
 hits = db.search_memory(
     "docs",
     embed("vector database with keyword search"),
@@ -100,7 +110,10 @@ Now a document that is semantically relevant **and** shares exact terms (like `d
 Attach metadata at write time and filter before ranking:
 
 ```python
-from vantadb_py import VantaDB
+# Stand-in from Setup — deterministic hash embedding (runs offline)
+def embed(text: str, dim: int = 8) -> list[float]:
+    import hashlib
+    return [int.from_bytes(hashlib.sha256(f"{text}:{i}".encode()).digest()[:4], "big") / 2**32 for i in range(dim)]
 
 db.put("docs", "d5", "The WASM build runs fully in the browser.",
        metadata={"topic": "wasm", "lang": "rust"}, vector=embed("wasm in browser"))
@@ -128,6 +141,11 @@ Expected top hit: `d5`. Filters narrow the candidate set **before** vector compa
 Choose how vector distance is computed:
 
 ```python
+# Stand-in from Setup — deterministic hash embedding (runs offline)
+def embed(text: str, dim: int = 8) -> list[float]:
+    import hashlib
+    return [int.from_bytes(hashlib.sha256(f"{text}:{i}".encode()).digest()[:4], "big") / 2**32 for i in range(dim)]
+
 hits = db.search_memory("docs", embed("vector database"),
                         top_k=3, distance_metric="cosine")     # default
 hits = db.search_memory("docs", embed("vector database"),
@@ -143,6 +161,11 @@ Controls how many hits are returned. Note that filtering happens first, so a hea
 Inspect *why* a hit ranked where it did with the dedicated explain method:
 
 ```python
+# Stand-in from Setup — deterministic hash embedding (runs offline)
+def embed(text: str, dim: int = 8) -> list[float]:
+    import hashlib
+    return [int.from_bytes(hashlib.sha256(f"{text}:{i}".encode()).digest()[:4], "big") / 2**32 for i in range(dim)]
+
 explanation = db.explain_memory_search(
     "docs",
     embed("vector database"),

@@ -28,6 +28,7 @@ pip install vantadb-py openai
 ```
 
 ```python
+# vanta-skip: requires OPENAI_API_KEY — embed() calls the OpenAI embeddings API
 from vantadb_py import VantaDB
 import openai
 
@@ -53,6 +54,7 @@ ollama pull nomic-embed-text
 ```
 
 ```python
+# vanta-skip: requires a running Ollama service with nomic-embed-text pulled
 from vantadb_py import VantaDB
 import ollama
 
@@ -130,16 +132,24 @@ for h in db.search_memory("notes", embed("vector search"), top_k=2):
 ## Managing cost and latency
 
 - **Batch embeddings:** embed all chunks up front, then load with `put_batch()` — one call to VantaDB for thousands of records:
-  ```python
-  db.put_batch(
-      None,                       # entries is a required positional arg
-      keys=[f"doc-{i}" for i in range(n)],
-      vectors=embedded_vectors,
-      payloads=texts,
-      metadatas=metadatas,
-      namespace="notes",
-  )
-  ```
+
+```python
+texts = [f"Document {i} about hybrid vector search." for i in range(100)]
+embedded_vectors = [[0.1] * 8 for _ in texts]   # from your embed() model
+metadatas = [{"index": str(i), "source": "demo"} for i in range(len(texts))]
+
+db.put_batch(
+    None,                       # entries is a required positional arg
+    keys=[f"doc-{i}" for i in range(len(texts))],
+    vectors=embedded_vectors,
+    payloads=texts,
+    metadatas=metadatas,
+    namespace="notes",
+)
+print(f"Batch-inserted {len(texts)} records")
+```
+
+Note: `metadatas` values must be strings (`str`) — convert numbers with `str(i)`.
 - **Cache embeddings:** store the vector alongside the payload so re-ingestion doesn't re-embed.
 - **Persist locally:** Ollama runs on-device; OpenAI and LiteLLM batch well for throughput.
 

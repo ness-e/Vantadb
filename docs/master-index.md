@@ -11,7 +11,7 @@ tags: [vantadb, documentation, index, master-index]
 > Global index of all documentation, architecture decisions, API references, and operational guides.
 
 - **Project:** VantaDB — cross-platform memory layer for AI agents
-- **Repository:** `https://github.com/vantadb/vantadb`
+- **Repository:** `https://github.com/ness-e/Vantadb`
 - **Owner:** Eros
 
 ---
@@ -138,12 +138,7 @@ Key documents:
 
 ## Case Studies
 
-| Document | Description |
-|----------|-------------|
-| [RAG on Edge Devices](case_studies/rag_edge_device.md) | Running VantaDB on resource-constrained hardware |
-| [Agent Local Memory with Ollama](case_studies/agent_local_memory_ollama.md) | AI agent using VantaDB with local Ollama inference |
-
----
+Archivados a `docs/archive/case-studies-unverified/` (2026-08-22, GOV-B1): material interno no-público, escenarios ilustrativos SIN verificación. El case study real llega vía CLD-04.
 
 ## Glossary
 
@@ -218,5 +213,5 @@ Published blog posts (in `web/content/blog/`):
 ## See Also
 
 - [Operations Master Index](operations/master-index.md) — Detailed operations document listing
-- [GitHub Repository](https://github.com/vantadb/vantadb) — Source code and issues
+- [GitHub Repository](https://github.com/ness-e/Vantadb) — Source code and issues
 - [CHANGELOG](CHANGELOG.md) — Version history
