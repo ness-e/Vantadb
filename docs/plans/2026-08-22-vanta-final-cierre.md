@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Cierre Final — integración, recall semántico y gobierno de decisiones
 
 > **Inicio:** 2026-08-22
-> **Estado: completed
+> **Estado:** ⏳ EN PROGRESO (7/8 tareas)
 > **Fuente:** auditoría final post-P30 (vanta-research `ses_fd8c2c26`, 2026-08-22) + decisiones del usuario (2026-08-21/22) + deudas vigentes de task files
 > **Predecesores:** P27 F1-F4 ✅ 24/24 · P29 F5 ✅ 9/9 · P30 F6+F7 ✅ 9/9 — **roadmap TDAM F1-F7 cerrado**, suites 2568+ tests
 > **Modo:** waves — Wave 0 (integraciones y tests independientes) → Wave 1 (embeddings fundación) → Wave 2 (semantic recall + scoring) → Wave 3 (gobierno humano + meta-tarea).
@@ -172,7 +172,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
   | 🟡×🟡 | tarea humana sin dueño de tiempo | agendar con el usuario explícitamente | inicio de la tarea |
 - **Cynefin:** 🟦 obvio (proceso)
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 2 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (commit `437bfee3` — prep IA hecha; articulación humana AGENDADA para el usuario)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-49.md`
 - **Notas:** Ruta: vanta-docs prepara guía → AUTOR HUMANO edita → lead commitea. Única tarea del plan que requiere al usuario en el loop.
 
