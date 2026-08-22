@@ -1,7 +1,7 @@
 # Plan de Ejecución: VantaDB Bindings SDK — sub-clientes por dominio
 
 > **Inicio:** 2026-08-22
-> **Estado:** ✅ COMPLETADO (4/4 tareas — Bindings SDK)
+> **Estado: completed
 > **Fuente:** meta-tarea MEM-36 (`.opencode/skills/campaign-executor/tasks/MEM-36.md`, spec completa) + decisión usuario 2026-08-21 (campaña separada)
 > **Predecesores:** P27+P29+P30 (roadmap TDAM F1-F7 ✅ 42 tareas) · P31 cierre final (en curso)
 
@@ -45,7 +45,7 @@
 - **Verificación real:** ✅ CÓDIGO-REAL — superficie listada arriba (43 wasm / TS clase / ~26 python)
 - **Gate Justificación:** fundación — el mapa es el contrato que SDKB-02/03 ejecutan
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: npm test (246 passed) ✅ · pytest vantadb-python/tests -q (105 passed, 4 skipped) ✅ · pwsh scripts/validate-docs-coverage.ps1 (0 gaps) ✅ | evidencia: [claim TS suite verde 246/246 → npm test exit 0, Test Files 7 passed — alta] [claim Python suite verde 105+4skip → pytest in 74.59s exit 0 — alta] [claim coverage 0 gaps → validator exit 0, vantadb-python 43 items ok — alta] [claim docs = superficie real → codegraph verbatim vantadb.ts:247-343 + lib.rs forward_to_db! memory15/graph10/system17/wiki1 — alta] | artefactos: vantadb-ts/README.md, docs/api/PYTHON_SDK.md, docs/api/BINDINGS_NAMESPACES.md, tasks/SDKB-04.md, scripts/validate-docs-coverage.ps1 ($pyInternals +4 getters PyO3 *_client renombrados via #[pyo3(name=...)] — no API Python visible) | invariantes: flat API sin cambios (suites intactas), cero cambios WASM/Rust (D42), no commitear ni tocar plan file / docs/reviews/* | deuda: ninguna | queda_pendiente: orquestador decide commit de los 5 archivos; plan Task 4 marcar ✅ COMPLETED
+- **Contrato: npm test + pytest completos pasan; docs READMEs actualizadas; coverage 0 gaps — evidencia: TS 246/246, pytest 105 passed, validate-docs-coverage 0 gaps (PyO3 getters internos excluidos justificadamente); commit 12d30257
 - **Pre-mortem:** métodos huérfanos (capabilities, import/export, metrics) → dominio `system`
 - **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger/Due |
@@ -116,12 +116,12 @@
 ---
 
 === RECITATION ===
-Campaign ID: b0b20628-356b-4e65-9b02-178341fd30f7
-Objetivo activo: SDKB-04: docs sub-clientes TS+Python + gate backward-compat final
+Campaign ID: cff9098a-3e3b-4d98-8654-a51ac7e4eb7a
+Objetivo activo: P32 Bindings SDK — sub-clientes por dominio TS+Python backward-compat 100% — COMPLETADA
 Estado: pending ⏳
-Última acción: SDKB-04 completo: sección Domain Sub-clients en vantadb-ts/README.md y PYTHON_SDK.md con ejemplos db.memory/graph/wiki/system + garantía flat-API-unchanged; cross-refs desde BINDINGS_NAMESPACES.md; suites verdes (npm 246/246, pytest 105+4skip); validate-docs-coverage 0 gaps. Sin commit por instrucción.
+Última acción: SDKB-04 docs gate: Domain Sub-clients documentados en vantadb-ts/README.md y PYTHON_SDK.md con ejemplos y backward-compat explícito; cross-refs desde mapa canon BINDINGS_NAMESPACES.md; validador excluye getters PyO3 internos renombrados. CAMPAÑA P32 COMPLETA 4/4
 Resultado: OK
-Próxima acción: Ninguna — campaña P32 completa (4/4). Orquestador decide commit.
+Próxima acción: Cierre campaña P32: progreso milestone + archive plan + reporte final
 Contrato: por tarea — suites existentes intactas (backward-compat) + tests nuevos de delegación
-Próxima tarea si completa: ninguna (última tarea del plan)
+Próxima tarea si completa: ninguna
 === END RECITATION ===
