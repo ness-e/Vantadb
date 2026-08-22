@@ -1,8 +1,7 @@
 # Plan de Ejecución: Vanta Cierre Final — integración, recall semántico y gobierno de decisiones
 
-> **Campaign ID:** 0129fca7-0fcf-413d-aa61-7db6ba861450
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (2/8 tareas)
+> **Estado:** ⏳ EN PROGRESO (3/8 tareas)
 > **Fuente:** auditoría final post-P30 (vanta-research `ses_fd8c2c26`, 2026-08-22) + decisiones del usuario (2026-08-21/22) + deudas vigentes de task files
 > **Predecesores:** P27 F1-F4 ✅ 24/24 · P29 F5 ✅ 9/9 · P30 F6+F7 ✅ 9/9 — **roadmap TDAM F1-F7 cerrado**, suites 2568+ tests
 > **Modo:** waves — Wave 0 (integraciones y tests independientes) → Wave 1 (embeddings fundación) → Wave 2 (semantic recall + scoring) → Wave 3 (gobierno humano + meta-tarea).
@@ -38,7 +37,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 - **Verificación real:** ✅ AUDITORÍA — cero referencias a context_engine en services/ (solo tests e2e_flow.rs); decisión usuario: wire productivo
 - **Gate Justificación:** convierte la killer feature F5 en productiva dentro del ciclo L0→L1→L2→L3
 - **Gate Result:** ✅ DO
-- **Contrato:** "test único: fixture .md temporales → worker::run (con runner fake o fallback P4) → wiki_search encuentra términos de los archivos → wiki_read devuelve el contenido mergeado → wiki_graph conecta; todo verde"
+- **Contrato:** "`cargo check -p vanta-memory` pasa; tests D19: el worker ejecuta assemble_with_recall como fase post-L3 (compresión del historial + inyección MMD + recall con budget compartido); e2e extendido demuestra compresión activa dentro del pass completo"
 - **Pre-mortem:** (1) doble compresión (worker + caller externo) → el worker es UNO de los callers; API existente intacta; (2) compresión automática puede sorprender → config flag `context_compression_enabled` default true documentado
 - **Stop conditions:** si el wiring exige reescribir assemble → ⬛ y escalar diseño
 - **Risk Register:**
@@ -89,7 +88,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
   | 🟢×🟢 | disabled by default olvidado | test c | primer test |
 - **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 3 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-45.md`
 - **Notas:** Ruta: vanta-worker. TDAM ref: `MemoryKnowledge/src/store/auto-sync-scheduler.ts`.
 
@@ -215,11 +214,11 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: MEM-44 e2e ingest→tools wiki_* roundtrip (P31 Task 2)
+Objetivo activo: P31 Task 3 — MEM-45 auto-sync scheduler (re-ingest programado del wiki)
 Estado: pending ⏳
-Última acción: Test único e2e en vantadb-mcp/tests/wiki_roundtrip_e2e.rs vía dev-dep vanta-memory (cargo tree verificó ausencia de ciclo; no se activó stop condition de 2 tests hermanos). Encadena fixture .md → worker::run con ScriptedRunner (2 páginas enlazadas [[Redis]]) → wiki_search matchea ambas → wiki_read devuelve contenido mergeado locked:true → wiki_graph conecta vía edge. Fix en ACT: query 'persistence'→'memory'. Verify mecánico 6/6 exit 0.
+Última acción: Implementado auto_sync.rs completo (la sesión previa dejó el task file con steps marcados ✅ pero SIN código): AutoSyncConfig (enabled=false default, clamp ≥60s), AutoSyncScheduler pull-based tick() sobre ManagedTimer/Clock (cero threads, FakeClock determinista), busy guard pre-run vía WikiStore.is_busy con hashes intencionalmente stale tras skip, detección de cambios FNV-1a por archivo sobre scan_local_sources (sin watcher FS), re-ingest vía worker::run_with_progress con run_id fresco por build. 5 tests D19 in-module: todos verdes.
 Resultado: OK
-Próxima acción: Lead: commit de los 3 archivos tocados + actualizar plan file (Task 2 ✅) + delegar Task 3 (MEM-45 auto-sync scheduler)
+Próxima acción: Lead: commitear los 2 archivos (git add vanta-memory/src/ingest/auto_sync.rs vanta-memory/src/ingest/mod.rs && git commit -m 'feat(vanta-memory): MEM-45 auto-sync scheduler re-ingest programado') y delegar Task 4 — MEM-46 (embeddings L1, Paso 0: verificar auto-embedding en core)
 Contrato: por tarea — cargo check/nextest/fmt/clippy del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 3
+Próxima tarea si completa: 4
 === END RECITATION ===
