@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 0129fca7-0fcf-413d-aa61-7db6ba861450
 > **Inicio:** 2026-08-22
-> **Estado: completed
+> **Estado:** ⏳ EN PROGRESO (2/8 tareas)
 > **Fuente:** auditoría final post-P30 (vanta-research `ses_fd8c2c26`, 2026-08-22) + decisiones del usuario (2026-08-21/22) + deudas vigentes de task files
 > **Predecesores:** P27 F1-F4 ✅ 24/24 · P29 F5 ✅ 9/9 · P30 F6+F7 ✅ 9/9 — **roadmap TDAM F1-F7 cerrado**, suites 2568+ tests
 > **Modo:** waves — Wave 0 (integraciones y tests independientes) → Wave 1 (embeddings fundación) → Wave 2 (semantic recall + scoring) → Wave 3 (gobierno humano + meta-tarea).
@@ -38,7 +38,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 - **Verificación real:** ✅ AUDITORÍA — cero referencias a context_engine en services/ (solo tests e2e_flow.rs); decisión usuario: wire productivo
 - **Gate Justificación:** convierte la killer feature F5 en productiva dentro del ciclo L0→L1→L2→L3
 - **Gate Result:** ✅ DO
-- **Contrato:** "`cargo check -p vanta-memory` pasa; tests D19: el worker ejecuta assemble_with_recall como fase post-L3 (compresión del historial + inyección MMD + recall con budget compartido); e2e extendido demuestra compresión activa dentro del pass completo"
+- **Contrato:** "test único: fixture .md temporales → worker::run (con runner fake o fallback P4) → wiki_search encuentra términos de los archivos → wiki_read devuelve el contenido mergeado → wiki_graph conecta; todo verde"
 - **Pre-mortem:** (1) doble compresión (worker + caller externo) → el worker es UNO de los callers; API existente intacta; (2) compresión automática puede sorprender → config flag `context_compression_enabled` default true documentado
 - **Stop conditions:** si el wiring exige reescribir assemble → ⬛ y escalar diseño
 - **Risk Register:**
@@ -68,7 +68,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
   | 🟡×🟡 | dirección de deps inválida (ciclo) | verificar cargo tree primero; plan B: 2 tests hermanos | DISCOVERY |
 - **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 2 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-44.md`
 - **Notas:** Ruta: vanta-worker.
 
@@ -215,11 +215,11 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: MEM-43 — wire context engine → pipeline worker como fase post-L3 productiva
+Objetivo activo: MEM-44 e2e ingest→tools wiki_* roundtrip (P31 Task 2)
 Estado: pending ⏳
-Última acción: Wiring completo: ContextAssemblyConfig{enabled:true default, budget_tokens:8192} + builder with_context_config + run_context_assembly en handle() TaskKind::L3 (run_l3 → assembly si enabled) + load_assembled_context reader; IntegratedContext gana derives serde; 2 tests D19 en e2e_flow.rs. Verify 4/4 exit 0.
+Última acción: Test único e2e en vantadb-mcp/tests/wiki_roundtrip_e2e.rs vía dev-dep vanta-memory (cargo tree verificó ausencia de ciclo; no se activó stop condition de 2 tests hermanos). Encadena fixture .md → worker::run con ScriptedRunner (2 páginas enlazadas [[Redis]]) → wiki_search matchea ambas → wiki_read devuelve contenido mergeado locked:true → wiki_graph conecta vía edge. Fix en ACT: query 'persistence'→'memory'. Verify mecánico 6/6 exit 0.
 Resultado: OK
-Próxima acción: Orquestador: commit de los 4 archivos tocados y lanzar Task 2 del plan via /pipeline task
+Próxima acción: Lead: commit de los 3 archivos tocados + actualizar plan file (Task 2 ✅) + delegar Task 3 (MEM-45 auto-sync scheduler)
 Contrato: por tarea — cargo check/nextest/fmt/clippy del crate tocado exit 0 + tests D19
-Próxima tarea si completa: Task 2 del plan 2026-08-22-vanta-final-cierre.md
+Próxima tarea si completa: 3
 === END RECITATION ===

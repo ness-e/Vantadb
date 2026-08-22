@@ -5071,6 +5071,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "vanta-memory",
  "vantadb",
 ]
 
