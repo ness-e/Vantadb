@@ -4983,6 +4983,8 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
+ "vanta-memory",
+ "vantadb",
 ]
 
 [[package]]
