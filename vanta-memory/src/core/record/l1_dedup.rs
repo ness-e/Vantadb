@@ -19,7 +19,7 @@ use crate::core::prompts::l1_dedup::{
 };
 use crate::core::prompts::PromptMode;
 use crate::core::record::l1_reader::{read_session_records, recall_candidates};
-use crate::core::record::l1_writer::{apply_dedup_batch, generate_memory_id, L1Error};
+use crate::core::record::l1_writer::{apply_dedup_batch, generate_memory_id, EmbedFn, L1Error};
 use crate::offload::local_llm::parsers::json_utils::extract_json;
 use crate::offload::local_llm::parsers::l1_parser::normalize_type;
 
@@ -34,12 +34,25 @@ pub struct PendingMemory {
 }
 
 /// Config for the dedup pipeline.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone)]
 pub struct L1DedupConfig {
     /// How many candidate records to recall per new memory (phase 1).
     pub recall_top_k: usize,
     /// Prompt family: chat (persona/episodic/instruction) vs work types.
     pub prompt_mode: PromptMode,
+    /// Optional embedding hook for L1 writes (MEM-46). `None` (default)
+    /// keeps records vector-free — behavior identical to pre-MEM-46.
+    pub embed: Option<EmbedFn>,
+}
+
+impl std::fmt::Debug for L1DedupConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("L1DedupConfig")
+            .field("recall_top_k", &self.recall_top_k)
+            .field("prompt_mode", &self.prompt_mode)
+            .field("embed", &self.embed.is_some())
+            .finish()
+    }
 }
 
 impl Default for L1DedupConfig {
@@ -47,6 +60,7 @@ impl Default for L1DedupConfig {
         Self {
             recall_top_k: 5,
             prompt_mode: PromptMode::Chat,
+            embed: None,
         }
     }
 }
@@ -166,7 +180,15 @@ pub fn run_l1_dedup<R: LlmRunner>(
     let existing = read_session_records(db, session_key)?;
     let decisions = batch_dedup(runner, &pending, &existing, config);
     let raw_memories: Vec<ExtractedMemory> = pending.iter().map(|p| p.memory.clone()).collect();
-    apply_dedup_batch(db, session_key, session_id, &raw_memories, &decisions, now)
+    apply_dedup_batch(
+        db,
+        session_key,
+        session_id,
+        &raw_memories,
+        &decisions,
+        now,
+        config.embed.as_ref(),
+    )
 }
 
 /// A `store` decision for a record id (safe default everywhere).

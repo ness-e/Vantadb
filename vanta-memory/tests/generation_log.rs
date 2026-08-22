@@ -72,6 +72,7 @@ fn l1_write_registers_succeeded_entry() {
         &decision,
         1_000,
         0,
+        None,
     )
     .expect("write")
     .expect("stored");

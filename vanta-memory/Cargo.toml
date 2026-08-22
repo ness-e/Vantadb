@@ -18,6 +18,10 @@ reqwest = { version = "0.12", features = ["json", "blocking"], optional = true }
 
 [dev-dependencies]
 tempfile = "3"
+# MEM-46: unification enables `vantadb::llm` (EmbeddingProvider trait) during
+# tests so D19 fakes can implement the real core trait. Production default
+# build stays lean (no reqwest from the core).
+vantadb = { path = "../", features = ["remote-inference"] }
 
 [features]
 # LLM-driven paths (L1 extraction, L2 scenes, L3 persona, recall composer).
@@ -25,6 +29,11 @@ tempfile = "3"
 # never loses data) when no LLM runner is plugged in. Enables the real HTTP
 # transport of the standalone runner + the async wrapper trait.
 llm-driver = ["dep:reqwest"]
+
+# MEM-46: expose `core_embedding_hook` (wraps `vantadb::llm::get_embedding_provider`)
+# so hosts can attach real embeddings to L1 writes. Default off — records stay
+# vector-free unless a hook is injected into `L1DedupConfig`.
+embeddings = ["vantadb/remote-inference"]
 
 # Deterministic fake LLM runner for tests (see MEM-08b).
 mock = []

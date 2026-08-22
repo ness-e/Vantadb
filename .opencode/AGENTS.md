@@ -642,3 +642,11 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: MEM-30 — 2026-08-21 -->
 - El trait LlmRunner de vanta-memory NO es dyn-compatible (complete_json tiene método genérico sin where Self: Sized): las APIs que reciben runners deben ser genéricas (`fn f<R: LlmRunner>(runner: Option<&R>)`), no `&dyn LlmRunner`. No se puede tocar core para arreglarlo (Regla blast-radius).
 - Patrón test-first para pipelines con runner scripted: el runner fake debe ser FIFO (`remove(0)`), no pop() LIFO — el orden del script es parte del contrato del test; y las páginas NUEVAS se escriben verbatim sin LLM (short-circuit TDAM), así los tests de fallo-de-merge requieren páginas preexistentes.
+
+<!-- Learnings: MEM-43 — 2026-08-22 -->
+- Los bloques de recall de assemble_with_recall son whole-or-skip contra el headroom post-compresion: un test que aserta el append de persona queda acoplado a la aritmetica del TokenEstimator (fallo intermitente segun budget). Patron robusto: budget chico que fuerza Aggressive profundo + asertar recall_injected y el bloque dinamico, no bloques opcionales.
+- E0463 "can't find crate for rand" al compilar en Windows fue transitorio dos veces en una sesion (file-lock/AV sobre target/): no perseguir Cargo.toml, reintentar el comando antes de diagnosticar.
+
+<!-- Learnings: MEM-46 — 2026-08-22 -->
+- `vantadb::llm` es pub pero feature-gated (`remote-inference` = reqwest): para que tests de crates hijos usen el trait real sin engordar el build default, unificar features via dev-deps (`[dev-dependencies] vantadb = { path = "../", features = ["remote-inference"] }`) — la unificación solo aplica al compilar tests.
+- El SDK lee records "sin vector" como `Some([])`, no `None` (`usable_vector` filtra vacíos/ceros antes de indexar, src/sdk/api.rs:24): asserts de ausencia de vector deben ser None-or-empty. Y rustc puede crashear (0xc0000409/E0463) con jobs paralelos altos al agregar reqwest al grafo — `-j 2` lo resuelve (agotamiento de recursos).

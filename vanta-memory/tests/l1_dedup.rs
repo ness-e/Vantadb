@@ -14,7 +14,7 @@ use vanta_memory::core::abstractions::{
 use vanta_memory::core::prompts::{format_batch_conflict_prompt, CandidateMatch};
 use vanta_memory::core::record::{
     apply_dedup_batch, batch_dedup, generate_memory_id, l1_namespace, parse_batch_result,
-    prepare_pending, read_session_records, run_l1_dedup, write_memory, L1DedupConfig,
+    prepare_pending, read_session_records, run_l1_dedup, write_memory, EmbedFn, L1DedupConfig,
 };
 use vantadb::config::VantaConfig;
 use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata};
@@ -200,6 +200,7 @@ fn write_memory_merge_deletes_targets_and_bumps_version() {
         &decision,
         1_700_000_000_000,
         0,
+        None,
     )
     .expect("write");
 
@@ -238,6 +239,7 @@ fn write_memory_update_falls_back_to_memory_fields() {
         &decision,
         5,
         0,
+        None,
     )
     .expect("write");
 
@@ -268,6 +270,7 @@ fn write_memory_skip_returns_none() {
         &decision("m_x", DedupAction::Skip),
         5,
         0,
+        None,
     )
     .expect("write");
     assert!(result.is_none());
@@ -285,7 +288,7 @@ fn apply_dedup_batch_honors_skip() {
     ];
 
     let written =
-        apply_dedup_batch(&db, "session-f", "si", &memories, &decisions, 9).expect("batch");
+        apply_dedup_batch(&db, "session-f", "si", &memories, &decisions, 9, None).expect("batch");
     assert_eq!(written.len(), 1);
     assert_eq!(written[0].content, "keep me");
     assert_eq!(read_session_records(&db, "session-f").unwrap().len(), 1);
@@ -419,4 +422,171 @@ fn parse_batch_result_is_public_and_tolerant() {
     let decisions = parse_batch_result("garbage not json", &matches);
     assert_eq!(decisions.len(), 1);
     assert_eq!(decisions[0].action, DedupAction::Store);
+}
+
+// ── MEM-46: embeddings para records L1 (best-effort, P4) ────────────────
+
+const FAKE_DIM: usize = 8;
+const FAKE_VALUE: f32 = 0.25;
+
+/// Deterministic fake provider: fixed-dimension vector, no network.
+struct FixedEmbedding;
+
+impl vantadb::llm::EmbeddingProvider for FixedEmbedding {
+    fn embed(&self, _text: &str) -> Result<Vec<f32>, vantadb::error::VantaError> {
+        Ok(vec![FAKE_VALUE; FAKE_DIM])
+    }
+}
+
+/// Provider that always fails (simulates provider down).
+struct FailingEmbedding;
+
+impl vantadb::llm::EmbeddingProvider for FailingEmbedding {
+    fn embed(&self, _text: &str) -> Result<Vec<f32>, vantadb::error::VantaError> {
+        Err(vantadb::error::VantaError::backend_error("provider down"))
+    }
+}
+
+fn hook<P: vantadb::llm::EmbeddingProvider + 'static>(p: P) -> EmbedFn {
+    Arc::new(move |text: &str| p.embed(text).ok())
+}
+
+/// Read a stored record straight from the SDK to inspect its vector.
+fn get_raw(
+    db: &VantaEmbedded,
+    session_key: &str,
+    id: &str,
+) -> Option<vantadb::sdk::VantaMemoryRecord> {
+    db.get(&l1_namespace(session_key), id).expect("get")
+}
+
+/// The SDK represents "no usable vector" as `Some([])` on read-back
+/// (`usable_vector` filters empty/zero vectors before indexing), so absence
+/// is asserted as None-or-empty.
+fn assert_no_usable_vector(v: &Option<Vec<f32>>) {
+    assert!(
+        v.as_ref().is_none_or(|vec| vec.is_empty()),
+        "expected no vector, got {v:?}"
+    );
+}
+
+// (a) embedding enabled → record persisted WITH the vector, consultable.
+#[test]
+fn write_memory_with_hook_stores_vector() {
+    let (db, _dir) = open_db();
+    let h = hook(FixedEmbedding);
+    let written = write_memory(
+        &db,
+        "session-emb",
+        "si",
+        &memory("user prefers dark mode"),
+        &decision("m-emb-1", DedupAction::Store),
+        5,
+        0,
+        Some(&h),
+    )
+    .expect("write")
+    .expect("stored");
+
+    let raw = get_raw(&db, "session-emb", &written.id).expect("raw record");
+    assert_eq!(raw.vector, Some(vec![FAKE_VALUE; FAKE_DIM]));
+}
+
+// (b) embedding failure → record still written WITHOUT vector, no panic.
+#[test]
+fn embedding_failure_stores_without_vector() {
+    let (db, _dir) = open_db();
+    let h = hook(FailingEmbedding);
+    let written = write_memory(
+        &db,
+        "session-emb-fail",
+        "si",
+        &memory("user prefers light mode"),
+        &decision("m-emb-2", DedupAction::Store),
+        5,
+        0,
+        Some(&h),
+    )
+    .expect("write must not fail")
+    .expect("stored");
+
+    assert_eq!(written.content, "user prefers light mode");
+    let raw = get_raw(&db, "session-emb-fail", &written.id).expect("raw record");
+    assert_no_usable_vector(&raw.vector);
+}
+
+// (c) disabled (default None) → identical behavior: no vector.
+#[test]
+fn embedding_disabled_keeps_records_vector_free() {
+    let (db, _dir) = open_db();
+    let written = write_memory(
+        &db,
+        "session-emb-off",
+        "si",
+        &memory("team uses postgres"),
+        &decision("m-emb-3", DedupAction::Store),
+        5,
+        0,
+        None,
+    )
+    .expect("write")
+    .expect("stored");
+
+    let records = read_session_records(&db, "session-emb-off").expect("read back");
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].content, written.content);
+    let raw = get_raw(&db, "session-emb-off", &written.id).expect("raw record");
+    assert_no_usable_vector(&raw.vector);
+}
+
+// (d) dimension consistency: every record from one hook shares the dimension.
+#[test]
+fn embedding_dimension_is_consistent_across_records() {
+    let (db, _dir) = open_db();
+    let h = hook(FixedEmbedding);
+    let memories = vec![memory("alpha fact"), memory("beta fact")];
+    let decisions = vec![
+        decision("m-emb-a", DedupAction::Store),
+        decision("m-emb-b", DedupAction::Store),
+    ];
+    let written = apply_dedup_batch(
+        &db,
+        "session-emb-dim",
+        "si",
+        &memories,
+        &decisions,
+        7,
+        Some(&h),
+    )
+    .expect("batch");
+    assert_eq!(written.len(), 2);
+    for w in &written {
+        let raw = get_raw(&db, "session-emb-dim", &w.id).expect("raw record");
+        let v = raw.vector.expect("vector present");
+        assert_eq!(v.len(), FAKE_DIM);
+        assert!(v.iter().all(|&x| x == FAKE_VALUE));
+    }
+}
+
+// e2e: run_l1_dedup threads config.embed → pipeline writes carry vectors.
+#[test]
+fn run_l1_dedup_with_embed_config_stores_vectors() {
+    let (db, _dir) = open_db();
+    let runner = ScriptedLlm::new(vec![]);
+    let memories = vec![memory("user prefers dark mode")];
+    let config = L1DedupConfig {
+        embed: Some(hook(FixedEmbedding)),
+        ..L1DedupConfig::default()
+    };
+
+    let written =
+        run_l1_dedup(&db, &runner, "session-emb-e2e", "si", &memories, &config).expect("pipeline");
+    assert_eq!(written.len(), 1);
+
+    // Ids are generated (`m_{now}_{idx}`): alphanumerics + underscores pass
+    // through key sanitization unchanged.
+    let ns = l1_namespace("session-emb-e2e");
+    let listed = db.list(&ns, Default::default()).expect("list");
+    assert_eq!(listed.records.len(), 1);
+    assert!(listed.records[0].vector.is_some());
 }

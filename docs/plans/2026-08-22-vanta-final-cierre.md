@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Cierre Final — integración, recall semántico y gobierno de decisiones
 
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (3/8 tareas)
+> **Estado:** ⏳ EN PROGRESO (4/8 tareas)
 > **Fuente:** auditoría final post-P30 (vanta-research `ses_fd8c2c26`, 2026-08-22) + decisiones del usuario (2026-08-21/22) + deudas vigentes de task files
 > **Predecesores:** P27 F1-F4 ✅ 24/24 · P29 F5 ✅ 9/9 · P30 F6+F7 ✅ 9/9 — **roadmap TDAM F1-F7 cerrado**, suites 2568+ tests
 > **Modo:** waves — Wave 0 (integraciones y tests independientes) → Wave 1 (embeddings fundación) → Wave 2 (semantic recall + scoring) → Wave 3 (gobierno humano + meta-tarea).
@@ -111,7 +111,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
   | 🟡×🟠 | embedder lento bloquea writes | async/best-effort: write sin vector + backfill | benchmarks |
 - **Cynefin:** 🟧 complejo — el comportamiento emerge al probar; steps cortos
 - **Uphill/Downhill:** ⬆️ 1 (Paso 0) · ⬇️ 4 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-46.md`
 - **Notas:** Ruta: vanta-worker (Rama B) o vanta-engine (si Rama A toca core vector). Decidir ruta tras Paso 0.
 
@@ -213,12 +213,11 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 ---
 
 === RECITATION ===
-Campaign ID: (pendiente MCP)
-Objetivo activo: P31 Task 3 — MEM-45 auto-sync scheduler (re-ingest programado del wiki)
+Campaign ID: bfb071a9-aafa-4bdc-ab9b-43e5051644d3
+Objetivo activo: MEM-46: cablear EmbeddingProvider del core al pipeline de escritura L1 en vanta-memory (best-effort, P4, default off)
 Estado: pending ⏳
-Última acción: Implementado auto_sync.rs completo (la sesión previa dejó el task file con steps marcados ✅ pero SIN código): AutoSyncConfig (enabled=false default, clamp ≥60s), AutoSyncScheduler pull-based tick() sobre ManagedTimer/Clock (cero threads, FakeClock determinista), busy guard pre-run vía WikiStore.is_busy con hashes intencionalmente stale tras skip, detección de cambios FNV-1a por archivo sobre scan_local_sources (sin watcher FS), re-ingest vía worker::run_with_progress con run_id fresco por build. 5 tests D19 in-module: todos verdes.
+Última acción: Implementado wiring completo: EmbedFn inyectable via L1DedupConfig.embed (default None), embed best-effort con warn log en write_memory Store/Update/Merge, put_record persiste vector via VantaMemoryInput.vector, core_embedding_hook() tras feature passthrough embeddings=[vantadb/remote-inference], dev-deps unification para tests. 5 tests D19 nuevos. Verify completo verde.
 Resultado: OK
-Próxima acción: Lead: commitear los 2 archivos (git add vanta-memory/src/ingest/auto_sync.rs vanta-memory/src/ingest/mod.rs && git commit -m 'feat(vanta-memory): MEM-45 auto-sync scheduler re-ingest programado') y delegar Task 4 — MEM-46 (embeddings L1, Paso 0: verificar auto-embedding en core)
+Próxima acción: Lead: revisar diff + commitear 'feat(vanta-memory): MEM-46 embeddings best-effort para records L1'. Siguiente tarea del plan: Task 5 MEM-47 (semantic recall end-to-end)
 Contrato: por tarea — cargo check/nextest/fmt/clippy del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 4
-=== END RECITATION ===
+Próxima tarea si completa: 5

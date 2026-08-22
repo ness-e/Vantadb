@@ -10,6 +10,7 @@
 //! `l1/<session>`, key = record id, payload = serialized [`MemoryRecord`].
 
 use std::collections::BTreeSet;
+use std::sync::Arc;
 
 use thiserror::Error;
 
@@ -38,11 +39,50 @@ pub fn generate_memory_id(now_ms: u64, idx: usize) -> String {
     format!("m_{now_ms}_{idx}")
 }
 
+/// Best-effort embedding hook for L1 writes (MEM-46).
+///
+/// Maps record content to a dense vector. Returning `None` (provider failure,
+/// empty result) must never block the write — the record is stored without a
+/// vector instead (P4). `None` as the hook itself means embeddings are
+/// disabled, which is the default.
+pub type EmbedFn = Arc<dyn Fn(&str) -> Option<Vec<f32>> + Send + Sync>;
+
+/// Build an [`EmbedFn`] from the core embedding provider factory
+/// (`vantadb::llm::get_embedding_provider`, selected by env
+/// `VANTA_EMBEDDING_PROVIDER`: `openai` | `ollama` default).
+///
+/// Requires the `embeddings` feature passthrough (`vantadb/remote-inference`);
+/// host code decides whether to attach it to [`crate::core::record::L1DedupConfig`].
+#[cfg(feature = "embeddings")]
+pub fn core_embedding_hook() -> EmbedFn {
+    let provider = vantadb::llm::get_embedding_provider();
+    Arc::new(move |text: &str| provider.embed(text).ok())
+}
+
+/// Best-effort embed: a hook failure logs a warning and yields `None` so the
+/// write proceeds without a vector (P4 — never blocks, never loses data).
+fn embed_vector(embed: Option<&EmbedFn>, content: &str) -> Option<Vec<f32>> {
+    match embed {
+        None => None,
+        Some(hook) => match hook(content) {
+            Some(v) => Some(v),
+            None => {
+                tracing::warn!("l1 embedding failed; storing record without vector");
+                None
+            }
+        },
+    }
+}
+
 /// Apply one dedup decision for a new memory. Returns the persisted record, or
 /// `None` when the decision was `skip`.
 ///
 /// `now_ms` seeds both the id (when the decision has none) and the RFC3339
 /// timestamps; `idx` disambiguates records written in the same batch.
+///
+/// `embed` (MEM-46): optional embedding hook — when present, the persisted
+/// record carries a dense vector; a hook failure stores the record without
+/// one (best-effort, P4).
 pub fn write_memory(
     db: &VantaEmbedded,
     session_key: &str,
@@ -51,6 +91,7 @@ pub fn write_memory(
     decision: &DedupDecision,
     now_ms: u64,
     idx: usize,
+    embed: Option<&EmbedFn>,
 ) -> Result<Option<MemoryRecord>, L1Error> {
     let ns = l1_namespace(session_key);
     let now = epoch_ms_to_rfc3339(now_ms);
@@ -82,7 +123,8 @@ pub fn write_memory(
                 user_id: None,
                 agent_id: None,
             };
-            put_record(db, &ns, &record)?;
+            let vector = embed_vector(embed, &record.content);
+            put_record(db, &ns, &record, vector)?;
             // MEM-41 provenance: best-effort, never blocks the write (P4).
             crate::core::memory_generation_log::record_best_effort(
                 db,
@@ -145,7 +187,8 @@ pub fn write_memory(
                 user_id: None,
                 agent_id: None,
             };
-            put_record(db, &ns, &record)?;
+            let vector = embed_vector(embed, &record.content);
+            put_record(db, &ns, &record, vector)?;
             // MEM-41 provenance: best-effort, never blocks the write (P4).
             crate::core::memory_generation_log::record_best_effort(
                 db,
@@ -171,6 +214,7 @@ pub fn apply_dedup_batch(
     memories: &[ExtractedMemory],
     decisions: &[DedupDecision],
     now_ms: u64,
+    embed: Option<&EmbedFn>,
 ) -> Result<Vec<MemoryRecord>, L1Error> {
     let mut written = Vec::new();
     for (idx, memory) in memories.iter().enumerate() {
@@ -186,9 +230,16 @@ pub fn apply_dedup_batch(
                 merged_priority: None,
                 merged_timestamps: None,
             });
-        if let Some(record) =
-            write_memory(db, session_key, session_id, memory, &decision, now_ms, idx)?
-        {
+        if let Some(record) = write_memory(
+            db,
+            session_key,
+            session_id,
+            memory,
+            &decision,
+            now_ms,
+            idx,
+            embed,
+        )? {
             written.push(record);
         }
     }
@@ -213,7 +264,12 @@ fn load_targets(
     Ok(targets)
 }
 
-fn put_record(db: &VantaEmbedded, ns: &str, record: &MemoryRecord) -> Result<(), L1Error> {
+fn put_record(
+    db: &VantaEmbedded,
+    ns: &str,
+    record: &MemoryRecord,
+    vector: Option<Vec<f32>>,
+) -> Result<(), L1Error> {
     let mut metadata = VantaMemoryMetadata::new();
     metadata.insert(
         "type".into(),
@@ -225,7 +281,7 @@ fn put_record(db: &VantaEmbedded, ns: &str, record: &MemoryRecord) -> Result<(),
         key: sanitize_key(&record.id),
         payload: serde_json::to_string(record)?,
         metadata,
-        vector: None,
+        vector,
         sparse_vector: None,
         ttl_ms: None,
     })?;
