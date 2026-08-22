@@ -8,6 +8,20 @@ aliases: []
 ---
 
 # bitacora — Development Log
+> **Regla GOV-D3:** entrada al cierre de cada campaña; bullets del lead, redacción del autor.
+## Agosto 2026
+
+### 2026-08-22 — Cierre TDAM y rumbo a Show HN (draft para articulación humana)
+
+Hechos objetivos (el autor narra):
+- Port TDAM cerrado: P27 F1-F7 completos; vanta-memory, vanta-proxy y context engine son crates/productos reales.
+- Vanta Studio (P26) completo: consola desktop + REST /api/v2/* (~29 endpoints) + WASM/OPFS standalone.
+- Auditoría documental integral (V1+II): salud 6.5/10 → campaña GOV en ejecución.
+- Wave B bloqueante Show HN ejecutada: case studies ficticios archivados, openapi.yaml con paridad gateada en CI, skill MCP fuente única 33 tools, snippets de tutoriales 31 FAIL→0.
+- Release 0.5.0 verificado live en crates.io/PyPI/npm; wheels ARM64 y adapters pendientes (MKT-18h/f).
+- Pendiente grande post-launch: ACID 4a-4d rollback multi-capa (INV-010) ticketeado.
+
+> **Regla de uso (GOV-D3):** entrada narrativa al CIERRE de cada campaña (no daily). El lead prepara bullets; la redacción es del autor humano (Regla 5).
 
 ## Julio 2026
 
