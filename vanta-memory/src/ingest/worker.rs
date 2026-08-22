@@ -12,6 +12,7 @@ use std::path::Path;
 
 use crate::core::abstractions::{LlmError, LlmRunParams, LlmRunner};
 use crate::ingest::{
+    callback::{IngestPhase, IngestProgress, ProgressTracker},
     merge::{aggregate_by_rel_path, commit, parse_file_blocks, CandidatePage},
     prompts, IngestConfig, IngestError,
 };
@@ -39,6 +40,21 @@ pub fn run<R: LlmRunner>(
     runner: Option<&R>,
     config: &IngestConfig,
 ) -> Result<IngestReport, IngestError> {
+    run_with_progress(store, namespace, slug, root, runner, config, None)
+}
+
+/// [`run`] with live progress reporting (MEM-31): snapshots are pushed to
+/// `progress` during extracting|merging|indexing. The channel is best-effort
+/// P4 — it never blocks and never fails the build.
+pub fn run_with_progress<R: LlmRunner>(
+    store: &vantadb::wiki::WikiStore<'_>,
+    namespace: &str,
+    slug: &str,
+    root: &Path,
+    runner: Option<&R>,
+    config: &IngestConfig,
+    progress: Option<&ProgressTracker>,
+) -> Result<IngestReport, IngestError> {
     let current = store
         .get(namespace, slug)?
         .ok_or_else(|| IngestError::NotFound {
@@ -57,23 +73,70 @@ pub fn run<R: LlmRunner>(
             ));
         }
     };
+    // MEM-31: from here on the tracker only accepts this run_id — packets
+    // from an older build are discarded (late-packet guard).
+    if let Some(t) = progress {
+        t.begin_run(&run_id);
+    }
 
-    match ingest_body(store, namespace, slug, root, runner, config) {
+    match ingest_body(
+        store, namespace, slug, root, runner, config, progress, &run_id,
+    ) {
         Ok(mut report) => {
-            store.complete(namespace, slug, &run_id)?;
-            report.run_id = run_id;
-            Ok(report)
+            emit(
+                progress,
+                IngestProgress::new(
+                    &run_id,
+                    IngestPhase::Indexing,
+                    report.commit_report.written.len(),
+                    report.commit_report.written.len(),
+                    0,
+                    0,
+                ),
+            );
+            match store.complete(namespace, slug, &run_id) {
+                Ok(_) => {
+                    emit(
+                        progress,
+                        IngestProgress::new(&run_id, IngestPhase::Done, 1, 1, 0, 0),
+                    );
+                    report.run_id = run_id;
+                    Ok(report)
+                }
+                Err(e) => {
+                    let _ = store.fail(namespace, slug, &run_id, &e.to_string());
+                    emit(
+                        progress,
+                        IngestProgress::new(&run_id, IngestPhase::Failed, 0, 0, 1, 0),
+                    );
+                    Err(e.into())
+                }
+            }
         }
         Err(e) => {
             // Best-effort failure marking; surface the original error either way.
             let _ = store.fail(namespace, slug, &run_id, &e.to_string());
+            emit(
+                progress,
+                IngestProgress::new(&run_id, IngestPhase::Failed, 0, 0, 1, 0),
+            );
             Err(e)
         }
     }
 }
 
+/// Best-effort progress emission (P4): `update_progress` uses try_lock, so
+/// this can never block or fail the ingest.
+fn emit(progress: Option<&ProgressTracker>, snapshot: IngestProgress) {
+    if let Some(t) = progress {
+        let _ = t.update_progress(snapshot);
+    }
+}
+
 /// Scan → chunk → extract → serial merge → persist. Storage-free except the
-/// final write pass, which binds to `store`.
+/// final write pass, which binds to `store`. `progress` (MEM-31) receives
+/// Extracting snapshots per source and Merging snapshots per page write.
+#[allow(clippy::too_many_arguments)]
 fn ingest_body<R: LlmRunner>(
     store: &vantadb::wiki::WikiStore<'_>,
     namespace: &str,
@@ -81,8 +144,14 @@ fn ingest_body<R: LlmRunner>(
     root: &Path,
     runner: Option<&R>,
     config: &IngestConfig,
+    progress: Option<&ProgressTracker>,
+    run_id: &str,
 ) -> Result<IngestReport, IngestError> {
     let files = vantadb::wiki::scan_local_sources(root)?;
+    emit(
+        progress,
+        IngestProgress::new(run_id, IngestPhase::Extracting, files.len(), 0, 0, 0),
+    );
 
     let mut sources_processed = Vec::new();
     let mut sources_skipped = Vec::new();
@@ -123,12 +192,33 @@ fn ingest_body<R: LlmRunner>(
             sources_processed.push(file.rel_path.clone());
             extracted.push((file.rel_path.clone(), candidates));
         }
+        // Per-source snapshot; the tracker's throttle collapses these to
+        // ~2/sec while preserving phase changes.
+        emit(
+            progress,
+            IngestProgress::new(
+                run_id,
+                IngestPhase::Extracting,
+                sources_processed.len() + sources_skipped.len(),
+                sources_processed.len(),
+                0,
+                sources_skipped.len(),
+            ),
+        );
     }
 
     let by_page = aggregate_by_rel_path(extracted);
+    let merge_total = by_page.len();
+    emit(
+        progress,
+        IngestProgress::new(run_id, IngestPhase::Merging, merge_total, 0, 0, 0),
+    );
 
     // Store-backed page IO: relPath (`wiki/<dir>/<file>.md`) maps to
     // (page_type = dir, title = stem); canonicalization/dedup stay in WikiStore.
+    // Merged/written/failed counters feed per-page Merging progress.
+    let merged = std::cell::Cell::new(0usize);
+    let write_failed = std::cell::Cell::new(0usize);
     let commit_report = commit(
         by_page,
         runner,
@@ -148,10 +238,38 @@ fn ingest_body<R: LlmRunner>(
                     "candidate path `{rel}` is not storable"
                 )));
             };
-            store
-                .put_page(namespace, slug, &page_type, &title, content)
-                .map(|_| ())
-                .map_err(IngestError::from)
+            match store.put_page(namespace, slug, &page_type, &title, content) {
+                Ok(_) => {
+                    merged.set(merged.get() + 1);
+                    emit(
+                        progress,
+                        IngestProgress::new(
+                            run_id,
+                            IngestPhase::Merging,
+                            merge_total,
+                            merged.get(),
+                            write_failed.get(),
+                            0,
+                        ),
+                    );
+                    Ok(())
+                }
+                Err(e) => {
+                    write_failed.set(write_failed.get() + 1);
+                    emit(
+                        progress,
+                        IngestProgress::new(
+                            run_id,
+                            IngestPhase::Merging,
+                            merge_total,
+                            merged.get(),
+                            write_failed.get(),
+                            0,
+                        ),
+                    );
+                    Err(IngestError::from(e))
+                }
+            }
         },
     )?;
 

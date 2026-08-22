@@ -16,6 +16,7 @@
 //! recording skips for pages needing real merging. It never blocks and never
 //! loses data.
 
+pub mod callback;
 pub mod merge;
 pub mod prompts;
 pub mod worker;

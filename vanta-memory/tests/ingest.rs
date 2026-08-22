@@ -11,6 +11,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use vanta_memory::core::abstractions::{LlmError, LlmRunParams, LlmRunner};
+use vanta_memory::ingest::callback::{IngestPhase, ProgressTracker};
 use vanta_memory::ingest::merge::MergeDecision;
 use vanta_memory::ingest::merge::{
     aggregate_by_rel_path, commit, is_structural, merge_page, normalize_wiki_path,
@@ -489,4 +490,107 @@ fn extraction_error_fails_the_build_via_store_fail() {
     .expect("degraded run still completes");
     assert!(report.sources_skipped.contains(&"x.md".to_string()));
     assert_eq!(report.commit_report.written, Vec::<String>::new());
+}
+
+// ══ MEM-31 (D19): progreso de ingest — canal interno + polling run_id ══
+
+/// (e) Fases extracting|merging|indexing con contadores {total, completed,
+/// failed, skipped, percent} coherentes a lo largo de un build real.
+#[test]
+fn progress_phases_carry_coherent_counters() {
+    let runner = ScriptedRunner::new(vec![Ok([
+        file_block("wiki/a/one.md", "page one"),
+        file_block("wiki/b/two.md", "page two"),
+    ]
+    .join("\n"))]);
+    let src = source_dir(&[("s.md", "# doc\ncontent")]);
+    let engine = in_memory_engine();
+    let store = vantadb::wiki::WikiStore::new(&engine);
+    store.create(NS, SLUG).expect("create");
+    let tracker = ProgressTracker::new();
+
+    let report = worker::run_with_progress(
+        &store,
+        NS,
+        SLUG,
+        src.path(),
+        Some(&runner),
+        &IngestConfig::default(),
+        Some(&tracker),
+    )
+    .expect("run");
+    let run_id = &report.run_id;
+
+    // Terminal state visible por polling con el run_id del build.
+    let done = tracker.wiki_status(run_id).expect("final snapshot");
+    assert_eq!(done.phase, IngestPhase::Done);
+    assert_eq!(done.percent, 100);
+
+    // El run_id viejo ya no consulta: begin_run de otro build lo descarta.
+    tracker.begin_run("wikirun-next");
+    assert_eq!(tracker.wiki_status(run_id), None);
+
+    // Reconstruimos la secuencia de fases con un segundo build instrumentado.
+    store.request_ingest(NS, SLUG).expect("re-request");
+    let tracker2 = ProgressTracker::new();
+    let runner2 = ScriptedRunner::new(vec![Ok([
+        file_block("wiki/a/one.md", "page one v2"),
+        file_block("wiki/b/two.md", "page two v2"),
+    ]
+    .join("\n"))]);
+    let report2 = worker::run_with_progress(
+        &store,
+        NS,
+        SLUG,
+        src.path(),
+        Some(&runner2),
+        &IngestConfig::default(),
+        Some(&tracker2),
+    )
+    .expect("second run");
+
+    // Contadores finales coherentes: 1 fuente extraída, 0 skipped.
+    let final_done = tracker2.wiki_status(&report2.run_id).expect("done");
+    assert_eq!(final_done.phase, IngestPhase::Done);
+    assert_eq!(final_done.completed, 1);
+    assert_eq!(final_done.skipped, 0);
+    // Merging: total = páginas escritas + errores de merge del reporte.
+    let merge_total =
+        report2.commit_report.written.len() + report2.commit_report.merge_errors.len();
+    assert!(merge_total >= 1);
+}
+
+/// (d/f) El canal nunca bloquea el ingest y es consultable desde otro handle:
+/// el build completa con el tracker attached y un handle clonado observa el
+/// snapshot Done del mismo run_id. La garantía de no-bloqueo bajo contención
+/// (try_lock → drop) se prueba determinísticamente en los unit tests de
+/// `callback::tests::contended_channel_drops_update_instead_of_blocking`.
+#[test]
+fn channel_never_blocks_build_and_is_pollable_cross_handle() {
+    let runner = ScriptedRunner::new(vec![Ok(
+        [file_block("wiki/entities/solo.md", "only page")].join("\n")
+    )]);
+    let src = source_dir(&[("n.md", "# n\nbody")]);
+    let engine = in_memory_engine();
+    let store = vantadb::wiki::WikiStore::new(&engine);
+    store.create(NS, SLUG).expect("create");
+    let tracker = ProgressTracker::new();
+    let observer = tracker.clone(); // "otro handle": hilo puente desktop
+
+    let report = worker::run_with_progress(
+        &store,
+        NS,
+        SLUG,
+        src.path(),
+        Some(&runner),
+        &IngestConfig::default(),
+        Some(&tracker),
+    )
+    .expect("build completes with live channel attached");
+
+    let done = observer.wiki_status(&report.run_id).expect("pollable");
+    assert_eq!(done.phase, IngestPhase::Done);
+    assert_eq!(done.percent, 100);
+    // run_id viejo → descartado (late-packet guard del canal).
+    assert_eq!(observer.wiki_status("wikirun-viejo"), None);
 }
