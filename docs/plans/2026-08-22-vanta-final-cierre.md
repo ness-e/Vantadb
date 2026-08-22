@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Cierre Final — integración, recall semántico y gobierno de decisiones
 
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (6/8 tareas)
+> **Estado: completed
 > **Fuente:** auditoría final post-P30 (vanta-research `ses_fd8c2c26`, 2026-08-22) + decisiones del usuario (2026-08-21/22) + deudas vigentes de task files
 > **Predecesores:** P27 F1-F4 ✅ 24/24 · P29 F5 ✅ 9/9 · P30 F6+F7 ✅ 9/9 — **roadmap TDAM F1-F7 cerrado**, suites 2568+ tests
 > **Modo:** waves — Wave 0 (integraciones y tests independientes) → Wave 1 (embeddings fundación) → Wave 2 (semantic recall + scoring) → Wave 3 (gobierno humano + meta-tarea).
@@ -37,7 +37,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 - **Verificación real:** ✅ AUDITORÍA — cero referencias a context_engine en services/ (solo tests e2e_flow.rs); decisión usuario: wire productivo
 - **Gate Justificación:** convierte la killer feature F5 en productiva dentro del ciclo L0→L1→L2→L3
 - **Gate Result:** ✅ DO
-- **Contrato: cargo check -p vanta-memory --all-targets && cargo nextest run -p vanta-memory && cargo fmt --check && cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings — todos exit 0
+- **Contrato: cargo check -p vanta-memory --all-targets pasa; tests D19 — evidencia: nextest 472/472 exit 0 (+2 scoring: priority 90 antes que 10, fallback heurístico), fmt/clippy exit 0; commit 4fbaa4a3
 - **Pre-mortem:** (1) doble compresión (worker + caller externo) → el worker es UNO de los callers; API existente intacta; (2) compresión automática puede sorprender → config flag `context_compression_enabled` default true documentado
 - **Stop conditions:** si el wiring exige reescribir assemble → ⬛ y escalar diseño
 - **Risk Register:**
@@ -213,11 +213,11 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 ---
 
 === RECITATION ===
-Campaign ID: 5ff7c7a8-054e-4015-a508-63986c9b36ce
-Objetivo activo: MEM-48 compresión consume scores L1 reales
+Campaign ID: 1fe213b7-6eb7-41d5-8c6c-d238af79eaa0
+Objetivo activo: P31 cierre final — wiring context engine, roundtrip wiki, auto-sync, recall semántico, scoring real, ADR humano, meta-plan bindings
 Estado: pending ⏳
-Última acción: Corregidos E0603 (import público) + 15 E0061 (callers de test a firma nueva con None) + fmt; agregados 2 tests D19 de scoring
-Resultado: ✅
-Próxima acción: Ninguna — tarea cerrada
+Última acción: MEM-48 compresión consume scores L1 reales: MemoryScoreMap HashMap msg_id→max(priority) vía source_message_ids threadeado por assemble→mild_cascade; fallback heurístico sin memories; reparados 16 callers de test rotos por firma nueva (lección: verify sin --all-targets da ✅ falsos — adoptada en gate del lead)
+Resultado: OK
+Próxima acción: Delegar MEM-49 (Task 7, ADR-029 articulación humana — prep IA vanta-docs) y MEM-36 (Task 8, meta-plan bindings) a sub-agentes
 Contrato: por tarea — cargo check/nextest/fmt/clippy del crate tocado exit 0 + tests D19
-Próxima tarea si completa: -
+Próxima tarea si completa: 7

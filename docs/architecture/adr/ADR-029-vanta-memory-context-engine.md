@@ -9,6 +9,10 @@ last_reviewed: 2026-08-21
 
 # ADR-029: vanta-memory — LLM-driven context engine (D21-D23)
 
+> ⏳ **BORRADOR — pendiente articulación humana** (Regla 5 / D41). Guía de revisión
+> con evidencia y preguntas socráticas por decisión (D21-D36):
+> [`guia-revision-ADR-029-y-D24-D37.md`](./guia-revision-ADR-029-y-D24-D37.md)
+
 > **Borrador técnico para revisión del autor — editar con tus palabras antes de aprobar.**
 > Este documento fue redactado por la IA como evidencia técnica de la campaña F5
 > (plan P29, `docs/plans/2026-08-21-vanta-context-engine.md`). Per Regla 5
