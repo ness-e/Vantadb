@@ -205,6 +205,129 @@ fn open_vantadb(
     })
 }
 
+// ---------------------------------------------------------------------------
+// Domain sub-clients (SDKB-03)
+//
+// Read-only grouping of ALREADY-EXPOSED flat methods by domain, per the
+// canonical map `docs/api/BINDINGS_NAMESPACES.md`. Delegation only — zero new
+// logic (D43). Each client holds a strong ref to its parent [`VantaDB`]; a
+// fresh instance is built on every property access, so no reference cycle
+// outlives the reference the caller keeps.
+// ---------------------------------------------------------------------------
+
+/// Grouped memory-record operations (``db.memory.*``): namespace+key records,
+/// hybrid and pure-ANN search, supersede, snippets, TTL housekeeping.
+#[pyclass]
+struct MemoryClient {
+    /// Parent database handle every call is forwarded to.
+    db: Py<VantaDB>,
+}
+
+/// Grouped graph operations (``db.graph.*``): node/edge CRUD and traversals.
+///
+/// Naming note: ``insert``/``get``/``delete`` are NODE-level ops (``id: u128``)
+/// in Python — unlike the memory-record semantics those names carry in the
+/// TS/WASM bindings (see BINDINGS_NAMESPACES.md naming hazard).
+#[pyclass]
+struct GraphClient {
+    /// Parent database handle every call is forwarded to.
+    db: Py<VantaDB>,
+}
+
+/// Catch-all system operations (``db.system.*``): lifecycle, capabilities,
+/// hardware profile, metrics, IQL query engine, index maintenance, import/export.
+#[pyclass]
+struct SystemClient {
+    /// Parent database handle every call is forwarded to.
+    db: Py<VantaDB>,
+}
+
+/// Wiki summary-archive recovery (``db.wiki.*``).
+#[pyclass]
+struct WikiClient {
+    /// Parent database handle every call is forwarded to.
+    db: Py<VantaDB>,
+}
+
+/// Generates pymethods that forward each listed call VERBATIM to the flat
+/// method of the same name on the parent [`VantaDB`]. The varargs/kwargs
+/// pass-through makes the exposed signature identical by construction — the
+/// flat method keeps doing all argument validation (single source of truth).
+macro_rules! forward_to_db {
+    ($client:ident { $($method:ident),* $(,)? }) => {
+        #[pymethods]
+        impl $client {
+            $(
+                #[doc = concat!("Delegates to ``VantaDB.", stringify!($method), "`` — same signature, same result.")]
+                #[pyo3(signature = (*args, **kwargs))]
+                fn $method<'py>(
+                    &self,
+                    py: Python<'py>,
+                    args: &Bound<'py, PyTuple>,
+                    kwargs: Option<&Bound<'py, PyDict>>,
+                ) -> PyResult<Bound<'py, PyAny>> {
+                    self.db.bind(py).call_method(stringify!($method), args, kwargs)
+                }
+            )*
+        }
+    };
+}
+
+forward_to_db!(MemoryClient {
+    put,
+    put_batch,
+    put_batch_raw,
+    get_memory,
+    delete_memory,
+    list_memory,
+    search_memory,
+    search,
+    search_batch,
+    search_batch_requests,
+    explain_memory_search,
+    supersede,
+    generate_snippet,
+    purge_expired,
+    list_namespaces,
+});
+
+forward_to_db!(GraphClient {
+    insert,
+    get,
+    delete,
+    add_edge,
+    graph_bfs,
+    graph_dfs,
+    graph_topological_sort,
+    graph_is_dag,
+    graph_page_rank,
+    graph_degree_centrality,
+});
+
+forward_to_db!(SystemClient {
+    capabilities,
+    hardware_profile,
+    operational_metrics,
+    query,
+    flush,
+    compact_wal,
+    compact_layout,
+    rebuild_index,
+    reindex_hnsw_from_text,
+    repair_text_index,
+    audit_text_index,
+    export_namespace,
+    export_all,
+    import_file,
+    bulk_import,
+    bulk_import_bytes,
+    close,
+});
+
+forward_to_db!(WikiClient {
+    recover_archived_nodes
+});
+
 #[pymethods]
 impl VantaDB {
     /// Create or open a VantaDB database.
@@ -1835,6 +1958,51 @@ impl VantaDB {
         })?;
 
         search_explanation_to_pydict(py, &explanation)
+    }
+
+    // -- Domain sub-clients (SDKB-03) ----------------------------------------
+    //
+    // Grouped views over the flat methods above (delegation only, D43).
+    // A fresh client is built on each access; it holds a strong ref to this
+    // handle, so drop the client when done if you also dropped the DB.
+
+    // NOTE: Rust fn names differ from the exposed property names so the
+    // generated trampolines (`__pymethod_get_<fn>__`) never collide with flat
+    // methods of the same shape (e.g. `get_memory`).
+    #[getter]
+    #[pyo3(name = "memory")]
+    fn memory_client(slf: &Bound<'_, Self>) -> MemoryClient {
+        MemoryClient {
+            db: slf.clone().unbind(),
+        }
+    }
+
+    /// Grouped graph operations (``db.graph.*``) — node/edge CRUD + traversals.
+    #[getter]
+    #[pyo3(name = "graph")]
+    fn graph_client(slf: &Bound<'_, Self>) -> GraphClient {
+        GraphClient {
+            db: slf.clone().unbind(),
+        }
+    }
+
+    /// Catch-all system operations (``db.system.*``): lifecycle, metrics,
+    /// IQL, index maintenance, import/export.
+    #[getter]
+    #[pyo3(name = "system")]
+    fn system_client(slf: &Bound<'_, Self>) -> SystemClient {
+        SystemClient {
+            db: slf.clone().unbind(),
+        }
+    }
+
+    /// Wiki summary-archive recovery (``db.wiki.*``).
+    #[getter]
+    #[pyo3(name = "wiki")]
+    fn wiki_client(slf: &Bound<'_, Self>) -> WikiClient {
+        WikiClient {
+            db: slf.clone().unbind(),
+        }
     }
 }
 

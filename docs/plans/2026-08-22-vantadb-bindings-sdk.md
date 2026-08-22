@@ -1,8 +1,7 @@
 # Plan de Ejecución: VantaDB Bindings SDK — sub-clientes por dominio
 
-> **Campaign ID:** 93d6303b-4902-443e-a765-6042392d0577
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (2/4 tareas)
+> **Estado:** ⏳ EN PROGRESO (3/4 tareas)
 > **Fuente:** meta-tarea MEM-36 (`.opencode/skills/campaign-executor/tasks/MEM-36.md`, spec completa) + decisión usuario 2026-08-21 (campaña separada)
 > **Predecesores:** P27+P29+P30 (roadmap TDAM F1-F7 ✅ 42 tareas) · P31 cierre final (en curso)
 
@@ -46,7 +45,7 @@
 - **Verificación real:** ✅ CÓDIGO-REAL — superficie listada arriba (43 wasm / TS clase / ~26 python)
 - **Gate Justificación:** fundación — el mapa es el contrato que SDKB-02/03 ejecutan
 - **Gate Result:** ✅ DO
-- **Contrato:** "`npm test` pasa (suite existente intacta = backward-compat); tests nuevos: `db.memory.put/get/search/supersede`, `db.graph.bfs/topological`, `db.wiki.*` según mapa SDKB-01 delegan al método plano idéntico (mismo resultado, misma firma)"
+- **Contrato: verificacion: 'target\audit-venv\Scripts\python.exe -m pytest vantadb-python\tests -v' → 105 passed, 4 skipped, 4 deselected, exit 0 ✅. Evidencia por claim: [claim=delegación db.memory.*/db.graph.*/db.system.*/db.wiki.* idéntica al método plano → evidencia=vantadb-python/tests/test_subclients.py 16/16 PASSED → confianza alta] [claim=suite existente intacta (backward-compat) → evidencia=test_sdk.py/test_async_smoke/test_load/test_perf_15_16 PASSED sin modificaciones → confianza alta]. artefactos: vantadb-python/src/lib.rs, vantadb-python/vantadb_py/__init__.pyi, vantadb-python/tests/test_subclients.py. invariantes: métodos planos NO tocar; cero lógica nueva en delegantes (D43); solo capa Python (D42). deuda: ninguna (4 skipped = test_migration pre-existente por chromadb/lancedb ausentes; 4 deselected = marker slow FX-3). queda_pendiente: commit — orden explícito del orquestador NO commitear.
 - **Pre-mortem:** métodos huérfanos (capabilities, import/export, metrics) → dominio `system`
 - **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger/Due |
@@ -91,7 +90,7 @@
   | 🟡×🟡 | PyO3 nested objects fricción | helper function en vez de property | DISCOVERY |
 - **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 3 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/SDKB-03.md`
 - **Notas:** Ruta: vanta-worker. DEPENDE de Task 1. Leer `.opencode/rules/python-bindings.md` antes.
 
@@ -118,11 +117,11 @@
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: SDKB-02: sub-clientes TypeScript (memory/graph/wiki/system) como getters frozen delegantes en vantadb.ts
+Objetivo activo: SDKB-03 — sub-clientes Python (db.memory/graph/system/wiki) con delegación pura a métodos planos
 Estado: pending ⏳
-Última acción: Implementados 4 getters frozen delegantes con arrows (this-binding seguro), interfaces reusando types.ts, 17 tests de identidad de delegación. Desbloqueado LinkError pre-existente del pkg con parche local gitignored; verify mecánico completo verde.
+Última acción: Verify mecánico full: cargo fmt -p vantadb_py aplicado a bloques forward_to_db! (solo whitespace) + fmt --check OK, cargo check -p vantadb_py exit 0, clippy sin warnings propios, suite pytest completa verde; task file cerrado ✅ COMPLETED. Sin commit (orden del orquestador).
 Resultado: OK
-Próxima acción: Ninguna para esta tarea. Próxima tarea del plan: Task 3 (SDKB-03 Python).
+Próxima acción: Ninguna en esta tarea — orquestador lanza Task 4 del plan docs/plans/2026-08-22-vantadb-bindings-sdk.md (commit pendiente lo ejecuta el lead).
 Contrato: por tarea — suites existentes intactas (backward-compat) + tests nuevos de delegación
-Próxima tarea si completa: 3
+Próxima tarea si completa: Task 4
 === END RECITATION ===
