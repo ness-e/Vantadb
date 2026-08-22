@@ -1,12 +1,16 @@
 # WASM Crash and Durability Model
 
+> Last reviewed: 2026-08-22 — sync post-PERF-08 (differential persistence, `vantadb-wasm/src/lib.rs`).
+
 ## Persistence Model
 
 - Data lives in WASM linear memory until explicitly saved.
-- `save()` (OPFS) / `save_idb()` (IndexedDB) / worker `save()` serialize **ALL** in-memory records to `db_state.json` (full dump via `serde_json`).
-- No incremental persistence — every save rewrites the entire state.
+- Since PERF-08, `save()` (OPFS) and `save_idb()` (IndexedDB) use **differential persistence** via `PersistCache` (`vantadb-wasm/src/lib.rs:265-299`). Only records whose `version` changed — or that were deleted — since the last successful persist are re-serialized; unchanged records reuse their cached JSON string (`persist_payload`, `vantadb-wasm/src/lib.rs:661-720`).
+- **What is serialized:** the dirty set (`put`/`delete` and other mutation entry points feed it) plus deletions. If nothing changed since the last persist, the file write is skipped entirely (`vantadb-wasm/src/lib.rs:743`, `:761`). A failed write invalidates the cache so the next save does a full rebuild instead of silently skipping (`vantadb-wasm/src/lib.rs:736-739`, `:756-757`).
+- **Bulk operations** whose changed keys are not individually known (import/bulk/reindex/purge) mark the cache invalid (`cache_invalid`) and force a one-time full rebuild + rewrite on the next save (`vantadb-wasm/src/lib.rs:276-288`, `:671-684`).
+- The output is always a complete `db_state.json`: a valid `Vec<VantaMemoryRecord>` JSON array, byte-for-byte loadable by `load()`/`load_idb()`. "Differential" refers to serialization cost only — there is no append-only delta log; whenever anything changed, the whole snapshot file is rewritten.
 - No WAL, no crash recovery, no `fsync` guarantees.
-- `load()` / `load_idb()` parse `db_state.json` back into memory via `import_records()`.
+- `load()` / `load_idb()` parse `db_state.json` back into memory via `import_records()` and seed the cache from the loaded snapshot, so the next `save` is a no-op unless a mutation occurs (`populate_cache_from_records`, `vantadb-wasm/src/lib.rs:625-650`).
 
 ## Storage Backend Comparison
 
@@ -50,7 +54,16 @@
 
 5. **Register a `beforeunload` handler** in your application to call `save()` on tab close. Note that `beforeunload` cannot reliably run async operations in all browsers — consider periodic auto-save as a fallback.
 
-6. **Know the scale limits.** Full-dump persistence on every `save()` means write cost grows linearly with dataset size. At 500K+ records, `save()` may take several seconds. Batch mutations and call `save()` once.
+6. **Know the scale limits.** Since PERF-08, `save()` serializes only changed records, so steady-state saves are cheap. Bulk operations (import/reindex/purge) still trigger a full rebuild + rewrite, and a save that touches many records can still block the event loop for seconds on large datasets. Batch mutations and call `save()` once.
+
+## Known Gaps (not covered by differential persistence)
+
+Differential persistence changes *when* work happens, not the durability model. These gaps are tracked in [WASM_STANDALONE.md](../api/WASM_STANDALONE.md) ("Known limits (verified)"):
+
+- **OPFS requires a secure context** — only served over `https` or `http://127.0.0.1`/localhost.
+- **Storage quotas are browser-managed** — Chromium ~60% of disk, Firefox 2 GB, Safari ~1 GB per origin.
+- **Persistence round-trip gap**: `put` metadata → `get`/`list` may return `metadata: {}` in the WASM in-memory open (`ShreddedRowStore`), and IQL reads resolve against the graph store rather than memory records (WASM-02 open items).
+- The crash scenarios below remain accurate as stated: no WAL, no atomicity on OPFS writes, and no cross-tab locking. Differential persistence does not address any of them.
 
 ## Related Documentation
 

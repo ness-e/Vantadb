@@ -3,13 +3,17 @@ title: "Avance — Meta / Proceso"
 type: meta
 status: active
 tags: [vantadb, avance, meta, proceso, housekeeping]
-last_reviewed: 2026-08-07
+last_reviewed: 2026-08-22
 aliases: []
 ---
 
 # Avance — Meta / Proceso
 
 > Cambios de proceso, housekeeping del backlog, decisiones de documentación y mejoras de pipeline. IDs originales conservados.
+
+## Contrato del mirror `activo/`
+
+Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña** (no daily); los dominios del mirror = **crates activos** del workspace. Un crate nuevo ⇒ archivo de dominio nuevo en el mismo cierre. Verificación: muestreo cruzado `git log --grep MEM-` ↔ archivos de dominio (GOV-D1, 2026-08-22).
 
 ## Backlog housekeeping
 
@@ -39,6 +43,10 @@ aliases: []
 - **Resultado:** ✅ Hooks muertos de Claude Code eliminados. Detalle en snapshot-2026-08-07.
 
 ## Proceso / Pipeline
+
+### 2026-08-22 — GOV-D1: catch-up del mirror + dominios faltantes
+- El mirror `activo/` estaba congelado al 20/08 y sin los crates creados después: `vanta-proxy`, context engine, y las campañas P29/P30/P31 sin registrar (MEM-43 `a0bcb112` / MEM-44 `785db22c` ausentes).
+- **Fix:** 3 archivos de dominio nuevos por campaña (no commit-por-commit): `activo/vanta-memory.md` (P27 F1-F4 + P29 + P31), `activo/vanta-proxy.md` (P30 F6-F7: MEM-25..33), `activo/context-engine.md` (MEM-22/23/24/37 + wiring `a0bcb112`). Contrato del mirror actualizado (sección arriba).
 
 ### 2026-07-24 — auto-progreso + auto-commit en /pipeline task
 - **Proceso:** `skill progreso` (Trigger 1) y el commit automático no se ejecutaban al final del pipeline MODO TAREA.
