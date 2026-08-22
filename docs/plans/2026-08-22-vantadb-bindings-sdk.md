@@ -1,8 +1,8 @@
 # Plan de Ejecución: VantaDB Bindings SDK — sub-clientes por dominio
 
-> **Campaign ID:** (asignado por MCP al primer update_task_state)
+> **Campaign ID:** 93d6303b-4902-443e-a765-6042392d0577
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (0/4 tareas)
+> **Estado:** ⏳ EN PROGRESO (1/4 tareas)
 > **Fuente:** meta-tarea MEM-36 (`.opencode/skills/campaign-executor/tasks/MEM-36.md`, spec completa) + decisión usuario 2026-08-21 (campaña separada)
 > **Predecesores:** P27+P29+P30 (roadmap TDAM F1-F7 ✅ 42 tareas) · P31 cierre final (en curso)
 
@@ -53,7 +53,7 @@
   |---|---|---|---|
   | 🟢×🟢 | método sin dominio claro | dominio system catch-all | diseño |
 - **Cynefin:** 🟦 obvio
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/SDKB-01.md`
 - **Notas:** Ruta: vanta-worker.
 
@@ -118,11 +118,11 @@
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: sub-clientes por dominio TS+Python con backward-compat 100%
+Objetivo activo: SDKB-01: mapa namespace↔método canon + diseño sub-clientes v1
 Estado: pending ⏳
-Última acción: plan creado 2026-08-22 desde meta-tarea MEM-36 + Paso 0 (43 wasm/TS clase/~26 python verificados)
-Resultado: —
-Próxima acción: `/pipeline run <este plan>` tras cerrar P31
+Última acción: Doc canon creado (3 tablas por SDK, diferencias inter-SDK, capacidades core-only D43, diseño sub-clientes v1) + verify mecánico 100% cobertura + task file cerrado. Sin commit según regla de la tarea.
+Resultado: OK
+Próxima acción: Ejecutar SDKB-02 (sub-clientes TypeScript) leyendo docs/api/BINDINGS_NAMESPACES.md como contrato
 Contrato: por tarea — suites existentes intactas (backward-compat) + tests nuevos de delegación
-Próxima tarea si completa: Task 1 (SDKB-01)
+Próxima tarea si completa: 2 (SDKB-02)
 === END RECITATION ===
