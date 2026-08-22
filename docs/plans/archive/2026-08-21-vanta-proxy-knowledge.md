@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Proxy + Knowledge (F6+F7) — proxy transparente + wiki/code-graph
 
 > **Inicio:** 2026-08-21
-> **Estado:** ✅ COMPLETADO (9/9 tareas — F6+F7)
+> **Estado: completed
 > **Fuente:** `docs/Backlog.md` filas MEM-25..33 + `docs/research/tdam/07-proxy.md` + `08-knowledge-panel-sdk.md` + `06-metadata-acl.md` (quota diferido) + SYNTHESIS §2.3/§3 + decisiones del usuario (2026-08-21)
 > **Predecesores:** P27 F1-F4 ✅ 24/24 (`docs/plans/archive/2026-08-18-vanta-memory.md`) · P29 F5 ✅ 9/9 (`docs/plans/archive/2026-08-21-vanta-context-engine.md`) — crate vanta-memory completo (L0-L3/recall/context_engine/offload/gateway/seed/genlog), suite 430/430
 > **Modo:** waves por dependencias — Wave 0 (fundaciones independientes) → Wave 1 (proxy wire + ingest) → Wave 2 (ciclo proxy + tools wiki + callback) → Wave 3 (rate-limit/write-back).
@@ -48,7 +48,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
 - **Verificación real:** ✅ CÓDIGO-REAL — `src/graph.rs` bfs_traverse:61 / dfs_traverse:234 / topological_sort:258 existen; graphrag existe; `vantadb-mcp/src/handlers/tools.rs` existe; costo = solo exposición (backlog row)
 - **Gate Justificación:** barato y visible; D28 elimina la dependencia externa de TDAM
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: cargo check ✅ · nextest 52/52 ✅ · fmt --check ✅ · clippy -D warnings ✅ (todos exit 0) | evidencia: (a) rate_limit::concurrent_threads_cannot_overshoot_the_window + proxy_wire 429 headers [alta]; (b) fail_open_when_degraded [alta]; (c) retry_backoff_recovers_on_third_attempt + schedule 500/1000/2000 [alta]; (d) track_enqueues_after_retry_exhaustion_and_persists + flush_drains_pending_queue_within_deadline + main.rs flush(10s) SIGTERM/SIGINT [alta]; (e) mem_command_disabled_by_default_forwards_verbatim + enabled_intercepts_sync_and_help_locally [alta]; (f) report emit JSON + hooks reciben cada turno [alta] | artefactos: vanta-proxy/src/{rate_limit,writeback,mem_command,report}.rs + wiring server/config/main/handlers + tests/proxy_wire.rs (+3) + task file MEM-27.md | invariantes: sin deps nuevas, sin Redis, auth precede rate-limit (401 > 429), mem-command intercept antes de resolución de sesión, sin unwrap/expect en código nuevo, NO commitear (regla del orquestador) | deuda: ninguna | queda_pendiente: commit lo ejecuta el lead; cierre CP4 de campaña (docs coverage + ADR proxy/knowledge borrador)
+- **Contrato: cargo check -p vanta-proxy pasa; tests D19 — evidencia: nextest proxy 52/52 exit 0, fmt exit 0, clippy -D warnings exit 0; commit 11d443cd
 - **Pre-mortem:** (1) semántica de impact/callers difiere entre codegraph de TDAM y graphrag propio → mapear cada tool a la primitiva local equivalente y documentar el mapping; (2) tools sin grafo cargado → error claro, no panic
 - **Stop conditions:** si impact requiere análisis que graphrag no soporta → exponer stub con error "not supported" documentado (no inventar semántica)
 - **Risk Register:**
@@ -284,11 +284,11 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas: D21-D37) · ⬇️ dow
 ---
 
 === RECITATION ===
-Campaign ID: 67438e7b-549f-4058-afc1-41ef236d7ce8
-Objetivo activo: Task 9 P30 — MEM-27: rate-limit + write-back + mem-command + reporting en vanta-proxy
+Campaign ID: 5da6e640-629e-4996-9a5e-c918d066c805
+Objetivo activo: F6 vanta-proxy + F7 knowledge — cierre roadmap TDAM — COMPLETADA
 Estado: pending ⏳
-Última acción: MEM-27 implementada: rate_limit.rs (sliding window 60s spaceId×model, D35 60 req/min, fail-open), writeback.rs (withL0Retry 3 backoff 500ms→1s→2s, pending queue persistida, flush SIGTERM/SIGINT), mem_command.rs (parser TDAM-fiel sync|create-skill|help, disabled by default), report.rs (JSON por turno + hooks); wiring aditivo en server/handlers/config/main; fix: intercept movido antes de resolución de sesión
+Última acción: MEM-27 rate-limit sliding window 60s spaceId×model default 60 req/min (D35) + write-back withL0Retry backoff persistido + flush SIGTERM + mem-command D33 sync|create-skill|help disabled default + reporting JSON; wiring auth→rate-limit→mem-command→session→inject→forward. CAMPAÑA P30 COMPLETA 9/9
 Resultado: OK
-Próxima acción: Campaña P30 completa (era la última tarea): cierre CP4 — docs coverage + ADR proxy/knowledge borrador
+Próxima acción: Campaña completada — cierre: skill progreso Trigger 1 + checkpoint + reporte final al usuario
 Contrato: por tarea — cargo check/nextest/fmt/clippy del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 
+Próxima tarea si completa: ninguna
