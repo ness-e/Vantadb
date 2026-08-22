@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Cierre Final — integración, recall semántico y gobierno de decisiones
 
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (5/8 tareas)
+> **Estado:** ⏳ EN PROGRESO (6/8 tareas)
 > **Fuente:** auditoría final post-P30 (vanta-research `ses_fd8c2c26`, 2026-08-22) + decisiones del usuario (2026-08-21/22) + deudas vigentes de task files
 > **Predecesores:** P27 F1-F4 ✅ 24/24 · P29 F5 ✅ 9/9 · P30 F6+F7 ✅ 9/9 — **roadmap TDAM F1-F7 cerrado**, suites 2568+ tests
 > **Modo:** waves — Wave 0 (integraciones y tests independientes) → Wave 1 (embeddings fundación) → Wave 2 (semantic recall + scoring) → Wave 3 (gobierno humano + meta-tarea).
@@ -37,7 +37,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 - **Verificación real:** ✅ AUDITORÍA — cero referencias a context_engine en services/ (solo tests e2e_flow.rs); decisión usuario: wire productivo
 - **Gate Justificación:** convierte la killer feature F5 en productiva dentro del ciclo L0→L1→L2→L3
 - **Gate Result:** ✅ DO
-- **Contrato:** "`cargo check -p vanta-memory` pasa; tests D19: el worker ejecuta assemble_with_recall como fase post-L3 (compresión del historial + inyección MMD + recall con budget compartido); e2e extendido demuestra compresión activa dentro del pass completo"
+- **Contrato: cargo check -p vanta-memory --all-targets && cargo nextest run -p vanta-memory && cargo fmt --check && cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings — todos exit 0
 - **Pre-mortem:** (1) doble compresión (worker + caller externo) → el worker es UNO de los callers; API existente intacta; (2) compresión automática puede sorprender → config flag `context_compression_enabled` default true documentado
 - **Stop conditions:** si el wiring exige reescribir assemble → ⬛ y escalar diseño
 - **Risk Register:**
@@ -152,7 +152,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
   | 🟢×🟡 | join O(n²) | índice HashMap precomputado | diseño |
 - **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 2 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-48.md`
 - **Notas:** Ruta: vanta-worker. Independiente — cualquier wave.
 
@@ -213,11 +213,11 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 ---
 
 === RECITATION ===
-Campaign ID: 1c1a36bd-d27c-49f6-919b-e4fd231e7240
-Objetivo activo: MEM-47 semantic recall end-to-end: swap overlap→vector + fallback D38 en auto_recall/l1_dedup/knowledge_handlers
+Campaign ID: 5ff7c7a8-054e-4015-a508-63986c9b36ce
+Objetivo activo: MEM-48 compresión consume scores L1 reales
 Estado: pending ⏳
-Última acción: MEM-47 completo: campo MemoryRecord.vector poblado en reads; helpers cosine_similarity/rrf_merge(k=60)/MIN_COSINE_SIMILARITY(0.35) en l1_reader; swap dual-pool+RRF en perform_auto_recall(embed), recall_candidates(embed)→batch_dedup vía config.embed, scene_query(embed query-time); pipeline_worker pasa dedup_config.embed al recall; RecallMode.effective(bool) honesto; 5 tests D19 nuevos con fake embedding determinista 64-dim
-Resultado: OK
-Próxima acción: Lead: git add vanta-memory/ && verify_changed.ps1 && commit feat(vanta-memory): MEM-47 — luego delegar Task 6 (MEM-48)
+Última acción: Corregidos E0603 (import público) + 15 E0061 (callers de test a firma nueva con None) + fmt; agregados 2 tests D19 de scoring
+Resultado: ✅
+Próxima acción: Ninguna — tarea cerrada
 Contrato: por tarea — cargo check/nextest/fmt/clippy del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 6
+Próxima tarea si completa: -

@@ -445,6 +445,17 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
             .last_offloaded_tool_call_id(session_id)
             .map_err(|e| format!("offload cursor read failed: {e}"))?;
 
+        // MEM-48: score compression candidates from REAL L1 memory
+        // priorities (max priority of the memories linked to each message).
+        // Best-effort: a failed read falls back to the role heuristic.
+        let memory_scores =
+            read_session_records(&self.db, session_id)
+                .map(|records| crate::context_engine::build_memory_scores(&records))
+        .inspect_err(|e| {
+            tracing::warn!(session = %session_id, error = %e, "L1 score index unavailable; using heuristic scores");
+        })
+        .ok();
+
         let out = assemble_with_recall(
             msgs,
             self.context_config.budget_tokens,
@@ -455,6 +466,7 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
             prepend.as_deref(),
             append.as_deref(),
             cursor.as_deref(),
+            memory_scores.as_ref(),
         )
         .map_err(|e| format!("context assembly failed: {e}"))?;
         tracing::debug!(

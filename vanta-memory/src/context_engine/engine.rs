@@ -14,7 +14,7 @@
 //! NEVER modified or deleted by any pass.
 
 use crate::context_engine::compressor::{
-    score_message, AggressiveBoundary, FLOOR_THRESHOLD, INITIAL_THRESHOLD,
+    score_message, AggressiveBoundary, MemoryScoreMap, FLOOR_THRESHOLD, INITIAL_THRESHOLD,
     MIN_REPLACEMENTS_PER_PASS,
 };
 use crate::context_engine::mmd::TaskMemory;
@@ -71,6 +71,7 @@ pub fn assemble(
     estimator: &TokenEstimator,
     protected_prefix: usize,
     cfg: &AssembleConfig,
+    memory_scores: Option<&MemoryScoreMap>,
 ) -> Result<AssembleOutput, ContextError> {
     if token_budget_tokens == 0 {
         return Err(ContextError::InvalidConfig);
@@ -106,6 +107,7 @@ pub fn assemble(
         estimator,
         protected_prefix,
         cfg.min_keep,
+        memory_scores,
     );
     if estimator.estimate_messages(&mild) <= token_budget_tokens {
         return Ok(AssembleOutput {
@@ -204,6 +206,7 @@ pub fn assemble_with_recall(
     recall_prepend: Option<&str>,
     recall_append: Option<&str>,
     cursor_tool_call_id: Option<&str>,
+    memory_scores: Option<&MemoryScoreMap>,
 ) -> Result<IntegratedContext, ContextError> {
     if budget_tokens == 0 {
         return Err(ContextError::InvalidConfig);
@@ -230,6 +233,7 @@ pub fn assemble_with_recall(
         estimator,
         protected_prefix.max(cursor_boundary),
         cfg,
+        memory_scores,
     )?;
     let mut remaining = budget_tokens.saturating_sub(estimator.estimate_messages(&out.messages));
     let messages = out.messages;
@@ -293,10 +297,15 @@ fn inject_recall_block(
 /// unit not compressible, e.g. all-System). Max is used because a unit is
 /// replaced whole: its most replaceable member bounds how safely a summary
 /// can stand in for all of it.
-fn unit_score(unit: &[ChatMessage], start: usize, total: usize) -> Option<u8> {
+fn unit_score(
+    unit: &[ChatMessage],
+    start: usize,
+    total: usize,
+    memory_scores: Option<&MemoryScoreMap>,
+) -> Option<u8> {
     unit.iter()
         .enumerate()
-        .filter_map(|(i, m)| score_message(m, start + i, total))
+        .filter_map(|(i, m)| score_message(m, start + i, total, memory_scores))
         .max()
 }
 
@@ -326,6 +335,7 @@ fn mild_cascade(
     est: &TokenEstimator,
     protected_prefix: usize,
     min_keep: usize,
+    memory_scores: Option<&MemoryScoreMap>,
 ) -> Vec<ChatMessage> {
     let total: usize = msgs.len();
     let units = build_units(msgs);
@@ -343,12 +353,12 @@ fn mild_cascade(
 
     let mut candidates: Vec<usize> = (0..units.len())
         .filter(|&ui| starts[ui] >= protected_prefix && starts[ui] + units[ui].len() <= max_end)
-        .filter(|&ui| unit_score(&units[ui], starts[ui], total).is_some())
+        .filter(|&ui| unit_score(&units[ui], starts[ui], total, memory_scores).is_some())
         .collect();
     // Score desc, index asc tie-break → deterministic.
     candidates.sort_by(|&a, &b| {
-        unit_score(&units[b], starts[b], total)
-            .cmp(&unit_score(&units[a], starts[a], total))
+        unit_score(&units[b], starts[b], total, memory_scores)
+            .cmp(&unit_score(&units[a], starts[a], total, memory_scores))
             .then(a.cmp(&b))
     });
 
@@ -360,7 +370,7 @@ fn mild_cascade(
             if replacements >= MIN_REPLACEMENTS_PER_PASS {
                 break 'thresholds;
             }
-            let Some(score) = unit_score(&current[ui], starts[ui], total) else {
+            let Some(score) = unit_score(&current[ui], starts[ui], total, memory_scores) else {
                 continue;
             };
             if score < threshold {
@@ -460,7 +470,7 @@ mod tests {
 
     #[test]
     fn assemble_rejects_zero_budget() {
-        let err = assemble(vec![], 0, &est(), 0, &AssembleConfig::default());
+        let err = assemble(vec![], 0, &est(), 0, &AssembleConfig::default(), None);
         assert!(matches!(err, Err(ContextError::InvalidConfig)));
     }
 

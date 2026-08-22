@@ -11,7 +11,10 @@ mod mmd_injector;
 mod token_estimator;
 mod types;
 
-pub use compressor::{apply_boundary, msg_fingerprint, score_message, AggressiveBoundary};
+pub use compressor::{
+    apply_boundary, build_memory_scores, msg_fingerprint, score_message, AggressiveBoundary,
+    MemoryScoreMap,
+};
 pub use engine::{
     assemble, assemble_with_recall, AssembleConfig, AssembleOutput, IntegratedContext,
     RECALL_APPEND_MARKER, RECALL_PREPEND_MARKER,

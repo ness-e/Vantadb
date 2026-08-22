@@ -48,7 +48,7 @@ fn a_ratio_below_half_skips_compaction() {
     ];
     let original = msgs.clone();
     // ~200 tokens vs budget 1000 → ratio 0.2 < 0.5.
-    let out = assemble(msgs, 1000, &est(), 0, &cfg()).expect("valid budget");
+    let out = assemble(msgs, 1000, &est(), 0, &cfg(), None).expect("valid budget");
     assert_eq!(out.report.mode, CompactionMode::None);
     assert_eq!(out.messages, original);
     assert_eq!(out.boundary, None);
@@ -82,7 +82,7 @@ fn b_mild_cascade_top_score_whole_pairs() {
 
     // Total ≈ (301+6)*7 msgs / 3 ≈ 720 tokens. Budget forces stubbing the
     // three old tool units (~103 tokens each) but not everything.
-    let out = assemble(msgs, 400, &est(), 0, &cfg()).expect("valid budget");
+    let out = assemble(msgs, 400, &est(), 0, &cfg(), None).expect("valid budget");
     assert_eq!(out.report.mode, CompactionMode::Mild);
     assert!(out.report.tokens_after <= out.report.tokens_before);
 
@@ -117,7 +117,7 @@ fn c_summary_longer_than_original_reverts() {
 
     // Budget tight enough that the cascade reaches the tiny message's
     // threshold but the big assistant stub alone gets under it.
-    let out = assemble(msgs, 120, &est(), 0, &cfg()).expect("valid budget");
+    let out = assemble(msgs, 120, &est(), 0, &cfg(), None).expect("valid budget");
     let untouched = out
         .messages
         .iter()
@@ -138,7 +138,7 @@ fn d_aggressive_one_shot_boundary_idempotent() {
         .map(|i| ChatMessage::new(ChatRole::User, format!("m{i:02} {}", "y".repeat(90))))
         .collect();
     let original = msgs.clone();
-    let out = assemble(msgs, 150, &est(), 0, &cfg()).expect("valid budget");
+    let out = assemble(msgs, 150, &est(), 0, &cfg(), None).expect("valid budget");
     assert_eq!(out.report.mode, CompactionMode::Aggressive);
     assert!(out.report.tokens_after <= 150);
     assert!(out.report.msgs_conserved < out.report.msgs_before);
@@ -167,7 +167,7 @@ fn e_report_fields_consistent() {
         .map(|_| ChatMessage::new(ChatRole::User, "z".repeat(300)))
         .chain(std::iter::once(ChatMessage::new(ChatRole::User, "last")))
         .collect();
-    let out = assemble(msgs, 200, &est(), 0, &cfg()).expect("valid budget");
+    let out = assemble(msgs, 200, &est(), 0, &cfg(), None).expect("valid budget");
     let r = &out.report;
     assert_eq!(r.mode, CompactionMode::Aggressive);
     assert_eq!(r.msgs_conserved, out.messages.len());
@@ -186,8 +186,8 @@ fn f_llm_free_deterministic() {
             .chain(std::iter::once(ChatMessage::new(ChatRole::User, "end")))
             .collect()
     };
-    let out1 = assemble(build(), 250, &est(), 0, &cfg()).expect("valid budget");
-    let out2 = assemble(build(), 250, &est(), 0, &cfg()).expect("valid budget");
+    let out1 = assemble(build(), 250, &est(), 0, &cfg(), None).expect("valid budget");
+    let out2 = assemble(build(), 250, &est(), 0, &cfg(), None).expect("valid budget");
     assert_eq!(out1, out2, "deterministic, no LLM in the loop");
 }
 
@@ -210,7 +210,7 @@ fn protected_prefix_never_touched() {
     );
     let prefix_snapshot = msgs[..2].to_vec();
 
-    let out = assemble(msgs, 200, &est(), 2, &cfg()).expect("valid budget");
+    let out = assemble(msgs, 200, &est(), 2, &cfg(), None).expect("valid budget");
     assert_eq!(
         &out.messages[..2],
         &prefix_snapshot[..],
@@ -255,9 +255,9 @@ fn mem37_a_post_aggressive_recall_mmd_respect_total_budget() {
         Some("<relevant-memories>\n- User prefers dark mode\n</relevant-memories>"),
         Some("<user-persona>\nNight owl builder.\n</user-persona>"),
         None,
+        None,
     )
     .expect("valid budget");
-
     // Aggressive ran (mild's 10-stub cap can't reach the budget).
     assert_eq!(out.report.mode, CompactionMode::Aggressive);
     // The three injections happened...
@@ -317,6 +317,7 @@ fn mem37_b_messages_at_or_below_cursor_not_recompressed_nor_duplicated() {
             None,
             None,
             cursor.as_deref(),
+            None,
         )
         .expect("assemble")
     };

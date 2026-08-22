@@ -106,6 +106,7 @@ mod tests {
             &est(),
             1,
             &crate::context_engine::AssembleConfig::default(),
+            None,
         )
         .expect("assemble");
         let budget = 10_000;

@@ -365,6 +365,7 @@ fn compress_then_recall_shares_one_budget_end_to_end() {
         Some(&prepend),
         Some(&append),
         None,
+        None,
     )
     .expect("assemble with recall");
 

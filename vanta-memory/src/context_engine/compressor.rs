@@ -8,9 +8,17 @@
 //! documented ceiling, upgrade path post-MEM-24 (consume real offload-entry
 //! scores).
 //!
+//! MEM-48: messages linked to persisted L1 memories (via `ChatMessage::id`
+//! matching `MemoryRecord::source_message_ids`) are scored from the REAL
+//! memory priority instead of the heuristic — see [`build_memory_scores`] and
+//! [`score_message`]. Messages without linked memories keep the heuristic.
+//!
 //! LLM-free by construction.
 
+use std::collections::HashMap;
+
 use crate::context_engine::types::{ChatMessage, ChatRole};
+use crate::core::abstractions::MemoryRecord;
 
 /// Max replacements per mild pass (TDAM MIN_COUNT, llm-input-l3.ts:113).
 pub const MIN_REPLACEMENTS_PER_PASS: usize = 10;
@@ -48,13 +56,58 @@ pub fn msg_fingerprint(msg: &ChatMessage) -> i32 {
     simple_hash(&format!("{}:{head}", role_tag(msg.role)))
 }
 
-/// Deterministic replaceability score (0-10): base by role + age bonus.
-/// Higher = more safely replaced by a summary. `System` is never scored
-/// (returns [`None`] — excluded from all compaction passes).
+/// Index message_id → max priority among the L1 memories linked to it
+/// (MEM-48). Precomputed once per assembly so the join is O(records +
+/// links), never O(messages × records).
+pub type MemoryScoreMap = HashMap<String, i32>;
+
+/// Builds [`MemoryScoreMap`] from persisted L1 records. The map stores the
+/// RAW max priority (i32, `-1` = strict global instruction); conversion to a
+/// replaceability score happens at lookup in [`score_message`].
+pub fn build_memory_scores(records: &[MemoryRecord]) -> MemoryScoreMap {
+    let mut map = MemoryScoreMap::new();
+    for record in records {
+        for msg_id in &record.source_message_ids {
+            let entry = map.entry(msg_id.clone()).or_insert(record.priority);
+            if record.priority > *entry {
+                *entry = record.priority;
+            }
+        }
+    }
+    map
+}
+
+/// Replaceability (0-10) derived from a linked-memory priority. Inverse of
+/// the heuristic's semantics: HIGH memory priority ⇒ LESS safely replaced.
 ///
-/// Base: ToolResult=6 > ToolCall=5 > Assistant=4 > User=2. Age bonus 0..=4:
-/// older messages (lower `position`) score higher.
-pub fn score_message(msg: &ChatMessage, position: usize, total: usize) -> Option<u8> {
+/// `priority -1` (strict global instruction) clamps to 100 ⇒ score 0, which
+/// is below [`FLOOR_THRESHOLD`] — a strict instruction is never compressed.
+fn replaceability_from_priority(priority: i32) -> u8 {
+    10u8.saturating_sub((priority.clamp(0, 100) / 10) as u8)
+}
+
+/// Deterministic replaceability score (0-10): base by role + age bonus,
+/// overridden by real L1 memory scores when the message id is linked to
+/// memories ([`MemoryScoreMap`]). Higher = more safely replaced by a summary.
+/// `System` is never scored (returns [`None`] — excluded from all compaction
+/// passes), linked or not.
+///
+/// Heuristic base: ToolResult=6 > ToolCall=5 > Assistant=4 > User=2.
+/// Age bonus 0..=4: older messages (lower `position`) score higher.
+pub fn score_message(
+    msg: &ChatMessage,
+    position: usize,
+    total: usize,
+    memory_scores: Option<&MemoryScoreMap>,
+) -> Option<u8> {
+    if msg.role == ChatRole::System {
+        return None;
+    }
+    if let (Some(id), Some(scores)) = (msg.id.as_deref(), memory_scores) {
+        if let Some(&priority) = scores.get(id) {
+            return Some(replaceability_from_priority(priority));
+        }
+    }
     let base: u8 = match msg.role {
         ChatRole::System => return None,
         ChatRole::ToolResult => 6,
@@ -135,11 +188,17 @@ mod tests {
     #[test]
     fn score_orders_roles_and_age() {
         let total = 10;
-        let old_tool_result = score_message(&ChatMessage::new(ChatRole::ToolResult, "r"), 0, total);
-        let new_user = score_message(&ChatMessage::new(ChatRole::User, "u"), total - 1, total);
+        let old_tool_result =
+            score_message(&ChatMessage::new(ChatRole::ToolResult, "r"), 0, total, None);
+        let new_user = score_message(
+            &ChatMessage::new(ChatRole::User, "u"),
+            total - 1,
+            total,
+            None,
+        );
         assert_eq!(old_tool_result, Some(10)); // 6 + max age bonus 4
         assert_eq!(new_user, Some(2)); // 2 + 0
-        assert!(score_message(&ChatMessage::new(ChatRole::System, "s"), 0, total).is_none());
+        assert!(score_message(&ChatMessage::new(ChatRole::System, "s"), 0, total, None).is_none());
     }
 
     #[test]
@@ -153,5 +212,70 @@ mod tests {
         assert_eq!(apply_boundary(&msgs, &boundary), Some(kept.clone()));
         // Re-applied to the already-shortened history → mismatch → None.
         assert_eq!(apply_boundary(&kept, &boundary), None);
+    }
+
+    /// MEM-48 / D19: a message linked to a HIGH-priority memory scores LOWER
+    /// replaceability than one linked to a LOW-priority memory — priority 90
+    /// survives compaction before priority 10 does.
+    #[test]
+    fn memory_priority_90_survives_before_10() {
+        let record = |msg_id: &str, priority: i32| MemoryRecord {
+            id: format!("m_{msg_id}"),
+            content: "c".into(),
+            memory_type: crate::core::abstractions::MemoryType::Persona,
+            priority,
+            scene_name: "s".into(),
+            source_message_ids: vec![msg_id.into()],
+            metadata: serde_json::Value::Null,
+            timestamps: vec![],
+            created_at: String::new(),
+            updated_at: String::new(),
+            version: 1,
+            session_key: "sk".into(),
+            session_id: String::new(),
+            task_id: None,
+            team_id: None,
+            user_id: None,
+            agent_id: None,
+            vector: None,
+        };
+        let scores = build_memory_scores(&[record("hi", 90), record("lo", 10)]);
+        let total = 10;
+        let high = score_message(
+            &ChatMessage::new(ChatRole::Assistant, "a").with_id("hi"),
+            0,
+            total,
+            Some(&scores),
+        );
+        let low = score_message(
+            &ChatMessage::new(ChatRole::Assistant, "b").with_id("lo"),
+            0,
+            total,
+            Some(&scores),
+        );
+        assert_eq!(high, Some(1)); // 10 - 90/10 → least replaceable
+        assert_eq!(low, Some(9)); // 10 - 10/10 → most replaceable
+        assert!(high < low);
+    }
+
+    /// MEM-48 / D19: without a score map (or with an unlinked message id) the
+    /// deterministic heuristic fallback applies — role base + age bonus.
+    #[test]
+    fn fallback_heuristic_without_memory_scores() {
+        let total = 10;
+        let msg = || ChatMessage::new(ChatRole::ToolResult, "r");
+        // No map at all.
+        assert_eq!(
+            score_message(&msg().with_id("x"), 0, total, None),
+            Some(10) // ToolResult 6 + max age bonus 4
+        );
+        // Map present but id not linked → heuristic too.
+        let scores = build_memory_scores(&[]);
+        assert_eq!(
+            score_message(&msg().with_id("unlinked"), 0, total, Some(&scores)),
+            Some(10)
+        );
+        // Same position, no id at all.
+        assert_eq!(score_message(&msg(), 0, total, Some(&scores)), Some(10));
     }
 }
