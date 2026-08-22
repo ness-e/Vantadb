@@ -711,37 +711,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| GOV-T01 | TIR-02a: recovery time en evals/dora.mjs (~30 líneas) | evals/dora.mjs | 🟢 | 🟠 | ❌ Pendiente |
-| GOV-T02 | TIR-04b: formalizar tasks/closed/ en RULES.md | .opencode/task-system/RULES.md | 🟢 | 🟠 | ❌ Pendiente |
-| GOV-T03 | TIR-08c: criterios research en research-agent.md (~6 líneas) | .opencode/task-system/prompts/research-agent.md | 🟢 | 🟢 | ❌ Pendiente |
-| GOV-A1 | Coverage canónico: llvm-cov y fijar cifra única (ADR-018/TEST_MAP/CI_POLICY/COBERTURA) | docs/TEST_MAP.md, docs/operations/CI_POLICY.md | 🟡 | 🟠 | ❌ Pendiente |
-| GOV-A2 | Reconciliar cifras de tests con run real fechado | docs/TEST_MAP.md | 🟢 | 🟡 | ❌ Pendiente |
-| GOV-A3 | Probes CLI reales: backup/manifest/restore-tmp/doctor | vanta-cli (DB temporal) | 🟢 | 🟠 | ❌ Pendiente |
-| GOV-A4 | Harness snippets: dev-tools/validate_doc_snippets.py (detecta roturas conocidas) | dev-tools/, docs/tutorials/ | 🟡 | 🔴 | ❌ Pendiente |
-| GOV-A5 | Registros live crates.io/npm/PyPI → anotar filas MKT/RELEASE | docs/Backlog.md | 🟢 | 🟡 | ❌ Pendiente |
-| GOV-B1 | case_studies ficticios → archive interno + 0 refs vivas | docs/case_studies/, docs/archive/ | 🟢 | 🔴 | ❌ Pendiente |
-| GOV-B2 | Runbook DR sin comandos fantasma (restore-tmp+doctor validado GOV-A3) | docs/operations/DISASTER_RECOVERY_RUNBOOK.md | 🟢 | 🔴 | ❌ Pendiente |
-| GOV-B3 | Fix snippets rotos + guard anti-regresión integrado a gate-docs | docs/tutorials/, docs/glosario/, docs/FAQ.md | 🟡 | 🔴 | ❌ Pendiente |
-| GOV-B5 | HTTP_API.md completo (29 endpoints, matar ejemplo LISP :108) | docs/api/HTTP_API.md | 🟡 | 🔴 | ❌ Pendiente |
-| GOV-B6 | Skill MCP fuente única 33 tools + MCP.md stub (hash-SAME) | skills/vantadb-mcp/, docs/api/MCP.md | 🟡 | 🟠 | ❌ Pendiente |
-| GOV-C1 | Filtro nextest python_sdk_boundary→python + TEST_MAP binarios (.config/nextest.toml:27) | .config/nextest.toml, docs/TEST_MAP.md | 🟢 | 🔴 | ❌ Pendiente |
-| GOV-C2 | Backlog↔campañas: MEM-43 ✅ a0bcb112 + secciones P29/P30/P31 | docs/Backlog.md | 🟢 | 🟠 | ❌ Pendiente |
-| GOV-C3 | Backlog: purga referencias muertas (audit-reports ×10, etc.) | docs/Backlog.md | 🟢 | 🟠 | ❌ Pendiente |
-| GOV-C4 | master-index.md regeneración completa (0 links rotos AUD-007) | docs/master-index.md | 🟡 | 🟠 | ❌ Pendiente |
-| GOV-C5 | operations/master-index.md +7 archivos faltantes | docs/operations/master-index.md | 🟢 | 🟡 | ❌ Pendiente |
-| GOV-C6 | CONFIGURATION.md sync (rate_limit 600, env vars, quitar fantasmas) | docs/operations/CONFIGURATION.md | 🟡 | 🟠 | ❌ Pendiente |
-| GOV-C7 | Contador Backlog manual correcto (~45) + regla de sync escrita | docs/Backlog.md header | 🟢 | 🟡 | ❌ Pendiente |
-| GOV-D1 | avance catch-up: dominios vanta-memory/vanta-proxy/context-engine + MEM-43/44 | docs/avance/activo/ | 🟡 | 🟠 | ❌ Pendiente |
-| GOV-D2 | Split progreso README (372KB) por campaña → campanas/*.md + índice ≤50KB | docs/progreso/ | 🔴 | 🟡 | ❌ Pendiente |
-| GOV-D3 | Revivir bitácora (draft lead + articulación owner, Regla 5) | docs/progreso/bitacora.md | 🟢 | 🟢 | ❌ Pendiente |
-| GOV-D4 | Migración física Investigaciones/→research/ + citas + INV-019 colisión | docs/research/, docs/research/ | 🟡 | 🟡 | ❌ Pendiente |
-| GOV-D5 | ADR-026 → adr/ (única desviación de ubicación) | docs/architecture/adr/ | 🟢 | 🟡 | ❌ Pendiente |
-| GOV-D6 | wasm/CRASH_MODEL.md actualizar vs persistencia diferencial PERF-08 | docs/wasm/CRASH_MODEL.md | 🟢 | 🟡 | ❌ Pendiente |
-| GOV-E1 | Propuesta de borrado artefactos (7 ítems, Regla 0; NO ejecuta borrados) | docs/reviews/propuesta-limpieza-*.md | 🟢 | 🟢 | ❌ Pendiente |
-| GOV-F1 | Auditoría raíz pública: README×2, CONTRIBUTING, SECURITY/SUPPORT/CLA | raíz repo | 🟡 | 🟠 | ❌ Pendiente |
-| GOV-F2 | Auditoría zonas internas: Manual Estratégico 164KB, SKILLS-MANIFEST, .opencode/, integrations/, workflows profundos | varias | 🟡 | 🟡 | ❌ Pendiente |
-
-> **Tickets derivados (fuera de esta campaña):** ACID 4a-4d post-launch (D14) · CLI flags restore --dry-run/doctor --fix/verify backups (D4b) · release triage semver 0.6.0 (D5, diferido).
+> **CAMPAÑA COMPLETADA 2026-08-22: 29 ✅ · 1 ⬛ (A1 stop condition, fallback aplicado) · 0 failed.** Registro completo: docs/progreso/campanas/doc-gobernanza-gov.md + plan file §Estado de ejecución. Tickets derivados vivos abajo.
 
 | `BND-01` | **Colateral SDKB-02: LinkError wasm pkg snippet idb.rs** — el pkg WASM gitignored tiene un LinkError pre-existente en HEAD (snippet `idb.rs` sin export vs import del `.wasm`); parche local al pkg lo esquivó en tests. Fix Rust real → dueño vanta-arch/engine. Detectado en SDKB-02 (P32). | `vantadb-wasm/src/`, `web/public/vanta-wasm/` | 🟡 | 🟠 | ❌ Pendiente |
 | `BND-02` | **Colateral SDKB-02: drift types.ts ↔ pkg topological_sort** — los tipos escritos a mano de `vantadb-ts/src/types.ts` divergen del `.d.ts` regenerado del pkg para `topological_sort`. Regla VS-CORE-05: generar, nunca editar a mano. Detectado en SDKB-02 (P32). | `vantadb-ts/src/types.ts` | 🟢 | 🟡 | ❌ Pendiente |

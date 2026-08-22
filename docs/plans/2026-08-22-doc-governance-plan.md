@@ -1,6 +1,6 @@
 # Plan de Ejecución: Gobernanza Documental — corrección integral post-auditoría
 
-> **Campaign ID: f0cd5b2f-aa1d-40de-b6bc-a1d0e8d6f1f4
+> **Campaign ID: a70f9e40-4928-43b7-855c-890ae9421700
 > **Inicio:** 2026-08-22
 > **Estado: completed
 > **Fuente:** `docs/reviews/auditoria-documentacion-2026-08-21.md` (Volumen I+II+Addendum) + decisiones del owner D1-D14 + respuestas de confirmación T0.x/T1.x/T3.x/T4.x/T6.x/T7.x registradas en §"Plan de Revisión" del informe.
@@ -46,7 +46,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pen
 - **Verificación real:** ✅ CÓDIGO-REAL — `verify-log.jsonl` existe y se puebla (23 entradas, campos ts/taskId/command/passed); `dora.mjs` ya lee el log para CFR pero no calcula recovery (TIR-02 investigación cerrada 08-17); 3 pares fail→pass medibles.
 - **Gate Justificación:** decisión ya tomada en investigación; ~30 líneas sobre datos existentes; cero riesgo producto.
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: muestreo cruzado git log --grep MEM- (48 commits ago) ↔ 3 archivos = 0 faltantes ✅; npx markdownlint-cli2 sobre los 4 archivos tocados = 0 issues EXIT=0 ✅ | evidencia: [MEM-43 a0bcb112 y MEM-44 785db22c registrados → vanta-memory.md P31 + context-engine.md, alta] [crate vanta-proxy 3 commits feat(vanta-proxy) citados con hash → vanta-proxy.md F6, alta] [48/48 commits MEM-* de agosto en su dominio → script cruzado COMMITS=48 FALTANTES=0, alta] [core-engine/bindings sin gaps de mismas campañas → lectura completa, alta] | artefactos: docs/avance/activo/{vanta-memory,vanta-proxy,context-engine}.md + docs/avance/meta.md + .opencode/skills/campaign-executor/tasks/GOV-D1.md | invariantes: no tocar docs/plans/*bindings-sdk*, vantadb-ts/, evals/, Backlog, progreso; plan NO editable; catch-up por campaña | deuda: commit pendiente — PROHIBIDO git para este agente, delegar al lead | queda_pendiente: orquestador commitea los 5 archivos
+- **Contrato: verificacion: npx markdownlint-cli2 sobre los 8 archivos tocados = 0 issues EXIT=0 ✅; Test-Path 48 paths citados = 48/48 OK ✅; Discord API invite g8nqB3NtXt = guild válida ✅ | evidencia: [invite discord.gg/vantadb → Discord API NotFound, alta] [vantadb.dev → DNS Host desconocido, alta] [benchmarks ES divergentes → vanta_benchmark_report.json real 74.0/13.2/2.0/3.1 ms, alta] [import canónico → pyproject.toml include vantadb/__init__.py alias, alta] [Security Audit badge → sec-codeql-30.yml existe con CodeQL, ci-rust-10.yml sin 'audit', alta] | artefactos: docs/reviews/auditoria-raiz-publica-2026-08-22.md + .opencode/skills/campaign-executor/tasks/GOV-F1.md | invariantes: no tocar src/, docs/plans/*bindings-sdk*, vantadb-ts/, evals/, Backlog, vanta-proxy; plan NO editable; PROHIBIDO git este agente | deuda: commit pendiente — delegar al lead; 2 tickets owner (dominio vantadb.dev, wheels ARM64 ↔ MKT-18h) | queda_pendiente: orquestador commitea los 9 archivos tocados
 - **Pre-mortem:** (1) pairing ambiguo con taskId:null → filtrar entradas sin taskId y documentar caveat; (2) exitCode:-1 contaminando métrica → clasificar como no-ejecutado, no fallo.
 - **Stop conditions:** appetite excedido → DEFER; si pairing produce >50% no-pareable → simplificar a conteo, no Δt.
 - **Risk Register:**
@@ -578,13 +578,13 @@ plan-adjust [2026-08-22]: creación inicial — triaje 30 DO / 2 DEFER (release,
 
 === RECITATION ===
 Campaign ID: por asignar (`campaign_session_track create` al arrancar)
-Objetivo activo: GOV-D1 — avance/activo catch-up + dominios faltantes
+Objetivo activo: GOV-F1 — auditoría raíz pública (README ×2 + governance files)
 Estado: completed
-Última acción: Creados 3 dominios del mirror por campaña: vanta-memory.md (P27+P29+P31), vanta-proxy.md (P30 F6-F7 MEM-25..33), context-engine.md (MEM-22/23/24/37 + wiring a0bcb112); meta.md con contrato del mirror (cierre de campaña no daily; dominios=crates activos); core-engine/bindings verificados sin edición (ya cubrían sus campañas)
+Última acción: Auditados 7 archivos raíz contra código/registries: 12 findings (2🔴 5🟠 3🟡 2🟢), 10 fixes triviales inline, reporte en docs/reviews/auditoria-raiz-publica-2026-08-22.md. Hallazgos 🔴: invite Discord inválido y links vantadb.dev muertos en SUPPORT.md (ambos fixed). Claims verificados sin hallazgo: CLI/server defaults/RBAC/rate-limit/TLS/badges/workflows/assets/fuzz targets.
 Resultado: OK
-Próxima acción: Orquestador: commitear docs/avance/{meta.md, activo/vanta-memory.md, activo/vanta-proxy.md, activo/context-engine.md}
+Próxima acción: Orquestador: commitear 9 archivos (7 raíz + reporte + task file) con 'docs: GOV-F1 audit root public files'; crear tickets owner para dominio vantadb.dev y copy wheels ARM64
 Contrato: node evals/dora.mjs exit 0 + seccion Recovery con pares
-Próxima tarea si completa: siguiente según plan (wave D: GOV-D2 o asignación del orquestador)
+Próxima tarea si completa: GOV-F2 (auditoría zonas internas) o asignación del orquestador
 
 ---
 
@@ -629,3 +629,40 @@ Tickets derivados Wave B: drift yaml↔real (B5) · harness temp-leak (B3) · pu
 | GOV-C7 | ✅ | 89b0b484 — contador ~45 activas + regla sync en Backlog header; ROADMAP banner alineado |
 
 plan-adjust [2026-08-22]: GOV-C2 parcialmente pre-ejecutado por sesión SDKB (48016b89 limpió MEM-36/43/44/45 como pagadas) — se registró P29/P30/P31 compacto en vez de duplicar.
+
+---
+
+## CAMPAÑA COMPLETADA (2026-08-22)
+
+### Wave D cierre
+| ID | Estado | Evidencia |
+|----|--------|-----------|
+| GOV-D1 | ✅ | mirror catch-up: 3 dominios nuevos (vanta-memory/vanta-proxy/context-engine), muestreo cruzado 48 commits MEM-* = 0 faltantes; contrato meta.md actualizado |
+| GOV-D2 | ✅ | split por campaña: 37 archivos en campanas/, README índice ≤50KB, dedup evento ×3, cobertura 103.98% (0 líneas perdidas), 2 links entrantes corregidos |
+| GOV-D3 | ✅ | 25f6d5a2+5b18fba9 — bitácora revivida: regla de uso + draft agosto para articulación del autor |
+| GOV-D4 | ✅ | d83a4bdb — 49 ítems git mv a research/, sweep citas en 64 archivos, convención documentada, INV-019→INV-026 |
+| GOV-D5 | ✅ | ADR-026 en adr/; única cita de path viejo = informe auditoría (histórica) |
+| GOV-D6 | ✅ | CRASH_MODEL.md modelo diferencial con file:línea; grep "ALL records"=0 |
+
+### Wave E cierre
+| ID | Estado | Evidencia |
+|----|--------|-----------|
+| GOV-E1 | ✅ | 24a311d5 — propuesta con Regla 0 por ítem; CORRIGE PREMISAS V1: book/book/__pycache__/TDAM-VANTADB nunca estuvieron trackeados (.gitignore ya los cubre) — único borrado real candidato: benchmarks/_run_stdout.md. 6 checkboxes owner pendientes. |
+
+### Wave F cierre
+| ID | Estado | Evidencia |
+|----|--------|-----------|
+| GOV-F1 | ✅ | dc3775ef — raíz pública: 2🔴 FIXED (invite Discord inválido→real, vantadb.dev sin DNS→rutas repo), 8 fixes inline, 48 paths verificados; tickets: dominio vantadb.dev, copy ARM64 |
+| GOV-F2 | ✅ | docs/reviews/auditoria-zonas-intocadas-2026-08-22.md — 🔴 AGENTS.md skills 111 vs manifiesto 193; Manual Estratégico recomendación DIVIDIR (uphill #4 resuelta); Regla 2 contador 7→8; skills proyecto 193/193 match |
+
+### Retrospectiva Start/Stop/Continue
+
+**START:** Verificación mecánica vía harness ejecutable (GOV-A4) — convertir auditorías doc en tests reventó 31 roturas que el sampling había subestimado; replicar patrón para operations/api docs.
+
+**STOP:** Editar docs maestros grandes con PowerShell -Raw/-replace pipelines sin verificación inmediata del diff (TEST_MAP aplanado y restaurado desde git; costo: 1 ciclo extra). Usar anclas exactas leídas del archivo, no reconstruidas de memoria.
+
+**CONTINUE:** Sub-agentes por dominio con Regla 0 + RESULTADO estructurado — 16/16 sub-agentes completaron al primer intento (100% vs baseline North Star >90%); commits atómicos por tarea; stop conditions pre-autorizadas evitaron rabbit holes (A1 llvm-cov).
+
+**Acción medible:** baseline = falsos "verificado" por muestreo en la auditoría V1 (premisa book/book commiteado era falsa). Acción: toda afirmación de existencia/estado de archivo en futuras auditorías se verifica con git ls-files (trackeado) además de Test-Path (disco). Métrica: 0 premisas falsas heredadas a propuestas (E1 demostró el método).
+
+**Score final: 29 ✅ · 1 ⬛ cancelada (A1, fallback aplicado) · 30/30 procesadas · 0 failed · ~17 commits**
