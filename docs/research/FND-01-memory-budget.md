@@ -5,8 +5,8 @@
 **Prioridad:** 🟡 (P20a)
 **Fuente:** docs/Backlog.md:483
 **Contrato DoD:** "regla + benchmark que la sustente" — ✅ regla en `.opencode/rules/memory-budget.md` + benchmark `benches/memory_budget.rs` + fix del guard (FND-01-F1)
-**Alcance:** `src/index/` (lectura), `src/storage/` (solo lectura DISCOVERY), `src/metrics/` (solo lectura), `benches/` (bench NUEVO), `.opencode/rules/` (regla NUEVA), `docs/Investigaciones/`
-**Archivos tocados:** `benches/memory_budget.rs` (nuevo), `Cargo.toml` (entrada `[[bench]]`, ver §7), `.opencode/rules/memory-budget.md` (nuevo), `.opencode/rules/README.md` (índice), `docs/Investigaciones/FND-01-memory-budget.md` (este reporte), `src/storage/engine/stats.rs` (F1), `src/metrics/core/mod.rs` (F1), tests (F1)
+**Alcance:** `src/index/` (lectura), `src/storage/` (solo lectura DISCOVERY), `src/metrics/` (solo lectura), `benches/` (bench NUEVO), `.opencode/rules/` (regla NUEVA), `docs/research/`
+**Archivos tocados:** `benches/memory_budget.rs` (nuevo), `Cargo.toml` (entrada `[[bench]]`, ver §7), `.opencode/rules/memory-budget.md` (nuevo), `.opencode/rules/README.md` (índice), `docs/research/FND-01-memory-budget.md` (este reporte), `src/storage/engine/stats.rs` (F1), `src/metrics/core/mod.rs` (F1), tests (F1)
 
 ---
 

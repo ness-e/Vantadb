@@ -6,7 +6,7 @@
 - **Fuente:** Backlog (Investigaciones)
 - **Fecha:** 2026-08-04
 - **Objetivo:** Evaluar Tauri (v2) como plataforma desktop para VantaDB: integración Rust nativa (`vantadb` como dep directa), casos de uso desktop AI app privada con memoria local, comparativa vs Electron, effort estimate MVP desktop, y recomendación de arquitectura. Sin implementación — solo investigación + recomendación.
-- **Resultado:** ✅ Doc: `docs/Investigaciones/DESKTOP-01-tauri-plataforma-desktop.md` (20.9KB, 208 líneas). **Recomendación: SÍ — Tauri v2** con integración Rust nativa (`vantadb` en `src-tauri/`, `VantaEmbedded` en managed state, commands async `vanta_ingest`/`vanta_search`, SIN bridge WASM/OPFS). Tauri v2.11.5 (01-jul-2026) vs Electron v43.2.0 (21-jul-2026). Comparativa: bundle 2-10MB vs 80-200MB; RAM idle ~50MB vs ~120MB+; backend Rust+WebView nativo vs Node+Chromium; mobile iOS/Android ✅ vs ❌. Effort MVP: ≈8-13 días hábiles. Nota: origen GTM original (`docs_backup_2026-06-30/`) ya no existe en el repo. Cero cambios de código.
+- **Resultado:** ✅ Doc: `docs/research/DESKTOP-01-tauri-plataforma-desktop.md` (20.9KB, 208 líneas). **Recomendación: SÍ — Tauri v2** con integración Rust nativa (`vantadb` en `src-tauri/`, `VantaEmbedded` en managed state, commands async `vanta_ingest`/`vanta_search`, SIN bridge WASM/OPFS). Tauri v2.11.5 (01-jul-2026) vs Electron v43.2.0 (21-jul-2026). Comparativa: bundle 2-10MB vs 80-200MB; RAM idle ~50MB vs ~120MB+; backend Rust+WebView nativo vs Node+Chromium; mobile iOS/Android ✅ vs ❌. Effort MVP: ≈8-13 días hábiles. Nota: origen GTM original (`docs_backup_2026-06-30/`) ya no existe en el repo. Cero cambios de código.
 - **Ids:** `DESKTOP-01`
 
 ### DESKTOP-02: Scaffold Tauri v2 + propio workspace

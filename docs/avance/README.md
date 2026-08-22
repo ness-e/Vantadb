@@ -55,7 +55,7 @@ aliases: [docs/avance]
 | `activo/desktop.md` | README §DESKTOP-01..11 (Fase 12, Tauri) | ✅ creado |
 | `auditoria/seguridad.md` | README §SEC/AUD, ARCHIVO_HISTORICO §INV-024, bitacora §TESTING/security | ✅ creado |
 | `auditoria/dependencias.md` | README §SEC-01/02, bitacora §C7/DEPENDABOT, ARCHIVO_HISTORICO | ✅ creado |
-| `investigaciones.md` | `docs/Investigaciones/` catálogo + ARCHIVO_HISTORICO §INV | ✅ creado |
+| `investigaciones.md` | `docs/research/` catálogo + ARCHIVO_HISTORICO §INV | ✅ creado |
 | `decisiones/wontfix.md` | bitacora §WONTFIX, ARCHIVO_HISTORICO §WONTFIX, README §DECISIONES | ✅ creado |
 | `meta.md` | bitacora §META/PROCESO, ARCHIVO_HISTORICO §Meta, BACKLOG_HISTORY | ✅ creado |
 | `historial/no-ops.md` | ARCHIVO_HISTORICO §No-ops, README §no-code | ✅ creado |
@@ -70,7 +70,7 @@ Estas 4 carpetas **no se mueven físicamente**: son escritas por pipelines activ
 |---|---|---|
 | `docs/plans/` | Sistema de tareas (campaign-server.mjs / pipeline-run.md) | `fuentes-vivas.md` §Planes |
 | `docs/reviews/` | `audit-all.ps1`, `/audit` + `unified-review` / `/review` (escritura de reportes) | `fuentes-vivas.md` §Auditorías |
-| `docs/Investigaciones/` | Research (destino de INV-*) | `investigaciones.md` (ya existente, 1:1) |
+| `docs/research/` | Research (destino de INV-*) | `investigaciones.md` (ya existente, 1:1) |
 
 ## Cruz de referencia con `docs/Backlog.md`
 

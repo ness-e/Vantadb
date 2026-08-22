@@ -6,7 +6,7 @@
 
 | # | Criterio | Dónde vive hoy | En prompts (task-system) |
 |---|----------|----------------|--------------------------|
-| 1 | **Saturación <20% como stop**: "una fase termina cuando una ronda nueva de búsqueda añade <20% de fuentes nuevas o ninguna fuente sobre umbral de citas/relevancia"; evaluar por fuente | `docs/Investigaciones/2026-08-10-agent-engineering/agent-02-task-execution.md:275-279` (§7.6); también `:240` (§7.2), `:476` (§14 Fase A), `:483` (§14 Fase B) | ❌ ausente. Único 20% en prompts = Context Budget (`iter-loop-tools.md:372`) — es otra cosa, no saturación de research |
+| 1 | **Saturación <20% como stop**: "una fase termina cuando una ronda nueva de búsqueda añade <20% de fuentes nuevas o ninguna fuente sobre umbral de citas/relevancia"; evaluar por fuente | `docs/research/2026-08-10-agent-engineering/agent-02-task-execution.md:275-279` (§7.6); también `:240` (§7.2), `:476` (§14 Fase A), `:483` (§14 Fase B) | ❌ ausente. Único 20% en prompts = Context Budget (`iter-loop-tools.md:372`) — es otra cosa, no saturación de research |
 | 2 | **Broadening/Narrowing como re-enfoque**: narrowing si hay suficiente relevancia; broadening si insuficientes resultados o poca relevancia | `agent-02-task-execution.md:236-240` (§7.2); `:478-483` (§14 Fase B) | ❌ ausente. Estado RESEARCH permite websearch (`iter-loop-tools.md:134`) pero sin regla de re-enfoque |
 | 3 | **Jitter en retry**: "Retry con backoff exponencial + jitter (cap de intentos)" | `agent-02-task-execution.md:302` (§8.1) | ❌ ausente. RULES.md:453-458 define backoff **determinista sin jitter**: `Start-Sleep -Seconds [Math]::Pow(2, $retryCount)` |
 

@@ -27,14 +27,14 @@
 - **Fuente:** `docs/Backlog.md` § P20c (verificación y análisis)
 - **Fecha:** 2026-08-16
 - **Objetivo:** verificar que kill a mitad de escritura recupera estado consistente (`chaos_integrity`/`wal_resilience`).
-- **Resultado:** ✅ verificación escrita en `docs/Investigaciones/FND-15-crash-recovery-verificacion.md` — sin gap de producto (WAL + recovery funcionan), gap de infra de tests documentado. Commit `8c6044a1`.
+- **Resultado:** ✅ verificación escrita en `docs/research/FND-15-crash-recovery-verificacion.md` — sin gap de producto (WAL + recovery funcionan), gap de infra de tests documentado. Commit `8c6044a1`.
 - **Ids:** `FND-15`
 
 ### FND-17: API reference automatizada (docs-as-code)
 - **Fuente:** `docs/Backlog.md` § P20c (verificación y análisis)
 - **Fecha:** 2026-08-16
 - **Objetivo:** ¿rustdoc/pydoc/typedoc se generan en CI y se versionan junto al código? Lo primero que evalúa un dev antes de adoptar la DB.
-- **Resultado:** ✅ análisis + plan en `docs/Investigaciones/FND-17-api-reference-docs-as-code.md`: Fase 1 = cargo doc en CI (sin deps nuevas), defer justificado de typedoc/pydoc/site (deps nuevas, sin demanda aún). Citas archivo:línea verificadas (gate-docs-21.yml:30/62, ci-rust-10.yml:154, Cargo.toml:11, pyproject.toml:41-42, vantadb_py.pyi:1) + URLs resueltas. Commit `5dc71f0d`.
+- **Resultado:** ✅ análisis + plan en `docs/research/FND-17-api-reference-docs-as-code.md`: Fase 1 = cargo doc en CI (sin deps nuevas), defer justificado de typedoc/pydoc/site (deps nuevas, sin demanda aún). Citas archivo:línea verificadas (gate-docs-21.yml:30/62, ci-rust-10.yml:154, Cargo.toml:11, pyproject.toml:41-42, vantadb_py.pyi:1) + URLs resueltas. Commit `5dc71f0d`.
 - **Ids:** `FND-17`
 
 ### FND-18: Time-to-first-query <5 min en SDKs Python/TS (Fase 0)
@@ -48,7 +48,7 @@
 - **Fuente:** `docs/Backlog.md` § P20d (Fase 0 pre-launch)
 - **Fecha:** 2026-08-16
 - **Objetivo:** grep `Arc<Mutex<` en `src/` y justificar cada instancia (¿necesaria o canal mpsc / Arc<DashMap>?); heurística: anidado en core = alerta roja.
-- **Resultado:** ✅ inventario en `docs/Investigaciones/FND-19-arc-mutex-inventario.md` — 2 instancias en core, 1 acción recomendada (ingestion canal). Commit `5df79635`.
+- **Resultado:** ✅ inventario en `docs/research/FND-19-arc-mutex-inventario.md` — 2 instancias en core, 1 acción recomendada (ingestion canal). Commit `5df79635`.
 - **Ids:** `FND-19`
 
 ### FND-20: Documentar trade-off HNSW (ef_search/M: recall vs latencia) + argumento vs IVF/FAISS
@@ -69,7 +69,7 @@
 - **Fuente:** `docs/Backlog.md` § P17 (P17 TSYS-06) + P18 TIR-07 (misma brecha)
 - **Fecha:** 2026-08-16
 - **Objetivo:** decidir si construir un chaos runner que fuzzee `campaign-server.mjs`/máquina de estados vs tests de inyección de fallos puntuales (gap-01 §3.3-24).
-- **Resultado:** ✅ decisión documentada en `docs/Investigaciones/TSYS-06-chaos-runner.md`: **runner DEFERIDO** — tests de inyección de fallos puntuales cubren el riesgo real con fracción del costo; runner re-evaluable cuando el MCP server tenga superficie crítica. Resuelve también TIR-07. Commit `bd4c3e22`.
+- **Resultado:** ✅ decisión documentada en `docs/research/TSYS-06-chaos-runner.md`: **runner DEFERIDO** — tests de inyección de fallos puntuales cubren el riesgo real con fracción del costo; runner re-evaluable cuando el MCP server tenga superficie crítica. Resuelve también TIR-07. Commit `bd4c3e22`.
 - **Ids:** `TSYS-06`
 
 ### R1: Skills obligatorias en §6 de los 9 agentes
@@ -146,14 +146,14 @@
 - **Fuente:** `docs/Backlog.md` § P20a
 - **Fecha:** 2026-08-16
 - **Objetivo:** analizar viabilidad de exponer buffers Arrow sin copia en Python/Node y firmar plan (implementación o ADR de diferimiento).
-- **Resultado:** ✅ DIFERIDO con ADR-021 + señal de reapertura explícita en `docs/Investigaciones/FND-04-arrow-zero-copy.md` (umbrales de reapertura documentados). Commit `95a67fd3`.
+- **Resultado:** ✅ DIFERIDO con ADR-021 + señal de reapertura explícita en `docs/research/FND-04-arrow-zero-copy.md` (umbrales de reapertura documentados). Commit `95a67fd3`.
 - **Ids:** `FND-04`
 
 ### FND-05: SDK idiomático (no wrapper 1:1 de Rust)
 - **Fuente:** `docs/Backlog.md` § P20a
 - **Fecha:** 2026-08-16
 - **Objetivo:** identificar gaps de API idiomática en `vantadb-python`/`vantadb-ts` (context managers, type hints, async nativo).
-- **Resultado:** ✅ análisis en `docs/Investigaciones/FND-05-sdk-idiomatico.md` (lista de gaps PY-*/TS-*) + prototipos: `with VantaDB(path) as db` (Python) y `await using db` (TS). Sin rewrite — no hacer async nativo (cubre FND-04). Commit `14183fc4`.
+- **Resultado:** ✅ análisis en `docs/research/FND-05-sdk-idiomatico.md` (lista de gaps PY-*/TS-*) + prototipos: `with VantaDB(path) as db` (Python) y `await using db` (TS). Sin rewrite — no hacer async nativo (cubre FND-04). Commit `14183fc4`.
 - **Ids:** `FND-05`
 
 ### FND-06: Regla de boundaries core ↔ bindings (Ports & Adapters)
@@ -237,5 +237,5 @@
 - **Fuente:** `docs/Backlog.md` § P20d
 - **Fecha:** 2026-08-16
 - **Objetivo:** usar las primeras conversaciones reales para definir ICP y job-to-be-done.
-- **Resultado:** ✅ `docs/Investigaciones/FND-24-icp-jtbd.md`: **0 evidencia de usuarios reales — todo hipótesis** (4 perfiles ICP, 10 JTBD) + plan de validación accionable (semana 4-8 post-Show HN). No se inventa evidencia donde no existe (regla de la tarea). Commit `a93e7932`.
+- **Resultado:** ✅ `docs/research/FND-24-icp-jtbd.md`: **0 evidencia de usuarios reales — todo hipótesis** (4 perfiles ICP, 10 JTBD) + plan de validación accionable (semana 4-8 post-Show HN). No se inventa evidencia donde no existe (regla de la tarea). Commit `a93e7932`.
 - **Ids:** `FND-24`

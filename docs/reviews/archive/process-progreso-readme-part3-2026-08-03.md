@@ -218,7 +218,7 @@ No H2 headers occur inside the audited range (the parent H2 "Tareas Completadas 
 | 3158–3170 | P8 Post-Launch: 2 "Document-only", 1 "Ya implementada" (DEVOPS-HOMEBREW), 1 already-existing (DEVOPS-PY313 CI-only), CLI-01/DEVEX-DEMO real work | mixed; 3/5 are no-ops | media |
 | 3172–3189 | Backlog Cleanup: "53 items moved to progreso" — 6 stale removed, 24+24+7 stale moved, counters adjusted. Housekeeping, not implementation | no-op bookkeeping | baja |
 | 3191–3216 | P5/P6/P8 Quick Wins: TSK-106 "Ya estaba habilitado (sin cambios)"; COM-03/COM-04 "⚠️ Parcial" (require manual Discord UI); MKT-03/04 drafts; NUEVO-21 investigation | mixed; several no-ops/partials | media |
-| 3290–3298 | INV-017 "sccache en CI — **investigación**" — research deliverable (`docs/Investigaciones/INV-017-sccache-ci.md`), no implementation (implemented next day as GH-143) | investigation | baja |
+| 3290–3298 | INV-017 "sccache en CI — **investigación**" — research deliverable (`docs/research/INV-017-sccache-ci.md`), no implementation (implemented next day as GH-143) | investigation | baja |
 | 2768–2774 | REV-016: "Delivered audit report **then deleted entire crate**" — audit + deletion, not a feature | audit/autopsy | baja |
 | 3064–3072 | VFY-004: "comment-only" change (0 code logic changes) | no-op code change | baja |
 

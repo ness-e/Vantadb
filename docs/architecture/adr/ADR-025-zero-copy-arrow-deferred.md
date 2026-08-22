@@ -135,7 +135,7 @@ signal.
 
 - ADR-021 — zero-copy Arrow architecture record (this ADR is the deferral
   branch it left open for FND-04).
-- FND-04 report: `docs/Investigaciones/FND-04-arrow-zero-copy.md` (evidence
+- FND-04 report: `docs/research/FND-04-arrow-zero-copy.md` (evidence
   source for this decision).
 - PERF-08 — WASM `Float32Array` zero-copy precedent
   (`vantadb-wasm/src/lib.rs:1428-1447`).

@@ -331,7 +331,7 @@ Solo se traslada el núcleo técnico verificable respaldado por fuentes (issues 
 
 ## 12. Weaviate — contexto competitivo cualitativo (INV-018)
 
-> Weaviate **no está en el harness de benchmarks local** (INV-007): es un servicio cloud/self-hosted en Go, no una librería embebible in-process como LanceDB/ChromaDB. Las cifras citadas son contexto cualitativo (fuente: `vanta-data.ts`, datos abril 2026), no medición propia del harness. Análisis completo: `docs/Investigaciones/INV-018-weaviate-competitive-analysis.md`.
+> Weaviate **no está en el harness de benchmarks local** (INV-007): es un servicio cloud/self-hosted en Go, no una librería embebible in-process como LanceDB/ChromaDB. Las cifras citadas son contexto cualitativo (fuente: `vanta-data.ts`, datos abril 2026), no medición propia del harness. Análisis completo: `docs/research/INV-018-weaviate-competitive-analysis.md`.
 
 **Fortalezas (documentadas en INV-018):**
 - HNSW personalizado con CRUD en tiempo real + cuantización BQ/PQ/SQ/RQ (recall >98% con compresión agresiva vía RQ)

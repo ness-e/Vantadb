@@ -73,7 +73,7 @@ Un runner real (según §5 de T19) agregaría:
 ## Referencias
 
 - `docs/architecture/task-system-chaos-resilience.md` (T19 — diseño, escenarios C1-C12, §5 estrategia, §6 pre-condiciones)
-- `docs/Investigaciones/2026-08-10-agent-engineering/gap-01-agents.md` — fila 36 / FALTA #24 (chaos/resilience del pipeline, P3) y §6.1-8 fallas reales
+- `docs/research/2026-08-10-agent-engineering/gap-01-agents.md` — fila 36 / FALTA #24 (chaos/resilience del pipeline, P3) y §6.1-8 fallas reales
 - `.opencode/task-system/mcp/campaign-server.mjs` — 1517 líneas; helpers, budget (L163-247), update_task_state con lock/checksum (L570-756), isMain guard (L1508)
 - `.opencode/task-system/mcp/state-persistence.test.mjs` (210 líneas) y `parsers.test.mjs` (165 líneas)
 - `.opencode/task-system/config/state-tools.mjs` — STATE_TOOLS, validateAction (94 líneas)

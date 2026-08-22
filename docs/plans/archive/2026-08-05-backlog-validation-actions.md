@@ -262,7 +262,7 @@
 - **Gate Justificación:** doc afirma "verificada contra src/governance 2026-07-21" pero el dir NO existe (Test-Path=False); el código real es src/gds.rs.
 - **Acción:** retractar afirmaciones; renombrar como diseño propuesto no-implementado; mapear qué corresponde a src/gds.rs vs futuro.
 - **Contrato:** doc no afirma verificación contra código inexistente.
-- **Nota:** backlog ubica el doc en docs/Investigaciones/ pero está en docs/architecture/ (corregir path en F0).
+- **Nota:** backlog ubica el doc en docs/research/ pero está en docs/architecture/ (corregir path en F0).
 - **Estado:** ✅ COMPLETED
 
 ### Task 29: AUD-005 — Sincronizar versiones docs/api (solo 1 drift real)
@@ -295,7 +295,7 @@
 - **Estado:** ✅ COMPLETED
 
 ### Task 33: AUD-009 — Corregir notas Vite→Next.js
-- **Archivos clave:** `docs/Investigaciones/DESKTOP-01b...:1090`, `web/package.json` (next ^16.1.1), `web/next.config.ts`
+- **Archivos clave:** `docs/research/DESKTOP-01b...:1090`, `web/package.json` (next ^16.1.1), `web/next.config.ts`
 - **Gate Justificación:** DESKTOP-01b:1090 afirma "React + Vite (mismo que web/)" — falso; web/ es Next.js 16 App Router. Las demás menciones Vite se refieren al desktop Tauri planificado (correctas — no tocar).
 - **Acción:** corregir la nota errónea + non_exhaustive check de stack. La referencia "DOC3 §A.5" no es trazable (ID de catálogo) — no perseguir.
 - **Contrato:** grep DESKTOP-01b de "Vite (mismo que web/" = 0; web/AGENTS.md correcto.
@@ -516,4 +516,4 @@ INV-007-B → MKT-17, TSK-103 (absorbe cierres)
 Campaign ID: 06826e46-9034-4f0c-bb4c-5e06742d9480
 Objetivo activo: AUDIT-02 sparse hot-path micro-opt gate de medicion
 Resultado: WONTFIX con reporte de medicion como evidencia
-Próxima acción: Revisar el lead antes de commit; reporte en docs/Investigaciones/AUDIT-02-2026-08-06.md
+Próxima acción: Revisar el lead antes de commit; reporte en docs/research/AUDIT-02-2026-08-06.md

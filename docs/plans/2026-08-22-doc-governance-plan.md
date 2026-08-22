@@ -1,6 +1,6 @@
 # Plan de Ejecución: Gobernanza Documental — corrección integral post-auditoría
 
-> **Campaign ID: 3f955847-b362-422f-a281-005bfbb62e0d
+> **Campaign ID: f0cd5b2f-aa1d-40de-b6bc-a1d0e8d6f1f4
 > **Inicio:** 2026-08-22
 > **Estado: completed
 > **Fuente:** `docs/reviews/auditoria-documentacion-2026-08-21.md` (Volumen I+II+Addendum) + decisiones del owner D1-D14 + respuestas de confirmación T0.x/T1.x/T3.x/T4.x/T6.x/T7.x registradas en §"Plan de Revisión" del informe.
@@ -46,7 +46,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pen
 - **Verificación real:** ✅ CÓDIGO-REAL — `verify-log.jsonl` existe y se puebla (23 entradas, campos ts/taskId/command/passed); `dora.mjs` ya lee el log para CFR pero no calcula recovery (TIR-02 investigación cerrada 08-17); 3 pares fail→pass medibles.
 - **Gate Justificación:** decisión ya tomada en investigación; ~30 líneas sobre datos existentes; cero riesgo producto.
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: npx markdownlint-cli2 docs/operations/CONFIGURATION.md → 0 issues, EXIT=0 | evidencia: [rate_limit_rpm default=600 → src/config.rs:659 parse_env_or("VANTADB_RATE_LIMIT_RPM", 600u32), confianza alta] [0 desactiva rate limiter → src/cli_server.rs:263 if rpm>0, alta] [5 env vars faltantes añadidas con file:line → src/llm.rs:40,145,147; src/storage/engine/maintenance.rs:658; src/metadata.rs:22, alta] [fallback HOST real (config.rs:512), fallback PORT y flush_interval_ms ausentes del doc actual, alta] | artefactos: docs/operations/CONFIGURATION.md, .opencode/skills/campaign-executor/tasks/GOV-C6.md (tabla sweep) | invariantes: no tocar src/, docs/plans/, Backlog/progreso; sin git commit (orden orquestador) | deuda: commit pendiente — delegar al lead | queda_pendiente: commit del cambio por parte del orquestador
+- **Contrato: verificacion: muestreo cruzado git log --grep MEM- (48 commits ago) ↔ 3 archivos = 0 faltantes ✅; npx markdownlint-cli2 sobre los 4 archivos tocados = 0 issues EXIT=0 ✅ | evidencia: [MEM-43 a0bcb112 y MEM-44 785db22c registrados → vanta-memory.md P31 + context-engine.md, alta] [crate vanta-proxy 3 commits feat(vanta-proxy) citados con hash → vanta-proxy.md F6, alta] [48/48 commits MEM-* de agosto en su dominio → script cruzado COMMITS=48 FALTANTES=0, alta] [core-engine/bindings sin gaps de mismas campañas → lectura completa, alta] | artefactos: docs/avance/activo/{vanta-memory,vanta-proxy,context-engine}.md + docs/avance/meta.md + .opencode/skills/campaign-executor/tasks/GOV-D1.md | invariantes: no tocar docs/plans/*bindings-sdk*, vantadb-ts/, evals/, Backlog, progreso; plan NO editable; catch-up por campaña | deuda: commit pendiente — PROHIBIDO git para este agente, delegar al lead | queda_pendiente: orquestador commitea los 5 archivos
 - **Pre-mortem:** (1) pairing ambiguo con taskId:null → filtrar entradas sin taskId y documentar caveat; (2) exitCode:-1 contaminando métrica → clasificar como no-ejecutado, no fallo.
 - **Stop conditions:** appetite excedido → DEFER; si pairing produce >50% no-pareable → simplificar a conteo, no Δt.
 - **Risk Register:**
@@ -578,13 +578,13 @@ plan-adjust [2026-08-22]: creación inicial — triaje 30 DO / 2 DEFER (release,
 
 === RECITATION ===
 Campaign ID: por asignar (`campaign_session_track create` al arrancar)
-Objetivo activo: GOV-C6 — Sweep bidireccional env vars en CONFIGURATION.md
+Objetivo activo: GOV-D1 — avance/activo catch-up + dominios faltantes
 Estado: completed
-Última acción: Corregido rate_limit_rpm 100→600 (config.rs:659) + nota 0=disabled (cli_server.rs:263); corregido flush_threshold 10000→None (config.rs:727); añadida sección 'Environment Variables Outside VantaConfig' con VANTA_EMBEDDING_PROVIDER/VANTA_OPENAI_API_KEY/VANTA_OPENAI_MODEL/VANTA_BACKUP_DIR/VANTADB_REPORTED_VERSION; sweep bidireccional 44 vars código vs doc (5 añadidas, 0 eliminadas, 2 fantasmas verificados reales/inexistentes); spot-check 14 defaults; markdownlint exit 0; task record creado con tabla resumen
+Última acción: Creados 3 dominios del mirror por campaña: vanta-memory.md (P27+P29+P31), vanta-proxy.md (P30 F6-F7 MEM-25..33), context-engine.md (MEM-22/23/24/37 + wiring a0bcb112); meta.md con contrato del mirror (cierre de campaña no daily; dominios=crates activos); core-engine/bindings verificados sin edición (ya cubrían sus campañas)
 Resultado: OK
-Próxima acción: Orquestador: commitear docs/operations/CONFIGURATION.md y asignar próxima tarea del plan
+Próxima acción: Orquestador: commitear docs/avance/{meta.md, activo/vanta-memory.md, activo/vanta-proxy.md, activo/context-engine.md}
 Contrato: node evals/dora.mjs exit 0 + seccion Recovery con pares
-Próxima tarea si completa: siguiente según plan file
+Próxima tarea si completa: siguiente según plan (wave D: GOV-D2 o asignación del orquestador)
 
 ---
 

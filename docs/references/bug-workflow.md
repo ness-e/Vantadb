@@ -17,7 +17,7 @@
 
 ### Fase 0.5: Contención/Estabilización (solo si el bug rompe el entorno)
 
-> Fuente: `docs/Investigaciones/2026-08-10-agent-engineering/eng-02-systems.md:209-214,397-400` (mitigar primero, root-cause después).
+> Fuente: `docs/research/2026-08-10-agent-engineering/eng-02-systems.md:209-214,397-400` (mitigar primero, root-cause después).
 > Decisión TIR-03 (2026-08-12).
 
 **Disparador:** el bug rompe el build (`cargo check`/`clippy`/`nextest` falla en masa),

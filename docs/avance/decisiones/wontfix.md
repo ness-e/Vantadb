@@ -26,7 +26,7 @@ aliases: []
 - Re-abierto tras detectar discrepancia en `Cargo.toml:89`, luego WONTFIX confirmado.
 
 ### AUDIT-02: Sparse hot-path micro-opt (gate de medición) — WONTFIX ✅ (2026-08-06)
-- **Decisión:** WONTFIX. Mediciones en `docs/Investigaciones/AUDIT-02-2026-08-06.md`.
+- **Decisión:** WONTFIX. Mediciones en `docs/research/AUDIT-02-2026-08-06.md`.
 - Sparse hot-path no superó el gate de medición.
 
 ### T2: prefetch_mmap_vector — WONTFIX ✅
@@ -84,7 +84,7 @@ aliases: []
 | CSP 'unsafe-eval' prod | Removido en frontend; WONTFIX en Rust server (JSON API puro). |
 | DEVOPS-10 code signing | SHA256 + .zip; Azure Trusted Signing cuando release público lo requiera. |
 | Fjall default vs RocksDB opt-in | ADR-020 (consolidación retroactiva, FND-21): Fjall backend por defecto, RocksDB feature opt-in; evidencia `Cargo.toml:97`, `config.rs:582-598`, `init.rs:269-289`. |
-| Zero-copy Arrow en bindings | ADR-021 (nuevo, FND-21): buffers Arrow sin copia como dirección; bindings Python/Node aún sin Arrow. **FND-04 diferido 2026-08-16** con señal de reapertura (`docs/Investigaciones/FND-04-arrow-zero-copy.md`). |
+| Zero-copy Arrow en bindings | ADR-021 (nuevo, FND-21): buffers Arrow sin copia como dirección; bindings Python/Node aún sin Arrow. **FND-04 diferido 2026-08-16** con señal de reapertura (`docs/research/FND-04-arrow-zero-copy.md`). |
 | WAL async/batch | ADR-022 (consolidación, FND-21): batch-append por shard + roadmap async; relaciona DRV-014/DRV-015. |
 | Backend compaction tuning | ADR-023 (FND-08, 2026-08-16): compactación fjall/rocksdb diferida como marginal tras bench de lectura; regla en `.opencode/rules/durability.md`. |
 | Grafos default-on vs opt-in | ADR-024 (FND-23, 2026-08-16): **default-on hasta señal de telemetría** (`vanta_graph_ops_total`); no decidir por intuición; complementa FND-03. |

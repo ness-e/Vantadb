@@ -4,7 +4,7 @@
 
 Cierra los 5 gaps de **familia A** (sistema de tareas, todos 🟢/🟡, <1h c/u) que
 los 3 sub-agentes de auditoría (gap-01, gap-02, REPORTE-FINAL) confirmaron como
-reales y accionables. Fuente: `docs/Investigaciones/2026-08-10-agent-engineering/REPORTE-FINAL.md`.
+reales y accionables. Fuente: `docs/research/2026-08-10-agent-engineering/REPORTE-FINAL.md`.
 
 Excluidos a propósito de este lote:
 - **Dependientes de datos** (verify-log.jsonl = 0 bytes): P3-2 calibración, DORA rework/recovery, SLA. → desbloquear ejecutando la próxima tarea real por el pipeline.

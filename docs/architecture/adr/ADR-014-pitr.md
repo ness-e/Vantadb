@@ -65,7 +65,7 @@ integration** to a future feature task:
    its purpose, current state, and the deferred integration path are explicit.
 4. Integration (option a) is intentionally deferred; revisit when PITR becomes
    a product requirement or a Pro candidate (see `docs/strategy/VANTADB-PRO-FEATURES.md`,
-    `pitr` listed as Pro candidate; `docs/Investigaciones/investigacion-equipo-2026-08-09.md`
+    `pitr` listed as Pro candidate; `docs/research/investigacion-equipo-2026-08-09.md`
    confirms today's orphaned state).
 
 ## Consequences

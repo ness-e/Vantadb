@@ -338,7 +338,7 @@ versionado** como fuente de verdad. Nada se genera en el navegador.
 | ¿Se crearon nuevos benches Criterion? | ❌ No |
 | ¿Se escribió código del harness? | ✅ **SÍ — después del Gate**: `benchmarks/competitive_bench.py` (751 líneas) ya existe en el repo (verificado 2026-08-04) |
 | ¿Fuentes web citadas? | ✅ Sí (sección 9) |
-| Archivo de investigación creado | ✅ `docs/Investigaciones/INV-007-competitive-benchmark-lancedb-chroma.md` |
+| Archivo de investigación creado | ✅ `docs/research/INV-007-competitive-benchmark-lancedb-chroma.md` |
 
 Este INV era **diseño puro** al 2026-08-03. Posteriormente se implementó **Slice 1 (harness)**
 como `benchmarks/competitive_bench.py`. Pendiente: emisión del JSON contrato + **Slice 2**

@@ -12,7 +12,7 @@ owner: vanta-lead
 
 ## Context
 
-`docs/Investigaciones/2026-08-10-agent-engineering/REPORTE-FINAL.md` gap-01 §3.3-23
+`docs/research/2026-08-10-agent-engineering/REPORTE-FINAL.md` gap-01 §3.3-23
 flagged that the pipeline had no SLA: "hoy no se sabe si el pipeline falla mucho".
 RULES.md (`campaign-executor`) states aspirational North Star criteria — >90%
 first-try completion, 0 false positives, 0 silent regression — but they are
@@ -120,7 +120,7 @@ systematic-debugging first — matches RULES.md stagnation rules).
 - `docs/reports/northstar.md`, `docs/reports/pipeline-evals.md`, `docs/reports/dora.md`
 - `.opencode/task-system/enforcement/verify-log.jsonl`
 - `.opencode/skills/campaign-executor/RULES.md` (North Star: >90% / 0 / 0)
-- `docs/Investigaciones/2026-08-10-agent-engineering/REPORTE-FINAL.md` gap-01 §3.3-23
+- `docs/research/2026-08-10-agent-engineering/REPORTE-FINAL.md` gap-01 §3.3-23
 - Backlog `TSYS-05` (P17)
 - Precedent: `ADR-015-coverage-policy.md` (quality-gate policy as ADR)
 

@@ -107,7 +107,7 @@ Rationale:
 
 - **Positive:** no behavior change; the default (Fjall) path remains
   point-read/write tuned; audit evidence is recorded (this ADR + report
-  `docs/Investigaciones/FND-08-backend-compaction.md`).
+  `docs/research/FND-08-backend-compaction.md`).
 - **Negative:** the two marginal gaps remain: Fjall `cache_size` fixed at
   32 MiB, and RocksDB level-tuning options unset.
 - **Deferred (reopen signal):** apply tuning when (a) a bench with dataset
@@ -126,4 +126,4 @@ Rationale:
 - ADR-020 — backend default (Fjall) decision record.
 - `benches/backend_compare.rs` — random-read benchmark (reference for
   reopen signal).
-- FND-08 report: `docs/Investigaciones/FND-08-backend-compaction.md`.
+- FND-08 report: `docs/research/FND-08-backend-compaction.md`.

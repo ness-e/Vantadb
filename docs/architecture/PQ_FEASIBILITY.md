@@ -123,7 +123,7 @@ is well under RAM on the target nodes.
   > 1-2 GB) enters the API surface as an explicitly required path.
 - A public competitive bench requests a PQ/SQ "compression trade-off" column
   against Pinecone PQFS / Milvus IVF-PQ (Pinecone's L3 > 1M uses IVF + PQFS;
-  see docs/Investigaciones/INV-019-pinecone-architecture-competitor.md).
+  see docs/research/INV-019-pinecone-architecture-competitor.md).
 - Arch/engine explicitly asks for the PQ design (then engine owns the trainer
   and worker owns the thin bindings).
 

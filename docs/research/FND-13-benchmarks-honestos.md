@@ -113,7 +113,7 @@ La tabla §2 (markers) reporta 95 ops/s y p50 10.7 ms, mientras el JSON local ac
 ## 6. Verificación del contrato
 
 1. `grep AGENTS.md "Regla 11"` → ✅ presente, referenciando benchmark reproducible (`canonical_p99`, `docs/operations/BENCHMARKS.md`, archivos `benches/*.rs`/`benchmarks/*.py` + comando)
-2. Análisis en `docs/Investigaciones/FND-13-benchmarks-honestos.md` → ✅ existe con inventario clasificado (citado/medible/sin fuente)
+2. Análisis en `docs/research/FND-13-benchmarks-honestos.md` → ✅ existe con inventario clasificado (citado/medible/sin fuente)
 3. Fixes de 1 línea aplicados → ✅ (2 links rotos + claim obsoleto de la tabla baseline)
 
 **Regla 0 / Impacto:** verificado en el task file (`FND-13.md`) antes de la primera edición. Solo se editaron `.opencode/AGENTS.md` (adición al final), `README.md`, `README_ES.md` (corrección de información obsoleta) y se crearon el task file y este análisis. No se tocaron archivos protegidos.

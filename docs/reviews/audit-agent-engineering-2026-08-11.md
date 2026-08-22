@@ -1,4 +1,4 @@
-# Validación de `docs/Investigaciones/2026-08-10-agent-engineering` — 2026-08-11
+# Validación de `docs/research/2026-08-10-agent-engineering` — 2026-08-11
 
 ## Summary
 - **Método:** 10 sub-agentes `explore` en paralelo (1 por archivo; REPORTE-FINAL dividido en 2 mitades), cada uno contrastando cada claim del documento contra el código/CI/prompts reales del repo con evidencia `ruta:línea`.

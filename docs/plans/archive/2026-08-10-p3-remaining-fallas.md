@@ -2,7 +2,7 @@
 
 > **Inicio:** 2026-08-10
 > **Estado:** ✅ COMPLETADO (2026-08-10)
-> **Fuente:** docs/Investigaciones/2026-08-10-agent-engineering/REPORTE-FINAL.md (§3.6-1 fallas operativas + gap-01/gap-02 §6)
+> **Fuente:** docs/research/2026-08-10-agent-engineering/REPORTE-FINAL.md (§3.6-1 fallas operativas + gap-01/gap-02 §6)
 
 ## Resumen
 

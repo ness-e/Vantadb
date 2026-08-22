@@ -122,8 +122,8 @@
 
 ## 7. Contrato de verificación mecánica
 
-- `Test-Path docs/Investigaciones/TSYS-06-chaos-runner.md` → **True** (este doc).
-- `rg "Veredicto|IMPLEMENTAR|DEFERIR|state-tools\.mjs:|chaos-resilience\.md:" docs/Investigaciones/TSYS-06-chaos-runner.md` → veredicto explícito + citas archivo:línea presentes.
+- `Test-Path docs/research/TSYS-06-chaos-runner.md` → **True** (este doc).
+- `rg "Veredicto|IMPLEMENTAR|DEFERIR|state-tools\.mjs:|chaos-resilience\.md:" docs/research/TSYS-06-chaos-runner.md` → veredicto explícito + citas archivo:línea presentes.
 - Evidencia citada mínima requerida por la tarea: `state-tools.mjs:73-92` (deny-by-default/wildcard) y `task-system-chaos-resilience.md:142-156` (§6 behavior changes) — ambas presentes en §2/§3/§5.
 
 ---

@@ -2,7 +2,7 @@
 
 > **Inicio:** 2026-08-10
 > **Estado:** ✅ COMPLETADO (2026-08-10)
-> **Fuente:** docs/Investigaciones/2026-08-10-agent-engineering/REPORTE-FINAL.md (§3.7 P1-1..P1-7)
+> **Fuente:** docs/research/2026-08-10-agent-engineering/REPORTE-FINAL.md (§3.7 P1-1..P1-7)
 
 ## Resumen
 

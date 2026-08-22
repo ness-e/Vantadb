@@ -9,7 +9,7 @@ aliases: []
 
 # Avance — Investigaciones (INV)
 
-> Catálogo de investigaciones completadas. Los reportes viven en `docs/Investigaciones/`. Cero cambios de código en la mayoría (diseño/auditoría), a menos que se indique.
+> Catálogo de investigaciones completadas. Los reportes viven en `docs/research/`. Cero cambios de código en la mayoría (diseño/auditoría), a menos que se indique.
 
 ## Fase 1 — Seguridad y críticos
 
@@ -20,7 +20,7 @@ aliases: []
 
 ### INV-024: Unsafe Blocks Audit ✅ (2026-07-30)
 - **Fuente:** Backlog (Phase 1 — Security & Critical) `INV-024`
-- **Resultado:** Auditoría de bloques `unsafe`. 7 hallazgos UB cubiertos por AUDIT-03 (Miri). Reporte: `docs/Investigaciones/` (vía ARCHIVO_HISTORICO §INV-024).
+- **Resultado:** Auditoría de bloques `unsafe`. 7 hallazgos UB cubiertos por AUDIT-03 (Miri). Reporte: `docs/research/` (vía ARCHIVO_HISTORICO §INV-024).
 - **Ids:** `INV-024`
 
 ## Fase 4 — Engineering Health
@@ -36,15 +36,15 @@ aliases: []
 - **Ids:** `INV-006`
 
 ### INV-007: Competitive benchmark vs LanceDB/Chroma — diseño
-- **Resultado:** ✅ `docs/Investigaciones/INV-007-competitive-benchmark-lancedb-chroma.md` (19.8KB). Veredicto: NO publicar en `ann-benchmarks` (repo sin mantenimiento, recomienda VIBE) — usar solo datasets HDF5 + metodología Recall-QPS. Harness standalone Python (`benchmarks/competitive/run_competitive_benchmark.py`) con glove-100-angular + sift-128-euclidean. Slicing vertical 3 slices (harness+JSON → tabla web → CI). 10 fuentes citadas. Cero cambios de código.
+- **Resultado:** ✅ `docs/research/INV-007-competitive-benchmark-lancedb-chroma.md` (19.8KB). Veredicto: NO publicar en `ann-benchmarks` (repo sin mantenimiento, recomienda VIBE) — usar solo datasets HDF5 + metodología Recall-QPS. Harness standalone Python (`benchmarks/competitive/run_competitive_benchmark.py`) con glove-100-angular + sift-128-euclidean. Slicing vertical 3 slices (harness+JSON → tabla web → CI). 10 fuentes citadas. Cero cambios de código.
 - **Ids:** `INV-007` (+ `INV-007-B` ✅ implementado 2026-08-05, commit `58061ab8` — competitive_benchmark.json + competitive-table web)
 
 ### INV-008: Batch Queries Python SDK — diseño
-- **Resultado:** ✅ `docs/Investigaciones/INV-008-batch-queries-python-sdk.md` (10.9KB). Gate: `search_batch(vectors, top_k)` YA existía. Gap real: no acepta SearchRequest completo. Propuesta `search_batch_requests()`. Veredicto YAGNI: método nuevo en binding, wrapper Python puro descartado. Cero cambios de código.
+- **Resultado:** ✅ `docs/research/INV-008-batch-queries-python-sdk.md` (10.9KB). Gate: `search_batch(vectors, top_k)` YA existía. Gap real: no acepta SearchRequest completo. Propuesta `search_batch_requests()`. Veredicto YAGNI: método nuevo en binding, wrapper Python puro descartado. Cero cambios de código.
 - **Ids:** `INV-008` (+ `INV-008-B` ✅ implementado 2026-08-05, commit `90fd3532`)
 
 ### INV-009: Phrase Queries + Term Positions — diseño
-- **Resultado:** ✅ `docs/Investigaciones/INV-009-phrase-queries-term-positions.md` (13.8KB). Gate: infrastructure phrase-ready YA existía (`TextQueryPlan.phrases`, `token_positions`, `text_positions_match_phrase` + 12 tests). Gaps: sintaxis IQL, enforcement, highlight. Veredicto tantivy: CUSTOM (YAGNI) — duplicaría índice, ~40 crates. Cero cambios de código.
+- **Resultado:** ✅ `docs/research/INV-009-phrase-queries-term-positions.md` (13.8KB). Gate: infrastructure phrase-ready YA existía (`TextQueryPlan.phrases`, `token_positions`, `text_positions_match_phrase` + 12 tests). Gaps: sintaxis IQL, enforcement, highlight. Veredicto tantivy: CUSTOM (YAGNI) — duplicaría índice, ~40 crates. Cero cambios de código.
 - **Ids:** `INV-009` (+ `INV-009-B` ✅ implementado 2026-08-05, commit `995258e9` — `Condition::TextMatch` + highlight contiguo)
 
 ### INV-010: ACID rollback multi-capa completo — diseño
@@ -52,32 +52,32 @@ aliases: []
 - **Ids:** `INV-010`
 
 ### INV-011: Core-Server Separation — auditoría
-- **Resultado:** ✅ **Separación YA limpia — sin cambios requeridos.** Server deps todas optional detrás de features; verificado mecánicamente con `cargo tree` y `cargo check`. Observación menor: `server = ["cli",...]` acopla server→cli (intencional). Doc: `docs/Investigaciones/INV-011-core-server-separation.md`. Cero cambios de código.
+- **Resultado:** ✅ **Separación YA limpia — sin cambios requeridos.** Server deps todas optional detrás de features; verificado mecánicamente con `cargo tree` y `cargo check`. Observación menor: `server = ["cli",...]` acopla server→cli (intencional). Doc: `docs/research/INV-011-core-server-separation.md`. Cero cambios de código.
 - **Ids:** `INV-011`
 
 ### INV-012: Anti-Locality Disk Layout — re-evaluación
-- **Resultado:** ✅ **WONTFIX CONFIRMADO — NO re-abrir.** Re-run `benches/vfile_search.rs`: mejora locativa ~7.0% (614.5ms vs 571.5ms compacted), inferior al 15% requerido. LSM/multi-level NO alteraron el resultado. Re-apertura hipotética requiere dataset 1M+ cold-cache. Doc: `docs/Investigaciones/INV-012-antilocality-reevaluation.md`. Cero cambios de código.
+- **Resultado:** ✅ **WONTFIX CONFIRMADO — NO re-abrir.** Re-run `benches/vfile_search.rs`: mejora locativa ~7.0% (614.5ms vs 571.5ms compacted), inferior al 15% requerido. LSM/multi-level NO alteraron el resultado. Re-apertura hipotética requiere dataset 1M+ cold-cache. Doc: `docs/research/INV-012-antilocality-reevaluation.md`. Cero cambios de código.
 - **Ids:** `INV-012`
 
 ### INV-013: JSON-LD structured data — auditoría
-- **Resultado:** ✅ Doc: `docs/Investigaciones/INV-013-jsonld-structured-data.md`. **JSON-LD AUSENTE** — Next.js 16 Metadata API NO genera JSON-LD; propuesta schema.org/SoftwareApplication emitido manualmente. Cero cambios de código.
+- **Resultado:** ✅ Doc: `docs/research/INV-013-jsonld-structured-data.md`. **JSON-LD AUSENTE** — Next.js 16 Metadata API NO genera JSON-LD; propuesta schema.org/SoftwareApplication emitido manualmente. Cero cambios de código.
 - **Nota 2026-08-04:** la entrada anterior afirmaba JSON-LD implementado (WEB-13) — **FALSA**: WEB-13 fue Pages Router que ya no existe; los commits citados son de OG/canonical. JSON-LD sigue pendiente en Backlog.
 - **Ids:** `INV-013` (+ `INV-013-B` ✅ implementado 2026-08-05, commit `1d072f4a`)
 
 ### INV-014: Light mode (CSS muerto) — auditoría
-- **Resultado:** ✅ Doc: `docs/Investigaciones/INV-014-light-mode-css.md`. Premisa invertida — **NO existe CSS light muerto; el sitio es LIGHT-ONLY por diseño**. Recomendación: eliminar plomería DARK inerte (`theme-provider` + `theme-toggle` + dep next-themes, YAGNI). NO reactivar dark mode.
+- **Resultado:** ✅ Doc: `docs/research/INV-014-light-mode-css.md`. Premisa invertida — **NO existe CSS light muerto; el sitio es LIGHT-ONLY por diseño**. Recomendación: eliminar plomería DARK inerte (`theme-provider` + `theme-toggle` + dep next-themes, YAGNI). NO reactivar dark mode.
 - **Ids:** `INV-014` (+ `INV-014-B` ✅ implementado 2026-08-05, commit `6e7b91b8`)
 
 ### INV-015: Touch targets < 44px — auditoría
-- **Resultado:** ✅ Doc: `docs/Investigaciones/INV-015-touch-targets-44px.md`. ~23 componentes no cumplen 44×44 (2 icon buttons 14px → severo). Inventario priorizado P0-P4. Cero cambios de código.
+- **Resultado:** ✅ Doc: `docs/research/INV-015-touch-targets-44px.md`. ~23 componentes no cumplen 44×44 (2 icon buttons 14px → severo). Inventario priorizado P0-P4. Cero cambios de código.
 - **Ids:** `INV-015` (+ `INV-015-B` ✅ implementado 2026-08-05, commit `532788d2`)
 
 ### INV-016: Motion-duration tokens — auditoría
-- **Resultado:** ✅ Doc: `docs/Investigaciones/INV-016-motion-duration-tokens.md`. **NO existen tokens de duración/easing.** Propuesta CSS vars + mapa JS `MOTION`. Cero cambios de código.
+- **Resultado:** ✅ Doc: `docs/research/INV-016-motion-duration-tokens.md`. **NO existen tokens de duración/easing.** Propuesta CSS vars + mapa JS `MOTION`. Cero cambios de código.
 - **Ids:** `INV-016` (+ `INV-016-B` ✅ implementado 2026-08-05, commit `6afb37c3`)
 
 ### INV-017: sccache en CI — investigación (2026-08-02)
-- **Resultado:** ✅ `docs/Investigaciones/INV-017-sccache-ci.md`. Hallazgo clave: `.opencode/AGENTS.md` afirmaba falsamente sccache implementado (drift, 0 matches en `.github/`); corregido. Diseño: `mozilla-actions/sccache-action@v0.0.11`. **Implementado** vía GH-143 (commits `44404c7d`, `1f9f5c41`): Windows tests 14m29s → 8m35s (−40.7%).
+- **Resultado:** ✅ `docs/research/INV-017-sccache-ci.md`. Hallazgo clave: `.opencode/AGENTS.md` afirmaba falsamente sccache implementado (drift, 0 matches en `.github/`); corregido. Diseño: `mozilla-actions/sccache-action@v0.0.11`. **Implementado** vía GH-143 (commits `44404c7d`, `1f9f5c41`): Windows tests 14m29s → 8m35s (−40.7%).
 - **Ids:** `INV-017`
 
 ### INV-019: Advanced Tokenizer (Unicode + Stopwords)
@@ -100,17 +100,17 @@ aliases: []
 
 | Reporte | Ubicación |
 |---|---|
-| INV-007 | `docs/Investigaciones/INV-007-competitive-benchmark-lancedb-chroma.md` |
-| INV-008 | `docs/Investigaciones/INV-008-batch-queries-python-sdk.md` |
-| INV-009 | `docs/Investigaciones/INV-009-phrase-queries-term-positions.md` |
-| INV-011 | `docs/Investigaciones/INV-011-core-server-separation.md` |
-| INV-012 | `docs/Investigaciones/INV-012-antilocality-reevaluation.md` |
-| INV-013 | `docs/Investigaciones/INV-013-jsonld-structured-data.md` |
-| INV-014 | `docs/Investigaciones/INV-014-light-mode-css.md` |
-| INV-015 | `docs/Investigaciones/INV-015-touch-targets-44px.md` |
-| INV-016 | `docs/Investigaciones/INV-016-motion-duration-tokens.md` |
-| INV-017 | `docs/Investigaciones/INV-017-sccache-ci.md` |
-| AUDIT-02 | `docs/Investigaciones/AUDIT-02-2026-08-06.md` |
+| INV-007 | `docs/research/INV-007-competitive-benchmark-lancedb-chroma.md` |
+| INV-008 | `docs/research/INV-008-batch-queries-python-sdk.md` |
+| INV-009 | `docs/research/INV-009-phrase-queries-term-positions.md` |
+| INV-011 | `docs/research/INV-011-core-server-separation.md` |
+| INV-012 | `docs/research/INV-012-antilocality-reevaluation.md` |
+| INV-013 | `docs/research/INV-013-jsonld-structured-data.md` |
+| INV-014 | `docs/research/INV-014-light-mode-css.md` |
+| INV-015 | `docs/research/INV-015-touch-targets-44px.md` |
+| INV-016 | `docs/research/INV-016-motion-duration-tokens.md` |
+| INV-017 | `docs/research/INV-017-sccache-ci.md` |
+| AUDIT-02 | `docs/research/AUDIT-02-2026-08-06.md` |
 
 ## P10 — Competitive features catalog (investigado + decidido)
 
@@ -120,15 +120,15 @@ aliases: []
 
 ### TIR-03: Mitigación/contención primero en incidentes - decisión (2026-08-12)
 - **Fuente:** Backlog P18 `TIR-03` (gap-01 FALTA#15, REPORTE-FINAL §3.3-15)
-- **Resultado:** Decisión IMPLEMENTAR docs mínimos — nueva Fase 0.5 Contención/Estabilización en `docs/references/bug-workflow.md:18` (revert/pausar + registrar ANTES del debug; no reemplaza el Iron Law). Doc: `docs/Investigaciones/2026-08-10-agent-engineering/TIR-03-decision.md`. Review P2-01 vanta-review ✅ approve.
+- **Resultado:** Decisión IMPLEMENTAR docs mínimos — nueva Fase 0.5 Contención/Estabilización en `docs/references/bug-workflow.md:18` (revert/pausar + registrar ANTES del debug; no reemplaza el Iron Law). Doc: `docs/research/2026-08-10-agent-engineering/TIR-03-decision.md`. Review P2-01 vanta-review ✅ approve.
 - **Ids:** `TIR-03`
 
 ### TSYS-06: Chaos/resilience del task-system — decisión runner DEFER (2026-08-16)
 - **Fuente:** Backlog P17 `TSYS-06` + P18 `TIR-07` (misma brecha)
-- **Resultado:** Decisión **DEFERIR el chaos runner** — tests de inyección de fallos puntuales cubren el riesgo real con fracción del costo. Doc: `docs/Investigaciones/TSYS-06-chaos-runner.md`. Resuelve también TIR-07.
+- **Resultado:** Decisión **DEFERIR el chaos runner** — tests de inyección de fallos puntuales cubren el riesgo real con fracción del costo. Doc: `docs/research/TSYS-06-chaos-runner.md`. Resuelve también TIR-07.
 - **Ids:** `TSYS-06`
 
 ### FND-24: JTBD/ICP — hipótesis + plan de validación (2026-08-16)
 - **Fuente:** Backlog P20d `FND-24`
-- **Resultado:** **0 evidencia de usuarios reales — todo hipótesis** (4 perfiles ICP, 10 JTBD) + plan de validación accionable post-Show HN. Regla de la tarea: no inventar evidencia. Doc: `docs/Investigaciones/FND-24-icp-jtbd.md`.
+- **Resultado:** **0 evidencia de usuarios reales — todo hipótesis** (4 perfiles ICP, 10 JTBD) + plan de validación accionable post-Show HN. Regla de la tarea: no inventar evidencia. Doc: `docs/research/FND-24-icp-jtbd.md`.
 - **Ids:** `FND-24`

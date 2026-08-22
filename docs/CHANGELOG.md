@@ -329,7 +329,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - **inv:** Docs(inv): complete INV-007/008/009 competitive benchmark, Python batch, phrase query designs
 
-- **acid:** Docs(acid): INV-010 move design doc to docs/Investigaciones
+- **acid:** Docs(acid): INV-010 move design doc to docs/research
 
 - **inv:** Docs(inv): complete web audits INV-013/014/015/016 — JSON-LD, light mode, touch targets, motion tokens
 

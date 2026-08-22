@@ -40,6 +40,6 @@ aliases: [docs/avance/fuentes-vivas]
 | `archive/review.md` | 61 | Archivado |
 | `archive/` (14 files) | — | Audits/reviews superados pre-unificación + `audit-full-2025-07-27.md` |
 
-## 4. `docs/Investigaciones/` — Investigaciones
+## 4. `docs/research/` — Investigaciones
 
 **Ya catalogada 1:1 en `docs/avance/investigaciones.md`** (incluye todos los INV-003..020, DESKTOP-01/01b, vectara, meta-001, ACID). No duplicar aquí el índice — ver `investigaciones.md`.

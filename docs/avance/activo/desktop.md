@@ -23,7 +23,7 @@ aliases: [DESKTOP]
 
 ### DESKTOP-01: Investigar Tauri como plataforma desktop
 - **Fecha:** 2026-08-04
-- **Resultado:** ✅ Doc `docs/Investigaciones/DESKTOP-01-tauri-plataforma-desktop.md` (20.9KB, 208 líneas). **Recomendación: SI — Tauri v2** con integración Rust nativa (`vantadb` en `src-tauri/`, `VantaEmbedded` en managed state, commands async `vanta_ingest`/`vanta_search`, SIN bridge WASM/OPFS). Tauri v2.11.5 vs Electron v43.2.0. Effort MVP: ~8-13 días hábiles. Solo investigación, cero cambios de código.
+- **Resultado:** ✅ Doc `docs/research/DESKTOP-01-tauri-plataforma-desktop.md` (20.9KB, 208 líneas). **Recomendación: SI — Tauri v2** con integración Rust nativa (`vantadb` en `src-tauri/`, `VantaEmbedded` en managed state, commands async `vanta_ingest`/`vanta_search`, SIN bridge WASM/OPFS). Tauri v2.11.5 vs Electron v43.2.0. Effort MVP: ~8-13 días hábiles. Solo investigación, cero cambios de código.
 
 ## Scaffold & core desktop
 
@@ -191,6 +191,6 @@ aliases: [DESKTOP]
 
 ## Fuentes
 - `docs/progreso/campanas/admin-desktop.md` (split GOV-D2) / snapshot-2026-08-07.
-- `docs/Investigaciones/DESKTOP-01-tauri-plataforma-desktop.md`.
+- `docs/research/DESKTOP-01-tauri-plataforma-desktop.md`.
 
 ### ERR-015 (shutdown gracioso) — migrado 2026-08-12 (ver docs/progreso/README.md)

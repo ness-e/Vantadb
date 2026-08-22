@@ -137,7 +137,7 @@
 |----|-------|-----------|
 | `TSK-106` | Habilitar GitHub Discussions | ✅ Ya estaba habilitado (`has_discussions: true`). Sin cambios. |
 | `MKT-03` | Show HN draft → v0.4.0 | ✅ Draft actualizado con APIs correctas (`put`, `search_memory`) y links a PyPI/docs |
-| `NUEVO-21` | Vectara competitive research | ✅ Reporte en `docs/Investigaciones/vectara-competitive-research-2026-07-27.md`. Hallazgo: Vectara cerró self-service → gap para local-first |
+| `NUEVO-21` | Vectara competitive research | ✅ Reporte en `docs/research/vectara-competitive-research-2026-07-27.md`. Hallazgo: Vectara cerró self-service → gap para local-first |
 | `MKT-04` | Reddit posts (3 subreddits) | ✅ 3 drafts en `docs/strategy/REDDIT_POSTS.md` (r/rust, r/MachineLearning, r/LocalLLaMA) |
 | `TSK-107` | Community showcase page | ✅ 6 items actualizados: apuntan a ejemplos reales (LangGraph, AutoGen, Haystack, CrewAI, Rust hybrid, GraphRAG) |
 | `COM-03` | Discord forums + AutoMod | ⚠️ Parcial: 9 threads seedeados (FAQ/Showcase/Ideas/Bug). AutoMod/stickers/emojis requieren Discord UI manual |
@@ -145,7 +145,7 @@
 | `—` | Good first issues (18 open) | ✅ 22 issues creados (#118-#142), 3 duplicados cerrados (#136-#138). Etiquetados `good first issue` en GitHub |
 
 **Archivos creados/modificados:**
-- `docs/Investigaciones/vectara-competitive-research-2026-07-27.md` (nuevo)
+- `docs/research/vectara-competitive-research-2026-07-27.md` (nuevo)
 - `docs/strategy/SHOW_HN_PREP.md` (actualizado)
 - `docs/strategy/REDDIT_POSTS.md` (nuevo)
 - `web/src/app/showcase/page.tsx` (actualizado)

@@ -4,7 +4,7 @@
 > **Campaign ID:** e3b8eb8f-f747-4029-a63a-6b6e6512d6c9
 > **Inicio:** 2026-08-10
 > **Estado:** completed — 16/16 tasks ejecutadas (2026-08-11)
-> **Fuente:** Auditoría multi-agente (6 sub-agentes, solo-lectura) sobre `docs/Investigaciones/2026-08-10-agent-engineering/`, las 10 carpetas de `docs/` objetivo, y el flujo completo del task-system en `.opencode/`.
+> **Fuente:** Auditoría multi-agente (6 sub-agentes, solo-lectura) sobre `docs/research/2026-08-10-agent-engineering/`, las 10 carpetas de `docs/` objetivo, y el flujo completo del task-system en `.opencode/`.
 
 ## Resumen
 
@@ -14,7 +14,7 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 2. **Consolidación de carpetas `docs/`** (duplicados, huérfanas, drift de rutas, 4 carpetas "archive").
 3. **Arreglos del task-system** (flujo, huérfanos, incongruencias, referencia rota a persona `vanta-review`).
 
-**Principio rector:** `docs/progreso/` es el registro canónico (single source of truth); `docs/avance/` es su mirror curado navegable; `docs/Investigaciones/` es la carpeta canónica de investigación. Nada se borra sin grep previo (Regla 0). No se reescriben snapshots/historial (estados pasados congelados).
+**Principio rector:** `docs/progreso/` es el registro canónico (single source of truth); `docs/avance/` es su mirror curado navegable; `docs/research/` es la carpeta canónica de investigación. Nada se borra sin grep previo (Regla 0). No se reescriben snapshots/historial (estados pasados congelados).
 
 **Bloqueante conocido pre-existente:** `verify-log.jsonl` = 0 bytes → North Star/DORA/SLA sin datos (transversal a todo).
 
@@ -45,16 +45,16 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 - **Estado:** ✅ COMPLETED (2026-08-11) — verify-log.jsonl poblado (1378 bytes), 3 invocaciones reales; northstar.md regenerado (126 líneas, datos reales). Commit `d22733ab` + telemetry `b1a117de`.
 - **Notas:** Es el habilitador transversal; cualquiera de las Tasks 3-13 ejecutadas vía pipeline lo alimenta.
 
-### Task 3: Unificar carpetas de investigación → `docs/Investigaciones/` (4→1)
+### Task 3: Unificar carpetas de investigación → `docs/research/` (4→1)
 - **Esfuerzo:** 🟡 | **Prioridad:** P0 | **Ruta:** vanta-docs
 - **Archivos clave:**
-  - `docs/investigacion/investigacion-equipo-2026-08-09.md` → MOVE a `docs/Investigaciones/` (basename conservado o `INV-021-`)
-  - `docs/research/COGNEE_EVALUATION.md`, `docs/research/MVCC_SNAPSHOT_ISOLATION.md` → MOVE a `docs/Investigaciones/`
-  - `.opencode/Investigaciones/VantaDB-28-07-2026.md` → DELETE (duplicado byte-casi-exacto de `docs/Investigaciones/VantaDB-28-07-2026.md`, 43 bytes diff, 0 referencias)
+  - `docs/investigacion/investigacion-equipo-2026-08-09.md` → MOVE a `docs/research/` (basename conservado o `INV-021-`)
+  - `docs/research/COGNEE_EVALUATION.md`, `docs/research/MVCC_SNAPSHOT_ISOLATION.md` → MOVE a `docs/research/`
+  - `.opencode/Investigaciones/VantaDB-28-07-2026.md` → DELETE (duplicado byte-casi-exacto de `docs/research/VantaDB-28-07-2026.md`, 43 bytes diff, 0 referencias)
 - **Verificación real:** Duplicado exacto confirmado (misma investigación Perplexity, 822 líneas, 0 refs a la copia `.opencode/`). `docs/research/` queda con 0 archivos → deprecar carpeta (regla ya la prohíbe como destino).
 - **Refs a actualizar (solo vivas):** `docs/Backlog.md:18,51,448`, `docs/architecture/adr/ADR-014-pitr.md:68`, `campaign-executor/tasks/complete/VFY-011.md:44`, `docs/progreso/bitacora.md:386`.
 - **Gate Result:** 🔵 DO
-- **Estado:** ✅ COMPLETED (2026-08-10) — `git mv` de `docs/investigacion/investigacion-equipo-2026-08-09.md` → `docs/Investigaciones/`, `docs/research/{COGNEE_EVALUATION,MVCC_SNAPSHOT_ISOLATION}.md` → `docs/Investigaciones/`; `.opencode/Investigaciones/VantaDB-28-07-2026.md` ELIMINADO en commit `6d686f23`; refs de Backlog/ADR-014/VFY-011/bitacora actualizadas (commit `6b80c6dd`).
+- **Estado:** ✅ COMPLETED (2026-08-10) — `git mv` de `docs/investigacion/investigacion-equipo-2026-08-09.md` → `docs/research/`, `docs/research/{COGNEE_EVALUATION,MVCC_SNAPSHOT_ISOLATION}.md` → `docs/research/`; `.opencode/Investigaciones/VantaDB-28-07-2026.md` ELIMINADO en commit `6d686f23`; refs de Backlog/ADR-014/VFY-011/bitacora actualizadas (commit `6b80c6dd`).
 - **Notas:** Riesgo ALTO en refs de `docs/Backlog.md` (3) — es el doc más activo; actualizar en el mismo commit que el move.
 
 ### Task 4: Corregir drift del workflow research.json
@@ -62,16 +62,16 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 - **Archivos clave:** `.opencode/task-system/workflows/research.json:80` (dice "Guardar output final en docs/research/")
 - **Verificación real:** Regla en `.opencode/AGENTS.md:855` y manual L775 prohíben `docs/research/`; el propio task `DESKTOP-01.md:39` documenta el override manual.
 - **Gate Result:** 🔵 DO
-- **Contrato:** workflows/research.json apunta a `docs/Investigaciones/`; `rg "docs/research"` en `.opencode/task-system/` = 0.
-- **Estado:** ✅ COMPLETED (2026-08-10) — `workflows/research.json:80` → `docs/Investigaciones/` (commit `d4b3fe12`).
+- **Contrato:** workflows/research.json apunta a `docs/research/`; `rg "docs/research"` en `.opencode/task-system/` = 0.
+- **Estado:** ✅ COMPLETED (2026-08-10) — `workflows/research.json:80` → `docs/research/` (commit `d4b3fe12`).
 
 ### Task 5: Restaurar ACID_TRANSACTIONS.md desde git
 - **Esfuerzo:** 🟢 | **Prioridad:** P1 | **Ruta:** vanta-docs
-- **Archivos clave:** `git show 8b1c52cd^:docs/research/ACID_TRANSACTIONS.md` → restaurar a `docs/Investigaciones/ACID_TRANSACTIONS.md`
-- **Verificación real:** Recomendado explícitamente por `docs/Investigaciones/ACID_ROLLBACK_DESIGN.md:57,61,455,495`; el archivo fue borrado en `8b1c52cd`.
+- **Archivos clave:** `git show 8b1c52cd^:docs/research/ACID_TRANSACTIONS.md` → restaurar a `docs/research/ACID_TRANSACTIONS.md`
+- **Verificación real:** Recomendado explícitamente por `docs/research/ACID_ROLLBACK_DESIGN.md:57,61,455,495`; el archivo fue borrado en `8b1c52cd`.
 - **Gate Result:** 🔵 DO
-- **Contrato:** archivo restaurado en `docs/Investigaciones/`; referencias del ACID_ROLLBACK_DESIGN válidas.
-- **Estado:** ✅ COMPLETED (2026-08-10) — restaurado a `docs/Investigaciones/ACID_TRANSACTIONS.md` (453 líneas) vía `git show 8b1c52cd^` (commit `0cb7de6e`).
+- **Contrato:** archivo restaurado en `docs/research/`; referencias del ACID_ROLLBACK_DESIGN válidas.
+- **Estado:** ✅ COMPLETED (2026-08-10) — restaurado a `docs/research/ACID_TRANSACTIONS.md` (453 líneas) vía `git show 8b1c52cd^` (commit `0cb7de6e`).
 
 ### Task 6: Arreglar docs/reports/INDEX.md (4 rutas rotas + 1 estado falso)
 - **Esfuerzo:** 🟡 | **Prioridad:** P0 | **Ruta:** vanta-docs
@@ -159,7 +159,7 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 
 ### Task 14: Items §3.3 sin asignar del REPORTE-FINAL
 - **Esfuerzo:** 🟡 | **Prioridad:** P2 (conduce a future backlog) | **Ruta:** vanta-docs
-- **Archivos clave:** `docs/Investigaciones/2026-08-10-agent-engineering/REPORTE-FINAL.md` §3.3/§3.5/gap-02
+- **Archivos clave:** `docs/research/2026-08-10-agent-engineering/REPORTE-FINAL.md` §3.3/§3.5/gap-02
 - **Items no asignados a plan P:**
   - Observabilidad de decisión (log de "por qué" cambió de estado)
   - Handoff con invariantes + comandos de verificación + deuda

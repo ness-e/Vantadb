@@ -18,7 +18,7 @@ La pregunta de FND-24 es doble:
 
 | Métrica | Valor | Fuente |
 |---|---|---|
-| GitHub stars | ⭐ 2 | `docs/Investigaciones/investigacion-equipo-2026-08-09.md:119` |
+| GitHub stars | ⭐ 2 | `docs/research/investigacion-equipo-2026-08-09.md:119` |
 | GitHub forks | 0 | `investigacion-equipo-2026-08-09.md:119` |
 | crates.io descargas | 32 | `investigacion-equipo-2026-08-09.md:120` |
 | crates.io dependents | **0** | `investigacion-equipo-2026-08-09.md:120` |
@@ -147,7 +147,7 @@ Jobs funcionales, emocionales y sociales. Todos son hipótesis del autor (etique
 | Audiencia objetivo del Show HN = devs de agentes locales | `docs/strategy/SHOW_HN_PREP.md:23-34` | `hipótesis: audiencia asumida, HN no ocurrió` |
 | Early adopter profile seleccionable | `docs/operations/PILOT_PROGRAM.md:34-61` | `hipótesis: criterios del creador, programa sin participantes confirmados` |
 | Perfil de reportador de issues (Python/CLI/server + OS) | `.github/ISSUE_TEMPLATE/bug_report.yml` | `hipótesis: estructura, no datos` |
-| **No hay usuarios reales: 2 stars / 0 forks / 32 descargas / 0 dependents** | `docs/Investigaciones/investigacion-equipo-2026-08-09.md:119-124` | `evidencia: dato verificado del repo (2026-08-09)` |
+| **No hay usuarios reales: 2 stars / 0 forks / 32 descargas / 0 dependents** | `docs/research/investigacion-equipo-2026-08-09.md:119-124` | `evidencia: dato verificado del repo (2026-08-09)` |
 | "NADIE ha encontrado el proyecto orgánicamente" | `VantaDB_Manual_Estrategico_Unificado.md:1043` | `evidencia: diagnóstico externo documentado` |
 | Show HN = primera oportunidad real de exposición | `VantaDB_Manual_Estrategico_Unificado.md:1043` | `evidencia: diagnóstico externo documentado` |
 
@@ -164,7 +164,7 @@ Jobs funcionales, emocionales y sociales. Todos son hipótesis del autor (etique
 | H3 | El ICP real es Agentic Frameworks (LangGraph/CrewAI) y NO edge computing | Pilot program con 3-5 design partners; cada uno genera feedback estructurado (3 puntos: qué funcionó/qué se rompió/qué falta) | `PILOT_PROGRAM.md` §7 (cuestionario), §5 (reclutamiento) | lead |
 | H4 | SQLite+vector es la alternativa real a batir (no cloud VDB) | Preguntar en entrevistas "¿qué usás hoy?"; medir menciones de sqlite-vec/sqlite-vss vs Pinecone/Chroma | Cuestionario pilot §3 (qualitative) | lead |
 | H5 | Early adopters son equipos con problemas de durabilidad/compilación/latencia | Los design partners del pilot que matcheen los criterios de `PILOT_PROGRAM.md:38-43` | `PILOT_PROGRAM.md` KPIs (retention ≥80%, NPS ≥30, 2+ testimonios) | lead |
-| H6 | Onboarding <15 min es decisivo | Analytics de docs: % que completa quickstart, % que activa hybrid search, % que abandona en install | `docs/Investigaciones/VantaDB-28-07-2026.md:474-475` (métricas propuestas) | lead |
+| H6 | Onboarding <15 min es decisivo | Analytics de docs: % que completa quickstart, % que activa hybrid search, % que abandona en install | `docs/research/VantaDB-28-07-2026.md:474-475` (métricas propuestas) | lead |
 
 ### Orden recomendado de ejecución (post-Show HN)
 
@@ -186,7 +186,7 @@ Jobs funcionales, emocionales y sociales. Todos son hipótesis del autor (etique
 ## 8. Referencias
 
 - `docs/Backlog.md:518` — FND-24 (fuente de la tarea)
-- `docs/Investigaciones/investigacion-equipo-2026-08-09.md` — estado de adopción real
+- `docs/research/investigacion-equipo-2026-08-09.md` — estado de adopción real
 - `docs/strategy/SHOW_HN_PREP.md` — draft Show HN + Q&A defensiva
 - `docs/strategy/GO_TO_MARKET.md` — 3 verticales GTM
 - `docs/vision/VISION.md` — ICP/UVP/claims

@@ -151,7 +151,7 @@ como `TSYS-09..18` en `docs/Backlog.md §P17` o nuevo §P18 antes de ejecutar.
 
 ### Task 20: Contrato `RESULTADO` rico del orquestador (agent-03 §12)
 - **Esfuerzo:** 🟡 | **Prioridad:** 🟠 | **Ruta:** vanta-worker
-- **Archivos clave:** `docs/Investigaciones/2026-08-10-agent-engineering/agent-03-orchestration.md:420-471`; `.opencode/task-system/prompts/pipeline-full.md`
+- **Archivos clave:** `docs/research/2026-08-10-agent-engineering/agent-03-orchestration.md:420-471`; `.opencode/task-system/prompts/pipeline-full.md`
 - **Gate Justificación:** el canal de merge solo soporta OK/FAILED genérico; el contrato rico (STATUS OK/PARTIAL/FAILED/RETRY + evidencia por claim + artefactos en filesystem + `pendiente_adicional`) no está mapeado a ninguna tarea.
 - **Gate Result:** ✅ DO → ampliar a TSYS-07 (ver T15)
 - **Contrato:** `pipeline-full.md` adopta la estructura §12; recitation unificado la usa; ejemplos en los prompts.

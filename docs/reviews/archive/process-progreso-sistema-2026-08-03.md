@@ -74,8 +74,8 @@ scope: .opencode/ (commands, skills, prompts, config, mcp) vs docs/Backlog.md + 
 
 | Path verificado | Estado | Dónde se referencia | Severidad | Fix propuesto |
 |-----------------|--------|---------------------|-----------|---------------|
-| `docs/Investigaciones.md` | **MISSING** (no existe) | Sin referencias literales en el repo; el sistema usa el directorio `docs/Investigaciones/` (15 archivos) | 🟢 Baja | No hay fix requerido; el directorio es la forma correcta. Si alguien escribe la forma `.md`, se rompe — considerar agregar nota en Path Resolution |
-| `tasks/INV-010.md` | **MISSING** literal | No referenciado por commands/prompts. La fila de Backlog está tachada y migrada; el research existe en `docs/Investigaciones/ACID_ROLLBACK_DESIGN.md` y `docs/progreso/README.md:1592` | 🟢 Baja | Resolver siempre vía tabla Path Resolution: `tasks/<ID>.md` → `.opencode/skills/campaign-executor/tasks/<ID>.md` (que **existe**) |
+| `docs/research.md` | **MISSING** (no existe) | Sin referencias literales en el repo; el sistema usa el directorio `docs/research/` (15 archivos) | 🟢 Baja | No hay fix requerido; el directorio es la forma correcta. Si alguien escribe la forma `.md`, se rompe — considerar agregar nota en Path Resolution |
+| `tasks/INV-010.md` | **MISSING** literal | No referenciado por commands/prompts. La fila de Backlog está tachada y migrada; el research existe en `docs/research/ACID_ROLLBACK_DESIGN.md` y `docs/progreso/README.md:1592` | 🟢 Baja | Resolver siempre vía tabla Path Resolution: `tasks/<ID>.md` → `.opencode/skills/campaign-executor/tasks/<ID>.md` (que **existe**) |
 | `docs/plans/2026-07-28-recovery-plan.md` | **EXISTS** ✅ | `docs/progreso/README.md:355`, `docs/progreso/2026-07-28-sdk-gap-audit.md:22`, `tasks/complete/REC-007.md:3` | ✅ OK | Sin cambio |
 | `docs/progreso/2026-07-28-sdk-gap-audit.md` | **EXISTS** ✅ (42 líneas) | Referenciado por README/progreso | ✅ OK | Sin cambio |
 | `docs/audit-reports/backlog-validation-2026-07-28.md` | **EXISTS** ✅ | `docs/progreso/BACKLOG_HISTORY.md:67` | ✅ OK | Sin cambio |

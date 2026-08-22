@@ -32,10 +32,10 @@
 
 | Acción | Detalle |
 |--------|---------|
-| **Reclasificación de archivos (fs, sin git)** | `vectara-competitive-research` y `meta-001-root-cause-analysis` → `docs/Investigaciones/` (no son audits: research y RCA de proceso). `backlog-validation`, `progreso-readme-part1/2/3`, `progreso-sistema` → `docs/audit-reports/archive/` (intermedios superados). `audit-reports/` quedó solo con audits legítimos. |
+| **Reclasificación de archivos (fs, sin git)** | `vectara-competitive-research` y `meta-001-root-cause-analysis` → `docs/research/` (no son audits: research y RCA de proceso). `backlog-validation`, `progreso-readme-part1/2/3`, `progreso-sistema` → `docs/audit-reports/archive/` (intermedios superados). `audit-reports/` quedó solo con audits legítimos. |
 | **Hallazgos nuevos verificados en código** | Bloque `## NV` añadido a `docs/Backlog.md` (Phase 13): `NV-01` 🟠 sq8 panic OOB, `NV-02` 🟡 expects cli_server, `NV-03` 🟡 licencia wasm ausente, `NV-04` 🟠 UB alineación grow_zeroed, `NV-05` 🟢 divergencia deny/audit.toml. |
 | **Duplicados cerrados** | `AUDREP-51` tachado (== duplicado de `INV-001`: mismo advisory RUSTSEC-2023-0089). `SEC-01`/`SEC-02` en `backlog-guide.md` tachados como ya resueltos (bincode 2.0, rustls-pemfile v2). |
-| **Enlaces actualizados** | Rutas `vectara`/`meta-001` en `Backlog.md` (`META-001`/`NUEVO-21`/`GH-119`) y `progreso/README.md` → `docs/Investigaciones/`. `docs/reports/INDEX.md` marcó archivados y consolidador. |
+| **Enlaces actualizados** | Rutas `vectara`/`meta-001` en `Backlog.md` (`META-001`/`NUEVO-21`/`GH-119`) y `progreso/README.md` → `docs/research/`. `docs/reports/INDEX.md` marcó archivados y consolidador. |
 | **No duplicados** | `rayon` y `next.config ignoreBuildErrors` verificados en código: ya eran `AUDREP-07`/`AUDREP-19` — correctamente omitidos. |
 
 **Verificación:** Verificación manual en código real de cada candidato nuevo (no solo sub-agentes); 0 links vivos rotos a las rutas movidas (refs en `plans/`, `blog/`, backups y `BACKLOG_HISTORY.md` conservadas como snapshots históricos intencionales). Sin cambios de código — solo documentación.

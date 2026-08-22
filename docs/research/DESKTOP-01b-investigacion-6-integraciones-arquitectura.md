@@ -2,7 +2,7 @@
 
 - **Tipo:** Investigación / Arquitectura (sin código)
 - **Fecha:** 2026-08-04
-- **Fuente:** Extensión de `docs/Investigaciones/DESKTOP-01-tauri-plataforma-desktop.md` + 5 sub-agentes (4 de investigación de módulos + 1 definidor de arquitectura)
+- **Fuente:** Extensión de `docs/research/DESKTOP-01-tauri-plataforma-desktop.md` + 5 sub-agentes (4 de investigación de módulos + 1 definidor de arquitectura)
 - **Decisión que informa:** Cómo construir la app de escritorio Tauri de VantaDB conectable a **cualquiera de las 6 integraciones** (crate nativa, `vantadb-server` HTTP, `vantadb-mcp` stdio, `vantadb-node` napi, `vantadb-python` PyO3, `vantadb-ts`/`vantadb-wasm` webview), individualmente o varias simultáneas.
 - **Estado:** ✅ Investigación + arquitectura definida. Tareas en `docs/Backlog.md` → Phase 12 DESKTOP (DESKTOP-02..27).
 - **Contenido:** este documento preserva íntegros los reportes de los sub-agentes (no solo el resumen del backlog).
@@ -522,7 +522,7 @@ Config del MCP server (`McpConfig`, lib.rs:23-74): valores hardcodeados con defa
 - `vantadb-server` abre `StorageEngine` en su propio proceso — main.rs:33
 - Cada request crea un `VantaEmbedded::from_engine(storage)` sobre ese engine (ej. lib.rs:1020, 1039, 1095, 1224) o un `Executor::new(&storage)` para IQL (lib.rs:531)
 - No hay conexión a ningún servidor externo; no hay red de por medio.
-- Concurrencia interna: semaphore (max 32) + `spawn_blocking` + timeout 60s por request — lib.rs:517-537 (mismo patrón documentado en docs/Investigaciones/INV-003-tokio-blocking-audit.md:37).
+- Concurrencia interna: semaphore (max 32) + `spawn_blocking` + timeout 60s por request — lib.rs:517-537 (mismo patrón documentado en docs/research/INV-003-tokio-blocking-audit.md:37).
 
 **6. Cómo se conectaría una app desktop Tauri**
 
@@ -561,7 +561,7 @@ Crates MCP client en Rust para Tauri (2026):
 | docs/operations/CI_POLICY.md:65 | vantadb-mcp = Experimental |
 | docs/operations/DEPLOYMENT_GUIDE.md:14,56 | Un solo binario, modos embedded/HTTP/MCP |
 | docs/architecture/adr/003_sync_async_decoupling.md:31,48 | MCP sobre tokio, pool bloqueante |
-| docs/Investigaciones/INV-003-tokio-blocking-audit.md:37 | Patrón semaphore+spawn_blocking+timeout |
+| docs/research/INV-003-tokio-blocking-audit.md:37 | Patrón semaphore+spawn_blocking+timeout |
 | docs/backlog-guide.md:68-75 + docs/Backlog.md | MCP-02..05 (estabilizar a GA, tools collection, test suite) |
 | Tests: vantadb-mcp/tests/mcp_tests.rs (suite completa, 1021 líneas), vantadb-server/tests/mcp_integration.rs | Certificación del protocolo |
 
@@ -664,7 +664,7 @@ Isomórficos en el subconjunto cubierto; no es que vantadb-ts use vantadb-node c
 
 - **Opción A (recomendada): crate `vantadb` directa en src-tauri/.**
   - Todo lo que expone index.d.ts es un wrapper delgado de serde_json sobre `VantaEmbedded` (nada de lógica extra en Rust del addon — vantadb-node/src/lib.rs:86-163). Por tanto la API se replica 1:1 en Rust de forma trivial: `VantaEmbedded::open_with_config(VantaConfig)` (src/sdk/builder.rs:91), guardarlo con `tauri::Builder::manage()` y exponer `#[tauri::command]` async. Además el crate da **más** que el addon: graph (BFS/DFS/toposort, src/sdk/graph.rs:50-110), IQL (src/sdk/api.rs:1037), export/import (src/sdk/serialization/impl_export.rs:121-251), count, similar_to_key, delete_by_filter (src/sdk/api.rs:1125,1193,1237) — que el addon NO expone.
-  - Esta es exactamente la conclusión del informe existente: docs/Investigaciones/DESKTOP-01-tauri-plataforma-desktop.md:104-140 y su recomendación final :178-184 ("SÍ — Tauri v2 … vantadb como dependency directa en src-tauri/, VantaEmbedded en managed state, commands async delgados. Sin bridge WASM ni OPFS"). Esfuerzo MVP estimado: ~8-13 días (:157-172).
+  - Esta es exactamente la conclusión del informe existente: docs/research/DESKTOP-01-tauri-plataforma-desktop.md:104-140 y su recomendación final :178-184 ("SÍ — Tauri v2 … vantadb como dependency directa en src-tauri/, VantaEmbedded en managed state, commands async delgados. Sin bridge WASM ni OPFS"). Esfuerzo MVP estimado: ~8-13 días (:157-172).
 - **Opción B: spawn de proceso Node sidecar.**
   - Empaquetar un binario Node + vantadb-node como sidecar (plugin shell de Tauri) y comunicarse por stdio/IPC. Útil solo si se quiere la paridad exacta con el SDK TS sin reescribir commands — pero añade un runtime Node al bundle (contra el espíritu de Tauri) y es estrictamente inferior a A porque A es el mismo código Rust sin capa FFI.
 - **Opción C: WASM en el webview (vantadb-ts).**
@@ -686,7 +686,7 @@ Isomórficos en el subconjunto cubierto; no es que vantadb-ts use vantadb-node c
 **7. Docs existentes**
 
 - docs/architecture/adr/COMP-029-napi-rs-node-bindings.md — ADR de los bindings nativos (decisión, consecuencias, verificación 3/3 tests).
-- docs/Investigaciones/DESKTOP-01-tauri-plataforma-desktop.md — investigación Tauri (recomienda Opción A).
+- docs/research/DESKTOP-01-tauri-plataforma-desktop.md — investigación Tauri (recomienda Opción A).
 - docs/Backlog.md — entradas COMP-029 (l.281) y DESKTOP-01 (l.166).
 - docs/progreso/README.md:309-319 — bitácora 2026-08-02 de COMP-029.
 - docs/api/TS_SDK.md + docs/master-index.md:62 — docs del SDK TS.
@@ -761,12 +761,12 @@ Tipos: u64/u128 se serializan como **String** para evitar pérdida de precisión
 *1.4 Evaluación para una app desktop Tauri*
 
 **Cuándo NO tiene sentido:** para la mayoría de casos Tauri, usar vantadb-wasm en el webview es lo peor de ambos mundos:
-- El backend Rust de Tauri ya tiene acceso al filesystem real (via `app_handle.path().app_data_dir()`) — pasar por OPFS/IDB es usar un sandbox emulado dentro de un sandbox real, con datos difíciles de ubicar, respaldar o compartir con otros procesos (docs\Investigaciones\DESKTOP-01-tauri-plataforma-desktop.md:134-136).
+- El backend Rust de Tauri ya tiene acceso al filesystem real (via `app_handle.path().app_data_dir()`) — pasar por OPFS/IDB es usar un sandbox emulado dentro de un sandbox real, con datos difíciles de ubicar, respaldar o compartir con otros procesos (docs\research\DESKTOP-01-tauri-plataforma-desktop.md:134-136).
 - Persistencia por snapshot JSON O(DB): inviable con DB grandes; en Rust nativo la persistencia es WAL incremental + fjall.
 - Costo de serialización WASM↔JS en el hot path de búsqueda, vectores pasando por serde_wasm_bindgen (hay un comentario ponytail documentando el overhead de ~2-5µs por vector, lib.rs:1070-1073).
 - El webview de Tauri (WebView2 en Windows, WKWebView en macOS, WebKitGTK en Linux) no garantiza OPFS ni Workers en todas las plataformas.
 
-**Cuándo SÍ tiene sentido:** solo si el objetivo fuera reusar la misma UI web (mismo frontend) para targets web y desktop, o si se quisiera un modo "demo" incrustado en el webview. El propio repo ya documenta esta conclusión: la investigación docs\Investigaciones\DESKTOP-01-tauri-plataforma-desktop.md:180-182 recomienda explícitamente la vía nativa Rust sin bridge WASM ni OPFS (y vantadb-ts\src\native.ts:61-64 confirma que el backend WASM no puede dar persistencia real — por eso existe vantadb-node).
+**Cuándo SÍ tiene sentido:** solo si el objetivo fuera reusar la misma UI web (mismo frontend) para targets web y desktop, o si se quisiera un modo "demo" incrustado en el webview. El propio repo ya documenta esta conclusión: la investigación docs\research\DESKTOP-01-tauri-plataforma-desktop.md:180-182 recomienda explícitamente la vía nativa Rust sin bridge WASM ni OPFS (y vantadb-ts\src\native.ts:61-64 confirma que el backend WASM no puede dar persistencia real — por eso existe vantadb-node).
 
 **MÓDULO 2: vantadb-python/**
 
@@ -778,7 +778,7 @@ Crate `vantadb_py` que expone el motor embebido a Python in-process vía PyO3 (s
 - Build (vantadb-python\pyproject.toml:1-3,37-42): maturin, `module-name = "vantadb_py"`. Wheels precompilados presentes: `dist\vantadb_py-0.4.0-cp311-abi3-win_amd64.whl` (y 0.1.5). El .pyd compilado está en `vantadb_py\vantadb_py.pyd`.
 - ⚠️ **Aclaración sobre "feature python_sdk": hay DOS capas PyO3 en el repo.**
   1. `vantadb-python/` (moderna, la que usas): crate separado que **NO usa la feature python_sdk** — usa `["fjall", "memmap2", "rayon"]` (Cargo.toml:21).
-  2. `src/python.rs` (legacy): bindings antiguos en el core gated por `#![cfg(feature = "python_sdk")]` (src\python.rs:1), feature definida en Cargo.toml:104 (`python_sdk = ["pyo3"]`). Expone una clase `ClientEngine` mínima (new(), execute(query), insert_node(id, vec), src\python.rs:13-66) — obsoleta y distinta. El doc docs\Investigaciones\DESKTOP-01-tauri-plataforma-desktop.md:15 afirma que vantadb-python usa la feature python_sdk; **eso es inexacto** — la integración real es el crate `vantadb_py` contra el SDK público VantaEmbedded.
+  2. `src/python.rs` (legacy): bindings antiguos en el core gated por `#![cfg(feature = "python_sdk")]` (src\python.rs:1), feature definida en Cargo.toml:104 (`python_sdk = ["pyo3"]`). Expone una clase `ClientEngine` mínima (new(), execute(query), insert_node(id, vec), src\python.rs:13-66) — obsoleta y distinta. El doc docs\research\DESKTOP-01-tauri-plataforma-desktop.md:15 afirma que vantadb-python usa la feature python_sdk; **eso es inexacto** — la integración real es el crate `vantadb_py` contra el SDK público VantaEmbedded.
 - Test de frontera: tests\api\python.rs (declarado en Cargo.toml:397-399 como `python_sdk_boundary`) valida la capa legacy ClientEngine, no la nueva.
 
 *2.2 API pública (clase VantaDB)*
@@ -840,7 +840,7 @@ WASM vs Python: WASM añade `import_records`, `insert_node`/`get_node`/`delete_n
   - Distribución: requiere empaquetar un runtime Python (~40-100MB+ con numpy) + el .pyd correcto por plataforma (solo hay wheel cp311-abi3-win_amd64 local; PYTHON_SDK.md:18 menciona wheels linux/macOS pero no windows-arm). Frágil para instaladores desktop.
   - Latencia y complejidad de IPC innecesarias: el mismo VantaEmbedded que usa el SDK Python es una crate Rust que Tauri ya puede linkear directamente.
 - **Opción B — Crate vantadb directa desde Rust (la recomendada, ya documentada en el repo):**
-  - docs\Investigaciones\DESKTOP-01-tauri-plataforma-desktop.md:104-141 (arquitectura) y :180-182 (recomendación final): vantadb como dependency en src-tauri/Cargo.toml con features ["fjall", "memmap2"] (o rocksdb), `VantaEmbedded::open_with_config(VantaConfig)` en `tauri::Builder::manage()`, y `#[tauri::command]` async delgados (vanta_ingest/vanta_search) que delegan en el managed state.
+  - docs\research\DESKTOP-01-tauri-plataforma-desktop.md:104-141 (arquitectura) y :180-182 (recomendación final): vantadb como dependency en src-tauri/Cargo.toml con features ["fjall", "memmap2"] (o rocksdb), `VantaEmbedded::open_with_config(VantaConfig)` en `tauri::Builder::manage()`, y `#[tauri::command]` async delgados (vanta_ingest/vanta_search) que delegan en el managed state.
   - Como la API Python es subconjunto de la API Rust (sección 2.4), nada de lo que el SDK Python puede hacer se pierde: es la misma VantaEmbedded, sin la capa PyO3.
   - Beneficios concretos: persistencia real fjall/WAL/fsync en el filesystem del usuario (no snapshot, no sandbox), cero overhead de serialización FFI, y acceso a la superficie Rust completa (snapshots, threads, delete_by_filter, count, etc.) que Python no expone.
   - La crate root ya se usa como lib desde vantadb-server, vantadb-mcp, vantadb-wasm y vantadb-python — es el patrón establecido del workspace (Cargo.toml:582-599).
@@ -855,7 +855,7 @@ WASM vs Python: WASM añade `import_records`, `insert_node`/`get_node`/`delete_n
 | Costo de integración en Tauri | Alto (webview sandbox, snapshots O(DB), OPFS inconsistente en WebKit) | Alto (runtime Python + driver IPC inexistente) | Bajo (managed state + commands) |
 | Recomendación | ❌ Solo si se reutiliza la misma UI para web | ❌ Solo si hay requisito de scripting Python | ✅ Vía recomendada (DESKTOP-01:180) |
 
-**Hallazgo adicional importante:** docs\Investigaciones\DESKTOP-01-tauri-plataforma-desktop.md ya existe en el repo y llega exactamente a la misma conclusión que este análisis — integración nativa Rust, sin WASM/OPFS ni Python intermedio.
+**Hallazgo adicional importante:** docs\research\DESKTOP-01-tauri-plataforma-desktop.md ya existe en el repo y llega exactamente a la misma conclusión que este análisis — integración nativa Rust, sin WASM/OPFS ni Python intermedio.
 
 ### A.4 VantaDB Server — Investigación profunda (solo lectura)
 
@@ -1035,7 +1035,7 @@ Validación rápida completada (workspace del repo, binarios, rmcp, estructura).
 
 ### A.6 VantaDB Desktop — Arquitectura Tauri v2 Multi-Connection (reporte íntegro vanta-arch)
 
-**Autor:** vanta-arch · **Estado:** Propuesto · **Relacionado:** docs/Investigaciones/DESKTOP-01-tauri-plataforma-desktop.md · **Gama de tareas:** DESKTOP-02..DESKTOP-27
+**Autor:** vanta-arch · **Estado:** Propuesto · **Relacionado:** docs/research/DESKTOP-01-tauri-plataforma-desktop.md · **Gama de tareas:** DESKTOP-02..DESKTOP-27
 
 **Architecture Decision**
 
@@ -1190,7 +1190,7 @@ Regla de oro: 1 tarea = 1 concepto; ninguna mezcla dos integraciones. Las fases 
 
 ## Referencias
 
-- `docs/Investigaciones/DESKTOP-01-tauri-plataforma-desktop.md` — investigación Tauri base (recomienda vía nativa)
+- `docs/research/DESKTOP-01-tauri-plataforma-desktop.md` — investigación Tauri base (recomienda vía nativa)
 - `docs/Backlog.md` Phase 12 — tareas DESKTOP-02..27
 - `docs/api/HTTP_API.md`, `docs/api/MCP.md`, `docs/api/IQL.md`, `docs/api/EMBEDDED_SDK.md`, `docs/api/PYTHON_SDK.md`, `docs/api/TS_SDK.md`, `docs/api/openapi.yaml`
 - `docs/architecture/adr/COMP-029-napi-rs-node-bindings.md`, `docs/architecture/adr/003_sync_async_decoupling.md`

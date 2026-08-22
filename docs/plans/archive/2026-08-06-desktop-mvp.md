@@ -5,7 +5,7 @@
 > **Inicio:** 2026-08-06
 > **Estado: completed
 > **Fuente:** `docs/Backlog.md` → Phase 12 DESKTOP (`DESKTOP-02..27`), scoping Task 54 (2026-08-05)
-> **Arquitectura base:** `docs/Investigaciones/DESKTOP-01-tauri-plataforma-desktop.md` + `DESKTOP-01b-investigacion-6-integraciones-arquitectura.md`
+> **Arquitectura base:** `docs/research/DESKTOP-01-tauri-plataforma-desktop.md` + `DESKTOP-01b-investigacion-6-integraciones-arquitectura.md`
 > **Scoping previo:** Task 54 — incluir en MVP los 13 (02/03/04/05/08-10/11-14/19/20/24/26); defiere Node/Python (15-18). Este plan cubre el arranque Fase 0→3 (DESKTOP-02..11).
 
 ## Resumen
@@ -316,8 +316,8 @@
 
 ## Fuente
 - `docs/Backlog.md` → Phase 12 DESKTOP (`DESKTOP-02..27`)
-- `docs/Investigaciones/DESKTOP-01-tauri-plataforma-desktop.md`
-- `docs/Investigaciones/DESKTOP-01b-investigacion-6-integraciones-arquitectura.md`
+- `docs/research/DESKTOP-01-tauri-plataforma-desktop.md`
+- `docs/research/DESKTOP-01b-investigacion-6-integraciones-arquitectura.md`
 - Scoping previo: `docs/plans/2026-08-05-backlog-validation-actions.md` (Task 54)
 
 === RECITATION ===

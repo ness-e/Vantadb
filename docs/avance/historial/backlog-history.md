@@ -131,7 +131,7 @@ IDs eliminados por area:
 - **AUDREP (P13):** AUDREP-01..62 (todos resueltos 2026-08-05..07, commits en las filas; incl. AUDREP-04), DEPS-01, NV-01, NV-04.
 - **P10 (Competitive catalog):** COMP-006/008/009/010/012..019/021..029 — catalogado, decisiones registradas.
 - **P9/P11 (Docs/GitHub):** OLD-02/03/08..12/14/16/19..21, GH-119/122/123/124/128/129/131/132/139..144.
-- **Investigaciones:** INV-001..025 (reportes en docs/Investigaciones/), REC-*.
+- **Investigaciones:** INV-001..025 (reportes en docs/research/), REC-*.
 - **MKT/DISC/NUEVO/WEB/TSK:** campanas ya cerradas (MKT-03/04/05/10/14..17, NUEVO-*, TSK-103/104/106/107, WEB-001/18).
 - **P12 DESKTOP base:** DESKTOP-02..11 (scaffold Tauri, conexiones, commands, frontend MVP, IQL, server wire, MCP spawn — ✅ 2026-08-06).
 - **P14 REVIEW:** REVIEW-01/02/03/05 (cerrados).

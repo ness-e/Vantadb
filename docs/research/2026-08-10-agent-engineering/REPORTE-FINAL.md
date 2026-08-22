@@ -1,7 +1,7 @@
 # REPORTE FINAL — Cómo debe trabajar un agente/sub-agente y un ingeniero, y qué le falta al sistema de tareas de VantaDB
 
 - **Fecha:** 2026-08-10
-- **Lote de investigación:** `docs/Investigaciones/2026-08-10-agent-engineering/`
+- **Lote de investigación:** `docs/research/2026-08-10-agent-engineering/`
 - **Archivos fuente (8):** `agent-01-fundaments.md` (337 L), `agent-02-task-execution.md` (530 L), `agent-03-orchestration.md` (520 L), `eng-01-software.md` (450 L), `eng-02-systems.md` (510 L), `eng-03-project.md` (404 L), `gap-01-agents.md` (265 L), `gap-02-engineering.md` (259 L).
 - **Idioma:** español; términos técnicos en inglés.
 
