@@ -52,6 +52,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | **P25** 🔌 Exposición MCP/HTTP | 11 (MCP-16..26) | ~2-3 semanas | 🟡 Media |
 | **P26** 🖥️ Vanta Studio (consola human-facing desktop) | Fase 0 ✅ (14/19) + Fase 1 ✅ (9/9) + Fase 2 ✅ (10/10: VS-CORE-04/05/06 + GRAFO-01..03 + ESPACIO-01..02 + OP-01..02) + Fase 3 ✅ (7/7: WEB-00..06) + **Fase 4 ✅ (18/18: DOC-01..04 + REST-01..06 + WASM-01..04 + FEAT-01..03 + VER-01)** | Planes archivados `docs/plans/archive/2026-08-18-vanta-studio-fase{1,2,3}.md` + `docs/plans/archive/2026-08-19-vanta-studio-fase4.md` | 🟢 Completada 2026-08-20 (ADR-027; E2E server + standalone WASM/OPFS PASS) |
 | **P27** 🧠 Vanta Memory Engine (TDAM, orden F1–F7) | 38 (MEM-01..38) | ~8-12 semanas | 🔴 Alta (decisión de producto) |
+| **GOV** 📋 Gobernanza Documental (post-auditoría 2026-08-21, plan `docs/plans/2026-08-22-doc-governance-plan.md`) | 30 tareas (T0: TIR ×3 · A: medición ×5 · B: Show-HN ×6 · C: maestros ×7 · D: taxonomía ×6 · E: limpieza ×1 · F: auditoría intocadas ×2) | ~6 días | 🔴 Alta (Wave B bloqueante Show HN; decisiones D1-D14 del owner en `docs/reviews/auditoria-documentacion-2026-08-21.md`) |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
 > **Nuevo 2026-08-04:** Fase 12 DESKTOP (26 tareas, app Tauri multi-connection sobre las 6 integraciones) + `DEBT-01` (gate docs-coverage roto, Fase 4) + `TECH-01..08` (hallazgos de investigación DESKTOP-01b: 2 bugs reales, 1 batch stale-docs, 1 ADR env-naming, 4 features/decisiones, todos en Phase 4).
@@ -703,3 +704,44 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | `MEM-43` | **Auditoría cierre TDAM: wiring context engine → pipeline worker** — el context engine (MEM-22/24/37) es library-API consumida solo por tests; sin caller productivo en services/pipeline_worker. Decidir: (a) wire productivo al worker, o (b) declarar API-only explícito con ADR. Detectado en auditoría final post-P30 2026-08-21 (vanta-research ses_fd8c2c26). | `vanta-memory/src/services/pipeline_worker.rs`, `context_engine/engine.rs`, `docs/architecture/adr/` | 🟡 | 🟠 | ❌ Pendiente |
 | `MEM-44` | **Auditoría cierre TDAM: e2e ingest→tools wiki_* roundtrip** — ingest escribe y las tools MCP wiki_* leen el MISMO WikiStore (verificado por separado), pero no existe UN test que encadene ingest real sobre .md temporales → wiki_search/wiki_read vía MCP. Completar la prueba de integración cruzada. Detectado en auditoría final post-P30 2026-08-21. | `vanta-memory/tests/ingest.rs`, `vantadb-mcp/tests/wiki_tests.rs` | 🟢 | 🟡 | ❌ Pendiente |
 | `MEM-45` | **Auditoría cierre TDAM: triaje auto-sync scheduler** — MemoryKnowledge `store/auto-sync-scheduler.ts` (re-ingest automático programado) no figura ni portado ni descartado en P30 (research 08:37); MEM-31 cubre progreso pero no re-ingest automático. Triajear: portar como tarea, deferir con decisión documentada, o descartar (local-first puede preferir manual/CLI). Confianza media — verificar contra fuente antes. Detectado en auditoría final post-P30 2026-08-21. | `vanta-memory/src/ingest/`, `docs/architecture/adr/` | 🟢 | 🟢 | ❌ Pendiente |
+
+---
+
+## GOV - Gobernanza Documental — corrección integral post-auditoría (2026-08-22)
+
+> **Origen:** auditoría documental completa docs/reviews/auditoria-documentacion-2026-08-21.md (Volumen I+II+Addendum, salud 6.5/10) + **decisiones del owner D1-D14** registradas en su sección final. **Plan de ejecución:** docs/plans/2026-08-22-doc-governance-plan.md (formato campaign, triage 30 DO / 2 DEFER). Task files se crean bajo demanda vía /pipeline task GOV-XX. Wave B es bloqueante del Show HN.
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+| GOV-T01 | TIR-02a: recovery time en evals/dora.mjs (~30 líneas) | evals/dora.mjs | 🟢 | 🟠 | ❌ Pendiente |
+| GOV-T02 | TIR-04b: formalizar tasks/closed/ en RULES.md | .opencode/task-system/RULES.md | 🟢 | 🟠 | ❌ Pendiente |
+| GOV-T03 | TIR-08c: criterios research en research-agent.md (~6 líneas) | .opencode/task-system/prompts/research-agent.md | 🟢 | 🟢 | ❌ Pendiente |
+| GOV-A1 | Coverage canónico: llvm-cov y fijar cifra única (ADR-018/TEST_MAP/CI_POLICY/COBERTURA) | docs/TEST_MAP.md, docs/operations/CI_POLICY.md | 🟡 | 🟠 | ❌ Pendiente |
+| GOV-A2 | Reconciliar cifras de tests con run real fechado | docs/TEST_MAP.md | 🟢 | 🟡 | ❌ Pendiente |
+| GOV-A3 | Probes CLI reales: backup/manifest/restore-tmp/doctor | vanta-cli (DB temporal) | 🟢 | 🟠 | ❌ Pendiente |
+| GOV-A4 | Harness snippets: dev-tools/validate_doc_snippets.py (detecta roturas conocidas) | dev-tools/, docs/tutorials/ | 🟡 | 🔴 | ❌ Pendiente |
+| GOV-A5 | Registros live crates.io/npm/PyPI → anotar filas MKT/RELEASE | docs/Backlog.md | 🟢 | 🟡 | ❌ Pendiente |
+| GOV-B1 | case_studies ficticios → archive interno + 0 refs vivas | docs/case_studies/, docs/archive/ | 🟢 | 🔴 | ❌ Pendiente |
+| GOV-B2 | Runbook DR sin comandos fantasma (restore-tmp+doctor validado GOV-A3) | docs/operations/DISASTER_RECOVERY_RUNBOOK.md | 🟢 | 🔴 | ❌ Pendiente |
+| GOV-B3 | Fix snippets rotos + guard anti-regresión integrado a gate-docs | docs/tutorials/, docs/glosario/, docs/FAQ.md | 🟡 | 🔴 | ❌ Pendiente |
+| GOV-B4 | openapi.yaml completo (~29 paths desde cli_server.rs) + gate paridad | docs/api/openapi.yaml, src/cli_server.rs | 🟡 | 🔴 | ❌ Pendiente |
+| GOV-B5 | HTTP_API.md completo (29 endpoints, matar ejemplo LISP :108) | docs/api/HTTP_API.md | 🟡 | 🔴 | ❌ Pendiente |
+| GOV-B6 | Skill MCP fuente única 33 tools + MCP.md stub (hash-SAME) | skills/vantadb-mcp/, docs/api/MCP.md | 🟡 | 🟠 | ❌ Pendiente |
+| GOV-C1 | Filtro nextest python_sdk_boundary→python + TEST_MAP binarios (.config/nextest.toml:27) | .config/nextest.toml, docs/TEST_MAP.md | 🟢 | 🔴 | ❌ Pendiente |
+| GOV-C2 | Backlog↔campañas: MEM-43 ✅ a0bcb112 + secciones P29/P30/P31 | docs/Backlog.md | 🟢 | 🟠 | ❌ Pendiente |
+| GOV-C3 | Backlog: purga referencias muertas (audit-reports ×10, etc.) | docs/Backlog.md | 🟢 | 🟠 | ❌ Pendiente |
+| GOV-C4 | master-index.md regeneración completa (0 links rotos AUD-007) | docs/master-index.md | 🟡 | 🟠 | ❌ Pendiente |
+| GOV-C5 | operations/master-index.md +7 archivos faltantes | docs/operations/master-index.md | 🟢 | 🟡 | ❌ Pendiente |
+| GOV-C6 | CONFIGURATION.md sync (rate_limit 600, env vars, quitar fantasmas) | docs/operations/CONFIGURATION.md | 🟡 | 🟠 | ❌ Pendiente |
+| GOV-C7 | Contador Backlog manual correcto (~45) + regla de sync escrita | docs/Backlog.md header | 🟢 | 🟡 | ❌ Pendiente |
+| GOV-D1 | avance catch-up: dominios vanta-memory/vanta-proxy/context-engine + MEM-43/44 | docs/avance/activo/ | 🟡 | 🟠 | ❌ Pendiente |
+| GOV-D2 | Split progreso README (372KB) por campaña → campanas/*.md + índice ≤50KB | docs/progreso/ | 🔴 | 🟡 | ❌ Pendiente |
+| GOV-D3 | Revivir bitácora (draft lead + articulación owner, Regla 5) | docs/progreso/bitacora.md | 🟢 | 🟢 | ❌ Pendiente |
+| GOV-D4 | Migración física Investigaciones/→research/ + citas + INV-019 colisión | docs/research/, docs/Investigaciones/ | 🟡 | 🟡 | ❌ Pendiente |
+| GOV-D5 | ADR-026 → adr/ (única desviación de ubicación) | docs/architecture/adr/ | 🟢 | 🟡 | ❌ Pendiente |
+| GOV-D6 | wasm/CRASH_MODEL.md actualizar vs persistencia diferencial PERF-08 | docs/wasm/CRASH_MODEL.md | 🟢 | 🟡 | ❌ Pendiente |
+| GOV-E1 | Propuesta de borrado artefactos (7 ítems, Regla 0; NO ejecuta borrados) | docs/reviews/propuesta-limpieza-*.md | 🟢 | 🟢 | ❌ Pendiente |
+| GOV-F1 | Auditoría raíz pública: README×2, CONTRIBUTING, SECURITY/SUPPORT/CLA | raíz repo | 🟡 | 🟠 | ❌ Pendiente |
+| GOV-F2 | Auditoría zonas internas: Manual Estratégico 164KB, SKILLS-MANIFEST, .opencode/, integrations/, workflows profundos | varias | 🟡 | 🟡 | ❌ Pendiente |
+
+> **Tickets derivados (fuera de esta campaña):** ACID 4a-4d post-launch (D14) · CLI flags restore --dry-run/doctor --fix/verify backups (D4b) · release triage semver 0.6.0 (D5, diferido).
