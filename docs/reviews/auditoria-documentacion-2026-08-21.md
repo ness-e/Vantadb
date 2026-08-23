@@ -461,3 +461,5 @@ Dos ítems pendientes de §V2 fueron resueltos contra el código:
 | D14 | ACID post-launch | Ticket en backlog, no ejecución |
 
 > **Siguiente paso acordado:** redactar el plan de ejecución detallado (tareas atómicas, waves, estimaciones, agentes asignados) a partir de estas decisiones.
+
+> **ADDENDUM POST-EJECUCIÓN (2026-08-22):** este informe es snapshot del 21/08. Tras ejecutar la campaña GOV (29/30 ✅, ver last-audit-state.json + docs/plans/2026-08-22-doc-governance-plan.md §Estado de ejecución), varios claims quedaron superados: Backlog colapsado a registro, progreso/README dividido en campanas/, master-index regenerado, openapi/skill sincronizados. Para estado vivo consultar esas fuentes.

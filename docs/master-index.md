@@ -252,7 +252,7 @@ Spanish-language planning material (allowed exception to the English docs rule).
 
 | Document | Description |
 |----------|-------------|
-| [Investigaciones/](Investigaciones/) | Spanish-language research notes: FND-*, INV-*, TIR-*, competitive analyses (see folder README per series) |
+| [Investigaciones → research/](research/) | Spanish-language research notes: FND-*, INV-*, TIR-*, competitive analyses (see folder README per series) |
 | [research/human-facing-db-ui/](research/human-facing-db-ui/) | Research on human-facing DB UI concepts |
 | [research/tdam/](research/tdam/) | TDAM (Tiered Document Attention Model) research |
 | [wasm/CRASH_MODEL.md](wasm/CRASH_MODEL.md) | WASM crash model research |
