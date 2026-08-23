@@ -26,3 +26,13 @@
 
 - **Plan archivado:** `docs/plans/archive/2026-08-18-vanta-studio-fase1.md` — 9/9 completadas (P26 Studio Fase 1: explicabilidad y tiempo)
 - **Retrospectiva:** Start: checkpoint humano D2 antes de implementar (3 decisiones aprobadas: cap 32, snapshot nuevo, import sin snapshots) + waves paralelas con slices aditivos + verify mecánico del lead antes de cada commit | Stop: sub-agentes corrompieron el plan file 3 veces (recitation en Contrato + header "completed") → revertido por el lead cada vez; cargo fmt de sub-agentes reformateó archivos que no tocaban (ruido revertido) | Continue: lead es el único que toca plan/Backlog + merge de slices compartidos + pre-commit hook que atrapó fmt faltante en version_history.rs | Acción medida: corrupciones de plan file por sub-agente = 3/9 tareas; baseline: 0 (regla "no tocar plan file" ya era explícita)
+
+---
+
+## Planes archivados — task-system hardening (2026-08-23)
+
+- **Plan archivado:** `docs/plans/archive/2026-08-23-task-system-hardening.md` — ✅ COMPLETED (hardening I: H1-H9 campaign server + question gates HITL; contrato `node --test .opencode/task-system/mcp/` 38/38; commits `fcd7b243` + `26f68ff7`)
+- **Retrospectiva:** ver header del plan (recitation final + retrospectiva en el propio archivo, commit `784e3c68`)
+
+- **Plan archivado:** `docs/plans/archive/2026-08-23-task-system-hardening-2.md` — 12/12 completadas (hardening II: R1-R7 paralelismo real multi-instancia + S1 spec-first + D1-D4 limpieza decidida; 42/42 tests; commits `1a86bd2a`, `ed6c6ae7`, `b8a23939`, `3cc0aa50`)
+- **Retrospectiva:** Start: ejecución por fases con gate mecánico entre fases (detectó al instante desbalance de paréntesis y regresión del mensaje de lock) + dogfooding del MCP durante la ejecución (reveló que updateTaskStateCore descartaba el Campaign ID — fix incluido) | Stop: editar archivos línea-a-línea con pipelines PS frágiles (`-NoNewline` corrompió .gitignore) — usar reemplazo regex explícito sobre raw | asumir que el server en memoria refleja el código en disco (los fixes R1 no estaban vivos durante la campaña; verificar versión con uptime/commit al arrancar y reiniciar OpenCode tras fixes del server) | Continue: question gates previos a decisiones estructurales (las 4 respuestas Gate P definieron todo el alcance) + fuente única canónica con punteros (subagent-recovery, spec-template, state-tools.mjs) | Acción medida: adoptar claim:true en todos los flujos /pipeline run para eliminar doble-Discovery — métrica: tareas con 2+ task.started events en traces; objetivo 0 (commit `3cc0aa50`)

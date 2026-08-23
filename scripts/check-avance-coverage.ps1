@@ -1,4 +1,4 @@
-# check-avance-coverage.ps1 — Mapa de cobertura fuente→destino (migración docs/progreso → docs/avance)
+# check-avance-coverage.ps1 — Mapa de cobertura fuente→destino (post-migración: fuentes congeladas en docs/avance/historial)
 # Verifica: (1) cada fuente tiene destino; (2) cada ID de tarea de las fuentes está
 # procesado en un archivo de dominio de docs/avance (excluye snapshots, que son espejo literal).
 # Uso: pwsh scripts/check-avance-coverage.ps1 [-Detail]
@@ -6,7 +6,7 @@
 param([switch]$Detail)
 
 $root   = Split-Path $PSScriptRoot -Parent
-$srcDir = Join-Path $root "docs/progreso"
+$srcDir = Join-Path $root "docs/avance/historial/fuentes"
 $dstDir = Join-Path $root "docs/avance"
 
 # --- 0. Fuentes vivas externas (no se mueven; se catalogan por referencia) ---
@@ -23,7 +23,7 @@ $map = @{
     "BACKLOG_HISTORY.md"        = "historial/backlog-history.md (copia directa)"
     "ARCHIVO_HISTORICO.md"      = "historial/archivo-historico.md (copia directa) + refs en activo/*, auditoria/*, decisiones/*, meta.md"
     "bitacora.md"               = "historial/sesiones/2026-07.md + historial/sesiones/2026-07-consolidacion.md (sección pendientes, copia) + activo/*"
-    "2026-07-28-sdk-gap-audit.md" = "historial/sdk-gap-audit-2026-07-28.md (link → canónico docs/progreso/2026-07-28-sdk-gap-audit.md)"
+    "2026-07-28-sdk-gap-audit.md" = "historial/fuentes/2026-07-28-sdk-gap-audit.md (movido 2026-08-23)"
 }
 
 Write-Output "=== MAPA FUENTE -> DESTINO ==="
@@ -44,7 +44,7 @@ $idAll = New-Object System.Collections.Generic.HashSet[string]
 $idProcessed = New-Object System.Collections.Generic.HashSet[string]
 $idSnapshotOnly = New-Object System.Collections.Generic.HashSet[string]
 
-foreach ($f in Get-ChildItem $srcDir -File) {
+foreach ($f in @(Get-ChildItem $srcDir -File) + (Get-ChildItem (Join-Path $dstDir "historial/campanas") -File)) {
     $text = Get-Content $f.FullName -Raw
     foreach ($m in [regex]::Matches($text, '\b(?<![A-Za-z0-9])[A-Z]{2,6}-(?:[0-9]{2,4}|[0-9]{1,4}[A-Z]?)\b')) {
         $id = $m.Value
