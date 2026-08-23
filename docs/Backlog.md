@@ -742,8 +742,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | ID | Descripción (→ Resultado) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
 | `CORE-01` | **Persistencia on-disk de vectores Binary (y no-F32) en vstore** — `write_node_to_vstore` (`ops.rs:59`) escribe `vector_len=0` y NO persiste datos para `Binary`/`Turbo`; `get()` rescata el vector desde el HNSW (fix `8c8eef23`), pero tras reopen + `rebuild_hnsw_from_vstore` el Binary original se pierde (header `vector_len=0` → rebuild lo lee como sin vector). Definir codificación on-disk (flag de formato en `DiskNodeHeader` o convención sobre `vector_len`) + escritura/lectura en `write_node_to_vstore`/`get()`/`get_with_snapshot`/rebuild + migración/versionado. Gate: ADR de formato antes de implementar. | `src/storage/ops.rs:59`, `src/node/disk.rs`, `src/storage/archive.rs:359`, `src/storage/engine/get.rs`, `src/storage/engine/txn.rs` | 🟡 | 🟡 | ❌ Pendiente |
-| `CORE-02` | **Bug IQL en transporte WASM: query lee graph-store vacío** — hallazgo del análisis desktop 2026-08-22 (`vanta-wasm-map.ts`): la consola IQL del Studio en modo standalone (WASM/OPFS) no devuelve resultados de grafo — el engine WASM lee un graph-store vacío aunque haya edges insertados. Nativo y HTTP funcionan; solo WASM roto. Verificar root cause (¿graph-store no persistido a OPFS? ¿init distinto en wasm bindgen?), fix core-side + test wasm de roundtrip edge-insert→IQL-query. Bloquea confiabilidad del modo standalone (F4 Studio). | `vantadb-wasm/src/lib.rs`, `desktop/src/vanta-wasm-map.ts`, `src/graph.rs` o graph-store init | 🟡 | 🟠 | ❌ Pendiente |
-
 
 
 

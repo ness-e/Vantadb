@@ -196,6 +196,8 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 | `delete_node(id, reason)` | Delete a node with auditable reason (tombstone) |
 | `add_edge(source_id, target_id, label, weight)` | Add a directed edge between two nodes |
 | `remove_edge(source_id, target_id, label)` | Remove all edges between two nodes with the given label (both directions) |
+| `collect_graph_nodes()` | Collect every live non-memory-record node as `Vec<VantaNodeRecord>` (edges with labels resolved). Excludes nodes carrying a namespace field — those belong to the memory snapshot. Used by the WASM binding to persist the graph store alongside `db_state.json` |
+| `restore_graph_nodes(records: Vec<VantaNodeRecord>)` | Restore graph nodes exported by `collect_graph_nodes` into the engine: re-interns edge labels, preserves weights, direction (`reverse`) and creation timestamps. Returns the number of nodes restored |
 | `graph_bfs(roots, max_depth)` | BFS traversal. Returns `Vec<u128>` |
 | `graph_dfs(roots, max_depth)` | DFS traversal. Returns `Vec<u128>` |
 | `graph_bfs_filtered(roots, max_depth, direction, labels, time_range)` | BFS traversal with label filtering and optional temporal window. Only follows edges whose `label_id` is in `labels` (empty = no filter); `time_range: Option<(from_ms, to_ms)>` restricts to edges created within the window |
