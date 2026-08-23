@@ -35,3 +35,12 @@ Los 393 IDs restantes viven en los snapshots espejo (copia íntegra verbatim de 
 
 - El snapshot NUNCA se edita (es la garantía de "0 info perdida").
 - Los archivos de dominio (`activo/`, `auditoria/`, `decisiones/`, `meta.md`) son la versión reorganizada/navegable; si un ID solo existe en snapshot y es relevante, crear su entrada de dominio es la vía correcta (no editar el snapshot).
+
+## Migración física (2026-08-23)
+
+docs/progreso/ fue **eliminado**: todo su contenido vive ahora bajo este árbol.
+- campanas/*.md → historial/campanas/
+- README/bitácora/ARCHIVO_HISTORICO/sdk-gap-audit → historial/fuentes/
+- BACKLOG_HISTORY.md → historial/backlog-history.md (**archivo vivo**, único destino de removidos del Backlog)
+- Las citas docs/progreso/... dentro de archivos de dominio son evidencia histórica congelada (convención GOV-D2): apuntan a lo que hoy es historial/fuentes/.
+- Registro vivo de tareas completadas: ctivo/*, uditoria/*, decisiones/, investigaciones.md.

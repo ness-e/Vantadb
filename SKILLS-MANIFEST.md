@@ -280,7 +280,7 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | observability-and-instrumentation | 7 | KEEP | Logging, metrics, tracing. |
 | using-agent-skills | 8 | KEEP | Meta-skill for skill discovery. |
 | design-audit-orchestrator | 7 | KEEP | Audit-first design review pipeline. |
-| vantadb-full-review | 10 | REMOVED | Eliminado (2026-08-10) — reemplazado por `unified-review --profile vantadb`. Referencias históricas en `docs/plans/archive/`, `docs/reviews/archive/`. |
+| vantadb-full-review | 10 | REMOVED | Eliminado (2026-08-10) — reemplazado por `unified-review --profile vantadb`. Directorio físico eliminado 2026-08-23 (campaña avance-canónico). Referencias históricas en `docs/plans/archive/`, `docs/reviews/archive/`. |
 | backlog-executor | — | SUPERSEDED | Reemplazada por `campaign-executor` (unificado backlog-executor + task-executor). NO cargar. |
 
 ### Content / Writing

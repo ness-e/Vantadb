@@ -89,7 +89,7 @@ The standing checklist above applies to every change. VantaDB additionally requi
 - [ ] Tests pass: `cargo nextest run` / `pytest`
 - [ ] Linters pass: `cargo clippy` / `eslint`
 - [ ] Docs updated if applicable
-- [ ] Task moved to `docs/progreso/README.md` when completed
+- [ ] Task registered in `docs/avance/` (domain file, e.g. `activo/core-engine.md`) when completed
 - [ ] Changelog updated if user-visible change (`docs/CHANGELOG.md` via git-cliff)
 - [ ] Change is shippable: PR opened with green CI, or merged to `main` (Regla 7) — to merge a main-branch change, open a PR and get CI green first; task ends when the work can ship, not when it commits
 

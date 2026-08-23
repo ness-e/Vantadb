@@ -23,7 +23,7 @@
 
 - **Must:** emitir `<script type="application/ld+json">` explícitamente en el JSX de un Server Component (ej. en `layout.tsx` raíz) cuando se implemente structured data.
 - **Must not:** asumir que `export const metadata` o `generateMetadata` de Next.js 16 genera JSON-LD — la Metadata API solo emite tags `<head>` (title, description, OG, Twitter); no existe campo `jsonLd`.
-- **Por qué:** el sitio tiene cero `<script type="application/ld+json">` (INV-013); el JSON-LD debe marcarse a mano o no existe. La nota de `docs/progreso/README.md` que afirmaba JSON-LD implementado era falsa (WEB-13 fue sobre Pages Router, ya migrado).
+- **Por qué:** el sitio tiene cero `<script type="application/ld+json">` (INV-013); el JSON-LD debe marcarse a mano o no existe. La nota del registry legacy (`docs/avance/historial/fuentes/README.md`, congelado) que afirmaba JSON-LD implementado era falsa (WEB-13 fue sobre Pages Router, ya migrado).
 
 ### R-FE-4: Light-only por diseño — no reactivar dark mode
 

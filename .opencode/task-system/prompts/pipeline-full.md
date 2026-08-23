@@ -149,7 +149,7 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 
 - Anotá por qué falló y qué se intentó (los 4 escalones si aplica)
 - Llamá `campaign_update_task_state` con `"failed"`
-- Ejecutá `skill progreso` para registrar en docs/progreso/
+- Ejecutá `skill progreso` para registrar en `docs/avance/` (archivo de dominio)
 - Detenete. No sigas a la siguiente tarea.
 
 ### 3. ACTUALIZAR RECITATION

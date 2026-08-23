@@ -217,7 +217,7 @@ Al empezar cada sesión, ejecutar en orden:
 
 Al **finalizar** la sesión:
 ```
-skill progreso                   # mueve tareas completadas a docs/progreso/
+skill progreso                   # migra tareas completadas a docs/avance/ (dominio)
 ponytail-review                   # revisa over-engineering residual
 just verify                       # fmt + clippy + test + deny (o just verify-quick)
 ```
@@ -239,7 +239,7 @@ Regla: no simplificar trust boundaries, seguridad, accesibilidad, ni lo pedido e
 
 Load `progreso` at start and before completing every task:
 - **Start**: `skill progreso` — reads backlog, checks for in-progress work
-- **Complete**: `skill progreso` (Trigger 1) — **elimina la fila** de `docs/Backlog.md` (no tacharla; el registro de completado vive en `docs/progreso/README.md`) y migra a `docs/progreso/README.md` BEFORE any summary; items removidos sin completar van a `docs/progreso/BACKLOG_HISTORY.md`. Plans completados → `docs/plans/archive/`
+- **Complete**: `skill progreso` (Trigger 1) — **elimina la fila** de `docs/Backlog.md` (no tacharla; el registro de completado vive en `docs/avance/` — archivo de dominio correspondiente, ej `activo/core-engine.md`) BEFORE any summary; items removidos sin completar van a `docs/avance/historial/backlog-history.md`. Plans completados → `docs/plans/archive/`. El registro histórico completo (registry legacy) está congelado en `docs/avance/historial/fuentes/README.md`
 
 ## Reference Files
 
@@ -286,7 +286,7 @@ Las reglas normativas por **área del sistema** viven en `.opencode/rules/`. Son
 | Language | Content |
 |----------|---------|
 | **English** (source of truth) | `docs/api/`, `docs/architecture/`, `docs/operations/`, `docs/QUICKSTART.md` |
-| **Spanish** (planning only) | `docs/Backlog.md`, `docs/progreso/`, `docs/Investigaciones/` |
+| **Spanish** (planning only) | `docs/Backlog.md`, `docs/avance/`, `docs/Investigaciones/` |
 
 Technical docs stay in English. Never duplicate technical content in Spanish.
 
@@ -423,7 +423,7 @@ Actúa como un linter de documentación viva:
 | Modifica `struct pub`, `fn pub`, endpoint HTTP, binding PyO3/WASM | Recordar actualizar el `.md` correspondiente en `docs/api/` en el **mismo PR** |
 | Crea documentación nueva (guías, API, arquitectura) | No colocarla en `docs/archive/`, `docs/research/`. Los reportes generados por el pipeline (`/audit`, `/review`, `unified-review`) SÍ van a `docs/reviews/` y se registran en `docs/reports/INDEX.md` — esa carpeta es para reportes de auditoría/review, no para documentación ad-hoc |
 | Crea un plan temporal | Guardar en `docs/plans/` **y** recordar eliminarlo al completar la tarea |
-| Escribe documentación en español siendo técnica | Redirigir a inglés. Español solo para `docs/Backlog.md`, `docs/progreso/`, `docs/Investigaciones/` |
+| Escribe documentación en español siendo técnica | Redirigir a inglés. Español solo para `docs/Backlog.md`, `docs/avance/`, `docs/Investigaciones/` |
 
 ### Regla 4: Mejora Continua y Actitud Crítica
 
