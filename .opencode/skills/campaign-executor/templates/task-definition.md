@@ -9,6 +9,10 @@
 ## Blast Radius
 Callers | Callees | Implicaciones
 
+## Spec
+(feature-add / lógica nueva — OBLIGATORIA antes de ACT, plantilla: prompts/spec-template.md)
+Pegar acá la mini-spec confirmada con el usuario (problema, criterio de aceptación, alcance, decisiones resueltas). Si la tarea es bug-fix/🟢 trivial: "N/A — bug-fix con contrato mecánico".
+
 ## Contrato
 Comando verificable
 

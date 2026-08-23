@@ -50,6 +50,9 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 - **Gate D (question-gates.md):** tras zero-code planning y ANTES de escribir el
   task file — si blast radius >10 archivos/hot path/API pública, contrato ambiguo,
   o feature-add sin spec → `question` al usuario (GO / ajustar / dividir).
+- **Gate mecánico spec-first:** task file de feature-add/lógica nueva SIN la sección
+  `## Spec` llena (plantilla: prompts/spec-template.md) → NO se puede entrar a ACT.
+  Volvé a DISCOVERY y generá la spec + questions primero.
 - Llamá `campaign_detect_task_type` (MCP) con `Archivos clave` → type, skills, checks
 - Cargá skills devueltos con `skill <nombre>`
 - Si es bug → además `systematic-debugging`

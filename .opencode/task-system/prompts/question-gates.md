@@ -17,6 +17,18 @@
 4. Si el harness no expone `question`, fallback: reporte estructurado y STOP
    esperando input del usuario (nunca asumir GO).
 
+## Routing de questions (quién pregunta)
+
+| Contexto | Cómo se pregunta |
+|---|---|
+| Orquestador (`/pipeline`, `/pipeline run`, vanta-lead) | Directo vía `question` tool |
+| Sub-agente CON `question` en permissions (hoy: solo vanta-lead, vanta-review) | Directo |
+| Sub-agente SIN `question` (worker/arch/engine/audit/chaos/tuner/docs/research) | Devolver bloque `RESULTADO` con `BLOQUEO: <gate + opciones>` — **el orquestador hace la pregunta** al recibirlo y reanuda vía SARL con la respuesta. El sub-agente NUNCA asume GO. |
+
+> Estado 2026-08-23 verificado con grep sobre `.opencode/agents/*.md`: solo
+> vanta-lead y vanta-review referencian `question`. Al dar `question` a más
+> agentes (TSYS-11), actualizar esta tabla.
+
 ## Gate P — Plan/Triage (en plan.md)
 
 **Cuándo:** durante el triage del backlog, ANTES de fijar el gate final.
@@ -25,7 +37,7 @@
 |---|---|
 | Tarea prioridad 🔴 | Confirmar inclusión/scope: opciones GO (como está) / Ajustar scope / DEFER / SKIP |
 | Contrato ambiguo (≥2 interpretaciones que cambian el resultado) | Mostrar las interpretaciones y pedir elección |
-| feature-add o lógica nueva | **Spec-driven guiado**: generar mini-spec (skill `spec-driven-development`) → preguntar al usuario las decisiones abiertas de la spec (formato/alcance/criterio de aceptación) ANTES de aprobar DO |
+| feature-add o lógica nueva | **Spec-driven guiado**: generar mini-spec con `prompts/spec-template.md` → preguntar al usuario las decisiones abiertas de §5 (una ronda, opciones + default recomendado) ANTES de aprobar DO. La spec confirmada viaja al task file (sección `## Spec`) — sin ella no hay ACT. |
 | Resumen final del triage | Confirmar el set DEFER/SKIP completo antes de escribir el plan file |
 
 ## Gate D — Discovery (en pipeline-full.md §Discovery, iter-loop-tools MODO DISCOVERY)
@@ -65,5 +77,7 @@ Sin respuesta → STOP (no marcar FAILED unilateralmente salvo FAIL_MODE=stop ex
 - Los gates NO aplican a tareas 🟢 triviales con contrato mecánico claro.
 - Una familia aprobada explícitamente por el usuario en esta sesión (mismo plan,
   mismo objetivo) no re-dispara Gate P/D individualmente (ver subagent-recovery §5).
-- Si el usuario activó modo autónomo explícito ("run sin preguntar"), solo operan
-  Gate V y Gate C-casos-de-seguridad (archivos fuera de blast radius).
+- Si el plan file declara `> **Autonomous:** true` (leído vía
+  `campaign_get_next_task` → campo `autonomous`), solo operan Gate V y
+  Gate C-casos-de-seguridad (archivos fuera de blast radius). Sin el flag,
+  operan los 4 gates.

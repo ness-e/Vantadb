@@ -223,34 +223,16 @@ last-synced: YYYY-MM-DDTHH:MM
 
 ## Escalation ladder
 
-| Escalón | Acción |
-|---------|--------|
-| 1 | Retry con feedback del error procesado (Agente de Diagnóstico) |
-| 2 | Contexto fresco: resumir lo aprendido (~200 tokens) + error |
-| 3 | Estrategia materialmente distinta |
-| 4 | Escalar a humano: documentar intentos, commit WIP, ❌ FAILED |
+Fuente canónica: `prompts/subagent-recovery.md` (SARL) + MoM ladder en `prompts/iter-loop-tools.md`. Resumen: RESUME misma sesión → RETRY fresco → STRATEGY distinta → Gate V (`question-gates.md`) → ESCALATE. Umbral único: 2 fallas verify mismo-error. Presupuestos: ver § Budget management.
 
 ## Sub-Agent Recovery Protocol (SARL)
 
-Cuando un sub-agente (de `/pipeline run` o `/pipeline task`) devuelve un resultado
-incompleto, fallido, detenido, vacío o inesperado, el orquestador aplica la escalera
-canónica de `prompts/subagent-recovery.md`:
-
-1. **RESUME** — misma sesión del sub-agente (`task(task_id=<T>, subagent_type=<mismo>)`)
-   con feedback del próximo step ⬜ PENDING. El contexto Y el worktree persisten.
-2. **RETRY** — sub-agente fresco del mismo tipo con digest ~200 tokens + task file.
-3. **STRATEGY** — enfoque materialmente distinto (opcional `campaign_mom_escalate`).
-4. **ESCALATE** — humano: documentar intentos, commit WIP, `campaign_update_task_state "failed"`.
-
-Reglas: **INCOMPLETE nunca se trata como FAILED** (casi siempre se arregla con RESUME);
-los steps ✅ y el Context Save Point del task file son el estado durable — jamás se rehacen;
-entre intentos corre `campaign_verify_cmd` del contrato (sin verify no cuenta); cada intento
-consume budget (`campaign_budget_consume resource="fail"`); 3 resultados no-DONE seguidos →
-pausar y preguntar al usuario.
-
-Contraparte del sub-agente: cada sub-agente DEBE devolver el bloque `RESULTADO`
-(✅/🟡/❌/⚠️ + STEPS_OK + PROXIMO_STEP + COMMIT_HASH + VERIFY_CONTRATO + BLOQUEO)
-para que el orquestador decida el nivel de recovery sin adivinar.
+**Canónico: `prompts/subagent-recovery.md`** — no duplicar acá. Reglas clave:
+1. Clasificación: ✅ COMPLETO / 🟡 INCOMPLETO / ❌ FALLIDO / ⚠️ SIN-FORMATO (bloque `RESULTADO`, ver pipeline-full.md).
+2. INCOMPLETE nunca se trata como FAILED (casi siempre se arregla con RESUME).
+3. Los steps ✅ y el Context Save Point son estado durable — jamás se rehacen.
+4. Entre intentos corre `campaign_verify_cmd` del contrato (sin verify no cuenta).
+5. Cada recovery consume budget; 3 resultados no-DONE seguidos → pausar y preguntar al usuario.
 
 ## Budget management
 
@@ -377,7 +359,7 @@ la recitation. No avances sin haber completado verificación, commit, progreso."
 ```
 .opencode/references/
   awesome-harness-engineering/   ← catálogo patrones (walkinglabs, 3.6k⭐)
-  statewright/                   ← state machine guardrails en Rust (415⭐)
+  statewright/                   ← eliminado 2026-08-23 (clon completo; patrón C0 ya extraído en config/state-tools.mjs; recuperable de GitHub)
   deepclaude/                    ← loop engine interchangeable (1k⭐)
   darwin-godel-machine/          ← harness evolution research (~500⭐)
 ```
