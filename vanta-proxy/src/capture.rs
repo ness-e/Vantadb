@@ -20,12 +20,13 @@ pub const TURNS_NAMESPACE: &str = "proxy-turns";
 /// records (`key = {now_ms}-{seq}`; upsert semantics would drop one otherwise).
 static TURN_SEQ: AtomicU64 = AtomicU64::new(0);
 
-/// Extract the plain text of the LAST user message from an OpenAI-style
-/// `messages` array (string content, or array of `{type:"text"}` blocks).
+/// Extract the plain text of the LAST user message from a `messages` array
+/// (string content, or array of blocks → the LAST `{type:"text"}` block).
 ///
-/// Minimal inline extraction per the MEM-50 pre-mortem: only the shared
-/// `messages` shape today; full per-client adapters are Task 8 (MEM-57 parser).
-/// Non-JSON bodies yield `None`.
+/// Refined by MEM-57: delegates array extraction to the Claude Code adapter
+/// (`session::claude_code::extract_last_user_text`), which scans backwards so
+/// CC's prepended `<system-reminder>` metadata blocks no longer pollute the
+/// captured turn. Non-JSON bodies yield `None`.
 pub fn last_user_text(body: &[u8]) -> Option<String> {
     let value: Value = serde_json::from_slice(body).ok()?;
     let messages = value.get("messages")?.as_array()?;
@@ -33,7 +34,7 @@ pub fn last_user_text(body: &[u8]) -> Option<String> {
     if last.get("role")?.as_str()? != "user" {
         return None;
     }
-    crate::mem_command::extract_text(last.get("content")?)
+    crate::session::claude_code::extract_last_user_text(last.get("content")?)
 }
 
 /// Build the retryable L0 job persisting one conversation turn record.
@@ -115,9 +116,11 @@ mod tests {
     }
 
     #[test]
-    fn extracts_last_user_block_array() {
-        let body = br#"{"messages":[{"role":"user","content":[{"type":"text","text":"a"},{"type":"text","text":"b"}]}]}"#;
-        assert_eq!(last_user_text(body).as_deref(), Some("ab"));
+    fn extracts_last_user_block_array_last_text_block_wins() {
+        // MEM-57 refinement: the LAST text block is the typed input; earlier
+        // blocks (e.g. CC <system-reminder> metadata) are not captured.
+        let body = br#"{"messages":[{"role":"user","content":[{"type":"text","text":"<system-reminder>x</system-reminder>"},{"type":"text","text":"real input"}]}]}"#;
+        assert_eq!(last_user_text(body).as_deref(), Some("real input"));
     }
 
     #[test]

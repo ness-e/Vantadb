@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Última Milla — integración producto end-to-end
 
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (5/10 tareas)
+> **Estado:** ⏳ EN PROGRESO (6/10 tareas)
 > **Fuente:** auditoría de integración final (`docs/reviews/2026-08-22-auditoria-integracion-final.md`) + decisiones del usuario (2026-08-22)
 > **Predecesores:** P27+P29+P30+P31+P32 ✅ (54 tareas) — roadmap TDAM 100% + bindings
 > **Modo:** waves por dependencias. Sin release durante la campaña (decisión usuario).
@@ -35,7 +35,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Archivos clave:** `vanta-proxy/src/handlers/{openai,anthropic,responses}.rs` (editar), `writeback.rs` (API si falta)
 - **Verificación real:** ✅ AUDITORÍA — WriteBack construido+flusheado pero cero llamadas track() (auditoría H1)
 - **Gate Result:** ✅ DO
-- **Contrato:** "`cargo check -p vanta-proxy --all-targets` pasa; tests D19: request completado → track() encola el turno L0 → visible en pending queue → flush lo persiste; fallo de enqueue NO rompe el forward"
+- **Contrato: verificacion: cargo check/test/fmt/clippy -p vanta-proxy --all-targets (-D warnings) — 4/4 exit 0, suite 73→85 tests. evidencia: [claim: classify main/fork/sidequery via cache_control marker n-1/n-2 + fallback tools-empty AND thinking-disabled → evidencia: vanta-proxy/src/session/claude_code.rs (12 tests D19, port fiel de TDAM cc-request-classifier.ts @97f9465) → confianza: alta] [claim: extractLastUserText salta system-reminders (toma el ULTIMO text block; CC los PREPENDE) → evidencia: test extract_skips_prepended_system_reminder_blocks + extract_ignores_tool_result_image_and_non_string_text_blocks → confianza: alta] [claim: integracion con capture existente → evidencia: capture::last_user_text delega en extract_last_user_text, misma firma pub, test extracts_last_user_block_array_last_text_block_wins ajustado → confianza: alta]. artefactos: vanta-proxy/src/session/claude_code.rs (nuevo), session.rs (+pub mod), capture.rs (refinado), tasks/MEM-57.md. invariantes: NO tocar core/wal/vector/storage; mem_command::extract_text intacto (path OpenAI); routing forks es Task 2 (clasifica con classify_cc_request). deuda: fixtures basados en formato CC actual (Risk Register 🟡×🟡 — techo documentado en task file). queda_pendiente: commit lo hace el lead; Task 2 consume classify_cc_request.
 - **Risk Register:** 🟢×🟠 extraer user-text del request puede necesitar MEM-57 parcial → implementar extracción mínima inline, refinar con Task 8
 - **Cynefin:** 🟦 obvio
 - **Estado:** ✅ COMPLETED
@@ -112,7 +112,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Contrato:** "tests D19 port de TDAM agent-adapters/claude-code.ts: classifyCcRequest (main/fork/sidequery vía cache_control marker) + extractLastUserText (salta system-reminder blocks)"
 - **Risk Register:** 🟡×🟡 formato CC cambia entre versiones → tests con fixtures reales capturadas; techo documentado
 - **Cynefin:** 🟦 obvio
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-57.md`
 - **Notas:** Ruta: vanta-worker. Integra con Task 1 (extracción de user-text para write-back) y Task 2 (routing forks).
 - **Notas deps:** complementa Task 1 — ideal misma wave.
@@ -182,12 +182,12 @@ Verify del lead SIEMPRE `--all-targets` (lección MEM-48) · SARL con feedback e
 ---
 
 === RECITATION ===
-Campaign ID: beef7c11-126d-454e-9316-5ff5e8403bb0
-Objetivo activo: BND-03: tiktoken-rs detrás de feature opt-in precise-tokens en vanta-memory (default chars/3 intacto) - enmienda D21 ADR-029
+Campaign ID: 72fd53ef-99b7-4182-a853-99a2eb71fbb9
+Objetivo activo: MEM-57: parser claude-code para vanta-proxy (classify + extractLastUserText)
 Estado: pending ⏳
-Última acción: Implementada feature precise-tokens (tiktoken-rs 0.12, singleton cl100k) con rama cfg en estimate_tokens; golden tests cl100k pinneados empiricamente (RED->pin); 3 tests e2e desacoplados del budget chars/3 fijo con budget proporcional al estimador (patron MEM-43); verify mecanico completo verde; Backlog fila eliminada, progreso P33 actualizado, learnings en AGENTS.md
+Última acción: Implementado MEM-57 completo: modulo claude_code.rs (CcRequestKind + find_last_cache_control_index + classify_cc_request + extract_last_user_text) con 12 tests D19 port de TDAM @97f9465; capture::last_user_text refinado a delegar en el parser; verify mecanico 4/4 exit 0.
 Resultado: OK
-Próxima acción: Orquestador: commitear feat(vanta-memory): BND-03 precise-tokens feature gate (archivos en git status) y lanzar Task 6
+Próxima acción: Orquestador: commit feat(vanta-proxy) y lanzar Task 7
 Contrato: por tarea — cargo check/nextest/fmt/clippy --all-targets del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 6
+Próxima tarea si completa: 7
 === END RECITATION ===

@@ -12,6 +12,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::http::HeaderMap;
 
+pub mod claude_code;
+
 use crate::auth::AuthDb;
 use crate::error::ProxyError;
 

@@ -690,3 +690,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: MCP-20/26 — 2026-08-22 -->
 - Los report structs del SDK (`VantaIndexRebuildReport`, `VantaTextIndexAuditReport`, `VantaTextIndexRepairReport`, `VantaCapabilities`) ya son `Serialize`: en handlers MCP basta `serialize_content(&json!(&report))` — no reconstruir el objeto campo a campo.
 - `generate_snippet` devuelve `Some(payload)` para cualquier query con términos sobre payload corto (<=120 chars): el único camino a `None` es un query plan sin términos (query vacío/whitespace) — testear ese caso, no "query sin match".
+
+<!-- Learnings: MEM-57 — 2026-08-22 -->
+- Port TS->Rust de parsers defensivos: los helpers con optional-chaining se traducen limpios con nd_then/is_none_or/ind_map sobre iteradores .rev(); el ? dentro del closure de ind_map significa "seguir buscando", no abortar.
+- Clippy doc-lazy-continuation: un parrafo que sigue a una lista markdown en doc comments necesita linea en blanco separadora, si no es error bajo -D warnings.
