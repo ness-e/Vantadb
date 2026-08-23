@@ -52,20 +52,21 @@ ni dashmap/parking_lot/tokio → auditoría chaos no disparada por letra de la r
    closing" fallan el test. Sin marker slow (~1s).
 
 ## Steps
-- ⬜ Step 1: RED — escribir test estrés, rebuild binario buggy (`maturin develop`), correr test → debe FALLAR por timeout (hang reproducido).
-- ⬜ Step 2: GREEN — aplicar fix en lib.rs (Clone + detach en close), rebuild, test pasa.
-- ⬜ Step 3: VERIFY full — pytest -q suite completa + fmt/clippy/nextest workspace + validate-docs-coverage; commit conventional; cierre.
+- ✅ Step 1: RED — test estrés escrito; primer RED era falso (bug del propio test: factory llamada eager en listcomp ejecutaba workers en main thread). Corregido y re-probado contra binario buggy vía stash: watchdog faulthandler capturó deadlock real @30s (closer en drain + worker esperando GIL).
+- ✅ Step 2: GREEN — fix en lib.rs (derive Clone OpGate + drain dentro de py.detach), rebuild, test pasa 5/5 estable.
+- ✅ Step 3: VERIFY full — pytest -q = 111 passed exit 0; fmt/clippy workspace ✅; nextest audit workspace 2712→2714/2714 ✅; docs-coverage pwsh 0 gaps ✅. Commit `50319e30`.
 
 ## Contrato
 Test de estrés concurrente (N threads operando la DB mientras otro llama
 close()) termina SIN hang (timeout duro 30s); `pytest -q` exit 0 en
 vantadb-python (fixture autouse MOD-16 ya commiteada en deefc919).
+**CUMPLIDO** — ver Step 3.
 
 ## Pre-mortem / riesgos
 - ~~py.detach durante interpreter shutdown~~ → descartado (sin Drop impl que drene; ver Discovery).
-- Reorder de fields del struct → NO requerido con esta aproximación (drain ya es Rust puro).
-- Falso-negativo del test (workers terminan antes de close): workers usan stop-event loop infinito hasta cierre → siempre hay ≥1 op in-flight cuando close llega.
+- ~~Reorder de fields del struct~~ → NO requerido (drain ya es Rust puro; solo se movió el call-site).
+- ~~Falso-negativo del test~~ → resuelto con stop-event loop infinito + RED real verificado vía stash.
+- Hallazgo colateral: suite completa dependía de espacio libre en disco (78 failed por os error 112 StorageFull con C: en 0.3GB; limpiados ~143GB de %TEMP% → 111 passed).
 
 ## Context Save Point
-- Estado: DISCOVERY completo, task file creado, implementación no iniciada.
-- Repro RED: `& .venv\Scripts\maturin.exe develop` + `.venv\Scripts\python.exe -m pytest tests/test_close_concurrency.py -q` desde `vantadb-python/`.
+- Estado: COMPLETADA — commit `50319e30`. Registro en docs/avance/activo/bindings.md; fila removida de docs/Backlog.md.
