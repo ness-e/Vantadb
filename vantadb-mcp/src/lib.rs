@@ -37,3 +37,9 @@ pub use handlers::tools::handle_tools_call;
 pub use handlers::tools::handle_tools_list;
 /// Run the MCP server over stdin/stdout (JSON-RPC 2.0).
 pub use server::run_stdio_server;
+/// Lifecycle state + progress of an async wiki build, by run_id (MEM-31).
+pub use wiki::ingest_status;
+/// Start an async wiki ingest build, returning its run_id immediately (MEM-52).
+pub use wiki::start_ingest;
+/// LLM-free runner for [`start_ingest`] (P4 degraded mode).
+pub use wiki::NoLlm;

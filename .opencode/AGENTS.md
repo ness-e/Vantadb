@@ -670,3 +670,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: MEM-51 — 2026-08-22 -->
 - El interceptor SSE de vanta-proxy solo puede decidir tras ver tool_use nuestro: acumular TODO el stream antes de detectar (pre-mortem) es lo que evita parsers incrementales fragiles — el replay verbatim de chunks preserva byte-identity para trafico normal.
 - campaign_update_task_state sin planFile explicito toma el plan mas recientemente MODIFICADO del workspace (otra sesion activa lo desvia): pasar siempre la ruta exacta cuando hay planes concurrentes.
+
+<!-- Learnings: MEM-52 — 2026-08-22 -->
+- Fachada async para un worker que vive en un crate hijo no puede ir en el core (src/cli_server.rs): vanta-memory depende de vantadb y Cargo prohíbe el ciclo — la fachada va en el crate consumidor (vantadb-mcp) promoviendo la dev-dep a dependencia regular (ciclo-free verificado con cargo tree).
+- Split two-phase de una fn bloqueante larga (egin() sync que asigna run_id + xecute() heavy en std::thread) permite retornar el id inmediato sin tocar el store core ni duplicar guards; el registro de runs vive en el crate de la fachada (OnceLock<Mutex<HashMap>>), nunca en el worker library.

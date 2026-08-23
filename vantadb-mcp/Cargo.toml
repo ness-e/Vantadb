@@ -8,6 +8,10 @@ publish = false
 
 [dependencies]
 vantadb = { path = "../", features = ["cli"] }
+# MEM-52: fachada productiva de ingest wiki — el tool wiki_ingest dispara el
+# worker de vanta-memory en un hilo de fondo (era dev-dep desde MEM-44;
+# dirección ciclo-free verificada vía cargo tree).
+vanta-memory = { path = "../vanta-memory" }
 tokio = { version = "1", features = ["sync", "rt", "macros", "rt-multi-thread", "signal", "time", "io-util", "io-std"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -15,8 +19,6 @@ tracing = "0.1"
 
 [dev-dependencies]
 tempfile = "3"
-# MEM-44: e2e roundtrip ingest (worker de vanta-memory) → tools wiki_* (este crate).
-vanta-memory = { path = "../vanta-memory" }
 
 [lints]
 workspace = true

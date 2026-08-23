@@ -1,8 +1,7 @@
 # Plan de Ejecución: Vanta Última Milla — integración producto end-to-end
 
-> **Campaign ID: 30802a09-b1e3-4ffe-96cb-9c432b3f5250
 > **Inicio:** 2026-08-22
-> **Estado: completed
+> **Estado:** ⏳ EN PROGRESO (3/10 tareas)
 > **Fuente:** auditoría de integración final (`docs/reviews/2026-08-22-auditoria-integracion-final.md`) + decisiones del usuario (2026-08-22)
 > **Predecesores:** P27+P29+P30+P31+P32 ✅ (54 tareas) — roadmap TDAM 100% + bindings
 > **Modo:** waves por dependencias. Sin release durante la campaña (decisión usuario).
@@ -36,7 +35,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Archivos clave:** `vanta-proxy/src/handlers/{openai,anthropic,responses}.rs` (editar), `writeback.rs` (API si falta)
 - **Verificación real:** ✅ AUDITORÍA — WriteBack construido+flusheado pero cero llamadas track() (auditoría H1)
 - **Gate Result:** ✅ DO
-- **Contrato: cargo check -p vanta-proxy --all-targets pasa; tests D19 — evidencia: cargo test proxy 73/73 passed (53 lib +5 pipeline +10 wire +5 tool_loop), fmt/clippy --all-targets exit 0; commit a9b65224
+- **Contrato:** "`cargo check -p vanta-proxy --all-targets` pasa; tests D19: request completado → track() encola el turno L0 → visible en pending queue → flush lo persiste; fallo de enqueue NO rompe el forward"
 - **Risk Register:** 🟢×🟠 extraer user-text del request puede necesitar MEM-57 parcial → implementar extracción mínima inline, refinar con Task 8
 - **Cynefin:** 🟦 obvio
 - **Estado:** ✅ COMPLETED
@@ -73,7 +72,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Contrato:** "tests D19: POST/tool dispara worker::run async → estado pending→processing→ready consultable por run_id (MEM-31) → páginas disponibles para wiki_read"
 - **Risk Register:** 🟢×🟡 ingest largo bloquea handler → disparar en thread/spawn, retornar run_id inmediato
 - **Cynefin:** 🟦 obvio
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-52.md`
 - **Notas:** Ruta: vanta-worker.
 
@@ -184,11 +183,11 @@ Verify del lead SIEMPRE `--all-targets` (lección MEM-48) · SARL con feedback e
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: P33 Última Milla — integración producto end-to-end
+Objetivo activo: MEM-52 fachada productiva de ingest wiki (P33 Task 3, H3)
 Estado: pending ⏳
-Última acción: MEM-51 O2 interceptor: gate cero-overhead (solo OpenAI/Anthropic anunciando vanta_memory_* + SSE 200 pagan buffering; resto passthrough byte-identical via forward_raw); sse_intercept acumula deltas (fragments por índice / blocks Anthropic); memory_tools ejecuta capture (WriteBack::track D47) y search (perform_auto_recall síncrono → bloque relevant-memories); tool_result sintetizado shape estándar; re-request; cap D48 3 ejecuciones; replay verbatim al cortar. 5 tests tool_loop D19
+Última acción: Implementado split worker begin/execute + fachada MCP wiki_ingest/wiki_ingest_status (begin sync → std::thread con execute → run_id inmediato; registro global por run_id MEM-31); test D19 3/3; verify mecánico completo verde
 Resultado: OK
-Próxima acción: Delegar MEM-52 (Task 3, H3 fachada productiva ingest wiki) a vanta-worker
+Próxima acción: Lead: commit feat(MEM-52) y cerrar Task 4 (MEM-54 skills CRUD HTTP)
 Contrato: por tarea — cargo check/nextest/fmt/clippy --all-targets del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 3
+Próxima tarea si completa: 4
 === END RECITATION ===

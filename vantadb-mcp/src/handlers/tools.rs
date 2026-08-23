@@ -39,6 +39,32 @@ pub fn handle_tools_list() -> Result<Value, Value> {
             }
         },
         {
+            "name": "memory_put_batch",
+            "description": "Stores multiple memory records in a single batch operation. Each input carries namespace, key, payload and optional vector/sparse_vector/metadata/expires_at_ms. All-or-nothing: an invalid input fails the whole call before any write. Duplicate keys are UPSERTs (version bumps). Vector dimensions must match the live index.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "inputs": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "namespace": { "type": "string" },
+                                "key": { "type": "string" },
+                                "payload": { "type": "string" },
+                                "vector": { "type": "array", "items": {"type": "number"} },
+                                "sparse_vector": { "type": "object", "additionalProperties": {"type": "number"} },
+                                "metadata": { "type": "object" },
+                                "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms TTL timestamp" }
+                            },
+                            "required": ["namespace", "key", "payload"]
+                        }
+                    }
+                },
+                "required": ["inputs"]
+            }
+        },
+        {
             "name": "memory_get",
             "description": "Retrieves a memory record by namespace and key.",
             "inputSchema": {
@@ -54,6 +80,18 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                 "type": "object", "properties": {
                     "namespace": { "type": "string" }, "key": { "type": "string" }
                 }, "required": ["namespace", "key"]
+            }
+        },
+        {
+            "name": "memory_delete_by_filter",
+            "description": "Batch-deletes every memory record in a namespace whose metadata matches the given filters (AND semantics, operators $eq/$neq/$gt/$gte/$lt/$lte, flat values are implicit $eq). Returns the number of records deleted. Requires at least one filter item to prevent accidental full-namespace deletion.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string" },
+                    "filters": { "type": "object", "description": "Metadata filters; same shape as memory_list filters, e.g. {\"env\": \"dev\"} or {\"priority\": {\"$gt\": 1}}" }
+                },
+                "required": ["namespace", "filters"]
             }
         },
         {
@@ -412,6 +450,30 @@ pub fn handle_tools_call(
                     &json!({"deleted": deleted}),
                 ))),
                 Err(e) => Ok(error_content(format!("Delete Error: {}", e))),
+            }
+        }
+
+        // MCP-18: batch delete by metadata filter — thin wrapper over the SDK
+        // delete_by_filter. Reuses the exact VantaMemoryFilter wire shape that
+        // memory_list already publishes (AUD-048 parse_filter_ops).
+        "memory_delete_by_filter" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+
+            let filter_obj = args["filters"]
+                .as_object()
+                .ok_or_else(|| McpError::invalid_params("Missing 'filters' object").to_json())?;
+            let filter = parse_filter_ops(filter_obj).map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.delete_by_filter(namespace, filter) {
+                Ok(count) => Ok(text_content(serialize_content(&json!({
+                    "deleted_count": count
+                })))),
+                Err(e) => Ok(error_content(format!("Delete By Filter Error: {}", e))),
             }
         }
 
@@ -1157,9 +1219,8 @@ pub fn handle_tools_call(
         | "code_node" | "code_status" | "code_files" => {
             crate::code::handle_code_tool(name, args, storage, config)
         }
-        "wiki_search" | "wiki_read" | "wiki_list" | "wiki_graph" => {
-            crate::wiki::handle_wiki_tool(name, args, storage, config)
-        }
+        "wiki_search" | "wiki_read" | "wiki_list" | "wiki_graph" | "wiki_ingest"
+        | "wiki_ingest_status" => crate::wiki::handle_wiki_tool(name, args, storage, config),
         _ => McpError::method_not_found(format!("Tool not found: {}", name)).into_err(),
     }
 }

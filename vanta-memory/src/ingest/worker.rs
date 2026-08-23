@@ -55,6 +55,23 @@ pub fn run_with_progress<R: LlmRunner>(
     config: &IngestConfig,
     progress: Option<&ProgressTracker>,
 ) -> Result<IngestReport, IngestError> {
+    let run_id = begin(store, namespace, slug)?;
+    execute(
+        store, namespace, slug, root, runner, config, progress, &run_id,
+    )
+}
+
+/// Begin a build synchronously and hand back its fresh `run_id` (MEM-52):
+/// callers that dispatch the heavy body on a background thread call this
+/// first, return the id to their client immediately, then run [`execute`]
+/// async. Rejected by the store's own guards while a build is queued/running;
+/// a finished wiki gets `request_ingest` first (`ready|failed → pending →
+/// processing`).
+pub fn begin(
+    store: &vantadb::wiki::WikiStore<'_>,
+    namespace: &str,
+    slug: &str,
+) -> Result<String, IngestError> {
     let current = store
         .get(namespace, slug)?
         .ok_or_else(|| IngestError::NotFound {
@@ -65,28 +82,38 @@ pub fn run_with_progress<R: LlmRunner>(
         store.request_ingest(namespace, slug)?;
     }
     let wiki = store.begin_processing(namespace, slug)?;
-    let run_id = match &wiki.run_id {
-        Some(id) => id.clone(),
-        None => {
-            return Err(IngestError::Invalid(
-                "begin_processing returned no run_id".into(),
-            ));
-        }
-    };
-    // MEM-31: from here on the tracker only accepts this run_id — packets
-    // from an older build are discarded (late-packet guard).
+    wiki.run_id
+        .clone()
+        .ok_or_else(|| IngestError::Invalid("begin_processing returned no run_id".into()))
+}
+
+/// Run the heavy body for a build already begun via [`begin`]: scan → chunk →
+/// extract → serial merge → persist, then `processing → ready | failed`. The
+/// tracker (if any) accepts only snapshots under `run_id` (MEM-31 late-packet
+/// guard).
+#[allow(clippy::too_many_arguments)]
+pub fn execute<R: LlmRunner>(
+    store: &vantadb::wiki::WikiStore<'_>,
+    namespace: &str,
+    slug: &str,
+    root: &Path,
+    runner: Option<&R>,
+    config: &IngestConfig,
+    progress: Option<&ProgressTracker>,
+    run_id: &str,
+) -> Result<IngestReport, IngestError> {
     if let Some(t) = progress {
-        t.begin_run(&run_id);
+        t.begin_run(run_id);
     }
 
     match ingest_body(
-        store, namespace, slug, root, runner, config, progress, &run_id,
+        store, namespace, slug, root, runner, config, progress, run_id,
     ) {
         Ok(mut report) => {
             emit(
                 progress,
                 IngestProgress::new(
-                    &run_id,
+                    run_id,
                     IngestPhase::Indexing,
                     report.commit_report.written.len(),
                     report.commit_report.written.len(),
@@ -94,20 +121,20 @@ pub fn run_with_progress<R: LlmRunner>(
                     0,
                 ),
             );
-            match store.complete(namespace, slug, &run_id) {
+            match store.complete(namespace, slug, run_id) {
                 Ok(_) => {
                     emit(
                         progress,
-                        IngestProgress::new(&run_id, IngestPhase::Done, 1, 1, 0, 0),
+                        IngestProgress::new(run_id, IngestPhase::Done, 1, 1, 0, 0),
                     );
-                    report.run_id = run_id;
+                    report.run_id = run_id.to_string();
                     Ok(report)
                 }
                 Err(e) => {
-                    let _ = store.fail(namespace, slug, &run_id, &e.to_string());
+                    let _ = store.fail(namespace, slug, run_id, &e.to_string());
                     emit(
                         progress,
-                        IngestProgress::new(&run_id, IngestPhase::Failed, 0, 0, 1, 0),
+                        IngestProgress::new(run_id, IngestPhase::Failed, 0, 0, 1, 0),
                     );
                     Err(e.into())
                 }
@@ -115,10 +142,10 @@ pub fn run_with_progress<R: LlmRunner>(
         }
         Err(e) => {
             // Best-effort failure marking; surface the original error either way.
-            let _ = store.fail(namespace, slug, &run_id, &e.to_string());
+            let _ = store.fail(namespace, slug, run_id, &e.to_string());
             emit(
                 progress,
-                IngestProgress::new(&run_id, IngestPhase::Failed, 0, 0, 1, 0),
+                IngestProgress::new(run_id, IngestPhase::Failed, 0, 0, 1, 0),
             );
             Err(e)
         }

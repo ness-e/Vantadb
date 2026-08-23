@@ -1,10 +1,14 @@
 //! MCP tool handlers for the `wiki_*` tools (MEM-33).
 //!
-//! Four query-only tools over the core [`vantadb::wiki::WikiStore`] (MEM-28,
+//! Query-only tools over the core [`vantadb::wiki::WikiStore`] (MEM-28,
 //! commit 0c3a9dcf) — thin read-only wrappers, all semantics live in the
-//! core. Every tool refuses to answer while the wiki lifecycle state is not
-//! `ready` (D27: `pending → processing → ready | failed`), surfacing the
+//! core. Every query tool refuses to answer while the wiki lifecycle state is
+//! not `ready` (D27: `pending → processing → ready | failed`), surfacing the
 //! current state so the caller can poll or retry later.
+//!
+//! MEM-52 adds the productive facade: `wiki_ingest` starts an async build
+//! (worker on a background thread, run_id returned immediately) and
+//! `wiki_ingest_status` polls its lifecycle state + progress by run_id.
 //!
 //! Tool↔primitive mapping (documented per plan pre-mortem 1):
 //!
@@ -25,7 +29,11 @@ use crate::error::McpError;
 use crate::validation::{error_content, serialize_content, text_content};
 use serde_json::{json, Value};
 use std::collections::{HashMap, VecDeque};
-use std::sync::Arc;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex, OnceLock};
+use vanta_memory::core::abstractions::{LlmError, LlmRunParams, LlmRunner};
+use vanta_memory::ingest::callback::{IngestPhase, IngestProgress, ProgressTracker};
+use vanta_memory::ingest::{worker, IngestConfig};
 use vantadb::storage::StorageEngine;
 use vantadb::wiki::{WikiState, WikiStore};
 
@@ -92,6 +100,30 @@ pub(crate) fn wiki_tool_definitions() -> Vec<Value> {
                     "max_hops": { "type": "number", "description": "Max hops, default 2, capped at 10" }
                 },
                 "required": ["namespace", "slug", "root_path"]
+            }
+        }),
+        json!({
+            "name": "wiki_ingest",
+            "description": "Starts an async wiki build from local markdown under 'root' (recursively scanned). Returns a run_id immediately; poll wiki_ingest_status until state is ready, then use wiki_read/wiki_search. Without an LLM configured the build completes with sources skipped (P4 degraded mode).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string", "description": "Wiki namespace" },
+                    "slug": { "type": "string", "description": "Wiki slug" },
+                    "root": { "type": "string", "description": "Absolute path of the local markdown source directory" }
+                },
+                "required": ["namespace", "slug", "root"]
+            }
+        }),
+        json!({
+            "name": "wiki_ingest_status",
+            "description": "Reports the lifecycle state (pending/processing/ready/failed) and latest progress snapshot of an async wiki build started with wiki_ingest, by run_id.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "run_id": { "type": "string", "description": "run_id returned by wiki_ingest" }
+                },
+                "required": ["run_id"]
             }
         }),
     ]
@@ -188,6 +220,39 @@ pub(crate) fn handle_wiki_tool(
             })
         }
 
+        "wiki_ingest" => {
+            let (namespace, slug) = required_scope(args)?;
+            let root = required_str(args, "root")?;
+            let path = PathBuf::from(root);
+            if !path.is_dir() {
+                return Ok(error_content(format!(
+                    "Source root is not a directory: {root}"
+                )));
+            }
+            match start_ingest::<NoLlm>(
+                storage.clone(),
+                namespace,
+                slug,
+                path,
+                None,
+                IngestConfig::default(),
+            ) {
+                Ok(run_id) => Ok(text_content(serialize_content(&json!({
+                    "run_id": run_id,
+                    "state": "pending",
+                })))),
+                Err(msg) => Ok(error_content(msg)),
+            }
+        }
+
+        "wiki_ingest_status" => {
+            let run_id = required_str(args, "run_id")?;
+            match ingest_status(storage, run_id) {
+                Ok(status) => Ok(text_content(serialize_content(&status))),
+                Err(msg) => Ok(error_content(msg)),
+            }
+        }
+
         _ => McpError::method_not_found(format!("Tool not found: {}", name)).into_err(),
     }
 }
@@ -250,6 +315,129 @@ fn domain_err(e: vantadb::VantaError) -> Value {
     // shape and the client LLM never sees the self-correctable message
     // (MEM-32 learning).
     error_content(e.to_string())
+}
+
+// ── Async ingest facade (MEM-52) ─────────────────────────────────────────
+
+/// One async build known to this process, keyed by `run_id`.
+#[derive(Clone)]
+struct IngestRun {
+    tracker: ProgressTracker,
+    namespace: String,
+    slug: String,
+}
+
+/// Registry of started builds. Entries outlive completion so `ready`/`failed`
+/// stay consultable by run_id (contract D19); the map is bounded by the number
+/// of ingests per process.
+// ponytail: entries are never pruned — one small struct per ingest run; add\n// TTL eviction only if a long-lived server runs thousands of ingests.
+fn ingest_runs() -> &'static Mutex<HashMap<String, IngestRun>> {
+    static RUNS: OnceLock<Mutex<HashMap<String, IngestRun>>> = OnceLock::new();
+    RUNS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// LLM-free stand-in for the spawned build thread: extraction reports
+/// `NotConfigured` exactly like a missing runner, so sources are recorded as
+/// skipped and the state machine still completes (P4 degraded mode).
+pub struct NoLlm;
+
+impl LlmRunner for NoLlm {
+    fn run(&self, _params: &LlmRunParams) -> Result<String, LlmError> {
+        Err(LlmError::NotConfigured)
+    }
+}
+
+/// Start an async wiki build (MEM-52): the cheap store transition runs
+/// synchronously (`pending → processing` via worker::begin) so the caller gets
+/// a fresh `run_id` back immediately, then the heavy body runs on a background
+/// thread over the same storage. The tracker is registered before spawning so
+/// [`ingest_status`] can poll by run_id from the first snapshot on. Busy wikis
+/// and unknown wikis are rejected with a self-correctable message.
+pub fn start_ingest<R>(
+    storage: Arc<StorageEngine>,
+    namespace: &str,
+    slug: &str,
+    root: PathBuf,
+    runner: Option<R>,
+    config: IngestConfig,
+) -> Result<String, String>
+where
+    R: LlmRunner + Send + Sync + 'static,
+{
+    let store = WikiStore::new(&storage);
+    let run_id = match worker::begin(&store, namespace, slug) {
+        Ok(id) => id,
+        Err(e) => return Err(e.to_string()),
+    };
+
+    let tracker = ProgressTracker::new();
+    // Seed an initial snapshot so status is never None once registered.
+    let _ = tracker.update_progress(IngestProgress::new(
+        run_id.clone(),
+        IngestPhase::Extracting,
+        0,
+        0,
+        0,
+        0,
+    ));
+    if let Ok(mut runs) = ingest_runs().lock() {
+        runs.insert(
+            run_id.clone(),
+            IngestRun {
+                tracker: tracker.clone(),
+                namespace: namespace.to_string(),
+                slug: slug.to_string(),
+            },
+        );
+    }
+
+    let ns = namespace.to_string();
+    let sl = slug.to_string();
+    let thread_run_id = run_id.clone();
+    let spawned = std::thread::Builder::new()
+        .name(format!("wiki-ingest-{ns}:{sl}"))
+        .spawn(move || {
+            let store = WikiStore::new(&storage);
+            let _ = worker::execute(
+                &store,
+                &ns,
+                &sl,
+                &root,
+                runner.as_ref(),
+                &config,
+                Some(&tracker),
+                &thread_run_id,
+            );
+            // Best-effort P4: a failed build is already marked in the store;
+            // the report is dropped — clients poll wiki_ingest_status.
+        });
+    spawned
+        .map(|_| run_id)
+        .map_err(|e| format!("failed to spawn ingest worker: {e}"))
+}
+
+/// Lifecycle state + latest progress snapshot of an async build, by `run_id`
+/// (MEM-31 consultable por run_id).
+pub fn ingest_status(storage: &Arc<StorageEngine>, run_id: &str) -> Result<Value, String> {
+    let run = ingest_runs()
+        .lock()
+        .map_err(|e| format!("ingest registry poisoned: {e}"))?
+        .get(run_id)
+        .cloned()
+        .ok_or_else(|| format!("Unknown run_id: {run_id}"))?;
+    let state = WikiStore::new(storage)
+        .get(&run.namespace, &run.slug)
+        .ok()
+        .flatten()
+        .map(|w| w.state.to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+    Ok(json!({
+        "run_id": run_id,
+        "namespace": run.namespace,
+        "slug": run.slug,
+        "state": state,
+        "progress": run.tracker.wiki_status(run_id),
+    }))
 }
 
 // ── BM25-style scan+rank ─────────────────────────────────────────────────

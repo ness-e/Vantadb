@@ -2860,3 +2860,281 @@ fn test_mcp_bulk_import_stream_ndjson_and_missing_file() {
         res["content"][0]["text"]
     );
 }
+
+/// MCP-18: put 3 records with metadata → delete_by_filter matches a subset →
+/// list reflects the deletion and the returned count is correct.
+#[test]
+fn test_memory_delete_by_filter_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    for (key, env) in [("task_a", "dev"), ("task_b", "prod"), ("task_c", "prod")] {
+        let put = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "filter_ns",
+                "key": key,
+                "payload": format!("payload of {key}"),
+                "metadata": {"env": env}
+            }
+        }));
+        let res = handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+        assert!(
+            res["isError"].is_null(),
+            "memory_put {key} should succeed: {}",
+            res["content"][0]["text"]
+        );
+    }
+
+    // Delete the single dev record via filter.
+    let del = Some(json!({
+        "name": "memory_delete_by_filter",
+        "arguments": {
+            "namespace": "filter_ns",
+            "filters": {"env": "dev"}
+        }
+    }));
+    let res = handle_tools_call(&del, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "delete_by_filter should succeed: {}",
+        res["content"][0]["text"]
+    );
+    assert_eq!(
+        res["content"][0]["text"].as_str().unwrap(),
+        r#"{"deleted_count":1}"#,
+        "count returned must match the filtered subset"
+    );
+
+    // List reflects the deletion: only the two prod records remain.
+    let list = Some(json!({
+        "name": "memory_list",
+        "arguments": {"namespace": "filter_ns"}
+    }));
+    let res = handle_tools_call(&list, &executor, &storage, &default_config()).unwrap();
+    let text = res["content"][0]["text"].as_str().unwrap();
+    assert!(
+        !text.contains("task_a"),
+        "deleted record must not be listed"
+    );
+    assert!(text.contains("task_b") && text.contains("task_c"));
+}
+
+/// MCP-18: operator filter ($gt) and guard rails (empty filters rejected,
+/// MEM-32 error shape, missing params → invalid_params).
+#[test]
+fn test_memory_delete_by_filter_validation() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    for (i, prio) in [1u64, 5, 9].iter().enumerate() {
+        let put = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "filter_ns",
+                "key": format!("rec_{i}"),
+                "payload": "x",
+                "metadata": {"priority": prio}
+            }
+        }));
+        handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+    }
+
+    // $gt operator deletes the subset priority > 1.
+    let del = Some(json!({
+        "name": "memory_delete_by_filter",
+        "arguments": {
+            "namespace": "filter_ns",
+            "filters": {"priority": {"$gt": 1}}
+        }
+    }));
+    let res = handle_tools_call(&del, &executor, &storage, &default_config()).unwrap();
+    assert_eq!(
+        res["content"][0]["text"].as_str().unwrap(),
+        r#"{"deleted_count":2}"#
+    );
+
+    // Empty filters object → SDK guard rail surfaces as error_content (MEM-32).
+    let empty = Some(json!({
+        "name": "memory_delete_by_filter",
+        "arguments": {"namespace": "filter_ns", "filters": {}}
+    }));
+    let res = handle_tools_call(&empty, &executor, &storage, &default_config()).unwrap();
+    assert_eq!(res["isError"], true);
+    assert!(
+        res["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("at least one filter"),
+        "unexpected error text: {}",
+        res["content"][0]["text"]
+    );
+
+    // Missing 'filters' param → JSON-RPC invalid_params Err (param-shape error).
+    let no_filters = Some(json!({
+        "name": "memory_delete_by_filter",
+        "arguments": {"namespace": "filter_ns"}
+    }));
+    assert!(
+        handle_tools_call(&no_filters, &executor, &storage, &default_config()).is_err(),
+        "missing 'filters' must surface as an invalid_params error"
+    );
+
+    // Unknown operator → explicit invalid_params.
+    let bad_op = Some(json!({
+        "name": "memory_delete_by_filter",
+        "arguments": {"namespace": "filter_ns", "filters": {"p": {"$weird": 1}}}
+    }));
+    let err = handle_tools_call(&bad_op, &executor, &storage, &default_config())
+        .expect_err("unknown operator must fail");
+    assert!(
+        err.to_string().contains("$eq, $neq, $gt"),
+        "unexpected error: {}",
+        err
+    );
+}
+
+/// MCP-19: put_batch of 3 records → memory_list returns all 3. Duplicate keys
+/// inside a batch are UPSERTs with version bump (documented SDK semantics),
+/// and one malformed input fails the whole call before any write (all-or-nothing).
+#[test]
+fn test_memory_put_batch_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let batch = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {
+            "inputs": [
+                {"namespace": "batch_ns", "key": "k1", "payload": "one"},
+                {"namespace": "batch_ns", "key": "k2", "payload": "two",
+                 "metadata": {"env": "prod"}},
+                {"namespace": "batch_ns", "key": "k3", "payload": "three"}
+            ]
+        }
+    }));
+    let res = handle_tools_call(&batch, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "put_batch should succeed: {}",
+        res["content"][0]["text"]
+    );
+    let records: Vec<Value> = serde_json::from_str(res["content"][0]["text"].as_str().unwrap())
+        .expect("put_batch result should serialize as a JSON array of records");
+    assert_eq!(records.len(), 3);
+
+    // memory_list returns the 3 batch-inserted records (derived indexes rebuilt
+    // by the SDK after each batch — list/count must not return 0).
+    let list = Some(json!({
+        "name": "memory_list",
+        "arguments": {"namespace": "batch_ns"}
+    }));
+    let res = handle_tools_call(&list, &executor, &storage, &default_config()).unwrap();
+    let text = res["content"][0]["text"].as_str().unwrap();
+    for key in ["k1", "k2", "k3"] {
+        assert!(text.contains(key), "list should contain {key}");
+    }
+
+    // Duplicate key in a second batch → upsert, not error; k2 version bumps.
+    let dup = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {
+            "inputs": [
+                {"namespace": "batch_ns", "key": "k2", "payload": "two v2"},
+                {"namespace": "batch_ns", "key": "k4", "payload": "four"}
+            ]
+        }
+    }));
+    let res = handle_tools_call(&dup, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "duplicate key is an upsert, not an error: {}",
+        res["content"][0]["text"]
+    );
+    let get = Some(json!({
+        "name": "memory_get",
+        "arguments": {"namespace": "batch_ns", "key": "k2"}
+    }));
+    let res = handle_tools_call(&get, &executor, &storage, &default_config()).unwrap();
+    let text = res["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("two v2"), "upserted payload wins");
+    assert!(
+        text.contains(r#""version":2"#),
+        "version must bump on upsert: {}",
+        text
+    );
+
+    // Malformed input (missing 'payload') → whole call fails as invalid_params,
+    // nothing from the batch is written (SDK validates every input upfront).
+    let bad = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {
+            "inputs": [
+                {"namespace": "batch_ns", "key": "good_key", "payload": "ok"},
+                {"namespace": "batch_ns", "key": "bad_key"}
+            ]
+        }
+    }));
+    assert!(
+        handle_tools_call(&bad, &executor, &storage, &default_config()).is_err(),
+        "malformed input must surface as invalid_params"
+    );
+    let get_bad = Some(json!({
+        "name": "memory_get",
+        "arguments": {"namespace": "batch_ns", "key": "good_key"}
+    }));
+    let res = handle_tools_call(&get_bad, &executor, &storage, &default_config()).unwrap();
+    assert_eq!(
+        res["isError"], true,
+        "all-or-nothing: good_key from the failed batch must NOT exist"
+    );
+}
+
+/// MCP-19: vector dim mismatch against the live HNSW index is rejected at this
+/// trust boundary (parity with memory_put AUD-046), and empty inputs array is
+/// a param error.
+#[test]
+fn test_memory_put_batch_vector_and_empty_validation() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    // Define index dim = 3 with a vectorized record.
+    let seed = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "vec_ns", "key": "seed", "payload": "s",
+            "vector": [1.0, 0.0, 0.0]
+        }
+    }));
+    handle_tools_call(&seed, &executor, &storage, &cfg).unwrap();
+
+    // Batch carrying a mismatched-dim vector → domain error as error_content.
+    let mismatch = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {
+            "inputs": [
+                {"namespace": "vec_ns", "key": "ok", "payload": "fine"},
+                {"namespace": "vec_ns", "key": "bad_vec", "payload": "v",
+                 "vector": [1.0, 2.0]}
+            ]
+        }
+    }));
+    let res = handle_tools_call(&mismatch, &executor, &storage, &cfg).unwrap();
+    assert_eq!(res["isError"], true);
+    assert!(
+        res["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("dimension"),
+        "unexpected error text: {}",
+        res["content"][0]["text"]
+    );
+
+    // Empty inputs array → invalid_params.
+    let none = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {"inputs": []}
+    }));
+    assert!(handle_tools_call(&none, &executor, &storage, &cfg).is_err());
+}
