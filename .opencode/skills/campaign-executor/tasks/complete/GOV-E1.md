@@ -2,7 +2,7 @@
 
 - **Plan:** `docs/plans/2026-08-22-doc-governance-plan.md` (NO editable)
 - **Appetite:** max 45min · 🟢 · Prioridad 🟢
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (cerrado 2026-08-23 — steps verificados, WIP stale limpiado)
 - **Restricciones del orquestador:** PROHIBIDO git commit, PROHIBIDO borrar/mover archivos existentes. Solo se crea 1 documento nuevo.
 
 ## Steps

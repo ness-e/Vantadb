@@ -6,14 +6,14 @@ description: >
   tracks doc coverage, reconciles agent memory (lessons/decisions)
   with the project registry, and maintains cross-references across
   the VantaDB documentation tree. (Legacy name kept for call-site
-  compatibility; since 2026-08-23 the canonical tree is docs/avance,
-  NOT docs/progreso — which was migrated and removed.)
+   compatibility; since 2026-08-23 the canonical tree is docs/avance,
+   NOT the legacy progreso tree — which was migrated and removed.)
 compatibility: opencode
 ---
 
 # Progreso Skill — VantaDB (avance-canónico desde 2026-08-23)
 
-> **⚠️ CAMBIO DE CANONICIDAD:** `docs/progreso/` fue migrado físicamente a
+> **⚠️ CAMBIO DE CANONICIDAD:** el legacy `progreso/` fue migrado físicamente a
 > `docs/avance/historial/` y eliminado. El registro vivo de tareas completadas
 > es ahora el árbol **`docs/avance/`**, organizado por dominio. Esta skill
 > conserva su nombre por compatibilidad con los call sites (`skill progreso`),

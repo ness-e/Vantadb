@@ -3,7 +3,7 @@
 ## Metadata
 - **Plan file:** `docs/plans/2026-08-22-vanta-ultima-milla.md` (P33, Task 6)
 - **Creado:** 2026-08-22
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (cerrado 2026-08-23 — implementado y commiteado como f76f2c23; WIP stale limpiado)
 
 ## Impacto mapeado (Regla 0)
 - **Archivos leídos completos:** TDAM fuente @ `97f9465`: `MemoryProxy/src/agent-adapters/{types.ts (56L), claude-code.ts (25L), ../common/cc-request-classifier.ts (70L), ../common/user-text-extractor.ts (29L)}`. Local: `vanta-proxy/src/session.rs` (328L), `vanta-proxy/src/lib.rs` (22L), `vanta-proxy/src/capture.rs` (182L), `vanta-proxy/src/mem_command.rs` (1-70), `vanta-proxy/Cargo.toml`.

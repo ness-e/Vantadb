@@ -1,7 +1,7 @@
 # Task: GOV-B2 — Runbook DR sin comandos fantasma
 
 - **Plan:** docs/plans/2026-08-22-doc-governance-plan.md (NO editar)
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (cerrado 2026-08-23 — steps verificados, WIP stale limpiado)
 - **Archivos clave:** docs/operations/DISASTER_RECOVERY_RUNBOOK.md; src/cli.rs + src/cli_handlers/{backup,diagnostics}.rs (read-only)
 
 ## Impacto mapeado (Regla 0)

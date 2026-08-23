@@ -493,3 +493,9 @@
 - 2026-08-23 | 10 | Task 10 (D2 — Trim escaleras duplicadas) → completed | Contract: §Escalation ladder y §SARL reducidos a resumen 5 líneas + puntero a subagent-recovery.md; cero números contradictorios
 - 2026-08-23 | 11 | Task 11 (D3 — Manual → índice) → completed | Contract: banner deprecado + índice apuntando a fuentes canónicas; ≤200 líneas
 - 2026-08-23 | 12 | Task 12 (D4 — Limpieza decidida: statewright fuera, memoria versionada, AGENTS.md raíz) → completed | Contract: statewright eliminado; memory/ versionada (lessons+decisions commiteados); AGENTS.md raíz verificado como stub (sin divergencia)
+- 2026-08-23 | 1 | Task 1 (M1 — Migración física docs/progreso → docs/avance) → completed | Contract: Test-Path docs/progreso = False; todos los archivos accesibles bajo docs/avance/historial/fuentes/; rg "docs/progreso" sin matches en archivos vivos del sistema
+- 2026-08-23 | 2 | Task 2 (M2 — Skill progreso reescrita (flujo avance-canónico)) → completed | Contract: la skill ya no referencia docs/progreso como destino de escritura; escribe SOLO en docs/avance; nombre de skill se conserva (puntos de llamada intactos)
+- 2026-08-23 | 3 | Task 3 (M3 — Referencias vivas actualizadas) → completed | Contract: rg -l "docs/progreso" sobre sistema vivo (excluyendo tasks históricos/memory) = 0 matches
+- 2026-08-23 | 4 | Task 4 (U1 — Eliminar .agents/skills/vantadb-full-review/) → completed | Contract: directorio eliminado; grep confirma cero referencias activas (manifest ya lo marca REMOVED)
+- 2026-08-23 | 5 | Task 5 (D1 — Podar trigger words vanta-design-orchestrator) → completed | Contract: SKILL.md ≤6KB; catálogo completo intacto en layers/; reglas de orquestación preservadas
+- 2026-08-23 | 6 | Task 6 (V1 — Informe final de unificación y estado campaign-executor/unified-review) → completed | Contract: manifest actualizado (full-review entrada física eliminada); informe de hallazgos entregado al usuario
