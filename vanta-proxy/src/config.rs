@@ -25,6 +25,9 @@ pub struct ProxyConfig {
     pub mem_command: MemCommandConfig,
     /// L0 write-back persistence settings.
     pub writeback: WritebackConfig,
+    /// Optional per-turn span export to Langfuse/OTel over OTLP-JSON
+    /// (MEM-56). Disabled by default (empty endpoint).
+    pub report: ReportConfig,
 }
 
 impl ProxyConfig {
@@ -60,6 +63,27 @@ impl Default for WritebackConfig {
         Self {
             persist_path: "vanta-proxy-writeback-pending.json".to_string(),
         }
+    }
+}
+
+/// Optional per-turn span export to a Langfuse/OTel endpoint (MEM-56).
+/// Disabled by default so an unconfigured proxy pays zero overhead.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct ReportConfig {
+    /// OTLP/HTTP JSON endpoint receiving one span per turn (e.g. Langfuse
+    /// `https://cloud.langfuse.com/api/public/otel/v1/traces` or an OTel
+    /// collector). Empty (default) disables export entirely.
+    pub langfuse_endpoint: String,
+    /// Raw value of the `Authorization` header sent with each export
+    /// (e.g. Langfuse basic auth). Empty omits the header.
+    pub langfuse_auth_header: String,
+}
+
+impl ReportConfig {
+    /// Export is on only when an endpoint is configured.
+    pub fn enabled(&self) -> bool {
+        !self.langfuse_endpoint.is_empty()
     }
 }
 

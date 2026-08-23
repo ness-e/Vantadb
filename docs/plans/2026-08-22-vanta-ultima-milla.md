@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Última Milla — integración producto end-to-end
 
 > **Inicio:** 2026-08-22
-> **Estado: completed
+> **Estado:** ✅ COMPLETADO (10/10 tareas — Última Milla)
 > **Fuente:** auditoría de integración final (`docs/reviews/2026-08-22-auditoria-integracion-final.md`) + decisiones del usuario (2026-08-22)
 > **Predecesores:** P27+P29+P30+P31+P32 ✅ (54 tareas) — roadmap TDAM 100% + bindings
 > **Modo:** waves por dependencias. Sin release durante la campaña (decisión usuario).
@@ -35,7 +35,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Archivos clave:** `vanta-proxy/src/handlers/{openai,anthropic,responses}.rs` (editar), `writeback.rs` (API si falta)
 - **Verificación real:** ✅ AUDITORÍA — WriteBack construido+flusheado pero cero llamadas track() (auditoría H1)
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: cargo test -p vantadb --lib (1917 passed, 5 tests scan MCP-29 OK) + cargo test -p vantadb-mcp (round-trip query_iql OK) + clippy all-targets limpio + fmt --check OK || evidencia: claim=SELECT * FROM <ns> alcanza records → evidencia=test physical_plan::scan::tests::select_from_namespace_reaches_memory_record_without_migration (alta); claim=namespace con '/' alcanzable → evidencia=namespace_with_slashes_is_queryable_via_sanitized_table + mcp_tests round-trip 'mmd/s1/history' (alta); claim=colisión grafo/ns → evidencia=collision_between_graph_type_and_namespace_returns_union (UNION) (alta); claim=get/list sin cambios → evidencia=no se tocó memory_record_to_node/from_node (diff verificado) (alta) || artefactos: src/sdk/serialization/mod.rs, src/physical_plan/scan.rs, vantadb-mcp/src/handlers/tools.rs, vantadb-mcp/tests/mcp_tests.rs, .opencode/skills/{vantadb,vantadb-mcp}/SKILL.md, docs/api/MCP.md, docs/Backlog.md || invariantes: get/list semántica intacta; consumers de campo type del grafo intactos; NO commitear cambios ajenos del worktree (desktop/, scripts/, docs/plans/, MEM-58.md) || deuda: sanitización no inyectiva ('a/b'=='a_b') documentada con ponytail: en helper — upgrade path escaping scheme || queda_pendiente: commit por el lead
+- **Contrato: verificacion: cargo check/test/fmt/clippy -p vanta-proxy --all-targets ✅ 89 tests passed; evidencia: claim 'turno → span OTLP emitido' evidencia vanta-proxy/src/langfuse.rs test turn_is_exported_as_otlp_span_to_mock_collector (collector TcpListener mockeado) confianza alta | claim 'disabled default' evidencia test disabled_when_no_endpoint_configured + ReportConfig::default().enabled()==false confianza alta | claim 'fallo red nunca bloquea' evidencia test network_failure_returns_err_without_blocking + hook mpsc unbounded + worker thread timeout 5s confianza alta | decision OTLP-JSON sin SDK: serde_json::json! resourceSpans + reqwest blocking (feature agregada, no dep nueva) evita opentelemetry-sdk ~30 crates; artefactos: vanta-proxy/src/langfuse.rs (nuevo), vanta-proxy/src/config.rs ([report] ReportConfig), vanta-proxy/src/server.rs (wiring from_engine), vanta-proxy/src/lib.rs, vanta-proxy/Cargo.toml, vanta-proxy/tests/{pipeline,proxy_wire,tool_loop}.rs (campo report en literales); invariantes: NO tocar wal.rs/vector/storage/core; Reporter.emit sincrono llama hook solo con channel send; TOMLs existentes sin [report] siguen parseando; deuda: traceId/spanId derivados de timestamp ns (no aleatorios — suficiente para observabilidad, upgrade a ids aleatorios si se requiere correlación estricta); worker thread no tiene backpressure bounded (unbounded channel, aceptado por P4); queda_pendiente: commit lo hace el lead (orden: no commitear); MCP task-state bloqueado por WIP ajeno (GOV-B2/GOV-E1/MEM-57 in-progress) — task file MEM-56.md marcado COMPLETED como fuente de verdad
 - **Risk Register:** 🟢×🟠 extraer user-text del request puede necesitar MEM-57 parcial → implementar extracción mínima inline, refinar con Task 8
 - **Cynefin:** 🟦 obvio
 - **Estado:** ✅ COMPLETED
@@ -146,7 +146,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Gate Result:** ✅ DO
 - **Contrato:** "test e2e Tauri: consolidar con backend disponible usa pipeline real (report con modo/tokens); sin backend → fallback heurístico actual"
 - **Cynefin:** 🟨 complicado
-- **Estado:** ✅ COMPLETED (cierre por lead — 2 sub-agentes agotados por memoria; trabajo heredado verificado: cargo check/test 88 ✅ fmt/clippy ✅ vitest consolidate ✅)
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-58.md`
 - **Notas:** Ruta: vanta-worker. DEPENDE de Tasks 1 (engine) y 8 (IPC).
 
@@ -156,7 +156,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Gate Result:** ✅ DO
 - **Contrato:** "tests D19 con collector mockeado: turno → spans emitidos; disabled default; fallo de red nunca bloquea proxy (P4)"
 - **Cynefin:** 🟦 obvio
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-56.md`
 - **Notas:** Ruta: vanta-worker. DEPENDE de Task 2 (TurnReport por turno del loop). OJO: puede requerir dep OTLP — evaluar feature-gate estricto o formato OTLP-JSON manual sin SDK (ponytail).
 
@@ -182,12 +182,12 @@ Verify del lead SIEMPRE `--all-targets` (lección MEM-48) · SARL con feedback e
 ---
 
 === RECITATION ===
-Campaign ID: 3ca9b6a9-0184-44b1-b559-554684104df3
-Objetivo activo: MCP-29 — namespaces de memoria como tablas IQL (SELECT * FROM <ns> alcanza memory records)
+Campaign ID: 85900bf4-19e6-4843-af31-9833c8b12413
+Objetivo activo: P33 Task 10 / MEM-56 — Hook Langfuse/OTLP sobre ReportHook
 Estado: pending ⏳
-Última acción: Reanudado trabajo parcial (helper + scan + tests ya en worktree): verificado con git diff, corrida verificación completa (check/lib-tests/scan-tests/mcp-tests/clippy/fmt), actualizados SKILL.md ×2 + docs/api/MCP.md + fila Backlog ✅ + task file con RESULTADO. Variante A: match por namespace sanitizado en PhysicalScan, sin write-path changes ni migración.
+Última acción: MEM-56 completo: langfuse.rs OTLP-JSON manual (hook mpsc→worker thread reqwest blocking 5s timeout), config [report] off-by-default, wiring en from_engine, 4 tests D19 verdes, verify mecánico 4/4
 Resultado: OK
-Próxima acción: Lead comitea solo los archivos de MCP-29 (worktree tiene cambios ajenos en desktop/, scripts/, docs/plans/) — mensaje sugerido: feat: MCP-29 — namespaces de memoria como tablas IQL
+Próxima acción: Plan P33 completo (10/10). Orquestador: revisar diff, commitear, cerrar campaña y decidir release (checkpoint CP3/cierre del plan)
 Contrato: por tarea — cargo check/nextest/fmt/clippy --all-targets del crate tocado exit 0 + tests D19
-Próxima tarea si completa: ninguno (tarea cerrada)
+Próxima tarea si completa: ninguna — última tarea
 === END RECITATION ===

@@ -12,6 +12,7 @@ pub mod error;
 pub mod forward;
 pub mod handlers;
 pub mod inject;
+pub mod langfuse;
 pub mod mem_command;
 pub mod memory_tools;
 pub mod rate_limit;

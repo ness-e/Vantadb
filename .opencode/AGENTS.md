@@ -694,3 +694,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: MEM-57 — 2026-08-22 -->
 - Port TS->Rust de parsers defensivos: los helpers con optional-chaining se traducen limpios con nd_then/is_none_or/ind_map sobre iteradores .rev(); el ? dentro del closure de ind_map significa "seguir buscando", no abortar.
 - Clippy doc-lazy-continuation: un parrafo que sigue a una lista markdown en doc comments necesita linea en blanco separadora, si no es error bajo -D warnings.
+
+<!-- Learnings: MEM-56 — 2026-08-23 -->
+- OTLP/HTTP acepta JSON armado a mano (`resourceSpans[]` shape fijo): para exportar spans de 6 campos no hace falta opentelemetry-sdk (~30 crates transitivas) — serde_json::json! + reqwest POST cubre todo; ids OTel solo exigen hex del largo correcto (32/16), derivarlos del timestamp ns basta para observabilidad.
+- Hook síncrono que nunca bloquea el wire: `mpsc::Sender::send` unbounded en el closure + UN worker thread dueño del client blocking con timeout — el fallo de red muere en el worker como warn, el caller paga solo un send.

@@ -74,10 +74,16 @@ impl AppState {
         let forwarder = Forwarder::new(&config.upstream)?;
         let persist_path = (!config.writeback.persist_path.is_empty())
             .then(|| std::path::PathBuf::from(&config.writeback.persist_path));
+        let reporter = Reporter::new();
+        // MEM-56: optional OTLP span export — None (no hook) unless an
+        // endpoint is configured in `[report]`.
+        if let Some(hook) = crate::langfuse::langfuse_hook(&config.report) {
+            reporter.add_hook(hook);
+        }
         Ok(Self {
             limiter: RateLimiter::new(config.server.rate_limit_per_minute).into(),
             writeback: WriteBack::new(persist_path).into(),
-            reporter: Reporter::new().into(),
+            reporter: reporter.into(),
             config: Arc::new(config),
             forwarder: Arc::new(forwarder),
             auth: AuthDb::new(engine.clone()).into(),
