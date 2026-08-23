@@ -44,6 +44,12 @@ Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña
 
 ## Proceso / Pipeline
 
+### 2026-08-23 — Task-System Hardening I + II (campañas cerradas y archivadas)
+- **Hardening I** (H1-H9): hardening del campaign server (locks, verify) + question gates HITL con umbral único — 38/38 tests (`fcd7b243`, `26f68ff7`).
+- **Hardening II** (R1-R7, S1, D1-D4): paralelismo real multi-instancia (recitation por-tarea, claim temprano anti doble-Discovery, locks session/snapshot, lock wait cap, guard >1 plan activo, rotación verify-log + eval_summary/lock_info, classify_workflow robusto), spec-first obligatorio (`prompts/spec-template.md`), routing de questions documentado, trim SKILL/SARL, manual→índice, statewright fuera + memoria versionada — 42/42 tests (`1a86bd2a`, `ed6c6ae7`, `b8a23939`, `3cc0aa50`).
+- Fix adicional: persistencia de Campaign ID en `updateTaskStateCore`. **Nota operativa:** reiniciar OpenCode para que el server cargue el código R1-R7.
+- Planes archivados: `docs/plans/archive/2026-08-23-task-system-hardening{,-2}.md`; retrospectivas en `docs/progreso/campanas/planes-archivados-punteros.md`.
+
 ### 2026-08-22 — GOV-D1: catch-up del mirror + dominios faltantes
 - El mirror `activo/` estaba congelado al 20/08 y sin los crates creados después: `vanta-proxy`, context engine, y las campañas P29/P30/P31 sin registrar (MEM-43 `a0bcb112` / MEM-44 `785db22c` ausentes).
 - **Fix:** 3 archivos de dominio nuevos por campaña (no commit-por-commit): `activo/vanta-memory.md` (P27 F1-F4 + P29 + P31), `activo/vanta-proxy.md` (P30 F6-F7: MEM-25..33), `activo/context-engine.md` (MEM-22/23/24/37 + wiring `a0bcb112`). Contrato del mirror actualizado (sección arriba).
