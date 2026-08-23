@@ -14,6 +14,15 @@ pub struct VantaEdgeRecord {
     pub label: String,
     /// Edge weight for weighted graph algorithms.
     pub weight: f32,
+    /// Whether this entry is the auto-created reverse half of a bidirectional
+    /// edge (`add_edge`). Load-bearing for directional traversal
+    /// (`TraversalDirection::Reverse`, src/graph.rs) and preserved so a
+    /// serialize→restore cycle keeps topology identical. CORE-02.
+    #[serde(default)]
+    pub reverse: bool,
+    /// Logical creation timestamp (Unix-ms). `0` when unknown (legacy data).
+    #[serde(default)]
+    pub created_at_ms: u64,
 }
 
 /// Stable node payload accepted by external SDKs.
@@ -106,6 +115,8 @@ pub(crate) fn unified_to_record(node: UnifiedNode, label_intern: &LabelIntern) -
                 .unwrap_or("<unknown>")
                 .to_string(),
             weight: edge.weight,
+            reverse: edge.reverse,
+            created_at_ms: edge.created_at_ms,
         })
         .collect();
 
@@ -215,12 +226,26 @@ mod tests {
             target: 100,
             label: "connected_to".into(),
             weight: 0.75,
+            reverse: false,
+            created_at_ms: 1234,
         };
         let json = serde_json::to_string(&edge).unwrap();
         let deserialized: VantaEdgeRecord = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, edge);
         // verify u128 is serialized as string
         assert!(json.contains("\"100\""));
+    }
+
+    /// CORE-02: legacy JSON written before `reverse`/`created_at_ms` existed
+    /// must keep deserializing (serde defaults) — old snapshots stay readable.
+    #[test]
+    fn test_edge_record_deserializes_legacy_json_without_new_fields() {
+        let legacy = r#"{"target":"7","label":"knows","weight":1.0}"#;
+        let edge: VantaEdgeRecord = serde_json::from_str(legacy).expect("legacy json parses");
+        assert_eq!(edge.target, 7);
+        assert_eq!(edge.label, "knows");
+        assert!(!edge.reverse);
+        assert_eq!(edge.created_at_ms, 0);
     }
 
     #[test]
@@ -238,6 +263,8 @@ mod tests {
                 target: 1,
                 label: "edge".into(),
                 weight: 1.0,
+                reverse: false,
+                created_at_ms: 0,
             }],
             confidence_score: 0.8,
             importance: 0.3,

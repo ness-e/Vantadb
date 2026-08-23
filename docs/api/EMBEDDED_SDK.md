@@ -417,6 +417,12 @@ pub struct VantaEdgeRecord {
     pub target: u128,
     pub label: String,
     pub weight: f32,
+    /// True for the auto-created reverse half of a bidirectional edge
+    /// (`add_edge`). Load-bearing for directional traversal.
+    /// `#[serde(default)]` — legacy JSON without these fields deserializes.
+    pub reverse: bool,
+    /// Logical creation timestamp (Unix-ms); `0` when unknown (legacy data).
+    pub created_at_ms: u64,
 }
 ```
 

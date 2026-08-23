@@ -513,6 +513,10 @@ impl VantaDB {
                 db.inner.import_records(records).map_err(to_js_err)?;
             }
         }
+        // CORE-02: restore the graph store alongside the memory records.
+        if let Some(graph) = db.worker_read("graph_state.json").await? {
+            db.restore_graph_payload(&graph)?;
+        }
         Ok(db)
     }
 
@@ -719,6 +723,26 @@ impl VantaDB {
         Ok(Some(out.into_bytes()))
     }
 
+    /// Build the serialized `graph_state.json` payload (CORE-02): every live
+    /// non-memory-record node with labels/edges resolved, so the graph store
+    /// survives an OPFS/IDB reopen. Unlike `persist_payload` this is a full
+    /// rewrite each save — ponytail: differential graph persist only if saves
+    /// ever show up in a profile.
+    fn graph_payload(&self) -> Result<Vec<u8>, JsValue> {
+        let nodes = self.inner.collect_graph_nodes().map_err(to_js_err)?;
+        serde_json::to_vec(&nodes).map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))
+    }
+
+    /// Restore graph nodes from a `graph_state.json` payload (CORE-02).
+    fn restore_graph_payload(&self, data: &[u8]) -> Result<(), JsValue> {
+        let nodes: Vec<VantaNodeRecord> = serde_json::from_slice(data)
+            .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
+        if !nodes.is_empty() {
+            self.inner.restore_graph_nodes(nodes).map_err(to_js_err)?;
+        }
+        Ok(())
+    }
+
     /// Persist in-memory records to OPFS storage using differential writes.
     ///
     /// Only records changed since the last successful `save` are serialized;
@@ -729,19 +753,20 @@ impl VantaDB {
             Some(o) => o,
             None => return Ok(()),
         };
-        match self.persist_payload()? {
-            Some(data) => {
-                if let Err(e) = opfs.write_file("db_state.json", &data).await {
-                    // Write failed: force a full rebuild+rewrite on the next
-                    // save instead of silently skipping (dirty was already
-                    // drained by persist_payload).
-                    self.mark_cache_invalid();
-                    return Err(e);
-                }
-                Ok(())
+        if let Some(data) = self.persist_payload()? {
+            if let Err(e) = opfs.write_file("db_state.json", &data).await {
+                // Write failed: force a full rebuild+rewrite on the next
+                // save instead of silently skipping (dirty was already
+                // drained by persist_payload).
+                self.mark_cache_invalid();
+                return Err(e);
             }
-            None => Ok(()), // nothing changed since last persist
         }
+        // CORE-02: graph nodes live outside the memory-record snapshot —
+        // always rewrite so deletions are reflected (small file, standalone
+        // scale).
+        let graph = self.graph_payload()?;
+        opfs.write_file("graph_state.json", &graph).await
     }
 
     /// Persist in-memory records to IndexedDB storage using differential writes.
@@ -750,16 +775,15 @@ impl VantaDB {
     /// serialized; if nothing changed the file write is skipped (PERF-08).
     pub async fn save_idb(&self) -> Result<(), JsValue> {
         let _g = enter(&self.op_gate)?;
-        match self.persist_payload()? {
-            Some(data) => {
-                if let Err(e) = IdbStorage::write_file("db_state.json", &data).await {
-                    self.mark_cache_invalid();
-                    return Err(e);
-                }
-                Ok(())
+        if let Some(data) = self.persist_payload()? {
+            if let Err(e) = IdbStorage::write_file("db_state.json", &data).await {
+                self.mark_cache_invalid();
+                return Err(e);
             }
-            None => Ok(()), // nothing changed since last persist
         }
+        // CORE-02: see save() — graph snapshot rides alongside db_state.json.
+        let graph = self.graph_payload()?;
+        IdbStorage::write_file("graph_state.json", &graph).await
     }
 
     /// Restore all records from IndexedDB storage into memory.
@@ -775,12 +799,18 @@ impl VantaDB {
         if !records.is_empty() {
             self.inner.import_records(records).map_err(to_js_err)?;
         }
+        // CORE-02: restore the graph store if a snapshot exists (older
+        // snapshots without graph_state.json restore nothing here).
+        if let Some(graph) = IdbStorage::read_file("graph_state.json").await? {
+            self.restore_graph_payload(&graph)?;
+        }
         Ok(())
     }
 
     /// Delete persisted state from IndexedDB.
     pub async fn delete_idb(&self) -> Result<(), JsValue> {
-        IdbStorage::delete_file("db_state.json").await
+        IdbStorage::delete_file("db_state.json").await?;
+        IdbStorage::delete_file("graph_state.json").await
     }
 
     /// Restore all records from OPFS storage into memory.
@@ -799,6 +829,11 @@ impl VantaDB {
         self.populate_cache_from_records(&records);
         if !records.is_empty() {
             self.inner.import_records(records).map_err(to_js_err)?;
+        }
+        // CORE-02: restore the graph store if a snapshot exists (older
+        // snapshots without graph_state.json restore nothing here).
+        if let Some(graph) = opfs.read_file("graph_state.json").await? {
+            self.restore_graph_payload(&graph)?;
         }
         Ok(())
     }
@@ -1517,6 +1552,116 @@ struct GraphDegreeEntry {
 
 fn to_js_err(e: VantaError) -> JsValue {
     js_sys::Error::new(&e.to_string()).into()
+}
+
+// ── CORE-02: graph-store persistence roundtrip (wasm-bindgen layer) ─────
+//
+// Contract: insert edge → IQL FROM returns it, across the same save/restore
+// boundary the standalone Studio uses. Runs under `wasm-pack test --node`
+// (no OPFS/IDB needed — the payload helpers are exercised directly).
+
+#[cfg(all(test, target_arch = "wasm32"))]
+mod core02_graph_persist_tests {
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    /// Nodes created via IQL (typed), edges via the binding graph API.
+    fn seed_graph(db: &VantaDB) {
+        db.query(r#"INSERT NODE#1 TYPE Person {}"#)
+            .expect("insert#1");
+        db.query(r#"INSERT NODE#2 TYPE Person {}"#)
+            .expect("insert#2");
+        db.add_edge("1", "2", "knows", Some(0.75), None)
+            .expect("add_edge");
+    }
+
+    /// Read result helper: `{"Read": [nodeRecord...]}`.
+    fn read_nodes(result: JsValue) -> Vec<(String, Vec<VantaEdgeRecord>)> {
+        let arr = js_sys::Reflect::get(&result, &"Read".into()).expect("Read variant");
+        let arr = js_sys::Array::from(&arr);
+        let mut out = Vec::new();
+        for i in 0..arr.length() {
+            let rec = arr.get(i);
+            let id = js_sys::Reflect::get(&rec, &"id".into())
+                .unwrap()
+                .as_string()
+                .unwrap();
+            // Edges come through as plain JS objects; pull label/target back.
+            let edges_js = js_sys::Reflect::get(&rec, &"edges".into()).unwrap();
+            let edges_arr = js_sys::Array::from(&edges_js);
+            let mut edges = Vec::new();
+            for j in 0..edges_arr.length() {
+                let e = edges_arr.get(j);
+                edges.push(VantaEdgeRecord {
+                    target: js_sys::Reflect::get(&e, &"target".into())
+                        .unwrap()
+                        .as_string()
+                        .unwrap()
+                        .parse()
+                        .unwrap(),
+                    label: js_sys::Reflect::get(&e, &"label".into())
+                        .unwrap()
+                        .as_string()
+                        .unwrap(),
+                    weight: js_sys::Reflect::get(&e, &"weight".into())
+                        .unwrap()
+                        .as_f64()
+                        .unwrap() as f32,
+                    reverse: js_sys::Reflect::get(&e, &"reverse".into())
+                        .unwrap()
+                        .as_bool()
+                        .unwrap_or(false),
+                    created_at_ms: 0,
+                });
+            }
+            out.push((id, edges));
+        }
+        out
+    }
+
+    #[wasm_bindgen_test]
+    fn graph_roundtrip_through_snapshot_payload() {
+        let db = VantaDB::new(None).expect("db");
+        seed_graph(&db);
+
+        // In-session: IQL FROM sees the edge (MCP-29 scan path).
+        let nodes = read_nodes(db.query("SELECT * FROM Person").expect("query"));
+        assert_eq!(nodes.len(), 2, "both persons visible in-session");
+        let (_, alice_edges) = nodes.iter().find(|(id, _)| id == "1").expect("alice");
+        assert!(
+            alice_edges
+                .iter()
+                .any(|e| e.label == "knows" && e.target == 2),
+            "edge visible to IQL in-session"
+        );
+
+        // Persistence boundary: snapshot → fresh engine → restore.
+        let payload = db.graph_payload().expect("graph_payload");
+        let db2 = VantaDB::new(None).expect("db2");
+        db2.restore_graph_payload(&payload).expect("restore");
+
+        let nodes2 = read_nodes(db2.query("SELECT * FROM Person").expect("query2"));
+        assert_eq!(nodes2.len(), 2, "graph store must survive the snapshot");
+        let (_, restored_edges) = nodes2.iter().find(|(id, _)| id == "1").expect("alice2");
+        let edge = restored_edges
+            .iter()
+            .find(|e| e.label == "knows")
+            .expect("edge survives restore");
+        assert_eq!(edge.target, 2);
+        assert!((edge.weight - 0.75).abs() < f32::EPSILON);
+        assert!(!edge.reverse);
+
+        // Directional traversal intact after restore (reverse flag preserved).
+        let bfs = db2
+            .graph_bfs(vec!["1".to_string()], 1, "Forward".to_string())
+            .expect("bfs");
+        let visited = js_sys::Array::from(&bfs);
+        assert!(
+            visited.length() >= 2,
+            "traversal reaches bob after restore, got {}",
+            visited.length()
+        );
+    }
 }
 
 /// Parse a graph node id from a JS string.

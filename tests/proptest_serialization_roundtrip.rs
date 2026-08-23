@@ -133,7 +133,13 @@ proptest! {
     fn test_edge_record_json_roundtrip(
         target: u128, label: String, weight: f32,
     ) {
-        assert_json(&VantaEdgeRecord { target, label, weight });
+        assert_json(&VantaEdgeRecord {
+            target,
+            label,
+            weight,
+            reverse: false,
+            created_at_ms: 0,
+        });
     }
 }
 
@@ -519,13 +525,22 @@ fn arb_query_result_json() -> impl Strategy<Value = VantaQueryResult> {
 }
 
 fn arb_edge_record() -> impl Strategy<Value = VantaEdgeRecord> {
-    (arb_u128(), any::<String>(), any::<f32>()).prop_map(|(target, label, weight)| {
-        VantaEdgeRecord {
-            target,
-            label,
-            weight,
-        }
-    })
+    (
+        arb_u128(),
+        any::<String>(),
+        any::<f32>(),
+        any::<bool>(),
+        any::<u64>(),
+    )
+        .prop_map(
+            |(target, label, weight, reverse, created_at_ms)| VantaEdgeRecord {
+                target,
+                label,
+                weight,
+                reverse,
+                created_at_ms,
+            },
+        )
 }
 
 fn arb_node_record_full() -> impl Strategy<Value = VantaNodeRecord> {
@@ -681,7 +696,13 @@ proptest! {
 proptest! {
     #[test]
     fn test_edge_record_json_roundtrip_int(label: String) {
-        let edge = VantaEdgeRecord { target: 0, label, weight: 0.0 };
+        let edge = VantaEdgeRecord {
+        target: 0,
+        label,
+        weight: 0.0,
+        reverse: false,
+        created_at_ms: 0,
+    };
         let json = serde_json::to_string(&edge).unwrap();
         let recovered: VantaEdgeRecord = serde_json::from_str(&json).unwrap();
         // f64 fields may differ by 1 ULP through JSON — verify structure instead

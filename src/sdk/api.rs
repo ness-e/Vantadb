@@ -1238,6 +1238,81 @@ impl VantaEmbedded {
         engine.insert(&target)
     }
 
+    /// Collect every live non-memory-record node as an SDK record (CORE-02).
+    ///
+    /// Nodes that carry [`FIELD_NAMESPACE`] belong to the memory-record layer
+    /// and are exported by the memory snapshot (`collect_all_deduped`); every
+    /// other live node is a graph node (created via `insert_node`, `add_edge`
+    /// or IQL INSERT/RELATE). The WASM binding persists these alongside
+    /// `db_state.json` so the graph store survives an OPFS/IDB reopen.
+    pub fn collect_graph_nodes(&self) -> Result<Vec<VantaNodeRecord>> {
+        let engine = self.engine_handle()?;
+        let ids: Vec<u128> = engine
+            .backend
+            .scan(BackendPartition::Default)?
+            .iter()
+            .filter_map(|(key_bytes, _)| {
+                let arr: [u8; 16] = key_bytes.as_slice().try_into().ok()?;
+                Some(u128::from_le_bytes(arr))
+            })
+            .collect();
+        let mut out = Vec::new();
+        for mut node in engine.get_many(&ids)? {
+            if engine.is_deleted(node.id)? {
+                continue;
+            }
+            if node.relational.contains_key(FIELD_NAMESPACE) {
+                continue; // memory record — owned by the memory snapshot
+            }
+            out.push(engine.node_to_record(std::mem::take(&mut node)));
+        }
+        Ok(out)
+    }
+
+    /// Restore graph nodes previously exported by [`VantaEmbedded::collect_graph_nodes`]
+    /// (CORE-02). Edge labels are re-interned into the fresh engine's label
+    /// table; weights, direction (`reverse`) and creation timestamps are
+    /// preserved so traversal behaves identically after restore. Returns the
+    /// number of nodes restored.
+    pub fn restore_graph_nodes(&self, records: Vec<VantaNodeRecord>) -> Result<usize> {
+        self.check_read_only()?;
+        crate::metrics::record_graph_op("restore_graph_nodes");
+        let engine = self.engine_handle()?;
+        let mut restored = 0usize;
+        for record in records {
+            let mut node = UnifiedNode::new(record.id);
+            for (key, value) in record.fields {
+                node.set_field(&key, value.into());
+            }
+            if let Some(vector) = record.vector.filter(|v| Self::usable_vector(v)) {
+                node.vector = VectorRepresentations::Full(vector);
+                node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+            }
+            for edge in record.edges {
+                let label_id = engine.intern_label(&edge.label);
+                node.edges.push(crate::node::Edge {
+                    target: edge.target,
+                    label_id,
+                    weight: edge.weight,
+                    reverse: edge.reverse,
+                    created_at_ms: edge.created_at_ms,
+                });
+            }
+            node.tier = match record.tier {
+                VantaStorageTier::Hot => crate::node::NodeTier::Hot,
+                VantaStorageTier::Cold => crate::node::NodeTier::Cold,
+            };
+            node.confidence_score = record.confidence_score;
+            node.importance = record.importance;
+            node.hits = record.hits;
+            node.last_accessed = record.last_accessed;
+            node.epoch = record.epoch;
+            engine.insert(&node)?;
+            restored += 1;
+        }
+        Ok(restored)
+    }
+
     /// Execute an IQL query.
     #[tracing::instrument(skip(self), err)]
     pub fn query(&self, query: &str) -> Result<VantaQueryResult> {
@@ -1989,6 +2064,121 @@ mod tests {
         let e = make_embedded(false);
         let err = e.query("GET *").unwrap_err();
         assert!(err.to_string().contains("initialized"), "got: {:?}", err);
+    }
+
+    /// CORE-02: graph nodes survive a collect → fresh-engine → restore cycle
+    /// with labels re-interned, direction (`reverse`) and weights intact, and
+    /// become visible to IQL FROM queries — the persistence contract the WASM
+    /// standalone snapshot relies on. Memory-record-shaped nodes (carrying
+    /// FIELD_NAMESPACE) must NOT be collected (they belong to db_state.json).
+    #[test]
+    fn test_core02_collect_restore_graph_roundtrip() {
+        let e = make_embedded_real();
+
+        let mut alice_fields = VantaFields::new();
+        alice_fields.insert("type".into(), VantaValue::String("Person".into()));
+        e.insert_node(VantaNodeInput {
+            id: 1,
+            content: Some("alice".into()),
+            vector: Some(vec![1.0, 0.0]),
+            fields: alice_fields,
+        })
+        .unwrap();
+        let mut bob_fields = VantaFields::new();
+        bob_fields.insert("type".into(), VantaValue::String("Person".into()));
+        e.insert_node(VantaNodeInput {
+            id: 2,
+            content: Some("bob".into()),
+            vector: None,
+            fields: bob_fields,
+        })
+        .unwrap();
+        e.add_edge(1, 2, "knows", Some(0.75), None).unwrap();
+
+        // Memory-shaped node stays out of the graph export.
+        let mut mem_fields = VantaFields::new();
+        mem_fields.insert(
+            FIELD_NAMESPACE.to_string(),
+            VantaValue::String("default".into()),
+        );
+        e.insert_node(VantaNodeInput {
+            id: 999,
+            content: None,
+            vector: None,
+            fields: mem_fields,
+        })
+        .unwrap();
+
+        let exported = e.collect_graph_nodes().unwrap();
+        assert_eq!(exported.len(), 2, "memory record must be excluded");
+        let alice = exported.iter().find(|n| n.id == 1).expect("alice");
+        assert_eq!(alice.edges.len(), 1);
+        assert_eq!(alice.edges[0].target, 2);
+        assert_eq!(alice.edges[0].label, "knows");
+        assert!(!alice.edges[0].reverse);
+        let bob = exported.iter().find(|n| n.id == 2).expect("bob");
+        assert!(bob.edges[0].reverse, "reverse half must be exported");
+
+        // Fresh engine = what a reopened WASM standalone instance sees.
+        let e2 = make_embedded_real();
+        assert_eq!(e2.restore_graph_nodes(exported).unwrap(), 2);
+
+        // Contract: query IQL (FROM) returns the restored edge.
+        match e2.query("SELECT * FROM Person").unwrap() {
+            VantaQueryResult::Read(nodes) => {
+                assert_eq!(nodes.len(), 2);
+                let alice = nodes
+                    .iter()
+                    .find(|n| n.id == 1)
+                    .expect("alice visible to IQL");
+                assert_eq!(alice.edges[0].label, "knows");
+                assert!((alice.edges[0].weight - 0.75).abs() < f32::EPSILON);
+                assert!(!alice.edges[0].reverse);
+            }
+            other => panic!("expected Read result, got {other:?}"),
+        }
+
+        // Directional traversal data survived: reverse flag + label table.
+        let engine = e2.engine_handle().unwrap();
+        let bob_node = engine.get(2).unwrap().unwrap();
+        let rev = bob_node
+            .edges
+            .iter()
+            .find(|x| x.target == 1)
+            .expect("reverse edge restored");
+        assert!(rev.reverse);
+    }
+
+    /// CORE-02: IQL writes (INSERT + RELATE) produce collectible graph nodes —
+    /// the write leg of the standalone roundtrip.
+    #[test]
+    fn test_core02_iql_insert_relate_collected_by_graph_export() {
+        let e = make_embedded_real();
+        e.query(r#"INSERT NODE#10 TYPE Person { text: "alice" }"#)
+            .unwrap();
+        e.query(r#"INSERT NODE#11 TYPE Person { text: "bob" }"#)
+            .unwrap();
+        e.query("RELATE NODE#10 --\"knows\"--> NODE#11").unwrap();
+
+        let exported = e.collect_graph_nodes().unwrap();
+        assert_eq!(exported.len(), 2);
+        let alice = exported.iter().find(|n| n.id == 10).expect("node#10");
+        assert!(
+            alice
+                .edges
+                .iter()
+                .any(|x| x.label == "knows" && x.target == 11),
+            "RELATE edge must appear in export, got {:?}",
+            alice.edges
+        );
+
+        // Restore into a fresh engine and confirm IQL still resolves it.
+        let e2 = make_embedded_real();
+        e2.restore_graph_nodes(exported).unwrap();
+        match e2.query("SELECT * FROM Person").unwrap() {
+            VantaQueryResult::Read(nodes) => assert_eq!(nodes.len(), 2),
+            other => panic!("expected Read result, got {other:?}"),
+        }
     }
 
     #[test]

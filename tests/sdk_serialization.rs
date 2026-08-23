@@ -153,6 +153,8 @@ fn test_node_record_serialize() {
             target: 2,
             label: "related".into(),
             weight: 0.8,
+            reverse: false,
+            created_at_ms: 0,
         }],
         confidence_score: 0.9,
         importance: 0.5,
