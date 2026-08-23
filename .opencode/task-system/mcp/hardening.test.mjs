@@ -9,8 +9,9 @@ import {
   detectType,
   consumeBudget,
   findInProgressTasks,
+  findPlanFile,
 } from "./campaign-server.mjs"
-import { updateRecitation, extractCampaignId, getOrCreateCampaignId } from "./parsers.mjs"
+import { updateRecitation, extractCampaignId, getOrCreateCampaignId, parseRecitation, extractAutonomous } from "./parsers.mjs"
 
 function tmpWorktree() {
   const wt = mkdtempSync(join(tmpdir(), "vanta-hard-"))
@@ -81,6 +82,42 @@ test("H1+: getOrCreateCampaignId reemplaza placeholder sin ID válido (no insert
   assert.ok(r.campaignId)
   assert.equal((r.content.match(/Campaign ID/g) || []).length, 1)
   assert.equal(extractCampaignId(r.content), r.campaignId)
+})
+
+test("R1: recitation por-tarea — bloques de 2 tareas coexisten sin pisarse", () => {
+  let content = "# Plan\n"
+  content = updateRecitation(content, { taskId: "T8", campaignId: "c1", activeGoal: "T8", status: "verify", lastAction: "a8", result: "OK" })
+  content = updateRecitation(content, { taskId: "T9", campaignId: "c1", activeGoal: "T9", status: "act", lastAction: "a9", result: "OK" })
+  assert.match(content, /=== RECITATION T8 ===/)
+  assert.match(content, /=== RECITATION T9 ===/)
+  // Update de T9 NO toca el bloque de T8.
+  content = updateRecitation(content, { taskId: "T9", campaignId: "c1", status: "verify", lastAction: "a9b" })
+  const t9 = parseRecitation(content, "T9")
+  const t8 = parseRecitation(content, "T8")
+  assert.equal(t9.lastAction, "a9b")
+  assert.equal(t8.lastAction, "a8")
+  assert.equal(t8.status, "verify")
+})
+
+test("R1: bloque legacy sin ID sigue parseando y updateRecitation global no crea duplicados", () => {
+  const legacy = "=== RECITATION ===\nEstado: act\n=== END RECITATION ==="
+  const r = parseRecitation(legacy)
+  assert.equal(r.status, "act")
+  const out = updateRecitation(legacy + "\n", { status: "verify", lastAction: "x" })
+  assert.equal((out.match(/=== RECITATION ===/g) || []).length, 1)
+})
+
+test("R7: extractAutonomous lee `> **Autonomous:** true`", () => {
+  assert.equal(extractAutonomous("> **Autonomous:** true\n"), true)
+  assert.equal(extractAutonomous("> **Autonomous:** false\n"), false)
+  assert.equal(extractAutonomous("# plan sin flag\n"), null)
+})
+
+test("R5: >1 plan activo (<24h) → findPlanFile falla LOUD pidiendo ruta explícita", () => {
+  const wt = tmpWorktree()
+  writeFileSync(join(wt, "docs", "plans", "a.md"), PLAN)
+  writeFileSync(join(wt, "docs", "plans", "b.md"), PLAN)
+  assert.throws(() => findPlanFile(wt), /Ambiguous active plan/)
 })
 
 test("H3: consumeBudget persiste incrementos bajo lock", () => {

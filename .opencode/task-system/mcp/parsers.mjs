@@ -40,15 +40,33 @@ export function parseTasks(content) {
   return tasks
 }
 
-export function parseRecitation(content) {
-  const m = content.match(/=== RECITATION ===\n([\s\S]*?)=== END RECITATION ===/)
-  if (!m) return null
-  const block = m[1]
+// Recitations por-tarea (`=== RECITATION <ID> ===`): con waves paralelas cada
+// sub-agente escribe SU bloque sin pisar el de otros. El bloque legacy sin ID
+// se mantiene por compat y se trata como recitation global.
+function recitationBlocks(content) {
+  const out = []
+  const re = /=== RECITATION(?:\s+([^\s=]+))?\s*===\n([\s\S]*?)=== END RECITATION ===/g
+  for (const m of content.matchAll(re)) out.push({ id: m[1] || null, body: m[2], index: m.index, length: m[0].length })
+  return out
+}
+
+export function parseRecitation(content, taskId = null) {
+  const blocks = recitationBlocks(content)
+  if (blocks.length === 0) return null
+  let block = null
+  if (taskId) {
+    // Específica por tarea si existe; si no, cae a la última disponible.
+    block = blocks.find(b => b.id === String(taskId)) || blocks[blocks.length - 1]
+  } else {
+    block = blocks[blocks.length - 1] // la más reciente gana
+  }
+  const b = block.body
   const extract = (field) => {
-    const r = block.match(new RegExp(`${field}:\\s*(.+?)(?:\\n|$)`))
+    const r = b.match(new RegExp(`${field}:\\s*(.+?)(?:\\n|$)`))
     return r ? r[1].trim() : ""
   }
   return {
+    taskId: block.id,
     activeGoal: extract("Objetivo activo"),
     status: extract("Estado"),
     lastAction: extract("Última acción"),
@@ -122,24 +140,23 @@ export function updateState(content, taskId, newState) {
 }
 
 export function updateRecitation(content, data) {
-  const hasRecitation = /=== RECITATION ===/.test(content)
-  if (!hasRecitation) {
-    const rec = ["=== RECITATION ===", `Campaign ID: ${data.campaignId || ""}`, `Objetivo activo: ${data.activeGoal || ""}`, `Estado: ${data.status || "in-progress"}`, `Última acción: ${data.lastAction || ""}`, `Resultado: ${data.result || ""}`, `Próxima acción: ${data.nextAction || ""}`, `Contrato: ${data.contract || ""}`, `Próxima tarea si completa: ${data.nextTask || ""}`, "=== END RECITATION ==="].join("\n")
+  const tag = data.taskId ? ` ${data.taskId}` : ""
+  const open = `=== RECITATION${tag} ===`
+  if (!content.includes(open)) {
+    const rec = [open, `Campaign ID: ${data.campaignId || ""}`, `Objetivo activo: ${data.activeGoal || ""}`, `Estado: ${data.status || "in-progress"}`, `Última acción: ${data.lastAction || ""}`, `Resultado: ${data.result || ""}`, `Próxima acción: ${data.nextAction || ""}`, `Contrato: ${data.contract || ""}`, `Próxima tarea si completa: ${data.nextTask || ""}`, "=== END RECITATION ==="].join("\n")
     return content.trimEnd() + "\n\n" + rec + "\n"
   }
-  let updated = content
-  // Anclados a inicio de línea (^...m): un `contract` que contenga literal
-  // "Estado:" o "Contrato:" no debe corromper campos vecinos de la recitation.
-  const reps = [
-    [/^Campaign ID:\s*.*/m, `Campaign ID: ${data.campaignId || ""}`],
-    [/^Objetivo activo:\s*.*/m, `Objetivo activo: ${data.activeGoal || ""}`],
-    [/^Estado:\s*.*/m, `Estado: ${data.status || "in-progress"}`],
-    [/^Última acción:\s*.*/m, `Última acción: ${data.lastAction || ""}`],
-    [/^Resultado:\s*.*/m, `Resultado: ${data.result || ""}`],
-    [/^Próxima acción:\s*.*/m, `Próxima acción: ${data.nextAction || ""}`],
-    [/^Contrato:\s*.*/m, `Contrato: ${data.contract || ""}`],
-    [/^Próxima tarea si completa:\s*.*/m, `Próxima tarea si completa: ${data.nextTask || ""}`],
-  ]
-  for (const [pat, rep] of reps) updated = updated.replace(pat, rep)
-  return updated
+  // Reemplaza SOLO el bloque de esta tarea (anclado entre sus marcadores) —
+  // las recitations de otras tareas en waves paralelas quedan intactas.
+  const openRe = open.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const re = new RegExp(`${openRe}\\n[\\s\\S]*?=== END RECITATION ===`)
+  const body = [`Campaign ID: ${data.campaignId || ""}`, `Objetivo activo: ${data.activeGoal || ""}`, `Estado: ${data.status || "in-progress"}`, `Última acción: ${data.lastAction || ""}`, `Resultado: ${data.result || ""}`, `Próxima acción: ${data.nextAction || ""}`, `Contrato: ${data.contract || ""}`, `Próxima tarea si completa: ${data.nextTask || ""}`, "=== END RECITATION ==="].join("\n")
+  return content.replace(re, `${open}\n${body}`)
+}
+
+// Modo autónomo del plan: `> **Autonomous:** true` suprime Gates P/D/C
+// (Gate V y seguridad siempre operan — ver prompts/question-gates.md §Anti-abuso).
+export function extractAutonomous(content) {
+  const m = content.match(/^>\s*\*\*Autonomous:\*\*\s*(true|false)\s*$/im)
+  return m ? m[1].toLowerCase() === "true" : null
 }

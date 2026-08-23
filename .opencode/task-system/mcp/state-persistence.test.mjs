@@ -204,7 +204,7 @@ test("lock: timeout con lock ajeno sostenido → error claro, no hang", () => {
   const lockPath = `${planPath}.lock`
   writeFileSync(lockPath, JSON.stringify({ pid: -1, ts: Date.now() }), "utf-8")
   const started = Date.now()
-  assert.throws(() => updateTaskStateCore(planPath, "1", "in-progress", null, worktree), /Timed out waiting for plan lock/)
+  assert.throws(() => updateTaskStateCore(planPath, "1", "in-progress", null, worktree), /Lock busy:.*held by pid/)
   assert.ok(Date.now() - started < 8000) // timeout 5s + margen
   rmSync(lockPath, { force: true })
 })

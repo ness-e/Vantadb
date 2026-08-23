@@ -3,13 +3,13 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod"
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, rmSync, appendFileSync, mkdirSync, openSync, writeSync, closeSync, renameSync } from "node:fs"
 import { fileURLToPath } from "url"
-import { resolve, join, dirname } from "node:path"
+import { resolve, join, dirname, basename } from "node:path"
 import { execSync } from "node:child_process"
 import { randomUUID, createHash } from "node:crypto"
 import { emit as traceEmit, getHealth } from "../traces/tracer.mjs"
 import { getTraits, listModels, escalateTier, tierForModel, TIERS } from "../config/model-traits.mjs"
 import { STATE_TOOLS, getAllowedTools, validateAction } from "../config/state-tools.mjs"
-import { parseTasks, parseRecitation, getOrCreateCampaignId, extractCampaignId, updateState, updateRecitation } from "./parsers.mjs"
+import { parseTasks, parseRecitation, getOrCreateCampaignId, extractCampaignId, extractAutonomous, updateState, updateRecitation } from "./parsers.mjs"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -25,9 +25,18 @@ function findPlanFile(worktree) {
   if (!existsSync(planDir)) return null
   const files = readdirSync(planDir)
     .filter(f => f.endsWith(".md"))
-    .map(f => ({ name: f, time: statSync(join(planDir, f)).mtimeMs }))
+    .map(f => ({ name: join(planDir, f), time: statSync(join(planDir, f)).mtimeMs }))
     .sort((a, b) => b.time - a.time)
-  return files.length > 0 ? join(planDir, files[0].name) : null
+  if (files.length === 0) return null
+  // Guard multi-plan (MEM-51): con >1 plan modificado <24h, el fallback por mtime
+  // cruza budget/recitations entre planes. Fallar LOUD pidiendo ruta explícita.
+  const ACTIVE_MS = 24 * 60 * 60 * 1000
+  const recent = files.filter(f => Date.now() - f.time < ACTIVE_MS)
+  if (recent.length > 1) {
+    const names = recent.map(f => basename(f.name)).join(", ")
+    throw new Error(`Ambiguous active plan: ${recent.length} planes modificados en las últimas 24h (${names}). Pasá planFile explícito.`)
+  }
+  return files[0].name
 }
 
 function resolvePlan(planFile, worktree) {
@@ -327,8 +336,11 @@ server.tool(
 
 server.tool(
   "campaign_get_next_task",
-  { planFile: z.string().optional().describe("Ruta al plan file. Si se omite, busca el más reciente en docs/plans/") },
-  async ({ planFile }) => {
+  {
+    planFile: z.string().optional().describe("Ruta al plan file. Si se omite, busca el más reciente en docs/plans/"),
+    claim: z.boolean().optional().default(false).describe("Claim atómico: marca la tarea devuelta IN PROGRESS bajo lock (evita que 2 instancias hagan Discovery de la misma)"),
+  },
+  async ({ planFile, claim }) => {
     const worktree = PROJECT_ROOT
     const planPath = resolvePlan(planFile, worktree)
     if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ error: "No plan file found in docs/plans/" }) }] }
@@ -349,8 +361,24 @@ server.tool(
     const completed = tasks.filter(t => t.state === "✅ COMPLETED").length
     const failed = tasks.filter(t => t.state === "❌ FAILED").length
     const gates = countGateResults(content)
-    const recitation = parseRecitation(content)
-    const nextTask = pending.length > 0 ? pending[0] : null
+    let nextTask = pending.length > 0 ? pending[0] : null
+
+    // R2: claim atómico — marca IN PROGRESS dentro del flujo para que una segunda
+    // instancia no arranque Discovery sobre la misma tarea.
+    let claimResult = null
+    if (nextTask && claim && nextTask.state === "⬜ PENDING") {
+      try { claimResult = updateTaskStateCore(planPath, nextTask.id, "in-progress", null, worktree) } catch (e) { claimResult = { updated: false, error: e.message } }
+      if (!claimResult.updated) {
+        return { content: [{ type: "text", text: JSON.stringify({
+          planFile: planPath, campaignId, hasTask: false, task: null,
+          claimBlocked: claimResult,
+          summary: { completed, failed, pending: pending.length, total: tasks.length },
+        }) }] }
+      }
+      nextTask = { ...nextTask, state: "⏳ IN PROGRESS" }
+    }
+
+    const recitation = parseRecitation(content, nextTask?.id ?? null)
 
     if (nextTask) {
       initTaskBudget(planPath, nextTask.id)
@@ -364,8 +392,10 @@ server.tool(
       content: [{ type: "text", text: JSON.stringify({
         planFile: planPath,
         campaignId,
+        autonomous: extractAutonomous(content),
         hasTask: nextTask !== null,
         task: nextTask,
+        claimed: claimResult ? claimResult.updated : false,
         summary: { completed, failed, pending: pending.length, total: tasks.length, doCount: gates.do, deferCount: gates.defer, skipCount: gates.skip, bloqueadoCount: gates.bloqueado },
         recitation,
         budget,
@@ -630,13 +660,17 @@ function sleepSync(ms) {
   Atomics.wait(sab, 0, 0, ms)
 }
 
-// ponytail: lock file exclusivo (O_EXCL) con retry 50ms y stale-detection por mtime.
-// techo: serializa writers del MISMO plan file; la carrera cross-plan del claim WIP
-// queda como spec del runner diferido (TSYS-06 Fase 4) — el caso real es 2 sesiones
-// sobre el mismo plan, cubierto acá.
-function withPlanLock(planPath, fn) {
-  const lockPath = `${planPath}.lock`
-  const deadline = Date.now() + 5000
+// ponytail: lock file exclusivo (O_EXCL) con retry corto y stale-detection por mtime.
+// techo: serializa writers del MISMO archivo; la carrera cross-plan del claim WIP
+// queda como spec del runner diferido (TSYS-06 Fase 4). Wait cap ~1s (antes 5s que
+// congelaba el server entero): al agotarse, falla FAST con pid/ts del holder —
+// diagnosticable con campaign_plan_lock_info en vez de debugging a ciegas.
+function readLockHolder(lockPath) {
+  try { return JSON.parse(readFileSync(lockPath, "utf-8")) } catch { return null }
+}
+
+function lockFileSync(lockPath, fn, maxWaitMs = 1000) {
+  const deadline = Date.now() + maxWaitMs
   for (;;) {
     let fd = null
     try {
@@ -650,14 +684,33 @@ function withPlanLock(planPath, fn) {
       }
     } catch (e) {
       if (e.code === "EEXIST") {
+        // Lock stale de un crash previo (>10s sin liberar) → romperlo.
         try {
           const st = statSync(lockPath)
-          if (Date.now() - st.mtimeMs > 10000) { rmSync(lockPath, { force: true }); continue } // lock stale de un crash previo
+          if (Date.now() - st.mtimeMs > 10000) { rmSync(lockPath, { force: true }); continue }
         } catch {}
-        if (Date.now() > deadline) throw new Error(`Timed out waiting for plan lock: ${lockPath}`)
-        sleepSync(50)
+        if (Date.now() > deadline) {
+          const holder = readLockHolder(lockPath)
+          throw new Error(`Lock busy: ${lockPath} held by pid ${holder?.pid ?? "?"} since ${holder ? new Date(holder.ts).toISOString() : "?"} (waited ${maxWaitMs}ms). Reintentá o inspeccioná con campaign_plan_lock_info.`)
+        }
+        sleepSync(25)
         continue
       }
+      throw e
+    }
+  }
+}
+
+function withPlanLock(planPath, fn) {
+  return lockFileSync(`${planPath}.lock`, fn)
+}
+
+// Windows: AV/indexer puede sostener un handle sobre el plan → EPERM/EACCES
+// transitorio en el rename. Retry corto en vez de fallar toda la actualización.
+function renameWithRetry(from, to, attempts = 3) {
+  for (let i = 0; ; i++) {
+    try { renameSync(from, to); return } catch (e) {
+      if ((e.code === "EPERM" || e.code === "EACCES") && i < attempts - 1) { sleepSync(50); continue }
       throw e
     }
   }
@@ -726,11 +779,11 @@ export function updateTaskStateCore(planPath, taskId, newState, recitationData, 
       traceId = traceIdForTask(taskId)
     }
 
-    // TSYS-06 §6.2 (C6): write atómico — temp + rename; un kill entre write y rename
-    // deja el archivo original intacto (o el update completo, nunca un write a medias).
+    // TSYS-06 §6.2 (C6): write atómico — temp + rename con retry EPERM; un kill
+    // entre write y rename deja el archivo original intacto (o el update completo).
     const tmp = `${planPath}.tmp`
     writeFileSync(tmp, updated, "utf-8")
-    renameSync(tmp, planPath)
+    renameWithRetry(tmp, planPath)
 
     return { updated: true, taskId, newState, campaignId, planFile: planPath, traceId, fromState }
   })
@@ -759,6 +812,7 @@ server.tool(
     if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ error: "No plan file found" }) }] }
 
     const recitationData = recitation ? {
+      taskId,
       activeGoal: recitation.activeGoal,
       status: newState,
       lastAction: recitation.lastAction,
@@ -868,6 +922,9 @@ server.tool(
         if (bin === "git") return "git"
         return bin || null
       })()
+      // Rotación simple: log >5MB → verify-log-<ts>.jsonl (evita contexto
+      // gigante para diagnose y append lento con los años).
+      try { const st = statSync(logPath); if (st.size > 5 * 1024 * 1024) renameSync(logPath, logPath.replace(/\.jsonl$/, `-${Date.now()}.jsonl`)) } catch {}
       appendFileSync(logPath, JSON.stringify({
         ts: new Date().toISOString(), taskId: taskId || null, traceId: taskId ? traceIdForTask(taskId) : null, command,
         passed, exitCode, expectedExitCode, elapsed,
@@ -1084,11 +1141,14 @@ function writeActiveModel(data) {
 
 const WORKFLOWS_DIR = join(TASK_SYSTEM, "workflows")
 
+// Keywords específicos solamente: los ultra-genéricos ("add","new","find",
+// "search") matcheaban media backlog y forzaban workflows equivocados. Si no hay
+// señal específica → null → C0 genérica (comportamiento correcto por default).
 const WORKFLOW_KEYWORDS = {
   "bug-fix": ["bug", "fix", "error", "crash", "panic", "incorrect", "wrong", "fails", "broken"],
-  "feature-add": ["feature", "add", "implement", "new", "create", "support", "integrate"],
+  "feature-add": ["feature", "implement", "create", "integrate"],
   "refactor": ["refactor", "clean", "simplify", "rename", "extract", "inline", "split", "restructure"],
-  "research": ["research", "investigate", "explore", "how does", "find", "search", "learn"],
+  "research": ["research", "investigate", "explore", "how does"],
   "nine-second-saloon": ["quick", "fast", "urgent", "hotfix", "emergency", "critical", "immediate", "ship"],
 }
 
@@ -1412,14 +1472,23 @@ server.tool(
       }
       case "update": {
         if (!sessionId) return { content: [{ type: "text", text: JSON.stringify({ error: "sessionId required" }) }] }
-        const s = readSession(sessionId)
-        if (!s) return { content: [{ type: "text", text: JSON.stringify({ error: "Session not found" }) }] }
-        if (state) s.state = state
-        if (context) s.context = { ...s.context, ...context }
-        s.iterationCount++
-        s.updatedAt = new Date().toISOString()
-        writeSession(sessionId, s)
-        return { content: [{ type: "text", text: JSON.stringify({ updated: true, session: s }) }] }
+        const p = sessionPath(sessionId)
+        try {
+          // RMW bajo lock: sin esto, dos sub-agentes en paralelo pierden
+          // contextos entre sí y el iterationCount++ queda corto.
+          return { content: [{ type: "text", text: JSON.stringify(lockFileSync(`${p}.lock`, () => {
+            const s = readSession(sessionId)
+            if (!s) return { error: "Session not found" }
+            if (state) s.state = state
+            if (context) s.context = { ...s.context, ...context }
+            s.iterationCount++
+            s.updatedAt = new Date().toISOString()
+            writeSession(sessionId, s)
+            return { updated: true, session: s }
+          })) }] }
+        } catch (e) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: `Session lock failed: ${e.message}` }) }] }
+        }
       }
       case "list": {
         const sessions = []
@@ -1454,23 +1523,27 @@ server.tool(
   },
   async ({ state, planFile, taskId, notes }) => {
     const file = join(PROJECT_ROOT, "docs", "pipeline-state.json")
-    let prev = {}
-    try { prev = JSON.parse(readFileSync(file, "utf-8")) } catch {}
-
-    const snap = {
-      ...prev,
-      lastSync: new Date().toISOString(),
-      state: (state || prev.state || "").toUpperCase(),
-      planFile: planFile || prev.planFile,
-      taskId: taskId || prev.taskId,
-      ...(notes !== undefined ? { notes } : {}),
+    try {
+      // RMW bajo lock: last-writer-wins entre instancias perdía campos.
+      return { content: [{ type: "text", text: JSON.stringify(lockFileSync(`${file}.lock`, () => {
+        let prev = {}
+        try { prev = JSON.parse(readFileSync(file, "utf-8")) } catch {}
+        const snap = {
+          ...prev,
+          lastSync: new Date().toISOString(),
+          state: (state || prev.state || "").toUpperCase(),
+          planFile: planFile || prev.planFile,
+          taskId: taskId || prev.taskId,
+          ...(notes !== undefined ? { notes } : {}),
+        }
+        try { writeFileSync(file, JSON.stringify(snap, null, 2), "utf-8") } catch (e) {
+          return { saved: false, error: e.message }
+        }
+        return { saved: true, file, snapshot: snap }
+      }), null, 2) }] }
+    } catch (e) {
+      return { content: [{ type: "text", text: JSON.stringify({ saved: false, error: `State lock failed: ${e.message}` }) }] }
     }
-
-    try { writeFileSync(file, JSON.stringify(snap, null, 2), "utf-8") } catch (e) {
-      return { content: [{ type: "text", text: JSON.stringify({ saved: false, error: e.message }) }] }
-    }
-
-    return { content: [{ type: "text", text: JSON.stringify({ saved: true, file, snapshot: snap }, null, 2) }] }
   },
 )
 
@@ -1528,6 +1601,72 @@ server.tool(
   },
 )
 
+// ---------- Tool 21: campaign_eval_summary (North Star medible) ----------
+//
+// Tasa de primer-intento por skill desde verify-log.jsonl. Convierte la North
+// Star (>90% first-try) en número consultable, no aspiración.
+server.tool(
+  "campaign_eval_summary",
+  { limit: z.number().optional().default(500).describe("Máx filas recientes a considerar") },
+  async ({ limit }) => {
+    const logPath = join(TASK_SYSTEM, "enforcement", "verify-log.jsonl")
+    let rows = []
+    try {
+      for (const line of readFileSync(logPath, "utf-8").split("\n")) {
+        if (!line.trim()) continue
+        try { rows.push(JSON.parse(line)) } catch {}
+      }
+    } catch {}
+    rows = rows.filter(r => r.taskId).slice(-limit)
+    // ponytail: O(tasks×rows) por el filter anidado — fino a miles de filas; indexar si crece.
+    const byTask = new Map()
+    for (const r of rows) if (!byTask.has(r.taskId)) byTask.set(r.taskId, r.passed === true)
+    const perSkill = {}
+    let ok = 0
+    for (const [taskId, firstPassed] of byTask) {
+      if (firstPassed) ok++
+      const taskRows = rows.filter(r => r.taskId === taskId)
+      for (const s of [...new Set(taskRows.flatMap(r => r.skills || []))]) {
+        ;(perSkill[s] ??= { tasks: 0, firstTry: 0 })
+        perSkill[s].tasks++
+        if (firstPassed) perSkill[s].firstTry++
+      }
+    }
+    for (const s of Object.values(perSkill)) s.rate = s.tasks ? +(s.firstTry / s.tasks).toFixed(3) : null
+    return { content: [{ type: "text", text: JSON.stringify({
+      totalTasks: byTask.size,
+      overallFirstTryRate: byTask.size ? +(ok / byTask.size).toFixed(3) : null,
+      northStarTarget: 0.9,
+      perSkill,
+    }, null, 2) }] }
+  },
+)
+
+// ---------- Tool 22: campaign_plan_lock_info (diagnóstico de locks) ----------
+server.tool(
+  "campaign_plan_lock_info",
+  {},
+  async () => {
+    const dir = join(PROJECT_ROOT, "docs", "plans")
+    const locks = []
+    if (existsSync(dir)) {
+      for (const f of readdirSync(dir).filter(f => f.endsWith(".lock"))) {
+        const fp = join(dir, f)
+        const holder = readLockHolder(fp)
+        const ageMs = Date.now() - statSync(fp).mtimeMs
+        locks.push({
+          file: f,
+          pid: holder?.pid ?? null,
+          since: holder ? new Date(holder.ts).toISOString() : null,
+          ageSeconds: Math.round(ageMs / 1000),
+          stale: ageMs > 10000, // >10s: lockFileSync lo romperá en el próximo intento
+        })
+      }
+    }
+    return { content: [{ type: "text", text: JSON.stringify({ locks }, null, 2) }] }
+  },
+)
+
 process.on('uncaughtException', (err) => {
   console.error('[campaign-server] Uncaught exception:', err)
 })
@@ -1542,7 +1681,7 @@ process.on('unhandledRejection', (reason) => {
 // conecta el transporte stdio (isMain guard). Al correr como server (bun/node
 // campaign-server.mjs) argv[1] == este archivo → conecta exactamente como antes.
 
-export { readBudget, writeBudget, withPlanLock, findInProgressTasks, detectConflict, sha1, consumeBudget, budgetStatus, detectType, bumpBudget }
+export { readBudget, writeBudget, withPlanLock, findInProgressTasks, detectConflict, sha1, consumeBudget, budgetStatus, detectType, bumpBudget, findPlanFile }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 if (isMain) {
