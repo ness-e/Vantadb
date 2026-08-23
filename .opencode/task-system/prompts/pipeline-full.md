@@ -133,8 +133,10 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 - Leé la recitation del plan file para saber dónde quedó
 - Continuá con el próximo step (PLAN → ACT → VERIFY)
 - Si verify falla: retry ladder (mismo que arriba, con Gate V al agotar el umbral)
-- Errores colaterales: **Gate C (question-gates.md)** — `question` al usuario:
-  arreglar ahora (<30min) / mandar a Backlog / incluir en commit.
+- Errores colaterales / hallazgos: **routing en `prompts/findings.md` (fuente única)** —
+  lo que no se arregla inline nace como fila `FIND-*` en Backlog desde el discovery,
+  nunca solo anotado en plan/recitation. En Gate C, `question` al usuario sobre
+  colaterales: arreglar ahora / incluir en commit (el ticket FIND ya existe si aplica).
   Si `git status` muestra archivos fuera del blast radius declarado → confirmar
   alcance del commit antes de `git add`.
 - Budget: límites en `BUDGET_LIMITS` (campaign-server.mjs). 2 stalls consecutivos → ❌ FAILED.
@@ -245,7 +247,7 @@ REGLAS (del campaign-executor RULES.md):
 - Verificación mecánica, nunca auto-reporte
 - Ponytail ladder: existe > stdlib > dependency > mínimo código
 - ~100 líneas por step, un step por turno, cada step reversible
-- No cambies scope. Rápido se arregla, lento se anota en Backlog
+- No cambies scope. Rápido se arregla, lento → fila `FIND-*` en Backlog (`prompts/findings.md`)
 - Stagnation = stop: 3 vueltas sin progreso → ❌ FAILED
 - Budget: límites en `BUDGET_LIMITS` (campaign-server.mjs), 2 stalls consecutivos → FAILED
 - 2 fallas de verify con mismo error → Gate V (`question-gates.md`): preguntar al usuario antes de FAILED

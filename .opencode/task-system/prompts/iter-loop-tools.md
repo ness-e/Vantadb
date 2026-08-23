@@ -385,7 +385,7 @@ No sigas a la siguiente tarea ni iteración.
 - El contrato es ley — si el contrato no se cumple, la tarea no está completa
 - Verificación mecánica, nunca auto-reporte
 - ~100 líneas por paso, un paso por turno, cada paso reversible independientemente
-- No cambies scope. Rápido se arregla (<30min), lento se anota en Backlog
+- No cambies scope. Rápido se arregla, lento → fila `FIND-*` en Backlog (`prompts/findings.md`)
 - Stagnation = stop: 3 vueltas sin progreso → ❌ FAILED
 - Budget: 5 iteraciones máximas por tarea
 - La recitation es el handoff entre iteraciones — sé específico

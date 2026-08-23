@@ -68,7 +68,7 @@ Sin respuesta → STOP (no marcar FAILED unilateralmente salvo FAIL_MODE=stop ex
 
 | Disparador | Question |
 |---|---|
-| Errores colaterales encontrados | Arreglar ahora (<30min, mismo archivo) / mandar a Backlog / incluir en este commit |
+| Errores colaterales encontrados | Arreglar ahora (<30min, mismo archivo) / incluir en este commit — el ticket derivado ya existe como fila `FIND-*` en Backlog si no se arregló inline (`prompts/findings.md`, fuente única) |
 | `git status` muestra archivos FUERA del blast radius declarado | Incluirlos en el commit / dejarlos sin commit (staged aparte) / investigar origen |
 | Plan completado (cierre de campaña) | Confirmar archivado del plan y migración masiva a progreso |
 
