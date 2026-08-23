@@ -15,6 +15,9 @@ use tokio::task::spawn_blocking;
 use vantadb::sdk::{VantaMemoryListOptions, VantaMemoryListPage};
 use vantadb::VantaEmbedded;
 
+use vanta_memory::context_engine::{
+    assemble_with_recall, AssembleConfig, ChatMessage, IntegratedContext, TokenEstimator,
+};
 use vanta_memory::core::hooks::{
     perform_auto_recall, AutoCaptureConfig, AutoCaptureHook, AutoRecallParams, RawMessage,
     RecallConfig, RecallMode, RecallScope, RecalledMemory,
@@ -176,6 +179,44 @@ fn run_skills_list(db: &VantaEmbedded) -> Result<Vec<StoredSkill>, VantaError> {
     Ok(skills)
 }
 
+/// Real context-engine consolidation (MEM-58): compress → inject MMD →
+/// inject recall blocks via [`assemble_with_recall`] against ONE shared
+/// token budget. Recall blocks come from the same auto-recall hook as
+/// `vanta_memory_recall` when both `user_text` and `session_key` are given;
+/// without them the engine still compacts but injects nothing. The full
+/// [`IntegratedContext`] (report mode/tokens + injected messages) travels
+/// back over IPC — the wire type IS the engine type (already serde).
+fn run_assemble(
+    db: &VantaEmbedded,
+    messages: Vec<ChatMessage>,
+    budget_tokens: u64,
+    user_text: Option<String>,
+    session_key: Option<String>,
+) -> Result<IntegratedContext, VantaError> {
+    let (prepend, append) = match (user_text, session_key) {
+        (Some(q), Some(sk)) if !q.trim().is_empty() => {
+            match run_recall(db, &q, &sk, RecallConfig::default())? {
+                Some(r) => (r.prepend_context, r.append_system_context),
+                None => (None, None),
+            }
+        }
+        _ => (None, None),
+    };
+    assemble_with_recall(
+        messages,
+        budget_tokens,
+        &TokenEstimator::default(),
+        0,
+        &AssembleConfig::default(),
+        None,
+        prepend.as_deref(),
+        append.as_deref(),
+        None,
+        None,
+    )
+    .map_err(mem_err)
+}
+
 // Commands ───────────────────────────────────────────────────────────────
 
 /// Capture a conversation turn into the L0 layer (MEM-53). Idempotent per
@@ -249,6 +290,25 @@ pub async fn vanta_skills_list(
 ) -> Result<Vec<StoredSkill>, VantaError> {
     let db = state.manager.active_embedded().await?;
     offload(move || run_skills_list(&db)).await
+}
+
+/// Consolidate a chat history through the REAL context engine (MEM-58):
+/// shared-budget compress → recall injection, with the engine report
+/// (mode/tokens) as outcome. Non-native active connections fail with
+/// `Unsupported` → the UI falls back to its client-side heuristic.
+// rename_all snake_case: el wrapper TS envía las claves tal cual Rust
+// (`budget_tokens`, `session_key`) — el default camelCase de Tauri v2
+// no las matchearía ("missing required key budgetTokens").
+#[tauri::command(rename_all = "snake_case")]
+pub async fn vanta_context_assemble(
+    state: State<'_, crate::AppState>,
+    messages: Vec<ChatMessage>,
+    budget_tokens: u64,
+    user_text: Option<String>,
+    session_key: Option<String>,
+) -> Result<IntegratedContext, VantaError> {
+    let db = state.manager.active_embedded().await?;
+    offload(move || run_assemble(&db, messages, budget_tokens, user_text, session_key)).await
 }
 
 /// Poll wiki-ingest progress for `run_id` (D32 polling channel). Workers
@@ -598,6 +658,119 @@ mod tests {
             .expect("snapshot for active run");
         assert_eq!(snap.run_id, "run-42");
         assert_eq!(snap.percent, 50);
+    }
+
+    // ── context assemble (MEM-58) ──
+
+    fn chat(role: vanta_memory::context_engine::ChatRole, content: &str) -> ChatMessage {
+        ChatMessage::new(role, content)
+    }
+
+    fn filler_history() -> Vec<ChatMessage> {
+        std::iter::once(chat(
+            vanta_memory::context_engine::ChatRole::System,
+            "protected system prompt",
+        ))
+        .chain((0..40).map(|i| {
+            chat(
+                vanta_memory::context_engine::ChatRole::User,
+                &format!("filler message {i:03} with padding text"),
+            )
+        }))
+        .collect()
+    }
+
+    /// E2E contract (backend available): the REAL pipeline runs — recall
+    /// blocks from the auto-recall hook are injected and the engine report
+    /// travels back with mode/tokens.
+    #[tokio::test]
+    async fn assemble_with_backend_runs_real_pipeline_and_injects_recall() {
+        let (st, _dir) = state().await;
+        seed_scene(
+            &st.manager,
+            "sess-asm",
+            "deploy-runbook",
+            "deploys",
+            "how to deploy",
+        )
+        .await
+        .expect("seed scene");
+
+        let db = st.manager.active_embedded().await.expect("handle");
+        let out = offload(move || {
+            run_assemble(
+                &db,
+                filler_history(),
+                10_000,
+                Some("deploy question".into()),
+                Some("sess-asm".into()),
+            )
+        })
+        .await
+        .expect("assemble");
+
+        assert!(out.recall_injected, "scene nav injected: {:?}", out.report);
+        assert!(
+            out.messages
+                .iter()
+                .any(|m| m.content.contains("<scene-navigation>")),
+            "recall block present in assembled messages"
+        );
+        assert!(
+            out.report.tokens_after > 0,
+            "report carries tokens: {:?}",
+            out.report
+        );
+        assert_eq!(out.report.msgs_before, 41);
+    }
+
+    /// Compaction path: over-budget history gets compacted by the engine;
+    /// without session context nothing is recalled.
+    #[tokio::test]
+    async fn assemble_without_session_compacts_but_skips_recall() {
+        let (st, _dir) = state().await;
+        let db = st.manager.active_embedded().await.expect("handle");
+        let out = offload(move || run_assemble(&db, filler_history(), 200, None, None))
+            .await
+            .expect("assemble");
+
+        use vanta_memory::context_engine::CompactionMode;
+        assert!(
+            !matches!(out.report.mode, CompactionMode::None),
+            "compaction ran: {:?}",
+            out.report
+        );
+        assert!(
+            out.report.tokens_after <= 200,
+            "under budget: {:?}",
+            out.report
+        );
+        assert!(
+            !out.recall_injected,
+            "no session → no recall: {:?}",
+            out.report
+        );
+    }
+
+    #[tokio::test]
+    async fn assemble_rejects_zero_budget() {
+        let (st, _dir) = state().await;
+        let db = st.manager.active_embedded().await.expect("handle");
+        let err = offload(move || {
+            run_assemble(
+                &db,
+                vec![chat(vanta_memory::context_engine::ChatRole::User, "hi")],
+                0,
+                None,
+                None,
+            )
+        })
+        .await
+        .expect_err("zero budget rejected");
+        assert!(
+            matches!(err, VantaError::Native(ref m) if m.contains("chars_per_token")),
+            "InvalidConfig surfaced: {err:?}"
+        );
     }
 
     // ── access guard ──

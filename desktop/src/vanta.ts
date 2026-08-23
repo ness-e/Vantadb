@@ -580,3 +580,31 @@ export function takeDeepLink(): Promise<string[]> {
   }
   return Promise.resolve([]);
 }
+
+// --- Context engine (MEM-58) ---------------------------------------------------
+/** Outcome del comando `vanta_context_assemble` (mirror de `IntegratedContext`
+ * de vanta-memory, serde snake_case). */
+export interface AssembledContext {
+  messages: { role: string; content: string }[];
+  report: {
+    mode: string;
+    msgs_conserved: number;
+    msgs_before: number;
+    tokens_before: number;
+    tokens_after: number;
+  };
+  mmd_injected: boolean;
+  recall_injected: boolean;
+}
+
+/** Consolidación real vía el context engine embebido. Solo existe como
+ * comando Tauri sobre conexión native — en cualquier otro caso el IPC
+ * rechaza y el caller cae al fallback heurístico. */
+export function contextAssemble(params: {
+  messages: { role: string; content: string; id?: string }[];
+  budget_tokens: number;
+  user_text?: string;
+  session_key?: string;
+}): Promise<AssembledContext> {
+  return transport.call<AssembledContext>("vanta_context_assemble", params);
+}

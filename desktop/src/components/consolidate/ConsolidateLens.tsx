@@ -4,8 +4,13 @@
 // registro superado vía vanta_put. La lógica pura vive en consolidate-core.ts
 // (node-testable); esta lente solo orquesta el bridge (funciona en los 3
 // transports: Tauri/REST/WASM — mismos comandos vanta_search/vanta_put/vanta_list).
+// MEM-58: con Tauri + conexión native activa, el run intenta PRIMERO el
+// context engine real (vanta_context_assemble); cualquier fallo cae al
+// fallback heurístico D16a, que queda preservado sin cambios.
 import { useState } from "react";
+import { TauriBackend, transport } from "../../transport";
 import {
+  contextAssemble,
   listPage,
   search,
   vantaErrorMessage,
@@ -16,12 +21,15 @@ import {
   buildCandidatePairs,
   countSuperseded,
   fmtSim,
+  formatAssembleReport,
+  ASSEMBLE_BUDGET_TOKENS,
   MAX_PAIRS,
   MAX_QUERIES,
   MAX_RECORDS,
   mergeSuperseded,
   SUPERSEDED_BY_KEY,
   supersededBy,
+  toHistory,
   TOP_K,
   type CandidatePair,
   type PairRecord,
@@ -108,7 +116,28 @@ export default function ConsolidateLens({
         .filter((r) => r.text.trim().length > 0)
         .map((r) => ({ id: r.id, namespace: r.namespace, text: r.text, metadata: r.metadata ?? {} }));
 
-      // 2. Detección: search kNN con el texto de cada registro (top_k modesto).
+      // 2. MEM-58: sobre Tauri, el run REAL es el context engine embebido
+      // (`assemble_with_recall` vía vanta_context_assemble): el outcome es el
+      // report del engine (modo/tokens). Cualquier fallo (conexión no native,
+      // comando ausente) cae al fallback heurístico D16a de abajo, intacto.
+      if (transport instanceof TauriBackend) {
+        try {
+          const out = await contextAssemble({
+            messages: toHistory(recs),
+            budget_tokens: ASSEMBLE_BUDGET_TOKENS,
+          });
+          setRecords(recs);
+          setPairs(null);
+          const summary = formatAssembleReport(out);
+          setRunInfo(`engine real · ${summary}`);
+          onNotice(`Consolidación (engine real): ${summary}`);
+          return;
+        } catch {
+          // Sin pipeline real disponible → fallback heurístico.
+        }
+      }
+
+      // 2b. Detección (fallback D16a): search kNN con el texto de cada registro.
       const hitsByKey = new Map<string, { id: string; namespace: string; text: string; metadata?: Record<string, unknown>; score: number }[]>();
       const scanned = Math.min(recs.length, MAX_QUERIES);
       for (let i = 0; i < scanned; i++) {

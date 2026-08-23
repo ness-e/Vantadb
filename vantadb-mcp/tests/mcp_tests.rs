@@ -518,15 +518,17 @@ fn test_mcp_tool_query_iql() {
     );
 }
 
-/// MCP-27: documents the chosen IQL semantics.
+/// MCP-27 + MCP-29: documents the chosen IQL semantics.
 ///
 /// Memory records written via `memory_put` live as internal nodes with
-/// reserved `__vanta_*` fields and no `type` field, so they are NOT visible
-/// to named IQL table scans (`SELECT * FROM <namespace>` returns [] without
-/// error). Graph nodes created via `INSERT NODE ... TYPE <Type>` ARE queryable,
-/// which is the supported round-trip for agents using query_iql.
+/// reserved `__vanta_*` fields and no `type` field. Since MCP-29 each
+/// namespace is exposed as an IQL table named by its sanitized form
+/// (`/` and `-` map to `_`, leading digit/dot gets a `_` prefix), so
+/// `SELECT * FROM <ns>` reaches the records — legacy records included,
+/// no migration. Graph nodes created via `INSERT NODE ... TYPE <Type>`
+/// keep working unchanged.
 #[test]
-fn test_query_iql_memory_records_are_not_tables_but_graph_nodes_round_trip() {
+fn test_query_iql_memory_namespaces_are_queryable_tables_round_trip() {
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
 
@@ -546,7 +548,7 @@ fn test_query_iql_memory_records_are_not_tables_but_graph_nodes_round_trip() {
         "memory_put should not error"
     );
 
-    // 2) ...but the namespace is NOT an IQL table: empty result, no error.
+    // 2) ...and the namespace IS an IQL table now (MCP-29).
     let scan_ns = Some(json!({
         "name": "query_iql",
         "arguments": { "query": "SELECT * FROM ProbeNs" }
@@ -557,14 +559,41 @@ fn test_query_iql_memory_records_are_not_tables_but_graph_nodes_round_trip() {
         "scanning a namespace should not error, got: {}",
         res_ns["content"][0]["text"]
     );
-    assert_eq!(
-        res_ns["content"][0]["text"].as_str().unwrap().trim(),
-        "[]",
-        "SELECT * FROM <namespace> must return [] — memory records are not IQL tables"
+    let ns_text = res_ns["content"][0]["text"].as_str().unwrap();
+    assert!(
+        ns_text.contains("k1") && ns_text.contains("hello world"),
+        "SELECT * FROM ProbeNs must return the memory record, got: {ns_text}"
     );
 
-    // 3) Graph-node round-trip works end to end from the agent channel:
-    //    INSERT via query_iql → SELECT by TYPE returns the node.
+    // 2b) Namespace with `/` is reachable via its sanitized table name.
+    let put_slash = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "mmd/s1/history",
+            "key": "k2",
+            "payload": "slashed"
+        }
+    }));
+    let put_slash_res =
+        handle_tools_call(&put_slash, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        put_slash_res["isError"].is_null(),
+        "memory_put with slashed namespace should not error"
+    );
+    let scan_slash = Some(json!({
+        "name": "query_iql",
+        "arguments": { "query": "SELECT * FROM mmd_s1_history" }
+    }));
+    let res_slash = handle_tools_call(&scan_slash, &executor, &storage, &default_config()).unwrap();
+    assert!(res_slash["isError"].is_null());
+    let slash_text = res_slash["content"][0]["text"].as_str().unwrap();
+    assert!(
+        slash_text.contains("k2"),
+        "sanitized table must reach slashed namespace records, got: {slash_text}"
+    );
+
+    // 3) Graph-node round-trip keeps working end to end from the agent
+    //    channel: INSERT via query_iql → SELECT by TYPE returns the node.
     let insert = Some(json!({
         "name": "query_iql",
         "arguments": {

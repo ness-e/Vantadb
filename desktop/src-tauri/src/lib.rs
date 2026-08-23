@@ -179,6 +179,7 @@ pub fn run() {
             commands::audit::vanta_audit_events,
             commands::memory::vanta_memory_capture,
             commands::memory::vanta_memory_recall,
+            commands::memory::vanta_context_assemble,
             commands::memory::vanta_persona_get,
             commands::memory::vanta_scenes_list,
             commands::memory::vanta_scene_current,

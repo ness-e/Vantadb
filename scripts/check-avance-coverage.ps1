@@ -14,7 +14,7 @@ $dstDir = Join-Path $root "docs/avance"
 $live = @{
     "docs/plans"            = "docs/avance/fuentes-vivas.md"
     "docs/reviews"          = "docs/avance/fuentes-vivas.md"
-    "docs/Investigaciones"  = "docs/avance/investigaciones.md"
+    "docs/research"  = "docs/avance/investigaciones.md"
 }
 
 # --- 1. Mapa estático fuente → destino (copia directa o procesado) ---

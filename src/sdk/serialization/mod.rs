@@ -63,6 +63,29 @@ pub(crate) fn memory_node_id(namespace: &str, key: &str) -> u128 {
     hasher.finish_128()
 }
 
+/// MCP-29: IQL table name under which a memory namespace is reachable via
+/// `SELECT * FROM <name>`. IQL identifiers (`src/parser/mod.rs::ident`) accept
+/// `[A-Za-z_][A-Za-z0-9_#.]*`, but namespaces may also contain `-` and `/`;
+/// both map to `_`. Names must start with a letter or `_`, so a leading digit
+/// or `.` is prefixed with `_`.
+///
+/// ponytail: sanitization is not injective ("a/b" and "a_b" both map to
+/// "a_b") — if that ever matters, switch to an escaping scheme here; the scan
+/// side (src/physical_plan/scan.rs) is the only caller.
+pub(crate) fn iql_table_name_for_namespace(namespace: &str) -> String {
+    let mut out = String::with_capacity(namespace.len());
+    for ch in namespace.chars() {
+        match ch {
+            '/' | '-' => out.push('_'),
+            c => out.push(c),
+        }
+    }
+    if !out.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_') {
+        out.insert(0, '_');
+    }
+    out
+}
+
 pub(crate) fn validate_namespace(namespace: &str) -> Result<()> {
     if namespace.is_empty() {
         return Err(VantaError::ValidationError {

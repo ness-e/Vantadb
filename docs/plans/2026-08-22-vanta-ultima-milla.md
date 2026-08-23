@@ -35,7 +35,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Archivos clave:** `vanta-proxy/src/handlers/{openai,anthropic,responses}.rs` (editar), `writeback.rs` (API si falta)
 - **Verificación real:** ✅ AUDITORÍA — WriteBack construido+flusheado pero cero llamadas track() (auditoría H1)
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: cargo check -p vantadb OK; cargo test -p vantadb --lib bulk_import 4 passed; cargo test -p vantadb-mcp 7 passed; cargo fmt OK | evidencia: test_bulk_import_roundtrip_addressable_via_memory_get (src/sdk/api.rs) pasa; test_import_file_happy_path re-ejecutado OK (import_file sin bug) | artefactos: src/sdk/api.rs, .opencode/skills/campaign-executor/tasks/MCP-28.md | invariantes: firmas publicas del SDK intactas (api-contract R-8), formato .vdbdump sin cambios, no tocar cli_server.rs/openapi.yaml/wiki.rs/vanta-memory/vanta-proxy/docs-plans | deuda: ninguna (sparse vectors y metadata DateTime/List en bulk: limitacion preexistente del formato, fuera de scope) | queda_pendiente: lead comitea (git add src/sdk/api.rs skills/vantadb-mcp/SKILL.md .opencode/skills/vantadb-mcp/SKILL.md docs/Backlog.md task file)
+- **Contrato: verificacion: cargo test -p vantadb --lib (1917 passed, 5 tests scan MCP-29 OK) + cargo test -p vantadb-mcp (round-trip query_iql OK) + clippy all-targets limpio + fmt --check OK || evidencia: claim=SELECT * FROM <ns> alcanza records → evidencia=test physical_plan::scan::tests::select_from_namespace_reaches_memory_record_without_migration (alta); claim=namespace con '/' alcanzable → evidencia=namespace_with_slashes_is_queryable_via_sanitized_table + mcp_tests round-trip 'mmd/s1/history' (alta); claim=colisión grafo/ns → evidencia=collision_between_graph_type_and_namespace_returns_union (UNION) (alta); claim=get/list sin cambios → evidencia=no se tocó memory_record_to_node/from_node (diff verificado) (alta) || artefactos: src/sdk/serialization/mod.rs, src/physical_plan/scan.rs, vantadb-mcp/src/handlers/tools.rs, vantadb-mcp/tests/mcp_tests.rs, .opencode/skills/{vantadb,vantadb-mcp}/SKILL.md, docs/api/MCP.md, docs/Backlog.md || invariantes: get/list semántica intacta; consumers de campo type del grafo intactos; NO commitear cambios ajenos del worktree (desktop/, scripts/, docs/plans/, MEM-58.md) || deuda: sanitización no inyectiva ('a/b'=='a_b') documentada con ponytail: en helper — upgrade path escaping scheme || queda_pendiente: commit por el lead
 - **Risk Register:** 🟢×🟠 extraer user-text del request puede necesitar MEM-57 parcial → implementar extracción mínima inline, refinar con Task 8
 - **Cynefin:** 🟦 obvio
 - **Estado:** ✅ COMPLETED
@@ -146,7 +146,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Gate Result:** ✅ DO
 - **Contrato:** "test e2e Tauri: consolidar con backend disponible usa pipeline real (report con modo/tokens); sin backend → fallback heurístico actual"
 - **Cynefin:** 🟨 complicado
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (cierre por lead — 2 sub-agentes agotados por memoria; trabajo heredado verificado: cargo check/test 88 ✅ fmt/clippy ✅ vitest consolidate ✅)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-58.md`
 - **Notas:** Ruta: vanta-worker. DEPENDE de Tasks 1 (engine) y 8 (IPC).
 
@@ -182,12 +182,12 @@ Verify del lead SIEMPRE `--all-targets` (lección MEM-48) · SARL con feedback e
 ---
 
 === RECITATION ===
-Campaign ID: 035e8964-6be8-45fc-b6db-a97dd5b785fa
-Objetivo activo: MCP-28: bulk import escribe campos reservados __vanta_namespace/__vanta_key para que records bulk sean direccionables via memory_get/list/delete
+Campaign ID: 3ca9b6a9-0184-44b1-b559-554684104df3
+Objetivo activo: MCP-29 — namespaces de memoria como tablas IQL (SELECT * FROM <ns> alcanza memory records)
 Estado: pending ⏳
-Última acción: Fix en bulk_import_stream (src/sdk/api.rs): setea FIELD_NAMESPACE/FIELD_KEY/FIELD_PAYLOAD/FIELD_CREATED_AT_MS/FIELD_UPDATED_AT_MS/FIELD_VERSION espejando memory_record_to_node_owned; ademas corrigio payload escrito con key literal 'payload' en vez de '__vanta_payload'. Test round-trip nuevo pasa. import_file JSONL verificado SIN bug. Nota de deuda en SKILL.md x2 y fila Backlog P25 a Resuelta.
+Última acción: Reanudado trabajo parcial (helper + scan + tests ya en worktree): verificado con git diff, corrida verificación completa (check/lib-tests/scan-tests/mcp-tests/clippy/fmt), actualizados SKILL.md ×2 + docs/api/MCP.md + fila Backlog ✅ + task file con RESULTADO. Variante A: match por namespace sanitizado en PhysicalScan, sin write-path changes ni migración.
 Resultado: OK
-Próxima acción: Lead: commit de los archivos tocados (sin push). Proxima tarea del backlog segun prioridad.
+Próxima acción: Lead comitea solo los archivos de MCP-29 (worktree tiene cambios ajenos en desktop/, scripts/, docs/plans/) — mensaje sugerido: feat: MCP-29 — namespaces de memoria como tablas IQL
 Contrato: por tarea — cargo check/nextest/fmt/clippy --all-targets del crate tocado exit 0 + tests D19
-Próxima tarea si completa: segun Backlog (MCP-24 search_with_method/multi o MCP-29 IQL diferido)
+Próxima tarea si completa: ninguno (tarea cerrada)
 === END RECITATION ===

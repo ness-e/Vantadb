@@ -115,7 +115,7 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         },
         {
             "name": "query_iql",
-            "description": "Executes an IQL statement against TYPED GRAPH NODES only. Memory records written via memory_put are NOT exposed as IQL tables: use memory_list / memory_get / search_memory for those. Graph workflow: create nodes with 'INSERT NODE#<id> TYPE <Type> { field: value }', then query them with 'SELECT * FROM <Type>' or read a single node with 'FROM NODE#<id>'. Scanning an unknown or empty type returns [] without error. LISP is not supported; statements must be IQL.",
+            "description": "Executes an IQL statement against TYPED GRAPH NODES and memory namespaces. Each memory namespace is queryable as an IQL table named by its sanitized form ('/' and '-' become '_', a leading digit/dot gets a '_' prefix; e.g. namespace 'mmd/s1/history' → 'SELECT * FROM mmd_s1_history'). Records written before this feature are visible too (no migration). Graph workflow: create nodes with 'INSERT NODE#<id> TYPE <Type> { field: value }', then query them with 'SELECT * FROM <Type>' or read a single node with 'FROM NODE#<id>'. A type/namespace collision returns the union of both. Scanning an unknown or empty name returns [] without error. LISP is not supported; statements must be IQL.",
             "inputSchema": {
                 "type": "object", "properties": {
                     "query": { "type": "string", "description": "IQL statement" }

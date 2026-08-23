@@ -6,10 +6,12 @@ import {
   buildCandidatePairs,
   countSuperseded,
   fmtSim,
+  formatAssembleReport,
   mergeSuperseded,
   pairKey,
   SUPERSEDED_BY_KEY,
   supersededBy,
+  toHistory,
 } from "./components/consolidate/consolidate-core.ts";
 
 const rec = (id: string, text = `texto ${id}`) => ({ id, namespace: "mem", text });
@@ -101,4 +103,31 @@ test("countSuperseded: cuenta solo records con superseded_by válido", () => {
     { ...rec("c"), metadata: { superseded_by: "" } },
   ];
   assert.equal(countSuperseded(records), 1);
+});
+
+// ── MEM-58: helpers del run real (context engine) ──
+
+test("toHistory: cada registro es un turno user con id preservado", () => {
+  const history = toHistory([rec("a", "texto a"), rec("b", "texto b")]);
+  assert.deepEqual(history, [
+    { role: "user", content: "texto a", id: "a" },
+    { role: "user", content: "texto b", id: "b" },
+  ]);
+});
+
+test("formatAssembleReport: resumen con modo/tokens y flags condicionales", () => {
+  const base = {
+    messages: [],
+    report: { mode: "mild", msgs_conserved: 3, msgs_before: 5, tokens_before: 900, tokens_after: 250 },
+    mmd_injected: false,
+    recall_injected: false,
+  };
+  assert.equal(
+    formatAssembleReport(base),
+    "3/5 msgs · 900→250 tokens · mild",
+  );
+  assert.equal(
+    formatAssembleReport({ ...base, mmd_injected: true, recall_injected: true }),
+    "3/5 msgs · 900→250 tokens · mild · mmd ✓ · recall ✓",
+  );
 });

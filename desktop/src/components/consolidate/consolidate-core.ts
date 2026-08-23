@@ -97,3 +97,41 @@ export function fmtSim(score: number, maxScore: number): { pct: number; label: s
   const pct = Math.min(100, Math.max(0, raw));
   return { pct, label: `${pct}%` };
 }
+
+// ── MEM-58: consolidación real vía context engine ──────────────────────────
+
+/** Outcome del comando IPC `vanta_context_assemble` (mirror de
+ * `IntegratedContext` de vanta-memory — ya serde snake_case). */
+export interface AssembledContext {
+  messages: { role: string; content: string }[];
+  report: {
+    mode: string;
+    msgs_conserved: number;
+    msgs_before: number;
+    tokens_before: number;
+    tokens_after: number;
+  };
+  mmd_injected: boolean;
+  recall_injected: boolean;
+}
+
+/** Budget por defecto del run real (tokens). */
+export const ASSEMBLE_BUDGET_TOKENS = 1200;
+
+/** Registros del namespace → chat history para el engine real: cada registro
+ * es un turno user con su id preservado (el cursor guard puede referenciarlo). */
+export function toHistory(records: PairRecord[]): { role: "user"; content: string; id?: string }[] {
+  return records.map((r) => ({ role: "user" as const, content: r.text, id: r.id }));
+}
+
+/** Resumen humano de un run real: "3/5 msgs · 900→250 tokens · mild · recall ✓". */
+export function formatAssembleReport(out: AssembledContext): string {
+  const parts = [
+    `${out.report.msgs_conserved}/${out.report.msgs_before} msgs`,
+    `${out.report.tokens_before}→${out.report.tokens_after} tokens`,
+    out.report.mode,
+  ];
+  if (out.mmd_injected) parts.push("mmd ✓");
+  if (out.recall_injected) parts.push("recall ✓");
+  return parts.join(" · ");
+}
