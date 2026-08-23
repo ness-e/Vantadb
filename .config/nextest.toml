@@ -1,63 +1,70 @@
 [profile.default]
-# Only quick integrity tests run in CI. Heavy tests (storage, WAL, text index, certification)
-# are excluded here and run exclusively in heavy-certification-50.yml (weekly).
+# Only quick integrity tests run in CI. Heavy tests are excluded here and run
+# exclusively in heavy-certification-50.yml (weekly).
 # Binary IDs match the test file stem (e.g. tests/storage/wal_resilience.rs → wal_resilience).
+#
+# BND-06 scope-safe form: every exclusion is qualified with its owning package
+# (`not (package(X) and binary(Y))`). Bare `binary(Y)` is validated against the
+# binaries of the selected packages, so `cargo nextest run -p <crate>` failed to
+# parse this filter when a name only existed in another package. Qualified
+# exclusions are no-ops outside their package and keep workspace-wide runs
+# excluding exactly the same binaries.
 default-filter = """\
-not binary(benchmark_internal) \
-and not binary(benchmark_datasets) \
-and not binary(cli_tests) \
-and not binary(concurrency_parity) \
-and not binary(concurrency_primitives) \
-and not binary(derived_index_recovery) \
-and not binary(durability_recovery) \
-and not binary(edge_cases) \
-and not binary(file_locking_stress) \
-and not binary(fjall_cold_copy_restore) \
-and not binary(fuzz_proptest) \
-and not binary(index_reconstruction) \
-and not binary(memory_api) \
-and not binary(memory_brutality) \
-and not binary(memory_export_import) \
-and not binary(operational_metrics) \
-and not binary(prefetch_benchmark) \
-and not binary(property_durability) \
-and not binary(schema_evolution) \
-and not binary(text_index_recovery) \
-and not binary(wal_resilience) \
-and not binary(python) \
-and not binary(structured_api_v2) \
-and not binary(hnsw_recall) \
-and not binary(hnsw_validation) \
-and not binary(hybrid_ranking_metrics) \
-and not binary(hybrid_retrieval_quality) \
-and not binary(sift_validation) \
-and not binary(stress_protocol) \
-and not binary(multi_namespace_stress) \
-and not binary(competitive_bench) \
-and not binary(hardware_profiles) \
-and not binary(basic_node) \
-and not binary(vector_scale_check) \
-and not binary(integration) \
-and not binary(mcp_integration) \
-and not binary(e2e) \
-and not binary(benchmarks) \
-and not binary(server) \
-and not binary(antilocality_layout) \
-and not binary(backend_tests) \
-and not binary(chaos_integrity) \
-and not binary(crash_injection) \
-and not binary(gc) \
-and not binary(mmap_index) \
-and not binary(multi_process_lock) \
-and not binary(mutations) \
-and not binary(storage) \
-and not binary(tombstone_ann_vstore) \
-and not binary(mcp_tests) \
-and not binary(multilingual_tokenizer_integration) \
-and not binary(memory_telemetry) \
-and not binary(regression_certification) \
-and not binary(snapshot_certification) \
-and not binary(security_audit) \
+not (package(vantadb) and binary(benchmark_internal)) \
+and not (package(vantadb) and binary(benchmark_datasets)) \
+and not (package(vantadb) and binary(cli_tests)) \
+and not (package(vantadb) and binary(concurrency_parity)) \
+and not (package(vantadb) and binary(concurrency_primitives)) \
+and not (package(vantadb) and binary(derived_index_recovery)) \
+and not (package(vantadb) and binary(durability_recovery)) \
+and not (package(vantadb) and binary(edge_cases)) \
+and not (package(vantadb) and binary(file_locking_stress)) \
+and not (package(vantadb) and binary(fjall_cold_copy_restore)) \
+and not (package(vantadb) and binary(fuzz_proptest)) \
+and not (package(vantadb) and binary(index_reconstruction)) \
+and not (package(vantadb) and binary(memory_api)) \
+and not (package(vantadb) and binary(memory_brutality)) \
+and not (package(vantadb) and binary(memory_export_import)) \
+and not (package(vantadb) and binary(operational_metrics)) \
+and not (package(vantadb) and binary(prefetch_benchmark)) \
+and not (package(vantadb) and binary(property_durability)) \
+and not (package(vantadb) and binary(schema_evolution)) \
+and not (package(vantadb) and binary(text_index_recovery)) \
+and not (package(vantadb) and binary(wal_resilience)) \
+and not (package(vantadb) and binary(python_sdk_boundary)) \
+and not (package(vantadb) and binary(structured_api_v2)) \
+and not (package(vantadb) and binary(hnsw_recall_certification)) \
+and not (package(vantadb) and binary(hnsw_validation)) \
+and not (package(vantadb) and binary(hybrid_ranking_metrics)) \
+and not (package(vantadb) and binary(hybrid_retrieval_quality)) \
+and not (package(vantadb) and binary(sift_validation)) \
+and not (package(vantadb) and binary(stress_protocol)) \
+and not (package(vantadb) and binary(multi_namespace_stress)) \
+and not (package(vantadb) and binary(competitive_bench)) \
+and not (package(vantadb) and binary(hardware_profiles)) \
+and not (package(vantadb) and binary(basic_node)) \
+and not (package(vantadb) and binary(vector_scale_check)) \
+and not (package(vantadb) and binary(integration)) \
+and not (package(vantadb-server) and binary(mcp_integration)) \
+and not (package(vantadb-server) and binary(e2e)) \
+and not (package(vantadb-server) and binary(benchmarks)) \
+and not (package(vantadb-server) and binary(server)) \
+and not (package(vantadb) and binary(antilocality_layout)) \
+and not (package(vantadb) and binary(backend_tests)) \
+and not (package(vantadb) and binary(chaos_integrity)) \
+and not (package(vantadb) and binary(crash_injection)) \
+and not (package(vantadb) and binary(gc)) \
+and not (package(vantadb) and binary(mmap_index)) \
+and not (package(vantadb) and binary(multi_process_lock)) \
+and not (package(vantadb) and binary(mutations)) \
+and not (package(vantadb) and binary(storage)) \
+and not (package(vantadb) and binary(tombstone_ann_vstore)) \
+and not (package(vantadb-mcp) and binary(mcp_tests)) \
+and not (package(vantadb) and binary(multilingual_tokenizer_integration)) \
+and not (package(vantadb) and binary(memory_telemetry)) \
+and not (package(vantadb) and binary(regression_certification)) \
+and not (package(vantadb) and binary(snapshot_certification)) \
+and not (package(vantadb) and binary(security_audit)) \
 """
 # No global test-threads limit - let Linux/macOS use full parallelism
 

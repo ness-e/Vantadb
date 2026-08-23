@@ -59,17 +59,14 @@ use wasm_bindgen::prelude::*;
     g.vantaIdbStorage = storage;
 })();
 "#)]
-extern "C" {
-    #[allow(dead_code)]
-    fn __vanta_ensure_idb_bridge();
-}
+extern "C" {}
+// NOTA BND-01: la IIFE anterior se auto-ejecuta al cargar el módulo snippet y
+// registra globalThis.vantaIdbStorage antes de cualquier llamada. No se declara
+// ningún import extern del snippet (un import sin export correspondiente produce
+// LinkError: WebAssembly.Instance() — ver Backlog BND-01).
 
 fn storage() -> Result<JsValue, JsValue> {
-    // Ensure the inline JS bridge has registered globalThis.vantaIdbStorage.
-    // The generated __vanta_ensure_idb_bridge import is idempotent: the bridge
-    // IIFE re-enters early when vantaIdbStorage already exists. Without this
-    // call the bridge never registers and every IDB operation fails.
-    __vanta_ensure_idb_bridge();
+    // La bridge ya está registrada por la IIFE del snippet al importar el módulo.
     let val = Reflect::get(&js_sys::global(), &"vantaIdbStorage".into())?;
     if val.is_undefined() {
         return Err(JsValue::from_str(
