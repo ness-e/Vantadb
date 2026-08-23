@@ -305,3 +305,8 @@ aliases: []
 - **Fecha:** 2026-08-18
 - **Resultado:** ✅ src/sdk/version_history.rs (nuevo, 11 tests) + partición Fjall Versions (clave 
 s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired + VantaConfig.version_history_limit (cap 32 FIFO aprobado, snapshot del record nuevo, import sin snapshots). API get_version/ersions. Commits e0812a4/6997e59. Doble consumidor P26+P27. 1785 lib tests verdes (1 fallo preexistente maintenance.rs fuera de scope).
+
+### REVIEW-09: Latch `saturated` monotónico en cache_warmer — warming vuelve a aprender tras decay
+- **Fecha:** 2026-08-23
+- **Fuente:** Plan `docs/plans/2026-08-23-backlog-triage.md` (Wave 1) · Backlog · review-full-20260822 H09-CODE-001
+- **Resultado:** ✅ `record_co_access` seteaba `saturated=true` al cruzar `max_pairs` pero `decay()` reducía la tabla sin resetearlo → en servers long-running el warmer quedaba en refresh-only para siempre. Fix: `decay()` levanta el latch cuando el post-decay total < `max_pairs` (≤1 transición por cruce; sin thrashing verificado con decays que mantienen post-total ≥ cap). TDD: RED reprodujo el bug, 2 tests nuevos (ciclo completo + no-thrash), módulo 11/11. Verify full: fmt ✅ · clippy `-D warnings` ✅ · nextest audit workspace 2714/2714 ✅. Review P2-01 (vanta-review) aprobó tras corregir doc deshonesta del campo `saturated`. Commit `8b8924b3`. (ver `.opencode/skills/campaign-executor/tasks/REVIEW-09.md`)
