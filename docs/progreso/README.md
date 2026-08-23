@@ -20,7 +20,7 @@ aliases: []
 
 VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNSW híbrido, GraphRAG, CLIP y el ecosistema Python/LLM.
 
-**Estado (2026-08-22):** 🟢 **P31 Cierre Final completada** — el port TDAM quedó al 100% funcional y semántico (roadmap F1-F7 completo: P27+P29+P30 = 42 tareas). Última campaña registrada: **P32 Bindings SDK** (sub-clientes TS/Python, 4/4, ver inline abajo). En ejecución: **Gobernanza Documental** (plan GOV, corrección integral post-auditoría).
+**Estado (2026-08-22):** ✅ **Port TDAM 100% + Última Milla** — P27+P29+P30+P31+P32 = 54 tareas + **P33 Última Milla** (integración producto end-to-end, 10/10, ver [`campanas/ultima-milla-p33.md`](campanas/ultima-milla-p33.md)). En ejecución: Gobernanza Documental (sesión paralela).
 
 ### Progreso general
 
@@ -93,6 +93,7 @@ VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNS
 | Archivo | Contenido |
 |---------|-----------|
 | [`bindings-sdk-p32.md`](campanas/bindings-sdk-p32.md) | P32 — sub-clientes TS/Python (MEM-36) |
+| [`ultima-milla-p33.md`](campanas/ultima-milla-p33.md) | P33 — Última Milla: integración producto end-to-end |
 | [`p31-cierre.md`](campanas/p31-cierre.md) | P31 — cierre final del port TDAM |
 | [`p30-proxy-knowledge.md`](campanas/p30-proxy-knowledge.md) | P30 — vanta-proxy (F6) + knowledge/wiki (F7) |
 | [`p29-context-engine.md`](campanas/p29-context-engine.md) | P29 — Context Engine compresión/recall/GC (F5) |

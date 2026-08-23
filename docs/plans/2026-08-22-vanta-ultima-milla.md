@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Última Milla — integración producto end-to-end
 
 > **Inicio:** 2026-08-22
-> **Estado:** ✅ COMPLETADO (10/10 tareas — Última Milla)
+> **Estado: completed
 > **Fuente:** auditoría de integración final (`docs/reviews/2026-08-22-auditoria-integracion-final.md`) + decisiones del usuario (2026-08-22)
 > **Predecesores:** P27+P29+P30+P31+P32 ✅ (54 tareas) — roadmap TDAM 100% + bindings
 > **Modo:** waves por dependencias. Sin release durante la campaña (decisión usuario).
@@ -35,7 +35,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Archivos clave:** `vanta-proxy/src/handlers/{openai,anthropic,responses}.rs` (editar), `writeback.rs` (API si falta)
 - **Verificación real:** ✅ AUDITORÍA — WriteBack construido+flusheado pero cero llamadas track() (auditoría H1)
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: cargo check/test/fmt/clippy -p vanta-proxy --all-targets ✅ 89 tests passed; evidencia: claim 'turno → span OTLP emitido' evidencia vanta-proxy/src/langfuse.rs test turn_is_exported_as_otlp_span_to_mock_collector (collector TcpListener mockeado) confianza alta | claim 'disabled default' evidencia test disabled_when_no_endpoint_configured + ReportConfig::default().enabled()==false confianza alta | claim 'fallo red nunca bloquea' evidencia test network_failure_returns_err_without_blocking + hook mpsc unbounded + worker thread timeout 5s confianza alta | decision OTLP-JSON sin SDK: serde_json::json! resourceSpans + reqwest blocking (feature agregada, no dep nueva) evita opentelemetry-sdk ~30 crates; artefactos: vanta-proxy/src/langfuse.rs (nuevo), vanta-proxy/src/config.rs ([report] ReportConfig), vanta-proxy/src/server.rs (wiring from_engine), vanta-proxy/src/lib.rs, vanta-proxy/Cargo.toml, vanta-proxy/tests/{pipeline,proxy_wire,tool_loop}.rs (campo report en literales); invariantes: NO tocar wal.rs/vector/storage/core; Reporter.emit sincrono llama hook solo con channel send; TOMLs existentes sin [report] siguen parseando; deuda: traceId/spanId derivados de timestamp ns (no aleatorios — suficiente para observabilidad, upgrade a ids aleatorios si se requiere correlación estricta); worker thread no tiene backpressure bounded (unbounded channel, aceptado por P4); queda_pendiente: commit lo hace el lead (orden: no commitear); MCP task-state bloqueado por WIP ajeno (GOV-B2/GOV-E1/MEM-57 in-progress) — task file MEM-56.md marcado COMPLETED como fuente de verdad
+- **Contrato: cargo check/test -p vanta-proxy --all-targets pasa — evidencia: 89/89 proxy tests (+4 langfuse), fmt/clippy exit 0; commit 7f1eab2b
 - **Risk Register:** 🟢×🟠 extraer user-text del request puede necesitar MEM-57 parcial → implementar extracción mínima inline, refinar con Task 8
 - **Cynefin:** 🟦 obvio
 - **Estado:** ✅ COMPLETED
@@ -182,12 +182,12 @@ Verify del lead SIEMPRE `--all-targets` (lección MEM-48) · SARL con feedback e
 ---
 
 === RECITATION ===
-Campaign ID: 85900bf4-19e6-4843-af31-9833c8b12413
-Objetivo activo: P33 Task 10 / MEM-56 — Hook Langfuse/OTLP sobre ReportHook
+Campaign ID: c2ed9e2d-df37-4ecd-aebd-aab6ed6a5477
+Objetivo activo: P33 Última Milla — COMPLETADA (10/10)
 Estado: pending ⏳
-Última acción: MEM-56 completo: langfuse.rs OTLP-JSON manual (hook mpsc→worker thread reqwest blocking 5s timeout), config [report] off-by-default, wiring en from_engine, 4 tests D19 verdes, verify mecánico 4/4
+Última acción: MEM-56 hook Langfuse/OTLP-JSON manual sin SDK (elección ponytail documentada): serde_json resourceSpans fijo + reqwest blocking POST; config [report] TOML off-by-default cero overhead; worker thread mpsc con timeout 5s fallo=warn nunca bloquea P4; 4 tests D19 con collector mockeado
 Resultado: OK
-Próxima acción: Plan P33 completo (10/10). Orquestador: revisar diff, commitear, cerrar campaña y decidir release (checkpoint CP3/cierre del plan)
+Próxima acción: Campaña P33 COMPLETA — cierre final: progreso milestone + archive plan + reporte al usuario
 Contrato: por tarea — cargo check/nextest/fmt/clippy --all-targets del crate tocado exit 0 + tests D19
-Próxima tarea si completa: ninguna — última tarea
+Próxima tarea si completa: ninguna
 === END RECITATION ===
