@@ -1,5 +1,6 @@
 # Plan de Ejecución: Task System Hardening II — paralelismo real + spec-first
 
+> **Campaign ID:** a5fe091a-e95c-4362-bc17-d36f72aeecf8
 > **Inicio:** 2026-08-23
 > **Estado:** ⏳ EN PROGRESO
 > **Fuente:** Segunda ronda de auditoría + decisiones Gate P del usuario

@@ -52,8 +52,10 @@ estancadas.
    - Si alguna probe falla → preguntá al usuario antes de continuar
 
 5. ENCONTRAR próxima tarea pendiente vía MCP:
-   - `campaign_get_next_task` devuelve la primera ⬜ PENDING o null
-   - Si no hay → **campaña completada**. Ejecutá `skill progreso`, detenete.
+   - `campaign_get_next_task` con **`claim: true`** (MCP) — claim atómico IN PROGRESS
+     bajo lock: una segunda instancia ya no hace Discovery de la misma tarea.
+     Si devuelve `claimBlocked`, tomá la siguiente ⬜ PENDING o esperá.
+   - Si no hay tareas pendientes → **campaña completada**. Ejecutá `skill progreso`, detenete.
 
 6. MIENTRAS haya tareas pendientes — por cada tarea (profundidad completa):
 
