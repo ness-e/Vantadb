@@ -9,20 +9,7 @@ aliases: []
 
 # bitacora — Development Log
 > **Regla GOV-D3:** entrada al cierre de cada campaña; bullets del lead, redacción del autor.
-## Agosto 2026
-
-### 2026-08-22 — Cierre TDAM y rumbo a Show HN (draft para articulación humana)
-
-Hechos objetivos (el autor narra):
-- Port TDAM cerrado: P27 F1-F7 completos; vanta-memory, vanta-proxy y context engine son crates/productos reales.
-- Vanta Studio (P26) completo: consola desktop + REST /api/v2/* (~29 endpoints) + WASM/OPFS standalone.
-- Auditoría documental integral (V1+II): salud 6.5/10 → campaña GOV en ejecución.
-- Wave B bloqueante Show HN ejecutada: case studies ficticios archivados, openapi.yaml con paridad gateada en CI, skill MCP fuente única 33 tools, snippets de tutoriales 31 FAIL→0.
-- Release 0.5.0 verificado live en crates.io/PyPI/npm; wheels ARM64 y adapters pendientes (MKT-18h/f).
-- Pendiente grande post-launch: ACID 4a-4d rollback multi-capa (INV-010) ticketeado.
-
-> **Regla de uso (GOV-D3):** entrada narrativa al CIERRE de cada campaña (no daily). El lead prepara bullets; la redacción es del autor humano (Regla 5).
-
+## Agosto 2026  ### 2026-08-22 — Cierre TDAM, auditoría documental y rumbo a Show HN  Agosto cerró el ciclo más intenso del proyecto. El port TDAM terminó completo — vanta-memory, vanta-proxy y el context engine pasaron de investigación a crates/productos reales con ~48 commits verificados — y Vanta Studio entregó la consola desktop con REST completo (~29 endpoints) y WASM/OPFS standalone. Pero el hito que cambia cómo trabajamos fue la **auditoría documental integral**: salud 6.5/10, con una paradoja clara — el código cumple lo que los docs prometen (14/16 claims verificados con commit hash) mientras los índices maestros llevaban semanas congelados y el CHANGELOG acumulaba tres releases de trabajo sin cortar.  La campaña GOV ejecutó las correcciones en waves: lo público primero (case studies ficticios archivados antes de que alguien los cite; openapi.yaml pasó de 3 a 35 paths con paridad gateada en CI; los tutoriales dejaron de crashear con graph_bfs), luego los maestros sincronizados (master-index con 136 links verificados y contador real de tareas), y finalmente la taxonomía: progreso dividido en 37 archivos por campaña, Investigaciones absorbida por research/, y la skill MCP convertida en fuente única de sus 33 tools. El harness de snippets convirtió la auditoría en test ejecutable — 31 roturas que el muestreo había subestimado, ahora guardadas por un guard anti-regresión.  El release 0.5.0 está verificado live en los tres registries. Quedan afuera, a propósito: wheels ARM64, adapters sin publicar y el corte 0.6.0 — diferido hasta cerrar bindings. Y el pendiente grande post-launch sigue siendo ACID 4a-4d: rollback coordinado multi-capa con diseño completo esperando su turno después del Show HN.
 ## Julio 2026
 
 ### Semana 1 (2026-07-01) — Documentation Audit, Rust Examples & Certification

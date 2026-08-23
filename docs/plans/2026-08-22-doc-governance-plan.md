@@ -1,6 +1,6 @@
 # Plan de Ejecución: Gobernanza Documental — corrección integral post-auditoría
 
-> **Campaign ID: a70f9e40-4928-43b7-855c-890ae9421700
+> **Campaign ID: 25511c4f-042b-4e94-baf1-a91eee779a68
 > **Inicio:** 2026-08-22
 > **Estado: completed
 > **Fuente:** `docs/reviews/auditoria-documentacion-2026-08-21.md` (Volumen I+II+Addendum) + decisiones del owner D1-D14 + respuestas de confirmación T0.x/T1.x/T3.x/T4.x/T6.x/T7.x registradas en §"Plan de Revisión" del informe.
@@ -46,7 +46,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pen
 - **Verificación real:** ✅ CÓDIGO-REAL — `verify-log.jsonl` existe y se puebla (23 entradas, campos ts/taskId/command/passed); `dora.mjs` ya lee el log para CFR pero no calcula recovery (TIR-02 investigación cerrada 08-17); 3 pares fail→pass medibles.
 - **Gate Justificación:** decisión ya tomada en investigación; ~30 líneas sobre datos existentes; cero riesgo producto.
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: npx markdownlint-cli2 sobre los 8 archivos tocados = 0 issues EXIT=0 ✅; Test-Path 48 paths citados = 48/48 OK ✅; Discord API invite g8nqB3NtXt = guild válida ✅ | evidencia: [invite discord.gg/vantadb → Discord API NotFound, alta] [vantadb.dev → DNS Host desconocido, alta] [benchmarks ES divergentes → vanta_benchmark_report.json real 74.0/13.2/2.0/3.1 ms, alta] [import canónico → pyproject.toml include vantadb/__init__.py alias, alta] [Security Audit badge → sec-codeql-30.yml existe con CodeQL, ci-rust-10.yml sin 'audit', alta] | artefactos: docs/reviews/auditoria-raiz-publica-2026-08-22.md + .opencode/skills/campaign-executor/tasks/GOV-F1.md | invariantes: no tocar src/, docs/plans/*bindings-sdk*, vantadb-ts/, evals/, Backlog, vanta-proxy; plan NO editable; PROHIBIDO git este agente | deuda: commit pendiente — delegar al lead; 2 tickets owner (dominio vantadb.dev, wheels ARM64 ↔ MKT-18h) | queda_pendiente: orquestador commitea los 9 archivos tocados
+- **Contrato: verificacion: cargo check -p vanta-proxy --all-targets ✅ 0; cargo test -p vanta-proxy ✅ 73/73 (53 lib + 5 pipeline + 10 wire + 5 tool_loop); cargo fmt -p vanta-proxy --check ✅; cargo clippy -p vanta-proxy --all-targets --no-deps -- -D warnings ✅ 0. evidencia: claim=loop agéntico ejecuta capture server-side vía D47 → test a_openai_capture (persistencia en proxy-turns por polling); claim=search recall síncrono con tool_result estándar Anthropic → test b_anthropic_search; claim=passthrough byte-identical sin session/tools → test c_without_our_tools; claim=cap duro D48 = exactamente 4 forwards y replay verbatim del último → test d_iteration_cap; claim=streaming final intacto → test e_final_response_streaming. artefactos: vanta-proxy/src/{sse_intercept.rs,memory_tools.rs}, vanta-proxy/src/server.rs, vanta-proxy/tests/tool_loop.rs, vanta-proxy/src/lib.rs, vanta-proxy/Cargo.toml. invariantes: NO tocar core/wal/vector/storage (respetado); passthrough byte-identical como gate permanente; cap 3 iteraciones D48; capture SOLO vía WriteBack::track D47. deuda: protocolo Responses pasa sin interceptor (techo documentado); tool_calls no-memory mezcladas en un turno se preservan en historial sin resultado sintetizado; streaming incremental se pierde solo en turns con nuestras tools anunciadas (trade-off D46). queda_pendiente: lead commitea (regla: worker no commitea); plan file se cierra vía MCP por el orquestador
 - **Pre-mortem:** (1) pairing ambiguo con taskId:null → filtrar entradas sin taskId y documentar caveat; (2) exitCode:-1 contaminando métrica → clasificar como no-ejecutado, no fallo.
 - **Stop conditions:** appetite excedido → DEFER; si pairing produce >50% no-pareable → simplificar a conteo, no Δt.
 - **Risk Register:**
@@ -73,7 +73,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pen
 - **Risk Register:** 🟢×🟢 divergencia terminológica closed/ vs archive/ → glosario de una línea en la sección.
 - **Cynefin:** 🟦 obvio
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 2 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** bajo demanda
 - **Notas:** —
 
@@ -578,13 +578,13 @@ plan-adjust [2026-08-22]: creación inicial — triaje 30 DO / 2 DEFER (release,
 
 === RECITATION ===
 Campaign ID: por asignar (`campaign_session_track create` al arrancar)
-Objetivo activo: GOV-F1 — auditoría raíz pública (README ×2 + governance files)
+Objetivo activo: MEM-51 H2/O2 interceptor de stream con loop agéntico de memory-tools
 Estado: completed
-Última acción: Auditados 7 archivos raíz contra código/registries: 12 findings (2🔴 5🟠 3🟡 2🟢), 10 fixes triviales inline, reporte en docs/reviews/auditoria-raiz-publica-2026-08-22.md. Hallazgos 🔴: invite Discord inválido y links vantadb.dev muertos en SUPPORT.md (ambos fixed). Claims verificados sin hallazgo: CLI/server defaults/RBAC/rate-limit/TLS/badges/workflows/assets/fuzz targets.
+Última acción: Implementados sse_intercept.rs + memory_tools.rs, integrados en server.rs (forward_with_tool_loop, cap D48), tests D19 a-e verdes, verify completo exit 0. Sin commit por regla explícita
 Resultado: OK
-Próxima acción: Orquestador: commitear 9 archivos (7 raíz + reporte + task file) con 'docs: GOV-F1 audit root public files'; crear tickets owner para dominio vantadb.dev y copy wheels ARM64
+Próxima acción: Orquestador: commit 'feat: MEM-51 — H2/O2 agentic memory-tool loop' y delegar Task 3 (MEM-52 fachada wiki)
 Contrato: node evals/dora.mjs exit 0 + seccion Recovery con pares
-Próxima tarea si completa: GOV-F2 (auditoría zonas internas) o asignación del orquestador
+Próxima tarea si completa: 3
 
 ---
 

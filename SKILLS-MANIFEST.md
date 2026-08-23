@@ -1,4 +1,4 @@
-﻿# VantaDB Skills Manifest
+# VantaDB Skills Manifest
 
 **Location:** 162 skills en `.agents/skills/` + 31 en `.opencode/skills/`; total **193** (project-local; curated essential list below)
 **Updated:** 2026-08-19
@@ -7,7 +7,7 @@
 > - `.agents/skills/` = **162** skills (163 dirs; `a11y-shared` es carpeta de recursos compartidos, no skill)
 > - `.opencode/skills/` = **31** skills
 > - **Total proyecto = 193** (162 + 31)
-> - Global `~/.agents/skills/` = 153 dirs (139 con SKILL.md, 14 sin); `~/.claude/skills/` = 26 dirs
+> - Global `~/.agents/skills/` = 160 dirs (139 con SKILL.md, 14 sin); `~/.claude/skills/` = 33 dirs
 > - **87 skills nuevas documentadas hoy** (batch 2026-08-19): 63 de accesibilidad (5 `a11y-*` + 58 `incl-*`), 17 de diseño/UX/utilidad, 7 de pipeline/VantaDB core
 > - Stub detectado: `debugging-and-error-recovery` (`.opencode/skills/`) está DEPRECADO — delega en `systematic-debugging` (EVAL-03). Se mantiene listado porque existe en disk, pero NO se debe cargar.
 > - `impeccable` (Essential, KEEP) solo existe en la copia global `~/.agents/skills/`, no en `.agents/skills/` del proyecto - pendiente de sync.
@@ -591,7 +591,7 @@ The following skills were removed during cleanup (158 total):
 
 ## Source Locations
 
-All skills are now consolidated in the project: **162 skills en `.agents/skills/` + 31 en `.opencode/skills/`; total 193** (audited 2026-08-19). Skills not relevant to VantaDB live in `~/.agents/skills/` (153 dirs global) and `~/.claude/skills/` (26 dirs).
+All skills are now consolidated in the project: **162 skills en `.agents/skills/` + 31 en `.opencode/skills/`; total 193** (audited 2026-08-19). Skills not relevant to VantaDB live in `~/.agents/skills/` (160 dirs global) and `~/.claude/skills/` (33 dirs).
 The global locations still exist but are secondary — prefer the project-local copy. Regla de resolución (AGENTS.md): `.opencode/` → `.agents/` → global, usar la primera que exista.
 
 ### Removidas en batch 2026-08-19 (7)

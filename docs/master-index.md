@@ -290,7 +290,7 @@ Documentation for the Next.js web frontend lives in `docs/web/`.
 | Document | Description |
 |----------|-------------|
 | [web/README.md](web/README.md) | Web docs landing page |
-| [DESIGN_RULES.md](web/DESIGN_RULES.md) | Frontend design rules |
+| [design-rules-es-tutorial.md](archive/design-rules-es-tutorial.md) | Tutorial ES de diseño (ARCHIVADO — ver banner) |
 | [QA.md](web/QA.md) | Web QA checklist |
 | Sub-folders: [`audit/`](web/audit/), [`guides/`](web/guides/), [`reference/`](web/reference/), [`standards/`](web/standards/) |
 

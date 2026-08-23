@@ -1,4 +1,14 @@
 ---
+title: "ARCHIVADO — Estructura Visual de la Información en Diseño Web (tutorial ES)"
+type: archive-note
+status: archived
+---
+
+> **ARCHIVADO 2026-08-22 (GOV-E1 post-aprobación owner):** tutorial en español de teoría de
+> diseño (jerarquía visual, Swiss/Neubrutalism) — contenido ÚNICO y valioso, pero viola el
+> Doc Language Split (técnicos en inglés) y tenía mojibake. El estándar CSS vigente vive en
+> `web/standards/design-rules.md`. Candidato a traducción si alguna vez se hace público.
+---
 title: "Estructura Visual de la Información en Diseño Web"
 type: design
 status: active
