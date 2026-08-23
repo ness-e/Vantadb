@@ -88,6 +88,7 @@ pub struct VantaDB {
 /// `vantadb-node/src/lib.rs` — closes the write-after-close race where a
 /// thread whose engine call had not yet run (or is running GIL-released via
 /// `py.detach`) would write after `close()` returned.
+#[derive(Clone)]
 struct OpGate {
     state: Arc<(Mutex<OpState>, Condvar)>,
 }
@@ -129,6 +130,11 @@ impl OpGate {
     /// Sets `closing = true` (so new ops are rejected) then waits until
     /// `count == 0`. Blocks the calling thread; acceptable: this is the
     /// durability barrier and engine operations are bounded.
+    ///
+    /// MOD-17: MUST be called with the GIL released whenever Python threads
+    /// may hold an `OpGuard`: an op returning from its own `py.detach` needs
+    /// to re-acquire the GIL before it can drop its guard, so waiting here
+    /// with the GIL held deadlocks the interpreter. See `VantaDB::close`.
     fn drain(&self) {
         let (lock, cvar) = &*self.state;
         let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
@@ -1711,7 +1717,15 @@ impl VantaDB {
     fn close(&self, py: Python) -> PyResult<()> {
         // Durability barrier: reject new ops and wait for in-flight ones to
         // finish BEFORE the engine is closed (see OpGate docs).
-        self.op_gate.drain();
+        //
+        // MOD-17: drain waits on its condvar OUTSIDE the GIL — an in-flight
+        // op returning from its own `py.detach` must be able to re-acquire
+        // the GIL to drop its OpGuard, so waiting with the GIL held would
+        // deadlock the whole interpreter. Source: PyO3 0.29 parallelism
+        // guide (https://pyo3.rs/v0.29.0/parallelism): always detach when
+        // blocked work needs the GIL back.
+        let gate = self.op_gate.clone();
+        py.detach(move || gate.drain());
         let engine = self.engine.clone();
         py.detach(move || engine.close().map_err(map_vanta_error))
     }
