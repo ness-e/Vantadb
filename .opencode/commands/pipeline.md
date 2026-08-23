@@ -43,7 +43,7 @@ Cross-command flow: pipeline → build → audit → ship → rollback
 /pipeline plan docs/Backlog.md
 ```
 
-**Paso 0 — Leer spec existente.** Buscá `SPEC.md` en raíz, `docs/SPEC.md`, o archivos en `spec/`. Si existe, úsalo como contexto. Si no, continuá igual.
+**Paso 0 — Spec existente o auto-generada.** Buscá `SPEC.md` en raíz, `docs/SPEC.md`, o archivos en `spec/`. Si existe, úsalo como contexto. Si NO existe y el backlog incluye tareas feature-add: generala primero siguiendo el flujo automático de `.opencode/commands/spec.md` (contexto del repo → tabla de decisiones → UNA ronda de `question` tool con opciones + `(Recomendado)` → escribir `SPEC.md`). No sigas a triage sin resolver las decisiones abiertas.
 
 **Enter plan mode — read only, no code changes.**
 

@@ -33,20 +33,27 @@ SPECIFY ──→ PLAN ──→ TASKS ──→ IMPLEMENT
 
 ### Phase 1: Specify
 
-Start with a high-level vision. Ask the human clarifying questions until requirements are concrete.
+Start with a high-level vision. **Derive everything you can from the repo first** (codegraph, existing docs, ADRs, prior decisions), then ask the human only what remains — via OpenCode's `question` tool.
 
-**Surface assumptions immediately.** Before writing any spec content, list what you're assuming:
+**Ask via the `question` tool, never in prose.** Follow the canonical rules in
+`.opencode/task-system/prompts/question-gates.md`:
+
+1. **Context first** — anything derivable from the codebase becomes a decided item with cited evidence (`ref: file:line`). Don't ask what the repo already answers.
+2. **Batch one round** — collect all remaining open decisions into a single `question` call (multiple questions per call). Max 1 round.
+3. **Concrete options + recommended default** — every question carries explicit options with `(Recommended)` first. Never an open-ended "what do you want?"
+4. **Fallback** — if the harness exposes no `question` tool, output the decision table as a structured report and STOP waiting for input. Never assume answers.
+
+Example decision table feeding the `question` call:
 
 ```
-ASSUMPTIONS I'M MAKING:
-1. This is a web application (not native mobile)
-2. Authentication uses session-based cookies (not JWT)
-3. The database is PostgreSQL (based on existing Prisma schema)
-4. We're targeting modern browsers only (no IE11)
-→ Correct me now or I'll proceed with these.
+| # | Decision              | Options                  | Default        |
+|---|-----------------------|--------------------------|----------------|
+| 1 | Auth mechanism        | session / JWT / both     | session        |
+| 2 | Target browsers       | modern only / +IE11      | modern only    |
+→ asked via `question` in ONE call; answers recorded in the spec
 ```
 
-Don't silently fill in ambiguous requirements. The spec's entire purpose is to surface misunderstandings *before* code gets written — assumptions are the most dangerous form of misunderstanding.
+Don't silently fill in ambiguous requirements. The spec's entire purpose is to surface misunderstandings *before* code gets written — but surface them as answerable choices, not essays.
 
 **Write a spec document covering these six core areas:**
 

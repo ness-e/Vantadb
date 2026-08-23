@@ -5,23 +5,67 @@ description: Start spec-driven development — write a structured specification 
 Invoke the spec-driven-development skill.
 If requirements are ambiguous, also invoke the interview-me skill to extract what the user actually needs.
 
-Begin by understanding what the user wants to build. Ask clarifying questions about:
-1. The objective and target users
-2. Core features and acceptance criteria
-3. Tech stack preferences and constraints
-4. Known boundaries (what to always do, ask first about, and never do)
+## Flujo automático — la IA pregunta con la tool `question`
 
-Then generate a structured spec covering all six core areas: objective, commands, project structure, code style, testing strategy, and boundaries.
+> Principios de formato heredados de `prompts/question-gates.md` (fuente única):
+> opciones concretas + default recomendado (`(Recomendado)` primero), máximo
+> 1 ronda, nunca pregunta abierta sin contexto, nunca asumir GO.
 
-Save the spec as `SPEC.md` (repo root) or `docs/SPEC.md`. Also consider creating `docs/architecture/adr/` for architectural decisions.
-After writing the spec, registrá la decisión en la memoria del campaign-executor:
-- `campaign_memory_write(file="decisions", entry="Spec: {nombre} — {decisión clave}")` (MCP)
-- También podés consultar `campaign_memory_read(file="decisions")` para ver decisiones anteriores.
+### Paso 1 — Contexto primero (no preguntes lo que el código ya responde)
 
-**Decision gates before writing:**
-- Is the objective clear enough to write testable acceptance criteria? If not, interview the user.
-- Are there existing specs, ADRs, or design docs to build on? Read them first.
-- Does the tech stack need validation? Run `/audit quick` after spec is written.
+Antes de hacer UNA sola pregunta, derivá todo lo posible del repositorio:
+
+1. `codegraph_explore` del área afectada (estructura, patrones, stack real)
+2. Docs existentes: README, `docs/api/`, `docs/architecture/adr/`, specs previas
+3. Decisiones anteriores: `campaign_memory_read(file="decisions")`
+4. **Validación web** — si una decisión involucra elegir librería/API/tecnología
+   externa: validar contra docs oficiales (`websearch`/`webfetch`) ANTES de
+   proponerla como opción (Regla 0 de AGENTS.md). Un tradeoff citado vale más
+   que un adjetivo.
+
+Cada dato derivable del contexto entra directo al spec como **decisión tomada**
+con su evidencia citada (`ref: archivo:línea`). Esto minimiza las preguntas.
+
+### Paso 2 — Tabla de decisiones abiertas
+
+Listá SOLO lo que el contexto no puede responder. Formato y **profundidad
+mínima** según `prompts/spec-template.md` §5: ≥2 alternativas reales con su
+tradeoff de una línea; si hay un solo camino viable, registrarlo con evidencia
+(✅ decidido-por-evidencia), nunca opciones de relleno.
+
+| # | Decisión | Opciones (+tradeoff) | Default recomendado |
+|---|----------|----------------------|---------------------|
+| 1 | ej: auth por sesión o JWT | session (simple, revocable) / JWT (stateless, revocación compleja) | session |
+
+Si no hay decisiones abiertas (todo era derivable), saltá directo al Paso 4.
+
+### Paso 3 — UNA ronda de `question` (batch)
+
+Envialas TODAS en una sola llamada `question` (soporta múltiples preguntas),
+cada una con sus opciones y el `(Recomendado)` primero. Reglas:
+
+- Nunca preguntas abiertas sin opciones ("¿qué querés?" ❌)
+- Si el harness no expone `question`: reporte estructurado con la tabla del
+  Paso 2 y STOP esperando input — nunca asumir respuestas
+- Las respuestas quedan registradas en la columna **Resuelto** de la tabla
+  y en la recitation / `campaign_memory_write(file="decisions", ...)`
+
+### Paso 4 — Escribir `SPEC.md`
+
+Generá el spec cubriendo las seis áreas core: objective, commands, project
+structure, code style, testing strategy, boundaries — usando contexto (Paso 1)
++ respuestas (Paso 3).
+
+Guardar en `SPEC.md` (raíz) o `docs/SPEC.md`. Considerá crear
+`docs/architecture/adr/` para decisiones arquitectónicas.
+Después de escribir el spec, registrar la decisión en memoria:
+- `campaign_memory_write(file="decisions", entry="Spec: {nombre} — {decisión clave}")`
+
+**Decision gates antes de escribir:**
+- ¿Hay specs, ADRs o design docs previos? Leerlos primero (Paso 1).
+- ¿El objetivo es claro para escribir acceptance criteria testeables? Si no,
+  es una fila más de la tabla del Paso 2.
+- ¿El tech stack necesita validación? Ejecutar `/audit quick` tras escribir el spec.
 
 ## Output format
 

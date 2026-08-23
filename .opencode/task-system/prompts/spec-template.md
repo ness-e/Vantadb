@@ -26,9 +26,16 @@ Comandos/comportamientos observables que prueban que está resuelto (se conviert
 ≤10 líneas: archivos a tocar, firmas nuevas/cambios de firma, flujo de datos.
 
 ## 5. Decisiones abiertas (⚠️ → question al usuario)
-| # | Decisión | Opciones | Default recomendado |
-|---|----------|----------|---------------------|
-| 1 | ej: API sync o async | sync / async / ambas | sync |
+
+> **Profundidad mínima por fila:** ≥2 alternativas **REALES** (enfoques
+> materialmente distintos, no variantes cosméticas) + costo/tradeoff de una
+> línea por opción. Si solo existe un camino viable, NO inventar opciones de
+> relleno: registrar el camino único con su evidencia (`ref: archivo:línea`
+> o doc oficial) y marcarlo ✅ decidido-por-evidencia.
+
+| # | Decisión | Opciones (+tradeoff) | Default recomendado |
+|---|----------|----------------------|---------------------|
+| 1 | ej: API sync o async | sync (simple, bloquea caller) / async (throughput, complejidad) | sync |
 
 > Cada fila se pregunta con `question` antes de cerrar la spec. La respuesta
 > queda registrada acá (columna **Resuelto**) y en la recitation.
