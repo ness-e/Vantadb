@@ -1,0 +1,36 @@
+{
+  "tasks": {
+    "1": {
+      "taskId": "1",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787440982098,
+      "lastActivity": 1787440982098
+    },
+    "2": {
+      "taskId": "2",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787443029265,
+      "lastActivity": 1787443029265
+    },
+    "8": {
+      "taskId": "8",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787452193801,
+      "lastActivity": 1787452193812
+    },
+    "MCP-29": {
+      "taskId": "MCP-29",
+      "toolCalls": 3,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787454897631,
+      "lastActivity": 1787455193230
+    }
+  }
+}
