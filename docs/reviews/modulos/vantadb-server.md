@@ -202,3 +202,16 @@ Correcto hoy porque `vantadb_mcp::run_stdio_server` corre ensure internamente, p
 - **Veredicto: CAMBIOS REQUERIDOS** (hallazgo 8.1 bloquea el contrato REST de busqueda; resto aprobable tal cual)
 - **Contrato:** no verificado end-to-end por el revisor (no se re-ejecuto la suite); verificado por lectura de codigo el gap 8.1. Comando de verificacion sugerido en 8.1.
 - **DoD:** Task level — pendiente 8.1; Commit level — OK (convencionales, workspace lints); Release level — no aplica a este crate (publish=false, distribuido via workspace).
+
+---
+
+## Trazabilidad Backlog
+
+Derivado a la fase **P32** de `docs/Backlog.md` (2026-08-23):
+
+| Hallazgo | Tarea |
+|---|---|
+| 8.1 — `ensure_indexes_current` no corre en el path HTTP (misma clase que MCP-01) | **MOD-12** |
+| 8.2 — Sin request timeout (`TimeoutLayer` ausente) | **MOD-13** |
+| 8.3 — Aserción débil en test e2e de rate limit (acepta `200 \|\| 429`) | **MOD-14** |
+| 8.4–8.6 — nits (`middleware.rs` re-export redundante, feature `sysinfo = []` vacía, StorageEngine raw en main.rs MCP) | **MOD-15** |

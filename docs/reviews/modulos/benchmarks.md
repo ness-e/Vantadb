@@ -93,3 +93,15 @@ Net posible: −128 MB repo, ~−3 líneas.
 4. **[Alto]** Seed determinista en los 3 scripts Python sin seed.
 5. **[Medio]** Arreglar el stack overflow de GraphRAG (AUDIT-04) y re-correr `graphrag_bench` para llenar las celdas PENDING.
 
+---
+
+## Trazabilidad Backlog
+
+Derivado a la fase **P32** de `docs/Backlog.md` (2026-08-23):
+
+| Hallazgo | Tarea |
+|---|---|
+| Baselines de regresión vacíos (`criterion_baseline.json` y `python_baseline.json` = `{}`) → ambos gates son no-op | **MOD-56** |
+| `data_comp_bench/` commiteada: 128 MB de artefactos DB en git (42 archivos) | **MOD-57** |
+| Resultados/reportes sin trazabilidad: JSON sin metadatos (fecha/hardware/versión), reporte WASM sin datos crudos versionados | **MOD-58** |
+

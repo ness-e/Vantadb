@@ -179,3 +179,16 @@ Fuera de eso: **lean**. Las abstracciones tienen ≥2 implementaciones reales (L
 | Performance | 8 | Full-scan recall documentado con upgrade path (OK a escala sesión); joins precomputados |
 | Tests | 9.5 | ~469 verdes, cobertura de degradación y contratos excepcional |
 | **Global** | **8.5** | |
+
+---
+
+## Trazabilidad Backlog
+
+Derivado a la fase **P32** de `docs/Backlog.md` (2026-08-23):
+
+| Hallazgo | Tarea |
+|---|---|
+| M-1 — Merge/update L1 no atómico (delete targets antes de put merged) | **MOD-32** |
+| M-3 — Tres managers de pipeline solapados sin señalizar el canónico | **MOD-33** |
+| N-2 — Handlers scene/knowledge completos sin transporte MCP (gap vs narrativa F7) | **MOD-34** |
+| M-2, N-1, N-4 — nits (cursor L0 single-writer sin documentar, RFC3339 lexicográfica frágil, `LocalStateBackend` volátil) | **MOD-35** |

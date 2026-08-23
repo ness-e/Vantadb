@@ -101,3 +101,15 @@ Duplicación de lógica cliente: el retry existe solo en wasm-worker; el cursor/
 
 ---
 *Anterior:* [`vantadb-wasm.md`](./vantadb-wasm.md) · [`vantadb-ts.md`](./vantadb-ts.md)
+
+---
+
+## Trazabilidad Backlog
+
+Derivado a la fase **P32** de `docs/Backlog.md` (2026-08-23):
+
+| Hallazgo | Tarea |
+|---|---|
+| #1 — Superficie API mínima (~11 ops expuestas vs ~45 relevantes del core) | **MOD-29** |
+| #2 — Distribución multiplataforma rota (binario único win-x64 commiteado, sin optionalDependencies por plataforma) | **MOD-30** |
+| #3–#7, #8–#13 — nits (`index.d.ts` todo `any`, límites divergentes, tests insuficientes FFI, README ausente, `.node` en git) | **MOD-31** |

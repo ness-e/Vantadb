@@ -292,3 +292,18 @@ Decidir explícitamente por cada pieza dormida: cablear o borrar. Concretamente:
 ---
 
 *Ver reportes individuales: [`core.md`](./core.md) · [`vantadb-mcp.md`](./vantadb-mcp.md) · [`vantadb-python.md`](./vantadb-python.md) · [`vantadb-server.md`](./vantadb-server.md) · [`vantadb-ts.md`](./vantadb-ts.md) · [`vantadb-wasm.md`](./vantadb-wasm.md) · [`vantadb-node.md`](./vantadb-node.md) · [`vanta-memory.md`](./vanta-memory.md) · [`vanta-proxy.md`](./vanta-proxy.md) · [`providers.md`](./providers.md) · [`integrations.md`](./integrations.md) · [`benches.md`](./benches.md) · [`benchmarks.md`](./benchmarks.md)*
+
+---
+
+## Trazabilidad Backlog
+
+Derivado a la fase **P32** de `docs/Backlog.md` (2026-08-23):
+
+| Hallazgo | Tarea |
+|---|---|
+| CC-7/CC-6 — Semántica score-vs-distance contradictoria + límites divergentes por transporte | **MOD-59** |
+| CC-2 — Errores tipados de élite destruidos en cada frontera FFI | **MOD-60** |
+| CC-5 / Propuesta C — Matriz de superficie mínima común entre transportes | **MOD-61** |
+| Propuesta D / §5.3 — Pipeline de distribución único npm/PyPI (release asimétrico) | **MOD-62** |
+
+Los hallazgos ya trackeados previamente que este reporte menciona (**CORE-02**, **MKT-18f**, **DESKTOP-38**) → referenciados en sus filas existentes en `docs/Backlog.md`, no duplicados aquí.

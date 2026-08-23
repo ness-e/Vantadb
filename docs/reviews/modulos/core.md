@@ -175,3 +175,18 @@ Un motor embebido con nivel de ingeniería muy por encima del promedio: la cultu
 ---
 
 *Verificación de este reporte: todos los hallazgos citan `file:línea` verificados por lectura directa del fuente durante esta sesión. No se ejecutó la suite de tests (revisión estática); los conteos de tests/unwraps/TODOs son outputs literales de grep sobre el working tree.*
+
+---
+
+## Trazabilidad Backlog
+
+Derivado a la fase **P32** de `docs/Backlog.md` (2026-08-23):
+
+| Hallazgo | Tarea |
+|---|---|
+| H-1 — WAL escrito antes de validar → resurrection de writes rechazados tras reinicio | **MOD-01** |
+| H-2 — Transacciones no crash-atómicas entre shards (replay ignora Begin/Commit) | **MOD-02** |
+| M-1 — `trigger_compaction()` es un stub engañoso | **MOD-03** |
+| M-2 — `purge_expired()` hace full scan O(N) sin índice de expiración | **MOD-04** |
+| N-1 — Dos motores públicos divergentes: deprecar `InMemoryEngine` | **MOD-05** |
+| M-3, L-1..L-5 — nits/micro-fixes (sidecar atómico, spawn por flush, clones en batch_append, hoist intern, monolitos, DRY cardinality) | **MOD-06** |

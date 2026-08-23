@@ -155,3 +155,19 @@ DX mejorable: H2 (serialización bloquea fan-out de agentes paralelos) y la ause
 | **Global** | **8.3/10** | |
 
 **Dictamen:** ✅ **aprobar con seguimiento** — H1/H3 son fixes pequeños de alto valor que deberían entrar antes de cerrar la campaña P25; nada bloquea el estado actual del módulo.
+
+---
+
+## Trazabilidad Backlog
+
+Derivado a la fase **P32** de `docs/Backlog.md` (2026-08-23):
+
+| Hallazgo | Tarea |
+|---|---|
+| H1 — Notifications JSON-RPC se rechazan como parse error (-32700 espuria) | **MOD-07** |
+| H2 — Loop stdio procesa serialmente; la concurrencia configurada es dead-code efectivo | **MOD-08** |
+| H3 — El graceful shutdown descarta la respuesta ya computada | **MOD-09** |
+| Gaps de tools no trackeados: `versions`/`supersede`/`similar_to_key`/`vacuum`/`remove_edge` → proponer MCP-30..34 | **MOD-10** |
+| H4..H11 — nits (clamp de `k` en search_semantic, timeout sin cancelar trabajo, `total_bytes` estimado, límite 100 en namespace://, threat model LLM06) | **MOD-11** |
+
+Los hallazgos ya trackeados previamente que este reporte menciona (**MCP-24/28/29**) → referenciados en su fila existente en `docs/Backlog.md`, no duplicados aquí.

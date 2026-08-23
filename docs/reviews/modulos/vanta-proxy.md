@@ -197,3 +197,17 @@ Net: ~-80 líneas posibles, 0 deps. El crate NO está sobre-ingenierado; los `po
 | **Global** | **8.0** | |
 
 \* *Nota performance heredada de MEM-05:* `resolve_user_key` escanea hasta 10.000 entidades usuario por request (`auth.rs:23,88-90`) — lineal en el hot path. Con el tamaño actual es irrelevante; con miles de usuarios reales será el primer cuello de botella. Índice por `user_key` o cache en memoria cuando toque.
+
+---
+
+## Trazabilidad Backlog
+
+Derivado a la fase **P32** de `docs/Backlog.md` (2026-08-23):
+
+| Hallazgo | Tarea |
+|---|---|
+| C-1 — Comandos `mem:` (`sync`, `create-skill`) responden éxito simulado sin efecto | **MOD-36** |
+| S-1/S-2 — Body limit implícito de axum (2 MB default) + drain SSE bufferizado sin cap | **MOD-37** |
+| M-3 — Buckets del rate limiter y sesiones crecen monótonamente sin eviction/cap | **MOD-38** |
+| M-4 — Tool calls de cliente mezcladas con las nuestras quedan sin responder → 400 upstream probable | **MOD-39** |
+| M-5, N-2–N-4 — nits (falta test del header `x-vanta-user-key`, esquema de `upstream.url` sin validar, bucket compartido en `/v1/responses`) | **MOD-40** |

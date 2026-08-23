@@ -99,3 +99,17 @@ Net posible: ~−60 líneas, 0 deps.
 4. **[Alto]** Semillar `high_density` y mover su DB a tempdir.
 5. **[Medio]** Ampliar `hybrid_queries` a escala real + métrica de recall RRF.
 6. **[Medio]** Graph traversal micro-bench (desbloqueando primero el stack overflow de GraphRAG).
+
+---
+
+## Trazabilidad Backlog
+
+Derivado a la fase **P32** de `docs/Backlog.md` (2026-08-23):
+
+| Hallazgo | Tarea |
+|---|---|
+| `memory_budget`: número criterion fabricado (cronometra `black_box(inserted)`) | **MOD-51** |
+| WAL throughput bench ausente (políticas never/write/sync sin medir; `skip_wal=true` en los benches existentes) | **MOD-52** |
+| Tres benches solo stdout sin gate de regresión (`param_sweep`, `acorn_filtered_search`, `bench_concurrent`) | **MOD-53** |
+| Cobertura débil: hybrid RRF a 96 docs (toy) + graph traversal sin ningún micro-bench | **MOD-54** |
+| Nits: seeds faltantes (`high_density`, 2 más), DB fuera de tempdir, duplicación `generate_vectors` ×8 | **MOD-55** |

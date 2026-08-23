@@ -97,3 +97,15 @@ Divergencias activas: semántica score/distance (#3), cap de dimensión de vecto
 
 ---
 *Siguiente:* [`vantadb-wasm.md`](./vantadb-wasm.md) · [`vantadb-node.md`](./vantadb-node.md)
+
+---
+
+## Trazabilidad Backlog
+
+Derivado a la fase **P32** de `docs/Backlog.md` (2026-08-23):
+
+| Hallazgo | Tarea |
+|---|---|
+| #1 — Tipos de grafo ficticios (`GraphBfsResult`/`GraphDfsResult`/`GraphTopologicalSortResult` vs `u128[]` real) | **MOD-22** |
+| #2 — `NativeVantaDB._native` no envuelve rechazos async (catch solo-síncrono) | **MOD-23** |
+| #3, #4–#10 — nits (semántica invertida distance/score en JSDoc, guard type-lie, duplicación `_mapRecord`, ejemplos JSDoc que no compilan, dependencia `pkg/`) | **MOD-24** |

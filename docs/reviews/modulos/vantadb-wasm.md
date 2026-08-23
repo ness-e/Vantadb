@@ -99,3 +99,18 @@ Coerciones de tipos: u64/u128 → String en records e IDs de nodo (política cor
 
 ---
 *Anterior:* [`vantadb-ts.md`](./vantadb-ts.md) · *Siguiente:* [`vantadb-node.md`](./vantadb-node.md)
+
+---
+
+## Trazabilidad Backlog
+
+Derivado a la fase **P32** de `docs/Backlog.md` (2026-08-23):
+
+| Hallazgo | Tarea |
+|---|---|
+| #2 — Fallback silencioso a in-memory si OPFS falla al abrir | **MOD-25** |
+| #4 — `OpfsFile::append` escribe en offset 0 y sobreescribe el archivo | **MOD-26** |
+| #8 — Cuotas de storage sin manejar (sin `estimate()`, `persist()`, ni mapeo de `QuotaExceededError`) | **MOD-27** |
+| #5–#7, #9–#15 — nits (`flush()` engañoso, metadata descartada, CRC débil, cursor f64, retry frágil, duplicación opfs↔bridge) | **MOD-28** |
+
+Los hallazgos ya trackeados previamente que este reporte menciona (**CORE-02** — hallazgo #1: grafo no persistido, hipótesis fuerte para ese bug) → referenciados en su fila existente en `docs/Backlog.md`, no duplicados aquí.

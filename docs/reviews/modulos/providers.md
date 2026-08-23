@@ -85,3 +85,17 @@ Código Rust sólido y bien escrito (errores, GIL, docstrings), CRIT-09 correcta
 - **Tests de litellm más allá de la línea 80** (leí hasta `test_search_returns_score`; el resto del archivo no fue leído).
 - Si existe algún job de CI que compile `providers/*` (requeriría leer `.github/workflows/`).
 - Comportamiento runtime real de los builds (no ejecuté `cargo build` — fuera del alcance de esta review estática).
+
+---
+
+## Trazabilidad Backlog
+
+Derivado a la fase **P32** de `docs/Backlog.md` (2026-08-23):
+
+| Hallazgo | Tarea |
+|---|---|
+| P1/P2 — Tests rotos contra la firma actual (`search` sin namespace obligatorio; fixture usa `create_namespace` inexistente) | **MOD-41** |
+| P4 — Indistribuibles: sin `pyproject.toml`/maturin, `publish = false`, 404 en PyPI | **MOD-42** |
+| P6 — ~85% de duplicación entre los 3 crates (causa directa de la inconsistencia P5) | **MOD-43** |
+| P3 — Stubs `.pyi` desincronizados: firman una API que ya no existe | **MOD-44** |
+| P7–P9 — nits (unwrap frágil en litellm, READMEs desactualizados, sin `importorskip` para CI) | **MOD-45** |

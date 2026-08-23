@@ -113,3 +113,19 @@ El mejor directorio de los dos revisados: contratos mayormente respetados, tests
 - READMEs de los 9 adapters (no leídos).
 - Ejecución runtime de las suites ni validación de I6/I5 en caliente.
 - Docs oficiales de mem0/crewai/dspy/haystack para validar el contrato al 100% (fuente-driven pendiente).
+
+---
+
+## Trazabilidad Backlog
+
+Derivado a la fase **P32** de `docs/Backlog.md` (2026-08-23):
+
+| Hallazgo | Tarea |
+|---|---|
+| I2/I3 — crewai: `from_dict` pasa string como embedding (`TypeError`) + cursor str a `Option<usize>` | **MOD-46** |
+| I4 — langchain: ids parciales en `add_documents()` producen `ValueError` engañoso | **MOD-47** |
+| I5/I6 — llamaindex: `MetadataFilter` no importado + atributos privados sin `PrivateAttr` | **MOD-48** |
+| I8 — Gemelos openai/ollama ~95% idénticos (async inconsistente entre sí) | **MOD-49** |
+| I7, I9–I12 — nits (fallbacks mem0 por APIs faltantes, heurística `_normalize_score`, letta sin contrato, `categorize()` muerta, `count_documents()` O(n)) | **MOD-50** |
+
+Los hallazgos ya trackeados previamente que este reporte menciona (**MKT-18f** — hallazgo I1: 0 paquetes publicados en PyPI) → referenciados en su fila existente en `docs/Backlog.md`, no duplicados aquí.

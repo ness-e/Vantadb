@@ -222,3 +222,18 @@ net: ~−120 líneas posibles sin pérdida funcional.
 - **Contrato:** NO pasó — `pytest -q` (gate por defecto del pyproject) = 66 failed /
   43 passed; `test_sdk.py` aislado = 70 passed ✅ (claim verificado)
 - **DoD:** Task pendiente de H1/H2; Release condicionado a suite verde y matriz de wheels
+
+---
+
+## Trazabilidad Backlog
+
+Derivado a la fase **P32** de `docs/Backlog.md` (2026-08-23):
+
+| Hallazgo | Tarea |
+|---|---|
+| H1 — Suite completa por defecto (`pytest`) rota: 66 failed por RSS acumulado sin teardown | **MOD-16** |
+| H2 — Deadlock potencial GIL en `close()` (`OpGate::drain()` con el GIL tomado) | **MOD-17** |
+| H3 — Stubs `.pyi` duplicados y significativamente desactualizados | **MOD-18** |
+| H9 — ~30% de la API core sin exponer (~29 de ~42 métodos) | **MOD-19** |
+| H5 — Sin jerarquía de excepciones propia (catch-all `RuntimeError` genérico) | **MOD-20** |
+| H4, H6–H8, H10–H15 — nits (`direction` perdido en async, validación inconsistente, `query()` retorna texto, artefactos stale en repo) | **MOD-21** |
