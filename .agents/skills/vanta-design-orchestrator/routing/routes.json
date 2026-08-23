@@ -1,0 +1,195 @@
+{
+  "$schema": "routes-schema.json",
+  "version": "3.0.0",
+  "description": "Master routing table for Vanta Design Orchestrator — 200+ skill combinations",
+  "total_routes": 106,
+  "conflict_resolutions": [
+    { "conflict": "impeccable ↔ impeccable-design-polish", "resolution": "Usar impeccable-design-polish (open-design, más reciente)" },
+    { "conflict": "emil-design-eng ↔ emilkowalski-motion", "resolution": "Usar emilkowalski-motion (open-design, más reciente)" },
+    { "conflict": "design-taste-frontend ↔ taste-skill", "resolution": "Usar taste-skill (open-design, más reciente)" },
+    { "conflict": "redesign-existing-projects ↔ redesign-skill", "resolution": "Usar redesign-skill (open-design, más reciente)" }
+  ],
+  "categories": {
+    "estrategia": {
+      "description": "Estrategia de Negocio y Marca (Pre-Fase 0)",
+      "routes": [
+        { "task": "Business Model Canvas completo", "pipeline": ["strategy/business-model-design.md", "strategy/decision-hierarchy.md", "strategy/lean-design.md"], "priority": "ALTA" },
+        { "task": "Brand platform desde cero", "pipeline": ["strategy/brand-platform.md", "strategy/verbal-identity.md", "strategy/sensory-identity.md"], "priority": "ALTA" },
+        { "task": "Naming estratégico + legal clearance", "pipeline": ["strategy/brand-platform.md", "strategy/legal-protection.md"], "priority": "ALTA" },
+        { "task": "Estrategia de color (psicología + accesibilidad)", "pipeline": ["strategy/sensory-identity.md", "ui-ux-pro-max", "ui-design"], "priority": "ALTA" },
+        { "task": "Verbal identity / guía de voz y tono", "pipeline": ["strategy/verbal-identity.md", "ux-writing", "writing-guidelines"], "priority": "ALTA" },
+        { "task": "Lean Design / MVP scope", "pipeline": ["strategy/lean-design.md", "strategy/business-model-design.md", "prototyping-testing"], "priority": "MEDIA" },
+        { "task": "Métricas de diseño y ROI", "pipeline": ["strategy/metrics-framework.md", "design-ops/design-impact-reporting"], "priority": "MEDIA" },
+        { "task": "Auditoría estratégica de marca completa", "pipeline": ["strategy/brand-platform.md", "strategy/verbal-identity.md", "visual-critique", "strategy/legal-protection.md"], "priority": "ALTA" },
+        { "task": "Protección legal / trademark", "pipeline": ["strategy/legal-protection.md", "reference-design-contract"], "priority": "ALTA" },
+        { "task": "Tendencias 2026", "pipeline": ["strategy/trends-2026.md", "awesome-claude-design"], "priority": "MEDIA" },
+        { "task": "Identidad sensorial 360°", "pipeline": ["strategy/sensory-identity.md", "canvas-design", "algorithmic-art"], "priority": "BAJA" },
+        { "task": "Sonic branding / identidad sonora", "pipeline": ["strategy/sonic-kinetic-identity.md", "strategy/brand-platform.md"], "priority": "ALTA" },
+        { "task": "Kinetic typography", "pipeline": ["strategy/sonic-kinetic-identity.md", "motion"], "priority": "MEDIA" },
+        { "task": "Co-branding rules", "pipeline": ["strategy/brand-operations.md", "brand-guidelines"], "priority": "ALTA" },
+        { "task": "RACI matrix + SLA", "pipeline": ["strategy/brand-operations.md", "design-ops"], "priority": "MEDIA" },
+        { "task": "Brand changelog", "pipeline": ["strategy/brand-operations.md", "design-md"], "priority": "BAJA" },
+        { "task": "Identity stress testing", "pipeline": ["strategy/brand-operations.md", "canvas-design"], "priority": "ALTA" },
+        { "task": "Elevator pitch", "pipeline": ["strategy/brand-operations.md", "strategy/brand-platform.md"], "priority": "BAJA" },
+        { "task": "Estrategia de contenido / UX writing", "pipeline": ["strategy/brand-platform.md", "strategy/verbal-identity.md", "writing-guidelines", "ai-seo"], "priority": "ALTA" },
+        { "task": "Estrategia de accesibilidad", "pipeline": ["strategy/accessibility-strategy.md", "ui-design", "ux-heuristics", "web-design-guidelines"], "priority": "ALTA" },
+        { "task": "Métricas financieras (CASH)", "pipeline": ["strategy/metrics-framework.md", "strategy/business-model-design.md"], "priority": "ALTA" },
+        { "task": "Share of Search + AI Visibility", "pipeline": ["strategy/metrics-framework.md", "ai-seo", "seo"], "priority": "ALTA" },
+        { "task": "Discovery & Diagnosis de marca", "pipeline": ["strategy/brand-documentation.md", "strategy/business-model-design.md", "strategy/brand-platform.md", "strategy/legal-protection.md"], "priority": "ALTA" },
+        { "task": "Brand Book aspiracional", "pipeline": ["strategy/brand-documentation.md", "strategy/brand-platform.md", "strategy/verbal-identity.md", "strategy/sensory-identity.md", "brandkit", "canvas-design"], "priority": "ALTA" },
+        { "task": "MIC — Manual de Identidad Visual", "pipeline": ["strategy/brand-documentation.md", "strategy/sensory-identity.md", "ui-ux-pro-max", "design-systems", "ui-design"], "priority": "ALTA" },
+        { "task": "Manual de Marca Digital", "pipeline": ["strategy/brand-documentation.md", "design-systems", "ui-design", "strategy/sensory-identity.md"], "priority": "MEDIA" },
+        { "task": "Brand Kit (carpeta de activos)", "pipeline": ["strategy/brand-documentation.md", "brandkit", "canvas-design", "design-systems"], "priority": "ALTA" },
+        { "task": "Decision Log de marca", "pipeline": ["strategy/brand-documentation.md", "design-md", "strategy/brand-operations.md"], "priority": "MEDIA" },
+        { "task": "Validación de hipótesis de diseño (Ciclo EVP)", "pipeline": ["strategy/validation-sustainability.md", "strategy/lean-design.md", "prototype", "prototyping-testing", "strategy/metrics-framework.md"], "priority": "ALTA" },
+        { "task": "Test A/B Estratégico", "pipeline": ["strategy/validation-sustainability.md", "design-research", "strategy/metrics-framework.md"], "priority": "MEDIA" },
+        { "task": "5 Porqués / Causa Raíz", "pipeline": ["strategy/validation-sustainability.md", "design-research", "strategy/business-model-design.md"], "priority": "ALTA" },
+        { "task": "Triple Balance (D×F×V)", "pipeline": ["strategy/validation-sustainability.md", "strategy/business-model-design.md", "strategy/decision-hierarchy.md"], "priority": "ALTA" },
+        { "task": "Curaduría Humana / IA Responsable", "pipeline": ["strategy/validation-sustainability.md", "strategy/trends-2026.md", "strategy/legal-protection.md"], "priority": "ALTA" },
+        { "task": "Productización del diseño", "pipeline": ["strategy/validation-sustainability.md", "strategy/brand-documentation.md"], "priority": "BAJA" },
+        { "task": "PRD desde conversación / brief", "pipeline": ["to-prd", "strategy/business-model-design.md", "strategy/decision-hierarchy.md"], "priority": "ALTA" }
+      ]
+    },
+    "ui-frontend": {
+      "description": "UI / Frontend",
+      "routes": [
+        { "task": "Landing page from scratch", "pipeline": ["creative-director", "design-taste-frontend", "ui-ux-pro-max", "ui-design", "frontend-design", "emilkowalski-motion", "gsap-scrolltrigger", "fal-generate", "ai-seo", "impeccable-design-polish"], "priority": "ALTA" },
+        { "task": "Componente UI (button, card, modal)", "pipeline": ["shadcn-ui", "interaction-design", "frontend-design", "ui-design", "emilkowalski-motion"], "priority": "ALTA" },
+        { "task": "Formulario / onboarding", "pipeline": ["interaction-design", "ux-heuristics", "frontend-design", "ui-design", "login-flow"], "priority": "MEDIA" },
+        { "task": "Dashboard / admin panel", "pipeline": ["platform-design", "shadcn-ui", "d3-visualization", "ui-ux-pro-max", "ui-design", "react-best-practices"], "priority": "ALTA" },
+        { "task": "Página de FAQ / help center", "pipeline": ["faq-page", "ux-heuristics", "frontend-design", "ai-seo"], "priority": "BAJA" },
+        { "task": "Login / auth flow", "pipeline": ["login-flow", "interaction-design", "frontend-design", "ui-design"], "priority": "MEDIA" },
+        { "task": "Rediseño de landing existente", "pipeline": ["impeccable", "visual-critique", "ui-ux-pro-max", "frontend-design", "design-motion-principles", "web-design-guidelines"], "priority": "ALTA" }
+      ]
+    },
+    "branding": {
+      "description": "Branding / Identidad",
+      "routes": [
+        { "task": "Brand identity from zero", "pipeline": ["creative-director", "design-brief", "color-expert", "brandkit", "canvas-design", "theme-factory", "design-md"], "priority": "ALTA" },
+        { "task": "Logo design", "pipeline": ["brandkit", "canvas-design", "algorithmic-art", "fal-generate", "design-md"], "priority": "ALTA" },
+        { "task": "Brand guidelines PDF", "pipeline": ["brand-guidelines", "theme-factory", "pdf", "docx"], "priority": "MEDIA" },
+        { "task": "Color palette", "pipeline": ["color-expert", "ui-ux-pro-max", "design-md"], "priority": "ALTA" },
+        { "task": "Design review existing", "pipeline": ["design-review", "visual-critique", "impeccable-design-polish", "redesign-skill"], "priority": "ALTA" },
+        { "task": "Design brief", "pipeline": ["design-brief", "creative-director", "design-md"], "priority": "MEDIA" }
+      ]
+    },
+    "imagenes": {
+      "description": "Imágenes / Multimedia",
+      "routes": [
+        { "task": "Generar imagen (general)", "pipeline": ["fal-generate", "imagegen", "imagen"], "priority": "ALTA" },
+        { "task": "Editar imagen (inpaint, style transfer)", "pipeline": ["fal-image-edit", "venice-image-edit"], "priority": "ALTA" },
+        { "task": "Upscale image/video", "pipeline": ["fal-upscale", "pixelbin-media"], "priority": "ALTA" },
+        { "task": "Crear mockup 3D dispositivo", "pipeline": ["mockup-device-3d", "imagegen-frontend-web"], "priority": "ALTA" },
+        { "task": "E-commerce images", "pipeline": ["ecommerce-image-workflow", "image-enhancer", "fal-tryon"], "priority": "MEDIA" },
+        { "task": "Marketing screenshots", "pipeline": ["screenshots-marketing", "full-page-screenshot"], "priority": "MEDIA" }
+      ]
+    },
+    "video": {
+      "description": "Video / Animación",
+      "routes": [
+        { "task": "Text-to-video", "pipeline": ["fal-kling-o3", "sora"], "priority": "ALTA" },
+        { "task": "Editar video existente", "pipeline": ["fal-video-edit", "video-hyperframes"], "priority": "ALTA" },
+        { "task": "Lip-sync / talking head", "pipeline": ["fal-lip-sync", "venice-audio-speech"], "priority": "MEDIA" },
+        { "task": "Frame effect: glitch", "pipeline": ["frame-glitch-title"], "priority": "BAJA" },
+        { "task": "Frame effect: light leak", "pipeline": ["frame-light-leak-cinema"], "priority": "BAJA" },
+        { "task": "Frame effect: liquid hero", "pipeline": ["frame-liquid-bg-hero"], "priority": "MEDIA" },
+        { "task": "Frame effect: logo outro", "pipeline": ["frame-logo-outro"], "priority": "MEDIA" },
+        { "task": "Video composition", "pipeline": ["video-hyperframes", "remotion", "hyperframes"], "priority": "ALTA" }
+      ]
+    },
+    "figma": {
+      "description": "Figma",
+      "routes": [
+        { "task": "New Figma file", "pipeline": ["figma-create-new-file", "figma-use"], "priority": "ALTA" },
+        { "task": "Design → Figma", "pipeline": ["figma-generate-design", "figma-use"], "priority": "ALTA" },
+        { "task": "Figma design library", "pipeline": ["figma-generate-library", "figma-create-design-system-rules", "figma-code-connect-components"], "priority": "ALTA" },
+        { "task": "Figma → Code", "pipeline": ["figma-implement-design", "figma-use"], "priority": "ALTA" }
+      ]
+    },
+    "decks": {
+      "description": "Presentaciones / Decks",
+      "routes": [
+        { "task": "Deck suizo profesional", "pipeline": ["deck-swiss-international", "theme-factory"], "priority": "ALTA" },
+        { "task": "Deck open-slide (React)", "pipeline": ["deck-open-slide-canvas", "frontend-design"], "priority": "ALTA" },
+        { "task": "Deck editorial e-ink", "pipeline": ["deck-guizang-editorial", "color-expert"], "priority": "MEDIA" },
+        { "task": "PowerPoint (.pptx)", "pipeline": ["pptx-generator", "pptx", "pptx-html-fidelity-audit"], "priority": "ALTA" },
+        { "task": "Keynote-style slides", "pipeline": ["ppt-keynote", "theme-factory"], "priority": "MEDIA" }
+      ]
+    },
+    "social": {
+      "description": "Social Media / Cards",
+      "routes": [
+        { "task": "X/Twitter post card", "pipeline": ["social-x-post-card", "card-twitter"], "priority": "ALTA" },
+        { "task": "Reddit post card", "pipeline": ["social-reddit-card"], "priority": "BAJA" },
+        { "task": "Spotify now-playing card", "pipeline": ["social-spotify-card"], "priority": "BAJA" },
+        { "task": "Xiaohongshu card", "pipeline": ["card-xiaohongshu"], "priority": "BAJA" }
+      ]
+    },
+    "datos": {
+      "description": "Datos / Charts",
+      "routes": [
+        { "task": "D3.js interactive chart", "pipeline": ["d3-visualization"], "priority": "ALTA" },
+        { "task": "NYT-style data chart", "pipeline": ["frame-data-chart-nyt", "d3-visualization"], "priority": "MEDIA" },
+        { "task": "Hand-drawn diagram", "pipeline": ["hand-drawn-diagrams"], "priority": "MEDIA" },
+        { "task": "Data report completo", "pipeline": ["d3-visualization", "frame-data-chart-nyt", "theme-factory"], "priority": "MEDIA" }
+      ]
+    },
+    "documentos": {
+      "description": "Documentos / PDF",
+      "routes": [
+        { "task": "Documento .docx", "pipeline": ["docx"], "priority": "ALTA" },
+        { "task": "Documento .pdf", "pipeline": ["pdf"], "priority": "ALTA" },
+        { "task": "Parchment-style doc", "pipeline": ["doc-kami-parchment", "theme-factory"], "priority": "MEDIA" },
+        { "task": "Release notes", "pipeline": ["release-notes-one-pager"], "priority": "ALTA" },
+        { "task": "Article / magazine", "pipeline": ["article-magazine", "editorial-burgundy-principles-template"], "priority": "BAJA" }
+      ]
+    },
+    "seo": {
+      "description": "SEO / AI Discovery",
+      "routes": [
+        { "task": "Full SEO audit + fix", "pipeline": ["roier-seo", "ai-seo", "seo", "seo-audit"], "priority": "ALTA" },
+        { "task": "AI visibility (LLMs)", "pipeline": ["ai-seo", "programmatic-seo"], "priority": "ALTA" },
+        { "task": "Technical SEO", "pipeline": ["seo", "seo-audit", "roier-seo"], "priority": "ALTA" }
+      ]
+    },
+    "animacion": {
+      "description": "Animación / Efectos Web",
+      "routes": [
+        { "task": "Scroll animations", "pipeline": ["gsap-scrolltrigger", "motion", "emilkowalski-motion"], "priority": "ALTA" },
+        { "task": "Timeline / sequence", "pipeline": ["gsap-timeline", "animejs"], "priority": "ALTA" },
+        { "task": "SVG morphing / stagger", "pipeline": ["animejs", "gsap-timeline"], "priority": "MEDIA" },
+        { "task": "Micro-interactions", "pipeline": ["emilkowalski-motion", "motion", "design-motion-principles"], "priority": "ALTA" },
+        { "task": "Parallax / scroll effects", "pipeline": ["gsap-scrolltrigger", "gsap-utils"], "priority": "MEDIA" }
+      ]
+    },
+    "3d": {
+      "description": "3D / WebGL",
+      "routes": [
+        { "task": "3D scene from scratch", "pipeline": ["threejs-fundamentals", "threejs-geometry", "threejs-materials", "threejs-interaction"], "priority": "ALTA" },
+        { "task": "Custom shader effect", "pipeline": ["shader-dev", "threejs-shaders"], "priority": "ALTA" },
+        { "task": "3D animation", "pipeline": ["threejs-animation", "threejs-interaction"], "priority": "ALTA" }
+      ]
+    },
+    "infra": {
+      "description": "Infraestructura y Herramientas",
+      "routes": [
+        { "task": "Inspeccionar sitio web / extraer diseño", "pipeline": ["playwright", "extract-design-system"], "priority": "ALTA" },
+        { "task": "Extraer tokens de sitio público", "pipeline": ["extract-design-system", "design-systems", "ui-ux-pro-max"], "priority": "ALTA" },
+        { "task": "Auditar accesibilidad + performance", "pipeline": ["axe-core", "lighthouse-ci", "pa11y"], "priority": "ALTA" },
+        { "task": "Optimizar assets para producción", "pipeline": ["svgo", "sharp", "purgecss", "critters"], "priority": "ALTA" },
+        { "task": "Raspar contenido web con IA", "pipeline": ["just-scrape"], "priority": "ALTA" },
+        { "task": "Componentes UI base", "pipeline": ["shadcn-ui", "radix-ui", "lucide"], "priority": "ALTA" },
+        { "task": "Preparar handoff a desarrollo", "pipeline": ["developer-handoff.md", "figma-implement-design", "handoff"], "priority": "ALTA" }
+      ]
+    },
+    "utilidades": {
+      "description": "Utilidades",
+      "routes": [
+        { "task": "Improve a prompt", "pipeline": ["enhance-prompt", "creative-director"], "priority": "ALTA" },
+        { "task": "Fix export/download", "pipeline": ["export-download-debugging"], "priority": "MEDIA" },
+        { "task": "PR quality gate", "pipeline": ["pr-feedback-quality-gate", "design-review"], "priority": "MEDIA" },
+        { "task": "Research decision room", "pipeline": ["research-decision-room", "plan-design-review"], "priority": "BAJA" }
+      ]
+    }
+  }
+}

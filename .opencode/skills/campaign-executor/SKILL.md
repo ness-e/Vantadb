@@ -314,7 +314,7 @@ Todos los sub-agentes devuelven el bloque `RESULTADO` (ver § Resultado de pipel
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Lints |
 | `just verify` | Pre-flight completo |
 | `codegraph_explore "query"` | Blast radius |
-| `skill progreso` | Migrar backlog → progreso |
+| `skill progreso` | Registrar tarea completada en `docs/avance/` |
 
 ## Apéndice B: opencode-loop plugin
 
@@ -357,11 +357,10 @@ la recitation. No avances sin haber completado verificación, commit, progreso."
 ### Referencias locales clonadas
 
 ```
-.opencode/references/
-  awesome-harness-engineering/   ← catálogo patrones (walkinglabs, 3.6k⭐)
-  statewright/                   ← eliminado 2026-08-23 (clon completo; patrón C0 ya extraído en config/state-tools.mjs; recuperable de GitHub)
-  deepclaude/                    ← loop engine interchangeable (1k⭐)
-  darwin-godel-machine/          ← harness evolution research (~500⭐)
+.opencode/references/   ← clones externos ELIMINADOS 2026-08-23 (statewright,
+                          awesome-harness-engineering, darwin-godel-machine,
+                          deepclaude). Patrones ya extraídos en los prompts;
+                          recuperables de GitHub si hacen falta.
 ```
 
 ## Apéndice D: Bibliografía de Loop Engineering
