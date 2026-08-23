@@ -394,6 +394,28 @@ impl ConnectionManager {
         conn.export_namespace(path, namespace, filter).await
     }
 
+    /// Clone of the active native connection's embedded-SDK handle (MEM-53).
+    ///
+    /// The memory-pipeline commands run sync vanta-memory APIs over it on the
+    /// blocking pool, so the handle is cloned out and the read guard released.
+    /// Non-native active connections (server/subprocess) fail with
+    /// [`VantaError::Unsupported`].
+    pub async fn active_embedded(&self) -> Result<vantadb::VantaEmbedded, VantaError> {
+        let id = self.active_id().await?;
+        let inner = self.inner.read().await;
+        let conn = inner
+            .connections
+            .get(&id)
+            .ok_or_else(|| Self::missing(&id))?;
+        conn.as_native()
+            .map(|native| native.db().clone())
+            .ok_or_else(|| {
+                VantaError::Unsupported(
+                    "the memory pipeline requires a native (embedded) connection".into(),
+                )
+            })
+    }
+
     /// Tear down every registered connection on app shutdown (DESKTOP-20).
     ///
     /// Order: non-native connections (server / subprocess-backed) are

@@ -35,6 +35,10 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "proce
 # `cli`/`server`/`prometheus` (would pull axum/tokio heavy and duplicate the
 # server binary logic). Path `../..` = repo root, resolved from desktop/src-tauri.
 vantadb = { path = "../..", default-features = false, features = ["fjall", "fs2", "memmap2", "roaring", "advanced-tokenizer"] }
+# Memory pipeline (MEM-53): L0 capture, recall, persona, scenes, skills,
+# wiki ingest progress. Default features off — no LLM driver / tiktoken in
+# the desktop build; LLM-free paths degrade gracefully (crate contract).
+vanta-memory = { path = "../../vanta-memory", default-features = false }
 tauri-plugin-deep-link = "2.4.9"
 tauri-plugin-single-instance = { version = "2.4.3", features = ["deep-link"] }
 

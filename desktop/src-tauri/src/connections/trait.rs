@@ -237,10 +237,19 @@ pub trait VantaConnection: Send + Sync {
 
     /// Path of this transport's audit log (VS-12).
     ///
-    /// `None` means the transport has no audit log (e.g. a server connection,
+    /// `None` means the transport writes no audit log (e.g. a server connection,
     /// or a native connection opened with audit disabled). Transports that
     /// write one override this; the default keeps existing impls unchanged.
     fn audit_log_path(&self) -> Option<std::path::PathBuf> {
+        None
+    }
+
+    /// Downcast view of this transport as the native embedded adapter (MEM-53).
+    ///
+    /// The memory-pipeline commands need the raw `VantaEmbedded` handle that
+    /// only the native transport holds; server/subprocess transports report
+    /// `None` and the commands fail with [`crate::error::VantaError::Unsupported`].
+    fn as_native(&self) -> Option<&super::native::NativeConnection> {
         None
     }
 }

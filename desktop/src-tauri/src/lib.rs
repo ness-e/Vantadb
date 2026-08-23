@@ -40,6 +40,10 @@ pub struct AppState {
     pub config: VantaConfig,
     /// Raw `vanta://` URLs waiting for the frontend to take them (VS-16).
     pub pending_deep_links: Arc<Mutex<Vec<String>>>,
+    /// Wiki-ingest progress channel (MEM-53): pipeline workers push
+    /// [`vanta_memory::ingest::callback::IngestProgress`] snapshots here;
+    /// the frontend polls them via the `vanta_wiki_status` command.
+    pub progress: vanta_memory::ingest::callback::ProgressTracker,
 }
 
 /// Drain any deep-link URLs buffered while the frontend was loading (VS-16).
@@ -83,6 +87,7 @@ pub fn run() {
         manager: ConnectionManager::new(),
         config: VantaConfig::default(),
         pending_deep_links: Arc::new(Mutex::new(Vec::new())),
+        progress: Default::default(),
     };
 
     let mut builder = tauri::Builder::default();
@@ -172,6 +177,13 @@ pub fn run() {
             commands::data::vanta_graph_degree,
             commands::metrics::vanta_metrics,
             commands::audit::vanta_audit_events,
+            commands::memory::vanta_memory_capture,
+            commands::memory::vanta_memory_recall,
+            commands::memory::vanta_persona_get,
+            commands::memory::vanta_scenes_list,
+            commands::memory::vanta_scene_current,
+            commands::memory::vanta_skills_list,
+            commands::memory::vanta_wiki_status,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

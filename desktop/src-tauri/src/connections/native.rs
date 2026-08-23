@@ -46,6 +46,12 @@ pub struct NativeConnection {
 }
 
 impl NativeConnection {
+    /// Raw embedded-SDK handle (MEM-53): the memory-pipeline commands run
+    /// vanta-memory APIs directly over it.
+    pub fn db(&self) -> &VantaEmbedded {
+        &self.db
+    }
+
     /// Open (or create) the embedded database at `path`.
     ///
     /// Fails with [`VantaError::Lock`] when another connection already holds an
@@ -762,6 +768,10 @@ impl VantaConnection for NativeConnection {
 
     fn audit_log_path(&self) -> Option<PathBuf> {
         self.audit_log_path.clone()
+    }
+
+    fn as_native(&self) -> Option<&NativeConnection> {
+        Some(self)
     }
 }
 

@@ -6,4 +6,5 @@
 pub mod audit;
 pub mod connection;
 pub mod data;
+pub mod memory;
 pub mod metrics;

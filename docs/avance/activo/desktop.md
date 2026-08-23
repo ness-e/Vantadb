@@ -187,6 +187,12 @@ aliases: [DESKTOP]
 - **Fecha:** 2026-08-19
 - **Resultado:** ✅ `desktop/scripts/selfcheck-web-e2e.ts` (11 checks exit 0) + fix namespace default REST (bug cazado por E2E: `ListParams.namespace` default `"default"`). Commit `583dad9a`. ADR-026 en `docs/architecture/`.
 
+### MEM-53: Desktop IPC commands para pipeline vanta-memory (H4)
+- **Fuente:** Plan P33 Ultima Milla (Task 8) / auditoría integración final
+- **Fecha:** 2026-08-22
+- **Resultado:** ✅ 7 comandos Tauri (`vanta_memory_capture/recall/persona_get/scenes_list/scene_current/skills_list/wiki_status`) exponen el pipeline vanta-memory desde `src-tauri` hacia la UI; acceso al handle embebido vía trait default `as_native()` + `ConnectionManager::active_embedded()`; `ProgressTracker` en AppState. Suite desktop 85/85 (12 tests nuevos), fmt+clippy+audit limpios (h2 → 0.4.18, RUSTSEC-2026-0258). Vistas UI: tarea futura.
+- **Ids:** `MEM-53`
+
 ---
 
 ## Fuentes

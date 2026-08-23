@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Última Milla — integración producto end-to-end
 
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (7/10 tareas)
+> **Estado: completed
 > **Fuente:** auditoría de integración final (`docs/reviews/2026-08-22-auditoria-integracion-final.md`) + decisiones del usuario (2026-08-22)
 > **Predecesores:** P27+P29+P30+P31+P32 ✅ (54 tareas) — roadmap TDAM 100% + bindings
 > **Modo:** waves por dependencias. Sin release durante la campaña (decisión usuario).
@@ -35,7 +35,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Archivos clave:** `vanta-proxy/src/handlers/{openai,anthropic,responses}.rs` (editar), `writeback.rs` (API si falta)
 - **Verificación real:** ✅ AUDITORÍA — WriteBack construido+flusheado pero cero llamadas track() (auditoría H1)
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: cargo check -p vantadb --features server --all-targets ✅ · cargo test -p vantadb --features server --lib = 1969 passed (incl. 2 nuevos) ✅ · cargo test -p vanta-memory [--features http-server] 0 failed (3 tests D19 nuevos) ✅ · cargo fmt -p ambos --check ✅ · cargo clippy -p vantadb/vanta-memory --all-targets --no-deps -D warnings ✅ | evidencia: claim=POST dispara trigger post-save con thread_id correcto → evidencia=src/cli_server.rs conversation_add_fires_trigger_after_save (test HTTP real, 201 + get_thread persistido) confianza=alta; claim=fallo de extracción NO falla HTTP (P4) → evidencia=test conversation_add_trigger_failure_does_not_fail_response (201 success:true) confianza=alta; claim=tarea encolada→worker MEM-16→memories en l1/<session> → evidencia=vanta-memory/tests/conversation_hook.rs bridge_enqueues_task_and_worker_writes_l1_memories (read_session_records) confianza=alta | artefactos: src/cli_server.rs, vanta-memory/src/services/conversation_hook.rs, vanta-memory/Cargo.toml, vanta-memory/tests/conversation_hook.rs, .opencode/skills/campaign-executor/tasks/MEM-55.md
+- **Contrato: verificacion: cargo check -p vantadb OK; cargo test -p vantadb --lib bulk_import 4 passed; cargo test -p vantadb-mcp 7 passed; cargo fmt OK | evidencia: test_bulk_import_roundtrip_addressable_via_memory_get (src/sdk/api.rs) pasa; test_import_file_happy_path re-ejecutado OK (import_file sin bug) | artefactos: src/sdk/api.rs, .opencode/skills/campaign-executor/tasks/MCP-28.md | invariantes: firmas publicas del SDK intactas (api-contract R-8), formato .vdbdump sin cambios, no tocar cli_server.rs/openapi.yaml/wiki.rs/vanta-memory/vanta-proxy/docs-plans | deuda: ninguna (sparse vectors y metadata DateTime/List en bulk: limitacion preexistente del formato, fuera de scope) | queda_pendiente: lead comitea (git add src/sdk/api.rs skills/vantadb-mcp/SKILL.md .opencode/skills/vantadb-mcp/SKILL.md docs/Backlog.md task file)
 - **Risk Register:** 🟢×🟠 extraer user-text del request puede necesitar MEM-57 parcial → implementar extracción mínima inline, refinar con Task 8
 - **Cynefin:** 🟦 obvio
 - **Estado:** ✅ COMPLETED
@@ -136,7 +136,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Gate Result:** ✅ DO
 - **Contrato:** "comandos invocables desde frontend con roundtrip a DB embebida; tests Rust de cada command"
 - **Cynefin:** 🟦 obvio
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-53.md`
 - **Notas:** Ruta: vanta-worker. DEPENDE de nada — independiente. desktop/src-tauri compila standalone.
 
@@ -182,12 +182,12 @@ Verify del lead SIEMPRE `--all-targets` (lección MEM-48) · SARL con feedback e
 ---
 
 === RECITATION ===
-Campaign ID: b48285af-a41b-4096-99a2-0efffe0a5833
-Objetivo activo: MEM-55: POST /conversation/add dispara extracción L1 vía puente core→vanta-memory
+Campaign ID: 035e8964-6be8-45fc-b6db-a97dd5b785fa
+Objetivo activo: MCP-28: bulk import escribe campos reservados __vanta_namespace/__vanta_key para que records bulk sean direccionables via memory_get/list/delete
 Estado: pending ⏳
-Última acción: Implementado MEM-55 completo: trait ConversationTrigger aditiva en core + disparo best-effort en conversation_add; puente HttpCaptureBridge en vanta-memory (feature http-server) que captura L0 y encola TaskKind::L1; run_bridge_pass driver del worker MEM-16; fallback P4 sin runner documentado. Verify mecánico full verde. NO commit (regla de la invocación)
+Última acción: Fix en bulk_import_stream (src/sdk/api.rs): setea FIELD_NAMESPACE/FIELD_KEY/FIELD_PAYLOAD/FIELD_CREATED_AT_MS/FIELD_UPDATED_AT_MS/FIELD_VERSION espejando memory_record_to_node_owned; ademas corrigio payload escrito con key literal 'payload' en vez de '__vanta_payload'. Test round-trip nuevo pasa. import_file JSONL verificado SIN bug. Nota de deuda en SKILL.md x2 y fila Backlog P25 a Resuelta.
 Resultado: OK
-Próxima acción: Orquestador: commitear cambios pendientes (feat: MEM-55) y delegar Task 8 (MEM-53 desktop IPC)
+Próxima acción: Lead: commit de los archivos tocados (sin push). Proxima tarea del backlog segun prioridad.
 Contrato: por tarea — cargo check/nextest/fmt/clippy --all-targets del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 8
+Próxima tarea si completa: segun Backlog (MCP-24 search_with_method/multi o MCP-29 IQL diferido)
 === END RECITATION ===
