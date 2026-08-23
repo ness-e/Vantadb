@@ -5,7 +5,7 @@ description: VantaDB Model Context Protocol (MCP) server integration for persist
 
 # VantaDB MCP Integration
 
-VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **33 tools** (15 core + 6 `skill_*` + 8 `code_*` + 4 `wiki_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
+VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **45 tools** (25 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
 
 ## Quick Start
 
@@ -113,17 +113,17 @@ first write; list what exists with `collection_list` (or `memory_list_namespaces
 }
 ```
 
-## Available MCP Tools (33)
+## Available MCP Tools (45)
 
-The full contract for all **33 tools** lives in
-[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 15 core tools in detail; the other 18 are summarized here.
+The full contract for all **45 tools** lives in
+[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 25 core tools in detail; the other 20 are summarized here.
 
 | Group | Count | Tools | Precondition |
 |-------|-------|-------|--------------|
-| Core (Memory/Search/Collections/Graph/IQL) | 15 | documented below | none beyond an open DB |
+| Core (Memory/Search/Collections/Graph/IQL) | 25 | documented below | none beyond an open DB |
 | Review-agent Skills (`skill_*`) | 6 | `skill_list`, `skill_view`, `skill_create`, `skill_update`, `skill_patch`, `skill_files_write` | `owner_agent` caller identity; writes need `expected_version` |
 | Code Intelligence (`code_*`) | 8 | `code_search`, `code_explore`, `code_callers`, `code_callees`, `code_impact`, `code_node`, `code_status`, `code_files`* | graph nodes/edges ingested first; query-only |
-| Wiki Knowledge (`wiki_*`) | 4 | `wiki_search`, `wiki_read`, `wiki_list`, `wiki_graph` | wiki lifecycle in `ready` state |
+| Wiki Knowledge (`wiki_*`) | 6 | `wiki_search`, `wiki_read`, `wiki_list`, `wiki_graph`, `wiki_ingest`, `wiki_ingest_status` | wiki lifecycle in `ready` state |
 
 \* `code_files` is a documented not-supported stub: the built-in GraphRAG has no file-per-node concept.
 
@@ -133,6 +133,11 @@ The full contract for all **33 tools** lives in
 - Parameters: `namespace`, `key`, `payload` (required); `vector` (optional array of numbers), `sparse_vector` (optional object mapping dimension id → weight, e.g. `{"0": 0.5}`), `metadata` (optional object), `expires_at_ms` (optional absolute Unix-ms timestamp — the record expires at that time)
 - Returns: The created/updated memory record
 
+**memory_put_batch** (MCP-19) - Store multiple memory records in one batch call
+- Parameters: `inputs` (required array; each entry: `namespace`, `key`, `payload` required + same optional fields as `memory_put`)
+- All-or-nothing: an invalid input fails the whole call before any write. Duplicate keys are UPSERTs (version bumps). Vector dims must match the live index.
+- Returns: JSON array of the created/updated records
+
 **memory_get** - Retrieve a memory record
 - Parameters: `namespace`, `key`
 - Returns: Memory record or error if not found
@@ -140,6 +145,11 @@ The full contract for all **33 tools** lives in
 **memory_delete** - Delete a memory record
 - Parameters: `namespace`, `key`
 - Returns: Success status (`{"deleted": true|false}`)
+
+**memory_delete_by_filter** (MCP-18) - Batch-delete every record in a namespace whose metadata matches filters
+- Parameters: `namespace`, `filters` (required object; same shape as `memory_list` filters — flat values or `$eq`/`$neq`/`$gt`/`$gte`/`$lt`/`$lte` operators, AND semantics)
+- Guard rail: at least one filter item required (prevents accidental full-namespace deletion).
+- Returns: `{"deleted_count": N}`
 
 **memory_list** - List memory records with pagination
 - Parameters: `namespace`, `limit` (default: 100), `cursor` (optional number), `filters` (optional object)
@@ -417,7 +427,7 @@ VantaDB provides Python SDK integrations for popular AI frameworks:
 
 ## Editor Integration
 
-For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see [docs/api/MCP.md](../../docs/api/MCP.md) (a stub). The source of truth for the MCP contract is this skill — [references/api-reference.md](references/api-reference.md) § "MCP Tools (33)".
+For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see [docs/api/MCP.md](../../docs/api/MCP.md) (a stub). The source of truth for the MCP contract is this skill — [references/api-reference.md](references/api-reference.md) § "MCP Tools (45)".
 
 Supported editors:
 - Cursor

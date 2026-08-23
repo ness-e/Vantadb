@@ -2,22 +2,24 @@
 
 > Verified against the real SDK boundary: `src/sdk/types.rs`, `src/sdk/api.rs`, `src/sdk/builder.rs`, `src/index/graph.rs`, `src/error.rs`. Only symbols that exist in the code are documented here.
 
-## MCP Tools (37)
+## MCP Tools (45)
 
 > **This is the single source of truth for the VantaDB MCP contract.**
-> Verified against `vantadb-mcp/src/`: exactly **37 tools** = 19 core
+> Verified against `vantadb-mcp/src/`: exactly **45 tools** = 25 core
 > (`handlers/tools.rs` `base_tools`) + 6 `skill_*` (`skills.rs`) + 8 `code_*`
-> (`code.rs`) + 4 `wiki_*` (`wiki.rs`). All four sets are announced together
+> (`code.rs`) + 6 `wiki_*` (`wiki.rs`). All four sets are announced together
 > in `tools/list` via extend (`handlers/tools.rs:180-184`).
 > Last synced against code: 2026-08-22.
 
-### Core — Memory / Search / Collections / Graph / IQL (19)
+### Core — Memory / Search / Collections / Graph / IQL (25)
 
 | Tool | Purpose | Main params |
 |------|---------|-------------|
 | `memory_put` | Insert or update a memory record | `namespace`, `key`, `payload` (req); `vector`, `sparse_vector` (dim-id → weight object), `metadata`, `expires_at_ms` |
+| `memory_put_batch` (MCP-19) | Store multiple records in one batch call; all-or-nothing validation, duplicate keys are upserts | `inputs` (array of `memory_put`-shaped objects, req) |
 | `memory_get` | Retrieve a record by namespace + key | `namespace`, `key` |
 | `memory_delete` | Delete a record | `namespace`, `key` |
+| `memory_delete_by_filter` (MCP-18) | Batch-delete all records matching metadata filters; ≥1 filter item required | `namespace`, `filters` (same shape as `memory_list`, req); returns `{deleted_count}` |
 | `memory_list` | List records with pagination + filters | `namespace`; `limit` (default 100), `cursor` (numeric offset), `filters` |
 | `memory_list_namespaces` | List all namespaces | none |
 | `query_iql` | Execute an IQL statement (reads + node mutations; LISP NOT supported) | `query` |
@@ -34,6 +36,10 @@
 | `import` | Restore: import a JSONL string produced by `export` | `content` (JSONL, max 10 MB/call); returns `VantaImportReport` |
 | `bulk_import_file` | Bulk-import a binary `.vdbdump` file from the host filesystem | `path`; returns `BulkImportReport`; raw nodes not addressable via memory_get |
 | `bulk_import_stream` | Bulk-import inline NDJSON or raw `.vdbdump` payload | `content` (max 10 MB/call); returns `BulkImportReport` |
+| `purge_expired` | Physically delete records past their TTL; returns purged count | none |
+| `compact_wal` | Flush + archive current WAL, start fresh one | none |
+| `flush` | Manual durability checkpoint (WAL + mmap flush) | none |
+| `compact_layout` | Compact vector store in BFS order; returns bytes reclaimed | none |
 
 Detailed behavior notes (response envelope, error channels, IQL syntax, edge cases F4–F11): see [`SKILL.md`](../SKILL.md).
 
@@ -67,9 +73,9 @@ Read-only wrappers over the **built-in** GraphRAG pipeline + graph traversal pri
 | `code_status` | Operational-metrics snapshot of the backing engine | none |
 | `code_files` | **Not supported** — built-in graphrag has no file-per-node concept; always errors by design | none |
 
-### Wiki Knowledge (4 × `wiki_*`)
+### Wiki Knowledge (6 × `wiki_*`)
 
-Query-only wrappers over the core `WikiStore` (MEM-33). BM25-style ranking (k1=1.5, b=0.75, title terms ×5); `[[wikilink]]` edges extracted from page content.
+Query-only wrappers over the core `WikiStore` (MEM-33) plus async ingest (MEM-52). BM25-style ranking (k1=1.5, b=0.75, title terms ×5); `[[wikilink]]` edges extracted from page content.
 **Precondition:** the wiki lifecycle must be in `ready` state (`pending → processing → ready | failed`); while not ready every tool refuses with the current state surfaced so the caller can retry.
 
 | Tool | Purpose | Main params |
@@ -78,6 +84,8 @@ Query-only wrappers over the core `WikiStore` (MEM-33). BM25-style ranking (k1=1
 | `wiki_read` | Read one page by canonical path (`locked:true` visible on managed pages) | `namespace`, `slug`, `path` |
 | `wiki_list` | List every page ordered by canonical path | `namespace`, `slug` |
 | `wiki_graph` | BFS multi-hop over wikilink edges (cap 200 visited nodes) | `namespace`, `slug`, `root_path`; `max_hops` (2, cap 10) |
+| `wiki_ingest` | Start an async wiki build from local markdown; returns `run_id` immediately | `namespace`, `slug`, `root` (abs path, req) |
+| `wiki_ingest_status` | Poll lifecycle state + progress of a build by run_id | `run_id` (req) |
 
 ## Python SDK
 

@@ -412,6 +412,55 @@ pub fn handle_tools_call(
             }
         }
 
+        // MCP-19: batch put — thin wrapper over the SDK put_batch (single WAL
+        // batch_append + KV write_batch per chunk). The SDK validates every
+        // input upfront, so a malformed record fails the whole call before any
+        // write (all-or-nothing); duplicate keys are upserts with version bump.
+        "memory_put_batch" => {
+            let inputs_arr = args["inputs"]
+                .as_array()
+                .ok_or_else(|| McpError::invalid_params("Missing 'inputs' array").to_json())?;
+            if inputs_arr.is_empty() {
+                return Err(McpError::invalid_params("'inputs' must not be empty").to_json());
+            }
+
+            let mut inputs = Vec::with_capacity(inputs_arr.len());
+            for item in inputs_arr {
+                if !item.is_object() {
+                    return Err(McpError::invalid_params(
+                        "Each entry of 'inputs' must be an object",
+                    )
+                    .to_json());
+                }
+                let input = parse_memory_input(item, config)?;
+                inputs.push(input);
+            }
+
+            // AUD-046 parity: reject batch vectors whose dim does not match the
+            // live index dim — same trust-boundary check as memory_put.
+            if let Some(expected) = index_vector_dim(storage) {
+                for input in &inputs {
+                    if let Some(vector) = &input.vector {
+                        if vector.len() != expected {
+                            return Ok(error_content(
+                                vantadb::VantaError::DimensionMismatch {
+                                    expected,
+                                    got: vector.len(),
+                                }
+                                .to_string(),
+                            ));
+                        }
+                    }
+                }
+            }
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.put_batch(inputs) {
+                Ok(records) => Ok(text_content(serialize_content(&records))),
+                Err(e) => Ok(error_content(format!("Put Batch Error: {}", e))),
+            }
+        }
+
         "memory_get" => {
             let namespace = args["namespace"]
                 .as_str()
@@ -1237,4 +1286,77 @@ fn index_vector_dim(storage: &Arc<StorageEngine>) -> Option<usize> {
         .nodes
         .iter()
         .find_map(|entry| entry.value().vector_slice().map(|v| v.len()))
+}
+
+/// MCP-19: parse one JSON object into a `VantaMemoryInput`, applying the same
+/// validation and wire semantics as `memory_put` (identifier/payload limits,
+/// sparse vector object, absolute expires_at_ms → relative ttl_ms).
+fn parse_memory_input(
+    obj: &Value,
+    config: &McpConfig,
+) -> Result<vantadb::sdk::VantaMemoryInput, Value> {
+    let namespace = obj["namespace"]
+        .as_str()
+        .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+    let key = obj["key"]
+        .as_str()
+        .ok_or_else(|| McpError::invalid_params("Missing 'key'").to_json())?;
+    let payload = obj["payload"]
+        .as_str()
+        .ok_or_else(|| McpError::invalid_params("Missing 'payload'").to_json())?;
+
+    validate_identifier(namespace, "namespace", config.max_namespace_length)
+        .map_err(|e| e.to_json())?;
+    validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
+    validate_payload(payload, config.max_payload_length).map_err(|e| e.to_json())?;
+
+    let vector = if let Some(arr) = obj["vector"].as_array() {
+        Some(validate_vector(arr, config.max_vector_dim).map_err(|e| e.to_json())?)
+    } else {
+        None
+    };
+
+    let sparse_vector = match obj.get("sparse_vector") {
+        Some(Value::Null) | None => None,
+        Some(v) => {
+            let sparse_obj = v.as_object().ok_or_else(|| {
+                McpError::invalid_params(
+                    "'sparse_vector' must be an object mapping dimension id to weight",
+                )
+                .to_json()
+            })?;
+            Some(parse_sparse_vector(sparse_obj).map_err(|e| e.to_json())?)
+        }
+    };
+
+    let ttl_ms = match obj.get("expires_at_ms") {
+        Some(Value::Null) | None => None,
+        Some(v) => {
+            let expires = v.as_u64().ok_or_else(|| {
+                McpError::invalid_params("'expires_at_ms' must be an unsigned integer (Unix ms)")
+                    .to_json()
+            })?;
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+            Some(expires.saturating_sub(now_ms))
+        }
+    };
+
+    let metadata = if let Some(meta_obj) = obj["metadata"].as_object() {
+        parse_metadata(meta_obj).map_err(|e| e.to_json())?
+    } else {
+        vantadb::sdk::VantaMemoryMetadata::new()
+    };
+
+    Ok(vantadb::sdk::VantaMemoryInput {
+        key: key.to_string(),
+        namespace: namespace.to_string(),
+        payload: payload.to_string(),
+        vector,
+        sparse_vector,
+        metadata,
+        ttl_ms,
+    })
 }

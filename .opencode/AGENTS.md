@@ -674,3 +674,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: MEM-52 — 2026-08-22 -->
 - Fachada async para un worker que vive en un crate hijo no puede ir en el core (src/cli_server.rs): vanta-memory depende de vantadb y Cargo prohíbe el ciclo — la fachada va en el crate consumidor (vantadb-mcp) promoviendo la dev-dep a dependencia regular (ciclo-free verificado con cargo tree).
 - Split two-phase de una fn bloqueante larga (egin() sync que asigna run_id + xecute() heavy en std::thread) permite retornar el id inmediato sin tocar el store core ni duplicar guards; el registro de runs vive en el crate de la fachada (OnceLock<Mutex<HashMap>>), nunca en el worker library.
+
+<!-- Learnings: MCP-18/19 — 2026-08-22 -->
+- `serde_json::Map` PANICA con Index (`map["key"]`) cuando la key falta, a diferencia de `Value` que devuelve Null: helpers que reciben `&Map` de un array deben tomar `&Value` (o usar `.get()`) — el panic "no entry found for key" solo aparecio en runtime del test, no en compile-time.
+- Conteos de tools en docs vivas (SKILL.md/api-reference) estaban desincronizados entre copias y con el codigo real (33 vs 37 vs 25 core): contar con `rg -o '"name": "[a-z_]+"' ... | Sort-Object -Unique` sobre el source ANTES de actualizar numeros, no confiar en el doc previo.
