@@ -5,7 +5,7 @@ description: VantaDB Model Context Protocol (MCP) server integration for persist
 
 # VantaDB MCP Integration
 
-VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **45 tools** (25 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
+VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **50 tools** (30 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
 
 ## Quick Start
 
@@ -113,14 +113,14 @@ first write; list what exists with `collection_list` (or `memory_list_namespaces
 }
 ```
 
-## Available MCP Tools (45)
+## Available MCP Tools (50)
 
-The full contract for all **45 tools** lives in
-[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 25 core tools in detail; the other 20 are summarized here.
+The full contract for all **50 tools** lives in
+[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 30 core tools in detail; the other 20 are summarized here.
 
 | Group | Count | Tools | Precondition |
 |-------|-------|-------|--------------|
-| Core (Memory/Search/Collections/Graph/IQL) | 25 | documented below | none beyond an open DB |
+| Core (Memory/Search/Collections/Graph/IQL/GDS) | 30 | documented below | none beyond an open DB |
 | Review-agent Skills (`skill_*`) | 6 | `skill_list`, `skill_view`, `skill_create`, `skill_update`, `skill_patch`, `skill_files_write` | `owner_agent` caller identity; writes need `expected_version` |
 | Code Intelligence (`code_*`) | 8 | `code_search`, `code_explore`, `code_callers`, `code_callees`, `code_impact`, `code_node`, `code_status`, `code_files`* | graph nodes/edges ingested first; query-only |
 | Wiki Knowledge (`wiki_*`) | 6 | `wiki_search`, `wiki_read`, `wiki_list`, `wiki_graph`, `wiki_ingest`, `wiki_ingest_status` | wiki lifecycle in `ready` state |
@@ -203,6 +203,28 @@ Notes:
 **get_node_neighbors** - Inspect node relationships
 - Parameters: `node_id` (decimal string; u128 ids exceed JSON number precision)
 - Returns: Node and its neighbors
+
+**graph_page_rank** (MCP-21) - PageRank over the subgraph reachable from the roots (GDS)
+- Parameters: `roots` (required array of u128 decimal strings); `max_iterations` (default 100), `damping_factor` (default 0.85), `tolerance` (default 1e-6)
+- Returns: `{"scores": {"<node_id>": rank}}` — ranks sum to ≈ 1.0; node ids are decimal strings
+- Note: GDS is **not** reachable via IQL (`RELATE`/`FROM` only create/read edges) — these tools are the correct path.
+
+**graph_degree_centrality** (MCP-21) - In/out degree counts for every node reachable from the roots
+- Parameters: `roots` (required array of u128 decimal strings)
+- Returns: `{"degrees": {"<node_id>": {"in": <count>, "out": <count>}}}`
+
+**graph_traverse** (MCP-22) - Multi-hop BFS/DFS traversal from one or more start nodes
+- Parameters: `start` (required array of u128 decimal strings), `mode` (`bfs` | `dfs`, required), `max_depth` (required); `direction` (`forward` | `reverse` | `both`, default forward); optional `filter` object `{labels: [<u32>], time_range: [from_ms, to_ms]}` restricts traversal to edges matching the label ids and/or the inclusive creation-time window
+- Returns: `{"visited": ["<id>", ...], "count": N}` in traversal order
+
+**graph_topological_sort** (MCP-22) - Topological order of the subgraph reachable from the roots
+- Parameters: `roots` (required array of u128 decimal strings)
+- Returns: `{"order": ["<id>", ...]}`; a cycle comes back as self-correctable error content
+
+**graph_is_dag** (MCP-22) - Whether the subgraph reachable from the roots is a directed acyclic graph
+- Parameters: `roots` (required array of u128 decimal strings)
+- Returns: `{"is_dag": true|false}`
+- Design note (MCP-22): graph accumulators (`graph_create_accumulator`/`_add`/`_get`/`_snapshot`) are intentionally NOT exposed — they are in-process parallelism primitives holding no engine state, so an MCP lifecycle tool would need server-side session state for zero agent value.
 
 **inject_context** - Inject context into a thread
 - Parameters: `content`, `thread_id`

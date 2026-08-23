@@ -2,16 +2,16 @@
 
 > Verified against the real SDK boundary: `src/sdk/types.rs`, `src/sdk/api.rs`, `src/sdk/builder.rs`, `src/index/graph.rs`, `src/error.rs`. Only symbols that exist in the code are documented here.
 
-## MCP Tools (45)
+## MCP Tools (50)
 
 > **This is the single source of truth for the VantaDB MCP contract.**
-> Verified against `vantadb-mcp/src/`: exactly **45 tools** = 25 core
+> Verified against `vantadb-mcp/src/`: exactly **50 tools** = 30 core
 > (`handlers/tools.rs` `base_tools`) + 6 `skill_*` (`skills.rs`) + 8 `code_*`
 > (`code.rs`) + 6 `wiki_*` (`wiki.rs`). All four sets are announced together
-> in `tools/list` via extend (`handlers/tools.rs:180-184`).
+> in `tools/list` via extend (`handlers/tools.rs`).
 > Last synced against code: 2026-08-22.
 
-### Core — Memory / Search / Collections / Graph / IQL (25)
+### Core — Memory / Search / Collections / Graph / IQL / GDS (30)
 
 | Tool | Purpose | Main params |
 |------|---------|-------------|
@@ -26,6 +26,11 @@
 | `search_memory` | Hybrid vector + text search with filters/profile/explain | `namespace`; `query_vector`, `text_query`, `top_k` (10), `distance_metric` (cosine \| euclidean, per-request), `explain`, `filters`, `search_profile` `{mode, rrf_k, candidate_k}` |
 | `search_semantic` | Raw HNSW vector search | `vector`, `k` (required in schema, defaults 5 if omitted); returns real distances (`1 − cosine_similarity`) ascending |
 | `get_node_neighbors` | Inspect node's outgoing edges (alive targets only) | `node_id` (u128 decimal string) |
+| `graph_page_rank` (MCP-21) | PageRank over the subgraph reachable from the roots | `roots` (array of u128 decimal strings, req); `max_iterations` (100), `damping_factor` (0.85), `tolerance` (1e-6); returns `{scores: {"<id>": rank}}` |
+| `graph_degree_centrality` (MCP-21) | In/out degree counts for every reachable node | `roots` (req); returns `{degrees: {"<id>": {in, out}}}` |
+| `graph_traverse` (MCP-22) | Multi-hop BFS/DFS traversal (plain or label/time-filtered) | `start` (array, req), `mode` (`bfs`\|`dfs`, req), `max_depth` (req); `direction` (`forward`\|`reverse`\|`both`, default forward), `filter` `{labels: [u32], time_range: [from_ms, to_ms]}`; returns `{visited: [...], count}` |
+| `graph_topological_sort` (MCP-22) | Topological order of the subgraph; errors on cycles | `roots` (req); returns `{order: [...]}` |
+| `graph_is_dag` (MCP-22) | Whether the subgraph reachable from roots is acyclic | `roots` (req); returns `{is_dag: bool}` |
 | `inject_context` | Inject context into a thread for consolidation | `content`, `thread_id` (number) |
 | `read_axioms` | Read active Iron Axioms | none |
 | `collection_stats` | Stats for a namespace/collection | `namespace` |

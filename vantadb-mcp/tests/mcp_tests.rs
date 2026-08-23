@@ -3138,3 +3138,242 @@ fn test_memory_put_batch_vector_and_empty_validation() {
     }));
     assert!(handle_tools_call(&none, &executor, &storage, &cfg).is_err());
 }
+
+// ── MCP-21: GDS via MCP (graph_page_rank + graph_degree_centrality) ──────
+
+/// Builds a directed chain A(1) -> B(2) -> C(3) through the agent channel
+/// (query_iql INSERT + RELATE), the same round-trip proven by MCP-27.
+fn build_chain(storage: &Arc<StorageEngine>, executor: &Executor<'_>, ids: [u128; 3]) {
+    for id in ids {
+        let params = Some(json!({
+            "name": "query_iql",
+            "arguments": { "query": format!("INSERT NODE#{id} TYPE GdsNode {{ label: \"n{id}\" }}") }
+        }));
+        let res = handle_tools_call(&params, executor, storage, &default_config())
+            .expect("iql insert ok");
+        assert!(
+            res["isError"].is_null(),
+            "INSERT NODE#{id} failed: {}",
+            res["content"][0]["text"]
+        );
+    }
+    let (a, b, c) = (ids[0], ids[1], ids[2]);
+    for (src, dst) in [(a, b), (b, c)] {
+        let params = Some(json!({
+            "name": "query_iql",
+            "arguments": { "query": format!("RELATE NODE#{src} --\"next\"--> NODE#{dst}") }
+        }));
+        let res = handle_tools_call(&params, executor, storage, &default_config())
+            .expect("iql relate ok");
+        assert!(
+            res["isError"].is_null(),
+            "RELATE {src}->{dst} failed: {}",
+            res["content"][0]["text"]
+        );
+    }
+}
+
+#[test]
+fn test_mcp_graph_page_rank_converges_on_chain() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    build_chain(&storage, &executor, [1, 2, 3]);
+
+    let params = Some(json!({
+        "name": "graph_page_rank",
+        "arguments": { "roots": ["1"] }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config());
+    assert!(res.is_ok(), "graph_page_rank should succeed");
+    let val = res.unwrap();
+    assert!(
+        val["isError"].is_null(),
+        "page_rank failed: {}",
+        val["content"][0]["text"]
+    );
+
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let parsed: Value = serde_json::from_str(text).unwrap();
+    let scores = parsed["scores"].as_object().expect("scores object");
+
+    // All three nodes of the chain are discovered and ranked; u128 ids are
+    // serialized as decimal strings.
+    assert_eq!(scores.len(), 3, "all chain nodes ranked: {:?}", scores);
+    assert!(scores.contains_key("1") && scores.contains_key("2") && scores.contains_key("3"));
+
+    // Standard PageRank with dangling redistribution sums to ~1.0.
+    let sum: f64 = scores.values().map(|v| v.as_f64().unwrap()).sum();
+    assert!(
+        (sum - 1.0).abs() < 0.01,
+        "ranks should sum to ~1.0, got {sum}: {:?}",
+        scores
+    );
+
+    // Chain A->B->C: the dangling leaf C accumulates the most mass.
+    let r1 = scores["1"].as_f64().unwrap();
+    let r3 = scores["3"].as_f64().unwrap();
+    assert!(r3 > r1, "leaf C ({r3}) should outrank source A ({r1})");
+}
+
+#[test]
+fn test_mcp_graph_degree_centrality_chain_counts() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    build_chain(&storage, &executor, [11, 12, 13]);
+
+    let params = Some(json!({
+        "name": "graph_degree_centrality",
+        "arguments": { "roots": ["11"] }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config());
+    assert!(res.is_ok(), "graph_degree_centrality should succeed");
+    let val = res.unwrap();
+    assert!(
+        val["isError"].is_null(),
+        "degree_centrality failed: {}",
+        val["content"][0]["text"]
+    );
+
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let parsed: Value = serde_json::from_str(text).unwrap();
+    let degrees = parsed["degrees"].as_object().expect("degrees object");
+
+    assert!(degrees.contains_key("11"), "A missing: {:?}", degrees);
+    assert!(degrees.contains_key("12"), "B missing: {:?}", degrees);
+    assert!(degrees.contains_key("13"), "C missing: {:?}", degrees);
+
+    let a = &degrees["11"];
+    let b = &degrees["12"];
+    let c = &degrees["13"];
+    assert_eq!(a["in"].as_u64(), Some(0), "A has no incoming edges");
+    assert_eq!(a["out"].as_u64(), Some(1), "A -> B");
+    assert_eq!(b["in"].as_u64(), Some(1));
+    assert_eq!(b["out"].as_u64(), Some(1));
+    assert_eq!(c["in"].as_u64(), Some(1));
+    assert_eq!(c["out"].as_u64(), Some(0), "C is the leaf");
+}
+
+// ── MCP-22: graph traversal via MCP ─────────────────────────────────────
+
+#[test]
+fn test_mcp_graph_traverse_bfs_order_and_dag_analysis() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    build_chain(&storage, &executor, [21, 22, 23]);
+
+    // BFS from A visits A,B,C in breadth order.
+    let bfs = Some(json!({
+        "name": "graph_traverse",
+        "arguments": { "start": ["21"], "mode": "bfs", "max_depth": 10 }
+    }));
+    let res = handle_tools_call(&bfs, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "bfs failed: {}",
+        res["content"][0]["text"]
+    );
+    let visited: Vec<String> =
+        serde_json::from_str::<Value>(res["content"][0]["text"].as_str().unwrap()).unwrap()
+            ["visited"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect();
+    assert_eq!(
+        visited,
+        vec!["21", "22", "23"],
+        "BFS order on chain A->B->C"
+    );
+
+    // DFS from A also covers all three nodes.
+    let dfs = Some(json!({
+        "name": "graph_traverse",
+        "arguments": { "start": ["21"], "mode": "dfs", "max_depth": 10 }
+    }));
+    let res = handle_tools_call(&dfs, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "dfs failed: {}",
+        res["content"][0]["text"]
+    );
+    let text = res["content"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains("21") && text.contains("22") && text.contains("23"),
+        "DFS should cover the whole chain: {text}"
+    );
+
+    // Unknown mode -> self-correctable error content (MEM-32), not Err.
+    let bad = Some(json!({
+        "name": "graph_traverse",
+        "arguments": { "start": ["21"], "mode": "spiral", "max_depth": 10 }
+    }));
+    let res = handle_tools_call(&bad, &executor, &storage, &default_config()).unwrap();
+    assert_eq!(res["isError"], json!(true), "unknown mode must set isError");
+}
+
+#[test]
+fn test_mcp_graph_topological_sort_and_is_dag() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    build_chain(&storage, &executor, [31, 32, 33]);
+
+    // Topo sort of the DAG returns a valid order (A before B before C).
+    let topo = Some(json!({
+        "name": "graph_topological_sort",
+        "arguments": { "roots": ["31"] }
+    }));
+    let res = handle_tools_call(&topo, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "topo sort failed: {}",
+        res["content"][0]["text"]
+    );
+    let parsed: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
+    let order: Vec<String> = parsed["order"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    let pos = |id: &str| order.iter().position(|x| x == id).expect("node in order");
+    assert!(
+        pos("31") < pos("32") && pos("32") < pos("33"),
+        "valid topo order: {:?}",
+        order
+    );
+
+    // Chain without cycles IS a DAG...
+    let dag = Some(json!({
+        "name": "graph_is_dag",
+        "arguments": { "roots": ["31"] }
+    }));
+    let res = handle_tools_call(&dag, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "is_dag failed: {}",
+        res["content"][0]["text"]
+    );
+    let text = res["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("true"), "chain is a DAG: {text}");
+
+    // ...and closing the cycle C->A makes it not a DAG.
+    let cycle = Some(json!({
+        "name": "query_iql",
+        "arguments": { "query": "RELATE NODE#33 --\"back\"--> NODE#31" }
+    }));
+    let res = handle_tools_call(&cycle, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "cycle edge failed: {}",
+        res["content"][0]["text"]
+    );
+
+    let dag_after = Some(json!({
+        "name": "graph_is_dag",
+        "arguments": { "roots": ["31"] }
+    }));
+    let res = handle_tools_call(&dag_after, &executor, &storage, &default_config()).unwrap();
+    let text = res["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("false"), "cycled graph is not a DAG: {text}");
+}

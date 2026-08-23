@@ -164,6 +164,75 @@ pub fn handle_tools_list() -> Result<Value, Value> {
             }
         },
         {
+            "name": "graph_page_rank",
+            "description": "MCP-21: computes PageRank over the subgraph reachable from the given root node ids. Returns {scores: {\"<node_id>\": rank}} with node ids as decimal strings.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "roots": { "type": "array", "items": { "type": "string" }, "description": "Root node IDs (decimal strings)" },
+                    "max_iterations": { "type": "number", "description": "Maximum iterations, default 100" },
+                    "damping_factor": { "type": "number", "description": "Damping factor, default 0.85" },
+                    "tolerance": { "type": "number", "description": "Convergence threshold, default 1e-6" }
+                },
+                "required": ["roots"]
+            }
+        },
+        {
+            "name": "graph_degree_centrality",
+            "description": "MCP-21: degree centrality (incoming/outgoing edge counts) for every node in the subgraph reachable from the given roots. Returns {degrees: {\"<node_id>\": {in, out}}}.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "roots": { "type": "array", "items": { "type": "string" }, "description": "Root node IDs (decimal strings)" }
+                },
+                "required": ["roots"]
+            }
+        },
+        {
+            "name": "graph_traverse",
+            "description": "MCP-22: multi-hop traversal (BFS or DFS) from one or more start nodes. Optional filter restricts traversal to edges whose label is in 'labels' and/or whose created_at_ms falls inside 'time_range' [from_ms, to_ms]. Returns visited node ids in traversal order.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "start": { "type": "array", "items": { "type": "string" }, "description": "Start node IDs (decimal strings)" },
+                    "mode": { "type": "string", "enum": ["bfs", "dfs"], "description": "Traversal order" },
+                    "max_depth": { "type": "number", "description": "Maximum hops from the start nodes" },
+                    "direction": { "type": "string", "enum": ["forward", "reverse", "both"], "description": "Edge direction to follow, default forward" },
+                    "filter": {
+                        "type": "object",
+                        "properties": {
+                            "labels": { "type": "array", "items": { "type": "number" }, "description": "Only follow edges whose label id is listed" },
+                            "time_range": { "type": "array", "items": { "type": "number" }, "description": "[from_ms, to_ms] inclusive window on edge creation time" }
+                        },
+                        "description": "Optional label/temporal edge filter"
+                    }
+                },
+                "required": ["start", "mode", "max_depth"]
+            }
+        },
+        {
+            "name": "graph_topological_sort",
+            "description": "MCP-22: topological sort of the subgraph reachable from the given roots. Errors if the subgraph contains a cycle.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "roots": { "type": "array", "items": { "type": "string" }, "description": "Root node IDs (decimal strings)" }
+                },
+                "required": ["roots"]
+            }
+        },
+        {
+            "name": "graph_is_dag",
+            "description": "MCP-22: returns true when the subgraph reachable from the given roots is a directed acyclic graph (DAG).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "roots": { "type": "array", "items": { "type": "string" }, "description": "Root node IDs (decimal strings)" }
+                },
+                "required": ["roots"]
+            }
+        },
+        {
             "name": "inject_context",
             "description": "Injects external state or context connecting it to a specific thread for subsequent consolidation.",
             "inputSchema": {
@@ -1262,6 +1331,178 @@ pub fn handle_tools_call(
             }
         }
 
+        // MCP-21: GDS via MCP — thin wrappers over src/sdk/gds.rs
+        // (graph_page_rank / graph_degree_centrality). Domain errors come back
+        // as Ok(error_content(...)) (MEM-32), never as a propagated JSON-RPC
+        // error. u128 node ids are serialized as decimal strings (JSON numbers
+        // lose precision above 2^53).
+        "graph_page_rank" => {
+            let roots = parse_node_ids(
+                args["roots"]
+                    .as_array()
+                    .ok_or_else(|| McpError::invalid_params("Missing 'roots' array").to_json())?,
+            )?;
+            let max_iterations = args["max_iterations"].as_u64().unwrap_or(100) as usize;
+            let damping_factor = args["damping_factor"].as_f64().unwrap_or(0.85);
+            let tolerance = args["tolerance"].as_f64().unwrap_or(1e-6);
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.graph_page_rank(&roots, max_iterations, damping_factor, tolerance) {
+                Ok(scores) => {
+                    let map: serde_json::Map<String, Value> = scores
+                        .into_iter()
+                        .map(|(id, rank)| (id.to_string(), json!(rank)))
+                        .collect();
+                    Ok(text_content(serialize_content(&json!({ "scores": map }))))
+                }
+                Err(e) => Ok(error_content(format!("Page Rank Error: {}", e))),
+            }
+        }
+
+        "graph_degree_centrality" => {
+            let roots = parse_node_ids(
+                args["roots"]
+                    .as_array()
+                    .ok_or_else(|| McpError::invalid_params("Missing 'roots' array").to_json())?,
+            )?;
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.graph_degree_centrality(&roots) {
+                Ok(degrees) => {
+                    let map: serde_json::Map<String, Value> = degrees
+                        .into_iter()
+                        .map(|(id, (inn, out))| (id.to_string(), json!({ "in": inn, "out": out })))
+                        .collect();
+                    Ok(text_content(serialize_content(&json!({ "degrees": map }))))
+                }
+                Err(e) => Ok(error_content(format!("Degree Centrality Error: {}", e))),
+            }
+        }
+
+        // MCP-22: graph traversal via MCP — thin wrappers over src/sdk/graph.rs.
+        // `graph_traverse` covers graph_bfs/graph_dfs plus their _filtered
+        // variants (a present 'filter' object routes to the filtered SDK call).
+        "graph_traverse" => {
+            let start = parse_node_ids(
+                args["start"]
+                    .as_array()
+                    .ok_or_else(|| McpError::invalid_params("Missing 'start' array").to_json())?,
+            )?;
+            let mode = args["mode"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'mode' (bfs or dfs)").to_json())?;
+            let max_depth = args["max_depth"]
+                .as_u64()
+                .ok_or_else(|| McpError::invalid_params("Missing 'max_depth'").to_json())?
+                as usize;
+            let direction = parse_direction(&args["direction"])?;
+
+            // Filtered variant when a filter object is present; empty labels
+            // means "no label filter" in the core SDK, so an absent field
+            // degrades to unfiltered behavior for that dimension.
+            let filter = match args.get("filter") {
+                Some(Value::Null) | None => None,
+                Some(f) if !f.is_object() => {
+                    return Ok(error_content(
+                        "'filter' must be an object {labels, time_range}",
+                    ));
+                }
+                Some(f) => {
+                    let labels: Vec<u32> = f["labels"]
+                        .as_array()
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|v| v.as_u64().map(|n| n as u32))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let time_range = match f.get("time_range") {
+                        Some(Value::Null) | None => None,
+                        Some(tr) => {
+                            let pair = tr.as_array().ok_or_else(|| {
+                                McpError::invalid_params("'time_range' must be [from_ms, to_ms]")
+                                    .to_json()
+                            })?;
+                            if pair.len() != 2 {
+                                return Ok(error_content(
+                                    "'time_range' must have exactly two values [from_ms, to_ms]",
+                                ));
+                            }
+                            let from = pair[0].as_u64().ok_or_else(|| {
+                                McpError::invalid_params("'time_range[0]' must be ms").to_json()
+                            })?;
+                            let to = pair[1].as_u64().ok_or_else(|| {
+                                McpError::invalid_params("'time_range[1]' must be ms").to_json()
+                            })?;
+                            Some((from, to))
+                        }
+                    };
+                    Some((labels, time_range))
+                }
+            };
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let result = match (mode.to_lowercase().as_str(), &filter) {
+                ("bfs", None) => embedded.graph_bfs(&start, max_depth, direction),
+                ("dfs", None) => embedded.graph_dfs(&start, max_depth, direction),
+                ("bfs", Some((labels, time_range))) => {
+                    embedded.graph_bfs_filtered(&start, max_depth, direction, labels, *time_range)
+                }
+                ("dfs", Some((labels, time_range))) => {
+                    embedded.graph_dfs_filtered(&start, max_depth, direction, labels, *time_range)
+                }
+                (other, _) => {
+                    return Ok(error_content(format!(
+                        "Unknown mode '{}' — supported: bfs, dfs",
+                        other
+                    )));
+                }
+            };
+            match result {
+                Ok(visited) => {
+                    let ids: Vec<String> = visited.iter().map(|id| id.to_string()).collect();
+                    Ok(text_content(serialize_content(&json!({
+                        "visited": ids,
+                        "count": ids.len()
+                    }))))
+                }
+                Err(e) => Ok(error_content(format!("Traversal Error: {}", e))),
+            }
+        }
+
+        "graph_topological_sort" => {
+            let roots = parse_node_ids(
+                args["roots"]
+                    .as_array()
+                    .ok_or_else(|| McpError::invalid_params("Missing 'roots' array").to_json())?,
+            )?;
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.graph_topological_sort(&roots) {
+                Ok(order) => {
+                    let ids: Vec<String> = order.iter().map(|id| id.to_string()).collect();
+                    Ok(text_content(serialize_content(&json!({ "order": ids }))))
+                }
+                Err(e) => Ok(error_content(format!("Topological Sort Error: {}", e))),
+            }
+        }
+
+        "graph_is_dag" => {
+            let roots = parse_node_ids(
+                args["roots"]
+                    .as_array()
+                    .ok_or_else(|| McpError::invalid_params("Missing 'roots' array").to_json())?,
+            )?;
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.graph_is_dag(&roots) {
+                Ok(is_dag) => Ok(text_content(serialize_content(
+                    &json!({ "is_dag": is_dag }),
+                ))),
+                Err(e) => Ok(error_content(format!("Is DAG Error: {}", e))),
+            }
+        }
+
         "skill_list" | "skill_view" | "skill_create" | "skill_update" | "skill_patch"
         | "skill_files_write" => crate::skills::handle_skill_tool(name, args, storage, config),
         "code_search" | "code_explore" | "code_callers" | "code_callees" | "code_impact"
@@ -1359,4 +1600,37 @@ fn parse_memory_input(
         metadata,
         ttl_ms,
     })
+}
+
+/// MCP-21/22: parse an array of node ids (decimal strings, or numbers for
+/// backward compat via `parse_node_id`) into u128 roots.
+fn parse_node_ids(arr: &[Value]) -> Result<Vec<u128>, Value> {
+    arr.iter()
+        .map(|v| {
+            parse_node_id(v).ok_or_else(|| {
+                McpError::invalid_params(
+                    "Node IDs must be decimal strings (u128 exceeds JSON number precision)",
+                )
+                .to_json()
+            })
+        })
+        .collect()
+}
+
+/// MCP-22: optional traversal direction ("forward"|"reverse"|"both"), default
+/// Forward — same semantics as the core `TraversalDirection`.
+fn parse_direction(val: &Value) -> Result<vantadb::graph::TraversalDirection, Value> {
+    match val.as_str() {
+        None => Ok(vantadb::graph::TraversalDirection::Forward),
+        Some(d) => match d.to_lowercase().as_str() {
+            "forward" => Ok(vantadb::graph::TraversalDirection::Forward),
+            "reverse" => Ok(vantadb::graph::TraversalDirection::Reverse),
+            "both" => Ok(vantadb::graph::TraversalDirection::Both),
+            other => Err(McpError::invalid_params(format!(
+                "Unknown direction '{}' — supported: forward, reverse, both",
+                other
+            ))
+            .to_json()),
+        },
+    }
 }

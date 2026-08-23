@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![recursion_limit = "512"]
 
 //! VantaDB Model Context Protocol (MCP) Server.
 //!
