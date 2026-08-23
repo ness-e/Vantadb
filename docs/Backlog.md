@@ -789,7 +789,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | GOV-TK3 | Drift yaml↔real ×3: gramática IQL case del yaml vs parser UPPERCASE · GraphTraversalBody (roots numéricos + max_depth requerido) · search en DB fresca requiere rebuild-index previo | 🟠 | B5 |
 | GOV-TK4 | Re-medición coverage local: llvm-cov ICE rustc 0xc0000409 Windows (probar -j 2 limpio post-fingerprint-clean o CI artifact) | 🟠 | A1 |
 | GOV-TK5 | Split Manual Estratégico según recomendación F2 (negocio→docs/business/ con banner snapshot; estado técnico fuera; archivar monolito) | 🟠 | F2/D-decisión |
-| GOV-TK6 | Harness snippets: cleanup de mkdtemp (incidente 224 dirs/68GB) | 🟢 | B3/A4 |
+| `GOV-TK6` | Harness snippets: cleanup de mkdtemp (incidente 224 dirs/68GB) — **INSPECCIONADO Y LIMPIADO 2026-08-22**: solo quedaban 10 dirs / 0.94GB reales (vanta_probe 320MB×3 del GOV-A3 + milvus vacíos), liberados. Queda TK6-bis: fix del harness para que limpie su mkdtemp | 🟢 | 🟢 | ✅ Resuelto (limpieza) |
 | GOV-TK7 | put_batch metadatas solo-str: alinear doc-tutorial vs API o ampliar coercion | 🟡 | B3 |
 | GOV-TK8 | Benchmarks: mejorar/probar/documentar (insumo: docs/benchmarks/_run_stdout.md se conserva como evidencia de corrida cruda) | 🟡 | owner E1 |
 | GOV-TK9 | URL \antadb-examples\ repo distinto en pilot-onboarding-checklist:51 — verificar si existe | 🟢 | B3 |
