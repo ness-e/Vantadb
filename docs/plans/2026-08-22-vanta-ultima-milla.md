@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Última Milla — integración producto end-to-end
 
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (3/10 tareas)
+> **Estado:** ⏳ EN PROGRESO (4/10 tareas)
 > **Fuente:** auditoría de integración final (`docs/reviews/2026-08-22-auditoria-integracion-final.md`) + decisiones del usuario (2026-08-22)
 > **Predecesores:** P27+P29+P30+P31+P32 ✅ (54 tareas) — roadmap TDAM 100% + bindings
 > **Modo:** waves por dependencias. Sin release durante la campaña (decisión usuario).
@@ -35,7 +35,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Archivos clave:** `vanta-proxy/src/handlers/{openai,anthropic,responses}.rs` (editar), `writeback.rs` (API si falta)
 - **Verificación real:** ✅ AUDITORÍA — WriteBack construido+flusheado pero cero llamadas track() (auditoría H1)
 - **Gate Result:** ✅ DO
-- **Contrato:** "`cargo check -p vanta-proxy --all-targets` pasa; tests D19: request completado → track() encola el turno L0 → visible en pending queue → flush lo persiste; fallo de enqueue NO rompe el forward"
+- **Contrato: verificacion: cargo check -p vantadb --features server --all-targets OK | cargo test -p vantadb --features server --lib skills 16/16 (2 nuevos D19) | cargo fmt --check OK | cargo clippy -p vantadb --features server --all-targets --no-deps -- -D warnings exit 0 | node scripts/check_openapi_parity.mjs Parity OK. evidencia: [claim: rutas CRUD skills expuestas con optimistic lock; evidencia: src/cli_server.rs handlers skill_create/update/patch/delete + test skills_crud_roundtrip_via_http ok; confianza: alta] [claim: owner check 404 sin filtrar existencia; evidencia: fn require_owned_head mapea mismatch a NotFound identico a missing + test skills_owner_mismatch_is_indistinguishable_from_missing ok; confianza: alta]. artefactos: src/cli_server.rs, docs/api/openapi.yaml, .opencode/skills/campaign-executor/tasks/MEM-54.md
 - **Risk Register:** 🟢×🟠 extraer user-text del request puede necesitar MEM-57 parcial → implementar extracción mínima inline, refinar con Task 8
 - **Cynefin:** 🟦 obvio
 - **Estado:** ✅ COMPLETED
@@ -85,7 +85,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Contrato:** "tests D19: create/update/patch/delete vía HTTP con expected_version optimistic lock (patrón MEM-06) + owner check 404 sin filtrar"
 - **Risk Register:** 🟢×🟢 auth ya existe (MEM-05) — reusar middleware
 - **Cynefin:** 🟦 obvio
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-54.md`
 - **Notas:** Ruta: vanta-worker. Leer `.opencode/rules/server-mcp.md`.
 
@@ -182,12 +182,12 @@ Verify del lead SIEMPRE `--all-targets` (lección MEM-48) · SARL con feedback e
 ---
 
 === RECITATION ===
-Campaign ID: (pendiente MCP)
-Objetivo activo: MEM-52 fachada productiva de ingest wiki (P33 Task 3, H3)
+Campaign ID: cbbefe44-8d27-4a32-87a0-230c2990fe05
+Objetivo activo: MEM-54 Skills CRUD en server HTTP (H5)
 Estado: pending ⏳
-Última acción: Implementado split worker begin/execute + fachada MCP wiki_ingest/wiki_ingest_status (begin sync → std::thread con execute → run_id inmediato; registro global por run_id MEM-31); test D19 3/3; verify mecánico completo verde
+Última acción: Implementado MEM-54: POST /api/v2/skills (create idempotente) + PUT/PATCH/DELETE /api/v2/skills/{skill_id} con query params owner_agent+expected_version (lock optimista MEM-06, stale = 409 via ExecutionConflict); owner-mismatch y missing devuelven el mismo 404 (anti-enumeracion); openapi.yaml actualizado (37 paths parity OK)
 Resultado: OK
-Próxima acción: Lead: commit feat(MEM-52) y cerrar Task 4 (MEM-54 skills CRUD HTTP)
+Próxima acción: Ninguna para esta tarea. Orquestador: delegar Task 5 (BND-03 tiktoken feature-gate) o Task 6 (MEM-57 parser claude-code), independientes.
 Contrato: por tarea — cargo check/nextest/fmt/clippy --all-targets del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 4
+Próxima tarea si completa: 5
 === END RECITATION ===
