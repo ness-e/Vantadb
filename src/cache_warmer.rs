@@ -26,7 +26,8 @@ use parking_lot::RwLock;
 /// ~2.5 GB and aborting the process with 0xC0000409 ("memory allocation of
 /// 270352 bytes failed") once the heap was exhausted. Once the table hits
 /// this cap it stops learning NEW pairs (existing pairs keep updating), so
-/// prefetch behavior for already-tracked hot pairs is preserved.
+/// prefetch behavior for already-tracked hot pairs is preserved. Decay lifts
+/// the cap once the surviving table fits under it again (REVIEW-09).
 pub const MAX_CO_ACCESS_PAIRS: usize = 1_000_000;
 
 /// Tracks co-access patterns and predicts which nodes to prefetch.
@@ -46,7 +47,8 @@ pub(crate) struct CacheWarmer {
     /// Number of distinct (A,B) pairs currently in the table.
     pair_count: AtomicUsize,
     /// Set once `pair_count` reaches `max_pairs`; new pairs are no longer
-    /// learned (monotonic — decay shrinking the table does not re-enable it).
+    /// learned until decay shrinks the table under `max_pairs` again,
+    /// which lifts the latch (REVIEW-09).
     saturated: AtomicBool,
 }
 
@@ -104,6 +106,8 @@ impl CacheWarmer {
     /// Memory bound: once `max_pairs` distinct pairs are tracked, NEW pairs are
     /// no longer inserted — only already-tracked pairs get their count bumped.
     /// Without this cap the table grows O(n²) with distinct node pairs (AUDIT-04).
+    /// Periodic decay shrinks the table; once it fits back under the cap the
+    /// saturation latch is lifted and learning of new pairs resumes (REVIEW-09).
     pub fn record_co_access(&self, ids: &[u128]) {
         if ids.len() < 2 {
             return;
@@ -186,6 +190,12 @@ impl CacheWarmer {
     /// Decay old co-access patterns by halving all counts.
     /// Entries that fall to 0 are removed.
     /// Called by `record_co_access()` every 1000 events.
+    ///
+    /// REVIEW-09: if the decay shrinks the surviving table back under the
+    /// cap, the saturation latch is lifted so new pairs can be learned again
+    /// (the latch must not be monotonic on long-running servers). This runs
+    /// at most once per 1000 events, so there is one latch transition per
+    /// threshold crossing — no thrashing.
     pub fn decay(&self) {
         let mut table = self.co_access.write();
         table.retain(|_, related| {
@@ -198,6 +208,9 @@ impl CacheWarmer {
         // Reconcile the pair counter with what actually survived the decay.
         let total: usize = table.values().map(|m| m.len()).sum();
         self.pair_count.store(total, Ordering::Relaxed);
+        if total < self.max_pairs && self.saturated.load(Ordering::Relaxed) {
+            self.saturated.store(false, Ordering::Relaxed);
+        }
     }
 
     /// Return the top-layer node IDs from an HNSW graph.
@@ -403,6 +416,69 @@ mod tests {
         warmer.clear();
         assert!(!warmer.saturated.load(Ordering::Relaxed));
         assert_eq!(warmer.metrics().total_pairs, 0);
+    }
+
+    // REVIEW-09: the saturation latch must not be monotonic. Decay shrinks the
+    // table; once it fits under the cap again the warmer has to resume learning
+    // new pairs, otherwise warming silently degrades on long-running servers.
+
+    #[test]
+    fn test_decay_below_cap_resets_saturation_and_learning_resumes() {
+        let warmer = CacheWarmer::with_config_and_cap(1, 10, 2);
+        warmer.record_co_access(&[1, 2]);
+        warmer.record_co_access(&[3, 4]); // total 2 >= cap → saturates
+        assert!(warmer.saturated.load(Ordering::Relaxed));
+
+        // While saturated: brand-new pairs are NOT learned.
+        warmer.record_co_access(&[9, 10]);
+        assert_eq!(warmer.metrics().total_pairs, 2);
+
+        // Decay halves counts (1→0) and removes both pairs → total 0 < cap.
+        warmer.decay();
+        assert_eq!(warmer.metrics().total_pairs, 0);
+        assert!(
+            !warmer.saturated.load(Ordering::Relaxed),
+            "latch must reset once post-decay total < max_pairs"
+        );
+
+        // Learning resumes with fresh pairs...
+        warmer.record_co_access(&[5, 6]);
+        assert_eq!(warmer.metrics().total_pairs, 1);
+        assert!(!warmer.saturated.load(Ordering::Relaxed));
+
+        // ...and re-saturates when crossing the cap again (full cycle).
+        warmer.record_co_access(&[7, 8]);
+        assert_eq!(warmer.metrics().total_pairs, 2);
+        assert!(warmer.saturated.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn test_no_thrash_latch_persists_while_post_decay_total_at_cap() {
+        let warmer = CacheWarmer::with_config_and_cap(1, 10, 2);
+        warmer.record_co_access(&[1, 2]);
+        warmer.record_co_access(&[3, 4]); // total 2 >= cap → saturates
+        assert!(warmer.saturated.load(Ordering::Relaxed));
+
+        // Refresh-only bumps both counts to 4 while saturated.
+        for _ in 0..3 {
+            warmer.record_co_access(&[1, 2]);
+            warmer.record_co_access(&[3, 4]);
+        }
+        assert_eq!(warmer.metrics().total_pairs, 2);
+
+        // Decay: 4→2, both survive, total 2 >= cap → latch stays set.
+        warmer.decay();
+        assert!(
+            warmer.saturated.load(Ordering::Relaxed),
+            "post-decay total at cap must keep the latch set"
+        );
+        // Decay again: 2→1, both survive, total 2 >= cap → latch stays set.
+        warmer.decay();
+        assert!(warmer.saturated.load(Ordering::Relaxed));
+
+        // Final decay: 1→0 removes everything → ONE reset transition.
+        warmer.decay();
+        assert!(!warmer.saturated.load(Ordering::Relaxed));
     }
 
     #[test]
