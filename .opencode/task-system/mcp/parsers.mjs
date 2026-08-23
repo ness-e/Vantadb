@@ -59,20 +59,41 @@ export function parseRecitation(content) {
   }
 }
 
+function isPlaceholderId(id) {
+  return /^(\([^)]*\)|TODO|TBD|<[^>]+>)$/.test(id)
+}
+
+// Escanea TODAS las líneas Campaign ID y devuelve el primer ID válido.
+// Antes tomaba solo el primer match: un placeholder tipo "(auto por MCP)"
+// sombreaba al ID real para siempre y cada write insertaba otra línea.
 export function extractCampaignId(content) {
-  const m = content.match(/> \*\*Campaign ID:\*\*\s*(.+)/)
-  if (!m) return null
-  const id = m[1].trim()
-  // Reject template placeholders so they never become trace filenames.
-  return /^(\([^)]*\)|TODO|TBD|<[^>]+>)$|^[^0-9a-f-]{0,}$/.test(id) ? null : id
+  for (const m of content.matchAll(/> \*\*Campaign ID:\*\*\s*(.+)/g)) {
+    const id = m[1].trim()
+    if (id && !isPlaceholderId(id)) return id
+  }
+  return null
 }
 
 export function getOrCreateCampaignId(content) {
   const existing = extractCampaignId(content)
-  if (existing) return { campaignId: existing, content }
+  if (existing) {
+    // Dedup: colapsa a UNA sola línea con el ID válido (borra placeholders/duplicados).
+    let kept = false
+    const cleaned = content.split("\n").filter(l => {
+      if (!/^> \*\*Campaign ID:\*\*/.test(l)) return true
+      if (kept || !l.includes(existing)) return false
+      kept = true
+      return true
+    })
+    return { campaignId: existing, content: cleaned.join("\n") }
+  }
   const id = randomUUID()
-  const line = `> **Campaign ID:** ${id}\n`
-  const updated = content.replace(/(^>\s\*\*Inicio:\*\*)/m, `${line}$1`)
+  const line = `> **Campaign ID:** ${id}`
+  // Si hay línea placeholder, reemplázala; si no, inserta antes de Inicio.
+  if (/> \*\*Campaign ID:\*\*/.test(content)) {
+    return { campaignId: id, content: content.replace(/^> \*\*Campaign ID:\*\*.*/m, line) }
+  }
+  const updated = content.replace(/(^>\s\*\*Inicio:\*\*)/m, `${line}\n$1`)
   return { campaignId: id, content: updated }
 }
 

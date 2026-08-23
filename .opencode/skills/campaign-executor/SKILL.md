@@ -254,17 +254,19 @@ para que el orquestador decida el nivel de recovery sin adivinar.
 
 ## Budget management
 
-Los límites se enforcean en runtime vía `campaign_budget_consume` y `campaign_verify_cmd` (que consume automáticamente). Estado persistido en `docs/plans/<plan>.budget.json`.
+**Fuente única de números: `BUDGET_LIMITS` en `.opencode/task-system/mcp/campaign-server.mjs`** — los prompts referencian, no duplican. Si esta tabla diverge del server, manda el server; corregir acá.
 
-| Control | Default | Hard Limit | Comportamiento |
-|---------|---------|------------|----------------|
-| Iteraciones por tarea | 5 | `$BUDGET_LIMITS.maxIterations` (10) | Al alcanzar → ❌ FAILED |
-| Sub-agentes totales | 20 | `$BUDGET_LIMITS.maxSubAgents` (40) | HARD STOP + reporte parcial |
-| Consecutive fails | 3 | `$BUDGET_LIMITS.maxConsecutiveFails` (5) | FAIL_MODE pasa a "stop" |
-| Tool calls por tarea | 8 | `$BUDGET_LIMITS.maxToolCalls` (15) | `campaign_verify_cmd` rechaza |
-| Duración por tarea | 60min | `$BUDGET_LIMITS.maxDurationMinutes` (120) | Budget expired → ❌ |
-| NO_PROGRESS_LIMIT (stagnation) | 3 | 5 | `campaign_stalled_tasks` + pausa |
-| Contexto inicial | < 20% (~40k tokens) | — | Si excede → usar sub-agentes |
+| Control | Límite (BUDGET_LIMITS) | Comportamiento |
+|---------|------------------------|----------------|
+| `maxIterations` | 10 | Al alcanzar → ❌ FAILED |
+| `maxSubAgents` | 40 | HARD STOP + reporte parcial |
+| `maxConsecutiveFails` | 5 | FAIL_MODE pasa a "stop" |
+| `maxToolCalls` | 15 | `campaign_verify_cmd` rechaza |
+| `maxDurationMinutes` | 120 | Budget expired → ❌ |
+| NO_PROGRESS_LIMIT (stagnation, prompt-level) | 3 | `campaign_stalled_tasks` + pausa |
+| Contexto inicial | < 20% (~40k tokens) | Si excede → usar sub-agentes |
+
+Umbral transversal: **2 fallas de verify con el mismo error (archivo+línea+mensaje) → ❌ FAILED** — mismo número en MoM ladder, stagnation detection y SARL.
 
 ## Ejecución paralela
 

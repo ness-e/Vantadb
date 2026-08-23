@@ -100,6 +100,11 @@ el plan file junto al contrato de cada tarea.
 
 ### Reglas del gate (aplicar DESPUÉS del Paso 0)
 
+> **Question Gates HITL (canónico: `prompts/question-gates.md` §Gate P):** toda
+> tarea 🔴 o con contrato ambiguo se confirma con el usuario vía `question` antes
+> de fijar el gate; para feature-add/lógica nueva, mini-spec vía
+> `spec-driven-development` refinada con questions antes del DO.
+
 1. Bug ya inexistente o feature ya implementada (**verificado**) → SKIP
 2. Cosmético sin queja de usuario → DEFER
 3. Esfuerzo >> impacto → DEFER o SKIP
@@ -276,6 +281,9 @@ Status: ⬆️ uphill = <N incógnitas abiertas> · ⬇️ downhill = <M steps p
 ```
 
 ### Al finalizar
+
+Antes de escribir el plan file: **confirmá con el usuario el set completo de
+DEFER/SKIP** (question-gates.md §Gate P — resumen final del triage).
 
 Mostrá el comando exacto para ejecutar:
 

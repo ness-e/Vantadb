@@ -604,97 +604,15 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 
 **Regla de oro:** si un lector no puede reproducir el número con un comando documentado en el repo, el claim no existe.
 
-<!-- Learnings: AUD-047 — 2026-08-17 -->
-- `cargo install` (y `--features` en workflows) compila SOLO default features salvo que se pase `--features` explícito — la feature `server` quedaba fuera de los binarios publicados aunque existiera en el Cargo.toml.
-- El patrón que funcionó: mantener default lean y agregar la feature al build del workflow de release (`--features "server,$ALLOC_FEATURES"`) + documentar `cargo install --features server` en README — evita pagar axum/tokio en todo build de desarrollo.
+## Memoria de Aprendizajes (fuente única)
 
+Los learnings NO se acumulan en este archivo. Todo aprendizaje se registra vía:
 
-<!-- Learnings: VS-CORE-05 - 2026-08-19 -->
-- La descripcion de tipos que da el orquestador puede estar equivocada: se asumio `VantaMemoryFilter = {op, items}` cuando el core define `pub type VantaMemoryFilter = Vec<VantaMemoryFilterItem>` (src/sdk/types.rs:127). Verificar el tipo real con codegraph antes de disenar el wire de un binding; el patron de la tarea previa (`Vec<VantaMemoryFilterItem>`) era el correcto.
-- Tras anadir un metodo publico a `vantadb-wasm/src/lib.rs`, `tsc` del TS SDK falla hasta regenerar `vantadb-wasm/pkg` (artefacto ignorado por git, regenerable con `wasm-pack build --dev`) - el .d.ts del pkg es el contrato de tipos del wrapper.
+```
+campaign_memory_write(file="lessons", entry="<tema> | <decisión|lección> | ref: <ruta:línea>")
+```
 
-<!-- Learnings: GRAFO-02 — 2026-08-19 -->
-- El stack real manda sobre la asuncion del orquestador: se asumio React 18 (→ r3f v8) pero `desktop/package.json` tiene `react ^19.1.0` → r3f v9 + drei v10 (docs oficiales: v8↔React 18, v9↔React 19). Leer el package.json del target antes de elegir la linea mayor de una libreria React; `npm ls` confirma peers sin conflicto.
-- Para APIs de drei (Outlines/Html/Line), la fuente mas rapida y autoritativa es el `.d.ts` instalado en `node_modules/@react-three/drei/{core,web}/` — mas fiable que la busqueda web, que devuelve ruido.
-- `<Text>` de drei carga su fuente default de un CDN remoto (falla offline en Tauri); para labels usar `<Html>` (DOM, fuentes locales) o embeder fuente.
-
-<!-- Learnings: MEM-41 — 2026-08-21 -->
-- `cargo clippy -p <crate> -- -D warnings` aplica `-D warnings` a TODAS las crates del grafo (deps incluidas): warnings pre-existentes en `vantadb` core fallan el gate aunque el crate propio esté limpio. Verificar con `cargo clippy -p <crate> --all-targets` (sin -D) + grep de warnings propios; el -D estricto es gate del lead en workspace.
-- Patrón wrapper para hooks best-effort sin tocar firmas públicas: renombrar `fn X` → `fn X_inner` y agregar wrapper `X` que llama inner + log — 16 callers de `generate_persona` no cambian. Loguear solo generaciones REALES (updated/non-empty) o fallos; los skip/no-change no son generaciones.
-
-<!-- Learnings: MEM-39 — 2026-08-21 -->
-- Glue CLI en `src/cli.rs` del crate core es imposible cuando el módulo vive en un crate hijo: vanta-memory ya depende de vantadb, y Cargo prohíbe ciclos de paquetes. Patrón que funcionó: bin target propio del crate (`src/bin/vanta-seed.rs`) + feature passthrough (`fjall = ["vantadb/fjall"]`) para el backend persistente; el parser vive en la lib, el bin es thin wrapper.
-- Raw strings `r#"..."#` rompen si el JSON embebido contiene `"#` (p.ej. `"# User Narrative Profile"`): usar delimitador `r##"..."##` para seeds/docs con markdown headers.
-
-<!-- Learnings: MEM-32 — 2026-08-21 -->
-- Errores de dominio en handlers MCP deben salir como Ok(error_content(...)), nunca Err propagado via ?: el ? convierte el shape {content:[...]} en error JSON-RPC sin message y el cliente LLM no ve el texto auto-correctable. Patron: match explicito con early-return Ok(error_content) (igual que memory_get "Record not found").
-- Tests que abren StorageEngine::open directo necesitan mbedded.ensure_indexes_current() ANTES de cualquier path BM25/graphrag, si no falla con "text_index not found: bm25" (patron MCP-01/AUD-044 ya documentado en cli_handlers).
-- Read-only en tests de grafo NO se verifica comparando snapshots completos del nodo: get_node incrementa hits/last_accessed (AccessTracker core) en cualquier canal de lectura. Comparar estructura (ids/edges/counts) o strip digits, y documentar la distincion telemetria-vs-mutacion.
-
-<!-- Learnings: MEM-28 — 2026-08-21 -->
-- El patrón EntityStore/SceneNodeStore (InternalMetadata + keys prefijadas + serde_json) replica casi 1:1 para cualquier store nuevo: el costo real de un store core LLM-free es solo la state machine, no la persistencia.
-- `cargo nextest run -p vantadb --wiki` falla porque nextest trata `--wiki` como flag propio; los filtros de test van posicionales (`cargo nextest run -p vantadb wiki::`) o tras `--`.
-
-<!-- Learnings: MEM-29 — 2026-08-21 -->
-- Test data con trailing whitespace rompe asserts de round-trip exacto contra funciones que trim()ean input (chunker TDAM-port): filler("x ") cortado en par termina en espacio y trim se lo come. Usar contenido sin ws de borde al verificar reensamblado 1:1.
-- `std::os::unix::fs` NO existe como modulo en builds Windows: un test portable de symlink necesita cfg-gates separados por rama (`#[cfg(unix)] { ... } #[cfg(windows)] { ... }`), no `unix(...) || windows(...)`.
-
-<!-- Learnings: MEM-30 — 2026-08-21 -->
-- El trait LlmRunner de vanta-memory NO es dyn-compatible (complete_json tiene método genérico sin where Self: Sized): las APIs que reciben runners deben ser genéricas (`fn f<R: LlmRunner>(runner: Option<&R>)`), no `&dyn LlmRunner`. No se puede tocar core para arreglarlo (Regla blast-radius).
-- Patrón test-first para pipelines con runner scripted: el runner fake debe ser FIFO (`remove(0)`), no pop() LIFO — el orden del script es parte del contrato del test; y las páginas NUEVAS se escriben verbatim sin LLM (short-circuit TDAM), así los tests de fallo-de-merge requieren páginas preexistentes.
-
-<!-- Learnings: MEM-43 — 2026-08-22 -->
-- Los bloques de recall de assemble_with_recall son whole-or-skip contra el headroom post-compresion: un test que aserta el append de persona queda acoplado a la aritmetica del TokenEstimator (fallo intermitente segun budget). Patron robusto: budget chico que fuerza Aggressive profundo + asertar recall_injected y el bloque dinamico, no bloques opcionales.
-- E0463 "can't find crate for rand" al compilar en Windows fue transitorio dos veces en una sesion (file-lock/AV sobre target/): no perseguir Cargo.toml, reintentar el comando antes de diagnosticar.
-
-<!-- Learnings: MEM-46 — 2026-08-22 -->
-- `vantadb::llm` es pub pero feature-gated (`remote-inference` = reqwest): para que tests de crates hijos usen el trait real sin engordar el build default, unificar features via dev-deps (`[dev-dependencies] vantadb = { path = "../", features = ["remote-inference"] }`) — la unificación solo aplica al compilar tests.
-- El SDK lee records "sin vector" como `Some([])`, no `None` (`usable_vector` filtra vacíos/ceros antes de indexar, src/sdk/api.rs:24): asserts de ausencia de vector deben ser None-or-empty. Y rustc puede crashear (0xc0000409/E0463) con jobs paralelos altos al agregar reqwest al grafo — `-j 2` lo resuelve (agotamiento de recursos).
-
-<!-- Learnings: MEM-47 — 2026-08-22 -->
-- Hash-based fake embeddings para tests: dimensiones bajas (8) dan E[|cos|]~1/sqrt(d)=0.35 justo en el umbral de filtrado, y un shift >>33 sobre u64 produce solo 31 bits -> rango [0,0.5) y vectores sesgados a un octante (cos 0.7-0.85 entre "aleatorios"). Usar >=64 dims + mask de 32 bits + componentes zero-centered.
-- rustc 0xc0000409 puede dejar fingerprints/rlibs fantasma que fallan con E0463 "can't find crate" en builds posteriores: la cura no es reintentar sino borrar target\debug\deps\lib<crate>* + target\debug\.fingerprint\<crate>* y recompilar.
-
-<!-- Learnings: GOV-B4 — 2026-08-22 -->
-- El parity check openapi↔router sin deps se resuelve con un scanner de parens sobre `.route(` (regex sola rompe con chains multi-line `get(h).post(h2)`); el yaml se lee por indentación (2-space paths, 4-space methods) en vez de parsear YAML completo — contract-first: el formato del archivo ES parte del contrato del script.
-- Los `description:` de YAML no pueden contener `key: value` literal sin comillas (`format: "bulk"` dentro de un string → ScannerError "mapping values are not allowed here"); envolver en single quotes.
-
-<!-- Learnings: GOV-D2 - 2026-08-22 -->
-- Split de monolitos por rangos de linea verificados en DISCOVERY (headers rg + lectura de las 60 fronteras) permite mover 4335 lineas sin perder una sola: cobertura mecanica comprobada con HashSet de lineas antes de escribir.
-- Al mover markdown a un subdirectorio nuevo, los links relativos `](../` necesitan un nivel mas (`](../../`): correccion regex en el script de split, no edicion manual; las citas historicas con backticks (paths y `file:line`) no se tocan porque son evidencia congelada.
-
-<!-- Learnings: MEM-50 — 2026-08-22 -->
-- `cargo nextest run -p <crate>` falla parseando el default-filter del workspace (.config/nextest.toml) porque referencia binarios de otros crates: verificar single-crate con un config mínimo temporal (`--config-file` con `[profile.default]` vacío).
-- Test de retry-exhaustion: un flag "falla 1 vez" hace que el reintento 2 tenga éxito y el job NUNCA llegue al pending queue — hay que fallar exactamente DEFAULT_ATTEMPTS intentos (contador countdown) y dejar pasar solo la invocación post-flush; y asertar con polling (sleep fijo es flaky contra backoff 500ms→1s bajo carga).
-
-<!-- Learnings: MEM-51 — 2026-08-22 -->
-- El interceptor SSE de vanta-proxy solo puede decidir tras ver tool_use nuestro: acumular TODO el stream antes de detectar (pre-mortem) es lo que evita parsers incrementales fragiles — el replay verbatim de chunks preserva byte-identity para trafico normal.
-- campaign_update_task_state sin planFile explicito toma el plan mas recientemente MODIFICADO del workspace (otra sesion activa lo desvia): pasar siempre la ruta exacta cuando hay planes concurrentes.
-
-<!-- Learnings: MEM-52 — 2026-08-22 -->
-- Fachada async para un worker que vive en un crate hijo no puede ir en el core (src/cli_server.rs): vanta-memory depende de vantadb y Cargo prohíbe el ciclo — la fachada va en el crate consumidor (vantadb-mcp) promoviendo la dev-dep a dependencia regular (ciclo-free verificado con cargo tree).
-- Split two-phase de una fn bloqueante larga (egin() sync que asigna run_id + xecute() heavy en std::thread) permite retornar el id inmediato sin tocar el store core ni duplicar guards; el registro de runs vive en el crate de la fachada (OnceLock<Mutex<HashMap>>), nunca en el worker library.
-
-<!-- Learnings: MCP-18/19 — 2026-08-22 -->
-- `serde_json::Map` PANICA con Index (`map["key"]`) cuando la key falta, a diferencia de `Value` que devuelve Null: helpers que reciben `&Map` de un array deben tomar `&Value` (o usar `.get()`) — el panic "no entry found for key" solo aparecio en runtime del test, no en compile-time.
-- Conteos de tools en docs vivas (SKILL.md/api-reference) estaban desincronizados entre copias y con el codigo real (33 vs 37 vs 25 core): contar con `rg -o '"name": "[a-z_]+"' ... | Sort-Object -Unique` sobre el source ANTES de actualizar numeros, no confiar en el doc previo.
-
-<!-- Learnings: MEM-54 — 2026-08-22 -->
-- `src/cli_server.rs` es feature-gated (`#[cfg(feature = "server")]` en lib.rs): `cargo check/test/clippy -p vantadb` con default features NO compila ni testea ese módulo — todo verify del server HTTP requiere `--features server`, si no los tests pasan vacíos sin avisar.
-- El router axum encadena métodos sobre MethodRouter (`put(h).patch(h).delete(h)`), no funciones libres: importar `routing::{delete, patch}` para eso genera unused_imports. Y toda ruta nueva exige entrada paralela en docs/api/openapi.yaml (gate CI GOV-B4: scripts/check_openapi_parity.mjs).
-
-<!-- Learnings: BND-03 — 2026-08-22 -->
-- Tests de budget del context engine acoplados a la aritmética chars/3 fallan silenciosos bajo `precise-tokens` (BPE: unidades más chicas → aggressive conserva más → menos headroom → inyección whole-or-skip se saltea): 3 tests e2e usaban budgets mágicos (1150/1400/800). Patrón que funcionó: derivar el budget de la medición del propio estimador (`est.estimate_messages(&msgs) * ratio / 100`) — la relación mild-falla/aggressive-cabe se preserva en ambas ramas.
-- Valores golden de cl100k NO se adivinan ni siquiera con referencias: 你好世界 = 5 tokens (no 6), `fn main() { println!("hi"); }` = 9 (no 12); solo "tiktoken is great!" = 6 coincide con el Cookbook. Escribir assert provisional → leer el actual del panic `left:` → pinear. tiktoken-rs 0.12 singleton (`cl100k_base_singleton()`) ya deref directo sin Mutex, MSRV 1.85 OK vs workspace 1.94.1.
-
-<!-- Learnings: MCP-20/26 — 2026-08-22 -->
-- Los report structs del SDK (`VantaIndexRebuildReport`, `VantaTextIndexAuditReport`, `VantaTextIndexRepairReport`, `VantaCapabilities`) ya son `Serialize`: en handlers MCP basta `serialize_content(&json!(&report))` — no reconstruir el objeto campo a campo.
-- `generate_snippet` devuelve `Some(payload)` para cualquier query con términos sobre payload corto (<=120 chars): el único camino a `None` es un query plan sin términos (query vacío/whitespace) — testear ese caso, no "query sin match".
-
-<!-- Learnings: MEM-57 — 2026-08-22 -->
-- Port TS->Rust de parsers defensivos: los helpers con optional-chaining se traducen limpios con nd_then/is_none_or/ind_map sobre iteradores .rev(); el ? dentro del closure de ind_map significa "seguir buscando", no abortar.
-- Clippy doc-lazy-continuation: un parrafo que sigue a una lista markdown en doc comments necesita linea en blanco separadora, si no es error bajo -D warnings.
-
-<!-- Learnings: MEM-56 — 2026-08-23 -->
-- OTLP/HTTP acepta JSON armado a mano (`resourceSpans[]` shape fijo): para exportar spans de 6 campos no hace falta opentelemetry-sdk (~30 crates transitivas) — serde_json::json! + reqwest POST cubre todo; ids OTel solo exigen hex del largo correcto (32/16), derivarlos del timestamp ns basta para observabilidad.
-- Hook síncrono que nunca bloquea el wire: `mpsc::Sender::send` unbounded en el closure + UN worker thread dueño del client blocking con timeout — el fallo de red muere en el worker como warn, el caller paga solo un send.
+- El server antepone la fecha (NO incluirla — schema TSYS-15 en `prompts/iter-loop-tools.md`).
+- Consulta por tema: `rg -n "<tema>" .opencode/task-system/memory/*.md`.
+- Los learnings históricos (2026-08-17 → 2026-08-23) fueron migrados a
+  `.opencode/task-system/memory/lessons.md` (schema TSYS-15).

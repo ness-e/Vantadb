@@ -47,6 +47,9 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 #### ⬜ PENDING
 
 **Discovery:**
+- **Gate D (question-gates.md):** tras zero-code planning y ANTES de escribir el
+  task file — si blast radius >10 archivos/hot path/API pública, contrato ambiguo,
+  o feature-add sin spec → `question` al usuario (GO / ajustar / dividir).
 - Llamá `campaign_detect_task_type` (MCP) con `Archivos clave` → type, skills, checks
 - Cargá skills devueltos con `skill <nombre>`
 - Si es bug → además `systematic-debugging`
@@ -74,8 +77,8 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 - Si verify falla: retry ladder:
   1. Retry con feedback procesado
   2. Contexto fresco (~200 tokens resumen)
-  3. Estrategia materialmente distinta
-  4. ❌ FAILED → escalar a humano
+  **Umbral único (2 fallas mismo-error): Gate V (question-gates.md) → `question`
+  al usuario (reintentar fresh / cambiar estrategia / FAILED). Sin respuesta → STOP.**
 - Evaluator-Optimizer: correctitud, simplicidad, consistencia
 - Self-Harness Gate: propose → evaluate → accept
 - Pre-commit Gate: Definition of Done + checklists por tipo
@@ -92,7 +95,7 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
   * Gate de verificación: comparación contra baseline — medí antes/después
     (bench Criterion o timing simple); sin regresión o regresión documentada
 - **Pre-commit: skill code-review-and-quality** antes del commit final
-- Budget: máx 5 iteraciones por tarea. **Si se agota el budget sin completar → devolvé
+- Budget: `BUDGET_LIMITS` (campaign-server.mjs). **Si se agota el budget sin completar → devolvé
   `RESULTADO: 🟡 INCOMPLETO` con el próximo step ⬜ PENDING; NO lo marques FAILED solo por budget.**
   El orquestador decide RESUME/RETRY vía subagent-recovery.md.
 
@@ -112,12 +115,9 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
   3. `campaign_verify_cmd command="cargo nextest run --profile audit --workspace --build-jobs 2"`
   4. `campaign_verify_cmd command="scripts/validate-docs-coverage.ps1"`
 - Si todo pasa: `git add <solo los archivos tocados en esta tarea> && git commit -m "feat: <ID> — <name>"` (el commit SIEMPRE está precedido por el verify full de arriba — nunca commitear un cambio sin verificación mecánica)
-- **AGENTS.md learnings:** documentá 1-2 aprendizajes de la tarea en una entrada al final de `.opencode/AGENTS.md`:
-  ```markdown
-  <!-- Learnings: TASK-ID — fecha -->
-  - <qué fue más difícil de lo esperado>
-  - <qué patrón o técnica funcionó bien>
-  ```
+- **Learnings (memoria única):** documentá 1-2 aprendizajes vía
+  `campaign_memory_write(file="lessons", entry="<tema> | <lección> | ref: <ruta:línea>")`
+  — NO editar AGENTS.md manualmente (schema TSYS-15; el server antepone la fecha).
 - Llamá `campaign_update_task_state` con `"completed"` y recitation
 - Auto-mejora: evaluá qué fue más difícil de lo esperado
 - Llamá `campaign_diagnose_pipeline` (MCP) para diagnosticar performance y obtener sugerencias de mejora
@@ -129,9 +129,12 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 
 - Leé la recitation del plan file para saber dónde quedó
 - Continuá con el próximo step (PLAN → ACT → VERIFY)
-- Si verify falla: retry ladder (mismo que arriba)
-- Errores colaterales: rápido (<30min) se arregla, lento se difiere a Backlog
-- Budget: 5 iteraciones máximas por tarea, 2 stalls consecutivos → ❌ FAILED.
+- Si verify falla: retry ladder (mismo que arriba, con Gate V al agotar el umbral)
+- Errores colaterales: **Gate C (question-gates.md)** — `question` al usuario:
+  arreglar ahora (<30min) / mandar a Backlog / incluir en commit.
+  Si `git status` muestra archivos fuera del blast radius declarado → confirmar
+  alcance del commit antes de `git add`.
+- Budget: límites en `BUDGET_LIMITS` (campaign-server.mjs). 2 stalls consecutivos → ❌ FAILED.
   Si el presupuesto se agota sin terminar → devolvé `🟡 INCOMPLETO` con próximo step,
   no te cierres en silencio.
 
@@ -237,11 +240,11 @@ REGLAS (del campaign-executor RULES.md):
 - Usá `campaign_get_next_task` (MCP) o leé el plan file directamente
 - El contrato es ley — si no se cumple, la tarea no está completa
 - Verificación mecánica, nunca auto-reporte
-- Si verify falla 2 veces con mismo error → ❌ FAILED
 - Ponytail ladder: existe > stdlib > dependency > mínimo código
 - ~100 líneas por step, un step por turno, cada step reversible
 - No cambies scope. Rápido se arregla, lento se anota en Backlog
 - Stagnation = stop: 3 vueltas sin progreso → ❌ FAILED
-- Budget: 5 iteraciones máximas por tarea, 2 stalls consecutivos → FAILED
+- Budget: límites en `BUDGET_LIMITS` (campaign-server.mjs), 2 stalls consecutivos → FAILED
+- 2 fallas de verify con mismo error → Gate V (`question-gates.md`): preguntar al usuario antes de FAILED
 - La recitation es el handoff entre iteraciones
 - Después de completar una tarea, DETENETE. No sigas a la siguiente.

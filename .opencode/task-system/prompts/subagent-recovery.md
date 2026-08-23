@@ -52,8 +52,9 @@ Nivel 3  STRATEGY — enfoque materialmente distinto
 ## 3. Reglas del protocolo
 
 1. **INCOMPLETE/UNEXPECTED → 1 RESUME; si no completa → RETRY.** Rara vez llega a ESCALATE.
-2. **FAILED → RETRY (1) → STRATEGY → ESCALATE.** Dos fallas de verify con el mismo error
-   (archivo+línea+mensaje) son FAILED real; no consumir RESUME en eso.
+2. **FAILED → Gate V (question-gates.md) → RETRY (1) → STRATEGY → ESCALATE.** Dos fallas de verify con el mismo error
+   (archivo+línea+mensaje) son FAILED real; **antes de marcar FAILED, `question` al
+   usuario** (reintentar fresh / cambiar estrategia / abortar) — no consumir RESUME en eso.
 3. **Preservación total del trabajo:**
    - El estado durable vive en el **task file** (steps ✅/⬜, Context Save Point) + **plan file** (vía MCP `campaign_update_task_state`).
    - Antes de cada intento, verificá si el sub-agente escribió el Context Save Point. Si no,

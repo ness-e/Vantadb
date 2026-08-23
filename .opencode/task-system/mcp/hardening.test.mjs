@@ -10,7 +10,7 @@ import {
   consumeBudget,
   findInProgressTasks,
 } from "./campaign-server.mjs"
-import { updateRecitation } from "./parsers.mjs"
+import { updateRecitation, extractCampaignId, getOrCreateCampaignId } from "./parsers.mjs"
 
 function tmpWorktree() {
   const wt = mkdtempSync(join(tmpdir(), "vanta-hard-"))
@@ -64,6 +64,23 @@ Próxima tarea si completa: T2
   assert.match(out, /^Contrato: nuevo contrato con Estado: interno$/m)
   // El texto embebido dentro de Contrato NO fue reescrito por el campo Estado.
   assert.ok(!/^verde/m.test(out))
+})
+
+test("H1+: placeholder de Campaign ID no sombreada al ID real ni duplica líneas", () => {
+  const withBoth = `> **Campaign ID:** (auto por MCP)\n> **Campaign ID:** 11111111-2222-3333-4444-555555555555\n> **Inicio:** hoy\n`
+  assert.equal(extractCampaignId(withBoth), "11111111-2222-3333-4444-555555555555")
+  const r = getOrCreateCampaignId(withBoth)
+  // Dedup: queda UNA sola línea, con el ID válido.
+  assert.equal((r.content.match(/Campaign ID/g) || []).length, 1)
+  assert.equal(extractCampaignId(r.content), "11111111-2222-3333-4444-555555555555")
+})
+
+test("H1+: getOrCreateCampaignId reemplaza placeholder sin ID válido (no inserta otra línea)", () => {
+  const onlyPlaceholder = `# Plan\n> **Campaign ID:** (auto por MCP)\n> **Inicio:** hoy\n`
+  const r = getOrCreateCampaignId(onlyPlaceholder)
+  assert.ok(r.campaignId)
+  assert.equal((r.content.match(/Campaign ID/g) || []).length, 1)
+  assert.equal(extractCampaignId(r.content), r.campaignId)
 })
 
 test("H3: consumeBudget persiste incrementos bajo lock", () => {

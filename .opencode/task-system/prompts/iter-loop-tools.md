@@ -51,8 +51,10 @@ skill progreso
 2. Clasificar workflow:
    Llamá `campaign_classify_workflow` con taskName + descripción de la tarea.
    Devuelve el workflow template matching (bug-fix, feature-add, refactor, research).
-   Usá los estados del workflow como state machine específica para esta tarea.
-   Si no hay template matching → usar C0 genérica (ver State Machine abajo).
+   **Los estados del workflow son GUÍA de fases (classification-output), NO la
+   state machine de enforcement**: el runtime siempre enforcea la C0 genérica
+   (`STATE_TOOLS` en `config/state-tools.mjs`). Usá el workflow para saber qué
+   fases aplicar y en qué orden; las transiciones y tools permitidas son C0.
 
 3. Auto-estimar turns con `campaign_detect_task_type`:
    El MCP devuelve estimate: { turns, label }
@@ -64,6 +66,10 @@ skill progreso
    Identificá: qué archivos cambiar, qué funciones modificar, qué firma tendrá,
    qué tests escribir. Si hay ambigüedad → web research antes de continuar.
    Validá que el enfoque es correcto antes de comprometerte.
+
+5b. **Gate D** (`question-gates.md`): si blast radius >10 archivos / hot path /
+    API pública / contrato ambiguo / feature-add sin spec → `question` al usuario
+    (GO / ajustar / dividir) ANTES de escribir el task file.
 
 6. Llamá `campaign_update_task_state` (MCP) con `"in-progress"` y recitation
    que apunte al próximo step.
@@ -131,12 +137,16 @@ Antes de cada tool call, verificá con `campaign_validate_action`. Usá `campaig
 | ACT    | edit, write, bash, campaign_*, read, grep, glob, codegraph_explore, skill, cargo-mcp_*, rust-analyzer-mcp_* | (ninguna) |
 | VERIFY | bash, campaign_verify_cmd, cargo-mcp_*, campaign_*, read, grep | edit, write |
 | COLLATERAL | bash, read, grep, glob, codegraph_explore, campaign_* | edit, write |
-| RESEARCH | read, grep, glob, codegraph_explore, websearch, webfetch, argus_*, metasearchmcp_*, campaign_* | edit, write, bash |
+| RESEARCH | read, grep, glob, codegraph_explore, websearch, webfetch, argus_*, metasearchmcp_*, campaign_*, **bash read-only** | edit, write (writes via bash bloqueados por classifyBashWrite) |
 | EVALUATE | read, grep, codegraph_explore, campaign_* | edit, write, bash |
 | REVIEW | read, grep, codegraph_explore, campaign_*, skill | edit, write, bash |
 | ACCEPT | campaign_*, skill, read, bash | edit, write |
 | CLOSE  | bash, campaign_*, skill, read | edit, write |
 | STALL  | campaign_*, read | edit, write, bash, cargo-mcp_* |
+
+> Fuente canónica de esta tabla: `config/state-tools.mjs` (el enforcement
+> runtime usa SIEMPRE ese archivo). Si esta tabla diverge, manda el .mjs —
+> corregir acá, no inventar una tercera versión.
 
 Usá `campaign_validate_action state=<ESTADO> toolName=<TOOL>` para verificar antes de llamar tools que puedan estar en el límite. Si una tool está denegada, NO la llames — cambiá de estado primero vía `campaign_update_task_state`.
 
@@ -168,23 +178,21 @@ No pasar el error crudo al implementador. Procesá el error del compilador/test/
 "El compilador falló en la línea 45: error de lifetime. Reestructurá la función para evitar devolver una referencia local."
 Recién ahí → retry.
 
-### MoM Ladder
+### MoM Ladder + Gate V
 
-Cada escalón usa un modelo más potente (cambia vía `campaign_mom_escalate`). No reintentes con el mismo modelo más de una vez.
+Umbral único de fallo mismo-error = **2**. Cada reintento sube un tier vía `campaign_mom_escalate`. No reintentes con el mismo modelo más de una vez.
 
-| Escalón | Modelo | Costo | Acción |
-|---------|--------|-------|--------|
-| 1ª falla | haiku (tier 0) | low | corregir con feedback del error (Agente de Diagnóstico) |
-| 2ª falla mismo error | sonnet/gpt-4o (tier 1) | medium | contexto fresco + resumen ~200 tokens |
-| 3ª falla mismo error | deepseek-v4 (tier 2) | high | estrategia materialmente distinta |
-| 4ª falla mismo error | humano (tier 3) | human | documentar intentos, commit WIP, ❌ FAILED |
+| Falla | Acción |
+|-------|--------|
+| 1ª falla | corregir con feedback del error (Agente de Diagnóstico) + tier up (`campaign_mom_escalate`) |
+| 2ª falla mismo error (archivo+línea+mensaje) | **Gate V** (`question-gates.md`): `question` al usuario — reintentar fresh / cambiar estrategia (deepseek-v4, tier 2) / ❌ FAILED |
 
-Si verify falla 2 veces con mismo error (archivo+línea+mensaje) → ❌ FAILED.
+Nunca marcar FAILED unilateralmente al agotar el umbral: sin respuesta del usuario → STOP.
 
 ### Stagnation Detection
 
-Gate previo a errores colaterales. Si ALGUNA condición se cumple → llamá `campaign_update_task_state` (MCP) con `"failed"`, anotá la causa en recitation, y detenete:
-- ¿3+ iteraciones con el mismo error?
+Gate previo a errores colaterales. Umbral único de fallo mismo-error = **2** (igual que MoM ladder y SARL — un solo número en todo el sistema). Si ALGUNA condición se cumple → llamá `campaign_update_task_state` (MCP) con `"failed"`, anotá la causa en recitation, y detenete:
+- ¿2 fallas de verify con el mismo error (archivo+línea+mensaje)? → FAILED
 - ¿5+ iteraciones sin cambiar de step?
 - ¿Mismos archivos tocados en últimas 3 iteraciones?
 

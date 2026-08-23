@@ -1,6 +1,8 @@
 > **ACTIVE INSTRUCTION — Execute Full Backlog**
 > Activado por `/pipeline run [plan]`.
 > Path resolution: `skills/X` → `.opencode/skills/X/`, `prompts/X.md` → `.opencode/task-system/prompts/X.md`
+> **Question Gates HITL:** los gates D/V/C aplican dentro de cada sub-agente vía
+> `prompts/question-gates.md` (canónico). El orquestador no re-pregunta lo ya decidido.
 > Procesar TODAS las tareas del plan file en una sesión usando sub-agentes.
 > **Profundidad UNIFICADA con `/pipeline task`:** cada tarea pasa por
 > DISCOVERY (task file con steps atómicos, blast radius, skills) → EJECUCIÓN → CIERRE
@@ -114,7 +116,9 @@ estancadas.
        5. Cierre: verify full (fmt/clippy/nextest/docs) → commit conventional con task ID.
        6. Al final devolvé SIEMPRE el bloque RESULTADO estructurado (ver § Resultado).
        7. Si no podés terminar en el presupuesto, devolvé el trabajo hecho + el próximo
-          step — nunca te detengas en silencio."
+          step — nunca te detengas en silencio.
+       8. Aplicá los Question Gates D/V/C de .opencode/task-system/prompts/question-gates.md
+          (blast radius grande, verify×2, cierre con colaterales) vía `question` tool."
       ```
 
    g. Esperá resultado del sub-agente.
@@ -154,10 +158,10 @@ estancadas.
       - Llamá `campaign_stalled_tasks` (MCP) para revisar estado
       - Pausá y preguntá al usuario
 
-   l. Budget ceilings:
-      - Max 20 sub-agentes totales (HARD STOP a los 20) — cada intento de la escalera cuenta
-      - Max 3 consecutive fails (HARD STOP → preguntar)
-      - Cada sub-agente: max 8 tool calls, ~2 min timeout
+   l. Budget ceilings (fuente única: `BUDGET_LIMITS` en campaign-server.mjs —
+      hoy: 40 sub-agentes HARD STOP, 15 tool calls, 5 consecutive fails, 120 min):
+      - Cada intento de la escalera SARL cuenta como sub-agente
+      - maxConsecutiveFails alcanzado → FAIL_MODE pasa a "stop" forzosamente
 
    m. ACTUALIZAR checkpoint `docs/pipeline-state.json`:
       ```json
@@ -213,8 +217,8 @@ REGLAS:
 - FAIL_MODE=stop: primera falla → detener
 - FAIL_MODE=skip: fallas registradas, sigue. Si 3 consecutivas → pasa a stop forzoso
 - FAIL_MODE=parallel: waves con MAX_CONCURRENT=3, DAG de dependencias
-- Budget: máximo 20 sub-agentes totales (cada intento de la escalera cuenta), 3 consecutive fails → stall
-- Cada sub-agente: máximo 8 tool calls internas — si no responde en ~2 min, killed
+- Budget: límites únicos en `BUDGET_LIMITS` (campaign-server.mjs); consecutive fails agotados → stall
+- Cada sub-agente respeta `maxToolCalls`; timeout por invocación ~10 min (un cargo build frío tarda más de 2 min — no mates sub-agentes sanos con timeouts cortos)
 - Si 3 sub-agentes consecutivos fallan (aún con retry) → pausar y preguntar al usuario
 - No cambiar scope, no implementar tareas no planificadas
 - El sub-agente NO tiene acceso al plan file completo — solo a su tarea

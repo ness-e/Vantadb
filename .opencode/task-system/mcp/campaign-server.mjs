@@ -897,7 +897,7 @@ const TYPE_PATTERNS = [
   { pattern: /\.github\//, type: "devops", label: "CI/CD / DevOps", skills: ["ci-cd-and-automation", "doubt-driven-development"], checks: ["yamllint .github/"] },
   { pattern: /vantadb-server\//, type: "server", label: "HTTP server", skills: ["source-driven-development", "security-and-hardening"], checks: ["cargo check -p vantadb-server"] },
   { pattern: /docs\//, type: "docs", label: "Documentation", skills: ["writing-guidelines", "writing-plans"], checks: ["scripts/validate-docs-coverage.ps1"] },
-  { pattern: /(^|[^a-z-])src\//, type: "rust", label: "Rust core", skills: ["source-driven-development", "doubt-driven-development", "ponytail (full)"], checks: ["cargo check -p vantadb", "cargo fmt --check", "cargo clippy --workspace --all-targets --all-features -- -D warnings", "cargo nextest run --profile audit --workspace --build-jobs 2"] },
+  { pattern: /(^|[^a-z-])src\//, type: "rust", label: "Rust core", skills: ["source-driven-development", "doubt-driven-development", "ponytail"], checks: ["cargo check -p vantadb", "cargo fmt --check", "cargo clippy --workspace --all-targets --all-features -- -D warnings", "cargo nextest run --profile audit --workspace --build-jobs 2"] },
 ]
 
 const ESTIMATE_MAP = { "🟢": { turns: "5-10", label: "Bajo" }, "🟡": { turns: "15-30", label: "Medio" }, "🔴": { turns: "30-60", label: "Alto" } }
@@ -965,8 +965,8 @@ server.tool(
   },
   async ({ archivosClave, extraSkills }) => {
     const typeInfo = detectType(archivosClave)
-    const skills = [...new Set([...(typeInfo.skills || []), "campaign-executor", "progreso", "ponytail (full)", ...(extraSkills || [])])]
-    const sortOrder = ["campaign-executor", "progreso", "ponytail (full)"]
+    const skills = [...new Set([...(typeInfo.skills || []), "campaign-executor", "progreso", "ponytail", ...(extraSkills || [])])]
+    const sortOrder = ["campaign-executor", "progreso", "ponytail"]
     const sorted = [...sortOrder.filter(s => skills.includes(s)), ...skills.filter(s => !sortOrder.includes(s))]
     const commands = sorted.map(s => `skill ${s}`)
 
