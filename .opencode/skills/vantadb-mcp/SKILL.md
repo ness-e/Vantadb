@@ -5,7 +5,7 @@ description: VantaDB Model Context Protocol (MCP) server integration for persist
 
 # VantaDB MCP Integration
 
-VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **50 tools** (30 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
+VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **59 tools** (36 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
 
 ## Quick Start
 
@@ -113,14 +113,14 @@ first write; list what exists with `collection_list` (or `memory_list_namespaces
 }
 ```
 
-## Available MCP Tools (50)
+## Available MCP Tools (59)
 
-The full contract for all **50 tools** lives in
-[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 30 core tools in detail; the other 20 are summarized here.
+The full contract for all **59 tools** lives in
+[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 36 core tools in detail; the other 23 are summarized here.
 
 | Group | Count | Tools | Precondition |
 |-------|-------|-------|--------------|
-| Core (Memory/Search/Collections/Graph/IQL/GDS) | 30 | documented below | none beyond an open DB |
+| Core (Memory/Search/Collections/Graph/IQL/GDS/Recovery) | 36 | documented below | none beyond an open DB |
 | Review-agent Skills (`skill_*`) | 6 | `skill_list`, `skill_view`, `skill_create`, `skill_update`, `skill_patch`, `skill_files_write` | `owner_agent` caller identity; writes need `expected_version` |
 | Code Intelligence (`code_*`) | 8 | `code_search`, `code_explore`, `code_callers`, `code_callees`, `code_impact`, `code_node`, `code_status`, `code_files`* | graph nodes/edges ingested first; query-only |
 | Wiki Knowledge (`wiki_*`) | 6 | `wiki_search`, `wiki_read`, `wiki_list`, `wiki_graph`, `wiki_ingest`, `wiki_ingest_status` | wiki lifecycle in `ready` state |
@@ -270,6 +270,33 @@ Notes:
 **compact_layout** - Compacts the vector store file grouping nodes in BFS order from the HNSW entry point
 - Parameters: None
 - Returns: `{"bytes_reclaimed": <count>}`
+
+### Index Recovery / Introspection (MCP-20/MCP-26)
+
+**rebuild_index** (MCP-20) - Rebuilds the HNSW vector index, derived indexes, and text index from scratch (recovery primitive for a corrupted index)
+- Parameters: None
+- Returns: `{scanned_nodes, indexed_vectors, skipped_tombstones, duration_ms, derived_rebuild_ms, index_path, success}`
+
+**audit_text_index** (MCP-20) - Read-only integrity audit of the derived persistent text index (BM25 postings/stats vs canonical memory records)
+- Parameters: `namespace` (optional filter; omit to audit all), `deep` (optional boolean — value-level verification of posting positions, term frequencies and stats)
+- Returns: audit report; `passed=true` + `status="ok"` mean no drift, `status="repair_recommended"` means run `repair_text_index`
+
+**repair_text_index** (MCP-20) - Repairs the derived text index by rebuilding it from canonical storage
+- Parameters: None
+- Returns: `{record_count, posting_entries, doc_stats_entries, term_stats_entries, namespace_stats_entries, duration_ms, success}`
+
+**capabilities** (MCP-26) - Introspects the engine's supported features so the agent can discover what the connected database supports
+- Parameters: None
+- Returns: `{runtime_profile, persistence, vector_search, iql_queries, read_only}`
+
+**generate_snippet** (MCP-26) - Generates a text snippet from a payload around matched query terms
+- Parameters: `payload`, `text_query` (required); `with_highlighting` (optional boolean, default false — wraps matched terms in `<strong>` markers)
+- Returns: `{snippet: "..."}`, or `{snippet: null}` when the query yields no terms (e.g. empty/whitespace query)
+
+**list_snapshots** (MCP-26) - Lists existing physical snapshot names under `<data_dir>/snapshots` (sorted)
+- Parameters: None
+- Returns: `{snapshots: ["<name>", ...]}`
+- Note: logical backup/restore lives in `export`/`import`; snapshots are physical Fjall copies
 
 ### Backup / Restore (MCP-17)
 

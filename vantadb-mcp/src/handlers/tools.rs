@@ -307,6 +307,51 @@ pub fn handle_tools_list() -> Result<Value, Value> {
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
+            "name": "rebuild_index",
+            "description": "MCP-20: rebuilds the HNSW vector index, derived indexes, and text index from scratch (recovery primitive for a corrupted index). Returns a report: scanned_nodes, indexed_vectors, skipped_tombstones, duration_ms, derived_rebuild_ms, index_path, success.",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "audit_text_index",
+            "description": "MCP-20: read-only integrity audit of the derived persistent text index (BM25 postings/stats vs canonical memory records). With deep=true also verifies posting positions, term frequencies and stats values. Returns a report; passed=true and status='ok' mean no drift.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string", "description": "Optional namespace filter; omit to audit all namespaces" },
+                    "deep": { "type": "boolean", "description": "Run value-level deep audit (slower), default false" }
+                },
+                "required": []
+            }
+        },
+        {
+            "name": "repair_text_index",
+            "description": "MCP-20: repairs the derived text index by rebuilding it from canonical storage. Use when audit_text_index reports drift (status='repair_recommended'). Returns a repair report with record/posting/stats counts and duration_ms.",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "capabilities",
+            "description": "MCP-26: introspects the engine's supported features. Returns {runtime_profile, persistence, vector_search, iql_queries, read_only} so the agent can discover what the connected database supports.",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "generate_snippet",
+            "description": "MCP-26: generates a text snippet from a payload, highlighting matched query terms when with_highlighting=true. Returns {snippet: \"...\"} or {snippet: null} when no query terms match.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "payload": { "type": "string", "description": "Text content to extract the snippet from" },
+                    "text_query": { "type": "string", "description": "Query whose terms drive term selection/highlighting" },
+                    "with_highlighting": { "type": "boolean", "description": "Wrap matched terms in markers, default false" }
+                },
+                "required": ["payload", "text_query"]
+            }
+        },
+        {
+            "name": "list_snapshots",
+            "description": "MCP-26: lists existing physical snapshot names stored under <data_dir>/snapshots (sorted). Logical backup/restore lives in 'export'/'import'; snapshots are physical Fjall copies.",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
             "name": "export",
             "description": "Exports memory records as JSONL (one JSON object per line). Pass 'namespace' to export a single namespace, omit it to export all namespaces. Returns the raw JSONL as text content (max 10 MB per call). Pair with 'import' for backup/restore.",
             "inputSchema": {
@@ -1162,6 +1207,84 @@ pub fn handle_tools_call(
                 Err(e) => Ok(error_content(format!("Compact Layout Error: {}", e))),
             }
         }
+
+        // MCP-20: index recovery tools — thin wrappers over the SDK
+        // (rebuild_index / audit_text_index(_deep) / repair_text_index).
+        // Reports are serde-serializable; domain errors come back as
+        // Ok(error_content(...)) so the LLM client can read and self-correct
+        // (MEM-32), never as a propagated JSON-RPC error.
+        "rebuild_index" => {
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.rebuild_index() {
+                Ok(report) => Ok(text_content(serialize_content(&json!(&report)))),
+                Err(e) => Ok(error_content(format!("Rebuild Index Error: {}", e))),
+            }
+        }
+
+        "audit_text_index" => {
+            let namespace = match args["namespace"].as_str() {
+                Some(ns) => {
+                    validate_identifier(ns, "namespace", config.max_namespace_length)
+                        .map_err(|e| e.to_json())?;
+                    Some(ns.to_string())
+                }
+                None => None,
+            };
+            let deep = args["deep"].as_bool().unwrap_or(false);
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let result = if deep {
+                embedded.audit_text_index_deep(namespace.as_deref())
+            } else {
+                embedded.audit_text_index(namespace.as_deref())
+            };
+            match result {
+                Ok(report) => Ok(text_content(serialize_content(&json!(&report)))),
+                Err(e) => Ok(error_content(format!("Audit Text Index Error: {}", e))),
+            }
+        }
+
+        "repair_text_index" => {
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.repair_text_index() {
+                Ok(report) => Ok(text_content(serialize_content(&json!(&report)))),
+                Err(e) => Ok(error_content(format!("Repair Text Index Error: {}", e))),
+            }
+        }
+
+        // MCP-26: introspection/utility tools — capabilities (feature
+        // introspection), generate_snippet (stateless text utility),
+        // list_snapshots (physical snapshot names). Same MEM-32 error shape.
+        "capabilities" => {
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let caps = embedded.capabilities();
+            Ok(text_content(serialize_content(&json!(&caps))))
+        }
+
+        "generate_snippet" => {
+            let payload = args["payload"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'payload'").to_json())?;
+            let text_query = args["text_query"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'text_query'").to_json())?;
+            validate_payload(payload, config.max_payload_length).map_err(|e| e.to_json())?;
+            let with_highlighting = args["with_highlighting"].as_bool().unwrap_or(false);
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.generate_snippet(payload, text_query, with_highlighting) {
+                Some(snippet) => Ok(text_content(serialize_content(
+                    &json!({ "snippet": snippet }),
+                ))),
+                None => Ok(text_content(serialize_content(&json!({ "snippet": null })))),
+            }
+        }
+
+        "list_snapshots" => match storage.list_snapshots() {
+            Ok(snapshots) => Ok(text_content(serialize_content(
+                &json!({ "snapshots": snapshots }),
+            ))),
+            Err(e) => Ok(error_content(format!("List Snapshots Error: {}", e))),
+        },
 
         // MCP-17: backup/restore via MCP — thin wrappers over the SDK JSONL
         // serialization (export_line_from_record / record_from_export_line +

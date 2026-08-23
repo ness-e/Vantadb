@@ -2,16 +2,16 @@
 
 > Verified against the real SDK boundary: `src/sdk/types.rs`, `src/sdk/api.rs`, `src/sdk/builder.rs`, `src/index/graph.rs`, `src/error.rs`. Only symbols that exist in the code are documented here.
 
-## MCP Tools (50)
+## MCP Tools (59)
 
 > **This is the single source of truth for the VantaDB MCP contract.**
-> Verified against `vantadb-mcp/src/`: exactly **50 tools** = 30 core
+> Verified against `vantadb-mcp/src/`: exactly **59 tools** = 36 core
 > (`handlers/tools.rs` `base_tools`) + 6 `skill_*` (`skills.rs`) + 8 `code_*`
 > (`code.rs`) + 6 `wiki_*` (`wiki.rs`). All four sets are announced together
 > in `tools/list` via extend (`handlers/tools.rs`).
 > Last synced against code: 2026-08-22.
 
-### Core — Memory / Search / Collections / Graph / IQL / GDS (30)
+### Core — Memory / Search / Collections / Graph / IQL / GDS / Recovery (36)
 
 | Tool | Purpose | Main params |
 |------|---------|-------------|
@@ -45,6 +45,12 @@
 | `compact_wal` | Flush + archive current WAL, start fresh one | none |
 | `flush` | Manual durability checkpoint (WAL + mmap flush) | none |
 | `compact_layout` | Compact vector store in BFS order; returns bytes reclaimed | none |
+| `rebuild_index` (MCP-20) | Rebuild HNSW + derived indexes + text index from scratch (recovery primitive) | none; returns `VantaIndexRebuildReport` `{scanned_nodes, indexed_vectors, skipped_tombstones, duration_ms, derived_rebuild_ms, index_path, success}` |
+| `audit_text_index` (MCP-20) | Read-only integrity audit of the derived text index vs canonical records | `namespace` (optional), `deep` (bool, default false — adds value-level checks); returns audit report; `passed=true` + `status="ok"` mean no drift |
+| `repair_text_index` (MCP-20) | Repair the text index by rebuilding it from canonical storage | none; returns `VantaTextIndexRepairReport` `{record_count, posting_entries, doc_stats_entries, term_stats_entries, namespace_stats_entries, duration_ms, success}` |
+| `capabilities` (MCP-26) | Introspect engine features | none; returns `{runtime_profile, persistence, vector_search, iql_queries, read_only}` |
+| `generate_snippet` (MCP-26) | Extract a snippet from a payload around matched query terms | `payload`, `text_query` (req); `with_highlighting` (bool, default false); returns `{snippet}` or `{snippet: null}` when the query yields no terms |
+| `list_snapshots` (MCP-26) | List physical snapshot names under `<data_dir>/snapshots` | none; returns `{snapshots: [...]}` |
 
 Detailed behavior notes (response envelope, error channels, IQL syntax, edge cases F4–F11): see [`SKILL.md`](../SKILL.md).
 

@@ -3377,3 +3377,213 @@ fn test_mcp_graph_topological_sort_and_is_dag() {
     let text = res["content"][0]["text"].as_str().unwrap();
     assert!(text.contains("false"), "cycled graph is not a DAG: {text}");
 }
+
+// ── MCP-20: index recovery tools (rebuild_index/audit_text_index/repair_text_index) ──
+
+fn recovery_call(
+    executor: &Executor<'_>,
+    storage: &Arc<StorageEngine>,
+    name: &str,
+    arguments: Value,
+) -> Result<Value, Value> {
+    handle_tools_call(
+        &Some(json!({ "name": name, "arguments": arguments })),
+        executor,
+        storage,
+        &default_config(),
+    )
+}
+
+#[test]
+fn test_mcp_tools_list_includes_recovery_and_introspection() {
+    let res = handle_tools_list().unwrap();
+    let tools = res["tools"].as_array().unwrap();
+    let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
+    for tool in [
+        "rebuild_index",
+        "audit_text_index",
+        "repair_text_index",
+        "capabilities",
+        "generate_snippet",
+        "list_snapshots",
+    ] {
+        assert!(names.contains(&tool), "tools should include {tool}");
+    }
+}
+
+#[test]
+fn test_recovery_tools_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Two vector records so rebuild has something to index.
+    for (key, payload) in [
+        ("alpha", "the quick brown fox"),
+        ("beta", "jumps over the dog"),
+    ] {
+        let put = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "recover_ns",
+                "key": key,
+                "payload": payload,
+                "vector": [0.1, 0.2, 0.3, 0.4]
+            }
+        }));
+        let val = handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+        assert!(
+            val["isError"].is_null(),
+            "put {key} failed: {}",
+            val["content"][0]["text"]
+        );
+    }
+
+    // Tests open a raw StorageEngine (server calls ensure_indexes_current at
+    // startup); build the text index before auditing BM25-derived state.
+    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    embedded
+        .ensure_indexes_current()
+        .expect("ensure_indexes_current must succeed");
+
+    // 1. rebuild_index → report with counts > 0 and success.
+    let rb_val = recovery_call(&executor, &storage, "rebuild_index", json!({})).unwrap();
+    assert!(
+        rb_val["isError"].is_null(),
+        "rebuild_index failed: {}",
+        rb_val["content"][0]["text"]
+    );
+    let rb: Value = serde_json::from_str(rb_val["content"][0]["text"].as_str().unwrap())
+        .expect("rebuild_index payload must be JSON");
+    assert_eq!(rb["success"], true, "rebuild must succeed: {rb}");
+    assert!(
+        rb["scanned_nodes"].as_u64().unwrap_or(0) >= 2,
+        "scanned_nodes must count the two records: {rb}"
+    );
+    assert!(
+        rb["indexed_vectors"].as_u64().unwrap_or(0) >= 2,
+        "indexed_vectors must index both vectors: {rb}"
+    );
+
+    // 2. audit_text_index on a clean namespace → no inconsistencies.
+    let audit_val = recovery_call(
+        &executor,
+        &storage,
+        "audit_text_index",
+        json!({ "namespace": "recover_ns" }),
+    )
+    .unwrap();
+    assert!(
+        audit_val["isError"].is_null(),
+        "audit_text_index failed: {}",
+        audit_val["content"][0]["text"]
+    );
+    let audit: Value = serde_json::from_str(audit_val["content"][0]["text"].as_str().unwrap())
+        .expect("audit payload must be JSON");
+    assert_eq!(
+        audit["passed"], true,
+        "clean namespace must pass audit: {audit}"
+    );
+    assert_eq!(audit["status"], "ok", "clean namespace status: {audit}");
+    assert_eq!(
+        audit["mismatches"], 0,
+        "no mismatches expected after rebuild: {audit}"
+    );
+
+    // 3. repair_text_index → repair report with success.
+    let rep_val = recovery_call(&executor, &storage, "repair_text_index", json!({})).unwrap();
+    assert!(
+        rep_val["isError"].is_null(),
+        "repair_text_index failed: {}",
+        rep_val["content"][0]["text"]
+    );
+    let rep: Value = serde_json::from_str(rep_val["content"][0]["text"].as_str().unwrap())
+        .expect("repair payload must be JSON");
+    assert_eq!(rep["success"], true, "repair must succeed: {rep}");
+    assert!(
+        rep["record_count"].as_u64().unwrap_or(0) >= 2,
+        "repair must reindex both records: {rep}"
+    );
+}
+
+// ── MCP-26: capabilities / generate_snippet / list_snapshots ──
+
+#[test]
+fn test_capabilities_generate_snippet_list_snapshots_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // capabilities → object with the fields of VantaCapabilities.
+    let caps_val = recovery_call(&executor, &storage, "capabilities", json!({})).unwrap();
+    assert!(
+        caps_val["isError"].is_null(),
+        "capabilities failed: {}",
+        caps_val["content"][0]["text"]
+    );
+    let caps: Value = serde_json::from_str(caps_val["content"][0]["text"].as_str().unwrap())
+        .expect("capabilities payload must be JSON");
+    assert!(
+        caps["runtime_profile"].is_string(),
+        "runtime_profile: {caps}"
+    );
+    assert_eq!(caps["persistence"], true, "embedded DB persists: {caps}");
+    assert_eq!(caps["vector_search"], true, "{caps}");
+    assert_eq!(caps["iql_queries"], true, "{caps}");
+    assert_eq!(caps["read_only"], false, "{caps}");
+
+    // generate_snippet → snippet present for a matching term query.
+    let snip_val = recovery_call(
+        &executor,
+        &storage,
+        "generate_snippet",
+        json!({
+            "payload": "the quick brown fox jumps over the lazy dog",
+            "text_query": "fox"
+        }),
+    )
+    .unwrap();
+    assert!(
+        snip_val["isError"].is_null(),
+        "generate_snippet failed: {}",
+        snip_val["content"][0]["text"]
+    );
+    let snip: Value = serde_json::from_str(snip_val["content"][0]["text"].as_str().unwrap())
+        .expect("snippet payload must be JSON");
+    assert!(
+        snip["snippet"].as_str().is_some(),
+        "matching query must yield a snippet: {snip}"
+    );
+
+    // generate_snippet with no query terms → null handled without error.
+    let none_val = recovery_call(
+        &executor,
+        &storage,
+        "generate_snippet",
+        json!({ "payload": "anything", "text_query": "   " }),
+    )
+    .unwrap();
+    assert!(
+        none_val["isError"].is_null(),
+        "empty-query generate_snippet must not error: {}",
+        none_val["content"][0]["text"]
+    );
+    let none: Value = serde_json::from_str(none_val["content"][0]["text"].as_str().unwrap())
+        .expect("payload must be JSON");
+    assert!(
+        none["snippet"].is_null(),
+        "empty query terms → null: {none}"
+    );
+
+    // list_snapshots → array (empty on a fresh DB).
+    let snaps_val = recovery_call(&executor, &storage, "list_snapshots", json!({})).unwrap();
+    assert!(
+        snaps_val["isError"].is_null(),
+        "list_snapshots failed: {}",
+        snaps_val["content"][0]["text"]
+    );
+    let snaps: Value = serde_json::from_str(snaps_val["content"][0]["text"].as_str().unwrap())
+        .expect("snapshots payload must be JSON");
+    assert!(
+        snaps["snapshots"].is_array(),
+        "list_snapshots must return an array: {snaps}"
+    );
+}
