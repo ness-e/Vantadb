@@ -74,9 +74,8 @@ curl http://127.0.0.1:18099/api/v2/records/agent%2Fmain/note-1
 curl "http://127.0.0.1:18099/api/v2/list?namespace=agent/main"
 # → {"records":[...],"next_cursor":null}
 
-# Hybrid search (text/BM25). NOTE: on a freshly created database the text index must be
-# rebuilt first, or the search returns {"error":"text_index not found: bm25","success":false}
-curl -X POST http://127.0.0.1:18099/api/v2/maintenance/rebuild-index
+# Hybrid search (text/BM25) — index state is ensured at server startup
+# (no manual rebuild needed on a fresh database)
 curl -X POST http://127.0.0.1:18099/api/v2/search \
   -H "Content-Type: application/json" \
   -d '{"namespace":"agent/main","query_vector":[],"filters":{},"text_query":"vector-native","top_k":10,"distance_metric":"Cosine","explain":false}'
@@ -308,8 +307,9 @@ SDK's `VantaMemorySearchRequest` plus offset pagination (`cursor` = zero-based o
 `text_query` drives BM25 lexical scoring. `distance_metric` is one of `Cosine`,
 `Euclidean`, `Dot`; `explain: true` adds a `VantaSearchExplanation` per result.
 
-> On a fresh database, rebuild the indexes first (`POST /api/v2/maintenance/rebuild-index`)
-> or text search fails with `text_index not found: bm25`.
+> Text search works on fresh databases out of the box: the server ensures index state
+> at startup (MOD-12). `POST /api/v2/maintenance/rebuild-index` remains available for
+> explicit rebuilds of existing data.
 
 **Request:**
 
