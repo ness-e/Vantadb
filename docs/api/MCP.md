@@ -40,7 +40,7 @@ The VantaDB MCP server (`vantadb-mcp`) exposes the database to LLM agents over t
 |------|-------------|
 | `search_memory` | Hybrid memory search in a namespace: text/vector/hybrid modes, filters, distance metric, RRF tuning, and explain output. |
 | `search_semantic` | Raw semantic vector search directly in the HNSW index. |
-| `query_iql` | Executes an IQL statement against typed graph nodes only (LISP not supported). |
+| `query_iql` | Executes an IQL statement against typed graph nodes and memory namespaces (each namespace is queryable as a table named by its sanitized form: `/` and `-` → `_`, leading digit/`.` gets a `_` prefix). LISP not supported. |
 
 ### Graph (6)
 
