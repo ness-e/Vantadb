@@ -11,6 +11,7 @@ import os
 import shutil
 import uuid
 import numpy as np
+import pytest
 import vantadb_py as vanta
 
 TEST_DB = "./test_perf_15_16_db"
@@ -25,6 +26,14 @@ def _clean():
 
 def _unique():
     return f"{TEST_DB}_{uuid.uuid4().hex[:8]}"
+
+
+@pytest.fixture(autouse=True)
+def _cleanup_perf_dbs():
+    """Remove this file's DB dirs around every test — each DB is ~320 MB on disk."""
+    _clean()
+    yield
+    _clean()
 
 
 # ── PERF-15: put_batch_raw edge cases ────────────────────────────────────

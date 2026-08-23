@@ -6,6 +6,7 @@ can be recovered with get_memory() and search_memory().
 
 from __future__ import annotations
 
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -31,24 +32,30 @@ LANCE_ROWS = [
 def chroma_source() -> Path:
     chromadb = pytest.importorskip("chromadb")
     path = Path(tempfile.mkdtemp())
-    client = chromadb.PersistentClient(path=str(path))
-    col = client.create_collection("my_docs")
-    col.add(
-        ids=[d[0] for d in CHROMA_DOCS],
-        documents=[d[1] for d in CHROMA_DOCS],
-        metadatas=[d[2] for d in CHROMA_DOCS],
-        embeddings=[d[3] for d in CHROMA_DOCS],
-    )
-    return path
+    try:
+        client = chromadb.PersistentClient(path=str(path))
+        col = client.create_collection("my_docs")
+        col.add(
+            ids=[d[0] for d in CHROMA_DOCS],
+            documents=[d[1] for d in CHROMA_DOCS],
+            metadatas=[d[2] for d in CHROMA_DOCS],
+            embeddings=[d[3] for d in CHROMA_DOCS],
+        )
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)  # mkdtemp leaks ~100 MB/run otherwise (13.7 GB accumulated)
 
 
 @pytest.fixture()
 def lancedb_source() -> Path:
     lancedb = pytest.importorskip("lancedb")
     path = Path(tempfile.mkdtemp())
-    db = lancedb.connect(str(path))
-    db.create_table("my_table", data=LANCE_ROWS)
-    return path
+    try:
+        db = lancedb.connect(str(path))
+        db.create_table("my_table", data=LANCE_ROWS)
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
 
 
 def _verify(target_path: Path, namespace: str, expected: list[tuple[str, list[float]]]) -> None:
