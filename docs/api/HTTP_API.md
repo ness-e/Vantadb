@@ -525,6 +525,28 @@ turn. Body includes optional `thread_id` (omitted creates/reuses the default thr
 
 Lists skill-like records (capped at 200 items, default limit 50).
 
+### `POST /api/v2/skills`
+
+Creates a versioned skill (version 1). Body: `owner_agent`, `name`, `content`,
+optional `description`, `metadata`, `ttl_secs`. Idempotent when the same
+`(owner_agent, name)` + content already exists (`idempotent: true` in the
+response). Duplicate name with different content → 409.
+
+### `PUT /api/v2/skills/{skill_id}?owner_agent=<a>&expected_version=<n>`
+
+Replaces description and content, appending a new immutable version. A stale
+`expected_version` returns 409 (optimistic lock). A foreign `owner_agent`
+returns the same 404 as a missing skill (anti-enumeration).
+
+### `PATCH /api/v2/skills/{skill_id}?owner_agent=<a>&expected_version=<n>`
+
+Partial update — only provided fields (`description`, `content`, `metadata`)
+change. Same optimistic-lock and ownership semantics as PUT.
+
+### `DELETE /api/v2/skills/{skill_id}?owner_agent=<a>&expected_version=<n>`
+
+Removes every version plus the head index row.
+
 ## Starting the Server
 
 ```bash
@@ -584,6 +606,10 @@ rebuild with `cargo build --features server`.
 | `GET` | `/api/v2/threads/{id}` | Bearer (if configured) | Threads | Get thread |
 | `POST` | `/api/v2/threads/{id}` | Bearer (if configured) | Threads | Send message to thread |
 | `DELETE` | `/api/v2/threads/{id}` | Bearer (if configured) | Threads | Delete thread |
+| `POST` | `/api/v2/skills` | Bearer (if configured) | Skills | Create skill (idempotent by content hash) |
+| `PUT` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Update skill (optimistic lock) |
+| `PATCH` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Patch skill fields |
+| `DELETE` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Delete skill and all versions |
 | `GET` | `/dashboard` ⚠️ experimental | Bearer (if configured) | Experimental | Web console entry point |
 | `GET` | `/dashboard/{path}` ⚠️ experimental | Bearer (if configured) | Experimental | Web console static assets |
 | `POST` | `/conversation/add` ⚠️ experimental | Bearer (if configured) | Experimental | Legacy conversation turn ingestion |

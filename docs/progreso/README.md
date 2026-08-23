@@ -50,6 +50,12 @@ VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNS
 
 ## Campañas recientes (inline)
 
+### Campaña P33 Última Milla en curso 2026-08-22 (plan `2026-08-22-vanta-ultima-milla.md`)
+
+- **MEM-54 (Task 4):** skills CRUD en server HTTP — POST /api/v2/skills + PUT/PATCH/DELETE /api/v2/skills/{skill_id} con lock optimista `expected_version` (409) y owner check 404 anti-enumeración. Tests D19 x2 (`--features server`), openapi parity 37 paths, HTTP_API.md actualizado.
+
+---
+
 ### Campaña P32 Bindings SDK completada 2026-08-22 - 4/4 tareas (plan `2026-08-22-vantadb-bindings-sdk.md`)
 
 **MEM-36 pagada:** sub-clientes por dominio en TS y Python con backward-compat 100%. Suites: TS **246/246** (17 nuevos), Python **105 passed** (16 nuevos), docs coverage 0 gaps.

@@ -31,7 +31,7 @@ use axum::{
     http::{header, HeaderMap, HeaderValue, Method, StatusCode},
     middleware,
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, post, put},
     Extension, Json, Router,
 };
 use parking_lot::Mutex;
@@ -254,6 +254,11 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
         )
         .route("/conversation/add", post(conversation_add))
         .route("/skill/listing", get(skill_listing))
+        .route("/api/v2/skills", post(skill_create))
+        .route(
+            "/api/v2/skills/{skill_id}",
+            put(skill_update).patch(skill_patch).delete(skill_delete),
+        )
         .route("/api/v2/snapshots", get(snapshots_list))
         .route("/api/v2/snapshots/{name}", post(snapshots_create))
         .route("/metrics", get(metrics_endpoint))
@@ -2696,6 +2701,117 @@ async fn skill_listing(
     }
 }
 
+/// Query params for the mutating skill endpoints (PUT/PATCH/DELETE).
+///
+/// `expected_version` is the optimistic lock (MEM-06 pattern): a stale value
+/// surfaces as 409 via `VantaError::ExecutionConflict`. `owner_agent` is
+/// checked against the head's owner — a mismatch returns the SAME 404 as a
+/// missing skill (no existence oracle for other agents' skills).
+#[derive(Deserialize, Debug)]
+struct SkillMutationParams {
+    owner_agent: String,
+    expected_version: u64,
+}
+
+/// Resolve a skill head enforcing ownership. Missing skill and foreign-owned
+/// skill are indistinguishable on the wire (both `NotFound` → 404).
+fn require_owned_head(
+    store: &crate::skills::SkillStore<'_>,
+    skill_id: &str,
+    owner_agent: &str,
+) -> crate::error::Result<crate::sdk::SkillRecord> {
+    match store.get_head(skill_id)? {
+        Some(head) if head.owner_agent == owner_agent => Ok(head),
+        _ => Err(VantaError::NotFound {
+            kind: "skill".into(),
+            id: skill_id.into(),
+        }),
+    }
+}
+
+/// `POST /api/v2/skills` — create a skill (version 1). Idempotent when the
+/// same `(owner_agent, name)` + content already exists (`idempotent: true`).
+#[tracing::instrument(skip(state))]
+async fn skill_create(
+    State(state): State<Arc<ServerState>>,
+    Json(input): Json<crate::sdk::SkillCreateInput>,
+) -> Response {
+    match run_db_op(&state, move |db| {
+        let engine = db.engine_handle()?;
+        crate::skills::SkillStore::new(&engine).create(input)
+    })
+    .await
+    {
+        Ok(result) => (StatusCode::CREATED, Json(result)).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+/// `PUT /api/v2/skills/{skill_id}?owner_agent=…&expected_version=…` — full
+/// update of description+content, appending a new version.
+#[tracing::instrument(skip(state))]
+async fn skill_update(
+    State(state): State<Arc<ServerState>>,
+    AxumPath(skill_id): AxumPath<String>,
+    Query(params): Query<SkillMutationParams>,
+    Json(input): Json<crate::sdk::SkillUpdateInput>,
+) -> Response {
+    match run_db_op(&state, move |db| {
+        let engine = db.engine_handle()?;
+        let store = crate::skills::SkillStore::new(&engine);
+        require_owned_head(&store, &skill_id, &params.owner_agent)?;
+        store.update(&skill_id, params.expected_version, input)
+    })
+    .await
+    {
+        Ok(result) => Json(result).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+/// `PATCH /api/v2/skills/{skill_id}?owner_agent=…&expected_version=…` —
+/// partial update; only provided fields change.
+#[tracing::instrument(skip(state))]
+async fn skill_patch(
+    State(state): State<Arc<ServerState>>,
+    AxumPath(skill_id): AxumPath<String>,
+    Query(params): Query<SkillMutationParams>,
+    Json(input): Json<crate::sdk::SkillPatchInput>,
+) -> Response {
+    match run_db_op(&state, move |db| {
+        let engine = db.engine_handle()?;
+        let store = crate::skills::SkillStore::new(&engine);
+        require_owned_head(&store, &skill_id, &params.owner_agent)?;
+        store.patch(&skill_id, params.expected_version, input)
+    })
+    .await
+    {
+        Ok(result) => Json(result).into_response(),
+        Err(resp) => resp,
+    }
+}
+
+/// `DELETE /api/v2/skills/{skill_id}?owner_agent=…&expected_version=…` —
+/// removes every version plus the head index row.
+#[tracing::instrument(skip(state))]
+async fn skill_delete(
+    State(state): State<Arc<ServerState>>,
+    AxumPath(skill_id): AxumPath<String>,
+    Query(params): Query<SkillMutationParams>,
+) -> Response {
+    match run_db_op(&state, move |db| {
+        let engine = db.engine_handle()?;
+        let store = crate::skills::SkillStore::new(&engine);
+        require_owned_head(&store, &skill_id, &params.owner_agent)?;
+        store.delete(&skill_id, params.expected_version)
+    })
+    .await
+    {
+        Ok(deleted) => Json(serde_json::json!({ "deleted": deleted })).into_response(),
+        Err(resp) => resp,
+    }
+}
+
 #[tracing::instrument(skip(state))]
 async fn snapshots_list(State(state): State<Arc<ServerState>>) -> Response {
     match run_db_op(&state, move |db| db.list_snapshots()).await {
@@ -4133,6 +4249,188 @@ mod tests {
             body.contains("--dashboard-dir"),
             "hint expected, got: {body}"
         );
+    }
+
+    // ── Skills CRUD over HTTP (MEM-54) ─────────────────────────────────────
+
+    use axum::body::Body;
+    use axum::http::Request;
+
+    /// Send a JSON request to `router` and return (status, parsed body).
+    async fn json_oneshot(
+        router: axum::Router,
+        method: &str,
+        uri: &str,
+        body: Option<String>,
+    ) -> (StatusCode, serde_json::Value) {
+        use tower::util::ServiceExt;
+        let builder = Request::builder().method(method).uri(uri);
+        let request = match body {
+            Some(b) => builder
+                .header("content-type", "application/json")
+                .body(Body::from(b))
+                .unwrap(),
+            None => builder.body(Body::empty()).unwrap(),
+        };
+        let response = router.oneshot(request).await.unwrap();
+        let status = response.status();
+        let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let json = if bytes.is_empty() {
+            serde_json::Value::Null
+        } else {
+            serde_json::from_slice(&bytes).unwrap()
+        };
+        (status, json)
+    }
+
+    fn skill_body(owner: &str, name: &str, content: &str) -> String {
+        serde_json::json!({
+            "owner_agent": owner,
+            "name": name,
+            "description": "test skill",
+            "content": content,
+        })
+        .to_string()
+    }
+
+    #[tokio::test]
+    async fn skills_crud_roundtrip_via_http() {
+        // D19 / MEM-54: create → idempotent re-create → stale-version 409 →
+        // patch → update → stale delete 409 → delete → gone.
+        let state = cors_test_state().await;
+        let router = app(state, 0);
+
+        // CREATE → 201, version 1.
+        let (status, json) = json_oneshot(
+            router.clone(),
+            "POST",
+            "/api/v2/skills",
+            Some(skill_body("agent-a", "greet", "hello")),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED, "create failed: {json}");
+        assert_eq!(json["idempotent"], false);
+        assert_eq!(json["record"]["version"], 1);
+        let skill_id = json["record"]["skill_id"].as_str().unwrap().to_string();
+
+        // Re-create identical content → idempotent no-op.
+        let (status, json) = json_oneshot(
+            router.clone(),
+            "POST",
+            "/api/v2/skills",
+            Some(skill_body("agent-a", "greet", "hello")),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(
+            json["idempotent"], true,
+            "expected content-hash idempotency"
+        );
+
+        let base = format!("/api/v2/skills/{skill_id}");
+
+        // PATCH with stale expected_version → 409 conflict.
+        let uri = format!("{base}?owner_agent=agent-a&expected_version=99");
+        let (status, _) = json_oneshot(
+            router.clone(),
+            "PATCH",
+            &uri,
+            Some(r#"{"description":"patched"}"#.to_string()),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CONFLICT, "stale version must be 409");
+
+        // PATCH with correct lock → new head v2, content preserved.
+        let (status, json) = json_oneshot(
+            router.clone(),
+            "PATCH",
+            &format!("{base}?owner_agent=agent-a&expected_version=1"),
+            Some(r#"{"description":"patched"}"#.to_string()),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "patch failed: {json}");
+        assert_eq!(json["record"]["version"], 2);
+        assert_eq!(json["record"]["description"], "patched");
+        assert_eq!(json["record"]["content"], "hello");
+
+        // UPDATE full replace → v3.
+        let (status, json) = json_oneshot(
+            router.clone(),
+            "PUT",
+            &format!("{base}?owner_agent=agent-a&expected_version=2"),
+            Some(r#"{"description":"replaced","content":"v2 body"}"#.to_string()),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "update failed: {json}");
+        assert_eq!(json["record"]["version"], 3);
+        assert_eq!(json["record"]["content"], "v2 body");
+        assert_eq!(json["idempotent"], false);
+
+        // DELETE stale → 409; DELETE current → ok and skill disappears.
+        let stale = format!("{base}?owner_agent=agent-a&expected_version=1");
+        let (status, _) = json_oneshot(router.clone(), "DELETE", &stale, None).await;
+        assert_eq!(status, StatusCode::CONFLICT);
+
+        let current = format!("{base}?owner_agent=agent-a&expected_version=3");
+        let (status, json) = json_oneshot(router.clone(), "DELETE", &current, None).await;
+        assert_eq!(status, StatusCode::OK, "delete failed: {json}");
+        assert_eq!(json["deleted"], true);
+
+        let (status, _) = json_oneshot(router, "DELETE", &current, None).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "deleted skill must be gone");
+    }
+
+    #[tokio::test]
+    async fn skills_owner_mismatch_is_indistinguishable_from_missing() {
+        // Anti-enumeration: a foreign-owned skill must return the same 404 as
+        // a nonexistent one — never 403 (which would confirm existence).
+        let state = cors_test_state().await;
+        let router = app(state, 0);
+
+        let (_, json) = json_oneshot(
+            router.clone(),
+            "POST",
+            "/api/v2/skills",
+            Some(skill_body("agent-owner", "secret-skill", "private")),
+        )
+        .await;
+        let skill_id = json["record"]["skill_id"].as_str().unwrap().to_string();
+
+        for (method, body) in [
+            (
+                "PUT",
+                Some(r#"{"description":"x","content":"y"}"#.to_string()),
+            ),
+            ("PATCH", Some(r#"{"description":"x"}"#.to_string())),
+            ("DELETE", None),
+        ] {
+            let foreign =
+                format!("/api/v2/skills/{skill_id}?owner_agent=agent-attacker&expected_version=1");
+            let (status, _) = json_oneshot(router.clone(), method, &foreign, body.clone()).await;
+            assert_eq!(status, StatusCode::NOT_FOUND, "{method} foreign owner");
+
+            let missing =
+                "/api/v2/skills/skl-nonexistent?owner_agent=agent-attacker&expected_version=1";
+            let (missing_status, _) =
+                json_oneshot(router.clone(), method, missing, body.clone()).await;
+            assert_eq!(
+                missing_status, status,
+                "{method}: missing vs foreign-owned must be indistinguishable"
+            );
+        }
+
+        // The real owner can still operate the skill.
+        let owned = format!("/api/v2/skills/{skill_id}?owner_agent=agent-owner&expected_version=1");
+        let (status, _) = json_oneshot(
+            router,
+            "PATCH",
+            &owned,
+            Some(r#"{"description":"mine"}"#.to_string()),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "real owner must pass: {status}");
     }
 }
 

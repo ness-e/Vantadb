@@ -1234,6 +1234,194 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/v2/skills:
+    post:
+      summary: Create skill
+      description: >-
+        Creates a versioned skill (version 1). Idempotent when the same
+        `(owner_agent, name)` + content already exists (`idempotent: true`).
+      operationId: createSkill
+      tags:
+        - Skills
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - content
+                - owner_agent
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                content:
+                  type: string
+                owner_agent:
+                  type: string
+                metadata:
+                  type: object
+                  additionalProperties:
+                    type: string
+                ttl_secs:
+                  type: integer
+      responses:
+        "201":
+          description: Skill created (or idempotent no-op)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillWriteResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/skills/{skill_id}:
+    put:
+      summary: Update skill
+      description: >-
+        Replaces description and content, appending a new immutable version.
+        `expected_version` is the optimistic lock; a stale value returns 409.
+        A foreign `owner_agent` returns 404 identical to a missing skill.
+      operationId: updateSkill
+      tags:
+        - Skills
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SkillIdPath"
+        - $ref: "#/components/parameters/SkillOwnerQuery"
+        - $ref: "#/components/parameters/SkillExpectedVersionQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - description
+                - content
+              properties:
+                description:
+                  type: string
+                content:
+                  type: string
+                metadata:
+                  type: object
+                  additionalProperties:
+                    type: string
+      responses:
+        "200":
+          description: New head after the update
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillWriteResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      summary: Patch skill
+      description: Partial update — only provided fields change.
+      operationId: patchSkill
+      tags:
+        - Skills
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SkillIdPath"
+        - $ref: "#/components/parameters/SkillOwnerQuery"
+        - $ref: "#/components/parameters/SkillExpectedVersionQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                content:
+                  type: string
+                metadata:
+                  type: object
+                  additionalProperties:
+                    type: string
+      responses:
+        "200":
+          description: New head after the patch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillWriteResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      summary: Delete skill
+      description: Removes every version plus the head index row.
+      operationId: deleteSkill
+      tags:
+        - Skills
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SkillIdPath"
+        - $ref: "#/components/parameters/SkillOwnerQuery"
+        - $ref: "#/components/parameters/SkillExpectedVersionQuery"
+      responses:
+        "200":
+          description: Deletion result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /api/v2/snapshots:
     get:
       summary: List snapshots
@@ -1350,6 +1538,21 @@ components:
 
   schemas:
     # ── Core requests ──
+
+    SkillWriteResult:
+      description: Head version after a skill write (create/update/patch).
+      type: object
+      required:
+        - record
+        - idempotent
+      properties:
+        idempotent:
+          type: boolean
+          description: True when the write was a no-op (content hash already matched the head).
+        record:
+          type: object
+          description: The skill head record after the write.
+          additionalProperties: true
 
     QueryRequest:
       description: Payload for executing an IQL query.
@@ -1899,6 +2102,16 @@ components:
             success: false
             error: "node not found: 999"
 
+    Conflict:
+      description: Optimistic-lock conflict (stale expected_version) or duplicate resource
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error: "execution conflict on skill:skl-1 — expected version 1, head is 3"
+
     TooManyRequests:
       description: Rate limit exceeded (configurable via rate_limit_rpm, default 100 req/min)
       headers:
@@ -1948,6 +2161,29 @@ components:
       description: Thread identifier
       schema:
         type: string
+    SkillIdPath:
+      name: skill_id
+      in: path
+      required: true
+      description: Skill identifier (e.g. `skl-…`), immutable across versions
+      schema:
+        type: string
+    SkillOwnerQuery:
+      name: owner_agent
+      in: query
+      required: true
+      description: >-
+        Owning agent identifier. A mismatch with the skill's owner returns the
+        same 404 as a missing skill (anti-enumeration).
+      schema:
+        type: string
+    SkillExpectedVersionQuery:
+      name: expected_version
+      in: query
+      required: true
+      description: Current head version (optimistic lock); a stale value returns 409.
+      schema:
+        type: integer
     AuthorizationHeader:
       name: Authorization
       in: header
