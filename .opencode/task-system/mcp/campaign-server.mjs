@@ -743,13 +743,15 @@ export function updateTaskStateCore(planPath, taskId, newState, recitationData, 
 
     const original = readFileSync(planPath, "utf-8")
     const originalChecksum = sha1(original)
-    const { campaignId } = getOrCreateCampaignId(original)
+    // Usar el contenido CON el Campaign ID insertado (antes se descartaba y
+    // cada write generaba un UUID nuevo sin persistirlo).
+    const { campaignId, content: withCampaignId } = getOrCreateCampaignId(original)
     // TSYS-09: capturar el estado previo para trazar el cambio (por qué se reabrió/cerró).
     const fromState = (() => {
       try { const t = parseTasks(original).find(t => t.id === taskId); return t ? t.state : null } catch { return null }
     })()
 
-    let updated = updateState(original, taskId, newState)
+    let updated = updateState(withCampaignId, taskId, newState)
     if (recitationData) updated = updateRecitation(updated, { campaignId, ...recitationData })
 
     if (updated === original) {
