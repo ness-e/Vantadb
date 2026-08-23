@@ -512,6 +512,82 @@ fn test_mcp_tool_query_iql() {
     );
 }
 
+/// MCP-27: documents the chosen IQL semantics.
+///
+/// Memory records written via `memory_put` live as internal nodes with
+/// reserved `__vanta_*` fields and no `type` field, so they are NOT visible
+/// to named IQL table scans (`SELECT * FROM <namespace>` returns [] without
+/// error). Graph nodes created via `INSERT NODE ... TYPE <Type>` ARE queryable,
+/// which is the supported round-trip for agents using query_iql.
+#[test]
+fn test_query_iql_memory_records_are_not_tables_but_graph_nodes_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // 1) memory_put succeeds...
+    let put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "ProbeNs",
+            "key": "k1",
+            "payload": "hello world"
+        }
+    }));
+    let put_res = handle_tools_call(&put, &executor, &storage, &default_config());
+    assert!(put_res.is_ok(), "memory_put should succeed");
+    assert!(
+        put_res.unwrap()["isError"].is_null(),
+        "memory_put should not error"
+    );
+
+    // 2) ...but the namespace is NOT an IQL table: empty result, no error.
+    let scan_ns = Some(json!({
+        "name": "query_iql",
+        "arguments": { "query": "SELECT * FROM ProbeNs" }
+    }));
+    let res_ns = handle_tools_call(&scan_ns, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res_ns["isError"].is_null(),
+        "scanning a namespace should not error, got: {}",
+        res_ns["content"][0]["text"]
+    );
+    assert_eq!(
+        res_ns["content"][0]["text"].as_str().unwrap().trim(),
+        "[]",
+        "SELECT * FROM <namespace> must return [] — memory records are not IQL tables"
+    );
+
+    // 3) Graph-node round-trip works end to end from the agent channel:
+    //    INSERT via query_iql → SELECT by TYPE returns the node.
+    let insert = Some(json!({
+        "name": "query_iql",
+        "arguments": {
+            "query": "INSERT NODE#777 TYPE ProbeType { label: \"graph node\" }"
+        }
+    }));
+    let ins_res = handle_tools_call(&insert, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        ins_res["isError"].is_null(),
+        "IQL INSERT should succeed, got: {}",
+        ins_res["content"][0]["text"]
+    );
+
+    let select = Some(json!({
+        "name": "query_iql",
+        "arguments": { "query": "SELECT * FROM ProbeType" }
+    }));
+    let sel_res = handle_tools_call(&select, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        sel_res["isError"].is_null(),
+        "typed SELECT should not error"
+    );
+    let text = sel_res["content"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains("777") && text.contains("ProbeType"),
+        "SELECT * FROM ProbeType should return the inserted node, got: {text}"
+    );
+}
+
 #[test]
 fn test_mcp_query_iql_sanitization() {
     let (_dir, storage) = setup_storage();

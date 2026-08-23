@@ -167,6 +167,7 @@ The full contract for all **33 tools** lives in
 **query_iql** - Execute an IQL (Interactive Query Language) statement. Allows reading structures and inserting/mutating Nodes providing semantic context. **LISP is not supported; statements must be IQL.**
 - Parameters: `query`
 - Returns: Query results or execution status (read nodes, write result, or stale-context rehydration hint)
+- **Scope (MCP-27):** IQL operates over **typed graph nodes only** (`TYPE`). Memory records written via `memory_put` are NOT exposed as IQL tables — `SELECT * FROM <namespace>` returns `[]` without error because those records live as internal nodes with reserved `__vanta_*` fields and no `type` field. Use `memory_list` / `memory_get` / `search_memory` for memory records. To make data queryable via IQL from the agent channel, insert graph nodes directly: `INSERT NODE#<id> TYPE <Type> { ... }` then `SELECT * FROM <Type>`.
 
 #### IQL Syntax
 
