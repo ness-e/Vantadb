@@ -443,6 +443,13 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | ID | Severidad | Hallazgo | Archivo:línea | Estado |
 |----|-----------|----------|---------------|--------|
 | AUD-042 | Media | Upgrade tantivy ≥0.18 — elimina allowlist RUSTSEC-2026-0253 + desbloquea lru 0.18 (security debt, rec#6) | Cargo.toml (tantivy), deny.toml | 🔴 BLOQUEADO upstream — verificado 2026-08-13: tantivy 0.26.1 (última publicada) fija `lru ^0.16.3`; el fix (`lru = "0.18.2"`) está en tantivy main (0.27.0) pero NO publicada en crates.io (404). Re-evaluar cuando tantivy ≥0.27.0 publique: bump tantivy + lru directo a 0.18.2 y remover allowlist. Comentario deny.toml actualizado con el estado. |
+| REVIEW-06 | Alta | `cargo test --workspace` OOM de rustc compilando tests de `vantadb` (features pesadas combinadas) — suite no ejecutable; bloquea QG del unified-review full 2026-08-22. Fix: codegen-units/debuginfo en `[profile.test]`, gate features pesadas, confirmar resource-bound con `-j 1` | root Cargo.toml, src/lib.rs | 🔴 Abierta — derivada de review-full-20260822 H01-CODE-002 |
+| REVIEW-07 | Media | `.config/nextest.toml` profile `audit`: filtro referencia binarios inexistentes → parse failure bloquea TODA invocación nextest. Podar stale verificado con `cargo nextest list` | .config/nextest.toml | 🔴 Abierta — derivada de review-full-20260822 H01-CODE-001 |
+| REVIEW-08 | Media | `h2 0.4.15` RUSTSEC-2026-0258 (DoS DATA frames vacíos) → `cargo deny check advisories` FALLA. Fix: `cargo update -p h2` (≥0.4.16) + commit Cargo.lock antes del próximo release | Cargo.lock | 🟠 Abierta — derivada de review-full-20260822 H07-DEP-001 |
+| REVIEW-09 | Media | Bug lógico `cache_warmer.rs:143`: latch `saturated` monotónico + decay que reduce tabla → tras suficientes ciclos deja de aprender pares para siempre (warming degrada silenciosamente en servers long-running). Resetear latch cuando post-decay total < max_pairs | src/cache_warmer.rs:143,197 | 🟠 Abierta — derivada de review-full-20260822 H09-CODE-001 |
+| REVIEW-10 | Alta | God-file `cli_server.rs` ~3800-4141 líneas (routing + RBAC + TLS + OTEL + tests inline) — blast radius total del server en un archivo. Split por concern bajo `src/server/`; congelar features nuevas ahí | src/cli_server.rs | 🟠 Abierta — derivada de review-full-20260822 H06-ARCH-001 |
+| REVIEW-11 | Media | Dependabot sin ecosistema `pip`: vantadb-python + 11 integrations + requirements.txt sin updates automáticos. Añadir entries o migrar a renovate | .github/dependabot.yml | 🟡 Abierta — derivada de review-full-20260822 H04-MISSING-001 |
+| REVIEW-12 | Media | `api.rs` ~2300-2500 líneas aproximándose a god-file — SDK surface concentrada dificulta evolución `#[non_exhaustive]`. Refactor aditivo por dominio (memory/search/namespaces/admin), re-exportado vía sdk::api, sin break público | src/sdk/api.rs | 🟡 Abierta — derivada de review-full-20260822 H06-ARCH-002 |
 
 
 ---
@@ -743,3 +750,19 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | `BND-05` | **vantadb-node superficie mínima** — expone put/get/search/list; faltan graph/explain para paridad con wasm/ts. Coherente con P32 pero incompleto. Detectado auditoría integración final. | `vantadb-node/src/lib.rs` | 🟢 | 🟢 | ❌ Pendiente |
 
 | `BND-06` | **Regresión colateral GOV-C1: nextest default-filter rompe runs `-p <crate>` scoped** — el filtro `default-filter` de `.config/nextest.toml` (modificado en 67384785 por sesión GOV) referencia binarios (`security_audit`, `wal_resilience`, etc.) que no existen en el scope de un solo package → `cargo nextest run -p vanta-proxy` falla con "no binary names matched". Fix scope-safe: combinar exclusiones con predicado `package()` (ej: `not (package(vantadb) and binary(wal_resilience))`) o mover exclusiones pesadas a overrides por-profile. Coordinar con sesión GOV activa. Detectado 2026-08-22 verificando MEM-50 (P33). | `.config/nextest.toml` | 🟡 | 🟠 | ❌ Pendiente |
+
+## GOV-TK — Tickets derivados de la campaña GOV (2026-08-22)
+
+| ID | Descripción | Prio | Fuente |
+|----|-------------|------|--------|
+| GOV-TK1 | **CLI backup verification**: subcomando \erify\ o flag \--dry-run\ en Restore + \doctor --fix\ — el runbook DR nuevo depende conceptualmente | 🔴 | D4b/B2 |
+| GOV-TK2 | **Release** para que el binario MCP exponga las 18 tools skill_*/code_*/wiki_* (skill ya documenta 33; binario publicado tiene 15) | 🔴 | B6 |
+| GOV-TK3 | Drift yaml↔real ×3: gramática IQL case del yaml vs parser UPPERCASE · GraphTraversalBody (roots numéricos + max_depth requerido) · search en DB fresca requiere rebuild-index previo | 🟠 | B5 |
+| GOV-TK4 | Re-medición coverage local: llvm-cov ICE rustc 0xc0000409 Windows (probar -j 2 limpio post-fingerprint-clean o CI artifact) | 🟠 | A1 |
+| GOV-TK5 | Split Manual Estratégico según recomendación F2 (negocio→docs/business/ con banner snapshot; estado técnico fuera; archivar monolito) | 🟠 | F2/D-decisión |
+| GOV-TK6 | Harness snippets: cleanup de mkdtemp (incidente 224 dirs/68GB) | 🟢 | B3/A4 |
+| GOV-TK7 | put_batch metadatas solo-str: alinear doc-tutorial vs API o ampliar coercion | 🟡 | B3 |
+| GOV-TK8 | Benchmarks: mejorar/probar/documentar (insumo: docs/benchmarks/_run_stdout.md se conserva como evidencia de corrida cruda) | 🟡 | owner E1 |
+| GOV-TK9 | URL \antadb-examples\ repo distinto en pilot-onboarding-checklist:51 — verificar si existe | 🟢 | B3 |
+
+> Ticketeados aparte con decisión previa: ACID 4a-4d (post-launch Fase A, D14) · release triage semver 0.6.0 (D5, diferido) · MKT-18h wheels ARM64 + MKT-18f adapters (confirmados live por GOV-A5).
