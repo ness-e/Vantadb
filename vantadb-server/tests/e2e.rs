@@ -528,3 +528,49 @@ async fn test_e2e_skill_listing_empty_and_filtered() {
     assert_eq!(body["total"], 1);
     assert_eq!(body["items"][0]["name"], "coding");
 }
+
+/// MOD-12 regression: on a FRESH database, a text put followed by a lexical
+/// search over HTTP must return hits without any manual index rebuild.
+/// Server startup is responsible for ensuring indexes are current (MCP-01 twin).
+#[tokio::test]
+async fn test_e2e_text_search_fresh_db() {
+    let (_dir, state) = build_e2e_context(None, 10);
+    let (base, _handle) = spawn_server(state, 0).await;
+
+    let client = reqwest::Client::new();
+
+    // 1. Put a record with a distinctive text payload
+    let input = vantadb::sdk::VantaMemoryInput::new(
+        "default",
+        "mod12-doc",
+        "The quantum flux capacitor regulates lexical energy for BM25 scoring",
+    );
+    let resp = client
+        .post(format!("{}/api/v2/records", base))
+        .json(&input)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201);
+
+    // 2. Lexical search via /api/v2/search (no rebuild) must return hits
+    let search = vantadb::sdk::VantaMemorySearchRequest {
+        text_query: Some("quantum flux".into()),
+        ..Default::default()
+    };
+    let resp = client
+        .post(format!("{}/api/v2/search", base))
+        .json(&search)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let hits = body["records"]
+        .as_array()
+        .expect("records array in search response");
+    assert!(
+        !hits.is_empty(),
+        "text search must hit on fresh DB without manual rebuild: {body}"
+    );
+}

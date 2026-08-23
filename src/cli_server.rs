@@ -1790,6 +1790,21 @@ pub async fn run(config: VantaConfig) -> Result<()> {
         conversation_trigger: None,
     });
 
+    // MOD-12 (MCP-01 twin): a raw StorageEngine skips the
+    // `VantaEmbedded::open_with_config` index reconciliation, so lexical/hybrid
+    // searches fail on fresh DBs with "text_index not found". Ensure index
+    // state at startup: idempotent — no-op when counts match, writes fresh
+    // empty state for new DBs. Read-only engines cannot rebuild, so they are
+    // skipped (same guard as `open_with_config`).
+    if !config.read_only {
+        if let Err(e) = state.db.ensure_indexes_current() {
+            console::error(
+                "Failed to ensure index state at startup; text search may be unavailable",
+                Some(&e.to_string()),
+            );
+        }
+    }
+
     let rpm = config.rate_limit_rpm;
     let router = app_with_cors(state, rpm, &config.allowed_origins);
     let router = mount_dashboard(router, config.dashboard_dir.as_deref());
