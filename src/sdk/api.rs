@@ -1634,12 +1634,22 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
         let commit_interval = self.config.bulk_commit_interval.unwrap_or(10_000);
         let mut batches = 0usize;
+        let imported_at_ms = now_ms();
 
         for chunk in records.chunks(commit_interval) {
             for input in chunk {
                 let node_id = memory_node_id(&input.namespace, &input.key);
                 let mut node = UnifiedNode::new(node_id);
-                node.set_field("payload", FieldValue::String(input.payload.clone()));
+                // Reserved fields (MCP-28): mirror `memory_record_to_node_owned`
+                // so bulk-imported records are addressable via get/list/delete.
+                // Without these, `memory_record_from_node` returns None and the
+                // record is invisible to the memory API.
+                node.set_field(FIELD_NAMESPACE, FieldValue::String(input.namespace.clone()));
+                node.set_field(FIELD_KEY, FieldValue::String(input.key.clone()));
+                node.set_field(FIELD_PAYLOAD, FieldValue::String(input.payload.clone()));
+                node.set_field(FIELD_CREATED_AT_MS, FieldValue::Int(imported_at_ms as i64));
+                node.set_field(FIELD_UPDATED_AT_MS, FieldValue::Int(imported_at_ms as i64));
+                node.set_field(FIELD_VERSION, FieldValue::Int(1));
                 if let Some(ref v) = input.vector {
                     node.vector = VectorRepresentations::Full(v.clone());
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
@@ -2330,6 +2340,53 @@ mod tests {
         let mut cursor = std::io::Cursor::new(&buf);
         let err = e.bulk_import_stream(&mut cursor).unwrap_err();
         assert!(err.to_string().contains("count"), "got: {:?}", err);
+    }
+
+    #[test]
+    fn test_bulk_import_roundtrip_addressable_via_memory_get() {
+        // MCP-28: bulk-imported records must carry the reserved __vanta_*
+        // fields so they are addressable via get/list/delete like put() records.
+        let e = make_embedded_real();
+        let inputs = vec![
+            VantaMemoryInput {
+                namespace: "bulk_ns".into(),
+                key: "k1".into(),
+                payload: "payload one".into(),
+                metadata: VantaMemoryMetadata::new(),
+                vector: Some(vec![1.0, 0.0]),
+                sparse_vector: None,
+                ttl_ms: None,
+            },
+            VantaMemoryInput {
+                namespace: "bulk_ns".into(),
+                key: "k2".into(),
+                payload: "payload two".into(),
+                metadata: VantaMemoryMetadata::new(),
+                vector: None,
+                sparse_vector: None,
+                ttl_ms: None,
+            },
+        ];
+
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"VDBJSON\n");
+        buf.push(0x01);
+        buf.extend_from_slice(&(inputs.len() as u64).to_le_bytes());
+        buf.extend_from_slice(&serde_json::to_vec(&inputs).unwrap());
+
+        let mut cursor = std::io::Cursor::new(&buf);
+        let report = e.bulk_import_stream(&mut cursor).unwrap();
+        assert_eq!(report.total_records, 2);
+        assert_eq!(report.batches_committed, 1);
+
+        for input in &inputs {
+            let rec = e
+                .get(&input.namespace, &input.key)
+                .expect("get succeeds")
+                .expect("record found via memory_get");
+            assert_eq!(rec.payload, input.payload);
+            assert_eq!(rec.version, 1);
+        }
     }
 
     // ── ADR-028 supersede ──

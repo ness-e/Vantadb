@@ -319,7 +319,7 @@ Notes:
 **bulk_import_stream** - Bulk-imports from inline content
 - Parameters: `content` (NDJSON — one `VantaMemoryInput` per line — or raw `.vdbdump` payload starting with the `VDBJSON` magic; max 10 MB per call)
 - Returns: same `BulkImportReport`
-- Caveat: the underlying SDK bulk path writes raw engine nodes without internal record fields, so imported records are NOT addressable via `memory_get`/`memory_list` — use search/scan paths (pre-existing SDK limitation, tracked in Backlog)
+- Note: writes the reserved `__vanta_*` record fields (MCP-28), so imported records ARE addressable via `memory_get`/`memory_list`/`memory_delete` like `put()` records
 
 ## Response Envelope
 
