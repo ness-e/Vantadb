@@ -1,6 +1,7 @@
 # Plan de Ejecución: Gobernanza Documental — corrección integral post-auditoría
 
 > **Campaign ID: 25511c4f-042b-4e94-baf1-a91eee779a68
+> **Campaign ID:** 02458906-9821-49fe-92e3-dda9c57c738b
 > **Inicio:** 2026-08-22
 > **Estado: completed
 > **Fuente:** `docs/reviews/auditoria-documentacion-2026-08-21.md` (Volumen I+II+Addendum) + decisiones del owner D1-D14 + respuestas de confirmación T0.x/T1.x/T3.x/T4.x/T6.x/T7.x registradas en §"Plan de Revisión" del informe.
