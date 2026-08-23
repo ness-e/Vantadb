@@ -61,6 +61,10 @@ Todos los items P1 originales resueltos/deferidos en campañas anteriores.
 
 `COMP-001` (SQ8/PQ), `COMP-002` (HNSW persist), `COMP-003` (in-filter), `COMP-004` (bitset), `COMP-005` (params), `COMP-006` (Edge Label Interning), `COMP-007` (inline u128), `COMP-010` (auto-embedding), `COMP-011` (CRUD tombstones), `COMP-015` (hybrid pipeline), `COMP-018` (Double-linked chains), `COMP-020` (RRF fusion), `COMP-030` (survival mode).
 
+### P16 — Security gaps (1 removido como STALE)
+
+- `AUD-036` — **STALE / falso positivo** (2026-08-13). El finding apuntaba a `src/schema.rs:255,263` (`let _ = std::fs::create_dir_all/remove_dir_all`), pero ambas líneas están dentro de `#[cfg(test)] mod tests` (setup/cleanup de test — idiomático ignorar). El código de producción (`read_from`, `write_to`, `load_or_create_schema`, `check_schema_compatibility`) propaga TODOS los errores fs con `map_err` + `?`, y todos los callers (`src/storage/engine/init.rs:259,266`, `src/migration.rs:342`, `src/cli_handlers/migrate.rs:167,181,206`) propagan con `?`. Sin fix aplicable. Evidencia grep en task file `.opencode/skills/campaign-executor/tasks/AUD-036.md`.
+
 ## Historial de verificación del catálogo
 
 - **2026-07-27:** vanta-lead ejecutó 8 tareas de P5/P6/P8.
@@ -138,3 +142,27 @@ IDs eliminados por area:
 - **Otros sin ubicacion por fase:** `GFI-01` (18 Good first issues creados en GitHub #118-#145), `SDK-02` (`similar_to_key()` ✅ 2026-07-31), `SDK-04` (`search_multi`/`search_all` ✅ 2026-07-31).
 
 Nota de integridad: filas eliminadas sin entrada en docs/progreso/README.md (fases cerradas por blockquote P2/P3/P7, items reference-only) pasan al historico aqui; fuente canonica para re-auditar: docs/audit-reports/* + secciones por fase de este archivo.
+
+## Archivado DESKTOP 2026-08-20 (10 tareas obsoletas por dirección P26 Vanta Studio)
+
+Acción: se eliminaron del catálogo activo (docs/Backlog.md Phase 12) las tareas del modelo "app multi-connection con 6 vías" que P26 Vanta Studio (Fases 0-4 ✅, completada 2026-08-20) reemplazó por un modelo de **transporte pluggable** (nativa embebida / HTTP `/api/v2/*` / WASM-OPFS standalone). `ConnectionSelector.tsx` ya había sido eliminado deliberadamente en ADMIN-03 (commit `847ab080`). El header del Phase 12 y las filas re-scopeadas (DESKTOP-23/26/27) + priorizadas (24/25) documentan el estado nuevo.
+
+IDs archivados y por qué:
+
+- **DESKTOP-12/13/14 (cliente rmcp / McpConnection / UI MCP)** — obsoletas: el motor está embebido (`vantadb` path `../..` en `desktop/src-tauri/Cargo.toml`); conectar la UI vía MCP stdio duplicaría la misma DB (regla 1-escritor por path → `VantaError::Lock`). `McpSpawn` (DESKTOP-11) ya existe solo como sidecar del server, no como vía UI.
+- **DESKTOP-15/16/17/18 (drivers/connections Node + Python)** — obsoletas: ya deferidas en scoping 2026-08-05 (valor marginal, empaquetado frágil); F4 WASM/OPFS las supera como vía alternativa; Tauri no puede `require()` napi.
+- **DESKTOP-19 (ConnectionManager completo: path_holders, capability gate, routing por id)** — obsoleta parcial: `ConnectionManager` ya existe (DESKTOP-06: registry HashMap + active_id + 14 métodos, commit `9d2d5319`); el lock de path ya lo da `NativeConnection` (DESKTOP-05 → `VantaError::Lock`); el resto era dead weight sin UI multi-connection.
+- **DESKTOP-21 (UI multi-connection)** — obsoleta: contradice ADMIN-03 (`ConnectionSelector.tsx` eliminado, commit `847ab080`); el Studio es single-connection con transporte pluggable.
+- **DESKTOP-22 (Eventos Tauri streaming)** — obsoleta: progreso de import ya cubierto por F2 (ImportDrop); SSE quedó "sin asignar" en la DEFER table del plan F4 (`docs/plans/archive/2026-08-19-vanta-studio-fase4.md`).
+
+Re-scopeadas (siguen en catálogo, alcance ajustado al modelo Studio):
+
+- **DESKTOP-23** → persistencia de preferencias UI (tema/layout/lentes/filtros), no "vías guardadas".
+- **DESKTOP-26** → tests frontend del Studio (vitest, hoy no configurado); Rust ya tiene tests.
+- **DESKTOP-27** → docs + ADR del modelo real (transporte pluggable; ADR-026/027/028 ya existen), no multi-connection 6 vías.
+
+Priorizadas:
+
+- **DESKTOP-24** (empaquetado NSIS/MSI) y **DESKTOP-25** (CI GitHub Actions desktop) → quedan como pendientes 🟡 del desktop, para ejecutar cuando se abra el plan de packaging.
+
+Sin eliminar del catálogo: DESKTOP-20 ✅ (shutdown_all, `45f8bed8`), ADMIN-01..09 ✅ (consola admin), DESKTOP-02..11 ✅ (migrados a docs/progreso/README.md en la limpieza 2026-08-07).
