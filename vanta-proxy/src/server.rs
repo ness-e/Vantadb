@@ -21,10 +21,16 @@ use crate::forward::Forwarder;
 use crate::handlers;
 use crate::inject::{self, Protocol};
 use crate::mem_command;
+use crate::memory_tools;
 use crate::rate_limit::{self, RateDecision, RateLimiter};
 use crate::report::{model_from_body, now_ms_u64, Reporter, TurnReport, TurnTimer};
 use crate::session::{session_key_from_headers, SessionStore};
+use crate::sse_intercept;
 use crate::writeback::WriteBack;
+
+/// Hard iteration cap of the agentic memory-tool loop (D48): at most 3
+/// tool-execution rounds per client request (so at most 4 upstream forwards).
+const MAX_MEMORY_TOOL_ITERATIONS: usize = 3;
 
 /// Shared application state.
 #[derive(Clone)]
@@ -173,7 +179,8 @@ impl AppState {
             Err(e) => return e.into_response(),
         };
 
-        self.forward_raw(wire_path, headers, body).await
+        self.forward_with_tool_loop(protocol, wire_path, headers, body, space_id, &key, model)
+            .await
     }
 
     /// D47: single L0 write path — track the conversation turn through
@@ -221,6 +228,111 @@ impl AppState {
             )
             .await
             .unwrap_or_else(IntoResponse::into_response)
+    }
+
+    /// O2 agentic loop (D46/D48): forward, buffer the upstream SSE response,
+    /// and while it invokes one of OUR memory tools, execute them server-side
+    /// and re-request with synthesized tool results appended. Only the FINAL
+    /// response reaches the client. Everything else (non-SSE, errors, bodies
+    /// without our tools, Responses protocol) forwards verbatim.
+    ///
+    /// Trade-off accepted by design D46: turns where our tools are announced
+    /// lose incremental streaming for buffered rounds.
+    async fn forward_with_tool_loop(
+        &self,
+        protocol: Protocol,
+        wire_path: &str,
+        headers: &HeaderMap,
+        body: Bytes,
+        space_id: &str,
+        session_key: &str,
+        model: &str,
+    ) -> Response<Body> {
+        // Zero-overhead gate: only OpenAI/Anthropic shapes with our tools
+        // announced pay for interception; everything else is byte-identical
+        // passthrough.
+        if !matches!(protocol, Protocol::OpenAI | Protocol::Anthropic)
+            || !memory_tools::announces(&body)
+        {
+            return self.forward_raw(wire_path, headers, body).await;
+        }
+        let protocol_label = protocol_name(protocol);
+        let mut current = body;
+        let mut executed = 0usize;
+        loop {
+            let response = self
+                .forwarder
+                .forward(
+                    &self.config.upstream,
+                    Method::POST,
+                    wire_path,
+                    headers,
+                    current.clone(),
+                )
+                .await;
+            let (parts, body) = match response {
+                Ok(response) => response.into_parts(),
+                Err(e) => return e.into_response(),
+            };
+            // Only successful SSE responses are interceptable; anything else
+            // flows through untouched.
+            let is_sse = parts
+                .headers
+                .get(sse_intercept::http::header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .is_some_and(|v| v.starts_with("text/event-stream"));
+            if !parts.status.is_success() || !is_sse {
+                return Response::from_parts(parts, body);
+            }
+
+            let captured = match sse_intercept::drain(body).await {
+                Ok(captured) => captured,
+                Err(e) => return e.into_response(),
+            };
+            let events = sse_intercept::data_events(&captured.full);
+            let message = match protocol {
+                Protocol::OpenAI | Protocol::Responses => sse_intercept::openai_message(&events),
+                Protocol::Anthropic => sse_intercept::anthropic_message(&events),
+            };
+            let calls = memory_tools::extract(&message);
+            // No memory tool this round → final response. Cap reached → hand
+            // the last response back verbatim (D48 hard stop).
+            if calls.is_empty() || executed >= MAX_MEMORY_TOOL_ITERATIONS {
+                tracing::debug!(
+                    executed,
+                    remaining_calls = calls.len(),
+                    "memory-tool loop finished"
+                );
+                return sse_intercept::replay(parts, captured.chunks);
+            }
+
+            // Unparseable current body → cannot rebuild history; replay.
+            let Ok(mut request) = serde_json::from_slice::<serde_json::Value>(current.as_ref())
+            else {
+                return sse_intercept::replay(parts, captured.chunks);
+            };
+            let results: Vec<(String, String)> = calls
+                .iter()
+                .map(|call| {
+                    let text = memory_tools::execute(
+                        &self.memory,
+                        &self.writeback,
+                        session_key,
+                        protocol_label,
+                        space_id,
+                        model,
+                        call,
+                    );
+                    (call.id.clone(), text)
+                })
+                .collect();
+            executed += 1;
+            memory_tools::append_exchange(protocol, &mut request, &message, &results);
+            current = match serde_json::to_vec(&request) {
+                Ok(bytes) => Bytes::from(bytes),
+                Err(_) => return sse_intercept::replay(parts, captured.chunks),
+            };
+        }
     }
 }
 

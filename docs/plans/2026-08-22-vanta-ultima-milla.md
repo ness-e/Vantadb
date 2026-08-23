@@ -1,9 +1,8 @@
 # Plan de Ejecución: Vanta Última Milla — integración producto end-to-end
 
-> **Campaign ID: 2b31b4d5-551f-499a-b648-3c995207db3e
 > **Campaign ID:** 30802a09-b1e3-4ffe-96cb-9c432b3f5250
 > **Inicio:** 2026-08-22
-> **Estado: completed
+> **Estado:** ⏳ EN PROGRESO (2/10 tareas)
 > **Fuente:** auditoría de integración final (`docs/reviews/2026-08-22-auditoria-integracion-final.md`) + decisiones del usuario (2026-08-22)
 > **Predecesores:** P27+P29+P30+P31+P32 ✅ (54 tareas) — roadmap TDAM 100% + bindings
 > **Modo:** waves por dependencias. Sin release durante la campaña (decisión usuario).
@@ -37,7 +36,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Archivos clave:** `vanta-proxy/src/handlers/{openai,anthropic,responses}.rs` (editar), `writeback.rs` (API si falta)
 - **Verificación real:** ✅ AUDITORÍA — WriteBack construido+flusheado pero cero llamadas track() (auditoría H1)
 - **Gate Result:** ✅ DO
-- **Contrato: cargo check -p vanta-proxy --all-targets pasa; tests D19 — evidencia: cargo test vanta-proxy 57/57 passed (42 lib + 5 pipeline + 10 wire), fmt/clippy --all-targets exit 0; commit 1b88776c. NOTA: nextest -p roto por BND-06 (regresión GOV-C1) → verificación vía cargo test
+- **Contrato: verificacion: cargo check -p vanta-proxy --all-targets ✅ 0; cargo test -p vanta-proxy ✅ 73/73 (53 lib + 5 pipeline + 10 wire + 5 tool_loop); cargo fmt -p vanta-proxy --check ✅; cargo clippy -p vanta-proxy --all-targets --no-deps -- -D warnings ✅ 0. evidencia: claim=loop agéntico ejecuta capture server-side vía D47 → test a_openai_capture (persistencia en proxy-turns por polling); claim=search recall síncrono con tool_result estándar Anthropic → test b_anthropic_search; claim=passthrough byte-identical sin session/tools → test c_without_our_tools; claim=cap duro D48 = exactamente 4 forwards y replay verbatim del último → test d_iteration_cap; claim=streaming final intacto → test e_final_response_streaming. artefactos: vanta-proxy/src/{sse_intercept.rs,memory_tools.rs}, vanta-proxy/src/server.rs, vanta-proxy/tests/tool_loop.rs, vanta-proxy/src/lib.rs, vanta-proxy/Cargo.toml. invariantes: NO tocar core/wal/vector/storage (respetado); passthrough byte-identical como gate permanente; cap 3 iteraciones D48; capture SOLO vía WriteBack::track D47. deuda: protocolo Responses pasa sin interceptor (techo documentado); tool_calls no-memory mezcladas en un turno se preservan en historial sin resultado sintetizado; streaming incremental se pierde solo en turns con nuestras tools anunciadas (trade-off D46). queda_pendiente: lead commitea (regla worker no commitea)
 - **Risk Register:** 🟢×🟠 extraer user-text del request puede necesitar MEM-57 parcial → implementar extracción mínima inline, refinar con Task 8
 - **Cynefin:** 🟦 obvio
 - **Estado:** ✅ COMPLETED
@@ -61,7 +60,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
   | 🟡×🟡 | tool_result sintético confunde al modelo | formato estándar OpenAI/Anthropic tool_result | revisión prompt |
 - **Cynefin:** 🟧 complejo — probe-sense-respond, steps cortos
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 5 steps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-51.md`
 - **Notas:** Ruta: vanta-worker. DEPENDE de Task 1 (WriteBack::track para capture).
 
@@ -185,11 +184,11 @@ Verify del lead SIEMPRE `--all-targets` (lección MEM-48) · SARL con feedback e
 
 === RECITATION ===
 Campaign ID: (pendiente MCP)
-Objetivo activo: P33 Última Milla — integración producto end-to-end
+Objetivo activo: MEM-51 H2/O2 interceptor de stream con loop agéntico de memory-tools
 Estado: pending ⏳
-Última acción: MEM-50 write-back wired: AppState::capture_turn en server.rs::process() tras forward 2xx — extrae user-text (capture::last_user_text reusando mem_command::extract_text pub(crate)) y encola vía WriteBack único camino D47; fire-and-forget con retry 3x backoff + pending persistido
+Última acción: Implementados sse_intercept.rs + memory_tools.rs, integrados en server.rs (forward_with_tool_loop, cap D48), tests D19 a-e verdes, verify completo exit 0. Sin commit por regla explícita
 Resultado: OK
-Próxima acción: Delegar MEM-51 (Task 2, H2/O2 interceptor stream agéntico — 🔴 3d, la tarea más grande de la campaña) a vanta-worker
+Próxima acción: Orquestador: commit 'feat: MEM-51 — H2/O2 agentic memory-tool loop' y delegar Task 3 (MEM-52 fachada wiki)
 Contrato: por tarea — cargo check/nextest/fmt/clippy --all-targets del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 2
+Próxima tarea si completa: 3
 === END RECITATION ===

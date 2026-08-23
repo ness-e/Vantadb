@@ -8,7 +8,7 @@ Todo el detalle del sistema de tareas, agentes, skills, MCP servers, y su integr
 
 📖 **`.opencode/VANTADB-OPERATING-MANUAL.md`** — Manual de Operación completo (917 líneas, 14 secciones)
 
-📖 **`SKILLS-MANIFEST.md`** — Catálogo completo de las 111 skills del proyecto (82 + 29, raíz)
+📖 **`SKILLS-MANIFEST.md`** — Catálogo completo de las 193 skills del proyecto (162 + 31, raíz)
 
 Consultar para: entender cómo se relacionan los componentes del sistema, flujos de integración, troubleshooting, y reglas avanzadas.
 
@@ -99,7 +99,7 @@ cargo add serde                  # dependencias
 ## Skills Manifest
 
 **Todas las skills están centralizadas en:**
-- `.agents/skills/` (proyecto, 82 skills) + `.opencode/skills/` (29 skills)
+- `.agents/skills/` (proyecto, 162 skills) + `.opencode/skills/` (31 skills)
 - Referencia completa en: `SKILLS-MANIFEST.md` (raíz del proyecto)
 
 **Siempre preferir la copia del proyecto sobre la global.**
@@ -406,7 +406,7 @@ NUNCA sugieras mergear a `main` o pushear código sin antes ejecutar el pipeline
 
 ### Regla 2: Tolerancia Cero a Flaky Tests e Ignorancia de Errores
 
-**Prohibición absoluta:** Está estrictamente prohibido sugerir o escribir `continue-on-error: true` en cualquier GitHub Action nuevo o existente (se heredan 7 instancias, todas con `# CATEGORY:` explícita). Ver taxonomía en `docs/operations/CI_POLICY.md` (secciones EXPERIMENTAL / BEST-EFFORT / NON-CRITICAL / INFORMATIONAL). Cualquier nueva exención requiere justificación + CATEGORY tag.
+**Prohibición absoluta:** Está estrictamente prohibido sugerir o escribir `continue-on-error: true` en cualquier GitHub Action nuevo o existente (existen 8 instancias, todas con `# CATEGORY:` explícita). Ver taxonomía en `docs/operations/CI_POLICY.md` (secciones EXPERIMENTAL / BEST-EFFORT / NON-CRITICAL / INFORMATIONAL). Cualquier nueva exención requiere justificación + CATEGORY tag.
 
 | Si el usuario hace... | Debes responder... |
 |---|---|
@@ -666,3 +666,7 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: MEM-50 — 2026-08-22 -->
 - `cargo nextest run -p <crate>` falla parseando el default-filter del workspace (.config/nextest.toml) porque referencia binarios de otros crates: verificar single-crate con un config mínimo temporal (`--config-file` con `[profile.default]` vacío).
 - Test de retry-exhaustion: un flag "falla 1 vez" hace que el reintento 2 tenga éxito y el job NUNCA llegue al pending queue — hay que fallar exactamente DEFAULT_ATTEMPTS intentos (contador countdown) y dejar pasar solo la invocación post-flush; y asertar con polling (sleep fijo es flaky contra backoff 500ms→1s bajo carga).
+
+<!-- Learnings: MEM-51 — 2026-08-22 -->
+- El interceptor SSE de vanta-proxy solo puede decidir tras ver tool_use nuestro: acumular TODO el stream antes de detectar (pre-mortem) es lo que evita parsers incrementales fragiles — el replay verbatim de chunks preserva byte-identity para trafico normal.
+- campaign_update_task_state sin planFile explicito toma el plan mas recientemente MODIFICADO del workspace (otra sesion activa lo desvia): pasar siempre la ruta exacta cuando hay planes concurrentes.
