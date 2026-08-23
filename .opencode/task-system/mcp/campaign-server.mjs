@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod"
-import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, rmSync, appendFileSync, openSync, writeSync, closeSync, renameSync } from "node:fs"
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, rmSync, appendFileSync, mkdirSync, openSync, writeSync, closeSync, renameSync } from "node:fs"
 import { fileURLToPath } from "url"
 import { resolve, join, dirname } from "node:path"
 import { execSync } from "node:child_process"
@@ -9,7 +9,7 @@ import { randomUUID, createHash } from "node:crypto"
 import { emit as traceEmit, getHealth } from "../traces/tracer.mjs"
 import { getTraits, listModels, escalateTier, tierForModel, TIERS } from "../config/model-traits.mjs"
 import { STATE_TOOLS, getAllowedTools, validateAction } from "../config/state-tools.mjs"
-import { parseTasks, parseRecitation, getOrCreateCampaignId, updateState, updateRecitation } from "./parsers.mjs"
+import { parseTasks, parseRecitation, getOrCreateCampaignId, extractCampaignId, updateState, updateRecitation } from "./parsers.mjs"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -53,20 +53,30 @@ function countGateResults(content) {
 
 // Escanea tareas activas (in-progress): plan files en docs/plans/ (task blocks
 // con `- **Estado:**` = IN PROGRESS/in-progress) + task files en tasks/.
-function findInProgressTasks(worktree) {
+// TTL: un IN PROGRESS sin actividad > staleMinutes (budget.lastActivity para
+// tareas de plan; mtime para task files) NO bloquea claims nuevos — se devuelve
+// como propiedad `stale` del array retornado (crash residual no deadlocka el pipeline).
+function findInProgressTasks(worktree, staleMinutes = 1440) {
   const active = []
+  const stale = []
   const opencodeRoot = resolve(worktree, ".opencode")
+  const isStale = lastActivityMs => !lastActivityMs || (Date.now() - lastActivityMs) / 60000 > staleMinutes
 
   // 1) Plan files en docs/plans/.
   const planDir = join(worktree, "docs", "plans")
   if (existsSync(planDir)) {
     for (const f of readdirSync(planDir).filter(f => f.endsWith(".md"))) {
       try {
-        const content = readFileSync(join(planDir, f), "utf-8")
+        const fp = join(planDir, f)
+        const content = readFileSync(fp, "utf-8")
+        const bp = fp.replace(/\.md$/, ".budget.json")
+        let budgetTasks = null
+        try { budgetTasks = JSON.parse(readFileSync(bp, "utf-8")).tasks } catch {}
         for (const t of parseTasks(content)) {
-          if (t.state === "⏳ IN PROGRESS") {
-            active.push({ id: t.id, name: t.name, state: "in-progress", source: `docs/plans/${f}` })
-          }
+          if (t.state !== "⏳ IN PROGRESS") continue
+          const entry = { id: t.id, name: t.name, state: "in-progress", source: `docs/plans/${f}` }
+          if (isStale(budgetTasks?.[t.id]?.lastActivity ?? statSync(fp).mtimeMs)) stale.push(entry)
+          else active.push(entry)
         }
       } catch {}
     }
@@ -79,14 +89,18 @@ function findInProgressTasks(worktree) {
     if (!existsSync(dir)) continue
     for (const f of readdirSync(dir).filter(f => f.endsWith(".md"))) {
       try {
-        const content = readFileSync(join(dir, f), "utf-8")
+        const fp = join(dir, f)
+        const content = readFileSync(fp, "utf-8")
         if (/-\s*\*\*Estado:\*\*\s*(IN PROGRESS|in-progress|⏳)/i.test(content)) {
-          active.push({ id: f.replace(/\.md$/, ""), name: f, state: "in-progress", source: sub ? `tasks/${sub}/${f}` : `tasks/${f}` })
+          const entry = { id: f.replace(/\.md$/, ""), name: f, state: "in-progress", source: sub ? `tasks/${sub}/${f}` : `tasks/${f}` }
+          if (isStale(statSync(fp).mtimeMs)) stale.push(entry)
+          else active.push(entry)
         }
       } catch {}
     }
   }
 
+  active.stale = stale
   return active
 }
 
@@ -193,7 +207,7 @@ function writeBudget(planPath, state) {
   writeFileSync(planPath.replace(/\.md$/, ".budget.json"), JSON.stringify(clean, null, 2), "utf-8")
 }
 
-function initTaskBudget(planPath, taskId) {
+function initTaskBudgetUnlocked(planPath, taskId) {
   const state = readBudget(planPath)
   if (!state.tasks[taskId]) {
     state.tasks[taskId] = { taskId, toolCalls: 0, subAgentCalls: 0, consecutiveFails: 0, startTime: Date.now(), lastActivity: Date.now() }
@@ -203,21 +217,30 @@ function initTaskBudget(planPath, taskId) {
   return state.tasks[taskId]
 }
 
+// RMW del budget SIEMPRE bajo plan lock: sin esto, dos instancias en paralelo
+// pierden incrementos (last-writer-wins) y los hard limits dejan de ser límites.
+// Las variantes *_Unlocked son SOLO para callers que YA sostienen el lock.
+function initTaskBudget(planPath, taskId) {
+  return withPlanLock(planPath, () => initTaskBudgetUnlocked(planPath, taskId))
+}
+
 function consumeBudget(taskId, worktree) {
   const planPath = findPlanFile(worktree)
   if (!planPath) return null
-  let state = readBudget(planPath)
-  if (!state.tasks[taskId]) {
-    initTaskBudget(planPath, taskId)
-    state = readBudget(planPath) // re-read: initTaskBudget escribe un budget fresco (recupera corrupción)
-  }
-  const t = state.tasks[taskId]
-  t.toolCalls++
-  t.lastActivity = Date.now()
-  const elapsed = (t.lastActivity - t.startTime) / 60000
-  const withinBudget = t.toolCalls <= BUDGET_LIMITS.maxToolCalls && elapsed <= BUDGET_LIMITS.maxDurationMinutes && t.consecutiveFails <= BUDGET_LIMITS.maxConsecutiveFails
-  writeBudget(planPath, state)
-  return { withinBudget, toolCalls: t.toolCalls, consecutiveFails: t.consecutiveFails, elapsedMinutes: Math.round(elapsed), limits: BUDGET_LIMITS, budgetCorrupted: !!state.budgetCorrupted }
+  return withPlanLock(planPath, () => {
+    let state = readBudget(planPath)
+    if (!state.tasks[taskId]) {
+      initTaskBudgetUnlocked(planPath, taskId)
+      state = readBudget(planPath) // re-read: initTaskBudget escribe un budget fresco (recupera corrupción)
+    }
+    const t = state.tasks[taskId]
+    t.toolCalls++
+    t.lastActivity = Date.now()
+    const elapsed = (t.lastActivity - t.startTime) / 60000
+    const withinBudget = t.toolCalls <= BUDGET_LIMITS.maxToolCalls && elapsed <= BUDGET_LIMITS.maxDurationMinutes && t.consecutiveFails <= BUDGET_LIMITS.maxConsecutiveFails
+    writeBudget(planPath, state)
+    return { withinBudget, toolCalls: t.toolCalls, consecutiveFails: t.consecutiveFails, elapsedMinutes: Math.round(elapsed), limits: BUDGET_LIMITS, budgetCorrupted: !!state.budgetCorrupted }
+  })
 }
 
 function budgetStatus(taskId, worktree) {
@@ -239,10 +262,12 @@ function budgetStatus(taskId, worktree) {
 function budgetReset(taskId, worktree) {
   const planPath = findPlanFile(worktree)
   if (!planPath) return null
-  const state = readBudget(planPath)
-  delete state.tasks[taskId]
-  writeBudget(planPath, state)
-  return { reset: true }
+  return withPlanLock(planPath, () => {
+    const state = readBudget(planPath)
+    delete state.tasks[taskId]
+    writeBudget(planPath, state)
+    return { reset: true }
+  })
 }
 
 // ---------- P2-05: Trace ID por tarea ----------
@@ -256,7 +281,8 @@ function budgetReset(taskId, worktree) {
 const traceIdByTask = new Map()
 
 function getOrCreateTraceId(planPath, taskId) {
-  initTaskBudget(planPath, taskId)
+  // Caller debe sostener el plan lock (hoy: updateTaskStateCore) — usa la variante Unlocked.
+  initTaskBudgetUnlocked(planPath, taskId)
   const state = readBudget(planPath)
   const t = state.tasks[taskId]
   if (!t.traceId) {
@@ -307,12 +333,17 @@ server.tool(
     const planPath = resolvePlan(planFile, worktree)
     if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ error: "No plan file found in docs/plans/" }) }] }
 
+    // Campaign ID write-on-read atómico: sin lock, dos instancias pueden pisar
+    // el write y desincronizar el mtime que findPlanFile usa como "más reciente".
     let content = readFileSync(planPath, "utf-8")
-    const { campaignId, content: updatedContent } = getOrCreateCampaignId(content)
-    if (updatedContent !== content) {
+    const locked = withPlanLock(planPath, () => {
+      const { campaignId, content: updatedContent } = getOrCreateCampaignId(content)
+      if (updatedContent === content) return { content }
       writeFileSync(planPath, updatedContent, "utf-8")
-      content = updatedContent
-    }
+      return { content: updatedContent, campaignId }
+    })
+    content = locked.content
+    const campaignId = locked.campaignId ?? extractCampaignId(content)
     const tasks = parseTasks(content)
     const pending = tasks.filter(t => t.state === "⬜ PENDING" || t.state === "⏳ IN PROGRESS")
     const completed = tasks.filter(t => t.state === "✅ COMPLETED").length
@@ -360,6 +391,26 @@ server.tool(
   },
 )
 
+// Consumo de un recurso de budget atómico bajo plan lock (antes: RMW sin lock,
+// perdía incrementos con 2+ instancias en paralelo).
+function bumpBudget(planPath, taskId, resource) {
+  return withPlanLock(planPath, () => {
+    // TSYS-06 C3/C7: capturar corrupción ANTES de que initTaskBudget la recupere silenciosamente.
+    const budgetCorrupted = !!readBudget(planPath).budgetCorrupted
+    initTaskBudgetUnlocked(planPath, taskId)
+    const state = readBudget(planPath)
+    const t = state.tasks[taskId]
+    if (resource === "tool_call") t.toolCalls++
+    else if (resource === "sub_agent") t.subAgentCalls++
+    else if (resource === "fail") t.consecutiveFails++
+    t.lastActivity = Date.now()
+    writeBudget(planPath, state)
+    const elapsed = (t.lastActivity - t.startTime) / 60000
+    const withinBudget = t.toolCalls <= BUDGET_LIMITS.maxToolCalls && elapsed <= BUDGET_LIMITS.maxDurationMinutes && t.consecutiveFails <= BUDGET_LIMITS.maxConsecutiveFails
+    return { consumed: resource, taskId, toolCalls: t.toolCalls, subAgentCalls: t.subAgentCalls, consecutiveFails: t.consecutiveFails, withinBudget, limits: BUDGET_LIMITS, budgetCorrupted }
+  })
+}
+
 server.tool(
   "campaign_budget_consume",
   {
@@ -371,19 +422,13 @@ server.tool(
     const worktree = PROJECT_ROOT
     const planPath = resolvePlan(planFile, worktree)
     if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ error: "No plan file found" }) }] }
-    // TSYS-06 C3/C7: capturar corrupción ANTES de que initTaskBudget la recupere silenciosamente.
-    const budgetCorrupted = !!readBudget(planPath).budgetCorrupted
-    initTaskBudget(planPath, taskId)
-    const state = readBudget(planPath)
-    const t = state.tasks[taskId]
-    if (resource === "tool_call") t.toolCalls++
-    else if (resource === "sub_agent") t.subAgentCalls++
-    else if (resource === "fail") t.consecutiveFails++
-    t.lastActivity = Date.now()
-    writeBudget(planPath, state)
-    const elapsed = (t.lastActivity - t.startTime) / 60000
-    const withinBudget = t.toolCalls <= BUDGET_LIMITS.maxToolCalls && elapsed <= BUDGET_LIMITS.maxDurationMinutes && t.consecutiveFails <= BUDGET_LIMITS.maxConsecutiveFails
-    return { content: [{ type: "text", text: JSON.stringify({ consumed: resource, taskId, toolCalls: t.toolCalls, consecutiveFails: t.consecutiveFails, withinBudget, limits: BUDGET_LIMITS, budgetCorrupted }) }] }
+    let result
+    try {
+      result = bumpBudget(planPath, taskId, resource)
+    } catch (e) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: `Plan lock failed: ${e.message}` }) }] }
+    }
+    return { content: [{ type: "text", text: JSON.stringify(result) }] }
   },
 )
 
@@ -632,10 +677,12 @@ export function updateTaskStateCore(planPath, taskId, newState, recitationData, 
       const active = findInProgressTasks(worktree).filter(t => t.id !== taskId)
       if (active.length > 0) {
         const list = active.map(a => `${a.id} (${a.name}) en ${a.source}`).join(", ")
+        const staleList = (active.stale || []).map(a => `${a.id} en ${a.source}`)
         return {
           updated: false,
           error: `No se puede iniciar la tarea ${taskId}: ya hay otra tarea en progreso (${list}). Convención one-task-at-a-time: completala o cerrála antes de arrancar otra.`,
           activeTasks: active,
+          staleNotBlocking: staleList,
           wipBlocked: true,
         }
       }
@@ -840,14 +887,17 @@ server.tool(
 
 // ---------- Tool 4: campaign_detect_task_type ----------
 
+// Orden específico→genérico: `vantadb-python/src/lib.rs` debe ser python, no
+// "multi" por el fallback `/src\//`. El patrón genérico va ÚLTIMO y gana el
+// primer match. Para tareas genuinamente multi-dominio usar extraSkills.
 const TYPE_PATTERNS = [
-  { pattern: /src\//, type: "rust", label: "Rust core", skills: ["source-driven-development", "doubt-driven-development", "ponytail (full)"], checks: ["cargo check -p vantadb", "cargo fmt --check", "cargo clippy --workspace --all-targets --all-features -- -D warnings", "cargo nextest run --profile audit --workspace --build-jobs 2"] },
   { pattern: /vantadb-python\//, type: "python", label: "Python SDK", skills: ["source-driven-development"], checks: ["python -m pytest vantadb-python/tests/ -v"] },
   { pattern: /vantadb-ts\//, type: "typescript", label: "TypeScript SDK", skills: ["source-driven-development"], checks: ["npx tsc --noEmit", "npm test"] },
   { pattern: /web\/src\//, type: "frontend", label: "Web frontend", skills: ["frontend-ui-engineering", "design-taste-frontend"], checks: ["npx tsc --noEmit", "npm run lint"] },
-  { pattern: /docs\//, type: "docs", label: "Documentation", skills: ["writing-guidelines", "writing-plans"], checks: ["scripts/validate-docs-coverage.ps1"] },
   { pattern: /\.github\//, type: "devops", label: "CI/CD / DevOps", skills: ["ci-cd-and-automation", "doubt-driven-development"], checks: ["yamllint .github/"] },
   { pattern: /vantadb-server\//, type: "server", label: "HTTP server", skills: ["source-driven-development", "security-and-hardening"], checks: ["cargo check -p vantadb-server"] },
+  { pattern: /docs\//, type: "docs", label: "Documentation", skills: ["writing-guidelines", "writing-plans"], checks: ["scripts/validate-docs-coverage.ps1"] },
+  { pattern: /(^|[^a-z-])src\//, type: "rust", label: "Rust core", skills: ["source-driven-development", "doubt-driven-development", "ponytail (full)"], checks: ["cargo check -p vantadb", "cargo fmt --check", "cargo clippy --workspace --all-targets --all-features -- -D warnings", "cargo nextest run --profile audit --workspace --build-jobs 2"] },
 ]
 
 const ESTIMATE_MAP = { "🟢": { turns: "5-10", label: "Bajo" }, "🟡": { turns: "15-30", label: "Medio" }, "🔴": { turns: "30-60", label: "Alto" } }
@@ -855,20 +905,9 @@ const ESTIMATE_MAP = { "🟢": { turns: "5-10", label: "Bajo" }, "🟡": { turns
 function detectType(archivosClave) {
   if (!archivosClave || archivosClave.trim() === "") return { type: "unknown", label: "No detectable", skills: [], checks: [], estimate: null }
 
-  const matched = TYPE_PATTERNS.filter(tp => tp.pattern.test(archivosClave))
-  if (matched.length === 0) return { type: "unknown", label: "No detectable", skills: ["campaign-executor"], checks: ["cargo check -p vantadb"], estimate: null }
+  const m = TYPE_PATTERNS.find(tp => tp.pattern.test(archivosClave))
+  if (!m) return { type: "unknown", label: "No detectable", skills: ["campaign-executor"], checks: ["cargo check -p vantadb"], estimate: null }
 
-  const tiposUnicos = [...new Set(matched.map(m => m.type))]
-  if (tiposUnicos.length > 1) {
-    return {
-      type: "multi", label: `Múltiple (${tiposUnicos.join(", ")})`, typeList: tiposUnicos,
-      skills: [...new Set(matched.flatMap(m => m.skills))],
-      checks: matched.flatMap(m => m.checks),
-      estimate: { turns: "15-45", label: "Medio-Alto" },
-    }
-  }
-
-  const m = matched[0]
   const effortMatch = archivosClave.match(/[🟢🟡🔴]/)
   const estimate = effortMatch ? ESTIMATE_MAP[effortMatch[0]] : null
 
@@ -1210,9 +1249,9 @@ server.tool(
 // max_edit_lines / max_files_per_state / read-dedup / context-budget remain [SPEC] (need per-session accumulators).
 const BLOCKED_ENV_DEFAULT = ["API_KEY", "TOKEN", "SECRET", "PASSWORD", "REGISTRY_TOKEN", "AUTH"]
 const VERIFY_COMMANDS = [
-  "cargo", "just verify", "just check", "just ci", "pytest", "npm test",
-  "node --check", "git diff", "git status", "git log", "rg", "grep",
-  "Get-ChildItem", "Test-Path", "dev-tools/verify",
+  "cargo", "just verify", "just check", "just ci", "pytest", "npm test", "npm run",
+  "node --check", "node --test", "git diff", "git status", "git log", "rg", "grep",
+  "npx", "python", "Get-ChildItem", "Test-Path", "dev-tools/verify", "scripts/",
 ]
 const C0_CHECK_CONFIG = {
   PLAN: { blocked_env: BLOCKED_ENV_DEFAULT },
@@ -1503,7 +1542,7 @@ process.on('unhandledRejection', (reason) => {
 // conecta el transporte stdio (isMain guard). Al correr como server (bun/node
 // campaign-server.mjs) argv[1] == este archivo → conecta exactamente como antes.
 
-export { readBudget, writeBudget, withPlanLock, findInProgressTasks, detectConflict, sha1, consumeBudget, budgetStatus }
+export { readBudget, writeBudget, withPlanLock, findInProgressTasks, detectConflict, sha1, consumeBudget, budgetStatus, detectType, bumpBudget }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 if (isMain) {

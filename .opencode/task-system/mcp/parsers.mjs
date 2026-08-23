@@ -107,15 +107,17 @@ export function updateRecitation(content, data) {
     return content.trimEnd() + "\n\n" + rec + "\n"
   }
   let updated = content
+  // Anclados a inicio de línea (^...m): un `contract` que contenga literal
+  // "Estado:" o "Contrato:" no debe corromper campos vecinos de la recitation.
   const reps = [
-    [/Campaign ID:\s*.*/, `Campaign ID: ${data.campaignId || ""}`],
-    [/Objetivo activo:\s*.*/, `Objetivo activo: ${data.activeGoal || ""}`],
-    [/Estado:\s*.*/, `Estado: ${data.status || "in-progress"}`],
-    [/Última acción:\s*.*/, `Última acción: ${data.lastAction || ""}`],
-    [/Resultado:\s*.*/, `Resultado: ${data.result || ""}`],
-    [/Próxima acción:\s*.*/, `Próxima acción: ${data.nextAction || ""}`],
-    [/Contrato:\s*.*/, `Contrato: ${data.contract || ""}`],
-    [/Próxima tarea si completa:\s*.*/, `Próxima tarea si completa: ${data.nextTask || ""}`],
+    [/^Campaign ID:\s*.*/m, `Campaign ID: ${data.campaignId || ""}`],
+    [/^Objetivo activo:\s*.*/m, `Objetivo activo: ${data.activeGoal || ""}`],
+    [/^Estado:\s*.*/m, `Estado: ${data.status || "in-progress"}`],
+    [/^Última acción:\s*.*/m, `Última acción: ${data.lastAction || ""}`],
+    [/^Resultado:\s*.*/m, `Resultado: ${data.result || ""}`],
+    [/^Próxima acción:\s*.*/m, `Próxima acción: ${data.nextAction || ""}`],
+    [/^Contrato:\s*.*/m, `Contrato: ${data.contract || ""}`],
+    [/^Próxima tarea si completa:\s*.*/m, `Próxima tarea si completa: ${data.nextTask || ""}`],
   ]
   for (const [pat, rep] of reps) updated = updated.replace(pat, rep)
   return updated
