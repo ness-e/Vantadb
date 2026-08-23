@@ -2,16 +2,16 @@
 
 > Verified against the real SDK boundary: `src/sdk/types.rs`, `src/sdk/api.rs`, `src/sdk/builder.rs`, `src/index/graph.rs`, `src/error.rs`. Only symbols that exist in the code are documented here.
 
-## MCP Tools (33)
+## MCP Tools (37)
 
 > **This is the single source of truth for the VantaDB MCP contract.**
-> Verified against `vantadb-mcp/src/`: exactly **33 tools** = 15 core
+> Verified against `vantadb-mcp/src/`: exactly **37 tools** = 19 core
 > (`handlers/tools.rs` `base_tools`) + 6 `skill_*` (`skills.rs`) + 8 `code_*`
 > (`code.rs`) + 4 `wiki_*` (`wiki.rs`). All four sets are announced together
 > in `tools/list` via extend (`handlers/tools.rs:180-184`).
 > Last synced against code: 2026-08-22.
 
-### Core — Memory / Search / Collections / Graph / IQL (15)
+### Core — Memory / Search / Collections / Graph / IQL (19)
 
 | Tool | Purpose | Main params |
 |------|---------|-------------|
@@ -30,6 +30,10 @@
 | `collection_list` | List collections with metadata | none |
 | `collection_delete` | Delete an entire namespace/collection | `namespace`, `confirm` (must be `"yes"`) |
 | `rehydrate` | Recover shadow-archived nodes of a summary node | `summary_id` (u128 string) |
+| `export` | Backup: export records as JSONL text (single namespace or all) | `namespace` (optional; omit = all); output capped 10 MB/call |
+| `import` | Restore: import a JSONL string produced by `export` | `content` (JSONL, max 10 MB/call); returns `VantaImportReport` |
+| `bulk_import_file` | Bulk-import a binary `.vdbdump` file from the host filesystem | `path`; returns `BulkImportReport`; raw nodes not addressable via memory_get |
+| `bulk_import_stream` | Bulk-import inline NDJSON or raw `.vdbdump` payload | `content` (max 10 MB/call); returns `BulkImportReport` |
 
 Detailed behavior notes (response envelope, error channels, IQL syntax, edge cases F4–F11): see [`SKILL.md`](../SKILL.md).
 

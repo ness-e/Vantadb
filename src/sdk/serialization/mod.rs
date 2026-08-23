@@ -486,7 +486,13 @@ pub fn export_line_from_record(record: VantaMemoryRecord) -> VantaMemoryExportLi
     }
 }
 
-pub(crate) fn record_from_export_line(line: VantaMemoryExportLine) -> Result<VantaMemoryRecord> {
+/// Rebuild a `VantaMemoryRecord` from a JSONL export line, recomputing the
+/// deterministic node id (`memory_node_id(namespace, key)`). The inverse of
+/// [`export_line_from_record`] — used by import paths that receive JSONL
+/// content as a string (e.g. the MCP `import` tool) instead of a file.
+///
+/// Fails if `schema_version` is not the current export schema.
+pub fn record_from_export_line(line: VantaMemoryExportLine) -> Result<VantaMemoryRecord> {
     if line.schema_version != EXPORT_SCHEMA_VERSION {
         return Err(VantaError::ValidationError {
             field: "schema_version".into(),

@@ -10,6 +10,12 @@ use tracing::warn;
 use vantadb::executor::{ExecutionResult, Executor};
 use vantadb::storage::StorageEngine;
 
+/// MCP-17/MCP-25: stdio carries export/import payloads inline inside a single
+/// JSON-RPC message. Cap them so one tool call cannot exhaust the pipe or
+/// client memory; larger transfers go through file-based paths
+/// (`export_namespace(path, ...)` / `bulk_import_file` on the CLI or SDK).
+const MAX_TRANSFER_BYTES: usize = 10 * 1024 * 1024;
+
 // ── Tools handler ─────────────────────────────────────────────────────────
 
 /// Handle `tools/list`, returning all available MCP tool definitions.
@@ -192,6 +198,50 @@ pub fn handle_tools_list() -> Result<Value, Value> {
             "name": "compact_layout",
             "description": "Compacts the vector store file grouping nodes in BFS order from the HNSW entry point. Returns the number of bytes reclaimed.",
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "export",
+            "description": "Exports memory records as JSONL (one JSON object per line). Pass 'namespace' to export a single namespace, omit it to export all namespaces. Returns the raw JSONL as text content (max 10 MB per call). Pair with 'import' for backup/restore.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string", "description": "Optional namespace to export; omit to export all namespaces" }
+                },
+                "required": []
+            }
+        },
+        {
+            "name": "import",
+            "description": "Imports records from a JSONL string as produced by the 'export' tool (one record per line, schema_version 1). Empty lines are skipped and malformed lines are counted as errors in the returned report instead of failing the call. Max 10 MB per call.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "content": { "type": "string", "description": "JSONL content (one record per line)" }
+                },
+                "required": ["content"]
+            }
+        },
+        {
+            "name": "bulk_import_file",
+            "description": "Bulk-imports records from a binary .vdbdump file on the host filesystem (bypasses per-record validation for raw throughput). Returns a report with total_records, batches_committed, and duration_ms.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string", "description": "Absolute path to a .vdbdump file on the host running the MCP server" }
+                },
+                "required": ["path"]
+            }
+        },
+        {
+            "name": "bulk_import_stream",
+            "description": "Bulk-imports records from inline content: either NDJSON (one VantaMemoryInput per line: namespace, key, payload, optional metadata/vector/ttl_ms) or a raw .vdbdump payload starting with the VDBJSON magic. Bypasses per-record validation for raw throughput; imported nodes are raw engine entries NOT addressable via memory_get/memory_list — use search or re-export paths that scan the engine. Max 10 MB per call.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "content": { "type": "string", "description": "NDJSON content (one record per line) or raw .vdbdump payload" }
+                },
+                "required": ["content"]
+            }
         }
     ]);
     // MEM-07: six review-agent skill tools over SkillStore. Definitions live
@@ -930,6 +980,174 @@ pub fn handle_tools_call(
                     &json!({ "bytes_reclaimed": bytes }),
                 ))),
                 Err(e) => Ok(error_content(format!("Compact Layout Error: {}", e))),
+            }
+        }
+
+        // MCP-17: backup/restore via MCP — thin wrappers over the SDK JSONL
+        // serialization (export_line_from_record / record_from_export_line +
+        // import_records). Domain errors come back as Ok(error_content(...))
+        // so the LLM client can read and self-correct (MEM-32), never as a
+        // propagated JSON-RPC error.
+        "export" => {
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let namespaces: Vec<String> = match args["namespace"].as_str() {
+                Some(ns) => {
+                    validate_identifier(ns, "namespace", config.max_namespace_length)
+                        .map_err(|e| e.to_json())?;
+                    vec![ns.to_string()]
+                }
+                None => match embedded.list_namespaces() {
+                    Ok(ns) => ns,
+                    Err(e) => return Ok(error_content(format!("Export Error: {}", e))),
+                },
+            };
+
+            // ponytail: stream pages via the shared for_each_record helper
+            // (bounded memory) instead of materializing every record; abort
+            // once the JSONL exceeds the stdio transfer cap.
+            let mut jsonl = String::new();
+            let mut overflow = false;
+            for ns in &namespaces {
+                if overflow {
+                    break;
+                }
+                let streamed = for_each_record(&embedded, ns, config, |record| {
+                    if overflow {
+                        return;
+                    }
+                    if let Ok(line) = serde_json::to_string(&vantadb::sdk::export_line_from_record(
+                        record.clone(),
+                    )) {
+                        jsonl.push_str(&line);
+                        jsonl.push('\n');
+                        if jsonl.len() > MAX_TRANSFER_BYTES {
+                            overflow = true;
+                        }
+                    }
+                });
+                if let Err(e) = streamed {
+                    return Ok(error_content(format!("Export Error: {}", e)));
+                }
+            }
+            if overflow {
+                return Ok(error_content(format!(
+                    "Export exceeds maximum transfer size of {} bytes — export fewer namespaces or use the CLI/SDK file export",
+                    MAX_TRANSFER_BYTES
+                )));
+            }
+            Ok(text_content(jsonl))
+        }
+
+        "import" => {
+            let content = args["content"].as_str().ok_or_else(|| {
+                McpError::invalid_params("Missing 'content' (JSONL string)").to_json()
+            })?;
+            if content.len() > MAX_TRANSFER_BYTES {
+                return Ok(error_content(format!(
+                    "Import content exceeds maximum transfer size of {} bytes — split the payload or use import_file via the CLI/SDK",
+                    MAX_TRANSFER_BYTES
+                )));
+            }
+
+            // Same per-line semantics as the core's import_file: empty lines
+            // are skipped, malformed lines are counted as errors instead of
+            // failing the whole call. record_from_export_line recomputes the
+            // deterministic node id, which put_record_exact then validates.
+            let mut records = Vec::new();
+            let mut malformed = 0u64;
+            let mut skipped = 0u64;
+            for line in content.lines() {
+                if line.trim().is_empty() {
+                    skipped += 1;
+                    continue;
+                }
+                let parsed = serde_json::from_str::<vantadb::sdk::VantaMemoryExportLine>(line)
+                    .ok()
+                    .and_then(|l| vantadb::sdk::record_from_export_line(l).ok());
+                match parsed {
+                    Some(record) => records.push(record),
+                    None => malformed += 1,
+                }
+            }
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.import_records(records) {
+                Ok(mut report) => {
+                    report.skipped += skipped;
+                    report.errors += malformed;
+                    Ok(text_content(serialize_content(&report)))
+                }
+                Err(e) => Ok(error_content(format!("Import Error: {}", e))),
+            }
+        }
+
+        // MCP-25: bulk ingest via MCP — thin wrappers over the SDK bulk
+        // import (binary .vdbdump format, bypasses per-record validation).
+        "bulk_import_file" => {
+            let path = args["path"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'path'").to_json())?;
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.bulk_import_file(path) {
+                Ok(report) => Ok(text_content(serialize_content(&report))),
+                Err(e) => Ok(error_content(format!(
+                    "Bulk Import File Error: cannot import from '{}': {}",
+                    path, e
+                ))),
+            }
+        }
+
+        "bulk_import_stream" => {
+            let content = args["content"].as_str().ok_or_else(|| {
+                McpError::invalid_params("Missing 'content' (NDJSON or .vdbdump payload)").to_json()
+            })?;
+            if content.len() > MAX_TRANSFER_BYTES {
+                return Ok(error_content(format!(
+                    "Bulk import content exceeds maximum transfer size of {} bytes — use bulk_import_file with a host-side file instead",
+                    MAX_TRANSFER_BYTES
+                )));
+            }
+
+            let bytes = content.as_bytes();
+            let payload: Vec<u8> = if bytes.starts_with(b"VDBJSON\n") {
+                // Raw .vdbdump payload — pass through as-is.
+                bytes.to_vec()
+            } else {
+                // NDJSON (one VantaMemoryInput per line) — synthesize the
+                // vdbdump header the SDK stream expects around the JSON array.
+                let mut inputs = Vec::new();
+                for (lineno, line) in content.lines().enumerate() {
+                    if line.trim().is_empty() {
+                        continue;
+                    }
+                    match serde_json::from_str::<vantadb::sdk::VantaMemoryInput>(line) {
+                        Ok(input) => inputs.push(input),
+                        Err(e) => {
+                            return Ok(error_content(format!(
+                                "Bulk Import Error: malformed NDJSON at line {}: {}",
+                                lineno + 1,
+                                e
+                            )));
+                        }
+                    }
+                }
+                let body = match serde_json::to_vec(&inputs) {
+                    Ok(body) => body,
+                    Err(e) => return Ok(error_content(format!("Bulk Import Error: {}", e))),
+                };
+                let mut framed = Vec::with_capacity(17 + body.len());
+                framed.extend_from_slice(b"VDBJSON\n");
+                framed.push(0x01);
+                framed.extend_from_slice(&(inputs.len() as u64).to_le_bytes());
+                framed.extend_from_slice(&body);
+                framed
+            };
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let mut reader = std::io::Cursor::new(payload);
+            match embedded.bulk_import_stream(&mut reader) {
+                Ok(report) => Ok(text_content(serialize_content(&report))),
+                Err(e) => Ok(error_content(format!("Bulk Import Error: {}", e))),
             }
         }
 

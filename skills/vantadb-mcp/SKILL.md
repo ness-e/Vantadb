@@ -239,6 +239,29 @@ Notes:
 - Parameters: None
 - Returns: `{"bytes_reclaimed": <count>}`
 
+### Backup / Restore (MCP-17)
+
+**export** - Exports memory records as JSONL (one JSON object per line, schema_version 1)
+- Parameters: `namespace` (optional — omit to export ALL namespaces)
+- Returns: the raw JSONL as text content (`content[0].text` is NOT wrapped in JSON)
+- Note: capped at 10 MB per call; larger datasets use the CLI/SDK file export (`export_namespace(path, ...)`). Pair with `import` for backup/restore.
+
+**import** - Imports records from a JSONL string as produced by `export`
+- Parameters: `content` (JSONL string, max 10 MB per call)
+- Returns: `VantaImportReport` `{inserted, updated, skipped, errors, duration_ms}` — empty lines are skipped and malformed lines count as `errors` instead of failing the call
+
+### Bulk Import (MCP-25)
+
+**bulk_import_file** - Bulk-imports from a binary `.vdbdump` file on the host filesystem
+- Parameters: `path` (host path)
+- Returns: `BulkImportReport` `{total_records, batches_committed, duration_ms}`
+- Note: bypasses per-record validation for raw throughput; missing file returns clear error text
+
+**bulk_import_stream** - Bulk-imports from inline content
+- Parameters: `content` (NDJSON — one `VantaMemoryInput` per line — or raw `.vdbdump` payload starting with the `VDBJSON` magic; max 10 MB per call)
+- Returns: same `BulkImportReport`
+- Caveat: the underlying SDK bulk path writes raw engine nodes without internal record fields, so imported records are NOT addressable via `memory_get`/`memory_list` — use search/scan paths (pre-existing SDK limitation, tracked in Backlog)
+
 ## Response Envelope
 
 Every `tools/call` response wraps its payload in the MCP content envelope — the

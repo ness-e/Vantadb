@@ -15,18 +15,19 @@ pub use api::BulkImportReport;
 pub use builder::VantaEmbedded;
 pub use connect::connect;
 pub use serialization::{
-    export_line_from_record, memory_record_from_node, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS,
-    FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS, FIELD_VERSION,
+    export_line_from_record, memory_record_from_node, record_from_export_line, FIELD_CREATED_AT_MS,
+    FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS,
+    FIELD_VERSION,
 };
 pub use types::{
     SearchProfileConfig, SearchProfileMode, SkillCreateInput, SkillListOptions, SkillListPage,
     SkillPatchInput, SkillRecord, SkillUpdateInput, SkillWriteResult, VantaBm25TermContribution,
     VantaCapabilities, VantaEdgeRecord, VantaExportReport, VantaFields, VantaFilterOp,
-    VantaHybridFusionReport, VantaImportReport, VantaIndexRebuildReport, VantaMemoryFilter,
-    VantaMemoryFilterItem, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryListPage,
-    VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest,
-    VantaNamespaceStats, VantaNamespaceStatsMap, VantaNodeInput, VantaNodeRecord,
-    VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile, VantaSearchExplanation,
-    VantaSearchExplanationHit, VantaSearchHit, VantaStorageTier, VantaTextIndexAuditReport,
-    VantaTextIndexRepairReport, VantaValue,
+    VantaHybridFusionReport, VantaImportReport, VantaIndexRebuildReport, VantaMemoryExportLine,
+    VantaMemoryFilter, VantaMemoryFilterItem, VantaMemoryInput, VantaMemoryListOptions,
+    VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit,
+    VantaMemorySearchRequest, VantaNamespaceStats, VantaNamespaceStatsMap, VantaNodeInput,
+    VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile,
+    VantaSearchExplanation, VantaSearchExplanationHit, VantaSearchHit, VantaStorageTier,
+    VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
 };

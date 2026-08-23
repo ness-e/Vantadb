@@ -336,6 +336,8 @@ per `(owner_agent, name)` while a head exists. Content is stored as-is
 | `bulk_import_file(path)` | Bulk-import from a binary `.vdbdump` file. Bypasses per-record validation for raw throughput; commits in batches sized by `bulk_commit_interval` (default 10000) |
 | `bulk_import_stream(reader)` | Bulk-import records from a binary stream. Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`, 8-byte LE record count, then serde_json-serialized `Vec<VantaMemoryInput>`. Same batching/validation behavior as `bulk_import_file` |
 
+Free-function helper (used by the MCP `import` tool to rebuild records from JSONL content received as a string): `vantadb::sdk::record_from_export_line(VantaMemoryExportLine) -> Result<VantaMemoryRecord>` — the inverse of [`export_line_from_record`](#export--import); recomputes the deterministic node id from namespace/key.
+
 ## Text Index Diagnostics
 
 | Method | Description |
