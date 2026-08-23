@@ -77,8 +77,43 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
         "MCP stdio server started"
     );
 
-    let mut stdout = tokio::io::stdout();
-    let mut lines = BufReader::new(tokio::io::stdin()).lines();
+    serve_lines(
+        &storage,
+        &config,
+        &semaphore,
+        &metrics,
+        &running,
+        tokio::io::stdin(),
+        tokio::io::stdout(),
+    )
+    .await;
+
+    info!(
+        total = metrics.requests_total.load(Ordering::Relaxed),
+        errors = metrics.errors_total.load(Ordering::Relaxed),
+        "MCP stdio server shut down"
+    );
+}
+
+/// Read newline-delimited JSON-RPC messages from `reader`, dispatching each
+/// one and writing its response to `writer`.
+///
+/// Split out of [`run_stdio_server`] (which owns real stdin/stdout) so tests
+/// can drive the raw wire format through in-memory duplex pipes.
+async fn serve_lines<R, W>(
+    storage: &Arc<StorageEngine>,
+    config: &McpConfig,
+    semaphore: &Arc<tokio::sync::Semaphore>,
+    metrics: &Arc<McpMetrics>,
+    running: &AtomicBool,
+    reader: R,
+    writer: W,
+) where
+    R: tokio::io::AsyncRead + Unpin,
+    W: tokio::io::AsyncWrite + Unpin,
+{
+    let mut stdout = writer;
+    let mut lines = BufReader::new(reader).lines();
 
     loop {
         let line = match lines.next_line().await {
@@ -117,6 +152,22 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
             }
         };
 
+        // MOD-07: absent `id` ⇒ notification (JSON-RPC 2.0 §4.1). Answering
+        // one is forbidden and used to surface as a spurious -32700 that
+        // broke strict MCP clients' handshake. The only inbound notifications
+        // the MCP spec defines need no server action here —
+        // `notifications/initialized` is a pure lifecycle ack and
+        // `notifications/cancelled` targets request ids this server cannot
+        // cancel mid-`spawn_blocking` — so known and unknown notifications
+        // alike are consumed silently.
+        let Some(req_id) = &req.id else {
+            debug!(
+                method = %req.method,
+                "JSON-RPC notification received (no response emitted)"
+            );
+            continue;
+        };
+
         if req.jsonrpc != "2.0" {
             metrics.errors_total.fetch_add(1, Ordering::Relaxed);
             warn!(jsonrpc = %req.jsonrpc, "Invalid JSON-RPC version, expected 2.0");
@@ -124,7 +175,7 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
                 &mut stdout,
                 &json!({
                     "jsonrpc": "2.0",
-                    "id": req.id,
+                    "id": req_id,
                     "error": McpError::invalid_request(format!(
                         "Invalid JSON-RPC version: {}, expected 2.0", req.jsonrpc
                     )).to_json()
@@ -134,7 +185,7 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
             continue;
         }
 
-        let res = dispatch_request(&req, &storage, &config, &semaphore, &metrics).await;
+        let res = dispatch_request(&req, storage, config, semaphore, metrics).await;
         let (result, error) = match res {
             Ok(val) => (Some(val), None),
             Err(err) => (None, Some(err)),
@@ -142,7 +193,7 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
 
         let response = RpcResponse {
             jsonrpc: "2.0".to_string(),
-            id: req.id,
+            id: req_id.clone(),
             result,
             error,
         };
@@ -167,16 +218,10 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
             }
         }
     }
-
-    info!(
-        total = metrics.requests_total.load(Ordering::Relaxed),
-        errors = metrics.errors_total.load(Ordering::Relaxed),
-        "MCP stdio server shut down"
-    );
 }
 
-/// Write a JSON value to stdout, logging I/O errors instead of swallowing them.
-pub(crate) async fn write_json(stdout: &mut tokio::io::Stdout, value: &Value) {
+/// Write a JSON value to `stdout`, logging I/O errors instead of swallowing them.
+pub(crate) async fn write_json<W: tokio::io::AsyncWrite + Unpin>(stdout: &mut W, value: &Value) {
     match serde_json::to_string(value) {
         Ok(out) => {
             if let Err(e) = stdout.write_all(out.as_bytes()).await {
@@ -202,7 +247,7 @@ pub(crate) async fn dispatch_request(
     semaphore: &Arc<tokio::sync::Semaphore>,
     metrics: &Arc<McpMetrics>,
 ) -> Result<Value, Value> {
-    let _span = span!(Level::INFO, "mcp_request", method = %req.method, id = %req.id).entered();
+    let _span = span!(Level::INFO, "mcp_request", method = %req.method, id = ?req.id).entered();
 
     let _active = ActiveRequestGuard::new(&metrics.active_requests);
     let start = Instant::now();
@@ -280,4 +325,103 @@ pub(crate) async fn dispatch_request(
     }
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Drive [`serve_lines`] with in-memory duplex pipes: write `input`,
+    /// signal EOF, and return everything the server wrote back.
+    async fn serve_lines_capture(input: &str) -> String {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let storage = Arc::new(
+            StorageEngine::open(dir.path().to_str().expect("utf8 temp path"))
+                .expect("open storage"),
+        );
+        let config = McpConfig::from_storage(&storage);
+        let semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_concurrency));
+        let metrics = Arc::new(McpMetrics::default());
+        let running = AtomicBool::new(true);
+
+        let (mut client_write, server_in) = tokio::io::duplex(1024 * 1024);
+        let (server_out, mut client_read) = tokio::io::duplex(1024 * 1024);
+
+        // Queue the whole input into the duplex buffer and signal EOF BEFORE
+        // driving the server inline. No `tokio::spawn`: dispatch_request holds
+        // a tracing `EnteredSpan` across an `.await`, so its future is not
+        // `Send`.
+        client_write
+            .write_all(input.as_bytes())
+            .await
+            .expect("write input");
+        client_write.shutdown().await.expect("shutdown input");
+        drop(client_write); // EOF → the server loop breaks
+
+        serve_lines(
+            &storage, &config, &semaphore, &metrics, &running, server_in, server_out,
+        )
+        .await;
+
+        use tokio::io::AsyncReadExt;
+        let mut out = Vec::new();
+        client_read
+            .read_to_end(&mut out)
+            .await
+            .expect("read server output");
+        String::from_utf8(out).expect("utf8 server output")
+    }
+
+    /// MOD-07 regression: a JSON-RPC notification carries no `id` and the
+    /// server MUST NOT answer it (JSON-RPC 2.0 §4.1). These used to fail
+    /// deserialization and come back as a spurious -32700 parse error,
+    /// breaking strict MCP clients' handshake (`notifications/initialized`
+    /// is mandatory per the MCP lifecycle spec).
+    #[tokio::test]
+    async fn notification_without_id_is_not_answered() {
+        for method in [
+            "notifications/initialized",
+            "notifications/cancelled",
+            "notifications/some_unknown_notification",
+        ] {
+            let line = format!("{{\"jsonrpc\":\"2.0\",\"method\":\"{method}\"}}\n");
+            let out = serve_lines_capture(&line).await;
+            assert!(
+                out.is_empty(),
+                "{method} must not produce any response, got: {out}"
+            );
+        }
+    }
+
+    /// Control: requests WITH an id are still answered normally.
+    #[tokio::test]
+    async fn request_with_id_still_answered() {
+        let out =
+            serve_lines_capture("{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/list\"}\n").await;
+        let v: serde_json::Value =
+            serde_json::from_str(out.trim()).expect("response should be JSON");
+        assert_eq!(v["id"], 7);
+        assert!(v["result"]["tools"].is_array(), "got: {out}");
+        assert!(v["error"].is_null(), "got: {out}");
+    }
+
+    /// Control: malformed JSON still yields a -32700 parse error with null id.
+    #[tokio::test]
+    async fn malformed_json_still_parse_error() {
+        let out = serve_lines_capture("{not json}\n").await;
+        assert!(out.contains("-32700"), "expected -32700, got: {out}");
+    }
+
+    /// JSON-RPC allows `"id": null`; explicit null is still a request and
+    /// must be answered (only an ABSENT id makes it a notification).
+    #[tokio::test]
+    async fn explicit_null_id_is_a_request_not_a_notification() {
+        let out =
+            serve_lines_capture("{\"jsonrpc\":\"2.0\",\"id\":null,\"method\":\"tools/list\"}\n")
+                .await;
+        let v: serde_json::Value =
+            serde_json::from_str(out.trim()).expect("response should be JSON");
+        assert!(v["id"].is_null(), "got: {out}");
+        assert!(v["result"]["tools"].is_array(), "got: {out}");
+    }
 }
