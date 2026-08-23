@@ -813,7 +813,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | `MOD-04` | core | 🟡 | `purge_expired` full-scan O(N); falta índice de expiración TTL (patrón scalar_index expires_at→node_id) | `api.rs:904` · core.md | ❌ Pendiente |
 | `MOD-05` | core | 🟢 | Deprecar `InMemoryEngine` hacia StorageEngine in-memory: elimina clase de bug MOD-01 y ~850 líneas | `engine.rs:72` · core.md R5 | ❌ Pendiente |
 | `MOD-06` | core | 🟢 | Nits agrupados: flush thread-per-shard, clones batch_append, lookup intern en loop, cardinality dup, write_shard_meta no atómico, PITR sin wiring (requiere decisión) | `wal_sharded.rs`, `insert.rs:158-204` · core.md | ❌ Pendiente |
-| `MOD-07` | mcp | 🔴 | Notifications JSON-RPC sin `id` rechazadas como -32700 espuria → rompe handshake con clientes estrictos. Fix ~10 líneas (`RpcRequest.id` con default) + test | `protocol.rs:8-14`, `server.rs:102` · mcp.md H1 | ❌ Pendiente |
 | `MOD-08` | mcp | 🟡 | Loop stdio serial: Semaphore/spawn_blocking dead-code efectivo — rebuild 50s bloquea fan-out del agente | `server.rs:83-153` · mcp.md H2 | ❌ Pendiente |
 | `MOD-09` | mcp | 🟡 | Graceful shutdown descarta respuesta ya computada del request in-flight (break antes del write) | `server.rs:150-155` · mcp.md H3 | ❌ Pendiente |
 | `MOD-10` | mcp | 🟡 | Gaps SDK sin tool: versions, supersede, similar_to_key, vacuum, remove_edge (edges inborrables vía MCP hoy). Candidatos MCP-30..34 | `api.rs:81,451,840,1218,1520` · mcp.md §cobertura | ❌ Pendiente |
