@@ -105,6 +105,23 @@ impl From<&UnifiedNode> for NodeDTO {
     }
 }
 
+/// Best-effort post-save hook for `POST /conversation/add` (MEM-55).
+///
+/// Fired once per successful save, right before the HTTP response is built.
+/// The core cannot depend on the memory pipeline (Cargo forbids the cycle:
+/// `vanta-memory → vantadb`), so hosts wire their own implementation into
+/// [`ServerState`]. Errors are logged and swallowed by the route handler —
+/// extraction failures must never fail the HTTP response (P4).
+pub trait ConversationTrigger: Send + Sync {
+    /// Called with the persisted thread id and the raw message.
+    fn trigger(
+        &self,
+        thread_id: u128,
+        role: &str,
+        content: &str,
+    ) -> std::result::Result<(), String>;
+}
+
 /// Shared application state injected into every route handler.
 pub struct ServerState {
     /// The underlying storage engine.
@@ -125,6 +142,9 @@ pub struct ServerState {
     /// Reverse-proxy IPs whose `X-Forwarded-For` header is honored for client
     /// IP resolution. Empty = ignore the header (ConnectInfo is authoritative).
     pub trusted_proxies: Vec<std::net::IpAddr>,
+    /// Optional post-save hook for `POST /conversation/add` (MEM-55). `None`
+    /// keeps the route purely a thread store (pre-MEM-55 behavior).
+    pub conversation_trigger: Option<Arc<dyn ConversationTrigger>>,
 }
 
 /// Rate limiter period: one request every `60_000 / rpm` ms, floor 1ms.
@@ -1767,6 +1787,7 @@ pub async fn run(config: VantaConfig) -> Result<()> {
         api_key,
         rbac_config,
         trusted_proxies: config.trusted_proxies.clone(),
+        conversation_trigger: None,
     });
 
     let rpm = config.rate_limit_rpm;
@@ -2630,11 +2651,21 @@ async fn conversation_add(
     })
     .await
     {
-        Ok(id) => (
-            StatusCode::CREATED,
-            Json(serde_json::json!({ "success": true, "thread_id": id.to_string() })),
-        )
-            .into_response(),
+        Ok(id) => {
+            // MEM-55: fire the memory-pipeline trigger best-effort. Any error
+            // is logged and swallowed — the HTTP response reflects only the
+            // thread save (P4: extraction failures never fail the request).
+            if let Some(trigger) = &state.conversation_trigger {
+                if let Err(err) = trigger.trigger(id, &req.role, &req.content) {
+                    tracing::warn!(thread = %id, %err, "conversation trigger failed; ignoring");
+                }
+            }
+            (
+                StatusCode::CREATED,
+                Json(serde_json::json!({ "success": true, "thread_id": id.to_string() })),
+            )
+                .into_response()
+        }
         Err(resp) => resp,
     }
 }
@@ -2909,6 +2940,7 @@ mod tests {
             api_key: None,
             rbac_config: RbacConfig::default(),
             trusted_proxies: Vec::new(),
+            conversation_trigger: None,
         });
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -2955,6 +2987,133 @@ mod tests {
         );
     }
 
+    /// MEM-55 fake trigger: records invocations, optionally failing (P4).
+    struct RecordingTrigger {
+        calls: Arc<std::sync::Mutex<Vec<(u128, String, String)>>>,
+        fail: bool,
+    }
+
+    impl ConversationTrigger for RecordingTrigger {
+        fn trigger(
+            &self,
+            thread_id: u128,
+            role: &str,
+            content: &str,
+        ) -> std::result::Result<(), String> {
+            self.calls
+                .lock()
+                .unwrap()
+                .push((thread_id, role.to_string(), content.to_string()));
+            if self.fail {
+                Err("llm down".to_string())
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    async fn raw_post_conversation_add(addr: std::net::SocketAddr, body: &str) -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let request = format!(
+            "POST /conversation/add HTTP/1.1\r\nHost: {addr}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        )
+        .into_bytes();
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        stream.write_all(&request).await.unwrap();
+        let mut response = String::new();
+        stream.read_to_string(&mut response).await.unwrap();
+        response
+    }
+
+    #[tokio::test]
+    async fn conversation_add_fires_trigger_after_save() {
+        let calls: Arc<std::sync::Mutex<Vec<(u128, String, String)>>> =
+            Arc::new(std::sync::Mutex::new(Vec::new()));
+        let trigger = RecordingTrigger {
+            calls: calls.clone(),
+            fail: false,
+        };
+        // Build inline: db handle must come from the SAME state as the route.
+        let cfg = VantaConfig {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(cfg)).unwrap());
+        let db = VantaEmbedded::from_engine(storage.clone());
+        let state = Arc::new(ServerState {
+            storage,
+            db: db.clone(),
+            circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+            pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+            api_key: None,
+            rbac_config: RbacConfig::default(),
+            trusted_proxies: Vec::new(),
+            conversation_trigger: Some(Arc::new(trigger)),
+        });
+        let addr = spawn_app(app(state, 0)).await;
+
+        let raw =
+            raw_post_conversation_add(addr, r#"{"role":"user","content":"I prefer dark mode"}"#)
+                .await;
+        assert!(raw.starts_with("HTTP/1.1 201"), "got: {raw}");
+        let body_start = raw.find("{\"success\"").expect("json body");
+        let json: serde_json::Value =
+            serde_json::from_str(raw[body_start..raw.len()].trim_end()).unwrap();
+        assert_eq!(json["success"], serde_json::json!(true));
+        let thread_id: u128 = json["thread_id"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .expect("decimal thread id");
+
+        // Thread actually saved...
+        assert!(
+            db.get_thread(thread_id).unwrap().is_some(),
+            "thread must be persisted"
+        );
+        // ...and trigger fired once with the saved identity.
+        let got = calls.lock().unwrap().clone();
+        assert_eq!(
+            got,
+            vec![(
+                thread_id,
+                "user".to_string(),
+                "I prefer dark mode".to_string()
+            )]
+        );
+    }
+
+    #[tokio::test]
+    async fn conversation_add_trigger_failure_does_not_fail_response() {
+        let calls: Arc<std::sync::Mutex<Vec<(u128, String, String)>>> =
+            Arc::new(std::sync::Mutex::new(Vec::new()));
+        let cfg = VantaConfig {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(cfg)).unwrap());
+        let db = VantaEmbedded::from_engine(storage.clone());
+        let state = Arc::new(ServerState {
+            storage,
+            db,
+            circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+            pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+            api_key: None,
+            rbac_config: RbacConfig::default(),
+            trusted_proxies: Vec::new(),
+            conversation_trigger: Some(Arc::new(RecordingTrigger { calls, fail: true })),
+        });
+        let addr = spawn_app(app(state, 0)).await;
+
+        let raw = raw_post_conversation_add(addr, r#"{"role":"user","content":"hi"}"#).await;
+        assert!(
+            raw.starts_with("HTTP/1.1 201"),
+            "P4 violated — extraction failure leaked into HTTP: {raw}"
+        );
+        assert!(raw.contains("\"success\":true"), "got: {raw}");
+    }
+
     /// Spawn the app router on an ephemeral port, returning its address.
     async fn spawn_app(router: Router) -> std::net::SocketAddr {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -2998,6 +3157,7 @@ mod tests {
             api_key: None,
             rbac_config: RbacConfig::default(),
             trusted_proxies: Vec::new(),
+            conversation_trigger: None,
         })
     }
 
@@ -3121,6 +3281,7 @@ mod tests {
             api_key: None,
             rbac_config: RbacConfig::default(),
             trusted_proxies: Vec::new(),
+            conversation_trigger: None,
         });
         let addr = spawn_app(app(state, 0)).await;
 
@@ -3232,6 +3393,7 @@ mod tests {
             api_key: None,
             rbac_config: RbacConfig::default(),
             trusted_proxies: Vec::new(),
+            conversation_trigger: None,
         });
         let addr = spawn_app(app(state, 0)).await;
 
@@ -3334,6 +3496,7 @@ mod tests {
             api_key: None,
             rbac_config: RbacConfig::default(),
             trusted_proxies: Vec::new(),
+            conversation_trigger: None,
         });
         let addr = spawn_app(app(state, 0)).await;
 
@@ -3714,6 +3877,7 @@ mod tests {
                 api_key: None,
                 rbac_config: RbacConfig::default(),
                 trusted_proxies: Vec::new(),
+                conversation_trigger: None,
             }),
             dir,
         )

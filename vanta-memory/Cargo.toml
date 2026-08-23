@@ -46,6 +46,11 @@ mock = []
 # binary falls back to in-memory storage (import is not persisted).
 fjall = ["vantadb/fjall"]
 
+# MEM-55: bridges the core HTTP server's `/conversation/add` route to the
+# memory pipeline (`services/conversation_hook`). Pulls the core's `server`
+# feature (axum/tokio) — opt-in so the default build stays lean.
+http-server = ["vantadb/server"]
+
 # D21 amendment (ADR-029): exact token counts via tiktoken-rs cl100k_base.
 # Opt-in: default build keeps the lean chars/3 heuristic (no new deps, no
 # binary weight); hosts that need CJK/code precision pay the ~2-6MB cost.

@@ -243,6 +243,7 @@ fn server_state(storage: Arc<StorageEngine>, api_key: Option<&str>) -> Arc<Serve
         api_key: api_key.map(Arc::from),
         rbac_config: RbacConfig::default(),
         trusted_proxies: Vec::new(),
+        conversation_trigger: None,
     })
 }
 

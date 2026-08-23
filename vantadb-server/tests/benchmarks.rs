@@ -286,6 +286,7 @@ async fn bench_latency_with_auth() {
         api_key: Some(Arc::from("bench-key")),
         rbac_config: Default::default(),
         trusted_proxies: vec![],
+        conversation_trigger: None,
     });
     let router = app(state, 0);
 

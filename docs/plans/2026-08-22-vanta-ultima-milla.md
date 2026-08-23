@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Última Milla — integración producto end-to-end
 
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (6/10 tareas)
+> **Estado:** ⏳ EN PROGRESO (7/10 tareas)
 > **Fuente:** auditoría de integración final (`docs/reviews/2026-08-22-auditoria-integracion-final.md`) + decisiones del usuario (2026-08-22)
 > **Predecesores:** P27+P29+P30+P31+P32 ✅ (54 tareas) — roadmap TDAM 100% + bindings
 > **Modo:** waves por dependencias. Sin release durante la campaña (decisión usuario).
@@ -35,7 +35,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Archivos clave:** `vanta-proxy/src/handlers/{openai,anthropic,responses}.rs` (editar), `writeback.rs` (API si falta)
 - **Verificación real:** ✅ AUDITORÍA — WriteBack construido+flusheado pero cero llamadas track() (auditoría H1)
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: cargo check/test/fmt/clippy -p vanta-proxy --all-targets (-D warnings) — 4/4 exit 0, suite 73→85 tests. evidencia: [claim: classify main/fork/sidequery via cache_control marker n-1/n-2 + fallback tools-empty AND thinking-disabled → evidencia: vanta-proxy/src/session/claude_code.rs (12 tests D19, port fiel de TDAM cc-request-classifier.ts @97f9465) → confianza: alta] [claim: extractLastUserText salta system-reminders (toma el ULTIMO text block; CC los PREPENDE) → evidencia: test extract_skips_prepended_system_reminder_blocks + extract_ignores_tool_result_image_and_non_string_text_blocks → confianza: alta] [claim: integracion con capture existente → evidencia: capture::last_user_text delega en extract_last_user_text, misma firma pub, test extracts_last_user_block_array_last_text_block_wins ajustado → confianza: alta]. artefactos: vanta-proxy/src/session/claude_code.rs (nuevo), session.rs (+pub mod), capture.rs (refinado), tasks/MEM-57.md. invariantes: NO tocar core/wal/vector/storage; mem_command::extract_text intacto (path OpenAI); routing forks es Task 2 (clasifica con classify_cc_request). deuda: fixtures basados en formato CC actual (Risk Register 🟡×🟡 — techo documentado en task file). queda_pendiente: commit lo hace el lead; Task 2 consume classify_cc_request.
+- **Contrato: verificacion: cargo check -p vantadb --features server --all-targets ✅ · cargo test -p vantadb --features server --lib = 1969 passed (incl. 2 nuevos) ✅ · cargo test -p vanta-memory [--features http-server] 0 failed (3 tests D19 nuevos) ✅ · cargo fmt -p ambos --check ✅ · cargo clippy -p vantadb/vanta-memory --all-targets --no-deps -D warnings ✅ | evidencia: claim=POST dispara trigger post-save con thread_id correcto → evidencia=src/cli_server.rs conversation_add_fires_trigger_after_save (test HTTP real, 201 + get_thread persistido) confianza=alta; claim=fallo de extracción NO falla HTTP (P4) → evidencia=test conversation_add_trigger_failure_does_not_fail_response (201 success:true) confianza=alta; claim=tarea encolada→worker MEM-16→memories en l1/<session> → evidencia=vanta-memory/tests/conversation_hook.rs bridge_enqueues_task_and_worker_writes_l1_memories (read_session_records) confianza=alta | artefactos: src/cli_server.rs, vanta-memory/src/services/conversation_hook.rs, vanta-memory/Cargo.toml, vanta-memory/tests/conversation_hook.rs, .opencode/skills/campaign-executor/tasks/MEM-55.md
 - **Risk Register:** 🟢×🟠 extraer user-text del request puede necesitar MEM-57 parcial → implementar extracción mínima inline, refinar con Task 8
 - **Cynefin:** 🟦 obvio
 - **Estado:** ✅ COMPLETED
@@ -126,7 +126,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Contrato:** "tests D19: POST /conversation/add → thread guardado → tarea de extracción encolada (worker MEM-16 o spawn) → memories aparecen en l1/<session>; fallo de extracción NO falla el HTTP response (P4)"
 - **Risk Register:** 🟡×🟠 acoplamiento server→vanta-memory → server ya depende de core; exponer trigger vía trait/facade aditiva en vanta-memory
 - **Cynefin:** 🟨 complicado
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-55.md`
 - **Notas:** Ruta: vanta-worker. Requiere runner LLM configurado para extracción real (fallback P4: skip documentado).
 
@@ -182,12 +182,12 @@ Verify del lead SIEMPRE `--all-targets` (lección MEM-48) · SARL con feedback e
 ---
 
 === RECITATION ===
-Campaign ID: 72fd53ef-99b7-4182-a853-99a2eb71fbb9
-Objetivo activo: MEM-57: parser claude-code para vanta-proxy (classify + extractLastUserText)
+Campaign ID: b48285af-a41b-4096-99a2-0efffe0a5833
+Objetivo activo: MEM-55: POST /conversation/add dispara extracción L1 vía puente core→vanta-memory
 Estado: pending ⏳
-Última acción: Implementado MEM-57 completo: modulo claude_code.rs (CcRequestKind + find_last_cache_control_index + classify_cc_request + extract_last_user_text) con 12 tests D19 port de TDAM @97f9465; capture::last_user_text refinado a delegar en el parser; verify mecanico 4/4 exit 0.
+Última acción: Implementado MEM-55 completo: trait ConversationTrigger aditiva en core + disparo best-effort en conversation_add; puente HttpCaptureBridge en vanta-memory (feature http-server) que captura L0 y encola TaskKind::L1; run_bridge_pass driver del worker MEM-16; fallback P4 sin runner documentado. Verify mecánico full verde. NO commit (regla de la invocación)
 Resultado: OK
-Próxima acción: Orquestador: commit feat(vanta-proxy) y lanzar Task 7
+Próxima acción: Orquestador: commitear cambios pendientes (feat: MEM-55) y delegar Task 8 (MEM-53 desktop IPC)
 Contrato: por tarea — cargo check/nextest/fmt/clippy --all-targets del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 7
+Próxima tarea si completa: 8
 === END RECITATION ===

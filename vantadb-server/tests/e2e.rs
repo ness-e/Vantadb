@@ -237,6 +237,7 @@ async fn test_e2e_persistence_across_restart() {
         api_key: None,
         rbac_config: Default::default(),
         trusted_proxies: vec![],
+        conversation_trigger: None,
     });
     let (base2, handle2) = spawn_server(state2, 0).await;
 
