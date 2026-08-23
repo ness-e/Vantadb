@@ -220,6 +220,25 @@ Notes:
 - Parameters: `namespace`, `confirm` (must be `"yes"`)
 - Returns: `{"deleted", "records_removed"}`
 
+### Maintenance Operations
+
+**purge_expired** - Scans all memory records and physically deletes those whose TTL expiry has passed
+- Parameters: None
+- Returns: `{"purged": <count>}`
+- Note: pairs with the `expires_at_ms` TTL of `memory_put` — an agent that uses TTL should call this periodically to reclaim space.
+
+**compact_wal** - Flushes, archives the current WAL file, and starts a fresh one to reclaim WAL space
+- Parameters: None
+- Returns: `{"compacted_wal": true}`
+
+**flush** - Flushes the WAL and memory-mapped files to disk (manual durability checkpoint)
+- Parameters: None
+- Returns: `{"flushed": true}`
+
+**compact_layout** - Compacts the vector store file grouping nodes in BFS order from the HNSW entry point
+- Parameters: None
+- Returns: `{"bytes_reclaimed": <count>}`
+
 ## Response Envelope
 
 Every `tools/call` response wraps its payload in the MCP content envelope — the

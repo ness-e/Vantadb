@@ -327,6 +327,12 @@ fn test_mcp_tools_list() {
         names.contains(&"read_axioms"),
         "tools should include read_axioms"
     );
+    for maintenance in ["purge_expired", "compact_wal", "flush", "compact_layout"] {
+        assert!(
+            names.contains(&maintenance),
+            "tools should include {maintenance}"
+        );
+    }
 }
 
 #[test]
@@ -2578,5 +2584,120 @@ fn test_mcp_memory_put_rejects_invalid_sparse_and_ttl() {
     assert!(
         ttl_err["code"].is_number(),
         "non-numeric expires_at_ms must fail with a JSON-RPC error, got: {ttl_err}"
+    );
+}
+
+// ── MCP-16/MCP-23: maintenance tools (purge_expired/compact_wal/flush/compact_layout) ──
+
+fn maintenance_call(
+    executor: &Executor<'_>,
+    storage: &Arc<StorageEngine>,
+    name: &str,
+) -> Result<Value, Value> {
+    handle_tools_call(
+        &Some(json!({ "name": name, "arguments": {} })),
+        executor,
+        storage,
+        &default_config(),
+    )
+}
+
+#[test]
+fn test_maintenance_tools_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Expired record: expires_at_ms=1 is in the past → saturates ttl_ms to 0
+    // → expires immediately. A live record must survive the purge.
+    let put_expired = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "maint_ns",
+            "key": "ephemeral",
+            "payload": "short lived record",
+            "expires_at_ms": 1u64
+        }
+    }));
+    let put_val = handle_tools_call(&put_expired, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        put_val["isError"].is_null(),
+        "expired put failed: {}",
+        put_val["content"][0]["text"]
+    );
+
+    let put_durable = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "maint_ns",
+            "key": "durable",
+            "payload": "long lived record"
+        }
+    }));
+    let put_val2 = handle_tools_call(&put_durable, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        put_val2["isError"].is_null(),
+        "durable put failed: {}",
+        put_val2["content"][0]["text"]
+    );
+
+    // purge_expired compares now > expires_at_ms; give the clock room to move.
+    thread::sleep(std::time::Duration::from_millis(20));
+
+    // 1. purge_expired → purged >= 1
+    let purge_val = maintenance_call(&executor, &storage, "purge_expired").unwrap();
+    assert!(
+        purge_val["isError"].is_null(),
+        "purge_expired failed: {}",
+        purge_val["content"][0]["text"]
+    );
+    let purged: Value = serde_json::from_str(purge_val["content"][0]["text"].as_str().unwrap())
+        .expect("purge_expired payload must be JSON");
+    assert_eq!(
+        purged["purged"], 1,
+        "expected exactly the expired record purged"
+    );
+
+    // 2. The durable record survived.
+    let get_val = handle_tools_call(
+        &Some(json!({
+            "name": "memory_get",
+            "arguments": { "namespace": "maint_ns", "key": "durable" }
+        })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap();
+    assert!(
+        get_val["isError"].is_null(),
+        "durable record must survive purge: {}",
+        get_val["content"][0]["text"]
+    );
+
+    // 3. flush → flushed:true; compact_wal → compacted_wal:true;
+    //    compact_layout → bytes_reclaimed number.
+    for (tool, key) in [("flush", "flushed"), ("compact_wal", "compacted_wal")] {
+        let res = maintenance_call(&executor, &storage, tool).unwrap();
+        assert!(
+            res["isError"].is_null(),
+            "{tool} failed: {}",
+            res["content"][0]["text"]
+        );
+        let payload: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap())
+            .expect("payload must be JSON");
+        assert_eq!(payload[key], true, "{tool} must report success via {key}");
+    }
+
+    let layout_val = maintenance_call(&executor, &storage, "compact_layout").unwrap();
+    assert!(
+        layout_val["isError"].is_null(),
+        "compact_layout failed: {}",
+        layout_val["content"][0]["text"]
+    );
+    let layout: Value = serde_json::from_str(layout_val["content"][0]["text"].as_str().unwrap())
+        .expect("compact_layout payload must be JSON");
+    assert!(
+        layout["bytes_reclaimed"].is_u64(),
+        "compact_layout must return a byte count, got: {layout}"
     );
 }

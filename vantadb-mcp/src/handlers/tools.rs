@@ -172,6 +172,26 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                 },
                 "required": ["summary_id"]
             }
+        },
+        {
+            "name": "purge_expired",
+            "description": "Scans all memory records and physically deletes those whose TTL expiry has passed. Returns the number of records purged.",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "compact_wal",
+            "description": "Flushes, archives the current WAL file, and starts a fresh one to reclaim WAL space.",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "flush",
+            "description": "Flushes the WAL and memory-mapped files to disk (manual durability checkpoint).",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "compact_layout",
+            "description": "Compacts the vector store file grouping nodes in BFS order from the HNSW entry point. Returns the number of bytes reclaimed.",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
         }
     ]);
     // MEM-07: six review-agent skill tools over SkillStore. Definitions live
@@ -871,6 +891,46 @@ pub fn handle_tools_call(
                 "records_removed": total,
             });
             Ok(text_content(serialize_content(&result)))
+        }
+
+        // MCP-16/MCP-23: maintenance tools — thin wrappers over the SDK
+        // (purge_expired/compact_wal/flush/compact_layout). Domain errors come
+        // back as Ok(error_content(...)) so the LLM client can read and
+        // self-correct (MEM-32), never as a propagated JSON-RPC error.
+        "purge_expired" => {
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.purge_expired() {
+                Ok(count) => Ok(text_content(serialize_content(&json!({ "purged": count })))),
+                Err(e) => Ok(error_content(format!("Purge Error: {}", e))),
+            }
+        }
+
+        "compact_wal" => {
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.compact_wal() {
+                Ok(()) => Ok(text_content(serialize_content(
+                    &json!({ "compacted_wal": true }),
+                ))),
+                Err(e) => Ok(error_content(format!("Compact WAL Error: {}", e))),
+            }
+        }
+
+        "flush" => {
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.flush() {
+                Ok(()) => Ok(text_content(serialize_content(&json!({ "flushed": true })))),
+                Err(e) => Ok(error_content(format!("Flush Error: {}", e))),
+            }
+        }
+
+        "compact_layout" => {
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.compact_layout() {
+                Ok(bytes) => Ok(text_content(serialize_content(
+                    &json!({ "bytes_reclaimed": bytes }),
+                ))),
+                Err(e) => Ok(error_content(format!("Compact Layout Error: {}", e))),
+            }
         }
 
         "skill_list" | "skill_view" | "skill_create" | "skill_update" | "skill_patch"
