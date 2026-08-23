@@ -348,13 +348,18 @@ fn compress_then_recall_shares_one_budget_end_to_end() {
 
     // Long synthetic chat history that forces aggressive compression; the
     // shared-budget coordinator assembles everything in one pass (MEM-37).
-    // Fat units (~203 tokens): mild's 10-stub cap can't reach the budget, so
-    // aggressive runs and leaves headroom for the injections.
+    // Fat units: mild's 10-stub cap can't reach the budget, so aggressive
+    // runs and leaves headroom for the injections.
+    //
+    // The budget is derived from the estimator's own measurement (MEM-43):
+    // ~23% of the raw history preserves the mild-fails / aggressive-fits /
+    // headroom-fits-MMD ratio under both the chars/3 branch and
+    // `precise-tokens` (BPE), instead of pinning a chars/3 magic number.
     let est = TokenEstimator::default();
     let msgs: Vec<ChatMessage> = (0..30)
         .map(|i| ChatMessage::new(ChatRole::User, format!("m{i:02} {}", "y".repeat(600))))
         .collect();
-    let budget = 1400u64;
+    let budget = (est.estimate_messages(&msgs) * 23 / 100).max(1);
     let out = assemble_with_recall(
         msgs,
         budget,
@@ -446,9 +451,31 @@ fn d19_worker_assembles_context_post_l3_with_compression_active() {
 
     capture_fat_history(&db, session, 15);
 
-    // Full pass with a shared budget tight enough to force compression but
-    // roomy enough that post-compression headroom fits all three injections
-    // (MMD + recall prepend + persona append are whole-or-skip per MEM-37).
+    // Shared budget tight enough to force compression but roomy enough that
+    // post-compression headroom fits all three injections (MMD + recall
+    // prepend + persona append are whole-or-skip per MEM-37).
+    //
+    // Derived from the estimator's own measurement of the same fat turns
+    // (MEM-43): ~13% keeps the force-compression / headroom-fits-MMD ratio
+    // under both the chars/3 branch and `precise-tokens` (BPE), instead of a
+    // chars/3 magic number.
+    let probe_est = TokenEstimator::default();
+    let fat_total = probe_est.estimate_messages(
+        &(0..15u32)
+            .flat_map(|i| {
+                [
+                    ChatMessage::new(
+                        ChatRole::User,
+                        format!("turn{i:02} I prefer dark mode {}", "y".repeat(600)),
+                    ),
+                    ChatMessage::new(
+                        ChatRole::Assistant,
+                        format!("noted turn{i:02} {}", "z".repeat(600)),
+                    ),
+                ]
+            })
+            .collect::<Vec<_>>(),
+    );
     let mut handler = MemoryTaskHandler::new(
         db.clone(),
         &runner,
@@ -458,7 +485,7 @@ fn d19_worker_assembles_context_post_l3_with_compression_active() {
     )
     .with_context_config(ContextAssemblyConfig {
         enabled: true,
-        budget_tokens: 800,
+        budget_tokens: (fat_total * 13 / 100).max(1),
     });
     // Asserted order: L0 → L1 → L2 → L3 → compress+recall (post-L3).
     for kind in [TaskKind::L1, TaskKind::L2, TaskKind::L3] {
@@ -500,10 +527,11 @@ fn d19_worker_assembles_context_post_l3_with_compression_active() {
     assert!(joined.contains(MMD_CONTEXT_MARKER), "MMD injected");
     assert!(joined.contains("<relevant-memories>"), "recall prepend");
 
-    // Shared-budget contract holds end to end.
+    // Shared-budget contract holds end to end (same derived budget).
     let est = TokenEstimator::default();
+    let budget = (fat_total * 13 / 100).max(1);
     assert!(
-        est.estimate_messages(&ctx.messages) <= 800,
+        est.estimate_messages(&ctx.messages) <= budget,
         "assembled context exceeds the shared budget"
     );
 }

@@ -4,9 +4,11 @@
 //! (`offload/hooks/llm-input-l3.ts`), with the tool-call-pair guard from
 //! `offload/mmd-injector.ts:231`.
 //!
-//! Decision D21: chars/3 heuristic, NO tiktoken, no new deps. Known ceiling:
-//! underestimates CJK/code — factor is configurable; calibration deferred
-//! until after MEM-22 benchmarks.
+//! Decision D21 (amended, ADR-029): default is the chars/3 heuristic (no
+//! deps). With the opt-in `precise-tokens` feature the estimator counts
+//! exact cl100k_base BPE tokens via tiktoken-rs instead — precise for CJK
+//! and code at the cost of ~2-6MB binary weight paid only by builds that
+//! enable it.
 
 use crate::context_engine::types::{
     ChatMessage, ChatRole, CompactionMode, CompactionReport, ContextError,
@@ -42,6 +44,18 @@ impl TokenEstimator {
     }
 
     /// Unicode-safe (counts chars, never bytes). Total and deterministic.
+    ///
+    /// With the `precise-tokens` feature this returns the exact cl100k_base
+    /// BPE token count (OpenAI gpt-4/3.5/ada-002 family); without it, the
+    /// chars/3 heuristic.
+    #[cfg(feature = "precise-tokens")]
+    pub fn estimate_tokens(&self, text: &str) -> u64 {
+        let bpe = tiktoken_rs::cl100k_base_singleton();
+        bpe.encode_with_special_tokens(text).len() as u64
+    }
+
+    /// Unicode-safe (counts chars, never bytes). Total and deterministic.
+    #[cfg(not(feature = "precise-tokens"))]
     pub fn estimate_tokens(&self, text: &str) -> u64 {
         (text.chars().count() / self.chars_per_token) as u64
     }
@@ -172,18 +186,29 @@ mod tests {
         TokenEstimator::default()
     }
 
+    /// Branch-invariant: empty input and determinism hold for both the
+    /// chars/3 heuristic and the `precise-tokens` BPE branch.
     #[test]
-    fn estimate_tokens_empty_ascii_unicode_deterministic() {
+    fn estimate_tokens_empty_and_deterministic() {
         let e = est();
         assert_eq!(e.estimate_tokens(""), 0);
-        assert_eq!(e.estimate_tokens("abcdef"), 2); // 6 chars / 3
-                                                    // Unicode counts chars, not bytes ("ñáé" = 3 chars = 1 token).
-        assert_eq!(e.estimate_tokens("ñáé"), 1);
         // Determinism.
         assert_eq!(
             e.estimate_tokens("héllo wörld 🚀"),
             e.estimate_tokens("héllo wörld 🚀")
         );
+    }
+
+    /// Exact chars/3 arithmetic — only meaningful without `precise-tokens`
+    /// (with it, [`Self::estimate_tokens`] returns real cl100k BPE counts;
+    /// see `precise_tokens_match_known_cl100k_golden_values`).
+    #[cfg(not(feature = "precise-tokens"))]
+    #[test]
+    fn estimate_tokens_ascii_unicode_heuristic() {
+        let e = est();
+        assert_eq!(e.estimate_tokens("abcdef"), 2); // 6 chars / 3
+                                                    // Unicode counts chars, not bytes ("ñáé" = 3 chars = 1 token).
+        assert_eq!(e.estimate_tokens("ñáé"), 1);
     }
 
     #[test]
@@ -264,5 +289,35 @@ mod tests {
         assert_eq!(kept.len(), 1);
         assert!(kept[0].content.contains(TRUNCATION_MARKER));
         assert!(report.tokens_after < report.tokens_before);
+    }
+
+    // D21 amendment: exact cl100k golden counts. Values pinned against
+    // tiktoken-rs 0.12; the "tiktoken is great!" case is documented in the
+    // OpenAI Cookbook (cl100k_base → ["t","ik","token"," is"," great","!"]).
+    #[cfg(feature = "precise-tokens")]
+    #[test]
+    fn precise_tokens_match_known_cl100k_golden_values() {
+        use crate::context_engine::types::{ChatMessage as M, ChatRole as R};
+
+        let e = est();
+        assert_eq!(e.estimate_tokens(""), 0);
+        // OpenAI Cookbook golden example.
+        assert_eq!(e.estimate_tokens("tiktoken is great!"), 6);
+        assert_eq!(e.estimate_tokens("hello world"), 2);
+
+        // CJK: chars/3 would say 1 for 4 CJK chars; real cl100k count is 5.
+        let cjk = "你好世界";
+        assert_eq!(e.estimate_tokens(cjk), 5);
+        assert!(
+            e.estimate_tokens(cjk) > u64::try_from(cjk.chars().count()).expect("fits") / 3,
+            "CJK must be more precise than chars/3"
+        );
+
+        // Code: braces/keywords tokenize differently than prose.
+        let code = "fn main() { println!(\"hi\"); }";
+        assert_eq!(e.estimate_tokens(code), 9);
+        // Message-level estimate stays deterministic under the precise branch.
+        let msg = M::new(R::User, cjk);
+        assert_eq!(e.estimate_message(&msg), e.estimate_message(&msg));
     }
 }

@@ -678,3 +678,15 @@ NUNCA publiques un claim de performance (número, "X faster", latencia, throughp
 <!-- Learnings: MCP-18/19 — 2026-08-22 -->
 - `serde_json::Map` PANICA con Index (`map["key"]`) cuando la key falta, a diferencia de `Value` que devuelve Null: helpers que reciben `&Map` de un array deben tomar `&Value` (o usar `.get()`) — el panic "no entry found for key" solo aparecio en runtime del test, no en compile-time.
 - Conteos de tools en docs vivas (SKILL.md/api-reference) estaban desincronizados entre copias y con el codigo real (33 vs 37 vs 25 core): contar con `rg -o '"name": "[a-z_]+"' ... | Sort-Object -Unique` sobre el source ANTES de actualizar numeros, no confiar en el doc previo.
+
+<!-- Learnings: MEM-54 — 2026-08-22 -->
+- `src/cli_server.rs` es feature-gated (`#[cfg(feature = "server")]` en lib.rs): `cargo check/test/clippy -p vantadb` con default features NO compila ni testea ese módulo — todo verify del server HTTP requiere `--features server`, si no los tests pasan vacíos sin avisar.
+- El router axum encadena métodos sobre MethodRouter (`put(h).patch(h).delete(h)`), no funciones libres: importar `routing::{delete, patch}` para eso genera unused_imports. Y toda ruta nueva exige entrada paralela en docs/api/openapi.yaml (gate CI GOV-B4: scripts/check_openapi_parity.mjs).
+
+<!-- Learnings: BND-03 — 2026-08-22 -->
+- Tests de budget del context engine acoplados a la aritmética chars/3 fallan silenciosos bajo `precise-tokens` (BPE: unidades más chicas → aggressive conserva más → menos headroom → inyección whole-or-skip se saltea): 3 tests e2e usaban budgets mágicos (1150/1400/800). Patrón que funcionó: derivar el budget de la medición del propio estimador (`est.estimate_messages(&msgs) * ratio / 100`) — la relación mild-falla/aggressive-cabe se preserva en ambas ramas.
+- Valores golden de cl100k NO se adivinan ni siquiera con referencias: 你好世界 = 5 tokens (no 6), `fn main() { println!("hi"); }` = 9 (no 12); solo "tiktoken is great!" = 6 coincide con el Cookbook. Escribir assert provisional → leer el actual del panic `left:` → pinear. tiktoken-rs 0.12 singleton (`cl100k_base_singleton()`) ya deref directo sin Mutex, MSRV 1.85 OK vs workspace 1.94.1.
+
+<!-- Learnings: MCP-20/26 — 2026-08-22 -->
+- Los report structs del SDK (`VantaIndexRebuildReport`, `VantaTextIndexAuditReport`, `VantaTextIndexRepairReport`, `VantaCapabilities`) ya son `Serialize`: en handlers MCP basta `serialize_content(&json!(&report))` — no reconstruir el objeto campo a campo.
+- `generate_snippet` devuelve `Some(payload)` para cualquier query con términos sobre payload corto (<=120 chars): el único camino a `None` es un query plan sin términos (query vacío/whitespace) — testear ese caso, no "query sin match".

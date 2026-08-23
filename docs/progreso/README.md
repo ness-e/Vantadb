@@ -53,6 +53,7 @@ VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNS
 ### Campaña P33 Última Milla en curso 2026-08-22 (plan `2026-08-22-vanta-ultima-milla.md`)
 
 - **MEM-54 (Task 4):** skills CRUD en server HTTP — POST /api/v2/skills + PUT/PATCH/DELETE /api/v2/skills/{skill_id} con lock optimista `expected_version` (409) y owner check 404 anti-enumeración. Tests D19 x2 (`--features server`), openapi parity 37 paths, HTTP_API.md actualizado.
+- **BND-03 (Task 5):** tiktoken-rs 0.12 detrás de feature opt-in `precise-tokens` en vanta-memory — default chars/3 intacto (dep optional, cero peso sin feature); con feature `estimate_tokens` cuenta cl100k exacto vía singleton. Golden tests cl100k pinneados empíricamente ("tiktoken is great!"→6 cookbook, 你好世界→5, código→9); 3 tests e2e/context_engine desacoplados de aritmética chars/3 con budget proporcional al propio estimador (patrón MEM-43). Verify: check/test default+feature exit 0, clippy -D warnings 0, fmt limpio en archivos tocados (fmt global falla por WIP ajeno en vantadb-mcp/tools.rs).
 
 ---
 

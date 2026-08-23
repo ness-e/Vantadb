@@ -236,15 +236,21 @@ fn task_memory(content: &str) -> vanta_memory::context_engine::TaskMemory {
 /// D19 (a): tras compresión aggressive, recall + MMD + memories respetan el
 /// budget TOTAL — la unión final nunca lo excede.
 ///
-/// Unidades gruesas (~203 tokens c/u): la cascada mild queda limitada por
-/// MIN_REPLACEMENTS_PER_PASS=10 (4150 > 1150 → falla), así que corre
-/// aggressive, que deja headroom (1015 + 135 libre) para las 3 inyecciones.
+/// Unidades gruesas (~203 tokens c/u con chars/3): la cascada mild queda
+/// limitada por MIN_REPLACEMENTS_PER_PASS=10 (no alcanza el budget → falla),
+/// así que corre aggressive, que deja headroom para las 3 inyecciones.
+///
+/// El budget se deriva de la medición del propio estimador (MEM-43): la
+/// proporción ~19% del total mantiene la relación mild-falla /
+/// aggressive-cabe tanto en la rama chars/3 como con `precise-tokens` (BPE).
 #[test]
 fn mem37_a_post_aggressive_recall_mmd_respect_total_budget() {
     let msgs: Vec<ChatMessage> = (0..30)
         .map(|i| ChatMessage::new(ChatRole::User, format!("m{i:02} {}", "y".repeat(600))))
         .collect();
-    let budget = 1150u64;
+    let e = est();
+    let total = e.estimate_messages(&msgs);
+    let budget = (total * 19 / 100).max(1);
     let out = assemble_with_recall(
         msgs,
         budget,

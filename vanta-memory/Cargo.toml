@@ -15,6 +15,10 @@ tracing = "0.1"
 # Only pulled in with `llm-driver` (standalone OpenAI-compatible runner).
 # Matches the workspace pattern (src/llm.rs: reqwest blocking + json).
 reqwest = { version = "0.12", features = ["json", "blocking"], optional = true }
+# Only pulled in with `precise-tokens` (D21 amendment, ADR-029): exact cl100k
+# BPE token counting instead of the chars/3 heuristic. Pinned minor to guard
+# against tokenizer drift vs OpenAI's API (Risk Register).
+tiktoken-rs = { version = "0.12", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
@@ -41,6 +45,11 @@ mock = []
 # Persistent backend for the `vanta-seed` binary (MEM-39). Without it the
 # binary falls back to in-memory storage (import is not persisted).
 fjall = ["vantadb/fjall"]
+
+# D21 amendment (ADR-029): exact token counts via tiktoken-rs cl100k_base.
+# Opt-in: default build keeps the lean chars/3 heuristic (no new deps, no
+# binary weight); hosts that need CJK/code precision pay the ~2-6MB cost.
+precise-tokens = ["dep:tiktoken-rs"]
 
 [lints]
 workspace = true
