@@ -1,7 +1,7 @@
 # Plan de Ejecución: Vanta Última Milla — integración producto end-to-end
 
 > **Inicio:** 2026-08-22
-> **Estado:** ⏳ EN PROGRESO (4/10 tareas)
+> **Estado:** ⏳ EN PROGRESO (5/10 tareas)
 > **Fuente:** auditoría de integración final (`docs/reviews/2026-08-22-auditoria-integracion-final.md`) + decisiones del usuario (2026-08-22)
 > **Predecesores:** P27+P29+P30+P31+P32 ✅ (54 tareas) — roadmap TDAM 100% + bindings
 > **Modo:** waves por dependencias. Sin release durante la campaña (decisión usuario).
@@ -35,7 +35,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Archivos clave:** `vanta-proxy/src/handlers/{openai,anthropic,responses}.rs` (editar), `writeback.rs` (API si falta)
 - **Verificación real:** ✅ AUDITORÍA — WriteBack construido+flusheado pero cero llamadas track() (auditoría H1)
 - **Gate Result:** ✅ DO
-- **Contrato: verificacion: cargo check -p vantadb --features server --all-targets OK | cargo test -p vantadb --features server --lib skills 16/16 (2 nuevos D19) | cargo fmt --check OK | cargo clippy -p vantadb --features server --all-targets --no-deps -- -D warnings exit 0 | node scripts/check_openapi_parity.mjs Parity OK. evidencia: [claim: rutas CRUD skills expuestas con optimistic lock; evidencia: src/cli_server.rs handlers skill_create/update/patch/delete + test skills_crud_roundtrip_via_http ok; confianza: alta] [claim: owner check 404 sin filtrar existencia; evidencia: fn require_owned_head mapea mismatch a NotFound identico a missing + test skills_owner_mismatch_is_indistinguishable_from_missing ok; confianza: alta]. artefactos: src/cli_server.rs, docs/api/openapi.yaml, .opencode/skills/campaign-executor/tasks/MEM-54.md
+- **Contrato:** "`cargo check -p vanta-proxy --all-targets` pasa; tests D19: request completado → track() encola el turno L0 → visible en pending queue → flush lo persiste; fallo de enqueue NO rompe el forward"
 - **Risk Register:** 🟢×🟠 extraer user-text del request puede necesitar MEM-57 parcial → implementar extracción mínima inline, refinar con Task 8
 - **Cynefin:** 🟦 obvio
 - **Estado:** ✅ COMPLETED
@@ -99,7 +99,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Pre-mortem:** peso binario solo en builds con feature; verificar WASM build sin feature sigue liviano
 - **Risk Register:** 🟡×🟡 tiktoken-rs version drift vs API OpenAI → pin versión + test golden
 - **Cynefin:** 🟦 obvio
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/BND-03.md`
 - **Notas:** Ruta: vanta-worker. Independiente.
 
@@ -182,12 +182,12 @@ Verify del lead SIEMPRE `--all-targets` (lección MEM-48) · SARL con feedback e
 ---
 
 === RECITATION ===
-Campaign ID: cbbefe44-8d27-4a32-87a0-230c2990fe05
-Objetivo activo: MEM-54 Skills CRUD en server HTTP (H5)
+Campaign ID: beef7c11-126d-454e-9316-5ff5e8403bb0
+Objetivo activo: BND-03: tiktoken-rs detrás de feature opt-in precise-tokens en vanta-memory (default chars/3 intacto) - enmienda D21 ADR-029
 Estado: pending ⏳
-Última acción: Implementado MEM-54: POST /api/v2/skills (create idempotente) + PUT/PATCH/DELETE /api/v2/skills/{skill_id} con query params owner_agent+expected_version (lock optimista MEM-06, stale = 409 via ExecutionConflict); owner-mismatch y missing devuelven el mismo 404 (anti-enumeracion); openapi.yaml actualizado (37 paths parity OK)
+Última acción: Implementada feature precise-tokens (tiktoken-rs 0.12, singleton cl100k) con rama cfg en estimate_tokens; golden tests cl100k pinneados empiricamente (RED->pin); 3 tests e2e desacoplados del budget chars/3 fijo con budget proporcional al estimador (patron MEM-43); verify mecanico completo verde; Backlog fila eliminada, progreso P33 actualizado, learnings en AGENTS.md
 Resultado: OK
-Próxima acción: Ninguna para esta tarea. Orquestador: delegar Task 5 (BND-03 tiktoken feature-gate) o Task 6 (MEM-57 parser claude-code), independientes.
+Próxima acción: Orquestador: commitear feat(vanta-memory): BND-03 precise-tokens feature gate (archivos en git status) y lanzar Task 6
 Contrato: por tarea — cargo check/nextest/fmt/clippy --all-targets del crate tocado exit 0 + tests D19
-Próxima tarea si completa: 5
+Próxima tarea si completa: 6
 === END RECITATION ===
