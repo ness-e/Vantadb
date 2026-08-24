@@ -801,3 +801,55 @@
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+/* ============================================================
+   SplashScreen (FIND-23) — cold-start intro, pure CSS.
+   One motion language: transform/opacity only. Staggered entrance
+   with overshoot on the mark; exit is a fade+scale transition
+   driven by .splash-closing (400ms, set from SplashScreen.tsx).
+   prefers-reduced-motion: entrance animations disabled; timer and
+   click dismissal still apply.
+   ============================================================ */
+@media (prefers-reduced-motion: no-preference) {
+  .splash-root {
+    animation: splash-fade 0.4s ease-out;
+  }
+  .splash-mark {
+    opacity: 0;
+    animation: splash-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s forwards;
+  }
+  .splash-title {
+    opacity: 0;
+    animation: splash-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.25s forwards;
+  }
+  .splash-sub {
+    opacity: 0;
+    animation: splash-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.5s forwards;
+  }
+  .splash-hint {
+    opacity: 0;
+    animation: splash-hint-in 0.8s ease-out 1.2s forwards;
+  }
+}
+.splash-root {
+  transition-property: opacity, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+}
+.splash-closing {
+  opacity: 0 !important;
+  transform: scale(1.02);
+}
+@keyframes splash-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes splash-pop {
+  from { opacity: 0; transform: scale(0.82); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes splash-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes splash-hint-in {
+  to { opacity: 0.6; }
+}

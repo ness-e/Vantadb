@@ -4,46 +4,56 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
  * TitleBar (FIND-19) — custom window chrome so the app doesn't feel like an
  * embedded web page. Rendered only on the Tauri build (isEmbedded guard in
  * App.tsx); web builds keep native browser chrome.
- * Style: linocut — theme background, 2px black bottom border.
+ *
+ * Requires capabilities: core:window:allow-{minimize,toggle-maximize,close,
+ * start-dragging} (desktop/src-tauri/capabilities/default.json).
  */
 
-export function TitleBar() {
-  const win = getCurrentWindow();
+const win = getCurrentWindow();
 
+function ControlButton(props: {
+  label: string;
+  glyph: string;
+  danger?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={props.label}
+      title={props.label}
+      onClick={props.onClick}
+      className={`flex h-9 w-10 items-center justify-center text-sm transition-colors duration-150 ${
+        props.danger
+          ? "text-[var(--foreground)] hover:bg-[#C41E25] hover:text-white"
+          : "text-[var(--foreground)] hover:bg-black/10 dark:hover:bg-white/15"
+      }`}
+    >
+      {props.glyph}
+    </button>
+  );
+}
+
+export function TitleBar() {
   return (
     <div
       data-tauri-drag-region
       onDoubleClick={() => void win.toggleMaximize()}
-      className="flex h-9 shrink-0 select-none items-center justify-between border-b-2 border-black bg-[var(--background)] px-3"
+      className="flex h-9 shrink-0 select-none items-center justify-between border-b-2 border-black bg-[var(--background)]"
     >
       <span
         data-tauri-drag-region
-        className="font-[family-name:var(--font-space-mono)] text-xs uppercase tracking-widest text-[var(--foreground)]"
+        className="pl-3 font-[family-name:var(--font-space-mono)] text-xs uppercase tracking-widest text-[var(--foreground)]"
       >
         VantaDB Studio
       </span>
-      <div className="flex items-center gap-1">
-        <button
-          aria-label="Minimizar"
-          onClick={() => void win.minimize()}
-          className="h-6 w-8 border border-black/20 text-[var(--foreground)] hover:bg-black/10"
-        >
-          –
-        </button>
-        <button
-          aria-label="Maximizar"
+      <div className="flex h-9 items-stretch">
+        <ControlButton label="Minimizar" glyph="─" onClick={() => void win.minimize()} />
+        <ControlButton
+          label="Maximizar / restaurar"
+          glyph="□"
           onClick={() => void win.toggleMaximize()}
-          className="h-6 w-8 border border-black/20 text-[var(--foreground)] hover:bg-black/10"
-        >
-          ▢
-        </button>
-        <button
-          aria-label="Cerrar"
-          onClick={() => void win.close()}
-          className="h-6 w-8 border border-black/20 text-[var(--foreground)] hover:bg-[#C41E25] hover:text-white"
-        >
-          ✕
-        </button>
+        />
+        <ControlButton label="Cerrar" glyph="✕" danger onClick={() => void win.close()} />
       </div>
     </div>
   );

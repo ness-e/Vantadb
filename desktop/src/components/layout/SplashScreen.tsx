@@ -1,24 +1,46 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MarkStudio } from "../mark/mark-studio";
 
 /**
  * SplashScreen (FIND-23) — cold-start intro using the Mark mascot.
- * Pure CSS animation (no new deps); auto-dismisses after ~1.8s or on click.
- * `prefers-reduced-motion` disables the entrance animation via media query
- * in index.css (.splash-* rules).
+ *
+ * Choreography (design-motion-principles: rare moment → expressive motion,
+ * one easing language, transform/opacity only):
+ *   0ms     mark pops in (overshoot bezier)
+ *   250ms   title rises
+ *   500ms   subtitle rises + hint fades in late
+ *   2600ms  auto-dismiss begins → 400ms fade+scale-out exit
+ * Total ≈3s. Click skips straight to exit. prefers-reduced-motion kills all
+ * entrance animation (media query in index.css); timer still applies.
  */
 
+const EXIT_MS = 400;
+const HOLD_MS = 2600;
+
 export function SplashScreen({ onDismiss }: { onDismiss: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onDismiss, 1800);
-    return () => clearTimeout(t);
+  const [closing, setClosing] = useState(false);
+  const dismissedRef = useRef(false);
+
+  const beginExit = useCallback(() => {
+    if (dismissedRef.current) return;
+    dismissedRef.current = true;
+    setClosing(true);
+    window.setTimeout(onDismiss, EXIT_MS);
   }, [onDismiss]);
+
+  useEffect(() => {
+    const t = window.setTimeout(beginExit, HOLD_MS);
+    return () => window.clearTimeout(t);
+  }, [beginExit]);
 
   return (
     // FIND-23: covers the whole window once per cold start; click skips.
     <div
-      onClick={onDismiss}
-      className="splash-root fixed inset-0 z-50 flex cursor-pointer flex-col items-center justify-center gap-6 bg-[var(--background)]"
+      onClick={beginExit}
+      className={`splash-root fixed inset-0 z-50 flex cursor-pointer flex-col items-center justify-center gap-6 bg-[var(--background)] ${
+        closing ? "splash-closing" : ""
+      }`}
+      style={{ transitionDuration: `${EXIT_MS}ms` }}
     >
       <div className="splash-mark w-[min(320px,60vw)]">
         <MarkStudio status="idle" />
