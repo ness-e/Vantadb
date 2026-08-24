@@ -18,32 +18,16 @@ use crate::storage::vfile::MmapMut;
 use crate::vector::governor::QuantizationAction;
 
 impl StorageEngine {
-    /// Check tombstone fragmentation and log a warning if it exceeds 20%.
+    /// Check tombstone fragmentation and run an offline compaction pass when
+    /// it exceeds the configured threshold.
+    ///
+    /// Delegates to [`Self::merge_segments`], which measures tombstone
+    /// fragmentation against `segment_optimizer.vacuum_threshold_pct` and
+    /// rewrites the VantaFile via [`Self::compact_layout_bfs`], actually
+    /// reclaiming the space held by tombstoned nodes (MOD-03: this used to be
+    /// a stub that only logged).
     pub fn trigger_compaction(&self) -> Result<()> {
-        let vstore = self.vector_store[0].write();
-        let hnsw = self.hnsw.load();
-
-        let tombstone_count = hnsw
-            .nodes
-            .iter()
-            .filter(|r| {
-                let n = r.value();
-                if let Some(h) = vstore.read_header(n.storage_offset) {
-                    (h.flags & FLAG_TOMBSTONE) != 0
-                } else {
-                    false
-                }
-            })
-            .count();
-
-        let total_nodes = hnsw.nodes.len();
-        if total_nodes > 0 && (tombstone_count as f32 / total_nodes as f32) > 0.20 {
-            tracing::warn!(
-                tombstone_pct = (tombstone_count as f32 / total_nodes as f32 * 100.0) as u32,
-                "Fragmentation >20% — offline compaction triggered"
-            );
-        }
-
+        self.merge_segments()?;
         Ok(())
     }
 

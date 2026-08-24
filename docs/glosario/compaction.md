@@ -21,10 +21,11 @@ La **compaction** (compactación) es el proceso de reorganizar los datos en disc
 Reorganiza los nodos del grafo HNSW en disco siguiendo un orden BFS desde el entry point del índice, agrupando nodos vecinos en regiones contiguas para minimizar page faults durante búsquedas **[[mmap]]**:
 
 ```rust
-// src/storage/engine.rs
+// src/storage/engine/maintenance.rs
 pub fn trigger_compaction(&self) -> Result<()> {
-    // Reordena nodos en disco en orden BFS desde HNSW entry point
-    // Agrupa vecinos cercanos físicamente para reducir page faults
+    // Mide la fragmentación por tombstones contra
+    // segment_optimizer.vacuum_threshold_pct (default 15%) y delega a
+    // merge_segments(), que compacta vía compact_layout_bfs().
 }
 
 pub fn compact_layout_bfs(&self) -> Result<u64> {
@@ -68,7 +69,7 @@ pub fn request_compaction(&self) {
 
 | Señal | Acción |
 |-------|--------|
-| Fragmentación >20% | `trigger_compaction()` |
+| Fragmentación > `vacuum_threshold_pct` (default 15%) | `trigger_compaction()` |
 | WAL crece sin límite | `compact_wal()` |
 | Post-import masivo | `compact_layout_bfs()` |
 | Mantenimiento programado | `request_compaction()` |

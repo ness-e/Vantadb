@@ -402,6 +402,59 @@ fn test_trigger_compaction_high_tombstone_fraction() {
         .expect("trigger with >20% tombstones");
 }
 
+/// RED test for MOD-03: `trigger_compaction` must actually compact, not just log.
+/// Mirrors `test_trigger_compaction_high_tombstone_fraction` (tombstoned header,
+/// node still indexed — the fragmentation state the maintenance API models):
+/// with 90% tombstone fragmentation (>15% default threshold) the disk-backed
+/// VantaFile must shrink after the call.
+#[test]
+fn test_trigger_compaction_reclaims_disk_space_on_high_fragmentation() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db_path = dir.path().to_str().expect("db path");
+    let config = VantaConfig {
+        backend_kind: crate::backend::BackendKind::Fjall,
+        ..VantaConfig::default()
+    };
+    let engine =
+        StorageEngine::open_with_config(db_path, Some(config)).expect("open disk-backed engine");
+
+    // Insert 100 nodes. Node 1 becomes the entry point — keep it clean.
+    for id in 1..=100u128 {
+        let node = UnifiedNode::with_vector(id, vec![0.1; 64]);
+        engine.insert(&node).expect("insert");
+    }
+    // Stamp 90 of 100 headers as tombstones (ids 11..=100) → 90% fragmentation,
+    // far above the 15% default `vacuum_threshold_pct`.
+    {
+        let mut vstore = engine.vector_store[0].write();
+        let hnsw = engine.hnsw.load();
+        for id in 11..=100u128 {
+            let offset = hnsw
+                .nodes
+                .get(&id)
+                .map(|n| n.storage_offset)
+                .expect("offset");
+            if let Some(mut header) = vstore.read_header(offset) {
+                header.flags |= FLAG_TOMBSTONE;
+                vstore.write_header(offset, &header).expect("write header");
+            }
+        }
+    }
+    engine.flush().expect("flush");
+
+    let size_before = engine.vector_store[0].read().mmap_bytes().len();
+
+    engine.trigger_compaction().expect("trigger compaction");
+
+    let size_after = engine.vector_store[0].read().mmap_bytes().len();
+    assert!(
+        size_after < size_before,
+        "compaction must reclaim bytes: before={size_before}, after={size_after}"
+    );
+    // Survivors remain readable after the rewrite.
+    assert!(engine.get(5).expect("get survivor").is_some());
+}
+
 #[test]
 fn test_compact_wal() {
     let config = VantaConfig {
