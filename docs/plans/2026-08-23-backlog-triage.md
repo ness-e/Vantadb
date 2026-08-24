@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 82c5ed20-2086-4619-b471-dbafeb63aead
 > **Inicio:** 2026-08-23
-> **Estado:** ⏳ EN PROGRESO
+> **Estado:** ✅ COMPLETED (cierre 2026-08-23 — 16/17 ✅ + 1 SKIP tardío; W1 verificada en código + tests re-ejecutados por el lead)
 > **Fuente:** `docs/Backlog.md` (triage Gate P confirmado por owner: set base 16 + REVIEW-09)
 > **FAIL_MODE:** parallel · MAX_CONCURRENT=3 · waves por dominio disjunto
 
@@ -110,7 +110,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas (MOD-01 orden exacto validate↔W
 - **Gate Justificación:** bloquea deny gate antes del próximo release; fix = `cargo update -p h2`
 - **Contrato:** `cargo deny check advisories` exit 0; Cargo.lock con h2 ≥0.4.16 commiteado
 - **Pre-mortem:** bump puede arrastrar breaking de dependientes — si `cargo check` falla, documentar pin y re-triar
-- **Task file:** `tasks/REVIEW-08.md` · **Estado:** ⬜ PENDING
+- **Task file:** — · **Estado:** ✅ COMPLETED (`ff9b2933` inline — h2 0.4.18, deny advisories ok)
 
 ### Task 9: REVIEW-19 — CHANGELOG.md stub en raíz
 
@@ -119,7 +119,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas (MOD-01 orden exacto validate↔W
 - **Verificación real:** ✅ CÓDIGO-REAL — Test-Path CHANGELOG.md = False hoy
 - **Gate Justificación:** tooling externo espera changelog en raíz; stub 1 línea apuntando a `docs/CHANGELOG.md` (regla: NUNCA editar changelog manual — release-plz)
 - **Contrato:** Test-Path CHANGELOG.md = True y contenido referencia docs/CHANGELOG.md
-- **Task file:** `tasks/REVIEW-19.md` · **Estado:** ⬜ PENDING
+- **Task file:** — · **Estado:** ✅ COMPLETED (inline — stub CHANGELOG.md raíz)
 
 ### Task 10: REVIEW-16 — 5 imports muertos en `debug_ops.rs`
 
@@ -128,7 +128,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas (MOD-01 orden exacto validate↔W
 - **Verificación real:** 🟡 VERIFICAR-IN-DISCOVERY — derivada review L2-CODE-001; `cargo fix --lib -p vantadb` los detecta
 - **Gate Justificación:** warnings en cada build maturin/cargo; fix mecánico
 - **Contrato:** `cargo clippy -p vantadb --no-deps` sin warnings de unused imports en debug_ops.rs
-- **Task file:** `tasks/REVIEW-16.md` · **Estado:** ⬜ PENDING
+- **Task file:** — · **Estado:** ❌ SKIP (imports muertos ya eliminados colateralmente; cargo check 0 warnings en debug_ops.rs)
 
 ### Task 11: REVIEW-14 — Panics frágiles: unwrap en `version_history.rs:283` (key <8 bytes) + unwraps `explain.rs`
 
@@ -137,7 +137,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas (MOD-01 orden exacto validate↔W
 - **Verificación real:** 🟡 VERIFICAR-IN-DISCOVERY — derivada review H09-CODE-005; confirmar unwraps en disco
 - **Gate Justificación:** panic con store corrupto viola contract de errores (`VantaError::Corrupt`); fix acotado
 - **Contrato:** test: key <8 bytes → `VantaError::Corrupt` (sin panic); explain.rs sin unwrap frágil (bindear Some en pattern)
-- **Task file:** `tasks/REVIEW-14.md` · **Estado:** ⬜ PENDING
+- **Task file:** `tasks/REVIEW-14.md` · **Estado:** ✅ COMPLETED (`4044a588` — helper version_from_key + explain sin unwraps; nextest 2051/2051)
 
 ### Task 12: REVIEW-15 — Cast `from_raw_parts` a f32 sin assert de alineación (`vector_data.rs:167`)
 
@@ -147,7 +147,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas (MOD-01 orden exacto validate↔W
 - **Gate Justificación:** invariante page-aligned implícito sin evidencia; UB potencial documentable con `align_to()` seguro
 - **Contrato:** código usa `align_to()` o `debug_assert!(ptr % 4 == 0 && len % 4 == 0)`; suite storage verde
 - **Pre-mortem:** cambiar a `align_to()` puede revelar desalineación real en producción — preferir assert explícito primero
-- **Task file:** `tasks/REVIEW-15.md` · **Estado:** ⬜ PENDING
+- **Task file:** `tasks/REVIEW-15.md` · **Estado:** ✅ COMPLETED (`57090e0e` — align_to + guard; −1 unsafe; P2-01 approve)
 
 ### Task 13: REVIEW-18 — Warning Next.js package-lock stray (turbopack root)
 
@@ -156,7 +156,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas (MOD-01 orden exacto validate↔W
 - **Verificación real:** 🟡 VERIFICAR-IN-DISCOVERY — derivada review H03-CODE-001; reproducir warning en build web
 - **Gate Justificación:** warning de build confunde CI/dev; config 1 línea
 - **Contrato:** `npm run build` en web/ sin warning turbopack/package-lock
-- **Task file:** `tasks/REVIEW-18.md` · **Estado:** ⬜ PENDING
+- **Task file:** `tasks/REVIEW-18.md` · **Estado:** ✅ COMPLETED (`6ea5e545` — turbopack root; build 35/35 limpio)
 
 ### Task 14: MOD-03 — `trigger_compaction()` es stub que solo loguea
 
@@ -166,7 +166,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas (MOD-01 orden exacto validate↔W
 - **Gate Justificación:** API pública que promete compaction y no hace nada; renombrar/delegar a vacuum existente (decisión en DISCOVERY)
 - **Contrato:** sin método público que solo loguee: o delega a vacuum real (test bytes reclaim) o renombrado deprecated con doc
 - **Pre-mortem:** callers existentes pueden depender del no-op — grep callers antes
-- **Task file:** `tasks/MOD-03.md` · **Estado:** ⬜ PENDING
+- **Task file:** `tasks/MOD-03.md` · **Estado:** ✅ COMPLETED (`28ce0a57` — delega a merge_segments; RED confirmado; nextest 2052/2052)
 
 ---
 
@@ -205,7 +205,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas (MOD-01 orden exacto validate↔W
 - **Gate Justificación:** hoy solo `inject_context` expuesto; CRUD completo habilita historial conversacional gestionable por el agente; wrappers sin cambio de SDK
 - **Contrato:** tools `thread_create/thread_send/thread_get/thread_list/thread_delete` (+purge si trivial); test round-trip create→send→get→list→delete; SKILL.md ×2
 - **Pre-mortem:** semántica de sesiones/namespace de threads puede chocar con multi-tenant RBAC del proxy — revisar D34 antes de exponer writes
-- **Task file:** `tasks/MCP-32.md` · **Estado:** ⬜ PENDING
+- **Task file:** `tasks/MCP-32.md` · **Estado:** ✅ COMPLETED (implementada por el lead inline — SARL step 3; threads.rs + 7 tests; nextest mcp 58/58; docs hash SAME)
 
 ---
 
@@ -371,3 +371,15 @@ Próxima acción: Orquestador: skill progreso y lanzar MCP-32 (misma wave W3, se
 Contrato: verificacion: cargo fmt --check exit 0 ✅ | cargo clippy -p vantadb-mcp --all-targets --all-features -- -D warnings exit 0 ✅ | cargo nextest run -p vantadb-mcp = 51/51 PASS (44 previos + 7 nuevos) ✅ | scripts/validate-docs-coverage.ps1 exit 0 (0 gaps) ✅ | commit d03b6517 con pre-commit hooks ok || evidencia: [claim: 3 tools registradas en tools/list con schema valido, evidencia: test_tools_list_registers_scene_tools_with_valid_schemas PASS, confianza: alta], [claim: round-trip sesion seedada scene_list > 0 y scene_read por id devuelve contenido, evidencia: scene_list_roundtrip_lists_seeded_scenes_heat_desc + scene_read_roundtrip_returns_block_content PASS (seed via upsert_scene publica, sin L0 ni LLM), confianza: alta], [claim: scene_query keyword matchea y el hit resuelve via scene_read, evidencia: scene_query_finds_scene_by_keyword_and_reads_it PASS, confianza: alta], [claim: errores de dominio como error_content nunca protocol errors, evidencia: scene_read_missing_scene_is_error_content_not_protocol_error + reject_empty_session_and_keyword PASS, confianza: alta], [claim: SKILL.md hash SAME ambos lados, evidencia: Get-FileHash skills/ vs .opencode/ = SAME x3 archivos (SKILL/api-reference/mcp-protocol), confianza: alta] || artefactos: vantadb-mcp/src/scenes.rs, vantadb-mcp/tests/scene_tests.rs, vantadb-mcp/src/handlers/tools.rs (+4L), vantadb-mcp/src/lib.rs, skills/vantadb-mcp/* x2 copias, docs/api/MCP.md, task file MCP-30.md, commit d03b6517 || invariantes: read-only; wire shape = tipos serde existentes de vanta-memory (id de navegacion = filename); errores de dominio como error_content; sin deps nuevas; embed=None en scene_query (keyword-only D38) || deuda: ninguna introducida || queda_pendiente: orquestador ejecuta skill progreso y decide siguiente tarea wave W3 serial (MCP-32 threads CRUD)
 Próxima tarea si completa: MCP-32
 === END RECITATION ===
+
+---
+
+## Retrospectiva de cierre (Start / Stop / Continue)
+
+**Start:** verificación post-hoc del lead contra código+tests (atrapó que los RESULTADO vacíos no significaban trabajo ausente) · bloque "Skills obligatorias" explícito en cada delegación (SKILLS_CARGADAS en RESULTADO) · implementación inline por el lead cuando la delegación falla 3× (SARL step 3).
+
+**Stop:** confiar en el canal de respuesta de sub-agentes (~40% vacíos en esta sesión; el trabajo estaba intacto al menos una vez) · lanzar de a UN sub-agente por mensaje cuando las tareas son disjuntas (desperdicia paralelismo; MAX_CONCURRENT=3 es el límite real) · asumir que el matcher MCP `campaign_load_skills` sugiere las skills críticas (devuelve lista mínima).
+
+**Continue:** waves por dominio disjunto con commits por tarea · claim:true + guard R5 para multi-instancia · docs ×2 hash SAME en cada cambio de skill MCP.
+
+**Acción medida:** tasa first-try de delegaciones = 9/13 launches útiles (~70%, bajo el baseline North Star >90%) — causa raíz canal de reporte, no capacidad; métrica a vigilar: resultados vacíos/launch. Follow-ups registrados como FIND: sitios hermanos align_to (ivf.rs/mapper.rs/bytes.rs), FIND-27 unwraps mod.rs/debug_ops, drift completions/_vanta-cli, fila MOD-16 residual en Backlog.
