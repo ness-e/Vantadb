@@ -566,6 +566,35 @@ vanta-cli server --http --port 443 --db ./vanta_data
 Note: the `server` Cargo feature gates the HTTP/MCP wrapper. If your build lacks it,
 rebuild with `cargo build --features server`.
 
+### Security guard: refuse-to-start on exposed unauthenticated binds (FIND-07)
+
+The server **refuses to start** when all of the following hold:
+
+- The bind host is non-loopback (anything other than `127.0.0.1`, `localhost`, `::1` — e.g. `0.0.0.0`)
+- No API key is configured (`VANTADB_API_KEY` unset)
+- No explicit dev override is given
+
+The startup error explains every remediation path:
+
+```text
+Refusing to start: non-loopback host without an API key
+Fix either way: (1) set VANTADB_API_KEY to enable Bearer auth, or
+(2) bind a loopback host (127.0.0.1/localhost/::1), or (3) pass
+--allow-insecure to override this check in dev.
+```
+
+**Dev override** — `--allow-insecure` bypasses the check for local development.
+The server then logs a prominent warning and starts unauthenticated:
+
+```bash
+# Explicitly opt in to an exposed, unauthenticated server (dev only)
+vanta-cli server --http --host 0.0.0.0 --port 8080 --db ./vanta_data --allow-insecure
+```
+
+Loopback binds without a key keep working as before (dev mode). Setting
+`VANTADB_API_KEY` makes any host acceptable; `--require-auth` additionally
+refuses to start without a key regardless of host.
+
 ## Route Summary
 
 | Method | Path | Auth | Domain | Description |

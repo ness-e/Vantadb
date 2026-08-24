@@ -314,6 +314,11 @@ pub enum Commands {
         #[arg(long, env = "VANTADB_REQUIRE_AUTH")]
         require_auth: bool,
 
+        /// Allow binding a non-loopback host without an API key (dev only).
+        /// The server logs a prominent security warning and starts unauthenticated.
+        #[arg(long)]
+        allow_insecure: bool,
+
         /// Directory of static files to serve at /dashboard (Vanta Studio web
         /// console). When unset, /dashboard responds 404 with a hint.
         #[arg(long, env = "VANTADB_DASHBOARD_DIR")]

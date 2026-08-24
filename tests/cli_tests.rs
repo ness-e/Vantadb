@@ -1181,8 +1181,9 @@ fn test_server_missing_feature() {
     let (_dir, path) = setup_temp_db();
     // Without the `server` feature the http branch returns a CliError.
     // (mcp mode spawns the vantadb-server binary -> not testable in CI.)
-    let result =
-        vantadb::cli_handlers::cmd_server(&path, true, false, None, None, false, None, None, false);
+    let result = vantadb::cli_handlers::cmd_server(
+        &path, true, false, None, None, false, false, None, None, false,
+    );
     assert!(
         result.is_err(),
         "server without the 'server' feature must error: {:?}",

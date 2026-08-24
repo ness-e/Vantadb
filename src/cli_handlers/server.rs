@@ -177,6 +177,7 @@ pub fn cmd_server(
     port: Option<u16>,
     host: Option<String>,
     require_auth: bool,
+    allow_insecure: bool,
     dashboard_dir: Option<String>,
     memory_limit: Option<&str>,
     _verbose: bool,
@@ -200,6 +201,7 @@ pub fn cmd_server(
             port,
             host,
             require_auth,
+            allow_insecure,
             dashboard_dir,
             memory_limit,
         ))
@@ -219,6 +221,7 @@ async fn cmd_server_http(
     port: Option<u16>,
     host: Option<String>,
     require_auth: bool,
+    allow_insecure: bool,
     dashboard_dir: Option<String>,
     memory_limit: Option<&str>,
 ) -> Result<()> {
@@ -238,6 +241,7 @@ async fn cmd_server_http(
         port: port.unwrap_or(8080),
         host: host.unwrap_or_else(|| "127.0.0.1".to_string()),
         require_auth,
+        allow_insecure,
         dashboard_dir: dashboard_dir.map(std::path::PathBuf::from),
         memory_limit,
         ..Default::default()

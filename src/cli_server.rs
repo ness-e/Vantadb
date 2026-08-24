@@ -1669,9 +1669,26 @@ fn log_security_mode(config: &VantaConfig) {
     );
 }
 
+/// Whether `host` binds only the loopback interface (`127.0.0.0/8`,
+/// `::1`, or the literal name `localhost`). Unresolvable hostnames are
+/// treated as non-loopback (fail closed).
+fn is_loopback_host(host: &str) -> bool {
+    let h = host.trim();
+    let h = h.strip_prefix('[').unwrap_or(h);
+    let h = h.strip_suffix(']').unwrap_or(h);
+    h.eq_ignore_ascii_case("localhost")
+        || h.parse::<std::net::IpAddr>()
+            .map(|ip| ip.is_loopback())
+            .unwrap_or(false)
+}
+
 /// Validate that the auth configuration is consistent.
 ///
-/// Returns an error if `require_auth` is `true` but no `api_key` is configured.
+/// Refuse-to-start policy (FIND-07): the server does NOT start when it binds a
+/// non-loopback host without an API key — an unauthenticated instance exposed
+/// to the network is an accident waiting to happen. Override explicitly with
+/// `--allow-insecure` (dev only), which logs a prominent WARNING instead.
+/// Also returns an error if `require_auth` is set but no key is configured.
 fn validate_auth_config(config: &VantaConfig) -> Result<()> {
     if config.require_auth && config.api_key.is_none() {
         console::error(
@@ -1685,6 +1702,34 @@ fn validate_auth_config(config: &VantaConfig) -> Result<()> {
         return Err(VantaError::InvalidInput(
             "require_auth is set but no api_key is configured".into(),
         ));
+    }
+    if config.api_key.is_none() && !is_loopback_host(&config.host) {
+        if config.allow_insecure {
+            console::warn(
+                "INSECURE MODE: HTTP server exposed on non-loopback host WITHOUT authentication",
+                Some(&format!(
+                    "host '{}' accepts unauthenticated requests from any reachable client. \
+                     Set VANTADB_API_KEY (or remove --allow-insecure) to secure this server.",
+                    config.host
+                )),
+            );
+        } else {
+            console::error(
+                "Refusing to start: non-loopback host without an API key",
+                Some(&format!(
+                    "Binding '{}' without VANTADB_API_KEY exposes an unauthenticated \
+                     server to the network. Fix either way: (1) set VANTADB_API_KEY to \
+                     enable Bearer auth, or (2) bind a loopback host (127.0.0.1/localhost/::1), \
+                     or (3) pass --allow-insecure to override this check in dev.",
+                    config.host
+                )),
+            );
+            return Err(VantaError::InvalidInput(format!(
+                "non-loopback host '{}' without api_key; set VANTADB_API_KEY, bind a \
+                 loopback host, or pass --allow-insecure",
+                config.host
+            )));
+        }
     }
     Ok(())
 }
@@ -2907,6 +2952,7 @@ mod tests {
         let cfg = VantaConfig {
             api_key: None,
             require_auth: false,
+            host: "127.0.0.1".into(),
             ..Default::default()
         };
         assert!(validate_auth_config(&cfg).is_ok());
@@ -2936,6 +2982,90 @@ mod tests {
             }
             other => panic!("expected InvalidInput, got {other:?}"),
         }
+    }
+
+    /// FIND-07 (a): non-loopback host + no key → refuse with actionable message.
+    #[test]
+    fn refuse_to_start_non_loopback_without_key() {
+        for host in ["0.0.0.0", "192.168.1.10", "example.com", "::"] {
+            let cfg = VantaConfig {
+                api_key: None,
+                require_auth: false,
+                allow_insecure: false,
+                host: host.into(),
+                ..Default::default()
+            };
+            let err = validate_auth_config(&cfg).unwrap_err();
+            match err {
+                VantaError::InvalidInput(msg) => {
+                    assert!(
+                        msg.contains("VANTADB_API_KEY") && msg.contains("allow-insecure"),
+                        "host {host}: msg lacks remediation: {msg}"
+                    );
+                }
+                other => panic!("expected InvalidInput for {host}, got {other:?}"),
+            }
+        }
+    }
+
+    /// FIND-07 (b): same non-loopback host + `--allow-insecure` → starts
+    /// (with a prominent WARNING logged to console).
+    #[test]
+    fn allow_insecure_bypasses_non_loopback_refusal() {
+        let cfg = VantaConfig {
+            api_key: None,
+            require_auth: false,
+            allow_insecure: true,
+            host: "0.0.0.0".into(),
+            ..Default::default()
+        };
+        assert!(validate_auth_config(&cfg).is_ok());
+    }
+
+    /// FIND-07 (c): loopback hosts without a key start normally.
+    #[test]
+    fn loopback_hosts_start_normally() {
+        for host in ["127.0.0.1", "localhost", "::1", "[::1]"] {
+            let cfg = VantaConfig {
+                api_key: None,
+                require_auth: false,
+                allow_insecure: false,
+                host: host.into(),
+                ..Default::default()
+            };
+            assert!(
+                validate_auth_config(&cfg).is_ok(),
+                "loopback host {host} must start without a key"
+            );
+        }
+    }
+
+    /// FIND-07: an API key makes any host acceptable regardless of the override.
+    #[test]
+    fn api_key_accepts_any_host() {
+        let cfg = VantaConfig {
+            api_key: Some("sk-test".into()),
+            require_auth: false,
+            allow_insecure: false,
+            host: "0.0.0.0".into(),
+            ..Default::default()
+        };
+        assert!(validate_auth_config(&cfg).is_ok());
+    }
+
+    #[test]
+    fn is_loopback_host_classification() {
+        assert!(is_loopback_host("127.0.0.1"));
+        assert!(is_loopback_host("127.9.9.9"));
+        assert!(is_loopback_host("localhost"));
+        assert!(is_loopback_host("LOCALHOST"));
+        assert!(is_loopback_host("::1"));
+        assert!(is_loopback_host("[::1]"));
+        assert!(!is_loopback_host("0.0.0.0"));
+        assert!(!is_loopback_host("::"));
+        assert!(!is_loopback_host("192.168.1.10"));
+        assert!(!is_loopback_host("db.internal")); // unresolvable → fail closed
+        assert!(!is_loopback_host(""));
     }
 
     #[tokio::test]

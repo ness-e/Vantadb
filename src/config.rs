@@ -294,6 +294,11 @@ pub struct VantaConfig {
     /// it is not. This prevents accidentally running in unauthenticated mode
     /// in production-like environments.
     pub require_auth: bool,
+    /// Dev override for the refuse-to-start guard (FIND-07): when the server
+    /// binds a non-loopback host without an API key it refuses to start unless
+    /// this is set (via `--allow-insecure`). When set, the server logs a
+    /// prominent WARNING and starts in unauthenticated mode.
+    pub allow_insecure: bool,
     /// Maximum HTTP requests per minute per remote IP for the rate limiter.
     ///
     /// Configured via `VANTADB_RATE_LIMIT_RPM` (default: 600). Set to `0` to
@@ -655,6 +660,7 @@ impl Default for VantaConfig {
                 debug!(val = v, "VANTADB_REQUIRE_AUTH");
                 v
             },
+            allow_insecure: false,
             rate_limit_rpm: {
                 let v = parse_env_or("VANTADB_RATE_LIMIT_RPM", 600u32);
                 debug!(val = v, "VANTADB_RATE_LIMIT_RPM");

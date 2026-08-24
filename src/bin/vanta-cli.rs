@@ -198,6 +198,7 @@ fn main() -> Result<()> {
             port,
             host,
             require_auth,
+            allow_insecure,
             dashboard_dir,
         } => cli_handlers::cmd_server(
             &args.db,
@@ -206,6 +207,7 @@ fn main() -> Result<()> {
             port,
             host,
             require_auth,
+            allow_insecure,
             dashboard_dir,
             args.memory_limit.as_deref(),
             args.verbose,
