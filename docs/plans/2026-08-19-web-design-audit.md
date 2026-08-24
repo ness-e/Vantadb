@@ -204,7 +204,7 @@ last-synced: 2026-08-24T00:00
 - **Contrato:** `grep -c "theme.dark\|theme.light\|toggleTheme" web/src/lib/dictionaries.ts` = 0; comentario "theme" removido de site-navbar; mark-classic sin `loop:true` sin cleanup; `npm run build` en `web/` pasa
 - **Ruta:** vanta-worker
 - **Task file:** `tasks/WDA-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-24) — claves theme.light/dark/toggleTheme eliminadas (grep=0, plumbing muerto inexistente); comentario navbar limpio; leak animejs mark-classic fixed (ambientAnimsRef.pause() + prefers-reduced-motion); 4 timers con cleanup; build exit 0. Hallazgos diseño: ~73 efectos decorativos en home (trust-bar ×11), Space Mono como body-text ilegible, header pattern duplicado por ruta. Detalles en `tasks/WDA-01.md`.
 
 ### Task 3: WDA-02 — F2 Estructura
 - **Archivos clave:** `web/src/app/[...slug]/page.tsx`, `web/src/app/sitemap.ts`, `web/src/app/layout.tsx`, `web/src/lib/`

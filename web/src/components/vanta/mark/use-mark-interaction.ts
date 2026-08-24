@@ -163,6 +163,14 @@ export function useMarkInteraction(
   // Mouse tracking continues (anime.js updates pupilOffset), but the blinking eye's
   // height/y are overridden by the blink animation until it completes.
   const cycle = useRef(0);
+  // Pending blink timers — cleared on unmount
+  const blinkTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => {
+    return () => {
+      blinkTimersRef.current.forEach(clearTimeout);
+      blinkTimersRef.current = [];
+    };
+  }, []);
   const handleClick = useCallback(() => {
     const states: BlinkState[] = ["left-closed", "right-closed", "both-closed"];
     const next = states[cycle.current % states.length];
@@ -190,19 +198,19 @@ export function useMarkInteraction(
         ease: "inQuad",
         onComplete: () => {
           // Phase 2: hold 50ms then re-open — height grows + y back. Smooth, 120ms.
-          setTimeout(() => {
+          blinkTimersRef.current.push(setTimeout(() => {
             animate(el, {
               height: squintHeight,
               y: openY,
               duration: 120,
               ease: "outQuad",
             });
-          }, 50);
+          }, 50));
         },
       });
     });
 
-    setTimeout(() => setState((s) => ({ ...s, blink: "open", annoyed: false })), 280);
+    blinkTimersRef.current.push(setTimeout(() => setState((s) => ({ ...s, blink: "open", annoyed: false })), 280));
   }, [squintHeight]);
 
   // Node hover → mark looks at the node + Anime.js pulse on node

@@ -27,6 +27,13 @@ export function MarkCta({
   const sphereRef = useRef<SVGCircleElement>(null);
   const ringRef = useRef<SVGCircleElement>(null);
   const [reaction, setReaction] = useState(false);
+  // Reaction reset timer — cleared on unmount
+  const reactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (reactionTimerRef.current) clearTimeout(reactionTimerRef.current);
+    };
+  }, []);
 
   // Offsets — LARGE so eyes clearly look toward the button
   // install = far left, docs = up, github = far right
@@ -107,7 +114,8 @@ export function MarkCta({
       });
     }
 
-    setTimeout(() => setReaction(false), 600);
+    if (reactionTimerRef.current) clearTimeout(reactionTimerRef.current);
+    reactionTimerRef.current = setTimeout(() => setReaction(false), 600);
   }, []);
 
   // Trigger reaction on clickButton change

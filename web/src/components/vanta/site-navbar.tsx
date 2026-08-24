@@ -351,7 +351,7 @@ export function SiteNavbar({
           ))}
         </nav>
 
-        {/* Right actions — search, lang, theme, github, hamburger */}
+        {/* Right actions — search, lang, github, hamburger */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             onClick={openCommandPalette}

@@ -556,12 +556,6 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "backToTop": "Volver arriba",
 
     // ============================================================
-    // Theme
-    // ============================================================
-    "theme.light": "Activar tema claro",
-    "theme.dark": "Activar tema oscuro",
-
-    // ============================================================
     // Error
     // ============================================================
     "error.notFound": "Página no encontrada",
@@ -588,7 +582,6 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "shortcuts.goHome": "Ir al inicio",
     "shortcuts.goDocs": "Ir a documentación",
     "shortcuts.goBenchmarks": "Ir a benchmarks",
-    "shortcuts.toggleTheme": "Cambiar tema",
     "shortcuts.toggleLang": "Cambiar idioma",
     "shortcuts.close": "Cerrar",
 
@@ -2043,12 +2036,6 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "backToTop": "Back to top",
 
     // ============================================================
-    // Theme
-    // ============================================================
-    "theme.light": "Switch to light theme",
-    "theme.dark": "Switch to dark theme",
-
-    // ============================================================
     // Error
     // ============================================================
     "error.notFound": "Page not found",
@@ -2075,7 +2062,6 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "shortcuts.goHome": "Go to home",
     "shortcuts.goDocs": "Go to documentation",
     "shortcuts.goBenchmarks": "Go to benchmarks",
-    "shortcuts.toggleTheme": "Toggle theme",
     "shortcuts.toggleLang": "Toggle language",
     "shortcuts.close": "Close",
 

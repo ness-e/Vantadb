@@ -73,24 +73,33 @@ export function MarkClassic() {
   }, [hoveredNode]);
 
   // Anime.js: stagger pulse all nodes on mount (subtle ambient animation)
+  // Skipped under prefers-reduced-motion; instances paused on unmount
+  // (anime.js does NOT auto-cleanup on unmount).
+  const ambientAnimsRef = useRef<ReturnType<typeof animate>[]>([]);
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const validNodes = nodeRefs.current.filter(Boolean) as SVGCircleElement[];
     if (validNodes.length === 0) return;
     // Subtle ambient pulse — each node pulses at slightly different time
     validNodes.forEach((node, i) => {
-      animate(node, {
-        r: [
-          GRAPH_NODES[i].r,
-          GRAPH_NODES[i].r * 1.3,
-          GRAPH_NODES[i].r,
-        ],
-        duration: 2400,
-        delay: i * 180,
-        ease: "inOutSine",
-        loop: true,
-      });
+      ambientAnimsRef.current.push(
+        animate(node, {
+          r: [
+            GRAPH_NODES[i].r,
+            GRAPH_NODES[i].r * 1.3,
+            GRAPH_NODES[i].r,
+          ],
+          duration: 2400,
+          delay: i * 180,
+          ease: "inOutSine",
+          loop: true,
+        })
+      );
     });
-    // Cleanup handled by anime.js on unmount via the animation instances
+    return () => {
+      ambientAnimsRef.current.forEach((anim) => anim.pause());
+      ambientAnimsRef.current = [];
+    };
   }, []);
 
   // Handler for node hover with Anime.js

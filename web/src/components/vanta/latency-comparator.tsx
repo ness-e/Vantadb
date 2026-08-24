@@ -64,6 +64,13 @@ export function LatencyComparator() {
   const [benchResult, setBenchResult] = useState<{ ops: number; latency: number; duration: number } | null>(null);
   const benchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Clear benchmark interval on unmount
+  useEffect(() => {
+    return () => {
+      if (benchTimerRef.current) clearInterval(benchTimerRef.current);
+    };
+  }, []);
+
   // Scale factors based on slider inputs (illustrative model)
   const factors = useMemo(() => {
     const topKFactor = 0.6 + (topK / 50) * 0.8; // 0.6 → 1.4
