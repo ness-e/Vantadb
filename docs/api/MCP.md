@@ -101,7 +101,7 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 
 ## Tool Families
 
-**57 tools in 5 families:**
+**60 tools in 6 families:**
 
 | Family | Count | Source module |
 |--------|-------|---------------|
@@ -110,6 +110,7 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 | `skill_*` | 6 | `skills.rs` |
 | `wiki_*` | 6 | `wiki.rs` |
 | `context_assemble` | 1 | `context.rs` |
+| `scene_*` | 3 | `scenes.rs` |
 
 ## Core Tools (36)
 
@@ -234,6 +235,16 @@ Dispatched via `tools/call`, defined outside `handlers/tools.rs`:
 |------|-------------|
 | `context_assemble` | Assembles a context window under a token budget with the vanta-memory context engine (MCP-31): compacts the provided chat history and injects session recall (relevant L1 memories, persona, scene navigation). Returns `{messages, report, mmd_injected, recall_injected}`. Read-only. |
 
+### Scenes API - `scenes.rs` (3)
+
+Read-only wrappers over the vanta-memory gateway scene handlers (`vanta_memory::gateway`) — structured scene navigation for external agents. Domain errors surface as error-content messages; `scene_query` ranks by keyword overlap only.
+
+| Tool | Description |
+|------|-------------|
+| `scene_read` | Reads one live scene block by name from a session's scene store. Returns `{scene:{scene_name, meta{created,updated,summary,heat}, content}}`. Missing or soft-deleted scenes answer "not found". Read-only. |
+| `scene_list` | Lists the scene index of a session (heat descending, soft-deleted excluded). Returns `{scenes:[{filename,summary,heat,created,updated}]}` where `filename` is the id for `scene_read`. Read-only. |
+| `scene_query` | Keyword search over live scene blocks: ranks scenes by term overlap between the keyword and summary+content, ties by heat. Returns `{hits:[{scene_name,summary,heat,updated,score}]}`; load hits via `scene_read`. Read-only. |
+
 ## Parity
 
-Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-08-22**.
+Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-08-23**.

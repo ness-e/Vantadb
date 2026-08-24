@@ -5,7 +5,7 @@ description: VantaDB Model Context Protocol (MCP) server integration for persist
 
 # VantaDB MCP Integration
 
-VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **57 tools** (36 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*` + 1 `context_assemble`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
+VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **60 tools** (36 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*` + 1 `context_assemble` + 3 `scene_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
 
 ## Quick Start
 
@@ -116,7 +116,7 @@ first write; list what exists with `collection_list` (or `memory_list_namespaces
 ## Available MCP Tools (57)
 
 The full contract for all **57 tools** lives in
-[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 36 core tools in detail; the other 21 are summarized here.
+[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 36 core tools in detail; the other 24 are summarized here.
 
 | Group | Count | Tools | Precondition |
 |-------|-------|-------|--------------|
@@ -125,6 +125,7 @@ The full contract for all **57 tools** lives in
 | Code Intelligence (`code_*`) | 8 | `code_search`, `code_explore`, `code_callers`, `code_callees`, `code_impact`, `code_node`, `code_status`, `code_files`* | graph nodes/edges ingested first; query-only |
 | Wiki Knowledge (`wiki_*`) | 6 | `wiki_search`, `wiki_read`, `wiki_list`, `wiki_graph`, `wiki_ingest`, `wiki_ingest_status` | wiki lifecycle in `ready` state |
 | Context Engine (`context_assemble`) | 1 | `context_assemble` | read-only; session recall needs prior memory capture into the session |
+| Scenes API (`scene_*`) | 3 | `scene_read`, `scene_list`, `scene_query` | read-only; scenes need prior scene capture into the session store |
 
 \* `code_files` is a documented not-supported stub: the built-in GraphRAG has no file-per-node concept.
 

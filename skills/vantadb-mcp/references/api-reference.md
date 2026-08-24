@@ -5,10 +5,10 @@
 ## MCP Tools (57)
 
 > **This is the single source of truth for the VantaDB MCP contract.**
-> Verified against `vantadb-mcp/src/`: exactly **57 tools** = 36 core
+> Verified against `vantadb-mcp/src/`: exactly **60 tools** = 36 core
 > (`handlers/tools.rs` `base_tools`) + 6 `skill_*` (`skills.rs`) + 8 `code_*`
 > (`code.rs`) + 6 `wiki_*` (`wiki.rs`) + 1 `context_assemble`
-> (`context.rs`). All five sets are announced together
+> (`context.rs`) + 3 `scene_*` (`scenes.rs`). All six sets are announced together
 > in `tools/list` via extend (`handlers/tools.rs`).
 > Last synced against code: 2026-08-23.
 
@@ -108,6 +108,20 @@ Read-only MCP exposure of the vanta-memory context engine (`assemble_with_recall
 | Tool | Purpose | Main params |
 |------|---------|-------------|
 | `context_assemble` | Assemble a context window under a token budget: compacts the chat history and injects recall blocks (relevant L1 memories, user persona, scene navigation) | `session_key`, `token_budget` (req, > 0); `query`, `messages` (`{role, content, id?}`, optional); returns `{messages, report{mode,msgs_conserved,msgs_before,tokens_before,tokens_after}, mmd_injected, recall_injected}`. Note: when the protected final messages alone exceed the budget, output intentionally exceeds it (engine cursor guarantee) |
+
+### Scenes API (3 × `scene_*`, MCP-30)
+
+Read-only MCP exposure of the vanta-memory gateway scene handlers
+(`vanta_memory::gateway` pure functions over `&VantaEmbedded`) — structured
+scene navigation for external agents. Domain errors (unknown session, missing
+scene) surface as error-content messages, never protocol errors. `scene_query`
+ranks by keyword overlap only (no embedding hook in MCP).
+
+| Tool | Purpose | Main params |
+|------|---------|-------------|
+| `scene_read` | Read one live scene block by name; soft-deleted and missing scenes are indistinguishable ("not found") | `session_key`, `scene_name` (req); returns `{scene:{scene_name, meta{created,updated,summary,heat}, content}}` |
+| `scene_list` | List the session's scene index, heat descending, soft-deleted excluded | `session_key` (req); returns `{scenes:[{filename,summary,heat,created,updated}]}` where `filename` is the id for `scene_read` |
+| `scene_query` | Keyword search over live scene blocks (term overlap vs summary+content, ties by heat) | `session_key`, `keyword` (req); `top_k` (optional, default 5); returns `{hits:[{scene_name,summary,heat,updated,score}]}` — load hits via `scene_read` |
 
 ## Python SDK
 

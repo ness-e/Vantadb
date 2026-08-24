@@ -14,6 +14,7 @@ mod error;
 mod handlers;
 mod metrics;
 mod protocol;
+mod scenes;
 mod server;
 mod skills;
 mod validation;
