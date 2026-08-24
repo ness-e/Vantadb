@@ -346,6 +346,7 @@ impl AppState {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
+        .route("/snapshot", get(snapshot))
         .route(
             "/{agent}/{spaceId}/v1/chat/completions",
             post(handlers::openai::chat_completions),
@@ -360,6 +361,30 @@ pub fn router(state: AppState) -> Router {
 
 async fn health() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "ok" }))
+}
+
+/// Live operational snapshot (DESKTOP-38): recent TurnReports, active
+/// sessions, pending write-back queue and rate-limit telemetry. Read-only
+/// over state that already exists — nothing here fabricates data.
+async fn snapshot(
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> Json<serde_json::Value> {
+    let sessions = state.sessions.snapshot();
+    let pending_labels = state.writeback.pending_labels();
+    Json(serde_json::json!({
+        "turns": state.reporter.recent_reports(),
+        "sessions": sessions,
+        "sessions_active": sessions.len(),
+        "writeback": {
+            "pending_labels": pending_labels,
+            "pending_count": state.writeback.pending_count(),
+        },
+        "rate_limit": {
+            "limit_per_minute": state.limiter.limit(),
+            "hits_total": state.limiter.hits_total(),
+            "degraded": state.limiter.is_degraded(),
+        },
+    }))
 }
 
 /// Stable protocol label for per-turn reports.

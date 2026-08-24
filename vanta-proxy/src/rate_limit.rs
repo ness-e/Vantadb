@@ -6,7 +6,7 @@
 //! guard.ts:40-51): degraded → allow + warn log, never block the wire.
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -37,6 +37,8 @@ pub struct RateLimiter {
     /// Conscience flag (D24/TDAM guard.ts): true → allow everything + warn.
     degraded: AtomicBool,
     buckets: Mutex<HashMap<String, Bucket>>,
+    /// Total 429 decisions ever returned (monotonic, `/snapshot` telemetry).
+    hits: AtomicU64,
 }
 
 fn now_ms() -> u64 {
@@ -58,7 +60,18 @@ impl RateLimiter {
             window_ms: WINDOW_MS,
             degraded: AtomicBool::new(false),
             buckets: Mutex::new(HashMap::new()),
+            hits: AtomicU64::new(0),
         }
+    }
+
+    /// Configured requests-per-minute limit.
+    pub fn limit(&self) -> u32 {
+        self.limit
+    }
+
+    /// Total rate-limited (429) decisions since process start.
+    pub fn hits_total(&self) -> u64 {
+        self.hits.load(Ordering::Relaxed)
     }
 
     pub fn set_degraded(&self, degraded: bool) {
@@ -107,6 +120,7 @@ impl RateLimiter {
         }
 
         if bucket.hits.len() as u32 >= self.limit {
+            self.hits.fetch_add(1, Ordering::Relaxed);
             // Oldest hit leaves the window at ts + window → retry then.
             let oldest = *bucket.hits.front().unwrap_or(&now);
             let retry_after_secs = ((oldest + self.window_ms).saturating_sub(now) / 1000).max(1);
@@ -269,5 +283,18 @@ mod tests {
         assert!(matches!(rl.check("t", "m"), RateDecision::Limited { .. }));
         std::thread::sleep(Duration::from_millis(30));
         assert!(matches!(rl.check("t", "m"), RateDecision::Allowed { .. }));
+    }
+
+    #[test]
+    fn hits_counter_counts_only_limited_decisions_and_exposes_limit() {
+        let rl = RateLimiter::new(2);
+        assert_eq!(rl.limit(), 2);
+        assert_eq!(rl.hits_total(), 0);
+        let _ = rl.check("s", "m");
+        let _ = rl.check("s", "m");
+        assert_eq!(rl.hits_total(), 0, "allowed decisions don't count");
+        let _ = rl.check("s", "m");
+        let _ = rl.check("s", "m");
+        assert_eq!(rl.hits_total(), 2, "each 429 decision counts");
     }
 }

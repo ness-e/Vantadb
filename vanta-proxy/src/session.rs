@@ -11,6 +11,7 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::http::HeaderMap;
+use serde::Serialize;
 
 pub mod claude_code;
 
@@ -52,6 +53,27 @@ impl Stage {
     fn is_pending(self) -> bool {
         self != Stage::Task
     }
+
+    /// Stable wire label (`/snapshot`).
+    fn label(self) -> &'static str {
+        match self {
+            Stage::Team => "team",
+            Stage::Agent => "agent",
+            Stage::Task => "task",
+        }
+    }
+}
+
+/// One session's wire shape for `/snapshot` (DESKTOP-38).
+#[derive(Debug, Clone, Serialize)]
+pub struct SessionSnapshot {
+    pub key: String,
+    /// Current stage of the team→agent→task state machine.
+    pub stage: &'static str,
+    pub updated_at_ms: u64,
+    /// Only pending stages expire (30-min TTL); terminal Task never does.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at_ms: Option<u64>,
 }
 
 struct Entry {
@@ -163,6 +185,24 @@ impl SessionStore {
         self.sessions
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// All live sessions (expired pending swept first), unordered (`/snapshot`).
+    pub fn snapshot(&self) -> Vec<SessionSnapshot> {
+        let now = now_ms();
+        self.sweep(now);
+        self.lock()
+            .iter()
+            .map(|(key, e)| SessionSnapshot {
+                key: key.clone(),
+                stage: e.stage.label(),
+                updated_at_ms: e.updated_at_ms,
+                expires_at_ms: e
+                    .stage
+                    .is_pending()
+                    .then(|| e.updated_at_ms + PENDING_TTL_MS),
+            })
+            .collect()
     }
 }
 
@@ -326,5 +366,41 @@ mod tests {
             sessions.contains_key("old-task"),
             "terminal task never expires"
         );
+    }
+
+    #[test]
+    fn snapshot_reports_stage_and_ttl_only_for_pending() {
+        let store = SessionStore::new();
+        let db = in_memory_db();
+        for c in ["team", "agent", "task"] {
+            seed_entity(&db, c, &format!("{c}-1"));
+        }
+        store.ensure("sess-a");
+        store
+            .advance(&db, "sess-a", Stage::Agent, "agent-1")
+            .expect("advance");
+        store.ensure("sess-b");
+        store
+            .advance(&db, "sess-b", Stage::Agent, "agent-1")
+            .expect("advance");
+        store
+            .advance(&db, "sess-b", Stage::Task, "task-1")
+            .expect("advance");
+
+        let mut snap = store.snapshot();
+        snap.sort_by(|a, b| a.key.cmp(&b.key));
+        assert_eq!(snap.len(), 2);
+
+        assert_eq!(snap[0].key, "sess-a");
+        assert_eq!(snap[0].stage, "agent");
+        assert!(snap[0].expires_at_ms.is_some());
+        assert_eq!(
+            snap[0].expires_at_ms,
+            Some(snap[0].updated_at_ms + PENDING_TTL_MS)
+        );
+
+        assert_eq!(snap[1].key, "sess-b");
+        assert_eq!(snap[1].stage, "task");
+        assert_eq!(snap[1].expires_at_ms, None, "task never expires");
     }
 }

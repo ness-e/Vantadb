@@ -281,3 +281,9 @@ aliases: [DESKTOP]
 - **Fecha:** 2026-08-24
 - **Resultado:** ? Caso B (WONTFIX-UI documentado): src/llm.rs NO expone embedding local - solo providers HTTP externos Ollama/OpenAI (evidencia llm.rs:1-4,26-29,39-47,144-145 + Cargo.toml:107 feature remote-inference). Nota informativa honesta en IngestForm bajo el bot�n (sin vector se guarda como texto; sem�ntica requiere VANTA_EMBEDDING_PROVIDER/VANTA_LLM_URL/VANTA_OPENAI_API_KEY). Sin bot�n falso ni detecci�n config (YAGNI). ImportDrop intocado (grep confirma). Build+tests verdes.
 - **Ids:** `DESKTOP-39`
+
+### DESKTOP-38: Dashboard PROXY (TurnReports/sesiones/write-back/rate-limit)
+- **Fecha:** 2026-08-24
+- **Objetivo:** Visualizar vanta-proxy en el desktop (hoy solo expone /health); UI consume REST del proxy.
+- **Resultado:** ? Endpoint GET /snapshot en vanta-proxy/server.rs serializando estado REAL: ring buffer cap-100 en Reporter (recent_reports - antes solo log/hooks), SessionStore::snapshot con stage/TTL (solo pending expiran, sweep previo), rate-limit hits instrumentados con AtomicU64 en decision Limited (los 429 hits NO existian - nada fabricado), pending_labels() de write-back. UI ProxyDashboard.tsx: TurnReports tabla + sesiones TTL countdown + write-back count/labels + rate-limit; polling 5s solo montado; formulario config sin URL (localStorage vanta.proxy.url); REST directo via fetch (NO bridge nativo). Surface "proxy" condicional en WorkspaceShell. Tests: cargo test -p vanta-proxy 97 (3 nuevos) + fmt/clippy limpios + vitest 68/68 (4 nuevos). Deuda: validacion manual requiere upstream LLM vivo; PaletteSurface desincronizada (memoria faltaba, pre-existente).
+- **Ids:** `DESKTOP-38`

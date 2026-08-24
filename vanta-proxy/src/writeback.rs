@@ -83,6 +83,17 @@ impl WriteBack {
             .len()
     }
 
+    /// Labels of the pending writes, oldest first (`/snapshot` audit view).
+    pub fn pending_labels(&self) -> Vec<String> {
+        self.inner
+            .pending
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .iter()
+            .map(|e| e.label.clone())
+            .collect()
+    }
+
     /// Persist pending labels as JSON lines (best-effort; never blocks or
     /// fails the wire). The closures themselves are not serializable — the
     /// file is an audit trail of what was lost on a hard crash.

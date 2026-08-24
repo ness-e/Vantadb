@@ -4,7 +4,7 @@
 - **Plan file:** docs/Backlog.md (Phase 12)
 - **Creado:** 2026-08-24
 - **last-synced:** 2026-08-24T00:00:00
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ## Blast Radius
 Callers: desktop/src/components/proxy/* (nuevos), desktop/src/components/layout/WorkspaceShell.tsx
@@ -13,6 +13,20 @@ Implicaciones: Panel operativo con datos vivos de una sesión proxy real
 
 ## Spec
 N/A — feature UI con contrato mecánico
+
+## Impacto mapeado (Regla 0)
+Leídos completos: `vanta-proxy/src/{server,report,session,writeback,rate_limit,config}.rs`,
+`desktop/src/components/layout/WorkspaceShell.tsx`, `desktop/src/hooks/useMetricsPoll.ts`,
+`desktop/src/store/connections.ts`, `desktop/src/components/palette/CommandPalette.tsx`.
+Referencias entrantes Rust: `router()` usado por main.rs + tests/proxy_wire.rs (ruta nueva aditiva, no rompe).
+Referencias entrantes Desktop: Surface type usado por CommandPalette (`onNavigate`) — se añade `"proxy"` solo al union del shell (palette ya está desincronizada de `"memoria"`, no se toca).
+Veredicto: cambios aditivos; sin callers que rompan. Ponytail: paneles inline en 1 componente (no 5 archivos).
+
+## Context Save Point
+- Step 1 ✅ `/snapshot` en server.rs + ring buffer Reporter (cap 100) + `SessionStore::snapshot()` + `RateLimiter::hits_total()/limit()` + `WriteBack::pending_labels()`. Tests unitarios nuevos ×3.
+- Step 2 ✅ `desktop/src/components/proxy/ProxyDashboard.tsx` (1 componente, paneles inline, polling 5s, config form si sin URL) + `ProxyDashboard.test.tsx`.
+- Step 3 ✅ WorkspaceShell: Surface `"proxy"`, SideButton condicional (`proxyConfigured` reactivo vía PROXY_URL_EVENT), render de la lente.
+- Step 4 🟡 Test manual con sesión proxy real NO ejecutable en este runner (requiere upstream LLM + proceso proxy vivo). Cubierto mecánicamente: `cargo test -p vanta-proxy` 72/72, `npm run build` OK, `npm test` 68/68 (64 previos + 4 nuevos). Deuda documentada abajo.
 
 ## Contrato
 `cd desktop && npm run build`; panel operativo con datos vivos de una sesión proxy real

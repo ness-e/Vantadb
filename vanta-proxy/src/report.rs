@@ -5,6 +5,7 @@
 //! subscribe without touching the wire path.
 
 use serde::Serialize;
+use std::collections::VecDeque;
 use std::sync::RwLock;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -31,10 +32,15 @@ pub fn model_from_body(body: &[u8]) -> String {
 /// A subscriber receiving every emitted report (future backend hook).
 pub type ReportHook = Box<dyn Fn(&TurnReport) + Send + Sync>;
 
-/// Reporter: logs each turn as one JSON line + fan-out to registered hooks.
+/// Cap of the in-memory recent-reports ring served by `/snapshot`.
+const RECENT_CAP: usize = 100;
+
+/// Reporter: logs each turn as one JSON line, keeps the last [`RECENT_CAP`]
+/// reports in memory (for `/snapshot`) and fans out to registered hooks.
 #[derive(Default)]
 pub struct Reporter {
     hooks: RwLock<Vec<ReportHook>>,
+    recent: std::sync::Mutex<VecDeque<TurnReport>>,
 }
 
 impl Reporter {
@@ -52,6 +58,16 @@ impl Reporter {
     /// Emit one per-turn record: JSON log line + hook fan-out (best-effort;
     /// reporting must never fail the wire).
     pub fn emit(&self, report: &TurnReport) {
+        {
+            let mut recent = self
+                .recent
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            recent.push_back(report.clone());
+            while recent.len() > RECENT_CAP {
+                recent.pop_front();
+            }
+        }
         match serde_json::to_string(report) {
             Ok(line) => tracing::info!(target: "vanta_proxy::report", "{line}"),
             Err(e) => {
@@ -65,6 +81,16 @@ impl Reporter {
         for hook in hooks.iter() {
             hook(report);
         }
+    }
+
+    /// Last [`RECENT_CAP`] reports, oldest first (`/snapshot` wire shape).
+    pub fn recent_reports(&self) -> Vec<TurnReport> {
+        self.recent
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .iter()
+            .cloned()
+            .collect()
     }
 }
 
@@ -154,5 +180,27 @@ mod tests {
         let timer = TurnTimer::start();
         std::thread::sleep(std::time::Duration::from_millis(5));
         assert!(timer.elapsed_ms() >= 5);
+    }
+
+    #[test]
+    fn recent_reports_keeps_last_cap_oldest_first() {
+        let reporter = Reporter::new();
+        for i in 0..(RECENT_CAP as u64 + 5) {
+            reporter.emit(&TurnReport {
+                timestamp_ms: i,
+                space_id: "sp".into(),
+                protocol: "openai".into(),
+                model: "_".into(),
+                status: 200,
+                duration_ms: 1,
+            });
+        }
+        let recent = reporter.recent_reports();
+        assert_eq!(recent.len(), RECENT_CAP);
+        assert_eq!(recent.first().expect("first").timestamp_ms, 5);
+        assert_eq!(
+            recent.last().expect("last").timestamp_ms,
+            RECENT_CAP as u64 + 4
+        );
     }
 }
