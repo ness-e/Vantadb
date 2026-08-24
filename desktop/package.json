@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "build:wasm": "vite build --mode wasm",
     "preview": "vite preview",
+    "test": "vitest run",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -35,15 +36,18 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2",
+    "@testing-library/react": "^16.3.2",
     "@types/d3-force": "^3.0.10",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@types/three": "^0.185.4",
     "@vitejs/plugin-react": "^4.6.0",
+    "jsdom": "^30.0.1",
     "playwright": "^1.61.1",
     "tailwindcss": "^4.3.3",
     "typescript": "~5.8.3",
     "vite": "^7.0.4",
-    "vite-plugin-wasm": "^3.6.0"
+    "vite-plugin-wasm": "^3.6.0",
+    "vitest": "^4.1.11"
   }
 }

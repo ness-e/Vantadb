@@ -119,6 +119,8 @@ export function searchToRequest(q: SearchQuery): Record<string, unknown> {
     top_k: q.top_k ?? 10,
     distance_metric: "Cosine",
     explain: q.explain ?? false,
+    // MEM-01: forwarded verbatim; core falls back to defaults when absent.
+    search_profile: q.search_profile ?? null,
   };
 }
 

@@ -690,12 +690,15 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
   }, [rows]);
 
   return (
-    <section className="panel" aria-label="Memorias">
-      <div className="panel-head">
-        <h2>Memorias</h2>
-        <span className="muted">
-          {mode} · {rows ? `${rows.length} loaded` : "idle"}
-          {mode === "list" && nextCursor != null && " · more available"}
+    <section
+      aria-label="Memorias"
+      className="border-[3px] border-foreground bg-card p-4 shadow-[6px_6px_0_0_#000] dark:shadow-[6px_6px_0_0_#FBF9F5]"
+    >
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Memorias</h2>
+        <span className="text-muted-foreground">
+          {mode} · {rows ? `${rows.length} cargados` : "inactivo"}
+          {mode === "list" && nextCursor != null && " · hay más"}
         </span>
         {rows && rows.length > 0 && (
           <ExportButtons
@@ -770,29 +773,34 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
         </div>
       )}
 
-      <form className="row" onSubmit={handleSubmit}>
+      <form className="flex gap-2" onSubmit={handleSubmit}>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Semantic query (empty = browse records)"
-          aria-label="Query records"
+          placeholder="Consulta semántica (vacío = listar registros)"
+          aria-label="Consultar registros"
+          className="min-w-0 flex-1 border-2 border-foreground bg-background px-2.5 py-1.5"
         />
-        <button type="submit" disabled={busy || loading || !active}>
-          {loading ? "Loading…" : "Fetch"}
+        <button
+          type="submit"
+          disabled={busy || loading || !active}
+          className="press cursor-pointer border-2 border-foreground bg-background px-2.5 py-1.5 text-sm disabled:cursor-default disabled:opacity-50"
+        >
+          {loading ? "Cargando…" : "Traer"}
         </button>
       </form>
 
       {!active ? (
-        <p className="muted">No active connection — connect one to explore records.</p>
+        <p className="text-muted-foreground">Sin conexión activa — conectá una para explorar registros.</p>
       ) : rows === null ? (
-        <p className="muted">Loading records…</p>
+        <p className="text-muted-foreground">Cargando registros…</p>
       ) : rows.length === 0 ? (
-        <p className="muted">No records{mode === "search" ? " match" : ""}.</p>
+        <p className="text-muted-foreground">Sin registros{mode === "search" ? " que coincidan" : ""}.</p>
       ) : (
         <>
           {visibleMeta.length > 0 && (
-            <p className="mt-2 font-tech text-[10px] uppercase tracking-widest text-muted">
-              metadata fields in view: {visibleMeta.join(" · ")}
+            <p className="mt-2 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
+              campos de metadata en vista: {visibleMeta.join(" · ")}
             </p>
           )}
           <div
@@ -818,7 +826,7 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
                               type="button"
                               className="flex items-center gap-1 hover:text-neon"
                               onClick={() => header.column.toggleSorting(sorted === "asc")}
-                              title="Sort by column"
+                              title="Ordenar por columna"
                             >
                               {flexRender(header.column.columnDef.header, header.getContext())}
                               <span className="text-neon">
@@ -832,8 +840,8 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
                             <input
                               value={(header.column.getFilterValue() as string) ?? ""}
                               onChange={(e) => header.column.setFilterValue(e.target.value)}
-                              placeholder="filter"
-                              aria-label={`Filter ${header.column.id}`}
+                              placeholder="filtro"
+                              aria-label={`Filtrar ${header.column.id}`}
                               className="mt-1 w-full border-2 border-ink bg-cream px-1 font-tech text-[10px]"
                             />
                           )}
@@ -874,13 +882,13 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
             </table>
             {loadingMore && (
               <div className="sticky bottom-0 z-10 border-t-4 border-ink bg-paper p-2 font-tech text-[10px] uppercase tracking-widest text-neon">
-                Loading more…
+                Cargando más…
               </div>
             )}
           </div>
-          <p className="mt-2 text-[10px] text-muted">
-            {rowCount} rows rendered · scroll to load more (cursor) · sort/filter per column over
-            loaded data
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            {rowCount} filas mostradas · scroll para cargar más (cursor) · ordenar/filtrar por
+            columna sobre los datos cargados
           </p>
         </>
       )}

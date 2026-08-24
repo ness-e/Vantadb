@@ -14,7 +14,7 @@
 import { FormEvent, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RuleGroupType } from "react-querybuilder";
 import { HelpPanel } from "./HelpPanel";
-import { get, list, namespaceStats, search, SearchResult, vantaErrorMessage, type MemoryRecord, type NamespaceStatsMap, type VantaDeepLink } from "../../vanta";
+import { createNamespace, get, list, namespaceStats, search, SearchResult, vantaErrorMessage, type MemoryRecord, type NamespaceStatsMap, type VantaDeepLink } from "../../vanta";
 import { useDeepLink } from "../../hooks/useDeepLink";
 import { ConnectionActions, VantaState } from "../../hooks/useConnectionState";
 import { EMPTY_QUERY, evaluateQuery, inferMetaFields, toVantaMemoryFilter } from "../search/filters-core";
@@ -39,9 +39,20 @@ import IndicesLens from "../indices/IndicesLens";
 // FEAT-03a: lente CONSOLIDAR (D16 (a) UI-only) — liviana, import estática.
 import ConsolidateLens from "../consolidate/ConsolidateLens";
 import { undoStore } from "../../store/undo";
+// DESKTOP-32: modal de CRUD de namespaces (crear/renombrar/borrar con
+// confirmación en 2 pasos).
+import NamespaceDialog, { type NsDialog } from "./NamespaceDialog";
 // VS-17: favoritos + historial de búsqueda (localStorage, slice aditivo).
 import { favoritesStore, type Favorite } from "../../store/favorites";
 import { searchHistory } from "../../store/search-history";
+// DESKTOP-23: preferencias de workspace persistidas (surface + filtros).
+import { workspacePrefs } from "../../store/preferences";
+// DESKTOP-31: perfiles de conexión + defaults de búsqueda persistidos.
+import { connectionPrefs, type ConnectionProfile } from "../../store/connections";
+// DESKTOP-37: lente MEMORIA — liviana (solo listas read-only), import estática
+// como RETRIEVAL/ÍNDICES/CONSOLIDAR.
+import MemoryLens from "../memory/MemoryLens";
+import Settings from "../../pages/Settings";
 // CodeMirror/react-markdown pesan (~600 kB) y solo los usa el Inspector → chunk
 // lazy: el shell inicial no paga ese coste (Tauri local, carga on-demand).
 const Inspector = lazy(() => import("../inspector/Inspector"));
@@ -62,7 +73,7 @@ const GraphLens = lazy(() => import("../graph/GraphLens"));
 // solo la surface ESPACIO los paga (mismo patrón que GraphLens/Inspector).
 const SpaceLens = lazy(() => import("../space/SpaceLens"));
 
-export type Surface = "resumen" | "memorias" | "papelera" | "actividad" | "retrieval" | "indices" | "consolidar" | "iql" | "espacio";
+export type Surface = "resumen" | "memorias" | "papelera" | "actividad" | "retrieval" | "indices" | "consolidar" | "iql" | "espacio" | "memoria" | "ajustes";
 
 interface NamespaceCount {
   name: string;
@@ -90,8 +101,9 @@ interface WorkspaceShellProps {
 }
 
 /** Conteos por namespace: stats reales del bridge (VS-CORE-02) con fallback
- * client-side desde list(limit 500) solo cuando el backend no las expone. */
-function useNamespaceCounts(active: boolean): NamespaceCount[] {
+ * client-side desde list(limit 500) solo cuando el backend no las expone.
+ * DESKTOP-32: `refresh` fuerza re-fetch tras crear/renombrar/borrar. */
+function useNamespaceCounts(active: boolean, refresh: number): NamespaceCount[] {
   const [namespaces, setNamespaces] = useState<NamespaceCount[]>([]);
 
   useEffect(() => {
@@ -131,7 +143,7 @@ function useNamespaceCounts(active: boolean): NamespaceCount[] {
     return () => {
       alive = false;
     };
-  }, [active]);
+  }, [active, refresh]);
 
   return namespaces;
 }
@@ -140,12 +152,15 @@ function SideButton({
   icon,
   label,
   hint,
+  title,
   active,
   onClick,
 }: {
   icon: string;
   label: string;
   hint?: string;
+  /** DESKTOP-34: tooltip nativo (title) + accesible (aria-label). */
+  title?: string;
   active: boolean;
   onClick: () => void;
 }) {
@@ -154,6 +169,8 @@ function SideButton({
       type="button"
       onClick={onClick}
       aria-current={active ? "page" : undefined}
+      aria-label={title ?? label}
+      title={title ?? label}
       className={`press flex w-full items-center gap-3 border-2 border-foreground px-3 py-2 text-left text-sm font-semibold ${
         active ? "bg-foreground text-background" : "bg-background"
       }`}
@@ -187,7 +204,11 @@ export default function WorkspaceShell({
   dark,
   onToggleTheme,
 }: WorkspaceShellProps) {
-  const [surface, setSurface] = useState<Surface>("resumen");
+  // DESKTOP-23: hidratación única de preferencias (surface/filtros) al montar.
+  const prefs = workspacePrefs.get();
+  const [surface, setSurface] = useState<Surface>(
+    (prefs.surface as Surface | undefined) ?? "resumen",
+  );
   const [selected, setSelected] = useState<InspectorSelection | null>(null);
 
   // OP-01: modal de import CSV/JSON + remount del grid tras importar.
@@ -198,8 +219,14 @@ export default function WorkspaceShell({
   // Filtros compuestos (VS-07): query builder AND/OR sobre metadata tipada.
   // El estado vive en el shell → sobrevive a cerrar el panel y alimenta la
   // búsqueda global; los campos se infieren de los resultados actuales.
-  const [ruleGroup, setRuleGroup] = useState<RuleGroupType>(EMPTY_QUERY);
-  const [showFilters, setShowFilters] = useState(false);
+  // DESKTOP-23: estado inicial hidratado de preferencias persistidas.
+  const [ruleGroup, setRuleGroup] = useState<RuleGroupType>(prefs.ruleGroup ?? EMPTY_QUERY);
+  const [showFilters, setShowFilters] = useState<boolean>(prefs.showFilters ?? false);
+
+  // DESKTOP-23: write-through de layout/filtros — reiniciar la app los conserva.
+  useEffect(() => {
+    workspacePrefs.set({ surface, showFilters, ruleGroup });
+  }, [surface, showFilters, ruleGroup]);
 
   // Búsqueda global (Topbar) — hereda la funcionalidad de SearchBar.
   const searchRef = useRef<HTMLInputElement>(null);
@@ -207,7 +234,40 @@ export default function WorkspaceShell({
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [searching, setSearching] = useState(false);
 
-  const namespaces = useNamespaceCounts(!!state.active);
+  // DESKTOP-32: CRUD de namespaces — modal + re-fetch de conteos tras cada op.
+  const [nsRefresh, setNsRefresh] = useState(0);
+  const [nsDialog, setNsDialog] = useState<NsDialog | null>(null);
+  const namespaces = useNamespaceCounts(!!state.active, nsRefresh);
+
+  async function handleCreateNs(name: string) {
+    try {
+      await createNamespace(name);
+      setNsRefresh((k) => k + 1);
+      onNotice(`Namespace "${name}" creado.`);
+    } catch (err) {
+      onError(vantaErrorMessage(err));
+    }
+  }
+
+  async function handleRenameNs(from: string, to: string) {
+    try {
+      const n = await undoStore.renameNamespace(from, to);
+      setNsRefresh((k) => k + 1);
+      onNotice(`"${from}" renombrado a "${to}" (${n} registros) — Ctrl+Z para deshacer.`);
+    } catch (err) {
+      onError(vantaErrorMessage(err));
+    }
+  }
+
+  async function handleDeleteNs(name: string) {
+    try {
+      const n = await undoStore.deleteNamespace(name);
+      setNsRefresh((k) => k + 1);
+      onNotice(`"${name}" movido a papelera (${n} registros) — Ctrl+Z para deshacer.`);
+    } catch (err) {
+      onError(vantaErrorMessage(err));
+    }
+  }
 
   // VS-17: favoritos (sidebar + palette) e historial (palette) reactivos a los
   // stores de localStorage — mismo patrón de suscripción que undo/VS-08.
@@ -294,9 +354,11 @@ export default function WorkspaceShell({
     searchHistory.add(qTrim);
     setSearching(true);
     try {
+      // DESKTOP-31: default top_k del store de conexiones (Settings → topbar).
+      const { topK } = connectionPrefs.get();
       // Con filtro activo pedimos más hits: el filtrado es client-side, así el
       // subconjunto resultante no se vacía con top_k=8.
-      setResults(await search({ query: qTrim, top_k: filterActive ? 50 : 8 }));
+      setResults(await search({ query: qTrim, top_k: filterActive ? 50 : (topK ?? 8) }));
     } catch (err) {
       onError(vantaErrorMessage(err));
     } finally {
@@ -324,6 +386,20 @@ export default function WorkspaceShell({
   function openRecord(record: MemoryRecord, score: number | null) {
     setSelected({ record, score });
     setResults(null);
+  }
+
+  /** DESKTOP-31: conectar vía perfil guardado (nativo o server + Bearer).
+   * Cierra la conexión activa implícitamente: el backend abre la nueva y la
+   * activa; el perfil queda marcado como activo en el store persistido. */
+  async function useProfile(p: ConnectionProfile) {
+    const id =
+      p.kind === "native"
+        ? await actions.connectNativePath(p.path ?? "")
+        : await actions.connectServerCfg(p.url ?? "", p.port ?? 8080, p.token ?? "");
+    if (id) {
+      connectionPrefs.set({ activeProfileId: p.id });
+      onNotice(`Conectado vía perfil "${p.name}".`);
+    }
   }
 
   /** Búsqueda global: el SearchResult no trae version/vector/node_id — se
@@ -442,16 +518,20 @@ export default function WorkspaceShell({
             Workspace
           </div>
           <div className="mt-2 space-y-2">
-            <SideButton icon="◫" label="RESUMEN" active={surface === "resumen"} onClick={() => setSurface("resumen")} />
-            <SideButton icon="▦" label="MEMORIAS" active={surface === "memorias"} onClick={() => setSurface("memorias")} />
-            <SideButton icon="♻" label="PAPELERA" hint="Ctrl+Z" active={surface === "papelera"} onClick={() => setSurface("papelera")} />
-            <SideButton icon="◷" label="ACTIVIDAD" hint="F1" active={surface === "actividad"} onClick={() => setSurface("actividad")} />
+            <SideButton icon="◫" label="RESUMEN" title="Ir a RESUMEN — vista general de operaciones" active={surface === "resumen"} onClick={() => setSurface("resumen")} />
+            <SideButton icon="▦" label="MEMORIAS" title="Ir a MEMORIAS — ingestar y explorar registros" active={surface === "memorias"} onClick={() => setSurface("memorias")} />
+            <SideButton icon="♻" label="PAPELERA" hint="Ctrl+Z" title="Ir a PAPELERA — registros borrados (restaurar o purgar)" active={surface === "papelera"} onClick={() => setSurface("papelera")} />
+            <SideButton icon="◷" label="ACTIVIDAD" hint="F1" title="Ir a ACTIVIDAD — audit log de la base (atajo documentado: F1)" active={surface === "actividad"} onClick={() => setSurface("actividad")} />
             {/* VS-13: lente contextual — hereda el registro seleccionado como seed (P4). */}
-            <SideButton icon="⛁" label="BÚSQUEDA" active={surface === "retrieval"} onClick={() => setSurface("retrieval")} />
-            <SideButton icon="⠿" label="ÍNDICES" hint="F1" active={surface === "indices"} onClick={() => setSurface("indices")} />
-            <SideButton icon="⇄" label="CONSOLIDAR" active={surface === "consolidar"} onClick={() => setSurface("consolidar")} />
-            <SideButton icon="⌘" label="IQL" hint="F2" active={surface === "iql"} onClick={() => setSurface("iql")} />
-            <SideButton icon="✳" label="ESPACIO" active={surface === "espacio"} onClick={() => setSurface("espacio")} />
+            <SideButton icon="⛁" label="BÚSQUEDA" title="Ir a BÚSQUEDA — lente retrieval híbrida (BM25 + vector)" active={surface === "retrieval"} onClick={() => setSurface("retrieval")} />
+            <SideButton icon="⠿" label="ÍNDICES" hint="F1" title="Ir a ÍNDICES — estado de HNSW, BM25 y WAL (atajo documentado: F1)" active={surface === "indices"} onClick={() => setSurface("indices")} />
+            <SideButton icon="⇄" label="CONSOLIDAR" title="Ir a CONSOLIDAR — detectar y fusionar duplicados" active={surface === "consolidar"} onClick={() => setSurface("consolidar")} />
+            <SideButton icon="⌘" label="IQL" hint="F2" title="Ir a IQL — consola de queries sobre grafo (atajo documentado: F2)" active={surface === "iql"} onClick={() => setSurface("iql")} />
+            <SideButton icon="✳" label="ESPACIO" title="Ir a ESPACIO — proyección 2D de embeddings" active={surface === "espacio"} onClick={() => setSurface("espacio")} />
+            {/* DESKTOP-37: sexta lente — memoria contextual de vanta-memory. */}
+            <SideButton icon="◉" label="MEMORIA" title="Ir a MEMORIA — escenas con heat, persona, skills versionadas y generation log (L1/L2/L3)" active={surface === "memoria"} onClick={() => setSurface("memoria")} />
+            {/* DESKTOP-31: ajustes — perfiles de conexión, defaults de búsqueda, idioma. */}
+            <SideButton icon="⚙" label="AJUSTES" title="Ir a AJUSTES — perfiles de conexión (server + Bearer), defaults de búsqueda e idioma" active={surface === "ajustes"} onClick={() => setSurface("ajustes")} />
           </div>
 
           {/* VS-17: favoritos persistidos (ns o ns/key) — slice aditivo. */}
@@ -490,8 +570,20 @@ export default function WorkspaceShell({
             )}
           </div>
 
-          <div className="mt-6 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-            Namespaces
+          <div className="mt-6 flex items-center justify-between">
+            <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
+              Namespaces
+            </span>
+            <button
+              type="button"
+              onClick={() => setNsDialog({ mode: "create" })}
+              disabled={!state.active}
+              className="press border-2 border-foreground px-1.5 text-sm leading-tight"
+              title={state.active ? "Crear namespace vacío" : "Conectá un backend primero"}
+              aria-label="Crear namespace"
+            >
+              +
+            </button>
           </div>
           <div className="mt-2 space-y-2">
             {namespaces.length === 0 ? (
@@ -504,11 +596,30 @@ export default function WorkspaceShell({
                     <button
                       type="button"
                       onClick={() => setSurface("memorias")}
-                      className="press flex flex-1 items-center justify-between gap-2 border-2 border-foreground bg-background px-3 py-2 text-left text-sm"
+                      className="press flex min-w-0 flex-1 items-center justify-between gap-2 border-2 border-foreground bg-background px-3 py-2 text-left text-sm"
                       title={`Ver ${n.name} en MEMORIAS`}
                     >
                       <span className="truncate">{n.name}</span>
                       <span className="font-display text-base leading-none">{n.count}</span>
+                    </button>
+                    {/* DESKTOP-32: renombrar / borrar con confirmación + undo. */}
+                    <button
+                      type="button"
+                      onClick={() => setNsDialog({ mode: "rename", name: n.name })}
+                      className="press flex w-7 items-center justify-center border-2 border-foreground bg-background text-xs"
+                      title={`Renombrar ${n.name}`}
+                      aria-label={`Renombrar ${n.name}`}
+                    >
+                      ✎
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNsDialog({ mode: "delete", name: n.name })}
+                      className="press flex w-7 items-center justify-center border-2 border-foreground bg-background text-xs"
+                      title={`Borrar ${n.name} (va a la papelera)`}
+                      aria-label={`Borrar ${n.name}`}
+                    >
+                      🗑
                     </button>
                     <button
                       type="button"
@@ -724,6 +835,7 @@ export default function WorkspaceShell({
                   healthStatus={state.healthStatus}
                   busy={state.busy}
                   onConnectNative={actions.connectNativePath}
+                  onUseProfile={useProfile}
                   onDisconnect={actions.disconnectId}
                   onActivate={actions.activate}
                   onProbeHealth={actions.probeHealth}
@@ -836,6 +948,29 @@ export default function WorkspaceShell({
               />
             </Suspense>
           )}
+          {/* DESKTOP-37: lente MEMORIA — read-only sobre vanta-memory; genlog
+              con anchor_id abre el record real en el Inspector. */}
+          {surface === "memoria" && (
+            <div className="mx-auto max-w-6xl p-6">
+              <MemoryLens
+                active={!!state.active}
+                sessionKey="user-1"
+                onNotice={onNotice}
+                onError={onError}
+                onOpenRecord={(record, score) => openRecord(record, score)}
+              />
+            </div>
+          )}
+          {/* DESKTOP-31: superficie AJUSTES. */}
+          {surface === "ajustes" && (
+            <Settings
+              embedded={embedded}
+              busy={state.busy}
+              onConnectNative={actions.connectNativePath}
+              onConnectServer={actions.connectServerCfg}
+              onNotice={onNotice}
+            />
+          )}
         </main>
       </div>
 
@@ -879,6 +1014,18 @@ export default function WorkspaceShell({
 
       {/* ========== HELP PANEL (FIND-25, "?" global) ========== */}
       {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
+
+      {/* ========== NAMESPACE CRUD (DESKTOP-32, acciones de la sidebar) ========== */}
+      {nsDialog && (
+        <NamespaceDialog
+          dialog={nsDialog}
+          existing={namespaces.map((n) => n.name)}
+          onClose={() => setNsDialog(null)}
+          onCreate={handleCreateNs}
+          onRename={handleRenameNs}
+          onDelete={handleDeleteNs}
+        />
+      )}
 
       {/* ========== IMPORT PASTE (OP-01, botón en MEMORIAS) ========== */}
       <Suspense fallback={null}>

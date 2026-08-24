@@ -1,8 +1,8 @@
-// SOP operational panels (ADMIN-06). Three actionable runbook panels: WAL
-// Replay, Reindex, and Health Check. Health runs `vanta_health` live; Replay
-// and Reindex have no core trigger command yet, so their action re-polls
-// `vanta_metrics` and surfaces the last recorded value as status. When the
-// core exposes replay/reindex triggers, swap the Refresh actions for real ones.
+// SOP operational panels (ADMIN-06). Three runbook panels: WAL Replay,
+// Reindex, and Health Check. Health runs `vanta_health` live. WAL Replay and
+// Reindex are READ-ONLY: the core exposes no replay/reindex trigger yet
+// (DESKTOP-28 / ADMIN-06), so they only surface the last recorded metrics
+// values — no fake action buttons.
 import { useCallback, useEffect, useState } from "react";
 import {
   health,
@@ -18,31 +18,8 @@ interface Result {
   detail: string;
 }
 
-interface SopPanelProps {
-  title: string;
-  description: string;
-  actionLabel: string;
-  busy: boolean;
-  result: Result | null;
-  onAction: () => void;
-}
-
-function SopCard({ title, description, actionLabel, busy, result, onAction }: SopPanelProps) {
-  return (
-    <article className="sop-panel">
-      <h3>{title}</h3>
-      <p className="sop-desc">{description}</p>
-      <div className="sop-foot">
-        <button onClick={onAction} disabled={busy}>
-          {busy ? "Working…" : actionLabel}
-        </button>
-        <span className="sop-result" data-status={result ? result.status : "idle"}>
-          {result ? result.detail : "No run yet"}
-        </span>
-      </div>
-    </article>
-  );
-}
+const PANEL =
+  "flex flex-col gap-2 border-2 border-foreground bg-card p-3 shadow-[3px_3px_0_0_#000] dark:shadow-[3px_3px_0_0_#FBF9F5]";
 
 /** ok detail when a metrics snapshot exists, err detail when polling failed. */
 function metricsResult(err: string | null, okDetail: string | null): Result | null {
@@ -50,22 +27,30 @@ function metricsResult(err: string | null, okDetail: string | null): Result | nu
   return okDetail ? { status: "ok", detail: okDetail } : null;
 }
 
+function SopResult({ result }: { result: Result | null }) {
+  return (
+    <span
+      className={`max-w-[60%] text-right font-tech text-xs [overflow-wrap:anywhere] ${
+        result ? (result.status === "ok" ? "text-foreground" : "text-destructive") : "text-muted-foreground"
+      }`}
+    >
+      {result ? result.detail : "Sin datos aún"}
+    </span>
+  );
+}
+
 export default function SopPanel() {
   const [m, setM] = useState<OperationalMetrics | null>(null);
   const [metricsErr, setMetricsErr] = useState<string | null>(null);
-  const [metricsBusy, setMetricsBusy] = useState(false);
   const [healthResult, setHealthResult] = useState<Result | null>(null);
   const [healthBusy, setHealthBusy] = useState(false);
 
   const pollMetrics = useCallback(async () => {
-    setMetricsBusy(true);
     try {
       setM(await metrics());
       setMetricsErr(null);
     } catch (e) {
       setMetricsErr(vantaErrorMessage(e));
-    } finally {
-      setMetricsBusy(false);
     }
   }, []);
 
@@ -90,44 +75,75 @@ export default function SopPanel() {
   }, [pollMetrics, runHealth]);
 
   return (
-    <section className="panel sop" aria-label="SOP operations">
-      <div className="panel-head">
-        <h2>SOP Operations</h2>
-        <span className="muted">manual runbook</span>
+    <section
+      aria-label="Operaciones SOP"
+      className="border-[3px] border-foreground bg-card p-4 shadow-[6px_6px_0_0_#000] dark:shadow-[6px_6px_0_0_#FBF9F5]"
+    >
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Operaciones SOP</h2>
+        <span className="text-muted-foreground">runbook manual</span>
       </div>
-      <div className="sop-grid">
-        <SopCard
-          title="WAL Replay"
-          description="Replay the write-ahead log. No trigger command yet — shows the last recorded replay from metrics."
-          actionLabel="Refresh"
-          busy={metricsBusy}
-          result={metricsResult(
-            metricsErr,
-            m ? `replayed ${m.wal_records_replayed.toLocaleString()} records in ${m.wal_replay_ms}ms` : null,
-          )}
-          onAction={pollMetrics}
-        />
-        <SopCard
-          title="Reindex"
-          description="Rebuild derived and text indexes. No trigger command yet — shows the last rebuild timings from metrics."
-          actionLabel="Refresh"
-          busy={metricsBusy}
-          result={metricsResult(
-            metricsErr,
-            m
-              ? `ANN ${m.ann_rebuild_ms}ms · derived ${m.derived_rebuild_ms}ms · text ${m.text_index_rebuild_ms}ms`
-              : null,
-          )}
-          onAction={pollMetrics}
-        />
-        <SopCard
-          title="Health Check"
-          description="Probe the native embedded engine via vanta_health."
-          actionLabel="Run check"
-          busy={healthBusy}
-          result={healthResult}
-          onAction={runHealth}
-        />
+      <div className="grid gap-4 md:grid-cols-3">
+        {/* ADMIN-06/DESKTOP-28: sin trigger en core → solo lectura, sin botón falso. */}
+        <article className={PANEL}>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="m-0 font-tech text-xs uppercase tracking-widest text-muted-foreground">WAL Replay</h3>
+            <span
+              title="Solo lectura — el core aún no expone trigger de replay (ADMIN-06)"
+              className="border border-foreground px-1 font-tech text-[10px] uppercase tracking-widest text-muted-foreground"
+            >
+              solo lectura
+            </span>
+          </div>
+          <p className="m-0 flex-1 text-xs text-muted-foreground">
+            Último replay registrado por el motor (no hay comando de disparo aún).
+          </p>
+          <SopResult
+            result={metricsResult(
+              metricsErr,
+              m ? `replay de ${m.wal_records_replayed.toLocaleString()} registros en ${m.wal_replay_ms}ms` : null,
+            )}
+          />
+        </article>
+        <article className={PANEL}>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="m-0 font-tech text-xs uppercase tracking-widest text-muted-foreground">Reindex</h3>
+            <span
+              title="Solo lectura — el core aún no expone trigger de reindex (ADMIN-06)"
+              className="border border-foreground px-1 font-tech text-[10px] uppercase tracking-widest text-muted-foreground"
+            >
+              solo lectura
+            </span>
+          </div>
+          <p className="m-0 flex-1 text-xs text-muted-foreground">
+            Últimos rebuilds registrados (no hay comando de disparo aún).
+          </p>
+          <SopResult
+            result={metricsResult(
+              metricsErr,
+              m
+                ? `ANN ${m.ann_rebuild_ms}ms · derived ${m.derived_rebuild_ms}ms · text ${m.text_index_rebuild_ms}ms`
+                : null,
+            )}
+          />
+        </article>
+        <article className={PANEL}>
+          <h3 className="m-0 font-tech text-xs uppercase tracking-widest text-muted-foreground">Health Check</h3>
+          <p className="m-0 flex-1 text-xs text-muted-foreground">
+            Probe del motor embebido vía vanta_health.
+          </p>
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={runHealth}
+              disabled={healthBusy}
+              className="press cursor-pointer border-2 border-foreground bg-background px-2.5 py-1.5 text-sm disabled:cursor-default disabled:opacity-50"
+            >
+              {healthBusy ? "Verificando…" : "Ejecutar chequeo"}
+            </button>
+            <SopResult result={healthResult} />
+          </div>
+        </article>
       </div>
     </section>
   );

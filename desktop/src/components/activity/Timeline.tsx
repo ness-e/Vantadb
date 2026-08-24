@@ -19,7 +19,7 @@ export default function Timeline({ events, granularity, onInspect, onPeek }: Pro
   if (buckets.length === 0) return null;
 
   return (
-    <ol className="space-y-5" aria-label="Timeline de actividad">
+    <ol className="space-y-5" aria-label="Cronología de actividad">
       {buckets.map((bucket) => (
         <li key={bucket.key}>
           <div className="flex flex-wrap items-baseline gap-2 border-b-2 border-foreground pb-1">

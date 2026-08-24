@@ -429,6 +429,9 @@ fn search_request(q: &SearchQuery) -> VantaMemorySearchRequest {
         // The core fills `VantaMemorySearchHit.explanation` when this flag is
         // set (src/sdk/search/mod.rs), so explain mode needs no extra calls.
         explain: q.explain,
+        // MEM-01/02: per-request fusion profile (mode/rrf_k/candidate_k),
+        // forwarded verbatim so slider results == server explain (DESKTOP-35).
+        search_profile: q.search_profile,
         ..Default::default()
     }
 }
@@ -845,6 +848,7 @@ mod tests {
                 namespace: Some("docs".into()),
                 filters: Default::default(),
                 explain: false,
+                search_profile: None,
             })
             .await
             .expect("search");
@@ -946,6 +950,7 @@ mod tests {
                 namespace: Some("docs".into()),
                 filters: Default::default(),
                 explain: true,
+                search_profile: None,
             })
             .await
             .expect("explain search");
@@ -993,6 +998,7 @@ mod tests {
                 namespace: Some("docs".into()),
                 filters: Default::default(),
                 explain: false,
+                search_profile: None,
             })
             .await
             .expect("plain search");
@@ -1000,6 +1006,61 @@ mod tests {
             plain.iter().all(|h| h.explanation.is_none()),
             "plain search must not carry explanations"
         );
+    }
+
+    #[tokio::test]
+    async fn search_profile_matches_default_and_keyword_mode() {
+        // DESKTOP-35 DoD at bridge level: a hybrid profile must produce the
+        // exact same hits/scores as no profile (slider == server explain), and
+        // mode=Keyword must restrict to the text route (no vector ranks).
+        use vantadb::sdk::{SearchProfileConfig, SearchProfileMode};
+
+        let dir = TempDir::new();
+        let mut conn = NativeConnection::open(dir.path()).expect("open");
+        let query = |explain: bool, profile: Option<SearchProfileConfig>| SearchQuery {
+            query: "fox".into(),
+            embedding: None,
+            top_k: 5,
+            namespace: Some("docs".into()),
+            filters: Default::default(),
+            explain,
+            search_profile: profile,
+        };
+
+        // Seed via the same put path the tests above use.
+        conn.put(
+            item(Some("k1"), "the quick brown fox jumps over the lazy dog"),
+            None,
+        )
+        .await
+        .expect("put k1");
+
+        let baseline = conn.search(query(true, None)).await.expect("baseline");
+        let explicit = conn
+            .search(query(true, Some(SearchProfileConfig::default())))
+            .await
+            .expect("explicit hybrid profile");
+        assert_eq!(
+            baseline, explicit,
+            "hybrid profile == core default fusion (parity by construction)"
+        );
+
+        let keyword = conn
+            .search(query(true, Some(SearchProfileConfig {
+                mode: SearchProfileMode::Keyword,
+                rrf_k: None,
+                candidate_k: None,
+            })))
+            .await
+            .expect("keyword profile");
+        for hit in &keyword {
+            let explanation = hit.explanation.as_ref().expect("explain filled");
+            assert_eq!(
+                explanation.rrf_vector_rank, None,
+                "keyword mode never produces vector ranks"
+            );
+        }
+        assert_eq!(keyword.len(), baseline.len(), "same text-only candidates");
     }
 
     #[tokio::test]

@@ -1,12 +1,8 @@
 // Metro-style operational metrics grid (ADMIN-04).
-// Polls `vanta_metrics` (shared bridge) every POLL_MS and renders one tile per
-// key metric: value + delta vs the previous snapshot + a 3-point trend arrow.
-// ADMIN-02 is not committed yet, so the poll/delta lives inline here; when
-// useMetrics lands as a commit this component can be slimmed to consume it.
-import { useEffect, useRef, useState } from "react";
-import { HealthReport, metrics, OperationalMetrics, vantaErrorMessage } from "../vanta";
-
-const POLL_MS = 4000;
+// Renders one tile per key metric: value + delta vs the previous snapshot +
+// a 3-point trend arrow. Polling is shared via useMetricsPoll (DESKTOP-29).
+import { HealthReport, OperationalMetrics } from "../vanta";
+import { useMetricsPoll } from "../hooks/useMetricsPoll";
 
 function fmtBytes(n: number): string {
   if (n >= 1e9) return `${(n / 1e9).toFixed(2)} GB`;
@@ -43,36 +39,11 @@ interface Props {
 }
 
 export default function MetricsGrid({ health, healthStatus, activeName }: Props) {
-  // Last snapshots, newest last. Trend = delta(now,prev) vs delta(prev,prevprev).
-  const history = useRef<OperationalMetrics[]>([]);
-  const [latest, setLatest] = useState<OperationalMetrics | null>(null);
-  const [polledAt, setPolledAt] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        const m = await metrics();
-        if (cancelled) return;
-        history.current = [...history.current.slice(-2), m];
-        setLatest(m);
-        setPolledAt(Date.now());
-        setError(null);
-      } catch (e) {
-        if (!cancelled) setError(vantaErrorMessage(e));
-      }
-    };
-    tick();
-    const id = setInterval(tick, POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
+  // Shared poll history, newest last. Trend = delta(now,prev) vs delta(prev,prevprev).
+  const { history: h, error, polledAt } = useMetricsPoll();
+  const latest = h[h.length - 1] ?? null;
 
   function deltaAndTrend(get: (m: OperationalMetrics) => number, fmt: (n: number) => string): Pick<Tile, "delta" | "trend"> {
-    const h = history.current;
     if (h.length < 2) return { delta: "—", trend: "flat" };
     const now = get(h[h.length - 1]);
     const prev = get(h[h.length - 2]);
@@ -91,58 +62,72 @@ export default function MetricsGrid({ health, healthStatus, activeName }: Props)
           title: "RSS",
           value: fmtBytes(latest.process_rss_bytes),
           ...deltaAndTrend((m) => m.process_rss_bytes, fmtBytes),
-          muted: "resident set size",
+          muted: "memoria residente",
         },
         {
           key: "records",
-          title: "Records",
+          title: "Registros",
           value: fmtCount(latest.records_imported),
           ...deltaAndTrend((m) => m.records_imported, fmtCount),
-          muted: latest.import_errors > 0 ? `${latest.import_errors} import errors` : "records imported",
+          muted: latest.import_errors > 0 ? `${latest.import_errors} errores de importación` : "registros importados",
         },
         {
           key: "queries",
-          title: "Queries",
+          title: "Consultas",
           value: fmtCount(totalQueries(latest)),
           ...deltaAndTrend(totalQueries, fmtCount),
-          muted: `${fmtCount(latest.text_lexical_queries)} lexical`,
+          muted: `${fmtCount(latest.text_lexical_queries)} léxicas`,
         },
         {
           key: "scans",
-          title: "Scans",
+          title: "Escaneos",
           value: fmtCount(latest.derived_prefix_scans),
           ...deltaAndTrend((m) => m.derived_prefix_scans, fmtCount),
-          muted: `${latest.derived_full_scan_fallbacks} full-scan fallbacks`,
+          muted: `${latest.derived_full_scan_fallbacks} fallbacks de escaneo completo`,
         },
         {
           key: "wal",
-          title: "WAL Replay",
+          title: "Replay WAL",
           value: fmtCount(latest.wal_records_replayed),
           ...deltaAndTrend((m) => m.wal_records_replayed, fmtCount),
           muted: `replay ${latest.wal_replay_ms}ms`,
         },
         {
           key: "text",
-          title: "Text Index",
+          title: "Índice de texto",
           value: fmtCount(latest.text_postings_written),
           ...deltaAndTrend((m) => m.text_postings_written, fmtCount),
-          muted: `${latest.text_index_repairs} repairs`,
+          muted: `${latest.text_index_repairs} reparaciones`,
         },
       ]
     : [];
 
   const trendGlyph = { up: "▲", down: "▼", flat: "—" } as const;
+  const trendClass = { up: "text-neon", down: "text-foreground", flat: "text-muted-foreground" } as const;
 
   return (
-    <section className="panel metrics" aria-label="Operational metrics">
-      <div className="panel-head">
-        <h2>Metrics</h2>
-        <div className="row metrics-head-right">
-          <span className="muted polled">
+    <section
+      aria-label="Métricas operativas"
+      className="border-[3px] border-foreground bg-card p-4 shadow-[6px_6px_0_0_#000] dark:shadow-[6px_6px_0_0_#FBF9F5]"
+    >
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Métricas</h2>
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground text-sm">
             {activeName ? activeName : "no backend"}
             {polledAt ? ` · ${new Date(polledAt).toLocaleTimeString()}` : " · waiting…"}
           </span>
-          <span className="health-badge" data-status={healthStatus} title="vanta_health">
+          <span
+            className={`border-2 px-2.5 py-1 text-xs ${
+              healthStatus === "idle"
+                ? "text-muted-foreground"
+                : healthStatus === "ok"
+                  ? "bg-paper text-foreground"
+                  : "border-neon bg-neon/10 text-neon"
+            }`}
+            data-status={healthStatus}
+            title="vanta_health"
+          >
             {healthStatus === "idle"
               ? "—"
               : health
@@ -152,22 +137,24 @@ export default function MetricsGrid({ health, healthStatus, activeName }: Props)
         </div>
       </div>
 
-      {error && <p className="muted metrics-error">metrics unavailable: {error}</p>}
+      {error && <p className="mt-2 text-sm text-muted-foreground">métricas no disponibles: {error}</p>}
 
       {tiles.length === 0 ? (
-        <p className="muted metrics-error">Waiting for first metrics snapshot…</p>
+        <p className="mt-2 text-sm text-muted-foreground">Esperando el primer snapshot de métricas…</p>
       ) : (
-        <div className="metrics-grid">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {tiles.map((t) => (
-            <div key={t.key} className="tile">
-              <h3>{t.title}</h3>
-              <p className="tile-value">{t.value}</p>
-              <p className="tile-delta">
-                <span className={`trend-${t.trend}`} aria-hidden="true">
+            <div key={t.key} className="press border-[3px] border-foreground bg-card px-4 py-3.5">
+              <h3 className="mb-2 mt-0 font-tech text-xs uppercase tracking-widest text-muted-foreground">
+                {t.title}
+              </h3>
+              <p className="m-0 text-[1.6rem] font-bold leading-tight tracking-tight">{t.value}</p>
+              <p className="mb-0 mt-2 flex items-center gap-1.5 text-sm">
+                <span className={trendClass[t.trend]} aria-hidden="true">
                   {trendGlyph[t.trend]}
                 </span>
                 <span>{t.delta}</span>
-                {t.muted && <span className="muted">· {t.muted}</span>}
+                {t.muted && <span className="text-muted-foreground">· {t.muted}</span>}
               </p>
             </div>
           ))}

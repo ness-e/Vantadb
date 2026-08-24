@@ -1,9 +1,11 @@
-// Snapshot export (ADMIN-09). Fetches the last vanta_metrics snapshot and
-// persists it to localStorage so the app can show last-run data before the
-// live poll responds. Export downloads the snapshot as JSON via blob (no Tauri
-// fs/dialog plugin installed — frontend download is the contract minimum).
+// Snapshot export (ADMIN-09). Reads the latest vanta_metrics snapshot from the
+// shared poll (useMetricsPoll, DESKTOP-29) and persists it to localStorage so
+// the app can show last-run data before the live poll responds. Export
+// downloads the snapshot as JSON via blob (no Tauri fs/dialog plugin installed
+// — frontend download is the contract minimum).
 import { useEffect, useState } from "react";
-import { metrics, OperationalMetrics, vantaErrorMessage } from "../vanta";
+import { OperationalMetrics } from "../vanta";
+import { useMetricsPoll } from "../hooks/useMetricsPoll";
 
 const LS_KEY = "vanta.last_snapshot";
 
@@ -33,27 +35,16 @@ function fileName(at: number): string {
 
 export default function ExportPanel() {
   const [stored, setStored] = useState<Stored | null>(() => loadStored());
-  const [live, setLive] = useState<OperationalMetrics | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { history, error } = useMetricsPoll();
+  const live = history[history.length - 1] ?? null;
 
+  // Persist each new live snapshot so the next run has last-run data.
   useEffect(() => {
-    let alive = true;
-    metrics()
-      .then((m) => {
-        if (!alive) return;
-        setLive(m);
-        setError(null);
-        const rec: Stored = { at: Date.now(), snapshot: m };
-        localStorage.setItem(LS_KEY, JSON.stringify(rec));
-        setStored(rec);
-      })
-      .catch((e) => {
-        if (alive) setError(vantaErrorMessage(e));
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
+    if (!live) return;
+    const rec: Stored = { at: Date.now(), snapshot: live };
+    localStorage.setItem(LS_KEY, JSON.stringify(rec));
+    setStored(rec);
+  }, [live]);
 
   // Live snapshot wins; before the poll answers, fall back to last persisted run.
   const snapshot = live ?? stored?.snapshot ?? null;
@@ -71,17 +62,28 @@ export default function ExportPanel() {
   }
 
   return (
-    <section className="panel export" aria-label="Snapshot export">
-      <div className="panel-head">
-        <h2>Export Snapshot</h2>
-        <span className="muted">{error ? error : "last vanta_metrics run"}</span>
+    <section
+      aria-label="Exportar snapshot"
+      className="border-[3px] border-foreground bg-card p-4 shadow-[6px_6px_0_0_#000] dark:shadow-[6px_6px_0_0_#FBF9F5]"
+    >
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Exportar Snapshot</h2>
+        <span className="text-muted-foreground">{error ? error : "última corrida de vanta_metrics"}</span>
       </div>
-      <div className="export-row">
-        <button onClick={download} disabled={!snapshot}>
-          Export snapshot
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={download}
+          disabled={!snapshot}
+          className="press cursor-pointer border-2 border-foreground bg-background px-2.5 py-1.5 text-sm disabled:cursor-default disabled:opacity-50"
+        >
+          Exportar snapshot
         </button>
-        <span className="export-saved" data-status={snapshot ? "ok" : "idle"}>
-          {savedAt ? `last saved: ${new Date(savedAt).toLocaleString()}` : "no snapshot yet"}
+        <span
+          className={`font-tech text-xs ${snapshot ? "text-foreground" : "text-muted-foreground"}`}
+          data-status={snapshot ? "ok" : "idle"}
+        >
+          {savedAt ? `guardado: ${new Date(savedAt).toLocaleString()}` : "sin snapshot aún"}
         </span>
       </div>
     </section>

@@ -45,6 +45,21 @@ export interface SearchQuery {
   embedding?: number[];
   /** When true, each result carries a per-hit score breakdown (`explanation`). */
   explain?: boolean;
+  /** Per-request fusion profile (MEM-01) forwarded to the core. Absent → core
+   * defaults. Ignored by backends without profile support (server IQL). */
+  search_profile?: VantaSearchProfile;
+}
+
+/** Mirror of core `SearchProfileConfig` (MEM-01, src/sdk/types.rs) — per-request
+ * fusion profile. Omitted `rrf_k`/`candidate_k` fall back to core constants. */
+export interface VantaSearchProfile {
+  /** Fusion mode: `keyword` = BM25 only, `vector` = dense only,
+   * `hybrid` = RRF fusion (core default). */
+  mode: "keyword" | "vector" | "hybrid";
+  /** RRF smoothing constant k. Absent → core `RRF_K` (60). */
+  rrf_k?: number;
+  /** Per-branch candidate budget. Absent → core hybrid budget. */
+  candidate_k?: number;
 }
 
 export interface SearchResult {
@@ -390,6 +405,29 @@ export function deleteByFilter(opts: {
   });
 }
 
+// --- Namespaces CRUD (DESKTOP-32) ---------------------------------------------
+/** Key reservada que materializa un namespace vacío (los namespaces son
+ * implícitos: nacen con el primer put). Ver createNamespace. */
+export const NS_META_KEY = "__vanta_namespace_meta";
+
+/** Crear un namespace vacío = put de la key reservada. Idempotente (upsert). */
+export function createNamespace(namespace: string): Promise<MemoryRecord> {
+  return vantaPut({ namespace, key: NS_META_KEY, payload: NS_META_KEY });
+}
+
+/** Todos los registros de un namespace, siguiendo la paginación (DESKTOP-32).
+ * Rename/delete de namespace necesita el snapshot completo para el undo. */
+export async function listAll(namespace: string, pageSize = 500): Promise<MemoryRecord[]> {
+  const out: MemoryRecord[] = [];
+  let cursor: number | undefined;
+  do {
+    const page = await listPage({ namespace, limit: pageSize, cursor });
+    out.push(...page.records);
+    cursor = page.next_cursor ?? undefined;
+  } while (cursor !== undefined);
+  return out;
+}
+
 // --- Graph (GRAFO-01) ------------------------------------------------------------
 // Mirrors the wire DTOs in desktop/src-tauri/src/connections/types.rs. Node ids
 // are strings (u128 ids exceed JS safe integers). `degree` is populated by
@@ -607,4 +645,119 @@ export function contextAssemble(params: {
   session_key?: string;
 }): Promise<AssembledContext> {
   return transport.call<AssembledContext>("vanta_context_assemble", params);
+}
+
+// --- Memory observability (DESKTOP-36) ------------------------------------------
+// Wrappers read-only sobre los comandos Tauri de vanta-memory. Tipos espejo de
+// los wire types de la crate (serde snake_case). Los comandos con
+// `rename_all = "snake_case"` reciben claves snake_case; el resto usa el
+// camelCase default del IPC de Tauri v2.
+/** Mirror de `SceneIndexEntry` (índice de escenas, heat desc). */
+export interface SceneEntry {
+  filename: string;
+  summary: string;
+  heat: number;
+  created: string;
+  updated: string;
+}
+
+/** Mirror de `SceneBlock` (bloque vivo de una escena). */
+export interface SceneBlock {
+  scene_name: string;
+  meta: { created: string; updated: string; summary: string; heat: number };
+  content: string;
+  deleted: boolean;
+}
+
+/** Mirror de `SceneQueryHit` (overlap keyword + heat). */
+export interface SceneHit {
+  scene_name: string;
+  summary: string;
+  heat: number;
+  updated: string;
+  score: number;
+}
+
+/** Mirror de `StoredSkill` (content-hash upsert, sin versiones en v1). */
+export interface StoredSkillRecord {
+  name: string;
+  description: string;
+  content: string;
+  content_hash: number;
+  updated_at_ms: number;
+}
+
+/** Capa del pipeline que generó el artefacto (MEM-41). */
+export type GenerationLayer = "l1" | "l2" | "l3";
+
+/** Mirror de `GenerationLogEntry` (provenance L1/L2/L3). */
+export interface GenlogEntry {
+  layer: GenerationLayer;
+  status: "succeeded" | "failed";
+  anchor_id?: string;
+  session_key: string;
+  ts_ms: number;
+  error?: string;
+}
+
+/** Mirror de `PersonaRecord` (snapshot generado por L3). */
+export interface PersonaSnapshot {
+  content: string;
+  mode: string;
+  generated_at_ms: number;
+  generated_at: string;
+}
+
+/** Índice de escenas de una sesión, heat descendente. */
+export function memorySceneList(sessionKey: string): Promise<SceneEntry[]> {
+  return transport.call<SceneEntry[]>("vanta_scenes_list", { sessionKey });
+}
+
+/** Un bloque de escena vivo por nombre; 404 si falta o está soft-deleted. */
+export function memorySceneRead(
+  sessionKey: string,
+  sceneName: string,
+): Promise<SceneBlock> {
+  return transport.call<SceneBlock>("vanta_scene_read", {
+    session_key: sessionKey,
+    scene_name: sceneName,
+  });
+}
+
+/** Búsqueda keyword sobre las escenas vivas de una sesión. */
+export function memorySceneQuery(
+  sessionKey: string,
+  keyword: string,
+  topK?: number,
+): Promise<SceneHit[]> {
+  return transport.call<SceneHit[]>("vanta_scene_query", {
+    session_key: sessionKey,
+    keyword,
+    top_k: topK,
+  });
+}
+
+/** Snapshot de persona de una sesión (`null` = sin generar aún). */
+export function memoryPersonaGet(
+  sessionKey: string,
+): Promise<PersonaSnapshot | null> {
+  return transport.call<PersonaSnapshot | null>("vanta_persona_get", { sessionKey });
+}
+
+/** Todas las skills extraídas, más recientes primero. */
+export function memorySkillList(): Promise<StoredSkillRecord[]> {
+  return transport.call<StoredSkillRecord[]>("vanta_skills_list");
+}
+
+/** Generation log de una sesión (MEM-41), opcionalmente filtrado por capa. */
+export function memoryGenlogQuery(
+  sessionKey: string,
+  layer?: GenerationLayer,
+  limit?: number,
+): Promise<GenlogEntry[]> {
+  return transport.call<GenlogEntry[]>("vanta_genlog_query", {
+    session_key: sessionKey,
+    layer,
+    limit,
+  });
 }

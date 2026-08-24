@@ -193,6 +193,17 @@ aliases: [DESKTOP]
 - **Resultado:** ✅ 7 comandos Tauri (`vanta_memory_capture/recall/persona_get/scenes_list/scene_current/skills_list/wiki_status`) exponen el pipeline vanta-memory desde `src-tauri` hacia la UI; acceso al handle embebido vía trait default `as_native()` + `ConnectionManager::active_embedded()`; `ProgressTracker` en AppState. Suite desktop 85/85 (12 tests nuevos), fmt+clippy+audit limpios (h2 → 0.4.18, RUSTSEC-2026-0258). Vistas UI: tarea futura.
 - **Ids:** `MEM-53`
 
+### DESKTOP-30: Estado de usuario durable (favoritos, historial, papelera)
+- **Fecha:** 2026-08-24
+- **Resultado:** ? Papelera/tombstones del `UndoStore` persisten en localStorage inyectable (`vanta.trash.v1`, patrón único de persistencia decidido por DESKTOP-23/26 — NO app_config_dir). Hidratación en constructor con validación de shape, corrupto → vacío; write-through vía hook único `notify()`. Favoritos/historial/prefs ya persistían (DESKTOP-26/23) — único gap era la papelera (session-only según su header). El stack de undo NO se persiste por diseño (reverses referencian backend de sesión). Tests: round-trip reinicio + restore + shape inválido/corrupto. `npm run build` ✅, vitest 53/53 ✅.
+- **Ids:** `DESKTOP-30`
+
+### DESKTOP-33: CONSOLIDAR merge + delete reales (detectar→revisar→merge/delete sin salir de la lente)
+- **Fecha:** 2026-08-24
+- **Objetivo:** ConsolidateLens solo marcaba `metadata.superseded_by`; faltaba merge de payloads y borrado del duplicado.
+- **Resultado:** ✅ Merge manual campo a campo en la lente (`defaultSources`/`mergeFields` en consolidate-core.ts + MergeEditor inline: dominante A/B elegible, toggle por campo, preview; Guardar = `vantaPut` merged + papelera del supersedido vía `undoStore.softDelete` con snapshot completo vía `get()` para restaurar vector/ttl). Delete con confirmación 2 pasos (`ConfirmDiscard.tsx`, patrón NamespaceDialog): "Mover a papelera" (default, Ctrl+Z) vs permanente. Batch sobre selección (checkboxes por par): superar dirección en lote + descartar superados marcados, con progress textual y notices. Styling Tailwind preservado. Tests nuevos para mergeFields/defaultSources. `npm run build` ✅, vitest 64/64 ✅.
+- **Ids:** `DESKTOP-33`
+
 ---
 
 ## Fuentes
@@ -200,3 +211,73 @@ aliases: [DESKTOP]
 - `docs/research/DESKTOP-01-tauri-plataforma-desktop.md`.
 
 ### ERR-015 (shutdown gracioso) — migrado 2026-08-12 (ver docs/progreso/README.md)
+
+### DESKTOP-23: Persistencia de preferencias UI (tema/layout/filtros)
+- **Fecha:** 2026-08-24
+- **Resultado:** ? Store `WorkspacePrefsStore` (`desktop/src/store/preferences.ts`) con storage inyectable + sanitizaci�n defensiva; persiste surface/layout, panel filtros y ruleGroup (tema ya persist�a en localStorage). Decisi�n de alcance: NO app_config_dir/temp+rename - el WebView de Tauri ya persiste localStorage entre sesiones (favoritos/historial/tema dependen de eso); segundo mecanismo duplicar�a fuente de verdad. Documentado en task file + lessons. `npm run build` ?, vitest 41/41 ?.
+- **Ids:** `DESKTOP-23`
+
+### DESKTOP-24: Empaquetado NSIS/MSI (Windows)
+- **Fecha:** 2026-08-24
+- **Resultado:** ? `tauri.conf.json`: targets NSIS/MSI + WebView2 embedBootstrapper + sidecar `vantadb-server.exe` via `bundle.resources` (NO externalBin: sufijo target-triple no matchea `locate_binary`). Fix typo env `VANTVADB_SERVER_BIN`  `VANTADB_SERVER_BIN` (child_process.rs). Build completo 15min: `bundle/nsis/*.exe` (9.9MB) + `bundle/msi/*.msi` (13.4MB), sidecar incluido. Deuda: smoke-test instalador en VM Windows limpia; instalador unsigned. Re-bundle documentado en Context Save Point.
+- **Ids:** `DESKTOP-24`
+
+### DESKTOP-25: CI GitHub Actions desktop
+- **Fecha:** 2026-08-24
+- **Resultado:** ? `.github/workflows/desktop.yml` nuevo: tauri-action@v1 (validado vs README oficial), sidecar construido en CI (--features custom-allocator) + `VANTADB_SERVER_BIN` para tests reales, cargo test workspace desacoplado, upload-artifact instalador NSIS/MSI, cache npm+cargo+sccache composite. actionlint exit 0. Sin continue-on-error (Regla 2). Deuda: push  confirmar run verde <15min + descargar artefacto.
+- **Ids:** `DESKTOP-25`
+
+### DESKTOP-26: Tests frontend Vanta Studio (vitest)
+- **Fecha:** 2026-08-24
+- **Resultado:** ? vitest 4 configurado desde cero (`vitest.config.ts` jsdom+globals, script `test`, tsconfig excluye tests del build tsc). Tests: stores persistidos (favorites/search-history, storage inyectable), HomeOverview, round-trip bridge `vanta.ts`invoke mockeado (`__TAURI_INTERNALS__` hoisted), fix flaky projection.worker (UMAP 10040 pts). `npm test` exit 0 x2 consecutivas (38 tests al cierre de la tarea), build ?.
+- **Ids:** `DESKTOP-26`
+
+### DESKTOP-27: Docs + ADR Vanta Studio
+- **Fecha:** 2026-08-24
+- **Resultado:** ? `docs/desktop/README.md` (instalaci�n, tabla 3 transportes, comandos IPC, troubleshooting) + `ARCHITECTURE.md` (ConnectionManager registry+active_id, trait VantaConnection, NativeConnection spawn_blocking+path lock, ServerClient Bearer, WASM como backend frontend-only OPFSIDB - no WasmConnection Rust, shutdown_all orden, ConnectionSelector eliminado ADMIN-03) + `GUIDE.md` ES por modo. ADR-026/027/028 referenciados sin duplicar. Review vanta-arch fresh-context: APPROVE (7/7 claims con evidencia file:line).
+- **Ids:** `DESKTOP-27`
+
+### DESKTOP-28: Unificar paneles legacy al design system Studio
+- **Fecha:** 2026-08-24
+- **Resultado:** ? 7 paneles migrados de `.panel`/App.css a Tailwind manga/linocut (ConnectionPanel/MetricsGrid/KpiCards/SopPanel/ExportPanel/IngestForm/DataExplorer) + ResultsList hallado en sweep. SopPanel: botones WAL/Reindex falsos  tag "solo lectura" (ADMIN-06); Health Check conserva acci�n real. Hu�rfanos borrados tras grep Regla 0: SearchBar.tsx, ProcessPanel.tsx. App.css 383L41L; overrides :root que pisaban tokens eliminados (DS index.css manda). Build ? + tests verdes.
+- **Ids:** `DESKTOP-28`
+
+### DESKTOP-29: Coordinar polling de m�tricas
+- **Fecha:** 2026-08-24
+- **Resultado:** ? Hook �nico `useMetricsPoll.ts` (store module-level + useSyncExternalStore, 1 setInterval 4s, arranca con primer subscriber / muere con el �ltimo, history cap 12 newest-last, guard inFlight). Consumers: MetricsGrid, KpiCards, IndicesLens, ExportPanel - deltas/trend intactos sobre history compartida. Test: 3 consumers  1 call/tick. `npm test` 48/48 ?.
+- **Ids:** `DESKTOP-29`
+
+### DESKTOP-31: Pantalla SETTINGS
+- **Fecha:** 2026-08-24
+- **Resultado:** ? `pages/Settings.tsx` (perfiles conexi�n nativo/server, auth Bearer token server remoto, defaults b�squeda top_k/modo, idioma) + store `connections.ts` (perfiles+activeProfileId, patr�n storage inyectable DESKTOP-23) + `connectServerCfg(url,port,token)` en useConnectionState + dropdown "Connect profile" en ConnectionPanel + surface "ajustes" en shell/palette. Cero cambios Rust (ServerClientConfig.token ya exist�a). Desv�o documentado: perfiles en localStorage inyectable, no app_config_dir. Deuda: i18n real, defaults por-perfil, E2E contra server real con token. Tests 48/48 ?.
+- **Ids:** `DESKTOP-31`
+
+### DESKTOP-32: CRUD de namespaces
+- **Fecha:** 2026-08-24
+- **Resultado:** ? Crear/renombrar/borrar ns desde sidebar: `NamespaceDialog.tsx` modal 3 modos (borrado = aviso  tipear nombre exacto, valida colisiones), rename = copia v�a ingestBatch preservando embedding/metadata/ttl  borra originales  entry reverse move en undo store, delete reusa applySoftDelete (papelera durable gratis). `listAll()` paginado + `createNamespace()` key reservada en vanta.ts. Cero cambios Rust. Deudas: sparse_vector no viaja en rename (caso raro), toasts via onNotice (Sonner no presente). Tests 57/57 ?.
+- **Ids:** `DESKTOP-32`
+
+### DESKTOP-34: Polish UX global (palette/tooltips/ES)
+- **Fecha:** 2026-08-24
+- **Resultado:** ? CommandPalette extendida a todas las superficies del shell (PAPELERA/B�SQUEDA/CONSOLIDAR/ESPACIO + AJUSTES que lleg� en paralelo; union completa Surface). Tooltips title/aria-label en los 9 botones sidebar (correcci�n spec: F1/F2 no son atajos, son fases HelpPanel). Unificaci�n ENES en 10 archivos (labels/placeholders/aria-labels), sin framework i18n. Correcci�n spec: componentes citados eran del prototipo web, no desktop. Deuda: statusReport.ts genera markdown EN (doc generado), F1/F2 sin handler keydown (pre-existente). Build+tests verdes.
+- **Ids:** `DESKTOP-34`
+
+### DESKTOP-35: Slider h�brido cableado a search_profile real
+- **Fecha:** 2026-08-24
+- **Resultado:** ? Hallazgo discovery: campo `bm25_weight` asumido NO existe - SearchProfileConfig solo acepta {mode, rrf_k?, candidate_k?} (types.rs:478)  slider discretizado 3 stops (keyword/hybrid RRF/vector), gap documentado. Bridge: `SearchQuery.search_profile: Option<SearchProfileConfig>` serde-default backward-compat + reenv�o verbatim en native.rs + http-map. Eliminado re-rank client-side (weightFromSlider/weightedScore/rerankByWeight/computeSegmentsWeighted). Paridad slider==explain POR CONSTRUCCI�N (mismo request + explain:true), test Rust fija invariante (perfil hybrid == baseline). cargo test src-tauri 79/79 ?, vitest 64/64 ?, node --test 5/5 ?. Deuda: pesos intermedios requieren soporte core.
+- **Ids:** `DESKTOP-35`
+
+### DESKTOP-36: Bridge Tauri vanta-memory (read-only)
+- **Fecha:** 2026-08-24
+- **Resultado:** ? Comandos `vanta_scene_read/vanta_scene_query/vanta_genlog_query` sobre handlers tipados gateway (KnowledgeErrorVantaError); reutilizados vanta_persona_get/scenes_list/skills_list pre-existentes (MEM-53, no duplicados). Bindings TS tipados en vanta.ts (SceneEntry/StoredSkillRecord/GenlogEntry/PersonaSnapshot) con claves snake/camel correctas por comando. Tests contra seed REAL vanta-seed (import_seed_str): 5 Rust nuevos + wire-contract TS. cargo test --lib 77/77 ?, vitest 50/50 ?. Deuda: skill_versions/skill_restore/compaction_report sin backing API (skills=content-hash upsert, CompactionReport no persiste) - nada inventado.
+- **Ids:** `DESKTOP-36`
+
+### DESKTOP-37: Lente MEMORIA (UI)
+- **Fecha:** 2026-08-24
+- **Resultado:** ? Sexta superficie del Studio: ScenesPanel (heat-desc + barra normalizada + detalle inline, badge soft-deleted en 404), PersonaPanel (snapshot + diff l�neas vs �ltima vista en localStorage), SkillsPanel (agrupado por nombre, timeline asc hash corto, visor contenido), GenlogPanel (filtro L1/L2/L3 re-query, anchor_id  get() real  Inspector). Selector session_key default user-1 (ejemplo vanta-seed). Solo records con anchor van a Inspector (no fabricar targets de vantaPut). Preservadas fusiones paralelas (SETTINGS/palette/CRUD ns). 7 tests mock bridge. vitest 64/64 ?.
+- **Ids:** `DESKTOP-37`
+
+### DESKTOP-39: Ingest con embedding desde texto (condicional)
+- **Fecha:** 2026-08-24
+- **Resultado:** ? Caso B (WONTFIX-UI documentado): src/llm.rs NO expone embedding local - solo providers HTTP externos Ollama/OpenAI (evidencia llm.rs:1-4,26-29,39-47,144-145 + Cargo.toml:107 feature remote-inference). Nota informativa honesta en IngestForm bajo el bot�n (sin vector se guarda como texto; sem�ntica requiere VANTA_EMBEDDING_PROVIDER/VANTA_LLM_URL/VANTA_OPENAI_API_KEY). Sin bot�n falso ni detecci�n config (YAGNI). ImportDrop intocado (grep confirma). Build+tests verdes.
+- **Ids:** `DESKTOP-39`

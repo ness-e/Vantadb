@@ -73,6 +73,12 @@ pub struct SearchQuery {
     /// support explain ignore the flag and return `explanation: None`.
     #[serde(default)]
     pub explain: bool,
+    /// Per-request hybrid search profile (MEM-01/02), forwarded 1:1 to the core
+    /// request (`VantaMemorySearchRequest::search_profile`). `None` → core
+    /// defaults (`RRF_K = 60`, hybrid routing). Backends without profile support
+    /// (server relational IQL) ignore it.
+    #[serde(default)]
+    pub search_profile: Option<vantadb::sdk::SearchProfileConfig>,
 }
 
 /// A single hit returned by [`crate::connections::VantaConnection::search`].
@@ -461,8 +467,38 @@ mod tests {
                 .into_iter()
                 .collect(),
             explain: true,
+            search_profile: None,
         };
         assert_eq!(rt(&q), q);
+    }
+
+    #[test]
+    fn search_query_search_profile_roundtrip_and_default() {
+        use vantadb::sdk::{SearchProfileConfig, SearchProfileMode};
+        // Full profile roundtrips (DESKTOP-35: slider → server-side fusion mode).
+        let q = SearchQuery {
+            query: "cats".into(),
+            embedding: None,
+            top_k: 5,
+            namespace: None,
+            filters: HashMap::new(),
+            explain: false,
+            search_profile: Some(SearchProfileConfig {
+                mode: SearchProfileMode::Keyword,
+                rrf_k: None,
+                candidate_k: None,
+            }),
+        };
+        let json = json(&q);
+        assert!(
+            json.contains("\"mode\":\"keyword\""),
+            "serde lowercase mode on the wire: {json}"
+        );
+        assert_eq!(rt(&q), q);
+        // Backward compat: absent `search_profile` deserializes to None.
+        let legacy: SearchQuery =
+            serde_json::from_str(r#"{"query":"cats","top_k":5}"#).expect("deserialize");
+        assert!(legacy.search_profile.is_none());
     }
 
     #[test]

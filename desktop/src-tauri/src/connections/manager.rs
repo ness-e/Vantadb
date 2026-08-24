@@ -548,6 +548,7 @@ mod tests {
                 namespace: Some("docs".into()),
                 filters: Default::default(),
                 explain: false,
+                search_profile: None,
             })
             .await
             .unwrap();

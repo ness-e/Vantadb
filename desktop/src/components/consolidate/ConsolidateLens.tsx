@@ -1,17 +1,16 @@
-// FEAT-03a Lente CONSOLIDAR (D16 (a) UI-only): detecta candidatos duplicados/
-// superados por similitud textual (search kNN sobre el texto de cada registro),
-// muestra el diff visible entre pares y escribe `metadata.superseded_by` en el
-// registro superado vía vanta_put. La lógica pura vive en consolidate-core.ts
-// (node-testable); esta lente solo orquesta el bridge (funciona en los 3
-// transports: Tauri/REST/WASM — mismos comandos vanta_search/vanta_put/vanta_list).
-// MEM-58: con Tauri + conexión native activa, el run intenta PRIMERO el
-// context engine real (vanta_context_assemble); cualquier fallo cae al
-// fallback heurístico D16a, que queda preservado sin cambios.
+// FEAT-03a CONSOLIDAR lente (DESKTOP-33): flujo completo detectar duplicados
+// (kNN textual) → revisar lado a lado → merge campo a campo (pre-fill desde el
+// dominante) o descartar el supersedido (papelera con undo / permanente, 2
+// pasos) → acción batch sobre selección. Todo sin salir de la lente.
+// El styling es Tailwind (DESKTOP-28).
 import { useState } from "react";
 import { TauriBackend, transport } from "../../transport";
+import { undoStore } from "../../store/undo";
 import {
   contextAssemble,
+  get,
   listPage,
+  remove,
   search,
   vantaErrorMessage,
   vantaPut,
@@ -20,22 +19,35 @@ import {
 import {
   buildCandidatePairs,
   countSuperseded,
+  defaultSources,
   fmtSim,
   formatAssembleReport,
   ASSEMBLE_BUDGET_TOKENS,
   MAX_PAIRS,
   MAX_QUERIES,
   MAX_RECORDS,
+  mergeFields,
   mergeSuperseded,
+  pairKey,
   SUPERSEDED_BY_KEY,
   supersededBy,
   toHistory,
   TOP_K,
   type CandidatePair,
+  type FieldSource,
   type PairRecord,
 } from "./consolidate-core.ts";
+import ConfirmDiscard from "./ConfirmDiscard";
 
 const PAGE_SIZE = 100;
+
+const BTN =
+  "press border-2 border-foreground bg-background px-2 py-0.5 font-tech text-[9px] disabled:opacity-50";
+
+function fmtVal(v: unknown): string {
+  if (v === undefined) return "—";
+  return typeof v === "object" ? JSON.stringify(v) : String(v);
+}
 
 function RecordCard({ rec, score, maxScore }: { rec: PairRecord; score: number; maxScore: number }) {
   const sup = supersededBy(rec.metadata);
@@ -75,6 +87,107 @@ function RecordCard({ rec, score, maxScore }: { rec: PairRecord; score: number; 
   );
 }
 
+/** Editor de merge campo a campo (DESKTOP-33): dominante elegible + fuente
+ * (A/B) por campo, prellenado desde el dominante, con preview del resultado. */
+function MergeEditor({
+  p,
+  dominant,
+  sources,
+  onDominant,
+  onSource,
+  onSave,
+  onCancel,
+  busy,
+}: {
+  p: CandidatePair;
+  dominant: FieldSource;
+  sources: Record<string, FieldSource>;
+  onDominant: (d: FieldSource) => void;
+  onSource: (field: string, d: FieldSource) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  busy: boolean;
+}) {
+  const metaKeys = [
+    ...new Set([...Object.keys(p.a.metadata ?? {}), ...Object.keys(p.b.metadata ?? {})]),
+  ];
+  const merged = mergeFields(p.a, p.b, sources);
+  const fields: { key: string; va: string; vb: string }[] = [
+    { key: "text", va: p.a.text, vb: p.b.text },
+    ...metaKeys.map((k) => ({
+      key: k,
+      va: fmtVal(p.a.metadata?.[k]),
+      vb: fmtVal(p.b.metadata?.[k]),
+    })),
+  ];
+  return (
+    <div className="space-y-2 border-t-2 border-foreground p-2">
+      <div className="flex flex-wrap items-center gap-2 font-tech text-[9px] uppercase tracking-widest">
+        <span className="text-muted-foreground">dominante (id vigente):</span>
+        {(["a", "b"] as const).map((d) => (
+          <label
+            key={d}
+            className={`press cursor-pointer border-2 px-2 py-0.5 ${
+              dominant === d ? "border-neon bg-neon font-bold text-background" : "border-foreground bg-background"
+            }`}
+          >
+            <input
+              type="radio"
+              name={`dom-${pairKey(p.a.id, p.b.id)}`}
+              checked={dominant === d}
+              onChange={() => onDominant(d)}
+              className="sr-only"
+            />
+            {d === "a" ? p.a.id : p.b.id}
+          </label>
+        ))}
+      </div>
+      {fields.map((f) => (
+        <div key={f.key} className="flex items-start gap-2">
+          <span className="w-24 shrink-0 truncate pt-0.5 font-tech text-[9px] uppercase tracking-widest text-muted-foreground">
+            {f.key}
+          </span>
+          <div className="flex shrink-0 gap-1">
+            {(["a", "b"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => onSource(f.key, d)}
+                disabled={busy}
+                title={`${d}: ${(d === "a" ? f.va : f.vb).slice(0, 120)}`}
+                className={`press border-2 px-1.5 font-tech text-[9px] disabled:opacity-50 ${
+                  sources[f.key] === d
+                    ? "border-neon bg-neon font-bold text-background"
+                    : "border-foreground bg-background"
+                }`}
+              >
+                {d.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          <span className="min-w-0 flex-1 truncate pt-0.5 text-xs">{sources[f.key] === "b" ? f.vb : f.va}</span>
+        </div>
+      ))}
+      <div className="border-2 border-dashed border-foreground bg-background p-2 text-xs leading-relaxed whitespace-pre-wrap break-words">
+        {merged.text}
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={busy}
+          className="press border-2 border-foreground bg-neon px-2 py-0.5 font-tech text-[10px] font-bold uppercase tracking-widest text-background disabled:opacity-50"
+        >
+          ⛨ Guardar merge
+        </button>
+        <button type="button" onClick={onCancel} disabled={busy} className={BTN}>
+          cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function ConsolidateLens({
   active,
   activeName,
@@ -91,7 +204,18 @@ export default function ConsolidateLens({
   const [pairs, setPairs] = useState<CandidatePair[] | null>(null);
   const [records, setRecords] = useState<PairRecord[] | null>(null);
   const [runInfo, setRunInfo] = useState("");
+  // DESKTOP-33: editor activo + selección batch (keys canónicas de par) +
+  // confirmación destructiva pendiente + progress textual de operaciones.
+  const [editing, setEditing] = useState<{
+    p: CandidatePair;
+    dominant: FieldSource;
+    sources: Record<string, FieldSource>;
+  } | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirming, setConfirming] = useState<PairRecord[] | null>(null);
+  const [progress, setProgress] = useState("");
 
+  const busy = detecting || progress !== "";
   const maxScore = pairs && pairs.length > 0 ? pairs[0].score : 0;
   const supersededCount = records ? countSuperseded(records) : 0;
 
@@ -152,6 +276,8 @@ export default function ConsolidateLens({
       const found = buildCandidatePairs(recs, hitsByKey);
       setRecords(recs);
       setPairs(found);
+      setSelected(new Set());
+      setEditing(null);
       setRunInfo(
         `${recs.length} registros · ${scanned} búsquedas · ${found.length} pares (top ${MAX_PAIRS}) · umbral score ${found.length > 0 ? "aplicado" : "sin pares"}`,
       );
@@ -186,6 +312,121 @@ export default function ConsolidateLens({
     }
   }
 
+  /** Snapshot completo vía get() antes del soft-delete → Ctrl+Z restaura
+   * también vector/ttl (undoStore.softDelete, DESKTOP-30). */
+  async function discardToTrash(rec: PairRecord): Promise<void> {
+    const full = await get(rec.id, rec.namespace);
+    await undoStore.softDelete(full);
+  }
+
+  /** Merge guardado: put del registro merged sobre el dominante + papelera del
+   * supersedido (undo disponible). La lista se actualiza reactivamente. */
+  async function saveMerge() {
+    if (!editing) return;
+    const { p, dominant, sources } = editing;
+    const kept = dominant === "a" ? p.a : p.b;
+    const sup = dominant === "a" ? p.b : p.a;
+    const merged = mergeFields(p.a, p.b, sources);
+    setProgress(`mergeando…`);
+    try {
+      await vantaPut({
+        namespace: kept.namespace,
+        key: kept.id,
+        payload: merged.text,
+        metadata: merged.metadata,
+      });
+      await discardToTrash(sup);
+      setRecords((prev) =>
+        prev
+          ? prev
+              .filter((r) => r.id !== sup.id)
+              .map((r) => (r.id === kept.id ? { ...r, text: merged.text, metadata: merged.metadata } : r))
+          : prev,
+      );
+      setPairs((prev) => (prev ? prev.filter((x) => x.a.id !== sup.id && x.b.id !== sup.id) : prev));
+      setEditing(null);
+      onNotice(`merge guardado en ${kept.namespace}/${kept.id} · ${sup.id} movido a papelera (Ctrl+Z restaura)`);
+    } catch (err) {
+      onError(vantaErrorMessage(err));
+    } finally {
+      setProgress("");
+    }
+  }
+
+  /** Confirmación ejecutada: papelera (soft-delete + undo) o remove duro. */
+  async function handleConfirm(mode: "trash" | "purge") {
+    if (!confirming) return;
+    const targets = confirming;
+    try {
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        setProgress(`eliminando ${i + 1}/${targets.length}…`);
+        if (mode === "trash") {
+          await discardToTrash(t);
+        } else {
+          await remove(t.id, t.namespace);
+        }
+      }
+      const ids = new Set(targets.map((t) => t.id));
+      setRecords((prev) => (prev ? prev.filter((r) => !ids.has(r.id)) : prev));
+      setPairs((prev) => (prev ? prev.filter((x) => !ids.has(x.a.id) && !ids.has(x.b.id)) : prev));
+      setSelected(new Set());
+      setConfirming(null);
+      onNotice(
+        mode === "trash"
+          ? `${targets.length} registro(s) movido(s) a papelera (Ctrl+Z restaura)`
+          : `${targets.length} registro(s) eliminado(s) definitivamente`,
+      );
+    } catch (err) {
+      onError(vantaErrorMessage(err));
+    } finally {
+      setProgress("");
+    }
+  }
+
+  function toggleSelect(key: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  /** Batch marca dirección sobre todos los pares seleccionados. */
+  async function batchMark(loser: "a" | "b") {
+    if (!pairs) return;
+    const chosen = pairs.filter((p) => selected.has(pairKey(p.a.id, p.b.id)));
+    for (let i = 0; i < chosen.length; i++) {
+      const p = chosen[i];
+      setProgress(`marcando ${i + 1}/${chosen.length}…`);
+      await markSuperseded(loser === "a" ? p.a : p.b, loser === "a" ? p.b : p.a);
+    }
+    setProgress("");
+  }
+
+  /** Batch descarta los miembros ya marcados como superados dentro de los pares
+   * seleccionados (siempre vía confirmación 2 pasos). */
+  function batchDiscardMarked() {
+    if (!pairs) return;
+    const targets = pairs
+      .filter((p) => selected.has(pairKey(p.a.id, p.b.id)))
+      .flatMap((p) => [p.a, p.b])
+      .filter((r) => supersededBy(r.metadata) !== null);
+    if (targets.length === 0) {
+      onNotice("sin registros marcados como superados en la selección — marcá dirección primero");
+      return;
+    }
+    setConfirming(targets);
+  }
+
+  /** Miembros ya marcados como superados dentro de un par (delete individual). */
+  function markedInPair(p: CandidatePair): PairRecord[] {
+    return [p.a, p.b].filter((r) => supersededBy(r.metadata) !== null);
+  }
+
+  const allSelected = !!pairs && pairs.length > 0 && selected.size === pairs.length;
+
   return (
     <section aria-label="Consolidación asistida" className="space-y-4">
       {/* Header */}
@@ -215,7 +456,7 @@ export default function ConsolidateLens({
         <button
           type="button"
           onClick={runDetection}
-          disabled={detecting}
+          disabled={busy}
           className="press border-2 border-foreground bg-background px-3 py-1 text-xs font-semibold disabled:opacity-50"
         >
           {detecting ? "detectando…" : "⛃ Detectar candidatos"}
@@ -225,8 +466,39 @@ export default function ConsolidateLens({
             {supersededCount} marcado(s)
           </span>
         )}
+        {progress && (
+          <span className="font-tech text-[10px] uppercase tracking-widest text-neon">{progress}</span>
+        )}
         {runInfo && <span className="ml-auto font-tech text-[9px] text-muted-foreground">{runInfo}</span>}
       </div>
+
+      {/* Toolbar batch */}
+      {pairs !== null && pairs.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-2 border-dashed border-foreground bg-muted px-2 py-1">
+          <label className="flex cursor-pointer items-center gap-1 font-tech text-[9px] uppercase tracking-widest">
+            <input type="checkbox" checked={!!allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(pairs.map((p) => pairKey(p.a.id, p.b.id))))} />
+            todos
+          </label>
+          <span className="font-tech text-[9px] uppercase tracking-widest text-muted-foreground">
+            {selected.size} seleccionado(s)
+          </span>
+          <button type="button" onClick={() => batchMark("a")} disabled={busy || selected.size === 0} className={BTN} title="Marca A como superado por B en cada par seleccionado">
+            superar a→b ({selected.size})
+          </button>
+          <button type="button" onClick={() => batchMark("b")} disabled={busy || selected.size === 0} className={BTN} title="Marca B como superado por A en cada par seleccionado">
+            superar b→a ({selected.size})
+          </button>
+          <button
+            type="button"
+            onClick={batchDiscardMarked}
+            disabled={busy || selected.size === 0}
+            className={BTN}
+            title="Mueve los miembros superados de los pares seleccionados (con confirmación)"
+          >
+            ✕ descartar superados…
+          </button>
+        </div>
+      )}
 
       {/* Estado sin backend */}
       {!active && (
@@ -241,42 +513,112 @@ export default function ConsolidateLens({
           sin pares candidatos sobre el umbral — probá otro namespace o ingerí duplicados primero
         </div>
       )}
-      {pairs !== null && pairs.length > 0 && (
-        <div className="space-y-4">
-          {pairs.map((p) => (
-            <article key={p.a.id + p.b.id} className="border-2 border-foreground bg-card">
+      {pairs !== null &&
+        pairs.length > 0 &&
+        pairs.map((p) => {
+          const key = pairKey(p.a.id, p.b.id);
+          const checked = selected.has(key);
+          const marked = markedInPair(p);
+          return (
+            <article key={key} className="border-2 border-foreground bg-card">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-foreground bg-muted px-2 py-1">
-                <span className="font-tech text-[9px] uppercase tracking-widest text-neon">
-                  par · score {p.score.toFixed(4)} · similitud {fmtSim(p.score, maxScore).label}
-                </span>
-                <div className="flex gap-1">
+                <div className="flex min-w-0 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    aria-label={`Seleccionar par ${key}`}
+                    checked={checked}
+                    onChange={() => toggleSelect(key)}
+                  />
+                  <span className="font-tech text-[9px] uppercase tracking-widest text-neon">
+                    par · score {p.score.toFixed(4)} · similitud {fmtSim(p.score, maxScore).label}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1">
                   <button
                     type="button"
-                    onClick={() => markSuperseded(p.a, p.b)}
-                    disabled={detecting}
-                    className="press border-2 border-foreground bg-background px-2 py-0.5 font-tech text-[9px] disabled:opacity-50"
-                    title={`Escribe metadata.superseded_by = ${p.b.id} en ${p.a.id}`}
+                    onClick={() =>
+                      setEditing({
+                        p,
+                        dominant: "a",
+                        sources: defaultSources(p.a, p.b, "a"),
+                      })
+                    }
+                    disabled={busy}
+                    className={BTN}
+                    title="Revisar lado a lado y mergear campo a campo"
                   >
-                    → {p.a.id} superado por {p.b.id}
+                    ⛨ revisar/mergear
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => markSuperseded(p.b, p.a)}
-                    disabled={detecting}
-                    className="press border-2 border-foreground bg-background px-2 py-0.5 font-tech text-[9px] disabled:opacity-50"
-                    title={`Escribe metadata.superseded_by = ${p.a.id} en ${p.b.id}`}
-                  >
-                    → {p.b.id} superado por {p.a.id}
-                  </button>
+                  {marked.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirming(marked)}
+                      disabled={busy}
+                      className={BTN}
+                      title={`Descartar ${marked.map((m) => m.id).join(", ")}`}
+                    >
+                      ✕ descartar superado{marked.length > 1 ? "s" : ""}…
+                    </button>
+                  )}
                 </div>
               </div>
-              <div className="flex flex-col gap-2 p-2 sm:flex-row">
-                <RecordCard rec={p.a} score={p.score} maxScore={maxScore} />
-                <RecordCard rec={p.b} score={p.score} maxScore={maxScore} />
-              </div>
+              {editing?.p === p ? (
+                <MergeEditor
+                  p={p}
+                  dominant={editing.dominant}
+                  sources={editing.sources}
+                  busy={progress !== ""}
+                  onDominant={(d) =>
+                    setEditing({ p, dominant: d, sources: defaultSources(p.a, p.b, d) })
+                  }
+                  onSource={(field, d) =>
+                    setEditing((prev) =>
+                      prev && prev.p === p ? { ...prev, sources: { ...prev.sources, [field]: d } } : prev,
+                    )
+                  }
+                  onSave={saveMerge}
+                  onCancel={() => setEditing(null)}
+                />
+              ) : (
+                <>
+                  <div className="flex flex-col gap-2 p-2 sm:flex-row">
+                    <RecordCard rec={p.a} score={p.score} maxScore={maxScore} />
+                    <RecordCard rec={p.b} score={p.score} maxScore={maxScore} />
+                  </div>
+                  <div className="flex flex-wrap gap-1 border-t-2 border-foreground px-2 py-1">
+                    <button
+                      type="button"
+                      onClick={() => markSuperseded(p.a, p.b)}
+                      disabled={busy}
+                      className={BTN}
+                      title={`Escribe metadata.superseded_by = ${p.b.id} en ${p.a.id}`}
+                    >
+                      → {p.a.id} superado por {p.b.id}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => markSuperseded(p.b, p.a)}
+                      disabled={busy}
+                      className={BTN}
+                      title={`Escribe metadata.superseded_by = ${p.a.id} en ${p.b.id}`}
+                    >
+                      → {p.b.id} superado por {p.a.id}
+                    </button>
+                  </div>
+                </>
+              )}
             </article>
-          ))}
-        </div>
+          );
+        })}
+
+      {/* Confirmación destructiva (2 pasos) */}
+      {confirming !== null && (
+        <ConfirmDiscard
+          targets={confirming}
+          busy={progress !== ""}
+          onClose={() => setConfirming(null)}
+          onConfirm={handleConfirm}
+        />
       )}
     </section>
   );

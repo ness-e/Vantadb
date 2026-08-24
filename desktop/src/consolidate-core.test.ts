@@ -5,8 +5,10 @@ import assert from "node:assert/strict";
 import {
   buildCandidatePairs,
   countSuperseded,
+  defaultSources,
   fmtSim,
   formatAssembleReport,
+  mergeFields,
   mergeSuperseded,
   pairKey,
   SUPERSEDED_BY_KEY,
@@ -103,6 +105,33 @@ test("countSuperseded: cuenta solo records con superseded_by válido", () => {
     { ...rec("c"), metadata: { superseded_by: "" } },
   ];
   assert.equal(countSuperseded(records), 1);
+});
+
+// ── DESKTOP-33: merge manual campo a campo ──
+
+test("defaultSources: todos los campos (text + metadata) toman el dominante", () => {
+  const a = { ...rec("a"), metadata: { source: "notion" } };
+  const b = { ...rec("b"), metadata: { source: "obsidian", tag: 1 } };
+  assert.deepEqual(defaultSources(a, b, "a"), { text: "a", source: "a", tag: "a" });
+  assert.deepEqual(defaultSources(a, b, "b"), { text: "b", source: "b", tag: "b" });
+});
+
+test("mergeFields: cada campo toma su valor desde el lado elegido", () => {
+  const a = { id: "a", namespace: "mem", text: "texto A", metadata: { src: "notion", keep: "x" } };
+  const b = { id: "b", namespace: "mem", text: "texto B", metadata: { src: "obsidian" } };
+  const merged = mergeFields(a, b, { text: "b", src: "b", keep: "a" });
+  assert.equal(merged.text, "texto B");
+  assert.equal(merged.metadata.src, "obsidian");
+  assert.equal(merged.metadata.keep, "x");
+});
+
+test("mergeFields: clave ausente en el lado elegido se omite del resultado", () => {
+  const a = { ...rec("a"), metadata: { only_a: 1 } };
+  const b = { ...rec("b") };
+  const merged = mergeFields(a, b, { text: "b", only_a: "b" });
+  assert.ok(!("only_a" in merged.metadata));
+  // lado a → presente
+  assert.equal(mergeFields(a, b, { text: "a", only_a: "a" }).metadata.only_a, 1);
 });
 
 // ── MEM-58: helpers del run real (context engine) ──

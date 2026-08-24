@@ -44,7 +44,7 @@ const EXE: &str = "vantadb-server";
 ///
 /// Returns `None` when nothing exists — callers must not `.unwrap()` this.
 pub fn locate_binary() -> Option<PathBuf> {
-    if let Some(p) = std::env::var_os("VANTVADB_SERVER_BIN").map(PathBuf::from) {
+    if let Some(p) = std::env::var_os("VANTADB_SERVER_BIN").map(PathBuf::from) {
         if p.is_file() {
             return Some(p);
         }

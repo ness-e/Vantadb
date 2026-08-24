@@ -1,0 +1,97 @@
+# Desktop CI — Windows build + test + installer artifact.
+# Heavy by nature (Tauri bundling): NOT part of the Fast Gate (<5min) tier.
+# See docs/operations/CI_POLICY.md and DESKTOP-24/25 task files.
+#
+# Sidecar contract (DESKTOP-24): `binaries/vantadb-server.exe` is gitignored;
+# CI builds it from the root workspace (`cargo build -p vantadb-server`)
+# and copies it into place before tauri-action bundles it via
+# `bundle.resources` (NOT externalBin — see DESKTOP-24 Context Save Point).
+
+name: Desktop CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'desktop/**'
+      - 'src/**'
+      - 'vantadb-server/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/desktop.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'src/**'
+      - 'vantadb-server/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/desktop.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Build & Test (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Rust toolchain + Swatinem/rust-cache + sccache (single integration
+      # point per .opencode/rules/release-ci.md rule 2 — do not duplicate).
+      - uses: ./.github/actions/rust-setup
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      # Sidecar for the installer bundle AND for the src-tauri sidecar tests.
+      # custom-allocator (mimalloc on Windows) per release-ci.md rule 1:
+      # this exe ships inside the installer, same as release-binaries-63.
+      - name: Build vantadb-server sidecar
+        shell: pwsh
+        run: |
+          cargo build --release --package vantadb-server --features custom-allocator
+          New-Item -ItemType Directory -Force -Path desktop/src-tauri/binaries | Out-Null
+          Copy-Item target/release/vantadb-server.exe desktop/src-tauri/binaries/vantadb-server.exe
+          "VANTADB_SERVER_BIN=$PWD/desktop/src-tauri/binaries/vantadb-server.exe" >> $env:GITHUB_ENV
+
+      - name: Install frontend dependencies
+        working-directory: desktop
+        run: npm ci
+
+      # Detached workspace (own lockfile/target): must be tested in-place.
+      # Sidecar spawn tests are exercised for real thanks to VANTADB_SERVER_BIN.
+      - name: Run src-tauri tests
+        working-directory: desktop/src-tauri
+        run: cargo test
+
+      # Frontend build runs inside tauri build via beforeBuildCommand
+      # (tauri.conf.json: "npm run build") — no separate step needed.
+      #
+      # No tagName/releaseId/releaseName → build-only, no GitHub Release.
+      - name: Build Tauri bundles (NSIS + MSI)
+        id: tauri
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop
+          args: --target x86_64-pc-windows-msvc
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vantadb-desktop-windows-installers
+          path: ${{ steps.tauri.outputs.artifactPaths }}
+          if-no-files-found: error

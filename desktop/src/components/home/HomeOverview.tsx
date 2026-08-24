@@ -269,7 +269,7 @@ export default function HomeOverview({ active }: { active: boolean }) {
       {/* Cards overview (estáticas — la navegación profunda es del grid/inspector) */}
       <div className="stagger-children mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {/* Total + tendencia (proxy 7d) */}
-        <Card icon="▦" title="Total records">
+        <Card icon="▦" title="Total de registros">
           <div className="mt-2 font-display text-5xl">{data.total.toLocaleString()}</div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1 border-2 border-foreground bg-muted px-2 py-0.5 font-tech text-[10px] uppercase">

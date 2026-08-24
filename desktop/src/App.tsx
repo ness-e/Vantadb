@@ -30,7 +30,7 @@ function App() {
 
   function reportError(msg: string) {
     actions.clearError();
-    setNotice(msg ?? "Operation failed.");
+    setNotice(msg ?? "La operación falló.");
   }
 
   // FIND-23: cold-start splash, once per app session. Connection init runs in

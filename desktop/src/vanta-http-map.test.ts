@@ -149,7 +149,19 @@ test("vanta_search: SearchQuery → VantaMemorySearchRequest (wire shape)", () =
     top_k: 5,
     distance_metric: "Cosine",
     explain: false,
+    search_profile: null,
   });
+});
+
+test("vanta_search: search_profile se reenvía verbatim (DESKTOP-35)", () => {
+  const body = getHttpMapping("vanta_search").body?.({
+    query: {
+      query: "hi",
+      explain: true,
+      search_profile: { mode: "vector" },
+    },
+  }) as Record<string, unknown>;
+  assert.deepEqual(body.search_profile, { mode: "vector" });
 });
 
 test("vanta_ingest: IngestItem[] → inputs[] with generated key, response → ids", () => {

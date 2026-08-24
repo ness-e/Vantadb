@@ -39,32 +39,47 @@ export default function IngestForm({ onDone, runError }: Props) {
   }
 
   return (
-    <section className="panel">
-      <h2>Ingest</h2>
-      <form className="stack" onSubmit={handleSubmit}>
+    <section className="border-[3px] border-foreground bg-card p-4 shadow-[6px_6px_0_0_#000] dark:shadow-[6px_6px_0_0_#FBF9F5]">
+      <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Ingestar</h2>
+      <form className="mt-3 flex flex-col gap-2" onSubmit={handleSubmit}>
         <input
           value={id}
           onChange={(e) => setId(e.target.value)}
-          placeholder="Id (optional — backend assigns one)"
-          aria-label="Record id"
+          placeholder="ID (opcional — el backend asigna uno)"
+          aria-label="ID de registro"
+          className="border-2 border-foreground bg-background px-2.5 py-1.5"
         />
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Text content"
+          placeholder="Contenido de texto"
           rows={3}
-          aria-label="Text content"
+          aria-label="Contenido de texto"
           required
+          className="resize-y border-2 border-foreground bg-background px-2.5 py-1.5"
         />
         <input
           value={namespace}
           onChange={(e) => setNamespace(e.target.value)}
-          placeholder="Namespace (defaults to 'default')"
+          placeholder="Namespace (por omisión 'default')"
           aria-label="Namespace"
+          className="border-2 border-foreground bg-background px-2.5 py-1.5"
         />
-        <button type="submit" disabled={busy || !text.trim()}>
-          {busy ? "Storing…" : "Add record"}
+        <button
+          type="submit"
+          disabled={busy || !text.trim()}
+          className="press cursor-pointer self-start border-2 border-foreground bg-background px-2.5 py-1.5 text-sm disabled:cursor-default disabled:opacity-50"
+        >
+          {busy ? "Guardando…" : "Agregar registro"}
         </button>
+        {/* DESKTOP-39 (Caso B): el core no genera embeddings localmente — ver
+            src/llm.rs (EmbeddingProvider → Ollama/OpenAI, feature remote-inference).
+            Documentar el límite en vez de fingir un botón "generar vector". */}
+        <p className="m-0 text-xs opacity-60" title="Los vectores requieren un proveedor externo configurado por variables de entorno">
+          Sin vector: el registro se guarda como texto. Para búsqueda semántica,
+          generá el embedding con un proveedor externo (Ollama u OpenAI —
+          VANTA_EMBEDDING_PROVIDER, VANTA_LLM_URL o VANTA_OPENAI_API_KEY).
+        </p>
       </form>
     </section>
   );

@@ -185,6 +185,9 @@ pub fn run() {
             commands::memory::vanta_scene_current,
             commands::memory::vanta_skills_list,
             commands::memory::vanta_wiki_status,
+            commands::memory::vanta_scene_read,
+            commands::memory::vanta_scene_query,
+            commands::memory::vanta_genlog_query,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

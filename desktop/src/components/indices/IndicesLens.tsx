@@ -17,12 +17,10 @@ import { useEffect, useState } from "react";
 import {
   HealthReport,
   list,
-  metrics,
   namespaceStats,
-  OperationalMetrics,
-  vantaErrorMessage,
   type NamespaceStatsMap,
 } from "../../vanta";
+import { useMetricsPoll } from "../../hooks/useMetricsPoll";
 import {
   CORE_GAPS,
   namespaceBars,
@@ -55,30 +53,10 @@ function Tile({ t }: { t: IndexTile }) {
 }
 
 export default function IndicesLens({ health, healthStatus, activeName }: Props) {
-  const [snapshot, setSnapshot] = useState<OperationalMetrics | null>(null);
+  // Shared vanta_metrics poll (DESKTOP-29) — no local metrics interval.
+  const { history, error } = useMetricsPoll();
+  const snapshot = history[history.length - 1] ?? null;
   const [bars, setBars] = useState<NamespaceBar[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  // Operational metrics poll (same cadence as MetricsGrid).
-  useEffect(() => {
-    let alive = true;
-    const tick = async () => {
-      try {
-        const m = await metrics();
-        if (!alive) return;
-        setSnapshot(m);
-        setError(null);
-      } catch (e) {
-        if (alive) setError(vantaErrorMessage(e));
-      }
-    };
-    tick();
-    const id = setInterval(tick, POLL_MS);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, []);
 
   // Per-namespace stats: real endpoint on native/HTTP; WASM falls back to
   // list() counts (expiry buckets = null) — same pattern as WorkspaceShell.

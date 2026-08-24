@@ -7,7 +7,7 @@
 // registro + historial del audit vía auditEvents si está disponible).
 //
 // Estética manga/linocut (tokens VS-01). Sin charts lib — barras CSS.
-import { FormEvent, lazy, Suspense, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { RuleGroupType } from "react-querybuilder";
 import {
   auditEvents,
@@ -26,7 +26,7 @@ import {
   toVantaMemoryFilter,
 } from "../../search/filters-core";
 import ScoreBars from "./ScoreBars";
-import { rerankByWeight, weightFromSlider } from "./retrieval-core";
+import { fusionModeFromSlider } from "./retrieval-core";
 
 // react-querybuilder (~200 kB) solo lo abre el panel de filtros → lazy igual
 // que el shell (VS-07).
@@ -63,9 +63,10 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
   const [showFilters, setShowFilters] = useState(false);
 
   const [results, setResults] = useState<ResultRow[] | null>(null);
-  // Slider de pesos híbridos (FEAT-01): 0 = BM25 puro, 50 = RRF, 100 = vector
-  // puro. Se aplica client-side sobre los candidatos que fusiona el core (RRF
-  // fijo — el core no acepta pesos; ver retrieval-core.ts weighted RRF).
+  // Slider de modo de fusión (DESKTOP-35): 0 = BM25 puro, 50 = RRF híbrido,
+  // 100 = vector puro. Se envía como `search_profile` en el request — los
+  // resultados son SIEMPRE los del servidor (idénticos a su explain). El core
+  // no soporta pesos intermedios: slider discreto con stops 0/50/100.
   const [weight, setWeight] = useState(50);
 
   // Carga registros con vector para el picker (una página; ponytail: 200 es
@@ -107,36 +108,17 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
   const filterActive = ruleGroup.rules.length > 0;
   const filterFields = useMemo(() => (results ? inferMetaFields(results) : []), [results]);
 
-  // --- FEAT-01: re-rank por peso híbrido (client-side, debounce via
-  // useDeferredValue). El slider SOLO re-ordena los candidatos del core — la
-  // fusión RRF del core es fija (gap documentado; pesos reales = follow-up).
-  const alpha = weightFromSlider(weight);
-  const deferredAlpha = useDeferredValue(alpha);
-  const branchInfo = useMemo(() => {
-    if (!results) return { hasText: false, hasVector: false };
-    return {
-      hasText: results.some((r) => r.explanation?.rrf_text_rank != null),
-      hasVector: results.some((r) => r.explanation?.rrf_vector_rank != null),
-    };
-  }, [results]);
-  // Con una sola rama activa el peso no cambia nada: deshabilitar (no mentir
-  // en UI — FEAT-02 pattern).
-  const sliderActive = branchInfo.hasText && branchInfo.hasVector;
-  const weightedResults = useMemo(() => {
-    if (!results) return null;
-    return sliderActive ? rerankByWeight(results, deferredAlpha) : results;
-  }, [results, sliderActive, deferredAlpha]);
-
+  // --- DESKTOP-35: sin re-rank client-side — el orden viene del servidor.
   const visibleResults = useMemo(() => {
-    if (!weightedResults) return null;
+    if (!results) return null;
     let out = filterActive
-      ? weightedResults.filter((r) => evaluateQuery(ruleGroup, r.metadata ?? {}))
-      : weightedResults;
+      ? results.filter((r) => evaluateQuery(ruleGroup, r.metadata ?? {}))
+      : results;
     if (threshold > 0) out = out.filter((r) => r.score >= threshold);
     return out;
-  }, [weightedResults, ruleGroup, filterActive, threshold]);
+  }, [results, ruleGroup, filterActive, threshold]);
 
-  // Escala común de barras sobre el ranking activo (no sobre el RRF crudo).
+  // Escala común de barras sobre el ranking del servidor.
   const displayMax = useMemo(() => {
     if (!visibleResults || visibleResults.length === 0) return 1;
     const m = Math.max(...visibleResults.map((r) => r.score));
@@ -153,11 +135,14 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
     }
     setSearching(true);
     try {
+      // DESKTOP-35: el slider fija el modo de fusión server-side (MEM-01).
+      // Los resultados son los del servidor — mismos que su explain.
       const hits = await search({
         query: q,
         embedding: pickedRecord?.vector ?? undefined,
         top_k: topK,
         explain: true,
+        search_profile: fusionModeFromSlider(weight),
       });
       setResults(hits);
     } catch (err) {
@@ -171,6 +156,19 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
   function clearResults() {
     setResults(null);
   }
+
+  // Re-ejecuta la búsqueda al cambiar el slider si ya hay resultados
+  // (antes el re-rank era instantáneo client-side; ahora el server decide).
+  const skipWeightEffect = useRef(true);
+  useEffect(() => {
+    if (skipWeightEffect.current) {
+      skipWeightEffect.current = false;
+      return;
+    }
+    if (results === null || searching) return;
+    void runSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weight]);
 
   // --- "Ver contexto" (e): vecino semántico + historial del audit --------------
   const [contextKey, setContextKey] = useState<string | null>(null);
@@ -230,13 +228,13 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-display text-3xl text-stencil">RETRIEVAL</h2>
           <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-            ¿por qué recuperó esto? · explain on · RRF_K=60 · peso híbrido client-side
+            ¿por qué recuperó esto? · explain on · fusión server-side (MEM-01)
           </span>
         </div>
         <p className="mt-1 font-tech text-[11px] text-muted-foreground">
-          desglose por rama (texto BM25 · vector HNSW) — el slider re-pondera el orden de los
-          candidatos del core (fusión RRF fija: {Math.round(weight)} ={" "}
-          {weight === 0 ? "BM25 puro" : weight === 100 ? "vector puro" : weight === 50 ? "RRF" : "híbrido"})
+          desglose por rama (texto BM25 · vector HNSW) — el slider fija el modo de
+          fusión en el servidor: {weight === 0 ? "keyword" : weight === 100 ? "vector" : "hybrid RRF"}{" "}
+          ({fusionModeFromSlider(weight).mode}); resultados = explain del server
         </p>
       </div>
 
@@ -318,33 +316,26 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
           )}
         </div>
 
-        {/* Slider de pesos híbridos (FEAT-01): 0=BM25 puro · 50=RRF · 100=vector puro */}
+        {/* Slider de modo de fusión (DESKTOP-35): 0=BM25 puro · 50=RRF · 100=vector puro */}
         <label
-          className={`flex flex-col gap-1 border-2 border-foreground p-2 ${
-            sliderActive ? "bg-background" : "bg-muted/40 opacity-70"
-          }`}
-          title={
-            sliderActive
-              ? "0 = solo texto (BM25), 50 = RRF (default del core), 100 = solo vector"
-              : "una sola rama activa (texto o vector): el peso no cambia el orden — el core fusiona los candidatos con RRF fijo"
-          }
+          className="flex flex-col gap-1 border-2 border-foreground bg-background p-2"
+          title="Modo de fusión server-side (MEM-01): 0 = solo texto (BM25), 50 = RRF híbrido, 100 = solo vector. El cambio re-ejecuta la búsqueda en el servidor."
         >
           <span className="flex items-baseline justify-between font-tech text-[10px] uppercase tracking-widest text-neon">
-            <span>peso híbrido · BM25 ⟷ vector</span>
+            <span>modo de fusión · BM25 ⟷ vector</span>
             <span className="text-foreground">
-              {weight === 0 ? "BM25 puro" : weight === 100 ? "vector puro" : weight === 50 ? "RRF" : `${weight}% vector`}
+              {weight === 0 ? "BM25 puro" : weight === 100 ? "vector puro" : "RRF híbrido"}
             </span>
           </span>
           <input
             type="range"
             min={0}
             max={100}
-            step={1}
+            step={50}
             value={weight}
             onChange={(e) => setWeight(Number(e.target.value))}
-            disabled={!sliderActive}
             className="vanta-slider w-full"
-            aria-label="Peso híbrido BM25 vs vector: 0 = solo texto, 50 = RRF, 100 = solo vector"
+            aria-label="Modo de fusión: 0 = solo texto (BM25), 50 = RRF híbrido, 100 = solo vector"
           />
         </label>
 
@@ -443,7 +434,6 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
                       explanation={r.explanation}
                       score={r.score}
                       maxScore={displayMax}
-                      alpha={sliderActive ? deferredAlpha : undefined}
                     />
                   </div>
 

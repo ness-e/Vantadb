@@ -22,9 +22,16 @@ use vanta_memory::core::hooks::{
     perform_auto_recall, AutoCaptureConfig, AutoCaptureHook, AutoRecallParams, RawMessage,
     RecallConfig, RecallMode, RecallScope, RecalledMemory,
 };
+use vanta_memory::core::memory_generation_log::{
+    query_session, GenerationLayer, GenerationLogEntry,
+};
 use vanta_memory::core::persona::get_persona;
-use vanta_memory::core::scene::{current_scene, list_scenes, upsert_scene};
+use vanta_memory::core::scene::{current_scene, list_scenes, upsert_scene, SceneBlock};
 use vanta_memory::core::skill::conversation_add::StoredSkill;
+use vanta_memory::gateway::{
+    scene_query as gateway_scene_query, scene_read as gateway_scene_read, SceneQueryHit,
+    SceneQueryRequest, SceneReadRequest,
+};
 use vanta_memory::ingest::callback::IngestProgress;
 #[cfg(test)]
 use vanta_memory::ingest::callback::ProgressTracker;
@@ -321,6 +328,74 @@ pub async fn vanta_wiki_status(
     run_id: String,
 ) -> Result<Option<IngestProgress>, VantaError> {
     Ok(state.progress.wiki_status(&run_id))
+}
+
+// Knowledge observability (DESKTOP-36) — read-only gateway over the typed
+// knowledge handlers. No writes in v1.
+
+/// Read one live scene block by name (DESKTOP-36). Missing or soft-deleted
+/// scenes surface `NotFound` through the gateway envelope.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn vanta_scene_read(
+    state: State<'_, crate::AppState>,
+    session_key: String,
+    scene_name: String,
+) -> Result<SceneBlock, VantaError> {
+    let db = state.manager.active_embedded().await?;
+    offload(move || {
+        gateway_scene_read(&db, &SceneReadRequest { session_key, scene_name })
+            .map(|r| r.scene)
+            .map_err(mem_err)
+    })
+    .await
+}
+
+/// Keyword search over the live scenes of a session (DESKTOP-36), ranked by
+/// term overlap (ties: heat desc). No embed hook — the desktop build is
+/// LLM-free, so the gateway degrades to the keyword pool (crate contract).
+#[tauri::command(rename_all = "snake_case")]
+pub async fn vanta_scene_query(
+    state: State<'_, crate::AppState>,
+    session_key: String,
+    keyword: String,
+    top_k: Option<usize>,
+) -> Result<Vec<SceneQueryHit>, VantaError> {
+    let db = state.manager.active_embedded().await?;
+    offload(move || {
+        gateway_scene_query(
+            &db,
+            &SceneQueryRequest {
+                session_key,
+                keyword,
+                top_k,
+            },
+            None,
+        )
+        .map(|r| r.hits)
+        .map_err(mem_err)
+    })
+    .await
+}
+
+/// Consult a session's generation log (MEM-41 provenance, DESKTOP-36):
+/// entries ordered oldest → newest, optionally filtered by pipeline layer
+/// (`l1` | `l2` | `l3`) and capped by `limit`.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn vanta_genlog_query(
+    state: State<'_, crate::AppState>,
+    session_key: String,
+    layer: Option<GenerationLayer>,
+    limit: Option<usize>,
+) -> Result<Vec<GenerationLogEntry>, VantaError> {
+    let db = state.manager.active_embedded().await?;
+    offload(move || {
+        let mut entries = query_session(&db, &session_key, layer).map_err(mem_err)?;
+        if let Some(max) = limit {
+            entries.truncate(max);
+        }
+        Ok(entries)
+    })
+    .await
 }
 
 /// Convenience for tests/tools: seed one scene block through the public
@@ -783,5 +858,215 @@ mod tests {
             matches!(err, VantaError::Unsupported(_)),
             "expected Unsupported, got: {err:?}"
         );
+    }
+
+    // ── knowledge observability (DESKTOP-36) ──
+
+    #[tokio::test]
+    async fn scene_read_returns_seeded_block_and_not_found_for_missing() {
+        let (st, _dir) = state().await;
+        seed_scene(
+            &st.manager,
+            "sess-read",
+            "deploy-runbook",
+            "deploys",
+            "how to deploy",
+        )
+        .await
+        .expect("seed scene");
+
+        let db = st.manager.active_embedded().await.expect("handle");
+        let block = offload(move || {
+            gateway_scene_read(
+                &db,
+                &SceneReadRequest {
+                    session_key: "sess-read".into(),
+                    scene_name: "deploy-runbook".into(),
+                },
+            )
+            .map(|r| r.scene)
+            .map_err(mem_err)
+        })
+        .await
+        .expect("read");
+        assert_eq!(block.content, "how to deploy");
+        assert!(!block.deleted);
+
+        let db = st.manager.active_embedded().await.expect("handle");
+        let err = offload(move || {
+            gateway_scene_read(
+                &db,
+                &SceneReadRequest {
+                    session_key: "sess-read".into(),
+                    scene_name: "ghost".into(),
+                },
+            )
+            .map_err(mem_err)
+        })
+        .await
+        .expect_err("missing scene");
+        assert!(err.to_string().contains("not found"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn scene_query_ranks_by_keyword_overlap() {
+        let (st, _dir) = state().await;
+        seed_scene(
+            &st.manager,
+            "sess-q",
+            "deploy-runbook",
+            "deploys",
+            "deploy the service with the red runner",
+        )
+        .await
+        .expect("seed 1");
+        seed_scene(&st.manager, "sess-q", "oncall", "oncall", "pager escalation tips")
+            .await
+            .expect("seed 2");
+
+        let db = st.manager.active_embedded().await.expect("handle");
+        let hits = offload(move || {
+            gateway_scene_query(
+                &db,
+                &SceneQueryRequest {
+                    session_key: "sess-q".into(),
+                    keyword: "deploy runner".into(),
+                    top_k: Some(1),
+                },
+                None,
+            )
+            .map(|r| r.hits)
+            .map_err(mem_err)
+        })
+        .await
+        .expect("query");
+        assert_eq!(hits.len(), 1, "top_k respected: {hits:?}");
+        assert_eq!(hits[0].scene_name, "deploy-runbook");
+        assert!(hits[0].score > 0);
+    }
+
+    #[tokio::test]
+    async fn genlog_query_filters_by_layer_and_respects_limit() {
+        use vanta_memory::core::memory_generation_log::{try_record, GenerationStatus};
+
+        let (st, _dir) = state().await;
+        let db = st.manager.active_embedded().await.expect("handle");
+        offload(move || -> Result<(), VantaError> {
+            for (layer, ts) in [
+                (GenerationLayer::L1, 100),
+                (GenerationLayer::L2, 200),
+                (GenerationLayer::L3, 300),
+            ] {
+                try_record(
+                    &db,
+                    &GenerationLogEntry {
+                        layer,
+                        status: GenerationStatus::Succeeded,
+                        anchor_id: None,
+                        session_key: "sess-log".into(),
+                        ts_ms: ts,
+                        error: None,
+                    },
+                )
+                .map_err(mem_err)?;
+            }
+            Ok(())
+        })
+        .await
+        .expect("record");
+
+        let db = st.manager.active_embedded().await.expect("handle");
+        let all =
+            offload(move || query_session(&db, "sess-log", None).map_err(mem_err))
+                .await
+                .expect("all");
+        assert_eq!(all.len(), 3);
+        assert_eq!(
+            all.iter().map(|e| e.ts_ms).collect::<Vec<_>>(),
+            vec![100, 200, 300],
+            "oldest → newest"
+        );
+
+        let db = st.manager.active_embedded().await.expect("handle");
+        let l2 = offload(move || {
+            query_session(&db, "sess-log", Some(GenerationLayer::L2)).map_err(mem_err)
+        })
+        .await
+        .expect("filtered");
+        assert_eq!(l2.len(), 1);
+        assert!(matches!(l2[0].layer, GenerationLayer::L2));
+
+        let db = st.manager.active_embedded().await.expect("handle");
+        let capped = offload(move || {
+            Ok::<_, VantaError>({
+                let mut entries = query_session(&db, "sess-log", None).map_err(mem_err)?;
+                entries.truncate(2);
+                entries
+            })
+        })
+        .await
+        .expect("capped");
+        assert_eq!(capped.len(), 2);
+    }
+
+    /// DESKTOP-36 DoD: the wrappers answer against the REAL vanta-seed import
+    /// path (`vanta_memory::seed`, same code the `vanta-seed` binary runs).
+    #[tokio::test]
+    async fn seeded_store_answers_skills_list_persona_and_genlog() {
+        use vanta_memory::core::memory_generation_log::{try_record, GenerationStatus};
+        use vanta_memory::seed::import_seed_str;
+
+        let (st, _dir) = state().await;
+        let db = st.manager.active_embedded().await.expect("handle");
+        offload(move || -> Result<(), VantaError> {
+            import_seed_str(
+                &db,
+                r##"{
+                    "scope": "seed",
+                    "skills": [
+                        { "name": "rotate-keys", "description": "rotation runbook",
+                          "content": "steps to rotate keys" }
+                    ],
+                    "persona": { "session_key": "user-1",
+                                 "content": "# Profile\nPrefers concise answers." }
+                }"##,
+            )
+            .map_err(mem_err)?;
+            try_record(
+                &db,
+                &GenerationLogEntry {
+                    layer: GenerationLayer::L3,
+                    status: GenerationStatus::Succeeded,
+                    anchor_id: None,
+                    session_key: "user-1".into(),
+                    ts_ms: 42,
+                    error: None,
+                },
+            )
+            .map_err(mem_err)?;
+            Ok(())
+        })
+        .await
+        .expect("seed + genlog");
+
+        let db = st.manager.active_embedded().await.expect("handle");
+        let skills = offload(move || run_skills_list(&db)).await.expect("skills");
+        assert_eq!(skills.len(), 1, "{skills:?}");
+        assert_eq!(skills[0].name, "rotate-keys");
+        assert_ne!(skills[0].content_hash, 0, "content-hash present");
+
+        let db = st.manager.active_embedded().await.expect("handle");
+        let persona = offload(move || get_persona(&db, "user-1").map_err(mem_err))
+            .await
+            .expect("persona")
+            .expect("seeded persona");
+        assert!(persona.content.contains("concise answers"));
+
+        let db = st.manager.active_embedded().await.expect("handle");
+        let log = offload(move || query_session(&db, "user-1", None).map_err(mem_err))
+            .await
+            .expect("genlog");
+        assert_eq!(log.len(), 1);
+        assert!(matches!(log[0].layer, GenerationLayer::L3));
     }
 }

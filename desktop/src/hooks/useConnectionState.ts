@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { isEmbedded, isWasm } from "../transport";
 import {
   connectNative,
+  connectServer,
   ConnectionInfo,
   disconnect,
   HealthReport,
@@ -44,6 +45,8 @@ export interface ConnectionActions {
   refresh: () => Promise<void>;
   probeHealth: () => Promise<void>;
   connectNativePath: (path: string) => Promise<string | null>;
+  /** DESKTOP-31: conectar a `vanta-cli server` remoto (Bearer token incluido). */
+  connectServerCfg: (url: string, port: number, token: string) => Promise<string | null>;
   disconnectId: (id: string) => Promise<void>;
   activate: (id: string) => Promise<void>;
   clearError: () => void;
@@ -132,6 +135,25 @@ export function useConnectionState(): [VantaState, ConnectionActions] {
     [patch, refresh],
   );
 
+  const connectServerCfg = useCallback(
+    async (url: string, port: number, token: string): Promise<string | null> => {
+      patch({ busy: true });
+      try {
+        const info = await connectServer({ url, port, token: token || undefined });
+        await refresh();
+        await setActive(info.id);
+        patch({ activeId: info.id, error: null });
+        return info.id;
+      } catch (e) {
+        patch({ error: vantaErrorMessage(e) });
+        return null;
+      } finally {
+        patch({ busy: false });
+      }
+    },
+    [patch, refresh],
+  );
+
   const disconnectId = useCallback(
     async (id: string) => {
       patch({ busy: true });
@@ -171,6 +193,7 @@ export function useConnectionState(): [VantaState, ConnectionActions] {
       refresh,
       probeHealth,
       connectNativePath,
+      connectServerCfg,
       disconnectId,
       activate,
       clearError: () => patch({ error: null }),

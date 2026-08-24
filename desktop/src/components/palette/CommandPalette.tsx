@@ -19,7 +19,19 @@ import { list, vantaErrorMessage } from "../../vanta";
 // VS-17: favoritos persistidos (ns o ns/key) para el grupo FAVORITOS.
 import type { Favorite } from "../../store/favorites";
 
-export type PaletteSurface = "resumen" | "memorias" | "actividad" | "indices" | "iql";
+// DESKTOP-34: todas las superficies del shell — mismo union que WorkspaceShell
+// Surface (duplicado a propósito: importarlo crearía un ciclo con el lazy).
+export type PaletteSurface =
+  | "resumen"
+  | "memorias"
+  | "papelera"
+  | "actividad"
+  | "retrieval"
+  | "indices"
+  | "consolidar"
+  | "iql"
+  | "espacio"
+  | "ajustes";
 
 export interface NamespaceOption {
   name: string;
@@ -185,6 +197,13 @@ export default function CommandPalette({
             >
               ▦ MEMORIAS
             </PaletteItem>
+            <PaletteItem
+              value="nav-papelera"
+              keywords={["papelera", "trash", "borrados", "restaurar"]}
+              onSelect={() => run(() => onNavigate("papelera"))}
+            >
+              ♻ PAPELERA
+            </PaletteItem>
           </Command.Group>
 
           <Command.Group heading="Lentes">
@@ -193,7 +212,14 @@ export default function CommandPalette({
               keywords={["activity", "actividad", "timeline"]}
               onSelect={() => run(() => onNavigate("actividad"))}
             >
-              ◷ ACTIVITY
+              ◷ ACTIVIDAD
+            </PaletteItem>
+            <PaletteItem
+              value="lens-busqueda"
+              keywords={["retrieval", "busqueda", "lente", "híbrida"]}
+              onSelect={() => run(() => onNavigate("retrieval"))}
+            >
+              ⛁ BÚSQUEDA
             </PaletteItem>
             <PaletteItem
               value="lens-indices"
@@ -208,6 +234,27 @@ export default function CommandPalette({
               onSelect={() => run(() => onNavigate("iql"))}
             >
               ⌘ IQL <span className="vcmd-phase">Fase 2</span>
+            </PaletteItem>
+            <PaletteItem
+              value="lens-consolidar"
+              keywords={["consolidar", "duplicados", "superseded", "merge"]}
+              onSelect={() => run(() => onNavigate("consolidar"))}
+            >
+              ⇄ CONSOLIDAR
+            </PaletteItem>
+            <PaletteItem
+              value="lens-espacio"
+              keywords={["espacio", "space", "embeddings", "umap", "scatterplot"]}
+              onSelect={() => run(() => onNavigate("espacio"))}
+            >
+              ✳ ESPACIO
+            </PaletteItem>
+            <PaletteItem
+              value="lens-ajustes"
+              keywords={["ajustes", "settings", "perfil", "connection profile", "token", "idioma", "language"]}
+              onSelect={() => run(() => onNavigate("ajustes"))}
+            >
+              ⚙ AJUSTES
             </PaletteItem>
           </Command.Group>
 

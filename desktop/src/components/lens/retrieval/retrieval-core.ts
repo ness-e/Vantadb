@@ -102,86 +102,30 @@ export function computeSegments(
   return { score: explanation.score, ramaSum: text + vector, segments, missing: false };
 }
 
-// ── FEAT-01: slider de pesos híbridos (client-side, sin tocar core) ───────────
+// ── DESKTOP-35: slider → perfil de fusión server-side (MEM-01) ───────────────
 //
-// El core fusiona SIEMPRE con RRF plano (src/planner.rs RRF_K=60) — el wire
-// `VantaMemorySearchRequest` no acepta pesos (verificado FEAT-01 discovery).
-// Pero el core expone el rank por rama de cada hit (`rrf_text_rank` /
-// `rrf_vector_rank`), así que el peso se aplica client-side sobre los
-// candidatos ya fusionados: es un weighted RRF, la generalización estándar de
-// la fusión del core. α=0.5 reproduce EXACTAMENTE el orden del RRF del core
-// (misma fórmula, factor escalar 1/2); α=0 ordena por texto puro; α=1 por
-// vector puro. El conjunto de candidatos NO cambia — lo fija el core — solo el
-// orden y el score. Gap honesto: pesos reales en core = follow-up (task core
-// aditiva, patrón VS-CORE-*).
+// El core acepta `search_profile: {mode, rrf_k, candidate_k}` por request
+// (src/sdk/types.rs:478). NO soporta pesos intermedios (no existe
+// `bm25_weight`): la fusión híbrida del server es RRF plano. Por eso el slider
+// es discreto — 0 = keyword, 50 = hybrid (RRF), 100 = vector — y el re-rank
+// client-side se eliminó: los resultados son SIEMPRE los del servidor,
+// idénticos a su explain. Gap documentado: pesos continuos BM25⟷vector
+// requieren soporte de peso en el core (follow-up core-side).
 
-/** Slider 0..100 → peso α ∈ [0,1]. 0 = BM25 puro, 1 = vector puro, 0.5 = RRF. */
-export function weightFromSlider(v: number): number {
-  if (!Number.isFinite(v)) return 0.5;
-  return Math.min(1, Math.max(0, v / 100));
+/** Shape mínimo del perfil (estructuralmente compatible con
+ * `VantaSearchProfile` de vanta.ts; sin imports para seguir autónomo en node). */
+export interface FusionModeProfile {
+  mode: "keyword" | "vector" | "hybrid";
 }
 
-/** Score ponderado de un hit: (1−α)·rrf(texto) + α·rrf(vector). La rama
- * ausente (rank null) contribuye 0. Con α=0.5 es 1/2 del score RRF del core
- * (mismo orden). */
-export function weightedScore(
-  explanation: ExplanationLike | null | undefined,
-  alpha: number,
-): number {
-  if (!explanation) return 0;
-  const text = rrfContribution(explanation.rrf_text_rank);
-  const vector = rrfContribution(explanation.rrf_vector_rank);
-  return (1 - alpha) * text + alpha * vector;
-}
-
-/** Shape mínimo para re-rank (un hit con score + explanation opcional). */
-export interface WeightedHit {
-  score: number;
-  explanation?: ExplanationLike | null;
-}
-
-/** Re-ordena los candidatos por peso híbrido, sin mutar el input (copia con
- * `score` = score ponderado). Orden descendente; empates conservan el orden
- * previo (sort estable). */
-export function rerankByWeight<T extends WeightedHit>(hits: T[], alpha: number): T[] {
-  return hits
-    .map((h) => ({ h, w: weightedScore(h.explanation, alpha) }))
-    .sort((a, b) => b.w - a.w)
-    .map(({ h, w }) => ({ ...h, score: w }));
-}
-
-/** Segmentos ponderados para ScoreBars con slider activo: la rama dominada por
- * el peso encoge, la dominante crece. text=(1−α)·c, vector=α·c; el residuo rrf
- * es 0 por construcción (2 ramas, sin sparse en el wire del desktop). */
-export function computeSegmentsWeighted(
-  explanation: ExplanationLike | null | undefined,
-  maxScore: number,
-  alpha: number,
-): SegmentBreakdown {
-  if (!explanation) {
-    return { score: 0, ramaSum: 0, segments: [], missing: true };
-  }
-  const text = (1 - alpha) * rrfContribution(explanation.rrf_text_rank);
-  const vector = alpha * rrfContribution(explanation.rrf_vector_rank);
-  const scale = maxScore > 0 ? maxScore : 1;
-
-  const segments: ScoreSegment[] = [];
-  if (text > 0) {
-    segments.push({
-      key: "text",
-      label: "texto (BM25)",
-      value: text,
-      widthPct: Math.min(100, (text / scale) * 100),
-    });
-  }
-  if (vector > 0) {
-    segments.push({
-      key: "vector",
-      label: "vector (HNSW)",
-      value: vector,
-      widthPct: Math.min(100, (vector / scale) * 100),
-    });
-  }
-
-  return { score: text + vector, ramaSum: text + vector, segments, missing: false };
+/**
+ * Slider 0..100 → modo de fusión del servidor.
+ * 0 = BM25 puro (keyword), 50 = RRF (hybrid, default del core),
+ * 100 = vector puro. Fuera de rango se clampea al stop más cercano.
+ */
+export function fusionModeFromSlider(v: number): FusionModeProfile {
+  const w = Number.isFinite(v) ? Math.round(v / 50) * 50 : 50;
+  if (w <= 0) return { mode: "keyword" };
+  if (w >= 100) return { mode: "vector" };
+  return { mode: "hybrid" };
 }

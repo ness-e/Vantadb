@@ -98,6 +98,39 @@ export function fmtSim(score: number, maxScore: number): { pct: number; label: s
   return { pct, label: `${pct}%` };
 }
 
+// ── DESKTOP-33: merge manual campo a campo ─────────────────────────────────
+
+/** Lado elegido por campo en el editor de merge ("text" es el pseudo-campo del
+ * payload). */
+export type FieldSource = "a" | "b";
+
+/** Fuentes iniciales: TODO campo toma el valor del registro dominante
+ * (pre-fill del editor). Campos = text + unión de claves de metadata. */
+export function defaultSources(
+  a: PairRecord,
+  b: PairRecord,
+  dominant: FieldSource,
+): Record<string, FieldSource> {
+  const keys = ["text", ...new Set([...Object.keys(a.metadata ?? {}), ...Object.keys(b.metadata ?? {})])];
+  return Object.fromEntries(keys.map((k) => [k, dominant]));
+}
+
+/** Aplica las fuentes elegidas: cada campo toma su valor desde a o desde b.
+ * Claves de metadata ausentes en el lado elegido se omiten del resultado. */
+export function mergeFields(
+  a: PairRecord,
+  b: PairRecord,
+  sources: Record<string, FieldSource>,
+): { text: string; metadata: Record<string, unknown> } {
+  const keys = new Set([...Object.keys(a.metadata ?? {}), ...Object.keys(b.metadata ?? {})]);
+  const metadata: Record<string, unknown> = {};
+  for (const k of keys) {
+    const v = (sources[k] === "b" ? b.metadata : a.metadata)?.[k];
+    if (v !== undefined) metadata[k] = v;
+  }
+  return { text: sources.text === "b" ? b.text : a.text, metadata };
+}
+
 // ── MEM-58: consolidación real vía context engine ──────────────────────────
 
 /** Outcome del comando IPC `vanta_context_assemble` (mirror de

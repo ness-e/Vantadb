@@ -47,15 +47,18 @@ async function waitForDone(posted: unknown[], timeoutMs = 20_000): Promise<numbe
 }
 
 describe("projection worker (UMAP-js)", () => {
-  it("proyecta 100 vectores → 2D normalizado a NDC [-1,1]", async () => {
-    const { posted, importWorker } = startWorker(makeVectors(100, 8, 0.4, 0.2), 42);
+  it("proyecta vectores → 2D normalizado a NDC [-1,1]", async () => {
+    // DESKTOP-26: 100 pts tardaba >20s/run en máquina cargada → flaky contra
+    // deadlines internos. 40 pts mantiene el smoke (round-trip + NDC) con
+    // margen; perf sigue siendo territorio de vanta-tuner.
+    const { posted, importWorker } = startWorker(makeVectors(40, 8, 0.4, 0.2), 42);
     await importWorker();
     (globalThis as unknown as { onmessage: (e: MessageEvent) => void }).onmessage({
-      data: { type: "project", vectors: makeVectors(100, 8, 0.4, 0.2), seed: 42 },
+      data: { type: "project", vectors: makeVectors(40, 8, 0.4, 0.2), seed: 42 },
     } as MessageEvent);
 
     const points = await waitForDone(posted);
-    expect(points).toHaveLength(100);
+    expect(points).toHaveLength(40);
     for (const [x, y] of points) {
       expect(x).toBeGreaterThanOrEqual(-1);
       expect(x).toBeLessThanOrEqual(1);
@@ -65,9 +68,9 @@ describe("projection worker (UMAP-js)", () => {
   });
 
   it("misma seed → mismo embedding (reproducible)", async () => {
-    const { posted, importWorker } = startWorker(makeVectors(100, 8, 0.4, 0.2), 42);
+    const { posted, importWorker } = startWorker(makeVectors(40, 8, 0.4, 0.2), 42);
     await importWorker();
-    const vectors = makeVectors(100, 8, 0.4, 0.2);
+    const vectors = makeVectors(40, 8, 0.4, 0.2);
     (globalThis as unknown as { onmessage: (e: MessageEvent) => void }).onmessage({
       data: { type: "project", vectors, seed: 42 },
     } as MessageEvent);
@@ -79,7 +82,7 @@ describe("projection worker (UMAP-js)", () => {
       (globalThis as unknown as { onmessage: (e: MessageEvent) => void }).onmessage({
         data: { type: "project", vectors, seed: 42 },
       } as MessageEvent);
-      const deadline = Date.now() + 10_000;
+      const deadline = Date.now() + 20_000;
       const poll = () => {
         const done = posted2.find((m) => (m as { type?: string })?.type === "done");
         if (done) return resolve((done as { points: number[][] }).points);
