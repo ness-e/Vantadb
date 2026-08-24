@@ -183,7 +183,20 @@ Slices verticales, cada uno: lint + build + visual-review. Commits atómicos (co
 - **Contrato:** `npm run build` en `web/` pasa (exit 0) + 15 rutas screenshot 1440×900 y 390×844 en `web/audit-baseline/` + lighthouse desktop + escaneo a11y en rutas clave
 - **Ruta:** vanta-worker
 - **Task file:** `tasks/WDA-00.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-24) — build exit 0 (35 rutas) · 30 screenshots 15 rutas ×2 viewports · Lighthouse: home perf96/a11y95/bp100/seo100, team perf95/a11y96/bp100/seo100 · a11y axe: home color-contrast×19+heading-order+label-mismatch, team color-contrast×5+label-mismatch · lint limpio hoy. Detalles en `tasks/WDA-00.md`. Artefactos locales en web/audit-baseline/ (gitignored).
+
+=== RECITATION ===
+Objetivo activo: RUN WDA-00..WDA-08 — Auditoría Diseño Web
+Estado: act
+Última acción: plan registrado (§2 skills completado, §6 tareas WDA-00..08); WDA-00 delegada a vanta-worker
+Resultado: ⬜
+Próxima acción: esperar RESULTADO de WDA-00 → verify contrato → commit scoped
+Invariantes: NO tocar web/remotion/ · NO tocar cambios desktop sin commit (Cargo.lock, completions/, desktop/, src/cli_server.rs) · commits solo web/ + docs/plans/ + tasks/WDA-* · R-FE-4 light-only (no dark mode)
+Comandos de verificación: por tarea (ver Contrato en §6)
+Deuda: tracking manual (MCP con 29 tareas fantasma corruptas — no usar campaign_update_task_state)
+Próxima tarea si completa: WDA-01 — F1 Diseño
+last-synced: 2026-08-24T00:00
+=== END RECITATION ===
 
 ### Task 2: WDA-01 — F1 Diseño
 - **Archivos clave:** `web/src/components/vanta/site-navbar.tsx`, `web/src/components/vanta/mark-classic.tsx`, `web/src/lib/dictionaries.ts`, `web/src/app/globals.css`
