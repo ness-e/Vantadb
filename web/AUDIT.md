@@ -1,8 +1,15 @@
 # Auditoría — VantaDB Web
 
-**Fecha:** 2026-07-26  
+> ## ⚠️ ADDENDUM 2026-08-24 — La mayoría de los issues de abajo fueron RESUELTOS
+> Auditoría completa de 7 dimensiones ejecutada (WDA-00..07, commits `fbc404b5..53785dfd`).
+> **Reporte canónico:** `docs/reviews/web-design-audit-2026-08-24.md` · Detalles por tarea: `.opencode/skills/campaign-executor/tasks/WDA-0*.md`
+>
+> Resuelto: claims falsos (recall/p50/snippets/versión/changelog/blog) · dominio muerto → SITE_URL centralizada · sitemap +7 rutas · not-found.tsx · tt() ×36 → lib · dark-mode huérfano eliminado (R-FE-4: light-only) · leak animejs + timers sin cleanup · 13 deps zombies · ui/ muerta (46 archivos) · doble Toaster · contrastes a11y ×24 · touch targets · literales sin i18n · hero value prop + CTA primario · TCO "Team plan" fantasma · funnel /demo honesto · JSON-LD logo.
+> Pendiente (ver reporte): densidad de efectos en home, pricing mid-tier (decisión producto), assets faltantes en public/assets, re-medir Lighthouse post (EPERM ambiental).
+
+**Fecha original:** 2026-07-26  
 **Proyecto:** `vantadb-web` (Next.js 16 + Tailwind v4 + shadcn/ui)  
-**Stack real:** Next.js 16 App Router · TypeScript · Tailwind v4 · framer-motion 12 · animejs 4 · recharts · zustand · next-auth
+**Stack real:** Next.js 16 App Router · TypeScript · Tailwind v4 · framer-motion 12 · animejs 4 (cleanup fixed WDA-01)
 
 ---
 

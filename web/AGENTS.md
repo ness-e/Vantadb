@@ -1,79 +1,51 @@
 # VantaDB Web — AGENTS.md
 
+> **Actualizado:** 2026-08-24 (auditoría WDA-00..07) — reemplaza la versión stale previa.
+> Auditoría completa: `docs/reviews/web-design-audit-2026-08-24.md`
+
 ## Commands
 
 ```sh
 npm run dev       # next dev -p 3000
-npm run build     # next build (standalone output)
-npm start         # node .next/standalone/server.js
-npm run lint      # eslint . (very permissive — 34 rules disabled)
+npm run build     # next build (standalone output) — DEBE pasar exit 0
+npm start         # node .next/standalone/server.js (copiar .next/static y public/ a .next/standalone/ antes)
+npm run lint      # eslint . — exit 0 requerido (no-unused-vars=error desde WDA-05)
 ```
 
-No test infrastructure exists. No CI/CD.
+## Config (verificado)
 
-## Config quirks
-
-- `next.config.ts` — `ignoreBuildErrors: true` (TS errors won't block build), `reactStrictMode: false`
-- Tailwind v4: theme defined in `src/app/globals.css` via `@theme inline {}`; `tailwind.config.ts` is **inert**
-- shadcn/ui: New York style, neutral base, lucide icons, RSC enabled in `components.json`
+- `next.config.ts`: `output: "standalone"` + `reactStrictMode: true` + `turbopack.root` (REVIEW-18). NO hay `ignoreBuildErrors`.
+- Tailwind v4 CSS-first: tema en `src/app/globals.css` (`@theme inline`); `tailwind.config.ts` inerte.
 - Path alias `@/*` → `./src/*`
+- `lib/site-config.ts` exporta `SITE_URL` (= `https://vantadb.vercel.app`) — única fuente para sitemap/metadataBase/canonicals. Si se compra otro dominio, cambiar solo ahí.
 
 ## Architecture
 
-- **All pages are `"use client"`** — no React Server Components used anywhere
-- Every `page.tsx` imports a single named component from `src/components/vanta/`
-- No data fetching — all content is static from `src/components/vanta/vanta-data.ts` (1109 lines)
-- No external state library in use; component-local `useState`/`useEffect` + `LanguageProvider` context
-- Fonts: Geist (body via `--font-geist-sans`), Anton (display via `--font-anton`), Space Mono (tech via `--font-space-mono`)
+- App Router, **32 rutas** (31 estáticas + docs-api redirect). `/quickstart` NO existe — el quickstart vive en `/docs`.
+- Casi todas `"use client"`; layouts server para metadata. SiteShell (`site-shell.tsx`) envuelve todo desde root layout.
+- `not-found.tsx` propio (estilizado, hereda shell); el catch-all `[...slug]` solo llama `notFound()`.
+- Contenido estático en `src/components/vanta/vanta-data.ts`. Claims numéricos DEBEN salir de `docs/operations/BENCHMARKS.md` y README del repo (Regla 11).
+- i18n custom: `LanguageProvider` + `dictionaries.ts` (~1.2k claves ES/EN simétricas). Helper compartido `createTt` en `lib/i18n-utils.ts`; componentes usan `const { t, tt } = useLanguage()`.
 
-## i18n (custom, not next-intl)
+## Reglas vigentes (`.opencode/rules/frontend-web.md`)
 
-Uses `LanguageProvider` context + `useLanguage()` hook returning `{ t, lang, setLang }`. Dictionary in `src/lib/dictionaries.ts` (~880 ES/EN keys). The `next-intl` package is installed but unused.
+- **R-FE-4:** light-only por diseño — NUNCA re-introducir dark mode / next-themes.
+- **R-FE-2:** cero dependencias sin imports verificados.
+- **R-FE-5:** touch targets ≥44px táctil (mínimo absoluto 24px inline secundario).
+- **R-FE-6:** motion tokens en globals.css, no easings hardcodeados.
 
-Many components use a local `tt(key, fallback)` helper — duplicate pattern that should be extracted:
-```ts
-const tt = (key: string, fallback: string) => {
-  const v = t(key);
-  return v === key ? fallback : v;
-};
-```
+## Dead code eliminado (2026-08-24, WDA-05)
 
-## Navigation quirks
+Borrados y NO restaurar: `components/ui/*` (46 wrappers shadcn, queda solo `sonner.tsx`), `hooks/use-toast.ts`, `vanta/navbar.tsx`, `ecosystem.tsx`, `metrics-bar.tsx`, 13 deps zombies (lista en tasks/WDA-05.md). **OJO:** `vs-table.tsx` y `react-markdown` PARECEN muertos pero NO lo son (usados por /why-vantadb y /docs/guides).
 
-- `src/components/vanta/vanta-data.ts` still exports a legacy `View` type (`"home" | "benchmarks" | "docs"`) from the old SPA
-- `useVantaNavigate()` bridges `onNavigate(view: View)` → `router.push()`
-- `isLiveRoute()` in `use-vanta-navigate.ts` controls which nav links navigate vs show "coming soon" toast
+## Animaciones
 
-## Animation conventions
+- animejs solo en mark components — cleanup obligatorio en unmount + `prefers-reduced-motion` (fixed en WDA-01; no revertir).
+- Timers (setTimeout/setInterval) siempre con clearTimeout/clearInterval en unmount.
+- command-palette cargado lazy vía next/dynamic (arrastra vanta-data fuera del bundle global) — no volver a import estático.
 
-- Page transitions: `<PageTransition viewKey={pathname}>` wrapping children in layout (framer-motion AnimatePresence)
-- Scroll reveal: `<Reveal direction="up" delay={n}>` wrapping sections
-- Count-up: `<CountUpStat value={N} suffix="vec/s" />` for benchmark numbers
-- SVG/Canvas: `animejs` used in `mark-classic.tsx` for the interactive graph
+## Conocido-pendiente (backlog candidatos)
 
-## Synthetic events for cross-component communication
-
-- `⌘K` → `window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))` → CommandPalette
-- `?` → same pattern → ShortcutOverlay
-- Typing sequence "vanta" → EasterEgg (global keydown listener)
-
-## Known dead code (documented in AUDIT.md)
-
-- `src/components/vanta/navbar.tsx` (546 lines, replaced by site-navbar.tsx)
-- `src/components/vanta/hero-mark-interactive.tsx`
-- `src/components/vanta/ecosystem.tsx`
-- `src/components/vanta/metrics-bar.tsx`
-
-## Design system (from globals.css)
-
-- Colors: cream `#FBF9F5`, ink `#000000`, neon `#FF5500`, paper `#F2EDE2`, smoke `#1A1A1A`
-- Borders: `border-4 border-black` with rigid shadows `shadow-[6px_6px_0_0_#000]`
-- Effects: press/press-lg/glow-neon/glitch-hover/scanlines/halftone/speed-lines/grid-tech etc.
-
-## Notable
-
-- Two toast systems both rendered in layout: `Toaster` (shadcn) + `Sonner` (positioned bottom-right)
-- `tailwindcss-animate` + `tw-animate-css` both installed (animation utilities)
-- Caddyfile: reverse proxy `:81` → `localhost:3000`
-- `.env` exists but is empty (0 bytes)
-- 17 dead dependencies documented in AUDIT.md — installed packages with zero imports in source
+- Assets faltantes en `public/assets/` (mascota_gato.png, avatar_gato.png) — 4 referencias usan fallbacks.
+- Densidad de efectos decorativos en home (73 usos) — decisión de diseño fino pendiente.
+- Playground usa `new Function` (self-XSS documentado en código; sandbox iframe solo si se expone a terceros).
