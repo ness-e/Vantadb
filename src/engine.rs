@@ -224,13 +224,19 @@ impl InMemoryEngine {
         }
         let id = node.id;
 
-        // WAL first (durability before visibility)
-        self.append_to_wal(&WalRecord::Insert(node.clone()))?;
-
+        // MOD-01: validate BEFORE WAL. A rejected op must never reach the WAL —
+        // replay applies records unconditionally, so a logged-but-rejected
+        // insert would resurrect data after restart. Single write-lock critical
+        // section gives strict validate → WAL → apply with no TOCTOU window (a
+        // double-checked pattern would still log a racing duplicate it cannot
+        // retract from an append-only WAL).
         let mut nodes = self.nodes.write();
         if nodes.contains_key(&id) {
             return Err(VantaError::DuplicateNode(id));
         }
+
+        // WAL first (durability before visibility), now that the op is valid.
+        self.append_to_wal(&WalRecord::Insert(node.clone()))?;
 
         // PERF-07: index edges before inserting
         for edge in &node.edges {
@@ -258,19 +264,20 @@ impl InMemoryEngine {
 
     /// Update existing node
     pub fn update(&self, id: u128, node: UnifiedNode) -> Result<()> {
-        let old_node = {
-            let nodes = self.nodes.read();
-            nodes.get(&id).cloned()
-        };
+        // MOD-01: validate BEFORE WAL — an update rejected because the node is
+        // absent must never reach the WAL (replay applies Update as an
+        // unconditional upsert and would resurrect it). Single critical section,
+        // same rationale as insert().
+        let mut nodes = self.nodes.write();
+        let old_node = nodes.get(&id).cloned();
+        if old_node.is_none() {
+            return Err(VantaError::NodeNotFound(id));
+        }
 
         self.append_to_wal(&WalRecord::Update {
             id,
             node: node.clone(),
         })?;
-        let mut nodes = self.nodes.write();
-        if !nodes.contains_key(&id) {
-            return Err(VantaError::NodeNotFound(id));
-        }
 
         // PERF-07/08: remove old edges/fields, add new ones
         if let Some(old) = old_node {
@@ -294,11 +301,16 @@ impl InMemoryEngine {
 
     /// Delete a node, cascading to remove all referencing edges (PERF-07).
     pub fn delete(&self, id: u128) -> Result<()> {
-        self.append_to_wal(&WalRecord::Delete { id })?;
+        // MOD-01: validate BEFORE WAL — same invariant as insert()/update().
+        // (Replay of a spurious Delete is idempotent, but the invariant is
+        // uniform: nothing enters the WAL unvalidated.)
         let mut nodes = self.nodes.write();
-        if nodes.remove(&id).is_none() {
+        if !nodes.contains_key(&id) {
             return Err(VantaError::NodeNotFound(id));
         }
+
+        self.append_to_wal(&WalRecord::Delete { id })?;
+        nodes.remove(&id);
         self.node_count.fetch_sub(1, Ordering::Release);
         self.edge_index.remove_all_for_node(id);
         self.scalar_index.remove_node(id);
@@ -965,5 +977,97 @@ mod tests {
         engine.insert(create_node(2)).unwrap();
         let stats = engine.stats();
         assert_eq!(stats.edge_count, 2);
+    }
+
+    // ── Durabilidad: ops RECHAZADAS no deben sobrevivir en el WAL (MOD-01) ──
+
+    fn assert_full_vector(node: &UnifiedNode, expected: &[f32]) {
+        match &node.vector {
+            VectorRepresentations::Full(v) => assert_eq!(v.as_slice(), expected),
+            other => panic!("expected Full vector, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_mod01_rejected_duplicate_insert_not_resurrected_after_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("wal");
+        {
+            let engine = InMemoryEngine::with_wal(&path).unwrap();
+            engine
+                .insert(create_vector_node(1, vec![1.0, 2.0]))
+                .unwrap();
+
+            // Insert duplicado → rechazado. Su registro NO debe entrar al WAL:
+            // si entra, el replay lo aplica y el impostor pisa el original.
+            let impostor = create_vector_node(1, vec![9.9, 9.9]);
+            assert!(matches!(
+                engine.insert(impostor),
+                Err(VantaError::DuplicateNode(1))
+            ));
+            engine.flush_wal().unwrap();
+        }
+        let reopened = InMemoryEngine::with_wal(&path).unwrap();
+        let got = reopened.get(1).expect("node 1 must survive restart");
+        assert_full_vector(&got, &[1.0, 2.0]);
+    }
+
+    #[test]
+    fn test_mod01_failed_update_on_deleted_node_not_resurrected_after_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("wal");
+        {
+            let engine = InMemoryEngine::with_wal(&path).unwrap();
+            engine.insert(create_vector_node(3, vec![4.0])).unwrap();
+            engine.delete(3).unwrap();
+
+            // Update sobre nodo eliminado → rechazado. El replay NO debe
+            // re-crearlo (aplica Update como upsert incondicional).
+            assert!(matches!(
+                engine.update(3, create_node(3)),
+                Err(VantaError::NodeNotFound(3))
+            ));
+            engine.flush_wal().unwrap();
+        }
+        let reopened = InMemoryEngine::with_wal(&path).unwrap();
+        assert!(
+            reopened.get(3).is_none(),
+            "rejected update resurrected the deleted node via WAL replay"
+        );
+    }
+
+    #[test]
+    fn test_mod01_legitimate_insert_update_survives_reopen() {
+        // Pre-mortem guard: el fix no puede romper el flujo legítimo.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("wal");
+        {
+            let engine = InMemoryEngine::with_wal(&path).unwrap();
+            engine.insert(create_vector_node(10, vec![1.0])).unwrap();
+            engine
+                .update(10, create_vector_node(10, vec![2.0]))
+                .unwrap();
+            engine.flush_wal().unwrap();
+        }
+        let reopened = InMemoryEngine::with_wal(&path).unwrap();
+        let got = reopened.get(10).expect("legitimate node lost after reopen");
+        assert_full_vector(&got, &[2.0]);
+        assert_eq!(reopened.node_count(), 1);
+    }
+
+    #[test]
+    fn test_mod01_delete_persists_and_rejected_delete_is_inert_after_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("wal");
+        {
+            let engine = InMemoryEngine::with_wal(&path).unwrap();
+            engine.insert(create_node(5)).unwrap();
+            engine.delete(5).unwrap();
+            assert!(matches!(engine.delete(5), Err(VantaError::NodeNotFound(5))));
+            engine.flush_wal().unwrap();
+        }
+        let reopened = InMemoryEngine::with_wal(&path).unwrap();
+        assert!(reopened.get(5).is_none());
+        assert_eq!(reopened.node_count(), 0);
     }
 }
