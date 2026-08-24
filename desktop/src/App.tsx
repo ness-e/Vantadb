@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import "./App.css";
 import { isEmbedded } from "./transport";
 import { useConnectionState } from "./hooks/useConnectionState";
