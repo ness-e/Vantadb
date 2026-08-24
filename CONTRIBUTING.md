@@ -92,6 +92,7 @@ Rules:
 - Commits without a conventional prefix are ignored by release-plz — they don't
   trigger a release and don't appear in the changelog.
 - The full normative rule is `.opencode/AGENTS.md` → Regla 7.
+- The consumer-facing stability policy (what breaks between 0.x releases) is documented in [`docs/api/VERSIONING.md`](docs/api/VERSIONING.md).
 
 ---
 

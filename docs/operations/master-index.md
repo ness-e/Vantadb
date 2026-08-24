@@ -8,6 +8,7 @@
 |------|-------------|
 | [AGENT_INSTRUCTIONS.md](AGENT_INSTRUCTIONS.md) | Instructions for AI agents working in this repo |
 | [BACKUP_POLICY.md](BACKUP_POLICY.md) | Database and file backup procedures |
+| [BACKUP_RESTORE.md](BACKUP_RESTORE.md) | End-user backup & restore guide (directory copy, JSONL export) |
 | [BENCHMARKS.md](BENCHMARKS.md) | Performance benchmark results and methodology |
 | [CI_POLICY.md](CI_POLICY.md) | Continuous integration policies |
 | [COMMUNITY_GOVERNANCE.md](COMMUNITY_GOVERNANCE.md) | Community guidelines and governance model |

@@ -182,6 +182,37 @@ python examples/python/dspy_retriever.py
 
 ---
 
+## Examples
+
+All runnable examples live under [`examples/`](examples/).
+
+### Python
+
+| Example | Description |
+| :--- | :--- |
+| [`examples/demo/demo.py`](examples/demo/demo.py) | End-to-end showcase: lifecycle, insert, vector/hybrid search, persistence, telemetry ([README](examples/demo/README.md)). |
+| [`examples/colab/vantadb_quickstart.ipynb`](examples/colab/vantadb_quickstart.ipynb) | Interactive Colab quickstart notebook. |
+| [`examples/python/agent_memory.py`](examples/python/agent_memory.py) | Persistent namespace-scoped memory for local AI agents: storage, hybrid retrieval, and telemetry. |
+| [`examples/python/mem0_integration.py`](examples/python/mem0_integration.py) | [Mem0](https://mem0.ai) backend: memory CRUD/search over a namespace-scoped hybrid store. |
+| [`examples/python/semantic_kernel_memory.py`](examples/python/semantic_kernel_memory.py) | Microsoft Semantic Kernel memory interface (`add`/`get`/`search`/`remove`). |
+| [`examples/python/dspy_retriever.py`](examples/python/dspy_retriever.py) | DSPy callable retriever backed by hybrid search. |
+| [`examples/python/langchain_ollama_rag.py`](examples/python/langchain_ollama_rag.py) | RAG pipeline with LangChain + Ollama embeddings via `VantaDBVectorStore`. |
+| [`examples/python/haystack_documentstore.py`](examples/python/haystack_documentstore.py) | Haystack DocumentStore implementation for RAG pipelines. |
+| [`examples/python/crewai_memory.py`](examples/python/crewai_memory.py) | Memory backend for CrewAI agents. |
+| [`examples/python/autogen_memory.py`](examples/python/autogen_memory.py) | Persistent memory for AutoGen conversational agents. |
+| [`examples/python/langgraph_checkpoint.py`](examples/python/langgraph_checkpoint.py) | Checkpoint store for LangGraph state management. |
+
+### Rust
+
+| Example | Description |
+| :--- | :--- |
+| [`examples/rust/basic.rs`](examples/rust/basic.rs) | Basic CRUD: create engine, add records with vectors/metadata, similarity search. Run with `cargo run --example basic`. |
+| [`examples/rust/concurrent.rs`](examples/rust/concurrent.rs) | Concurrent access from multiple threads via `Arc<VantaEmbedded>`. |
+| [`examples/rust/graphrag.rs`](examples/rust/graphrag.rs) | Knowledge graph: nodes + directed edges + BFS traversal (low-level Node/Graph API). |
+| [`examples/rust/hybrid.rs`](examples/rust/hybrid.rs) | Hybrid search: BM25 lexical + HNSW vector fused via RRF. |
+
+---
+
 ## Core Capabilities
 
 | Engine | Mechanism | Details |
@@ -218,7 +249,8 @@ VantaDB should be understood as: embedded-first, local-first, durable memory wit
 | :--- | :--- |
 | **Production-facing** | Embedded SDK/CLI, memory CRUD/search, WAL/recovery, namespaces, metadata indexes, HNSW vector retrieval, BM25, Hybrid Retrieval v1, phrase filtering, rebuild/audit/repair, JSONL export/import |
 | **Optional wrapper** | Local `vantadb-server` binary around the embedded core |
-| **Experimental / not MVP** | IQL/LISP/DQL, MCP, LLM/Ollama integration, governance and maintenance semantics, graph traversal beyond stored local edges |
+| **New** | MCP server for AI agents ([setup guide](docs/api/MCP.md)) |
+| **Experimental / not MVP** | IQL/LISP/DQL, LLM/Ollama integration, governance and maintenance semantics, graph traversal beyond stored local edges |
 | **Deferred** | Cloud/enterprise platform, HA/replication, distributed clustering, SQL/OLTP/warehouse/time-series, advanced ranking/snippets/tokenization, RBAC, multi-tenancy |
 
 *VantaDB is an embedded memory engine, not a universal multimodel database or cloud platform.*

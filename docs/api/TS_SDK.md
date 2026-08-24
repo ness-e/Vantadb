@@ -9,6 +9,8 @@ aliases: []
 
 # TypeScript SDK Documentation
 
+> **Stability:** the documented TypeScript SDK API is covered by the [Versioning & Stability Policy](VERSIONING.md).
+
 ## Installation
 
 ```bash
