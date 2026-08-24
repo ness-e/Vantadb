@@ -9,11 +9,7 @@ import { useLanguage } from "@/lib/language-provider";
 const UC = USE_CASES_DETAIL[0]; // ai-agents
 
 export default function AiAgentsPage() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader

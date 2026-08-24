@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Changelog · VantaDB — Release History",
     description:
       "Releases de VantaDB: v0.1.0, v0.1.1, v0.1.2. Features, fixes y optimizaciones por versión.",
-    url: "https://vantadb.dev/changelog",
+    url: "https://vantadb.vercel.app/changelog",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/changelog",
+    canonical: "https://vantadb.vercel.app/changelog",
   },
 };
 

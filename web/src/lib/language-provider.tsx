@@ -9,17 +9,21 @@ import {
   type ReactNode,
 } from "react";
 import { dictionaries, DEFAULT_LANG, type Lang } from "./dictionaries";
+import { createTt } from "./i18n-utils";
 
 type LanguageContextType = {
   lang: Lang;
   setLang: (l: Lang) => void;
   t: (key: string, params?: Record<string, string>) => string;
+  /** t() with hardcoded fallback when the key is missing from the dictionary */
+  tt: (key: string, fallback: string) => string;
 };
 
 const LanguageContext = createContext<LanguageContextType>({
   lang: DEFAULT_LANG,
   setLang: () => {},
   t: (key) => key,
+  tt: (_key, fallback) => fallback,
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
@@ -66,8 +70,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     [lang]
   );
 
+  const tt = useCallback(createTt(t), [t]);
+
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t }}>
+    <LanguageContext.Provider value={{ lang, setLang, t, tt }}>
       {children}
     </LanguageContext.Provider>
   );

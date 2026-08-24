@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Core Engine · VantaDB — Rust + PyO3 Pipeline",
     description:
       "Motor Rust + PyO3 de VantaDB: pipeline BM25+HNSW→RRF, WAL CRC32C, in-process.",
-    url: "https://vantadb.dev/engine",
+    url: "https://vantadb.vercel.app/engine",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/engine",
+    canonical: "https://vantadb.vercel.app/engine",
   },
 };
 

@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Contact · VantaDB",
     description:
       "Canales de contacto VantaDB: Discord, GitHub issues/PRs, email enterprise. Respuesta rápida.",
-    url: "https://vantadb.dev/about/contact",
+    url: "https://vantadb.vercel.app/about/contact",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/about/contact",
+    canonical: "https://vantadb.vercel.app/about/contact",
   },
 };
 

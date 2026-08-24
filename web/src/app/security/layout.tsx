@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Security · VantaDB — Crash-Safe & Local-First",
     description:
       "6 pilares de seguridad VantaDB: WAL CRC32C, zero network, Rust memory-safe, SBOM, recovery verificable.",
-    url: "https://vantadb.dev/security",
+    url: "https://vantadb.vercel.app/security",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/security",
+    canonical: "https://vantadb.vercel.app/security",
   },
 };
 

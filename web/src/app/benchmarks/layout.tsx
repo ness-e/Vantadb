@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Benchmarks · VantaDB — BENCH-01 & SIFT1M Performance",
     description:
       "Benchmarks BENCH-01 y SIFT1M: 74 ops/s ingestión, HNSW p50 1.2ms (10K), QPS peak 3,636.",
-    url: "https://vantadb.dev/benchmarks",
+    url: "https://vantadb.vercel.app/benchmarks",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/benchmarks",
+    canonical: "https://vantadb.vercel.app/benchmarks",
   },
 };
 

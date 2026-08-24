@@ -18,16 +18,12 @@ const LOGOS = [
 ];
 
 export function TrustBar() {
-  const { t } = useLanguage();
+  const { t, tt } = useLanguage();
 
   // tt() — translation with fallback. The shared t() returns the key string
   // when the dictionary entry is missing; tt() falls back to the supplied
   // default so the section renders with Spanish copy today, and automatically
   // picks up the dictionary entry when it lands in Fase 5.
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
 
   // Duplicate the list once for a seamless marquee loop (translateX -50%).
   const marqueeItems = [...LOGOS, ...LOGOS];

@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Code Playground · VantaDB — Try Hybrid Search",
     description:
       "Playground interactivo de VantaDB: simula BM25+HNSW+RRF en el navegador con ejemplos Python put/search.",
-    url: "https://vantadb.dev/playground",
+    url: "https://vantadb.vercel.app/playground",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/playground",
+    canonical: "https://vantadb.vercel.app/playground",
   },
 };
 

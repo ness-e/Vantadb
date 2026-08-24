@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "IDE Tooling · VantaDB — Semantic Code Search",
     description:
       "Semantic code search in-process con VantaDB: AST indexing, BM25+HNSW, cero servidores, 60MB RAM.",
-    url: "https://vantadb.dev/solutions/ai-ide-tooling",
+    url: "https://vantadb.vercel.app/solutions/ai-ide-tooling",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/solutions/ai-ide-tooling",
+    canonical: "https://vantadb.vercel.app/solutions/ai-ide-tooling",
   },
 };
 

@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Zero Configuration · VantaDB — Schema-Free",
     description:
       "Sin schema, sin YAML, sin .env, sin migraciones. pip install y connect. VantaDB es schema-free por diseño.",
-    url: "https://vantadb.dev/config",
+    url: "https://vantadb.vercel.app/config",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/config",
+    canonical: "https://vantadb.vercel.app/config",
   },
 };
 

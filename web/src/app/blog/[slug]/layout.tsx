@@ -16,7 +16,7 @@ export async function generateMetadata({
       robots: { index: false, follow: false },
     };
   }
-  const url = `https://vantadb.dev/blog/${post.slug}`;
+  const url = `https://vantadb.vercel.app/blog/${post.slug}`;
   return {
     title: `${post.title} · VantaDB Blog`,
     description: post.excerpt,

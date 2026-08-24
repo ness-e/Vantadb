@@ -15,11 +15,7 @@ import { Reveal } from "./reveal";
 import { useLanguage } from "@/lib/language-provider";
 
 export function Architecture({ onNavigate }: { onNavigate: (v: View) => void }) {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
   return (
     <section
       aria-label={tt("architecture.ariaLabel", "Pipeline de retrieval")}

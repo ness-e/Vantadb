@@ -22,11 +22,7 @@ import { useLanguage } from "@/lib/language-provider";
 // Manga/linocut boxes with rigid black shadows and neon accents.
 
 export function CoreEngine() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
 
   return (
     <section

@@ -212,7 +212,7 @@ last-synced: 2026-08-24T00:00
 - **Contrato:** existe `web/src/app/not-found.tsx`; sitemap ≥36 URLs; `grep -rn "const tt = \|function tt(" web/src/lib/i18n-utils.ts` existe y páginas lo importan; `npm run build` pasa
 - **Ruta:** vanta-worker
 - **Task file:** `tasks/WDA-02.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-24) — `not-found.tsx` nuevo + catch-all → `notFound()`; sitemap 29→36 URLs; `vantadb.dev`→`vantadb.vercel.app` centralizado en `SITE_URL` (`lib/site-config.ts`), grep=0; `tt()` ×36 extraído a `lib/i18n-utils.ts` vía provider (+2 fixes inline del orquestador en local-rag/why-vantadb); email muerto → GitHub Security Advisories; build exit 0. Diff neto +122/−378 (~70 archivos).
 
 ### Task 4: WDA-03 — F3 Información (claims)
 - **Archivos clave:** `web/src/components/vanta/vanta-data.ts`, `web/src/components/vanta/site-navbar.tsx`, `web/src/app/quickstart/page.tsx`
@@ -261,3 +261,25 @@ last-synced: 2026-08-24T00:00
 - **Ruta:** vanta-lead
 - **Task file:** `tasks/WDA-08.md`
 - **Estado:** ⬜ PENDING
+
+=== RECITATION DESKTOP-23 ===
+Campaign ID: 1a30f1d8-d07c-4a4b-ae97-d8ad835d2e3d
+Objetivo activo: DESKTOP-23: persistir preferencias UI de Vanta Studio (tema/layout/filtros) para sobrevivir reinicio
+Estado: completed
+Última acción: Creado WorkspacePrefsStore (desktop/src/store/preferences.ts) patrón FavoritesStore con storage inyectable + sanitize; conectado a WorkspaceShell.tsx (hidratación inicial + write-through de surface/showFilters/ruleGroup); 3 tests en persisted-stores.test.ts. Ponytail: descartado app_config_dir+comandos Tauri del plan original — WebView Tauri ya persiste localStorage (favorites/search-history/tema dependen de eso). Tema ya persistía vía 'vanta-theme'. Cero cambios en src-tauri.
+Resultado: OK
+Próxima acción: Ninguna — tarea completa.
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION DESKTOP-27 ===
+Campaign ID: 509c1779-e544-4361-8521-505ef43dd9cd
+Objetivo activo: DESKTOP-27 — Docs desktop: README + ARCHITECTURE.md + guía de usuario del modelo transporte pluggable
+Estado: completed
+Última acción: Creados docs/desktop/README.md (EN), docs/desktop/ARCHITECTURE.md (EN) y docs/desktop/GUIDE.md (ES, user-facing). Contenido verificado contra código real vía codegraph_explore + reads directos (manager.rs, native.rs, server.rs, transport.ts, commands/connection.rs, lib.rs). ADR-026/027/028 referenciados, no duplicados. Review vanta-arch fresh-context: APPROVE 7/7 claims; detalle menor (fallback de active_id tras remove()) incorporado.
+Resultado: OK
+Próxima acción: Ninguna — tarea completa. Sin commit (instrucción explícita del orquestador); el lead commitea con docs:
+Contrato: verificacion: ls docs/desktop/{README,ARCHITECTURE,GUIDE}.md ✅ existen; review vanta-arch APPROVE (ses_fcdaa5aa2fferCAypE3ZKSuN4f). Cargo no aplicable (cambio solo-docs). evidencia: [claim: ConnectionManager = registry HashMap + active_id tras RwLock | evidencia: desktop/src-tauri/src/connections/manager.rs:38-107 | confianza: alta] [claim: path lock DatabaseBusy→VantaError::Lock en NativeConnection::open | evidencia: native.rs:55-91,122-130 | confianza: alta] [claim: shutdown_all non-native-first/native-last, grace 5s desde lib.rs RunEvent::ExitRequested | evidencia: manager.rs:429-454 + lib.rs:195-201 | confianza: alta] [claim: WASM es frontend-only WasmBackend OPFS→IDB fallback, sin Rust WasmConnection | evidencia: desktop/src/transport.ts:82-129 | confianza: alta] [claim: ConnectionSelector eliminado, active_id único mecanismo | evidencia: grep sin matches + review arch commit 847ab080 | confianza: alta]. artefactos: docs/desktop/README.md, docs/desktop/ARCHITECTURE.md, docs/desktop/GUIDE.md. invariantes: no duplicar ADR-026/027/028; docs técnicas en EN; consistencia con connections/ real. deuda: ninguna. queda_pendiente: git commit por el lead (no solicitado a worker).
+Próxima tarea si completa: 
+=== END RECITATION ===

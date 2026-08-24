@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
  * Style: black bg, scanlines, grid-tech, neon accents. Matches home aesthetic.
  */
 export function CtaFinal() {
-  const { t } = useLanguage();
+  const { t, tt } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [activeButton, setActiveButton] = useState<CtaButton | null>(null);
   const [clickButton, setClickButton] = useState<{ button: CtaButton; timestamp: number } | null>(null);
@@ -33,10 +33,6 @@ export function CtaFinal() {
     }, 1800);
   };
 
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
 
   const copyInstall = async () => {
     const ok = await copyToClipboard(PRODUCT.distribution[0].cmd);

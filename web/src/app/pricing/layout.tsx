@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Pricing · VantaDB — Open Source + Enterprise",
     description:
       "2 planes VantaDB: Community $0, Enterprise SLA. Sin facturación por query.",
-    url: "https://vantadb.dev/pricing",
+    url: "https://vantadb.vercel.app/pricing",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/pricing",
+    canonical: "https://vantadb.vercel.app/pricing",
   },
 };
 

@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "In-Process Latency · VantaDB — 1.2ms p50",
     description:
       "Rust Core 1.2ms p50 (HNSW · 10K), Python SDK 39.74ms p50. Cloud DBs no medidos localmente. Zero network round-trips.",
-    url: "https://vantadb.dev/latency",
+    url: "https://vantadb.vercel.app/latency",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/latency",
+    canonical: "https://vantadb.vercel.app/latency",
   },
 };
 

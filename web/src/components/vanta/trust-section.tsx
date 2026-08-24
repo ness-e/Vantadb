@@ -21,11 +21,7 @@ const STACK_ITEMS = [
 ];
 
 export function TrustSection() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
   return (
     <section className="relative border-b-4 border-black bg-[#FBF9F5]  ">
       <div className="pointer-events-none absolute inset-0 halftone opacity-[0.04]" aria-hidden />

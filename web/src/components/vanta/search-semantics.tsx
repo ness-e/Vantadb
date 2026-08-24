@@ -6,11 +6,7 @@ import { Reveal } from "./reveal";
 import { useLanguage } from "@/lib/language-provider";
 
 export function SearchSemantics() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
   return (
     <section className="relative border-b-4 border-black bg-[#F2EDE2]  ">
       <div className="pointer-events-none absolute inset-0 grid-tech opacity-50" aria-hidden />

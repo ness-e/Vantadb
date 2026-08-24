@@ -47,11 +47,7 @@ const CATEGORIES: Category[] = [
 ];
 
 export function Ecosystem() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
 
   return (
     <section

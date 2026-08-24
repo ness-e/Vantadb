@@ -152,7 +152,7 @@ export function CompetitiveTable() {
           <p className="mt-2 px-4 font-tech text-[10px] leading-relaxed text-black/50">
             <span className="uppercase tracking-wider">Source:</span>{" "}
             <a
-              href="https://vantadb.dev/blog/benchmarks-vs-lancedb-chroma"
+              href="https://vantadb.vercel.app/blog/benchmarks-vs-lancedb-chroma"
               target="_blank"
               rel="noreferrer"
               className="underline decoration-[#FF5500]/60 underline-offset-2 hover:text-[#FF5500]"

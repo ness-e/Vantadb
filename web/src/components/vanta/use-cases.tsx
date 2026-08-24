@@ -60,11 +60,7 @@ const USE_CASES: UseCase[] = [
 ];
 
 export function UseCases() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
 
   return (
     <section

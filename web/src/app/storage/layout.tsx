@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Single-Binary Storage Architecture · VantaDB",
     description:
       "LSM-tree + WAL + HNSW + SDK boundary en un solo binario Rust. Reemplaza Pinecone + Redis + S3.",
-    url: "https://vantadb.dev/storage",
+    url: "https://vantadb.vercel.app/storage",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/storage",
+    canonical: "https://vantadb.vercel.app/storage",
   },
 };
 

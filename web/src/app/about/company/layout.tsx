@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Company · VantaDB",
     description:
       "Misión VantaDB: local-first, Apache 2.0, open source. Fundado por ness-e. Respeta tu data y tu hardware.",
-    url: "https://vantadb.dev/about/company",
+    url: "https://vantadb.vercel.app/about/company",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/about/company",
+    canonical: "https://vantadb.vercel.app/about/company",
   },
 };
 

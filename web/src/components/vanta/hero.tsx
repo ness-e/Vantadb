@@ -13,11 +13,7 @@ import { useLanguage } from "@/lib/language-provider";
 
 export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
   const [copied, setCopied] = useState(false);
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
 
   const copyInstall = async () => {
     const ok = await copyToClipboard("pip install vantadb-py");

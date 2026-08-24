@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Team · VantaDB",
     description:
       "Equipo VantaDB: founder ness-e y comunidad open source. Sistemas, bases embebidas, Rust.",
-    url: "https://vantadb.dev/about/team",
+    url: "https://vantadb.vercel.app/about/team",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/about/team",
+    canonical: "https://vantadb.vercel.app/about/team",
   },
 };
 

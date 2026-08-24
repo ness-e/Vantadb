@@ -73,10 +73,10 @@ const CHANNELS: Channel[] = [
   {
     icon: Mail,
     labelKey: "aboutContact.channel.3.label",
-    labelFallback: "Email",
-    label: "Email",
-    value: "maintainers@vantadb.dev",
-    href: "mailto:maintainers@vantadb.dev",
+    labelFallback: "Security",
+    label: "Security",
+    value: "github.com/ness-e/Vantadb/security/advisories",
+    href: "https://github.com/ness-e/Vantadb/security/advisories",
     descriptionKey: "aboutContact.channel.3.description",
     descriptionFallback:
       "Security disclosures, enterprise inquiries, or anything you'd rather not put in a public issue. PGP key on request.",
@@ -87,11 +87,7 @@ const CHANNELS: Channel[] = [
 ];
 
 export default function ContactPage() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader

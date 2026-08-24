@@ -18,11 +18,7 @@ const TAG_STYLES: Record<string, string> = {
 export default function BlogPostPage() {
   const params = useParams();
   const router = useRouter();
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
   const slug = params.slug as string;
   const postIdx = BLOG_POSTS.findIndex((p) => p.slug === slug);
   const post = postIdx >= 0 ? BLOG_POSTS[postIdx] : undefined;

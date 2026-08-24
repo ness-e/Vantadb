@@ -1,17 +1,25 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site-config";
 
 /**
  * sitemap.ts — Next.js native sitemap generator.
  * Lists all live App Router routes for SEO indexing.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://vantadb.dev";
+  const baseUrl = SITE_URL;
   const lastModified = new Date();
 
   // Static routes
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${baseUrl}/`, lastModified, changeFrequency: "weekly", priority: 1.0 },
     { url: `${baseUrl}/benchmarks`, lastModified, changeFrequency: "monthly", priority: 0.9 },
+    { url: `${baseUrl}/demo`, lastModified, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${baseUrl}/showcase`, lastModified, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${baseUrl}/config`, lastModified, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${baseUrl}/storage`, lastModified, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${baseUrl}/latency`, lastModified, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${baseUrl}/integrations`, lastModified, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${baseUrl}/docs-api`, lastModified, changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/docs`, lastModified, changeFrequency: "weekly", priority: 0.9 },
     { url: `${baseUrl}/engine`, lastModified, changeFrequency: "monthly", priority: 0.8 },
     { url: `${baseUrl}/architecture`, lastModified, changeFrequency: "monthly", priority: 0.8 },

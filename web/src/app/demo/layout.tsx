@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Browser Demo · VantaDB — WebAssembly Preview",
     description:
       "Demo WASM de VantaDB en el navegador. Coming soon — únete a la lista de espera de la beta.",
-    url: "https://vantadb.dev/demo",
+    url: "https://vantadb.vercel.app/demo",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/demo",
+    canonical: "https://vantadb.vercel.app/demo",
   },
 };
 

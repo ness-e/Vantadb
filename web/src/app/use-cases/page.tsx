@@ -20,11 +20,7 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 export default function UseCasesPage() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader

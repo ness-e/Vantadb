@@ -12,12 +12,8 @@ import { useLanguage } from "@/lib/language-provider";
  * CTA band removed (now only in CtaFinal section, not duplicated in footer).
  */
 export function Footer() {
-  const { t } = useLanguage();
+  const { t, tt } = useLanguage();
   const router = useRouter();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
 
   const nav = (path: string) => {
     router.push(path);

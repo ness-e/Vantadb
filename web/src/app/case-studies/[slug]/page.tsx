@@ -10,11 +10,7 @@ import { useLanguage } from "@/lib/language-provider";
 export default function CaseStudyPage() {
   const params = useParams();
   const router = useRouter();
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
   const slug = params.slug as string;
   const csIndex = CASE_STUDIES.findIndex((c) => c.slug === slug);
   const cs = csIndex >= 0 ? CASE_STUDIES[csIndex] : undefined;

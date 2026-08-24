@@ -7,6 +7,7 @@ import { LanguageProvider } from "@/lib/language-provider";
 import { DEFAULT_LANG } from "@/lib/dictionaries";
 import { SiteShell } from "@/components/vanta/site-shell";
 import { SkipLink } from "@/components/vanta/skip-link";
+import { SITE_URL } from "@/lib/site-config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,7 +34,7 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://github.com/ness-e/Vantadb"),
+  metadataBase: new URL(SITE_URL),
   title: "VantaDB — Embedded Rust Engine for Local-First Hybrid Retrieval",
   description:
     "VantaDB is a local-first, embedded Rust database engine for AI agents and local RAG. Persistent memory, crash-safe WAL recovery (CRC32C), and native hybrid search (BM25 + HNSW via RRF) — zero network, in-process.",
@@ -61,7 +62,7 @@ export const metadata: Metadata = {
     title: "VantaDB — Embedded Rust Engine for Local-First Hybrid Retrieval",
     description:
       "Persistent memory + crash-safe WAL + BM25/HNSW hybrid retrieval via RRF. Zero network. In-process.",
-    url: "https://github.com/ness-e/Vantadb",
+    url: SITE_URL,
     siteName: "VantaDB",
     type: "website",
   },

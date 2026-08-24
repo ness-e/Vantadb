@@ -18,11 +18,7 @@ interface Integration {
 }
 
 export default function IntegrationsPage() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
 
   const integrations: Integration[] = [
     {
