@@ -11,11 +11,22 @@ export type VantaValue =
 
 export type VantaMetadata = Record<string, VantaValue>;
 
+/** Plain JS value accepted as metadata/filter input (normalized internally to `VantaValue`). */
+export type VantaFlatValue = string | number | boolean | null;
+
+/**
+ * Metadata/filters as provided by callers: plain JS values (preferred,
+ * e.g. `{ lang: "en" }`) or the tagged wire form (backward compat,
+ * e.g. `{ lang: { String: "en" } }`). Records returned by the engine
+ * always use the tagged `VantaMetadata` form.
+ */
+export type VantaMetadataInput = Record<string, VantaFlatValue | VantaValue>;
+
 export interface MemoryInput {
   namespace: string;
   key: string;
   payload: string;
-  metadata?: VantaMetadata;
+  metadata?: VantaMetadataInput;
   vector?: number[];
   ttl_ms?: number;
 }
@@ -37,7 +48,7 @@ export interface MemoryRecord {
 }
 
 export interface ListOptions {
-  filters?: VantaMetadata;
+  filters?: VantaMetadataInput;
   limit?: number;
   cursor?: number;
 }
@@ -50,7 +61,7 @@ export interface MemoryListPage {
 export interface SearchRequest {
   namespace: string;
   query_vector: number[];
-  filters?: VantaMetadata;
+  filters?: VantaMetadataInput;
   text_query?: string;
   top_k?: number;
   distance_metric?: "Cosine" | "Euclidean";
@@ -77,7 +88,7 @@ export interface NodeInput {
   id: number;
   content?: string;
   vector?: number[];
-  fields: Record<string, VantaValue>;
+  fields: Record<string, VantaFlatValue | VantaValue>;
 }
 
 export interface NodeRecord {
@@ -127,7 +138,8 @@ export type VantaFilterOp = "Eq" | "Neq" | "Gt" | "Gte" | "Lt" | "Lte";
 export interface VantaMemoryFilterItem {
   field: string;
   op: VantaFilterOp;
-  value: VantaValue;
+  /** Plain JS value (preferred) or tagged wire form (backward compat). */
+  value: VantaFlatValue | VantaValue;
 }
 
 export interface ImportReport {

@@ -1,5 +1,6 @@
 import { VantaError } from "./errors.js";
 import { isMemoryRecord } from "./guards.js";
+import { normalizeFilterItems, normalizeMetadata } from "./metadata.js";
 
 import type {
   Capabilities,
@@ -173,7 +174,15 @@ export class NativeVantaDB {
    */
   async put(input: MemoryInput): Promise<MemoryRecord> {
     this._assertOpen();
-    return this._native("put", async () => _mapRecord(await this.inner.put(input)));
+    return this._native("put", async () => {
+      const wire = { ...input } as MemoryInput;
+      // Only set the key when present: an explicit `metadata: undefined`
+      // is not the same as an absent field for the deserializer.
+      if (input.metadata !== undefined) {
+        wire.metadata = normalizeMetadata(input.metadata);
+      }
+      return _mapRecord(await this.inner.put(wire));
+    });
   }
 
   /**
@@ -185,7 +194,14 @@ export class NativeVantaDB {
   async putBatch(inputs: MemoryInput[]): Promise<MemoryRecord[]> {
     this._assertOpen();
     return this._native("putBatch", async () => {
-      const records: unknown[] = await this.inner.putBatch(inputs);
+      const normalized = inputs.map((i) => {
+        const wire = { ...i } as MemoryInput;
+        if (i.metadata !== undefined) {
+          wire.metadata = normalizeMetadata(i.metadata);
+        }
+        return wire;
+      });
+      const records: unknown[] = await this.inner.putBatch(normalized);
       for (let i = 0; i < records.length; i++) {
         records[i] = _mapRecord(records[i]);
       }
@@ -235,7 +251,13 @@ export class NativeVantaDB {
   async list(namespace: string, options: ListOptions = {}): Promise<MemoryListPage> {
     this._assertOpen();
     return this._native("list", async () => {
-      const raw = await this.inner.list(namespace, options);
+      const wire = { ...options } as ListOptions;
+      if (options.filters !== undefined) {
+        // Only set the key when present: an explicit `filters: undefined`
+        // is not the same as an absent field for the deserializer.
+        wire.filters = normalizeMetadata(options.filters);
+      }
+      const raw = await this.inner.list(namespace, wire);
       const items: unknown[] = raw.records ?? [];
       for (let i = 0; i < items.length; i++) {
         items[i] = _mapRecord(items[i]);
@@ -256,7 +278,7 @@ export class NativeVantaDB {
     return {
       namespace: request.namespace,
       query_vector: request.query_vector,
-      filters: request.filters ?? {},
+      filters: normalizeMetadata(request.filters) ?? {},
       text_query: request.text_query ?? null,
       top_k: request.top_k ?? 10,
       distance_metric: request.distance_metric ?? "Cosine",

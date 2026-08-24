@@ -2,6 +2,7 @@ import { VantaDB as WasmVantaDB } from "vantadb-wasm";
 
 import { VantaError, wrapWasmError } from "./errors.js";
 import { isMemoryRecord } from "./guards.js";
+import { normalizeFilterItems, normalizeMetadata, normalizeValue } from "./metadata.js";
 
 import type {
   Capabilities,
@@ -22,6 +23,7 @@ import type {
   SearchHit,
   SearchRequest,
   VantaConfig,
+  VantaFlatValue,
   VantaMemoryFilterItem,
   VantaValue,
 } from "./types.js";
@@ -60,7 +62,7 @@ export interface GraphClient {
     id: number | bigint,
     content?: string,
     vector?: number[],
-    fields?: Record<string, VantaValue>,
+    fields?: Record<string, VantaFlatValue | VantaValue>,
   ): void;
   getNode(id: number): NodeRecord | null;
   deleteNode(id: number, reason?: string): void;
@@ -399,21 +401,30 @@ export class VantaDB {
    * @returns The stored record with system-generated fields populated.
    * @throws {VantaError} If the namespace or key is empty, or if the instance is closed.
    *
-   * @example
-   * ```ts
-   * const record = db.put({
-   *   namespace: "docs",
-   *   key: "welcome",
-   *   payload: "Hello, world!",
-   *   metadata: { source: { type: "String", value: "manual" } },
-   *   vector: [0.1, 0.2, 0.3],
-   * });
-   * console.log(record.version); // "1"
-   * ```
-   */
+    * @example
+    * ```ts
+    * // Plain JS values (preferred) — normalized internally to the wire form.
+    * const record = db.put({
+    *   namespace: "docs",
+    *   key: "welcome",
+    *   payload: "Hello, world!",
+    *   metadata: { source: "manual" },
+    *   vector: [0.1, 0.2, 0.3],
+    * });
+    * console.log(record.version); // "1"
+    * ```
+    */
   put(input: MemoryInput): MemoryRecord {
     this._assertOpen();
-    return this._wasm("put", () => _mapRecord(this.inner.put(input)));
+    return this._wasm("put", () => {
+      const wire = { ...input } as MemoryInput;
+      // Only set the key when present: an explicit `metadata: undefined`
+      // breaks the WASM deserializer (it is not the same as an absent field).
+      if (input.metadata !== undefined) {
+        wire.metadata = normalizeMetadata(input.metadata);
+      }
+      return _mapRecord(this.inner.put(wire));
+    });
   }
 
   /**
@@ -434,7 +445,14 @@ export class VantaDB {
   putBatch(inputs: MemoryInput[]): MemoryRecord[] {
     this._assertOpen();
     return this._wasm("putBatch", () => {
-      const records = this.inner.put_batch(inputs) as unknown[];
+      const normalized = inputs.map((i) => {
+        const wire = { ...i } as MemoryInput;
+        if (i.metadata !== undefined) {
+          wire.metadata = normalizeMetadata(i.metadata);
+        }
+        return wire;
+      });
+      const records = this.inner.put_batch(normalized) as unknown[];
       for (let i = 0; i < records.length; i++) {
         records[i] = _mapRecord(records[i]);
       }
@@ -519,7 +537,13 @@ export class VantaDB {
   list(namespace: string, options: ListOptions = {}): MemoryListPage {
     this._assertOpen();
     return this._wasm("list", () => {
-      const raw = this.inner.list(namespace, options);
+      const wire = { ...options } as ListOptions;
+      if (options.filters !== undefined) {
+        // Only set the key when present: an explicit `filters: undefined`
+        // breaks the WASM deserializer (not the same as an absent field).
+        wire.filters = normalizeMetadata(options.filters);
+      }
+      const raw = this.inner.list(namespace, wire);
       const items: unknown[] = raw.records ?? [];
       for (let i = 0; i < items.length; i++) {
         items[i] = _mapRecord(items[i]);
@@ -541,7 +565,7 @@ export class VantaDB {
     return {
       namespace: request.namespace,
       query_vector: request.query_vector,
-      filters: request.filters ?? {},
+      filters: normalizeMetadata(request.filters) ?? {},
       text_query: request.text_query ?? null,
       top_k: request.top_k ?? 10,
       distance_metric: request.distance_metric ?? "Cosine",
@@ -653,7 +677,7 @@ export class VantaDB {
    * ```ts
    * const report = db.exportNamespace("./export.jsonl", "docs");
    * const filtered = db.exportNamespace("./red.jsonl", "docs", [
-   *   { field: "color", op: "Eq", value: { String: "red" } },
+   *   { field: "color", op: "Eq", value: "red" },
    * ]);
    * ```
    */
@@ -665,7 +689,7 @@ export class VantaDB {
     this._assertOpen();
     return this._wasm("exportNamespace", () =>
       filter && filter.length > 0
-        ? this.inner.export_namespace_filtered(path, namespace, filter)
+        ? this.inner.export_namespace_filtered(path, namespace, normalizeFilterItems(filter))
         : this.inner.export_namespace(path, namespace),
     );
   }
@@ -678,7 +702,7 @@ export class VantaDB {
    *
    * ```ts
    * const deleted = db.deleteByFilter("docs", [
-   *   { field: "tier", op: "Eq", value: { String: "hot" } },
+   *   { field: "tier", op: "Eq", value: "hot" },
    * ]);
    * console.log(deleted); // 3n
    * ```
@@ -686,7 +710,7 @@ export class VantaDB {
   deleteByFilter(namespace: string, filter: VantaMemoryFilterItem[]): bigint {
     this._assertOpen();
     return this._wasm("deleteByFilter", () =>
-      this.inner.delete_by_filter(namespace, filter),
+      this.inner.delete_by_filter(namespace, normalizeFilterItems(filter)),
     );
   }
 
@@ -724,7 +748,17 @@ export class VantaDB {
    */
   importRecords(records: MemoryInput[]): ImportReport {
     this._assertOpen();
-    return this._wasm("importRecords", () => this.inner.import_records(records));
+    return this._wasm("importRecords", () =>
+      this.inner.import_records(
+        records.map((r) => {
+          const wire = { ...r } as MemoryInput;
+          if (r.metadata !== undefined) {
+            wire.metadata = normalizeMetadata(r.metadata);
+          }
+          return wire;
+        }),
+      ),
+    );
   }
 
   /**
@@ -928,14 +962,14 @@ export class VantaDB {
    *
    * @example
    * ```ts
-   * db.insertNode(1, "root", [0.1, 0.2], { tag: { type: "String", value: "important" } });
+   * db.insertNode(1, "root", [0.1, 0.2], { tag: "important" });
    * ```
    */
   insertNode(
     id: number | bigint,
     content?: string,
     vector?: number[],
-    fields: Record<string, VantaValue> = {},
+    fields: Record<string, VantaFlatValue | VantaValue> = {},
   ): void {
     this._assertOpen();
     if (typeof id === "number" && !Number.isSafeInteger(id)) {
@@ -944,12 +978,15 @@ export class VantaDB {
         `insertNode: id ${id} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
       );
     }
+    const normalizedFields = Object.fromEntries(
+      Object.entries(fields).map(([k, v]) => [k, normalizeValue(v)]),
+    );
     this._wasm("insertNode", () =>
       this.inner.insert_node(
         String(id),
         content ?? null,
         vector ? new Float32Array(vector) : null,
-        fields,
+        normalizedFields,
       ),
     );
   }

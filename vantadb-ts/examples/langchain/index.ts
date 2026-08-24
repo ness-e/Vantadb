@@ -8,7 +8,7 @@ async function main() {
     namespace: "langchain",
     key: "doc1",
     payload: "VantaDB is a vector-graph memory database for AI agents.",
-    metadata: { source: { type: "String", value: "docs" } },
+    metadata: { source: "docs" },
     vector: [0.1, 0.2, 0.3, 0.4], // would come from an embedding model
   });
 
@@ -31,7 +31,7 @@ async function main() {
     namespace: "conversation",
     key: "msg_001",
     payload: "User asked about vector databases",
-    metadata: { role: { type: "String", value: "system" } },
+    metadata: { role: "system" },
     vector: [0.5, 0.1, 0.8, 0.2],
   });
 

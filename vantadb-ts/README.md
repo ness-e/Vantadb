@@ -42,7 +42,7 @@ await db.put({
   namespace: "memories",
   key: "greeting",
   payload: "Hello, world!",
-  metadata: { lang: { String: "en" } },
+  metadata: { lang: "en" },
   vector: [0.1, 0.2, 0.3],
 });
 
@@ -57,6 +57,29 @@ console.log(hits[0].record.payload); // "Hello, world!"
 
 db.close();
 ```
+
+## Real Embeddings
+
+The examples above use toy vectors. Generate real ones with your own client —
+local [Ollama](https://ollama.com) or the OpenAI API — and pass them to
+`put()` / `search()`:
+
+```ts
+const res = await fetch("http://localhost:11434/api/embed", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ model: "nomic-embed-text", input: "Hello, world!" }),
+});
+const [vec] = (await res.json()).embeddings;
+
+await db.put({ namespace: "memories", key: "greeting", payload: "Hello, world!", vector: vec });
+const hits = await db.search({ namespace: "memories", query_vector: vec, top_k: 10 });
+console.log(hits[0].record.payload); // "Hello, world!"
+```
+
+Use one embedding model per namespace — stored and query vectors must share
+the same dimensionality. Full walkthrough:
+[QUICKSTART → Real Embeddings](../docs/QUICKSTART.md#4-real-embeddings-optional).
 
 ## API
 
