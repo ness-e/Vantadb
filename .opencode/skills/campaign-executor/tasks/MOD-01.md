@@ -1,6 +1,6 @@
 # MOD-01 — WAL escrito ANTES de validar → insert/update rechazado resucita datos tras restart
 
-> **Estado:** ⏳ IN PROGRESS · **Appetite:** max 1d · **Esfuerzo:** 🟡 · **Prioridad:** 🔴
+> **Estado:** ✅ COMPLETED · **Appetite:** max 1d · **Esfuerzo:** 🟡 · **Prioridad:** 🔴
 > **Plan:** docs/plans/2026-08-23-backlog-triage.md (Task 1, Wave 1) · NO editar el plan
 > **Workflow:** bug-fix · **Fuente:** docs/reviews/modulos/core.md H-1 + cross-modulos F-1
 > **Nota:** retry fresco — intento previo murió sin dejar trabajo (task file no existía, worktree limpio verificado)

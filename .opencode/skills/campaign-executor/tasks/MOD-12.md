@@ -1,6 +1,6 @@
 # MOD-12 — `ensure_indexes_current` ausente en path HTTP (text search rota DB fresca)
 
-> **Estado:** ⏳ IN PROGRESS · **Appetite:** max 2h · **Esfuerzo:** 🟢 · **Prioridad:** 🔴
+> **Estado:** ✅ COMPLETED · **Appetite:** max 2h · **Esfuerzo:** 🟢 · **Prioridad:** 🔴
 > **Plan:** docs/plans/2026-08-23-backlog-triage.md (Task 3, Wave 1)
 > **Workflow:** bug-fix · **Nota:** retry fresco — intento previo murió sin dejar trabajo (worktree limpio verificado)
 

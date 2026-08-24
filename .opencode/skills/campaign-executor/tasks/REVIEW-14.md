@@ -1,6 +1,6 @@
 # REVIEW-14 — Panics frágiles ante store corrupto (version_history) + unwraps frágiles (explain.rs)
 
-> **Estado:** ⏳ IN PROGRESS · **Appetite:** max 1h · 🟢 · Prioridad 🟢
+> **Estado:** ✅ COMPLETED · **Appetite:** max 1h · 🟢 · Prioridad 🟢
 > **Fuente:** review-full-20260822 H09-CODE-005 · Plan: `docs/plans/2026-08-23-backlog-triage.md` Task 11
 
 ## DISCOVERY (hecho, no asumido)

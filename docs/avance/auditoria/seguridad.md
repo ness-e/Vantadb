@@ -151,6 +151,10 @@ aliases: []
 ### FND-19: Auditoría Arc<Mutex<>> en todo el core (Fase 0) — migrado 2026-08-16 (ver docs/progreso/README.md)
 - **Resultado:** ✅ inventario en `docs/research/FND-19-arc-mutex-inventario.md`: 2 instancias `Arc<Mutex<>>` en core, 1 acción recomendada (ingestion canal). Commit `5df79635`.
 
+### FIND-07: refuse-to-start en host no-loopback sin API key
+- **Fecha:** 2026-08-23
+- **Resultado:** ✅ Política REFUSE-TO-START implementada. El server HTTP rechaza arrancar si bind host no-loopback (`0.0.0.0`, IPs externas, hostnames no-loopback; unresolvable → fail closed) sin `VANTADB_API_KEY`, con error accionable (3 vías de fix). Override dev explícito: flag CLI `--allow-insecure` loguea WARNING prominente y arranca igual. Loopback (`127.0.0.1`/`localhost`/`::1`) sigue arrancando en modo dev. Implementación: `is_loopback_host()` + extensión de `validate_auth_config()` (`src/cli_server.rs`), campo `VantaConfig.allow_insecure`, flag `Commands::Server --allow-insecure`. Tests: 8/8 en `cli_server::tests` (refuse/bypass/loopback + clasificación + regresión auth existente); módulo completo 54/54. Docs: `docs/api/HTTP_API.md` §Starting the Server. Contrato: cargo check ✅, clippy -D warnings ✅, nextest ✅.
+
 ---
 
 ## Prevención de breaking changes

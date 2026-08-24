@@ -1,6 +1,6 @@
 # CORE-02 — Bug IQL transporte WASM: graph-store vacío en modo standalone
 
-## Estado: ⏳ IN PROGRESS
+## Estado: ✅ COMPLETED
 
 - **Prioridad:** 🟠 · **Esfuerzo:** 🟡 · **Appetite:** max 1d · **Cynefin:** 🟧 complejo
 - **Plan:** docs/plans/2026-08-23-backlog-triage.md (Task 6)

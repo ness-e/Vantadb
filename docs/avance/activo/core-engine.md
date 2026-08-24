@@ -250,6 +250,12 @@ aliases: []
 - **Fecha:** 2026-07-27
 - **Resultado:** ✅ Formato `.vdbdump` (magic `VDBJSON\n` + version + count + serde_json body), `bulk_import_stream()`, `bulk_import_file()`, `bulk_commit_interval` en config. Python y WASM con wrappers `bulk_import()`/`bulk_import_bytes()`. 3 tests.
 
+### MOD-03: `trigger_compaction()` deja de ser stub
+- **Fecha:** 2026-08-24
+- **Objetivo:** El método público contaba tombstones y solo logueaba "offline compaction triggered" sin compactar (core.md M-1).
+- **Resultado:** ✅ Delega a `merge_segments()` (threshold configurado `vacuum_threshold_pct`, default 15%, antes 20% hardcodeado) que reescribe el VantaFile vía `compact_layout_bfs()`. API estable (`Result<()>`). Test nuevo disk-backed bytes-reclaim RED→GREEN. Suite 2052/2052.
+- **Commit:** `28ce0a57`
+
 ### TSK-107b: Audit logging enterprise (JSONL, timestamp + op)
 - **Fecha:** 2026-08-02
 - **Resultado:** ✅ `src/audit.rs`: `AuditEvent` + `AuditLogger` (append+flush por registro). `VantaConfig.audit_log_path` + env `VANTADB_AUDIT_LOG_PATH`. Hooks en put, put_batch, delete, delete_by_filter, export_namespace, export_all, import_file — todos vía `VantaEmbedded`. No-op si no está configurado. 1772 passed, 2 skipped; `tests/audit_log.rs` 3/3.

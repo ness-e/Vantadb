@@ -1,6 +1,6 @@
 # MOD-07 — Notifications JSON-RPC sin `id` rechazadas como -32700 espurio
 
-> **Estado:** ⏳ IN PROGRESS · **Appetite:** max 2h · **Esfuerzo:** 🟢 · **Prioridad:** 🔴
+> **Estado:** ✅ COMPLETED · **Appetite:** max 2h · **Esfuerzo:** 🟢 · **Prioridad:** 🔴
 > **Plan:** docs/plans/2026-08-23-backlog-triage.md (Task 2, Wave 1)
 > **Workflow:** bug-fix (localizing→planning→implementing→testing→review→accept→close)
 

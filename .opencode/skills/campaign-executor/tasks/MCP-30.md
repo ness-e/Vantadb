@@ -1,6 +1,6 @@
 # MCP-30 — Scenes API vía MCP: `scene_read`/`scene_list`/`scene_query`
 
-**Estado:** ⬜ PENDING · **Wave:** 3 (MCP, serial) · **Appetite:** max 4h · **Esfuerzo:** 🟢
+**Estado:** ✅ COMPLETED · **Wave:** 3 (MCP, serial) · **Appetite:** max 4h · **Esfuerzo:** 🟢
 
 ## Objetivo
 
@@ -71,12 +71,17 @@ Test round-trip con sesión seedada vía `upsert_scene`: `tools/list` registra l
 
 ## Steps
 
-- ⬜ S1: RED — `tests/scene_tests.rs` con round-trip completo (falla: tools no existen)
-- ⬜ S2: GREEN — `src/scenes.rs` + `lib.rs mod scenes` + 2 líneas en `handlers/tools.rs`
-- ⬜ S3: VERIFY full — fmt + clippy -D warnings + nextest -p vantadb-mcp
-- ⬜ S4: Docs — SKILL.md ×2 (hash SAME), references/api-reference.md ×2, docs/api/MCP.md
-- ⬜ S5: Commit conventional
+- ✅ S1: RED — `tests/scene_tests.rs` 7 round-trips (6 fallaron con "Tool not found" ✅ RED real)
+- ✅ S2: GREEN — `src/scenes.rs` (164L) + `lib.rs mod scenes` + 4 líneas en `handlers/tools.rs`
+- ✅ S3: VERIFY — fmt exit 0 · clippy -D warnings exit 0 · nextest -p vantadb-mcp **51/51** (44 previos + 7 nuevos)
+- ✅ S4: Docs — SKILL.md ×2 hash SAME, api-reference ×2, mcp-protocol ×2, MCP.md (60 tools/6 familias, parity script 0 gaps)
+- ✅ S5: Commit `d03b6517` (pre-commit hooks ok)
 
 ## Context Save Point
 
-(actualizar tras cada step)
+Tarea completa. Hallazgos de implementación: (1) el id de navegación en `scene_list` es
+`filename` (= scene_name sin extensión), no un campo `scene_name` — doc y tests alineados;
+(2) seed vía `upsert_scene()` pública, sin L0/LLM (pre-mortem confirmado); (3) `handle_tools_list()`
+toma 0 args. Colateral del worktree NO incluido en commit: cambios ajenos preexistentes
+(completions/, avance/, lessons.md, task files MCP-31/REVIEW-15/MOD-03). Próxima tarea wave W3
+serial: MCP-32 (threads CRUD).

@@ -1,6 +1,6 @@
 # MCP-31 — Context engine vía MCP: tool `context_assemble`
 
-**Estado:** ⏳ IN PROGRESS · **Wave:** 3 (MCP, serial) · **Appetite:** max 1d · **Esfuerzo:** 🟠
+**Estado:** ✅ COMPLETED · **Wave:** 3 (MCP, serial) · **Appetite:** max 1d · **Esfuerzo:** 🟠
 
 ## Objetivo
 
@@ -90,7 +90,8 @@ ctx = assemble_with_recall(messages, budget, &TokenEstimator::default(), 0, &Ass
 - ✅ Step 2 GREEN: `src/context.rs` + wire lib.rs/tools.rs → 7/7 verdes, suite completa 44/44
 - ✅ Step 3 DOCS: SKILL.md ×2 hash SAME + api-reference ×2 + mcp-protocol ×2 + docs/api/MCP.md
   (+ fix inline CONFIGURATION.md `allow_insecure` desbloqueando validate-docs-coverage 0 gaps)
-- ⬜ Step 4 VERIFY+CLOSURE: fmt ✅ · clippy ✅ · nextest 44/44 ✅ · docs-coverage ✅ · commit pending
+- ✅ Step 4 VERIFY+CLOSURE: fmt ✅ · clippy ✅ · nextest 44/44 ✅ · docs-coverage 0 gaps ✅ ·
+  commit `4d752f14` (pre-commit hooks ok)
 
 ## Context Save Point
 

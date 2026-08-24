@@ -8,10 +8,10 @@
 - **Tipo:** Rust (core, `src/node/vector_data.rs`)
 - **Turns estimados:** 6-8
 - **Creado:** 2026-08-23T00:00
-- **last-synced:** 2026-08-23T00:00
-- **Estado:** ⏳ IN PROGRESS
-- **Incógnitas (uphill):** 0 abiertas (elección align_to resuelta en discovery)
-- **Pendientes (downhill):** 4 steps
+- **last-synced:** 2026-08-23 (cierre)
+- **Estado:** ✅ COMPLETED
+- **Incógnitas (uphill):** 0 abiertas
+- **Pendientes (downhill):** 0 steps · FIND orquestador: sitios hermanos → Backlog
 
 ## Blast Radius
 
@@ -66,8 +66,24 @@
 
 ### Step 4: Commit + memoria
 - **Archivos:** `src/node/vector_data.rs`, `.opencode/skills/campaign-executor/tasks/REVIEW-15.md`
-- **Acción:** commit conventional `fix(core): REVIEW-15 ...` + lesson en memory
-- **Estado:** ⬜ PENDING
+- **Acción:** commit conventional + lesson en memory
+- **Verify:** commit `57090e0e` (hooks pre-commit fmt/clippy/actionlint OK) · lesson TSYS-15 escrita en `.opencode/task-system/memory/lessons.md`
+- **Estado:** ✅ COMPLETED
+
+---
+
+## Recitation final (canónica — plan file NO editado por instrucción del orquestador)
+
+```
+Campaign ID: 82c5ed20-2086-4619-b471-dbafeb63aead
+Objetivo activo: REVIEW-15: alineación garantizada en cast f32 de vector_data.rs — sin UB potencial
+Estado: completed
+Última acción: unsafe from_raw_parts reemplazado por align_to::<f32>() con guard length (elimina cast manual; SAFETY alineado al contrato oficial std) + test roundtrip MmapFull real; verify full verde; review P2-01 approve con hallazgo 🟡 refutado por evidencia; commit 57090e0e
+Resultado: OK
+Próxima acción: Ninguna para REVIEW-15. Orquestador continúa Wave 2 (REVIEW-08 h2 RUSTSEC o según prioridad)
+Contrato: verificacion: cargo fmt --check ✅ | cargo clippy -p vantadb --all-targets --all-features -- -D warnings ✅ | nextest -p vantadb vector_data 14/14 ✅ | nextest -E 'test(node::) or test(storage::)' 423/423 ✅ | nextest -p vantadb completo 2050/2050 ✅ | commit 57090e0e || evidencia || claim: el cast u8*→f32* sin prueba local de alineación fue eliminado → align_to garantiza alineación del slice medio por construcción (doc std 1.98) y guard aligned.len()!=len devuelve None ante desalineación imposible-hoy | confianza: alta || claim: comportamiento preservado en caso alcanzable → roundtrip MmapFull real 14/14 + suite completa 2050/2050 | confianza: alta || claim: review agente distinto aprobó → vanta-review ses_fcea2d310ffeKK31dDKDOovFuE, veredicto approve; su hallazgo #1 refutado con E0133 + doc oficial (documentado) | confianza: alta || artefactos: src/node/vector_data.rs, .opencode/skills/campaign-executor/tasks/REVIEW-15.md, commit 57090e0e || invariantes: firma pública sin cambios; sin unwrap nuevos en prod; único unsafe restante = wrapper mínimo sobre align_to con SAFETY exacto; Regla 6 saldo −1 unsafe manual || deuda: sitios hermanos con patrón idéntico (ivf.rs:69, mapper.rs:191, serialize/bytes.rs:136) requieren fila FIND-* en Backlog antes del cierre de campaña (hallazgo reviewer #2) || queda_pendiente: orquestador registra FIND (sitios hermanos align_to) en Backlog; plan file SIN editar (instrucción explícita) — actualizar Estado Task 12 desde esta recitation
+Próxima tarea si completa: REVIEW-08 (Wave 2)
+```
 
 ## Deuda técnica (Regla 6)
 Saldo: **−1 unsafe** (se elimina el único bloque unsafe de `as_f32_slice`; ningún unsafe nuevo). Moneda de pago no requerida — saldo negativo directo.
