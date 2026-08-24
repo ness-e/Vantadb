@@ -93,8 +93,24 @@ wal→nodes en orden inverso (lectores nunca tocan WAL).
   en WAL append-only.
 - GREEN: test_mod01 4/4 PASS · engine+storage tests 342/342 PASS.
 
-### Step 3 ⬜ PENDING — Verify full + commit + cierre
+### Step 3 ✅ DONE — Verify full + commit + cierre
+- `cargo fmt --check` ✅ · `cargo clippy --workspace --all-targets --all-features -D warnings` ✅
+- Contrato: `cargo nextest run -p vantadb` = **2049/2049** PASS (1 skipped preexistente)
+- Verify full: `cargo nextest run --profile audit --workspace --build-jobs 2` = **2718/2718** PASS
+- `scripts/validate-docs-coverage.ps1` = 0 gaps ✅
+- SECURITY: sin deps nuevas (cargo audit N/A) · sin unsafe · errores via Result/VantaError
+  (0 unwraps nuevos en prod) · el fix MEJORA la validación en trust boundary de persistencia.
+- PERFORMANCE: sin claim (Regla 9). canonical_p99 mide StorageEngine — archivo NO tocado;
+  el cambio de orden en el motor legacy es requerido por corrección, efecto throughput
+  no afirmado en ninguna dirección.
+- Commit: `18fd2c80` `fix(core): MOD-01 valida antes de escribir WAL — insert/update rechazado no resucita datos`
+  (pre-commit hooks fmt/clippy/actionlint ok; excluidos del commit: completions/* drift ajeno + plan file).
 
 ## Context Save Point
 
-- (vacío — tarea en curso)
+- Tarea COMPLETA — sin trabajo pendiente.
+- Deuda relacionada NO introducida (preexistente, candidatos a Backlog): N-1 sugiere
+  deprecar InMemoryEngine hacia StorageEngine (~850 líneas, elimina la clase entera);
+  replay sigue aplicando Insert/Update como upsert incondicional (defense-in-depth:
+  filtrar WALs ya-corrompidos en recovery es cambio de semántica aparte, no hecho).
+- Nota: los tests viven en engine::tests (perfil default) — corren en Fast Gate.
