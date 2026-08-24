@@ -3,24 +3,24 @@ title: Reddit Launch Posts — VantaDB
 type: marketing
 status: draft
 tags: [vantadb, launch, reddit, marketing]
-last_reviewed: 2026-07-27
+last_reviewed: 2026-08-23
 ---
 
 # Reddit Launch Posts
 
 > **Task:** MKT-04 — Reddit posts for r/rust, r/MachineLearning, r/LocalLLaMA
 > **Effort:** 🟢 2-4h
-> **Estado 2026-08-17:** 3 drafts completos (abajo), **NO publicados** — `status: draft`. Publicación pendiente (→ `MKT-04` en backlog). **⚠️ Corregir antes de publicar:** los 3 posts citan "recall@10 >0.998 on SIFT1M" y "zero deps" — verificar vs evidencia real (`docs/strategy/SHOW_HN_PREP.md` nota 2026-08-17: 0.9975 @ ef_400 en SIFT 10K, `croaring` compila C/C++).
+> **Estado 2026-08-23 (MKT-18g):** 3 drafts completos (abajo), **NO publicados** — `status: draft`. Publicación pendiente (→ `MKT-04` en backlog). **⚠️ Claims corregidos antes de publicar:** "zero deps"/"pure Rust" eran falsos — `croaring` (via `croaring-sys`/`cc`) compila C/C++ en build (feature `roaring`, en default). Los números SIFT1M/sub-ms no están verificados a esa escala: lo medido es recall@10 **0.9975 @ ef_400 en dataset sintético 10K×128d** (`benches/hnsw_recall_ef.rs`) y p50 ~1.2 ms @ 10K (`docs/operations/BENCHMARKS.md` §1); ver nota completa en `docs/strategy/SHOW_HN_PREP.md`.
 
 ---
 
 ## 1. r/rust — Technical Deep Dive
 
-**Title:** VantaDB — Embedded hybrid (BM25 + HNSW) search engine in Rust, zero deps
+**Title:** VantaDB — Embedded hybrid (BM25 + HNSW) search engine in Rust
 
 **Post:**
 
-Over the past few months I've been building [VantaDB](https://github.com/ness-e/Vantadb), an embedded hybrid search engine in pure Rust. Think SQLite-for-vectors: a single library you link, no server, no external deps.
+Over the past few months I've been building [VantaDB](https://github.com/ness-e/Vantadb), an embedded hybrid search engine in Rust. Think SQLite-for-vectors: a single library you link, no server, no containers.
 
 **Why Rust?** Because every existing embedded vector store (Chroma, etc.) is Python-first with C++ under the hood, making cross-platform distribution a nightmare. Rust gives us:
 - Static linking via PyO3 → `pip install` that works on Windows/Mac/Linux with zero toolchain
@@ -34,7 +34,7 @@ Over the past few months I've been building [VantaDB](https://github.com/ness-e/
 - Volcano-style CBO planner that pushes down relational filters before graph traversal
 - RRF fusion for deterministic hybrid ranking
 
-**The numbers:** recall@10 >0.998 on SIFT1M, sub-ms core search, cross-platform Python wheels. *(⚠️ 2026-08-17: ver nota arriba — los números SIFT1M/sub-ms no están verificados a esa escala; corregir antes de publicar.)*
+**The numbers:** recall@10 up to **0.998–1.00** measured at 10K–50K scale (stress protocol, `docs/operations/BENCHMARKS.md` §1), ~1.2 ms p50 core search at 10K vectors (same source), cross-platform Python wheels. *(⚠️ MKT-18g: el claim original "recall@10 >0.998 on SIFT1M, sub-ms core search" no está verificado a escala SIFT1M — no usar sin correr ese benchmark. [TO VERIFY: SIFT1M])*
 
 **Code:** https://github.com/ness-e/Vantadb (Apache 2.0)
 
@@ -65,7 +65,7 @@ results = db.search_memory(namespace="chat", query_vector=[...], text_query="hel
 
 **Key features:**
 - Apache 2.0, fully open source
-- Zero deps embedded — no server, no containers
+- Embedded — no server, no containers, single `pip install`
 - Hybrid search (BM25 lexical + HNSW vector + metadata filters)
 - GIL-released batch search via Rayon
 - WAL with CRC32C + automated chaos testing
@@ -99,7 +99,7 @@ I built [VantaDB](https://github.com/ness-e/Vantadb) for exactly this use case.
 - GIL-released for multi-threaded batch search
 - Crash recovery tested with injected failpoints at WAL/storage/HNSW levels
 
-**Stack:** Pure Rust → PyO3 bindings → Python SDK (WASM/TS SDK also available)
+**Stack:** Rust core → PyO3 bindings → Python SDK (WASM/TS SDK also available)
 
 **Repo:** https://github.com/ness-e/Vantadb (Apache 2.0)
 
