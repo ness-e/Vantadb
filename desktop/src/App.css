@@ -4,43 +4,57 @@
    across ImportPaste/ImportDrop/Inspector/RetrievalLens/WorkspaceShell rely on
    them; delete once every consumer carries explicit classes.
    NOTE: the legacy :root palette overrides (--muted:#3A3A3A etc.) were removed
-   with DESKTOP-28 — index.css :root tokens are now authoritative app-wide. */
+   with DESKTOP-28 — index.css :root tokens are now authoritative app-wide.
+   FIX-D1: all colors now use theme-flipping tokens (var(--background),
+   var(--border), var(--ink-shadow)…) — body no longer stays cream in dark
+   mode and the button hard shadow is visible on both themes.
+   FIX-D2: font-family lives ONLY in index.css (:root stacks + base body
+   Geist sans); Space Mono is opt-in via .font-tech/label-tech. */
 :root {
-  font-family: "Space Mono", "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
   font-size: 15px;
   line-height: 1.5;
 }
 
+/* App fills the viewport — #root is the only child of <body> (index.html);
+   the shell handles its own padding. Tokens flip with .dark. */
 body {
   margin: 0;
-  padding: 24px;
-  background-color: #FBF9F5;
-  color: #000000;
+  padding: 0;
+  background-color: var(--background);
+  color: var(--foreground);
 }
 
 /* @layer base: Tailwind v4 emite utilidades en @layer utilities; reglas
    unlayered pisan CUALQUIER utilidad sin importar especificidad (pl-10 vs
    input{padding:8px 10px} cortaba el placeholder del buscador). En base,
-   las utilidades ganan y los inputs desnudos conservan su fallback. */
+   las utilidades ganan y los inputs desnudos conservan su fallback.
+   FIX-D1: tokens que voltean con .dark (antes #FBF9F5/#000 fijos). */
 @layer base {
   input, textarea, button {
     font: inherit;
     border-radius: 0;
-    border: 2px solid #000;
-    background: #FBF9F5;
-    color: #000;
+    border: 2px solid var(--border);
+    background: var(--background);
+    color: var(--foreground);
     padding: 8px 10px;
   }
   textarea { resize: vertical; }
-  input:focus, textarea:focus { outline: 3px solid #FF5500; outline-offset: 1px; border-color: #000; }
+  input:focus, textarea:focus {
+    outline: 3px solid var(--accent);
+    outline-offset: 1px;
+    border-color: var(--border);
+  }
 }
 
-/* Press effect — physical push on paper (globals.css .press) */
+/* Press effect — physical push on paper (FIX-D1: sombra dura via
+   --ink-shadow: negra en claro, crema en oscuro; antes #000 fijo,
+   invisible sobre fondo negro). Se mantiene global/unlayered para no
+   alterar los ~25 consumers desnudos; TitleBar incluido por ahora. */
 button {
   cursor: pointer;
   transition: transform 90ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 90ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  box-shadow: 4px 4px 0 0 #000;
+  box-shadow: 4px 4px 0 0 var(--ink-shadow);
 }
-button:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 0 #000; }
-button:active { transform: translate(4px, 4px); box-shadow: 0 0 0 0 #000; }
+button:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 0 var(--ink-shadow); }
+button:active { transform: translate(4px, 4px); box-shadow: 0 0 0 0 var(--ink-shadow); }
 button:disabled { opacity: 0.5; cursor: default; }

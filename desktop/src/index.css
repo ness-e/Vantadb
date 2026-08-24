@@ -246,6 +246,15 @@
 @utility shadow-ink-sm {
   box-shadow: 3px 3px 0 0 var(--ink-shadow);
 }
+/* Label técnico de sección — reemplaza font-tech text-[10px] uppercase
+   tracking-widest repetido 15+ veces (auditoría shell P2). 11px mínimo
+   legible en Space Mono. */
+@utility label-tech {
+  font-family: var(--font-space-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
 
 @layer base {
   * {
@@ -375,10 +384,6 @@
     letter-spacing: -0.02em;
     line-height: 0.9;
   }
-  .text-outline-neon {
-    -webkit-text-stroke: 2px #FF5500;
-    color: transparent;
-  }
 
   /* Custom scrollbar (manga style) */
   .scroll-manga {
@@ -432,6 +437,36 @@
   .dark .halftone {
     background-image: radial-gradient(circle, #FBF9F5 1.4px, transparent 1.6px);
   }
+  /* FIX-D10: decoración rgba(0,0,0,…) invisible sobre #0a0a0a → crema a la
+     misma opacidad relativa (grid 0.06→0.08 · speed-lines 0.55→0.5 ·
+     radial 0.4→0.35). */
+  .dark .grid-tech {
+    background-image:
+      linear-gradient(to right, rgba(251, 249, 245, 0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(251, 249, 245, 0.08) 1px, transparent 1px);
+  }
+  .dark .speed-lines {
+    background-image: repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 8px,
+      rgba(251, 249, 245, 0.5) 8px,
+      rgba(251, 249, 245, 0.5) 9px,
+      transparent 9px,
+      transparent 24px
+    );
+  }
+  .dark .speed-lines-radial {
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      transparent 6deg,
+      rgba(251, 249, 245, 0.35) 6deg,
+      rgba(251, 249, 245, 0.35) 7deg,
+      transparent 7deg,
+      transparent 18deg
+    );
+  }
   .dark .scroll-manga {
     scrollbar-color: #FBF9F5 #0a0a0a;
   }
@@ -463,37 +498,8 @@
 }
 
 /* ============================================================
-   Animations (replicated from globals.css)
+   Animations
    ============================================================ */
-@keyframes vanta-marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-.animate-marquee {
-  animation: vanta-marquee 28s linear infinite;
-}
-
-@keyframes vanta-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
-}
-.animate-blink {
-  animation: vanta-blink 1.1s step-end infinite;
-}
-
-@keyframes vanta-flicker {
-  0%, 100% { opacity: 1; }
-  43% { opacity: 1; }
-  45% { opacity: 0.4; }
-  47% { opacity: 1; }
-  92% { opacity: 1; }
-  94% { opacity: 0.6; }
-  96% { opacity: 1; }
-}
-.animate-flicker {
-  animation: vanta-flicker 4.5s linear infinite;
-}
-
 @keyframes vanta-rise {
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
@@ -597,80 +603,11 @@
 }
 
 /* ============================================================
-   ENHANCED STYLING — gradient accents, glow effects, textures
+   ENHANCED STYLING — neon pulse button hover
+   (FIX-D9: glow-neon/glow-box-neon/glitch-hover/neon-underline/
+   scanlines/text-outline-neon/animated-gradient-border eliminados,
+   0 usos verificados en *.tsx.)
    ============================================================ */
-
-/* Neon glow text effect */
-.glow-neon {
-  text-shadow: 0 0 8px rgba(255, 85, 0, 0.6), 0 0 16px rgba(255, 85, 0, 0.3);
-}
-
-/* Neon glow box effect */
-.glow-box-neon {
-  box-shadow: 0 0 0 0 rgba(255, 85, 0, 0.4);
-  animation: vanta-glow-pulse 2.5s ease-in-out infinite;
-}
-@keyframes vanta-glow-pulse {
-  0%, 100% { box-shadow: 0 0 5px 0 rgba(255, 85, 0, 0.3); }
-  50% { box-shadow: 0 0 20px 4px rgba(255, 85, 0, 0.5); }
-}
-
-/* Glitch effect (for hover on titles) */
-.glitch-hover {
-  position: relative;
-  transition: text-shadow 150ms ease;
-}
-.glitch-hover:hover {
-  text-shadow: 2px 0 #FF5500, -2px 0 #7ec7ff;
-  animation: vanta-glitch 300ms steps(2) 1;
-}
-@keyframes vanta-glitch {
-  0% { transform: translate(0); }
-  25% { transform: translate(-1px, 1px); }
-  50% { transform: translate(1px, -1px); }
-  75% { transform: translate(-1px, -1px); }
-  100% { transform: translate(0); }
-}
-
-/* Neon underline (animated accent on text hover) */
-.neon-underline {
-  position: relative;
-  display: inline;
-}
-.neon-underline::after {
-  content: "";
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  width: 0;
-  height: 3px;
-  background: #FF5500;
-  transition: width var(--duration-slow) var(--ease-default);
-}
-.neon-underline:hover::after {
-  width: 100%;
-}
-
-/* Scanlines overlay (CRT / manga print effect) */
-.scanlines {
-  position: relative;
-}
-.scanlines::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent 0px,
-    transparent 2px,
-    rgba(0, 0, 0, 0.03) 2px,
-    rgba(0, 0, 0, 0.03) 4px
-  );
-  z-index: 1;
-}
-
-/* Neon pulse button hover */
 .btn-neon-glow {
   position: relative;
   overflow: hidden;
@@ -694,18 +631,6 @@
 .btn-neon-glow:active {
   transform: translate(6px, 6px);
   box-shadow: 0 0 0 0 transparent;
-}
-
-/* Animated gradient border (for footer top / dividers) */
-@keyframes vanta-gradient-border {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
-}
-.animated-gradient-border {
-  height: 4px;
-  background: linear-gradient(90deg, #FF5500 0%, #000 25%, #FF5500 50%, #000 75%, #FF5500 100%);
-  background-size: 200% 100%;
-  animation: vanta-gradient-border 3s linear infinite;
 }
 
 /* Section divider: ink splash with speed lines */
@@ -736,16 +661,10 @@
   z-index: 1;
 }
 
-/* Floating label animation */
-@keyframes vanta-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
-.animate-float {
-  animation: vanta-float 3s ease-in-out infinite;
-}
-
-/* Stagger children entrance */
+/* Stagger children entrance — ceiling: explicit nth-child(1..12) @ 80ms.
+   ponytail: >12 children get no delay (they all animate at 880ms+);
+   switch to a stagger library or CSS `animation-delay: calc()` with
+   --i custom property if a container ever needs more. */
 .stagger-children > * {
   opacity: 0;
   animation: vanta-rise 0.4s var(--ease-default) forwards;
@@ -756,6 +675,12 @@
 .stagger-children > *:nth-child(4) { animation-delay: 240ms; }
 .stagger-children > *:nth-child(5) { animation-delay: 320ms; }
 .stagger-children > *:nth-child(6) { animation-delay: 400ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 480ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 560ms; }
+.stagger-children > *:nth-child(9) { animation-delay: 640ms; }
+.stagger-children > *:nth-child(10) { animation-delay: 720ms; }
+.stagger-children > *:nth-child(11) { animation-delay: 800ms; }
+.stagger-children > *:nth-child(12) { animation-delay: 880ms; }
 
 /* ============================================================
    FIND-24 — WCAG AA CONTRAST AUDIT (measured 2026-08-23)
@@ -797,37 +722,6 @@
    Decorative-only colors (charts, halftone, glow, speed-lines,
    press shadows) are exempt from text contrast rules.
    ============================================================ */
-/* ============================================================
-   SplashScreen (FIND-23) — cold-start intro, pure CSS.
-   prefers-reduced-motion: entrance animations disabled; the
-   timer/click dismissal still applies.
-   ============================================================ */
-@media (prefers-reduced-motion: no-preference) {
-  .splash-root {
-    animation: splash-fade 0.35s ease-out;
-  }
-  .splash-mark {
-    animation: splash-pop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2);
-  }
-  .splash-title {
-    animation: splash-rise 0.5s ease-out 0.25s backwards;
-  }
-  .splash-sub {
-    animation: splash-rise 0.5s ease-out 0.45s backwards;
-  }
-}
-@keyframes splash-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes splash-pop {
-  from { opacity: 0; transform: scale(0.85); }
-  to { opacity: 1; transform: scale(1); }
-}
-@keyframes splash-rise {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 /* ============================================================
    SplashScreen (FIND-23) — cold-start intro, pure CSS.
    One motion language: transform/opacity only. Staggered entrance
