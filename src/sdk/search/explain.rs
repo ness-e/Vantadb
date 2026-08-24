@@ -24,14 +24,15 @@ impl VantaEmbedded {
             .map(str::trim)
             .filter(|text| !text.is_empty());
         let mut has_vector = !request.query_vector.is_empty();
-        let mut has_sparse = request
-            .query_sparse
-            .as_ref()
-            .is_some_and(|sparse| !sparse.is_empty());
+        // REVIEW-14: bind the Option itself so the match arms pattern-match
+        // `Some(sparse)` instead of force-unwrapping a bool-derived invariant.
+        // Keyword mode nulls the Option (not just a flag) to keep the
+        // "sparse disabled" semantics structural.
+        let mut query_sparse = request.query_sparse.as_ref();
         match mode {
             SearchProfileMode::Keyword => {
                 has_vector = false;
-                has_sparse = false;
+                query_sparse = None;
             }
             SearchProfileMode::Vector => {
                 text_query = None;
@@ -54,7 +55,7 @@ impl VantaEmbedded {
             BTreeMap<(String, String), usize>,
             BTreeMap<(String, String), usize>,
             Option<VantaHybridFusionReport>,
-        ) = match (text_query, has_vector, has_sparse) {
+        ) = match (text_query, has_vector, query_sparse) {
             (Some(text_query), true, _) => {
                 let budget = crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
                 let lexical_hits =
@@ -69,7 +70,7 @@ impl VantaEmbedded {
                 )?;
                 let text_ranks = debug::rank_map(&lexical_hits);
                 let vector_ranks = debug::rank_map(&vector_hits);
-                let (mut hits, report) = match request.query_sparse.as_ref() {
+                let (mut hits, report) = match query_sparse {
                     Some(query_sparse) if !query_sparse.is_empty() => {
                         let sparse_hits = self.sparse_memory_search(
                             &request.namespace,
@@ -94,13 +95,13 @@ impl VantaEmbedded {
                 hits.truncate(request.top_k);
                 ("hybrid".to_string(), hits, text_ranks, vector_ranks, report)
             }
-            (Some(text_query), false, true) => {
+            (Some(text_query), false, Some(query_sparse)) if !query_sparse.is_empty() => {
                 let budget = crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
                 let lexical_hits =
                     self.lexical_search(&request.namespace, text_query, &request.filters, budget)?;
                 let sparse_hits = self.sparse_memory_search(
                     &request.namespace,
-                    request.query_sparse.as_ref().unwrap(),
+                    query_sparse,
                     &request.filters,
                     budget,
                 )?;
@@ -132,7 +133,7 @@ impl VantaEmbedded {
                     None,
                 )
             }
-            (None, true, true) => {
+            (None, true, Some(query_sparse)) if !query_sparse.is_empty() => {
                 let budget = crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
                 let vector_hits = self.vector_memory_search(
                     &request.namespace,
@@ -144,7 +145,7 @@ impl VantaEmbedded {
                 )?;
                 let sparse_hits = self.sparse_memory_search(
                     &request.namespace,
-                    request.query_sparse.as_ref().unwrap(),
+                    query_sparse,
                     &request.filters,
                     budget,
                 )?;
@@ -177,10 +178,10 @@ impl VantaEmbedded {
                     None,
                 )
             }
-            (None, false, true) => {
+            (None, false, Some(query_sparse)) if !query_sparse.is_empty() => {
                 let hits = self.sparse_memory_search(
                     &request.namespace,
-                    request.query_sparse.as_ref().unwrap(),
+                    query_sparse,
                     &request.filters,
                     request.top_k,
                 )?;

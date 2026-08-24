@@ -45,6 +45,24 @@ pub(crate) fn version_prefix(namespace: &str, key: &str) -> Vec<u8> {
     k
 }
 
+/// Extract the trailing big-endian version from a Versions-partition key.
+///
+/// Keys are only ever produced by [`version_key`] from already-validated
+/// namespace/key strings, so a key shorter than the trailer can only come
+/// from store corruption (`BackendError`) — never user input.
+pub(crate) fn version_from_key(key: &[u8]) -> Result<u64> {
+    let trailer = key.len().checked_sub(VERSION_LEN).ok_or_else(|| {
+        VantaError::backend_error(format!(
+            "version-history key missing its {VERSION_LEN}-byte version trailer (len={})",
+            key.len()
+        ))
+    })?;
+    let bytes: [u8; VERSION_LEN] = key[trailer..]
+        .try_into()
+        .map_err(|_| VantaError::backend_error("malformed version-history key trailer"))?;
+    Ok(u64::from_be_bytes(bytes))
+}
+
 /// Postcard-safe mirror of [`VantaMemoryRecord`].
 ///
 /// The public record carries `node_id: u128` through `u128_serde`, whose
@@ -222,7 +240,12 @@ pub(crate) fn versions(
     let entries = engine.scan_partition_prefix(BackendPartition::Versions, &prefix)?;
     entries
         .into_iter()
-        .map(|(_, bytes)| decode_snapshot(&bytes))
+        .map(|(key, bytes)| {
+            // REVIEW-14: a truncated key can only mean store corruption —
+            // surface it as a typed error instead of silently decoding.
+            version_from_key(&key)?;
+            decode_snapshot(&bytes)
+        })
         .collect()
 }
 
@@ -280,12 +303,31 @@ mod tests {
         let p = version_prefix("docs", "greeting");
         assert!(k.starts_with(&p));
         // trailing 8 bytes = version BE
-        let ver = u64::from_be_bytes(k[k.len() - 8..].try_into().unwrap());
+        let ver = version_from_key(&k).expect("trailing big-endian version");
         assert_eq!(ver, 1);
         // prefixes are unambiguous: "a" vs "ab" keys do not collide
         let ka = version_prefix("ns", "a");
         let kab = version_prefix("ns", "ab");
         assert!(!kab.starts_with(&ka) || kab.len() != ka.len() + 1);
+    }
+
+    #[test]
+    fn short_versions_partition_key_returns_corruption_error_not_panic() {
+        // REVIEW-14 / H09-CODE-005: a truncated Versions-partition key can only
+        // come from a corrupted store — must surface a typed corruption error,
+        // never panic on an out-of-range slice.
+        for len in 0..VERSION_LEN {
+            let err = version_from_key(&vec![0xAB_u8; len]).unwrap_err();
+            assert!(
+                matches!(err, VantaError::BackendError(_)),
+                "expected BackendError for len={len}, got {err:?}"
+            );
+        }
+        // Boundary: exactly VERSION_LEN bytes decodes as pure big-endian.
+        assert_eq!(
+            version_from_key(&7u64.to_be_bytes()).expect("8-byte key"),
+            7
+        );
     }
 
     #[test]
