@@ -12,7 +12,12 @@ import WorkspaceShell from "./components/layout/WorkspaceShell";
 function App() {
   const [state, actions] = useConnectionState();
   const [notice, setNotice] = useState<string | null>(null);
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
+  // FIND-22: initial state mirrors what main.tsx already applied (stored
+  // choice or OS preference); toggle records an explicit manual choice which
+  // stops OS-following.
+  const [dark, setDark] = useState(() =>
+    document.documentElement.classList.contains("dark"),
+  );
 
   function toggleTheme() {
     const next = !dark;

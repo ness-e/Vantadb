@@ -340,6 +340,7 @@ Historical material moved out of the main tree: [`archive/`](archive/) (incl. ar
 | [COMPARISON.md](COMPARISON.md) | Honest comparison vs sqlite-vec / LanceDB / Qdrant / Chroma — qualitative table, benchmark provenance per Regla 11, practical limits |
 | [ci-cd-guide.md](ci-cd-guide.md) | CI/CD setup and operations guide |
 | [README.md](README.md) | Documentation landing page and reading guide |
+| [../desktop/DESIGN_DECISIONS.md](../desktop/DESIGN_DECISIONS.md) | Studio design decisions: token decoupling, light-only web, WCAG palette |
 
 ---
 
