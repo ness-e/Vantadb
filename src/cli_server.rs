@@ -13,9 +13,9 @@ use crate::connection_pool::{ConnectionPool, PoolError};
 use crate::entity::EntityStore;
 use crate::error::ChainedError;
 use crate::sdk::{
-    VantaEmbedded, VantaMemoryFilter, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryRecord,
-    VantaMemorySearchHit, VantaMemorySearchRequest, VantaNamespaceStatsMap,
-    VantaOperationalMetrics,
+    VantaEmbedded, VantaMemoryFilter, VantaMemoryInput, VantaMemoryListOptions,
+    VantaMemoryListPage, VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest,
+    VantaNamespaceStatsMap, VantaOperationalMetrics,
 };
 use crate::VantaError;
 use lru::LruCache;
@@ -1267,13 +1267,15 @@ async fn records_list(
     State(state): State<Arc<ServerState>>,
     Query(params): Query<ListParams>,
 ) -> Response {
-    // La consola web lista sin namespace (HomeOverview/sidebar/grid) — el bridge
-    // nativo (desktop/src-tauri/connections/native.rs) defaulta vacío a "default".
-    // Alinear el wire REST para que el modo embebido se comporte igual que Tauri.
-    let ns = match params.namespace.as_deref() {
-        Some(n) if !n.trim().is_empty() => n.to_string(),
-        _ => "default".to_string(),
-    };
+    // Sin namespace → agregar TODOS los namespaces (orden estable: nombre asc).
+    // Antes defaulteaba a "default" y el grid/paleta de la consola mostraba
+    // "Sin registros" con datos presentes en otros namespaces.
+    let all_namespaces = params
+        .namespace
+        .as_deref()
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+        .is_none();
     let filter_ops = match params.filter_ops.as_deref() {
         None => None,
         Some(raw) => match serde_json::from_str::<VantaMemoryFilter>(raw) {
@@ -1290,10 +1292,47 @@ async fn records_list(
             }
         },
     };
+    let limit = params.limit.unwrap_or(100);
+    let cursor = params.cursor;
+    if all_namespaces {
+        // ponytail: fan-out por namespace con tope generoso por ns y merge
+        // client-side del cursor — suficiente para consolas embebidas; un
+        // cursor server-side intercalado requiere soporte del SDK.
+        const NS_CAP: usize = 10_000;
+        let options_for = move |ns: String| VantaMemoryListOptions {
+            filter_ops: filter_ops.clone(),
+            limit: NS_CAP,
+            cursor: None,
+            ..Default::default()
+        };
+        return match run_db_op(&state, move |db| {
+            let mut names: Vec<String> = db.namespace_stats(None)?.keys().cloned().collect();
+            names.sort();
+            let mut records = Vec::new();
+            for ns in names {
+                let page = db.list(&ns, options_for(ns.clone()))?;
+                records.extend(page.records);
+            }
+            let start = cursor.unwrap_or(0).min(records.len());
+            let end = (start + limit).min(records.len());
+            let window = records[start..end].to_vec();
+            let next_cursor = (end < records.len()).then_some(end);
+            Ok::<_, VantaError>(VantaMemoryListPage {
+                records: window,
+                next_cursor,
+            })
+        })
+        .await
+        {
+            Ok(page) => Json(page).into_response(),
+            Err(resp) => resp,
+        };
+    }
+    let ns = params.namespace.unwrap_or_default();
     let options = VantaMemoryListOptions {
         filter_ops,
-        limit: params.limit.unwrap_or(100),
-        cursor: params.cursor,
+        limit,
+        cursor,
         ..Default::default()
     };
     match run_db_op(&state, move |db| db.list(&ns, options)).await {
@@ -1331,11 +1370,11 @@ async fn records_search(
     State(state): State<Arc<ServerState>>,
     Json(page_request): Json<SearchPageRequest>,
 ) -> Response {
-    // La Topbar de la consola web busca sin namespace — mismo default que list.
+    // La Topbar de la consola web busca sin namespace → search_all (todos los
+    // namespaces, merge por score). Antes defaulteaba a "default" y la búsqueda
+    // global ignoraba silenciosamente todo lo ingerido en otros namespaces.
     let mut request = page_request.request;
-    if request.namespace.trim().is_empty() {
-        request.namespace = "default".to_string();
-    }
+    let all_namespaces = request.namespace.trim().is_empty();
     // Paginación offset (REST-04): el core `search()` es una ventana top_k sin
     // cursor propio, así que el server traduce cursor/limit → top_k+1 (un extra
     // para saber si hay más página) y recorta. Los resultados se ordenan por
@@ -1343,7 +1382,15 @@ async fn records_search(
     let page_size = page_request.limit.unwrap_or(request.top_k.max(1));
     let cursor = page_request.cursor.unwrap_or(0);
     request.top_k = cursor.saturating_add(page_size).saturating_add(1);
-    match run_db_op(&state, move |db| db.search(request)).await {
+    match run_db_op(&state, move |db| {
+        if all_namespaces {
+            db.search_all(request)
+        } else {
+            db.search(request)
+        }
+    })
+    .await
+    {
         Ok(hits) => {
             let start = cursor.min(hits.len());
             let end = (start + page_size).min(hits.len());
@@ -3626,6 +3673,84 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn v2_list_and_search_without_namespace_aggregate_all() {
+        // Regresión: la consola (grid MEMORIAS + búsqueda global) llama list/
+        // search SIN namespace esperando ver TODOS los registros. Antes el
+        // server defaulteaba a "default" y mostraba "Sin registros" con datos
+        // presentes en otros namespaces.
+        let cfg = VantaConfig {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(cfg)).unwrap());
+        let db = VantaEmbedded::from_engine(storage.clone());
+        let state = Arc::new(ServerState {
+            storage,
+            db,
+            circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+            pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+            api_key: None,
+            rbac_config: RbacConfig::default(),
+            trusted_proxies: Vec::new(),
+            conversation_trigger: None,
+        });
+        let addr = spawn_app(app(state, 0)).await;
+
+        for (ns, key) in [("alpha", "a1"), ("alpha", "a2"), ("beta", "b1")] {
+            let body = format!(
+                r#"{{"namespace":"{ns}","key":"{key}","payload":"p-{key}","metadata":{{}},"vector":[1.0,0.0,0.0],"ttl_ms":null}}"#
+            );
+            let (status, resp) = parse_response(
+                &raw_request(addr, json_request("POST", "/api/v2/records", addr, &body)).await,
+            );
+            assert_eq!(status, 201, "put {ns}/{key}: {resp}");
+        }
+
+        // LIST sin namespace → los 3 registros de ambos namespaces.
+        let (status, body) = raw_get(addr, "/api/v2/list").await;
+        assert_eq!(status, 200, "list all: {body}");
+        let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+        let records = page["records"].as_array().unwrap();
+        assert_eq!(
+            records.len(),
+            3,
+            "list sin namespace debe agregar todos: {body}"
+        );
+        let namespaces: Vec<&str> = records
+            .iter()
+            .map(|r| r["namespace"].as_str().unwrap())
+            .collect();
+        assert!(namespaces.contains(&"alpha") && namespaces.contains(&"beta"));
+
+        // LIST con namespace explícito sigue filtrando (sin cambio de contrato).
+        let (status, body) = raw_get(addr, "/api/v2/list?namespace=beta").await;
+        assert_eq!(status, 200, "list beta: {body}");
+        let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(page["records"].as_array().unwrap().len(), 1);
+
+        // SEARCH sin namespace → hits de ambos namespaces (search_all).
+        let body = r#"{"namespace":"","query_vector":[1.0,0.0,0.0],"query_sparse":null,"filters":{},"text_query":null,"top_k":10,"distance_metric":"Cosine","explain":false}"#;
+        let (status, resp) = parse_response(
+            &raw_request(addr, json_request("POST", "/api/v2/search", addr, body)).await,
+        );
+        assert_eq!(status, 200, "search all: {resp}");
+        let page: serde_json::Value = serde_json::from_str(&resp).unwrap();
+        let hits = page["records"].as_array().unwrap();
+        assert!(
+            !hits.is_empty(),
+            "search sin namespace debe buscar en todos: {resp}"
+        );
+        let hit_namespaces: Vec<&str> = hits
+            .iter()
+            .map(|h| h["record"]["namespace"].as_str().unwrap_or(""))
+            .collect();
+        assert!(
+            hit_namespaces.contains(&"alpha") && hit_namespaces.contains(&"beta"),
+            "search sin namespace debe cubrir ambos namespaces: {resp}"
+        );
+    }
+
+    #[tokio::test]
     async fn v2_errors_map_status() {
         let cfg = VantaConfig {
             backend_kind: crate::backend::BackendKind::InMemory,
@@ -3652,8 +3777,8 @@ mod tests {
         let (status, body) = raw_delete(addr, "/api/v2/records/mem/missing").await;
         assert_eq!(status, 404, "delete missing: {body}");
 
-        // LIST without namespace → 200 (defaults to "default", igual que el bridge
-        // nativo native.rs — la consola web lista sin namespace).
+        // LIST without namespace → 200 (agrega TODOS los namespaces — el grid
+        // de la consola lista sin namespace; ver v2_list_without_namespace).
         let (status, body) = raw_get(addr, "/api/v2/list").await;
         assert_eq!(status, 200, "list no namespace: {body}");
 
