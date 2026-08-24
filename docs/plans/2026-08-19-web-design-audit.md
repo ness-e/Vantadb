@@ -228,7 +228,7 @@ last-synced: 2026-08-24T00:00
 - **Contrato:** layout.tsx sin `<Toaster/>` shadcn (queda Sonner); `grep -c "w-\[14px\]\|h-\[14px\]" web/src` sin icon-buttons <24px; `npm run build` pasa
 - **Ruta:** vanta-worker
 - **Task file:** `tasks/WDA-04.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-24) — Toaster shadcn eliminado (queda Sonner, grep=0); 24 offenders de contraste corregidos (`text-black/30-50`→`/70`, roles team neón→ink 16:1); touch targets ≥24px (tutorial dots 6→26px); mark teclado-accesible + aria-hidden decorativos; heading-order footer fixed; palette role=listbox/option; aria-labels ES→tt(); playground self-XSS documentado; build exit 0. `ui/toaster.tsx` huérfano → WDA-05.
 
 ### Task 6: WDA-05 — F5 Performance
 - **Archivos clave:** `web/package.json`, `web/src/components/ui/`, `web/eslint.config.mjs`, `web/next.config.ts`
@@ -315,4 +315,26 @@ Resultado: OK
 Próxima acción: Commit por vanta-lead: feat: DESKTOP-36 — bridge Tauri vanta-memory read-only (scene/persona/skill/genlog)
 Contrato: verificacion: cargo check ✅ · cargo test --lib 77/77 ✅ · npm run build ✅ · npm test 50/50 ✅ | evidencia: seed real via import_seed_str (mismo codigo del binario vanta-seed) responde skills+persona+genlog — confianza alta; contrato wire TS exacto validado en vanta.test.ts | artefactos: desktop/src-tauri/src/commands/memory.rs, desktop/src-tauri/src/lib.rs, desktop/src/vanta.ts, desktop/src/vanta.test.ts | invariantes: sin writes v1, no revertir MEM-53/58, nombres de comando cableados en lib.rs | deuda: skill_versions/skill_restore/compaction_report(session) sin backing API en vanta-memory (skills no versionadas; CompactionReport no persiste); E2E vitest contra app corriendo no ejecutable; commit pendiente (lead) | queda_pendiente: orquestador resuelve WIP stale DESKTOP-24/28 que bloqueo el claim MCP; lead hace commit
 Próxima tarea si completa: siguiente del backlog Phase 12
+=== END RECITATION ===
+
+=== RECITATION DESKTOP-25 ===
+Campaign ID: eeec913f-7c00-47d4-9ee6-15aca93f7f51
+Objetivo activo: DESKTOP-25: CI GitHub Actions desktop.yml — build Windows, cargo test src-tauri, artefacto instalador
+Estado: completed
+Última acción: Creado .github/workflows/desktop.yml: checkout, rust-setup composite (sccache+cache), setup-node npm cache, build sidecar vantadb-server (--features custom-allocator) + copy a binaries/, VANTADB_SERVER_BIN para tests reales de spawn, npm ci, cargo test en workspace desacoplado, tauri-action@v1 (projectPath desktop, args --target x86_64-pc-windows-msvc, build-only), upload-artifact@v4 con artifactPaths + if-no-files-found error. Verificado con actionlint (exit 0). Task file actualizado con Regla 0 y decisiones.
+Resultado: OK
+Próxima acción: Push a develop → confirmar run verde del workflow Desktop CI → descargar artefacto instalador e instalar en Windows limpio (cierra deuda de DESKTOP-24 Step 3 también)
+Contrato: verificacion: actionlint .github/workflows/desktop.yml → exit 0 (0 problemas). evidencia: [claim: workflow YAML válido y lógicamente consistente con build local de DESKTOP-24 | evidencia: actionlint exit 0 + tauri-action README oficial (tagName/releaseId omitidos = build-only) + DESKTOP-24 Context Save Point (sidecar gitignored, CI debe construirlo) | confianza: alta]. artefactos: .github/workflows/desktop.yml, task file DESKTOP-25.md actualizado. invariantes: NO commitear (instrucción del orquestador — commit lo prepara vanta-lead); no tocar otros workflows; sccache único punto vía composite rust-setup (release-ci.md regla 2); sidecar con --features custom-allocator en Windows (regla 1). deuda: ejecución real del workflow (run verde <15min) + descarga/instalación del artefacto — requiere push a develop.
+Próxima tarea si completa: ninguna (Phase 12 DESKTOP-24/25 cerradas; revisar Backlog para siguiente)
+=== END RECITATION ===
+
+=== RECITATION DESKTOP-30 ===
+Campaign ID: dbd87185-31a2-4b4c-b99b-279dffb6f609
+Objetivo activo: DESKTOP-30: estado de usuario durable (favoritos, historial, papelera sobreviven al reinicio)
+Estado: completed
+Última acción: Persistido trash/tombstones del UndoStore vía localStorage inyectable (patrón DESKTOP-23/26): loadTrash() en constructor con validación de shape + persistTrash() dentro de notify() (hook único que cubre softDelete/softDeleteBatch/restore/purge/undo). 3 tests nuevos. Backlog row eliminada y registro en docs/avance/activo/desktop.md.
+Resultado: OK
+Próxima acción: ninguna — tarea completa
+Contrato: verificacion: cd desktop && npm run build ✅ (8.38s) + npm test ✅ (53/53) | evidencia: [favoritos/historial ya persistían → persisted-stores.test.ts (alta)] [único gap papelera session-only → undo.ts header original líneas 11-12 (alta)] [round-trip papelera → 3 tests nuevos en undo.test.ts, suite verde (alta)] [mecanismo único localStorage → decisión DESKTOP-23, task file §Corrección (alta)] | artefactos: desktop/src/store/undo.ts, desktop/src/store/undo.test.ts, tasks/DESKTOP-30.md, docs/avance/activo/desktop.md | invariantes: API pública UndoStore intacta; storage corrupto → defaults; sin app_config_dir/Tauri commands | deuda: ninguna (stack undo sin persistir es diseño documentado) | queda_pendiente: git commit lo ejecuta el lead
+Próxima tarea si completa: según orquestador (Backlog Phase 12)
 === END RECITATION ===

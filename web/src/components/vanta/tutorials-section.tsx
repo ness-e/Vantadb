@@ -70,7 +70,7 @@ export function TutorialsSection({ onNavigate }: { onNavigate: (v: View) => void
           <div className="mb-6 flex flex-col gap-3 border-4 border-black bg-[#FBF9F5] p-3 shadow-[4px_4px_0_0_#000]    sm:flex-row sm:items-center">
             {/* Search */}
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/40 " strokeWidth={2.5} />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-black/70 " strokeWidth={2.5} />
               <input
                 type="text"
                 value={query}
@@ -82,7 +82,7 @@ export function TutorialsSection({ onNavigate }: { onNavigate: (v: View) => void
               {query && (
                 <button
                   onClick={() => setQuery("")}
-                  className="absolute right-2 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-black/50 hover:text-[#FF5500] "
+                  className="absolute right-2 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-black/70 hover:text-[#FF5500] "
                   aria-label={t("tutorials.clearSearch")}
                 >
                   <X className="h-5 w-5" strokeWidth={2.5} />
@@ -91,7 +91,7 @@ export function TutorialsSection({ onNavigate }: { onNavigate: (v: View) => void
             </div>
             {/* Level filter */}
             <div className="flex items-center gap-1">
-              <Filter className="h-3.5 w-3.5 shrink-0 text-black/40 " strokeWidth={2.5} />
+              <Filter className="h-3.5 w-3.5 shrink-0 text-black/70 " strokeWidth={2.5} />
               {LEVELS.map((lvl) => (
                 <button
                   key={lvl}
@@ -113,7 +113,7 @@ export function TutorialsSection({ onNavigate }: { onNavigate: (v: View) => void
         {/* Tutorial cards */}
         {filtered.length === 0 ? (
           <div className="border-4 border-dashed border-black/30 py-12 text-center ">
-            <p className="font-tech text-xs uppercase tracking-wider text-black/40 ">
+            <p className="font-tech text-xs uppercase tracking-wider text-black/70 ">
               {t("tutorials.noResults").replace("{{query}}", query).replace("{{filter}}", levelFilter)}
             </p>
           </div>
@@ -144,17 +144,17 @@ export function TutorialsSection({ onNavigate }: { onNavigate: (v: View) => void
                             >
                               {tutorial.level === "Beginner" ? t("tutorials.levels.beginner") : tutorial.level === "Intermediate" ? t("tutorials.levels.intermediate") : t("tutorials.levels.advanced")}
                             </span>
-                            <span className="flex items-center gap-1 font-tech text-[9px] uppercase tracking-wider text-black/50 ">
+                            <span className="flex items-center gap-1 font-tech text-[9px] uppercase tracking-wider text-black/70 ">
                               <Clock className="h-2.5 w-2.5" strokeWidth={2.5} />
                               {tutorial.duration}
                             </span>
-                            <span className="font-tech text-[9px] uppercase tracking-wider text-black/50 ">
+                            <span className="font-tech text-[9px] uppercase tracking-wider text-black/70 ">
                               · {tutorial.steps.length} {t("tutorials.steps").replace("{{count}}", "").trim()}
                             </span>
                           </div>
                         </div>
                       </div>
-                      <ArrowRight className="h-5 w-5 shrink-0 text-black/30 transition-all group-hover:translate-x-1 group-hover:text-[#FF5500] " strokeWidth={2.5} />
+                      <ArrowRight className="h-5 w-5 shrink-0 text-black/70 transition-all group-hover:translate-x-1 group-hover:text-[#FF5500] " strokeWidth={2.5} />
                     </div>
 
                     <p className="mt-3 font-tech text-xs leading-relaxed text-black/70 ">

@@ -6,6 +6,7 @@ import { TUTORIALS, VANTA } from "./vanta-data";
 import { copyToClipboard } from "./copy-utils";
 import { toast } from "./toast";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
+import { useLanguage } from "@/lib/language-provider";
 import { cn } from "@/lib/utils";
 
 type Tutorial = (typeof TUTORIALS)[number];
@@ -25,6 +26,7 @@ export function TutorialModal({
 }) {
   const [stepIdx, setStepIdx] = useState(0);
   const modalRef = useRef<HTMLDivElement>(null);
+  const { tt } = useLanguage();
   useFocusTrap(modalRef, tutorial !== null);
 
   // Reset step when tutorial changes
@@ -106,7 +108,7 @@ export function TutorialModal({
           <button
             onClick={onClose}
             className="inline-flex h-8 w-8 items-center justify-center border-2 border-[#FBF9F5]/40 bg-[#1A1A1A] text-[#FBF9F5] transition-colors hover:bg-[#FF5500] hover:text-black"
-            aria-label="Cerrar tutorial"
+            aria-label={tt("common.close", "Cerrar")}
           >
             <X className="h-4 w-4" strokeWidth={3} />
           </button>
@@ -119,7 +121,8 @@ export function TutorialModal({
               key={i}
               onClick={() => setStepIdx(i)}
               className={cn(
-                "h-1.5 flex-1 transition-colors",
+                // R-FE-5: visual 6px alto, hit-area extendida a ~26px vía pseudo-elemento
+                "relative h-1.5 flex-1 transition-colors before:absolute before:inset-y-[-10px] before:left-0 before:right-0 before:content-['']",
                 i === stepIdx
                   ? "bg-[#FF5500]"
                   : i < stepIdx
@@ -167,7 +170,7 @@ export function TutorialModal({
 
         {/* Footer / navigation */}
         <div className="flex items-center justify-between border-t-4 border-black bg-[#F2EDE2] px-5 py-3  ">
-          <span className="font-tech text-[10px] uppercase tracking-wider text-black/50 ">
+          <span className="font-tech text-[10px] uppercase tracking-wider text-black/70 ">
             Paso {stepIdx + 1} de {tutorial.steps.length}
           </span>
           <div className="flex items-center gap-2">
@@ -256,7 +259,7 @@ function StepCodeBlock({ code }: { code: string }) {
     <>
       <button
         onClick={copy}
-        className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center border-2 border-[#FBF9F5]/30 bg-[#FBF9F5]/10 text-[#FBF9F5] opacity-0 transition-all hover:bg-[#FF5500] hover:text-black group-hover/code:opacity-100"
+        className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center border-2 border-[#FBF9F5]/30 bg-[#FBF9F5]/10 text-[#FBF9F5] opacity-0 transition-all hover:bg-[#FF5500] hover:text-black focus-visible:opacity-100 group-hover/code:opacity-100"
         aria-label="Copiar código"
         title="Copiar"
       >

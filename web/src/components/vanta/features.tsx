@@ -39,7 +39,7 @@ export function Features() {
                 {t("features.subtitle")}
               </p>
             </div>
-            <div className="flex items-center gap-2 font-tech text-[10px] uppercase tracking-wider text-black/50 ">
+            <div className="flex items-center gap-2 font-tech text-[10px] uppercase tracking-wider text-black/70 ">
               <span className="h-2 w-2 animate-flicker bg-[#FF5500]" />
               {t("features.surfacesInfo")}
             </div>

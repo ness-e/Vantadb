@@ -111,12 +111,22 @@ export function MarkClassic() {
     <div
       className="relative mx-auto aspect-square w-full max-w-[460px] cursor-pointer lg:max-w-none"
       onClick={handleClick}
+      role="button"
+      tabIndex={0}
+      aria-label="VantaDB interactive mark — click to blink, move mouse to track"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleClick();
+        }
+      }}
     >
-      {/* Background graph — interactive nodes + edges */}
+      {/* Background graph — decorative, hidden from AT */}
       <svg
         className="absolute inset-0 h-full w-full"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
+        aria-hidden="true"
       >
         {/* Edges */}
         {GRAPH_EDGES.map(([a, b], i) => (
@@ -171,7 +181,7 @@ export function MarkClassic() {
           viewBox="0 0 100 100"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          aria-label="VantaDB interactive mark — click to blink, move mouse to track"
+          aria-hidden="true"
           className="drop-shadow-[0_0_28px_rgba(255,85,0,0.22)]"
         >
           {/* Outer ring — black border, NO fill */}

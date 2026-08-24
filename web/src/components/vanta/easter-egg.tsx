@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Sparkles, X } from "lucide-react";
+import { useLanguage } from "@/lib/language-provider";
 
 /**
  * EasterEgg — typing "vanta" in sequence triggers a special overlay
@@ -11,6 +12,7 @@ import { Sparkles, X } from "lucide-react";
 export function EasterEgg() {
   const [active, setActive] = useState(false);
   const [progress, setProgress] = useState(0);
+  const { tt } = useLanguage();
   const target = "vanta";
 
   const handleKey = useCallback(
@@ -88,7 +90,7 @@ export function EasterEgg() {
               you found the shadow cat
               <Sparkles className="h-3.5 w-3.5 text-[#FF5500]" strokeWidth={2.5} />
             </p>
-            <p className="mt-1 font-tech text-[10px] uppercase tracking-wider text-black/50">
+            <p className="mt-1 font-tech text-[10px] uppercase tracking-wider text-black/70">
               1.2ms p50 HNSW · 99.8% recall · zero network
             </p>
           </div>
@@ -97,7 +99,7 @@ export function EasterEgg() {
           <button
             onClick={() => setActive(false)}
             className="absolute -right-3 -top-3 inline-flex h-8 w-8 items-center justify-center border-4 border-black bg-[#FF5500] text-black shadow-[3px_3px_0_0_#000]  "
-            aria-label="Cerrar"
+            aria-label={tt("common.close", "Cerrar")}
           >
             <X className="h-4 w-4" strokeWidth={3} />
           </button>

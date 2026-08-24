@@ -36,7 +36,7 @@ export function TrustSection() {
                 {t("trust.subtitle")}
               </p>
             </div>
-            <div className="flex items-center gap-2 font-tech text-[10px] uppercase tracking-wider text-black/50 ">
+            <div className="flex items-center gap-2 font-tech text-[10px] uppercase tracking-wider text-black/70 ">
               <Globe className="h-3.5 w-3.5" />
               {t("trust.localFirst")}
             </div>
@@ -100,7 +100,7 @@ export function TrustSection() {
         </Reveal>
 
         <Reveal direction="up" delay={150}>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-4 font-tech text-[10px] uppercase tracking-wider text-black/40 ">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-4 font-tech text-[10px] uppercase tracking-wider text-black/70 ">
             <span className="flex items-center gap-1">
               <Users className="h-3 w-3" />
               {t("trust.openSource")}

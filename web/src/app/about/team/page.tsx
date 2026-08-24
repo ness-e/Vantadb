@@ -71,7 +71,7 @@ export default function TeamPage() {
                     <h3 className="glitch-hover font-display text-xl uppercase leading-none text-black  sm:text-2xl">
                       {member.name}
                     </h3>
-                    <p className="mt-1 font-tech text-[10px] font-bold uppercase tracking-wider text-[#FF5500]">
+                    <p className="mt-1 font-tech text-[10px] font-bold uppercase tracking-wider text-black">
                       {tt(`aboutTeam.members.${i}.role`, member.role)}
                     </p>
                   </div>
@@ -96,7 +96,7 @@ export default function TeamPage() {
                       <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
                     </a>
                   ) : (
-                    <div className="flex items-center justify-center gap-2 border-4 border-dashed border-black/30 px-3 py-2.5 font-tech text-[10px] font-bold uppercase tracking-wider text-black/40  ">
+                    <div className="flex items-center justify-center gap-2 border-4 border-dashed border-black/30 px-3 py-2.5 font-tech text-[10px] font-bold uppercase tracking-wider text-black/70  ">
                       <Github className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
                       {tt("aboutTeam.noGithub", "No GitHub — prefers nap time")}
                     </div>

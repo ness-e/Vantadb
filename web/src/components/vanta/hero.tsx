@@ -95,7 +95,7 @@ export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
                 <Copy className="h-4 w-4 opacity-60 transition-opacity group-hover:opacity-100" />
               )}
             </button>
-            <span className="font-tech text-[11px] uppercase tracking-wider text-black/50">
+            <span className="font-tech text-[11px] uppercase tracking-wider text-black/70">
               Python {VANTA.pythonVersion} · Rust {VANTA.rustVersion}
             </span>
           </div>

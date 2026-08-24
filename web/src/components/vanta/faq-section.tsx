@@ -25,7 +25,7 @@ export function FaqSection() {
                 {t("faq.subtitle")}
               </p>
             </div>
-            <div className="flex items-center gap-2 font-tech text-[10px] uppercase tracking-wider text-black/50 ">
+            <div className="flex items-center gap-2 font-tech text-[10px] uppercase tracking-wider text-black/70 ">
               <MessagesSquare className="h-3.5 w-3.5" />
               {FAQ.length} {t("faq.questionsCount").replace("{{count}}", "").trim()}
             </div>

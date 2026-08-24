@@ -148,7 +148,7 @@ export function CompetitiveTable() {
               </code>
             </p>
           </div>
-          <p className="mt-2 px-4 font-tech text-[10px] leading-relaxed text-black/50">
+          <p className="mt-2 px-4 font-tech text-[10px] leading-relaxed text-black/70">
             <span className="uppercase tracking-wider">Source:</span>{" "}
             <a
               href="https://vantadb.vercel.app/blog/benchmarks-vs-lancedb-chroma"

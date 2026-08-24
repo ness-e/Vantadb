@@ -314,7 +314,7 @@ function Connector({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center py-2" aria-hidden>
       <div className="flex flex-col items-center gap-1">
-        <span className="font-tech text-[9px] uppercase tracking-[0.3em] text-black/50 ">
+        <span className="font-tech text-[9px] uppercase tracking-[0.3em] text-black/70 ">
           {label}
         </span>
         <span className="flex flex-col items-center text-black ">

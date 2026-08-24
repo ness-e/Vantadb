@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Anton, Space_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Sonner } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/lib/language-provider";
 import { DEFAULT_LANG } from "@/lib/dictionaries";
 import { SiteShell } from "@/components/vanta/site-shell";
@@ -133,7 +132,6 @@ export default function RootLayout({
           <LanguageProvider>
             <SkipLink />
             <SiteShell>{children}</SiteShell>
-            <Toaster />
             <Sonner
               position="bottom-right"
               toastOptions={{

@@ -142,9 +142,9 @@ export function Footer() {
         {/* Navigation groups */}
         {FOOTER_GROUPS.map((group) => (
           <div key={group.title}>
-            <h4 className="mb-3 font-display text-sm uppercase tracking-wider text-[#FF5500]">
+            <h3 className="mb-3 font-display text-sm uppercase tracking-wider text-[#FF5500]">
               {group.title}
-            </h4>
+            </h3>
             <ul className="space-y-1.5">
               {group.links.map((link) => (
                 <li key={link.path}>

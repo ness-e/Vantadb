@@ -187,7 +187,7 @@ function DesktopDropdown({
                     "font-tech text-[10px] normal-case tracking-normal",
                     isActiveItem(item)
                       ? "text-black/70"
-                      : "text-black/50 "
+                      : "text-black/70 "
                   )}
                 >
                   {t(item.descKey)}
@@ -293,11 +293,12 @@ export function SiteNavbar({
       </div>
       {/* Main bar — single row, no marquee strip */}
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
-        {/* Logo — SVG mark (clean circle, no box) + wordmark + subtitle */}
+        {/* Logo — SVG mark (clean circle, no box) + wordmark + subtitle.
+            Sin aria-label: el nombre accesible es el texto visible "VantaDB…"
+            (axe label-content-name-mismatch). */}
         <button
           onClick={() => handleNav("home")}
           className="group flex shrink-0 items-center gap-2.5"
-          aria-label={t("nav.home")}
         >
           <span className="relative inline-flex items-center justify-center transition-transform group-hover:rotate-[8deg]">
             <VantaLogoMark size={40} />
@@ -370,6 +371,7 @@ export function SiteNavbar({
             target="_blank"
             rel="noopener noreferrer"
             className="hidden items-center gap-1.5 border-2 border-black bg-[#FF5500] px-3 py-1.5 font-tech text-[11px] font-bold uppercase tracking-wider text-black transition-all hover:translate-x-[1px] hover:translate-y-[1px] sm:inline-flex"
+            aria-label="GitHub"
           >
             <Github className="h-4 w-4" strokeWidth={2.5} />
             <span className="hidden md:inline">GitHub</span>

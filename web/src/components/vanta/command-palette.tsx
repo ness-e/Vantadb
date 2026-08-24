@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { Search, X, CornerDownLeft, ArrowUp, ArrowDown, Command } from "lucide-react";
 import type { View } from "./vanta-data";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
+import { useLanguage } from "@/lib/language-provider";
 import { VANTA, CORE_CAPABILITIES, CLI_COMMANDS, FAQ, DOC_LINKS } from "./vanta-data";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ export function CommandPalette({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const { t } = useLanguage();
   const inputRef = useRef<HTMLInputElement>(null);
   const paletteRef = useRef<HTMLDivElement>(null);
   useFocusTrap(paletteRef, open);
@@ -222,7 +224,7 @@ export function CommandPalette({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Buscar páginas, features, CLI, FAQ..."
-            aria-label="Buscar"
+            aria-label={t("common.search")}
             className="flex-1 bg-transparent font-tech text-sm text-black placeholder:text-black/40 focus:outline-none  "
           />
           <button
@@ -237,18 +239,20 @@ export function CommandPalette({
         {/* Results */}
         <div
           ref={listRef}
+          role="listbox"
+          aria-label="Resultados"
           className="scroll-manga max-h-[50vh] overflow-y-auto p-2"
         >
           {filtered.length === 0 && (
             <div className="px-4 py-8 text-center">
-              <p className="font-tech text-xs uppercase tracking-wider text-black/40 ">
+              <p className="font-tech text-xs uppercase tracking-wider text-black/70 ">
                 Sin resultados para &ldquo;{query}&rdquo;
               </p>
             </div>
           )}
           {Object.entries(grouped).map(([group, items]) => (
             <div key={group} className="mb-2">
-              <p className="px-2 py-1 font-tech text-[9px] font-bold uppercase tracking-[0.2em] text-black/40 ">
+              <p className="px-2 py-1 font-tech text-[9px] font-bold uppercase tracking-[0.2em] text-black/70 ">
                 {group}
               </p>
               {items.map((item) => {
@@ -259,6 +263,8 @@ export function CommandPalette({
                   <button
                     key={item.id}
                     data-idx={idx}
+                    role="option"
+                    aria-selected={isActive}
                     onMouseEnter={() => setActiveIndex(idx)}
                     onClick={item.action}
                     className={cn(
@@ -275,7 +281,7 @@ export function CommandPalette({
                       <p
                         className={cn(
                           "truncate font-tech text-[10px]",
-                          isActive ? "text-[#FBF9F5]/60 " : "text-black/50 "
+                          isActive ? "text-[#FBF9F5]/60 " : "text-black/70 "
                         )}
                       >
                         {item.hint}
@@ -296,7 +302,7 @@ export function CommandPalette({
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t-2 border-black/15 px-4 py-2 ">
-          <div className="flex items-center gap-3 font-tech text-[9px] uppercase tracking-wider text-black/40 ">
+          <div className="flex items-center gap-3 font-tech text-[9px] uppercase tracking-wider text-black/70 ">
             <span className="flex items-center gap-1">
               <ArrowUp className="h-2.5 w-2.5" />
               <ArrowDown className="h-2.5 w-2.5" />

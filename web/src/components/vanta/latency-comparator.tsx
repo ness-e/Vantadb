@@ -209,7 +209,7 @@ export function LatencyComparator() {
 
         {/* Preset workload buttons */}
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="font-tech text-[10px] font-bold uppercase tracking-[0.2em] text-black/50 ">
+          <span className="font-tech text-[10px] font-bold uppercase tracking-[0.2em] text-black/70 ">
             Presets:
           </span>
           {PRESETS.map((p) => (
@@ -226,7 +226,7 @@ export function LatencyComparator() {
               title={p.desc}
             >
               <span className="font-tech text-xs font-bold uppercase tracking-wider">{p.label}</span>
-              <span className={cn("font-tech text-[9px] uppercase tracking-wider", activePreset === p.id ? "text-black/70" : "text-black/40 ")}>
+              <span className={cn("font-tech text-[9px] uppercase tracking-wider", activePreset === p.id ? "text-black/70" : "text-black/70 ")}>
                 {p.desc}
               </span>
             </button>
@@ -278,7 +278,7 @@ export function LatencyComparator() {
                 </button>
               ))}
             </div>
-            <p className="mt-2 font-tech text-[10px] text-black/50 ">
+            <p className="mt-2 font-tech text-[10px] text-black/70 ">
               Indexed vector count
             </p>
           </div>
@@ -291,7 +291,7 @@ export function LatencyComparator() {
               <Activity className="h-5 w-5 text-[#FF5500]" strokeWidth={2.5} />
               p99 latency · lower is faster
             </h3>
-            <span className="font-tech text-[10px] uppercase tracking-wider text-black/50 ">
+            <span className="font-tech text-[10px] uppercase tracking-wider text-black/70 ">
               scale 0–{maxLatency.toFixed(1)}ms
             </span>
           </div>
@@ -533,7 +533,7 @@ function SliderCard({
         }}
         aria-label={label}
       />
-      <p className="mt-2 font-tech text-[10px] text-black/50 ">{desc}</p>
+      <p className="mt-2 font-tech text-[10px] text-black/70 ">{desc}</p>
     </div>
   );
 }
