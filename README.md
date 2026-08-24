@@ -422,6 +422,7 @@ Results will be printed directly to the console and written to `vanta_benchmark_
 | [Experimental Features](docs/operations/EXPERIMENTAL_FEATURES.md) | Production, optional, experimental, and deferred surface classification. |
 | [CI Policy](docs/operations/CI_POLICY.md) | Continuous integration strategy, profiles, and certification gates. |
 | [Benchmarks](docs/operations/BENCHMARKS.md) | Performance benchmark methodology and results. |
+| [Comparison vs Alternatives](docs/COMPARISON.md) | Honest qualitative comparison vs sqlite-vec / LanceDB / Qdrant / Chroma, our numbers with reproduction commands, and a practical-limits table. |
 | [Changelog](docs/CHANGELOG.md) | Version history and release notes. |
 | [Blog: Hybrid Search](docs/blog/how_hybrid_search_works.md) | How BM25 + HNSW + RRF work together in VantaDB's query engine. |
 | [Blog: SQLite for AI Agents](docs/blog/sqlite_for_ai_agents.md) | Benchmarks and architecture decisions behind VantaDB's LSM storage. |
