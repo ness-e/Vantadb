@@ -804,7 +804,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Módulo | Sev | Hallazgo → Acción | Referencia | Estado |
 |----|--------|-----|-------------------|------------|--------|
-| `MOD-01` | core | 🔴 | WAL escrito ANTES de validar duplicado: insert/update rechazado resucita datos tras restart (bug corrupción vía API pública, expuesto en WASM). Fix: orden validate→WAL→apply + test durabilidad | `src/engine.rs:226,150-157,260` · reporte core.md H-1 | ❌ Pendiente |
 | `MOD-02` | core | 🟡 | Transacciones no crash-atómicas: replay ignora marcadores Begin/Commit → txn parcial se aplica como commiteada. Bufferizar ops hasta ver Commit(txn_id) + chaos test kill entre shards | `txn.rs:145`, `wal_sharded.rs:201` · core.md H-2 | ❌ Pendiente |
 | `MOD-03` | core | 🟡 | `trigger_compaction()` es stub que solo loguea. Renombrar o delegar a vacuum existente | `maintenance.rs:22-48` · core.md M-1 | ❌ Pendiente |
 | `MOD-04` | core | 🟡 | `purge_expired` full-scan O(N); falta índice de expiración TTL (patrón scalar_index expires_at→node_id) | `api.rs:904` · core.md | ❌ Pendiente |
