@@ -576,7 +576,7 @@ export default function WorkspaceShell({
                     <button
                       type="button"
                       onClick={() => favoritesStore.toggle(f.namespace, f.key)}
-                      className="press flex w-8 items-center justify-center border-2 border-foreground text-[10px]"
+                      className="press flex w-9 items-center justify-center border-2 border-foreground text-[10px]"
                       title={`Quitar ${label} de favoritos`}
                       aria-label={`Quitar ${label} de favoritos`}
                     >
@@ -626,7 +626,7 @@ export default function WorkspaceShell({
                     <button
                       type="button"
                       onClick={() => setNsDialog({ mode: "rename", name: n.name })}
-                      className="press flex w-7 items-center justify-center border-2 border-foreground bg-background text-xs opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+                      className="press flex w-9 items-center justify-center border-2 border-foreground bg-background text-xs opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
                       title={`Renombrar ${n.name}`}
                       aria-label={`Renombrar ${n.name}`}
                     >
@@ -635,17 +635,17 @@ export default function WorkspaceShell({
                     <button
                       type="button"
                       onClick={() => setNsDialog({ mode: "delete", name: n.name })}
-                      className="press flex w-7 items-center justify-center border-2 border-foreground bg-background text-xs opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+                      className="press flex w-9 items-center justify-center border-2 border-foreground bg-background text-xs opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
                       title={`Borrar ${n.name} (va a la papelera)`}
                       aria-label={`Borrar ${n.name}`}
                     >
-                      🗑
+                      <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
                     </button>
                     <button
                       type="button"
                       onClick={() => favoritesStore.toggle(n.name, null)}
                       aria-pressed={fav}
-                      className={`press flex w-8 items-center justify-center border-2 border-foreground text-sm transition-opacity focus-visible:opacity-100 group-hover:opacity-100 ${
+                      className={`press flex w-9 items-center justify-center border-2 border-foreground text-sm transition-opacity focus-visible:opacity-100 group-hover:opacity-100 ${
                         fav ? "bg-neon text-background" : "bg-background opacity-0"
                       }`}
                       title={fav ? `Quitar ${n.name} de favoritos` : `Agregar ${n.name} a favoritos`}
@@ -669,11 +669,11 @@ export default function WorkspaceShell({
             <button
               type="button"
               onClick={onToggleTheme}
-              className="press flex h-7 w-7 items-center justify-center border-2 border-foreground text-sm"
+              className="press flex h-9 w-9 items-center justify-center border-2 border-foreground"
               title="Cambiar tema"
               aria-label="Cambiar tema claro/oscuro"
             >
-              {dark ? "☀" : "☾"}
+              {dark ? <Sun className="h-4 w-4" strokeWidth={2.5} /> : <Moon className="h-4 w-4" strokeWidth={2.5} />}
             </button>
           </div>
         </div>
@@ -706,7 +706,7 @@ export default function WorkspaceShell({
               className="w-full border-2 border-foreground bg-background py-1.5 pr-3 pl-10 text-sm placeholder:text-muted-foreground"
             />
             <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neon">
-              🔎
+              <Search className="h-4 w-4" strokeWidth={2.5} />
             </span>
             {searching && (
               <span className="absolute right-2 top-1/2 -translate-y-1/2 font-tech text-[10px] text-muted-foreground">
