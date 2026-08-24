@@ -52,6 +52,9 @@ import { connectionPrefs, type ConnectionProfile } from "../../store/connections
 // DESKTOP-37: lente MEMORIA — liviana (solo listas read-only), import estática
 // como RETRIEVAL/ÍNDICES/CONSOLIDAR.
 import MemoryLens from "../memory/MemoryLens";
+// DESKTOP-38: lente PROXY — dashboard REST del proxy local; liviana (fetch +
+// tablas), import estática. `proxyUrl`/PROXY_URL_EVENT condicionan el botón.
+import ProxyDashboard, { proxyUrl, PROXY_URL_EVENT } from "../proxy/ProxyDashboard";
 import Settings from "../../pages/Settings";
 // CodeMirror/react-markdown pesan (~600 kB) y solo los usa el Inspector → chunk
 // lazy: el shell inicial no paga ese coste (Tauri local, carga on-demand).
@@ -73,7 +76,7 @@ const GraphLens = lazy(() => import("../graph/GraphLens"));
 // solo la surface ESPACIO los paga (mismo patrón que GraphLens/Inspector).
 const SpaceLens = lazy(() => import("../space/SpaceLens"));
 
-export type Surface = "resumen" | "memorias" | "papelera" | "actividad" | "retrieval" | "indices" | "consolidar" | "iql" | "espacio" | "memoria" | "ajustes";
+export type Surface = "resumen" | "memorias" | "papelera" | "actividad" | "retrieval" | "indices" | "consolidar" | "iql" | "espacio" | "memoria" | "proxy" | "ajustes";
 
 interface NamespaceCount {
   name: string;
@@ -275,6 +278,15 @@ export default function WorkspaceShell({
   useEffect(() => favoritesStore.subscribe(() => setFavorites(favoritesStore.getFavorites())), []);
   const [history, setHistory] = useState<string[]>(searchHistory.get());
   useEffect(() => searchHistory.subscribe(() => setHistory(searchHistory.get())), []);
+
+  // DESKTOP-38: botón PROXY solo con proxy configurado; el dashboard dispara
+  // PROXY_URL_EVENT al guardar/borrar la URL para refrescar el sidebar.
+  const [proxyConfigured, setProxyConfigured] = useState(!!proxyUrl());
+  useEffect(() => {
+    const sync = () => setProxyConfigured(!!proxyUrl());
+    window.addEventListener(PROXY_URL_EVENT, sync);
+    return () => window.removeEventListener(PROXY_URL_EVENT, sync);
+  }, []);
 
   const filterActive = ruleGroup.rules.length > 0;
   const filterFields = useMemo(() => (results ? inferMetaFields(results) : []), [results]);
@@ -491,7 +503,9 @@ export default function WorkspaceShell({
   useDeepLink(handleDeepLink);
 
   return (
-    <div className="fixed inset-0 flex overflow-hidden bg-background text-foreground">
+    // FIND-19: flex-1 (not fixed inset-0) — the shell lives inside App's
+    // column layout, below the custom TitleBar. fixed inset-0 covered it.
+    <div className="relative flex min-h-0 flex-1 overflow-hidden bg-background text-foreground">
       {/* ========== SIDEBAR ========== */}
       <aside
         className="flex w-60 shrink-0 flex-col border-r-4 border-foreground bg-background"
@@ -530,6 +544,10 @@ export default function WorkspaceShell({
             <SideButton icon="✳" label="ESPACIO" title="Ir a ESPACIO — proyección 2D de embeddings" active={surface === "espacio"} onClick={() => setSurface("espacio")} />
             {/* DESKTOP-37: sexta lente — memoria contextual de vanta-memory. */}
             <SideButton icon="◉" label="MEMORIA" title="Ir a MEMORIA — escenas con heat, persona, skills versionadas y generation log (L1/L2/L3)" active={surface === "memoria"} onClick={() => setSurface("memoria")} />
+            {/* DESKTOP-38: lente PROXY — solo si el proxy está configurado. */}
+            {proxyConfigured && (
+              <SideButton icon="⇋" label="PROXY" title="Ir a PROXY — TurnReports, sesiones activas, cola write-back y rate-limit del proxy local" active={surface === "proxy"} onClick={() => setSurface("proxy")} />
+            )}
             {/* DESKTOP-31: ajustes — perfiles de conexión, defaults de búsqueda, idioma. */}
             <SideButton icon="⚙" label="AJUSTES" title="Ir a AJUSTES — perfiles de conexión (server + Bearer), defaults de búsqueda e idioma" active={surface === "ajustes"} onClick={() => setSurface("ajustes")} />
           </div>
@@ -959,6 +977,13 @@ export default function WorkspaceShell({
                 onError={onError}
                 onOpenRecord={(record, score) => openRecord(record, score)}
               />
+            </div>
+          )}
+          {/* DESKTOP-38: lente PROXY — dashboard REST del proxy local (proceso
+              aparte; sin URL configurada muestra el formulario y no polla). */}
+          {surface === "proxy" && (
+            <div className="mx-auto max-w-6xl p-6">
+              <ProxyDashboard />
             </div>
           )}
           {/* DESKTOP-31: superficie AJUSTES. */}
