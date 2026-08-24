@@ -13,6 +13,7 @@
 // commit explícito — grid pasa el record completo, búsqueda lo completa vía get).
 import { FormEvent, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RuleGroupType } from "react-querybuilder";
+import { HelpPanel } from "./HelpPanel";
 import { get, list, namespaceStats, search, SearchResult, vantaErrorMessage, type MemoryRecord, type NamespaceStatsMap, type VantaDeepLink } from "../../vanta";
 import { useDeepLink } from "../../hooks/useDeepLink";
 import { ConnectionActions, VantaState } from "../../hooks/useConnectionState";
@@ -256,6 +257,8 @@ export default function WorkspaceShell({
   // (delete/restore/purge). Se saltea inputs/CodeMirror para no pisar el undo
   // nativo de texto del navegador.
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // FIND-25: in-app usage guide, toggled with "?".
+  const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -270,6 +273,14 @@ export default function WorkspaceShell({
         if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
         e.preventDefault();
         void handleUndo();
+        return;
+      }
+      // FIND-25: "?" opens the usage guide (skip inputs/CodeMirror).
+      if (e.key === "?") {
+        const t = e.target as HTMLElement | null;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+        e.preventDefault();
+        setHelpOpen((o) => !o);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -434,9 +445,9 @@ export default function WorkspaceShell({
             <SideButton icon="◫" label="RESUMEN" active={surface === "resumen"} onClick={() => setSurface("resumen")} />
             <SideButton icon="▦" label="MEMORIAS" active={surface === "memorias"} onClick={() => setSurface("memorias")} />
             <SideButton icon="♻" label="PAPELERA" hint="Ctrl+Z" active={surface === "papelera"} onClick={() => setSurface("papelera")} />
-            <SideButton icon="◷" label="ACTIVITY" hint="F1" active={surface === "actividad"} onClick={() => setSurface("actividad")} />
+            <SideButton icon="◷" label="ACTIVIDAD" hint="F1" active={surface === "actividad"} onClick={() => setSurface("actividad")} />
             {/* VS-13: lente contextual — hereda el registro seleccionado como seed (P4). */}
-            <SideButton icon="⛁" label="RETRIEVAL" active={surface === "retrieval"} onClick={() => setSurface("retrieval")} />
+            <SideButton icon="⛁" label="BÚSQUEDA" active={surface === "retrieval"} onClick={() => setSurface("retrieval")} />
             <SideButton icon="⠿" label="ÍNDICES" hint="F1" active={surface === "indices"} onClick={() => setSurface("indices")} />
             <SideButton icon="⇄" label="CONSOLIDAR" active={surface === "consolidar"} onClick={() => setSurface("consolidar")} />
             <SideButton icon="⌘" label="IQL" hint="F2" active={surface === "iql"} onClick={() => setSurface("iql")} />
@@ -865,6 +876,9 @@ export default function WorkspaceShell({
           onClearHistory={() => searchHistory.clear()}
         />
       </Suspense>
+
+      {/* ========== HELP PANEL (FIND-25, "?" global) ========== */}
+      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
 
       {/* ========== IMPORT PASTE (OP-01, botón en MEMORIAS) ========== */}
       <Suspense fallback={null}>

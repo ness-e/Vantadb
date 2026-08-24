@@ -770,3 +770,34 @@
    Decorative-only colors (charts, halftone, glow, speed-lines,
    press shadows) are exempt from text contrast rules.
    ============================================================ */
+/* ============================================================
+   SplashScreen (FIND-23) — cold-start intro, pure CSS.
+   prefers-reduced-motion: entrance animations disabled; the
+   timer/click dismissal still applies.
+   ============================================================ */
+@media (prefers-reduced-motion: no-preference) {
+  .splash-root {
+    animation: splash-fade 0.35s ease-out;
+  }
+  .splash-mark {
+    animation: splash-pop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+  .splash-title {
+    animation: splash-rise 0.5s ease-out 0.25s backwards;
+  }
+  .splash-sub {
+    animation: splash-rise 0.5s ease-out 0.45s backwards;
+  }
+}
+@keyframes splash-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes splash-pop {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes splash-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
