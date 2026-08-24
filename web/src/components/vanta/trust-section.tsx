@@ -1,6 +1,6 @@
 "use client";
 
-import { Shield, GitBranch, Package, Cpu, Users, Star, Zap, Globe } from "lucide-react";
+import { Shield, GitBranch, Package, Cpu, Users, Zap, Globe } from "lucide-react";
 import { Reveal } from "./reveal";
 import { VANTA } from "./vanta-data";
 import { useLanguage } from "@/lib/language-provider";

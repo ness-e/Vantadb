@@ -16,7 +16,7 @@ interface LatencyRow {
 }
 
 export default function LatencyPage() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
 
   const rows: LatencyRow[] = [
     {

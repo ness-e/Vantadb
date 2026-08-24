@@ -42,7 +42,7 @@ const CONTRIBUTE_STEPS = [
 ];
 
 export default function CommunityPage() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader

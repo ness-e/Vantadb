@@ -29,7 +29,7 @@ const SUGGESTED: SuggestedLink[] = [
 // Source: https://nextjs.org/docs/app/api-reference/file-conventions/not-found
 export default function NotFoundPage() {
   const router = useRouter();
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
 
   return (
     <div className="animate-rise">

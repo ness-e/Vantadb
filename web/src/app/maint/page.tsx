@@ -21,7 +21,7 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 export default function MaintPage() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader

@@ -7,7 +7,7 @@ import { TEAM_MEMBERS, VANTA } from "@/components/vanta/vanta-data";
 import { useLanguage } from "@/lib/language-provider";
 
 export default function TeamPage() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader

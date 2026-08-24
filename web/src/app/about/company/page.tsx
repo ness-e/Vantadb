@@ -10,7 +10,7 @@ import { useLanguage } from "@/lib/language-provider";
 const PRINCIPLE_ICONS: LucideIcon[] = [Target, Compass, Shield, Unlock];
 
 export default function CompanyPage() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader

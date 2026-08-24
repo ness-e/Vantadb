@@ -15,7 +15,7 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 export default function StoragePage() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
 
   const archLayers = [
     {

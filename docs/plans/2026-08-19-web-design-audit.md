@@ -236,7 +236,7 @@ last-synced: 2026-08-24T00:00
 - **Contrato:** `npm ls --depth=0` en `web/` sin @dnd-kit/@hookform/@reactuses/@tanstack/date-fns/next-intl/react-markdown/uuid/z-ai-web-dev-sdk/zod/zustand; `npm run lint` 0 errores; `npm run build` pasa
 - **Ruta:** vanta-worker
 - **Task file:** `tasks/WDA-05.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-24, inline) — 13 deps zombies fuera (react-markdown conservada: tiene import real); ui/ muerta 46 archivos fuera (+use-toast chain); command-palette lazy (vanta-data fuera del bundle global); ESLint reactivado (no-unused-vars=error) 58 errores→0, lint exit 0 con 3 warnings img; 3 componentes muertos más borrados (navbar/ecosystem/metrics-bar; vs-table se conserva — lo usa /why-vantadb); turbopack.root YA estaba (REVIEW-18, plan stale); build exit 0.
 
 ### Task 7: WDA-06 — F6 Escritura
 - **Archivos clave:** `web/src/components/vanta/code-playground.tsx`, `web/src/lib/dictionaries.ts`, `web/src/app/faq/page.tsx`
@@ -337,4 +337,48 @@ Resultado: OK
 Próxima acción: ninguna — tarea completa
 Contrato: verificacion: cd desktop && npm run build ✅ (8.38s) + npm test ✅ (53/53) | evidencia: [favoritos/historial ya persistían → persisted-stores.test.ts (alta)] [único gap papelera session-only → undo.ts header original líneas 11-12 (alta)] [round-trip papelera → 3 tests nuevos en undo.test.ts, suite verde (alta)] [mecanismo único localStorage → decisión DESKTOP-23, task file §Corrección (alta)] | artefactos: desktop/src/store/undo.ts, desktop/src/store/undo.test.ts, tasks/DESKTOP-30.md, docs/avance/activo/desktop.md | invariantes: API pública UndoStore intacta; storage corrupto → defaults; sin app_config_dir/Tauri commands | deuda: ninguna (stack undo sin persistir es diseño documentado) | queda_pendiente: git commit lo ejecuta el lead
 Próxima tarea si completa: según orquestador (Backlog Phase 12)
+=== END RECITATION ===
+
+=== RECITATION DESKTOP-37 ===
+Campaign ID: 03aeb1cc-2398-4b09-9d28-b9dd7d16e975
+Objetivo activo: DESKTOP-37 lente MEMORIA (UI): escenas/persona/skills/genlog con heat/diff/timeline + click-Inspector
+Estado: completed
+Última acción: Implementado MemoryLens.tsx (1 archivo, 4 sub-paneles: ScenesPanel heat-desc con detalle inline y soft-delete badge, PersonaPanel con diff vs ultima vista localStorage, SkillsPanel timeline por content-hash agrupado por nombre, GenlogPanel filtro L1/L2/L3 con anchor_id -> get() -> Inspector). Integrado en WorkspaceShell (Surface 'memoria', SideButton o, import estatica). 7 tests nuevos.
+Resultado: OK
+Próxima acción: Ninguna - tarea completa; orquestador decide commit y cierra WIP stale (DESKTOP-24/28)
+Contrato: verificacion: cd desktop && npm run build OK + cd desktop && npm test OK 64/64 (57 previas + 7 nuevas) | evidencia: claim escenas con heat y soft-delete visible -> MemoryLens.test.tsx caso 'escenas listadas con heat' (alta); claim click record -> Inspector -> caso 'anchor abre record en Inspector' via onOpenRecord+get() (alta); claim persona diff visible -> caso 'persona snapshot + diff' localStorage (alta) | artefactos: desktop/src/components/memory/MemoryLens.tsx, MemoryLens.test.tsx, WorkspaceShell.tsx modificado | invariantes: superficies existentes de WorkspaceShell intactas (SETTINGS/palette/tooltips/NamespaceDialog), sin cambios Rust/src-tauri, sin commit | deuda: diff persona local (localStorage, se pierde al limpiar storage); skill_versions/skill_restore/compaction_report sin backing API (DESKTOP-36) | queda_pendiente: MCP campaign_update_task_state bloqueado por WIP stale DESKTOP-24/28 - orquestador debe cerrarlas; commit pendiente a decision del lead
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION DESKTOP-24 ===
+Campaign ID: 739181f5-e2ce-4256-ad44-8c407cb3752f
+Objetivo activo: Wave desktop: empaquetado Tauri
+Estado: completed
+Última acción: Instaladores NSIS/MSI generados; sidecar resources
+Resultado: ✅
+Próxima acción: Smoke test instalador en VM limpia (deuda ambiental)
+Contrato: npm run tauri build produce instaladores
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION DESKTOP-33 ===
+Campaign ID: fdf3a6e6-02e2-496a-83cd-684f5185e626
+Objetivo activo: DESKTOP-33: merge + delete reales en ConsolidateLens (detectar→revisar→merge/delete sin salir de la lente)
+Estado: completed
+Última acción: Implementados Steps 1-3: mergeFields/defaultSources en core (+3 tests), ConfirmDiscard.tsx (2 pasos, papelera/permanente), MergeEditor inline + batch en ConsolidateLens. Registro en docs/avance/activo/desktop.md y fila removida de Backlog.md.
+Resultado: OK
+Próxima acción: Ninguna - tarea completa, pendiente commit por lead
+Contrato: verificacion: cd desktop && npm run build OK + cd desktop && npm test 64/64 OK | evidencia: build tsc+vite sin errores; vitest 10 files/64 tests (incluye 3 nuevos de mergeFields/defaultSources) | artefactos: desktop/src/components/consolidate/ConsolidateLens.tsx, ConfirmDiscard.tsx, consolidate-core.ts, desktop/src/consolidate-core.test.ts | invariantes: styling Tailwind (DESKTOP-28), undoStore como unico path de soft-delete, props de ConsolidateLens sin cambios | deuda: badges persistentes 'Mergeado'/'En papelera' no implementados (lista reactiva los reemplaza); delete permanente no pasa por undoStore (remove duro con confirmacion 2 pasos) | queda_pendiente: commit lo hace el lead (NO git commit pedido); WIP blocker del campaign-server por DESKTOP-24/28 stale
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION DESKTOP-35 ===
+Campaign ID: 250c1677-eeec-4d94-994e-5b6589e4621d
+Objetivo activo: DESKTOP-35: slider híbrido cableado a search_profile real — eliminar re-rank client-side
+Estado: completed
+Última acción: Implementado end-to-end: bridge Rust+TS de search_profile, slider discretizado a 3 stops server-side, re-rank client-side eliminado (4 fns borradas), tests nuevos verdes
+Resultado: OK
+Próxima acción: Ninguna — tarea completa. Orquestador decide commit (NO commit solicitado) y próxima tarea
+Contrato: verificacion: cargo check --all-targets (src-tauri) OK; cargo test 79 passed; npm run build OK; npm test 64/64; node --test retrieval-core.test.ts 5/5; selfcheck-retrieval PASS | evidencia: claim perfil hybrid == baseline → test search_profile_matches_default_and_keyword_mode (native.rs); claim sin bm25_weight en core → src/sdk/types.rs:478-488 | artefactos: task file actualizado | invariantes: llamadas existentes a vanta_search intactas (serde default); retrieval-core.ts autónomo | deuda: pesos intermedios no soportados server-side (slider discreto); server transport IQL ignora profile/explain
+Próxima tarea si completa: según Backlog Phase 12
 === END RECITATION ===

@@ -26,7 +26,7 @@ export function MarkCta({
   const rightEyeRef = useRef<SVGRectElement>(null);
   const sphereRef = useRef<SVGCircleElement>(null);
   const ringRef = useRef<SVGCircleElement>(null);
-  const [reaction, setReaction] = useState(false);
+  const [, setReaction] = useState(false);
   // Reaction reset timer — cleared on unmount
   const reactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {

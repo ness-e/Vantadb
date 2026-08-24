@@ -1,14 +1,13 @@
 "use client";
 
 import { ArrowRight, TrendingDown, Server, Cloud } from "lucide-react";
-import Link from "next/link";
 import { PageHeader, PageSection } from "@/components/vanta/page-header";
 import { Reveal } from "@/components/vanta/reveal";
 import { TCO_COMPARISON, VANTA } from "@/components/vanta/vanta-data";
 import { useLanguage } from "@/lib/language-provider";
 
 export default function CostPage() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader

@@ -10,7 +10,7 @@ import {
   TrendingDown,
   Boxes,
 } from "lucide-react";
-import { BENCH01, SIFT1M, VANTA, COMPETITIVE_TABLE } from "./vanta-data";
+import { BENCH01, SIFT1M, COMPETITIVE_TABLE } from "./vanta-data";
 import type { View } from "./vanta-data";
 import { LatencyComparator } from "./latency-comparator";
 import { Reveal } from "./reveal";

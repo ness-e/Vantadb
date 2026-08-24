@@ -83,7 +83,7 @@ const ROWS: VsRow[] = [
 ];
 
 export function VsTable() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
 
   return (
     <section

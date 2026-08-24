@@ -39,7 +39,7 @@ const RECOVER_LOGS: LogEntry[] = [
 ];
 
 export function WalSimulator() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
 
   const [logs, setLogs] = useState<LogEntry[]>(BOOT_LOGS);
   const [state, setState] = useState<EngineState>("ready");

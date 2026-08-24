@@ -8,7 +8,6 @@ import {
   X,
   ChevronDown,
   Search,
-  type LucideIcon,
 } from "lucide-react";
 import type { View } from "./vanta-data";
 import { VANTA } from "./vanta-data";

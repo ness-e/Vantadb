@@ -15,7 +15,7 @@ const TAG_STYLES: Record<string, string> = {
 };
 
 export default function BlogPage() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader

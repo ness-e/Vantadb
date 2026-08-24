@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, type LucideIcon } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { PageHeader, PageSection } from "@/components/vanta/page-header";
 import { Reveal } from "@/components/vanta/reveal";
@@ -8,7 +8,7 @@ import { useLanguage } from "@/lib/language-provider";
 
 type Status = "native" | "experimental" | "coming";
 
-const ICONS: Record<string, LucideIcon> = {};
+
 
 interface Integration {
   name: string;
@@ -18,7 +18,7 @@ interface Integration {
 }
 
 export default function IntegrationsPage() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
 
   const integrations: Integration[] = [
     {

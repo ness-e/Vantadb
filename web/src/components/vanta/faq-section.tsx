@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { HelpCircle, Plus, Minus, MessagesSquare } from "lucide-react";
+import { Plus, Minus, MessagesSquare } from "lucide-react";
 import { FAQ, VANTA } from "./vanta-data";
 import { Reveal } from "./reveal";
 import { cn } from "@/lib/utils";

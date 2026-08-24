@@ -6,7 +6,7 @@ import { PageHeader, PageSection } from "@/components/vanta/page-header";
 import { Reveal } from "@/components/vanta/reveal";
 import { useLanguage } from "@/lib/language-provider";
 
-const ICONS: Record<string, LucideIcon> = {
+const _ICONS: Record<string, LucideIcon> = {
   Sparkles,
   ArrowUpRight,
 };
@@ -21,7 +21,7 @@ interface ShowcaseItem {
 }
 
 export default function ShowcasePage() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
 
   const items: ShowcaseItem[] = [
     {

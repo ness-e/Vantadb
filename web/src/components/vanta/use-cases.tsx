@@ -7,7 +7,6 @@ import {
   ArrowRight,
   MemoryStick,
   Cpu,
-  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { Reveal } from "./reveal";
@@ -60,7 +59,7 @@ const USE_CASES: UseCase[] = [
 ];
 
 export function UseCases() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
 
   return (
     <section

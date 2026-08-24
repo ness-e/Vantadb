@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { GraduationCap, Clock, ArrowRight, BookOpen, Search, X, Filter } from "lucide-react";
+import { Clock, ArrowRight, BookOpen, Search, X, Filter } from "lucide-react";
 import { TUTORIALS, VANTA } from "./vanta-data";
 import { Reveal } from "./reveal";
 import { TutorialModal } from "./tutorial-modal";

@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   type ReactNode,
 } from "react";
 import { dictionaries, DEFAULT_LANG, type Lang } from "./dictionaries";
@@ -28,7 +29,7 @@ const LanguageContext = createContext<LanguageContextType>({
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(DEFAULT_LANG);
-  const [mounted, setMounted] = useState(false);
+  const [, setMounted] = useState(false);
 
   useEffect(() => {
     // setState-in-effect is intentional here: we read localStorage on mount
@@ -70,7 +71,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     [lang]
   );
 
-  const tt = useCallback(createTt(t), [t]);
+  const tt = useMemo(() => createTt(t), [t]);
 
   return (
     <LanguageContext.Provider value={{ lang, setLang, t, tt }}>

@@ -22,7 +22,7 @@ interface Group {
 }
 
 export function BenchmarkRace() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
 
   const groups: Group[] = [
     {

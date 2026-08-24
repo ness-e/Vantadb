@@ -18,7 +18,7 @@ const LOGOS = [
 ];
 
 export function TrustBar() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
 
   // tt() — translation with fallback. The shared t() returns the key string
   // when the dictionary entry is missing; tt() falls back to the supplied

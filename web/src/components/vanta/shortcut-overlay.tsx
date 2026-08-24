@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { X, Command, ArrowUp, ArrowDown, CornerDownLeft } from "lucide-react";
+import { X, Command } from "lucide-react";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { useLanguage } from "@/lib/language-provider";
 

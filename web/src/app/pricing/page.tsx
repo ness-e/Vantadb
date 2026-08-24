@@ -16,7 +16,7 @@ const TAG_STYLES: Record<string, string> = {
 };
 
 export default function PricingPage() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader

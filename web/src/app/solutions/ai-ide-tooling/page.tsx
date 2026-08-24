@@ -9,7 +9,7 @@ import { useLanguage } from "@/lib/language-provider";
 const UC = USE_CASES_DETAIL[2]; // ai-ide-tooling
 
 export default function AiIdeToolingPage() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader

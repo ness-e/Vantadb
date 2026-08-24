@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { X, ChevronLeft, ChevronRight, Copy, Check, Clock, GraduationCap, ArrowRight } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Copy, Check, Clock, GraduationCap } from "lucide-react";
 import { TUTORIALS, VANTA } from "./vanta-data";
 import { copyToClipboard } from "./copy-utils";
 import { toast } from "./toast";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Github, BookOpen, Copy, Check, Zap, ArrowUpRight, Terminal } from "lucide-react";
+import { Github, BookOpen, Copy, Check, ArrowUpRight, Terminal } from "lucide-react";
 import { VANTA, PRODUCT } from "./vanta-data";
 import { Reveal } from "./reveal";
 import { MarkCta, type CtaButton } from "./mark/mark-cta";
@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
  * Style: black bg, scanlines, grid-tech, neon accents. Matches home aesthetic.
  */
 export function CtaFinal() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [activeButton, setActiveButton] = useState<CtaButton | null>(null);
   const [clickButton, setClickButton] = useState<{ button: CtaButton; timestamp: number } | null>(null);

@@ -22,7 +22,7 @@ import { useLanguage } from "@/lib/language-provider";
 // Manga/linocut boxes with rigid black shadows and neon accents.
 
 export function CoreEngine() {
-  const { t, tt } = useLanguage();
+  const { tt } = useLanguage();
 
   return (
     <section

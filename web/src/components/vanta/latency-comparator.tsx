@@ -2,8 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { SlidersHorizontal, RotateCcw, Zap, Activity, Play, Square, Cpu, Timer, Copy } from "lucide-react";
-import { BENCH01 } from "./vanta-data";
+import { RotateCcw, Zap, Activity, Play, Square, Cpu, Timer, Copy } from "lucide-react";
 import { copyToClipboard } from "./copy-utils";
 import { toast } from "./toast";
 import { cn } from "@/lib/utils";
