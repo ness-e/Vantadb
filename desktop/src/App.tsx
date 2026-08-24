@@ -36,10 +36,6 @@ function App() {
   // FIND-23: cold-start splash, once per app session. Connection init runs in
   // parallel — the splash never blocks it.
   const [splash, setSplash] = useState(true);
-  useEffect(() => {
-    if (!splash) return;
-    document.title = "VantaDB Studio";
-  }, [splash]);
 
   return (
     // FIND-19: custom window chrome only on the Tauri build; web builds keep
