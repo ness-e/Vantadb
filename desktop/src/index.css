@@ -145,9 +145,14 @@
   --secondary-foreground: #000000;
   --muted: #ECE6D8;
   --muted-foreground: #3A3A3A;
+  /* FIND-24 WCAG AA: black on #FF5500 = 6.55:1 ✅ (cream was 3.05:1 ❌).
+     Brand accent #FF5500 unchanged as bg/border color. */
   --accent: #FF5500;
-  --accent-foreground: #FBF9F5;
-  --destructive: #FF5500;
+  --accent-foreground: #000000;
+  /* FIND-24: destructive separated from accent — red #C41E25 reads 5.61:1 as text
+     on cream and 5.90:1 with white fg (pair destructive bg with white/cream text,
+     NOT black: 3.56 ❌). Errors no longer share orange with highlights. */
+  --destructive: #C41E25;
   --border: #000000;
   --input: #000000;
   --ring: #000000;
@@ -161,7 +166,7 @@
   --sidebar-primary: #000000;
   --sidebar-primary-foreground: #FBF9F5;
   --sidebar-accent: #FF5500;
-  --sidebar-accent-foreground: #FBF9F5;
+  --sidebar-accent-foreground: #000000;
   --sidebar-border: #000000;
   --sidebar-ring: #000000;
 }
@@ -170,7 +175,9 @@
    DARK MODE (D7) — Vanta Studio dark palette, designed own.
    Web has NO dark tokens; this is desktop-only.
    bg Vanta Black #0a0a0a · fg cream #FBF9F5 · neon preserved ·
-   surface #1A1A1A · ink borders invert to cream.
+   surface #1A1A1A · ink borders invert to warm gray (FIND-24:
+   cream borders = 18.8:1 harsh glare; #645F57 = 3.13:1, passes
+   WCAG 1.4.11 non-text while keeping the linocut feel).
    muted-foreground dark = #C9C0AC (AA ~11:1 on #0a0a0a; #3A3A3A fails).
    ============================================================ */
 .dark {
@@ -186,11 +193,17 @@
   --secondary-foreground: #FBF9F5;
   --muted: #1A1A1A;
   --muted-foreground: #C9C0AC;
+  /* FIND-24: same AA fix as light — black on #FF5500 = 6.55:1. */
   --accent: #FF5500;
-  --accent-foreground: #FBF9F5;
-  --destructive: #FF5500;
-  --border: #FBF9F5;
-  --input: #FBF9F5;
+  --accent-foreground: #000000;
+  /* FIND-24: dark destructive is a lighter warm red (#F26D6D) so it passes BOTH
+     directions — 6.77:1 as text on #0a0a0a and 7.18:1 with black fg as bg
+     (light's #C41E25 would be 3.56:1 as text on dark). ≠ accent, no glare. */
+  --destructive: #F26D6D;
+  /* FIND-24: borders softened from cream (18.8:1 glare) to warm gray, ≥3:1
+     non-text vs #0a0a0a per WCAG 1.4.11. Ring/accent keep high contrast. */
+  --border: #645F57;
+  --input: #645F57;
   --ring: #FF5500;
   --chart-1: #FBF9F5;
   --chart-2: #FF5500;
@@ -202,8 +215,8 @@
   --sidebar-primary: #FBF9F5;
   --sidebar-primary-foreground: #0a0a0a;
   --sidebar-accent: #FF5500;
-  --sidebar-accent-foreground: #FBF9F5;
-  --sidebar-border: #FBF9F5;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #645F57;
   --sidebar-ring: #FF5500;
 }
 
@@ -223,7 +236,8 @@
   }
   ::selection {
     background: #FF5500;
-    color: #FBF9F5;
+    /* FIND-24: selected text sits on accent → black (6.55:1), cream failed 3.05:1 */
+    color: #000000;
   }
 }
 
@@ -715,3 +729,44 @@
 .stagger-children > *:nth-child(4) { animation-delay: 240ms; }
 .stagger-children > *:nth-child(5) { animation-delay: 320ms; }
 .stagger-children > *:nth-child(6) { animation-delay: 400ms; }
+
+/* ============================================================
+   FIND-24 — WCAG AA CONTRAST AUDIT (measured 2026-08-23)
+   Formula: (L1+0.05)/(L2+0.05), WCAG relative luminance.
+   Text pairs ≥ 4.5:1 (AA) · non-text (borders) ≥ 3:1 (1.4.11).
+
+   LIGHT (:root, bg #FBF9F5 family)
+   pair                                  ratio   verdict
+   foreground #000 / background #FBF9F5   19.97  ✅
+   card-foreground / card                 19.97  ✅
+   popover-foreground / popover           19.97  ✅
+   primary-fg cream / primary #000        19.97  ✅
+   secondary-fg #000 / secondary #F2EDE2  17.99  ✅
+   muted-fg #3A3A3A / muted #ECE6D8        9.14  ✅
+   accent-fg #000 / accent #FF5500         6.55  ✅  (was cream 3.05 ❌)
+   destructive #C41E25 as text on bg       5.61  ✅
+   white fg on destructive #C41E25         5.90  ✅  (black fg 3.56 ❌ → use white/cream)
+   sidebar-accent-fg #000 / accent         6.55  ✅
+   sidebar-primary-fg / sidebar-primary   19.97  ✅
+
+   DARK (.dark, bg #0a0a0a family)
+   foreground cream / background          18.83  ✅
+   card/popover fg                        18.83  ✅
+   primary-fg #0a0a0a / primary cream     18.83  ✅
+   secondary-fg cream / secondary #1A1A1A 16.55  ✅
+   muted-fg #C9C0AC / muted #1A1A1A        9.63  ✅
+   accent-fg #000 / accent #FF5500         6.55  ✅
+   destructive #F26D6D as text on bg       6.77  ✅
+   black fg on destructive #F26D6D         7.18  ✅
+   sidebar-accent-fg #000 / accent         6.55  ✅
+
+   NON-TEXT (WCAG 1.4.11 ≥ 3:1)
+   border/input/sidebar-border dark #645F57 vs #0a0a0a   3.13 ✅
+     (was cream 18.83 = harsh full-contrast glare)
+   ring dark #FF5500 vs #0a0a0a                          6.55 ✅ (kept high)
+
+   IDENTITY PRESERVED: background #FBF9F5/#0a0a0a · accent brand
+   color #FF5500 unchanged everywhere as bg/border/stroke.
+   Decorative-only colors (charts, halftone, glow, speed-lines,
+   press shadows) are exempt from text contrast rules.
+   ============================================================ */
