@@ -104,4 +104,8 @@ aliases: []
 ### DOC-11 (web nav reorg)
 - **Resultado:** ✅ Two-column menu con 12 sub-links (docs categories) — 2026-07-14.
 
+### REVIEW-18: Warning Next.js package-lock stray (turbopack root)
+- **Fecha:** 2026-08-23
+- **Resultado:** ✅ `6ea5e545` — `turbopack: { root: __dirname }` en `web/next.config.ts`. `npm run build` sin warning (Next 16.3.0 Turbopack), exit 0, 35/35 páginas. Causa: lockfile stray en `C:\Users\Eros\` fuera del repo git. Fuente: review-full-20260822 H03-CODE-001.
+
 > **Cruce:** el código frontend vive en `web/` + `docs/`; SEO/docs siguen reglas en `docs/avance/activo/operaciones.md` (docs site governance).

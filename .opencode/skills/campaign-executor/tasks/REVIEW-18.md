@@ -7,7 +7,8 @@
 - **Prioridad:** 🟢
 - **Tipo:** Frontend-web (config Next.js 16 / Turbopack)
 - **Creado:** 2026-08-23
-- **Estado:** ⏳ IN PROGRESS
+- **last-synced:** 2026-08-23 (cierre)
+- **Estado:** ✅ COMPLETED (`6ea5e545`)
 
 ## Impacto mapeado (Regla 0)
 
@@ -58,8 +59,23 @@
 ### Step 2: Commit + memoria
 - **Archivos:** `web/next.config.ts`, este task file
 - **Acción:** commit conventional `fix(web): REVIEW-18 fija turbopack root — warning package-lock stray eliminado` + lesson
-- **Verify:** commit hash registrado
-- **Estado:** ⬜ PENDING
+- **Verify:** commit `6ea5e545` (hooks pre-commit OK: sin Rust tocado, actionlint ok) · lesson TSYS-15 escrita en `.opencode/task-system/memory/lessons.md`
+- **Estado:** ✅ COMPLETED
+
+---
+
+## Recitation final (canónica — plan file NO editado por instrucción del orquestador)
+
+```
+Campaign ID: 82c5ed20-2086-4619-b471-dbafeb63aead
+Objetivo activo: REVIEW-18: warning turbopack package-lock stray eliminado en build de web/
+Estado: completed
+Última acción: Warning reproducido en DISCOVERY (Next 16.3.0 Turbopack ignora C:\Users\Eros\package-lock.json fuera del repo); fix de config turbopack.root=__dirname; build limpio exit 0; commit 6ea5e545; migración progreso hecha (fila Backlog eliminada + registro avance/web-frontend.md)
+Resultado: OK
+Próxima acción: Ninguna para REVIEW-18. Orquestador continúa Wave 2 (REVIEW-08 h2 RUSTSEC o según prioridad)
+Contrato: verificacion: npm run build en web/ = tail SIN línea ⚠ Warning, EXIT_CODE=0, 35/35 páginas (re-verificado post-fix) || evidencia || claim: warning reproducido con config actual → output capturado en task file §DISCOVERY ("ignored package-lock.json in C:\Users\Eros") | confianza: alta || claim: fix elimina el warning sin romper el build → build post-fix limpio exit 0, output standalone intacto | evidencia: bash EXIT_CODE=0 | confianza: alta || artefactos: web/next.config.ts, .opencode/skills/campaign-executor/tasks/REVIEW-18.md, docs/Backlog.md (−1 fila), docs/avance/activo/web-frontend.md (+REVIEW-18), commits 6ea5e545 + <docs> || invariantes: output standalone intacto; reactStrictMode/output sin cambios de semántica; lockfile stray fuera del repo NO tocado (fuera de jurisdicción) || deuda: ninguna introducida || queda_pendiente: campaign_verify_cmd MCP inusable esta sesión por planes ambiguos (schema sin planFile) — verificación corrida directa en terminal (precedente MOD-17); fila Backlog de REVIEW-15 (completada hoy por otro worker) sigue presente — orquestador decide
+Próxima tarea si completa: REVIEW-08 (Wave 2)
+```
 
 ## Notas
 - El lockfile stray en `C:\Users\Eros\` está FUERA del repo — no se puede (ni se debe) tocar desde aquí; `turbopack.root` es el fix correcto y portable (CI/otras máquinas sin el stray también quedan explícitas).
