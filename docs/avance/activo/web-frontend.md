@@ -109,3 +109,8 @@ aliases: []
 - **Resultado:** ✅ `6ea5e545` — `turbopack: { root: __dirname }` en `web/next.config.ts`. `npm run build` sin warning (Next 16.3.0 Turbopack), exit 0, 35/35 páginas. Causa: lockfile stray en `C:\Users\Eros\` fuera del repo git. Fuente: review-full-20260822 H03-CODE-001.
 
 > **Cruce:** el código frontend vive en `web/` + `docs/`; SEO/docs siguen reglas en `docs/avance/activo/operaciones.md` (docs site governance).
+## WDA-00..08 — Auditoría de diseño web completa (2026-08-24)
+
+- **Fuente:** Plan `docs/plans/archive/2026-08-19-web-design-audit.md` · Reporte: `docs/reviews/web-design-audit-2026-08-24.md`
+- **Resultado:** ✅ 8/8 tareas, 8 commits (`fbc404b5..a328ca64`) — baseline medible, dark-mode huérfano fuera (R-FE-4), not-found.tsx + sitemap 36 URLs + SITE_URL centralizada, 9 claims falsos corregidos, contrastes/touch-targets/ARIA, −7,615 líneas (13 deps zombies + ui/ muerta), i18n residual migrado, hero value prop + funnel demo honesto.
+- **Pendiente:** Lighthouse post (EPERM ambiental), densidad de efectos home, pricing mid-tier (decisión producto), assets public/assets.

@@ -391,3 +391,12 @@ Próxima acción: Ninguna — tarea completa. Orquestador decide commit (NO comm
 Contrato: verificacion: cargo check --all-targets (src-tauri) OK; cargo test 79 passed; npm run build OK; npm test 64/64; node --test retrieval-core.test.ts 5/5; selfcheck-retrieval PASS | evidencia: claim perfil hybrid == baseline → test search_profile_matches_default_and_keyword_mode (native.rs); claim sin bm25_weight en core → src/sdk/types.rs:478-488 | artefactos: task file actualizado | invariantes: llamadas existentes a vanta_search intactas (serde default); retrieval-core.ts autónomo | deuda: pesos intermedios no soportados server-side (slider discreto); server transport IQL ignora profile/explain
 Próxima tarea si completa: según Backlog Phase 12
 === END RECITATION ===
+
+---
+
+## Retrospectiva de cierre (2026-08-24)
+
+**Start:** Verificación multi-agente del estado real antes de planificar (v2) — atrapó 6 claims stale del propio plan. Verify mecánico post-cada-tarea (greps + build) atrapó 2 resultados INCOMPLETO de sub-agentes.
+**Stop:** Sub-agentes en tareas largas multi-step — murieron silenciosos 3× en WDA-00 y WDA-05 sin dejar rastro; las tareas pesadas se ejecutan inline o divididas en chunks ≤2 steps.
+**Continue:** Ejecución secuencial por compartir web/src · commits scoped por tarea con conventional commit + ID · task file como estado durable.
+**Acción medida:** Reducir muertes silenciosas de sub-agentes: 3/8 tareas requirieron rescate inline (38%) → objetivo próximo run <15%, midiendo intentos SARL/tarea contra este baseline.
