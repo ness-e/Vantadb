@@ -1,4 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isEmbedded } from "../../transport";
 
 /**
  * TitleBar (FIND-19) — custom window chrome so the app doesn't feel like an
@@ -9,7 +10,12 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
  * start-dragging} (desktop/src-tauri/capabilities/default.json).
  */
 
-const win = getCurrentWindow();
+// Lazy: getCurrentWindow() a nivel de módulo explota fuera de Tauri (no hay
+// window.__TAURI_INTERNALS__) y mataba TODA la build web en blanco.
+function win() {
+  if (isEmbedded) return null;
+  return getCurrentWindow();
+}
 
 function ControlButton(props: {
   label: string;
@@ -34,10 +40,11 @@ function ControlButton(props: {
 }
 
 export function TitleBar() {
+  const w = win();
   return (
     <div
       data-tauri-drag-region
-      onDoubleClick={() => void win.toggleMaximize()}
+      onDoubleClick={() => void w?.toggleMaximize()}
       className="flex h-9 shrink-0 select-none items-center justify-between border-b-2 border-black bg-[var(--background)]"
     >
       <span
@@ -47,13 +54,13 @@ export function TitleBar() {
         VantaDB Studio
       </span>
       <div className="flex h-9 items-stretch">
-        <ControlButton label="Minimizar" glyph="─" onClick={() => void win.minimize()} />
+        <ControlButton label="Minimizar" glyph="─" onClick={() => void w?.minimize()} />
         <ControlButton
           label="Maximizar / restaurar"
           glyph="□"
-          onClick={() => void win.toggleMaximize()}
+          onClick={() => void w?.toggleMaximize()}
         />
-        <ControlButton label="Cerrar" glyph="✕" danger onClick={() => void win.close()} />
+        <ControlButton label="Cerrar" glyph="✕" danger onClick={() => void w?.close()} />
       </div>
     </div>
   );

@@ -137,6 +137,9 @@ export default function CommandPalette({
   // montada. Alt+letra no inserta texto en el input → sin conflicto con typing.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // Guard: el chunk queda montado con la palette cerrada — sin este check,
+      // Alt+D borraba y Alt+E exportaba fuera del contexto visual (auditoría P2).
+      if (!open) return;
       if (!e.altKey) return;
       const k = e.key.toLowerCase();
       const close = (fn: () => void) => {
@@ -164,7 +167,7 @@ export default function CommandPalette({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onOpenChange, onSearch, onToggleTheme, onUndo, onDelete, onError]);
+  }, [open, onOpenChange, onSearch, onToggleTheme, onUndo, onDelete, onError]);
 
   const run = (fn: () => void) => {
     fn();

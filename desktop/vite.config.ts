@@ -76,6 +76,12 @@ export default defineConfig(({ mode }) => {
       port: 1420,
       strictPort: true,
       host: host || false,
+      // WEB-05 dev flow: embedded mode fetches /api/v2/* same-origin; the
+      // proxy forwards to a local `vanta-cli server` so `vite dev` needs no
+      // CORS on the engine (cli_server.app() ships without CORS by design).
+      proxy: {
+        "/api": "http://127.0.0.1:8090",
+      },
       hmr: host
         ? {
             protocol: "ws",

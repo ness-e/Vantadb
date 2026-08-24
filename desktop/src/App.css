@@ -18,16 +18,22 @@ body {
   color: #000000;
 }
 
-input, textarea, button {
-  font: inherit;
-  border-radius: 0;
-  border: 2px solid #000;
-  background: #FBF9F5;
-  color: #000;
-  padding: 8px 10px;
+/* @layer base: Tailwind v4 emite utilidades en @layer utilities; reglas
+   unlayered pisan CUALQUIER utilidad sin importar especificidad (pl-10 vs
+   input{padding:8px 10px} cortaba el placeholder del buscador). En base,
+   las utilidades ganan y los inputs desnudos conservan su fallback. */
+@layer base {
+  input, textarea, button {
+    font: inherit;
+    border-radius: 0;
+    border: 2px solid #000;
+    background: #FBF9F5;
+    color: #000;
+    padding: 8px 10px;
+  }
+  textarea { resize: vertical; }
+  input:focus, textarea:focus { outline: 3px solid #FF5500; outline-offset: 1px; border-color: #000; }
 }
-textarea { resize: vertical; }
-input:focus, textarea:focus { outline: 3px solid #FF5500; outline-offset: 1px; border-color: #000; }
 
 /* Press effect — physical push on paper (globals.css .press) */
 button {
