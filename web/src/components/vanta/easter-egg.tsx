@@ -76,7 +76,7 @@ export function EasterEgg() {
           {/* Mascot */}
           <img
             src="/assets/mascota_gato.png"
-            alt="VantaDB shadow cat"
+            alt={tt("easterEgg.alt", "VantaDB shadow cat")}
             className="mx-auto h-40 w-40 animate-flicker object-cover mix-blend-multiply "
           />
 
@@ -87,7 +87,7 @@ export function EasterEgg() {
             </p>
             <p className="mt-2 flex items-center justify-center gap-1.5 font-tech text-xs font-bold uppercase tracking-[0.2em] text-black">
               <Sparkles className="h-3.5 w-3.5 text-[#FF5500]" strokeWidth={2.5} />
-              you found the shadow cat
+              {tt(`easterEgg.found`, `you found the shadow cat`)}
               <Sparkles className="h-3.5 w-3.5 text-[#FF5500]" strokeWidth={2.5} />
             </p>
             <p className="mt-1 font-tech text-[10px] uppercase tracking-wider text-black/70">

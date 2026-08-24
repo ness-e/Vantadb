@@ -244,7 +244,7 @@ last-synced: 2026-08-24T00:00
 - **Contrato:** `grep -c "press Run\|Main navigation\|click me · move mouse" web/src` = 0 (o traducidos vía tt()); FAQ tiene versión EN; `npm run build` pasa
 - **Ruta:** vanta-worker
 - **Task file:** `tasks/WDA-06.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-24, inline) — site-navbar aria-labels/toast → tt(); code-playground pressRun → tt() (+useLanguage); easter-egg alt/mensaje → tt(); 6 claves nuevas ES+EN simétricas; FAQ bilingüe YA existía (plan stale); microcopy restante ya vía tt() (WDA-04). lint/build/tsc exit 0.
 
 ### Task 8: WDA-07 — F7 Diseño comercial
 - **Archivos clave:** `web/src/app/layout.tsx`, `web/src/app/page.tsx` (hero), `web/src/components/vanta/vanta-data.ts` (PRICING/TEAM)

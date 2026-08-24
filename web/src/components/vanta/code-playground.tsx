@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useCallback } from "react";
+import { useLanguage } from "@/lib/language-provider";
 import { Play, RotateCcw, Terminal, Zap, ChevronDown } from "lucide-react";
 import { Reveal } from "./reveal";
 import { jsTokenizer, TOK_CLASS } from "@/lib/code-tokenizer";
@@ -257,6 +258,7 @@ db.flush();`,
 ];
 
 export function CodePlayground() {
+  const { tt } = useLanguage();
   const [activeExample, setActiveExample] = useState(0);
   const [examplesOpen, setExamplesOpen] = useState(false);
   const [code, setCode] = useState(STARTER_CODE);
@@ -517,7 +519,7 @@ export function CodePlayground() {
               <div className="scroll-manga h-80 overflow-auto p-3">
                 {output === null && !running && (
                   <p className="font-tech text-[11px] text-[#FBF9F5]/30">
-                    {"// press Run to execute"}
+                    {tt("playground.pressRun", "// press Run to execute")}
                   </p>
                 )}
                 {running && (

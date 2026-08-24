@@ -210,7 +210,7 @@ export function SiteNavbar({
   onNavigate: (v: View) => void;
   extraActions?: React.ReactNode;
 }) {
-  const { t } = useLanguage();
+  const { t, tt } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -243,7 +243,7 @@ export function SiteNavbar({
           window.scrollTo({ top: 0, behavior: "auto" });
         }
       } else {
-        toast.info(`${t(item.labelKey)} — coming soon`);
+        toast.info(`${t(item.labelKey)} · ${tt("common.comingSoon", "coming soon")}`);
       }
       setMobileOpen(false);
       setOpenGroup(null);
@@ -316,7 +316,7 @@ export function SiteNavbar({
         {/* Desktop nav — centered dropdowns */}
         <nav
           className="hidden items-center gap-1 lg:flex"
-          aria-label="Main navigation"
+          aria-label={tt("a11y.mainNav", "Main navigation")}
         >
           {NAV_GROUPS.map((group) => (
             <DesktopDropdown
@@ -379,7 +379,7 @@ export function SiteNavbar({
           <button
             onClick={() => setMobileOpen((o) => !o)}
             className="inline-flex h-9 w-9 items-center justify-center border-2 border-black bg-[#FBF9F5] text-black    lg:hidden"
-            aria-label="Toggle menu"
+            aria-label={tt("a11y.toggleMenu", "Toggle menu")}
             aria-expanded={mobileOpen}
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -392,7 +392,7 @@ export function SiteNavbar({
         <div className="border-t-4 border-black bg-[#FBF9F5]   lg:hidden">
           <nav
             className="mx-auto flex max-w-7xl flex-col px-4 py-4"
-            aria-label="Mobile navigation"
+            aria-label={tt("a11y.mobileNav", "Mobile navigation")}
           >
             {NAV_GROUPS.map((group) => (
               <div key={group.labelKey} className="mb-2">
