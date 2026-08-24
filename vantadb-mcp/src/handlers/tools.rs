@@ -404,6 +404,7 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         tools.extend(crate::skills::skill_tool_definitions());
         tools.extend(crate::code::code_tool_definitions());
         tools.extend(crate::wiki::wiki_tool_definitions());
+        tools.extend(crate::context::context_tool_definitions());
     }
     Ok(result)
 }
@@ -1634,6 +1635,7 @@ pub fn handle_tools_call(
         }
         "wiki_search" | "wiki_read" | "wiki_list" | "wiki_graph" | "wiki_ingest"
         | "wiki_ingest_status" => crate::wiki::handle_wiki_tool(name, args, storage, config),
+        "context_assemble" => crate::context::handle_context_tool(name, args, storage, config),
         _ => McpError::method_not_found(format!("Tool not found: {}", name)).into_err(),
     }
 }

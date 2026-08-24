@@ -3,7 +3,7 @@ title: VantaDB Model Context Protocol (MCP) Server
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-08-22
+last_reviewed: 2026-08-23
 aliases: []
 ---
 
@@ -11,7 +11,97 @@ aliases: []
 
 The VantaDB MCP server (`vantadb-mcp`) exposes the database to LLM agents over the Model Context Protocol. Tool definitions live in `vantadb-mcp/src/handlers/tools.rs` (`handle_tools_list`); per-IDE setup lives in [`skills/vantadb-mcp/SKILL.md`](../../skills/vantadb-mcp/SKILL.md).
 
-**56 tools in 4 families:**
+## Getting Started
+
+VantaDB runs as a **stdio JSON-RPC 2.0 server**: your MCP client spawns the process, talks to it over stdin/stdout, and every memory operation (store, search, graph, wiki, skills) becomes a tool the agent can call. No daemon, no network port.
+
+### Requirements
+
+- The VantaDB CLI (`vanta-cli` ≥ **0.5.0**) installed and on PATH — see [Embedded CLI](../../README.md#embedded-cli) for one-line installers.
+- A writable directory for the database (e.g. `~/.vantadb`).
+- An MCP-capable client: Claude Desktop, Claude Code, Cursor, OpenCode, or any client speaking MCP over stdio.
+
+### Starting the server
+
+The canonical launcher is the CLI wrapper:
+
+```bash
+vanta-cli server --mcp --db ~/.vantadb
+```
+
+(Advanced: run `vantadb-server --mcp` directly with `VANTADB_STORAGE_PATH=~/.vantadb`.)
+
+### Client configuration
+
+All three clients use the same server command; only the config file differs. Use an **absolute path** for `--db` if your client does not expand `~`.
+
+**Claude Desktop** — `%APPDATA%\Claude\claude_desktop_config.json` (Windows) / `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
+
+```json
+{
+  "mcpServers": {
+    "vantadb": {
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "~/.vantadb"]
+    }
+  }
+}
+```
+
+**Cursor** — `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project):
+
+```json
+{
+  "mcpServers": {
+    "vantadb": {
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "~/.vantadb"]
+    }
+  }
+}
+```
+
+**Claude Code** — project-level `.mcp.json`, or one-shot via CLI:
+
+```bash
+claude mcp add vantadb -- vanta-cli server --mcp --db ~/.vantadb
+```
+
+```json
+{
+  "mcpServers": {
+    "vantadb": {
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "~/.vantadb"]
+    }
+  }
+}
+```
+
+### First test
+
+Verify the handshake (`initialize` → `tools/list`) works before touching your editor config:
+
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | vanta-cli server --mcp --db ~/.vantadb
+```
+
+You should see a JSON response listing the available tools. Namespaces are created implicitly on first write (`memory_put` with a new namespace); list existing ones with `collection_list`.
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| Client shows no tools | Run the First test above; if it fails, check that `vanta-cli` is on PATH (`vanta-cli --version`). |
+| `Server closed stdout` / immediate exit | The database path must be writable and not locked by another VantaDB process. |
+| Tools error at call time | Check disk space and permissions on the `--db` directory; use `capabilities` to introspect the engine state. |
+| Text search fails with `text_index not found` | Restarting the server reconciles indexes automatically at startup (`ensure_indexes_current`). |
+
+For the full behavioral contract (error channels, response envelope, edge cases), see [`skills/vantadb-mcp/SKILL.md`](../../skills/vantadb-mcp/SKILL.md).
+
+## Tool Families
+
+**57 tools in 5 families:**
 
 | Family | Count | Source module |
 |--------|-------|---------------|
@@ -19,6 +109,7 @@ The VantaDB MCP server (`vantadb-mcp`) exposes the database to LLM agents over t
 | `code_*` | 8 | `code.rs` |
 | `skill_*` | 6 | `skills.rs` |
 | `wiki_*` | 6 | `wiki.rs` |
+| `context_assemble` | 1 | `context.rs` |
 
 ## Core Tools (36)
 
@@ -98,7 +189,7 @@ The VantaDB MCP server (`vantadb-mcp`) exposes the database to LLM agents over t
 | `bulk_import_file` | Bulk-imports from a binary `.vdbdump` file on the host filesystem, bypassing per-record validation for throughput. |
 | `bulk_import_stream` | Bulk-imports inline NDJSON or raw `.vdbdump` content (max 10 MB); imported entries are raw engine nodes. |
 
-## Extended Tool Families (20)
+## Extended Tool Families (21)
 
 Dispatched via `tools/call`, defined outside `handlers/tools.rs`:
 
@@ -136,6 +227,12 @@ Dispatched via `tools/call`, defined outside `handlers/tools.rs`:
 | `wiki_search` | Searches the wiki corpus. |
 | `wiki_graph` | Queries the wiki knowledge graph. |
 | `wiki_list` | Lists wiki pages/nodes. |
+
+### Context Engine — `context.rs` (1)
+
+| Tool | Description |
+|------|-------------|
+| `context_assemble` | Assembles a context window under a token budget with the vanta-memory context engine (MCP-31): compacts the provided chat history and injects session recall (relevant L1 memories, persona, scene navigation). Returns `{messages, report, mmd_injected, recall_injected}`. Read-only. |
 
 ## Parity
 

@@ -9,6 +9,7 @@
 mod axioms;
 mod code;
 mod config;
+mod context;
 mod error;
 mod handlers;
 mod metrics;

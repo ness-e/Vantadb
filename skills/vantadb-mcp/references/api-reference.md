@@ -2,14 +2,15 @@
 
 > Verified against the real SDK boundary: `src/sdk/types.rs`, `src/sdk/api.rs`, `src/sdk/builder.rs`, `src/index/graph.rs`, `src/error.rs`. Only symbols that exist in the code are documented here.
 
-## MCP Tools (59)
+## MCP Tools (57)
 
 > **This is the single source of truth for the VantaDB MCP contract.**
-> Verified against `vantadb-mcp/src/`: exactly **59 tools** = 36 core
+> Verified against `vantadb-mcp/src/`: exactly **57 tools** = 36 core
 > (`handlers/tools.rs` `base_tools`) + 6 `skill_*` (`skills.rs`) + 8 `code_*`
-> (`code.rs`) + 6 `wiki_*` (`wiki.rs`). All four sets are announced together
+> (`code.rs`) + 6 `wiki_*` (`wiki.rs`) + 1 `context_assemble`
+> (`context.rs`). All five sets are announced together
 > in `tools/list` via extend (`handlers/tools.rs`).
-> Last synced against code: 2026-08-22.
+> Last synced against code: 2026-08-23.
 
 ### Core — Memory / Search / Collections / Graph / IQL / GDS / Recovery (36)
 
@@ -97,6 +98,16 @@ Query-only wrappers over the core `WikiStore` (MEM-33) plus async ingest (MEM-52
 | `wiki_graph` | BFS multi-hop over wikilink edges (cap 200 visited nodes) | `namespace`, `slug`, `root_path`; `max_hops` (2, cap 10) |
 | `wiki_ingest` | Start an async wiki build from local markdown; returns `run_id` immediately | `namespace`, `slug`, `root` (abs path, req) |
 | `wiki_ingest_status` | Poll lifecycle state + progress of a build by run_id | `run_id` (req) |
+
+### Context Engine (1 × `context_assemble`, MCP-31)
+
+Read-only MCP exposure of the vanta-memory context engine (`assemble_with_recall` + the session auto-recall hook desktop consumes over IPC). Compressor internals are NOT exposed — assembly only.
+
+**Precondition:** none for history compaction; session recall injects only when prior memory capture populated the session (L1 records / persona / scenes). An unknown session is not an error — assembly still runs on the provided history.
+
+| Tool | Purpose | Main params |
+|------|---------|-------------|
+| `context_assemble` | Assemble a context window under a token budget: compacts the chat history and injects recall blocks (relevant L1 memories, user persona, scene navigation) | `session_key`, `token_budget` (req, > 0); `query`, `messages` (`{role, content, id?}`, optional); returns `{messages, report{mode,msgs_conserved,msgs_before,tokens_before,tokens_after}, mmd_injected, recall_injected}`. Note: when the protected final messages alone exceed the budget, output intentionally exceeds it (engine cursor guarantee) |
 
 ## Python SDK
 
