@@ -47,6 +47,31 @@ updates:
       - "javascript"
     open-pull-requests-limit: 5
 
+  # ponytail: solo /vantadb-python — los 10 integrations/* son stubs sin publicar
+  # en PyPI (MKT-18f); añadir sus entradas cuando se publiquen.
+  - package-ecosystem: "pip"
+    directory: "/vantadb-python"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Argentina/Buenos_Aires"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "python"
+    open-pull-requests-limit: 5
+    groups:
+      python-patch-and-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     target-branch: "develop"
