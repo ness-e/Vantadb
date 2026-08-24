@@ -19,11 +19,16 @@ interface Result {
 }
 
 const PANEL =
-  "flex flex-col gap-2 border-2 border-foreground bg-card p-3 shadow-[3px_3px_0_0_#000] dark:shadow-[3px_3px_0_0_#FBF9F5]";
+  "flex flex-col gap-2 border-2 border-foreground bg-card p-3 shadow-ink-sm";
 
-/** ok detail when a metrics snapshot exists, err detail when polling failed. */
+/** ok detail when a metrics snapshot exists, err detail when polling failed.
+ * El texto crudo del error (TypeError/HTTP) queda en consola; en la UI solo
+ * el estado amigable (visual-critique: no filtrar stack a la cara del usuario). */
 function metricsResult(err: string | null, okDetail: string | null): Result | null {
-  if (err) return { status: "err", detail: err };
+  if (err) {
+    console.warn("[vanta] metrics poll:", err);
+    return { status: "err", detail: "sin snapshot de métricas" };
+  }
   return okDetail ? { status: "ok", detail: okDetail } : null;
 }
 
@@ -77,7 +82,7 @@ export default function SopPanel() {
   return (
     <section
       aria-label="Operaciones SOP"
-      className="border-[3px] border-foreground bg-card p-4 shadow-[6px_6px_0_0_#000] dark:shadow-[6px_6px_0_0_#FBF9F5]"
+      className="border-[3px] border-foreground bg-card p-4 shadow-ink"
     >
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Operaciones SOP</h2>

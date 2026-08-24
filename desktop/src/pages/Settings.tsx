@@ -18,7 +18,7 @@ interface Props {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="border-4 border-foreground bg-card p-5 shadow-[6px_6px_0_0_#000] dark:shadow-[6px_6px_0_0_#FBF9F5]">
+    <section className="border-4 border-foreground bg-card p-5 shadow-ink">
       <h2 className="m-0 font-tech text-xs uppercase tracking-widest text-neon">{title}</h2>
       <div className="mt-3">{children}</div>
     </section>

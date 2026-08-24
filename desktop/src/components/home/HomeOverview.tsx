@@ -228,7 +228,7 @@ export default function HomeOverview({ active }: { active: boolean }) {
   if (!active || data === null) {
     return (
       <section aria-label="Resumen de la memoria" className="press-lg border-4 border-foreground bg-card p-8 text-center">
-        <div className="font-display text-3xl text-stencil">MEMORIA EN VISTA</div>
+        <div className="font-display text-3xl text-stencil">VISTA GENERAL</div>
         <p className="mt-2 font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
           {failed ? "no se pudo leer el backend" : "cargando…"}
         </p>
@@ -246,7 +246,7 @@ export default function HomeOverview({ active }: { active: boolean }) {
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <div className="font-tech text-[11px] uppercase tracking-widest text-neon">Overview</div>
-          <h1 className="font-display text-4xl text-stencil">MEMORIA EN VISTA</h1>
+          <h1 className="font-display text-4xl text-stencil">VISTA GENERAL</h1>
         </div>
         <div className="flex items-center gap-2">
           <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">

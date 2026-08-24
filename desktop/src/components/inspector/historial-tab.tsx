@@ -147,7 +147,7 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
         </div>
 
         {listError ? (
-          <p className="mt-1 font-tech text-[10px] text-neon">✕ {listError}</p>
+          <p className="mt-1 font-tech text-[10px] text-destructive">✕ {listError}</p>
         ) : vers.length === 0 && !loading ? (
           <p className="mt-1 font-tech text-[10px] text-muted-foreground">
             sin versiones retenidas — el bridge nativo retiene hasta 32 por registro

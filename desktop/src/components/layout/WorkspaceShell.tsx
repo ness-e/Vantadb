@@ -180,7 +180,7 @@ function SideButton({
     >
       <span className="text-neon">{icon}</span>
       {label}
-      {hint && <span className="ml-auto font-tech text-[9px] text-neon">{hint}</span>}
+      {hint && <span className="ml-auto font-tech text-[11px] text-neon">{hint}</span>}
     </button>
   );
 }
@@ -519,7 +519,7 @@ export default function WorkspaceShell({
             </div>
             <div className="leading-none">
               <div className="font-display text-xl tracking-wide">Vanta Studio</div>
-              <div className="font-tech text-[9px] uppercase tracking-widest text-muted-foreground">
+              <div className="font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
                 memory workspace
               </div>
             </div>
@@ -535,12 +535,12 @@ export default function WorkspaceShell({
             <SideButton icon="◫" label="RESUMEN" title="Ir a RESUMEN — vista general de operaciones" active={surface === "resumen"} onClick={() => setSurface("resumen")} />
             <SideButton icon="▦" label="MEMORIAS" title="Ir a MEMORIAS — ingestar y explorar registros" active={surface === "memorias"} onClick={() => setSurface("memorias")} />
             <SideButton icon="♻" label="PAPELERA" hint="Ctrl+Z" title="Ir a PAPELERA — registros borrados (restaurar o purgar)" active={surface === "papelera"} onClick={() => setSurface("papelera")} />
-            <SideButton icon="◷" label="ACTIVIDAD" hint="F1" title="Ir a ACTIVIDAD — audit log de la base (atajo documentado: F1)" active={surface === "actividad"} onClick={() => setSurface("actividad")} />
+            <SideButton icon="◷" label="ACTIVIDAD" title="Ir a ACTIVIDAD — audit log de la base" active={surface === "actividad"} onClick={() => setSurface("actividad")} />
             {/* VS-13: lente contextual — hereda el registro seleccionado como seed (P4). */}
             <SideButton icon="⛁" label="BÚSQUEDA" title="Ir a BÚSQUEDA — lente retrieval híbrida (BM25 + vector)" active={surface === "retrieval"} onClick={() => setSurface("retrieval")} />
-            <SideButton icon="⠿" label="ÍNDICES" hint="F1" title="Ir a ÍNDICES — estado de HNSW, BM25 y WAL (atajo documentado: F1)" active={surface === "indices"} onClick={() => setSurface("indices")} />
+            <SideButton icon="⠿" label="ÍNDICES" title="Ir a ÍNDICES — estado de HNSW, BM25 y WAL" active={surface === "indices"} onClick={() => setSurface("indices")} />
             <SideButton icon="⇄" label="CONSOLIDAR" title="Ir a CONSOLIDAR — detectar y fusionar duplicados" active={surface === "consolidar"} onClick={() => setSurface("consolidar")} />
-            <SideButton icon="⌘" label="IQL" hint="F2" title="Ir a IQL — consola de queries sobre grafo (atajo documentado: F2)" active={surface === "iql"} onClick={() => setSurface("iql")} />
+            <SideButton icon="⌘" label="IQL" title="Ir a IQL — consola de queries sobre grafo" active={surface === "iql"} onClick={() => setSurface("iql")} />
             <SideButton icon="✳" label="ESPACIO" title="Ir a ESPACIO — proyección 2D de embeddings" active={surface === "espacio"} onClick={() => setSurface("espacio")} />
             {/* DESKTOP-37: sexta lente — memoria contextual de vanta-memory. */}
             <SideButton icon="◉" label="MEMORIA" title="Ir a MEMORIA — escenas con heat, persona, skills versionadas y generation log (L1/L2/L3)" active={surface === "memoria"} onClick={() => setSurface("memoria")} />
@@ -610,7 +610,7 @@ export default function WorkspaceShell({
               namespaces.map((n) => {
                 const fav = favoritesStore.isFavorite(n.name, null);
                 return (
-                  <div key={n.name} className="flex items-stretch gap-1">
+                  <div key={n.name} className="group flex items-stretch gap-1">
                     <button
                       type="button"
                       onClick={() => setSurface("memorias")}
@@ -620,11 +620,13 @@ export default function WorkspaceShell({
                       <span className="truncate">{n.name}</span>
                       <span className="font-display text-base leading-none">{n.count}</span>
                     </button>
-                    {/* DESKTOP-32: renombrar / borrar con confirmación + undo. */}
+                    {/* DESKTOP-32: renombrar / borrar con confirmación + undo.
+                        Acciones reveladas al hover/focus: el nombre respira y
+                        la fila no compite con los iconos (visual-critique). */}
                     <button
                       type="button"
                       onClick={() => setNsDialog({ mode: "rename", name: n.name })}
-                      className="press flex w-7 items-center justify-center border-2 border-foreground bg-background text-xs"
+                      className="press flex w-7 items-center justify-center border-2 border-foreground bg-background text-xs opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
                       title={`Renombrar ${n.name}`}
                       aria-label={`Renombrar ${n.name}`}
                     >
@@ -633,7 +635,7 @@ export default function WorkspaceShell({
                     <button
                       type="button"
                       onClick={() => setNsDialog({ mode: "delete", name: n.name })}
-                      className="press flex w-7 items-center justify-center border-2 border-foreground bg-background text-xs"
+                      className="press flex w-7 items-center justify-center border-2 border-foreground bg-background text-xs opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
                       title={`Borrar ${n.name} (va a la papelera)`}
                       aria-label={`Borrar ${n.name}`}
                     >
@@ -643,8 +645,8 @@ export default function WorkspaceShell({
                       type="button"
                       onClick={() => favoritesStore.toggle(n.name, null)}
                       aria-pressed={fav}
-                      className={`press flex w-8 items-center justify-center border-2 border-foreground text-sm ${
-                        fav ? "bg-neon text-background" : "bg-background"
+                      className={`press flex w-8 items-center justify-center border-2 border-foreground text-sm transition-opacity focus-visible:opacity-100 group-hover:opacity-100 ${
+                        fav ? "bg-neon text-background" : "bg-background opacity-0"
                       }`}
                       title={fav ? `Quitar ${n.name} de favoritos` : `Agregar ${n.name} a favoritos`}
                       aria-label={fav ? `Quitar ${n.name} de favoritos` : `Agregar ${n.name} a favoritos`}
@@ -661,7 +663,7 @@ export default function WorkspaceShell({
         {/* Footer */}
         <div className="border-t-4 border-foreground p-3">
           <div className="flex items-center justify-between gap-2">
-            <div className="font-tech text-[9px] uppercase tracking-wider text-muted-foreground">
+            <div className="font-tech text-[11px] uppercase tracking-wider text-muted-foreground">
               v0.1.0 · <span className="text-neon">embedded</span>
             </div>
             <button
@@ -701,7 +703,7 @@ export default function WorkspaceShell({
               type="search"
               placeholder="Buscar memoria…"
               aria-label="Búsqueda global"
-              className="w-full border-2 border-foreground bg-background px-3 py-1.5 pl-9 text-sm placeholder:text-muted-foreground"
+              className="w-full border-2 border-foreground bg-background py-1.5 pr-3 pl-10 text-sm placeholder:text-muted-foreground"
             />
             <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neon">
               🔎

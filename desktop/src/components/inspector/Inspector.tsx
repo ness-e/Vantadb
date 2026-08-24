@@ -269,7 +269,7 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
               </button>
             </div>
             {metaCheck.error && (
-              <p className="mt-1 font-tech text-[10px] text-neon">{metaCheck.error}</p>
+              <p className="mt-1 font-tech text-[10px] text-destructive">{metaCheck.error}</p>
             )}
           </>
         ) : savedFlash ? (

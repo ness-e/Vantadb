@@ -85,7 +85,7 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
       pointSizeSelected: 12,
       colorBy: "valueA",
       pointColor: PALETTE,
-      pointColorHover: "#ffffff",
+      pointColorHover: "#FF5500",
       deselectOnEscape: true,
     });
     plotRef.current = plot;
@@ -222,7 +222,7 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
           <span className="font-tech text-[10px] text-muted-foreground">proyectando…</span>
         )}
         {state.error && (
-          <span className="font-tech text-[10px] font-bold text-red-700" role="alert">
+          <span className="font-tech text-[10px] font-bold text-destructive" role="alert">
             ⚠ {state.error}
           </span>
         )}
@@ -264,7 +264,7 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
       <p className="border-b border-foreground/40 bg-background px-4 py-1 font-tech text-[10px] text-muted-foreground">
         hover = ver payload · click en un punto = abrir en Inspector · shift+arrastrar = lasso
         → barra de batch ops
-        <span className="text-amber-700"> · UMAP-js distorsiona distancias — solo agrupa por vecindad</span>
+        <span className="text-amber-700 dark:text-amber-300"> · UMAP-js distorsiona distancias — solo agrupa por vecindad</span>
       </p>
 
       {/* Canvas + tooltip overlay */}
@@ -274,7 +274,7 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
             <canvas ref={canvasRef} className="h-full w-full" />
             {hoverPoint && (
               <div
-                className="pointer-events-none absolute bottom-2 left-2 z-10 max-w-[320px] border-2 border-foreground bg-background/95 px-3 py-2 font-tech text-[10px] shadow-[2px_2px_0_0_#000]"
+                className="pointer-events-none absolute bottom-2 left-2 z-10 max-w-[320px] border-2 border-foreground bg-background/95 px-3 py-2 font-tech text-[10px] shadow-ink-sm"
                 role="tooltip"
               >
                 <div className="font-bold text-neon">

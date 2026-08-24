@@ -39,7 +39,7 @@ export default function IngestForm({ onDone, runError }: Props) {
   }
 
   return (
-    <section className="border-[3px] border-foreground bg-card p-4 shadow-[6px_6px_0_0_#000] dark:shadow-[6px_6px_0_0_#FBF9F5]">
+    <section className="border-[3px] border-foreground bg-card p-4 shadow-ink">
       <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Ingestar</h2>
       <form className="mt-3 flex flex-col gap-2" onSubmit={handleSubmit}>
         <input

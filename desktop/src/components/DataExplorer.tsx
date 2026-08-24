@@ -692,7 +692,7 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
   return (
     <section
       aria-label="Memorias"
-      className="border-[3px] border-foreground bg-card p-4 shadow-[6px_6px_0_0_#000] dark:shadow-[6px_6px_0_0_#FBF9F5]"
+      className="border-[3px] border-foreground bg-card p-4 shadow-ink"
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Memorias</h2>

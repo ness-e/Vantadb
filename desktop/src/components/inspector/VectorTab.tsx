@@ -174,7 +174,7 @@ export default function VectorTab({ record }: Props) {
             >
               ANALIZAR
             </button>
-            {pasteError && <p className="mt-1 font-tech text-[10px] text-neon">{pasteError}</p>}
+            {pasteError && <p className="mt-1 font-tech text-[10px] text-destructive">{pasteError}</p>}
             {pasted && pastedStats && (
               <div className="mt-2 space-y-2">
                 <Stats v={pasted} />

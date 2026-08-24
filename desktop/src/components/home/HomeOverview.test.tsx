@@ -49,7 +49,7 @@ describe("HomeOverview", () => {
     });
 
     render(<HomeOverview active />);
-    await waitFor(() => expect(screen.getByText("MEMORIA EN VISTA")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("VISTA GENERAL")).toBeTruthy());
 
     // Total viene de stats (5), no de list (2).
     expect(screen.getByText("5")).toBeTruthy();

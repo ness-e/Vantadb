@@ -105,12 +105,16 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  /* VantaDB manga/linocut palette */
-  --color-cream: #FBF9F5;
-  --color-ink: #000000;
+  /* VantaDB manga/linocut palette — via var() para que .dark los voltee
+     (@theme inline inlinea literales; sin indirección el grid quedaba crema
+     en dark mode, auditoría MEMORIAS P1). */
+  --color-cream: var(--cream);
+  --color-ink: var(--ink);
   --color-neon: #FF5500;
-  --color-paper: #F2EDE2;
+  --color-paper: var(--paper);
   --color-smoke: #1A1A1A;
+  /* Sombra dura linocut: negra en claro, crema en oscuro (ver .dark). */
+  --ink-shadow: var(--ink-shadow-raw);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -133,6 +137,11 @@
 :root {
   --radius: 0.125rem;
   /* Manga / Linocut palette override */
+  /* Paleta raw del grid (bg-paper/border-ink/bg-cream) — .dark las voltea. */
+  --cream: #FBF9F5;
+  --ink: #000000;
+  --paper: #F2EDE2;
+  --ink-shadow-raw: #000000;
   --background: #FBF9F5;
   --foreground: #000000;
   --card: #FBF9F5;
@@ -218,6 +227,24 @@
   --sidebar-accent-foreground: #000000;
   --sidebar-border: #645F57;
   --sidebar-ring: #FF5500;
+  /* Tokens raw del grid (DataExplorer usa bg-paper/border-ink/bg-cream).
+     Sin estos overrides la tabla entera quedaba CREMA sobre #0a0a0a (auditoría
+     MEMORIAS P1). paper = superficie elevada, ink = el warm gray de bordes,
+     cream = surface. */
+  --cream: #1A1A1A;
+  --ink: #645F57;
+  --paper: #141412;
+  --ink-shadow-raw: #FBF9F5;
+}
+
+/* Token de sombra dura — reemplaza shadow-[6px_6px_0_0_#000]
+   dark:shadow-[…#FBF9F5] copiado a mano en 7+ componentes (2 sin override
+   dark: la sombra desaparecía en dark mode). */
+@utility shadow-ink {
+  box-shadow: 6px 6px 0 0 var(--ink-shadow);
+}
+@utility shadow-ink-sm {
+  box-shadow: 3px 3px 0 0 var(--ink-shadow);
 }
 
 @layer base {

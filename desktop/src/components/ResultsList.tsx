@@ -7,7 +7,7 @@ interface Props {
 }
 
 const CARD =
-  "list-none border-2 border-foreground bg-card px-3 py-2 shadow-[3px_3px_0_0_#000] dark:shadow-[3px_3px_0_0_#FBF9F5] [&_p]:my-1";
+  "list-none border-2 border-foreground bg-card px-3 py-2 shadow-ink-sm [&_p]:my-1";
 
 export default function ResultsList({ results, onSelect }: Props) {
   if (results === null) {

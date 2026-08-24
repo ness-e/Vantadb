@@ -90,7 +90,7 @@ export function ExportButtons({
         onClick={() => handleJsonl("copy")}
         title="Copiar la vista actual como JSONL"
       >
-        {busy === "jsonl" ? "…" : "⧉ JSONL"}
+        {busy === "jsonl" ? "…" : "⧉ copiar"}
       </button>
       <button
         type="button"
@@ -99,7 +99,7 @@ export function ExportButtons({
         onClick={() => handleReport("download")}
         title="Descargar reporte de estado markdown (counts, tipos de metadata, TTLs)"
       >
-        {busy === "report" ? "…" : "⭳ REPORT"}
+        {busy === "report" ? "…" : "⭳ reporte"}
       </button>
       <button
         type="button"
@@ -108,7 +108,7 @@ export function ExportButtons({
         onClick={() => handleReport("copy")}
         title="Copiar reporte de estado markdown"
       >
-        {busy === "report" ? "…" : "⧉ REPORT"}
+        {busy === "report" ? "…" : "⧉ copiar reporte"}
       </button>
     </div>
   );

@@ -250,7 +250,7 @@ export default function ImportPaste({
                     </td>
                     <td className="max-w-[120px] truncate px-2 py-1">{r.item?.id ?? <span className="text-muted-foreground">auto</span>}</td>
                     <td className="max-w-[240px] truncate px-2 py-1">
-                      {r.item ? textSnippet(r.item) : <span className="text-neon">{r.error}</span>}
+                      {r.item ? textSnippet(r.item) : <span className="text-destructive">{r.error}</span>}
                     </td>
                     <td className="max-w-[80px] truncate px-2 py-1 text-muted-foreground">
                       {r.item?.namespace ?? "—"}

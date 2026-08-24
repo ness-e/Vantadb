@@ -66,10 +66,13 @@ export default function KpiCards() {
     return (
       <section
         aria-label="KPIs"
-        className="border-[3px] border-foreground bg-card p-4 shadow-[6px_6px_0_0_#000] dark:shadow-[6px_6px_0_0_#FBF9F5]"
+        className="border-[3px] border-foreground bg-card p-4 shadow-ink"
       >
         <h2 className="m-0 font-tech text-xs uppercase tracking-widest">KPIs</h2>
-        <p className="text-muted-foreground">{error ? error : "Esperando métricas…"}</p>
+        {/* Error amigable: el detalle crudo queda en consola (useMetricsPoll). */}
+        <p className="text-muted-foreground">
+          {error ? "sin métricas todavía — reintentando…" : "Esperando métricas…"}
+        </p>
       </section>
     );
   }
@@ -79,7 +82,7 @@ export default function KpiCards() {
       {computeKpis(history).map((k) => (
         <article
           key={k.label}
-          className="flex flex-col gap-1.5 border-[3px] border-foreground bg-card p-3 shadow-[6px_6px_0_0_#000] dark:shadow-[6px_6px_0_0_#FBF9F5]"
+          className="flex flex-col gap-1.5 border-[3px] border-foreground bg-card p-3 shadow-ink"
         >
           <div className="text-2xl font-bold leading-none tracking-tight">{k.current}</div>
           <div className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">{k.label}</div>

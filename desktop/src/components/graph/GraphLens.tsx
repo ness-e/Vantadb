@@ -48,13 +48,13 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
           {g.nodeCount}/{MAX_NODES} nodos · {g.edgeCount} aristas
         </span>
         {highlightIds.size > 0 && (
-          <span className="font-tech text-[10px] font-bold text-cyan-700" role="status">
+          <span className="font-tech text-[10px] font-bold text-cyan-700 dark:text-cyan-300" role="status">
             ● {highlightIds.size} resaltados
           </span>
         )}
         {g.busy && <span className="font-tech text-[10px] text-muted-foreground">expandiendo…</span>}
         {g.capped && (
-          <span className="font-tech text-[10px] font-bold text-amber-700" role="status">
+          <span className="font-tech text-[10px] font-bold text-amber-700 dark:text-amber-300" role="status">
             ⚠ tope alcanzado — se desvanecen nodos viejos (click para re-expandir)
           </span>
         )}
