@@ -152,7 +152,7 @@ export default function AiIdeToolingPage() {
                 {UC.slug}.py
               </span>
               <span className="font-tech text-[9px] uppercase tracking-wider text-[#FBF9F5]/30">
-                {tt("solutionPage.codeLang", "Python · vantadb_py")}
+                {tt("solutionPage.codeLang", "Python · vantadb")}
               </span>
             </div>
             <pre className="scanlines overflow-x-auto bg-black p-4 font-tech text-[12px] leading-relaxed text-[#FBF9F5]">

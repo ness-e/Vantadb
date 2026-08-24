@@ -66,12 +66,12 @@ export function CoreEngine() {
             <PipelineStage
               index="01"
               title={tt("coreEngine.stage1.title", "Input Query")}
-              tag="db.search(...)"
+              tag="db.search_memory(...)"
               tone="cream"
               icon={<TerminalSquare className="h-5 w-5" strokeWidth={2.5} />}
               body={
                 <code className="font-tech text-[11px] text-black/80 ">
-                  db.search("agent/main", vector=[...], top_k=5)
+                  db.search_memory("agent/main", query_vector=[...], top_k=5)
                 </code>
               }
             />
@@ -201,7 +201,7 @@ export function CoreEngine() {
             <PipelineStage
               index="05"
               title={tt("coreEngine.stage5.title", "Ranked Hits")}
-              tag="top_k · HNSW p50 1.2ms · 100% Recall@10"
+              tag="top_k · HNSW p50 1.2ms · 99.8% Recall@10"
               tone="cream"
               icon={<Crosshair className="h-5 w-5" strokeWidth={2.5} />}
               body={

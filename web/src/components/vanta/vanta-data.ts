@@ -27,7 +27,7 @@ export const PRODUCT = {
     hnswLatencySub: "HNSW p50 · 10K · 128d",
     peakQps: "3,636",              // §5 SIFT1M Balanced Cos · 100K, Avg QPS
     peakQpsSub: "SIFT1M Balanced Cos · 100K",
-    recallAt10: "100%",            // §1 Recall@10 validated (0.956–1.000)
+    recallAt10: "99.8%",           // §1 Scaling Recall@10 10K–100K (0.9980 / 1.0000 / 0.9980)
     recallAt10Sub: "Validated 10K–100K",
     networkHops: "0",              // zero network (in-process)
     networkHopsSub: "In-process · embedded",
@@ -80,7 +80,7 @@ export const PRODUCT = {
 export type View = "home" | "benchmarks" | "docs";
 
 // Headline stats for the hero strip — now sourced from PRODUCT
-// Values backed by BENCHMARKS.md: 1.2ms HNSW p50 (§1), 3,636 QPS peak (§5), 100% Recall@10 (§1)
+// Values backed by BENCHMARKS.md: 1.2ms HNSW p50 (§1), 3,636 QPS peak (§5), 99.8% Recall@10 scaling (§1)
 export const HERO_STATS = [
   { value: PRODUCT.metrics.hnswLatency, label: "HNSW p50 · 10K", sub: PRODUCT.metrics.hnswLatencySub },
   { value: PRODUCT.metrics.peakQps, label: "Peak QPS", sub: PRODUCT.metrics.peakQpsSub },
@@ -263,18 +263,19 @@ export const COMPETITIVE_TABLE: {
 } = {
   title: "Competitive benchmark · embedded engines",
   subtitle:
-    "glove-100-angular · 10K vectors · 100 queries · top_k=10 · median of 3 runs. VantaDB, LanceDB and ChromaDB are measured locally by competitive_bench.py.",
-  sourceLink: `${VANTA.repo}/blob/main/docs/blog/benchmarks_vs_lancedb_chroma.md`,
-  note: "Pinecone and Weaviate are managed/hosted services — the harness does not run them locally, so their measured cells read 'Managed'. We do not invent cross-vendor QPS/latency numbers here; the three local engines are reproducible via the public harness.",
+    "glove-100-angular · 10K vectors · 100 queries · top_k=10. Measured run documented in docs/operations/BENCHMARKS.md §7 (2026-06-06); VantaDB runs through PyO3 over its mmap Rust core.",
+  sourceLink: `${VANTA.repo}/blob/main/docs/operations/BENCHMARKS.md`,
+  note: "Pinecone and Weaviate are managed/hosted services — the harness does not run them locally, so their measured cells read 'Managed'. We do not invent cross-vendor QPS/latency numbers here; all measured values come from BENCHMARKS.md §7 and are reproducible via the public harness.",
   rows: [
-    // Measured rows — real numbers from the harness run (blog published 2026).
-    { metric: "Ingest QPS", kind: "num", vanta: "301.5", lance: "92,294.1", chroma: "2,227.6", pinecone: "Managed", weaviate: "Managed" },
-    { metric: "Index time (ms)", kind: "num", vanta: "7,330.1", lance: "3,087.0", chroma: "N/A (inc)", pinecone: "Managed", weaviate: "Managed" },
-    { metric: "Query QPS", kind: "num", vanta: "241.4", lance: "197.5", chroma: "591.1", pinecone: "Managed", weaviate: "Managed" },
-    { metric: "Latency p50 (ms)", kind: "num", vanta: "4.124", lance: "4.978", chroma: "1.650", pinecone: "Managed", weaviate: "Managed" },
-    { metric: "Latency p99 (ms)", kind: "num", vanta: "6.129", lance: "8.953", chroma: "2.744", pinecone: "Managed", weaviate: "Managed" },
-    { metric: "Recall@10", kind: "num", vanta: "100%", lance: "22.8%", chroma: "95.6%", pinecone: "Managed", weaviate: "Managed", highlight: true },
-    { metric: "Peak RSS (MB)", kind: "num", vanta: "434.4", lance: "390.7", chroma: "386.5", pinecone: "Managed", weaviate: "Managed" },
+    // Measured rows — real numbers from BENCHMARKS.md §7 (run 2026-06-06).
+    { metric: "Ingest QPS", kind: "num", vanta: "598.3", lance: "114,583", chroma: "3,886", pinecone: "Managed", weaviate: "Managed" },
+    { metric: "Index time (ms)", kind: "num", vanta: "16,039.9", lance: "602.2", chroma: "N/A (inc)", pinecone: "Managed", weaviate: "Managed" },
+    { metric: "Query QPS", kind: "num", vanta: "24.3", lance: "320.5", chroma: "978.6", pinecone: "Managed", weaviate: "Managed" },
+    { metric: "Latency p50 (ms)", kind: "num", vanta: "39.74", lance: "2.653", chroma: "0.941", pinecone: "Managed", weaviate: "Managed" },
+    { metric: "Latency p99 (ms)", kind: "num", vanta: "58.245", lance: "6.98", chroma: "3.349", pinecone: "Managed", weaviate: "Managed" },
+    { metric: "Recall@10", kind: "num", vanta: "24.50%", lance: "13.90%", chroma: "24.10%", pinecone: "Managed", weaviate: "Managed", highlight: true },
+    { metric: "Peak RSS (MB)", kind: "num", vanta: "236.5", lance: "344.2", chroma: "253.5", pinecone: "Managed", weaviate: "Managed" },
+    { metric: "Delta RSS (MB)", kind: "num", vanta: "91.7", lance: "97.2", chroma: "39.1", pinecone: "Managed", weaviate: "Managed" },
     // Architecture / positioning rows — factual, no fabricated latency. Pinecone/Weaviate carry verified model facts.
     { metric: "Deployment", kind: "txt", vanta: "pip install · embedded", lance: "pip install · library", chroma: "pip install · client/server", pinecone: "Fully managed SaaS", weaviate: "Self-host or cloud" },
     { metric: "Pricing model", kind: "txt", vanta: "Open source · $0", lance: "Open source", chroma: "Open source", pinecone: "Usage / pods", weaviate: "Hosted by vendor" },
@@ -283,7 +284,7 @@ export const COMPETITIVE_TABLE: {
 };
 
 // The exact 5-Minute Quickstart Python snippet from the README
-export const QUICKSTART_PYTHON = `import vantadb_py as vantadb
+export const QUICKSTART_PYTHON = `import vantadb
 
 # 1. Open or create a local database (zero configuration)
 db = vantadb.VantaDB("./vanta_data", memory_limit_bytes=512_000_000)
@@ -298,10 +299,10 @@ record = db.put(
 )
 
 # 3. Retrieve exact record by key
-stored = db.get("agent/main", "memory-001")
+stored = db.get_memory("agent/main", "memory-001")
 
 # 4. Hybrid Search (BM25 + Cosine Similarity fused via RRF)
-hits = db.search("agent/main", vector=[0.11, 0.89, 0.55], top_k=5)
+hits = db.search_memory("agent/main", query_vector=[0.11, 0.89, 0.55], top_k=5)
 
 # 5. Operational Telemetry & Safe Shutdown
 caps = db.hardware_profile()
@@ -414,7 +415,7 @@ export const FAQ = [
   },
   {
     q: "¿Qué métrica de similaridad usa el HNSW por defecto?",
-    a: "El path ANN shipped usa cosine similarity. Es configurable con parámetros M, ef_construction y ef_search. El motor ha sido validado en datasets sintéticos de 10K a 100K vectores con 100% Recall@10.",
+    a: "El path ANN shipped usa cosine similarity. Es configurable con parámetros M, ef_construction y ef_search. El motor ha sido validado en datasets sintéticos de 10K a 100K vectores con 99.8% Recall@10 (scaling, BENCHMARKS.md §1).",
   },
   {
     q: "¿Cómo funciona la recuperación híbrida (BM25 + HNSW)?",
@@ -452,10 +453,10 @@ export const TUTORIALS = [
     duration: "5 min",
     tags: ["python", "put", "get"],
     steps: [
-      { title: "Install the Python package", body: "Run pip install vantadb-py to get the pre-compiled wheel for your platform. The import uses an underscore: import vantadb_py.", code: "pip install vantadb-py" },
-      { title: "Open or create a database", body: "Point VantaDB at a local path. It creates the store on first write — zero configuration, no servers.", code: 'import vantadb_py as vantadb\ndb = vantadb.VantaDB("./vanta_data", memory_limit_bytes=512_000_000)' },
+      { title: "Install the Python package", body: "Run pip install vantadb-py to get the pre-compiled wheel for your platform. The canonical import is: import vantadb.", code: "pip install vantadb-py" },
+      { title: "Open or create a database", body: "Point VantaDB at a local path. It creates the store on first write — zero configuration, no servers.", code: 'import vantadb\ndb = vantadb.VantaDB("./vanta_data", memory_limit_bytes=512_000_000)' },
       { title: "Store a memory record", body: "Put a UTF-8 payload with scalar metadata and an optional embedding vector under a namespace + key.", code: 'record = db.put(\n    "agent/main",\n    "memory-001",\n    "In-process execution minimizes latency.",\n    metadata={"category": "architecture", "priority": 1},\n    vector=[0.12, 0.88, 0.54],\n)' },
-      { title: "Retrieve by key", body: "get() returns the exact canonical record — the source of truth, always consistent.", code: 'stored = db.get("agent/main", "memory-001")\nprint(stored)' },
+      { title: "Retrieve by key", body: "get_memory() returns the exact canonical record — the source of truth, always consistent.", code: 'stored = db.get_memory("agent/main", "memory-001")\nprint(stored)' },
       { title: "Safe shutdown", body: "Flush the WAL and close handles cleanly. Crash-safe via CRC32C checksums.", code: "db.flush()\ndb.close()" },
     ],
   },
@@ -468,10 +469,10 @@ export const TUTORIALS = [
     tags: ["hybrid", "bm25", "hnsw", "rrf"],
     steps: [
       { title: "Index multiple records", body: "Store several records with varied payloads and vectors so both lexical and vector paths have material to rank.", code: 'for i, text in enumerate(documents):\n    db.put("docs", f"doc-{i}", text, vector=embed(text))' },
-      { title: "Run a hybrid search", body: "Pass a query vector and top_k. The query planner executes BM25 and HNSW in parallel, then fuses via RRF.", code: 'hits = db.search("docs", vector=query_vec, top_k=5)' },
+      { title: "Run a hybrid search", body: "Pass a query vector and top_k. The query planner executes BM25 and HNSW in parallel, then fuses via RRF.", code: 'hits = db.search_memory("docs", query_vector=query_vec, top_k=5)' },
       { title: "Inspect the ranked hits", body: "Each hit includes the key, payload, metadata, and the fused rank score. Higher = more relevant.", code: 'for hit in hits:\n    print(hit.key, hit.score)' },
-      { title: "Tune ef_search", body: "Adjust ef_search to trade latency for recall. Higher values improve recall at the cost of higher latency.", code: 'hits = db.search("docs", vector=query_vec, top_k=5, ef_search=64)' },
-      { title: "Compare with lexical-only", body: "Run a BM25-only query to see how hybrid fusion improves ranking over pure keyword match.", code: 'lexical = db.search("docs", query="latency agent", top_k=5)' },
+      { title: "Pin the distance metric", body: "search_memory lets you pin the distance metric per query. Cosine is the default and the most optimized path.", code: 'hits = db.search_memory("docs", query_vector=query_vec, top_k=5, distance_metric="cosine")' },
+      { title: "Compare with lexical-only", body: "Run a BM25-only query to see how hybrid fusion improves ranking over pure keyword match.", code: 'lexical = db.search_memory("docs", query_vector=query_vec, text_query="latency agent", top_k=5)' },
     ],
   },
   {
@@ -485,7 +486,7 @@ export const TUTORIALS = [
       { title: "Write records continuously", body: "Insert a batch of records. Each mutation hits the WAL with CRC32C checksums before commit.", code: 'for i in range(100):\n    db.put("agent/main", f"mem-{i}", f"record {i}", vector=embed(f"record {i}"))' },
       { title: "Simulate a crash", body: "Kill the process without calling close(). The WAL contains the committed mutations; uncommitted ones are discarded.", code: "# os.kill(os.getpid(), signal.SIGKILL)" },
       { title: "Reopen the database", body: "On restart, VantaDB replays the WAL in order. CRC32C validation detects corruption; valid mutations are applied.", code: 'db = vantadb.VantaDB("./vanta_data")' },
-      { title: "Verify data integrity", body: "Read back a record that was committed before the crash. It should be present and intact.", code: 'stored = db.get("agent/main", "mem-50")\nassert stored is not None' },
+      { title: "Verify data integrity", body: "Read back a record that was committed before the crash. It should be present and intact.", code: 'stored = db.get_memory("agent/main", "mem-50")\nassert stored is not None' },
       { title: "Audit the indexes", body: "Run audit-index to confirm derived indexes are consistent with canonical records. Repair if needed.", code: "vanta-cli audit-index --db ./vanta_data --namespace agent/main --json --deep" },
     ],
   },
@@ -499,61 +500,45 @@ export const TUTORIALS = [
     steps: [
       { title: "Chunk your documents", body: "Split source documents into overlapping chunks. Each chunk becomes a searchable record in VantaDB.", code: 'chunks = chunk_text(document, chunk_size=512, overlap=64)' },
       { title: "Embed each chunk", body: "Generate embedding vectors for each chunk using your preferred local embedding model.", code: 'for i, chunk in enumerate(chunks):\n    vec = embed(chunk)\n    db.put("corpus", f"chunk-{i}", chunk, vector=vec)' },
-      { title: "Hybrid search on query", body: "Embed the user query and run hybrid search to retrieve the most relevant chunks via RRF fusion.", code: 'query_vec = embed(user_question)\nhits = db.search("corpus", vector=query_vec, top_k=5)' },
+      { title: "Hybrid search on query", body: "Embed the user query and run hybrid search to retrieve the most relevant chunks via RRF fusion.", code: 'query_vec = embed(user_question)\nhits = db.search_memory("corpus", query_vector=query_vec, top_k=5)' },
       { title: "Assemble context", body: "Concatenate the top hits into a context window for the LLM. Include metadata for citation.", code: 'context = "\\n\\n".join(hit.payload for hit in hits)' },
       { title: "Generate the answer", body: "Feed the context + question to your local LLM. The answer is grounded in retrieved evidence.", code: 'prompt = f"Context: {context}\\n\\nQuestion: {user_question}"\nanswer = llm.generate(prompt)' },
     ],
   },
 ];
 
-// Changelog — release history inferred from repo structure + README
+// Changelog — release history sourced from docs/CHANGELOG.md (single source of truth)
 export const CHANGELOG = [
   {
-    version: "0.1.0",
-    date: "2025-01-15",
-    tag: "MVP",
+    version: "0.5.0",
+    date: "2026-07-31",
+    tag: "Latest",
     tagColor: "neon",
+    title: "IVF Flat index + multi-level LSM compaction",
+    changes: [
+      "IVF Flat index — inverted file with k-means clustering (no external deps)",
+      "New IndexType::Ivf on HnswConfig; lazy-built on first search, serialized in v8 format",
+      "~50x faster than brute-force Flat on 1M vectors at ~90% recall",
+      "Multi-level LSM compaction (L0→L1→L2→L3): per-level VantaFiles with legacy migration",
+      "compact_level() promotes live nodes between tiers; write amplification reduced from O(all data) to O(L0 size)",
+      "New PipelineMode::CompactOnly / CompactL0Only variants",
+    ],
+  },
+  {
+    version: "0.4.0",
+    date: "2026-07-20",
+    tag: "MVP",
+    tagColor: "ink",
     title: "Initial public release",
     changes: [
-      "Embedded Rust engine with PyO3 Python bindings (vantadb-py on PyPI)",
-      "Persistent storage via Fjall backend with RocksDB fallback",
-      "WAL with CRC32C checksums for crash-safe recovery",
-      "Native HNSW vector retrieval (cosine similarity)",
-      "BM25 lexical search with derived text indexes",
+      "Embedded persistent vector/graph database engine (HNSW, configurable distance metrics)",
+      "WAL with automatic crash recovery; Arrow IPC zero-copy interchange",
       "Hybrid Retrieval v1: BM25 + HNSW fused via RRF",
-      "Memory API: put/get/delete/list/search with namespaces",
-      "Embedded CLI (vanta-cli): put, list, export, rebuild-index, audit-index, repair-text-index",
-      "JSONL export/import for backup and migration",
-      "Optional local server wrapper (vanta-server)",
-    ],
-  },
-  {
-    version: "0.1.1",
-    date: "2025-02-01",
-    tag: "Perf",
-    tagColor: "ink",
-    title: "SIFT1M Phase 2 optimizations",
-    changes: [
-      "Static prefetch in HNSW hot graph traversal",
-      "Eliminated Euclidean square root calculation in distance loop",
-      "Pure SIMD cosine similarity calculation",
-      "O(M²) select_neighbors optimization (caches references, eradicates HashMap queries)",
-      "2.14x–2.80x construction speedup on SIFT 100K benchmarks",
-      "p99 search latency down to 441.2 µs (Balanced Cos, 100K)",
-    ],
-  },
-  {
-    version: "0.1.2",
-    date: "2025-02-20",
-    tag: "Stable",
-    tagColor: "muted",
-    title: "Reliability & CI gates",
-    changes: [
-      "RSS memory stability gate in CI",
-      "Chaos injection testing for WAL durability",
-      "Heavy Certification workflow for SIFT-1M stress path",
-      "SBOM generation on release",
-      "CodeQL security scanning integrated",
+      "Python SDK (PyO3), WASM build, TypeScript SDK (vantadb-ts)",
+      "CLI tool (vanta) and HTTP server with rate limiting and TLS support",
+      "AI framework adapters: LangChain, LlamaIndex, Haystack, CrewAI, DSPy, Litellm, OpenAI, Ollama, Mem0, Letta",
+      "MCP server (vantadb-mcp); Prometheus metrics and OpenTelemetry tracing",
+      "Encryption at rest (AES-GCM), PITR, WAL shipping for replication",
     ],
   },
 ];
@@ -656,27 +641,27 @@ export const USE_CASES_DETAIL = [
     solution: "VantaDB gives each agent a local, durable memory store. put() a memory with payload + metadata + vector. search() hybrid across BM25 + HNSW. No network, no API keys, in-process.",
     flow: [
       "Agent observes → embed → db.put(namespace, key, payload, vector)",
-      "Agent recalls → db.search(namespace, vector=query, top_k=5)",
+      "Agent recalls → db.search_memory(namespace, query_vector=query, top_k=5)",
       "Session ends → db.flush() → WAL persists · process exits",
       "New session → reopen DB → memories intact · zero re-embedding",
     ],
     metrics: [
       { value: "1.2ms", label: "Recall latency" },
       { value: "0", label: "Network hops" },
-      { value: "100%", label: "Recall@10" },
+      { value: "99.8%", label: "Recall@10" },
     ],
-    code: `import vantadb_py as vantadb
+    code: `import vantadb
 
 db = vantadb.VantaDB("./agent_memory")
 
 # Store an observation with semantic vector
 db.put("agent/main", "obs-042",
     "User prefers dark mode and concise answers",
-    metadata={"session": "2025-W04", "type": "preference"},
+    metadata={"session": "2026-W15", "type": "preference"},
     vector=embed("user prefers dark mode concise"))
 
 # Recall relevant memories for current context
-hits = db.search("agent/main", vector=embed(query), top_k=5)
+hits = db.search_memory("agent/main", query_vector=embed(query), top_k=5)
 for hit in hits:
     print(hit.key, hit.score, hit.payload)
 
@@ -691,16 +676,16 @@ db.close()`,
     solution: "VantaDB stores your document chunks + embeddings locally. Hybrid search (BM25 + HNSW via RRF) retrieves the most relevant context. Feed it to your local LLM (Ollama, llama.cpp). Zero data leaves your machine.",
     flow: [
       "Chunk documents → embed each chunk → db.put(\"corpus\", chunk-id, text, vector)",
-      "User asks → embed question → db.search(\"corpus\", vector=q, top_k=5)",
+      "User asks → embed question → db.search_memory(\"corpus\", query_vector=q, top_k=5)",
       "Assemble context from top hits → prompt = context + question",
       "Local LLM generates answer grounded in retrieved evidence",
     ],
     metrics: [
       { value: "0", label: "Data egress" },
       { value: "In-process", label: "Hybrid retrieval" },
-      { value: "100%", label: "Recall@10" },
+      { value: "99.8%", label: "Recall@10" },
     ],
-    code: `import vantadb_py as vantadb
+    code: `import vantadb
 
 db = vantadb.VantaDB("./rag_corpus")
 
@@ -712,7 +697,7 @@ for i, chunk in enumerate(chunks):
 
 # Hybrid retrieval for a query
 query_vec = embed(user_question)
-hits = db.search("corpus", vector=query_vec, top_k=5)
+hits = db.search_memory("corpus", query_vector=query_vec, top_k=5)
 
 # Build context for the LLM
 context = "\\n\\n".join(hit.payload for hit in hits)
@@ -730,7 +715,7 @@ db.close()`,
     flow: [
       "Parse AST → extract symbols + docstrings → embed each",
       "db.put(\"code\", symbol-id, source, metadata={file, line, type}, vector)",
-      "Developer queries → db.search(\"code\", vector=embed(query), top_k=10)",
+      "Developer queries → db.search_memory(\"code\", query_vector=embed(query), top_k=10)",
       "Results ranked by BM25 (keyword) + HNSW (semantic) fused via RRF",
     ],
     metrics: [
@@ -738,7 +723,7 @@ db.close()`,
       { value: "In-process", label: "BM25 lookup" },
       { value: "In-process", label: "No LSP server" },
     ],
-    code: `import vantadb_py as vantadb
+    code: `import vantadb
 
 db = vantadb.VantaDB("./code_index")
 
@@ -749,7 +734,7 @@ db.put("code", "src/auth.py:login",
     vector=embed("authenticate user login password session"))
 
 # Semantic code search
-hits = db.search("code", vector=embed("how do we handle auth?"), top_k=10)
+hits = db.search_memory("code", query_vector=embed("how do we handle auth?"), top_k=10)
 for hit in hits:
     print(hit.metadata["file"], hit.metadata["line"], hit.payload)
 
@@ -861,8 +846,8 @@ export const BLOG_POSTS = [
   {
     slug: "introducing-vantadb",
     title: "Introducing VantaDB",
-    excerpt: "Why we built an embedded Rust engine for local-first hybrid retrieval — and why \"local-first\" matters more than ever in 2025.",
-    date: "2025-01-15",
+    excerpt: "Why we built an embedded Rust engine for local-first hybrid retrieval — and why \"local-first\" matters more than ever today.",
+    date: "2026-04-10",
     author: "VantaDB Team",
     readTime: "6 min",
     tag: "Announcement",
@@ -902,7 +887,7 @@ export const BLOG_POSTS = [
     slug: "how-hybrid-search-works",
     title: "How Hybrid Search Actually Works",
     excerpt: "BM25 and HNSW are not competitors. They are two lenses on the same ranking problem. Here's how RRF fuses them without comparable scores.",
-    date: "2025-01-22",
+    date: "2026-04-24",
     author: "VantaDB Team",
     readTime: "9 min",
     tag: "Engineering",
@@ -946,7 +931,7 @@ export const BLOG_POSTS = [
     slug: "sqlite-for-ai-agents",
     title: "SQLite for AI Agents: The Missing Memory Layer",
     excerpt: "Agents don't need a vector database. They need a memory database that happens to support vectors. VantaDB is that layer.",
-    date: "2025-02-05",
+    date: "2026-05-15",
     author: "VantaDB Team",
     readTime: "7 min",
     tag: "Architecture",
@@ -982,7 +967,7 @@ export const BLOG_POSTS = [
     slug: "why-i-built-vantadb-local-memory-engine",
     title: "Why I Built VantaDB: A Local Memory Engine",
     excerpt: "A personal note on the frustration that led to VantaDB — re-embedding the same documents every session, paying per query for my own data, and watching agents forget everything overnight.",
-    date: "2025-02-15",
+    date: "2026-06-05",
     author: "ness-e",
     readTime: "5 min",
     tag: "Story",
@@ -1103,7 +1088,7 @@ export const TEAM_MEMBERS = [
 // Company info — for /about/company
 export const COMPANY_INFO = {
   name: "VantaDB",
-  founded: "2025",
+  founded: "2026",
   mission: "Make local-first hybrid retrieval the default for AI agents, RAG pipelines, and edge applications. No cloud tax on your own data.",
   location: "Distributed · Open Source",
   license: "Apache 2.0",

@@ -1,10 +1,10 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "generated_by": "benchmarks/competitive_bench.py",
-  "generated_at": "2026-08-04",
-  "source": "docs/blog/benchmarks_vs_lancedb_chroma.md (MKT-05) — run real del harness 2026-08-04, dataset glove-100-angular, --batch-size 999. docs/operations/BENCHMARKS.md §7 (2026-06-06) es histórico y NO comparable (doble rebuild HNSW dentro del timer Ingest, ver header de competitive_bench.py).",
+  "generated_at": "2026-06-06",
+  "source": "docs/operations/BENCHMARKS.md §7 — run certificado 2026-06-06, dataset glove-100-angular (10K vectores, 100 queries, top_k=10, cosine). Reproducir: python benchmarks/competitive_bench.py --dataset glove-100-angular --size 10000 --queries 100 --top-k 10 --yes",
   "hardware": {
-    "note": "El run 2026-08-04 no registró la spec exacta de la máquina (MKT-05): laptop de desarrollo con health check contaminado (~85% CPU, 17 procesos VS Code). Los numeros absolutos estan inflados por ruido; el orden relativo y el recall son la senal. Perfil declarado del proyecto (PRODUCT.hardware / BENCH01.hardware): 12-core @ 3.5GHz AVX2, 16GB RAM. Los campos cpu_count/cpu_model/python se registran automaticamente en runs futuros del harness.",
+    "note": "Run del 2026-06-06 documentado en BENCHMARKS.md §7 sin spec completa de máquina registrada. VantaDB corre vía bindings PyO3 (vantadb_py) sobre el core Rust mmap; LanceDB y ChromaDB usan sus wrappers C/C++ nativos.",
     "os": null,
     "cpu_count": null,
     "cpu_model": null,
@@ -22,47 +22,47 @@
     "vectors": 10000,
     "queries": 100,
     "top_k": 10,
-    "ingest_mode": "chunked (--batch-size 999)"
+    "ingest_mode": "single build"
   },
   "methodology": {
-    "iterations_per_engine": 3,
-    "aggregation": "median",
+    "iterations_per_engine": 1,
+    "aggregation": "single run",
     "ground_truth": "exact brute-force numpy over the 10K subset (the HDF5 ships pre-computed neighbors for the full 1.18M dataset, invalid for a subset)",
     "warmup_queries": 10
   },
   "results": [
     {
       "engine": "VantaDB",
-      "ingest_qps": 301.5,
-      "index_time_ms": 7330.1,
-      "query_qps": 241.4,
-      "query_p50_ms": 4.124,
-      "query_p99_ms": 6.129,
-      "recall_at_k": 1.0,
-      "mem_peak_rss_mb": 434.4,
-      "mem_delta_rss_mb": 204.0
+      "ingest_qps": 598.3,
+      "index_time_ms": 16039.9,
+      "query_qps": 24.3,
+      "query_p50_ms": 39.74,
+      "query_p99_ms": 58.245,
+      "recall_at_k": 0.245,
+      "mem_peak_rss_mb": 236.5,
+      "mem_delta_rss_mb": 91.7
     },
     {
       "engine": "LanceDB",
-      "ingest_qps": 92294.1,
-      "index_time_ms": 3087.0,
-      "query_qps": 197.5,
-      "query_p50_ms": 4.978,
-      "query_p99_ms": 8.953,
-      "recall_at_k": 0.228,
-      "mem_peak_rss_mb": 390.7,
-      "mem_delta_rss_mb": 24.5
+      "ingest_qps": 114583,
+      "index_time_ms": 602.2,
+      "query_qps": 320.5,
+      "query_p50_ms": 2.653,
+      "query_p99_ms": 6.98,
+      "recall_at_k": 0.139,
+      "mem_peak_rss_mb": 344.2,
+      "mem_delta_rss_mb": 97.2
     },
     {
       "engine": "ChromaDB",
-      "ingest_qps": 2227.6,
+      "ingest_qps": 3886,
       "index_time_ms": null,
-      "query_qps": 591.1,
-      "query_p50_ms": 1.65,
-      "query_p99_ms": 2.744,
-      "recall_at_k": 0.956,
-      "mem_peak_rss_mb": 386.5,
-      "mem_delta_rss_mb": 32.8
+      "query_qps": 978.6,
+      "query_p50_ms": 0.941,
+      "query_p99_ms": 3.349,
+      "recall_at_k": 0.241,
+      "mem_peak_rss_mb": 253.5,
+      "mem_delta_rss_mb": 39.1
     }
   ]
 }

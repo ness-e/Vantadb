@@ -9,7 +9,7 @@ import { CountUpStat } from "@/hooks/count-up";
 const TRUST_METRICS = [
   { value: "Apache 2.0", label: "Open Source", sub: "Permissive license", icon: Shield },
   { value: "Rust", label: "Memory Safe", sub: "No GC, no data races", icon: Cpu },
-  { value: "0 deps", label: "Runtime", sub: "Zero external deps", icon: Package },
+  { value: "Embedded", label: "No Server", sub: "Self-contained engine — no server, no cloud", icon: Package },
   { value: "PyO3", label: "Python Bindings", sub: "Native speed bridge", icon: Zap },
 ];
 

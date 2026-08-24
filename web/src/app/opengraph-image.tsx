@@ -68,7 +68,7 @@ export default async function OpengraphImage() {
                 letterSpacing: 2,
               }}
             >
-              v0.1 · MVP
+              v0.5.0 · MVP
             </div>
             <div
               style={{
@@ -140,7 +140,7 @@ export default async function OpengraphImage() {
             {[
               { v: "1.2ms", l: "HNSW p50 · 10K" },
               { v: "3,636", l: "Peak QPS" },
-              { v: "100%", l: "Recall@10" },
+              { v: "99.8%", l: "Recall@10" },
               { v: "0", l: "Network" },
             ].map((s, i) => (
               <div

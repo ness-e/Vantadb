@@ -89,7 +89,7 @@ export function EasterEgg() {
               <Sparkles className="h-3.5 w-3.5 text-[#FF5500]" strokeWidth={2.5} />
             </p>
             <p className="mt-1 font-tech text-[10px] uppercase tracking-wider text-black/50">
-              1.2ms p50 HNSW · 100% recall · zero network
+              1.2ms p50 HNSW · 99.8% recall · zero network
             </p>
           </div>
 

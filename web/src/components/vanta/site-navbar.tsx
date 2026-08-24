@@ -308,7 +308,7 @@ export function SiteNavbar({
               Vanta<span className="text-[#FF5500]">DB</span>
             </span>
             <span className="font-tech text-[9px] uppercase tracking-[0.3em] text-black/60 ">
-              v0.1 · embedded rust
+              v0.5.0 · embedded rust
             </span>
           </span>
         </button>

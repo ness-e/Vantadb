@@ -13,7 +13,7 @@ export default function CaseStudiesPage() {
       <PageHeader
         badge="§CASE-STUDIES"
         title={tt("caseStudiesPage.title", "Case Studies")}
-        subtitle={tt("caseStudiesPage.subtitle", "Three real-world deployments of VantaDB — agents with durable memory, air-gapped edge RAG, and in-process semantic code search. No servers, no clouds, no caveats.")}
+        subtitle={tt("caseStudiesPage.subtitle", "Three illustrative composite scenarios of VantaDB — agents with durable memory, air-gapped edge RAG, and in-process semantic code search. No servers, no clouds, no caveats.")}
         tag={tt("caseStudiesPage.tag", "3 deployments · Apache 2.0")}
       />
 
@@ -98,7 +98,7 @@ export default function CaseStudiesPage() {
         <Reveal direction="up" delay={120}>
           <div className="mt-10 border-4 border-dashed border-black/30 p-5 text-center ">
             <p className="font-tech text-xs leading-relaxed text-black/60 ">
-              {tt("caseStudiesPage.note", "These case studies are composites based on real deployments and community feedback. Names of individuals and some identifying details have been changed. Want to share your VantaDB story? Join the Discord.")}
+              {tt("caseStudiesPage.note", "Composite scenarios based on typical usage patterns — not specific customers. Companies, quotes, and metrics are illustrative. Want to share your real VantaDB story? Join the Discord.")}
             </p>
           </div>
         </Reveal>

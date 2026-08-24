@@ -54,7 +54,7 @@ export function Architecture({ onNavigate }: { onNavigate: (v: View) => void }) 
             tone="ink"
           >
             <code className="font-tech text-[10px] text-[#FF5500]">
-              db.search(...)
+              db.search_memory(...)
             </code>
           </FlowNode>
 
@@ -159,7 +159,7 @@ export function Architecture({ onNavigate }: { onNavigate: (v: View) => void }) 
             <p className="font-tech text-[11px] font-bold text-black">
               {tt(
                 "architecture.node.hits.body",
-                "100% Recall@10 on validated 10K–100K synthetic sets."
+                "99.8% Recall@10 on validated 10K–100K synthetic sets."
               )}
             </p>
           </FlowNode>

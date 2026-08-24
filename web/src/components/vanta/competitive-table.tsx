@@ -18,7 +18,7 @@ const fmt = (n: number, digits = 1): string =>
  */
 export function CompetitiveTable() {
   const data = COMPETITIVE_BENCHMARK;
-  const { dataset, methodology } = data;
+  const { dataset } = data;
 
   return (
     <section
@@ -137,12 +137,11 @@ export function CompetitiveTable() {
         <Reveal direction="up" delay={100}>
           <div className="mt-4 flex items-start gap-3 border-l-4 border-[#FF5500] bg-[#FBF9F5] px-4 py-3">
             <p className="font-tech text-[10px] leading-relaxed text-black/60">
-              Readings are real numbers from a harness run{" "}
-              <span className="font-bold">({data.generated_at})</span> — {data.dataset.ingest_mode},
-              {methodology.iterations_per_engine} runs per engine,{" "}
-              {methodology.aggregation}. Ground truth: {methodology.ground_truth.toLowerCase()}.
-              ChromaDB completed 1/3 iterations on Windows (file lock on cleanup), so treat its
-              median as a single-run estimate. Regenerate on quiet hardware:{" "}
+              Readings are real numbers from the certified run{" "}
+              <span className="font-bold">({data.generated_at})</span> — {data.dataset.name},{" "}
+              {data.dataset.vectors.toLocaleString()} vectors, {data.dataset.queries} queries,
+              top-{data.dataset.top_k}. VantaDB runs through its PyO3 bindings over the mmap Rust
+              core; LanceDB and ChromaDB use their native C/C++ wrappers. Regenerate:{" "}
               <code className="bg-[#F2EDE2] px-1">
                 python benchmarks/competitive_bench.py --dataset {data.dataset.name} --size{" "}
                 {data.dataset.vectors} --queries {data.dataset.queries}

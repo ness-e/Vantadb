@@ -31,7 +31,7 @@ import { Reveal } from "./reveal";
 
 const SECTIONS = [
   { id: "install", label: "Installation", keywords: "pip install vantadb-py cargo rust binary wheel python" },
-  { id: "quickstart", label: "5-Minute Quickstart", keywords: "python quickstart put get search hybrid rrf vantadb_py" },
+  { id: "quickstart", label: "5-Minute Quickstart", keywords: "python quickstart put get search hybrid rrf vantadb" },
   { id: "cli", label: "Embedded CLI", keywords: "vanta-cli put list export rebuild-index audit-index repair-text-index command" },
   { id: "server", label: "Server Mode", keywords: "vanta-server binary localhost 8080 network host smartscreen" },
   { id: "docs", label: "Full Docs", keywords: "architecture wal recovery telemetry configuration reliability" },
@@ -105,7 +105,7 @@ export function DocsView({ onNavigate }: { onNavigate: (v: View) => void }) {
               Manual
             </span>
             <span className="font-tech text-[10px] uppercase tracking-[0.3em] text-black/50">
-              For developers · v0.1 MVP
+              For developers · v0.5.0 MVP
             </span>
           </div>
           <h1 className="mt-5 font-display text-6xl uppercase leading-[0.85] text-black sm:text-8xl">
@@ -231,7 +231,7 @@ export function DocsView({ onNavigate }: { onNavigate: (v: View) => void }) {
               >
                 <CodeBlock
                   lines={["pip install vantadb-py"]}
-                  note="Distribution name is vantadb-py · import as vantadb_py (underscore)"
+                  note="Distribution name is vantadb-py · canonical import is import vantadb"
                 />
               </InstallCard>
 

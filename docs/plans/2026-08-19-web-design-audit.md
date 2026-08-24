@@ -220,7 +220,7 @@ last-synced: 2026-08-24T00:00
 - **Contrato:** sin "100% Recall" en `web/src`; snippet QUICKSTART = `import vantadb` + `get_memory/search_memory`; versión navbar = v0.5.0; `npm run build` pasa
 - **Ruta:** vanta-worker
 - **Task file:** `tasks/WDA-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-24) — 9/9 claims corregidos: recall 100%→99.8% (12 puntos); tabla competitiva → números certificados BENCHMARKS §7 (39.74ms/24.3 QPS/recall 24.50%) con footnote; snippets → README canónico (`import vantadb` + `get_memory/search_memory`, bonus ef_search inventado → distance_metric real); navbar v0.1→v0.5.0; showcase → "Official Examples"; case studies con disclaimer composite visible; changelog → 0.4.0/0.5.0 reales; blog fechas → 2026 post-primer-commit; trust "zero deps" → "self-contained engine". Build exit 0, greps verificados.
 
 ### Task 5: WDA-04 — F4 UI
 - **Archivos clave:** `web/src/app/layout.tsx`, `web/src/components/vanta/*`, `web/src/components/ui/`
@@ -282,4 +282,37 @@ Resultado: OK
 Próxima acción: Ninguna — tarea completa. Sin commit (instrucción explícita del orquestador); el lead commitea con docs:
 Contrato: verificacion: ls docs/desktop/{README,ARCHITECTURE,GUIDE}.md ✅ existen; review vanta-arch APPROVE (ses_fcdaa5aa2fferCAypE3ZKSuN4f). Cargo no aplicable (cambio solo-docs). evidencia: [claim: ConnectionManager = registry HashMap + active_id tras RwLock | evidencia: desktop/src-tauri/src/connections/manager.rs:38-107 | confianza: alta] [claim: path lock DatabaseBusy→VantaError::Lock en NativeConnection::open | evidencia: native.rs:55-91,122-130 | confianza: alta] [claim: shutdown_all non-native-first/native-last, grace 5s desde lib.rs RunEvent::ExitRequested | evidencia: manager.rs:429-454 + lib.rs:195-201 | confianza: alta] [claim: WASM es frontend-only WasmBackend OPFS→IDB fallback, sin Rust WasmConnection | evidencia: desktop/src/transport.ts:82-129 | confianza: alta] [claim: ConnectionSelector eliminado, active_id único mecanismo | evidencia: grep sin matches + review arch commit 847ab080 | confianza: alta]. artefactos: docs/desktop/README.md, docs/desktop/ARCHITECTURE.md, docs/desktop/GUIDE.md. invariantes: no duplicar ADR-026/027/028; docs técnicas en EN; consistencia con connections/ real. deuda: ninguna. queda_pendiente: git commit por el lead (no solicitado a worker).
 Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION DESKTOP-29 ===
+Campaign ID: b3545ab5-61b2-402d-99c6-8da49032ad0f
+Objetivo activo: DESKTOP-29: coordinar polling de vanta_metrics en un único hook useMetricsPoll compartido
+Estado: completed
+Última acción: Creado useMetricsPoll.ts (store module-level + useSyncExternalStore, 1 interval 4s compartido) + test; migrados MetricsGrid, KpiCards, IndicesLens y ExportPanel
+Resultado: OK
+Próxima acción: Lead hace commit (feat(desktop): DESKTOP-29 shared metrics poll)
+Contrato: verificacion: cd desktop && npm run build ✅; cd desktop && npm test ✅ (9 files / 48 tests). evidencia: (1) claim '3 consumidores generan 1 sola llamada por tick de 4s' → useMetricsPoll.test.tsx caso 1, confianza alta; (2) claim 'interval se detiene tras el último unmount' → caso 2, alta; (3) build+tests verdes → output npm, alta. artefactos: desktop/src/hooks/useMetricsPoll.ts, desktop/src/hooks/useMetricsPoll.test.tsx, MetricsGrid.tsx, KpiCards.tsx, IndicesLens.tsx, ExportPanel.tsx. invariantes: no reverter cambios sin commit de DESKTOP-23/24/26/28; styling Tailwind preservado; poll namespaceStats de IndicesLens intacto. deuda: verificación visual DevTools/Network queda para QA (cubierta por test automatizado equivalente); sin git commit (instrucción explícita). queda_pendiente: lead hace commit y remueve fila de docs/Backlog.md.
+Próxima tarea si completa: siguiente tarea Phase 12 del backlog
+=== END RECITATION ===
+
+=== RECITATION DESKTOP-31 ===
+Campaign ID: d75dab6d-7542-467e-aa88-fd4f558549b7
+Objetivo activo: DESKTOP-31: pantalla SETTINGS — perfiles conexión multi-perfil, auth Bearer server remoto, defaults búsqueda, idioma
+Estado: completed
+Última acción: Implementación 100% frontend: store/connections.ts nuevo (patrón localStorage inyectable DESKTOP-23), pages/Settings.tsx nueva surface 'ajustes' (sidebar + palette), useConnectionState.connectServerCfg, ConnectionPanel dropdown de perfiles, defaults topK alimentan runSearch del topbar. Cero cambios Rust: ServerClientConfig con Bearer ya existía en connections/server_client.rs
+Resultado: OK
+Próxima acción: Ninguna — tarea completa. Próxima tarea del backlog Phase 12 si el orquestador continúa
+Contrato: verificacion: cd desktop && npm run build ✅ + cd desktop && npm test ✅ (48/48, 4 nuevos en store/connections.test.ts). evidencia: claim 'conectar a vanta-cli server con token desde UI' → evidencia: connectServerCfg usa connectServer({url,port,token}) del bridge existente (vanta.ts:210) → ServerClientConfig.token en Rust; confianza alta. claim 'perfiles persistidos y seleccionables' → evidencia: ConnectionPrefsStore round-trip verificado por test sobre storage fake + hidratación al reiniciar; confianza alta. artefactos: desktop/src/store/connections.ts, desktop/src/store/connections.test.ts, desktop/src/pages/Settings.tsx. invariantes: nombres de comandos IPC de vanta.ts no renombrados; sin cambios en src-tauri ni transport wire. deuda: (1) idioma ES/EN se persiste pero no aplica traducciones (i18n real = tarea aparte); (2) defaults búsqueda son globales, no por-perfil como decía Step 4 original; (3) test manual E2E contra vanta-cli server real pendiente (requiere backend corriendo)
+Próxima tarea si completa: siguiente de docs/Backlog.md Phase 12
+=== END RECITATION ===
+
+=== RECITATION DESKTOP-36 ===
+Campaign ID: 088a3710-3b05-4105-a2a5-ee04340d11d5
+Objetivo activo: DESKTOP-36: bridge Tauri vanta-memory read-only (scene/persona/skill/genlog)
+Estado: completed
+Última acción: Implementados vanta_scene_read/vanta_scene_query/vanta_genlog_query + bindings TS + 5 tests Rust (1 contra seed real import_seed_str) + 2 tests TS wire-contract. Todo verde.
+Resultado: OK
+Próxima acción: Commit por vanta-lead: feat: DESKTOP-36 — bridge Tauri vanta-memory read-only (scene/persona/skill/genlog)
+Contrato: verificacion: cargo check ✅ · cargo test --lib 77/77 ✅ · npm run build ✅ · npm test 50/50 ✅ | evidencia: seed real via import_seed_str (mismo codigo del binario vanta-seed) responde skills+persona+genlog — confianza alta; contrato wire TS exacto validado en vanta.test.ts | artefactos: desktop/src-tauri/src/commands/memory.rs, desktop/src-tauri/src/lib.rs, desktop/src/vanta.ts, desktop/src/vanta.test.ts | invariantes: sin writes v1, no revertir MEM-53/58, nombres de comando cableados en lib.rs | deuda: skill_versions/skill_restore/compaction_report(session) sin backing API en vanta-memory (skills no versionadas; CompactionReport no persiste); E2E vitest contra app corriendo no ejecutable; commit pendiente (lead) | queda_pendiente: orquestador resuelve WIP stale DESKTOP-24/28 que bloqueo el claim MCP; lead hace commit
+Próxima tarea si completa: siguiente del backlog Phase 12
 === END RECITATION ===

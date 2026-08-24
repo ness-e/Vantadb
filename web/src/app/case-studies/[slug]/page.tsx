@@ -59,6 +59,16 @@ export default function CaseStudyPage() {
         </div>
       </PageHeader>
 
+      {/* Composite disclaimer — these scenarios are illustrative, not real customers */}
+      <div className="border-b-4 border-black bg-[#F2EDE2] px-4 py-2.5 text-center sm:px-6">
+        <p className="font-tech text-[10px] uppercase tracking-[0.2em] text-black/70">
+          {tt(
+            "caseStudy.compositeDisclaimer",
+            "Composite scenario based on typical usage patterns — not a specific customer"
+          )}
+        </p>
+      </div>
+
       {/* Metrics grid */}
       <PageSection variant="ink">
         <Reveal direction="up">
