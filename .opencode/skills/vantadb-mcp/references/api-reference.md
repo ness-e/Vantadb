@@ -5,10 +5,10 @@
 ## MCP Tools (57)
 
 > **This is the single source of truth for the VantaDB MCP contract.**
-> Verified against `vantadb-mcp/src/`: exactly **60 tools** = 36 core
+> Verified against `vantadb-mcp/src/`: exactly **66 tools** = 36 core
 > (`handlers/tools.rs` `base_tools`) + 6 `skill_*` (`skills.rs`) + 8 `code_*`
 > (`code.rs`) + 6 `wiki_*` (`wiki.rs`) + 1 `context_assemble`
-> (`context.rs`) + 3 `scene_*` (`scenes.rs`). All six sets are announced together
+> (`context.rs`) + 3 `scene_*` (`scenes.rs`) + 6 `thread_*` (`threads.rs`). All seven sets are announced together
 > in `tools/list` via extend (`handlers/tools.rs`).
 > Last synced against code: 2026-08-23.
 
@@ -125,6 +125,18 @@ ranks by keyword overlap only (no embedding hook in MCP).
 
 ## Python SDK
 
+### Threads API (6 × `thread_*`, MCP-32)
+
+Conversation history CRUD over the agentic thread store (`src/agentic/thread.rs` via the SDK builder). Thread ids are `u128` transported as JSON strings. Domain errors surface as error-content; malformed params are JSON-RPC `-32602`.
+
+| Tool | Description |
+|------|-------------|
+| `thread_create` | `{title, ttl_secs?}` → `{thread_id}` (u128 string) |
+| `thread_send` | `{thread_id, role, content}` → `{ok:true}` |
+| `thread_get` | `{thread_id}` → full thread `{thread_id,title,messages:[{role,content,timestamp}],created_at,updated_at}`; missing → error_content "not found" |
+| `thread_list` | `{limit?, offset?}` → `{threads:[...],count}` |
+| `thread_delete` | `{thread_id}` → `{deleted:true}` — permanent, no undo |
+| `thread_purge_expired` | `{}` → `{purged:n}` — removes TTL-expired threads |
 ### VantaDB Class
 
 ```python

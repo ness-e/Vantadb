@@ -101,7 +101,7 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 
 ## Tool Families
 
-**60 tools in 6 families:**
+**66 tools in 7 families:**
 
 | Family | Count | Source module |
 |--------|-------|---------------|
@@ -111,6 +111,7 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 | `wiki_*` | 6 | `wiki.rs` |
 | `context_assemble` | 1 | `context.rs` |
 | `scene_*` | 3 | `scenes.rs` |
+| `thread_*` | 6 | `threads.rs` |
 
 ## Core Tools (36)
 

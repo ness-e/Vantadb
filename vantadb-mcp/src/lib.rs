@@ -17,6 +17,7 @@ mod protocol;
 mod scenes;
 mod server;
 mod skills;
+mod threads;
 mod validation;
 mod wiki;
 

@@ -406,6 +406,7 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         tools.extend(crate::wiki::wiki_tool_definitions());
         tools.extend(crate::context::context_tool_definitions());
         tools.extend(crate::scenes::scene_tool_definitions());
+        tools.extend(crate::threads::thread_tool_definitions());
     }
     Ok(result)
 }
@@ -1640,6 +1641,12 @@ pub fn handle_tools_call(
         "scene_read" | "scene_list" | "scene_query" => {
             crate::scenes::handle_scene_tool(name, args, storage, config)
         }
+        "thread_create"
+        | "thread_send"
+        | "thread_get"
+        | "thread_list"
+        | "thread_delete"
+        | "thread_purge_expired" => crate::threads::handle_thread_tool(name, args, storage, config),
         _ => McpError::method_not_found(format!("Tool not found: {}", name)).into_err(),
     }
 }

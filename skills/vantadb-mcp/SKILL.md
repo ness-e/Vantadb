@@ -5,7 +5,7 @@ description: VantaDB Model Context Protocol (MCP) server integration for persist
 
 # VantaDB MCP Integration
 
-VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **60 tools** (36 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*` + 1 `context_assemble` + 3 `scene_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
+VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **66 tools** (36 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*` + 1 `context_assemble` + 3 `scene_*` + 6 `thread_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
 
 ## Quick Start
 
@@ -126,6 +126,7 @@ The full contract for all **57 tools** lives in
 | Wiki Knowledge (`wiki_*`) | 6 | `wiki_search`, `wiki_read`, `wiki_list`, `wiki_graph`, `wiki_ingest`, `wiki_ingest_status` | wiki lifecycle in `ready` state |
 | Context Engine (`context_assemble`) | 1 | `context_assemble` | read-only; session recall needs prior memory capture into the session |
 | Scenes API (`scene_*`) | 3 | `scene_read`, `scene_list`, `scene_query` | read-only; scenes need prior scene capture into the session store |
+| Threads (`thread_*`) | 6 | `thread_create`, `thread_send`, `thread_get`, `thread_list`, `thread_delete`, `thread_purge_expired` | conversation history CRUD; ids are u128 strings; delete is permanent |
 
 \* `code_files` is a documented not-supported stub: the built-in GraphRAG has no file-per-node concept.
 
