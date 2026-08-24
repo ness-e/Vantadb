@@ -71,6 +71,36 @@ print(f"RSS físico: {stats['process_rss_bytes'] / 1024:.2f} KB")
 db.close()
 ```
 
+## 🔢 Real Embeddings
+
+The vectors above are toy examples. VantaDB stores and searches any dense
+vector but does not generate embeddings — bring your own client (local
+[Ollama](https://ollama.com) or the OpenAI API):
+
+```python
+import json, urllib.request
+
+def embed(text: str) -> list[float]:
+    req = urllib.request.Request(
+        "http://localhost:11434/api/embed",
+        data=json.dumps({"model": "nomic-embed-text", "input": text}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    return json.load(urllib.request.urlopen(req))["embeddings"][0]
+
+db.put(
+    namespace="agent/session_1",
+    key="fact_002",
+    payload="El usuario prefiere respuestas técnicas y directas.",
+    metadata={"source": "chat"},
+    vector=embed("user tone preferences"),
+)
+```
+
+Use **one embedding model per namespace** — stored and query vectors must
+share the same dimensionality. Full walkthrough:
+[QUICKSTART → Real Embeddings](../docs/QUICKSTART.md#4-real-embeddings-optional).
+
 ## 🤖 Caso de Uso: Memoria para Agentes de IA
 
 VantaDB está optimizado para actuar como **memoria a largo plazo** para agentes autónomos locales (Claude, Gemini, LLaMA, etc.):

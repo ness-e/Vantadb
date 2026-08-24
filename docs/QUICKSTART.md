@@ -127,7 +127,67 @@ Run it:
 python quickstart_memory.py
 ```
 
-## 4. TypeScript SDK (Node.js 18+)
+## 4. Real Embeddings (Optional)
+
+The examples above use hand-written toy vectors so they run fully offline.
+For real semantic search you generate embeddings from text with an actual
+model and pass the resulting vector to VantaDB — the SDKs store and search
+any dense vector, but do not generate embeddings themselves.
+
+### Option A — Local embeddings with Ollama
+
+```bash
+ollama pull nomic-embed-text   # one-time download
+```
+
+Create `quickstart_embeddings.py`:
+
+```python
+import json
+import urllib.request
+
+import vantadb
+
+def embed(text: str) -> list[float]:
+    """Embed text via a local Ollama server (POST /api/embed)."""
+    req = urllib.request.Request(
+        "http://localhost:11434/api/embed",
+        data=json.dumps({"model": "nomic-embed-text", "input": text}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    return json.load(urllib.request.urlopen(req))["embeddings"][0]
+
+db = vantadb.VantaDB("./quickstart_data")
+text = "Hybrid Retrieval v1 fuses BM25 and vector rankings"
+db.put("agent/main", "embedded", text,
+       metadata={"kind": "note"}, vector=embed(text))
+
+hits = db.search_memory("agent/main", embed("BM25 fused ranking"), top_k=3)
+print([hit.key for hit in hits])
+
+db.flush()
+db.close()
+```
+
+### Option B — OpenAI API
+
+Swap the body of `embed()` for a call to
+`POST https://api.openai.com/v1/embeddings` with model
+`text-embedding-3-small` and your API key; everything else stays identical.
+
+> Pick **one embedding model per namespace** — all stored vectors and every
+> query vector must share the same dimensionality.
+
+> **Native auto-embedding (Rust core):** the engine ships an
+> `EmbeddingProvider` abstraction (local Ollama by default, OpenAI via env)
+> used by the SQL executor to embed `text` fields automatically on INSERT.
+> It compiles behind the opt-in `remote-inference` feature flag and is
+> configured through `VANTA_EMBEDDING_PROVIDER`, `VANTA_LLM_URL`,
+> `VANTA_LLM_MODEL`, `VANTA_OPENAI_API_KEY`, and `VANTA_OPENAI_MODEL`
+> (see [CONFIGURATION.md](operations/CONFIGURATION.md)). It is not yet
+> exposed through the Python or TypeScript SDKs — use the pattern above.
+
+## 5. TypeScript SDK (Node.js 18+)
 
 The npm package ships the WASM engine — no build step:
 
@@ -167,7 +227,7 @@ Run it:
 npx tsc quickstart.ts && node quickstart.js
 ```
 
-## 5. Export and Audit (Optional CLI)
+## 6. Export and Audit (Optional CLI)
 
 The embedded CLI (`vanta-cli`) covers operational flows. Build it from source
 (requires the Rust toolchain) or install the precompiled binary, then:
@@ -225,5 +285,8 @@ BM25 text retrieval, Hybrid Retrieval v1, JSONL export, and text-index audit.
 
 > **MVP = embedded memory + WAL + vector/BM25/hybrid + export/import + CLI/Python**
 
-It does not cover IQL/LISP/DQL, MCP, Ollama/LLM integration, enterprise
-features, cloud, plugins, or graph database behavior.
+It does not cover IQL/LISP/DQL, MCP, LLM text generation (summarization),
+enterprise features, cloud, plugins, or graph database behavior. Native
+embedding generation is covered only as the bring-your-own-client pattern
+above; the Rust-core auto-embedding path requires the opt-in
+`remote-inference` feature.
