@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
 
+/**
+ * /demo — Redirects to /playground (the interactive code playground).
+ * Metadata describes what actually happens: the playground is live today,
+ * no beta/waitlist promises.
+ */
 export const metadata: Metadata = {
-  title: "Browser Demo · VantaDB — WebAssembly Preview (Coming Soon)",
+  title: "Try VantaDB Now · Interactive Playground",
   description:
-    "Prueba VantaDB en el navegador vía WebAssembly. El demo WASM está en desarrollo — únete a la beta para acceso anticipado.",
+    "Probá VantaDB en el navegador hoy: playground interactivo con BM25 + HNSW + RRF vía WebAssembly. Sin registro, sin waitlist.",
   openGraph: {
-    title: "Browser Demo · VantaDB — WebAssembly Preview",
+    title: "Try VantaDB Now · Interactive Playground",
     description:
-      "Demo WASM de VantaDB en el navegador. Coming soon — únete a la lista de espera de la beta.",
+      "Playground interactivo de VantaDB en el navegador: BM25 + HNSW + RRF vía WebAssembly. Disponible ahora.",
     url: "https://vantadb.vercel.app/demo",
     siteName: "VantaDB",
     type: "website",

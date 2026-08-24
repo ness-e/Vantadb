@@ -547,7 +547,7 @@ export const CHANGELOG = [
 // Tier 2 page data
 // ───────────────────────────────────────────────────────────
 
-// Pricing — 3 plans (community / team / enterprise)
+// Pricing — 2 plans (community / enterprise)
 export const PRICING_PLANS = [
   {
     name: "Community",
@@ -585,7 +585,7 @@ export const PRICING_PLANS = [
       "Dedicated engineer",
       "On-site training optional",
     ],
-    cta: "Contact Sales",
+    cta: "Contact via GitHub",
     ctaLink: VANTA.repo,
   },
 ];
@@ -767,7 +767,7 @@ export const TCO_COMPARISON = [
   },
   {
     scenario: "Enterprise (10M vectors, multi-region)",
-    vantadb: "Custom (Team/Enterprise plan)",
+    vantadb: "$0 (self-hosted)",
     cloudPinecone: "$8,000+/mo",
     cloudWeaviate: "$3,000+/mo",
     note: "VantaDB Enterprise adds support + compliance. Cloud adds replicas + egress.",

@@ -252,7 +252,7 @@ last-synced: 2026-08-24T00:00
 - **Contrato:** `metadataBase` = dominio real (vantadb.vercel.app o decidido); hero incluye público objetivo; `npm run build` pasa
 - **Ruta:** vanta-worker
 - **Task file:** `tasks/WDA-07.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-24) — hero con audiencia explícita (hero.audience) + Quickstart como único CTA primario; TCO "Team plan" inexistente → "$0 self-hosted" (grep=0); funnel /demo honesto (playground hoy, sin waitlist/beta, −44 dead keys demoPage.*); JSON-LD logo → SITE_URL/favicon.png; raw.githubusercontent ×2 conservados = install scripts funcionales (excepción documentada). lint/build exit 0.
 
 ### Task 9: WDA-08 — F8 Triage + Reporte
 - **Archivos clave:** `docs/reviews/web-design-audit-2026-08-19.md`, `web/AGENTS.md`, `web/AUDIT.md`

@@ -93,7 +93,7 @@ const jsonLd = {
     "VantaDB: An embedded persistent memory and vector retrieval engine for local-first AI applications.",
   version: "0.5.0",
   url: "https://github.com/ness-e/Vantadb",
-  logo: "https://raw.githubusercontent.com/ness-e/Vantadb/main/web/public/assets/avatar_gato.png",
+  logo: `${SITE_URL}/favicon.png`,
   offers: {
     "@type": "Offer",
     price: "0",

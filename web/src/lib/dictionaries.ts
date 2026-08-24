@@ -785,6 +785,7 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "hero.ctaSource": "Source",
     "hero.caption": "Demo de hybrid search · BM25 + HNSW vía RRF · 99.8% Recall@10",
     "hero.scrollCue": "Scroll · Capacidades core",
+    "hero.audience": "Para devs que construyen agentes IA y RAG local:",
     "hero.tagline": "Motor Rust embebido para memoria local durable y retrieval híbrido de vectores.",
     "hero.stats.0.label": "HNSW p50 · 10K",
     "hero.stats.0.sub": "HNSW p50 · 10K · 128d",
@@ -1108,7 +1109,7 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "pricingPage.plan.1.feature.4": "Artefactos SBOM + compliance (SOC2-path)",
     "pricingPage.plan.1.feature.5": "Ingeniero dedicado",
     "pricingPage.plan.1.feature.6": "Training on-site opcional",
-    "pricingPage.plan.1.cta": "Contact Sales",
+    "pricingPage.plan.1.cta": "Contactar vía GitHub",
 
     // ---- case-studies page (list) ----
     "caseStudiesPage.deploymentsTag": "Deployments",
@@ -1300,28 +1301,6 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "configPage.ctaBody": "pip install vantadb-py — schema-free, sin setup requerido.",
 
     // ---- /demo ----
-    "demoPage.title": "Browser Demo",
-    "demoPage.subtitle": "Probá VantaDB en el navegador vía WebAssembly. El demo está en desarrollo — únete a la beta para acceso anticipado.",
-    "demoPage.tag": "WebAssembly · Coming soon",
-    "demoPage.comingSoon": "Coming soon",
-    "demoPage.comingSoonTitle": "WASM Demo",
-    "demoPage.comingSoonBody": "Estamos compilando el core Rust a WebAssembly para que puedas probar VantaDB sin instalar nada. Mientras tanto, instalá el SDK Python — toma 30 segundos.",
-    "demoPage.status": "En desarrollo",
-    "demoPage.whatIsTag": "Qué va a ser",
-    "demoPage.whatIsTitle": "El motor real, en tu pestaña",
-    "demoPage.whatIs.0.title": "In-process, in-browser",
-    "demoPage.whatIs.0.body": "Compilamos el motor Rust a WebAssembly. Corre en tu browser sin servidor, sin Docker, sin install. Misma binary que en producción — solo que detrás de un sandbox WASM.",
-    "demoPage.whatIs.1.title": "Hybrid search real",
-    "demoPage.whatIs.1.body": "Indexá documentos, ejecutá queries BM25 + HNSW con RRF fusion, y mirá los rankings en vivo. No es un mockup — es el motor real ejecutándose en tu pestaña.",
-    "demoPage.whatIs.2.title": "Cero data sale de tu browser",
-    "demoPage.whatIs.2.body": "Todo el indexado y las queries corren client-side. No subimos tus documentos a ningún lado. Lo que escribís en el demo se queda en tu sesión del browser.",
-    "demoPage.betaTag": "Acceso beta",
-    "demoPage.betaTitle": "Sumate a la lista de espera",
-    "demoPage.betaBody": "Te avisamos cuando el demo WASM esté live. Sin spam — solo un mail cuando esté listo.",
-    "demoPage.betaFormEmail": "vos@dominio.com",
-    "demoPage.betaCta": "Avisame",
-    "demoPage.betaSuccess": "Estás en la lista.",
-    "demoPage.betaSuccessBody": "Te mandamos un mail de confirmación. Te avisamos cuando el demo esté live.",
 
     // ---- /integrations ----
     "integrationsPage.title": "Ecosystem & Integrations",
@@ -2271,6 +2250,7 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "hero.ctaSource": "Source",
     "hero.caption": "Hybrid search demo · BM25 + HNSW via RRF · 99.8% Recall@10",
     "hero.scrollCue": "Scroll · Core Capabilities",
+    "hero.audience": "For developers building AI agents and local RAG:",
     "hero.tagline": "Embedded Rust engine for durable local memory and hybrid vector retrieval.",
     "hero.stats.0.label": "HNSW p50 · 10K",
     "hero.stats.0.sub": "HNSW p50 · 10K · 128d",
@@ -2594,7 +2574,7 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "pricingPage.plan.1.feature.4": "SBOM + compliance artifacts (SOC2-path)",
     "pricingPage.plan.1.feature.5": "Dedicated engineer",
     "pricingPage.plan.1.feature.6": "On-site training optional",
-    "pricingPage.plan.1.cta": "Contact Sales",
+    "pricingPage.plan.1.cta": "Contact via GitHub",
 
     // ---- case-studies page (list) ----
     "caseStudiesPage.deploymentsTag": "Deployments",
@@ -2786,28 +2766,6 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "configPage.ctaBody": "pip install vantadb-py — schema-free, no setup required.",
 
     // ---- /demo ----
-    "demoPage.title": "Browser Demo",
-    "demoPage.subtitle": "Try VantaDB in the browser via WebAssembly. The demo is in development — join the beta for early access.",
-    "demoPage.tag": "WebAssembly · Coming soon",
-    "demoPage.comingSoon": "Coming soon",
-    "demoPage.comingSoonTitle": "WASM Demo",
-    "demoPage.comingSoonBody": "We're compiling the Rust core to WebAssembly so you can try VantaDB without installing anything. In the meantime, install the Python SDK — takes 30 seconds.",
-    "demoPage.status": "In development",
-    "demoPage.whatIsTag": "What it'll be",
-    "demoPage.whatIsTitle": "The real engine, in your tab",
-    "demoPage.whatIs.0.title": "In-process, in-browser",
-    "demoPage.whatIs.0.body": "We compile the Rust engine to WebAssembly. It runs in your browser with no server, no Docker, no install. Same binary as production — just behind a WASM sandbox.",
-    "demoPage.whatIs.1.title": "Real hybrid search",
-    "demoPage.whatIs.1.body": "Index documents, run BM25 + HNSW queries with RRF fusion, and watch rankings live. Not a mockup — the real engine running in your tab.",
-    "demoPage.whatIs.2.title": "Zero data leaves your browser",
-    "demoPage.whatIs.2.body": "All indexing and queries run client-side. We don't upload your documents anywhere. What you type in the demo stays in your browser session.",
-    "demoPage.betaTag": "Beta access",
-    "demoPage.betaTitle": "Join the waitlist",
-    "demoPage.betaBody": "We'll let you know when the WASM demo is live. No spam — just one email when it's ready.",
-    "demoPage.betaFormEmail": "you@domain.com",
-    "demoPage.betaCta": "Notify me",
-    "demoPage.betaSuccess": "You're on the list.",
-    "demoPage.betaSuccessBody": "We sent you a confirmation email. We'll let you know when the demo is live.",
 
     // ---- /integrations ----
     "integrationsPage.title": "Ecosystem & Integrations",

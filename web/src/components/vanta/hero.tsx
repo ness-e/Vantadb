@@ -72,6 +72,8 @@ export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
 
           {/* Subhead */}
           <p className="mt-5 max-w-xl border-l-4 border-[#FF5500] pl-4 font-tech text-sm leading-relaxed text-black sm:text-base">
+            {tt("hero.audience", "For developers building AI agents and local RAG:")}
+            <br />
             {tt("hero.tagline", VANTA.tagline)}
             <br />
             <span className="font-bold">
@@ -111,7 +113,7 @@ export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
             </button>
             <button
               onClick={() => onNavigate("benchmarks")}
-              className="btn-neon-glow inline-flex items-center gap-2 border-4 border-black bg-[#FBF9F5] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+              className="inline-flex items-center gap-2 border-4 border-black bg-[#FBF9F5] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black transition-colors hover:bg-black hover:text-[#FBF9F5]"
             >
               <Zap className="h-4 w-4" strokeWidth={2.5} />
               {tt("hero.ctaBenchmarks", "View Benchmarks")}
@@ -120,7 +122,7 @@ export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
               href={VANTA.repo}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-neon-glow inline-flex items-center gap-2 border-4 border-black bg-[#FBF9F5] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+              className="inline-flex items-center gap-2 border-4 border-black bg-[#FBF9F5] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black transition-colors hover:bg-black hover:text-[#FBF9F5]"
             >
               <Github className="h-4 w-4" strokeWidth={2.5} />
               {tt("hero.ctaSource", "Source")}
