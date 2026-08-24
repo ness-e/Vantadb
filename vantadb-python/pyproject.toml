@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "vantadb-py"
 version = "0.5.0"
-description = "Source-installed Python bindings for the VantaDB embedded persistent memory engine."
+description = "Python bindings for VantaDB — embedded persistent memory and hybrid vector search engine for AI agents."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "Apache-2.0"}

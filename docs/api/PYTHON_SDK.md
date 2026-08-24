@@ -9,18 +9,20 @@ aliases: []
 
 # Python SDK Documentation
 
+> **Stability:** the documented Python SDK API is covered by the [Versioning & Stability Policy](VERSIONING.md).
+
 ## Installation
 
 ```bash
 pip install vantadb-py
 ```
 
-> **Note:** Requires Python 3.11+ and Rust toolchain (maturin) for building from source. Pre-built wheels are available for linux/amd64, linux/arm64 (aarch64), and macOS (arm64/x86_64).
+> **Note:** Requires Python 3.11+ and Rust toolchain (maturin) for building from source. Pre-built wheels are available for linux/amd64, linux/arm64 (aarch64), macOS (arm64/x86_64), and Windows (amd64).
 
 ## Quick Start
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 db = vantadb.VantaDB("./vanta_data")
 
@@ -113,10 +115,10 @@ vantadb.connect(
 Alternative constructor. Accepts a filesystem path, empty string `""`, or `":memory:"` for an in-memory database. This is equivalent to `VantaDB(db_path=path, memory_limit_bytes=memory_limit)`.
 
 ```python
-import vantadb_py as vanta
+import vantadb
 
 # In-memory database
-db = vanta.connect(":memory:")
+db = vantadb.connect(":memory:")
 
 # Persistent database with memory limit
 db = vanta.connect("./my_brain", memory_limit=256 * 1024 * 1024)
@@ -468,15 +470,6 @@ result = db.query("(match (node :content \"rust\") (return node))")
 print(result)
 ```
 
-#### `delete_by_filter()` (not yet exposed)
-Delete all records matching metadata filters in a namespace. *Not yet available in the Python SDK — tracked for future release.*
-
-#### `similar_to_key()` (not yet exposed)
-Search by vector similarity from an existing key. *Not yet available in the Python SDK — tracked for future release.*
-
-#### `count()` (not yet exposed)
-Count records, optionally filtered by namespace and metadata. *Not yet available in the Python SDK — tracked for future release.*
-
 #### `bulk_import()`
 ```python
 db.bulk_import(
@@ -767,7 +760,7 @@ Accepts plain Python lists, `VantaVector`, NumPy arrays, or any buffer-protocol 
 ### `VantaVector`
 
 ```python
-vantadb_py.VantaVector(data: List[float]) -> VantaVector
+vantadb.VantaVector(data: List[float]) -> VantaVector
 ```
 Zero-copy vector wrapper backed by a `Box<[f32]>`. Exposes NumPy's `__array_interface__` for zero-copy `np.asarray()` conversion, and supports Python sequence iteration, indexing, and pickle serialization.
 
@@ -848,10 +841,10 @@ page["next_cursor"]        # same as page.next_cursor
 
 ## Async Support
 
-`vantadb_py` provides an `AsyncVantaDB` class that exposes the same API using `asyncio.to_thread` to release the GIL.
+`vantadb` provides an `AsyncVantaDB` class that exposes the same API using `asyncio.to_thread` to release the GIL.
 
 ```python
-from vantadb_py import AsyncVantaDB
+from vantadb import AsyncVantaDB
 
 async with AsyncVantaDB("./my_brain") as db:
     record = await db.get_memory("ns", "key")
@@ -889,6 +882,14 @@ all use 128-bit unsigned integers.
 ## Error Handling
 
 All methods raise `RuntimeError` with a descriptive message on failure.
+
+## Roadmap (not yet available)
+
+The following methods are planned but **not yet available in the Python SDK** — tracked for future release:
+
+- `delete_by_filter()` — Delete all records matching metadata filters in a namespace.
+- `similar_to_key()` — Search by vector similarity from an existing key.
+- `count()` — Count records, optionally filtered by namespace and metadata.
 
 ## Development
 
