@@ -561,6 +561,7 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('--http', '--http', [CompletionResultType]::ParameterName, 'Start HTTP server wrapper (default)')
             [CompletionResult]::new('--mcp', '--mcp', [CompletionResultType]::ParameterName, 'Start MCP server wrapper over stdio')
             [CompletionResult]::new('--require-auth', '--require-auth', [CompletionResultType]::ParameterName, 'Force authentication: refuse to start without an API key')
+            [CompletionResult]::new('--allow-insecure', '--allow-insecure', [CompletionResultType]::ParameterName, 'Allow binding a non-loopback host without an API key (dev only). The server logs a prominent security warning and starts unauthenticated')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')

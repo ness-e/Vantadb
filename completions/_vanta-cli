@@ -666,6 +666,7 @@ _arguments "${_arguments_options[@]}" : \
 '--http[Start HTTP server wrapper (default)]' \
 '--mcp[Start MCP server wrapper over stdio]' \
 '--require-auth[Force authentication\: refuse to start without an API key]' \
+'--allow-insecure[Allow binding a non-loopback host without an API key (dev only). The server logs a prominent security warning and starts unauthenticated]' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \

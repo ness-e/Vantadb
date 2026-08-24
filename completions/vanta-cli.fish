@@ -291,6 +291,7 @@ complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l memory-li
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l http -d 'Start HTTP server wrapper (default)'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l mcp -d 'Start MCP server wrapper over stdio'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l require-auth -d 'Force authentication: refuse to start without an API key'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l allow-insecure -d 'Allow binding a non-loopback host without an API key (dev only). The server logs a prominent security warning and starts unauthenticated'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -s v -l verbose -d 'Enable verbose output'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -s h -l help -d 'Print help'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status backup restore doctor inspect stats completions search delete delete-by-filter count similar-to-key migrate namespace snapshot wal search-multi search-all server help" -f -a "put" -d 'Save a key-value pair to persistent memory'

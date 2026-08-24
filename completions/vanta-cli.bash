@@ -1850,7 +1850,7 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__server)
-            opts="-p -d -v -h --http --mcp --port --host --require-auth --dashboard-dir --db --verbose --memory-limit --help"
+            opts="-p -d -v -h --http --mcp --port --host --require-auth --allow-insecure --dashboard-dir --db --verbose --memory-limit --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
