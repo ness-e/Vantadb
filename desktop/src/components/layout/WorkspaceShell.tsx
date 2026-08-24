@@ -596,7 +596,7 @@ export default function WorkspaceShell({
               type="button"
               onClick={() => setNsDialog({ mode: "create" })}
               disabled={!state.active}
-              className="press border-2 border-foreground px-1.5 text-sm leading-tight"
+              className="press flex h-8 w-8 items-center justify-center border-2 border-foreground text-sm leading-none"
               title={state.active ? "Crear namespace vacío" : "Conectá un backend primero"}
               aria-label="Crear namespace"
             >
@@ -715,16 +715,24 @@ export default function WorkspaceShell({
             )}
           </form>
 
+          {/* FIX-D4 (Von Restorff): INGEST es el ÚNICO fill neón de la topbar.
+              FILTROS usa el lenguaje de active-state del sistema
+              (bg-foreground text-background, igual que SideButton) cuando el
+              panel está abierto — coincide con aria-pressed. El contador de
+              reglas activas lleva un mini-badge text-neon. */}
           <button
             type="button"
             onClick={() => setShowFilters((v) => !v)}
             aria-pressed={showFilters}
             title="Filtros compuestos por metadata (AND/OR, sin JSON)"
             className={`press border-2 border-foreground px-2.5 py-1.5 text-xs font-semibold ${
-              filterActive ? "bg-neon text-background" : "bg-background"
+              showFilters ? "bg-foreground text-background" : "bg-background"
             }`}
           >
-            ⧩ FILTROS{filterActive ? ` (${toVantaMemoryFilter(ruleGroup).length})` : ""}
+            ⧩ FILTROS
+            {filterActive && (
+              <span className="ml-1 font-tech text-neon">({toVantaMemoryFilter(ruleGroup).length})</span>
+            )}
           </button>
 
           <div className="flex items-center gap-2">
