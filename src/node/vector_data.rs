@@ -163,8 +163,21 @@ impl VectorRepresentations {
                 if len == 0 || len > MAX_VEC_F32_LEN {
                     return None;
                 }
-                // SAFETY: the mmap is kept alive by Arc; length bounds checked above.
-                Some(unsafe { std::slice::from_raw_parts(mmap.as_ptr() as *const f32, len) })
+                // REVIEW-15: safe reinterpretation via `align_to` instead of a
+                // raw `from_raw_parts` cast. Both mmap backends guarantee a
+                // 4-aligned base (memmap2: OS page-aligned; shim: `AlignedBytes`
+                // allocated with align 4 — AUDIT-03), so the aligned middle
+                // covers the full range; if it ever didn't, we return None
+                // instead of invoking UB.
+                // SAFETY: per std docs, `align_to` guarantees alignment of the
+                // middle slice by construction and its safety obligation is the
+                // usual transmute value-validity one — every 32-bit pattern is
+                // a valid `f32`, so the obligation holds vacuously.
+                let (_, aligned, _) = unsafe { mmap.align_to::<f32>() };
+                if aligned.len() != len {
+                    return None;
+                }
+                Some(aligned)
             }
             _ => None,
         }
@@ -399,5 +412,48 @@ mod tests {
     #[test]
     fn test_distance_metric_eq() {
         assert_ne!(DistanceMetric::Cosine, DistanceMetric::Euclidean);
+    }
+
+    /// REVIEW-15: the MmapFull branch of `as_f32_slice` must reinterpret the
+    /// mapped bytes as f32 safely. Drives a real mmap over a temp file and
+    /// asserts the full decode path (slice → to_f32 → cosine) round-trips.
+    #[test]
+    fn test_mmap_full_as_f32_slice_roundtrip() {
+        use std::fs::File;
+        use std::io::Write;
+
+        let vals = [1.5f32, -2.25, 3.75];
+        let mut bytes = Vec::with_capacity(vals.len() * 4);
+        for v in &vals {
+            bytes.extend_from_slice(&v.to_le_bytes());
+        }
+
+        let path =
+            std::env::temp_dir().join(format!("vanta_review15_mmap_{}.bin", std::process::id()));
+        {
+            let mut f = File::create(&path).unwrap();
+            f.write_all(&bytes).unwrap();
+        }
+
+        let mmap = {
+            let file = File::open(&path).unwrap();
+            // SAFETY: `file` is a valid open OS handle; mapping it read-only
+            // mirrors production usage in `vfile.rs` (both backends accept it).
+            unsafe { Mmap::map(&file) }.unwrap()
+        };
+
+        let rep = VectorRepresentations::MmapFull(Some(Arc::new(mmap)));
+        assert_eq!(rep.dimensions(), 3);
+
+        let slice = rep.as_f32_slice().expect("aligned f32 view over mmap");
+        assert_eq!(slice, &vals[..]);
+
+        assert_eq!(rep.to_f32(), Some(vals.to_vec()));
+        let full = VectorRepresentations::Full(vals.to_vec());
+        let sim = rep.cosine_similarity(&full).expect("similarity defined");
+        assert!((sim - 1.0).abs() < 1e-6);
+
+        drop(rep);
+        let _ = std::fs::remove_file(&path); // best-effort cleanup
     }
 }
