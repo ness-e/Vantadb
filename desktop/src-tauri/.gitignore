@@ -8,3 +8,5 @@
 
 # Sidecar binaries copied in at bundle time (see tauri.conf.json resources)
 /binaries/
+
+vantadb-local/
