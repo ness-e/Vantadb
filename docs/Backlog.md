@@ -15,7 +15,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 > **Verification method:** All items cross-checked against actual codebase (Jul 27, 2026). 8 tareas ejecutadas en sesión: TSK-106, MKT-03, NUEVO-21, MKT-04, TSK-107, DISC-02, DISC-03, Good first issues (18 creadas).
 > **Sync 2026-08-06:** 30 tareas ejecutadas por el plan `docs/plans/2026-08-05-backlog-validation-actions.md` tachadas y migradas a `docs/progreso/README.md`: AUDIT-01/03/04, DEBT-01, TECH-01..08, AUDIT-05/08, NUEVO-01, MKT-10/16, AUD-001..011 (AUD-010 fusionada en TECH-04/ADR-012), GH-123/141.
 > **Sync 2026-08-07:** 214 filas completadas eliminadas del backlog (210 IDs únicos) — migradas/verificadas en `docs/progreso/README.md` y `docs/progreso/BACKLOG_HISTORY.md`. Quedan 35 tareas activas (ver Exec Summary).
-> **Total open items:** 56 activas (conteo real 2026-08-24, filas pendientes; regla GOV-C7: actualizar contando filas pendientes en cada sync) — **Sync 2026-08-24 (b): campaña desktop COMPLETA — DESKTOP-23..39 (17/17) ejecutadas y migradas a `docs/avance/activo/desktop.md`; P12 cerrada** — previas (DISC-01..03, LEG-01, BIZ-01b, OLD-01, DESKTOP-15..27, [ADMIN-XX pending W4]) + P15 residuales (ERR-006/007/008/009/015/026/031/032/033/036/037/042/043/044/045/047/048/049) + P16 residuales (PERF-07/08/09, CI-01) + **P25 (MCP-16..26) + P26 (VS-00..11 + VS-CORE-01..07)**. P15/P16 principales ejecutadas por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` (49/49 ✅). P19 CI batch (CI-02..07) ejecutado y migrado 2026-08-12 — plan archivado `docs/plans/archive/2026-08-12-ci-deuda.md`. Origen: investigación multi-agente 2026-08-09 → `docs/research/investigacion-equipo-2026-08-09.md`
+> **Total open items:** 56 activas (conteo real 2026-08-24, filas pendientes; regla GOV-C7: actualizar contando filas pendientes en cada sync) — **Sync 2026-08-24 (c) auditoría diseño: **P36** creada (9 tareas DAUD-01..09; fixes D1-D11 ya aplicados en sesión por 5 sub-agentes, sin commitear — ver sección P36). Conteo real de filas pendientes re-contado: 73 (incluye P34 UX-01..15 y P35 AGT). **Sync 2026-08-24 (b): campaña desktop COMPLETA — DESKTOP-23..39 (17/17) ejecutadas y migradas a `docs/avance/activo/desktop.md`; P12 cerrada** — previas (DISC-01..03, LEG-01, BIZ-01b, OLD-01, DESKTOP-15..27, [ADMIN-XX pending W4]) + P15 residuales (ERR-006/007/008/009/015/026/031/032/033/036/037/042/043/044/045/047/048/049) + P16 residuales (PERF-07/08/09, CI-01) + **P25 (MCP-16..26) + P26 (VS-00..11 + VS-CORE-01..07)**. P15/P16 principales ejecutadas por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` (49/49 ✅). P19 CI batch (CI-02..07) ejecutado y migrado 2026-08-12 — plan archivado `docs/plans/archive/2026-08-12-ci-deuda.md`. Origen: investigación multi-agente 2026-08-09 → `docs/research/investigacion-equipo-2026-08-09.md`
 > **Nuevo 2026-08-18:** **P26 Vanta Studio** creada (17 tareas) desde investigación `docs/research/human-facing-db-ui/` + decisiones del usuario (Fase 0 completa, solo desktop, estética manga/linocut, R3F para grafo, MARK variante desktop). Plan: `docs/plans/2026-08-18-vanta-studio-fase0.md`. Historial+Diff en espera hasta VS-CORE-07 (retención de versiones). Auditoría multi-agente 2026-08-18 → 19 tareas finales (VS-10/VS-11 nuevos, re-scopes VS-CORE-01/03/06, dark palette, DEFERs ampliados).
 > **Nuevo 2026-08-18:** **P27 Vanta Memory Engine** creada (38 tareas MEM-01..38) desde investigación TDAM `docs/research/tdam/` (9 reportes verificados + SYNTHESIS, orden F1–F7) — análisis multi-agente (3× vanta-research). Plan: `docs/plans/2026-08-18-vanta-memory.md`.
 > **Sync 2026-08-09:** plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` archivado — 49/49 tareas delegables completadas (Wave 0-3: RELEASE-01/02/03, SEC-01, 24 ERR, 7 FEAT, REVISAR-01, COV-001/003/004, PERF-01/04/06, DOC-02..08). RELEASE-02 verificado live: 0.5.0 publicado (crates.io/PyPI/npm/GitHub 2026-08-01). Filas completadas eliminadas de P15/P16; residuales siguen activas. Task 50 COM-02/03 (humana) queda en la tabla.
@@ -53,7 +53,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | **P26** 🖥️ Vanta Studio (consola human-facing desktop) | Fase 0 ✅ (14/19) + Fase 1 ✅ (9/9) + Fase 2 ✅ (10/10: VS-CORE-04/05/06 + GRAFO-01..03 + ESPACIO-01..02 + OP-01..02) + Fase 3 ✅ (7/7: WEB-00..06) + **Fase 4 ✅ (18/18: DOC-01..04 + REST-01..06 + WASM-01..04 + FEAT-01..03 + VER-01)** | Planes archivados `docs/plans/archive/2026-08-18-vanta-studio-fase{1,2,3}.md` + `docs/plans/archive/2026-08-19-vanta-studio-fase4.md` | 🟢 Completada 2026-08-20 (ADR-027; E2E server + standalone WASM/OPFS PASS) |
 | **P27** 🧠 Vanta Memory Engine (TDAM, orden F1–F7) | 38 (MEM-01..38) | ~8-12 semanas | 🔴 Alta (decisión de producto) |
 | **GOV** 📋 Gobernanza Documental (post-auditoría 2026-08-21, plan `docs/plans/2026-08-22-doc-governance-plan.md`) | 30 tareas (T0: TIR ×3 · A: medición ×5 · B: Show-HN ×6 · C: maestros ×7 · D: taxonomía ×6 · E: limpieza ×1 · F: auditoría intocadas ×2) | ~6 días | 🔴 Alta (Wave B bloqueante Show HN; decisiones D1-D14 del owner en `docs/reviews/auditoria-documentacion-2026-08-21.md`) |
-| **P35** 🔧 Auditoría AGENTS.md & sistema de agentes (2026-08-24) | 6 (AGT-01..06; 3 fixes ya aplicados en sesión) | ~1 día | 🟠 Media |
+| **P36** 🔧 Auditoría AGENTS.md & sistema de agentes (2026-08-24) | 6 (AGT-01..06; 3 fixes ya aplicados en sesión) | ~1 día | 🟠 Media |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
 > **Nuevo 2026-08-04:** Fase 12 DESKTOP (26 tareas, app Tauri multi-connection sobre las 6 integraciones) + `DEBT-01` (gate docs-coverage roto, Fase 4) + `TECH-01..08` (hallazgos de investigación DESKTOP-01b: 2 bugs reales, 1 batch stale-docs, 1 ADR env-naming, 4 features/decisiones, todos en Phase 4).
@@ -64,7 +64,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 > **Nuevo 2026-08-09 (audit-reports archive):** 4 reportes `audit-full-2026-07-*`/`08-04` archivados tras verificación contra código. Resueltos desde entonces: archive.rs fsync (AUDREP-04/35) ✅, deny.toml RUSTSEC-2024-0436 ✅, tests.rs god file dividido ✅, `.playwright-cli` → .gitignore ✅, JSON-LD en web ✅, prefers-reduced-motion ✅, metrics registry test ✅, pyi stubs ✅. Hallazgos pendientes incorporados como tareas nuevas: `PERF-07` (sparse JSON hot path), `PERF-08` (WASM serialización completa), `REVIEW-05` (god files restantes), `CI-01` (pre-commit-config). C1 UAF en `types.rs:365-380` (VantaSearchHit) sigue vigente → cubierto por `SEC-01`.
 > **Nuevo 2026-08-09 (batch 2 audit-reports archive):** 4 reportes más archivados (audit-full-20260808, deps-01, inv-001, inv-024). Resueltos/verificados: AUD-012..015 (clippy 5 errores, tests INV-024, prune canonical, cap over-capacity) ✅ commit `9d3c05a2`; INV-024 H-1 (panic sq8 dims) ✅ NV-01 clamp; INV-024 M-1 (alineación `vector_offset`) ✅ `vfile.rs:739` central guard; inv-001 RUSTSEC sin acción ✅; deps-01 duplicación legítima trackeada en `ERR-007` ✅. Pendientes ya en backlog: AUD-016..021 (sección Hallazgos pendientes), `ERR-009` (Miri), `SEC-01`/`AUD-019` (__array_interface__). Único gap → `PERF-09` creado (cold-start "zero-copy" engañoso, `_force_copy` muerto).
 > **Nuevo 2026-08-09 (batch 3 audit-reports archive):** `audit-full-2025-07-27.md` (vantadb-audit-report, auditoría multi-agente sobre `develop@63b0101d`) archivado → `docs/audit-reports/archive/`. Reporte íntegramente procesado: fue la fuente de **P13 AUDREP-01..62 + DEPS-01 + NV-01..05** (verificado 2026-08-05, todos resueltos 2026-08-05..08, commits en `docs/avance/historial/snapshot-2026-08-07.md`). 6 hallazgos fueron corregidos antes del ticketeo (CRIT-01, CRIT-06, CRIT-09, ALTO-01, CRIT-10-prometheus, MED-15) y los residuales vivos ya están recapturados como tareas activas (SEC-01, ERR-021, PERF-07/08/09, CI-01, REVIEW-05). **No se crean tareas nuevas — archivo cerrado.**
-> **Nuevo 2026-08-24 (auditoría agentes):** **P35** creada (6 tareas AGT-01..06) desde revisión integral de AGENTS.md raíz + .opencode/AGENTS.md + global: fixes ya aplicados (root pointer-only, metadata stale, conteos skills), pendientes commit de diffs, verificación stats CodeGraph, refs file:line de deuda P2, limpieza opencode-loop corrupt/tmp, convención checkpoints paralelos, script anti-drift de refs.
+> **Nuevo 2026-08-24 (auditoría agentes):** **P36** creada (6 tareas AGT-01..06) desde revisión integral de AGENTS.md raíz + .opencode/AGENTS.md + global: fixes ya aplicados (root pointer-only, metadata stale, conteos skills), pendientes commit de diffs, verificación stats CodeGraph, refs file:line de deuda P2, limpieza opencode-loop corrupt/tmp, convención checkpoints paralelos, script anti-drift de refs.
 
 ---
 
@@ -856,7 +856,7 @@ antadb-examples\ repo distinto en pilot-onboarding-checklist:51 — verificar si
 | `UX-18` | 🟢 | **HMR 500s transitorios durante ediciones**: editar un componente con Vite corriendo deja entradas `Failed to reload` en consola hasta reload manual — ruido de desarrollo, no afecta producción. No-actionable salvo que moleste en DX | `vite` HMR | ⬜ Wontfix (documental) |
 | `UX-19` | 🟢 | **Smoke E2E como guard de regresión**: el recorrido ingest→teclado→borrar→papelera→restore→paleta pasó verde con datos reales — convertirlo en test Playwright permanente (`desktop/e2e/`) para que el flujo crítico no dependa de QA manual | `desktop/` (nuevo e2e), CI | ⬜ Pendiente |
 
-## P35 - Auditoría AGENTS.md & sistema de agentes (2026-08-24)
+## P36 - Auditoría AGENTS.md & sistema de agentes (2026-08-24)
 
 > Contexto: revisión integral de `AGENTS.md` (raíz) + `.opencode/AGENTS.md` + global `~/.config/opencode/AGENTS.md`. Verificadas las 17 rutas referenciadas (todas existen ✅), conteo de skills (193 = 162+31 ✅ contra audit del manifest), tablas de reglas/comandos/agents (1:1 con disco ✅). **Ya resuelto en sesión** (no requiere tarea): root `AGENTS.md` reescrito pointer-only (eliminaba duplicado de Regla 7 que divergía; commit via checkpoint paralelo `89ab5e2c`); metadata stale del manual corregida en `.opencode/AGENTS.md:9`; conteos globales actualizados (154→162). Queda lo siguiente.
 
@@ -869,7 +869,7 @@ antadb-examples\ repo distinto en pilot-onboarding-checklist:51 — verificar si
 | `AGT-05` | 🟡 | **Checkpoints paralelos pisan cambios ajenos**: durante esta auditoría, un checkpoint de otra sesión (`git add -A` → commit `89ab5e2c`) revirtió un borrado staged hecho por esta sesión (instruccion file). Definir convención para checkpoints concurrentes (stash selectivo, paths excluidos, o lock de plan) y documentarla en campaign-executor RULES | flujo checkpoint, `.opencode/skills/campaign-executor/RULES.md` | ⬜ Pendiente |
 | `AGT-06` | 🟢 | **Script anti-drift de referencias**: `dev-tools/check-agents-refs.ps1` que extraiga las rutas citadas en `AGENTS.md`/`.opencode/AGENTS.md` y valide existencia (previene stale como el de "917 líneas"). Engancharlo a `verify_changed.ps1` o CI Fast Gate | `dev-tools/` (nuevo) | ⬜ Pendiente |
 
-## P35 - Auditoría diseño desktop post-fix (auditoría orquestador + 5 sub-agentes, 2026-08-24)
+## P36 - Auditoría diseño desktop post-fix (auditoría orquestador + 5 sub-agentes, 2026-08-24)
 
 > Contexto: segunda auditoría de diseño de `desktop/` (misma jornada que P34, sesión paralela independiente). Detectó D1-D11; **D1-D11 fueron corregidos el mismo día** por 5 sub-agentes en paralelo (archivos disjuntos, cero colisiones con P34). Verificación integrada: tsc ✅ · vitest 68/68 ✅ · vite build exit 0 ✅ · grep emoji 0 ✅. **Los fixes están SIN COMMITEAR** en working tree (mezclados con trabajo P34 concurrente — separar al commitear). Resumen de fixes: D1 App.css tokens theme-flipping (marco crema en dark eliminado) · D2 fuente base única (Geist gobierna) · D3 glifos emoji-prone → Lucide sw2.5 (~20 archivos, geométricos monocromos conservados como identidad linocut) · D4 FILTROS activo = active-state del sistema (INGEST único neón) · D5 hit targets ≥32px · D6 Mark.tsx hex → var(--color-neon) · D7 splash duplicado eliminado · D8 stagger extendido a 12 hijos · D9 ~14 utilidades CSS muertas borradas · D10 grid-tech/speed-lines overrides dark · D11 ventana Tauri 1280×800 min 1024×640 center. Dep nueva: `lucide-react`.
 
@@ -895,3 +895,48 @@ Próxima acción: Instalar instalador en Windows limpio y verificar conexión na
 Contrato: verificacion: cd desktop && npm run tauri build ✅ (2 bundles) + cargo check desktop/src-tauri ✅ | evidencia: [claim=Instaladores NSIS+MSI producidos, evidencia=desktop/src-tauri/target/release/bundle/nsis/vantadb-desktop_0.1.0_x64-setup.exe + bundle/msi/vantadb-desktop_0.1.0_x64_en-US.msi, confianza=alta; claim=Sidecar incluido en bundle, evidencia=target/release/vantadb-server.exe (12691968 B) staged junto a vantadb-desktop.exe, confianza=alta; claim=externalBin rompería locate_binary, evidencia=https://v2.tauri.app/develop/sidecar/ sufijo -$TARGET_TRIPLE vs child_process.rs EXE plano, confianza=alta] | artefactos: tauri.conf.json, .gitignore, child_process.rs, tasks/DESKTOP-24.md | invariantes: src-tauri tiene [workspace] propio (no agregar al raíz); locate_binary busca 'vantadb-server.exe' plano junto al exe; NO commitear binaries/ | deuda: Step 3 pendiente (instalación + smoke test en Windows limpio, requiere VM); instalador unsigned | queda_pendiente: orquestador agenda Step 3 manual QA o lo cubre DESKTOP-25 (CI)
 Próxima tarea si completa: DESKTOP-25
 === END RECITATION ===
+
+---
+
+## P35 — Batch pipeline 2026-08-24 (REVIEW / MOD / FIND) — ESTADO: PAUSADO POR USUARIO
+
+> **Origen:** selección del lead desde el Exec Summary + lectura completa del backlog (854 líneas) el 2026-08-24. Objetivo: ejecutar 10 tareas en paralelo con sub-agentes vía `/pipeline task`. **El usuario interrumpió la ejecución paralela antes de que arrancaran los sub-agentes** → se registra todo acá para retomar.
+> **Plan file:** `docs/plans/2026-08-24-batch-review-mod-find.md` (estado ⏳ EN PROGRESO, con waves definidas).
+> **Modo sugerido de retoma:** `/pipeline run docs/plans/2026-08-24-batch-review-mod-find.md` (FAIL_MODE=parallel, MAX_CONCURRENT=3) — o retomar tarea por tarea con `/pipeline task <ID>`.
+
+### Tareas seleccionadas (10 IDs → 11 filas)
+
+| ID | Descripción | Archivos | Ruta sub-agente | Esfuerzo | Prio | Estado |
+|----|-------------|----------|-----------------|----------|------|--------|
+| `REVIEW-06` | `cargo test --workspace` OOM de rustc — fix `[profile.test]` | root `Cargo.toml`, `src/lib.rs` | vanta-tuner | 🔴 | 🔴 | ⬜ PENDING |
+| `REVIEW-07` | nextest default-filter stale rompe invocaciones | `.config/nextest.toml` | — | — | — | ⛔ **SKIP** — ya resuelto por BND-06 / commit `db337b00` (filtro scope-safe `package(X) and binary(Y)` verificado en el propio archivo; evidencia `-p vantadb-proxy` 89/89). Fila obsoleta en backlog → marcar cerrada. |
+| `REVIEW-11` | Dependabot sin ecosistema `pip` | `.github/dependabot.yml` | vanta-lead | 🟢 | 🟡 | ✅ **DONE** — commit `bf474822` (entry `pip` para `/vantadb-python`). Ver notas abajo. |
+| `MOD-02` | Transacciones no crash-atómicas (replay ignora Begin/Commit) | `src/storage/engine/txn.rs`, `wal_sharded.rs` | vanta-worker | 🟡 | 🟡 | ⬜ PENDING |
+| `MOD-08`+`MOD-09` | Loop stdio MCP serial + graceful shutdown descarta respuesta in-flight | `vantadb-mcp/src` | vanta-worker | 🟡 | 🟡 | ⬜ PENDING |
+| `MOD-19` | ~30% API core sin exponer en Python | `vantadb-python/` | vanta-worker | 🟡 | 🟡 | ⬜ PENDING |
+| `FIND-27` | Provider Ollama postea a `/api/embeddings` legacy con campo equivocado | `src/llm.rs:100` | vanta-worker | 🟡 | 🔴 | ⬜ PENDING |
+| `FIND-28` | 3 casts u8*→f32* sin prueba de alineación (hermanos de REVIEW-15) | `src/index/ivf.rs:69`, `src/storage/engine/mapper.rs:191`, `src/sdk/serialization/bytes.rs:136` | vanta-worker | 🟢 | 🟢 | ⬜ PENDING |
+| `UX-01`+`UX-05` | LensShell compartido (6 lenses) + token `.label-tech` | `desktop/src/components/*`, `desktop/src/index.css` | vanta-worker | 🟡 | 🟡 | ⬜ PENDING — **RIESGO** ver Hallazgos H2 |
+| `FIND-04` | Tabla cross-SDK `search()` Python↔TS en ambos READMEs | READMEs SDK, `docs/api/BINDINGS_NAMESPACES.md` | vanta-docs | 🟡 | 🟡 | ⬜ PENDING |
+
+### Hallazgos y errores de la sesión (2026-08-24)
+
+- **H1 (error de proceso): árbol sucio al iniciar.** ~35 archivos `desktop/` sin commit (status ` M`). Resultó ser trabajo P34 (revisión diseño/UX) a medio hacer. Se commiteó como checkpoint doble: `5a7f31e0` (P34 fixes en progreso) + `89ab5e2c` (FIX-D4 topbar). El lead DEBE correr `git status` antes de cualquier batch paralelo futuro.
+- **H2 (riesgo de colisión): segunda sesión activa editando `desktop/`.** Tras el commit `89ab5e2c` apareció un NUEVO delta en `desktop/src/components/layout/WorkspaceShell.tsx` (11 inserciones, comentarios "FIX-D4") — hay otro agente/sesión escribiendo ese archivo en vivo. **UX-01/UX-05 tocan el mismo árbol** (`WorkspaceShell.tsx`, `index.css`, lenses) → riesgo de conflicto. Decisión: antes de lanzar Wave 2 (UX-01/05) re-chequear churn con `git status`; si sigue activo, diferir UX al cierre de la otra sesión P34.
+- **H3 (hallazgo backlog): REVIEW-07 era duplicado.** La fila estaba abierta pero el fix ya existía (BND-06 / `db337b00`). No recrear; marcar ⛔ SKIP.
+- **H4 (interrupción):** el usuario pidió detener la ejecución paralela y registrar en backlog. Los `task()` no llegaron a ejecutarse (interrumpidos). Ninguna de las 10 tareas pending fue tocada por sub-agentes.
+- **H5 (gate mecánico REVIEW-11 verificado):** `yaml.safe_load` confirma ecosistemas `['cargo','npm','pip','github-actions','docker']` — DONE.
+
+### Mejoras / decisiones registradas
+
+- **M1 (dependabot):** se agregó solo `pip` para `/vantadb-python`. Los 10 dirs `integrations/*` son stubs SIN publicar en PyPI (ver MKT-18f) → añadir sus entries recién cuando se publiquen (comentario `ponytail:` en `.github/dependabot.yml`). Si se prefiere cobertura total hoy, migrar a Renovate (soporta globs de directorio).
+- **M2 (plan file):** creado `docs/plans/2026-08-24-batch-review-mod-find.md` con waves: W0 {REVIEW-06, MOD-02, FIND-27} · W1 {FIND-28, MOD-19, MOD-08+09} · W2 {UX-01+05, FIND-04}. Sub-agentes instruidos a NO commitear (evita race de index en paralelo); el lead verifica mecánicamente y commitea por tarea.
+- **M3 (commits de checkpoint previos a esta sesión de batch):** `5a7f31e0`, `89ab5e2c`, `bf474822` — todos en `develop`.
+
+### Próximo paso recomendado
+
+```
+/pipeline run docs/plans/2026-08-24-batch-review-mod-find.md   # reanuda waves
+# antes de Wave 2: git status  (confirmar que desktop/ dejó de moverse)
+```
+
