@@ -383,3 +383,14 @@ Próxima tarea si completa: MCP-32
 **Continue:** waves por dominio disjunto con commits por tarea · claim:true + guard R5 para multi-instancia · docs ×2 hash SAME en cada cambio de skill MCP.
 
 **Acción medida:** tasa first-try de delegaciones = 9/13 launches útiles (~70%, bajo el baseline North Star >90%) — causa raíz canal de reporte, no capacidad; métrica a vigilar: resultados vacíos/launch. Follow-ups registrados como FIND: sitios hermanos align_to (ivf.rs/mapper.rs/bytes.rs), FIND-27 unwraps mod.rs/debug_ops, drift completions/_vanta-cli, fila MOD-16 residual en Backlog.
+
+=== RECITATION FIND-01 ===
+Campaign ID: 82c5ed20-2086-4619-b471-dbafeb63aead
+Objetivo activo: FIND-01: metadata plano en la API TS (vantadb-ts)
+Estado: completed
+Última acción: DISCOVERY confirmó que WASM y nativo exigen forma tagged; implementé normalización a tagged en capa TS (helper src/metadata.ts), tipos union VantaFlatValue/VantaMetadataInput, aplicado en put/putBatch/importRecords/list/search/deleteByFilter/exportNamespace/insertNode (WASM) y put/putBatch/list/search (nativo); README+JSDoc+examples migrados a forma plana; test nuevo flat-metadata.test.ts.
+Resultado: OK
+Próxima acción: Orquestador decide commit del changeset
+Contrato: verificacion: cd vantadb-ts && npm test (253 passed) OK; npx tsc --noEmit OK; rg '\{ String' vantadb-ts/README.md = 0; rg 'type: "String"' src/vantadb.ts = 0. evidencia: tests flat-metadata.test.ts (7) + suite completa verde. artefactos: vantadb-ts/src/metadata.ts, src/types.ts, src/vantadb.ts, src/native.ts, src/__tests__/flat-metadata.test.ts, README.md, examples/langchain/index.ts, examples/llamaindex/index.ts. invariantes: records leidos del engine siguen devolviendo metadata tagged (Map en runtime WASM); forma tagged sigue aceptada (backward compat). deuda: tipo VantaMetadata=Record miente en runtime WASM (Map real) — preexistente, fuera de scope FIND-01. queda_pendiente: commit (usuario pidió NO commitear).
+Próxima tarea si completa: siguiente tarea del backlog
+=== END RECITATION ===
