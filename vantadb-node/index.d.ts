@@ -59,5 +59,72 @@ export declare class VantaDb {
   search(request: any): Promise<any>
   /** Return stable runtime capabilities. */
   capabilities(): any
+  /**
+   * Insert or update a graph node directly.
+   *
+   * `input`: `{ id, content?, vector?, fields? }` — `id` is a decimal string
+   * (or number; strings are the safe form for ids above 2^53), `fields` is an
+   * object of tagged values (e.g. `{ "name": { "String": "Ada" } }`).
+   */
+  insertNode(input: any): Promise<void>
+  /** Retrieve a graph node by id. Returns `null` if absent. */
+  getNode(id: string): Promise<any | null>
+  /** Delete a graph node by id. The `reason` string is recorded for auditing. */
+  deleteNode(id: string, reason: string): Promise<void>
+  /**
+   * Add a directed edge between two graph nodes.
+   *
+   * Automatically creates the reverse edge on the target node, enabling
+   * bidirectional traversal queries. `weight` defaults to 1.0 and
+   * `created_at_ms` to the current time.
+   */
+  addEdge(sourceId: string, targetId: string, label: string, weight?: number | undefined | null, createdAtMs?: number | undefined | null): Promise<void>
+  /** Remove all edges between two nodes with the given label (both directions). */
+  removeEdge(sourceId: string, targetId: string, label: string): Promise<void>
+  /**
+   * Breadth-first traversal from the given root node ids up to `max_depth`.
+   *
+   * `direction` is `"Forward"`, `"Reverse"`, or `"Both"`. Returns visited
+   * node ids as decimal strings (u128 ids exceed JS safe integers).
+   */
+  graphBfs(roots: Array<string>, maxDepth: number, direction: string): Promise<Array<string>>
+  /**
+   * Depth-first traversal from the given root node ids up to `max_depth`.
+   *
+   * `direction` is `"Forward"`, `"Reverse"`, or `"Both"`. Returns visited
+   * node ids as decimal strings.
+   */
+  graphDfs(roots: Array<string>, maxDepth: number, direction: string): Promise<Array<string>>
+  /**
+   * Topological sort of the subgraph reachable from the given root ids.
+   *
+   * Errors if the subgraph contains a cycle. Returns node ids as decimal strings.
+   */
+  graphTopologicalSort(roots: Array<string>): Promise<Array<string>>
+  /** Return whether the subgraph reachable from the given roots forms a DAG. */
+  graphIsDag(roots: Array<string>): Promise<boolean>
+  /**
+   * Breadth-first traversal with optional edge label/time filtering.
+   *
+   * `filter` is `{ labels?: number[], time_range?: [number, number] }` —
+   * only edges whose label id is in `labels` (and, when given, created
+   * inside the inclusive `time_range` window) are followed. `null`/`undefined`
+   * disables both filters. Returns visited node ids as decimal strings.
+   */
+  graphFilteredTraversal(roots: Array<string>, maxDepth: number, direction: string, filter?: any | undefined | null): Promise<Array<string>>
+  /**
+   * Degree centrality (in/out counts) for the subgraph reachable from the roots.
+   *
+   * Returns an array of `{ id, in_degree, out_degree }` entries (u128 ids as
+   * decimal strings).
+   */
+  graphDegree(roots: Array<string>): Promise<any>
+  /**
+   * Explain the search plan for a memory search request without executing it.
+   *
+   * Same request shape as `search()`. Returns
+   * `{ route, hits, fusion_report }` with a per-hit scoring breakdown.
+   */
+  explainSearch(request: any): Promise<any>
 }
 export type VantaDB = VantaDb

@@ -24,10 +24,11 @@ use std::sync::{Arc, Condvar, Mutex, PoisonError};
 /// (`vantadb-wasm/src/lib.rs` `MAX_F32_VEC_LEN`).
 const MAX_VEC_DIM: usize = 10_000;
 use vantadb::config::VantaConfig;
+use vantadb::graph::TraversalDirection;
 use vantadb::node::DistanceMetric;
 use vantadb::sdk::{
     VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryMetadata,
-    VantaMemorySearchRequest,
+    VantaMemorySearchRequest, VantaNodeInput, VantaSearchExplanation,
 };
 
 /// Native VantaDB handle exposed to Node.js. Thin wrapper over the SDK's
@@ -173,6 +174,205 @@ impl VantaDB {
             "iql_queries": caps.iql_queries,
             "read_only": caps.read_only,
         })
+    }
+
+    /// Insert or update a graph node directly.
+    ///
+    /// `input`: `{ id, content?, vector?, fields? }` — `id` is a decimal string
+    /// (or number; strings are the safe form for ids above 2^53), `fields` is an
+    /// object of tagged values (e.g. `{ "name": { "String": "Ada" } }`).
+    #[napi]
+    pub async fn insert_node(&self, input: Value) -> napi::Result<()> {
+        let _g = enter(&self.op_gate)?;
+        let input = parse_node_input(&input)?;
+        let engine = self.engine.clone();
+        spawn_blocking(move || engine.insert_node(input)).await
+    }
+
+    /// Retrieve a graph node by id. Returns `null` if absent.
+    #[napi]
+    pub async fn get_node(&self, id: String) -> napi::Result<Option<Value>> {
+        let _g = enter(&self.op_gate)?;
+        let id = parse_node_id(&id)?;
+        let engine = self.engine.clone();
+        let out = spawn_blocking(move || engine.get_node(id)).await?;
+        match out {
+            Some(node) => Ok(Some(serde_json::to_value(&node).map_err(serde_map_err)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Delete a graph node by id. The `reason` string is recorded for auditing.
+    #[napi]
+    pub async fn delete_node(&self, id: String, reason: String) -> napi::Result<()> {
+        let _g = enter(&self.op_gate)?;
+        let id = parse_node_id(&id)?;
+        let engine = self.engine.clone();
+        spawn_blocking(move || engine.delete_node(id, &reason)).await
+    }
+
+    /// Add a directed edge between two graph nodes.
+    ///
+    /// Automatically creates the reverse edge on the target node, enabling
+    /// bidirectional traversal queries. `weight` defaults to 1.0 and
+    /// `created_at_ms` to the current time.
+    #[napi]
+    pub async fn add_edge(
+        &self,
+        source_id: String,
+        target_id: String,
+        label: String,
+        weight: Option<f64>,
+        created_at_ms: Option<f64>,
+    ) -> napi::Result<()> {
+        let _g = enter(&self.op_gate)?;
+        let source_id = parse_node_id(&source_id)?;
+        let target_id = parse_node_id(&target_id)?;
+        let created_at_ms = opt_f64_to_u64(created_at_ms, "created_at_ms")?;
+        let engine = self.engine.clone();
+        spawn_blocking(move || {
+            engine.add_edge(
+                source_id,
+                target_id,
+                &label,
+                weight.map(|w| w as f32),
+                created_at_ms,
+            )
+        })
+        .await
+    }
+
+    /// Remove all edges between two nodes with the given label (both directions).
+    #[napi]
+    pub async fn remove_edge(
+        &self,
+        source_id: String,
+        target_id: String,
+        label: String,
+    ) -> napi::Result<()> {
+        let _g = enter(&self.op_gate)?;
+        let source_id = parse_node_id(&source_id)?;
+        let target_id = parse_node_id(&target_id)?;
+        let engine = self.engine.clone();
+        spawn_blocking(move || engine.remove_edge(source_id, target_id, &label)).await
+    }
+
+    /// Breadth-first traversal from the given root node ids up to `max_depth`.
+    ///
+    /// `direction` is `"Forward"`, `"Reverse"`, or `"Both"`. Returns visited
+    /// node ids as decimal strings (u128 ids exceed JS safe integers).
+    #[napi]
+    pub async fn graph_bfs(
+        &self,
+        roots: Vec<String>,
+        max_depth: u32,
+        direction: String,
+    ) -> napi::Result<Vec<String>> {
+        let _g = enter(&self.op_gate)?;
+        let roots = parse_node_ids(&roots)?;
+        let dir = parse_direction(&direction)?;
+        let engine = self.engine.clone();
+        let out = spawn_blocking(move || engine.graph_bfs(&roots, max_depth as usize, dir)).await?;
+        Ok(out.iter().map(|id| id.to_string()).collect())
+    }
+
+    /// Depth-first traversal from the given root node ids up to `max_depth`.
+    ///
+    /// `direction` is `"Forward"`, `"Reverse"`, or `"Both"`. Returns visited
+    /// node ids as decimal strings.
+    #[napi]
+    pub async fn graph_dfs(
+        &self,
+        roots: Vec<String>,
+        max_depth: u32,
+        direction: String,
+    ) -> napi::Result<Vec<String>> {
+        let _g = enter(&self.op_gate)?;
+        let roots = parse_node_ids(&roots)?;
+        let dir = parse_direction(&direction)?;
+        let engine = self.engine.clone();
+        let out = spawn_blocking(move || engine.graph_dfs(&roots, max_depth as usize, dir)).await?;
+        Ok(out.iter().map(|id| id.to_string()).collect())
+    }
+
+    /// Topological sort of the subgraph reachable from the given root ids.
+    ///
+    /// Errors if the subgraph contains a cycle. Returns node ids as decimal strings.
+    #[napi]
+    pub async fn graph_topological_sort(&self, roots: Vec<String>) -> napi::Result<Vec<String>> {
+        let _g = enter(&self.op_gate)?;
+        let roots = parse_node_ids(&roots)?;
+        let engine = self.engine.clone();
+        let out = spawn_blocking(move || engine.graph_topological_sort(&roots)).await?;
+        Ok(out.iter().map(|id| id.to_string()).collect())
+    }
+
+    /// Return whether the subgraph reachable from the given roots forms a DAG.
+    #[napi]
+    pub async fn graph_is_dag(&self, roots: Vec<String>) -> napi::Result<bool> {
+        let _g = enter(&self.op_gate)?;
+        let roots = parse_node_ids(&roots)?;
+        let engine = self.engine.clone();
+        spawn_blocking(move || engine.graph_is_dag(&roots)).await
+    }
+
+    /// Breadth-first traversal with optional edge label/time filtering.
+    ///
+    /// `filter` is `{ labels?: number[], time_range?: [number, number] }` —
+    /// only edges whose label id is in `labels` (and, when given, created
+    /// inside the inclusive `time_range` window) are followed. `null`/`undefined`
+    /// disables both filters. Returns visited node ids as decimal strings.
+    #[napi]
+    pub async fn graph_filtered_traversal(
+        &self,
+        roots: Vec<String>,
+        max_depth: u32,
+        direction: String,
+        filter: Option<Value>,
+    ) -> napi::Result<Vec<String>> {
+        let _g = enter(&self.op_gate)?;
+        let roots = parse_node_ids(&roots)?;
+        let dir = parse_direction(&direction)?;
+        let (labels, time_range) = parse_graph_filter(filter.as_ref())?;
+        let engine = self.engine.clone();
+        let out = spawn_blocking(move || {
+            engine.graph_bfs_filtered(&roots, max_depth as usize, dir, &labels, time_range)
+        })
+        .await?;
+        Ok(out.iter().map(|id| id.to_string()).collect())
+    }
+
+    /// Degree centrality (in/out counts) for the subgraph reachable from the roots.
+    ///
+    /// Returns an array of `{ id, in_degree, out_degree }` entries (u128 ids as
+    /// decimal strings).
+    #[napi]
+    pub async fn graph_degree(&self, roots: Vec<String>) -> napi::Result<Value> {
+        let _g = enter(&self.op_gate)?;
+        let roots = parse_node_ids(&roots)?;
+        let engine = self.engine.clone();
+        let degrees = spawn_blocking(move || engine.graph_degree_centrality(&roots)).await?;
+        let entries = degrees
+            .into_iter()
+            .map(|(id, (in_degree, out_degree))| {
+                json!({ "id": id.to_string(), "in_degree": in_degree, "out_degree": out_degree })
+            })
+            .collect::<Vec<_>>();
+        Ok(Value::Array(entries))
+    }
+
+    /// Explain the search plan for a memory search request without executing it.
+    ///
+    /// Same request shape as `search()`. Returns
+    /// `{ route, hits, fusion_report }` with a per-hit scoring breakdown.
+    #[napi]
+    pub async fn explain_search(&self, request: Value) -> napi::Result<Value> {
+        let _g = enter(&self.op_gate)?;
+        let request = parse_search_request(&request)?;
+        let engine = self.engine.clone();
+        let out: VantaSearchExplanation =
+            spawn_blocking(move || engine.explain_memory_search(request)).await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
     }
 }
 
@@ -363,7 +563,8 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<VantaMemoryListOpti
         filter_ops: None,
         limit,
         cursor,
-        exclude_superseded: false,    })
+        exclude_superseded: false,
+    })
 }
 
 fn parse_search_request(value: &Value) -> napi::Result<VantaMemorySearchRequest> {
@@ -389,6 +590,8 @@ fn parse_search_request(value: &Value) -> napi::Result<VantaMemorySearchRequest>
             _ => DistanceMetric::Cosine,
         },
         explain: obj.get("explain").and_then(Value::as_bool).unwrap_or(false),
+        exclude_superseded: false,
+        search_profile: None,
     })
 }
 
@@ -414,12 +617,13 @@ fn get_opt_u64(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<u64>>
     match obj.get(key) {
         None | Some(Value::Null) => Ok(None),
         Some(Value::Number(n)) => {
-            if n.is_i64() || n.is_u64() {
-                Ok(n.as_u64())
-            } else if n
-                .as_f64()
-                .is_some_and(|f| f.is_finite() && f.fract() == 0.0 && f >= 0.0)
-            {
+            let valid = n.is_i64()
+                || n.is_u64()
+                || n.as_f64()
+                    .is_some_and(|f| f.is_finite() && f.fract() == 0.0 && f >= 0.0);
+            if valid {
+                // `as_u64()` is `None` for negative i64 — same semantics as the
+                // previous two identical branches (kept as one expression).
                 Ok(n.as_u64())
             } else {
                 Err(Error::from_reason(format!(
@@ -486,4 +690,128 @@ fn get_metadata(obj: &Map<String, Value>, key: &str) -> napi::Result<VantaMemory
         Some(v) => serde_json::from_value(v.clone())
             .map_err(|e| Error::from_reason(format!("invalid `{key}`: {e}"))),
     }
+}
+
+/// Convert an optional JS number to a u64, rejecting non-integers and negatives
+/// (napi does not accept `u64`/`Option<u64>` params, so unix-ms values arrive
+/// as `f64` and are validated here).
+fn opt_f64_to_u64(value: Option<f64>, key: &str) -> napi::Result<Option<u64>> {
+    value
+        .map(|v| {
+            if v.is_finite() && v >= 0.0 && v.fract() == 0.0 {
+                Ok(v as u64)
+            } else {
+                Err(Error::from_reason(format!(
+                    "`{key}` must be a non-negative integer"
+                )))
+            }
+        })
+        .transpose()
+}
+
+// ── graph helpers ────────────────────────────────────────────────────────────
+
+/// Parse a graph node id from a decimal string.
+///
+/// Node ids are u128 in the core SDK; JS Numbers lose precision above 2^53, so
+/// the Node API takes ids as decimal strings (strings in, strings out — same
+/// convention as the WASM binding `parse_node_id` and ERR-025/ERR-023).
+fn parse_node_id(id: &str) -> napi::Result<u128> {
+    id.trim().parse::<u128>().map_err(|_| {
+        Error::from_reason(format!(
+            "invalid node id '{id}': expected a decimal u128 string"
+        ))
+    })
+}
+
+fn parse_node_ids(ids: &[String]) -> napi::Result<Vec<u128>> {
+    ids.iter().map(|id| parse_node_id(id)).collect()
+}
+
+/// Parse a traversal direction string into the core enum.
+fn parse_direction(direction: &str) -> napi::Result<TraversalDirection> {
+    match direction {
+        "Forward" => Ok(TraversalDirection::Forward),
+        "Reverse" => Ok(TraversalDirection::Reverse),
+        "Both" => Ok(TraversalDirection::Both),
+        _ => Err(Error::from_reason(format!(
+            "invalid direction '{direction}': expected 'Forward', 'Reverse', or 'Both'"
+        ))),
+    }
+}
+
+/// Parse a `VantaNodeInput` from a JSON object `{ id, content?, vector?, fields? }`.
+///
+/// `id` may be a decimal string or a number. `fields` uses the tagged
+/// `VantaValue` representation (e.g. `{ "name": { "String": "Ada" } }`).
+fn parse_node_input(value: &Value) -> napi::Result<VantaNodeInput> {
+    let obj = value
+        .as_object()
+        .ok_or_else(|| Error::from_reason("node input must be an object"))?;
+    let id = match obj.get("id") {
+        Some(Value::String(s)) => parse_node_id(s)?,
+        Some(Value::Number(n)) => n
+            .as_u64()
+            .ok_or_else(|| Error::from_reason("`id` must be a non-negative integer"))?
+            as u128,
+        Some(_) => return Err(Error::from_reason("`id` must be a string or number")),
+        None => return Err(Error::from_reason("missing required field `id`")),
+    };
+    Ok(VantaNodeInput {
+        id,
+        content: get_opt_str(obj, "content")?,
+        vector: get_opt_f32_vec(obj, "vector")?,
+        fields: match obj.get("fields") {
+            None | Some(Value::Null) => Default::default(),
+            Some(v) => serde_json::from_value(v.clone())
+                .map_err(|e| Error::from_reason(format!("invalid `fields`: {e}")))?,
+        },
+    })
+}
+
+/// Parsed graph traversal filter: label ids plus optional inclusive time window.
+type GraphFilter = (Vec<u32>, Option<(u64, u64)>);
+
+/// Parse the optional `{ labels?, time_range? }` filter of
+/// `graph_filtered_traversal`. `labels` is an array of label ids; `time_range`
+/// is an inclusive `[from_ms, to_ms]` window on edge creation time.
+fn parse_graph_filter(filter: Option<&Value>) -> napi::Result<GraphFilter> {
+    let Some(filter) = filter else {
+        return Ok((Vec::new(), None));
+    };
+    let obj = filter
+        .as_object()
+        .ok_or_else(|| Error::from_reason("filter must be an object"))?;
+    let labels = match obj.get("labels") {
+        None | Some(Value::Null) => Vec::new(),
+        Some(Value::Array(items)) => items
+            .iter()
+            .map(|v| {
+                v.as_u64()
+                    .and_then(|n| u32::try_from(n).ok())
+                    .ok_or_else(|| {
+                        Error::from_reason("`labels` must be an array of non-negative integers")
+                    })
+            })
+            .collect::<napi::Result<Vec<u32>>>()?,
+        Some(_) => return Err(Error::from_reason("`labels` must be an array")),
+    };
+    let time_range = match obj.get("time_range") {
+        None | Some(Value::Null) => None,
+        Some(Value::Array(items)) if items.len() == 2 => {
+            let from = items[0].as_u64().ok_or_else(|| {
+                Error::from_reason("`time_range` must be [from_ms, to_ms] of integers")
+            })?;
+            let to = items[1].as_u64().ok_or_else(|| {
+                Error::from_reason("`time_range` must be [from_ms, to_ms] of integers")
+            })?;
+            Some((from, to))
+        }
+        Some(_) => {
+            return Err(Error::from_reason(
+                "`time_range` must be [from_ms, to_ms] of integers",
+            ))
+        }
+    };
+    Ok((labels, time_range))
 }
