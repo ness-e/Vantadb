@@ -6,7 +6,7 @@
 
 Todo el detalle del sistema de tareas, agentes, skills, MCP servers, y su integración está en:
 
-📖 **`.opencode/VANTADB-OPERATING-MANUAL.md`** — Manual de Operación completo (917 líneas, 14 secciones)
+📖 **`.opencode/VANTADB-OPERATING-MANUAL.md`** — Índice del sistema con fuente canónica por tema
 
 📖 **`SKILLS-MANIFEST.md`** — Catálogo completo de las 193 skills del proyecto (162 + 31, raíz)
 

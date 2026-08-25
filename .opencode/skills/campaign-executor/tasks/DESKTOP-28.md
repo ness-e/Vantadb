@@ -4,7 +4,7 @@
 - **Plan file:** docs/Backlog.md (Phase 12)
 - **Creado:** 2026-08-24
 - **last-synced:** 2026-08-24T00:00:00
-- **Estado:** ⏳ IN PROGRESS (steps 1-4 ✅ — pendiente cierre/commit por lead)
+- **Estado:** ✅ COMPLETED (stale WIP lock resuelto 2026-08-24 por pipeline batch — trabajo previo completado)
 
 ## Blast Radius
 Callers: desktop/src/components/*.tsx, desktop/src/App.css, desktop/src/index.css
