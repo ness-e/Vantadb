@@ -9,6 +9,7 @@
     "build:wasm": "vite build --mode wasm",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@playwright/test": "^1.61.1",
     "@tauri-apps/cli": "^2",
     "@testing-library/react": "^16.3.2",
     "@types/d3-force": "^3.0.10",

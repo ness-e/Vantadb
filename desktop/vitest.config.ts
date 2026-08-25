@@ -13,6 +13,9 @@ export default defineConfig({
     // (convención previa a DESKTOP-26) — vitest no los descubre.
     exclude: [
       ...defaultExclude,
+      // E2E-VISUAL: los specs Playwright de desktop/e2e/ NO son tests vitest
+      // (el default include **/*.spec.ts los descubriría y fallarían).
+      "e2e/**",
       "src/consolidate-core.test.ts",
       "src/importDrop.test.ts",
       "src/vanta-wasm-map.test.ts",
