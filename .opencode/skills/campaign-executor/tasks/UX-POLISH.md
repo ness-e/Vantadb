@@ -9,7 +9,7 @@
 - **Turns estimados:** 18
 - **Creado:** 2026-08-25T12:30
 - **last-synced:** 2026-08-25T12:30
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (sync 2026-08-25 — 13/13 steps ✅; stale cleanup por FIND-23)
 - **Incógnitas (uphill):** 0
 - **Pendientes (downhill):** 12 steps
 

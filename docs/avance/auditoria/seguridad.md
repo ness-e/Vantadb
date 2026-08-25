@@ -155,7 +155,12 @@ aliases: []
 - **Fecha:** 2026-08-23
 - **Resultado:** ✅ Política REFUSE-TO-START implementada. El server HTTP rechaza arrancar si bind host no-loopback (`0.0.0.0`, IPs externas, hostnames no-loopback; unresolvable → fail closed) sin `VANTADB_API_KEY`, con error accionable (3 vías de fix). Override dev explícito: flag CLI `--allow-insecure` loguea WARNING prominente y arranca igual. Loopback (`127.0.0.1`/`localhost`/`::1`) sigue arrancando en modo dev. Implementación: `is_loopback_host()` + extensión de `validate_auth_config()` (`src/cli_server.rs`), campo `VantaConfig.allow_insecure`, flag `Commands::Server --allow-insecure`. Tests: 8/8 en `cli_server::tests` (refuse/bypass/loopback + clasificación + regresión auth existente); módulo completo 54/54. Docs: `docs/api/HTTP_API.md` §Starting the Server. Contrato: cargo check ✅, clippy -D warnings ✅, nextest ✅.
 
+### AUD-046: fan-out all-namespaces en list HTTP trunca silenciosamente a NS_CAP
+- **Fecha:** 2026-08-25
+- **Resultado:** ✅ Señal aditiva `truncated_namespaces` en la respuesta del fan-out de `GET /api/v2/list` sin namespace (`src/cli_server.rs`, struct local `AllNamespacesListPage`; wire format SDK intacto — nunca breaking). Helper puro `merge_all_namespaces_pages()` marca namespace truncado cuando su página trae `next_cursor`. Tests: unit de semántica NS_CAP (páginas sintéticas) + assertion del campo en e2e aggregate; suite cli_server 59/59; fmt/clippy/check ✅. Hallazgo colateral **FIND-24** en Backlog: `db.list` ventana 10k ≈ 60-70s debug excede REQUEST_TIMEOUT=30s → e2e HTTP >10k inviable; requiere cursor cross-ns + perf. Docs: `docs/api/HTTP_API.md` §list. Commit pendiente del lead.
+
 ---
+
 
 ## Prevención de breaking changes
 

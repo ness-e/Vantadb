@@ -4,7 +4,7 @@
 - **Plan file:** docs/plans/2026-08-25-batch-desktop-ux-core.md
 - **Creado:** 2026-08-25T12:00
 - **last-synced:** 2026-08-25T12:00
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (sync 2026-08-25 — steps todos ✅; stale cleanup por FIND-23)
 - **Tipo:** documentation (vanta-docs) — NO código
 - **Esfuerzo:** 🟢
 
