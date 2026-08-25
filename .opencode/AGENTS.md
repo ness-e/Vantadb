@@ -122,7 +122,7 @@ cargo add serde                  # dependencias
 ## Skills Manifest
 
 **Todas las skills están centralizadas en:**
-- `.agents/skills/` (proyecto, 163 skills) + `.opencode/skills/` (31 skills)
+- `.agents/skills/` (proyecto, 162 skills en 163 dirs; `a11y-shared` es recursos, no skill) + `.opencode/skills/` (31 skills)
 - Referencia completa en: `SKILLS-MANIFEST.md` (raíz del proyecto)
 
 **Siempre preferir la copia del proyecto sobre la global.**
