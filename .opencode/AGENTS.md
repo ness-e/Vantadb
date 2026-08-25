@@ -2,6 +2,17 @@
 
 > **🛡️ Validation Rule:** Si no estás 100% seguro de una respuesta, análisis o decisión técnica, DEBES validar contra internet (`websearch`/`webfetch`). Para herramientas, librerías o APIs, la fuente de verdad es su documentación oficial o GitHub. No confíes en conocimiento interno del modelo si hay duda.
 
+## 🔎 Búsqueda Web Obligatoria (Router en Cascada)
+
+**Cualquier petición de investigar/buscar/validar en internet DEBE cargar primero la skill `coordinated-web-search`** (`.agents/skills/coordinated-web-search/SKILL.md`) y seguir su router en cascada:
+
+1. **Keyless primero**: agent-search MCP / webfetch / Jina (`https://r.jina.ai/<url>`)
+2. **Argus**: `argus_search_web`, `argus_extract_content`, `argus_recover_url`
+3. **MetaSearchMCP**: validación multi-engine con `compare_engines`
+4. **Fallbacks**: recover_url → Jina → Playwright browser real
+
+No uses un solo motor aislado ni inventes resultados si las herramientas fallan — escala al siguiente nivel de la cascada y cita siempre las URLs fuente.
+
 ## Manual de Operación
 
 Todo el detalle del sistema de tareas, agentes, skills, MCP servers, y su integración está en:
@@ -28,6 +39,7 @@ El sistema de pipeline vive en `.opencode/` y se activa cuando el usuario envía
 | `/status` | `.opencode/commands/status.md` | Dashboard de un vistazo |
 | `/backlog` | `.opencode/commands/backlog.md` | Revisar backlog + listar tareas activas + recomendar prioridad |
 | `/spec` | `.opencode/commands/spec.md` | Spec-Driven Development |
+| `/research <módulo>` | `.opencode/commands/research.md` | Investigación INV-\* por módulo (registro: `.opencode/references/research-modules.md`) + decisiones HITL por hallazgo. `/research synthesis` = decisión global |
 | `/webperf` | `.opencode/commands/webperf.md` | Web performance audit |
 | `/code-simplify` | `.opencode/commands/code-simplify.md` | Simplify code |
 
@@ -393,13 +405,15 @@ Config: activos en `opencode.jsonc` (proyecto); deshabilitados en `%USERPROFILE%
 | **Campaign** | `bun .opencode/task-system/mcp/campaign-server.mjs` | Task system: 30+ tools para plan, task, verify, state machine |
 | **MetaSearchMCP** | `metasearchmcp-mcp` | Búsqueda multi-provider: web, GitHub, académico, código. DuckDuckGo gratis |
 | **Argus** | `argus mcp serve` | 14 providers, extracción 12-step, dead URL recovery |
+| **VantaDB** | `vanta-cli server --mcp` | Memoria persistente + vector retrieval (15 tools) |
+| **Playwright** | `npx @playwright/mcp@latest --viewport-size 1440x900` | Automatización de browser vía accessibility tree (browser_navigate/snapshot/click/type/evaluate). Testing `web/`, E2E `desktop/` (2 specs existentes), visual review. Skills: `playwright-cli` (oficial MS, completa en `.opencode/skills/playwright-cli/`) + `playwright-e2e`/`playwright-api` (qaskills, en `~/.claude/skills/`) |
 
 ### Deshabilitados (default)
 
 | MCP | Estado | Por qué |
 |-----|--------|---------|
-| **Pencil** | ❌ off | Editor `.pen` — solo cuando se trabaja en diseño UI |
-| **Playwright** | ❌ off | Navegador — solo para testing web/devtools |
+| **Pencil** | ❌ off | Editor `.pen` — solo cuando se trabaja en diseño UI (reactivar en config global) |
+| ~~**Playwright**~~ | ✅ **ACTIVO desde 2026-08-25** | Movido a tabla Activos (`opencode.jsonc` + global con `npx @playwright/mcp@latest`) |
 | **Discord** | ❌ off | Integración social no usada |
 | **LottieFiles Creator** | ❌ off | Animaciones Lottie — solo cuando aplica |
 | **cargo-mcp** | ❌ off | Terminal preferida para Rust (ver [Rust MCP Servers](#rust-mcp-servers)) |
