@@ -104,6 +104,7 @@ BLOQUEO: <ninguno | qué impidió terminar>
 ## 6. Relevant Skills & References
 
 **Skills (load with `skill <name>`):**
+- **SDP (Skill Discovery Protocol — OBLIGATORIO, canónico en .opencode/references/skills-engineering.md):** la lista de abajo es tu base fija; en cada tarea completá con discovery (Lifecycle mapping + grep SKILLS-MANIFEST.md por keywords del contrato, ≤8 skills totales justificadas) y declará SKILLS_CARGADAS: en tu RESULTADO.
 - `coordinated-web-search` — orquesta MetaSearchMCP + Argus para búsqueda y validación web coordinada
 - `source-driven-development` — verificar contra docs oficiales antes de reportar patrones/APIs
 - `progreso` — conocer qué tareas ya migraron/completaron para no duplicar investigación

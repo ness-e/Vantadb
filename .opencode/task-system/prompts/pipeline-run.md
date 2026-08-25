@@ -107,6 +107,10 @@ estancadas.
        Task file: .opencode/skills/campaign-executor/tasks/{id}.md
        Research Digest: {si se generó en d, incluilo aquí}
        Skills a cargar: {skills de campaign_load_skills}
+       Skill Discovery: además de la base, ejecutá el SDP (pipeline-full Paso 0b —
+       canónico en .opencode/references/skills-engineering.md): Lifecycle mapping +
+       grep SKILLS-MANIFEST.md por keywords de la tarea; cargá candidatas relevantes
+       (≤8 total) y declará `SKILLS_CARGADAS:` en tu RESULTADO.
 
        Reglas del prompt:
        1. Seguí pipeline-full.md al pie de la letra (DISCOVERY → EJECUCIÓN → CIERRE).

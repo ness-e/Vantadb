@@ -115,6 +115,7 @@ Antes de escribir docs, verifica:
 > **OBLIGATORIO:** al inicio de cada sesión cargá con skill <nombre> las skills de esta sección.
 
 **Skills (load with `skill <name>`):**
+- **SDP (Skill Discovery Protocol — OBLIGATORIO, canónico en .opencode/references/skills-engineering.md):** la lista de abajo es tu base fija; en cada tarea completá con discovery (Lifecycle mapping + grep SKILLS-MANIFEST.md por keywords del contrato, ≤8 skills totales justificadas) y declará SKILLS_CARGADAS: en tu RESULTADO.
 - `documentation-and-adrs` — ADRs, documentación técnica, plantillas
 - `writing-guidelines` — revisar docs contra guías de estilo, voz y tono
 - `spec-driven-development` — escribir specs antes de implementar (doc-driven)

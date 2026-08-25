@@ -951,9 +951,13 @@ server.tool(
 // primer match. Para tareas genuinamente multi-dominio usar extraSkills.
 const TYPE_PATTERNS = [
   { pattern: /vantadb-python\//, type: "python", label: "Python SDK", skills: ["source-driven-development"], checks: ["python -m pytest vantadb-python/tests/ -v"] },
-  { pattern: /vantadb-ts\//, type: "typescript", label: "TypeScript SDK", skills: ["source-driven-development"], checks: ["npx tsc --noEmit", "npm test"] },
+  { pattern: /vantadb-ts\/|vantadb-node\//, type: "typescript", label: "TypeScript SDK", skills: ["source-driven-development"], checks: ["npx tsc --noEmit", "npm test"] },
   { pattern: /web\/src\//, type: "frontend", label: "Web frontend", skills: ["frontend-ui-engineering", "design-taste-frontend"], checks: ["npx tsc --noEmit", "npm run lint"] },
   { pattern: /\.github\//, type: "devops", label: "CI/CD / DevOps", skills: ["ci-cd-and-automation", "doubt-driven-development"], checks: ["yamllint .github/"] },
+  { pattern: /desktop\/src/, type: "desktop", label: "Desktop Tauri", skills: ["frontend-ui-engineering", "source-driven-development"], checks: ["cd desktop && npm run build"] },
+  { pattern: /vantadb-mcp\//, type: "mcp", label: "MCP server", skills: ["source-driven-development", "security-and-hardening"], checks: ["cargo check -p vantadb-mcp", "cargo test -p vantadb-mcp --test mcp_tests"] },
+  { pattern: /vanta-proxy\//, type: "proxy", label: "LLM proxy", skills: ["source-driven-development"], checks: ["cargo check -p vanta-proxy", "cargo test -p vanta-proxy"] },
+  { pattern: /vantadb-wasm\//, type: "wasm", label: "WASM binding", skills: ["source-driven-development"], checks: ["cargo check -p vantadb-wasm --target wasm32-unknown-unknown"] },
   { pattern: /vantadb-server\//, type: "server", label: "HTTP server", skills: ["source-driven-development", "security-and-hardening"], checks: ["cargo check -p vantadb-server"] },
   { pattern: /docs\//, type: "docs", label: "Documentation", skills: ["writing-guidelines", "writing-plans"], checks: ["scripts/validate-docs-coverage.ps1"] },
   { pattern: /(^|[^a-z-])src\//, type: "rust", label: "Rust core", skills: ["source-driven-development", "doubt-driven-development", "ponytail"], checks: ["cargo check -p vantadb", "cargo fmt --check", "cargo clippy --workspace --all-targets --all-features -- -D warnings", "cargo nextest run --profile audit --workspace --build-jobs 2"] },

@@ -23,6 +23,17 @@ Paso 0 — Auto-cargar skills según tipo de tarea:
     workflow JSON (bug-fix/feature-add/refactor/research/nine-second-saloon).
     El workflow define estados, allowed_tools y transiciones específicas.
 
+Paso 0b — **Skill Discovery (SDP, obligatorio — fuente canónica:
+   `.opencode/references/skills-engineering.md` §"Skill Discovery Protocol"):**
+   `campaign_load_skills` devuelve solo la BASE (~6 skills). Completá con discovery:
+   a. Macheá la fase de trabajo contra la tabla Lifecycle mapping de
+      skills-engineering.md (DEFINE/PLAN/BUILD/VERIFY/REVIEW/SHIP).
+   b. Grepeá `SKILLS-MANIFEST.md` por keywords del contrato/título de la tarea.
+   c. Cargá las candidatas relevantes (≤8 skills totales; prioridad proyecto > global),
+      cada una justificada en 1 línea. Si no hay candidatas nuevas, registralo
+      (`SDP: sin candidatos adicionales`) — el paso nunca se omite en silencio.
+   d. Listá las skills cargadas en el task file y en `SKILLS_CARGADAS:` del RESULTADO (§7).
+
 INSTRUCCIONES — UNA TAREA COMPLETA POR ITERACIÓN:
 
 Operás en un entorno por turnos. Procesás EXACTAMENTE UNA TAREA COMPLETA
@@ -230,6 +241,7 @@ ARCHIVOS: <paths tocados>
 VERIFY_CONTRATO: <pasa | no-corrido | falla>
 BLOQUEO: <ninguno | qué impidió terminar>
 GATES_EVALUADOS: P:<no|disparado> D:<no|disparado> V:<no|disparado> C:<no|disparado> | <motivo ≤6 palabras por gate>
+SKILLS_CARGADAS: <lista de skills cargadas (SDP Paso 0b), o "base-only + SDP sin candidatos">
 ```
 
 - `✅ COMPLETO`: todos los steps ✅ + `campaign_verify_cmd` del contrato pasa + commit hecho.

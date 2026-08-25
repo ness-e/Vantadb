@@ -2,6 +2,34 @@
 
 > Movido desde `.opencode/AGENTS.md` — referencia on-demand. Consultar cuando necesites decidir qué skill cargar. Si editas, actualiza también el puntero en AGENTS.md.
 
+## Skill Discovery Protocol (SDP — fuente canónica, referenciado por pipeline-full/task/iter-loop-tools/pipeline-run)
+
+> **Obligatorio en cada tarea** (agente principal Y sub-agentes). `campaign_load_skills`
+> devuelve solo la base por tipo (~6 skills); este paso descubre el resto del catálogo
+> (~190+ skills locales y globales). Máximo +5 min; es grep/lectura de índices, no research.
+
+**Pasos:**
+
+1. **Base:** `campaign_load_skills` (MCP) → skills por tipo + base fija.
+2. **Discovery:** con las keywords del dominio de la tarea (del título, contrato y
+   archivos clave), buscar candidatos en ESTE orden:
+   a. Tabla **Lifecycle mapping** de este archivo (abajo) — machea fase DEFINE/PLAN/
+      BUILD/VERIFY/REVIEW/SHIP con el tipo de trabajo.
+   b. `SKILLS-MANIFEST.md` → sección "Essential Skillset" + categoría del dominio
+      (grep por keyword del contrato).
+   c. Catálogo del entorno (`available_skills`) — skills locales (`.opencode/skills/`,
+      `.agents/skills/`) tienen prioridad sobre globales (`~/.agents/skills/`) si
+      ambas existen.
+3. **Carga justificada:** cargar `skill <nombre>` cada candidata relevante. Límite
+   sano: ≤8 skills totales por tarea (más de eso diluye el contexto — elegir las de
+   mayor rating del manifest). Cada skill cargada se justifica en 1 línea.
+4. **Registro:** listar las skills cargadas en el task file ("Herramientas necesarias"
+   → "Skills") y en el bloque RESULTADO (`SKILLS_CARGADAS:`).
+
+**Regla de corte:** si tras discovery no hay candidatas nuevas beyond la base,
+registrar `SDP: sin candidatos adicionales (keywords: <...>)` — el paso se ejecutó,
+no produjo nada. Nunca omitirlo silenciosamente.
+
 ## Skill Loading Guide — Diseño & Creativo
 
 - **Diseño UI/Frontend**: `vanta-design-orchestrator` → `impeccable` → `design-taste-frontend`

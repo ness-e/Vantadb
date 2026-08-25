@@ -127,6 +127,7 @@ Si no hay baseline, corre `cargo bench` primero o genera un flamegraph.
 > **OBLIGATORIO:** al inicio de cada sesión cargá con skill <nombre> las skills de esta sección.
 
 **Skills (load with `skill <name>`):**
+- **SDP (Skill Discovery Protocol — OBLIGATORIO, canónico en .opencode/references/skills-engineering.md):** la lista de abajo es tu base fija; en cada tarea completá con discovery (Lifecycle mapping + grep SKILLS-MANIFEST.md por keywords del contrato, ≤8 skills totales justificadas) y declará SKILLS_CARGADAS: en tu RESULTADO.
 - `performance-optimization` — CPU/memory profiling, hot path optimization, compile time tuning
 - `observability-and-instrumentation` — logging estructurado, métricas RED, tracing, alerting
 - `source-driven-development` — verificar técnicas de profiling contra documentación oficial

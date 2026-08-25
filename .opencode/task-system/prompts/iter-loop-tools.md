@@ -61,6 +61,13 @@ skill progreso
 
 4. codegraph_explore "símbolos/archivos de la tarea"
 
+4b. **Skill Discovery (SDP — obligatorio, canónico en
+    `.opencode/references/skills-engineering.md` §"Skill Discovery Protocol"):**
+    la base del paso 1 NO es el catálogo completo. Macheá la fase contra la tabla
+    Lifecycle mapping de skills-engineering.md + grep `SKILLS-MANIFEST.md` con
+    keywords del contrato → cargar candidatas relevantes (≤8 total, justificadas).
+    Sin candidatas nuevas → registrar `SDP: sin candidatos adicionales`.
+
 5. Zero-code planning: antes de escribir código o crear el task file, describí
    la solución en ≤3 viñetas de pseudocódigo. Sin tocar archivos todavía.
    Identificá: qué archivos cambiar, qué funciones modificar, qué firma tendrá,

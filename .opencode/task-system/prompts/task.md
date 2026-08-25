@@ -32,6 +32,14 @@ Según los archivos involucrados:
 
 Si hay archivos de múltiples tipos, cargar skills de todos los tipos aplicables.
 
+**Skill Discovery (SDP — obligatorio, fuente canónica:
+`.opencode/references/skills-engineering.md` §"Skill Discovery Protocol"):**
+la tabla de arriba es solo la base. Macheá la fase de trabajo contra la tabla
+Lifecycle mapping (skills-engineering.md) y grepeá `SKILLS-MANIFEST.md` por
+keywords del título/contrato → cargá las candidatas relevantes (≤8 total,
+justificadas en 1 línea) y listalas en "Herramientas necesarias" del task file.
+Si no hay candidatas nuevas, registrá `SDP: sin candidatos adicionales`.
+
 > **¿Tipo Bug (`fix:`)?** Cargá systematic-debugging (Iron Law: no hay fixes
 > sin investigación de causa raíz primero) y exigí en el task file la sección
 > "Fase 1 — Evidencia de Debugging" (ver formato) ANTES de escribir el fix.
@@ -264,6 +272,8 @@ justificar en Notas.
 - cargo-mcp (check, clippy, fmt)
 - rust-analyzer-mcp (diagnostics, goto def)
 - codegraph_explore (blast radius)
+
+**Skills cargadas (SDP):** [lista + justificación 1 línea cada una, o `base-only + SDP sin candidatos`]
 
 ## Investigation Notes
 - Hallazgos de web research, si aplica

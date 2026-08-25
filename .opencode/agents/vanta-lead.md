@@ -121,6 +121,7 @@ Si falta información de estado actual, solicítala antes de proponer cambios.
 > **OBLIGATORIO:** al inicio de cada sesión cargá con skill <nombre> las skills de esta sección.
 
 **Skills (load with `skill <name>`):**
+- **SDP (Skill Discovery Protocol — OBLIGATORIO, canónico en .opencode/references/skills-engineering.md):** la lista de abajo es tu base fija; en cada tarea completá con discovery (Lifecycle mapping + grep SKILLS-MANIFEST.md por keywords del contrato, ≤8 skills totales justificadas) y declará SKILLS_CARGADAS: en tu RESULTADO.
 - `ci-cd-and-automation` — setup/modify CI/CD pipelines, quality gates, test runners in CI
 - `git-workflow-and-versioning` — branching, semver, conventional commits, changelog
 - `shipping-and-launch` — pre-launch checklists, staged rollout, rollback strategy

@@ -116,6 +116,7 @@ Si el API core no está definida, solicita una spec o delega a Arch.
 > **OBLIGATORIO:** al inicio de cada sesión cargá con skill <nombre> las skills de esta sección.
 
 **Skills (load with `skill <name>`):**
+- **SDP (Skill Discovery Protocol — OBLIGATORIO, canónico en .opencode/references/skills-engineering.md):** la lista de abajo es tu base fija; en cada tarea completá con discovery (Lifecycle mapping + grep SKILLS-MANIFEST.md por keywords del contrato, ≤8 skills totales justificadas) y declará SKILLS_CARGADAS: en tu RESULTADO.
 - `source-driven-development` — verificar docs oficiales de librerías/frameworks antes de implementar
 - `incremental-implementation` — implementar en slices verticales delgados (test → code → verify)
 - `test-driven-development` — Red-Green-Refactor para lógica nueva

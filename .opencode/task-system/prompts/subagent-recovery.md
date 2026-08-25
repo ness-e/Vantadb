@@ -85,6 +85,7 @@ ARCHIVOS: <paths tocados>
 VERIFY_CONTRATO: <pasa | no-corrido | falla>
 BLOQUEO: <ninguno | qué impidió terminar>
 GATES_EVALUADOS: P:<no|disparado> D:<no|disparado> V:<no|disparado> C:<no|disparado> | <motivo ≤6 palabras por gate>
+SKILLS_CARGADAS: <lista skills (SDP), o "base-only + SDP sin candidatos">
 ```
 
 Con este bloque el orquestador decide el nivel de recovery en 1 solo paso, sin adivinar.

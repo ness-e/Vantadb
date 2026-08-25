@@ -121,6 +121,7 @@ Memory: antes XXMB → después YYMB
 > **OBLIGATORIO:** al inicio de cada sesión cargá con skill <nombre> las skills de esta sección.
 
 **Skills (load with `skill <name>`):**
+- **SDP (Skill Discovery Protocol — OBLIGATORIO, canónico en .opencode/references/skills-engineering.md):** la lista de abajo es tu base fija; en cada tarea completá con discovery (Lifecycle mapping + grep SKILLS-MANIFEST.md por keywords del contrato, ≤8 skills totales justificadas) y declará SKILLS_CARGADAS: en tu RESULTADO.
 - `systematic-debugging` — root cause de bugs en algoritmos de búsqueda
 - `test-driven-development` — benchmarks como tests de regresión
 - `performance-optimization` — optimización de hot paths sin cambiar algoritmo

@@ -129,6 +129,7 @@ Si no hay código unsafe en el diff, el scope se reduce a supply chain y depende
 > **OBLIGATORIO:** al inicio de cada sesión cargá con skill <nombre> las skills de esta sección.
 
 **Skills (load with `skill <name>`):**
+- **SDP (Skill Discovery Protocol — OBLIGATORIO, canónico en .opencode/references/skills-engineering.md):** la lista de abajo es tu base fija; en cada tarea completá con discovery (Lifecycle mapping + grep SKILLS-MANIFEST.md por keywords del contrato, ≤8 skills totales justificadas) y declará SKILLS_CARGADAS: en tu RESULTADO.
 - `security-and-hardening` — threat modeling, vulnerability detection, secure coding
 - `code-review-and-quality` — revisión multi-eje (enfatizar seguridad y memoria)
 - `doubt-driven-development` — adversarial review para código crítico (unsafe, FFI)
