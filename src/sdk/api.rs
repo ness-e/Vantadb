@@ -722,10 +722,15 @@ impl VantaEmbedded {
     #[tracing::instrument(skip(self), err)]
     pub fn rebuild_index(&self) -> Result<VantaIndexRebuildReport> {
         self.check_read_only()?;
-        let report = self.engine_handle()?.rebuild_vector_index()?;
+        let engine = self.engine_handle()?;
+        let report = engine.rebuild_vector_index()?;
         let derived = self.rebuild_derived_indexes_with_report()?;
         self.rebuild_text_index_with_report()?;
         self.rebuild_sparse_index_with_report()?;
+        // MOD-04: scalar index (TTL purge candidates) is derived from backend
+        // metadata — rebuild it alongside the other derived indexes so a
+        // repaired DB serves `purge_expired` correctly.
+        engine.rebuild_scalar_index()?;
         let mut report: VantaIndexRebuildReport = report.into();
         report.derived_rebuild_ms = derived.duration_ms;
         Ok(report)
@@ -909,54 +914,72 @@ impl VantaEmbedded {
         let now = now_ms();
         let mut to_delete: Vec<VantaMemoryRecord> = Vec::new();
 
-        for node in engine.scan_nodes()? {
-            if !node.is_alive() {
+        // MOD-04: select expired candidates via the scalar index
+        // (`expires_at_ms <= now`) instead of a full O(N) engine scan that
+        // reads and clones every node's vector. The scalar index is maintained
+        // on the write path and rebuilt at open / rebuild_index. Candidates
+        // are materialized from backend metadata only (no vector, no cache) —
+        // purge needs nothing beyond the relational fields.
+        let candidates = engine.scalar_lookup_int_le(FIELD_EXPIRES_AT_MS, now as i64);
+
+        for node_id in candidates {
+            let Some(bytes) =
+                engine.get_from_partition(BackendPartition::Default, &node_id.to_le_bytes())?
+            else {
+                // Deleted while we were scanning — skip.
                 continue;
-            }
-            let namespace = match node.get_field(FIELD_NAMESPACE) {
-                Some(crate::node::FieldValue::String(ns)) => ns.clone(),
+            };
+            let Ok(metadata) = crate::storage::ops::deserialize_node_payload::<
+                crate::storage::ops::NodeMetadata,
+            >(&bytes, "node metadata") else {
+                continue;
+            };
+            let fields = &metadata.relational;
+            let get = |key: &str| fields.get(key);
+            let namespace = match get(FIELD_NAMESPACE) {
+                Some(FieldValue::String(ns)) => ns.clone(),
                 _ => continue,
             };
-            let key = match node.get_field(FIELD_KEY) {
-                Some(crate::node::FieldValue::String(k)) => k.clone(),
+            let key = match get(FIELD_KEY) {
+                Some(FieldValue::String(k)) => k.clone(),
                 _ => continue,
             };
-            let expires = match node.get_field(FIELD_EXPIRES_AT_MS) {
-                Some(crate::node::FieldValue::Int(ms)) if *ms > 0 => *ms as u64,
+            let expires = match get(FIELD_EXPIRES_AT_MS) {
+                Some(FieldValue::Int(ms)) if *ms > 0 => *ms as u64,
                 _ => continue,
             };
             if now > expires {
-                let payload = match node.get_field(FIELD_PAYLOAD) {
-                    Some(crate::node::FieldValue::String(p)) => p.clone(),
+                let payload = match get(FIELD_PAYLOAD) {
+                    Some(FieldValue::String(p)) => p.clone(),
                     _ => String::new(),
                 };
-                let created_at_ms = match node.get_field(FIELD_CREATED_AT_MS) {
-                    Some(crate::node::FieldValue::Int(ms)) if *ms >= 0 => *ms as u64,
+                let created_at_ms = match get(FIELD_CREATED_AT_MS) {
+                    Some(FieldValue::Int(ms)) if *ms >= 0 => *ms as u64,
                     _ => 0,
                 };
-                let updated_at_ms = match node.get_field(FIELD_UPDATED_AT_MS) {
-                    Some(crate::node::FieldValue::Int(ms)) if *ms >= 0 => *ms as u64,
+                let updated_at_ms = match get(FIELD_UPDATED_AT_MS) {
+                    Some(FieldValue::Int(ms)) if *ms >= 0 => *ms as u64,
                     _ => 0,
                 };
-                let version = match node.get_field(FIELD_VERSION) {
-                    Some(crate::node::FieldValue::Int(v)) if *v >= 0 => *v as u64,
+                let version = match get(FIELD_VERSION) {
+                    Some(FieldValue::Int(v)) if *v >= 0 => *v as u64,
                     _ => 0,
                 };
-                let mut metadata = VantaFields::new();
-                for (fk, fv) in &node.relational {
+                let mut metadata_fields = VantaFields::new();
+                for (fk, fv) in fields {
                     if !fk.starts_with("__vanta_") {
-                        metadata.insert(fk.clone(), fv.clone().into());
+                        metadata_fields.insert(fk.clone(), fv.clone().into());
                     }
                 }
                 to_delete.push(VantaMemoryRecord {
                     namespace,
                     key,
                     payload,
-                    metadata,
+                    metadata: metadata_fields,
                     created_at_ms,
                     updated_at_ms,
                     version,
-                    node_id: node.id,
+                    node_id,
                     // The delete loop only reads node_id/namespace/key/payload/
                     // metadata. Skip materializing the dense vector (full
                     // Vec<f32> clone) and the sparse vector (JSON parse) —

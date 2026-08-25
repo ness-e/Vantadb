@@ -445,6 +445,52 @@ impl StorageEngine {
     }
 }
 
+// ─── Scalar index (MOD-04: TTL purge candidates) ───────────
+
+impl StorageEngine {
+    /// Look up node IDs whose integer value for `field` is `<= max`.
+    ///
+    /// Selects TTL-expired candidates (`expires_at_ms <= now`) from the
+    /// maintained scalar index so `purge_expired` avoids a full O(N) scan.
+    /// Falls back to an empty set if the index is not present.
+    pub(crate) fn scalar_lookup_int_le(&self, field: &str, max: i64) -> Vec<u128> {
+        match &self.scalar_index {
+            Some(si) => si.lookup_int_le(field, max),
+            None => Vec::new(),
+        }
+    }
+
+    /// Rebuild the scalar index from backend metadata (relational fields).
+    ///
+    /// Called at open/reopen and by `rebuild_index` — the index is otherwise
+    /// only maintained incrementally on writes (insert/delete/vacuum), so a
+    /// reopen would start with an empty index and TTL purge would miss every
+    /// pre-existing expired record.
+    pub(crate) fn rebuild_scalar_index(&self) -> Result<()> {
+        use crate::backend::BackendPartition;
+        use crate::storage::ops::{deserialize_node_payload, NodeMetadata};
+
+        let Some(si) = &self.scalar_index else {
+            return Ok(());
+        };
+        let entries = self.backend.scan(BackendPartition::Default)?;
+        for (key, value) in entries {
+            let Ok(key_arr) = <[u8; 16]>::try_from(key.as_slice()) else {
+                continue;
+            };
+            let id = u128::from_le_bytes(key_arr);
+            let Ok(metadata) = deserialize_node_payload::<NodeMetadata>(&value, "node metadata")
+            else {
+                continue;
+            };
+            for (field, fv) in &metadata.relational {
+                si.insert(field, fv, id);
+            }
+        }
+        Ok(())
+    }
+}
+
 // ─── Filesystem Snapshots ──────────────────────────────────
 
 impl StorageEngine {

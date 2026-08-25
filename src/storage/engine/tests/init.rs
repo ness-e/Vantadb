@@ -444,6 +444,41 @@ fn test_edge_and_scalar_index_fields() {
     assert!(engine.scalar_index.is_some(), "scalar_index should exist");
 }
 
+// ─── MOD-04: scalar index rebuild on reopen ───────────────────
+//
+// The scalar index is maintained incrementally on writes, but a reopen
+// (recover_state → replay_write_node) never touches it — init must rebuild it
+// from backend metadata. Without this, TTL purge (which selects candidates via
+// `scalar_lookup_int_le`) would miss every pre-existing expired record.
+
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+#[test]
+fn test_scalar_index_rebuilt_on_reopen() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().unwrap();
+
+    let mut node = sample_node(1);
+    node.set_field(
+        "__vanta_expires_at_ms",
+        crate::node::FieldValue::Int(1_700_000_000_000),
+    );
+    {
+        let engine = open_disk_engine_with_wal(path);
+        engine.insert(&node).expect("insert node");
+        engine.flush().expect("flush");
+    }
+
+    let engine = open_disk_engine_with_wal(path);
+    let ids = engine.scalar_lookup_int_le("__vanta_expires_at_ms", 1_800_000_000_000);
+    assert_eq!(ids, vec![1], "scalar index must find node after reopen");
+    assert!(
+        engine
+            .scalar_lookup_int_le("__vanta_expires_at_ms", 1_600_000_000_000)
+            .is_empty(),
+        "expiry above the lookup bound must not match"
+    );
+}
+
 #[test]
 fn test_memory_governor_field() {
     let engine = in_memory_engine();

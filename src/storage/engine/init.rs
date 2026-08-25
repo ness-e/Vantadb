@@ -146,6 +146,13 @@ impl StorageEngine {
         // doesn't pay a cold-start penalty reading entry-point nodes from disk.
         engine.warm_hnsw_top_layer();
 
+        // MOD-04: rebuild the scalar index from backend metadata on open —
+        // `recover_state` writes directly (replay_write_node) and never
+        // maintains the index, so a reopen would otherwise start with an
+        // empty index and TTL purge would miss every pre-existing expired
+        // record. `edge_index` shares the same one-time rebuild pattern.
+        engine.rebuild_scalar_index()?;
+
         Ok(engine)
     }
 

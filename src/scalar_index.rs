@@ -43,6 +43,24 @@ impl ScalarIndex {
             .unwrap_or_default()
     }
 
+    /// Look up node IDs whose integer value for `field` is `<= max`.
+    ///
+    /// Used by TTL purge (`expires_at_ms <= now`) to select only expired
+    /// candidates instead of a full O(N) engine scan (MOD-04).
+    pub fn lookup_int_le(&self, field: &str, max: i64) -> Vec<u128> {
+        let mut out = Vec::new();
+        if let Some(entry) = self.indexes.get(field) {
+            for (value, ids) in entry.iter() {
+                if let FieldValue::Int(v) = value {
+                    if *v <= max {
+                        out.extend(ids.iter().copied());
+                    }
+                }
+            }
+        }
+        out
+    }
+
     /// Remove a node from all index entries.
     pub fn remove_node(&self, node_id: u128) {
         for mut entry in self.indexes.iter_mut() {
@@ -93,6 +111,35 @@ mod tests {
         let idx = ScalarIndex::new();
         let result = idx.lookup("nonexistent", &FieldValue::String("x".into()));
         assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_scalar_index_lookup_int_le() {
+        let idx = ScalarIndex::new();
+        idx.insert("expires", &FieldValue::Int(100), 1);
+        idx.insert("expires", &FieldValue::Int(200), 2);
+        idx.insert("expires", &FieldValue::Int(300), 3);
+        // Non-int values for the same field are ignored.
+        idx.insert("expires", &FieldValue::String("nope".into()), 99);
+
+        let le200 = idx.lookup_int_le("expires", 200);
+        assert_eq!(le200.len(), 2);
+        assert!(le200.contains(&1));
+        assert!(le200.contains(&2));
+        assert!(!le200.contains(&3));
+        assert!(!le200.contains(&99));
+
+        let le100 = idx.lookup_int_le("expires", 100);
+        assert_eq!(le100, vec![1]);
+
+        let le50 = idx.lookup_int_le("expires", 50);
+        assert!(le50.is_empty());
+    }
+
+    #[test]
+    fn test_scalar_index_lookup_int_le_unknown_field() {
+        let idx = ScalarIndex::new();
+        assert!(idx.lookup_int_le("missing", 100).is_empty());
     }
 
     #[test]
