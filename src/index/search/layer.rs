@@ -50,50 +50,56 @@ impl CPIndex {
                         {
                             let vec_start = header.vector_offset as usize;
                             let vec_data = &vs.mmap_bytes()[vec_start..vec_end];
-                            // SAFETY: 1) bounds — the `vec_end > vs.mmap_bytes().len()`
+                            // SAFETY: bounds — the `vec_end > vs.mmap_bytes().len()`
                             // guard above ensures `vec_start + vector_len*4 <= mmap size`,
-                            // so `vec_bytes` is an in-mapping byte slice of exactly
-                            // `vector_len*4` bytes; 2) alignment — `read_header` rejects
-                            // headers whose `vector_offset` is not a multiple of 4
-                            // (INV-024 M-1 central guard), so `vec_bytes.as_ptr()` is
-                            // 4-byte aligned, required for a valid `&[f32]`;
-                            // 3) lifetime — the borrow keeps the mapping alive.
+                            // so `vec_data` is an in-mapping byte slice of exactly
+                            // `vector_len*4` bytes; the borrow keeps the mapping alive.
+                            // Decode via the canonical `align_to` mechanism (exactly
+                            // what `VectorRepresentations::as_f32_slice` uses, REVIEW-15)
+                            // instead of a raw `from_raw_parts` u8*→f32* cast: `align_to`
+                            // guarantees the middle slice's alignment by construction and
+                            // every 32-bit pattern is a valid f32, so the value-validity
+                            // obligation holds vacuously. `read_header` rejects
+                            // non-4-multiple `vector_offset` (INV-024 M-1), so the middle
+                            // covers the full range; if it ever didn't, the len guard
+                            // below falls through to the same 0.0 as the bounds guard.
                             debug_assert_eq!(
                                 vec_data.as_ptr().align_offset(4),
                                 0,
                                 "f32 vector must be 4-byte aligned"
                             );
-                            let f32_vec: &[f32] = unsafe {
-                                std::slice::from_raw_parts(
-                                    vec_data.as_ptr() as *const f32,
-                                    header.vector_len as usize,
-                                )
-                            };
-                            match metric {
-                                DistanceMetric::Cosine => {
-                                    if let Some(q_inv_norm) = query_inv_norm {
-                                        let node_inv_norm = node.inv_cached_norm;
-                                        if node_inv_norm > f32::EPSILON {
-                                            cosine_sim_cached_norms(
-                                                query_vec,
-                                                q_inv_norm,
-                                                f32_vec,
-                                                node_inv_norm,
-                                            )
+                            let (_, f32_vec, _) = unsafe { vec_data.align_to::<f32>() };
+                            if f32_vec.len() != header.vector_len as usize {
+                                0.0
+                            } else {
+                                match metric {
+                                    DistanceMetric::Cosine => {
+                                        if let Some(q_inv_norm) = query_inv_norm {
+                                            let node_inv_norm = node.inv_cached_norm;
+                                            if node_inv_norm > f32::EPSILON {
+                                                cosine_sim_cached_norms(
+                                                    query_vec,
+                                                    q_inv_norm,
+                                                    f32_vec,
+                                                    node_inv_norm,
+                                                )
+                                            } else {
+                                                f32_slice_similarity(
+                                                    query_vec, query_norm, f32_vec, metric,
+                                                )
+                                            }
                                         } else {
                                             f32_slice_similarity(
                                                 query_vec, query_norm, f32_vec, metric,
                                             )
                                         }
-                                    } else {
-                                        f32_slice_similarity(query_vec, query_norm, f32_vec, metric)
                                     }
+                                    DistanceMetric::Euclidean => {
+                                        -euclidean_distance_squared_f32(query_vec, f32_vec)
+                                    }
+                                    // SparseDot has its own brute-force path.
+                                    DistanceMetric::SparseDot => 0.0,
                                 }
-                                DistanceMetric::Euclidean => {
-                                    -euclidean_distance_squared_f32(query_vec, f32_vec)
-                                }
-                                // SparseDot has its own brute-force path.
-                                DistanceMetric::SparseDot => 0.0,
                             }
                         } else {
                             0.0
@@ -218,52 +224,62 @@ impl CPIndex {
                                     {
                                         let vec_start = h.vector_offset as usize;
                                         let v_data = &vs.mmap_bytes()[vec_start..vec_end];
-                                        // SAFETY: 1) bounds — the `vec_end > vs.mmap_bytes().len()`
-                                        // guard above ensures `h.vector_len * 4` does not exceed
-                                        // the mapping, so `v_data` is an in-mapping byte slice
-                                        // of exactly `vector_len*4` bytes; 2) alignment —
-                                        // `read_header` rejects non-4-multiple `vector_offset`
-                                        // (INV-024 M-1 central guard), so `v_data.as_ptr()` is
-                                        // 4-byte aligned; 3) lifetime — the borrow keeps the
-                                        // mapping alive.
+                                        // SAFETY: bounds — the `vec_end > vs.mmap_bytes().len()`
+                                        // guard above ensures `h.vector_len * 4` does not
+                                        // exceed the mapping, so `v_data` is an in-mapping byte
+                                        // slice of exactly `vector_len*4` bytes; the borrow
+                                        // keeps the mapping alive. Decode via the canonical
+                                        // `align_to` mechanism (exactly what
+                                        // `VectorRepresentations::as_f32_slice` uses,
+                                        // REVIEW-15) instead of a raw `from_raw_parts` u8*→f32*
+                                        // cast: `align_to` guarantees the middle slice's
+                                        // alignment by construction and every 32-bit pattern
+                                        // is a valid f32, so the value-validity obligation
+                                        // holds vacuously. `read_header` rejects
+                                        // non-4-multiple `vector_offset` (INV-024 M-1), so the
+                                        // middle covers the full range; if it ever didn't, the
+                                        // len guard below falls through to the same 0.0 as the
+                                        // bounds guard.
                                         debug_assert_eq!(
                                             v_data.as_ptr().align_offset(4),
                                             0,
                                             "f32 neighbor vector must be 4-byte aligned"
                                         );
-                                        let f32_v: &[f32] = unsafe {
-                                            std::slice::from_raw_parts(
-                                                v_data.as_ptr() as *const f32,
-                                                h.vector_len as usize,
-                                            )
-                                        };
-                                        match metric {
-                                            DistanceMetric::Cosine => {
-                                                if let Some(q_inv_norm) = query_inv_norm {
-                                                    let neighbor_inv_norm =
-                                                        neighbor.inv_cached_norm;
-                                                    if neighbor_inv_norm > f32::EPSILON {
-                                                        cosine_sim_cached_norms(
-                                                            query_vec,
-                                                            q_inv_norm,
-                                                            f32_v,
-                                                            neighbor_inv_norm,
-                                                        )
+                                        let (_, f32_v, _) = unsafe { v_data.align_to::<f32>() };
+                                        if f32_v.len() != h.vector_len as usize {
+                                            0.0
+                                        } else {
+                                            match metric {
+                                                DistanceMetric::Cosine => {
+                                                    if let Some(q_inv_norm) = query_inv_norm {
+                                                        let neighbor_inv_norm =
+                                                            neighbor.inv_cached_norm;
+                                                        if neighbor_inv_norm > f32::EPSILON {
+                                                            cosine_sim_cached_norms(
+                                                                query_vec,
+                                                                q_inv_norm,
+                                                                f32_v,
+                                                                neighbor_inv_norm,
+                                                            )
+                                                        } else {
+                                                            f32_slice_similarity(
+                                                                query_vec, query_norm, f32_v,
+                                                                metric,
+                                                            )
+                                                        }
                                                     } else {
                                                         f32_slice_similarity(
                                                             query_vec, query_norm, f32_v, metric,
                                                         )
                                                     }
-                                                } else {
-                                                    f32_slice_similarity(
-                                                        query_vec, query_norm, f32_v, metric,
+                                                }
+                                                DistanceMetric::Euclidean => {
+                                                    -euclidean_distance_squared_f32(
+                                                        query_vec, f32_v,
                                                     )
                                                 }
+                                                DistanceMetric::SparseDot => 0.0,
                                             }
-                                            DistanceMetric::Euclidean => {
-                                                -euclidean_distance_squared_f32(query_vec, f32_v)
-                                            }
-                                            DistanceMetric::SparseDot => 0.0,
                                         }
                                     } else {
                                         0.0

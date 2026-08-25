@@ -679,6 +679,46 @@ fn test_search_vfile_tombstone_header_excluded() {
     );
 }
 
+// FIND-29: the disk path in `search_layer` decodes a node's byte payload
+// with the canonical `align_to` mechanism (the internals of
+// `VectorRepresentations::as_f32_slice`). The decoded slice must carry the
+// exact same f32 values the previous manual `from_raw_parts(u8* -> f32*)`
+// cast produced — a faithful, value-identical reinterpretation of the same
+// bytes. End-to-end search parity is already covered by
+// `test_search_vfile_in_memory_parity`; this test pins the slice-level decode.
+#[test]
+fn test_layer_align_to_decodes_original_values() {
+    let hdr_size = std::mem::size_of::<DiskNodeHeader>() as u64;
+    let vec: Vec<f32> = vec![1.0f32, -2.5, 3.25, 0.125, 1000.5, -0.0];
+    let total = 4096 + hdr_size + vec.len() as u64 * 4;
+    let mut vfile = VantaFile::create_in_memory(total);
+    let offset = ERR042_ALIGN;
+    let vec_offset = offset + hdr_size;
+
+    let mut header = DiskNodeHeader::new(7);
+    header.vector_len = vec.len() as u32;
+    header.vector_offset = vec_offset;
+    vfile.write_header(offset, &header).expect("write header");
+    let bytes: Vec<u8> = vec.iter().flat_map(|v| v.to_le_bytes()).collect();
+    vfile.mmap_bytes_mut().expect("writable mmap")[vec_offset as usize..][..bytes.len()]
+        .copy_from_slice(&bytes);
+
+    // Replicate the disk-path extraction in `search_layer` (read_header →
+    // byte sub-range → align_to decode), then assert value equality with the
+    // original vector — the same bytes the old from_raw_parts cast read.
+    let h = vfile.read_header(offset).expect("read header");
+    let vec_start = h.vector_offset as usize;
+    let vec_end = vec_start + h.vector_len as usize * 4;
+    let byte_slice = &vfile.mmap_bytes()[vec_start..vec_end];
+    let (_, f32_slice, _) = unsafe { byte_slice.align_to::<f32>() };
+    assert_eq!(f32_slice.len(), vec.len());
+    assert_eq!(
+        f32_slice,
+        vec.as_slice(),
+        "decoded slice must equal the written f32 values"
+    );
+}
+
 #[test]
 fn test_search_layer_euclidean_metric() {
     let index = make_index(DistanceMetric::Euclidean);
