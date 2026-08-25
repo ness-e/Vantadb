@@ -108,7 +108,7 @@ export function MarkGraph({
           y1={GRAPH_NODES[a].y}
           x2={GRAPH_NODES[b].x}
           y2={GRAPH_NODES[b].y}
-          stroke={hoveredNode === a || hoveredNode === b ? "#FF5500" : "currentColor"}
+          stroke={hoveredNode === a || hoveredNode === b ? "var(--color-neon)" : "currentColor"}
           strokeWidth={hoveredNode === a || hoveredNode === b ? 0.4 : 0.25}
           strokeDasharray="1 1.2"
           className="vmark-edge"
@@ -123,7 +123,7 @@ export function MarkGraph({
             cx={node.x}
             cy={node.y}
             r={node.r}
-            fill={hoveredNode === i ? "#FF5500" : "currentColor"}
+            fill={hoveredNode === i ? "var(--color-neon)" : "currentColor"}
             className={`vmark-node ${hoveredNode === i ? "vmark-node-pulse" : "vmark-node-ambient"}`}
             style={{ animationDelay: hoveredNode === i ? undefined : `${i * 180}ms` }}
           />
@@ -177,7 +177,7 @@ export function MarkFace({
 
       {/* Subtle glow ring (SMIL) — not rendered under reduced motion */}
       {!reduced && (
-        <circle cx="50" cy="50" r="42" fill="none" stroke="#FF5500" strokeWidth="0.6" opacity="0.3">
+        <circle cx="50" cy="50" r="42" fill="none" stroke="var(--color-neon)" strokeWidth="0.6" opacity="0.3">
           <animate attributeName="r" values="42;46;42" dur="3.5s" repeatCount="indefinite" />
           <animate attributeName="opacity" values="0.3;0;0.3" dur="3.5s" repeatCount="indefinite" />
         </circle>
@@ -188,7 +188,7 @@ export function MarkFace({
         cx={50 + sphereOffset.x}
         cy={50 + sphereOffset.y}
         r="22"
-        fill="#FF5500"
+        fill="var(--color-neon)"
         style={{
           transform: annoyed ? "scale(0.94)" : "scale(1)",
           transformOrigin: `${50 + sphereOffset.x}px ${50 + sphereOffset.y}px`,
