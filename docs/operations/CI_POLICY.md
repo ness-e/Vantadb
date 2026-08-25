@@ -3,7 +3,7 @@ title: "VantaDB CI & Certification Policy"
 type: operations
 status: active
 tags: [vantadb, operations]
-last_reviewed: 2026-08-10
+last_reviewed: 2026-08-25
 aliases: []
 ---
 
@@ -71,6 +71,40 @@ governance semantics are excluded from the default fast lane.
   required).
 - **Fast:** Any test exceeding a few seconds must be moved to heavy certification or heavily
   optimized.
+
+### Fast Gate Test Exclusions
+
+The local fast gate (`dev-tools/verify.ps1`, `nextest` and `coverage` steps) applies an explicit
+`-E` nextest filter that removes three tests. These exclusions are **not** flakiness waivers — all
+three tests are deterministic and still run in full local suites and Heavy Certification; they are
+removed only from the fast lane because they deliberately stress runner resources.
+
+**Category taxonomy:** these use a dedicated `RESOURCE-GUARD` category, alongside the existing
+EXPERIMENTAL / BEST-EFFORT / NON-CRITICAL / INFORMATIONAL categories used for
+`continue-on-error:` annotations in `.github/workflows/`. A `RESOURCE-GUARD` test is one whose
+input is intentionally large or hostile enough to threaten the runner itself (OOM, page-file
+exhaustion), not one that is broken or slow by accident.
+
+| Excluded test | Lives in source | Why excluded | Category | Where the exclusion is enforced |
+|---------------|-----------------|--------------|----------|--------------------------------|
+| `deserialize_absurd_node_count` | `src/index/core.rs:414` | Deserializes a crafted buffer with `u64::MAX` node count — designed as a memory bomb for the deserializer path; allocating it on a shared runner risks OOM-killing unrelated jobs | RESOURCE-GUARD | `dev-tools/verify.ps1` `-E` filter (`nextest` + `coverage` steps) and the non-nextest fallback `--skip` list |
+| `test_search_with_bizarre_text_query` | `tests/security.rs:639` | Feeds giant malformed text queries (100KB strings, NUL bytes, astral-plane chars) into search; robust behavior against such inputs belongs to the dedicated fuzzing lane (`fuzz-40.yml`), not the fast gate | RESOURCE-GUARD | Same |
+| `test_malformed_payload_extremely_large` | `tests/security.rs:324` | Ingests a 1MB payload plus 10KB of metadata; same rationale — hostile-input coverage is delegated to fuzzing | RESOURCE-GUARD | Same |
+
+**Structural exclusions in `.config/nextest.toml`:** the `default-filter` of the `audit` profile
+additionally excludes ~55 heavy test binaries (stress_protocol, chaos_integrity, wal_resilience,
+sift_validation, competitive_bench, etc.) via package-qualified `not (package(X) and binary(Y))`
+clauses (BND-06 scope-safe form). That list implements the two-tier split documented in this file
+(Fast Gate vs Heavy Certification) and changes only together with `heavy-certification-50.yml`.
+
+**Rules for any new exclusion:**
+
+1. Every fast-gate test exclusion must be listed in this table with its category and rationale.
+2. Exclusions must be traceable: `dev-tools/verify.ps1` carries an inline comment pointing back to
+   this policy (Regla 2 traceability).
+3. **Who can add or revert an exclusion:** only the project lead (`vanta-lead`) after review;
+   re-enabling a `RESOURCE-GUARD` test in the fast gate requires evidence that the input size was
+   reduced below runner-risk thresholds (e.g. bounded allocations in the test itself).
 
 ### Experimental Crate Circuit Breaker
 
