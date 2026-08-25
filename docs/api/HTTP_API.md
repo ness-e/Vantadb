@@ -286,6 +286,23 @@ Paginated listing of records in a namespace.
 }
 ```
 
+When called **without `namespace`** (all-namespaces fan-out), each namespace is
+listed with an internal per-namespace window (`NS_CAP = 10_000`) and the
+response carries one additional additive field:
+
+```json
+{
+  "records": [ ... ],
+  "next_cursor": null,
+  "truncated_namespaces": ["big-ns"]
+}
+```
+
+`truncated_namespaces` lists the namespaces whose listing hit the per-namespace
+window and may hold more records than this response contains. It is empty when
+no namespace was truncated. Clients should treat a non-empty value as "request
+these namespaces individually for complete results".
+
 ### `POST /api/v2/export`
 
 Export records to a JSONL file on the server. Body: `path` (required), optional

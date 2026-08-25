@@ -1278,6 +1278,24 @@ async fn records_delete_by_filter(
     }
 }
 
+/// AUD-046: merge per-namespace pages (stable namespace-name order) for the
+/// `/api/v2/list` all-namespaces fan-out. A namespace whose page still has a
+/// `next_cursor` was capped at `NS_CAP` mid-listing — it is reported in the
+/// returned `truncated_namespaces` so the client never sees silent truncation.
+fn merge_all_namespaces_pages(
+    pages: Vec<(String, VantaMemoryListPage)>,
+) -> (Vec<VantaMemoryRecord>, Vec<String>) {
+    let mut records = Vec::new();
+    let mut truncated_namespaces = Vec::new();
+    for (ns, page) in pages {
+        if page.next_cursor.is_some() {
+            truncated_namespaces.push(ns);
+        }
+        records.extend(page.records);
+    }
+    (records, truncated_namespaces)
+}
+
 /// Query params for `GET /api/v2/list`.
 #[derive(Deserialize, Debug)]
 struct ListParams {
@@ -1325,8 +1343,22 @@ async fn records_list(
     if all_namespaces {
         // ponytail: fan-out por namespace con tope generoso por ns y merge
         // client-side del cursor — suficiente para consolas embebidas; un
-        // cursor server-side intercalado requiere soporte del SDK.
+        // cursor server-side intercalado requiere soporte del SDK. El tope
+        // NS_CAP NUNCA es silencioso: los namespaces que quedaron por encima
+        // del tope se señalizan en `truncated_namespaces` (AUD-046).
         const NS_CAP: usize = 10_000;
+
+        /// Fan-out response: same shape as `VantaMemoryListPage` plus an
+        /// additive signal listing namespaces whose listing hit `NS_CAP`
+        /// (they may hold more records than this response contains).
+        #[derive(Serialize)]
+        struct AllNamespacesListPage {
+            records: Vec<VantaMemoryRecord>,
+            next_cursor: Option<usize>,
+            /// Namespaces truncated at `NS_CAP` during the fan-out.
+            truncated_namespaces: Vec<String>,
+        }
+
         let options_for = move |_ns: String| VantaMemoryListOptions {
             filter_ops: filter_ops.clone(),
             limit: NS_CAP,
@@ -1336,18 +1368,20 @@ async fn records_list(
         return match run_db_op(&state, move |db| {
             let mut names: Vec<String> = db.namespace_stats(None)?.keys().cloned().collect();
             names.sort();
-            let mut records = Vec::new();
+            let mut pages = Vec::new();
             for ns in names {
                 let page = db.list(&ns, options_for(ns.clone()))?;
-                records.extend(page.records);
+                pages.push((ns, page));
             }
+            let (records, truncated_namespaces) = merge_all_namespaces_pages(pages);
             let start = cursor.unwrap_or(0).min(records.len());
             let end = (start + limit).min(records.len());
             let window = records[start..end].to_vec();
             let next_cursor = (end < records.len()).then_some(end);
-            Ok::<_, VantaError>(VantaMemoryListPage {
+            Ok::<_, VantaError>(AllNamespacesListPage {
                 records: window,
                 next_cursor,
+                truncated_namespaces,
             })
         })
         .await
@@ -3809,6 +3843,20 @@ mod tests {
             .collect();
         assert!(namespaces.contains(&"alpha") && namespaces.contains(&"beta"));
 
+        // AUD-046: la respuesta del fan-out siempre lleva la señal aditiva
+        // `truncated_namespaces` — vacía cuando ningún namespace superó NS_CAP
+        // (nunca truncamiento silencioso).
+        let truncated: Vec<String> = page["truncated_namespaces"]
+            .as_array()
+            .expect("fan-out response must carry truncated_namespaces")
+            .iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect();
+        assert!(
+            truncated.is_empty(),
+            "no namespace exceeded NS_CAP here: {truncated:?}"
+        );
+
         // LIST con namespace explícito sigue filtrando (sin cambio de contrato).
         let (status, body) = raw_get(addr, "/api/v2/list?namespace=beta").await;
         assert_eq!(status, 200, "list beta: {body}");
@@ -3835,6 +3883,49 @@ mod tests {
             hit_namespaces.contains(&"alpha") && hit_namespaces.contains(&"beta"),
             "search sin namespace debe cubrir ambos namespaces: {resp}"
         );
+    }
+
+    #[test]
+    fn merge_all_namespaces_pages_signals_truncation() {
+        // AUD-046: una página con `next_cursor` ⇒ el namespace quedó truncado
+        // en NS_CAP y DEBE aparecer en la señal; sin cursor ⇒ namespace
+        // completo. El merge preserva el orden estable por namespace.
+        fn record(ns: &str) -> VantaMemoryRecord {
+            VantaMemoryRecord {
+                namespace: ns.to_string(),
+                key: "k".to_string(),
+                payload: String::new(),
+                metadata: crate::sdk::VantaMemoryMetadata::new(),
+                created_at_ms: 0,
+                updated_at_ms: 0,
+                version: 0,
+                node_id: 0,
+                vector: None,
+                sparse_vector: None,
+                expires_at_ms: None,
+                superseded_by: None,
+                superseded_at_ms: None,
+            }
+        }
+        let pages = vec![
+            (
+                "alpha".to_string(),
+                VantaMemoryListPage {
+                    records: vec![record("alpha")],
+                    next_cursor: Some(10_000),
+                },
+            ),
+            (
+                "beta".to_string(),
+                VantaMemoryListPage {
+                    records: vec![record("beta"), record("beta")],
+                    next_cursor: None,
+                },
+            ),
+        ];
+        let (records, truncated) = merge_all_namespaces_pages(pages);
+        assert_eq!(records.len(), 3);
+        assert_eq!(truncated, vec!["alpha".to_string()]);
     }
 
     #[tokio::test]
