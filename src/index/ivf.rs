@@ -8,7 +8,7 @@
 //! No external k-means dependency — simple manual Lloyd iteration with
 //! Forgy initialization. No PQ/quantization — IVFFlat only.
 
-use crate::index::distance::calculate_similarity;
+use crate::index::distance::f32_slice_similarity;
 use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
@@ -121,14 +121,7 @@ impl IvfIndex {
                 let mut best = 0usize;
                 let mut best_sim = f32::NEG_INFINITY;
                 for (c, centroid) in centroids.iter().enumerate() {
-                    let sim = calculate_similarity(
-                        vec,
-                        None,
-                        None,
-                        None,
-                        &VectorRepresentations::Full(centroid.clone()),
-                        distance_metric,
-                    );
+                    let sim = f32_slice_similarity(vec, None, centroid, distance_metric);
                     if sim > best_sim {
                         best_sim = sim;
                         best = c;
@@ -168,12 +161,11 @@ impl IvfIndex {
                 // For Euclidean, similarity is -distance; we track change
                 let diff = match distance_metric {
                     DistanceMetric::Euclidean => {
-                        let dist = calculate_similarity(
+                        // For Euclidean, similarity is -distance; we track change
+                        let dist = f32_slice_similarity(
                             &centroids[c],
                             None,
-                            None,
-                            None,
-                            &VectorRepresentations::Full(new_centroids[c].clone()),
+                            &new_centroids[c],
                             DistanceMetric::Euclidean,
                         );
                         (-dist).sqrt() // Euclidean distance
@@ -242,14 +234,7 @@ impl IvfIndex {
             .iter()
             .enumerate()
             .map(|(i, centroid)| {
-                let sim = calculate_similarity(
-                    query,
-                    None,
-                    None,
-                    None,
-                    &VectorRepresentations::Full(centroid.clone()),
-                    metric,
-                );
+                let sim = f32_slice_similarity(query, None, centroid, metric);
                 (i, sim)
             })
             .collect();
@@ -267,14 +252,7 @@ impl IvfIndex {
                 if !query_mask.is_all_set() && !entry.bitset.matches_mask(query_mask) {
                     continue;
                 }
-                let sim = calculate_similarity(
-                    query,
-                    None,
-                    None,
-                    None,
-                    &VectorRepresentations::Full(entry.vector.clone()),
-                    metric,
-                );
+                let sim = f32_slice_similarity(query, None, &entry.vector, metric);
                 results.push((entry.id, sim));
             }
         }
@@ -495,6 +473,7 @@ impl crate::index::VecIndex for IvfIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::index::distance::calculate_similarity;
     use crate::index::graph::{HnswConfig, HnswNode};
     use crate::index::VecIndex;
     use dashmap::DashMap;
