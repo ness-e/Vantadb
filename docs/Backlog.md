@@ -338,6 +338,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (Gap → Acciones → Resultado) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
+| `MCP-35` | **Fallback HTTP automático: N instancias MCP sobre la misma BD** — hoy `vanta-cli server --mcp --db X` muere con exit 1 si otra instancia tiene el lock exclusivo del engine (single-writer por diseño; incidente 2026-08-25: 2 sesiones OpenCode, la segunda sin tools). Acciones: (1) la primera instancia escribe discovery file en el data dir (`.vanta.server.json` con `{pid, http_port}`) y abre listener HTTP local; (2) instancias subsecuentes detectan "Database busy" al abrir el engine, leen el discovery file, verifican que el PID vivo responda `/health`, y arrancan en **modo proxy**: exponen las MISMAS tools MCP pero cada call se resuelve vía HTTP (`/api/v2/*`, reusando ServerConnection/auth token) contra el server dueño del lock; (3) si el discovery file apunta a un PID muerto → limpiar lock y abrir embebido normal. Delegar diseño de discovery/lock a vanta-arch (DISCOVERY), implementación a vanta-worker. Criterios: 2+ sesiones OpenCode simultáneas comparten memoria; crash del server dueño no corrompe; tools parity 1:1 con modo embebido | `src/cli_server.rs` (modo mcp), `vantadb-mcp/src/handlers/`, `src/config.rs` | 🟡 2-4d | 🔴 Alta (bloquea multi-sesión real) | ⬜ Pendiente |
 
 ---
 
