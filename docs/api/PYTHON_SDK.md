@@ -109,10 +109,12 @@ vantadb.VantaDB(
 vantadb.connect(
     path: str,
     memory_limit: Optional[int] = None,
+    read_only: bool = False,
+    backend: Optional[str] = None,
 ) -> VantaDB
 ```
 
-Alternative constructor. Accepts a filesystem path, empty string `""`, or `":memory:"` for an in-memory database. This is equivalent to `VantaDB(db_path=path, memory_limit_bytes=memory_limit)`.
+Alternative constructor. Accepts a filesystem path, empty string `""`, or `":memory:"` for an in-memory database. This is equivalent to `VantaDB(db_path=path, memory_limit_bytes=memory_limit, read_only=read_only, backend=backend)`.
 
 ```python
 import vantadb
@@ -445,9 +447,9 @@ db.add_edge(source_id=42, target_id=17, label="references", created_at_ms=170000
 
 #### `graph_bfs()`
 ```python
-db.graph_bfs(roots: List[int], max_depth: int = 999999) -> List[int]
+db.graph_bfs(roots: List[int], max_depth: int = 999999, direction: str = "Forward") -> List[int]
 ```
-Breadth-First Search from root node IDs, up to `max_depth`. Returns discovered distinct node IDs. GIL-released.
+Breadth-First Search from root node IDs, up to `max_depth`. `direction` is one of `"Forward"`, `"Reverse"`, or `"Both"`. Returns discovered distinct node IDs. GIL-released.
 
 ```python
 reachable = db.graph_bfs(roots=[42, 17], max_depth=3)
@@ -456,9 +458,9 @@ print(f"Reachable nodes: {reachable}")
 
 #### `graph_dfs()`
 ```python
-db.graph_dfs(roots: List[int], max_depth: int = 999999) -> List[int]
+db.graph_dfs(roots: List[int], max_depth: int = 999999, direction: str = "Forward") -> List[int]
 ```
-Depth-First Search from root node IDs, up to `max_depth`. Returns discovered distinct node IDs. GIL-released.
+Depth-First Search from root node IDs, up to `max_depth`. `direction` is one of `"Forward"`, `"Reverse"`, or `"Both"`. Returns discovered distinct node IDs. GIL-released.
 
 ```python
 reachable = db.graph_dfs(roots=[42], max_depth=5)

@@ -45,6 +45,15 @@ use crate::convert::{
 /// style allocations in the engine, which abort the process (panic-alloc).
 const MAX_K: usize = 1_000;
 
+/// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
+/// the cap so silent truncation is observable (ERR-022).
+fn clamp_top_k(requested: usize) -> usize {
+    if requested > MAX_K {
+        tracing::warn!("top_k={requested} exceeds MAX_K={MAX_K}; clamping to {MAX_K} (ERR-022)");
+    }
+    requested.min(MAX_K)
+}
+
 #[pyclass]
 /// Python-accessible embedded VantaDB engine.
 ///
@@ -1073,7 +1082,8 @@ impl VantaDB {
     /// Args:
     ///     namespace: Namespace to search within.
     ///     key: Key of the source record whose vector seeds the search.
-    ///     top_k: Maximum number of hits to return (default 10).
+    ///     top_k: Maximum number of hits to return (default 10). Clamped to
+    ///         ``MAX_K`` (1000) with a warning when larger.
     ///
     /// Returns:
     ///     list[VantaSearchHit]: Hits ordered by similarity, each exposing
@@ -1104,7 +1114,7 @@ impl VantaDB {
         let key = key.to_string();
         let hits = py.detach(move || {
             engine
-                .similar_to_key(&namespace, &key, top_k.min(MAX_K))
+                .similar_to_key(&namespace, &key, clamp_top_k(top_k))
                 .map_err(map_vanta_error)
         })?;
         hits.into_iter()
@@ -1203,7 +1213,8 @@ impl VantaDB {
     ///     query_vector: Query embedding vector (list of floats or NumPy array).
     ///     filters: Optional dict of metadata field values to filter on.
     ///     text_query: Optional full-text query to combine with the vector search.
-    ///     top_k: Maximum number of hits to return (default 10).
+    ///     top_k: Maximum number of hits to return (default 10). Clamped to
+    ///         ``MAX_K`` (1000) with a warning when larger.
     ///     distance_metric: Distance metric — ``"cosine"`` (default) or
     ///         ``"euclidean"``. Unknown values fall back to cosine with a warning.
     ///     explain: If True, include search explanation data on each hit
@@ -1270,7 +1281,7 @@ impl VantaDB {
             query_sparse: None,
             filters: py_dict_to_metadata(filters)?,
             text_query,
-            top_k: top_k.min(MAX_K),
+            top_k: clamp_top_k(top_k),
             distance_metric: metric,
             explain,
             exclude_superseded,
@@ -1609,7 +1620,7 @@ impl VantaDB {
         // GIL RELEASED: only pure Rust — distance computation + graph traversal
         py.detach(move || {
             engine
-                .search_vector(&v, top_k.min(MAX_K))
+                .search_vector(&v, clamp_top_k(top_k))
                 .map(|hits| {
                     // Pure Rust tuple mapping — no Python objects created
                     // node_id is u128 in core; keep full precision (ERR-023)
@@ -1648,7 +1659,7 @@ impl VantaDB {
                 .into_par_iter()
                 .map(|vector| {
                     engine
-                        .search_vector(&vector, top_k.min(MAX_K))
+                        .search_vector(&vector, clamp_top_k(top_k))
                         .map(|hits| {
                             hits.into_iter()
                                 .map(|hit| (hit.node_id, hit.distance))
@@ -2132,7 +2143,7 @@ impl VantaDB {
             query_sparse: None,
             filters: py_dict_to_metadata(filters)?,
             text_query,
-            top_k: top_k.min(MAX_K),
+            top_k: clamp_top_k(top_k),
             distance_metric: metric,
             explain: true,
             exclude_superseded: false,
@@ -2251,8 +2262,8 @@ impl VantaDB {
         };
 
         let top_k: usize = match Self::request_field(obj, "top_k")? {
-            Some(v) => v.extract::<usize>()?.min(MAX_K),
-            None => default_top_k.min(MAX_K),
+            Some(v) => clamp_top_k(v.extract::<usize>()?),
+            None => clamp_top_k(default_top_k),
         };
 
         let distance_metric = match Self::request_field(obj, "distance_metric")? {
@@ -2326,15 +2337,25 @@ fn parse_search_method(value: Option<&str>) -> Option<IndexType> {
 ///     memory_limit: Optional memory budget in bytes.
 ///         Sets an upper bound on heap usage; when exceeded, VantaDB triggers a
 ///         controlled flush and architection of cold data to stay within budget.
+///     read_only: If True, opens the DB in read-only mode (default False).
+///         Safe for multi-process access when another process holds the write lock.
+///     backend: Storage backend — ``"memory"``, ``"rocksdb"``, or None
+///         (None selects the default persistent backend, fjall).
 #[pyfunction]
-#[pyo3(signature = (path, memory_limit=None))]
-fn connect(py: Python<'_>, path: &str, memory_limit: Option<u64>) -> PyResult<VantaDB> {
+#[pyo3(signature = (path, memory_limit=None, read_only=false, backend=None))]
+fn connect(
+    py: Python<'_>,
+    path: &str,
+    memory_limit: Option<u64>,
+    read_only: bool,
+    backend: Option<&str>,
+) -> PyResult<VantaDB> {
     let storage_path = if path.is_empty() || path == ":memory:" {
         ":memory:".to_string()
     } else {
         path.to_string()
     };
-    open_vantadb(py, storage_path, memory_limit, false, None)
+    open_vantadb(py, storage_path, memory_limit, read_only, backend)
 }
 
 /// The Python module for VantaDB.

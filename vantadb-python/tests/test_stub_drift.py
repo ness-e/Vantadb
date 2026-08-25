@@ -198,7 +198,12 @@ def test_native_stub_declares_every_module_name():
     assert not missing, f"nombres del módulo nativo sin declarar en el stub: {sorted(missing)}"
     # connect must match its real signature.
     sig = inspect.signature(native.connect)
-    assert [p for p in sig.parameters] == ["path", "memory_limit"]
+    assert [p for p in sig.parameters] == [
+        "path",
+        "memory_limit",
+        "read_only",
+        "backend",
+    ]
 
 
 @needs_native

@@ -365,14 +365,14 @@ class AsyncVantaDB:
             created_at_ms,
         )
 
-    async def graph_bfs(self, roots, max_depth=999999):
+    async def graph_bfs(self, roots, max_depth=999999, direction="Forward"):
         return await self._run(
-            self._sync.graph_bfs, roots, max_depth
+            self._sync.graph_bfs, roots, max_depth, direction
         )
 
-    async def graph_dfs(self, roots, max_depth=999999):
+    async def graph_dfs(self, roots, max_depth=999999, direction="Forward"):
         return await self._run(
-            self._sync.graph_dfs, roots, max_depth
+            self._sync.graph_dfs, roots, max_depth, direction
         )
 
     async def graph_topological_sort(self, roots):

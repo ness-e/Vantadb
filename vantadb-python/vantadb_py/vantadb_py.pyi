@@ -481,6 +481,11 @@ class WikiClient:
     def recover_archived_nodes(self, summary_id: str) -> list[Any]: ...
 
 
-def connect(path: str, memory_limit: int | None = None) -> VantaDB: ...
+def connect(
+    path: str,
+    memory_limit: int | None = None,
+    read_only: bool = False,
+    backend: str | None = None,
+) -> VantaDB: ...
 
 __version__: str
