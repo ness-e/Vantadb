@@ -463,6 +463,17 @@ pub fn handle_tools_list() -> Result<Value, Value> {
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
+            "name": "snapshot_create",
+            "description": "MCP-34a: creates a physical filesystem snapshot under <data_dir>/snapshots/<name> (instant O(1) hard-link image on Unix, copy fallback on Windows). Returns {path, created_at}. snapshot_restore is a core feature (not yet implemented).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "description": "Snapshot name; a plain identifier, no path separators" }
+                },
+                "required": ["name"]
+            }
+        },
+        {
             "name": "export",
             "description": "Exports memory records as JSONL (one JSON object per line). Pass 'namespace' to export a single namespace, omit it to export all namespaces. Returns the raw JSONL as text content (max 10 MB per call). Pair with 'import' for backup/restore.",
             "inputSchema": {
@@ -1470,6 +1481,34 @@ pub fn handle_tools_call(
             ))),
             Err(e) => Ok(error_content(format!("List Snapshots Error: {}", e))),
         },
+
+        // MCP-34a: create a filesystem snapshot — thin wrapper over the SDK's
+        // VantaEmbedded::create_snapshot. The name becomes a subdirectory under
+        // <data_dir>/snapshots, so it is validated as an identifier AND rejects
+        // path separators / '.' / '..' (trust boundary — prevents path
+        // traversal). FsSnapshot does not derive Serialize, so the result is
+        // built manually as {"path", "created_at"}. snapshot_restore does NOT
+        // exist (core feature, DEFER) — this is create-only.
+        "snapshot_create" => {
+            let name = args["name"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'name'").to_json())?;
+            validate_identifier(name, "name", config.max_key_length).map_err(|e| e.to_json())?;
+            if name.contains('/') || name.contains('\\') || name == "." || name == ".." {
+                return Ok(error_content(
+                    "Snapshot name must be a plain identifier (no path separators)",
+                ));
+            }
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.create_snapshot(name) {
+                Ok(snap) => Ok(text_content(serialize_content(&json!({
+                    "path": snap.path.to_string_lossy(),
+                    "created_at": format!("{:?}", snap.created_at),
+                })))),
+                Err(e) => Ok(error_content(format!("Snapshot Create Error: {}", e))),
+            }
+        }
 
         // MCP-17: backup/restore via MCP — thin wrappers over the SDK JSONL
         // serialization (export_line_from_record / record_from_export_line +

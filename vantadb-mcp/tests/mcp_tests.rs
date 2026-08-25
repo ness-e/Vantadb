@@ -3531,6 +3531,7 @@ fn test_mcp_tools_list_includes_recovery_and_introspection() {
         "capabilities",
         "generate_snippet",
         "list_snapshots",
+        "snapshot_create",
     ] {
         assert!(names.contains(&tool), "tools should include {tool}");
     }
@@ -3710,6 +3711,71 @@ fn test_capabilities_generate_snippet_list_snapshots_round_trip() {
     assert!(
         snaps["snapshots"].is_array(),
         "list_snapshots must return an array: {snaps}"
+    );
+}
+
+// ── MCP-34a: snapshot_create ────────────────────────────────────────────
+
+#[test]
+fn test_snapshot_create_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // snapshot_create → {path, created_at} (FsSnapshot is not Serialize, so the
+    // MCP handler builds the JSON manually).
+    let create_val = recovery_call(
+        &executor,
+        &storage,
+        "snapshot_create",
+        json!({ "name": "s1" }),
+    )
+    .unwrap();
+    assert!(
+        create_val["isError"].is_null(),
+        "snapshot_create failed: {}",
+        create_val["content"][0]["text"]
+    );
+    let created: Value = serde_json::from_str(create_val["content"][0]["text"].as_str().unwrap())
+        .expect("snapshot payload must be JSON");
+    assert!(
+        created["path"].is_string(),
+        "snapshot must return a path: {created}"
+    );
+    assert!(
+        created["created_at"].is_string(),
+        "snapshot must return created_at: {created}"
+    );
+
+    // list_snapshots must contain the created snapshot.
+    let snaps_val = recovery_call(&executor, &storage, "list_snapshots", json!({})).unwrap();
+    let snaps: Value = serde_json::from_str(snaps_val["content"][0]["text"].as_str().unwrap())
+        .expect("snapshots payload must be JSON");
+    assert_eq!(
+        snaps["snapshots"],
+        json!(["s1"]),
+        "created snapshot must be listed: {snaps}"
+    );
+
+    // The snapshot directory physically exists on disk (use the path the tool
+    // returned — data_dir is owned by the engine, not the temp open path).
+    let snap_path = created["path"].as_str().expect("path must be a string");
+    assert!(
+        std::path::Path::new(snap_path).is_dir(),
+        "snapshot dir must exist: {snap_path}"
+    );
+
+    // Trust boundary: path traversal in the name is rejected.
+    let bad = recovery_call(
+        &executor,
+        &storage,
+        "snapshot_create",
+        json!({ "name": "../../escape" }),
+    )
+    .unwrap();
+    assert!(
+        bad["isError"].as_bool() == Some(true),
+        "path traversal must be rejected: {}",
+        bad
     );
 }
 
