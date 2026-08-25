@@ -58,6 +58,54 @@ console.log(hits[0].record.payload); // "Hello, world!"
 db.close();
 ```
 
+## Module Formats (ESM / CommonJS)
+
+The package is **ESM-only** (the `vantadb-wasm` dependency is an ES module and the
+API is fully synchronous, so a CommonJS build would not be loadable without an
+async rewrite). `import` works everywhere — Node, Bun, Deno, bundlers.
+
+CommonJS consumers on **Node.js ≥ 22.12** can `require("vantadb")` directly:
+Node's `require(esm)` loads the module graph because it contains no top-level
+`await`. On older Node versions, migrate the consumer to `import`, or use the
+native backend ([`vantadb-node`](../vantadb-node)) whose API is async and
+CommonJS-friendly.
+
+```js
+// Node.js >= 22.12
+const { VantaDB } = require("vantadb");
+const db = VantaDB.create();
+// ...same synchronous API as the ESM build
+```
+
+## Errors
+
+All operations throw [`VantaError`](./src/errors.ts), an `Error` subclass with a
+machine-readable `code`. The WASM binding attaches the code structurally (no
+message parsing required); older `vantadb-wasm` builds fall back to message
+classification.
+
+| `code` | Meaning |
+|--------|---------|
+| `NOT_FOUND` | Node / namespace / record not found |
+| `VALIDATION_ERROR` | Invalid input, dimension mismatch, duplicate node, zero-norm cosine query, empty namespace… |
+| `CORRUPT` | Incompatible binary format, WAL version mismatch, serialization/schema error |
+| `RESOURCE_LIMIT` | Memory or configured resource limit exceeded |
+| `TIMEOUT` | Operation exceeded its time budget |
+| `BUSY` | Database busy (lock held) |
+| `IO_ERROR` | WAL / IO / backend storage error |
+| `CLOSED` | Operation on a closed instance |
+| `WASM_ERROR` | Unclassified engine error (catch-all) |
+
+```ts
+try {
+  db.search({ namespace: "docs", query_vector: [0, 0, 0] });
+} catch (err) {
+  if (err instanceof VantaError) {
+    console.log(err.code); // "VALIDATION_ERROR"
+  }
+}
+```
+
 ## Real Embeddings
 
 The examples above use toy vectors. Generate real ones with your own client —
@@ -222,7 +270,8 @@ Notes:
 
 | Runtime | Status |
 |---------|--------|
-| Node.js 18+ | ✅ |
+| Node.js 22.12+ | ✅ (ESM + `require()` via `require(esm)`) |
+| Node.js 18–22.11 | ⚠️ ESM only — use `import` |
 | Bun | ✅ |
 | Deno | ✅ |
 | Browser | ✅ (ESM) |

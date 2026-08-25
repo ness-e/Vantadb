@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { VantaDB, VantaError } from "../vantadb.js";
-import { wrapWasmError } from "../errors.js";
+import { wrapWasmError, classifyWasmError } from "../errors.js";
 import {
   isMemoryRecord,
   isSearchHit,
@@ -58,6 +58,77 @@ describe("wrapWasmError", () => {
   it("wraps null/undefined", () => {
     const wrapped = wrapWasmError(null, "nullCase");
     expect(wrapped.message).toBe("nullCase: null");
+  });
+});
+
+describe("WASM error classification (FIND-10)", () => {
+  it("uses the structured code attached by the wasm binding", () => {
+    const err = new Error("Node not found: 1") as Error & { code?: string };
+    err.code = "NOT_FOUND";
+    const wrapped = wrapWasmError(err, "addEdge");
+    expect(wrapped.code).toBe("NOT_FOUND");
+    expect(wrapped.message).toBe("addEdge: Node not found: 1");
+  });
+
+  it("ignores unknown codes (e.g. Node ERR_*) and falls back to message classification", () => {
+    const err = new Error("completely unexpected") as Error & { code?: string };
+    err.code = "ERR_MODULE_NOT_FOUND";
+    const wrapped = wrapWasmError(err, "open");
+    expect(wrapped.code).toBe("WASM_ERROR");
+  });
+
+  it("classifies not-found by message prefix (older pkg fallback)", () => {
+    const wrapped = wrapWasmError(new Error("Node not found: 42"), "getNode");
+    expect(wrapped.code).toBe("NOT_FOUND");
+  });
+
+  it("classifies validation errors by message prefix", () => {
+    const wrapped = wrapWasmError(
+      new Error("Validation error on namespace: namespace must not be empty"),
+      "get",
+    );
+    expect(wrapped.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("classifies corrupt-format errors by message prefix", () => {
+    const wrapped = wrapWasmError(
+      new Error("Incompatible binary format: expected magic [1,2,3,4], version 1"),
+      "open",
+    );
+    expect(wrapped.code).toBe("CORRUPT");
+  });
+
+  it("classifyWasmError returns WASM_ERROR for unrecognized messages", () => {
+    expect(classifyWasmError("completely unexpected")).toBe("WASM_ERROR");
+  });
+});
+
+describe("VantaDB error codes from the real WASM engine (FIND-10)", () => {
+  let db: VantaDB;
+
+  beforeAll(() => { db = VantaDB.create(); });
+  afterAll(() => { db.close(); });
+
+  it("zero-norm cosine search surfaces VALIDATION_ERROR", () => {
+    let caught: unknown;
+    try {
+      db.search({ namespace: "err", query_vector: [0, 0, 0], top_k: 5 });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(VantaError);
+    expect((caught as VantaError).code).toBe("VALIDATION_ERROR");
+  });
+
+  it("addEdge with missing nodes surfaces NOT_FOUND", () => {
+    let caught: unknown;
+    try {
+      db.addEdge(888, 999, "test");
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(VantaError);
+    expect((caught as VantaError).code).toBe("NOT_FOUND");
   });
 });
 

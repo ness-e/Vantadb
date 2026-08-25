@@ -1550,8 +1550,47 @@ struct GraphDegreeEntry {
     out_degree: usize,
 }
 
+/// Map a core `VantaError` to a stable, machine-readable code exposed on the
+/// JS error object (`err.code`). Consumers (vantadb-ts `wrapWasmError`)
+/// distinguish corrupt/not-found/validation without parsing message strings
+/// (FIND-10). The Display message stays byte-identical: only `code` is added.
+fn vanta_error_code(e: &VantaError) -> &'static str {
+    match e {
+        VantaError::NodeNotFound(_) | VantaError::NotFound { .. } => "NOT_FOUND",
+        VantaError::ValidationError { .. }
+        | VantaError::InvalidInput(_)
+        | VantaError::DimensionMismatch { .. }
+        | VantaError::DuplicateNode(_)
+        | VantaError::NodeIdCollision(_)
+        | VantaError::NoVectorForKey(_)
+        | VantaError::IqlParseError { .. } => "VALIDATION_ERROR",
+        VantaError::IncompatibleFormat { .. }
+        | VantaError::WALVersionMismatch { .. }
+        | VantaError::SerializationError(_)
+        | VantaError::SchemaError(_) => "CORRUPT",
+        VantaError::ResourceLimit(_) => "RESOURCE_LIMIT",
+        VantaError::Timeout { .. } => "TIMEOUT",
+        VantaError::DatabaseBusy(_) => "BUSY",
+        VantaError::WalError(_) | VantaError::IoError(_) | VantaError::BackendError(_) => {
+            "IO_ERROR"
+        }
+        // Generic/Runtime/Cli/Search/Restore/Backup/Unsupported/ExecutionConflict/
+        // NotInitialized/CycleDetected → catch-all.
+        _ => "WASM_ERROR",
+    }
+}
+
 fn to_js_err(e: VantaError) -> JsValue {
-    js_sys::Error::new(&e.to_string()).into()
+    let err = js_sys::Error::new(&e.to_string());
+    // Attach a structured code so TS consumers can classify errors without
+    // parsing messages. Reflect::set on a fresh Error cannot fail in practice;
+    // on failure we degrade gracefully to message-only classification.
+    let _ = js_sys::Reflect::set(
+        &err,
+        &"code".into(),
+        &JsValue::from_str(vanta_error_code(&e)),
+    );
+    err.into()
 }
 
 // ── CORE-02: graph-store persistence roundtrip (wasm-bindgen layer) ─────
