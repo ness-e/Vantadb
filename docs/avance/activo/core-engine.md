@@ -231,6 +231,12 @@ aliases: []
 | PERF-36 | Config hot-reload | ✅ |
 | PERF-37 | FilterBitset reduction (and_fast/or_fast/count_set_bits) | ✅ |
 | PERF-38 | Multiversion dispatch (DistanceKernels) | ✅ |
+
+### MOD-04: purge_expired selectivo vía scalar index TTL
+- **Fecha:** 2026-08-25
+- **Objetivo:** eliminar el full-scan O(N) de `purge_expired` usando el `ScalarIndex` existente (que ya indexa `__vanta_expires_at_ms` en writes) con range lookup `lookup_int_le`, reconstruyéndolo en open/rebuild.
+- **Resultado:** ✅ bench before/after `cargo bench --bench purge_expired` (4k records, 128d): 100 expirados 137.20→117.22ms (−23.9%), 1000 expirados 1.2341→1.0726s (−9.1%), p<0.05. Iteración con `engine.get()` por candidato regresaba (+11%/+24%) → reemplazada por lectura metadata-only del backend. nextest workspace 2763/2763, clippy/fmt clean. Hallazgo colateral FIND-31 (text index df negativo tras reopen, pre-existente) registrado en Backlog.
+- **Archivos:** `src/scalar_index.rs`, `src/sdk/api.rs`, `src/storage/engine/{init,mod}.rs`, `src/storage/engine/tests/init.rs`, `benches/purge_expired.rs`, `Cargo.toml`
 | ERR-036 | Write-lock en hot path de `get()` → `try_write()` + degradación a `read()` (nunca bloquea writer); hits preservados en uncontended; commit `e6cbc93f` | ✅ 2026-08-11 |
 | ERR-042 | `read_header` 2× por candidato en hot loop (+ entry points) → `node_header` 1× reutilizado en distance + tombstone; fix `e95dd94a`; 2 tests paridad (commit `5a9eada1`); bench −11.4%/−19.0% | ✅ 2026-08-11 |
 | ERR-043 | `shrink_neighbors` clonaba vector del nodo (`as_f32_slice().map(to_vec)`) solo para query → `compute_shrunk_neighbors` lee slice prestado (`as_f32_slice()`); fix `2a20b14a`; 3 tests shrink/paridad; nextest 1902/1902 | ✅ 2026-08-11 |

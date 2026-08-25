@@ -1,9 +1,10 @@
 {
-  "plan": "docs/plans/archive/2026-08-24-batch-review-mod-find.md",
-  "totalCompleted": 10,
+  "plan": "docs/plans/archive/2026-08-25-batch-core-server-mcp.md",
+  "totalCompleted": 14,
   "consecutiveFails": 0,
-  "total": 10,
+  "total": 15,
   "failMode": "stop",
   "totalFailed": 0,
+  "deferred": ["MCP-34"],
   "lastSync": "2026-08-25T00:00:00Z"
 }

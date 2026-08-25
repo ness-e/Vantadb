@@ -103,3 +103,11 @@ Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña
 - **Stop (dejar de hacer):** correr waves sobre un árbol sucio (H1 del plan: ~35 archivos desktop sin commit al iniciar). Probar `git status` limpio antes de lanzar cualquier wave paralela.
 - **Continue:** contrato verificable por tarea; SARL para resultados no-DONE (UX-01+05 fallo por error transitorio de provider → RETRY fresco resolvio sin rehacer); verify mecanico del lead antes de commitear.
 - **Accion medible:** reducir reintentos SARL por tarea de 2 a 1 (metric: retries/tarea; baseline esta campaña = 2 tasks con 1 retry cada una). North Star: >90% first-try — esta campaña 8/10 first-try (80%), 2 requirieron retry por causa infra, no de codigo.
+
+## Retrospectiva — Batch Core/Server/MCP/Python/TS (plan 2026-08-25-batch-core-server-mcp)
+- **Cierre:** 14/15 tareas completadas (12 commits), 1 DEFER (MCP-34), 0 FAILED. Waves: W0 {REVIEW-13, FIND-29, MOD-14} · W1 {MOD-04, REVIEW-17, FIND-18} · W2 {MOD-10, MCP-24, MOD-13} · W3 {MOD-18, FIND-10} · W4 {MOD-20, MCP-33, FIND-06} · W5 {MCP-34 → DEFER}.
+- **Start:** waves paralelas MAX_CONCURRENT=3; sub-agentes NO commitean, lead verifica+commitea por tarea (aislamiento); verify mecanico del lead antes de cada commit (reveló que FIND-29/MOD-14 dependian del clippy de REVIEW-13 → commitear en orden de dependencia).
+- **Stop:** lanzar 2 sub-agentes que editan los MISMOS archivos (MOD-10 y MCP-24 compartieron tools.rs/mcp_tests.rs → diff combinado, commit conjunto; MOD-18/MOD-20 comparten vantadb-python → secuenciados). Regla: NO paralelizar tareas del mismo directorio/archivo.
+- **Continue:** contrato verificable por tarea; STOP CONDITION de MCP-34 respetada (snapshot_restore no existe en core → DEFER, no scope-creep); hallazgos colaterales ruteados a Backlog (FIND-30/31/32); hash SAME de skills MCP verificado.
+- **Accion medible:** reducir superposicion de archivos en waves a 0 (metrica: tasks por wave tocando el mismo archivo; baseline esta campana = 1 colision MOD-10/MCP-24). North Star: 14/15 first-try completado (93%), 0 falsos positivos.
+- **Deuda:** MOD-34 DEFER (snapshot_restore = feature core nueva, candidato MCP-34a wrapper snapshot_create); FIND-30/31/32 abiertos (colaterales pre-existentes).
