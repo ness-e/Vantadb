@@ -32,6 +32,28 @@ impl CPIndex {
         let mut candidates = BinaryHeap::new();
         let mut results = BinaryHeap::new();
 
+        // AUD-047: metric scoring for the disk path is identical for entry
+        // points and neighbor candidates — single helper, zero-cost (Fn,
+        // inlined in release).
+        let metric_score = |vec: &[f32], inv_cached_norm: f32| -> f32 {
+            match metric {
+                DistanceMetric::Cosine => {
+                    if let Some(q_inv_norm) = query_inv_norm {
+                        if inv_cached_norm > f32::EPSILON {
+                            cosine_sim_cached_norms(query_vec, q_inv_norm, vec, inv_cached_norm)
+                        } else {
+                            f32_slice_similarity(query_vec, query_norm, vec, metric)
+                        }
+                    } else {
+                        f32_slice_similarity(query_vec, query_norm, vec, metric)
+                    }
+                }
+                DistanceMetric::Euclidean => -euclidean_distance_squared_f32(query_vec, vec),
+                // SparseDot has its own brute-force path.
+                DistanceMetric::SparseDot => 0.0,
+            }
+        };
+
         for &ep in entry_points {
             if let Some(node) = self.nodes.get(&ep) {
                 // ERR-042: read the disk header once per entry point and reuse
@@ -72,34 +94,7 @@ impl CPIndex {
                             if f32_vec.len() != header.vector_len as usize {
                                 0.0
                             } else {
-                                match metric {
-                                    DistanceMetric::Cosine => {
-                                        if let Some(q_inv_norm) = query_inv_norm {
-                                            let node_inv_norm = node.inv_cached_norm;
-                                            if node_inv_norm > f32::EPSILON {
-                                                cosine_sim_cached_norms(
-                                                    query_vec,
-                                                    q_inv_norm,
-                                                    f32_vec,
-                                                    node_inv_norm,
-                                                )
-                                            } else {
-                                                f32_slice_similarity(
-                                                    query_vec, query_norm, f32_vec, metric,
-                                                )
-                                            }
-                                        } else {
-                                            f32_slice_similarity(
-                                                query_vec, query_norm, f32_vec, metric,
-                                            )
-                                        }
-                                    }
-                                    DistanceMetric::Euclidean => {
-                                        -euclidean_distance_squared_f32(query_vec, f32_vec)
-                                    }
-                                    // SparseDot has its own brute-force path.
-                                    DistanceMetric::SparseDot => 0.0,
-                                }
+                                metric_score(f32_vec, node.inv_cached_norm)
                             }
                         } else {
                             0.0
@@ -249,37 +244,7 @@ impl CPIndex {
                                         if f32_v.len() != h.vector_len as usize {
                                             0.0
                                         } else {
-                                            match metric {
-                                                DistanceMetric::Cosine => {
-                                                    if let Some(q_inv_norm) = query_inv_norm {
-                                                        let neighbor_inv_norm =
-                                                            neighbor.inv_cached_norm;
-                                                        if neighbor_inv_norm > f32::EPSILON {
-                                                            cosine_sim_cached_norms(
-                                                                query_vec,
-                                                                q_inv_norm,
-                                                                f32_v,
-                                                                neighbor_inv_norm,
-                                                            )
-                                                        } else {
-                                                            f32_slice_similarity(
-                                                                query_vec, query_norm, f32_v,
-                                                                metric,
-                                                            )
-                                                        }
-                                                    } else {
-                                                        f32_slice_similarity(
-                                                            query_vec, query_norm, f32_v, metric,
-                                                        )
-                                                    }
-                                                }
-                                                DistanceMetric::Euclidean => {
-                                                    -euclidean_distance_squared_f32(
-                                                        query_vec, f32_v,
-                                                    )
-                                                }
-                                                DistanceMetric::SparseDot => 0.0,
-                                            }
+                                            metric_score(f32_v, neighbor.inv_cached_norm)
                                         }
                                     } else {
                                         0.0
