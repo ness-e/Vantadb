@@ -184,6 +184,24 @@ test("vanta_ingest: IngestItem[] → inputs[] with generated key, response → i
   assert.deepEqual(ids, ["a", "b"]);
 });
 
+// FIND-23: namespace omitido debe defaultar a "default" (el server rechaza ""),
+// mirror del wasm-map (vanta-wasm-map.ts:45 DEFAULT_NS) y native.rs:34.
+test("FIND-23: ingest/search/get con namespace omitido usan DEFAULT_NS", () => {
+  const ingest = getHttpMapping("vanta_ingest").body?.({
+    records: [{ text: "x" }, { text: "y", namespace: "" }],
+  }) as Record<string, unknown>[];
+  assert.equal(ingest[0].namespace, "default");
+  assert.equal(ingest[1].namespace, "default", "empty string también defaulta");
+
+  const search = getHttpMapping("vanta_search").body?.({
+    query: { query: "hi" },
+  }) as Record<string, unknown>;
+  assert.equal(search.namespace, "default");
+
+  const path = getHttpMapping("vanta_get").path?.({ key: "k1" });
+  assert.equal(path, "/api/v2/records/default/k1");
+});
+
 test("vanta_list: VantaMemoryListPage → desktop ListPage", () => {
   const page = getHttpMapping("vanta_list").transform?.({
     records: [sdkRecord],

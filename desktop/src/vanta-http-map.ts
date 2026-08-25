@@ -22,6 +22,11 @@ import type {
   VantaQueryResult,
 } from "./vanta";
 
+// FIND-23: namespace canónico cuando el caller lo omite. El server rechaza ""
+// ("namespace must not be empty", src/sdk/serialization/mod.rs) — mismo valor
+// que el mapping WASM (vanta-wasm-map.ts:45) y el bridge nativo (native.rs:34).
+const DEFAULT_NS = "default";
+
 // --- Wire adaptation (mirror of native.rs to_vanta_value/from_vanta_value) ---
 
 /** Plain JSON → SDK `VantaValue` (externally tagged: `{"String":"x"}`). */
@@ -90,7 +95,7 @@ export function searchHitFromSdk(hit: Record<string, unknown>): SearchResult {
 /** Desktop `IngestItem` → SDK `VantaMemoryInput` (native.rs ingest_to_input). */
 export function ingestToInput(item: IngestItem, key: string): Record<string, unknown> {
   return {
-    namespace: item.namespace ?? "",
+    namespace: item.namespace || DEFAULT_NS,
     key,
     payload: item.text,
     metadata: mapValues(item.metadata, toVantaValue),
@@ -111,7 +116,7 @@ export function genId(): string {
 export function searchToRequest(q: SearchQuery): Record<string, unknown> {
   const text = q.query.trim();
   return {
-    namespace: q.namespace ?? "",
+    namespace: q.namespace || DEFAULT_NS,
     query_vector: q.embedding ?? [],
     query_sparse: null,
     filters: mapValues(q.filters, toVantaValue),
@@ -241,7 +246,7 @@ const mappings: Record<string, HttpMapping | string> = {
   vanta_get: {
     method: "GET",
     path: (args) => {
-      const ns = encodeURIComponent((args.namespace as string) ?? "");
+      const ns = encodeURIComponent((args.namespace as string) || DEFAULT_NS);
       const key = encodeURIComponent(args.key as string);
       return `/api/v2/records/${ns}/${key}`;
     },
@@ -250,7 +255,7 @@ const mappings: Record<string, HttpMapping | string> = {
   vanta_get_version: {
     method: "GET",
     path: (args) => {
-      const ns = encodeURIComponent((args.namespace as string) ?? "");
+      const ns = encodeURIComponent((args.namespace as string) || DEFAULT_NS);
       const key = encodeURIComponent(args.key as string);
       return `/api/v2/records/${ns}/${key}/versions`;
     },
@@ -260,7 +265,7 @@ const mappings: Record<string, HttpMapping | string> = {
   vanta_versions: {
     method: "GET",
     path: (args) => {
-      const ns = encodeURIComponent((args.namespace as string) ?? "");
+      const ns = encodeURIComponent((args.namespace as string) || DEFAULT_NS);
       const key = encodeURIComponent(args.key as string);
       return `/api/v2/records/${ns}/${key}/versions`;
     },
@@ -287,7 +292,7 @@ const mappings: Record<string, HttpMapping | string> = {
   vanta_delete: {
     method: "DELETE",
     path: (args) => {
-      const ns = encodeURIComponent((args.namespace as string) ?? "");
+      const ns = encodeURIComponent((args.namespace as string) || DEFAULT_NS);
       const key = encodeURIComponent(args.key as string);
       return `/api/v2/records/${ns}/${key}`;
     },
