@@ -109,7 +109,11 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
         {consoleOpen && " · ctrl+enter en la consola = ejecutar iql"}
       </p>
 
-      <div className={`flex-1 overflow-hidden ${consoleOpen ? "min-h-0" : ""}`}>
+      <div
+        role="img"
+        aria-label={`Grafo de ${g.nodeCount} nodos y ${g.edgeCount} aristas${g.namespace ? ` del namespace ${g.namespace}` : ""}. Click en un nodo expande hasta 50 vecinos; la consola IQL permite consultar.`}
+        className={`flex-1 overflow-hidden ${consoleOpen ? "min-h-0" : ""}`}
+      >
         <Suspense fallback={<div className="flex h-full items-center justify-center font-tech text-xs text-muted-foreground">cargando escena 3D…</div>}>
           <Canvas camera={{ position: [0, 0, 24], fov: 50 }} dpr={[1, 1.5]} onPointerMissed={() => g.setActiveId(null)}>
             <GraphScene
@@ -125,6 +129,14 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
           </Canvas>
         </Suspense>
       </div>
+
+      {/* UX-08: alternativa accesible al canvas 3D — lista de nodos para
+          teclado/SR (sr-only; vive fuera del role="img" para no ocultarse). */}
+      <ul className="sr-only" aria-label="Nodos visibles del grafo">
+        {g.nodes.map((n) => (
+          <li key={n.id}>{n.label || n.id}</li>
+        ))}
+      </ul>
 
       {/* Consola IQL embebida (GRAFO-03) — panel inferior colapsable */}
       {consoleOpen && (

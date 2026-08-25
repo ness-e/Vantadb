@@ -184,7 +184,7 @@ function SideButton({
     >
       <span className="text-neon">{icon}</span>
       {label}
-      {hint && <span className="ml-auto font-tech text-[11px] text-neon">{hint}</span>}
+      {hint && <span className="ml-auto font-tech text-[11px] text-accent-text">{hint}</span>}
     </button>
   );
 }
@@ -668,7 +668,7 @@ export default function WorkspaceShell({
         <div className="border-t-4 border-foreground p-3">
           <div className="flex items-center justify-between gap-2">
             <div className="font-tech text-[11px] uppercase tracking-wider text-muted-foreground">
-              v0.1.0 · <span className="text-neon">embedded</span>
+              v0.1.0 · <span className="text-accent-text">embedded</span>
             </div>
             <button
               type="button"
@@ -735,7 +735,7 @@ export default function WorkspaceShell({
           >
             ⧩ FILTROS
             {filterActive && (
-              <span className="ml-1 font-tech text-neon">({toVantaMemoryFilter(ruleGroup).length})</span>
+              <span className="ml-1 font-tech text-accent-text">({toVantaMemoryFilter(ruleGroup).length})</span>
             )}
           </button>
 
@@ -776,7 +776,7 @@ export default function WorkspaceShell({
           <section className="border-b-4 border-foreground bg-card" aria-label="Filtros compuestos por metadata">
             <div className="mx-auto max-w-6xl p-4">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <span className="font-tech text-[10px] uppercase tracking-widest text-neon">
+                <span className="font-tech text-[10px] uppercase tracking-widest text-accent-text">
                   filtros compuestos · metadata tipada
                   {filterActive && (
                     <span className="text-muted-foreground">
@@ -823,7 +823,7 @@ export default function WorkspaceShell({
             <section className="border-b-4 border-foreground bg-card">
               <div className="mx-auto max-w-6xl p-4">
                 <div className="flex items-center justify-between">
-                  <span className="font-tech text-[10px] uppercase tracking-widest text-neon">
+                  <span className="font-tech text-[10px] uppercase tracking-widest text-accent-text">
                     Resultados de búsqueda
                     {filterActive && results && visibleResults && results.length !== visibleResults.length && (
                       <span className="text-muted-foreground">

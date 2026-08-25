@@ -7,6 +7,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ingestBatch, vantaErrorMessage } from "../../vanta";
 import { TriangleAlert } from "lucide-react";
+// UX-03: trap de foco del dialog (Tab cicla, Escape cierra, foco restaurado).
+import { useModalFocus } from "./useModalFocus";
 import {
   EXAMPLE_CSV,
   MAX_IMPORT,
@@ -51,6 +53,8 @@ export default function ImportPaste({
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<ImportReport | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // UX-03: overlay del dialog para el trap de foco.
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   // Reset al abrir + autofocus.
   useEffect(() => {
@@ -63,15 +67,10 @@ export default function ImportPaste({
     }
   }, [open, defaultNamespace]);
 
-  // Escape cierra (salvo mientras importa).
-  useEffect(() => {
-    if (!open || busy) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, busy, onClose]);
+  // UX-03: trap de foco + Escape + restauración del foco al cerrar. Reemplaza
+  // el useEffect de Escape anterior (el hook escucha en captura y hace
+  // stopPropagation antes que handlers globales).
+  useModalFocus(dialogRef, open, onClose, busy);
 
   // Auto-parse: el textarea ES el editor (re-editar → re-preview).
   const parsed: ParseResult | null = useMemo(
@@ -106,6 +105,7 @@ export default function ImportPaste({
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/55 p-6"
       role="dialog"
       aria-modal="true"
@@ -131,7 +131,7 @@ export default function ImportPaste({
         </header>
 
         {parsed?.error && (
-          <p role="alert" className="border-b-4 border-foreground bg-card px-4 py-2 font-tech text-[11px] text-neon">
+          <p role="alert" className="border-b-4 border-foreground bg-card px-4 py-2 font-tech text-[11px] text-accent-text">
             <TriangleAlert className="mr-1 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" />
             {parsed.error}
           </p>
@@ -139,7 +139,7 @@ export default function ImportPaste({
 
         {report && (
           <div className="border-b-4 border-foreground bg-card px-4 py-3" aria-live="polite">
-            <p className="font-tech text-[12px] font-bold uppercase tracking-widest text-neon">
+            <p className="font-tech text-[12px] font-bold uppercase tracking-widest text-accent-text">
               ✓ {report.imported} importados
             </p>
             {report.errors.length > 0 && (
@@ -215,7 +215,7 @@ export default function ImportPaste({
           </div>
 
           {parsed?.truncated && (
-            <p className="font-tech text-[10px] text-neon">
+            <p className="font-tech text-[10px] text-accent-text">
               <TriangleAlert className="mr-1 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" />
               el paste supera {MAX_IMPORT} registros — se importan solo los primeros.
             </p>
@@ -282,7 +282,7 @@ export default function ImportPaste({
 
         <footer className="flex items-center gap-2 border-t-4 border-foreground bg-card px-4 py-3">
           {busy && (
-            <span className="font-tech text-[10px] uppercase tracking-widest text-neon" role="status">
+            <span className="font-tech text-[10px] uppercase tracking-widest text-accent-text" role="status">
               importando…
             </span>
           )}

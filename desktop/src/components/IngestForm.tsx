@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { get, ingest, IngestItem, vantaErrorMessage } from "../vanta";
 
 interface Props {
@@ -6,68 +6,127 @@ interface Props {
   runError: (msg: string) => void;
 }
 
+const LABEL =
+  "font-tech text-[10px] uppercase tracking-widest text-muted-foreground";
+const INPUT =
+  "border-2 border-foreground bg-background px-2.5 py-1.5";
+
 export default function IngestForm({ onDone, runError }: Props) {
   const [id, setId] = useState("");
   const [text, setText] = useState("");
   const [namespace, setNamespace] = useState("");
   const [busy, setBusy] = useState(false);
+  // UX-04: error anclado inline (no solo al toast global del shell).
+  const [error, setError] = useState<string | null>(null);
+  // UX-04: confirmación inline de sobrescritura — patrón DeleteButton de
+  // DataExplorer, no window.confirm nativo (05 anti-patrón).
+  const [confirming, setConfirming] = useState(false);
+  const pendingRef = useRef<IngestItem | null>(null);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    const item: IngestItem = { id: id || undefined, text, namespace: namespace || undefined };
-    // VS-08 (Fix 4): sobrescribir es destructivo → confirmación explícita (P6).
-    // `get` lanza NotFound si la key no existe → sin confirmación, crear nuevo.
-    if (item.id) {
-      try {
-        const existing = await get(item.id, item.namespace);
-        if (existing && !window.confirm(`"${item.id}" ya existe — ¿sobrescribir?`)) return;
-      } catch {
-        // key inexistente (NotFound) → crear sin confirmación
-      }
-    }
+  async function doIngest(item: IngestItem) {
     setBusy(true);
     try {
       const ids = await ingest([item]);
       onDone(ids);
       setId("");
       setText("");
+      setError(null);
     } catch (err) {
+      setError(vantaErrorMessage(err));
       runError(vantaErrorMessage(err));
     } finally {
       setBusy(false);
+      setConfirming(false);
     }
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const item: IngestItem = { id: id || undefined, text, namespace: namespace || undefined };
+    // Sobrescribir es destructivo → confirmación explícita (P6). `get` lanza
+    // NotFound si la key no existe → sin confirmación, crear nuevo.
+    if (item.id) {
+      try {
+        const existing = await get(item.id, item.namespace);
+        if (existing) {
+          pendingRef.current = item;
+          setConfirming(true);
+          return;
+        }
+      } catch {
+        // key inexistente (NotFound) → crear sin confirmación
+      }
+    }
+    await doIngest(item);
   }
 
   return (
     <section className="border-[3px] border-foreground bg-card p-4 shadow-ink">
       <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Ingestar</h2>
       <form className="mt-3 flex flex-col gap-2" onSubmit={handleSubmit}>
-        <input
-          value={id}
-          onChange={(e) => setId(e.target.value)}
-          placeholder="ID (opcional — el backend asigna uno)"
-          aria-label="ID de registro"
-          className="border-2 border-foreground bg-background px-2.5 py-1.5"
-        />
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Contenido de texto"
-          rows={3}
-          aria-label="Contenido de texto"
-          required
-          className="resize-y border-2 border-foreground bg-background px-2.5 py-1.5"
-        />
-        <input
-          value={namespace}
-          onChange={(e) => setNamespace(e.target.value)}
-          placeholder="Namespace (por omisión 'default')"
-          aria-label="Namespace"
-          className="border-2 border-foreground bg-background px-2.5 py-1.5"
-        />
+        {/* UX-04: labels VISIBLES (WCAG 3.3.2) — placeholder solo no alcanza. */}
+        <label className="flex flex-col gap-1">
+          <span className={LABEL}>ID (opcional)</span>
+          <input
+            value={id}
+            onChange={(e) => setId(e.target.value)}
+            placeholder="el backend asigna uno"
+            className={INPUT}
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={LABEL}>Contenido de texto</span>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Texto a recordar"
+            rows={3}
+            required
+            className="resize-y border-2 border-foreground bg-background px-2.5 py-1.5"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={LABEL}>Namespace</span>
+          <input
+            value={namespace}
+            onChange={(e) => setNamespace(e.target.value)}
+            placeholder="por omisión 'default'"
+            className={INPUT}
+          />
+        </label>
+        {error && (
+          <p role="alert" className="border-2 border-foreground bg-card px-2 py-1.5 font-tech text-[10px] text-destructive">
+            {error}
+          </p>
+        )}
+        {confirming && (
+          <div role="alert" className="flex flex-wrap items-center gap-2 border-2 border-foreground bg-muted px-2 py-1.5">
+            <span className="text-xs">“{pendingRef.current?.id}” ya existe — ¿sobrescribir?</span>
+            <button
+              type="button"
+              onClick={() => {
+                const item = pendingRef.current;
+                setConfirming(false);
+                if (item) void doIngest(item);
+              }}
+              className="press border-2 border-foreground bg-neon px-2 py-1 text-[10px] font-bold text-background"
+            >
+              SOBRESCRIBIR
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="press border-2 border-foreground bg-background px-2 py-1 text-[10px]"
+              aria-label="Cancelar sobrescritura"
+            >
+              ✕ CANCELAR
+            </button>
+          </div>
+        )}
         <button
           type="submit"
-          disabled={busy || !text.trim()}
+          disabled={busy || confirming || !text.trim()}
           className="press cursor-pointer self-start border-2 border-foreground bg-background px-2.5 py-1.5 text-sm disabled:cursor-default disabled:opacity-50"
         >
           {busy ? "Guardando…" : "Agregar registro"}

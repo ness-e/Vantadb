@@ -10,7 +10,7 @@
 //
 // VS-03 master-detail contract is preserved: `ExplorerRow` + `onSelectRow`
 // (plus the enriched `record` for VS-06).
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   useTable,
   tableFeatures,
@@ -383,6 +383,9 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
   const [batchBusy, setBatchBusy] = useState<"export" | "delete" | null>(null);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
   const selectAllRef = useRef<HTMLInputElement>(null);
+  // UX-02: fila abierta en el Inspector (master-detail VS-03) — refleja
+  // aria-selected del grid para teclado/SR.
+  const [openKey, setOpenKey] = useState<string | null>(null);
 
   // Live TTL countdown: re-render periodically so bars/relative times move.
   useEffect(() => {
@@ -495,6 +498,17 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
     e.preventDefault();
     const q = query.trim();
     fetchFirst(q ? "search" : "list", q);
+  }
+
+  // UX-02: Enter/Espacio abren el Inspector desde la fila enfocada. El guard
+  // e.target === e.currentTarget evita que Enter en botones hijos (papelera,
+  // favorito, copiar, checkbox) dispare el master-detail.
+  function handleRowKey(e: KeyboardEvent<HTMLTableRowElement>, row: ExplorerRow) {
+    if (e.target !== e.currentTarget) return;
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    setOpenKey(row.id);
+    onSelectRow?.(row);
   }
 
   // VS-08: la columna de acciones necesita runError/setRows (per-render) pero
@@ -839,7 +853,7 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
                               title="Ordenar por columna"
                             >
                               {flexRender(header.column.columnDef.header, header.getContext())}
-                              <span className="text-neon">
+                              <span className="text-accent-text">
                                 {sorted === "asc" ? "▲" : sorted === "desc" ? "▼" : ""}
                               </span>
                             </button>
@@ -868,7 +882,17 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
                   return (
                     <tr
                       key={row.id}
-                      onClick={onSelectRow ? () => onSelectRow(row.original) : undefined}
+                      onClick={
+                        onSelectRow
+                          ? () => {
+                              setOpenKey(row.id);
+                              onSelectRow(row.original);
+                            }
+                          : undefined
+                      }
+                      onKeyDown={onSelectRow ? (e) => handleRowKey(e, row.original) : undefined}
+                      tabIndex={onSelectRow ? 0 : undefined}
+                      aria-selected={onSelectRow ? openKey === row.id : undefined}
                       className={onSelectRow ? "cursor-pointer" : undefined}
                       title={onSelectRow ? "Ver en inspector" : undefined}
                       style={{
@@ -891,7 +915,7 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
               </tbody>
             </table>
             {loadingMore && (
-              <div className="sticky bottom-0 z-10 border-t-4 border-ink bg-paper p-2 font-tech text-[10px] uppercase tracking-widest text-neon">
+              <div className="sticky bottom-0 z-10 border-t-4 border-ink bg-paper p-2 font-tech text-[10px] uppercase tracking-widest text-accent-text">
                 Cargando más…
               </div>
             )}

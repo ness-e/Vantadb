@@ -5,7 +5,7 @@
 // Read-only sobre el bridge de DESKTOP-36; click en genlog con anchor_id →
 // Inspector vía get() real (los demás datos no son VantaMemoryRecord → detalle
 // inline, evitando targets sintéticos para el vantaPut del Inspector).
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import {
   GenlogEntry,
   GenerationLayer,
@@ -130,7 +130,7 @@ function ScenesPanel({ sessionKey, onError }: { sessionKey: string } & Pick<Lens
             </button>
           </div>
           {detail.deleted ? (
-            <p className="mt-2 font-tech text-[11px] uppercase tracking-widest text-neon">
+            <p className="mt-2 font-tech text-[11px] uppercase tracking-widest text-accent-text">
               ⌫ soft-deleted — bloque no accesible
             </p>
           ) : (
@@ -188,7 +188,7 @@ function PersonaPanel({ sessionKey }: { sessionKey: string }) {
       <pre className="max-h-96 overflow-auto whitespace-pre-wrap border-2 border-foreground bg-background p-3 font-tech text-xs">{snap.content}</pre>
       {diff && (
         <details open className="border-2 border-dashed border-foreground bg-background p-3">
-          <summary className="cursor-pointer font-tech text-[10px] uppercase tracking-widest text-neon">
+          <summary className="cursor-pointer font-tech text-[10px] uppercase tracking-widest text-accent-text">
             diff vs última snapshot vista (+{diff.added.length} / −{diff.removed.length})
           </summary>
           <ul className="mt-2 space-y-0.5 font-tech text-xs">
@@ -196,7 +196,7 @@ function PersonaPanel({ sessionKey }: { sessionKey: string }) {
               <li key={`-${l}`} className="text-muted-foreground line-through">− {l}</li>
             ))}
             {diff.added.map((l) => (
-              <li key={`+${l}`} className="text-neon">+ {l}</li>
+              <li key={`+${l}`} className="text-accent-text">+ {l}</li>
             ))}
           </ul>
         </details>
@@ -371,7 +371,7 @@ function GenlogPanel({ sessionKey, onOpenRecord, onError }: LensActions & { sess
                 <span className="shrink-0">{e.status === "succeeded" ? "✓" : "✗"}</span>
                 <span className="shrink-0 text-muted-foreground">{fmtMs(e.ts_ms)}</span>
                 {e.status === "failed" && e.error && (
-                  <span className="truncate text-neon" title={e.error}>{e.error}</span>
+                  <span className="truncate text-accent-text" title={e.error}>{e.error}</span>
                 )}
                 {e.anchor_id && <code className="ml-auto truncate text-muted-foreground">{e.anchor_id}</code>}
               </button>
@@ -406,6 +406,20 @@ export default function MemoryLens({
     return <PanelEmpty msg="sin backend activo — conectá uno (o sembrá datos con vanta-seed) para explorar memoria" />;
   }
 
+  // UX-07 (WAI-ARIA APG tabs): flechas ←/→ mueven selección + foco entre tabs
+  // (roving tabindex: solo el activo queda en el orden de tabulación).
+  function onTablistKey(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const btns = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+    if (btns.length === 0) return;
+    const cur = btns.indexOf(document.activeElement as HTMLButtonElement);
+    const dir = e.key === "ArrowRight" ? 1 : -1;
+    const next = cur < 0 ? (dir > 0 ? 0 : btns.length - 1) : (cur + dir + btns.length) % btns.length;
+    btns[next].focus();
+    setTab(TABS[next].id);
+  }
+
   return (
     <div className="space-y-4">
       {/* Header (UX-01: LensShell compartido) */}
@@ -437,7 +451,13 @@ export default function MemoryLens({
         <PanelEmpty msg="indicá una session_key (la misma que usó vanta-seed) y CARGAR" />
       ) : (
         <>
-          <nav className="flex border-2 border-foreground bg-background" aria-label="Secciones de memoria">
+          <nav
+            role="tablist"
+            aria-label="Secciones de memoria"
+            aria-orientation="horizontal"
+            onKeyDown={onTablistKey}
+            className="flex border-2 border-foreground bg-background"
+          >
             {TABS.map((t) => (
               <button
                 key={t.id}
@@ -445,6 +465,9 @@ export default function MemoryLens({
                 onClick={() => setTab(t.id)}
                 aria-selected={tab === t.id}
                 role="tab"
+                id={`mem-tab-${t.id}`}
+                aria-controls="mem-panel"
+                tabIndex={tab === t.id ? 0 : -1}
                 className={`flex-1 border-r-2 border-foreground px-1 py-2 font-tech text-[10px] uppercase tracking-widest last:border-r-0 ${
                   tab === t.id ? "bg-neon text-background" : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -454,10 +477,17 @@ export default function MemoryLens({
             ))}
           </nav>
 
-          {tab === "escenas" && <ScenesPanel sessionKey={session} onError={actions.onError} />}
-          {tab === "persona" && <PersonaPanel sessionKey={session} />}
-          {tab === "skills" && <SkillsPanel onError={actions.onError} />}
-          {tab === "genlog" && <GenlogPanel sessionKey={session} {...actions} />}
+          <div
+            id="mem-panel"
+            role="tabpanel"
+            aria-labelledby={`mem-tab-${tab}`}
+            className="mt-3"
+          >
+            {tab === "escenas" && <ScenesPanel sessionKey={session} onError={actions.onError} />}
+            {tab === "persona" && <PersonaPanel sessionKey={session} />}
+            {tab === "skills" && <SkillsPanel onError={actions.onError} />}
+            {tab === "genlog" && <GenlogPanel sessionKey={session} {...actions} />}
+          </div>
         </>
       )}
     </div>

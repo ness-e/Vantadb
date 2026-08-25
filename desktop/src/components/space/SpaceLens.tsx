@@ -274,18 +274,33 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
       <div ref={containerRef} className="relative flex-1 overflow-hidden">
         {state.phase === "done" && points.length > 0 ? (
           <>
-            <canvas ref={canvasRef} className="h-full w-full" />
+            <canvas
+              ref={canvasRef}
+              className="h-full w-full"
+              role="img"
+              aria-label={`Scatterplot de ${points.length} embeddings proyectados con UMAP (los nombres de los puntos se listan abajo). Click en un punto lo abre en el Inspector; shift+arrastrar selecciona con lasso.`}
+            />
             {hoverPoint && (
               <div
                 className="pointer-events-none absolute bottom-2 left-2 z-10 max-w-[320px] border-2 border-foreground bg-background/95 px-3 py-2 font-tech text-[10px] shadow-ink-sm"
                 role="tooltip"
               >
-                <div className="font-bold text-neon">
+                <div className="font-bold text-accent-text">
                   {hoverPoint.record.namespace}/{hoverPoint.record.id}
                 </div>
                 <div className="mt-1 text-muted-foreground">{preview(hoverPoint.record)}</div>
               </div>
             )}
+            {/* UX-08: alternativa accesible al canvas WebGL — lista de puntos
+                para teclado/SR (sr-only, cap 200 para no saturar lectores). */}
+            <ul className="sr-only" aria-label="Puntos proyectados">
+              {points.slice(0, 200).map((p, i) => (
+                <li key={i}>
+                  {p.record.namespace}/{p.record.id}
+                </li>
+              ))}
+              {points.length > 200 && <li>… y {points.length - 200} puntos más</li>}
+            </ul>
           </>
         ) : (
           <div className="flex h-full items-center justify-center font-tech text-xs text-muted-foreground">

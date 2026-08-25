@@ -111,6 +111,10 @@
   --color-cream: var(--cream);
   --color-ink: var(--ink);
   --color-neon: #FF5500;
+  /* UX-A11Y (UX-06): texto pequeño NO usa neón (#FF5500 = 3.07:1 sobre crema
+     falla AA 4.5:1) — usa accent-text (light #C24000 = 4.99:1 ✅, dark = neón
+     que pasa 6.09:1 ✅). Neón intacto como bg/borde/fill (identidad linocut). */
+  --color-accent-text: var(--accent-text);
   --color-paper: var(--paper);
   --color-smoke: #1A1A1A;
   /* Sombra dura linocut: negra en claro, crema en oscuro (ver .dark). */
@@ -158,6 +162,9 @@
      Brand accent #FF5500 unchanged as bg/border color. */
   --accent: #FF5500;
   --accent-foreground: #000000;
+  /* UX-A11Y (UX-06): accent-text para texto pequeño (AA ≥4.5:1 sobre crema/
+     paper; el neón #FF5500 como texto solo pasa en dark). */
+  --accent-text: #C24000;
   /* FIND-24: destructive separated from accent — red #C41E25 reads 5.61:1 as text
      on cream and 5.90:1 with white fg (pair destructive bg with white/cream text,
      NOT black: 3.56 ❌). Errors no longer share orange with highlights. */
@@ -205,6 +212,8 @@
   /* FIND-24: same AA fix as light — black on #FF5500 = 6.55:1. */
   --accent: #FF5500;
   --accent-foreground: #000000;
+  /* UX-A11Y (UX-06): dark accent-text = neón (6.09:1 sobre #0a0a0a ✅). */
+  --accent-text: #FF5500;
   /* FIND-24: dark destructive is a lighter warm red (#F26D6D) so it passes BOTH
      directions — 6.77:1 as text on #0a0a0a and 7.18:1 with black fg as bg
      (light's #C41E25 would be 3.56:1 as text on dark). ≠ accent, no glare. */
@@ -696,6 +705,7 @@
    secondary-fg #000 / secondary #F2EDE2  17.99  ✅
    muted-fg #3A3A3A / muted #ECE6D8        9.14  ✅
    accent-fg #000 / accent #FF5500         6.55  ✅  (was cream 3.05 ❌)
+   accent-text #C24000 as text on bg       4.99  ✅  (UX-06; neon 3.07 ❌)
    destructive #C41E25 as text on bg       5.61  ✅
    white fg on destructive #C41E25         5.90  ✅  (black fg 3.56 ❌ → use white/cream)
    sidebar-accent-fg #000 / accent         6.55  ✅
@@ -709,6 +719,7 @@
    muted-fg #C9C0AC / muted #1A1A1A        9.63  ✅
    accent-fg #000 / accent #FF5500         6.55  ✅
    destructive #F26D6D as text on bg       6.77  ✅
+   accent-text #FF5500 as text on bg       6.09  ✅  (UX-06 dark)
    black fg on destructive #F26D6D         7.18  ✅
    sidebar-accent-fg #000 / accent         6.55  ✅
 

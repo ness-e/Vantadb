@@ -3,7 +3,7 @@
 // drafts locales; el footer muestra el diff de cambios y Guardar (vantaPut) /
 // Revertir (descarta) como commit explícito. Al guardar, `onSaved` devuelve el
 // MemoryRecord fresco (version bump) que refresca la selección del shell.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import type { MemoryRecord } from "../../vanta";
 import { vantaErrorMessage, vantaPut } from "../../vanta";
 import GeneralTab from "./GeneralTab";
@@ -132,6 +132,20 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
   // VS-17: estado del favorito de este registro (★ header).
   const isFav = favoritesStore.isFavorite(record.namespace, record.id);
 
+  // UX-07 (WAI-ARIA APG tabs): flechas ←/→ mueven selección + foco entre tabs
+  // (roving tabindex: solo el activo queda en el orden de tabulación).
+  function onTablistKey(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const btns = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+    if (btns.length === 0) return;
+    const cur = btns.indexOf(document.activeElement as HTMLButtonElement);
+    const dir = e.key === "ArrowRight" ? 1 : -1;
+    const next = cur < 0 ? (dir > 0 ? 0 : btns.length - 1) : (cur + dir + btns.length) % btns.length;
+    btns[next].focus();
+    setTab(TABS[next].id);
+  }
+
   return (
     <aside
       className="flex w-[400px] shrink-0 flex-col overflow-hidden border-l-4 border-foreground bg-card"
@@ -140,14 +154,14 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
       {/* Header: key/ns mono */}
       <div className="flex items-center justify-between gap-2 border-b-4 border-foreground px-4 py-3">
         <div className="min-w-0">
-          <div className="font-tech text-[10px] uppercase tracking-widest text-neon">Inspector</div>
+          <div className="font-tech text-[10px] uppercase tracking-widest text-accent-text">Inspector</div>
           <div className="mt-0.5 flex items-center gap-2">
             <code className="max-w-[170px] truncate font-tech text-sm">{record.id}</code>
             <span className="shrink-0 border-2 border-foreground bg-background px-1.5 py-0.5 font-tech text-[10px]">
               {record.namespace}
             </span>
             {score != null && (
-              <span className="shrink-0 font-tech text-[10px] text-neon">{score.toFixed(3)}</span>
+              <span className="shrink-0 font-tech text-[10px] text-accent-text">{score.toFixed(3)}</span>
             )}
           </div>
         </div>
@@ -202,14 +216,24 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
         </span>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b-4 border-foreground bg-background">
+      {/* Tabs (UX-07: tablist + roving tabindex + flechas ←/→) */}
+      <div
+        role="tablist"
+        aria-label="Detalles del registro"
+        aria-orientation="horizontal"
+        onKeyDown={onTablistKey}
+        className="flex border-b-4 border-foreground bg-background"
+      >
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
-            onClick={() => setTab(t.id)}
+            role="tab"
+            id={`insp-tab-${t.id}`}
+            aria-controls="insp-panel"
             aria-selected={tab === t.id}
+            tabIndex={tab === t.id ? 0 : -1}
+            onClick={() => setTab(t.id)}
             className={`flex-1 border-r-2 border-foreground px-1 py-2 font-tech text-[10px] uppercase tracking-widest last:border-r-0 ${
               tab === t.id ? "bg-neon text-background" : "text-muted-foreground hover:text-foreground"
             }`}
@@ -219,8 +243,13 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
         ))}
       </div>
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto scroll-manga p-4">
+      {/* Body (UX-07: tabpanel anclado al tab activo) */}
+      <div
+        id="insp-panel"
+        role="tabpanel"
+        aria-labelledby={`insp-tab-${tab}`}
+        className="flex-1 overflow-y-auto scroll-manga p-4"
+      >
         {tab === "general" && <GeneralTab record={record} score={score} ttl={ttl} setTtl={setTtl} />}
         {tab === "metadata" && <MetadataTab rows={metaRows} setRows={setMetaRows} />}
         {tab === "vector" && <VectorTab record={record} />}
@@ -233,11 +262,11 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
         {dirty ? (
           <>
             <div className="flex items-center justify-between">
-              <span className="font-tech text-[10px] uppercase tracking-widest text-neon">
+              <span className="font-tech text-[10px] uppercase tracking-widest text-accent-text">
                 Cambios sin guardar
               </span>
               {savedFlash && (
-                <span className="font-tech text-[10px] text-neon">✓ guardado v{record.version}</span>
+                <span className="font-tech text-[10px] text-accent-text">✓ guardado v{record.version}</span>
               )}
             </div>
             <details className="mt-2 border-2 border-dashed border-foreground bg-background p-2">
@@ -273,7 +302,7 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
             )}
           </>
         ) : savedFlash ? (
-          <div className="text-center font-tech text-[10px] uppercase tracking-widest text-neon">
+          <div className="text-center font-tech text-[10px] uppercase tracking-widest text-accent-text">
             ✓ guardado v{record.version}
           </div>
         ) : (

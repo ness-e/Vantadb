@@ -123,7 +123,7 @@ export default function MetricsGrid({ health, healthStatus, activeName }: Props)
                 ? "text-muted-foreground"
                 : healthStatus === "ok"
                   ? "bg-paper text-foreground"
-                  : "border-neon bg-neon/10 text-neon"
+                  : "border-neon bg-neon/10 text-accent-text"
             }`}
             data-status={healthStatus}
             title="vanta_health"

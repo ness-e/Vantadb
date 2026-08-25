@@ -246,12 +246,12 @@ export default function HomeOverview({ active }: { active: boolean }) {
       {/* Header + sync */}
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <div className="font-tech text-[11px] uppercase tracking-widest text-neon">Overview</div>
+          <div className="font-tech text-[11px] uppercase tracking-widest text-accent-text">Overview</div>
           <h1 className="font-display text-4xl text-stencil">VISTA GENERAL</h1>
         </div>
         <div className="flex items-center gap-2">
           <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-            <span className="text-neon">▲ {data.updated7d}</span> actualizados / 7d
+            <span className="text-accent-text">▲ {data.updated7d}</span> actualizados / 7d
           </span>
           <button
             type="button"
@@ -274,10 +274,10 @@ export default function HomeOverview({ active }: { active: boolean }) {
           <div className="mt-2 font-display text-5xl">{data.total.toLocaleString()}</div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1 border-2 border-foreground bg-muted px-2 py-0.5 font-tech text-[10px] uppercase">
-              <span className="text-neon">▲</span> {data.updated7d} / 7d
+              <span className="text-accent-text">▲</span> {data.updated7d} / 7d
             </span>
             <span className="inline-flex items-center gap-1 border-2 border-foreground bg-background px-2 py-0.5 font-tech text-[10px] uppercase">
-              <span className="text-neon">▤</span> {data.namespaces.length} ns
+              <span className="text-accent-text">▤</span> {data.namespaces.length} ns
             </span>
           </div>
         </Card>
@@ -348,7 +348,7 @@ export default function HomeOverview({ active }: { active: boolean }) {
                       <span className="truncate font-tech text-[11px]">
                         {r.namespace}::{r.key}
                       </span>
-                      <span className="shrink-0 font-tech text-[10px] text-neon">{fmtCountdown(remaining)}</span>
+                      <span className="shrink-0 font-tech text-[10px] text-accent-text">{fmtCountdown(remaining)}</span>
                     </div>
                     <div className="mt-0.5 h-2 border-2 border-foreground bg-background" aria-hidden="true">
                       <div className="h-full bg-neon" style={{ width: `${pct}%` }} />

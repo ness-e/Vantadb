@@ -4,7 +4,7 @@
 // parseVdbDump) → preview ✓/✗ → `runImport(ingestBatch)` → reporte. Errores
 // NUNCA silenciosos: parse global → alert; filas inválidas → marcadas y
 // repetidas en el reporte; fallo de lectura/import → onError.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ingestBatch, vantaErrorMessage } from "../../vanta";
 import {
   MAX_IMPORT,
@@ -14,6 +14,8 @@ import {
   type ParseResult,
 } from "./parseImport";
 import { FileText, TriangleAlert } from "lucide-react";
+// UX-03: trap de foco del dialog (Tab cicla, Escape cierra, foco restaurado).
+import { useModalFocus } from "./useModalFocus";
 
 interface Props {
   open: boolean;
@@ -52,6 +54,8 @@ export default function ImportDrop({
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<ImportReport | null>(null);
+  // UX-03: overlay del dialog para el trap de foco.
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   // Reset al abrir.
   useEffect(() => {
@@ -65,15 +69,10 @@ export default function ImportDrop({
     }
   }, [open, defaultNamespace]);
 
-  // Escape cierra (salvo mientras importa).
-  useEffect(() => {
-    if (!open || busy) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, busy, onClose]);
+  // UX-03: trap de foco + Escape + restauración del foco al cerrar. Reemplaza
+  // el useEffect de Escape anterior (el hook escucha en captura y hace
+  // stopPropagation antes que handlers globales).
+  useModalFocus(dialogRef, open, onClose, busy);
 
   // Auto-parse: el contenido del archivo ES el paste (mismo parser OP-01);
   // re-drop/re-selección → re-preview.
@@ -124,6 +123,7 @@ export default function ImportDrop({
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/55 p-6"
       role="dialog"
       aria-modal="true"
@@ -149,7 +149,7 @@ export default function ImportDrop({
         </header>
 
         {parsed?.error && (
-          <p role="alert" className="border-b-4 border-foreground bg-card px-4 py-2 font-tech text-[11px] text-neon">
+          <p role="alert" className="border-b-4 border-foreground bg-card px-4 py-2 font-tech text-[11px] text-accent-text">
             <TriangleAlert className="mr-1 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" />
             {parsed.error}
           </p>
@@ -157,7 +157,7 @@ export default function ImportDrop({
 
         {report && (
           <div className="border-b-4 border-foreground bg-card px-4 py-3" aria-live="polite">
-            <p className="font-tech text-[12px] font-bold uppercase tracking-widest text-neon">
+            <p className="font-tech text-[12px] font-bold uppercase tracking-widest text-accent-text">
               ✓ {report.imported} importados
             </p>
             {report.errors.length > 0 && (
@@ -199,7 +199,7 @@ export default function ImportDrop({
               if (f) void handleFile(f);
             }}
             className={`flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1 border-2 border-dashed border-foreground p-4 text-center font-tech text-[11px] uppercase tracking-widest transition-colors ${
-              dragOver ? "border-neon bg-neon/10 text-neon" : "text-muted-foreground hover:border-neon"
+              dragOver ? "border-neon bg-neon/10 text-accent-text" : "text-muted-foreground hover:border-neon"
             }`}
           >
             <input
@@ -251,7 +251,7 @@ export default function ImportDrop({
           </div>
 
           {parsed?.truncated && (
-            <p className="font-tech text-[10px] text-neon">
+            <p className="font-tech text-[10px] text-accent-text">
               <TriangleAlert className="mr-1 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" />
               el archivo supera {MAX_IMPORT} registros — se importan solo los primeros.
             </p>
@@ -289,7 +289,7 @@ export default function ImportDrop({
                     </td>
                     <td className="max-w-[120px] truncate px-2 py-1">{r.item?.id ?? <span className="text-muted-foreground">auto</span>}</td>
                     <td className="max-w-[240px] truncate px-2 py-1">
-                      {r.item ? textSnippet(r.item) : <span className="text-neon">{r.error}</span>}
+                      {r.item ? textSnippet(r.item) : <span className="text-accent-text">{r.error}</span>}
                     </td>
                     <td className="max-w-[80px] truncate px-2 py-1 text-muted-foreground">
                       {r.item?.namespace ?? "—"}
@@ -318,7 +318,7 @@ export default function ImportDrop({
 
         <footer className="flex items-center gap-2 border-t-4 border-foreground bg-card px-4 py-3">
           {busy && (
-            <span className="font-tech text-[10px] uppercase tracking-widest text-neon" role="status">
+            <span className="font-tech text-[10px] uppercase tracking-widest text-accent-text" role="status">
               importando…
             </span>
           )}
