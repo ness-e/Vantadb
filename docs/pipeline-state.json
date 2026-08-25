@@ -1,10 +1,10 @@
 {
-  "plan": "docs/plans/archive/2026-08-25-batch-colaterales-deuda-desktop.md",
-  "totalCompleted": 14,
+  "plan": "docs/plans/archive/2026-08-25-batch-desktop-ux-core.md",
+  "totalCompleted": 8,
   "consecutiveFails": 0,
-  "total": 14,
+  "total": 8,
   "failMode": "stop",
   "totalFailed": 0,
-  "verifiedResolved": ["FIND-30", "MEM-51"],
+  "notes": "DAUD-08 stash@{0} NO dropeado (242 archivos reales, WIP P34) - decisión pendiente del usuario",
   "lastSync": "2026-08-25T00:00:00Z"
 }

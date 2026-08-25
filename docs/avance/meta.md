@@ -118,3 +118,11 @@ Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña
 - **Stop:** confiar en hipótesis del backlog sin diagnóstico empírico (FIND-31: la hipótesis "text index no se reconstruye" era incorrecta — la causa real era lazy TTL eviction en memory_record_from_node). Lanzar sub-agentes que editan el mismo archivo en paralelo (AGT-02/AGT-03/AGT-06 comparten AGENTS.md — se secuenciaron).
 - **Continue:** regla de sesiones paralelas ya no aplica (eliminada); desktop incluido (UX-16 lucide-react); STOP CONDITIONS respetadas (MCP-34a sin snapshot_restore, MEM-51 sin refactor grande).
 - **Accion medible:** tasa de "ya resuelto" detectado en DISCOVERY = 2/14 (14%) — el Paso 0 con verificación de código real ahorra reimplementación. North Star: 14/14 first-try, 0 falsos positivos.
+
+## Retrospectiva — Batch Desktop UX/DAUD + Core menor (plan 2026-08-25-batch-desktop-ux-core)
+- **Cierre:** 8/8 tareas agrupadas (cubren ~20 filas backlog: UX-02..17, DAUD-01..08, MOD-15, FIND-11/17, TIR-08), 6 commits + 1 verificado ya-resuelto (TIR-08 en 1c7660dc). 0 failed. Waves: W0 {UX-A11Y, MOD-15, FIND-17} · W1 {UX-POLISH, FIND-11, TIR-08} · W2a {DAUD-LIMPI} · W2b {E2E-VISUAL}.
+- **Start:** agrupar tareas desktop por área en 1 sub-agente (lección previa: NO paralelizar el mismo dir); verificar con git log -S + rg antes de editar fixes reportados (TIR-08 ya resuelto); CodeGraph auto-sync deshabilitado → leer archivos directos.
+- **Stop:** confiar en verificación stale de stash (DAUD-08: la verificación 2026-08-24 decía "0 difiere" pero el diff real = 242 archivos → NO dropeado, reportado al usuario).
+- **Continue:** STOP CONDITIONS respetadas (DAUD-08 no dropear con contenido real; FIND-17 sin renames); hallazgos colaterales ruteados a Backlog (FIND-23 namespace vacío en vanta-http-map).
+- **Accion medible:** 3/8 tareas del batch requirieron verificación "ya-resuelto" o stop-condition (TIR-08, DAUD-08, FIND-17 parcial) — la verificación de código real antes de editar ahorra trabajo. North Star: 8/8 first-try, 0 falsos positivos, 0 regresiones.
+- **Deuda:** DAUD-08 stash@{0} (41 archivos, 1500+ líneas WIP P34) pendiente de decisión del usuario; FIND-23 (namespace vacío HTTP) abierto; window.confirm persiste en ImportPaste/ImportDrop.
