@@ -38,6 +38,7 @@ import {
   type PairRecord,
 } from "./consolidate-core.ts";
 import ConfirmDiscard from "./ConfirmDiscard";
+import LensShell from "../layout/LensShell";
 import { ShieldCheck } from "lucide-react";
 
 const PAGE_SIZE = 100;
@@ -431,16 +432,8 @@ export default function ConsolidateLens({
 
   return (
     <section aria-label="Consolidación asistida" className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 border-b-4 border-foreground pb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-neon">⇄</span>
-          <h2 className="font-display text-2xl text-stencil">CONSOLIDAR</h2>
-        </div>
-        <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-          duplicados · superados · diff
-        </span>
-      </div>
+      {/* Header (UX-01: LensShell compartido) */}
+      <LensShell title="CONSOLIDAR" icon="⇄" meta="duplicados · superados · diff" />
 
       {/* Controles */}
       <div className="flex flex-wrap items-center gap-2 border-2 border-foreground bg-card p-3">

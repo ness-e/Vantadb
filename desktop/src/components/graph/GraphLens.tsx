@@ -12,6 +12,7 @@ import { Suspense, useCallback, useState } from "react";
 import GraphScene from "./GraphScene";
 import IqlConsole from "./IqlConsole";
 import { MAX_NODES, useGraphData } from "./useGraphData";
+import LensShell from "../layout/LensShell";
 import { Tag, TriangleAlert } from "lucide-react";
 
 interface Props {
@@ -40,14 +41,13 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
 
   return (
     <div className="flex h-[calc(100dvh-112px)] min-h-[480px] flex-col">
-      {/* Toolbar mínimo (contrato) */}
-      <div className="flex flex-wrap items-center gap-2 border-b-4 border-foreground bg-card px-4 py-2">
-        <span className="font-tech text-[10px] uppercase tracking-widest text-neon">
-          grafo · {g.namespace ?? "—"}
-        </span>
-        <span className="font-tech text-[10px] text-muted-foreground">
-          {g.nodeCount}/{MAX_NODES} nodos · {g.edgeCount} aristas
-        </span>
+      {/* Header + toolbar (UX-01: LensShell compartido) */}
+      <div className="border-b-4 border-foreground bg-card px-4 py-3">
+        <LensShell
+          title="GRAFO"
+          meta={`${g.namespace ?? "—"} · ${g.nodeCount}/${MAX_NODES} nodos · ${g.edgeCount} aristas`}
+        />
+        <div className="mt-2 flex flex-wrap items-center gap-2">
         {highlightIds.size > 0 && (
           <span className="font-tech text-[10px] font-bold text-cyan-700 dark:text-cyan-300" role="status">
             ● {highlightIds.size} resaltados
@@ -99,6 +99,7 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
           >
             <Tag className="mr-1 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" /> labels
           </button>
+        </div>
         </div>
       </div>
 

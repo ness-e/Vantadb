@@ -12,6 +12,7 @@ import type { MemoryRecord } from "../../vanta";
 import { vantaErrorMessage } from "../../vanta";
 import { useProjection, type ProjectionPoint } from "./useProjection";
 import SelectionBar, { type SelectionBusy } from "./SelectionBar";
+import LensShell from "../layout/LensShell";
 import { recordsToJsonl, downloadText } from "../export/export-jsonl";
 import { undoStore } from "../../store/undo";
 import { TriangleAlert } from "lucide-react";
@@ -211,14 +212,13 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
 
   return (
     <div className="flex h-[calc(100dvh-112px)] min-h-[480px] flex-col">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 border-b-4 border-foreground bg-card px-4 py-2">
-        <span className="font-tech text-[10px] uppercase tracking-widest text-neon">
-          espacio · {namespace || "todos"}
-        </span>
-        <span className="font-tech text-[10px] text-muted-foreground">
-          {state.phase === "done" ? `${points.length} puntos` : state.phase}
-        </span>
+      {/* Header + toolbar (UX-01: LensShell compartido) */}
+      <div className="border-b-4 border-foreground bg-card px-4 py-3">
+        <LensShell
+          title="ESPACIO"
+          meta={`${namespace || "todos"} · ${state.phase === "done" ? `${points.length} puntos` : state.phase}`}
+        />
+        <div className="mt-2 flex flex-wrap items-center gap-2">
         {state.phase === "loading" && (
           <span className="font-tech text-[10px] text-muted-foreground">proyectando…</span>
         )}
@@ -250,6 +250,7 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
           >
             ⤒ proyectar
           </button>
+        </div>
         </div>
       </div>
 

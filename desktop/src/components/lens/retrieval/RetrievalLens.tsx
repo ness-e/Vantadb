@@ -26,6 +26,7 @@ import {
   toVantaMemoryFilter,
 } from "../../search/filters-core";
 import ScoreBars from "./ScoreBars";
+import LensShell from "../../layout/LensShell";
 import { fusionModeFromSlider } from "./retrieval-core";
 
 // react-querybuilder (~200 kB) solo lo abre el panel de filtros → lazy igual
@@ -223,19 +224,15 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
 
   return (
     <section className="press-lg border-4 border-foreground bg-card" aria-label="Lente RETRIEVAL">
-      {/* Header */}
-      <div className="border-b-4 border-foreground p-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-display text-3xl text-stencil">RETRIEVAL</h2>
-          <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-            ¿por qué recuperó esto? · explain on · fusión server-side (MEM-01)
-          </span>
-        </div>
-        <p className="mt-1 font-tech text-[11px] text-muted-foreground">
-          desglose por rama (texto BM25 · vector HNSW) — el slider fija el modo de
-          fusión en el servidor: {weight === 0 ? "keyword" : weight === 100 ? "vector" : "hybrid RRF"}{" "}
-          ({fusionModeFromSlider(weight).mode}); resultados = explain del server
-        </p>
+      {/* Header (UX-01: LensShell compartido) */}
+      <div className="p-4">
+        <LensShell
+          title="RETRIEVAL"
+          meta="¿por qué recuperó esto? · explain on · fusión server-side (MEM-01)"
+          subtitle={`desglose por rama (texto BM25 · vector HNSW) — el slider fija el modo de fusión en el servidor: ${
+            weight === 0 ? "keyword" : weight === 100 ? "vector" : "hybrid RRF"
+          } (${fusionModeFromSlider(weight).mode}); resultados = explain del server`}
+        />
       </div>
 
       {/* Barra de consulta (b) */}

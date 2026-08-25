@@ -21,6 +21,7 @@ import {
   type NamespaceStatsMap,
 } from "../../vanta";
 import { useMetricsPoll } from "../../hooks/useMetricsPoll";
+import LensShell from "../layout/LensShell";
 import {
   CORE_GAPS,
   namespaceBars,
@@ -91,12 +92,8 @@ export default function IndicesLens({ health, healthStatus, activeName }: Props)
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-2xl text-stencil">ÍNDICES</h2>
-        <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-          {activeName ?? "sin backend"} · poll 4s
-        </span>
-      </div>
+      {/* Header (UX-01: LensShell compartido) */}
+      <LensShell title="ÍNDICES" meta={`${activeName ?? "sin backend"} · poll 4s`} />
 
       {error && (
         <p role="alert" className="border-2 border-foreground bg-card px-3 py-2 font-tech text-[11px]">

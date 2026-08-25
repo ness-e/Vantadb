@@ -22,6 +22,7 @@ import {
   vantaErrorMessage,
   type MemoryRecord,
 } from "../../vanta";
+import LensShell from "../layout/LensShell";
 
 interface LensActions {
   onNotice: (msg: string) => void;
@@ -407,6 +408,8 @@ export default function MemoryLens({
 
   return (
     <div className="space-y-4">
+      {/* Header (UX-01: LensShell compartido) */}
+      <LensShell title="MEMORIA" meta="escenas · persona · skills · genlog" />
       {/* Selector de sesión (contexto de todas las consultas) */}
       <form
         onSubmit={(e) => {
