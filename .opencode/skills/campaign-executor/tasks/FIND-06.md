@@ -1,7 +1,7 @@
 # FIND-06 — READMEs SDK en español → inglés
 
 - **Plan:** docs/plans/2026-08-25-batch-core-server-mcp.md (Task 14)
-- **Estado:** IN PROGRESS
+- **Estado:** ✅ COMPLETED (2026-08-25, commiteado f61cd4ae)
 - **Esfuerzo:** 🟡 · **Prioridad:** 🟢 · **Appetite:** 3h
 - **Contrato:** READMEs SDK técnicos en inglés; `scripts/validate-docs-coverage.ps1` 0 gaps; FIND-06 en backlog marcado DONE
 - **Archivos clave:** `vantadb-python/README.md`, `vantadb-ts/README.md`

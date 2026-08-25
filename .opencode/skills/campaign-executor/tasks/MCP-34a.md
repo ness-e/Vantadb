@@ -8,7 +8,7 @@
 - **Tipo:** Rust core SDK + MCP binding (vanta-worker)
 - **Turns estimados:** 5
 - **Creado:** 2026-08-25
-- **Estado:** ⏳ COMPLETED-CÓDIGO (verificación full de lead pendiente: clippy full-workspace bloqueado por MOD-06 insert.rs)
+- **Estado:** ✅ COMPLETED (commiteado por lead 0dc57a60 feat(mcp): MCP-34a snapshot_create tool)
 - **Incógnitas (uphill):** 0
 - **Pendientes (downhill):** 3
 

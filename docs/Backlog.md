@@ -15,7 +15,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 > **Verification method:** All items cross-checked against actual codebase (Jul 27, 2026). 8 tareas ejecutadas en sesión: TSK-106, MKT-03, NUEVO-21, MKT-04, TSK-107, DISC-02, DISC-03, Good first issues (18 creadas).
 > **Sync 2026-08-06:** 30 tareas ejecutadas por el plan `docs/plans/2026-08-05-backlog-validation-actions.md` tachadas y migradas a `docs/progreso/README.md`: AUDIT-01/03/04, DEBT-01, TECH-01..08, AUDIT-05/08, NUEVO-01, MKT-10/16, AUD-001..011 (AUD-010 fusionada en TECH-04/ADR-012), GH-123/141.
 > **Sync 2026-08-07:** 214 filas completadas eliminadas del backlog (210 IDs únicos) — migradas/verificadas en `docs/progreso/README.md` y `docs/progreso/BACKLOG_HISTORY.md`. Quedan 35 tareas activas (ver Exec Summary).
-> **Total open items:** 73 activas (conteo real re-contado 2026-08-24, filas ⬜/❌; regla GOV-C7: actualizar contando filas pendientes en cada sync) — **Sync 2026-08-24 (c) auditoría diseño: P37 creada (9 tareas DAUD-01..09; fixes D1-D11 ya aplicados en sesión por 5 sub-agentes, sin commitear — ver sección P37). Incluye P34 UX-01..15 y P36 AGT.** **Sync 2026-08-24 (b): campaña desktop COMPLETA — DESKTOP-23..39 (17/17) ejecutadas y migradas a `docs/avance/activo/desktop.md`; P12 cerrada** — previas (DISC-01..03, LEG-01, BIZ-01b, OLD-01, DESKTOP-15..27, [ADMIN-XX pending W4]) + P15 residuales (ERR-006/007/008/009/015/026/031/032/033/036/037/042/043/044/045/047/048/049) + P16 residuales (PERF-07/08/09, CI-01) + **P25 (MCP-16..26) + P26 (VS-00..11 + VS-CORE-01..07)**. P15/P16 principales ejecutadas por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` (49/49 ✅). P19 CI batch (CI-02..07) ejecutado y migrado 2026-08-12 — plan archivado `docs/plans/archive/2026-08-12-ci-deuda.md`. Origen: investigación multi-agente 2026-08-09 → `docs/research/investigacion-equipo-2026-08-09.md`
+> **Total open items:** 106 activas (reconteo GOV-C7 2026-08-25: 89 filas ⬜/❌ previas + 17 nuevas de P38) — **Sync 2026-08-25: auditoría completa de `docs/research/` (~80 docs, 3 sub-agentes + verificación codegraph) → P38 creada (15 RES + 2 DEC). 4 candidatos murieron en validación y NO se agregaron: CRIT-01..09 resueltos en código actual, guías Vectara/Chroma ya existen, PERFORMANCE_TUNING.md eliminado, INV-008 search_batch_requests ya implementado (`vantadb-python/src/lib.rs:1688`). Detalle y evidencia en sección P38.** Previo (conteo real re-contado 2026-08-24, filas ⬜/❌; regla GOV-C7: actualizar contando filas pendientes en cada sync) — **Sync 2026-08-24 (c) auditoría diseño: P37 creada (9 tareas DAUD-01..09; fixes D1-D11 ya aplicados en sesión por 5 sub-agentes, sin commitear — ver sección P37). Incluye P34 UX-01..15 y P36 AGT.** **Sync 2026-08-24 (b): campaña desktop COMPLETA — DESKTOP-23..39 (17/17) ejecutadas y migradas a `docs/avance/activo/desktop.md`; P12 cerrada** — previas (DISC-01..03, LEG-01, BIZ-01b, OLD-01, DESKTOP-15..27, [ADMIN-XX pending W4]) + P15 residuales (ERR-006/007/008/009/015/026/031/032/033/036/037/042/043/044/045/047/048/049) + P16 residuales (PERF-07/08/09, CI-01) + **P25 (MCP-16..26) + P26 (VS-00..11 + VS-CORE-01..07)**. P15/P16 principales ejecutadas por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` (49/49 ✅). P19 CI batch (CI-02..07) ejecutado y migrado 2026-08-12 — plan archivado `docs/plans/archive/2026-08-12-ci-deuda.md`. Origen: investigación multi-agente 2026-08-09 → `docs/research/investigacion-equipo-2026-08-09.md`
 > **Nuevo 2026-08-18:** **P26 Vanta Studio** creada (17 tareas) desde investigación `docs/research/human-facing-db-ui/` + decisiones del usuario (Fase 0 completa, solo desktop, estética manga/linocut, R3F para grafo, MARK variante desktop). Plan: `docs/plans/2026-08-18-vanta-studio-fase0.md`. Historial+Diff en espera hasta VS-CORE-07 (retención de versiones). Auditoría multi-agente 2026-08-18 → 19 tareas finales (VS-10/VS-11 nuevos, re-scopes VS-CORE-01/03/06, dark palette, DEFERs ampliados).
 > **Nuevo 2026-08-18:** **P27 Vanta Memory Engine** creada (38 tareas MEM-01..38) desde investigación TDAM `docs/research/tdam/` (9 reportes verificados + SYNTHESIS, orden F1–F7) — análisis multi-agente (3× vanta-research). Plan: `docs/plans/2026-08-18-vanta-memory.md`.
 > **Sync 2026-08-09:** plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` archivado — 49/49 tareas delegables completadas (Wave 0-3: RELEASE-01/02/03, SEC-01, 24 ERR, 7 FEAT, REVISAR-01, COV-001/003/004, PERF-01/04/06, DOC-02..08). RELEASE-02 verificado live: 0.5.0 publicado (crates.io/PyPI/npm/GitHub 2026-08-01). Filas completadas eliminadas de P15/P16; residuales siguen activas. Task 50 COM-02/03 (humana) queda en la tabla.
@@ -55,6 +55,7 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | **GOV** 📋 Gobernanza Documental (post-auditoría 2026-08-21, plan `docs/plans/2026-08-22-doc-governance-plan.md`) | 30 tareas (T0: TIR ×3 · A: medición ×5 · B: Show-HN ×6 · C: maestros ×7 · D: taxonomía ×6 · E: limpieza ×1 · F: auditoría intocadas ×2) | ~6 días | 🔴 Alta (Wave B bloqueante Show HN; decisiones D1-D14 del owner en `docs/reviews/auditoria-documentacion-2026-08-21.md`) |
 | **P36** 🔧 Auditoría AGENTS.md & sistema de agentes (2026-08-24) | 6 (AGT-01..06; 3 fixes ya aplicados en sesión) | ~1 día | 🟠 Media |
 | **P37** 🎨 Auditoría diseño desktop post-fix (2026-08-24, orquestador + 5 sub-agentes) | 9 (DAUD-01..09; fixes D1-D11 ya aplicados en sesión — ver sección P37) | ~0.5 día (DAUD-01 smoke visual es la única no-trivial) | 🟠 Media (DAUD-09 commit 🔴) |
+| **P38** 🔬 Research huérfanas → tarea (auditoría docs/research, 2026-08-25) | 17 (RES-01..15 + DEC-01/02; cada fila validada contra código con evidencia) | ~2-3 semanas (RES-01 es la más grande) | 🟡 Media (RES-01/RES-02 🔴 calidad/durabilidad) |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
 > **Nuevo 2026-08-04:** Fase 12 DESKTOP (26 tareas, app Tauri multi-connection sobre las 6 integraciones) + `DEBT-01` (gate docs-coverage roto, Fase 4) + `TECH-01..08` (hallazgos de investigación DESKTOP-01b: 2 bugs reales, 1 batch stale-docs, 1 ADR env-naming, 4 features/decisiones, todos en Phase 4).
@@ -793,11 +794,10 @@ antadb-examples\ repo distinto en pilot-onboarding-checklist:51 — verificar si
 |----|--------|-----|-------------------|------------|--------|
 | `MOD-02` | core | 🟡 | Transacciones no crash-atómicas: replay ignora marcadores Begin/Commit → txn parcial se aplica como commiteada. Bufferizar ops hasta ver Commit(txn_id) + chaos test kill entre shards | `txn.rs:145`, `wal_sharded.rs:201` · core.md H-2 | ❌ Pendiente |
 | `MOD-05` | core | 🟢 | Deprecar `InMemoryEngine` hacia StorageEngine in-memory: elimina clase de bug MOD-01 y ~850 líneas | `engine.rs:72` · core.md R5 | ❌ Pendiente |
-| `MOD-06` | core | 🟢 | Nits agrupados: flush thread-per-shard, clones batch_append, lookup intern en loop, cardinality dup, write_shard_meta no atómico, PITR sin wiring (requiere decisión) | `wal_sharded.rs`, `insert.rs:158-204` · core.md | ❌ Pendiente |
+| `MOD-06` | core | 🟢 | Nits agrupados: flush thread-per-shard, clones batch_append, lookup intern en loop, cardinality dup, write_shard_meta no atómico, PITR sin wiring (requiere decisión) | `wal_sharded.rs`, `insert.rs:158-204` · core.md | ✅ Implementado 2026-08-25 (commit del lead pendiente). PITR sin wiring NO implementado — requiere ADR humano (Regla 5); ver fila PRO-03. |
 | `MOD-08` | mcp | 🟡 | Loop stdio serial: Semaphore/spawn_blocking dead-code efectivo — rebuild 50s bloquea fan-out del agente | `server.rs:83-153` · mcp.md H2 | ❌ Pendiente |
 | `MOD-09` | mcp | 🟡 | Graceful shutdown descarta respuesta ya computada del request in-flight (break antes del write) | `server.rs:150-155` · mcp.md H3 | ❌ Pendiente |
 | `MOD-10` | mcp | 🟡 | Gaps SDK sin tool: versions, supersede, similar_to_key, vacuum, remove_edge (edges inborrables vía MCP hoy). Candidatos MCP-30..34 | `api.rs:81,451,840,1218,1520` · mcp.md §cobertura | ❌ Pendiente |
-| `MOD-11` | mcp | 🟢 | Nits agrupados: k sin clamp en search_semantic, timeout no cancela spawn_blocking, total_bytes aproximada, namespace:// limit 100, rutas LLM06 sin threat-model doc | `tools.rs:879,1028,1389` · mcp.md H4-H8 | ❌ Pendiente |
 | `MOD-13` | server | 🟡 | Sin request TimeoutLayer: handler atascado retiene conexión indefinidamente (solo hay pool acquire timeout) | `cli_server.rs` (0 matches TimeoutLayer) · server.md | ❌ Pendiente |
 | `MOD-14` | server | 🟡 | Test rate-limit e2e acepta `200\|\|429`: no detectaría governor desactivado. Exigir ≥1 429 con burst conocido | `vantadb-server/tests/e2e.rs:296-300` · server.md | ❌ Pendiente |
 | `MOD-15` | server | 🟢 | Nits agrupados: middleware.rs re-export redundante, feature sysinfo vacía, main.rs abre engine raw sin comentario, falta constructor ServerState para tests | `middleware.rs:1`, `Cargo.toml:33` · server.md | ❌ Pendiente |
@@ -945,3 +945,54 @@ Próxima tarea si completa: DESKTOP-25
 # antes de Wave 2: git status  (confirmar que desktop/ dejó de moverse)
 ```
 
+
+
+---
+
+## P38 - Investigaciones huérfanas convertidas en tarea (auditoría docs/research, 2026-08-25)
+
+> Contexto: auditoría completa de `docs/research/` (~80 docs, 3 sub-agentes vanta-research + verificación lead vía codegraph/grep). Detectó investigaciones con acciones recomendadas que **nunca se convirtieron en tarea** ni se ejecutaron. Cada fila fue validada contra el código actual el 2026-08-25 (evidencia citada). IDs nuevos: `RES-*` (research→tarea) y `DEC-*` (decisión de producto).
+
+### Candidatos DESCARTADOS en validación (no re-proponer)
+
+- **CRIT-01..09** del informe externo `VantaDB-28-07-2026.md` → **todos resueltos**: `archive.rs` valida longitudes + `sync_all` + flush con map_err (:95/:109/:135/:137), `wal_sharded.rs recover()` usa checkpoint_seq global con tests (:243-274, :641/:663), `wal.rs:338` default Periodic = sync cada write, Dockerfile `RUST_VERSION=1.94.1`, providers excluidos del workspace con NOTE documentada (`Cargo.toml:638`). El informe queda archivado como referencia histórica.
+- **Guías Vectara/Chroma** (`vectara-competitive-research`) → ya existen `docs/migrate-from-vectara.md` y `03-migrating-from-chromadb.md` + `benchmarks_vs_lancedb_chroma.md`.
+- **Purga PERFORMANCE_TUNING.md** (residual FND-13) → el archivo ya no existe en `docs/` (solo snapshots históricos).
+- **INV-008 search_batch_requests** → YA implementado (`vantadb-python/src/lib.rs:1688`, wrapper async `__init__.py:342`). Archivar INV-008.
+
+### 🔴 Alta
+
+| ID | Effort | Descripción | Archivos / Origen | Estado |
+|----|--------|-------------|-------------------|--------|
+| `RES-01` | 🟡 | **ACID Phase 4a: WAL v2 con `WalRecord::Prepare`** + reordenar commit point (keystone de rollback multi-capa; habilita errores truthful y MVCC stamps que sobreviven restart). Diseño completo con acceptance criteria por fase (4a-4d) ya escrito. Delegar a vanta-arch | `src/wal.rs` (hoy `WAL_FORMAT_VERSION=1`, sin Prepare — verificado 2026-08-25) · Origen: `docs/research/ACID_ROLLBACK_DESIGN.md` | ⬜ Pendiente |
+| `RES-02` | 🟡 | **Separar binario `chaos_failpoints`** (race global de failpoints, flaky local) **+ crear `crash_kill_recovery.rs`** (kill real a mitad de escritura, fsync falso, concurrencia+kill). Plan completo en FND-15 (items 01-05); los archivos no existen hoy. Delegar a vanta-chaos | `tests/storage/` · Origen: `docs/research/FND-15-crash-recovery-verificacion.md` | ⬜ Pendiente |
+
+### 🟡 Media
+
+| ID | Effort | Descripción | Archivos / Origen | Estado |
+|----|--------|-------------|-------------------|--------|
+| `RES-03` | 🟡 | **Canal multi-consumidor en ingestion pipeline**: reemplazar `Arc<Mutex<mpsc::Receiver>>` por async-channel/flume (contención serializada; única instancia sospechosa del inventario FND-19) | `src/ingestion.rs:72` (patrón intacto — verificado 2026-08-25) · Origen: `FND-19-arc-mutex-inventario.md` | ⬜ Pendiente |
+| `RES-04` | 🟡 | **Phrase queries end-to-end**: condición `TextMatch` en parser IQL + tokenización literal de frases (sin stemming/stopwords) + highlight de frase completa en snippets. Enforcement base ya implementado en `lexical_search`; faltan estos 3 gaps | `src/iql/`, `src/sdk/search/` · Origen: `INV-009-phrase-queries-term-positions.md` | ⬜ Pendiente |
+| `RES-05` | 🟢 | **PY-4: context manager síncrono** `__enter__/__exit__` en pyclass VantaDB (~10 líneas; hoy un `with` no hace flush del WAL — riesgo durabilidad). El wrapper async ya tiene `__aenter__`; falta el sync | `vantadb-python/src/lib.rs`, `vantadb_py/__init__.py` · Origen: `FND-05-sdk-idiomatico.md` | ⬜ Pendiente |
+| `RES-06` | 🟡 | **Semántica de scores oficial**: documentar scoring (RRF/cosine/BM25) en `docs/api/` + resolver drift zero-norm cosine entre core Rust y `vantadb.ts`. Grep docs/api "score semantics/zero-norm" → 0 hits (2026-08-25) | `docs/api/`, `vantadb-ts/src/vantadb.ts` · Origen: `FND-06-core-bindings-boundaries.md` (H1+H3) | ⬜ Pendiente |
+| `RES-07` | 🟡 | **Calibrar `rss_threshold`** (F2: recalibrar `DEFAULT_RSS_THRESHOLD=0.80` con medición real) + bench full-scale `[10k..100k]` (F3) | `src/config.rs:22`, benches memory-budget · Origen: `FND-01-memory-budget.md` (follow-ups F2/F3) | ⬜ Pendiente |
+| `RES-08` | 🟢 | **Benchmark delete-masivo antes de rediseñar DashMap sweep** (H4): medir contención real del sweep en path de deletes; decidir rediseño solo si la medición lo justifica | `src/storage/engine/maintenance.rs` · Origen: `FND-02-multi-index-locks.md` (H4) | ⬜ Pendiente |
+| `RES-09` | 🟡 | **Trackear roadmap post-launch huérfano** (investigado con archivo:línea, sin filas): WAL async ingest (10-100×), query planner con optimizaciones reales, DiskANN disk-I/O real. Agregar como filas a P24 o sub-fase propia | P24 / `docs/research/investigacion-equipo-2026-08-09.md` §roadmap | ⬜ Pendiente |
+| `RES-10` | 🟢 | **Follow-ups TIR-02/04/08 ya decididos** (~40 líneas totales): recovery-time métrica en `evals/dora.mjs`, formalizar `tasks/closed/` + regla re-procesamiento, criterios 1-2 en `research-agent.md`. Decisiones registradas en header P18; solo falta ejecutar | `evals/dora.mjs`, `.opencode/task-system/` · Origen: `2026-08-10-agent-engineering/TIR-{02,04,08}` | ⬜ Pendiente |
+
+### 🟢 Baja / proceso
+
+| ID | Effort | Descripción | Archivos / Origen | Estado |
+|----|--------|-------------|-------------------|--------|
+| `RES-11` | 🟢 | **Job rustdoc en CI**: `cargo doc --no-deps --workspace` + artifact. Grep `.github/` "cargo doc" → 0 matches (2026-08-25). API reference actualizada para adoptantes pre-docs.rs, costo mínimo | `.github/workflows/` · Origen: `FND-17-api-reference-docs-as-code.md` (Fase 1) | ⬜ Pendiente |
+| `RES-12` | 🟢 | **Touch targets ≥44px restantes** (~20 componentes web: navbar `h-9`, close buttons `h-7`, footer text-only). Solo los 3 severos fueron corregidos con `size-11`. Delegar a vanta-worker (web) | `web/src/components/*` · Origen: `INV-015-touch-targets-44px.md` | ⬜ Pendiente |
+| `RES-13` | 🟢 | **Activar pre-push hook git real** (template existe; `.git/hooks/pre-push` NO existe ni husky/lefthook — verificado 2026-08-25). Gate mecánico hoy manual/saltable | `.git/hooks/` o lefthook/husky · Origen: `gap-02-engineering.md` (P1-7) | ⬜ Pendiente |
+| `RES-14` | 🟠 | **Review por segundo agente obligatorio para tareas 🔴** (process-change): diagnosticado como *la falla más grave* del sistema de agentes (P2-1/P2-3 gap-02); no hay fila que lo trackee. Wiring: exigir `task(vanta-review)` antes de COMPLETED en tareas rojas | `.opencode/task-system/prompts/task.md`, workflows · Origen: `gap-02-engineering.md` | ⬜ Pendiente |
+| `RES-15` | 🟢 | **Institucionalizar meta-001 B/C**: micro-ADR obligatorio en cierres WONTFIX/DEFER + separar backlog negocio/técnico. Solo la recomendación A quedó implementada; B/C sin evidencia en `.opencode/rules/` (grep 0 hits 2026-08-25) | `.opencode/rules/`, `docs/Backlog.md` · Origen: `meta-001-root-cause-analysis.md` | ⬜ Pendiente |
+
+### Decisiones de producto (antes de código)
+
+| ID | Effort | Descripción | Origen | Estado |
+|----|--------|-------------|--------|--------|
+| `DEC-01` | 🟠 | **Session layer VantaDB MCP: go/no-go y alcance.** Roadmap de 4 fases propuesto (session cache, Claude Code plugin, sync/improve, lesson extraction) pero las 5 open questions siguen abiertas (¿mismo embedding space?, ¿sync automático?, ¿transporte MCP?). Decidir vía ADR antes de escribir código | `COGNEE_EVALUATION.md` | ⬜ Pendiente |
+| `DEC-02` | 🟠 | **Billing/quota CreditCalculator en server mode** (TDAM #9, diferido explícitamente fuera de F1-F7 y nunca trackeado). Decisión previa requerida: UNA calculadora (÷1000 vs ÷10000). Habilita multi-usuario/VantaDB Pro | `tdam/SYNTHESIS.md` §9, `tdam/09-deploy-usage.md` | ⬜ Pendiente |

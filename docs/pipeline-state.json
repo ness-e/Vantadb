@@ -1,10 +1,10 @@
 {
-  "plan": "docs/plans/archive/2026-08-25-batch-core-server-mcp.md",
+  "plan": "docs/plans/archive/2026-08-25-batch-colaterales-deuda-desktop.md",
   "totalCompleted": 14,
   "consecutiveFails": 0,
-  "total": 15,
+  "total": 14,
   "failMode": "stop",
   "totalFailed": 0,
-  "deferred": ["MCP-34"],
+  "verifiedResolved": ["FIND-30", "MEM-51"],
   "lastSync": "2026-08-25T00:00:00Z"
 }

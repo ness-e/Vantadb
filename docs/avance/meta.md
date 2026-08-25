@@ -111,3 +111,10 @@ Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña
 - **Continue:** contrato verificable por tarea; STOP CONDITION de MCP-34 respetada (snapshot_restore no existe en core → DEFER, no scope-creep); hallazgos colaterales ruteados a Backlog (FIND-30/31/32); hash SAME de skills MCP verificado.
 - **Accion medible:** reducir superposicion de archivos en waves a 0 (metrica: tasks por wave tocando el mismo archivo; baseline esta campana = 1 colision MOD-10/MCP-24). North Star: 14/15 first-try completado (93%), 0 falsos positivos.
 - **Deuda:** MOD-34 DEFER (snapshot_restore = feature core nueva, candidato MCP-34a wrapper snapshot_create); FIND-30/31/32 abiertos (colaterales pre-existentes).
+
+## Retrospectiva — Batch Colaterales + Deuda + Desktop (plan 2026-08-25-batch-colaterales-deuda-desktop)
+- **Cierre:** 14/14 tareas (12 commits + 2 verificadas como ya resueltas: FIND-30 absorbido por MOD-13, MEM-51 por batch Última Milla). 0 failed. Waves: W0 {FIND-30, UX-16, FIND-32} · W1 {FIND-31, MCP-34a, MOD-06} · W2 {MOD-11, MOD-21, BND-05} · W3 {AGT-02, AGT-04} · W4 {AGT-03, AGT-06, MEM-51}.
+- **Start:** verificar con git log -S + rg antes de editar un fix reportado (FIND-30/MEM-51 ya resueltos — patrón FIND-30); waves con archivos disjuntos; lead verifica+commitea por tarea.
+- **Stop:** confiar en hipótesis del backlog sin diagnóstico empírico (FIND-31: la hipótesis "text index no se reconstruye" era incorrecta — la causa real era lazy TTL eviction en memory_record_from_node). Lanzar sub-agentes que editan el mismo archivo en paralelo (AGT-02/AGT-03/AGT-06 comparten AGENTS.md — se secuenciaron).
+- **Continue:** regla de sesiones paralelas ya no aplica (eliminada); desktop incluido (UX-16 lucide-react); STOP CONDITIONS respetadas (MCP-34a sin snapshot_restore, MEM-51 sin refactor grande).
+- **Accion medible:** tasa de "ya resuelto" detectado en DISCOVERY = 2/14 (14%) — el Paso 0 con verificación de código real ahorra reimplementación. North Star: 14/14 first-try, 0 falsos positivos.
