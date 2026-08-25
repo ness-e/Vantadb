@@ -7,7 +7,14 @@
 
 ## Reglas
 
-> **Pendiente de decisión (INV-012, requiere aprobación humana):** INV-012 re-evaluó la anti-localidad y concluyó **WONTFIX** — mantener LSM + multi-level storage (2N/3N de I/O en cold reads es aceptado a cambio de simplicidad y determinismo; `benches/vfile_search.rs` re-ejecutado 2026-08-04 confirma el tradeoff). Cuando se decida formalmente, documentar aquí como regla: NO reintroducir un buffer cache complejo ni layout de datos con localidad física sin una medición que justifique el costo de complejidad. Fuente: INV-012 §2 (Rendimiento) y §3 (Complejidad vs localidad).
+> **Decisión cerrada (INV-012, WONTFIX confirmado 2026-08-04):** anti-localidad NO
+> se corrige — mantener LSM + multi-level storage (2N/3N de I/O en cold reads es
+> aceptado a cambio de simplicidad y determinismo; `benches/vfile_search.rs`
+> re-ejecutado 2026-08-04 confirma el tradeoff, ~7% < umbral 15%).
+> **Regla permanente:** NO reintroducir un buffer cache complejo ni layout de
+> datos con localidad física sin una medición contra `vfile_search.rs` que
+> justifique el costo de complejidad (señal de reapertura: >15%). Fuente:
+> INV-012 §2 (Rendimiento) y §3 (Complejidad vs localidad).
 
 > **Config de backend = patrón de acceso documentado (ADR-023, FND-08):** la
 > config del backend KV (Fjall default, RocksDB opt-in) DEBE justificarse contra

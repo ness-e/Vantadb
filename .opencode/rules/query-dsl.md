@@ -17,7 +17,7 @@
 
 - **Must:** construir los tokens de las frases de forma literal (sin stopword removal ni stemming) al ajustar `query_plan_with_config`.
 - **Must not:** aplicar el pipeline de stemming/stopwords a las frases entre comillas — distorsiona el matching exacto.
-- **Por qué:** la tokenización normal agresiva rompe frases literales (INV-009 §6 paso 3, pendiente de implementar).
+- **Por qué:** la tokenización normal agresiva rompe frases literales (INV-009 §6 paso 3; el parser ya resuelve `Condition::TextMatch` en `src/parser/mod.rs` — mantener esta semántica literal al evolucionarlo).
 
 ### R-3: NO agregar tantivy — storage custom ya cubre el alcance
 
@@ -26,7 +26,7 @@
 
 ### R-4: El parser delega frases al planner — no duplica gramática
 
-- **Must:** cuando se implemente `Condition::TextMatch(field, query)`, extraer las frases de comillas en `parse_condition` y delegar a `query_plan`/`query_plan_with_config` (que ya produce `TextQueryPlan.phrases`).
+- **Must:** extraer las frases de comillas en `parse_condition` y delegar a `query_plan`/`query_plan_with_config` (que ya produce `TextQueryPlan.phrases`) — implementado; toda condición nueva de texto sigue este camino.
 - **Must not:** crear una segunda gramática de frases en el parser que compita con la del planner.
 - **Por qué:** el parser nom ya resuelve `string_literal`; duplicar la extracción de frases crearía drift entre parse y ejecución (INV-009 §6 paso 1).
 

@@ -25,7 +25,7 @@
 
 - **Must:** `ARG RUST_VERSION` en `Dockerfile` ser ≥ `rust-version` del root `Cargo.toml` (hoy 1.94.1); cada `COPY <crate>/Cargo.toml` apuntar a un directorio que exista en el repo.
 - **Must not:** dejar `ARG RUST_VERSION=1.94.0` cuando el workspace exige 1.94.1, ni `COPY vantadb-mem0/...` etc. cuando los crates se movieron a `integrations/` (los 8 COPY de integraciones en el Dockerfile apuntan a dirs inexistentes → build roto).
-- **Por qué:** la auditoría DOC1 confirmó el bug vivo: `Dockerfile:4` fija 1.94.0 < MSRV 1.94.1 y `Dockerfile:32-39` referencia crates movidos a `integrations/`; el build docker falla.
+- **Por qué:** AUD-001 lo resolvió el 2026-08-05 (commit `1ffe523c`: `RUST_VERSION=1.94.1`, COPYs corregidos, docker build exit 0). La regla queda como preventivo: cualquier crate nuevo con manifest copiado al Dockerfile debe existir en el repo.
 
 ### 4 — Version sync: docs de API y packaging usan la versión del workspace
 

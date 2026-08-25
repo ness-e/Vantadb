@@ -9,9 +9,9 @@
 
 ### R-1: GIL-release eager en operaciones batch + Rayon + fail-fast
 
-- **Must:** en métodos batch (ej. `search_batch_requests` cuando se implemente, §5 de INV-008), liberar el GIL lo antes posible (`py.allow_threads`), ejecutar los requests con `rayon::par_iter` y propagar el primer error con `try_for_each` (fail-fast) para no retener recursos por requests fallidos.
-- **Must not:** ejecutar requests batch secuencialmente dentro del GIL ni degradar a un loop con `anyhow` que continúe tras el primer error.
-- **Por qué:** INV-008 verificó que no existe `search_batch_requests` en el binding — solo `search_batch` vector-only; el diseño aprobado exige paralelismo Rayon + error eager para throughput y latencia p99.
+- **Must:** en métodos batch (patrón de referencia: `search_batch_requests`, `vantadb-python/src/lib.rs:1688`), liberar el GIL lo antes posible (`py.detach`), ejecutar los requests con `rayon::par_iter` y propagar el primer error con `try_for_each` (fail-fast) para no retener recursos por requests fallidos. Todo batch nuevo sigue este patrón.
+- **Must not:** ejecutar requests batch secuencialmente dentro del GIL ni degradar a un loop que continúe tras el primer error.
+- **Por qué:** INV-008 diseñó el contrato (Rayon + error eager) y la implementación lo consolidó como patrón canónico para throughput y latencia p99.
 
 ### R-2: El closure de bindings se cierra en el binding, no en core/wrapper
 

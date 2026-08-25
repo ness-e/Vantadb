@@ -7,11 +7,11 @@
 
 ## Reglas
 
-### R-1: WASM siempre InMemory — no prometer persistencia
+### R-1: WASM — persistencia IDB/OPFS solo vía backends explícitos
 
-- **Must:** documentar y mantener `vantadb-wasm` como backend `BackendKind::InMemory` (WAL deshabilitado en `init.rs`); si se añade persistencia (IDB/OPFS), hacerlo con feature gate explícito.
-- **Must not:** afirmar en docs que WASM persiste datos (los handlers `connect_idb`/`save_idb`/`load_idb`/`delete_idb` existen pero el backend sigue InMemory).
-- **Por qué:** `vantadb-wasm/src/lib.rs:60-66` fija `backend_kind: BackendKind::InMemory`; documentar persistencia donde no existe es una falla de diagnóstico (DOC3 §5.1).
+- **Must:** documentar `vantadb-wasm` con sus backends reales: `InMemory` (default) y persistencia `connect_persistent`/`connect_idb`/`connect_worker` con save/load a IndexedDB/OPFS (implementados 2026-08-23, CORE-02: `graph_state.json`, `save_idb`/`load_idb`). Toda doc que prometa persistencia debe nombrar el método de conexión que la habilita.
+- **Must not:** afirmar persistencia para `connect()`/`new()` en memoria, ni prometer WAL en WASM (sigue deshabilitado en `init.rs`).
+- **Por qué:** la regla anterior ("siempre InMemory") quedó obsoleta cuando se implementó la capa de persistencia IDB/OPFS; documentar menos de lo que existe también es falla de diagnóstico.
 
 ### R-2: `pkg/` y artefactos de build no se commitean
 
@@ -29,6 +29,6 @@
 
 - **Must:** todo binding (Python/WASM/Node) que exponga ops async sobre el engine: (1) enrutar la op con `spawn_blocking`, (2) guardar cada op con un op-gate que rechace `database is closing`, (3) en `close()` llamar `drain()` del gate antes de cerrar el engine.
 - **Must not:** permitir un `put` fire-and-forget cuyo `spawn_blocking` no ha corrido cuando `close()` retorna — el write se pierde silenciosamente en exit.
-- **Por qué:** `vantadb-node/src/lib.rs:75-92,277-287` implementa `OpGate` + `drain()` exactamente para esto; `vantadb-python` y `vantadb-wasm` no tienen el patrón → riesgo de write-after-close.
+- **Por qué:** los 3 bindings (node `lib.rs:201-287`, python `op_gate`/`enter()`, wasm `try_enter`/`enter`) implementan `OpGate` + drenaje desde COMP-029/AUD-011 (2026-08-05); esta regla exige mantenerlo en cualquier binding nuevo.
 
 <!-- Referencias cruzadas: → ver api-contract.md, release-ci.md, concurrency-async.md -->

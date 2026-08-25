@@ -34,7 +34,7 @@
 ### R-5: Paridad tools MCP / endpoints HTTP entre código y docs en el mismo PR
 
 - **Must:** al añadir/renombrar/eliminar un tool en `handle_tools_list()` (`vantadb-mcp/src/lib.rs:808-964`) o una ruta HTTP, actualizar `docs/api/MCP.md`/`HTTP_API.md` en el mismo cambio.
-- **Must not:** mergear tools nuevos sin doc (hoy 8/15 tools MCP sin documentar: `query_lisp`, `get_node_neighbors`, `inject_context`, `read_axioms`, `collection_stats`, `collection_list`, `collection_delete`, `rehydrate`).
+- **Must not:** mergear tools nuevos sin doc (el gap histórico de 8/15 tools se cerró — hoy el toolset supera las 40 y existe gate de paridad GOV-B4/validate-docs-coverage; cualquier tool sin entrada en MCP.md rompe ese gate).
 - **Por qué:** el doc de MCP documenta solo 7 de 15 tools reales; sin regla el gap crece.
 
 ### R-6: Enums públicos en crecimiento: `#[non_exhaustive]` obligatorio
