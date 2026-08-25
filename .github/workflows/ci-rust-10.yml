@@ -351,18 +351,18 @@ jobs:
             --exclude vantadb-server \
             --exclude vantadb-mcp \
             --lcov --output-path lcov.info \
-            --ignore-filename-regex '(tests/|benches/|packages/experimental|crash_injection)' \
+            --ignore-filename-regex '(tests/|benches/|crash_injection)' \
             2>&1
           echo "--- Coverage Summary ---"
           cargo llvm-cov report \
-            --ignore-filename-regex '(tests/|benches/|packages/experimental)'
+            --ignore-filename-regex '(tests/|benches/)'
 
       - name: Enforce coverage threshold (>=80%, ADR-015 coverage policy)
         shell: bash
         run: |
           # ADR-015-coverage-policy: root-gate 80% en CI (bindings/wasm/server/mcp miden en runners nativos)
           cargo llvm-cov report --json \
-            --ignore-filename-regex '(tests/|benches/|packages/experimental)' \
+            --ignore-filename-regex '(tests/|benches/)' \
             | python3 -c "
           import sys, json
           d = json.load(sys.stdin)

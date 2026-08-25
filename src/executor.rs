@@ -153,7 +153,7 @@ impl<'a> Executor<'a> {
         let trimmed = query_string.trim_start();
         if trimmed.starts_with('(') {
             Err(VantaError::IqlError(ChainedError::msg(
-                "LISP queries require the experimental-lisp extension/crate.",
+                "LISP query execution is not supported (archived 2024-06). Use IQL syntax instead - see docs/api/IQL.md.",
             )))
         } else {
             match parse_statement(trimmed) {
@@ -414,13 +414,13 @@ impl<'a> Executor<'a> {
             .estimated_bytes;
         governor.request_allocation(estimated_mem_cost)?;
 
-        // Intercept Conflict entity scan for experimental governance immediately
+        // Intercept Conflict# entity scans (governance framework was archived 2024-06)
         for op in &plan.operators {
             if let LogicalOperator::Scan { entity } = op {
                 if entity.starts_with("Conflict#") {
                     governor.free_allocation(estimated_mem_cost);
                     return Err(VantaError::IqlError(ChainedError::msg(
-                        "Conflict entity scan requires the experimental-governance extension/crate.",
+                        "Conflict# entity scans are not supported (governance framework archived 2024-06).",
                     )));
                 }
             }

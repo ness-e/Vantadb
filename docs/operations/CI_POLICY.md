@@ -78,12 +78,12 @@ The workspace includes several **experimental crates** that are not part of the 
 
 | Crate | Description | Status |
 |-------|-------------|--------|
-| `vantadb-server` | Local HTTP/gRPC server | Experimental |
-| `vantadb-mcp` | Model Context Protocol interface | Experimental |
+| `vantadb-server` | Local HTTP server + MCP stdio binary | Experimental |
+| `vantadb-mcp` | Model Context Protocol interface (lib-only; served by `vanta-cli server --mcp`) | Experimental |
 | `vantadb-wasm` | WASM bindings for JS/TS SDK | Experimental |
-| `vantadb-openai` | OpenAI embedding adapter | Experimental |
-| `vantadb-ollama` | Ollama embedding adapter | Experimental |
-| `vantadb-litellm` | LiteLLM embedding adapter | Experimental |
+| `providers/openai` | OpenAI embedding adapter (NOT a workspace member — checked via `--manifest-path`) | Experimental |
+| `providers/ollama` | Ollama embedding adapter (idem) | Experimental |
+| `providers/litellm` | LiteLLM embedding adapter (idem) | Experimental |
 
 **Circuit breaker rules:**
 

@@ -100,7 +100,6 @@ paths:
         Serves the Vanta Studio console when started with `--dashboard-dir`;
         otherwise returns 404 with a hint to enable it (WEB-03).
       operationId: dashboardDisabled
-      x-experimental: true
       tags:
         - System
       security:
@@ -122,7 +121,6 @@ paths:
       summary: Web console static assets
       description: Static file serving fallback for the dashboard SPA.
       operationId: dashboardStaticPath
-      x-experimental: true
       tags:
         - System
       security:

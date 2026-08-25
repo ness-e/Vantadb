@@ -13,7 +13,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
 > **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
 > **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 84 activas (reconteo GOV-C7 2026-08-25 tras gran limpieza)
+> **Total open items:** 88 activas (reconteo GOV-C7 2026-08-25 post-limpieza + MCP-35 + CORE-02)
 ---
 
 ## Exec Summary
@@ -380,6 +380,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | ID | Descripción (→ Resultado) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
 | `CORE-01` | **Persistencia on-disk de vectores Binary (y no-F32) en vstore** — `write_node_to_vstore` (`ops.rs:59`) escribe `vector_len=0` y NO persiste datos para `Binary`/`Turbo`; `get()` rescata el vector desde el HNSW (fix `8c8eef23`), pero tras reopen + `rebuild_hnsw_from_vstore` el Binary original se pierde (header `vector_len=0` → rebuild lo lee como sin vector). Definir codificación on-disk (flag de formato en `DiskNodeHeader` o convención sobre `vector_len`) + escritura/lectura en `write_node_to_vstore`/`get()`/`get_with_snapshot`/rebuild + migración/versionado. Gate: ADR de formato antes de implementar. | `src/storage/ops.rs:59`, `src/node/disk.rs`, `src/storage/archive.rs:359`, `src/storage/engine/get.rs`, `src/storage/engine/txn.rs` | 🟡 | 🟡 | ❌ Pendiente |
+| `CORE-02` | **Integrar PITR al engine (salir de experimental)** - decisión del owner 2026-08-25: integrar, no congelar. `wal_archiver.rs` (feature `pitr`, ADR-014) es API standalone self-tested pero NO está wired a StorageEngine/SDK. Acciones: (1) DISCOVERY (vanta-arch): decidir puntos de enganche - hook en recovery/open vs subcomando CLI (`vanta-cli pitr`) vs endpoints SDK/HTTP; (2) implementar wiring + tests de restore point-in-time; (3) promover flag de ⚠️ experimental a 🟡 opt-in en FEATURES.md y cerrar la decisión pendiente de decisions.md 2026-08-25. Criterio: restaurar a timestamp T en DB temporal y verificar records coherentes | `src/wal_archiver.rs`, `src/storage/engine/mod.rs`, `src/cli.rs`, ADR-014 | 🔴 | 🔴 | ❌ Pendiente |
 
 
 

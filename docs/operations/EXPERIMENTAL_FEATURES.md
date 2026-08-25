@@ -3,92 +3,80 @@ title: Experimental Features and Product Boundary
 type: operations
 status: active
 tags: [vantadb, operations]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-08-25
 aliases: []
 ---
 
 # Experimental Features and Product Boundary
 
-This document classifies the current v0.1.x repository surface. It is the operational reference for
-what is production-facing, optional, experimental, or deferred.
+This document classifies the current v0.5.0 repository surface. It is the operational
+reference for what is production-facing, optional, new, experimental, or deferred.
+It mirrors the boundary table in the root `README.md` — when they disagree, this file wins
+for operational detail and the README wins for positioning.
 
 ## Production-Facing MVP
 
-The v0.1.x product boundary is an embedded local-first persistent memory engine:
+Embedded local-first persistent memory engine:
 
 | Area | Status |
 | --- | --- |
 | Embedded Rust SDK and CLI | Production-facing |
-| Memory `put/get/delete/list/search` | Production-facing |
-| WAL-backed recovery | Production-facing |
+| Memory `put/get/delete/list/search` (+ versions, batch, delete-by-filter) | Production-facing |
+| WAL-backed recovery (ShardedWAL) | Production-facing |
 | Namespaces and scalar metadata filters | Production-facing |
 | Derived namespace and metadata indexes | Production-facing |
-| HNSW vector retrieval | Production-facing |
+| HNSW / Flat vector retrieval (+ IVF/SCANN opt-in) | Production-facing |
 | BM25 lexical retrieval | Production-facing |
 | Hybrid Retrieval v1 with deterministic RRF | Production-facing |
-| Basic phrase filtering | Production-facing |
+| Phrase filtering (`Condition::TextMatch`) | Production-facing |
 | Manual rebuild and structural audit flows | Production-facing |
-| JSONL export/import | Production-facing |
-| Source-installed Python SDK | Production-facing |
+| JSONL export/import + `.vdbdump` bulk import | Production-facing |
+| Python SDK (PyPI) / TypeScript SDKs (npm: Node + WASM) | Production-facing |
 
 ## Optional Wrapper
 
 | Area | Status |
 | --- | --- |
-| Local `vanta-server` binary | Optional wrapper around the embedded core |
+| Local `vantadb-server` binary (HTTP REST `/api/v2/*`, ~27 endpoints + MCP stdio) | Optional wrapper around the embedded core |
 
-The server exists for local development and network exposure around the same embedded engine. It is
-not the primary product identity for this release.
+Promoted from experimental to **stable** on 2026-08-25: it is the base of the Docker deploy,
+the Vanta Studio admin surface (ADR-026/ADR-027) and exposes the full SDK surface over REST.
 
-## Experimental or Not MVP
-
-These surfaces may exist in the repository, but they are not stable product claims for v0.1.x:
+## New (stable but recent)
 
 | Area | Boundary |
 | --- | --- |
-| IQL/LISP/DQL parser, evaluator, and executor paths | **Archived (2024-06-10)** - Runtime LISP evaluation abandoned due to borrow checker issues and GIL blocking. See `archive/experimental-quarantine-2024-06/`. Legacy fuzz target for LISP parser preserved in [`FUZZING.md`](FUZZING.md) |
-| MCP API | Experimental integration surface |
-| LLM/Ollama integration | External optional integration, not core dependency |
-| Governance and maintenance semantics | **Archived (2024-06-10)** - Runtime governance framework incompatible with compile-time governance via IQL AST Pass. Useful utilities extracted to `src/utils/` |
-| Graph traversal beyond stored local edges | Experimental, not a graph database claim |
-| Docker/Ollama examples | Experimental development examples |
+| MCP server for AI agents (`vanta-cli server --mcp`) | Stable stdio surface; tool parity tracked in `docs/api/MCP.md`. Known limitation: single instance per data dir (single-writer lock) — multi-instance fallback tracked as backlog MCP-35 |
+| Web Console (`/dashboard`) | Promoted from experimental to stable 2026-08-25; e2e-tested |
 
-## Extracted Utilities (Production-Ready)
+## Experimental
 
-The following utilities were extracted from experimental governance and are now part of the core API:
+These surfaces exist and work, but are not stable product claims:
 
-| Utility | Purpose | API Location |
-| --- | --- | --- |
-| DuplicatePreventionFilter | Bloom filter for duplicate prevention in multi-writer scenarios | `vantadb::utils::DuplicatePreventionFilter` |
-| OriginCollisionTracker | Collision tracking and friction metrics for multi-agent coordination | `vantadb::utils::OriginCollisionTracker` |
-| compute_confidence_friction | Functional friction metric computation for conflict analysis | `vantadb::utils::compute_confidence_friction` |
+| Area | Boundary |
+| --- | --- |
+| PITR (`pitr` feature) | Standalone API functional and self-tested (`wal_archiver.rs`); **not integrated** into StorageEngine/SDK. See ADR-014. Integration task: backlog CORE-02 |
+| `POST /conversation/add`, `GET /skill/listing`, skills CRUD endpoints | Marked `x-experimental: true` in `openapi.yaml`; may change without notice |
+| LLM/Ollama integration | External optional integration (`llm.rs`, feature-gated), not a core dependency |
+| Graph traversal beyond stored local edges | Experimental; not a graph database claim |
 
-These utilities are stateless, well-tested, and suitable for production use in multi-writer and multi-agent scenarios.
+## Archived (2024-06)
 
-Visible in-tree examples and docs must carry the same boundary:
+The runtime governance/LISP experiment was archived. What remains is intentional:
 
-- `examples/docker/docker-compose.ollama.yml`
-- `examples/docker/Dockerfile`
-- `examples/docker/start.sh`
-- `examples/python/langchain_ollama_rag.py`
+| Remnant | Where |
+| --- | --- |
+| IQL parser/executor paths (IQL itself is production-facing; legacy LISP entrypoints error clearly) | `src/parser/`, `src/query.rs`, `src/executor.rs` |
+| Extracted utilities (production-ready): `DuplicatePreventionFilter`, `OriginCollisionTracker`, `compute_confidence_friction` | `src/utils/` |
+| Design record of the abandoned framework | `docs/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md` |
+
+Note: the original quarantine directory referenced by earlier versions of this document
+(`archive/experimental-quarantine-2024-06/`) no longer exists in the tree.
 
 ## Deferred
 
-The following are explicitly outside the v0.1.x MVP:
+Explicitly outside the current MVP (see root `README.md` product boundary):
 
-| Area | Boundary |
-| --- | --- |
-| Agent metacognition and automatic memory consolidation | Deferred |
-| Plugins and marketplace | Deferred |
-| RBAC, true multi-tenancy, quotas, and enterprise audit | Deferred |
-| HA, replication, clustering, and cloud managed service | Deferred |
-| Production PyPI publication and signed installers | Deferred |
-| Advanced ranking, snippets, highlighting, Unicode folding, stopwords, stemming | Deferred |
-| SQL, general OLTP, warehouse, and time-series workloads | Deferred |
-
----
-
-### Cross-References
-
-- [FUZZING.md](FUZZING.md) — Fuzzing strategy for legacy LISP parser (archived) and core deserialization paths
-- [BENCHMARKS.md](BENCHMARKS.md) — Published performance benchmarks for production-facing features
+Cloud/enterprise platform · HA/replication · distributed clustering · SQL/OLTP/warehouse/time-series ·
+advanced ranking/snippets/tokenization beyond current scope · RBAC promotion beyond HTTP middleware ·
+multi-tenancy.

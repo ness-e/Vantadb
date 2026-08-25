@@ -506,15 +506,20 @@ Appends a role-tagged message (auto-embedded). Body requires `role` and `content
 
 Deletes the thread and its messages.
 
-## Experimental endpoints
-
-> ⚠️ **Experimental** — these routes are marked `x-experimental: true` in
-> `openapi.yaml`. They are unstable and may change without notice.
+## Web Console (stable)
 
 ### `GET /dashboard` and `GET /dashboard/{path}`
 
 Web console entry point and static asset fallback for Vanta Studio. Requires starting the
 server with `--dashboard-dir <dir>`; otherwise `/dashboard` responds 404 with a hint.
+
+> Promoted from experimental to stable 2026-08-25: covered by e2e tests and served as the
+> Vanta Studio admin surface (ADR-026/ADR-027).
+
+## Experimental endpoints
+
+> ⚠️ **Experimental** - these routes are marked `x-experimental: true` in
+> `openapi.yaml`. They are unstable and may change without notice.
 
 ### `POST /conversation/add`
 
@@ -639,8 +644,8 @@ refuses to start without a key regardless of host.
 | `PUT` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Update skill (optimistic lock) |
 | `PATCH` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Patch skill fields |
 | `DELETE` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Delete skill and all versions |
-| `GET` | `/dashboard` ⚠️ experimental | Bearer (if configured) | Experimental | Web console entry point |
-| `GET` | `/dashboard/{path}` ⚠️ experimental | Bearer (if configured) | Experimental | Web console static assets |
+| `GET` | `/dashboard` | Bearer (if configured) | Stable | Web console entry point |
+| `GET` | `/dashboard/{path}` | Bearer (if configured) | Stable | Web console static assets |
 | `POST` | `/conversation/add` ⚠️ experimental | Bearer (if configured) | Experimental | Legacy conversation turn ingestion |
 | `GET` | `/skill/listing` ⚠️ experimental | Bearer (if configured) | Experimental | Skill-like record listing |
 
