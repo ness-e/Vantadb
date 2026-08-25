@@ -97,11 +97,12 @@ run-cli:
 
 # Run vanta server
 run-server:
-    {{cargo}} run --features server --bin vantadb-server
+    {{cargo}} run -p vantadb-server --features server
 
-# Run MCP server
+# Run MCP stdio server (the MCP binary is served by vantadb-server; the
+# vantadb-mcp crate is lib-only)
 run-mcp:
-    {{cargo}} run -p vantadb-mcp
+    {{cargo}} run -p vantadb-server --features server -- --mcp
 
 # Setup Python venv + build SDK
 python-setup:

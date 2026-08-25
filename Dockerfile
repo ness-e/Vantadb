@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 # VantaDB Server — multi-stage build with dependency caching & minimal runtime
 # https://vantadb.dev
-ARG RUST_VERSION=1.94.1
+ARG RUST_VERSION=1.95.0
 ARG BINARY=vantadb-server
-ARG APP_VERSION=0.4.0
+ARG APP_VERSION=0.5.0
 
 # ───────────────────────────────────────────────────────
 # Stage 1 — Build the Rust binary
@@ -27,6 +27,8 @@ WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY vantadb-server/Cargo.toml vantadb-server/
 COPY vantadb-mcp/Cargo.toml vantadb-mcp/
+COPY vanta-memory/Cargo.toml vanta-memory/
+COPY vanta-proxy/Cargo.toml vanta-proxy/
 COPY vantadb-python/Cargo.toml vantadb-python/
 COPY vantadb-wasm/Cargo.toml vantadb-wasm/
 
@@ -37,7 +39,9 @@ COPY vantadb-wasm/Cargo.toml vantadb-wasm/
 # not workspace members (see [workspace.members] in Cargo.toml).
 RUN mkdir -p src && echo "fn main() {}" > src/main.rs && \
     mkdir -p vantadb-server/src && echo "fn main() {}" > vantadb-server/src/main.rs && \
-    mkdir -p vantadb-mcp/src && echo "" > vantadb-mcp/src/lib.rs
+    mkdir -p vantadb-mcp/src && echo "" > vantadb-mcp/src/lib.rs &&
+    mkdir -p vanta-memory/src && echo "" > vanta-memory/src/lib.rs &&
+    mkdir -p vanta-proxy/src && echo "" > vanta-proxy/src/lib.rs
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
@@ -45,7 +49,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 
 # Remove skeletons before copying real sources. Root src/main.rs is a skeleton
 # only (the repo root has no main.rs) — scoped to the paths that exist.
-RUN rm -rf src/ vantadb-server/src vantadb-mcp/src
+RUN rm -rf src/ vantadb-server/src vantadb-mcp/src vanta-memory/src vanta-proxy/src
 
 # ── Real build ──
 COPY . .
