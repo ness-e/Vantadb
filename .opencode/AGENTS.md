@@ -22,7 +22,7 @@ El sistema de pipeline vive en `.opencode/` y se activa cuando el usuario envía
 |---|---|---|
 | `/pipeline ...` | `.opencode/commands/pipeline.md` | Plan / Task / Run / Interactive / Pipeline / Ejecución |
 | `/audit ...` | `.opencode/commands/audit.md` | Full / Quick / Certify / Review |
-| `/build ...` | `.opencode/commands/build.md` | Default / Auto / Prove |
+| `/build` *(deprecated)* | `.opencode/commands/build.md` | Alias de `/pipeline task` (consolidación 2026-08-25) |
 | `/ship` | `.opencode/commands/ship.md` | Fan-out GO/NO-GO |
 | `/rollback` | `.opencode/commands/rollback.md` | Revertir ship fallido |
 | `/status` | `.opencode/commands/status.md` | Dashboard de un vistazo |
@@ -60,7 +60,7 @@ Todas las rutas relativas en comandos y prompts se resuelven así:
 |---|---|
 | `progreso` | Al inicio de sesión y al completar cada tarea |
 | `ponytail (full)` | Siempre activo (modo lazy default) |
-| `campaign-executor` | En modo task / run (no es skill instalado, leer `.opencode/skills/campaign-executor/SKILL.md`) |
+| `campaign-executor` | En modo task / run (`skill campaign-executor`) |
 
 ## CodeGraph
 
@@ -99,7 +99,7 @@ cargo add serde                  # dependencias
 ## Skills Manifest
 
 **Todas las skills están centralizadas en:**
-- `.agents/skills/` (proyecto, 162 skills) + `.opencode/skills/` (31 skills)
+- `.agents/skills/` (proyecto, 163 skills) + `.opencode/skills/` (31 skills)
 - Referencia completa en: `SKILLS-MANIFEST.md` (raíz del proyecto)
 
 **Siempre preferir la copia del proyecto sobre la global.**
@@ -166,7 +166,7 @@ Tres capas componibles con roles distintos:
 
 ### Límites de herramientas por rol
 
-> Fuente: `docs/Investigaciones/2026-08-10-agent-engineering/agent-03-orchestration.md` §9.2 — *worker = solo tools de su dominio; orquestador = delegación + verificación; evaluador = verificación, nunca implementa*. Política objetivo (TSYS-11): **ningún sub-agente escala a tools del lead**. Estado actual: los `permission:` de `.opencode/agents/*.md` otorgan todo `allow` (deuda a corregir al implementar TSYS-11); la tabla es el contrato de referencia.
+> Fuente: `docs/research/2026-08-10-agent-engineering/agent-03-orchestration.md` §9.2 — *worker = solo tools de su dominio; orquestador = delegación + verificación; evaluador = verificación, nunca implementa*. Política objetivo (TSYS-11): **ningún sub-agente escala a tools del lead**. Estado actual: los `permission:` de `.opencode/agents/*.md` otorgan todo `allow` (deuda a corregir al implementar TSYS-11); la tabla es el contrato de referencia.
 
 Leyenda: ✅ permitido · ⚠️ solo uso read-only / delimitado a su dominio · ❌ prohibido.
 
@@ -269,6 +269,9 @@ Las reglas normativas por **área del sistema** viven en `.opencode/rules/`. Son
 | Cualquier `async`/Tokio, `spawn_blocking`, mutexes, semáforos, ingestion async | `.opencode/rules/concurrency-async.md` |
 | `node.rs`, `engine.rs`, `config.rs`, `error.rs`, parser, planner, executor | `.opencode/rules/core-engine.md` |
 | `sdk/`, API pública, `VantaError`, semver, compat de bindings | `.opencode/rules/api-contract.md` |
+| IQL, parser de queries, `TextMatch`, gramática query | `.opencode/rules/query-dsl.md` |
+| RSS/memory guard, límites de memoria, OOM protection | `.opencode/rules/memory-budget.md` |
+| Licensing, open core, `vantadb-pro`, relicensing | `.opencode/rules/open-core-licensing.md` |
 | `vantadb-python/`, providers | `.opencode/rules/python-bindings.md` |
 | `vantadb-server/`, `vantadb-mcp/` | `.opencode/rules/server-mcp.md` |
 | `vantadb-wasm/`, `vantadb-ts/`, `vantadb-node/` | `.opencode/rules/js-ecosystem.md` |
@@ -286,7 +289,7 @@ Las reglas normativas por **área del sistema** viven en `.opencode/rules/`. Son
 | Language | Content |
 |----------|---------|
 | **English** (source of truth) | `docs/api/`, `docs/architecture/`, `docs/operations/`, `docs/QUICKSTART.md` |
-| **Spanish** (planning only) | `docs/Backlog.md`, `docs/avance/`, `docs/Investigaciones/` |
+| **Spanish** (planning only) | `docs/Backlog.md`, `docs/avance/`, `docs/research/` (investigaciones) |
 
 Technical docs stay in English. Never duplicate technical content in Spanish.
 
@@ -354,8 +357,6 @@ VantaDB follows an **Open Core** model (decision 2026-08-06, see `docs/plans/arc
 - **Delivery is compiled artifacts only** (private registry / signed on-prem `vantadb.license`), never source. Each Pro feature validates its license offline (expiry + max nodes).
 - `cargo-deny` (`deny.toml`, MIT/Apache-2.0) gates the core only; Pro is excluded.
 - Full normative rules: `.opencode/rules/open-core-licensing.md`.
-- **OpenCode MCP config**: `opencode.jsonc` at root (CodeGraph MCP server)
-- **CodeGraph CI hooks**: verify.ps1/verify_changed.ps1 (invocados por los hooks git instalados — `.githooks/pre-commit`/`.githooks/pre-push`, ver Regla 1)
 
 ## MCP Servers Disponibles
 
@@ -365,7 +366,7 @@ Config: activos en `opencode.jsonc` (proyecto); deshabilitados en `%USERPROFILE%
 
 | MCP | Comando | Propósito |
 |-----|---------|-----------|
-| **CodeGraph** | `codegraph serve --mcp` | Grafo de conocimiento del código (7.3K símbolos). Resuelve símbolos, flujos, blast radius |
+| **CodeGraph** | `codegraph serve --mcp` | Grafo de conocimiento del código (20.5K símbolos, 71.4K edges). Resuelve símbolos, flujos, blast radius. CI hooks: verify.ps1/verify_changed.ps1 vía `.githooks/pre-commit`/`.githooks/pre-push` (Regla 1). Config MCP: `opencode.jsonc` raíz |
 | **Campaign** | `bun .opencode/task-system/mcp/campaign-server.mjs` | Task system: 30+ tools para plan, task, verify, state machine |
 | **MetaSearchMCP** | `metasearchmcp-mcp` | Búsqueda multi-provider: web, GitHub, académico, código. DuckDuckGo gratis |
 | **Argus** | `argus mcp serve` | 14 providers, extracción 12-step, dead URL recovery |
@@ -423,7 +424,7 @@ Actúa como un linter de documentación viva:
 | Modifica `struct pub`, `fn pub`, endpoint HTTP, binding PyO3/WASM | Recordar actualizar el `.md` correspondiente en `docs/api/` en el **mismo PR** |
 | Crea documentación nueva (guías, API, arquitectura) | No colocarla en `docs/archive/`, `docs/research/`. Los reportes generados por el pipeline (`/audit`, `/review`, `unified-review`) SÍ van a `docs/reviews/` y se registran en `docs/reports/INDEX.md` — esa carpeta es para reportes de auditoría/review, no para documentación ad-hoc |
 | Crea un plan temporal | Guardar en `docs/plans/` **y** recordar eliminarlo al completar la tarea |
-| Escribe documentación en español siendo técnica | Redirigir a inglés. Español solo para `docs/Backlog.md`, `docs/avance/`, `docs/Investigaciones/` |
+| Escribe documentación en español siendo técnica | Redirigir a inglés. Español solo para `docs/Backlog.md`, `docs/avance/` y las investigaciones de `docs/research/` (no documentación técnica) |
 
 ### Regla 4: Mejora Continua y Actitud Crítica
 
@@ -499,7 +500,7 @@ cambiar código en develop → commit → push → PR a main → merge a main
                      → analiza conventional commits desde el último tag
                      → bump automático (major/minor/patch según commits)
                      → actualiza docs/CHANGELOG.md
-                     → crea Release PR (ej: "chore: release v0.4.1")
+                     → crea Release PR (ej: "chore: release v0.5.x")
                      → vos revisás el PR y lo mergeás
                      → release-plz taguea y publica en crates.io
                      → los workflows RELEASE Wheels/NPM/Binaries se disparan
