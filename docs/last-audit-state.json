@@ -1,10 +1,7 @@
 {
-  "timestamp": "2026-08-22T23:59:00",
-  "mode": "governance-campaign-full",
-  "veredicto": "PASS-WITH-FOLLOWUPS",
+  "timestamp": "2026-08-25T03:10:11-04:00",
+  "mode": "full",
+  "veredicto": "PASS",
   "findings_critical": 0,
-  "salud_documental": "6.5->8 (estimada post-GOV)",
-  "report_file": "docs/reviews/auditoria-documentacion-2026-08-21.md + docs/plans/2026-08-22-doc-governance-plan.md",
-  "ejecucion": { "completadas": 29, "canceladas": 1, "fallidas": 0, "commits": "~35" },
-  "tickets_derivados": "docs/Backlog.md GOV-TK1..9"
+  "report_file": "docs/reviews/audit-full-20260825-031011.md"
 }
