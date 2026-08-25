@@ -3616,3 +3616,435 @@ fn test_capabilities_generate_snippet_list_snapshots_round_trip() {
         "list_snapshots must return an array: {snaps}"
     );
 }
+
+// ── MOD-10: versions / supersede / vacuum / remove_edge via MCP ────────────
+
+#[test]
+fn test_mcp_tools_list_includes_mod10_tools() {
+    let res = handle_tools_list().unwrap();
+    let tools = res["tools"].as_array().unwrap();
+    let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
+    for tool in [
+        "memory_versions",
+        "memory_supersede",
+        "vacuum",
+        "remove_edge",
+    ] {
+        assert!(names.contains(&tool), "tools should include {tool}");
+    }
+}
+
+#[test]
+fn test_mcp_memory_versions_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Put the same key twice → version bumps to 2; versions must list v1..vN
+    // ascending with the live record as the last element.
+    for (i, payload) in ["first version", "second version"].iter().enumerate() {
+        let put = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "ver_ns",
+                "key": "doc",
+                "payload": payload,
+                "metadata": { "rev": i + 1 }
+            }
+        }));
+        let val = handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+        assert!(
+            val["isError"].is_null(),
+            "put {i} failed: {}",
+            val["content"][0]["text"]
+        );
+    }
+
+    let params = Some(json!({
+        "name": "memory_versions",
+        "arguments": { "namespace": "ver_ns", "key": "doc" }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "memory_versions failed: {}",
+        res["content"][0]["text"]
+    );
+    let parsed: Value =
+        serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).expect("JSON payload");
+    let versions = parsed.as_array().expect("versions must be an array");
+
+    assert_eq!(versions.len(), 2, "two puts → two versions: {versions:?}");
+    assert_eq!(versions[0]["version"].as_u64(), Some(1), "{versions:?}");
+    assert_eq!(versions[1]["version"].as_u64(), Some(2), "{versions:?}");
+    assert_eq!(
+        versions[1]["payload"].as_str(),
+        Some("second version"),
+        "last element matches the live record: {versions:?}"
+    );
+
+    // A missing key → empty array (not an error).
+    let missing = Some(json!({
+        "name": "memory_versions",
+        "arguments": { "namespace": "ver_ns", "key": "nope" }
+    }));
+    let miss_res = handle_tools_call(&missing, &executor, &storage, &default_config()).unwrap();
+    let miss_parsed: Value =
+        serde_json::from_str(miss_res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        miss_parsed.as_array().map(Vec::len),
+        Some(0),
+        "missing key → []"
+    );
+}
+
+#[test]
+fn test_mcp_memory_supersede_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    for (key, payload) in [("alpha", "old content"), ("beta", "new content")] {
+        let put = Some(json!({
+            "name": "memory_put",
+            "arguments": { "namespace": "sup_ns", "key": key, "payload": payload }
+        }));
+        let val = handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+        assert!(
+            val["isError"].is_null(),
+            "put {key} failed: {}",
+            val["content"][0]["text"]
+        );
+    }
+
+    // 1. supersede alpha → beta.
+    let params = Some(json!({
+        "name": "memory_supersede",
+        "arguments": { "namespace": "sup_ns", "old_key": "alpha", "new_key": "beta" }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "memory_supersede failed: {}",
+        res["content"][0]["text"]
+    );
+    let parsed: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(parsed["superseded"], true, "{parsed}");
+
+    // 2. The old record now carries superseded_by on its latest version.
+    // 2. The live record now carries superseded_by (version snapshots
+    //    deliberately drop the supersession fields — verify via memory_get).
+    let get = Some(json!({
+        "name": "memory_get",
+        "arguments": { "namespace": "sup_ns", "key": "alpha" }
+    }));
+    let get_res = handle_tools_call(&get, &executor, &storage, &default_config()).unwrap();
+    let record: Value =
+        serde_json::from_str(get_res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        record["superseded_by"].as_str(),
+        Some("beta"),
+        "old record marked superseded: {record}"
+    );
+    assert_eq!(
+        record["version"].as_u64(),
+        Some(2),
+        "supersede bumps the version: {record}"
+    );
+
+    // 3. Idempotency guard: superseding an already-superseded record is a
+    //    domain error surfaced as error content (MEM-32), not a panic.
+    let again = Some(json!({
+        "name": "memory_supersede",
+        "arguments": { "namespace": "sup_ns", "old_key": "alpha", "new_key": "beta" }
+    }));
+    let again_res = handle_tools_call(&again, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        again_res["isError"] == json!(true),
+        "double supersede must be a domain error: {}",
+        again_res["content"][0]["text"]
+    );
+}
+
+#[test]
+fn test_mcp_vacuum_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let params = Some(json!({ "name": "vacuum", "arguments": {} }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "vacuum failed: {}",
+        res["content"][0]["text"]
+    );
+    let report: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap())
+        .expect("vacuum payload must be JSON");
+    for field in [
+        "scanned_nodes",
+        "removed_nodes",
+        "reclaimed_bytes",
+        "duration_ms",
+        "success",
+    ] {
+        assert!(
+            report[field].is_number() || field == "success",
+            "vacuum report must carry {field}: {report}"
+        );
+    }
+    assert_eq!(report["success"], true, "{report}");
+}
+
+#[test]
+fn test_mcp_remove_edge_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    build_chain(&storage, &executor, [201, 202, 203]);
+
+    // Before: 201 has an outgoing "next" edge to 202.
+    let before = Some(json!({
+        "name": "get_node_neighbors",
+        "arguments": { "node_id": "201" }
+    }));
+    let before_res = handle_tools_call(&before, &executor, &storage, &default_config()).unwrap();
+    let before_val: Value =
+        serde_json::from_str(before_res["content"][0]["text"].as_str().unwrap()).unwrap();
+    let targets_before: Vec<&str> = before_val["neighbors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|n| n["target_id"].as_str())
+        .collect();
+    assert!(
+        targets_before.contains(&"202"),
+        "edge 201->202 must exist before removal: {targets_before:?}"
+    );
+
+    // remove_edge with u128 ids as decimal strings.
+    let params = Some(json!({
+        "name": "remove_edge",
+        "arguments": { "source_id": "201", "target_id": "202", "label": "next" }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "remove_edge failed: {}",
+        res["content"][0]["text"]
+    );
+    let parsed: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(parsed["removed"], true, "{parsed}");
+
+    // After: both directions of the edge are gone.
+    let after = Some(json!({
+        "name": "get_node_neighbors",
+        "arguments": { "node_id": "201" }
+    }));
+    let after_res = handle_tools_call(&after, &executor, &storage, &default_config()).unwrap();
+    let after_val: Value =
+        serde_json::from_str(after_res["content"][0]["text"].as_str().unwrap()).unwrap();
+    let targets_after: Vec<&str> = after_val["neighbors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|n| n["target_id"].as_str())
+        .collect();
+    assert!(
+        !targets_after.contains(&"202"),
+        "edge 201->202 must be removed: {targets_after:?}"
+    );
+
+    let after_rev = Some(json!({
+        "name": "get_node_neighbors",
+        "arguments": { "node_id": "202" }
+    }));
+    let after_rev_res =
+        handle_tools_call(&after_rev, &executor, &storage, &default_config()).unwrap();
+    let after_rev_val: Value =
+        serde_json::from_str(after_rev_res["content"][0]["text"].as_str().unwrap()).unwrap();
+    let rev_targets: Vec<&str> = after_rev_val["neighbors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|n| n["target_id"].as_str())
+        .collect();
+    assert!(
+        !rev_targets.contains(&"201"),
+        "reverse edge 202->201 must be removed too: {rev_targets:?}"
+    );
+
+    // 203's edge to nowhere is untouched — chain integrity for 202->203.
+    let c = Some(json!({
+        "name": "get_node_neighbors",
+        "arguments": { "node_id": "202" }
+    }));
+    let c_res = handle_tools_call(&c, &executor, &storage, &default_config()).unwrap();
+    let c_val: Value = serde_json::from_str(c_res["content"][0]["text"].as_str().unwrap()).unwrap();
+    let c_targets: Vec<&str> = c_val["neighbors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|n| n["target_id"].as_str())
+        .collect();
+    assert!(
+        c_targets.contains(&"203"),
+        "202->203 survives: {c_targets:?}"
+    );
+
+    // Invalid node id (not a u128 decimal string) → rejected at the boundary.
+    let bad = Some(json!({
+        "name": "remove_edge",
+        "arguments": { "source_id": "not-an-id", "target_id": "202", "label": "next" }
+    }));
+    assert!(
+        handle_tools_call(&bad, &executor, &storage, &default_config()).is_err(),
+        "non-u128 source_id must be rejected"
+    );
+}
+
+// ── MCP-24: advanced search (search_with_method / search_multi) ──────────
+
+#[test]
+fn test_mcp_tools_list_includes_advanced_search() {
+    let res = handle_tools_list().unwrap();
+    let tools = res["tools"].as_array().unwrap();
+    let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
+    for tool in ["search_with_method", "search_multi"] {
+        assert!(names.contains(&tool), "tools should include {tool}");
+    }
+}
+
+/// MCP-24: search_with_method overrides the dense-index backend and returns
+/// the same nearest hit as the default routing (HNSW) and an exact scan
+/// (Flat); an unknown method is rejected at the boundary.
+#[test]
+fn test_mcp_search_with_method_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    for (key, vec) in [("x", vec![1.0, 0.0, 0.0]), ("y", vec![0.0, 1.0, 0.0])] {
+        let put = Some(json!({
+            "name": "memory_put",
+            "arguments": { "namespace": "swm_ns", "key": key, "payload": format!("{key} payload"), "vector": vec }
+        }));
+        handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+    }
+
+    // method=hnsw (default routing) returns the nearest hit first.
+    let res = handle_tools_call(
+        &Some(json!({
+            "name": "search_with_method",
+            "arguments": { "namespace": "swm_ns", "query_vector": [0.99, 0.01, 0.0], "top_k": 1, "method": "hnsw" }
+        })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap();
+    assert!(res["isError"].is_null(), "hnsw search failed: {res}");
+    let hits = hits_from_mcp_search(res);
+    assert_eq!(hits.len(), 1, "hnsw should return 1 hit");
+    assert_eq!(hits[0].0, "x", "nearest to [0.99,0,0] under hnsw is x");
+
+    // method=flat (exact scan) finds the same nearest hit.
+    let res = handle_tools_call(
+        &Some(json!({
+            "name": "search_with_method",
+            "arguments": { "namespace": "swm_ns", "query_vector": [0.99, 0.01, 0.0], "top_k": 1, "method": "flat" }
+        })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap();
+    assert!(res["isError"].is_null(), "flat search failed: {res}");
+    let hits = hits_from_mcp_search(res);
+    assert_eq!(hits[0].0, "x", "exact flat scan nearest is also x");
+
+    // Unknown method → rejected at the boundary (invalid params), not a
+    // silent fallback to automatic routing.
+    let res = handle_tools_call(
+        &Some(json!({
+            "name": "search_with_method",
+            "arguments": { "namespace": "swm_ns", "query_vector": [0.99, 0.01, 0.0], "top_k": 1, "method": "bogus" }
+        })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap_err();
+    let msg = res["message"].as_str().unwrap_or_default();
+    assert!(
+        msg.contains("bogus"),
+        "unknown method must be rejected, got: {res}"
+    );
+}
+
+/// MCP-24: search_multi runs one request across several namespaces and merges
+/// the hits; top_k caps the merged list globally; empty namespaces are
+/// invalid params.
+#[test]
+fn test_mcp_search_multi_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    for (ns, key, vec) in [
+        ("multi_a", "a1", vec![1.0, 0.0, 0.0]),
+        ("multi_a", "a2", vec![0.9, 0.1, 0.0]),
+        ("multi_b", "b1", vec![0.0, 1.0, 0.0]),
+    ] {
+        let put = Some(json!({
+            "name": "memory_put",
+            "arguments": { "namespace": ns, "key": key, "payload": format!("{key} payload"), "vector": vec }
+        }));
+        handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+    }
+
+    // Merge across both namespaces; nearest (a1) ranks first.
+    let res = handle_tools_call(
+        &Some(json!({
+            "name": "search_multi",
+            "arguments": { "namespaces": ["multi_a", "multi_b"], "query_vector": [1.0, 0.0, 0.0], "top_k": 10 }
+        })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap();
+    assert!(res["isError"].is_null(), "search_multi failed: {res}");
+    let hits = hits_from_mcp_search(res);
+    let keys: Vec<&str> = hits.iter().map(|(k, _)| k.as_str()).collect();
+    assert!(
+        keys.contains(&"a1") && keys.contains(&"a2") && keys.contains(&"b1"),
+        "search_multi must merge hits across namespaces, got: {keys:?}"
+    );
+    assert_eq!(hits[0].0, "a1", "most similar hit must rank first");
+
+    // top_k caps the merged result globally.
+    let res = handle_tools_call(
+        &Some(json!({
+            "name": "search_multi",
+            "arguments": { "namespaces": ["multi_a", "multi_b"], "query_vector": [1.0, 0.0, 0.0], "top_k": 2 }
+        })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap();
+    let hits = hits_from_mcp_search(res);
+    assert_eq!(hits.len(), 2, "top_k=2 must cap merged results");
+    assert_eq!(
+        hits[0].0, "a1",
+        "most similar hit must rank first under cap"
+    );
+
+    // Empty namespaces → invalid params error.
+    let res = handle_tools_call(
+        &Some(json!({ "name": "search_multi", "arguments": { "namespaces": [] } })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        res["code"], -32602,
+        "empty namespaces must be invalid params"
+    );
+}

@@ -114,6 +114,31 @@ pub fn handle_tools_list() -> Result<Value, Value> {
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
+            "name": "memory_versions",
+            "description": "Lists every retained version of a memory record, ascending (v1..vN). Empty if the key does not exist or has no history. Expired versions are included as historical data until purged.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string" },
+                    "key": { "type": "string" }
+                },
+                "required": ["namespace", "key"]
+            }
+        },
+        {
+            "name": "memory_supersede",
+            "description": "Marks an existing memory record as superseded by another existing record (durable soft-dead, recoverable). Errors if either key is missing, if old_key equals new_key, or if the old record is already superseded.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string" },
+                    "old_key": { "type": "string", "description": "Key of the record to mark as superseded" },
+                    "new_key": { "type": "string", "description": "Key of the record that supersedes it" }
+                },
+                "required": ["namespace", "old_key", "new_key"]
+            }
+        },
+        {
             "name": "query_iql",
             "description": "Executes an IQL statement against TYPED GRAPH NODES and memory namespaces. Each memory namespace is queryable as an IQL table named by its sanitized form ('/' and '-' become '_', a leading digit/dot gets a '_' prefix; e.g. namespace 'mmd/s1/history' → 'SELECT * FROM mmd_s1_history'). Records written before this feature are visible too (no migration). Graph workflow: create nodes with 'INSERT NODE#<id> TYPE <Type> { field: value }', then query them with 'SELECT * FROM <Type>' or read a single node with 'FROM NODE#<id>'. A type/namespace collision returns the union of both. Scanning an unknown or empty name returns [] without error. LISP is not supported; statements must be IQL.",
             "inputSchema": {
@@ -152,6 +177,51 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                     }, "description": "Optional search profile (MEM-01): mode forces the retrieval channel (keyword/vector/hybrid); rrf_k/candidate_k tune RRF. Wire format matches the native API and the IQL PROFILE clause." }
                 },
                 "required": ["namespace"]
+            }
+        },
+        {
+            "name": "search_with_method",
+            "description": "MCP-24: memory search with an explicit dense-index backend override. Same parameters as search_memory plus `method` (hnsw | ivf | flat | diskann | scann); omit `method` to keep automatic engine routing.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string" },
+                    "query_vector": { "type": "array", "items": {"type": "number"} },
+                    "text_query": { "type": "string" },
+                    "top_k": { "type": "number", "description": "Top K hits, default 10" },
+                    "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
+                    "explain": { "type": "boolean" },
+                    "filters": { "type": "object" },
+                    "method": { "type": "string", "enum": ["hnsw", "ivf", "flat", "diskann", "scann"], "description": "Dense-index backend override (MCP-24); omit to keep automatic routing" },
+                    "search_profile": { "type": "object", "properties": {
+                        "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
+                        "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
+                        "candidate_k": { "type": "number", "description": "Per-channel candidate budget (1..max_candidate_k, default core)" }
+                    }, "description": "Optional search profile (MEM-01): mode forces the retrieval channel (keyword/vector/hybrid); rrf_k/candidate_k tune RRF. Wire format matches the native API and the IQL PROFILE clause." }
+                },
+                "required": ["namespace"]
+            }
+        },
+        {
+            "name": "search_multi",
+            "description": "MCP-24: run one search request across multiple namespaces and merge the results (sorted by descending score, capped at `top_k` globally). `namespaces` is required; the other parameters match search_memory. Returns a flat hit array.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespaces": { "type": "array", "items": { "type": "string" }, "description": "Namespaces to search; results are merged (must not be empty)" },
+                    "query_vector": { "type": "array", "items": {"type": "number"} },
+                    "text_query": { "type": "string" },
+                    "top_k": { "type": "number", "description": "Global top K after merging, default 10" },
+                    "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
+                    "explain": { "type": "boolean" },
+                    "filters": { "type": "object" },
+                    "search_profile": { "type": "object", "properties": {
+                        "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
+                        "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
+                        "candidate_k": { "type": "number", "description": "Per-channel candidate budget (1..max_candidate_k, default core)" }
+                    }, "description": "Optional search profile (MEM-01): mode forces the retrieval channel (keyword/vector/hybrid); rrf_k/candidate_k tune RRF. Wire format matches the native API and the IQL PROFILE clause." }
+                },
+                "required": ["namespaces"]
             }
         },
         {
@@ -233,6 +303,19 @@ pub fn handle_tools_list() -> Result<Value, Value> {
             }
         },
         {
+            "name": "remove_edge",
+            "description": "Removes all edges between two nodes with the given label (both directions). Node ids are u128 decimal strings (JSON numbers lose precision above 2^53).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "source_id": { "type": "string", "description": "Source node ID (decimal string)" },
+                    "target_id": { "type": "string", "description": "Target node ID (decimal string)" },
+                    "label": { "type": "string", "description": "Edge label to remove" }
+                },
+                "required": ["source_id", "target_id", "label"]
+            }
+        },
+        {
             "name": "inject_context",
             "description": "Injects external state or context connecting it to a specific thread for subsequent consolidation.",
             "inputSchema": {
@@ -304,6 +387,11 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "compact_layout",
             "description": "Compacts the vector store file grouping nodes in BFS order from the HNSW entry point. Returns the number of bytes reclaimed.",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "vacuum",
+            "description": "Purges tombstoned nodes from the HNSW index. Returns a report with scanned_nodes, removed_nodes, reclaimed_bytes, duration_ms, and success.",
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
@@ -698,6 +786,54 @@ pub fn handle_tools_call(
             }
         }
 
+        // MOD-10: version history + supersession via MCP — thin wrappers over
+        // the SDK (versions / supersede). Same MEM-32 error shape.
+        "memory_versions" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            let key = args["key"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'key'").to_json())?;
+
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+            validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.versions(namespace, key) {
+                Ok(records) => Ok(text_content(serialize_content(&records))),
+                Err(e) => Ok(error_content(format!("Versions Error: {}", e))),
+            }
+        }
+
+        "memory_supersede" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            let old_key = args["old_key"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'old_key'").to_json())?;
+            let new_key = args["new_key"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'new_key'").to_json())?;
+
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+            validate_identifier(old_key, "old_key", config.max_key_length)
+                .map_err(|e| e.to_json())?;
+            validate_identifier(new_key, "new_key", config.max_key_length)
+                .map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.supersede(namespace, old_key, new_key) {
+                Ok(()) => Ok(text_content(serialize_content(
+                    &json!({ "superseded": true }),
+                ))),
+                Err(e) => Ok(error_content(format!("Supersede Error: {}", e))),
+            }
+        }
+
         "query_iql" => {
             let query = args["query"]
                 .as_str()
@@ -755,119 +891,69 @@ pub fn handle_tools_call(
             validate_identifier(namespace, "namespace", config.max_namespace_length)
                 .map_err(|e| e.to_json())?;
 
-            let query_vector = if let Some(arr) = args["query_vector"].as_array() {
-                if arr.is_empty() {
-                    Vec::new()
-                } else {
-                    validate_vector(arr, config.max_vector_dim).map_err(|e| e.to_json())?
-                }
-            } else {
-                Vec::new()
-            };
-
-            // MCP-04: reject vector queries whose dim does not match the live
-            // index dim. Without this check, mismatched queries score garbage
-            // (all distances ~0.0) and silently return wrong results. Text-only
-            // searches (empty query_vector) are unaffected.
-            if !query_vector.is_empty() {
-                if let Some(expected) = index_vector_dim(storage) {
-                    if query_vector.len() != expected {
-                        return Ok(error_content(
-                            vantadb::VantaError::DimensionMismatch {
-                                expected,
-                                got: query_vector.len(),
-                            }
-                            .to_string(),
-                        ));
-                    }
-                }
-            }
-
-            let text_query = args["text_query"].as_str().map(String::from);
-            let raw_top_k = args["top_k"]
-                .as_u64()
-                .unwrap_or(config.default_top_k as u64);
-            let top_k = (raw_top_k as usize).min(config.max_top_k);
-
-            let distance_metric = match args["distance_metric"]
-                .as_str()
-                .map(|s| s.to_lowercase())
-                .as_deref()
-            {
-                Some("cosine") => vantadb::DistanceMetric::Cosine,
-                Some("euclidean") => vantadb::DistanceMetric::Euclidean,
-                Some(other) => {
-                    return Ok(error_content(format!(
-                        "Unknown distance_metric '{}' — supported: cosine, euclidean",
-                        other
-                    )));
-                }
-                None => {
-                    warn!("distance_metric not specified in search_memory — defaulting to cosine");
-                    vantadb::DistanceMetric::Cosine
-                }
-            };
-
-            let explain = args["explain"].as_bool().unwrap_or(false);
-
-            // AUD-048: unified filter semantics with the CLI channel. The
-            // search request (`VantaMemorySearchRequest`) is flat-only — it
-            // has no `filter_ops` slot — so flat values and explicit `$eq`
-            // both fold into the flat metadata (identical equality semantics).
-            // Range/inequality operators ($gt/$gte/$lt/$lte/$neq) cannot be
-            // expressed in a search request; return a clear error pointing at
-            // memory_list, which supports them via filter_ops.
-            let filters = if let Some(obj) = args["filters"].as_object() {
-                let ops = parse_filter_ops(obj).map_err(|e| e.to_json())?;
-                let mut flat = vantadb::sdk::VantaMemoryMetadata::new();
-                for item in ops {
-                    if item.op == vantadb::sdk::VantaFilterOp::Eq {
-                        flat.insert(item.field, item.value);
-                    } else {
-                        return Ok(error_content(format!(
-                            "search_memory filters support equality only (flat values or {{\"$eq\": value}}); \
-                             operator '{:?}' on field '{}' is available via memory_list filters",
-                            item.op, item.field
-                        )));
-                    }
-                }
-                flat
-            } else {
-                vantadb::sdk::VantaMemoryMetadata::new()
-            };
-
-            // MEM-02: passthrough del SearchProfileConfig. La forma de wire es
-            // EXACTAMENTE la forma serde de SearchProfileConfig (src/sdk/types.rs),
-            // la misma que deserializa la API nativa y la cláusula IQL PROFILE →
-            // paridad de shape entre canales (D13/D19). Ausente o {} → None
-            // (modo Hybrid + constantes core).
-            let search_profile = match args.get("search_profile") {
-                Some(Value::Object(obj)) => {
-                    Some(validate_search_profile(obj, config).map_err(|e| e.to_json())?)
-                }
-                Some(_) => {
-                    return Ok(error_content(
-                        "search_profile must be an object {mode, rrf_k, candidate_k}".to_string(),
-                    ));
-                }
-                None => None,
-            };
-
-            let request = vantadb::sdk::VantaMemorySearchRequest {
-                namespace: namespace.to_string(),
-                query_vector,
-                query_sparse: None,
-                filters,
-                text_query,
-                top_k,
-                distance_metric,
-                explain,
-                exclude_superseded: false,
-                search_profile,
+            let request = match parse_search_request(namespace, args, config, storage)? {
+                ParsedSearchRequest::Ready(req) => req,
+                ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
             };
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.search(request) {
+                Ok(hits) => Ok(text_content(serialize_content(&hits))),
+                Err(e) => Ok(error_content(format!("Search Error: {}", e))),
+            }
+        }
+
+        // MCP-24: memory search with an explicit dense-index backend override
+        // (search_with_method). Same wire shape as search_memory plus `method`.
+        "search_with_method" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+            let method = parse_search_method(&args["method"])?;
+
+            let request = match parse_search_request(namespace, args, config, storage)? {
+                ParsedSearchRequest::Ready(req) => req,
+                ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
+            };
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.search_with_method(request, method) {
+                Ok(hits) => Ok(text_content(serialize_content(&hits))),
+                Err(e) => Ok(error_content(format!("Search Error: {}", e))),
+            }
+        }
+
+        // MCP-24: one request across several namespaces, merged by descending
+        // score and capped at `top_k` globally (SDK search_multi).
+        "search_multi" => {
+            let ns_arr = args["namespaces"]
+                .as_array()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespaces' array").to_json())?;
+            if ns_arr.is_empty() {
+                return Err(McpError::invalid_params("'namespaces' must not be empty").to_json());
+            }
+            let mut namespaces = Vec::with_capacity(ns_arr.len());
+            for ns in ns_arr {
+                let ns = ns.as_str().ok_or_else(|| {
+                    McpError::invalid_params("'namespaces' entries must be strings").to_json()
+                })?;
+                validate_identifier(ns, "namespace", config.max_namespace_length)
+                    .map_err(|e| e.to_json())?;
+                namespaces.push(ns.to_string());
+            }
+
+            // The SDK's search_multi ignores request.namespace (it overwrites
+            // it per-namespace), so a placeholder is fine here.
+            let request = match parse_search_request("default", args, config, storage)? {
+                ParsedSearchRequest::Ready(req) => req,
+                ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
+            };
+
+            let ns_refs: Vec<&str> = namespaces.iter().map(String::as_str).collect();
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.search_multi(&ns_refs, request) {
                 Ok(hits) => Ok(text_content(serialize_content(&hits))),
                 Err(e) => Ok(error_content(format!("Search Error: {}", e))),
             }
@@ -1208,6 +1294,23 @@ pub fn handle_tools_call(
                     &json!({ "bytes_reclaimed": bytes }),
                 ))),
                 Err(e) => Ok(error_content(format!("Compact Layout Error: {}", e))),
+            }
+        }
+
+        // MOD-10: vacuum — thin wrapper over the SDK. VacuumReport does not
+        // derive Serialize, so the report is built as an explicit JSON object
+        // (same field set as the struct, src/storage/engine/mod.rs).
+        "vacuum" => {
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.vacuum() {
+                Ok(report) => Ok(text_content(serialize_content(&json!({
+                    "scanned_nodes": report.scanned_nodes,
+                    "removed_nodes": report.removed_nodes,
+                    "reclaimed_bytes": report.reclaimed_bytes,
+                    "duration_ms": report.duration_ms,
+                    "success": report.success,
+                })))),
+                Err(e) => Ok(error_content(format!("Vacuum Error: {}", e))),
             }
         }
 
@@ -1629,6 +1732,28 @@ pub fn handle_tools_call(
             }
         }
 
+        // MOD-10: remove_edge — thin wrapper over the SDK remove_edge. u128
+        // node ids travel as decimal strings (same pattern as MCP-21/22);
+        // the label is validated at the boundary (mutating tool, user input).
+        "remove_edge" => {
+            let source_id = parse_node_id(&args["source_id"]).ok_or_else(|| {
+                McpError::invalid_params("Invalid or missing 'source_id'").to_json()
+            })?;
+            let target_id = parse_node_id(&args["target_id"]).ok_or_else(|| {
+                McpError::invalid_params("Invalid or missing 'target_id'").to_json()
+            })?;
+            let label = args["label"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'label'").to_json())?;
+            validate_identifier(label, "label", config.max_key_length).map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.remove_edge(source_id, target_id, label) {
+                Ok(()) => Ok(text_content(serialize_content(&json!({ "removed": true })))),
+                Err(e) => Ok(error_content(format!("Remove Edge Error: {}", e))),
+            }
+        }
+
         "skill_list" | "skill_view" | "skill_create" | "skill_update" | "skill_patch"
         | "skill_files_write" => crate::skills::handle_skill_tool(name, args, storage, config),
         "code_search" | "code_explore" | "code_callers" | "code_callees" | "code_impact"
@@ -1764,6 +1889,166 @@ fn parse_direction(val: &Value) -> Result<vantadb::graph::TraversalDirection, Va
             "both" => Ok(vantadb::graph::TraversalDirection::Both),
             other => Err(McpError::invalid_params(format!(
                 "Unknown direction '{}' — supported: forward, reverse, both",
+                other
+            ))
+            .to_json()),
+        },
+    }
+}
+
+/// MCP-24: result of parsing a shared search request.
+///
+/// `Ready(request)` is a fully validated request ready to run against the SDK.
+/// `Rejected(envelope)` is a *domain* rejection (dimension mismatch, unsupported
+/// filter) that must be surfaced to the client as `Ok(error_content(...))`
+/// (MEM-32) so the LLM can read and self-correct — NOT as a propagated
+/// JSON-RPC error. Param-level errors (bad types, unknown enum values) still
+/// come back as `Err(Value)` (JSON-RPC invalid-params).
+enum ParsedSearchRequest {
+    Ready(vantadb::sdk::VantaMemorySearchRequest),
+    Rejected(Value),
+}
+
+/// MCP-24: shared parsing for `search_memory` / `search_with_method` /
+/// `search_multi` — one implementation, same wire shape. The caller validates
+/// the target namespace(s) and passes an explicit `namespace` (the SDK's
+/// `search_multi` ignores `request.namespace`, overwriting it per-namespace,
+/// but the struct still needs a value).
+fn parse_search_request(
+    namespace: &str,
+    args: &Value,
+    config: &McpConfig,
+    storage: &Arc<StorageEngine>,
+) -> Result<ParsedSearchRequest, Value> {
+    let query_vector = if let Some(arr) = args["query_vector"].as_array() {
+        if arr.is_empty() {
+            Vec::new()
+        } else {
+            validate_vector(arr, config.max_vector_dim).map_err(|e| e.to_json())?
+        }
+    } else {
+        Vec::new()
+    };
+
+    // MCP-04: reject vector queries whose dim does not match the live index
+    // dim. Without this, mismatched queries score garbage (~0.0) and silently
+    // return wrong results. Text-only searches (empty query_vector) are
+    // unaffected.
+    if !query_vector.is_empty() {
+        if let Some(expected) = index_vector_dim(storage) {
+            if query_vector.len() != expected {
+                return Ok(ParsedSearchRequest::Rejected(error_content(
+                    vantadb::VantaError::DimensionMismatch {
+                        expected,
+                        got: query_vector.len(),
+                    }
+                    .to_string(),
+                )));
+            }
+        }
+    }
+
+    let text_query = args["text_query"].as_str().map(String::from);
+    let raw_top_k = args["top_k"]
+        .as_u64()
+        .unwrap_or(config.default_top_k as u64);
+    let top_k = (raw_top_k as usize).min(config.max_top_k);
+
+    let distance_metric = match args["distance_metric"]
+        .as_str()
+        .map(|s| s.to_lowercase())
+        .as_deref()
+    {
+        Some("cosine") => vantadb::DistanceMetric::Cosine,
+        Some("euclidean") => vantadb::DistanceMetric::Euclidean,
+        Some(other) => {
+            return Ok(ParsedSearchRequest::Rejected(error_content(format!(
+                "Unknown distance_metric '{}' — supported: cosine, euclidean",
+                other
+            ))));
+        }
+        None => {
+            warn!("distance_metric not specified in search request — defaulting to cosine");
+            vantadb::DistanceMetric::Cosine
+        }
+    };
+
+    let explain = args["explain"].as_bool().unwrap_or(false);
+
+    // AUD-048: unified filter semantics with the CLI channel. The search
+    // request (`VantaMemorySearchRequest`) is flat-only — it has no
+    // `filter_ops` slot — so flat values and explicit `$eq` both fold into the
+    // flat metadata (identical equality semantics). Range/inequality operators
+    // ($gt/$gte/$lt/$lte/$neq) cannot be expressed in a search request; return
+    // a clear error pointing at memory_list, which supports them via
+    // filter_ops.
+    let filters = if let Some(obj) = args["filters"].as_object() {
+        let ops = parse_filter_ops(obj).map_err(|e| e.to_json())?;
+        let mut flat = vantadb::sdk::VantaMemoryMetadata::new();
+        for item in ops {
+            if item.op == vantadb::sdk::VantaFilterOp::Eq {
+                flat.insert(item.field, item.value);
+            } else {
+                return Ok(ParsedSearchRequest::Rejected(error_content(format!(
+                    "search filters support equality only (flat values or {{\"$eq\": value}}); \
+                     operator '{:?}' on field '{}' is available via memory_list filters",
+                    item.op, item.field
+                ))));
+            }
+        }
+        flat
+    } else {
+        vantadb::sdk::VantaMemoryMetadata::new()
+    };
+
+    // MEM-02: passthrough del SearchProfileConfig. La forma de wire es
+    // EXACTAMENTE la forma serde de SearchProfileConfig (src/sdk/types.rs),
+    // la misma que deserializa la API nativa y la cláusula IQL PROFILE →
+    // paridad de shape entre canales (D13/D19). Ausente o {} → None
+    // (modo Hybrid + constantes core).
+    let search_profile = match args.get("search_profile") {
+        Some(Value::Object(obj)) => {
+            Some(validate_search_profile(obj, config).map_err(|e| e.to_json())?)
+        }
+        Some(_) => {
+            return Ok(ParsedSearchRequest::Rejected(error_content(
+                "search_profile must be an object {mode, rrf_k, candidate_k}".to_string(),
+            )));
+        }
+        None => None,
+    };
+
+    Ok(ParsedSearchRequest::Ready(
+        vantadb::sdk::VantaMemorySearchRequest {
+            namespace: namespace.to_string(),
+            query_vector,
+            query_sparse: None,
+            filters,
+            text_query,
+            top_k,
+            distance_metric,
+            explain,
+            exclude_superseded: false,
+            search_profile,
+        },
+    ))
+}
+
+/// MCP-24: parse the optional dense-index backend override for
+/// `search_with_method`. `None` keeps automatic engine routing untouched.
+/// Unknown values are rejected (enum whitelist) rather than silently falling
+/// back, since the input schema advertises the allowed set.
+fn parse_search_method(val: &Value) -> Result<Option<vantadb::index::IndexType>, Value> {
+    match val.as_str() {
+        None => Ok(None),
+        Some(m) => match m.to_lowercase().as_str() {
+            "hnsw" => Ok(Some(vantadb::index::IndexType::Hnsw)),
+            "ivf" => Ok(Some(vantadb::index::IndexType::Ivf)),
+            "flat" => Ok(Some(vantadb::index::IndexType::Flat)),
+            "diskann" => Ok(Some(vantadb::index::IndexType::DiskAnn)),
+            "scann" => Ok(Some(vantadb::index::IndexType::Scann)),
+            other => Err(McpError::invalid_params(format!(
+                "Unknown method '{}' — supported: hnsw, ivf, flat, diskann, scann",
                 other
             ))
             .to_json()),

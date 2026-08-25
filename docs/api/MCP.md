@@ -127,12 +127,14 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 | `memory_list` | Lists memory records in a namespace with optional pagination and metadata filters. |
 | `memory_list_namespaces` | Lists all available namespaces in the database. |
 
-### Search & Query (3)
+### Search & Query (5)
 
 | Tool | Description |
 |------|-------------|
 | `search_memory` | Hybrid memory search in a namespace: text/vector/hybrid modes, filters, distance metric, RRF tuning, and explain output. |
 | `search_semantic` | Raw semantic vector search directly in the HNSW index. |
+| `search_with_method` | Memory search with an explicit dense-index backend override (`method`: hnsw \| ivf \| flat \| diskann \| scann); omit to keep automatic routing. Same parameters as `search_memory`. |
+| `search_multi` | Run one search request across multiple namespaces and merge results (sorted by score, capped at `top_k` globally). |
 | `query_iql` | Executes an IQL statement against typed graph nodes and memory namespaces (each namespace is queryable as a table named by its sanitized form: `/` and `-` → `_`, leading digit/`.` gets a `_` prefix). LISP not supported. |
 
 ### Graph (6)

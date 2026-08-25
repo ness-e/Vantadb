@@ -2,17 +2,17 @@
 
 > Verified against the real SDK boundary: `src/sdk/types.rs`, `src/sdk/api.rs`, `src/sdk/builder.rs`, `src/index/graph.rs`, `src/error.rs`. Only symbols that exist in the code are documented here.
 
-## MCP Tools (57)
+## MCP Tools (72)
 
 > **This is the single source of truth for the VantaDB MCP contract.**
-> Verified against `vantadb-mcp/src/`: exactly **66 tools** = 36 core
+> Verified against `vantadb-mcp/src/`: exactly **72 tools** = 42 core
 > (`handlers/tools.rs` `base_tools`) + 6 `skill_*` (`skills.rs`) + 8 `code_*`
 > (`code.rs`) + 6 `wiki_*` (`wiki.rs`) + 1 `context_assemble`
 > (`context.rs`) + 3 `scene_*` (`scenes.rs`) + 6 `thread_*` (`threads.rs`). All seven sets are announced together
 > in `tools/list` via extend (`handlers/tools.rs`).
-> Last synced against code: 2026-08-23.
+> Last synced against code: 2026-08-25.
 
-### Core — Memory / Search / Collections / Graph / IQL / GDS / Recovery (36)
+### Core — Memory / Search / Collections / Graph / IQL / GDS / Recovery (42)
 
 | Tool | Purpose | Main params |
 |------|---------|-------------|
@@ -23,6 +23,8 @@
 | `memory_delete_by_filter` (MCP-18) | Batch-delete all records matching metadata filters; ≥1 filter item required | `namespace`, `filters` (same shape as `memory_list`, req); returns `{deleted_count}` |
 | `memory_list` | List records with pagination + filters | `namespace`; `limit` (default 100), `cursor` (numeric offset), `filters` |
 | `memory_list_namespaces` | List all namespaces | none |
+| `memory_versions` (MOD-10) | List every retained version of a record, ascending v1..vN (snapshots drop supersession fields) | `namespace`, `key`; returns array of memory records (empty `[]` when missing) |
+| `memory_supersede` (MOD-10) | Mark a record as superseded by another (durable soft-dead) | `namespace`, `old_key`, `new_key`; errors on missing key / same-key / already superseded; returns `{superseded: true}` |
 | `query_iql` | Execute an IQL statement (reads + node mutations; LISP NOT supported) | `query` |
 | `search_memory` | Hybrid vector + text search with filters/profile/explain | `namespace`; `query_vector`, `text_query`, `top_k` (10), `distance_metric` (cosine \| euclidean, per-request), `explain`, `filters`, `search_profile` `{mode, rrf_k, candidate_k}` |
 | `search_semantic` | Raw HNSW vector search | `vector`, `k` (required in schema, defaults 5 if omitted); returns real distances (`1 − cosine_similarity`) ascending |
@@ -32,6 +34,7 @@
 | `graph_traverse` (MCP-22) | Multi-hop BFS/DFS traversal (plain or label/time-filtered) | `start` (array, req), `mode` (`bfs`\|`dfs`, req), `max_depth` (req); `direction` (`forward`\|`reverse`\|`both`, default forward), `filter` `{labels: [u32], time_range: [from_ms, to_ms]}`; returns `{visited: [...], count}` |
 | `graph_topological_sort` (MCP-22) | Topological order of the subgraph; errors on cycles | `roots` (req); returns `{order: [...]}` |
 | `graph_is_dag` (MCP-22) | Whether the subgraph reachable from roots is acyclic | `roots` (req); returns `{is_dag: bool}` |
+| `remove_edge` (MOD-10) | Remove all edges between two nodes with the given label (both directions) | `source_id`, `target_id` (u128 decimal strings, req), `label` (req); returns `{removed: true}` |
 | `inject_context` | Inject context into a thread for consolidation | `content`, `thread_id` (number) |
 | `read_axioms` | Read active Iron Axioms | none |
 | `collection_stats` | Stats for a namespace/collection | `namespace` |
@@ -46,6 +49,7 @@
 | `compact_wal` | Flush + archive current WAL, start fresh one | none |
 | `flush` | Manual durability checkpoint (WAL + mmap flush) | none |
 | `compact_layout` | Compact vector store in BFS order; returns bytes reclaimed | none |
+| `vacuum` (MOD-10) | Purge tombstoned nodes from the HNSW index | none; returns `{scanned_nodes, removed_nodes, reclaimed_bytes, duration_ms, success}` |
 | `rebuild_index` (MCP-20) | Rebuild HNSW + derived indexes + text index from scratch (recovery primitive) | none; returns `VantaIndexRebuildReport` `{scanned_nodes, indexed_vectors, skipped_tombstones, duration_ms, derived_rebuild_ms, index_path, success}` |
 | `audit_text_index` (MCP-20) | Read-only integrity audit of the derived text index vs canonical records | `namespace` (optional), `deep` (bool, default false — adds value-level checks); returns audit report; `passed=true` + `status="ok"` mean no drift |
 | `repair_text_index` (MCP-20) | Repair the text index by rebuilding it from canonical storage | none; returns `VantaTextIndexRepairReport` `{record_count, posting_entries, doc_stats_entries, term_stats_entries, namespace_stats_entries, duration_ms, success}` |

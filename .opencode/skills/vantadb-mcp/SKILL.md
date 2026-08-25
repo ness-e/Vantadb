@@ -5,7 +5,7 @@ description: VantaDB Model Context Protocol (MCP) server integration for persist
 
 # VantaDB MCP Integration
 
-VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **66 tools** (36 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*` + 1 `context_assemble` + 3 `scene_*` + 6 `thread_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
+VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **72 tools** (42 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*` + 1 `context_assemble` + 3 `scene_*` + 6 `thread_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
 
 ## Quick Start
 
@@ -113,14 +113,14 @@ first write; list what exists with `collection_list` (or `memory_list_namespaces
 }
 ```
 
-## Available MCP Tools (57)
+## Available MCP Tools (72)
 
-The full contract for all **57 tools** lives in
-[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 36 core tools in detail; the other 24 are summarized here.
+The full contract for all **72 tools** lives in
+[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 42 core tools in detail; the other 30 are summarized here.
 
 | Group | Count | Tools | Precondition |
 |-------|-------|-------|--------------|
-| Core (Memory/Search/Collections/Graph/IQL/GDS/Recovery) | 36 | documented below | none beyond an open DB |
+| Core (Memory/Search/Collections/Graph/IQL/GDS/Recovery) | 42 | documented below | none beyond an open DB |
 | Review-agent Skills (`skill_*`) | 6 | `skill_list`, `skill_view`, `skill_create`, `skill_update`, `skill_patch`, `skill_files_write` | `owner_agent` caller identity; writes need `expected_version` |
 | Code Intelligence (`code_*`) | 8 | `code_search`, `code_explore`, `code_callers`, `code_callees`, `code_impact`, `code_node`, `code_status`, `code_files`* | graph nodes/edges ingested first; query-only |
 | Wiki Knowledge (`wiki_*`) | 6 | `wiki_search`, `wiki_read`, `wiki_list`, `wiki_graph`, `wiki_ingest`, `wiki_ingest_status` | wiki lifecycle in `ready` state |
@@ -163,6 +163,15 @@ The full contract for all **57 tools** lives in
 - Parameters: None
 - Returns: List of namespace names
 
+**memory_versions** (MOD-10) - List every retained version of a memory record, ascending (v1..vN)
+- Parameters: `namespace`, `key` (both required)
+- Returns: JSON array of memory records; empty `[]` if the key does not exist or has no history. Expired versions are included as historical data until purged. Version snapshots deliberately drop the supersession fields (`superseded_by`/`superseded_at_ms` are always `null`) — read the live record via `memory_get` to see supersession.
+
+**memory_supersede** (MOD-10) - Mark an existing record as superseded by another existing record (durable soft-dead, recoverable)
+- Parameters: `namespace`, `old_key`, `new_key` (all required)
+- Returns: `{"superseded": true}`
+- Errors (self-correctable error content) if either key is missing, `old_key == new_key`, or the old record is already superseded (idempotency guard). Superseded records can be hidden from search/list with `exclude_superseded`.
+
 ### Search Operations
 
 **search_memory** - Hybrid vector and text search in a namespace
@@ -174,6 +183,14 @@ The full contract for all **57 tools** lives in
 **search_semantic** - Raw HNSW vector search
 - Parameters: `vector` (F32 query vector, required), `k` (required in the input schema; optional at runtime — when omitted it defaults to 5)
 - Returns: Nearest neighbors with distances. `distance` is a **real distance, not a similarity**: lower is more similar, and hits are returned in ascending distance order. Under the cosine metric `distance = 1 − cosine_similarity` — an identical vector reports `0.0`, an orthogonal vector reports `1.0`.
+
+**search_with_method** (MCP-24) - Hybrid memory search with an explicit dense-index backend override
+- Parameters: same as `search_memory` plus `method` (optional string enum: `hnsw` | `ivf` | `flat` | `diskann` | `scann`). Omit `method` to keep automatic engine routing.
+- Returns: Same flat hit array as `search_memory` (`{record, score, explanation?}`), but the dense-vector channel is forced through the selected backend. Use it to compare backends or pin a specific index.
+
+**search_multi** (MCP-24) - Run one search request across multiple namespaces and merge the results
+- Parameters: `namespaces` (required array of strings, must not be empty), plus the same request fields as `search_memory` (`query_vector`, `text_query`, `top_k`, `distance_metric`, `explain`, `filters`, `search_profile`). `top_k` caps the **merged** result globally.
+- Returns: A flat hit array merged across all namespaces, sorted by descending score. Namespaces that fail validation are skipped; engine errors are surfaced.
 
 ### Graph Operations
 
@@ -229,6 +246,11 @@ Notes:
 - Returns: `{"is_dag": true|false}`
 - Design note (MCP-22): graph accumulators (`graph_create_accumulator`/`_add`/`_get`/`_snapshot`) are intentionally NOT exposed — they are in-process parallelism primitives holding no engine state, so an MCP lifecycle tool would need server-side session state for zero agent value.
 
+**remove_edge** (MOD-10) - Remove all edges between two nodes with the given label (both directions)
+- Parameters: `source_id`, `target_id` (u128 decimal strings, required), `label` (required)
+- Returns: `{"removed": true}`
+- Node ids are u128 decimal strings (JSON numbers lose precision above 2^53). Edges created by `RELATE` in IQL or `add_edge` are removed symmetrically; a missing node comes back as self-correctable error content.
+
 **inject_context** - Inject context into a thread
 - Parameters: `content`, `thread_id`
 - Returns: Context anchoring status
@@ -273,6 +295,10 @@ Notes:
 **compact_layout** - Compacts the vector store file grouping nodes in BFS order from the HNSW entry point
 - Parameters: None
 - Returns: `{"bytes_reclaimed": <count>}`
+
+**vacuum** (MOD-10) - Purge tombstoned nodes from the HNSW index
+- Parameters: None
+- Returns: `{scanned_nodes, removed_nodes, reclaimed_bytes, duration_ms, success}` (a `VacuumReport`-shaped object)
 
 ### Index Recovery / Introspection (MCP-20/MCP-26)
 
