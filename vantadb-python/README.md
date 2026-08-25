@@ -101,6 +101,31 @@ Use **one embedding model per namespace** — stored and query vectors must
 share the same dimensionality. Full walkthrough:
 [QUICKSTART → Real Embeddings](../docs/QUICKSTART.md#4-real-embeddings-optional).
 
+## Cross-SDK Search Parity
+
+VantaDB exposes the same search capabilities across bindings, but **the `search()`
+name carries different semantics per SDK**. Read this before porting code between
+Python and TypeScript. The canonical method→domain map lives in
+[`docs/api/BINDINGS_NAMESPACES.md`](../docs/api/BINDINGS_NAMESPACES.md).
+
+| Capability | Python SDK | TypeScript SDK |
+|---|---|---|
+| `search()` meaning | **Pure vector ANN** (K-NN) → returns `(node_id, distance)` | **Hybrid** search (vector + text) → returns `SearchHit[]` |
+| Pure vector ANN | `search(vector, top_k=10)` | `searchVector(vector, topK?)` |
+| Hybrid (vector + text) | `search_memory(namespace, query_vector, text_query=...)` | `search({ namespace, query_vector, text_query })` |
+| Namespace scoping | `search_memory(namespace=...)` (`search()` is global over nodes) | `search({ namespace })` |
+| Filters | `search_memory(filters=...)` | `search({ filters })` |
+| `top_k` | `search(top_k=)` / `search_memory(top_k=)` | `search({ top_k })` / `searchVector(v, topK)` |
+| `distance_metric` | `search_memory(distance_metric="cosine"/"euclidean")` | `search({ distance_metric: "Cosine"/"Euclidean" })` |
+| `text_query` | `search_memory(text_query=...)` | `search({ text_query })` |
+| Explain | `search_memory(explain=True)` + `explain_memory_search()` | `search({ explain })` + `explainSearch()` |
+| Batch search | `search_batch(vectors)` / `search_batch_requests(requests)` — **Python-only** | — |
+| Hybrid method / profile override | `search_memory(method=...)` — **Python-only** | — |
+
+> **Porting hazard:** `search()` in Python and `search()` in TypeScript do **different
+> things**. To get hybrid search in Python use `search_memory()`; to get pure vector
+> ANN in TypeScript use `searchVector()`.
+
 ## 🤖 Caso de Uso: Memoria para Agentes de IA
 
 VantaDB está optimizado para actuar como **memoria a largo plazo** para agentes autónomos locales (Claude, Gemini, LLaMA, etc.):

@@ -160,6 +160,31 @@ the same dimensionality. Full walkthrough:
 | `.query(iqlQuery)` | Execute IQL query |
 | `.generateSnippet(payload, query, withHighlighting?)` | Generate highlighted text snippet |
 
+## Cross-SDK Search Parity
+
+VantaDB exposes the same search capabilities across bindings, but **the `search()`
+name carries different semantics per SDK**. Read this before porting code between
+TypeScript and Python. The canonical method→domain map lives in
+[`docs/api/BINDINGS_NAMESPACES.md`](../docs/api/BINDINGS_NAMESPACES.md).
+
+| Capability | TypeScript SDK | Python SDK |
+|---|---|---|
+| `search()` meaning | **Hybrid** search (vector + text) → returns `SearchHit[]` | **Pure vector ANN** (K-NN) → returns `(node_id, distance)` |
+| Hybrid (vector + text) | `search({ namespace, query_vector, text_query })` | `search_memory(namespace, query_vector, text_query=...)` |
+| Pure vector ANN | `searchVector(vector, topK?)` | `search(vector, top_k=10)` |
+| Namespace scoping | `search({ namespace })` | `search_memory(namespace=...)` (`search()` is global over nodes) |
+| Filters | `search({ filters })` | `search_memory(filters=...)` |
+| `top_k` | `search({ top_k })` / `searchVector(v, topK)` | `search(top_k=)` / `search_memory(top_k=)` |
+| `distance_metric` | `search({ distance_metric: "Cosine"/"Euclidean" })` | `search_memory(distance_metric="cosine"/"euclidean")` |
+| `text_query` | `search({ text_query })` | `search_memory(text_query=...)` |
+| Explain | `search({ explain })` + `explainSearch()` | `search_memory(explain=True)` + `explain_memory_search()` |
+| Batch search | — | `search_batch(vectors)` / `search_batch_requests(requests)` — **Python-only** |
+| Hybrid method / profile override | — | `search_memory(method=...)` — **Python-only** |
+
+> **Porting hazard:** `search()` in TypeScript and `search()` in Python do **different
+> things**. To get pure vector ANN in TypeScript use `searchVector()`; to get hybrid
+> search in Python use `search_memory()`.
+
 ## Domain Sub-clients
 
 Every flat method is also reachable through a **domain sub-client**: `db.memory.*`, `db.graph.*`, `db.wiki.*`, `db.system.*`. Sub-clients are pure organizational sugar over the flat API — each call forwards verbatim to the flat method of the same behavior.
