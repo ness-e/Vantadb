@@ -14,6 +14,9 @@ use crate::wal::WalRecord;
 
 use super::{BatchInsertOptions, InsertMode};
 
+/// Field → value → count cardinality map (alias of `cardinality_stats`).
+type CardStats = std::collections::HashMap<String, std::collections::HashMap<String, usize>>;
+
 #[derive(Clone)]
 struct ExistingMeta {
     relational: RelFields,
@@ -145,27 +148,8 @@ impl StorageEngine {
                 }
             }
 
-            // ΓöÇΓöÇ increment new-node cardinality stats (same lock) ΓöÇΓöÇ
-            for (field, value) in &node.relational {
-                let val_keys = value.to_cardinality_keys();
-                let val_map = stats.entry(field.clone()).or_default();
-                for val_key in val_keys {
-                    if val_map.len() < 100 || val_map.contains_key(&val_key) {
-                        *val_map.entry(val_key).or_default() += 1;
-                    }
-                }
-            }
-            // ponytail: drop the field with fewest entries if total pairs > global cap
-            let total: usize = stats.values().map(|m| m.len()).sum();
-            if total > crate::config::MAX_CARDINALITY_PAIRS {
-                if let Some(min_field) = stats
-                    .iter()
-                    .min_by_key(|(_, m)| m.len())
-                    .map(|(k, _)| k.clone())
-                {
-                    stats.remove(&min_field);
-                }
-            }
+            // increment new-node cardinality stats (same lock)
+            Self::bump_cardinality(&mut stats, node);
 
             // PERF-07: remove old edges from global index
             if let Some(ref ei) = self.edge_index {
@@ -180,28 +164,9 @@ impl StorageEngine {
                 }
             }
         } else {
-            // ΓöÇΓöÇ insert-only: increment cardinality stats ΓöÇΓöÇ
+            // insert-only: increment cardinality stats
             let mut stats = self.cardinality_stats.write();
-            for (field, value) in &node.relational {
-                let val_keys = value.to_cardinality_keys();
-                let val_map = stats.entry(field.clone()).or_default();
-                for val_key in val_keys {
-                    if val_map.len() < 100 || val_map.contains_key(&val_key) {
-                        *val_map.entry(val_key).or_default() += 1;
-                    }
-                }
-            }
-            // ponytail: drop the field with fewest entries if total pairs > global cap
-            let total: usize = stats.values().map(|m| m.len()).sum();
-            if total > crate::config::MAX_CARDINALITY_PAIRS {
-                if let Some(min_field) = stats
-                    .iter()
-                    .min_by_key(|(_, m)| m.len())
-                    .map(|(k, _)| k.clone())
-                {
-                    stats.remove(&min_field);
-                }
-            }
+            Self::bump_cardinality(&mut stats, node);
         }
 
         // PERF-07: add new edges to global index
@@ -214,6 +179,33 @@ impl StorageEngine {
         if let Some(ref si) = self.scalar_index {
             for (field, value) in &node.relational {
                 si.insert(field, value, node.id);
+            }
+        }
+    }
+
+    /// Increment cardinality stats for a node's relational fields, capped at
+    /// `MAX_CARDINALITY_PAIRS` total pairs (drops the field with fewest entries
+    /// on overflow). Shared by the overwrite and insert-only branches of
+    /// `apply_insert_stats` (MOD-06 dedup).
+    fn bump_cardinality(stats: &mut CardStats, node: &UnifiedNode) {
+        for (field, value) in &node.relational {
+            let val_keys = value.to_cardinality_keys();
+            let val_map = stats.entry(field.clone()).or_default();
+            for val_key in val_keys {
+                if val_map.len() < 100 || val_map.contains_key(&val_key) {
+                    *val_map.entry(val_key).or_default() += 1;
+                }
+            }
+        }
+        // ponytail: drop the field with fewest entries if total pairs > global cap
+        let total: usize = stats.values().map(|m| m.len()).sum();
+        if total > crate::config::MAX_CARDINALITY_PAIRS {
+            if let Some(min_field) = stats
+                .iter()
+                .min_by_key(|(_, m)| m.len())
+                .map(|(k, _)| k.clone())
+            {
+                stats.remove(&min_field);
             }
         }
     }
@@ -778,7 +770,7 @@ impl StorageEngine {
             if let Some(ref sharded) = self.wal {
                 let wal_records: Vec<WalRecord> =
                     nodes.iter().map(|n| WalRecord::Insert(n.clone())).collect();
-                sharded.batch_append(&wal_records)?;
+                sharded.batch_append(wal_records)?;
             }
         }
 

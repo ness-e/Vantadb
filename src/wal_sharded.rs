@@ -104,8 +104,18 @@ pub(crate) fn read_shard_meta(base_path: &Path) -> Option<usize> {
 }
 
 /// Persist the shard count to the sidecar metadata file.
+///
+/// Published atomically (write to a temp sibling, then rename) so a crash
+/// mid-write can never leave a truncated sidecar behind. A corrupt sidecar
+/// degrades to `read_shard_meta() == None` and recovery falls back to
+/// `detect_shard_count` — safe but avoidable.
 fn write_shard_meta(base_path: &Path, count: usize) -> Result<()> {
-    std::fs::write(shard_meta_path(base_path), count.to_string())?;
+    let target = shard_meta_path(base_path);
+    let mut tmp = target.as_os_str().to_os_string();
+    tmp.push(".tmp");
+    let tmp = PathBuf::from(tmp);
+    std::fs::write(&tmp, count.to_string())?;
+    std::fs::rename(&tmp, &target)?;
     Ok(())
 }
 
@@ -194,21 +204,25 @@ impl ShardedWal {
 
     /// Append multiple records across shards, batching per shard to reduce I/O.
     ///
-    /// Groups records by their round-robin shard assignment, then calls
-    /// [`WalWriter::batch_append`] once per shard — one lock, one `write_all`,
-    /// and (at most) one `maybe_sync` per shard, instead of per-record I/O.
-    /// This yields a dramatic speedup for large batches (3-5× on WAL writes).
-    pub fn batch_append(&self, records: &[WalRecord]) -> Result<()> {
+    /// Takes the records by value so each one can be *moved* into its shard's
+    /// group instead of cloned (a `WalRecord` carries a full `UnifiedNode` —
+    /// payload, vector, fields — so cloning per record was a real allocation
+    /// cost on large batches). Groups records by their round-robin shard
+    /// assignment, then calls [`WalWriter::batch_append`] once per shard — one
+    /// lock, one `write_all`, and (at most) one `maybe_sync` per shard, instead
+    /// of per-record I/O. This yields a dramatic speedup for large batches
+    /// (3-5× on WAL writes).
+    pub fn batch_append(&self, records: Vec<WalRecord>) -> Result<()> {
         if records.is_empty() || self.num_shards == 0 {
             return Ok(());
         }
-        let start = self.next_shard.fetch_add(records.len(), Ordering::Relaxed) % self.num_shards;
-        // Group by shard — one Vec per shard, cloned once (same cost as old
-        // per-record round-robin but compacted into batch_append per shard).
+        let len = records.len();
+        let start = self.next_shard.fetch_add(len, Ordering::Relaxed) % self.num_shards;
+        // Group by shard — one Vec per shard, records moved in (no clones).
         let mut groups: Vec<Vec<WalRecord>> = (0..self.num_shards).map(|_| Vec::new()).collect();
-        for (i, record) in records.iter().enumerate() {
+        for (i, record) in records.into_iter().enumerate() {
             let idx = (start + i) % self.num_shards;
-            groups[idx].push(record.clone());
+            groups[idx].push(record);
         }
         // Batch-append each shard's group — single lock + write_all + maybe_sync
         for (i, group) in groups.iter().enumerate() {
@@ -271,24 +285,17 @@ impl ShardedWal {
         Ok(())
     }
 
-    /// Flush (sync) all shards to disk in parallel.
+    /// Flush (sync) all shards to disk.
+    ///
+    /// Sequential: shard counts are small (2-8) and fsyncs to the same disk
+    /// serialize anyway, so a thread per shard on every flush was pure spawn
+    /// overhead. Durability contract unchanged — all shards are synced before
+    /// this returns.
     pub fn flush_all(&self) -> Result<()> {
-        if self.shards.len() == 1 {
-            return self.shards[0].lock().sync();
+        for shard in &self.shards {
+            shard.lock().sync()?;
         }
-        let handles: Vec<_> = self
-            .shards
-            .iter()
-            .map(|shard| {
-                let shard = Arc::clone(shard);
-                std::thread::spawn(move || shard.lock().sync())
-            })
-            .collect();
-
-        handles.into_iter().try_for_each(|h| {
-            h.join()
-                .map_err(|_| VantaError::wal_error("flush thread panicked"))?
-        })
+        Ok(())
     }
 
     /// Rotate all shards (flush, archive, and start fresh WAL files).
@@ -500,7 +507,7 @@ mod tests {
         let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
 
         let records: Vec<WalRecord> = (0..10).map(make_record).collect();
-        sw.batch_append(&records).unwrap();
+        sw.batch_append(records).unwrap();
         assert_eq!(sw.total_record_count(), 10);
         clean_shards(&path, 2);
     }
@@ -509,7 +516,7 @@ mod tests {
     fn test_batch_append_empty() {
         let path = test_wal_path();
         let sw = ShardedWal::new(&path, 3, SyncMode::Periodic).unwrap();
-        sw.batch_append(&[]).unwrap();
+        sw.batch_append(vec![]).unwrap();
         assert_eq!(sw.total_record_count(), 0);
         clean_shards(&path, 3);
     }
@@ -518,7 +525,7 @@ mod tests {
     fn test_batch_append_single_record() {
         let path = test_wal_path();
         let sw = ShardedWal::new(&path, 3, SyncMode::Periodic).unwrap();
-        sw.batch_append(&[make_record(99)]).unwrap();
+        sw.batch_append(vec![make_record(99)]).unwrap();
         assert_eq!(sw.total_record_count(), 1);
         clean_shards(&path, 3);
     }

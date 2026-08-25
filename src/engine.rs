@@ -380,12 +380,16 @@ impl InMemoryEngine {
 
         let mut results = Vec::new();
 
+        // MOD-06: hoisted out of the loop — `label` is invariant across the
+        // BFS, so locking the interner and looking it up per visited node was
+        // pure redundant work.
+        let label_id = self.label_intern.lock().lookup(label);
+
         while let Some((current_id, depth)) = queue.pop_front() {
             if depth >= max_depth {
                 continue;
             }
             if let Some(node) = nodes.get(&current_id) {
-                let label_id = self.label_intern.lock().lookup(label);
                 if let Some(lid) = label_id {
                     for edge in &node.edges {
                         if edge.label_id == lid {

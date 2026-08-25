@@ -260,7 +260,7 @@ impl StorageEngine {
         // Phase 2: WAL batch append
         let wal_records: Vec<WalRecord> = ids.iter().map(|&id| WalRecord::Delete { id }).collect();
         if let Some(ref sharded) = self.wal {
-            sharded.batch_append(&wal_records)?;
+            sharded.batch_append(wal_records)?;
         }
 
         // Phase 3: HNSW node removal + vector store tombstone marking

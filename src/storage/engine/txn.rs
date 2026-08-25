@@ -156,7 +156,7 @@ impl StorageEngine {
 
         // 4. Write WAL batch atomically
         if let Some(ref sharded) = self.wal {
-            sharded.batch_append(&wal_records)?;
+            sharded.batch_append(wal_records)?;
         }
 
         // 5. Apply buffered ops to stores with MVCC stamps
