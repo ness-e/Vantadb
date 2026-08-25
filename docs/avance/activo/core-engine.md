@@ -326,3 +326,18 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Fecha:** 2026-08-23
 - **Fuente:** Plan `docs/plans/2026-08-23-backlog-triage.md` (Wave 1) · Backlog · core.md H-1 · cross-modulos F-1 (expuesto vía WASM)
 - **Resultado:** ✅ Los 3 mutadores de `InMemoryEngine` escribían al WAL antes de validar: una op rechazada quedaba loggeada y el replay (`with_wal`) la aplicaba incondicionalmente como upsert — duplicado rechazado pisaba el payload original y update sobre nodo eliminado lo recreaba tras reopen. Fix: orden validate→WAL→apply bajo UNA sección crítica `nodes.write()` en insert/update/delete (double-checked descartado: deja ventana TOCTOU no retractable en append-only). Discovery mapeó TODOS los write paths: StorageEngine/batch/bulk/txn no violan el invariante (upsert por diseño, guards previos al WAL, buffer solo commitea validado) — H-1 vivía solo en el motor legacy. TDD: RED reprodujo ambas resurrecciones mecánicamente, 4 tests de durabilidad nuevos (reject×2 + flujo legítimo×2 con reopen), GREEN 4/4. Verify full: fmt ✅ · clippy workspace `-D warnings` ✅ · nextest `-p vantadb` 2049/2049 ✅ · audit workspace 2718/2718 ✅ · docs coverage 0 gaps ✅. Commit `18fd2c80`. (ver `.opencode/skills/campaign-executor/tasks/MOD-01.md`)
+
+### FIND-27: Provider Ollama postea a endpoint legacy /api/embeddings - fix a /api/embed (2026-08-24)
+- **Fecha:** 2026-08-24
+- **Plan:** `docs/plans/2026-08-24-batch-review-mod-find.md` (Wave 0)
+- **Resultado:** OK - el provider Ollama nativo posteaba a `/api/embeddings` (endpoint legacy, campo `prompt`) en vez de `/api/embed` `{model,input}` vigente, fallando contra Ollama actual. Fix: endpoint + response shape (`embeddings[0]`), con 2 tests contra mock HTTP (endpoint correcto + rechazo de embeddings vacios). Verify: `cargo nextest run -p vantadb --features remote-inference llm::` 2/2 PASS. Commit `447a07d7`.
+
+### MOD-02: Replay de transacciones no crash-atomicas - fix recover_state bounds skip al extent de la txn (2026-08-24)
+- **Fecha:** 2026-08-24
+- **Plan:** `docs/plans/2026-08-24-batch-review-mod-find.md` (Wave 0)
+- **Resultado:** OK - root cause: (1) tests previos usaban BackendKind::InMemory que jamas llama recover_state; (2) crash-sim escribia en path raiz pero el engine usa data_dir/vanta.wal; (3) fix previo (txn_end) era no-op. Fix: tracking per-id `open_txn` (Commit/Abort cierran solo la txn que matchea; un Begin nuevo marca el limite del batch incompleto; trailing incompleto se descarta fail-safe). Tests: 45/45 init+txn, chaos failpoints 1/1, durability/crash 8/8. Verify: `cargo nextest run -p vantadb -E ''test(init::) or test(txn)''` 45/45. Commit `db8b26b7`. Ceiling documentado: registro plano sin markers inmediatamente despues de txn parcial es indistinguible y se descarta fail-safe.
+
+### FIND-28: 3 casts u8*->f32* sin chequeo de alineacion - migrados a as_f32_slice (align_to) (2026-08-24)
+- **Fecha:** 2026-08-24
+- **Plan:** `docs/plans/2026-08-24-batch-review-mod-find.md` (Wave 1)
+- **Resultado:** OK - 3 casts crudos `u8*->f32*` (from_raw_parts sin chequeo de alineacion = UB) en ivf.rs, distance/mapper.rs, serialize/bytes.rs reemplazados por el helper canonico `VectorRepresentations::as_f32_slice()` (align_to), eliminando 3 bloques unsafe y la const muerta MAX_VEC_F32_LEN. Review P2-01 vanta-audit APPROVE. Verify: check/clippy -D warnings/fmt, nextest 2055/2055. Commit `2d9fa75f`. FIND-29 derivado (search/layer.rs candidato, sound hoy).

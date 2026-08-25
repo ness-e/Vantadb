@@ -56,6 +56,12 @@ aliases: []
 - **Fecha:** 2026-08-06
 - **Resultado:** ✅ `prismjs` + `sharp` removidos de `web/` (deps muertas).
 
+### REVIEW-06: OOM rustc en cargo test --workspace — fix [profile.test]
+- **Fecha:** 2026-08-24
+- **Objetivo:** Eliminar OOM del compilador al compilar tests del workspace (17+ crates en paralelo con debug info completa).
+- **Resultado:** ✅ Fix commiteado por lead en `167a8d4c` (`[profile.test]` debug=1/opt-level=0 + `[build] jobs=2` en `.cargo/config.toml`); verificado por vanta-tuner: `cargo nextest run -p vantadb --profile audit` compila y ejecuta 2055 tests sin OOM (2052 pass, 3 fail = tests nuevos de MOD-02, colateral), `cargo check --workspace` 42.84s sin OOM.
+
+
 ### TSYS-01..16: Mejoras task-system (plan 2026-08-11-residuo-consolidado)
 - **Fecha:** 2026-08-11
 - **Resultado:** ✅ TSYS-01..05, 07..11, 13..16 implementados (14/16; TSYS-06 runner DEFER, TSYS-12 runtime opcional NO gate-CI). Commits: 8f774c18 (T12/T14/T15/T16), d9f2a4cb (T10/T11/T13), 138d8735 (TSYS-14/15/16), TSYS-09/ADR-017. Ver `docs/progreso/README.md` sección migradas.

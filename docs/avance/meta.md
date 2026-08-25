@@ -97,3 +97,9 @@ Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña
 - `docs/progreso/ARCHIVO_HISTORICO.md` §Meta/Proceso
 - `docs/progreso/README.md` §Housekeeping y C-*
 - `docs/progreso/bitacora.md` §SKILLS ECOSYSTEM
+## Retrospectiva — Batch REVIEW/MOD/FIND (plan 2026-08-24-batch-review-mod-find, archivado 2026-08-25)
+- **Cierre:** 10/10 tareas completadas (8 commits + 1 fix pre-existente verificado), 0 failed, 0 stalled. Waves: W0 {REVIEW-06, MOD-02, FIND-27} · W1 {FIND-28, MOD-19, MOD-08+09} · W2 {UX-01+05, FIND-04}.
+- **Start (seguir haciendo):** waves paralelas con MAX_CONCURRENT=3; sub-agentes NO commitean y el lead verifica+commitea por tarea (aislamiento de commits, sin race del index); worktree durable: 2 tareas (MOD-02, UX-01+05) se retomaron del estado parcial del run pausado sin perder trabajo.
+- **Stop (dejar de hacer):** correr waves sobre un árbol sucio (H1 del plan: ~35 archivos desktop sin commit al iniciar). Probar `git status` limpio antes de lanzar cualquier wave paralela.
+- **Continue:** contrato verificable por tarea; SARL para resultados no-DONE (UX-01+05 fallo por error transitorio de provider → RETRY fresco resolvio sin rehacer); verify mecanico del lead antes de commitear.
+- **Accion medible:** reducir reintentos SARL por tarea de 2 a 1 (metric: retries/tarea; baseline esta campaña = 2 tasks con 1 retry cada una). North Star: >90% first-try — esta campaña 8/10 first-try (80%), 2 requirieron retry por causa infra, no de codigo.

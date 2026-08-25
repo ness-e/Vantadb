@@ -228,3 +228,19 @@ aliases: []
 
 ### MCP-30: Tools scene_read/scene_list/scene_query - navegacion de escenas desde agentes - completado 2026-08-24
 - **Resultado:** ✅ 3 tools MCP read-only wrapper thin de `vanta_memory::gateway` (knowledge_handlers puros sobre &VantaEmbedded, capa disenada "for a future MCP server"). Modulo `scenes.rs` patron MEM-33; wire shape = tipos serde existentes (id de navegacion en scene_list = campo `filename`, no scene_name); errores de dominio como error_content (MEM-32), params invalidos como JSON-RPC invalid_params; scene_query keyword-only (embed=None, modo D38). Trust boundary: validate_identifier/validate_payload + caps top_k. TDD RED->GREEN: 7 round-trips via handle_tools_call con seed upsert_scene publica (sin pipeline L0 ni LLM). Verify: fmt exit 0, clippy -D warnings exit 0, nextest -p vantadb-mcp 51/51, docs parity 0 gaps. SKILL.md x2 hash SAME + api-reference x2 + mcp-protocol x2 + MCP.md 60 tools/6 familias. Commit d03b6517.
+
+### FIND-04: Tabla cross-SDK search() Python<->TS - completado 2026-08-24
+- **Fecha:** 2026-08-24
+- **Objetivo:** Documentar la paridad cross-SDK de `search()` entre Python SDK (vantadb-python/) y TypeScript/WASM SDK (vantadb-ts/) y enlazar el doc canonico de namespaces desde ambos READMEs.
+- **Resultado:** seccion Cross-SDK Search Parity (tabla comparativa de 11 capacidades) agregada a `vantadb-python/README.md:104` y `vantadb-ts/README.md:163` + link a `docs/api/BINDINGS_NAMESPACES.md` (TS ya lo tenia; Python lo agrega). Verificado contra codigo real: Python `search(vector, top_k)` = pure vector ANN namespace-agnostico (devuelve (node_id,distance), lib.rs:1596); TS `search(request)` = hybrid (namespace+filters+text+distance_metric, vantadb.ts:595 / types.ts:61). Divergencia de nombre documentada como porting hazard.
+- **Resultado:** OK - verify: docs coverage 0 gaps, tablas en ambos READMEs, link resuelve. Sin commit (regla batch: lo commitea el lead). Commit sugerido: `docs: FIND-04 cross-SDK search() parity`.
+
+### MOD-19: Exponer count/delete_by_filter/similar_to_key en binding Python (PyO3) (2026-08-24)
+- **Fecha:** 2026-08-24
+- **Plan:** `docs/plans/2026-08-24-batch-review-mod-find.md` (Wave 1)
+- **Resultado:** OK - ~30% de la API core sin exponer en Python. Se expusieron `count`, `delete_by_filter`, `similar_to_key` como flat API + sub-cliente `db.memory.*` + AsyncVantaDB + stubs .pyi + docs, con formato canonico de filtros operator-dict del ecosistema (CLI/MCP/TS). Helper `py_dict_to_filter_ops` en convert.rs. Additivo, cero cambios en core. FASE SECURITY OK (FFI, sin unsafe nuevo, GIL liberado). Verify: cargo check/fmt/clippy vantadb_py, pytest 118 passed, docs coverage 0 gaps. Commit `dc65c242`.
+
+### MOD-08+MOD-09: Loop stdio MCP serial + shutdown descarta respuesta in-flight - fix serve_lines (2026-08-24)
+- **Fecha:** 2026-08-24
+- **Plan:** `docs/plans/2026-08-24-batch-review-mod-find.md` (Wave 1)
+- **Resultado:** OK - MOD-08: el loop stdio era serial (request lento bloqueaba el fan-out del agente); MOD-09: el break de shutdown descartaba la respuesta in-flight ya computada. Fix en serve_lines: cada request con id se despacha a una task background (el reader drena stdin sin backpressure); stdout en Arc<tokio::sync::Mutex>; shutdown solo corta el reader y `while inflight.join_next().await` escribe TODAS las respuestas in-flight. Eliminada barrera !Send (EnteredSpan). Verify: `cargo test -p vantadb-mcp --test mcp_tests` 60/60. Commit `5aa42007`. Deuda: auditoria de concurrencia (Regla 8) delegada a vanta-chaos/vanta-review como queda_pendiente.
