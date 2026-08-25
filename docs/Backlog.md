@@ -13,7 +13,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
 > **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
 > **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 97 activas (reconteo GOV-C7 2026-08-25: +MCP-35 +CORE-02 +12 MEM Wave 2 memoria agéntica)
+> **Total open items:** 107 activas (reconteo GOV-C7 2026-08-25: +P39 vanta-proxy gateway completo, 10 tareas PRX)
 ---
 
 ## Exec Summary
@@ -556,3 +556,22 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 |----|--------|-------------|--------|--------|
 | `DEC-01` | 🟠 | **Session layer VantaDB MCP: go/no-go y alcance.** Roadmap de 4 fases propuesto (session cache, Claude Code plugin, sync/improve, lesson extraction) pero las 5 open questions siguen abiertas (¿mismo embedding space?, ¿sync automático?, ¿transporte MCP?). Decidir vía ADR antes de escribir código | `COGNEE_EVALUATION.md` | ⬜ Pendiente |
 | `DEC-02` | 🟠 | **Billing/quota CreditCalculator en server mode** (TDAM #9, diferido explícitamente fuera de F1-F7 y nunca trackeado). Decisión previa requerida: UNA calculadora (÷1000 vs ÷10000). Habilita multi-usuario/VantaDB Pro | `tdam/SYNTHESIS.md` §9, `tdam/09-deploy-usage.md` | ⬜ Pendiente |
+
+---
+
+## P39 - vanta-proxy — Gateway agéntico completo (investigación 3 frentes, 2026-08-25)
+
+> **Origen:** investigación profunda vanta-proxy vs estado del arte (LiteLLM/OpenRouter/Portkey/Helicone/Cloudflare AIG/claude-code-router/Bifrost/TensorZero) vs necesidades de usuarios de coding agents. **Identidad decidida por el owner: gateway completo** (no especialista). Diferenciador a preservar: memoria en tránsito + interceptor de tools server-side (único en el mercado). Deudas internas: state machine `advance()` sin wiring, clasificador Claude Code huérfano, mem-commands stub, fail-open sin trigger (`server.rs:177`, `claude_code.rs:57`, `mem_command.rs:102`).
+
+| ID | Effort | Descripción | Archivos | Estado |
+|----|--------|-------------|----------|--------|
+| `PRX-01` | 🟡 | **Wiring completo de código ya construido**: (1) conectar `SessionStore::advance()` al pipeline (disparo por header/ruta — hoy solo tests); (2) consumidor para `classify_cc_request` (routing Main/Fork/Sidequery); (3) mem-commands reales: `mem:sync`/`create-skill` ejecutando el pipeline en vez de responder stub; (4) trigger real de `set_degraded(true)` (upstream 429/fallos consecutivos → fail-open del limiter) | `server.rs`, `session.rs`, `session/claude_code.rs`, `mem_command.rs`, `rate_limit.rs` | ⬜ Pendiente |
+| `PRX-02` | 🔴 | **Fallback multi-upstream + retries**: config `[upstreams]` array con prioridad; retries backoff exponencial ante 429/5xx; health pasivo (errores consecutivos degradan un upstream); el caso #1 de la comunidad: quota agotada → seguir sin cortar la sesión | `config.rs`, `forward.rs` | ⬜ Pendiente |
+| `PRX-03` | 🔴 | **Cost tracking + virtual keys**: contabilidad tokens/costo por key/sesión/modelo (tabla de precios configurable), budgets con enforcement (429 propio al agotar), `/snapshot` ampliado a dashboard de consumo. Base para equipos | nuevo `cost.rs`, `report.rs` | ⬜ Pendiente |
+| `PRX-04` | 🔴 | **Cache-preserving injection** (prioritario): la inyección actual cambia el prefijo del system prompt y invalida los hits de prompt caching de Anthropic/OpenAI. Inyectar después del bloque cacheable o gestionar markers `cache_control`; test de prefijo estable byte-a-byte | `inject.rs`, nuevo test | ⬜ Pendiente |
+| `PRX-05` | 🟡 | **Model discovery + endpoints auxiliares**: `GET /v1/models` (puebla el picker /model de Claude Code con `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1`), `count_tokens`, manejo de headers `anthropic-beta` — hoy 404s rompen clientes (litellm#13252) | `handlers/`, `forward.rs` | ⬜ Pendiente |
+| `PRX-06` | 🟠 | **Task-aware routing por tier**: slots haiku/sonnet/opus mapeables a modelos/upstreams distintos (patrón claude-code-router: −90% costo documentado) usando el clasificador CC ya existente; incluir `/v1/responses` en el tool-loop y con spaceId propio | `server.rs`, `config.rs` | ⬜ Pendiente |
+| `PRX-07` | 🟡 | **PII/secret redaction en egress**: patrones configurables (AWS keys, tokens, emails, custom regex) aplicados antes del forward; modo block/mask/log (estilo AegisGate/Kong Ent.) | nuevo `redact.rs` en pipeline pre-forward | ⬜ Pendiente |
+| `PRX-08` | 🟢 | **Higiene y ceilings documentados**: auth O(1) con índice HashMap (hoy scan lineal 10k users/request); upstream default no autorreferencial; LRU evict para sesiones; evict de buckets de rate-limit; writeback incremental (hoy full-file rewrite); tools mixtas cliente+nuestras sin dejar tool_calls colgados | `auth.rs`, `config.rs`, `session.rs`, `rate_limit.rs`, `writeback.rs`, `memory_tools.rs` | ⬜ Pendiente |
+| `PRX-09` | 🟠 | **Semantic caching** (gateway completo): cache exact primero (barato), luego semántico opcional con embeddings del provider configurado — cuidado con invalidación por inyección de memoria (coordinar con PRX-04) | nuevo `cache.rs` | ⬜ Pendiente |
+| `PRX-10` | 🟢 | **Guardrails y MCP governance (fase posterior)**: moderación input/output conectable, allowlists MCP por virtual key (patrón Bifrost/Portkey). Requiere PRX-03 (keys) — no empezar antes | diseño previo requerido | ⬜ Pendiente |
