@@ -65,6 +65,12 @@ pip install vantadb-py
 > **Nota:** El nombre de distribución es `vantadb-py`, y el import canónico es
 > `import vantadb` (igual que el crate de Rust y el paquete de npm). `import vantadb_py`
 > sigue disponible sin cambios.
+>
+> **Convención de nombres:** el producto es **VantaDB**; el crate de Rust es `vantadb`,
+> el paquete de PyPI es `vantadb-py`, los paquetes de npm son `vantadb` (TypeScript/WASM)
+> y `vantadb-node` (nativo), y el repositorio de GitHub es `ness-e/Vantadb`.
+> Ver [ADR-030](docs/architecture/adr/ADR-030-brand-identity-naming-convention.md)
+> para la auditoría completa y la justificación.
 
 Para desarrollo desde el código fuente:
 
