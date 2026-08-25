@@ -224,9 +224,20 @@ async fn test_rate_limit_enforces_after_burst() {
     let ctx = build_context(None, 10);
     let mut router = app(ctx.state, 5);
 
-    let status = post_query(&mut router, None).await;
-    assert_eq!(status, StatusCode::OK);
-
+    // REST-01: without an API key the governor allows the full rpm as burst
+    // (burst = 5 here) and replenishes every 12s. Fire BURST+1 requests
+    // rapidly so no token is refunded mid-burst: the first `BURST` pass (200)
+    // and the next one is rejected (429).
+    const BURST: usize = 5;
+    for i in 0..BURST {
+        let status = post_query(&mut router, None).await;
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "request {} should pass within the burst window",
+            i
+        );
+    }
     let status = post_query(&mut router, None).await;
     assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
 }
@@ -236,12 +247,24 @@ async fn test_rate_limit_health_unaffected() {
     let ctx = build_context(None, 10);
     let mut router = app(ctx.state, 5);
 
+    // /health is a public route (not behind the governor), so it stays 200
+    // even while the protected query route is rate-limited. Exhaust the
+    // no-auth burst (rpm = 5) and assert the next query trips the limiter,
+    // while /health remains untouched before and after.
+    const BURST: usize = 5;
+
     let status = get(&mut router, "/health", None).await;
     assert_eq!(status, StatusCode::OK);
 
-    let status = post_query(&mut router, None).await;
-    assert_eq!(status, StatusCode::OK);
-
+    for i in 0..BURST {
+        let status = post_query(&mut router, None).await;
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "request {} should pass within the burst window",
+            i
+        );
+    }
     let status = post_query(&mut router, None).await;
     assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
 
