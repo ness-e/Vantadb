@@ -9,7 +9,7 @@
 - **Turns estimados:** 3
 - **Creado:** 2026-08-25
 - **last-synced:** 2026-08-25
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ❌ FAILED (WIP huérfano — plan `docs/plans/2026-08-25-batch-colaterales-deuda-desktop.md` no existe (batch cerrado/archivado); cerrado 2026-08-25 por MOD-15 executor para desbloquear one-task-at-a-time. Reversible: re-abrir si el batch revive.)
 - **Incógnitas (uphill):** 0 abiertas
 - **Pendientes (downhill):** 2 steps de ejecución restantes
 
