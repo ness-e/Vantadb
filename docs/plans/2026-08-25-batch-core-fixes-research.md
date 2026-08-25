@@ -1,7 +1,8 @@
 # Plan de Ejecución: Batch Core Fixes + Research P38 (2026-08-25)
 
+> **Campaign ID:** aa2cde2b-e52f-4dae-910a-b274373a5bda
 > **Inicio:** 2026-08-25
-> **Estado:** ⏳ EN PROGRESO
+> **Estado:** ⏸️ PAUSADO POR USUARIO (Wave 0 completa, 3/9)
 > **Fuente:** docs/Backlog.md (selección del lead + confirmación del usuario 2026-08-25)
 > **Modo:** FAIL_MODE=parallel, MAX_CONCURRENT=3
 
@@ -31,7 +32,7 @@ Status: ⬆️ uphill = 3 (RES-01/02/03 research requieren DISCOVERY) · ⬇️ 
 - **Gate Result:** ✅ DO
 - **Contrato:** ingest/get con namespace omitido usan `DEFAULT_NS` en vanta-http-map; `npm run build` (desktop) exit 0
 - **Task file:** `skills/campaign-executor/tasks/FIND-23.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMMITTED `fix(desktop)` - DEFAULT_NS en http-map, node test 21/21
 
   **Pre-mortem:** —. **Stop conditions:** —. **Cynefin:** 🟦 obvio. **Top 3 riesgos:** (1) DEFAULT_NS no existe como constante en TS.
 
@@ -46,7 +47,7 @@ Status: ⬆️ uphill = 3 (RES-01/02/03 research requieren DISCOVERY) · ⬇️ 
 - **Gate Result:** ✅ DO
 - **Contrato:** test: compact_layout sin memmap2 → los datos sobreviven al reopen; `cargo nextest run -p vantadb archive` (o compact) pasa
 - **Task file:** `skills/campaign-executor/tasks/AUD-044.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMMITTED `fix(storage)` - shim flush write-back, compact_layout data loss resuelto
 
   **Pre-mortem:**
   - Fallo 1: el shim MmapMut no guarda el File para flush (solo AlignedBytes) — necesita guardar handle
@@ -97,7 +98,7 @@ Status: ⬆️ uphill = 3 (RES-01/02/03 research requieren DISCOVERY) · ⬇️ 
 - **Gate Result:** ✅ DO
 - **Contrato:** helper extraído; `cargo nextest run -p vantadb search_layer` + suite index pasa; clippy/fmt
 - **Task file:** `skills/campaign-executor/tasks/AUD-047.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMMITTED `refactor(index)` - metric_score closure, -35 lineas, 358/358
 
   **Pre-mortem:** —. **Stop conditions:** —. **Cynefin:** 🟦 obvio. **Top 3 riesgos:** (1) hot path search.
 
@@ -200,3 +201,36 @@ Status: ⬆️ uphill = 3 (RES-01/02/03 research requieren DISCOVERY) · ⬇️ 
 - CodeGraph auto-sync deshabilitado (lock de otro proceso) — sub-agentes deben leer archivos directos.
 - Otra sesión activa está trabajando (commits fix(build) Justfile/Dockerfile, fix(docs)) — no tocar esos archivos.
 - ⬆️ uphill = 3 (RES-01/02/03) · ⬇️ downhill = 6
+
+=== RECITATION FIND-23 ===
+Campaign ID: aa2cde2b-e52f-4dae-910a-b274373a5bda
+Objetivo activo: FIND-23: vanta-http-map envía namespace vacío en ingest/get
+Estado: completed
+Última acción: Fix aplicado: DEFAULT_NS="default" + `|| DEFAULT_NS` en 6 sitios de vanta-http-map.ts (ingest/search/get/get_version/versions/delete). Test RED→GREEN en vanta-http-map.test.ts. Cleanup WIP guard: FIND-11/UX-POLISH sync a completed.
+Resultado: OK
+Próxima acción: Lead: verifica mecánico (node --test + npm run build), commitea solo archivos de FIND-23 + cleanup FIND-11/UX-POLISH, ejecuta skill progreso
+Contrato: verificacion: cd desktop && node --test src/vanta-http-map.test.ts = 21/21 pass; cd desktop && npm run build = exit 0; node --test src/vanta-wasm-map.test.ts = 14/14 (idempotencia) | evidencia: claim='ingest/search/get con namespace omitido usan DEFAULT_NS' evidencia='vanta-http-map.ts:25 const DEFAULT_NS, :95/:116/:246/:255/:265/:292' confianza=alta; claim='RED verificado antes del fix' evidencia='node --test output 20 pass / 1 fail (test FIND-23) antes de editar vanta-http-map.ts' confianza=alta; claim='DEFAULT_NS=default canonico' evidencia='vanta-wasm-map.ts:45, native.rs:34, types.rs:369' confianza=alta | artefactos: desktop/src/vanta-http-map.ts, desktop/src/vanta-http-map.test.ts, .opencode/skills/campaign-executor/tasks/FIND-23.md | invariantes: cero cambios src-tauri/web/core; namespace explicito intacto (tests existentes verdes); wasm-map sin cambio de comportamiento | deuda: ninguna; DEFAULT_NS duplicado wasm/http aceptado | queda_pendiente: lead commitea (NO incluir archivos de agentes paralelos: AUD-047.md, layer.rs); review P2-01 vanta-review; skill progreso fila Backlog FIND-23
+Próxima tarea si completa: AUD-044
+=== END RECITATION ===
+
+=== RECITATION AUD-047 ===
+Campaign ID: aa2cde2b-e52f-4dae-910a-b274373a5bda
+Objetivo activo: AUD-047: extraer helper del match métrico duplicado en src/index/search/layer.rs
+Estado: completed
+Última acción: Implementación completa: closure metric_score (Fn inline) extraído; 2 bloques match metric (Cosine/Euclidean/SparseDot, ~54 líneas) reemplazados por 2 llamadas; neto -35 líneas (409→374). No se tocó aritmética ni fast_similarity. Verify full: fmt ✅, check ✅, nextest 358/358 ✅, clippy workspace all-targets ✅.
+Resultado: OK
+Próxima acción: Lead verifica mecánico y commitea (refactor:) — el worker NO commitea por regla
+Contrato: verificacion: cargo nextest run -p vantadb -E 'test(search_layer)|test(index)' → 358/358 passed; cargo check -p vantadb ✅; cargo fmt --check ✅; cargo clippy --workspace --all-targets --all-features -- -D warnings ✅; evidencia: layer.rs:35-55 (closure), :97 y :247 (call sites) — diff en worktree sin commit; invariantes: misma aritmética, misma firma pub(crate) search_layer, no tocar fast_similarity; deuda: ninguna; artefactos: .opencode/skills/campaign-executor/tasks/AUD-047.md actualizado
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION AUD-044 ===
+Campaign ID: aa2cde2b-e52f-4dae-910a-b274373a5bda
+Objetivo activo: Fix shim MmapMut flush no-op → data loss en compact_layout (builds sin memmap2)
+Estado: completed
+Última acción: Implementación completa: write_back en shim MmapMut (flush/flush_async/flush_range), seek(0) en map/map_mut (posición compartida), flush en grow_to (no remap_mut — replace_backing_file tiene buffer stale por diseño), 4 tests de regresión (shim flush, grow preserve, compact reopen, compact reorder). 3 ciclos de review adversarial vanta-review: 2 hallazgos válidos arreglados, 2 misreads reconciliados con evidencia directa. Verify full: shim 1932/1932, default 2062/2062, fmt, clippy -D warnings, wasm32 check — todos ✅
+Resultado: OK
+Próxima acción: Lead: commitear src/storage/vfile_mmap.rs + vfile.rs + archive.rs + task file; ejecutar progreso (migrar Backlog AUD-044 → docs/avance)
+Contrato: verificacion: cargo nextest run -p vantadb --no-default-features --features fjall,roaring,cli,advanced-tokenizer,sysinfo,rayon,fs2 --lib = 1932/1932 + cargo nextest run -p vantadb = 2062/2062 + cargo fmt --check = 0 + cargo clippy --workspace --all-targets --all-features -- -D warnings = 0 + cargo check -p vantadb-wasm --target wasm32-unknown-unknown = 0 | evidencia: claim=flush shim escribe buffer a disco evidencia=test shim_mmap_mut_flush_writes_buffer_to_disk (RED→GREEN, vfile_mmap.rs) confianza=alta; claim=compact_layout sin memmap2 sobrevive reopen evidencia=test_compact_layout_disk_backed + reorder test (archive.rs) confianza=alta; claim=root cause confirmado evidencia=sync_to_mmap_preserves_data FAIL pre-fix / PASS post-fix (index/core.rs:321) confianza=alta; claim=builds memmap2 intactos evidencia=2062/2062 default + cfg-gate confianza=alta | artefactos: .opencode/skills/campaign-executor/tasks/AUD-044.md | invariantes: API shim intacta (pub(crate), firmas iguales), buffer.len()==file.len() en map time, File clonado dropea con mapping (Windows rename), builds memmap2 no tocados, flush≠fsync (no barrera durabilidad) | deuda: ninguna (Regla 6 saldo 0); colateral resuelto inline (posición compartida en clones, test_vfile_grow_to_on_disk pre-existente FAIL ahora pasa) | queda_pendiente: lead verifica mecánico y commitea (Regla 2 — NO commiteé); progreso pendiente para el lead; otra sesión activa tocó layer.rs/vanta-http-map/FIND-11/UX-POLISH — NO incluir en este commit
+Próxima tarea si completa: AUD-045
+=== END RECITATION ===
