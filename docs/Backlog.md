@@ -13,7 +13,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
 > **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
 > **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 88 activas (reconteo GOV-C7 2026-08-25 post-limpieza + MCP-35 + CORE-02)
+> **Total open items:** 97 activas (reconteo GOV-C7 2026-08-25: +MCP-35 +CORE-02 +12 MEM Wave 2 memoria agéntica)
 ---
 
 ## Exec Summary
@@ -371,9 +371,29 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | ID | Descripción (→ Resultado) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
 
----
 
 ## P28 - Deuda técnica core — follow-ups (2026-08-18)
+
+### Wave 2 — Memoria agéntica competitiva (investigación 3 frentes, 2026-08-25)
+
+> **Origen:** investigación profunda vanta-memory vs estado del arte (Mem0/Letta/Zep/Cognee/Memobase/OpenAI Dreaming/Anthropic Auto Dream) vs necesidades de usuarios de coding agents (Claude Code/OpenCode/Codex/Cursor/Antigravity/Windsurf). Diferenciadores ya propios: context engine integrado + wiki-ingest + proxy interceptor + skills. Decisiones del owner: gaps estratégicos todos agendados; lifecycle = heat+decay L1; quick-wins todos; optimizables todos; gate de captura opcional por config; benchmarks agendados.
+
+| ID | Descripción | Archivos | Effort | Prio | Estado |
+|----|-------------|----------|--------|------|--------|
+| `MEM-59` | **Recall MCP público** (gap #4): exponer el recall cognitivo como tools MCP `memory_recall(query, scope, top_k)` + `memory_search(filters)` — hoy el recall solo es automático vía proxy/IPC interno y un Claude Code/Cursor externo NO puede preguntar la memoria. Criterio: cliente MCP externo consulta y recibe hits relevantes con scopes session/agent/team | `vantadb-mcp/src/handlers/tools.rs`, `vanta-memory/src/core/hooks/auto_recall.rs` | 🟡 | 🔴 | ⬜ Pendiente |
+| `MEM-60` | **Lifecycle heat+decay L1 + contradicciones** (gaps #1+#2, enfoque elegido): extender heat de escenas a records L1 — lo usado sube score, lo no usado decae y se poda tras umbral (patrón memify); en escritura, detectar contradicción → invalidar/sustituir la vieja conservando provenance (nunca borrado silencioso). Criterios: memoria sin uso N días con heat bajo deja de salir en recall; contradicción nueva desactiva la anterior rastreablemente | `vanta-memory/src/core/record/`, `core/scene/scene_index.rs` | 🔴 | 🔴 | ⬜ Pendiente |
+| `MEM-61` | **Dreaming — consolidación idle** (gap #3): job en downtime (idle ≥X min o cierre de sesión) que consolida L0/L1 crudo → learned context: fusiona duplicados residuales, resuelve contradicciones pendientes, normaliza fechas relativas→absolutas. Modelo LLM configurable más potente para el job (sleep-time tiering, patrón Letta/OpenAI/Anthropic). El store original jamás se muta — store consolidado nuevo revisable/descartable | `vanta-memory/src/services/pipeline_worker.rs`, nuevo `core/dream/` | 🔴 | 🟠 | ⬜ Pendiente |
+| `MEM-62` | **Export markdown git-friendly** (gap #7): `vanta-cli memory export --format md --scope agent|team` genera árbol versionable (archivo por escena/tema, frontmatter metadata) para memoria de equipo en git; reimport idempotente vía `vanta-seed`. Criterio: round-trip export→git clone→import sin pérdida ni duplicados | `src/cli.rs`, `vanta-memory/src/seed/` | 🟡 | 🟡 | ⬜ Pendiente |
+| `MEM-63` | **Quick-win docs+embeddings**: corregir doc stale `auto_recall.rs:69-73` (dice que embeddings "degradan hasta wirear"; MEM-47 ya implementó el hook) + embeddings auto-on cuando hay provider configurado (chars-fallback solo sin provider) | `vanta-memory/src/core/hooks/auto_recall.rs`, Cargo features | 🟢 | 🟢 | ⬜ Pendiente |
+| `MEM-64` | **Skills versionadas + CompactionReport**: usar `skill_versions` del core en el pipeline (hoy content-hash upsert sin historial) + persistir CompactionReport por sesión (hoy solo el IntegratedContext final en `__assembled`) | `vanta-memory/src/core/skill/conversation_add/`, `context_engine/` | 🟡 | 🟡 | ⬜ Pendiente |
+| `MEM-65` | **Telemetría por capa + pLimit real**: instrumentar latencias L1/L2/L3/recall en PipelineWorker (MEM-34 cubrió solo métricas core) + hacer `global_llm_concurrency` real (pLimit; hoy es techo documental, `ingest/mod.rs:9-12`) | `vanta-memory/src/services/pipeline_worker.rs`, `src/ingest/mod.rs` | 🟡 | 🟡 | ⬜ Pendiente |
+| `MEM-66` | **claimStaleTasks (recuperación multi-worker)**: port del TDAM original no porteado (`pipeline_worker.rs:12-13` lo documenta) — worker muerto a mitad de tarea no debe atascar la tarea hasta el TTL; otro worker la reclama | `vanta-memory/src/services/pipeline_worker.rs`, `utils/local_backend.rs` | 🟡 | 🟠 | ⬜ Pendiente |
+| `MEM-67` | **TokenEstimator auto-detección**: usar tiktoken (precise-tokens) automáticamente si la dependencia está compilada; chars/3 como fallback — sin invertir el default manualmente (CJK/código subestimados hoy) | `vanta-memory/src/context_engine/token_estimator.rs` | 🟢 | 🟢 | ⬜ Pendiente |
+| `MEM-68` | **Gate opcional de aprobación de capturas** (gap #6): config `capture_approval=off|on`; en `on`, las memorias extraídas van a cola pendiente y un comando/tool `memory_approve/reject` las publica o descarta (patrón Cursor). Default off (filosofía never-block intacta) | `vanta-memory/src/core/record/l1_writer.rs`, MCP tools | 🟡 | 🟠 | ⬜ Pendiente |
+| `MEM-69` | **Batch extracción costo-reducida**: agrupar split+dedup en menos llamadas LLM por flush (patrón Memobase: batch fijo −40-50% tokens) sin perder quality gate | `vanta-memory/src/core/record/l1_extractor.rs` | 🟡 | 🟢 | ⬜ Pendiente |
+| `MEM-70` | **Benchmarks públicos LongMemEval-S + LoCoMo**: harness de evaluación contra vanta-memory y publicación en `docs/operations/BENCHMARKS.md` (Regla 11: bench archivo + comando reproducible). Referencia mercado: SuperMemory 81.6%, Hindsight 94.6% self-report | nuevo `evals/memory_bench.py` o Rust harness, `docs/operations/BENCHMARKS.md` | 🟡 | 🟡 | ⬜ Pendiente |
+
+---
 
 > **Origen:** follow-up del fix `8c8eef23` (vectores Binary insertables/recuperables por `get()`). El fix resolvió el contrato insert→get en memoria; la persistencia on-disk de vectores no-F32 queda pendiente (formato).
 
