@@ -46,3 +46,21 @@
 
 ## Context Save Point
 Tarea COMPLETA sin commit. Cambios en worktree: vanta-proxy/{Cargo.toml, src/lib.rs, src/server.rs} modificados; src/{memory_tools,sse_intercept}.rs y tests/tool_loop.rs nuevos; task file nuevo. El lead commitea al cerrar la wave.
+
+## Verificación 2026-08-25 (batch colaterales — patrón FIND-30, 0 diff)
+Re-ejecutada la tarea desde `docs/plans/2026-08-25-batch-colaterales-deuda-desktop.md` (Task 8, ⬆️ UP-HILL).
+
+**DISCOVERY — decisión de diseño (approach):**
+- Hallazgo del backlog: "inject.rs anuncia `vanta_memory_capture/search` al modelo pero nada intercepta el tool_call" = finding ORIGINAL de la auditoría de integración de la Última Milla.
+- Confirmado: **approach (a) — executor en el stream — ya implementado y commiteado** en `a9b65224` ("MEM-51 O2 interceptor stream + loop agéntico memory-tools (D46-D48, cap 3 iter)", 2026-08-22). Es el approach correcto según el contrato de producto (el agente SÍ captura memoria vía tool — mem-command como única vía habría roto el contrato).
+- Wiring: `inject.rs:26-35` (TOOL_SPECS anuncia tools) → `server.rs:247-342` (`forward_with_tool_loop`: gate `memory_tools::announces` → drain SSE → `extract` → `execute` server-side → `append_exchange` → re-request; cap duro 3 iter D48) → `memory_tools.rs` (executor D47 capture vía WriteBack::track fire-and-forget / D46 search síncrono).
+- Doc auditoría `docs/reviews/modulos/vanta-proxy.md:28` confirma: "Tools inyectadas al modelo | ✅ vanta_memory_capture, vanta_memory_search (ejecutadas server-side en el loop SSE)".
+
+**Verificación mecánica (2026-08-25):**
+- `cargo test -p vanta-proxy` → 92/92 ✅ (72 lib + 5 tool_loop + 10 proxy_wire + 5 pipeline)
+- `cargo fmt -p vanta-proxy --check` → exit 0 ✅
+- `cargo clippy -p vanta-proxy --all-targets --no-deps -- -D warnings` → exit 0 ✅
+- `cargo check -p vanta-proxy --all-targets` → exit 0 ✅
+- 0 diff en worktree — sin commit necesario (ya commiteado `a9b65224`; sub-agente no commitea).
+
+**Deuda documentada (de la auditoría, no introducida acá):** M-4 mezcla our-tool+client-tool en una ronda queda sin responder upstream (→ MOD-39 backlog); S-2 drain SSE sin cap de memoria (→ FIND en backlog).
