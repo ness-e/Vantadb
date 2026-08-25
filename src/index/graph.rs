@@ -17,7 +17,6 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 pub type NeighborVec = SmallVec<[u128; 32]>;
 
 pub(crate) const ENTRY_POINT_NONE: u128 = u128::MAX;
-pub(crate) const MAX_VEC_F32_LEN: usize = 10_000_000;
 
 use super::distance::*;
 pub use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};

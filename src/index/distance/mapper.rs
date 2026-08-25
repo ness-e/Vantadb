@@ -8,7 +8,6 @@ use crate::node::{DistanceMetric, VectorRepresentations};
 use crate::vector::quantization::{rabitq_similarity, turbo_quant_similarity};
 
 use super::metrics::{cosine_sim_f32, cosine_sim_with_query_norm, euclidean_distance_squared_f32};
-use crate::index::MAX_VEC_F32_LEN;
 
 // ---------------------------------------------------------------------------
 // PERF-29: Cosine ↔ Euclidean mapping
@@ -178,17 +177,13 @@ pub fn calculate_similarity(
             // dense helpers never receive a SparseDot metric.
             DistanceMetric::SparseDot => 0.0,
         },
-        VectorRepresentations::MmapFull(mmap_opt) => {
-            let mmap = match mmap_opt {
-                Some(m) => m,
-                None => return 0.0,
-            };
-            let len = mmap.len() / 4;
-            if len == 0 || len > MAX_VEC_F32_LEN {
+        VectorRepresentations::MmapFull(_) => {
+            // `as_f32_slice` reinterprets `u8*` → `&[f32]` safely via `align_to`
+            // (REVIEW-15); `None` (misaligned or invalid len) → 0.0, matching
+            // the old bounds check, instead of a raw `from_raw_parts` cast (UB).
+            let Some(slice) = node_vec.as_f32_slice() else {
                 return 0.0;
-            }
-            // SAFETY: len bounded by MAX_VEC_F32_LEN; mmap kept alive by Arc.
-            let slice = unsafe { std::slice::from_raw_parts(mmap.as_ptr() as *const f32, len) };
+            };
             match metric {
                 DistanceMetric::Cosine => match query_norm {
                     Some(norm) => cosine_sim_with_query_norm(raw_query, norm, slice),

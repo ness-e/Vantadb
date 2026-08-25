@@ -123,21 +123,15 @@ impl CPIndex {
                         pos += b.len();
                     }
                 }
-                VectorRepresentations::MmapFull(mmap_opt) => {
-                    let slice = if let Some(mmap) = mmap_opt {
-                        let len = mmap.len() / 4;
-                        if len == 0 || len > graph::MAX_VEC_F32_LEN {
-                            return Err(std::io::Error::new(
-                                std::io::ErrorKind::InvalidData,
-                                format!("MmapFull invalid len in serialize: len={len}"),
-                            ));
-                        }
-                        // SAFETY: len bounded by MAX_VEC_F32_LEN above.
-                        unsafe { std::slice::from_raw_parts(mmap.as_ptr() as *const f32, len) }
-                    } else {
+                VectorRepresentations::MmapFull(_) => {
+                    // `as_f32_slice` reinterprets `u8*` → `&[f32]` safely via
+                    // `align_to` (REVIEW-15); `None` (misaligned, invalid len,
+                    // or None mmap) → InvalidData, matching the old checks,
+                    // instead of a raw `from_raw_parts` cast (UB).
+                    let Some(slice) = node.vec_data.as_f32_slice() else {
                         return Err(std::io::Error::new(
                             std::io::ErrorKind::InvalidData,
-                            "MmapFull variant is None — cannot serialize",
+                            "MmapFull invalid len in serialize",
                         ));
                     };
                     w.write_all(&[1])?;

@@ -58,19 +58,10 @@ pub struct IvfIndex {
 
 /// Internal helper: extract a `Vec<f32>` from a node for k-means.
 fn node_to_f32_slice(vector: &VectorRepresentations) -> Option<Vec<f32>> {
-    match vector {
-        VectorRepresentations::Full(v) => Some(v.clone()),
-        VectorRepresentations::MmapFull(Some(mmap)) => {
-            let len = mmap.len() / 4;
-            if len == 0 || len > crate::index::graph::MAX_VEC_F32_LEN {
-                return None;
-            }
-            // SAFETY: len bounded by MAX_VEC_F32_LEN; mmap kept alive by Arc.
-            let slice = unsafe { std::slice::from_raw_parts(mmap.as_ptr() as *const f32, len) };
-            Some(slice.to_vec())
-        }
-        _ => None,
-    }
+    // `as_f32_slice` reinterprets `u8*` → `&[f32]` safely via `align_to`
+    // (REVIEW-15), returning `None` when the mmap base is not 4-aligned or the
+    // length is invalid — instead of a raw `from_raw_parts` cast (UB).
+    vector.as_f32_slice().map(|s| s.to_vec())
 }
 
 impl IvfIndex {
