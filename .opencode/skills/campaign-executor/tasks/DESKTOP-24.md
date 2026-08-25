@@ -4,7 +4,7 @@
 - **Plan file:** docs/Backlog.md (Phase 12)
 - **Creado:** 2026-08-24
 - **last-synced:** 2026-08-24T00:00:00
-- **Estado:** ✅ COMPLETED (stale WIP lock resuelto 2026-08-24 por pipeline batch — trabajo previo completado)
+- **Estado:** 🟡 PARCIAL (sync 2026-08-25: Steps 1-2 técnicos completos y verificados; Step 3 instalación en Windows limpio sigue PENDIENTE — requiere VM/máquina de test humana)
 
 ## Impacto mapeado (Regla 0)
 - **Leídos completos:** `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml`, `desktop/src-tauri/build.rs`, `desktop/src-tauri/src/connections/child_process.rs`, `desktop/package.json`, `desktop/src-tauri/icons/*`.

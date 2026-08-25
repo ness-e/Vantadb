@@ -1,7 +1,7 @@
 # MOD-19 — Exponer API core faltante en binding Python (PyO3)
 
 > **Campaign:** 4b9e337a-2fd0-4625-9cba-e26ea37f780b · **Plan:** docs/plans/2026-08-24-batch-review-mod-find.md
-> **Estado:** ⏳ IN PROGRESS · **Tipo:** python (Python SDK) · **Contrato:** pytest pasa; `similar_to_key`/`count`/`delete_by_filter` expuestos
+> **Estado:** ✅ COMPLETO (2026-08-24; sync 2026-08-25 — commiteado en `dc65c242` feat(python): MOD-19) · **Tipo:** python (Python SDK) · **Contrato:** pytest pasa; `similar_to_key`/`count`/`delete_by_filter` expuestos
 
 ## Objetivo
 Exponer en `vantadb-python` (PyO3) las funciones core que faltan: `count`, `delete_by_filter`, `similar_to_key` (y cualquier equivalente core faltante), con tipos/nombres consistentes con la convención del SDK Python y del resto del ecosistema (CLI/MCP/TS).

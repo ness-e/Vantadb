@@ -8,7 +8,7 @@
 - **Tipo:** Rust (MCP)
 - **Turns estimados:** 10
 - **Creado:** 2026-08-25
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (sync 2026-08-25 — implementación verificada y commiteada en `21dbd3f2` feat(mcp): MCP-33 write_axiom/delete_axiom tools)
 - **Incógnitas (uphill):** 1 → resuelta en DISCOVERY (no hay API de escritura de axiomas en core)
 - **Pendientes (downhill):** 5 steps
 

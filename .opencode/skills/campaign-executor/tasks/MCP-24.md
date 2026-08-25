@@ -8,7 +8,7 @@
 - **Tipo:** Rust (MCP)
 - **Turns estimados:** 8
 - **Creado:** 2026-08-25
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (sync 2026-08-25 — implementación verificada y commiteada en `0fa7ff0b` junto a MOD-10; mismos archivos tools.rs/mcp_tests.rs/SKILL.md ×2/docs/api/MCP.md)
 - **Incógnitas (uphill):** 0
 - **Pendientes (downhill):** 6 steps
 

@@ -2,7 +2,7 @@
 
 > **Plan:** `docs/plans/2026-08-24-batch-review-mod-find.md`
 > **Campaign:** 4b9e337a-2fd0-4625-9cba-e26ea37f780b
-> **Tipo:** docs · **Estado:** ⬜ PENDING
+> **Tipo:** docs · **Estado:** ✅ COMPLETED (sync 2026-08-25 — tabla commiteada en `9de39702` docs: FIND-04 cross-SDK search() parity table in Py+TS READMEs)
 > **Contrato:** tabla presente en ambos READMEs, link al doc de namespaces
 > **Regla batch:** worker NO commitea — el lead verifica mecánico y commitea.
 
