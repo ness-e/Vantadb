@@ -1,29 +1,29 @@
 # 🐍 VantaDB Python SDK
 
-Bindings oficiales de Python para **VantaDB**, un motor de base de datos embebido y nativo en Rust diseñado para **memoria persistente y recuperación vectorial** en aplicaciones de IA local-first.
+Official Python bindings for **VantaDB**, an embedded, native-Rust database engine designed for **persistent memory and vector retrieval** in local-first AI applications.
 
-## 📦 Instalación
+## 📦 Installation
 
-### Desde PyPI (Recomendado)
+### From PyPI (Recommended)
 ```bash
 pip install vantadb-py
 ```
 
-> **Nota:** El nombre de distribución es `vantadb-py` y el import canónico es `import vantadb` (igual que el crate Rust y el paquete npm). `import vantadb_py` sigue disponible y no se rompe.
+> **Note:** The distribution name is `vantadb-py` and the canonical import is `import vantadb` (same as the Rust crate and the npm package). `import vantadb_py` remains available and is not broken.
 
-### Desde TestPyPI (Pruebas de releases previas)
+### From TestPyPI (Pre-release testing)
 ```bash
 pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ vantadb-py
 ```
 
-### Desde el código fuente (Desarrollo)
-Requiere [Rust](https://rustup.rs/) y [Maturin](https://github.com/PyO3/maturin) instalados.
+### From Source (Development)
+Requires [Rust](https://rustup.rs/) and [Maturin](https://github.com/PyO3/maturin).
 ```bash
-# Clonar el repositorio
+# Clone the repository
 git clone https://github.com/ness-e/Vantadb.git
 cd Vantadb/vantadb-python
 
-# Compilar e instalar en el entorno virtual activo
+# Compile and install into the active virtual environment
 pip install maturin
 maturin develop --release
 ```
@@ -126,24 +126,24 @@ Python and TypeScript. The canonical method→domain map lives in
 > things**. To get hybrid search in Python use `search_memory()`; to get pure vector
 > ANN in TypeScript use `searchVector()`.
 
-## 🤖 Caso de Uso: Memoria para Agentes de IA
+## 🤖 Use Case: Memory for AI Agents
 
-VantaDB está optimizado para actuar como **memoria a largo plazo** para agentes autónomos locales (Claude, Gemini, LLaMA, etc.):
+VantaDB is optimized to act as **long-term memory** for local autonomous agents (Claude, Gemini, LLaMA, etc.):
 
-- **Persistencia Zero-Copy**: Los datos sobreviven a reinicios del agente sin overhead de serialización.
-- **busqueda-hibrida RRF**: Combina similitud semántica (vectores) con coincidencia léxica (BM25) para recuperación precisa de contexto.
-- **Control de Memoria Explícito**: `memory_limit_bytes` evita que el agente colapse la RAM del dispositivo host.
-- **Embebido**: Sin servidores externos, sin Docker, sin latencia de red. Ideal para dispositivos edge y offline.
+- **Zero-Copy Persistence**: Data survives agent restarts with no serialization overhead.
+- **Hybrid RRF search**: Combines semantic similarity (vectors) with lexical matching (BM25) for precise context retrieval.
+- **Explicit Memory Control**: `memory_limit_bytes` prevents the agent from collapsing the host device's RAM.
+- **Embedded**: No external servers, no Docker, no network latency. Ideal for edge and offline devices.
 
-## 🛠️ Desarrollo y Testing
+## 🛠️ Development and Testing
 
 ```bash
-# Ejecutar la suite de tests del SDK
+# Run the SDK test suite
 pytest tests/test_sdk.py -v
 
-# Formatear código Python
+# Format Python code
 black tests/ vantadb_python/
 ```
 
-## 📜 Licencia
-Distribuido bajo la licencia del proyecto principal VantaDB. Consulta el `LICENSE` en la raíz del repositorio.
+## 📜 License
+Distributed under the VantaDB main project license. See the `LICENSE` at the repository root.
