@@ -496,25 +496,50 @@ impl StorageEngine {
                 }
                 pending.sort_by_key(|tr| tr.global_seq);
                 let mut skip_mask = vec![false; pending.len()];
-                let mut txn_start: Option<usize> = None;
+                // MOD-02: track the currently-open txn batch by (txn_id, start
+                // position). A txn's batch is [Begin, ops…, Commit] written by a
+                // single `batch_append`, so its records occupy contiguous
+                // global-seq slots. A crash mid-append leaves a durable prefix of
+                // the batch with the Commit lost; recovery must discard that
+                // prefix (no Commit → ops never applied) WITHOUT dropping records
+                // of later, complete batches — a new `Begin` marks that boundary.
+                let mut open_txn: Option<(u64, usize)> = None;
                 for (i, tr) in pending.iter().enumerate() {
                     match &tr.record {
-                        crate::wal::WalRecord::Begin(_) => {
-                            txn_start = Some(i);
-                        }
-                        crate::wal::WalRecord::Commit(_) => {
-                            txn_start = None;
-                        }
-                        crate::wal::WalRecord::Abort(_) => {
-                            if let Some(start) = txn_start {
-                                skip_mask[start..=i].fill(true);
+                        crate::wal::WalRecord::Begin(txn_id) => {
+                            // A new batch starts at `i`; any batch still open here
+                            // never got its Commit (contiguous slots mean its
+                            // Commit would have appeared before this Begin).
+                            // Discard the incomplete batch's own extent.
+                            if let Some((_, start)) = open_txn {
+                                skip_mask[start..i].fill(true);
                             }
-                            txn_start = None;
+                            open_txn = Some((*txn_id, i));
+                        }
+                        crate::wal::WalRecord::Commit(txn_id) => {
+                            // Only the matching txn's Commit closes its batch; a
+                            // bare Commit from another txn must not resurrect
+                            // ops that never committed.
+                            if let Some((open_id, _)) = open_txn {
+                                if open_id == *txn_id {
+                                    open_txn = None;
+                                }
+                            }
+                        }
+                        crate::wal::WalRecord::Abort(txn_id) => {
+                            if let Some((open_id, start)) = open_txn {
+                                if open_id == *txn_id {
+                                    skip_mask[start..=i].fill(true);
+                                    open_txn = None;
+                                }
+                            }
                         }
                         _ => {}
                     }
                 }
-                if let Some(start) = txn_start {
+                if let Some((_, start)) = open_txn {
+                    // Trailing incomplete batch at EOF: nothing after it can be
+                    // attributed to a different writer, so discard it fail-safe.
                     skip_mask[start..].fill(true);
                 }
 

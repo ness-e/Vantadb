@@ -449,6 +449,146 @@ fn test_memory_governor_field() {
     let engine = in_memory_engine();
     assert!(
         engine.memory_governor.is_some(),
-        "memory_governor should exist"
+        "memory_governor should start Some"
+    );
+}
+
+// ─── MOD-02 (H-2): crash-atomic transactions ───────────────────
+//
+// A crash mid-`batch_append` leaves `[Begin, ops...]` durable across some
+// shards while `Commit` never made it to disk. Recovery must discard the
+// incomplete txn instead of applying it as if committed — without dropping
+// unrelated durable records appended after it.
+
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+fn open_disk_engine_with_wal(path: &str) -> StorageEngine {
+    // Default config → persistent backend + 4-shard WAL; recovery (recover_state)
+    // only runs on the disk-backed path, never the InMemory branch.
+    StorageEngine::open(path).expect("open disk-backed engine with WAL")
+}
+
+/// Simulate a kill-between-shards: write txn records through the engine's OWN
+/// WAL handle (the real data-dir WAL), sync, then drop the engine scope — the
+/// "crash". The txn's `Commit` is simply never appended, modeling a batch whose
+/// tail never became durable across shards.
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+fn simulate_crash_after(engine: &StorageEngine, records: &[crate::wal::WalRecord]) {
+    let wal = engine.wal.as_ref().expect("engine opened with a WAL");
+    for r in records {
+        wal.append(r).expect("append crash-sim record");
+    }
+    wal.flush_all().expect("sync shards");
+}
+
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+#[test]
+fn test_crash_partial_txn_without_commit_not_recovered() {
+    use crate::wal::WalRecord;
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().unwrap();
+
+    {
+        let engine = open_disk_engine_with_wal(path);
+        engine.insert(&sample_node(7)).expect("insert committed");
+        engine.flush().expect("flush pre-crash data");
+
+        // Crash mid-commit: Begin + two ops hit the shards, Commit never does.
+        simulate_crash_after(
+            &engine,
+            &[
+                WalRecord::Begin(100),
+                WalRecord::Insert(sample_node(8)),
+                WalRecord::Insert(sample_node(9)),
+            ],
+        );
+    }
+
+    let engine = open_disk_engine_with_wal(path);
+    assert!(
+        engine.get(8).expect("get").is_none(),
+        "partial-txn insert must NOT survive recovery (crash atomicity)"
+    );
+    assert!(
+        engine.get(9).expect("get").is_none(),
+        "second partial-txn insert must NOT survive recovery"
+    );
+    assert!(
+        engine.get(7).expect("get").is_some(),
+        "pre-crash committed node must survive"
+    );
+}
+
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+#[test]
+fn test_crash_full_txn_with_commit_recovered() {
+    use crate::wal::WalRecord;
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().unwrap();
+    {
+        let engine = open_disk_engine_with_wal(path);
+
+        // Complete batch: Begin + ops + Commit all durable.
+        simulate_crash_after(
+            &engine,
+            &[
+                WalRecord::Begin(200),
+                WalRecord::Insert(sample_node(10)),
+                WalRecord::Insert(sample_node(11)),
+                WalRecord::Commit(200),
+            ],
+        );
+    }
+
+    let engine = open_disk_engine_with_wal(path);
+    assert!(
+        engine.get(10).expect("get").is_some(),
+        "committed txn insert must be recovered"
+    );
+    assert!(
+        engine.get(11).expect("get").is_some(),
+        "committed txn insert must be recovered"
+    );
+}
+
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+#[test]
+fn test_records_after_partial_txn_survive_recovery() {
+    use crate::wal::WalRecord;
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().unwrap();
+    {
+        let engine = open_disk_engine_with_wal(path);
+
+        // Partial txn [Begin(300), op, op] whose Commit never became durable,
+        // followed by a COMPLETE later batch from an independent writer
+        // [Begin(301), op, Commit(301)] (the batch's slots are contiguous, so
+        // the later Begin bounds the incomplete txn's extent). Recovery must
+        // discard only the incomplete txn's records — the committed later batch
+        // survives.
+        simulate_crash_after(
+            &engine,
+            &[
+                WalRecord::Begin(300),
+                WalRecord::Insert(sample_node(12)),
+                WalRecord::Insert(sample_node(13)),
+                WalRecord::Begin(301),
+                WalRecord::Insert(sample_node(14)),
+                WalRecord::Commit(301),
+            ],
+        );
+    }
+
+    let engine = open_disk_engine_with_wal(path);
+    assert!(
+        engine.get(12).expect("get").is_none(),
+        "uncommitted txn op must be discarded"
+    );
+    assert!(
+        engine.get(13).expect("get").is_none(),
+        "uncommitted txn op must be discarded"
+    );
+    assert!(
+        engine.get(14).expect("get").is_some(),
+        "durable committed record after an incomplete txn must survive"
     );
 }
