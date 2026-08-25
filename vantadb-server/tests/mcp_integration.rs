@@ -1,6 +1,9 @@
 //! MCP Protocol Integration Modernized Test Suite
 //! Part of the Vanta Certification ecosystem.
 
+// The shared core harness (tests/common/mod.rs) references `cfg(feature = "sysinfo")`
+// which is a core-crate feature, not declared in vantadb-server — silence the lint.
+#[allow(unexpected_cfgs)]
 #[path = "../../tests/common/mod.rs"]
 mod common;
 

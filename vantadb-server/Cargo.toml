@@ -21,7 +21,6 @@ clap = { version = "4", features = ["derive"] }
 fs2 = "0.4"
 futures = "0.3"
 tempfile = "3"
-sysinfo = "0.38"
 chrono = "0.4"
 console = "0.16"
 indicatif = "0.18"
@@ -36,7 +35,6 @@ jemalloc = ["vantadb/jemalloc", "dep:tikv-jemallocator"]
 cli = ["vantadb/cli"]
 tls = ["vantadb/tls"]
 opentelemetry = ["vantadb/opentelemetry"]
-sysinfo = []
 prometheus = ["vantadb/prometheus"]
 
 

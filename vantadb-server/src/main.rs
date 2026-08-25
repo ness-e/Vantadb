@@ -50,6 +50,11 @@ async fn main() {
     if is_mcp {
         let storage_path = config.storage_path.clone();
 
+        // Embedded-first: the binary is a thin boundary and opens the raw engine
+        // directly instead of going through a higher-level server facade. This is
+        // safe here because `vantadb_mcp::run_stdio_server` is the only consumer
+        // needing index reconciliation and it runs `ensure_indexes_current`
+        // internally (MCP-01); the trailing `flush()` is durability-only.
         let storage = match StorageEngine::open_with_config(&storage_path, Some(config.clone())) {
             Ok(s) => Arc::new(s),
             Err(e) => {

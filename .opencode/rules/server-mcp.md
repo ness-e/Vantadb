@@ -1,6 +1,6 @@
 # Server & MCP — Reglas
 
-> **Scope:** `vantadb-server/` (`src/server.rs`, `middleware.rs`, `main.rs`, `lib.rs`), `vantadb-mcp/` (`src/lib.rs` — MCP stdio)
+> **Scope:** `vantadb-server/` (`src/server.rs`, `main.rs`, `lib.rs`), `vantadb-mcp/` (`src/lib.rs` — MCP stdio)
 > **No tocar aquí:** bindings Python (`python-bindings.md`), JS/WASM (`js-ecosystem.md`), API pública del core (`api-contract.md`)
 > **Status:** 🟢 Vigente
 > **Fuentes:** INV-011, INV-003

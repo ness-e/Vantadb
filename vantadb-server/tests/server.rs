@@ -1,6 +1,9 @@
 //! API Server & Health Modernized Test Suite
 //! Part of the Vanta Certification ecosystem.
 
+// The shared core harness (tests/common/mod.rs) references `cfg(feature = "sysinfo")`
+// which is a core-crate feature, not declared in vantadb-server — silence the lint.
+#[allow(unexpected_cfgs)]
 #[path = "../../tests/common/mod.rs"]
 mod common;
 
@@ -507,25 +510,13 @@ async fn test_build_tls13_config_loading() {
 #[tokio::test]
 async fn test_tls_server_health_and_query() {
     setup_tls();
-    let dir = tempfile::tempdir().unwrap();
+    let (dir, state) = helpers::build_server_state(Path::new("db"), Some("tls-key"), 10);
     let (cert_path, key_path) = generate_test_cert(dir.path());
 
     let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(&cert_path, &key_path)
         .await
         .unwrap();
 
-    let storage = Arc::new(StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap());
-    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
-    let state = Arc::new(ServerState {
-        storage,
-        db,
-        circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
-        pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
-        api_key: Some(Arc::from("tls-key")),
-        rbac_config: Default::default(),
-        trusted_proxies: vec![],
-        conversation_trigger: None,
-    });
     let router = app(state, 0);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -607,19 +598,7 @@ async fn api_server_certification() {
 
     harness.execute("Health: Endpoint Availability & Router State", || {
         futures::executor::block_on(async {
-            let temp_dir = tempfile::tempdir().unwrap();
-            let storage = Arc::new(StorageEngine::open(temp_dir.path().to_str().unwrap()).unwrap());
-            let db = vantadb::VantaEmbedded::from_engine(storage.clone());
-            let state = Arc::new(ServerState {
-                storage,
-                db,
-                circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
-                pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
-                api_key: None,
-                rbac_config: Default::default(),
-                trusted_proxies: vec![],
-                conversation_trigger: None,
-            });
+            let (_dir, state) = helpers::build_server_state(Path::new(""), None, 10);
             let app = app(state, 100);
 
             TerminalReporter::sub_step("Dispatching oneshot request to /health...");

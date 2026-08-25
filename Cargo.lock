@@ -5131,7 +5131,6 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
- "sysinfo",
  "tempfile",
  "tikv-jemallocator",
  "tokio",

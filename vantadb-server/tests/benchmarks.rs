@@ -12,10 +12,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::net::TcpListener;
-use vantadb::circuit_breaker::CircuitBreaker;
-use vantadb::connection_pool::ConnectionPool;
-use vantadb::storage::StorageEngine;
-use vantadb_server::server::{app, ServerState};
+use vantadb_server::server::app;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -275,19 +272,7 @@ async fn bench_latency_health_serial() {
 
 #[tokio::test]
 async fn bench_latency_with_auth() {
-    let dir = tempfile::tempdir().unwrap();
-    let storage = Arc::new(StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap());
-    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
-    let state = Arc::new(ServerState {
-        storage,
-        db,
-        circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
-        pool: Arc::new(ConnectionPool::new(100, Duration::from_millis(5000))),
-        api_key: Some(Arc::from("bench-key")),
-        rbac_config: Default::default(),
-        trusted_proxies: vec![],
-        conversation_trigger: None,
-    });
+    let (_dir, state) = helpers::build_server_state(Path::new("db"), Some("bench-key"), 100);
     let router = app(state, 0);
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

@@ -6,6 +6,14 @@ use vantadb::connection_pool::ConnectionPool;
 use vantadb::storage::StorageEngine;
 use vantadb_server::server::ServerState;
 
+/// Canonical `ServerState` constructor for integration tests (MOD-15).
+///
+/// Mirrors production startup (`cli_server::run`, MOD-12): wraps the raw engine
+/// and calls `ensure_indexes_current` so lexical/hybrid searches work on fresh
+/// DBs. Variants that need custom fields construct `ServerState` literally in
+/// the test instead: RBAC `token_role_map` (server.rs `build_rbac_context`),
+/// breaker threshold/timeout (server.rs circuit-breaker tests) and reopening an
+/// existing storage dir (e2e.rs persistence test).
 pub fn build_server_state(
     path: &Path,
     api_key: Option<&str>,
