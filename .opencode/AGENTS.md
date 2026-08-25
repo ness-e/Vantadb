@@ -75,7 +75,7 @@ Flujo típico: `git add .` → `dev-tools/verify_changed.ps1` → `git commit` �
 
 ## Understand-Anything
 
-> Ver `references/understand-anything.md` — knowledge graph, capas arquitectónicas, decisión de uso vs CodeGraph, slash commands y flujo de consulta. Editar allá, no aquí.
+> Ver `.opencode/references/understand-anything.md` — knowledge graph, capas arquitectónicas, decisión de uso vs CodeGraph, slash commands y flujo de consulta. Editar allá, no aquí.
 
 ## Rust MCP Servers
 
@@ -471,13 +471,13 @@ El saldo neto de deuda técnica por PR debe ser **cero o negativo**.
 
 | ID | Archivo | Deuda | Esfuerzo |
 |---|---|---|---|
-| P2-1 | `vantadb-wasm/src/opfs.rs:83-87` | `delete()` stub no implementado | 🟢 30 min |
+| ~~P2-1~~ | ~~`vantadb-wasm/src/opfs.rs:83-87` (`delete()` stub)~~ — ✅ RESUELTO (verif. AGT-03): `delete()` implementado con `remove` (`opfs.rs:101-104`) | — |
 | ~~P2-2~~ | ~~Raw pointer UB en `__array_interface__`~~ — ✅ RESUELTO por AUDIT-01 (`bff30d38`): getter devuelve `PyBytes` owned copy (`vantadb-python/src/vector.rs:59-74`) | — |
-| P2-3 | `vantadb-python/src/convert.rs:23-70` | LRU cache evicción O(n) `min_by_key` (comentario O(1) corregido) | 🟢 15 min |
-| P2-5 | `vantadb-python/src/lib.rs` (`put_batch`, línea ~312) | Dual API en `put_batch()` — 60 líneas de branching | 🟢 1 hr |
-| P2-6 | `vantadb-python/src/types.rs:365` | Match no exhaustivo en `VantaError` | 🟢 15 min |
-| P2-7 | `src/sdk/serialization/mod.rs:227-294` | Serialización completa sin zero-copy path | 🟡 4-8 hr |
-| P2-8 | `vantadb-wasm/src/lib.rs:402-433` | `collect_all_deduped()` O(n) en memoria | 🟡 2-4 hr |
+| ~~P2-3~~ | ~~LRU cache evicción O(n) `min_by_key`~~ — ✅ RESUELTO (AUD-039, verif. AGT-03): usa `lru::LruCache` O(1) (`convert.rs:699-700`) | — |
+| P2-5 | `vantadb-python/src/lib.rs:494` (`put_batch`) | Dual API en `put_batch()` — ~53 líneas de branching (tuplas legacy deprecadas + kwargs) | 🟢 1 hr |
+| ~~P2-6~~ | ~~Match no exhaustivo en `VantaError`~~ — ✅ RESUELTO (verif. AGT-03): `map_vanta_error` catch-all `_` (`convert.rs:818`) + jerarquía de excepciones MOD-20 | — |
+| ~~P2-7~~ | ~~Serialización completa sin zero-copy~~ — ✅ RESUELTO por refactor (AUD-023, verif. AGT-03): encoding tipado por campo (`mod.rs` sparse field encode/decode) | — |
+| P2-8 | `vantadb-wasm/src/lib.rs:564-596` | `collect_all_deduped()` O(n) en memoria (dedup por `node_id` u128) | 🟡 2-4 hr |
 
 ### Regla 7: Release Workflow — main/develop + Conventional Commits
 

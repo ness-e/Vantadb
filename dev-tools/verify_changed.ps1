@@ -38,6 +38,16 @@ try {
         }
     }
 
+    # agents-refs: anti-drift de rutas citadas en AGENTS.md (solo si AGENTS.md cambió)
+    $agentsScript = "$ProjectRoot\dev-tools\check-agents-refs.ps1"
+    if (Test-Path $agentsScript) {
+        $agentsDiff = git diff --name-only HEAD 2>$null
+        $agentsTouched = @($agentsDiff | Where-Object { $_ -match '(^|/)AGENTS\.md$' })
+        if ($agentsTouched.Count -gt 0) {
+            run "agents-refs" ("pwsh", "-NoProfile", "$agentsScript")
+        }
+    }
+
     Write-Host "ALL ${pass} PASS" -ForegroundColor Green; exit 0
 } catch {
     if ($fail -eq 0) { $Script:fail = 1 }
