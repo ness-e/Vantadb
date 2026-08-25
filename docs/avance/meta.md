@@ -126,3 +126,11 @@ Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña
 - **Continue:** STOP CONDITIONS respetadas (DAUD-08 no dropear con contenido real; FIND-17 sin renames); hallazgos colaterales ruteados a Backlog (FIND-23 namespace vacío en vanta-http-map).
 - **Accion medible:** 3/8 tareas del batch requirieron verificación "ya-resuelto" o stop-condition (TIR-08, DAUD-08, FIND-17 parcial) — la verificación de código real antes de editar ahorra trabajo. North Star: 8/8 first-try, 0 falsos positivos, 0 regresiones.
 - **Deuda:** DAUD-08 stash@{0} (41 archivos, 1500+ líneas WIP P34) pendiente de decisión del usuario; FIND-23 (namespace vacío HTTP) abierto; window.confirm persiste en ImportPaste/ImportDrop.
+
+## Retrospectiva — Batch Core Fixes + Research P38 (plan 2026-08-25-batch-core-fixes-research)
+- **Cierre:** 9/9 tareas (5 commits de código + 3 docs research + 1 docs CI). Pausa intermedia por usuario tras Wave 0 (3/9), reanudada después. 0 failed. Waves: W0 {FIND-23, AUD-044, AUD-047} · W1 {AUD-045, AUD-046, FIND-22} · W2 {RES-01/02/03}.
+- **Start:** bench Regla 9 rindió (AUD-045: -59% IVF reutilizando helper existente f32_slice_similarity — cero código nuevo); research con vanta-research leaf sin write → contenido inline persistido por el lead (funciona, pero añade un paso manual).
+- **Stop:** confiar en verificación previa de hallazgos del backlog (AUD-043 ya resuelto por FIND-30 — el backlog acumula filas resueltas sin sync). Verificar "ya-resuelto" ANTES de ticketear.
+- **Continue:** verify mecánico del lead antes de cada commit; hallazgos colaterales ruteados a Backlog en el momento (FIND-24, MCP-34b, FIND-25, FIND-26); STOP CONDITIONS respetadas.
+- **Accion medible:** 1/6 hallazgos verificados estaba ya resuelto (AUD-043) — métrica: tasa de stale-detection al triagear. North Star: 9/9 first-try, 0 falsos positivos.
+- **Outputs de research:** RES-01 GO condicional (WAL v2 Prepare tras flag+bench) · RES-02 restore físico S1-S5 recomendado (+MCP-34b/FIND-25/FIND-26) · RES-03 session layer defer-as-scoped (DEC-01 resuelta).

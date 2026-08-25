@@ -2,7 +2,7 @@
 
 > **Campaign ID:** aa2cde2b-e52f-4dae-910a-b274373a5bda
 > **Inicio:** 2026-08-25
-> **Estado:** ⏸️ PAUSADO POR USUARIO (Wave 0 completa, 3/9)
+> **Estado:** ✅ COMPLETADO (reanudado, 9/9)
 > **Fuente:** docs/Backlog.md (selección del lead + confirmación del usuario 2026-08-25)
 > **Modo:** FAIL_MODE=parallel, MAX_CONCURRENT=3
 
@@ -65,7 +65,7 @@ Status: ⬆️ uphill = 3 (RES-01/02/03 research requieren DISCOVERY) · ⬇️ 
 - **Gate Result:** ✅ DO
 - **Contrato:** bench before/after documentado (cargo bench ivf o canonical_p99); sin regresión; `cargo nextest run -p vantadb ivf` pasa
 - **Task file:** `skills/campaign-executor/tasks/AUD-045.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMMITTED `perf(index)` - f32_slice_similarity, bench -59%, 21/21
 
   **Pre-mortem:**
   - Fallo 1: cambiar Vec<f32> a Arc/slice rompe deserialize_from_bytes
@@ -83,7 +83,8 @@ Status: ⬆️ uphill = 3 (RES-01/02/03 research requieren DISCOVERY) · ⬇️ 
 - **Gate Result:** ✅ DO
 - **Contrato:** list HTTP no trunca silenciosamente (paginación completa o señal al cliente); test e2e con >10000 records (o el límite actual)
 - **Task file:** `skills/campaign-executor/tasks/AUD-046.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMMITTED `fix(server)` - truncated_namespaces aditivo, 59/59
+- **last-synced:** 2026-08-25T00:00
 
   **Pre-mortem:** —. **Stop conditions:** —. **Cynefin:** 🟦 obvio. **Top 3 riesgos:** (1) cambio de API del handler.
 
@@ -113,7 +114,7 @@ Status: ⬆️ uphill = 3 (RES-01/02/03 research requieren DISCOVERY) · ⬇️ 
 - **Gate Result:** ✅ DO
 - **Contrato:** CI_POLICY.md documenta las exclusiones; docs coverage 0 gaps
 - **Task file:** `skills/campaign-executor/tasks/FIND-22.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMMITTED `docs(ci)` - exclusiones documentadas, coverage 0 gaps
 
   **Pre-mortem:** —. **Stop conditions:** —. **Cynefin:** 🟦 obvio.
 
@@ -128,7 +129,7 @@ Status: ⬆️ uphill = 3 (RES-01/02/03 research requieren DISCOVERY) · ⬇️ 
 - **Gate Result:** ✅ DO (research)
 - **Contrato:** doc de investigación generado en docs/research/ con análisis + plan; hallazgos ruteados a backlog si hay decisión
 - **Task file:** `skills/campaign-executor/tasks/RES-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMMITTED `docs(research)` - GO condicional tras flag wal_prepare + bench
 
   **Pre-mortem:** —. **Stop conditions:** —. **Cynefin:** 🟧 complejo — requiere experimentar. **Top 3 riesgos:** (1) scope; (2) decisión ADR.
 
@@ -143,7 +144,7 @@ Status: ⬆️ uphill = 3 (RES-01/02/03 research requieren DISCOVERY) · ⬇️ 
 - **Gate Result:** ✅ DO (research)
 - **Contrato:** doc de investigación + plan en docs/research/; hallazgos ruteados
 - **Task file:** `skills/campaign-executor/tasks/RES-02.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMMITTED `docs(research)` - restore físico recomendado (S1-S5), MCP-34b/FIND-25/26 ruteados
 
   **Pre-mortem:** —. **Stop conditions:** —. **Cynefin:** 🟧 complejo. **Top 3 riesgos:** (1) scope; (2) solapamiento con MCP-34a.
 
@@ -158,7 +159,7 @@ Status: ⬆️ uphill = 3 (RES-01/02/03 research requieren DISCOVERY) · ⬇️ 
 - **Gate Result:** ✅ DO (research)
 - **Contrato:** doc de investigación con go/no-go recomendado; DEC-01 resuelto o ruteado
 - **Task file:** `skills/campaign-executor/tasks/RES-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMMITTED `docs(research)` - F1/F3/F4 no-go, F2 defer docs-only; DEC-01 resuelta defer-as-scoped
 
   **Pre-mortem:** —. **Stop conditions:** —. **Cynefin:** 🟧 complejo. **Top 3 riesgos:** (1) decisión sin owner.
 
@@ -233,4 +234,82 @@ Resultado: OK
 Próxima acción: Lead: commitear src/storage/vfile_mmap.rs + vfile.rs + archive.rs + task file; ejecutar progreso (migrar Backlog AUD-044 → docs/avance)
 Contrato: verificacion: cargo nextest run -p vantadb --no-default-features --features fjall,roaring,cli,advanced-tokenizer,sysinfo,rayon,fs2 --lib = 1932/1932 + cargo nextest run -p vantadb = 2062/2062 + cargo fmt --check = 0 + cargo clippy --workspace --all-targets --all-features -- -D warnings = 0 + cargo check -p vantadb-wasm --target wasm32-unknown-unknown = 0 | evidencia: claim=flush shim escribe buffer a disco evidencia=test shim_mmap_mut_flush_writes_buffer_to_disk (RED→GREEN, vfile_mmap.rs) confianza=alta; claim=compact_layout sin memmap2 sobrevive reopen evidencia=test_compact_layout_disk_backed + reorder test (archive.rs) confianza=alta; claim=root cause confirmado evidencia=sync_to_mmap_preserves_data FAIL pre-fix / PASS post-fix (index/core.rs:321) confianza=alta; claim=builds memmap2 intactos evidencia=2062/2062 default + cfg-gate confianza=alta | artefactos: .opencode/skills/campaign-executor/tasks/AUD-044.md | invariantes: API shim intacta (pub(crate), firmas iguales), buffer.len()==file.len() en map time, File clonado dropea con mapping (Windows rename), builds memmap2 no tocados, flush≠fsync (no barrera durabilidad) | deuda: ninguna (Regla 6 saldo 0); colateral resuelto inline (posición compartida en clones, test_vfile_grow_to_on_disk pre-existente FAIL ahora pasa) | queda_pendiente: lead verifica mecánico y commitea (Regla 2 — NO commiteé); progreso pendiente para el lead; otra sesión activa tocó layer.rs/vanta-http-map/FIND-11/UX-POLISH — NO incluir en este commit
 Próxima tarea si completa: AUD-045
+=== END RECITATION ===
+
+=== RECITATION AUD-045 ===
+Campaign ID: aa2cde2b-e52f-4dae-910a-b274373a5bda
+Objetivo activo: AUD-045: eliminar clones de vector completo per-candidate en hot path IVF search
+Estado: completed
+Última acción: Fix de 4 sitios en src/index/ivf.rs: calculate_similarity(&VectorRepresentations::Full(x.clone())) → f32_slice_similarity(slice) (helper pub(crate) preexistente, mapper.rs:201, ya usado por search/layer.rs). Search (scoring centroides + per-candidato), build (asignación Lloyd + convergencia). Cero cambios de serialización/layout/API.
+Resultado: OK
+Próxima acción: Lead: commitear SOLO src/index/ivf.rs + tasks/AUD-045.md + plan file (worktree compartido con AUD-046/FIND-22 — no incluir sus archivos); ejecutar skill progreso fila Backlog AUD-045
+Contrato: verificacion: cargo nextest run -p vantadb -E 'test(ivf)' = 21/21 passed; cargo clippy --workspace --all-targets --all-features -- -D warnings = OK; cargo fmt --check = ivf.rs sin diffs | evidencia: claim='mejora medida Regla 9' evidencia='cargo bench -p vantadb --bench ivf_bench -- search --measurement-time 2: search −48%..−65% (p.ej. 100/10: 52.6ms→21.8ms; 100/1: 8.3ms→2.9ms); build k-means nlist=100 3.36s→0.96s (−71%), nlist=400 5.80s→2.29s (−61%); entorno i5-1235U/32GB/Win11/rustc 1.95; tabla completa en tasks/AUD-045.md' confianza=alta; claim='recall sin regresión' evidencia='recall@10 before/after ~igual (tabla task file)' confianza=media; claim='serialización/layout intactos' evidencia='diff ivf.rs: serialize_to_bytes/deserialize_from_bytes/IvfEntry sin cambios' confianza=alta | artefactos: src/index/ivf.rs, .opencode/skills/campaign-executor/tasks/AUD-045.md | invariantes: no tocar archivos de sesiones paralelas (cli_server.rs/AUD-046, CI_POLICY.md/FIND-22, completions/, opencode.jsonc); API pública estable | deuda: ninguna | queda_pendiente: commit del lead + skill progreso
+Próxima tarea si completa: AUD-046
+=== END RECITATION ===
+
+=== RECITATION FIND-22 ===
+Campaign ID: aa2cde2b-e52f-4dae-910a-b274373a5bda
+Objetivo activo: FIND-22: formalizar exclusiones del fast gate en docs/operations/CI_POLICY.md
+Estado: completed
+Última acción: ACT+VERIFY: sección 'Fast Gate Test Exclusions' añadida a CI_POLICY.md (tabla 3 exclusiones RESOURCE-GUARD + nota nextest.toml default-filter ~55 bins + reglas de governance); last_reviewed→2026-08-25. Cross-check grep 3/3 + docs coverage 0 gaps.
+Resultado: OK
+Próxima acción: Lead: git add docs/operations/CI_POLICY.md + task file, commit 'docs: FIND-22 — formalizar exclusiones fast gate', skill progreso
+Contrato: verificacion: rg cross-check 3/3 exclusiones (deserialize_absurd_node_count, test_search_with_bizarre_text_query, test_malformed_payload_extremely_large) doc↔verify.ps1 ✅ + pwsh scripts/validate-docs-coverage.ps1 → 0 gaps ✅ | evidencia: claim=3 exclusiones RESOURCE-GUARD documentadas con fuente/por qué/dónde/quién revierte evidencia='docs/operations/CI_POLICY.md:80-100 §Fast Gate Test Exclusions' confianza=alta; claim=no se cambió verify.ps1 ni nextest.toml evidencia='git diff solo CI_POLICY.md' confianza=alta; claim=tests viven en src/index/core.rs:414 y tests/security.rs:324/639 evidencia='grep en fuente' confianza=alta | artefactos: docs/operations/CI_POLICY.md, .opencode/skills/campaign-executor/tasks/FIND-22.md | invariantes: cero cambios de código; taxonomía EXPERIMENTAL/BEST-EFFORT/NON-CRITICAL/INFORMATIONAL intacta; mdBook include hereda automáticamente (docs/book/src/operations/CI_POLICY.md) | deuda: ninguna | queda_pendiente: lead commitea (docs: FIND-22) y ejecuta skill progreso
+Próxima tarea si completa: AUD-045
+=== END RECITATION ===
+
+=== RECITATION AUD-045 ===
+Campaign ID: aa2cde2b-e52f-4dae-910a-b274373a5bda
+Objetivo activo: AUD-045: eliminar clones de vector completo per-candidate en hot path IVF search
+Estado: completed
+Última acción: Tarea completa: fix de 4 clones via f32_slice_similarity (helper pub(crate) preexistente). Bench before/after documentado: search −48%..−65% segun config, build k-means hasta −71%. Verify: nextest ivf 21/21, clippy workspace -D warnings OK, fmt limpio en ivf.rs.
+Resultado: OK
+Próxima acción: Lead: commitear src/index/ivf.rs + tasks/AUD-045.md + plan; ejecutar skill progreso
+Contrato: verificacion: cargo nextest run -p vantadb -E 'test(ivf)' = 21/21 passed; cargo clippy --workspace --all-targets --all-features -- -D warnings = OK; cargo fmt --check = ivf.rs sin diffs | evidencia: claim='clones eliminados sin cambio de API ni serializacion' evidencia='src/index/ivf.rs diff: 4 sitios calculate_similarity(Full(clone)) → f32_slice_similarity(slice), helper preexistente mapper.rs:201, serialize/deserialize intactos' confianza=alta; claim='mejora medida' evidencia='cargo bench -p vantadb --bench ivf_bench -- search --measurement-time 2: search -48%..-65%, build k-means nlist=100 -71%; entorno i5-1235U/32GB/Win11; numeros en .opencode/skills/campaign-executor/tasks/AUD-045.md' confianza=alta; claim='recall sin regresion' evidencia='tabla recall@10 before/after en task file (~igual)' confianza=media | artefactos: src/index/ivf.rs, .opencode/skills/campaign-executor/tasks/AUD-045.md | invariantes: NO tocar cli_server.rs/CI_POLICY.md/completions/opencode.jsonc (sesiones paralelas); serialize/deserialize_from_bytes y layout IvfEntry intactos; API publica estable | deuda: ninguna | queda_pendiente: lead commitea solo src/index/ivf.rs + tasks/AUD-045.md + plan file; skill progreso fila Backlog AUD-045
+Próxima tarea si completa: AUD-046
+=== END RECITATION ===
+
+=== RECITATION AUD-046 ===
+Campaign ID: aa2cde2b-e52f-4dae-910a-b274373a5bda
+Objetivo activo: AUD-046: list HTTP fan-out all-namespaces no trunca silenciosamente
+Estado: completed
+Última acción: Steps 1-3 completos: señal aditiva truncated_namespaces + helper puro merge_all_namespaces_pages + unit test semántica NS_CAP + assertion e2e del campo. Verify full verde (fmt/clippy/check/nextest 59/59). FIND-24 registrado. Plan+task files actualizados.
+Resultado: OK
+Próxima acción: Lead: commitear src/cli_server.rs + docs/Backlog.md + task file; ejecutar progreso
+Contrato: verificacion: cargo nextest run -p vantadb --lib --features server -E 'test(v2_list) | test(merge_all_namespaces)' = 3/3 pass; cli_server suite 59/59; fmt/clippy/check = 0 | evidencia: claim='fan-out señaliza truncamiento' evidencia='helper merge_all_namespaces_pages + AllNamespacesListPage.truncated_namespaces (cli_server.rs)' confianza=alta; claim='wire format aditivo no-breaking' evidencia='VantaMemoryListPage SDK intacto, campo solo en struct local' confianza=alta; claim='e2e HTTP >10k inviable debug (timeout 30s vs list 67s medido)' evidencia='probe temporal + FIND-24 en Backlog; semantica NS_CAP cubierta por unit de pages sinteticas' confianza=alta | artefactos: src/cli_server.rs, docs/Backlog.md (FIND-24), task file AUD-046.md | invariantes: rama single-namespace intacta; VantaMemoryListPage SDK sin cambios; cli_server.rs NO dividido | deuda: FIND-24 (perf list + cursor cross-ns) | queda_pendiente: lead commitea (src/cli_server.rs + docs/Backlog.md + task file); skill progreso
+Próxima tarea si completa: AUD-045 o siguiente pendiente wave 1
+=== END RECITATION ===
+
+=== RECITATION AUD-046 ===
+
+Objetivo activo: AUD-046 — list HTTP fan-out all-namespaces no trunca silenciosamente
+Estado: accept (worktree listo, sin commit)
+Última acción: Implementado señal aditiva + helper + tests; verify full verde; FIND-24 registrado en Backlog
+Resultado: OK
+State: ACCEPT (desde: VERIFY)
+Próxima acción: Lead: commitear src/cli_server.rs + docs/Backlog.md (fila FIND-24) + task file AUD-046.md; ejecutar progreso
+Contrato: verificacion: cargo nextest run -p vantadb --lib --features server -E 'test(v2_list) | test(merge_all_namespaces)' = 3/3 pass (0.9s); nextest cli_server suite = 59/59; cargo fmt --check = 0; cargo clippy -p vantadb --all-targets --all-features -- -D warnings = 0; cargo check -p vantadb --features server = 0 | evidencia: claim='fan-out señaliza truncamiento' evidencia='helper merge_all_namespaces_pages cli_server.rs (next_cursor.is_some() => truncated_namespaces) + struct AllNamespacesListPage con campo aditivo' confianza=alta; claim='wire format no-breaking' evidencia='VantaMemoryListPage del SDK intacto; campo nuevo solo en struct local del fan-out; clientes tolerantes a campos extra' confianza=alta; claim='e2e HTTP >10k inviable en debug' evidencia='probe medido: put_batch 10_005=1s, db.list(limit 10k)=60-70s vs REQUEST_TIMEOUT=30s → FIND-24 en Backlog; semántica NS_CAP cubierta por unit test de pages sintéticas' confianza=alta | artefactos: src/cli_server.rs, docs/Backlog.md, .opencode/skills/campaign-executor/tasks/AUD-046.md | invariantes: rama single-namespace intacta; VantaMemoryListPage SDK sin cambios; cli_server.rs NO dividido; NS_CAP=10_000 sin cambio | deuda: FIND-24 (perf list O(ventana) ~6.7ms/nodo debug + re-fan-out por página + cursor cross-ns requiere SDK) | queda_pendiente: lead commitea (NO incluir archivos de agentes paralelos); review P2-01 vanta-review opcional; skill progreso
+Próxima tarea si completa: AUD-045 o siguiente pendiente wave 1
+=== END RECITATION ===
+
+=== RECITATION RES-03 ===
+Campaign ID: aa2cde2b-e52f-4dae-910a-b274373a5bda
+Objetivo activo: RES-03: go/no-go session layer VantaDB MCP (DEC-01)
+Estado: in-progress
+Última acción: DISCOVERY+research completos: mapeado lo existente (ThreadStore 6 tools MCP-32, assemble_with_recall MCP-31 context_assemble, scenes MCP-30, axioms MCP-33, genlog por-sesion, skills MCP); origen DEC-01 leido (COGNEE_EVALUATION.md §8-9); transporte MCP validado contra spec oficial 2025-06-18. Analisis por fase producido: F1 no-go (duplicado), F2 defer (docs-only hoy), F3 no-go, F4 no-go.
+Resultado: PARTIAL
+Próxima acción: Lead: persistir docs/research/res03-session-layer-gonogo.md y .opencode/skills/campaign-executor/tasks/RES-03.md desde el contenido inline entregado; commitear como docs:
+Contrato: verificacion: doc persistido por lead en docs/research/res03-session-layer-gonogo.md con analisis por fase + go/no-go recomendado (contenido completo entregado en respuesta del agente); evidencia: claim=threads CRUD ya expuestos via MCP evidencia='vantadb-mcp/src/threads.rs:87-102 (6 tools: thread_create/send/get/list/delete/purge_expired)' confianza=alta; claim=context engine expuesto evidencia='vanta-memory/src/context_engine/engine.rs:199 assemble_with_recall + handlers/tools.rs:1893 context_assemble' confianza=alta; claim=scenes sandboxed por session_key ya existen evidencia='vanta-memory/src/core/scene/scene_tools.rs:104-200' confianza=alta; claim=axioms read/write/delete expuestos evidencia='handlers/tools.rs:1134,1139,1177' confianza=alta; claim=genlog por sesion ya existe evidencia='vanta-memory/src/core/memory_generation_log/store.rs:24-36' confianza=alta; claim=stdio es transporte estandar MCP y Streamable HTTP reemplazo HTTP+SSE evidencia='https://modelcontextprotocol.io/specification/2025-06-18/basic/transports (VERIFICADA 2026-08-25)' confianza=alta | artefactos: contenido de docs/research/res03-session-layer-gonogo.md + tasks/RES-03.md entregados inline al lead | invariantes: no tocar codigo; decision final del owner (Regla 5); doc en ingles | deuda: lead debe persistir 2 archivos desde el contenido entregado (agente sin tool de escritura) | queda_pendiente: lead persiste doc + task file, rutea DEC-01 a resuelto-con-recomendacion-defer en Backlog, decide si abre ADR
+Próxima tarea si completa: RES-01
+=== END RECITATION ===
+
+=== RECITATION RES-01 ===
+Campaign ID: aa2cde2b-e52f-4dae-910a-b274373a5bda
+Objetivo activo: RES-01: ACID Phase 4a — WAL v2 con WalRecord::Prepare (research, output DOC no código)
+Estado: in-progress
+Última acción: DISCOVERY+research completos: leídos wal.rs/wal_sharded.rs/txn.rs/init.rs(replay MOD-02)/ADR DRV-014. Doc EN de 185 líneas persistido en docs/research/res01-acid-wal-v2-prepare.md con estado actual file:line, diseño Prepare, recovery dos-pasadas, costos/riesgos, plan S1-S6, recomendación GO condicional. Task file creado. Verify mecánico: secciones + refs True/True.
+Resultado: PARTIAL
+Próxima acción: Lead: (1) rutear a docs/Backlog.md fila FIND (truthful-error gap txn.rs:133-190) + fila ADR-humano Regla 5; (2) verificar doc y commitear docs/research/res01-acid-wal-v2-prepare.md + tasks/RES-01.md
+Contrato: verificacion: pwsh check secciones+refs del doc = True/True/TASKFILE True (exit 0); evidencia: claim='commit point actual es durabilidad del batch Begin+ops+Commit' evidencia='txn.rs:146-160 + wal_sharded.rs:215-235' confianza=alta; claim='MOD-02 da crash-atomicidad via skip-mask de slots contiguos' evidencia='init.rs:505-551' confianza=alta; claim='gap truthful-error real: apply failure post-WAL-Commit resucita ops en restart' evidencia='txn.rs:133-190 buffer dropeado pre-apply + replay init.rs:559-599 re-aplica Commit durable' confianza=alta; claim='clon por shard-grouping es tradeoff intencional' evidencia='docs/architecture/adr/DRV-014-wal-batch-tradeoff.md cae92db3' confianza=alta | artefactos: docs/research/res01-acid-wal-v2-prepare.md, .opencode/skills/campaign-executor/tasks/RES-01.md | invariantes: cero cambios en src/ (read-only respetado); DRV-014 NO revertir (tradeoff vigente); doc técnico en inglés (Doc Language Split) | deuda: filas FIND+ADR pendientes de crear en docs/Backlog.md (fuera de mi scope de escritura autorizado: solo doc+task file)
+Próxima tarea si completa: RES-02
 === END RECITATION ===
