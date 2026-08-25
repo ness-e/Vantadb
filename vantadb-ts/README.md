@@ -77,6 +77,50 @@ const db = VantaDB.create();
 // ...same synchronous API as the ESM build
 ```
 
+## WASM bundle & lazy loading
+
+The package is backed by the `vantadb-wasm` wasm-bindgen build; the compiled
+engine binary is `vantadb-wasm/pkg/vantadb_wasm_bg.wasm` (~1.3 MB). How it is
+loaded depends on the runtime:
+
+- **Bundlers (Vite/Webpack/esbuild)** — the wasm-bindgen glue
+  (`vantadb_wasm.js`) imports the `.wasm` as an ES module, which bundlers
+  cannot handle natively. Add [`vite-plugin-wasm`](https://github.com/vitejs/vite-plugin-wasm)
+  (or the equivalent for your bundler) so the binary is fetched + instantiated
+  on demand. Without a plugin the build fails at bundle time.
+- **Node.js** — the wasm-bindgen Node loader reads the `.wasm` file from disk
+  at first use; no plugin required.
+- **Vanta Studio desktop/web builds** — the WASM backend is **code-split out**:
+  the glue module is externalized so the lazy `import()` never executes in
+  Tauri/HTTP modes (see `desktop/vite.config.ts`, WASM-02). It only loads in
+  `vite build --mode wasm` (WASM-03).
+
+**SSR / React hooks guidance:**
+
+- Do **not** instantiate the engine during server rendering — the wasm loader
+  needs browser APIs (`fetch`/`WebAssembly`) or the file system, neither of
+  which is guaranteed in a server context.
+- Create the client lazily in client-only code: `VantaDB.create()` inside a
+  `useEffect`/`useMemo` (or a framework's client boundary), never at module
+  top-level of an SSR-shared file.
+- On Node.js, prefer the native backend ([`NativeVantaDB`](./src/native.ts)) —
+  it is loaded lazily via dynamic `import()` and gives real filesystem
+  persistence (fjall/WAL) that the WASM build cannot.
+
+## vantadb vs vantadb-node (npm)
+
+Two npm packages exist; they are **not** the same thing:
+
+| Package | What it is | Published | API |
+|---------|------------|-----------|-----|
+| **`vantadb`** | TypeScript SDK over the WASM build — works in browsers, Node, Bun, Deno | ✅ 0.5.0 | Synchronous, ESM-only |
+| **`vantadb-node`** | Native Node.js bindings (napi-rs) — real filesystem persistence (fjall/WAL/fsync), async API, platform-specific `.node` binaries | ❌ **not yet published** (registry 404) | Async, ESM + CommonJS |
+
+`vantadb-node` is the **native backend** you reach via
+`NativeVantaDB.connect()` (lazy-loaded); `vantadb` is the **WASM backend**
+(`VantaDB.create()`). See ADR-030 (`docs/architecture/adr/ADR-030-brand-identity-naming-convention.md`)
+for the full naming convention across registries.
+
 ## Errors
 
 All operations throw [`VantaError`](./src/errors.ts), an `Error` subclass with a
