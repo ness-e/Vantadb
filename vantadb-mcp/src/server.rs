@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tracing::{debug, error, info, span, warn, Level};
+use tracing::{debug, error, info, warn};
 use vantadb::executor::Executor;
 use vantadb::storage::StorageEngine;
 
@@ -110,10 +110,16 @@ async fn serve_lines<R, W>(
     writer: W,
 ) where
     R: tokio::io::AsyncRead + Unpin,
-    W: tokio::io::AsyncWrite + Unpin,
+    W: tokio::io::AsyncWrite + Unpin + Send + 'static,
 {
-    let mut stdout = writer;
     let mut lines = BufReader::new(reader).lines();
+    // MOD-08: requests are dispatched to background tasks so the reader loop
+    // keeps draining stdin while one is in flight (no backpressure on a burst
+    // of pipelined requests). Every response write is serialized through this
+    // single lock so concurrent tasks never interleave bytes on stdout.
+    let stdout = Arc::new(tokio::sync::Mutex::new(writer));
+    // Track in-flight responses so shutdown drains them before returning (MOD-09).
+    let mut inflight = tokio::task::JoinSet::new();
 
     loop {
         let line = match lines.next_line().await {
@@ -124,10 +130,6 @@ async fn serve_lines<R, W>(
                 break;
             }
         };
-        if !running.load(Ordering::SeqCst) {
-            info!("Shutdown flag set, draining remaining requests");
-        }
-
         if line.trim().is_empty() {
             continue;
         }
@@ -140,7 +142,7 @@ async fn serve_lines<R, W>(
                 metrics.errors_total.fetch_add(1, Ordering::Relaxed);
                 warn!(error = %e, input_len = line.len(), "Failed to parse JSON-RPC");
                 write_json(
-                    &mut stdout,
+                    &mut *stdout.lock().await,
                     &json!({
                         "jsonrpc": "2.0",
                         "id": Value::Null,
@@ -167,12 +169,13 @@ async fn serve_lines<R, W>(
             );
             continue;
         };
+        let req_id = req_id.clone();
 
         if req.jsonrpc != "2.0" {
             metrics.errors_total.fetch_add(1, Ordering::Relaxed);
             warn!(jsonrpc = %req.jsonrpc, "Invalid JSON-RPC version, expected 2.0");
             write_json(
-                &mut stdout,
+                &mut *stdout.lock().await,
                 &json!({
                     "jsonrpc": "2.0",
                     "id": req_id,
@@ -185,39 +188,56 @@ async fn serve_lines<R, W>(
             continue;
         }
 
-        let res = dispatch_request(&req, storage, config, semaphore, metrics).await;
-        let (result, error) = match res {
-            Ok(val) => (Some(val), None),
-            Err(err) => (None, Some(err)),
-        };
-
-        let response = RpcResponse {
-            jsonrpc: "2.0".to_string(),
-            id: req_id.clone(),
-            result,
-            error,
-        };
-
-        if !running.load(Ordering::SeqCst) {
-            info!("Graceful shutdown after processing in-flight request");
-            break;
-        }
-
-        match serde_json::to_string(&response) {
-            Ok(out) => {
-                if let Err(e) = stdout.write_all(out.as_bytes()).await {
-                    error!(error = %e, "Failed to write response to stdout");
-                } else if let Err(e) = stdout.write_all(b"\n").await {
-                    error!(error = %e, "Failed to write newline to stdout");
-                } else if let Err(e) = stdout.flush().await {
-                    error!(error = %e, "Failed to flush stdout");
+        // MOD-08: dispatch in the background so a slow `tools/call`/
+        // `resources/read` never blocks reading the next line. Responses are
+        // matched by JSON-RPC id, so out-of-order completion is fine.
+        let (storage, config, semaphore, metrics) = (
+            storage.clone(),
+            config.clone(),
+            semaphore.clone(),
+            metrics.clone(),
+        );
+        let stdout = stdout.clone();
+        inflight.spawn(async move {
+            let res = dispatch_request(&req, &storage, &config, &semaphore, &metrics).await;
+            let (result, error) = match res {
+                Ok(val) => (Some(val), None),
+                Err(err) => (None, Some(err)),
+            };
+            let response = RpcResponse {
+                jsonrpc: "2.0".to_string(),
+                id: req_id,
+                result,
+                error,
+            };
+            match serde_json::to_string(&response) {
+                Ok(out) => {
+                    let mut guard = stdout.lock().await;
+                    if let Err(e) = guard.write_all(out.as_bytes()).await {
+                        error!(error = %e, "Failed to write response to stdout");
+                    } else if let Err(e) = guard.write_all(b"\n").await {
+                        error!(error = %e, "Failed to write newline to stdout");
+                    } else if let Err(e) = guard.flush().await {
+                        error!(error = %e, "Failed to flush stdout");
+                    }
+                }
+                Err(e) => {
+                    error!(error = %e, "Failed to serialize JSON-RPC response body");
                 }
             }
-            Err(e) => {
-                error!(error = %e, "Failed to serialize JSON-RPC response body");
-            }
+        });
+
+        // MOD-09: once shutdown is signaled, stop reading new requests but keep
+        // draining the in-flight responses (below) before returning — the
+        // request currently being processed is never dropped.
+        if !running.load(Ordering::SeqCst) {
+            info!("Shutdown flag set, draining in-flight responses");
+            break;
         }
     }
+
+    // MOD-09: wait for every in-flight response to be written before exiting.
+    while inflight.join_next().await.is_some() {}
 }
 
 /// Write a JSON value to `stdout`, logging I/O errors instead of swallowing them.
@@ -247,8 +267,6 @@ pub(crate) async fn dispatch_request(
     semaphore: &Arc<tokio::sync::Semaphore>,
     metrics: &Arc<McpMetrics>,
 ) -> Result<Value, Value> {
-    let _span = span!(Level::INFO, "mcp_request", method = %req.method, id = ?req.id).entered();
-
     let _active = ActiveRequestGuard::new(&metrics.active_requests);
     let start = Instant::now();
 
@@ -334,6 +352,12 @@ mod tests {
     /// Drive [`serve_lines`] with in-memory duplex pipes: write `input`,
     /// signal EOF, and return everything the server wrote back.
     async fn serve_lines_capture(input: &str) -> String {
+        serve_lines_capture_with(input, AtomicBool::new(true)).await
+    }
+
+    /// Like [`serve_lines_capture`] but with an explicit `running` flag, so
+    /// tests can exercise the shutdown path (MOD-09).
+    async fn serve_lines_capture_with(input: &str, running: AtomicBool) -> String {
         let dir = tempfile::tempdir().expect("tempdir");
         let storage = Arc::new(
             StorageEngine::open(dir.path().to_str().expect("utf8 temp path"))
@@ -342,15 +366,14 @@ mod tests {
         let config = McpConfig::from_storage(&storage);
         let semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_concurrency));
         let metrics = Arc::new(McpMetrics::default());
-        let running = AtomicBool::new(true);
 
         let (mut client_write, server_in) = tokio::io::duplex(1024 * 1024);
         let (server_out, mut client_read) = tokio::io::duplex(1024 * 1024);
 
         // Queue the whole input into the duplex buffer and signal EOF BEFORE
-        // driving the server inline. No `tokio::spawn`: dispatch_request holds
-        // a tracing `EnteredSpan` across an `.await`, so its future is not
-        // `Send`.
+        // driving the server inline. No `tokio::spawn` here: the loop under
+        // test is driven directly so its spawned background tasks run on the
+        // same runtime and are drained before `serve_lines` returns.
         client_write
             .write_all(input.as_bytes())
             .await
@@ -423,5 +446,54 @@ mod tests {
             serde_json::from_str(out.trim()).expect("response should be JSON");
         assert!(v["id"].is_null(), "got: {out}");
         assert!(v["result"]["tools"].is_array(), "got: {out}");
+    }
+
+    /// MOD-09 regression: when shutdown is signaled while a request is in
+    /// flight, the in-flight response must still be written before the loop
+    /// returns. The old loop `break`-ed right after building the response,
+    /// discarding it.
+    #[tokio::test]
+    async fn in_flight_response_written_on_shutdown() {
+        let out = serve_lines_capture_with(
+            "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/list\"}\n",
+            AtomicBool::new(false),
+        )
+        .await;
+        let v: serde_json::Value =
+            serde_json::from_str(out.trim()).expect("response should be JSON");
+        assert_eq!(
+            v["id"], 9,
+            "in-flight response must be written on shutdown, got: {out}"
+        );
+        assert!(v["result"]["tools"].is_array(), "got: {out}");
+    }
+
+    /// MOD-08 regression: pipelined requests must all be answered even though
+    /// the loop now dispatches them to background tasks — none may be dropped.
+    #[tokio::test]
+    async fn pipelined_requests_all_answered() {
+        let input = [
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}\n",
+            "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"resources/list\"}\n",
+            "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"prompts/list\"}\n",
+        ]
+        .concat();
+        let out = serve_lines_capture(&input).await;
+        let mut ids: Vec<i64> = out
+            .lines()
+            .map(|l| {
+                serde_json::from_str::<serde_json::Value>(l)
+                    .expect("line should be JSON")
+                    .get("id")
+                    .and_then(serde_json::Value::as_i64)
+                    .expect("id should be a number")
+            })
+            .collect();
+        ids.sort_unstable();
+        assert_eq!(
+            ids,
+            vec![1, 2, 3],
+            "all pipelined requests must be answered: {out}"
+        );
     }
 }
