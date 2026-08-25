@@ -45,7 +45,17 @@
       ],
       "enabled": true,
       "type": "local",
-      "description": "14 providers, extracción 12-step, dead URL recovery, RRF fusion."
+      "description": "14 providers, extracci�n 12-step, dead URL recovery, RRF fusion."
+    },
+    "agent-search": {
+      "command": [
+        "npx",
+        "-y",
+        "agent-search-mcp"
+      ],
+      "enabled": true,
+      "type": "local",
+      "description": "Capa keyless permanente: busqueda multi-engine gratis sin API keys (respaldo de metasearchmcp/argus)."
     },
     "campaign": {
       "command": [
@@ -76,6 +86,18 @@
       "enabled": false,
       "type": "local",
       "description": "LottieFiles Creator MCP — crear y editar animaciones Lottie via IA."
+    },
+    "playwright": {
+      "command": [
+        "npx",
+        "@playwright/mcp@latest",
+        "--viewport-size",
+        "1440x900"
+      ],
+      "enabled": true,
+      "type": "local",
+      "timeout": 120000,
+      "description": "Playwright MCP — automatización de browser via accessibility tree (browser_navigate/snapshot/click/type/evaluate). Para testing web/, E2E desktop/ y visual review."
     }
   }
 }
