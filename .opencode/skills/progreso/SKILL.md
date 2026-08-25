@@ -118,9 +118,16 @@ Cuando todas las tareas están ✅ (o ❌ ABORTADO):
 0. **Retrospectiva Start/Stop/Continue + UNA acción medible** contra baseline
    (North Star: >90% first-try, ver `campaign_eval_summary`). Si pipeline-run
    step 8 ya la produjo, copiala.
-1. Mover plan file (+`.budget.json`) a `docs/plans/archive/`.
-2. Nota de archivo en `docs/avance/meta.md` (fecha, N/M completadas, retrospectiva).
-3. Las filas del Backlog ya se eliminaron en paso C.
+1. Mover plan file **Y su `.budget.json`** a `docs/plans/archive/`
+   (`git mv docs/plans/<plan>.md docs/plans/<plan>.budget.json docs/plans/archive/`).
+   El budget es obligatorio: sin él, un `campaign_get_next_task` sobre el plan
+   archivado regenera un budget vacío que pisa el histórico real (incidente
+   2026-08-25, 5 JSONs huérfanos).
+2. Verificar que no queden `*.budget.json` huérfanos en `docs/plans/` raíz:
+   todo `<X>.budget.json` en la raíz cuyo `docs/plans/archive/<X>.md` exista
+   debe moverse también.
+3. Nota de archivo en `docs/avance/meta.md` (fecha, N/M completadas, retrospectiva).
+4. Las filas del Backlog ya se eliminaron en paso C.
 
 > Task files (`tasks/<ID>.md`) no se archivan — quedan STALE tras archivar el
 > plan; el registro vive en avance.
