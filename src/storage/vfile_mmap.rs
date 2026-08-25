@@ -30,9 +30,16 @@ pub(crate) mod mmap_shim {
     /// A read-only memory-mapped file backed by an aligned buffer.
     #[derive(Debug)]
     pub struct Mmap(AlignedBytes);
-    /// A read-write memory-mapped file backed by an aligned buffer.
+    /// A read-write memory-mapped file backed by an aligned buffer plus a
+    /// write-back handle so `flush` can persist buffer writes to disk.
     #[derive(Debug)]
-    pub struct MmapMut(AlignedBytes);
+    pub struct MmapMut {
+        buf: AlignedBytes,
+        /// Cloned backing handle used by `flush` to write the buffer back.
+        /// The caller keeps its own handle; this clone drops with the mapping,
+        /// so callers can `rename` once the map is dropped (Windows).
+        file: File,
+    }
     /// Options for creating memory-mapped regions (no-op shim).
     pub struct MmapOptions;
 
@@ -43,23 +50,36 @@ pub(crate) mod mmap_shim {
         }
         /// Read a file's contents into an aligned buffer — safe, no actual mmap.
         pub fn map(&self, file: &File) -> std::io::Result<Mmap> {
+            use std::io::Seek;
             // AlignedBytes guarantees a 4-aligned base so `f32` vector reads are
             // never misaligned in shim (non-memmap2) builds (AUDIT-03).
             let len = file.metadata()?.len() as usize;
             let mut buf =
                 AlignedBytes::zeroed(len).map_err(|e| std::io::Error::other(e.to_string()))?;
             let mut f = file.try_clone()?;
+            // See `map_mut`: cloned handles share the file position with the
+            // caller — read from 0 regardless of where a prior op left it.
+            f.seek(std::io::SeekFrom::Start(0))?;
             f.read_exact(buf.as_mut_slice())?;
             Ok(Mmap(buf))
         }
         /// Read a file's contents into a writable buffer — safe, no actual mmap.
+        /// The backing handle is cloned and retained so `flush` can write the
+        /// buffer back to disk (AUD-044).
         pub fn map_mut(&self, file: &File) -> std::io::Result<MmapMut> {
+            use std::io::Seek;
             let len = file.metadata()?.len() as usize;
             let mut buf =
                 AlignedBytes::zeroed(len).map_err(|e| std::io::Error::other(e.to_string()))?;
-            let mut f = file.try_clone()?;
-            f.read_exact(buf.as_mut_slice())?;
-            Ok(MmapMut(buf))
+            let mut backing = file.try_clone()?;
+            // Cloned handles share the file position with the caller's handle
+            // (dup/DuplicateHandle). Seek to 0 so reads start at the beginning
+            // even after a previous map left the position at EOF — otherwise
+            // remap/grow (`grow_to`, compact_layout's grow path) hit
+            // UnexpectedEof (AUD-044 colateral, same root cause family).
+            backing.seek(std::io::SeekFrom::Start(0))?;
+            backing.read_exact(buf.as_mut_slice())?;
+            Ok(MmapMut { buf, file: backing })
         }
     }
 
@@ -115,44 +135,66 @@ pub(crate) mod mmap_shim {
             // `Mmap::map`).
             MmapOptions::new().map_mut(file)
         }
+        /// Write the in-memory buffer back to the backing file (seek + write_all
+        /// + flush), matching memmap2's `flush` semantics: flush = write-back to
+        /// disk. AUD-044: the previous no-op silently lost buffer writes before
+        /// callers renamed the backing file (compact_layout, sync_to_mmap,
+        /// save_vector_index). All callers use position-independent operations
+        /// (set_len/sync_all/rename), so moving the shared file position here is
+        /// benign.
+        // ponytail: full-file rewrite per flush — O(file size) vs memmap2's
+        // dirty-page msync. Correct, but a bulk workload in a non-memmap2 build
+        // pays O(n²) if it flushes per step; track dirty ranges if that
+        // measurably matters (shim serves wasm32 + any non-memmap2 native build).
+        // Note: like memmap2's msync(MS_SYNC), this is not an fsync — it stops
+        // at the OS page cache. Power-loss durability is the WAL's/sync_all's
+        // job; don't treat VantaFile::flush() as a durability barrier.
+        fn write_back(&self) -> std::io::Result<()> {
+            use std::io::{Seek, SeekFrom, Write};
+            let mut f = self.file.try_clone()?;
+            f.seek(SeekFrom::Start(0))?;
+            f.write_all(self.buf.as_slice())?;
+            f.flush()
+        }
         /// Return a raw pointer to the mapped memory.
         pub fn as_ptr(&self) -> *const u8 {
-            self.0.as_ptr()
+            self.buf.as_ptr()
         }
         /// Return a mutable raw pointer to the mapped memory.
         pub fn as_mut_ptr(&mut self) -> *mut u8 {
-            self.0.as_mut_slice().as_mut_ptr()
+            self.buf.as_mut_slice().as_mut_ptr()
         }
         /// Return the length of the mapped memory.
         pub fn len(&self) -> usize {
-            self.0.len()
+            self.buf.len()
         }
-        /// No-op flush for the in-memory shim.
+        /// Flush outstanding buffer writes to disk (write-back).
         pub fn flush(&self) -> std::io::Result<()> {
-            Ok(())
+            self.write_back()
         }
-        /// No-op async flush for the in-memory shim.
+        /// Async flush — implemented as a synchronous write-back, a valid
+        /// (stronger) realization of memmap2's MS_ASYNC semantics.
         pub fn flush_async(&self) -> std::io::Result<()> {
-            Ok(())
+            self.write_back()
         }
-        /// No-op flush range for the in-memory shim.
+        /// Flush a range — a full write-back is a superset of the range guarantee.
         pub fn flush_range(&self, _offset: usize, _len: usize) -> std::io::Result<()> {
-            Ok(())
+            self.write_back()
         }
         /// Returns true if the mapped memory is empty.
         pub fn is_empty(&self) -> bool {
-            self.0.len() == 0
+            self.buf.len() == 0
         }
     }
     impl std::ops::Deref for MmapMut {
         type Target = [u8];
         fn deref(&self) -> &[u8] {
-            self.0.as_slice()
+            self.buf.as_slice()
         }
     }
     impl std::ops::DerefMut for MmapMut {
         fn deref_mut(&mut self) -> &mut [u8] {
-            self.0.as_mut_slice()
+            self.buf.as_mut_slice()
         }
     }
 }
@@ -183,6 +225,12 @@ pub(crate) fn map_readonly(file: &File) -> std::io::Result<Mmap> {
 }
 
 /// Map `file` read-write. See [`map_readonly`] for the safety contract.
+///
+/// Shim note (AUD-044): the no-memmap2 shim's `map_mut`/`flush` move the
+/// caller's file position to EOF (clone handles share the offset via
+/// dup/DuplicateHandle). This is only safe because every VantaDB caller treats
+/// the backing handle as position-independent (set_len/sync_all/rename) — never
+/// add a caller that does positional read/write on a mapped handle.
 pub(crate) fn map_readwrite(file: &File) -> std::io::Result<MmapMut> {
     #[cfg(feature = "memmap2")]
     {
@@ -531,5 +579,39 @@ mod tests {
         // proving the handler never ran and installed cleanly.
         assert!(!SIGBUS_OCCURRED.load(Ordering::SeqCst));
         assert!(SIGBUS_FAULT_ADDR.load(Ordering::SeqCst).is_null());
+    }
+
+    // ── AUD-044: shim MmapMut flush write-back ──
+
+    /// The no-memmap2 shim's `flush()` used to be a no-op: buffer writes never
+    /// reached the backing file before a caller renamed it (compact_layout,
+    /// sync_to_mmap, save_vector_index) — silent data loss. `flush()` must
+    /// write the buffer back to disk.
+    #[cfg(not(feature = "memmap2"))]
+    #[test]
+    fn shim_mmap_mut_flush_writes_buffer_to_disk() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("shim_flush.vanta");
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&path)
+            .unwrap();
+        file.set_len(256).unwrap();
+
+        let mut mmap = unsafe { MmapMut::map_mut(&file).unwrap() };
+        let payload: Vec<u8> = (0..256usize).map(|i| (i % 251) as u8).collect();
+        mmap.copy_from_slice(&payload);
+        mmap.flush().unwrap();
+        drop(mmap);
+        drop(file);
+
+        let on_disk = std::fs::read(&path).unwrap();
+        assert_eq!(
+            on_disk, payload,
+            "flush() must write the buffer back to the backing file"
+        );
     }
 }

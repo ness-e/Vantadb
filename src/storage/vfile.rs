@@ -368,6 +368,15 @@ impl VantaFile {
                 Ok(())
             }
             _ => {
+                // AUD-044: flush pending buffer writes before remapping the
+                // SAME file. In the no-memmap2 shim, writes live only in the
+                // buffer until flush(); remap_mut's drop would silently discard
+                // them. This lives in grow_to (not remap_mut) because
+                // replace_backing_file's old buffer is stale by design and must
+                // be dropped without flushing (it would wastefully rewrite the
+                // orphaned inode). In memmap2 builds this is msync on the old
+                // mapping — harmless.
+                self.mmap.flush()?;
                 let file = self
                     .file
                     .as_ref()
@@ -784,6 +793,25 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         let result = VantaFile::open_read_only(path);
         assert!(result.is_err(), "should fail for nonexistent file");
+    }
+
+    #[cfg(not(feature = "memmap2"))]
+    #[test]
+    fn shim_grow_to_preserves_pending_buffer_writes() {
+        // AUD-044: grow_to/remap_mut replaces the mapping; in the no-memmap2
+        // shim, pending buffer writes must be flushed first or they are
+        // silently discarded (the file on disk still holds pre-grow content).
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("grow_preserve.vanta");
+        let mut vf = VantaFile::open(path, 128).unwrap();
+        let header = DiskNodeHeader::new(42);
+        vf.write_header(STORAGE_ALIGNMENT, &header).unwrap();
+        vf.grow_to(512).unwrap();
+        let read = vf.read_header(STORAGE_ALIGNMENT).unwrap();
+        assert_eq!(
+            read.id, 42,
+            "grow_to must preserve pending buffer writes (shim)"
+        );
     }
 
     #[test]

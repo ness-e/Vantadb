@@ -588,6 +588,86 @@ mod tests {
         for &off in map.values() {
             assert!(off.is_multiple_of(STORAGE_ALIGNMENT));
         }
+
+        // AUD-044 regression: after compaction the rewritten file must
+        // actually contain the node data. A no-op tmp flush used to rename a
+        // zero-filled file in non-memmap2 builds — silent data loss.
+        drop(vstore);
+        let reopened = VantaFile::open(path, 4096).unwrap();
+        for (node_id, expected) in [(1u128, [0.1f32, 0.2]), (2, [0.3, 0.4])] {
+            let offset = map.get(&node_id).copied().unwrap();
+            let header = reopened.read_header(offset).unwrap();
+            assert_eq!(header.id, node_id);
+            assert_eq!(header.vector_len as usize, expected.len());
+            let start = header.vector_offset as usize;
+            let end = start + expected.len() * 4;
+            let got: Vec<f32> = reopened.mmap_bytes()[start..end]
+                .chunks_exact(4)
+                .map(|c| f32::from_le_bytes(c.try_into().unwrap()))
+                .collect();
+            assert_eq!(
+                got, expected,
+                "node {node_id} vector must survive compaction + reopen"
+            );
+        }
+    }
+
+    #[test]
+    fn test_compact_layout_reorder_reopen_preserves_data() {
+        // AUD-044: compaction that CHANGES the layout (reversed BFS order moves
+        // nodes to new offsets) must still survive reopen — the rewritten file
+        // is what replace_backing_file remaps. Guards the write-back path in
+        // both memmap2 and shim builds (the earlier no-op flush renamed a
+        // zero-filled tmp file; a bad replace would clobber the compacted one).
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test_reorder.vanta");
+        let mut vstore = VantaFile::open(path.clone(), 4096).unwrap();
+
+        let hs = hdr_size();
+        write_node_to_vstore(&mut vstore, 1, 64, &[0.1, 0.2], 0);
+        write_node_to_vstore(
+            &mut vstore,
+            2,
+            64 + hs + aligned_vec_size(2),
+            &[0.3, 0.4],
+            0,
+        );
+
+        let hnsw = CPIndex::new();
+        hnsw.add(
+            1,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.1, 0.2]),
+            64,
+        );
+        hnsw.add(
+            2,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.3, 0.4]),
+            64 + hs + aligned_vec_size(2),
+        );
+
+        // Reversed order: node 2 lands at the front offset, node 1 moves.
+        let (map, _size) = compact_layout(&mut vstore, &hnsw, &[2, 1], hs).unwrap();
+        assert_eq!(map.len(), 2);
+        drop(vstore);
+
+        let reopened = VantaFile::open(path, 4096).unwrap();
+        for (node_id, expected) in [(2u128, [0.3f32, 0.4]), (1, [0.1, 0.2])] {
+            let offset = map.get(&node_id).copied().unwrap();
+            let header = reopened.read_header(offset).unwrap();
+            assert_eq!(header.id, node_id);
+            let start = header.vector_offset as usize;
+            let end = start + expected.len() * 4;
+            let got: Vec<f32> = reopened.mmap_bytes()[start..end]
+                .chunks_exact(4)
+                .map(|c| f32::from_le_bytes(c.try_into().unwrap()))
+                .collect();
+            assert_eq!(
+                got, expected,
+                "node {node_id} must survive reorder + reopen"
+            );
+        }
     }
 
     #[test]
