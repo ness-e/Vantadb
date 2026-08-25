@@ -14,7 +14,7 @@ Generá un dashboard del estado actual del proyecto. Mostrar no más de 30 líne
 - `git branch --show-current` — rama actual
 
 ### 2. Build / Plan activo
-- Buscá `docs/last-build-state.json` — último build (tasks completados/failed, build_ok)
+- Estado de build: recitation del campaign MCP — `last-build-state.json` eliminado (consolidación 2026-08-25)
 - Buscá `docs/pipeline-state.json` — si existe, mostrá task inProgress
 - Buscá archivos en `docs/plans/` — ordená por fecha, mostrá el más reciente
 - Estado: completados / pendientes / failed
@@ -40,8 +40,8 @@ Mostrá al final una línea de recomendación basada en el estado:
 
 | Situación | Recomendación |
 |-----------|---------------|
-| Cambios sin commit | `git add` + `git commit` o `/build` |
-| Plan pendiente detectado | `/pipeline run` o `/build` |
+| Cambios sin commit | `git add` + `git commit` o `/pipeline task <ID>` |
+| Plan pendiente detectado | `/pipeline run` |
 | Último audit con failures | `/audit quick` o `/audit review` |
 | Todo OK, spec falta | `/spec` |
 | Último ship GO sin rollback | Está todo bien. Seguí con `/pipeline` |

@@ -53,7 +53,7 @@ Mostrá el **Top 3** con puntaje y justificación de 1 línea cada uno.
 
 | Tipo de tarea | Comando |
 |---------------|---------|
-| Bug con repro | `/build prove <ID>` |
+| Bug con repro | `/pipeline task <ID>` (bug: repro→fix en task file) |
 | Rust core / bindings / docs | `/pipeline task <ID>` |
 | Investigación/arquitectura | `/pipeline task <ID>` (rutea a vanta-arch/vanta-audit) |
 

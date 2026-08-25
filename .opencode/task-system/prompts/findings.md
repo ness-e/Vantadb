@@ -30,6 +30,11 @@ sin refactor "while I'm here") y queda en el commit `fix:`. Si duda → ticket
 
 - **ID:** prefijo `FIND-` con numerador incremental (continuar del mayor
   existente en Backlog: `rg -o "FIND-\d+" docs/Backlog.md | sort | tail -1`)
+  — **ESQUEMA ÚNICO (consolidación 2026-08-25):** los hallazgos derivados de
+  CUALQUIER auditoría/review (`/audit`, unified-review, investigaciones) también
+  nacen como `FIND-*`. Prohibido crear prefijos nuevos por campaña o herramienta
+  (AUD-/REVIEW-/ERR-/DAUD-/AGT- se cierran a nuevos ingresos; las filas históricas
+  no se renombran). Trazabilidad = campo `Origen:` en la fila, no el prefijo.
 - **Origen obligatorio:** `ref:` apuntando al plan/tarea/commit donde se descubrió
 - **Contrato:** igual que toda fila del backlog (condición verificable)
 - Prioridad 🟢 por default; el triage del próximo `/pipeline plan` la ajusta

@@ -55,7 +55,7 @@ Execute a rollback to recover from a failed ship or broken deployment. Follow th
    Rollback completado. Para continuar:
      /status          → dashboard post-rollback
      /pipeline plan   → re-planificar desde backlog
-     /build           → retomar desarrollo
+     /pipeline task <ID>           → retomar desarrollo
    ```
 
 ## Rules

@@ -1,94 +1,29 @@
 ---
-description: "Implement tasks incrementally — build, test, verify, commit. Add 'auto' to run the whole plan. For bugs: Prove-It pattern."
+description: "DEPRECATED alias — use /pipeline task. /build now delegates to the unified pipeline with TDD + incremental-implementation skills."
 ---
 
-Invoke the incremental-implementation skill alongside test-driven-development.
-For browser-related issues, also invoke the browser-testing-with-devtools skill.
-When the build involves framework/library choices or new dependencies, also invoke the source-driven-development skill to verify official docs first.
+> **CONSOLIDATED 2026-08-25** — `/build` ya no es un orquestador propio.
+> Era un sistema paralelo a `/pipeline` con formato de plan incompatible
+> (`tasks/plan.md`, que nunca existió) y estado propio (`last-build-state.json`,
+> nunca escrito). Todo su valor útil (selección de skills TDD/incremental,
+> modo bug "prove") vive ahora dentro del pipeline.
 
-## Modes
+## Routing
 
-- **`/build`** — implement the *next* pending task, then stop (one slice at a time).
-- **`/build auto`** — generate the plan if needed, get a single approval, then implement *every* task without stopping between them.
-- **`/build prove`** — bug-fix mode (Prove-It pattern): reproduce the bug first, then fix.
+| Invocación histórica | Equivalente actual |
+|----------------------|--------------------|
+| `/build` (siguiente tarea) | `/pipeline task <ID>` (o `/pipeline run` para el plan completo) |
+| `/build auto` | `/pipeline run` |
+| `/build prove` (bug: reproducir→fix) | `/pipeline task <ID>` — el task file tipo Bug exige la sección "Fase 1 — Evidencia de Debugging" (repro + hipótesis + test RED) vía skill `systematic-debugging`. Mismo contrato Prove-It, mismo gate. |
 
-**Agents:** Spawn `vanta-worker` (default implementer) or `vanta-engine` (algorithmic/vector work) via `task` tool with the matching `subagent_type`. For bugs, consider `vanta-chaos` for root cause.
+## Qué conserva el pipeline de este comando
 
-**Sandbox:** For risky build commands (rm, format drive, destructive ops), use `campaign_run_sandboxed` (MCP) or `.opencode/task-system/sandbox/run-sandboxed.ps1` directly.
+Al ejecutar `/pipeline task`, cargá además estas skills si el task file no las lista:
 
-**State:** Always write `docs/last-build-state.json` after the build task completes. This is read by `/status` and `/ship`.
+- `test-driven-development` — lógica nueva o fix con test RED→GREEN
+- `incremental-implementation` — slices verticales delgados (~100 líneas/step)
+- `browser-testing-with-devtools` — si el cambio corre en navegador (`web/`)
+- `source-driven-development` — si involucra frameworks/libs nuevas
 
-```json
-{
-  "timestamp": "ISO8601",
-  "mode": "default|auto|prove",
-  "tasks_completed": 0,
-  "tasks_failed": 0,
-  "last_sha": "abc1234",
-  "build_ok": true
-}
-```
-
-`$ARGUMENTS` selects the mode. Treat `auto` (canonical) or `all` as autonomous mode; `prove` as bug-fix mode; anything else (or empty) is the default single-task mode.
-
-**Path sync:** pipeline.md saves plans to `docs/plans/`. build.md expects `tasks/plan.md`.
-Bridge: `/build auto` generates `tasks/plan.md` if missing (via planning-and-task-breakdown).
-For cross-command flow: `/pipeline plan` → `/build` (reads `tasks/plan.md` if present, else prompts for scope).
-
----
-
-## Default: one task
-
-Pick the next pending task from the plan. Then:
-
-1. Read the task's acceptance criteria
-2. Load relevant context (existing code, patterns, types)
-3. Write a failing test for the expected behavior (RED)
-4. Implement the minimum code to pass the test (GREEN)
-5. **Refactor while keeping tests green** — simplify, rename, extract. Run tests after each change.
-6. Run the full test suite to check for regressions
-7. Run the build to verify compilation
-8. Commit with a descriptive message
-9. Mark the task complete and stop
-
-If the change touches browser-related code, also invoke `browser-testing-with-devtools` to verify with Chrome DevTools MCP before committing.
-
-**Next step after `/build`:** run `/audit quick` to check quality, then `/ship` for release.
-
----
-
-## Bug-fix mode: `/build prove` (Prove-It pattern)
-
-For bug fixes — prove the bug exists before fixing it:
-
-1. Write a test that reproduces the bug (must FAIL)
-2. Confirm the test fails — run it and capture the failure output
-3. Implement the fix
-4. Confirm the test passes
-5. Run the full test suite for regressions
-6. Commit with a descriptive message referencing the bug
-
-If the bug is browser-related, also invoke `browser-testing-with-devtools` to verify the fix visually.
-
----
-
-## Autonomous: the whole plan (`/build auto`)
-
-Use this once a spec exists and you want to collapse plan + build into one run. It removes the manual stepping between tasks — **not** the verification. Every task still earns a passing test and its own commit.
-
-1. **Require a spec.** Look only for a spec at a known path: `SPEC.md` at the repo root, `docs/SPEC.md`, or a file under `spec/`. A README or arbitrary doc does **not** count. If none exists, generate it automatically first: follow the guided flow in `.opencode/commands/spec.md` (derive from repo context → decision table → ONE round of `question` tool with options + `(Recommended)` default → write `SPEC.md`). Do not invent requirements — anything the repo can't answer goes through `question`.
-2. **Establish a clean baseline.** Run `git status --porcelain`. If there are uncommitted changes outside the expected planning artifacts (`SPEC.md`, `docs/SPEC.md`, `spec/*`, `tasks/plan.md`, `tasks/todo.md`), stop and ask the user to commit, stash, or confirm how to handle them. Autonomous per-task commits must not absorb unrelated local work, or the clean-rollback guarantee breaks.
-3. **Plan if needed.** If there is no `tasks/plan.md`, invoke the planning-and-task-breakdown skill to generate one. Also check `docs/plans/` for exising plans from `/pipeline plan`.
-4. **Single checkpoint.** Present the full plan and wait for an unambiguous affirmative (e.g. "approve", "go", "yes"). Treat hedged responses ("looks reasonable", "I guess") as **not** approved. This is the only human gate — after approval, run autonomously. If you generated `tasks/plan.md`, commit it as a single preparatory commit now so it doesn't bleed into the first task's commit.
-5. **Execute every task in dependency order.** Use each task's declared dependencies; if they aren't explicit, execute in the order the plan lists them. For each task, run the full default loop above (RED → GREEN → refactor → regression → build → commit → mark complete). Stage only the files that task touched plus its task-status update — never `git add -A` blindly — and make one commit per task so any point is a clean rollback.
-6. **Stop and ask the user** (do not push through) when:
-   - a test can't be made to pass or the build breaks without an obvious fix → follow the systematic-debugging skill
-   - the spec is ambiguous, or a task needs a decision the spec doesn't cover
-   - a task is high-risk or irreversible — auth/permission changes, destructive data migrations, payments, deletions, deploys, anything touching secrets, **or anything you can't undo with `git revert`** → follow the doubt-driven-development skill and get explicit sign-off before continuing
-
-   After the user resolves a blocker, they re-invoke `/build auto` — it resumes from the next pending task.
-7. **Summarize at the end:** tasks completed, tests added, commits made, and anything skipped, flagged, or left for the user. Recommend next step: `/audit quick` → `/ship`.
-
-If any step fails, follow the systematic-debugging skill.
-
-**Downstream:** `/audit quick` → `/ship`.
+El estado del build lo maneja la recitation canónica del campaign MCP
+(`campaign_update_task_state`) — no hay archivo de estado paralelo.

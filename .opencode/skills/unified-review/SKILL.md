@@ -312,7 +312,7 @@ fan-out candidates (each runs in its own sub-agent when `parallel: true`).
 | L3 | Web Frontend | no | yes | `general` | Lint, typecheck, build the web app if detected |
 | L4 | CI/CD + Dependencies | no | yes | `general` | Workflow YAML lint, CI parity check, dep audit |
 | L5 | Documentation | no | yes | `general` | Docs coverage, broken links, freshness |
-| L6 | Architecture Review | no | yes | `general` | Structural analysis via codegraph or static inspection |
+| L6 | Architecture Review | no | yes | `general` (deep module iteration: skill `review-deep` when mode=review/full) | Structural analysis via codegraph or static inspection; per-module deep dive delegated to `review-deep` (.opencode/skills/review-deep) |
 | L7 | Security Audit | no | yes (mode=full) | `general` (or `vanta-audit` in VantaDB profile) | `cargo audit`, `npm audit`, `pip-audit`, unsafe review, OWASP checks |
 | L8 | Performance Audit | no | yes (mode=full) | `general` (or `vanta-tuner` in VantaDB) | Benchmarks, bundle size, profile-guided review |
 | L9 | Code Review (cognitive) | no | yes (mode=review/full) | `general` (or `vanta-audit` in VantaDB) | Multi-axis review via `code-review-and-quality` and related skills. May veto. |
@@ -857,10 +857,12 @@ status from `vigente` to `superado` in the same edit.
 For every finding with severity **medium or higher** that is still open:
 
 - Add a row to `docs/Backlog.md` under the `## Hallazgos pendientes de reportes`
-  section (create it if missing), one row per finding, prefixing the ID with the
-  report mode so it's traceable: `REVIEW-NN` (from `review-*`) or `AUD-NN`
-  (from `audit-*`). Include `file:line`, severity, and the recommendation.
-- Add a line at the bottom of the report: `Backlog sync: created REVIEW-03, REVIEW-04`.
+  section (create it if missing), one row per finding. **ID: siempre `FIND-NN`**
+  (esquema único — fuente canónica `prompts/findings.md`; consolidación 2026-08-25:
+  los esquemas por-reporte REVIEW-NN/AUD-NN ya no se crean). Incluí
+  `Origen: <reporte archivo>` en la fila para trazabilidad, más `file:line`,
+  severity y recommendation.
+- Add a line at the bottom of the report: `Backlog sync: created FIND-03, FIND-04`.
 
 If the finding is already tracked (same file:line + same description already in
 Backlog.md), do **not** duplicate it — append a `✔ ya se sigue en <ID>` note to

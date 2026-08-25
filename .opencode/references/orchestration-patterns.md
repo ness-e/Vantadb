@@ -37,7 +37,7 @@ A slash command that wraps one persona with the project's skills. Saves the user
 
 **Use when:** the same single-persona invocation happens repeatedly with the same setup.
 
-**Examples in this repo:** `/audit review`, `/build prove`, `/code-simplify`.
+**Examples in this repo:** `/audit review`, bug-fix con repro en task file, `/code-simplify`.
 
 **Cost:** same as direct invocation. The slash command is just a saved prompt.
 
@@ -80,7 +80,7 @@ If any answer is "no," fall back to direct invocation or a single-persona comman
 The user runs slash commands in a defined order, carrying context (or commit history) between them. There is no orchestrator agent — the user IS the orchestrator.
 
 ```
-user runs:  /spec  →  /pipeline plan  →  /build  →  /build prove  →  /audit review  →  /ship
+user runs:  /spec  ->  /pipeline plan  ->  /pipeline task  ->  /pipeline task (bug)  ->  /audit review  ->  /ship
 ```
 
 **Use when:** the workflow has dependencies (each step needs the previous step's output) and human judgment between steps adds value.
@@ -315,7 +315,7 @@ A `code-reviewer` that internally invokes `security-auditor` when it sees auth c
 
 ### C. Sequential orchestrator that paraphrases
 
-An agent that calls `/spec`, then `/pipeline plan`, then `/build`, etc. on the user's behalf.
+An agent that calls `/spec`, then `/pipeline plan`, then `/pipeline task`, etc. on the user's behalf.
 
 **Why it fails:**
 - Loses the human checkpoints that catch wrong-direction work

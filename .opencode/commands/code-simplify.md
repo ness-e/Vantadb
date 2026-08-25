@@ -28,4 +28,4 @@ Simplify recently changed code (or the specified scope) while preserving exact b
 
 If tests fail after a simplification, revert that change and reconsider. Use `code-review-and-quality` to review the result.
 
-**Upstream:** `/build` (genera el código a simplificar). Se recomienda correr `/build prove` si hay bugs post-simplificación.
+**Upstream:** `/pipeline task` (genera el código a simplificar). Para bugs, el task file exige repro antes del fix si hay bugs post-simplificación.

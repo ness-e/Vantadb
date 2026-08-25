@@ -20,7 +20,7 @@ El sistema de pipeline vive en `.opencode/` y se activa cuando el usuario envía
 
 | Mensaje del usuario | Archivo a leer | Modos |
 |---|---|---|
-| `/pipeline ...` | `.opencode/commands/pipeline.md` | Plan / Task / Run / Interactive / Pipeline / Ejecución |
+| `/pipeline ...` | `.opencode/commands/pipeline.md` | Plan / Task / Run / Interactive |
 | `/audit ...` | `.opencode/commands/audit.md` | Full / Quick / Certify / Review |
 | `/build` *(deprecated)* | `.opencode/commands/build.md` | Alias de `/pipeline task` (consolidación 2026-08-25) |
 | `/ship` | `.opencode/commands/ship.md` | Fan-out GO/NO-GO |
@@ -30,6 +30,29 @@ El sistema de pipeline vive en `.opencode/` y se activa cuando el usuario envía
 | `/spec` | `.opencode/commands/spec.md` | Spec-Driven Development |
 | `/webperf` | `.opencode/commands/webperf.md` | Web performance audit |
 | `/code-simplify` | `.opencode/commands/code-simplify.md` | Simplify code |
+
+### Intención → comando (mapa único — consolidación 2026-08-25)
+
+| Quiero... | Comando canónico |
+|-----------|------------------|
+| Crear un plan desde el backlog | `/pipeline plan docs/Backlog.md` |
+| Especificar una feature antes de planificar | `/spec` |
+| Definir/ejecutar UNA tarea | `/pipeline task <ID>` |
+| Ejecutar todas las tareas de un plan | `/pipeline run [plan]` |
+| Depurar ejecución paso a paso | `/pipeline run` + "Depuración paso a paso" (ver pipeline.md) |
+| Verificación mecánica rápida | `/audit quick` (= `just verify`) |
+| Gate pre-merge completo | `/audit certify` |
+| Revisión profunda sin CLI | `/audit review` |
+| Auditoría completa con scoring | `/audit full` |
+| Decidir GO/NO-GO de release | `/ship` |
+| Revertir un release fallido | `/rollback` |
+| Ver estado del proyecto | `/status` |
+| Registrar hallazgo en backlog | fila **FIND-\*** vía `prompts/findings.md` |
+
+**Regla anti-proliferación:** todo comando/modo NUEVO debe declarar en su PR qué
+comando existente reemplaza o por qué ninguno cubre la necesidad. Prohibido crear
+esquemas de ID de tickets por campaña/herramienta — el único esquema es `FIND-*`
+(`prompts/findings.md`).
 
 ### Path Resolution
 
@@ -394,6 +417,15 @@ Config: activos en `opencode.jsonc` (proyecto); deshabilitados en `%USERPROFILE%
 Como agente de IA asistiendo en VantaDB, DEBES auditar el código y las peticiones basándote estrictamente en las siguientes reglas. Cuestiona cualquier desviación, no asumas que el código es correcto y corrige malas prácticas de forma directa.
 
 ### Regla 1: Pre-push Gate Estricto
+
+**Pirámide de gates (jerarquía única — cada nivel incluye al anterior; ningún comando redefine los checks):**
+
+```
+commit   → hook pre-commit        (verify_changed, ~30s)
+push     → hook pre-push          (verify.ps1 completo = /audit quick mecánico)
+merge    → /audit certify         (unified-review certify — gate secuencial)
+release  → /ship                  (certify + nocturnal + fan-out GO/NO-GO + rollback plan)
+```
 
 NUNCA sugieras mergear a `main` o pushear código sin antes ejecutar el pipeline local de certificación.
 
