@@ -150,7 +150,7 @@ function ScenesPanel({ sessionKey, onError }: { sessionKey: string } & Pick<Lens
 }
 
 // --- PERSONA -------------------------------------------------------------------
-function PersonaPanel({ sessionKey }: { sessionKey: string }) {
+function PersonaPanel({ sessionKey, onError }: { sessionKey: string; onError: (msg: string) => void }) {
   const [snap, setSnap] = useState<PersonaSnapshot | null | undefined>(undefined);
   const [diff, setDiff] = useState<{ added: string[]; removed: string[] } | null>(null);
 
@@ -170,7 +170,9 @@ function PersonaPanel({ sessionKey }: { sessionKey: string }) {
         localStorage.setItem(storeKey, p.content);
         setSnap(p);
       })
-      .catch(() => {});
+      // UX-14: propaga el error real (antes `catch(() => {})` mostraba "sin
+      // snapshot" cuando el backend fallaba — error real disfrazado de vacío).
+      .catch((err) => alive && onError(vantaErrorMessage(err)));
     return () => {
       alive = false;
     };
@@ -484,7 +486,7 @@ export default function MemoryLens({
             className="mt-3"
           >
             {tab === "escenas" && <ScenesPanel sessionKey={session} onError={actions.onError} />}
-            {tab === "persona" && <PersonaPanel sessionKey={session} />}
+            {tab === "persona" && <PersonaPanel sessionKey={session} onError={actions.onError} />}
             {tab === "skills" && <SkillsPanel onError={actions.onError} />}
             {tab === "genlog" && <GenlogPanel sessionKey={session} {...actions} />}
           </div>

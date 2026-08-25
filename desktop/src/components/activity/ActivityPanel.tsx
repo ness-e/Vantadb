@@ -116,7 +116,9 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
                   type="button"
                   onClick={() => setGranularity(g)}
                   aria-pressed={granularity === g}
-                  className={`px-2 py-1 uppercase tracking-widest ${
+                  // UX-15: estos botones no tenían `.press` (único grupo del
+                  // shell sin el efecto físico del design system).
+                  className={`press px-2 py-1 uppercase tracking-widest ${
                     granularity === g ? "bg-neon text-background" : "text-muted-foreground"
                   }`}
                 >
@@ -141,7 +143,9 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
       </div>
 
       {unconfigured ? (
-        /* Empty state honesto (contrato e): audit no configurado */
+        /* Empty state honesto (contrato e): audit no configurado. UX-13: el
+           texto al usuario no filtra internos (Unsupported/ NativeConnection::
+           open); el detalle técnico queda en <details>. */
         <div role="alert" className="p-6">
           <div className="border-2 border-dashed border-foreground bg-background p-4">
             <div className="font-tech text-[11px] font-bold uppercase tracking-widest text-neon">
@@ -149,15 +153,20 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
               audit log no habilitado
             </div>
             <p className="mt-2 text-sm">
-              La conexión activa no tiene audit log configurado (VS-12 rechaza con{" "}
-              <code className="font-tech text-[11px]">Unsupported("audit log no configurado")</code>).
+              La conexión activa no tiene el audit log configurado, así que no hay
+              actividad para mostrar. Se habilita al conectar un backend nativo —
+              conectá uno desde RESUMEN y volvé a abrir ACTIVITY.
             </p>
-            <p className="mt-1 font-tech text-[11px] text-muted-foreground">
-              Se configura automáticamente al conectar un backend nativo:{" "}
-              <code className="font-tech text-[11px]">NativeConnection::open</code> escribe en{" "}
-              <code className="font-tech text-[11px]">&lt;storage_path&gt;/audit.jsonl</code>{" "}
-              (VantaConfig.audit_log_path). Conectá un backend en RESUMEN para habilitarlo.
-            </p>
+            <details className="mt-2">
+              <summary className="cursor-pointer font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
+                detalle técnico
+              </summary>
+              <p className="mt-1 font-tech text-[10px] text-muted-foreground">
+                El backend rechaza la consulta con <code>Unsupported("audit log no configurado")</code>.
+                Al conectar un backend nativo, <code>NativeConnection::open</code> escribe el
+                log en <code>&lt;storage_path&gt;/audit.jsonl</code> (VantaConfig.audit_log_path).
+              </p>
+            </details>
           </div>
         </div>
       ) : (

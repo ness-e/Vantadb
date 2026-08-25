@@ -4,6 +4,9 @@ import { get, ingest, IngestItem, vantaErrorMessage } from "../vanta";
 interface Props {
   onDone: (ids: string[]) => void;
   runError: (msg: string) => void;
+  /** UX-17: remonta el grid tras un ingest manual (patrón `key={gridKey}`
+   * de WorkspaceShell, igual que el batch delete y los imports). */
+  onRefresh?: () => void;
 }
 
 const LABEL =
@@ -11,7 +14,7 @@ const LABEL =
 const INPUT =
   "border-2 border-foreground bg-background px-2.5 py-1.5";
 
-export default function IngestForm({ onDone, runError }: Props) {
+export default function IngestForm({ onDone, runError, onRefresh }: Props) {
   const [id, setId] = useState("");
   const [text, setText] = useState("");
   const [namespace, setNamespace] = useState("");
@@ -28,6 +31,7 @@ export default function IngestForm({ onDone, runError }: Props) {
     try {
       const ids = await ingest([item]);
       onDone(ids);
+      onRefresh?.();
       setId("");
       setText("");
       setError(null);
@@ -62,7 +66,8 @@ export default function IngestForm({ onDone, runError }: Props) {
   }
 
   return (
-    <section className="border-[3px] border-foreground bg-card p-4 shadow-ink">
+    // UX-11: id para que el empty state del grid navegue aquí (scrollIntoView).
+    <section id="ingest-form" className="border-[3px] border-foreground bg-card p-4 shadow-ink">
       <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Ingestar</h2>
       <form className="mt-3 flex flex-col gap-2" onSubmit={handleSubmit}>
         {/* UX-04: labels VISIBLES (WCAG 3.3.2) — placeholder solo no alcanza. */}

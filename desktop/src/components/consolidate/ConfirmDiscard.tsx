@@ -2,6 +2,8 @@
 // NamespaceDialog): paso 1 = aviso + elección papelera/permanente,
 // paso 2 = tipear el objetivo exacto (`ns/id` del único target, o CONFIRMAR
 // en lote) para habilitar el botón. Papelera es el default (undo vía Ctrl+Z).
+// UX-09: unificado al patrón inline de la app — se renderiza en flujo (caja),
+// sin overlay fixed (antes era el 3er lenguaje de confirmación: modal).
 import { FormEvent, useEffect, useRef, useState } from "react";
 import type { PairRecord } from "./consolidate-core";
 
@@ -54,17 +56,14 @@ export default function ConfirmDiscard({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4"
-      onClick={onClose}
-    >
+    // UX-09: inline en flujo (sin overlay fixed) — misma caja y lenguaje visual
+    // que el resto de la app; el contenedor de ConsolidateLens lo coloca al pie.
+    <div className="mt-4">
       <form
-        role="dialog"
-        aria-modal="true"
+        role="region"
         aria-label="Confirmar eliminación"
         onSubmit={submit}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md border-4 border-foreground bg-card p-5 shadow-[4px_4px_0_0_#000]"
+        className="w-full border-4 border-foreground bg-card p-5 shadow-[4px_4px_0_0_#000]"
       >
         <div className="font-display text-2xl text-stencil">
           Eliminar {targets.length === 1 ? "registro" : `${targets.length} registros`}?

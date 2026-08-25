@@ -6,19 +6,16 @@
 // the core does NOT expose (dims, live LSM/WAL status) render as "—" and are
 // listed in CORE_GAPS — never invented numbers.
 import type { NamespaceStatsMap, OperationalMetrics } from "../../vanta";
+// UX-15: fmtBytes compartido (era local aquí) — import + re-export para uso
+// interno y para no romper indices-core.test.ts (que lo importa de este módulo).
+import { fmtBytes } from "../../lib/format";
+export { fmtBytes };
 
 export function fmtCount(n: number): string {
   if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
   if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
   return `${n}`;
-}
-
-export function fmtBytes(n: number): string {
-  if (n >= 1e9) return `${(n / 1e9).toFixed(2)} GB`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)} MB`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(0)} KB`;
-  return `${n} B`;
 }
 
 /** One namespace row: count + optional expiry buckets + bar width (0–100,

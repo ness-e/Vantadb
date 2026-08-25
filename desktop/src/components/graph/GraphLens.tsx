@@ -40,7 +40,9 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
   }, []);
 
   return (
-    <div className="flex h-[calc(100dvh-112px)] min-h-[480px] flex-col">
+    // UX-15: lens-height = utilidad compartida (antes el magic number
+    // h-[calc(100dvh-112px)] min-h-[480px] estaba duplicado con SpaceLens).
+    <div className="flex lens-height flex-col">
       {/* Header + toolbar (UX-01: LensShell compartido) */}
       <div className="border-b-4 border-foreground bg-card px-4 py-3">
         <LensShell

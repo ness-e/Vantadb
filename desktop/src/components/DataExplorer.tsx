@@ -59,6 +59,8 @@ interface Props {
    * de WorkspaceShell, Task 9). Si no se provee, las filas borradas se quitan
    * localmente del estado. */
   onRefresh?: () => void;
+  /** UX-11: navegar al formulario de ingest desde el empty state del grid. */
+  onGoToIngest?: () => void;
 }
 
 const PAGE = 100;
@@ -167,7 +169,9 @@ function TtlCell({ record, now }: { record: MemoryRecord; now: number }) {
   const expiring = !expired && frac < 0.2;
   const barFill = expired ? "bg-muted-foreground" : expiring ? "stripes-neon" : "bg-foreground";
   return (
-    <span className="block w-24" title={`expires ${fmtDateTime(expires)}`}>
+    // UX-10: w-20 (antes w-24) — 16px menos por fila, el contenido TTL sigue
+    // entrando a text-[10px] y la barra de progreso conserva su forma.
+    <span className="block w-20" title={`expires ${fmtDateTime(expires)}`}>
       <span className="font-tech text-[10px] font-bold">
         {expired ? (
           "✕ EXPIRED"
@@ -271,8 +275,11 @@ const baseColumns = helper.columns([
   helper.accessor((r) => r.text, {
     id: "payload",
     header: "Payload",
+    // UX-10: el payload se encoge con el viewport (Inspector abierto a 1440px
+    // dejaba ~800px de main: max-w fijo 420px + TTL w-24 + acciones ~90px
+    // desbordaban). Cap por vw — la virtualización TanStack no se toca.
     cell: (info) => (
-      <span className="block max-w-[420px] overflow-hidden text-ellipsis whitespace-nowrap text-[13px]">
+      <span className="block max-w-[min(24vw,420px)] overflow-hidden text-ellipsis whitespace-nowrap text-[13px]">
         {info.getValue()}
       </span>
     ),
@@ -367,7 +374,7 @@ const baseColumns = helper.columns([
   }),
 ]);
 
-export default function DataExplorer({ active, busy, runError, onSelectRow, onNotice, onRefresh }: Props) {
+export default function DataExplorer({ active, busy, runError, onSelectRow, onNotice, onRefresh, onGoToIngest }: Props) {
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<ExplorerRow[] | null>(null);
   const [mode, setMode] = useState<"list" | "search">("list");
@@ -819,7 +826,31 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
       ) : rows === null ? (
         <p className="text-muted-foreground">Cargando registros…</p>
       ) : rows.length === 0 ? (
-        <p className="text-muted-foreground">Sin registros{mode === "search" ? " que coincidan" : ""}.</p>
+        /* UX-11: empty state con salida — el grid no es un callejón sin salida. */
+        <div className="flex flex-wrap items-center gap-2 py-2">
+          <p className="text-muted-foreground">Sin registros{mode === "search" ? " que coincidan" : ""}.</p>
+          {mode === "search" ? (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                void fetchFirst("list", "");
+              }}
+              className="press border-2 border-foreground bg-background px-2 py-1 text-xs"
+            >
+              ✕ Limpiar búsqueda
+            </button>
+          ) : onGoToIngest ? (
+            <button
+              type="button"
+              onClick={onGoToIngest}
+              className="press border-2 border-foreground bg-neon px-2 py-1 text-[10px] font-bold text-background"
+              title="Ingestar un registro manual"
+            >
+              ＋ Ir a Ingestar
+            </button>
+          ) : null}
+        </div>
       ) : (
         <>
           {visibleMeta.length > 0 && (

@@ -3,6 +3,9 @@
 // + CSS bar sparkline. The shared history window doubles as the sparkline series.
 import { OperationalMetrics } from "../vanta";
 import { useMetricsPoll } from "../hooks/useMetricsPoll";
+// UX-15: fmtBytes compartido — migra del formatter binario local (MiB/KiB) al
+// decimal canónico (GB/MB/KB): la unificación pedida por el ticket.
+import { fmtBytes } from "../lib/format";
 
 /** Guarded ratio — avoids NaN/Infinity on empty counters. */
 function ratio(num: number, den: number): number {
@@ -11,10 +14,6 @@ function ratio(num: number, den: number): number {
 
 function pct(v: number): string {
   return `${(v * 100).toFixed(1)}%`;
-}
-
-function fmtBytes(v: number): string {
-  return v >= 1 << 20 ? `${(v / (1 << 20)).toFixed(1)} MiB` : `${(v / 1024).toFixed(1)} KiB`;
 }
 
 interface KpiDatum {

@@ -264,6 +264,13 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
+/* Altura de las lentes full-height (WebGL Graph/Space) — antes el magic
+   number h-[calc(100dvh-112px)] min-h-[480px] estaba duplicado en
+   SpaceLens y GraphLens (UX-15). */
+@utility lens-height {
+  height: calc(100dvh - 112px);
+  min-height: 480px;
+}
 
 @layer base {
   * {

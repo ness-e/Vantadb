@@ -58,12 +58,16 @@ export default function IndicesLens({ health, healthStatus, activeName }: Props)
   const { history, error } = useMetricsPoll();
   const snapshot = history[history.length - 1] ?? null;
   const [bars, setBars] = useState<NamespaceBar[]>([]);
+  // UX-15: skeleton en la primera carga — antes `bars=[]` mostraba "sin
+  // registros" mientras el primer poll corría (empty state mentiroso).
+  const [loading, setLoading] = useState(true);
 
   // Per-namespace stats: real endpoint on native/HTTP; WASM falls back to
   // list() counts (expiry buckets = null) — same pattern as WorkspaceShell.
   useEffect(() => {
     let alive = true;
     const load = async () => {
+      setLoading(true);
       try {
         const stats: NamespaceStatsMap = await namespaceStats();
         if (alive) setBars(namespaceBars(stats));
@@ -78,6 +82,8 @@ export default function IndicesLens({ health, healthStatus, activeName }: Props)
         } catch {
           if (alive) setBars([]);
         }
+      } finally {
+        if (alive) setLoading(false);
       }
     };
     load();
@@ -97,7 +103,7 @@ export default function IndicesLens({ health, healthStatus, activeName }: Props)
 
       {error && (
         <p role="alert" className="border-2 border-foreground bg-card px-3 py-2 font-tech text-[11px]">
-          metrics unavailable: {error}
+          métricas no disponibles: {error}
         </p>
       )}
 
@@ -118,7 +124,7 @@ export default function IndicesLens({ health, healthStatus, activeName }: Props)
             </span>
           )}
           {snapshot && (
-            <span className="font-tech text-[11px] text-muted-foreground">startup {snapshot.startup_ms}ms</span>
+            <span className="font-tech text-[11px] text-muted-foreground">arranque {snapshot.startup_ms}ms</span>
           )}
         </div>
       </section>
@@ -128,7 +134,15 @@ export default function IndicesLens({ health, healthStatus, activeName }: Props)
         <div className="font-tech text-[10px] uppercase tracking-widest text-neon">
           Namespaces {bars.length > 0 ? `(${bars.length})` : ""}
         </div>
-        {bars.length === 0 ? (
+        {/* UX-15: skeleton mientras el primer poll no llega (no mentir "sin
+          registros" durante la carga). */}
+        {loading ? (
+          <div className="mt-3 space-y-3" role="status" aria-label="Cargando namespaces">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-9 animate-pulse border-2 border-foreground bg-muted" />
+            ))}
+          </div>
+        ) : bars.length === 0 ? (
           <p className="mt-2 font-tech text-[11px] text-muted-foreground">sin registros</p>
         ) : (
           <ul className="mt-3 space-y-3">

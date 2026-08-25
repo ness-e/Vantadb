@@ -187,6 +187,40 @@ function Card({ icon, title, children }: { icon: React.ReactNode; title: string;
   );
 }
 
+/** UX-12: header ÚNICO de RESUMEN — el mismo h1 en loading y loaded, para que
+ * "VISTA GENERAL" no salte entre dos layouts (antes: card centrada text-3xl en
+ * carga vs h1 text-4xl a la izquierda cargado). El h1 vive siempre acá. */
+function OverviewHeader({
+  refresh,
+  children,
+}: {
+  refresh?: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-2">
+      <div>
+        <div className="font-tech text-[11px] uppercase tracking-widest text-accent-text">Overview</div>
+        <h1 className="font-display text-4xl text-stencil">VISTA GENERAL</h1>
+      </div>
+      <div className="flex items-center gap-2">
+        {children}
+        {refresh && (
+          <button
+            type="button"
+            onClick={refresh}
+            className="press flex h-7 w-7 items-center justify-center border-2 border-foreground bg-background text-sm"
+            title="Actualizar resumen"
+            aria-label="Actualizar resumen"
+          >
+            ⟳
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Ciclo de colores por fila del histograma (encoding redundante: color + label + %).
 const TYPE_COLORS = ["bg-foreground", "bg-neon", "bg-chart-3", "bg-chart-5", "bg-chart-4", "bg-muted-foreground"];
 
@@ -227,12 +261,16 @@ export default function HomeOverview({ active }: { active: boolean }) {
   }, [active, tick]);
 
   if (!active || data === null) {
+    // UX-12: mismo header que el estado cargado — solo cambia el cuerpo.
     return (
-      <section aria-label="Resumen de la memoria" className="press-lg border-4 border-foreground bg-card p-8 text-center">
-        <div className="font-display text-3xl text-stencil">VISTA GENERAL</div>
-        <p className="mt-2 font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
-          {failed ? "no se pudo leer el backend" : "cargando…"}
-        </p>
+      <section aria-label="Resumen de la memoria">
+        <OverviewHeader />
+        <div className="ink-divider mt-4" aria-hidden="true" />
+        <div className="mt-6 border-2 border-dashed border-foreground bg-card p-8 text-center">
+          <p className="font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
+            {failed ? "no se pudo leer el backend" : "cargando…"}
+          </p>
+        </div>
       </section>
     );
   }
@@ -243,27 +281,12 @@ export default function HomeOverview({ active }: { active: boolean }) {
 
   return (
     <section aria-label="Resumen de la memoria">
-      {/* Header + sync */}
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <div className="font-tech text-[11px] uppercase tracking-widest text-accent-text">Overview</div>
-          <h1 className="font-display text-4xl text-stencil">VISTA GENERAL</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-            <span className="text-accent-text">▲ {data.updated7d}</span> actualizados / 7d
-          </span>
-          <button
-            type="button"
-            onClick={refresh}
-            className="press flex h-7 w-7 items-center justify-center border-2 border-foreground bg-background text-sm"
-            title="Actualizar resumen"
-            aria-label="Actualizar resumen"
-          >
-            ⟳
-          </button>
-        </div>
-      </div>
+      {/* Header + sync (UX-12: OverviewHeader compartido con el estado de carga) */}
+      <OverviewHeader refresh={refresh}>
+        <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
+          <span className="text-accent-text">▲ {data.updated7d}</span> actualizados / 7d
+        </span>
+      </OverviewHeader>
 
       <div className="ink-divider mt-4" aria-hidden="true" />
 

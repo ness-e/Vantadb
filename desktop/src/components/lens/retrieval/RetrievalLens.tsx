@@ -228,10 +228,12 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
       <div className="p-4">
         <LensShell
           title="RETRIEVAL"
-          meta="¿por qué recuperó esto? · explain on · fusión server-side (MEM-01)"
-          subtitle={`desglose por rama (texto BM25 · vector HNSW) — el slider fija el modo de fusión en el servidor: ${
-            weight === 0 ? "keyword" : weight === 100 ? "vector" : "hybrid RRF"
-          } (${fusionModeFromSlider(weight).mode}); resultados = explain del server`}
+          // UX-15: el header hablaba jerga ("explain on", "fusión server-side
+          // (MEM-01)", "resultados = explain del server") — texto de usuario.
+          meta="¿por qué recuperó esto? · desglose del score"
+          subtitle={`búsqueda híbrida BM25 + vector — el slider elige el modo de fusión, que decide el servidor: ${
+            weight === 0 ? "solo texto (BM25)" : weight === 100 ? "solo vector (HNSW)" : "híbrido (RRF)"
+          }`}
         />
       </div>
 

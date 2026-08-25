@@ -20,6 +20,7 @@ const HOLD_MS = 2600;
 export function SplashScreen({ onDismiss }: { onDismiss: () => void }) {
   const [closing, setClosing] = useState(false);
   const dismissedRef = useRef(false);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const beginExit = useCallback(() => {
     if (dismissedRef.current) return;
@@ -33,10 +34,27 @@ export function SplashScreen({ onDismiss }: { onDismiss: () => void }) {
     return () => window.clearTimeout(t);
   }, [beginExit]);
 
+  // UX-15: splash saltable por teclado — foco en el root al montar y
+  // Enter/Espacio disparan la salida (antes solo click con mouse).
+  useEffect(() => {
+    rootRef.current?.focus();
+  }, []);
+
   return (
-    // FIND-23: covers the whole window once per cold start; click skips.
+    // FIND-23: covers the whole window once per cold start; click (o Enter)
+    // skips. UX-15: role=button + tabIndex para usuarios de teclado.
     <div
+      ref={rootRef}
+      role="button"
+      tabIndex={0}
+      aria-label="Saltar la introducción"
       onClick={beginExit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          beginExit();
+        }
+      }}
       className={`splash-root fixed inset-0 z-50 flex cursor-pointer flex-col items-center justify-center gap-6 bg-[var(--background)] ${
         closing ? "splash-closing" : ""
       }`}
@@ -54,7 +72,7 @@ export function SplashScreen({ onDismiss }: { onDismiss: () => void }) {
         </p>
       </div>
       <p className="splash-hint absolute bottom-8 font-[family-name:var(--font-space-mono)] text-[10px] uppercase tracking-widest text-[var(--muted-foreground)] opacity-60">
-        click para entrar
+        click o Enter para entrar
       </p>
     </div>
   );

@@ -3,13 +3,8 @@
 // a 3-point trend arrow. Polling is shared via useMetricsPoll (DESKTOP-29).
 import { HealthReport, OperationalMetrics } from "../vanta";
 import { useMetricsPoll } from "../hooks/useMetricsPoll";
-
-function fmtBytes(n: number): string {
-  if (n >= 1e9) return `${(n / 1e9).toFixed(2)} GB`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)} MB`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(0)} KB`;
-  return `${n} B`;
-}
+// UX-15: fmtBytes compartido (antes había un local idéntico acá).
+import { fmtBytes } from "../lib/format";
 
 function fmtCount(n: number): string {
   if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
@@ -123,7 +118,11 @@ export default function MetricsGrid({ health, healthStatus, activeName }: Props)
                 ? "text-muted-foreground"
                 : healthStatus === "ok"
                   ? "bg-paper text-foreground"
-                  : "border-neon bg-neon/10 text-accent-text"
+                  : // UX-15: warn y err compartían el mismo look ámbar — err ahora
+                    // usa el token destructivo (antes era igual a warn).
+                    healthStatus === "err"
+                    ? "border-destructive bg-destructive/10 text-destructive"
+                    : "border-neon bg-neon/10 text-accent-text"
             }`}
             data-status={healthStatus}
             title="vanta_health"

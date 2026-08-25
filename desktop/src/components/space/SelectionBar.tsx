@@ -2,6 +2,10 @@
 // Presentacional puro — la lógica vive en SpaceLens (handlers) y en el
 // undoStore (borrado con snapshot). Estilo manga/neo-brutalista (D4): press,
 // border-2, font-tech — consistente con el toolbar de SpaceLens.
+// UX-09: el borrado usa el patrón inline de 2 pasos (TrashLens/DeleteButton):
+// primer click arma ("¿BORRAR N?"), segundo ejecuta; ✕ cancela. Adiós
+// window.confirm nativo (rompía el lenguaje de la app y el teclado).
+import { useEffect, useState } from "react";
 export type SelectionBusy = "export" | "delete" | null;
 
 interface SelectionBarProps {
@@ -21,6 +25,12 @@ export default function SelectionBar({
   onDelete,
   onClear,
 }: SelectionBarProps) {
+  // UX-09: confirmación inline armada (patrón DeleteButton/TrashLens).
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (count === 0 || busy === "delete") setArmed(false);
+  }, [count, busy]);
+
   if (count === 0) return null;
 
   const disabled = busy !== null;
@@ -45,15 +55,41 @@ export default function SelectionBar({
       >
         {busy === "export" ? "…" : "⭳ exportar (n)"}
       </button>
-      <button
-        type="button"
-        className={`${btn} bg-red-100 hover:bg-red-200`}
-        disabled={disabled}
-        onClick={onDelete}
-        title={`Mover ${count} registro(s) a la papelera (Ctrl+Z deshace)`}
-      >
-        {busy === "delete" ? "…" : "✕ eliminar (n)"}
-      </button>
+      {armed ? (
+        <>
+          <button
+            type="button"
+            className={`${btn} bg-red-100 font-bold hover:bg-red-200`}
+            disabled={disabled}
+            onClick={() => {
+              setArmed(false);
+              onDelete();
+            }}
+            title="Confirmar borrado (Ctrl+Z deshace)"
+          >
+            {busy === "delete" ? "…" : `¿BORRAR ${count}?`}
+          </button>
+          <button
+            type="button"
+            className={btn}
+            disabled={disabled}
+            onClick={() => setArmed(false)}
+            aria-label="Cancelar borrado"
+          >
+            ✕
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          className={`${btn} bg-red-100 hover:bg-red-200`}
+          disabled={disabled}
+          onClick={() => setArmed(true)}
+          title={`Mover ${count} registro(s) a la papelera (Ctrl+Z deshace)`}
+        >
+          {busy === "delete" ? "…" : "✕ eliminar (n)"}
+        </button>
+      )}
       <button
         type="button"
         className={btn}

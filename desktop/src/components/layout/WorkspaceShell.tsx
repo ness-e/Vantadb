@@ -762,12 +762,26 @@ export default function WorkspaceShell({
         </header>
 
         {notice && (
+          /* UX-15: botón ✕ enfocable — antes el bar entero era un div clickeable
+             sin control de teclado para cerrar. */
           <div
             role="alert"
             onClick={onDismissNotice}
-            className="cursor-pointer border-b-4 border-neon bg-card px-4 py-2 text-sm"
+            className="flex cursor-pointer items-center gap-2 border-b-4 border-neon bg-card px-4 py-2 text-sm"
           >
-            {notice}
+            <span className="min-w-0 flex-1">{notice}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDismissNotice();
+              }}
+              className="press flex h-6 w-6 shrink-0 items-center justify-center border-2 border-foreground text-[10px]"
+              aria-label="Cerrar aviso"
+              title="Cerrar aviso"
+            >
+              ✕
+            </button>
           </div>
         )}
 
@@ -839,7 +853,14 @@ export default function WorkspaceShell({
                     ✕ cerrar
                   </button>
                 </div>
-                <ResultsList results={visibleResults} onSelect={(r) => openSearchResult(r)} />
+                <ResultsList
+                  results={visibleResults}
+                  onSelect={(r) => openSearchResult(r)}
+                  onClearSearch={() => {
+                    setQuery("");
+                    setResults(null);
+                  }}
+                />
               </div>
             </section>
           )}
@@ -902,7 +923,14 @@ export default function WorkspaceShell({
                   ⤓ IMPORT ARCHIVO
                 </button>
               </div>
-              <IngestForm onDone={(ids) => onNotice(`Stored ${ids.length} record(s).`)} runError={onError} />
+              {/* UX-15: microcopy ES (antes "Stored N record(s)."). UX-17: el
+                  ingest manual refresca el grid vía remount (mismo gridKey que
+                  batch delete/imports). */}
+              <IngestForm
+                onDone={(ids) => onNotice(`Guardados ${ids.length} registro(s).`)}
+                onRefresh={() => setGridKey((k) => k + 1)}
+                runError={onError}
+              />
               <DataExplorer
                 key={gridKey}
                 active={!!state.active}
@@ -911,6 +939,10 @@ export default function WorkspaceShell({
                 onSelectRow={(row: ExplorerRow) => openRecord(row.record, row.score)}
                 // OP-02: batch delete refresca el grid via remount (patrón Task 9).
                 onRefresh={() => setGridKey((k) => k + 1)}
+                // UX-11: empty state → scroll al formulario de ingest (mismo surface).
+                onGoToIngest={() =>
+                  document.getElementById("ingest-form")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
               />
             </div>
           )}

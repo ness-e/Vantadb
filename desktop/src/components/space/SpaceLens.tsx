@@ -187,15 +187,11 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
   }
 
   /** ESPACIO-02: eliminar la selección → papelera (undoStore, snapshot previo).
-   * Confirmación explícita nombra el impacto (05 anti-patrón 7); un solo
+   * UX-09: la confirmación en 2 pasos vive en SelectionBar (inline armada,
+   * patrón DeleteButton/TrashLens) — ya no window.confirm nativo. Un solo
    * Ctrl+Z restaura el lote completo (VS-08 softDeleteBatch). */
   async function handleDelete() {
     if (busy || selectedRecords.length === 0) return;
-    const ok = window.confirm(
-      `Borrar ${selectedRecords.length} registro(s) seleccionado(s)?\n` +
-        "Se mueven a la papelera de sesión — Ctrl+Z los restaura.",
-    );
-    if (!ok) return;
     setBusy("delete");
     try {
       await undoStore.softDeleteBatch(selectedRecords);
@@ -211,7 +207,9 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
   }
 
   return (
-    <div className="flex h-[calc(100dvh-112px)] min-h-[480px] flex-col">
+    // UX-15: lens-height = utilidad compartida (antes el magic number
+    // h-[calc(100dvh-112px)] min-h-[480px] estaba duplicado con GraphLens).
+    <div className="flex lens-height flex-col">
       {/* Header + toolbar (UX-01: LensShell compartido) */}
       <div className="border-b-4 border-foreground bg-card px-4 py-3">
         <LensShell
