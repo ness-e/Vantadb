@@ -56,6 +56,16 @@ use crate::node::{FieldValue, UnifiedNode};
 use crate::rbac::{Permission, Rbac};
 use crate::storage::StorageEngine;
 
+/// Timeout for interactive API routes: a stuck handler must not hold the
+/// connection indefinitely (DoS protection). 30s comfortably covers normal
+/// query/search/list operations while bounding a hung request.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Generous timeout for long-running bulk/maintenance routes (import, export,
+/// rebuild-index) that legitimately take longer than interactive requests.
+/// Still capped so a truly wedged operation can't hold a worker forever.
+const LONG_REQUEST_TIMEOUT: Duration = Duration::from_secs(600);
+
 /// JSON body for a query endpoint request.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct QueryRequest {
@@ -231,6 +241,8 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
 
     let public = Router::new().route("/health", get(health_check));
 
+    // Interactive routes: cap at REQUEST_TIMEOUT so a stuck handler can't hold
+    // the connection indefinitely (DoS protection).
     let protected = Router::new()
         .route("/api/v2/query", post(execute_query))
         .route("/api/v2/health", get(health_v2))
@@ -248,8 +260,6 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
         .route("/api/v2/search", post(records_search))
         .route("/api/v2/autocomplete", get(iql_autocomplete))
         .route("/api/v2/audit", get(audit_events))
-        .route("/api/v2/export", post(export_v2))
-        .route("/api/v2/import", post(import_v2))
         .route("/api/v2/graph/bfs", post(graph_bfs))
         .route("/api/v2/graph/dfs", post(graph_dfs))
         .route("/api/v2/graph/degree", post(graph_degree))
@@ -261,10 +271,6 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
         .route("/api/v2/maintenance/purge", post(maintenance_purge))
         .route("/api/v2/maintenance/compact", post(maintenance_compact))
         .route("/api/v2/maintenance/flush", post(maintenance_flush))
-        .route(
-            "/api/v2/maintenance/rebuild-index",
-            post(maintenance_rebuild_index),
-        )
         .route("/api/v2/threads", get(threads_list).post(threads_create))
         .route(
             "/api/v2/threads/{id}",
@@ -283,7 +289,29 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
         .route("/api/v2/snapshots/{name}", post(snapshots_create))
         .route("/metrics", get(metrics_endpoint))
         .route("/api/v2/metrics", get(metrics_v2))
-        .layer(middleware::from_fn(auth_middleware));
+        .layer(middleware::from_fn(auth_middleware))
+        .layer(tower_http::timeout::TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            REQUEST_TIMEOUT,
+        ));
+
+    // Long-running bulk/maintenance routes: a generous ceiling (rather than the
+    // interactive timeout above) so legitimate large imports/exports/index
+    // rebuilds aren't killed mid-flight. Still bounded against a wedged op.
+    let long_running = Router::new()
+        .route("/api/v2/export", post(export_v2))
+        .route("/api/v2/import", post(import_v2))
+        .route(
+            "/api/v2/maintenance/rebuild-index",
+            post(maintenance_rebuild_index),
+        )
+        .layer(middleware::from_fn(auth_middleware))
+        .layer(tower_http::timeout::TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            LONG_REQUEST_TIMEOUT,
+        ));
+
+    let protected = protected.merge(long_running);
 
     let protected = if rpm > 0 {
         let period_ms = rate_limit_period_ms(rpm);
@@ -1299,7 +1327,7 @@ async fn records_list(
         // client-side del cursor — suficiente para consolas embebidas; un
         // cursor server-side intercalado requiere soporte del SDK.
         const NS_CAP: usize = 10_000;
-        let options_for = move |ns: String| VantaMemoryListOptions {
+        let options_for = move |_ns: String| VantaMemoryListOptions {
             filter_ops: filter_ops.clone(),
             limit: NS_CAP,
             cursor: None,
@@ -2992,6 +3020,65 @@ mod tests {
             ..Default::default()
         };
         assert!(validate_auth_config(&cfg).is_ok());
+    }
+
+    #[test]
+    fn request_timeouts_are_sane() {
+        // Interactive timeout must be bounded (DoS) and non-zero; the
+        // long-running ceiling must comfortably exceed it so bulk operations
+        // (import/export/rebuild-index) aren't killed by the interactive cap.
+        assert!(REQUEST_TIMEOUT > Duration::ZERO);
+        assert!(REQUEST_TIMEOUT <= Duration::from_secs(120));
+        assert!(LONG_REQUEST_TIMEOUT > REQUEST_TIMEOUT);
+        assert!(LONG_REQUEST_TIMEOUT >= Duration::from_secs(300));
+    }
+
+    #[tokio::test]
+    async fn slow_request_times_out_with_408() {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        // A handler that runs longer than the timeout must be cut with 408.
+        let router = Router::new()
+            .route(
+                "/slow",
+                get(|| async {
+                    tokio::time::sleep(Duration::from_millis(200)).await;
+                    StatusCode::OK
+                }),
+            )
+            .layer(tower_http::timeout::TimeoutLayer::with_status_code(
+                StatusCode::REQUEST_TIMEOUT,
+                Duration::from_millis(50),
+            ));
+
+        let res = router
+            .oneshot(Request::builder().uri("/slow").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::REQUEST_TIMEOUT);
+    }
+
+    #[tokio::test]
+    async fn fast_request_not_timed_out() {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        // A handler that completes within the timeout must pass through (200).
+        let router = Router::new()
+            .route("/fast", get(|| async { StatusCode::OK }))
+            .layer(tower_http::timeout::TimeoutLayer::with_status_code(
+                StatusCode::REQUEST_TIMEOUT,
+                Duration::from_millis(500),
+            ));
+
+        let res = router
+            .oneshot(Request::builder().uri("/fast").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
     }
 
     #[test]
