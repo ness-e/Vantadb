@@ -6,7 +6,6 @@
 //! re-exported from `vfile.rs` so existing `crate::storage::vfile::*` paths
 //! keep resolving unchanged.
 
-#[cfg(not(feature = "memmap2"))]
 use std::fs::File;
 #[cfg(not(feature = "memmap2"))]
 use std::io::Read;
@@ -69,8 +68,11 @@ pub(crate) mod mmap_shim {
         /// # Safety
         /// Mirrors memmap2::Mmap::map's safety contract for API compatibility.
         pub unsafe fn map(file: &File) -> std::io::Result<Self> {
-            // SAFETY: safe implementation, unsafe for API parity with memmap2
-            unsafe { MmapOptions::new().map(file) }
+            // The body is safe (a plain read into an aligned buffer); the
+            // `unsafe fn` signature is kept for API parity with memmap2, whose
+            // `Mmap::map` is unsafe — callers (graph.rs, vector_data.rs) wrap
+            // it identically on both backends.
+            MmapOptions::new().map(file)
         }
         /// Return a raw pointer to the mapped memory.
         pub fn as_ptr(&self) -> *const u8 {
@@ -108,8 +110,10 @@ pub(crate) mod mmap_shim {
         /// # Safety
         /// Mirrors memmap2::MmapMut::map_mut's safety contract for API compatibility.
         pub unsafe fn map_mut(file: &File) -> std::io::Result<Self> {
-            // SAFETY: safe implementation, unsafe for API parity with memmap2
-            unsafe { MmapOptions::new().map_mut(file) }
+            // Body is safe (a plain read into an aligned buffer); the
+            // `unsafe fn` signature is kept for API parity with memmap2 (see
+            // `Mmap::map`).
+            MmapOptions::new().map_mut(file)
         }
         /// Return a raw pointer to the mapped memory.
         pub fn as_ptr(&self) -> *const u8 {
@@ -154,6 +158,45 @@ pub(crate) mod mmap_shim {
 }
 #[cfg(not(feature = "memmap2"))]
 pub(crate) use mmap_shim::{Mmap, MmapMut, MmapOptions};
+
+/// Map `file` read-only.
+///
+/// Safe wrapper around [`MmapOptions::map`]. In `memmap2` builds this is the
+/// single place the OS-level `unsafe` call happens; in shim (non-`memmap2`,
+/// e.g. `wasm32`) builds it is a plain read into an aligned buffer.
+pub(crate) fn map_readonly(file: &File) -> std::io::Result<Mmap> {
+    #[cfg(feature = "memmap2")]
+    {
+        // SAFETY: `file` is a valid open handle whose size the caller has
+        // already validated/truncated before mapping (VantaFile::open_with_mode
+        // truncates to min_header_size; archive.rs set_len()'s the temp file
+        // before mapping it). The returned Mmap aliases `file`'s pages, so
+        // `file` must stay open and its size unchanged for the mapping's
+        // lifetime — guaranteed by VantaFile, which owns the `File` and drops/
+        // replaces the mapping together with it (remap_mut, replace_backing_file).
+        unsafe { MmapOptions::new().map(file) }
+    }
+    #[cfg(not(feature = "memmap2"))]
+    {
+        MmapOptions::new().map(file)
+    }
+}
+
+/// Map `file` read-write. See [`map_readonly`] for the safety contract.
+pub(crate) fn map_readwrite(file: &File) -> std::io::Result<MmapMut> {
+    #[cfg(feature = "memmap2")]
+    {
+        // SAFETY: same invariants as `map_readonly`; additionally the caller
+        // must not keep another writable mapping of the same region alive —
+        // archive.rs drops `tmp_mmap` before extending the file, and VantaFile
+        // never holds two mappings of the same file.
+        unsafe { MmapOptions::new().map_mut(file) }
+    }
+    #[cfg(not(feature = "memmap2"))]
+    {
+        MmapOptions::new().map_mut(file)
+    }
+}
 
 /// Atomic flag set by the SIGBUS handler instead of logging directly.
 /// Replaced the previous `warn!()` approach to avoid reentrancy issues

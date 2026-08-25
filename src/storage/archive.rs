@@ -3,7 +3,7 @@
 use crate::error::{Result, VantaError};
 use crate::index::CPIndex;
 use crate::node::DiskNodeHeader;
-use crate::storage::vfile::{MmapOptions, VantaFile};
+use crate::storage::vfile::{map_readwrite, VantaFile};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::OpenOptions;
 use std::path::PathBuf;
@@ -68,14 +68,10 @@ pub fn compact_layout(
         .set_len(new_file_size)
         .map_err(VantaError::IoError)?;
 
-    // SAFETY: tmp_file is a valid, open file handle with set_len() called beforehand.
-    // MmapMut::map_mut() requires the underlying file to be writable and have a valid size;
-    // both hold here. The returned mmap is valid for the file's lifetime, which exceeds tmp_mmap.
-    let mut tmp_mmap = unsafe {
-        MmapOptions::new()
-            .map_mut(&tmp_file)
-            .map_err(VantaError::IoError)?
-    };
+    // `map_readwrite` carries the (memmap2-only) SAFETY contract: tmp_file is a
+    // valid, open handle with set_len() called beforehand (writable, valid
+    // size); the returned mmap is valid for the file's lifetime.
+    let mut tmp_mmap = map_readwrite(&tmp_file).map_err(VantaError::IoError)?;
 
     let mut new_offset_map: HashMap<u128, u64> = HashMap::with_capacity(bfs_order.len());
     let mut write_cursor: u64 = STORAGE_ALIGNMENT;
@@ -99,14 +95,10 @@ pub fn compact_layout(
                 tmp_mmap.flush().map_err(VantaError::IoError)?;
                 drop(tmp_mmap);
                 tmp_file.set_len(end + 4096).map_err(VantaError::IoError)?;
-                // SAFETY: tmp_file was extended via set_len() before this call, so the
-                // file's size covers the new mapping. The previous mmap was dropped, so
-                // there is no conflicting mapping on the same region.
-                tmp_mmap = unsafe {
-                    MmapOptions::new()
-                        .map_mut(&tmp_file)
-                        .map_err(VantaError::IoError)?
-                };
+                // `map_readwrite` carries the (memmap2-only) SAFETY contract:
+                // tmp_file was extended via set_len() before this call and the
+                // previous mmap was dropped, so there is no conflicting mapping.
+                tmp_mmap = map_readwrite(&tmp_file).map_err(VantaError::IoError)?;
             }
             let old_data = vstore.mmap_bytes();
             let src_start = old_offset as usize;

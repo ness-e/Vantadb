@@ -26,7 +26,9 @@ use crate::storage::engine::STORAGE_ALIGNMENT;
 #[cfg(unix)]
 pub(crate) use crate::storage::vfile_mmap::install_sigbus_handler;
 pub use crate::storage::vfile_mmap::{get_resident_bytes, get_resident_bytes_impl};
-pub(crate) use crate::storage::vfile_mmap::{AlignedBytes, Mmap, MmapMut, MmapOptions};
+pub(crate) use crate::storage::vfile_mmap::{
+    map_readonly, map_readwrite, AlignedBytes, Mmap, MmapMut,
+};
 
 /// Current VantaFile format version.
 /// Version history:
@@ -194,20 +196,14 @@ impl VantaFile {
             current_size = initial_size.max(min_header_size);
             file.set_len(current_size).map_err(VantaError::IoError)?;
         }
-        // SAFETY: `file` is a valid open handle at the correct size (already
-        // truncated/validated above). `MmapOptions::map`/`map_mut` from memmap2
-        // create kernel-backed mappings; the returned `Mmap`/`MmapMut` is stored
-        // in `self.mmap` and lives for the `VantaFile`'s lifetime.
+        // `map_readonly`/`map_readwrite` carry the (memmap2-only) SAFETY
+        // contract: `file` is a valid open handle at the correct size, and the
+        // returned mapping is stored in `self.mmap` for the `VantaFile`'s
+        // lifetime.
         let mut mmap = if read_only {
-            VantaFileMap::ReadOnly(unsafe {
-                MmapOptions::new().map(&file).map_err(VantaError::IoError)?
-            })
+            VantaFileMap::ReadOnly(map_readonly(&file).map_err(VantaError::IoError)?)
         } else {
-            VantaFileMap::ReadWrite(unsafe {
-                MmapOptions::new()
-                    .map_mut(&file)
-                    .map_err(VantaError::IoError)?
-            })
+            VantaFileMap::ReadWrite(map_readwrite(&file).map_err(VantaError::IoError)?)
         };
         if !read_only && current_size >= min_header_size && &mmap.as_slice()[0..4] != b"VFLE" {
             let header = VantaHeader::new(*b"VFLE", VFILE_VERSION, 0);
@@ -271,14 +267,10 @@ impl VantaFile {
                 field: "backing_file".into(),
                 reason: "no backing file".into(),
             })?;
-        // SAFETY: `file` is the existing backing file handle at `self.size` bytes.
-        // `MmapMut::map_mut` maps the file into writable memory. The previous
-        // mapping is dropped (safe — memmap2 unmaps on Drop).
-        self.mmap = VantaFileMap::ReadWrite(unsafe {
-            MmapOptions::new()
-                .map_mut(file)
-                .map_err(VantaError::IoError)?
-        });
+        // `map_readwrite` carries the (memmap2-only) SAFETY contract: `file` is
+        // the existing backing handle at `self.size` bytes; the previous mapping
+        // is dropped (safe — memmap2 unmaps on Drop).
+        self.mmap = VantaFileMap::ReadWrite(map_readwrite(file).map_err(VantaError::IoError)?);
         Ok(())
     }
 
