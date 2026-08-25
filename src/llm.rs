@@ -6,7 +6,7 @@
 //! ## Embedding providers
 //!
 //! COMP-010: Abstract [`EmbeddingProvider`] trait with two implementations:
-//! - [`OllamaProvider`] — Ollama `/api/embeddings` (default)
+//! - [`OllamaProvider`] — Ollama `/api/embed` (default)
 //! - [`OpenAIProvider`] — OpenAI `/v1/embeddings`
 //!
 //! Select the provider at runtime via `VANTA_EMBEDDING_PROVIDER` (ollama|openai).
@@ -56,7 +56,7 @@ struct OllamaEmbeddingRequest<'a> {
 
 #[derive(Deserialize)]
 struct OllamaEmbeddingResponse {
-    embedding: Vec<f32>,
+    embeddings: Vec<Vec<f32>>,
 }
 
 /// Embedding provider backed by a local Ollama server.
@@ -97,7 +97,7 @@ impl Default for OllamaProvider {
 
 impl EmbeddingProvider for OllamaProvider {
     fn embed(&self, text: &str) -> Result<Vec<f32>> {
-        let url = format!("{}/api/embeddings", self.base_url);
+        let url = format!("{}/api/embed", self.base_url);
         let req_body = OllamaEmbeddingRequest {
             model: &self.default_model,
             input: text,
@@ -121,7 +121,11 @@ impl EmbeddingProvider for OllamaProvider {
                 e
             ))
         })?;
-        Ok(result.embedding)
+        result
+            .embeddings
+            .into_iter()
+            .next()
+            .ok_or_else(|| VantaError::generic_error("Ollama returned empty embeddings"))
     }
 }
 
@@ -355,4 +359,109 @@ struct OllamaGenerateRequest<'a> {
 #[derive(Deserialize)]
 struct OllamaGenerateResponse {
     response: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    /// One-shot HTTP mock: accepts a single request, replies with a fixed
+    /// JSON body, and returns the captured (request-line, body) to the caller.
+    fn spawn_mock(
+        response_body: &'static str,
+    ) -> (String, std::thread::JoinHandle<(String, String)>) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind mock listener");
+        let addr = listener.local_addr().expect("mock addr");
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept");
+            let mut buf = [0u8; 4096];
+            let mut raw = Vec::new();
+            loop {
+                let n = stream.read(&mut buf).expect("read mock");
+                if n == 0 {
+                    break;
+                }
+                raw.extend_from_slice(&buf[..n]);
+                if raw.windows(4).any(|w| w == b"\r\n\r\n") {
+                    break;
+                }
+            }
+            // Drain the body per Content-Length so the client sees a complete request.
+            let text = String::from_utf8_lossy(&raw).to_string();
+            let len: usize = text
+                .split("\r\n")
+                .find(|l| l.to_ascii_lowercase().starts_with("content-length:"))
+                .and_then(|l| l.split(':').nth(1))
+                .and_then(|v| v.trim().parse().ok())
+                .unwrap_or(0);
+            let header_end = text.find("\r\n\r\n").map(|i| i + 4).unwrap_or(text.len());
+            while raw.len() < header_end + len {
+                match stream.read(&mut buf) {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => raw.extend_from_slice(&buf[..n]),
+                }
+            }
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                response_body.len(),
+                response_body
+            );
+            let _ = stream.write_all(response.as_bytes());
+            let _ = stream.flush();
+            (
+                text.lines().next().unwrap_or_default().to_string(),
+                String::from_utf8_lossy(&raw[header_end..]).to_string(),
+            )
+        });
+        (format!("http://{addr}"), handle)
+    }
+
+    #[test]
+    fn ollama_embed_uses_current_api_contract() {
+        let (base_url, handle) = spawn_mock(r#"{"model":"all-minilm","embeddings":[[1.5,-2.25]]}"#);
+
+        let provider = OllamaProvider {
+            client: Client::new(),
+            base_url,
+            default_model: "all-minilm".to_string(),
+        };
+
+        let vec = provider.embed("why is the sky blue?").expect("embed ok");
+        let (request_line, body) = handle.join().expect("mock thread");
+
+        assert!(
+            request_line.starts_with("POST /api/embed "),
+            "wrong endpoint: {request_line}"
+        );
+        let json: serde_json::Value = serde_json::from_str(&body).expect("body is JSON");
+        assert_eq!(json["model"], "all-minilm");
+        assert_eq!(json["input"], "why is the sky blue?");
+        assert!(
+            json.get("prompt").is_none(),
+            "must not send legacy `prompt` field"
+        );
+        assert_eq!(vec, vec![1.5, -2.25]);
+    }
+
+    #[test]
+    fn ollama_embed_rejects_empty_embeddings() {
+        let (base_url, handle) = spawn_mock(r#"{"model":"all-minilm","embeddings":[]}"#);
+
+        let provider = OllamaProvider {
+            client: Client::new(),
+            base_url,
+            default_model: "all-minilm".to_string(),
+        };
+
+        let err = provider
+            .embed("x")
+            .expect_err("empty embeddings must error");
+        handle.join().expect("mock thread");
+        assert!(
+            err.to_string().contains("empty embeddings"),
+            "unexpected error: {err}"
+        );
+    }
 }
