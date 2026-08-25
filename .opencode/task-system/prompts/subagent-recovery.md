@@ -84,11 +84,20 @@ COMMIT_HASH: <hash o "ninguno">
 ARCHIVOS: <paths tocados>
 VERIFY_CONTRATO: <pasa | no-corrido | falla>
 BLOQUEO: <ninguno | qué impidió terminar>
+GATES_EVALUADOS: P:<no|disparado> D:<no|disparado> V:<no|disparado> C:<no|disparado> | <motivo ≤6 palabras por gate>
 ```
 
 Con este bloque el orquestador decide el nivel de recovery en 1 solo paso, sin adivinar.
 Si un sub-agente "se detiene solo" sin devolver el bloque → tratarlo como UNEXPECTED,
 RESUME pidiendo el bloque + feedback.
+
+**Validación de `GATES_EVALUADOS` (obligatoria, definición canónica en
+question-gates.md §"Registro obligatorio"):** al recibir el bloque, el orquestador
+verifica que la línea exista y que cada gate `no` tenga motivo. Ausente o incompleto
+→ clasificar **UNEXPECTED** (no DONE) y RESUME pidiendo solo el campo. Un gate
+`disparado` debe corresponder con un `BLOQUEO:` relevado o question registrada —
+discrepancia → re-invocar con feedback. Esto evita que los gates se "salten"
+silenciosamente: evaluarse es parte del contrato, no una cortesía.
 
 ## 5. HITL checkpoint (confirmación humana antes de arrancar)
 
@@ -105,6 +114,14 @@ cuando la tarea pertenece a una familia ya aprobada por el humano:
 - El plan (`docs/plans/*.md`) pasó el gate de planificación: `Gate Result: ✅ DO` para esa
   tarea, o el humano lanzó el pipeline (`/pipeline run <plan>`).
 - La misma familia recibió GO explícito en esta sesión (mismo plan, mismo objetivo).
+
+**Límite de la excepción (feature-add NO queda cubierto):** la familia aprobada
+suprime la confirmación individual SOLO para tareas de fix/test/docs/refactor sin
+superficie pública nueva. Las tareas **feature-add o con símbolos públicos nuevos**
+(detección mecánica: pipeline-full §Discovery, task.md Phase 1b) dentro de una
+familia aprobada SÍ disparan **UNA `question` batched** con las decisiones abiertas
+de su `## Spec` (1 ronda, opciones + `(Recomendado)`) antes del primer step de ACT.
+Fuente canónica: question-gates.md §Anti-abuso.
 
 **Cuándo se activa:**
 1. **Pre-flight:** al tomar una tarea ⬜ PENDING con prioridad 🔴 (o contrato ambiguo),

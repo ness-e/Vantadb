@@ -36,6 +36,29 @@ Si hay archivos de múltiples tipos, cargar skills de todos los tipos aplicables
 > sin investigación de causa raíz primero) y exigí en el task file la sección
 > "Fase 1 — Evidencia de Debugging" (ver formato) ANTES de escribir el fix.
 
+### Phase 1b: Detección de feature-add (SDD — Gate P/D)
+
+La etiqueta de tipo auto-detectada NO decide si la tarea es feature-add.
+Después del discovery, verificá mecánicamente si la solución planeada
+**agrega símbolos/contratos públicos nuevos**:
+
+| Señal (cualquiera aplica) | Ejemplos |
+|---------------------------|----------|
+| `pub fn`/struct/enum público nuevo o firma pública nueva | SDK, engine, storage |
+| Tool MCP nueva / endpoint HTTP/CLI nuevo | tools.rs, cli_server.rs, cli_handlers |
+| Método expuesto en binding PyO3/WASM/TS/NAPI | lib.rs, wasm lib.rs, vantadb-ts |
+| Componente/página consumible nuevo | web/, desktop/src/components |
+| Capability de usuario final que no existía | dashboards, comandos, integraciones |
+
+**Si alguna señal aplica → es feature-add para efectos de SDD**, aunque los
+archivos y keywords sugieran "Rust"/"wrapper"/"refactor". Consecuencias:
+1. El task file DEBE llevar sección `## Spec` LLENA según la definición canónica
+   (question-gates.md §"Contenido válido"): tabla de decisiones de
+   spec-template §5 O justificación por-evidencia por ítem. `N/A` NO es válido.
+2. Gate P/D dispara UNA ronda de `question` con las decisiones abiertas
+   (opciones + `(Recomendado)` primero) — incluso dentro de una familia aprobada.
+3. Sin spec válida no se entra a ACT (gate mecánico, pipeline-full §Discovery).
+
 ### Phase 2: Discovery + Blast Radius
 
 > **DISCOVERY híbrido (R3):** tareas 🟡/🔴 con DISCOVERY pesado (web research
@@ -158,6 +181,16 @@ como gate mandatorio para 🔴 — revisión adversarial en contexto fresco
 
 ## Contrato
 "cargo nextest run --profile audit --workspace --build-jobs 2 pasa y el comportamiento específico es [condición]"
+
+## Spec (SDD — obligatoria si Phase 1b detectó feature-add/símbolos públicos)
+
+> Definición de contenido válido: question-gates.md §"Contenido válido de `## Spec`".
+> Tabla de decisiones (spec-template §5) O justificación por-evidencia por ítem.
+> `N/A` solo aceptable en tareas 100% docs sin decisiones técnicas.
+
+| # | Decisión | Opciones (+tradeoff) | Default recomendado | Resuelto |
+|---|----------|----------------------|--------------------|----------|
+| 1 | [decisión técnica abierta] | A (tradeoff) / B (tradeoff) | A | ✅ pregunta / ✅ decidido-por-evidencia (ref: archivo:línea) |
 
 ## Invariantes de dominio (handoff — MUST)
 

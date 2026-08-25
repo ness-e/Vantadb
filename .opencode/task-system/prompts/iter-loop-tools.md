@@ -68,8 +68,10 @@ skill progreso
    Validá que el enfoque es correcto antes de comprometerte.
 
 5b. **Gate D** (`question-gates.md`): si blast radius >10 archivos / hot path /
-    API pública / contrato ambiguo / feature-add sin spec → `question` al usuario
-    (GO / ajustar / dividir) ANTES de escribir el task file.
+    API pública / contrato ambiguo / feature-add sin spec /
+    **el plan agrega símbolos públicos nuevos (`pub fn`, tool, endpoint,
+    método de binding — aunque el tipo detectado diga fix/wrapper/refactor)** →
+    `question` al usuario (GO / ajustar / dividir) ANTES de escribir el task file.
 
 6. Llamá `campaign_update_task_state` (MCP) con `"in-progress"` y recitation
    que apunte al próximo step.

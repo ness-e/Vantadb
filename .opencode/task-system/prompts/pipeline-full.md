@@ -49,9 +49,13 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 **Discovery:**
 - **Gate D (question-gates.md):** tras zero-code planning y ANTES de escribir el
   task file — si blast radius >10 archivos/hot path/API pública, contrato ambiguo,
+  **el plan de solución agrega símbolos públicos nuevos (`pub fn`, tool, endpoint,
+  método de binding — aunque el tipo auto-detectado diga fix/wrapper)**,
   o feature-add sin spec → `question` al usuario (GO / ajustar / dividir).
 - **Gate mecánico spec-first:** task file de feature-add/lógica nueva SIN la sección
-  `## Spec` llena (plantilla: prompts/spec-template.md) → NO se puede entrar a ACT.
+  `## Spec` LLENA según la definición canónica (question-gates.md §"Contenido
+  válido de `## Spec`": tabla de decisiones O justificación por evidencia por ítem;
+  `N/A`/vacía/"contrato mecánico" NO cuentan) → NO se puede entrar a ACT.
   Volvé a DISCOVERY y generá la spec + questions primero.
 - Llamá `campaign_detect_task_type` (MCP) con `Archivos clave` → type, skills, checks
 - Cargá skills devueltos con `skill <nombre>`
@@ -225,6 +229,7 @@ COMMIT_HASH: <hash o "ninguno">
 ARCHIVOS: <paths tocados>
 VERIFY_CONTRATO: <pasa | no-corrido | falla>
 BLOQUEO: <ninguno | qué impidió terminar>
+GATES_EVALUADOS: P:<no|disparado> D:<no|disparado> V:<no|disparado> C:<no|disparado> | <motivo ≤6 palabras por gate>
 ```
 
 - `✅ COMPLETO`: todos los steps ✅ + `campaign_verify_cmd` del contrato pasa + commit hecho.
@@ -234,6 +239,8 @@ BLOQUEO: <ninguno | qué impidió terminar>
   devolver INCOMPLETO — es lo que permite reanudar sin perder nada.
 - `❌ FALLIDO`: agotaste el retry ladder interno (4 escalones) en VERIFY.
 - `⚠️ SIN-FORMATO`: no devolviste el bloque — el orquestador va a re-invocarte pidiéndolo.
+  También cuenta como SIN-FORMATO un bloque sin `GATES_EVALUADOS` o con gates
+  no-disparados sin motivo (validación en question-gates.md §"Registro obligatorio").
 - Mapeo con la recitation canónica (§ 3 / §12): `✅ COMPLETO` ↔ `result: OK`,
   `🟡 INCOMPLETO` ↔ `result: PARTIAL`, `❌ FALLIDO` ↔ `result: FAILED`,
   `⚠️ SIN-FORMATO` = bloque no parseable (ningún status §12 válido).
