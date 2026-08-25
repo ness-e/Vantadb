@@ -32,9 +32,9 @@ use vector::{VantaVector, VantaVectorIter};
 use crate::convert::{
     bulk_import_report_to_pydict, capabilities_to_pydict, check_lens, export_report_to_pydict,
     extract_vector, format_query_result, import_report_to_pydict, map_vanta_error, node_to_pydict,
-    operational_metrics_to_pydict, py_any_to_value, py_dict_to_metadata, rebuild_report_to_pydict,
-    runtime_profile_label, search_explanation_to_pydict, text_index_audit_report_to_pydict,
-    text_index_repair_report_to_pydict,
+    operational_metrics_to_pydict, py_any_to_value, py_dict_to_filter_ops, py_dict_to_metadata,
+    rebuild_report_to_pydict, runtime_profile_label, search_explanation_to_pydict,
+    text_index_audit_report_to_pydict, text_index_repair_report_to_pydict,
 };
 
 /// Cap on `top_k`/`k` for all search entry points (ERR-022). Prevents absurd
@@ -285,6 +285,9 @@ forward_to_db!(MemoryClient {
     put_batch_raw,
     get_memory,
     delete_memory,
+    delete_by_filter,
+    count,
+    similar_to_key,
     list_memory,
     search_memory,
     search,
@@ -962,6 +965,154 @@ impl VantaDB {
         let namespace = namespace.to_string();
         let key = key.to_string();
         py.detach(move || engine.delete(&namespace, &key).map_err(map_vanta_error))
+    }
+
+    /// Delete all memory records in a namespace matching a metadata filter.
+    ///
+    /// The filter follows the canonical cross-SDK operator format: a flat value
+    /// is an implicit ``$eq`` (``{"lang": "en"}``), and a nested dict selects an
+    /// operator per key (``{"score": {"$gte": 50}}``). Supported operators:
+    /// ``$eq``, ``$neq``, ``$gt``, ``$gte``, ``$lt``, ``$lte``.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during deletion.
+    ///
+    /// Args:
+    ///     namespace: Namespace to delete within.
+    ///     filters: Metadata filter dict. Must not be empty — the core rejects
+    ///         an empty filter to prevent accidental full-namespace deletion.
+    ///
+    /// Returns:
+    ///     int: Number of records deleted.
+    ///
+    /// Raises:
+    ///     ValueError: If ``filters`` is empty or contains an unknown operator.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> deleted = db.delete_by_filter("agent/main", {"category": "draft"})
+    ///     >>> deleted
+    ///     2
+    ///     ```
+    fn delete_by_filter(
+        &self,
+        py: Python,
+        namespace: &str,
+        filters: &Bound<'_, PyDict>,
+    ) -> PyResult<u64> {
+        let _g = enter(&self.op_gate)?;
+        let filter_ops = py_dict_to_filter_ops(Some(filters))?;
+        let engine = self.engine.clone();
+        let namespace = namespace.to_string();
+        py.detach(move || {
+            engine
+                .delete_by_filter(&namespace, filter_ops)
+                .map_err(map_vanta_error)
+        })
+    }
+
+    /// Count memory records in a namespace, optionally filtered by metadata.
+    ///
+    /// The filter follows the canonical cross-SDK operator format (same as
+    /// ``delete_by_filter``): flat value → implicit ``$eq``, or a nested dict of
+    /// ``$op`` keys. Pass ``None`` (or omit) to count all records.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during the count.
+    ///
+    /// Args:
+    ///     namespace: Namespace to count within.
+    ///     filters: Optional metadata filter dict (default ``None`` = count all).
+    ///
+    /// Returns:
+    ///     int: Number of matching records.
+    ///
+    /// Raises:
+    ///     ValueError: If ``filters`` contains an unknown operator.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> db.count("agent/main")
+    ///     3
+    ///     >>> db.count("agent/main", {"category": "task"})
+    ///     2
+    ///     ```
+    #[pyo3(signature = (namespace, filters=None))]
+    fn count(
+        &self,
+        py: Python,
+        namespace: &str,
+        filters: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<u64> {
+        let _g = enter(&self.op_gate)?;
+        let filter_ops = py_dict_to_filter_ops(filters)?;
+        let filter_ops = if filter_ops.is_empty() {
+            None
+        } else {
+            Some(filter_ops)
+        };
+        let engine = self.engine.clone();
+        let namespace = namespace.to_string();
+        py.detach(move || {
+            engine
+                .count(&namespace, filter_ops)
+                .map_err(map_vanta_error)
+        })
+    }
+
+    /// Search namespace-scoped memory records by vector similarity from an
+    /// existing key, without supplying a query vector.
+    ///
+    /// Resolves the record at ``key``, reads its embedding, and runs a vector
+    /// search. The source record itself is excluded from the results.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during HNSW traversal.
+    ///
+    /// Args:
+    ///     namespace: Namespace to search within.
+    ///     key: Key of the source record whose vector seeds the search.
+    ///     top_k: Maximum number of hits to return (default 10).
+    ///
+    /// Returns:
+    ///     list[VantaSearchHit]: Hits ordered by similarity, each exposing
+    ///     ``key``, ``payload``, ``metadata``, ``vector``, ``score``, and
+    ///     ``node_id`` properties.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the source ``key`` does not exist or has no vector
+    ///         (``NoVectorForKey``), or for any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> hits = db.similar_to_key("agent/main", "task-1", top_k=5)
+    ///     >>> hits[0].key
+    ///     'task-2'
+    ///     ```
+    #[pyo3(signature = (namespace, key, top_k=10))]
+    fn similar_to_key(
+        &self,
+        py: Python,
+        namespace: &str,
+        key: &str,
+        top_k: usize,
+    ) -> PyResult<Vec<VantaPySearchHit>> {
+        let _g = enter(&self.op_gate)?;
+        let engine = self.engine.clone();
+        let namespace = namespace.to_string();
+        let key = key.to_string();
+        let hits = py.detach(move || {
+            engine
+                .similar_to_key(&namespace, &key, top_k.min(MAX_K))
+                .map_err(map_vanta_error)
+        })?;
+        hits.into_iter()
+            .map(|hit| {
+                Ok(VantaPySearchHit {
+                    inner: hit.record,
+                    score: hit.score,
+                })
+            })
+            .collect()
     }
 
     /// List namespace-scoped persistent memory records.

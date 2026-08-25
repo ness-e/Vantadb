@@ -24,7 +24,7 @@
 | `supersede(namespace, old_key, new_key)` | ❌ | ❌ | ✅ |
 | Node CRUD by explicit id (`insert_node`/`get_node`/`delete_node`) | ✅ | ✅ | ⚠️ via `insert`/`get`/`delete` (`id: u128`) |
 | `graph_page_rank` / `graph_degree_centrality` | ❌ (has `graph_degree`) | ❌ (has `graphDegree`) | ✅ both |
-| `delete_by_filter` / `search_vector` / `audit_text_index_deep` / `export_namespace_filtered` / `import_records` | ✅ | ✅ | ❌ |
+| `delete_by_filter` / `search_vector` / `audit_text_index_deep` / `export_namespace_filtered` / `import_records` | ✅ | ✅ | ⚠️ `delete_by_filter` ✅; `search_vector` / `audit_text_index_deep` / `export_namespace_filtered` / `import_records` ❌ |
 | `bulk_import` / `bulk_import_bytes` | ✅ | ❌ | ✅ |
 | `put_batch_raw` / `search_batch` / `search_batch_requests` / `hardware_profile` | ❌ | ❌ | ✅ |
 | `recover_archived_nodes(summary_id)` | ❌ | ❌ | ✅ (wiki) |
@@ -152,6 +152,9 @@
 | `put_batch_raw` | memory | ✅ | Python-only |
 | `get_memory` | memory | ✅ | |
 | `delete_memory` | memory | ✅ | |
+| `delete_by_filter` | memory | ✅ | operator filter_ops (flat → `$eq`, or `{"$op": value}`) |
+| `count` | memory | ✅ | optional operator filter |
+| `similar_to_key` | memory | ✅ | vector search from an existing key |
 | `list_memory` | memory | ✅ | |
 | `search_memory` | memory | ✅ | hybrid |
 | `search` | memory | ✅ | pure vector ANN |
@@ -181,11 +184,11 @@
 | `recover_archived_nodes` | wiki | ✅ | summary-node shadow archive recovery |
 | `close` | system | ✅ | lifecycle |
 
-**Totals:** memory 15 · graph 10 · wiki 1 · system 18 = 44 pyclass methods ✔ (+ module-level `connect()` → system, 45 total surface)
+**Totals:** memory 18 · graph 10 · wiki 1 · system 18 = 47 pyclass methods ✔ (+ module-level `connect()` → system, 48 total surface)
 
 > **Naming hazard reminder:** Python `insert` is classified as graph (node-level). The name collides with memory-record insertion semantics in other ecosystems — sub-client tests must use the real signatures above.
 
-**Not exposed in Python (wasm/TS-only), deferred per D42:** `delete_by_filter`, `search_vector`, `audit_text_index_deep`, `export_namespace_filtered`, `import_records`.
+**Not exposed in Python (wasm/TS-only), deferred per D42:** `search_vector`, `audit_text_index_deep`, `export_namespace_filtered`, `import_records`.
 
 ## Core-Only Capabilities (D43 — deferred, NOT part of this campaign)
 

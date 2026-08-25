@@ -12,10 +12,11 @@ use std::cell::RefCell;
 use std::num::NonZeroUsize;
 use vantadb::graph::TraversalDirection;
 use vantadb::sdk::{
-    VantaBm25TermContribution, VantaCapabilities, VantaExportReport, VantaHybridFusionReport,
-    VantaImportReport, VantaIndexRebuildReport, VantaNodeRecord, VantaOperationalMetrics,
-    VantaQueryResult, VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit,
-    VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
+    VantaBm25TermContribution, VantaCapabilities, VantaExportReport, VantaFilterOp,
+    VantaHybridFusionReport, VantaImportReport, VantaIndexRebuildReport, VantaMemoryFilter,
+    VantaMemoryFilterItem, VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult,
+    VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit, VantaStorageTier,
+    VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
 };
 
 use crate::vector::VantaVector;
@@ -640,6 +641,62 @@ pub(crate) fn py_dict_to_metadata(
         }
     }
     Ok(metadata)
+}
+
+/// Build a core `VantaMemoryFilter` (operator filter_ops) from a Python dict,
+/// following the canonical cross-SDK wire format used by CLI/MCP/TS:
+///
+/// - Flat value → implicit `$eq`: `{"field": "value"}`
+/// - Operator object → one item per `$op` key: `{"field": {"$eq": v, "$gte": v2}}`
+///
+/// Supported operators: `$eq`, `$neq`, `$gt`, `$gte`, `$lt`, `$lte`.
+/// An unknown operator raises `ValueError` (same error contract as the CLI/MCP
+/// channels — never silently ignored). Values are converted with
+/// `py_any_to_value` (str/int/float/bool/datetime/list/None).
+pub(crate) fn py_dict_to_filter_ops(
+    filters: Option<&Bound<'_, PyDict>>,
+) -> PyResult<VantaMemoryFilter> {
+    let mut ops: VantaMemoryFilter = Vec::new();
+    let Some(dict) = filters else {
+        return Ok(ops);
+    };
+
+    for (field, spec) in dict.iter() {
+        let field: String = field.extract()?;
+        // Flat value → implicit equality, matching the CLI/MCP flat form.
+        if spec.cast::<PyDict>().is_err() {
+            ops.push(VantaMemoryFilterItem {
+                field: field.clone(),
+                op: VantaFilterOp::Eq,
+                value: py_any_to_value(&spec)?,
+            });
+            continue;
+        }
+
+        let op_dict = spec.cast::<PyDict>()?;
+        for (op_str, val) in op_dict.iter() {
+            let op: &str = op_str.extract()?;
+            let op = match op {
+                "$eq" => VantaFilterOp::Eq,
+                "$neq" => VantaFilterOp::Neq,
+                "$gt" => VantaFilterOp::Gt,
+                "$gte" => VantaFilterOp::Gte,
+                "$lt" => VantaFilterOp::Lt,
+                "$lte" => VantaFilterOp::Lte,
+                other => {
+                    return Err(PyValueError::new_err(format!(
+                        "Unknown filter operator '{other}' for field '{field}'. Supported: $eq, $neq, $gt, $gte, $lt, $lte"
+                    )))
+                }
+            };
+            ops.push(VantaMemoryFilterItem {
+                field: field.clone(),
+                op,
+                value: py_any_to_value(&val)?,
+            });
+        }
+    }
+    Ok(ops)
 }
 
 /// Map a VantaError to the appropriate Python exception type for ergonomic

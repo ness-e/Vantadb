@@ -100,6 +100,37 @@ def test_memory_pure_ann_search_identity(db):
     assert res_sub == res_flat
 
 
+def test_memory_count_identity(db):
+    db.memory.put("ns", "a", "alpha", metadata={"category": "task"})
+    db.memory.put("ns", "b", "beta", metadata={"category": "note"})
+    assert db.memory.count("ns") == db.count("ns") == 2
+    assert db.memory.count("ns", {"category": "task"}) == db.count(
+        "ns", {"category": "task"}
+    ) == 1
+
+
+def test_memory_delete_by_filter_identity(db):
+    # Destructive op: each path must delete the same number on an identical seed.
+    db.memory.put("ns", "a", "alpha", metadata={"category": "task"})
+    db.memory.put("ns", "b", "beta", metadata={"category": "task"})
+    db.memory.put("ns", "c", "gamma", metadata={"category": "note"})
+    assert db.memory.delete_by_filter("ns", {"category": "task"}) == 2
+    db.memory.put("ns", "d", "delta", metadata={"category": "task"})
+    db.memory.put("ns", "e", "epsilon", metadata={"category": "task"})
+    assert db.delete_by_filter("ns", {"category": "task"}) == 2
+    assert db.memory.count("ns") == 1
+
+
+def test_memory_similar_to_key_identity(db):
+    db.memory.put("ns", "k0", "source", vector=[1.0, 0.0])
+    db.memory.put("ns", "k2", "similar", vector=[0.9, 0.0])
+    db.memory.put("ns", "k1", "opposite", vector=[-1.0, 0.0])
+    flat = [(h.key, h.score) for h in db.similar_to_key("ns", "k0", top_k=3)]
+    sub = [(h.key, h.score) for h in db.memory.similar_to_key("ns", "k0", top_k=3)]
+    assert sub == flat
+    assert [k for k, _ in flat] == ["k2", "k1"]
+
+
 # ---------------------------------------------------------------------------
 # graph sub-client (node-level insert/get/delete per naming hazard)
 # ---------------------------------------------------------------------------

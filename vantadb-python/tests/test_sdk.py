@@ -333,6 +333,58 @@ class TestPersistentMemoryApi:
         assert db.delete_memory("agent/main", "delete-me") is True, "delete_memory should return True"
         assert db.get_memory("agent/main", "delete-me") is None, "deleted memory should not be retrievable"
 
+    def test_count_all_and_filtered(self):
+        """count() should return total and operator-filtered record counts."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("agent/main", "a", "alpha", metadata={"category": "task", "score": 10})
+        db.put("agent/main", "b", "beta", metadata={"category": "task", "score": 50})
+        db.put("agent/main", "c", "gamma", metadata={"category": "note", "score": 5})
+
+        assert db.count("agent/main") == 3, f"expected 3 total, got {db.count('agent/main')}"
+        # Flat value → implicit $eq
+        assert db.count("agent/main", {"category": "task"}) == 2, (
+            f"expected 2 task, got {db.count('agent/main', {'category': 'task'})}"
+        )
+        # Operator object
+        assert db.count("agent/main", {"score": {"$gte": 20}}) == 1, (
+            f"expected 1 score>=20, got {db.count('agent/main', {'score': {'$gte': 20}})}"
+        )
+        # Non-matching filter → 0
+        assert db.count("agent/main", {"category": "missing"}) == 0, "expected 0 for non-matching filter"
+
+    def test_delete_by_filter(self):
+        """delete_by_filter() should remove only records matching the filter."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("agent/main", "a", "alpha", metadata={"category": "task"})
+        db.put("agent/main", "b", "beta", metadata={"category": "task"})
+        db.put("agent/main", "c", "gamma", metadata={"category": "note"})
+
+        deleted = db.delete_by_filter("agent/main", {"category": "task"})
+        assert deleted == 2, f"expected 2 deleted, got {deleted}"
+        assert db.count("agent/main") == 1, f"expected 1 remaining, got {db.count('agent/main')}"
+        assert db.get_memory("agent/main", "c") is not None, "note record should remain"
+
+    def test_delete_by_filter_empty_rejected(self):
+        """delete_by_filter() must reject an empty filter to prevent full-namespace deletion."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("agent/main", "a", "alpha", metadata={"category": "task"})
+        with pytest.raises(Exception):
+            db.delete_by_filter("agent/main", {})
+
+    def test_similar_to_key(self):
+        """similar_to_key() should return similar records excluding the source key."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("agent/main", "k0", "source", vector=[1.0, 0.0, 0.0])
+        db.put("agent/main", "k2", "similar", vector=[0.9, 0.0, 0.0])
+        db.put("agent/main", "k1", "opposite", vector=[-1.0, 0.0, 0.0])
+
+        hits = db.similar_to_key("agent/main", "k0", top_k=3)
+        keys = [hit.key for hit in hits]
+        assert "k0" not in keys, f"source key should be excluded, got {keys}"
+        assert len(keys) == 2, f"expected 2 hits, got {keys}"
+        assert keys[0] == "k2", f"most similar should be k2, got {keys}"
+        assert keys[1] == "k1", f"least similar should be k1, got {keys}"
+
     def test_search_batch_requests(self):
         """Full SearchRequest batch search should match sequential search_memory."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)

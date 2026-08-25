@@ -241,6 +241,70 @@ db.explain_memory_search(
 ```
 Returns a detailed breakdown of how a memory search arrives at its results.
 
+#### `count()`
+```python
+db.count(
+    namespace: str,
+    filters: Optional[dict] = None,
+) -> int
+```
+Count memory records in a namespace, optionally filtered by metadata. The
+`filters` dict follows the canonical cross-SDK operator format: a flat value is
+an implicit `$eq` (`{"category": "task"}`), and a nested dict selects an
+operator per key (`{"score": {"$gte": 50}}`). Supported operators: `$eq`,
+`$neq`, `$gt`, `$gte`, `$lt`, `$lte`. Omit `filters` (or pass `None`) to count
+all records in the namespace. GIL-released.
+
+```python
+db.put("ns", "a", "alpha", metadata={"category": "task", "score": 10})
+db.put("ns", "b", "beta", metadata={"category": "task", "score": 50})
+db.put("ns", "c", "gamma", metadata={"category": "note", "score": 5})
+
+db.count("ns")                          # 3
+db.count("ns", {"category": "task"})    # 2
+db.count("ns", {"score": {"$gte": 20}}) # 1
+```
+
+#### `delete_by_filter()`
+```python
+db.delete_by_filter(
+    namespace: str,
+    filters: dict,
+) -> int
+```
+Delete all memory records in a namespace matching a metadata filter. The
+`filters` dict uses the same operator format as `count()` (flat value →
+implicit `$eq`, or `{"$op": value}` per key). Returns the number of records
+deleted. **The filter must not be empty** — the core rejects an empty filter
+with a `RuntimeError` to prevent accidental full-namespace deletion. Use
+`delete_memory()` to remove individual records. GIL-released.
+
+```python
+deleted = db.delete_by_filter("ns", {"category": "draft"})
+print(f"Removed {deleted} draft records")
+```
+
+#### `similar_to_key()`
+```python
+db.similar_to_key(
+    namespace: str,
+    key: str,
+    top_k: int = 10,
+) -> List[VantaSearchHit]
+```
+Search namespace-scoped memory records by vector similarity to an existing
+key, without supplying a query vector. Resolves the record at `key`, reads its
+embedding, and runs a vector search. The source record itself is excluded from
+the results. GIL-released.
+
+```python
+hits = db.similar_to_key("agent/main", "task-1", top_k=5)
+for hit in hits:
+    print(hit.key, hit.score)
+```
+
+Raises `RuntimeError` if the source `key` does not exist or has no vector.
+
 ### Node / Graph API (Low-Level)
 
 #### `insert()`
@@ -855,7 +919,7 @@ async with AsyncVantaDB("./my_brain") as db:
     count = await db.purge_expired()
 ```
 
-All VantaDB methods are available on `AsyncVantaDB` with `async/await`, including `put()`, `put_batch()`, `insert()`, `delete_memory()`, `get_memory()`, `list_memory()`, `search_memory()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, and `explain_memory_search()`.
+All VantaDB methods are available on `AsyncVantaDB` with `async/await`, including `put()`, `put_batch()`, `insert()`, `delete_memory()`, `get_memory()`, `list_memory()`, `search_memory()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, `explain_memory_search()`, `count()`, `delete_by_filter()`, and `similar_to_key()`.
 
 ## ID limits
 
@@ -887,9 +951,7 @@ All methods raise `RuntimeError` with a descriptive message on failure.
 
 The following methods are planned but **not yet available in the Python SDK** — tracked for future release:
 
-- `delete_by_filter()` — Delete all records matching metadata filters in a namespace.
-- `similar_to_key()` — Search by vector similarity from an existing key.
-- `count()` — Count records, optionally filtered by namespace and metadata.
+*(none currently — `delete_by_filter()`, `similar_to_key()`, and `count()` shipped in 0.5.0.)*
 
 ## Development
 

@@ -180,6 +180,17 @@ class AsyncVantaDB:
     async def delete_memory(self, namespace: str, key: str) -> bool:
         return await self._run(self._sync.delete_memory, namespace, key)
 
+    async def delete_by_filter(self, namespace: str, filters: dict) -> int:
+        return await self._run(self._sync.delete_by_filter, namespace, filters)
+
+    async def count(self, namespace: str, filters: dict | None = None) -> int:
+        return await self._run(self._sync.count, namespace, filters)
+
+    async def similar_to_key(
+        self, namespace: str, key: str, top_k: int = 10
+    ) -> list:
+        return await self._run(self._sync.similar_to_key, namespace, key, top_k)
+
     async def compact_wal(self):
         return await self._run(self._sync.compact_wal)
 
