@@ -113,9 +113,9 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 | `scene_*` | 3 | `scenes.rs` |
 | `thread_*` | 6 | `threads.rs` |
 
-## Core Tools (36)
+## Core Tools (42)
 
-### Memory CRUD (7)
+### Memory CRUD (9)
 
 | Tool | Description |
 |------|-------------|
@@ -126,6 +126,8 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 | `memory_delete_by_filter` | Batch-deletes every record in a namespace whose metadata matches the given filters (AND semantics). |
 | `memory_list` | Lists memory records in a namespace with optional pagination and metadata filters. |
 | `memory_list_namespaces` | Lists all available namespaces in the database. |
+| `memory_versions` | Lists every retained version of a memory record, ascending (v1..vN); empty if the key does not exist or has no history. Expired versions are included as historical data until purged. |
+| `memory_supersede` | Marks an existing record as superseded by another existing record (durable, recoverable soft-delete). Errors if either key is missing, if old_key equals new_key, or if the old record is already superseded. |
 
 ### Search & Query (5)
 
@@ -137,7 +139,7 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 | `search_multi` | Run one search request across multiple namespaces and merge results (sorted by score, capped at `top_k` globally). |
 | `query_iql` | Executes an IQL statement against typed graph nodes and memory namespaces (each namespace is queryable as a table named by its sanitized form: `/` and `-` → `_`, leading digit/`.` gets a `_` prefix). LISP not supported. |
 
-### Graph (6)
+### Graph (7)
 
 | Tool | Description |
 |------|-------------|
@@ -147,13 +149,16 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 | `graph_traverse` | Multi-hop BFS/DFS traversal from start nodes with optional edge-label and temporal filters. |
 | `graph_topological_sort` | Topological sort of the subgraph reachable from the given roots; errors on cycles. |
 | `graph_is_dag` | Returns whether the subgraph reachable from the given roots is a directed acyclic graph. |
+| `remove_edge` | Removes all edges between two nodes with the given label (both directions). Node ids are u128 decimal strings (JSON numbers lose precision above 2^53). |
 
-### Context & Axioms (2)
+### Context & Axioms (4)
 
 | Tool | Description |
 |------|-------------|
 | `inject_context` | Injects external state or context connected to a specific thread for subsequent consolidation. |
 | `read_axioms` | Returns the active Devil's Advocate Axioms (Iron Axioms) in the database. |
+| `write_axiom` | Registers or updates an agent axiom (invariant rule) in the reserved `_axioms` namespace; returns `{id, name, description}`. |
+| `delete_axiom` | Removes an agent axiom by name from the `_axioms` namespace; returns `{deleted}`. |
 
 ### Collections (3)
 
@@ -163,7 +168,7 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 | `collection_stats` | Statistics for one namespace/collection: count, byte size, index info, creation time. |
 | `collection_delete` | Deletes an entire namespace/collection and all its records (requires `confirm: "yes"`). |
 
-### Maintenance, Indexes & Snapshots (9)
+### Maintenance, Indexes & Snapshots (10)
 
 | Tool | Description |
 |------|-------------|
@@ -176,6 +181,7 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 | `list_snapshots` | Lists physical snapshot names under `<data_dir>/snapshots`. |
 | `purge_expired` | Scans all records and physically deletes those whose TTL expiry has passed. |
 | `rehydrate` | Recovers shadow-archived nodes that belonged to a summary node from TombstoneStorage. |
+| `vacuum` | Purges tombstoned nodes from the HNSW index; returns a report with scanned_nodes, removed_nodes, reclaimed_bytes, duration_ms, and success. |
 
 ### Introspection & Utility (2)
 

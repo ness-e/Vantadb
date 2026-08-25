@@ -327,12 +327,108 @@ fn test_mcp_tools_list() {
         names.contains(&"read_axioms"),
         "tools should include read_axioms"
     );
+    assert!(
+        names.contains(&"write_axiom"),
+        "tools should include write_axiom"
+    );
+    assert!(
+        names.contains(&"delete_axiom"),
+        "tools should include delete_axiom"
+    );
     for maintenance in ["purge_expired", "compact_wal", "flush", "compact_layout"] {
         assert!(
             names.contains(&maintenance),
             "tools should include {maintenance}"
         );
     }
+}
+
+#[test]
+fn test_mcp_axiom_write_delete_round_trip_and_iron_intact() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    // Helper to parse the text content of a tool result as a JSON value.
+    fn text_of(res: Result<Value, Value>) -> Value {
+        let val = res.expect("tool call should succeed");
+        let text = val["content"][0]["text"].as_str().expect("text content");
+        serde_json::from_str(text).expect("parse JSON")
+    }
+
+    // Baseline: the 4 Iron Axioms, ids 1-4.
+    let read = Some(json!({"name": "read_axioms", "arguments": {}}));
+    let base = text_of(handle_tools_call(&read, &executor, &storage, &cfg));
+    let base_arr = base.as_array().unwrap();
+    assert_eq!(base_arr.len(), 4, "baseline has 4 Iron Axioms");
+    assert_eq!(base_arr[0]["id"], 1);
+    assert_eq!(base_arr[0]["name"], "Topological Axiom");
+
+    // write_axiom — upsert a new agent axiom.
+    let write = Some(json!({
+        "name": "write_axiom",
+        "arguments": {
+            "name": "NoMutation",
+            "description": "Memory records must not be mutated in place."
+        }
+    }));
+    let written = text_of(handle_tools_call(&write, &executor, &storage, &cfg));
+    assert_eq!(written["name"], "NoMutation");
+    assert_eq!(
+        written["description"],
+        "Memory records must not be mutated in place."
+    );
+    let new_id = written["id"].as_u64().expect("numeric id");
+    assert!(
+        new_id > 4,
+        "agent axiom id ({new_id}) is above the Iron Axioms (1-4)"
+    );
+
+    // read_axioms now includes the agent axiom AND the Iron Axioms intact.
+    let after = text_of(handle_tools_call(&read, &executor, &storage, &cfg));
+    let arr = after.as_array().unwrap();
+    assert_eq!(arr.len(), 5);
+    let ids: Vec<u64> = arr.iter().filter_map(|a| a["id"].as_u64()).collect();
+    for iron in 1..=4u64 {
+        assert!(ids.contains(&iron), "Iron Axiom id {iron} is intact");
+    }
+    assert!(arr.iter().any(|a| a["name"] == "NoMutation"));
+
+    // delete_axiom — removes only the agent axiom.
+    let del = Some(json!({"name": "delete_axiom", "arguments": {"name": "NoMutation"}}));
+    let deleted = text_of(handle_tools_call(&del, &executor, &storage, &cfg));
+    assert_eq!(deleted["deleted"], true);
+
+    // Back to baseline: only the 4 Iron Axioms remain.
+    let final_v = text_of(handle_tools_call(&read, &executor, &storage, &cfg));
+    assert_eq!(final_v.as_array().unwrap().len(), 4);
+
+    // Deleting an unknown axiom reports deleted:false without error.
+    let del_missing = Some(json!({"name": "delete_axiom", "arguments": {"name": "DoesNotExist"}}));
+    let missing = text_of(handle_tools_call(&del_missing, &executor, &storage, &cfg));
+    assert_eq!(missing["deleted"], false);
+}
+
+#[test]
+fn test_mcp_axiom_write_validation_errors() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    // Empty name → JSON-RPC Err (invalid_params).
+    let bad_name =
+        Some(json!({"name": "write_axiom", "arguments": {"name": "", "description": "x"}}));
+    let res = handle_tools_call(&bad_name, &executor, &storage, &cfg);
+    assert!(res.is_err(), "empty axiom name should be rejected");
+
+    // Empty/whitespace-only description → JSON-RPC Err.
+    let bad_desc =
+        Some(json!({"name": "write_axiom", "arguments": {"name": "A", "description": "   "}}));
+    let res = handle_tools_call(&bad_desc, &executor, &storage, &cfg);
+    assert!(
+        res.is_err(),
+        "whitespace-only description should be rejected"
+    );
 }
 
 #[test]

@@ -331,6 +331,29 @@ pub fn handle_tools_list() -> Result<Value, Value> {
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
+            "name": "write_axiom",
+            "description": "MCP-33: registers or updates an agent axiom (an invariant rule). Axioms live in the reserved '_axioms' namespace; the built-in Iron Axioms are read-only and never affected. Upsert by name; the returned id is auto-assigned (> 4).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "description": "Axiom name (unique key in the _axioms namespace)" },
+                    "description": { "type": "string", "description": "Axiom rule description" }
+                },
+                "required": ["name", "description"]
+            }
+        },
+        {
+            "name": "delete_axiom",
+            "description": "MCP-33: removes an agent axiom by name from the reserved '_axioms' namespace. The built-in Iron Axioms cannot be deleted.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "description": "Axiom name to delete" }
+                },
+                "required": ["name"]
+            }
+        },
+        {
             "name": "collection_stats",
             "description": "Returns statistics for a namespace/collection including record count, byte size, vector index info, and creation time.",
             "inputSchema": {
@@ -1095,6 +1118,62 @@ pub fn handle_tools_call(
         }
 
         "read_axioms" => Ok(text_content(serialize_content(&resolve_axioms(storage)))),
+
+        // MCP-33: agent-managed axioms as records in the reserved `_axioms`
+        // namespace. Iron Axioms (hardcoded, ids 1-4) are never written nor
+        // deleted here; resolve_axioms merges them on read.
+        "write_axiom" => {
+            let name = args["name"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'name'").to_json())?;
+            let description = args["description"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'description'").to_json())?;
+            validate_identifier(name, "name", config.max_key_length).map_err(|e| e.to_json())?;
+            validate_payload(description, config.max_payload_length).map_err(|e| e.to_json())?;
+            if description.trim().is_empty() {
+                return Err(McpError::invalid_params("'description' must not be empty").to_json());
+            }
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            // Auto-assign an id above the Iron Axioms (1-4) so agent axioms
+            // never collide with the built-in set.
+            let next_id = resolve_axioms(storage)
+                .as_array()
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|a| a["id"].as_u64())
+                        .max()
+                        .unwrap_or(0)
+                        + 1
+                })
+                .unwrap_or(5);
+            let axiom = json!({"id": next_id, "name": name, "description": description});
+            let input = vantadb::sdk::VantaMemoryInput::new(
+                crate::axioms::AXIOMS_NAMESPACE,
+                name,
+                axiom.to_string(),
+            );
+            match embedded.put(input) {
+                Ok(_) => Ok(text_content(serialize_content(&axiom))),
+                Err(e) => Ok(error_content(format!("Write Axiom Error: {}", e))),
+            }
+        }
+
+        "delete_axiom" => {
+            let name = args["name"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'name'").to_json())?;
+            validate_identifier(name, "name", config.max_key_length).map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.delete(crate::axioms::AXIOMS_NAMESPACE, name) {
+                Ok(deleted) => Ok(text_content(serialize_content(
+                    &json!({"deleted": deleted}),
+                ))),
+                Err(e) => Ok(error_content(format!("Delete Axiom Error: {}", e))),
+            }
+        }
 
         "collection_stats" => {
             let namespace = args["namespace"]

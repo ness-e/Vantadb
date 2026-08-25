@@ -259,6 +259,16 @@ Notes:
 - Parameters: None
 - Returns: Active Devil's Advocate Axioms (Iron Axioms)
 
+**write_axiom** (MCP-33) - Register or update an agent axiom (an invariant rule)
+- Parameters: `name` (unique key in the `_axioms` namespace, required), `description` (required)
+- Returns: `{"id", "name", "description"}` — `id` is auto-assigned above the Iron Axioms (> 4)
+- Upsert by name. Axioms live in the reserved `_axioms` namespace; the built-in Iron Axioms are read-only and never affected.
+
+**delete_axiom** (MCP-33) - Remove an agent axiom by name
+- Parameters: `name`
+- Returns: `{"deleted": <bool>}` — `false` if the axiom does not exist
+- The built-in Iron Axioms cannot be deleted.
+
 **rehydrate** - Recover shadow-archived nodes that belonged to a summary node from TombstoneStorage
 - Parameters: `summary_id` (u128 as string)
 - Returns: `{"recovered_count", "summary_id", "rehydration_complete"}`
@@ -433,7 +443,8 @@ Rust test suite for sources). These are **documented behavior**, not bugs:
   - `FROM NODE#a,b` (multi-id) returns only the **first** id.
   - `FROM` a deleted node returns `[]` (empty list, no error).
 - **F8 — `get_node_neighbors`:** reports only **outgoing** edges whose target node is alive; dangling edges to missing/tombstoned targets are omitted.
-- **F9 — `read_axioms`:** returns 4 objects, each `{id, name, description}` (hardcoded Iron Axioms).
+- **F9 — `read_axioms`:** returns the 4 hardcoded Iron Axioms (ids 1-4, each `{id, name, description}`) plus any agent axioms stored in the reserved `_axioms` namespace (ids > 4), merged and sorted by id. The Iron Axioms are always present — `write_axiom`/`delete_axiom` never modify them.
+- **F12 — `write_axiom`/`delete_axiom`:** agent axioms are records in the reserved `_axioms` namespace (`key` = name, `payload` = JSON `{id, name, description}`). Writing an axiom adds it to `read_axioms` output without touching the Iron Axioms; deleting one removes only the agent axiom.
 - **F10 — `rehydrate`:** only recovers nodes that were shadow-archived by a prior summary consolidation. A single-pass session that never created a summary returns `recovered_count: 0` — the archived-node condition is not reachable with MCP tools alone.
 - **F11 — `memory_put` response fields:** the returned record includes extra fields beyond `namespace`/`key`/`payload`/`metadata` — `version`, `node_id`, `created_at_ms`, `updated_at_ms`, `expires_at_ms` (see `VantaMemoryRecord` in `references/api-reference.md`).
 
