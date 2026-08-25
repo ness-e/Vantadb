@@ -1,5 +1,5 @@
 use super::super::builder::VantaEmbedded;
-use super::{memory_record_from_node, now_ms};
+use super::{memory_record_from_node, memory_record_from_node_include_expired, now_ms};
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::{Result, VantaError};
 use crate::node::UnifiedNode;
@@ -122,7 +122,7 @@ impl VantaEmbedded {
         let mut namespaces = BTreeSet::new();
 
         for node in nodes {
-            if let Some(record) = memory_record_from_node(node) {
+            if let Some(record) = memory_record_from_node_include_expired(node) {
                 counts.record_count += 1;
                 counts.posting_entries += crate::text_index::posting_count(&record.payload);
                 counts.doc_stats_entries += 1;

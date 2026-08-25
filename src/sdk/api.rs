@@ -2012,6 +2012,40 @@ mod tests {
     }
 
     #[test]
+    fn test_purge_expired_after_reopen_with_indexed_payload() {
+        // FIND-31: an expired-but-not-yet-purged record keeps its term-stats in
+        // the text index until purge removes it as a unit. The text-index
+        // rebuild/reconcile path must include such records; otherwise the stats
+        // underflow ("text index df would go negative") when purge decrements.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path();
+
+        {
+            let db = VantaEmbedded::open(path).expect("open");
+            db.put(VantaMemoryInput {
+                namespace: "ns".into(),
+                key: "exp".into(),
+                payload: "hello world alpha beta".into(),
+                metadata: VantaMemoryMetadata::new(),
+                vector: Some(vec![1.0, 0.0, 0.0]),
+                sparse_vector: None,
+                ttl_ms: Some(1),
+            })
+            .expect("put with ttl");
+            db.flush().expect("flush");
+            db.close().expect("close");
+        }
+
+        let db = VantaEmbedded::open(path).expect("reopen");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        let purged = db
+            .purge_expired()
+            .expect("purge_expired after reopen must not fail");
+        assert_eq!(purged, 1);
+        db.close().expect("close");
+    }
+
+    #[test]
     fn test_add_edge_no_engine() {
         let e = make_embedded(false);
         let err = e.add_edge(1, 2, "label", None, None).unwrap_err();

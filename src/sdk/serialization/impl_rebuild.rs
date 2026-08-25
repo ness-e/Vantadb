@@ -2,7 +2,10 @@
 
 use super::super::builder::VantaEmbedded;
 use super::super::types::*;
-use super::{memory_record_from_node, now_ms, TextIndexCounts, DERIVED_INDEX_SCHEMA_VERSION};
+use super::{
+    memory_record_from_node, memory_record_from_node_include_expired, now_ms, TextIndexCounts,
+    DERIVED_INDEX_SCHEMA_VERSION,
+};
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::Result;
 use crate::storage::StorageEngine;
@@ -102,7 +105,7 @@ impl VantaEmbedded {
         );
 
         for node in engine.scan_nodes()? {
-            if let Some(record) = memory_record_from_node(&node) {
+            if let Some(record) = memory_record_from_node_include_expired(&node) {
                 counts.record_count += 1;
                 let terms = {
                     #[cfg(feature = "advanced-tokenizer")]
@@ -191,7 +194,7 @@ impl VantaEmbedded {
 
         for node in engine.scan_nodes()? {
             audit.records_scanned += 1;
-            if let Some(record) = memory_record_from_node(&node) {
+            if let Some(record) = memory_record_from_node_include_expired(&node) {
                 if matches!(namespace_filter, Some(namespace) if record.namespace != namespace) {
                     continue;
                 }
