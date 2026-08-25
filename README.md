@@ -90,7 +90,6 @@ vantadb = { git = "https://github.com/ness-e/Vantadb" }
 
 ## 5-Minute Quickstart
 
-<img src="assets/demo.gif" alt="VantaDB demo — pip install, CRUD, hybrid search">
 
 Initialize a persistent memory store, save structured records with vectors, and execute hybrid retrieval in pure Python:
 

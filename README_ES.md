@@ -89,7 +89,6 @@ vantadb = { git = "https://github.com/ness-e/Vantadb" }
 
 ## Quickstart en 5 minutos
 
-<img src="assets/demo.gif" alt="Demo de VantaDB — pip install, CRUD, búsqueda híbrida">
 
 Inicializa un almacén de memoria persistente, guarda registros estructurados con vectores y ejecuta una búsqueda híbrida en Python puro:
 
@@ -223,7 +222,8 @@ Debe entenderse VantaDB como: memoria durable, embedded-first, local-first, con 
 | :--- | :--- |
 | **Producción** | SDK/CLI embebido, CRUD/búsqueda de memoria, WAL/recuperación, namespaces, índices de metadatos, recuperación de vectores HNSW, BM25, Recuperación híbrida v1, filtrado de frases, rebuild/audit/repair, export/import JSONL |
 | **Envoltorio opcional** | Binario local `vantadb-server` alrededor del núcleo embebido |
-| **Experimental / no es MVP** | IQL/LISP/DQL, MCP, integración con LLM/Ollama, semánticas de gobierno y mantenimiento, recorrido de grafos más allá de las aristas locales almacenadas |
+| **Nuevo** | Servidor MCP para agentes de IA ([guía de configuración](docs/api/MCP.md)) |
+| **Experimental / no es MVP** | IQL/LISP/DQL, integración con LLM/Ollama, semánticas de gobierno y mantenimiento, recorrido de grafos más allá de las aristas locales almacenadas |
 | **Diferido** | Plataforma en la nube/empresa, HA/replicación, clúster distribuido, serie SQL/OLTP/warehouse/time, ranking avanzado/snippets/tokenization, RBAC, multi-tenencia |
 
 *VantaDB es un motor de memoria embebido, no una base de datos universal multimodelo ni una plataforma en la nube.*

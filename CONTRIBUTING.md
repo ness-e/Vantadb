@@ -158,6 +158,8 @@ for resilience testing. Fuzzing requires `cargo-fuzz`, a nightly toolchain, and 
 |------------------------|----------------------------------------------------------|
 | `fuzz_parser`          | LISP expression parser, query parser, statement parser   |
 | `fuzz_node_deserialize`| `UnifiedNode` and `WalRecord` bincode deserialization    |
+| `fuzz_wal`             | `WalHeader` parsing against arbitrary byte input          |
+| `fuzz_archive`         | archive/compaction segment parsing                        |
 
 ### Running a Fuzz Target
 
@@ -203,7 +205,7 @@ requires nightly and long wall-clock time.
 ## Workspace Structure
 
 ```text
-vantadb/          ← core library crate (src/)
+src/              ← core library crate (the root Cargo.toml IS the `vantadb` crate)
 vantadb-python/   ← PyO3 Python SDK
 fuzz/             ← cargo-fuzz targets (Linux nightly only, excluded from workspace)
 benches/          ← Criterion benchmarks

@@ -18,7 +18,7 @@
 ## Quick Start
 ### Python
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 db = vantadb.VantaDB("./memory")
 db.put(
@@ -37,22 +37,29 @@ results = db.search_memory(
 
 ### Rust
 ```rust
-use vantadb::VantaEmbedded;
+use vantadb::{VantaEmbedded, VantaMemoryInput};
 
-let db = VantaEmbedded::new("./memory");
-db.put("key1", &[0.1, 0.2, 0.3], None).await;
-let results = db.search(&[0.1, 0.2, 0.3], 5).await;
+let db = VantaEmbedded::open("./memory")?;
+db.put(VantaMemoryInput {
+    namespace: "default".into(),
+    key: "key1".into(),
+    payload: "hello world".into(),
+    metadata: Default::default(),
+    vector: Some(vec![0.1, 0.2, 0.3]),
+    ttl_ms: None,
+})?;
+let hits = db.search_vector(&[0.1, 0.2, 0.3], 5)?;
 ```
 
 ### CLI
 ```bash
-vanta-cli put --namespace default --key hello --vector "[0.1, 0.2, 0.3]"
-vanta-cli search --namespace default --query "[0.1, 0.2, 0.3]"
+vanta-cli put --namespace default --key hello --payload "hello world" --vector "[0.1, 0.2, 0.3]"
+vanta-cli search --namespace default --query-vector "[0.1, 0.2, 0.3]"
 ```
 
 ### MCP Server
 ```bash
-vanta-cli mcp  # Starts MCP server for AI agent integration
+vanta-cli server --mcp  # Starts the stdio MCP server for AI agent integration
 ```
 
 ## Features
@@ -65,19 +72,18 @@ vanta-cli mcp  # Starts MCP server for AI agent integration
 - SIMD distance kernels: AVX-512 + portable f32x8
 - MemoryGovernor: watermark-based memory eviction
 - 3 backends: Fjall (default), RocksDB (optional), InMemory
-- 9 SDKs: Python, TypeScript, Rust, WASM, MCP, REST, LangChain, LlamaIndex, DSPy
+- SDKs: Python (PyO3), TypeScript (Node via napi-rs + WASM for browsers), Rust core SDK, MCP server (stdio), REST HTTP API
+- Adapters in progress (integrations/, not yet on PyPI): LangChain, LlamaIndex, CrewAI, DSPy, Haystack, Mem0, Letta, OpenAI, Ollama, LiteLLM
 - CLI with 33+ commands and shell completions
 - OpenTelemetry integration (OTLP + Prometheus)
 - FilterBitset multi-tenant filtering
-- RBAC (enterprise crate)
+- RBAC auth middleware on the HTTP server
 - WASM/OPFS persistence with IndexedDB fallback
 
 ## Integration Ecosystem
 - Python SDK: pip install vantadb-py
-- TypeScript SDK: npm install vantadb
+- TypeScript SDK: npm install vantadb (Node) / @vantadb/wasm (browsers)
 - Rust SDK: cargo add vantadb
-- LangChain adapter: langchain-vantadb (coming to PyPI)
-- LlamaIndex adapter: llama-index-vector-stores-vantadb (coming to PyPI)
 
 ## Performance
 - HNSW M=32, ef_construct=400, ef_search=100
