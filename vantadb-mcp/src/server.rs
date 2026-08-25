@@ -284,6 +284,14 @@ pub(crate) async fn dispatch_request(
                 .await
                 .map_err(|_| McpError::internal_error("Semaphore closed").to_json())?;
 
+            // MOD-11 (H5): the timeout drops the CLIENT response, but tokio
+            // cannot cancel a `spawn_blocking` task mid-flight — the engine
+            // work keeps running on the blocking pool and holds its semaphore
+            // permit until it finishes. Cooperative cancellation would require
+            // threading a CancellationToken through every handler (invasive,
+            // regression risk), so this is a documented limitation: N hung
+            // operations can saturate the pool. Acceptable for the local
+            // stdio single-user server (see SKILL.md § Security).
             tokio::time::timeout(
                 config.request_timeout,
                 tokio::task::spawn_blocking(move || {
@@ -308,6 +316,7 @@ pub(crate) async fn dispatch_request(
                 .await
                 .map_err(|_| McpError::internal_error("Semaphore closed").to_json())?;
 
+            // Same documented timeout limitation as tools/call above (MOD-11 H5).
             tokio::time::timeout(
                 config.request_timeout,
                 tokio::task::spawn_blocking(move || {

@@ -181,7 +181,7 @@ The full contract for all **73 tools** lives in
 - ⚠️ Explain shape (T15): the response is a **flat hit array**; there is **no top-level `route` or `fusion_report`** key on `search_memory`. Those fields belong to the dedicated core/Python `explain_memory_search()` method (returns `{route, hits, fusion_report}`; `fusion_report` is currently always `null`). Do not assert `route`/`fusion_report` on `search_memory` output.
 
 **search_semantic** - Raw HNSW vector search
-- Parameters: `vector` (F32 query vector, required), `k` (required in the input schema; optional at runtime — when omitted it defaults to 5)
+- Parameters: `vector` (F32 query vector, required), `k` (required in the input schema; optional at runtime — when omitted it defaults to 5; **clamped to `config.max_top_k`**, the same cap `search_memory` uses)
 - Returns: Nearest neighbors with distances. `distance` is a **real distance, not a similarity**: lower is more similar, and hits are returned in ascending distance order. Under the cosine metric `distance = 1 − cosine_similarity` — an identical vector reports `0.0`, an orthogonal vector reports `1.0`.
 
 **search_with_method** (MCP-24) - Hybrid memory search with an explicit dense-index backend override
@@ -278,6 +278,7 @@ Notes:
 **collection_stats** - Returns statistics for a namespace/collection
 - Parameters: `namespace`
 - Returns: `{"total_records", "total_bytes", "has_vector_index", "vector_count", "created_at"}`
+- Note (MOD-11 H6): `total_bytes` is a deliberate **estimate** — payload UTF-8 length plus a Debug-format length of each metadata value. It excludes vectors, sparse vectors, index overhead and serialization framing, so treat it as an order-of-magnitude figure, not the on-disk footprint.
 
 **collection_list** - Lists all collections with metadata
 - Parameters: None
@@ -427,7 +428,7 @@ The server lists 2 static resources in `resources/list`; 2 additional dynamic UR
 - **metrics://** - Operational metrics (memory usage, HNSW statistics, storage information) — listed
 - **schema://** - Database schema information (HNSW configuration, text index version) — listed
 - **memory://{namespace}/{key}** - Individual memory records by URI — servable, not listed
-- **namespace://{namespace}** - Namespace content listing — servable, not listed
+- **namespace://{namespace}** - Namespace content listing — servable, not listed. Returns the **first page** (`default_list_limit`, 100 records) with a `next_cursor`. The URI has no cursor parameter, so paginate large namespaces via the `memory_list` tool (which accepts `cursor` and clamps at `max_list_limit`).
 
 ## Available MCP Prompts
 
@@ -545,6 +546,34 @@ Supported editors:
 - Read-only mode is **not** an environment variable — set it programmatically via `VantaConfig::with_read_only(true)` in the embedded SDK (see [references/configuration.md](references/configuration.md))
 - Implement access control at the editor level
 - Audit memory access logs
+
+### Threat Model — LLM06 (Excessive Agency)
+
+The MCP server is an LLM-facing surface: every tool an agent can call is a
+capability the agent may exercise, so prompt injection is the primary threat
+(OWASP LLM Top 10 **LLM06**). The trust boundary is the **host** running the
+server — stdio, local, single-user. Threat model for the host-file tools:
+
+- **`bulk_import_file(path)`** and **`wiki_ingest(root)`** accept **arbitrary
+  host filesystem paths**. A prompt-injected agent can make the server read
+  local files (any `.vdbdump`, any markdown tree) and ingest them into the
+  database, where the agent can read them back via `wiki_read` / `memory_list`.
+- This is an **accepted risk for the local single-user stdio deployment** —
+  the operator who started the server already has full access to the same
+  filesystem. **Not safe to expose** to a multi-tenant / remote client without
+  an allowlist or root-cap on `path`/`root` and per-tenant isolation.
+- Destructive/irreversible tools (`collection_delete`, `memory_delete_by_filter`,
+  `purge_expired`, `compact_wal`, `compact_layout`, `vacuum`, `rebuild_index`,
+  `thread_delete`, `delete_axiom`) are **ungated**: any agent that can reach
+  the server can call them. Use namespace isolation and editor-level access
+  control to bound what a compromised agent can destroy.
+- **`k` in `search_semantic` is clamped to `config.max_top_k`** (same cap as
+  `search_memory`) so a crafted query cannot materialize the whole HNSW graph
+  into memory (bounded consumption, LLM10).
+- **Timeout caveat (H5):** `request_timeout` drops the *client* response on
+  expiry, but tokio cannot cancel the in-flight `spawn_blocking` engine work —
+  it keeps running and holds its concurrency permit until done. Hung
+  operations can saturate the pool; accepted for the local server.
 
 ## Troubleshooting
 

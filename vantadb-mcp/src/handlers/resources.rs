@@ -95,8 +95,13 @@ pub fn handle_resources_read(
         }
 
         let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+        // MOD-11 (H7): page size aligned to the memory_list default instead
+        // of a hardcoded 100. The resource returns the FIRST page with its
+        // `next_cursor`; full pagination (up to config.max_list_limit) lives
+        // in the memory_list tool, which accepts the cursor — documented in
+        // SKILL.md § Available MCP Resources.
         let options = vantadb::sdk::VantaMemoryListOptions {
-            limit: 100,
+            limit: config.default_list_limit,
             cursor: None,
             #[allow(deprecated)]
             filters: vantadb::sdk::VantaMemoryMetadata::new(),

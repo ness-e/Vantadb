@@ -1162,6 +1162,64 @@ fn test_mcp_search_semantic_distance_semantics() {
     assert_eq!(dists, sorted, "distances must be ascending, got {dists:?}");
 }
 
+// ── MOD-11 (H4): search_semantic clamps k against config.max_top_k ─────────
+//
+// A giant k used to materialize the whole HNSW graph into memory. search_memory
+// already clamps (parse_search_request); search_semantic must behave the same.
+// With a config cap of 2, k=100 must return at most 2 hits.
+
+#[test]
+fn test_mcp_search_semantic_clamps_k() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Seed three vectors so an unclamped k=100 would return all three.
+    for (key, vec) in [
+        ("a", vec![1.0, 0.0, 0.0]),
+        ("b", vec![0.0, 1.0, 0.0]),
+        ("c", vec![0.0, 0.0, 1.0]),
+    ] {
+        let put_params = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "clamp_ns",
+                "key": key,
+                "payload": format!("{key} payload"),
+                "vector": vec
+            }
+        }));
+        let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+        assert!(put_res.is_ok(), "seed {key} should succeed: {:?}", put_res);
+    }
+
+    // Cap max_top_k at 2 via a custom config.
+    let mut cfg = default_config();
+    cfg.max_top_k = 2;
+
+    let search_params = Some(json!({
+        "name": "search_semantic",
+        "arguments": { "vector": [1.0, 0.0, 0.0], "k": 100 }
+    }));
+    let res = handle_tools_call(&search_params, &executor, &storage, &cfg);
+    assert!(res.is_ok(), "search_semantic should succeed");
+    let val = res.unwrap();
+    assert!(
+        val["isError"].is_null(),
+        "search_semantic should not error: {:?}",
+        val
+    );
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let hits: Value = serde_json::from_str(text).expect("search_semantic response should be JSON");
+    let hits = hits
+        .as_array()
+        .expect("search_semantic should return an array");
+    assert!(
+        hits.len() <= 2,
+        "k=100 must be clamped to max_top_k=2, got {} hits",
+        hits.len()
+    );
+}
+
 // ── AUD-046: memory_put validates vector dims against the live index ─────
 
 #[test]

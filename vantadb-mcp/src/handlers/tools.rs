@@ -999,7 +999,10 @@ pub fn handle_tools_call(
                 .ok_or_else(|| McpError::invalid_params("Missing 'vector' array").to_json())?;
             let vector =
                 validate_vector(vec_arr, config.max_vector_dim).map_err(|e| e.to_json())?;
-            let k = args["k"].as_u64().unwrap_or(5) as usize;
+            // MOD-11 (H4): clamp k against the same cap search_memory uses
+            // (parse_search_request). Without it a giant k materializes the
+            // whole HNSW graph into memory for one call.
+            let k = (args["k"].as_u64().unwrap_or(5) as usize).min(config.max_top_k);
 
             // MCP-04: reject queries whose dim does not match the live index
             // dim (trust boundary — validated here, not deeper in the engine).
@@ -1200,6 +1203,13 @@ pub fn handle_tools_call(
             let mut total_bytes = 0usize;
             let mut vector_count = 0usize;
             let mut created_at = u64::MAX;
+            // MOD-11 (H6): `total_bytes` is a deliberate ESTIMATE, not the
+            // on-disk footprint: payload UTF-8 length + a Debug-format length
+            // for each metadata value (a String with escapes inflates, an Int
+            // undercounts). It excludes vectors, sparse vectors, index
+            // overhead and serialization framing. Documented as approximate
+            // in SKILL.md (collection_stats) — exact sizing would require
+            // storage-level accounting owned by the core engine.
             let total_records = match for_each_record(&embedded, namespace, config, |record| {
                 total_bytes += record.payload.len()
                     + record
