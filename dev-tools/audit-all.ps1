@@ -78,7 +78,9 @@ Write-Host "└─────────────────────�
 
 $results = @{}
 $core = '-p vantadb'
-$lite = '--no-default-features -F cli,fjall,sysinfo,memmap2,fs2'
+# Features canónicas compartidas con verify.ps1/verify_changed.ps1 (gate-common.ps1)
+. (Join-Path $PSScriptRoot "gate-common.ps1")
+$lite = (Get-CoreFeatures) -join ' '
 
 switch ($Mode) {
     'quick' {

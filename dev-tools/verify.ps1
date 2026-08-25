@@ -2,12 +2,14 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
-# ── MSVC bootstrap (cached) ──
-$msvcMarker = "$env:TEMP\.vantadb_msvc_done"
+# ── MSVC bootstrap (cached, keyed por versión de MSVC para invalidar el cache
+#    al actualizar BuildTools — antes un marker genérico en TEMP congelaba
+#    INCLUDE/LIB a la versión vieja) ──
+$vsBuild = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools"
+$msvcVer = Get-ChildItem "$vsBuild\VC\Tools\MSVC\*" -Directory -ErrorAction SilentlyContinue |
+    Select-Object -Last 1 -ExpandProperty Name
+$msvcMarker = "$env:TEMP\.vantadb_msvc_done$(if ($msvcVer) { "_$msvcVer" })"
 if (-not (Test-Path $msvcMarker)) {
-    $vsBuild = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools"
-    $msvcVer = Get-ChildItem "$vsBuild\VC\Tools\MSVC\*" -Directory -ErrorAction SilentlyContinue |
-        Select-Object -Last 1 -ExpandProperty Name
     if ($msvcVer) {
         $paths = @(
             "$vsBuild\VC\Tools\MSVC\$msvcVer\bin\HostX64\x64"
@@ -40,7 +42,9 @@ $Jobs = if ($TotalRAM -ge 16) { [math]::Min($Cores, 4) } elseif ($TotalRAM -ge 4
 Write-Host "${TotalRAM}GB ${Cores}cores j=${Jobs}" -ForegroundColor DarkGray
 
 $env:RUST_MIN_STACK = "33554432"
-$feats = @("--no-default-features", "--features", "cli,fjall,memmap2,fs2,roaring")
+# Features del core gate: definición canónica compartida (dev-tools/gate-common.ps1)
+. (Join-Path $PSScriptRoot "gate-common.ps1")
+$feats = Get-CoreFeatures
 # P2-06: prudent initial llvm-cov line-coverage floor. Raise after first runs (see CI_POLICY.md).
 $CoverageThreshold = 60
 $pass = 0; $fail = 0
@@ -59,6 +63,13 @@ try {
     run "audit" ("cargo", "audit")   # ignores managed in .cargo/audit.toml
     run "deny" ("cargo", "deny", "check")
     if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
+        # Exclusiones del fast gate (trazabilidad Regla 2 / CI_POLICY):
+        #   - deserialize_absurd_node_count      → CATEGORY: RESOURCE-GUARD (input de
+        #     tamaño absurdo diseñado para OOM el runner; no es flaky, es bomba de memoria)
+        #   - test_search_with_bizarre_text_query / test_malformed_payload_extremely_large
+        #     → CATEGORY: RESOURCE-GUARD (inputs malformados gigantes; cubiertos por
+        #     fuzzing dedicado, no por el fast gate)
+        # TODO(FIND): formalizar estas 3 exclusiones en docs/operations/CI_POLICY.md
         run "nextest" (("cargo", "nextest", "run", "--profile", "audit", "-p", "vantadb") + $feats + @("--build-jobs", "1", "-E", "not test(/deserialize_absurd_node_count/) and not test(/test_search_with_bizarre_text_query/) and not test(/test_malformed_payload_extremely_large/)"))
     } else {
         run "test" (("cargo", "test", "-p", "vantadb") + $feats + @("-j", "1", "--", "--skip", "benchmark", "--skip", "competitive", "--skip", "recall", "--skip", "sift", "--skip", "chaos", "--skip", "hnsw_hard_validation", "--skip", "stress_protocol", "--skip", "vector_scale", "--skip", "certification", "--skip", "security_audit", "--skip", "deserialize_absurd_node_count", "--skip", "test_search_with_bizarre_text_query", "--skip", "test_malformed_payload_extremely_large"))

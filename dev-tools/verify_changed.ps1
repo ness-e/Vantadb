@@ -23,7 +23,10 @@ try {
         }
     }
 
-    $feats = @("--no-default-features", "--features", "cli,fjall,memmap2,fs2")
+    # Features del core gate: definición canónica compartida (gate-common.ps1) —
+    # antes este script omitía roaring y divergía de verify.ps1
+    . (Join-Path $PSScriptRoot "gate-common.ps1")
+    $feats = Get-CoreFeatures
     run "fmt" ("cargo", "fmt", "--all", "--", "--check")
     run "check" (("cargo", "check", "-p", "vantadb") + $feats + @("-j", "2"))
     run "clippy" (("cargo", "clippy", "-p", "vantadb") + $feats + @("-j", "2", "--", "-D", "warnings"))
