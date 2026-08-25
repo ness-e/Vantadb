@@ -15,8 +15,8 @@ import { FormEvent, lazy, ReactNode, Suspense, useCallback, useEffect, useMemo, 
 import type { RuleGroupType } from "react-querybuilder";
 // FIX-D3a: glifos con presentación-EMOJI en Windows (♻ ⚙ ☀ ☾ 🔎 🗑 ✳) → Lucide.
 // Los glifos geométricos monocromos (◆ ▫ ▦ ◷ ⛁ ⠿ ⇄ ⌘ ◉ ⇋ ★ ✕ ⧩ ⤒ ⤓ ─ □)
-// son identidad linocut y se quedan.
-import { Asterisk, Moon, Search, Settings as SettingsIcon, Sun, Trash2 } from "lucide-react";
+// son identidad linocut y se quedan. DAUD-06: ✎ (renombrar) → Pencil Lucide.
+import { Asterisk, Moon, Pencil, Search, Settings as SettingsIcon, Sun, Trash2 } from "lucide-react";
 import { HelpPanel } from "./HelpPanel";
 import { createNamespace, get, list, namespaceStats, search, SearchResult, vantaErrorMessage, type MemoryRecord, type NamespaceStatsMap, type VantaDeepLink } from "../../vanta";
 import { useDeepLink } from "../../hooks/useDeepLink";
@@ -634,7 +634,7 @@ export default function WorkspaceShell({
                       title={`Renombrar ${n.name}`}
                       aria-label={`Renombrar ${n.name}`}
                     >
-                      ✎
+                      <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
                     </button>
                     <button
                       type="button"

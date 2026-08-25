@@ -276,15 +276,13 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* DAUD-04: body bg/color vive SOLO en App.css (unlayered, gana siempre)
+     con tokens que voltean en .dark — las reglas :root body/.dark body de
+     acá eran doble fuente de verdad. Se conserva lo que App.css no cubre:
+     stacks de fuente (FIX-D2) y ligaduras. */
   :root body {
-    background-color: #FBF9F5;
-    color: #000000;
     font-family: var(--font-geist-sans);
     font-feature-settings: "ss01", "cv01";
-  }
-  .dark body {
-    background-color: #0a0a0a;
-    color: #FBF9F5;
   }
   ::selection {
     background: #FF5500;
@@ -341,48 +339,6 @@
   .press-neon:active {
     transform: translate(6px, 6px);
     box-shadow: 0 0 0 0 #000;
-  }
-
-  /* Halftone dot pattern */
-  .halftone {
-    background-image: radial-gradient(circle, #000 1.4px, transparent 1.6px);
-    background-size: 12px 12px;
-  }
-  .halftone-fade {
-    -webkit-mask-image: linear-gradient(to bottom right, #000 10%, transparent 75%);
-    mask-image: linear-gradient(to bottom right, #000 10%, transparent 75%);
-  }
-
-  /* Kinetic speed lines (manga action) */
-  .speed-lines {
-    background-image: repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 8px,
-      rgba(0, 0, 0, 0.55) 8px,
-      rgba(0, 0, 0, 0.55) 9px,
-      transparent 9px,
-      transparent 24px
-    );
-  }
-  .speed-lines-radial {
-    background: conic-gradient(
-      from 0deg,
-      transparent 0deg,
-      transparent 6deg,
-      rgba(0, 0, 0, 0.4) 6deg,
-      rgba(0, 0, 0, 0.4) 7deg,
-      transparent 7deg,
-      transparent 18deg
-    );
-  }
-
-  /* Crosshatch grid (technical drafting) */
-  .grid-tech {
-    background-image:
-      linear-gradient(to right, rgba(0, 0, 0, 0.06) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
-    background-size: 28px 28px;
   }
 
   /* TTL bar "expiring" fill — diagonal neon stripes (P15: pattern ≠ color,
@@ -450,39 +406,6 @@
   .dark .press-neon:active {
     box-shadow: 0 0 0 0 #FBF9F5;
   }
-  .dark .halftone {
-    background-image: radial-gradient(circle, #FBF9F5 1.4px, transparent 1.6px);
-  }
-  /* FIX-D10: decoración rgba(0,0,0,…) invisible sobre #0a0a0a → crema a la
-     misma opacidad relativa (grid 0.06→0.08 · speed-lines 0.55→0.5 ·
-     radial 0.4→0.35). */
-  .dark .grid-tech {
-    background-image:
-      linear-gradient(to right, rgba(251, 249, 245, 0.08) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(251, 249, 245, 0.08) 1px, transparent 1px);
-  }
-  .dark .speed-lines {
-    background-image: repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 8px,
-      rgba(251, 249, 245, 0.5) 8px,
-      rgba(251, 249, 245, 0.5) 9px,
-      transparent 9px,
-      transparent 24px
-    );
-  }
-  .dark .speed-lines-radial {
-    background: conic-gradient(
-      from 0deg,
-      transparent 0deg,
-      transparent 6deg,
-      rgba(251, 249, 245, 0.35) 6deg,
-      rgba(251, 249, 245, 0.35) 7deg,
-      transparent 7deg,
-      transparent 18deg
-    );
-  }
   .dark .scroll-manga {
     scrollbar-color: #FBF9F5 #0a0a0a;
   }
@@ -520,9 +443,8 @@
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.animate-rise {
-  animation: vanta-rise 0.5s var(--ease-default) both;
-}
+/* DAUD-05: clase .animate-rise eliminada (0 usos TSX); los keyframes
+   vanta-rise se conservan — .stagger-children > * los usa directo. */
 
 @keyframes vanta-stamp {
   0% { opacity: 0; transform: scale(1.6) rotate(-12deg); }

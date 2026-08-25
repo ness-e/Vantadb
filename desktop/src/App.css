@@ -49,7 +49,13 @@ body {
 /* Press effect — physical push on paper (FIX-D1: sombra dura via
    --ink-shadow: negra en claro, crema en oscuro; antes #000 fijo,
    invisible sobre fondo negro). Se mantiene global/unlayered para no
-   alterar los ~25 consumers desnudos; TitleBar incluido por ahora. */
+   alterar los ~25 consumers desnudos (incluidos botones sin .press en
+   modales que renderizan fuera de <main> — scoping a `main button`
+   les quitaría el press; DAUD-03).
+   DAUD-03: window chrome (TitleBar) queda EXCLUIDO — sus ControlButtons
+   conservan solo su hover de color propio (transition-colors), sin
+   sombra dura ni translate de papel. El root de TitleBar ya lleva
+   data-tauri-drag-region (TitleBar.tsx). */
 button {
   cursor: pointer;
   transition: transform 90ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 90ms cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -58,3 +64,10 @@ button {
 button:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 0 var(--ink-shadow); }
 button:active { transform: translate(4px, 4px); box-shadow: 0 0 0 0 var(--ink-shadow); }
 button:disabled { opacity: 0.5; cursor: default; }
+
+[data-tauri-drag-region] button,
+[data-tauri-drag-region] button:hover,
+[data-tauri-drag-region] button:active {
+  transform: none;
+  box-shadow: none;
+}

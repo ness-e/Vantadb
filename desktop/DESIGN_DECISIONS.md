@@ -40,3 +40,24 @@ via `@fontsource` woff2 files. Sharing fonts is fine; sharing *tokens* is not.
 Startup preference order: stored manual choice (`vanta-theme`) → OS
 (`prefers-color-scheme`). While no manual choice exists, live OS changes
 propagate. A manual toggle persists and stops OS-following.
+
+## 5. Icon convention (DAUD-07)
+
+Functional UI icons come from `lucide-react` (already installed, `^1.34.0`)
+at `strokeWidth={2.5}`. Decorative/identity glyphs stay as monochrome
+geometric text characters (◆ ▫ ▦ ◷ ⛁ ⠿ ⇄ ⌘ ◉ ⇋ ★ ✕ ⧩ ⤒ ⤓ ─ □ ▤ ⤓ ◈ ✓ …) —
+they are the linocut identity and must NOT be converted to icons.
+
+**Prohibited on Windows:** emoji-presentation codepoints render in color and
+clash with the ink line art: ♻ ⚙ ☀ 🔎 🗑 ✳ ⚠ etc. Always use the Lucide
+equivalent for functional UI (♻→`RefreshCw`, ⚙→`Settings`, ☀→`Sun`,
+🔎→`Search`, 🗑→`Trash2`, ✳→`Asterisk`, ⚠→`TriangleAlert`). `✎` (U+270E,
+pencil) is text-presentation so it renders monochrome (not a Windows-emoji
+risk), but functional actions still prefer Lucide `Pencil` for consistency.
+
+**Rule of thumb:** a glyph that carries *functional* meaning (an action, a
+state control) → Lucide component; a glyph that is pure *decoration/identity*
+(stamps, dividers, brand marks, audit-log chips) → monochrome text glyph.
+`activity/logic.ts` op/outcome icons stay text glyphs on purpose: the module
+is deliberately React-free (self-checked with `tsc`) and the chip pattern is
+color+icon+label redundancy, not functional UI.

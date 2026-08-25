@@ -5,6 +5,8 @@
 // Polling cada 5s mientras la superficie está montada; sin URL configurada
 // muestra el formulario de configuración y NO polla.
 import { FormEvent, ReactNode, useEffect, useState } from "react";
+// DAUD-06: ✎ (editar URL) → Pencil Lucide — misma regla emoji-risk que FIX-D3a.
+import { Pencil } from "lucide-react";
 
 const LS_KEY = "vanta.proxy.url";
 /** Evento disparado al guardar la URL para que el shell refresque su botón. */
@@ -276,7 +278,8 @@ export default function ProxyDashboard() {
             }}
             className="press mt-2 border-2 border-foreground bg-background px-2 py-1 text-xs"
           >
-            ✎ cambiar URL
+            <Pencil className="mr-1 inline h-3 w-3" strokeWidth={2.5} />
+            cambiar URL
           </button>
         </Panel>
       </div>
