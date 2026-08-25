@@ -35,6 +35,7 @@ import { rowKey, selectAll, toggleId } from "./batchSelection";
 import { favoritesStore } from "../store/favorites";
 import { CopyButton } from "./copy/CopyButton";
 import { recordToJson } from "./copy/copy-as";
+import { Trash2, TriangleAlert } from "lucide-react";
 
 export interface ExplorerRow {
   id: string;
@@ -153,7 +154,7 @@ function MetaChips({ meta }: { meta: Record<string, unknown> | null }) {
 }
 
 // P15 (VS-18): TTL nunca es solo-color. Estado = ícono + texto + patrón de
-// barra: ● activo (fill foreground) · ⚠ expirando (fill rayas neon) · ✕ expirado
+// barra: ● activo (fill foreground) · TriangleAlert expirando (fill rayas neon) · ✕ expirado
 // (fill muted-foreground). El texto usa foreground (AA ≥4.5:1 en claro y dark;
 // text-neon sobre paper = 3.01:1, falla).
 function TtlCell({ record, now }: { record: MemoryRecord; now: number }) {
@@ -168,7 +169,16 @@ function TtlCell({ record, now }: { record: MemoryRecord; now: number }) {
   return (
     <span className="block w-24" title={`expires ${fmtDateTime(expires)}`}>
       <span className="font-tech text-[10px] font-bold">
-        {expired ? "✕ EXPIRED" : expiring ? `⚠ ${fmtDuration(remain)} left` : `● ${fmtDuration(remain)} left`}
+        {expired ? (
+          "✕ EXPIRED"
+        ) : expiring ? (
+          <>
+            <TriangleAlert className="mr-0.5 inline h-3 w-3 align-[-2px]" strokeWidth={2.5} aria-hidden="true" />
+            {fmtDuration(remain)} left
+          </>
+        ) : (
+          `● ${fmtDuration(remain)} left`
+        )}
       </span>
       <span className="mt-0.5 block h-2 w-full border-2 border-ink bg-paper">
         <span
@@ -180,7 +190,7 @@ function TtlCell({ record, now }: { record: MemoryRecord; now: number }) {
   );
 }
 
-/** Botón 🗑 por fila (VS-08, Fix 4): soft-delete con confirmación inline de
+/** Botón papelera por fila (VS-08, Fix 4): soft-delete con confirmación inline de
  * dos pasos (P6). `undoStore.softDelete` hace remove en backend + tombstone de
  * sesión; Ctrl+Z lo restaura. El click no abre el inspector (stopPropagation). */
 function DeleteButton({
@@ -238,7 +248,7 @@ function DeleteButton({
           title="Mover a papelera (Ctrl+Z deshace)"
           aria-label={`Mover ${record.id} a papelera`}
         >
-          🗑
+          <Trash2 className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
         </button>
       )}
     </span>
@@ -292,7 +302,7 @@ const baseColumns = helper.columns([
         <span className="text-xs opacity-60">◇ —</span>
       ) : (
         // VS-18/P15: presente = ◆ + dimensión; texto foreground (AA) con
-        // borde neon como acento no-texto (3:1 ✅).
+        // borde neon como acento no-texto (3:1 AA).
         <span className="border-2 border-neon px-1 font-tech text-[10px] text-foreground">
           ◆ {info.getValue()}d
         </span>
@@ -609,7 +619,7 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
         header: "",
         cell: ({ row }) => {
           const rec = row.original.record;
-          // VS-17: ★ favorito + copiar registro (JSON) — aditivo junto al 🗑.
+          // VS-17: ★ favorito + copiar registro (JSON) — aditivo junto al botón papelera.
           const fav = favoritesStore.isFavorite(rec.namespace, rec.id);
           return (
             <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>

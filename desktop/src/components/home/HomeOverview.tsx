@@ -11,6 +11,7 @@
 // viniendo de list().
 import { useCallback, useEffect, useState } from "react";
 import { list, namespaceStats, MemoryRecord, NamespaceStatsMap } from "../../vanta";
+import { Hourglass } from "lucide-react";
 
 // 24h — espeja DEFAULT_EXPIRING_SOON_WINDOW_MS del core (src/sdk/types.rs:243).
 const EXPIRING_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -172,7 +173,7 @@ function relTime(ageMs: number): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-function Card({ icon, title, children }: { icon: string; title: string; children: React.ReactNode }) {
+function Card({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
     <article className="press-lg border-4 border-foreground bg-card p-5">
       <div className="flex items-center justify-between">
@@ -328,7 +329,10 @@ export default function HomeOverview({ active }: { active: boolean }) {
         </Card>
 
         {/* Próximos a expirar (TTL) */}
-        <Card icon="⏳" title="Próximos a expirar">
+        <Card
+          icon={<Hourglass className="h-4 w-4" strokeWidth={2.5} />}
+          title="Próximos a expirar"
+        >
           <div className="mt-2 font-display text-5xl">{data.expiringCount}</div>
           <div className="mt-1 font-tech text-[11px] text-muted-foreground">en las próximas 24h</div>
           <div className="mt-3 space-y-2">

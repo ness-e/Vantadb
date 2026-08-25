@@ -11,8 +11,12 @@
 // SearchBar: misma llamada search() + ResultsList). Inspector derecho = master-detail del
 // registro seleccionado (VS-06: tabs General/Metadata/Vector/Payload con
 // commit explícito — grid pasa el record completo, búsqueda lo completa vía get).
-import { FormEvent, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, lazy, ReactNode, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RuleGroupType } from "react-querybuilder";
+// FIX-D3a: glifos con presentación-EMOJI en Windows (♻ ⚙ ☀ ☾ 🔎 🗑 ✳) → Lucide.
+// Los glifos geométricos monocromos (◆ ▫ ▦ ◷ ⛁ ⠿ ⇄ ⌘ ◉ ⇋ ★ ✕ ⧩ ⤒ ⤓ ─ □)
+// son identidad linocut y se quedan.
+import { Asterisk, Moon, Search, Settings as SettingsIcon, Sun, Trash2 } from "lucide-react";
 import { HelpPanel } from "./HelpPanel";
 import { createNamespace, get, list, namespaceStats, search, SearchResult, vantaErrorMessage, type MemoryRecord, type NamespaceStatsMap, type VantaDeepLink } from "../../vanta";
 import { useDeepLink } from "../../hooks/useDeepLink";
@@ -159,7 +163,7 @@ function SideButton({
   active,
   onClick,
 }: {
-  icon: string;
+  icon: ReactNode;
   label: string;
   hint?: string;
   /** DESKTOP-34: tooltip nativo (title) + accesible (aria-label). */
@@ -534,14 +538,14 @@ export default function WorkspaceShell({
           <div className="mt-2 space-y-2">
             <SideButton icon="◫" label="RESUMEN" title="Ir a RESUMEN — vista general de operaciones" active={surface === "resumen"} onClick={() => setSurface("resumen")} />
             <SideButton icon="▦" label="MEMORIAS" title="Ir a MEMORIAS — ingestar y explorar registros" active={surface === "memorias"} onClick={() => setSurface("memorias")} />
-            <SideButton icon="♻" label="PAPELERA" hint="Ctrl+Z" title="Ir a PAPELERA — registros borrados (restaurar o purgar)" active={surface === "papelera"} onClick={() => setSurface("papelera")} />
+            <SideButton icon={<Trash2 className="h-4 w-4" strokeWidth={2.5} />} label="PAPELERA" hint="Ctrl+Z" title="Ir a PAPELERA — registros borrados (restaurar o purgar)" active={surface === "papelera"} onClick={() => setSurface("papelera")} />
             <SideButton icon="◷" label="ACTIVIDAD" title="Ir a ACTIVIDAD — audit log de la base" active={surface === "actividad"} onClick={() => setSurface("actividad")} />
             {/* VS-13: lente contextual — hereda el registro seleccionado como seed (P4). */}
             <SideButton icon="⛁" label="BÚSQUEDA" title="Ir a BÚSQUEDA — lente retrieval híbrida (BM25 + vector)" active={surface === "retrieval"} onClick={() => setSurface("retrieval")} />
             <SideButton icon="⠿" label="ÍNDICES" title="Ir a ÍNDICES — estado de HNSW, BM25 y WAL" active={surface === "indices"} onClick={() => setSurface("indices")} />
             <SideButton icon="⇄" label="CONSOLIDAR" title="Ir a CONSOLIDAR — detectar y fusionar duplicados" active={surface === "consolidar"} onClick={() => setSurface("consolidar")} />
             <SideButton icon="⌘" label="IQL" title="Ir a IQL — consola de queries sobre grafo" active={surface === "iql"} onClick={() => setSurface("iql")} />
-            <SideButton icon="✳" label="ESPACIO" title="Ir a ESPACIO — proyección 2D de embeddings" active={surface === "espacio"} onClick={() => setSurface("espacio")} />
+            <SideButton icon={<Asterisk className="h-4 w-4" strokeWidth={2.5} />} label="ESPACIO" title="Ir a ESPACIO — proyección 2D de embeddings" active={surface === "espacio"} onClick={() => setSurface("espacio")} />
             {/* DESKTOP-37: sexta lente — memoria contextual de vanta-memory. */}
             <SideButton icon="◉" label="MEMORIA" title="Ir a MEMORIA — escenas con heat, persona, skills versionadas y generation log (L1/L2/L3)" active={surface === "memoria"} onClick={() => setSurface("memoria")} />
             {/* DESKTOP-38: lente PROXY — solo si el proxy está configurado. */}
@@ -549,7 +553,7 @@ export default function WorkspaceShell({
               <SideButton icon="⇋" label="PROXY" title="Ir a PROXY — TurnReports, sesiones activas, cola write-back y rate-limit del proxy local" active={surface === "proxy"} onClick={() => setSurface("proxy")} />
             )}
             {/* DESKTOP-31: ajustes — perfiles de conexión, defaults de búsqueda, idioma. */}
-            <SideButton icon="⚙" label="AJUSTES" title="Ir a AJUSTES — perfiles de conexión (server + Bearer), defaults de búsqueda e idioma" active={surface === "ajustes"} onClick={() => setSurface("ajustes")} />
+            <SideButton icon={<SettingsIcon className="h-4 w-4" strokeWidth={2.5} />} label="AJUSTES" title="Ir a AJUSTES — perfiles de conexión (server + Bearer), defaults de búsqueda e idioma" active={surface === "ajustes"} onClick={() => setSurface("ajustes")} />
           </div>
 
           {/* VS-17: favoritos persistidos (ns o ns/key) — slice aditivo. */}

@@ -13,6 +13,7 @@ import {
   type ImportReport,
   type ParseResult,
 } from "./parseImport";
+import { FileText, TriangleAlert } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -149,7 +150,8 @@ export default function ImportDrop({
 
         {parsed?.error && (
           <p role="alert" className="border-b-4 border-foreground bg-card px-4 py-2 font-tech text-[11px] text-neon">
-            ⚠ {parsed.error}
+            <TriangleAlert className="mr-1 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" />
+            {parsed.error}
           </p>
         )}
 
@@ -213,7 +215,8 @@ export default function ImportDrop({
             />
             {fileName ? (
               <span className="text-foreground" aria-live="polite">
-                📄 {fileName}
+                <FileText className="mr-1 inline h-4 w-4 align-[-3px]" strokeWidth={2.5} aria-hidden="true" />
+                {fileName}
               </span>
             ) : (
               <>
@@ -249,7 +252,8 @@ export default function ImportDrop({
 
           {parsed?.truncated && (
             <p className="font-tech text-[10px] text-neon">
-              ⚠ el archivo supera {MAX_IMPORT} registros — se importan solo los primeros.
+              <TriangleAlert className="mr-1 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" />
+              el archivo supera {MAX_IMPORT} registros — se importan solo los primeros.
             </p>
           )}
 

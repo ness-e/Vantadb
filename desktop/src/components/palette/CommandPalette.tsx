@@ -15,6 +15,7 @@
 // undo. Ctrl+Z (undo global) lo registra VS-08 con la papelera.
 import { ReactNode, useEffect } from "react";
 import { Command, useCommandState } from "cmdk";
+import { ArrowDownToLine, Asterisk, Moon, Search, Settings, Sun, Trash2 } from "lucide-react";
 import { list, vantaErrorMessage } from "../../vanta";
 // VS-17: favoritos persistidos (ns o ns/key) para el grupo FAVORITOS.
 import type { Favorite } from "../../store/favorites";
@@ -111,7 +112,7 @@ function SearchKeyFallback({ onSearch }: { onSearch: (q: string) => void }) {
         if (q) onSearch(q);
       }}
     >
-      🔎 Buscar key "{search}"…
+      <Search className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> Buscar key "{search}"…
     </Command.Item>
   );
 }
@@ -205,7 +206,7 @@ export default function CommandPalette({
               keywords={["papelera", "trash", "borrados", "restaurar"]}
               onSelect={() => run(() => onNavigate("papelera"))}
             >
-              ♻ PAPELERA
+              <Trash2 className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> PAPELERA
             </PaletteItem>
           </Command.Group>
 
@@ -250,14 +251,14 @@ export default function CommandPalette({
               keywords={["espacio", "space", "embeddings", "umap", "scatterplot"]}
               onSelect={() => run(() => onNavigate("espacio"))}
             >
-              ✳ ESPACIO
+              <Asterisk className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> ESPACIO
             </PaletteItem>
             <PaletteItem
               value="lens-ajustes"
               keywords={["ajustes", "settings", "perfil", "connection profile", "token", "idioma", "language"]}
               onSelect={() => run(() => onNavigate("ajustes"))}
             >
-              ⚙ AJUSTES
+              <Settings className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> AJUSTES
             </PaletteItem>
           </Command.Group>
 
@@ -311,7 +312,7 @@ export default function CommandPalette({
               keywords={["buscar", "key", "search", "query"]}
               onSelect={() => run(() => onSearch(""))}
             >
-              🔎 Buscar key…
+              <Search className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> Buscar key…
             </PaletteItem>
             <PaletteItem
               value="accion-exportar"
@@ -323,7 +324,7 @@ export default function CommandPalette({
                 })
               }
             >
-              ⬇ Exportar memorias (.jsonl)
+              <ArrowDownToLine className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> Exportar memorias (.jsonl)
             </PaletteItem>
             <PaletteItem
               value="accion-borrar"
@@ -347,7 +348,15 @@ export default function CommandPalette({
               keywords={["tema", "theme", "dark", "light", "oscuro", "claro"]}
               onSelect={() => run(onToggleTheme)}
             >
-              {dark ? "☀ Tema claro" : "☾ Tema oscuro"}
+              {dark ? (
+                <>
+                  <Sun className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> Tema claro
+                </>
+              ) : (
+                <>
+                  <Moon className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> Tema oscuro
+                </>
+              )}
             </PaletteItem>
           </Command.Group>
 

@@ -38,6 +38,7 @@ import {
   type PairRecord,
 } from "./consolidate-core.ts";
 import ConfirmDiscard from "./ConfirmDiscard";
+import { ShieldCheck } from "lucide-react";
 
 const PAGE_SIZE = 100;
 
@@ -178,7 +179,8 @@ function MergeEditor({
           disabled={busy}
           className="press border-2 border-foreground bg-neon px-2 py-0.5 font-tech text-[10px] font-bold uppercase tracking-widest text-background disabled:opacity-50"
         >
-          ⛨ Guardar merge
+          <ShieldCheck className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" />
+          Guardar merge
         </button>
         <button type="button" onClick={onCancel} disabled={busy} className={BTN}>
           cancelar
@@ -547,7 +549,8 @@ export default function ConsolidateLens({
                     className={BTN}
                     title="Revisar lado a lado y mergear campo a campo"
                   >
-                    ⛨ revisar/mergear
+                    <ShieldCheck className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" />
+                    revisar/mergear
                   </button>
                   {marked.length > 0 && (
                     <button

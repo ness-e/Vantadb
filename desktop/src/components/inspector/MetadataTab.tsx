@@ -2,6 +2,7 @@
 // (str/int/flt/bool/date/lst/nil). Filas add/remove; validación y serialización
 // viven en `rowsToMetadata` (shared.ts) — el tab es presentacional.
 import { MetaRow, MetaType } from "./shared";
+import { TriangleAlert } from "lucide-react";
 
 interface Props {
   rows: MetaRow[];
@@ -76,14 +77,14 @@ export default function MetadataTab({ rows, setRows }: Props) {
                   isDup(row.key) ? "border-neon text-foreground" : "border-foreground"
                 }`}
               />
-              {/* VS-18/P15: dup no es solo borde neon — ícono ⚠ + title (AA:
+              {/* VS-18/P15: dup no es solo borde neon — ícono alerta + title (AA:
                   texto foreground, borde neon como acento no-texto 3:1). */}
               {isDup(row.key) && (
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[10px] leading-none"
+                  className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 leading-none"
                 >
-                  ⚠
+                  <TriangleAlert className="h-3 w-3" strokeWidth={2.5} />
                 </span>
               )}
             </span>

@@ -14,6 +14,7 @@ import { useProjection, type ProjectionPoint } from "./useProjection";
 import SelectionBar, { type SelectionBusy } from "./SelectionBar";
 import { recordsToJsonl, downloadText } from "../export/export-jsonl";
 import { undoStore } from "../../store/undo";
+import { TriangleAlert } from "lucide-react";
 
 function filenameStamp(): string {
   return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
@@ -223,7 +224,8 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
         )}
         {state.error && (
           <span className="font-tech text-[10px] font-bold text-destructive" role="alert">
-            ⚠ {state.error}
+            <TriangleAlert className="mr-0.5 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" />
+            {state.error}
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">

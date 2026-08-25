@@ -9,6 +9,7 @@ import type { MemoryRecord } from "../../vanta";
 import { getVersion, vantaErrorMessage, vantaPut, versions } from "../../vanta";
 import { diffVersions, type VersionDiff } from "./historial-diff";
 import { fmtDateTime, fmtRelative } from "./shared";
+import { TriangleAlert } from "lucide-react";
 
 interface Props {
   record: MemoryRecord;
@@ -243,7 +244,10 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
       {confirmTarget && (
         <div className="mt-2 border-2 border-foreground bg-background p-2">
           <p className="font-tech text-[10px] font-bold uppercase tracking-widest text-neon">
-            <span aria-hidden="true">⚠</span> ¿revertir a v{confirmTarget.version}?
+            <span aria-hidden="true">
+              <TriangleAlert className="mr-1 inline h-3 w-3 align-[-2px]" strokeWidth={2.5} />
+            </span>{" "}
+            ¿revertir a v{confirmTarget.version}?
           </p>
           <p className="mt-1 font-tech text-[10px] text-muted-foreground">
             restaura payload + metadata + TTL de v{confirmTarget.version}. Crea una versión nueva

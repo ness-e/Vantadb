@@ -10,6 +10,7 @@ import { auditEvents, type AuditEvent, vantaErrorMessage } from "../../vanta";
 import { eventClock, type BucketGranularity } from "./logic";
 import { OpChip, OutcomeBadge } from "./EventChip";
 import Timeline from "./Timeline";
+import { TriangleAlert } from "lucide-react";
 
 interface Props {
   onNotice: (msg: string) => void;
@@ -144,7 +145,8 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
         <div role="alert" className="p-6">
           <div className="border-2 border-dashed border-foreground bg-background p-4">
             <div className="font-tech text-[11px] font-bold uppercase tracking-widest text-neon">
-              ⚠ audit log no habilitado
+              <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" />
+              audit log no habilitado
             </div>
             <p className="mt-2 text-sm">
               La conexión activa no tiene audit log configurado (VS-12 rechaza con{" "}

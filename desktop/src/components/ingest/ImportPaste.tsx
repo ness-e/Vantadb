@@ -6,6 +6,7 @@
 // marcadas en preview y repetidas en el reporte.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ingestBatch, vantaErrorMessage } from "../../vanta";
+import { TriangleAlert } from "lucide-react";
 import {
   EXAMPLE_CSV,
   MAX_IMPORT,
@@ -131,7 +132,8 @@ export default function ImportPaste({
 
         {parsed?.error && (
           <p role="alert" className="border-b-4 border-foreground bg-card px-4 py-2 font-tech text-[11px] text-neon">
-            ⚠ {parsed.error}
+            <TriangleAlert className="mr-1 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" />
+            {parsed.error}
           </p>
         )}
 
@@ -214,7 +216,8 @@ export default function ImportPaste({
 
           {parsed?.truncated && (
             <p className="font-tech text-[10px] text-neon">
-              ⚠ el paste supera {MAX_IMPORT} registros — se importan solo los primeros.
+              <TriangleAlert className="mr-1 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" />
+              el paste supera {MAX_IMPORT} registros — se importan solo los primeros.
             </p>
           )}
 

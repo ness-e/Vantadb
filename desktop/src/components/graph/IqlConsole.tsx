@@ -10,6 +10,7 @@ import { keymap } from "@codemirror/view";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { iqlAutocomplete, queryIql, vantaErrorMessage, type VantaQueryResult } from "../../vanta";
+import { TriangleAlert } from "lucide-react";
 
 const HISTORY_KEY = "vanta.iql.history";
 const MAX_HISTORY = 10;
@@ -177,7 +178,12 @@ export default function IqlConsole({ dark, onHighlight, onNotice, onError }: Pro
           >
             {outcome.kind === "read" && `✓ ${outcome.count} registros (${outcome.nodeIds.length} resaltados)`}
             {outcome.kind === "write" && `✓ ${outcome.message}`}
-            {outcome.kind === "stale" && `⚠ contexto obsoleto (${outcome.nodeId})`}
+            {outcome.kind === "stale" && (
+              <>
+                <TriangleAlert className="mr-0.5 inline h-3 w-3 align-[-2px]" strokeWidth={2.5} aria-hidden="true" />
+                contexto obsoleto ({outcome.nodeId})
+              </>
+            )}
             {outcome.kind === "error" && `✗ ${outcome.message}`}
           </span>
         )}

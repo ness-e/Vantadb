@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { MemoryRecord } from "../../vanta";
 import { fmtDateTime, fmtDuration, fmtRelative, ttlToMs, type TtlDraft } from "./shared";
+import { TriangleAlert } from "lucide-react";
 
 interface Props {
   record: MemoryRecord;
@@ -111,7 +112,16 @@ export default function GeneralTab({ record, score, ttl, setTtl }: Props) {
             <div className="mt-2">
               <div className="flex items-center justify-between font-tech text-[10px]">
                 <span className={expired ? "font-bold text-foreground" : "text-foreground"}>
-                  {expired ? "✕ EXPIRED" : expiring ? `⚠ ${fmtDuration(remain)} left` : `● ${fmtDuration(remain)} left`}
+                  {expired ? (
+                    "✕ EXPIRED"
+                  ) : expiring ? (
+                    <>
+                      <TriangleAlert className="mr-0.5 inline h-3 w-3 align-[-2px]" strokeWidth={2.5} aria-hidden="true" />
+                      {fmtDuration(remain)} left
+                    </>
+                  ) : (
+                    `● ${fmtDuration(remain)} left`
+                  )}
                 </span>
                 <span className="text-muted-foreground">{fmtDateTime(expiresMs)}</span>
               </div>

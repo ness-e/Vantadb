@@ -12,6 +12,7 @@ import { Suspense, useCallback, useState } from "react";
 import GraphScene from "./GraphScene";
 import IqlConsole from "./IqlConsole";
 import { MAX_NODES, useGraphData } from "./useGraphData";
+import { Tag, TriangleAlert } from "lucide-react";
 
 interface Props {
   onNotice: (msg: string) => void;
@@ -55,7 +56,8 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
         {g.busy && <span className="font-tech text-[10px] text-muted-foreground">expandiendo…</span>}
         {g.capped && (
           <span className="font-tech text-[10px] font-bold text-amber-700 dark:text-amber-300" role="status">
-            ⚠ tope alcanzado — se desvanecen nodos viejos (click para re-expandir)
+            <TriangleAlert className="mr-0.5 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" />
+            tope alcanzado — se desvanecen nodos viejos (click para re-expandir)
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
@@ -95,7 +97,7 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
             }`}
             title="Mostrar/ocultar labels (solo top-20 por degree)"
           >
-            🏷 labels
+            <Tag className="mr-1 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" /> labels
           </button>
         </div>
       </div>
