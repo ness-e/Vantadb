@@ -64,7 +64,7 @@ Todas las rutas relativas en comandos y prompts se resuelven así:
 
 ## CodeGraph
 
-Índice pre-construido del código de VantaDB (7.3K símbolos, 24.7K edges). **Úsalo SIEMPRE antes de grep/find/Read** para preguntas estructurales.
+Índice pre-construido del código de VantaDB (20.5K símbolos, 71.4K edges — verificado 2026-08-25 vía `codegraph status`). **Úsalo SIEMPRE antes de grep/find/Read** para preguntas estructurales.
 
 - **Tool consolidada**: `codegraph_explore "pregunta o símbolo"` — búsqueda + call paths + blast radius en 1 llamada (hasta 60% menos tokens).
 - **Tools individuales (legacy, Cursor/Claude Code)**: `codegraph_search`, `codegraph_callers`, `codegraph_callees`, `codegraph_files`, `codegraph_dependencies`, `codegraph_status`.
