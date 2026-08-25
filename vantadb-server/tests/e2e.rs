@@ -263,40 +263,51 @@ async fn test_e2e_persistence_across_restart() {
 
 #[tokio::test]
 async fn test_e2e_rate_limit_over_http() {
+    // rpm=5 with no API key => burst_size = rpm = 5 (REST-01), period = 12s.
+    // A rapid burst of 2x the burst size therefore guarantees the limiter trips:
+    // the first `BURST` requests pass (200) and the remainder are rejected (429).
+    const BURST: usize = 5;
+    const TOTAL: usize = BURST * 2;
+
     let (_dir, state) = build_e2e_context(None, 10);
     let (base, _handle) = spawn_server(state, 5).await; // RPM=5
 
     let client = reqwest::Client::new();
 
-    // First request should pass (burst allows it)
-    let resp = client
-        .post(format!("{}/api/v2/query", base))
-        .header("content-type", "application/json")
-        .body(r#"{"query": "INSERT NODE#301 TYPE RL { }"}"#)
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), 200);
+    // Fire the burst rapidly — well inside the 12s replenish window, so no token
+    // can be refunded mid-burst (deterministic, not flaky).
+    let mut statuses = Vec::with_capacity(TOTAL);
+    for i in 0..TOTAL {
+        let resp = client
+            .post(format!("{}/api/v2/query", base))
+            .header("content-type", "application/json")
+            .body(format!(
+                r#"{{"query": "INSERT NODE#3{:02} TYPE RL {{ }}"}}"#,
+                i
+            ))
+            .send()
+            .await
+            .unwrap();
+        statuses.push(resp.status());
+    }
 
-    // Rapid second request — with RPM=5 and burst=1, second should hit the rate limit.
-    // Intentional small delay between requests to test rate limiter timing;
-    // not replaceable with event-based wait — this creates the timing gap the test needs.
-    tokio::time::sleep(Duration::from_millis(10)).await;
-    let resp = client
-        .post(format!("{}/api/v2/query", base))
-        .header("content-type", "application/json")
-        .body(r#"{"query": "INSERT NODE#302 TYPE RL { }"}"#)
-        .send()
-        .await
-        .unwrap();
-
-    // Depending on governor timing, may or may not be 429.
-    // Accept both 200 and 429 — the test validates the server responds,
-    // not the exact rate limit timing over real sockets.
+    // Every response must be either 200 (within burst) or 429 (rate-limited).
     assert!(
-        resp.status() == 200 || resp.status() == 429,
-        "Expected 200 or 429, got {}",
-        resp.status()
+        statuses.iter().all(|s| *s == 200 || *s == 429),
+        "Expected only 200/429 responses, got: {:?}",
+        statuses
+    );
+    // The burst window must let requests through.
+    assert!(
+        statuses.iter().filter(|s| **s == 200).count() >= 1,
+        "Burst requests should pass (200), got: {:?}",
+        statuses
+    );
+    // The governor must reject at least one request once the burst is exhausted.
+    assert!(
+        statuses.iter().filter(|s| **s == 429).count() >= 1,
+        "Rate limiter never returned 429 — governor may be disabled. Got: {:?}",
+        statuses
     );
 }
 
