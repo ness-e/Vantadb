@@ -3,27 +3,17 @@ title: "Active Backlog — VantaDB"
 type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
-last_reviewed: 2026-08-07
-verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
+last_reviewed: 2026-08-25
+verified_by: "Historial de verificación: docs/avance/historial/backlog-history.md"
 ---
 
 # Active Backlog — VantaDB
 
 > **Purpose:** Single source of truth for all project tasks — organized by execution order.
 > **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
-> **Completed tasks moved to:** `docs/progreso/README.md`
-> **Verification method:** All items cross-checked against actual codebase (Jul 27, 2026). 8 tareas ejecutadas en sesión: TSK-106, MKT-03, NUEVO-21, MKT-04, TSK-107, DISC-02, DISC-03, Good first issues (18 creadas).
-> **Sync 2026-08-06:** 30 tareas ejecutadas por el plan `docs/plans/2026-08-05-backlog-validation-actions.md` tachadas y migradas a `docs/progreso/README.md`: AUDIT-01/03/04, DEBT-01, TECH-01..08, AUDIT-05/08, NUEVO-01, MKT-10/16, AUD-001..011 (AUD-010 fusionada en TECH-04/ADR-012), GH-123/141.
-> **Sync 2026-08-07:** 214 filas completadas eliminadas del backlog (210 IDs únicos) — migradas/verificadas en `docs/progreso/README.md` y `docs/progreso/BACKLOG_HISTORY.md`. Quedan 35 tareas activas (ver Exec Summary).
-> **Total open items:** 77 activas (reconteo 2026-08-25 tras limpieza: se eliminaron 31 filas de hallazgos ya completadas en batches P35/P38/P39; MEM-51/BND-05 marcadas ✅). **Sync 2026-08-25: auditoría completa de `docs/research/` (~80 docs, 3 sub-agentes + verificación codegraph) → P38 creada (15 RES + 2 DEC). 4 candidatos murieron en validación y NO se agregaron: CRIT-01..09 resueltos en código actual, guías Vectara/Chroma ya existen, PERFORMANCE_TUNING.md eliminado, INV-008 search_batch_requests ya implementado (`vantadb-python/src/lib.rs:1688`). Detalle y evidencia en sección P38.** Previo (conteo real re-contado 2026-08-24, filas ⬜/❌; regla GOV-C7: actualizar contando filas pendientes en cada sync) — **Sync 2026-08-24 (c) auditoría diseño: P37 creada (9 tareas DAUD-01..09; fixes D1-D11 ya aplicados en sesión por 5 sub-agentes, sin commitear — ver sección P37). Incluye P34 UX-01..15 y P36 AGT.** **Sync 2026-08-24 (b): campaña desktop COMPLETA — DESKTOP-23..39 (17/17) ejecutadas y migradas a `docs/avance/activo/desktop.md`; P12 cerrada** — previas (DISC-01..03, LEG-01, BIZ-01b, OLD-01, DESKTOP-15..27, [ADMIN-XX pending W4]) + P15 residuales (ERR-006/007/008/009/015/026/031/032/033/036/037/042/043/044/045/047/048/049) + P16 residuales (PERF-07/08/09, CI-01) + **P25 (MCP-16..26) + P26 (VS-00..11 + VS-CORE-01..07)**. P15/P16 principales ejecutadas por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` (49/49 ✅). P19 CI batch (CI-02..07) ejecutado y migrado 2026-08-12 — plan archivado `docs/plans/archive/2026-08-12-ci-deuda.md`. Origen: investigación multi-agente 2026-08-09 → `docs/research/investigacion-equipo-2026-08-09.md`
-> **Nuevo 2026-08-18:** **P26 Vanta Studio** creada (17 tareas) desde investigación `docs/research/human-facing-db-ui/` + decisiones del usuario (Fase 0 completa, solo desktop, estética manga/linocut, R3F para grafo, MARK variante desktop). Plan: `docs/plans/2026-08-18-vanta-studio-fase0.md`. Historial+Diff en espera hasta VS-CORE-07 (retención de versiones). Auditoría multi-agente 2026-08-18 → 19 tareas finales (VS-10/VS-11 nuevos, re-scopes VS-CORE-01/03/06, dark palette, DEFERs ampliados).
-> **Nuevo 2026-08-18:** **P27 Vanta Memory Engine** creada (38 tareas MEM-01..38) desde investigación TDAM `docs/research/tdam/` (9 reportes verificados + SYNTHESIS, orden F1–F7) — análisis multi-agente (3× vanta-research). Plan: `docs/plans/2026-08-18-vanta-memory.md`.
-> **Sync 2026-08-09:** plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` archivado — 49/49 tareas delegables completadas (Wave 0-3: RELEASE-01/02/03, SEC-01, 24 ERR, 7 FEAT, REVISAR-01, COV-001/003/004, PERF-01/04/06, DOC-02..08). RELEASE-02 verificado live: 0.5.0 publicado (crates.io/PyPI/npm/GitHub 2026-08-01). Filas completadas eliminadas de P15/P16; residuales siguen activas. Task 50 COM-02/03 (humana) queda en la tabla.
-> **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/progreso/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/research/cargo-check-optimizacion.md`, `docs/discord/todo.md`
-> **Sync 2026-08-14:** 9 agentes de `.opencode/agents/` revisados (lead/worker/arch/review/audit/docs/engine/tuner/chaos) → 10 recomendaciones R1-R10 agregadas como **P19** (mejoras del sistema de agentes: Output Templates, skills §6, permissions, §7, DISCOVERY).
-> **Sync 2026-08-17:** batería de pruebas exhaustiva del MCP server (`vanta-cli 0.5.0`, 4 sub-agentes en paralelo, JSON-RPC stdio, DBs temporales aisladas) contra `.opencode/skills/vantadb-mcp/` → **P22** creada (14 tareas en 5 bloques: bugs server MCP, discrepancias skill↔realidad, deficiencias de documentación, referencias muertas, inconsistencias internas). Resultados: memoria 17/17, collections 12/12, grafo 25/25 PASS; **búsqueda 12/20 FAIL** (4 bugs reales del server, root cause trazado al código). Evidencia completa en los scripts `test-memoria.py`/`test-busqueda.py`/`test-grafo.py`/`test-collections.py` (temp) y en el historial de sesión.
-> **Sync 2026-08-17 (verificación strategy multi-agente):** 6 sub-agentes verificaron los ítems propuestos de `docs/strategy/` + `docs/backlog-futuro.md` contra el código → **P23** creada (6 features VantaDB Pro sin código ni tracking), **P24** creada (I+D futura re-verificada: FUT-01 implementado, FUT-07/09 redefinidos), **P6** ampliada (9 tareas: MKT-04 publicación Reddit, MKT-18f/g/h/i, CLD-01/02/04, BLOG-CTA). Verificaciones en sesión: adapters `integrations/` NUNCA publicados en PyPI; SHOW_HN_PREP.md tenía 2 claims falsos (corregidos); ROADMAP.md stale (0.5.0/24 items reales vs v0.2.0/165 — banner añadido).
-
+> **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
+> **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
+> **Total open items:** 84 activas (reconteo GOV-C7 2026-08-25 tras gran limpieza)
 ---
 
 ## Exec Summary
@@ -76,50 +66,6 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 ---
 
-## Phase 0: 🚀 Release Blockers
-
-> Items que bloquean un release público seguro. Resolver antes de cualquier publicación.
-> **Ejecutada 2026-08-09 por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` — 3/3 ✅.** RELEASE-02 publish 0.5.0 verificado live (crates.io/PyPI/npm/GitHub ya en 0.5.0 desde 2026-08-01). RELEASE-03 artefactos limpiados (gitignored).
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-| `RELEASE-01` | **Gate `cargo semver-checks` en CI** — *ejecutado* (`1e2a58cc`: job dedicado semver-checks en release/ci). | `.github/workflows/release.yml`, `ci-rust-10.yml` | 🟢 | 🔴 | ✅ Completado |
-| `RELEASE-02` | **Publish coordinado 0.5.0** — *verificado live*: crates.io `vantadb 0.5.0`, PyPI `vantadb_py 0.5.0`, npm `vantadb 0.5.0`, GitHub Release + tag `v0.5.0` (2026-08-01). | `release.yml`, `release-wheels-60.yml`, `release-npm-61.yml` | 🟢 | 🔴 | ✅ Completado |
-| `RELEASE-03` | **Limpiar artefactos de ejecución** — *ejecutado*: `_audit04_repro_db/`, `benchmarks/_probe_db/`, `chroma_db`, `.pyc`, `data_comp_bench/` limpiados/ignored. | raíz repo, `.gitignore` | 🟢 | 🟡 | ✅ Completado |
----
-
-## Phase 1: 🛡️ Security & Critical
-
-> Investigaciones de seguridad y dependencias críticas.
-> **Ejecutada 2026-08-09** — SEC-01 resuelto por plan `2026-08-09-backlog-pipeline.md` (Wave 0).
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-| `SEC-01` | **UAF real en `__array_interface__`** — *resuelto* (`241f30a3`+`9fac19d0`: copia del buffer + test numpy; AUD-019 superseded). | `vantadb-python/src/types.rs:365-380`, test numpy | 🟠 | 🔴 | ✅ Completado |
-
-
-> **Items previos resueltos (9):** ver `docs/progreso/BACKLOG_HISTORY.md` (P1).
-
----
-
-> **Phase 2: ⚡ Quick Wins Técnicos** — **31 items removidos:** ver `docs/progreso/BACKLOG_HISTORY.md` (P2). No quedan items activos en P2.
-> ⚠️ **Nota DRV-014 (tradeoff WAL batch):** ver ADR `docs/architecture/adr/DRV-014-wal-batch-tradeoff.md` — el fix original fue revertido deliberadamente por `cae92db3` (batch-append por shard, 3-5× speedup). Tradeoff de performance, no deuda pendiente.
-
----
-
-## Phase 4: 🔧 Engineering Health & Architecture
-
-> Investigaciones de salud de ingeniería — rendimiento, concurrencia, arquitectura.
-
-| ID | Descripción | Archivos | Esfuerzo | Prio |
-|----|-------------|----------|----------|------|
-
-> **Ejecutadas 2026-08-12 — tanda 1 (commits en develop, migradas a progreso):** PERF-01 (`30e90cd9` claims revalidados), PERF-04 (`152ddd26` prefetch flag default off), PERF-06 (`914514bb`+`d9378656` KB/MB/GB), PERF-07 (`88b0f875` sparse parse explícito), PERF-09 (`0be56cac` cold-start log honesto).
-> **Ejecutadas 2026-08-12 — tanda 2 (commits `32462de6`/`437a1125`/`9eef37c5`/`5105f22d`, migradas a progreso):** PERF-02 (baseline criterion determinista + critcmp), PERF-03 (bench competitivo honesto SDKs), PERF-05 (ADR DRV-015 WAL async roadmap), PERF-08 (WASM Float32Array zero-copy). P4 completo.
-> **Items previos completados (10):** ver `docs/progreso/BACKLOG_HISTORY.md` (P4) — movidos a `docs/progreso/README.md`.
-
----
-
 ## Phase 5: 📖 Docs & Community
 
 > Preparación de documentación pública, comunidad, y onboarding.
@@ -154,12 +100,6 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 | `CLD-02` | **Pitch deck + one-pager** — checkbox vacío en `GO_TO_MARKET.md:408`; cero archivos `*pitch*`/`*deck*`. | 🟡 3-5d | 🔵 | ❌ Pendiente |
 | `CLD-04` | **Case study #1 (enterprise pilot)** — checkbox vacío en `GO_TO_MARKET.md:409`; cero archivos. Depende de pilot real. | 🟠 1 sem | 🔵 | ❌ Pendiente |
 | `BLOG-CTA` | **CTAs + metadata de la serie de blogs + posts 6-7** — M3 🟡 date drift (2026-06-06 vs web 2025), M4 🟡 title drift, CTA débil en 2 posts (`how_hybrid_search_works.md`, `sqlite_for_ai_agents.md`), posts 6-7 no redactados (Ollama+VantaDB, Claude Code MCP). M1/M2/M5/M6 ya resueltos. | 🟡 3-5d | 🟠 | ❌ Pendiente |
-
----
-
-## Phase 7: 🌐 WASM & Performance
-
-> **Items removidos (5):** ver `docs/progreso/BACKLOG_HISTORY.md` (P7).
 
 ---
 
@@ -227,192 +167,12 @@ verified_by: "Historial de verificación: docs/progreso/BACKLOG_HISTORY.md"
 
 ---
 
-## Phase 10: 🏗️ Competitive Features — Catalog
-
-> **Fuente:** Análisis de 27 archivos de `VANTADB DOC OLD/` (9 vector DBs + 8 graph DBs + 10 arquitectura).
-> **Total:** 30 items, **0 activos** (tablas detalladas vacías; 12 ✅ removidos a progreso, 18 migrados/cerrados — ver `docs/progreso/BACKLOG_HISTORY.md` P10).
-> **Reportes completos:** `docs/audit-reports/competitive-features-consolidated-report.md`, `docs/audit-reports/deep-analysis-{vector,graph,arch}.md`
-
-### 🔴 Alta — Features competitivas críticas para adopción
-
-| ID | Feature | Esfuerzo | Estado | Dependencias |
-|----|---------|----------|--------|--------------|
-
-### 🟠 Media-Alta — Features competitivas importantes
-
-| ID | Feature | Esfuerzo | Estado | Dependencias |
-|----|---------|----------|--------|--------------|
-
-### 🟡 Medio — Features de madurez y ecosistema
-
-| ID | Feature | Esfuerzo | Estado | Dependencias |
-|----|---------|----------|--------|--------------|
-
----
-
-## Phase 11: 🐙 GitHub Issues — Backlog de Issues Abiertos
-
-> Issues abiertos en `ness-e/Vantadb` convertidos a tareas del backlog (2026-08-01).
-> **Total:** 14 tareas (issues #119–#144), **0 activas en backlog** (tabla vacía — cerradas/migradas). Todos son `good first issue`.
-> ⚠️ **Recordatorio obligatorio:** al completar cada tarea, **revisar el resultado contra el issue y cerrarlo en GitHub** (`gh issue close <NUM> --repo ness-e/Vantadb`), confirmando que se cumple su Definition of Done.
-> Estado real se actualiza en la columna **Estado**.
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-
----
-
-## Phase 12: 🖥️ DESKTOP — App de Escritorio Tauri Multi-Connection
-
-> **Objetivo:** App de escritorio Tauri v2 en `desktop/` que conecta la UI con VantaDB a través de **cualquiera de las 6 integraciones** (crate nativa, `vantadb-server` HTTP, `vantadb-mcp` stdio, `vantadb-node` napi, `vantadb-python` PyO3, `vantadb-ts`/`vantadb-wasm` webview), individualmente o varias simultáneas, para máxima compatibilidad/rendimiento/seguridad.
-> **Base de decisión:** `docs/research/DESKTOP-01-tauri-plataforma-desktop.md` (✅ SÍ — Tauri v2, vía nativa óptima) + **`docs/research/DESKTOP-01b-investigacion-6-integraciones-arquitectura.md`** (investigación completa de las 6 integraciones + arquitectura multi-connection de vanta-arch: trait `VantaConnection` + `ConnectionManager`, default = crate `vantadb` embebida, regla "un escritor por path de DB").
-> **Contexto de integraciones (investigado 2026-08-04):** server = HTTP REST `/api/v2/query` (IQL) en `127.0.0.1:8080`, auth Bearer, sin streaming; MCP = JSON-RPC 2.0 **solo stdio** (15 tools), proceso es la DB; node = addon napi-rs (Tauri no puede `require()`, solo sidecar); python = PyO3, sin CLI (requiere driver script); ts/wasm = snapshot JSON in-memory, read-only/demo.
-> **Regla de fragmentación:** 1 tarea = 1 concepto; nunca mezclar 2 integraciones en una tarea. `desktop/` usa `[workspace]` vacío en `src-tauri/Cargo.toml` → desacoplado del workspace raíz (no toca CI/versiones de core).
-> **Scoping 2026-08-05 (plan Task 54 — MVP multi-connection recortado):** incluir 13 tareas (DESKTOP-02/03/04/05/08-14/19/20/24/26), defer 4 a Fase 7 futura (DESKTOP-15/16/17/18 Node/Python — valor marginal, empaquetado frágil). `desktop/` aún NO existe — **build pendiente desde cero**, solo scoping realizado.
-> **Re-scope 2026-08-20 (P26 Vanta Studio completada):** la dirección cambió de "app multi-connection con 6 vías" a **transporte pluggable** (nativa embebida / HTTP `/api/v2/*` / WASM-OPFS standalone) con `ConnectionSelector.tsx` eliminado (ADMIN-03, `847ab080`). DESKTOP-12/13/14 (MCP client), 15/16/17/18 (Node/Python), 19 (manager completo), 21 (UI multi-connection) y 22 (eventos streaming) → **obsoletas por dirección, archivadas** (ver `docs/progreso/BACKLOG_HISTORY.md`). DESKTOP-23/26/27 re-scopeadas al modelo Studio. DESKTOP-24/25 priorizadas como pendientes del desktop.
-> **Análisis integral desktop 2026-08-22 (+DESKTOP-28..39 +CORE-02):** lectura completa de `desktop/src` (~90 archivos: shell, lentes, paneles legacy, stores, transportes) cruzada con superficie de los crates nuevos `vanta-memory` (pipeline L0-L3 funcional sin ninguna UI) y `vanta-proxy` (sin dashboard). Hallazgos: estética mixta legacy/Studio, polling descoordinado, estado usuario sesión-only, sin settings/CRUD ns, CONSOLIDAR incompleto, SopPanel con botones falsos, slider híbrido client-side (MEM-01 ya permite cablear real), huérfanos SearchBar/ProcessPanel. Bug core detectado vía WASM → CORE-02 (IQL graph-store vacío en standalone).
-
-### Fase 0 — Scaffold
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-
-### Fase 1 — Trait + adaptador nativo + UI mínima
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-
-### Fase 2 — Adaptador Server (HTTP)
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-
-### Fase 3 — Adaptador MCP (stdio)
-
-> ~~DESKTOP-12/13/14~~ **Archivadas 2026-08-20** — obsoletas por dirección P26 (ver header re-scope): el motor está embebido (doble escritor → Lock); `McpSpawn` (DESKTOP-11) ya existe solo como sidecar del server, no como vía UI. Registro en `docs/progreso/BACKLOG_HISTORY.md`.
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-
-### Fase 4 — Node y Python (opcionales, feature-gate)
-
-> ~~DESKTOP-15/16/17/18~~ **Archivadas 2026-08-20** — obsoletas por dirección P26: ya deferidas en scoping 2026-08-05 (valor marginal, empaquetado frágil); F4 WASM/OPFS las supera como vía alternativa; Tauri no puede `require()` napi. Registro en `docs/progreso/BACKLOG_HISTORY.md`.
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-
-### Fase 5 — ConnectionManager multi-connection
-
-> ~~DESKTOP-19, DESKTOP-21~~ **Archivadas 2026-08-20** — obsoletas por dirección P26: `ConnectionManager` ya existe (DESKTOP-06: registry + active_id + 14 métodos); path lock ya lo da NativeConnection (DESKTOP-05 → `VantaError::Lock`); UI multi-connection contradice ADMIN-03 (`ConnectionSelector.tsx` eliminado). Registro en `docs/progreso/BACKLOG_HISTORY.md`.
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-| `DESKTOP-20` | ~~**Lifecycle shutdown_all** — `shutdown_all` en `RunEvent::ExitRequested`: orden webview → subprocesos → nativa última (flush); timeout configurable + kill forzoso.~~ ✅ 2026-08-08 — commit `45f8bed8` (`shutdown_all(grace)` + `RunEvent::ExitRequested`, manager.rs + lib.rs, test) | `src/lib.rs`, `src/connections/manager.rs` | 🟢 | 🔵 | ✅ |
-
-### Fase 6 — Config, empaquetado, CI, tests, docs (re-scopeada al modelo Vanta Studio 2026-08-20)
-
-> **Re-scope 2026-08-20 (P26):** DESKTOP-22 (eventos streaming) **archivada** — progreso de import ya cubierto por F2 (ImportDrop); SSE quedó sin asignar en DEFER table de F4. DESKTOP-23/26/27 re-scopeadas al modelo Studio (transporte pluggable, no multi-connection 6 vías). DESKTOP-24/25 priorizadas como pendientes del desktop.
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-
-### Fase 7 — Consola Administrativa (ADMIN)
-
-> **Contexto 2026-08-07:** el usuario dirige el desktop hacia una **consola administrativa de VantaDB** (dashboard con métricas/KPIs/SOPs/telemetría/procesos/conexiones y explorador de datos), no solo a un MVP multi-connection. Fuente de datos: snapshot de métricas ya existente en core (`src/metrics/core/snapshot.rs` — `OperationalMetricsSnapshot` con ~72 campos: startup_ms, WAL replay, ANN rebuild, text index repairs, hybrid/planner, index routing, evictions, quantized nodes, memoria) + command `vanta_health` ya implementado (DESKTOP-03). Estilo: **modo claro reutilizando el design system de `web/`** (cream `#FBF9F5`, ink, neon `#FF5A45`), NO el tema oscuro propietario actual de `App.css`.
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-| `ADMIN-01` | ~~**Command `vanta_metrics` IPC** — Exponer `OperationalMetricsSnapshot` como comando Tauri.~~ ✅ 2026-08-08 — commit `d77559f3` (`vanta_metrics` en metrics.rs usa `VantaOperationalMetrics` ya `Serialize`; 37 campos incl. `derived_prefix_scans`) | `src/commands/metrics.rs`, `src/lib.rs` | 🟢 | 🔵 | ✅ |
-| `ADMIN-02` | ~~**Métricas vivas (delta entre snapshots)** — Frontend calcula deltas comparando snapshots consecutivos.~~ ✅ 2026-08-08 — convergido en ADMIN-04 (`b62fff7c`): grid de ADMIN-04 incluye deltas imports/queries/scans + RSS + poll 4s (contrato cubierto; código propio eliminado por duplicación) | `desktop/src/hooks/useMetrics.ts`, `src-tauri/src/commands/metrics.rs` | 🟡 | 🔵 | ✅ |
-| `ADMIN-03` | ~~**Migrar UI al design system web (modo claro)** — Reemplazar tema oscuro de `App.css` por tokens de `web/globals.css`.~~ ✅ 2026-08-08 — commit `847ab080` (App.css reescrito con tokens cream/ink/neon, sombra dura, radius 0; `ConnectionSelector.tsx` eliminado) | `desktop/src/App.tsx`, `desktop/src/App.css`, `desktop/tailwind.config.js`, `desktop/src/components/*` | 🟡 | 🔵 | ✅ |
-| `ADMIN-04` | ~~**Dashboard grid (metro-style) con poll 3-5s** — Layout de cards con polling en cadena.~~ ✅ 2026-08-08 — commit `b62fff7c` (`MetricsGrid.tsx` metro 6 tiles, poll 4s, deltas + trend, responsive 3→1 col) | `desktop/src/pages/Dashboard.tsx`, `desktop/src/components/*` | 🔴 | 🔵 | ✅ |
-| `ADMIN-05` | ~~**KPIs derivados** — a partir de snapshot.~~ ✅ 2026-08-08 — commit `4dcf268e` (`KpiCards.tsx` 5 KPIs con guard div-by-zero + sparklines CSS puro; bridge `vanta.ts` con interfaz `OperationalMetrics` única) | `desktop/src/components/KpiCard.tsx`, `desktop/src/utils/kpi.ts` (derivados) | 🟡 | 🔵 | ✅ |
-| `ADMIN-06` | ~~**SOP panels (WAL replay / Reindex / Health) con semáforo** — Flujo con estado.~~ ✅ 2026-08-08 — commit `f20d67a4` (`SopPanel.tsx` 3 paneles: WAL Replay/Reindex muestran último valor del snapshot + Refresh, Health llama `vanta_health` en vivo; triggers de replay/rebuild no existen en core — documentado) | `desktop/src/components/SopPanel.tsx`, `desktop/src/hooks/useSop.ts` | 🟡 | 🔵 | ✅ |
-| `ADMIN-07` | ~~**Data Explorer** — Tabla navegable de `memory` con paginación.~~ ✅ 2026-08-08 — commit `7a19a9f5` (`DataExplorer.tsx`: browse `vanta_list` + search `vanta_search` con score, "Load more" con limit creciente 50→100→200; core NO soporta offset/cursor — verificado, `ponytail:` documentado) | `desktop/src/pages/Explorer.tsx`, `src/commands/data.rs` | 🟡 | 🔵 | ✅ |
-| `ADMIN-08` | ~~**Panel Procesos & Conexiones** — list_connections + panel de procesos.~~ ✅ 2026-08-08 — commit `f5c69788` (`ProcessPanel.tsx`: conexiones con shutdown por entrada; subprocesos placeholder — core sin `McpSpawnRegistry`, `McpSpawn` nunca instanciado, documentado) | `desktop/src/components/ProcessesPanel.tsx`, `src/commands/process.rs` | 🟡 | 🔵 | ✅ |
-| `ADMIN-09` | ~~**Snapshot export + persistencia** — export JSON + history corto.~~ ✅ 2026-08-08 — commit `e0e8ff3a` (`ExportPanel.tsx`: blob download JSON con timestamp ISO + persistencia de último snapshot en localStorage) | `src-tauri/src/commands/metrics.rs`, `desktop/src/hooks/useMetrics.ts` | 🟢 | 🔵 | ✅ |
-
-> **Secuencia:** ADMIN-01 → ADMIN-03 (base) → ADMIN-02/04/05 en paralelo → ADMIN-06 → ADMIN-07 → ADMIN-08 → ADMIN-09. Reutiliza `operational_metrics_snapshot()` — NO crear telemetría nueva de cero; el snapshot core es la fuente única de KPIs.
-
-> **Total:** 47 tareas (DESKTOP-02..39 + ADMIN-01..09) — **Análisis desktop 2026-08-22:** +12 tareas nuevas (DESKTOP-28..39: deudas arquitectura/UI, gaps UX, lente MEMORIA para vanta-memory, dashboard PROXY) derivadas de lectura completa de `desktop/src` (~90 archivos). Re-scope 2026-08-20: DESKTOP-12/13/14/15/16/17/18/19/21/22 archivadas por dirección P26; pendientes 17 (DESKTOP-23/24/25/26/27 + 28..39). Secuencia sugerida: 24/25 (packaging+CI, priorizadas) → 23/29/30 (persistencia+polling base) → 31..34 → 36→37 (MEMORIA) → 35/38/39.
-
----
-
-## Phase 13: 🔎 AUDREP — Hallazgos Audit Report 2025-07-27 (verificados vigentes)
-
-> **Origen:** `docs/audit-reports/archive/audit-full-2025-07-27.md` (auditoría estática multi-agente sobre `develop@63b0101d`).
-> **Verificación:** 2026-08-05 contra HEAD `8fe574b5` — los 62 hallazgos siguen presentes en código (líneas actualizadas). 6 fueron corregidos y NO se incluyen: CRIT-01 (recover round-robin), CRIT-06 (flush_threshold=1), CRIT-09 (providers `[workspace]`), ALTO-01 (double antes de parse_i64), CRIT-10-prometheus (feature añadida), MED-15 (batch por shard). Además AUDREP-02/05/06 corregidos 2026-08-05 (tachados) y AUDREP-01/04 ya completados.
-> **Ejecución:** priorizar por severidad. CRÍTICOS/ALTOS con categoría **Durabilidad** y **Panic** son los de mayor riesgo de producción.
-
-### CRÍTICOS (8)
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-
-### ALTOS (14)
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-
-### MEDIOS (25)
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-
-### BAJOS (15)
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-
-### NV — Hallazgos nuevos verificados en código (2026-08-05, limpieza docs/audit-reports)
-
-> **Origen:** revisión de `docs/audit-reports/` + `docs/reviews/` 2026-08-05 (vanta-lead con verificación manual en código). Candidatos que resultaron **ya tickereados** NO se duplican: `rayon` feature ausente = `AUDREP-07`, `next.config ignoreBuildErrors` = `AUDREP-19`.
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-| ~~`NV-02`~~ | ~~**🟡 MEDIO / Server-Robustez: `expect`/`unwrap` en `cli_server.rs`** — Líneas 142 y 176 usan `expect`/`unwrap` en paths de request HTTP; un fallo inesperado aborta el hilo del servidor en vez de devolver 500. **Recomendación:** propagar error con `?` → `IntoResponse`.~~ → ✅ 2026-08-08 (handlers ya robustos vía AUDREP-32; único expect restante en GovernorConfig build → degrada a sin rate-limit con log) | `src/cli_server.rs:142, 176` | 🟢 1h | 🟡 | ✅ Completado |
-| ~~`NV-03`~~ | ~~**🟡 MEDIO / Packaging-Licencia: `vantadb-wasm` sin archivo LICENSE** — El crate publicable no incluye archivo `LICENSE` (el workspace es Apache-2.0); crates.io lo marca sin license → falla publicación/CI deny. **Recomendación:** añadir `LICENSE` (Apache-2.0) en `vantadb-wasm/`.~~ → ✅ 2026-08-08 (LICENSE Apache-2.0 copiado del raíz, hash idéntico) | `vantadb-wasm/` (Cargo.toml) | 🟢 5min | 🟡 | ✅ Completado |
-| ~~`NV-05`~~ | ~~**🟢 BAJO / Config-Dependencias: divergencia `deny.toml` vs `.cargo/audit.toml`** — `deny.toml` no ignora `RUSTSEC-2024-0436` (paste) pero `.cargo/audit.toml:21` sí; herramientas reportan estados distintos del mismo advisory. **Recomendación:** unificar la política de ignorados en un solo lugar.~~ → ✅ 2026-08-08 (ignore RUSTSEC-2024-0436 añadido a deny.toml, `cargo deny check advisories` pasa) | `.cargo/audit.toml:21`, `deny.toml` | 🟢 30min | 🟢 | ✅ Completado |
-
-> **Total:** 63 tareas (8 🔴 CRÍTICOS, 14 🟠 ALTOS, 26 🟡 MEDIOS, 15 🟢 BAJOS). Origen: `docs/audit-reports/archive/audit-full-2025-07-27.md` — 6 hallazgos ya corregidos excluidos (ver nota superior) + `DEPS-01` de la sección 7 del mismo reporte. **Todas resueltas 2026-08-05..08** (commits en `docs/avance/historial/snapshot-2026-08-07.md`); residuales re-capturados en P15/P16 (ERR-021, SEC-01, PERF-07/08/09, CI-01, REVIEW-05).
-
----
-
 ## P14 — REVIEW items (hallazgos de `docs/reviews/review-full-2026-07-27-0309.md`, validado 2026-08-05)
 
 > **Origen:** findings de la unified-review full 2026-07-27, re-validados contra el código el 2026-08-05 (sub-agentes vanta-worker/vanta-docs). Los items marcados como corregidos en el report y confirmados se excluyen. `DEPS-01` ya cubre la duplicación de crates/lru; `AUDREP-41` cubre next-auth dead dep — no duplicados aquí.
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-
----
-
-## P15 — Hallazgos de Revisión Multi-Agente 2026-08-08 (errors-found.md)
-
-> **Origen:** `docs/reviews/errors-found.md` — revisión por capas con 6 sub-agentes en paralelo (vanta-audit, vanta-arch, vanta-engine, vanta-worker, vanta-tuner, vanta-docs) + verificación manual del lead sobre `develop@7a19a9f5`. 51 hallazgos documentados; ERR-017 descartado al verificar (métrica euclidiana uniforme en `distance.rs:495/516/536`). Índices de esfuerzo: 🟢 < 1 día | 🟠 1-3 días | 🔴 > 3 días.
-
-### CRÍTICOS (5) — ✅ todos ejecutados por plan `2026-08-09-backlog-pipeline.md` (ver progreso)
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-| `ERR-010` | **🔴 Persistencia / Race checkpoint↔snapshot** — *resuelto*. Fix original `a5ca4389` (insert_lock across checkpoint/save) + deadlock real reparado en `c9188639` (flush antes de insert_lock). **Reapertura 2026-08-11 cerrada**: 13 tests fallaban por contratos desactualizados + 2 bugs reales del core — `9019342d` (scan excluía nodo id 0 por `cursor.parse().unwrap_or(0)`), `164108e1` (snapshot copiaba flat en snap_dir/ pero `init.rs:291` espera `snap_dir/data/` → reapertura vacía), `0fd1d24a` (13 tests alineados: 5 zero-norm, 3 stemming Tantivy, 4 snapshot-misc, 1 deadlock propio del test). Verify: nextest audit 1902 passed, bins pesados 15/15 + 4/4 + 18/18, fmt+clippy limpios. Deuda original en `docs/plans/archive/2026-08-09-backlog-pipeline.md:286`. | `src/storage/engine/` | 🔴 | 🔴 | ✅ Completado |
-| `ERR-021` | **🔴 MCP OOM** — *resuelto* (`b01e9ed6`: streaming restaurado con take(n) + límite). | `vantadb-mcp/src/lib.rs` | 🟠 | 🔴 | ✅ Completado |
-| `ERR-022` | **🔴 top_k/k sin tope → alloc gigante** — *resuelto* (`3eeb86e1`: k.min(MAX_K) en bindings+MCP). | bindings + `src/index/search.rs` | 🟢 | 🔴 | ✅ Completado |
-| `ERR-035` | **🔴 Read-lock global HNSW** — *resuelto* (`1b0016d5`: contención reader/writer mitigada). | `src/physical_plan.rs:211`, `src/storage/engine/ops.rs` | 🔴 | 🔴 | ✅ Completado |
-
-### ALTOS (16 verificados) — ✅ 14 ejecutados por plan `2026-08-09` (ERR-001..025; ver progreso). Residuales:
-
-| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-| `ERR-037` | **🟠 `batch_insert` chequea existencia por nodo** — *resuelto* (`b97c0ccd` probe + follow-up `ExistingMeta` chunked): overwrite path −30.3% (97.1→67.7ms @10k), probe cache-hit 1-3ms. Bench en `benches/batch_existing_check.rs`. | `src/storage/engine/ops.rs` | 🟠 | 🟠 | ✅ Completado |
-
-### MEDIOS (12) — ✅ 7 ejecutados por plan `2026-08-09` (ERR-005/014/027/028/029/030/050) + ERR-026 resuelto (`ce265569`/`aa1754d2`) y migrado a progreso 2026-08-12. Sin residuales.
-
-### BAJOS (9) — ✅ 3 resueltos/verificados por plan `2026-08-09` (ERR-016 SKIP verificado, ERR-034 ⏫, ERR-051 ⛠) + ERR-015/032/033/047/048 resueltos y migrados a progreso 2026-08-12. Sin residuales.
-
-### INFO (5) — ✅ 5/5 resueltos/obsoletos (ERR-006 deny.toml limpio, ERR-008 `copy_unsafe` ya no existe, ERR-009 job Miri en CI `ci-rust-10.yml:457`, ERR-049 `ivf_bench.rs` registrado `Cargo.toml:247`, ERR-007 multiple-versions documentado en deny.toml `[bans] skip` 2026-08-12). Sin residuales — sección cerrada.
-
-> **Descartado:** ERR-017 (métrica euclidiana consistente en `flat.rs:43` / `distance.rs:495/516/536` / `search.rs:176/327` — no se confirma la divergencia flat vs HNSW).
 
 ---
 
@@ -444,17 +204,12 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | AUD-042 | Media | Upgrade tantivy ≥0.18 — elimina allowlist RUSTSEC-2026-0253 + desbloquea lru 0.18 (security debt, rec#6) | Cargo.toml (tantivy), deny.toml | 🔴 BLOQUEADO upstream — verificado 2026-08-13: tantivy 0.26.1 (última publicada) fija `lru ^0.16.3`; el fix (`lru = "0.18.2"`) está en tantivy main (0.27.0) pero NO publicada en crates.io (404). Re-evaluar cuando tantivy ≥0.27.0 publique: bump tantivy + lru directo a 0.18.2 y remover allowlist. Comentario deny.toml actualizado con el estado. |
 | REVIEW-07 | Media | `.config/nextest.toml` profile `audit`: filtro referencia binarios inexistentes → parse failure bloquea TODA invocación nextest. Podar stale verificado con `cargo nextest list` | .config/nextest.toml | 🔴 Abierta — derivada de review-full-20260822 H01-CODE-001 |
 | AUD-043 | Alta | Fix clippy `unused variable: ns` en closure `options_for` (`src/cli_server.rs:1302`, commit `abc4ec10`) que rompe `just verify` / pre-push gate / CI Fast Gate. Fix: renombrar parámetro a `_ns` (~2 min). Origen: audit-full-20260825-010607 | `src/cli_server.rs:1302` | 🟢 | 🔴 Alta | Pendiente |
-| REVIEW-08 | Media | `h2 0.4.15` RUSTSEC-2026-0258 (DoS DATA frames vacíos) → `cargo deny check advisories` FALLA. Fix: `cargo update -p h2` (≥0.4.16) + commit Cargo.lock antes del próximo release | Cargo.lock | ✅ Completada (`ff9b2933`) — h2 0.4.18, deny advisories verde |
 | AUD-044 | Alta | Shim `MmapMut` (no-memmap2) sin write-back: `flush()` no-op hace que `compact_layout` pierda datos silenciosamente en builds nativos sin memmap2. Fix: flush real vía seek+write_all o `compile_error!` guard + test round-trip compaction con `--no-default-features`. Origen: audit-full-20260825-031011 Phase 2 | `src/storage/vfile_mmap.rs:130-141`, `src/storage/archive.rs:95-137` | 🟡 | 🔴 Alta | Pendiente |
 | AUD-045 | Media | Clones de vector completo per-candidate en hot path IVF search (`centroid.clone()` y `entry.vector.clone()` en loops internos). Acción: medir baseline vs `canonical_p99` (Regla 9), luego A/B variante borrowed/slice en `calculate_similarity`; aceptar solo si p99 mejora. Origen: audit-full-20260825-031011 Phase 3 | `src/index/ivf.rs:250,275` | 🟡 | 🟡 Media | Pendiente |
 | AUD-046 | Media | Fan-out all-namespaces en list HTTP trunca silenciosamente por namespace a NS_CAP=10000 sin señal al cliente; re-fan-out completo por página (O(n·páginas)). Acción: exponer `truncated_per_ns: true` o log warn cuando `page.records.len() == NS_CAP`. Origen: audit-full-20260825-031011 Phase 4 | `src/cli_server.rs:1295-1317` | 🟢 | 🟡 Media | Pendiente |
 | AUD-047 | Baja | Duplicación ~50 líneas del bloque match métrico (Cosine/Euclidean/SparseDot) en layer.rs, anidado peor desde f2c2141e. Acción: extraer helper `score_f32_pair(...)` compartido por ambos call-sites. Origen: audit-full-20260825-031011 Phase 4 | `src/index/search/layer.rs` | 🟢 | 🟢 Baja | Pendiente |
 | REVIEW-10 | Alta | God-file `cli_server.rs` ~3800-4141 líneas (routing + RBAC + TLS + OTEL + tests inline) — blast radius total del server en un archivo. Split por concern bajo `src/server/`; congelar features nuevas ahí | src/cli_server.rs | 🟠 Abierta — derivada de review-full-20260822 H06-ARCH-001 |
 | REVIEW-12 | Media | `api.rs` ~2300-2500 líneas aproximándose a god-file — SDK surface concentrada dificulta evolución `#[non_exhaustive]`. Refactor aditivo por dominio (memory/search/namespaces/admin), re-exportado vía sdk::api, sin break público | src/sdk/api.rs | 🟡 Abierta — derivada de review-full-20260822 H06-ARCH-002 |
-| REVIEW-15 | Baja | Cast `from_raw_parts` a f32 sin assert de alineación (`vector_data.rs:167`) — invariante page-aligned implícito. Añadir `debug_assert!(ptr % 4 == 0 && len % 4 == 0)` o usar `align_to()` | src/node/vector_data.rs:167 | ✅ Completada (`57090e0e`) — align_to + guard, −1 unsafe |
-| REVIEW-16 | Baja | 5 imports muertos en `debug_ops.rs` (warnings en cada build maturin/cargo). `cargo fix --lib -p vantadb` y listo | src/sdk/search/debug_ops.rs:2 | ⛔ SKIP — imports ya eliminados colateralmente (cargo check 0 warnings, 2026-08-23) |
-| REVIEW-19 | Baja | No hay CHANGELOG.md en la raíz (canónico en docs/) — tooling que espera changelog root no lo encuentra. Stub de una línea apuntando a docs/CHANGELOG.md | CHANGELOG.md (nuevo) | ✅ Completada (inline) — stub raíz creado |
-| REVIEW-20 | Baja | Script validate-docs-coverage documentado NO existe; links de docs solo verificados ad-hoc. Crear script o paso CI que valide links internos automáticamente | dev-tools/scripts/ | ⛔ SKIP — script existe y corre 0 gaps (stale del review) |
 
 
 ---
@@ -465,7 +220,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `TSYS-12` | **Waves en paralelo + merge del lead** - `FAIL_MODE=parallel` es single-loop síncrono sin merge step estructural ni modelado de critical path; diseño: 3-5 sub-agentes por wave + contrato de merge (duplicados/huecos/conflictos). Opcional, NO gate-CI (REPORTE-FINAL §3.4-4; agent-03 §7.2-7.4). Diseño propuesto en `docs/architecture/task-system-waves-parallel.md`. | `docs/architecture/task-system-waves-parallel.md`, `.opencode/task-system/prompts/pipeline-run.md` | 🟡 | 🟢 | ✅ Diseño implementado (T12) — `task-system-waves-parallel.md` (merge/duplicados/huecos); runtime opcional NO gate-CI (commit d9f2a4cb) |
 
 ---
 
@@ -475,13 +229,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Origen (doc:línea) | Afecta | Esfuerzo | Prio | Estado |
 |----|-------------|--------------------|--------|----------|------|--------|
-| `TIR-01` | **Compaction de contexto runtime** - no existe mecanismo de compactación de contexto para tareas largas; el harness depende de note-taking manual (`Context Save Point`) y la escalera de retry solo ofrece "contexto fresco + resumen ~200 tokens". Investigar: ¿resumen incremental por fase? ¿qué se conserva? Comparar con el claim original (multi-turn compaction). | agent-01-fundaments.md #21/#40/#59; iter-loop-tools.md:178 | Tareas de ejecución larga / multi-turn en el loop | 🟡 | 🟠 | ✅ Investigada — decisión: micro-cambio de prompt (Context Save Point por fase + SARL lee task file como digest); aplicar a criterio del lead. Doc: `docs/research/TIR-01-contexto-compaction.md` |
-| `TIR-02` | **DORA recovery time + rework rate** - `docs/reports/dora.md` mide lead/cycle/CFR/throughput pero no recovery time (tiempo en volver a DE del pipeline tras fallo) ni rework rate (tareas reabiertas/total). Requiere datos de `verify-log.jsonl` (Task 2 histórico). Investigar viabilidad de métricas con la telemetría actual antes de implementar. | eng-03-project.md §8.3 (DORA); docs/reports/dora.md:183-197 | Observabilidad del pipeline | 🟡 | 🟠 | ✅ Investigada — decisión: **IMPLEMENTAR recovery time** (verify-log.jsonl existe y se puebla; extender `evals/dora.mjs` ~30 líneas); **DEFERIR rework rate** hasta TSYS-09 completo. Doc: `docs/research/TIR-02-dora-recovery-rework.md` |
-| `TIR-04` | **Dead-letter queue** - tareas que agotan retries solo escalan a humano (SARL ESCALATE); no hay cola de mensajes muertos que preserve el estado/traceId de la tarea fallida para revisión posterior ni re-procesamiento. Investigar si basta un contenedor de tareas fallidas citado desde el plan vs infraestructura nueva. | agent-02-task-execution.md §8.2; pipeline-run.md (SARL) | Retry/recuperación de sub-agentes | 🟢 | 🟡 | ✅ Investigada — decisión: **IMPLEMENTAR contenedor de tareas fallidas citado desde el plan** (formalizar `tasks/closed/` + regla re-procesamiento `pending` + índice `rg "❌ FAILED"`); **WONTFIT** DLQ infraestructura nueva. Doc: `docs/research/TIR-04-dead-letter-queue.md` |
-| `TIR-05` | **LLM-as-judge (0.0-1.0)** - los evals son mecánicos (compare/verify primitivo); no hay judge de fabricación para salidas sin ground-truth determinista. Investigar si aplica a salidas sintéticas del task-system (resúmenes, categorizaciones) vs costo por llamada. | agent-03-orchestration.md #35; evals/ | Calidad de verificación de salidas no-deterministas | 🟡 | 🟢 | ✅ Investigada — decisión: **DEFERIR** (falta rúbrica calibrada + volumen bajo; evals hoy 100% mecánicos cubren el caso). Triggers de reapertura en doc. Doc: `docs/research/TIR-05-llm-as-judge.md` |
-| `TIR-06` | **Post-release / monitoring en el loop** - el pipeline cierra en CLOSE (commit) sin verificación post-merge; no hay paso de monitoreo de lo shippeado ni retroalimentación al pipeline. Relacionado con DoD (d) monitoring. Investigar: ¿un paso de "verificación post-release" opcional vs delegación a `progreso`/registro? | REPORTE-FINAL §3.3-27; definition-of-done.md:104 | Pipeline (cierre de campaña) | 🟢 | 🟢 | ✅ Investigada — decisión: **DEFERIR** (duplicaría release-plz/CI; gap real ya priorizado como P0-1 evals del pipeline en REPORTE-FINAL §3.7). Cierre opcional: 1 línea en pipeline-run.md CLOSE. Doc: `docs/research/TIR-06-post-release-monitoring.md` |
-| `TIR-07` | **Chaos runner del task-system (TSYS-06 runtime)** - existe el diseño (`docs/architecture/task-system-chaos-resilience.md`, T19) pero no runner que fuzzee `campaign-server.mjs`/máquina de estados. Marca "DEFER (sin verificación)". Investigar si construir el runner vale frente a tests de inyección de fallos puntuales. | TSYS-06; task-system-chaos-resilience.md; gap-01 §3.3-24 | Robustez del MCP server | 🔴 | 🟢 | ✅ Investigada — decisión: **DEFERIR runner** (pre-condiciones T19 ya implementadas; ~9/12 escenarios ya cubiertos); cerrar gaps C8/C9/concurrencia con tests puntuales. Doc: `docs/research/TIR-07-chaos-runner.md` |
-| `TIR-08` | **Saturación <20% + Broadening/Narrowing + jitter en retry** - criterios de investigación (stop si saturación <20%) y de re-enfoque (broadening/narrowing) están en la investigación pero no en prompts; retry sin jitter (exponential backoff determinista en RULES.md:453). Investigar si formalizarlos en `iter-loop-tools.md`/`task.md` o si son guías tácitas. | agent-02-task-execution.md §7.2/§7.6/§8.1; RULES.md:453 | Prompts de iteración/retry | 🟢 | 🟢 | ✅ Investigada — decisión: **IMPLEMENTAR parcial** (criterios 1 y 2 en `research-agent.md` ~6 líneas); **WONTFIT** jitter (backoff determinista correcto, thundering-herd no aplica). Doc: `docs/research/TIR-08-saturacion-broadening-jitter.md` |
 
 ---
 
@@ -493,7 +240,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 |----|-------------|----------|----------|------|--------|
 
 
-| `R4` | **NO fragmentar por step (decisión)** — cada paso como sub-agente dedicado = overhead de sesión por ~100 líneas + riesgo de regresión; SARL RESUME (`subagent-recovery.md:29-34`) ya conserva el contexto del sub-agente ejecutor con task_id; `/pipeline run` → `pipeline-full.md` es la respuesta correcta. Registrado para no re-proponer. | — | — | — | ✅ Decidido (no hacer) |
 
 
 
@@ -501,48 +247,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 
 ---
-
-## P20 - Fundamentos CS & Stack Engineering (roadmap.sh 2026-08-16)
-
-> **Origen:** análisis de roadmap.sh (Backend / Software Architect / Computer Science / DevOps / Product Management) aplicado a VantaDB + ajuste pre-launch (auditoría dirigida del código antes del Show HN Sept 2026). **Proceso obligatorio por tarea:** Investigación a profundidad → Análisis a profundidad → Plan de implementación detallado (si procede) → DoD verificado. Cada tarea integra su fase de verificación/análisis; no separar regla y auditoría en tareas distintas. **Poda 2026-08-16:** eliminadas FND-08/19/20/29 (métodos de aprendizaje del fundador y nota de decisión, sin valor al producto) y unificadas 8 duplicaciones regla↔auditoría (FND-10/11/13/14/24/25/26/27 absorbidas). Fuente del roadmap: `docs/research/` (generar `2026-08-16-roadmap-stack.md` al ejecutar la primera tarea).
-
-### P20a - Reglas de ingeniería (regla + verificación integrada)
-
-| ID | Descripción (Investigación → Análisis → Implementación) | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-
-
-
-
-
-
-
-
-
-### P20b - Instrucciones para AGENTS.md (prácticas del agente)
-
-> **Eliminadas 2026-08-16:** métodos de aprendizaje del fundador (Socratic FND-08, teach-back FND-20, plan 90/10 FND-29) y nota de decisión System Design (FND-19) — sin valor al desarrollo del producto.
-
-| ID | Descripción (Investigación → Análisis → Implementación) | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-
-
-
-
-
-
-### P20c - Tareas de verificación y análisis (sin regla asociada)
-
-| ID | Descripción (Investigación → Análisis → Plan si procede) | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
-
-
-### P20d - Fase 0 pre-launch y decisiones de producto (2026-08-16)
-
-> **Origen:** textos 3 y 4 (cierre de ciclo roadmap.sh). Acciones concretas de la Fase 0 (pre-Show HN) y decisiones de producto post-launch NO cubiertas por FND-01..17. Prioridad: FND-18/19 son la "acción física de hoy" pre-launch; FND-22/23/24 son post-launch (se ejecutan tras el Show HN).
-
-| ID | Descripción (Investigación → Análisis → Implementación) | Archivos | Esfuerzo | Prio | Estado |
-|----|-------------|----------|----------|------|--------|
 
 ## P21 - Skills de VantaDB (`skills/`) — ✅ Cerrada (2026-08-17)
 
@@ -559,12 +263,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (Problema actual → Acciones → Resultado a obtener) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `MCP-01` | **S1 🔴 text_query/hybrid/filters-text ROTOS vía MCP** — Problema: `search_memory` con `text_query` (solo o híbrido) y `filters` en path textual fallan siempre con `Search Error: text_index not found: bm25` en DB fresca (tests T09/T11/T13). Root cause trazado: `vantadb-server/src/main.rs` abre `StorageEngine` directo y **nunca ejecuta `ensure_indexes_current()`** — esa construcción del text index solo ocurre en `VantaEmbedded::open_with_config` (`builder.rs:105`) o vía `rebuild_index()` (`api.rs:660`), ninguna tool MCP la expone. Los puts sí escriben postings (`text_postings_written: 26` en metrics) pero el estado del índice nunca se crea → `ensure_text_index_query_ready` (`text_index.rs:18`) falla siempre. Acciones: (1) decidir el punto de construcción del text index en el path MCP (llamar `ensure_indexes_current` en el arranque del server, o exponer `rebuild_index` como tool MCP, o lazy-build en primer put); (2) implementar; (3) re-ejecutar `test-busqueda.py` — T09/T11/T13 deben pasar. Resultado: búsqueda lexical/híbrida/filters-text funcional vía MCP en DB fresca, sin pasos manuales. | `vantadb-server/src/main.rs`, `vantadb-mcp/src/handlers/tools.rs`, `src/sdk/builder.rs:105`, `src/sdk/api.rs:660`, `src/text_index.rs:18` | 🔴 | 🔴 | ✅ Fix: ensure_indexes_current pub + llamado en arranque run_stdio_server; T09/T11/T13 ✅; 32/32 tests |
-| `MCP-02` | **S2 🟠 `distance_metric=euclidean` sin efecto observable** — Problema: `search_memory` con `distance_metric: "euclidean"` produce scores IDENTICOS a cosine (T14: `[1.0, 0.9701, 0.0...]`); el parámetro por-request no se aplica. Root cause: `flat_search` usa `self.config.distance_metric` (`src/index/flat.rs`), ignora la métrica del request. Acciones: (1) propagar `distance_metric` del request al cálculo de score en flat/HNSW (o documentar que es config-time si es decisión); (2) implementar; (3) verificar con T14 que cosine ≠ euclidean. Resultado: el parámetro documentado tiene efecto real. | `src/index/flat.rs`, `src/index/search.rs`, `vantadb-mcp/src/handlers/tools.rs` | 🟡 | 🟠 | ✅ Fix: métrica per-request propagada (nearest.rs/search/mod.rs/alternate.rs); T14 euclidean≠cosine ✅ |
-| `MCP-03` | **S3 🟠 `search_semantic.distance` = similaridad coseno mal etiquetada** — Problema: `search_semantic` devuelve `distance=1.0` para vector idéntico y `0.0` para ortogonal (T17/T18) — es similaridad coseno con el nombre "distance" (la skill y `api-reference.md` documentan "distance: lower is more similar"). Ranking correcto, valor invertido. Acciones: (1) corregir la semántica (devolver distancia real `1 - cosine_sim`, o renombrar el campo a `similarity` — decisión de API pública, requiere `feat!`/semver según Regla 7); (2) implementar en el handler y/o la fuente del valor; (3) verificar T17/T18: idéntico→0.0, orden ascendente. Resultado: el campo `distance` significa lo que documenta. | `vantadb-mcp/src/handlers/tools.rs`, `src/index/search.rs` | 🟡 | 🟠 | ✅ Fix: handler convierte score→distancia real (Cosine→1−sim); 33/33 tests; doc api-reference actualizada |
-| `MCP-04` | **S4 🟡 Sin validación de dimensionalidad en `search_semantic`** — Problema: query vector 3-dim contra índice 4-dim aceptada con éxito y distancias 0.0 (T19) — scoring silenciosamente basura en vez del documentado `VantaError::DimensionMismatch { expected, got }` (`api-reference.md`, `src/error.rs`). Acciones: (1) validar dims del query contra la dim del índice en el handler `search_semantic` (y `search_memory` vectorial); (2) devolver error claro; (3) verificar T19: error DimensionMismatch con expected/got correctos. Resultado: queries mal dimensionadas fallan con error explícito, no con basura. | `vantadb-mcp/src/handlers/tools.rs`, `src/error.rs` (DimensionMismatch) | 🟢 | 🟡 | ✅ Verificado aislado (T19) — batería completa bloqueada por MCP-15 |
-| `MCP-15` | **S5 🔴 Stack overflow del child `vantadb-server` durante `search_semantic`/`search_memory`** — Problema: tras la secuencia T09-T16, `search_semantic` con dim VÁLIDA crashea el child con `thread 'tokio-rt-worker' (18480) has overflowed its stack` → pipe roto (`[Errno 22]`) en T17/T18/T19 (test-busqueda.py 16/20). Detectado independientemente por MCP-03 y MCP-04. Bump `thread_stack_size(8 MiB)` probado → no resuelve. Root cause real: recursión infinita `get()` (cache miss) → `prefetch_related` → `self.get(warm_id)` — par co-accesado A↔B ambos cache-miss cicla sin término (`get()` nunca inserta el nodo materializado; solo el tail de prefetch tras desenrollar). Fix: `PrefetchGuard` thread_local+RAII → prefetch single-level (contrato OLD-20); regression `test_get_prefetch_does_not_recurse_forever`; GATE vanta-audit APROBADO (0 C/H/M). Commit `cd8dd129`. Resultado: batería completa 20/20 sin crash. | `src/storage/engine/get.rs`, `src/storage/engine/tests/engine.rs` | 🔴 | 🔴 | ✅ Fix: PrefetchGuard single-level; test-busqueda.py 20/20; mcp_tests 34/34; commit cd8dd129 |
-| `T15` | **S6 🟡 `explain=true` no devuelve el contrato documentado** — Problema: T15 falla por discrepancia de shape: el hit no trae `explanation` ni `route`/`fusion_report`; trae `rrf_text_rank`/`rrf_vector_rank`. Acciones: (1) verificar contra el código del handler qué shape real devuelve explain; (2) alinear docs (`api-reference.md` / skill) o el handler según el contrato deseado; (3) T15 verde. Resultado: explain documentado == explain real. | handler `search_memory` explain, `references/api-reference.md` | 🟢 | 🟡 | ✅ Decisión: doc se alinea a la realidad (hits planos con `explanation` anidada; `route`/`fusion_report` solo en `explain_memory_search`, fusion_report siempre null); test `test_mcp_search_memory_explain_shape` (34º); hash SAME skills↔.opencode/skills; commit a7c0a00c |
 
 ### Bloque 2 — Discrepancias skill ↔ realidad (docs, vanta-docs — DESPUÉS del Bloque 1)
 
@@ -572,11 +270,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (Problema actual → Acciones → Resultado a obtener) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `MCP-05` | **D1 Sección "Hybrid Search" + `search_memory` declaran búsqueda textual/híbrida** — Problema: SKILL.md:200-206 y tool `search_memory` (L118) presentan `text_query`/hybrid como disponibles; en la realidad actual fallan siempre (MCP-01). Acciones: tras fix MCP-01, verificar y dejar como está; si el fix se difiere, añadir nota "text search requiere text index construido; ver MCP-01" + ejemplo mínimo de uso. Resultado: la skill no promete features rotas. | `skills/vantadb-mcp/SKILL.md` (L117-123, L200-206) | 🟢 | 🟠 | ✅ Verificado post-fix MCP-01 + ejemplo mínimo de hybrid query |
-| `MCP-06` | **D2 `distance_metric` documentado `cosine \| euclidean`** — Problema: SKILL.md:118 y api-reference declaran la métrica configurable; el parámetro no tiene efecto observable (MCP-02). Acciones: tras fix MCP-02 verificar; si se difiere, documentar "métrica del índice (config-time)" en vez de parámetro por-request. Resultado: doc alineada con el comportamiento real. | `skills/vantadb-mcp/SKILL.md` (L118), `references/api-reference.md` | 🟢 | 🟡 | ✅ Documentado per-request con efecto observable (cosine≠euclidean) |
-| `MCP-07` | **D3 `search_semantic` "Nearest neighbors with distances"** — Problema: los "distances" reales son similaridad invertida (MCP-03); la skill y `api-reference.md:299-306` documentan "lower is more similar". Acciones: tras fix MCP-03, verificar y dejar; documentar el significado exacto del campo (distancia o similaridad) y su rango. Resultado: doc del campo correcta. | `skills/vantadb-mcp/SKILL.md` (L121-123), `references/api-reference.md` | 🟢 | 🟡 | ✅ Documentado distancia real (1−cosine, orden ascendente) + nota SDK |
-| `MCP-08` | **D4 `VantaError::DimensionMismatch` documentado pero no ocurre vía MCP** — Problema: `api-reference.md:272` lista la variante; el handler no valida dims (MCP-04). Acciones: tras fix MCP-04 verificar el error llega al cliente MCP (isError content); documentar en la skill qué error esperar. Resultado: doc del error correcta. | `skills/vantadb-mcp/SKILL.md` (search_semantic), `references/api-reference.md` (Error Handling) | 🟢 | 🟢 | ✅ Documentado isError content `"Vector dimension mismatch: expected X, got Y"` |
-| `MCP-09` | **D5 Schema real vs doc: `search_semantic.k` required** — Problema: el `inputSchema` real marca `k` como required (verificado en tools/list) pero la skill dice "k (default: 5)" (SKILL.md:122); el handler tolera omisión (default aplicado), así que el schema es incorrecto/confuso. Acciones: (1) decidir si el schema debe marcar `k` opcional (fix server en tools.rs) o la skill debe decir "k requerido en schema, opcional en runtime (default 5)"; (2) alinear ambos. Resultado: schema y doc consistentes. | `vantadb-mcp/src/handlers/tools.rs` (schema search_semantic), `skills/vantadb-mcp/SKILL.md` (L122) | 🟢 | 🟢 | ✅ Doc-only: "k required in schema, optional at runtime (default 5)" |
 
 ### Bloque 3 — Deficiencias de la skill (cosas que no explica — vanta-docs)
 
@@ -584,9 +277,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (Problema actual → Acciones → Resultado a obtener) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `MCP-10` | **F1 Sintaxis IQL real NO documentada (la más grave)** — Problema: la skill dice "reading structures and inserting/mutating Nodes" (L127-129) sin UN solo ejemplo; la sintaxis real (verificada en `vantadb-mcp/tests/mcp_tests.rs:462` + parser) es: `INSERT NODE#id TYPE X { campo: "val" }` (+ opcional `VECTOR [..]`), `UPDATE NODE#id SET campo = "val"`, `DELETE NODE#id`, `FROM NODE#id`, y **`RELATE NODE#a--"label"-->NODE#b [WEIGHT w]`** para crear edges — indescubrible sin el código. Acciones: añadir sección "IQL Syntax" en SKILL.md con la gramática exacta verificada y 1 ejemplo por statement (INSERT/FROM/UPDATE/DELETE/RELATE) + nota "LISP no soportado". Resultado: un usuario puede escribir queries IQL correctas sin leer el código fuente. | `skills/vantadb-mcp/SKILL.md` (Graph Operations), `references/api-reference.md` | 🟢 | 🔴 | ✅ Sección "IQL Syntax" (7 statements verificados + nota LISP) |
-| `MCP-11` | **F2/F3/F6 Envelope MCP + wire-format + canales de error** — Problema: (F2) todas las respuestas reales son `{"content":[{"type":"text","text":"<json>"}]}` con `isError`, no el JSON directo que asumen los "Returns:" de la skill — parsear requiere adivinarlo (los 4 scripts de prueba tropezaron con esto); (F3) metadata: entrada JSON plano `{"priority":2}`, salida serde-tagged `{"priority":{"Int":2}}` — confunde al leer/escribir programáticamente; (F6) errores por canales mixtos: `rehydrate` con id inválido → JSON-RPC `-32602`, `get_node_neighbors` con nodo inexistente → `isError` content. Acciones: (1) documentar el envelope MCP y cómo extraer payload/isError (con ejemplo); (2) documentar el wire-format de `VantaValue` (entrada plana, salida tagged) en api-reference; (3) documentar ambos canales de error y cuándo ocurre cada uno. Resultado: integrar contra el MCP sin adivinar el protocolo. | `skills/vantadb-mcp/SKILL.md` (Returns de cada tool), `references/api-reference.md` (VantaValue), `references/mcp-protocol.md` | 🟡 | 🟠 | ✅ "Response Envelope" + "Error Channels" + wire-format VantaValue |
-| `MCP-12` | **F4/F5/F7/F8/F9/F10/F11 Comportamientos de borde no documentados** — Problema: la skill no documenta (F4) `memory_get` not-found → `isError` content `"Record not found"` (no JSON-RPC error); (F5) cursor de `memory_list` es offset numérico (usar `next_cursor` como `cursor`); (F7) advertencias del parser IQL: `LINK` no existe (falla silenciosa — inserta sin edge), trailing garbage aceptado sin error, `FROM NODE#a,b` multi-id devuelve solo el primero, `FROM` de nodo borrado → `[]`; (F8) `get_node_neighbors` solo muestra edges salientes hacia nodos vivos (dangling omitidos en silencio); (F9) `read_axioms` devuelve 4 objetos `{id, name, description}` (shape exacto); (F10) `rehydrate` requiere nodos archivados por un summary previo — no alcanzable con tools MCP solas (una pasada simple da `recovered_count: 0`); (F11) `memory_put` devuelve campos extra `version`/`node_id`/`expires_at_ms` (solo en api-reference, no en SKILL.md). Acciones: añadir sección "Behavior Notes" con cada punto + 1 línea de ejemplo/evidencia. Resultado: la skill describe el comportamiento real de borde, no solo los casos felices. | `skills/vantadb-mcp/SKILL.md` (sección nueva), `references/api-reference.md` | 🟡 | 🟡 | ✅ Sección "Behavior Notes" (7 puntos con evidencia) |
 
 ### Bloque 4 — Referencias muertas / rotas en la skill (vanta-docs)
 
@@ -594,7 +284,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (Problema actual → Acciones → Resultado a obtener) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `MCP-13` | **R1/R2/R3 Enlaces y comandos muertos** — Problema: (R1) SKILL.md:56 referencia `assets/config-template.json` que ya NO existe (eliminado en wave SKL); (R2) SKILL.md:87-88 sección "Namespace Management" instruye `python scripts/create-namespace.py create|list` — script eliminado (la tool no existe; la realidad es usar `memory_put` para crear el namespace implícitamente o `collection_list` para verlos); (R3) SKILL.md:79 `python scripts/test-mcp.py` — el script ahora requiere binario vía argv[1] o env `VANTADB_MCP_BIN` (funciona sin args solo si `vanta-cli` está en PATH). Acciones: (1) borrar L56 y la sección "Namespace Management" (o reemplazarla con el equivalente real); (2) documentar la interfaz actual de `test-mcp.py`. Resultado: toda instrucción de la skill ejecuta sin archivos inexistentes. | `skills/vantadb-mcp/SKILL.md` (L53-56, L74-89) | 🟢 | 🟠 | ✅ Referencias muertas eliminadas + Namespace real + interfaz test-mcp.py |
 
 ### Bloque 5 — Inconsistencias internas de la skill (vanta-docs)
 
@@ -602,7 +291,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (Problema actual → Acciones → Resultado a obtener) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `MCP-14` | **I1/I2/I3/I4 Contradicciones internas** — Problema: (I1) Quick Start L20 dice que setup "creates default configuration" pero NO existe `config.json` ni config file (`configuration.md:3` — "there is no config.json"); (I2) Performance Optimization L236 sugiere "Adjust HNSW parameters" pero HNSW no se expone vía env vars (`configuration.md:155` — solo programático); (I3) Security L242 sugiere "read-only mode" pero NO existe `VANTADB_READ_ONLY` (`configuration.md:167` — solo programático vía SDK); (I4) ejemplo OpenCode L67 usa `~/.vantadb` pero OpenCode NO expande `~` en spawn directo (usar ruta absoluta o relativa al cwd). Acciones: corregir cada punto (borrar claim de config file, aclarar que HNSW/read-only son programáticos, usar ruta absoluta en el ejemplo OpenCode con nota). Resultado: la skill es internamente consistente y sus ejemplos funcionan. | `skills/vantadb-mcp/SKILL.md` (L20, L60-72, L236, L242), `references/configuration.md` | 🟢 | 🟡 | ✅ I1-I4 corregidos (config/HNSW/read-only programáticos, ruta absoluta OpenCode) |
 
 ---
 
@@ -648,19 +336,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (Gap → Acciones → Resultado) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `MCP-16` | **G1 🔴 Falta `purge_expired` + `compact_wal` vía MCP** — Problema: TTL (AUD-045) deja records expirados que solo `purge_expired()` (`api.rs:769`) limpia, y el WAL crece sin `compact_wal()` (`api.rs:762`); ninguna tool MCP los expone → un agente que usa TTL no puede mantener la DB. Acciones: (1) añadir tools `purge_expired` y `compact_wal` en tools.rs (wrappers directos); (2) schema JSON-RPC (namespace opcional + result counts); (3) tests en `vantadb-mcp/tests/mcp_tests.rs` (put con TTL corto → purge > 0; compact exit 0); (4) doc: SKILL.md `skills/vantadb-mcp/SKILL.md` + `.opencode/skills/vantadb-mcp/` (hash SAME). Resultado: mantenimiento TTL/WAL ejecutable desde el agente. | `vantadb-mcp/src/handlers/tools.rs`, `vantadb-mcp/tests/mcp_tests.rs`, `skills/vantadb-mcp/SKILL.md` | 🟡 | 🔴 | ✅ Completada 2026-08-22 — tools `purge_expired` (→`{"purged": n}`) + `compact_wal` en tools.rs, tests round-trip, SKILL.md hash SAME |
-| `MCP-17` | **G2 🟠 Falta export/import (backup-restore) vía MCP** — Problema: `export_namespace`/`export_all`/`import_records`/`import_file` (`serialization/impl_export.rs:121-251`) existen en SDK pero no vía MCP → el dato queda secuestrado en el `.vantadb` sin forma de migrar/backupear desde el agente. Acciones: (1) tool `export` (namespace/all → JSONL string content) y `import` (JSONL string → records, reutilizando `import_records`); (2) schema + límite de tamaño razonable para stdio; (3) tests round-trip (export → import → get igual); (4) doc SKILL.md ambos lados (hash SAME). Resultado: backup/restore desde MCP. ✅ Hecho: tools `export`/`import` en tools.rs (límite 10 MB stdio), `record_from_export_line` ahora pub en SDK, round-trip test export→import→get igual en DB fresca + export multi-namespace. | ídem + `src/sdk/serialization/impl_export.rs` | 🟠 | 🟠 | ✅ Completo |
-| `MCP-18` | **G3 🟠 Falta `delete_by_filter` vía MCP** — Problema: `delete_by_filter(namespace, filter)` (`api.rs:1210`) permite borrado batch por metadatos; vía MCP hoy se requiere list+delete manual N veces. Acciones: (1) tool `memory_delete_by_filter` (reutiliza `VantaMemoryFilter` que ya serializa en `memory_list`); (2) tests (put 3 con metadatos → delete filter → list vacío, count devuelto); (3) doc SKILL.md ambos lados. Resultado: limpieza batch por filtro desde el agente. | `vantadb-mcp/src/handlers/tools.rs`, tests, SKILL.md | 🟢 | 🟠 | ✅ Hecho — tool `memory_delete_by_filter` (schema + dispatch MEM-32, reutiliza `parse_filter_ops`); tests round-trip + `$gt` + guard rails; SKILL.md/api-reference ambos lados sincronizados |
-| `MCP-19` | **G4 🟡 Falta `put_batch` vía MCP** — Problema: `put_batch(Vec<VantaMemoryInput>)` (`api.rs:226`) permite ingestión masiva; vía MCP solo hay `memory_put` 1 a 1 (N round-trips). Acciones: (1) tool `memory_put_batch` (array de inputs con keys, vector, sparse, metadata, TTL); (2) result = Vec de records + errors parciales si aplica; (3) tests (3 records batch → list 3); (4) doc SKILL.md. Resultado: ingestión eficiente desde el agente. | ídem | 🟢 | 🟡 | ✅ Hecho — tool `memory_put_batch` (helper `parse_memory_input` con mismas validaciones que `memory_put` + check AUD-046 dim mismatch); SDK es all-or-nothing (valida todo upfront), duplicados = upsert con version bump — documentado en schema/SKILL; 4 tests round-trip |
-| `MCP-20` | **G5 🟡 Falta `rebuild_index` + `audit_text_index` vía MCP** — Problema: `rebuild_index()` (`api.rs:660`) y `audit_text_index`/`repair_text_index` son recovery/diagnóstico de índices sin tool MCP (el fix MCP-01 construye el índice al arrancar, pero no hay forma de reconstruirlo si se corrompe). Acciones: (1) tool `rebuild_index` (report de counts) + opcional `audit_text_index` (integrity report); (2) tests; (3) doc SKILL.md. Resultado: recovery de índices ejecutable remotamente. | ídem + `src/sdk/api.rs:660` | 🟢 | 🟡 | ✅ 2026-08-22 — tools `rebuild_index`, `audit_text_index` (con `namespace` opcional + `deep`) y `repair_text_index` en `tools.rs` (schemas JSON-RPC + dispatch MEM-32; reports serde serializados verbatim). Tests: put x2 con vector → rebuild reporta success + counts ≥ 2; audit sobre namespace limpio → passed/status ok/mismatches 0; repair → success. SKILL.md/api-reference/mcp-protocol ambos lados sincronizados (59 tools = 36 core, contadas contra source) |
-| `MCP-21` | **G6 🔴 Falta GDS vía MCP (`graph_page_rank` + `graph_degree_centrality`)** — Problema: la nota original de P25 asumía que los grafos avanzados "son alcanzables vía IQL" — **falso para GDS**: no existe forma de calcular page_rank/degree_centrality vía IQL (`RELATE`/`FROM` solo crean/leen edges). Es la feature más distintiva de VantaDB (docs/graphrag) y no tiene ni tool ni tracking. Acciones: (1) tools `graph_page_rank` (roots, max_iterations, damping_factor) y `graph_degree_centrality` (roots → HashMap<u128, (in,out)>) como wrappers de `src/sdk/gds.rs:15,32`; (2) schema JSON-RPC (VantaValue serialización); (3) tests en `mcp_tests.rs` (grafo A→B→C: page_rank convergencia, centrality counts); (4) doc SKILL.md ambos lados (hash SAME). Resultado: GDS ejecutable desde el agente. | `vantadb-mcp/src/handlers/tools.rs`, `vantadb-mcp/tests/mcp_tests.rs`, `skills/vantadb-mcp/SKILL.md`, `src/sdk/gds.rs:15,32` | 🟠 | 🔴 | ✅ Hecho — tools `graph_page_rank` (roots/max_iterations/damping_factor/tolerance) + `graph_degree_centrality` en `tools.rs` (schema JSON-RPC + dispatch MEM-32; ids u128 como strings); tests A→B→C: page_rank suma ≈1.0 con hoja C dominante, centrality (in,out) por nodo; SKILL.md/api-reference/mcp-protocol ambos lados sincronizados (50 tools = 30 core, contadas contra source) |
-| `MCP-22` | **G7 🟠 Falta traversal de grafos vía MCP** — Problema: solo existe `get_node_neighbors` (1 hop); multi-hop BFS/DFS, filtered, topo-sort, is_dag y accumulators no son alcanzables vía MCP (`graph_bfs`/`graph_dfs`/`graph_bfs_filtered`/`graph_dfs_filtered`/`graph_topological_sort`/`graph_is_dag`/`graph_create_accumulator`/`_add`/`_get`/`_snapshot` en `src/sdk/graph.rs:12-139`). Acciones: (1) tool `graph_traverse` (start, mode bfs\|dfs, max_depth, optional filter) + `graph_topological_sort`/`graph_is_dag` (o una tool compuesta con modo); (2) accumulators como tool `graph_accumulator` (create/add/get/snapshot en un solo lifecycle) si aporta valor — decidir en diseño; (3) tests (cadena A→B→C: bfs desde A devuelve B,C; topo-sort de DAG); (4) doc SKILL.md. Resultado: traversal multi-hop y DAG analysis desde el agente. | `vantadb-mcp/src/handlers/tools.rs`, tests, SKILL.md, `src/sdk/graph.rs` | 🟠 | 🟠 | ✅ Hecho — tool `graph_traverse` (start, mode bfs\|dfs, max_depth, direction opcional, filter opcional labels/time_range → rutea a `graph_bfs(_filtered)`/`graph_dfs(_filtered)`) + `graph_topological_sort` + `graph_is_dag`; **accumulators FUERA de alcance por decisión de diseño**: son primitivas de paralelismo in-process (`GraphAccumulator` sin estado del engine), una lifecycle-tool vía MCP requeriría estado de sesión server-side para valor cero del agente; tests A→B→C: bfs orden [A,B,C], dfs cubre cadena, topo-sort orden válido, is_dag true→false al cerrar ciclo; SKILL.md sincronizado |
-| `MCP-23` | **G8 🟡 Extender MCP-16: `flush` + `compact_layout`** — Problema: MCP-16 cubre `purge_expired`+`compact_wal` pero el grupo mantenimiento queda incompleto sin `flush()` (`api.rs:755`, durabilidad manual) y `compact_layout()` (`api.rs:748`, optimización layout de storage). Acciones: incluir ambas en la misma tool de mantenimiento de MCP-16 (o fila aparte si MCP-16 ya se implementó): `flush` (exit 0) + `compact_layout` (bytes reclaimed); tests; doc SKILL.md. Resultado: mantenimiento de durabilidad/layout completo vía MCP. | ídem MCP-16 + `src/sdk/api.rs:748,755` | 🟢 | 🟡 | ✅ Completada 2026-08-22 — tools hermanas `flush` (→`{"flushed": true}`) + `compact_layout` (→`{"bytes_reclaimed": n}`), tests round-trip, SKILL.md hash SAME |
-| `MCP-25` | **G10 🟡 Falta bulk import vía MCP** — Problema: MCP-17 cubre export/import JSONL (`import_records`), pero `bulk_import_stream` (`api.rs:1389`) y `bulk_import_file` (`api.rs:1478`, CSV/NDJSON masivo) no están trackeados — ingestión masiva desde archivo no es posible vía MCP. Acciones: (1) tool `bulk_import_file` (path del server host → report) y/o `bulk_import_stream` (contenido string → report) con límite de tamaño stdio; (2) tests (NDJSON de 100 records → count correcto); (3) doc SKILL.md. Resultado: ingestión masiva desde el agente. ✅ Hecho: tools `bulk_import_file` + `bulk_import_stream` (acepta NDJSON o vdbdump crudo; límite 10 MB). Deuda descubierta: el bulk path del SDK no escribe `__vanta_namespace/__vanta_key` → records bulk no direccionables vía memory_get/list (pendiente fix en core, ver test comment). | `vantadb-mcp/src/handlers/tools.rs`, tests, SKILL.md, `src/sdk/api.rs:1389,1478` | 🟢 | 🟡 | ✅ Completo |
-| `MCP-26` | **G11 🟢 Menores: `capabilities` + `generate_snippet` + `list_snapshots`** — Problema: `capabilities()` (`api.rs:1027`, introspect de features — útil para que el agente descubra qué soporta la DB), `generate_snippet` (`search/audit.rs:43`) y `list_snapshots` (`builder.rs:242`, backup físico Fjall) no tienen tool ni tracking. Acciones: (1) tool `capabilities` (objeto features — 15 min); (2) `generate_snippet` puede acompañar a MCP-20 (audit) o fila propia; (3) `list_snapshots` solo si hay demanda de backup físico (MCP-17 cubre lógico). Resultado: introspect y utilidades menores vía MCP. | `vantadb-mcp/src/handlers/tools.rs`, SKILL.md | 🟢 | 🟢 | ✅ 2026-08-22 — tools `capabilities` (VantaCapabilities serializado), `generate_snippet` (payload/text_query/with_highlighting; `{snippet}` o null cuando el query no produce términos) y `list_snapshots` (wrapper trivial <10 líneas sobre `StorageEngine::list_snapshots`, incluida). Tests round-trip incl. path None manejable. Docs ambos lados sync (59 = 36 core) |
 
-| `MCP-28` | **G13 🟠 Deuda de MCP-17/25: bulk import no escribe `__vanta_namespace/__vanta_key`** — Problema descubierto al implementar MCP-25: `bulk_import_stream`/`bulk_import_file` (`src/sdk/api.rs:1389,1478`) insertan nodos SIN los campos internos de direccionamiento → los records bulk no son alcanzables vía `memory_get`/`memory_list`/`memory_delete` (solo ocupan espacio y son visibles por búsqueda vectorial). Fix es en CORE (no wrapper): escribir los campos reservados en el bulk path, igual que hace `memory_record_to_node`. Acciones: (1) replicar el seteo de campos `__vanta_*` del put normal en bulk path; (2) test round-trip bulk_import → memory_get por key; (3) revisar si afecta a `import_file` JSONL también. Resultado: records bulk totalmente gestionables. | `src/sdk/api.rs:1389,1478`, `src/sdk/serialization/` | 🟢 | 🟠 | ✅ Resuelta (MCP-28) |
-| `MCP-29` | **G14 🟢 Futuro (MCP-27 camino 1): namespaces de memoria como tablas IQL** — Diseño diferido documentado en MCP-27: hacer que `SELECT * FROM <ns>` alcance memory records requeriría (a) setear `type=<namespace>` en `memory_record_to_node` (cambia visibilidad de records existentes → migración), (b) validar/sanitizar namespaces como identificadores IQL (`a/b` no es válido), (c) decidir política para namespaces colisionando con tipos de grafo. Solo ejecutar si hay demanda real de IQL sobre memoria. | `src/sdk/serialization/`, `src/parser/`, `src/executor/` | 🔴 | 🟢 | ✅ 2026-08-23 — Resuelto por variante A (match por namespace en el scan, NO por campo `type`): helper `iql_table_name_for_namespace()` sanitiza el namespace a identificador IQL (`/`,`-` → `_`, prefijo `_` si empieza con dígito/`.`) y `PhysicalScan::next` (`src/physical_plan/scan.rs`) matchea records cuyo `__vanta_namespace` sanitiza a la tabla pedida — sin tocar write/read path del SDK, get/list sin cambios, records legacy visibles al instante (sin migración). Colisión namespace vs tipo de grafo = UNION de ambos resultados, documentada. Tests: 5 en scan.rs (sanitización, happy path, namespace con `/`, colisión, tabla desconocida) + round-trip MCP actualizado (`test_query_iql_memory_namespaces_are_queryable_tables_round_trip` con put → SELECT visible + namespace con `/`). Docs: SKILL.md ×2 + docs/api/MCP.md. Limitación conocida: sanitización no inyectiva (`a/b` y `a_b` colisionan) — documentada con `ponytail:` en el helper, upgrade path = escaping scheme. |
 ---
 
 ## P26 - Exposición capa cognitiva `vanta-memory` + agentic restante vía MCP (2026-08-23)
@@ -670,8 +346,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (Gap → Acciones → Resultado) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `MCP-31` | **G16 🔴 Context engine vía MCP (assemble + recall)** — Problema: `assemble_with_recall` / compresión MMD (`vanta-memory/src/context_engine/engine.rs`, `compressor.rs`) — el ensamblado de contexto con presupuesto de tokens y recall — solo alimenta al desktop vía IPC (MEM-58 `vanta_context_assemble`). Es LA funcionalidad distintiva del "memory OS" y un agente externo no puede usarla. Acciones: (1) tool `context_assemble` (session_key, token_budget, query opcional) wrapper del engine; (2) decidir exposición del compresor (probablemente interna, solo assemble); (3) tests con sesión seedada; (4) docs. Resultado: agentes externos ensamblan contexto con la misma calidad que el desktop. | ídem + `vanta-memory/src/context_engine/` | ✅ Completada (`4d752f14`) |
-| `MCP-32` | **G17 🟠 Threads CRUD vía MCP** — Problema: conversaciones agénticas (`src/agentic/thread.rs:89-203`: create_thread/send_message/get_thread/list_threads/delete_thread/purge_expired_threads) solo tienen `inject_context` expuesto — la nota P25 lo excluyó asumiendo que bastaba, pero la API completa permite historial persistente de conversación. Acciones: (1) tools `thread_create`/`thread_send`/`thread_get`/`thread_list`/`thread_delete` (+purge_expired_threads si trivial); (2) tests round-trip; (3) SKILL.md ×2. Resultado: historial conversacional gestionable desde el agente. | `vantadb-mcp/src/handlers/tools.rs`, `src/agentic/thread.rs` | 🟡 | 🟠 | ✅ Completada (`c6d13246`) |
 | `MCP-34` | **G19 🟡 Snapshots físicos: create/restore vía MCP** — Problema: `list_snapshots` lista snapshots Fjall pero no hay create/restore vía MCP (backup físico puntual). Acciones: (1) verificar APIs de snapshot en `StorageEngine` (`storage/engine/mod.rs:523` tiene list; buscar create/restore); (2) tools `snapshot_create`/`snapshot_restore` si existen como métodos públicos; (3) restore exige validación de path (trust boundary — sanitizar, solo dentro del data dir); (4) tests + docs. Resultado: backup físico puntual ejecutable desde el agente. | `src/storage/engine/mod.rs`, `vantadb-mcp/src/handlers/tools.rs` | 🟢 | 🟡 | ❌ Pendiente |
 > **No trackeado aquí** (deliberadamente): (a) threads CRUD directos (`get/list/delete_thread`, `purge_expired_threads` — `builder.rs:168-195`, `src/agentic/thread.rs`) — `inject_context` cubre el caso agente; (b) HTTP REST completo — diferido por diseño (embedded-first, `cli_server.rs` solo `/health` + `/api/v2/query` + `/metrics`); (c) `add_edge`/`get_node`/`delete_node` directos — alcanzables vía IQL (`RELATE`/`FROM`/`DELETE`).
 
@@ -683,25 +357,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (→ Resultado) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `VS-00` | **Prototipo HTML Fase 0 core** — 3 pantallas navegables en 1 HTML: HOME (6-8 cards overview), MEMORIAS (grid key/payload/chips tipados/vector badge/TTL countdown), Inspector (General + Metadata KV tipo inferido + Vector stats). **Montaje**: Tailwind v4 browser CDN (`@tailwindcss/browser`) + `<style type="text/tailwindcss">` copiando VERBATIM el `@theme inline` + `:root` + utilities de `web/src/app/globals.css` (valida el sistema real, no una aproximación); fuentes vía Google Fonts (Anton, Space Mono, Geist). MARK variante desktop en empty state. Validado con Playwright 1440×900. → fija el diseño antes de codificar React. | `desktop/prototype/index.html` (nuevo) + 3 screenshots | 🟡 | 🔴 | ✅ Hecho (F0) |
-| `VS-01` | **Tailwind v4 + tokens manga/linocut + tema toggle** — deps `tailwindcss` v4 + `@tailwindcss/vite`; `index.css` replica `@theme inline` + `:root` COMPLETOS de `web/src/app/globals.css` (muted `#ECE6D8`, muted-foreground `#3A3A3A`, primary/secondary/accent/destructive, border/input/ring `#000`, sidebar, chart-1..5, radius 0.125rem, motion 90/200/300ms; **`ink-corner` NO existe en la web → no replicar**); utilities reales: press/press-lg/press-neon/glow-neon/glitch-hover/halftone/halftone-fade/speed-lines/grid-tech/text-stencil/scroll-manga/glow-box-neon/ink-divider/stagger-children + keyframes animate-*; **a11y**: `:focus-visible outline 3px #FF5500` + `prefers-reduced-motion`; **paleta dark diseñada propia** (la web NO tiene tokens dark): bg `#0a0a0a`, fg cream, neon preservado, surface `#1A1A1A`, `@custom-variant dark` + override de utilities hardcodeadas en `#000` (.press/.halftone/.scroll-manga/.ink-divider); fuentes Anton + Space Mono + Geist locales (Tauri offline). Toggle claro/oscuro, default claro. → base estética de toda la Fase 0. | `desktop/package.json`, `desktop/src/index.css`, `desktop/src/main.tsx`, `desktop/index.html` | 🟡 | 🔴 | ✅ Hecho (F0, `fa6c1427`) |
-| `VS-02` | **MARK variante desktop (asistente de datos)** — port de `mark-classic.tsx` + `use-mark-interaction.ts` a desktop; geometría: 2 SVGs viewBox `0 0 100 100` — grafo bg (10 nodos/18 edges, strokeDasharray `1 1.2`, hit-target r=5) + MARK 78% (ring r=42 stroke 3.5 sin fill + glow ring SMIL r 42→46 opacity .3→0 3.5s + esfera r=22 neon en `50+sphereOffset` + ojos rects `x=43/57+pupilOffset.x-2 w=4 rx=2 y=45+pupilOffset.y h=squintHeight 3–10`); etiquetas 4 SfxLabels ("1.2ms" neon, "RRF"/"WAL · CRC32C" ink, "ZERO NET" neon) + tag "IN-PROCESS" + hint chip; **sin Anime.js** (squint es React puro; follow → rAF lerp τ≈60/130ms; blink → CSS transition/WAAPI; pulse nodos → keyframes `transform-box: fill-box`); **mantener `prefers-reduced-motion`**; pierde solo ease outElastic del pulse ambiental. Estados data-driven idle/loading/empty/error. → la mascota del producto viva en el workspace. | `desktop/src/components/mark/Mark.tsx`, `desktop/src/components/mark/mark-studio.tsx` (nuevos) | 🟡 | 🟡 | ✅ Hecho (F0, `2573d8a5`) |
-| `VS-03` | **Workspace unificado (reestructurar App.tsx)** — quitar paneles apilados (MetricsGrid/KpiCards/SopPanel/ProcessPanel sueltos); `WorkspaceShell`: Sidebar (RESUMEN + namespaces con conteos + Timeline/Actividad/Índices/IQL) + Topbar (búsqueda global + namespace activo + Ctrl+K) + superficie central con contexto + Inspector derecho (master-detail). Paneles legacy reubicados como lentes, no borrados. → P4 anti split-attention. | `desktop/src/App.tsx`, `desktop/src/components/layout/WorkspaceShell.tsx` (nuevo) | 🟡 | 🔴 | ✅ Hecho (F0) |
-| `VS-04` | **HOME/overview (Fix 1)** — 6-8 cards: conteo por namespace + tendencia (de VS-CORE-02), distribución de tipos metadata (mini-histograma), próximos a expirar (TTL) + expirados recientes, **actividad = registros actualizados recientemente (updated_at desc)** (decisión usuario: audit log real llega con ACTIVITY/Timeline en Fase 1). Encoding redundante (color+ícono+texto). → entrada cognitiva (Shneiderman overview-first). | `desktop/src/components/home/HomeOverview.tsx` (nuevo); datos dependen de VS-CORE-02 | 🟡 | 🔴 | ✅ Hecho (F0, `f8250aea`) |
-| `VS-05` | **MEMORIAS: grid virtualizado** — reescribir `DataExplorer.tsx` con TanStack Table v9 + TanStack Virtual; paginación por cursor (VS-CORE-01); **requiere VS-11 (DTO enriquecido)**; sin "Load more"; columnas: key (mono), payload (preview), metadata (chips tipados), vector (badge dim), version, updated_at (relativa), TTL (barra countdown). → el centro permanente de la app. | `desktop/src/components/DataExplorer.tsx`, deps `@tanstack/react-table`, `@tanstack/react-virtual` | 🟡 | 🔴 | ✅ Hecho (F0, `14b6bfc8`) |
-| `VS-06` | **Inspector de registro (master-detail + commit explícito + CodeMirror)** — tabs General (key/ns/node_id mono/timestamps/version/TTL editable countdown), **Payload (preview markdown ↔ editar JSON con CodeMirror 6 + lint — decisión usuario)**, Metadata (KV editor con tipo inferido de `VantaValue`: string/int/float/bool/datetime/list/null; agregar/quitar filas), Vector (colapsado + stats norma/min/max + sparkline + copiar/pegar JSON). **Nunca auto-guardar**: Editar → diff → Guardar (vía VS-10 put) / Revertir (P6). | `desktop/src/components/inspector/*.tsx` (nuevos), ancla VS-10 (put) + VS-11 (DTO), dep `@uiw/react-codemirror` | 🟡 | 🔴 | ✅ Hecho (F0, `399adaa6`) |
-| `VS-07` | **Filtros compuestos en búsqueda** — `react-querybuilder` visual AND/OR sobre metadata tipada (`VantaFilterOp`: Eq/Neq/Gt/Lt/Gte/Lte); se serializa a `VantaMemoryFilter`; integrado en la búsqueda híbrida global de la Topbar. → P5, sin JSON obligatorio. | `desktop/src/components/search/FiltersBuilder.tsx` (nuevo), dep `react-querybuilder` | 🟢 | 🟡 | ✅ Hecho (F0, `270b34ba`) |
-| `VS-08` | **Undo + papelera (Fix 4)** — zustand + snapshot del estado por sesión (Ctrl+Z), soft-delete con tombstones y restore, confirmación en destructivos. → P8 recuperación de errores. | `desktop/src/store/undo.ts` (nuevo), dep `zustand` | 🟢 | 🟡 | ✅ Hecho (F0, `270b34ba`) |
-| `VS-09` | **Command palette (Ctrl+K)** — `cmdk`; acciones básicas: abrir namespace, buscar key, exportar, borrar, undo, toggle tema, abrir lentes; **IQL movido a Fase 2** (bridge no expone `vanta_query` en Fase 0); atajos visibles. → P9 teclado-first. | `desktop/src/components/palette/CommandPalette.tsx` (nuevo), dep `cmdk` | 🟢 | 🟡 | ✅ Hecho (F0) |
-| `VS-10` | **Bridge Tauri: comando put/update (nuevo, crítico)** — hallazgo del revisor: NO existe `put` en `vanta.ts` ni comando `vanta_put` en Tauri (solo ingest/search/get/delete/list) → VS-06 no puede Guardar ni editar TTL. Comando `vanta_put(namespace, key, payload, metadata, expires_at_ms?)` mapeando a `VantaEmbedded.put`. → destraba el Inspector. | `desktop/src-tauri/src/commands/data.rs`, `desktop/src/vanta.ts` | 🟢 | 🔴 | ✅ Hecho (F0, `d5453682`) |
-| `VS-11` | **Bridge Tauri: enriquecer DTO del registro (nuevo, crítico)** — hallazgo del revisor: el DTO `MemoryRecord` NO tiene `version`, `node_id`, `updated_at_ms`, `expires_at_ms`, `vector` → VS-05 (columnas version/updated_at/TTL) y VS-06 (timestamps/TTL/vector) imposibles. Enriquecer DTO con todos los campos de `VantaMemoryRecord` + mapeo completo. → destraba grid + inspector. | `desktop/src-tauri/src/connections/types.rs`, `desktop/src/vanta.ts`, `src/sdk/types.rs:175-201` | 🟢 | 🔴 | ✅ Hecho (F0, `98c2d6c8`) |
-| `VS-CORE-01` | **Cursor/paginación en el bridge desktop (re-scopeado)** — el core YA tiene cursor (`list` con `options.cursor` + `next_cursor` en `api.rs:545`, expuesto en Python/TS/WASM); gap real solo en Desktop: comando Tauri `vanta_list` + `vanta.ts` no devuelven cursor. Exponer aditivo. → destraba virtualización real (VS-05). Gap §8.1. | `desktop/src-tauri/src/commands/data.rs:65`, `desktop/src/vanta.ts:159`, `src/sdk/api.rs:545` | 🟡 | 🔴 | ✅ Hecho (F0, `424ffe03`) |
-| `VS-CORE-02` | **Contadores por namespace + stats TTL** — método `{namespace: {count, expiring_soon, expired}}` reutilizando `count`/scan (hoy = N llamadas paginadas). → sidebar + HOME (VS-04). Gap §8.3. | `src/sdk/api.rs` (`count` :1278), `src/metrics/core/snapshot.rs:41` (50 campos) | 🟢 | 🔴 | ✅ Hecho (F0, `822f7742`) |
-| `VS-CORE-03` | **`explain` estructurado: ya existe → consumir (re-scopeado)** — `VantaSearchExplanation` (`types.rs:418` con `fusion_report` + `rrf_k`) y `VantaSearchExplanationHit` (`types.rs:429` con `bm25_terms`/`rrf_*_rank`) ya existen y están expuestos (Rust `explain_memory_search`, Python, TS `explainSearch`). **NO implementar nuevo**: Fase 1 consume lo existente; opcional añadir vector score crudo (hoy solo rank). Gap §8.2 ya resuelto. | `src/sdk/types.rs:418,429`, `vantadb-ts/vantadb.ts:435` | 🟢 | 🟠 | ✅ Hecho (F1, `2a1f3012`) |
-| `VS-CORE-04` | **Exportar selección/query** (no solo namespace) a JSONL/`.vdbdump` — añadir `filter: Option<VantaMemoryFilter>` a `export_namespace` (internamente `records_for_namespace` :76 ya acepta filtros). → P12/P13. Gap §8.4. | `src/sdk/serialization/impl_export.rs:121` | 🟢 | 🟠 | ✅ Hecho (F2, `a62088b7`) |
-| `VS-CORE-05` | **Batch delete con filtro desde UI** — `delete_by_filter` existe en core (`api.rs:1210`) pero NO en Python/WASM/TS/`vanta.ts`; exponer en WASM → `vanta.ts` + comando Tauri `vanta_delete_by_filter` con confirmación + undo. Gap §8.6. | `desktop/src/vanta.ts`, `src/sdk/api.rs:1210` | 🟢 | 🟠 | ✅ Hecho (F2, `15172349`) |
-| `VS-CORE-06` | **IQL en desktop: exponer en bridge + autocompletado (re-scopeado)** — `query` ya expuesto en nativo (`api.rs:1110`), WASM (`vantadb-wasm/src/lib.rs:1210`) y TS (`vantadb.ts:680`); falta: comando Tauri `vanta_query` + shim de autocompletado core-side (prefix sobre `parse_statement`, crate-interno). → consola IQL (lente GRAFO). Gap §8.5 ya resuelto en bindings. | `src/parser.rs::parse_statement`, `desktop/src/vanta.ts` | 🟢 | 🟠 | ✅ Hecho (F2, `ebf9acc1`) |
-| `VS-CORE-07` | **Retención de versiones históricas en `VantaMemoryRecord`** — planificación → investigación → análisis → implementación (D2). Decisión de core: retener snapshots n-1 vs solo `version` actual; coste de almacenamiento; API de acceso. **Destraba Historial+Diff (Fix 3, Fase 1) que queda EN ESPERA.** Gap §8.7. | `src/sdk/types.rs`, `src/sdk/api.rs` | 🟡 | 🟠 | ✅ Hecho (F1, `be0812a4`/`b6997e59`) |
 
 
 ---
@@ -736,43 +391,19 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 |----|-------------|----------|----------|------|--------|
 > **CAMPAÑA COMPLETADA 2026-08-22: 29 ✅ · 1 ⬛ (A1 stop condition, fallback aplicado) · 0 failed.** Registro completo: docs/progreso/campanas/doc-gobernanza-gov.md + plan file §Estado de ejecución. Tickets derivados vivos abajo.
 
-| `BND-01` | **Colateral SDKB-02: LinkError wasm pkg snippet idb.rs** — el pkg WASM gitignored tiene un LinkError pre-existente en HEAD (snippet `idb.rs` sin export vs import del `.wasm`); parche local al pkg lo esquivó en tests. Fix Rust real → dueño vanta-arch/engine. Detectado en SDKB-02 (P32). | `vantadb-wasm/src/`, `web/public/vanta-wasm/` | 🟡 | 🟠 | ✅ Resuelto (commit db337b00 — import fantasma eliminado, pkg canónico) |
-| `BND-02` | **Colateral SDKB-02: drift types.ts ↔ pkg topological_sort** — los tipos escritos a mano de `vantadb-ts/src/types.ts` divergen del `.d.ts` regenerado del pkg para `topological_sort`. Regla VS-CORE-05: generar, nunca editar a mano. Detectado en SDKB-02 (P32). | `vantadb-ts/src/types.ts` | 🟢 | 🟡 | ✅ Resuelto (commit db337b00 — .d.ts regenerado devuelve any, tsc exit 0) |
-
-## P29 / P30 / P31 — Campañas TDAM finales (cerradas; registro 2026-08-22, GOV-C2)
-
-> **GOV-C2:** estas campañas vivían solo en plan files sin reflejo en el Backlog. Registro compacto:
-
-| Fase | Alcance | Estado | Plan / Evidencia |
-|------|---------|--------|------------------|
-| **P29** | MEM-22..24+37..42 (F5 context engine + offload) | ✅ Cerrada 9/9 | docs/plans/archive/ (vanta-context-engine); progreso README §P29 |
-| **P30** | vanta-proxy + wiki knowledge (MEM-25..34, F6-F7) | ✅ Cerrada 9/9 | 48016b89 previos; commits eb354c0d..11d443cd; progreso README:315 |
-| **P31** | Cierre final: wiring MEM-43, roundtrip MEM-44, auto-sync MEM-45, embeddings, ADR humano | ✅ 8/8 cerrada 2026-08-22 | plan 2026-08-22-vanta-final-cierre.md; commits a0bcb112, 785db22c, f76502b2 |
-
-> Sucesor directo activo: campaña **SDKB Bindings SDK** (docs/plans/2026-08-22-vantadb-bindings-sdk.md) — MEM-36 sub-clientes.
-
-| `BND-04` | **Campaña: exponer pipeline vanta-memory vía WASM/Python bindings** — decisión usuario 2026-08-22 (revisada: crear tareas bien documentadas). ALCANCE TÉCNICO VERIFICADO: vanta-memory NO está en vantadb-wasm (el pkg expone solo core: 43 métodos); exponer el pipeline requiere (1) compilar vanta-memory para wasm32 target (verificar compatibilidad — usa std::thread en pipeline_worker/ingest, prohibido en wasm → requiere refactor a feature-gate sync-only), (2) nuevos métodos #[wasm_bindgen] que wrappeen L0 capture/recall/persona/scenes/context engine, (3) equivalentes PyO3. REFERENCIAS: TDAM `sdk/memory-core/typescript/src/v3/client.ts` (357L) estructura de clientes; VS-CORE-05 (regenerar pkg antes de tsc); D42 vigente (sub-clientes capa TS/Py no tocan WASM — ESTA campaña SÍ toca WASM, es distinta de P32). PRECONDICIÓN: resolver BND-01 (LinkError pkg) primero. Esfuerzo estimado 🔴 3-5d (refactor threads + bindings + tests por plataforma). | `vanta-memory/src/lib.rs`, `vanta-memory/Cargo.toml`, `vantadb-wasm/src/lib.rs`, `vantadb-wasm/Cargo.toml`, `vanta-memory/src/services/pipeline_worker.rs` (threads→feature-gate) | 🔴 | 🟠 | 📋 Planificado |
-
-| `MEM-51` | **🔴 Auditoría integración H2: tools L0/L1 sin ejecutor** — inject.rs anuncia `vanta_memory_capture/search` al modelo pero nada intercepta el tool_call para ejecutarlo; cliente recibe tool call huérfano. Implementar executor en el stream o documentar alternativa mem-command como única vía. Fuente: auditoría integración final. | `vanta-proxy/src/{inject,handlers}*.rs` | 🟡 | 🔴 | ✅ Completada (2026-08-25, batch colaterales-deuda-desktop) |
-| `BND-05` | **vantadb-node superficie mínima** — expone put/get/search/list; faltan graph/explain para paridad con wasm/ts. Coherente con P32 pero incompleto. Detectado auditoría integración final. | `vantadb-node/src/lib.rs` | 🟢 | 🟢 | ✅ Completada (2026-08-25, batch colaterales-deuda-desktop) |
-
-| `BND-06` | **Regresión colateral GOV-C1: nextest default-filter rompe runs `-p <crate>` scoped** — el filtro `default-filter` de `.config/nextest.toml` (modificado en 67384785 por sesión GOV) referencia binarios (`security_audit`, `wal_resilience`, etc.) que no existen en el scope de un solo package → `cargo nextest run -p vanta-proxy` falla con "no binary names matched". Fix scope-safe: combinar exclusiones con predicado `package()` (ej: `not (package(vantadb) and binary(wal_resilience))`) o mover exclusiones pesadas a overrides por-profile. Coordinar con sesión GOV activa. Detectado 2026-08-22 verificando MEM-50 (P33). | `.config/nextest.toml` | 🟡 | 🟠 | ✅ Resuelto (commit db337b00 — exclusiones scope-safe package(X), -p vanta-proxy 89/89) |
 
 ## GOV-TK — Tickets derivados de la campaña GOV (2026-08-22)
 
 | ID | Descripción | Prio | Fuente |
 |----|-------------|------|--------|
-| GOV-TK1 | **CLI backup verification**: subcomando \
-erify\ o flag \--dry-run\ en Restore + \doctor --fix\ — el runbook DR nuevo depende conceptualmente | 🔴 | D4b/B2 |
+| GOV-TK1 | **CLI backup verification**: subcomando `verify` o flag `--dry-run` en Restore + `doctor --fix` - el runbook DR nuevo depende conceptualmente | 🟢 | D4b/B2 |
 | GOV-TK2 | **Release** para que el binario MCP exponga las 18 tools skill_*/code_*/wiki_* (skill ya documenta 33; binario publicado tiene 15) | 🔴 | B6 |
 | GOV-TK3 | Drift yaml↔real ×3: gramática IQL case del yaml vs parser UPPERCASE · GraphTraversalBody (roots numéricos + max_depth requerido) · search en DB fresca requiere rebuild-index previo | 🟠 | B5 |
 | GOV-TK4 | Re-medición coverage local: llvm-cov ICE rustc 0xc0000409 Windows (probar -j 2 limpio post-fingerprint-clean o CI artifact) | 🟠 | A1 |
 | GOV-TK5 | Split Manual Estratégico según recomendación F2 (negocio→docs/business/ con banner snapshot; estado técnico fuera; archivar monolito) | 🟠 | F2/D-decisión |
-| `GOV-TK6` | Harness snippets: cleanup de mkdtemp (incidente 224 dirs/68GB) — **INSPECCIONADO Y LIMPIADO 2026-08-22**: solo quedaban 10 dirs / 0.94GB reales (vanta_probe 320MB×3 del GOV-A3 + milvus vacíos), liberados. Queda TK6-bis: fix del harness para que limpie su mkdtemp | 🟢 | 🟢 | ✅ Resuelto (limpieza) |
 | GOV-TK7 | put_batch metadatas solo-str: alinear doc-tutorial vs API o ampliar coercion | 🟡 | B3 |
 | GOV-TK8 | Benchmarks: mejorar/probar/documentar (insumo: docs/benchmarks/_run_stdout.md se conserva como evidencia de corrida cruda) | 🟡 | owner E1 |
-| GOV-TK9 | URL \
-antadb-examples\ repo distinto en pilot-onboarding-checklist:51 — verificar si existe | 🟢 | B3 |
+| GOV-TK9 | URL `vantadb-examples` repo distinto en pilot-onboarding-checklist:51 - verificar si existe | 🟢 | B3 |
 
 > Ticketeados aparte con decisión previa: ACID 4a-4d (post-launch Fase A, D14) · release triage semver 0.6.0 (D5, diferido) · MKT-18h wheels ARM64 + MKT-18f adapters (confirmados live por GOV-A5).
 
@@ -788,9 +419,7 @@ antadb-examples\ repo distinto en pilot-onboarding-checklist:51 — verificar si
 | ID | Módulo | Sev | Hallazgo → Acción | Referencia | Estado |
 |----|--------|-----|-------------------|------------|--------|
 | `MOD-05` | core | 🟢 | Deprecar `InMemoryEngine` hacia StorageEngine in-memory: elimina clase de bug MOD-01 y ~850 líneas | `engine.rs:72` · core.md R5 | ❌ Pendiente |
-| `MOD-06` | core | 🟢 | Nits agrupados: flush thread-per-shard, clones batch_append, lookup intern en loop, cardinality dup, write_shard_meta no atómico, PITR sin wiring (requiere decisión) | `wal_sharded.rs`, `insert.rs:158-204` · core.md | ✅ Implementado 2026-08-25 (commit del lead pendiente). PITR sin wiring NO implementado — requiere ADR humano (Regla 5); ver fila PRO-03. |
 | `MOD-15` | server | 🟢 | Nits agrupados: middleware.rs re-export redundante, feature sysinfo vacía, main.rs abre engine raw sin comentario, falta constructor ServerState para tests | `middleware.rs:1`, `Cargo.toml:33` · server.md | ❌ Pendiente |
-| `MOD-16` | python | 🔴 | Suite default rota: `pytest -q` = 66 failed (DBs sin cerrar acumulan RSS → guard memoria). Fixture autouse cierre DBs. Claim "70 passed" era parcial | `tests/test_async_smoke.py:35` · python.md H1 | ✅ `deefc919` |
 
 ---
 
@@ -801,7 +430,6 @@ antadb-examples\ repo distinto en pilot-onboarding-checklist:51 — verificar si
 
 | ID | Sev | Hallazgo → Acción | Referencia | Estado |
 |----|-----|-------------------|------------|--------|
-| `FIND-06` | 🟢 | Consistencia idioma/frescura: READMEs SDK en español vs regla técnico=en inglés; `last_reviewed` julio sin gate de paridad docs↔código para PYTHON/TS_SDK.md (GOV-B4 solo cubre openapi/MCP) | READMEs, frontmatter docs/api | ✅ **DONE** |
 | `FIND-11` | 🟢 | Rutas alternativas sin pulir: `desktop/` sin README ni instalador público (no-programador sin ruta verificable); sin hooks/ejemplos React ni guía SSR; bundle .wasm 1.3MB sin doc de estrategia lazy-load; confusión potencial `vantadb-node` vs `vantadb` en npm | `desktop/` (glob *.md vacío), `vantadb-ts/dist/vantadb_wasm_bg.wasm` | ❌ Pendiente |
 | `FIND-17` | 🟢 | Identidad de marca inconsistente: repo GitHub `ness-e/Vantadb` vs crate/npm `vantadb` vs PyPI `vantadb-py` vs dominio comprado sin DNS. Auditar consistencia de nombres en todos los artefactos públicos y decidir convención única pre-launch | URLs en pyproject.toml, package.json, README badges | ❌ Pendiente |
 | `FIND-20` | 🟡 | Sin persistencia nativa de estado de ventana (posición/tamaño/maximizado): cada arranque abre default. Tauri window state plugin o persistencia manual en app config nativa | `desktop/src-tauri/` · research Studio 2026-08-23 | ❌ Pendiente |
@@ -816,11 +444,9 @@ antadb-examples\ repo distinto en pilot-onboarding-checklist:51 — verificar si
 
 | ID | Effort | Descripción | Archivos | Estado |
 |----|--------|-------------|----------|--------|
-| `UX-01` | 🟡 | **LensShell compartido**: 3 patrones de shell distintos entre lenses (Retrieval/Trash/Activity usan `section.press-lg.border-4` + header `border-b-4`; Indices/Consolidate divs sueltos; MemoryLens sin header) + 3 escalas de título (3xl/2xl/ninguno). Extraer `<LensShell title subtitle>` y adoptarlo en las 6 | `RetrievalLens.tsx:225`, `TrashLens.tsx:51`, `ActivityPanel.tsx:105`, `IndicesLens.tsx:93`, `ConsolidateLens.tsx:431`, `MemoryLens.tsx:409` | ✅ (cubierto por batch UX-01+05 — LensShell adoptado en las 6 lentes: Consolidate/Indices/Retrieval/Graph/Space/Memory) |
 | `UX-02` | 🟡 | **Filas del grid no navegables por teclado**: `<tr onClick>` sin tabIndex/onKeyDown/aria-selected (igual en ResultsList `<li>`). Teclado/SR no puede abrir el Inspector desde el grid. | `DataExplorer.tsx:859-871`, `ResultsList.tsx:22-27` | ⬜ Pendiente |
 | `UX-03` | 🟡 | **Focus trap en modales**: ImportPaste/ImportDrop tienen `role="dialog" aria-modal` pero Tab escapa al shell y no restauran foco al cerrar; ImportDrop sin autofocus. *Hook `useModalFocus.ts` ya commiteado (huérfano) — falta conectar en ambos modales y borrar los useEffect de Escape duplicados* | `ImportPaste.tsx:107-115`, `ImportDrop.tsx:124-133`, `ingest/useModalFocus.ts` | ⬜ Pendiente |
 | `UX-04` | 🟡 | **Labels visibles en IngestForm**: solo-placeholder (aria-label no cuenta, WCAG 3.3.2); errores van a toast global sin anclaje inline; `window.confirm` nativo inconsistente con el patrón inline de dos pasos. *Lote aplicado (labels + error inline) y sobrescrito — re-aplicar* | `IngestForm.tsx:44-74` | ⬜ Pendiente |
-| `UX-05` | 🟡 | **Token `.label-tech`**: `font-tech text-[10px] uppercase tracking-widest` repetido 15+ veces en el shell — extraer clase compartida en index.css. *Utility `@utility label-tech` aplicada y sobrescrito el replace masivo — re-aplicar el reemplazo en ~20 archivos* | `WorkspaceShell.tsx` (~15 usos), `index.css` | 🟡 (parcial — token `@utility label-tech` existe en index.css:252 y se usa vía LensShell en los headers de las 6 lentes; el replace masivo en ~20 archivos/WorkspaceShell queda como follow-up) |
 | `UX-06` | 🟡 | **Contraste neón como texto**: labels 10-11px en `text-neon` (#FF5500) sobre crema ≈3.0:1 fallan AA 4.5:1. Definir `--color-accent-text` más oscuro (~#C24000) solo para texto pequeño o migrar a foreground | `HomeOverview.tsx:248,347`, `WorkspaceShell.tsx:767,814`, `MetricsGrid.tsx:126` | ⬜ Pendiente |
 | `UX-07` | 🟡 | **Tabs ARIA incompletos** (2 superficies): sin `role="tablist"`, paneles sin `role="tabpanel"`, sin navegación por flechas | `Inspector.tsx:206-220`, `MemoryLens.tsx:437-451` | ⬜ Pendiente |
 | `UX-08` | 🟡 | **Canvas 3D/scatter sin fallback accesible**: GraphLens/SpaceLens sin `role="img"` + aria-label descriptivo ni lista alternativa de nodos para teclado/SR | `GraphLens.tsx:111`, `SpaceLens.tsx:274` | ⬜ Pendiente |
@@ -832,7 +458,6 @@ antadb-examples\ repo distinto en pilot-onboarding-checklist:51 — verificar si
 | `UX-14` | 🟢 | **PersonaPanel traga errores**: `catch(() => {})` muestra error real como "sin snapshot" — propagar con `onError(vantaErrorMessage(err))` | `MemoryLens.tsx:172` | ⬜ Pendiente |
 | `UX-15` | 🟢 | **Misc menor**: badge `err` = `warn` en MetricsGrid (usar `text-destructive`); 2 formateadores de bytes (decimal vs binario) — extraer `fmtBytes` compartido; splash no saltable por teclado; notice bar sin botón ✕ enfocable; microcopy ES/EN mezclado ("waiting…"/"check"); botones sin clase `press` en ActivityPanel; skeleton en IndicesLens mientras llega el snapshot; párrafo de jerga en header Retrieval + magic number `h-[calc(100dvh-112px)]` duplicado | `MetricsGrid.tsx:120-136,7-12`, `KpiCards.tsx:16-18`, `SplashScreen.tsx:38-44`, `WorkspaceShell.tsx:752-760`, `ActivityPanel.tsx:111-134`, `IndicesLens.tsx:171-200`, `RetrievalLens.tsx:234-238` | ⬜ Pendiente |
 | `UX-17` | 🟢 | **Grid no se refresca tras ingest manual**: IngestForm hace `onDone` (notice) pero no remonta el DataExplorer (`gridKey`) — el registro nuevo no aparece hasta pulsar "Traer". Pasar `onRefresh` al IngestForm como ya hace el batch delete | `WorkspaceShell.tsx` (superficie MEMORIAS), `IngestForm.tsx` | ⬜ Pendiente |
-| `UX-18` | 🟢 | **HMR 500s transitorios durante ediciones**: editar un componente con Vite corriendo deja entradas `Failed to reload` en consola hasta reload manual — ruido de desarrollo, no afecta producción. No-actionable salvo que moleste en DX | `vite` HMR | ⬜ Wontfix (documental) |
 | `UX-19` | 🟢 | **Smoke E2E como guard de regresión**: el recorrido ingest→teclado→borrar→papelera→restore→paleta pasó verde con datos reales — convertirlo en test Playwright permanente (`desktop/e2e/`) para que el flujo crítico no dependa de QA manual | `desktop/` (nuevo e2e), CI | ⬜ Pendiente |
 
 ## P36 - Auditoría AGENTS.md & sistema de agentes (2026-08-24)
@@ -841,7 +466,6 @@ antadb-examples\ repo distinto en pilot-onboarding-checklist:51 — verificar si
 
 | ID | Effort | Descripción | Archivos | Estado |
 |----|--------|-------------|----------|--------|
-| `AGT-05` | 🟡 | ~~**Checkpoints paralelos pisan cambios ajenos**~~ ✅ Resuelto — las sesiones paralelas ya no existen; el checkpoint de AGT-01 (metadata AGENTS.md + DESKTOP-24/28 completed) se commiteó limpio. Convención de checkpoint selectivo ya seguida. | `.opencode/skills/campaign-executor/RULES.md` | ✅ Resuelto |
 
 ## P37 - Auditoría diseño desktop post-fix (auditoría orquestador + 5 sub-agentes, 2026-08-24)
 
@@ -858,63 +482,7 @@ antadb-examples\ repo distinto en pilot-onboarding-checklist:51 — verificar si
 | `DAUD-07` | 🟢 | **Documentar convención de iconos**: registrar en `DESIGN_DECISIONS.md` §nuevo — Lucide (strokeWidth 2.5) para UI funcional; glifos geométricos monocromos (◆ ★ ▦ ⧩ ─ □ …) como identidad linocut; prohibido emoji-presentation en Windows (♻⚙☀🔎🗑✳⚠ renderizan a color). Incluir la dependencia nueva `lucide-react` | `desktop/DESIGN_DECISIONS.md` | ⬜ Pendiente |
 | `DAUD-08` | 🟢 | **Drop `stash@{0}`** ("WIP on develop: 06aa1a86"): verificado 2026-08-24 — diff contra working tree = 0 archivos difieren (era snapshot de verificación del agente CSS; nada perdido). Revisar por última vez y dropear | git stash | ⬜ Pendiente |
 | `DAUD-09` | 🔴 | **Commitear fixes D1-D11**: working tree tiene los fixes SIN commitear mezclados con edits concurrentes de P34 en otros archivos. Separar en commits limpios (sugerencia: `fix(desktop): theme-aware base styles + CSS dead code removal (audit D1/D2/D7-D10)`, `feat(desktop): unify iconography to Lucide + CTA hierarchy + hit targets (D3-D6)`, `chore(desktop): tauri window defaults (D11)`), respetando Regla 1 (verify antes de push) | `git status` desktop/ (~20 archivos M) | ⬜ Pendiente |
-
-=== RECITATION DESKTOP-24 ===
-Campaign ID: 1f20f764-3982-4754-986c-3813a1b569d9
-Objetivo activo: DESKTOP-24 — empaquetado Tauri Windows NSIS/MSI que conecta nativo + server sin dev env
-Estado: in-progress
-Última acción: Step 1+2 completos: targets [nsis,msi] + webviewInstallMode embedBootstrapper + resources sidecar vantadb-server.exe (resources en vez de externalBin — ver task file); typo fix VANTVADB_SERVER_BIN→VANTADB_SERVER_BIN (child_process.rs:47); gitignore /binaries/. npm run tauri build completo: NSIS 9.9MB + MSI 13.4MB con sidecar 12.7MB incluido.
-Resultado: PARTIAL
-Próxima acción: Instalar instalador en Windows limpio y verificar conexión nativa embebida + server sin dev env (Step 3); luego DESKTOP-25 automatiza copy sidecar en CI
-Contrato: verificacion: cd desktop && npm run tauri build ✅ (2 bundles) + cargo check desktop/src-tauri ✅ | evidencia: [claim=Instaladores NSIS+MSI producidos, evidencia=desktop/src-tauri/target/release/bundle/nsis/vantadb-desktop_0.1.0_x64-setup.exe + bundle/msi/vantadb-desktop_0.1.0_x64_en-US.msi, confianza=alta; claim=Sidecar incluido en bundle, evidencia=target/release/vantadb-server.exe (12691968 B) staged junto a vantadb-desktop.exe, confianza=alta; claim=externalBin rompería locate_binary, evidencia=https://v2.tauri.app/develop/sidecar/ sufijo -$TARGET_TRIPLE vs child_process.rs EXE plano, confianza=alta] | artefactos: tauri.conf.json, .gitignore, child_process.rs, tasks/DESKTOP-24.md | invariantes: src-tauri tiene [workspace] propio (no agregar al raíz); locate_binary busca 'vantadb-server.exe' plano junto al exe; NO commitear binaries/ | deuda: Step 3 pendiente (instalación + smoke test en Windows limpio, requiere VM); instalador unsigned | queda_pendiente: orquestador agenda Step 3 manual QA o lo cubre DESKTOP-25 (CI)
-Próxima tarea si completa: DESKTOP-25
-=== END RECITATION ===
-
 ---
-
-## P35 — Batch pipeline 2026-08-24 (REVIEW / MOD / FIND) — ESTADO: PAUSADO POR USUARIO
-
-> **Origen:** selección del lead desde el Exec Summary + lectura completa del backlog (854 líneas) el 2026-08-24. Objetivo: ejecutar 10 tareas en paralelo con sub-agentes vía `/pipeline task`. **El usuario interrumpió la ejecución paralela antes de que arrancaran los sub-agentes** → se registra todo acá para retomar.
-> **Plan file:** `docs/plans/2026-08-24-batch-review-mod-find.md` (estado ⏳ EN PROGRESO, con waves definidas).
-> **Modo sugerido de retoma:** `/pipeline run docs/plans/2026-08-24-batch-review-mod-find.md` (FAIL_MODE=parallel, MAX_CONCURRENT=3) — o retomar tarea por tarea con `/pipeline task <ID>`.
-
-### Tareas seleccionadas (10 IDs → 11 filas)
-
-| ID | Descripción | Archivos | Ruta sub-agente | Esfuerzo | Prio | Estado |
-|----|-------------|----------|-----------------|----------|------|--------|
-| `REVIEW-06` | `cargo test --workspace` OOM de rustc — fix `[profile.test]` | root `Cargo.toml`, `src/lib.rs` | vanta-tuner | 🔴 | 🔴 | ✅ **DONE** — fix ya commiteado `167a8d4c` (`[profile.test]` + `jobs=2`); verify: cargo nextest --profile audit compila sin OOM (2055 tests) + cargo check --workspace sin OOM |
-| `REVIEW-07` | nextest default-filter stale rompe invocaciones | `.config/nextest.toml` | — | — | — | ⛔ **SKIP** — ya resuelto por BND-06 / commit `db337b00` (filtro scope-safe `package(X) and binary(Y)` verificado en el propio archivo; evidencia `-p vantadb-proxy` 89/89). Fila obsoleta en backlog → marcar cerrada. |
-| `REVIEW-11` | Dependabot sin ecosistema `pip` | `.github/dependabot.yml` | vanta-lead | 🟢 | 🟡 | ✅ **DONE** — commit `bf474822` (entry `pip` para `/vantadb-python`). Ver notas abajo. |
-| `MOD-02` | Transacciones no crash-atómicas (replay ignora Begin/Commit) | `src/storage/engine/txn.rs`, `wal_sharded.rs` | vanta-worker | 🟡 | 🟡 | ✅ **DONE** — commit `db8b26b7` `fix(storage)` — 45/45 init+txn, chaos 1/1, crash 8/8 |
-| `MOD-08`+`MOD-09` | Loop stdio MCP serial + graceful shutdown descarta respuesta in-flight | `vantadb-mcp/src` | vanta-worker | 🟡 | 🟡 | ✅ **DONE** — commit `5aa42007` `fix(mcp)` — 60/60 mcp_tests |
-| `MOD-19` | ~30% API core sin exponer en Python | `vantadb-python/` | vanta-worker | 🟡 | 🟡 | ✅ **DONE** — commit `dc65c242` `feat(python)` — pytest 118 pass, docs coverage 0 gaps |
-| `FIND-27` | Provider Ollama postea a `/api/embeddings` legacy con campo equivocado | `src/llm.rs:100` | vanta-worker | 🟡 | 🔴 | ✅ **DONE** — commit `447a07d7` `fix(llm)` — 2/2 tests mock PASS |
-| `FIND-28` | 3 casts u8*→f32* sin prueba de alineación (hermanos de REVIEW-15) | `src/index/ivf.rs:69`, `src/storage/engine/mapper.rs:191`, `src/sdk/serialization/bytes.rs:136` | vanta-worker | 🟢 | 🟢 | ✅ **DONE** — commit `2d9fa75f` `fix(index)` — nextest 2055/2055, review vanta-audit APPROVE |
-| `UX-01`+`UX-05` | LensShell compartido (6 lenses) + token `.label-tech` | `desktop/src/components/*`, `desktop/src/index.css` | vanta-worker | 🟡 | 🟡 | ✅ **DONE** — commit `6260938e` `refactor(desktop)` — build exit 0, 6 lenses usan LensShell |
-| `FIND-04` | Tabla cross-SDK `search()` Python↔TS en ambos READMEs | READMEs SDK, `docs/api/BINDINGS_NAMESPACES.md` | vanta-docs | 🟡 | 🟡 | ✅ **DONE** — commit `9de39702` `docs` — tabla en ambos READMEs, coverage 0 gaps |
-| `FIND-06` | READMEs SDK en español → inglés + gap MCP.md tools MOD-10 | `vantadb-python/README.md`, `docs/api/MCP.md` | vanta-docs | 🟢 | 🟢 | ✅ **DONE** — prosa descriptiva a inglés (code blocks verbatim, sección Cross-SDK preservada); MCP.md +4 tools (memory_versions/supersede, remove_edge, vacuum); coverage 0 gaps |
-
-### Hallazgos y errores de la sesión (2026-08-24)
-
-- **H1 (error de proceso): árbol sucio al iniciar.** ~35 archivos `desktop/` sin commit (status ` M`). Resultó ser trabajo P34 (revisión diseño/UX) a medio hacer. Se commiteó como checkpoint doble: `5a7f31e0` (P34 fixes en progreso) + `89ab5e2c` (FIX-D4 topbar). El lead DEBE correr `git status` antes de cualquier batch paralelo futuro.
-- **H3 (hallazgo backlog): REVIEW-07 era duplicado.** La fila estaba abierta pero el fix ya existía (BND-06 / `db337b00`). No recrear; marcar ⛔ SKIP.
-- **H4 (interrupción):** el usuario pidió detener la ejecución paralela y registrar en backlog. Los `task()` no llegaron a ejecutarse (interrumpidos). Ninguna de las 10 tareas pending fue tocada por sub-agentes.
-- **H5 (gate mecánico REVIEW-11 verificado):** `yaml.safe_load` confirma ecosistemas `['cargo','npm','pip','github-actions','docker']` — DONE.
-
-### Mejoras / decisiones registradas
-
-- **M1 (dependabot):** se agregó solo `pip` para `/vantadb-python`. Los 10 dirs `integrations/*` son stubs SIN publicar en PyPI (ver MKT-18f) → añadir sus entries recién cuando se publiquen (comentario `ponytail:` en `.github/dependabot.yml`). Si se prefiere cobertura total hoy, migrar a Renovate (soporta globs de directorio).
-- **M2 (plan file):** creado `docs/plans/2026-08-24-batch-review-mod-find.md` con waves: W0 {REVIEW-06, MOD-02, FIND-27} · W1 {FIND-28, MOD-19, MOD-08+09} · W2 {UX-01+05, FIND-04}. Sub-agentes instruidos a NO commitear (evita race de index en paralelo); el lead verifica mecánicamente y commitea por tarea.
-- **M3 (commits de checkpoint previos a esta sesión de batch):** `5a7f31e0`, `89ab5e2c`, `bf474822` — todos en `develop`.
-
-### Próximo paso recomendado
-
-```
-/pipeline run docs/plans/2026-08-24-batch-review-mod-find.md   # reanuda waves
-# antes de Wave 2: git status  (confirmar que desktop/ dejó de moverse)
-```
-
-
 
 ---
 
@@ -947,7 +515,6 @@ Próxima tarea si completa: DESKTOP-25
 | `RES-07` | 🟡 | **Calibrar `rss_threshold`** (F2: recalibrar `DEFAULT_RSS_THRESHOLD=0.80` con medición real) + bench full-scale `[10k..100k]` (F3) | `src/config.rs:22`, benches memory-budget · Origen: `FND-01-memory-budget.md` (follow-ups F2/F3) | ⬜ Pendiente |
 | `RES-08` | 🟢 | **Benchmark delete-masivo antes de rediseñar DashMap sweep** (H4): medir contención real del sweep en path de deletes; decidir rediseño solo si la medición lo justifica | `src/storage/engine/maintenance.rs` · Origen: `FND-02-multi-index-locks.md` (H4) | ⬜ Pendiente |
 | `RES-09` | 🟡 | **Trackear roadmap post-launch huérfano** (investigado con archivo:línea, sin filas): WAL async ingest (10-100×), query planner con optimizaciones reales, DiskANN disk-I/O real. Agregar como filas a P24 o sub-fase propia | P24 / `docs/research/investigacion-equipo-2026-08-09.md` §roadmap | ⬜ Pendiente |
-| `RES-10` | 🟢 | **Follow-ups TIR-02/04/08 ya decididos** (~40 líneas totales): recovery-time métrica en `evals/dora.mjs`, formalizar `tasks/closed/` + regla re-procesamiento, criterios 1-2 en `research-agent.md`. Decisiones registradas en header P18; solo falta ejecutar | `evals/dora.mjs`, `.opencode/task-system/` · Origen: `2026-08-10-agent-engineering/TIR-{02,04,08}` | ⬜ Pendiente |
 
 ### 🟢 Baja / proceso
 

@@ -166,3 +166,35 @@ Priorizadas:
 - **DESKTOP-24** (empaquetado NSIS/MSI) y **DESKTOP-25** (CI GitHub Actions desktop) → quedan como pendientes 🟡 del desktop, para ejecutar cuando se abra el plan de packaging.
 
 Sin eliminar del catálogo: DESKTOP-20 ✅ (shutdown_all, `45f8bed8`), ADMIN-01..09 ✅ (consola admin), DESKTOP-02..11 ✅ (migrados a docs/progreso/README.md en la limpieza 2026-08-07).
+
+---
+
+## Gran limpieza 2026-08-25 (auditoría backlog + research huérfanas)
+
+> **Origen:** auditoría completa del backlog (sub-agente vanta-research + verificación lead) tras crear P38.
+> **Resultado:** backlog de 999 → 546 líneas. 84 tareas realmente activas (reconteo GOV-C7).
+> **Nota:** sesión paralela del mismo día (batches 2026-08-25) ya había removido 31 filas y cerrado MCP-24; esta pasada fue complementaria.
+
+### Completadas removidas (96 IDs, filas fuente sincronizadas con los DONE de la sesión P35)
+
+- **P0/P1:** RELEASE-01..03, SEC-01
+- **P12/ADMIN:** DESKTOP-20, ADMIN-01..09
+- **P15:** ERR-010, ERR-021, ERR-022, ERR-035, ERR-037
+- **Hallazgos:** REVIEW-07 (dup de BND-06), REVIEW-08 (`ff9b2933`), REVIEW-11 (`bf474822`), REVIEW-15 (`57090e0e`), REVIEW-16 (SKIP), REVIEW-19, REVIEW-20 (SKIP)
+- **P17/P18/P19:** TSYS-12, TIR-01/02/04/05/06/07/08 (decisiones registradas; follow-ups vivos → RES-10 en P38), R4 (decidido no hacer)
+- **P22/P25/P26 MCP:** MCP-01..15, T15, MCP-16..23, MCP-25/26/28/29, MCP-31/32
+- **P26 Vanta Studio:** VS-00..11, VS-CORE-01..07 (sección completa ejecutada Fases 0-4)
+- **GOV/P32/P33/P34/P36:** BND-01/02/06, GOV-TK6, MOD-02 (`db8b26b7`), MOD-06, MOD-08+09 (`5aa42007`), MOD-16, MOD-19 (`dc65c242`), FIND-04 (`9de39702`), FIND-06, FIND-27 (`447a07d7`), FIND-28 (`2d9fa75f`), UX-01+UX-05 (`6260938e`), UX-18 (Wontfix), AGT-05
+
+### Secciones no-tarea colapsadas/migradas
+
+- Header: blockquotes históricos de syncs comprimidos a puntero al historial
+- Fases cerradas colapsadas a tumbas: Phase 0/1/4/7/10/11/12/13, P15, P20, P29-P31
+- P35 (registro de sesión batch 2026-08-24): eliminada del catálogo — el contenido vivo (REVIEW-10/12, hallazgos) vive en "Hallazgos pendientes de reportes"; el log de sesión vive aquí y en `docs/plans/archive/2026-08-24-batch-review-mod-find.md`
+- Bloque `=== RECITATION DESKTOP-24 ===` eliminado (estado de sesión, no tarea)
+- GOV-TK1/TK9: filas partidas por escape corrupto reparadas
+- Duplicado AUD-043 ≡ FIND-30: resuelto por sesión paralela (FIND-30 removida como done; AUD-043 re-derivada pendiente desde audit-full-20260825)
+
+### Convención
+
+Filas completadas NO viven más en el Backlog: se eliminan al completar y su registro va aquí (o a docs/avance/<dominio>.md). Ver progreso SKILL.md Trigger 1 y AGENTS.md "Progreso Skill".
