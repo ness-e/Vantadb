@@ -848,6 +848,14 @@ impl VantaEmbedded {
             ));
         }
 
+        // REVIEW-13: serialize the read-modify-write below. Without this, two
+        // concurrent supersede calls can both read `old.superseded_by == None`
+        // and both pass the idempotency guard, double-marking the record (the
+        // engine's insert_lock only serializes the individual insert, not the
+        // SDK-level read + check). The guard spans every stateful step:
+        // get(old) → idempotency check → get(new) → mutate → engine.insert.
+        let _guard = self.supersede_lock.lock();
+
         let old = self
             .get(namespace, old_key)?
             .ok_or_else(|| VantaError::NotFound {
@@ -2659,6 +2667,60 @@ mod tests {
         assert!(
             err.to_string().contains("already superseded"),
             "expected idempotency guard, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_supersede_concurrent_race_exactly_one_wins() {
+        // REVIEW-13: two threads racing supersede on the same old_key must not
+        // both pass the idempotency guard (TOCTOU). Exactly one wins; the
+        // loser hits "already superseded"; the final state points at the
+        // winner's key. The Barrier makes both threads start together.
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "old", "old payload");
+        put_mem(&db, "ns", "new_a", "payload a");
+        put_mem(&db, "ns", "new_b", "payload b");
+
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(3));
+        let db_a = db.clone();
+        let db_b = db.clone();
+        let bar_a = std::sync::Arc::clone(&barrier);
+        let bar_b = std::sync::Arc::clone(&barrier);
+
+        let t1 = std::thread::spawn(move || {
+            bar_a.wait();
+            db_a.supersede("ns", "old", "new_a")
+        });
+        let t2 = std::thread::spawn(move || {
+            bar_b.wait();
+            db_b.supersede("ns", "old", "new_b")
+        });
+        barrier.wait(); // release both racers at once
+        let r1 = t1.join().expect("thread 1 panicked");
+        let r2 = t2.join().expect("thread 2 panicked");
+
+        let wins = [&r1, &r2].iter().filter(|r| r.is_ok()).count();
+        assert_eq!(
+            wins, 1,
+            "exactly one supersede must win; got r1={r1:?}, r2={r2:?}"
+        );
+        let loser = if r1.is_ok() { &r2 } else { &r1 };
+        let loser_err = loser.as_ref().expect_err("loser must error").to_string();
+        assert!(
+            loser_err.contains("already superseded"),
+            "loser must hit the idempotency guard, got: {loser_err}"
+        );
+
+        let winner_key = if r1.is_ok() { "new_a" } else { "new_b" };
+        let old = db.get("ns", "old").unwrap().unwrap();
+        assert_eq!(
+            old.superseded_by.as_deref(),
+            Some(winner_key),
+            "final state must point at the winner's key"
+        );
+        assert!(
+            old.superseded_at_ms.is_some(),
+            "superseded_at_ms must be recorded"
         );
     }
 

@@ -4,7 +4,7 @@ use crate::error::{Result, VantaError};
 use crate::graphrag::pipeline::{GraphRagPipeline, GraphRagResult};
 use crate::index::set_prefetch_mode;
 use crate::storage::StorageEngine;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -16,6 +16,13 @@ pub struct VantaEmbedded {
     engine: Arc<RwLock<Option<Arc<StorageEngine>>>>,
     pub(crate) config: VantaConfig,
     audit: Option<Arc<crate::audit::AuditLogger>>,
+    /// Serializes `supersede()`'s read-modify-write (REVIEW-13): the engine's
+    /// `insert_lock` only covers the individual write, not the SDK-level
+    /// read + idempotency check, so two concurrent supersedes could both pass
+    /// the guard and double-mark the record. Shared across clones via `Arc`.
+    /// ponytail: global supersede lock — rare admin op; per-namespace striping
+    /// if contention ever matters.
+    pub(crate) supersede_lock: Arc<Mutex<()>>,
 }
 
 impl std::fmt::Debug for VantaEmbedded {
@@ -38,6 +45,7 @@ impl VantaEmbedded {
             engine: Arc::new(RwLock::new(Some(engine))),
             audit: init_audit(&config),
             config,
+            supersede_lock: Arc::new(Mutex::new(())),
         }
     }
 
@@ -100,6 +108,7 @@ impl VantaEmbedded {
             engine: Arc::new(RwLock::new(Some(Arc::new(engine)))),
             audit: init_audit(&final_config),
             config: final_config,
+            supersede_lock: Arc::new(Mutex::new(())),
         };
         if !embedded.config.read_only {
             embedded.ensure_indexes_current()?;
@@ -136,6 +145,7 @@ impl VantaEmbedded {
             engine: Arc::new(RwLock::new(None)),
             audit: init_audit(&config),
             config,
+            supersede_lock: Arc::new(Mutex::new(())),
         }
     }
 
