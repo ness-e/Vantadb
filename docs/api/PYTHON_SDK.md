@@ -534,6 +534,29 @@ result = db.query("(match (node :content \"rust\") (return node))")
 print(result)
 ```
 
+#### `query_structured()`
+```python
+db.query_structured(
+    iql_query: str,
+) -> Dict[str, Any]
+```
+Execute an IQL or LISP-style query string and return a **structured dict** instead of a formatted string, so callers can consume the result as data. The dict carries a `kind` discriminator:
+
+- `{"kind": "read", "nodes": [{"id": str, "tier": str, "confidence": float, "hits": int}, ...]}` for `SELECT`-style reads.
+- `{"kind": "write", "affected_nodes": int, "message": str, "node_id": str | None}` for writes.
+- `{"kind": "stale_context", "node_id": str}` when rehydration is required.
+
+`u128` node ids are returned as strings to avoid precision loss.
+
+```python
+# IQL query example — structured
+result = db.query_structured("(match (node :content \"rust\") (return node))")
+print(result["kind"])   # "read"
+print(result["nodes"])  # [{"id": "...", "tier": "...", "confidence": 0.5, "hits": 1}, ...]
+```
+
+> **Note:** `query_structured()` is additive — the legacy `query()` (which returns a formatted `str`) is unchanged.
+
 #### `bulk_import()`
 ```python
 db.bulk_import(
@@ -945,7 +968,65 @@ all use 128-bit unsigned integers.
 
 ## Error Handling
 
-All methods raise `RuntimeError` with a descriptive message on failure.
+Every VantaDB error raised by this binding is an instance of `VantaError`,
+which inherits from `RuntimeError`. This keeps existing `except RuntimeError` /
+`except Exception` callers working while letting you catch the specific family:
+
+```python
+from vantadb_py import (
+    VantaError,
+    NotFoundError,
+    ValidationError,
+    CorruptError,
+    StorageError,
+    ConflictError,
+    UnsupportedError,
+    ResourceLimitError,
+    BusyError,
+    NoVectorError,
+    TimeoutError,
+)
+
+try:
+    db.supersede("ns", "missing", "k")
+except NotFoundError as exc:
+    print("record not found:", exc)
+```
+
+### Hierarchy
+
+```
+VantaError (base, inherits RuntimeError)
+├── NotFoundError          # node/record/namespace not found
+├── ValidationError        # bad input: dimensions, invalid IQL, schema, duplicate, etc.
+├── CorruptError           # persisted data corrupt or incompatible format
+├── StorageError           # I/O or storage-backend error
+├── ConflictError          # execution conflict or graph cycle
+├── UnsupportedError       # unsupported operation
+├── ResourceLimitError     # resource limit exceeded
+├── BusyError              # database busy or not initialized
+├── NoVectorError          # record exists but carries no vector
+└── TimeoutError           # operation exceeded its time budget
+```
+
+Catch the base class to handle any VantaDB error uniformly:
+`except VantaError:`.
+
+### Migration (0.5.0+)
+
+The binding previously mapped core errors to standard-library exceptions
+(`KeyError`, `ValueError`, `FileNotFoundError`, …). These now raise the typed
+`VantaError` subclasses above. The one behavior change to be aware of:
+
+| Before | After |
+|--------|-------|
+| missing key/node → `KeyError` | `NotFoundError` |
+| validation / duplicate / dimension → `ValueError` | `ValidationError` |
+| file not found / permission / OSError | `StorageError` |
+| other engine errors → `RuntimeError` | `VantaError` (still a `RuntimeError`) |
+
+`except RuntimeError` and `except Exception` remain fully compatible because
+`VantaError` is a `RuntimeError`.
 
 ## Roadmap (not yet available)
 

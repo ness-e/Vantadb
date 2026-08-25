@@ -27,6 +27,55 @@ from __future__ import annotations
 from typing import Any
 
 
+class VantaError(RuntimeError):
+    """Base class for every VantaDB error raised by this binding.
+
+    Inherits from ``RuntimeError`` so existing ``except RuntimeError`` /
+    ``except Exception`` callers keep working. Raise/catch the specific
+    subclasses below for typed error handling.
+    """
+
+
+class NotFoundError(VantaError):
+    """A requested node/record/namespace was not found."""
+
+
+class ValidationError(VantaError):
+    """Input validation failed (bad dimensions, invalid IQL, schema, etc.)."""
+
+
+class CorruptError(VantaError):
+    """Persisted data is corrupt or uses an incompatible format."""
+
+
+class StorageError(VantaError):
+    """An I/O or storage-backend error occurred."""
+
+
+class ConflictError(VantaError):
+    """An execution conflict or graph cycle was detected."""
+
+
+class UnsupportedError(VantaError):
+    """An unsupported operation was attempted."""
+
+
+class ResourceLimitError(VantaError):
+    """A resource limit (e.g. memory) was exceeded."""
+
+
+class BusyError(VantaError):
+    """The database is busy or not initialized."""
+
+
+class NoVectorError(VantaError):
+    """A record exists but carries no vector."""
+
+
+class TimeoutError(VantaError):
+    """An operation exceeded its time budget (VantaDB's, not the builtin)."""
+
+
 class VantaVector:
     """Read-only view over a ``f32`` vector exposed by search hits."""
 
@@ -242,6 +291,7 @@ class VantaDB:
     def hardware_profile(self) -> dict: ...
     def operational_metrics(self) -> dict: ...
     def query(self, iql_query: str) -> str: ...
+    def query_structured(self, iql_query: str) -> dict: ...
     def flush(self) -> None: ...
     def compact_wal(self) -> None: ...
     def compact_layout(self) -> int: ...
@@ -409,6 +459,7 @@ class SystemClient:
     def hardware_profile(self) -> dict: ...
     def operational_metrics(self) -> dict: ...
     def query(self, iql_query: str) -> str: ...
+    def query_structured(self, iql_query: str) -> dict: ...
     def flush(self) -> None: ...
     def compact_wal(self) -> None: ...
     def compact_layout(self) -> int: ...

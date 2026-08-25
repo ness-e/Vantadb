@@ -468,7 +468,7 @@ class TestPersistentMemoryApi:
             vanta.SearchRequest(namespace="", query_vector=[1.0, 0.0, 0.0], top_k=3),
             vanta.SearchRequest(namespace="ns", query_vector=[1.0, 0.0, 0.0], top_k=3),
         ]
-        with pytest.raises(ValueError):
+        with pytest.raises(vanta.ValidationError):
             db.search_batch_requests(requests)
 
     def test_rebuild_export_import_memory(self, tmp_path):
@@ -1465,7 +1465,7 @@ class TestVantaSearchHit:
         try:
             db.supersede("ns", "old", "new")
             assert False, "second supersede should raise"
-        except ValueError as exc:
+        except vanta.ValidationError as exc:
             assert "already superseded" in str(exc), f"got {exc}"
 
         # Default search keeps superseded records.
@@ -1498,11 +1498,11 @@ class TestVantaSearchHit:
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         db.put("ns", "k", "payload")
 
-        with pytest.raises(KeyError):
+        with pytest.raises(vanta.NotFoundError):
             db.supersede("ns", "ghost", "k")
-        with pytest.raises(KeyError):
+        with pytest.raises(vanta.NotFoundError):
             db.supersede("ns", "k", "ghost")
-        with pytest.raises(ValueError):
+        with pytest.raises(vanta.ValidationError):
             db.supersede("ns", "k", "k")
 
 

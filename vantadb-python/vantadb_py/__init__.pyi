@@ -15,7 +15,18 @@ from __future__ import annotations
 from typing import Any
 
 from .vantadb_py import (
+    BusyError,
+    ConflictError,
+    CorruptError,
+    NotFoundError,
+    NoVectorError,
+    ResourceLimitError,
+    StorageError,
+    TimeoutError,
+    UnsupportedError,
     VantaDB,
+    VantaError,
+    ValidationError,
     VantaListResult,
     VantaMemoryRecord,
     VantaSearchHit,
@@ -32,6 +43,17 @@ __all__ = [
     "VantaSearchHit",
     "VantaVector",
     "SearchRequest",
+    "VantaError",
+    "NotFoundError",
+    "ValidationError",
+    "CorruptError",
+    "StorageError",
+    "ConflictError",
+    "UnsupportedError",
+    "ResourceLimitError",
+    "BusyError",
+    "NoVectorError",
+    "TimeoutError",
     "__version__",
     "connect",
 ]
@@ -174,6 +196,7 @@ class AsyncVantaDB:
         self, requests: list[Any], top_k: int = 10
     ) -> list[list[VantaSearchHit]]: ...
     async def query(self, iql_query: str) -> str: ...
+    async def query_structured(self, iql_query: str) -> dict: ...
     async def capabilities(self) -> dict: ...
     async def hardware_profile(self) -> dict: ...
     async def add_edge(

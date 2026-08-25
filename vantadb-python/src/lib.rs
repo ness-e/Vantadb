@@ -33,8 +33,11 @@ use crate::convert::{
     bulk_import_report_to_pydict, capabilities_to_pydict, check_lens, export_report_to_pydict,
     extract_vector, format_query_result, import_report_to_pydict, map_vanta_error, node_to_pydict,
     operational_metrics_to_pydict, py_any_to_value, py_dict_to_filter_ops, py_dict_to_metadata,
-    rebuild_report_to_pydict, runtime_profile_label, search_explanation_to_pydict,
-    text_index_audit_report_to_pydict, text_index_repair_report_to_pydict,
+    query_result_to_pydict, rebuild_report_to_pydict, runtime_profile_label,
+    search_explanation_to_pydict, text_index_audit_report_to_pydict,
+    text_index_repair_report_to_pydict, BusyError, ConflictError, CorruptError, NoVectorError,
+    NotFoundError, ResourceLimitError, StorageError, TimeoutError, UnsupportedError,
+    ValidationError, VantaError,
 };
 
 /// Cap on `top_k`/`k` for all search entry points (ERR-022). Prevents absurd
@@ -66,8 +69,7 @@ const MAX_K: usize = 1_000;
 /// Raises:
 ///     ValueError: If the database file has an incompatible format or the
 ///         configuration is invalid.
-///     OSError: If the database directory cannot be created or opened.
-///     PermissionError: If the database directory is not accessible.
+///     StorageError: If the database directory cannot be created or opened.
 ///     RuntimeError: For any other engine-level failure.
 ///
 /// Example:
@@ -318,6 +320,7 @@ forward_to_db!(SystemClient {
     hardware_profile,
     operational_metrics,
     query,
+    query_structured,
     flush,
     compact_wal,
     compact_layout,
@@ -360,8 +363,7 @@ impl VantaDB {
     /// Raises:
     ///     ValueError: If the database file has an incompatible format or the
     ///         configuration is invalid.
-    ///     OSError: If the database directory cannot be created or opened.
-    ///     PermissionError: If the database directory is not accessible.
+    ///     StorageError: If the database directory cannot be created or opened.
     ///     RuntimeError: For any other engine-level failure.
     ///
     /// Example:
@@ -844,7 +846,7 @@ impl VantaDB {
     ///         contains unsupported value types.
     ///     ValueError: If the vector dimension is inconsistent with the index or
     ///         validation fails.
-    ///     OSError: If the write cannot be persisted (WAL or storage I/O failure).
+    ///     StorageError: If the write cannot be persisted (WAL or storage I/O failure).
     ///     RuntimeError: For any other engine-level failure.
     ///
     /// Example:
@@ -903,7 +905,7 @@ impl VantaDB {
     ///     exists for the given namespace and key.
     ///
     /// Raises:
-    ///     OSError: If the storage cannot be read.
+    ///     StorageError: If the storage cannot be read.
     ///     RuntimeError: For any other engine-level failure.
     ///
     /// Example:
@@ -946,7 +948,7 @@ impl VantaDB {
     ///     bool: True if a record was deleted, False if no matching record existed.
     ///
     /// Raises:
-    ///     OSError: If the storage cannot be written.
+    ///     StorageError: If the storage cannot be written.
     ///     RuntimeError: For any other engine-level failure.
     ///
     /// Example:
@@ -1134,7 +1136,7 @@ impl VantaDB {
     /// Raises:
     ///     TypeError: If ``filters`` contains unsupported value types.
     ///     ValueError: If a filter value is invalid.
-    ///     OSError: If the storage cannot be read.
+    ///     StorageError: If the storage cannot be read.
     ///     RuntimeError: For any other engine-level failure.
     ///
     /// Example:
@@ -1217,7 +1219,7 @@ impl VantaDB {
     ///         contains unsupported value types.
     ///     ValueError: If the vector dimension is inconsistent with the index or
     ///         validation fails.
-    ///     OSError: If the storage cannot be read.
+    ///     StorageError: If the storage cannot be read.
     ///     RuntimeError: For any other engine-level failure.
     ///
     /// Example:
@@ -1307,7 +1309,7 @@ impl VantaDB {
     ///     ``index_path``, and ``success``.
     ///
     /// Raises:
-    ///     OSError: If the index cannot be written to disk.
+    ///     StorageError: If the index cannot be written to disk.
     ///     RuntimeError: For any other engine-level failure.
     ///
     /// Example:
@@ -1364,9 +1366,9 @@ impl VantaDB {
     ///     ``path``, and ``duration_ms``.
     ///
     /// Raises:
-    ///     FileNotFoundError: If the target directory does not exist.
-    ///     PermissionError: If the target path is not writable.
-    ///     OSError: For other file I/O failures.
+    ///     StorageError: If the target directory does not exist.
+    ///     StorageError: If the target path is not writable.
+    ///     StorageError: For other file I/O failures.
     ///     ValueError: If the namespace does not exist or is invalid.
     ///     RuntimeError: For any other engine-level failure.
     ///
@@ -1406,9 +1408,9 @@ impl VantaDB {
     ///     ``path``, and ``duration_ms``.
     ///
     /// Raises:
-    ///     FileNotFoundError: If the target directory does not exist.
-    ///     PermissionError: If the target path is not writable.
-    ///     OSError: For other file I/O failures.
+    ///     StorageError: If the target directory does not exist.
+    ///     StorageError: If the target path is not writable.
+    ///     StorageError: For other file I/O failures.
     ///     RuntimeError: For any other engine-level failure.
     ///
     /// Example:
@@ -1443,10 +1445,10 @@ impl VantaDB {
     ///     ``errors``, and ``duration_ms``.
     ///
     /// Raises:
-    ///     FileNotFoundError: If the import file does not exist.
+    ///     StorageError: If the import file does not exist.
     ///     ValueError: If the file is not a valid VantaDB JSONL export.
-    ///     PermissionError: If the file cannot be read.
-    ///     OSError: For other file I/O failures.
+    ///     StorageError: If the file cannot be read.
+    ///     StorageError: For other file I/O failures.
     ///     RuntimeError: For any other engine-level failure.
     ///
     /// Example:
@@ -1743,6 +1745,29 @@ impl VantaDB {
                 .map(|result| format_query_result(&result))
                 .map_err(map_vanta_error)
         })
+    }
+
+    /// Execute an IQL or LISP query string. Returns a structured dict (MOD-20)
+    /// instead of a formatted string, so callers can consume the result as data.
+    ///
+    /// The returned dict has a ``kind`` discriminator:
+    /// - ``{"kind": "read", "nodes": [{"id": str, "tier": str,
+    ///   "confidence": float, "hits": int}, ...]}`` for ``SELECT``-style reads.
+    /// - ``{"kind": "write", "affected_nodes": int, "message": str,
+    ///   "node_id": str | None}`` for writes.
+    /// - ``{"kind": "stale_context", "node_id": str}`` when rehydration is needed.
+    ///
+    /// ``u128`` node ids are returned as strings to avoid precision loss.
+    ///
+    /// GIL Policy: RELEASED during Tokio execution — allows other Python
+    /// threads to run while VantaDB processes the query.
+    fn query_structured(&self, py: Python, iql_query: &str) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
+        let engine = self.engine.clone();
+        let query_str = iql_query.to_string();
+
+        let result = py.detach(move || engine.query(&query_str).map_err(map_vanta_error))?;
+        query_result_to_pydict(py, &result)
     }
 
     /// Flush WAL and HNSW index to disk for durability.
@@ -2323,6 +2348,18 @@ fn vantadb_py(_py: Python, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()>
     m.add_class::<VantaPyMemoryRecord>()?;
     m.add_class::<VantaPyListResult>()?;
     m.add_function(wrap_pyfunction!(connect, m)?)?;
+    // Typed exception hierarchy (MOD-20).
+    m.add("VantaError", _py.get_type::<VantaError>())?;
+    m.add("NotFoundError", _py.get_type::<NotFoundError>())?;
+    m.add("ValidationError", _py.get_type::<ValidationError>())?;
+    m.add("CorruptError", _py.get_type::<CorruptError>())?;
+    m.add("StorageError", _py.get_type::<StorageError>())?;
+    m.add("ConflictError", _py.get_type::<ConflictError>())?;
+    m.add("UnsupportedError", _py.get_type::<UnsupportedError>())?;
+    m.add("ResourceLimitError", _py.get_type::<ResourceLimitError>())?;
+    m.add("BusyError", _py.get_type::<BusyError>())?;
+    m.add("NoVectorError", _py.get_type::<NoVectorError>())?;
+    m.add("TimeoutError", _py.get_type::<TimeoutError>())?;
     m.add("__version__", metadata::reported_version().into_owned())?;
     Ok(())
 }

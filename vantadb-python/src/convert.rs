@@ -2,10 +2,7 @@
 #![allow(deprecated)]
 
 use lru::LruCache;
-use pyo3::exceptions::{
-    PyFileExistsError, PyFileNotFoundError, PyImportError, PyKeyError, PyOSError,
-    PyPermissionError, PyRuntimeError, PyTimeoutError, PyTypeError, PyValueError,
-};
+use pyo3::exceptions::{PyImportError, PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods};
 use std::cell::RefCell;
@@ -20,6 +17,31 @@ use vantadb::sdk::{
 };
 
 use crate::vector::VantaVector;
+
+// ─── Typed Python exception hierarchy (MOD-20) ───────────────────────────────
+//
+// `VantaError` is the base for every VantaDB error raised by this binding. It
+// inherits from `RuntimeError` so existing `except RuntimeError` / `except
+// Exception` callers keep working (backward compat). Each core `VantaError`
+// variant maps to a specific subclass below (see `map_vanta_error`).
+//
+// Single-inheritance only: CPython's built-in exceptions have fixed memory
+// layouts that make multiple exception inheritance unsafe (docs.python.org/3/
+// library/exceptions.html — "recommended to only subclass one exception type
+// at a time"), and PyO3's `create_exception!` takes a single base.
+use pyo3::create_exception;
+
+create_exception!(vantadb_py, VantaError, PyRuntimeError);
+create_exception!(vantadb_py, NotFoundError, VantaError);
+create_exception!(vantadb_py, ValidationError, VantaError);
+create_exception!(vantadb_py, CorruptError, VantaError);
+create_exception!(vantadb_py, StorageError, VantaError);
+create_exception!(vantadb_py, ConflictError, VantaError);
+create_exception!(vantadb_py, UnsupportedError, VantaError);
+create_exception!(vantadb_py, ResourceLimitError, VantaError);
+create_exception!(vantadb_py, BusyError, VantaError);
+create_exception!(vantadb_py, NoVectorError, VantaError);
+create_exception!(vantadb_py, TimeoutError, VantaError);
 
 thread_local! {
     static LRU_CACHE: RefCell<LruCache<String, std::collections::BTreeMap<String, VantaValue>>> =
@@ -332,6 +354,46 @@ pub(crate) fn format_query_result(result: &VantaQueryResult) -> String {
             )
         }
     }
+}
+
+/// Convert a `VantaQueryResult` into a structured Python dict (MOD-20),
+/// mirroring the string form produced by `format_query_result` but as data so
+/// callers can consume the result without parsing text.
+///
+/// `u128` node ids are returned as strings to avoid precision loss (same wire
+/// convention as MCP/CLI).
+pub(crate) fn query_result_to_pydict(py: Python, result: &VantaQueryResult) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new(py);
+    match result {
+        VantaQueryResult::Read(nodes) => {
+            dict.set_item("kind", "read")?;
+            let node_list = PyList::empty(py);
+            for n in nodes {
+                let nd = PyDict::new(py);
+                nd.set_item("id", n.id.to_string())?;
+                nd.set_item("tier", format!("{:?}", n.tier))?;
+                nd.set_item("confidence", n.confidence_score)?;
+                nd.set_item("hits", n.hits)?;
+                node_list.append(nd)?;
+            }
+            dict.set_item("nodes", node_list)?;
+        }
+        VantaQueryResult::Write {
+            affected_nodes,
+            message,
+            node_id,
+        } => {
+            dict.set_item("kind", "write")?;
+            dict.set_item("affected_nodes", affected_nodes)?;
+            dict.set_item("message", message)?;
+            dict.set_item("node_id", node_id.map(|id| id.to_string()))?;
+        }
+        VantaQueryResult::StaleContext { node_id } => {
+            dict.set_item("kind", "stale_context")?;
+            dict.set_item("node_id", node_id.to_string())?;
+        }
+    }
+    Ok(dict.unbind().into())
 }
 
 pub(crate) fn capabilities_to_pydict(
@@ -699,44 +761,61 @@ pub(crate) fn py_dict_to_filter_ops(
     Ok(ops)
 }
 
-/// Map a VantaError to the appropriate Python exception type for ergonomic
-/// error handling on the Python side.
+/// Map a `VantaError` to the typed Python exception hierarchy (MOD-20).
 ///
-/// Mapping:
-/// - `IoError(NotFound)` → `FileNotFoundError`
-/// - `IoError(PermissionDenied)` → `PermissionError`
-/// - `IoError(AlreadyExists)` → `FileExistsError`
-/// - `IoError` (other) → `OSError`
-/// - `NotFound` / `NodeNotFound` → `KeyError`
-/// - `ValidationError`, `DuplicateNode`, `DimensionMismatch`, `SerializationError`,
-///   `InvalidInput`, `SchemaError`, `IncompatibleFormat`,
-///   `NodeIdCollision`, `IqlParseError`, `IqlError` → `ValueError`
-/// - `Timeout` → `TimeoutError`
-/// - All other variants → `RuntimeError` (catch-all)
+/// Every core variant maps to a specific subclass of `VantaError`
+/// (see the `create_exception!` block above). `VantaError` inherits from
+/// `RuntimeError`, so `except RuntimeError` / `except Exception` callers keep
+/// working; specific handlers use `NotFoundError`, `ValidationError`, etc.
+///
+/// Mapping (variant core → subclase Python):
+/// - `NotFound` / `NodeNotFound` → `NotFoundError`
+/// - `ValidationError`, `DuplicateNode`, `DimensionMismatch`,
+///   `SerializationError`, `InvalidInput`, `SchemaError`, `NodeIdCollision`,
+///   `IqlParseError`, `IqlError` → `ValidationError`
+/// - `IncompatibleFormat`, `WALVersionMismatch`, `WalError` → `CorruptError`
+/// - `IoError`, `BackendError` → `StorageError`
+/// - `ExecutionConflict`, `CycleDetected` → `ConflictError`
+/// - `UnsupportedOperation` → `UnsupportedError`
+/// - `ResourceLimit` → `ResourceLimitError`
+/// - `DatabaseBusy`, `NotInitialized` → `BusyError`
+/// - `NoVectorForKey` → `NoVectorError`
+/// - `Timeout` → `TimeoutError` (VantaDB's, not the builtin)
+/// - remaining (`RuntimeError`, `Generic`, `CliError`, `SearchError`,
+///   `RestoreError`, `BackupError`, …) → `VantaError` (base, catch-all)
 pub(crate) fn map_vanta_error(err: vantadb::error::VantaError) -> PyErr {
-    use vantadb::error::VantaError;
+    use vantadb::error::VantaError as CoreError;
     match &err {
-        VantaError::IoError(e) => match e.kind() {
-            std::io::ErrorKind::NotFound => PyFileNotFoundError::new_err(err.to_string()),
-            std::io::ErrorKind::PermissionDenied => PyPermissionError::new_err(err.to_string()),
-            std::io::ErrorKind::AlreadyExists => PyFileExistsError::new_err(err.to_string()),
-            _ => PyOSError::new_err(err.to_string()),
-        },
-        VantaError::NotFound { .. } | VantaError::NodeNotFound(_) => {
-            PyKeyError::new_err(err.to_string())
+        CoreError::IoError(_) | CoreError::BackendError(_) => {
+            StorageError::new_err(err.to_string())
         }
-        VantaError::ValidationError { .. }
-        | VantaError::DuplicateNode(_)
-        | VantaError::DimensionMismatch { .. }
-        | VantaError::SerializationError(_)
-        | VantaError::InvalidInput(_)
-        | VantaError::SchemaError(_)
-        | VantaError::IncompatibleFormat { .. }
-        | VantaError::NodeIdCollision(_)
-        | VantaError::IqlParseError { .. }
-        | VantaError::IqlError(_) => PyValueError::new_err(err.to_string()),
-        VantaError::Timeout { .. } => PyTimeoutError::new_err(err.to_string()),
-        _ => PyRuntimeError::new_err(err.to_string()),
+        CoreError::NotFound { .. } | CoreError::NodeNotFound(_) => {
+            NotFoundError::new_err(err.to_string())
+        }
+        CoreError::ValidationError { .. }
+        | CoreError::DuplicateNode(_)
+        | CoreError::DimensionMismatch { .. }
+        | CoreError::SerializationError(_)
+        | CoreError::InvalidInput(_)
+        | CoreError::SchemaError(_)
+        | CoreError::NodeIdCollision(_)
+        | CoreError::IqlParseError { .. }
+        | CoreError::IqlError(_) => ValidationError::new_err(err.to_string()),
+        CoreError::IncompatibleFormat { .. }
+        | CoreError::WALVersionMismatch { .. }
+        | CoreError::WalError(_) => CorruptError::new_err(err.to_string()),
+        CoreError::Timeout { .. } => TimeoutError::new_err(err.to_string()),
+        CoreError::ResourceLimit(_) => ResourceLimitError::new_err(err.to_string()),
+        CoreError::ExecutionConflict { .. } | CoreError::CycleDetected => {
+            ConflictError::new_err(err.to_string())
+        }
+        CoreError::UnsupportedOperation { .. } => UnsupportedError::new_err(err.to_string()),
+        CoreError::DatabaseBusy(_) | CoreError::NotInitialized => {
+            BusyError::new_err(err.to_string())
+        }
+        CoreError::NoVectorForKey(_) => NoVectorError::new_err(err.to_string()),
+        // RuntimeError, Generic, CliError, SearchError, RestoreError, BackupError, …
+        _ => VantaError::new_err(err.to_string()),
     }
 }
 

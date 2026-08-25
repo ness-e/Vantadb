@@ -10,7 +10,18 @@ from dataclasses import asdict, dataclass
 from functools import partial
 
 from .vantadb_py import (
+    BusyError,
+    ConflictError,
+    CorruptError,
+    NotFoundError,
+    NoVectorError,
+    ResourceLimitError,
+    StorageError,
+    TimeoutError,
+    UnsupportedError,
     VantaDB,
+    VantaError,
+    ValidationError,
     VantaListResult,
     VantaMemoryRecord,
     VantaSearchHit,
@@ -27,6 +38,17 @@ __all__ = [
     "VantaSearchHit",
     "VantaVector",
     "SearchRequest",
+    "VantaError",
+    "NotFoundError",
+    "ValidationError",
+    "CorruptError",
+    "StorageError",
+    "ConflictError",
+    "UnsupportedError",
+    "ResourceLimitError",
+    "BusyError",
+    "NoVectorError",
+    "TimeoutError",
     "__version__",
     "connect",
 ]
@@ -324,6 +346,9 @@ class AsyncVantaDB:
 
     async def query(self, iql_query):
         return await self._run(self._sync.query, iql_query)
+
+    async def query_structured(self, iql_query):
+        return await self._run(self._sync.query_structured, iql_query)
 
     async def capabilities(self):
         return await self._run(self._sync.capabilities)
