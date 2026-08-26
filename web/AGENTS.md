@@ -49,3 +49,12 @@ Borrados y NO restaurar: `components/ui/*` (46 wrappers shadcn, queda solo `sonn
 - Assets faltantes en `public/assets/` (mascota_gato.png, avatar_gato.png) — 4 referencias usan fallbacks.
 - Densidad de efectos decorativos en home (73 usos) — decisión de diseño fino pendiente.
 - Playground usa `new Function` (self-XSS documentado en código; sandbox iframe solo si se expone a terceros).
+
+## Verificación Lighthouse (WEB-05, INV-DECIDE)
+
+Claim previo "perf 95-96" (WDA-05) quedó sin medición fresca tras lazy command-palette (EPERM ambiental persistente en CI).
+Comando para re-medir localmente:
+```sh
+cd web && npx lighthouse http://localhost:3000 --output=json --output-path=./lighthouse-report.json --chrome-flags="--no-sandbox --headless --disable-gpu" --only-categories=performance,accessibility,best-practices,seo
+```
+Workaround EPERM: correr `lighthouse` contra producción (`https://vantadb.vercel.app`) o en máquina sin contenedor. Si EPERM persiste, documentar resultado y entorno en `docs/operations/BENCHMARKS.md` (Regla 11: claim de performance sin número reproducible no existe).
