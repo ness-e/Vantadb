@@ -1,6 +1,6 @@
 import { VantaError } from "./errors.js";
 import { isMemoryRecord } from "./guards.js";
-import { normalizeFilterItems, normalizeMetadata } from "./metadata.js";
+import { normalizeMetadata } from "./metadata.js";
 
 import type {
   Capabilities,
@@ -86,9 +86,12 @@ export class NativeVantaDB {
     this.inner = inner;
   }
 
-  private _native<T>(method: string, fn: () => Promise<T> | T): Promise<T> {
+  // async + await so that ASYNC rejections of the inner promise are caught
+  // and wrapped too — a bare try/catch around a returned promise only sees
+  // synchronous throws (TS-02).
+  private async _native<T>(method: string, fn: () => Promise<T> | T): Promise<T> {
     try {
-      return Promise.resolve(fn());
+      return await fn();
     } catch (e) {
       throw wrapNativeError(e, method);
     }

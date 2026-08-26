@@ -95,6 +95,29 @@ loaded depends on the runtime:
   Tauri/HTTP modes (see `desktop/vite.config.ts`, WASM-02). It only loads in
   `vite build --mode wasm` (WASM-03).
 
+### Zero-install CDN usage (verified 2026-08-26)
+
+| CDN entry | Works? | Why |
+|-----------|--------|-----|
+| `https://cdn.jsdelivr.net/npm/vantadb@latest/+esm` | ❌ **No** | The SDK bundle itself is fine, but it imports `/npm/vantadb-wasm@X.Y.Z/+esm`, and jsDelivr's Rollup/esbuild pipeline **fails to bundle the wasm-bindgen glue**: the generated `vantadb_wasm.js` contains `import * as wasm from "./vantadb_wasm_bg.wasm"` (wasm-pack `bundler` target — a binary imported as an ES module). Rollup cannot resolve it and jsDelivr serves a stub module that throws on import: *"Failed to bundle using Rollup: failed to resolve an internal import"*. |
+| `https://esm.sh/vantadb@latest` | ✅ **Yes** | esm.sh's build inlines the `.wasm` binary as a base64 byte array into the served `.mjs` (no sidecar fetch needed), so the bundler-target glue initializes directly in the browser. |
+
+```html
+<script type="module">
+  // Verified working (wasm is inlined by esm.sh's build):
+  import { VantaDB } from "https://esm.sh/vantadb";
+  const db = VantaDB.create();
+  await db.put({ namespace: "demo", key: "k", payload: "hello" });
+  console.log((await db.get("demo", "k"))?.payload); // "hello"
+  db.close();
+</script>
+```
+
+If you prefer self-hosting over third-party CDN transforms, rebuild the
+binding for browsers with `wasm-pack build --target web` (the `web` target uses
+`fetch()` + `WebAssembly.instantiateStreaming` instead of the ES-module import)
+and serve the output files yourself.
+
 **SSR / React hooks guidance:**
 
 - Do **not** instantiate the engine during server rendering — the wasm loader

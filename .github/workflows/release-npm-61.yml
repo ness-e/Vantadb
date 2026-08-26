@@ -15,11 +15,17 @@ on:
         default: "false"
   push:
     tags: ["v*.*.*"]
-  # FND-16: gate wasm32/TS por PR (paths filter) — publish jobs ya excluyen PRs via `if`
+    branches: [main]
+    paths:
+      - "vantadb-wasm/**"
+      - "vantadb-ts/**"
+      - ".github/workflows/release-npm-61.yml"
+      # FND-16: gate wasm32/TS por PR (paths filter) — publish jobs ya excluyen PRs via `if`
   pull_request:
     paths:
       - "vantadb-wasm/**"
       - "vantadb-ts/**"
+      - ".github/workflows/release-npm-61.yml"
 
 permissions:
   contents: read
@@ -36,7 +42,9 @@ jobs:
   tests:
     name: Tests (npm/TS)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # TS-06: measured ~18s vitest + build/install → Fast Gate tier (well under
+    # the 5min Heavy threshold); runs on every PR and main push touching the SDK.
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -65,7 +73,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: vantadb-ts
-        run: npm install
+        run: npm ci
 
       - name: Build TypeScript
         working-directory: vantadb-ts
@@ -183,6 +191,20 @@ jobs:
             exit 1
           fi
           npm pkg set "dependencies.vantadb-wasm=^${WASM_VER}"
+
+      # TS-05 guard: a tarball without engines.node fails confusingly on
+      # Node < 22.12 (`require(esm)` syntax error). Fail the release here
+      # instead of shipping it.
+      - name: Verify package.json integrity (TS-05)
+        working-directory: vantadb-ts
+        run: |
+          node -e "const p=require('./package.json'); if(!p.engines||!p.engines.node){console.error('ERROR: engines.node missing from vantadb-ts/package.json — tarball would ship without it (TS-05)');process.exit(1);} console.log('engines ok:', JSON.stringify(p.engines));"
+
+      # TS-07: install the packed tarball in a clean temp dir and run a
+      # minimal quickstart against it before anything reaches npm.
+      - name: Smoke-test packed tarball (TS-07)
+        working-directory: vantadb-ts
+        run: node scripts/smoke-pack.mjs
 
       - name: Check if version already published
         id: check-ts
