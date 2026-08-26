@@ -8,7 +8,7 @@ import { useEffect } from "react";
 const SHORTCUTS: Array<[string, string]> = [
   ["⌘K / Ctrl+K", "Paleta de comandos"],
   ["Ctrl+Z", "Deshacer (papelera)"],
-  ["?", "Esta ayuda"],
+  ["F1 / F2 / ?", "Esta ayuda"],
 ];
 
 const SURFACES: Array<[string, string]> = [

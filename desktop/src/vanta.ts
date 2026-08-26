@@ -33,6 +33,9 @@ export interface IngestItem {
   /** Expands to `default` on the Rust side when omitted. */
   namespace?: string;
   embedding?: number[];
+  /** H-04: sparse term-weight vector (dimension → coefficient) — renames and
+   * re-puts of hybrid records must carry it or data is silently lost. */
+  sparse_vector?: Record<string, number> | null;
   /** Arbitrary JSON-able values. */
   metadata?: Record<string, unknown>;
 }
@@ -287,6 +290,7 @@ export function vantaPut(params: {
   key: string;
   payload: string;
   metadata?: Record<string, unknown>;
+  sparse_vector?: Record<string, number> | null;
   expires_at_ms?: number;
 }): Promise<MemoryRecord> {
   return transport.call<MemoryRecord>("vanta_put", {
@@ -294,6 +298,7 @@ export function vantaPut(params: {
     key: params.key,
     payload: params.payload,
     metadata: params.metadata,
+    sparse_vector: params.sparse_vector,
     expires_at_ms: params.expires_at_ms,
   });
 }

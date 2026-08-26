@@ -46,6 +46,11 @@ pub struct IngestItem {
     /// Optional precomputed embedding. Use finite floats — JSON has no NaN/Inf.
     #[serde(default)]
     pub embedding: Option<Vec<f32>>,
+    /// H-04: optional sparse term-weight vector (dimension → coefficient).
+    /// Renames/re-puts of hybrid records must carry it or data is silently
+    /// lost. JSON object keys are stringified u32 dimensions (serde maps them).
+    #[serde(default)]
+    pub sparse_vector: Option<HashMap<u32, f32>>,
     /// Arbitrary record metadata (`serde_json::Value` so any JSON-able value roundtrips).
     #[serde(default)]
     pub metadata: HashMap<String, serde_json::Value>,
@@ -438,6 +443,7 @@ mod tests {
             namespace: "mem".into(),
             text: "hello world".into(),
             embedding: Some(vec![0.5, -1.25, 3.0]),
+            sparse_vector: None,
             metadata: [("lang".to_string(), serde_json::Value::from("en"))]
                 .into_iter()
                 .collect(),

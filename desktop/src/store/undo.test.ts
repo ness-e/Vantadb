@@ -162,6 +162,40 @@ describe("undoStore.renameNamespace / deleteNamespace (DESKTOP-32)", () => {
     expect(store.canUndo()).toBe(false);
   });
 
+  it("rename preserva sparse_vector (H-04: registro híbrido no pierde datos)", async () => {
+    const store = await freshStore();
+    mocks.listAll.mockResolvedValue([
+      {
+        ...rec("h", "viejo"),
+        vector: [0.1],
+        sparse_vector: { "0": 0.5, "5": 1.25 },
+      },
+    ]);
+    mocks.ingestBatch.mockResolvedValue(["h"]);
+
+    await store.renameNamespace("viejo", "nuevo");
+
+    // La copia al ns destino lleva el sparse_vector intacto.
+    expect(mocks.ingestBatch.mock.calls[0][0]).toEqual([
+      {
+        id: "h",
+        namespace: "nuevo",
+        text: "text-h",
+        embedding: [0.1],
+        metadata: { k: "h" },
+        sparse_vector: { "0": 0.5, "5": 1.25 },
+      },
+    ]);
+
+    // El undo del rename (re-copia al origen) también lo preserva.
+    await store.undo();
+    expect(mocks.vantaPut.mock.calls[0][0]).toMatchObject({
+      namespace: "viejo",
+      key: "h",
+      sparse_vector: { "0": 0.5, "5": 1.25 },
+    });
+  });
+
   it("deleteNamespace mueve todo a papelera y UN undo restaura el lote", async () => {
     const store = await freshStore();
     mocks.listAll.mockResolvedValue([rec("a", "ns"), rec("b", "ns")]);

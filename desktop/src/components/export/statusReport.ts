@@ -1,5 +1,6 @@
 // Status report (VS-16): readable markdown summary of the current view.
 // Pure functions — no DOM, testable with node --test.
+// H-05: output in ES — the whole UI is Spanish; an EN report was inconsistent.
 //
 // The report describes the *current view*, so it derives counts from the
 // records the UI already has (the filtered view) or a `list({limit})` fetch
@@ -45,26 +46,26 @@ export function buildStatusReport(
   const metaFields = inferMetaFields(records);
 
   const lines: string[] = [];
-  lines.push(`# VantaDB status report`);
+  lines.push(`# Reporte de estado VantaDB`);
   lines.push("");
-  lines.push(`Generated: ${opts.generatedAt}`);
-  lines.push(`Records in view: ${records.length}`);
+  lines.push(`Generado: ${opts.generatedAt}`);
+  lines.push(`Registros en vista: ${records.length}`);
   lines.push("");
   lines.push(`## Namespaces`);
   lines.push("");
-  lines.push(`| Namespace | Records |`);
+  lines.push(`| Namespace | Registros |`);
   lines.push(`| --- | --- |`);
   for (const [ns, list] of [...byNs.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
     lines.push(`| \`${ns}\` | ${list.length} |`);
   }
   lines.push("");
 
-  lines.push(`## Metadata fields`);
+  lines.push(`## Campos de metadata`);
   lines.push("");
   if (metaFields.length === 0) {
-    lines.push("No metadata fields present in the current view.");
+    lines.push("Sin campos de metadata en la vista actual.");
   } else {
-    lines.push(`| Field | Type |`);
+    lines.push(`| Campo | Tipo |`);
     lines.push(`| --- | --- |`);
     for (const f of metaFields) {
       lines.push(`| \`${f.name}\` | \`${f.type}\` |`);
@@ -77,12 +78,12 @@ export function buildStatusReport(
     const expiring = records
       .filter((r) => r.expires_at_ms != null && r.expires_at_ms > now)
       .sort((a, b) => (a.expires_at_ms ?? 0) - (b.expires_at_ms ?? 0));
-    lines.push(`## Upcoming expirations`);
+    lines.push(`## Expiraciones próximas`);
     lines.push("");
     if (expiring.length === 0) {
-      lines.push("No records expire in the current view.");
+      lines.push("Ningún registro expira en la vista actual.");
     } else {
-      lines.push(`| Key | Namespace | Expires | In |`);
+      lines.push(`| Key | Namespace | Expira | En |`);
       lines.push(`| --- | --- | --- | --- |`);
       for (const r of expiring) {
         lines.push(

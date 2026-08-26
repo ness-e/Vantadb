@@ -357,6 +357,15 @@ export default function WorkspaceShell({
         if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
         e.preventDefault();
         setHelpOpen((o) => !o);
+        return;
+      }
+      // H-03: F1/F2 anunciados como ayuda pero sin handler — mismo toggle que
+      // "?" (F1 = convención estándar de ayuda; F2 alternativo documentado).
+      if (e.key === "F1" || e.key === "F2") {
+        const t = e.target as HTMLElement | null;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+        e.preventDefault();
+        setHelpOpen((o) => !o);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -721,16 +730,17 @@ export default function WorkspaceShell({
 
           {/* FIX-D4 (Von Restorff): INGEST es el ÚNICO fill neón de la topbar.
               FILTROS usa el lenguaje de active-state del sistema
-              (bg-foreground text-background, igual que SideButton) cuando el
-              panel está abierto — coincide con aria-pressed. El contador de
-              reglas activas lleva un mini-badge text-neon. */}
+              (bg-foreground text-background, igual que SideButton). DAUD-02
+              (decisión owner, cerrada 2026-08-25): activo = reglas > 0
+              (filterActive) — el color sigue a las reglas, no al panel.
+              El contador de reglas activas lleva un mini-badge text-neon. */}
           <button
             type="button"
             onClick={() => setShowFilters((v) => !v)}
-            aria-pressed={showFilters}
+            aria-pressed={filterActive}
             title="Filtros compuestos por metadata (AND/OR, sin JSON)"
             className={`press border-2 border-foreground px-2.5 py-1.5 text-xs font-semibold ${
-              showFilters ? "bg-foreground text-background" : "bg-background"
+              filterActive ? "bg-foreground text-background" : "bg-background"
             }`}
           >
             ⧩ FILTROS
@@ -1080,6 +1090,7 @@ export default function WorkspaceShell({
           onOpenFavorite={handleOpenFavorite}
           history={history}
           onClearHistory={() => searchHistory.clear()}
+          proxyConfigured={proxyConfigured}
         />
       </Suspense>
 

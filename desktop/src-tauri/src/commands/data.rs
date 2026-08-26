@@ -25,6 +25,7 @@ pub async fn vanta_put(
     key: String,
     payload: String,
     metadata: Option<std::collections::HashMap<String, serde_json::Value>>,
+    sparse_vector: Option<std::collections::HashMap<u32, f32>>,
     expires_at_ms: Option<u64>,
 ) -> Result<MemoryRecord, VantaError> {
     let item = IngestItem {
@@ -32,6 +33,8 @@ pub async fn vanta_put(
         namespace: namespace.unwrap_or_else(|| "default".into()),
         text: payload,
         embedding: None,
+        // H-04: keep the sparse term-weight vector across re-puts (undo/restore).
+        sparse_vector,
         metadata: metadata.unwrap_or_default(),
     };
     state.manager.put(item, expires_at_ms).await

@@ -22,6 +22,8 @@ import type { Favorite } from "../../store/favorites";
 
 // DESKTOP-34: todas las superficies del shell — mismo union que WorkspaceShell
 // Surface (duplicado a propósito: importarlo crearía un ciclo con el lazy).
+// H-02: `memoria` (DESKTOP-37) y `proxy` (DESKTOP-38) faltaban — palette
+// desincronizada del sidebar.
 export type PaletteSurface =
   | "resumen"
   | "memorias"
@@ -32,6 +34,8 @@ export type PaletteSurface =
   | "consolidar"
   | "iql"
   | "espacio"
+  | "memoria"
+  | "proxy"
   | "ajustes";
 
 export interface NamespaceOption {
@@ -62,6 +66,9 @@ interface CommandPaletteProps {
   /** VS-17: historial de búsquedas re-ejecutables — grupo HISTORIAL. */
   history: string[];
   onClearHistory: () => void;
+  /** H-02: la surface PROXY solo existe cuando el proxy está configurado
+   * (mismo gate que el botón del sidebar en WorkspaceShell). */
+  proxyConfigured?: boolean;
 }
 
 /** Export Fase 0: JSONL de los primeros 500 registros vía list() (el bridge no
@@ -133,6 +140,7 @@ export default function CommandPalette({
   onOpenFavorite,
   history,
   onClearHistory,
+  proxyConfigured = false,
 }: CommandPaletteProps) {
   // Atajos in-palette (Alt+…): se disparan solo mientras la palette está
   // montada. Alt+letra no inserta texto en el input → sin conflicto con typing.
@@ -253,6 +261,23 @@ export default function CommandPalette({
             >
               <Asterisk className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> ESPACIO
             </PaletteItem>
+            {/* H-02: superficies DESKTOP-37/38 ausentes en la palette. */}
+            <PaletteItem
+              value="lens-memoria"
+              keywords={["memoria", "memory", "contexto", "heat", "persona", "skills", "escenas"]}
+              onSelect={() => run(() => onNavigate("memoria"))}
+            >
+              ◉ MEMORIA
+            </PaletteItem>
+            {proxyConfigured && (
+              <PaletteItem
+                value="lens-proxy"
+                keywords={["proxy", "turnreports", "dashboard", "write-back", "rate-limit"]}
+                onSelect={() => run(() => onNavigate("proxy"))}
+              >
+                ⇋ PROXY
+              </PaletteItem>
+            )}
             <PaletteItem
               value="lens-ajustes"
               keywords={["ajustes", "settings", "perfil", "connection profile", "token", "idioma", "language"]}

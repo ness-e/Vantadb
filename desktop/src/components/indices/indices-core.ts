@@ -8,7 +8,8 @@
 import type { NamespaceStatsMap, OperationalMetrics } from "../../vanta";
 // UX-15: fmtBytes compartido (era local aquí) — import + re-export para uso
 // interno y para no romper indices-core.test.ts (que lo importa de este módulo).
-import { fmtBytes } from "../../lib/format";
+// Extensión .ts explícita: node --test (strip-types ESM) no resuelve sin ella.
+import { fmtBytes } from "../../lib/format.ts";
 export { fmtBytes };
 
 export function fmtCount(n: number): string {

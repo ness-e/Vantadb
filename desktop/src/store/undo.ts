@@ -192,12 +192,15 @@ export class UndoStore {
     return this.run(async () => {
       const records = await listAll(from);
       if (records.length === 0) return 0;
+      // H-04: sparse_vector viaja con la copia — sin esto los registros
+      // híbridos pierden su vector sparse al renombrar (mutación silenciosa).
       await ingestBatch(
         records.map((r) => ({
           id: r.id,
           namespace: to,
           text: r.text,
           embedding: r.vector ?? undefined,
+          sparse_vector: r.sparse_vector ?? undefined,
           metadata: r.metadata,
         })),
       );
@@ -223,6 +226,7 @@ export class UndoStore {
         key: r.id,
         payload: r.text,
         metadata: r.metadata ?? undefined,
+        sparse_vector: r.sparse_vector ?? undefined,
         expires_at_ms: r.expires_at_ms ?? undefined,
       });
       this.pushEntry({
@@ -261,6 +265,7 @@ export class UndoStore {
           key: r.id,
           payload: r.text,
           metadata: r.metadata ?? undefined,
+          sparse_vector: r.sparse_vector ?? undefined,
           expires_at_ms: r.expires_at_ms ?? undefined,
         });
       };

@@ -1,4 +1,5 @@
 // VS-16 status report tests — pure markdown builder (node --test).
+// H-05: el reporte se genera en ES (consistente con toda la UI).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildStatusReport } from "./statusReport.ts";
@@ -14,9 +15,12 @@ test("buildStatusReport: counts per namespace + metadata types", () => {
     ],
     { generatedAt: FIXED },
   );
-  assert.match(md, /Records in view: 3/);
+  assert.match(md, /# Reporte de estado VantaDB/);
+  assert.match(md, /Generado: 2026-08-18T12:00:00\.000Z/);
+  assert.match(md, /Registros en vista: 3/);
   assert.match(md, /\| `ns1` \| 2 \|/);
   assert.match(md, /\| `ns2` \| 1 \|/);
+  assert.match(md, /## Campos de metadata/);
   assert.match(md, /\| `kind` \| `string` \|/);
   assert.match(md, /\| `n` \| `int` \|/);
   assert.match(md, /\| `flag` \| `bool` \|/);
@@ -36,6 +40,7 @@ test("buildStatusReport: upcoming TTLs sorted, only future ones", () => {
   const soonIdx = md.indexOf("`soon`");
   const laterIdx = md.indexOf("`later`");
   assert.ok(soonIdx >= 0 && laterIdx >= 0 && soonIdx < laterIdx, "sorted by expiry");
+  assert.match(md, /## Expiraciones próximas/);
   assert.match(md, /\| `soon` \| `n` \| .* \| 1m \|/);
   assert.equal(md.includes("`past`"), false);
   assert.equal(md.includes("`none`"), false);
@@ -43,7 +48,7 @@ test("buildStatusReport: upcoming TTLs sorted, only future ones", () => {
 
 test("buildStatusReport: empty view", () => {
   const md = buildStatusReport([], { generatedAt: FIXED });
-  assert.match(md, /Records in view: 0/);
-  assert.match(md, /No metadata fields present/);
-  assert.equal(md.includes("Upcoming expirations"), false);
+  assert.match(md, /Registros en vista: 0/);
+  assert.match(md, /Sin campos de metadata en la vista actual/);
+  assert.equal(md.includes("Expiraciones próximas"), false);
 });

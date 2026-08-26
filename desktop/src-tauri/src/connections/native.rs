@@ -227,6 +227,12 @@ fn ingest_to_input(item: &IngestItem, key: &str) -> VantaMemoryInput {
     let mut input = VantaMemoryInput::new(item.namespace.clone(), key, item.text.clone());
     input.metadata = metadata_to_vanta(&item.metadata);
     input.vector = item.embedding.clone();
+    // H-04: propagate the sparse term-weight vector into the core input so
+    // hybrid records survive renames/re-puts (wire keys are stringified u32s).
+    input.sparse_vector = item
+        .sparse_vector
+        .clone()
+        .map(|sv| vantadb::node::SparseVector(sv.into_iter().collect()));
     input
 }
 
@@ -815,6 +821,7 @@ mod tests {
             namespace: "docs".into(),
             text: text.into(),
             embedding: None,
+            sparse_vector: None,
             metadata: [("lang".to_string(), JsonValue::from("en"))]
                 .into_iter()
                 .collect(),

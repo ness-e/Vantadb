@@ -491,6 +491,7 @@ mod tests {
             namespace: "docs".into(),
             text: text.into(),
             embedding: None,
+            sparse_vector: None,
             metadata: Default::default(),
         }
     }
