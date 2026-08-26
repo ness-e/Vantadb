@@ -1,8 +1,9 @@
 """Tests for the VantaDB Ollama adapter."""
 
 import pytest
-import tempfile
-import os
+
+pytest.importorskip("ollama")
+pytest.importorskip("vantadb_ollama")
 from vantadb_ollama import VantaDBOllama, __version__
 
 
@@ -24,7 +25,7 @@ class TestVantaDBOllama:
         embedding = [0.1] * 128
         rid = store.store("ollama test", embedding)
         assert ":" in rid
-        results = store.search(embedding, top_k=5)
+        results = store.search("ollama_store", embedding, top_k=5)
         assert len(results) > 0
         assert results[0]["text"] == "ollama test"
 
@@ -33,9 +34,45 @@ class TestVantaDBOllama:
         rid = store.store("meta test", [0.2] * 128, {"key": "val"})
         assert ":" in rid
 
+    def test_search_invalid_distance_metric_raises(self, tmp_path):
+        store = VantaDBOllama(str(tmp_path))
+        with pytest.raises(ValueError, match="distance_metric"):
+            store.search("ollama_store", [0.1] * 128, distance_metric="manhattan")
+
+    def test_store_unsupported_metadata_warns_and_keeps_supported(self, tmp_path):
+        store = VantaDBOllama(str(tmp_path), namespace="ns_warn")
+        with pytest.warns(UserWarning, match="unsupported value types"):
+            rid = store.store(
+                "warn-test", [0.8] * 128, {"ok": "yes", "bad": {"nested": True}}
+            )
+        ns, key = rid.split(":", 1)
+        record = store.get(ns, key)
+        assert record["metadata"]["ok"] == "yes"
+        assert "bad" not in record["metadata"]
+
+    def test_embed_mocked(self, tmp_path, monkeypatch):
+        class _FakeClient:
+            def __init__(self, **kwargs):
+                pass
+
+            def embed(self, *, model=None, input=None):
+                return {"embeddings": [[0.1] * 4 for _ in input]}
+
+        import ollama
+
+        monkeypatch.setattr(ollama, "Client", _FakeClient)
+        store = VantaDBOllama(str(tmp_path))
+        out = store.embed(["a"])
+        assert len(out) == 1
+        assert len(out[0]) == 4
+
 
 # ── Direct storage tests via vantadb_py ──────────────────────────────────
 
+import os
+import tempfile
+
+pytest.importorskip("vantadb_py")
 import vantadb_py as vanta
 
 
@@ -43,7 +80,6 @@ import vantadb_py as vanta
 def db():
     path = os.path.join(tempfile.mkdtemp(), "test_ollama")
     s = vanta.VantaDB(path)
-    s.create_namespace("test_ollama")
     yield s
 
 

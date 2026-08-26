@@ -125,6 +125,7 @@ impl VantaDBOllama {
     /// Returns:
     ///     A list of dicts with ``id``, ``text``, and ``score`` keys.
     #[pyo3(signature = (namespace, query_embedding, text_query = None, filters = None, distance_metric = None, top_k = 10))]
+    #[allow(clippy::too_many_arguments)]
     fn search(
         &self,
         py: Python,
@@ -135,6 +136,15 @@ impl VantaDBOllama {
         distance_metric: Option<String>,
         top_k: usize,
     ) -> PyResult<Vec<Py<PyAny>>> {
+        let metric = match distance_metric.as_deref() {
+            None | Some("cosine") => vantadb::DistanceMetric::Cosine,
+            Some("euclidean") | Some("l2") => vantadb::DistanceMetric::Euclidean,
+            Some(other) => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "invalid distance_metric '{other}': expected \"cosine\", \"euclidean\" or \"l2\""
+                )));
+            }
+        };
         let request = VantaMemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector: query_embedding,
@@ -145,12 +155,11 @@ impl VantaDBOllama {
                 .collect(),
             text_query,
             top_k,
-            distance_metric: match distance_metric.as_deref() {
-                Some("euclidean" | "l2") => vantadb::DistanceMetric::Euclidean,
-                _ => vantadb::DistanceMetric::Cosine,
-            },
+            distance_metric: metric,
             explain: false,
             query_sparse: None,
+            exclude_superseded: false,
+            search_profile: None,
         };
 
         let engine = self.engine.clone();
@@ -193,6 +202,7 @@ impl VantaDBOllama {
         let mut input = VantaMemoryInput::new(&namespace, &key, text);
         input.vector = Some(embedding);
 
+        let mut dropped_keys: Vec<String> = Vec::new();
         if let Some(meta) = metadata {
             for (k, v) in meta.iter() {
                 if let Ok(key) = k.extract::<String>() {
@@ -203,11 +213,21 @@ impl VantaDBOllama {
                         .or_else(|| v.extract::<bool>().ok().map(vantadb::sdk::VantaValue::Bool))
                         .or_else(|| v.extract::<i64>().ok().map(vantadb::sdk::VantaValue::Int))
                         .or_else(|| v.extract::<f64>().ok().map(vantadb::sdk::VantaValue::Float));
-                    if let Some(val) = val {
-                        input.metadata.insert(key, val);
+                    match val {
+                        Some(val) => {
+                            input.metadata.insert(key, val);
+                        }
+                        None => dropped_keys.push(key),
                     }
                 }
             }
+        }
+        if !dropped_keys.is_empty() {
+            py.import("warnings")?
+                .call_method1("warn", (format!(
+                    "dropping metadata keys with unsupported value types (expected str/bool/int/float): {}",
+                    dropped_keys.join(", ")
+                ),))?;
         }
 
         let engine = self.engine.clone();

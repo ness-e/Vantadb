@@ -1,6 +1,9 @@
 """Tests for the VantaDB OpenAI adapter."""
 
 import pytest
+
+pytest.importorskip("openai")
+pytest.importorskip("vantadb_openai")
 from vantadb_openai import VantaDBOpenAI, __version__
 
 
@@ -22,7 +25,7 @@ class TestVantaDBOpenAI:
         embedding = [0.1] * 128
         rid = store.store("test text", embedding)
         assert ":" in rid
-        results = store.search(embedding, top_k=5)
+        results = store.search("openai_store", embedding, top_k=5)
         assert len(results) > 0
         assert results[0]["text"] == "test text"
 
@@ -117,3 +120,36 @@ class TestVantaDBOpenAI:
         assert len(exact) >= 1
         assert exact[0]["metadata"]["lang"] == "en"
         assert exact[0]["metadata"]["score"] == 95
+
+    def test_search_invalid_distance_metric_raises(self, tmp_path):
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key")
+        with pytest.raises(ValueError, match="distance_metric"):
+            store.search("openai_store", [0.1] * 128, distance_metric="manhattan")
+
+    def test_store_unsupported_metadata_warns_and_keeps_supported(self, tmp_path):
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key")
+        with pytest.warns(UserWarning, match="unsupported value types"):
+            rid = store.store(
+                "warn-test", [0.8] * 128, {"ok": "yes", "bad": {"nested": True}}
+            )
+        ns, key = rid.split(":", 1)
+        record = store.get(ns, key)
+        assert record["metadata"]["ok"] == "yes"
+        assert "bad" not in record["metadata"]
+
+    def test_embed_mocked(self, tmp_path, monkeypatch):
+        class _FakeEmbeddings:
+            def create(self, *, model=None, input=None, **kwargs):
+                return {"data": [{"embedding": [0.1] * 4} for _ in input]}
+
+        class _FakeClient:
+            def __init__(self, **kwargs):
+                self.embeddings = _FakeEmbeddings()
+
+        import openai
+
+        monkeypatch.setattr(openai, "OpenAI", _FakeClient)
+        store = VantaDBOpenAI(str(tmp_path), api_key="test-key")
+        out = store.embed(["a", "b"])
+        assert len(out) == 2
+        assert len(out[0]) == 4
