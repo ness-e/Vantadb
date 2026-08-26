@@ -613,16 +613,14 @@ class TestNumPyIntegration:
     def test_put_batch_parallel(self):
         """put_batch should insert multiple records in parallel and return them in order."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        # ponytail: mixed per-row namespaces (ns1/ns2) are only expressible via
-        # the legacy tuple API (keyword form takes a single `namespace` column);
-        # this test keeps exercising that supported backward-compat path.
-        entries = [
-            ("ns1", "a", "alpha", None, None),
-            ("ns1", "b", "beta", {"type": "greek"}, None),
-            ("ns2", "c", "gamma", None, [1.0, 0.0, 0.0]),
-            ("ns1", "d", "delta", {"rank": "4"}, [0.0, 1.0, 0.0]),
-        ]
-        records = db.put_batch(entries)
+        # keyword form with per-record `namespaces` column supports mixed namespaces
+        records = db.put_batch(
+            keys=["a", "b", "c", "d"],
+            vectors=[[0.1]*3, [0.2]*3, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            payloads=["alpha", "beta", "gamma", "delta"],
+            metadatas=[None, {"type": "greek"}, None, {"rank": "4"}],
+            namespaces=["ns1", "ns1", "ns2", "ns1"],
+        )
         assert len(records) == 4, f"expected 4 records, got {len(records)}"
 
         assert records[0]["namespace"] == "ns1", f"expected 'ns1', got {records[0]['namespace']}"
@@ -1017,11 +1015,14 @@ class TestAsyncVantaDB:
             async with vanta.AsyncVantaDB(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
-                # put_batch (legacy tuple entries)
-                records = await db.put_batch([
-                    ("ns1", "a", "alpha", None, None),
-                    ("ns1", "b", "beta", {"type": "greek"}, None),
-                ])
+                # put_batch (keyword form)
+                records = await db.put_batch(
+                    keys=["a", "b"],
+                    vectors=[[0.1]*3, [0.2]*3],
+                    payloads=["alpha", "beta"],
+                    metadatas=[None, {"type": "greek"}],
+                    namespace="ns1",
+                )
                 assert len(records) == 2, f"expected 2 records, got {len(records)}"
                 assert records[0]["key"] == "a", f"expected key 'a', got {records[0]['key']}"
 

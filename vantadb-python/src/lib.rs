@@ -460,43 +460,30 @@ impl VantaDB {
 
     /// Insert or update multiple namespace-scoped records in parallel (batched).
     ///
-    /// Supports two calling conventions:
-    ///
-    /// 1. **Positional (tuple list)** — backward-compatible:
-    ///    ```
-    ///    db.put_batch([(namespace, key, payload, metadata, vector, ttl), ...])
-    ///    ```
-    ///    Each entry is a tuple of up to 6 elements.
-    ///
-    /// 2. **Keyword** — typed per-column arrays:
-    ///    ```
-    ///    db.put_batch(keys=["k1", "k2"], vectors=[[0.1]*384, [0.2]*384],
-    ///                 payloads=["p1", "p2"], metadatas=[{"f": "v"}, None],
-    ///                 namespace="ns", ttls=[None, 1000])
-    ///    ```
-    ///    A batch is single-namespace by default: every record goes to
-    ///    ``namespace`` (or ``"default"`` when omitted). To route records of one
-    ///    batch into different namespaces, pass the parallel per-record column
-    ///    ``namespaces`` (length must equal ``keys``); it overrides
-    ///    ``namespace`` for each record:
-    ///    ```
-    ///    db.put_batch(keys=["k1", "k2"], vectors=[[0.1]*384, [0.2]*384],
-    ///                 namespaces=["ns1", "ns2"])
-    ///    ```
+    /// **Keyword-only API** — typed per-column arrays:
+    /// ```
+    /// db.put_batch(keys=["k1", "k2"], vectors=[[0.1]*384, [0.2]*384],
+    ///              payloads=["p1", "p2"], metadatas=[{"f": "v"}, None],
+    ///              namespace="ns", ttls=[None, 1000])
+    /// ```
+    /// A batch is single-namespace by default: every record goes to
+    /// ``namespace`` (or ``"default"`` when omitted). To route records of one
+    /// batch into different namespaces, pass the parallel per-record column
+    /// ``namespaces`` (length must equal ``keys``); it overrides
+    /// ``namespace`` for each record:
+    /// ```
+    /// db.put_batch(keys=["k1", "k2"], vectors=[[0.1]*384, [0.2]*384],
+    ///              namespaces=["ns1", "ns2"])
+    /// ```
     ///
     /// Returns a list of ``VantaMemoryRecord`` objects, up to ~5x faster
     /// than sequential ``put()`` for large batches.
-    #[deprecated(
-        note = "use keyword arguments (keys=..., vectors=..., payloads=..., metadatas=..., namespace=..., namespaces=..., ttls=...) instead"
-    )]
-    #[allow(deprecated)]
-    #[pyo3(signature = (entries, keys=None, vectors=None, payloads=None, metadatas=None, namespace=None, namespaces=None, ttls=None))]
+    #[pyo3(signature = (keys, vectors, payloads=None, metadatas=None, namespace=None, namespaces=None, ttls=None))]
     fn put_batch(
         &self,
         py: Python,
-        entries: Option<&Bound<'_, PyAny>>,
-        keys: Option<Vec<String>>,
-        vectors: Option<Vec<Vec<f32>>>,
+        keys: Vec<String>,
+        vectors: Vec<Vec<f32>>,
         payloads: Option<Vec<String>>,
         metadatas: Option<Vec<Option<HashMap<String, String>>>>,
         namespace: Option<String>,
@@ -504,72 +491,7 @@ impl VantaDB {
         ttls: Option<Vec<Option<u64>>>,
     ) -> PyResult<Vec<VantaPyMemoryRecord>> {
         let _g = enter(&self.op_gate)?;
-        // Backward compat: old tuple-based list-of-entries API
-        if let Some(entries_list) = entries {
-            let _ = py.import("warnings")?.call_method1("warn", ("put_batch() with positional tuples is deprecated; use keyword arguments (keys=..., vectors=..., ...) instead",))?;
-            let mut inputs = Vec::with_capacity(entries_list.len().unwrap_or(0));
-            for entry in entries_list.try_iter()? {
-                let entry = entry?.cast::<PyTuple>()?.clone();
-                if entry.len() < 3 {
-                    return Err(PyValueError::new_err(
-                        "each entry must be a tuple of at least (namespace, key, payload)",
-                    ));
-                }
-                let namespace: String = entry.get_item(0)?.extract()?;
-                let key: String = entry.get_item(1)?.extract()?;
-                let payload: String = entry.get_item(2)?.extract()?;
-                let dict = if entry.len() > 3 && !entry.get_item(3)?.is_none() {
-                    let item = entry.get_item(3)?;
-                    Some(item.cast::<PyDict>()?.clone())
-                } else {
-                    None
-                };
-                let vector_obj: Option<Bound<'_, PyAny>> =
-                    if entry.len() > 4 && !entry.get_item(4)?.is_none() {
-                        Some(entry.get_item(4)?)
-                    } else {
-                        None
-                    };
-                let ttl_ms: Option<u64> = if entry.len() > 5 {
-                    let item = entry.get_item(5)?;
-                    if item.is_none() {
-                        None
-                    } else {
-                        Some(item.extract()?)
-                    }
-                } else {
-                    None
-                };
 
-                let mut input = VantaMemoryInput::new(namespace, key, payload);
-                input.metadata = py_dict_to_metadata(dict.as_ref())?;
-                input.ttl_ms = ttl_ms;
-                input.vector = match &vector_obj {
-                    Some(v) => {
-                        let vec = extract_vector(v, py)?;
-                        (!vec.is_empty()).then_some(vec)
-                    }
-                    None => None,
-                };
-                inputs.push(input);
-            }
-
-            let engine = self.engine.clone();
-            let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
-            return Ok(records.into_iter().map(VantaPyMemoryRecord::new).collect());
-        }
-
-        // New keyword-based API
-        let keys = keys.ok_or_else(|| {
-            PyTypeError::new_err(
-                "either positional 'entries' or keyword 'keys' + 'vectors' is required",
-            )
-        })?;
-        let vectors = vectors.ok_or_else(|| {
-            PyTypeError::new_err(
-                "either positional 'entries' or keyword 'keys' + 'vectors' is required",
-            )
-        })?;
         let n = keys.len();
         if vectors.len() != n {
             return Err(PyValueError::new_err(format!(
