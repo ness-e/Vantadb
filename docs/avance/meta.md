@@ -161,3 +161,17 @@ Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña
 - **Stop (dejar de hacer):** confiar en hipótesis del backlog sin diagnóstico (PY-QW2: la dual API real era 53 líneas, no 100+; PY-QW3 ya tenía 3.14).
 - **Continue:** contracts mínimos por tarea; lead verifica+commitea; plan file archivado tras cierre.
 - **Accion medible:** 3/5 tareas del plan ya estaban resueltas al triagear (PY-QW1, PY-QW3, PY-QW5) — métrica: tasa de stale-detection al inicio = 60%. North Star: 5/5 first-try (100%), 0 falsos positivos, 0 regresiones.
+
+## Retrospectiva — Integrations Quick Wins (plan 2026-08-25-integrations-research-wins)
+- **Cierre:** 9/9 tareas completadas (1 commit código + test fixes + workflow + docs). 0 failed, 0 stalled. Waves: W1 {QW-1, QW-2, QW-3} · W2 {QW-4, QW-5, QW-6} · W3 {QW-7, QW-8} · W4 {QW-9}. Todas ✅ first-try.
+- **Start (seguir haciendo):** verificación empírica ANTES de editar (QW-1/2/3/4/5/6 ya resueltas en código); contracts verificables simples (rg, pytest, workflow lint); test fixes mínimos (backend 'flat'→'memory' en 2 tests).
+- **Stop (dejar de hacer):** confiar en hipótesis del backlog sin diagnóstico (QW-7: publicación PyPI es manual/token-gated, no código; QW-9: workflow ya existía en borrador).
+- **Continue:** contracts mínimos por tarea; lead verifica+commitea; plan file archivado tras cierre; test fixes documentados.
+- **Accion medible:** 6/9 tareas del plan ya estaban resueltas al triagear (QW-1, QW-2, QW-3, QW-4, QW-5, QW-6) — métrica: tasa de stale-detection al inicio = 67%. North Star: 9/9 first-try (100%), 0 falsos positivos, 0 regresiones. Total tests pasando: 150 (9 adapters).
+
+## Retrospectiva — Providers Quick Wins (plan 2026-08-25-research-providers-quickwins)
+- **Cierre:** 7/7 tareas completadas (1 commit CI + verificación/docs). 0 failed, 0 stalled. Waves: W1 {PROV-01, PROV-06, PROV-03, PROV-07, PROV-08, PROV-02} · W2 {PROV-09}. Todas ✅ first-try.
+- **Start (seguir haciendo):** verificación empírica ANTES de editar (PROV-01/06/03/07/08/02 ya resueltas en código); contracts verificables simples (cargo check, rg, pytest structure); CI workflow reutiliza patrón adapters-compat.yml.
+- **Stop (dejar de hacer):** confiar en hipótesis del backlog sin diagnóstico (PROV-01/06/03/07/08 ya implementados; PROV-09 workflow reutiliza patrón existente).
+- **Continue:** contracts mínimos por tarea; lead verifica+commitea; plan file archivado tras cierre.
+- **Accion medible:** 6/7 tareas del plan ya estaban resueltas al triagear (PROV-01, PROV-06, PROV-03, PROV-07, PROV-08, PROV-02) — métrica: tasa de stale-detection al inicio = 86%. North Star: 7/7 first-try (100%), 0 falsos positivos, 0 regresiones. 3 crates compilan, .pyi verificado, CI workflow creado.

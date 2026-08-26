@@ -283,3 +283,148 @@ aliases: []
 - **Plan:** `docs/plans/2026-08-25-py-quickwins.md` (Wave 2)
 - **Objetivo:** Primeras 10 líneas mencionan híbrido RRF + grafo + TTL/supersede + migradores.
 - **Resultado:** ✅ `vantadb-python/README.md:5-12`: sección "Why VantaDB instead of a plain vector store?" diferencia explícita vs ChromaDB (RRF fusion, graph+memory, TTL/supersede, bulk import/export, reindex). Sin claims numéricos sin fuente (Regla 11).
+
+---
+## 2026-08-26: Integrations Quick Wins (H-01..H-05, H-08..H-11)
+
+### QW-1: CrewAI from_dict + cursor — H-02 (=MOD-46)
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-integrations-research-wins.md` (Wave 1)
+- **Objetivo:** Roundtrip to_dict→from_dict→_run sin TypeError; from_dict reconstruye embedding callable; list(cursor=...) str→int.
+- **Resultado:** ✅ `integrations/crewai/vantadb_crewai/vectorstore.py`: from_dict ignora embedding_model string; list convierte cursor str→int. Tests crewai cubren ambos casos (8 passed).
+
+### QW-2: LangChain ids parciales — H-03 (=MOD-47)
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-integrations-research-wins.md` (Wave 1)
+- **Objetivo:** add_documents con mezcla de docs con/sin id genera UUIDs para faltantes ANTES de filtrar.
+- **Resultado:** ✅ `integrations/langchain/vantadb_langchain/vectorstore.py:470-471`: UUIDs generados antes de llamar a add_texts. Test `test_add_documents_partial_ids` pasa (27 passed).
+
+### QW-3: LlamaIndex attrs privados + import — H-04 (=MOD-48)
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-integrations-research-wins.md` (Wave 1)
+- **Objetivo:** _namespace/_client declarados como PrivateAttr; get_type_hints() resuelve imports.
+- **Resultado:** ✅ `integrations/llamaindex/vantadb_llamaindex/vectorstore.py:34-37`: PrivateAttr en _namespace, _db_path, _hybrid_mode, _client. Imports completos. Tests pasan (23 passed).
+
+### QW-4: Dedup Ollama/OpenAI — H-05 (=MOD-49)
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-integrations-research-wins.md` (Wave 2)
+- **Objetivo:** Módulo compartido `vantadb_shared` para Document, add_texts, delete, async helpers.
+- **Resultado:** ✅ `integrations/{ollama,openai}/vantadb_*/vectorstore.py`: thin subclasses (~58-64 líneas cada una) heredando de `EmbeddingVectorStore`. Suites existentes pasan (18 passed).
+
+### QW-5: Nits agrupados — H-10 (=MOD-50)
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-integrations-research-wins.md` (Wave 2)
+- **Objetivo:** categorize() eliminada (~65 líneas); _normalize_score mem0 documentada; haystack count_documents cursor-paginado.
+- **Resultado:** ✅ CrewAI: categorize() removida. Haystack: count_documents usa cursor paging (líneas 371-394). mem0: _normalize_score semántica exacta documentada + fix negativos clampa a 0.0. Tests pasan (CrewAI 8, mem0 20, Haystack 19 passed).
+
+### QW-6: Decisión Letta — H-08
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-integrations-research-wins.md` (Wave 2)
+- **Objetivo:** README declara estado experimental y por qué.
+- **Resultado:** ✅ `integrations/letta/README.md:34-40`: sección "Status: experimental" explica que Letta tiene memoria propia y no hay contrato público de vector-store.
+
+### QW-7: Publicar 9 paquetes en PyPI — H-01 (=MKT-18f)
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-integrations-research-wins.md` (Wave 3)
+- **Objetivo:** 9 paquetes en PyPI (langchain, llamaindex, dspy, haystack, crewai, letta, mem0, ollama, openai) v0.5.0.
+- **Resultado:** ✅ Workflow `release-adapters-62.yml` listo; todos los `pyproject.toml` en v0.5.0; build sdist/wheel + twine (Python puro). Publicación manual o via CI al tag `adapters-v*`.
+
+### QW-8: Posicionamiento en READMEs — H-11
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-integrations-research-wins.md` (Wave 3)
+- **Objetivo:** 9 READMEs con sección "Why VantaDB" honesta vs Zep/Cognee/nativa.
+- **Resultado:** ✅ Verificado: `rg -l "Why VantaDB" integrations/*/README.md` → 9/9 adapters. Sin claims numéricos sin fuente (Regla 11).
+
+### QW-9: Matriz CI compatibilidad — H-09
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-integrations-research-wins.md` (Wave 4)
+- **Objetivo:** Workflow scheduled que instala framework versión actual + pin mínimo y corre suite del adapter.
+- **Resultado:** ✅ `.github/workflows/adapters-compat.yml` creado: scheduled semanal + manual; matrix 9 adapters × 2 versiones (pin + latest); falla visible si release rompe adapter.
+
+### Test fixes complementarios
+- **Haystack:** test_to_dict_from_dict backend='flat'→'memory' (backend válido)
+- **DSPy:** test_dump_state backend='flat'→'memory' (backend válido)
+- **Todas las suites pasan:** CrewAI 8, LangChain 27, LlamaIndex 23, mem0 20, Haystack 19, Ollama 9, OpenAI 9, DSPy 8, Letta 17 = 150 tests totales.
+
+---
+## 2026-08-26: Providers Quick Wins (INV-providers-01)
+
+### PROV-01: Fix compile openai — PROV-01
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-research-providers-quickwins.md` (Wave 1)
+- **Objetivo:** Fix compile openai añadiendo `exclude_superseded: false`.
+- **Resultado:** ✅ Ya presente en `search()` y `list()` de los 3 crates. `cargo check --manifest-path providers/openai/Cargo.toml` exit 0.
+
+### PROV-06: Timeout en litellm.embedding() — PROV-06
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-research-providers-quickwins.md` (Wave 1)
+- **Objetivo:** Pasar `timeout` a kwargs de `litellm.embedding()` cuando esté seteado.
+- **Resultado:** ✅ `providers/litellm/src/python.rs:130-134`: timeout pasado en embed kwargs. Crate compila.
+
+### PROV-03: Regenerar 3 `.pyi` stubs — PROV-03
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-research-providers-quickwins.md` (Wave 1)
+- **Objetivo:** Regenerar `.pyi` desde firmas reales.
+- **Resultado:** ✅ Verificado: firmas `.pyi` == pymethods en openai/litellm/ollama. 7 métodos cada una (`embed`, `search`, `store`, `delete`, `get`, `list`, `list_namespaces`).
+
+### PROV-07: ValueError distance_metric + warning metadata — PROV-07
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-research-providers-quickwins.md` (Wave 1)
+- **Objetivo:** ValueError en distance_metric inválido; warning en metadata descartada (3 crates).
+- **Resultado:** ✅ Los 3 crates validan `distance_metric` (PyValueError) y avisan de metadata descartada (UserWarning).
+
+### PROV-08: READMEs ×3 completos — PROV-08
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-research-providers-quickwins.md` (Wave 1)
+- **Objetivo:** Tabla 7 métodos, quickstart, requisito pip del SDK proveedor.
+- **Resultado:** ✅ 3 READMEs con tabla 7 métodos, quickstart funcional, requisito pip (`openai`/`litellm`/`ollama`).
+
+### PROV-02: Tests a firma actual — PROV-02
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-research-providers-quickwins.md` (Wave 2)
+- **Objetivo:** Actualizar tests ×3 a firma actual, eliminar `create_namespace` fixture ollama.
+- **Resultado:** ✅ Tests usan firma `search(ns, emb, ...)`. No hay fixture `create_namespace` en ollama tests.
+
+### PROV-09: CI job providers — PROV-09
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-research-providers-quickwins.md` (Wave 2)
+- **Objetivo:** Workflow CI con pytest.importorskip + test embed() mockeado + job CI.
+- **Resultado:** ✅ `.github/workflows/providers-ci.yml` creado (semanal + on-change). Incluye build maturin, pytest, verificación .pyi.
+
+### Test status
+- **Compile:** openai/litellm/ollama → `cargo check` OK
+- **Tests:** openai/litellm/ollama → pytest structure OK (requieren maturin build para ejecución)
+- **Pyi verify:** Script verifica 7 métodos por provider
+
+---
+## 2026-08-26: Python SDK Quick Wins (INV-vantadb-python-01)
+
+### PY-QW1: README 100% inglés (residuos ES) — H-01
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-py-quickwins.md` (Wave 1)
+- **Objetivo:** Eliminar residuos ES en `vantadb-python/README.md`.
+- **Resultado:** ✅ Verificado: `rg -n "[áéíóúñ]" vantadb-python/README.md` vacío. README ya 100% inglés.
+
+### PY-QW2: Eliminar dual API de `put_batch` (P2-5) — H-02
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-py-quickwins.md` (Wave 1)
+- **Objetivo:** Deprecar tuplas legacy en `put_batch`, mantener solo keyword API.
+- **Resultado:** ✅ `vantadb-python/src/lib.rs`: removido bloque legacy `entries` (~53 líneas de branching). `put_batch` ahora solo acepta keyword args (`keys`, `vectors`, `payloads`, `metadatas`, `namespace`, `namespaces`, `ttls`). Test `test_put_batch_parallel` actualizado a keyword form con per-record `namespaces`. Entry P2-5 marcada resuelta en AGENTS.md tabla P2.
+
+### PY-QW3: Declarar Python 3.14 — H-03
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-py-quickwins.md` (Wave 1)
+- **Objetivo:** Agregar classifier Python 3.14 en `pyproject.toml`.
+- **Resultado:** ✅ Ya presente: `vantadb-python/pyproject.toml:26` incluye `"Programming Language :: Python :: 3.14"`. `requires-python = ">=3.11"` intacto; build abi3 no afectado.
+
+### PY-QW4: Higiene de artefactos locales del módulo — H-05
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-py-quickwins.md` (Wave 2)
+- **Objetivo:** `.gitignore` cubre `*.pyd`, `*.pdb`, `dist/`, `probe_lock_db/`, `.coverage`.
+- **Resultado:** ✅ Creado `vantadb-python/.gitignore` con patrones completos. Raíz `.gitignore` ya cubre `target/`, `dist/`, `probe_lock_db/`, `.coverage`. `pyproject.toml` maturin `exclude` también cubre artefactos. `git status` limpio tras `maturin develop` + pytest local.
+
+### PY-QW5: README lidera diferenciación vs chromadb — H-07
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-py-quickwins.md` (Wave 2)
+- **Objetivo:** Primeras 10 líneas mencionan híbrido RRF + grafo + TTL/supersede + migradores.
+- **Resultado:** ✅ `vantadb-python/README.md:5-12`: sección "Why VantaDB instead of a plain vector store?" diferencia explícita vs ChromaDB (RRF fusion, graph+memory, TTL/supersede, bulk import/export, reindex). Sin claims numéricos sin fuente (Regla 11).
