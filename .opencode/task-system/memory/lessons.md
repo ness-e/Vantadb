@@ -222,3 +222,4 @@
 - 2026-08-26 | MCP-34b | Task MCP-34b → completed
 - 2026-08-26 | FIND-26 removal PITR | wal_archiver.rs eliminado por dead code (RES-02: cero call sites engine): patrón removal seguro = leer archivo completo + grep exhaustivo ANTES (solo export cfg-gated + feature flag + tests propios = verde para borrar); chequear dependencias huérfanas (web_time seguía usada en 40+ archivos) y actualizar docs vivos + rules scope lists + filas backlog dependientes (CORE-02 quedó bloqueada-con-nota apuntando a git history) | ref: docs/architecture/adr/ADR-014-pitr.md (superseded), .opencode/skills/campaign-executor/tasks/FIND-26.md
 - 2026-08-26 | FIND-26 | Task FIND-26 → completed
+- 2026-08-26 | PY-QW2/P2-5 blocker descubierto: remover branching tuplas-legacy de put_batch rompe integrations/llamaindex/vantadb_llamaindex/vectorstore.py:113,126 que construye tuplas legacy — migrar llamaindex a kwargs ANTES de cerrar P2-5. Ref: wave1 INV-DECIDE agente py
