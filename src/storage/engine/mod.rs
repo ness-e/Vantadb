@@ -640,6 +640,124 @@ impl StorageEngine {
         names.sort();
         Ok(names)
     }
+
+    /// Validate a snapshot name as a plain filesystem identifier.
+    ///
+    /// Trust boundary: the name becomes a path segment under
+    /// `<data_dir>/snapshots/`, so path separators, `.`/`..`, or control
+    /// characters would allow traversal out of the snapshots directory.
+    /// Mirrors the MCP-34a guard in `vantadb-mcp` (defense in depth — the MCP
+    /// layer also validates before dispatching).
+    fn validate_snapshot_name(name: &str) -> crate::error::Result<()> {
+        if name.is_empty()
+            || name == "."
+            || name == ".."
+            || name.contains('/')
+            || name.contains('\\')
+            || name.chars().any(char::is_control)
+        {
+            return Err(crate::error::VantaError::InvalidInput(format!(
+                "snapshot name must be a plain identifier (no path separators, '.', '..', or control characters): {name:?}"
+            )));
+        }
+        Ok(())
+    }
+
+    /// Restore the database directory from a physical snapshot (MCP-34b).
+    ///
+    /// # Exclusivity (embedded API contract)
+    ///
+    /// This is a static associated function taking the storage *root* path —
+    /// deliberately NOT `&self`. The directory swap requires that no engine
+    /// holds the database open: on Windows the fs2 lock makes the swap fail
+    /// loudly; on Unix an open handle would keep writing into the renamed-aside
+    /// directory, silently forking state. Callers must close/drop every handle
+    /// first (see [`crate::sdk::VantaEmbedded::restore_from`] for the full
+    /// close → restore → reopen flow).
+    ///
+    /// # Safety / rollback
+    ///
+    /// The live `<root>/data` directory is renamed aside to a staging sibling
+    /// (`<root>/data.pre_restore_<nanos>`, atomic same-volume rename) instead
+    /// of deleted. All snapshots are moved back into the fresh `data_dir`
+    /// before the copy-back so they survive the restore. If any step fails
+    /// after the rename, the partial data_dir is removed and the staged
+    /// original is renamed back (best-effort rollback); the staging copy is
+    /// only deleted after a fully successful copy-back.
+    ///
+    /// Note: unlike RES-02 §2a step 3 (`<snap>/pre_restore_<ts>`), the staging
+    /// sibling lives beside `data_dir` — `snapshots/` is INSIDE `data_dir`, so
+    /// renaming data_dir under its own snapshot would nest them within
+    /// themselves.
+    ///
+    /// Returns the restored `<root>/data` path; reopen with
+    /// [`crate::sdk::VantaEmbedded::open_with_config`] — HNSW/text indexes are
+    /// rebuilt from storage on open (proven by tests/index_reconstruction.rs).
+    pub fn snapshot_restore(
+        storage_root: &std::path::Path,
+        name: &str,
+    ) -> crate::error::Result<std::path::PathBuf> {
+        Self::validate_snapshot_name(name)?;
+        let data_dir = storage_root.join("data");
+        let snap_data = data_dir.join("snapshots").join(name).join("data");
+        if !snap_data.is_dir() {
+            return Err(crate::error::VantaError::NotFound {
+                kind: "snapshot".to_string(),
+                id: name.to_string(),
+            });
+        }
+
+        #[cfg(feature = "failpoints")]
+        {
+            fail::fail_point!("snapshot_restore_fail", |_| {
+                Err(crate::error::VantaError::IoError(std::io::Error::other(
+                    "Simulated snapshot restore I/O failure",
+                )))
+            });
+        }
+
+        // No live data to displace: plain fresh copy-back.
+        if !data_dir.exists() {
+            std::fs::create_dir_all(&data_dir)?;
+            mirror_data_dir(&snap_data, &data_dir)?;
+            return Ok(data_dir);
+        }
+
+        // Stage the live directory aside (atomic same-volume rename). A
+        // nanosecond stamp avoids collisions between consecutive restores.
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| crate::error::VantaError::IoError(std::io::Error::other(e)))?
+            .as_nanos();
+        let staging = storage_root.join(format!("data.pre_restore_{nanos}"));
+        std::fs::rename(&data_dir, &staging)?;
+
+        let swapped = (|| -> std::io::Result<()> {
+            std::fs::create_dir_all(&data_dir)?;
+            // Keep every snapshot alive across the swap: move them from the
+            // staged tree back into the fresh data_dir before copying the
+            // snapshot contents over it.
+            let staged_snaps = staging.join("snapshots");
+            if staged_snaps.exists() {
+                std::fs::rename(staged_snaps, data_dir.join("snapshots"))?;
+            }
+            mirror_data_dir(&snap_data, &data_dir)
+        })();
+
+        match swapped {
+            Ok(()) => {
+                let _ = std::fs::remove_dir_all(&staging);
+                Ok(data_dir)
+            }
+            Err(e) => {
+                // Best-effort rollback: never leave the DB empty while the
+                // staged original is still available.
+                let _ = std::fs::remove_dir_all(&data_dir);
+                let _ = std::fs::rename(&staging, &data_dir);
+                Err(crate::error::VantaError::IoError(e))
+            }
+        }
+    }
 }
 
 impl Drop for StorageEngine {

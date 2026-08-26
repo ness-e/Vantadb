@@ -1431,3 +1431,143 @@ fn test_snapshot_consistent_under_concurrent_writes() {
         },
     );
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 6: MCP-34b — PHYSICAL SNAPSHOT RESTORE
+// ═══════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_snapshot_restore_roundtrip() {
+    TerminalReporter::suite_banner("SNAPSHOT RESTORE ROUNDTRIP (MCP-34b)", 1);
+    let mut harness = VantaHarness::new("SNAPSHOT RESTORE ROUNDTRIP");
+
+    harness.execute(
+        "snapshot → mutate → close → restore → reopen: pre-snapshot records back, post-snapshot gone",
+        || {
+            let dir = tempdir().expect("tempdir");
+            let db_path = dir.path();
+
+            // Phase 1: seed and snapshot the pre-mutation state.
+            // Phase 2: mutate AFTER the snapshot. The scoped drop releases the
+            // fs2 lock — the embedded exclusivity contract for restore.
+            {
+                let db = VantaEmbedded::open(db_path).expect("open db");
+                seed_snapshot_data(&db); // ns/snap key-0..key-4, payload-i
+
+                db.create_snapshot("restore-me").expect("create snapshot");
+
+                let mut post =
+                    VantaMemoryInput::new("ns/snap", "post-snap", "added after snapshot");
+                post.vector = Some(vec![9.0, 0.0, 0.0]);
+                db.put(post).expect("put post-snapshot");
+                db.flush().expect("flush post-snapshot");
+                assert!(
+                    db.get("ns/snap", "post-snap")
+                        .expect("get live")
+                        .is_some(),
+                    "post-snapshot record must be live before restore"
+                );
+            }
+
+            // Phase 3: physical restore (no open handles).
+            vantadb::storage::StorageEngine::snapshot_restore(db_path, "restore-me")
+                .expect("snapshot_restore");
+
+            // Phase 4: reopen over the restored directory and assert.
+            let db2 = VantaEmbedded::open(db_path).expect("reopen restored db");
+            for i in 0..5 {
+                let got = db2
+                    .get("ns/snap", &format!("key-{i}"))
+                    .expect("get pre-snapshot key")
+                    .unwrap_or_else(|| panic!("pre-snapshot key-{i} must exist after restore"));
+                assert_eq!(
+                    got.payload,
+                    format!("payload-{i}"),
+                    "restored payload mismatch for key-{i}"
+                );
+            }
+            assert!(
+                db2.get("ns/snap", "post-snap")
+                    .expect("get post-snapshot key")
+                    .is_none(),
+                "record written after the snapshot must NOT survive restore"
+            );
+
+            // All snapshots survive the swap (they are moved back into the
+            // fresh data_dir before copy-back).
+            let names = db2.list_snapshots().expect("list snapshots");
+            assert!(
+                names.contains(&"restore-me".to_string()),
+                "snapshots must survive the restore swap: {names:?}"
+            );
+
+            TerminalReporter::success(
+                "Restore roundtrip certified: pre-snapshot state recovered, mutation reverted.",
+            );
+        },
+    );
+}
+
+#[test]
+fn test_snapshot_restore_rejects_unsafe_names() {
+    TerminalReporter::suite_banner("SNAPSHOT RESTORE NAME VALIDATION (MCP-34b)", 1);
+    let mut harness = VantaHarness::new("SNAPSHOT RESTORE NAME VALIDATION");
+
+    harness.execute(
+        "Path traversal / separators / empty names rejected; unknown name NotFound",
+        || {
+            let dir = tempdir().expect("tempdir");
+
+            for bad in ["", ".", "..", "../escape", "sub/dir", "back\\slash"] {
+                let res = vantadb::storage::StorageEngine::snapshot_restore(dir.path(), bad);
+                assert!(res.is_err(), "snapshot_restore must reject name {bad:?}");
+            }
+
+            // Valid identifier but nonexistent snapshot → NotFound, not a panic.
+            let res = vantadb::storage::StorageEngine::snapshot_restore(dir.path(), "no-such-snap");
+            let err = res.expect_err("nonexistent snapshot must fail");
+            assert!(
+                err.to_string().contains("no-such-snap"),
+                "error must identify the missing snapshot: {err}"
+            );
+
+            TerminalReporter::success("Snapshot name trust boundary enforced.");
+        },
+    );
+}
+
+#[cfg(feature = "failpoints")]
+#[test]
+fn test_snapshot_restore_failpoint_aborts_before_swap() {
+    TerminalReporter::suite_banner("SNAPSHOT RESTORE FAILPOINT (MCP-34b)", 1);
+    let mut harness = VantaHarness::new("SNAPSHOT RESTORE FAILPOINT");
+
+    harness.execute(
+        "snapshot_restore_fail makes restore error out without touching data_dir",
+        || {
+            let dir = tempdir().expect("tempdir");
+            let db_path = dir.path();
+
+            {
+                let db = VantaEmbedded::open(db_path).expect("open db");
+                seed_snapshot_data(&db);
+                db.create_snapshot("fp-snap").expect("create snapshot");
+            }
+
+            fail::cfg("snapshot_restore_fail", "return").expect("arm failpoint");
+            let res = StorageEngine::snapshot_restore(db_path, "fp-snap");
+            fail::cfg("snapshot_restore_fail", "off").expect("disarm failpoint");
+
+            assert!(res.is_err(), "armed failpoint must abort snapshot_restore");
+
+            // Nothing was displaced: original data_dir intact and usable.
+            let db2 = VantaEmbedded::open(db_path).expect("reopen after failed restore");
+            assert!(
+                db2.get("ns/snap", "key-0").expect("get").is_some(),
+                "original data must be untouched after failed restore"
+            );
+
+            TerminalReporter::success("Failpoint aborted restore cleanly; live data untouched.");
+        },
+    );
+}

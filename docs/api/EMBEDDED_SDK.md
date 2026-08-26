@@ -264,6 +264,18 @@ Instant filesystem snapshots via hard links (Unix) or copy (Windows).
 |--------|-------------|
 | `create_snapshot(name)` | Create an instant point-in-time snapshot. All data files in the storage directory are hard-linked into `<data_dir>/snapshots/<name>` (O(1)) |
 | `list_snapshots()` | List all existing snapshot names |
+| `VantaEmbedded::restore_from(config, name)` | DESTRUCTIVE: replace the live database directory with the contents of snapshot `<name>`, then reopen. Static associated function — close every open handle first (`db.close()?; let db = VantaEmbedded::restore_from(config.clone(), "name")?;`). The current data is staged aside (atomic rename, sibling of `data_dir`) with best-effort rollback on failure; all snapshots survive the swap. `name` must be a plain identifier (path traversal rejected). Indexes rebuild from storage on reopen |
+
+### Restore flow
+
+```rust,ignore
+db.close()?;                                       // release the fs2 lock + handles
+let db = VantaEmbedded::restore_from(config.clone(), "snap-1")?; // swap + reopen
+```
+
+Restore requires exclusive access to the database directory: on Windows an open
+engine makes the swap fail loudly; on Unix an open handle would silently fork
+state, so always close/drop handles first (the SDK wrapper reopens for you).
 
 ## Skills API
 

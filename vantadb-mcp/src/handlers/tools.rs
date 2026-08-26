@@ -464,13 +464,25 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         },
         {
             "name": "snapshot_create",
-            "description": "MCP-34a: creates a physical filesystem snapshot under <data_dir>/snapshots/<name> (instant O(1) hard-link image on Unix, copy fallback on Windows). Returns {path, created_at}. snapshot_restore is a core feature (not yet implemented).",
+            "description": "MCP-34a: creates a physical filesystem snapshot under <data_dir>/snapshots/<name> (instant O(1) hard-link image on Unix, copy fallback on Windows). Returns {path, created_at}. Pair with 'snapshot_restore' to roll back.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "name": { "type": "string", "description": "Snapshot name; a plain identifier, no path separators" }
                 },
                 "required": ["name"]
+            }
+        },
+        {
+            "name": "snapshot_restore",
+            "description": "MCP-34b: DESTRUCTIVE — replaces the live database directory (<storage_root>/data) with the contents of snapshot <name>. The current data is staged aside with rollback-on-failure; all snapshots survive the swap. Requires \"confirm\": true. After a successful restore the running engine must be restarted/reopened to serve restored state.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "description": "Snapshot name; a plain identifier, no path separators" },
+                    "confirm": { "type": "boolean", "description": "Must be literal true — destructive operation confirmation" }
+                },
+                "required": ["name", "confirm"]
             }
         },
         {
@@ -1497,8 +1509,7 @@ pub fn handle_tools_call(
         // <data_dir>/snapshots, so it is validated as an identifier AND rejects
         // path separators / '.' / '..' (trust boundary — prevents path
         // traversal). FsSnapshot does not derive Serialize, so the result is
-        // built manually as {"path", "created_at"}. snapshot_restore does NOT
-        // exist (core feature, DEFER) — this is create-only.
+        // built manually as {"path", "created_at"}.
         "snapshot_create" => {
             let name = args["name"]
                 .as_str()
@@ -1517,6 +1528,46 @@ pub fn handle_tools_call(
                     "created_at": format!("{:?}", snap.created_at),
                 })))),
                 Err(e) => Ok(error_content(format!("Snapshot Create Error: {}", e))),
+            }
+        }
+
+        // MCP-34b: DESTRUCTIVE restore from a physical snapshot. Same
+        // identifier guard as snapshot_create (trust boundary), plus a literal
+        // `confirm: true` requirement (RES-02 S5) — anything else is rejected
+        // with guidance instead of touching the disk. The swap itself runs via
+        // StorageEngine::snapshot_restore on the storage root; the server's
+        // own engine stays bound to the pre-restore directory until restart,
+        // which the success payload states explicitly.
+        "snapshot_restore" => {
+            let name = args["name"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'name'").to_json())?;
+            validate_identifier(name, "name", config.max_key_length).map_err(|e| e.to_json())?;
+            if name.contains('/') || name.contains('\\') || name == "." || name == ".." {
+                return Ok(error_content(
+                    "Snapshot name must be a plain identifier (no path separators)",
+                ));
+            }
+            if args["confirm"] != serde_json::Value::Bool(true) {
+                return Ok(error_content(
+                    "snapshot_restore is DESTRUCTIVE: it replaces the live database directory with the contents of the snapshot. Re-send the tool call with \"confirm\": true to proceed.",
+                ));
+            }
+            let Some(root) = storage.data_dir.parent() else {
+                return Ok(error_content(
+                    "Snapshot Restore Error: in-memory databases have no filesystem to restore",
+                ));
+            };
+            match vantadb::storage::StorageEngine::snapshot_restore(root, name) {
+                Ok(path) => Ok(text_content(serialize_content(&json!({
+                    "restored": true,
+                    "path": path.to_string_lossy(),
+                    "note": "Database directory replaced by snapshot contents. Restart the server (or reopen the embedded handle) to serve restored state.",
+                })))),
+                Err(e) => Ok(error_content(format!(
+                    "Snapshot Restore Error: {} (if an engine holds this database open, close it first — the directory swap requires exclusive access)",
+                    e
+                ))),
             }
         }
 

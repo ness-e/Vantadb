@@ -3590,6 +3590,7 @@ fn test_mcp_tools_list_includes_recovery_and_introspection() {
         "generate_snippet",
         "list_snapshots",
         "snapshot_create",
+        "snapshot_restore",
     ] {
         assert!(names.contains(&tool), "tools should include {tool}");
     }
@@ -3834,6 +3835,99 @@ fn test_snapshot_create_round_trip() {
         bad["isError"].as_bool() == Some(true),
         "path traversal must be rejected: {}",
         bad
+    );
+}
+
+// ── MCP-34b: snapshot_restore ───────────────────────────────────────────
+
+#[test]
+fn test_snapshot_restore_requires_confirmation_and_identifier() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Seed one snapshot so the name itself would be valid.
+    let create = recovery_call(
+        &executor,
+        &storage,
+        "snapshot_create",
+        json!({ "name": "r1" }),
+    )
+    .unwrap();
+    assert!(
+        create["isError"].is_null(),
+        "snapshot_create failed: {}",
+        create["content"][0]["text"]
+    );
+
+    // Destructive-op confirmation: missing confirm → rejected with guidance.
+    let no_confirm = recovery_call(
+        &executor,
+        &storage,
+        "snapshot_restore",
+        json!({ "name": "r1" }),
+    )
+    .unwrap();
+    assert!(
+        no_confirm["isError"].as_bool() == Some(true),
+        "restore without confirm must be rejected: {no_confirm}"
+    );
+    assert!(
+        no_confirm["content"][0]["text"]
+            .as_str()
+            .unwrap_or("")
+            .contains("confirm"),
+        "rejection must ask for confirmation: {}",
+        no_confirm["content"][0]["text"]
+    );
+
+    // confirm=false / non-literal values are equally rejected.
+    for confirm in [json!(false), json!("yes"), json!(1)] {
+        let bad = recovery_call(
+            &executor,
+            &storage,
+            "snapshot_restore",
+            json!({ "name": "r1", "confirm": confirm }),
+        )
+        .unwrap();
+        assert!(
+            bad["isError"].as_bool() == Some(true),
+            "restore with confirm={confirm} must be rejected: {bad}"
+        );
+    }
+
+    // Trust boundary: path traversal rejected even WITH confirm.
+    let traversal = recovery_call(
+        &executor,
+        &storage,
+        "snapshot_restore",
+        json!({ "name": "../../escape", "confirm": true }),
+    )
+    .unwrap();
+    assert!(
+        traversal["isError"].as_bool() == Some(true),
+        "path traversal must be rejected: {traversal}"
+    );
+
+    // Unknown snapshot with valid identifier + confirm → domain error (not
+    // a JSON-RPC error), naming the missing snapshot.
+    let missing = recovery_call(
+        &executor,
+        &storage,
+        "snapshot_restore",
+        json!({ "name": "no-such-snap", "confirm": true }),
+    )
+    .unwrap();
+    assert!(
+        missing["isError"].as_bool() == Some(true),
+        "unknown snapshot must fail: {missing}"
+    );
+    assert!(
+        missing["content"][0]["text"]
+            .as_str()
+            .unwrap_or("")
+            .contains("no-such-snap"),
+        "error must identify the snapshot: {}",
+        missing["content"][0]["text"]
     );
 }
 

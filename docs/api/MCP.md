@@ -168,7 +168,7 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 | `collection_stats` | Statistics for one namespace/collection: count, byte size, index info, creation time. |
 | `collection_delete` | Deletes an entire namespace/collection and all its records (requires `confirm: "yes"`). |
 
-### Maintenance, Indexes & Snapshots (11)
+### Maintenance, Indexes & Snapshots (12)
 
 | Tool | Description |
 |------|-------------|
@@ -179,6 +179,7 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 | `audit_text_index` | Read-only integrity audit of the derived persistent text index vs canonical records; `deep=true` verifies postings/tf/stats. |
 | `repair_text_index` | Repairs the text index by rebuilding it from canonical storage (use when `audit_text_index` reports drift). |
 | `snapshot_create` | Creates a filesystem snapshot of the storage directory under `<data_dir>/snapshots/<name>`; returns the snapshot path. |
+| `snapshot_restore` | DESTRUCTIVE: replaces the live database directory with the contents of snapshot `<name>` (requires `confirm: true`; `name` must be a plain identifier). Current data is staged aside with rollback-on-failure; snapshots survive the swap. The running engine must be restarted to serve restored state. |
 | `list_snapshots` | Lists physical snapshot names under `<data_dir>/snapshots`. |
 | `purge_expired` | Scans all records and physically deletes those whose TTL expiry has passed. |
 | `rehydrate` | Recovers shadow-archived nodes that belonged to a summary node from TombstoneStorage. |

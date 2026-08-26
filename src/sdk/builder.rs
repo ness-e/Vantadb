@@ -260,6 +260,28 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
         engine.list_snapshots()
     }
+
+    /// Restore the database directory from a physical snapshot (MCP-34b).
+    ///
+    /// Static associated function: the restore swaps `<storage_path>/data`
+    /// on disk, which requires that NO engine holds the database open —
+    /// hence it does not take `&self`. Expected flow:
+    ///
+    /// ```ignore
+    /// db.close()?;                                        // release fs2 lock + handles
+    /// let db = VantaEmbedded::restore_from(config.clone(), "snap-1")?;  // swap + reopen
+    /// ```
+    ///
+    /// Validates `name` as a plain identifier (anti path-traversal), fails
+    /// with `NotFound` if the snapshot does not exist, stages the live data
+    /// directory aside with rollback-on-failure, copies the snapshot contents
+    /// back, and reopens a fresh engine over the restored directory (indexes
+    /// rebuild from storage on open). See
+    /// [`StorageEngine::snapshot_restore`] for the full safety contract.
+    pub fn restore_from(config: VantaConfig, name: &str) -> Result<Self> {
+        StorageEngine::snapshot_restore(Path::new(&config.storage_path), name)?;
+        Self::open_with_config(config)
+    }
 }
 
 /// Open the audit logger when `config.audit_log_path` is set. A failed open is
