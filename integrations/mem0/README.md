@@ -31,6 +31,18 @@ for r in results:
 - `delete(key)` — delete a memory by key
 - `list(user_id=None, limit=100)` — list memories
 
+## Why VantaDB?
+
+- **Embedded & local-first:** the storage engine is a Rust library embedded
+  in your process — no server to deploy, no network hop; data lives in your
+  filesystem.
+- **Persistent hybrid search:** vectors + BM25 text search out of the box as
+  the vector backend for mem0's memory layer, where mem0's default storage
+  targets its hosted platform.
+- **Zero-setup alternative to hosted stacks:** unlike Zep (requires a server)
+  or Cognee (spins up its own knowledge-graph runtime), VantaDB is a plain
+  library you import.
+
 ## Development
 
 ```bash

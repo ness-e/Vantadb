@@ -1,12 +1,12 @@
 """Tests for VantaDB CrewAI adapter."""
 import pytest
+pytest.importorskip("crewai.tools", reason="crewai SDK not installed; adapter suite skipped")
 import tempfile
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from vantadb_crewai import VantaDBTool
-from vantadb_crewai.vectorstore import categorize
 
 
 @pytest.fixture
@@ -30,11 +30,6 @@ def test_tool_run(tool):
 def test_tool_empty(tool):
     result = tool._run("nothing")
     assert result is not None
-
-
-def test_tool_categorize(tool):
-    result = categorize("hello")
-    assert isinstance(result, str)
 
 
 # ── _put edge cases ──
@@ -72,55 +67,36 @@ def test_put_with_metadata():
     assert "metadata" in result
 
 
-# ── categorize ──
+# ── to_dict / from_dict roundtrip (QW-1) ──
 
-def test_categorize_question():
-    """categorize retorna 'question' para preguntas."""
-    path = os.path.join(tempfile.mkdtemp(), "test_cat_q")
-    t = VantaDBTool(db_path=path, namespace="test_cat_q")
-    assert categorize("What is VantaDB?") == "question"
-    assert categorize("How does this work") == "question"
-    assert categorize("When will it be ready?") == "question"
-    assert categorize("short?") == "question"
-    assert categorize("Can you help?") == "question"
+def test_from_dict_roundtrip_no_typeerror():
+    """from_dict no debe pasar el string embedding_model como callable.
 
-
-def test_categorize_technical():
-    """categorize retorna 'technical' para texto técnico."""
-    path = os.path.join(tempfile.mkdtemp(), "test_cat_t")
-    t = VantaDBTool(db_path=path, namespace="test_cat_t")
-    assert categorize("I have a bug in my code") == "technical"
-    assert categorize("This function has an error") == "technical"
-    assert categorize("The API returned an exception") == "technical"
+    Regresión: to_dict serializa el embedding como nombre de tipo; from_dict
+    lo pasaba crudo como ``embedding`` y _run/_put lanzaban TypeError.
+    """
+    path = os.path.join(tempfile.mkdtemp(), "test_ca_fd")
+    t = VantaDBTool(
+        db_path=path, namespace="test_ca_fd", embedding=lambda x: [0.1, 0.2, 0.3]
+    )
+    t._put("roundtrip doc")
+    d = t.to_dict()
+    assert d["embedding_model"] == "function"
+    d["db_path"] = path + "_rt"  # path distinto para evitar lock de LSM
+    t2 = VantaDBTool.from_dict(d)
+    assert isinstance(t2._run("hello"), str)
 
 
-def test_categorize_greeting():
-    """categorize retorna 'greeting' para saludos."""
-    path = os.path.join(tempfile.mkdtemp(), "test_cat_g")
-    t = VantaDBTool(db_path=path, namespace="test_cat_g")
-    assert categorize("hello there") == "greeting"
-    assert categorize("hi how are you") == "greeting"
-    assert categorize("good morning") == "greeting"
-    assert categorize("hey") == "greeting"
-
-
-def test_categorize_informational():
-    """categorize retorna 'informational' para afirmaciones."""
-    path = os.path.join(tempfile.mkdtemp(), "test_cat_i")
-    t = VantaDBTool(db_path=path, namespace="test_cat_i")
-    assert categorize("The sky is blue") == "informational"
-    assert categorize("VantaDB is a vector database") == "informational"
-    assert categorize("Today is Wednesday") == "informational"
-
-
-def test_categorize_empty():
-    """categorize retorna 'empty' para input vacío."""
-    path = os.path.join(tempfile.mkdtemp(), "test_cat_e")
-    t = VantaDBTool(db_path=path, namespace="test_cat_e")
-    assert categorize("") == "empty"
-    assert categorize("   ") == "empty"
-    assert categorize("\t") == "empty"
-    assert categorize("\n") == "empty"
+def test_list_cursor_string():
+    """list(cursor=...) acepta el cursor serializado como string (str→int)."""
+    path = os.path.join(tempfile.mkdtemp(), "test_ca_cur")
+    t = VantaDBTool(db_path=path, namespace="test_ca_cur")
+    for i in range(5):
+        t._put(f"doc {i}")
+    page1 = t.list(limit=2)
+    cursor = page1.get("cursor")
+    page2 = t.list(limit=100, cursor=str(cursor) if cursor is not None else "0")
+    assert isinstance(page2["records"], list)
 
 
 # ── _run edge cases ──

@@ -467,7 +467,8 @@ class VantaDBVectorStore(VectorStore):
             return []
         texts = [doc.page_content for doc in documents]
         metadatas = [doc.metadata for doc in documents]
-        ids = [doc.id for doc in documents if doc.id is not None] or None
+        # Generate UUIDs for missing ids BEFORE filtering so lengths always match.
+        ids = [doc.id if doc.id else str(uuid.uuid4()) for doc in documents]
         return self.add_texts(texts, metadatas=metadatas, ids=ids, **kwargs)
 
     def delete(

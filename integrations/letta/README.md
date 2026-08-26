@@ -31,6 +31,25 @@ for r in results:
 - `delete(key)` — delete by key
 - `list(limit=100)` — list all records
 
+## Status: experimental
+
+Letta is a stateful platform with its own memory layer and no public
+vector-store contract; this adapter is a community convenience, not an
+officially supported integration. The API may change without notice and it
+is not exercised by Letta's own test suite. Prefer Letta's native memory
+unless you specifically need to back it with an embedded local store.
+
+## Why VantaDB?
+
+- **Embedded & local-first:** the storage engine is a Rust library embedded
+  in your process — no server to deploy, no network hop; data lives in your
+  filesystem.
+- **Persistent hybrid search:** vectors + BM25 text search out of the box,
+  where Letta's own memory is designed for its server-side platform.
+- **Zero-setup alternative to hosted stacks:** unlike Zep (requires a server)
+  or Cognee (spins up its own knowledge-graph runtime), VantaDB is a plain
+  library you import.
+
 ## Development
 
 ```bash

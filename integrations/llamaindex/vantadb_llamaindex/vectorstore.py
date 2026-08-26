@@ -9,6 +9,7 @@ from llama_index.core.bridge.pydantic import PrivateAttr
 from llama_index.core.schema import BaseNode, MetadataMode, TextNode, NodeRelationship, RelatedNodeInfo
 from llama_index.core.vector_stores.types import (
     BasePydanticVectorStore,
+    MetadataFilter,
     MetadataFilters,
     FilterOperator,
     VectorStoreQuery,
@@ -27,6 +28,13 @@ class VantaDBVectorStore(BasePydanticVectorStore):
     stores_text: bool = True
     flat_metadata: bool = False
     is_embedding_query: bool = True
+
+    # Non-serializable internals must be declared so pydantic never treats
+    # them as model fields (keeps model_dump/model_json_schema clean).
+    _namespace: Any = PrivateAttr()
+    _db_path: str = PrivateAttr()
+    _hybrid_mode: bool = PrivateAttr()
+    _client: Any = PrivateAttr()
 
     def __init__(
         self,

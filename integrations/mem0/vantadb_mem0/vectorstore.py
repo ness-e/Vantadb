@@ -43,16 +43,24 @@ class OutputData:
 
 
 def _normalize_score(raw: Optional[float]) -> float:
-    """Return a score in [0, 1] where 1 = most similar.
+    """Map a raw VantaDB cosine distance/score to a similarity in [0, 1].
 
-    If the value is already in [0,1] it passes through unchanged.
-    Otherwise it is treated as a distance and inverted.
+    Exact semantics (pinned by ``test_normalize_score_exact_semantics``):
+
+    - ``None`` -> ``0.0``.
+    - Value already in ``[0, 1]`` -> returned unchanged (treated as a
+      pre-normalized similarity; VantaDB cosine never emits these, but
+      callers may pass scores from other sources).
+    - Any other value is treated as a distance ``d`` and inverted:
+      ``score = clamp(1 - d, 0, 1)``. Cosine distance lives in ``[0, 2]``
+      where 0 = identical, so ``d = 0`` -> ``1.0`` and ``d >= 1`` -> ``0.0``.
+      Invalid negatives are clamped to ``0.0``, never above ``1.0``.
     """
     if raw is None:
         return 0.0
     if 0.0 <= raw <= 1.0:
-        return raw
-    return max(0.0, 1.0 - raw)
+        return float(raw)
+    return min(1.0, max(0.0, 1.0 - raw))
 
 
 def _build_payload(metadata, payload_text: str = "") -> Dict[str, Any]:

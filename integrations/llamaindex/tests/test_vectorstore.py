@@ -1,5 +1,6 @@
 """Tests for VantaDB LlamaIndex vector store adapter."""
 import pytest
+pytest.importorskip("llama_index", reason="llama_index SDK not installed; adapter suite skipped")
 import tempfile
 import os
 import sys
@@ -239,3 +240,23 @@ def test_add_roundtrip_preserves_text(store):
     found = store.get_nodes(node_ids=["rt1"])
     assert len(found) == 1
     assert found[0].text == original
+
+
+# ── QW-3: attrs privados + imports completos ──
+
+def test_method_type_hints_resolve():
+    """Las anotaciones de tipo de los métodos se resuelven bajo get_type_hints.
+
+    Regresión: MetadataFilter se usaba en firmas sin estar importado.
+    """
+    import typing
+    hints = typing.get_type_hints(VantaDBVectorStore._build_vanta_filters)
+    assert "return" in hints
+
+
+def test_private_attrs_declared_and_serialization_clean(store):
+    """Attrs privados declarados como PrivateAttr no filtran en model_dump."""
+    store.add([_node("serial doc", "s1")])
+    data = store.model_dump()
+    assert "_client" not in data
+    assert "_namespace" not in data

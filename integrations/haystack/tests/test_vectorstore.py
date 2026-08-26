@@ -1,5 +1,6 @@
 """Tests for VantaDB Haystack adapter."""
 import pytest
+pytest.importorskip("haystack.dataclasses", reason="haystack SDK not installed; adapter suite skipped")
 import tempfile
 import os
 import sys
@@ -138,8 +139,13 @@ def test_filter_documents_not(store):
 
 # ── count_documents ──
 
-def test_count_documents_many():
-    """count_documents retorna el total sin límite artificial para conjuntos grandes."""
+def test_count_documents_many(monkeypatch):
+    """count_documents retorna el total paginando por páginas con cursor.
+
+    Se reduce el tamaño de página a 10 para ejercitar múltiples iteraciones
+    del bucle de paginación sin materializar miles de records.
+    """
+    monkeypatch.setattr("vantadb_haystack.vectorstore._COUNT_PAGE_SIZE", 10)
     path = os.path.join(tempfile.mkdtemp(), "test_hs_cnt")
     s = VantaDBDocumentStore(db_path=path)
     expected = 50

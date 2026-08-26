@@ -35,6 +35,18 @@ class RAG(dspy.Module):
 - `VantaDBRetriever(db_path, namespace, k)` — DSPy-compatible retriever
 - `forward(query)` — search and return passages
 
+## Why VantaDB?
+
+- **Embedded & local-first:** the storage engine is a Rust library embedded
+  in your process — no server to deploy, no network hop; data lives in your
+  filesystem.
+- **Persistent hybrid search:** vectors + BM25 text search out of the box;
+  DSPy has no built-in memory, so VantaDB adds retrievable context across
+  program runs.
+- **Zero-setup alternative to hosted stacks:** unlike Zep (requires a server)
+  or Cognee (spins up its own knowledge-graph runtime), VantaDB is a plain
+  library you import.
+
 ## Development
 
 ```bash

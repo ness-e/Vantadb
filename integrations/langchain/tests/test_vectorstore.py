@@ -1,5 +1,6 @@
 """Tests for VantaDB LangChain vector store adapter."""
 import pytest
+pytest.importorskip("langchain_core", reason="langchain_core SDK not installed; adapter suite skipped")
 import tempfile
 import os
 import sys
@@ -254,3 +255,26 @@ def test_cosine_relevance_score(store):
     assert store._cosine_relevance_score_fn(0.0) == 1.0
     assert store._cosine_relevance_score_fn(1.0) == 0.5
     assert store._cosine_relevance_score_fn(2.0) == 0.0
+
+
+# ── QW-2: add_documents con ids parciales ──
+
+def test_add_documents_partial_ids(store):
+    """Mezcla de docs con/sin id: los faltantes obtienen UUID, no ValueError engañoso."""
+    import uuid
+    from langchain_core.documents import Document
+    docs = [
+        Document(page_content="with id", id="custom-id-1"),
+        Document(page_content="without id"),
+    ]
+    ids = store.add_documents(docs)
+    assert len(ids) == 2
+    assert ids[0] == "custom-id-1"
+    uuid.UUID(ids[1])  # el doc sin id recibe un UUID válido
+
+
+def test_add_documents_all_with_ids_preserved(store):
+    """Si todos tienen id, se preservan tal cual (sin regenerar)."""
+    from langchain_core.documents import Document
+    docs = [Document(page_content="a", id="id-a"), Document(page_content="b", id="id-b")]
+    assert store.add_documents(docs) == ["id-a", "id-b"]

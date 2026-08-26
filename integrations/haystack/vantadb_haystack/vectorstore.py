@@ -12,6 +12,7 @@ from haystack.document_stores.types import DuplicatePolicy
 DEFAULT_NAMESPACE = "haystack"
 DEFAULT_TOP_K = 4
 _MAX_LIST_LIMIT = 1_000_000
+_COUNT_PAGE_SIZE = 1_000  # page size for cursor-paginated counting
 
 
 def _post_filter_documents(
@@ -371,15 +372,26 @@ class VantaDBDocumentStore:
         """Return the total number of documents in the store.
 
         Implements the Haystack ``DocumentStore.count_documents``
-        protocol.
+        protocol. Counts by cursor-paginated pages (page size
+        ``_COUNT_PAGE_SIZE``) instead of materializing up to
+        ``_MAX_LIST_LIMIT`` records in memory.
 
         Returns:
             The document count as an integer.
         """
-        results = self._db.list_memory(
-            self.namespace, filters={}, limit=_MAX_LIST_LIMIT,
-        )
-        return len(results.records)
+        count = 0
+        cursor = None
+        while True:
+            page = self._db.list_memory(
+                self.namespace, filters={}, limit=_COUNT_PAGE_SIZE, cursor=cursor,
+            )
+            if not page or not page.records:
+                break
+            count += len(page.records)
+            cursor = page.next_cursor
+            if cursor is None:
+                break
+        return count
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize the store configuration to a dictionary.

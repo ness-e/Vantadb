@@ -1,0 +1,219 @@
+"""Shared internals for VantaDB embedding-provider adapters.
+
+Single source of truth for the logic duplicated between the ``ollama`` and
+``openai`` twins: ``Document``, ``add_texts``, ``delete`` and the async
+helpers. Provider-specific subclasses only implement ``_embed`` /
+``_embed_many`` and their own constructor.
+
+Packaging note: this module ships *inside* each adapter's wheel via hatch
+``force-include``; it is NOT published as its own PyPI distribution.
+"""
+from __future__ import annotations
+
+import asyncio
+import functools
+import uuid
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+import vantadb_py as vanta
+
+DEFAULT_TOP_K = 4
+
+
+@dataclass
+class Document:
+    """Lightweight document-like object for search results."""
+    page_content: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+class EmbeddingVectorStore:
+    """Base store for embedding-provider adapters backed by VantaDB.
+
+    Subclasses provide the provider-specific embedding calls via
+    ``_embed`` / ``_embed_many`` and delegate all storage logic here.
+    """
+
+    def __init__(
+        self,
+        *,
+        namespace: str,
+        db_path: str = "./vantadb_data",
+        memory_limit_bytes: Optional[int] = None,
+        read_only: bool = False,
+    ):
+        self.namespace = namespace
+        self._db = vanta.VantaDB(
+            db_path,
+            memory_limit_bytes=memory_limit_bytes,
+            read_only=read_only,
+        )
+
+    # ── Provider hooks ───────────────────────────────────────
+
+    def _embed(self, text: str) -> List[float]:
+        raise NotImplementedError
+
+    def _embed_many(self, texts: List[str]) -> List[List[float]]:
+        raise NotImplementedError
+
+    # ── Write methods ────────────────────────────────────────
+
+    def add_texts(
+        self,
+        texts: List[str],
+        metadatas: Optional[List[dict]] = None,
+        ids: Optional[List[str]] = None,
+    ) -> List[str]:
+        """Add texts with embeddings to the store.
+
+        Embeds all texts in a single batch via the provider API, then
+        stores each text with its vector and optional metadata.
+
+        Args:
+            texts: List of text strings to add.
+            metadatas: Optional list of metadata dicts, one per text.
+            ids: Optional list of IDs, one per text. UUIDs are
+                generated for entries without an ID.
+
+        Returns:
+            A list of assigned IDs, one per input text.
+
+        Raises:
+            ValueError: If ``texts`` is empty, or if ``metadatas``
+                or ``ids`` length does not match ``texts`` length.
+        """
+        if not texts:
+            return []
+        if metadatas is not None and len(metadatas) != len(texts):
+            raise ValueError(
+                f"metadatas length ({len(metadatas)}) must match texts length ({len(texts)})"
+            )
+        if ids is not None and len(ids) != len(texts):
+            raise ValueError(
+                f"ids length ({len(ids)}) must match texts length ({len(texts)})"
+            )
+        vectors = self._embed_many(texts)
+        result_ids: List[str] = []
+        for i, text in enumerate(texts):
+            key = ids[i] if ids else str(uuid.uuid4())
+            meta = metadatas[i] if metadatas else {}
+            self._db.put(self.namespace, key, text, metadata=meta, vector=vectors[i])
+            result_ids.append(key)
+        return result_ids
+
+    async def aadd_texts(
+        self,
+        texts: List[str],
+        metadatas: Optional[List[dict]] = None,
+        **kwargs: Any,
+    ) -> List[str]:
+        """Async version of ``add_texts``.
+
+        Materializes the input list, then delegates to the synchronous
+        implementation in a thread executor. Provided for compatibility
+        with async framework pipelines.
+
+        Args:
+            texts: List of text strings to add.
+            metadatas: Optional list of metadata dicts, one per text.
+            **kwargs: Passed through to ``add_texts``.
+
+        Returns:
+            A list of assigned IDs, one per input text.
+        """
+        texts = list(texts)  # materialize in case it's a generator
+        return await asyncio.get_event_loop().run_in_executor(
+            None, functools.partial(self.add_texts, texts, metadatas)
+        )
+
+    # ── Search methods ───────────────────────────────────────
+
+    def similarity_search(self, query: str, k: int = DEFAULT_TOP_K) -> List[Any]:
+        """Search for documents similar to the query text.
+
+        Embeds the query via the provider API, then performs a vector
+        similarity search in VantaDB. Returns lightweight document-like
+        objects with ``page_content`` and ``metadata`` attributes.
+
+        Args:
+            query: The search query string. Must be non-empty.
+            k: Number of results to return. Defaults to 4.
+
+        Returns:
+            A list of document-like objects, each with ``page_content``
+            and ``metadata`` attributes.
+
+        Raises:
+            ValueError: If ``query`` is empty.
+        """
+        if not query:
+            raise ValueError("query must be a non-empty string")
+        if k <= 0:
+            return []
+        vector = self._embed(query)
+        results = self._db.search_memory(self.namespace, vector, top_k=k, distance_metric="cosine")
+        hits = []
+        for hit in results:
+            hits.append(Document(
+                page_content=str(hit.payload),
+                metadata=dict(hit.metadata) if hasattr(hit, 'metadata') else {},
+            ))
+        return hits[:k]
+
+    async def asimilarity_search(self, query: str, k: int = DEFAULT_TOP_K, **kwargs: Any) -> List[Any]:
+        """Async version of ``similarity_search``.
+
+        Delegates to the synchronous implementation through the same
+        thread-executor mechanism as ``aadd_texts``. Provided for
+        compatibility with async framework pipelines.
+
+        Args:
+            query: The search query string.
+            k: Number of results to return. Defaults to 4.
+            **kwargs: Passed through to ``similarity_search``.
+
+        Returns:
+            A list of document-like objects, each with ``page_content``
+            and ``metadata`` attributes.
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None, functools.partial(self.similarity_search, query, k=k)
+        )
+
+    # ── Delete methods ───────────────────────────────────────
+
+    def delete(self, ids: Optional[List[str]] = None) -> bool:
+        """Delete documents by their IDs.
+
+        Args:
+            ids: Optional list of document IDs to delete. If
+                ``None`` or empty, no-op and returns ``True``.
+
+        Returns:
+            ``True`` if the operation completed.
+        """
+        if ids is None:
+            return True
+        if not ids:
+            return True
+        for key in ids:
+            self._db.delete_memory(self.namespace, key)
+        return True
+
+    async def adelete(self, ids: Optional[List[str]] = None, **kwargs: Any) -> Optional[bool]:
+        """Async version of ``delete``.
+
+        Delegates to the synchronous implementation. Provided for
+        compatibility with async framework pipelines.
+
+        Args:
+            ids: Optional list of document IDs to delete.
+            **kwargs: Passed through to ``delete``.
+
+        Returns:
+            ``True`` if the operation completed.
+        """
+        return self.delete(ids, **kwargs)

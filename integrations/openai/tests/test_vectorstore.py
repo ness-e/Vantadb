@@ -1,5 +1,6 @@
 """Tests for VantaDB OpenAI adapter."""
 import pytest
+pytest.importorskip("openai", reason="openai SDK not installed; adapter suite skipped")
 import tempfile
 import os
 import sys

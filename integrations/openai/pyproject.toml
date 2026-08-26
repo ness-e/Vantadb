@@ -34,3 +34,8 @@ Documentation = "https://github.com/ness-e/Vantadb/tree/main/integrations/openai
 
 [tool.hatch.build.targets.wheel]
 packages = ["vantadb_openai"]
+
+# Shared adapter internals live once at integrations/vantadb_shared and are
+# vendored into each twin wheel (not a separate PyPI distribution).
+[tool.hatch.build.targets.wheel.force-include]
+"../vantadb_shared" = "vantadb_shared"

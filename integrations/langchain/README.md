@@ -44,6 +44,18 @@ for doc in results:
 - `delete(ids=...)` — delete by key
 - `from_texts(texts, embedding, metadatas=None, ids=None)` — create + populate store
 
+## Why VantaDB?
+
+- **Embedded & local-first:** the storage engine is a Rust library embedded
+  in your process — no server to deploy, no network hop; data lives in your
+  filesystem.
+- **Persistent hybrid search:** vectors + BM25 text search out of the box,
+  where LangChain's `InMemoryVectorStore` covers only small single-process
+  sessions.
+- **Zero-setup alternative to hosted stacks:** unlike Zep (requires a server)
+  or Cognee (spins up its own knowledge-graph runtime), VantaDB is a plain
+  library you import.
+
 ## Development
 
 ```bash

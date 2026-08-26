@@ -1,5 +1,6 @@
 """Tests for VantaDB Ollama adapter."""
 import pytest
+pytest.importorskip("ollama", reason="ollama SDK not installed; adapter suite skipped")
 import tempfile
 import os
 import sys

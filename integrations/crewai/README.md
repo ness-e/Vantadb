@@ -32,6 +32,17 @@ agent = Agent(
 
 - `VantaDBTool(name, description, db_path, namespace)` — CrewAI-compatible RAG tool
 
+## Why VantaDB?
+
+- **Embedded & local-first:** the storage engine is a Rust library embedded
+  in your process — no server to deploy, no network hop; data lives in your
+  filesystem.
+- **Persistent hybrid search:** vectors + BM25 text search out of the box,
+  where CrewAI's native memory covers only short-term session recall.
+- **Zero-setup alternative to hosted stacks:** unlike Zep (requires a server)
+  or Cognee (spins up its own knowledge-graph runtime), VantaDB is a plain
+  library you import.
+
 ## Development
 
 ```bash
