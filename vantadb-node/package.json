@@ -39,5 +39,17 @@
       "x86_64-apple-darwin"
     ]
   },
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "win32",
+    "darwin",
+    "linux"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
   "license": "Apache-2.0"
 }
