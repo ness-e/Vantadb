@@ -315,11 +315,16 @@ export function CodePlayground() {
       // Execute the user's snippet against the real WASM engine. `db` is a fresh
       // in-memory instance per run; `VantaDB` is exposed in case a snippet wants
       // to instantiate its own handle.
-      // ponytail: `new Function` = arbitrary code execution in-page (self-XSS
-      // only — the snippet runs with the user's own session, same trust level as
-      // the browser console; no other users are affected). Rework into a proper
-      // interpreter/worker if the playground ever accepts untrusted/shared code.
-      // Errors are caught below and surfaced visibly in the output panel.
+      // DECISIÓN (WEB-07): `new Function` = ejecución de código arbitrario
+      // in-page. Es SOLO self-XSS: el snippet corre con la sesión del propio
+      // usuario (mismo nivel de confianza que la consola del devtools); el
+      // playground no acepta código de terceros ni lo comparte vía URL/params.
+      // No se usó sandbox iframe (allow-scripts) porque rompería el editor
+      // live (textarea+overlay+WASM compartido) sin ganancia de seguridad
+      // para el caso de uso actual. Revisitar con iframe srcDoc u otro
+      // interpreter/worker si el playground llega a exponer código no
+      // confiable/compartido (ver web/AGENTS.md → Conocido-pendiente).
+      // Los errores se capturan abajo y se muestran en el panel de salida.
       const fn = new Function(
         "VantaDB",
         "db",

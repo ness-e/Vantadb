@@ -104,13 +104,13 @@ export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
 
           {/* CTA buttons */}
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => onNavigate("docs")}
+            <a
+              href="/docs#quickstart"
               className="btn-neon-glow inline-flex items-center gap-2 border-4 border-black bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
             >
               <Terminal className="h-4 w-4" strokeWidth={2.5} />
               {tt("hero.ctaQuickstart", "5-Minute Quickstart")}
-            </button>
+            </a>
             <button
               onClick={() => onNavigate("benchmarks")}
               className="inline-flex items-center gap-2 border-4 border-black bg-[#FBF9F5] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black transition-colors hover:bg-black hover:text-[#FBF9F5]"
