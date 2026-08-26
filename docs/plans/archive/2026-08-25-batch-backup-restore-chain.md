@@ -1,7 +1,8 @@
 # Plan de Ejecución: Backup/Restore Chain (2026-08-25)
 
+> **Campaign ID:** e997e5cf-fc35-4084-9a02-55648a44b7ee
 > **Inicio:** 2026-08-25
-> **Estado:** ⏳ EN PROGRESO
+> **Estado:** ✅ COMPLETADO (3/3)
 > **Fuente:** docs/Backlog.md (FIND-25, MCP-34b, FIND-26 — hallazgos de RES-02; confirmación del usuario 2026-08-25)
 > **Modo:** FAIL_MODE=stop (cadena secuencial: cada task es prerrequisito de la siguiente)
 
@@ -31,7 +32,7 @@ Status: ⬇️ downhill = 3 (research RES-02 ya definió el diseño S1-S5; ejecu
 - **Gate Result:** ✅ DO
 - **Contrato:** test: snapshot durante writes concurrentes → reopen del snapshot es consistente (todos los nodos o ninguno); recursive copy/link verificado según layout real de data_dir; `cargo nextest run -p vantadb snapshot` pasa
 - **Task file:** `skills/campaign-executor/tasks/FIND-25.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMMITTED `fix(storage)` - quiesce via flush + mirror recursivo, snapshot tests 13/13
 
   **Pre-mortem:**
   - Fallo 1: llamar flush() dentro de create_snapshot causa deadlock si ya hay lock tomado
@@ -57,7 +58,7 @@ Status: ⬇️ downhill = 3 (research RES-02 ya definió el diseño S1-S5; ejecu
 - **Gate Result:** ✅ DO
 - **Contrato:** `StorageEngine::snapshot_restore(name)` + SDK wrapper + MCP tool `snapshot_restore` (identifier validation + destructive-op confirmation arg); test snapshot→mutate→restore→assert retrieval; failpoint `snapshot_restore_fail`; docs ×2 hash SAME
 - **Task file:** `skills/campaign-executor/tasks/MCP-34b.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMMITTED `feat(storage)` - restore core+SDK+MCP, snapshot 24/24, mcp 73/73
 
   **Diseño (de RES-02 §2a):**
   1. Validar name como identifier (anti path-traversal, guard de MCP-34a)
@@ -89,7 +90,18 @@ Status: ⬇️ downhill = 3 (research RES-02 ya definió el diseño S1-S5; ejecu
 - **Gate Result:** ✅ DO
 - **Contrato (wire path):** rotación de segmentos llama archive_segment + test de roundtrip PITR básico. **Contrato (remove path):** wal_archiver.rs eliminado + 0 referencias colgantes + clippy/fmt limpios
 - **Task file:** `skills/campaign-executor/tasks/FIND-26.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMMITTED `refactor(storage)` - wal_archiver.rs removed, ADR-014 superseded, 432/432
+
+=== RECITATION FIND-26 ===
+Campaign ID: e997e5cf-fc35-4084-9a02-55648a44b7ee
+Objetivo activo: FIND-26: remover dead code PITR (wal_archiver.rs) con 0 refs colgantes + decisión documentada
+Estado: completed
+Última acción: Regla 0 completa (496L leídos + grep exhaustivo workspace; solo export lib.rs:149 + Cargo.toml pitr feature + tests propios → STOP CONDITION no disparado). Módulo eliminado, docs vivos actualizados (FEATURES/EXPERIMENTAL_FEATURES/ADR-014 superseded/PRO-FEATURES/UNSAFE_INVENTORY/rules x2/Backlog FIND-26 resuelta + CORE-02 bloqueada-con-nota), verify full PASS
+Resultado: OK
+Próxima acción: Lead: commit 'refactor: FIND-26 — remove dead-code PITR wal_archiver' (9 archivos + 1 borrado). Cadena del plan TERMINADA (3/3 tasks)
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
 
   **Decisión previa (del lead, basada en RES-02 §2b):** REMOVER. Razones: PITR necesita base+log (prerrequisito grande no planificado), sin consumer identificado hoy, y el dead code confunde (parece feature soportada). Si el owner quiere PITR después, git history lo conserva. Documentar en ADR corto o nota en backlog (Regla 5).
   - **Pre-mortem:** —. **Stop conditions:** si al remover aparecen dependencias ocultas (>5 archivos), escalar a question.
@@ -105,3 +117,25 @@ Status: ⬇️ downhill = 3 (research RES-02 ya definió el diseño S1-S5; ejecu
 - plan-adjust [2026-08-25]: creado desde docs/Backlog.md. Usuario eligió dirección "Backup/restore chain". Diseño fuente: docs/research/res02-backup-restore.md (RES-02, batch anterior).
 - El backlog tiene ~30 filas stale (UX/DAUD/etc. completadas en batches agrupados) — limpieza pendiente fuera de este plan.
 - ⬆️ uphill = 0 · ⬇️ downhill = 3
+
+=== RECITATION FIND-25 ===
+Campaign ID: e997e5cf-fc35-4084-9a02-55648a44b7ee
+Objetivo activo: FIND-25: quiesce (flush ERR-010) + recorrido recursivo en create_snapshot, ambas variantes cfg
+Estado: completed
+Última acción: Fix implementado en mod.rs (flush previo + mirror_data_dir/mirror_file recursivos, guard read_only, docstrings con trade-off), test de regresión agregado, verify completo PASS, registro en avance + Backlog (FIND-33 colateral), memoria escrita
+Resultado: OK
+Próxima acción: Lead: commit 'feat: FIND-25 — create_snapshot quiesce + recursive mirror'; luego ejecutar MCP-34b (Task 2 del plan)
+Contrato: verificacion: cargo nextest run -p vantadb snapshot --test snapshot_certification --ignore-default-filter -> 6/6 PASS (FIND-25 + existentes); cargo nextest run -p vantadb snapshot -> 13 unit PASS; fmt/clippy -D warnings/check PASS; evidencia: claim 'quiesce cierra tear de conjunto' -> src/storage/engine/mod.rs create_snapshot x2 + maintenance.rs:36-132 (confianza alta); claim 'layout data_dir solo archivos top-level' -> grep data_dir.join( + init.rs:298 (alta); claim 'backend KV fuera de data_dir' -> init.rs:287 FjallBackend::open(path) con path=storage_path raiz (alta); artefactos: task file FIND-25.md, docs/avance/activo/core-engine.md, Backlog FIND-33; invariantes: no tocar wal.rs/vector//backends/; flush() NO duplicado; snapshots/ excluido de la recursion; deuda: test RED no reproduce tear pre-fix en Windows (replay WAL enmascara) - guardia de contrato; FIND-33 pendiente; queda_pendiente: lead verifica mecanico + commit; MCP-34b prerrequisito satisfecho
+Próxima tarea si completa: MCP-34b
+=== END RECITATION ===
+
+=== RECITATION MCP-34b ===
+Campaign ID: e997e5cf-fc35-4084-9a02-55648a44b7ee
+Objetivo activo: MCP-34b: snapshot_restore core + SDK wrapper + MCP tool con identifier validation + confirm destructiva
+Estado: completed
+Última acción: Implementacion completa S1-S6: StorageEngine::snapshot_restore (staging hermano + rollback), VantaEmbedded::restore_from, MCP tool con confirm literal, 4 tests nuevos, docs x2 actualizadas; verify full PASS
+Resultado: OK
+Próxima acción: Lead: commit; orquestador: ejecutar FIND-26
+Contrato: verificacion: cargo nextest run -p vantadb snapshot --ignore-default-filter -> 24/24 PASS; cargo nextest run -p vantadb-mcp --test mcp_tests --ignore-default-filter -> 73/73 PASS; failpoint test (features failpoints) 1/1 PASS; cargo fmt --check OK; cargo clippy --workspace --all-targets --all-features sin warnings | evidencia: claim 'restore recupera estado pre-snapshot y revierte mutaciones' -> tests/core/snapshot_certification.rs test_snapshot_restore_roundtrip PASS (confianza alta); claim 'trust boundary name validado en core y MCP' -> mod.rs validate_snapshot_name + tools.rs guard duplicado, test_snapshot_restore_rejects_unsafe_names PASS (alta); claim 'confirm literal true requerido' -> tools.rs dispatch + mcp_tests test_snapshot_restore_requires_confirmation_and_identifier PASS (alta); claim 'failpoint aborta sin tocar data' -> test_snapshot_restore_failpoint_aborts_before_swap PASS (alta) | artefactos: .opencode/skills/campaign-executor/tasks/MCP-34b.md, src/storage/engine/mod.rs, src/sdk/builder.rs, vantadb-mcp/src/handlers/tools.rs, tests/core/snapshot_certification.rs, vantadb-mcp/tests/mcp_tests.rs, docs/api/EMBEDDED_SDK.md, docs/api/MCP.md | invariantes: no tocar wal.rs/vector//backends/ (respetado); mirror_data_dir intacto; snapshots/ sobrevive el swap (test lo assertiona); CLI fuera de contrato | deuda: en Unix un engine abierto durante restore no falla loud (fork silencioso de estado) - documentado en docstrings EMBEDDED_SDK/MCP como contrato embedded; MCP tool deja el engine del server stale hasta restart - nota explicita en payload de exito | queda_pendiente: lead verifica mecanico + commit 'feat: MCP-34b — snapshot_restore core+SDK+MCP'; luego FIND-26 (Task 3: remover wal_archiver dead code)
+Próxima tarea si completa: FIND-26
+=== END RECITATION ===

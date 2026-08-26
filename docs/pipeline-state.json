@@ -1,8 +1,8 @@
 {
-  "plan": "docs/plans/archive/2026-08-25-batch-core-fixes-research.md",
-  "totalCompleted": 9,
+  "plan": "docs/plans/archive/2026-08-25-batch-backup-restore-chain.md",
+  "totalCompleted": 3,
   "consecutiveFails": 0,
-  "total": 9,
+  "total": 3,
   "failMode": "stop",
   "totalFailed": 0,
   "lastSync": "2026-08-25T00:00:00Z"

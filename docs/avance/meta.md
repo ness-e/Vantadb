@@ -134,3 +134,11 @@ Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña
 - **Continue:** verify mecánico del lead antes de cada commit; hallazgos colaterales ruteados a Backlog en el momento (FIND-24, MCP-34b, FIND-25, FIND-26); STOP CONDITIONS respetadas.
 - **Accion medible:** 1/6 hallazgos verificados estaba ya resuelto (AUD-043) — métrica: tasa de stale-detection al triagear. North Star: 9/9 first-try, 0 falsos positivos.
 - **Outputs de research:** RES-01 GO condicional (WAL v2 Prepare tras flag+bench) · RES-02 restore físico S1-S5 recomendado (+MCP-34b/FIND-25/FIND-26) · RES-03 session layer defer-as-scoped (DEC-01 resuelta).
+
+## Retrospectiva — Backup/Restore Chain (plan 2026-08-25-batch-backup-restore-chain)
+- **Cierre:** 3/3 tareas secuenciales (FIND-25 → MCP-34b → FIND-26), 3 commits. 0 failed. La cadena completa backup/restore física quedó operativa: create_snapshot consistente (quiesce+mirror recursivo) → snapshot_restore (core+SDK+MCP con confirm destructiva) → PITR dead code removida (ADR-014 superseded).
+- **Start:** research previa (RES-02) con diseño file:line verificado hizo la ejecución directa (0 incógnitas); plan secuencial por dependencias evitó colisiones; hallazgo colateral ruteado en el momento (FIND-33: snapshot tras compact_wal pierde datos — backend KV fuera de data_dir).
+- **Stop:** cargo clean -p vantadb durante compilación de la otra sesión rompió el target dir compartido (48GB, STATUS_STACK_BUFFER_OVERRUN). NUNCA limpiar cache compartido con otra sesión compilando — esperar o verificar con --target aislado.
+- **Continue:** verify mecánico del lead antes de cada commit; Regla 0 antes de eliminar (FIND-26: grep exhaustivo confirmó solo export+tests propios).
+- **Accion medible:** cadena ejecutada 3/3 first-try con diseño previo de research vs batches sin diseño (~1 retry promedio). North Star cumplida: 0 falsos positivos, 0 regresiones.
+- **Deuda:** FIND-33 abierto (snapshot tras compact_wal — rediseño >100 líneas); stash@{1..9} viejos sin revisar.
