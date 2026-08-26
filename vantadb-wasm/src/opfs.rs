@@ -82,7 +82,14 @@ impl OpfsFile {
     }
 
     /// Append data to the end of the file.
+    ///
+    /// Computes the current file size first and writes at that offset,
+    /// mirroring `opfs_bridge.js::appendFile`: `keepExistingData` alone is
+    /// not enough because a bare `write(data)` starts at position 0 and
+    /// overwrites the head of the file.
     pub async fn append(&self, data: &[u8]) -> Result<(), JsValue> {
+        let file = js_call(&self.handle, "getFile", &js_sys::Array::new()).await?;
+        let size = Reflect::get(&file, &"size".into())?;
         let opts = js_sys::Object::new();
         Reflect::set(&opts, &"keepExistingData".into(), &true.into())?;
         let args = js_sys::Array::new();
@@ -90,8 +97,12 @@ impl OpfsFile {
         let writable = js_call(&self.handle, "createWritable", &args).await?;
         let buf = Uint8Array::new_with_length(data.len() as u32);
         buf.copy_from(data);
+        let write_opts = js_sys::Object::new();
+        Reflect::set(&write_opts, &"type".into(), &"write".into())?;
+        Reflect::set(&write_opts, &"position".into(), &size)?;
+        Reflect::set(&write_opts, &"data".into(), &buf)?;
         let write_args = js_sys::Array::new();
-        write_args.push(&buf);
+        write_args.push(&write_opts);
         js_call(&writable, "write", &write_args).await?;
         js_call(&writable, "close", &js_sys::Array::new()).await?;
         Ok(())
@@ -204,30 +215,40 @@ impl OpfsStorage {
 
     /// Read a file from OPFS, returning None if it does not exist.
     ///
-    /// Verifies the CRC-32 footer appended by `write_file`. If the footer
-    /// is absent or doesn't match (e.g. legacy files), the raw data is
-    /// returned as-is for backward compatibility.
+    /// Verifies the CRC-32 footer appended by `write_file`. A footer
+    /// mismatch (or a file too short to carry one) means the stored bytes
+    /// are corrupt or were written by a foreign tool — this errors with a
+    /// descriptive message instead of returning raw bytes that would later
+    /// explode in JSON parsing far away from the actual cause.
     pub async fn read_file(&self, path: &str) -> Result<Option<Vec<u8>>, JsValue> {
         let file = match OpfsFile::open(&self.dir_handle, path, false).await? {
             Some(f) => f,
             None => return Ok(None),
         };
         let data = file.read().await?;
-        // Try to verify CRC-32 footer: last 4 bytes are the checksum.
-        if data.len() >= 4 {
-            let stored = u32::from_le_bytes([
-                data[data.len() - 4],
-                data[data.len() - 3],
-                data[data.len() - 2],
-                data[data.len() - 1],
-            ]);
-            let actual = crc32(&data[..data.len() - 4]);
-            if stored == actual {
-                return Ok(Some(data[..data.len() - 4].to_vec()));
-            }
-            // Checksum mismatch or legacy file — fall through to raw.
+        // Verify the CRC-32 footer: the last 4 bytes must checksum the rest.
+        // Anything shorter cannot have been written by `write_file`.
+        if data.len() < 4 {
+            return Err(JsValue::from_str(&format!(
+                "storage corrupted: '{path}' is {} bytes, too short for a CRC-footer file",
+                data.len()
+            )));
         }
-        Ok(Some(data))
+        let split = data.len() - 4;
+        let stored = u32::from_le_bytes([
+            data[split],
+            data[split + 1],
+            data[split + 2],
+            data[split + 3],
+        ]);
+        let actual = crc32(&data[..split]);
+        if stored != actual {
+            return Err(JsValue::from_str(&format!(
+                "storage corrupted: CRC-32 mismatch reading '{path}' \
+                 (stored {stored:#010x}, computed {actual:#010x})"
+            )));
+        }
+        Ok(Some(data[..split].to_vec()))
     }
 
     /// Delete a file at the given path from OPFS.
@@ -246,12 +267,16 @@ impl OpfsStorage {
         Ok(())
     }
 
-    /// Append data to an existing file. Creates the file if it doesn't exist.
+    /// Append data to an existing file, keeping the CRC-footer format used
+    /// by [`OpfsStorage::write_file`] so the result stays readable through
+    /// `read_file`. Creates the file if it doesn't exist.
+    ///
+    /// ponytail: full rewrite per append (O(file) copy, atomic rename kept) —
+    /// switch to a streaming WAL layout if append throughput ever matters.
     pub async fn append_file(&self, path: &str, data: &[u8]) -> Result<(), JsValue> {
-        let file = OpfsFile::open(&self.dir_handle, path, true)
-            .await?
-            .ok_or_else(|| JsValue::from_str("OpfsFile::open returned None with create=true"))?;
-        file.append(data).await
+        let mut buf = self.read_file(path).await?.unwrap_or_default();
+        buf.extend_from_slice(data);
+        self.write_file(path, &buf).await
     }
 
     /// Return the raw JS directory handle (for advanced use).

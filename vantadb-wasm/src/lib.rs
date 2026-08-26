@@ -119,12 +119,48 @@ struct ListOptions {
     filters: VantaMemoryMetadata,
     #[serde(default = "default_limit")]
     limit: usize,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, deserialize_with = "deserialize_cursor")]
     cursor: Option<usize>,
 }
 
 fn default_limit() -> usize {
     100
+}
+
+/// Deserialize a pagination cursor from JS.
+///
+/// Policy string-u64: cursors travel as decimal strings so values beyond
+/// 2^53 are never lossy through f64. Plain numbers are still accepted for
+/// backward compatibility with older callers.
+fn deserialize_cursor<'de, D>(deserializer: D) -> Result<Option<usize>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde_json::Value as Json;
+    match Option::<Json>::deserialize(deserializer)? {
+        None | Some(Json::Null) => Ok(None),
+        Some(Json::String(s)) => s
+            .parse::<usize>()
+            .map(Some)
+            .map_err(|e| serde::de::Error::custom(format!("invalid cursor '{s}': {e}"))),
+        Some(Json::Number(n)) => n
+            .as_u64()
+            .and_then(|u| usize::try_from(u).ok())
+            .map(Some)
+            .ok_or_else(|| serde::de::Error::custom("cursor value out of range")),
+        Some(other) => Err(serde::de::Error::custom(format!(
+            "cursor must be a decimal string or number, got {other}"
+        ))),
+    }
+}
+
+/// Serialize a page cursor for JS as a decimal string (policy string-u64:
+/// avoids f64 precision loss above 2^53). `None` becomes `null`.
+fn next_cursor_to_js(cursor: Option<u64>) -> JsValue {
+    match cursor {
+        Some(c) => JsValue::from_str(&c.to_string()),
+        None => JsValue::NULL,
+    }
 }
 
 // ── JS‑facing record types (u64 → String for JS Number safety) ──────────
@@ -374,6 +410,18 @@ impl Drop for OpGuard {
 fn enter(gate: &OpGate) -> Result<OpGuard, JsValue> {
     gate.try_enter()
         .ok_or_else(|| JsValue::from_str("database is closing"))
+}
+
+/// Emit `console.warn(msg)` when a console exists (best-effort, never throws).
+fn console_warn(msg: &str) {
+    let global = js_sys::global();
+    let console = js_sys::Reflect::get(&global, &"console".into()).ok();
+    let warn = console
+        .as_ref()
+        .and_then(|c| js_sys::Reflect::get(c, &"warn".into()).ok());
+    if let Some(w) = warn.and_then(|w| w.dyn_into::<js_sys::Function>().ok()) {
+        let _ = w.call1(&JsValue::undefined(), &JsValue::from_str(msg));
+    }
 }
 
 const MAX_RECORDS: usize = 1_000_000;
@@ -975,7 +1023,11 @@ impl VantaDB {
         }
         js_sys::Reflect::set(&obj, &"records".into(), &arr).ok();
         if let Some(cursor) = page.next_cursor {
-            js_sys::Reflect::set(&obj, &"next_cursor".into(), &(cursor as f64).into()).ok();
+            let _ = js_sys::Reflect::set(
+                &obj,
+                &"next_cursor".into(),
+                &next_cursor_to_js(Some(cursor as u64)),
+            );
         }
         Ok(obj.into())
     }
@@ -1251,9 +1303,20 @@ impl VantaDB {
         to_js(&report)
     }
 
-    /// Flush all pending writes to disk.
+    /// Flush engine-internal buffers.
+    ///
+    /// NOTE (H-05): this is NOT a durability guarantee in the browser — the
+    /// engine backend here may be purely in-memory. Persisted state only
+    /// becomes durable after an explicit `save()` / `save_idb()` call.
+    /// Emits a console warning when no persistent backend is attached.
     pub fn flush(&self) -> Result<(), JsValue> {
         let _g = enter(&self.op_gate)?;
+        if self.opfs.is_none() {
+            console_warn(
+                "VantaDB.flush(): engine buffers flushed, but this is not a durability \
+                 guarantee in the browser — call save() / save_idb() to persist.",
+            );
+        }
         self.inner.flush().map_err(to_js_err)
     }
 
@@ -1703,6 +1766,67 @@ mod core02_graph_persist_tests {
     }
 }
 
+// ── H-08: cursor policy tests (string-u64) ─────────────────────────────
+//
+// Contract: cursors cross the JS boundary as decimal strings, never f64,
+// so values beyond 2^53 keep their exact digits. Runs under
+// `wasm-pack test --node` (pure JS-value plumbing, no OPFS needed).
+#[cfg(all(test, target_arch = "wasm32"))]
+mod cursor_policy_tests {
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen_test]
+    fn next_cursor_serializes_as_decimal_string() {
+        // 2^53 + 1 is not representable as f64 — the string must carry it.
+        let big: u64 = (1u64 << 53) + 1;
+        let v = next_cursor_to_js(Some(big));
+        assert!(v.is_string(), "next_cursor must be a JS string");
+        assert_eq!(
+            v.as_string().as_deref(),
+            Some("9007199254740993"),
+            "exact digits must survive the boundary"
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn next_cursor_none_is_null() {
+        let v = next_cursor_to_js(None);
+        assert!(v.is_null());
+    }
+
+    #[wasm_bindgen_test]
+    fn list_options_accepts_decimal_string_cursor() {
+        let obj = js_sys::Object::new();
+        js_sys::Reflect::set(&obj, &"cursor".into(), &JsValue::from_str("12345")).unwrap();
+        let opts: ListOptions = from_js(obj.into()).expect("string cursor parses");
+        assert_eq!(opts.cursor, Some(12345));
+    }
+
+    #[wasm_bindgen_test]
+    fn list_options_accepts_numeric_cursor_back_compat() {
+        let obj = js_sys::Object::new();
+        js_sys::Reflect::set(&obj, &"cursor".into(), &JsValue::from_f64(7.0)).unwrap();
+        let opts: ListOptions = from_js(obj.into()).expect("legacy numeric cursor parses");
+        assert_eq!(opts.cursor, Some(7));
+    }
+
+    #[wasm_bindgen_test]
+    fn list_options_rejects_garbage_cursor() {
+        let obj = js_sys::Object::new();
+        js_sys::Reflect::set(&obj, &"cursor".into(), &JsValue::from_str("not-a-number")).unwrap();
+        assert!(from_js::<ListOptions>(obj.into()).is_err());
+    }
+
+    #[wasm_bindgen_test]
+    fn flush_smoke_without_persistent_backend() {
+        // H-05: flush stays callable with no OPFS attached; it must warn
+        // (console side-effect not asserted here) and still return Ok.
+        let db = VantaDB::new(None).expect("db");
+        db.flush().expect("flush without persistent backend");
+    }
+}
+
 /// Parse a graph node id from a JS string.
 ///
 /// Node ids are u128 in the core SDK; JS Numbers lose precision above 2^53 and
@@ -1797,15 +1921,23 @@ mod tests {
         VantaDB::new(None).expect("failed to create VantaDB")
     }
 
+    /// Serialize a serde value into a JS value with the JSON-compatible
+    /// serializer (plain objects). serde-wasm-bindgen 0.6's default serializer
+    /// turns maps into ES2015 `Map` instances, which `from_value` cannot read
+    /// as struct fields ("missing field ..." errors).
+    fn json_to_js<T: serde::Serialize>(value: &T) -> JsValue {
+        serde::Serialize::serialize(value, &serde_wasm_bindgen::Serializer::json_compatible())
+            .expect("json to js value")
+    }
+
     #[wasm_bindgen_test]
     fn test_put_and_get() {
         let db = create_db();
-        let input = serde_wasm_bindgen::to_value(&serde_json::json!({
+        let input = json_to_js(&serde_json::json!({
             "namespace": "test",
             "key": "hello",
             "payload": "world"
-        }))
-        .unwrap();
+        }));
         db.put(input).unwrap();
         let got = db.get("test", "hello").unwrap();
         assert!(!got.is_null());
@@ -1823,12 +1955,11 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_delete_record() {
         let db = create_db();
-        let input = serde_wasm_bindgen::to_value(&serde_json::json!({
+        let input = json_to_js(&serde_json::json!({
             "namespace": "test",
             "key": "todelete",
             "payload": "bye"
-        }))
-        .unwrap();
+        }));
         db.put(input).unwrap();
         let deleted = db.delete("test", "todelete").unwrap();
         assert!(deleted);
@@ -1847,28 +1978,25 @@ mod tests {
     fn test_delete_by_filter_counts() {
         let db = create_db();
         for i in 0..3 {
-            let input = serde_wasm_bindgen::to_value(&serde_json::json!({
+            let input = json_to_js(&serde_json::json!({
                 "namespace": "filterdel",
                 "key": format!("hot_{i}"),
                 "payload": "x",
                 "metadata": { "tier": { "String": "hot" } }
-            }))
-            .unwrap();
+            }));
             db.put(input).unwrap();
         }
-        let keep = serde_wasm_bindgen::to_value(&serde_json::json!({
+        let keep = json_to_js(&serde_json::json!({
             "namespace": "filterdel",
             "key": "keep",
             "payload": "x",
             "metadata": { "tier": { "String": "cold" } }
-        }))
-        .unwrap();
+        }));
         db.put(keep).unwrap();
 
-        let filter = serde_wasm_bindgen::to_value(&serde_json::json!([
+        let filter = json_to_js(&serde_json::json!([
             { "field": "tier", "op": "Eq", "value": { "String": "hot" } }
-        ]))
-        .unwrap();
+        ]));
         let deleted = db.delete_by_filter("filterdel", filter).unwrap();
         assert_eq!(deleted, 3);
         // Non-matching record survives.
@@ -1878,9 +2006,12 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_delete_by_filter_empty_rejected() {
         let db = create_db();
-        let empty = serde_wasm_bindgen::to_value(&serde_json::json!([])).unwrap();
+        let empty = json_to_js(&serde_json::json!([]));
         let err = db.delete_by_filter("filterdel", empty).unwrap_err();
-        let msg = err.as_string().unwrap_or_default();
+        let msg = err
+            .as_string()
+            .or_else(|| js_sys::Error::from(err).message().as_string())
+            .unwrap_or_default();
         assert!(
             msg.contains("requires at least one filter item"),
             "unexpected error: {msg}"
@@ -1890,13 +2021,12 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_empty_vector_put() {
         let db = create_db();
-        let input = serde_wasm_bindgen::to_value(&serde_json::json!({
+        let input = json_to_js(&serde_json::json!({
             "namespace": "test",
             "key": "empty_vec",
             "payload": "no vector",
             "vector": []
-        }))
-        .unwrap();
+        }));
         let record = db.put(input).unwrap();
         assert!(!record.is_null());
         let got = db.get("test", "empty_vec").unwrap();
@@ -1906,13 +2036,12 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_put_and_get_with_vector() {
         let db = create_db();
-        let input = serde_wasm_bindgen::to_value(&serde_json::json!({
+        let input = json_to_js(&serde_json::json!({
             "namespace": "test",
             "key": "vec_key",
             "payload": "vector data",
             "vector": [0.1, 0.2, 0.3, 0.4]
-        }))
-        .unwrap();
+        }));
         db.put(input).unwrap();
         let got = db.get("test", "vec_key").unwrap();
         assert!(!got.is_null());
@@ -1925,7 +2054,7 @@ mod tests {
         for i in 0..100 {
             meta.insert(
                 format!("key_{}", i),
-                serde_json::Value::String(format!("value_{}", i)),
+                serde_json::json!({ "String": format!("value_{}", i) }),
             );
         }
         let input_val = serde_json::json!({
@@ -1934,7 +2063,7 @@ mod tests {
             "payload": "big metadata payload",
             "metadata": meta
         });
-        let input = serde_wasm_bindgen::to_value(&input_val).unwrap();
+        let input = json_to_js(&input_val);
         db.put(input).unwrap();
         let got = db.get("test", "large_meta").unwrap();
         assert!(!got.is_null());
@@ -1944,7 +2073,7 @@ mod tests {
     fn test_put_batch_empty() {
         let db = create_db();
         let items: Vec<serde_json::Value> = vec![];
-        let batch = serde_wasm_bindgen::to_value(&items).unwrap();
+        let batch = json_to_js(&items);
         let records = db.put_batch(batch).unwrap();
         assert!(records.is_array());
     }
@@ -1962,7 +2091,7 @@ mod tests {
                 })
             })
             .collect();
-        let batch = serde_wasm_bindgen::to_value(&items).unwrap();
+        let batch = json_to_js(&items);
         db.put_batch(batch).unwrap();
         for i in 0..10 {
             let got = db.get("batch", &format!("item_{}", i)).unwrap();
@@ -1976,13 +2105,12 @@ mod tests {
     fn test_concurrent_put_get() {
         let db = create_db();
         for i in 0..20 {
-            let input = serde_wasm_bindgen::to_value(&serde_json::json!({
+            let input = json_to_js(&serde_json::json!({
                 "namespace": "concurrent",
                 "key": format!("key_{}", i),
                 "payload": format!("data {}", i),
                 "vector": [i as f32 * 0.05, 0.1, 0.2, 0.3]
-            }))
-            .unwrap();
+            }));
             db.put(input).unwrap();
             let got = db.get("concurrent", &format!("key_{}", i)).unwrap();
             assert!(!got.is_null());
@@ -2008,19 +2136,17 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_search_without_results() {
         let db = create_db();
-        let input = serde_wasm_bindgen::to_value(&serde_json::json!({
+        let input = json_to_js(&serde_json::json!({
             "namespace": "test",
             "key": "only_text",
             "payload": "some text content for text-only search"
-        }))
-        .unwrap();
+        }));
         db.put(input).unwrap();
-        let req = serde_wasm_bindgen::to_value(&serde_json::json!({
+        let req = json_to_js(&serde_json::json!({
             "namespace": "test",
             "query_vector": [0.1, 0.2, 0.3, 0.4],
             "top_k": 5
-        }))
-        .unwrap();
+        }));
         let hits = db.search(req).unwrap();
         assert!(hits.is_array() || hits.is_null());
     }
@@ -2084,21 +2210,19 @@ mod tests {
         // and no (namespace, key) pair appears twice.
         let db = create_db();
         for (ns, key) in [("ns_a", "k1"), ("ns_a", "k2"), ("ns_b", "k1")] {
-            let input = serde_wasm_bindgen::to_value(&serde_json::json!({
+            let input = json_to_js(&serde_json::json!({
                 "namespace": ns,
                 "key": key,
                 "payload": "p"
-            }))
-            .unwrap();
+            }));
             db.put(input).unwrap();
         }
         // Overwrite an existing key — must not create a second record.
-        let dup = serde_wasm_bindgen::to_value(&serde_json::json!({
+        let dup = json_to_js(&serde_json::json!({
             "namespace": "ns_a",
             "key": "k1",
             "payload": "overwritten"
-        }))
-        .unwrap();
+        }));
         db.put(dup).unwrap();
 
         let records = db.collect_all_deduped().unwrap();

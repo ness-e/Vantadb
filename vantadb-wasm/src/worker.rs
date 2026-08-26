@@ -168,9 +168,25 @@ impl OpfsWorker {
 const MAX_RETRIES: u32 = 2;
 const BASE_DELAY_MS: u32 = 1000;
 
+/// `error.name` carried by our timeout rejections. Retry logic keys off this
+/// structured marker instead of substring-matching message text (H-16).
+const TIMEOUT_ERROR_NAME: &str = "VantaWorkerTimeout";
+
+/// Retry only on our own typed timeout rejection — never on arbitrary
+/// message text (H-16).
 fn is_retryable(err: &JsValue) -> bool {
-    err.as_string()
-        .is_some_and(|s| s.contains("timeout") || s.contains("abort") || s.contains("try again"))
+    err.dyn_ref::<js_sys::Error>().is_some_and(|e| {
+        e.name()
+            .as_string()
+            .is_some_and(|n| n == TIMEOUT_ERROR_NAME)
+    })
+}
+
+/// Best-effort `port.close()`.
+fn close_port(port: &JsValue) {
+    if let Ok(f) = get_fn(port, "close") {
+        let _ = f.call0(port);
+    }
 }
 
 /// A proxy that communicates with an OPFS Web Worker.
@@ -235,7 +251,8 @@ impl OpfsWorkerProxy {
         let port1 = Reflect::get(&channel, &"port1".into())?;
         let port2 = Reflect::get(&channel, &"port2".into())?;
 
-        // Set up the response listener on port1.
+        // Set up the response listener on port1. The handler closes the
+        // port after delivering the response (H-16: ports leaked per request).
         let promise = js_sys::Promise::new(&mut {
             let port1 = port1.clone();
             move |resolve: js_sys::Function, reject: js_sys::Function| {
@@ -249,6 +266,8 @@ impl OpfsWorkerProxy {
                         port._resolve(arguments[0].data);
                     } catch(e) {
                         port._reject(e);
+                    } finally {
+                        port.close();
                     }
                     "#,
                 );
@@ -263,17 +282,45 @@ impl OpfsWorkerProxy {
         post_args.push(&msg);
         post_args.push(&transfer);
         let post_fn = get_fn(&self.worker, "postMessage")?;
-        post_fn.apply(&self.worker, &post_args)?;
+        if post_fn.apply(&self.worker, &post_args).is_err() {
+            close_port(&port1);
+            return Err(JsValue::from_str("worker postMessage failed"));
+        }
 
-        // Add a timeout to prevent hanging if the worker never responds.
+        // Timeout guard (H-16): rejects with a typed error whose `name` is
+        // TIMEOUT_ERROR_NAME and closes port1 so a late reply cannot
+        // resurrect a dead request.
         let timeout_promise = Promise::new(&mut {
-            move |resolve: js_sys::Function, reject: js_sys::Function| {
-                let js_code = format!(
-                    "setTimeout(function(){{ reject(new Error('Worker response timeout after {}ms')); }}, {});",
-                    WORKER_TIMEOUT_MS, WORKER_TIMEOUT_MS
-                );
-                let wrapper = js_sys::Function::new_with_args("resolve, reject", &js_code);
-                wrapper.call2(&JsValue::undefined(), &resolve, &reject).ok();
+            let port1 = port1.clone();
+            move |_resolve: js_sys::Function, reject: js_sys::Function| {
+                let global = js_sys::global();
+                match Reflect::get(&global, &"setTimeout".into()) {
+                    Ok(set_timeout) => {
+                        let set_timeout_fn = js_sys::Function::from(set_timeout);
+                        let cb = js_sys::Function::new_with_args(
+                            "port, reject",
+                            &format!(
+                                "const e = new Error('Worker response timeout after \
+                                 {WORKER_TIMEOUT_MS}ms'); \
+                                 e.name = '{TIMEOUT_ERROR_NAME}'; \
+                                 port.close(); reject(e);"
+                            ),
+                        );
+                        let args = Array::new();
+                        args.push(&cb);
+                        args.push(&JsValue::from_f64(WORKER_TIMEOUT_MS as f64));
+                        args.push(&port1);
+                        args.push(&reject);
+                        Reflect::apply(&set_timeout_fn, &global, &args).ok();
+                    }
+                    Err(_) => {
+                        // No timers available (non-browser): fail fast instead of hanging.
+                        let err = js_sys::Error::new("setTimeout unavailable in worker proxy");
+                        err.set_name(TIMEOUT_ERROR_NAME);
+                        close_port(&port1);
+                        let _ = reject.call1(&JsValue::undefined(), &err.into());
+                    }
+                }
             }
         });
         let raced = Promise::race(&Array::of2(&promise, &timeout_promise));

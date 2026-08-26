@@ -2,8 +2,11 @@ use js_sys::{Function, Promise, Reflect, Uint8Array};
 use wasm_bindgen::prelude::*;
 
 // Inline IndexedDB persistence bridge — no external JS import needed.
+// BND-01: the snippet MUST export a function — an `extern "C" {}` with no
+// imports makes wasm-bindgen drop the snippet from the bundle, so the
+// bridge would never register. `init()` is called lazily from `storage()`.
 #[wasm_bindgen(inline_js = r#"
-(function() {
+export function init() {
     if (typeof globalThis !== "undefined" && globalThis.vantaIdbStorage) return;
     const DB_NAME = "VantaDB";
     const STORE_NAME = "state";
@@ -57,17 +60,28 @@ use wasm_bindgen::prelude::*;
     };
     const g = typeof globalThis !== "undefined" ? globalThis : window;
     g.vantaIdbStorage = storage;
-})();
+}
 "#)]
-extern "C" {}
+extern "C" {
+    /// Register `globalThis.vantaIdbStorage` (idempotent).
+    fn init();
+}
 // NOTA BND-01: la IIFE anterior se auto-ejecuta al cargar el módulo snippet y
 // registra globalThis.vantaIdbStorage antes de cualquier llamada. No se declara
 // ningún import extern del snippet (un import sin export correspondiente produce
 // LinkError: WebAssembly.Instance() — ver Backlog BND-01).
 
 fn storage() -> Result<JsValue, JsValue> {
-    // La bridge ya está registrada por la IIFE del snippet al importar el módulo.
-    let val = Reflect::get(&js_sys::global(), &"vantaIdbStorage".into())?;
+    // The bridge registers lazily on first use: `init()` is the exported
+    // snippet entry point (BND-01), idempotent via the guard inside.
+    let mut val = Reflect::get(&js_sys::global(), &"vantaIdbStorage".into())?;
+    if val.is_undefined() {
+        // `init` is the exported snippet entry point (pure JS that assigns
+        // `globalThis.vantaIdbStorage`); it is idempotent, so calling it
+        // twice is harmless.
+        init();
+        val = Reflect::get(&js_sys::global(), &"vantaIdbStorage".into())?;
+    }
     if val.is_undefined() {
         return Err(JsValue::from_str(
             "vantaIdbStorage not available — inline bridge failed to register",

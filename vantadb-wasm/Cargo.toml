@@ -42,6 +42,9 @@ ignored = ["getrandom", "getrandom_04"]
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
+# Same crate/version as the core (`twox-hash = "2.1.2"`): lets integration
+# tests compute the deterministic `node_id` that import_records validates.
+twox-hash = "2.1.2"
 
 [lints]
 workspace = true
