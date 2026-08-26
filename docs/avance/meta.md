@@ -154,3 +154,10 @@ Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña
 - **Bloqueados (con destino):** PROV-09 CI job + QW-7 PyPI publish (tokens owner) · BND-08/BND-09 npm/musl (tokens owner) · PY-QW2/P2-5 (llamaindex tuplas legacy primero — ver lessons) · DESKTOP-45 creado (H-11/H-15/H-07 restos) · WEB-05 Lighthouse EPERM ambiental · SRV-04..08 en Backlog P40.
 - **Incidentes:** 2 interferencias entre agentes paralelos (revert percibido providers, commit externo pisó ediciones ts) — auto-reparados; 1 stash ajeno aplicado y restaurado por el agente py (lección: nada de stash con agentes paralelos); web agent abortó tras implementar → lead verificó build y commiteó.
 - **Pendiente bookkeeping:** migración filas Backlog→avance de las completadas por estos commits (pasada progreso Trigger 1 dedicada); verify.ps1 completo antes de push (pre-push hook lo enforced).
+
+## Retrospectiva — Python SDK Quick Wins (plan 2026-08-25-py-quickwins)
+- **Cierre:** 5/5 tareas completadas (1 commit código + 4 verificación/docs). 0 failed, 0 stalled. Wave 1: {PY-QW1, PY-QW2, PY-QW3} · Wave 2: {PY-QW4, PY-QW5}. Todas ✅ first-try.
+- **Start (seguir haciendo):** verificación empírica ANTES de editar (PY-QW1/PY-QW3 ya resueltas, PY-QW4 solo .gitignore nuevo, PY-QW5 ya presente) — evita reimplementar; contracts verificables simples (rg, classifier check, git status).
+- **Stop (dejar de hacer):** confiar en hipótesis del backlog sin diagnóstico (PY-QW2: la dual API real era 53 líneas, no 100+; PY-QW3 ya tenía 3.14).
+- **Continue:** contracts mínimos por tarea; lead verifica+commitea; plan file archivado tras cierre.
+- **Accion medible:** 3/5 tareas del plan ya estaban resueltas al triagear (PY-QW1, PY-QW3, PY-QW5) — métrica: tasa de stale-detection al inicio = 60%. North Star: 5/5 first-try (100%), 0 falsos positivos, 0 regresiones.

@@ -250,3 +250,36 @@ aliases: []
 - **Plan:** `docs/plans/2026-08-25-batch-colaterales-deuda-desktop.md` (Task 6, Wave 2)
 - **Objetivo:** Resolver los 5 nits del review P32 sobre el MCP server.
 - **Resultado:** OK - H4: `search_semantic` clampa `k` contra `config.max_top_k` (misma cap que `search_memory`; antes un k gigante materializaba todo el HNSW) + test `test_mcp_search_semantic_clamps_k`. H5: timeout de `spawn_blocking` no cancela el trabajo (tokio no aborta blocking tasks) — documentado como limitacion en server.rs y SKILL.md (no forzado: CancellationToken cooperativo seria invasivo/riesgo regresion). H6: `total_bytes` de `collection_stats` documentado como estimacion deliberada (Debug-len de metadata). H7: `namespace://` usa `config.default_list_limit` en vez de hardcode 100; paginacion via `memory_list` documentada. H8: nota threat model LLM06 en SKILL.md Security (bulk_import_file/wiki_ingest rutas host arbitrarias + tools destructivas ungated). Verify: `cargo test -p vantadb-mcp --test mcp_tests` 72/72, fmt 0, clippy -D warnings 0, check 0, docs x2 hash SAME DF1A68FA. Sin commit (regla batch: lo commitea el lead). Commit sugerido: `fix(mcp): MOD-11 nits H4-H8 - clamp k, docs threat model`.
+
+---
+## 2026-08-26: Python SDK Quick Wins (INV-vantadb-python-01)
+
+### PY-QW1: README 100% inglés (residuos ES) — H-01
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-py-quickwins.md` (Wave 1)
+- **Objetivo:** Eliminar residuos ES en `vantadb-python/README.md`.
+- **Resultado:** ✅ Verificado: `rg -n "[áéíóúñ]" vantadb-python/README.md` vacío. README ya 100% inglés.
+
+### PY-QW2: Eliminar dual API de `put_batch` (P2-5) — H-02
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-py-quickwins.md` (Wave 1)
+- **Objetivo:** Deprecar tuplas legacy en `put_batch`, mantener solo keyword API.
+- **Resultado:** ✅ `vantadb-python/src/lib.rs`: removido bloque legacy `entries` (~53 líneas de branching). `put_batch` ahora solo acepta keyword args (`keys`, `vectors`, `payloads`, `metadatas`, `namespace`, `namespaces`, `ttls`). Test `test_put_batch_parallel` actualizado a keyword form con per-record `namespaces`. Entry P2-5 marcada resuelta en AGENTS.md tabla P2.
+
+### PY-QW3: Declarar Python 3.14 — H-03
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-py-quickwins.md` (Wave 1)
+- **Objetivo:** Agregar classifier Python 3.14 en `pyproject.toml`.
+- **Resultado:** ✅ Ya presente: `vantadb-python/pyproject.toml:26` incluye `"Programming Language :: Python :: 3.14"`. `requires-python = ">=3.11"` intacto; build abi3 no afectado.
+
+### PY-QW4: Higiene de artefactos locales del módulo — H-05
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-py-quickwins.md` (Wave 2)
+- **Objetivo:** `.gitignore` cubre `*.pyd`, `*.pdb`, `dist/`, `probe_lock_db/`, `.coverage`.
+- **Resultado:** ✅ Creado `vantadb-python/.gitignore` con patrones completos. Raíz `.gitignore` ya cubre `target/`, `dist/`, `probe_lock_db/`, `.coverage`. `pyproject.toml` maturin `exclude` también cubre artefactos. `git status` limpio tras `maturin develop` + pytest local.
+
+### PY-QW5: README lidera diferenciación vs chromadb — H-07
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-py-quickwins.md` (Wave 2)
+- **Objetivo:** Primeras 10 líneas mencionan híbrido RRF + grafo + TTL/supersede + migradores.
+- **Resultado:** ✅ `vantadb-python/README.md:5-12`: sección "Why VantaDB instead of a plain vector store?" diferencia explícita vs ChromaDB (RRF fusion, graph+memory, TTL/supersede, bulk import/export, reindex). Sin claims numéricos sin fuente (Regla 11).
