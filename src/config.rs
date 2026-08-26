@@ -398,6 +398,14 @@ pub struct VantaConfig {
     /// ISO 8601 timestamp, namespace, key, and outcome. Configured via
     /// `VANTADB_AUDIT_LOG_PATH`. Not hot-reloadable.
     pub audit_log_path: Option<std::path::PathBuf>,
+    /// Maximum size of the audit JSONL before it rotates to `<path>.1`
+    /// (SRV-01). Default 10 MiB. Configured via `VANTADB_AUDIT_MAX_BYTES`
+    /// (accepts `KB`/`MB`/`GB` suffixes; a bare number is bytes).
+    pub audit_max_bytes: u64,
+    /// How many rotated audit files to keep (`.1`..`.N`); older files are
+    /// deleted on rotation (SRV-01). Default 5. Configured via
+    /// `VANTADB_AUDIT_MAX_FILES`.
+    pub audit_max_files: u32,
     /// Configuration for the segment optimizer pipeline (vacuum / merge / reindex).
     ///
     /// Controls automatic tombstone reclamation, segment compaction, and
@@ -804,6 +812,19 @@ impl Default for VantaConfig {
                 debug!(?v, "VANTADB_AUDIT_LOG_PATH");
                 v
             },
+            audit_max_bytes: {
+                let v = env::var("VANTADB_AUDIT_MAX_BYTES")
+                    .ok()
+                    .and_then(|s| parse_memory_limit(&s).ok())
+                    .unwrap_or(10 * 1024 * 1024);
+                debug!(?v, "VANTADB_AUDIT_MAX_BYTES");
+                v
+            },
+            audit_max_files: {
+                let v = parse_env_or("VANTADB_AUDIT_MAX_FILES", 5u32);
+                debug!(?v, "VANTADB_AUDIT_MAX_FILES");
+                v
+            },
             dashboard_dir: {
                 let v = env::var("VANTADB_DASHBOARD_DIR")
                     .ok()
@@ -1040,6 +1061,18 @@ impl VantaConfig {
     /// Enables the append-only JSONL audit log of business operations.
     pub fn with_audit_log_path(mut self, path: impl Into<std::path::PathBuf>) -> Self {
         self.audit_log_path = Some(path.into());
+        self
+    }
+
+    /// Sets the maximum audit log size (bytes) before it rotates to `.1`.
+    pub fn with_audit_max_bytes(mut self, bytes: u64) -> Self {
+        self.audit_max_bytes = bytes;
+        self
+    }
+
+    /// Sets how many rotated audit files to keep (older files are deleted).
+    pub fn with_audit_max_files(mut self, files: u32) -> Self {
+        self.audit_max_files = files;
         self
     }
 
@@ -1338,6 +1371,8 @@ mod tests {
         assert_eq!(cfg.file_lock_timeout_ms, 1000);
         assert_eq!(cfg.flat_threshold, Some(10000));
         assert_eq!(cfg.audit_log_path, None);
+        assert_eq!(cfg.audit_max_bytes, 10 * 1024 * 1024);
+        assert_eq!(cfg.audit_max_files, 5);
         assert!(cfg.allowed_origins.is_empty());
     }
 
@@ -1353,6 +1388,15 @@ mod tests {
     fn test_with_memory_limit() {
         let cfg = VantaConfig::default().with_memory_limit(4_096_000_000);
         assert_eq!(cfg.memory_limit, Some(4_096_000_000));
+    }
+
+    #[test]
+    fn test_with_audit_rotation() {
+        let cfg = VantaConfig::default()
+            .with_audit_max_bytes(1_024)
+            .with_audit_max_files(2);
+        assert_eq!(cfg.audit_max_bytes, 1_024);
+        assert_eq!(cfg.audit_max_files, 2);
     }
 
     // ── Memory limit suffix parsing ────────────────────────────

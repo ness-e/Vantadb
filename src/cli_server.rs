@@ -42,6 +42,7 @@ use tower_governor::{
     governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor, GovernorError,
     GovernorLayer,
 };
+use tracing::Instrument;
 use tracing_subscriber::EnvFilter;
 #[cfg(feature = "opentelemetry")]
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Registry};
@@ -506,6 +507,46 @@ pub(crate) const USER_KEY_HEADER: &str = "x-vanta-user-key";
 /// L2 header carrying the service/instance id (TDAM `x-tdai-service-id` port).
 pub(crate) const SERVICE_ID_HEADER: &str = "x-vanta-service-id";
 
+/// Request tracing headers, first match wins (SRV-02).
+pub(crate) const REQUEST_ID_HEADERS: [&str; 3] = ["x-request-id", "x-tracing-id", "traceparent"];
+/// Max length of a captured request id; longer values are truncated (SRV-02).
+pub(crate) const REQUEST_ID_MAX_LEN: usize = 256;
+
+/// Request tracing id captured by the metrics middleware and exposed to
+/// handlers through axum extensions (SRV-02). Extractor-safe: absent headers
+/// yield `RequestId(None)`.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct RequestId(pub Option<String>);
+
+impl<S: Send + Sync> axum::extract::FromRequestParts<S> for RequestId {
+    type Rejection = std::convert::Infallible;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> std::result::Result<Self, Self::Rejection> {
+        Ok(parts
+            .extensions
+            .get::<RequestId>()
+            .cloned()
+            .unwrap_or_default())
+    }
+}
+
+/// First non-empty match of the request tracing headers, truncated to
+/// [`REQUEST_ID_MAX_LEN`] chars (SRV-02).
+fn extract_request_id(headers: &HeaderMap) -> Option<String> {
+    for name in REQUEST_ID_HEADERS {
+        if let Some(value) = headers.get(name).and_then(|v| v.to_str().ok()) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.chars().take(REQUEST_ID_MAX_LEN).collect());
+            }
+        }
+    }
+    None
+}
+
 /// Record an auth audit event, never failing the request on write errors.
 fn audit_auth(auth: &AuthState, event: AuditEvent) {
     if let Some(logger) = &auth.audit {
@@ -650,6 +691,12 @@ pub async fn auth_middleware(mut req: axum::extract::Request, next: middleware::
         }
     };
 
+    // SRV-02: correlate audit auth events with the caller's tracing id.
+    let request_id = req
+        .extensions()
+        .get::<RequestId>()
+        .and_then(|r| r.0.clone());
+
     // No API key configured — allow all (dev mode), but surface it so the
     // silent auth bypass is visible (not rate-limited: tracing::rate_limited is
     // unstable and unavailable in the pinned tracing 0.1.44).
@@ -669,7 +716,8 @@ pub async fn auth_middleware(mut req: axum::extract::Request, next: middleware::
     if auth.rate_limiter.is_rate_limited(&client_ip) {
         audit_auth(
             &auth,
-            AuditEvent::auth("l1", "auth", "N/A", "err", Some("rate_limited".into())),
+            AuditEvent::auth("l1", "auth", "N/A", "err", Some("rate_limited".into()))
+                .with_request_id_opt(request_id.clone()),
         );
         return (
             StatusCode::TOO_MANY_REQUESTS,
@@ -705,7 +753,8 @@ pub async fn auth_middleware(mut req: axum::extract::Request, next: middleware::
         };
         audit_auth(
             &auth,
-            AuditEvent::auth("l1", "auth", "N/A", "err", Some(reason.into())),
+            AuditEvent::auth("l1", "auth", "N/A", "err", Some(reason.into()))
+                .with_request_id_opt(request_id.clone()),
         );
         return (
             StatusCode::UNAUTHORIZED,
@@ -726,7 +775,8 @@ pub async fn auth_middleware(mut req: axum::extract::Request, next: middleware::
         Err((status, reason)) => {
             audit_auth(
                 &auth,
-                AuditEvent::auth("l3", "auth", "N/A", "err", Some(reason.into())),
+                AuditEvent::auth("l3", "auth", "N/A", "err", Some(reason.into()))
+                    .with_request_id_opt(request_id.clone()),
             );
             return (
                 status,
@@ -775,7 +825,8 @@ pub async fn auth_middleware(mut req: axum::extract::Request, next: middleware::
         AuthIdentity::Service { service_id } => {
             audit_auth(
                 &auth,
-                AuditEvent::auth("l2", "auth", service_id, "ok", None),
+                AuditEvent::auth("l2", "auth", service_id, "ok", None)
+                    .with_request_id_opt(request_id.clone()),
             );
         }
         AuthIdentity::User {
@@ -790,7 +841,8 @@ pub async fn auth_middleware(mut req: axum::extract::Request, next: middleware::
                     user_id,
                     "ok",
                     Some(format!("is_system_admin={is_system_admin}")),
-                ),
+                )
+                .with_request_id_opt(request_id),
             );
         }
         AuthIdentity::Transport => {}
@@ -857,14 +909,26 @@ async fn metrics_v2(State(state): State<Arc<ServerState>>) -> Response {
 }
 
 /// Axum middleware that records HTTP request duration and status metrics.
+///
+/// Also captures the caller's tracing id (SRV-02): the first match of
+/// `x-request-id` / `x-tracing-id` / `traceparent` is exposed to handlers via
+/// request extensions (for audit correlation) and recorded on the request span.
 pub async fn request_metrics_middleware(
-    req: axum::extract::Request,
+    mut req: axum::extract::Request,
     next: middleware::Next,
 ) -> Response {
     let start = std::time::Instant::now();
     let method = req.method().to_string();
     let route = req.uri().path().to_string();
-    let res = next.run(req).await;
+    let request_id = extract_request_id(req.headers());
+    if let Some(id) = &request_id {
+        req.extensions_mut().insert(RequestId(Some(id.clone())));
+    }
+    let span = tracing::info_span!("http_request", request_id = tracing::field::Empty);
+    if let Some(id) = &request_id {
+        span.record("request_id", id.as_str());
+    }
+    let res = next.run(req).instrument(span).await;
     let status = res.status();
     metrics::record_http_request(&method, &route, status.as_u16(), start);
     res
@@ -2777,6 +2841,7 @@ struct ConversationAddRequest {
 #[tracing::instrument(skip(state))]
 async fn conversation_add(
     State(state): State<Arc<ServerState>>,
+    request_id: RequestId,
     Json(req): Json<ConversationAddRequest>,
 ) -> Response {
     let thread_id = match req.thread_id.as_deref() {
@@ -2802,6 +2867,8 @@ async fn conversation_add(
     let ttl_secs = req.ttl_secs;
     let role = req.role.clone();
     let content = req.content.clone();
+    // SRV-02: carry the caller's tracing id into the audit event.
+    let rid = request_id.0;
 
     match run_db_op(&state, move |db| {
         let id = match thread_id {
@@ -2809,13 +2876,10 @@ async fn conversation_add(
             None => db.create_thread(&title, ttl_secs)?,
         };
         db.send_message(id, &role, &content)?;
-        db.audit(AuditEvent::memory(
-            "conversation",
-            "threads",
-            &id.to_string(),
-            "ok",
-            None,
-        ));
+        db.audit(
+            AuditEvent::memory("conversation", "threads", &id.to_string(), "ok", None)
+                .with_request_id_opt(rid),
+        );
         Ok(id)
     })
     .await
@@ -3971,6 +4035,118 @@ mod tests {
         // AUDIT without audit_log_path → 404.
         let (status, body) = raw_get(addr, "/api/v2/audit").await;
         assert_eq!(status, 404, "audit not configured: {body}");
+    }
+
+    #[tokio::test]
+    async fn audit_rotates_and_still_serves_active_file() {
+        // SRV-01: writes past `audit_max_bytes` must rotate the JSONL to `.1`
+        // while `GET /api/v2/audit` keeps serving the active file.
+        let dir = tempfile::tempdir().unwrap();
+        let audit_path = dir.path().join("audit.jsonl");
+        let cfg = VantaConfig {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            audit_log_path: Some(audit_path.clone()),
+            audit_max_bytes: 400,
+            audit_max_files: 2,
+            ..Default::default()
+        };
+        let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(cfg)).unwrap());
+        let db = VantaEmbedded::from_engine(storage.clone());
+        let state = Arc::new(ServerState {
+            storage,
+            db,
+            circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+            pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+            api_key: None,
+            rbac_config: RbacConfig::default(),
+            trusted_proxies: Vec::new(),
+            conversation_trigger: None,
+        });
+        let addr = spawn_app(app(state, 0)).await;
+
+        // 6 puts → ~110B audit line each → exceeds the 400B cap → rotation.
+        for i in 0..6 {
+            let body = format!(
+                r#"{{"namespace":"mem","key":"k{i}","payload":"hello {i}","metadata":{{"kind":{{"String":"note"}}}},"vector":null,"ttl_ms":null}}"#
+            );
+            let (status, _) = parse_response(
+                &raw_request(addr, json_request("POST", "/api/v2/records", addr, &body)).await,
+            );
+            assert_eq!(status, 201, "put #{i}");
+        }
+        assert!(
+            dir.path().join("audit.jsonl.1").exists(),
+            "audit must rotate to .1 after exceeding audit_max_bytes"
+        );
+        assert!(
+            !dir.path().join("audit.jsonl.3").exists(),
+            "archives beyond audit_max_files must be pruned"
+        );
+
+        // The active file still serves the audit endpoint.
+        let (status, body) = raw_get(addr, "/api/v2/audit").await;
+        assert_eq!(status, 200, "audit after rotation: {body}");
+        let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert!(
+            page["events"].as_array().unwrap().len() > 0,
+            "audit page must not be empty after rotation"
+        );
+    }
+
+    #[tokio::test]
+    async fn audit_event_carries_request_id() {
+        // SRV-02: a request with `x-request-id` must surface that id in the
+        // audit events it produces (auth events here — the guaranteed per-
+        // request audit record).
+        let dir = tempfile::tempdir().unwrap();
+        let audit_path = dir.path().join("audit.jsonl");
+        let cfg = VantaConfig {
+            backend_kind: crate::backend::BackendKind::InMemory,
+            audit_log_path: Some(audit_path.clone()),
+            ..Default::default()
+        };
+        let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(cfg)).unwrap());
+        let db = VantaEmbedded::from_engine(storage.clone());
+        let state = Arc::new(ServerState {
+            storage,
+            db,
+            circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+            pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+            api_key: Some("test-key".into()),
+            rbac_config: RbacConfig::default(),
+            trusted_proxies: Vec::new(),
+            conversation_trigger: None,
+        });
+        let addr = spawn_app(app(state, 0)).await;
+
+        // Wrong token + tracing id → 401, auth_l1 err event carries the id.
+        let body = r#"{"namespace":"mem","key":"k1","payload":"x"}"#;
+        let request = format!(
+            "POST /api/v2/records HTTP/1.1\r\nHost: {addr}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nX-Request-Id: abc-123\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        let (status, _) = parse_response(&raw_request(addr, request).await);
+        assert_eq!(status, 401, "wrong token must be rejected");
+
+        let content = std::fs::read_to_string(&audit_path).unwrap();
+        let last = content.lines().last().unwrap();
+        assert!(
+            last.contains("\"request_id\":\"abc-123\""),
+            "audit event must carry the request id, got: {last}"
+        );
+
+        // A request WITHOUT the tracing header records events without the
+        // field (backwards-compatible JSONL).
+        let (status, _) = parse_response(
+            &raw_request(addr, json_request("POST", "/api/v2/records", addr, body)).await,
+        );
+        assert_eq!(status, 401);
+        let content = std::fs::read_to_string(&audit_path).unwrap();
+        let last = content.lines().last().unwrap();
+        assert!(
+            !last.contains("request_id"),
+            "no request id header → no request_id field, got: {last}"
+        );
     }
 
     /// Build a request with a forged `X-Forwarded-For` header and the given

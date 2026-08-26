@@ -67,6 +67,8 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `token_role_map` | `HashMap<String, String>` | `{}` | — | `RbacConfig` field: token → role name mapping |
 | `export_base_dir` | `Option<PathBuf>` | `None` | `VANTADB_EXPORT_BASE_DIR` | Base directory for export/import path validation. When set, export and import paths are resolved canonically against this directory (symlink protection included). When `None`, only bare `..` traversal is blocked. |
 | `audit_log_path` | `Option<PathBuf>` | `None` | `VANTADB_AUDIT_LOG_PATH` | Append-only JSONL audit log (ISO 8601 timestamp + op per write/delete/export/import). When `None`, audit is disabled. |
+| `audit_max_bytes` | `u64` | `10 MiB` | `VANTADB_AUDIT_MAX_BYTES` | Audit log rotation threshold (bytes; accepts `KB`/`MB`/`GB` suffixes in env). Rotates to `<path>.1` when exceeded (SRV-01). |
+| `audit_max_files` | `u32` | `5` | `VANTADB_AUDIT_MAX_FILES` | Rotated audit archives retained (`.1`..`.N`); older files deleted (SRV-01). |
 | `segment_optimizer` | `SegmentOptimizerConfig` | `{enabled: true, vacuum_threshold_pct: 15.0, auto_run_interval_secs: 3600, max_pipeline_duration_secs: 300}` | — | Segment optimizer configuration: master switch, tombstone vacuum threshold (%), auto-run interval (s), max pipeline duration (s), and per-level LSM compaction config. See also `pipeline()` / `optimizer_config()` / `set_optimizer_config()` in the SDK. |
 
 ### Environment Variables Outside `VantaConfig`
@@ -95,6 +97,8 @@ Each line is one JSON object:
 - `reason`: optional contextual detail (e.g. `memory delete` on delete, deleted count on `delete_by_filter`).
 - Read-only operations (`search`, `get`, `list`) are **not** audited.
 - The file is opened in append mode; each record is flushed immediately. Set `VANTADB_AUDIT_LOG_PATH` or `VantaConfig.audit_log_path` via the Rust builder `with_audit_log_path(path)` to enable.
+- **Rotation (SRV-01):** once the active file reaches `audit_max_bytes` (default 10 MiB, env `VANTADB_AUDIT_MAX_BYTES`, accepts `KB`/`MB`/`GB` suffixes) it rotates to `<path>.1`; older archives shift down and files beyond `audit_max_files` (default 5, env `VANTADB_AUDIT_MAX_FILES`) are deleted. Builders: `with_audit_max_bytes(bytes)`, `with_audit_max_files(files)`.
+- **Request correlation (SRV-02):** server auth/request events include `request_id` when the HTTP request carries `x-request-id`, `x-tracing-id` or `traceparent` (first match, ≤256 chars).
 
 ### Enums
 

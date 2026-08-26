@@ -149,6 +149,16 @@ query/import counters) plus per-namespace collection counts.
 Query the audit event log written when auditing is enabled. Query parameter: `limit`.
 Returns an array of audit event objects; HTTP 409 if the audit log is not configured.
 
+Audit events carry an optional `request_id` field: when the caller sends
+`x-request-id`, `x-tracing-id` or `traceparent` (first match wins, truncated to
+256 chars), the id is echoed on the audit events that request produces (auth
+and server-side events), correlating log lines with HTTP requests.
+
+The audit JSONL rotates by size: once the active file reaches
+`audit_max_bytes` (default 10 MiB, env `VANTADB_AUDIT_MAX_BYTES`) it is renamed
+to `<path>.1`, older archives shift to `.2`..`.N`, and files beyond
+`audit_max_files` (default 5, env `VANTADB_AUDIT_MAX_FILES`) are deleted.
+
 ## Query
 
 ### `POST /api/v2/query`

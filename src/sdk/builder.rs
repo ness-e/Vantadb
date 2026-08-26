@@ -288,7 +288,11 @@ impl VantaEmbedded {
 /// logged and treated as disabled — it must never block the database open.
 fn init_audit(config: &VantaConfig) -> Option<Arc<crate::audit::AuditLogger>> {
     let path = config.audit_log_path.as_ref()?;
-    match crate::audit::AuditLogger::new(path) {
+    match crate::audit::AuditLogger::with_rotation(
+        path,
+        config.audit_max_bytes,
+        config.audit_max_files,
+    ) {
         Ok(logger) => Some(Arc::new(logger)),
         Err(e) => {
             tracing::warn!(
