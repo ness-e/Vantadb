@@ -53,6 +53,7 @@ fn auth_state(
 ) -> AuthState {
     AuthState::new(
         api_key,
+        None, // alt_api_key
         RbacConfig::default(),
         Arc::new(Rbac::new()),
         &[],
@@ -241,6 +242,7 @@ fn server_state(storage: Arc<StorageEngine>, api_key: Option<&str>) -> Arc<Serve
         circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
         pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
         api_key: api_key.map(Arc::from),
+        alt_api_key: None,
         rbac_config: RbacConfig::default(),
         trusted_proxies: Vec::new(),
         conversation_trigger: None,

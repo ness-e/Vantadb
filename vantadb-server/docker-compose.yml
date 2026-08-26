@@ -1,0 +1,95 @@
+# VantaDB Server — Docker Compose for local development and production
+# Usage:
+#   docker compose -f vantadb-server/docker-compose.yml up -d          # dev (local build)
+#   docker compose -f vantadb-server/docker-compose.yml -f vantadb-server/docker-compose.prod.yml up -d  # prod (release binary)
+
+version: "3.9"
+
+services:
+  vantadb:
+    build:
+      context: ..
+      dockerfile: vantadb-server/Dockerfile
+      target: runtime-base
+    container_name: vantadb
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - VANTADB_STORAGE_PATH=/var/lib/vantadb/data
+      - VANTADB_HOST=0.0.0.0
+      - VANTADB_PORT=8080
+      # Authentication (set in production!)
+      # - VANTADB_API_KEY=${VANTADB_API_KEY:-}
+      # - VANTADB_ALT_API_KEY=${VANTADB_ALT_API_KEY:-}
+      # - VANTADB_REQUIRE_AUTH=false
+      # Rate limiting
+      # - VANTADB_RATE_LIMIT_RPM=600
+      # Audit logging (SRV-01)
+      # - VANTADB_AUDIT_LOG_PATH=/var/lib/vantadb/audit.jsonl
+      # - VANTADB_AUDIT_MAX_BYTES=10MB
+      # - VANTADB_AUDIT_MAX_FILES=5
+      # CORS for web console
+      # - VANTADB_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+      # Dashboard (Vanta Studio)
+      # - VANTADB_DASHBOARD_DIR=/app/dashboard
+    volumes:
+      - vantadb-data:/var/lib/vantadb/data
+      # Optional: audit log persistence
+      # - vantadb-audit:/var/lib/vantadb/audit
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Unprivileged variant (read-only rootfs, no capabilities)
+  # Run with: docker compose -f vantadb-server/docker-compose.yml --profile unprivileged up -d
+  vantadb-unprivileged:
+    build:
+      context: ..
+      dockerfile: vantadb-server/Dockerfile
+      target: unprivileged
+    container_name: vantadb-unprivileged
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      - VANTADB_STORAGE_PATH=/var/lib/vantadb/data
+      - VANTADB_HOST=0.0.0.0
+      - VANTADB_PORT=8080
+    volumes:
+      - vantadb-data:/var/lib/vantadb/data
+    # Security hardening (Qdrant pattern)
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Only the data volume is writable
+    tmpfs:
+      - /tmp
+      - /run
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    profiles:
+      - unprivileged
+
+volumes:
+  vantadb-data:
+    driver: local
+  # vantadb-audit:
+  #   driver: local
+
+# Production override (use release binary from GitHub)
+# docker compose -f vantadb-server/docker-compose.yml -f vantadb-server/docker-compose.prod.yml up -d

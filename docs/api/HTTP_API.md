@@ -627,6 +627,8 @@ Loopback binds without a key keep working as before (dev mode). Setting
 `VANTADB_API_KEY` makes any host acceptable; `--require-auth` additionally
 refuses to start without a key regardless of host.
 
+> **Hardening Guide**: For production deployment security (Docker, TLS, key rotation, RBAC, audit, monitoring), see [`docs/operations/hardening.md`](../operations/hardening.md).
+
 ## Route Summary
 
 | Method | Path | Auth | Domain | Description |

@@ -1,0 +1,45 @@
+# VantaDB Server — Production override (uses GitHub Release binary)
+# Usage: docker compose -f vantadb-server/docker-compose.yml -f vantadb-server/docker-compose.prod.yml up -d
+# Requires: VERSION environment variable (e.g., VERSION=v0.5.0)
+
+version: "3.9"
+
+services:
+  vantadb:
+    build:
+      context: ..
+      dockerfile: vantadb-server/Dockerfile
+      target: release-binary
+      args:
+        VERSION: ${VERSION:-latest}
+        TARGETARCH: ${TARGETARCH:-amd64}
+    environment:
+      - VANTADB_API_KEY=${VANTADB_API_KEY}
+      - VANTADB_REQUIRE_AUTH=true
+      - VANTADB_RATE_LIMIT_RPM=600
+      - VANTADB_AUDIT_LOG_PATH=/var/lib/vantadb/audit.jsonl
+      - VANTADB_AUDIT_MAX_BYTES=10MB
+      - VANTADB_AUDIT_MAX_FILES=5
+      - VANTADB_ALLOWED_ORIGINS=${VANTADB_ALLOWED_ORIGINS:-}
+    # Production hardening
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+      - /run
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"

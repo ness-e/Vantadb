@@ -146,8 +146,10 @@ pub struct ServerState {
     pub circuit_breaker: Arc<CircuitBreaker>,
     /// Connection pool bounding concurrent query execution.
     pub pool: Arc<ConnectionPool>,
-    /// Optional bearer token for API authentication.
+    /// Optional primary bearer token for API authentication.
     pub api_key: Option<Arc<str>>,
+    /// Alternative API key for zero-downtime rotation (SRV-04).
+    pub alt_api_key: Option<Arc<str>>,
     /// RBAC token-to-role mapping configuration.
     pub rbac_config: RbacConfig,
     /// Reverse-proxy IPs whose `X-Forwarded-For` header is honored for client
@@ -233,6 +235,7 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
     rbac.add_role("writer", vec![Permission::Read, Permission::Write]);
     let auth_state = AuthState::new(
         state.api_key.as_ref().map(|k| k.to_string()),
+        state.alt_api_key.as_ref().map(|k| k.to_string()),
         state.rbac_config.clone(),
         rbac,
         &state.trusted_proxies,
@@ -442,8 +445,11 @@ impl AuthRateLimiter {
 /// Authentication and authorization state shared via middleware extensions.
 #[derive(Clone)]
 pub struct AuthState {
-    /// Optional bearer token for API key validation.
+    /// Optional primary bearer token for API key validation.
     pub api_key: Option<Arc<str>>,
+    /// Alternative API key for zero-downtime rotation (SRV-04).
+    /// When set, both `api_key` and `alt_api_key` are accepted.
+    pub alt_api_key: Option<Arc<str>>,
     pub(crate) token_role_map: HashMap<String, String>,
     pub(crate) rbac: Arc<Rbac>,
     pub(crate) rate_limiter: Arc<AuthRateLimiter>,
@@ -459,6 +465,7 @@ pub struct AuthState {
 impl AuthState {
     pub(crate) fn new(
         api_key: Option<String>,
+        alt_api_key: Option<String>,
         rbac_config: RbacConfig,
         rbac: Arc<Rbac>,
         trusted_proxies: &[std::net::IpAddr],
@@ -467,6 +474,7 @@ impl AuthState {
     ) -> Self {
         Self {
             api_key: api_key.map(|k| Arc::from(k.as_str())),
+            alt_api_key: alt_api_key.map(|k| Arc::from(k.as_str())),
             token_role_map: rbac_config.token_role_map,
             rbac,
             rate_limiter: Arc::new(AuthRateLimiter::new(5, 60)),
@@ -531,6 +539,56 @@ impl<S: Send + Sync> axum::extract::FromRequestParts<S> for RequestId {
             .cloned()
             .unwrap_or_default())
     }
+}
+
+/// Simple URL decode for query params (no external dep).
+fn simple_url_decode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '%' => {
+                let hex: String = chars.by_ref().take(2).collect();
+                if hex.len() == 2 {
+                    if let Ok(byte) = u8::from_str_radix(&hex, 16) {
+                        out.push(byte as char);
+                        continue;
+                    }
+                }
+                out.push('%');
+                out.push_str(&hex);
+            }
+            '+' => out.push(' '),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+/// Extract namespace from request for namespace-scoped RBAC (SRV-05).
+/// Checks path params (/{ns}/{key}) and query params (?namespace=).
+fn extract_namespace(path: &str, query: Option<&str>) -> Option<String> {
+    // 1. Path params: /api/v2/records/{ns}/{key}, /api/v2/records/{ns}/{key}/versions
+    // Pattern: /api/v2/records/{ns}/ or /api/v2/records/{ns}/
+    if let Some(rest) = path.strip_prefix("/api/v2/records/") {
+        if let Some(ns_end) = rest.find('/') {
+            return Some(rest[..ns_end].to_string());
+        } else if !rest.is_empty() && rest != "batch" {
+            // /api/v2/records/{ns} (no trailing slash)
+            return Some(rest.to_string());
+        }
+    }
+    // 2. Query param: ?namespace= or ?ns=
+    if let Some(query) = query {
+        for pair in query.split('&') {
+            if let Some((k, v)) = pair.split_once('=') {
+                if k == "namespace" || k == "ns" {
+                    return Some(simple_url_decode(v));
+                }
+            }
+        }
+    }
+    None
 }
 
 /// First non-empty match of the request tracing headers, truncated to
@@ -735,11 +793,17 @@ pub async fn auth_middleware(mut req: axum::extract::Request, next: middleware::
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "));
 
+    // SRV-04: accept either primary or alt API key for zero-downtime rotation.
     let authorized = match token {
         Some(token) => {
             let token_bytes = token.as_bytes();
-            let expected_bytes = expected_key.as_bytes();
-            token_bytes.ct_eq(expected_bytes).into()
+            let primary_ok = expected_key.as_bytes().ct_eq(token_bytes).into();
+            let alt_ok = auth
+                .alt_api_key
+                .as_ref()
+                .map(|alt| alt.as_bytes().ct_eq(token_bytes).into())
+                .unwrap_or(false);
+            primary_ok || alt_ok
         }
         None => false,
     };
@@ -796,13 +860,30 @@ pub async fn auth_middleware(mut req: axum::extract::Request, next: middleware::
     if identity == AuthIdentity::Transport {
         if let Some(token_val) = token {
             if let Some(role) = auth.token_role_map.get(token_val) {
-                let is_write = matches!(req.method().as_str(), "POST" | "PUT" | "PATCH" | "DELETE");
-                let permission = if is_write {
-                    Permission::Write
+                // SRV-05: namespace-scoped RBAC for record/search endpoints.
+                // Extract namespace from path/query for /api/v2/records/* and /api/v2/search.
+                let path = req.uri().path();
+                let is_record_endpoint = path.starts_with("/api/v2/records")
+                    || path.starts_with("/api/v2/search")
+                    || path.starts_with("/api/v2/list");
+                let namespace = if is_record_endpoint {
+                    extract_namespace(&req.uri().path(), req.uri().query())
                 } else {
-                    Permission::Read
+                    None
                 };
-                if !auth.rbac.has_permission(role, &permission) {
+                let is_write = matches!(req.method().as_str(), "POST" | "PUT" | "PATCH" | "DELETE");
+                let permitted = if let Some(ns) = namespace {
+                    auth.rbac.can_access_namespace(role, &ns, is_write)
+                } else {
+                    // Fallback to global permissions for non-record endpoints or when ns not found
+                    let permission = if is_write {
+                        Permission::Write
+                    } else {
+                        Permission::Read
+                    };
+                    auth.rbac.has_permission(role, &permission)
+                };
+                if !permitted {
                     auth.rate_limiter.reset(&client_ip);
                     return (
                         StatusCode::FORBIDDEN,
@@ -1862,7 +1943,13 @@ fn is_loopback_host(host: &str) -> bool {
 /// to the network is an accident waiting to happen. Override explicitly with
 /// `--allow-insecure` (dev only), which logs a prominent WARNING instead.
 /// Also returns an error if `require_auth` is set but no key is configured.
+/// SRV-04: `alt_api_key` requires `api_key` to be set (rotation needs a primary).
 fn validate_auth_config(config: &VantaConfig) -> Result<()> {
+    if config.alt_api_key.is_some() && config.api_key.is_none() {
+        return Err(VantaError::InvalidInput(
+            "alt_api_key requires api_key to be set (rotation needs a primary key)".into(),
+        ));
+    }
     if config.require_auth && config.api_key.is_none() {
         console::error(
             "Forced authentication enabled but no API key configured",
@@ -1988,6 +2075,7 @@ pub async fn run(config: VantaConfig) -> Result<()> {
     log_security_mode(&config);
 
     let api_key: Option<Arc<str>> = config.api_key.as_deref().map(Arc::from);
+    let alt_api_key: Option<Arc<str>> = config.alt_api_key.as_deref().map(Arc::from);
     let circuit_breaker = Arc::new(CircuitBreaker::new(
         config.circuit_breaker_failure_threshold,
         Duration::from_secs(config.circuit_breaker_open_timeout_secs),
@@ -2003,6 +2091,7 @@ pub async fn run(config: VantaConfig) -> Result<()> {
         circuit_breaker,
         pool,
         api_key,
+        alt_api_key,
         rbac_config,
         trusted_proxies: config.trusted_proxies.clone(),
         conversation_trigger: None,
@@ -3315,6 +3404,7 @@ mod tests {
             circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
             pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
             api_key: None,
+            alt_api_key: None,
             rbac_config: RbacConfig::default(),
             trusted_proxies: Vec::new(),
             conversation_trigger: None,
@@ -3424,6 +3514,7 @@ mod tests {
             circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
             pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
             api_key: None,
+            alt_api_key: None,
             rbac_config: RbacConfig::default(),
             trusted_proxies: Vec::new(),
             conversation_trigger: Some(Arc::new(trigger)),
@@ -3477,6 +3568,7 @@ mod tests {
             circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
             pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
             api_key: None,
+            alt_api_key: None,
             rbac_config: RbacConfig::default(),
             trusted_proxies: Vec::new(),
             conversation_trigger: Some(Arc::new(RecordingTrigger { calls, fail: true })),
@@ -3532,6 +3624,7 @@ mod tests {
             circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
             pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
             api_key: None,
+            alt_api_key: None,
             rbac_config: RbacConfig::default(),
             trusted_proxies: Vec::new(),
             conversation_trigger: None,

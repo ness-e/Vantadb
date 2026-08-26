@@ -281,12 +281,20 @@ pub struct VantaConfig {
     pub circuit_breaker_open_timeout_secs: u64,
     /// Write synchronisation mode for durability vs. throughput.
     pub sync_mode: SyncMode,
-    /// Optional Bearer token for HTTP API authentication.
+    /// Optional Bearer token for HTTP API authentication (primary key).
     ///
     /// When set via `VANTADB_API_KEY`, the server requires
     /// `Authorization: Bearer <token>` on all protected endpoints.
     /// If `None`, the server runs without authentication (development mode).
     pub api_key: Option<String>,
+    /// Alternative API key for zero-downtime rotation (SRV-04).
+    ///
+    /// When set via `VANTADB_ALT_API_KEY`, both the primary `api_key` and
+    /// this `alt_api_key` are accepted simultaneously. This enables rolling
+    /// key rotation: deploy new key as `alt_api_key`, switch clients, then
+    /// promote to `api_key` and remove `alt_api_key`. Pattern from Qdrant
+    /// v1.17 `alt_api_key`. If `None`, only `api_key` is validated.
+    pub alt_api_key: Option<String>,
     /// If true, the server refuses to start unless an API key is configured.
     ///
     /// When set via `VANTADB_REQUIRE_AUTH` (or `--require-auth`), the server
@@ -663,6 +671,11 @@ impl Default for VantaConfig {
                 debug!(present = v.is_some(), "VANTADB_API_KEY");
                 v
             },
+            alt_api_key: {
+                let v = env::var("VANTADB_ALT_API_KEY").ok();
+                debug!(present = v.is_some(), "VANTADB_ALT_API_KEY");
+                v
+            },
             require_auth: {
                 let v = parse_env_or("VANTADB_REQUIRE_AUTH", false);
                 debug!(val = v, "VANTADB_REQUIRE_AUTH");
@@ -937,6 +950,15 @@ impl VantaConfig {
     /// When `None`, the server runs in unauthenticated mode.
     pub fn with_api_key(mut self, key: Option<String>) -> Self {
         self.api_key = key;
+        self
+    }
+
+    /// Sets the alternative API key for zero-downtime rotation (SRV-04).
+    ///
+    /// Both `api_key` and `alt_api_key` are accepted simultaneously when set.
+    /// Use for rolling key rotation without downtime.
+    pub fn with_alt_api_key(mut self, key: Option<String>) -> Self {
+        self.alt_api_key = key;
         self
     }
 
@@ -1521,6 +1543,14 @@ mod tests {
         assert_eq!(cfg.api_key, Some("sk-test".into()));
         let cfg = VantaConfig::default().with_api_key(None);
         assert_eq!(cfg.api_key, None);
+    }
+
+    #[test]
+    fn test_with_alt_api_key() {
+        let cfg = VantaConfig::default().with_alt_api_key(Some("sk-alt".into()));
+        assert_eq!(cfg.alt_api_key, Some("sk-alt".into()));
+        let cfg = VantaConfig::default().with_alt_api_key(None);
+        assert_eq!(cfg.alt_api_key, None);
     }
 
     #[test]
