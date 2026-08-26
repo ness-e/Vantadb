@@ -4,20 +4,20 @@
 > Ejecutar con `/pipeline run docs/plans/2026-08-25-srv-quick-wins.md`.
 > Las tareas estructurales (SRV-04..08) quedan en Backlog P40, fuera de este plan.
 
-## Wave 1 — Gates rotos / higiene (bloqueantes)
+## Wave 1 — Gates rotos / higiene (bloqueantes) ✅ COMPLETADO
 
-| ID | Tarea | Contrato verificable | Archivos |
-|---|---|---|---|
-| AUD-043 | Fix clippy `unused variable: ns` en closure `options_for` → renombrar `_ns` | `cargo clippy -p vantadb --deny warnings` pasa sin ese warning | `src/cli_server.rs:1302` |
-| MOD-15 | Nits agrupados: eliminar `middleware.rs` re-export redundante (verificar consumidores antes), resolver feature `sysinfo=[]` vacía, comentario ensure-indexes en `main.rs` MCP path, constructor `ServerState::new` para tests | `just verify-quick` pasa; grep sin referencias a `vantadb_server::middleware` | `vantadb-server/src/middleware.rs`, `vantadb-server/Cargo.toml`, `vantadb-server/src/main.rs` |
+| ID | Tarea | Contrato verificable | Archivos | Estado |
+|---|---|---|---|---|
+| AUD-043 | Fix clippy `unused variable: ns` en closure `options_for` → renombrar `_ns` | `cargo clippy -p vantadb --deny warnings` pasa sin ese warning | `src/cli_server.rs:1302` | ✅ Done |
+| MOD-15 | Nits agrupados: eliminar `middleware.rs` re-export redundante (verificar consumidores antes), resolver feature `sysinfo=[]` vacía, comentario ensure-indexes en `main.rs` MCP path, constructor `ServerState::new` para tests | `just verify-quick` pasa; grep sin referencias a `vantadb_server::middleware` | `vantadb-server/src/middleware.rs`, `vantadb-server/Cargo.toml`, `vantadb-server/src/main.rs` | ✅ Done |
 
-## Wave 2 — Quick wins server (independientes, paralelizables)
+## Wave 2 — Quick wins server (independientes, paralelizables) ✅ COMPLETADO
 
-| ID | Tarea | Contrato verificable | Archivos |
-|---|---|---|---|
-| SRV-01 | Rotación/retención audit log JSONL: rotación por tamaño configurable (`audit_max_bytes`, default p.ej. 10MB) con rename `.1/.2` + cap de archivos; test de rotación y de query post-rotación | Test nuevo en `tests/server.rs` verde: escribir > límite → archivo rota; `GET /api/v2/audit` sigue sirviendo el activo | `src/audit.rs`, `src/cli_server.rs` |
-| SRV-02 | Tracing-id por request: leer primer match de `x-request-id`/`x-tracing-id`/`traceparent` (≤256 chars, truncar) en middleware de métricas, incluirlo en `AuditEvent` y en span tracing | Test e2e: request con `x-request-id: abc` → evento audit lo contiene | `src/cli_server.rs:860-908`, `src/audit.rs` |
-| SRV-03 | Verificar docs instalación apuntan a GitHub Release binaries (crate publish=false); corregir README/QUICKSTART si dicen `cargo install vantadb-server` o crates.io | Grep repo sin instrucciones de instalación vía crates.io para el server | README, `docs/QUICKSTART.md`, `docs/api/HTTP_API.md` |
+| ID | Tarea | Contrato verificable | Archivos | Estado |
+|---|---|---|---|---|
+| SRV-01 | Rotación/retención audit log JSONL: rotación por tamaño configurable (`audit_max_bytes`, default p.ej. 10MB) con rename `.1/.2` + cap de archivos; test de rotación y de query post-rotación | Test nuevo en `tests/server.rs` verde: escribir > límite → archivo rota; `GET /api/v2/audit` sigue sirviendo el activo | `src/audit.rs`, `src/cli_server.rs` | ✅ Done (ya implementado) |
+| SRV-02 | Tracing-id por request: leer primer match de `x-request-id`/`x-tracing-id`/`traceparent` (≤256 chars, truncar) en middleware de métricas, incluirlo en `AuditEvent` y en span tracing | Test e2e: request con `x-request-id: abc` → evento audit lo contiene | `src/cli_server.rs:860-908`, `src/audit.rs` | ✅ Done (ya implementado) |
+| SRV-03 | Verificar docs instalación apuntan a GitHub Release binaries (crate publish=false); corregir README/QUICKSTART si dicen `cargo install vantadb-server` o crates.io | Grep repo sin instrucciones de instalación vía crates.io para el server | README, `docs/QUICKSTART.md`, `docs/api/HTTP_API.md` | ✅ Done (verificado: ya correcto) |
 
 ## Reglas
 
