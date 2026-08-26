@@ -41,6 +41,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `insert_lock_timeout_ms` | `u64` | `5000` | `VANTADB_INSERT_LOCK_TIMEOUT_MS` | [[hnsw\|HNSW]] insert lock timeout in ms |
 | `file_lock_timeout_ms` | `u64` | `1000` | `VANTADB_FILE_LOCK_TIMEOUT_MS` | .vanta.lock file lock timeout in ms |
 | `api_key` | `Option<String>` | `None` | `VANTADB_API_KEY` | Bearer token for HTTP auth |
+| `alt_api_key` | `Option<String>` | `None` | `VANTADB_ALT_API_KEY` | Alternative bearer token for zero-downtime API key rotation. When set, both `api_key` and `alt_api_key` are accepted. Deploy new key as `alt_api_key`, switch clients, then promote to `api_key` (SRV-04, Qdrant v1.17 pattern). |
 | `rate_limit_rpm` | `u32` | `600` | `VANTADB_RATE_LIMIT_RPM` | Rate limit in requests per minute (`0` = disabled) |
 | `trusted_proxies` | `Vec<IpAddr>` | `[]` | `VANTADB_TRUSTED_PROXIES` | Comma-separated reverse-proxy IPs whose `X-Forwarded-For` header is honored for client-IP resolution (rate limiter / logs). Empty = header ignored; direct socket addr is authoritative (clients cannot spoof their IP). |
 | `allowed_origins` | `Vec<String>` | `[]` | `VANTADB_ALLOWED_ORIGINS` | Comma-separated origins allowed to make cross-origin (CORS) requests to the HTTP server (e.g. `https://app.example.com,https://admin.example.com`). Empty (default) = CORS middleware omitted; the server sends no `Access-Control-Allow-Origin` header and browsers block cross-origin web calls. Repeatable via `VantaConfig::with_allowed_origins`. |
