@@ -867,7 +867,7 @@ pub async fn auth_middleware(mut req: axum::extract::Request, next: middleware::
                     || path.starts_with("/api/v2/search")
                     || path.starts_with("/api/v2/list");
                 let namespace = if is_record_endpoint {
-                    extract_namespace(&req.uri().path(), req.uri().query())
+                    extract_namespace(req.uri().path(), req.uri().query())
                 } else {
                     None
                 };
@@ -4186,7 +4186,7 @@ mod tests {
         assert_eq!(status, 200, "audit after rotation: {body}");
         let page: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert!(
-            page["events"].as_array().unwrap().len() > 0,
+            !page["events"].as_array().unwrap().is_empty(),
             "audit page must not be empty after rotation"
         );
     }
