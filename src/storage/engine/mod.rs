@@ -493,18 +493,84 @@ impl StorageEngine {
 
 // ─── Filesystem Snapshots ──────────────────────────────────
 
+/// Unix: hard-link (O(1) per file). Windows/WASM wrapper unifies
+/// [`std::fs::copy`]'s `u64` return with the walker's `()` contract.
+#[cfg(unix)]
+fn mirror_file(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::hard_link(src, dst)
+}
+
+#[cfg(any(windows, target_arch = "wasm32"))]
+fn mirror_file(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::copy(src, dst).map(|_| ())
+}
+
+/// Recursively mirror `src` into `dst`, hard-linking (Unix) or copying
+/// (Windows/WASM) regular files.
+///
+/// Skips the `snapshots` subdirectory: it lives INSIDE `data_dir` (created by
+/// [`StorageEngine::create_snapshot`] itself), so recursing into it would nest
+/// `snapshots/snapshots/...` forever (FIND-25).
+fn mirror_data_dir(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let path = entry.path();
+        let name = entry.file_name();
+        if path.is_dir() {
+            if name == "snapshots" {
+                continue;
+            }
+            let sub = dst.join(&name);
+            std::fs::create_dir_all(&sub)?;
+            mirror_data_dir(&path, &sub)?;
+        } else if path.is_file() {
+            mirror_file(&path, &dst.join(name))?;
+        }
+    }
+    Ok(())
+}
+
 impl StorageEngine {
-    /// Create an instant filesystem snapshot by hard-linking all data files.
+    /// Create an instant filesystem snapshot of the live data directory.
     ///
-    /// On Unix, this is O(1) per file — the kernel creates directory entries
-    /// pointing at the same inode, so no data is copied. On Windows, falls
-    /// back to [`std::fs::copy`] (O(n) per file) since `CreateHardLinkA`
-    /// requires NTFS and may need admin rights.
+    /// # Consistency (FIND-25)
+    ///
+    /// Before imaging, the engine is quiesced via [`Self::flush`] (insert_lock
+    /// + HNSW drain + backend flush + vector-index save, ERR-010 pattern), so
+    /// the imaged file set is mutually consistent at a single point in time.
+    /// Without this, a snapshot taken during active writes could capture a
+    /// torn set — each individual file operation is atomic, but the *set* of
+    /// files is not (e.g. a newer `vector_index.bin` referencing offsets past
+    /// the end of an older-copied VantaFile segment).
+    ///
+    /// # Performance trade-off
+    ///
+    /// The quiesce adds one full flush per snapshot: this snapshot is no
+    /// longer O(1)-instant. Correctness beats speed here — a torn backup is
+    /// worse than a slower one. Callers needing high-frequency snapshots
+    /// should rate-limit instead of bypassing the flush.
+    ///
+    /// On Unix, files are hard-linked (O(1) per file — kernel directory
+    /// entries pointing at the same inode). On Windows/WASM, falls back to
+    /// [`std::fs::copy`] (O(n) per file). Subdirectories under `data_dir`
+    /// (if any appear in future layouts) are mirrored recursively; the
+    /// engine-owned `snapshots/` directory is excluded.
+    ///
+    /// Note: this captures `data_dir` only — the KV backend directory lives
+    /// beside `data_dir` under the storage root and relies on WAL replay on
+    /// reopen. Snapshots taken right after `compact_wal()` (which archives
+    /// WAL segments) cannot recover backend-only state.
     ///
     /// The snapshot mirrors the live layout (`<snap_dir>/data/...`) so it can
     /// be reopened directly as a database via `VantaEmbedded::open`.
     #[cfg(unix)]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
+        // Read-only engines have nothing in flight to quiesce, and flush()
+        // would fail its ensure_writable() guard.
+        if !self.read_only {
+            self.flush()?;
+        }
+
         let snap_dir = self.data_dir.join("snapshots").join(name);
         let snap_data = snap_dir.join("data");
         std::fs::create_dir_all(&snap_data)?;
@@ -518,14 +584,7 @@ impl StorageEngine {
             });
         }
 
-        for entry in std::fs::read_dir(&self.data_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_file() {
-                let dest = snap_data.join(entry.file_name());
-                std::fs::hard_link(&path, &dest)?;
-            }
-        }
+        mirror_data_dir(&self.data_dir, &snap_data)?;
         Ok(FsSnapshot {
             path: snap_dir,
             created_at: std::time::Instant::now(),
@@ -534,10 +593,17 @@ impl StorageEngine {
 
     /// Create a filesystem snapshot (Windows/WASM fallback using copy).
     ///
+    /// Same quiesce-then-image semantics as the Unix variant — see its
+    /// documentation for the consistency and performance trade-offs.
+    ///
     /// The snapshot mirrors the live layout (`<snap_dir>/data/...`) so it can
     /// be reopened directly as a database via `VantaEmbedded::open`.
     #[cfg(any(windows, target_arch = "wasm32"))]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
+        if !self.read_only {
+            self.flush()?;
+        }
+
         let snap_dir = self.data_dir.join("snapshots").join(name);
         let snap_data = snap_dir.join("data");
         std::fs::create_dir_all(&snap_data)?;
@@ -551,14 +617,7 @@ impl StorageEngine {
             });
         }
 
-        for entry in std::fs::read_dir(&self.data_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_file() {
-                let dest = snap_data.join(entry.file_name());
-                std::fs::copy(&path, &dest)?;
-            }
-        }
+        mirror_data_dir(&self.data_dir, &snap_data)?;
         Ok(FsSnapshot {
             path: snap_dir,
             created_at: std::time::Instant::now(),

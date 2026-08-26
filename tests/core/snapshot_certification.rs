@@ -1323,3 +1323,111 @@ fn test_hardlink_snapshot_multiple() {
         ));
     });
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION: FIND-25 — SNAPSHOT CONSISTENCY UNDER CONCURRENT WRITES
+// ═══════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_snapshot_consistent_under_concurrent_writes() {
+    TerminalReporter::suite_banner("SNAPSHOT CONSISTENCY UNDER CONCURRENT WRITES (FIND-25)", 1);
+    let mut harness = VantaHarness::new("SNAPSHOT CONSISTENCY UNDER CONCURRENT WRITES");
+
+    harness.execute(
+        "Snapshot taken during active writes reopens with a consistent node set",
+        || {
+            let dir = tempdir().expect("tempdir");
+            let db = VantaEmbedded::open(dir.path()).expect("open db");
+
+            // Baseline: committed + flushed BEFORE the snapshot. Every one of
+            // these nodes MUST appear in the reopened snapshot.
+            const BASELINE: usize = 20;
+            for i in 0..BASELINE {
+                let mut input = VantaMemoryInput::new("ns/conc", format!("base-{i}"), format!("payload-base-{i}"));
+                input.vector = Some(vec![i as f32, 0.0, 0.0]);
+                db.put(input).expect("put baseline");
+            }
+            db.flush().expect("flush baseline");
+
+            // Writers hammer puts while the main thread snapshots. Writers are
+            // NOT flushed, so whether their nodes land in the snapshot depends
+            // on the quiesce point — but whatever lands must be intact.
+            const WRITERS: usize = 4;
+            const PER_WRITER: usize = 25;
+            let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let mut handles = Vec::new();
+            for t in 0..WRITERS {
+                let db_clone = db.clone();
+                let stop = stop.clone();
+                handles.push(std::thread::spawn(move || {
+                    for i in 0..PER_WRITER {
+                        if stop.load(std::sync::atomic::Ordering::Relaxed) {
+                            break;
+                        }
+                        let key = format!("w{t}-{i}");
+                        let mut input =
+                            VantaMemoryInput::new("ns/conc", key.clone(), format!("payload-{key}"));
+                        input.vector = Some(vec![100.0 + i as f32, 0.0, 0.0]);
+                        // Writes may transiently fail under snapshot lock
+                        // contention — that's allowed; corruption is not.
+                        let _ = db_clone.put(input);
+                    }
+                }));
+            }
+
+            let snap = db.create_snapshot("concurrent").expect("create snapshot");
+            stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            for h in handles {
+                h.join().expect("writer thread panicked");
+            }
+
+            // Reopen the snapshot as an independent DB and verify consistency:
+            // every retrieved payload is exact (no torn records) and the whole
+            // flushed baseline survived.
+            let snap_db = VantaEmbedded::open(&snap.path).expect("open snapshot as db");
+            let mut found_baseline = 0;
+            for i in 0..BASELINE {
+                let got = snap_db.get("ns/conc", &format!("base-{i}")).expect("get baseline from snapshot");
+                match got {
+                    Some(r) => {
+                        assert_eq!(
+                            r.payload,
+                            format!("payload-base-{i}"),
+                            "torn snapshot: baseline node base-{i} has wrong payload"
+                        );
+                        found_baseline += 1;
+                    }
+                    None => panic!("torn snapshot: flushed baseline node base-{i} missing"),
+                }
+            }
+
+            // Writer nodes present in the snapshot must have exact payloads.
+            let mut found_writer_nodes = 0;
+            for t in 0..WRITERS {
+                for i in 0..PER_WRITER {
+                    let key = format!("w{t}-{i}");
+                    if let Some(r) = snap_db.get("ns/conc", &key).expect("get writer node") {
+                        assert_eq!(
+                            r.payload,
+                            format!("payload-{key}"),
+                            "torn snapshot: writer node {key} has wrong payload"
+                        );
+                        found_writer_nodes += 1;
+                    }
+                }
+            }
+
+            // The snapshot dir must not recursively contain its own snapshots/
+            // subtree (recursion guard on the data_dir walk).
+            let nested = snap.path.join("data").join("snapshots");
+            assert!(
+                !nested.exists() || fs::read_dir(&nested).map(|d| d.count()).unwrap_or(0) == 0,
+                "snapshot must not nest its own snapshots/ directory"
+            );
+
+            TerminalReporter::success(&format!(
+                "Snapshot consistent: {found_baseline}/{BASELINE} baseline nodes, {found_writer_nodes} concurrent-writer nodes captured intact",
+            ));
+        },
+    );
+}
