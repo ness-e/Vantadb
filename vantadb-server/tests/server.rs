@@ -158,6 +158,7 @@ fn build_rbac_context(api_key: &str, role: &str) -> TestContext {
         circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: Some(Arc::from(api_key)),
+        alt_api_key: None,
         rbac_config: RbacConfig {
             token_role_map: HashMap::from([(api_key.to_string(), role.to_string())]),
         },
@@ -377,6 +378,7 @@ async fn test_circuit_breaker_open_returns_503_with_retry_after() {
         circuit_breaker: breaker.clone(),
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: None,
+        alt_api_key: None,
         rbac_config: Default::default(),
         trusted_proxies: vec![],
         conversation_trigger: None,
@@ -422,6 +424,7 @@ async fn test_circuit_breaker_half_open_probe_success_closes() {
         circuit_breaker: breaker.clone(),
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: None,
+        alt_api_key: None,
         rbac_config: Default::default(),
         trusted_proxies: vec![],
         conversation_trigger: None,

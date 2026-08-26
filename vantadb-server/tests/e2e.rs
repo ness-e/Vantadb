@@ -235,6 +235,7 @@ async fn test_e2e_persistence_across_restart() {
         circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: None,
+        alt_api_key: None,
         rbac_config: Default::default(),
         trusted_proxies: vec![],
         conversation_trigger: None,

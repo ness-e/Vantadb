@@ -37,6 +37,7 @@ pub fn build_server_state(
             Duration::from_millis(5000),
         )),
         api_key: api_key.map(Arc::from),
+        alt_api_key: None,
         rbac_config: Default::default(),
         trusted_proxies: vec![],
         conversation_trigger: None,
