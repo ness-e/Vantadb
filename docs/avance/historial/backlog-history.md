@@ -198,3 +198,19 @@ Sin eliminar del catálogo: DESKTOP-20 ✅ (shutdown_all, `45f8bed8`), ADMIN-01.
 ### Convención
 
 Filas completadas NO viven más en el Backlog: se eliminan al completar y su registro va aquí (o a docs/avance/<dominio>.md). Ver progreso SKILL.md Trigger 1 y AGENTS.md "Progreso Skill".
+
+### MOD-41..45 (derivados del review providers 2026-08-23 - nunca ejecutados)
+
+> **Fecha de archivo:** 2026-08-25 · **Origen:** INV-providers-01 H-13 (perdida de trazabilidad detectada).
+> Las filas MOD-41..45 derivadas de `docs/reviews/modulos/providers.md` (fase P32) desaparecieron
+> del Backlog sin registro aqui ni en avance/ (grep 0 resultados en ambos arboles al 2026-08-25).
+> Estado: **SUPERADAS** por la investigacion INV-providers-01 (`docs/reviews/research-providers-20260825.md`),
+> que re-cubro su contenido con evidencia fresca:
+>
+> | Vieja | Contenido | Nueva fila |
+> |---|---|---|
+> | MOD-41 | Tests rotos (P1/P2) | PROV-02 (Backlog P45) |
+> | MOD-42 | Sin distribucion PyPI (P4) | PROV-12 (decision HITL 2026-08-25: publicar wheels) |
+> | MOD-43 | Duplicacion ~85% (P6) | PROV-05 |
+> | MOD-44 | Stubs .pyi stale (P3) | PROV-03 |
+> | MOD-45 | Nits unwrap/README/importorskip (P7-P9) | PROV-06/07/08/09 |

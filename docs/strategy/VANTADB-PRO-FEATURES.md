@@ -16,7 +16,7 @@ Norma del modelo Open Core:
 |---------|--------------------|------|----------------------|-----------|--------------|
 | `encryption` | :117 (`aes-gcm`,`sha2`) | aes-gcm 0.10, sha2 0.10 | `packageStorage` `src/storage/vfile.rs:8,531,578,651,842,849,862`; `src/lib.rs:53` | Seguridad | **Candidata Pro** (moat clásico) |
 | `wal-shipping` | :118 (`reqwest`) | reqwest | `src/lib.rs:138` | Replicación/distribuido | **Candidata Pro** |
-| `pitr` | :119 | — (solo cfg) | `src/lib.rs:142` | Point-in-time recovery | **Candidata Pro** |
+| ~~`pitr`~~ | ❌ removida (FIND-26, 2026-08-25) | — | código en git history | Point-in-time recovery | ~~Candidata Pro~~ (removida del core por dead code; revive desde history si Pro la quiere) |
 | `prometheus` | :129 (`prometheus`) | prometheus | `src/metrics/core/registry.rs` (72+ bloques), `src/metrics/core/mod.rs:16-43,564,906`, `src/memory_governor.rs:118` | Observabilidad | Pro (enterprise ya la monetiza en tier) |
 | `server` | :121 (`axum`,`tower_governor`,`tower-http`) | axum, tokio | `src/lib.rs:66,72,78`; `src/cli_handlers/server.rs:188,207` | Servicios | Pro (server delgado) |
 | `tls` | :128 (`axum-server`,`rustls`) | axum-server, rustls | `src/cli_server.rs:698,817,887` | Seguridad transporte | Pro |

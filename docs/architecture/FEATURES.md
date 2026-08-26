@@ -56,7 +56,7 @@ Inventario honesto de las features declaradas en `Cargo.toml` `[features]`
 | `async-io` | 🟡 opt-in | `transcript` — I/O async de transcriptos | `src/lib.rs:149`, `src/transcript.rs` (9 gates) |
 | `hot-reload` | 🟡 opt-in | Watcher de recarga de config (JSON/TTL) vía `notify` | `src/config.rs` (7 gates) |
 | `wal-shipping` | 🟡 opt-in | Envío async de WAL a réplica remota (`reqwest`) | `src/lib.rs:138` (`wal_shipping`). Feature real, documentada en ADR-014 como separada de PITR; Candidata Pro |
-| `pitr` | ⚠️ experimental | `wal_archiver` — archivado WAL + point-in-time recovery | `src/lib.rs:142`. API standalone funcional y self-tested, **no integrada** en StorageEngine/SDK; ver **ADR-014** (`docs/architecture/adr/ADR-014-pitr.md`); Candidata Pro |
+| `pitr` | 💀 removed | ~~`wal_archiver` — archivado WAL + point-in-time recovery~~ | **Removido 2026-08-25 (FIND-26):** dead code sin wiring desde el engine (RES-02); el código vive en git history. Ver ADR-014 (superseded) y backlog CORE-02 si se reviviera PITR |
 | `bayesian_decay` | 🟡 opt-in | Variantes de eviction con decay Bayesian Beta-Binomial | `src/eviction.rs` (17 gates) |
 | `wasm` | 💀 no-op | Sin `#[cfg]` en código del crate core | 0 matches en `src/`/`tests/`; únicamente referenciada por la dependencia de `vantadb-wasm/Cargo.toml:21` (`default-features = false, features = ["wasm"]`). **Candidate for removal** (la dependencia funciona sin ella) — extracción trivial, fuera de alcance de este task |
 

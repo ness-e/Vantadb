@@ -55,7 +55,7 @@ These surfaces exist and work, but are not stable product claims:
 
 | Area | Boundary |
 | --- | --- |
-| PITR (`pitr` feature) | Standalone API functional and self-tested (`wal_archiver.rs`); **not integrated** into StorageEngine/SDK. See ADR-014. Integration task: backlog CORE-02 |
+| ~~PITR (`pitr` feature)~~ | **Removed 2026-08-25 (FIND-26)**: `wal_archiver.rs` was dead code (zero engine call sites, RES-02) and was deleted; code preserved in git history. See superseded ADR-014. Re-integration would require base snapshot + log replay first (backlog CORE-02, needs re-evaluation) |
 | `POST /conversation/add`, `GET /skill/listing`, skills CRUD endpoints | Marked `x-experimental: true` in `openapi.yaml`; may change without notice |
 | LLM/Ollama integration | External optional integration (`llm.rs`, feature-gated), not a core dependency |
 | Graph traversal beyond stored local edges | Experimental; not a graph database claim |

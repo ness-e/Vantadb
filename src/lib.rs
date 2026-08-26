@@ -27,7 +27,6 @@
 //! | `arrow` | Apache Arrow columnar export |
 //! | `python_sdk` | Python bindings (via PyO3) |
 //! | `wal-shipping` | Async WAL shipping to replicas |
-//! | `pitr` | Point-in-time recovery from WAL archives |
 //! | `async-ingestion` | Background ingestion worker pool |
 //! | `remote-inference` | Remote LLM inference integration |
 //!
@@ -143,10 +142,6 @@ pub mod wiki;
 /// Async WAL shipping to remote replica (behind feature "wal-shipping").
 #[cfg(feature = "wal-shipping")]
 pub mod wal_shipping;
-
-/// WAL archival and point-in-time recovery (behind feature "pitr").
-#[cfg(feature = "pitr")]
-pub mod wal_archiver;
 
 /// Async ingestion pipeline for offloading node insertion to a worker pool.
 #[cfg(feature = "async-ingestion")]

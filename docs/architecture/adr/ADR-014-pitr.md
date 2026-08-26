@@ -1,13 +1,21 @@
 ---
 title: "ADR-014: PITR (WAL archival & point-in-time recovery) — experimental standalone API, engine integration deferred"
 type: adr
-status: accepted
+status: superseded
 tags: [vantadb, architecture, adr, durability, wal, pitr]
 created: 2026-08-09
-last_reviewed: 2026-08-09
+last_reviewed: 2026-08-25
 ---
 
 # ADR-014: PITR — experimental standalone API, engine integration deferred
+
+> **⚠️ SUPERSEDED (2026-08-25, FIND-26):** the `wal_archiver.rs` module and the
+> `pitr` feature flag were **removed**: RES-02 confirmed zero engine call sites
+> (dead code), and proper PITR requires base snapshot + log replay — a large
+> prerequisite with no consumer identified. The code is preserved in git history
+> (see the FIND-26 commit). If PITR is ever revived, restore from history via
+> `git log --follow src/wal_archiver.rs` and re-run the integration analysis in
+> this ADR's Context section.
 
 ## Context
 

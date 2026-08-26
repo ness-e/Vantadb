@@ -162,7 +162,6 @@ TODO: Los siguientes archivos contienen `.unwrap()` exclusivamente dentro de `mo
 - `src/gc.rs` (~12 unwraps, mod tests en línea 94)
 - `src/graph.rs` (~17 unwraps, mod tests en línea 221)
 - `src/wal.rs` (~18 unwraps, mod tests en línea 652)
-- `src/wal_archiver.rs` (~22 unwraps, mod tests en línea 301)
 - `src/wal_shipping.rs` (~7 unwraps, mod tests en línea 253)
 - `src/migration.rs` (~3 unwraps, mod tests en línea 397)
 - `src/governor.rs` (~3 unwraps, mod tests en línea 91)

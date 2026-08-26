@@ -38,7 +38,7 @@
 
 ### 6 — `std::fs` en background threads: permitido pero NO en event loop
 
-- **Must:** las operaciones `std::fs` de `wal_shipping.rs`, `wal_archiver.rs`, `wal.rs` corren en hilos de background dedicados o en init/snapshot — **no** en el event loop de Tokio.
+- **Must:** las operaciones `std::fs` de `wal_shipping.rs` y `wal.rs` corren en hilos de background dedicados o en init/snapshot — **no** en el event loop de Tokio.
 - **Must not:** mover esas llamadas a un contexto async sin envolverlas en `spawn_blocking` o sin un hilo dedicado.
 - **Por qué:** INV-003 §2.1.3 confirmó que no bloquean el runtime porque ya están aisladas.
 - **Extensión INV-003:** los handlers MCP (`vantadb-mcp`) y del server deben seguir el mismo patrón: trabajo del motor en `spawn_blocking` (ver R-7), con límite de concurrencia vía semáforo (ver R-3) para no saturar `spawn_blocking` con requests ilimitados.
