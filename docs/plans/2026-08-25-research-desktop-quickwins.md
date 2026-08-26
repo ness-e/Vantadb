@@ -1,0 +1,37 @@
+# Plan — Quick wins INV-desktop-prod (research-desktop-prod-20260825)
+
+> **Origen:** `/research desktop` 2026-08-25 · Informe: `docs/reviews/research-desktop-prod-20260825.md`
+> Score global 7.4/10 · 15 hallazgos · Aprobado HITL (Fase D): los 10 ítems de este plan
+> fueron seleccionados explícitamente por el owner. Estrategia → Backlog P44.
+> **Verificación mecánica del plan:** `cd desktop && npm run build && npm test` verde en cada wave
+> (+ `cargo check -p vantadb` si H-04 toca bridge Rust) + `npx playwright test` para H-07.
+
+## Wave 1 — Cosméticos/UX <1h c/u
+
+| # | Tarea | Origen | Archivos clave |
+|---|-------|--------|----------------|
+| 1 | CommandPalette: sincronizar union completa Surface (verificar `memoria`/`proxy`/`ajustes` presentes) | H-02 | `desktop/src/components/palette/CommandPalette.tsx`, `WorkspaceShell.tsx` |
+| 2 | Handler keydown global F1/F2 → HelpPanel | H-03 | `desktop/src/components/layout/HelpPanel.tsx`, `WorkspaceShell.tsx` |
+| 3 | `statusReport.ts` markdown EN→ES (consistente con UI) | H-05 | `desktop/src/components/export/statusReport.ts` + tests |
+| 4 | Botón FILTROS: activo = reglas >0 (`filterActive`) — decisión owner DAUD-02 cerrada 2026-08-25 | H-14 | `desktop/src/components/layout/WorkspaceShell.tsx` (topbar) |
+| 5 | Limpiar filas DAUD-01..09 stale del Backlog (commits ya aplicados: `3c53d8b2`,`480935a7`,`b865c625`; DAUD-02 resuelta por tarea 4; DAUD-08 stash recuperada por `b865c625`) | H-13 | `docs/Backlog.md` P37 |
+
+## Wave 2 — Seguridad + integridad de datos
+
+| # | Tarea | Origen | Archivos clave |
+|---|-------|--------|----------------|
+| 6 | CSP mínima en tauri.conf.json (`default-src 'self'` + connect-src localhost/remoto según transporte). Fuente: https://v2.tauri.app/security/csp/ — validar app tras cambio (E2E flujo-critico debe pasar) | H-01 🔴 | `desktop/src-tauri/tauri.conf.json:24-26` |
+| 7 | Rename namespace preserva `sparse_vector` (copiar campo en el ingestBatch del rename + test que lo fije) | H-04 🟠 | `desktop/src/vanta.ts` (rename flow), `store/connections.test.ts` |
+
+## Wave 3 — Release/medición/E2E
+
+| # | Tarea | Origen | Archivos clave |
+|---|-------|--------|----------------|
+| 8 | Sincronizar versión desktop con release-plz (o excluirla documentadamente): `package.json:4` + `tauri.conf.json:4` vs tags workspace | H-11 | `desktop/package.json`, `desktop/src-tauri/tauri.conf.json`, release-plz.toml |
+| 9 | Baseline medido de recursos del app (startup time, RAM idle) registrado en `docs/operations/BENCHMARKS.md` §Desktop (Regla 11: reemplaza estimación de plataforma DESKTOP-01) | H-15 | `docs/operations/BENCHMARKS.md` |
+| 10 | E2E desktop: specs nuevas multi-perfil conexión + proxy dashboard (mock upstream); graph/space quedan smoke visual manual documentado | H-07 | `desktop/e2e/`, `desktop/playwright.config.ts` (config a raíz del paquete — lesson 2026-08-25) |
+
+## Fuera del plan (Backlog P44)
+
+- DESKTOP-40 i18n real ES/EN (H-06) · DESKTOP-41 smoke VM instalador (H-08) · DESKTOP-42 bundles macOS/Linux baja prioridad (H-09) · DESKTOP-43 auto-updater tras firma (H-10)
+- H-12 validación manual proxy requiere upstream LLM vivo — ejecutarla como sesión guiada con el owner, no tarea autónoma (queda anotada en P44).

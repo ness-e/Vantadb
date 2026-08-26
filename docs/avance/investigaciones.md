@@ -131,4 +131,44 @@ aliases: []
 ### FND-24: JTBD/ICP — hipótesis + plan de validación (2026-08-16)
 - **Fuente:** Backlog P20d `FND-24`
 - **Resultado:** **0 evidencia de usuarios reales — todo hipótesis** (4 perfiles ICP, 10 JTBD) + plan de validación accionable post-Show HN. Regla de la tarea: no inventar evidencia. Doc: `docs/research/FND-24-icp-jtbd.md`.
-- **Ids:** `FND-24`
+- **Ids:** `FND-24`### INV-vantadb-server-01: Investigación profunda `vantadb-server` vs estado del arte (2026-08-25)
+- **Fuente:** `/research vantadb-server` (registro fila 18)
+- **Resultado:** Score **8.0/10** (previo review 2026-08-23: 7.5; MOD-12/13/14 cerradas desde entonces). Matriz competidores (qdrant · weaviate · milvus lite/standalone · marqo) verificada contra docs oficiales: somos **únicos con rate-limit nativo fail-closed + refuse-to-start guard**; brechas: multi-key, RBAC scoping por namespace, OIDC/JWT, Docker. 14 hallazgos H-01..H-14 → P40 (`SRV-01..08`) + wontfix ×2 + referencias AUD-043/MOD-15/REVIEW-10/FIND-24. Doc: `docs/reviews/research-vantadb-server-20260825.md`
+- **Ids:** `INV-vantadb-server-01`
+
+### INV-vantadb-wasm-01: Investigación profunda `vantadb-wasm` vs estado del arte browser (2026-08-25)
+- **Fuente:** `/research vantadb-wasm` (registro fila 20)
+- **Resultado:** Score **6.8/10** (previo review 2026-08-22: 7.0; competencia maduró — DuckDB-WASM validó OPFS-auto-persist como UX esperada). Persistencia de grafo RESUELTA desde el review previo (graph_state.json, CORE-02 cross-session) y wasm-pack test ya corre en CI. Matriz competidores (Orama 5.44M desc/mes · DuckDB-WASM · sql.js-httpvfs · vectra) verificada contra fuentes oficiales: únicos con persistencia real + vector+BM25+grafo en browser; brechas: robustez persistencia (fallback silencioso, cuotas), DX (d.ts any, errores string), paridad API. 23 hallazgos H-01..H-23 → P42 (`WSM-01..14`) + plan quick wins + wontfix x1 (H-23) + estrategias H-21/H-22 aprobadas.
+- **Ids:** `INV-vantadb-wasm-01`
+
+### INV-vantadb-ts-01 — Investigación profunda SDK TypeScript/WASM (2026-08-25)
+- **Origen:** `/research vantadb-ts`
+- **Informe:** `docs/reviews/research-vantadb-ts-20260825.md` (score global 7.2/10)
+- **Resultado:** 14 hallazgos (H-01..H-14) · decisiones HITL: 4 APLICAR · 4 MEJORAR · 2 AGREGAR+1 AGREGAR-estrategia · 1 OPTIMIZAR · 2 ESTRATEGIA · 0 DESCARTAR
+- **Materialización:** filas `TS-01..TS-13` en Backlog P41 + MOD-22/23/24 restauradas en P32 + plan quick wins `docs/plans/2026-08-25-research-vantadb-ts-quickwins.md` (TS-02/05/06/07/08)
+
+### INV-web-01 — Investigación profunda producto web (2026-08-25)
+- **Origen:** `/research web` (registro fila 23, plantilla producto)
+- **Informe:** `docs/reviews/research-web-prod-20260825.md` (score global 7.2/10)
+- **Resultado:** 11 hallazgos (H-01..H-11) → decisiones HITL: 7 APLICAR (plan quick wins) · 2 Backlog (WEB-01/02) · 1 registro corregido (H-01 dashboard embebido no vive en web) · 1 diferido (H-09 dominio). Matriz 5 competidores extraídos en vivo (qdrant/weaviate/lancedb/chroma/milvus).
+- **Ids:** `INV-web-01`, filas `WEB-01..09` (Backlog P43)
+
+### INV-integrations-01 — Investigación profunda adapters de frameworks (2026-08-25)
+- **Origen:** `/research integrations` (registro fila 22)
+- **Informe:** `docs/reviews/research-integrations-20260825.md` (score global 6.3/10; review previo módulos 6.5)
+- **Resultado:** 11 hallazgos (H-01..H-11) → decisiones HITL: 9 APLICAR → plan quick wins + 2 ESTRATEGIA Backlog P44 + 0 DESCARTAR. Hallazgo de proceso: MOD-46..50 huérfanas (removidas del Backlog sin completar ni archivar) — absorbidas por el plan. Convención ecosistema verificada: paquete PyPI separado por framework (dominante); MKT-18f ampliada 5→9 paquetes.
+- **Materialización:** plan `docs/plans/2026-08-25-integrations-research-wins.md` (QW-1..9) + filas `INTG-01/02` en Backlog P44
+- **Ids:** `INV-integrations-01`, `INTG-01/02`, QW-1..9
+
+### INV-providers-01 - Investigacion profunda adapters inference (2026-08-25)
+- **Origen:** `/research providers` (registro fila 21)
+- **Informe:** `docs/reviews/research-providers-20260825.md` (score global 4.0/10 - regresion vs review 2026-08-23: openai ya no compila contra core actual, E0063 exclude_superseded)
+- **Resultado:** 14 hallazgos (H-01..H-14) -> decisiones HITL: 4 APLICAR - 6 MEJORAR - 1 AGREGAR - 1 OPTIMIZAR - 2 ESTRATEGIA - 0 DESCARTAR
+- **Materializacion:** filas `PROV-01..PROV-12` en Backlog P45 + MOD-41..45 archivadas como superadas en historial + plan quick wins `docs/plans/2026-08-25-research-providers-quickwins.md` (wave1: PROV-01/06/03/07/08; wave2: PROV-02/09). Estrategia H-04 = publicar wheels PyPI (PROV-12); H-14 = ADR pendiente (superficies Rust vs Python providers).
+- **Ids:** `INV-providers-01`, filas `PROV-01..12`
+
+### INV-DECIDE — Sala de decisión global síntesis INV-* (2026-08-26)
+- **Fuente:** `/research synthesis` · 9 reportes `research-*-20260825.md` (121 hallazgos, todos materializados previamente por módulo en P40-P46/wontfix/plans)
+- **Resultado:** Veredicto global 6.6/10 promedio: capacidad ≥7.0 en 5/9 superficies; brecha #1 transversal = distribución (node 404 npm, ts 12 dl/sem, wasm 187/mes); patrón sistémico pérdida de trazabilidad ×4 → regla derivación atómica (meta.md). Decisiones HITL Q1-Q9: apuesta = **paridad de bindings c/excepciones documentadas** (BINDINGS_NAMESPACES.md matriz canónica); inaceptables = providers roto + npm node 404 + trazabilidad + CSP desktop; roadmap sin contradicción; ejecución aprobada de los 7 planes quickwins (waves por directorios disjuntos, tests pesados serializados); PY H-09 → consolidar import en `vantadb` (fila PY-03); síntesis formal generada.
+- **Materialización:** `docs/reviews/research-bindings-synthesis-20260825.md` + INDEX + PY-03 (Backlog) + regla meta.md + memory decisions ×4
+- **Ids:** `INV-DECIDE`

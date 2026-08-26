@@ -51,17 +51,22 @@ Leé el registro `.opencode/references/research-modules.md`. El argumento
    el repo. Módulos disponibles: <lista>". Ofrecer vía `question`: registrar como
    módulo externo/nuevo (flujo 3 sin directorio) o abortar.
 
-### Fase R — Investigación (`prompts/research-module.md`)
+### Fase R — Investigación (plantilla según módulo)
 
-1. Cargá `.opencode/task-system/prompts/research-module.md`.
-2. Sustituí TODOS los placeholders con los datos de la fila del registro:
+1. **Plantilla:** los módulos `web` y `desktop` son superficies de producto →
+   cargá `prompts/research-module-product.md`. Todos los demás →
+   `prompts/research-module.md`. (Mapeo canónico en el registro, sección
+   "Plantilla por módulo"; un módulo nuevo registrado como producto usa la variante product.)
+2. Cargá el archivo de plantilla correspondiente.
+3. Sustituí TODOS los placeholders con los datos de la fila del registro:
    `{{MODULO}}` · `{{TIPO}}` · `{{ECOSISTEMA}}` · `{{USUARIOS}}` ·
-   `{{COMPETIDORES}}` · `{{COMPETIDOR_PRINCIPAL}}` · `{{DOC_API}}` ·
-   `{{USUARIOS_DETALLE}}` (= columna Usuarios expandida).
-3. Ejecutá el proceso completo de investigación (fuentes internet + interno).
-4. El informe DEBE incluir el **Apéndice de hallazgos H-NN**: todo hallazgo con ID,
+   {{USUARIOS_DETALLE}} (= columna Usuarios expandida) ·
+   `{{COMPETIDORES}}` · `{{COMPETIDOR_PRINCIPAL}}` · `{{DOC_API}}`.
+4. Ejecutá el proceso completo de investigación (fuentes internet + interno).
+5. El informe DEBE incluir el **Apéndice de hallazgos H-NN**: todo hallazgo con ID,
    categoría sugerida, severidad, esfuerzo, file:line. Sin ese apéndice el informe
-   está incompleto (es la entrada de la Fase D).
+   está incompleto (es la entrada de la Fase D). En módulos producto, complementá
+   con evidencia visual de playwright-cli contra dev server local.
 
 ### Fase D — Decisiones por hallazgo (HITL, cero pérdida de datos)
 

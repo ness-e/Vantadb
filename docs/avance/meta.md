@@ -142,3 +142,9 @@ Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña
 - **Continue:** verify mecánico del lead antes de cada commit; Regla 0 antes de eliminar (FIND-26: grep exhaustivo confirmó solo export+tests propios).
 - **Accion medible:** cadena ejecutada 3/3 first-try con diseño previo de research vs batches sin diseño (~1 retry promedio). North Star cumplida: 0 falsos positivos, 0 regresiones.
 - **Deuda:** FIND-33 abierto (snapshot tras compact_wal — rediseño >100 líneas); stash@{1..9} viejos sin revisar.
+
+## Regla de proceso — Derivación atómica de hallazgos (INV-DECIDE, 2026-08-26)
+- **Contexto:** 4 pérdidas de trazabilidad en el programa INV-* 2026-08-25 (MOD-22..24, MOD-25..28, MOD-41..45, MOD-46..50): hallazgos "derivados al Backlog" en la prosa de reports pero sin fila creada — violación repetida del invariant progreso (nada se elimina del Backlog sin completar o archivar).
+- **Regla dura:** derivar un hallazgo = crear la fila en `docs/Backlog.md` EN EL MISMO commit donde se registra la derivación. Prohibido dejar la derivación solo en prosa de reports/informes.
+- **Chequeo mecánico:** Trigger 4 de `progreso` incluye grep de IDs citados en `docs/reviews/*.md` (apéndices H-NN, MOD-\*, derivaciones) vs filas reales en Backlog/historial; IDs huérfanos = hallazgo REC-\* inmediato.
+- **Origen:** decisión HITL `/research synthesis` Q8 (sesión 2026-08-26); ref: `docs/reviews/research-bindings-synthesis-20260825.md` §3.
