@@ -48,7 +48,13 @@ impl VantaDB {
     ///
     /// `options` (optional): `{ read_only?: boolean, memory_limit?: number }`.
     #[napi(factory)]
-    pub async fn connect(path: String, options: Option<Value>) -> napi::Result<VantaDB> {
+    pub async fn connect(
+        path: String,
+        // Types overwrite: https://napi.rs/docs/concepts/types-overwrite — the
+        // public TS contract is a typed options object while runtime conversion
+        // stays on serde_json::Value with manual validation.
+        #[napi(ts_arg_type = "ConnectOptions")] options: Option<Value>,
+    ) -> napi::Result<VantaDB> {
         let config = build_config(&path, options.as_ref())?;
         let engine = spawn_blocking(move || VantaEmbedded::open_with_config(config)).await?;
         Ok(VantaDB {
@@ -83,8 +89,8 @@ impl VantaDB {
     ///
     /// `record`: `{ namespace, key, payload, metadata?, vector?, ttl_ms? }`.
     /// Returns the created/updated record with system timestamps and version.
-    #[napi]
-    pub async fn put(&self, record: Value) -> napi::Result<Value> {
+    #[napi(ts_return_type = "Promise<MemoryRecord>")]
+    pub async fn put(&self, #[napi(ts_arg_type = "MemoryInput")] record: Value) -> napi::Result<Value> {
         let _g = enter(&self.op_gate)?;
         let input = parse_memory_input(&record)?;
         let engine = self.engine.clone();
@@ -93,8 +99,11 @@ impl VantaDB {
     }
 
     /// Insert or update multiple records. Returns the resulting records.
-    #[napi]
-    pub async fn put_batch(&self, records: Value) -> napi::Result<Value> {
+    #[napi(ts_return_type = "Promise<MemoryRecord[]>")]
+    pub async fn put_batch(
+        &self,
+        #[napi(ts_arg_type = "MemoryInput[]")] records: Value,
+    ) -> napi::Result<Value> {
         let _g = enter(&self.op_gate)?;
         let arr = records
             .as_array()
@@ -109,7 +118,7 @@ impl VantaDB {
     }
 
     /// Retrieve a memory record by namespace and key. Returns `null` if absent.
-    #[napi]
+    #[napi(ts_return_type = "Promise<MemoryRecord | null>")]
     pub async fn get(&self, namespace: String, key: String) -> napi::Result<Option<Value>> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
@@ -133,8 +142,12 @@ impl VantaDB {
     ///
     /// `options` (optional): `{ filters?: VantaMetadata, limit?: number, cursor?: number }`.
     /// Returns `{ records: MemoryRecord[], next_cursor?: number }`.
-    #[napi]
-    pub async fn list(&self, namespace: String, options: Option<Value>) -> napi::Result<Value> {
+    #[napi(ts_return_type = "Promise<MemoryListResult>")]
+    pub async fn list(
+        &self,
+        namespace: String,
+        #[napi(ts_arg_type = "MemoryListOptions")] options: Option<Value>,
+    ) -> napi::Result<Value> {
         let _g = enter(&self.op_gate)?;
         let opts = parse_list_options(options.as_ref())?;
         let engine = self.engine.clone();
@@ -153,8 +166,11 @@ impl VantaDB {
     /// Search memory records by vector similarity (with optional filters and
     /// text query). Returns hits ordered by relevance: each hit is
     /// `{ record: MemoryRecord, score: number, explanation?: object }`.
-    #[napi]
-    pub async fn search(&self, request: Value) -> napi::Result<Value> {
+    #[napi(ts_return_type = "Promise<MemorySearchHit[]>")]
+    pub async fn search(
+        &self,
+        #[napi(ts_arg_type = "SearchRequest")] request: Value,
+    ) -> napi::Result<Value> {
         let _g = enter(&self.op_gate)?;
         let request = parse_search_request(&request)?;
         let engine = self.engine.clone();
@@ -164,7 +180,7 @@ impl VantaDB {
     }
 
     /// Return stable runtime capabilities.
-    #[napi]
+    #[napi(ts_return_type = "Capabilities")]
     pub fn capabilities(&self) -> Value {
         let caps = self.engine.capabilities();
         json!({
@@ -182,7 +198,10 @@ impl VantaDB {
     /// (or number; strings are the safe form for ids above 2^53), `fields` is an
     /// object of tagged values (e.g. `{ "name": { "String": "Ada" } }`).
     #[napi]
-    pub async fn insert_node(&self, input: Value) -> napi::Result<()> {
+    pub async fn insert_node(
+        &self,
+        #[napi(ts_arg_type = "GraphNodeInput")] input: Value,
+    ) -> napi::Result<()> {
         let _g = enter(&self.op_gate)?;
         let input = parse_node_input(&input)?;
         let engine = self.engine.clone();
@@ -190,7 +209,7 @@ impl VantaDB {
     }
 
     /// Retrieve a graph node by id. Returns `null` if absent.
-    #[napi]
+    #[napi(ts_return_type = "Promise<GraphNodeRecord | null>")]
     pub async fn get_node(&self, id: String) -> napi::Result<Option<Value>> {
         let _g = enter(&self.op_gate)?;
         let id = parse_node_id(&id)?;
@@ -328,7 +347,7 @@ impl VantaDB {
         roots: Vec<String>,
         max_depth: u32,
         direction: String,
-        filter: Option<Value>,
+        #[napi(ts_arg_type = "GraphFilterOptions")] filter: Option<Value>,
     ) -> napi::Result<Vec<String>> {
         let _g = enter(&self.op_gate)?;
         let roots = parse_node_ids(&roots)?;
@@ -346,7 +365,7 @@ impl VantaDB {
     ///
     /// Returns an array of `{ id, in_degree, out_degree }` entries (u128 ids as
     /// decimal strings).
-    #[napi]
+    #[napi(ts_return_type = "Promise<DegreeEntry[]>")]
     pub async fn graph_degree(&self, roots: Vec<String>) -> napi::Result<Value> {
         let _g = enter(&self.op_gate)?;
         let roots = parse_node_ids(&roots)?;
@@ -365,8 +384,11 @@ impl VantaDB {
     ///
     /// Same request shape as `search()`. Returns
     /// `{ route, hits, fusion_report }` with a per-hit scoring breakdown.
-    #[napi]
-    pub async fn explain_search(&self, request: Value) -> napi::Result<Value> {
+    #[napi(ts_return_type = "Promise<SearchExplanation>")]
+    pub async fn explain_search(
+        &self,
+        #[napi(ts_arg_type = "SearchRequest")] request: Value,
+    ) -> napi::Result<Value> {
         let _g = enter(&self.op_gate)?;
         let request = parse_search_request(&request)?;
         let engine = self.engine.clone();
@@ -617,18 +639,20 @@ fn get_opt_u64(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<u64>>
     match obj.get(key) {
         None | Some(Value::Null) => Ok(None),
         Some(Value::Number(n)) => {
-            let valid = n.is_i64()
-                || n.is_u64()
-                || n.as_f64()
-                    .is_some_and(|f| f.is_finite() && f.fract() == 0.0 && f >= 0.0);
-            if valid {
-                // `as_u64()` is `None` for negative i64 — same semantics as the
-                // previous two identical branches (kept as one expression).
-                Ok(n.as_u64())
+            // Integer form: reject negatives explicitly instead of silently
+            // mapping them to "no TTL" (mirrors `opt_f64_to_u64` below).
+            if n.is_i64() || n.is_u64() {
+                n.as_u64().map(Some).ok_or_else(|| {
+                    Error::from_reason(format!("`{key}` must be a non-negative integer"))
+                })
             } else {
-                Err(Error::from_reason(format!(
-                    "`{key}` must be a non-negative integer"
-                )))
+                // Float form (e.g. `5.0`): accept exact non-negative integers.
+                match n.as_f64() {
+                    Some(f) if f.is_finite() && f >= 0.0 && f.fract() == 0.0 => Ok(Some(f as u64)),
+                    _ => Err(Error::from_reason(format!(
+                        "`{key}` must be a non-negative integer"
+                    ))),
+                }
             }
         }
         Some(_) => Err(Error::from_reason(format!("`{key}` must be a number"))),
