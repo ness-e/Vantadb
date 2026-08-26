@@ -1,0 +1,138 @@
+name: 'RELEASE: NPM — vantadb-node'
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no actual publish)"
+        required: false
+        default: "false"
+  push:
+    tags: ["node-v*.*.*"]
+    branches: [main]
+    paths:
+      - "vantadb-node/**"
+      - ".github/workflows/release-npm-node.yml"
+
+permissions:
+  contents: read
+  id-token: write # Required for npm trusted publishing (OIDC)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  tests:
+    name: Tests (vantadb-node)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
+        with:
+          toolchain: stable
+
+      - name: Add musl targets
+        run: |
+          rustup target add x86_64-unknown-linux-musl
+          rustup target add aarch64-unknown-linux-musl
+
+      - name: Build vantadb-node (all targets)
+        run: |
+          npm ci
+          npm run build
+        working-directory: vantadb-node
+
+      - name: Run tests
+        run: npm test
+        working-directory: vantadb-node
+
+  publish:
+    name: Publish vantadb-node to npm
+    needs: [tests]
+    if: >
+      startsWith(github.ref, 'refs/tags/node-v') ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
+        with:
+          toolchain: stable
+
+      - name: Add musl targets
+        run: |
+          rustup target add x86_64-unknown-linux-musl
+          rustup target add aarch64-unknown-linux-musl
+
+      - name: Build and pack
+        run: |
+          npm ci
+          npm run build
+          npm pack
+        working-directory: vantadb-node
+
+      - name: Check if version already published
+        id: check-node
+        working-directory: vantadb-node
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "vantadb-node@${VERSION}" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Version ${VERSION} already published — skipping"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Version ${VERSION} not published — will publish"
+          fi
+
+      - name: Smoke-test packed tarball
+        working-directory: vantadb-node
+        run: |
+          TARBALL=$(ls *.tgz)
+          mkdir -p /tmp/smoke-test && cd /tmp/smoke-test
+          npm install --ignore-scripts "${GITHUB_WORKSPACE}/vantadb-node/${TARBALL}"
+          node -e "const { VantaDb } = require('vantadb-node'); console.log('Smoke test OK:', typeof VantaDb.connect)"
+
+      - name: Attest build provenance
+        continue-on-error: true
+        uses: actions/attest-build-provenance@78e6cbd37d0ac1a40113c04f2037dacf1ea3f12e # v4.1.1
+        with:
+          subject-path: 'vantadb-node/*.tgz'
+
+      - name: Attach to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          files: vantadb-node/*.tgz
+
+      - name: Publish to npm
+        if: steps.check-node.outputs.exists != 'true'
+        run: npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }} *.tgz
+        working-directory: vantadb-node
