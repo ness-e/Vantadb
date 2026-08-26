@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Database",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
@@ -40,6 +41,17 @@ include = [
     "vantadb_py/py.typed",
     "vantadb_py/*.pyi",
     "vantadb/__init__.py",
+]
+# H-05: keep local build/test artifacts out of wheels and sdists even if the
+# `include` globs above are ever widened (gitignore-style patterns).
+exclude = [
+    "**/*.pyd",
+    "**/*.pdb",
+    "**/*.so",
+    "dist/",
+    "probe_lock_db/",
+    ".coverage",
+    "**/__pycache__/",
 ]
 
 # pytest — FX-3 (test_load.py hang): the bulk-load/sustained-throughput tests are

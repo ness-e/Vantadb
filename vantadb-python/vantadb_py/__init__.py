@@ -1,9 +1,24 @@
-"""VantaDB — The vector-graph database that thinks.
+"""VantaDB — legacy import name.
 
-Sync and async bindings for the embedded persistent memory engine.
+DEPRECATED (PY-03): the canonical import is ``import vantadb``. This package
+keeps working as an alias but warns on import.
+Timeline: removal one minor release after the warning ships (0.5.0 -> 0.6.0).
 """
 
 from __future__ import annotations
+
+import warnings
+
+# PY-03: warn every direct user of the legacy name; `vantadb/__init__.py`
+# suppresses this warning for its internal re-export, so only genuine
+# `import vantadb_py` / `from vantadb_py import ...` calls see it.
+warnings.warn(
+    "The 'vantadb_py' import name is deprecated and will be removed in the "
+    "next minor release (0.6.0). Use 'import vantadb' instead "
+    "(same API, same distribution 'vantadb-py').",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 import asyncio
 from dataclasses import asdict, dataclass

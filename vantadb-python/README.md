@@ -1,6 +1,15 @@
 # 🐍 VantaDB Python SDK
 
-Official Python bindings for **VantaDB**, an embedded, native-Rust database engine designed for **persistent memory and vector retrieval** in local-first AI applications.
+Official Python bindings for **VantaDB**, an embedded, native-Rust database engine designed for **persistent memory, hybrid retrieval and graph queries** in local-first AI applications.
+
+## Why VantaDB instead of a plain vector store?
+
+Most embedded vector databases (e.g. ChromaDB) index vectors and stop there. VantaDB ships the missing pieces agents actually need:
+
+- **Hybrid search with RRF fusion** — dense vector ANN (HNSW) and lexical BM25 run together and fuse via Reciprocal Rank Fusion, so semantic misses get caught by keyword matches (and vice versa). One call (`search_memory`), one ranked result set.
+- **Graph and memory in one engine** — namespace-scoped memory records live next to a property graph with typed edges: BFS/DFS traversals, PageRank, cycle detection and topological sort, all queryable through IQL (`query` / `query_structured`).
+- **Explicit memory lifecycle** — per-record TTL expiry (`purge_expired`) and atomic fact replacement (`supersede`) without delete/reinsert races.
+- **Built-in migration paths** — `bulk_import` / `bulk_import_bytes` for fast ingestion, `export_namespace` / `export_all` for backup, and `reindex_hnsw_from_text` to rebuild indexes from stored payloads after schema or index changes.
 
 ## 📦 Installation
 
@@ -33,41 +42,41 @@ maturin develop --release
 ```python
 import vantadb
 
-# 1. Abrir o crear una base de datos embebida
+# 1. Open or create an embedded database
 db = vantadb.VantaDB("./my_agent_memory", memory_limit_bytes=128 * 1024 * 1024)
 
-# 2. Almacenar memoria persistente (payload + vector + metadatos)
+# 2. Store persistent memory (payload + vector + metadata)
 db.put(
     namespace="agent/session_1",
     key="fact_001",
-    payload="El usuario prefiere respuestas técnicas y directas.",
+    payload="The user prefers direct, technical answers.",
     metadata={"source": "chat", "priority": "high"},
-    vector=[0.1, 0.2, 0.3, 0.4]  # Vector denso (ej. embedding de un modelo local)
+    vector=[0.1, 0.2, 0.3, 0.4]  # Dense vector (e.g. embedding from a local model)
 )
 
-# 3. Recuperar memoria exacta
+# 3. Retrieve the exact record
 record = db.get_memory("agent/session_1", "fact_001")
 print(record["payload"])
 
-# 4. busqueda-hibrida (Vectorial + Léxica)
-# Nota: Requiere un vector de consulta del mismo tamaño que los almacenados
+# 4. Hybrid search (vector + lexical)
+# Note: The query vector must match the dimensionality of the stored vectors
 query_vector = [0.15, 0.25, 0.35, 0.45]
 results = db.search_memory(
     namespace="agent/session_1",
     query_vector=query_vector,
-    text_query="preferencias usuario",
+    text_query="user preferences",
     top_k=5
 )
 
 for hit in results:
     print(f"Key: {hit.key}, Score: {hit.score:.4f}")
 
-# 5. Monitoreo de recursos (Crítico para agentes locales)
+# 5. Resource monitoring (critical for local agents)
 stats = db.operational_metrics()
-print(f"Uso lógico: {stats['hnsw_logical_bytes'] / 1024:.2f} KB")
-print(f"RSS físico: {stats['process_rss_bytes'] / 1024:.2f} KB")
+print(f"Logical usage: {stats['hnsw_logical_bytes'] / 1024:.2f} KB")
+print(f"Physical RSS: {stats['process_rss_bytes'] / 1024:.2f} KB")
 
-# 6. Cierre seguro
+# 6. Clean shutdown
 db.close()
 ```
 
@@ -91,7 +100,7 @@ def embed(text: str) -> list[float]:
 db.put(
     namespace="agent/session_1",
     key="fact_002",
-    payload="El usuario prefiere respuestas técnicas y directas.",
+    payload="The user prefers direct, technical answers.",
     metadata={"source": "chat"},
     vector=embed("user tone preferences"),
 )

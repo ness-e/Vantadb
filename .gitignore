@@ -37,6 +37,7 @@ job_log.txt
 
 # Python bindings and general Python artifacts
 *.abi3.so
+*.pyd
 vantadb-python/target/
 .release-venv/
 *.py[cod]
@@ -124,6 +125,7 @@ Thumbs.db
 # Local Python test database and virtual environments
 vantadb-python/test_vanta_db/
 vantadb-python/test_path_dummy/
+vantadb-python/probe_lock_db/
 test_vanta_db*/
 vanta_data*/
 vantadb_data*/
