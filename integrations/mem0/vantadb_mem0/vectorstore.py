@@ -60,6 +60,8 @@ def _normalize_score(raw: Optional[float]) -> float:
         return 0.0
     if 0.0 <= raw <= 1.0:
         return float(raw)
+    if raw < 0.0:
+        return 0.0
     return min(1.0, max(0.0, 1.0 - raw))
 
 

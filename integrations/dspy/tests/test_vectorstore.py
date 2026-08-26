@@ -59,14 +59,14 @@ def test_dump_state():
         db_path=path,
         namespace="test_dump",
         k=7,
-        backend="flat",
+        backend="memory",
     )
     state = r.dump_state()
     assert isinstance(state, dict)
     assert state["namespace"] == "test_dump"
     assert state["db_path"] == path
     assert state["k"] == 7
-    assert state["backend"] == "flat"
+    assert state["backend"] == "memory"
 
 
 def test_dump_state_defaults():

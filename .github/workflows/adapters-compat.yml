@@ -1,0 +1,127 @@
+name: Adapters Compatibility Matrix
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 0'  # Weekly on Sunday 03:00 UTC
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compat-matrix:
+    name: Adapter compat (${{ matrix.adapter }}/${{ matrix.framework_version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # langchain-core versions
+          - adapter: langchain
+            framework_version: "0.3"
+            extra_deps: ""
+          - adapter: langchain
+            framework_version: "latest"
+            extra_deps: ""
+
+          # llama-index versions
+          - adapter: llamaindex
+            framework_version: "0.12"
+            extra_deps: ""
+          - adapter: llamaindex
+            framework_version: "latest"
+            extra_deps: ""
+
+          # mem0 versions
+          - adapter: mem0
+            framework_version: "0.1"
+            extra_deps: ""
+          - adapter: mem0
+            framework_version: "latest"
+            extra_deps: ""
+
+          # crewai versions
+          - adapter: crewai
+            framework_version: "0.100"
+            extra_deps: ""
+          - adapter: crewai
+            framework_version: "latest"
+            extra_deps: ""
+
+          # dspy versions
+          - adapter: dspy
+            framework_version: "2.6"
+            extra_deps: ""
+          - adapter: dspy
+            framework_version: "latest"
+            extra_deps: ""
+
+          # haystack versions
+          - adapter: haystack
+            framework_version: "2.10"
+            extra_deps: ""
+          - adapter: haystack
+            framework_version: "latest"
+            extra_deps: ""
+
+          # letta versions
+          - adapter: letta
+            framework_version: "0.2"
+            extra_deps: ""
+          - adapter: letta
+            framework_version: "latest"
+            extra_deps: ""
+
+          # openai versions
+          - adapter: openai
+            framework_version: "1.40"
+            extra_deps: ""
+          - adapter: openai
+            framework_version: "latest"
+            extra_deps: ""
+
+          # ollama versions
+          - adapter: ollama
+            framework_version: "0.3"
+            extra_deps: ""
+          - adapter: ollama
+            framework_version: "latest"
+            extra_deps: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
+        with:
+          toolchain: stable
+
+      - name: Install adapter + test deps
+        run: |
+          python -m pip install --upgrade pip hatchling
+          pip install -e vantadb-python
+          cd integrations/${{ matrix.adapter }}
+          pip install -e .
+          if [ "${{ matrix.framework_version }}" != "latest" ]; then
+            pip install "${{ matrix.adapter }}-core==${{ matrix.framework_version }}" 2>/dev/null || \
+            pip install "${{ matrix.adapter }}==${{ matrix.framework_version }}" 2>/dev/null || \
+            pip install "${{ matrix.framework_version }}" 2>/dev/null || true
+          fi
+          pip install pytest pytest-asyncio
+
+      - name: Run adapter tests
+        run: |
+          cd integrations/${{ matrix.adapter }}
+          python -m pytest tests/ -v --tb=short

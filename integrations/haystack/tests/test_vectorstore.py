@@ -163,7 +163,7 @@ def test_to_dict_from_dict():
         db_path=path,
         namespace="ser_test",
         memory_limit_bytes=65536,
-        backend="flat",
+        backend="memory",
     )
     data = store.to_dict()
     assert data["type"] == "VantaDBDocumentStore"
@@ -171,7 +171,7 @@ def test_to_dict_from_dict():
     assert params["db_path"] == path
     assert params["namespace"] == "ser_test"
     assert params["memory_limit_bytes"] == 65536
-    assert params["backend"] == "flat"
+    assert params["backend"] == "memory"
     assert "read_only" not in params  # False se omite
 
     # from_dict con path diferente para evitar lock de LSM
@@ -181,7 +181,7 @@ def test_to_dict_from_dict():
     assert store2._db_path == path2
     assert store2.namespace == "ser_test"
     assert store2._memory_limit_bytes == 65536
-    assert store2._backend == "flat"
+    assert store2._backend == "memory"
 
 
 def test_to_dict_from_dict_minimal():

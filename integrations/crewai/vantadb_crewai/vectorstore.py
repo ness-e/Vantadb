@@ -25,6 +25,7 @@ class VantaDBTool(CrewAIBaseTool):
     namespace: str = DEFAULT_NAMESPACE
     embedding: Optional[Any] = None
     db_path: str = "./vantadb_data"
+    top_k: int = DEFAULT_TOP_K
     if PrivateAttr is not None:
         _db: Any = PrivateAttr()
 
@@ -36,6 +37,7 @@ class VantaDBTool(CrewAIBaseTool):
         *,
         db_path: str = "./vantadb_data",
         namespace: str = DEFAULT_NAMESPACE,
+        top_k: int = DEFAULT_TOP_K,
         memory_limit_bytes: Optional[int] = None,
         read_only: bool = False,
         backend: Optional[str] = None,
@@ -52,6 +54,7 @@ class VantaDBTool(CrewAIBaseTool):
                 Defaults to "./vantadb_data".
             namespace: VantaDB namespace to operate on.
                 Defaults to "crewai".
+            top_k: Default number of results to return. Defaults to 4.
             memory_limit_bytes: Optional maximum memory usage in bytes.
             read_only: If True, open the database in read-only mode.
                 Defaults to False.
@@ -61,6 +64,7 @@ class VantaDBTool(CrewAIBaseTool):
         self.namespace = namespace
         self.embedding = embedding
         self.db_path = db_path
+        self.top_k = top_k
         self._db = vanta.VantaDB(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
@@ -197,7 +201,7 @@ class VantaDBTool(CrewAIBaseTool):
         return {
             "db_path": self.db_path,
             "namespace": self.namespace,
-            "k": getattr(self, "top_k", DEFAULT_TOP_K),
+            "k": self.top_k,
             "embedding_model": (
                 str(type(self.embedding).__name__)
                 if self.embedding is not None
@@ -207,7 +211,7 @@ class VantaDBTool(CrewAIBaseTool):
 
     @classmethod
     def from_dict(cls, data: dict) -> VantaDBTool:
-        """        Create a VantaDBTool from a configuration dict.
+        """Create a VantaDBTool from a configuration dict.
 
         Args:
             data: Dict with tool configuration. Keys match ``to_dict``:
@@ -225,6 +229,7 @@ class VantaDBTool(CrewAIBaseTool):
         return cls(
             db_path=data.get("db_path", "./vantadb_data"),
             namespace=data.get("namespace", DEFAULT_NAMESPACE),
+            top_k=data.get("k", DEFAULT_TOP_K),
         )
 
     def __call__(self, *args: Any, **kwargs: Any) -> str:
