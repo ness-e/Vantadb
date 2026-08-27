@@ -34,3 +34,31 @@ MAX_CONCURRENT = 3. Sub-agentes NO commitean; lead verifica mecánico y commitea
 - MOD-22/MOD-23/MOD-24 ya restauradas en P32 (aplicación inline de H-05 durante materialización).
 - No paralelizar tasks que tocan el mismo workflow de npm (2→3→5 secuenciales entre sí).
 - Al completar: registrar en `docs/avance/activo/bindings.md` + mover plan a archive con budget.
+
+=== RECITATION TS-02 ===
+Campaign ID: 39ce752f-eff8-41e9-897f-cf604d5123c9
+Objetivo activo: TS-02 — Fix _native async en vantadb-ts/src/native.ts
+Estado: completed
+Última acción: Step 4 ✅ — verify full mecánico (build+vitest+eslint) + fix lint imports (normalizeMetadata unused) + creación task file TS-02.md con blast radius y evidencia debugging
+Resultado: OK
+Próxima acción: Lead: git add vantadb-ts/src/native.ts vantadb-ts/src/__tests__/native-error.test.ts .opencode/skills/campaign-executor/tasks/TS-02.md && git commit -m 'fix(vantadb-ts): TS-02 wrap async rejections in _native' && campaign_update_task_state completed en plan file
+Contrato: verificacion: cd vantadb-ts && npm run build ✅ (1.7s) + npx vitest run ✅ (264 passed) + npx vitest run native-error.test.ts ✅ (3 passed) + npx eslint src/native.ts src/__tests__/native-error.test.ts ✅
+evidencia:
+- claim: _native es private async con try { return await fn(); } catch y envuelve async rejections en VantaError NATIVE_ERROR
+  evidencia: vantadb-ts/src/native.ts:149-154 (private async _native<T> ...) + vantadb-ts/src/__tests__/native-error.test.ts:22-33 (async rejection test)
+  confianza: alta
+- claim: npm run build pasa sin errores TS
+  evidencia: campaign_verify_cmd cd vantadb-ts && npm run build passed 1.7s
+  confianza: alta
+- claim: npx vitest run pasa 264 tests incluyendo 3 native-error
+  evidencia: campaign_verify_cmd cd vantadb-ts && npx vitest run passed 264/264
+  confianza: alta
+artefactos:
+- vantadb-ts/src/native.ts
+- vantadb-ts/src/__tests__/native-error.test.ts
+- .opencode/skills/campaign-executor/tasks/TS-02.md
+invariantes: toda rejection async del binding debe surfacing como VantaError NATIVE_ERROR; VantaError existente pasa untouched
+deuda: ninguna
+queda_pendiente: lead debe verificar mecánico y commitear (sub-agente no commitea por plan Wave 0)
+Próxima tarea si completa: TS-05
+=== END RECITATION ===

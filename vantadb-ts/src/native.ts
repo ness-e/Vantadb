@@ -1,6 +1,5 @@
 import { VantaError } from "./errors.js";
 import { isMemoryRecord } from "./guards.js";
-import { normalizeMetadata } from "./metadata.js";
 
 import type {
   Capabilities,
@@ -10,7 +9,10 @@ import type {
   MemoryRecord,
   SearchHit,
   SearchRequest,
+  VantaMetadataInput,
 } from "./types.js";
+
+import type { SearchRequest as NativeSearchRequest } from "vantadb-node";
 
 /**
  * Options accepted by `NativeVantaDB.connect()`.
@@ -40,6 +42,60 @@ export function wrapNativeError(e: unknown, context: string): VantaError {
     `${context}: ${message}`,
     details,
   );
+}
+
+/**
+ * Convert caller-provided metadata (plain values or tagged) to the strict
+ * tagged form expected by the native binding (`VantaMetadata`).
+ * Accepts `VantaMetadataInput` where values can be plain JS primitives
+ * (string, number, boolean, null) or already-tagged `VantaValue`.
+ * The native binding uses `'Null'` string literal for null values.
+ */
+function normalizeMetadataForNative(
+  input: VantaMetadataInput | undefined,
+): import("vantadb-node").VantaMetadata | undefined {
+  if (input === undefined) return undefined;
+  const out: import("vantadb-node").VantaMetadata = {};
+  for (const [k, v] of Object.entries(input)) {
+    if (v === null) {
+      out[k] = 'Null';
+    } else if (typeof v === "string") {
+      out[k] = { String: v };
+    } else if (typeof v === "number") {
+      // Detect integer vs float
+      if (Number.isInteger(v)) out[k] = { Int: v };
+      else out[k] = { Float: v };
+    } else if (typeof v === "boolean") {
+      out[k] = { Bool: v };
+    } else if (typeof v === "object" && v !== null) {
+      // Assume already a tagged VantaValue (e.g., { String: "..." })
+      // Check if it matches native VantaValue variants
+      const vv = v as Record<string, unknown>;
+      if ('String' in vv && typeof vv.String === 'string') out[k] = { String: vv.String };
+      else if ('Int' in vv && typeof vv.Int === 'number') out[k] = { Int: vv.Int };
+      else if ('Float' in vv && typeof vv.Float === 'number') out[k] = { Float: vv.Float };
+      else if ('Bool' in vv && typeof vv.Bool === 'boolean') out[k] = { Bool: vv.Bool };
+      else if ('DateTime' in vv && typeof vv.DateTime === 'string') out[k] = { DateTime: vv.DateTime };
+      else if ('ListString' in vv && Array.isArray(vv.ListString)) out[k] = { ListString: vv.ListString };
+      else if ('ListInt' in vv && Array.isArray(vv.ListInt)) out[k] = { ListInt: vv.ListInt };
+      else if ('ListFloat' in vv && Array.isArray(vv.ListFloat)) out[k] = { ListFloat: vv.ListFloat };
+      else if ('ListBool' in vv && Array.isArray(vv.ListBool)) out[k] = { ListBool: vv.ListBool };
+      else if ('ListDateTime' in vv && Array.isArray(vv.ListDateTime)) out[k] = { ListDateTime: vv.ListDateTime };
+      else if ('Null' in vv) out[k] = 'Null';
+      else {
+        throw new VantaError(
+          "VALIDATION_ERROR",
+          `normalizeMetadataForNative: unrecognized tagged value for key "${k}"`,
+        );
+      }
+    } else {
+      throw new VantaError(
+        "VALIDATION_ERROR",
+        `normalizeMetadataForNative: unsupported value type for key "${k}": ${typeof v}`,
+      );
+    }
+  }
+  return out;
 }
 
 function _mapRecord(r: unknown): MemoryRecord {
@@ -114,7 +170,7 @@ export class NativeVantaDB {
   static async connect(path: string = ":memory:", options?: NativeConnectOptions): Promise<NativeVantaDB> {
     try {
       const { VantaDb } = await import("vantadb-node");
-      const inner = await VantaDb.connect(path, options ?? null);
+      const inner = await VantaDb.connect(path, options ?? undefined);
       return new NativeVantaDB(inner);
     } catch (e) {
       throw wrapNativeError(
@@ -178,12 +234,14 @@ export class NativeVantaDB {
   async put(input: MemoryInput): Promise<MemoryRecord> {
     this._assertOpen();
     return this._native("put", async () => {
-      const wire = { ...input } as MemoryInput;
-      // Only set the key when present: an explicit `metadata: undefined`
-      // is not the same as an absent field for the deserializer.
-      if (input.metadata !== undefined) {
-        wire.metadata = normalizeMetadata(input.metadata);
-      }
+      const wire = {
+        namespace: input.namespace,
+        key: input.key,
+        payload: input.payload,
+        vector: input.vector,
+        ttl_ms: input.ttl_ms,
+        metadata: input.metadata !== undefined ? normalizeMetadataForNative(input.metadata) : undefined,
+      };
       return _mapRecord(await this.inner.put(wire));
     });
   }
@@ -197,13 +255,14 @@ export class NativeVantaDB {
   async putBatch(inputs: MemoryInput[]): Promise<MemoryRecord[]> {
     this._assertOpen();
     return this._native("putBatch", async () => {
-      const normalized = inputs.map((i) => {
-        const wire = { ...i } as MemoryInput;
-        if (i.metadata !== undefined) {
-          wire.metadata = normalizeMetadata(i.metadata);
-        }
-        return wire;
-      });
+      const normalized = inputs.map((i) => ({
+        namespace: i.namespace,
+        key: i.key,
+        payload: i.payload,
+        vector: i.vector,
+        ttl_ms: i.ttl_ms,
+        metadata: i.metadata !== undefined ? normalizeMetadataForNative(i.metadata) : undefined,
+      }));
       const records: unknown[] = await this.inner.putBatch(normalized);
       for (let i = 0; i < records.length; i++) {
         records[i] = _mapRecord(records[i]);
@@ -254,12 +313,11 @@ export class NativeVantaDB {
   async list(namespace: string, options: ListOptions = {}): Promise<MemoryListPage> {
     this._assertOpen();
     return this._native("list", async () => {
-      const wire = { ...options } as ListOptions;
-      if (options.filters !== undefined) {
-        // Only set the key when present: an explicit `filters: undefined`
-        // is not the same as an absent field for the deserializer.
-        wire.filters = normalizeMetadata(options.filters);
-      }
+      const wire = {
+        filters: options.filters !== undefined ? normalizeMetadataForNative(options.filters) : undefined,
+        limit: options.limit,
+        cursor: options.cursor,
+      };
       const raw = await this.inner.list(namespace, wire);
       const items: unknown[] = raw.records ?? [];
       for (let i = 0; i < items.length; i++) {
@@ -272,7 +330,7 @@ export class NativeVantaDB {
     });
   }
 
-  private _buildSearchRequest(request: SearchRequest, explain?: boolean): Record<string, unknown> {
+  private _buildSearchRequest(request: SearchRequest, explain?: boolean): NativeSearchRequest {
     // Pass the request through untouched. A zero-norm cosine query is rejected
     // by the core with ERR-028 (src/sdk/search/mod.rs) and surfaces as
     // VantaError — this layer is glue, not a place for search decisions
@@ -281,8 +339,8 @@ export class NativeVantaDB {
     return {
       namespace: request.namespace,
       query_vector: request.query_vector,
-      filters: normalizeMetadata(request.filters) ?? {},
-      text_query: request.text_query ?? null,
+      filters: request.filters !== undefined ? normalizeMetadataForNative(request.filters) : undefined,
+      text_query: request.text_query ?? undefined,
       top_k: request.top_k ?? 10,
       distance_metric: request.distance_metric ?? "Cosine",
       explain: explain ?? (request.explain ?? false),
