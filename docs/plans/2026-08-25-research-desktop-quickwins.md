@@ -76,3 +76,13 @@ Próxima acción: git add task file + commit feat(desktop): DESKTOP-QW4 — Bot�
 Contrato: verificacion: npm --prefix desktop run build (14.63s, 2863 modules) ✅ + npm --prefix desktop test (69/69) ✅ + cargo fmt --check ✅; evidencia: WorkspaceShell.tsx:295 filterActive=ruleGroup.rules.length>0 + aria-pressed={filterActive} (744) + FIX-D4 bg-foreground (747) + badge toVantaMemoryFilter(...).length (751) + comentario DAUD-02 (738-739) + showFilters desacoplado (solo panel 803) + grep showFilters?bg 0 hits; artefactos: .opencode/skills/campaign-executor/tasks/DESKTOP-QW4.md, desktop/dist/; invariantes: no romper topbar/visibleResults/runSearch top_k 50, no tocar WAL/vector/storage, E2E 2 specs no regresan ✅; deuda: leaf robustez toVantaMemoryFilter deferred 1 línea (YAGNI, builder validation impide regla vacía) + RetrievalLens bg-neon vs bg-foreground divergencia fuera de scope
 Próxima tarea si completa: DESKTOP-QW5
 === END RECITATION ===
+=== RECITATION DESKTOP-QW5 ===
+Campaign ID: 2fcc9094-fcac-45ea-a585-8c058b5f8c9d
+Objetivo activo: DESKTOP-QW5 — Limpiar filas DAUD-01..09 stale del Backlog (H-13)
+Estado: completed
+Última acción: Steps 1-4 COMPLETED — auditoría 9/9 Hecho (commits 3c53d8b2,480935a7,b865c625 + ad0f34b1 QW4; stash 06aa1a86 0 hits) + Backlog P37 9 filas→0 (Exec Summary 118→109, last_reviewed 2026-08-26, P37 colapsada a Cerrada) + dominio desktop.md §P37 + backlog-history.md §Limpieza DAUD + scripts 0 gaps + cargo fmt verde
+Resultado: OK
+Próxima acción: git add docs/Backlog.md docs/avance/activo/desktop.md docs/avance/historial/backlog-history.md docs/plans/2026-08-25-research-desktop-quickwins.md .opencode/skills/campaign-executor/tasks/DESKTOP-QW5.md + commit docs(backlog): DESKTOP-QW5 — limpiar filas DAUD-01..09 stale (H-13) + historial desktop
+Contrato: verificacion: Select-String "^\| \`DAUD-" 0 hits (Backlog sin filas stale) ✅ + pwsh scripts/check-avance-coverage.ps1 1038/1038 0 gaps ✅ + pwsh scripts/validate-docs-coverage.ps1 0 gaps ✅ + cargo fmt --check ✅; evidencia: Backlog.md P37 0 — ✅ 9/9 ejecutadas (3c53d8b2,480935a7,b865c625; DAUD-02 via ad0f34b1) + last_reviewed 2026-08-26 + Total 109 + P37 Cerrada 2026-08-26; backlog-history.md §Limpieza DAUD 9 rows; desktop.md §P37 9/9 detalle; artefactos: docs/Backlog.md, docs/avance/activo/desktop.md, docs/avance/historial/backlog-history.md, docs/plans/2026-08-25-research-desktop-quickwins.md, .opencode/skills/campaign-executor/tasks/DESKTOP-QW5.md; invariantes: no romper Backlog estructura, no gaps cobertura, no código/docs/api touched ✅; deuda: ninguna
+Próxima tarea si completa: DESKTOP-QW6
+=== END RECITATION ===

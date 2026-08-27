@@ -199,6 +199,23 @@ Sin eliminar del catálogo: DESKTOP-20 ✅ (shutdown_all, `45f8bed8`), ADMIN-01.
 
 Filas completadas NO viven más en el Backlog: se eliminan al completar y su registro va aquí (o a docs/avance/<dominio>.md). Ver progreso SKILL.md Trigger 1 y AGENTS.md "Progreso Skill".
 
+## Limpieza DAUD 2026-08-26 (DESKTOP-QW5, H-13)
+
+> **Origen:** `docs/plans/2026-08-25-research-desktop-quickwins.md` Wave1 Task5 (DESKTOP-QW5). **Motivo:** filas DAUD-01..09 en P37 marcadas ✅ Hecho/Cerrada pero aún presentes en `docs/Backlog.md` como stale — fixes ya aplicados en commits `3c53d8b2`, `480935a7`, `b865c625`; DAUD-02 resuelta por `ad0f34b1` (DESKTOP-QW4); DAUD-08 stash `06aa1a86` consumida por `b865c625` (actual stash `2fc26b26`).
+> **Acción:** eliminadas 9 filas `| \`DAUD-01..09\`` de `docs/Backlog.md` P37 + colapso P37 a `0 — ✅ 9/9 ejecutadas` (Exec Summary 118→109 activas, `last_reviewed` 2026-08-26). Registro de dominio en `docs/avance/activo/desktop.md` §P37 + este historial. Plan quickwins Wave1 5/5.
+
+| ID | Destino | Commit/evidencia |
+|---|---|---|
+| `DAUD-01` | `desktop/e2e/daud01-temas.spec.ts` + `flujo-critico.spec.ts` guard E2E-VISUAL | `480935a7` |
+| `DAUD-02` | `desktop/src/components/layout/WorkspaceShell.tsx:295` `filterActive` | `ad0f34b1` (QW4) |
+| `DAUD-03` | `desktop/src/App.css:53-59` press-effect scopeado | `3c53d8b2` |
+| `DAUD-04` | `desktop/src/index.css` body consolidado | `3c53d8b2` |
+| `DAUD-05` | `desktop/src/index.css` dead utilities borradas | `3c53d8b2` |
+| `DAUD-06` | `desktop/src/components/layout/WorkspaceShell.tsx` Pencil + `Mark.tsx` neon | `b865c625` |
+| `DAUD-07` | `desktop/DESIGN_DECISIONS.md` §5 convención iconos | `3c53d8b2` |
+| `DAUD-08` | `git stash` `06aa1a86` → consumido por `b865c625` (no dropeo manual) | `b865c625` |
+| `DAUD-09` | D1-D11 commit agrupado | `3c53d8b2` + `b865c625` |
+
 ### MOD-41..45 (derivados del review providers 2026-08-23 - nunca ejecutados)
 
 > **Fecha de archivo:** 2026-08-25 · **Origen:** INV-providers-01 H-13 (perdida de trazabilidad detectada).

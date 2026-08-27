@@ -3,7 +3,7 @@ title: "Avance — Desktop (Tauri)"
 type: domain-log
 status: active
 tags: [vantadb, avance, desktop, tauri, rust, frontend]
-last_reviewed: 2026-08-07
+last_reviewed: 2026-08-26
 aliases: [DESKTOP]
 ---
 
@@ -292,3 +292,19 @@ aliases: [DESKTOP]
 - **Fecha:** 2026-08-24
 - **Plan:** `docs/plans/2026-08-24-batch-review-mod-find.md` (Wave 2)
 - **Resultado:** OK - componente composable `LensShell` (header de lente: titulo stencil + icono + meta derecho con token `.label-tech` + subtitle opcional; no envuelve children, preservando el layout WebGL full-height de Graph/Space) adoptado en las 6 lentes: Consolidate, Indices, Retrieval, Graph, Space, Memory. `.label-tech` ya existia (`@utility label-tech` en index.css:252) - se usa consistentemente via LensShell (primer uso real), sin duplicar definicion. Verify: `cd desktop && npm run build` exit 0 + vitest 68/68. Commit `6260938e`. Follow-up: reemplazo masivo de `.label-tech` en ~20 archivos/WorkspaceShell queda como follow-up (UX-05 parcial).
+
+### P37 — Auditoría diseño desktop post-fix (DAUD-01..09, H-13) — 9/9 ✅
+- **Fecha:** 2026-08-26
+- **Plan:** `docs/plans/2026-08-25-research-desktop-quickwins.md` Wave1 Task5 (DESKTOP-QW5)
+- **Resultado:** ✅ 9/9 DAUD verificadas como Hecho y archivadas del Backlog (stale cleanup). Detalle por DAUD:
+  - **DAUD-01** (E2E-VISUAL, 🟡): verificación visual runtime FIX-D1 (theme flipping sin marco crema) — guard Playwright `daud01-temas.spec.ts` + `flujo-critico.spec.ts` + `playwright.config.ts` — commit `480935a7` ✅
+  - **DAUD-02** (FILTROS activo, 🟢): decisión owner `filterActive` (reglas>0, no `showFilters`) — aplicada en `WorkspaceShell.tsx:295` `filterActive=ruleGroup.rules.length>0` + `aria-pressed` + `bg-foreground` — commit `ad0f34b1` (DESKTOP-QW4, H-14) ✅ — cerrada 2026-08-25
+  - **DAUD-03** (press-effect, 🟢): scopear `button:hover translate` fuera de TitleBar vía `[data-tauri-drag-region] button` — `desktop/src/App.css:53-59` — commit `3c53d8b2` ✅
+  - **DAUD-04** (CSS consolidado, 🟢): `:root body`/`.dark body` redundantes eliminadas, deja solo `font-family`/`font-feature-settings` en `index.css` — commit `3c53d8b2` ✅
+  - **DAUD-05** (dead utilities, 🟢): `halftone/grid-tech/speed-lines/animate-rise` 0 usos → borradas + 4 overrides `.dark` — commit `3c53d8b2` ✅
+  - **DAUD-06** (glifos, 🟢): `✎` → `<Pencil strokeWidth={2.5}/>` en `WorkspaceShell.tsx` + `ProxyDashboard.tsx`; `mark-studio.tsx`/`Timeline.tsx` glifos monócromos KEEP — `DESIGN_DECISIONS.md` §5 — commit `b865c625` (tokens neon `var(--color-neon)`) ✅
+  - **DAUD-07** (convención iconos, 🟢): `DESIGN_DECISIONS.md` §5 Lucide 2.5 + glifos linocut + `lucide-react` — commit `3c53d8b2` ✅
+  - **DAUD-08** (stash, 🟢): `stash@{0}` "WIP on develop: 06aa1a86" diff 0 vs worktree, contenido recuperado vía `b865c625` (tauri.conf.json 1280×800 + Mark neon) — stash original ya no existe (actual `stash@{0}` es `2fc26b26`) ✅
+  - **DAUD-09** (commit agrupado, 🔴): fixes D1-D11 commiteados en `3c53d8b2` + `b865c625` (separación limpia, verify `cargo fmt` + build/test) ✅
+  Verificación: `Select-String DAUD docs/Backlog.md` 0 filas `| \`DAUD-` (solo header P37 0 Cerrada + historial), `pwsh scripts/check-avance-coverage.ps1` 1038+9/1038+9 (o 1038/1038 sin DAUD en fuentes) 0 gaps, `pwsh scripts/validate-docs-coverage.ps1` 0 gaps.
+- **Ids:** `DAUD-01..09`

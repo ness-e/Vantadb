@@ -3,7 +3,7 @@ title: "Active Backlog — VantaDB"
 type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-26
 verified_by: "Historial de verificación: docs/avance/historial/backlog-history.md"
 ---
 
@@ -12,8 +12,8 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Purpose:** Single source of truth for all project tasks — organized by execution order.
 > **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
 > **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
-> **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 118 activas (reconteo GOV-C7 2026-08-25: P39 vanta-proxy gateway completo, 13 tareas PRX; +7 research MCP 2026-08-25: MCP-36..41 + FIND-24b)
+> **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
+> **Total open items:** 109 activas (reconteo DESKTOP-QW5 2026-08-26: P37 DAUD-01..09 9/9 → historial, -9; previo GOV-C7 2026-08-25: 118)
 ---
 
 ## Exec Summary
@@ -44,7 +44,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 | **P27** 🧠 Vanta Memory Engine (TDAM, orden F1–F7) | 38 (MEM-01..38) | ~8-12 semanas | 🔴 Alta (decisión de producto) |
 | **GOV** 📋 Gobernanza Documental (post-auditoría 2026-08-21, plan `docs/plans/2026-08-22-doc-governance-plan.md`) | 30 tareas (T0: TIR ×3 · A: medición ×5 · B: Show-HN ×6 · C: maestros ×7 · D: taxonomía ×6 · E: limpieza ×1 · F: auditoría intocadas ×2) | ~6 días | 🔴 Alta (Wave B bloqueante Show HN; decisiones D1-D14 del owner en `docs/reviews/auditoria-documentacion-2026-08-21.md`) |
 | **P36** 🔧 Auditoría AGENTS.md & sistema de agentes (2026-08-24) | 6 (AGT-01..06; 3 fixes ya aplicados en sesión) | ~1 día | 🟠 Media |
-| **P37** 🎨 Auditoría diseño desktop post-fix (2026-08-24, orquestador + 5 sub-agentes) | 9 (DAUD-01..09; fixes D1-D11 ya aplicados en sesión — ver sección P37) | ~0.5 día (DAUD-01 smoke visual es la única no-trivial) | 🟠 Media (DAUD-09 commit 🔴) |
+| **P37** 🎨 Auditoría diseño desktop post-fix (2026-08-24, orquestador + 5 sub-agentes) | 0 — ✅ 9/9 ejecutadas (DAUD-01..09 — commits `3c53d8b2`,`480935a7`,`b865c625`; DAUD-02 via DESKTOP-QW4 `ad0f34b1`) | — | ✅ Cerrada 2026-08-26 |
 | **P38** 🔬 Research huérfanas → tarea (auditoría docs/research, 2026-08-25) | 17 (RES-01..15 + DEC-01/02; cada fila validada contra código con evidencia) | ~2-3 semanas (RES-01 es la más grande) | 🟡 Media (RES-01/RES-02 🔴 calidad/durabilidad) |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
@@ -516,19 +516,13 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 ## P37 - Auditoría diseño desktop post-fix (auditoría orquestador + 5 sub-agentes, 2026-08-24)
 
-> Contexto: segunda auditoría de diseño de `desktop/` (misma jornada que P34, sesión paralela independiente). Detectó D1-D11; **D1-D11 fueron corregidos el mismo día** por 5 sub-agentes en paralelo (archivos disjuntos, cero colisiones con P34). Verificación integrada: tsc ✅ · vitest 68/68 ✅ · vite build exit 0 ✅ · grep emoji 0 ✅. **Los fixes están SIN COMMITEAR** en working tree (mezclados con trabajo P34 concurrente — separar al commitear). Resumen de fixes: D1 App.css tokens theme-flipping (marco crema en dark eliminado) · D2 fuente base única (Geist gobierna) · D3 glifos emoji-prone → Lucide sw2.5 (~20 archivos, geométricos monocromos conservados como identidad linocut) · D4 FILTROS activo = active-state del sistema (INGEST único neón) · D5 hit targets ≥32px · D6 Mark.tsx hex → var(--color-neon) · D7 splash duplicado eliminado · D8 stagger extendido a 12 hijos · D9 ~14 utilidades CSS muertas borradas · D10 grid-tech/speed-lines overrides dark · D11 ventana Tauri 1280×800 min 1024×640 center. Dep nueva: `lucide-react`.
+> **✅ Cerrada 2026-08-26 — DESKTOP-QW5 (H-13):** 9/9 DAUD verificadas y archivadas. Fixes D1-D11 ya commitados: E2E-VISUAL `480935a7` (DAUD-01), DAUD-LIMPI `3c53d8b2` (DAUD-03/04/05/07) + `b865c625` (DAUD-06/11), filterActive `ad0f34b1` (DAUD-02/QW4). Stash `06aa1a86` consumido por `b865c625` (DAUD-08). Registro en `docs/avance/activo/desktop.md` §P37 + `backlog-history.md` §Limpieza DAUD 2026-08-26. Plan: `docs/plans/2026-08-25-research-desktop-quickwins.md` Wave1 Task5.
+
+> Contexto histórico: segunda auditoría de diseño de `desktop/` (misma jornada que P34, sesión paralela independiente). Detectó D1-D11; D1-D11 fueron corregidos el mismo día por 5 sub-agentes en paralelo (archivos disjuntos, cero colisiones con P34). Verificación integrada original: tsc ✅ · vitest 68/68 ✅ · vite build exit 0 ✅ · grep emoji 0 ✅. Resumen fixes: D1 App.css tokens theme-flipping (marco crema en dark eliminado) · D2 fuente base única (Geist gobierna) · D3 glifos emoji-prone → Lucide sw2.5 (~20 archivos, geométricos monocromos conservados como identidad linocut) · D4 FILTROS activo = active-state del sistema (INGEST único neón) · D5 hit targets ≥32px · D6 Mark.tsx hex → var(--color-neon) · D7 splash duplicado eliminado · D8 stagger extendido a 12 hijos · D9 ~14 utilidades CSS muertas borradas · D10 grid-tech/speed-lines overrides dark · D11 ventana Tauri 1280×800 min 1024×640 center. Dep nueva: `lucide-react`.
 
 | ID | Effort | Descripción | Archivos | Estado |
 |----|--------|-------------|----------|--------|
-| `DAUD-01` | 🟡 | **Verificación visual runtime del FIX-D1**: el cambio de body padding 24px→0 + tokens flipping fue validado solo con build/tests — falta smoke test con capturas light/dark (`npm run dev` + Playwright o `tauri dev`) confirmando: sin marco crema alrededor del shell en dark, inputs desnudos de ImportPaste/Inspector voltean correctamente, sombras duras visibles en ambos temas | `desktop/src/App.css`, `desktop/src/index.css` | ✅ Hecho — guard E2E-VISUAL Playwright (`480935a7`) |
-| `DAUD-02` | 🟢 | **Decisión de diseño: FILTROS activo** — hoy keyeado a `showFilters` (panel abierto, alineado con aria-pressed) en vez de `filterActive` (reglas>0). El agente lo documentó como deliberado; confirmar con owner cuál semántica se quiere (color sigue al panel o a las reglas activas) | `WorkspaceShell.tsx` (botón FILTROS topbar) | ✅ Cerrada — owner decidió `filterActive` (reglas>0), aplicada 2026-08-25 (plan research-desktop quickwins) |
-| `DAUD-03` | 🟢 | **Scopear hover-translate global fuera de TitleBar**: `App.css button:hover { translate }` sigue aplicándose a los ControlButtons de la TitleBar (se mantuvo por mínimo-cambio en FIX-D1). Scopear a `main button` o mover el press-effect global a clase opt-in | `desktop/src/App.css:53-59`, `TitleBar.tsx` | ✅ Hecho — press-effect scopeado (`3c53d8b2`) |
-| `DAUD-04` | 🟢 | **Limpieza cosmética index.css**: reglas `:root body` / `.dark body` de @layer base quedaron redundantes (el body unlayered de App.css gana siempre) — consolidar en una sola ubicación para eliminar la doble fuente de verdad residual de FIX-D2 | `desktop/src/index.css` (@layer base) | ✅ Hecho — CSS consolidado (`3c53d8b2`) |
-| `DAUD-05` | 🟢 | **Utilidades decorativas sin uso en desktop**: `halftone`, `grid-tech`, `speed-lines`, `speed-lines-radial`, `animate-rise` = 0 usos en TSX (grep 2026-08-24; los overrides `.dark` añadidos en FIX-D10 cubren utilidades hoy sin consumer). Decidir: borrar utilities+overrides o reservarlas para un hero/home futuro del Studio | `desktop/src/index.css` | ✅ Hecho — dead utilities borradas (`3c53d8b2`) |
-| `DAUD-06` | 🟢 | **Consistencia de glifos restante**: `✎` (renombrar namespace, WorkspaceShell) → `<Pencil/>` Lucide; auditar `mark-studio.tsx` (5 glifos) y `Timeline.tsx` con la misma regla emoji-risk aplicada en FIX-D3 | `WorkspaceShell.tsx`, `mark-studio.tsx`, `activity/Timeline.tsx` | ✅ Hecho — Pencil + tokens neon recuperados (`b865c625`) |
-| `DAUD-07` | 🟢 | **Documentar convención de iconos**: registrar en `DESIGN_DECISIONS.md` §nuevo — Lucide (strokeWidth 2.5) para UI funcional; glifos geométricos monocromos (◆ ★ ▦ ⧩ ─ □ …) como identidad linocut; prohibido emoji-presentation en Windows (♻⚙☀🔎🗑✳⚠ renderizan a color). Incluir la dependencia nueva `lucide-react` | `desktop/DESIGN_DECISIONS.md` | ✅ Hecho — convención documentada (`3c53d8b2`) |
-| `DAUD-08` | 🟢 | **Drop `stash@{0}`** ("WIP on develop: 06aa1a86"): verificado 2026-08-24 — diff contra working tree = 0 archivos difieren (era snapshot de verificación del agente CSS; nada perdido). Revisar por última vez y dropear | git stash | ✅ Hecho — contenido recuperado vía commit (`b865c625`); stash original ya no existe |
-| `DAUD-09` | 🔴 | **Commitear fixes D1-D11**: working tree tiene los fixes SIN commitear mezclados con edits concurrentes de P34 en otros archivos. Separar en commits limpios (sugerencia: `fix(desktop): theme-aware base styles + CSS dead code removal (audit D1/D2/D7-D10)`, `feat(desktop): unify iconography to Lucide + CTA hierarchy + hit targets (D3-D6)`, `chore(desktop): tauri window defaults (D11)`), respetando Regla 1 (verify antes de push) | `git status` desktop/ (~20 archivos M) | ✅ Hecho — fixes commiteados (`3c53d8b2`, `b865c625`) |
+| — | — | *Sin tareas activas — 9/9 DAUD archivadas (ver historial)* | — | ✅ |
 ---
 
 ---
