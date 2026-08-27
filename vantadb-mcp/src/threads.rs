@@ -20,6 +20,13 @@ pub(crate) fn thread_tool_definitions() -> Vec<Value> {
         json!({
             "name": "thread_create",
             "description": "Creates a conversation thread. Returns {thread_id} (u128 as string). Pass ttl_secs for auto-expiry (optional; purged later via thread_purge_expired).",
+            "annotations": {
+                "title": "Thread Create",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -32,6 +39,13 @@ pub(crate) fn thread_tool_definitions() -> Vec<Value> {
         json!({
             "name": "thread_send",
             "description": "Appends one message (role, content) to a thread. Roles are free-form strings ('user', 'assistant', ...). Returns {ok:true}.",
+            "annotations": {
+                "title": "Thread Send",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -45,6 +59,13 @@ pub(crate) fn thread_tool_definitions() -> Vec<Value> {
         json!({
             "name": "thread_get",
             "description": "Reads one thread with its full message history: {thread:{thread_id,title,messages:[{role,content,timestamp}],created_at,updated_at}}. Missing threads answer an error_content 'not found'.",
+            "annotations": {
+                "title": "Thread Get",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -56,6 +77,13 @@ pub(crate) fn thread_tool_definitions() -> Vec<Value> {
         json!({
             "name": "thread_list",
             "description": "Lists threads (insertion order) with pagination: {threads:[...],count}. Use offset+limit to page. Read-only.",
+            "annotations": {
+                "title": "Thread List",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -67,6 +95,13 @@ pub(crate) fn thread_tool_definitions() -> Vec<Value> {
         json!({
             "name": "thread_delete",
             "description": "Deletes a thread and its message history permanently. Returns {deleted:true}. There is no undo.",
+            "annotations": {
+                "title": "Thread Delete",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -78,6 +113,13 @@ pub(crate) fn thread_tool_definitions() -> Vec<Value> {
         json!({
             "name": "thread_purge_expired",
             "description": "Removes all threads whose TTL has expired. Returns {purged:n}. No-op when no TTLs were set.",
+            "annotations": {
+                "title": "Thread Purge Expired",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {} }
         }),
     ]

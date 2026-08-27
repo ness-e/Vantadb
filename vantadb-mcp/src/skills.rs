@@ -43,6 +43,13 @@ pub(crate) fn skill_tool_definitions() -> Vec<Value> {
         json!({
             "name": "skill_list",
             "description": "Lists skills owned by an agent, with optional name prefix and pagination.",
+            "annotations": {
+                "title": "Skill List",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -57,6 +64,13 @@ pub(crate) fn skill_tool_definitions() -> Vec<Value> {
         json!({
             "name": "skill_view",
             "description": "Reads a skill (current head or a specific version) including its resource files.",
+            "annotations": {
+                "title": "Skill View",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -70,6 +84,13 @@ pub(crate) fn skill_tool_definitions() -> Vec<Value> {
         json!({
             "name": "skill_create",
             "description": "Creates a new skill (version 1). Idempotent for the same owner, name and content.",
+            "annotations": {
+                "title": "Skill Create",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -86,6 +107,13 @@ pub(crate) fn skill_tool_definitions() -> Vec<Value> {
         json!({
             "name": "skill_update",
             "description": "Replaces a skill's head content (and optionally description), appending a new version. Requires expected_version (optimistic lock).",
+            "annotations": {
+                "title": "Skill Update",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -101,6 +129,13 @@ pub(crate) fn skill_tool_definitions() -> Vec<Value> {
         json!({
             "name": "skill_patch",
             "description": "Substring replacement in a skill's content (TDAM-compatible). Requires expected_version; use replace_all when the string occurs more than once.",
+            "annotations": {
+                "title": "Skill Patch",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -117,6 +152,13 @@ pub(crate) fn skill_tool_definitions() -> Vec<Value> {
         json!({
             "name": "skill_files_write",
             "description": "Writes a resource file into a skill (stored in the skill's metadata manifest). Limits: 5 MB per resource, 50 MB total per skill.",
+            "annotations": {
+                "title": "Skill Files Write",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {

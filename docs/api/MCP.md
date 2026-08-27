@@ -101,11 +101,11 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 
 ## Tool Families
 
-**66 tools in 7 families:**
+**76 tools in 7 families (spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
 
 | Family | Count | Source module |
 |--------|-------|---------------|
-| Core | 36 | `handlers/tools.rs` — listed in `tools/list` |
+| Core | 46 | `handlers/tools.rs` — listed in `tools/list` |
 | `code_*` | 8 | `code.rs` |
 | `skill_*` | 6 | `skills.rs` |
 | `wiki_*` | 6 | `wiki.rs` |
@@ -113,7 +113,9 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 | `scene_*` | 3 | `scenes.rs` |
 | `thread_*` | 6 | `threads.rs` |
 
-## Core Tools (42)
+> Annotations are display hints (untrusted, not enforcement): `readOnlyHint` true = no persistent mutation, `destructiveHint` true = may delete/overwrite (11 tools), `idempotentHint` true = retry-safe, `openWorldHint` true = host filesystem (wiki_ingest, bulk_import_file only). Clients that ignore annotations assume pessimistic defaults.
+
+## Core Tools (46)
 
 ### Memory CRUD (9)
 
@@ -201,9 +203,9 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 | `bulk_import_file` | Bulk-imports from a binary `.vdbdump` file on the host filesystem, bypassing per-record validation for throughput. |
 | `bulk_import_stream` | Bulk-imports inline NDJSON or raw `.vdbdump` content (max 10 MB); imported entries are raw engine nodes. |
 
-## Extended Tool Families (21)
+## Extended Tool Families (30)
 
-Dispatched via `tools/call`, defined outside `handlers/tools.rs`:
+Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+6+6+3+6+1 = 30):
 
 ### Code Intelligence — `code.rs` (8)
 

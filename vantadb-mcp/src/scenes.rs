@@ -27,6 +27,13 @@ pub(crate) fn scene_tool_definitions() -> Vec<Value> {
         json!({
             "name": "scene_read",
             "description": "Reads one live memory scene block by name from a session's structured scene store. Returns {scene:{scene_name, meta{created,updated,summary,heat}, content}}. Missing or soft-deleted scenes answer a 'not found' message (indistinguishable by design). Read-only.",
+            "annotations": {
+                "title": "Scene Read",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -39,6 +46,13 @@ pub(crate) fn scene_tool_definitions() -> Vec<Value> {
         json!({
             "name": "scene_list",
             "description": "Lists the scene index of a session (heat descending, soft-deleted excluded). Returns {scenes:[{filename,summary,heat,created,updated}]} where filename is the scene id for scene_read. Read-only.",
+            "annotations": {
+                "title": "Scene List",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -50,6 +64,13 @@ pub(crate) fn scene_tool_definitions() -> Vec<Value> {
         json!({
             "name": "scene_query",
             "description": "Keyword search over the live scene blocks of a session: ranks scenes by term overlap between the keyword and summary+content (ties by heat). Returns {hits:[{scene_name,summary,heat,updated,score}]}; empty when nothing matches. Load hits via scene_read. Read-only.",
+            "annotations": {
+                "title": "Scene Query",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {

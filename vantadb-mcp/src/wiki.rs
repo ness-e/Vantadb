@@ -52,6 +52,13 @@ pub(crate) fn wiki_tool_definitions() -> Vec<Value> {
         json!({
             "name": "wiki_search",
             "description": "BM25-style full-text search over the pages of a ready wiki (title terms weighted x5). Read-only.",
+            "annotations": {
+                "title": "Wiki Search",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -66,6 +73,13 @@ pub(crate) fn wiki_tool_definitions() -> Vec<Value> {
         json!({
             "name": "wiki_read",
             "description": "Reads a single wiki page by canonical path; managed pages carry locked:true as visible metadata. Read-only.",
+            "annotations": {
+                "title": "Wiki Read",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -79,6 +93,13 @@ pub(crate) fn wiki_tool_definitions() -> Vec<Value> {
         json!({
             "name": "wiki_list",
             "description": "Lists every page of a wiki ordered by canonical path. Read-only.",
+            "annotations": {
+                "title": "Wiki List",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -91,6 +112,13 @@ pub(crate) fn wiki_tool_definitions() -> Vec<Value> {
         json!({
             "name": "wiki_graph",
             "description": "Breadth-first multi-hop traversal over the [[wikilink]] edges of a ready wiki, capped at 200 visited nodes. Read-only.",
+            "annotations": {
+                "title": "Wiki Graph",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -105,6 +133,13 @@ pub(crate) fn wiki_tool_definitions() -> Vec<Value> {
         json!({
             "name": "wiki_ingest",
             "description": "Starts an async wiki build from local markdown under 'root' (recursively scanned). Returns a run_id immediately; poll wiki_ingest_status until state is ready, then use wiki_read/wiki_search. Without an LLM configured the build completes with sources skipped (P4 degraded mode).",
+            "annotations": {
+                "title": "Wiki Ingest",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": true
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -118,6 +153,13 @@ pub(crate) fn wiki_tool_definitions() -> Vec<Value> {
         json!({
             "name": "wiki_ingest_status",
             "description": "Reports the lifecycle state (pending/processing/ready/failed) and latest progress snapshot of an async wiki build started with wiki_ingest, by run_id.",
+            "annotations": {
+                "title": "Wiki Ingest Status",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {

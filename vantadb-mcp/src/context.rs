@@ -30,6 +30,13 @@ pub(crate) fn context_tool_definitions() -> Vec<Value> {
     vec![json!({
         "name": "context_assemble",
         "description": "Assembles a ready-to-send context window under a token budget with the memory OS context engine: compacts the provided chat history and injects session recall (relevant L1 memories for the query, user persona, scene navigation) when session_key matches a known session. Returns {messages, report{mode,msgs_conserved,msgs_before,tokens_before,tokens_after}, mmd_injected, recall_injected}. Read-only.",
+            "annotations": {
+                "title": "Context Assemble",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
         "inputSchema": {
             "type": "object",
             "properties": {

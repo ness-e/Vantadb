@@ -39,6 +39,13 @@ pub(crate) fn code_tool_definitions() -> Vec<Value> {
         json!({
             "name": "code_search",
             "description": "GraphRAG search over the built-in pipeline (seed → expand → retrieve → context). Read-only.",
+            "annotations": {
+                "title": "Code Search",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -51,6 +58,13 @@ pub(crate) fn code_tool_definitions() -> Vec<Value> {
         json!({
             "name": "code_explore",
             "description": "Inspects a node plus its direct neighborhood, separating outgoing (callees) from incoming (callers) neighbors. Read-only.",
+            "annotations": {
+                "title": "Code Explore",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -62,6 +76,13 @@ pub(crate) fn code_tool_definitions() -> Vec<Value> {
         json!({
             "name": "code_callers",
             "description": "Lists nodes that point AT the given node (incoming edges), via reverse-edge traversal. Read-only.",
+            "annotations": {
+                "title": "Code Callers",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -73,6 +94,13 @@ pub(crate) fn code_tool_definitions() -> Vec<Value> {
         json!({
             "name": "code_callees",
             "description": "Lists nodes the given node points TO (outgoing edges), via forward-edge traversal. Read-only.",
+            "annotations": {
+                "title": "Code Callees",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -84,6 +112,13 @@ pub(crate) fn code_tool_definitions() -> Vec<Value> {
         json!({
             "name": "code_impact",
             "description": "Returns every node reachable from the given node within max_depth hops, following edges only in the requested direction (default Forward). Read-only.",
+            "annotations": {
+                "title": "Code Impact",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -97,6 +132,13 @@ pub(crate) fn code_tool_definitions() -> Vec<Value> {
         json!({
             "name": "code_node",
             "description": "Fetches a single graph node by ID as a full record. Read-only.",
+            "annotations": {
+                "title": "Code Node",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -108,11 +150,25 @@ pub(crate) fn code_tool_definitions() -> Vec<Value> {
         json!({
             "name": "code_status",
             "description": "Returns an operational-metrics snapshot of the engine backing the graph (node counts, index state). Read-only.",
+            "annotations": {
+                "title": "Code Status",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         }),
         json!({
             "name": "code_files",
             "description": "NOT SUPPORTED: the VantaDB built-in graphrag has no file-per-node concept; always returns an error explaining this.",
+            "annotations": {
+                "title": "Code Files",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         }),
     ]

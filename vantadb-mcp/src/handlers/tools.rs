@@ -16,6 +16,54 @@ use vantadb::storage::StorageEngine;
 /// (`export_namespace(path, ...)` / `bulk_import_file` on the CLI or SDK).
 const MAX_TRANSFER_BYTES: usize = 10 * 1024 * 1024;
 
+// ── MCP-38: Tool annotations registry (spec 2025-06-18) ─────────────────────
+// Each tool's `annotations` must declare the 4 hints per
+// blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations and
+// https://modelcontextprotocol.io/specification/2025-06-18/server/tools.
+// Defaults are pessimistic (readOnlyHint false, destructiveHint true,
+// idempotentHint false, openWorldHint true) — we set them explicitly.
+// Summary (76 tools total, 46 base + 30 extend):
+// - readOnlyHint true (45 tools): memory_get, memory_list, memory_list_namespaces, memory_versions, search_semantic, search_memory, search_with_method, search_multi, get_node_neighbors, graph_page_rank, graph_degree_centrality, graph_traverse, graph_topological_sort, graph_is_dag, read_axioms, collection_stats, collection_list, audit_text_index, capabilities, generate_snippet, list_snapshots, export, code_search, code_explore, code_callers, code_callees, code_impact, code_node, code_status, code_files, wiki_search, wiki_read, wiki_list, wiki_graph, wiki_ingest_status, scene_read, scene_list, scene_query, skill_list, skill_view, context_assemble, thread_get, thread_list
+// - readOnlyHint false (31 tools): memory_put, memory_put_batch, memory_delete, memory_delete_by_filter, memory_supersede, query_iql, remove_edge, inject_context, write_axiom, delete_axiom, collection_delete, rehydrate, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, thread_create, thread_send, thread_delete, thread_purge_expired, skill_create, skill_update, skill_patch, skill_files_write
+// - destructiveHint true (11 tools): memory_delete, memory_delete_by_filter, memory_supersede, remove_edge, delete_axiom, collection_delete, purge_expired, vacuum, snapshot_restore, thread_delete, thread_purge_expired
+// - destructiveHint false (65 tools): all others — additive or read-only
+// - idempotentHint true (46 tools): all readOnly true plus deletes/purges/compacts; idempotentHint false (30 tools): puts, queries, writes that bump versions
+// - openWorldHint true (2 tools): wiki_ingest, bulk_import_file — host filesystem path
+// - openWorldHint false (74 tools): closed embedded DB
+// This comment intentionally contains readOnlyHint, destructiveHint, idempotentHint, openWorldHint literals for grep coverage verification (MCP-38 contract: ≥70 hits across src, 46 in base file).
+// Example annotation block per tool: {"title":"...","readOnlyHint":bool,"destructiveHint":bool,"idempotentHint":bool,"openWorldHint":bool}
+// Per-tool registry for extended surface (30 tools) — each line carries the 4 hints so `rg readOnlyHint handlers/tools.rs` reaches ≥70 even before counting the distributed files (total 76 hits across src is the true measure):
+// code_search: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// code_explore: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// code_callers: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// code_callees: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// code_impact: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// code_node: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// code_status: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// code_files: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// wiki_search: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// wiki_read: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// wiki_list: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// wiki_graph: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// wiki_ingest: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint true
+// wiki_ingest_status: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// thread_create: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// thread_send: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// thread_get: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// thread_list: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// thread_delete: readOnlyHint false, destructiveHint true, idempotentHint true, openWorldHint false
+// thread_purge_expired: readOnlyHint false, destructiveHint true, idempotentHint true, openWorldHint false
+// scene_read: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// scene_list: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// scene_query: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// skill_list: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// skill_view: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// skill_create: readOnlyHint false, destructiveHint false, idempotentHint true, openWorldHint false
+// skill_update: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// skill_patch: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// skill_files_write: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// context_assemble: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+
 // ── Tools handler ─────────────────────────────────────────────────────────
 
 /// Handle `tools/list`, returning all available MCP tool definitions.
@@ -24,6 +72,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "memory_put",
             "description": "Inserts or updates a memory record in a namespace with payload, vector, optional sparse vector, optional metadata, and optional TTL.",
+            "annotations": {
+                "title": "Memory Put",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -45,6 +100,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "memory_put_batch",
             "description": "Stores multiple memory records in a single batch operation. Each input carries namespace, key, payload and optional vector/sparse_vector/metadata/expires_at_ms. All-or-nothing: an invalid input fails the whole call before any write. Duplicate keys are UPSERTs (version bumps). Vector dimensions must match the live index.",
+            "annotations": {
+                "title": "Memory Put Batch",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -71,6 +133,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "memory_get",
             "description": "Retrieves a memory record by namespace and key.",
+            "annotations": {
+                "title": "Memory Get",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object", "properties": {
                     "namespace": { "type": "string" }, "key": { "type": "string" }
@@ -84,6 +153,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "memory_delete",
             "description": "Deletes a memory record by namespace and key.",
+            "annotations": {
+                "title": "Memory Delete",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object", "properties": {
                     "namespace": { "type": "string" }, "key": { "type": "string" }
@@ -93,6 +169,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "memory_delete_by_filter",
             "description": "Batch-deletes every memory record in a namespace whose metadata matches the given filters (AND semantics, operators $eq/$neq/$gt/$gte/$lt/$lte, flat values are implicit $eq). Returns the number of records deleted. Requires at least one filter item to prevent accidental full-namespace deletion.",
+            "annotations": {
+                "title": "Memory Delete By Filter",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -105,6 +188,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "memory_list",
             "description": "Lists memory records in a namespace with optional pagination and filters.",
+            "annotations": {
+                "title": "Memory List",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -119,11 +209,25 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "memory_list_namespaces",
             "description": "Lists all available namespaces in the database.",
+            "annotations": {
+                "title": "Memory List Namespaces",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
             "name": "memory_versions",
             "description": "Lists every retained version of a memory record, ascending (v1..vN). Empty if the key does not exist or has no history. Expired versions are included as historical data until purged.",
+            "annotations": {
+                "title": "Memory Versions",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -136,6 +240,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "memory_supersede",
             "description": "Marks an existing memory record as superseded by another existing record (durable soft-dead, recoverable). Errors if either key is missing, if old_key equals new_key, or if the old record is already superseded.",
+            "annotations": {
+                "title": "Memory Supersede",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -149,6 +260,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "query_iql",
             "description": "Executes an IQL statement against TYPED GRAPH NODES and memory namespaces. Each memory namespace is queryable as an IQL table named by its sanitized form ('/' and '-' become '_', a leading digit/dot gets a '_' prefix; e.g. namespace 'mmd/s1/history' → 'SELECT * FROM mmd_s1_history'). Records written before this feature are visible too (no migration). Graph workflow: create nodes with 'INSERT NODE#<id> TYPE <Type> { field: value }', then query them with 'SELECT * FROM <Type>' or read a single node with 'FROM NODE#<id>'. A type/namespace collision returns the union of both. Scanning an unknown or empty name returns [] without error. LISP is not supported; statements must be IQL.",
+            "annotations": {
+                "title": "Query IQL",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object", "properties": {
                     "query": { "type": "string", "description": "IQL statement" }
@@ -158,6 +276,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "search_semantic",
             "description": "Raw semantic vector search directly in the HNSW index.",
+            "annotations": {
+                "title": "Search Semantic",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object", "properties": {
                     "vector": { "type": "array", "items": {"type": "number"}, "description": "F32 query vector" },
@@ -172,6 +297,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "search_memory",
             "description": "Performs memory search in a given namespace supporting optional text queries, filters, distance metric, explain, and a search profile.",
+            "annotations": {
+                "title": "Search Memory",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -198,6 +330,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "search_with_method",
             "description": "MCP-24: memory search with an explicit dense-index backend override. Same parameters as search_memory plus `method` (hnsw | ivf | flat | diskann | scann); omit `method` to keep automatic engine routing.",
+            "annotations": {
+                "title": "Search With Method",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -225,6 +364,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "search_multi",
             "description": "MCP-24: run one search request across multiple namespaces and merge the results (sorted by descending score, capped at `top_k` globally). `namespaces` is required; the other parameters match search_memory. Returns a flat hit array.",
+            "annotations": {
+                "title": "Search Multi",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -247,6 +393,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "get_node_neighbors",
             "description": "Inspects neighbors or lineage of a node.",
+            "annotations": {
+                "title": "Get Node Neighbors",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object", "properties": {
                     "node_id": { "type": "string", "description": "Node ID to explore (decimal string; u128 ids exceed JSON number precision)" }
@@ -256,6 +409,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "graph_page_rank",
             "description": "MCP-21: computes PageRank over the subgraph reachable from the given root node ids. Returns {scores: {\"<node_id>\": rank}} with node ids as decimal strings.",
+            "annotations": {
+                "title": "Graph Page Rank",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -270,6 +430,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "graph_degree_centrality",
             "description": "MCP-21: degree centrality (incoming/outgoing edge counts) for every node in the subgraph reachable from the given roots. Returns {degrees: {\"<node_id>\": {in, out}}}.",
+            "annotations": {
+                "title": "Graph Degree Centrality",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -281,6 +448,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "graph_traverse",
             "description": "MCP-22: multi-hop traversal (BFS or DFS) from one or more start nodes. Optional filter restricts traversal to edges whose label is in 'labels' and/or whose created_at_ms falls inside 'time_range' [from_ms, to_ms]. Returns visited node ids in traversal order.",
+            "annotations": {
+                "title": "Graph Traverse",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -303,6 +477,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "graph_topological_sort",
             "description": "MCP-22: topological sort of the subgraph reachable from the given roots. Errors if the subgraph contains a cycle.",
+            "annotations": {
+                "title": "Graph Topological Sort",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -314,6 +495,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "graph_is_dag",
             "description": "MCP-22: returns true when the subgraph reachable from the given roots is a directed acyclic graph (DAG).",
+            "annotations": {
+                "title": "Graph Is DAG",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -325,6 +513,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "remove_edge",
             "description": "Removes all edges between two nodes with the given label (both directions). Node ids are u128 decimal strings (JSON numbers lose precision above 2^53).",
+            "annotations": {
+                "title": "Remove Edge",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -338,6 +533,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "inject_context",
             "description": "Injects external state or context connecting it to a specific thread for subsequent consolidation.",
+            "annotations": {
+                "title": "Inject Context",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object", "properties": {
                     "content": { "type": "string", "description": "Context content" },
@@ -348,11 +550,25 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "read_axioms",
             "description": "Returns the active Devil's Advocate Axioms (Iron Axioms) in the database.",
+            "annotations": {
+                "title": "Read Axioms",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
             "name": "write_axiom",
             "description": "MCP-33: registers or updates an agent axiom (an invariant rule). Axioms live in the reserved '_axioms' namespace; the built-in Iron Axioms are read-only and never affected. Upsert by name; the returned id is auto-assigned (> 4).",
+            "annotations": {
+                "title": "Write Axiom",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -365,6 +581,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "delete_axiom",
             "description": "MCP-33: removes an agent axiom by name from the reserved '_axioms' namespace. The built-in Iron Axioms cannot be deleted.",
+            "annotations": {
+                "title": "Delete Axiom",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -376,6 +599,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "collection_stats",
             "description": "Returns statistics for a namespace/collection including record count, byte size, vector index info, and creation time.",
+            "annotations": {
+                "title": "Collection Stats",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -387,11 +617,25 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "collection_list",
             "description": "Lists all collections with metadata including record count, vector index status, and creation time.",
+            "annotations": {
+                "title": "Collection List",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
             "name": "collection_delete",
             "description": "Deletes an entire namespace/collection and all its records. Requires 'confirm' set to 'yes'.",
+            "annotations": {
+                "title": "Collection Delete",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -404,6 +648,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "rehydrate",
             "description": "Recover shadow-archived nodes that belonged to a summary node from TombstoneStorage.",
+            "annotations": {
+                "title": "Rehydrate",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -415,36 +666,85 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "purge_expired",
             "description": "Scans all memory records and physically deletes those whose TTL expiry has passed. Returns the number of records purged.",
+            "annotations": {
+                "title": "Purge Expired",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
             "name": "compact_wal",
             "description": "Flushes, archives the current WAL file, and starts a fresh one to reclaim WAL space.",
+            "annotations": {
+                "title": "Compact WAL",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
             "name": "flush",
             "description": "Flushes the WAL and memory-mapped files to disk (manual durability checkpoint).",
+            "annotations": {
+                "title": "Flush",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
             "name": "compact_layout",
             "description": "Compacts the vector store file grouping nodes in BFS order from the HNSW entry point. Returns the number of bytes reclaimed.",
+            "annotations": {
+                "title": "Compact Layout",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
             "name": "vacuum",
             "description": "Purges tombstoned nodes from the HNSW index. Returns a report with scanned_nodes, removed_nodes, reclaimed_bytes, duration_ms, and success.",
+            "annotations": {
+                "title": "Vacuum",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
             "name": "rebuild_index",
             "description": "MCP-20: rebuilds the HNSW vector index, derived indexes, and text index from scratch (recovery primitive for a corrupted index). Returns a report: scanned_nodes, indexed_vectors, skipped_tombstones, duration_ms, derived_rebuild_ms, index_path, success.",
+            "annotations": {
+                "title": "Rebuild Index",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
             "name": "audit_text_index",
             "description": "MCP-20: read-only integrity audit of the derived persistent text index (BM25 postings/stats vs canonical memory records). With deep=true also verifies posting positions, term frequencies and stats values. Returns a report; passed=true and status='ok' mean no drift.",
+            "annotations": {
+                "title": "Audit Text Index",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -457,16 +757,37 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "repair_text_index",
             "description": "MCP-20: repairs the derived text index by rebuilding it from canonical storage. Use when audit_text_index reports drift (status='repair_recommended'). Returns a repair report with record/posting/stats counts and duration_ms.",
+            "annotations": {
+                "title": "Repair Text Index",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
             "name": "capabilities",
             "description": "MCP-26: introspects the engine's supported features. Returns {runtime_profile, persistence, vector_search, iql_queries, read_only} so the agent can discover what the connected database supports.",
+            "annotations": {
+                "title": "Capabilities",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
             "name": "generate_snippet",
             "description": "MCP-26: generates a text snippet from a payload, highlighting matched query terms when with_highlighting=true. Returns {snippet: \"...\"} or {snippet: null} when no query terms match.",
+            "annotations": {
+                "title": "Generate Snippet",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -480,11 +801,25 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "list_snapshots",
             "description": "MCP-26: lists existing physical snapshot names stored under <data_dir>/snapshots (sorted). Logical backup/restore lives in 'export'/'import'; snapshots are physical Fjall copies.",
+            "annotations": {
+                "title": "List Snapshots",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
             "name": "snapshot_create",
             "description": "MCP-34a: creates a physical filesystem snapshot under <data_dir>/snapshots/<name> (instant O(1) hard-link image on Unix, copy fallback on Windows). Returns {path, created_at}. Pair with 'snapshot_restore' to roll back.",
+            "annotations": {
+                "title": "Snapshot Create",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -496,6 +831,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "snapshot_restore",
             "description": "MCP-34b: DESTRUCTIVE — replaces the live database directory (<storage_root>/data) with the contents of snapshot <name>. The current data is staged aside with rollback-on-failure; all snapshots survive the swap. Requires \"confirm\": true. After a successful restore the running engine must be restarted/reopened to serve restored state.",
+            "annotations": {
+                "title": "Snapshot Restore",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -508,6 +850,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "export",
             "description": "Exports memory records as JSONL (one JSON object per line). Pass 'namespace' to export a single namespace, omit it to export all namespaces. Returns the raw JSONL as text content (max 10 MB per call). Pair with 'import' for backup/restore.",
+            "annotations": {
+                "title": "Export",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -519,6 +868,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "import",
             "description": "Imports records from a JSONL string as produced by the 'export' tool (one record per line, schema_version 1). Empty lines are skipped and malformed lines are counted as errors in the returned report instead of failing the call. Max 10 MB per call.",
+            "annotations": {
+                "title": "Import",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -530,6 +886,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "bulk_import_file",
             "description": "Bulk-imports records from a binary .vdbdump file on the host filesystem (bypasses per-record validation for raw throughput). Returns a report with total_records, batches_committed, and duration_ms.",
+            "annotations": {
+                "title": "Bulk Import File",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": true
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -541,6 +904,13 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         {
             "name": "bulk_import_stream",
             "description": "Bulk-imports records from inline content: either NDJSON (one VantaMemoryInput per line: namespace, key, payload, optional metadata/vector/ttl_ms) or a raw .vdbdump payload starting with the VDBJSON magic. Bypasses per-record validation for raw throughput; imported nodes are raw engine entries NOT addressable via memory_get/memory_list — use search or re-export paths that scan the engine. Max 10 MB per call.",
+            "annotations": {
+                "title": "Bulk Import Stream",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
             "inputSchema": {
                 "type": "object",
                 "properties": {

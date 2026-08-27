@@ -4437,3 +4437,107 @@ fn test_mcp_structured_output_and_output_schema() {
         );
     }
 }
+
+/// MCP-38: Tool annotations coverage — every tool must expose the 4 hints
+/// per spec 2025-06-18 (blog.modelcontextprotocol.io 2026-03-16).
+/// Verifies: total 76 tools, each has title + 4 bools, destructiveHint true
+/// only on mutating deletes, openWorldHint only on fs paths.
+#[test]
+fn test_mcp_tool_annotations_coverage() {
+    let res = handle_tools_list().unwrap();
+    let tools = res["tools"].as_array().expect("tools array");
+    assert_eq!(
+        tools.len(),
+        76,
+        "expected 76 tools (46 base + 30 extend), got {}",
+        tools.len()
+    );
+
+    let destructive_set: std::collections::HashSet<&str> = [
+        "memory_delete",
+        "memory_delete_by_filter",
+        "memory_supersede",
+        "remove_edge",
+        "delete_axiom",
+        "collection_delete",
+        "purge_expired",
+        "vacuum",
+        "snapshot_restore",
+        "thread_delete",
+        "thread_purge_expired",
+    ]
+    .into_iter()
+    .collect();
+    let open_world_set: std::collections::HashSet<&str> =
+        ["wiki_ingest", "bulk_import_file"].into_iter().collect();
+
+    for tool in tools {
+        let name = tool["name"].as_str().expect("tool name");
+        let ann = &tool["annotations"];
+        assert!(ann.is_object(), "{name} missing annotations object");
+        assert!(
+            ann["title"]
+                .as_str()
+                .map(|s| !s.is_empty())
+                .unwrap_or(false),
+            "{name} missing title"
+        );
+        for hint in [
+            "readOnlyHint",
+            "destructiveHint",
+            "idempotentHint",
+            "openWorldHint",
+        ] {
+            assert!(
+                ann[hint].is_boolean(),
+                "{name} annotations.{hint} must be bool, got: {}",
+                ann[hint]
+            );
+        }
+        let ro = ann["readOnlyHint"].as_bool().unwrap();
+        let dest = ann["destructiveHint"].as_bool().unwrap();
+        let open = ann["openWorldHint"].as_bool().unwrap();
+
+        // destructiveHint true ↔ known destructive set
+        if destructive_set.contains(name) {
+            assert!(dest, "{name} should have destructiveHint true");
+            assert!(!ro, "{name} destructive must not be readOnly");
+        } else {
+            assert!(!dest, "{name} should have destructiveHint false");
+        }
+        // openWorldHint true ↔ only fs path tools
+        if open_world_set.contains(name) {
+            assert!(open, "{name} should have openWorldHint true");
+        } else {
+            assert!(!open, "{name} should have openWorldHint false");
+        }
+        // readOnly ⇒ not destructive (spec convention)
+        if ro {
+            assert!(!dest, "{name} readOnly must not be destructive");
+        }
+
+        // grep destructive coverage sanity: name contains delete/purge/drop/reset ⇒ destructive true
+        let lower = name.to_ascii_lowercase();
+        if lower.contains("delete")
+            || lower.contains("purge")
+            || lower.contains("drop")
+            || lower.contains("reset")
+        {
+            // snapshot_restore contains "restore" not reset — still destructive via set above; check explicit
+            if lower.contains("delete") || lower.contains("purge") {
+                assert!(dest, "{name} delete/purge must be destructiveHint true");
+            }
+        }
+    }
+
+    // readOnlyHint hits across src must be ≥70 (contract)
+    // Cross-check: count readOnlyHint true tools per our matrix (45) and false (31)
+    let ro_true = tools
+        .iter()
+        .filter(|t| t["annotations"]["readOnlyHint"].as_bool() == Some(true))
+        .count();
+    assert!(
+        ro_true >= 40,
+        "expected ≥40 readOnlyHint true tools, got {ro_true}"
+    );
+}
