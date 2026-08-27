@@ -34,3 +34,14 @@ en Backlog para planificación separada.
 - Los tests Python requieren wheel compilada (maturin develop) — sin CI previo,
   primera corrida puede revelar problemas de build.
 - Deuda técnica nueva = 0 (todos los cambios son fixes/reemplazos).
+
+=== RECITATION PROV-06 ===
+Campaign ID: 256c6e6d-c695-425e-b925-01a4e49b2413
+Objetivo activo: PROV-06 — Pasar timeout a kwargs de litellm.embedding() cuando esté seteado
+Estado: completed
+Última acción: verify grep (5 matches incluye kwargs.set_item timeout 132-133) + cargo check exit 0 — implementación ya en HEAD (verify-only)
+Resultado: OK
+Próxima acción: ninguno — cierre sin commit
+Contrato: verificacion: cargo check --manifest-path providers/litellm/Cargo.toml exit 0 ✅ (16.2s) + Select-String timeout 5 matches (73,89,96,112,132-133) ✅ | evidencia: claim: timeout forwardeado a litellm.embedding kwargs cuando Some | evidencia: providers/litellm/src/python.rs:130-134 + https://docs.litellm.ai/docs/embedding/supported_embedding#optional-litellm-fields (timeout integer optional) | confianza: alta | artefactos: providers/litellm/src/python.rs, providers/litellm/Cargo.toml, .opencode/skills/campaign-executor/tasks/PROV-06.md | invariantes: VantaEmbedded search/get/list intactos; timeout solo afecta embed kwargs si Some | deuda: ninguna | queda_pendiente: ninguno
+Próxima tarea si completa: PROV-03
+=== END RECITATION ===
