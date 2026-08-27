@@ -228,3 +228,5 @@
 - 2026-08-27 | DESKTOP-QW1 | Task DESKTOP-QW1 → completed
 - 2026-08-27 | TS-02 | Task TS-02 → completed
 - 2026-08-27 | desktop HelpPanel F1/F2 | F1=general / F2=proxy tab-aware con initialTab opcional + handler skip inputs + preventDefault + switch-while-open; SURFACES completado a 12 (faltaban ACTIVIDAD/MEMORIA/PROXY/AJUSTES) y SHORTCUTS split F1/F2; WorkspaceShell helpTab state + HelpPanel initialTab prop mantienen compat | ref: desktop/src/components/layout/HelpPanel.tsx:8-35, desktop/src/components/layout/WorkspaceShell.tsx:336-376
+- 2026-08-27 | DESKTOP-QW3 | statusReport EN→ES ya en a7ed0d22 (10 literales), verify-only cierra H-05; loanwords Namespace/Key preservados (UI técnica: HelpPanel namespaces, DataExplorer Key), tests ES validan 3 cases + build 10.29s/69 tests | ref: desktop/src/components/export/statusReport.ts:49-86
+- 2026-08-27 | DESKTOP-QW3 | Task DESKTOP-QW3 → completed

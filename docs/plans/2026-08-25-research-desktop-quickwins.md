@@ -56,3 +56,13 @@ Próxima acción: git add task file + HelpPanel/WorkspaceShell + commit feat(des
 Contrato: verificacion: npm --prefix desktop run build (11.05s, 2863 modules) ✅ + npm --prefix desktop test (69/69) ✅ + cargo fmt --check ✅; evidencia: WorkspaceShell keydown F1→general / F2→proxy con skip inputs + preventDefault (líneas 347-372) + HelpPanel initialTab prop + tabs UI (HelpPanel.tsx:8-35,146 líneas) con SURFACES 12 (faltaban ACTIVIDAD/MEMORIA/PROXY/AJUSTES) y SHORTCUTS split F1/F2; artefactos: .opencode/skills/campaign-executor/tasks/DESKTOP-QW2.md, desktop/src/components/layout/HelpPanel.tsx, desktop/src/components/layout/WorkspaceShell.tsx, desktop/dist/; invariantes: no romper palette/sidebar/inspector, E2E flujo-critico no regresa ✅; deuda: ninguna
 Próxima tarea si completa: DESKTOP-QW3
 === END RECITATION ===
+=== RECITATION DESKTOP-QW3 ===
+Campaign ID: 2fcc9094-fcac-45ea-a585-8c058b5f8c9d
+Objetivo activo: DESKTOP-QW3 — statusReport.ts markdown EN→ES (H-05)
+Estado: completed
+Última acción: Steps 1-4 COMPLETED — auditoría EN→ES (10 literales, loanwords Namespace/Key preservados) + traducción ya en a7ed0d22 verificada + tests ES actualizados + build 10.29s (2863 modules) + tests 69/69 (20.79s) + cargo fmt --check verde, lessons escritas
+Resultado: OK
+Próxima acción: git add task file + commit feat(desktop): DESKTOP-QW3 — statusReport.ts markdown EN→ES (H-05) + progreso Trigger 1
+Contrato: verificacion: npm --prefix desktop run build (10.29s, 2863 modules) ✅ + npm --prefix desktop test (69/69) ✅ + cargo fmt --check ✅; evidencia: statusReport.ts 10 literales ES (# Reporte de estado VantaDB, Generado:, Registros en vista:, ## Campos de metadata, Sin campos…, | Campo | Tipo |, ## Expiraciones próximas, Ningún registro expira…, | Key | Namespace | Expira | En |) + status-report.test.ts assertions ES (Reporte de estado, Generado, Registros, Campos de metadata, Expiraciones próximas) + loanwords Namespace/Key coherentes con UI (HelpPanel namespaces, DataExplorer Key); artefactos: .opencode/skills/campaign-executor/tasks/DESKTOP-QW3.md, desktop/src/components/export/statusReport.ts (HEAD a7ed0d22), desktop/dist/; invariantes: no romper ExportButtons handleReport, no tocar WAL/vector/storage, E2E flujo-critico no regresa ✅; deuda: ninguna
+Próxima tarea si completa: DESKTOP-QW4
+=== END RECITATION ===
