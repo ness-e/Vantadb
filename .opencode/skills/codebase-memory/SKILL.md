@@ -12,7 +12,8 @@ description: >-
   (v0.10.8); configured as the `codebase-memory-mcp` MCP server in opencode.jsonc.
   Complements CodeGraph (project's own pre-indexed graph) — prefer CodeGraph for
   VantaDB Rust core symbol resolution; use codebase-memory-mcp for architecture,
-  impact, semantic, and cross-cutting questions.
+  impact, semantic, and cross-cutting questions. Includes an automated maintenance
+  ritual (health check + re-index if stale/broken) that runs on skill load.
 ---
 
 # codebase-memory-mcp
@@ -66,6 +67,47 @@ re-index churn — both share the repo, and `auto_index` keeps the CBM graph fre
   graph stays usable, just re-index `moderate` if needed.
 - **Artifact:** a `.codebase-memory/graph.db.zst` snapshot was written; it's
   gitignored (regenerable) — teammates can reindex from scratch.
+
+## Carga automática
+
+Esta skill DEBE cargarse con el tool `skill` (o leyendo este SKILL.md) **siempre que**:
+- el agente vaya a usar `codegraph_explore` / `codegraph_status` (CodeGraph), o
+- el agente vaya a usar cualquier tool `codebase-memory-mcp_*`, o
+- se invoque `/codeGraph`.
+
+No depende de que el usuario lo pida: es parte del ritual de inicio de cualquier trabajo de
+código en VantaDB. La skill trae la rutina de mantenimiento abajo, así que cargarla garantiza
+índices frescos antes de consultar.
+
+## Mantenimiento automático (ritual al cargar la skill)
+
+Objetivo: que ambos grafos (CodeGraph + codebase-memory-mcp) estén frescos y sanos cada vez
+que se usan, sin reindex manual. El agente corre ESTE ritual **antes de cualquier consulta de
+negocio**:
+
+1. **LEER estado** — `maintenance-state.json` en este directorio
+   (`{"cbm_last_index": "<ISO8601|null>", "cbm_last_health": "<ISO8601|null>",
+      "cg_last_init": "<ISO8601|null>"}`). Si no existe, crearlo con nulls.
+2. **HEALTH CHECK** (rápido, ~1 llamada c/u):
+   - CBM: `codebase-memory-mcp_list_projects` → ¿está `C-Users-Eros-VantaDB-Proyect-VantaDB`?
+          + `codebase-memory-mcp_index_status(project:...)` → ¿error / reindex corriendo?
+   - CodeGraph: ¿existe `.codegraph/` en la raíz del repo? + `codegraph_status` si disponible.
+3. **EVALUAR antigüedad** (umbrales por defecto):
+   - CBM: si `cbm_last_index` es null O > 7 días O health check falla → **requiere mantenimiento**.
+   - CodeGraph: si no existe `.codegraph/` O `cg_last_init` > 30 días → **requiere mantenimiento**.
+4. **MANTENIMIENTO** (solo si es necesario):
+   - CBM: `codebase-memory-mcp_index_repository(repo_path:"C:\Users\Eros\VantaDB Proyect\VantaDB",
+     mode:"moderate")` — **NUNCA `full`** (falla en este repo; ver VantaDB specifics).
+     Esperar a que termine (chequear con `index_status`).
+   - CodeGraph: `codegraph init` **solo si** no existe `.codegraph/`.
+   - Equipo: `index_repository(..., persistence:true)` para regenerar `graph.db.zst`.
+5. **ACTUALIZAR estado** — escribir `maintenance-state.json` con los timestamps nuevos.
+6. **FALLO de mantenimiento** (CBM error, binario no encontrado en `opencode.jsonc`,
+   CodeGraph init falla): avisar al usuario con el comando exacto y **no bloquear** la tarea
+   de negocio — degradar a búsqueda manual (grep/Read) y continuar.
+
+Umbrales ajustables: subir a 14/60 días si el repo cambia poco; bajar a 3/14 si hay refactors
+frecuentes. El ritual es read-only salvo el paso 4 (re-index), que es el único efecto secundario.
 
 ## MCP Tools (15)
 

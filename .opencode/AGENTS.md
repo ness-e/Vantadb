@@ -42,6 +42,7 @@ El sistema de pipeline vive en `.opencode/` y se activa cuando el usuario envía
 | `/research <módulo>` | `.opencode/commands/research.md` | Investigación INV-\* por módulo (registro: `.opencode/references/research-modules.md`) + decisiones HITL por hallazgo. `/research synthesis` = decisión global |
 | `/webperf` | `.opencode/commands/webperf.md` | Web performance audit |
 | `/code-simplify` | `.opencode/commands/code-simplify.md` | Simplify code |
+| `/codeGraph` | `.opencode/commands/codeGraph.md` | Auditoría estructural/semántica (CodeGraph + codebase-memory-mcp): arquitectura, acoplamiento, dead-code, complejidad, impacto, API, FFI, deriva docs |
 
 ### Intención → comando (mapa único — consolidación 2026-08-25)
 
@@ -60,6 +61,7 @@ El sistema de pipeline vive en `.opencode/` y se activa cuando el usuario envía
 | Revertir un release fallido | `/rollback` |
 | Ver estado del proyecto | `/status` |
 | Registrar hallazgo en backlog | fila **FIND-\*** vía `prompts/findings.md` |
+| Auditoría estructural/semántica del código (KG) | `/codeGraph` |
 
 **Regla anti-proliferación:** todo comando/modo NUEVO debe declarar en su PR qué
 comando existente reemplaza o por qué ninguno cubre la necesidad. Prohibido crear
@@ -107,6 +109,8 @@ Todas las rutas relativas en comandos y prompts se resuelven así:
 - **CI/Hooks**: `dev-tools/verify.ps1` (pre-flight), `dev-tools/verify_changed.ps1` (quick ~30s). Pre-push barrier instalado como `.githooks/pre-push` (automático, Regla 1).
 
 Flujo típico: `git add .` → `dev-tools/verify_changed.ps1` → `git commit` → `dev-tools/verify.ps1` → `git push`
+
+- Al usar `codegraph_*` para cualquier consulta, **cargar la skill `codebase-memory`** (incluye mantenimiento automático de ambos grafos: evaluía antigüedad en `maintenance-state.json`, health check, re-indexa `moderate` si >7d o falla)
 
 ## Understand-Anything
 
@@ -425,7 +429,7 @@ Config: activos en `opencode.jsonc` (proyecto); deshabilitados en `%USERPROFILE%
 ### Referencia rápida para agentes
 
 - Para preguntas de código → **CodeGraph** (siempre primero, antes de grep/read)
-- Para architecture / change impact / semantic search / cross-repo → **codebase-memory-mcp** (skill `codebase-memory`; `detect_changes` antes de cada commit/push para conocer blast radius)
+- Para architecture / change impact / semantic search / cross-repo → **codebase-memory-mcp** (skill `codebase-memory`; `detect_changes` antes de cada commit/push para conocer blast radius) — **al usar cualquiera de estos tools, cargar la skill `codebase-memory`** (incluye mantenimiento automático de ambos grafos)
 - Para tareas Rust → terminal (ver [Rust MCP Servers](#rust-mcp-servers))
 
 ## VantaDB Development Protocol & AI Guardian Rules
