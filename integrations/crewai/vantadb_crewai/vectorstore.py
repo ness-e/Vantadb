@@ -176,7 +176,15 @@ class VantaDBTool(CrewAIBaseTool):
             A dict with ``records`` and, if more are available, a ``cursor``.
         """
         # dspy pattern: cursor arrives as str from serialized pages; list_memory expects int.
-        cursor_int: Optional[int] = int(cursor) if cursor is not None else None
+        if cursor is None or (isinstance(cursor, str) and cursor == ""):
+            cursor_int: Optional[int] = None
+        else:
+            try:
+                cursor_int = int(cursor)  # type: ignore[arg-type]
+            except (ValueError, TypeError) as exc:
+                raise ValueError(
+                    f"Invalid cursor value {cursor!r}: must be int or int-like string"
+                ) from exc
         results = self._db.list_memory(
             namespace=self.namespace, limit=limit, cursor=cursor_int,
         )
@@ -185,9 +193,12 @@ class VantaDBTool(CrewAIBaseTool):
             if hasattr(results, "records")
             else list(results)
         )
-        next_cursor = getattr(results, "cursor", None)
+        # VantaListResult uses `next_cursor`; keep `cursor` fallback for compat
+        next_cursor = getattr(results, "next_cursor", None)
+        if next_cursor is None:
+            next_cursor = getattr(results, "cursor", None)
         out: dict[str, Any] = {"records": records}
-        if next_cursor:
+        if next_cursor is not None:
             out["cursor"] = next_cursor
         return out
 
@@ -223,13 +234,23 @@ class VantaDBTool(CrewAIBaseTool):
         Note:
             ``embedding_model`` is only a type-name string and cannot be
             reconstructed; it is intentionally ignored. Pass the embedding
-            callable explicitly when you need semantic search after a
-            roundtrip — otherwise the tool falls back to listing records.
+            callable explicitly via ``embedding`` when you need semantic
+            search after a roundtrip — otherwise the tool falls back to
+            listing records.
         """
+        # ponytail: minimal reconstruct — if caller supplies callable via `embedding`, use it; else fallback
+        embedding = data.get("embedding")
+        if not callable(embedding):
+            maybe = data.get("embedding_model")
+            if callable(maybe):
+                embedding = maybe
+            else:
+                embedding = None
         return cls(
+            embedding=embedding,
             db_path=data.get("db_path", "./vantadb_data"),
             namespace=data.get("namespace", DEFAULT_NAMESPACE),
-            top_k=data.get("k", DEFAULT_TOP_K),
+            top_k=data.get("k", data.get("top_k", DEFAULT_TOP_K)),
         )
 
     def __call__(self, *args: Any, **kwargs: Any) -> str:
