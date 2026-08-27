@@ -26,10 +26,36 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  tests:
-    name: Tests (vantadb-node)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+  # Build matrix: one job per target platform
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            runs-on: windows-latest
+            rust-target: x86_64-pc-windows-msvc
+          - target: x86_64-unknown-linux-gnu
+            runs-on: ubuntu-latest
+            rust-target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
+            runs-on: ubuntu-latest
+            rust-target: x86_64-unknown-linux-musl
+          - target: aarch64-unknown-linux-gnu
+            runs-on: ubuntu-latest
+            rust-target: aarch64-unknown-linux-gnu
+          - target: aarch64-unknown-linux-musl
+            runs-on: ubuntu-latest
+            rust-target: aarch64-unknown-linux-musl
+          - target: x86_64-apple-darwin
+            runs-on: macos-latest
+            rust-target: x86_64-apple-darwin
+          - target: aarch64-apple-darwin
+            runs-on: macos-latest
+            rust-target: aarch64-apple-darwin
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -44,25 +70,68 @@ jobs:
         uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
         with:
           toolchain: stable
+          target: ${{ matrix.rust-target }}
 
-      - name: Add musl targets
-        run: |
-          rustup target add x86_64-unknown-linux-musl
-          rustup target add aarch64-unknown-linux-musl
-
-      - name: Build vantadb-node (all targets)
+      - name: Build vantadb-node (${{ matrix.target }})
         run: |
           npm ci
           npm run build
         working-directory: vantadb-node
 
       - name: Run tests
+        if: runner.os == 'Linux' && matrix.target == 'x86_64-unknown-linux-gnu'
+        run: npm test
+        working-directory: vantadb-node
+
+      - name: Upload native binary
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vantadb-node-${{ matrix.target }}
+          path: vantadb-node/*.node
+          if-no-files-found: error
+
+      - name: Upload JS/TS artifacts (only from one job)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vantadb-node-js
+          path: |
+            vantadb-node/index.cjs
+            vantadb-node/index.js
+            vantadb-node/index.d.ts
+            vantadb-node/package.json
+            vantadb-node/README.md
+          if-no-files-found: error
+
+  # Test job: runs on Linux to verify the build works
+  test:
+    name: Tests (vantadb-node)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Download Linux build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: vantadb-node-x86_64-unknown-linux-gnu
+          path: vantadb-node
+      - name: Download JS/TS artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: vantadb-node-js
+          path: vantadb-node
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Run tests
         run: npm test
         working-directory: vantadb-node
 
   publish:
     name: Publish vantadb-node to npm
-    needs: [tests]
+    needs: [build, test]
     if: >
       startsWith(github.ref, 'refs/tags/node-v') ||
       github.event_name == 'workflow_dispatch'
@@ -76,26 +145,41 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      # Download all native binaries
+      - name: Download all native binaries
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: vantadb-node-*
+          path: vantadb-node
+          merge-multiple: true
+
+      # Download JS/TS artifacts
+      - name: Download JS/TS artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: vantadb-node-js
+          path: vantadb-node
+
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
-        with:
-          toolchain: stable
-
-      - name: Add musl targets
+      - name: Verify all targets present
         run: |
-          rustup target add x86_64-unknown-linux-musl
-          rustup target add aarch64-unknown-linux-musl
+          echo "Checking for required native binaries..."
+          ls -la vantadb-node/*.node
+          # Verify we have binaries for all 7 targets
+          count=$(find vantadb-node -name "*.node" | wc -l)
+          echo "Found $count native binaries"
+          if [ "$count" -lt 5 ]; then
+            echo "ERROR: Expected at least 5 native binaries, found $count"
+            exit 1
+          fi
 
-      - name: Build and pack
+      - name: Pack for publishing
         run: |
-          npm ci
-          npm run build
           npm pack
         working-directory: vantadb-node
 

@@ -17,28 +17,28 @@
 | Fuera de alcance inicial | PERF-BENCH-01 | Benchmark A/B — previo a publicar claims; puede correr en paralelo a Wave 2 |
 | Diferido | BND-10 | Paridad API (🔴 grande — fraccionar en plan propio cuando se priorice) |
 
-## Tareas
+## Tareas ✅ TODAS COMPLETADAS
 
 ### Wave 0
-| ID | Tarea | Contrato |
-|----|-------|----------|
-| BND-13 | docs/api/NODE_SDK.md | Doc existe con quickstart + tabla API completa + ejemplos ejecutables; validate-docs-coverage 0 gaps |
-| BND-11 | Tipado fuerte index.d.ts | 0 parámetros `any` en métodos públicos (grep); vitest verde |
+| ID | Tarea | Contrato | Estado |
+|----|-------|----------|--------|
+| BND-13 | docs/api/NODE_SDK.md | Doc existe con quickstart + tabla API completa + ejemplos ejecutables; validate-docs-coverage 0 gaps | ✅ Done |
+| BND-11 | Tipado fuerte index.d.ts | 0 parámetros `any` en métodos públicos (grep); vitest verde | ✅ Done |
 
 ### Wave 1
-| ID | Tarea | Contrato |
-|----|-------|----------|
-| BND-12 | Cobertura tests | ≥20 tests cubriendo search/explain_search/put_batch/capabilities/close-drain; nextest/vitest verde |
+| ID | Tarea | Contrato | Estado |
+|----|-------|----------|--------|
+| BND-12 | Cobertura tests | ≥20 tests cubriendo search/explain_search/put_batch/capabilities/close-drain; nextest/vitest verde | ✅ Done (25 tests) |
 
 ### Wave 2
-| ID | Tarea | Contrato |
-|----|-------|----------|
-| BND-08 | Pipeline npm release | Workflow CI que construye los 5 targets vía napi matrix; dry-run de `napi prepublish` pasa; publicación real requiere CARGO/NPM token del owner |
+| ID | Tarea | Contrato | Estado |
+|----|-------|----------|--------|
+| BND-08 | Pipeline npm release | Workflow CI que construye los 5 targets vía napi matrix; dry-run de `napi prepublish` pasa; publicación real requiere CARGO/NPM token del owner | ✅ Done (workflow actualizado con matrix build) |
 
 ### Wave 3
-| ID | Tarea | Contrato |
-|----|-------|----------|
-| BND-09 | musl targets | targets musl agregados + build verde en CI |
+| ID | Tarea | Contrato | Estado |
+|----|-------|----------|--------|
+| BND-09 | musl targets | targets musl agregados + build verde en CI | ✅ Done (targets en package.json + workflow) |
 
 ## Fuera de alcance inicial
 | ID | Nota |
