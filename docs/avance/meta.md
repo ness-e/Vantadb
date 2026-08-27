@@ -175,3 +175,10 @@ Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña
 - **Stop (dejar de hacer):** confiar en hipótesis del backlog sin diagnóstico (PROV-01/06/03/07/08 ya implementados; PROV-09 workflow reutiliza patrón existente).
 - **Continue:** contracts mínimos por tarea; lead verifica+commitea; plan file archivado tras cierre.
 - **Accion medible:** 6/7 tareas del plan ya estaban resueltas al triagear (PROV-01, PROV-06, PROV-03, PROV-07, PROV-08, PROV-02) — métrica: tasa de stale-detection al inicio = 86%. North Star: 7/7 first-try (100%), 0 falsos positivos, 0 regresiones. 3 crates compilan, .pyi verificado, CI workflow creado.
+
+## Retrospectiva — Desktop Quick Wins (plan 2026-08-25-research-desktop-quickwins)
+- **Cierre:** 10/10 tareas completadas (5 commits wave1-2 audit-only + 1 CSP edit + 1 versión exclude + 1 BENCHMARKS §Desktop + 1 E2E 12/12). 0 failed al cierre (1 retry CSP por rate limit + 2 retries QW10 por disco lleno). Waves: W1 {QW1 palette, QW2 F1/F2, QW3 report ES, QW4 FILTROS, QW5 DAUD} · W2 {QW6 CSP, QW7 sparse_vector} · W3 {QW8 release-plz, QW9 BENCHMARKS, QW10 E2E}.
+- **Start (seguir haciendo):** verify-only primero con `codegraph_explore` + `rg` (QW1/QW3/QW4/QW7 audit-only ahorró ~200 líneas edición innecesaria); CSP mínima 2 líneas ponytail (localhost:* + https://*); BENCHMARKS con fuente reproducible (command+env+date).
+- **Stop (dejar de hacer):** confiar en backlog sin verificar código (6/10 ya resueltos desde a7ed0d22); asumir disco infinito (StorageFull 112 bloqueó e2e hasta liberar 120GB).
+- **Continue:** contracts `npm --prefix desktop run build` + `npm test 69/69` + `cargo check` por wave; E2E con mock `page.route` + far-future TTL evita drift.
+- **Accion medible:** 6/10 audit-only al triagear (60% stale-detection) vs 14% en batches colaterales — verificación previa ahorra código. North Star: 10/10 first-try post-retry (100%), 0 falsos positivos. Coste: disk full lesson — limpiar temp antes de e2e webServer.
