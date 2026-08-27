@@ -11,9 +11,9 @@ Este sistema permite alternar entre perfiles manualmente.
 
 | Perfil | MCPs activos | Para qué |
 |--------|-------------|----------|
-| **core** | codegraph, metasearchmcp, argus, campaign | Tareas Rust, backend, ingeniería |
+| **core** | codegraph, codebase-memory-mcp, metasearchmcp, argus, campaign | Tareas Rust, backend, ingeniería |
 | **design** | codegraph, campaign | Diseño UI/visual, frontend |
-| **full** | codegraph, discord, metasearchmcp, argus, campaign, lottiefiles-creator (default) | Desarrollo general |
+| **full** | codegraph, codebase-memory-mcp, discord, metasearchmcp, argus, campaign, lottiefiles-creator (default) | Desarrollo general |
 
 ## Cómo cambiar de perfil
 

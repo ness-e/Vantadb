@@ -402,6 +402,7 @@ Config: activos en `opencode.jsonc` (proyecto); deshabilitados en `%USERPROFILE%
 | MCP | Comando | Propósito |
 |-----|---------|-----------|
 | **CodeGraph** | `codegraph serve --mcp` | Grafo de conocimiento del código (20.5K símbolos, 71.4K edges). Resuelve símbolos, flujos, blast radius. CI hooks: verify.ps1/verify_changed.ps1 vía `.githooks/pre-commit`/`.githooks/pre-push` (Regla 1). Config MCP: `opencode.jsonc` raíz |
+| **codebase-memory-mcp** | `codebase-memory-mcp` | Code intelligence (tree-sitter, 158 langs). Architecture, call-path tracing (who/what calls `X`), change impact + risk (`detect_changes`), semantic/BM25 search, Cypher (`query_graph`), dead-code, ADR, cross-repo. **Complementa a CodeGraph** (prefer CodeGraph para símbolos del core Rust; usar CBM para architecture/impact/semantic/cross-cutting). Skill: `codebase-memory`. v0.10.8 |
 | **Campaign** | `bun .opencode/task-system/mcp/campaign-server.mjs` | Task system: 30+ tools para plan, task, verify, state machine |
 | **MetaSearchMCP** | `metasearchmcp-mcp` | Búsqueda multi-provider: web, GitHub, académico, código. DuckDuckGo gratis |
 | **Argus** | `argus mcp serve` | 14 providers, extracción 12-step, dead URL recovery |
@@ -424,6 +425,7 @@ Config: activos en `opencode.jsonc` (proyecto); deshabilitados en `%USERPROFILE%
 ### Referencia rápida para agentes
 
 - Para preguntas de código → **CodeGraph** (siempre primero, antes de grep/read)
+- Para architecture / change impact / semantic search / cross-repo → **codebase-memory-mcp** (skill `codebase-memory`; `detect_changes` antes de cada commit/push para conocer blast radius)
 - Para tareas Rust → terminal (ver [Rust MCP Servers](#rust-mcp-servers))
 
 ## VantaDB Development Protocol & AI Guardian Rules

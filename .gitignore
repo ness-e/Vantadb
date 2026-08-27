@@ -187,6 +187,9 @@ Cargo_test.toml
 # Understand-Anything (local scratch)
 .understand-anything/
 
+# codebase-memory-mcp index artifact (regenerable; optional team-share snapshot)
+.codebase-memory/
+
 # OpenCode loop session artifacts
 .opencode/opencode-loop/
 

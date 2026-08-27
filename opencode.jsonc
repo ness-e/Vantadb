@@ -19,6 +19,14 @@
       ],
       "enabled": true
     },
+      "codebase-memory-mcp": {
+        "type": "local",
+        "command": [
+          "C:\\Users\\Eros\\AppData\\Local\\Programs\\codebase-memory-mcp\\codebase-memory-mcp.exe"
+        ],
+        "enabled": true,
+        "description": "Codebase knowledge graph (tree-sitter, 158 langs, semantic + BM25 search, Cypher, architecture, change impact, dead-code, ADR). Complementa a CodeGraph. Skill: codebase-memory. Absolute path used because OpenCode's process PATH doesn't include the user PATH entry the installer added."
+      },
     "discord": {
       "type": "local",
       "command": [
