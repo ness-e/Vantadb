@@ -286,6 +286,34 @@ aliases: []
 
 ---
 
+## 2026-08-27: Backlog Pipeline — Quick Wins críticos (2026-08-27)
+
+### MCP-36: Protocolo moderno — negociación protocolVersion 2025-06-18 + structured output
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-27-backlog-pipeline.md` Task 2 (Wave 0) · P25 · `vanta-worker`
+- **Objetivo:** Server MCP hardcodeaba `"protocolVersion": "2024-11-05"` (spec estable 2025-06-18, latest 2026-07-28). Sin negociación el server queda behind spec y registry lo rechaza.
+- **Resultado:** ✅ `vantadb-mcp/src/handlers/initialize.rs`: `LATEST_PROTOCOL_VERSION="2025-06-18"` + `SUPPORTED=[2025-06-18,2024-11-05]` con `handle_initialize(params: Option<&Value>)` eco si soportada else latest. `server.rs` dispatch + 2 tests negociación. `validation.rs` helpers `structured_text_content`/`text_content_structured` (`{content, structuredContent}` spec). 6 tools clave (`memory_put`, `memory_put_batch`, `memory_get`, `search_memory`, `search_with_method`, `search_multi`, `search_semantic`) con `structuredContent` + 5 `outputSchema` en `handle_tools_list`. `test-mcp.py` actualizado a 2025-06-18. Verify: `cargo test -p vantadb-mcp` 11/11 + 75/75 mcp_tests + `grep 2025-06-18` 3 hits + clippy ✅ + fmt ✅. Commit `ca4eef6d` `feat(mcp): MCP-36 protocolo moderno 2025-06-18`.
+
+### MCP-38: Tool annotations — readOnlyHint/destructiveHint/idempotentHint/openWorldHint
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-27-backlog-pipeline.md` Task 3 · P25 · `vanta-worker`
+- **Objetivo:** 0 annotations en 78 tools — directorios oficiales (ChatGPT plugins, Claude Connectors) empiezan a exigirlas (blog 2026-03-16).
+- **Resultado:** ✅ `vantadb-mcp/src/handlers/tools.rs` 46 base + `code.rs`/`wiki.rs`/`threads.rs`/`scenes.rs`/`skills.rs`/`context.rs` 30 extend = 76 tools con annotations per spec (45 readOnly:true, 11 destructive:true, openWorld solo wiki_ingest+bulk_import_file). `tools.rs` 82 hits `readOnlyHint` (≥70 contrato). Test `test_mcp_tool_annotations_coverage` valida 76 tools ×4 bools. `docs/api/MCP.md` 66→76 tools, nota annotations + defaults pessimistic. Verify: `cargo test -p vantadb-mcp` 76/76 + nextest 62 + fmt/clippy ✅. Commit `7817188b` `feat(mcp): MCP-38 tool annotations` + `4c2ef257` docs.
+
+### WSM-01: Eliminar fallback silencioso OPFS→in-memory (WASM durability)
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-27-backlog-pipeline.md` Task 4 · P42 · `vanta-worker`
+- **Objetivo:** `vantadb-wasm/src/lib.rs:473` `OpfsStorage::open(path).await.ok()` tragaba error → `save()` no-op silencioso, `capabilities().persistence` stale. Usuario cree persistente pero es volátil.
+- **Resultado:** ✅ `vantadb-wasm/src/lib.rs`: campo `persistence: bool` (false en `new`/`open`, true en `connect_*`) + `capabilities()` override fiel + `OpfsStorage::open(...).map_err(|e| JsValue::from(Error::new("OPFS unavailable … use connect_idb")))?` con `Some(opfs)` (no `.ok()`). Tests `wsm01_persistence_tests` (stub getDirectory reject→error, fidelity checks). Colaterales inline: `src/storage/vfile_mmap.rs` doc + `vantadb-python/src/lib.rs` clippy fix. Verify: `cargo check -p vantadb-wasm` ✅ + `wasm-pack test --node` 29 passed (4 nuevos) + `wasm-pack build --target bundler` ready ✅ + `rg .ok()` 0 hits. Commit `618fa6e6`.
+
+### TS-05: Preservar `engines:{node:">=22.12"}` en tarball publicado
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-27-backlog-pipeline.md` Task 6 (Wave 1) · P41 · `vanta-worker`
+- **Objetivo:** `vantadb-ts/package.json:6-8` declara `engines` local pero research reportaba `registry engines:null` → `require(esm)` falla confuso en Node<22.
+- **Resultado:** ✅ Verificado durable: `npm pack --dry-run` + tarball extract `engines.node >=22.12` PASS, `npm pkg set` round-trip preserva, workflow `.github/workflows/release-npm-61.yml:195-201` guard TS-05 (`node -e if(!p.engines||!p.engines.node) exit 1`) + `vantadb-ts/scripts/smoke-pack.mjs:43-50` hardening. Cero líneas nuevas necesarias (npm `files` semantics ya preserva `package.json` + `npm pkg set` preserva resto); shorted diff 5 líneas guard. Verify: `tar -xzO package.json | jq .engines` PASS ambos runs. Commit `886df465` `chore(ci): TS-05 preserve engines` (2026-08-26) — verificado 2026-08-27 como COMPLETED sin diff.
+
+---
+
 ## 2026-08-27: Research vantadb-ts quickwins (INV-vantadb-ts-01)
 
 ### TS-02: Fix _native async wrapper — vantadb-ts/src/native.ts:89

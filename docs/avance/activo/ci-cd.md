@@ -200,3 +200,16 @@ aliases: []
 
 ### FND-16: Multi-target CI (wheels + WASM por PR) — migrado 2026-08-16 (ver docs/progreso/README.md)
 - **Resultado:** ✅ plan multi-target CI implementado: job wasm/TS por PR con paths filter + fix path CONTRIBUTING + dictamen P2-01 en FND-02. Commits `0f15a817` + `fb878cba`.
+
+---
+
+## 2026-08-27: Backlog Pipeline — Quick Wins (P25/P42/P41/P47)
+
+### STABLE-00: Checklist y ADR de promoción a default-members (gate 100% estable)
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-27-backlog-pipeline.md` Task 7 · P47 · `vanta-docs`
+- **Objetivo:** Sin ADR de criterios no hay definición de "100% estable" → promoción ad-hoc sin trace; `Cargo.toml:636` deja `server/mcp/wasm/memory/proxy` fuera del Fast Gate.
+- **Resultado:** ✅ `docs/architecture/adr/ADR-031-default-members-promotion.md` (nuevo, 205L) `status: proposed`: Context (Cargo:636), §1 tabla 10 checks (check/fmt/clippy, nextest/vitest, deny, docs-coverage, workflow timeout/continue-on-error, cargo package, wasm-pack/wasm32, napi 7-target, verify <5min, ADR reversible) en 3 corridas limpias, §2 cost table per crate (vantadb ~22s / python 12s / vanta-memory 36s / vanta-proxy 32s / server 21s / mcp 6.7s / wasm 3.6s / ts ~26s / node 8s), §3 Reversibilidad 1 línea `git revert Cargo.toml:636`, §4 Question to Owner A (<5 hard) vs B (<5 soft → ~8min) pending `Owner:___ Date:___ Choice:[ ]A [ ]B` (bloquea STABLE-09). `docs/operations/CI_POLICY.md` §Promotion to default-members añadida (4 hits ADR-031, 6 hits default-members, 10 checks). Verify: fmt ✅ + clippy ✅ + docs-coverage 0 gaps. Commit `fa5f04f0`.
+- **Gates:** D: no-disparado (docs-only) · V: no-disparado · C: no-disparado
+- **Contrato:** `Test-Path ADR-031` True + `Select-String \| [0-9]` 10 rows + `Question to Owner` hit + `grep ADR-031 CI_POLICY` 4 hits + `grep default-members CI_POLICY` 6 hits + `cargo fmt --check` ✅ + `clippy` ✅ + `docs-coverage` 0 gaps
+- **Archivos:** `docs/architecture/adr/ADR-031-default-members-promotion.md`, `docs/operations/CI_POLICY.md`, `.opencode/skills/campaign-executor/tasks/STABLE-00.md`
