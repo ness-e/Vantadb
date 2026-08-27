@@ -266,3 +266,5 @@
 - 2026-08-27 | FIND-39 | Task FIND-39 → completed
 2026-08-27 | STABLE-00 | ADR-031 promotion DoD — 10 gates must name exact commands + 3-run rule; Cargo.lock delta is 0 because crates already in workspace, only default-members line moves; Fast Gate <5 min vs Heavy decision must be Owner-answered before STABLE-09 — record in ADR §4 pending | ref: docs/architecture/adr/ADR-031-default-members-promotion.md
 - 2026-08-27 | wal | FIND-34 CodeGraph ciclo WAL es falso positivo Leiden (DAG open→open_with_buffer→{recover,quarantine}, no SCC) — doc DAG inline + 2 edge tests (mid-file scan-forward + .corrupt rotation) cierran contract sin refactor | ref: src/wal.rs:178-193,545,592
+- 2026-08-27 | FIND-34 | Task FIND-34 → completed
+- 2026-08-27 | FIND-35 | Ciclo StorageEngine get↔prefetch (2 nodos) intencional OLD-20 bounded single-level por PrefetchGuard thread_local+RAII — CodeGraph reports SCC sintáctico pero operacional es DAG con guard; doc header //! 18L justifica intención + invariante sync-only; test_get_prefetch_does_not_recurse_forever cold-tier A↔B cubre SO; ponytail doc antes que refactor aplanar | ref: src/storage/engine/get.rs:1-21,31-45,228-257

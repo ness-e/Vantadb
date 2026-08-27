@@ -1,4 +1,24 @@
 //! Read operations: get, get_many, warm_hnsw_top_layer.
+//!
+//! # StorageEngine get ↔ prefetch_related — intentional 2-node SCC (FIND-35, MCP-15, OLD-20)
+//!
+//! `get()` (cache miss) → `prefetch_related(id)` → `get(warm_id)` forms a deliberate
+//! 2-node cycle to implement co-access prefetch (OLD-20). Without a bound, a mutual
+//! co-access pair A↔B where both nodes are uncached recurses forever
+//! (`get(A)→prefetch(A)→get(B)→prefetch(B)→get(A)…`) — `get()` never inserts the node
+//! it materializes (only `prefetch_related`'s tail does post-recursion), so the
+//! stack overflows (MCP-15). The cycle is bounded to **single-level** by
+//! `PrefetchGuard` (`thread_local! Cell<bool>` + RAII `Drop` that clears on
+//! unwind/panic). The outer `get()`'s prefetch runs; any nested
+//! `get() → prefetch_related` inside the warm fetch is a no-op. CodeGraph therefore
+//! reports a syntactic SCC, but operationally it is a DAG once the guard is
+//! considered. `test_get_prefetch_does_not_recurse_forever` (cold-tier A↔B, 3
+//! co-access records) is the regression guard. Invariant: `get` and
+//! `prefetch_related` are synchronous and same-thread; `thread_local` is
+//! sufficient. If prefetch ever becomes `async`/cross-task, migrate the guard to
+//! `tokio::task_local!`. `warm_hnsw_top_layer` also re-enters `get` but is likewise
+//! bounded by the same guard.
+//! // ponytail: doc justifies intentional SCC single-level; flatten if prefetch becomes async (thread_local → task_local)
 
 use web_time::{SystemTime, UNIX_EPOCH};
 
