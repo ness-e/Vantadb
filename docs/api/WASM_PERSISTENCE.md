@@ -126,6 +126,8 @@ generated glue emits a CommonJS `require()` for them (documented wasm-bindgen
 limitation). The E2E harness works around this with a `require` shim that
 serves the real snippet file — see `vantadb-wasm/e2e/persist.html`.
 
+> **CDN note (verified 2026-08-27):** `cdn.jsdelivr.net/npm/vantadb@latest/+esm` fails for the same reason — jsDelivr's Rollup pipeline cannot resolve the `.wasm` ES import in the bundler glue (`import * as wasm from "./vantadb_wasm_bg.wasm"`) and serves a stub that throws `Failed to bundle using Rollup: failed to resolve an internal import` (curl `https://cdn.jsdelivr.net/npm/vantadb-wasm@0.5.0/+esm`). Use `https://esm.sh/vantadb` instead — esm.sh inlines the `.wasm` binary as a base64 byte array so the glue initializes without a sidecar fetch — or rebuild with `wasm-pack build --target web` (uses `fetch()` + `WebAssembly.instantiateStreaming`).
+
 - wasm-bindgen guide — JS snippets caveats (only `web` and `bundler` targets support snippets)
   <https://wasm-bindgen.github.io/wasm-bindgen/reference/js-snippets.html>
 - MDN — WebAssembly.Module / ES module integration (browser status)
