@@ -14,6 +14,7 @@ mod incremental;
 mod init;
 mod maintenance;
 mod ops;
+mod scalar_index;
 mod stats;
 mod types;
 
