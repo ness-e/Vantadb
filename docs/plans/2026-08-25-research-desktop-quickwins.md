@@ -35,3 +35,14 @@
 
 - DESKTOP-40 i18n real ES/EN (H-06) · DESKTOP-41 smoke VM instalador (H-08) · DESKTOP-42 bundles macOS/Linux baja prioridad (H-09) · DESKTOP-43 auto-updater tras firma (H-10)
 - H-12 validación manual proxy requiere upstream LLM vivo — ejecutarla como sesión guiada con el owner, no tarea autónoma (queda anotada en P44).
+
+=== RECITATION DESKTOP-QW1 ===
+Campaign ID: 39b59c48-a98a-40bd-bc5d-149dd5191263
+Objetivo activo: DESKTOP-QW1 — CommandPalette union sync H-02
+Estado: completed
+Última acción: Steps 1-3 COMPLETED — auditoría unions idénticas (no edición), build 8.04s + tests 69/69 verde, fmt verde, lessons escritas, ready to commit
+Resultado: OK
+Próxima acción: git add task file + commit feat(desktop): DESKTOP-QW1 — CommandPalette union sync (H-02) + progreso Trigger 1
+Contrato: verificacion: npm --prefix desktop run build (8.04s, 2863 modules) ✅ + npm --prefix desktop test (69/69) ✅ + cargo fmt --check ✅; evidencia: PaletteSurface === Surface (12 valores) en CommandPalette.tsx:27-39 y WorkspaceShell.tsx:83 con memoria/proxy/ajustes en Lentes palette (265-287); artefactos: .opencode/skills/campaign-executor/tasks/DESKTOP-QW1.md, desktop/dist/; invariantes: no romper palette grupos (Navegación/Lentes/Favoritos/Historial) ✅; deuda: ninguna
+Próxima tarea si completa: DESKTOP-QW2
+=== END RECITATION ===
