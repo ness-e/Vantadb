@@ -17,7 +17,7 @@ import type { RuleGroupType } from "react-querybuilder";
 // Los glifos geométricos monocromos (◆ ▫ ▦ ◷ ⛁ ⠿ ⇄ ⌘ ◉ ⇋ ★ ✕ ⧩ ⤒ ⤓ ─ □)
 // son identidad linocut y se quedan. DAUD-06: ✎ (renombrar) → Pencil Lucide.
 import { Asterisk, Moon, Pencil, Search, Settings as SettingsIcon, Sun, Trash2 } from "lucide-react";
-import { HelpPanel } from "./HelpPanel";
+import { HelpPanel, type HelpTab } from "./HelpPanel";
 import { createNamespace, get, list, namespaceStats, search, SearchResult, vantaErrorMessage, type MemoryRecord, type NamespaceStatsMap, type VantaDeepLink } from "../../vanta";
 import { useDeepLink } from "../../hooks/useDeepLink";
 import { ConnectionActions, VantaState } from "../../hooks/useConnectionState";
@@ -333,8 +333,9 @@ export default function WorkspaceShell({
   // (delete/restore/purge). Se saltea inputs/CodeMirror para no pisar el undo
   // nativo de texto del navegador.
   const [paletteOpen, setPaletteOpen] = useState(false);
-  // FIND-25: in-app usage guide, toggled with "?".
+  // FIND-25: in-app usage guide, toggled with "?" — DESKTOP-QW2 (H-03): F1=general, F2=proxy/ajustes contextual con tabs.
   const [helpOpen, setHelpOpen] = useState(false);
+  const [helpTab, setHelpTab] = useState<HelpTab>("general");
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -351,26 +352,29 @@ export default function WorkspaceShell({
         void handleUndo();
         return;
       }
-      // FIND-25: "?" opens the usage guide (skip inputs/CodeMirror).
-      if (e.key === "?") {
+      // FIND-25 + DESKTOP-QW2 (H-03): "?" / F1 → tab general, F2 → tab proxy/ajustes contextual.
+      // Skip inputs/contentEditable para no pisar edición (incl-inclusive-interaction-keyboard-navigation).
+      if (e.key === "?" || e.key === "F1" || e.key === "F2") {
         const t = e.target as HTMLElement | null;
         if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
         e.preventDefault();
-        setHelpOpen((o) => !o);
+        const target: HelpTab = e.key === "F2" ? "proxy" : "general";
+        if (helpOpen) {
+          if (helpTab === target) {
+            setHelpOpen(false);
+          } else {
+            setHelpTab(target);
+          }
+        } else {
+          setHelpTab(target);
+          setHelpOpen(true);
+        }
         return;
-      }
-      // H-03: F1/F2 anunciados como ayuda pero sin handler — mismo toggle que
-      // "?" (F1 = convención estándar de ayuda; F2 alternativo documentado).
-      if (e.key === "F1" || e.key === "F2") {
-        const t = e.target as HTMLElement | null;
-        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-        e.preventDefault();
-        setHelpOpen((o) => !o);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [helpOpen, helpTab]);
 
   async function runSearch(q: string) {
     const qTrim = q.trim();
@@ -1094,8 +1098,8 @@ export default function WorkspaceShell({
         />
       </Suspense>
 
-      {/* ========== HELP PANEL (FIND-25, "?" global) ========== */}
-      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
+      {/* ========== HELP PANEL (FIND-25, "?" global) — DESKTOP-QW2: F1 general, F2 proxy/ajustes contextual */}
+      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} initialTab={helpTab} />}
 
       {/* ========== NAMESPACE CRUD (DESKTOP-32, acciones de la sidebar) ========== */}
       {nsDialog && (

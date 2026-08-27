@@ -46,3 +46,13 @@ Próxima acción: git add task file + commit feat(desktop): DESKTOP-QW1 — Comm
 Contrato: verificacion: npm --prefix desktop run build (8.04s, 2863 modules) ✅ + npm --prefix desktop test (69/69) ✅ + cargo fmt --check ✅; evidencia: PaletteSurface === Surface (12 valores) en CommandPalette.tsx:27-39 y WorkspaceShell.tsx:83 con memoria/proxy/ajustes en Lentes palette (265-287); artefactos: .opencode/skills/campaign-executor/tasks/DESKTOP-QW1.md, desktop/dist/; invariantes: no romper palette grupos (Navegación/Lentes/Favoritos/Historial) ✅; deuda: ninguna
 Próxima tarea si completa: DESKTOP-QW2
 === END RECITATION ===
+=== RECITATION DESKTOP-QW2 ===
+Campaign ID: 39b59c48-a98a-40bd-bc5d-149dd5191263
+Objetivo activo: DESKTOP-QW2 — Handler keydown global F1/F2 → HelpPanel (H-03)
+Estado: completed
+Última acción: Steps 1-4 COMPLETED — auditoría handler existente + tabs F1/F2 implementados (HelpPanel HelpTab + WorkspaceShell helpTab state), build 11.05s (2863 modules) + tests 69/69 (17.31s) + cargo fmt --check verde, lessons escritas
+Resultado: OK
+Próxima acción: git add task file + HelpPanel/WorkspaceShell + commit feat(desktop): DESKTOP-QW2 — Handler F1/F2 → HelpPanel con tabs contextuales (H-03) + progreso Trigger 1
+Contrato: verificacion: npm --prefix desktop run build (11.05s, 2863 modules) ✅ + npm --prefix desktop test (69/69) ✅ + cargo fmt --check ✅; evidencia: WorkspaceShell keydown F1→general / F2→proxy con skip inputs + preventDefault (líneas 347-372) + HelpPanel initialTab prop + tabs UI (HelpPanel.tsx:8-35,146 líneas) con SURFACES 12 (faltaban ACTIVIDAD/MEMORIA/PROXY/AJUSTES) y SHORTCUTS split F1/F2; artefactos: .opencode/skills/campaign-executor/tasks/DESKTOP-QW2.md, desktop/src/components/layout/HelpPanel.tsx, desktop/src/components/layout/WorkspaceShell.tsx, desktop/dist/; invariantes: no romper palette/sidebar/inspector, E2E flujo-critico no regresa ✅; deuda: ninguna
+Próxima tarea si completa: DESKTOP-QW3
+=== END RECITATION ===

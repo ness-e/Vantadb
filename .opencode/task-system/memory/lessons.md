@@ -226,3 +226,5 @@
 - 2026-08-27 | desktop palette sync | PaletteSurface duplica Surface intencionalmente para evitar ciclo lazy — mantener sincronía manual al añadir surface (memoria/proxy/ajustes ya incluidos) | ref: desktop/src/components/palette/CommandPalette.tsx:24-39
 - 2026-08-27 | desktop verify H-02 | npm --prefix desktop run build/test + cargo fmt --check como contrato mecánico para tasks desktop-only (evitar cd && que falla en verify_cmd) | ref: .opencode/skills/campaign-executor/tasks/DESKTOP-QW1.md
 - 2026-08-27 | DESKTOP-QW1 | Task DESKTOP-QW1 → completed
+- 2026-08-27 | TS-02 | Task TS-02 → completed
+- 2026-08-27 | desktop HelpPanel F1/F2 | F1=general / F2=proxy tab-aware con initialTab opcional + handler skip inputs + preventDefault + switch-while-open; SURFACES completado a 12 (faltaban ACTIVIDAD/MEMORIA/PROXY/AJUSTES) y SHORTCUTS split F1/F2; WorkspaceShell helpTab state + HelpPanel initialTab prop mantienen compat | ref: desktop/src/components/layout/HelpPanel.tsx:8-35, desktop/src/components/layout/WorkspaceShell.tsx:336-376
