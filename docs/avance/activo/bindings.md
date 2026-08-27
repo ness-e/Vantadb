@@ -285,6 +285,40 @@ aliases: []
 - **Resultado:** ✅ `vantadb-python/README.md:5-12`: sección "Why VantaDB instead of a plain vector store?" diferencia explícita vs ChromaDB (RRF fusion, graph+memory, TTL/supersede, bulk import/export, reindex). Sin claims numéricos sin fuente (Regla 11).
 
 ---
+
+## 2026-08-27: Research vantadb-ts quickwins (INV-vantadb-ts-01)
+
+### TS-02: Fix _native async wrapper — vantadb-ts/src/native.ts:89
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-25-research-vantadb-ts-quickwins.md` (Wave 0)
+- **Objetivo:** Convertir `_native` a `async` con `try { return await fn(); } catch` para envolver rechazos async en `VantaError`.
+- **Resultado:** ✅ `vantadb-ts/src/native.ts:149` `private async _native<T>(method: string, fn: () => Promise<T> | T): Promise<T> { try { return await fn(); } catch... }` + `normalizeMetadataForNative` para tipado strict. Test `vantadb-ts/src/__tests__/native-error.test.ts` 3 casos (async rejection, sync throw, passthrough). `npm run build` y `npx vitest run` 264 passed. Commits `01bcfac0`, `d5faa5e4`.
+
+### TS-05: Preservar engines:{node:">=22.12"} en tarball
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-25-research-vantadb-ts-quickwins.md` (Wave 0)
+- **Objetivo:** Engines advisory no perdido en publish; guard en workflow + tarball.
+- **Resultado:** ✅ `vantadb-ts/package.json:6-8` engines presente; `npm pack` tarball preserva engines (verificado `tar -xzO | grep engines`); workflow `.github/workflows/release-npm-61.yml:195-201` guard TS-05; hardening en `vantadb-ts/scripts/smoke-pack.mjs` verifica `manifest.engines.node`. Commit `886df465`.
+
+### TS-06: Gate CI para tests TS (Fast Gate)
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-25-research-vantadb-ts-quickwins.md` (Wave 1)
+- **Objetivo:** Job CI Fast Gate (<5min) `npm ci && npm run build && npx vitest run` en cada PR/push.
+- **Resultado:** ✅ ` .github/workflows/release-npm-61.yml:tests` ya cumple — 26s medido (ci 5.6s + build 2.6s + vitest 13.8s) <<5min, `pull_request` + `push` con paths filter, sin `continue-on-error`. Documentado en `docs/operations/CI_POLICY.md:279`. Commit `970536b1`.
+
+### TS-08: CDN ESM jsDelivr vs esm.sh verificado
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-25-research-vantadb-ts-quickwins.md` (Wave 1)
+- **Objetivo:** Verificar empíricamente si `cdn.jsdelivr.net/npm/vantadb@latest/+esm` funciona (wasm glue `import *.wasm`).
+- **Resultado:** ✅ `vantadb-wasm/pkg/vantadb_wasm.js:2` bundler target `import * as wasm from "./vantadb_wasm_bg.wasm"` → Rollup failure en jsDelivr (curl `cdn.jsdelivr.net/npm/vantadb-wasm@0.5.0/+esm` stub `Failed to bundle using Rollup`); `esm.sh/vantadb@latest` ✅ inlines wasm como base64. Documentado en `vantadb-ts/README.md:98-114` tabla + `docs/api/WASM_PERSISTENCE.md:129` hardening. Commit `4e912000`.
+
+### TS-07: Smoke-test tarball pack→install→quickstart
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-25-research-vantadb-ts-quickwins.md` (Wave 2)
+- **Objetivo:** Script `smoke-pack.mjs` wired en release antes de publish.
+- **Resultado:** ✅ `vantadb-ts/scripts/smoke-pack.mjs` 106 líneas: `npm pack --pack-destination` → `tar -xzf` + engines check + rewrite `file:`→`^WASM_VER` → `npm pack` fixed → `mkdtemp app` → `npm install tgz` → `quickstart.mjs` (`VantaDB.create` + `put` + `get` + `close` → `SMOKE OK`) → `rmSync` cleanup; wired en `release-npm-61.yml:203-207` después de build/rewrite/TS-05 y antes de `Check if version already published`; `node scripts/smoke-pack.mjs` PASSED (5.2s). Commit `d5faa5e4`.
+
+---
 ## 2026-08-26: Integrations Quick Wins (H-01..H-05, H-08..H-11)
 
 ### QW-1: CrewAI from_dict + cursor — H-02 (=MOD-46)
