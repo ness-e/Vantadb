@@ -132,7 +132,28 @@ The workspace includes several **experimental crates** that are not part of the 
    blocking the fast lane.
 
 **To promote an experimental crate to stable**, remove it from the exclusion list in
-`ci-rust-10.yml` and re-add it to `default-members` in `Cargo.toml`.
+`ci-rust-10.yml` and re-add it to `default-members` in `Cargo.toml`. The full
+promotion DoD (10 checks, per-crate cost table, wall-time budget and
+reversibility) is defined in **[ADR-031: Promotion to default-members](../architecture/adr/ADR-031-default-members-promotion.md)** — no crate may be promoted without passing ADR-031 in 3 consecutive clean runs; see ADR-031 §Question to Owner for the Fast Gate `<5 min` vs Heavy threshold gate (STABLE-00).
+
+#### Promotion to `default-members` — ADR-031 DoD (STABLE-00, P47)
+
+`default-members` today is `[ ".", "vantadb-python" ]` (`Cargo.toml:636`). Candidates
+`vanta-memory`, `vanta-proxy`, `vantadb-server`, `vantadb-mcp`, `vantadb-wasm`
+(Rust) and `vantadb-ts`/`vantadb-node` (npm, equivalent gate) must each pass
+the **10-check DoD** before promotion; the checks and their exact commands are
+the single source of truth in ADR-031 (gates 1-10: `cargo check`+`fmt`+`clippy -D warnings`,
+`cargo nextest --profile audit`, `cargo deny check`, `validate-docs-coverage`,
+workflow `paths:` + no `continue-on-error` + `timeout-minutes <5 min` measured,
+`cargo package --dry-run`, `wasm-pack`/`wasm32` for `wasm`, `napi` 7-target matrix +
+`npm pack` for `node`, `verify.ps1` wall time `<5 min` with all crates included,
+ADR with cost + rollback). **Rollback is 1 line:** `git revert` of `Cargo.toml:636`
+(the `publish = false` crates never affect `cargo publish`).
+
+Until ADR-031 is `accepted` (Owner answers STABLE-00 question A vs B on `<5 min`
+vs Heavy), promotion is **blocked** — STABLE-01..08 may validate per-crate gates
+but STABLE-09 must not merge. Gate #9 is measured on branch `test/default-all`
+with expanded `default-members` (`verify.ps1` / `just verify` cold cache).
 
 **Review 2026-08-05 (TECH-08):** Decision: **keep `vantadb-server`, `vantadb-mcp`, `vantadb-wasm`
 EXPERIMENTAL** — not promoted to `default-members`. Evidence: all three compile together
