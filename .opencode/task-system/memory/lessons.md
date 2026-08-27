@@ -240,3 +240,11 @@
 - 2026-08-27 | desktop H-04 sparse_vector rename | renameNamespace debe copiar sparse_vector en ingestBatch + undo putRecord o híbridos pierden BM25 silenciosamente; test fija con {0:0.5,5:1.25} forward+undo | ref: desktop/src/store/undo.ts:195-268
 - 2026-08-27 | desktop H-04 audit-only | Si fix ya en HEAD (a7ed0d22 bundle), no re-editar mismo diff — verify-only con grep+build+test es suficiente (ponytail deletion over addition, como QW1/QW4) | ref: .opencode/skills/campaign-executor/tasks/DESKTOP-QW7.md:Step2
 - 2026-08-27 | DESKTOP-QW7 | Task DESKTOP-QW7 → completed
+- 2026-08-27 | git-workflow-and-versioning | Desktop version (H-11) intentionally decoupled: desktop 0.1.0 (triple: package.json/tauri.conf/Cargo) vs engine workspace 0.5.0 — release-plz isolated workspace excludes desktop via release=false (Compass pattern, different cadence, no performant sync without jq script) | ref: release-plz.toml:34-48, desktop/src-tauri/Cargo.toml:9-12
+- 2026-08-27 | ci-cd-and-automation | release-plz exclude pattern: [[package]] name="X" release=false is future-proof guard even if crate not current workspace member — prevents accidental publish if added later (desktop isolated today, WASM precedent) | ref: release-plz.toml:23-48
+- 2026-08-27 | WASM-QW2 | Task WASM-QW2 → completed
+- 2026-08-27 | WASM-QW1 | Task WASM-QW1 → completed
+- 2026-08-27 | performance-optimization | Baseline medido §Desktop reemplaza estimación DESKTOP-01 con comandos reproducibles (npm run build + Get-ChildItem) — sin claims sin fuente (Regla 11), Tauri runtime pendiente documentado como procedimiento honesto en vez de número inventado | ref: docs/operations/BENCHMARKS.md:232-340
+- 2026-08-27 | PROV-06 | Task PROV-06 → completed
+- 2026-08-27 | QW-1 | Task QW-1 → completed
+- 2026-08-27 | desktop E2E multi-perfil + proxy mock | TTL static Date.now() at file load drifts to expirado after 60s — usar 600s/300s far-future + locator title TTL + broad regex or title filter; getByText("5") substring matches 5+ elements strict violation — usar locator dd exact or title attribute; binary requires --features server (no default) + cargo build 7-9m lock contention → kill stale cargos before rebuild | ref: desktop/e2e/proxy-dashboard.spec.ts:16,34,151
