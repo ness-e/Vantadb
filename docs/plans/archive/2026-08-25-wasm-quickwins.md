@@ -52,3 +52,25 @@ dev-tools/verify_changed.ps1         # pre-commit
 ## Fuera de alcance de este plan
 
 Todo lo demás → P41 (`WSM-01..14`) · wontfix H-23 · estrategias H-21/H-22 (memoria+ADR).
+
+=== RECITATION WASM-QW2 ===
+Campaign ID: a1f1d889-1d97-460c-9ca8-cf8ca3876cc9
+Objetivo activo: Verificar WASM-QW2 next_cursor string-u64 ya resuelto en 53f080e5
+Estado: completed
+Última acción: Task verificado en sesion previa: fix ya en commit 53f080e5, cargo check wasm paso, tests >2^53 presentes. Cerrando para desbloquear WASM-QW1 (one-task-at-a-time).
+Resultado: OK
+Próxima acción: Proceder con WASM-QW1
+Contrato: verificacion: cargo check -p vantadb-wasm OK + next_cursor_to_js string + deserialize_cursor accept string/number + test >2^53 presente | evidencia: vantadb-wasm/src/lib.rs:159-164,135-155,1769-1828 confianza:alta | artefactos: vantadb-wasm/src/lib.rs | invariantes: politica string-u64, no hot path | deuda: ninguna | queda_pendiente: ningunax
+Próxima tarea si completa: WASM-QW1
+=== END RECITATION ===
+
+=== RECITATION WASM-QW1 ===
+Campaign ID: 30e7e1dc-6f93-4681-88a7-5bca016dad1a
+Objetivo activo: Verificar Fix OpfsFile::append offset 0 → size+position paridad JS, tests append×2=concat, cargo check wasm
+Estado: completed
+Última acción: Steps 1-3 verificados: Step1 invariantes size+position 4/4 OK + cargo check wasm 2.74s, Step2 5 tests append (4 opfs +1 worker) OK + fmt OK, Step3 verify full sin edicion (ponytail: no tocar lo ya correcto). Task file WASM-QW1.md actualizado a COMPLETED con Context Save Point.
+Resultado: OK
+Próxima acción: Ninguno — WASM-QW1 COMPLETED, NO commit (lead commitea). Siguiente: WASM-QW3 si el pipeline lo despacha.
+Contrato: verificacion: cargo check -p vantadb-wasm --target wasm32-unknown-unknown ✅ (2.74s) + cargo fmt --check ✅ + grep invariantes 4/4 ✅ + 5 tests wasm ✅ | evidencia: opfs.rs:91-102 getFile size + keepExistingData true + position=size (commit 53f080e5), opfs_bridge.js:53-57 idem, wasm_tests.rs:304 test_opfs_append_concatenates_raw assert b"hello world!" confianza:alta | artefactos: vantadb-wasm/src/opfs.rs:90-108, vantadb-wasm/tests/wasm_tests.rs:229-330,1201 | invariantes: paridad JS bridge, no romper CRC footer, no tocar core storage | deuda: ninguna — clippy global falla por debt pre-existente vfile_mmap.rs:140/file.rs:143 fuera de blast radius (no bloquea WASM-QW1) | queda_pendiente: ninguno
+Próxima tarea si completa: WASM-QW3
+=== END RECITATION ===
