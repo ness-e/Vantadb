@@ -271,7 +271,7 @@ pub(crate) async fn dispatch_request(
     let start = Instant::now();
 
     let result = match req.method.as_str() {
-        "initialize" => handle_initialize(),
+        "initialize" => handle_initialize(req.params.as_ref()),
         "tools/list" => handle_tools_list(),
         "tools/call" => {
             let sem = semaphore.clone();
@@ -475,6 +475,29 @@ mod tests {
             "in-flight response must be written on shutdown, got: {out}"
         );
         assert!(v["result"]["tools"].is_array(), "got: {out}");
+    }
+
+    /// MCP-36: protocol negotiation — 2025-06-18 is the latest stable.
+    #[tokio::test]
+    async fn initialize_negotiates_2025_06_18() {
+        let out = serve_lines_capture(
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}\n",
+        )
+        .await;
+        let v: serde_json::Value =
+            serde_json::from_str(out.trim()).expect("response should be JSON");
+        assert_eq!(v["result"]["protocolVersion"], "2025-06-18", "got: {out}");
+    }
+
+    #[tokio::test]
+    async fn initialize_echoes_2024_11_05_for_old_clients() {
+        let out = serve_lines_capture(
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}\n",
+        )
+        .await;
+        let v: serde_json::Value =
+            serde_json::from_str(out.trim()).expect("response should be JSON");
+        assert_eq!(v["result"]["protocolVersion"], "2024-11-05", "got: {out}");
     }
 
     /// MOD-08 regression: pipelined requests must all be answered even though

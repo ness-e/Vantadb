@@ -19,10 +19,11 @@ fn setup_storage() -> (tempfile::TempDir, Arc<StorageEngine>) {
 
 #[test]
 fn test_mcp_initialize() {
-    let res = handle_initialize();
+    // Default (no params) → LATEST 2025-06-18
+    let res = handle_initialize(None);
     assert!(res.is_ok(), "handle_initialize should succeed");
     let val = res.unwrap();
-    assert_eq!(val["protocolVersion"], "2024-11-05");
+    assert_eq!(val["protocolVersion"], "2025-06-18");
     assert_eq!(
         val["serverInfo"]["name"],
         vantadb::metadata::MCP_SERVER_INFO_NAME
@@ -39,6 +40,29 @@ fn test_mcp_initialize() {
         val["capabilities"]["prompts"].is_object(),
         "capabilities.prompts should be an object"
     );
+}
+
+#[test]
+fn test_mcp_initialize_negotiation() {
+    // Client asks 2024-11-05 → echo 2024-11-05 (backward compat)
+    let res_old = handle_initialize(Some(&json!({"protocolVersion": "2024-11-05"}))).unwrap();
+    assert_eq!(res_old["protocolVersion"], "2024-11-05");
+
+    // Client asks 2025-06-18 → echo 2025-06-18
+    let res_new = handle_initialize(Some(&json!({"protocolVersion": "2025-06-18"}))).unwrap();
+    assert_eq!(res_new["protocolVersion"], "2025-06-18");
+
+    // Unknown version → fall forward to latest
+    let res_unknown = handle_initialize(Some(&json!({"protocolVersion": "2099-01-01"}))).unwrap();
+    assert_eq!(res_unknown["protocolVersion"], "2025-06-18");
+
+    // Missing field → latest
+    let res_missing = handle_initialize(Some(&json!({}))).unwrap();
+    assert_eq!(res_missing["protocolVersion"], "2025-06-18");
+
+    // Non-string protocolVersion → latest (no panic)
+    let res_bad = handle_initialize(Some(&json!({"protocolVersion": 123}))).unwrap();
+    assert_eq!(res_bad["protocolVersion"], "2025-06-18");
 }
 
 #[test]
@@ -4361,4 +4385,55 @@ fn test_mcp_search_multi_round_trip() {
         res["code"], -32602,
         "empty namespaces must be invalid params"
     );
+}
+
+#[test]
+fn test_mcp_structured_output_and_output_schema() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // memory_put should return both content and structuredContent (2025-06-18)
+    let put = Some(json!({
+        "name": "memory_put",
+        "arguments": { "namespace": "struct_ns", "key": "k1", "payload": "hello structured" }
+    }));
+    let res = handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res.get("structuredContent").is_some(),
+        "memory_put must expose structuredContent"
+    );
+    assert_eq!(res["structuredContent"]["key"], "k1");
+    assert_eq!(res["structuredContent"]["payload"], "hello structured");
+    // text content must still be valid JSON
+    let text = res["content"][0]["text"].as_str().unwrap();
+    let parsed: Value = serde_json::from_str(text).unwrap();
+    assert_eq!(parsed["key"], "k1");
+
+    // search_memory hits should also carry structuredContent
+    let search = Some(json!({
+        "name": "search_memory",
+        "arguments": { "namespace": "struct_ns", "query_vector": [1.0, 0.0, 0.0], "top_k": 1 }
+    }));
+    let search_res = handle_tools_call(&search, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        search_res.get("structuredContent").is_some(),
+        "search_memory must expose structuredContent"
+    );
+    assert!(search_res["structuredContent"].is_array());
+
+    // tools/list must advertise outputSchema for key tools
+    let list = handle_tools_list().unwrap();
+    let tools = list["tools"].as_array().unwrap();
+    for name in [
+        "memory_put",
+        "memory_get",
+        "search_memory",
+        "search_semantic",
+    ] {
+        let tool = tools.iter().find(|t| t["name"] == name).expect(name);
+        assert!(
+            tool.get("outputSchema").is_some(),
+            "{name} should have outputSchema"
+        );
+    }
 }

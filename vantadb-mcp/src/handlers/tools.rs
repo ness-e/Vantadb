@@ -36,6 +36,10 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                     "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms timestamp after which the record expires (TTL)" }
                 },
                 "required": ["namespace", "key", "payload"]
+            },
+            "outputSchema": {
+                "type": "object",
+                "description": "The stored record (structuredContent mirrors the JSON text content)"
             }
         },
         {
@@ -71,6 +75,10 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                 "type": "object", "properties": {
                     "namespace": { "type": "string" }, "key": { "type": "string" }
                 }, "required": ["namespace", "key"]
+            },
+            "outputSchema": {
+                "type": "object",
+                "description": "The record (structuredContent mirrors the JSON text content)"
             }
         },
         {
@@ -155,6 +163,10 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                     "vector": { "type": "array", "items": {"type": "number"}, "description": "F32 query vector" },
                     "k": { "type": "number", "description": "Top K neighbors" }
                 }, "required": ["vector", "k"]
+            },
+            "outputSchema": {
+                "type": "array",
+                "description": "Hits array (structuredContent mirrors the JSON text content)"
             }
         },
         {
@@ -177,6 +189,10 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                     }, "description": "Optional search profile (MEM-01): mode forces the retrieval channel (keyword/vector/hybrid); rrf_k/candidate_k tune RRF. Wire format matches the native API and the IQL PROFILE clause." }
                 },
                 "required": ["namespace"]
+            },
+            "outputSchema": {
+                "type": "array",
+                "description": "Hits array (structuredContent mirrors the JSON text content)"
             }
         },
         {
@@ -200,6 +216,10 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                     }, "description": "Optional search profile (MEM-01): mode forces the retrieval channel (keyword/vector/hybrid); rrf_k/candidate_k tune RRF. Wire format matches the native API and the IQL PROFILE clause." }
                 },
                 "required": ["namespace"]
+            },
+            "outputSchema": {
+                "type": "array",
+                "description": "Hits array (structuredContent mirrors the JSON text content)"
             }
         },
         {
@@ -658,7 +678,7 @@ pub fn handle_tools_call(
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.put(input) {
-                Ok(record) => Ok(text_content(serialize_content(&record))),
+                Ok(record) => Ok(text_content_structured(&record)),
                 Err(e) => Ok(error_content(format!("Put Error: {}", e))),
             }
         }
@@ -707,7 +727,7 @@ pub fn handle_tools_call(
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.put_batch(inputs) {
-                Ok(records) => Ok(text_content(serialize_content(&records))),
+                Ok(records) => Ok(text_content_structured(&records)),
                 Err(e) => Ok(error_content(format!("Put Batch Error: {}", e))),
             }
         }
@@ -726,7 +746,7 @@ pub fn handle_tools_call(
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.get(namespace, key) {
-                Ok(Some(record)) => Ok(text_content(serialize_content(&record))),
+                Ok(Some(record)) => Ok(text_content_structured(&record)),
                 Ok(None) => Ok(error_content("Record not found")),
                 Err(e) => Ok(error_content(format!("Get Error: {}", e))),
             }
@@ -944,7 +964,7 @@ pub fn handle_tools_call(
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.search(request) {
-                Ok(hits) => Ok(text_content(serialize_content(&hits))),
+                Ok(hits) => Ok(text_content_structured(&hits)),
                 Err(e) => Ok(error_content(format!("Search Error: {}", e))),
             }
         }
@@ -966,7 +986,7 @@ pub fn handle_tools_call(
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.search_with_method(request, method) {
-                Ok(hits) => Ok(text_content(serialize_content(&hits))),
+                Ok(hits) => Ok(text_content_structured(&hits)),
                 Err(e) => Ok(error_content(format!("Search Error: {}", e))),
             }
         }
@@ -1000,7 +1020,7 @@ pub fn handle_tools_call(
             let ns_refs: Vec<&str> = namespaces.iter().map(String::as_str).collect();
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.search_multi(&ns_refs, request) {
-                Ok(hits) => Ok(text_content(serialize_content(&hits))),
+                Ok(hits) => Ok(text_content_structured(&hits)),
                 Err(e) => Ok(error_content(format!("Search Error: {}", e))),
             }
         }
@@ -1064,7 +1084,7 @@ pub fn handle_tools_call(
                     }));
                 }
             }
-            Ok(text_content(serialize_content(&results)))
+            Ok(text_content_structured(&results))
         }
 
         "get_node_neighbors" => {

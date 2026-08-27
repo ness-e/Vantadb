@@ -347,6 +347,26 @@ pub(crate) fn text_content(text: String) -> Value {
     json!({"content": [{"type": "text", "text": text}]})
 }
 
+/// MCP 2025-06-18 structured output: returns both `content` (text) and
+/// `structuredContent` (machine-parsable JSON) per spec. The text payload
+/// is the JSON serialization; structuredContent is the parsed Value itself.
+pub(crate) fn structured_text_content(structured: &Value) -> Value {
+    let text = serde_json::to_string(structured).unwrap_or_else(|e| {
+        error!(%e, "structured_text_content: serialization failed");
+        r#"{"error":"Serialization failed"}"#.to_string()
+    });
+    json!({"content": [{"type": "text", "text": text}], "structuredContent": structured.clone()})
+}
+
+/// Serialize `value` and return a structured response (text + structuredContent).
+pub(crate) fn text_content_structured(value: &impl Serialize) -> Value {
+    let structured = serde_json::to_value(value).unwrap_or_else(|e| {
+        error!(%e, "text_content_structured: to_value failed");
+        json!({"error": "Serialization failed"})
+    });
+    structured_text_content(&structured)
+}
+
 /// Human-readable name of a JSON value's type, for actionable error messages
 /// that distinguish an absent field from a present-but-wrong-typed one.
 pub(crate) fn json_value_type_name(val: &Value) -> &'static str {

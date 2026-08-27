@@ -18,9 +18,9 @@ use vantadb_mcp::{handle_initialize, handle_tools_call, handle_tools_list, McpCo
 async fn mcp_protocol_certification() {
     let mut harness = VantaHarness::new("API LAYER (MCP PROTOCOL)");
 
-    harness.execute("Protocol: Handshake & Identity (2024-11-05)", || {
-        let init_res = handle_initialize().expect("Initialization failed");
-        assert_eq!(init_res["protocolVersion"], "2024-11-05");
+    harness.execute("Protocol: Handshake & Identity (2025-06-18)", || {
+        let init_res = handle_initialize(None).expect("Initialization failed");
+        assert_eq!(init_res["protocolVersion"], "2025-06-18");
         assert_eq!(init_res["serverInfo"]["name"], "vantadb");
 
         let list_res = handle_tools_list().expect("Tools listing failed");
