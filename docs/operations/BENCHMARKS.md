@@ -3,7 +3,7 @@ title: VantaDB — HNSW & Lexical Engine Performance Benchmarks
 type: operations
 status: active
 tags: [vantadb, operations, benchmarks]
-last_reviewed: 2026-07-21
+last_reviewed: 2026-08-27
 aliases: []
 ---
 
@@ -229,3 +229,105 @@ The **canonical no-regression benchmark** for every performance change. Per Regl
 | **Mode** | `cargo bench -p vantadb --bench canonical_p99 -- --quick` (baseline quick — insert measured as one full build; criterion `--quick` reduces samples) |
 
 > **Regla 9 usage:** record the before/after values in the PR/task file when optimizing any hot path. A regression above the criterion noise threshold (5%) must be justified or the change rejected.*
+
+---
+
+## 🖥️ 9. Desktop App Resources Baseline (DESKTOP-QW9 / H-15 — Regla 11)
+
+Replaces the **DESKTOP-01 platform estimates** (`docs/research/archive/DESKTOP-01-tauri-plataforma-desktop.md` §5: bundle 2–10 MB / RAM ~50 MB idle / demo 8.6 MiB N=1 — flagged "with a grain of salt", G1 "benchmark propio no realizado") with a **measured frontend bundle + build timing** (Tauri runtime pending — documented below with reproducible steps). No numeric claim without source (Regla 11); adjetivos ("rápido/optimizado") only with numbers.
+
+### 9a. Frontend Build Timing (measured)
+
+* **Command (Regla 11):** `Measure-Command { npm --prefix desktop run build }` — runs `tsc && vite build` (`desktop/package.json:7`), Vite `computing gzip size` log
+* **Date:** 2026-08-27 (this baseline); historical QW1–8 builds 8.04–21.18 s (same 2863 modules, Node 24.x — variance = tsc + cold Vite cache)
+
+| Metric | Value | Source |
+| :--- | :--- | :--- |
+| **Wall time** (`Measure-Command TotalSeconds`) | **24.59 s** | `Measure-Command { npm --prefix desktop run build }` 2026-08-27 |
+| **Vite `built in`** | **14.54 s** | `vite v7.3.6 building … ✓ built in 14.54s` |
+| **tsc (by subtraction)** | ~10 s | wall − vite (typecheck only, no emit) |
+| **Modules transformed** | **2863** | `✓ 2863 modules transformed` (stable QW1–8) |
+| **QW history (wall)** | 8.04 s (QW1) · 11.05 s (QW2) · 10.29 s (QW3) · 14.63 s (QW4) · 21.18 s (QW6) · 13.05 s (QW7) · 16.45 s (QW8) → **24.59 s (QW9)** | `docs/plans/2026-08-25-research-desktop-quickwins.md` recitations |
+
+> Reproduce: `npm --prefix desktop run build 2>&1 | Select-String "built in|modules transformed"` — expect `2863 modules`, `built in ~14–15 s` (cold) / `~8–10 s` (warm cache), wall ~15–25 s with tsc.
+
+### 9b. Frontend Bundle Breakdown (measured)
+
+* **Commands:** `Get-ChildItem desktop/dist -Recurse -File | Measure-Object Length -Sum` + `Get-ChildItem desktop/dist/assets/*.js | Measure-Object Length -Sum` (same for css/fonts) + `vite` gzip log per chunk
+* **Total `dist/`:** **2.71 MB** (2,846,314 bytes, **24 files**) — **frontend only** (no Rust binary, no installer overhead)
+
+| Category | Size (on disk) | Files | Gzip (Vite) | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| **JS** | **2,510.2 KB** / 2.45 MB | 11 | ~600 KB (sum of vite gzip) | dynamic splits: GraphLens/SpaceLens/Inspector lazy |
+| **CSS** | **69.0 KB** | 2 | 12.33 KB (10.10 + 2.23) | `index` + `FiltersBuilder` |
+| **Fonts** | **195.9 KB** | 8 | — (already woff2) | geist-sans/mono, anton, space-mono |
+| **HTML + assets** | ~5 KB | 3 | 0.30 KB (index.html) | index.html 0.46 KB + tauri.svg + vite.svg |
+| **Total `dist/`** | **2,779.6 KB / 2.71 MB** | 24 | **~665 KB** (est. `sum gzip` from vite log) | `dist/assets` dominates |
+
+#### Largest chunks (actionable — `chunkSizeWarningLimit` 500 KB)
+
+| Chunk | Disk | Gzip | % of JS | Action |
+| :--- | :--- | :--- | :--- | :--- |
+| `GraphLens-CJXjN-5g.js` | **944.5 KB** | **264.93 KB** | **37.6%** | `(!) larger than 500 kB after minification` — candidate for `manualChunks` / further split (D3 + regl-scatterplot + umap-js) |
+| `index-uKXXWFkg.js` (vendor) | 471.7 KB | 141.72 KB | 18.8% | React 19 + @tauri-apps/api + cmdk + tanstack |
+| `index-k0pc_nL5.js` | 390.2 KB | 130.05 KB | 15.5% | core + WorkspaceShell |
+| `SpaceLens-BB8ebR6O.js` | 226.6 KB | 80.04 KB | 9.0% | three + @react-three + UMAP lasers |
+| `Inspector-D8B2piQm.js` | 176.1 KB | 55.44 KB | 7.0% | PayloadTab + CodeMirror |
+| `FiltersBuilder-COqtimXX.js` | 116.4 KB | 36.31 KB | 4.6% | react-querybuilder + d3-force |
+
+> Reproduce: `Get-ChildItem desktop/dist -Recurse | Sort-Object Length -Descending | Select-Object -First 6 Name, @{N="KB";E={[math]::Round($_.Length/1024,1)}}` + `npm --prefix desktop run build` vite log.
+
+### 9c. Environment
+
+| Field | Value |
+| :--- | :--- |
+| **CPU** | 12th Gen Intel Core i5-1235U (10 cores / 12 threads, 1.30 GHz base) |
+| **RAM** | 31.8 GB (34120724480 bytes) total — Win32_ComputerSystem |
+| **OS** | Microsoft Windows 11 Pro 10.0.26200 (64-bit) |
+| **Node / npm** | 24.16.0 / 11.6.0 |
+| **Vite / tsc** | 7.3.6 / 5.8.3 |
+| **Date** | 2026-08-27 |
+| **Build mode** | `desktop/package.json` `build: "tsc && vite build"` (default Tauri mode, `frontendDist: "../dist"`, `base: "/"`) |
+| **Dist** | `desktop/dist` 24 files, `outDir: dist` (vs `dist-web` for `vite build --mode web`, `dist-wasm` + `target: esnext` for `--mode wasm` — vite.config.ts:29-54) |
+
+### 9d. Tauri Runtime — Startup & RAM Idle (PENDING — honest, no claim without binary)
+
+**Startup time** and **RAM idle** of the installed Tauri binary require a **Rust build + running app** and are **NOT measured in this baseline** (DESKTOP-01 estimates are NOT reasserted here). Baseline §9b–c (frontend bundle + build timing) is the only measured replacement; runtime metrics are documented as reproducible procedure:
+
+```powershell
+# 1. Build Tauri binary (requires Rust + WebView2 SDK; ~2-5 min first build, sccache helps)
+cargo tauri build --manifest-path desktop/src-tauri/Cargo.toml          # release (nsis/msi + exe)
+# or fast smoke:
+cargo tauri build --manifest-path desktop/src-tauri/Cargo.toml --debug  # no installer, faster
+
+# 2. Measure startup time (cold start, no dev server)
+Measure-Command { Start-Process "desktop/src-tauri/target/release/vantadb-desktop.exe" -PassThru | Wait-Process }  # wall
+# Alternative in-app: add `performance.mark("startup")` in desktop/src/main.tsx + `performance.measure` to DevTools
+
+# 3. Measure RAM idle (after window shows, idle 30s, no queries)
+Get-Process vantadb-desktop | Select-Object WorkingSet64, PrivateMemorySize64, Handles  # bytes → MB
+# Cross-check: Task Manager → Details → Working Set, or sysinfo crate (`cargo run -p sysinfo` snippet if wired)
+
+# 4. Installer size
+Get-ChildItem desktop/src-tauri/target/release/bundle -Recurse -File | Sort-Object Length -Descending | Select-Object Name, @{N="MB";E={[math]::Round($_.Length/1024/1024,2)}} -First 5
+# Expected formula (no claim yet): installer ≈ Rust binary (est. 8-12 MB with vantadb fjall) + dist (2.71 MB) + bundle overhead → ~12-18 MB (vs DESKTOP-01 "2-10 MB empty app <600KB" — not comparable until measured)
+```
+
+> **Status:** `pending` — run the commands above on the same machine that produced §9a–c and append measured values to this section (startup ms, RAM WorkingSet MB, installer MB) with the same Environment table. Until then, **do not cite 50 MB idle or 8.6 MiB** — those are DESKTOP-01 third-party N=1 (gethopp/buildmvpfast) flagged "grain of salt", not VantaDB-measured.
+
+### 9e. Provenance (Regla 11)
+
+*Regenerate locally:*
+
+```powershell
+# Frontend bundle + build timing (this baseline §9a-b):
+Measure-Command { npm --prefix desktop run build }   # wall + vite built-in
+Get-ChildItem desktop/dist -Recurse -File | Measure-Object Length -Sum   # total
+Get-ChildItem desktop/dist/assets/*.js | Measure-Object Length -Sum      # JS
+Get-ChildItem desktop/dist -Recurse | Sort-Object Length -Descending | Select-Object -First 6 Name, @{N="KB";E={[math]::Round($_.Length/1024,1)}}
+# Environment: Get-CimInstance Win32_Processor/Win32_ComputerSystem/Win32_OperatingSystem + node --version + npx --prefix desktop tsc --version + vite --version
+```
+
+* **DESKTOP-01 superseded values (do NOT cite as VantaDB baseline):** bundle 2–10 MB (empty app <600KB) · demo 8.6 MiB vs 244 MiB Electron · RAM 172 MB (6 windows) / ~50 MB single · growth 4.88× — sources [gethopp N=1](https://www.gethopp.app/blog/tauri-vs-electron) / [buildmvpfast](https://www.buildmvpfast.com/blog/tauri-v2-vs-electron-desktop-apps-2026) / [Tauri docs](https://v2.tauri.app/start/) — all flagged grain of salt in DESKTOP-01 §5. Replaced by measured 2.71 MB dist (frontend), build timing above.
+* **No `benchmarks/*.json` artifact** — Regla 11: `benchmarks/vanta_benchmark_report.json` is `.gitignore` regenerable, not versioned source. Commands above are the source.
+* **Install path after Tauri build:** `desktop/src-tauri/target/release/bundle/{nsis,msi}/` — version `0.1.0` (`desktop/package.json:4` + `tauri.conf.json:4` + `src-tauri/Cargo.toml:3` triple, `release-plz` excluded per DESKTOP-QW8).*
