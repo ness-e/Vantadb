@@ -320,3 +320,21 @@ aliases: [DESKTOP]
 - **Plan:** `docs/plans/2026-08-25-research-desktop-quickwins.md` Wave2 Task7 (DESKTOP-QW7)
 - **Resultado:** ✅ Auditoría end-to-end H-04: `vanta.ts` IngestItem/MemoryRecord `sparse_vector` + `types.rs` DTOs `Option<HashMap<u32,f32>>` + `undo.ts` renameNamespace `ingestBatch(map{...,sparse_vector:r.sparse_vector??undefined})` + restore/undo `vantaPut` idem (4 hits) — ya en a7ed0d22; test `undo.test.ts:165-197` fija forward+undo con `{0:0.5,5:1.25}` (ingestBatch+ vantaPut asserts). Audit-only (Step2 SKIPPED, 0 líneas, ponytail). Build 13.05s (2863 modules) + tests 69/69 (23.54s) + cargo check 0.57s + fmt verde. Commit 0692855e.
 - **Ids:** `DESKTOP-QW7`
+
+### DESKTOP-QW8: Sincronizar versión desktop con release-plz (H-11)
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-25-research-desktop-quickwins.md` Wave3 Task8 (DESKTOP-QW8)
+- **Resultado:** ✅ Triple 0.1.0 sync `desktop/package.json:4` + `tauri.conf.json:4` + `src-tauri/Cargo.toml:3` vs workspace 0.5.0 aislado (desktop no miembro root) → decisión EXCLUDE documentada `release-plz.toml:34-48` `[[package]] name="vantadb-desktop" release=false` + comentario H-11 aislado. Build 16.45s (2863 modules) + tests 69/69 (22.30s) + cargo check 0.75s + fmt verde.
+- **Ids:** `DESKTOP-QW8`
+
+### DESKTOP-QW9: Baseline medido de recursos del app (H-15)
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-25-research-desktop-quickwins.md` Wave3 Task9 (DESKTOP-QW9)
+- **Resultado:** ✅ `docs/operations/BENCHMARKS.md` §9 Desktop 100 líneas: Build Timing wall 24.59s / vite 14.54s / 2863 modules + Bundle 2.71MB (2510KB JS 37% GraphLens 944KB, 69KB CSS, 195.9KB fonts, 665KB gzip) + Chunks >500KB warning + Env i5-1235U 31.8GB Win11 Node24 vite7.3.6 tsc5.8.3 + Provenance Regla 11 comandos reproducibles + DESKTOP-01 superseded flagged + Tauri startup/RAM pending con pasos documentados. Build 22.97s vite verde + validate-docs 0 gaps + check-avance 1038/1038 + fmt verde.
+- **Ids:** `DESKTOP-QW9`
+
+### DESKTOP-QW10: E2E desktop multi-perfil + proxy dashboard mock (H-07)
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-25-research-desktop-quickwins.md` Wave3 Task10 (DESKTOP-QW10)
+- **Resultado:** ✅ 2 specs E2E + 1 smoke manual: `multi-perfil.spec.ts` 193L 4 tests (health BM25·HNSW·RRF embedded vivo, Settings defaults topK/mode/lang persist tras reload, localStorage vanta.connections.v1 native+server Bearer round-trip, sanitize corrupto) + `proxy-dashboard.spec.ts` 210L 5 tests (sin proxy PROXY hidden palette, CONECTAR form mock, dashboard mock sessions 9m/4m + expirado + writeback 2 + rate_limit 60/min 5 ok, degraded 99 fail-open, cambiar URL limpia) con `page.route("**/snapshot", MOCK)` + TTL far-future 600s/300s ponytail + strict locators .first/dd exact; `SMOKE-MANUAL.md` 83L GraphLens 3D + SpaceLens UMAP checklist visual; infra `cargo build --bin vanta-cli --features server` 16MB 9m13s + dist-web 11-13s rebuild + binary port 8091 health; verify `npm --prefix desktop run build` 10.35s 2863 modules + `npm --prefix desktop test` 69/69 + `cargo fmt --check` + `npx playwright test --config desktop/playwright.config.ts` 12/12 45.4s (4 specs: flujo-critico, daud01-temas, multi-perfil, proxy-dashboard) + via desktop binary same; disk 120GB free WMI. Commit 34d72585.
+- **Ids:** `DESKTOP-QW10`
