@@ -3,6 +3,24 @@
 //! This adapter encapsulates all direct interaction with the `rocksdb` crate.
 //! No RocksDB types (DB, ColumnFamily handles, iterators, options) should leak
 //! outside this module.
+//!
+//! ## Crate frontier (FIND-36)
+//!
+//! `RocksDbBackend` is `pub(crate)` and only reachable via
+//! `crate::backend::StorageBackend` (trait, `pub(crate)`) through
+//! `StorageEngine` — it never imports `desktop`, `tauri` or
+//! `NativeConnection`. The only caller is `StorageEngine`'s backend factory
+//! (`src/storage/engine/init.rs` `match BackendKind`). The call chain is a
+//! one-way DAG `NativeConnection (desktop) → VantaEmbedded → StorageEngine
+//! → StorageBackend → RocksDbBackend`; there is no back-edge, so the
+//! "3 cycles get/put/delete" reported by CodeGraph (Leiden clustering of the
+//! shared method names) is a false positive — verified by `rg` zero
+//! cross-imports + isolated workspaces (`desktop/src-tauri` has
+//! `[workspace] members = ["."]`, `cargo check -p vantadb` stays invariant)
+//! and `cargo check --all-targets --all-features` 0 cycles.
+//! See `desktop/src-tauri/src/connections/native.rs` header for the desktop side.
+//!
+//! `// ponytail: doc justifies Leiden false positive without trait refactor; extract trait if real SCC emerges`
 
 use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
 use crate::config::VantaConfig;

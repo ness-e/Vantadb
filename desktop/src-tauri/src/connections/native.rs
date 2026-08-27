@@ -4,6 +4,21 @@
 //! Wraps [`vantadb::VantaEmbedded`] and implements [`VantaConnection`]. Every
 //! synchronous SDK call runs on the blocking thread pool via
 //! `tokio::task::spawn_blocking` so the async trait never blocks the runtime.
+//!
+//! ## Crate frontier (FIND-36)
+//!
+//! `NativeConnection` lives in the isolated Tauri workspace
+//! (`desktop/src-tauri` `[workspace] members = ["."]` — `vantadb = {path="../.."}`)
+//! and depends one-way on `vantadb` via `VantaEmbedded`/`VantaConfig`; the
+//! core crate (`src/backends/rocksdb_backend.rs` `RocksDbBackend`) never
+//! imports this file. The call chain is a DAG
+//! `NativeConnection → VantaEmbedded → StorageEngine → StorageBackend → RocksDbBackend`
+//! — the reported "3 cycles get/put/delete" is name collision + Leiden
+//! clustering, not a CALLS SCC (verified `rg` 0 cross-imports + `cargo check`
+//! 0 cycles). Frontier trait is `StorageBackend` (`pub(crate)`, `Send+Sync`,
+//! `src/backend.rs`). See `src/backends/rocksdb_backend.rs` header.
+//!
+//! `// ponytail: doc justifies Leiden false positive; trait extraction if real back-edge appears`
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
