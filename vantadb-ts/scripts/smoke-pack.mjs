@@ -40,6 +40,14 @@ try {
   execSync(`tar -xzf "${join(tmp, tgzName)}" -C "${tmp}"`);
   const manifestPath = join(pkgDir, "package.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  // TS-05: tarball must preserve engines.node (Node >=22.12). Fail fast if lost
+  // (e.g., future npm pkg set rewrite or files filtering strips it).
+  if (!manifest.engines?.node) {
+    throw new Error(
+      `engines.node missing from packed manifest — tarball would ship without Node requirement (TS-05) — got ${JSON.stringify(manifest.engines)}`,
+    );
+  }
+  console.log(`[smoke] engines ok: ${JSON.stringify(manifest.engines)}`);
   const wasmDep = manifest.dependencies?.["vantadb-wasm"];
   if (typeof wasmDep === "string" && wasmDep.startsWith("file:")) {
     const localPkg = join(root, "..", "vantadb-wasm", "pkg", "package.json");
