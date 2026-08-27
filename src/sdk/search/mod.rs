@@ -108,17 +108,17 @@ impl VantaEmbedded {
         let mode = crate::planner::search_mode(&request);
         let mut text_query = crate::planner::trimmed_text_query(&request);
         let mut has_vector = !request.query_vector.is_empty();
-        let mut has_sparse = request
+        let mut query_sparse = request
             .query_sparse
             .as_ref()
-            .is_some_and(|sparse| !sparse.is_empty());
+            .filter(|sparse| !sparse.is_empty());
 
         // MEM-01: el profile puede forzar el modo de búsqueda. Keyword ignora el
         // canal vectorial (denso + sparse); Vector ignora el texto.
         match mode {
             SearchProfileMode::Keyword => {
                 has_vector = false;
-                has_sparse = false;
+                query_sparse = None;
             }
             SearchProfileMode::Vector => {
                 text_query = None;
@@ -148,7 +148,7 @@ impl VantaEmbedded {
 
         if request.explain {
             let engine = self.engine_handle()?;
-            let (hits, text_ranks, vector_ranks) = match (text_query, has_vector, has_sparse) {
+            let (hits, text_ranks, vector_ranks) = match (text_query, has_vector, query_sparse) {
                 (Some(text_query), true, _) => {
                     let budget =
                         crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
@@ -168,8 +168,8 @@ impl VantaEmbedded {
                     )?;
                     let text_ranks = debug::rank_map(&lexical_hits);
                     let vector_ranks = debug::rank_map(&vector_hits);
-                    let mut hits = match request.query_sparse.as_ref() {
-                        Some(query_sparse) if !query_sparse.is_empty() => {
+                    let mut hits = match query_sparse {
+                        Some(query_sparse) => {
                             let sparse_hits = self.sparse_memory_search(
                                 &request.namespace,
                                 query_sparse,
@@ -193,7 +193,7 @@ impl VantaEmbedded {
                     hits.truncate(request.top_k);
                     (hits, text_ranks, vector_ranks)
                 }
-                (Some(text_query), false, true) => {
+                (Some(text_query), false, Some(query_sparse)) => {
                     let budget =
                         crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
                     let lexical_hits = self.lexical_search(
@@ -204,7 +204,7 @@ impl VantaEmbedded {
                     )?;
                     let sparse_hits = self.sparse_memory_search(
                         &request.namespace,
-                        request.query_sparse.as_ref().unwrap(),
+                        query_sparse,
                         &request.filters,
                         budget,
                     )?;
@@ -224,7 +224,7 @@ impl VantaEmbedded {
                     let text_ranks = debug::rank_map(&hits);
                     (hits, text_ranks, BTreeMap::new())
                 }
-                (None, true, true) => {
+                (None, true, Some(query_sparse)) => {
                     let budget =
                         crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
                     let vector_hits = self.vector_memory_search(
@@ -237,7 +237,7 @@ impl VantaEmbedded {
                     )?;
                     let sparse_hits = self.sparse_memory_search(
                         &request.namespace,
-                        request.query_sparse.as_ref().unwrap(),
+                        query_sparse,
                         &request.filters,
                         budget,
                     )?;
@@ -259,10 +259,10 @@ impl VantaEmbedded {
                     let vector_ranks = debug::rank_map(&hits);
                     (hits, BTreeMap::new(), vector_ranks)
                 }
-                (None, false, true) => {
+                (None, false, Some(query_sparse)) => {
                     let hits = self.sparse_memory_search(
                         &request.namespace,
-                        request.query_sparse.as_ref().unwrap(),
+                        query_sparse,
                         &request.filters,
                         request.top_k,
                     )?;
@@ -289,7 +289,7 @@ impl VantaEmbedded {
             return Ok(explained_hits);
         }
 
-        match (text_query, has_vector, has_sparse) {
+        match (text_query, has_vector, query_sparse) {
             (Some(text_query), true, _) => {
                 crate::metrics::record_planner_hybrid_query();
                 self.hybrid_search(
@@ -299,20 +299,20 @@ impl VantaEmbedded {
                     &request.filters,
                     request.top_k,
                     request.distance_metric,
-                    request.query_sparse.as_ref(),
+                    query_sparse,
                     method,
                     rrf_k,
                     candidate_k,
                 )
             }
-            (Some(text_query), false, true) => {
+            (Some(text_query), false, Some(query_sparse)) => {
                 crate::metrics::record_planner_hybrid_query();
                 let budget = crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
                 let lexical_hits =
                     self.lexical_search(&request.namespace, text_query, &request.filters, budget)?;
                 let sparse_hits = self.sparse_memory_search(
                     &request.namespace,
-                    request.query_sparse.as_ref().unwrap(),
+                    query_sparse,
                     &request.filters,
                     budget,
                 )?;
@@ -330,7 +330,7 @@ impl VantaEmbedded {
                     request.top_k,
                 )
             }
-            (None, true, true) => {
+            (None, true, Some(query_sparse)) => {
                 crate::metrics::record_planner_hybrid_query();
                 let budget = crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
                 let vector_hits = self.vector_memory_search(
@@ -343,7 +343,7 @@ impl VantaEmbedded {
                 )?;
                 let sparse_hits = self.sparse_memory_search(
                     &request.namespace,
-                    request.query_sparse.as_ref().unwrap(),
+                    query_sparse,
                     &request.filters,
                     budget,
                 )?;
@@ -362,11 +362,11 @@ impl VantaEmbedded {
                     method,
                 )
             }
-            (None, false, true) => {
+            (None, false, Some(query_sparse)) => {
                 crate::metrics::record_planner_sparse_only_query();
                 self.sparse_memory_search(
                     &request.namespace,
-                    request.query_sparse.as_ref().unwrap(),
+                    query_sparse,
                     &request.filters,
                     request.top_k,
                 )
