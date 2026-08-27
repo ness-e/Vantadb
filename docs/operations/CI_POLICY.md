@@ -276,7 +276,7 @@ publication and signing remain deferred.
 | Workflow | File | Trigger |
 |----------|------|---------|
 | Release Automation | `release.yml` | Push to `main` — `release-plz` auto-version, changelog, tag, publish |
-| NPM Publish | `release-npm-61.yml` | Tag `wasm-v*.*.*` / `ts-v*.*.*` or `workflow_dispatch` |
+| NPM Publish | `release-npm-61.yml` | Tag `v*.*.*`, push to `main` with `vantadb-ts/**`/`vantadb-wasm/**` paths, `pull_request` with same paths, or `workflow_dispatch` — includes Fast Gate job `tests` (`npm ci && npm run build && npx vitest run`, measured 27s <5min, no `continue-on-error`, PR+push gate per TS-06) |
 | PyPI Adapters | `release-adapters-62.yml` | Tag `adapters-v*.*.*` or `workflow_dispatch` (TestPyPI) |
 | Binary Builds | `release-binaries-63.yml` | Release published or `workflow_dispatch` |
 | SBOM Generation | `release-sbom-64.yml` | Tag `v*` or `workflow_dispatch` |

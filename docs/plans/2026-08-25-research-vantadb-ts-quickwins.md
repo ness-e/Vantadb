@@ -62,3 +62,67 @@ deuda: ninguna
 queda_pendiente: lead debe verificar mecánico y commitear (sub-agente no commitea por plan Wave 0)
 Próxima tarea si completa: TS-05
 === END RECITATION ===
+
+=== RECITATION TS-05 ===
+Campaign ID: 39ce752f-eff8-41e9-897f-cf604d5123c9
+Objetivo activo: TS-05 — Preservar engines:{node:">=22.12"} en tarball publicado
+Estado: completed
+Última acción: Steps 1-4 ✅ — diagnosis completo, npm pack tarball verificado, guard workflow validado, smoke-pack PASSED con engines ok
+Resultado: OK
+Próxima acción: Lead: verificar mecánico y commitear task file + actualizar plan file recitation; próximo task TS-06 (Wave 1)
+Contrato: verificacion: package.json engines:{node:">=22.12"} ✅ + npm pack tarball contiene engines ✅ (tar extract) + workflow guard TS-05 líneas 195-201 ✅ + smoke-pack PASSED (SMOKE OK) ✅
+evidencia:
+- claim: package.json tiene engines:{node:">=22.12"}
+  evidencia: vantadb-ts/package.json:6-8 + node -e check ✅
+  confianza: alta
+- claim: npm pack tarball contiene engines
+  evidencia: tar -xzf tgz -O package/package.json | grep -A1 engines → ">=22.12" ✅ (2 runs)
+  confianza: alta
+- claim: workflow guard TS-05 existe y verifica antes de publish
+  evidencia: .github/workflows/release-npm-61.yml:195-201 (node -e engines.node check)
+  confianza: alta
+- claim: smoke-pack PASSED con engines ok
+  evidencia: node vantadb-ts/scripts/smoke-pack.mjs → SMOKE OK + engines ok log ✅
+  confianza: alta
+artefactos:
+- vantadb-ts/package.json
+- .github/workflows/release-npm-61.yml
+- vantadb-ts/scripts/smoke-pack.mjs
+- .opencode/skills/campaign-executor/tasks/TS-05.md
+invariantes: package.json siempre debe contener engines.node === ">=22.12"; tarball siempre debe incluir ese campo; workflow nunca debe llegar a npm publish si engines falta
+deuda: ninguna
+queda_pendiente: lead commitea; TS-06 listo (misma rama, no paralelizar 2→3→5)
+Próxima tarea si completa: TS-06
+=== END RECITATION ===
+
+=== RECITATION TS-06 ===
+Campaign ID: 39ce752f-eff8-41e9-897f-cf604d5123c9
+Objetivo activo: TS-06 — Gate CI para tests TS: Fast Gate (<5min) con npm ci && build && vitest
+Estado: completed
+Última acción: Steps 1-4 ✅ — medición 26.12s (<5min) → Fast Gate, triggers PR+push ok, sin continue-on-error, 264 passed, CI_POLICY.md §10 actualizado
+Resultado: OK
+Próxima acción: Lead: git add .opencode/skills/campaign-executor/tasks/TS-06.md docs/operations/CI_POLICY.md docs/plans/2026-08-25-research-vantadb-ts-quickwins.md && git commit -m 'ci: TS-06 gate Fast Gate for TS tests (<5min, PR+push, no continue-on-error)' && campaign_update_task_state completed
+Contrato: verificacion: cd vantadb-ts && npm run build ✅ (0 err, 1.7s) + npx vitest run ✅ (264 passed, 9 files, ~13s) + npm ci+build+vitest total 26.12s <300s → Fast Gate ✅ + grep continue-on-error vacío ✅ + pull_request.paths incluye vantadb-ts/** ✅ + CI_POLICY.md §10 documenta gate ✅
+evidencia:
+- claim: Workflow CI tiene job Fast Gate que corre npm ci + build + vitest en <5min medido
+  evidencia: Measure-Command total 26.12s (ci 5.6s + build 2.6s + vitest 13.8s) y 27.38s (2 runs) << 300s; .github/workflows/release-npm-61.yml:42-84 job tests timeout 10, comment TS-06 measured ~18s → Fast Gate tier
+  confianza: alta
+- claim: Job sin continue-on-error y respeta CI_POLICY Regla 2
+  evidencia: grep -n continue-on-error .github/workflows/release-npm-61.yml → 0 resultados
+  confianza: alta
+- claim: Job corre en cada PR y push que toca vantadb-ts
+  evidencia: .github/workflows/release-npm-61.yml:24-28 pull_request.paths [vantadb-wasm/**, vantadb-ts/**, workflow] + push.branches [main] paths [vantadb-ts/**] (PR cubre feature branches, push cubre main)
+  confianza: alta
+- claim: npx vitest run 264 tests pasan tras build
+  evidencia: cd vantadb-ts && npx vitest run → 9 passed, 264 passed (3 runs: 14.86s, 13.50s, 12.90s)
+  confianza: alta
+artefactos:
+- .github/workflows/release-npm-61.yml (job tests existente, verificado Fast Gate <5min, triggers PR+push, no continue-on-error)
+- docs/operations/CI_POLICY.md (§10 Release Workflows row updated to document Fast Gate job)
+- .opencode/skills/campaign-executor/tasks/TS-06.md (blast radius, 4 steps, SDP 5 skills)
+- docs/plans/2026-08-25-research-vantadb-ts-quickwins.md (recitation TS-06)
+invariantes: job CI siempre debe correr npm ci + build + vitest <5min; sin continue-on-error; triggers PR+push con paths filter; 264 tests pasan; CI_POLICY documenta gate
+deuda: ninguna (task docs): +documentación CI_POLICY, -deuda observabilidad
+queda_pendiente: registrar en docs/avance/activo/bindings.md cuando Wave 1 cierre; próximo task TS-08 (CDN ESM) o TS-07 (smoke-pack)
+Próxima tarea si completa: TS-08
+=== END RECITATION ===
