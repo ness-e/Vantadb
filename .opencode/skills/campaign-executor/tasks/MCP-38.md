@@ -3,7 +3,7 @@
 ## Metadata
 - **Plan file:** docs/plans/2026-08-27-backlog-pipeline.md
 - **Creado:** 2026-08-27 (recreado 2026-08-27 ejecución)
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (2026-08-27, commit 7817188b)
 - **Fuente:** docs/Backlog.md fila MCP-38 (P0-C) — docs/reviews/archive/mcp-research-20260825.md §6 P0-C + blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations
 - **Esfuerzo:** 🟢 1 día (quick win research §7)
 - **Prioridad:** 🔴 P0
