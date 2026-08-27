@@ -126,3 +126,36 @@ deuda: ninguna (task docs): +documentación CI_POLICY, -deuda observabilidad
 queda_pendiente: registrar en docs/avance/activo/bindings.md cuando Wave 1 cierre; próximo task TS-08 (CDN ESM) o TS-07 (smoke-pack)
 Próxima tarea si completa: TS-08
 === END RECITATION ===
+
+=== RECITATION TS-07 ===
+Campaign ID: f1748ef4-7b7d-4483-abc6-e55ed99be422
+Objetivo activo: TS-07 — Smoke-test del tarball: script smoke-pack.mjs wired en release-npm-61.yml, quickstart create+put+get+close + engines verification
+Estado: completed
+Última acción: Steps 1-4 ✅ — script 4 pasos + wiring order 6 steps + smoke SMOKE OK (5.2s, engines ok, PASSED) + package/tarball engines >=22.12, task file sync
+Resultado: OK
+Próxima acción: Lead: verify full mecánico (cargo fmt/clippy/docs-coverage + npm run build + vitest) y git commit TS-07 + archivar plan Wave 2 cierre
+Contrato: verificacion: node vantadb-ts/scripts/smoke-pack.mjs ✅ (packed vantadb-0.5.0.tgz + engines ok {"node":">=22.12"} + rewrote ^0.5.0 + tarball installed cleanly + SMOKE OK + PASSED, 5.2s) + wiring build(77)<rewrite(183)<engines(197)<smoke(204)<check(208)<publish(221) ✅ + tarball engines OK ✅ + package engines OK ✅
+evidencia:
+- claim: script smoke-pack.mjs existe y hace 4 pasos atómicos (npm pack → tar extract + engines check + file:→^ rewrite en copia → npm pack fixed → mkdtemp app limpio → npm install tgz → quickstart create+put+get+close → cleanup ambos tmps)
+  evidencia: vantadb-ts/scripts/smoke-pack.mjs:1-106 (verify-step1.mjs 13/13 checks OK) + campaign_verify_cmd node C:\Users\Eros\AppData\Local\Temp\verify-step1.mjs → Step1 OK 0.8s
+  confianza: alta
+- claim: workflow release-npm-61.yml wirea smoke-pack.mjs después del build y antes de publish con working-directory correcto y sin continue-on-error
+  evidencia: .github/workflows/release-npm-61.yml:203-207 (- name: Smoke-test packed tarball, working-directory: vantadb-ts, run: node scripts/smoke-pack.mjs) + orden verificado build(77)<rewrite(183)<engines(197)<smoke(204)<check(208)<publish(221) + campaign_verify_cmd verify-step2.mjs → wiring OK 1.4s + grep continue-on-error vacío
+  confianza: alta
+- claim: node vantadb-ts/scripts/smoke-pack.mjs pasa con SMOKE OK + engines ok + PASSED (hardening TS-05) — quickstart create+put+get+close funciona contra tgz instalado limpio
+  evidencia: campaign_verify_cmd node vantadb-ts/scripts/smoke-pack.mjs → [smoke] packed: vantadb-0.5.0.tgz + [smoke] engines ok: {"node":">=22.12"} + [smoke] rewrote vantadb-wasm dep -> ^0.5.0 + [smoke] tarball installed cleanly + SMOKE OK + [smoke] PASSED (vantadb-0.5.0.tgz) exit 0 5.2s (2026-08-27)
+  confianza: alta
+- claim: tarball publicado preserva engines.node >=22.12 y package.json engines intacto
+  evidencia: campaign_verify_cmd node -e package engines OK: {"node":">=22.12"} ✅ + campaign_verify_cmd node verify-step3c.mjs → tarball engines OK: {"node":">=22.12"} ✅ (npm pack + tar extract, 2.1s)
+  confianza: alta
+artefactos:
+- vantadb-ts/scripts/smoke-pack.mjs (106 líneas, idempotente, dos tmps, finally cleanup)
+- .github/workflows/release-npm-61.yml (226 líneas, job publish-ts 151-226, wiring 203-207)
+- vantadb-ts/package.json (66 líneas, engines >=22.12, file:../vantadb-wasm/pkg)
+- .opencode/skills/campaign-executor/tasks/TS-07.md (blast radius, 4 steps ✅, SDP 4 skills, Regla 0)
+- docs/plans/2026-08-25-research-vantadb-ts-quickwins.md (recitation TS-07)
+invariantes: package.json siempre engines.node === ">=22.12"; tarball siempre debe incluir engines (tar extract); smoke-pack siempre debe hacer pack→install limpio→quickstart (create+put+get+close)→cleanup con exit 0 y engines check fail-fast; workflow publish-ts nunca debe llegar a npm publish si smoke falla (exit 1 → job fail); quickstart payload hello válido para put/get sync
+deuda: ninguna — task verification + task file + recitation, sin código nuevo estructural; Wave 2 cierre pendiente: registrar en docs/avance/activo/bindings.md + archivar plan (nota plan)
+queda_pendiente: lead verify full + git add/commit + skill progreso + archivar plan + restaurar DESKTOP-QW5 PENDING state si aplica
+Próxima tarea si completa: Ninguna — Wave 2 cierre (Waves 0-2 completas: TS-02, TS-05, TS-06, TS-08, TS-07)
+=== END RECITATION ===
