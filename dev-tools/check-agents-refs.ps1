@@ -36,6 +36,12 @@ foreach ($f in $files) {
         if ($leaf -cmatch '^[A-Z]\.[A-Za-z0-9]+$') { continue }  # placeholder X.md (case-sensitive)
         if (-not [System.IO.Path]::GetExtension($p)) { continue } # solo archivos con extensión
 
+        # Resuelve alias documentados en AGENTS.md (Path Resolution table)
+        # prompts/X.md -> .opencode/task-system/prompts/X.md
+        if ($p -match '^prompts[/\\]') {
+            $p = ".opencode/task-system/" + $p
+        }
+
         $checked++
         if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot $p))) {
             $stale.Add($p)
