@@ -176,6 +176,23 @@ impl WalHeader {
 }
 
 // ─── WAL Writer ────────────────────────────────────────────
+//
+// DURABILITY DAG — FIND-34 (2026-08-27): This module is a DAG, not a cycle.
+// ```text
+//   open ──► open_with_buffer ──► recover_valid_records ──┐
+//                              └─► quarantine_corrupt_tail ─► quarantine_backup_path
+//   helpers (leaves): check_record_at, scan_forward_valid, try_scan_forward
+// ```
+// No back-edge: `recover_valid_records` / `quarantine_corrupt_tail` never call
+// `open` or `open_with_buffer`. CodeGraph reported a 4-node "cycle"
+// (`open↔open_with_buffer↔recover↔quarantine`) via Leiden co-localisation
+// (all 4 fns in `wal.rs:202-575`), not an SCC via CALLS edges. Verified via
+// `rg -n "recover_valid_records|quarantine_corrupt_tail" src/wal.rs` (1 def each,
+// callers only in `open_with_buffer`). Recovery is crash-safe: `quarantine`
+// fails soft (warn + truncate anyway) so `open_with_buffer` never depends on
+// backup success.
+//
+// ponytail: doc justifica falso positivo sin refactor; extraer helper si SCC real emerge.
 
 /// Append-only WAL writer with CRC32C integrity checks and structured header.
 ///
@@ -1155,5 +1172,136 @@ mod tests {
         assert!(matches!(&recovered[0], WalRecord::Insert(n) if n.id == 1));
         assert!(matches!(&recovered[1], WalRecord::Insert(n) if n.id == 2));
         assert!(matches!(&recovered[2], WalRecord::Insert(n) if n.id == 3));
+    }
+
+    #[test]
+    fn test_recover_mid_file_corruption_scan_forward_recovers_tail() {
+        // FIND-34: mid-file corrupt bytes must be skipped via Scan-Forward,
+        // tail records after the corruption must still be recovered.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+
+        // 1. Write 2 valid records normally
+        {
+            let mut w =
+                WalWriter::open_with_buffer(&path, crate::config::SyncMode::Periodic, 4096, None)
+                    .unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(10))).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(20))).unwrap();
+            w.sync().unwrap();
+        }
+
+        // 2. Inject 16 bytes of garbage mid-tail, then a valid 3rd record
+        //    after the garbage using raw framing (len+payload+crc).
+        let third = WalRecord::Insert(UnifiedNode::new(30));
+        let payload = postcard::to_allocvec(&third).unwrap();
+        let crc = crate::wal::compute_crc32c(&payload);
+        {
+            let mut file = OpenOptions::new().append(true).open(&path).unwrap();
+            // 16 bytes that will never be a valid record (len=0xffffffff > 10M)
+            file.write_all(&[0xFFu8; 16]).unwrap();
+            file.write_all(&(payload.len() as u32).to_le_bytes())
+                .unwrap();
+            file.write_all(&payload).unwrap();
+            file.write_all(&crc.to_le_bytes()).unwrap();
+            file.sync_data().unwrap();
+        }
+
+        // 3. Reopen — recover_valid_records must scan-forward past the 16
+        //    corrupt bytes and count the 3rd record.
+        {
+            let w =
+                WalWriter::open_with_buffer(&path, crate::config::SyncMode::Periodic, 4096, None)
+                    .unwrap();
+            assert_eq!(
+                w.record_count(),
+                3,
+                "scan-forward should recover tail after mid-file corruption"
+            );
+        }
+
+        // 4. WalReader must also yield 3 records in order
+        {
+            let mut r = WalReader::open(&path).unwrap();
+            let mut records = Vec::new();
+            r.replay_all(|rec| {
+                records.push(rec);
+                Ok(())
+            })
+            .unwrap();
+            assert_eq!(records.len(), 3);
+            assert!(matches!(&records[0], WalRecord::Insert(n) if n.id == 10));
+            assert!(matches!(&records[1], WalRecord::Insert(n) if n.id == 20));
+            assert!(matches!(&records[2], WalRecord::Insert(n) if n.id == 30));
+        }
+    }
+
+    #[test]
+    fn test_quarantine_rotates_when_corrupt_exists() {
+        // FIND-34: second corruption must not overwrite first .corrupt backup —
+        // quarantine_backup_path rotates to .corrupt.1
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+        let backup0 = PathBuf::from(format!("{}.corrupt", path.display()));
+        let backup1 = PathBuf::from(format!("{}.corrupt.1", path.display()));
+        let _ = std::fs::remove_file(&backup0);
+        let _ = std::fs::remove_file(&backup1);
+
+        // First cycle: 2 valid → corrupt tail → recover creates .corrupt
+        {
+            let mut w =
+                WalWriter::open_with_buffer(&path, crate::config::SyncMode::Periodic, 4096, None)
+                    .unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(2))).unwrap();
+            w.sync().unwrap();
+        }
+        {
+            let mut file = OpenOptions::new().append(true).open(&path).unwrap();
+            file.write_all(b"\x00\xff\xff\xfffirst-corrupt-tail")
+                .unwrap();
+            file.sync_data().unwrap();
+        }
+        {
+            let w =
+                WalWriter::open_with_buffer(&path, crate::config::SyncMode::Periodic, 4096, None)
+                    .unwrap();
+            assert_eq!(w.record_count(), 2);
+        }
+        assert!(backup0.exists(), "first quarantine backup must exist");
+        let first_backup = std::fs::read(&backup0).unwrap();
+
+        // Second cycle: corrupt again → must create .corrupt.1, keep .corrupt
+        {
+            let mut file = OpenOptions::new().append(true).open(&path).unwrap();
+            file.write_all(b"\x11\x22\x33\x44second-corrupt-tail")
+                .unwrap();
+            file.sync_data().unwrap();
+        }
+        {
+            let w =
+                WalWriter::open_with_buffer(&path, crate::config::SyncMode::Periodic, 4096, None)
+                    .unwrap();
+            assert_eq!(w.record_count(), 2);
+        }
+        assert!(
+            backup0.exists(),
+            ".corrupt must still exist after second quarantine"
+        );
+        assert!(
+            backup1.exists(),
+            ".corrupt.1 must be created on second quarantine"
+        );
+        let second_backup = std::fs::read(&backup1).unwrap();
+        assert_ne!(
+            first_backup, second_backup,
+            "rotated backups must be distinct"
+        );
+        assert!(
+            second_backup
+                .windows(b"second-corrupt-tail".len())
+                .any(|w| w == b"second-corrupt-tail"),
+            "second backup should contain second tail"
+        );
     }
 }

@@ -369,3 +369,14 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Commit:** `59f5cdcb` `feat(test): FIND-39 add test_scalar_remove for ScalarIndex.remove`
 - **Gates:** D: no-disparado (no feature-add, no symbols públicos nuevos) · V: no-disparado (verify pasó al 1er intento) · C: no-disparado (solo test, no API change)
 - **Skills:** campaign-executor, progreso, ponytail, source-driven-development, test-driven-development, incremental-implementation, rust-write-tests, code-review-and-quality
+
+### FIND-34: Ciclo WAL Writer — DAG documentado + edge tests recovery/quarantine (2026-08-27)
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-27-backlog-v2.md` Task 1 (Wave 0) · `vanta-worker` — Origen codegraph-20260827-143245 Fase 1 (4 nodos `open↔open_with_buffer↔recover↔quarantine` reportado como ciclo High)
+- **Resultado:** ✅ DAG verificado (grep 0 back-edge: `recover`/`quarantine` leaves, solo callers en `open_with_buffer`), falso positivo Leiden co-localización documentado. Doc header `src/wal.rs:178-193` con diagrama DAG + ponytail ceiling. Tests: `test_recover_mid_file_corruption_scan_forward_recovers_tail` (16B garbage mid + raw framing valid tail → scan-forward 3/3) + `test_quarantine_rotates_when_corrupt_exists` (`.corrupt` → `.corrupt.1` rotation sin overwrite). Cobertura: `test_wal_auto_healing_and_recovery` + `test_corrupt_wal_tail_is_quarantined` preexistentes + 2 nuevos.
+- **Archivos:** `src/wal.rs` (doc DAG 15L + 2 tests ~80L; `recover_valid_records` def 545, `quarantine_corrupt_tail` def 592, 1 def c/u)
+- **Contrato:** `cargo nextest run -p vantadb --profile audit -E 'test(wal)'` → 62 passed (60→62, 2009 skipped, 6.08s) ✅ + `rg -n "quarantine_corrupt_tail|recover_valid_records" src/wal.rs` → 1 def c/u con cobertura ✅ + `cargo check -p vantadb` ✅ + `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` 0 ✅ + `cargo fmt --check` ✅ + `validate-docs-coverage` 0 gaps ✅ + doc `src/wal.rs:178-193` justifica `codegraph_explore "wal cycle FIND-34"` como DAG (no SCC)
+- **Commit:** `fix: FIND-34 — WAL writer DAG justification + recovery/quarantine edge tests` (pendiente)
+- **Gates:** D: no-disparado (no symbols públicos nuevos, blast radius 2 archivos) · V: no-disparado (verify wal 1º intento 62/62) · C: no-disparado (doc + tests, no API change)
+- **Skills:** campaign-executor, progreso, ponytail, source-driven-development, systematic-debugging, incremental-implementation, test-driven-development, documentation-and-adrs
+- **Notes:** Ponytail rung 1 — doc antes que refactor `open_inner`. Skipped: ADR separado, helper extraction. Add when: SCC real con back-edge. Quarantine fails soft (warn); scan-forward byte-by-byte O(n) solo en recovery, no hot path.
