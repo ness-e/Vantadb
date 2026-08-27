@@ -231,3 +231,19 @@ Filas completadas NO viven más en el Backlog: se eliminan al completar y su reg
 > | MOD-43 | Duplicacion ~85% (P6) | PROV-05 |
 > | MOD-44 | Stubs .pyi stale (P3) | PROV-03 |
 > | MOD-45 | Nits unwrap/README/importorskip (P7-P9) | PROV-06/07/08/09 |
+
+### P43 Research web quickwins 2026-08-27 (INV-web-01)
+
+> **Origen:** `docs/plans/2026-08-25-research-web-quickwins.md` Wave1 Task2 (WEB-04).
+
+| ID | Destino | Commit/evidencia |
+|---|---|---|
+| `WEB-04` | `docs/avance/activo/web-frontend.md` §WEB-04 + task file `.opencode/skills/campaign-executor/tasks/WEB-04.md` | Build exit 0 verificado + 5 layouts español consistente (grep manual) |
+
+### FIND-37 — dispatcher híbrido sparse unwrap (2026-08-27)
+
+> **Origen:** `codegraph-20260827-143245` Fase 9, plan `docs/plans/2026-08-27-backlog-pipeline.md` Task 1 (Wave 0). Gap verificado: 6 unwraps en `src/sdk/search/mod.rs:207,240,265,315,346,369` + 3 en `debug_ops.rs:288,335,374` — `has_sparse` bool garantizaba Some en teoría pero violaba `clippy::unwrap_used` y era panickable en prod si request sin sparse llegaba a hybrid.
+
+| ID | Destino | Commit/evidencia |
+|---|---|---|
+| `FIND-37` | `docs/avance/activo/core-engine.md` §FIND-37 + task file `.opencode/skills/campaign-executor/tasks/FIND-37.md` | Commit `bd7c2691` `fix(search): FIND-37 eliminate query_sparse.unwrap panics` — 2 files `src/sdk/search/mod.rs` + `debug_ops.rs` (32+32 lines), `rg query_sparse.*unwrap` → 0, `cargo check` ✅, `nextest -E 'test(search)'` 157 passed, fmt/clippy hook ✅ |
