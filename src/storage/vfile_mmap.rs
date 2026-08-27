@@ -137,11 +137,14 @@ pub(crate) mod mmap_shim {
         }
         /// Write the in-memory buffer back to the backing file (seek + write_all
         /// + flush), matching memmap2's `flush` semantics: flush = write-back to
-        /// disk. AUD-044: the previous no-op silently lost buffer writes before
+        /// disk.
+        ///
+        /// AUD-044: the previous no-op silently lost buffer writes before
         /// callers renamed the backing file (compact_layout, sync_to_mmap,
         /// save_vector_index). All callers use position-independent operations
         /// (set_len/sync_all/rename), so moving the shared file position here is
         /// benign.
+        #[allow(clippy::doc_lazy_continuation)]
         // ponytail: full-file rewrite per flush — O(file size) vs memmap2's
         // dirty-page msync. Correct, but a bulk workload in a non-memmap2 build
         // pays O(n²) if it flushes per step; track dirty ranges if that

@@ -290,6 +290,12 @@ impl From<VantaOperationalMetrics> for JsOperationalMetrics {
 pub struct VantaDB {
     inner: VantaEmbedded,
     opfs: Option<OpfsStorage>,
+    /// Whether this handle has a durable persistence backend attached (OPFS,
+    /// IDB, or worker). `inner.capabilities().persistence` is hardcoded true
+    /// in the core SDK (Fjall default), so the WASM layer overrides it with
+    /// this faithful flag — fixes WSM-01 where OPFS failure silently fell
+    /// back to in-memory while `capabilities().persistence` still claimed true.
+    persistence: bool,
     op_gate: OpGate,
     #[cfg(feature = "opfs")]
     worker: Option<worker::OpfsWorkerProxy>,
@@ -441,6 +447,7 @@ impl VantaDB {
         Ok(VantaDB {
             inner,
             opfs: None,
+            persistence: false,
             op_gate: OpGate::new(),
             persist_cache: Mutex::new(PersistCache::new()),
             #[cfg(feature = "opfs")]
@@ -460,6 +467,7 @@ impl VantaDB {
         Ok(VantaDB {
             inner,
             opfs: None,
+            persistence: false,
             op_gate: OpGate::new(),
             persist_cache: Mutex::new(PersistCache::new()),
             #[cfg(feature = "opfs")]
@@ -468,9 +476,24 @@ impl VantaDB {
     }
 
     /// Open VantaDB with OPFS-based persistent storage in the browser.
+    ///
+    /// WSM-01: this no longer swallows `OpfsStorage::open` errors (previous
+    /// `ok` fallback removed). If OPFS is unavailable (e.g.
+    /// `navigator.storage.getDirectory` rejects),
+    /// the call now rejects with a descriptive `JsValue` so the caller never
+    /// gets a silent in-memory DB under the illusion of persistence (capabilities
+    /// would otherwise still claim `persistence:true`).
     pub async fn connect_persistent(path: &str) -> Result<VantaDB, JsValue> {
         init();
-        let opfs = OpfsStorage::open(path).await.ok();
+        let opfs = OpfsStorage::open(path).await.map_err(|e| {
+            let detail = js_sys::Error::from(e)
+                .message()
+                .as_string()
+                .unwrap_or_else(|| "unknown OPFS error".to_string());
+            JsValue::from(js_sys::Error::new(&format!(
+                "OPFS unavailable for '{path}': {detail} — use VantaDB.connect_idb for IndexedDB fallback"
+            )))
+        })?;
         let wasm_cfg = WasmConfig {
             storage_path: path.to_string(),
             ..WasmConfig::default()
@@ -479,7 +502,8 @@ impl VantaDB {
         let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
         let db = VantaDB {
             inner,
-            opfs,
+            opfs: Some(opfs),
+            persistence: true,
             op_gate: OpGate::new(),
             persist_cache: Mutex::new(PersistCache::new()),
             #[cfg(feature = "opfs")]
@@ -501,6 +525,7 @@ impl VantaDB {
         let db = VantaDB {
             inner,
             opfs: None,
+            persistence: true,
             op_gate: OpGate::new(),
             persist_cache: Mutex::new(PersistCache::new()),
             #[cfg(feature = "opfs")]
@@ -547,6 +572,7 @@ impl VantaDB {
         let db = VantaDB {
             inner,
             opfs: None,
+            persistence: true,
             op_gate: OpGate::new(),
             persist_cache: Mutex::new(PersistCache::new()),
             worker: Some(worker_proxy),
@@ -898,8 +924,15 @@ impl VantaDB {
     }
 
     /// Return the capabilities object describing supported features.
+    ///
+    /// WSM-01: the core SDK always reports `persistence:true` (Fjall default),
+    /// but the WASM persistence lives in OPFS/IDB/worker at this layer. This
+    /// override makes `capabilities().persistence` faithful to the actual
+    /// backend attached at construction time (`new`/`open` → false,
+    /// `connect_persistent`/`connect_idb`/`connect_worker` → true).
     pub fn capabilities(&self) -> Result<JsValue, JsValue> {
-        let caps = self.inner.capabilities();
+        let mut caps = self.inner.capabilities();
+        caps.persistence = self.persistence;
         to_js(&caps)
     }
 
@@ -1824,6 +1857,136 @@ mod cursor_policy_tests {
         // (console side-effect not asserted here) and still return Ok.
         let db = VantaDB::new(None).expect("db");
         db.flush().expect("flush without persistent backend");
+    }
+}
+
+// ── WSM-01: OPFS silent-fallback elimination + capabilities.persistence fiel ──
+//
+// Contract: `rg -n "\.ok\(\)" vantadb-wasm/src/lib.rs` around
+// `OpfsStorage::open` is 0 after fix; `connect_persistent` rejects when
+// `navigator.storage.getDirectory` fails (no silent in-memory fallback);
+// `capabilities().persistence` is faithful (new/open → false,
+// connect_persistent/connect_idb/connect_worker → true).
+#[cfg(all(test, target_arch = "wasm32"))]
+mod wsm01_persistence_tests {
+    use super::*;
+    use js_sys::Reflect;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen_test]
+    async fn connect_persistent_opfs_failure_propagates() {
+        let global = js_sys::global();
+        let navigator = match Reflect::get(&global, &"navigator".into()) {
+            Ok(v) if !v.is_undefined() => v,
+            _ => return, // no navigator → skip (not a browser)
+        };
+        let storage = match Reflect::get(&navigator, &"storage".into()) {
+            Ok(v) if !v.is_undefined() => v,
+            _ => return, // no storage → skip, OpfsStorage::open already fails
+        };
+        let orig = Reflect::get(&storage, &"getDirectory".into()).unwrap_or(JsValue::UNDEFINED);
+        // Stub getDirectory to reject — simulates OPFS unavailable / permission
+        // denied / private mode.
+        let stub = js_sys::Function::new_no_args(
+            "return Promise.reject(new TypeError('OPFS blocked for WSM-01 test'));",
+        );
+        Reflect::set(&storage, &"getDirectory".into(), &stub).expect("set stub");
+        let result = VantaDB::connect_persistent("wsm01_fail_test").await;
+        // Restore before asserting so later tests are not poisoned.
+        if orig.is_undefined() {
+            let _ = Reflect::set(&storage, &"getDirectory".into(), &JsValue::UNDEFINED);
+        } else {
+            let _ = Reflect::set(&storage, &"getDirectory".into(), &orig);
+        }
+        assert!(
+            result.is_err(),
+            "connect_persistent must reject when OPFS getDirectory fails (no silent in-memory fallback)"
+        );
+        let err = result.err().expect("err");
+        let msg = js_sys::Error::from(err)
+            .message()
+            .as_string()
+            .unwrap_or_default();
+        assert!(
+            msg.contains("OPFS unavailable")
+                || msg.contains("OPFS blocked")
+                || msg.contains("getDirectory"),
+            "error must be descriptive about OPFS failure, got: {msg}"
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn capabilities_persistence_fidelity_in_memory() {
+        let db = VantaDB::new(None).expect("new");
+        let caps_js = db.capabilities().expect("capabilities");
+        let caps: serde_json::Value =
+            serde_wasm_bindgen::from_value(caps_js).expect("deserialize caps");
+        assert_eq!(
+            caps["persistence"],
+            serde_json::Value::Bool(false),
+            "VantaDB::new in-memory must report persistence:false, got {caps}"
+        );
+        let db2 = VantaDB::open("wsm01_open_test").expect("open");
+        let caps2_js = db2.capabilities().expect("caps2");
+        let caps2: serde_json::Value =
+            serde_wasm_bindgen::from_value(caps2_js).expect("deserialize caps2");
+        assert_eq!(
+            caps2["persistence"],
+            serde_json::Value::Bool(false),
+            "VantaDB::open in-memory must report persistence:false, got {caps2}"
+        );
+    }
+
+    #[wasm_bindgen_test]
+    async fn capabilities_persistence_fidelity_idb() {
+        if !IdbStorage::is_available() {
+            return;
+        }
+        let db = VantaDB::connect_idb("wsm01_idb_caps")
+            .await
+            .expect("connect_idb");
+        let caps_js = db.capabilities().expect("caps");
+        let caps: serde_json::Value =
+            serde_wasm_bindgen::from_value(caps_js).expect("deserialize caps");
+        assert_eq!(
+            caps["persistence"],
+            serde_json::Value::Bool(true),
+            "VantaDB::connect_idb must report persistence:true, got {caps}"
+        );
+        // Cleanup to avoid leaking state across tests.
+        let _ = db.delete_idb().await;
+    }
+
+    #[wasm_bindgen_test]
+    async fn connect_persistent_success_reports_persistence_true() {
+        // Only runs when OPFS is actually available in this browser/Node env.
+        if !OpfsStorage::is_available() {
+            return;
+        }
+        // Probe OPFS availability without stubbing — try to open a scratch dir.
+        let probe = OpfsStorage::open("wsm01_probe").await;
+        let _ = probe; // we only care that we don't poison global state
+                       // If probe succeeded, the real connect should also succeed and report true.
+                       // Use a fresh path to avoid probe leftovers.
+        let path = "wsm01_persist_true_probe";
+        let db = match VantaDB::connect_persistent(path).await {
+            Ok(d) => d,
+            Err(_) => return, // OPFS present but failed for this path — skip
+        };
+        let caps_js = db.capabilities().expect("caps");
+        let caps: serde_json::Value =
+            serde_wasm_bindgen::from_value(caps_js).expect("deserialize caps");
+        assert_eq!(
+            caps["persistence"],
+            serde_json::Value::Bool(true),
+            "VantaDB::connect_persistent success must report persistence:true, got {caps}"
+        );
+        // Cleanup OPFS file if any was created (load wrote nothing, but delete dir entry)
+        // Best-effort: delete the test dir files via raw OpfsStorage if possible.
+        if let Ok(s) = OpfsStorage::open(path).await {
+            let _ = s.delete_file("db_state.json").await;
+            let _ = s.delete_file("graph_state.json").await;
+        }
     }
 }
 
