@@ -6,12 +6,12 @@
 
 ## Wave 1 — Quick wins (<1 día total)
 
-| # | Tarea | Backlog | Contrato de verificación |
-|---|---|---|---|
-| 1 | Restaurar o eliminar refs a `mascota_gato.png`/`avatar_gato.png` (decidir: si los assets no existen en ningún lado, quitar refs y fallbacks) | WEB-03 | grep `mascota_gato\|avatar_gato` en `web/src` → 0 refs muertas (o archivos presentes en `public/assets/`) |
-| 2 | Unificar idioma de metadata en layouts (`about/*`, playground): title+description+openGraph mismo locale | WEB-04 | grep manual de los 5 layouts tocados; build exit 0 |
-| 3 | Re-medir Lighthouse `/` y una ruta interna post-WDA-05; actualizar nota de perf en registro (`research-modules.md` fila web) y `web/AGENTS.md` | WEB-05 | Números nuevos citados con comando + fecha en ambos docs; si EPERM persiste, documentar workaround probado |
-| 4 | Bloque instalación copiable arriba del fold (home) o ancla `#quickstart` prominente en `/docs` — NO recrear ruta `/quickstart` | WEB-06 | Comando visible sin scroll en viewport 1440×900; copy button funcional |
+| # | Tarea | Backlog | Contrato de verificación | Estado |
+|---|---|---|---|---|
+| 1 | Restaurar o eliminar refs a `mascota_gato.png`/`avatar_gato.png` (decidir: si los assets no existen en ningún lado, quitar refs y fallbacks) | WEB-03 | grep `mascota_gato\|avatar_gato` en `web/src` → 0 refs muertas (archivos ya en `public/assets/`) | ✅ Done (verify-only: 0 refs, assets en `public/assets/`) |
+| 2 | Unificar idioma de metadata en layouts (`about/*`, playground): title+description+openGraph mismo locale | WEB-04 | grep manual de los 5 layouts tocados; build exit 0 | ⬜ Pendiente |
+| 3 | Re-medir Lighthouse `/` y una ruta interna post-WDA-05; actualizar nota de perf en registro (`research-modules.md` fila web) y `web/AGENTS.md` | WEB-05 | Números nuevos citados con comando + fecha en ambos docs; si EPERM persiste, documentar workaround probado | ⬜ Pendiente |
+| 4 | Bloque instalación copiable arriba del fold (home) o ancla `#quickstart` prominente en `/docs` — NO recrear ruta `/quickstart` | WEB-06 | Comando visible sin scroll en viewport 1440×900; copy button funcional | ⬜ Pendiente |
 
 ## Wave 2 — Media inversión
 
