@@ -30,3 +30,22 @@ name = "vantadb-wasm"
 # release = false: skip update/changelog/publish entirely. The version is
 # inherited automatically via version.workspace = true in the workspace.
 release = false
+
+[[package]]
+name = "vantadb-desktop"
+# Desktop Tauri app (H-11 / DESKTOP-QW8): isolated Cargo workspace at
+# desktop/src-tauri (not a member of the root workspace — see
+# desktop/src-tauri/Cargo.toml:9-12). Its version lives in THREE places
+# that must stay manually in sync: desktop/package.json:4,
+# desktop/src-tauri/tauri.conf.json:4, desktop/src-tauri/Cargo.toml:3
+# (all 0.1.0 today), intentionally decoupled from the engine workspace
+# version 0.5.0 ([workspace.package] version). The engine publishes to
+# crates.io via release-plz (release.yml); the desktop bundles NSIS/MSI
+# installers via desktop.yml — different artifacts, different cadence
+# (like Compass vs MongoDB Server). release = false guarantees
+# release-plz will never bump/tag/publish it even if it is ever added as
+# a workspace member. Bump all three 0.1.0 together only on GUI releases,
+# not on engine patches. Documented alternative to syncing: syncing would
+# require a custom bump script (jq + cargo set-version) and would tag
+# v0.5.x installers on every engine patch — noisy and misleading.
+release = false
