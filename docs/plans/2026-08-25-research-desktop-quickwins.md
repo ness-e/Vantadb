@@ -66,3 +66,13 @@ Próxima acción: git add task file + commit feat(desktop): DESKTOP-QW3 — stat
 Contrato: verificacion: npm --prefix desktop run build (10.29s, 2863 modules) ✅ + npm --prefix desktop test (69/69) ✅ + cargo fmt --check ✅; evidencia: statusReport.ts 10 literales ES (# Reporte de estado VantaDB, Generado:, Registros en vista:, ## Campos de metadata, Sin campos…, | Campo | Tipo |, ## Expiraciones próximas, Ningún registro expira…, | Key | Namespace | Expira | En |) + status-report.test.ts assertions ES (Reporte de estado, Generado, Registros, Campos de metadata, Expiraciones próximas) + loanwords Namespace/Key coherentes con UI (HelpPanel namespaces, DataExplorer Key); artefactos: .opencode/skills/campaign-executor/tasks/DESKTOP-QW3.md, desktop/src/components/export/statusReport.ts (HEAD a7ed0d22), desktop/dist/; invariantes: no romper ExportButtons handleReport, no tocar WAL/vector/storage, E2E flujo-critico no regresa ✅; deuda: ninguna
 Próxima tarea si completa: DESKTOP-QW4
 === END RECITATION ===
+=== RECITATION DESKTOP-QW4 ===
+Campaign ID: 2fcc9094-fcac-45ea-a585-8c058b5f8c9d
+Objetivo activo: DESKTOP-QW4 — Botón FILTROS activo = reglas >0 (H-14, DAUD-02)
+Estado: completed
+Última acción: Steps 1-4 COMPLETED — auditoría filterActive DAUD-02 cerrada 2026-08-25 (reglas>0, no panel) + skip leaf robustez YAGNI + build 14.63s (2863 modules) + tests 69/69 (18.88s) + cargo fmt --check verde, lessons escritas
+Resultado: OK
+Próxima acción: git add task file + commit feat(desktop): DESKTOP-QW4 — Botón FILTROS activo = reglas >0 (H-14, DAUD-02) + progreso Trigger 1
+Contrato: verificacion: npm --prefix desktop run build (14.63s, 2863 modules) ✅ + npm --prefix desktop test (69/69) ✅ + cargo fmt --check ✅; evidencia: WorkspaceShell.tsx:295 filterActive=ruleGroup.rules.length>0 + aria-pressed={filterActive} (744) + FIX-D4 bg-foreground (747) + badge toVantaMemoryFilter(...).length (751) + comentario DAUD-02 (738-739) + showFilters desacoplado (solo panel 803) + grep showFilters?bg 0 hits; artefactos: .opencode/skills/campaign-executor/tasks/DESKTOP-QW4.md, desktop/dist/; invariantes: no romper topbar/visibleResults/runSearch top_k 50, no tocar WAL/vector/storage, E2E 2 specs no regresan ✅; deuda: leaf robustez toVantaMemoryFilter deferred 1 línea (YAGNI, builder validation impide regla vacía) + RetrievalLens bg-neon vs bg-foreground divergencia fuera de scope
+Próxima tarea si completa: DESKTOP-QW5
+=== END RECITATION ===
