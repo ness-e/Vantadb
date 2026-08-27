@@ -3,7 +3,7 @@ title: "Avance — Desktop (Tauri)"
 type: domain-log
 status: active
 tags: [vantadb, avance, desktop, tauri, rust, frontend]
-last_reviewed: 2026-08-26
+last_reviewed: 2026-08-27
 aliases: [DESKTOP]
 ---
 
@@ -306,5 +306,17 @@ aliases: [DESKTOP]
   - **DAUD-07** (convención iconos, 🟢): `DESIGN_DECISIONS.md` §5 Lucide 2.5 + glifos linocut + `lucide-react` — commit `3c53d8b2` ✅
   - **DAUD-08** (stash, 🟢): `stash@{0}` "WIP on develop: 06aa1a86" diff 0 vs worktree, contenido recuperado vía `b865c625` (tauri.conf.json 1280×800 + Mark neon) — stash original ya no existe (actual `stash@{0}` es `2fc26b26`) ✅
   - **DAUD-09** (commit agrupado, 🔴): fixes D1-D11 commiteados en `3c53d8b2` + `b865c625` (separación limpia, verify `cargo fmt` + build/test) ✅
-  Verificación: `Select-String DAUD docs/Backlog.md` 0 filas `| \`DAUD-` (solo header P37 0 Cerrada + historial), `pwsh scripts/check-avance-coverage.ps1` 1038+9/1038+9 (o 1038/1038 sin DAUD en fuentes) 0 gaps, `pwsh scripts/validate-docs-coverage.ps1` 0 gaps.
+   Verificación: `Select-String DAUD docs/Backlog.md` 0 filas `| \`DAUD-` (solo header P37 0 Cerrada + historial), `pwsh scripts/check-avance-coverage.ps1` 1038+9/1038+9 (o 1038/1038 sin DAUD en fuentes) 0 gaps, `pwsh scripts/validate-docs-coverage.ps1` 0 gaps.
 - **Ids:** `DAUD-01..09`
+
+### DESKTOP-QW6: CSP mínima localhost+https remoto (H-01)
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-25-research-desktop-quickwins.md` Wave2 Task6 (DESKTOP-QW6)
+- **Resultado:** ✅ CSP ya mínima desde a7ed0d22 (`default-src 'self'` + `connect-src ipc+127.0.0.1`) refinada con `http://localhost:* ws://localhost:* https://*` en prod+dev (2 líneas `connect-src` en `tauri.conf.json:27,33`) para ProxyDashboard fetch a localhost/https remoto; `ServerClient` reqwest no CSP. Build 21.18s (2863 modules) + tests 69/69 (18.55s) + cargo check 26.30s + fmt verde.
+- **Ids:** `DESKTOP-QW6`
+
+### DESKTOP-QW7: Rename namespace preserva sparse_vector (H-04)
+- **Fecha:** 2026-08-27
+- **Plan:** `docs/plans/2026-08-25-research-desktop-quickwins.md` Wave2 Task7 (DESKTOP-QW7)
+- **Resultado:** ✅ Auditoría end-to-end H-04: `vanta.ts` IngestItem/MemoryRecord `sparse_vector` + `types.rs` DTOs `Option<HashMap<u32,f32>>` + `undo.ts` renameNamespace `ingestBatch(map{...,sparse_vector:r.sparse_vector??undefined})` + restore/undo `vantaPut` idem (4 hits) — ya en a7ed0d22; test `undo.test.ts:165-197` fija forward+undo con `{0:0.5,5:1.25}` (ingestBatch+ vantaPut asserts). Audit-only (Step2 SKIPPED, 0 líneas, ponytail). Build 13.05s (2863 modules) + tests 69/69 (23.54s) + cargo check 0.57s + fmt verde. Commit 0692855e.
+- **Ids:** `DESKTOP-QW7`
