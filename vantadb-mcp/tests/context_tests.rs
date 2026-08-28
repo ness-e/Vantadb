@@ -121,7 +121,7 @@ fn estimated_tokens(ctx: &Value) -> u64 {
 
 #[test]
 fn test_tools_list_registers_context_assemble() {
-    let res = handle_tools_list();
+    let res = handle_tools_list(&McpConfig::default());
     let tools = res.expect("tools/list")["tools"]
         .as_array()
         .expect("tools array")

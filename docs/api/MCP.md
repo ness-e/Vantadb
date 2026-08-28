@@ -115,6 +115,49 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 
 > Annotations are display hints (untrusted, not enforcement): `readOnlyHint` true = no persistent mutation, `destructiveHint` true = may delete/overwrite (11 tools), `idempotentHint` true = retry-safe, `openWorldHint` true = host filesystem (wiki_ingest, bulk_import_file only). Clients that ignore annotations assume pessimistic defaults.
 
+## Tool Surface Profiles (MCP-37)
+
+The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_PROFILE` environment variable. This allows clients with tool caps (e.g., Cursor ~40 tools) to select a subset that fits their limits while preserving full functionality for unrestricted clients.
+
+| Profile | Tool Count | Description | Recommended For |
+|---------|------------|-------------|-----------------|
+| `full` (default) | 76 | All tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence, wiki, skills, threads, scenes, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients |
+| `dev` | ~35 | Memory CRUD + search + IQL + graph traversal + collections + key maintenance (snapshots, export/import, flush, compact) + axioms. Excludes: code intelligence, wiki, skills, threads, scenes, context engine, bulk import, index audit/repair, vacuum, rebuild_index. | **Cursor** (cap ~40), VS Code extensions, clients with moderate tool caps |
+| `memory` | ~18 | Core memory CRUD (put/get/delete/list/versions/supersede) + search (semantic/memory/with_method/multi) + IQL + collections + capabilities + generate_snippet. | Memory-only agents, minimal clients, testing |
+
+**Usage:**
+
+```bash
+# Full profile (default)
+vanta-cli server --mcp --db ~/.vantadb
+
+# Dev profile (recommended for Cursor)
+VANTADB_MCP_PROFILE=dev vanta-cli server --mcp --db ~/.vantadb
+
+# Memory-only profile
+VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
+```
+
+**Client Configuration (Cursor):**
+
+```json
+{
+  "mcpServers": {
+    "vantadb": {
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "~/.vantadb"],
+      "env": { "VANTADB_MCP_PROFILE": "dev" }
+    }
+  }
+}
+```
+
+**Behavior:**
+- The profile is read once at server startup from `VANTADB_MCP_PROFILE`.
+- `tools/list` returns only the tools allowed by the selected profile.
+- `tools/call` for a non-listed tool returns `method_not_found` with a clear error: `Tool not found: <name> (not in profile <profile>)`.
+- Profile `full` preserves backward compatibility — existing clients see all 76 tools by default.
+
 ## Core Tools (46)
 
 ### Memory CRUD (9)

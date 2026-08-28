@@ -84,7 +84,7 @@ fn create_skill(
 
 #[test]
 fn test_tools_list_includes_skill_tools() {
-    let res = handle_tools_list().expect("tools/list should succeed");
+    let res = handle_tools_list(&McpConfig::default()).expect("tools/list should succeed");
     let tools = res["tools"].as_array().expect("tools array");
     let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
     for expected in [

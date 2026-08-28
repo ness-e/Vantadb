@@ -71,7 +71,7 @@ fn seed_wiki(storage: &StorageEngine, pages: &[(&str, &str, &str)]) -> Vec<Strin
 
 #[test]
 fn test_all_four_wiki_tools_listed() {
-    let list = handle_tools_list().expect("tools/list");
+    let list = handle_tools_list(&McpConfig::default()).expect("tools/list");
     let names: Vec<&str> = list["tools"]
         .as_array()
         .expect("tools array")

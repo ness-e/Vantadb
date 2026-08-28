@@ -65,7 +65,7 @@ fn seed_scene(
 #[test]
 fn tools_list_registers_scene_tools_with_valid_schemas() {
     let (_dir, _storage) = setup_storage();
-    let res = handle_tools_list().expect("tools/list");
+    let res = handle_tools_list(&McpConfig::default()).expect("tools/list");
     let tools = res["tools"].as_array().expect("tools array");
     for name in ["scene_read", "scene_list", "scene_query"] {
         let tool = tools

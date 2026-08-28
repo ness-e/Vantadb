@@ -70,7 +70,7 @@ fn poll_until<T>(mut f: impl FnMut() -> Option<T>) -> T {
 
 #[test]
 fn tools_list_registers_ingest_tools() {
-    let list = handle_tools_list().expect("tools/list");
+    let list = handle_tools_list(&McpConfig::default()).expect("tools/list");
     let names: Vec<&str> = list["tools"]
         .as_array()
         .expect("tools array")

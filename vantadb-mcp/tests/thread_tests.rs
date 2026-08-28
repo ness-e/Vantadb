@@ -55,7 +55,7 @@ fn seed_thread(storage: &Arc<StorageEngine>, title: &str) -> String {
 
 #[test]
 fn tools_list_includes_six_thread_tools() {
-    let list = handle_tools_list().expect("tools/list");
+    let list = handle_tools_list(&McpConfig::default()).expect("tools/list");
     let names: Vec<&str> = list["tools"]
         .as_array()
         .expect("tools array")

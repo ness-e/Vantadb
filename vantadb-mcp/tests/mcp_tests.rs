@@ -300,7 +300,7 @@ fn test_mcp_prompts_get() {
 
 #[test]
 fn test_mcp_tools_list() {
-    let res = handle_tools_list();
+    let res = handle_tools_list(&McpConfig::default());
     assert!(res.is_ok(), "handle_tools_list should succeed");
     let val = res.unwrap();
     let tools = val["tools"].as_array().expect("Expected tools array");
@@ -2911,7 +2911,7 @@ fn test_maintenance_tools_round_trip() {
 
 #[test]
 fn test_mcp_tools_list_includes_backup_restore() {
-    let res = handle_tools_list().unwrap();
+    let res = handle_tools_list(&McpConfig::default()).unwrap();
     let tools = res["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
     for tool in ["export", "import", "bulk_import_file", "bulk_import_stream"] {
@@ -3603,7 +3603,7 @@ fn recovery_call(
 
 #[test]
 fn test_mcp_tools_list_includes_recovery_and_introspection() {
-    let res = handle_tools_list().unwrap();
+    let res = handle_tools_list(&McpConfig::default()).unwrap();
     let tools = res["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
     for tool in [
@@ -3959,7 +3959,7 @@ fn test_snapshot_restore_requires_confirmation_and_identifier() {
 
 #[test]
 fn test_mcp_tools_list_includes_mod10_tools() {
-    let res = handle_tools_list().unwrap();
+    let res = handle_tools_list(&McpConfig::default()).unwrap();
     let tools = res["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
     for tool in [
@@ -4241,7 +4241,7 @@ fn test_mcp_remove_edge_round_trip() {
 
 #[test]
 fn test_mcp_tools_list_includes_advanced_search() {
-    let res = handle_tools_list().unwrap();
+    let res = handle_tools_list(&McpConfig::default()).unwrap();
     let tools = res["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
     for tool in ["search_with_method", "search_multi"] {
@@ -4422,7 +4422,7 @@ fn test_mcp_structured_output_and_output_schema() {
     assert!(search_res["structuredContent"].is_array());
 
     // tools/list must advertise outputSchema for key tools
-    let list = handle_tools_list().unwrap();
+    let list = handle_tools_list(&McpConfig::default()).unwrap();
     let tools = list["tools"].as_array().unwrap();
     for name in [
         "memory_put",
@@ -4444,7 +4444,7 @@ fn test_mcp_structured_output_and_output_schema() {
 /// only on mutating deletes, openWorldHint only on fs paths.
 #[test]
 fn test_mcp_tool_annotations_coverage() {
-    let res = handle_tools_list().unwrap();
+    let res = handle_tools_list(&McpConfig::default()).unwrap();
     let tools = res["tools"].as_array().expect("tools array");
     assert_eq!(
         tools.len(),
@@ -4540,4 +4540,124 @@ fn test_mcp_tool_annotations_coverage() {
         ro_true >= 40,
         "expected ≥40 readOnlyHint true tools, got {ro_true}"
     );
+}
+
+/// MCP-37: Profile filtering — verify tool counts per VANTADB_MCP_PROFILE.
+#[test]
+fn test_mcp_tool_profiles() {
+    use vantadb_mcp::{handle_tools_list, McpConfig, McpProfile};
+
+    // Full profile (default) — all 76 tools
+    let full_config = McpConfig {
+        profile: McpProfile::Full,
+        ..McpConfig::default()
+    };
+    let full_res = handle_tools_list(&full_config).unwrap();
+    let full_tools = full_res["tools"].as_array().unwrap();
+    assert_eq!(
+        full_tools.len(),
+        76,
+        "Full profile should have 76 tools, got {}",
+        full_tools.len()
+    );
+
+    // Dev profile — ≤35 tools (memory + graph + collections + maintenance + introspection)
+    let dev_config = McpConfig {
+        profile: McpProfile::Dev,
+        ..McpConfig::default()
+    };
+    let dev_res = handle_tools_list(&dev_config).unwrap();
+    let dev_tools = dev_res["tools"].as_array().unwrap();
+    assert!(
+        dev_tools.len() <= 35,
+        "Dev profile should have ≤35 tools, got {}",
+        dev_tools.len()
+    );
+    assert!(
+        dev_tools.len() >= 30,
+        "Dev profile should have ≥30 tools, got {}",
+        dev_tools.len()
+    );
+
+    // Memory profile — ≤20 tools (core memory CRUD + search + list)
+    let memory_config = McpConfig {
+        profile: McpProfile::Memory,
+        ..McpConfig::default()
+    };
+    let memory_res = handle_tools_list(&memory_config).unwrap();
+    let memory_tools = memory_res["tools"].as_array().unwrap();
+    assert!(
+        memory_tools.len() <= 20,
+        "Memory profile should have ≤20 tools, got {}",
+        memory_tools.len()
+    );
+    assert!(
+        memory_tools.len() >= 15,
+        "Memory profile should have ≥15 tools, got {}",
+        memory_tools.len()
+    );
+
+    // Verify specific tool presence/absence per profile
+    let full_names: std::collections::HashSet<&str> = full_tools
+        .iter()
+        .filter_map(|t| t["name"].as_str())
+        .collect();
+    let dev_names: std::collections::HashSet<&str> = dev_tools
+        .iter()
+        .filter_map(|t| t["name"].as_str())
+        .collect();
+    let memory_names: std::collections::HashSet<&str> = memory_tools
+        .iter()
+        .filter_map(|t| t["name"].as_str())
+        .collect();
+
+    // Memory tools should be in all profiles
+    for tool in [
+        "memory_put",
+        "memory_get",
+        "memory_list",
+        "search_memory",
+        "search_semantic",
+    ] {
+        assert!(full_names.contains(tool), "Full profile missing {tool}");
+        assert!(dev_names.contains(tool), "Dev profile missing {tool}");
+        assert!(memory_names.contains(tool), "Memory profile missing {tool}");
+    }
+
+    // Dev-only tools (subset of what's actually in Dev profile)
+    for tool in [
+        "graph_traverse",
+        "graph_topological_sort",
+        "snapshot_create",
+        "export",
+        "get_node_neighbors",
+        "remove_edge",
+    ] {
+        assert!(full_names.contains(tool), "Full profile missing {tool}");
+        assert!(dev_names.contains(tool), "Dev profile missing {tool}");
+        assert!(
+            !memory_names.contains(tool),
+            "Memory profile should not have {tool}"
+        );
+    }
+
+    // Full-only tools (extended modules)
+    for tool in [
+        "code_search",
+        "wiki_search",
+        "skill_list",
+        "thread_create",
+        "scene_read",
+        "context_assemble",
+    ] {
+        assert!(full_names.contains(tool), "Full profile missing {tool}");
+        assert!(
+            !dev_names.contains(tool),
+            "Dev profile should not have {tool}"
+        );
+        assert!(
+            !memory_names.contains(tool),
+            "Memory profile should not have {tool}"
+        );
+    }
 }

@@ -82,7 +82,7 @@ fn seed_graph(storage: &Arc<StorageEngine>) -> [u128; 4] {
 
 #[test]
 fn test_all_eight_code_tools_listed() {
-    let list = handle_tools_list().expect("tools/list");
+    let list = handle_tools_list(&McpConfig::default()).expect("tools/list");
     let names: Vec<&str> = list["tools"]
         .as_array()
         .expect("tools array")

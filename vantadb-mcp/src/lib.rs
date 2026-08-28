@@ -23,6 +23,8 @@ mod wiki;
 
 /// Tuning knobs for the MCP server.
 pub use config::McpConfig;
+/// Tool surface profile for MCP-37 (VANTADB_MCP_PROFILE env var).
+pub use config::McpProfile;
 /// MCP error type used across the server.
 pub use error::McpError;
 /// Handle the `initialize` request, returning protocol version, server info and capabilities.

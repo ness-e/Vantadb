@@ -272,7 +272,7 @@ pub(crate) async fn dispatch_request(
 
     let result = match req.method.as_str() {
         "initialize" => handle_initialize(req.params.as_ref()),
-        "tools/list" => handle_tools_list(),
+        "tools/list" => handle_tools_list(config),
         "tools/call" => {
             let sem = semaphore.clone();
             let storage_ctx = storage.clone();
