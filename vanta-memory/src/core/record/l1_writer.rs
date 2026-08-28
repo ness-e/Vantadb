@@ -309,6 +309,7 @@ fn put_record(
         payload: serde_json::to_string(record)?,
         metadata,
         vector,
+        sparse_vector: None,
         ttl_ms: None,
     })?;
     Ok(())
