@@ -275,3 +275,5 @@
 - 2026-08-28 | CORE-001 | Task CORE-001 → completed
 - 2026-08-28 | 1 | Task 1 (CORE-001 — Scope Enforcement en ACT State (CRÍTICO #1)) → completed | Contract: `campaign_verify_cmd command="node -e \"require('.opencode/task-system/mcp/campaign-server.mjs')\""` + test manual: crear task con blast radius acotado, intentar editar archivo fuera → debe fallar en ACT
 - 2026-08-28 | scope-enforcement | campaign_validate_scope con prefix match + 3-fallback blast radius parsing (mjs/cjs fix) evita blast radius estructurado — ponytail heuristic | ref: .opencode/task-system/mcp/campaign-server.mjs:430
+- 2026-08-28 | CORE-002 | Task CORE-002 → completed
+- 2026-08-28 | 2 | Task 2 (CORE-002 — campaign_validate_output (LLM05) Enforzado en ACT (CRÍTICO #2)) → completed | Contract: `campaign_verify_cmd command="grep -r 'campaign_validate_output' .opencode/task-system/prompts/iter-loop-tools.md"` → debe aparecer en ACT section

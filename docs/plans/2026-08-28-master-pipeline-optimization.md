@@ -74,7 +74,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 19 (MED-019 → DEFER)
   2. `edit` tool output no validado (oldString/newString son seguros por definición)
   3. Performance overhead mínimo (validación sincrónica)
 - **Uphill/Downhill:** ⬆️ 1 · ⬇️ 3
-- **Estado:** ⬜ PENDING (re-ejecución)
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/CORE-002.md`
 
 ---
@@ -587,4 +587,26 @@ Resultado: ✅
 Próxima acción: CORE-002 — campaign_validate_output en ACT (siguiente en plan secuencial)
 Contrato: Contrato: node --check campaign-server.mjs exit:0 + campaign_validate_scope valido en ACT | verify: node --check 0.6s, grep 2/3/1, cargo check 0, fmt 0, clippy 0 | artefactos: CORE-001.md, campaign-server.mjs:430 | invariantes: validateAction firma preservada | deuda: ninguna
 Próxima tarea si completa: CORE-002
+=== END RECITATION ===
+
+=== RECITATION CORE-002 ===
+Campaign ID: cecc8468-9451-4d56-a3ef-1684e123ab8a
+Objetivo activo: CORE-002 — campaign_validate_output (LLM05) Enforzado en ACT State
+Estado: completed
+Última acción: DISCOVERY→EJECUCIÓN→CIERRE: grep validado en ACT — iter-loop-tools.md línea 176 (Output Validation LLM05) + línea 175 (Scope Enforcement) + state-tools.mjs líneas 18/21/24 (scope+output), contract passes (2/3 hits), node --check 0/0 — sin edición, marca COMPLETED idempotente
+Resultado: ✅
+Próxima acción: CORE-003 — Question Gates Enforcement (siguiente en orden secuencial)
+Contrato: Contrato: grep -r 'campaign_validate_output' .opencode/task-system/prompts/iter-loop-tools.md → 2 hits (línea 176 en ACT + línea 283 Self-Harness) ✅ | state-tools.mjs ACT note + comentarios líneas 18-24 contienen campaign_validate_output + campaign_validate_scope ✅ | node --check state-tools.mjs:0 + campaign-server.mjs:0 ✅ | ACT section verified: Scope Enforcement (línea 175) + Output Validation LLM05 (línea 176) ambas presentes en ACT — sin edición requerida | invariantes: STATE_TOOLS canonical, validateAction firma preservada | deuda: ninguna
+Próxima tarea si completa: CORE-003
+=== END RECITATION ===
+
+=== RECITATION 2 ===
+Campaign ID: cecc8468-9451-4d56-a3ef-1684e123ab8a
+Objetivo activo: CORE-002 — campaign_validate_output (LLM05) Enforzado en ACT State
+Estado: completed
+Última acción: Validated ACT section (iter-loop-tools.md) + state-tools.mjs — both contain required enforcement, contract passes idempotente
+Resultado: ✅
+Próxima acción: CORE-003 — Question Gates
+Contrato: Contrato: grep -r 'campaign_validate_output' .opencode/task-system/prompts/iter-loop-tools.md → 2 hits (línea 176 ACT + línea 283 Self-Harness) ✅ | state-tools.mjs ACT note+comentarios líneas 18-24 ✅ | node --check 0 ✅ | Scope Enforcement línea 175 + Output Validation línea 176 ambas en ACT — sin edición | invariantes: STATE_TOOLS canonical | deuda: ninguna
+Próxima tarea si completa: CORE-003
 === END RECITATION ===
