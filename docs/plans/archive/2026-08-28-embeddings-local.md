@@ -519,12 +519,12 @@ Próxima tarea si completa: EMB-09
 === END RECITATION ===
 
 === RECITATION EMB-09 ===
-Campaign ID: 2196e6a2-6cf8-4415-98c1-ba43c99f837b
-Objetivo activo: Qwen3 excepción >3GB — wiring + doc (embeddings/README.md sección Excepción >3GB, manifest qwen3 onnx null, bench --include-exception)
+Campaign ID: c2fc8eef-331c-40d8-bc5c-b5b1c5f78a0b
+Objetivo activo: Qwen3 excepción >3GB — wiring + doc
 Estado: completed
-Última acción: embeddings/README.md sección Excepción >3GB ampliada a 7 bullets (16GB GPU-only trust_remote_code Matryoshka 4096→1024 solo HF onnx null, download --include-exception, verify HF-only dim 4096 multi>0.70, bench --include-exception) + manifest.json qwen3-embedding-8b verificado exception y onnx null + benchmarks/embed_bench.py flag --include-exception verificado (8 default, 9 con flag) + py_compile + download/verify --check PASS + verify HF-only + bench size10 8/9 modelos OK + commit d24eeb1c
+Última acción: README sección ampliada + manifest/bench flags verificados + commit d24eeb1c
 Resultado: ✅
-Próxima acción: Phase 11 Embeddings Local-First completa — verificar docs/operations/BENCHMARKS.md y docs/api/EMBEDDINGS.md cierran Fase 3
-Contrato: grep -r 'Qwen3' embeddings/README.md encuentra seccion Excepcion >3GB (9 hits, heading 76); embeddings/manifest.json tiene qwen3-embedding-8b con exception y onnx null (size_onnx null true); benchmarks/embed_bench.py tiene flag --include-exception (3 hits) + download.py --include-exception (1 hit)
-Próxima tarea si completa: none — Phase 11 EMB-01..09 completa
+Próxima acción: Phase 11 completa
+Contrato: grep Qwen3 README + manifest qwen3 exception/null + bench --include-exception
+Próxima tarea si completa: none
 === END RECITATION ===
