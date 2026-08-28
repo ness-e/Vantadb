@@ -242,6 +242,11 @@ embeddings/**/*.bin
 !embeddings/download.py
 !embeddings/verify.py
 
+# Benchmark reports (reproducible via benchmarks/embed_bench.py)
+benchmarks/embed_bench_report*.json
+benchmarks/vanta_benchmark_report.json
+benchmarks/competitive_data/
+
 # Random build artifacts
 *.rar
 
