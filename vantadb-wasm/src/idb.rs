@@ -1,6 +1,35 @@
 use js_sys::{Function, Promise, Reflect, Uint8Array};
 use wasm_bindgen::prelude::*;
 
+/// Error type for quota-exceeded conditions with actionable details.
+#[derive(Debug)]
+pub struct QuotaExceededError {
+    pub message: String,
+}
+
+impl QuotaExceededError {
+    fn new(message: String) -> Self {
+        Self { message }
+    }
+
+    /// Convert to a `JsValue` suitable for returning from WASM.
+    pub fn to_js_value(&self) -> JsValue {
+        let obj = js_sys::Object::new();
+        Reflect::set(&obj, &"name".into(), &"QuotaExceededError".into()).ok();
+        Reflect::set(&obj, &"message".into(), &self.message.clone().into()).ok();
+        obj.into()
+    }
+}
+
+/// Check if a `JsValue` represents a `QuotaExceededError` DOMException.
+fn is_quota_exceeded_error(e: &JsValue) -> bool {
+    Reflect::get(e, &"name".into())
+        .ok()
+        .and_then(|v| v.as_string())
+        .as_deref()
+        == Some("QuotaExceededError")
+}
+
 // Inline IndexedDB persistence bridge — no external JS import needed.
 // BND-01: the snippet MUST export a function — an `extern "C" {}` with no
 // imports makes wasm-bindgen drop the snippet from the bundle, so the
@@ -155,6 +184,9 @@ impl IdbStorage {
     }
 
     /// Write a file to IndexedDB. Replaces any existing value for the same key.
+    ///
+    /// Catches `QuotaExceededError` DOMException from IndexedDB and enriches it
+    /// with a descriptive message for easier debugging.
     pub async fn write_file(key: &str, data: &[u8]) -> Result<(), JsValue> {
         let s = storage()?;
         let buf = Uint8Array::new_with_length(data.len() as u32);
@@ -162,8 +194,18 @@ impl IdbStorage {
         let args = js_sys::Array::new();
         args.push(&key.into());
         args.push(&buf.buffer());
-        js_call(&s, "write", &args).await?;
-        Ok(())
+
+        match js_call(&s, "write", &args).await {
+            Ok(_) => Ok(()),
+            Err(e) if is_quota_exceeded_error(&e) => Err(QuotaExceededError::new(
+                format!(
+                    "QuotaExceededError writing key '{}' to IndexedDB: {} — consider clearing browser data or reducing dataset size",
+                    key,
+                    js_sys::Error::from(e).message().as_string().unwrap_or_default()
+                )
+            ).to_js_value()),
+            Err(e) => Err(e),
+        }
     }
 
     /// Delete a persisted key-value entry from IndexedDB.
