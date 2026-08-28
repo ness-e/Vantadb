@@ -278,3 +278,4 @@
 - 2026-08-28 | CORE-002 | Task CORE-002 → completed
 - 2026-08-28 | 2 | Task 2 (CORE-002 — campaign_validate_output (LLM05) Enforzado en ACT (CRÍTICO #2)) → completed | Contract: `campaign_verify_cmd command="grep -r 'campaign_validate_output' .opencode/task-system/prompts/iter-loop-tools.md"` → debe aparecer en ACT section
 - 2026-08-28 | question-gates-enforcement | pipeline-run paso h ya implementa BLOQUEO→question→RESUME (ponytail rung 1 idempotente, sin re-editar, verify 4/1/2 hits) | ref: .opencode/task-system/prompts/pipeline-run.md:131
+- 2026-08-28 | template task-definition | verificado idempotente 20 secciones ## con Referencias, sin re-edición (ponytail rung 1) | ref: .opencode/skills/campaign-executor/templates/task-definition.md:1-215

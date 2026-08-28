@@ -131,7 +131,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 19 (MED-019 → DEFER)
   2. Falta `Review (gate P2-01)` → tasks marcadas COMPLETED sin review
   3. Falta `Invariantes de dominio` → handoff roto entre iteraciones
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 2
-- **Estado:** ⬜ PENDING (re-ejecución)
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/CORE-004.md`
 
 ---
