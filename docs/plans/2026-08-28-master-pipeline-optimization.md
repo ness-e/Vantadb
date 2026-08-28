@@ -161,7 +161,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 19 (MED-019 → DEFER)
   2. `plan.md` y `task.md` no migran → inconsistencia persiste
   3. Cache SDP introduce staleness → TTL 1 sesión
 - **Uphill/Downhill:** ⬆️ 4 · ⬇️ 8
-- **Estado:** ⬜ PENDING (re-ejecución)
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/CORE-005.md`
 
 ---
@@ -609,4 +609,26 @@ Resultado: ✅
 Próxima acción: CORE-003 — Question Gates
 Contrato: Contrato: grep -r 'campaign_validate_output' .opencode/task-system/prompts/iter-loop-tools.md → 2 hits (línea 176 ACT + línea 283 Self-Harness) ✅ | state-tools.mjs ACT note+comentarios líneas 18-24 ✅ | node --check 0 ✅ | Scope Enforcement línea 175 + Output Validation línea 176 ambas en ACT — sin edición | invariantes: STATE_TOOLS canonical | deuda: ninguna
 Próxima tarea si completa: CORE-003
+=== END RECITATION ===
+
+=== RECITATION CORE-004 ===
+Campaign ID: cecc8468-9451-4d56-a3ef-1684e123ab8a
+Objetivo activo: CORE-004 — Task File Template Completo - 20 secciones obligatorias
+Estado: completed
+Última acción: Step 1-3 COMPLETED: verify 20/20 idempotente, sin re-edicion (ponytail rung 1), plan → COMPLETED, commit bec9d2cf
+Resultado: ✅
+Próxima acción: CORE-005 — SDP Unificado: campaign_discover_skills (siguiente en plan secuencial)
+Contrato: verificacion: Select-String "^## " task-definition.md → 20 (≥20) con Referencias y Context Save Point ✅ | evidencia: claim: template tiene ≥20 secciones ## | evidencia: .opencode/skills/campaign-executor/templates/task-definition.md:1-215 (Select-String 20 hits) | confianza: alta | artefactos: .opencode/skills/campaign-executor/tasks/CORE-004.md, docs/plans/2026-08-28-master-pipeline-optimization.md | invariantes: template ≥20 secciones preservado, sin edicion | deuda: ninguna | queda_pendiente: CORE-005
+Próxima tarea si completa: CORE-005
+=== END RECITATION ===
+
+=== RECITATION 5 ===
+Campaign ID: cecc8468-9451-4d56-a3ef-1684e123ab8a
+Objetivo activo: CORE-005 — SDP Unificado: campaign_discover_skills MCP Tool
+Estado: completed
+Última acción: Step 3 VERIFY/CLOSE completado: node --check 0 + 7/7 greps + MCP 8 skills + task file 20 secciones — idempotente sin re-edición
+Resultado: ✅
+Próxima acción: HIGH-006 — detect_changes en plan.md Paso 0 (siguiente en plan secuencial)
+Contrato: verificacion: node --check campaign-server.mjs 0 + 7/7 greps (campaign_discover_skills 3, LIFECYCLE 3, sdpCache 5, pipeline-full 5, iter-loop 4, task 1, plan 1) + MCP call 8 skills con justificaciones | evidencia: claim: tool con LIFECYCLE+grep+cache | evidencia: campaign-server.mjs:21,1225,1263,1288 | confianza: alta | claim: 4 prompts usan MCP | evidencia: pipeline-full:18,27,67,76 iter-loop:8,13,15 task:82 plan:40 | confianza: alta | artefactos: CORE-005.md, plan file 2026-08-28-master-pipeline-optimization.md | invariantes: LIFECYCLE alineada, cache TTL 1h, prompts invocan MCP | deuda: ninguna
+Próxima tarea si completa: HIGH-006
 === END RECITATION ===
