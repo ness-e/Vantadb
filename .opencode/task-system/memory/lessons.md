@@ -282,3 +282,4 @@
 - 2026-08-28 | CORE-004 | Task CORE-004 → completed
 - 2026-08-28 | 5 | Task 5 (CORE-005 — SDP Unificado: campaign_discover_skills MCP Tool (CRÍTICO #5)) → completed | Contract: Nuevo tool `campaign_discover_skills(keywords, phase)` devuelve `{ skills, justificaciones, lifecycle_phase }`; `campaign_load_skills` actualizado para usarlo; todos prompts invocan MCP
 - 2026-08-28 | 7 | Task 7 (HIGH-007 — Re-validar Skills tras Discovery (ALTO #7)) → completed | Contract: `campaign_verify_cmd command="grep -A3 'Re-validar skills' .opencode/task-system/prompts/pipeline-full.md"` → bloque en Discovery
+- 2026-08-28 | 8 | Task 8 (HIGH-008 — Autonomous Flag en Plan File (ALTO #8)) → completed | Contract: `campaign_verify_cmd command="grep -n 'Autonomous:' .opencode/task-system/prompts/plan.md"` → campo en template

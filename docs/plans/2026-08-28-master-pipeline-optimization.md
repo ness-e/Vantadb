@@ -215,7 +215,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 19 (MED-019 → DEFER)
 - **Pre-mortem:** Default `false` para backward compat
 - **Stop conditions:** Ninguno
 - **Cynefin:** 🟦 Obvio
-- **Estado:** ⬜ PENDING (re-ejecución)
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/HIGH-008.md`
 
 ---
@@ -642,4 +642,15 @@ Resultado: ✅
 Próxima acción: HIGH-008 — Autonomous Flag en Plan File (siguiente en plan secuencial)
 Contrato: verificacion: Select-String "Re-validar skills" pipeline-full.md -> 1 hit línea 76 + grep -A3 bloque en Discovery ✅ | evidencia: claim: pipeline-full.md:76 Re-validar Skills tras Discovery con condicion cambio tipo fix->feature-add + re-invocá campaign_discover_skills nuevo phase/contractKeywords | evidencia: .opencode/task-system/prompts/pipeline-full.md:76 (Select-String 1 hit + Context 3) + git blame 9e5730ff + git show 9e5730ff diff + node --check campaign-server.mjs:0 | confianza: alta | artefactos: .opencode/skills/campaign-executor/tasks/HIGH-007.md, docs/plans/2026-08-28-master-pipeline-optimization.md:201 | invariantes: pipeline-full.md:76 orden SDP(67)->Code Intelligence(71-75)->Re-validar(76)->Web research(77) preservado, campaign_discover_skills operativo | deuda: ninguna | queda_pendiente: HIGH-008
 Próxima tarea si completa: HIGH-008
+=== END RECITATION ===
+
+=== RECITATION 8 ===
+Campaign ID: cecc8468-9451-4d56-a3ef-1684e123ab8a
+Objetivo activo: HIGH-008 — Autonomous Flag en Plan File
+Estado: completed
+Última acción: Step 1 VERIFY completado: plan.md:246 Autonomous false + parsers.mjs:159 extractAutonomous + campaign-server.mjs:12/524 2 hits + question-gates 109-112 + node --check 0 — ponytail rung 1 sin edicion, task file HIGH-008.md creado, plan Task 8 PENDING->COMPLETED
+Resultado: ✅
+Próxima acción: HIGH-009 — Session Cleanup al Cerrar Campana (siguiente en plan secuencial)
+Contrato: verificacion: Select-String 'Autonomous:' plan.md -> 1 hit linea 246 + Select-String 'extractAutonomous' parsers.mjs -> 159:export + Select-String 'extractAutonomous' campaign-server.mjs -> 2 hits 12/524 + question-gates Anti-abuso 109-112 | evidencia: claim: plan.md:246 > **Autonomous:** false | evidencia: .opencode/task-system/prompts/plan.md:246 (Select-String 1 hit) + .opencode/task-system/mcp/parsers.mjs:159 + .opencode/task-system/mcp/campaign-server.mjs:12/524 + git blame 9e5730ff + node --check 0/0 | confianza: alta | artefactos: .opencode/skills/campaign-executor/tasks/HIGH-008.md, docs/plans/2026-08-28-master-pipeline-optimization.md:8 | invariantes: template Autonomous false preservado, parsers extractAutonomous regex true/false/null preservado, campaign-server autonomous field preservado, question-gates semantics preservada | deuda: ninguna | queda_pendiente: HIGH-009
+Próxima tarea si completa: HIGH-009
 === END RECITATION ===
