@@ -5,16 +5,17 @@
 > Usar MCP tools (`campaign_get_next_task`, `campaign_verify_cmd`, etc.) para estado.
 > Al finalizar: recitation + STOP.
 
-Las skills base (campaign-executor, progreso, ponytail) se cargan automáticamente al invocar `campaign_load_skills` (MCP) — no las cargues dos veces. Usá `campaign_load_skills` para obtener las skills específicas del tipo de tarea.
+Las skills base (campaign-executor, progreso, ponytail) se cargan vía `campaign_discover_skills` (MCP) — no las cargues manualmente.
 
-### Step 0: Auto-cargar skills vía MCP
+### Step 0: Auto-cargar skills vía MCP (SDP Unificado — CORE-005)
 
 1. Llamá `campaign_get_next_task` (MCP) para obtener la próxima tarea
-2. Con los `Archivos clave` de la tarea, llamá `campaign_load_skills` (MCP) para obtener:
-   - Tipo de tarea detectado
-   - Lista de skills a cargar
-   - Comandos de verificación
-3. Cargá CADA skill devuelta con `skill <nombre>` (no te saltees ninguna)
+2. Con los `Archivos clave` de la tarea, llamá `campaign_discover_skills` (MCP) con `phase="BUILD"` (o `phase="DEFINE"` si spec-first):
+   ```
+   campaign_discover_skills archivosClave="<Archivos clave>" phase="BUILD" contractKeywords=["<keywords del contrato>"] maxSkills=8
+   ```
+   Devuelve: type, label, phase, skills (con justificaciones), commands, checks, estimate.
+3. Cargá CADA skill devuelta con `skill <nombre>` (no te saltees ninguna). Registrá `SDP: <skills cargadas>` en task file y `SKILLS_CARGADAS:` en RESULTADO.
 4. Llamá `campaign_get_workflow` (MCP) con el tipo detectado para cargar el workflow JSON (bug-fix/feature-add/refactor/research/nine-second-saloon). El workflow define el template de fases (estados, instrucciones y transiciones por tipo de tarea) **como guía para el agente (classification-output)** — estos estados NO pasan por `campaign_enforce_state`. El enforcement de herramientas en runtime usa SIEMPRE la state machine genérica C0 (`STATE_TOOLS` en `config/state-tools.mjs`: PLAN/ACT/VERIFY/COLLATERAL/RESEARCH/EVALUATE/REVIEW/ACCEPT/CLOSE/STALL). No confundir los dos conjuntos de estados.
 5. Si es bug → cargá `systematic-debugging` además
 6. Si es lógica nueva/compleja → cargá `test-driven-development` además
@@ -46,7 +47,6 @@ skill progreso
 1. Auto-detectar tipo de tarea con MCP:
    Llamá `campaign_detect_task_type` (MCP) con los `Archivos clave` de la tarea.
    Devuelve: type, skills, checks, estimate.
-   Cargá los skills devueltos con `skill <nombre>`.
 
 2. Clasificar workflow:
    Llamá `campaign_classify_workflow` con taskName + descripción de la tarea.
@@ -59,49 +59,50 @@ skill progreso
 3. Auto-estimar turns con `campaign_detect_task_type`:
    El MCP devuelve estimate: { turns, label }
 
-4. codegraph_explore "símbolos/archivos de la tarea"
+4. **SDP Ya Completado en Step 0** — `campaign_discover_skills` (CORE-005) ya ejecutó:
+   - Base skills por tipo + lifecycle mapping (phase) + grep SKILLS-MANIFEST.md
+   - Skills cargadas y registradas en `SDP:` del task file y `SKILLS_CARGADAS:` del RESULTADO
+   - NO repetir SDP aquí — solo verificar que `SDP:` está poblado en task file
 
-4b. **Skill Discovery (SDP — obligatorio, canónico en
-    `.opencode/references/skills-engineering.md` §"Skill Discovery Protocol"):**
-    la base del paso 1 NO es el catálogo completo. Macheá la fase contra la tabla
-    Lifecycle mapping de skills-engineering.md + grep `SKILLS-MANIFEST.md` con
-    keywords del contrato → cargar candidatas relevantes (≤8 total, justificadas).
-    Sin candidatas nuevas → registrar `SDP: sin candidatos adicionales`.
+5. codegraph_explore "símbolos/archivos de la tarea"
+   codebase-memory-mcp_detect_changes scope="impact" direction="inbound" depth=3
+   codebase-memory-mcp_get_architecture aspects="['overview','clusters','hotspots','boundaries']"
+   codebase-memory-mcp_check_index_coverage paths=["<archivos clave>"]
 
-5. Zero-code planning: antes de escribir código o crear el task file, describí
+6. Zero-code planning: antes de escribir código o crear el task file, describí
    la solución en ≤3 viñetas de pseudocódigo. Sin tocar archivos todavía.
    Identificá: qué archivos cambiar, qué funciones modificar, qué firma tendrá,
    qué tests escribir. Si hay ambigüedad → web research antes de continuar.
    Validá que el enfoque es correcto antes de comprometerte.
 
-5b. **Gate D** (`question-gates.md`): si blast radius >10 archivos / hot path /
+6b. **Gate D** (`question-gates.md`): si blast radius >10 archivos / hot path /
     API pública / contrato ambiguo / feature-add sin spec /
     **el plan agrega símbolos públicos nuevos (`pub fn`, tool, endpoint,
     método de binding — aunque el tipo detectado diga fix/wrapper/refactor)** →
     `question` al usuario (GO / ajustar / dividir) ANTES de escribir el task file.
 
-6. Llamá `campaign_update_task_state` (MCP) con `"in-progress"` y recitation
+7. Llamá `campaign_update_task_state` (MCP) con `"in-progress"` y recitation
    que apunte al próximo step.
 
-7. Web research si hay ambigüedad (API externa, patrón no familiar):
+8. Web research si hay ambigüedad (API externa, patrón no familiar):
    MetaSearchMCP.search_web("consulta") + Argus.extract_content(url)
    → Documentar en Investigation Notes del task file
 
-8. Documentar en el task file:
-   - CALLERS: qué módulos llaman
-   - CALLEES: de qué depende
+9. Documentar en el task file:
+   - CALLERS: qué módulos llaman (CodeGraph + codebase-memory-mcp_trace_path inbound)
+   - CALLEES: de qué dependen (CodeGraph + codebase-memory-mcp_trace_path outbound)
    - IMPLICACIONES: contratos, API, performance, migración
    - RIESGO: alto / medio / bajo
    - Contrato verificable (NO vago — ver tabla al final)
-   - Herramientas necesarias (cargo-mcp, rust-analyzer-mcp, etc.)
+   - Herramientas necesarias (cargo-mcp, rust-analyzer-mcp, codegraph, codebase-memory-mcp_*)
    - Solución planeada (de step 5: zero-code planning)
    - Descomponer en steps atómicos (cada uno: archivo + acción + verify)
 
-9. Escribir task file en `.opencode/skills/campaign-executor/tasks/<ID>.md`
-   Usando el template de `skills/campaign-executor/templates/task-definition.md`.
-   Agregar last-synced en ambos archivos (plan + task).
+10. Escribir task file en `.opencode/skills/campaign-executor/tasks/<ID>.md`
+    Usando el template de `skills/campaign-executor/templates/task-definition.md`.
+    Agregar last-synced en ambos archivos (plan + task).
 
-10. Implementá el primer step (~100 líneas)
+11. Implementá el primer step (~100 líneas)
     Verificá con `campaign_verify_cmd` (comando del campo `contract`)
 ```
 
@@ -171,6 +172,8 @@ Usá `campaign_validate_action state=<ESTADO> toolName=<TOOL>` para verificar an
 - Ponytail ladder: ya existe > stdlib > dependency > mínimo código
 
 ### ACT
+- **Scope Enforcement (OBLIGATORIO — Regla 0):** ANTES de cualquier `edit`/`write`, llamá `campaign_validate_scope` con `taskId` + `filePath` para validar que el archivo está dentro del blast radius declarado en el task file. Si falla → NO edites, reportá el error.
+- **Output Validation LLM05 (OBLIGATORIO):** ANTES de cualquier `edit`/`write`/`bash` que genere contenido (shell commands, SQL, Python code, HTML, file paths), llamá `campaign_validate_output` con el contenido y tipo. Si falla → NO ejecutes, corregí el output primero.
 - Editar archivos (preferir `edit` con oldString/newString sobre reescribir completos)
 - Para comandos destructivos (rm, format, DDL, scripts generados):
   usar `campaign_run_sandboxed` para ejecutar en staging aislado

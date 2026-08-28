@@ -13,14 +13,15 @@ const STATE_TOOLS = {
     note: "sólo lectura e investigación",
   },
   ACT: {
-    // ponytail: scope enforcement is NOT implemented here — validateAction only receives (state, toolName),
-    // never the active task file/scope, and state-tools.mjs has no server access (would need a new arg + a
-    // scope registry fed by campaign-server.mjs). Known ceiling: write/edit scope is delegated to the
-    // "Impacto mapeado (Regla 0)" gate in the task file (task.md). Add a scopeRegistro arg to validateAction
-    // if the campaign server ever passes one.
+    // Scope enforcement IMPLEMENTADO vía tool MCP `campaign_validate_scope`.
+    // El agente DEBE llamarlo ANTES de cualquier edit/write en ACT state.
+    // Output Validation LLM05 IMPLEMENTADO vía `campaign_validate_output`.
+    // El agente DEBE llamarlo ANTES de cualquier edit/write/bash que genere contenido.
+    // validateAction recibe (state, toolName); para validar scope/output, el agente usa
+    // campaign_validate_scope(taskId, filePath) + campaign_validate_output(content, type).
     allowed: ["edit", "write", "bash", "campaign_*", "read", "grep", "glob", "codegraph_explore", "skill", "cargo-mcp_*", "rust-analyzer-mcp_*"],
     denied: ["delete"],
-    note: "implementación activa",
+    note: "implementación activa — scope enforcement vía campaign_validate_scope; output validation vía campaign_validate_output",
   },
   VERIFY: {
     allowed: ["bash", "campaign_verify_cmd", "campaign_*", "cargo-mcp_*", "read", "grep"],

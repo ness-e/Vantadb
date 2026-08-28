@@ -35,13 +35,23 @@ Sin él el gate decide sobre texto no verificado del backlog, no sobre el códig
 | Cualquiera con código Rust | `ponytail` (siempre activo) | Escalera YAGNI antes de incluir una tarea al plan |
 | Al migrar/completar algo | `progreso` | Evita duplicar tareas ya migradas a progreso |
 
+**SDP Automatizado (OBLIGATORIO):** ANTES de cargar skills manualmente, llamá:
+```
+campaign_discover_skills archivosClave="<archivos de la tarea>" phase="PLAN" contractKeywords=["<keywords del título/contrato>"] maxSkills=8
+```
+El tool devuelve skills con justificaciones (base type + lifecycle PLAN + manifest grep). Cargá cada skill devuelta con `skill <nombre>`. Registrá `SDP: <skills cargadas>` en el plan file.
+
 **Pasos por tarea (mientras mayor el esfuerzo/ambiguïdad, más exhaustivo):**
 
 1. **Extrae referencias** del texto de la tarea:
    - Rutas de archivos (ej: `src/storage/vfile.rs`, `vantadb-python/src/convert.rs`)
    - Símbolos (funciones, structs, tests, CLIs, endpoints)
    - Features Cargo / flags de build / API pública
-2. **Verifica en el código real** con `codegraph_explore "símbolos o archivos"`:
+2. **Verifica en el código real** con Code Intelligence dual:
+   - `codegraph_explore "símbolos o archivos"` — blast radius inmediato
+   - `codebase-memory-mcp_detect_changes scope="impact" direction="inbound" depth=3` — blast radius transitivo, módulos impactados, risk classification
+   - `codebase-memory-mcp_get_architecture aspects="['overview','clusters','hotspots','boundaries']"` — contexto arquitectónico
+   - `codebase-memory-mcp_check_index_coverage paths=["<archivos de la tarea>"]` — verifica cobertura del índice
    - ¿Existe el archivo/símbolo? (si no existe → tarea stale o ruta renombrada)
    - ¿El comportamiento ya está implementado? (una tarea "fix X" con X ya arreglado → STALE)
    - ¿Qué llama a esto y que afecta? (blast radius — también sirve para el task file posterior)
@@ -232,6 +242,7 @@ Si no reconoce el formato → el agente interpreta con LLM para extraer tareas.
 > **Inicio:** YYYY-MM-DD
 > **Estado:** ⏳ EN PROGRESO
 > **Fuente:** [ruta al backlog]
+> **Autonomous:** false  # true = solo Gates V+C seguridad; false = todos los gates (default)
 
 ## Resumen
 

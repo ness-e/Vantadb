@@ -77,12 +77,21 @@ archivos y keywords sugieran "Rust"/"wrapper"/"refactor". Consecuencias:
 > step: la delegación cubre la fase pesada completa (R4: SARL RESUME ya
 > conserva contexto del ejecutor).
 
+**SDP Automatizado (OBLIGATORIO — CORE-005):** ANTES de documentar blast radius, llamá:
+```
+campaign_discover_skills archivosClave="<archivos clave de la task>" phase="BUILD" contractKeywords=["<keywords del contrato/título>"] maxSkills=8
+```
+El tool devuelve skills con justificaciones (base type + lifecycle BUILD + manifest grep). Cargá cada skill con `skill <nombre>` y registrá `SDP: <skills cargadas>` en el task file.
+
 ```
 codegraph_explore "IDs, archivos, símbolos de la tarea"
+codebase-memory-mcp_detect_changes scope="impact" direction="inbound" depth=3
+codebase-memory-mcp_get_architecture aspects="['overview','clusters','hotspots','boundaries']"
+codebase-memory-mcp_check_index_coverage paths=["<archivos clave>"]
 
 Documentar en el task file:
-- CALLERS: qué módulos llaman a estos archivos
-- CALLEES: de qué dependen estos archivos
+- CALLERS: qué módulos llaman a estos archivos (CodeGraph + codebase-memory-mcp_trace_path inbound)
+- CALLEES: de qué dependen estos archivos (CodeGraph + codebase-memory-mcp_trace_path outbound)
 - IMPLICACIONES:
   · ¿Se rompen contratos existentes?
   · ¿Cambia comportamiento público (API, CLI, SDK)?

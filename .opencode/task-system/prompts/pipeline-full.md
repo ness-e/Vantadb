@@ -15,24 +15,19 @@ Las skills base (campaign-executor, progreso, ponytail) se cargan automáticamen
 
 Paso 0 — Auto-cargar skills según tipo de tarea:
    Llamá `campaign_get_next_task` (MCP) para obtener la tarea activa.
-   Con los `Archivos clave`, llamá `campaign_load_skills` (MCP) que devuelve
-   skills + checks exactos. Ejecutá `skill <nombre>` para CADA skill.
+   Con los `Archivos clave`, llamá `campaign_discover_skills` (MCP) con `phase="BUILD"` (o `phase="DEFINE"` si es spec-first) que devuelve skills base + lifecycle + manifest grep con justificaciones. Ejecutá `skill <nombre>` para CADA skill.
     Si es bug → además `systematic-debugging`. Si es lógica nueva →
     `test-driven-development`. Si es security-sensitive → `doubt-driven-development`.
     Llamá `campaign_get_workflow` (MCP) con el tipo detectado para cargar el
     workflow JSON (bug-fix/feature-add/refactor/research/nine-second-saloon).
     El workflow define estados, allowed_tools y transiciones específicas.
 
-Paso 0b — **Skill Discovery (SDP, obligatorio — fuente canónica:
-   `.opencode/references/skills-engineering.md` §"Skill Discovery Protocol"):**
-   `campaign_load_skills` devuelve solo la BASE (~6 skills). Completá con discovery:
-   a. Macheá la fase de trabajo contra la tabla Lifecycle mapping de
-      skills-engineering.md (DEFINE/PLAN/BUILD/VERIFY/REVIEW/SHIP).
-   b. Grepeá `SKILLS-MANIFEST.md` por keywords del contrato/título de la tarea.
-   c. Cargá las candidatas relevantes (≤8 skills totales; prioridad proyecto > global),
-      cada una justificada en 1 línea. Si no hay candidatas nuevas, registralo
-      (`SDP: sin candidatos adicionales`) — el paso nunca se omite en silencio.
-   d. Listá las skills cargadas en el task file y en `SKILLS_CARGADAS:` del RESULTADO (§7).
+Paso 0b — **Skill Discovery (SDP, obligatorio — unificado vía MCP tool):**
+   `campaign_discover_skills` automatiza el SDP completo: base type + lifecycle mapping (según phase) + grep SKILLS-MANIFEST.md con keywords del contrato. Devuelve ≤8 skills con justificaciones.
+   a. Llamá `campaign_discover_skills archivosClave="<Archivos clave>" phase="BUILD" contractKeywords=["<keywords>"] maxSkills=8`
+   b. Cargá skills devueltas con `skill <nombre>`
+   c. Registrá `SDP: <skills cargadas>` en task file y `SKILLS_CARGADAS:` en RESULTADO (§7).
+   d. Si no hay skills beyond base → registrá `SDP: base-only (keywords: <...>)`
 
 INSTRUCCIONES — UNA TAREA COMPLETA POR ITERACIÓN:
 
@@ -69,11 +64,16 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
   `N/A`/vacía/"contrato mecánico" NO cuentan) → NO se puede entrar a ACT.
   Volvé a DISCOVERY y generá la spec + questions primero.
 - Llamá `campaign_detect_task_type` (MCP) con `Archivos clave` → type, skills, checks
-- Cargá skills devueltos con `skill <nombre>`
+- **SDP Automatizado (CORE-005):** Llamá `campaign_discover_skills archivosClave="<Archivos clave>" phase="BUILD" contractKeywords=["<keywords del contrato>"] maxSkills=8` → devuelve skills con justificaciones. Cargá cada skill con `skill <nombre>` y registrá `SDP: <skills>` en task file.
 - Si es bug → además `systematic-debugging`
 - Si es security-sensitive → `doubt-driven-development`
 - Si es lógica nueva/compleja → `test-driven-development`
-- `codegraph_explore` para blast radius (nombrando los `Archivos clave` de la task)
+- **Code Intelligence (AMBOS):**
+  - `codegraph_explore "Archivos clave de la task"` — blast radius inmediato
+  - `codebase-memory-mcp_detect_changes scope="impact" direction="inbound" depth=3` — blast radius transitivo, módulos impactados, risk classification
+  - `codebase-memory-mcp_get_architecture aspects="['overview','clusters','hotspots','boundaries']"` — contexto arquitectónico
+  - `codebase-memory-mcp_check_index_coverage paths=["<archivos clave>"]` — verifica cobertura del índice
+- **Re-validar Skills tras Discovery (HIGH-007):** si el zero-code planning o web research revela que el tipo de tarea cambió (ej: fix → feature-add), re-invocá `campaign_discover_skills` con el nuevo `phase` y `contractKeywords` actualizados. Cargá skills nuevas y registrá `SDP: <skills actualizadas>`.
 - Web research (MetaSearchMCP/Argus) si hay ambigüedad en APIs externas
 - Descomponé en steps atómicos
 - Creá task file en `.opencode/skills/campaign-executor/tasks/<ID>.md` SI NO EXISTE.
@@ -112,7 +112,13 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
   * Skill: `performance-optimization`
   * Gate de verificación: comparación contra baseline — medí antes/después
     (bench Criterion o timing simple); sin regresión o regresión documentada
-- **Pre-commit: skill code-review-and-quality** antes del commit final
+- **Fork/Join en EJECUCIÓN (HIGH-011):** si hay steps ⬜ PENDING consecutivos que operan en archivos DISJUNTOS y sin dependencias mutuas (verificar con `codebase-memory-mcp_trace_path`), podés ejecutarlos en paralelo (max 2 sub-agentes):
+  1. Identificá steps independientes: archivos no solapados + sin dependencias en task file
+  2. Spawn sub-agentes via `task` tool con prompt reducido (solo ese step + contrato)
+  3. Join: esperá ambos, merge results, continuá con step siguiente
+  4. Si un sub-agente falla → SARL RESUME individual, no afecta al otro
+  5. Budget: cada sub-agente paralelo consume budget propio
+- Pre-commit: skill code-review-and-quality antes del commit final
 - Budget: `BUDGET_LIMITS` (campaign-server.mjs). **Si se agota el budget sin completar → devolvé
   `RESULTADO: 🟡 INCOMPLETO` con el próximo step ⬜ PENDING; NO lo marques FAILED solo por budget.**
   El orquestador decide RESUME/RETRY vía subagent-recovery.md.

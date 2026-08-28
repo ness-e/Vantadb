@@ -49,7 +49,8 @@ estancadas.
 - Validá: (a) plan file existe y tiene tasks, (b) recitation block es legible,
       (c) última tarea no es la misma dos veces seguidas sin progreso,
       (d) git status está limpio o los cambios son del pipeline actual
-   - Si alguna probe falla → preguntá al usuario antes de continuar
+- **Index Health Check (HIGH-014):** llamá `codebase-memory-mcp_index_status project="C-Users-Eros-VantaDB-Proyect-VantaDB"` para verificar health del índice. Si `parse_partial` o `skipped` files > 0, o última re-index > 7 días → llamá `codebase-memory-mcp_index_repository repo_path="C:\Users\Eros\VantaDB Proyect\VantaDB" mode="moderate"` para re-indexar.
+- Si alguna probe falla → preguntá al usuario antes de continuar
 
 5. ENCONTRAR próxima tarea pendiente vía MCP:
    - `campaign_get_next_task` con **`claim: true`** (MCP) — claim atómico IN PROGRESS
@@ -127,10 +128,20 @@ estancadas.
           (blast radius grande, verify×2, cierre con colaterales) vía `question` tool."
       ```
 
-   g. Esperá resultado del sub-agente.
+g. Esperá resultado del sub-agente.
 
-   h. **CLASIFICÁ el resultado** según `prompts/subagent-recovery.md` (SARL):
-      - `✅ COMPLETO` → pasá a (i)
+    h. **VALIDACIÓN QUESTION GATES (OBLIGATORIA — CORE-003):**
+       Al recibir el resultado del sub-agente, verificá:
+       1. Si el resultado contiene `GATES_EVALUADOS` con algún gate `disparado` (D, V, o C):
+          - Verificá que el resultado incluya `BLOQUEO: <gate + opciones>` — si NO lo tiene → clasificá como `⚠️ SIN-FORMATO` y aplicá SARL RESUME pidiendo el bloque.
+       2. Si `BLOQUEO:` presente y TENÉS `question` permission (vanta-lead, vanta-review):
+          - Ejecutá `question` tool con las opciones del `BLOQUEO:`
+          - Reanudá sub-agente vía SARL RESUME (`task(task_id=<id>, ...)` con feedback del usuario)
+       3. Si `BLOQUEO:` presente y NO tenés `question` permission:
+          - Debería haber sido manejado por el orquestador (vanta-lead) — si llegás acá, escalá.
+
+i. **CLASIFICÁ el resultado** según `prompts/subagent-recovery.md` (SARL):
+      - `✅ COMPLETO` → pasá a (j)
       - `🟡 INCOMPLETO` / `❌ FALLIDO` / `⚠️ SIN-FORMATO` / salida vacía / "se detuvo solo"
         → aplicá la escalera SARL en orden:
         1. **RESUME** misma sesión: `task(task_id=<id del sub-agente>, subagent_type=<mismo>,
@@ -141,7 +152,7 @@ estancadas.
       - Cada recovery consume `campaign_budget_consume resource="fail"`.
       - Si 3 resultados no-DONE seguidos en la misma tarea → pausá y preguntá al usuario.
 
-   i. Si `✅ completed` (post-recovery):
+j. Si `✅ completed` (post-recovery):
       - `campaign_update_task_state` con `"completed"` y recitation apuntando a próxima
       - `campaign_verify_cmd` con el contrato (doble verificación — sin verify no cuenta)
       - Si verify pasa → incrementar totalCompleted, reset consecutiveFails
@@ -152,28 +163,28 @@ estancadas.
         completo y verificá: (a) estados consistentes, (b) recitation legible,
         (c) no hay duplicados en progreso. Anotá "Review N/5: OK" en el plan.
 
-   j. Si agotaste la escalera con ❌:
+    k. Si agotaste la escalera con ❌:
       - `campaign_update_task_state` con `"failed"`
       - Incrementar totalFailed y consecutiveFails
       - Si FAIL_MODE=stop → detener el pipeline
       - Si FAIL_MODE=skip → registrar y continuar
       - Si consecutiveFails >= 3 → FAIL_MODE pasa a "stop" forzosamente
 
-   k. Stagnation Detection:
+    l. Stagnation Detection:
       - Si 3 sub-agentes consecutivos fallan (aún con SARL) → NO_PROGRESS_LIMIT
       - Llamá `campaign_stalled_tasks` (MCP) para revisar estado
       - Pausá y preguntá al usuario
 
-   l. Budget ceilings (fuente única: `BUDGET_LIMITS` en campaign-server.mjs —
-      hoy: 40 sub-agentes HARD STOP, 15 tool calls, 5 consecutive fails, 120 min):
-      - Cada intento de la escalera SARL cuenta como sub-agente
-      - maxConsecutiveFails alcanzado → FAIL_MODE pasa a "stop" forzosamente
+    m. Budget ceilings (fuente única: `BUDGET_LIMITS` en campaign-server.mjs —
+       hoy: 40 sub-agentes HARD STOP, 15 tool calls, 5 consecutive fails, 120 min):
+       - Cada intento de la escalera SARL cuenta como sub-agente
+       - maxConsecutiveFails alcanzado → FAIL_MODE pasa a "stop" forzosamente
 
-   m. ACTUALIZAR checkpoint `docs/pipeline-state.json`:
+    n. ACTUALIZAR checkpoint `docs/pipeline-state.json`:
       ```json
       { "plan": "ruta", "totalCompleted": N, "totalFailed": K, "total": M, "consecutiveFails": C, "failMode": "stop|skip", "lastSync": "ISO" }
       ```
-   n. Leer plan file con `campaign_get_next_task` (MCP) y buscar próxima ⬜ PENDING
+    o. Leer plan file con `campaign_get_next_task` (MCP) y buscar próxima ⬜ PENDING
 
 7. WAVES PARALELAS (FAIL_MODE=parallel):
    a. Construí DAG de dependencias entre las N tareas pendientes:
@@ -196,6 +207,7 @@ estancadas.
 8. CUANDO no haya más ⬜ PENDING:
    - Reportá campaña completada: N/M ✅, K ❌, stalled: S
    - Ejecutá `skill progreso` (migración masiva de todas las completadas)
+   - **Session Cleanup (HIGH-009):** llamá `campaign_session_track action="delete" sessionId=<sessionId>` para limpiar sesión y evitar stale sessions
    - **RETROSPECTIVA de cierre del plan/milestone** (obligatoria antes de detenerte):
      - Produci la retrospectiva **Start/Stop/Continue** + 1 acción medida:
        - **Start** (seguir haciendo): qué funcionó y se mantiene

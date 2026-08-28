@@ -136,6 +136,31 @@ function validateShellCommand(cmd) {
   return { valid: errors.length === 0, riskLevel: errors.length ? "dangerous" : warnings.length ? "moderate" : "safe", errors, warnings, checksPassed: checks }
 }
 
+// classifyBashWrite — detecta si un comando bash escribe archivos (para bloquear en RESEARCH state)
+// HIGH-013: implementado para enforcement per-state
+const BASH_WRITE_PATTERNS = [
+  />\s*\S+/,                    // redirección > archivo
+  />\s*>\s*\S+/,                // redirección >> append
+  /tee\s+/,                     // tee command
+  /\bcp\s+/,                    // cp
+  /\bmv\s+/,                    // mv
+  /\brm\s+/,                    // rm
+  /\btouch\s+/,                 // touch
+  /\becho\s+.*>\s*/,            // echo ... >
+  /\bprintf\s+.*>\s*/,          // printf ... >
+  /\bdd\s+/,                    // dd
+  /\bcat\s+.*>\s*/,             // cat ... >
+  /\bsponge\s+/,                // sponge
+  /\binstall\s+/,               // install
+  /\brename\s+/,                // rename (perl)
+]
+
+function classifyBashWrite(cmd) {
+  if (!cmd || !cmd.trim()) return { isWrite: false, patterns: [] }
+  const matched = BASH_WRITE_PATTERNS.filter(pat => pat.test(cmd))
+  return { isWrite: matched.length > 0, patterns: matched }
+}
+
 function validateFilePath(fp, workspace) {
   const errors = [], warnings = [], checks = []
   if (!fp || !fp.trim()) return { valid: false, riskLevel: "dangerous", errors: ["Empty path"], warnings: [], checksPassed: [] }
@@ -331,6 +356,106 @@ server.tool(
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] }
   },
 )
+
+// ---------- Tool: campaign_validate_scope ----------
+//
+// Scope enforcement para ACT state — valida que un filePath esté dentro del
+// blast radius declarado en el task file (Regla 0: Impacto mapeado).
+// El agente DEBE llamarlo ANTES de cualquier edit/write en ACT state.
+
+server.tool(
+  "campaign_validate_scope",
+  {
+    taskId: z.string().describe("ID de la tarea (ej: DRV-068)"),
+    filePath: z.string().describe("Ruta del archivo a editar (relativa al workspace root)"),
+    planFile: z.string().optional().describe("Ruta al plan file. Si se omite, busca el más reciente en docs/plans/"),
+  },
+  async ({ taskId, filePath, planFile }) => {
+    const worktree = PROJECT_ROOT
+    const planPath = resolvePlan(planFile, worktree)
+    if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ valid: false, error: "No plan file found in docs/plans/", reason: "NO_PLAN_FILE" }) }] }
+
+    const content = readFileSync(planPath, "utf-8")
+    const tasks = parseTasks(content)
+    const task = tasks.find(t => t.id === taskId)
+    if (!task) return { content: [{ type: "text", text: JSON.stringify({ valid: false, error: `Task ${taskId} not found in plan`, reason: "TASK_NOT_FOUND" }) }] }
+
+    // Leer task file para obtener blast radius
+    const opencodeRoot = resolve(worktree, ".opencode")
+    const taskFilePaths = [
+      join(opencodeRoot, "skills", "campaign-executor", "tasks", `${taskId}.md`),
+      join(opencodeRoot, "skills", "campaign-executor", "tasks", "complete", `${taskId}.md`),
+      join(opencodeRoot, "skills", "campaign-executor", "tasks", "closed", `${taskId}.md`),
+    ]
+    let taskFileContent = null
+    for (const tfp of taskFilePaths) {
+      if (existsSync(tfp)) {
+        taskFileContent = readFileSync(tfp, "utf-8")
+        break
+      }
+    }
+    if (!taskFileContent) return { content: [{ type: "text", text: JSON.stringify({ valid: false, error: `Task file not found for ${taskId}`, reason: "TASK_FILE_NOT_FOUND" }) }] }
+
+    // Extraer blast radius del task file (sección "Blast Radius" o "Impacto mapeado")
+    const blastRadiusFiles = extractBlastRadiusFiles(taskFileContent)
+    if (blastRadiusFiles.length === 0) {
+      return { content: [{ type: "text", text: JSON.stringify({ valid: false, error: "No blast radius defined in task file — run Discovery first (Regla 0)", reason: "NO_BLAST_RADIUS" }) }] }
+    }
+
+    // Normalizar filePath (remover prefijo ./ si existe)
+    const normalizedPath = filePath.replace(/^\.\//, "")
+    const isInScope = blastRadiusFiles.some(br => {
+      const brNormalized = br.replace(/^\.\//, "")
+      // Match exacto o directorio padre
+      return normalizedPath === brNormalized || normalizedPath.startsWith(brNormalized + "/")
+    })
+
+    if (!isInScope) {
+      return { content: [{ type: "text", text: JSON.stringify({
+        valid: false,
+        error: `File ${filePath} is OUTSIDE declared blast radius`,
+        reason: "OUT_OF_SCOPE",
+        blastRadius: blastRadiusFiles,
+        attemptedFile: normalizedPath,
+      }) }] }
+    }
+
+    return { content: [{ type: "text", text: JSON.stringify({ valid: true, blastRadius: blastRadiusFiles, filePath: normalizedPath }) }] }
+  },
+)
+
+// Helper: extraer archivos del blast radius desde task file
+function extractBlastRadiusFiles(taskFileContent) {
+  const files = []
+  // Buscar en sección "Blast Radius" tabla Callers/Callees
+  const blastRadiusMatch = taskFileContent.match(/## Blast Radius[\s\S]*?(?=## |\n---|\n===|$)/)
+  if (blastRadiusMatch) {
+    const section = blastRadiusMatch[0]
+    // Extraer paths de filas de tabla markdown | `path` |
+    const pathMatches = section.matchAll(/`([^`]+\.(?:rs|ts|js|py|md|json|toml|yaml|yml))`/g)
+    for (const m of pathMatches) files.push(m[1])
+    // También buscar paths sin backticks en tablas
+    const tablePaths = section.matchAll(/\|\s*([^|]+\.(?:rs|ts|js|py|md|json|toml|yaml|yml))\s*\|/g)
+    for (const m of tablePaths) files.push(m[1].trim())
+  }
+  // Buscar en "Impacto mapeado (Regla 0)" - archivos leídos/referenciados
+  const impactMatch = taskFileContent.match(/## Impacto mapeado \(Regla 0\)[\s\S]*?(?=## |\n---|\n===|$)/)
+  if (impactMatch) {
+    const section = impactMatch[0]
+    const pathMatches = section.matchAll(/`([^`]+\.(?:rs|ts|js|py|md|json|toml|yaml|yml))`/g)
+    for (const m of pathMatches) files.push(m[1])
+    const listPaths = section.matchAll(/-\s*`([^`]+\.(?:rs|ts|js|py|md|json|toml|yaml|yml))`/g)
+    for (const m of listPaths) files.push(m[1])
+  }
+  // Buscar en "Archivos clave" del plan file (fallback)
+  const keyFilesMatch = taskFileContent.match(/\*\*Archivos clave:\*\*\s*`([^`]+)`/)
+  if (keyFilesMatch) {
+    const keyFiles = keyFilesMatch[1].split(",").map(f => f.trim())
+    files.push(...keyFiles)
+  }
+  // Deduplicar y filtrar
+  return [...new Set(files)].filter(f => f && !f.includes(" "))
+}
 
 // ---------- Tool 1: campaign_get_next_task ----------
 
@@ -867,6 +992,7 @@ server.tool(
     expectedExitCode: z.number().optional().default(0).describe("Exit code esperado (default: 0)"),
     timeout: z.number().optional().default(300).describe("Timeout en segundos (default: 300)"),
     taskId: z.string().optional().describe("ID de tarea asociada para budget tracking"),
+    autoTransition: z.boolean().optional().default(false).describe("Si true y taskId proporcionado, actualiza estado automáticamente: pass → in-progress (next step), fail → in-progress + consecutiveFails++"),
   },
   async ({ command, expectedExitCode, timeout, taskId }) => {
     const validation = validateShellCommand(command)
@@ -934,11 +1060,36 @@ server.tool(
       }) + "\n", "utf-8")
     } catch { /* eval logging must never break verify */ }
 
+    let autoTransitionResult = null
+    if (autoTransition && taskId && passed) {
+      // Auto-transition on pass: update task state to in-progress (ready for next step)
+      try {
+        const planPath = findPlanFile(PROJECT_ROOT)
+        if (planPath) {
+          const transitionResult = updateTaskStateCore(planPath, taskId, "in-progress", {
+            activeGoal: taskId,
+            lastAction: `Verify passed: ${command}`,
+            result: "PARTIAL",
+            nextAction: "Next step",
+            contract: "verify passed, ready for next step",
+            nextTask: null,
+          }, PROJECT_ROOT)
+          autoTransitionResult = { transitioned: true, newState: "in-progress", traceId: transitionResult.traceId }
+        }
+      } catch (e) {
+        autoTransitionResult = { transitioned: false, error: e.message }
+      }
+    } else if (autoTransition && taskId && !passed) {
+      // On fail: stay in-progress but budget already consumed (consecutiveFails tracked in budget)
+      autoTransitionResult = { transitioned: false, reason: "verify failed, staying in-progress for retry" }
+    }
+
     return {
       content: [{ type: "text", text: JSON.stringify({
         passed, exitCode, expectedExitCode, elapsed: `${elapsed}s`, taskId: taskId || null, summary, budget: budgetCheck,
         stdout: stdout.length > 2000 ? stdout.slice(0, 2000) + `\n... [truncated, ${stdout.length} total chars]` : stdout,
         stderr: stderr.length > 1000 ? stderr.slice(0, 1000) + `\n... [truncated, ${stderr.length} total chars]` : stderr,
+        autoTransition: autoTransitionResult,
       }) }],
     }
   },
@@ -1039,6 +1190,133 @@ server.tool(
         skills: sorted, commands,
         checks: typeInfo.checks || [],
         estimate: typeInfo.estimate,
+      }, null, 2) }],
+    }
+  },
+)
+
+// ---------- Tool: campaign_discover_skills ----------
+//
+// Skill Discovery Protocol (SDP) unificado — automatiza el descubrimiento
+// de skills según fase (DEFINE/PLAN/BUILD/VERIFY/REVIEW/SHIP) + keywords
+// del contrato. Reemplaza el SDP manual en prompts.
+//
+// Flujo:
+// 1. detectType(archivosClave) → base skills por tipo
+// 2. Lifecycle mapping según phase → skills por fase
+// 3. Grep SKILLS-MANIFEST.md con keywords del contrato/título
+// 4. Merge + dedup + limit ≤8 + justificaciones
+
+const LIFECYCLE_SKILLS = {
+  DEFINE: [
+    { name: "spec-driven-development", trigger: "Nueva feature, API, cambio significativo — escribe spec/PRD antes de código" },
+    { name: "interview-me", trigger: "Requisitos ambiguos — extrae lo que el usuario realmente necesita" },
+    { name: "idea-refine", trigger: "Concepto vago → propuesta concreta" },
+  ],
+  PLAN: [
+    { name: "planning-and-task-breakdown", trigger: "Spec listo → tareas pequeñas, verificables, con dependencias" },
+  ],
+  BUILD: [
+    { name: "incremental-implementation", trigger: "Implementar en slices verticales delgados (test → code → verify → commit)" },
+    { name: "test-driven-development", trigger: "Lógica nueva, bugs — Red-Green-Refactor, pirámide 80/15/5" },
+    { name: "context-engineering", trigger: "Sesión nueva, tarea compleja — empaqueta contexto relevante para el agente" },
+    { name: "source-driven-development", trigger: "Decisiones de framework/library — verifica docs oficiales primero" },
+    { name: "doubt-driven-development", trigger: "Stakes altos (producción, seguridad) — verificación adversarial en contexto fresco" },
+    { name: "frontend-ui-engineering", trigger: "UI nueva o modificación en web/" },
+    { name: "api-and-interface-design", trigger: "APIs, boundaries de módulos, interfaces públicas" },
+  ],
+  VERIFY: [
+    { name: "systematic-debugging", trigger: "Tests fallan, builds rotos, comportamiento inesperado — root cause first (Iron Law)" },
+    { name: "browser-testing-with-devtools", trigger: "Depurar algo que corre en navegador (web/)" },
+  ],
+  REVIEW: [
+    { name: "code-review-and-quality", trigger: "Antes de mergear cualquier cambio — revisión en 5 ejes" },
+    { name: "code-simplification", trigger: "Código funciona pero es más complejo de lo necesario" },
+    { name: "security-and-hardening", trigger: "Input de usuario, auth, datos, integraciones externas" },
+    { name: "performance-optimization", trigger: "Requisitos de performance o regresiones sospechadas" },
+  ],
+  SHIP: [
+    { name: "git-workflow-and-versioning", trigger: "Siempre — commits atómicos, trunk-based, ~100 líneas por cambio" },
+    { name: "ci-cd-and-automation", trigger: "CI/CD pipelines, Shift Left, feature flags" },
+    { name: "shipping-and-launch", trigger: "Antes de deploy — checklists, rollout gradual, rollback" },
+    { name: "documentation-and-adrs", trigger: "Decisiones arquitectónicas, cambios de API, features nuevas" },
+    { name: "deprecation-and-migration", trigger: "Remover sistemas viejos, migrar usuarios, sunset features" },
+    { name: "observability-and-instrumentation", trigger: "Telemetría, logging estructurado, métricas RED" },
+  ],
+}
+
+function grepSkillsManifest(keywords) {
+  const manifestPath = join(PROJECT_ROOT, "SKILLS-MANIFEST.md")
+  if (!existsSync(manifestPath)) return []
+  const content = readFileSync(manifestPath, "utf-8")
+  const results = []
+  for (const kw of keywords) {
+    const regex = new RegExp(`^\\s*[-*]\\s+\`${kw}\`|^\\s*[-*]\\s+${kw}\\b|\\b${kw}\\b.*skill`, "gmi")
+    const matches = content.match(regex)
+    if (matches) {
+      // Extraer nombre de skill de la línea
+      for (const m of matches) {
+        const skillMatch = m.match(/`([^`]+)`|\b([a-z-]+(?:-development|-audit|-optimization|-engineering|-design|-hardening|-testing|-automation|-review|-simplification|-instrumentation))\b/gi)
+        if (skillMatch) {
+          for (const sm of skillMatch) {
+            const skill = sm.replace(/`/g, "")
+            if (skill && !results.includes(skill)) results.push(skill)
+          }
+        }
+      }
+    }
+  }
+  return results
+}
+
+server.tool(
+  "campaign_discover_skills",
+  {
+    archivosClave: z.string().describe("Campo 'Archivos clave' del plan file"),
+    phase: z.enum(["DEFINE", "PLAN", "BUILD", "VERIFY", "REVIEW", "SHIP"]).describe("Fase del lifecycle para mapping de skills"),
+    contractKeywords: z.array(z.string()).optional().describe("Keywords del contrato/título para grep en SKILLS-MANIFEST.md"),
+    extraSkills: z.array(z.string()).optional().describe("Skills adicionales a incluir"),
+    maxSkills: z.number().optional().default(8).describe("Máximo skills totales (default 8)"),
+  },
+  async ({ archivosClave, phase, contractKeywords, extraSkills, maxSkills }) => {
+    // 1. Base skills por tipo de archivos
+    const typeInfo = detectType(archivosClave)
+    const baseSkills = [...(typeInfo.skills || []), "campaign-executor", "progreso", "ponytail"]
+
+    // 2. Lifecycle mapping skills
+    const lifecycleSkills = (LIFECYCLE_SKILLS[phase] || []).map(s => s.name)
+
+    // 3. Grep SKILLS-MANIFEST.md con keywords
+    const kw = [...(contractKeywords || []), ...(typeInfo.label ? [typeInfo.label.toLowerCase()] : []), ...(archivosClave.split(/[\s,]+/).filter(w => w.length > 2))]
+    const manifestSkills = grepSkillsManifest(kw)
+
+    // 4. Merge + dedup
+    const allSkills = [...new Set([...baseSkills, ...lifecycleSkills, ...manifestSkills, ...(extraSkills || [])])]
+
+    // 5. Justificaciones
+    const justifications = {}
+    for (const s of baseSkills) justifications[s] = `base type: ${typeInfo.label}`
+    for (const s of lifecycleSkills) {
+      const ls = LIFECYCLE_SKILLS[phase]?.find(x => x.name === s)
+      justifications[s] = ls ? `lifecycle ${phase}: ${ls.trigger}` : `lifecycle ${phase}`
+    }
+    for (const s of manifestSkills) justifications[s] = `manifest grep: keyword match`
+    for (const s of extraSkills || []) justifications[s] = `extra: user-specified`
+
+    // 6. Limit y orden
+    const sortOrder = ["campaign-executor", "progreso", "ponytail"]
+    const sorted = [...sortOrder.filter(s => allSkills.includes(s)), ...allSkills.filter(s => !sortOrder.includes(s))].slice(0, maxSkills)
+
+    const skillsWithJustification = sorted.map(s => ({ name: s, justification: justifications[s] || "discovered" }))
+
+    return {
+      content: [{ type: "text", text: JSON.stringify({
+        type: typeInfo.type, label: typeInfo.label, phase,
+        skills: skillsWithJustification,
+        commands: sorted.map(s => `skill ${s}`),
+        checks: typeInfo.checks || [],
+        estimate: typeInfo.estimate,
+        baseSkills, lifecycleSkills, manifestSkills,
       }, null, 2) }],
     }
   },
@@ -1265,6 +1543,29 @@ server.tool(
         crossValid: !ps1Result || jsResult.valid === ps1Result.valid,
       }, null, 2) }],
     }
+  },
+)
+
+// ---------- Tool: campaign_validate_bash_write ----------
+//
+// Valida si un comando bash escribe archivos (para bloquear en RESEARCH state).
+// HIGH-013: classifyBashWrite implementado.
+
+server.tool(
+  "campaign_validate_bash_write",
+  {
+    command: z.string().describe("Comando bash a validar"),
+  },
+  async ({ command }) => {
+    const result = classifyBashWrite(command)
+    if (result.isWrite) {
+      return { content: [{ type: "text", text: JSON.stringify({
+        allowed: false,
+        reason: `Bash command performs file write operation (blocked in RESEARCH state)`,
+        matchedPatterns: result.patterns,
+      }, null, 2) }] }
+    }
+    return { content: [{ type: "text", text: JSON.stringify({ allowed: true, reason: "No file write detected" }) }] }
   },
 )
 
@@ -1670,6 +1971,79 @@ server.tool(
       }
     }
     return { content: [{ type: "text", text: JSON.stringify({ locks }, null, 2) }] }
+  },
+)
+
+// ---------- Tool: campaign_reconstruct_context ----------
+//
+// Reconstruye Context Save Point desde git diff + task file cuando el
+// sub-agente no escribió Context Save Point. Usado en SARL RESUME.
+
+server.tool(
+  "campaign_reconstruct_context",
+  {
+    taskId: z.string().describe("ID de la tarea"),
+    planFile: z.string().optional().describe("Ruta al plan file"),
+  },
+  async ({ taskId, planFile }) => {
+    const worktree = PROJECT_ROOT
+    const planPath = resolvePlan(planFile, worktree)
+    if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ error: "No plan file found" }) }] }
+
+    // 1. Leer task file para steps y Context Save Point
+    const opencodeRoot = resolve(worktree, ".opencode")
+    const taskFilePaths = [
+      join(opencodeRoot, "skills", "campaign-executor", "tasks", `${taskId}.md`),
+      join(opencodeRoot, "skills", "campaign-executor", "tasks", "complete", `${taskId}.md`),
+      join(opencodeRoot, "skills", "campaign-executor", "tasks", "closed", `${taskId}.md`),
+    ]
+    let taskFileContent = null
+    for (const tfp of taskFilePaths) {
+      if (existsSync(tfp)) {
+        taskFileContent = readFileSync(tfp, "utf-8")
+        break
+      }
+    }
+
+    // 2. Git diff para archivos modificados
+    let gitDiff = ""
+    try {
+      gitDiff = execSync("git diff --name-only", { cwd: worktree, encoding: "utf-8", timeout: 5000 }).trim()
+    } catch {}
+
+    // 3. Git log reciente para commits de esta tarea
+    let gitLog = ""
+    try {
+      gitLog = execSync(`git log --oneline -10 --grep="${taskId}"`, { cwd: worktree, encoding: "utf-8", timeout: 5000 }).trim()
+    } catch {}
+
+    // 4. Extraer Context Save Point del task file si existe
+    let contextSavePoint = null
+    if (taskFileContent) {
+      const cspMatch = taskFileContent.match(/## Context Save Point[\s\S]*?(?=## |\n---|\n===|$)/)
+      if (cspMatch) contextSavePoint = cspMatch[0].trim()
+    }
+
+    // 5. Extraer steps completados del task file
+    const completedSteps = []
+    if (taskFileContent) {
+      const stepMatches = taskFileContent.matchAll(/### Step \d+: \[([^\]]+)\][\s\S]*?-\s*\*\*Estado:\*\*\s*(✅|❌|⬜|⏳)/g)
+      for (const m of stepMatches) {
+        completedSteps.push({ name: m[1], status: m[2] })
+      }
+    }
+
+    return {
+      content: [{ type: "text", text: JSON.stringify({
+        taskId,
+        gitDiffFiles: gitDiff ? gitDiff.split("\n") : [],
+        gitLog: gitLog ? gitLog.split("\n") : [],
+        contextSavePoint,
+        completedSteps,
+        reconstructedAt: new Date().toISOString(),
+        confidence: contextSavePoint ? "high" : gitDiff ? "medium" : "low",
+      }, null, 2) }],
+    }
   },
 )
 
