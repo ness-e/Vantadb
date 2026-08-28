@@ -75,7 +75,15 @@ MIT: bge-*, multilingual-e5-small, bge-m3. Apache-2.0: all-MiniLM, jina-es, para
 
 ## Excepción >3 GB — Qwen3-Embedding-8B
 
-16 GB, GPU-only, MTEB v2 #1 Jun 2026 (75.1), Matryoshka 4096→1024. Solo HF; `download.py --include-exception` para incluirlo. En CI usar `--skip-exception`.
+> **Solo HF — 16 GB VRAM mínimo — GPU-only — `onnx: null`**
+
+- **Modelo:** `Qwen/Qwen3-Embedding-8B` — 8B params, dim **4096** (Matryoshka 4096→1024), MTEB v2 #1 Jun 2026 (**75.1**), EN+ES 100+ idiomas, Apache-2.0. Balance 3/3/3: 3 Combined incluye esta excepción.
+- **Formato:** solo HF pytorch (`*.safetensors`, `size_hf_mb: 16000`), **sin ONNX** (`onnx: null`, `size_onnx_mb: null`) — ONNX no recomendado / no oficial. Requiere `trust_remote_code=True` en `sentence_transformers` / `transformers` (Qwen3 usa código remoto custom).
+- **Requisitos:** GPU con ≥16 GB VRAM para inferencia. No apto para `ort` CPU; solo `sentence_transformers.SentenceTransformer(..., trust_remote_code=True)`.
+- **Descarga:** `python embeddings/download.py --include-exception` (o `--only qwen3-embedding-8b --include-exception`). Por defecto `--all` incluye la excepción; para CI liviano usar `--skip-exception` o `--all --skip-exception` (8 modelos ≤3 GB). Equivalente: `python embeddings/download.py --only qwen3-embedding-8b` (16 GB, requiere red + HF token si repo gated).
+- **Verificación:** `python embeddings/verify.py --only qwen3-embedding-8b` — HF-only check: `dim==4096`, `cosine("hola mundo","hello world")>0.70` (multi), `onnx=null`, `exception: ">3GB"`. Sin ONNX vs HF cosine (HF-only). Ver `verify.log` con `HF-only`.
+- **Bench:** solo con `python benchmarks/embed_bench.py --include-exception` (o `--models qwen3-embedding-8b --include-exception`). Por defecto bench omite Qwen3 (`--skip-exception` implícito si `--models all` sin flag) para no OOM en CI. Con flag: 9 modelos.
+- **Matryoshka:** embeddings 4096d pueden truncarse a 1024/2048 sin re-entrenar (Matryoshka Representation Learning) — útil para RRF híbrido con dims menores. Ver `docs/api/EMBEDDINGS.md` y `benchmarks/embed_bench.py` multi cosine.
 
 ## Env vars (para EMB-02)
 
