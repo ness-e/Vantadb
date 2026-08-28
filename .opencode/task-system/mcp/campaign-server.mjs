@@ -1665,7 +1665,7 @@ function stateAllowsWrites(stateKey) {
   return a.some(p => p === "edit" || p === "write" || p.startsWith("edit") || p.startsWith("write"))
 }
 
-function classifyBashWrite(cmd, stateKey) {
+function classifyBashWriteForState(cmd, stateKey) {
   if (!cmd || stateAllowsWrites(stateKey)) return null
   for (const seg of cmd.split(/&&|;|\||\r?\n/)) {
     for (const op of WRITE_OPS) {
@@ -1710,7 +1710,7 @@ server.tool(
         const ac = checkAllowedCommands(toolArgs.command, checkConfig.allowed_commands)
         if (ac) blocks.push(ac)
       } else {
-        const cls = classifyBashWrite(toolArgs.command, stateKey)
+        const cls = classifyBashWriteForState(toolArgs.command, stateKey)
         if (cls) blocks.push(cls)
       }
     }
