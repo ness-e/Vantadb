@@ -1,5 +1,6 @@
 # Plan de Ejecución: Master Pipeline Optimization — VantaDB
 
+> **Campaign ID:** cecc8468-9451-4d56-a3ef-1684e123ab8a
 > **Inicio:** 2026-08-28
 > **Estado:** ⏳ EN PROGRESO (re-ejecución para trazabilidad SARL)
 > **Fuente:** Análisis completo del sistema de ejecución de tareas y planes
@@ -44,7 +45,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 19 (MED-019 → DEFER)
   3. Performance: validación por cada tool call en ACT
 - **Uphill/Downhill:** ⬆️ 3 · ⬇️ 5
 - **DoD multi-nivel:** Task: verify mecánico + test manual; Commit: conventional + verify full; Release: changelog + docs
-- **Estado:** ⬜ PENDING (re-ejecución)
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/CORE-001.md`
 
 ---
@@ -564,4 +565,26 @@ Resultado: ✅
 Próxima acción: skill progreso → archivar plan a docs/plans/archive/ + migrar a docs/avance/
 Contrato: 20/20 contratos mecánicos pasan (node --check exit:0, grep counts 1, template 20)
 Próxima tarea si completa: ninguna — campaña cerrada
+=== END RECITATION ===
+
+=== RECITATION CORE-001 ===
+Campaign ID: cecc8468-9451-4d56-a3ef-1684e123ab8a
+Objetivo activo: CORE-001 — Scope Enforcement en ACT State
+Estado: completed
+Última acción: Step 3 VERIFY/CLOSE completado: node --check exit:0 ambos .mjs + grep 2/3/1 + cargo check/clippy/fmt 0 + scope in/out true/false (mjs fix) + commit c438f1a0
+Resultado: ✅
+Próxima acción: CORE-002 — campaign_validate_output en ACT (siguiente en plan secuencial)
+Contrato: Contrato: node --check campaign-server.mjs exit:0 ✅ + campaign_validate_scope válido en ACT (in-scope .opencode/task-system/mcp/campaign-server.mjs true / out-of-scope src/engine.rs OUT_OF_SCOPE true) + state-tools ACT note + iter-loop-tools ACT enforcement | verify: node --check 0.6s, grep 2/3/1, cargo check 0, fmt 0, clippy 0 | artefactos: .opencode/skills/campaign-executor/tasks/CORE-001.md, .opencode/task-system/mcp/campaign-server.mjs:430 | invariantes: validateAction firma preservada, STATE_TOOLS canonical, additive tool | deuda: ninguna
+Próxima tarea si completa: CORE-002
+=== END RECITATION ===
+
+=== RECITATION 1 ===
+Campaign ID: cecc8468-9451-4d56-a3ef-1684e123ab8a
+Objetivo activo: CORE-001 — Scope Enforcement en ACT State
+Estado: completed
+Última acción: Step 3 VERIFY/CLOSE completado: node --check exit:0 ambos .mjs + grep 2/3/1 + cargo check/clippy/fmt 0 + scope in/out true/false (mjs fix) + commit c438f1a0
+Resultado: ✅
+Próxima acción: CORE-002 — campaign_validate_output en ACT (siguiente en plan secuencial)
+Contrato: Contrato: node --check campaign-server.mjs exit:0 + campaign_validate_scope valido en ACT | verify: node --check 0.6s, grep 2/3/1, cargo check 0, fmt 0, clippy 0 | artefactos: CORE-001.md, campaign-server.mjs:430 | invariantes: validateAction firma preservada | deuda: ninguna
+Próxima tarea si completa: CORE-002
 === END RECITATION ===
