@@ -95,7 +95,7 @@ pub mod graphrag;
 pub mod hardware;
 pub mod index;
 pub mod integrations;
-#[cfg(feature = "remote-inference")]
+#[cfg(any(feature = "remote-inference", feature = "embed-local"))]
 pub mod llm;
 /// LSM-tree segment types and offset packing.
 pub(crate) mod lsm;

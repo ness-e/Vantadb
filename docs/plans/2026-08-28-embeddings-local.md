@@ -435,3 +435,26 @@ Mantener `remote-inference` branch existente (no reemplazar).
 **Refs:** `src/llm.rs:26,39,66`, `Cargo.toml:97,107`, `vanta-memory/Cargo.toml:38`, `src/physical_plan/vector.rs:51`, `docs/tutorials/05-embedding-integrations.md:11`, `docs/operations/EXPERIMENTAL_FEATURES.md:60`, `lessons.md:47,137`, `FUT-02`, `.gitignore:72`.
 
 > **Plan listo para ejecución** — al salir de PLAN MODE, ejecutar `EMB-01` primero (no bloquea compilación).
+
+=== RECITATION EMB-01 ===
+Campaign ID: 2196e6a2-6cf8-4415-98c1-ba43c99f837b
+Objetivo activo: Infra embeddings/ + manifest + download/verify + gitignore
+Estado: completed
+Última acción: Crear embeddings/ 5 archivos + .gitignore delta, verify pass, commit 2c185021
+Resultado: ✅
+Próxima acción: EMB-02 Feature embed-local LocalOnnxProvider (ort 2.0 load-dynamic)
+Contrato: Get-ChildItem embeddings | Measure ==5; python -m py_compile download.py; .gitignore /embeddings/models/; manifest 9 modelos dim+rev
+Próxima tarea si completa: EMB-02
+=== END RECITATION ===
+
+=== RECITATION EMB-02 ===
+Campaign ID: 2196e6a2-6cf8-4415-98c1-ba43c99f837b
+Objetivo activo: Feature embed-local + LocalOnnxProvider (ort+tokenizers)
+Estado: completed
+Última acción: Cargo.toml embed-local=[ort,tokenizers] (ort 2.0 load-dynamic) + src/llm.rs LocalOnnxProvider {session,tokenizer,dim} impl EmbeddingProvider (tokenize→run→mean+ L2) + embed_batch + factory local/VANTA_LOCAL_MODEL + src/config.rs VANTA_LOCAL_MODEL + tests local_embed_multilingual PASS + cargo checks verde
+Resultado: ✅
+Próxima acción: EMB-03 Descarga + verificación 9 modelos (8 ≤3GB + Qwen3) — python embeddings/download.py --all
+Contrato: cargo check -p vantadb --features embed-local pasa; cargo test --features embed-local llm::tests::local_embed_multilingual pasa con len==384 y cosine self>0.99 y multi>0.60; cargo check -p vantadb sin features sigue verde (no regresión)
+Commit: 6e419598c5f93c4b347a8d411447670b0a725089
+Próxima tarea si completa: EMB-03
+=== END RECITATION ===

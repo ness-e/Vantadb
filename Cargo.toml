@@ -48,6 +48,8 @@ fjall = { version = "3.1", optional = true }
 # ── Async + Integrations + Server ──
 crc32c = "0.5"
 reqwest = { version = "0.12", features = ["json", "blocking"], optional = true }
+ort = { version = "2.0.0-rc.13", optional = true, features = ["load-dynamic"] }
+tokenizers = { version = "0.22", optional = true }
 serde_json = "1.0"
 prometheus = { version = "0.14", optional = true }
 pyo3 = { version = "0.29", features = ["extension-module", "chrono"], optional = true }
@@ -105,6 +107,7 @@ roaring = ["dep:croaring"]
 cli = ["dep:indicatif", "dep:console", "dep:clap", "dep:clap_complete"]
 failpoints = ["dep:fail", "dep:tempfile"]
 remote-inference = ["dep:reqwest"]
+embed-local = ["dep:ort", "dep:tokenizers"]
 python_sdk = ["pyo3"]
 custom-allocator = ["mimalloc"]
 jemalloc = ["dep:tikv-jemallocator", "dep:tikv-jemalloc-ctl", "tikv-jemalloc-ctl/stats"]

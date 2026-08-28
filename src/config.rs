@@ -231,6 +231,9 @@ pub struct VantaConfig {
     pub llm_model: String,
     /// Model name for LLM summarisation.
     pub llm_summarize_model: String,
+    /// Local ONNX model directory for `embed-local` (e.g. `embeddings/models/multilingual-e5-small/onnx`).
+    /// Configured via `VANTA_LOCAL_MODEL`.
+    pub local_model_path: String,
     /// Optional memory limit in bytes.
     pub memory_limit: Option<u64>,
     /// If true, the engine operates in read-only mode.
@@ -557,18 +560,24 @@ impl Default for VantaConfig {
                 debug!(val = %v, "VANTA_LLM_SUMMARIZE_MODEL");
                 v
             },
+            local_model_path: {
+                let v = env::var("VANTA_LOCAL_MODEL")
+                    .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());
+                debug!(val = %v, "VANTA_LOCAL_MODEL");
+                v
+            },
             memory_limit: {
                 let v = match env::var("VANTADB_MEMORY_LIMIT") {
                     Ok(raw) => match parse_memory_limit(&raw) {
                         Ok(bytes) => Some(bytes),
                         Err(e) => {
-                            warn!("Invalid VANTADB_MEMORY_LIMIT={:?} ({}) — ignoring", raw, e);
+                            warn!("Invalid VANTADB_MEMORY_LIMIT={:?} ({}) - ignoring", raw, e);
                             None
                         }
                     },
                     Err(env::VarError::NotPresent) => None,
                     Err(env::VarError::NotUnicode(_)) => {
-                        warn!("Non-Unicode value for VANTADB_MEMORY_LIMIT — ignoring");
+                        warn!("Non-Unicode value for VANTADB_MEMORY_LIMIT - ignoring");
                         None
                     }
                 };
@@ -1025,6 +1034,12 @@ impl VantaConfig {
     pub fn with_tls(mut self, cert_path: String, key_path: String) -> Self {
         self.tls_cert_path = Some(cert_path);
         self.tls_key_path = Some(key_path);
+        self
+    }
+
+    /// Sets the local ONNX model path for `embed-local`.
+    pub fn with_local_model_path(mut self, path: String) -> Self {
+        self.local_model_path = path;
         self
     }
 
