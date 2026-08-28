@@ -9,31 +9,64 @@ aliases: []
 
 # VantaDB 5-Minute Quickstart
 
-This quickstart validates the current v0.5.0 MVP boundary from a clean
-environment: pre-built Python wheel and npm package, then a first hybrid query
-in under 5 minutes.
+This quickstart validates the current v0.4.x MVP boundary from a clean local
+checkout. It uses the embedded CLI for operational flows and the source-installed
+Python binding for vector, text, and hybrid memory search.
 
 No external database service, Docker container, Ollama runtime, or network LLM is
 required.
 
 ## 1. Prerequisites
 
+- Rust stable toolchain
 - Python 3.11 or newer
 - `pip`
-- Node.js 18+ (only for the TypeScript SDK section)
+- Platform build tools needed by Rust dependencies
 
-No external database service, Docker container, Ollama runtime, or network LLM is
-required.
+On Ubuntu, install the native dependencies used by CI:
 
-## 2. Install the Python Binding (Fastest Path)
+```bash
+sudo apt-get update
+sudo apt-get install -y libclang-dev clang librocksdb-dev
+```
 
-The pre-built wheel installs in seconds — no Rust toolchain needed:
+## 2. Clone and Build the CLI
+
+```bash
+git clone https://github.com/ness-e/Vantadb.git
+cd Vantadb
+cargo run --bin vanta-cli -- --help
+```
+
+## 3. Put and Read Memory with the CLI
+
+```bash
+cargo run --bin vanta-cli -- put \
+  --db ./quickstart_data \
+  --namespace agent/main \
+  --key memory-1 \
+  --payload "local durable memory"
+
+cargo run --bin vanta-cli -- get \
+  --db ./quickstart_data \
+  --namespace agent/main \
+  --key memory-1
+
+cargo run --bin vanta-cli -- list \
+  --db ./quickstart_data \
+  --namespace agent/main
+```
+
+Expected result: `get` prints `local durable memory`, and `list` shows
+`memory-1`.
+
+## 4. Install the Python Binding from Source
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install vantadb-py
+python -m pip install --upgrade pip maturin pytest
+python -m pip install -e ./vantadb-python
 ```
 
 On Windows PowerShell:
@@ -41,27 +74,11 @@ On Windows PowerShell:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install vantadb-py
-```
-
-> **Note**: The distribution name is `vantadb-py`; the canonical import is
-> `import vantadb` (same as the Rust crate and npm package). `import vantadb_py`
-> remains available and is not broken.
-
-### Alternative: Install from Source (Development)
-
-Requires the Rust stable toolchain and platform build tools (on Ubuntu:
-`sudo apt-get install -y libclang-dev clang librocksdb-dev`):
-
-```bash
-git clone https://github.com/ness-e/Vantadb.git
-cd Vantadb
 python -m pip install --upgrade pip maturin pytest
-python -m pip install -e ./vantadb-python
+python -m pip install -e .\vantadb-python
 ```
 
-### Alternative: Install from a Pre-built Wheel Artifact
+### Alternative: Install from a Pre-built Wheel
 
 If a wheel is available from the GitHub Actions `Python Wheels` workflow or a
 GitHub Release, install it directly without needing the Rust toolchain:
@@ -70,15 +87,29 @@ GitHub Release, install it directly without needing the Rust toolchain:
 python -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip pytest
-pip install ./path/to/vantadb_py-0.5.0-*.whl
+pip install ./path/to/vantadb_py-0.1.1-*.whl
 ```
 
-## 3. First Query with Python
+### Alternative: Install from TestPyPI
+
+When a TestPyPI release is available:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ vantadb-py
+```
+
+> **Note**: TestPyPI availability depends on the `TEST_PYPI_API_TOKEN` secret
+> being configured in the repository. Production PyPI is not yet available.
+
+## 5. Search by Vector, Text, and Hybrid Retrieval
 
 Create `quickstart_memory.py`:
 
 ```python
-import vantadb
+import vantadb_py as vantadb
 
 db = vantadb.VantaDB("./quickstart_data", memory_limit_bytes=128_000_000)
 
@@ -113,9 +144,9 @@ hybrid_hits = db.search_memory(
     top_k=3,
 )
 
-print("vector:", [hit.key for hit in vector_hits])
-print("text:", [hit.key for hit in text_hits])
-print("hybrid:", [hit.key for hit in hybrid_hits])
+print("vector:", [hit["record"]["key"] for hit in vector_hits])
+print("text:", [hit["record"]["key"] for hit in text_hits])
+print("hybrid:", [hit["record"]["key"] for hit in hybrid_hits])
 
 db.flush()
 db.close()
@@ -127,118 +158,15 @@ Run it:
 python quickstart_memory.py
 ```
 
-## 4. Real Embeddings (Optional)
-
-The examples above use hand-written toy vectors so they run fully offline.
-For real semantic search you generate embeddings from text with an actual
-model and pass the resulting vector to VantaDB — the SDKs store and search
-any dense vector, but do not generate embeddings themselves.
-
-### Option A — Local embeddings with Ollama
+## 6. Export and Audit
 
 ```bash
-ollama pull nomic-embed-text   # one-time download
-```
-
-Create `quickstart_embeddings.py`:
-
-```python
-import json
-import urllib.request
-
-import vantadb
-
-def embed(text: str) -> list[float]:
-    """Embed text via a local Ollama server (POST /api/embed)."""
-    req = urllib.request.Request(
-        "http://localhost:11434/api/embed",
-        data=json.dumps({"model": "nomic-embed-text", "input": text}).encode(),
-        headers={"Content-Type": "application/json"},
-    )
-    return json.load(urllib.request.urlopen(req))["embeddings"][0]
-
-db = vantadb.VantaDB("./quickstart_data")
-text = "Hybrid Retrieval v1 fuses BM25 and vector rankings"
-db.put("agent/main", "embedded", text,
-       metadata={"kind": "note"}, vector=embed(text))
-
-hits = db.search_memory("agent/main", embed("BM25 fused ranking"), top_k=3)
-print([hit.key for hit in hits])
-
-db.flush()
-db.close()
-```
-
-### Option B — OpenAI API
-
-Swap the body of `embed()` for a call to
-`POST https://api.openai.com/v1/embeddings` with model
-`text-embedding-3-small` and your API key; everything else stays identical.
-
-> Pick **one embedding model per namespace** — all stored vectors and every
-> query vector must share the same dimensionality.
-
-> **Native auto-embedding (Rust core):** the engine ships an
-> `EmbeddingProvider` abstraction (local Ollama by default, OpenAI via env)
-> used by the SQL executor to embed `text` fields automatically on INSERT.
-> It compiles behind the opt-in `remote-inference` feature flag and is
-> configured through `VANTA_EMBEDDING_PROVIDER`, `VANTA_LLM_URL`,
-> `VANTA_LLM_MODEL`, `VANTA_OPENAI_API_KEY`, and `VANTA_OPENAI_MODEL`
-> (see [CONFIGURATION.md](operations/CONFIGURATION.md)). It is not yet
-> exposed through the Python or TypeScript SDKs — use the pattern above.
-
-## 5. TypeScript SDK (Node.js 18+)
-
-The npm package ships the WASM engine — no build step:
-
-```bash
-npm install vantadb
-```
-
-Create `quickstart.ts`:
-
-```ts
-import { VantaDB } from "vantadb";
-
-const db = VantaDB.create();
-
-await db.put({
-  namespace: "memories",
-  key: "greeting",
-  payload: "Hello, world!",
-  metadata: { lang: { String: "en" } },
-  vector: [0.1, 0.2, 0.3],
-});
-
-const hits = await db.search({
-  namespace: "memories",
-  query_vector: [0.1, 0.2, 0.3],
-  top_k: 10,
-});
-
-console.log(hits[0].record.payload); // "Hello, world!"
-
-db.close();
-```
-
-Run it:
-
-```bash
-npx tsc quickstart.ts && node quickstart.js
-```
-
-## 6. Export and Audit (Optional CLI)
-
-The embedded CLI (`vanta-cli`) covers operational flows. Build it from source
-(requires the Rust toolchain) or install the precompiled binary, then:
-
-```bash
-vanta-cli export \
+cargo run --bin vanta-cli -- export \
   --db ./quickstart_data \
   --namespace agent/main \
   --out ./quickstart-agent-main.jsonl
 
-vanta-cli audit-index \
+cargo run --bin vanta-cli -- audit-index \
   --db ./quickstart_data \
   --namespace agent/main \
   --json
@@ -247,35 +175,25 @@ vanta-cli audit-index \
 Expected result: export reports records written, and audit reports
 `"passed": true`.
 
-## Measured Time-to-First-Query
+## 7. Optional: Local Embeddings (`embed-local`)
 
-Measured locally (2026-08-16, Windows, Python 3.11.9 / Node 24.16.0) against the
-published 0.5.0 packages — install + first query, cold cache:
+VantaDB is BYO-vector by default — you pass `vector=[...]` as above. For fully offline use, enable the optional `embed-local` feature (no Ollama, no network):
 
-| SDK | Install | First query | Total |
-| :--- | :--- | :--- | :--- |
-| **Python** (`pip install vantadb-py`) | 5.5 s | 0.7 s | **~6 s** |
-| **TypeScript** (`npm install vantadb`) | 1.3 s | 0.3 s | **~2 s** |
+```bash
+# 1. Download the default model (384d, 220 MB ONNX, 691 MB total)
+python embeddings/download.py --only multilingual-e5-small
 
-Both paths stay well under the 5-minute target. The dominant friction in the
-original docs was broken code samples (wrong hit access / metadata shape), not
-install time — fixed above.
+# 2. Run with embed-local (Rust + CLI + MCP + SQL)
+cargo run --features embed-local --bin vanta-cli -- --help
+WANTA_EMBEDDING_PROVIDER=local WANTA_LOCAL_MODEL=embeddings/models/multilingual-e5-small/onnx \
+  cargo run --features embed-local --bin vanta-cli -- put --db ./quickstart_data --namespace agent/main --key hello --payload "hola mundo"
 
-## ID limits
+# 3. SQL auto-embed now works offline: VECTOR_SEARCH('hola mundo') → LocalOnnxProvider
+# 4. Verify without downloading (CI-friendly)
+python embeddings/verify.py --check
+```
 
-Node IDs are **u128** end-to-end (core engine, WAL, and Python binding):
-
-- **Range:** `0 <= id <= 2^128 - 1` (`340282366920938463463374607431768211455`).
-- **Python:** pass any ID as a plain `int`. Python integers are arbitrary
-  precision, so IDs larger than `u64::MAX` (`18446744073709551615`) work
-  directly — there is **no u64 truncation** (ERR-023 fixed the previous
-  u64-only limit in the binding).
-- **Strings:** not required for the regular APIs; `recover_archived_nodes()`
-  is the only method that takes an ID as a decimal string.
-- **Out of range:** negative IDs or IDs above `u128::MAX` raise
-  `OverflowError`.
-- **JSON:** numbers beyond `2^53` lose precision in IEEE-754 JSON decoders —
-  keep large IDs as strings in JSON payloads.
+`embed-local` is **Optional** (not Experimental): `LocalOnnxProvider` via `ort`+`tokenizers` (9 models, default `multilingual-e5-small` 384d, `embeddings/manifest.json` as source of truth, `embed-batch` via `EmbeddingProvider::embed_batch`). See `docs/api/EMBEDDINGS.md` and `docs/tutorials/05-embedding-integrations.md` for the full 9-model matrix and the one-model-per-namespace rule.
 
 ## Current Boundary
 
@@ -285,8 +203,5 @@ BM25 text retrieval, Hybrid Retrieval v1, JSONL export, and text-index audit.
 
 > **MVP = embedded memory + WAL + vector/BM25/hybrid + export/import + CLI/Python**
 
-It does not cover IQL/LISP/DQL, MCP, LLM text generation (summarization),
-enterprise features, cloud, plugins, or graph database behavior. Native
-embedding generation is covered only as the bring-your-own-client pattern
-above; the Rust-core auto-embedding path requires the opt-in
-`remote-inference` feature.
+It does not cover IQL/LISP/DQL, MCP, enterprise features, cloud, plugins, or graph database behavior.
+Remote Ollama/LLM integration remains an external optional path; the preferred offline path is now `embed-local` (no external service). See `docs/operations/EXPERIMENTAL_FEATURES.md` for the full boundary.

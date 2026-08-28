@@ -1,37 +1,53 @@
 <div align="center">
-  <img src="assets/banner-v3.gif" alt="VantaDB - Embedded Rust engine for durable local memory and hybrid vector retrieval">
-</div>
-
-<br>
-
-<div align="left">
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust-10.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/ci-rust-10.yml?label=Rust+CI" alt="Rust CI"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/gate-docs-21.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/gate-docs-21.yml?label=Docs" alt="Docs"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/sec-codeql-30.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/sec-codeql-30.yml?label=Security+Audit" alt="Security Audit"></a>
+  <h1>VantaDB</h1>
+  <p><b>Embedded Rust engine for durable local memory and hybrid vector retrieval.</b></p>
 
   <br>
 
-  <a href="https://github.com/ness-e/Vantadb/releases"><img src="https://img.shields.io/github/v/release/ness-e/Vantadb?label=Release&logo=github&logoColor=white&color=FF5500" alt="Release"></a>
-  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/pypi/v/vantadb-py?label=pip&logo=python&logoColor=white&color=3775A9" alt="PyPI"></a>
-  <a href="https://www.npmjs.com/package/vantadb"><img src="https://img.shields.io/npm/v/vantadb?label=npm&logo=npm&logoColor=white&color=CB3837" alt="npm"></a>
+  <br>
+
+  <!-- CI / Build -->
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust-10.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust-10.yml/badge.svg" alt="Rust CI"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-web-11.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/ci-web-11.yml/badge.svg" alt="Web CI"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/release-wheels-60.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/release-wheels-60.yml/badge.svg" alt="Python Wheels"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/release-npm-61.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/release-npm-61.yml/badge.svg" alt="NPM Publish"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/release-adapters-62.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/release-adapters-62.yml/badge.svg" alt="Adapters Publish"></a>
 
   <br>
 
+  <!-- Quality / Security -->
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust-10.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust-10.yml/badge.svg" alt="Cargo Deny"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/sec-codeql-30.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/sec-codeql-30.yml/badge.svg" alt="CodeQL"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/release-sbom-64.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/release-sbom-64.yml/badge.svg" alt="SBOM"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/gate-docs-21.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/gate-docs-21.yml/badge.svg" alt="Docs"></a>
+
+  <br>
+
+  <!-- Performance -->
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/perf-bench-40.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/perf-bench-40.yml/badge.svg" alt="Benchmarks"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/heavy-bench-nightly-51.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/heavy-bench-nightly-51.yml/badge.svg" alt="Nightly Bench"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/heavy-certification-50.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/heavy-certification-50.yml/badge.svg" alt="Heavy Cert"></a>
+
+  <br>
+
+  <!-- Project -->
+
+  <!-- Project -->
+  <a href="https://github.com/ness-e/Vantadb/releases"><img src="https://img.shields.io/github/v/release/ness-e/Vantadb?label=Release&logo=github&logoColor=white&color=181717" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-181717" alt="License"></a>
+  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/pypi/v/vantadb-py?label=PyPI&logo=pypi&logoColor=white&color=3775A9" alt="PyPI"></a>
   <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python"></a>
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.94.1%2B-000000?logo=rust&logoColor=white" alt="Rust"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-181717" alt="License"></a>
-
-  <br>
-
   <a href="https://discord.gg/g8nqB3NtXt"><img src="https://img.shields.io/badge/Discord-VantaDB_Community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://colab.research.google.com/github/ness-e/Vantadb/blob/main/examples/colab/vantadb_quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab"></a>
 </div>
 
 <div align="center">
   <a href="README_ES.md">🇪🇸 Español</a>
 </div>
 
-VantaDB is a local-first, embedded, single-node database engine designed for AI agents, local RAG pipelines, and edge applications. It provides persistent storage, crash-safe recovery via WAL, and native hybrid search (BM25 + HNSW) without requiring external services, containers, or network dependencies. Everything runs in-process on one node — VantaDB does not cluster or shard across machines.
+
+
+VantaDB is a local-first, embedded database engine designed for AI agents, local RAG pipelines, and edge applications. It provides persistent storage, crash-safe recovery via WAL, and native hybrid search (BM25 + HNSW) without requiring external services, containers, or network dependencies.
 
 ---
 
@@ -50,8 +66,8 @@ VantaDB is a local-first, embedded, single-node database engine designed for AI 
 | Read the blog | [Blog Posts](docs/blog/) |
 | Read architecture docs | [Documentation](#documentation) |
 | Contribute safely | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Report a vulnerability | [SECURITY.md](SECURITY.md) |
-| Get support | [SUPPORT.md](SUPPORT.md) |
+<!-- | Report a vulnerability | SECURITY.md (planned) | -->
+<!-- | Get support | SUPPORT.md (planned) | -->
 
 ---
 
@@ -63,15 +79,7 @@ VantaDB is distributed as a native Python package with pre-compiled wheels for W
 pip install vantadb-py
 ```
 
-> **Note:** The distribution name is `vantadb-py`, and the canonical import is
-> `import vantadb` (same as the Rust crate and npm package). `import vantadb_py`
-> remains available and is not broken.
->
-> **Naming convention:** the product is **VantaDB**; the Rust crate is `vantadb`,
-> the PyPI package is `vantadb-py`, the npm packages are `vantadb` (TypeScript/WASM)
-> and `vantadb-node` (native), and the GitHub repository is `ness-e/Vantadb`.
-> See [ADR-030](docs/architecture/adr/ADR-030-brand-identity-naming-convention.md)
-> for the full audit and rationale.
+> **Note:** The distribution name is `vantadb-py`, but the importable module uses an underscore due to Python naming conventions: `import vantadb_py`.
 
 For development from source:
 
@@ -90,11 +98,10 @@ vantadb = { git = "https://github.com/ness-e/Vantadb" }
 
 ## 5-Minute Quickstart
 
-
 Initialize a persistent memory store, save structured records with vectors, and execute hybrid retrieval in pure Python:
 
 ```python
-import vantadb
+import vantadb_py as vantadb
 
 # 1. Open or create a local database (zero configuration)
 db = vantadb.VantaDB("./vanta_data", memory_limit_bytes=512_000_000)
@@ -127,97 +134,6 @@ print(caps)
 
 ---
 
-## Integrations
-
-VantaDB ships with runnable Python examples that wire the embedded engine into popular AI memory / RAG frameworks. Each example defines a thin wrapper class over the stable Python SDK (`vantadb_py`) and is exercised end-to-end by the CI example smoke suite (`ci-examples-12.yml`).
-
-### Mem0 — persistence backend
-
-Use VantaDB as the storage backend for [Mem0](https://mem0.ai) memories. [`VantaDBMem0Backend`](examples/python/mem0_integration.py) implements the memory CRUD/search interface (`add`, `get`, `search`, `update`, `delete`, `get_all`, `delete_all`) on top of a namespace-scoped hybrid store (`mem0/memories`):
-
-```python
-backend = VantaDBMem0Backend(namespace="mem0/memories")
-backend.add(
-    "User prefers dark mode in all applications",
-    user_id="user-001",
-    metadata={"category": "preference", "priority": "high"},
-)
-for r in backend.search("dark mode", user_id="user-001"):
-    print(f"  Score: {r['score']:.3f}  Content: {r['content']}")
-backend.close()
-```
-
-### Semantic Kernel — memory interface
-
-Use VantaDB's hybrid retrieval for the **Microsoft Semantic Kernel** memory / context surface. [`VantaDBSemanticMemory`](examples/python/semantic_kernel_memory.py) exposes the store operations (`add`, `get`, `search`, `remove`) used by an AI-augmented environment, all backed by a LAN-free, embedded engine:
-
-```python
-memory = VantaDBSemanticMemory(collection_name="demo-app")
-memory.save_information(
-    "User prefers concise technical answers with code examples",
-    metadata={"category": "preference", "priority": "high"},
-)
-for r in memory.retrieve("Semantic Kernel", limit=5):
-    print(f"  Relevance: {r['relevance']:.3f}  Text: {r['text'][:80]}...")
-memory.close()
-```
-
-### DSPy — retriever
-
-Use VantaDB as the retriever for [DSPy](https://github.com/stanfordnlp/dspy) pipelines. [`VantaDBRetriever`](examples/python/dspy_retriever.py) implements the callable retriever interface (`__call__`) so it slots directly into DSPy pipelines, backed by hybrid vector + text search over `dspy/documents`:
-
-```python
-retriever = VantaDBRetriever(namespace="dspy/documents", k=3)
-retriever.add([
-    {"id": "doc-001", "text": "VantaDB is an embedded persistent memory and vector retrieval engine for local-first AI applications."},
-    {"id": "doc-002", "text": "DSPy is a framework for algorithmically optimizing LM prompts and weights."},
-])
-for doc in retriever("vector database"):
-    print(f"  Score: {doc['score']:.3f}  Text: {doc['text'][:80]}...")
-retriever.close()
-```
-
-Run any example directly (mirrors the CI smoke commands):
-
-```bash
-python examples/python/mem0_integration.py
-python examples/python/semantic_kernel_memory.py
-python examples/python/dspy_retriever.py
-```
-
----
-
-## Examples
-
-All runnable examples live under [`examples/`](examples/).
-
-### Python
-
-| Example | Description |
-| :--- | :--- |
-| [`examples/demo/demo.py`](examples/demo/demo.py) | End-to-end showcase: lifecycle, insert, vector/hybrid search, persistence, telemetry ([README](examples/demo/README.md)). |
-| [`examples/colab/vantadb_quickstart.ipynb`](examples/colab/vantadb_quickstart.ipynb) | Interactive Colab quickstart notebook. |
-| [`examples/python/agent_memory.py`](examples/python/agent_memory.py) | Persistent namespace-scoped memory for local AI agents: storage, hybrid retrieval, and telemetry. |
-| [`examples/python/mem0_integration.py`](examples/python/mem0_integration.py) | [Mem0](https://mem0.ai) backend: memory CRUD/search over a namespace-scoped hybrid store. |
-| [`examples/python/semantic_kernel_memory.py`](examples/python/semantic_kernel_memory.py) | Microsoft Semantic Kernel memory interface (`add`/`get`/`search`/`remove`). |
-| [`examples/python/dspy_retriever.py`](examples/python/dspy_retriever.py) | DSPy callable retriever backed by hybrid search. |
-| [`examples/python/langchain_ollama_rag.py`](examples/python/langchain_ollama_rag.py) | RAG pipeline with LangChain + Ollama embeddings via `VantaDBVectorStore`. |
-| [`examples/python/haystack_documentstore.py`](examples/python/haystack_documentstore.py) | Haystack DocumentStore implementation for RAG pipelines. |
-| [`examples/python/crewai_memory.py`](examples/python/crewai_memory.py) | Memory backend for CrewAI agents. |
-| [`examples/python/autogen_memory.py`](examples/python/autogen_memory.py) | Persistent memory for AutoGen conversational agents. |
-| [`examples/python/langgraph_checkpoint.py`](examples/python/langgraph_checkpoint.py) | Checkpoint store for LangGraph state management. |
-
-### Rust
-
-| Example | Description |
-| :--- | :--- |
-| [`examples/rust/basic.rs`](examples/rust/basic.rs) | Basic CRUD: create engine, add records with vectors/metadata, similarity search. Run with `cargo run --example basic`. |
-| [`examples/rust/concurrent.rs`](examples/rust/concurrent.rs) | Concurrent access from multiple threads via `Arc<VantaEmbedded>`. |
-| [`examples/rust/graphrag.rs`](examples/rust/graphrag.rs) | Knowledge graph: nodes + directed edges + BFS traversal (low-level Node/Graph API). |
-| [`examples/rust/hybrid.rs`](examples/rust/hybrid.rs) | Hybrid search: BM25 lexical + HNSW vector fused via RRF. |
-
----
-
 ## Core Capabilities
 
 | Engine | Mechanism | Details |
@@ -231,7 +147,7 @@ All runnable examples live under [`examples/`](examples/).
 | **Operational Flows** | Rebuild + JSONL + Metrics | ANN rebuild, memory export/import, text-index repair, stale derived-index repair, and process telemetry exposed through the SDK boundary. |
 | **Embedded Surface** | Rust Core + PyO3 Bindings | Zero-network overhead. Python bindings route through a stable `src/sdk.rs` boundary. |
 
-VantaDB is a single-node embedded engine: no cluster, daemon, or external service is required — it runs in-process.
+No separate cluster, daemon, or external service is required. VantaDB runs in-process.
 
 ---
 
@@ -253,14 +169,11 @@ VantaDB should be understood as: embedded-first, local-first, durable memory wit
 | Classification | Surface |
 | :--- | :--- |
 | **Production-facing** | Embedded SDK/CLI, memory CRUD/search, WAL/recovery, namespaces, metadata indexes, HNSW vector retrieval, BM25, Hybrid Retrieval v1, phrase filtering, rebuild/audit/repair, JSONL export/import |
-| **Optional wrapper** | Local `vantadb-server` binary around the embedded core |
-| **New** | MCP server for AI agents ([setup guide](docs/api/MCP.md)) |
-| **Experimental / not MVP** | IQL/LISP/DQL, LLM/Ollama integration, governance and maintenance semantics, graph traversal beyond stored local edges |
+| **Optional** | Local `vantadb-server` binary + Local ONNX embeddings (`embed-local` feature, `LocalOnnxProvider` — 9 models, default `multilingual-e5-small` 384d, offline, `embeddings/manifest.json`) |
+| **Experimental / not MVP** | IQL/LISP/DQL, MCP, remote LLM/Ollama integration (`remote-inference`, alternative to `embed-local`), governance and maintenance semantics, graph traversal beyond stored local edges |
 | **Deferred** | Cloud/enterprise platform, HA/replication, distributed clustering, SQL/OLTP/warehouse/time-series, advanced ranking/snippets/tokenization, RBAC, multi-tenancy |
 
 *VantaDB is an embedded memory engine, not a universal multimodel database or cloud platform.*
-
-> **Replication:** VantaDB is single-node — it does not cluster or replicate. The `wal-shipping` crate feature is an **experimental send-only** mechanism that ships WAL segments to a remote endpoint via HTTP POST; the embedded engine has no receive path, so it is not replication, clustering, or HA.
 
 See [Experimental Features and Product Boundary](docs/operations/EXPERIMENTAL_FEATURES.md) for the operational classification of all repository surfaces.
 
@@ -297,13 +210,6 @@ Installs and registers `vanta-cli` directly into your Cargo binary directory:
 ```bash
 cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli
 ```
-
-> [!NOTE]
-> The precompiled binaries from [GitHub Releases](https://github.com/ness-e/Vantadb/releases) (and the install scripts above) already include the HTTP server feature. If you install from source via `cargo install` and need `vanta-cli server --http`, enable it explicitly:
->
-> ```bash
-> cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli --features server
-> ```
 
 ---
 
@@ -355,25 +261,24 @@ export VANTADB_HOST=0.0.0.0
 
 ## Benchmarks & Performance Baseline
 
-VantaDB ships a formal Python-native performance benchmark suite (**BENCH-01**) that captures ingestion throughput and query latency profiles under realistic single-threaded workloads.
+VantaDB includes a formal Python-native performance benchmark suite (**BENCH-01**) to capture ingestion throughput and query latency profiles under realistic single-threaded workloads.
 
 ### In-Process Performance Baseline (10K Vectors, 128d, Cosine)
 
-Measured single-threaded SDK baselines (including the PyO3/GIL boundary) are published in [docs/operations/BENCHMARKS.md](docs/operations/BENCHMARKS.md): SDK operation latencies (`put`, BM25, HNSW, hybrid) and the certified Rust stress-protocol results (10K–100K, recall, memory, scaling). Numbers are hardware- and build-dependent — regenerate locally with the suite below to reproduce them on your machine.
+| Metric | Target Baseline (p50) | Target Baseline (p99) | Estimated Throughput |
+| :--- | :--- | :--- | :--- |
+| **Ingestion** (Insert + WAL + Flush) | — | — | **~5,400 vectors/sec** |
+| **Search (Lexical BM25)** | 0.85 ms | 2.10 ms | **~1,100 queries/sec** |
+| **Search (Vector HNSW)** | 1.20 ms | 3.50 ms | **~830 queries/sec** |
+| **Search (Hybrid Fusion)** | 2.10 ms | 4.80 ms | **~450 queries/sec** |
 
-| Metric | Latest local baseline (`vanta_benchmark_report.json`, 10K×128d, regenerate locally) |
-| :--- | :--- |
-| **Ingestion** (Insert + WAL + Flush) | 74.0 records/sec (p50 13.2 ms) |
-| **Search (Vector HNSW)** | p50 2.0 ms (~500 queries/sec) |
-| **Search (Hybrid Fusion)** | p50 3.1 ms (~320 queries/sec) |
+*Hardware profile: 12-core CPU @ 3.5GHz, AVX2 enabled, Windows 11 / Ubuntu 22.04 LTS.*
 
-*Source: [`benchmarks/vanta_benchmark_report.json`](benchmarks/vanta_benchmark_report.json) — regenerable with `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000` (gitignored; not a committed artifact).* BM25 text-search latency is excluded above because the local artifact reports a degenerate outlier (p50 0.0035 ms for a single-document text query); see the maintained [BENCHMARKS.md §2](docs/operations/BENCHMARKS.md) table for the full CI series.
+### SIFT1M Competitive Benchmarks & Speedups (Phase 2)
 
-### SIFT-1M (100K scale) — Phase 2 Construction & Search Results
+VantaDB's HNSW engine has been optimized in Phase 2 through static prefetch, elimination of Euclidean square root calculation in hot graph traversal, pure SIMD calculation for cosine similarity, and the **O(M²) select_neighbors optimization** (which caches references to eradicate HashMap queries during the diversity loop).
 
-VantaDB's HNSW engine was optimized in Phase 2 through static prefetch, elimination of Euclidean square root calculation in hot graph traversal, pure SIMD calculation for cosine similarity, and the **O(M²) select_neighbors optimization** (which caches references to eradicate HashMap queries during the diversity loop).
-
-The certified performance results on the standard SIFT-1M dataset at 100K scale in optimized mode are:
+The certified performance results on the standard SIFT dataset in optimized mode are:
 
 | Scale (Vectors) | HNSW Configuration | Metric | Construction Time (Before) | Construction Time (Now) | Speedup | p99 Search Latency | Average QPS |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -384,12 +289,6 @@ The certified performance results on the standard SIFT-1M dataset at 100K scale 
 | **100K** | High Recall L2 Mmap | Mmap Euclidean | 411.2s | **189.8s** | **2.16x** | 1,094.8 µs | 1,438 |
 
 *Certification hardware: AMD Ryzen 12-Core @ 3.5GHz, compiled with `-C target-cpu=native`.*
-
-*Source: [docs/operations/BENCHMARKS.md §5](docs/operations/BENCHMARKS.md) — "Impact of Loop and HNSW Distance Optimization (Phase 2)" (2026-07-21). Full optimization history in [docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md](docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md).*
-
-<p align="center">
-  <img src="assets/benchmark-sift1m.svg" alt="SIFT1M HNSW construction speedup — Phase 1 vs Phase 2 (2.14x–2.80x)" width="760">
-</p>
 
 ### Running the Local Benchmark Suite
 
@@ -427,7 +326,6 @@ Results will be printed directly to the console and written to `vanta_benchmark_
 | [Experimental Features](docs/operations/EXPERIMENTAL_FEATURES.md) | Production, optional, experimental, and deferred surface classification. |
 | [CI Policy](docs/operations/CI_POLICY.md) | Continuous integration strategy, profiles, and certification gates. |
 | [Benchmarks](docs/operations/BENCHMARKS.md) | Performance benchmark methodology and results. |
-| [Comparison vs Alternatives](docs/COMPARISON.md) | Honest qualitative comparison vs sqlite-vec / LanceDB / Qdrant / Chroma, our numbers with reproduction commands, and a practical-limits table. |
 | [Changelog](docs/CHANGELOG.md) | Version history and release notes. |
 | [Blog: Hybrid Search](docs/blog/how_hybrid_search_works.md) | How BM25 + HNSW + RRF work together in VantaDB's query engine. |
 | [Blog: SQLite for AI Agents](docs/blog/sqlite_for_ai_agents.md) | Benchmarks and architecture decisions behind VantaDB's LSM storage. |

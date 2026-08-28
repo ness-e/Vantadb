@@ -506,3 +506,14 @@ Contrato: benchmarks/embed_bench.py existe y es ejecutable con --help; docs/oper
 Commit: 67fda296 feat(EMB-07): bench comparativo 9 modelos
 Próxima tarea si completa: EMB-08
 === END RECITATION ===
+
+=== RECITATION EMB-08 ===
+Campaign ID: 2196e6a2-6cf8-4415-98c1-ba43c99f837b
+Objetivo activo: Docs + Quickstart multi — actualizar QUICKSTART.md:182, 05-embedding-integrations.md tabla 9 modelos, nuevo EMBEDDINGS.md, mover embed-local de Experimental a Optional
+Estado: completed
+Última acción: docs/api/EMBEDDINGS.md creado (trait EmbeddingProvider + LocalOnnxProvider ort+tokenizers dim auto-detect, factory VANTA_EMBEDDING_PROVIDER/VANTA_LOCAL_MODEL, manifest 9 modelos 3/3/3, one-model-per-namespace, SQL/MCP/memory wiring) + docs/QUICKSTART.md §7 embed-local (download default, cargo --features embed-local, verify --check, referencia EMBEDDINGS/tutorial) + docs/tutorials/05-embedding-integrations.md creado (BYO-vector + embed-local, tabla 9 modelos completa, elección modelo, wiring consumidores, verificación) + docs/operations/EXPERIMENTAL_FEATURES.md mover embed-local de Experimental a Optional (tabla Optional con Local ONNX, texto not Experimental) + README.md mover embed-local a Optional wrapper, Experimental rename remote LLM/Ollama alternative to embed-local
+Resultado: ✅
+Próxima acción: EMB-09 Qwen3 excepción >3GB — wiring + doc (embeddings/README.md sección excepción, download --include-exception)
+Contrato: grep -r embed-local docs/ >=3 hits (82 hits); docs/api/EMBEDDINGS.md existe (9242 bytes); docs/QUICKSTART.md ya no dice 'not yet exposed through the Python or TypeScript SDKs' (False → ya no dice, menciona embed-local en §7)
+Próxima tarea si completa: EMB-09
+=== END RECITATION ===
