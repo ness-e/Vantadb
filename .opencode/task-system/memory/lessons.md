@@ -277,3 +277,4 @@
 - 2026-08-28 | scope-enforcement | campaign_validate_scope con prefix match + 3-fallback blast radius parsing (mjs/cjs fix) evita blast radius estructurado — ponytail heuristic | ref: .opencode/task-system/mcp/campaign-server.mjs:430
 - 2026-08-28 | CORE-002 | Task CORE-002 → completed
 - 2026-08-28 | 2 | Task 2 (CORE-002 — campaign_validate_output (LLM05) Enforzado en ACT (CRÍTICO #2)) → completed | Contract: `campaign_verify_cmd command="grep -r 'campaign_validate_output' .opencode/task-system/prompts/iter-loop-tools.md"` → debe aparecer en ACT section
+- 2026-08-28 | question-gates-enforcement | pipeline-run paso h ya implementa BLOQUEO→question→RESUME (ponytail rung 1 idempotente, sin re-editar, verify 4/1/2 hits) | ref: .opencode/task-system/prompts/pipeline-run.md:131

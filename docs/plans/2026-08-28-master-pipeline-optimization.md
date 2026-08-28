@@ -103,7 +103,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 19 (MED-019 → DEFER)
   2. Orquestador no hace `question` al recibir `BLOQUEO:`
   3. `task_id` no propagado para RESUME
 - **Uphill/Downhill:** ⬆️ 2 · ⬇️ 4
-- **Estado:** ⬜ PENDING (re-ejecución)
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/CORE-003.md`
 
 ---
