@@ -428,6 +428,7 @@ server.tool(
 )
 
 // Helper: extraer archivos del blast radius desde task file
+// ponytail: heuristic blast radius parsing, structured JSON if false positives matter (mjs/cjs covered)
 function extractBlastRadiusFiles(taskFileContent) {
   const files = []
   // Buscar en sección "Blast Radius" tabla Callers/Callees
@@ -435,19 +436,19 @@ function extractBlastRadiusFiles(taskFileContent) {
   if (blastRadiusMatch) {
     const section = blastRadiusMatch[0]
     // Extraer paths de filas de tabla markdown | `path` |
-    const pathMatches = section.matchAll(/`([^`]+\.(?:rs|ts|js|py|md|json|toml|yaml|yml))`/g)
+    const pathMatches = section.matchAll(/`([^`]+\.(?:rs|ts|m?js|cjs|py|md|json|toml|yaml|yml))`/g)
     for (const m of pathMatches) files.push(m[1])
     // También buscar paths sin backticks en tablas
-    const tablePaths = section.matchAll(/\|\s*([^|]+\.(?:rs|ts|js|py|md|json|toml|yaml|yml))\s*\|/g)
+    const tablePaths = section.matchAll(/\|\s*([^|]+\.(?:rs|ts|m?js|cjs|py|md|json|toml|yaml|yml))\s*\|/g)
     for (const m of tablePaths) files.push(m[1].trim())
   }
   // Buscar en "Impacto mapeado (Regla 0)" - archivos leídos/referenciados
   const impactMatch = taskFileContent.match(/## Impacto mapeado \(Regla 0\)[\s\S]*?(?=## |\n---|\n===|$)/)
   if (impactMatch) {
     const section = impactMatch[0]
-    const pathMatches = section.matchAll(/`([^`]+\.(?:rs|ts|js|py|md|json|toml|yaml|yml))`/g)
+    const pathMatches = section.matchAll(/`([^`]+\.(?:rs|ts|m?js|cjs|py|md|json|toml|yaml|yml))`/g)
     for (const m of pathMatches) files.push(m[1])
-    const listPaths = section.matchAll(/-\s*`([^`]+\.(?:rs|ts|js|py|md|json|toml|yaml|yml))`/g)
+    const listPaths = section.matchAll(/-\s*`([^`]+\.(?:rs|ts|m?js|cjs|py|md|json|toml|yaml|yml))`/g)
     for (const m of listPaths) files.push(m[1])
   }
   // Buscar en "Archivos clave" del plan file (fallback)
