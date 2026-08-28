@@ -18,6 +18,9 @@ const TASK_SYSTEM = resolve(__dirname, "..")
 
 const server = new McpServer({ name: "campaign-tools", version: "1.0.0" })
 
+// MED-018 SDP Cache — memoize campaign_discover_skills por campaña (TTL 1h)
+const sdpCache = new Map() // key → { skills, timestamp, campaignId }
+
 // ---------- helpers ----------
 
 function findPlanFile(worktree) {
@@ -731,16 +734,27 @@ server.tool(
   {
     currentModel: z.string().optional().default("haiku").describe("Current model name"),
     retryCount: z.number().optional().default(0).describe("How many retries so far (0-based)"),
+    subagent_type: z.string().optional().describe("Sub-agente destino para validar permisos (ej: vanta-worker)"),
   },
-  async ({ currentModel, retryCount }) => {
+  async ({ currentModel, retryCount, subagent_type }) => {
     const currentTier = retryCount > 0 ? Math.min(retryCount, 3) : tierForModel(currentModel)
     const next = escalateTier(currentTier)
+    let validation = null
+    if (subagent_type) {
+      const traits = next.models.map(m => ({ model: m, traits: getTraits(m) }))
+      validation = {
+        subagent_type,
+        note: "Valida que el modelo escalado pueda ejecutar el sub-agente (permisos). Si traits.model no soporta task, escalate debe elegir otro.",
+        traits,
+      }
+    }
     return {
       content: [{ type: "text", text: JSON.stringify({
         currentTier, currentModel,
         nextTier: next.tier, nextLabel: next.label,
         nextModels: next.models, nextCost: next.cost,
         tierConfig: TIERS,
+        validation,
       }, null, 2) }],
     }
   },
@@ -1279,6 +1293,12 @@ server.tool(
     maxSkills: z.number().optional().default(8).describe("Máximo skills totales (default 8)"),
   },
   async ({ archivosClave, phase, contractKeywords, extraSkills, maxSkills }) => {
+    // MED-018 SDP Cache — check
+    const cacheKey = `${archivosClave}|${phase}|${(contractKeywords||[]).join(',')}|${maxSkills}`
+    const cached = sdpCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < 3600000) {
+      return { content: [{ type: "text", text: JSON.stringify({ ...cached.value, cached: true }, null, 2) }] }
+    }
     // 1. Base skills por tipo de archivos
     const typeInfo = detectType(archivosClave)
     const baseSkills = [...(typeInfo.skills || []), "campaign-executor", "progreso", "ponytail"]
@@ -1309,15 +1329,17 @@ server.tool(
 
     const skillsWithJustification = sorted.map(s => ({ name: s, justification: justifications[s] || "discovered" }))
 
-    return {
-      content: [{ type: "text", text: JSON.stringify({
+    const result = {
         type: typeInfo.type, label: typeInfo.label, phase,
         skills: skillsWithJustification,
         commands: sorted.map(s => `skill ${s}`),
         checks: typeInfo.checks || [],
         estimate: typeInfo.estimate,
         baseSkills, lifecycleSkills, manifestSkills,
-      }, null, 2) }],
+      }
+    sdpCache.set(cacheKey, { value: result, timestamp: Date.now() })
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
     }
   },
 )

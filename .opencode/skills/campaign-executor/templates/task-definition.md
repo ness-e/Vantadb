@@ -201,6 +201,11 @@ Evaluación mandatoria ANTES de codear. Si no aplica, justificar en Notas:
 ## Notas
 - Decisiones de diseño, contexto aprendido, problemas conocidos
 
+## Referencias
+- `.opencode/references/definition-of-done.md` — standing quality bar
+- `.opencode/references/skills-engineering.md` — SDP lifecycle mapping
+- `SKILLS-MANIFEST.md` — catálogo de skills disponibles
+
 ## Context Save Point
 - **Fecha:** ISO
 - **Branch:** nombre
