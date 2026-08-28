@@ -66,10 +66,8 @@ estancadas.
 
    b. Si FAIL_MODE=parallel y hay ≥2 tareas independientes → saltá a **Paso 7 (waves paralelas)**.
 
-   c. **Warmer de skills (orquestador):**
-      Llamá `campaign_load_skills` (MCP) con los archivos clave → skills + checks exactos.
-      Incluilos en el prompt del sub-agente (el sub-agente también se los auto-carga
-      dentro de `pipeline-full.md` — no dupliques carga de skills, solo pasalos como contexto).
+   c. **Warmer de skills (orquestador — Gap B fix: sin duplicación):**
+      No llames `campaign_load_skills` aquí. El SDP real lo ejecuta el sub-agente en `pipeline-full.md` Paso 0 vía `campaign_discover_skills` (única fuente). Solo usá `campaign_detect_task_type` para **routing** (determinar `subagent_type`) — no para cargar skills. Evita doble carga: orquestador no carga skills, solo detecta tipo.
 
    d. **RESEARCH ISOLATION:** si la tarea requiere leer muchos archivos (3+) o documentación
       extensa, spawné PRIMERO un sub-agente de research que devuelva un Digest:

@@ -183,6 +183,7 @@ Registrá en el plan file con:
 - **Top 3 riesgos:** 3 riesgos priorizados del triaje → alimentan el Risk Register
 - **Uphill/Downhill:** ⬆️ incógnitas abiertas / ⬇️ ejecución pendiente
 - **DoD multi-nivel:** checklist task/commit/release — ver § DoD (gate, no afterthought)
+- **Validación Appetite vs Effort (consistencia — Gap A):** Appetite (límite Shape Up) debe ser ≥ Effort estimado. Si Appetite < Effort (ej: Appetite max 1h + Effort 🔴 2-3d) → la tarea no cabe → re-estimar Effort, ampliar Appetite, o ajustar scope a DEFER antes de fijar ✅ DO.
 - **Estado inicial:** ⬜ PENDING
 - **Task file:** `skills/campaign-executor/tasks/ID.md` (aún no existe — se creará bajo demanda)
 
