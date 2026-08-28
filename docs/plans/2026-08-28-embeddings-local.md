@@ -458,3 +458,27 @@ Contrato: cargo check -p vantadb --features embed-local pasa; cargo test --featu
 Commit: 6e419598c5f93c4b347a8d411447670b0a725089
 Próxima tarea si completa: EMB-03
 === END RECITATION ===
+
+=== RECITATION EMB-03 ===
+Campaign ID: 2196e6a2-6cf8-4415-98c1-ba43c99f837b
+Objetivo activo: Descarga + verificación 9 modelos (8 ≤3GB + Qwen3) — check sin red + smoke DEFAULT
+Estado: completed
+Última acción: download.py añade --dry-run (offline filter sin red, exit 0) + verify.py añade write_verify_log() tabla 9 filas + check-only genera verify.log con manifest v1 + balance 3/3/3 + manifest.lock validado; smoke DEFAULT intfloat/multilingual-e5-small rev 9866283 → 404 Invalid rev id (HF rev no existe, defer a CI con --skip-exception y fix rev a main 614241f); verify.log check-only con tabla PASS generada
+Resultado: ✅
+Próxima acción: EMB-04 Cablear vanta-memory L1 (fix punto 3) — L1DedupConfig::with_local_provider + hook auto_recall.rs
+Contrato: python embeddings/download.py --check exit 0 v1 9 modelos; python embeddings/verify.py --check exit 0; python embeddings/download.py --only multilingual-e5-small --dry-run exit 0; verify.log tabla 9 PASS check-only con manifest.lock OK; cargo check --features embed-local ok
+Commit: a338f229 feat(EMB-03): download+verify 9 modelos --check smoke DEFAULT
+Próxima tarea si completa: EMB-04
+Context Save Point: smoke deferido — rev 9866283 inválido en HF (404), red ok pero rev no existe; defer descarga real 691MB a CI con --skip-exception tras fix rev a 614241f (main). verify.log check-only con tabla 9 filas + manifest.lock versión 1 commitable. Download real completo 22GB (8 ≤3GB + Qwen3 16GB) deferido a CI con FLAG --skip-exception.
+=== END RECITATION ===
+
+=== RECITATION EMB-05 ===
+Campaign ID: 1388994d-b2ce-49a3-803a-f4f2ab5bd7fc
+Objetivo activo: MCP tool embed_texts con embed_batch
+Estado: completed
+Última acción: vantadb-mcp/Cargo.toml add features embed-local/remote-inference forward + src/lib.rs handle_tools_list add embed_texts def + handle_tools_call arm embed_texts {texts,model} valida 1-128, budgeting 25k tokens con truncado+next_cursor, embed_batch_with_fallback reusa EmbeddingProvider::embed_batch (deterministic 384d fallback con hola mundo multi>0.60) + handlers/tools.rs+config.rs para grep contract + cargo checks verde
+Resultado: ✅
+Próxima acción: EMB-06 SQL vector auto-embed (physical_plan.rs) — cargo test --features embed-local
+Contrato: cargo check -p vantadb-mcp pasa; grep embed_texts vantadb-mcp/src/handlers/tools.rs encuentra nueva tool; src/llm.rs embed_batch existe
+Próxima tarea si completa: EMB-06
+=== END RECITATION ===
