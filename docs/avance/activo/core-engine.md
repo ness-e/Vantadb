@@ -392,6 +392,12 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Skills:** campaign-executor, progreso, ponytail, source-driven-development, systematic-debugging, incremental-implementation, documentation-and-adrs
 - **Notes:** Ponytail rung 1 — doc antes que aplanar prefetch. Skipped: extraer `fetch_without_prefetch` helper, ADR separado, AtomicBool global. Add when: prefetch se vuelve async/cross-task → migrar guard `thread_local` → `tokio::task_local!`. Invariante: get/prefetch síncronos same-thread; warm_hnsw_top_layer también bound por mismo guard. Verify thread: nextest 8/8 prefetch/get_cache 1.5s, check 3.49s, clippy 42s.
 
+### FIND-44: ADRs iniciales — verificación idempotente (2026-08-28)
+- **Fecha:** 2026-08-28
+- **Objetivo:** Verificar que el proyecto tiene ADRs registrados (contrato: count >= 1 con headers Context/Decision/Consequences)
+- **Resultado:** ✅ 39 ADRs encontrados en `docs/architecture/adr/` (001..013, ADR-0001, ADR-014..032, COMP-*, DRV-*). ADR-001 (`001_unified_config_readonly.md`) tiene Context/Decision/Consequences ✅. CodeGraph reporte Fase 12 ("Sin ADRs registrados") era stale — ADRs existen desde 2026-08-23.
+- **Commit:** `docs: FIND-44 — verify ADRs exist, contract satisfied` (pendiente)
+
 ### FIND-36: Cross-crate NativeConnection ↔ RocksDbBackend — frontera documentada, falso positivo Leiden (2026-08-27)
 
 - **Fecha:** 2026-08-27
