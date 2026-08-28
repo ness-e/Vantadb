@@ -520,6 +520,33 @@ for node_id, (in_deg, out_deg) in centrality.items():
     print(node_id, in_deg, out_deg)
 ```
 
+#### `graph_bfs_filtered()`
+```python
+db.graph_bfs_filtered(
+    roots: List[int],
+    max_depth: int = 999999,
+    direction: str = "Forward",
+    labels: Optional[List[int]] = None,
+    time_range: Optional[Tuple[int, int]] = None,
+) -> List[int]
+```
+Breadth-First Search with optional edge label and time filtering from root node IDs, up to `max_depth`. `direction` is one of `"Forward"`, `"Reverse"`, or `"Both"`. `labels` is a list of edge label IDs to follow (empty list disables label filtering). `time_range` is an optional inclusive `(from_ms, to_ms)` window for edge creation time. Returns discovered distinct node IDs in BFS order. GIL-released.
+
+```python
+# BFS with no filtering (equivalent to graph_bfs)
+reachable = db.graph_bfs_filtered(roots=[42, 17], max_depth=3)
+
+# BFS following only edges with label IDs 1 and 2
+reachable = db.graph_bfs_filtered(roots=[42], max_depth=5, labels=[1, 2])
+
+# BFS within a time window (edges created between timestamps)
+reachable = db.graph_bfs_filtered(
+    roots=[42],
+    max_depth=3,
+    time_range=(1700000000000, 1800000000000)
+)
+```
+
 ### Advanced Operations
 
 #### `query()`

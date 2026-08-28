@@ -317,6 +317,7 @@ forward_to_db!(GraphClient {
     delete,
     add_edge,
     graph_bfs,
+    graph_bfs_filtered,
     graph_dfs,
     graph_topological_sort,
     graph_is_dag,
@@ -1869,6 +1870,44 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .graph_bfs(&roots, max_depth, dir)
+                .map_err(map_vanta_error)
+        })
+    }
+
+    /// Breadth-First-Search with optional edge label and time filtering.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during graph traversal.
+    ///
+    /// Args:
+    ///     roots: Starting node IDs for traversal.
+    ///     max_depth: Maximum traversal depth (default: effectively unlimited).
+    ///     direction: Traversal direction — "Forward", "Reverse", or "Both" (default: "Forward").
+    ///     labels: Edge label IDs to follow. Empty list disables label filtering.
+    ///     time_range: Optional inclusive (from_ms, to_ms) window for edge creation time.
+    ///
+    /// Returns:
+    ///     list[int]: Visited node IDs in BFS order.
+    ///
+    /// Raises:
+    ///     ValueError: If direction is invalid or time_range is malformed.
+    ///     RuntimeError: For any engine-level failure.
+    #[pyo3(signature = (roots, max_depth=999999, direction="Forward", labels=None, time_range=None))]
+    fn graph_bfs_filtered(
+        &self,
+        py: Python,
+        roots: Vec<u128>,
+        max_depth: usize,
+        direction: &str,
+        labels: Option<Vec<u32>>,
+        time_range: Option<(u64, u64)>,
+    ) -> PyResult<Vec<u128>> {
+        let dir = parse_direction(direction)?;
+        let labels = labels.unwrap_or_default();
+        let _g = enter(&self.op_gate)?;
+        let engine = self.engine.clone();
+        py.detach(move || {
+            engine
+                .graph_bfs_filtered(&roots, max_depth, dir, &labels, time_range)
                 .map_err(map_vanta_error)
         })
     }

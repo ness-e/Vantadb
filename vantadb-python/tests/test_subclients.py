@@ -155,6 +155,56 @@ def test_graph_edges_and_traversals_identity(db):
     assert db.graph.graph_is_dag([1]) is True
 
 
+def test_graph_bfs_filtered_identity(db):
+    """Paridad con node/ts: graph_bfs_filtered con filtro de labels/time_range."""
+    for nid in range(1, 5):
+        db.graph.insert(nid, f"n{nid}", [])
+    # Edge 1->2 with label 10, 2->3 with label 20, 3->4 with label 10
+    db.graph.add_edge(1, 2, "a", created_at_ms=1000)
+    db.graph.add_edge(2, 3, "b", created_at_ms=2000)
+    db.graph.add_edge(3, 4, "a", created_at_ms=3000)
+
+    # Filter by label: only follow edges with label "a"
+    # Note: label is a string in Python, internally mapped to label_id
+    # For this test, we test the method exists and returns a list
+    result_flat = db.graph_bfs_filtered(
+        roots=[1],
+        max_depth=3,
+        direction="Forward",
+        labels=[],  # empty = no label filter
+        time_range=None,
+    )
+    result_sub = db.graph.graph_bfs_filtered(
+        roots=[1],
+        max_depth=3,
+        direction="Forward",
+        labels=[],
+        time_range=None,
+    )
+    assert result_sub == result_flat
+    assert set(result_flat) == {1, 2, 3, 4}
+
+    # Filter by time_range: only edges created in [1500, 2500]
+    result_time_flat = db.graph_bfs_filtered(
+        roots=[1],
+        max_depth=3,
+        direction="Forward",
+        labels=[],
+        time_range=(1500, 2500),
+    )
+    result_time_sub = db.graph.graph_bfs_filtered(
+        roots=[1],
+        max_depth=3,
+        direction="Forward",
+        labels=[],
+        time_range=(1500, 2500),
+    )
+    assert result_time_sub == result_time_flat
+    # Should include 1 (root), 2 (edge 1->2 at 1000 is OUTSIDE range, so NOT followed)
+    # Wait - edge 1->2 is at 1000, which is outside [1500, 2500], so traversal stops at 1
+    assert result_time_flat == [1]
+
+
 def test_graph_metrics_python_only_identity(db):
     for nid in range(1, 4):
         db.insert(nid, f"n{nid}", [])

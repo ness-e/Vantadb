@@ -269,6 +269,14 @@ class VantaDB:
     def graph_bfs(
         self, roots: list[int], max_depth: int = 999999, direction: str = "Forward"
     ) -> list[int]: ...
+    def graph_bfs_filtered(
+        self,
+        roots: list[int],
+        max_depth: int = 999999,
+        direction: str = "Forward",
+        labels: list[int] | None = None,
+        time_range: tuple[int, int] | None = None,
+    ) -> list[int]: ...
     def graph_dfs(
         self, roots: list[int], max_depth: int = 999999, direction: str = "Forward"
     ) -> list[int]: ...
@@ -434,6 +442,14 @@ class GraphClient:
     ) -> None: ...
     def graph_bfs(
         self, roots: list[int], max_depth: int = 999999, direction: str = "Forward"
+    ) -> list[int]: ...
+    def graph_bfs_filtered(
+        self,
+        roots: list[int],
+        max_depth: int = 999999,
+        direction: str = "Forward",
+        labels: list[int] | None = None,
+        time_range: tuple[int, int] | None = None,
     ) -> list[int]: ...
     def graph_dfs(
         self, roots: list[int], max_depth: int = 999999, direction: str = "Forward"
