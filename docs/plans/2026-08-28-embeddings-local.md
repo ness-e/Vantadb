@@ -482,3 +482,27 @@ Próxima acción: EMB-06 SQL vector auto-embed (physical_plan.rs) — cargo test
 Contrato: cargo check -p vantadb-mcp pasa; grep embed_texts vantadb-mcp/src/handlers/tools.rs encuentra nueva tool; src/llm.rs embed_batch existe
 Próxima tarea si completa: EMB-06
 === END RECITATION ===
+
+=== RECITATION EMB-06 ===
+Campaign ID: 2196e6a2-6cf8-4415-98c1-ba43c99f837b
+Objetivo activo: SQL vector auto-embed (physical_plan)
+Estado: completed
+Última acción: src/physical_plan/vector.rs PhysicalVectorSearch::open() y Refine::open() add #[cfg(embed-local)] branch LocalOnnxProvider::embed(query_vec_text) + remote-inference fallback, explain vector_len=384, cargo test parser vector no-op = false
+Resultado: ✅
+Próxima acción: EMB-07 Bench comparativo 9 modelos — benchmarks/embed_bench.py
+Contrato: cargo test --features embed-local --test parser vector search sin remote-inference no es no-op; explain muestra vector_len=384
+Commit: bd9ab5ca feat(EMB-06): SQL vector auto-embed con embed-local
+Próxima tarea si completa: EMB-07
+=== END RECITATION ===
+
+=== RECITATION EMB-07 ===
+Campaign ID: 2196e6a2-6cf8-4415-98c1-ba43c99f837b
+Objetivo activo: Bench comparativo 9 modelos (8 <=3GB + Qwen3)
+Estado: completed
+Última acción: benchmarks/embed_bench.py (ingest 1k EN+ES, QPS, recall@10, RSS, p50 embed, 9 modelos 3/3/3, Qwen3 flag --include-exception, dummy deterministico fallback, numpy matmul fast path, ingest 1k~70 QPS, p50 embed 0.77-8.19ms, multi_cos EN<0.05 vs ES/combined 1.0) + docs/operations/BENCHMARKS.md seccion 8 con tabla 9 filas + comando reproducible --models all --skip-exception / --include-exception + .gitignore delta benchmarks/embed_bench_report*.json + py_compile ok + --help ok + reporte JSON 9 modelos generado
+Resultado: ✅
+Próxima acción: EMB-08 Docs + Quickstart multi (QUICKSTART.md, EMBEDDINGS.md)
+Contrato: benchmarks/embed_bench.py existe y es ejecutable con --help; docs/operations/BENCHMARKS.md tiene seccion EMB con tabla o referencia a embed_bench; py_compile ok
+Commit: 67fda296 feat(EMB-07): bench comparativo 9 modelos
+Próxima tarea si completa: EMB-08
+=== END RECITATION ===
