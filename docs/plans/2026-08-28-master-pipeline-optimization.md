@@ -198,7 +198,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 19 (MED-019 → DEFER)
 - **Pre-mortem:** Recarga innecesaria si tipo no cambia → condicionar a cambio de tipo
 - **Stop conditions:** Ninguno
 - **Cynefin:** 🟦 Obvio
-- **Estado:** ⬜ PENDING (re-ejecución)
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/HIGH-007.md`
 
 ---
@@ -631,4 +631,15 @@ Resultado: ✅
 Próxima acción: HIGH-006 — detect_changes en plan.md Paso 0 (siguiente en plan secuencial)
 Contrato: verificacion: node --check campaign-server.mjs 0 + 7/7 greps (campaign_discover_skills 3, LIFECYCLE 3, sdpCache 5, pipeline-full 5, iter-loop 4, task 1, plan 1) + MCP call 8 skills con justificaciones | evidencia: claim: tool con LIFECYCLE+grep+cache | evidencia: campaign-server.mjs:21,1225,1263,1288 | confianza: alta | claim: 4 prompts usan MCP | evidencia: pipeline-full:18,27,67,76 iter-loop:8,13,15 task:82 plan:40 | confianza: alta | artefactos: CORE-005.md, plan file 2026-08-28-master-pipeline-optimization.md | invariantes: LIFECYCLE alineada, cache TTL 1h, prompts invocan MCP | deuda: ninguna
 Próxima tarea si completa: HIGH-006
+=== END RECITATION ===
+
+=== RECITATION 7 ===
+Campaign ID: cecc8468-9451-4d56-a3ef-1684e123ab8a
+Objetivo activo: HIGH-007 — Re-validar Skills tras Discovery
+Estado: completed
+Última acción: Step 1 VERIFY completado: pipeline-full.md línea 76 Re-validar ✅ + grep -A3 1 hit + git blame 9e5730ff + node --check 0 — ponytail rung 1 sin edición, task file HIGH-007.md creado, plan Task 7 PENDING→COMPLETED
+Resultado: ✅
+Próxima acción: HIGH-008 — Autonomous Flag en Plan File (siguiente en plan secuencial)
+Contrato: verificacion: Select-String "Re-validar skills" pipeline-full.md -> 1 hit línea 76 + grep -A3 bloque en Discovery ✅ | evidencia: claim: pipeline-full.md:76 Re-validar Skills tras Discovery con condicion cambio tipo fix->feature-add + re-invocá campaign_discover_skills nuevo phase/contractKeywords | evidencia: .opencode/task-system/prompts/pipeline-full.md:76 (Select-String 1 hit + Context 3) + git blame 9e5730ff + git show 9e5730ff diff + node --check campaign-server.mjs:0 | confianza: alta | artefactos: .opencode/skills/campaign-executor/tasks/HIGH-007.md, docs/plans/2026-08-28-master-pipeline-optimization.md:201 | invariantes: pipeline-full.md:76 orden SDP(67)->Code Intelligence(71-75)->Re-validar(76)->Web research(77) preservado, campaign_discover_skills operativo | deuda: ninguna | queda_pendiente: HIGH-008
+Próxima tarea si completa: HIGH-008
 === END RECITATION ===
