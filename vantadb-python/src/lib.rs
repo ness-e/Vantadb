@@ -1840,6 +1840,35 @@ impl VantaDB {
         py.detach(move || engine.close().map_err(map_vanta_error))
     }
 
+    /// Enter the synchronous context manager.
+    ///
+    /// Returns the database handle itself, enabling the Python idiom:
+    /// ```python
+    /// with VantaDB(":memory:", backend="memory") as db:
+    ///     db.put("ns", "key", "value")
+    /// # WAL is flushed automatically on exit
+    /// ```
+    fn __enter__(self_: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        self_
+    }
+
+    /// Exit the synchronous context manager, closing the database for durability.
+    ///
+    /// Calls `close()` to ensure all pending writes are persisted and the
+    /// engine is shut down cleanly. If an exception occurred, it is not
+    /// suppressed (returns `Ok(())` to propagate the exception).
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during disk sync.
+    fn __exit__(
+        &self,
+        py: Python,
+        _exc_type: Option<&Bound<'_, PyAny>>,
+        _exc_val: Option<&Bound<'_, PyAny>>,
+        _exc_tb: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        self.close(py)
+    }
+
     /// String representation showing the stable runtime profile.
     fn __repr__(&self) -> String {
         let caps = self.engine.capabilities();

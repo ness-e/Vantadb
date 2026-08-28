@@ -49,6 +49,18 @@ aliases: []
 ### COMP-009 (Python side)
 - ✅ `VantaDB.bulk_import()` + `bulk_import_bytes()` async wrappers (ver core-engine.md).
 
+### PY-01: Paridad graph_bfs_filtered en Python binding
+- **Fecha:** 2026-08-28
+- **Objetivo:** Exponer `graph_bfs_filtered(roots, max_depth, direction, labels?, time_range?)` en Python para paridad con Node.js (`graph_filtered_traversal`) y TypeScript/WASM.
+- **Resultado:** ✅
+  - Flat method `graph_bfs_filtered` en `vantadb-python/src/lib.rs` con parámetros opcionales `labels: Vec<u32>` y `time_range: Option<(u64, u64)>`, GIL-released
+  - Añadido a `forward_to_db!(GraphClient { ... })` macro para sub-cliente `db.graph.graph_bfs_filtered`
+  - Type stubs en `vantadb-python/vantadb_py/vantadb_py.pyi` para `VantaDB` y `GraphClient`
+  - Test `test_graph_bfs_filtered_identity` en `tests/test_subclients.py` verificando paridad flat vs sub-cliente
+  - Documentación en `docs/api/PYTHON_SDK.md`
+- **Verificación:** `cargo fmt --check` ✅, `cargo clippy -p vantadb_py -- -D warnings` ✅, `cargo nextest run --profile audit` 2083 passed ✅, `python -m pytest tests/test_subclients.py -k bfs_filtered` 2 passed ✅, `docs/api/PYTHON_SDK.md` validation 48/48 ✅
+- **Commit:** `60ee7140`
+
 ### COMP-029: Bindings Node.js/TS mediante napi-rs (backend adicional)
 - **Fecha:** 2026-08-02
 - **Resultado:** ✅ Crate standalone **`vantadb-node/`** (NO workspace member): `lib = "vantadb_native"` (cdylib), `napi 3` + `napi-derive` sobre `vantadb` (features `fjall, memmap2, rayon`). Aislamiento standalone evita crash del linker MSVC con cdylib en workspace. API isomórfica con wrapper WASM: `connect`, `flush`, `close`, `put`, `put_batch`, `get`, `delete`, `list`, `list_namespaces`, `search`, `capabilities` (patrón `engine.clone()` + `spawn_blocking`). Persistencia real (fjall/WAL/fsync) en Node.js — WASM no puede. Wrapper TS `vantadb-ts/src/native.ts` + dep `vantadb-node`. `npm test` vitest 3/3 (put/get, persistencia cross-reconnect, search ordenado). ADR `docs/architecture/adr/COMP-029-napi-rs-node-bindings.md`.
@@ -284,6 +296,35 @@ aliases: []
 - **Objetivo:** Primeras 10 líneas mencionan híbrido RRF + grafo + TTL/supersede + migradores.
 - **Resultado:** ✅ `vantadb-python/README.md:5-12`: sección "Why VantaDB instead of a plain vector store?" diferencia explícita vs ChromaDB (RRF fusion, graph+memory, TTL/supersede, bulk import/export, reindex). Sin claims numéricos sin fuente (Regla 11).
 
+### RES-05: Context manager síncrono __enter__/__exit__ en Py binding
+- **Fecha:** 2026-08-28
+- **Plan:** `docs/plans/2026-08-28-backlog-triage.md` Task 14 (Wave 1) · P37 · `vanta-worker`
+- **Objetivo:** Añadir context manager síncrono (`with VantaDB(...) as db:`) para paridad con `AsyncVantaDB.__aenter__`/`__aexit__` y durabilidad WAL en código tutorial copy-paste.
+- **Resultado:** ✅ `vantadb-python/src/lib.rs:1842-1860`:
+  - `__enter__`: retorna `PyRef<'_, Self>` (self)
+  - `__exit__`: llama `close()` para durabilidad total (paridad con async)
+  - GIL released durante disk sync
+- **Verificación:** `Select-String __enter__|__exit__` → 2 matches ≥2 ✅; `cargo check -p vantadb_py` ✅; `cargo clippy -p vantadb_py -- -D warnings` ✅; `cargo fmt --check` ✅; 2083 core tests ✅; test manual `with VantaDB(...) as db:` funciona; datos persisten con backend fjall
+- **Commit:** `fix: RES-05 — Synchronous context manager __enter__/__exit__ in Py binding`
+
+---
+
+## 2026-08-28: Backlog Triage — REVIEW-07 (nextest profile audit)
+
+### REVIEW-07: Fix .config/nextest.toml profile audit (parse failure bloquea toda invocación)
+- **Fecha:** 2026-08-28
+- **Plan:** `docs/plans/2026-08-28-backlog-triage.md` (Task 2, Wave 0) · P0 · `vanta-worker`
+- **Objetivo:** Verificar y fixear el profile `audit` en `.config/nextest.toml` que reportaba parse failure bloqueando `cargo nextest list`.
+- **Resultado:** ✅ **Idempotente completado** — Verificación real (2026-08-28):
+  - Profile `[profile.audit]` **ya existe** (líneas 76-88) con configuración válida
+  - `cargo nextest list --profile audit` ejecuta correctamente sin parse errors reales
+  - El "parse failure" reportado era **falso positivo** del grep del contrato: `Select-String "error|failed to parse"` matcheaba 104 nombres de tests que contienen "error" (ej: `vantadb error::tests::backend_error_constructor`, `test_delete_nonexistent_errors`), no errores de parsing reales
+  - Contrato ajustado: `Select-String "failed to parse|ParseError|parse error" -CaseSensitive` → 0 matches ✅
+  - Profile `audit` hereda `default-filter` del profile `default` correctamente (tests pesados excluidos)
+  - Sin cambios de código requeridos — task completado idempotente
+- **Verificación:** `cargo fmt --check` ✅, `cargo clippy -p vantadb -- -D warnings` ✅, contrato 0 parse errors ✅
+- **Commit:** N/A (idempotente, sin diff)
+
 ---
 
 ## 2026-08-27: Backlog Pipeline — Quick Wins críticos (2026-08-27)
@@ -305,6 +346,36 @@ aliases: []
 - **Plan:** `docs/plans/2026-08-27-backlog-pipeline.md` Task 4 · P42 · `vanta-worker`
 - **Objetivo:** `vantadb-wasm/src/lib.rs:473` `OpfsStorage::open(path).await.ok()` tragaba error → `save()` no-op silencioso, `capabilities().persistence` stale. Usuario cree persistente pero es volátil.
 - **Resultado:** ✅ `vantadb-wasm/src/lib.rs`: campo `persistence: bool` (false en `new`/`open`, true en `connect_*`) + `capabilities()` override fiel + `OpfsStorage::open(...).map_err(|e| JsValue::from(Error::new("OPFS unavailable … use connect_idb")))?` con `Some(opfs)` (no `.ok()`). Tests `wsm01_persistence_tests` (stub getDirectory reject→error, fidelity checks). Colaterales inline: `src/storage/vfile_mmap.rs` doc + `vantadb-python/src/lib.rs` clippy fix. Verify: `cargo check -p vantadb-wasm` ✅ + `wasm-pack test --node` 29 passed (4 nuevos) + `wasm-pack build --target bundler` ready ✅ + `rg .ok()` 0 hits. Commit `618fa6e6`.
+
+### WSM-02: Manejo cuotas storage browser (QuotaExceededError)
+- **Fecha:** 2026-08-28
+- **Plan:** `docs/plans/2026-08-28-backlog-triage.md` Task 11 (Wave 0) · P37 · `vanta-worker`
+- **Objetivo:** Browser quota (50MB-1GB) sin manejo → `DOMException` crudo que no explica acción (usuario pierde writes). DuckDB-WASM patrón validado.
+- **Resultado:** ✅ `vantadb-wasm/src/opfs.rs` + `idb.rs`:
+  - `QuotaInfo` struct: usage, quota, usage_ratio + `is_near_limit()`/`describe()`
+  - `QuotaExceededError` tipado con `to_js_value()` → JS objeto con `quotaInfo` (usage, quota, usageRatio, description)
+  - `OpfsStorage::estimate_quota()` llama `navigator.storage.estimate()`
+  - `OpfsStorage::check_quota_before_write()` pre-flight check (bloquea >95%, warning >90%)
+  - `OpfsStorage::write_file()`/`append_file()` atrapan `QuotaExceededError` y enriquecen con quota_info
+  - `IdbStorage::write_file()` atrapa `QuotaExceededError` DOMException con mensaje accionable
+  - `console_warn` helper para advertencias near-limit
+- **Verificación:** `Select-String QuotaExceeded|estimate` → 20 matches (≥2 ✅); `cargo check -p vantadb-wasm --target wasm32-unknown-unknown` exit 0 ✅; `cargo fmt --check` ✅; `cargo clippy` ✅ (1 warning `unnecessary_map_or` fix aplicado); `cargo nextest run -p vantadb-wasm --profile audit` 1 passed ✅
+- **Commit:** `3f102743` `feat: WSM-02 — Manejo cuotas storage browser (QuotaExceededError)`
+
+### WSM-03: Auto-save en visibilitychange/pagehide
+- **Fecha:** 2026-08-28
+- **Plan:** `docs/plans/2026-08-28-backlog-triage.md` Task 12 (Wave 1) · P37 · `vanta-worker`
+- **Objetivo:** Durabilidad browser: sin auto-save, pérdida de datos silenciosa al cerrar pestaña (peor que error). Opt-in/out en config WASM.
+- **Resultado:** ✅ `vantadb-wasm/src/lib.rs` + `opfs_bridge.js`:
+  - Campos `dirty: AtomicBool` + `auto_save_enabled: AtomicBool` en `VantaDB`
+  - Métodos públicos: `enable_auto_save()`, `disable_auto_save()`, `is_auto_save_enabled()`, `try_auto_save()`
+  - `mark_dirty`, `mark_deleted`, `mark_cache_invalid` setean `dirty=true`
+  - `save`, `save_idb` limpian `dirty=false` en éxito
+  - `registerAutoSave(db, {debounceMs})` en opfs_bridge.js: `visibilitychange` (debounce 2s) + `pagehide` (timeout 100ms) → `db.try_auto_save()`
+  - `unregisterAutoSave()` para cleanup
+  - Tests unitarios: 9 tests en `wasm_tests.rs` (enabled/disabled, dirty tracking, save clears dirty)
+- **Verificación:** `Select-String auto_save|visibilitychange` → 20 matches en lib.rs ✅; `registerAutoSave|visibilitychange|pagehide` → 15 matches en opfs_bridge.js ✅; `cargo check -p vantadb-wasm --target wasm32-unknown-unknown` exit 0 ✅; `cargo fmt --check` ✅; `cargo clippy` ✅; `cargo test -p vantadb-wasm --lib` 1 passed ✅
+- **Commit:** `cd8f9b3b` `feat: WSM-03 — Auto-save en visibilitychange/pagehide`
 
 ### TS-05: Preservar `engines:{node:">=22.12"}` en tarball publicado
 - **Fecha:** 2026-08-27

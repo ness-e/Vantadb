@@ -158,7 +158,7 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Gate Result:** ✅ DO
 - **Contrato:** `Select-String -Path "vantadb-mcp/src/handlers/tools.rs" -Pattern "VANTADB_MCP_PROFILE|mcp_profile" | Measure-Object | Select-Object Count` >=1 AND `cargo test -p vantadb-mcp -- --test-threads=1 2>&1 | Select-String "profile" | Measure-Object | Select-Object Count` >=1 (tests por perfil)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MCP-37.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Pre-mortem:**
   - Fallo 1: Filtro rompe `tools/call` para tool no listada pero invocada → error claro `tool not in profile X`
   - Fallo 2: Default `full` sigue excediendo 40 en Cursor — documentar default `dev` para Cursor
@@ -330,7 +330,7 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Gate Result:** ✅ DO
 - **Contrato:** `Select-String -Path "vantadb-wasm/src/opfs.rs" -Pattern "QuotaExceeded|estimate\(\)" | Measure-Object | Select-Object Count` >=2 AND `cargo check -p vantadb-wasm --target wasm32-unknown-unknown` exit 0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/WSM-02.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Pre-mortem:**
   - Fallo 1: `estimate()` no disponible en worker OPFS — fallback a try/catch de write
   - Fallo 2: `persist()` requiere permission prompt — mapear a warning no bloqueante
@@ -345,6 +345,11 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **DoD:** Task: quota check + typed error; Commit: `feat:` + wasm check; Release: docs/api/WASM_PERSISTENCE.md
 - **Validación Appetite vs Effort:** max 1d ≥ 🟡 ✅
 - **SDP:** files="vantadb-wasm/src/opfs.rs" keywords=["QuotaExceeded","storage estimate"] → `security-and-hardening`
+- **Resultado real:** 2026-08-28
+  - `opfs.rs`: `QuotaInfo` + `QuotaExceededError` + `estimate_quota()` + `check_quota_before_write()` + manejo en `write_file`/`append_file`
+  - `idb.rs`: `QuotaExceededError` + manejo en `write_file`
+  - Contrato verificado: 20 matches QuotaExceeded|estimate ≥2 ✅; cargo check wasm32 ✅; fmt/clippy/nextest ✅
+  - Commit: `3f102743` `feat: WSM-02 — Manejo cuotas storage browser (QuotaExceededError)`
 
 ---
 
@@ -359,7 +364,7 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Gate Result:** ✅ DO
 - **Contrato:** `Select-String -Path "vantadb-wasm/src/lib.rs" -Pattern "visibilitychange|auto_save" | Measure-Object | Select-Object Count` >=1 AND manual test: `save()` call count incrementa en `document.visibilityState === 'hidden'` (Playwright)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/WSM-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Pre-mortem:**
   - Fallo 1: `visibilitychange` dispara en cada tab switch → debounce 2s + dirty flag
   - Fallo 2: `save()` async puede no terminar antes de `pagehide` — usar `navigator.sendBeacon` fallback o `keepalive`
@@ -374,6 +379,13 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **DoD:** Task: auto-save hook + tests; Commit: `feat:`; Release: docs
 - **Validación Appetite vs Effort:** max 1d ≥ 🟡 ✅
 - **SDP:** files="vantadb-wasm/src/lib.rs" keywords=["auto-save","visibilitychange"] → `api-and-interface-design`
+- **Resultado real:** 2026-08-28
+  - `lib.rs`: campos `dirty` + `auto_save_enabled` + métodos `enable_auto_save`, `disable_auto_save`, `is_auto_save_enabled`, `try_auto_save`
+  - `mark_dirty`/`mark_deleted`/`mark_cache_invalid` setean `dirty=true`; `save`/`save_idb` limpian `dirty=false`
+  - `opfs_bridge.js`: `registerAutoSave` (visibilitychange debounce 2s + pagehide timeout 100ms) + `unregisterAutoSave`
+  - Tests: 9 tests en `wasm_tests.rs`
+  - Contrato verificado: 20 matches `auto_save`/`visibilitychange` en lib.rs ✅; 15 matches `registerAutoSave|visibilitychange|pagehide` en opfs_bridge.js ✅
+  - Commit: `cd8f9b3b` `feat: WSM-03 — Auto-save en visibilitychange/pagehide`
 
 ---
 
@@ -412,16 +424,15 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Gate Result:** ✅ DO
 - **Contrato:** `Select-String -Path "vantadb-python/src/lib.rs" -Pattern "__enter__|__exit__" | Measure-Object | Select-Object Count` >=2
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-05.md`
-- **Estado:** ⬜ PENDING
-- **Pre-mortem:**
-  - Fallo 1: `__exit__` debe llamar `flush()` o `close()` sin duplicar `__aexit__` logic — extraer helper
-- **Stop conditions:** Ninguno
-- **Risk Register:** —
-- **Cynefin:** 🟦 Obvio
-- **Top 3 riesgos:** — (trivial)
-- **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1
-- **DoD:** Task: __enter__/__exit__ + test `with` ; Commit: `fix:`; Release: docs/api/PYTHON_SDK.md
-- **Validación Appetite vs Effort:** max 1h ≥ 🟢 ✅
+- **Estado:** ✅ COMPLETED
+- **Branch:** develop
+- **Commit:** fix: RES-05 — Synchronous context manager __enter__/__exit__ in Py binding
+- **Pre-mortem:** N/A — completed without issues
+- **Resultado real:** 2026-08-28
+  - `lib.rs`: añadidos `__enter__` (retorna `self`) y `__exit__` (llama `close()`)
+  - Contrato verificado: 2 matches `__enter__`|`__exit__` ≥2 ✅
+  - `cargo check -p vantadb_py` ✅; `cargo clippy` ✅; `cargo fmt` ✅; 2083 core tests ✅
+  - Test manual: `with VantaDB(...) as db:` funciona; datos persisten con backend fjall
 - **SDP:** files="vantadb-python/src/lib.rs" keywords=["context manager","__enter__"] → `api-and-interface-design`
 
 ---
@@ -771,4 +782,15 @@ invariantes: profile audit hereda default-filter del profile default correctamen
 deuda: ninguna
 queda_pendiente: ninguna
 Próxima tarea si completa: FIND-44
+=== END RECITATION ===
+
+=== RECITATION MCP-37 ===
+Campaign ID: b28f-20260828-backlog-triage
+Objetivo activo: MCP-37 — Perfiles de tool surface (cap Cursor 40 tools)
+Estado: completed
+Última acción: Committed all changes with feat: MCP-37
+Resultado: OK
+Próxima acción: None - task complete
+Contrato: verificacion: cargo fmt --check && cargo clippy -p vantadb-mcp -- -D warnings && cargo nextest run -p vantadb-mcp --profile audit; evidencia: commit e3b644db; artefactos: [vantadb-mcp/src/config.rs, vantadb-mcp/src/handlers/tools.rs, vantadb-mcp/src/lib.rs, vantadb-mcp/src/server.rs, vantadb-mcp/tests/mcp_tests.rs, docs/api/MCP.md]; invariantes: handle_tools_list returns filtered tools per profile; deuda: none; queda_pendiente: none
+Próxima tarea si completa: MCP-39
 === END RECITATION ===

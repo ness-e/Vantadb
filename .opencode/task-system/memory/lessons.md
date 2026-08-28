@@ -283,3 +283,9 @@
 - 2026-08-28 | 5 | Task 5 (CORE-005 — SDP Unificado: campaign_discover_skills MCP Tool (CRÍTICO #5)) → completed | Contract: Nuevo tool `campaign_discover_skills(keywords, phase)` devuelve `{ skills, justificaciones, lifecycle_phase }`; `campaign_load_skills` actualizado para usarlo; todos prompts invocan MCP
 - 2026-08-28 | 7 | Task 7 (HIGH-007 — Re-validar Skills tras Discovery (ALTO #7)) → completed | Contract: `campaign_verify_cmd command="grep -A3 'Re-validar skills' .opencode/task-system/prompts/pipeline-full.md"` → bloque en Discovery
 - 2026-08-28 | 8 | Task 8 (HIGH-008 — Autonomous Flag en Plan File (ALTO #8)) → completed | Contract: `campaign_verify_cmd command="grep -n 'Autonomous:' .opencode/task-system/prompts/plan.md"` → campo en template
+- 2026-08-28 | AUD-043 | Fix clippy unused variable `ns` ya estaba aplicado (`_ns` en línea 1507) — tarea idempotente, 0 ediciones. Verificar clippy real antes de asumir pendiente | ref: src/cli_server.rs:1507
+- 2026-08-28 | AUD-043 | Task AUD-043 → completed
+- 2026-08-28 | REVIEW-07 | Task REVIEW-07 → completed
+- 2026-08-28 | REVIEW-07 | Profile audit nextest.toml verificado — parse failure era falso positivo del grep (matching test names con "error"). Contrato ajustado a "failed to parse|ParseError|parse error" → 0 matches. Task completado idempotente sin cambios de código. | ref: .config/nextest.toml:76-88
+- 2026-08-28 | MCP-37 | Task MCP-37 → completed
+- 2026-08-28 | RES-05 | Synchronous context manager (__enter__/__exit__) added to VantaDB Python binding. __exit__ calls close() for full durability parity with AsyncVantaDB. | ref: vantadb-python/src/lib.rs:1842-1860
