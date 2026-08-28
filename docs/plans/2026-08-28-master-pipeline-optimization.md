@@ -1,7 +1,7 @@
 # Plan de Ejecución: Master Pipeline Optimization — VantaDB
 
 > **Inicio:** 2026-08-28
-> **Estado:** ✅ COMPLETADO
+> **Estado:** ⏳ EN PROGRESO (re-ejecución para trazabilidad SARL)
 > **Fuente:** Análisis completo del sistema de ejecución de tareas y planes
 > **Completado:** 2026-08-28
 > **Commit:** 9e5730ff
@@ -10,12 +10,12 @@
 
 | Resultado | Count |
 |-----------|-------|
-| ✅ DO | 20 |
-| 🟡 DEFER | 0 |
+| ✅ DO | 19 |
+| 🟡 DEFER | 1 |
 | ❌ SKIP | 0 |
 | 🔴 BLOQUEADO | 0 |
 
-Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
+Status: ⬆️ uphill = 0 · ⬇️ downhill = 19 (MED-019 → DEFER)
 
 ## Tasks
 
@@ -44,7 +44,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
   3. Performance: validación por cada tool call en ACT
 - **Uphill/Downhill:** ⬆️ 3 · ⬇️ 5
 - **DoD multi-nivel:** Task: verify mecánico + test manual; Commit: conventional + verify full; Release: changelog + docs
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/CORE-001.md`
 
 ---
@@ -73,7 +73,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
   2. `edit` tool output no validado (oldString/newString son seguros por definición)
   3. Performance overhead mínimo (validación sincrónica)
 - **Uphill/Downhill:** ⬆️ 1 · ⬇️ 3
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/CORE-002.md`
 
 ---
@@ -102,7 +102,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
   2. Orquestador no hace `question` al recibir `BLOQUEO:`
   3. `task_id` no propagado para RESUME
 - **Uphill/Downhill:** ⬆️ 2 · ⬇️ 4
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/CORE-003.md`
 
 ---
@@ -130,7 +130,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
   2. Falta `Review (gate P2-01)` → tasks marcadas COMPLETED sin review
   3. Falta `Invariantes de dominio` → handoff roto entre iteraciones
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 2
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/CORE-004.md`
 
 ---
@@ -160,7 +160,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
   2. `plan.md` y `task.md` no migran → inconsistencia persiste
   3. Cache SDP introduce staleness → TTL 1 sesión
 - **Uphill/Downhill:** ⬆️ 4 · ⬇️ 8
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/CORE-005.md`
 
 ---
@@ -180,7 +180,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
 - **Cynefin:** 🟦 Obvio
 - **Top 3 riesgos:** (ninguno)
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/HIGH-006.md`
 
 ---
@@ -197,7 +197,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
 - **Pre-mortem:** Recarga innecesaria si tipo no cambia → condicionar a cambio de tipo
 - **Stop conditions:** Ninguno
 - **Cynefin:** 🟦 Obvio
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/HIGH-007.md`
 
 ---
@@ -214,7 +214,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
 - **Pre-mortem:** Default `false` para backward compat
 - **Stop conditions:** Ninguno
 - **Cynefin:** 🟦 Obvio
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/HIGH-008.md`
 
 ---
@@ -231,7 +231,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
 - **Pre-mortem:** Session ID tracking para cleanup correcto
 - **Stop conditions:** Ninguno
 - **Cynefin:** 🟦 Obvio
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/HIGH-009.md`
 
 ---
@@ -257,7 +257,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
   2. Task file steps no reflejan estado real
   3. Decisiones no persistidas en task file
 - **Uphill/Downhill:** ⬆️ 2 · ⬇️ 3
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/HIGH-010.md`
 
 ---
@@ -286,7 +286,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
   2. Sub-agente parallel consume budget 2x
   3. SARL recovery más complejo con múltiples sub-agentes
 - **Uphill/Downhill:** ⬆️ 3 · ⬇️ 5
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/HIGH-011.md`
 
 ---
@@ -312,7 +312,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
   2. MoM ladder interfere con auto-transition
   3. SARL RESUME espera estado específico
 - **Uphill/Downhill:** ⬆️ 2 · ⬇️ 3
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/HIGH-012.md`
 
 ---
@@ -329,7 +329,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
 - **Pre-mortem:** Clasificación heurística → false positives → solo patrones obvios (`>`, `tee`, `write`, `echo` con redirección)
 - **Stop conditions:** >0.5d → solo documentar y dejar para v2
 - **Cynefin:** 🟦 Obvio — pattern matching en bash command
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/HIGH-013.md`
 
 ---
@@ -346,7 +346,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
 - **Pre-mortem:** Re-index lento → async con timeout
 - **Stop conditions:** Re-index >5min → skip con warning
 - **Cynefin:** 🟦 Obvio
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/HIGH-014.md`
 
 ---
@@ -372,7 +372,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
   2. Lifecycle mapping desactualizado vs skills-engineering.md
   3. Cache SDP staleness
 - **Uphill/Downhill:** ⬆️ 2 · ⬇️ 4
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MED-015.md`
 
 ---
@@ -389,7 +389,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
 - **Pre-mortem:** Default `false`; parsing en `campaign_get_next_task`
 - **Stop conditions:** Ninguno
 - **Cynefin:** 🟦 Obvio
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MED-016.md`
 
 ---
@@ -406,7 +406,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
 - **Pre-mortem:** Formato muy rígido → permitir flexibilidad con campos obligatorios mínimos
 - **Stop conditions:** Ninguno
 - **Cynefin:** 🟦 Obvio
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MED-017.md`
 
 ---
@@ -423,7 +423,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
 - **Pre-mortem:** Cache invalidation si skills cambian → TTL corto + campaignId key
 - **Stop conditions:** Ninguno
 - **Cynefin:** 🟦 Obvio
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MED-018.md`
 
 ---
@@ -449,7 +449,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
   2. Maintenance burden de dashboard separado
   3. Security: exposición de traces
 - **Uphill/Downhill:** ⬆️ 1 · ⬇️ 2
-- **Estado:** ✅ COMPLETED
+- **Estado:** 🟡 DEFER — low ROI, logs JSONL suficientes (defer a v2)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MED-019.md`
 
 ---
@@ -466,7 +466,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 20
 - **Pre-mortem:** Model traits config en `config/model-traits.mjs` → usar esa fuente
 - **Stop conditions:** >1d → solo logging warning si validación falla
 - **Cynefin:** 🟨 Complicado — integración con model traits
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬜ PENDING (re-ejecución)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MED-020.md`
 
 ---
