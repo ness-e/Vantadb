@@ -181,7 +181,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 19 (MED-019 → DEFER)
 - **Cynefin:** 🟦 Obvio
 - **Top 3 riesgos:** (ninguno)
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1
-- **Estado:** ⬜ PENDING (re-ejecución)
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/HIGH-006.md`
 
 ---
