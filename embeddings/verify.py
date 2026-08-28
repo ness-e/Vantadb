@@ -70,9 +70,66 @@ def check_structure(manifest: dict) -> bool:
         if not isinstance(m.get("rev"), str) or len(m["rev"]) != 7:
             print(f"[check] FAIL {m['id']} rev pinned", file=sys.stderr)
             ok = False
+    if manifest.get("default") != "multilingual-e5-small":
+        print(f"[check] FAIL default debe ser multilingual-e5-small", file=sys.stderr)
+        ok = False
+    # balance 3/3/3
+    from collections import Counter
+    cnt = Counter(m.get("group") for m in manifest.get("models", []))
+    if cnt["en"] != 3 or cnt["es"] != 3 or cnt["combined"] != 3:
+        print(f"[check] FAIL balance grupos en={cnt['en']} es={cnt['es']} combined={cnt['combined']} (esperado 3/3/3)", file=sys.stderr)
+        ok = False
+    qwen = [m for m in manifest.get("models", []) if m.get("id") == "qwen3-embedding-8b"]
+    if not qwen or "exception" not in qwen[0] or qwen[0].get("onnx") is not None:
+        print("[check] FAIL qwen3 debe tener exception y onnx=null", file=sys.stderr)
+        ok = False
     if ok:
         print(f"[check] OK estructura manifest — 9 modelos, dims y rev pinned ok")
     return ok
+
+
+def write_verify_log(manifest: dict, targets: list[dict] | None = None, status: str = "PASS", mode: str = "check-only") -> pathlib.Path:
+    log = pathlib.Path(__file__).parent / "verify.log"
+    models = targets if targets is not None else manifest.get("models", [])
+    lines = []
+    lines.append(f"# verify {status} — {mode} — {len(models)} modelos")
+    lines.append("")
+    lines.append(f"manifest v{manifest.get('version')} default={manifest.get('default')}")
+    lines.append("")
+    lines.append("| id | dim | group | onnx | repo | rev | langs | status |")
+    lines.append("|---|---|---|---|---|---|---|---|")
+    for m in models:
+        mid = m.get("id", "?")
+        model_dir = MODELS_DIR / mid
+        downloaded = model_dir.exists()
+        if mode == "check-only":
+            st = "PASS (check-only)"
+        elif downloaded:
+            st = "PASS" if status == "PASS" else "FAIL"
+            # annotate if model dir exists
+            st += " (downloaded)" if downloaded else " (missing)"
+        else:
+            st = "SKIP (not downloaded)"
+        onnx = m.get("onnx") or "HF-only"
+        langs = ",".join(m.get("langs", []))
+        lines.append(f"| {mid} | {m.get('dim')} | {m.get('group')} | {onnx} | {m.get('repo')} | {m.get('rev')} | {langs} | {st} |")
+    lines.append("")
+    lines.append(f"mode: {mode}")
+    # also check manifest.lock
+    lock_path = pathlib.Path(__file__).parent / "manifest.lock"
+    if lock_path.exists():
+        try:
+            j = json.loads(lock_path.read_text(encoding="utf-8"))
+            lines.append(f"manifest.lock: OK version={j.get('version')} locked={len(j.get('locked', j.get('models', [])))}")
+        except Exception as e:
+            lines.append(f"manifest.lock: FAIL {e}")
+    else:
+        lines.append("manifest.lock: not yet (ok pre-download)")
+    if mode == "check-only":
+        lines.append("note: check-only sin red — smoke DEFAULT deferido a CI con --skip-exception si no hay red")
+    lines.append("")
+    log.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return log
 
 
 def verify_model(m: dict) -> bool:
@@ -141,6 +198,8 @@ def main() -> int:
 
     if args.check:
         ok = check_structure(manifest)
+        log = write_verify_log(manifest, status="PASS" if ok else "FAIL", mode="check-only")
+        print(f"[verify] {'PASS' if ok else 'FAIL'} — log {log}")
         return 0 if ok else 1
 
     targets = filter_models(manifest, args)
@@ -149,15 +208,16 @@ def main() -> int:
         pass
 
     # header
-    print(f"[verify] {len(targets)} modelo(s) — {'con ort+tokenizers' if not args.check else 'check only'}")
+    print(f"[verify] {len(targets)} modelo(s) — con ort+tokenizers")
     all_ok = True
     for m in targets:
         if not verify_model(m):
             all_ok = False
-    # escribe verify.log
-    log = pathlib.Path(__file__).parent / "verify.log"
+    # escribe verify.log con tabla
     status = "PASS" if all_ok else "FAIL"
-    log.write_text(f"verify {status} — {len(targets)} modelos\n", encoding="utf-8")
+    downloaded_any = any((MODELS_DIR / m["id"]).exists() for m in targets)
+    mode = "downloaded" if downloaded_any else "check-only (no models)"
+    log = write_verify_log(manifest, targets, status=status, mode=mode)
     if all_ok:
         print(f"[verify] {status} — log {log}")
         return 0

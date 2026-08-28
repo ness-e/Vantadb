@@ -39,6 +39,11 @@ llm-driver = ["dep:reqwest"]
 # vector-free unless a hook is injected into `L1DedupConfig`.
 embeddings = ["vantadb/remote-inference"]
 
+# EMB-04: local ONNX embeddings via `LocalOnnxProvider` (ort+tokenizers).
+# Alias for `vantadb/embed-local`; enables `L1DedupConfig::with_local_provider()`
+# and `l1_writer::local_embedding_hook()` without requiring a networked provider.
+embed-local = ["vantadb/embed-local"]
+
 # Deterministic fake LLM runner for tests (see MEM-08b).
 mock = []
 

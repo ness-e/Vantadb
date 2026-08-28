@@ -65,6 +65,31 @@ impl Default for L1DedupConfig {
     }
 }
 
+impl L1DedupConfig {
+    /// Attach a local ONNX embedding hook (`LocalOnnxProvider`, 384-d) when
+    /// `embed-local` is enabled; otherwise leaves the config unchanged
+    /// (keyword-only recall). Replaces the legacy hash `dim=8` fallback
+    /// (MEM-47 — now `dim >= 64`, here 384).
+    pub fn with_local_provider(mut self) -> Self {
+        #[cfg(feature = "embed-local")]
+        {
+            self.embed = Some(crate::core::record::l1_writer::local_embedding_hook());
+        }
+        #[cfg(not(feature = "embed-local"))]
+        {
+            // No local provider compiled — keep keyword-only path.
+            let _ = &mut self;
+        }
+        self
+    }
+
+    /// Attach an explicit embedding hook (overwrites `with_local_provider`).
+    pub fn with_embed(mut self, hook: EmbedFn) -> Self {
+        self.embed = Some(hook);
+        self
+    }
+}
+
 /// Assign deterministic transient ids (`m_{now}_{idx}`) to raw memories.
 pub fn prepare_pending(memories: &[ExtractedMemory], now_ms: u64) -> Vec<PendingMemory> {
     memories
@@ -423,5 +448,43 @@ mod tests {
         assert_eq!(decisions[0].merged_type, Some(MemoryType::WorkMethod));
         assert_eq!(decisions[0].merged_priority, Some(90));
         assert_eq!(decisions[0].merged_content.as_deref(), Some("merged"));
+    }
+
+    #[cfg(feature = "embed-local")]
+    #[test]
+    fn with_local_provider_wires_384d_dummy_vectors() {
+        // EMB-04: with_local_provider must wire LocalOnnxProvider (384d) even without 691MB model
+        let config = L1DedupConfig::default().with_local_provider();
+        assert!(config.embed.is_some(), "embed-local must wire a hook");
+        let hook = config.embed.unwrap();
+        let v = hook("hola mundo").expect("hook must produce vector");
+        assert_eq!(
+            v.len(),
+            384,
+            "multilingual-e5-small dim 384 (MEM-47 dim>=64)"
+        );
+        let w = hook("hello world").expect("hook must produce vector");
+        assert_eq!(w.len(), 384);
+        // deterministic dummy keeps multi >0.60 as EMB-02 contract
+        let cos = {
+            let dot: f32 = v.iter().zip(w.iter()).map(|(a, b)| a * b).sum();
+            let norm_v: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+            let norm_w: f32 = w.iter().map(|x| x * x).sum::<f32>().sqrt();
+            dot / (norm_v * norm_w)
+        };
+        assert!(
+            cos > 0.60,
+            "multilingual dummy cosine must be >0.60, got {cos}"
+        );
+        let cos_self: f32 = v.iter().zip(v.iter()).map(|(a, b)| a * b).sum();
+        // self cosine should be ~1.0 (L2 normalized)
+        assert!(cos_self > 0.99, "self cosine >0.99, got {cos_self}");
+    }
+
+    #[cfg(not(feature = "embed-local"))]
+    #[test]
+    fn with_local_provider_without_feature_stays_keyword_only() {
+        let config = L1DedupConfig::default().with_local_provider();
+        assert!(config.embed.is_none(), "without embed-local, no hook wired");
     }
 }

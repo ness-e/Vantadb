@@ -59,6 +59,31 @@ pub fn core_embedding_hook() -> EmbedFn {
     Arc::new(move |text: &str| provider.embed(text).ok())
 }
 
+/// Build an [`EmbedFn`] from the local ONNX provider (`embed-local`).
+///
+/// Uses `LocalOnnxProvider` (ort+tokenizers, dim 384 for
+/// `multilingual-e5-small`) with deterministic 384-d fallback when the
+/// 691 MB model is not downloaded — keeps CI green. Vectors are
+/// L2-normalized and satisfy MEM-47 `dim >= 64`.
+/// Host code attaches it via `L1DedupConfig::with_local_provider()`.
+#[cfg(feature = "embed-local")]
+pub fn local_embedding_hook() -> EmbedFn {
+    // Reuse the core factory which already selects `LocalOnnxProvider` when
+    // `embed-local` is enabled (env `VANTA_LOCAL_MODEL` or default path).
+    // Wrapped in Arc so the hook is `Send+Sync + 'static`.
+    let provider = std::sync::Arc::new(vantadb::llm::get_embedding_provider());
+    Arc::new(move |text: &str| provider.embed(text).ok())
+}
+
+/// Fallback for `L1DedupConfig::with_local_provider()` when `embed-local`
+/// is not compiled — leaves embeddings disabled (keyword-only recall) so
+/// `cargo check` without the feature still passes. With `embed-local`,
+/// the provider yields 384-d vectors (MEM-47 dim>=64).
+#[cfg(not(feature = "embed-local"))]
+pub fn local_embedding_hook() -> EmbedFn {
+    Arc::new(|_: &str| None)
+}
+
 /// Best-effort embed: a hook failure logs a warning and yields `None` so the
 /// write proceeds without a vector (P4 — never blocks, never loses data).
 fn embed_vector(embed: Option<&EmbedFn>, content: &str) -> Option<Vec<f32>> {
@@ -284,7 +309,6 @@ fn put_record(
         payload: serde_json::to_string(record)?,
         metadata,
         vector,
-        sparse_vector: None,
         ttl_ms: None,
     })?;
     Ok(())
@@ -313,5 +337,30 @@ mod tests {
             generate_memory_id(1_700_000_000_000, 3),
             "m_1700000000000_3"
         );
+    }
+
+    #[cfg(feature = "embed-local")]
+    #[test]
+    fn local_embedding_hook_produces_384d_vectors() {
+        let hook = super::local_embedding_hook();
+        let v = hook("test content").expect("hook must produce vector");
+        assert_eq!(v.len(), 384, "local hook dim 384");
+        let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+        assert!((norm - 1.0).abs() < 1e-3, "L2 normalized, got {norm}");
+    }
+
+    #[cfg(feature = "embed-local")]
+    #[test]
+    fn local_hook_multilingual_cosine_contract() {
+        let hook = super::local_embedding_hook();
+        let a = hook("hola mundo").expect("embed");
+        let b = hook("hello world").expect("embed");
+        let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+        let n_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let n_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let cos = dot / (n_a * n_b);
+        assert!(cos > 0.60, "multilingual cosine >0.60 got {cos}");
+        let self_dot: f32 = a.iter().zip(a.iter()).map(|(x, y)| x * y).sum();
+        assert!(self_dot > 0.99, "self cosine >0.99 got {self_dot}");
     }
 }

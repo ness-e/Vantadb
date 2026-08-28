@@ -36,6 +36,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--only", type=str, default=None, help="lista coma-separada de ids (ej: multilingual-e5-small,bge-m3)")
     p.add_argument("--skip-exception", action="store_true", help="omite modelos con exception (Qwen3 16GB)")
     p.add_argument("--check", action="store_true", help="solo valida manifest/lock sin descargar")
+    p.add_argument("--dry-run", action="store_true", help="simula descarga (no red) mostrando targets filtrados")
     p.add_argument("--include-exception", action="store_true", help="incluye Qwen3 aunque sea >3GB (alias inverso de --skip-exception)")
     return p.parse_args()
 
@@ -120,6 +121,16 @@ def main() -> int:
         else:
             print(f"[check] lock no existe aún ({LOCK}) — ok para EMB-01")
         return 0 if ok else 1
+
+    if args.dry_run:
+        targets = filter_models(manifest, args)
+        if not targets:
+            print("[dry-run] ningún modelo seleccionado", file=sys.stderr)
+            return 1
+        print(f"[dry-run] {len(targets)} modelo(s) seleccionado(s) — sin descarga (offline ok):")
+        for m in targets:
+            print(f"  - {m['id']} ({m['repo']}@{m['rev']} dim={m['dim']} onnx={m['onnx']})")
+        return 0
 
     targets = filter_models(manifest, args)
     if not targets:

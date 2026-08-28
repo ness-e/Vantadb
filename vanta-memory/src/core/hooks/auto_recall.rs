@@ -65,11 +65,12 @@ pub struct RecallResult {
 pub enum RecallMode {
     /// Keyword overlap over persisted L1 records (LLM-free).
     Keyword,
-    /// Embedding cosine similarity. Degrades to [`RecallMode::Keyword`] in
-    /// this crate until a vector API is wired (documented ceiling).
+    /// Embedding cosine similarity. Degrades to [`RecallMode::Keyword`] when
+    /// no embedding hook is supplied; with `embed-local` feature,
+    /// `L1DedupConfig::with_local_provider()` wires `LocalOnnxProvider` automatically.
     Embedding,
     /// Keyword + embedding merged with RRF. Degrades to
-    /// [`RecallMode::Keyword`] for the same reason.
+    /// [`RecallMode::Keyword`] when no embedding hook is supplied (same as `Embedding`).
     Hybrid,
 }
 

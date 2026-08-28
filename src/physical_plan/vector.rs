@@ -57,6 +57,21 @@ impl PhysicalOperator for PhysicalVectorSearch<'_> {
             }
         }
 
+        #[cfg(feature = "embed-local")]
+        {
+            if vector.is_none() {
+                let model_dir = std::env::var("VANTA_LOCAL_MODEL")
+                    .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());
+                if let Ok(provider) = crate::llm::LocalOnnxProvider::new(&model_dir) {
+                    if let Ok(vec) =
+                        crate::llm::EmbeddingProvider::embed(&provider, &self.query_vec_text)
+                    {
+                        vector = Some(vec);
+                    }
+                }
+            }
+        }
+
         if let Some(vec) = vector {
             let neighbors = {
                 let index = self.storage.hnsw.load();
@@ -133,6 +148,21 @@ impl PhysicalOperator for PhysicalVectorRefine<'_> {
             let provider = crate::llm::get_embedding_provider();
             if let Ok(vec) = provider.embed(&self.query_vec_text) {
                 self.query_vector = Some(crate::node::VectorRepresentations::Full(vec));
+            }
+        }
+
+        #[cfg(feature = "embed-local")]
+        {
+            if self.query_vector.is_none() {
+                let model_dir = std::env::var("VANTA_LOCAL_MODEL")
+                    .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());
+                if let Ok(provider) = crate::llm::LocalOnnxProvider::new(&model_dir) {
+                    if let Ok(vec) =
+                        crate::llm::EmbeddingProvider::embed(&provider, &self.query_vec_text)
+                    {
+                        self.query_vector = Some(crate::node::VectorRepresentations::Full(vec));
+                    }
+                }
             }
         }
         Ok(())
