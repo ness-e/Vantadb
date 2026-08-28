@@ -302,6 +302,13 @@ pub struct VantaDB {
     /// PERF-08 differential-persist cache (see `PersistCache`). Holds the last
     /// persiated snapshot so `save`/`save_idb` re-serialize only what changed.
     persist_cache: Mutex<PersistCache>,
+    /// WSM-03: Tracks whether there are unsaved changes since the last persist.
+    /// Set to `true` by mutation methods (`put`, `put_batch`, `delete`, etc.),
+    /// reset to `false` after a successful `save`/`save_idb`.
+    dirty: AtomicBool,
+    /// WSM-03: Whether auto-save is enabled. When `true`, the JS glue will
+    /// call `try_auto_save()` on `visibilitychange`/`pagehide` events.
+    auto_save_enabled: AtomicBool,
 }
 
 /// PERF-08 differential-persist cache.
@@ -452,6 +459,8 @@ impl VantaDB {
             persist_cache: Mutex::new(PersistCache::new()),
             #[cfg(feature = "opfs")]
             worker: None,
+            dirty: AtomicBool::new(false),
+            auto_save_enabled: AtomicBool::new(false),
         })
     }
 
@@ -472,6 +481,8 @@ impl VantaDB {
             persist_cache: Mutex::new(PersistCache::new()),
             #[cfg(feature = "opfs")]
             worker: None,
+            dirty: AtomicBool::new(false),
+            auto_save_enabled: AtomicBool::new(false),
         })
     }
 
@@ -508,6 +519,8 @@ impl VantaDB {
             persist_cache: Mutex::new(PersistCache::new()),
             #[cfg(feature = "opfs")]
             worker: None,
+            dirty: AtomicBool::new(false),
+            auto_save_enabled: AtomicBool::new(false),
         };
         db.load().await?;
         Ok(db)
@@ -530,6 +543,8 @@ impl VantaDB {
             persist_cache: Mutex::new(PersistCache::new()),
             #[cfg(feature = "opfs")]
             worker: None,
+            dirty: AtomicBool::new(false),
+            auto_save_enabled: AtomicBool::new(false),
         };
         db.load_idb().await?;
         Ok(db)
@@ -576,6 +591,8 @@ impl VantaDB {
             op_gate: OpGate::new(),
             persist_cache: Mutex::new(PersistCache::new()),
             worker: Some(worker_proxy),
+            dirty: AtomicBool::new(false),
+            auto_save_enabled: AtomicBool::new(false),
         };
         // Load from worker-backed storage
         let data = db.worker_read("db_state.json").await?;
@@ -678,6 +695,8 @@ impl VantaDB {
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
         cache.dirty.insert((namespace.to_string(), key.to_string()));
+        // WSM-03: Track that there are unsaved changes for auto-save
+        self.dirty.store(true, Ordering::Relaxed);
     }
 
     /// Mark a single record key as deleted since the last persist.
@@ -689,6 +708,8 @@ impl VantaDB {
         let k = (namespace.to_string(), key.to_string());
         cache.dirty.remove(&k);
         cache.deleted.insert(k);
+        // WSM-03: Track that there are unsaved changes for auto-save
+        self.dirty.store(true, Ordering::Relaxed);
     }
 
     /// Mark the cache stale because an unknown set of keys changed (bulk ops).
@@ -698,6 +719,8 @@ impl VantaDB {
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
         cache.cache_invalid = true;
+        // WSM-03: Track that there are unsaved changes for auto-save
+        self.dirty.store(true, Ordering::Relaxed);
     }
 
     /// Seed the cache from a freshly-loaded snapshot so the next `save` is a
@@ -840,7 +863,10 @@ impl VantaDB {
         // always rewrite so deletions are reflected (small file, standalone
         // scale).
         let graph = self.graph_payload()?;
-        opfs.write_file("graph_state.json", &graph).await
+        opfs.write_file("graph_state.json", &graph).await?;
+        // WSM-03: Clear dirty flag on successful persist
+        self.dirty.store(false, Ordering::Relaxed);
+        Ok(())
     }
 
     /// Persist in-memory records to IndexedDB storage using differential writes.
@@ -857,7 +883,74 @@ impl VantaDB {
         }
         // CORE-02: see save() — graph snapshot rides alongside db_state.json.
         let graph = self.graph_payload()?;
-        IdbStorage::write_file("graph_state.json", &graph).await
+        IdbStorage::write_file("graph_state.json", &graph).await?;
+        // WSM-03: Clear dirty flag on successful persist
+        self.dirty.store(false, Ordering::Relaxed);
+        Ok(())
+    }
+
+    // ── WSM-03 Auto-save methods ────────────────────────────────────────────
+
+    /// Enable auto-save on visibilitychange/pagehide events.
+    ///
+    /// When enabled, the JavaScript glue code (opfs_bridge.js) will call
+    /// `try_auto_save()` when the document becomes hidden or is about to unload.
+    /// This is opt-in — call this method after creating a persistent connection
+    /// (`connect_persistent`, `connect_idb`, or `connect_worker`) to activate it.
+    ///
+    /// # Example (JavaScript)
+    /// ```js
+    /// import { registerAutoSave } from "vantadb-wasm/src/opfs_bridge.js";
+    /// const db = await VantaDB.connect_persistent("my-db");
+    /// db.enable_auto_save();
+    /// registerAutoSave(db);
+    /// ```
+    #[wasm_bindgen]
+    pub fn enable_auto_save(&self) {
+        self.auto_save_enabled.store(true, Ordering::Relaxed);
+    }
+
+    /// Disable auto-save.
+    ///
+    /// After calling this, the JS glue will no longer attempt auto-save on
+    /// visibilitychange/pagehide events.
+    #[wasm_bindgen]
+    pub fn disable_auto_save(&self) {
+        self.auto_save_enabled.store(false, Ordering::Relaxed);
+    }
+
+    /// Check if auto-save is currently enabled.
+    #[wasm_bindgen]
+    pub fn is_auto_save_enabled(&self) -> bool {
+        self.auto_save_enabled.load(Ordering::Relaxed)
+    }
+
+    /// Attempt an auto-save if there are unsaved changes and auto-save is enabled.
+    ///
+    /// This method is intended to be called from JavaScript (via the
+    /// `registerAutoSave` glue) on `visibilitychange` (with debounce) and
+    /// `pagehide` events. It performs a differential persist (same as `save`/
+    /// `save_idb`) but only if the `dirty` flag is set and auto-save is enabled.
+    ///
+    /// Returns `true` if a save was attempted, `false` if skipped (no changes or
+    /// auto-save disabled).
+    #[wasm_bindgen]
+    pub async fn try_auto_save(&self) -> Result<bool, JsValue> {
+        // Check if auto-save is enabled and there are unsaved changes
+        if !self.auto_save_enabled.load(Ordering::Relaxed) {
+            return Ok(false);
+        }
+        if !self.dirty.load(Ordering::Relaxed) {
+            return Ok(false);
+        }
+
+        // Try OPFS first, then IDB
+        if self.opfs.is_some() {
+            self.save().await?;
+        } else {
+            self.save_idb().await?;
+        }
+        Ok(true)
     }
 
     /// Restore all records from IndexedDB storage into memory.
