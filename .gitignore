@@ -229,6 +229,19 @@ traces/
 .opencode/task-system/mcp/*.budget.json
 .github/workflows-dl/
 
+# embeddings — local models (lazy download, ~22GB total if all 9 × ONNX+HF)
+# keep manifests, ignore weights
+/embeddings/models/
+embeddings/models/**
+/embeddings/*.onnx
+/embeddings/*.safetensors
+embeddings/**/*.bin
+!embeddings/README.md
+!embeddings/manifest.json
+!embeddings/manifest.lock
+!embeddings/download.py
+!embeddings/verify.py
+
 # Random build artifacts
 *.rar
 

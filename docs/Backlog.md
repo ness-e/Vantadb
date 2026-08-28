@@ -182,6 +182,30 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 
 ---
 
+## Phase 11: 🧠 Embeddings Local-First — `embeddings/` + 9 modelos + `embed-local` (2026-08-28)
+
+> **Origen:** Investigación 2026-08-27 (`src/llm.rs:26`, `providers/*`, `vanta-memory`, MTEB 2026, fastembed) + decisiones owner 2026-08-28 (Opción B descarga lazy, default `multilingual-e5-small`, ONNX+HF, 3 EN / 3 ES / 3 Combined, excepción Qwen3 >3GB).
+> **Plan:** `docs/plans/2026-08-28-embeddings-local.md` (9 tareas EMB-01..09, Fase1 4-6d, Fase2 2-3d, Fase3 1d, Fase4 4h).
+> **Carpeta:** `embeddings/` no existe hoy — se crea en EMB-01 con `manifest.json` (9 modelos, rev pinned), `download.py`, `verify.py`, `README.md`, `models/` gitignored (`/embeddings/models/`).
+> **Modelos:** 8 ≤3GB + 1 excepción `Qwen3-Embedding-8B` (16GB, MTEB 75.1). Todos ONNX+HF salvo Qwen3 (HF only). Balance 3 EN / 3 ES / 3 Combined (ver tabla en plan §4).
+
+| ID | Descripción (→ Resultado) | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+| `EMB-01` | **Infra `embeddings/` + manifest + `download.py` + `verify.py` + `.gitignore`** — `manifest.json` 9 modelos rev pinned + `manifest.lock` vacío + `download.py` (huggingface_hub lazy, `--only`) + `verify.py` (ort+tokenizers dim+cosine, ONNX vs HF >0.98) + `README.md` + delta `.gitignore:72` (`/embeddings/models/`). Validado `python -m py_compile download.py` + `verify.py --check` sin red. | `embeddings/**` (nuevo), `.gitignore:72` | 🟢 4-6h | 🔴 Alta | ⬜ Pendiente |
+| `EMB-02` | **Feature `embed-local` + `LocalOnnxProvider` (ort+tokenizers)** — `Cargo.toml:97` `embed-local = ["dep:ort","dep:tokenizers"]` (ort 2.0 `load-dynamic`), `src/llm.rs:132` `LocalOnnxProvider { session, tokenizer, dim }` impl `EmbeddingProvider` (tokenize → session.run → mean pooling + L2 normalize), `src/llm.rs:39` factory rama `"local"` → `LocalOnnxProvider::new("embeddings/models/multilingual-e5-small/onnx")`, env `VANTA_LOCAL_MODEL`. | `Cargo.toml:97`, `src/llm.rs:26,39,132`, `src/config.rs` | 🟠 3-5d | 🔴 Alta | ⬜ Pendiente |
+| `EMB-03` | **Descarga + verificación 9 modelos** — `python embeddings/download.py --all` (~22GB: 8×~0.8GB ONNX+HF + Qwen3 16GB) + `python embeddings/verify.py --all` → 9× dim + multi cosine (`"hola mundo" vs "hello world"` >0.60 multi, <0.50 EN-only) + ONNX vs HF >0.98. Output `verify.log` + `manifest.lock`. Flag `--skip-exception` para CI sin Qwen3. | `embeddings/models/**` (gitignored), `embeddings/manifest.lock`, `embeddings/verify.log` | 🟡 1d wall | 🔴 Alta | ⬜ Pendiente |
+| `EMB-04` | **Cablear `vanta-memory` L1 (fix punto 3)** — `vanta-memory/Cargo.toml:40` `embed-local = ["vantadb/embed-local"]`, `vanta-memory/src/core/record/l1_writer.rs` + `core/hooks/auto_recall.rs:69` corregir doc stale + `L1DedupConfig::with_local_provider(Arc<dyn EmbeddingProvider>)` usa `LocalOnnxProvider` en vez de hash dim=8 (`MEM-47`). `vanta-cli --features embed-local` auto-cablea. | `vanta-memory/Cargo.toml:40`, `vanta-memory/src/core/record/*`, `vanta-memory/src/core/hooks/auto_recall.rs:69` | 🟡 1-2d | 🔴 Alta | ⬜ Pendiente |
+| `EMB-05` | **MCP tool `embed_texts` (fix punto 3)** — `vantadb-mcp/src/handlers/tools.rs:549` nuevo arm `embed_texts { texts: string[], model?: string } -> { embeddings: float[][] }` reusa `EmbeddingProvider::embed_batch` (nuevo método batch, default impl en trait), budgeting `MCP-39` (truncado + cursor si >25k). | `vantadb-mcp/src/handlers/tools.rs`, `vantadb-mcp/src/config.rs`, `src/llm.rs:26` | 🟢 4-6h | 🟡 Media | ⬜ Pendiente |
+| `EMB-06` | **SQL vector auto-embed (fix punto 3)** — `src/physical_plan/vector.rs:51` `PhysicalVectorSearch::open()` y `:129` `Refine::open()` añadir `#[cfg(feature="embed-local")]` branch con `LocalOnnxProvider::embed(&query_vec_text)` además de `remote-inference`. `VECTOR_SEARCH('hola mundo')` offline sin `VANTA_LLM_URL`. | `src/physical_plan/vector.rs:51,129` | 🟢 2-4h | 🟡 Media | ⬜ Pendiente |
+| `EMB-07` | **Bench comparativo 9 modelos** — `benchmarks/embed_bench.py` (ingest 1k EN+ES, QPS, recall@10, RSS, p50 embed) → `benchmarks/embed_bench_report.json` (gitignored) + `docs/operations/BENCHMARKS.md` sección EMB (comando reproducible `python benchmarks/embed_bench.py --models all --skip-exception` vs `--include-exception`). | `benchmarks/embed_bench.py`, `docs/operations/BENCHMARKS.md` | 🟡 1d | 🟡 Media | ⬜ Pendiente |
+| `EMB-08` | **Docs + Quickstart multi (fix punto 1)** — `docs/QUICKSTART.md:182` quitar "not yet exposed", `docs/tutorials/05-embedding-integrations.md:11,126` añadir `embed-local` tabla 9 modelos + one-model-per-namespace, nuevo `docs/api/EMBEDDINGS.md` (API `EmbeddingProvider`, env vars), `README.md:232` mover `embed-local` a Optional. | `docs/QUICKSTART.md:182`, `docs/tutorials/05-embedding-integrations.md`, `docs/api/EMBEDDINGS.md` (nuevo), `docs/operations/EXPERIMENTAL_FEATURES.md:60` | 🟢 4h | 🟡 Media | ⬜ Pendiente |
+| `EMB-09` | **Excepción Qwen3 >3GB — wiring + doc** — Solo HF (16GB, GPU), `download.py --include-exception` + `verify.py` HF-only (dim 4096, multi >0.70), `embeddings/README.md` sección "Excepción >3GB" (Matryoshka 4096→1024, `trust_remote_code`), bench flag `--include-exception`. | `embeddings/README.md`, `benchmarks/embed_bench.py` | 🟢 2h | 🟢 Baja | ⬜ Pendiente |
+
+**Dependencias:** `EMB-01 → EMB-02 → EMB-03 → (EMB-04,05,06 en paralelo) → EMB-07 → EMB-08 → EMB-09`. `EMB-03` wall 1d por descarga 22GB.
+**Tabla modelos (9):** 3 EN (`bge-small-en-v1.5` 384 253MB, `all-MiniLM-L6-v2` 384 170MB, `bge-base-en-v1.5` 768 878MB) + 3 ES (`jina-es-v2-base` 768 2.2GB, `paraphrase-multilingual-MiniLM-L12-v2` 384 941MB, `distiluse-multilingual` 512 1.08GB) + 3 Combined (`multilingual-e5-small` 384 691MB **DEFAULT**, `bge-m3` 1024 3.47GB int8, `qwen3-embedding-8b` 4096 16GB **EXCEPCIÓN >3GB MTEB 75.1**). Ver `docs/plans/2026-08-28-embeddings-local.md` §4 para matriz completa.
+
+---
+
 ## Referencias Cruzadas
 
 - **RC items:** PROJECT_FULL_REVIEW_2026-07-13 (ARCHIVADO - generado por vantadb-full-review; ver docs/reviews/)

@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "default": "multilingual-e5-small",
+  "models": [
+    {
+      "id": "bge-small-en-v1.5",
+      "repo": "BAAI/bge-small-en-v1.5",
+      "rev": "a5beb1e",
+      "dim": 384,
+      "size_onnx_mb": 120,
+      "size_hf_mb": 133,
+      "onnx": "onnx/model.onnx",
+      "langs": ["en"],
+      "license": "MIT",
+      "group": "en"
+    },
+    {
+      "id": "all-MiniLM-L6-v2",
+      "repo": "sentence-transformers/all-MiniLM-L6-v2",
+      "rev": "c9745ed",
+      "dim": 384,
+      "size_onnx_mb": 80,
+      "size_hf_mb": 90,
+      "onnx": "onnx/model.onnx",
+      "langs": ["en"],
+      "license": "Apache-2.0",
+      "group": "en"
+    },
+    {
+      "id": "bge-base-en-v1.5",
+      "repo": "BAAI/bge-base-en-v1.5",
+      "rev": "40ef2d7",
+      "dim": 768,
+      "size_onnx_mb": 440,
+      "size_hf_mb": 438,
+      "onnx": "onnx/model.onnx",
+      "langs": ["en"],
+      "license": "MIT",
+      "group": "en"
+    },
+    {
+      "id": "jina-es-v2-base",
+      "repo": "jinaai/jina-embeddings-v2-base-es",
+      "rev": "a02a34d",
+      "dim": 768,
+      "size_onnx_mb": 1100,
+      "size_hf_mb": 1100,
+      "onnx": "onnx/model.onnx",
+      "langs": ["es", "en"],
+      "license": "Apache-2.0",
+      "group": "es"
+    },
+    {
+      "id": "paraphrase-multilingual-MiniLM-L12-v2",
+      "repo": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+      "rev": "bf3dc9e",
+      "dim": 384,
+      "size_onnx_mb": 470,
+      "size_hf_mb": 471,
+      "onnx": "onnx/model.onnx",
+      "langs": ["es", "en", "50+"],
+      "license": "Apache-2.0",
+      "group": "es"
+    },
+    {
+      "id": "distiluse-multilingual",
+      "repo": "sentence-transformers/distiluse-base-multilingual-cased-v1",
+      "rev": "09a2c94",
+      "dim": 512,
+      "size_onnx_mb": 540,
+      "size_hf_mb": 539,
+      "onnx": "onnx/model.onnx",
+      "langs": ["es", "en", "15+"],
+      "license": "Apache-2.0",
+      "group": "es"
+    },
+    {
+      "id": "multilingual-e5-small",
+      "repo": "intfloat/multilingual-e5-small",
+      "rev": "9866283",
+      "dim": 384,
+      "size_onnx_mb": 220,
+      "size_hf_mb": 471,
+      "onnx": "onnx/model.onnx",
+      "langs": ["es", "en", "16+"],
+      "license": "MIT",
+      "group": "combined"
+    },
+    {
+      "id": "bge-m3",
+      "repo": "BAAI/bge-m3",
+      "rev": "5617a9f",
+      "dim": 1024,
+      "size_onnx_mb": 1200,
+      "size_hf_mb": 2270,
+      "onnx": "onnx/model_int8.onnx",
+      "langs": ["es", "en", "100+"],
+      "license": "MIT",
+      "group": "combined"
+    },
+    {
+      "id": "qwen3-embedding-8b",
+      "repo": "Qwen/Qwen3-Embedding-8B",
+      "rev": "e7c9f6a",
+      "dim": 4096,
+      "size_onnx_mb": null,
+      "size_hf_mb": 16000,
+      "onnx": null,
+      "langs": ["es", "en", "100+"],
+      "license": "Apache-2.0",
+      "group": "combined",
+      "exception": ">3GB — MTEB #1 75.1, GPU only, ONNX not recommended"
+    }
+  ]
+}
