@@ -40,6 +40,36 @@ impl NodeFlags {
     /// Node has had a conflict resolved.
     pub const CONFLICT_RESOLVED: u32 = 1 << 9;
 
+    // ── Vector kind (ADR-032) — bits 10-13 in `DiskNodeHeader.flags`
+    // ponytail: 4-bit kind in flags, no header bump; lazy migration for legacy Binary
+    /// Mask for the 4-bit vector kind field (bits 10-13).
+    pub const VECTOR_KIND_MASK: u32 = 0x3C00; // 0b11_1100_0000_0000
+    /// Shift for the vector kind field.
+    pub const VECTOR_KIND_SHIFT: u32 = 10;
+    /// No vector.
+    pub const VECTOR_KIND_NONE: u32 = 0;
+    /// `Full(Vec<f32>)` — dense f32.
+    pub const VECTOR_KIND_FULL: u32 = 1;
+    /// `Binary(Box<[u64]>)` — RaBitQ 1-bit.
+    pub const VECTOR_KIND_BINARY: u32 = 2;
+    /// `Turbo(Box<[u8]>)` — PolarQuant 4-bit.
+    pub const VECTOR_KIND_TURBO: u32 = 3;
+    /// `SQ8(Box<[i8]>, f32)` — 8-bit + scale.
+    pub const VECTOR_KIND_SQ8: u32 = 4;
+
+    /// Extract the vector kind (ADR-032) from raw flags.
+    #[inline]
+    pub fn vector_kind(flags: u32) -> u32 {
+        (flags & Self::VECTOR_KIND_MASK) >> Self::VECTOR_KIND_SHIFT
+    }
+
+    /// Encode a vector kind into raw flags, preserving other bits.
+    #[inline]
+    pub fn with_vector_kind(flags: u32, kind: u32) -> u32 {
+        (flags & !Self::VECTOR_KIND_MASK)
+            | ((kind << Self::VECTOR_KIND_SHIFT) & Self::VECTOR_KIND_MASK)
+    }
+
     /// Create flags with the ACTIVE bit set.
     pub fn new() -> Self {
         Self(Self::ACTIVE)

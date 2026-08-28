@@ -21,7 +21,10 @@ pub struct DiskNodeHeader {
     pub importance: f32,
     /// Length of the relational metadata block (Offset 48)
     pub relational_len: u32,
-    /// Number of elements in the vector (Offset 52)
+    /// Number of elements in the vector (Offset 52). Semantics per
+    /// `NodeFlags::VECTOR_KIND_*` (ADR-032): FULL=N f32, BINARY=M u64,
+    /// TURBO=K u8, SQ8=N i8 (scale tail +4B not counted), NONE=0.
+    /// Legacy files with kind=0 and len>0 are FULL.
     pub vector_len: u32,
     /// Status flags (Offset 56)
     pub flags: u32,

@@ -347,41 +347,134 @@ impl StorageEngine {
             return Ok(None);
         }
 
-        let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(4) else {
-            return Ok(None);
-        };
-        let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
-            return Ok(None);
-        };
-        if vec_end > vstore.mmap_bytes().len() as u64 {
-            return Ok(None);
-        }
-        let vec_start = header.vector_offset as usize;
-        let vec_end = vec_end as usize;
-
-        let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
-        // SAFETY: 1) bounds ΓÇö the `vec_end > vstore.size` guard above ensures
-        // `vec_bytes` is a byte slice inside the mapping of exactly
-        // `vector_len*4` bytes; 2) alignment ΓÇö `read_header` rejects headers
-        // whose `vector_offset` is not a multiple of 4 (INV-024 M-1 central
-        // guard), so `vec_bytes.as_ptr()` is 4-byte aligned, required for a
-        // valid `&[f32]`; 3) lifetime ΓÇö the borrow of `vec_bytes` keeps the
-        // mapping alive; the `.to_vec()` copy below clears the borrow.
-        let f32_vec: &[f32] = unsafe {
-            std::slice::from_raw_parts(vec_bytes.as_ptr() as *const f32, header.vector_len as usize)
+        let kind = crate::node::NodeFlags::vector_kind(header.flags);
+        let vector = if kind == 0 {
+            if header.vector_len == 0 {
+                VectorRepresentations::None
+            } else {
+                let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(4) else {
+                    return Ok(None);
+                };
+                let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
+                    return Ok(None);
+                };
+                if vec_end > vstore.mmap_bytes().len() as u64 {
+                    return Ok(None);
+                }
+                let vec_start = header.vector_offset as usize;
+                let slice = &vstore.mmap_bytes()[vec_start..vec_end as usize];
+                let f32_vec: &[f32] = unsafe {
+                    std::slice::from_raw_parts(
+                        slice.as_ptr() as *const f32,
+                        header.vector_len as usize,
+                    )
+                };
+                VectorRepresentations::Full(f32_vec.to_vec())
+            }
+        } else {
+            match kind {
+                crate::node::NodeFlags::VECTOR_KIND_FULL => {
+                    let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(4) else {
+                        return Ok(None);
+                    };
+                    let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
+                        return Ok(None);
+                    };
+                    if vec_end > vstore.mmap_bytes().len() as u64 {
+                        return Ok(None);
+                    }
+                    let vec_start = header.vector_offset as usize;
+                    let vec_end = vec_end as usize;
+                    let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
+                    let f32_vec: &[f32] = unsafe {
+                        std::slice::from_raw_parts(
+                            vec_bytes.as_ptr() as *const f32,
+                            header.vector_len as usize,
+                        )
+                    };
+                    VectorRepresentations::Full(f32_vec.to_vec())
+                }
+                crate::node::NodeFlags::VECTOR_KIND_BINARY => {
+                    let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(8) else {
+                        return Ok(None);
+                    };
+                    let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
+                        return Ok(None);
+                    };
+                    if vec_end > vstore.mmap_bytes().len() as u64 {
+                        return Ok(None);
+                    }
+                    let vec_start = header.vector_offset as usize;
+                    let slice = &vstore.mmap_bytes()[vec_start..vec_end as usize];
+                    let (_, u64_slice, _) = unsafe { slice.align_to::<u64>() };
+                    if u64_slice.len() != header.vector_len as usize {
+                        return Ok(None);
+                    }
+                    VectorRepresentations::Binary(u64_slice.to_vec().into_boxed_slice())
+                }
+                crate::node::NodeFlags::VECTOR_KIND_TURBO => {
+                    let Some(vec_end) = header.vector_offset.checked_add(header.vector_len as u64)
+                    else {
+                        return Ok(None);
+                    };
+                    if vec_end > vstore.mmap_bytes().len() as u64 {
+                        return Ok(None);
+                    }
+                    let vec_start = header.vector_offset as usize;
+                    let slice = &vstore.mmap_bytes()[vec_start..vec_end as usize];
+                    VectorRepresentations::Turbo(slice.to_vec().into_boxed_slice())
+                }
+                crate::node::NodeFlags::VECTOR_KIND_SQ8 => {
+                    let Some(payload_end) = (header.vector_len as u64)
+                        .checked_add(4)
+                        .and_then(|b| header.vector_offset.checked_add(b))
+                        .filter(|&end| end <= vstore.mmap_bytes().len() as u64)
+                    else {
+                        return Ok(None);
+                    };
+                    let vec_start = header.vector_offset as usize;
+                    let payload = &vstore.mmap_bytes()[vec_start..payload_end as usize];
+                    let n = header.vector_len as usize;
+                    let scale = f32::from_le_bytes(payload[n..n + 4].try_into().unwrap_or([0; 4]));
+                    if !scale.is_finite() {
+                        return Ok(None);
+                    }
+                    let data: Vec<i8> = payload[..n].iter().map(|&b| b as i8).collect();
+                    VectorRepresentations::SQ8(data.into_boxed_slice(), scale)
+                }
+                crate::node::NodeFlags::VECTOR_KIND_NONE => VectorRepresentations::None,
+                _ => VectorRepresentations::None,
+            }
         };
 
         let mut node = UnifiedNode::new(id);
         node.bitset = FilterBitset::from_u128(header.bitset);
-        node.vector = VectorRepresentations::Full(f32_vec.to_vec());
-        if let crate::node::VectorRepresentations::SQ8(data, scale) = &index_node.value().vec_data {
-            node.vector = crate::node::VectorRepresentations::SQ8(data.clone(), *scale);
-        }
-        // Binary vectors are not stored in vstore as f32 (vector_len=0), so the
-        // Full default above would be empty. Restore the original Binary payload
-        // from the HNSW entry so get_with_snapshot returns the inserted vector.
-        if let crate::node::VectorRepresentations::Binary(b) = &index_node.value().vec_data {
-            node.vector = crate::node::VectorRepresentations::Binary(b.clone());
+        node.vector = vector;
+        // ADR-032 legacy rescue for kind==0/none
+        if kind == 0 || kind == crate::node::NodeFlags::VECTOR_KIND_NONE {
+            if let crate::node::VectorRepresentations::SQ8(data, scale) =
+                &index_node.value().vec_data
+            {
+                if matches!(node.vector, VectorRepresentations::None)
+                    || node.vector.dimensions() == 0
+                {
+                    node.vector = crate::node::VectorRepresentations::SQ8(data.clone(), *scale);
+                }
+            }
+            if let crate::node::VectorRepresentations::Binary(b) = &index_node.value().vec_data {
+                if matches!(node.vector, VectorRepresentations::None)
+                    || node.vector.dimensions() == 0
+                {
+                    node.vector = crate::node::VectorRepresentations::Binary(b.clone());
+                }
+            }
+            if let crate::node::VectorRepresentations::Turbo(t) = &index_node.value().vec_data {
+                if matches!(node.vector, VectorRepresentations::None)
+                    || node.vector.dimensions() == 0
+                {
+                    node.vector = crate::node::VectorRepresentations::Turbo(t.clone());
+                }
+            }
         }
         node.relational = metadata.relational;
         node.edges = metadata.edges;
@@ -392,7 +485,8 @@ impl StorageEngine {
         } else {
             crate::node::NodeTier::Cold
         };
-        node.flags = crate::node::NodeFlags(header.flags);
+        node.flags =
+            crate::node::NodeFlags(header.flags & !crate::node::NodeFlags::VECTOR_KIND_MASK);
 
         Ok(Some(node))
     }

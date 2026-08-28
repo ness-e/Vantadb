@@ -627,3 +627,138 @@ fn test_records_after_partial_txn_survive_recovery() {
         "durable committed record after an incomplete txn must survive"
     );
 }
+
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+#[test]
+fn test_persistence_binary_vector_roundtrip_vstore() {
+    // ADR-032: Binary vector must survive flush + reopen via vstore, not just HNSW file.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().unwrap();
+    let bin_data: Box<[u64]> =
+        vec![0xDEADBEEFu64, 0xCAFEu64, 0x1234567890ABCDEFu64].into_boxed_slice();
+    {
+        let engine = open_disk_engine_with_wal(path);
+        let mut node = sample_node(9001);
+        node.vector = crate::node::VectorRepresentations::Binary(bin_data.clone());
+        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+        engine.insert(&node).expect("insert binary");
+        engine.flush().expect("flush");
+        // immediate get before reopen should already use vstore+hnsw rescue correctly
+        let got = engine.get(9001).expect("get").expect("exists");
+        match got.vector {
+            crate::node::VectorRepresentations::Binary(ref b) => {
+                assert_eq!(b.as_ref(), bin_data.as_ref())
+            }
+            ref other => panic!("expected Binary before reopen, got {:?}", other),
+        }
+    }
+    // Reopen — HNSW may be loaded from file, but also test rebuild path by removing index file
+    {
+        let engine = open_disk_engine_with_wal(path);
+        let got = engine
+            .get(9001)
+            .expect("get after reopen")
+            .expect("exists after reopen");
+        match got.vector {
+            crate::node::VectorRepresentations::Binary(ref b) => {
+                assert_eq!(b.as_ref(), bin_data.as_ref())
+            }
+            ref other => panic!("expected Binary after reopen, got {:?}", other),
+        }
+        // Force rebuild from vstore alone: remove HNSW file and reopen with empty HNSW
+        // (simulates index file loss). The vstore rebuild must recover Binary.
+        drop(engine);
+        let index_path = std::path::Path::new(path)
+            .join("data")
+            .join("vector_index.bin");
+        let _ = std::fs::remove_file(&index_path);
+        let engine2 = open_disk_engine_with_wal(path);
+        let got2 = engine2
+            .get(9001)
+            .expect("get after rebuild")
+            .expect("exists after rebuild");
+        match got2.vector {
+            crate::node::VectorRepresentations::Binary(ref b) => {
+                assert_eq!(b.as_ref(), bin_data.as_ref())
+            }
+            ref other => panic!("expected Binary after rebuild, got {:?}", other),
+        }
+        // also verify rebuild report indexed it
+        let report = engine2.rebuild_vector_index().expect("rebuild");
+        assert!(report.scanned_nodes >= 1);
+        assert!(report.indexed_vectors >= 1);
+    }
+}
+
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+#[test]
+fn test_persistence_turbo_vector_roundtrip_vstore() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().unwrap();
+    let turbo_data: Box<[u8]> = vec![0xAB, 0xCD, 0xEF, 0x01, 0x23].into_boxed_slice();
+    {
+        let engine = open_disk_engine_with_wal(path);
+        let mut node = sample_node(9002);
+        node.vector = crate::node::VectorRepresentations::Turbo(turbo_data.clone());
+        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+        engine.insert(&node).expect("insert turbo");
+        engine.flush().expect("flush");
+    }
+    let engine = open_disk_engine_with_wal(path);
+    let got = engine.get(9002).expect("get").expect("exists");
+    match got.vector {
+        crate::node::VectorRepresentations::Turbo(ref t) => {
+            assert_eq!(t.as_ref(), turbo_data.as_ref())
+        }
+        ref other => panic!("expected Turbo, got {:?}", other),
+    }
+}
+
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+#[test]
+fn test_persistence_sq8_vector_roundtrip_vstore() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().unwrap();
+    let sq8_data: Box<[i8]> = vec![10, -20, 30, -40, 50].into_boxed_slice();
+    #[allow(clippy::approx_constant)]
+    let scale: f32 = 3.14;
+    {
+        let engine = open_disk_engine_with_wal(path);
+        let mut node = sample_node(9003);
+        node.vector = crate::node::VectorRepresentations::SQ8(sq8_data.clone(), scale);
+        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+        engine.insert(&node).expect("insert sq8");
+        engine.flush().expect("flush");
+    }
+    let engine = open_disk_engine_with_wal(path);
+    let got = engine.get(9003).expect("get").expect("exists");
+    match got.vector {
+        crate::node::VectorRepresentations::SQ8(ref d, s) => {
+            assert_eq!(d.as_ref(), sq8_data.as_ref());
+            assert!((s - scale).abs() < f32::EPSILON);
+        }
+        ref other => panic!("expected SQ8, got {:?}", other),
+    }
+}
+
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+#[test]
+fn test_persistence_full_vector_still_roundtrips() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().unwrap();
+    let full = vec![1.0f32, 2.0, 3.0, 4.0];
+    {
+        let engine = open_disk_engine_with_wal(path);
+        let mut node = sample_node(9004);
+        node.vector = crate::node::VectorRepresentations::Full(full.clone());
+        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+        engine.insert(&node).expect("insert full");
+        engine.flush().expect("flush");
+    }
+    let engine = open_disk_engine_with_wal(path);
+    let got = engine.get(9004).expect("get").expect("exists");
+    match got.vector {
+        crate::node::VectorRepresentations::Full(ref v) => assert_eq!(v, &full),
+        ref other => panic!("expected Full, got {:?}", other),
+    }
+}

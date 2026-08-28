@@ -56,16 +56,96 @@ pub(crate) fn deserialize_node_payload<T: DeserializeOwned>(
 }
 
 /// Write a node's header and vector data into the VantaFile at the current cursor position.
+///
+/// ADR-032: persists all `VectorRepresentations` variants (Full, Binary, Turbo, SQ8) using
+/// a 4-bit kind field in `flags` (bits 10-13, `NodeFlags::VECTOR_KIND_*`) and a
+/// kind-dependent `vector_len` / payload layout. Legacy files with kind=0 and len>0 are
+/// read as Full for compat (see readers).
 pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -> Result<u64> {
     let offset = vstore.write_cursor;
     let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
-    let vec_len = if let crate::node::VectorRepresentations::Full(ref v) = node.vector {
-        v.len()
-    } else {
-        0
+    // ADR-032: dispatch payload size / kind from the in-memory representation
+    let (kind, vec_len_u32, payload_len): (u32, u32, u64) = match &node.vector {
+        crate::node::VectorRepresentations::Full(v) => {
+            let len = v.len();
+            if len > u32::MAX as usize {
+                return Err(VantaError::ResourceLimit(format!(
+                    "node {} vector_len {} exceeds u32",
+                    node.id, len
+                )));
+            }
+            (
+                crate::node::NodeFlags::VECTOR_KIND_FULL,
+                len as u32,
+                (len * 4) as u64,
+            )
+        }
+        crate::node::VectorRepresentations::Binary(b) => {
+            let len = b.len();
+            if len > u32::MAX as usize {
+                return Err(VantaError::ResourceLimit(format!(
+                    "node {} Binary len {} exceeds u32",
+                    node.id, len
+                )));
+            }
+            (
+                crate::node::NodeFlags::VECTOR_KIND_BINARY,
+                len as u32,
+                (len * 8) as u64,
+            )
+        }
+        crate::node::VectorRepresentations::Turbo(t) => {
+            let len = t.len();
+            if len > u32::MAX as usize {
+                return Err(VantaError::ResourceLimit(format!(
+                    "node {} Turbo len {} exceeds u32",
+                    node.id, len
+                )));
+            }
+            (
+                crate::node::NodeFlags::VECTOR_KIND_TURBO,
+                len as u32,
+                len as u64,
+            )
+        }
+        crate::node::VectorRepresentations::SQ8(d, _) => {
+            let len = d.len();
+            if len > u32::MAX as usize {
+                return Err(VantaError::ResourceLimit(format!(
+                    "node {} SQ8 len {} exceeds u32",
+                    node.id, len
+                )));
+            }
+            // N i8 bytes + 4 bytes scale tail
+            (
+                crate::node::NodeFlags::VECTOR_KIND_SQ8,
+                len as u32,
+                len as u64 + 4,
+            )
+        }
+        crate::node::VectorRepresentations::MmapFull(_) => {
+            if let Some(slice) = node.vector.as_f32_slice() {
+                let len = slice.len();
+                if len > u32::MAX as usize {
+                    return Err(VantaError::ResourceLimit(format!(
+                        "node {} MmapFull len {} exceeds u32",
+                        node.id, len
+                    )));
+                }
+                (
+                    crate::node::NodeFlags::VECTOR_KIND_FULL,
+                    len as u32,
+                    (len * 4) as u64,
+                )
+            } else {
+                (crate::node::NodeFlags::VECTOR_KIND_NONE, 0, 0)
+            }
+        }
+        crate::node::VectorRepresentations::None => {
+            (crate::node::NodeFlags::VECTOR_KIND_NONE, 0, 0)
+        }
     };
-    let vec_size = (vec_len * 4) as u64;
-    let total_needed = offset + header_size + vec_size;
+    let total_needed = offset + header_size + payload_len;
     if total_needed > vstore.size {
         // ponytail: saturating to avoid overflow if size > 2^63 (already past sane limits)
         let new_size = (vstore.size.saturating_mul(2)).max(total_needed.saturating_add(4096));
@@ -73,8 +153,8 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
     }
     let mut header = DiskNodeHeader::new(node.id);
     header.vector_offset = offset + header_size;
-    header.vector_len = vec_len as u32;
-    header.flags = node.flags.0;
+    header.vector_len = vec_len_u32;
+    header.flags = crate::node::NodeFlags::with_vector_kind(node.flags.0, kind);
     header.bitset = node.bitset.to_u128();
     header.confidence_score = node.confidence_score;
     header.importance = node.importance;
@@ -96,11 +176,42 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
     }
     header.edge_count = edge_count as u16;
     vstore.write_header(offset, &header)?;
-    if let crate::node::VectorRepresentations::Full(ref vec) = node.vector {
-        let vec_bytes = vec.as_bytes();
-        vstore.mmap_bytes_mut()?
-            [(offset + header_size) as usize..(offset + header_size + vec_size) as usize]
-            .copy_from_slice(vec_bytes);
+    if payload_len > 0 {
+        let dst_range =
+            (offset + header_size) as usize..(offset + header_size + payload_len) as usize;
+        let mmap = vstore.mmap_bytes_mut()?;
+        match &node.vector {
+            crate::node::VectorRepresentations::Full(v) => {
+                let vec_bytes = v.as_bytes();
+                mmap[dst_range].copy_from_slice(vec_bytes);
+            }
+            crate::node::VectorRepresentations::Binary(b) => {
+                // SAFETY: &[u64] to &[u8] via raw parts is valid for LE copy; length checked via payload_len
+                let src =
+                    unsafe { std::slice::from_raw_parts(b.as_ptr() as *const u8, b.len() * 8) };
+                mmap[dst_range].copy_from_slice(src);
+            }
+            crate::node::VectorRepresentations::Turbo(t) => {
+                mmap[dst_range].copy_from_slice(t);
+            }
+            crate::node::VectorRepresentations::SQ8(d, scale) => {
+                let n = d.len();
+                // SAFETY: &[i8] to &[u8] is bitwise identical
+                let src = unsafe { std::slice::from_raw_parts(d.as_ptr() as *const u8, n) };
+                mmap[(offset + header_size) as usize..(offset + header_size + n as u64) as usize]
+                    .copy_from_slice(src);
+                mmap[(offset + header_size + n as u64) as usize
+                    ..(offset + header_size + payload_len) as usize]
+                    .copy_from_slice(&scale.to_le_bytes());
+            }
+            crate::node::VectorRepresentations::MmapFull(_) => {
+                if let Some(slice) = node.vector.as_f32_slice() {
+                    let vec_bytes = slice.as_bytes();
+                    mmap[dst_range].copy_from_slice(vec_bytes);
+                }
+            }
+            crate::node::VectorRepresentations::None => {}
+        }
     }
     // ponytail: saturating to avoid overflow in 64-byte alignment if total_needed near u64::MAX
     vstore.write_cursor = total_needed.saturating_add(63) & !63;
@@ -311,5 +422,114 @@ mod tests {
         let offset = write_node_to_vstore(&mut vstore, &node).unwrap();
         let header = vstore.read_header(offset).expect("header must be readable");
         assert_eq!(header.edge_count, u16::MAX);
+    }
+
+    /// ADR-032: Binary vector must persist kind + payload and round-trip via header.
+    #[test]
+    fn write_node_to_vstore_persists_binary_vector() {
+        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut node = UnifiedNode::new(1001);
+        let data: Box<[u64]> =
+            vec![0xDEADBEEFu64, 0xCAFE1234u64, 0x0123456789ABCDEFu64].into_boxed_slice();
+        node.vector = crate::node::VectorRepresentations::Binary(data.clone());
+        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+
+        let offset = write_node_to_vstore(&mut vstore, &node).unwrap();
+        let header = vstore.read_header(offset).expect("header readable");
+        assert_eq!(
+            crate::node::NodeFlags::vector_kind(header.flags),
+            crate::node::NodeFlags::VECTOR_KIND_BINARY
+        );
+        assert_eq!(header.vector_len as usize, data.len());
+        // payload must be M*8 bytes after header
+        let start = header.vector_offset as usize;
+        let end = start + data.len() * 8;
+        let raw = &vstore.mmap_bytes()[start..end];
+        let (_, u64_slice, _) = unsafe { raw.align_to::<u64>() };
+        assert_eq!(u64_slice, data.as_ref());
+    }
+
+    /// ADR-032: Turbo vector must persist kind + payload.
+    #[test]
+    fn write_node_to_vstore_persists_turbo_vector() {
+        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut node = UnifiedNode::new(1002);
+        let data: Box<[u8]> = vec![0xAB, 0xCD, 0xEF, 0x12, 0x34].into_boxed_slice();
+        node.vector = crate::node::VectorRepresentations::Turbo(data.clone());
+        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+
+        let offset = write_node_to_vstore(&mut vstore, &node).unwrap();
+        let header = vstore.read_header(offset).expect("header readable");
+        assert_eq!(
+            crate::node::NodeFlags::vector_kind(header.flags),
+            crate::node::NodeFlags::VECTOR_KIND_TURBO
+        );
+        assert_eq!(header.vector_len as usize, data.len());
+        let start = header.vector_offset as usize;
+        let end = start + data.len();
+        assert_eq!(&vstore.mmap_bytes()[start..end], data.as_ref());
+    }
+
+    /// ADR-032: SQ8 vector must persist kind + i8 payload + scale tail.
+    #[test]
+    fn write_node_to_vstore_persists_sq8_vector() {
+        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut node = UnifiedNode::new(1003);
+        let data: Box<[i8]> = vec![10, -20, 30, -40, 127, -127].into_boxed_slice();
+        let scale: f32 = 2.5;
+        node.vector = crate::node::VectorRepresentations::SQ8(data.clone(), scale);
+        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+
+        let offset = write_node_to_vstore(&mut vstore, &node).unwrap();
+        let header = vstore.read_header(offset).expect("header readable");
+        assert_eq!(
+            crate::node::NodeFlags::vector_kind(header.flags),
+            crate::node::NodeFlags::VECTOR_KIND_SQ8
+        );
+        assert_eq!(header.vector_len as usize, data.len());
+        let n = data.len();
+        let start = header.vector_offset as usize;
+        let payload = &vstore.mmap_bytes()[start..start + n + 4];
+        let raw_i8: Vec<i8> = payload[..n].iter().map(|&b| b as i8).collect();
+        assert_eq!(raw_i8.as_slice(), data.as_ref());
+        let scale_bytes: [u8; 4] = payload[n..n + 4].try_into().unwrap();
+        assert!((f32::from_le_bytes(scale_bytes) - scale).abs() < f32::EPSILON);
+    }
+
+    /// ADR-032: Full vector still persists as before (kind=FULL, len*4).
+    #[test]
+    fn write_node_to_vstore_persists_full_vector() {
+        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut node = UnifiedNode::new(1004);
+        let data = vec![1.0f32, 2.5, -3.75, 0.0];
+        node.vector = crate::node::VectorRepresentations::Full(data.clone());
+        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+
+        let offset = write_node_to_vstore(&mut vstore, &node).unwrap();
+        let header = vstore.read_header(offset).expect("header readable");
+        assert_eq!(
+            crate::node::NodeFlags::vector_kind(header.flags),
+            crate::node::NodeFlags::VECTOR_KIND_FULL
+        );
+        assert_eq!(header.vector_len as usize, data.len());
+        let start = header.vector_offset as usize;
+        let end = start + data.len() * 4;
+        let raw = &vstore.mmap_bytes()[start..end];
+        let (_, f32_slice, _) = unsafe { raw.align_to::<f32>() };
+        assert_eq!(f32_slice, data.as_slice());
+    }
+
+    /// ADR-032: None vector persists as kind=NONE with len 0 and no payload.
+    #[test]
+    fn write_node_to_vstore_persists_none_vector() {
+        let mut vstore = VantaFile::create_in_memory(4096);
+        let node = UnifiedNode::new(1005); // vector = None
+        let offset = write_node_to_vstore(&mut vstore, &node).unwrap();
+        let header = vstore.read_header(offset).expect("header readable");
+        assert_eq!(
+            crate::node::NodeFlags::vector_kind(header.flags),
+            crate::node::NodeFlags::VECTOR_KIND_NONE
+        );
+        assert_eq!(header.vector_len, 0);
     }
 }

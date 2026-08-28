@@ -9,7 +9,7 @@ use crate::index::distance::{
     cosine_sim_cached_norms, euclidean_distance_squared_f32, f32_slice_similarity,
 };
 use crate::index::graph::{self, CPIndex, NeighborVec, NodeSim, NodeSimMin};
-use crate::node::{DistanceMetric, FilterBitset};
+use crate::node::{DistanceMetric, FilterBitset, NodeFlags};
 use crate::storage::engine::FLAG_TOMBSTONE;
 
 impl CPIndex {
@@ -61,49 +61,51 @@ impl CPIndex {
                 // eligibility check below (was 2x read_header per entry point).
                 let node_header = vector_store.and_then(|vs| vs.read_header(node.storage_offset));
                 let d = if let Some(vs) = vector_store {
-                    profile.record_vfile_entry(node.storage_offset);
-                    profile.start_compute();
-                    let result = if let Some(header) = node_header {
-                        if let Some(vec_end) = (header.vector_len as u64)
-                            .checked_mul(4)
-                            .and_then(|b| header.vector_offset.checked_add(b))
-                            .filter(|&end| end <= vs.mmap_bytes().len() as u64)
-                            .map(|end| end as usize)
-                        {
-                            let vec_start = header.vector_offset as usize;
-                            let vec_data = &vs.mmap_bytes()[vec_start..vec_end];
-                            // SAFETY: bounds — the `vec_end > vs.mmap_bytes().len()`
-                            // guard above ensures `vec_start + vector_len*4 <= mmap size`,
-                            // so `vec_data` is an in-mapping byte slice of exactly
-                            // `vector_len*4` bytes; the borrow keeps the mapping alive.
-                            // Decode via the canonical `align_to` mechanism (exactly
-                            // what `VectorRepresentations::as_f32_slice` uses, REVIEW-15)
-                            // instead of a raw `from_raw_parts` u8*→f32* cast: `align_to`
-                            // guarantees the middle slice's alignment by construction and
-                            // every 32-bit pattern is a valid f32, so the value-validity
-                            // obligation holds vacuously. `read_header` rejects
-                            // non-4-multiple `vector_offset` (INV-024 M-1), so the middle
-                            // covers the full range; if it ever didn't, the len guard
-                            // below falls through to the same 0.0 as the bounds guard.
-                            debug_assert_eq!(
-                                vec_data.as_ptr().align_offset(4),
-                                0,
-                                "f32 vector must be 4-byte aligned"
-                            );
-                            let (_, f32_vec, _) = unsafe { vec_data.align_to::<f32>() };
-                            if f32_vec.len() != header.vector_len as usize {
-                                0.0
+                    // ADR-032: quantized vectors (Binary/Turbo/SQ8) are not scored from vstore
+                    // f32 bytes — they delegate to fast_similarity which already knows
+                    // how to handle their in-memory HNSW representation. Only FULL
+                    // (and legacy kind==0 with len>0) is scored via the vstore f32 path.
+                    let kind = node_header.map(|h| NodeFlags::vector_kind(h.flags));
+                    let is_full = matches!(
+                        kind,
+                        Some(k) if k == NodeFlags::VECTOR_KIND_FULL
+                            || (k == 0 && node_header.map(|h| h.vector_len > 0).unwrap_or(false))
+                    );
+                    if !is_full {
+                        self.fast_similarity(query_vec, query_norm, query_inv_norm, &node, metric)
+                    } else {
+                        profile.record_vfile_entry(node.storage_offset);
+                        profile.start_compute();
+                        let result = if let Some(header) = node_header {
+                            if let Some(vec_end) = (header.vector_len as u64)
+                                .checked_mul(4)
+                                .and_then(|b| header.vector_offset.checked_add(b))
+                                .filter(|&end| end <= vs.mmap_bytes().len() as u64)
+                                .map(|end| end as usize)
+                            {
+                                let vec_start = header.vector_offset as usize;
+                                let vec_data = &vs.mmap_bytes()[vec_start..vec_end];
+                                // SAFETY: same as before — bounds + align + copy
+                                debug_assert_eq!(
+                                    vec_data.as_ptr().align_offset(4),
+                                    0,
+                                    "f32 vector must be 4-byte aligned"
+                                );
+                                let (_, f32_vec, _) = unsafe { vec_data.align_to::<f32>() };
+                                if f32_vec.len() != header.vector_len as usize {
+                                    0.0
+                                } else {
+                                    metric_score(f32_vec, node.inv_cached_norm)
+                                }
                             } else {
-                                metric_score(f32_vec, node.inv_cached_norm)
+                                0.0
                             }
                         } else {
                             0.0
-                        }
-                    } else {
-                        0.0
-                    };
-                    profile.end_compute();
-                    result
+                        };
+                        profile.end_compute();
+                        result
+                    }
                 } else {
                     self.fast_similarity(query_vec, query_norm, query_inv_norm, &node, metric)
                 };
@@ -172,21 +174,37 @@ impl CPIndex {
                             if !visited.contains(&pf_neighbor_id) {
                                 if let Some(pf_node) = self.nodes.get(&pf_neighbor_id) {
                                     if let Some(h) = vs.read_header(pf_node.storage_offset) {
-                                        let Some(vec_len_bytes) =
-                                            (h.vector_len as u64).checked_mul(4)
-                                        else {
-                                            continue;
+                                        let kind = NodeFlags::vector_kind(h.flags);
+                                        let payload_len: u64 = match kind {
+                                            NodeFlags::VECTOR_KIND_FULL => {
+                                                (h.vector_len as u64).checked_mul(4).unwrap_or(0)
+                                            }
+                                            NodeFlags::VECTOR_KIND_BINARY => {
+                                                (h.vector_len as u64).checked_mul(8).unwrap_or(0)
+                                            }
+                                            NodeFlags::VECTOR_KIND_TURBO => h.vector_len as u64,
+                                            NodeFlags::VECTOR_KIND_SQ8 => h.vector_len as u64 + 4,
+                                            NodeFlags::VECTOR_KIND_NONE => 0,
+                                            _ => {
+                                                if h.vector_len == 0 {
+                                                    0
+                                                } else {
+                                                    (h.vector_len as u64)
+                                                        .checked_mul(4)
+                                                        .unwrap_or(0)
+                                                }
+                                            }
                                         };
                                         let Some(vec_end) =
-                                            h.vector_offset.checked_add(vec_len_bytes)
+                                            h.vector_offset.checked_add(payload_len)
                                         else {
                                             continue;
                                         };
-                                        if vec_end <= mmap_len as u64 && vec_len_bytes > 0 {
+                                        if vec_end <= mmap_len as u64 && payload_len > 0 {
                                             graph::prefetch_mmap_vector(
                                                 mmap_base,
                                                 h.vector_offset as usize,
-                                                vec_len_bytes as usize,
+                                                payload_len as usize,
                                             );
                                         }
                                     }
@@ -207,53 +225,54 @@ impl CPIndex {
                             // read_header per candidate in this hot loop).
                             let node_header =
                                 vector_store.and_then(|vs| vs.read_header(neighbor.storage_offset));
+                            let kind = node_header.map(|h| NodeFlags::vector_kind(h.flags));
+                            let is_full = matches!(
+                                kind,
+                                Some(k) if k == NodeFlags::VECTOR_KIND_FULL
+                                    || (k == 0 && node_header.map(|h| h.vector_len > 0).unwrap_or(false))
+                            );
                             let d = if let Some(vs) = vector_store {
-                                profile.record_vfile_candidate(neighbor.storage_offset);
-                                profile.start_compute();
-                                let result = if let Some(h) = node_header {
-                                    if let Some(vec_end) = (h.vector_len as u64)
-                                        .checked_mul(4)
-                                        .and_then(|b| h.vector_offset.checked_add(b))
-                                        .filter(|&end| end <= vs.mmap_bytes().len() as u64)
-                                        .map(|end| end as usize)
-                                    {
-                                        let vec_start = h.vector_offset as usize;
-                                        let v_data = &vs.mmap_bytes()[vec_start..vec_end];
-                                        // SAFETY: bounds — the `vec_end > vs.mmap_bytes().len()`
-                                        // guard above ensures `h.vector_len * 4` does not
-                                        // exceed the mapping, so `v_data` is an in-mapping byte
-                                        // slice of exactly `vector_len*4` bytes; the borrow
-                                        // keeps the mapping alive. Decode via the canonical
-                                        // `align_to` mechanism (exactly what
-                                        // `VectorRepresentations::as_f32_slice` uses,
-                                        // REVIEW-15) instead of a raw `from_raw_parts` u8*→f32*
-                                        // cast: `align_to` guarantees the middle slice's
-                                        // alignment by construction and every 32-bit pattern
-                                        // is a valid f32, so the value-validity obligation
-                                        // holds vacuously. `read_header` rejects
-                                        // non-4-multiple `vector_offset` (INV-024 M-1), so the
-                                        // middle covers the full range; if it ever didn't, the
-                                        // len guard below falls through to the same 0.0 as the
-                                        // bounds guard.
-                                        debug_assert_eq!(
-                                            v_data.as_ptr().align_offset(4),
-                                            0,
-                                            "f32 neighbor vector must be 4-byte aligned"
-                                        );
-                                        let (_, f32_v, _) = unsafe { v_data.align_to::<f32>() };
-                                        if f32_v.len() != h.vector_len as usize {
-                                            0.0
+                                if !is_full {
+                                    self.fast_similarity(
+                                        query_vec,
+                                        query_norm,
+                                        query_inv_norm,
+                                        &neighbor,
+                                        metric,
+                                    )
+                                } else {
+                                    profile.record_vfile_candidate(neighbor.storage_offset);
+                                    profile.start_compute();
+                                    let result = if let Some(h) = node_header {
+                                        if let Some(vec_end) = (h.vector_len as u64)
+                                            .checked_mul(4)
+                                            .and_then(|b| h.vector_offset.checked_add(b))
+                                            .filter(|&end| end <= vs.mmap_bytes().len() as u64)
+                                            .map(|end| end as usize)
+                                        {
+                                            let vec_start = h.vector_offset as usize;
+                                            let v_data = &vs.mmap_bytes()[vec_start..vec_end];
+                                            // SAFETY: same as entry point
+                                            debug_assert_eq!(
+                                                v_data.as_ptr().align_offset(4),
+                                                0,
+                                                "f32 neighbor vector must be 4-byte aligned"
+                                            );
+                                            let (_, f32_v, _) = unsafe { v_data.align_to::<f32>() };
+                                            if f32_v.len() != h.vector_len as usize {
+                                                0.0
+                                            } else {
+                                                metric_score(f32_v, neighbor.inv_cached_norm)
+                                            }
                                         } else {
-                                            metric_score(f32_v, neighbor.inv_cached_norm)
+                                            0.0
                                         }
                                     } else {
                                         0.0
-                                    }
-                                } else {
-                                    0.0
-                                };
-                                profile.end_compute();
-                                result
+                                    };
+                                    profile.end_compute();
+                                    result
+                                }
                             } else {
                                 self.fast_similarity(
                                     query_vec,
