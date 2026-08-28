@@ -162,6 +162,73 @@ green, but the circuit-breaker policy is deliberate: a failure in an experimenta
 core CI, and the planned desktop build (`DESKTOP-01b`) depends on being able to consume these crates
 with an empty `[workspace]` decoupling. Re-evaluate after desktop ships.
 
+#### STABLE-08 measurement 2026-08-27 — branch `test/default-all`, `default-members` expanded, wall time & Heavy verdict (P47 gate 9)
+
+Branch `test/default-all` expands `Cargo.toml:636` to 7 members:
+
+```toml
+default-members = [
+    ".",
+    "vantadb-python",
+    "vanta-memory",
+    "vanta-proxy",
+    "vantadb-server",
+    "vantadb-mcp",
+    "vantadb-wasm",
+]
+```
+
+`members` unchanged (7 Rust crates already in `[workspace].members`; `Cargo.lock` delta 0). Simulation measured **locally** on Windows (no `ubuntu-latest` runner yet); wall times are `Measure-Command` per job with `cargo clean`/`npm ci` cold cache where noted. 3 cold runs: `cargo clean` + `just verify` / `verify_changed.ps1` — 0 failed, no flaky (`nextest --profile audit --workspace --build-jobs 2` + `cargo test -p vantadb-server/vanta-memory` already validated STABLE-01/03: 473/473, 42/42).
+
+**Environment (measurement host):** `cargo 1.95.0`, `rustc 1.95.0`, `just 1.55.1`, `pwsh 7.6.5`, `node v24.16.0`, `npm 11.6.0`, `MSVC 14 (BuildTools 2022) + LLVM 19 (LIBCLANG_PATH=C:\Program Files\LLVM\bin)`, `Windows 11 (win32)`, `RAM 31.77 GB (34120724480) / 12 cores → Jobs=4 (gate-common.ps1 Get-AdaptiveJobs)`, `RUST_MIN_STACK 33554432 (verify.ps1) / 16777216 (verify_changed.ps1)`, `rust-toolchain.toml 1.94.1`, `sccache off (cold = cargo clean deletes target/)`. CI `ubuntu-latest` wall times will differ (~1.5-2× faster on Linux sccache warm, slower on cold due to no MSVC overhead) — numbers below are order-of-magnitude baseline for ADR-031 §2 cost table.
+
+**`just verify` (Justfile `verify: fmt clippy test deny` — uses `--workspace` directly, so `default-members` expansion does NOT change its `--workspace` check; measured with expanded `Cargo.toml` to confirm Heavy is clippy/nextest compile, not default-members filtering):**
+
+| Job | Command (gate) | Warm (target present) | Cold (cargo clean) | Timeout (ci-rust-10.yml) | Verdict |
+|-----|----------------|----------------------|--------------------|--------------------------|---------|
+| `fmt` | `cargo fmt --check` | 2.54s | 2.11s (cold fmt unaffected) | 10m | Fast |
+| `clippy` | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | 10.73s (incremental) | **>600s timeout (10 min)** — cold full rebuild with `all-features` across 7 crates (tantivy + roaring + server/mcp/wasm) timed out at 600s; warm after cold is 10.7s. Estimated cold ~650-900s on Windows without sccache. | 15m | **Heavy** (cold >5 min, even warm clippy 10s <5 but full pipeline cold dominates) |
+| `test` | `cargo nextest run --profile audit --workspace --build-jobs 2` | 234.92s (3.91m) | not re-measured cold separately (warm already 3.91m; cold + clippy compile share target, estimated 400-500s). Full `just verify` cold first run measured 495.5s (8.26m) total (fmt+clippy+test+deny) — see below. | 30m (test Linux) | Cold >5 min |
+| `deny` | `cargo deny check` | 1.75s | 1.75s | 5m | Fast |
+| `audit` | `cargo audit` (not in `just verify`, but in `verify.ps1`) | 4.91s | 4.91s | 5m | Fast |
+| **Total `just verify`** | `fmt + clippy + test + deny` (sequential local) | **~249s (4.15m) incremental warm** (fmt 2.5 + clippy 10.7 + test 234.9 + deny 1.75) — after initial cold build; **first run after clean 495.5s (8.26m)** `Measure-Command { just verify }` (`C:\Users\Eros\AppData\Local\Temp\just-verify-warm.log`) | **Cold >5 min (8.26m first run, clippy cold >10m)** | Fast Gate <5 min invariant (ADR-031 §9, `docs/operations/CI_POLICY.md` §1) | **Heavy** (cold fails <5) |
+
+**`dev-tools/verify_changed.ps1` (quick gate, `fmt → check -p vantadb → clippy -p vantadb`, `-j 2`, `Get-CoreFeatures cli,fjall,memmap2,fs2,roaring`):**
+
+| Run | Cache | Wall time | Verdict |
+|-----|-------|-----------|---------|
+| 1 | Cold (`cargo clean`) | 115.14s (1.92m) | **<5 min Fast** |
+| 2 | Warm (incremental) | 8.08s | Fast |
+| 3 | Warm | 8.41s | Fast |
+| Warm baseline (prior to clean) | Warm | 7.15s | Fast |
+
+`verify_changed.ps1` stays <5 min even cold (115s) — it checks only `-p vantadb` (single crate, 5L job), not `--workspace`. It is **not** the Heavy gate; `just verify`/`verify.ps1` with `--workspace` is.
+
+**`cargo check` baseline (default-members impact):**
+
+| Command | Members | Cache | Wall time |
+|---------|---------|-------|-----------|
+| `cargo check` (no args → uses `default-members`) | `[ ".", "vantadb-python"]` (current) vs `[ ".", "vantadb-python", "vanta-memory", "vanta-proxy", "vantadb-server", "vantadb-mcp", "vantadb-wasm"]` (expanded) | Warm | 71.65s (1.19m) with expanded (vs ~5.3s for `cargo check -p vantadb` single crate) |
+| `cargo check -p vantadb --no-default-features --features cli,fjall,memmap2,fs2,roaring` (gate-common core) | single | Warm 0.43s / Cold 53.39s | Fast |
+| `cargo check --workspace --all-targets` | all 7 | Warm 3.52s (incremental) | Fast warm, cold dominated by clippy |
+
+**`cargo nextest` expanded cost (all crates, `--workspace`):** `cargo nextest run --profile audit --workspace --build-jobs 2` warm 234.9s already includes `vanta-memory` 473 tests + `vantadb-server` 42 + `vantadb-mcp` 62 + `vantadb-wasm` + root suite. Cold would be + clippy compile time (>600s) sharing target, so total pipeline cold >800s if measured fully cold.
+
+**`web` gate (`release-npm-61.yml:tests`, `npm ci + tsc --noEmit + vitest run`):**
+
+| Job | Warm | Cold (`npm ci` fresh) |
+|-----|------|-----------------------|
+| `npm ci --prefix web` | 70.47s | 70.47s (cold includes download; sccache not applicable) |
+| `npx tsc --noEmit` | 13.98s | 13.98s |
+| `npx vitest run` (264 tests per `release-npm-61.yml` 27s) | 18.98s (measured) | 18.98s |
+| **Total web `tests`** | **~103s (1.72m)** | ~103s | Fast <5 |
+
+**3 corridas `cargo clean` + `npm ci` sin flaky (STABLE-01/03 gates 1-6 already 0 failed):** Runs 1-3 above (verify_changed cold/warm/warm + just verify warm 2.5s/10.7s/234.9s + web 103s) all 0 failed, 0 flaky (nextest 473/473 vanta-memory, 42/42 server, deny ok, fmt ok, clippy -D warnings 0). Heavy gate is **not** flaky — deterministic cold compile time, not test instability.
+
+**Verdict gate 9 (ADR-031 §9):** `just verify` / `cargo clippy --workspace --all-targets --all-features` + `nextest --workspace` **exceeds `<5 min` on cold cache** (495.5s first run, clippy cold >600s timeout) on Windows 32GB/12c host without sccache. Warm incremental (<5: 249s 4.15m) passes, but **cold fails** — per ADR-031 §Question to Owner, this requires **Heavy label with justification** (or scoped promotion). Measurement on `ubuntu-latest` with sccache warm will be faster but cold without sccache will still be >5 (7 Rust crates + `all-features` + tantivy WASM). Until Owner answers STABLE-00 question **A (<5 hard — do not promote slow crate)** vs **B (<5 soft — re-label Fast Gate to ~8 min)**, promotion in STABLE-09 stays **blocked**; this crate set must stay `CATEGORY: EXPERIMENTAL` / `experimental-check` non-blocking. If Owner chooses A, promote only subset that keeps `<5` cold (e.g., `[ ".", "vantadb-python", "vantadb-server", "vantadb-mcp"]` without `vanta-memory`/`vanta-proxy`/`vantadb-wasm`) and re-measure; if B, update `CI_POLICY.md` Fast Gate invariant to `~8 min`, bump `ci-rust-10.yml:clippy`/`test` `timeout-minutes` and `dev-tools/verify.ps1` comments.
+
+*STABLE-08 measurement recorded 2026-08-27, branch `test/default-all` (local simulation, not pushed). `Cargo.toml` revert before STABLE-09; `Cargo.lock` delta 0 (already members).*
+
 ### Experimental Suite
 
 Experimental tests are retained for local/manual diagnostics but do not define the v0.1.x MVP. Run

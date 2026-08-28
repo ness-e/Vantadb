@@ -4,7 +4,7 @@
 - **Plan file:** `docs/plans/2026-08-27-backlog-v2.md`
 - **Creado:** 2026-08-28T00:00
 - **last-synced:** 2026-08-28T00:00
-- **Estado:** ⏳ IN PROGRESS (vanta-arch)
+- **Estado:** ✅ COMPLETED (vanta-arch — 2026-08-28 — Binary persistence ADR-032)
 - **Ruta:** vanta-arch
 - **Prioridad:** 🟡 Media | **Esfuerzo:** 🟡 1d | **Appetite:** max 1d
 
