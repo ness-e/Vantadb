@@ -72,6 +72,18 @@ jobs:
 | `coverage` | `cargo llvm-cov nextest` | 30min | Code coverage |
 | `audit` | `cargo audit` | 5min | Security advisory check |
 | `deny` | `cargo deny check` | 5min | License & policy check |
+| `semver-checks` | `cargo semver-checks -p vantadb` | 30min | Public API semver gate (RELEASE-01) |
+
+**Semver-checks gate (public API):** bloques a breaking change en la API pública de `vantadb`. Compares the current tree contra la última versión publicada en crates.io (baseline 0.4.x vs 0.5.0+). Solo verifica el crate `vantadb`: `vantadb-wasm` se distribuye vía npm (`release = false`); `vantadb-python`, `vantadb-server`, `vantadb-mcp` no se publican en crates.io. El flag `semver_check = true` en `release-plz.toml:18` no ejecuta el check por sí solo — este job CI es el gate mecánico. Implementación: `.github/workflows/ci-rust-10.yml:88-118` (job `semver-checks`). Doc origin: RELEASE-01 (commit `feat(ci): add cargo-semver-checks gate`, ver `docs/CHANGELOG.md:648`).
+
+**Local run (pre-push manual):**
+
+```bash
+cargo install cargo-semver-checks --locked
+cargo semver-checks -p vantadb
+```
+
+Si falla localmente pero el CI está verde: regenerar el baseline con `cargo semver-checks -p vantadb --baseline-version 0.5.0` después de un release exitoso (TODO: automatizar baseline bump post-release, ver FIND-* relacionado si existe).
 
 #### `ci-web-11.yml` — CI: Web — Build & Test
 

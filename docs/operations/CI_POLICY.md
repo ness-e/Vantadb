@@ -58,6 +58,8 @@ governance semantics are excluded from the default fast lane.
 | `minimal-versions` | Minimal Versions Check (`-Zminimal-versions`, nightly, continue-on-error) |
 | `coverage` | Code Coverage (`cargo-llvm-cov`, gate root crate ≥80% por ADR-018) |
 | `audit` | Security Audit (`cargo audit`) |
+| `deny` | License & Policy (`cargo deny check`) |
+| `semver-checks` | Public API Semver (RELEASE-01) — `cargo semver-checks -p vantadb` vs última publicada en crates.io. Ver `ci-cd-guide.md` § "Semver-checks gate (public API)" |
 | `miri` | Miri UB Detection (nightly) |
 | `deny` | Dependency Policy Check (`cargo deny`) |
 | `experimental-check` | Experimental Crates Check (continue-on-error, non-blocking) |

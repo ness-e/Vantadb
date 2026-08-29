@@ -3,7 +3,7 @@ title: "Avance — Operaciones & API"
 type: domain-log
 status: active
 tags: [vantadb, avance, ops, api, docs, backup, enterprise]
-last_reviewed: 2026-08-07
+last_reviewed: 2026-08-29
 aliases: []
 ---
 
@@ -132,3 +132,12 @@ aliases: []
 - **Resultado:** ✅ openapi.yaml regenerado (35 paths / 40 ops, 29 `/api/v2/*`, version sincronizada); `scripts/check_openapi_parity.mjs` (stdlib-only) + step en gate-docs-21.yml. Commit pendiente del lead.
 ### MEM-54: Skills CRUD en server HTTP (P33 Task 4, H5) - 2026-08-22
 - **Resultado:** OK — POST /api/v2/skills (create idempotente content-hash) + PUT/PATCH/DELETE /api/v2/skills/{skill_id} con query params owner_agent+expected_version (lock optimista MEM-06; stale = 409). Owner-mismatch devuelve el mismo 404 que missing (anti-enumeracion). Tests D19 x2 en cli_server (--features server), openapi.yaml parity OK (37 paths / 44 ops), HTTP_API.md actualizado.
+
+### FIND-46: Doc drift semver-checks — Documentar cargo semver-checks en pre-release gate
+- **Fecha:** 2026-08-29
+- **Objetivo:** Resolver doc drift entre CI (gate semver-checks existe en ci-rust-10.yml:88-118) y docs de operations (no documentado).
+- **Resultado:** ✅ Documentado el gate en docs/operations/ci-cd-guide.md (job table + sección dedicada con install local y scope antadb-only) + cross-ref en docs/operations/CI_POLICY.md (job table §1) + docs/operations/master-index.md last_reviewed actualizado. Contrato del plan verificado: cargo semver-checks --help → 92 líneas (path 1 ✅) + 6 matches de semver-checks en docs/operations/ (path 2 ✅).
+- **Archivos tocados:** docs/operations/ci-cd-guide.md, docs/operations/CI_POLICY.md, docs/operations/master-index.md
+- **Commit:** staged para vanta-lead (vanta-docs no hace commit)
+- **Origen:** codegraph-20260827 Fase 11 + plan 2026-08-29-full-backlog-parallel.md W0-2
+- **Pre-mortem cerrado:** install local documentado (cargo install cargo-semver-checks --locked); CI ya está automatizado vía taiki-e/install-action.

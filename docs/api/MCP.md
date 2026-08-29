@@ -348,3 +348,26 @@ After oversize trimming, `truncated` flips to `true` and the last items are drop
 ## Parity
 
 Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-08-23**.
+
+## Registry manifest
+
+VantaDB MCP is published to the [Official MCP Registry](https://registry.modelcontextprotocol.io/)
+under the namespace `io.github.ness-e/vantadb`. The canonical descriptor lives at
+the repo root: [`/server.json`](../../server.json) (schema version `2025-12-11`).
+
+| Field | Value |
+|-------|-------|
+| `name` | `io.github.ness-e/vantadb` |
+| `version` | tracks `[workspace.package].version` (`0.5.0` as of this doc) |
+| `transport` | stdio (no remote service; no published `packages[]` — install via `cargo install --git`) |
+| `repository` | [`ness-e/Vantadb`](https://github.com/ness-e/Vantadb) |
+
+For submission state, glama/smithery aggregator status, and the
+`server.json` regeneration procedure (per release), see
+[`/docs/operations/MCP_REGISTRY.md`](../operations/MCP_REGISTRY.md).
+
+> Pre-mortem: the registry submission PR is a **manual** step (not a CI gate).
+> Until it's approved, the `server.json` lives in-repo as a discoverable descriptor;
+> the binary itself is the source of truth. See
+> [`MCP_REGISTRY.md#submission-state`](../operations/MCP_REGISTRY.md#submission-state)
+> for the current PR/approval state.

@@ -1,6 +1,6 @@
 # Operations Master Index
 
-**last_reviewed:** 2026-08-10
+**last_reviewed:** 2026-08-29
 
 ## docs/operations/
 
@@ -23,6 +23,7 @@
 | [GRAFANA_SETUP.md](GRAFANA_SETUP.md) | Grafana dashboard setup |
 | [grafana-dashboard.json](grafana-dashboard.json) | Grafana dashboard JSON definition |
 | [MEMORY_TELEMETRY.md](MEMORY_TELEMETRY.md) | Memory telemetry and monitoring |
+| [MCP_REGISTRY.md](MCP_REGISTRY.md) | MCP server.json manifest + registry submission state (MCP-40) |
 | [PERFORMANCE_GUIDE.md](PERFORMANCE_GUIDE.md) | Performance optimization guide |
 | [PERFORMANCE_TUNING.md](PERFORMANCE_TUNING.md) | Performance tuning parameters |
 | [PILOT_PROGRAM.md](PILOT_PROGRAM.md) | Pilot program documentation |

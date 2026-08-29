@@ -256,7 +256,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | FIND-43 | Media | Ciclo CacheWarmer (3 nodos): builder pattern recursivo `new`→`with_config`→`with_config_and_cap` — aplanar a builder no recursivo. Origen: codegraph-20260827-143245 Fase 1 | src/cache_warmer.rs | 🟢 | 🟡 Media | Pendiente |
 | FIND-44 | Alta | Sin ADRs registrados: proyecto sin Architecture Decision Records — crear ADR inicial (PURPOSE, STACK, ARCHITECTURE, PATTERNS, TRADEOFFS, PHILOSOPHY). Origen: codegraph-20260827-143245 Fase 12 | Proyecto entero | 🟠 | 🔴 Alta | Pendiente |
 | FIND-45 | Media | `src → skills` violation semántica: dependencia core→agents skills (impeccable) — determinar si tooling leakage o diseño intencional. Origen: codegraph-20260827-143245 Fase 1/2 | src/ → .agents/skills/impeccable/* | 🟡 | 🟡 Media | Pendiente |
-| FIND-46 | Media | Doc drift puntual (gate semver-checks): derivar a `cargo semver-checks` + review manual antes de release. Origen: codegraph-20260827-143245 Fase 11 | docs/api/ vs src/, vantadb-python/, vantadb-ts/ | 🟢 | 🟡 Media | Pendiente |
 | FIND-47 | Baja | `handle_tools_call` complejidad 295 (dispatcher MCP): match gigante 20+ brazos, 8 scans en loops batch — no hotspot algorítmico; si crece, extraer sub-dispatchers. Origen: codegraph-20260827-143245 Fase 5 | vantadb-mcp/src/handlers/tools.rs:549 | 🟢 | 🟢 Baja | Pendiente |
 
 
