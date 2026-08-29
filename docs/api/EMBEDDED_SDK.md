@@ -67,6 +67,8 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `get_version(namespace, key, version)` | Retrieve the record as it was at the given version (VS-CORE-07). Returns `Option<VantaMemoryRecord>` — `None` if that version was never persisted (unknown key, purged by the retention cap, or deleted). Snapshot durability is best-effort post-commit, so a crash window can leave a version gap — degraded but never corrupt |
 | `versions(namespace, key)` | List every retained version of a record, ascending (v1..vN) (VS-CORE-07). Returns `Vec<VantaMemoryRecord>` — empty if the key does not exist or has no history; expired versions are included as historical data until purged. `get_version(namespace, key, vN)` of the last element matches the live record |
 | `delete(namespace, key)` | Delete a record. Returns `bool` (true if existed) |
+| `delete_by_filter(namespace, filter)` | Delete all records in a namespace matching a metadata filter. Returns `u64` count of deleted records. Filter uses `VantaMemoryFilter` (equality + operators). Empty filter rejected to prevent accidental full-namespace deletion |
+| `count(namespace, filter)` | Count memory records in a namespace, optionally filtered by metadata. Returns `u64`. Filter uses `VantaMemoryFilter` (equality + operators). `None` counts all records |
 | `list(namespace, options)` | List records in a namespace with cursor pagination. Returns `VantaMemoryListPage` |
 | `list_namespaces()` | List all namespaces. Returns `Vec<String>` |
 | `search(request: VantaMemorySearchRequest)` | [[hybrid-search\|Hybrid]] (vector + lexical) search. Returns `Vec<VantaMemorySearchHit>` |
@@ -249,11 +251,11 @@ Conversation threads with append-only messages and optional TTL expiry.
 
 | Method | Description |
 |--------|-------------|
-| `create_thread(ttl_secs)` | Create a new conversation thread. Returns the thread's numeric ID. Pass `ttl_secs` for auto-expiry |
-| `get_thread(thread_id)` | Retrieve a thread by its ID |
-| `list_threads(options)` | List threads with pagination |
+| `create_thread(title, ttl_secs)` | Create a new conversation thread. Returns the thread's numeric ID. Pass `title` for display and optional `ttl_secs` for auto-expiry |
+| `get_thread(thread_id)` | Retrieve a thread by its ID. Returns `Option<MessageThread>` |
+| `list_threads(limit, offset)` | List threads with pagination. Returns `Vec<MessageThread>` |
 | `delete_thread(thread_id)` | Delete a thread by its ID |
-| `send_message(thread_id, message)` | Append a message to a thread |
+| `send_message(thread_id, role, content)` | Append a message to a thread. `role` is the message role (e.g., "user", "assistant") |
 | `purge_expired_threads()` | Purge threads whose TTL has expired. Returns the number of threads removed |
 
 ## Snapshots API
@@ -263,8 +265,8 @@ Instant filesystem snapshots via hard links (Unix) or copy (Windows).
 | Method | Description |
 |--------|-------------|
 | `create_snapshot(name)` | Create an instant point-in-time snapshot. All data files in the storage directory are hard-linked into `<data_dir>/snapshots/<name>` (O(1)) |
-| `list_snapshots()` | List all existing snapshot names |
-| `VantaEmbedded::restore_from(config, name)` | DESTRUCTIVE: replace the live database directory with the contents of snapshot `<name>`, then reopen. Static associated function — close every open handle first (`db.close()?; let db = VantaEmbedded::restore_from(config.clone(), "name")?;`). The current data is staged aside (atomic rename, sibling of `data_dir`) with best-effort rollback on failure; all snapshots survive the swap. `name` must be a plain identifier (path traversal rejected). Indexes rebuild from storage on reopen |
+| `list_snapshots()` | List all existing snapshot names. Returns `Vec<String>` |
+| `restore_from(config, name)` | DESTRUCTIVE static associated function: replace the live database directory with the contents of snapshot `<name>`, then reopen. Close every open handle first (`db.close()?; let db = VantaEmbedded::restore_from(config.clone(), "name")?;`). The current data is staged aside (atomic rename, sibling of `data_dir`) with best-effort rollback on failure; all snapshots survive the swap. `name` must be a plain identifier (path traversal rejected). Indexes rebuild from storage on reopen |
 
 ### Restore flow
 
@@ -322,7 +324,7 @@ per `(owner_agent, name)` while a head exists. Content is stored as-is
 
 | Method | Description |
 |--------|-------------|
-| `graphrag_search(query, ...)` | Run the GraphRAG pipeline: seed → expand → retrieve → generate context. Uses the default pipeline configuration (seed_k=10, hops=2, max=100, top_k=20). For custom settings, construct `GraphRagPipeline` directly |
+| `graphrag_search(namespace, query, query_vector)` | Run the GraphRAG pipeline: seed → expand → retrieve → generate context. Uses the default pipeline configuration (seed_k=10, hops=2, max=100, top_k=20). For custom settings, construct `GraphRagPipeline` directly. `query` and `query_vector` are optional |
 
 ## Maintenance
 

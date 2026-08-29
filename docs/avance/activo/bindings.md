@@ -65,6 +65,19 @@ aliases: []
 - **Fecha:** 2026-08-02
 - **Resultado:** ✅ Crate standalone **`vantadb-node/`** (NO workspace member): `lib = "vantadb_native"` (cdylib), `napi 3` + `napi-derive` sobre `vantadb` (features `fjall, memmap2, rayon`). Aislamiento standalone evita crash del linker MSVC con cdylib en workspace. API isomórfica con wrapper WASM: `connect`, `flush`, `close`, `put`, `put_batch`, `get`, `delete`, `list`, `list_namespaces`, `search`, `capabilities` (patrón `engine.clone()` + `spawn_blocking`). Persistencia real (fjall/WAL/fsync) en Node.js — WASM no puede. Wrapper TS `vantadb-ts/src/native.ts` + dep `vantadb-node`. `npm test` vitest 3/3 (put/get, persistencia cross-reconnect, search ordenado). ADR `docs/architecture/adr/COMP-029-napi-rs-node-bindings.md`.
 
+### BND-11: Tipado fuerte index.d.ts (eliminar any)
+- **Fecha:** 2026-08-28
+- **Plan:** `docs/plans/2026-08-28-backlog-triage.md` Task 15 (Wave 1) · P37 · `vanta-worker`
+- **Objetivo:** Eliminar todos los `any` residuales en `vantadb-node/index.d.ts` para DX completa (autocomplete, type-checking en `filter`/`payload`).
+- **Resultado:** ✅ **Idempotente completado** — Trabajo ya realizado en commit `a86c7e4e` (2026-08-26):
+  - `index.d.ts`: 329 líneas, **0 ocurrencias** de `:\s*any\b` (contrato verificado)
+  - `lib.rs`: `#[napi(ts_arg_type=...)]` + `#[napi(ts_return_type=...)]` en **todos** los métodos públicos
+  - `dts-header.d.ts`: 201 líneas de tipos manuales (`VantaValue` tagged union, `VantaMetadata`, `GraphFilterOptions`, `MemoryInput`, `SearchRequest`, `MemoryListOptions`, `GraphNodeInput`, `ConnectOptions`, `Capabilities`, etc.)
+  - `tests/api.test.ts`: 374 líneas, **25 tests** validando tipos en `tsc --noEmit` (0 errors)
+  - `docs/api/NODE_SDK.md`: 222 líneas con ejemplos tipados
+- **Verificación:** `Select-String -Pattern ":\s*any\b" | Measure-Object | Select-Object Count` → **0** ✅; `npx tsc --noEmit` (via vitest) ✅; `cargo check -p vantadb-node` ✅; `npm test` **25 passed** ✅; `cargo fmt --check` ✅; `cargo clippy -p vantadb-node -- -D warnings` ✅
+- **Commit:** `a86c7e4e` `feat(node): index.d.ts tipado fuerte + 25 tests + NODE_SDK.md + bench A/B harness (node hardening w1: BND-11/12/13, PERF-BENCH-01)`
+
 ---
 
 ## WASM & TypeScript

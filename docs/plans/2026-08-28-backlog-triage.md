@@ -443,26 +443,35 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🟠 Media
 - **Archivos clave:** `vantadb-node/index.d.ts`, `vantadb-node/src/lib.rs`
-- **Verificación real:** `Get-Content vantadb-node/index.d.ts | Select-String "any"` → múltiples `any` en `put`/`search`/`list`/`filter` (H-05 verificado 2026-08-25 research-vantadb-node).
-- **Gate Justificación:** `any` rompe DX TS — usuarios Node no tienen autocomplete ni errores de tipo en `filter`/`payload`. Fix: tipos `MemoryRecord`/`SearchRequest`/`ListOptions` manuales o `ts-rs`.
-- **Gate Result:** ✅ DO
+- **Verificación real:** `Get-Content vantadb-node/index.d.ts | Select-String "any"` → **0 hits** (ya completado en commit a86c7e4e 2026-08-26). H-05 research 2026-08-25 reportaba múltiples `any` pero fueron eliminados en node hardening w1.
+- **Gate Justificación:** `any` rompe DX TS — usuarios Node no tienen autocomplete ni errores de tipo en `filter`/`payload`. Fix: tipos `MemoryRecord`/`SearchRequest`/`ListOptions` manuales + overrides napi-rs + dts-header.d.ts.
+- **Gate Result:** ✅ DO → **CERRADO IDEMPOTENTE**
 - **Contrato:** `Select-String -Path "vantadb-node/index.d.ts" -Pattern ":\s*any\b" | Measure-Object | Select-Object Count` ==0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/BND-11.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (idempotente — commit a86c7e4e)
+- **Branch:** develop
+- **Commit:** `a86c7e4e` `feat(node): index.d.ts tipado fuerte + 25 tests + NODE_SDK.md + bench A/B harness (node hardening w1: BND-11/12/13, PERF-BENCH-01)`
 - **Pre-mortem:**
-  - Fallo 1: `ts-rs` genera tipos que divergen de `napi-rs` glue — validar con `npx tsc --noEmit`
-  - Fallo 2: `filter_ops` avanzados requieren unión discriminada — empezar con `Record<string, string|number>`
-- **Stop conditions:** >1d → tipos manuales parciales + `TODO ts-rs` comment
+  - Fallo 1: `ts-rs` genera tipos que divergen de `napi-rs` glue — validar con `npx tsc --noEmit` → **NO APLICA** (usado napi-rs overrides + dts-header manual, no ts-rs)
+  - Fallo 2: `filter_ops` avanzados requieren unión discriminada — empezar con `Record<string, string|number>` → **RESUELTO** con `VantaMetadata = Record<string, VantaValue>` + tagged union `VantaValue`
+- **Stop conditions:** N/A (ya completado)
 - **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger |
   |--------------|--------|-----------|---------|
   | 🟢×🟠 | Breaking change en index.d.ts | Semver minor, migration note | tsc |
-- **Cynefin:** 🟨 Complicado
-- **Top 3 riesgos:** 1. ts-rs vs napi drift 2. Filter ops unión 3. Ninguno
+- **Cynefin:** 🟨 Complicado → **RESUELTO** (napi-rs overrides + tipos manuales)
+- **Top 3 riesgos:** 1. ts-rs vs napi drift → **EVITADO** (no se usó ts-rs) 2. Filter ops unión → **RESUELTO** 3. Ninguno
 - **Uphill/Downhill:** ⬆️ 1 · ⬇️ 2
-- **DoD:** Task: 0 any + tsc 0; Commit: `fix:`; Release: docs/api/NODE_SDK.md
+- **DoD:** Task: 0 any + tsc 0; Commit: `feat:` (ya hecho); Release: docs/api/NODE_SDK.md (actualizado en mismo commit)
 - **Validación Appetite vs Effort:** max 1d ≥ 🟡 ✅
 - **SDP:** files="vantadb-node/index.d.ts" keywords=["index.d.ts","any","ts-rs"] → `api-and-interface-design`
+- **Resultado real:** 2026-08-26
+  - `index.d.ts`: 329 líneas, 0 `any` residual, tipos completos para todas las APIs públicas
+  - `lib.rs`: `#[napi(ts_arg_type=...)]` y `#[napi(ts_return_type=...)]` en todos los métodos públicos
+  - `dts-header.d.ts`: 201 líneas de tipos manuales (VantaValue tagged union, VantaMetadata, GraphFilterOptions, etc.)
+  - `tests/api.test.ts`: 374 líneas, 25 tests validando tipos en tsc --noEmit
+  - `docs/api/NODE_SDK.md`: 222 líneas con ejemplos tipados
+  - Contrato verificado: 0 matches `:\s*any\b` ✅; `npx tsc --noEmit` ✅; `cargo check -p vantadb-node` ✅
 
 ---
 
@@ -793,4 +802,15 @@ Resultado: OK
 Próxima acción: None - task complete
 Contrato: verificacion: cargo fmt --check && cargo clippy -p vantadb-mcp -- -D warnings && cargo nextest run -p vantadb-mcp --profile audit; evidencia: commit e3b644db; artefactos: [vantadb-mcp/src/config.rs, vantadb-mcp/src/handlers/tools.rs, vantadb-mcp/src/lib.rs, vantadb-mcp/src/server.rs, vantadb-mcp/tests/mcp_tests.rs, docs/api/MCP.md]; invariantes: handle_tools_list returns filtered tools per profile; deuda: none; queda_pendiente: none
 Próxima tarea si completa: MCP-39
+=== END RECITATION ===
+
+=== RECITATION BND-11 ===
+Campaign ID: b28f-20260828-backlog-triage
+Objetivo activo: BND-11 — Tipado fuerte index.d.ts (eliminar any)
+Estado: completed
+Última acción: Verificación completa del contrato (0 any en index.d.ts), fmt, clippy, nextest, build, tests, docs — todo pasa. Task file creado, plan file actualizado, docs/avance/activo/bindings.md actualizado.
+Resultado: OK
+Próxima acción: PY-01 (Paridad graph_bfs_filtered en Python binding)
+Contrato: Select-String -Path "vantadb-node/index.d.ts" -Pattern ":\s*any\b" | Measure-Object | Select-Object Count == 0 ✅; cargo fmt --check ✅; cargo clippy -p vantadb -- -D warnings ✅; cargo clippy -p vantadb-node -- -D warnings ✅; cargo nextest run --profile audit -p vantadb --build-jobs 2 → 2083 passed ✅; cargo check -p vantadb-node ✅; npm run build ✅; npm test → 25 passed ✅; pwsh scripts/check-avance-coverage.ps1 → 1038/1038 ✅
+Próxima tarea si completa: 
 === END RECITATION ===

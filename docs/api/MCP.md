@@ -9,7 +9,7 @@ aliases: []
 
 # VantaDB Model Context Protocol (MCP) Server
 
-The VantaDB MCP server (`vantadb-mcp`) exposes the database to LLM agents over the Model Context Protocol. Tool definitions live in `vantadb-mcp/src/handlers/tools.rs` (`handle_tools_list`); per-IDE setup lives in [`skills/vantadb-mcp/SKILL.md`](../../skills/vantadb-mcp/SKILL.md).
+The VantaDB MCP server (`vantadb-mcp`) exposes the database to LLM agents over the Model Context Protocol. Tool definitions live in `vantadb-mcp/src/handlers/tools.rs` (`handle_tools_list`); per-IDE setup lives in the VantaDB MCP Skill.
 
 ## Getting Started
 
@@ -97,7 +97,7 @@ You should see a JSON response listing the available tools. Namespaces are creat
 | Tools error at call time | Check disk space and permissions on the `--db` directory; use `capabilities` to introspect the engine state. |
 | Text search fails with `text_index not found` | Restarting the server reconciles indexes automatically at startup (`ensure_indexes_current`). |
 
-For the full behavioral contract (error channels, response envelope, edge cases), see [`skills/vantadb-mcp/SKILL.md`](../../skills/vantadb-mcp/SKILL.md).
+For the full behavioral contract (error channels, response envelope, edge cases), see the VantaDB MCP Skill.
 
 ## Tool Families
 

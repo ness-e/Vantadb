@@ -9,7 +9,7 @@
 - **Turns estimados:** 8
 - **Creado:** 2026-08-28T12:00
 - **last-synced:** 2026-08-28
-- **Estado:** ⏳ IN PROGRESS → ✅ COMPLETED (verificación idempotente)
+- **Estado:** ✅ COMPLETED
 - **Incógnitas (uphill):** 0 abiertas
 - **Pendientes (downhill):** 0 steps de ejecución restantes
 - **Campaign ID:** cecc8468-9451-4d56-a3ef-1684e123ab8a
@@ -202,7 +202,7 @@ Evaluación mandatoria ANTES de codear. Si no aplica, justificar en Notas:
 - **Archivos:** `.opencode/skills/campaign-executor/tasks/CORE-005.md`, `docs/plans/2026-08-28-master-pipeline-optimization.md` (Task 5 Estado → ✅ COMPLETED), `.opencode/task-system/memory/lessons.md`
 - **Acción:** Crear task file con 20 secciones + actualizar plan file Task 5 Estado PENDING → COMPLETED + `campaign_memory_write` lesson + `git commit` con conventional commit `chore: CORE-005 — SDP Unificado — verificación idempotente`
 - **Verify:** `git status` muestra solo 2 archivos tocados (task file nuevo + plan file 1 línea Estado); `git log --oneline -1` muestra commit chore; plan file Task 5 Estado = COMPLETED
-- **Estado:** ⏳ IN PROGRESS → será ✅ al commit (este step)
+- **Estado:** ✅ COMPLETED (commit idempotente)
 
 ## Dependencias
 - Task previo: CORE-004 — Task File Template Completo (debe completarse antes) → ✅ COMPLETED (commit bec9d2cf)

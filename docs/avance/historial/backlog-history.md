@@ -247,6 +247,14 @@ Filas completadas NO viven más en el Backlog: se eliminan al completar y su reg
 | ID | Destino | Commit/evidencia |
 |---|---|---|
 | `FIND-37` | `docs/avance/activo/core-engine.md` §FIND-37 + task file `.opencode/skills/campaign-executor/tasks/FIND-37.md` | Commit `bd7c2691` `fix(search): FIND-37 eliminate query_sparse.unwrap panics` — 2 files `src/sdk/search/mod.rs` + `debug_ops.rs` (32+32 lines), `rg query_sparse.*unwrap` → 0, `cargo check` ✅, `nextest -E 'test(search)'` 157 passed, fmt/clippy hook ✅ |
+
+### PY-01 — Paridad graph_bfs_filtered en Python binding (2026-08-28)
+
+> **Origen:** `docs/Backlog.md` línea 404 — task `PY-01` en plan `docs/plans/2026-08-28-backlog-triage.md` (Task 8).
+
+| ID | Destino | Commit/evidencia |
+|---|---|---|
+| `PY-01` | `docs/avance/activo/bindings.md` §PY-01 + task file `.opencode/skills/campaign-executor/tasks/PY-01.md` | Commit `60ee7140` `feat: PY-01 — paridad graph_bfs_filtered en Python binding` — 5 files: `vantadb-python/src/lib.rs` (+flat method + GraphClient forward), `vantadb-python/vantadb_py/vantadb_py.pyi` (type stubs), `vantadb-python/tests/test_subclients.py` (test_graph_bfs_filtered_identity), `docs/api/PYTHON_SDK.md` (documentación), `.opencode/skills/campaign-executor/tasks/PY-01.md` (task file) |
 | `FIND-34` | `docs/avance/activo/core-engine.md` §FIND-34 + task file `.opencode/skills/campaign-executor/tasks/FIND-34.md` | `fix: FIND-34 — WAL writer DAG justification + recovery/quarantine edge tests` — `src/wal.rs` doc DAG 15L + 2 tests (mid-file scan-forward + quarantine rotation), `cargo nextest -E test(wal)` 62/62 ✅, `rg` 1 def c/u, `codegraph_explore` justificado como falso positivo Leiden (no SCC) |
 | `FIND-35` | `docs/avance/activo/core-engine.md` §FIND-35 + task file `.opencode/skills/campaign-executor/tasks/FIND-35.md` | `fix: FIND-35 — StorageEngine get/prefetch intentional SCC justification + PrefetchGuard doc` — `src/storage/engine/get.rs` header `//!` 18L SCC single-level bounded `PrefetchGuard` thread_local RAII + `test_get_prefetch_does_not_recurse_forever` 8/8 prefetch/get_cache (regex 10/10), `rg PrefetchGuard` 5 hits, `cargo check/clippy/fmt` ✅, `codegraph_explore` SCC justificado (no bug) |
 | `FIND-36` | `docs/avance/activo/core-engine.md` §FIND-36 + task file `.opencode/skills/campaign-executor/tasks/FIND-36.md` | `fix: FIND-36 — Cross-crate NativeConnection↔RocksDbBackend frontier doc (false-positive Leiden, DAG justified)` — `src/backends/rocksdb_backend.rs:1-22` + `desktop/src-tauri/src/connections/native.rs:1-20` headers DAG + falso positivo Leiden (name collision get/put/delete + clustering), `cargo check -p vantadb --all-targets` 0.65s ✅ + `--all-features` 37.55s ✅, `cargo clippy --all-features -D warnings` 0 ✅, `rg` 0 use-imports cruzados, `cargo check` 0 cycles, isolated workspaces `desktop/src-tauri` members ["."] |

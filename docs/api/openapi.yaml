@@ -1232,6 +1232,52 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /fast:
+    get:
+      summary: Fast health check
+      description: Lightweight liveness probe that returns immediately with 200 OK.
+      operationId: fastHealthCheck
+      x-experimental: true
+      tags:
+        - System
+      responses:
+        "200":
+          description: Server is responsive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /slow:
+    get:
+      summary: Slow health check
+      description: Delayed liveness probe for testing timeout behavior (introduces artificial latency).
+      operationId: slowHealthCheck
+      x-experimental: true
+      tags:
+        - System
+      responses:
+        "200":
+          description: Server is responsive (after delay)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout"
+
   /api/v2/skills:
     post:
       summary: Create skill

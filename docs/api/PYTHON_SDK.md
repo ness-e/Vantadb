@@ -815,6 +815,19 @@ Flush and close the embedded engine handle, releasing all resources. The databas
 db.close()
 ```
 
+#### `__enter__()` / `__exit__()` — Synchronous Context Manager
+```python
+db.__enter__() -> VantaDB
+db.__exit__(exc_type, exc_val, exc_tb) -> None
+```
+Support for the synchronous context manager protocol (`with VantaDB(...) as db:`). `__enter__` returns the database handle; `__exit__` calls `close()` to flush and release resources. This ensures WAL is flushed even if an exception occurs within the `with` block. Available since 0.5.0 (RES-05).
+
+```python
+with VantaDB("./my_brain") as db:
+    db.put("ns", "key", "payload", vector=[0.1]*384)
+# db.close() is called automatically on exit
+```
+
 #### `put_batch_raw()`
 ```python
 db.put_batch_raw(
@@ -969,6 +982,23 @@ async with AsyncVantaDB("./my_brain") as db:
     query_result = await db.query("(match (node :content \"rust\") (return node))")
     metrics = await db.operational_metrics()
     count = await db.purge_expired()
+```
+
+### Async Context Manager
+
+`AsyncVantaDB` implements the async context manager protocol (`async with`):
+
+```python
+async def __aenter__(self) -> AsyncVantaDB
+async def __aexit__(self, exc_type, exc_val, exc_tb) -> None
+```
+
+Returns the database handle on enter; calls `close()` on exit (which flushes WAL and releases resources). This ensures proper cleanup even if an exception occurs.
+
+```python
+async with AsyncVantaDB("./my_brain") as db:
+    await db.put("ns", "key", "payload", vector=[0.1]*384)
+# db.close() awaited automatically
 ```
 
 All VantaDB methods are available on `AsyncVantaDB` with `async/await`, including `put()`, `put_batch()`, `insert()`, `delete_memory()`, `get_memory()`, `list_memory()`, `search_memory()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, `explain_memory_search()`, `count()`, `delete_by_filter()`, and `similar_to_key()`.

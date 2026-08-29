@@ -43,7 +43,8 @@ Crear ADR-001..006 mínimos: PURPOSE, STACK, ARCHITECTURE, PATTERNS, TRADEOFFS, 
 ### Step 4: Close Task (COMPLETED ✅)
 - [x] Actualizar plan file: marcar FIND-44 como ✅ COMPLETED
 - [x] Ejecutar `skill progreso` (Trigger 1) — registrado en `docs/avance/activo/core-engine.md`
-- [x] Commit conventional: `docs: FIND-44 — verify ADRs exist, contract satisfied`
+- [x] Commit conventional: `docs: FIND-44 — verify ADRs exist, contract satisfied` — **fe0da007**
+- [x] Verificación: `cargo fmt --check` ✅, `validate-docs-coverage.ps1` (warnings pre-existentes, sin errores nuevos)
 
 ## Context Save Point
 - **Última verificación:** 2026-08-28

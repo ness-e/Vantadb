@@ -31,6 +31,7 @@ aliases: []
 | AUD-06 | N+1 query en `scan_nodes()` | batch lookup |
 | AUD-07 | `ensure_indexes_current` 3 scans → 1 | unify |
 | AUD-08 | `memory_record_to_node_owned` clones | reduce clones |
+| AUD-43 | Clippy unused variable `ns` en cli_server.rs | `_ns` underscore prefix (idempotente) |
 
 ### Resueltos medios (AUD-10..)
 | ID | Hallazgo | Fix |
