@@ -3,7 +3,7 @@ title: Security Guide
 type: operations
 status: active
 tags: [security, operations]
-last_reviewed: 2026-07-04
+last_reviewed: 2026-08-29
 aliases: []
 ---
 
@@ -104,6 +104,26 @@ Three built-in roles:
 
 Roles are mapped to tokens via the `token_role_map` in `RbacConfig`. When a token matches, the mapped role's permissions are enforced per HTTP method — `POST`/`PUT`/`PATCH`/`DELETE` require `Write`, others require `Read`.
 
+#### Configuring `token_role_map`
+
+`token_role_map` is a `HashMap<String, String>` mapping a literal API key value to a role name. Both `VANTADB_API_KEY` and `VANTADB_ALT_API_KEY` are eligible for mapping — the auth middleware checks the `token_role_map` against the Bearer presented by the client, regardless of which configured key it is.
+
+Programmatic configuration (e.g. from a custom config file loader):
+
+```rust
+use vantadb::config::RbacConfig;
+use std::collections::HashMap;
+
+let mut token_role_map = HashMap::new();
+token_role_map.insert("sk-primary-admin".into(),   "admin".into());
+token_role_map.insert("sk-alt-readonly".into(),    "reader".into());
+let rbac_config = RbacConfig { token_role_map };
+```
+
+A token not present in the map authenticates as a bare `Transport` identity (L1) without any role — write/read authorization then falls through to the per-handler `PermissionChecker` defaults.
+
+> **Note:** the role map is a `pub(crate)` field of `RbacConfig` and is wired into the `AuthState` by `AuthState::new`. It is not directly settable via environment variable in the current version; configure it programmatically or extend the env loader (see FIND-49 in `docs/Backlog.md` for a proposed `VANTADB_TOKEN_ROLE_<KEY>=<role>` env-var loader).
+
 ### Auth Rate Limiting
 
 Authentication failures are rate-limited per IP address:
@@ -114,6 +134,52 @@ Authentication failures are rate-limited per IP address:
 | Time window | 60 seconds |
 
 After exceeding the limit, the IP receives `429 Too Many Requests` and must wait for the window to elapse. Successful authentication resets the failure count.
+
+### API Key Rotation (Zero-Downtime)
+
+VantaDB supports zero-downtime API key rotation using the `VANTADB_ALT_API_KEY` environment variable (SRV-04). This enables rolling key rotation without service interruption.
+
+#### How It Works
+
+When both `VANTADB_API_KEY` (primary) and `VANTADB_ALT_API_KEY` (alternative) are configured, **both keys are accepted simultaneously** for authentication. This allows you to:
+
+1. **Deploy the new key as `alt_api_key`** — both old and new keys work
+2. **Migrate clients** — gradually switch clients to the new key
+3. **Promote the new key** — set `VANTADB_API_KEY` to the new value, remove `VANTADB_ALT_API_KEY`
+4. **Complete rotation** — old key is rejected, only new key works
+
+#### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `VANTADB_API_KEY` | Primary Bearer token (required for auth) |
+| `VANTADB_ALT_API_KEY` | Alternative Bearer token for rotation (optional) |
+| `VANTADB_REQUIRE_AUTH` | If `true`, server fails to start without `VANTADB_API_KEY` |
+
+#### Rotation Workflow Example
+
+```bash
+# Step 1: Current state - only primary key
+VANTADB_API_KEY=sk-old-primary
+VANTADB_REQUIRE_AUTH=true
+
+# Step 2: Add alternative key (rotation window - both work)
+VANTADB_API_KEY=sk-old-primary
+VANTADB_ALT_API_KEY=sk-new-primary
+VANTADB_REQUIRE_AUTH=true
+
+# Step 3: Migrate clients to sk-new-primary, then promote
+VANTADB_API_KEY=sk-new-primary
+# VANTADB_ALT_API_KEY is removed
+VANTADB_REQUIRE_AUTH=true
+```
+
+#### Security Notes
+
+- Both keys use constant-time comparison (`subtle::ConstantTimeEq`) to prevent timing attacks
+- The `alt_api_key` requires `api_key` to be set (rotation needs a primary)
+- RBAC `token_role_map` applies to both keys independently — see [Configuring `token_role_map`](#configuring-token_role_map) for how to wire it
+- Audit logs record auth outcomes as `auth_l1` events; the recorded `key` field is `"N/A"` (the raw Bearer is **never** persisted to the audit JSONL — only the outcome and reason are). To correlate a request with the configured key used, join `auth_l1` events with the access window of the rotation.
 
 ## Input Validation
 

@@ -249,6 +249,26 @@ fn server_state(storage: Arc<StorageEngine>, api_key: Option<&str>) -> Arc<Serve
     })
 }
 
+fn server_state_with_alt_rbac(
+    storage: Arc<StorageEngine>,
+    api_key: Option<&str>,
+    alt_api_key: Option<&str>,
+    rbac_config: RbacConfig,
+) -> Arc<ServerState> {
+    let db = VantaEmbedded::from_engine(storage.clone());
+    Arc::new(ServerState {
+        storage,
+        db,
+        circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+        pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+        api_key: api_key.map(Arc::from),
+        alt_api_key: alt_api_key.map(Arc::from),
+        rbac_config,
+        trusted_proxies: Vec::new(),
+        conversation_trigger: None,
+    })
+}
+
 #[tokio::test]
 async fn auth_l1_accepts_valid_token() {
     let state = server_state(in_memory_storage(None), Some("sk-test"));
@@ -426,5 +446,126 @@ async fn auth_events_recorded_in_audit_log() {
     assert!(
         !log.contains("sk-test") && !log.contains("uk-abc"),
         "secrets must never appear in the audit log: {log}"
+    );
+}
+
+// ── SRV-04: token_role_map applies to BOTH primary AND alt_api_key ──
+
+const SRV04_PRIMARY: &str = "sk-srv04-primary-aaaa";
+const SRV04_ALT: &str = "sk-srv04-alt-key-bbbb";
+
+#[tokio::test]
+async fn auth_l1_alt_key_with_rbac_token_role_mapping_passes() {
+    // The `token_role_map` is matched against the Bearer presented by the
+    // client, NOT against the server-side configured key. Map ONLY the alt
+    // key to the pre-registered "reader" role. The auth middleware must
+    // accept the alt Bearer (proving alt_api_key is wired) and the
+    // token_role_map lookup must run.
+    use std::collections::HashMap;
+    let mut map = HashMap::new();
+    map.insert(SRV04_ALT.to_string(), "reader".to_string());
+    let rbac = RbacConfig { token_role_map: map };
+
+    let state = server_state_with_alt_rbac(
+        in_memory_storage(None),
+        Some(SRV04_PRIMARY),
+        Some(SRV04_ALT),
+        rbac,
+    );
+    let addr = spawn(state).await;
+
+    // Primary Bearer: matches api_key. No role entry for primary in the
+    // map → transport RBAC skips the role check → 200.
+    let (s_primary, _) = http_get(
+        addr,
+        "/api/v2/health",
+        &[(header::AUTHORIZATION.as_str(), &format!("Bearer {SRV04_PRIMARY}"))],
+    )
+    .await;
+    assert_eq!(
+        s_primary, 200,
+        "primary Bearer must pass L1 with no token_role_map entry"
+    );
+
+    // Alt Bearer: matches alt_api_key. token_role_map entry maps to
+    // "reader" which is pre-registered with Permission::Read. The
+    // /api/v2/health endpoint is NOT a record endpoint, so RBAC falls
+    // through to has_permission("reader", &Permission::Read) → true → 200.
+    // The 200 (instead of 401) proves alt_api_key is wired; if it were
+    // ignored, the alt Bearer would 401 like the test with no key match.
+    let (s_alt, _) = http_get(
+        addr,
+        "/api/v2/health",
+        &[(header::AUTHORIZATION.as_str(), &format!("Bearer {SRV04_ALT}"))],
+    )
+    .await;
+    assert_eq!(
+        s_alt, 200,
+        "alt Bearer with token_role_map=reader must pass (proves alt_api_key is wired AND map is consulted)"
+    );
+}
+
+#[tokio::test]
+async fn auth_l1_alt_key_unknown_role_in_map_denied() {
+    // The flip side: map the alt key to a role name that is NOT
+    // pre-registered. has_permission returns false → 403.
+    use std::collections::HashMap;
+    let mut map = HashMap::new();
+    map.insert(
+        SRV04_ALT.to_string(),
+        "nonexistent_role_in_rbac_registry".to_string(),
+    );
+    let rbac = RbacConfig { token_role_map: map };
+
+    let state = server_state_with_alt_rbac(
+        in_memory_storage(None),
+        Some(SRV04_PRIMARY),
+        Some(SRV04_ALT),
+        rbac,
+    );
+    let addr = spawn(state).await;
+
+    // Alt Bearer with a non-existent role on a record endpoint
+    // (RBAC path is taken) → 403.
+    let (s_alt, _) = http_get(
+        addr,
+        "/api/v2/records",
+        &[(header::AUTHORIZATION.as_str(), &format!("Bearer {SRV04_ALT}"))],
+    )
+    .await;
+    assert_eq!(
+        s_alt, 403,
+        "alt Bearer with unknown role must 403 on a record endpoint"
+    );
+}
+
+#[tokio::test]
+async fn auth_l1_alt_key_unknown_role_falls_through_to_transport() {
+    // The other side: a bare L1 transport (no role) reaches the route.
+    // Set BOTH keys but only register a role for the primary; alt Bearer
+    // has no role entry so the transport-RBAC path is skipped → 200.
+    use std::collections::HashMap;
+    let mut map = HashMap::new();
+    map.insert(SRV04_PRIMARY.to_string(), "admin".to_string());
+    let rbac = RbacConfig { token_role_map: map };
+
+    let state = server_state_with_alt_rbac(
+        in_memory_storage(None),
+        Some(SRV04_PRIMARY),
+        Some(SRV04_ALT),
+        rbac,
+    );
+    let addr = spawn(state).await;
+
+    // Alt Bearer: matches alt_api_key, no role entry → bare transport → 200.
+    let (s_alt, _) = http_get(
+        addr,
+        "/api/v2/health",
+        &[(header::AUTHORIZATION.as_str(), &format!("Bearer {SRV04_ALT}"))],
+    )
+    .await;
+    assert_eq!(
+        s_alt, 200,
+        "alt Bearer with no token_role_map entry must fall through to bare transport"
     );
 }
