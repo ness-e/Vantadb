@@ -72,6 +72,17 @@ pub struct McpConfig {
     pub max_skill_total_bytes: usize,
     /// Tool surface profile (default: Full). Set via VANTADB_MCP_PROFILE env var.
     pub profile: McpProfile,
+    /// MCP-39: byte budget for one-shot list/search tool responses.
+    /// Default 40 KB (80% of OpenCode's 50 KB cap; safe under Claude Code's
+    /// 25k token limit ~100 KB). Tunable via `VANTADB_MCP_BYTE_BUDGET` env var.
+    pub byte_budget: usize,
+    /// MCP-39: floor for `byte_budget` (default 1 KB) — below this the
+    /// envelope overhead alone would not fit and the clamp rejects.
+    pub min_byte_budget: usize,
+    /// MCP-39: ceiling for `byte_budget` (default 1 MB) — above this the
+    /// server is asked to render responses larger than typical MCP clients
+    /// can display.
+    pub max_byte_budget: usize,
 }
 
 impl Default for McpConfig {
@@ -93,6 +104,9 @@ impl Default for McpConfig {
             max_skill_resource_bytes: 5_000_000,
             max_skill_total_bytes: 50_000_000,
             profile: McpProfile::default(),
+            byte_budget: 40 * 1024,
+            min_byte_budget: 1024,
+            max_byte_budget: 1024 * 1024,
         }
     }
 }
@@ -100,15 +114,23 @@ impl Default for McpConfig {
 impl McpConfig {
     /// Build from a StorageEngine, taking max_concurrency from it.
     /// Reads `VANTADB_MCP_PROFILE` env var for tool surface profile.
+    /// Reads `VANTADB_MCP_BYTE_BUDGET` env var, clamped to
+    /// `[min_byte_budget, max_byte_budget]`.
     pub fn from_storage(storage: &StorageEngine) -> Self {
         let profile = std::env::var("VANTADB_MCP_PROFILE")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or_default();
-        Self {
+        let mut config = Self {
             max_concurrency: storage.config.max_blocking_threads,
             profile,
             ..Default::default()
+        };
+        if let Ok(raw) = std::env::var("VANTADB_MCP_BYTE_BUDGET") {
+            if let Ok(parsed) = raw.parse::<usize>() {
+                config.byte_budget = parsed.clamp(config.min_byte_budget, config.max_byte_budget);
+            }
         }
+        config
     }
 }

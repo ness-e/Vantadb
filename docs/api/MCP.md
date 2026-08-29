@@ -169,7 +169,7 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 | `memory_get` | Retrieves a memory record by namespace and key. |
 | `memory_delete` | Deletes a memory record by namespace and key. |
 | `memory_delete_by_filter` | Batch-deletes every record in a namespace whose metadata matches the given filters (AND semantics). |
-| `memory_list` | Lists memory records in a namespace with optional pagination and metadata filters. |
+| `memory_list` | Lists memory records in a namespace with optional pagination and metadata filters. Response is bounded by `byte_budget` (default 40 KB); see [Output budgeting](#output-budgeting-byte_budget-mcp-39) for the truncation semantics. |
 | `memory_list_namespaces` | Lists all available namespaces in the database. |
 | `memory_versions` | Lists every retained version of a memory record, ascending (v1..vN); empty if the key does not exist or has no history. Expired versions are included as historical data until purged. |
 | `memory_supersede` | Marks an existing record as superseded by another existing record (durable, recoverable soft-delete). Errors if either key is missing, if old_key equals new_key, or if the old record is already superseded. |
@@ -181,7 +181,7 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 | `search_memory` | Hybrid memory search in a namespace: text/vector/hybrid modes, filters, distance metric, RRF tuning, and explain output. |
 | `search_semantic` | Raw semantic vector search directly in the HNSW index. |
 | `search_with_method` | Memory search with an explicit dense-index backend override (`method`: hnsw \| ivf \| flat \| diskann \| scann); omit to keep automatic routing. Same parameters as `search_memory`. |
-| `search_multi` | Run one search request across multiple namespaces and merge results (sorted by score, capped at `top_k` globally). |
+| `search_multi` | Run one search request across multiple namespaces and merge results (sorted by score, capped at `top_k` globally). Response is bounded by `byte_budget` (default 40 KB); see [Output budgeting](#output-budgeting-byte_budget-mcp-39). |
 | `query_iql` | Executes an IQL statement against typed graph nodes and memory namespaces (each namespace is queryable as a table named by its sanitized form: `/` and `-` → `_`, leading digit/`.` gets a `_` prefix). LISP not supported. |
 
 ### Graph (7)
@@ -300,6 +300,50 @@ Read-only wrappers over the vanta-memory gateway scene handlers (`vanta_memory::
 | `scene_read` | Reads one live scene block by name from a session's scene store. Returns `{scene:{scene_name, meta{created,updated,summary,heat}, content}}`. Missing or soft-deleted scenes answer "not found". Read-only. |
 | `scene_list` | Lists the scene index of a session (heat descending, soft-deleted excluded). Returns `{scenes:[{filename,summary,heat,created,updated}]}` where `filename` is the id for `scene_read`. Read-only. |
 | `scene_query` | Keyword search over live scene blocks: ranks scenes by term overlap between the keyword and summary+content, ties by heat. Returns `{hits:[{scene_name,summary,heat,updated,score}]}`; load hits via `scene_read`. Read-only. |
+
+## Output budgeting (`byte_budget`, MCP-39)
+
+Large list / search responses can exceed the per-message cap of popular MCP clients
+(Claude Code 25k tokens ~ 100 KB, OpenCode 2000 lines / 50 KB). Without budgeting
+the JSON gets truncated silently — the client does not know that data is missing.
+MCP-39 wraps the affected tools in a byte-budget guard so truncation is explicit
+and clients can react.
+
+### Knob
+
+| Env var | Default | Floor | Ceiling | Description |
+|---------|---------|-------|---------|-------------|
+| `VANTADB_MCP_BYTE_BUDGET` | `40 * 1024` (40 KB) | `1 KB` | `1 MB` | Target response envelope size. Set lower for tight clients; do not exceed the chosen client's cap. |
+
+Read at server startup via `McpConfig::from_storage`; clamped to `[min_byte_budget, max_byte_budget]`. Changing the value requires a server restart.
+
+### Truncation semantics
+
+| Tool | Shape on the wire | Truncation policy |
+|------|-------------------|-------------------|
+| `memory_list` | `content[0].text` is a JSON object `{records, next_cursor, byte_count, truncated}` | Trailing `records` entries are popped until the envelope fits `byte_budget`. `next_cursor` is preserved; `truncated: true` advertises the trim. If the array is fully popped, the `records` key is dropped (consumers should treat absent `records` as "hard-truncated"). |
+| `search_multi` | `content[0].text` stays the raw hits array (back-compat); `structuredContent` carries `{hits, byte_count, truncated}` | Trailing `hits` are popped in both the text and the structuredContent copy. `truncated: true` flags the trim. `search_memory` / `search_semantic` / `search_with_method` are NOT budgeted in this release — their `top_k` cap is the documented upper bound; tracked as debt for a follow-up. |
+
+### When to react
+
+| `truncated` | Action |
+|------------|--------|
+| `false` | Full response delivered; `byte_count` reports the envelope size. |
+| `true` (object shape: `memory_list`) | Refine the filter / lower `limit` / narrow the `cursor` window. |
+| `true` (array shape: `search_multi`) | Narrow `namespaces` to fewer entries, or lower `top_k`. |
+
+### Example (`memory_list`, default budget)
+
+```json
+{
+  "records": [ { "key": "doc-1", "payload": "..." }, ... ],
+  "next_cursor": 200,
+  "byte_count": 38921,
+  "truncated": false
+}
+```
+
+After oversize trimming, `truncated` flips to `true` and the last items are dropped from `records`. `next_cursor` remains the next-page marker so the consumer can keep paging.
 
 ## Parity
 

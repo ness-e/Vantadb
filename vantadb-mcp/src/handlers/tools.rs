@@ -1380,7 +1380,25 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.list(namespace, options) {
                 Ok(page) => {
-                    let result = json!({"records": page.records, "next_cursor": page.next_cursor});
+                    // MCP-39: budget the envelope so a runaway `limit` cannot
+                    // produce an unbounded response. Existing `records` and
+                    // `next_cursor` keys are preserved (back-compat); the
+                    // new `byte_count` and `truncated` fields advertise the
+                    // result so the client can render explicitly.
+                    let envelope = json!({
+                        "records": page.records,
+                        "next_cursor": page.next_cursor,
+                    });
+                    let (budgeted, truncated, byte_count) =
+                        budget_value(&envelope, config.byte_budget);
+                    let result = match budgeted {
+                        Value::Object(mut map) => {
+                            map.insert("byte_count".to_string(), json!(byte_count));
+                            map.insert("truncated".to_string(), json!(truncated));
+                            Value::Object(map)
+                        }
+                        other => other,
+                    };
                     Ok(text_content(serialize_content(&result)))
                 }
                 Err(e) => Ok(error_content(format!("List Error: {}", e))),
@@ -1563,7 +1581,15 @@ pub fn handle_tools_call(
             let ns_refs: Vec<&str> = namespaces.iter().map(String::as_str).collect();
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.search_multi(&ns_refs, request) {
-                Ok(hits) => Ok(text_content_structured(&hits)),
+                Ok(hits) => {
+                    // MCP-39: budget the response so a wide fan-out (many
+                    // namespaces) cannot overflow the client. Text payload
+                    // stays a raw array (back-compat with clients/tests
+                    // that parse `content[0].text` as `Vec<Value>`); the
+                    // budget metadata lives in `structuredContent` so
+                    // machine-readable consumers can react to truncation.
+                    Ok(text_content_hits_with_budget(&hits, config.byte_budget))
+                }
                 Err(e) => Ok(error_content(format!("Search Error: {}", e))),
             }
         }

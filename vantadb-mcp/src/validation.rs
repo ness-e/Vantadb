@@ -367,6 +367,51 @@ pub(crate) fn text_content_structured(value: &impl Serialize) -> Value {
     structured_text_content(&structured)
 }
 
+/// MCP-39: emit a search-style response that keeps the `content[0].text`
+/// payload as the raw hits array (preserves back-compat for clients/tests
+/// parsing `text` as `Vec<Value>`) while the new `byte_count` and
+/// `truncated` metadata lives under `structuredContent` only. The
+/// `budget_value` helper trims trailing hits if the array alone exceeds
+/// `byte_budget`.
+pub(crate) fn text_content_hits_with_budget<T: Serialize>(hits: &T, byte_budget: usize) -> Value {
+    // Serialize the raw hits into the text payload (preserves the array
+    // shape clients and tests expect).
+    let text_hits = serde_json::to_value(hits).unwrap_or_else(|e| {
+        error!(%e, "text_content_hits_with_budget: to_value failed");
+        json!({"error": "Serialization failed"})
+    });
+
+    // Apply byte budget: if the hits array alone fits, no truncation. If not,
+    // pop trailing entries (top-level array, since hits is a JSON array).
+    let (budgeted_hits, truncated, byte_count) = budget_value(&text_hits, byte_budget);
+
+    // text payload: the (possibly truncated) raw hits array.
+    let text = serde_json::to_string(&budgeted_hits).unwrap_or_else(|e| {
+        error!(%e, "text_content_hits_with_budget: to_string failed");
+        r#"{"error":"Serialization failed"}"#.to_string()
+    });
+
+    // structuredContent: the new envelope (machine-readable) carrying
+    // hits + budget metadata.
+    let structured = match budgeted_hits {
+        Value::Array(arr) => json!({
+            "hits": arr,
+            "byte_count": byte_count,
+            "truncated": truncated,
+        }),
+        other => json!({
+            "hits": other,
+            "byte_count": byte_count,
+            "truncated": truncated,
+        }),
+    };
+
+    json!({
+        "content": [{"type": "text", "text": text}],
+        "structuredContent": structured,
+    })
+}
+
 /// Human-readable name of a JSON value's type, for actionable error messages
 /// that distinguish an absent field from a present-but-wrong-typed one.
 pub(crate) fn json_value_type_name(val: &Value) -> &'static str {
@@ -382,6 +427,103 @@ pub(crate) fn json_value_type_name(val: &Value) -> &'static str {
 
 pub(crate) fn error_content(msg: impl Into<String>) -> Value {
     json!({"isError": true, "content": [{"type": "text", "text": msg.into()}]})
+}
+
+/// MCP-39: budget a JSON value to fit within `byte_budget` bytes.
+///
+/// Returns the (possibly truncated) JSON value, a `truncated` flag, and the
+/// final byte size. Truncation pops trailing elements from the *first* array
+/// at the value's top level (the conventional shape for list/search tool
+/// responses — `{records: [...]}`, `{hits: [...]}`). When no top-level array
+/// is present, the value is returned intact and `truncated=false` even if it
+/// exceeds the budget (the caller is expected to wrap a sized envelope).
+///
+/// This is the single chokepoint used by `memory_list`, `search_multi`, and
+/// future list-shaped tools, so the truncation policy stays consistent across
+/// the tool surface (pre-mortem: shapes distintos → helper genérico).
+pub(crate) fn budget_value<T: Serialize>(value: &T, byte_budget: usize) -> (Value, bool, usize) {
+    let serialized: Value = match serde_json::to_value(value) {
+        Ok(v) => v,
+        Err(_) => {
+            // Fallback: hand the caller the original serialized form as a
+            // string so the envelope still carries some signal rather than
+            // dropping the response entirely.
+            let raw = serialize_content(value);
+            let size = raw.len();
+            return (Value::String(raw), false, size);
+        }
+    };
+
+    // Compute the candidate size. We always include the top-level object's
+    // outer braces and key names in the budget check; the truncation only
+    // touches array contents.
+    let mut current = serialized.clone();
+    let size_of = |v: &Value| -> usize { serde_json::to_string(v).map(|s| s.len()).unwrap_or(0) };
+    let mut total_size = size_of(&current);
+    if total_size <= byte_budget {
+        return (current, false, total_size);
+    }
+
+    // Truncation path: pop trailing array elements until we fit. Two
+    // shapes are supported:
+    //  - top-level object with an array-valued key (e.g. `{records: [...]}`)
+    //  - top-level array (e.g. raw `Vec<VantaSearchHit>`)
+    // In both cases the *first* array is the truncation target.
+    let array_key: Option<String> = if let Value::Object(map) = &current {
+        map.iter()
+            .find_map(|(k, v)| if v.is_array() { Some(k.clone()) } else { None })
+    } else {
+        None
+    };
+    if current.is_array() || array_key.is_some() {
+        loop {
+            total_size = size_of(&current);
+            if total_size <= byte_budget {
+                break;
+            }
+            let popped = if current.is_array() {
+                if let Value::Array(items) = &mut current {
+                    if !items.is_empty() {
+                        items.pop();
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            } else if let Some(key) = array_key.as_ref() {
+                if let Some(map) = current.as_object_mut() {
+                    match map.get_mut(key) {
+                        Some(Value::Array(items)) if !items.is_empty() => {
+                            items.pop();
+                            true
+                        }
+                        Some(Value::Array(items)) if items.is_empty() => {
+                            // Empty array → drop the key so the response
+                            // shape stays consistent (no `{records: []}` if
+                            // we truncated everything).
+                            map.remove(key);
+                            true
+                        }
+                        _ => false,
+                    }
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+            if !popped {
+                break;
+            }
+        }
+        return (current, true, total_size);
+    }
+
+    // No top-level array to truncate; report size honestly. The caller
+    // decides whether to escalate (e.g. via a tool-specific `next_cursor`).
+    (current, false, total_size)
 }
 
 /// Stream a namespace's records page-by-page, invoking `f` on each record.
@@ -553,5 +695,131 @@ mod tests {
         let scalars = scalars_value.as_object().unwrap();
         let scalars_meta = parse_metadata(scalars).expect("scalar metadata is supported");
         assert_eq!(scalars_meta.len(), 4);
+    }
+
+    /// MCP-39: `budget_value` returns the value intact when it already fits
+    /// inside the byte budget, and reports `truncated=false` with the real
+    /// serialized size.
+    #[test]
+    fn budget_value_fits_without_truncation() {
+        use serde_json::json;
+        let value = json!({"records": [{"k": "a"}, {"k": "b"}]});
+        let (out, truncated, size) = budget_value(&value, 1024);
+        assert!(!truncated, "small payload should not be truncated");
+        assert_eq!(out, value);
+        assert!(size > 0 && size <= 1024);
+    }
+
+    /// MCP-39: when the payload exceeds the budget, `budget_value` pops
+    /// trailing array elements until it fits and reports `truncated=true`.
+    /// After truncation the envelope key is dropped if the array is empty
+    /// (so consumers never see `{records: []}` after a hard-truncation).
+    #[test]
+    fn budget_value_truncates_trailing_array() {
+        use serde_json::json;
+        // Build a payload where each item is ~1KB so 5 items > 2KB budget.
+        let big_item = "x".repeat(1024);
+        let value = json!({
+            "records": [
+                {"k": big_item.clone()},
+                {"k": big_item.clone()},
+                {"k": big_item.clone()},
+                {"k": big_item.clone()},
+                {"k": big_item.clone()},
+            ]
+        });
+        let (out, truncated, size) = budget_value(&value, 2 * 1024);
+        assert!(truncated, "payload > budget must be flagged truncated");
+        assert!(
+            size <= 2 * 1024,
+            "truncated payload must fit, got {size} bytes"
+        );
+        // The remaining array should be smaller than the original 5.
+        let arr_len = out
+            .get("records")
+            .and_then(Value::as_array)
+            .map(|a| a.len())
+            .unwrap_or(0);
+        assert!(arr_len < 5, "truncation should reduce array, got {arr_len}");
+    }
+
+    /// MCP-39: when the value has no top-level array, the helper returns it
+    /// intact (no synthetic truncation policy). Callers wrapping a list-shaped
+    /// response are responsible for shaping the value with an array key.
+    #[test]
+    fn budget_value_no_array_passthrough() {
+        use serde_json::json;
+        let value = json!({"count": 1, "namespaces": ["a", "b", "c"]});
+        // The helper looks at the *first* top-level array, which here is
+        // "namespaces". Use a tiny budget so it truncates "namespaces".
+        let (out, truncated, _) = budget_value(&value, 20);
+        assert!(
+            truncated,
+            "tiny budget should force truncation of first array"
+        );
+        let arr_len = out
+            .get("namespaces")
+            .and_then(Value::as_array)
+            .map(|a| a.len())
+            .unwrap_or(0);
+        assert!(arr_len < 3, "should pop some entries, got {arr_len}");
+    }
+
+    /// MCP-39: `text_content_hits_with_budget` keeps the `content[0].text`
+    /// payload as a raw hits array (back-compat) while the budget metadata
+    /// rides on `structuredContent` only.
+    #[test]
+    fn text_content_hits_with_budget_keeps_text_as_array() {
+        let hits = serde_json::json!([
+            {"record": {"key": "a"}, "score": 0.9},
+            {"record": {"key": "b"}, "score": 0.5},
+        ]);
+        let envelope = text_content_hits_with_budget(&hits, 10 * 1024);
+        let text = envelope["content"][0]["text"].as_str().unwrap();
+        // Text payload must parse as a JSON array (preserved shape).
+        let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert!(
+            parsed.is_array(),
+            "text must stay a JSON array, got {parsed}"
+        );
+        assert_eq!(parsed.as_array().unwrap().len(), 2);
+        // structuredContent carries the new envelope.
+        assert_eq!(
+            envelope["structuredContent"]["hits"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        assert_eq!(envelope["structuredContent"]["truncated"], false);
+        assert!(
+            envelope["structuredContent"]["byte_count"]
+                .as_u64()
+                .unwrap()
+                > 0
+        );
+    }
+
+    /// MCP-39: when the hits array exceeds the byte budget, the helper
+    /// trims trailing entries and flips `truncated=true`. The text payload
+    /// reflects the trimmed array.
+    #[test]
+    fn text_content_hits_with_budget_trims_when_oversize() {
+        let big = "x".repeat(512);
+        let hits = serde_json::json!([
+            {"record": {"key": "a", "payload": big.clone()}},
+            {"record": {"key": "b", "payload": big.clone()}},
+            {"record": {"key": "c", "payload": big.clone()}},
+        ]);
+        let envelope = text_content_hits_with_budget(&hits, 600);
+        assert_eq!(envelope["structuredContent"]["truncated"], true);
+        let text = envelope["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert!(parsed.is_array());
+        assert!(
+            parsed.as_array().unwrap().len() < 3,
+            "expected some entries to be popped, got {}",
+            parsed.as_array().unwrap().len()
+        );
     }
 }
