@@ -515,7 +515,9 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo test -p vantadb --test openapi_yaml_parity 2>&1 | Select-String "ok|PASS" | Measure-Object | Select-Object Count` >=1 (nuevo test que parsea yaml y valida contra parser)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-TK3.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Branch:** develop
+- **Commit:** `ad7a52af` `fix: GOV-TK3 — Drift yaml↔real: IQL case, GraphTraversalBody, search fresh DB`
 - **Pre-mortem:**
   - Fallo 1: Cambiar parser a case-insensitive rompe queries existentes → preferir fix yaml a UPPERCASE
   - Fallo 2: `max_depth` opcional vs requerido — verificar wire real con `vantadb-mcp` integration test
@@ -530,6 +532,14 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **DoD:** Task: yaml↔real parity + test; Commit: `fix:`; Release: N/A
 - **Validación Appetite vs Effort:** max 1d ≥ 🟠 1d ✅
 - **SDP:** files="docs/api/OPENAPI.yaml,src/iql/parser.rs" keywords=["IQL","OpenAPI drift"] → `api-and-interface-design, source-driven-development`
+- **Resultado real:** 2026-08-28
+  - `openapi.yaml`: 
+    - Traversal syntax corregida a `SIGUE <min>..<max> "<edge_label>" [TYPE <type>] [AS <alias>]`
+    - GraphTraversalBody expandido con campos reales (start, mode, max_depth, direction, filter)
+    - `/api/v2/search` documenta `ensure_indexes_current()` + referencia a `/api/v2/maintenance/rebuild-index`
+  - Nuevo test `tests/api/openapi_yaml_parity.rs` (4 tests) valida paridad yaml↔parser
+  - Contrato verificado: 4 PASS ✅; `cargo fmt --check` ✅; `cargo clippy -p vantadb -- -D warnings` ✅; `cargo nextest run -p vantadb --profile audit` 2087 PASS ✅
+  - Commit: `ad7a52af` `fix: GOV-TK3 — Drift yaml↔real: IQL case, GraphTraversalBody, search fresh DB`
 
 ---
 
@@ -813,4 +823,26 @@ Resultado: OK
 Próxima acción: PY-01 (Paridad graph_bfs_filtered en Python binding)
 Contrato: Select-String -Path "vantadb-node/index.d.ts" -Pattern ":\s*any\b" | Measure-Object | Select-Object Count == 0 ✅; cargo fmt --check ✅; cargo clippy -p vantadb -- -D warnings ✅; cargo clippy -p vantadb-node -- -D warnings ✅; cargo nextest run --profile audit -p vantadb --build-jobs 2 → 2083 passed ✅; cargo check -p vantadb-node ✅; npm run build ✅; npm test → 25 passed ✅; pwsh scripts/check-avance-coverage.ps1 → 1038/1038 ✅
 Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION FIND-40 ===
+Campaign ID: b28f-20260828-backlog-triage
+Objetivo activo: FIND-40 — Drift docs/api vs firmas reales (scope 3 core)
+Estado: completed
+Última acción: Completed all 5 steps: fixed EMBEDDED_SDK.md, PYTHON_SDK.md, HTTP_API.md/openapi.yaml; validated 0 gaps in 3 core docs; fmt OK; core tests 2083 passed
+Resultado: OK
+Próxima acción: none
+Contrato: verificacion=scripts/validate-docs-coverage.ps1 2>&1 | Select-String "gap|drift" | Where-Object { $_ -notmatch 'CONFIGURATION|vantadb-mcp' } | Measure-Object | Select-Object Count == 0; evidencia=claim=All 3 core API docs match actual signatures, evidencia=validation script output + commit cddb06b7, confianza=alta; artefactos=[docs/api/EMBEDDED_SDK.md, docs/api/PYTHON_SDK.md, docs/api/openapi.yaml]; invariantes=Public API signatures must match docs exactly; no silent drift; deuda=10 archivos restantes deferidos con TODO; config.rs gap (local_model_path) in CONFIGURATION.md; MCP tools gap; pre-existing test failures in vantadb-server (MCP) and Python stub drift; queda_pendiente=none
+Próxima tarea si completa: GOV-TK3
+=== END RECITATION ===
+
+=== RECITATION GOV-TK3 ===
+Campaign ID: b28f-20260828-backlog-triage
+Objetivo activo: GOV-TK3 — Drift yaml↔real: IQL case, GraphTraversalBody, search fresh DB
+Estado: completed
+Última acción: All steps completed: test created (RED), yaml fixed (GREEN), verified, committed
+Resultado: OK
+Próxima acción: None - task complete
+Contrato: verificacion: cargo test -p vantadb --test openapi_yaml_parity 2>&1 | Select-String "ok|PASS" | Measure-Object | Select-Object Count >= 1 (result: 5); evidencia: claim: 3 drifts fixed in OpenAPI.yaml + parity test added, evidencia: commit ad7a52af + tests/api/openapi_yaml_parity.rs, confianza: alta; artefacts: docs/api/openapi.yaml, tests/api/openapi_yaml_parity.rs; invariantes: parser unchanged, only yaml/docs updated; deuda: none; queda_pendiente: none
+Próxima tarea si completa: MCP-37 (per plan)
 === END RECITATION ===

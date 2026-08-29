@@ -309,6 +309,27 @@ aliases: []
 - **Objetivo:** Primeras 10 líneas mencionan híbrido RRF + grafo + TTL/supersede + migradores.
 - **Resultado:** ✅ `vantadb-python/README.md:5-12`: sección "Why VantaDB instead of a plain vector store?" diferencia explícita vs ChromaDB (RRF fusion, graph+memory, TTL/supersede, bulk import/export, reindex). Sin claims numéricos sin fuente (Regla 11).
 
+---
+
+## 2026-08-28: GOV-TK3 — Drift yaml↔real (OpenAPI parity)
+
+### GOV-TK3: Drift yaml↔real: IQL case, GraphTraversalBody, search fresh DB
+- **Fecha:** 2026-08-28
+- **Plan:** `docs/plans/2026-08-28-backlog-triage.md` Task 17 (Wave 1) · P37 · `vanta-worker`
+- **Objetivo:** Corregir 3 drifts entre `docs/api/OPENAPI.yaml` y la implementación real:
+  1. IQL traversal: OpenAPI documentaba `traverse` pero parser usa `SIGUE`
+  2. GraphTraversalBody: schema solo requería `roots` pero MCP handler espera `start`, `mode`, `max_depth`, `direction`, `filter`
+  3. Search fresh DB: endpoint `/api/v2/search` no documentaba `ensure_indexes_current()` en startup
+- **Resultado:** ✅
+  - `docs/api/openapi.yaml`: 
+    - Traversal syntax corregida a `SIGUE <min>..<max> "<edge_label>" [TYPE <type>] [AS <alias>]`
+    - GraphTraversalBody expandido con campos reales (start, mode, max_depth, direction, filter)
+    - `/api/v2/search` documenta `ensure_indexes_current()` + referencia a `/api/v2/maintenance/rebuild-index`
+  - Nuevo test `tests/api/openapi_yaml_parity.rs` (4 tests) valida paridad yaml↔parser
+  - Contrato: `cargo test -p vantadb --test openapi_yaml_parity` → 4 PASS ✅
+  - Verificación: `cargo fmt --check` ✅, `cargo clippy -p vantadb -- -D warnings` ✅, `cargo nextest run -p vantadb --profile audit` 2087 PASS ✅
+- **Commit:** `ad7a52af` `fix: GOV-TK3 — Drift yaml↔real: IQL case, GraphTraversalBody, search fresh DB`
+
 ### RES-05: Context manager síncrono __enter__/__exit__ en Py binding
 - **Fecha:** 2026-08-28
 - **Plan:** `docs/plans/2026-08-28-backlog-triage.md` Task 14 (Wave 1) · P37 · `vanta-worker`

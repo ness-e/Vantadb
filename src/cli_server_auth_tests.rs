@@ -464,7 +464,9 @@ async fn auth_l1_alt_key_with_rbac_token_role_mapping_passes() {
     use std::collections::HashMap;
     let mut map = HashMap::new();
     map.insert(SRV04_ALT.to_string(), "reader".to_string());
-    let rbac = RbacConfig { token_role_map: map };
+    let rbac = RbacConfig {
+        token_role_map: map,
+    };
 
     let state = server_state_with_alt_rbac(
         in_memory_storage(None),
@@ -479,7 +481,10 @@ async fn auth_l1_alt_key_with_rbac_token_role_mapping_passes() {
     let (s_primary, _) = http_get(
         addr,
         "/api/v2/health",
-        &[(header::AUTHORIZATION.as_str(), &format!("Bearer {SRV04_PRIMARY}"))],
+        &[(
+            header::AUTHORIZATION.as_str(),
+            &format!("Bearer {SRV04_PRIMARY}"),
+        )],
     )
     .await;
     assert_eq!(
@@ -496,7 +501,10 @@ async fn auth_l1_alt_key_with_rbac_token_role_mapping_passes() {
     let (s_alt, _) = http_get(
         addr,
         "/api/v2/health",
-        &[(header::AUTHORIZATION.as_str(), &format!("Bearer {SRV04_ALT}"))],
+        &[(
+            header::AUTHORIZATION.as_str(),
+            &format!("Bearer {SRV04_ALT}"),
+        )],
     )
     .await;
     assert_eq!(
@@ -515,7 +523,9 @@ async fn auth_l1_alt_key_unknown_role_in_map_denied() {
         SRV04_ALT.to_string(),
         "nonexistent_role_in_rbac_registry".to_string(),
     );
-    let rbac = RbacConfig { token_role_map: map };
+    let rbac = RbacConfig {
+        token_role_map: map,
+    };
 
     let state = server_state_with_alt_rbac(
         in_memory_storage(None),
@@ -530,7 +540,10 @@ async fn auth_l1_alt_key_unknown_role_in_map_denied() {
     let (s_alt, _) = http_get(
         addr,
         "/api/v2/records",
-        &[(header::AUTHORIZATION.as_str(), &format!("Bearer {SRV04_ALT}"))],
+        &[(
+            header::AUTHORIZATION.as_str(),
+            &format!("Bearer {SRV04_ALT}"),
+        )],
     )
     .await;
     assert_eq!(
@@ -547,7 +560,9 @@ async fn auth_l1_alt_key_unknown_role_falls_through_to_transport() {
     use std::collections::HashMap;
     let mut map = HashMap::new();
     map.insert(SRV04_PRIMARY.to_string(), "admin".to_string());
-    let rbac = RbacConfig { token_role_map: map };
+    let rbac = RbacConfig {
+        token_role_map: map,
+    };
 
     let state = server_state_with_alt_rbac(
         in_memory_storage(None),
@@ -561,7 +576,10 @@ async fn auth_l1_alt_key_unknown_role_falls_through_to_transport() {
     let (s_alt, _) = http_get(
         addr,
         "/api/v2/health",
-        &[(header::AUTHORIZATION.as_str(), &format!("Bearer {SRV04_ALT}"))],
+        &[(
+            header::AUTHORIZATION.as_str(),
+            &format!("Bearer {SRV04_ALT}"),
+        )],
     )
     .await;
     assert_eq!(

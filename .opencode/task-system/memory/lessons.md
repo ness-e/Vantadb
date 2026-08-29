@@ -290,3 +290,5 @@
 - 2026-08-28 | MCP-37 | Task MCP-37 → completed
 - 2026-08-28 | RES-05 | Synchronous context manager (__enter__/__exit__) added to VantaDB Python binding. __exit__ calls close() for full durability parity with AsyncVantaDB. | ref: vantadb-python/src/lib.rs:1842-1860
 - 2026-08-28 | BND-11 | Task BND-11 → completed
+- 2026-08-29 | FIND-40 | Task FIND-40 → completed
+- 2026-08-29 | GOV-TK3 | Task GOV-TK3 → completed
