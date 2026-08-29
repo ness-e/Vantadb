@@ -34,6 +34,53 @@ pub(crate) fn validate_identifier(
     Ok(())
 }
 
+/// MCP-34: stricter validator for identifier-shaped values that become a
+/// single filesystem path segment (snapshot names, label keys, etc.).
+/// Rejects path separators, '.', and '..' so the value can only be a
+/// single, clean directory name. Defense in depth: the core
+/// (`StorageEngine::validate_snapshot_name`) also rejects these, but the
+/// MCP layer must reject first so an attacker probing the surface never
+/// gets the core's filesystem error path.
+///
+/// Use this INSTEAD of `validate_identifier` only for fields used as a
+/// single path segment — namespaces can legitimately contain `/` (e.g.
+/// `mmd/s1/history` → IQL table `mmd_s1_history`), so they should keep
+/// using the permissive `validate_identifier`. File paths (e.g.
+/// `bulk_import_file.path`) use [`validate_safe_path`], which allows `/`
+/// but blocks `..` and null bytes.
+pub(crate) fn validate_path_segment(
+    value: &str,
+    label: &str,
+    max_len: usize,
+) -> Result<(), McpError> {
+    validate_identifier(value, label, max_len)?;
+    if value.contains('/') || value.contains('\\') || value == "." || value == ".." {
+        return Err(McpError::invalid_params(format!(
+            "'{label}' must be a plain identifier (no path separators, '.', or '..')"
+        )));
+    }
+    Ok(())
+}
+
+/// MCP-34: validator for filesystem paths the MCP layer passes through to
+/// the host filesystem (e.g. `bulk_import_file.path`). Allows `/` (legitimate
+/// path separator) but blocks `..` (parent-directory traversal), null bytes,
+/// and Windows-style `\` separators (so cross-platform clients can't sneak
+/// in a Windows-only escape on a Unix host). The file-IO layer enforces
+/// existence — this guard only shapes the surface.
+pub(crate) fn validate_safe_path(value: &str, label: &str, max_len: usize) -> Result<(), McpError> {
+    validate_identifier(value, label, max_len)?;
+    if value.contains('\0')
+        || value.contains('\\')
+        || value.split(['/', '\\']).any(|seg| seg == "..")
+    {
+        return Err(McpError::invalid_params(format!(
+            "'{label}' must be a safe filesystem path (no '..', '\\', or null bytes)"
+        )));
+    }
+    Ok(())
+}
+
 pub(crate) fn validate_payload(value: &str, max_len: usize) -> Result<(), McpError> {
     if value.len() > max_len {
         return Err(McpError::invalid_params(format!(
@@ -821,5 +868,76 @@ mod tests {
             "expected some entries to be popped, got {}",
             parsed.as_array().unwrap().len()
         );
+    }
+
+    /// MCP-34: trust-boundary guards — `validate_path_segment` rejects any
+    /// path separators (it's a single segment), while `validate_safe_path`
+    /// allows '/' (real paths have it) but blocks '..' and '\'. Use the
+    /// right one for the right field; the wrong call either locks out
+    /// legitimate inputs (snapshots with '/') or lets a traversal through
+    /// (paths with '..').
+    #[test]
+    fn validate_path_segment_rejects_all_path_separators() {
+        let max_len = 512;
+        for bad in [
+            "/",                 // absolute root
+            "\\",                // windows separator
+            "..",                // parent dir
+            ".",                 // current dir
+            "snap/../etc",       // hidden traversal
+            "snap\\..\\windows", // hidden traversal (windows flavor)
+        ] {
+            let err = validate_path_segment(bad, "name", max_len)
+                .expect_err("path-segment input must be rejected");
+            assert!(
+                err.message.contains("plain identifier"),
+                "error must name the path-segment rule, got: {} (input {bad:?})",
+                err.message
+            );
+        }
+        // Sanity: a clean path segment still passes.
+        validate_path_segment("snap-2026-08-29", "name", max_len)
+            .expect("plain identifier should pass");
+        // Sanity: namespaces (which legitimately contain '/') keep using the
+        // permissive validate_identifier — this regression guard documents
+        // the split so the surface doesn't collapse them later.
+        validate_identifier("mmd/s1/history", "namespace", 256)
+            .expect("namespaces may contain '/'");
+    }
+
+    #[test]
+    fn validate_safe_path_allows_slash_blocks_traversal() {
+        let max_len = 4096;
+        // Legitimate paths pass.
+        for ok in [
+            "./local/file.vdbdump",
+            "abs/path/to/file.vdbdump",
+            "C:/Users/x/file.bin", // windows-style with / also fine
+            "simple.bin",
+            "a/b/c/d/e.vdbdump",
+        ] {
+            validate_safe_path(ok, "path", max_len)
+                .unwrap_or_else(|e| panic!("{ok:?} should pass, got error: {}", e.message));
+        }
+        // '..' segments, '\', and null bytes are rejected.
+        for bad in [
+            "../escape",
+            "a/../../escape",
+            "a\\b\\..",
+            "has\\backslash",
+            "with\0null",
+            "/abs/../../etc",
+        ] {
+            let err =
+                validate_safe_path(bad, "path", max_len).expect_err("unsafe path must be rejected");
+            // null-byte rejection is delegated to validate_identifier and
+            // surfaces its own message; everything else names the safe-path
+            // rule. Both are MCP-34 trust-boundary errors.
+            assert!(
+                err.message.contains("safe filesystem path") || err.message.contains("null byte"),
+                "error must name a trust-boundary rule, got: {} (input {bad:?})",
+                err.message
+            );
+        }
     }
 }

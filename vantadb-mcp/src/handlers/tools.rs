@@ -2103,11 +2103,13 @@ pub fn handle_tools_call(
             let name = args["name"]
                 .as_str()
                 .ok_or_else(|| McpError::invalid_params("Missing 'name'").to_json())?;
-            validate_identifier(name, "name", config.max_key_length).map_err(|e| e.to_json())?;
-            if name.contains('/') || name.contains('\\') || name == "." || name == ".." {
-                return Ok(error_content(
-                    "Snapshot name must be a plain identifier (no path separators)",
-                ));
+            // MCP-34: trust-boundary guard — the name becomes a path segment
+            // under <data_dir>/snapshots, so reject '/', '\\', '.', '..'.
+            // Convert invalid_params → error_content so the LLM client gets
+            // a soft error it can self-correct (MEM-32), not a JSON-RPC
+            // parse error.
+            if let Err(e) = validate_path_segment(name, "name", config.max_key_length) {
+                return Ok(error_content(e.message));
             }
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
@@ -2131,11 +2133,13 @@ pub fn handle_tools_call(
             let name = args["name"]
                 .as_str()
                 .ok_or_else(|| McpError::invalid_params("Missing 'name'").to_json())?;
-            validate_identifier(name, "name", config.max_key_length).map_err(|e| e.to_json())?;
-            if name.contains('/') || name.contains('\\') || name == "." || name == ".." {
-                return Ok(error_content(
-                    "Snapshot name must be a plain identifier (no path separators)",
-                ));
+            // MCP-34: trust-boundary guard — the name is appended to a path
+            // under <data_dir>/snapshots, so reject '/', '\\', '.', '..'.
+            // Convert invalid_params → error_content so the LLM client gets
+            // a soft error it can self-correct (MEM-32), not a JSON-RPC
+            // parse error.
+            if let Err(e) = validate_path_segment(name, "name", config.max_key_length) {
+                return Ok(error_content(e.message));
             }
             if args["confirm"] != serde_json::Value::Bool(true) {
                 return Ok(error_content(
@@ -2264,6 +2268,13 @@ pub fn handle_tools_call(
             let path = args["path"]
                 .as_str()
                 .ok_or_else(|| McpError::invalid_params("Missing 'path'").to_json())?;
+            // MCP-34: trust-boundary guard — validate_identifier enforces
+            // null/empty/length; validate_safe_path enforces no '..' or '\'.
+            // Defense in depth: the SDK call below also fails on bad paths,
+            // but we reject here so the surface never reaches the filesystem
+            // layer for malformed input.
+            validate_identifier(path, "path", config.max_key_length).map_err(|e| e.to_json())?;
+            validate_safe_path(path, "path", config.max_key_length).map_err(|e| e.to_json())?;
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.bulk_import_file(path) {
                 Ok(report) => Ok(text_content(serialize_content(&report))),
