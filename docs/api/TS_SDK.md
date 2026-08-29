@@ -69,7 +69,7 @@ static create(config?: VantaConfig): VantaDB
 
 Create a new in-memory instance. Accepts an optional `VantaConfig` object. To use persistent storage, call `connect()` or `open()` instead.
 
-**WASM note:** In WASM mode, `storage_path` in `VantaConfig` is ignored (CODE-089) — the WASM backend always uses an in-memory engine. The parameter is accepted without error, but a warning is emitted to the console.
+**WASM note:** In WASM mode, `storage_path` in `VantaConfig` is ignored by `create()` (CODE-089) — the default factory opens an in-memory WASM engine. For persistent storage, use `connect()` / `open()` (Node on-disk), or in browsers `connect_persistent()` (OPFS) / `connect_idb()` (IndexedDB) / `connect_worker()`. A console warning is emitted when `storage_path` is supplied to `create()` but no persistent backend is selected.
 
 #### `VantaDB.connect(path?)`
 

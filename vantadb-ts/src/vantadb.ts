@@ -185,8 +185,10 @@ export class VantaDB {
   /**
    * Create a new VantaDB instance with the given config.
    *
-   * Note: In WASM mode, `storage_path` is accepted but ignored — the
-   * WASM backend always uses an in-memory engine. For persistent storage, use `connect()`.
+   * Note: In WASM mode, `storage_path` is accepted but ignored (CODE-089) — the
+   * default `create()` opens an in-memory WASM engine. For persistent storage,
+   * use `connect()` / `open()` (Node on-disk), or in browsers use `connect_persistent()`
+   * (OPFS), `connect_idb()` (IndexedDB), or `connect_worker()`.
    *
    * @param config - Optional configuration.
    * @returns A new VantaDB instance.
