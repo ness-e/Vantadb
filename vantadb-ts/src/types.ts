@@ -205,22 +205,29 @@ export interface VantaConfig {
   memory_limit?: number;
 }
 
-export interface GraphBfsResult {
-  visited: number[];
-  levels: Record<string, number>;
-  path: number[][];
-}
+/**
+ * Result of a BFS, DFS, filtered-traversal or topological-sort traversal.
+ *
+ * Wire format (real, verified 2026-08-28 against `src/sdk/graph.rs` and
+ * `vantadb-wasm/src/lib.rs:1552-1578`): the WASM binding returns `Vec<u128>` and
+ * `serde_wasm_bindgen 0.6` with default options serializes each `u128` as a
+ * `BigInt` (because `u128` exceeds `Number.MAX_SAFE_INTEGER`). Consumers
+ * receive a `bigint[]` of node IDs in traversal order — NOT the fictional
+ * `{ visited, levels, path }` / `{ visited, order, has_cycle }` shape that
+ * older revisions of this file advertised.
+ *
+ * `@deprecated` aliases `GraphBfsResult` / `GraphDfsResult` / `GraphTopologicalSortResult`
+ * are kept as `bigint[]` for source compatibility but the old field shape is gone.
+ * This is a breaking change for code that read `result.visited` / `result.levels` / etc.
+ * — iterate the array or index into it instead.
+ */
+export type GraphBfsResult = bigint[];
 
-export interface GraphDfsResult {
-  visited: number[];
-  order: number[];
-  has_cycle: boolean;
-}
+/** @deprecated Use `bigint[]` directly. See `GraphBfsResult` for the wire shape. */
+export type GraphDfsResult = bigint[];
 
-export interface GraphTopologicalSortResult {
-  sorted: number[];
-  has_cycle: boolean;
-}
+/** @deprecated Use `bigint[]` directly. `has_cycle` is no longer exposed in the wire. */
+export type GraphTopologicalSortResult = bigint[];
 
 /** Optional edge label/time filter for `graphFilteredTraversal` (GRAFO-01). */
 export interface GraphTraversalFilter {

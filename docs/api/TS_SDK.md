@@ -361,26 +361,30 @@ Add a directed edge from source to target with an optional label and weight.
 #### `graphBfs()`
 
 ```ts
-graphBfs(roots: number[], maxDepth?: number): number[]
+graphBfs(roots: number[], maxDepth?: number): bigint[]
 ```
 
-Breadth-first traversal from one or more root nodes. Returns visited node IDs in BFS order.
+Breadth-first traversal from one or more root nodes. Returns visited node IDs
+in BFS order as `bigint` (because the underlying VantaDB graph uses `u128` node
+IDs, which exceed `Number.MAX_SAFE_INTEGER`).
 
 #### `graphDfs()`
 
 ```ts
-graphDfs(roots: number[], maxDepth?: number): number[]
+graphDfs(roots: number[], maxDepth?: number): bigint[]
 ```
 
-Depth-first traversal from one or more root nodes.
+Depth-first traversal from one or more root nodes. Returns `bigint[]` of node IDs
+in DFS order.
 
 #### `graphTopologicalSort()`
 
 ```ts
-graphTopologicalSort(roots: number[]): number[]
+graphTopologicalSort(roots: number[]): bigint[]
 ```
 
-Topological sort of the subgraph reachable from the given roots.
+Topological sort of the subgraph reachable from the given roots. Returns
+`bigint[]` in topological order.
 
 #### `graphIsDag()`
 

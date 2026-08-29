@@ -276,9 +276,10 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Gate Result:** ✅ DO
 - **Contrato:** `python -W error::DeprecationWarning -c "import vantadb_py" 2>&1 | Select-String "DeprecationWarning" | Measure-Object | Select-Object Count` ==1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/PY-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (idempotente — código en `4ffb833b`+`9a5e5305` ya en develop; verificado Count==1; añadido sección "Import name" a PYTHON_SDK.md para discoverability)
+- **Branch:** develop
 - **Pre-mortem:**
-  - Fallo 1: `pip install vantadb` vs `vantadb-py` confusion — verificar pyproject.toml name
+  - Fallo 1: `pip install vantadb` vs `vantadb-py` confusion — `pyproject.toml:6` confirma `name = "vantadb-py"`; import canónico es `import vantadb` (no `import vantadb-py` — Python no permite guiones en identifiers)
 - **Stop conditions:** Ninguno
 - **Risk Register:** —
 - **Cynefin:** 🟦 Obvio

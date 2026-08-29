@@ -1091,7 +1091,7 @@ export class VantaDB {
   ): GraphBfsResult {
     this._assertOpen();
     return this._wasm("graphBfs", () =>
-      this.inner.graph_bfs(roots.map(String), maxDepth, direction) as GraphBfsResult,
+      this.inner.graph_bfs(roots.map(String), maxDepth, direction),
     );
   }
 
@@ -1115,7 +1115,7 @@ export class VantaDB {
   ): GraphDfsResult {
     this._assertOpen();
     return this._wasm("graphDfs", () =>
-      this.inner.graph_dfs(roots.map(String), maxDepth, direction) as GraphDfsResult,
+      this.inner.graph_dfs(roots.map(String), maxDepth, direction),
     );
   }
 
@@ -1135,9 +1135,7 @@ export class VantaDB {
   graphTopologicalSort(roots: number[]): GraphTopologicalSortResult {
     this._assertOpen();
     return this._wasm("graphTopologicalSort", () =>
-      this.inner.graph_topological_sort(
-        roots.map(String),
-      ) as GraphTopologicalSortResult,
+      this.inner.graph_topological_sort(roots.map(String)),
     );
   }
 
@@ -1189,7 +1187,7 @@ export class VantaDB {
         maxDepth,
         direction,
         filter ?? null,
-      ) as GraphBfsResult,
+      ),
     );
   }
 

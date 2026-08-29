@@ -53,6 +53,20 @@ if results and results.get("records"):
 ```
 *Note: For more details on search execution, see [[hybrid-search|Hybrid Search]].*
 
+## Import name
+
+Use the canonical import:
+
+```python
+import vantadb
+```
+
+`import vantadb_py` still works (it points at the same compiled module) but
+emits a `DeprecationWarning`. The legacy name will be removed in the next minor
+release (0.6.0). The distribution on PyPI is `vantadb-py`; the importable
+module is `vantadb`. See [ADR-030](../architecture/adr/ADR-030-brand-identity-naming-convention.md)
+for the full brand-identity decision.
+
 ## Domain Sub-clients
 
 Every flat method is also reachable through a **domain sub-client**: `db.memory`, `db.graph`, `db.system`, `db.wiki`. Sub-clients are pure organizational sugar over the flat API — each call forwards verbatim to the same-named method on the parent handle.

@@ -33,6 +33,11 @@ aliases: []
 - **Fecha:** 2026-08-18
 - **Resultado:** ✅ `vantadb-python/vantadb/__init__.py` (nuevo): shim delgado re-exporta `vantadb_py` (import canónico `import vantadb`, compat `vantadb_py` intacto, zero breaking). `pyproject.toml`: include maturin `vantadb/__init__.py`; quickstart/docs con import canónico. Fix colateral `.gitignore:136` `*db/` matcheaba `vantadb-python/vantadb/` → excepción `!vantadb-python/vantadb/`. Commits `9a5e5305`. Wheel verificado con `import vantadb`. (ver docs/progreso/README.md)
 
+### PY-03: DeprecationWarning en `import vantadb_py` (alias deprecado, canónico = `vantadb`)
+- **Fecha:** 2026-08-29
+- **Resultado:** ✅ Cierre idempotente. Código en disco desde `4ffb833b`+`9a5e5305`: `vantadb-py/__init__.py:15-21` emite `DeprecationWarning(stacklevel=2)` al importar el alias legacy; `vantadb/__init__.py:13-16` suprime el warning internamente con `warnings.catch_warnings()` para que `import vantadb` sea silencioso. Contrato verificado: `python -W error::DeprecationWarning -c "import vantadb_py" 2>&1 | grep -c DeprecationWarning` = 1 ✅; `import vantadb` = sin warnings ✅. Plan: remover `vantadb_py` en 0.6.0 (1 minor de aviso). Mejora docs esta iteración: sección "Import name" en `docs/api/PYTHON_SDK.md:56-68` enlaza ADR-030 y explica la convención distro `vantadb-py` ↔ módulo `vantadb_py` ↔ import `vantadb`. 89 refs adicionales a `vantadb_py` en docs markdown (glosario/integraciones/planes-archivados) NO migradas — fuera de scope (deuda DEFER: MKT-18 docs sync).
+
+
 ### PERF-31: NumPy output batch
 - **Resultado:** ✅ `np_per_query_batch` vía `__array_interface__` zero-copy (sin GIL), CSV header skip, `np.asarray(..., dtype=np.float32)`. +26.4% throughput.
 

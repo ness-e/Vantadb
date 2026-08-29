@@ -7,7 +7,7 @@ import { defineConfig } from "vitest/config";
 // supports ESM wasm imports), so vitest must NOT inline or transform it.
 export default defineConfig({
   test: {
-    include: ["src/**/__tests__/**/*.test.ts"],
+    include: ["src/**/__tests__/**/*.test.ts", "tests/**/*.test.ts"],
     testTimeout: 30000,
     server: {
       deps: {
