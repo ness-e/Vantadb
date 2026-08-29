@@ -297,25 +297,34 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🔴 Alta
 - **Archivos clave:** `vantadb-ts/src/types.ts:208-212`, `vantadb-ts/src/vantadb.ts:1094`, `vantadb-wasm/src/lib.rs:1353+` (wire real `u128[]` plano)
-- **Verificación real:** `codegraph_explore "GraphBfsResult visited levels"` → types.ts define `GraphBfsResult{visited,levels,path}` pero wasm wire es `Vec<u128>` plano — blind-cast `as GraphBfsResult` + test `toBeDefined()` no afirma shape real (ts.md R4#1, MOD-22).
+- **Verificación real:** ✅ verificado: `codegraph_explore "GraphBfsResult visited levels"` confirmó que `src/sdk/graph.rs:50-60, 130-135` retorna `Vec<u128>` (no struct). El plan decía wire = `string[]` pero verifiqué empíricamente con `node -e "import('vantadb-wasm')..."` que wire = `bigint[]` (serde_wasm_bindgen 0.6 default serializa `u128` como BigInt, no como string).
 - **Gate Justificación:** Types ficticios rompen type safety — consumidor TS compila contra shape que nunca llega (runtime error silencioso). Fix con test que afirme shape real del binding WASM.
-- **Gate Result:** ✅ DO
-- **Contrato:** `npx tsc --noEmit --project vantadb-ts/tsconfig.json 2>&1 | Measure-Object | Select-Object Count` ==0 AND `npx vitest run vantadb-ts/tests/graph.test.ts 2>&1 | Select-String "GraphBfsResult shape real" | Measure-Object | Select-Object Count` >=1
+- **Gate Result:** ✅ DO → **COMPLETED**
+- **Contrato SATISFECHO:** `npx tsc --noEmit --project vantadb-ts/tsconfig.json 2>&1 | Measure-Object | Count` == 0 ✅ AND `npx vitest run vantadb-ts/tests/graph.test.ts 2>&1 | Select-String "GraphBfsResult shape real" | Count` == 1 (>=1) ✅
 - **Task file:** `.opencode/skills/campaign-executor/tasks/TS-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (vanta-worker — sin commit; vanta-lead ejecuta `fix!:`)
+- **Branch:** develop
+- **Resultado real:** 2026-08-28
+  - `types.ts`: 3 interfaces ficticias (`GraphBfsResult`/`GraphDfsResult`/`GraphTopologicalSortResult`) → 3 alias `bigint[]` con JSDoc `@deprecated` documentando el wire real
+  - `vantadb.ts`: 4 blind-casts `as Graph*Result` removidos (bfs, dfs, topologicalSort, filteredTraversal)
+  - `vitest.config.ts`: include pattern extendido a `tests/**/*.test.ts`
+  - `tests/graph.test.ts` (NUEVO): 5 tests con asserts del shape real (`Array.isArray`, `every bigint`, `toContain(100n)`, fields ficticios `.toBeUndefined()`, empty roots)
+  - `docs/api/TS_SDK.md`: `number[]` → `bigint[]` en 3 secciones + nota explicativa
+  - Suite: 268/269 tests pass (1 fallo pre-existente en `hardening.test.ts:395` NO relacionado)
 - **Pre-mortem:**
-  - Fallo 1: Wire real cambió en wasm v0.5.0 — verificar `vantadb-wasm/src/lib.rs:1353` actual vs docs
-  - Fallo 2: Breaking change para usuarios TS que ya usan `GraphBfsResult` ficticio → semver minor + migration note
-- **Stop conditions:** Wire no determinable offline → DISCOVERY con `wasm-pack build` + `node -e "require('./pkg/vantadb_wasm')"`
+  - Fallo 1: Wire real cambió en wasm v0.5.0 — ✅ verificado: `src/sdk/graph.rs:50-60` retorna `Vec<u128>`. Plan tenía razón en el drift; **PERO la aserción "wire = string[]" era incorrecta** (en realidad `bigint[]` por default de serde_wasm_bindgen 0.6) — corregido en implementación.
+  - Fallo 2: Breaking change para usuarios TS → semver minor (TS pre-1.0). Migration note agregado en `docs/api/TS_SDK.md`.
+- **Stop conditions:** NO necesario `wasm-pack build` — pkg actual provee mismas firmas `graph_bfs`/`graph_dfs`/`graph_topological_sort`/`graph_filtered_traversal`; wire shape verificado con `node -e` script.
 - **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger |
   |--------------|--------|-----------|---------|
-  | 🟡×🔴 | Breaking change silencioso | Migration guide + `deprecated` alias | review |
-- **Cynefin:** 🟨 Complicado — requiere mapear wasm wire → TS types
-- **Top 3 riesgos:** 1. Wire shape incorrecto 2. Tests `toBeDefined` falsos positivos 3. Breaking semver
-- **Uphill/Downhill:** ⬆️ 2 (wire shape) · ⬇️ 3
-- **DoD:** Task: types align + test shape real; Commit: `fix!:` si breaking; Release: docs/api/TS_SDK.md
-- **Validación Appetite vs Effort:** max 1d ≥ 🟡 ✅
+  | 🟡×🔴 | Breaking change silencioso | Migration guide + `@deprecated` alias en types.ts | review |
+  | 🟢×🟡 | WASM pkg desactualizado le faltan features nuevas (bulk_import etc.) | Tests cubren el subset que sí está; rebuild de pkg fuera de scope | test |
+- **Cynefin:** 🟨 Complicado → ✅ RESUELTO (wire shape verificado empíricamente con `node -e`)
+- **Top 3 riesgos:** 1. Wire shape incorrecto → ✅ EVITADO con verificación empírica 2. Tests `toBeDefined` falsos positivos → ✅ EVITADO con asserts de shape 3. Breaking semver → ✅ DOCUMENTADO en `TS_SDK.md`
+- **Uphill/Downhill:** ⬆️ 1 (verificar wire shape — descubrió que es `bigint[]` no `string[]`) · ⬇️ 3
+- **DoD:** Task: types align + test shape real; Commit: `fix!:` (ya staged — vanta-lead ejecuta); Release: docs/api/TS_SDK.md actualizado
+- **Validación Appetite vs Effort:** max 1d ≥ 🟡 1d ✅
 - **SDP:** files="vantadb-ts/src/types.ts,vantadb-wasm/src/lib.rs" keywords=["GraphBfsResult","wire format"] → `api-and-interface-design, source-driven-development`
 
 ---
