@@ -1,0 +1,79 @@
+name: 'CI: Rust API Reference (cargo doc artifact)'
+
+# RES-11 / FND-17 Fase 1 — job rustdoc en CI.
+# Genera HTML navegable de la API del workspace entero (cero deps nuevas: rustdoc
+# viene con la toolchain) y lo sube como artifact para que cada PR/merge tenga
+# una API reference del estado actual — adoptantes pre-docs.rs la pueden abrir
+# desde la pestaña "Artifacts" del run sin esperar al publish en docs.rs.
+#
+# Gate de calidad acoplado: `cargo doc --no-deps` falla si un docstring Rust
+# tiene sintaxis inválida de markdown/links, así que convierte docstrings
+# rotos en error de CI sin costo adicional.
+#
+# Fase 2 (defer): deploy del artifact a GitHub Pages cuando exista decisión de
+# docs site. Ver `docs/research/archive/FND-17-api-reference-docs-as-code.md`.
+
+on:
+  push:
+    branches: ["main", "develop"]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'vantadb-*/**'
+      - 'providers/**'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'vantadb-*/**'
+      - 'providers/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Cancel-in-progress coincide con la convención del repo (fmt/clippy/semver-checks
+# usan el mismo patrón en ci-rust-10.yml). Evita acumulación de runs obsoletos
+# cuando se pushea una cadena de commits sobre la misma rama.
+concurrency:
+  group: rustdoc-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rustdoc:
+    name: Generate API reference (rustdoc)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # rust-setup composite: toolchain stable + sccache + cache. No necesitamos
+      # nextest ni llvm-cov ni system-deps (rustdoc no usa rocksdb/clang).
+      - uses: ./.github/actions/rust-setup
+        with:
+          toolchain: stable
+          components: ''
+          install-nextest: false
+          install-llvm-cov: false
+          install-system-deps: false
+          swap-mb: 0
+
+      # `--no-deps` evita descargar/parsear crates externos (la doc de dependencias
+      # la sirve docs.rs). `--workspace` cubre core + vantadb-*/providers.
+      # `--all-features` consistente con cargo clippy --all-features del job clippy.
+      # Falla por defecto en docstrings con links rotos / markdown inválido (gate de calidad).
+      - name: Generate rustdoc
+        run: cargo doc --no-deps --workspace --all-features
+
+      - name: Upload API reference artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: api-reference-rust
+          path: target/doc
+          retention-days: 7
+          if-no-files-found: error

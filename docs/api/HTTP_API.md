@@ -579,6 +579,29 @@ change. Same optimistic-lock and ownership semantics as PUT.
 
 Removes every version plus the head index row.
 
+## Distribution
+
+The HTTP server is bundled in the `vanta-cli` binary. The standalone
+`vantadb-server` crate is **not** published to `crates.io` (`publish = false`),
+so installation always goes through one of the following paths:
+
+| Path | What you get | Use when |
+|------|--------------|----------|
+| [`vanta-cli`](https://github.com/ness-e/Vantadb/releases) binary from **GitHub Releases** (precompiled tarballs: `vantadb-x86_64-unknown-linux-gnu.tar.gz`, `vantadb-windows-x86_64.zip`, etc.) | `vanta-cli` with `server` feature enabled | You want zero toolchain friction — download the asset for your platform from the latest [GitHub Release](https://github.com/ness-e/Vantadb/releases) |
+| `pip install vantadb-py` + Python launcher | Same engine, embedded | You already use the Python SDK and only need the server occasionally |
+| `cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli --features server` | `vanta-cli` built from source with the `server` feature | Rust developers / CI builders |
+
+> **Why no `cargo install vantadb-server`?** The server crate ships with
+> `publish = false`; it is only ever built as part of the GitHub Release
+> pipeline or from a local `cargo` checkout. See the [research modules
+> registry](../../../.opencode/references/research-modules.md)
+> (`vantadb-server`, last updated 2026-08-25) for the canonical distribution
+> note.
+
+Once the binary is on your `PATH`, see [Starting the Server](#starting-the-server) below.
+
+---
+
 ## Starting the Server
 
 ```bash
