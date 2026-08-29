@@ -186,6 +186,7 @@ indicatif = "0.18"
 serial_test = "3.2"
 serde_json = "1.0"
 tower = { version = "0.5", features = ["util"] }
+serde_yaml = "0.9.34"
 
 [[bench]]
 name = "tokenizer_bench"
@@ -354,6 +355,10 @@ path = "tests/certification/hardware_profiles.rs"
 [[test]]
 name = "structured_api_v2"
 path = "tests/api/structured_api_v2.rs"
+
+[[test]]
+name = "openapi_yaml_parity"
+path = "tests/api/openapi_yaml_parity.rs"
 
 [[test]]
 name = "columnar"

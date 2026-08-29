@@ -161,7 +161,7 @@ paths:
 
         **Graph traversal:** Follow edges from matched nodes.
         ```
-        from <entity> traverse <min>-<max> via <edge_label>
+        from <entity> SIGUE <min>..<max> "<edge_label>" [TYPE <type>] [AS <alias>]
         ```
 
         ## Write Operations
@@ -497,6 +497,12 @@ paths:
         with offset pagination (`cursor` = zero-based offset, `limit` = page
         size; defaults to `top_k`). Wire format mirrors the SDK's
         `VantaMemorySearchRequest`.
+
+        **Fresh database note:** On server startup, `ensure_indexes_current()` is
+        called automatically (see `src/cli_server.rs`) to initialize text/BM25
+        indexes for new databases. This prevents "text_index not found" errors.
+        If text search is unavailable, call `POST /api/v2/maintenance/rebuild-index`
+        to rebuild indexes manually.
       operationId: searchRecords
       tags:
         - Search
@@ -2072,21 +2078,58 @@ components:
   requestBodies:
     GraphTraversalBody:
       description: |
-        Generic graph request envelope: root node ids plus optional options
-        (max depth, edge-label filter, etc.). Exact keys vary per algorithm.
+        Graph traversal request: root node IDs (start), traversal mode (bfs/dfs),
+        max depth, edge direction, and optional label/time filters.
+        Matches the MCP `graph_traverse` handler and SDK `graph_bfs`/`graph_dfs` methods.
       required: true
       content:
         application/json:
           schema:
             type: object
             required:
-              - roots
+              - start
+              - mode
+              - max_depth
+              - direction
             properties:
-              roots:
+              start:
                 type: array
                 items:
                   type: string
-                description: Root node ids to start from
+                  pattern: '^[0-9]+$'
+                description: Root node IDs (u128) to start traversal from
+              mode:
+                type: string
+                enum: [bfs, dfs]
+                description: Traversal algorithm — breadth-first or depth-first
+              max_depth:
+                type: integer
+                minimum: 1
+                description: Maximum traversal depth (inclusive)
+              direction:
+                type: string
+                enum: [outgoing, incoming, both]
+                description: Edge direction to follow
+              filter:
+                type: object
+                nullable: true
+                description: Optional label and time-range filter
+                properties:
+                  labels:
+                    type: array
+                    items:
+                      type: integer
+                      minimum: 0
+                    description: Edge label IDs to include (empty = all labels)
+                  time_range:
+                    type: array
+                    nullable: true
+                    minItems: 2
+                    maxItems: 2
+                    items:
+                      type: integer
+                      minimum: 0
+                    description: Optional [from_ms, to_ms] Unix-millisecond time range filter
 
   # ── Reusable responses ──
 
