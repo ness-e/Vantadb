@@ -554,8 +554,17 @@ impl VantaDB {
     ///
     /// **Optional capability:** this method only exists when the package is
     /// built with the `opfs` feature (`wasm-pack build --features opfs`).
-    /// Before calling it, import `spawnOpfsWorker` from `src/opfs_bridge.js`
-    /// into the global scope, e.g.:
+    ///
+    /// The `spawnOpfsWorker` helper is automatically registered on
+    /// `globalThis` when `opfs_bridge.js` is loaded (glue side-effect,
+    /// DuckDB-WASM pattern), so callers can just do:
+    ///
+    /// ```js
+    /// import "vantadb-wasm/opfs_bridge.js";
+    /// const db = await VantaDB.connect_worker("my-db");
+    /// ```
+    ///
+    /// For backwards compatibility, manual injection still works:
     ///
     /// ```js
     /// import { spawnOpfsWorker } from "vantadb-wasm/src/opfs_bridge.js";

@@ -175,3 +175,12 @@ export function unregisterAutoSave(unregister) {
     unregister();
   }
 }
+
+// Side-effect: auto-register the worker helper on `globalThis` so consumers
+// using `connect_worker(path)` do not need to manually inject it. This mirrors
+// the DuckDB-WASM glue pattern (`@duckdb/duckdb-wasm` registers its worker
+// creator as a module side effect). Guarded to browser contexts to avoid
+// polluting Node / jsdom test environments.
+if (typeof window !== 'undefined' && typeof globalThis !== 'undefined') {
+  globalThis.spawnOpfsWorker = spawnOpfsWorker;
+}
