@@ -413,6 +413,11 @@ path = "tests/certification/hybrid_ranking_metrics.rs"
 required-features = ["cli"]
 
 [[test]]
+name = "request_id"
+path = "tests/request_id.rs"
+required-features = ["server"]
+
+[[test]]
 name = "backend_tests"
 path = "tests/storage/backend_tests.rs"
 
