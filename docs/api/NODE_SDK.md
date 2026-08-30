@@ -170,6 +170,21 @@ const hits = await db.search({
 // hit: { record: MemoryRecord, score: number, explanation?: SearchExplanationHit }
 ```
 
+**Score is relevance, not a distance (WSM-10):** the `score` field is
+**higher-is-better** — it is a relevance score (BM25 for text, cosine
+similarity ∈ [-1.0, 1.0] for vectors, RRF-fused for hybrid). It is **not**
+a raw L2 / cosine distance. This matches the Rust core and the Python SDK.
+**It is intentionally different from the TypeScript wrapper `vantadb-ts`**
+(which renames the field to `distance` and inverts the semantics —
+"lower is more similar", CODE-091).
+
+The full per-transport field map (Rust core / WASM binding / TS wrapper /
+Node / Python / HTTP API) lives in
+[`WASM_API.md` → "Score vs distance semantics (WSM-10)"](WASM_API.md#score-vs-distance-semantics-wsm-10).
+The Node-side rationale (the formula and the range per `distance_metric`)
+is documented inline in the Rust source
+[`vantadb-node/src/lib.rs` `search()` docstring](../../vantadb-node/src/lib.rs).
+
 `explainSearch(request)` returns `{ route, hits, fusion_report }` where each
 hit carries `matched_tokens`, `matched_phrases`, and per-term BM25
 contributions (`bm25_terms`), plus RRF ranks when hybrid fusion ran.

@@ -776,7 +776,7 @@ export class VantaDB {
         const h = hit as Record<string, unknown>;
         return {
           node_id: h.node_id as string,
-          distance: h.score as number,
+          distance: h.distance as number,
         };
       });
     });

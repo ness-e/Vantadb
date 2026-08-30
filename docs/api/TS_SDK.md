@@ -299,6 +299,8 @@ interface SearchRequest {
 
 **Distance vs Score (CODE-091):** The `distance` field in `SearchHit` is a **L2 or cosine distance**, not a similarity score. Lower values indicate higher similarity. This differs from the Rust and Python SDKs which expose a `score` field where higher is better.
 
+**Cross-binding map:** see [`WASM_API.md` → "Score vs distance semantics (WSM-10)"](WASM_API.md#score-vs-distance-semantics-wsm-10) for the full per-transport field map (Rust core / WASM binding / TS wrapper / Node / Python / HTTP). That section is the single source of truth for "which field carries which convention across which transport"; this subsection is the TS-side rationale only.
+
 **Cross-SDK convention (TS-03):** the asymmetry between the TS SDK and the other bindings is intentional and pinned in CI. Each transport exposes a different field so consumers should pick the row that matches their SDK:
 
 | SDK binding | Field on hit | Convention | Range |

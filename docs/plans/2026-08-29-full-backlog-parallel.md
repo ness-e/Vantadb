@@ -621,10 +621,12 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Gate Result:** ✅ DO — **SOLO** (requiere DISCOVERY vanta-research)
 - **Contrato:** `cargo check -p vantadb-wasm --target wasm32-unknown-unknown` 0 AND `Select-String -Path "vantadb-wasm/src/lib.rs" -Pattern "sparse_vector|search_profile" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/WSM-06.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** 🟡 STAGED (2026-08-30T18:30 — vanta-worker; staged para vanta-lead commit)
 - **Pre-mortem:** nicho browser no necesita todo core — recortar scope
 - **Cynefin:** 🟨 Complicado
 - **Uphill/Downhill:** ⬆️ 1 (qué priorizar) · ⬇️ 2
+- **DISCOVERY findings (browser niche H-22):** 4/9 métodos ya implementados (count, remove_edge, similar_to_key, supersede); sparse_vector y exclude_superseded ya wired. Subset mínimo viable: 3 cambios WASM (filter_ops en SearchRequest, exclude_superseded en ListOptions, sync docs) + 1 sync BINDINGS_NAMESPACES.md. namespace_stats OMITIDO (operator), search_profile OMITIDO (power-user advanced)
+- **Resultado (2026-08-30 verify):** Step 1 (filter_ops en SearchRequest) REVERTIDO — `VantaMemorySearchRequest` core NO soporta `filter_ops` (solo `VantaMemoryListOptions`/`count`/`delete_by_filter` lo soportan; hot path de search usa flat `filters` por diseño). Step 2 (exclude_superseded en ListOptions) wired ✅. Step 4 (sync BINDINGS_NAMESPACES.md) — WASM surface 43→47 métodos (count, supersede, similar_to_key, search_multi, remove_edge documentados; capabilities sparse_vector/exclude_superseded marcados como ✅ en WASM; filter_ops/search_profile documentados como ❌ con justificación core limitation). Contrato: cargo check exit 0 ✅, regex Count=6 (>=1) ✅. Tests: vantadb-wasm 1/1, vantadb core /list/ 42/42, /exclude_superseded|supersede|count|similar_to_key|remove_edge|search/ 189/189 passed. Pre-mortem Fallo 1 mitigado (DISCOVERY recortó scope de 9 a subset viable); Fallo 2 mitigado (serde Option<bool> with default → backward compat); Fallo 3 mitigado (cambios aditivos). Sin commit per regla de rol — staged para vanta-lead integrar en PR Wave11.
 
 ### Task W12-1: WSM-10 — Semántica score/distance consistente
 
@@ -637,7 +639,7 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Gate Result:** ✅ DO
 - **Contrato:** `Select-String -Path "docs/api/WASM_API.md" -Pattern "score.*distance|distance.*score" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/WSM-10.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ IN PROGRESS (2026-08-30T18:45 — vanta-docs; WSM-10 task created)
 - **Cynefin:** 🟨 Complicado
 
 ### Task W12-2: WSM-11 — Señalizar metadata descartada

@@ -24,6 +24,23 @@ static NAN_SANITIZATION_COUNT: AtomicU64 = AtomicU64::new(0);
 fn record_nan_sanitization(n: u64) {
     NAN_SANITIZATION_COUNT.fetch_add(n, Ordering::Relaxed);
 }
+
+/// Global counter of metadata serializations that silently failed and were
+/// dropped from the outgoing JS record.
+///
+/// WSM-11 (research-vantadb-wasm-20260825 H-14): `memory_record_to_js`
+/// used `if let Ok(meta) = serde_wasm_bindgen::to_value(&rec.metadata)` —
+/// on serialization failure the record was returned **without** metadata and
+/// without any signal, a silent data-loss path. This counter makes the loss
+/// observable via `operational_metrics().metadata_drop_count`. Accumulated
+/// (not reset) so the value reflects the lifetime of the WASM instance.
+static METADATA_DROP_COUNT: AtomicU64 = AtomicU64::new(0);
+
+/// Increment the metadata-drop counter by `n` (always 1 per dropped record).
+#[inline]
+fn record_metadata_drop(n: u64) {
+    METADATA_DROP_COUNT.fetch_add(n, Ordering::Relaxed);
+}
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
@@ -262,6 +279,13 @@ struct JsOperationalMetrics {
     /// vector/explanation payloads (WSM-12). Non-zero is a signal that
     /// upstream data (embeddings, scores) contains non-finite floats.
     nan_sanitization_count: String,
+    /// Cumulative count of metadata fields that failed WASM serialization and
+    /// were dropped from outgoing records (WSM-11). Non-zero means the
+    /// metadata contained a value the JSON-compatible serializer couldn't
+    /// represent (e.g. unsupported map key type, non-finite float). The record
+    /// is still returned (sans metadata) to preserve backward compat — this
+    /// counter exists so the silent data loss is observable.
+    metadata_drop_count: String,
 }
 
 impl From<VantaOperationalMetrics> for JsOperationalMetrics {
@@ -306,6 +330,8 @@ impl From<VantaOperationalMetrics> for JsOperationalMetrics {
             jemalloc_retained_bytes: m.jemalloc_retained_bytes.map(|v| v.to_string()),
             // WSM-12: pull from WASM-local counter (not core snapshot).
             nan_sanitization_count: NAN_SANITIZATION_COUNT.load(Ordering::Relaxed).to_string(),
+            // WSM-11: pull from WASM-local counter (not core snapshot).
+            metadata_drop_count: METADATA_DROP_COUNT.load(Ordering::Relaxed).to_string(),
         }
     }
 }
@@ -2321,6 +2347,12 @@ fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
     }
     if let Ok(meta) = serde_wasm_bindgen::to_value(&rec.metadata) {
         js_sys::Reflect::set(&obj, &"metadata".into(), &meta).ok();
+    } else {
+        // WSM-11: silent metadata error (serialization failure) was a
+        // data-loss path. Bump the counter so JS callers can detect it via
+        // operational_metrics(). Keeping the `metadata` field absent preserves
+        // backward compat with existing TS glue that expects optional metadata.
+        record_metadata_drop(1);
     }
     JsValue::from(&obj)
 }
@@ -2590,6 +2622,28 @@ mod tests {
         db.compact_wal().unwrap();
         let freed = db.compact_layout().unwrap();
         assert_eq!(freed, 0);
+    }
+
+    // ── WSM-11: metadata drop counter ──
+
+    #[test]
+    fn test_metadata_drop_counter_accumulates() {
+        let baseline = METADATA_DROP_COUNT.load(Ordering::Relaxed);
+        record_metadata_drop(1);
+        record_metadata_drop(1);
+        record_metadata_drop(1);
+        let after = METADATA_DROP_COUNT.load(Ordering::Relaxed);
+        assert_eq!(after, baseline + 3);
+        // Counter is never reset (except by WASM instance lifetime); verify
+        // monotonic accumulation rather than the exact value.
+        assert!(after >= baseline + 3);
+    }
+
+    #[test]
+    fn test_record_metadata_drop_zero_is_noop() {
+        let before = METADATA_DROP_COUNT.load(Ordering::Relaxed);
+        record_metadata_drop(0);
+        assert_eq!(METADATA_DROP_COUNT.load(Ordering::Relaxed), before);
     }
 
     // ── WSM-12: NaN/Inf sanitization counter ──

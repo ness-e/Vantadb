@@ -17,6 +17,27 @@
 | `wiki` | Summary/archive lifecycle over nodes (recover archived nodes). Full wiki features are core-only (D43) |
 | `system` | Catch-all: constructors/lifecycle, capabilities/hardware profile, metrics, IQL query engine, index maintenance, compaction, import/export |
 
+## Score vs Distance Convention (CODE-091 / WSM-10)
+
+> **Full per-transport map and rationale:**
+> [`WASM_API.md` → "Score vs distance semantics (WSM-10)"](WASM_API.md#score-vs-distance-semantics-wsm-10).
+> TS-side: [`TS_SDK.md` → "Distance vs Score (CODE-091)"](TS_SDK.md#distance-vs-score-code-091).
+> Node-side: [`NODE_SDK.md` → Search § "Score is relevance, not a distance (WSM-10)"](NODE_SDK.md#search).
+
+| Transport | Memory/hybrid search field | Raw ANN field | Convention |
+|---|---|---|---|
+| Rust core | `VantaMemorySearchHit.score` | `VantaSearchHit.distance` | `score` higher-is-better; `distance` lower-is-better |
+| WASM binding (`vantadb-wasm`) | `SearchHit.score` | `search_vector()` → **`distance`** *(WSM-10, was `score` before)* | matches core |
+| TypeScript wrapper (`vantadb-ts`) | `SearchHit.distance` *(inverted)* | `searchVector()` → `distance` | **`distance`** lower-is-better in both (CODE-091) |
+| Node binding (`vantadb-node`) | `score` | (no raw ANN binding) | `score` higher-is-better |
+| Python binding (`vantadb-python`) | `hit.score` | `(node_id, distance)` tuple | `score` higher-is-better; `distance` lower-is-better |
+| HTTP API | `score` | n/a | `score` higher-is-better |
+
+**When writing cross-binding code:** always read the field by name, never
+assume the value semantics from the name alone. The TS wrapper is the only
+binding that renames the field — every other transport exposes `score` for
+relevance and `distance` for raw ANN distance.
+
 ## SDK Surface Differences (verified 2026-08-22 via grep)
 
 | Capability | WASM | TS | Python |

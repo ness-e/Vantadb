@@ -352,6 +352,12 @@ export interface OperationalMetrics {
      *  vector/explanation payloads (WSM-12). Non-zero means upstream data
      *  contained non-finite floats — investigate the embedding/score source. */
     nan_sanitization_count: string;
+    /** Cumulative count of metadata fields that failed WASM serialization and
+     *  were dropped from outgoing records (WSM-11). Non-zero means the
+     *  metadata contained an unsupported value (e.g. bad map key type,
+     *  non-finite float). The record is still returned sans metadata; this
+     *  counter makes the silent data loss observable. */
+    metadata_drop_count: string;
 }
 
 /** Report returned by import / bulk-import operations. */
