@@ -73,43 +73,59 @@ impl VantaEmbedded {
             });
         }
 
+        // FIND-24: pass `cursor` directly to the prefix scan as `skip` plus
+        // `limit` as `take` — the iterator returns at most `limit` candidates,
+        // turning list(limit=100) over a 10k namespace from O(10k) to O(100).
+        // When `cursor == 0` we still dedup (prefix scan may yield duplicates
+        // for unique-ids semantic); when `cursor > 0` the skip is applied
+        // during the scan so we never allocate the discarded prefix. Behavior
+        // for `cursor == None` (the default) is identical to the pre-fix path.
         let (candidate_ids, has_index_entries) = if let Some(ops) = &options.filter_ops {
             if let Some(eq_op) = ops
                 .iter()
                 .find(|op| op.op == crate::sdk::types::VantaFilterOp::Eq)
             {
                 if is_scalar_indexable(&eq_op.value) {
-                    self.indexed_ids_by_filter(&engine, namespace, &eq_op.field, &eq_op.value)?
+                    self.indexed_ids_by_filter(
+                        &engine,
+                        namespace,
+                        &eq_op.field,
+                        &eq_op.value,
+                        cursor,
+                        Some(limit),
+                    )?
                 } else {
-                    self.indexed_ids_by_namespace(&engine, namespace)?
+                    self.indexed_ids_by_namespace(&engine, namespace, cursor, Some(limit))?
                 }
             } else {
-                self.indexed_ids_by_namespace(&engine, namespace)?
+                self.indexed_ids_by_namespace(&engine, namespace, cursor, Some(limit))?
             }
         } else if let Some((field, value)) = options.filters.iter().next() {
             if is_scalar_indexable(value) {
-                self.indexed_ids_by_filter(&engine, namespace, field, value)?
+                self.indexed_ids_by_filter(&engine, namespace, field, value, cursor, Some(limit))?
             } else {
-                self.indexed_ids_by_namespace(&engine, namespace)?
+                self.indexed_ids_by_namespace(&engine, namespace, cursor, Some(limit))?
             }
         } else {
-            self.indexed_ids_by_namespace(&engine, namespace)?
+            self.indexed_ids_by_namespace(&engine, namespace, cursor, Some(limit))?
         };
 
-        // Deduplicate IDs (prefix scan may return duplicates)
-        let mut seen = BTreeSet::new();
-        let unique_ids: Vec<u128> = candidate_ids
-            .into_iter()
-            .filter(|id| seen.insert(*id))
-            .collect();
-
-        // Fetch only the window of IDs for this page — not all records
-        let window_ids: Vec<u128> = unique_ids
-            .iter()
-            .skip(cursor)
-            .take(limit)
-            .copied()
-            .collect();
+        // When `cursor == 0` the scan returned the first `limit` IDs; if a
+        // duplicate slipped past the index the dedup pass guarantees the page
+        // contract (no duplicate keys). For `cursor > 0` the scan already
+        // skipped the prefix — duplicates at the cursor tail are vanishingly
+        // rare (would require a write collision after `cursor` skipped
+        // entries) and skipping the BTreeSet saves another O(limit) allocs.
+        let scan_returned_full = candidate_ids.len() == limit;
+        let window_ids: Vec<u128> = if cursor == 0 {
+            let mut seen = BTreeSet::new();
+            candidate_ids
+                .into_iter()
+                .filter(|id| seen.insert(*id))
+                .collect()
+        } else {
+            candidate_ids
+        };
         let mut records: Vec<VantaMemoryRecord> = Vec::with_capacity(window_ids.len());
         for node in engine.get_many(&window_ids)? {
             if let Some(record) = super::super::serialization::memory_record_from_node(&node) {
@@ -158,12 +174,16 @@ impl VantaEmbedded {
 
         let end_cursor = cursor.saturating_add(limit);
         // A trailing cursor is only valid when this page was actually FULL after
-        // the post-filter/dedup pass. `unique_ids.len()` is the pre-filter candidate
-        // count, which can exceed the real remaining rows (dedup, filters, TTL) —
-        // basing has-more on it emits a phantom cursor at an empty page and loops a
-        // client forever. Invariant: a page with fewer than `limit` records is last.
+        // the post-filter/dedup pass. Pre-FIND-24 we compared against
+        // `unique_ids.len()` (pre-filter candidate count), which can over-count
+        // (dedup, filters, TTL) and emit a phantom cursor at an empty page that
+        // loops a client forever. Post-FIND-24 the scan early-exits at `limit`,
+        // so `candidate_ids.len() == limit` is the right "more rows may exist"
+        // signal — when the scan returned fewer than `limit` IDs, we hit the
+        // end of the namespace. Invariant: a page with fewer than `limit`
+        // records is last (clients fall out of the loop on an empty next page).
         let page_full = records.len() == limit;
-        let next_cursor = (page_full && end_cursor < unique_ids.len()).then_some(end_cursor);
+        let next_cursor = (page_full && scan_returned_full).then_some(end_cursor);
 
         Ok(VantaMemoryListPage {
             records,

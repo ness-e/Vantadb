@@ -184,7 +184,7 @@ impl VantaEmbedded {
         // If all fields are present in shredded data we skip loading full
         // records entirely, reducing I/O for selective queries.
         if let Ok(engine) = self.engine_handle() {
-            let (ids, _has_index) = self.indexed_ids_by_namespace(&engine, namespace)?;
+            let (ids, _has_index) = self.indexed_ids_by_namespace(&engine, namespace, 0, None)?;
             let mut bitset = FilterBitset::with_capacity(ids.len());
             let mut all_resolved = true;
 

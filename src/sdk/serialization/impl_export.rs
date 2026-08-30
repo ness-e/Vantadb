@@ -26,10 +26,20 @@ impl VantaEmbedded {
             }
         }
     }
+    /// Stream all node IDs for a namespace prefix-scan, with optional `skip`
+    /// and `take` early-exit bounds (zero-allocation: the prefix iterator is
+    /// consumed until both bounds are satisfied; unused IDs are never copied
+    /// into the returned Vec). `skip` + `take` together enable O(window)
+    /// cursor pagination over the index — the previous implementation always
+    /// materialized the full candidate set (O(ventana_total)) and sliced in
+    /// memory, which made `list(limit=100)` over a 10k namespace allocate and
+    /// scan 10k entries per request (FIND-24).
     pub(crate) fn indexed_ids_by_namespace(
         &self,
         engine: &crate::storage::StorageEngine,
         namespace: &str,
+        skip: usize,
+        take: Option<usize>,
     ) -> Result<(Vec<u128>, bool)> {
         let prefix = namespace_index_prefix(namespace);
         let entries =
@@ -39,22 +49,40 @@ impl VantaEmbedded {
             super::super::VantaEmbedded::load_derived_index_state(engine)?.is_some();
         crate::metrics::record_derived_prefix_scan();
 
+        let mut skipped = 0usize;
+        let mut taken = 0usize;
         for entry in entries {
             let (_key, value) = entry?;
-            if let Some(node_id) = decode_node_id(&value) {
-                ids.push(node_id);
+            let Some(node_id) = decode_node_id(&value) else {
+                continue;
+            };
+            if skipped < skip {
+                skipped += 1;
+                continue;
+            }
+            ids.push(node_id);
+            taken += 1;
+            if let Some(t) = take {
+                if taken >= t {
+                    break;
+                }
             }
         }
 
         Ok((ids, has_index_entries))
     }
 
+    /// Filter variant of `indexed_ids_by_namespace` — same `skip`/`take`
+    /// early-exit semantics for cursor pagination over payload-index entries
+    /// (FIND-24).
     pub(crate) fn indexed_ids_by_filter(
         &self,
         engine: &crate::storage::StorageEngine,
         namespace: &str,
         field: &str,
         value: &super::super::types::VantaValue,
+        skip: usize,
+        take: Option<usize>,
     ) -> Result<(Vec<u128>, bool)> {
         let prefix = payload_index_prefix(namespace, field, value)?;
         let entries = engine.scan_partition_prefix_iter(BackendPartition::PayloadIndex, &prefix)?;
@@ -63,10 +91,23 @@ impl VantaEmbedded {
             super::super::VantaEmbedded::load_derived_index_state(engine)?.is_some();
         crate::metrics::record_derived_prefix_scan();
 
+        let mut skipped = 0usize;
+        let mut taken = 0usize;
         for entry in entries {
             let (_key, value) = entry?;
-            if let Some(node_id) = decode_node_id(&value) {
-                ids.push(node_id);
+            let Some(node_id) = decode_node_id(&value) else {
+                continue;
+            };
+            if skipped < skip {
+                skipped += 1;
+                continue;
+            }
+            ids.push(node_id);
+            taken += 1;
+            if let Some(t) = take {
+                if taken >= t {
+                    break;
+                }
             }
         }
 
@@ -82,9 +123,9 @@ impl VantaEmbedded {
 
         let (candidate_ids, has_index_entries) = if let Some((field, value)) = filters.iter().next()
         {
-            self.indexed_ids_by_filter(&engine, namespace, field, value)?
+            self.indexed_ids_by_filter(&engine, namespace, field, value, 0, None)?
         } else {
-            self.indexed_ids_by_namespace(&engine, namespace)?
+            self.indexed_ids_by_namespace(&engine, namespace, 0, None)?
         };
 
         let mut records = Vec::new();

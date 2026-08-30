@@ -1135,28 +1135,38 @@ async fn records_list(
     let limit = params.limit.unwrap_or(100);
     let cursor = params.cursor;
     if all_namespaces {
-        // ponytail: fan-out por namespace con tope generoso por ns y merge
-        // client-side del cursor — suficiente para consolas embebidas; un
-        // cursor server-side intercalado requiere soporte del SDK. El tope
-        // NS_CAP NUNCA es silencioso: los namespaces que quedaron por encima
-        // del tope se señalizan en `truncated_namespaces` (AUD-046).
-        const NS_CAP: usize = 10_000;
+        // FIND-24: fan-out by namespace now respects the client's `limit`
+        // (instead of NS_CAP) — list(limit=100) used to materialize
+        // NS_CAP=10_000 records per namespace and slice in memory, blowing
+        // past REQUEST_TIMEOUT=30s for ≥10k records total. The SDK's
+        // `indexed_ids_by_namespace` early-exits at `limit`, so a per-ns
+        // `limit`-sized scan is O(limit) per namespace. Cross-namespace
+        // pagination walks namespaces in stable name order; the returned
+        // `next_cursor` is the cumulative offset within the merged window
+        // and remains backward-compatible with single-namespace clients.
+        //
+        // NS_CAP (10_000) was the previous fan-out ceiling per ns and has been
+        // removed: the SDK now enforces the `limit` early-exit natively, so
+        // there is no in-memory NS_CAP cost. Truncation at the namespace
+        // boundary is still detected via `next_cursor` from each per-ns
+        // `VantaMemoryListPage` (see `merge_all_namespaces_pages`).
 
         /// Fan-out response: same shape as `VantaMemoryListPage` plus an
-        /// additive signal listing namespaces whose listing hit `NS_CAP`
+        /// additive signal listing namespaces whose listing is still paginating
         /// (they may hold more records than this response contains).
         #[derive(Serialize)]
         struct AllNamespacesListPage {
             records: Vec<VantaMemoryRecord>,
             next_cursor: Option<usize>,
-            /// Namespaces truncated at `NS_CAP` during the fan-out.
+            /// Namespaces still paginating during the fan-out (their
+            /// per-ns `VantaMemoryListPage.next_cursor` was `Some`).
             truncated_namespaces: Vec<String>,
         }
 
         let options_for = move |_ns: String| VantaMemoryListOptions {
             filter_ops: filter_ops.clone(),
-            limit: NS_CAP,
-            cursor: None,
+            limit,
+            cursor,
             ..Default::default()
         };
         return match run_db_op(&state, move |db| {
