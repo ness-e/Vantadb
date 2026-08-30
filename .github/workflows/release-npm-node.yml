@@ -205,6 +205,7 @@ jobs:
           node -e "const { VantaDb } = require('vantadb-node'); console.log('Smoke test OK:', typeof VantaDb.connect)"
 
       - name: Attest build provenance
+        # CATEGORY: INFORMATIONAL — npm provenance attestation; supply-chain hygiene, no bloquea publish
         continue-on-error: true
         uses: actions/attest-build-provenance@78e6cbd37d0ac1a40113c04f2037dacf1ea3f12e # v4.1.1
         with:
