@@ -5,6 +5,7 @@ import { isMemoryRecord } from "./guards.js";
 import { normalizeFilterItems, normalizeMetadata, normalizeValue } from "./metadata.js";
 
 import type {
+  BatchSearchRequest,
   Capabilities,
   ExportReport,
   GraphBfsResult,
@@ -43,11 +44,19 @@ export interface MemoryClient {
   deleteByFilter(namespace: string, filter: VantaMemoryFilterItem[]): bigint;
   list(namespace: string, options?: ListOptions): MemoryListPage;
   listNamespaces(): string[];
+  count(namespace: string, filters?: VantaMemoryFilterItem[]): bigint;
+  supersede(namespace: string, oldKey: string, newKey: string): void;
   search(request: SearchRequest): SearchHit[];
+  searchMulti(namespaces: string[], request: BatchSearchRequest): SearchHit[];
   searchVector(
     vector: number[],
     topK?: number,
   ): { node_id: string; distance: number }[];
+  similarToKey(
+    namespace: string,
+    key: string,
+    topK?: number,
+  ): SearchHit[];
   explainSearch(request: SearchRequest): Record<string, unknown>;
   generateSnippet(
     payload: string,
@@ -73,6 +82,7 @@ export interface GraphClient {
     weight?: number,
     createdAtMs?: number,
   ): void;
+  removeEdge(source: number, target: number, label?: string): void;
   bfs(
     roots: number[],
     maxDepth?: number,
@@ -262,9 +272,17 @@ export class VantaDB {
       list: (namespace: string, options?: ListOptions) =>
         this.list(namespace, options),
       listNamespaces: () => this.listNamespaces(),
+      count: (namespace: string, filters?: VantaMemoryFilterItem[]) =>
+        this.count(namespace, filters),
+      supersede: (namespace: string, oldKey: string, newKey: string) =>
+        this.supersede(namespace, oldKey, newKey),
       search: (request: SearchRequest) => this.search(request),
+      searchMulti: (namespaces: string[], request: BatchSearchRequest) =>
+        this.searchMulti(namespaces, request),
       searchVector: (vector: number[], topK?: number) =>
         this.searchVector(vector, topK),
+      similarToKey: (namespace: string, key: string, topK?: number) =>
+        this.similarToKey(namespace, key, topK),
       explainSearch: (request: SearchRequest) => this.explainSearch(request),
       generateSnippet: (payload: string, query: string, withHighlighting?: boolean) =>
         this.generateSnippet(payload, query, withHighlighting),
@@ -292,6 +310,8 @@ export class VantaDB {
         weight?: number,
         createdAtMs?: number,
       ) => this.addEdge(source, target, label, weight, createdAtMs),
+      removeEdge: (source: number, target: number, label?: string) =>
+        this.removeEdge(source, target, label),
       bfs: (roots: number[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
         this.graphBfs(roots, maxDepth, direction),
       dfs: (roots: number[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
@@ -572,6 +592,7 @@ export class VantaDB {
       top_k: request.top_k ?? 10,
       distance_metric: request.distance_metric ?? "Cosine",
       explain: explain ?? (request.explain ?? false),
+      exclude_superseded: request.exclude_superseded ?? false,
     };
   }
 
@@ -598,6 +619,125 @@ export class VantaDB {
     this._assertOpen();
     return this._wasm("search", () => {
       const raw = this.inner.search(this._buildSearchRequest(request)) as unknown[];
+      return raw.map((hit: unknown) => {
+        const h = hit as Record<string, unknown>;
+        return {
+          record: _mapRecord(h.record),
+          distance: h.score as number,
+          explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
+        };
+      });
+    });
+  }
+
+  /**
+   * Search across multiple namespaces in a single call. Results from each
+   * namespace are merged by descending score and capped at `request.top_k`
+   * globally. The `namespace` field on `request` is ignored; pass
+   * `namespaces` instead.
+   *
+   * @param namespaces - Namespaces to search independently.
+   * @param request - Search parameters (omit `namespace`; use `namespaces`).
+   * @returns Array of search hits ordered by relevance (highest score first).
+   * @throws {VantaError} If the instance is closed or any namespace fails.
+   *
+   * @example
+   * ```ts
+   * const hits = db.searchMulti(["docs", "kb"], {
+   *   query_vector: [0.1, 0.2, 0.3],
+   *   top_k: 5,
+   * });
+   * for (const hit of hits) {
+   *   console.log(hit.record.namespace, hit.record.key);
+   * }
+   * ```
+   */
+  searchMulti(namespaces: string[], request: BatchSearchRequest): SearchHit[] {
+    this._assertOpen();
+    return this._wasm("searchMulti", () => {
+      // The wire shape mirrors `search()`; reuse the same builder but ignore
+      // any `namespace` field on the request (we route via `namespaces` arg).
+      const wire = this._buildSearchRequest({ ...request, namespace: "" });
+      const raw = this.inner.search_multi(namespaces, wire) as unknown[];
+      return raw.map((hit: unknown) => {
+        const h = hit as Record<string, unknown>;
+        return {
+          record: _mapRecord(h.record),
+          distance: h.score as number,
+          explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
+        };
+      });
+    });
+  }
+
+  /**
+   * Count records in a namespace, optionally matching an AND-combined
+   * metadata filter. Pass an empty array / `undefined` to count every
+   * record in the namespace.
+   *
+   * WASM wire method: `count()` (TS-04 parity with Python / core SDK).
+   *
+   * @param namespace - Namespace to count within.
+   * @param filters - Optional list of `{field, op, value}` items.
+   * @returns Number of matching records (bigint).
+   * @throws {VantaError} If the instance is closed.
+   *
+   * @example
+   * ```ts
+   * const total = db.count("docs");
+   * const redHot = db.count("docs", [
+   *   { field: "tier", op: "Eq", value: "hot" },
+   * ]);
+   * ```
+   */
+  count(namespace: string, filters?: VantaMemoryFilterItem[]): bigint {
+    this._assertOpen();
+    return this._wasm("count", () =>
+      this.inner.count(
+        namespace,
+        normalizeFilterItems(filters ?? []),
+      ),
+    );
+  }
+
+  /**
+   * Mark an existing record as superseded by another existing record
+   * (ADR-028). Supersession is durable: the old record keeps its data
+   * (soft-dead, recoverable) but gains `superseded_by`/`superseded_at_ms`,
+   * and can be hidden from search/list with `exclude_superseded: true`.
+   *
+   * @throws {VantaError} If either key is missing, `oldKey == newKey`, or
+   *   the old record is already superseded.
+   *
+   * @example
+   * ```ts
+   * db.supersede("docs", "old-welcome", "welcome-v2");
+   * ```
+   */
+  supersede(namespace: string, oldKey: string, newKey: string): void {
+    this._assertOpen();
+    this._wasm("supersede", () => this.inner.supersede(namespace, oldKey, newKey));
+  }
+
+  /**
+   * Search for memory records similar to an existing record by key, without
+   * supplying a query vector. The source record is excluded from results.
+   *
+   * @param namespace - Namespace to search within.
+   * @param key - Key of the source record whose vector seeds the search.
+   * @param topK - Maximum number of hits (default: 10).
+   * @returns Array of search hits ordered by descending similarity.
+   * @throws {VantaError} If the source `key` does not exist or has no vector.
+   *
+   * @example
+   * ```ts
+   * const hits = db.similarToKey("docs", "welcome-v2", 5);
+   * ```
+   */
+  similarToKey(namespace: string, key: string, topK: number = 10): SearchHit[] {
+    this._assertOpen();
+    return this._wasm("similarToKey", () => {
+      const raw = this.inner.similar_to_key(namespace, key, topK) as unknown[];
       return raw.map((hit: unknown) => {
         const h = hit as Record<string, unknown>;
         return {
@@ -1069,6 +1209,27 @@ export class VantaDB {
         weight ?? null,
         createdAtMs != null ? BigInt(createdAtMs) : null,
       ),
+    );
+  }
+
+  /**
+   * Remove all edges between two graph nodes with the given label
+   * (both forward and reverse directions).
+   *
+   * @param source - Source node ID.
+   * @param target - Target node ID.
+   * @param label - Edge label to remove (default: "").
+   * @throws {VantaError} If the instance is closed or a node is missing.
+   *
+   * @example
+   * ```ts
+   * db.removeEdge(1, 2, "knows");
+   * ```
+   */
+  removeEdge(source: number, target: number, label: string = ""): void {
+    this._assertOpen();
+    this._wasm("removeEdge", () =>
+      this.inner.remove_edge(String(source), String(target), label),
     );
   }
 

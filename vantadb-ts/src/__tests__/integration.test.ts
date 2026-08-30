@@ -121,4 +121,100 @@ describe("VantaDB WASM Integration", () => {
     expect(snippet).toBeDefined();
     expect(snippet).toContain("vector");
   });
+
+  // TS-04: API parity tests (removeEdge, count, supersede, similarToKey, searchMulti, sparse_vector)
+  it("count records in namespace", async () => {
+    await db.put({ namespace: "ts04", key: "a", payload: "alpha" });
+    await db.put({ namespace: "ts04", key: "b", payload: "beta" });
+    await db.put({ namespace: "ts04", key: "c", payload: "gamma" });
+    const total = db.count("ts04");
+    expect(total).toBeGreaterThanOrEqual(3n);
+    const onlyA = db.count("ts04", [
+      { field: "key", op: "Eq", value: "a" },
+    ]);
+    expect(onlyA).toBe(1n);
+  });
+
+  it("removeEdge removes a directed edge", async () => {
+    await db.insertNode(101, "u", [0.1]);
+    await db.insertNode(102, "v", [0.2]);
+    await db.addEdge(101, 102, "links", 0.5);
+    const before = db.getNode(101);
+    expect(before).not.toBeNull();
+    expect(before!.edges.length).toBeGreaterThan(0);
+
+    db.removeEdge(101, 102, "links");
+    const after = db.getNode(101);
+    expect(after).not.toBeNull();
+    expect(after!.edges.length).toBe(0);
+  });
+
+  it("supersede marks old record as superseded by new", async () => {
+    await db.put({ namespace: "ts04sup", key: "old", payload: "first" });
+    await db.put({ namespace: "ts04sup", key: "new", payload: "second" });
+    db.supersede("ts04sup", "old", "new");
+
+    const oldRec = db.get("ts04sup", "old");
+    expect(oldRec).not.toBeNull();
+    expect(Number(oldRec!.version)).toBeGreaterThan(1);
+  });
+
+  it("similarToKey returns related records", async () => {
+    await db.put({
+      namespace: "ts04sim",
+      key: "src",
+      payload: "x",
+      vector: [1.0, 0.0, 0.0],
+    });
+    await db.put({
+      namespace: "ts04sim",
+      key: "near",
+      payload: "y",
+      vector: [0.99, 0.01, 0.0],
+    });
+    await db.put({
+      namespace: "ts04sim",
+      key: "far",
+      payload: "z",
+      vector: [-1.0, 0.0, 0.0],
+    });
+    const hits = db.similarToKey("ts04sim", "src", 2);
+    expect(hits.length).toBeGreaterThan(0);
+    // the source itself is excluded
+    expect(hits.find((h) => h.record.key === "src")).toBeUndefined();
+  });
+
+  it("searchMulti merges results from multiple namespaces", async () => {
+    await db.put({
+      namespace: "ts04m1",
+      key: "k1",
+      payload: "x",
+      vector: [1.0, 0.0, 0.0],
+    });
+    await db.put({
+      namespace: "ts04m2",
+      key: "k2",
+      payload: "y",
+      vector: [0.99, 0.01, 0.0],
+    });
+    const hits = db.searchMulti(["ts04m1", "ts04m2"], {
+      query_vector: [1.0, 0.0, 0.0],
+      top_k: 5,
+    });
+    expect(hits.length).toBeGreaterThanOrEqual(1);
+    const keys = hits.map((h) => h.record.key);
+    expect(keys).toContain("k1");
+  });
+
+  it("put accepts sparse_vector and roundtrips", async () => {
+    await db.put({
+      namespace: "ts04sp",
+      key: "s",
+      payload: "sparse test",
+      sparse_vector: { 1: 0.5, 42: 1.25 },
+    });
+    const got = db.get("ts04sp", "s");
+    expect(got).not.toBeNull();
+    expect(got!.payload).toBe("sparse test");
+  });
 });

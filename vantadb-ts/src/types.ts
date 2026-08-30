@@ -28,6 +28,10 @@ export interface MemoryInput {
   payload: string;
   metadata?: VantaMetadataInput;
   vector?: number[];
+  /** Sparse term-weight vector (e.g. raw-keyword weights). Sparse vectors
+   * participate in sparse-dot search alongside the dense vector. Wire shape:
+   * `Record<u32-index, weight>` — empty / undefined skips sparse search. */
+  sparse_vector?: Record<number, number>;
   ttl_ms?: number;
 }
 
@@ -66,6 +70,15 @@ export interface SearchRequest {
   top_k?: number;
   distance_metric?: "Cosine" | "Euclidean";
   explain?: boolean;
+  /** When true, hide records marked as superseded (ADR-028). Default false:
+   * superseded records remain searchable for backward compatibility. */
+  exclude_superseded?: boolean;
+}
+
+/** A list of namespaces to search in batch. Used by `searchMulti`. */
+export interface BatchSearchRequest extends Omit<SearchRequest, "namespace"> {
+  /** Namespaces to search independently; results are merged and capped at top_k. */
+  namespaces: string[];
 }
 
 export interface SearchHit {

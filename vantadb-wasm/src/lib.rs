@@ -15,6 +15,7 @@ use vantadb::config::VantaConfig;
 use vantadb::graph::TraversalDirection;
 use vantadb::sdk::*;
 use vantadb::BackendKind;
+use vantadb::SparseVector;
 use vantadb::VantaError;
 use wasm_bindgen::prelude::*;
 
@@ -84,6 +85,8 @@ struct MemoryInput {
     metadata: VantaMemoryMetadata,
     #[serde(skip_serializing_if = "Option::is_none")]
     vector: Option<Vec<f32>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    sparse_vector: Option<SparseVector>,
     #[serde(skip_serializing_if = "Option::is_none")]
     ttl_ms: Option<u64>,
 }
@@ -95,6 +98,9 @@ struct SearchRequest {
     query_vector: Vec<f32>,
     #[serde(default)]
     filters: VantaMemoryMetadata,
+    /// Hide superseded records from results.
+    #[serde(default)]
+    exclude_superseded: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     text_query: Option<String>,
     #[serde(default = "default_top_k")]
@@ -1057,7 +1063,7 @@ impl VantaDB {
             payload: input.payload,
             metadata: input.metadata,
             vector: input.vector,
-            sparse_vector: None,
+            sparse_vector: input.sparse_vector,
             ttl_ms: input.ttl_ms,
         };
         let record = self.inner.put(vanta_input).map_err(to_js_err)?;
@@ -1098,7 +1104,7 @@ impl VantaDB {
                 payload: i.payload,
                 metadata: i.metadata,
                 vector: i.vector,
-                sparse_vector: None,
+                sparse_vector: i.sparse_vector,
                 ttl_ms: i.ttl_ms,
             })
             .collect();
@@ -1209,12 +1215,13 @@ impl VantaDB {
             namespace: req.namespace,
             query_vector: req.query_vector,
             query_sparse: None,
+            #[allow(deprecated)]
             filters: req.filters,
             text_query: req.text_query,
             top_k: req.top_k.min(MAX_K),
             distance_metric: distance,
             explain: req.explain,
-            exclude_superseded: false,
+            exclude_superseded: req.exclude_superseded,
             search_profile: None,
         };
         let hits = self.inner.search(vanta_req).map_err(to_js_err)?;
@@ -1268,12 +1275,13 @@ impl VantaDB {
             namespace: req.namespace,
             query_vector: req.query_vector,
             query_sparse: None,
+            #[allow(deprecated)]
             filters: req.filters,
             text_query: req.text_query,
             top_k: req.top_k.min(MAX_K),
             distance_metric: distance,
             explain: true,
-            exclude_superseded: false,
+            exclude_superseded: req.exclude_superseded,
             search_profile: None,
         };
         let explanation = self
@@ -1325,6 +1333,102 @@ impl VantaDB {
             .map_err(to_js_err)?;
         self.mark_cache_invalid();
         Ok(deleted)
+    }
+
+    /// Count records in a namespace, optionally matching an AND-combined
+    /// metadata filter (list of `{field, op, value}` items). Pass an empty
+    /// filter array / `null` to count every record in the namespace.
+    pub fn count(&self, namespace: &str, filter: JsValue) -> Result<u64, JsValue> {
+        let _g = enter(&self.op_gate)?;
+        let filter: Vec<VantaMemoryFilterItem> = from_js(filter)?;
+        let filter_opt = if filter.is_empty() {
+            None
+        } else {
+            Some(filter)
+        };
+        self.inner.count(namespace, filter_opt).map_err(to_js_err)
+    }
+
+    /// Mark an existing record as superseded by another existing record.
+    ///
+    /// See `src/sdk/api.rs::supersede` for full semantics. Returns
+    /// `Err` if either key is missing, `old_key == new_key`, or the old
+    /// record is already superseded.
+    pub fn supersede(&self, namespace: &str, old_key: &str, new_key: &str) -> Result<(), JsValue> {
+        let _g = enter(&self.op_gate)?;
+        self.inner
+            .supersede(namespace, old_key, new_key)
+            .map_err(to_js_err)?;
+        self.mark_cache_invalid();
+        Ok(())
+    }
+
+    /// Search namespace-scoped memory records by vector similarity from an
+    /// existing key, without supplying a query vector. The source record
+    /// itself is excluded from the results.
+    pub fn similar_to_key(
+        &self,
+        namespace: &str,
+        key: &str,
+        top_k: usize,
+    ) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
+        let hits = self
+            .inner
+            .similar_to_key(namespace, key, top_k.min(MAX_K))
+            .map_err(to_js_err)?;
+        let arr = js_sys::Array::new();
+        for hit in hits {
+            arr.push(&Self::search_hit_to_js(hit));
+        }
+        Ok(arr.into())
+    }
+
+    /// Search across multiple namespaces in a single call. Results from
+    /// each namespace are merged and sorted by descending score, capped
+    /// at `request.top_k` globally.
+    ///
+    /// Accepts the same `SearchRequest` shape as `search()`; the
+    /// `namespace` field on the request is ignored — pass `namespaces`
+    /// instead.
+    pub fn search_multi(&self, namespaces: JsValue, request: JsValue) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
+        let ns_vec: Vec<String> = from_js(namespaces)?;
+        let req: SearchRequest = from_js(request)?;
+        if req.query_vector.len() > MAX_F32_VEC_LEN {
+            return Err(to_js_err(VantaError::InvalidInput(format!(
+                "query vector length {} exceeds max {}",
+                req.query_vector.len(),
+                MAX_F32_VEC_LEN
+            ))));
+        }
+        let distance = match req.distance_metric.as_str() {
+            "Euclidean" => vantadb::DistanceMetric::Euclidean,
+            _ => vantadb::DistanceMetric::Cosine,
+        };
+        let vanta_req = VantaMemorySearchRequest {
+            namespace: String::new(),
+            query_vector: req.query_vector,
+            #[allow(deprecated)]
+            filters: req.filters,
+            query_sparse: None,
+            text_query: req.text_query,
+            top_k: req.top_k.min(MAX_K),
+            distance_metric: distance,
+            explain: req.explain,
+            exclude_superseded: req.exclude_superseded,
+            search_profile: None,
+        };
+        let ns_refs: Vec<&str> = ns_vec.iter().map(String::as_str).collect();
+        let hits = self
+            .inner
+            .search_multi(&ns_refs, vanta_req)
+            .map_err(to_js_err)?;
+        let arr = js_sys::Array::new();
+        for hit in hits {
+            arr.push(&Self::search_hit_to_js(hit));
+        }
+        Ok(arr.into())
     }
 
     /// Export all records across all namespaces to the given path.
@@ -1555,6 +1659,22 @@ impl VantaDB {
                 created_at_ms,
             )
             .map_err(to_js_err)
+    }
+
+    /// Remove all edges between two graph nodes with the given label
+    /// (both directions).
+    pub fn remove_edge(
+        &self,
+        source_id: &str,
+        target_id: &str,
+        label: &str,
+    ) -> Result<(), JsValue> {
+        let _g = enter(&self.op_gate)?;
+        self.inner
+            .remove_edge(parse_node_id(source_id)?, parse_node_id(target_id)?, label)
+            .map_err(to_js_err)?;
+        self.mark_cache_invalid();
+        Ok(())
     }
 
     /// Perform a breadth-first traversal from the given root node IDs.
