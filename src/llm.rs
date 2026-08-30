@@ -132,7 +132,7 @@ impl LocalOnnxProvider {
         // Always succeed — fallback to dummy if either missing, so factory never panics.
         // If both missing, we are in dummy mode (deterministic hash embeddings).
         Ok(Self {
-            session: session.map(|s| parking_lot::Mutex::new(s)),
+            session: session.map(parking_lot::Mutex::new),
             tokenizer,
             dim,
             model_dir: model_dir.to_string(),
