@@ -1423,3 +1423,14 @@ Próxima acción: vanta-lead: commitear staged + ejecutar npm run build en vanta
 Contrato: verificacion: cargo test -p vantadb-node 4 PASS (>=1) AND index.d.ts compact_wal|purge_expired 2 hits (>=2) AND cargo fmt --check clean AND cargo clippy -p vantadb-node -- -D warnings 0 warnings; evidencia[claim=13 métodos #[napi] añadidos a vantadb-node/src/lib.rs,evidencia=git diff --cached vantadb-node/src/lib.rs = +334 lineas,confianza=alta]; evidencia[claim=VacuumReport de storage engine no deriva Serialize,evidencia=src/storage/engine/mod.rs:196,confianza=alta]; artefactos=[vantadb-node/src/lib.rs, vantadb-node/dts-header.d.ts, vantadb-node/index.d.ts, vantadb-node/tests/api.test.ts, docs/plans/2026-08-29-full-backlog-parallel.md, docs/avance/activo/bindings.md, .opencode/skills/campaign-executor/tasks/BND-10.md]; invariantes=No breaking changes para consumidores existentes (cambio aditivo). Backend serde_json::Value en boundary FFI preservado. OpGate durability barrier sin cambios.; deuda=14 metodos del scope original NO implementados (bulk_import, export_all/namespace, snapshot_create/restore, audit/repair text index, generate_snippet, query_iql, search_semantic) — diferibles a wave futura. vanta-lead debe ejecutar npm run build post-commit para regenerar el .node binary.
 Próxima tarea si completa: TS-06
 === END RECITATION ===
+
+=== RECITATION REVIEW-10 ===
+Campaign ID: full-20260829-parallel
+Objetivo activo: Split cli_server.rs (5327 lineas) por concern bajo src/server/, preservar API publica
+Estado: completed
+Última acción: Commit cf2ecc50: refactor: REVIEW-10 - Split cli_server.rs por concern (state/routing); pre-commit gates pasaron (fmt/clippy/actionlint); 110 tests passing (64 server::routing + 33 auth + 13 externals)
+Resultado: OK
+Próxima acción: none - tarea terminada, esperar orquestador para próxima tarea
+Contrato: verificacion: cargo check -p vantadb --features server --all-targets = 0 errores ✅; evidencia: src/server/*.rs = 4 archivos (>=3) ✅; artefactos: src/server/{mod,state,routing}.rs + cli_server_auth_tests.rs + src/cli_server.rs shim (14 lineas); invariantes: crate::cli_server::{app, ServerState, ConversationTrigger, run, auth_middleware, init_telemetry, build_tls13_config, shutdown_telemetry, etc} accesibles via re-exports; deuda: 5 warnings de unused imports en routing.rs (cosméticos, no bloquean); queda_pendiente: limpieza de unused imports (follow-up commit opcional)
+Próxima tarea si completa: none
+=== END RECITATION ===
