@@ -71,6 +71,14 @@ jobs:
         run: wasm-pack build --release
         working-directory: vantadb-wasm
 
+      # WSM-05: replace the auto-generated .d.ts (mostly `any`) with the
+      # hand-written source. The wasm-bindgen macro cannot infer JsValue
+      # shapes, so this override is required for the npm package to be
+      # usable from TypeScript without a wrapper layer. Source of truth for
+      # the hand-written .d.ts: `vantadb-wasm/src/vantadb_wasm.d.ts`.
+      - name: Override .d.ts with hand-written source (WSM-05)
+        run: node dev-tools/build-wasm-types.mjs
+
       - name: Install dependencies
         working-directory: vantadb-ts
         run: npm ci
@@ -118,6 +126,12 @@ jobs:
       - name: Build WASM package
         run: wasm-pack build --release
         working-directory: vantadb-wasm
+
+      # WSM-05: see `tests` job. Runs in `publish-wasm` too so the artifact
+      # uploaded to npm is the hand-written one (not the mostly-`any`
+      # wasm-pack output).
+      - name: Override .d.ts with hand-written source (WSM-05)
+        run: node dev-tools/build-wasm-types.mjs
 
       - name: Upload WASM build artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
