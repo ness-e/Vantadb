@@ -290,7 +290,10 @@ mod tests {
         let after = now_ms();
         let a = db.get_node(31).unwrap().unwrap();
         let ts = a.edges[0].created_at_ms;
-        assert!(ts >= before && ts <= after, "ts={ts}, before={before}, after={after}");
+        assert!(
+            ts >= before && ts <= after,
+            "ts={ts}, before={before}, after={after}"
+        );
     }
 
     #[test]
@@ -325,8 +328,7 @@ mod tests {
         let _ = db.query("INSERT NODE#200 TYPE Node { content: 'b' }");
         let _ = db.query("INSERT RELATE 100 -> 200 LABEL knows");
         let collected = db.collect_graph_nodes().unwrap();
-        let ids: std::collections::HashSet<u128> =
-            collected.iter().map(|n| n.id).collect();
+        let ids: std::collections::HashSet<u128> = collected.iter().map(|n| n.id).collect();
         assert!(ids.contains(&100));
         assert!(ids.contains(&200));
     }
@@ -701,40 +703,35 @@ mod tests {
         db.supersede("ns", "old", "new").unwrap();
 
         let hits_keep = db
-            .search(
-                VantaMemorySearchRequest {
-                    namespace: "ns".into(),
-                    query_vector: Vec::new(),
-                    query_sparse: None,
-                    filters: VantaMemoryMetadata::new(),
-                    text_query: None,
-                    top_k: 10,
-                    distance_metric: DistanceMetric::Cosine,
-                    explain: false,
-                    exclude_superseded: false,
-                    search_profile: None,
-                },
-            )
+            .search(VantaMemorySearchRequest {
+                namespace: "ns".into(),
+                query_vector: Vec::new(),
+                query_sparse: None,
+                filters: VantaMemoryMetadata::new(),
+                text_query: None,
+                top_k: 10,
+                distance_metric: DistanceMetric::Cosine,
+                explain: false,
+                exclude_superseded: false,
+                search_profile: None,
+            })
             .unwrap();
         assert_eq!(hits_keep.len(), 2);
 
         let hits_hide = db
-            .search(
-                VantaMemorySearchRequest {
-                    namespace: "ns".into(),
-                    query_vector: Vec::new(),
-                    query_sparse: None,
-                    filters: VantaMemoryMetadata::new(),
-                    text_query: None,
-                    top_k: 10,
-                    distance_metric: DistanceMetric::Cosine,
-                    explain: false,
-                    exclude_superseded: true,
-                    search_profile: None,
-                },
-            )
+            .search(VantaMemorySearchRequest {
+                namespace: "ns".into(),
+                query_vector: Vec::new(),
+                query_sparse: None,
+                filters: VantaMemoryMetadata::new(),
+                text_query: None,
+                top_k: 10,
+                distance_metric: DistanceMetric::Cosine,
+                explain: false,
+                exclude_superseded: true,
+                search_profile: None,
+            })
             .unwrap();
         assert_eq!(hits_hide.len(), 1);
     }
-
-    }
+}

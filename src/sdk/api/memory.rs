@@ -684,7 +684,8 @@ impl VantaEmbedded {
         for record in &to_delete {
             engine.delete(record.node_id, "purge_expired")?;
             // Purge version history of the expired key (VS-CORE-07) — best-effort.
-            let _ = super::super::version_history::purge_key(&engine, &record.namespace, &record.key);
+            let _ =
+                super::super::version_history::purge_key(&engine, &record.namespace, &record.key);
             all_ops.extend(Self::derived_delete_ops(record)?);
             total_payload_entries += record.metadata.len() as u64;
 

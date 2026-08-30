@@ -9,8 +9,8 @@
 
 use super::super::builder::VantaEmbedded;
 use super::super::serialization::{
-    is_scalar_indexable, matches_memory_filters, memory_record_from_node_include_expired,
-    now_ms, validate_namespace,
+    is_scalar_indexable, matches_memory_filters, memory_record_from_node_include_expired, now_ms,
+    validate_namespace,
 };
 use super::super::types::*;
 use crate::backend::BackendPartition;

@@ -7,9 +7,7 @@
 //! Extracted from `sdk::api` (REVIEW-12, 2026-08-30).
 
 use super::super::builder::VantaEmbedded;
-use super::super::serialization::{
-    memory_record_from_node, validate_key, validate_namespace,
-};
+use super::super::serialization::{memory_record_from_node, validate_key, validate_namespace};
 use super::super::types::*;
 use crate::error::Result;
 

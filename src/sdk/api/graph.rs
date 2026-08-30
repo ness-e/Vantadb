@@ -184,7 +184,10 @@ impl VantaEmbedded {
             if engine.is_deleted(node.id)? {
                 continue;
             }
-            if node.relational.contains_key(super::super::serialization::FIELD_NAMESPACE) {
+            if node
+                .relational
+                .contains_key(super::super::serialization::FIELD_NAMESPACE)
+            {
                 continue; // memory record — owned by the memory snapshot
             }
             out.push(engine.node_to_record(std::mem::take(&mut node)));
