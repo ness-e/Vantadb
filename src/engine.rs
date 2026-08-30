@@ -162,7 +162,12 @@ impl InMemoryEngine {
                 WalRecord::Checkpoint { .. }
                 | WalRecord::Begin(_)
                 | WalRecord::Commit(_)
-                | WalRecord::Abort(_) => {}
+                | WalRecord::Abort(_)
+                // WAL v2 (RES-01): two-phase marker. Replay semantics unchanged:
+                // if the matching Commit is durable, ops are applied via the normal
+                // path; if not, the txn is uncommitted and the slice-mask discards
+                // its ops just as it would for a missing Commit in v1.
+                | WalRecord::Prepare { .. } => {}
             }
             Ok(())
         })?;

@@ -1,7 +1,7 @@
 //! 🔁 Property-based tests for `WalRecord` roundtrip (GH-127).
 //!
 //! Covers:
-//! 1. Pure in-memory byte roundtrip over all 7 `WalRecord` variants (≥1000 cases).
+//! 1. Pure in-memory byte roundtrip over all 8 `WalRecord` variants (≥1000 cases).
 //! 2. Payload-size buckets: ~0 B, ~1 B, ~64 KB, ~1 MB — same byte roundtrip.
 //! 3. File-backed roundtrip: `WalWriter::batch_append` → reopen → recover the full
 //!    multiset of serialized bytes.
@@ -59,6 +59,10 @@ fn arb_wal_record() -> impl Strategy<Value = WalRecord> {
                 }
             ),
         (0u64..1000).prop_map(WalRecord::Begin),
+        // WAL v2 (RES-01 / ACID Phase 4a): two-phase prepare marker.
+        ((0u64..1000), any::<u32>())
+            .prop_map(|(txn_id, op_count)| WalRecord::Prepare { txn_id, op_count })
+            .boxed(),
         (0u64..1000).prop_map(WalRecord::Commit),
         (0u64..1000).prop_map(WalRecord::Abort),
     ]
@@ -80,6 +84,9 @@ enum PayloadBucket {
 fn arb_tiny_record() -> impl Strategy<Value = WalRecord> {
     prop_oneof![
         (0u64..1000).prop_map(WalRecord::Begin),
+        ((0u64..1000), any::<u32>())
+            .prop_map(|(txn_id, op_count)| WalRecord::Prepare { txn_id, op_count })
+            .boxed(),
         (0u64..1000).prop_map(WalRecord::Commit),
         (0u64..1000).prop_map(WalRecord::Abort),
     ]

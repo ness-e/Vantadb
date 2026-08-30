@@ -142,8 +142,9 @@ impl StorageEngine {
             return Ok(());
         }
 
-        // 3. Build WAL batch: Begin + all ops + Commit
+        // 3. Build WAL phase-1 batch: Begin + ops + Prepare (WAL v2, RES-01)
         use crate::wal::WalRecord;
+        let op_count = buffer.len() as u32;
         let mut wal_records = Vec::with_capacity(buffer.len() + 2);
         wal_records.push(WalRecord::Begin(txn_id));
         for op in &buffer {
@@ -152,44 +153,64 @@ impl StorageEngine {
                 BufferedWrite::Delete(id) => wal_records.push(WalRecord::Delete { id: *id }),
             }
         }
-        wal_records.push(WalRecord::Commit(txn_id));
+        wal_records.push(WalRecord::Prepare { txn_id, op_count });
 
-        // 4. Write WAL batch atomically
+        // 4. Write WAL phase-1 batch atomically (Begin+ops+Prepare are durable now).
         if let Some(ref sharded) = self.wal {
             sharded.batch_append(wal_records)?;
         }
 
-        // 5. Apply buffered ops to stores with MVCC stamps
-        for op in &buffer {
-            match op {
-                BufferedWrite::Insert(node) => {
-                    // ERR-013: cardinality/index updates are deferred from the
-                    // buffering stage to commit ΓÇö applied here so they only
-                    // count records that actually commit.
-                    self.apply_insert_stats(node);
-                    // Remove old from HNSW/cache so the new insert can take its place
-                    {
-                        let hnsw = self.hnsw.load();
-                        hnsw.nodes.remove(&node.id);
+        // 5. Apply buffered ops to stores with MVCC stamps.
+        //    On any error we write an Abort marker so recovery discards the
+        //    phase-1 ops (no matching Commit) and return the error to the caller
+        //    (truthful error path, RES-01 / ACID Phase 4a).
+        let apply_result: Result<()> = (|| {
+            for op in &buffer {
+                match op {
+                    BufferedWrite::Insert(node) => {
+                        // ERR-013: cardinality/index updates are deferred from the
+                        // buffering stage to commit; applied here so they only
+                        // count records that actually commit.
+                        self.apply_insert_stats(node);
+                        // Remove old from HNSW/cache so the new insert can take its place
+                        {
+                            let hnsw = self.hnsw.load();
+                            hnsw.nodes.remove(&node.id);
+                        }
+                        self.volatile_cache.write().remove(&node.id);
+                        self.apply_insert_with_txn(node, txn_id)?;
                     }
-                    self.volatile_cache.write().remove(&node.id);
-                    self.apply_insert_with_txn(node, txn_id)?;
-                }
-                BufferedWrite::Delete(id) => {
-                    // ERR-013: cardinality/index decrement is deferred from the
-                    // buffering delete path; apply it here on commit.
-                    self.apply_delete_stats(*id);
-                    // Stamp metadata as deleted_by this txn instead of removing
-                    self.stamp_deleted_in_backend(*id, txn_id)?;
-                    // Still tombstone vstore + remove from HNSW + cache
-                    self.apply_delete(*id)?;
+                    BufferedWrite::Delete(id) => {
+                        // ERR-013: cardinality/index decrement is deferred from the
+                        // buffering delete path; apply it here on commit.
+                        self.apply_delete_stats(*id);
+                        // Stamp metadata as deleted_by this txn instead of removing
+                        self.stamp_deleted_in_backend(*id, txn_id)?;
+                        // Still tombstone vstore + remove from HNSW + cache
+                        self.apply_delete(*id)?;
+                    }
                 }
             }
+            Ok(())
+        })();
+
+        if let Err(e) = apply_result {
+            if let Some(ref sharded) = self.wal {
+                // Best-effort: append Abort. Even if this fails, the missing
+                // Commit marker still makes recovery discard the txn via the
+                // slice-mask (no Apply phase 2 ran implies no Commit on disk).
+                let _ = sharded.append(&crate::wal::WalRecord::Abort(txn_id));
+            }
+            return Err(e);
+        }
+
+        // 6. Phase 2: write the Commit marker. THIS is the durability commit point.
+        if let Some(ref sharded) = self.wal {
+            sharded.append(&crate::wal::WalRecord::Commit(txn_id))?;
         }
 
         Ok(())
     }
-
     /// Abort a transaction: clear the buffered writes for this txn and
     /// append an `Abort(txn_id)` marker to the WAL.
     #[tracing::instrument(skip(self), level = "debug", err)]

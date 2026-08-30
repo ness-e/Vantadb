@@ -693,6 +693,8 @@ fn wal_replay_recovers_from_known_wal() {
                         WalRecord::Delete { id } => *id,
                         WalRecord::Checkpoint { node_count, .. } => *node_count as u128,
                         WalRecord::Begin(_) | WalRecord::Commit(_) | WalRecord::Abort(_) => 0,
+                        // WAL v2 (RES-01): Prepare is a phase-1 marker, no payload id.
+                        WalRecord::Prepare { .. } => 0,
                     };
                     recovered.push((rec, id));
                     Ok(())

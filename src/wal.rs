@@ -9,7 +9,13 @@ use crate::error::{Result, VantaError};
 use crate::node::UnifiedNode;
 
 /// Current WAL format version.
-pub const WAL_FORMAT_VERSION: u16 = 1;
+///
+/// v1: original `Insert/Update/Delete/Checkpoint/Begin/Commit/Abort` (single-phase commit).
+/// v2: adds `Prepare { txn_id, op_count }` for two-phase commit (RES-01, ACID Phase 4a).
+///     - v2 binary reads v1 WAL fine (no `Prepare` present in old records, range-based compat).
+///     - v1 binary reading v2 WAL: unknown postcard tag fails deserialization; scan-forward
+///       skips affected records. Downgrade still requires dump/restore (same hint as today).
+pub const WAL_FORMAT_VERSION: u16 = 2;
 
 /// Tracks the postcard wire format version used for WAL record serialization.
 /// Increment this when upgrading postcard to a potentially incompatible version.
@@ -66,6 +72,17 @@ pub enum WalRecord {
     },
     /// Begin a transaction with the given ID.
     Begin(u64),
+    /// Phase-1 marker for two-phase commit (WAL v2, RES-01 / ACID Phase 4a):
+    /// all ops between `Begin` and this `Prepare` are durable on disk, but the
+    /// transaction is not yet committed — apply to stores may still fail and emit
+    /// a follow-up `Abort`. `op_count` is the number of ops between `Begin` and
+    /// `Prepare` (integrity cross-check during replay).
+    Prepare {
+        /// Transaction being prepared.
+        txn_id: u64,
+        /// Number of ops buffered between Begin and Prepare.
+        op_count: u32,
+    },
     /// Commit a transaction with the given ID.
     Commit(u64),
     /// Abort a transaction with the given ID.
@@ -843,6 +860,51 @@ mod tests {
         assert_ne!(compute_crc32c(data), compute_crc32c(b"vanta wal tesx"));
     }
 
+    /// WAL v2 (RES-01 / ACID Phase 4a): `Prepare { txn_id, op_count }` round-trips
+    /// through `WalWriter` → reopen → `WalReader::replay_all`.
+    #[test]
+    fn test_wal_v2_prepare_roundtrip_unit() {
+        let dir =
+            std::env::temp_dir().join(format!("vanta_test_wal_prepare_{}", rand::random::<u32>()));
+        let _ = std::fs::remove_file(&dir);
+
+        {
+            let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
+            w.append(&WalRecord::Begin(7)).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(10))).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(11))).unwrap();
+            w.append(&WalRecord::Prepare {
+                txn_id: 7,
+                op_count: 2,
+            })
+            .unwrap();
+            w.sync().unwrap();
+            assert_eq!(w.record_count(), 4);
+        }
+
+        let mut r = WalReader::open(&dir).unwrap();
+        let mut records = Vec::new();
+        r.replay_all(|rec| {
+            records.push(rec);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            records.len(),
+            4,
+            "Begin + 2x Insert + Prepare survived close+reopen"
+        );
+        match &records[3] {
+            WalRecord::Prepare { txn_id, op_count } => {
+                assert_eq!(*txn_id, 7);
+                assert_eq!(*op_count, 2);
+            }
+            other => panic!("expected Prepare, got {other:?}"),
+        }
+
+        let _ = std::fs::remove_file(&dir);
+    }
+
     #[test]
     fn test_batch_append_byte_format_matches_append() {
         let dir = std::env::temp_dir().join(format!(
@@ -941,7 +1003,11 @@ mod tests {
                     ..
                 } => {
                     assert_eq!(expected_magic, *b"VWAL");
-                    assert_eq!(expected_version, 1);
+                    // WAL v2 (RES-01): expected_version tracks the current format
+                    // version. The test file in this fixture uses v0, so the
+                    // reader should report its CURRENT version (v2) as the
+                    // expected version when rejecting.
+                    assert_eq!(expected_version, WAL_FORMAT_VERSION);
                 }
                 other => panic!("Expected IncompatibleFormat, got {:?}", other),
             }

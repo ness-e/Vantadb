@@ -600,7 +600,11 @@ impl StorageEngine {
                         crate::wal::WalRecord::Checkpoint { .. } => {}
                         crate::wal::WalRecord::Begin(_)
                         | crate::wal::WalRecord::Commit(_)
-                        | crate::wal::WalRecord::Abort(_) => {}
+                        | crate::wal::WalRecord::Abort(_)
+                        // WAL v2 (RES-01): Prepare is a two-phase marker. Replay
+                        // semantics are unchanged (slice-mask still drops ops whose
+                        // Commit never became durable).
+                        | crate::wal::WalRecord::Prepare { .. } => {}
                     }
                 }
                 wal_replay_ms = wal_replay_started.elapsed().as_millis() as u64;
