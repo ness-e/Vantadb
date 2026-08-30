@@ -115,6 +115,8 @@ pub mod query;
 pub(crate) mod rbac;
 pub mod sdk;
 pub mod serialization;
+#[cfg(feature = "server")]
+pub mod server;
 /// Typed columnar storage for metadata fields (JSON Shredding).
 pub mod shred;
 /// Versioned skill store (agent skills / memory skills).
