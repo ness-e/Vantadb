@@ -18,7 +18,8 @@ use vantadb::sdk::{
     VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest,
     VantaNodeInput, VantaValue,
 };
-use vantadb::DistanceMetric;
+// FFI guards: single source of truth from core (WSM-09).
+use vantadb::{DistanceMetric, MAX_K};
 
 mod convert;
 use convert::parse_direction;
@@ -40,13 +41,9 @@ use crate::convert::{
     ValidationError, VantaError,
 };
 
-/// Cap on `top_k`/`k` for all search entry points (ERR-022). Prevents absurd
-/// values (e.g. `k = 10^9`) from reaching `HashSet::with_capacity(ef*3)`
-/// style allocations in the engine, which abort the process (panic-alloc).
-const MAX_K: usize = 1_000;
-
 /// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
-/// the cap so silent truncation is observable (ERR-022).
+/// the cap so silent truncation is observable (ERR-022). `MAX_K` is unified in
+/// core (`vantadb::config::MAX_K`) — see WSM-09.
 fn clamp_top_k(requested: usize) -> usize {
     if requested > MAX_K {
         tracing::warn!("top_k={requested} exceeds MAX_K={MAX_K}; clamping to {MAX_K} (ERR-022)");

@@ -14,9 +14,7 @@ use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use vantadb::config::VantaConfig;
 use vantadb::graph::TraversalDirection;
 use vantadb::sdk::*;
-use vantadb::BackendKind;
-use vantadb::SparseVector;
-use vantadb::VantaError;
+use vantadb::{BackendKind, SparseVector, VantaError, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K};
 use wasm_bindgen::prelude::*;
 
 mod opfs;
@@ -36,12 +34,8 @@ pub use idb::IdbStorage;
 #[cfg(feature = "opfs")]
 pub mod worker;
 
-const MAX_F32_VEC_LEN: usize = 10_000_000;
-const MAX_BATCH_SIZE: usize = 100_000;
-/// Cap on `top_k`/`k` for all search entry points (ERR-022). Prevents absurd
-/// values (e.g. `k = 10^9`) from reaching `HashSet::with_capacity(ef*3)`
-/// style allocations in the engine, which abort the process (panic-alloc).
-const MAX_K: usize = 1_000;
+// FFI guards (`MAX_F32_VEC_LEN`, `MAX_BATCH_SIZE`, `MAX_K`) now live in core
+// (`vantadb::config`) — single source of truth across transports (WSM-09).
 
 /// Minimal WASM-friendly config that maps to VantaConfig
 #[derive(Deserialize)]
@@ -1898,8 +1892,16 @@ fn vanta_error_code(e: &VantaError) -> &'static str {
     }
 }
 
+/// Map a `VantaError` to a JS error carrying the `{code, message}` shape
+/// shared across the TS/node/Python bindings (MOD-20 Python parity). The
+/// standard `error.message` and a `code` property are attached via
+/// `Reflect::set`; both reflect the underlying variant so consumers can
+/// classify errors without parsing the message string. Backward-compatible:
+/// `wrapWasmError` in `vantadb-ts/src/errors.ts` keeps reading `e.message`
+/// and `(e as WasmErrorLike).code` exactly as before.
 fn to_js_err(e: VantaError) -> JsValue {
-    let err = js_sys::Error::new(&e.to_string());
+    let message = e.to_string();
+    let err = js_sys::Error::new(&message);
     // Attach a structured code so TS consumers can classify errors without
     // parsing messages. Reflect::set on a fresh Error cannot fail in practice;
     // on failure we degrade gracefully to message-only classification.
@@ -1908,6 +1910,10 @@ fn to_js_err(e: VantaError) -> JsValue {
         &"code".into(),
         &JsValue::from_str(vanta_error_code(&e)),
     );
+    // Mirror `message` as an own property so the JS-side shape is the symmetric
+    // `{code, message}` documented for cross-SDK taxonomy. The standard
+    // `error.message` remains the canonical source of truth.
+    let _ = js_sys::Reflect::set(&err, &"message".into(), &JsValue::from_str(&message));
     err.into()
 }
 

@@ -28,6 +28,33 @@ pub(crate) const MAX_TEXT_NS_CACHE: usize = 1_000;
 /// Maximum field→value pairs in cardinality_stats before eviction.
 pub(crate) const MAX_CARDINALITY_PAIRS: usize = 10_000;
 
+// FFI guard constants — single source of truth for transport-specific limits
+// (WSM-09, research-vantadb-wasm-20260825 H-12). Values are `max()` across all
+// transports so unifying them is a no-op for callers using the per-transport
+// limit; only callers asking for the larger value benefit. Bump only when the
+// underlying engine (HNSW `ef_search`, allocation budget) can safely accept it.
+
+// Maximum length of an f32 vector at the FFI trust boundary.
+// Pre-existing: WASM 10_000_000 (`vantadb-wasm/src/lib.rs` legacy), Node
+// `MAX_VEC_DIM * 4 = 40_000` (10k * sizeof(f32)). Take the larger.
+pub const MAX_F32_VEC_LEN: usize = 10_000_000;
+
+// Maximum number of elements per batch ingestion call (trust boundary, FFI).
+pub const MAX_BATCH_SIZE: usize = 100_000;
+
+// Maximum value accepted for `top_k` / `k` across all search entry points
+// (ERR-022). Pre-existing: WASM/Python 1_000, Node 10_000. Take the larger so
+// node callers can ask for larger result sets and existing WASM/Python callers
+// requesting k > 1_000 (silently clamped before) now receive what they asked
+// for, with a `clamp_top_k`-style warning.
+pub const MAX_K: usize = 10_000;
+
+// Maximum vector dimension accepted at the FFI trust boundary.
+// Pre-existing: Node `MAX_VEC_DIM = 10_000`. Aligned with the max reasonable
+// embedding dimension for current transformer models (~3k for open weights;
+// 10k leaves headroom for future growth without breaking existing callers).
+pub const MAX_VEC_DIM: usize = 10_000;
+
 /// Log output format for the VantaDB server.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LogFormat {
@@ -1715,5 +1742,31 @@ mod tests {
         assert_eq!(cfg.log_format, LogFormat::Json);
         assert_eq!(cfg.prefetch_mode, PrefetchMode::Disabled);
         assert_eq!(cfg.flat_threshold, Some(2000));
+    }
+
+    // ── FFI guard constants (WSM-09) ──────────────────────────────
+    //
+    // Pin the unified FFI limit values so accidental bumps surface as test
+    // failures (consumers across wasm/node/python depend on these not changing
+    // silently). Bumps require an explicit decision + ADR.
+
+    #[test]
+    fn test_ffi_guards_values_are_pinned() {
+        assert_eq!(MAX_F32_VEC_LEN, 10_000_000);
+        assert_eq!(MAX_BATCH_SIZE, 100_000);
+        assert_eq!(MAX_K, 10_000);
+        assert_eq!(MAX_VEC_DIM, 10_000);
+    }
+
+    #[test]
+    fn test_ffi_guards_max_k_is_at_least_old_wasm_limit() {
+        // Regression guard: if MAX_K is ever lowered below the legacy wasm
+        // clamp (1_000) without an explicit decision, callers asking for
+        // k in the 1k..10k range would silently get fewer results than
+        // before this refactor.
+        assert!(
+            MAX_K >= 1_000,
+            "MAX_K ({MAX_K}) regressed below legacy wasm limit 1000"
+        );
     }
 }

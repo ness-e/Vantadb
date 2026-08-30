@@ -19,10 +19,6 @@ use napi_derive::napi;
 use serde_json::{json, Map, Value};
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
 
-/// Cap on vector dimension accepted from Node to bound CPU/memory on the FFI
-/// trust boundary. Mirrors the guard the WASM backend applies
-/// (`vantadb-wasm/src/lib.rs` `MAX_F32_VEC_LEN`).
-const MAX_VEC_DIM: usize = 10_000;
 use vantadb::config::VantaConfig;
 use vantadb::graph::TraversalDirection;
 use vantadb::index::IndexType;
@@ -31,6 +27,19 @@ use vantadb::sdk::{
     VantaEmbedded, VantaMemoryFilterItem, VantaMemoryInput, VantaMemoryListOptions,
     VantaMemoryMetadata, VantaMemorySearchRequest, VantaNodeInput, VantaSearchExplanation,
 };
+// FFI guards: single source of truth from core (WSM-09).
+use vantadb::{MAX_K, MAX_VEC_DIM};
+
+/// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
+/// the cap. Mirrors `vantadb-python::clamp_top_k` (ERR-022).
+fn clamp_top_k(requested: usize) -> usize {
+    if requested > MAX_K {
+        eprintln!(
+            "vantadb-node: top_k={requested} exceeds MAX_K={MAX_K}; clamping to {MAX_K} (ERR-022)"
+        );
+    }
+    requested.min(MAX_K)
+}
 
 /// Native VantaDB handle exposed to Node.js. Thin wrapper over the SDK's
 /// `VantaEmbedded`; all engine methods are async to avoid blocking the JS thread.
@@ -546,9 +555,11 @@ impl VantaDB {
         top_k: f64,
     ) -> napi::Result<Value> {
         let _g = enter(&self.op_gate)?;
-        let k = opt_f64_to_u64(Some(top_k), "top_k")?
-            .ok_or_else(|| Error::from_reason("`top_k` must be a positive integer"))?
-            as usize;
+        let k = clamp_top_k(
+            opt_f64_to_u64(Some(top_k), "top_k")?
+                .ok_or_else(|| Error::from_reason("`top_k` must be a positive integer"))?
+                as usize,
+        );
         let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.similar_to_key(&namespace, &key, k)).await?;
         serde_json::to_value(&out).map_err(serde_map_err)
@@ -798,11 +809,11 @@ fn parse_search_request(value: &Value) -> napi::Result<VantaMemorySearchRequest>
         query_sparse: None,
         filters: get_metadata(obj, "filters")?,
         text_query: get_opt_str(obj, "text_query")?,
-        top_k: obj
-            .get("top_k")
-            .and_then(Value::as_u64)
-            .unwrap_or(10)
-            .min(10_000) as usize,
+        top_k: clamp_top_k(
+            obj.get("top_k")
+                .and_then(Value::as_u64)
+                .unwrap_or(10) as usize,
+        ),
         distance_metric: match obj.get("distance_metric") {
             Some(Value::String(s)) if s == "Euclidean" || s == "euclidean" => {
                 DistanceMetric::Euclidean
