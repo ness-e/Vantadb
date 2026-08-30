@@ -23,7 +23,7 @@ async fn mcp_protocol_certification() {
         assert_eq!(init_res["protocolVersion"], "2025-06-18");
         assert_eq!(init_res["serverInfo"]["name"], "vantadb");
 
-        let list_res = handle_tools_list().expect("Tools listing failed");
+        let list_res = handle_tools_list(&McpConfig::default()).expect("Tools listing failed");
         let tools = list_res["tools"]
             .as_array()
             .expect("Tools must be an array");

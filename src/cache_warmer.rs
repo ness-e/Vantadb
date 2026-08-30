@@ -69,21 +69,41 @@ pub(crate) struct CacheWarmerMetrics {
 impl CacheWarmer {
     /// Create a new cache warmer with default thresholds.
     pub fn new() -> Self {
-        Self::with_config(3, 8)
+        Self {
+            co_access: RwLock::new(HashMap::new()),
+            min_accesses: 3,
+            max_prefetch: 8,
+            max_pairs: MAX_CO_ACCESS_PAIRS,
+            total_events: AtomicU64::new(0),
+            prefetch_hits: AtomicU64::new(0),
+            pair_count: AtomicUsize::new(0),
+            saturated: AtomicBool::new(false),
+        }
     }
 
     /// Create a cache warmer with explicit thresholds.
     ///
     /// * `min_accesses` — minimum co-access frequency before suggesting a prefetch.
     /// * `max_prefetch` — maximum nodes to prefetch per trigger.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn with_config(min_accesses: u32, max_prefetch: usize) -> Self {
-        Self::with_config_and_cap(min_accesses, max_prefetch, MAX_CO_ACCESS_PAIRS)
+        Self {
+            co_access: RwLock::new(HashMap::new()),
+            min_accesses,
+            max_prefetch,
+            max_pairs: MAX_CO_ACCESS_PAIRS,
+            total_events: AtomicU64::new(0),
+            prefetch_hits: AtomicU64::new(0),
+            pair_count: AtomicUsize::new(0),
+            saturated: AtomicBool::new(false),
+        }
     }
 
     /// Create a cache warmer with explicit thresholds and a pair-table cap.
     ///
     /// Exposed for tests so the saturation path can be exercised cheaply;
     /// production callers use `with_config` (which applies `MAX_CO_ACCESS_PAIRS`).
+    #[cfg_attr(not(test), allow(dead_code))]
     fn with_config_and_cap(min_accesses: u32, max_prefetch: usize, max_pairs: usize) -> Self {
         Self {
             co_access: RwLock::new(HashMap::new()),
