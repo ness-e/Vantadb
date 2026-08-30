@@ -1,12 +1,29 @@
 ---
 title: "ADR-032: Persistencia on-disk de vectores Binary/Turbo/SQ8 en vstore"
 type: adr
-status: accepted
+status: accepted-pending-owner-review
 tags: [vantadb, architecture, adr, storage, persistence, vstore, binary, quantization]
 created: 2026-08-28
-last_reviewed: 2026-08-28
+last_reviewed: 2026-08-29
 related: [ADR-019-sparse-vector-persisted-format, ADR-020-storage-backend-default, ADR-022-wal-batch-async, DRV-014-wal-batch-tradeoff]
+owner_articulates: pending
 ---
+
+> **⚠️ DRAFT — requiere articulación del owner (Regla 5, AGENTS.md)**
+>
+> El cuerpo de este ADR (Contexto, Decisión, Consecuencias, Alternativas,
+> Riesgos) fue redactado por IA durante la implementación CORE-01 (commits
+> `d3e7f9cf` + `854d9145`) para registrar evidencia técnica. **El trade-off
+> central — bits 10-13 de `flags` para kind vs. expandir `DiskNodeHeader`
+> vs. bump `VFILE_VERSION` con migración one-shot — debe ser articulado por
+> el owner humano en sus propias palabras** para que el ADR cumpla su
+> función de memoria de decisión. La IA aporta los datos; el humano decide
+> si acepta el trade-off tal cual, lo ajusta, o lo reemplaza por una
+> alternativa.
+>
+> Hasta que el owner articule: status `accepted-pending-owner-review`,
+> `owner_articulates: pending`. Las refs internas y el código son válidos
+> independientemente.
 
 # ADR-032: Persistencia on-disk de vectores Binary/Turbo/SQ8 en vstore
 
