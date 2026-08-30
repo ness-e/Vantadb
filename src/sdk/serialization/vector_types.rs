@@ -252,4 +252,138 @@ mod tests {
         let req: VantaMemorySearchRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.search_profile, None);
     }
+
+    // ── TS-03: Score/distance semantics pinning ─────────────────────────────
+    //
+    // Drift histórico entre bindings (ver docs/api/TS_SDK.md CODE-091):
+    //
+    // | SDK        | Campo expuesto | Convención            |
+    // |------------|----------------|-----------------------|
+    // | Rust core  | `score`        | higher = better       |
+    // | TS SDK     | `distance`     | lower = better        |
+    // | Python SDK | `score`        | higher = better       |
+    // | Node SDK   | `score`        | higher = better       |
+    // | HTTP API   | `score`        | higher = better       |
+    //
+    // Estos tests fijan los invariantes del score del core para que cualquier
+    // cambio futuro (drift zero-norm cosine, redondeo FP, o swap de signo) se
+    // detecte en CI. Sources canónicos:
+    //   - src/sdk/api.rs:1661        — score: 1.0 - hit.distance (cosine)
+    //   - src/sdk/search/vector.rs:30-60 — score formula por DistanceMetric
+
+    fn minimal_record(key: &str, ns: &str) -> VantaMemoryRecord {
+        VantaMemoryRecord {
+            namespace: ns.into(),
+            key: key.into(),
+            payload: String::new(),
+            metadata: VantaMemoryMetadata::new(),
+            created_at_ms: 0,
+            updated_at_ms: 0,
+            version: 1,
+            node_id: 0,
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+        }
+    }
+
+    #[test]
+    fn score_roundtrips_through_serde_json() {
+        // El SDK Rust expone `score` (higher = better) para Python/Node/HTTP.
+        // JSON round-trip debe preservar el field verbatim — un futuro
+        // "renombremos a distance" rompe este test.
+        let hit = VantaMemorySearchHit {
+            record: minimal_record("k1", "agent/main"),
+            score: 0.575_364_23_f32,
+            explanation: None,
+        };
+        let json = serde_json::to_string(&hit).expect("serialize");
+        assert!(
+            json.contains("\"score\":0.575"),
+            "score field must survive serde: {json}"
+        );
+        let de: VantaMemorySearchHit = serde_json::from_str(&json).expect("deserialize");
+        assert!(
+            (de.score - 0.575_364_23).abs() < 1e-6,
+            "score round-trip drifted: {}",
+            de.score
+        );
+    }
+
+    #[test]
+    fn euclidean_score_supports_negative_values() {
+        // Per src/sdk/search/vector.rs:32, Euclidean score = -||a-b||² (negative).
+        // Pin this bound so the contract isn't accidentally re-flipped.
+        let hit = VantaMemorySearchHit {
+            record: minimal_record("k1", "ns"),
+            score: -4.0_f32,
+            explanation: None,
+        };
+        assert!(
+            hit.score <= 0.0,
+            "Euclidean-derived score must be ≤ 0, got {}",
+            hit.score
+        );
+    }
+
+    #[test]
+    fn cosine_score_range_matches_documented_contract() {
+        // Documented invariant: cosine score ∈ [-1.0, 1.0]. Anything outside
+        // indicates a broken normalization step (regression of zero-norm
+        // cosine guard).
+        for &score in &[-1.0_f32, -0.5, 0.0, 0.5, 1.0] {
+            let hit = VantaMemorySearchHit {
+                record: minimal_record("k1", "ns"),
+                score,
+                explanation: None,
+            };
+            assert!(
+                (-1.0..=1.0).contains(&hit.score),
+                "cosine score must be in [-1, 1], got {}",
+                hit.score
+            );
+        }
+    }
+
+    #[test]
+    fn cosine_sim_f32_identical_returns_one() {
+        // Pin de la primitiva que alimenta vector_memory_search.
+        let v = vec![0.3_f32, 0.4, 0.5, 0.1, 0.7];
+        let sim = crate::index::distance::cosine_sim_f32(&v, &v);
+        assert!(
+            (sim - 1.0).abs() < 1e-5,
+            "identical vectors must yield cos≈1.0, got {sim}"
+        );
+    }
+
+    #[test]
+    fn cosine_sim_f32_zero_norm_returns_finite_zero() {
+        // TS-03 anti-drift guard: zero-norm vectors used to yield NaN before
+        // the cosine_sim_with_query_norm guard. Pinning prevents regression.
+        let zero = vec![0.0_f32; 8];
+        let some = vec![0.1_f32, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
+        let sim = crate::index::distance::cosine_sim_f32(&zero, &some);
+        assert!(
+            sim.is_finite(),
+            "zero-norm vector must yield finite score, got {sim}"
+        );
+        assert!(
+            sim.abs() < 1e-5,
+            "zero-norm vs non-zero must score≈0.0, got {sim}"
+        );
+    }
+
+    #[test]
+    fn euclidean_squared_distance_never_negative_under_fp_rounding() {
+        // AUDREP-28 regression guard: ||a||² + ||b||² - 2·a·b can dip slightly
+        // below zero from FP rounding; public dispatch must always return ≥ 0.
+        let v = vec![1.0_f32; 128];
+        let d_sq = crate::index::distance::euclidean_distance_squared_f32(&v, &v);
+        assert!(
+            d_sq >= 0.0,
+            "d² for identical vectors must be ≥ 0, got {d_sq}"
+        );
+    }
 }

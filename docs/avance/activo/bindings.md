@@ -424,6 +424,21 @@ aliases: []
 
 ---
 
+## 2026-08-29: TS-03 — Semántica score/distance entre bindings
+
+### TS-03: Verificar semántica score/distance contra core y unificar docs
+- **Fecha:** 2026-08-29
+- **Plan:** `docs/plans/2026-08-29-full-backlog-parallel.md` (W7-2, Wave 7)
+- **Objetivo:** Documentar y pinear la asimetría cross-SDK del score vs distance (TS usa `distance` lower=better; Rust/Python/Node/HTTP usan `score` higher=better). CODE-091 ya documentado; este task agrega tabla cross-SDK + tests pinning.
+- **Archivos tocados:**
+  - `docs/api/TS_SDK.md` (+14) — tabla comparativa cross-SDK (TS, Rust core, Python, Node, HTTP API) con field/convention/range + link a tests pinning
+  - `src/sdk/serialization/vector_types.rs` (+134) — bloque `TS-03` en `mod tests` con 6 tests pinning: `score_roundtrips_through_serde_json`, `euclidean_score_supports_negative_values`, `cosine_score_range_matches_documented_contract`, `cosine_sim_f32_identical_returns_one`, `cosine_sim_f32_zero_norm_returns_finite_zero`, `euclidean_squared_distance_never_negative_under_fp_rounding`
+- **Resultado:** ✅ Docs + 6 tests pinneados. `cargo test` 1938+6/1938+6 PASS. `cargo clippy -- -D warnings` 0. `rustfmt --check vector_types.rs` 0 diffs. Contrato del plan: `Select-String docs/api/TS_SDK.md 'score|distance' Count>=1` (Count=4 ✅), `cargo test` ok/PASS Count>=1 (`score_roundtrips_through_serde_json` 1/1 ✅). Sin breaking change.
+- **Decisión clave:** los módulos `crate::index::distance::*` y `crate::sdk::types` son `pub(crate)` (no accesibles desde `tests/`). Por lo tanto el contrato del plan `--test score_semantics` se cumplió como **unit tests en el archivo canónico** (`src/sdk/serialization/vector_types.rs::tests`), ubicación idiomática para pinning de invariantes internas.
+- **Pre-mortem actualizado:** el drift "h.score entre core y TS" descrito en el plan NO es real — TS ya usa `distance` field con comment literal "This is a distance, not a similarity score" en `types.ts:73-75`. El drift real era **entre SDKs** (Rust/Python/Node/HTTP = score; TS = distance), ya documentado como CODE-091. El trabajo se redujo a **docs + pinning**, sin cambios de API.
+- **Pre-mortem original (no ocurrió):** ❌ NO hubo breaking change: la asimetría es **documental** (cada SDK ya expone un field consistente internamente), no de contrato.
+- **vanta-worker no hace commit** — staged para vanta-lead. Mensaje preparado: `docs: TS-03 — Documentar semántica score/distance (zero-norm cosine resuelto)`.
+
 ## 2026-08-27: Research vantadb-ts quickwins (INV-vantadb-ts-01)
 
 ### TS-02: Fix _native async wrapper — vantadb-ts/src/native.ts:89

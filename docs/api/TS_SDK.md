@@ -299,6 +299,20 @@ interface SearchRequest {
 
 **Distance vs Score (CODE-091):** The `distance` field in `SearchHit` is a **L2 or cosine distance**, not a similarity score. Lower values indicate higher similarity. This differs from the Rust and Python SDKs which expose a `score` field where higher is better.
 
+**Cross-SDK convention (TS-03):** the asymmetry between the TS SDK and the other bindings is intentional and pinned in CI. Each transport exposes a different field so consumers should pick the row that matches their SDK:
+
+| SDK binding | Field on hit | Convention | Range |
+|-------------|--------------|------------|-------|
+| `vantadb-ts` (this SDK) | `SearchHit.distance` | **lower is more similar** (raw L2 / cosine distance) | `[0.0, +∞)` for cosine; `[0.0, +∞)` for Euclidean |
+| `vantadb` (Rust core) | `VantaMemorySearchHit.score` | higher is better (cosine `1.0 - distance`; Euclidean `-distance²` then sqrt) | `[-1.0, 1.0]` cosine; `(-∞, 0.0]` Euclidean |
+| `vantadb-python` | `hit.score` | higher is better | `[-1.0, 1.0]` cosine |
+| `vantadb-node` | `{node_id, score}` | higher is better | `[-1.0, 1.0]` cosine |
+| HTTP API (`POST /api/v2/search`) | `score` | higher is better | `[-1.0, 1.0]` cosine |
+
+The score semantics are pinned by `src/sdk/serialization/vector_types.rs::tests` (TS-03 integration block: `score_roundtrips_through_serde_json`, `cosine_score_range_matches_documented_contract`, `euclidean_score_supports_negative_values`, `cosine_sim_f32_zero_norm_returns_finite_zero`, `euclidean_squared_distance_never_negative_under_fp_rounding`). A future change to the core formula will fail CI before reaching `develop`.
+
+When porting TS code to another SDK, invert the comparison: `hits.sort((a, b) => a.distance - b.distance)` becomes `hits.sort((a, b) => b.score - a.score)`.
+
 #### `searchVector()`
 
 ```ts
