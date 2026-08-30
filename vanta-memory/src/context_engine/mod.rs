@@ -8,6 +8,7 @@ mod compressor;
 mod engine;
 mod mmd;
 mod mmd_injector;
+mod report_store;
 mod token_estimator;
 mod types;
 
@@ -24,5 +25,9 @@ pub use mmd::{
     MAX_MMD_CONTENT_CHARS,
 };
 pub use mmd_injector::{inject_mmd, MMD_CONTEXT_MARKER};
+pub use report_store::{
+    list_compaction_reports, record_compaction_report, PersistedCompactionReport,
+    COMPACTION_REPORT_PREFIX,
+};
 pub use token_estimator::{emergency_truncate, truncate_content, TokenEstimator};
 pub use types::{ChatMessage, ChatRole, CompactionMode, CompactionReport, ContextError};

@@ -12,8 +12,11 @@
 //! Not ported from TDAM: multi-worker pending recovery, `claimStaleTasks`,
 //! Prometheus metrics (single-process scope).
 
+use std::time::Instant;
+
 use crate::context_engine::{
-    assemble_with_recall, load_active, AssembleConfig, ChatMessage, ChatRole, TokenEstimator,
+    assemble_with_recall, load_active, record_compaction_report, AssembleConfig, ChatMessage,
+    ChatRole, PersistedCompactionReport, TokenEstimator,
 };
 use crate::core::abstractions::LlmRunner;
 use crate::core::conversation::{L0Recorder, L0Role};
@@ -75,6 +78,90 @@ pub struct RunStats {
     pub processed: usize,
     pub failed: usize,
     pub skipped_locked: usize,
+}
+
+/// Per-layer latency telemetry snapshot emitted by [`MemoryTaskHandler`].
+///
+/// `MEM-65`: `MEM-34` covered only the core count metrics; per-layer wall-clock
+/// latency (L1 extraction, L2 scene grouping, L3 persona generation, post-L3
+/// recall+context assembly) was missing. The snapshot fields are tagged on
+/// `tracing` events so existing subscribers pick them up at no extra cost
+/// (zero-allocation when the layer is filtered out).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct LayerTelemetry {
+    /// Last L1 phase latency in milliseconds (extraction + dedup + write).
+    pub l1_latency_ms: u64,
+    /// Last L2 phase latency in milliseconds (scene extraction).
+    pub l2_latency_ms: u64,
+    /// Last L3 phase latency in milliseconds (persona trigger + generation).
+    pub l3_latency_ms: u64,
+    /// Last post-L3 context-assembly latency (compress → MMD → recall).
+    /// Includes the recall vector search inside `assemble_with_recall`.
+    pub recall_latency_ms: u64,
+}
+
+impl LayerTelemetry {
+    /// Emit a `tracing::debug!` event for one layer's latency. Kept as a
+    /// method so external hosts can re-emit a snapshot they stored earlier
+    /// (e.g. when polling `MemoryTaskHandler::telemetry()` between passes).
+    pub fn emit(&self, session_id: &str, kind: &str) {
+        let latency_ms = match kind {
+            "L1" => self.l1_latency_ms,
+            "L2" => self.l2_latency_ms,
+            "L3" => self.l3_latency_ms,
+            "recall" => self.recall_latency_ms,
+            other => unreachable!("unknown layer telemetry kind: {other}"),
+        };
+        tracing::debug!(
+            target: "vanta_memory::telemetry",
+            session = %session_id,
+            layer = %kind,
+            latency_ms,
+            "pipeline layer latency"
+        );
+    }
+}
+
+/// Time a closure, emit per-layer telemetry, and return the closure's value
+/// together with its wall-clock latency. The caller writes the latency back
+/// into its `LayerTelemetry` snapshot after the borrow ends (sidesteps the
+/// disjoint-borrow limit when the closure also borrows `&mut self`).
+/// Errors propagate unchanged so callers keep their `Result<(), String>`
+/// shape.
+fn time_layer<F, R>(session_id: &str, kind: &str, f: F) -> Timed<R>
+where
+    F: FnOnce() -> R,
+{
+    let started = Instant::now();
+    let value = f();
+    let latency_ms = started.elapsed().as_millis() as u64;
+    tracing::debug!(
+        target: "vanta_memory::telemetry",
+        session = %session_id,
+        layer = %kind,
+        latency_ms,
+        "pipeline layer latency"
+    );
+    Timed { value, latency_ms }
+}
+
+/// Result of timing a layer: the closure's value plus its wall-clock cost.
+struct Timed<R> {
+    value: R,
+    latency_ms: u64,
+}
+
+/// Fold a [`Timed`] into the caller's `LayerTelemetry` snapshot and return
+/// the original value.
+fn fold_latency<R>(telemetry: &mut LayerTelemetry, kind: &str, timed: Timed<R>) -> R {
+    match kind {
+        "L1" => telemetry.l1_latency_ms = timed.latency_ms,
+        "L2" => telemetry.l2_latency_ms = timed.latency_ms,
+        "L3" => telemetry.l3_latency_ms = timed.latency_ms,
+        "recall" => telemetry.recall_latency_ms = timed.latency_ms,
+        other => unreachable!("unknown layer telemetry kind: {other}"),
+    }
+    timed.value
 }
 
 /// Configuration of the post-L3 context-assembly phase (MEM-43).
@@ -199,6 +286,8 @@ pub struct MemoryTaskHandler<'a, R: LlmRunner> {
     dedup_config: L1DedupConfig,
     trigger_every_n: usize,
     context_config: ContextAssemblyConfig,
+    /// Per-layer latency accumulator (MEM-65). Read with [`Self::telemetry`].
+    telemetry: LayerTelemetry,
 }
 
 impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
@@ -216,6 +305,7 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
             dedup_config,
             trigger_every_n,
             context_config: ContextAssemblyConfig::default(),
+            telemetry: LayerTelemetry::default(),
         }
     }
 
@@ -226,8 +316,20 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
         self
     }
 
+    /// Per-layer latency snapshot (MEM-65). Returns the most-recent values;
+    /// callers (tests, hosts) can poll this after each `handle()` pass to
+    /// feed dashboards without re-parsing tracing events.
+    pub fn telemetry(&self) -> LayerTelemetry {
+        self.telemetry
+    }
+
     fn run_l1(&mut self, session_id: &str) -> Result<(), String> {
-        match self.run_l1_inner(session_id) {
+        // MEM-65: time the inner phase, then fold latency back into our
+        // snapshot. Disjoint borrow avoids the borrow-checker reject when
+        // the closure captures `&mut self`.
+        let timed = time_layer(session_id, "L1", || self.run_l1_inner(session_id));
+        let result = fold_latency(&mut self.telemetry, "L1", timed);
+        match result {
             Ok(()) => Ok(()),
             Err(err) => {
                 // MEM-41 provenance: the L1 writer never sees extraction/LLM
@@ -300,6 +402,11 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
     }
 
     fn run_l2(&mut self, session_id: &str) -> Result<(), String> {
+        let timed = time_layer(session_id, "L2", || self.run_l2_inner(session_id));
+        fold_latency(&mut self.telemetry, "L2", timed)
+    }
+
+    fn run_l2_inner(&mut self, session_id: &str) -> Result<(), String> {
         let records = read_session_records(&self.db, session_id)
             .map_err(|e| format!("L1 record read failed: {e}"))?;
         if records.is_empty() {
@@ -346,6 +453,11 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
     }
 
     fn run_l3(&mut self, session_id: &str) -> Result<(), String> {
+        let timed = time_layer(session_id, "L3", || self.run_l3_inner(session_id));
+        fold_latency(&mut self.telemetry, "L3", timed)
+    }
+
+    fn run_l3_inner(&mut self, session_id: &str) -> Result<(), String> {
         let checkpoints = CheckpointManager::new(&self.db);
         let checkpoint = checkpoints.read().map_err(|e| e.to_string())?;
 
@@ -395,7 +507,16 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
     /// only failures are store-level and propagate into the worker's
     /// retry/dead-letter path (Principio 4 — nothing partial is written: the
     /// record is a single upsert).
-    fn run_context_assembly(&self, session_id: &str) -> Result<(), String> {
+    fn run_context_assembly(&mut self, session_id: &str) -> Result<(), String> {
+        // MEM-65: wall-clock timer around the recall + assembly path. The
+        // inner body stays `&self`-free (all calls go through `&self.db`).
+        let timed = time_layer(session_id, "recall", || {
+            self.run_context_assembly_inner(session_id)
+        });
+        fold_latency(&mut self.telemetry, "recall", timed)
+    }
+
+    fn run_context_assembly_inner(&self, session_id: &str) -> Result<(), String> {
         let l0 = L0Recorder::new(self.db.clone())
             .read_messages(session_id)
             .map_err(|e| format!("L0 read failed: {e}"))?;
@@ -491,7 +612,29 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
                 ttl_ms: None,
             })
             .map(|_| ())
-            .map_err(|e| format!("assembled context write failed: {e}"))
+            .map_err(|e| format!("assembled context write failed: {e}"))?;
+
+        // MEM-64: persist an append-only `CompactionReport` per run, sibling
+        // record to `__assembled`. Best-effort — a failed report write is
+        // logged and the L3 task still succeeds (the report is an audit
+        // artifact, not on the critical path of context delivery).
+        let existing = crate::context_engine::list_compaction_reports(&self.db, session_id)
+            .map_err(|e| format!("compaction report list failed: {e}"))?;
+        let run_id = format!(
+            "{}-{:04}",
+            crate::core::conversation::now_ms(),
+            existing.len() + 1
+        );
+        let captured_at_ms = crate::core::conversation::now_ms();
+        let persisted = PersistedCompactionReport::from_context(run_id, captured_at_ms, &out);
+        if let Err(e) = record_compaction_report(&self.db, session_id, &persisted) {
+            tracing::warn!(
+                session = %session_id,
+                %e,
+                "compaction report write failed; L3 context still committed",
+            );
+        }
+        Ok(())
     }
 }
 

@@ -18,5 +18,5 @@ pub use compressor::{
     compress_message, compress_messages, CompressOptions, SkillMessage, COMPRESS_DEFAULTS,
 };
 pub use oversize::{apply_oversize_strategy, OversizeOptions, OversizeResult, OVERSIZE_DEFAULTS};
-pub use sink::{SkillCoreSink, SkillSinkCounts, StoredSkill};
+pub use sink::{SkillCoreSink, SkillSinkCounts, SkillVersion, StoredSkill};
 pub use worker::{run_skill_extract_once, SkillWorkerOutcome};
