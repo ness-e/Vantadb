@@ -56,13 +56,15 @@ fn err_to_py(e: VantaError) -> PyErr {
 ///
 /// Uses LiteLLM as a unified embedding provider and stores/searches vectors in VantaDB.
 ///
-/// Usage::
+/// Usage:
 ///
-///     from vantadb_litellm import VantaDBLiteLLM
-///     store = VantaDBLiteLLM("/tmp/vantadb-litellm")
-///     emb = store.embed(["hello world"])
-///     store.store("hello world", emb[0])
-///     results = store.search(emb[0], top_k=5)
+/// ```text
+/// from vantadb_litellm import VantaDBLiteLLM
+/// store = VantaDBLiteLLM("/tmp/vantadb-litellm")
+/// emb = store.embed(["hello world"])
+/// store.store("hello world", emb[0])
+/// results = store.search(emb[0], top_k=5)
+/// ```
 #[pyclass(name = "VantaDBLiteLLM")]
 pub struct VantaDBLiteLLM {
     engine: VantaEmbedded,
@@ -353,4 +355,26 @@ fn vantadb_litellm(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<VantaDBLiteLLM>()?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    /// PROV-07: invalid distance_metric raises ValueError with explicit message.
+    /// Sanity check: source must contain both the match arm and the PyValueError path.
+    #[test]
+    fn invalid_distance_metric_raises_value_error() {
+        let src = include_str!("python.rs");
+        assert!(
+            src.contains("PyValueError"),
+            "search() must raise PyValueError on invalid distance_metric"
+        );
+        assert!(
+            src.contains("invalid distance_metric"),
+            "search() must include the literal 'invalid distance_metric' message"
+        );
+        assert!(
+            src.contains("cosine") && src.contains("euclidean") && src.contains("l2"),
+            "ValueError message must reference the allowed metrics"
+        );
+    }
 }
