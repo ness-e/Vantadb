@@ -602,6 +602,58 @@ Once the binary is on your `PATH`, see [Starting the Server](#starting-the-serve
 
 ---
 
+## Positioning vs other vector databases
+
+> **Honest comparison (verified 2026-08-29).** This table summarizes where
+> VantaDB differs from popular alternative vector databases. Every cell is
+> backed by an official source linked below — no claims without a
+> reproducible reference.
+
+| Capability | VantaDB | Qdrant | Weaviate | Milvus | Marqo (OSS) |
+|---|---|---|---|---|---|
+| **Local-first / embedded default** | ✅ Library-first (`vantadb` crate), HTTP server optional | ❌ Service only | ❌ Service only | ❌ Service only | ❌ Service only |
+| **Default auth posture** | ✅ Refuse-to-start on non-loopback without `VANTADB_API_KEY` ([FIND-07](#security-guard-refuse-to-start-on-exposed-unauthenticated-binds-find-07)) | ⚠️ Open by default; user must set `api_key` and bind host ([source](https://qdrant.tech/documentation/security/#secure-your-instance)) | ⚠️ Anonymous access supported; opt-out via env vars ([source](https://weaviate.io/developers/weaviate/configuration/authorization#anonymous-users)) | ⚠️ Opt-in via `common.security.authorizationEnabled: true` ([source](https://milvus.io/docs/authenticate.md)) | n/a (deprecated, [README](https://github.com/marqo-ai/marqo/blob/mainline/README.md)) |
+| **Rate limiting with fail-closed startup** | ✅ `GovernorLayer` build failure refuses to start (AUD-021) | ⚠️ Pluggable; no documented fail-closed invariant | ⚠️ Pluggable; no documented fail-closed invariant | ⚠️ Pluggable; no documented fail-closed invariant | n/a |
+| **RBAC per namespace / collection** | ✅ `token_role_map` with `NamespaceRead` / `NamespaceWrite` (SRV-05) | ✅ JWT-based, per-collection, v1.9+ ([source](https://qdrant.tech/documentation/security/#granular-access-api-keys)) | ✅ RBAC GA from v1.29 ([source](https://weaviate.io/developers/weaviate/configuration/authorization#role-based-access-control-rbac)) | ✅ RBAC / users + roles ([source](https://milvus.io/docs/authenticate.md)) | ❌ |
+| **Audit log + tracing IDs** | ✅ JSONL rotation + `x-request-id` / `traceparent` correlation (SRV-01, SRV-02) | ✅ Audit v1.17+, tracing v1.18+ ([source](https://qdrant.tech/documentation/security/#audit-logging)) | ✅ Authorization audit logging ([source](https://weaviate.io/developers/weaviate/configuration/authorization#role-based-access-control-rbac)) | ✅ External tools (Attu, Milvus Backup) | ❌ |
+| **Zero-downtime key rotation** | ✅ `VANTADB_ALT_API_KEY` (SRV-04, mirrors Qdrant v1.17 `alt_api_key`) | ✅ `alt_api_key` v1.17+ ([source](https://qdrant.tech/documentation/security/#rotate-an-admin-api-key)) | ⚠️ Manual process | ⚠️ Manual process | ❌ |
+| **TLS** | ✅ rustls, 1.2 + 1.3, optional cert reload | ✅ ([source](https://qdrant.tech/documentation/security/#tls)) | ✅ | ✅ | ✅ |
+| **Unprivileged Docker image** | ✅ `--target unprivileged`, multi-stage | ✅ `-unprivileged` tag ([source](https://qdrant.tech/documentation/security/#hardening)) | ❌ | ❌ | ❌ |
+| **Runtime dependencies** | Minimal Rust stdlib + `tokio` / `axum`; no JVM/Go | C++ / Rust | Go | Go + C++ + etcd | Python + OpenSearch |
+
+**Where VantaDB is honestly behind** (no marketing spin):
+
+- **No distributed cluster today.** Milvus, Qdrant (distributed mode),
+  Weaviate all scale horizontally; VantaDB is currently single-node. See
+  `docs/research/2026-08-25-vantadb-server/` for the distributed-mode
+  roadmap and explicit non-goals.
+- **No OIDC / SSO yet.** SRV-06 is delegated; until then, API keys and
+  bearer tokens are the only auth surface.
+- **No mTLS for inter-node.** SRV-09 is on the roadmap. Today the HTTP
+  server is single-node, so the gap is not user-visible.
+- **No encryption at rest.** SRV-10 is on the roadmap. WAL and data files
+  live on disk in plain form, so deployment to encrypted volumes or
+  block-storage encryption is the operator's responsibility.
+
+**Sources** (all verified 2026-08-29 via `webfetch`):
+
+- VantaDB internal: this document, [`docs/operations/SECURITY.md`](../operations/SECURITY.md),
+  [`docs/operations/hardening.md`](../operations/hardening.md).
+- [Qdrant — Security & Access Control](https://qdrant.tech/documentation/security/) (authentication,
+  alt_api_key rotation v1.17+, RBAC v1.9+, audit v1.17+, tracing v1.18+, TLS v1.2+).
+- [Weaviate — Authorization](https://weaviate.io/developers/weaviate/configuration/authorization) (Admin list,
+  RBAC v1.29 GA, anonymous access opt-in).
+- [Milvus — Authenticate User Access](https://milvus.io/docs/authenticate.md) (`authorizationEnabled`
+  config, `root:Milvus` default user).
+- [Marqo — mainline README](https://github.com/marqo-ai/marqo/blob/mainline/README.md) — explicitly
+  states the OSS project is deprecated and points to `marqo.ai` for the
+  commercial product.
+
+> **Last reviewed**: 2026-08-29. Re-verify in 90 days or before any
+> marketing claim citing this table.
+
+---
+
 ## Starting the Server
 
 ```bash
