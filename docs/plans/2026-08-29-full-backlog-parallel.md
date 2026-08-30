@@ -1035,7 +1035,7 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Gate Result:** ✅ DO
 - **Contrato:** `Select-String -Path "vantadb-mcp/src/handlers/tools.rs" -Pattern "memory_recall|memory_search" | Measure-Object Count` >=2
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-59.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Cynefin:** 🟨 Complicado
 
 ### Task W20-2: MEM-62 — Export markdown git-friendly
@@ -1049,7 +1049,7 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Gate Result:** ✅ DO
 - **Contrato:** `vanta-cli memory export --format md --help 2>&1 | Select-String "md|markdown" | Measure-Object Count` >=1 OR `Select-String -Path "src/cli.rs" -Pattern "export.*md" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-62.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (commit fc0bf52d, 2026-08-30)
 - **Cynefin:** 🟨 Complicado
 
 ### Task W20-3: MEM-63 — Quick-win docs+embeddings
@@ -1063,8 +1063,20 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Gate Result:** ✅ DO
 - **Contrato:** `Select-String -Path "vanta-memory/src/core/hooks/auto_recall.rs" -Pattern "degradan hasta wirear" | Measure-Object Count` ==0 (corregido)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-63.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-30T19:10 — vanta-docs; 4 files staged para vanta-lead commit per regla de rol "vanta-docs no hace commit")
 - **Cynefin:** 🟦 Obvio
+- **Resultado (2026-08-30 verify):**
+  - Contrato: `Select-String -Path auto_recall.rs -Pattern "degradan hasta wirear" | Measure-Object Count` = 0 ✅
+  - `cargo check -p vanta-memory` exit 0 ✅
+  - `cargo clippy -p vanta-memory --all-targets -- -D warnings` 0 warnings ✅
+  - `cargo fmt --check -p vanta-memory` 0 diffs ✅
+  - `cargo test -p vanta-memory --lib core::record::l1_dedup` 9/9 PASS ✅
+  - Cambios:
+    - `vanta-memory/src/core/hooks/auto_recall.rs` — rustdoc módulo + RecallMode enum reescritos para describir MEM-63 auto-on path (D38 dual-pool keyword fallback preservado).
+    - `vanta-memory/src/core/record/l1_dedup.rs` — `Default::default()` ahora wire `local_embedding_hook()` cuando `embed-local` está compilado (auto-on); sin feature sigue `embed: None`. Doc del campo `embed` actualizada.
+    - `vanta-memory/src/core/record/l1_dedup.rs` (tests) — 2 tests nuevos: `default_wires_local_provider_when_feature_on` (cfg-gated) + `default_stays_keyword_only_without_feature` (cfg-gated).
+  - **No commit** (vanta-docs per regla de rol). Staged para vanta-lead.
+  - Pre-mortem mitigado: Fallo 1 (doc fixed sin verificar) → grep post-fix ✅. Fallo 2 (embeddings auto-on requiere feature flag) → cfg-gated ✅.
 
 ### Task W21-1: MEM-64 — Skills versionadas + CompactionReport
 
