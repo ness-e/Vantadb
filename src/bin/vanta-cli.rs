@@ -3,7 +3,7 @@
 
 use clap::Parser;
 
-use vantadb::cli::{Cli, Commands};
+use vantadb::cli::{Cli, Commands, ExportFormat};
 use vantadb::cli_handlers;
 use vantadb::config::LogFormat;
 use vantadb::console;
@@ -62,9 +62,14 @@ fn main() -> Result<()> {
 
         Commands::RepairTextIndex => cli_handlers::cmd_repair_text_index(&args.db)?,
 
-        Commands::Export { namespace, out } => {
-            cli_handlers::cmd_export(&args.db, namespace.as_deref(), &out)?
-        }
+        Commands::Export {
+            namespace,
+            out,
+            format,
+        } => match format {
+            ExportFormat::Jsonl => cli_handlers::cmd_export(&args.db, namespace.as_deref(), &out)?,
+            ExportFormat::Md => cli_handlers::cmd_export_md(&args.db, namespace.as_deref(), &out)?,
+        },
 
         Commands::Import { input } => cli_handlers::cmd_import(&args.db, &input, args.verbose)?,
 

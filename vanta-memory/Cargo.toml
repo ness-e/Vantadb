@@ -12,6 +12,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2"
 tracing = "0.1"
+# chrono is re-exported via vantadb::sdk::VantaValue::DateTime; used in seed
+# round-trip parsing (MD import → DateTime detection via RFC3339).
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 # Only pulled in with `llm-driver` (standalone OpenAI-compatible runner).
 # Matches the workspace pattern (src/llm.rs: reqwest blocking + json).
 reqwest = { version = "0.12", features = ["json", "blocking"], optional = true }

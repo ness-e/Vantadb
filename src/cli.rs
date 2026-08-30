@@ -91,14 +91,24 @@ pub enum Commands {
     /// Repair text index if inconsistencies are detected
     RepairTextIndex,
 
-    /// Export records to a JSON file
+    /// Export records to a file (jsonl) or to a directory of Markdown files
+    /// with JSON frontmatter (--format md, git-friendly, round-trips with
+    /// `vanta-seed import-md`).
     Export {
         /// Optional namespace to export (exports all if not specified)
         #[arg(long)]
         namespace: Option<String>,
-        /// Output file path
+        /// Output path: file for `--format jsonl` (default), directory for
+        /// `--format md`.
         #[arg(long)]
         out: String,
+        /// Export format. `jsonl` writes one record per line to a file
+        /// (default, backwards-compatible). `md` writes one file per record
+        /// under `<out>/<namespace>/<key>.md` with JSON frontmatter; the
+        /// directory is git-friendly and round-trips with
+        /// `vanta-seed import-md`.
+        #[arg(long, value_enum, default_value_t = ExportFormat::Jsonl)]
+        format: ExportFormat,
     },
 
     /// Import records from a JSON file
@@ -401,6 +411,17 @@ pub enum Shell {
     /// PowerShell shell completions
     #[value(name = "powershell", alias = "power-shell")]
     PowerShell,
+}
+
+/// Output format for the `export` subcommand.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ExportFormat {
+    /// JSONL on stdout/file (default; backwards compatible).
+    #[default]
+    Jsonl,
+    /// One Markdown file per record under `<out>/<namespace>/<key>.md` with
+    /// JSON frontmatter metadata; round-trips with `vanta-seed import-md`.
+    Md,
 }
 
 impl From<Shell> for clap_complete::Shell {

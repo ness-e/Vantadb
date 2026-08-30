@@ -16,8 +16,10 @@
 //! bypasses the LLM-output XML escaping of the generator.
 
 pub mod input;
+pub mod md_import;
 
 pub use input::{parse_seed_input, SeedInput, SeedPersona, SeedSkill};
+pub use md_import::{import_md_dir, MdImportError, MD_IMPORT_SCHEMA_VERSION};
 
 use crate::core::conversation::{now_ms, sanitize_component, sanitize_key};
 use crate::core::persona::{get_persona, persona_namespace, PersonaRecord, PERSONA_KEY};
@@ -101,6 +103,57 @@ pub fn import_seed(db: &VantaEmbedded, seed: &SeedInput) -> Result<SeedCounts, S
 /// `skills_extract/<scope>` — same namespace as the MEM-06 skill sink.
 fn skills_namespace(scope: &str) -> String {
     format!("skills_extract/{}", sanitize_component(scope, 64, false))
+}
+
+/// Public test helper: render a memory record as a Markdown string with the
+/// same frontmatter shape produced by `cli_handlers::export_md`. Used by
+/// integration tests in `tests/md_roundtrip.rs` to avoid a hard dependency
+/// on the core crate's internal types.
+pub fn test_render_md(record: &vantadb::sdk::VantaMemoryRecord) -> String {
+    let mut meta_obj = serde_json::Map::new();
+    for (k, v) in record.metadata.iter() {
+        let jv = match v {
+            vantadb::sdk::VantaValue::Null => serde_json::Value::Null,
+            vantadb::sdk::VantaValue::Bool(b) => serde_json::Value::Bool(*b),
+            vantadb::sdk::VantaValue::Int(i) => serde_json::Value::from(*i),
+            vantadb::sdk::VantaValue::Float(f) => serde_json::Number::from_f64(*f)
+                .map(serde_json::Value::Number)
+                .unwrap_or(serde_json::Value::Null),
+            vantadb::sdk::VantaValue::String(s) => serde_json::Value::String(s.clone()),
+            vantadb::sdk::VantaValue::DateTime(dt) => serde_json::Value::String(dt.to_rfc3339()),
+            vantadb::sdk::VantaValue::ListString(xs) => serde_json::Value::from(xs.clone()),
+            vantadb::sdk::VantaValue::ListInt(xs) => serde_json::Value::from(xs.clone()),
+            vantadb::sdk::VantaValue::ListFloat(xs) => serde_json::Value::from(xs.clone()),
+            vantadb::sdk::VantaValue::ListBool(xs) => serde_json::Value::from(xs.clone()),
+            vantadb::sdk::VantaValue::ListDateTime(xs) => {
+                serde_json::Value::from(xs.iter().map(|dt| dt.to_rfc3339()).collect::<Vec<_>>())
+            }
+        };
+        meta_obj.insert(k.clone(), jv);
+    }
+    let fm = serde_json::json!({
+        "schema_version": crate::seed::md_import::MD_IMPORT_SCHEMA_VERSION,
+        "namespace": record.namespace,
+        "key": record.key,
+        "version": record.version,
+        "node_id": record.node_id.to_string(),
+        "created_at_ms": record.created_at_ms,
+        "updated_at_ms": record.updated_at_ms,
+        "expires_at_ms": record.expires_at_ms,
+        "superseded_by": record.superseded_by,
+        "superseded_at_ms": record.superseded_at_ms,
+        "metadata": meta_obj,
+        "vector_dim": record.vector.as_ref().map(|v| v.len()),
+    });
+    let mut out = String::new();
+    out.push_str("---\n");
+    out.push_str(&serde_json::to_string(&fm).unwrap_or_else(|_| "{}".into()));
+    out.push_str("\n---\n\n");
+    out.push_str(&record.payload);
+    if !record.payload.ends_with('\n') {
+        out.push('\n');
+    }
+    out
 }
 
 /// Deterministic 64-bit content hash (same pattern as the skill sink).
