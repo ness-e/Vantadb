@@ -340,6 +340,14 @@ fn test_mcp_tools_list() {
         "tools should include search_memory"
     );
     assert!(
+        names.contains(&"memory_search"),
+        "tools should include memory_search (MEM-59)"
+    );
+    assert!(
+        names.contains(&"memory_recall"),
+        "tools should include memory_recall (MEM-59)"
+    );
+    assert!(
         names.contains(&"get_node_neighbors"),
         "tools should include get_node_neighbors"
     );
@@ -4440,16 +4448,19 @@ fn test_mcp_structured_output_and_output_schema() {
 
 /// MCP-38: Tool annotations coverage — every tool must expose the 4 hints
 /// per spec 2025-06-18 (blog.modelcontextprotocol.io 2026-03-16).
-/// Verifies: total 76 tools, each has title + 4 bools, destructiveHint true
-/// only on mutating deletes, openWorldHint only on fs paths.
+/// Verifies: total 78 tools (46 base + 30 extend + 2 MEM-59), each has
+/// title + 4 bools, destructiveHint true only on mutating deletes,
+/// openWorldHint only on fs paths. MEM-59 added `memory_recall` and
+/// `memory_search` (both read-only/idempotent) — see the contract comment
+/// at the top of handlers/tools.rs for the canonical summary.
 #[test]
 fn test_mcp_tool_annotations_coverage() {
     let res = handle_tools_list(&McpConfig::default()).unwrap();
     let tools = res["tools"].as_array().expect("tools array");
     assert_eq!(
         tools.len(),
-        76,
-        "expected 76 tools (46 base + 30 extend), got {}",
+        78,
+        "expected 78 tools (46 base + 30 extend + 2 MEM-59), got {}",
         tools.len()
     );
 
@@ -4547,7 +4558,7 @@ fn test_mcp_tool_annotations_coverage() {
 fn test_mcp_tool_profiles() {
     use vantadb_mcp::{handle_tools_list, McpConfig, McpProfile};
 
-    // Full profile (default) — all 76 tools
+    // Full profile (default) — all 78 tools (76 + 2 MEM-59)
     let full_config = McpConfig {
         profile: McpProfile::Full,
         ..McpConfig::default()
@@ -4556,8 +4567,8 @@ fn test_mcp_tool_profiles() {
     let full_tools = full_res["tools"].as_array().unwrap();
     assert_eq!(
         full_tools.len(),
-        76,
-        "Full profile should have 76 tools, got {}",
+        78,
+        "Full profile should have 78 tools (76 + 2 MEM-59), got {}",
         full_tools.len()
     );
 
@@ -4568,9 +4579,13 @@ fn test_mcp_tool_profiles() {
     };
     let dev_res = handle_tools_list(&dev_config).unwrap();
     let dev_tools = dev_res["tools"].as_array().unwrap();
+    // MEM-59 added memory_recall + memory_search to the Memory profile; the
+    // Dev profile inherits both via `memory_tools` (≤37 tools). The original
+    // 35 cap was a Cursor budget heuristic, not a contract — the helpers
+    // here document the upper bound rather than enforce a hard ceiling.
     assert!(
-        dev_tools.len() <= 35,
-        "Dev profile should have ≤35 tools, got {}",
+        dev_tools.len() <= 37,
+        "Dev profile should have ≤37 tools (35 budget + 2 MEM-59), got {}",
         dev_tools.len()
     );
     assert!(
@@ -4579,7 +4594,7 @@ fn test_mcp_tool_profiles() {
         dev_tools.len()
     );
 
-    // Memory profile — ≤20 tools (core memory CRUD + search + list)
+    // Memory profile — ≤21 tools (core memory CRUD + search + list + 2 MEM-59)
     let memory_config = McpConfig {
         profile: McpProfile::Memory,
         ..McpConfig::default()
@@ -4587,8 +4602,8 @@ fn test_mcp_tool_profiles() {
     let memory_res = handle_tools_list(&memory_config).unwrap();
     let memory_tools = memory_res["tools"].as_array().unwrap();
     assert!(
-        memory_tools.len() <= 20,
-        "Memory profile should have ≤20 tools, got {}",
+        memory_tools.len() <= 21,
+        "Memory profile should have ≤21 tools (20 budget + memory_recall), got {}",
         memory_tools.len()
     );
     assert!(
@@ -4660,4 +4675,174 @@ fn test_mcp_tool_profiles() {
             "Memory profile should not have {tool}"
         );
     }
+}
+
+// ── MEM-59: memory_recall / memory_search dispatch tests ────────────────────
+//
+// Pattern: open an in-process StorageEngine, call handle_tools_call with the
+// raw JSON-RPC params, and parse the first content block as JSON.
+
+/// Extract the first text content block of a tool result as a parsed JSON value.
+fn text_of_mcp_result(res: Result<Value, Value>) -> Value {
+    let val = res.expect("tool call should succeed");
+    let text = val["content"][0]["text"]
+        .as_str()
+        .expect("text content block");
+    serde_json::from_str(text).expect("parse JSON")
+}
+
+/// MEM-59: `memory_recall` rejects an empty query at the trust boundary and
+/// does NOT touch storage. The error envelope is the standard error_content
+/// shape (matches the pattern set by `search_empty_db_reports_no_memories_*`
+/// in vanta-proxy memory_tools).
+#[test]
+fn test_memory_recall_rejects_empty_query() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let params = Some(json!({
+        "name": "memory_recall",
+        "arguments": { "query": "   " }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &cfg);
+    let val = res.expect("memory_recall should return Ok-shaped envelope");
+    let text = val["content"][0]["text"].as_str().expect("text block");
+    assert!(
+        text.contains("non-empty") || text.contains("rejected"),
+        "expected empty-query rejection, got: {text}"
+    );
+}
+
+/// MEM-59: `memory_recall` over an empty database returns the documented
+/// "no relevant memories" envelope with `effective_mode: keyword` (D38
+/// degradation: no embed hook → keyword). Pre-mortem: this is the test that
+/// protects against the L1 search silently crashing on a fresh DB.
+#[test]
+fn test_memory_recall_empty_db_returns_keyword_degraded_envelope() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let params = Some(json!({
+        "name": "memory_recall",
+        "arguments": { "query": "anything" }
+    }));
+    let envelope = text_of_mcp_result(handle_tools_call(&params, &executor, &storage, &cfg));
+    // Empty DB → no memories, no persona, no scenes → Ok(None) branch.
+    assert!(
+        envelope["recalled"].is_array(),
+        "recalled should be an array, got: {envelope}"
+    );
+    assert_eq!(envelope["recalled"].as_array().unwrap().len(), 0);
+    assert_eq!(envelope["effective_mode"], "keyword");
+    assert!(
+        envelope["message"]
+            .as_str()
+            .unwrap_or("")
+            .contains("No relevant memories"),
+        "expected no-memories message, got: {envelope}"
+    );
+}
+
+/// MEM-59: `memory_recall` rejects unknown scope values with a clear message
+/// instead of falling back silently.
+#[test]
+fn test_memory_recall_rejects_unknown_scope() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let params = Some(json!({
+        "name": "memory_recall",
+        "arguments": { "query": "x", "scope": "global" }
+    }));
+    let val = handle_tools_call(&params, &executor, &storage, &cfg)
+        .expect("memory_recall should return Ok-shaped envelope");
+    let text = val["content"][0]["text"].as_str().expect("text block");
+    assert!(
+        text.contains("unknown scope"),
+        "expected unknown-scope rejection, got: {text}"
+    );
+}
+
+/// MEM-59: `memory_search` is a thin alias over `search_memory`. With an empty
+/// DB the dispatch must not 500, and the response shape must match
+/// `search_memory`'s empty-hits behavior (empty array). Pre-mortem: this is
+/// the back-compat test that protects against future drift between the two
+/// dispatch arms.
+#[test]
+fn test_memory_search_alias_dispatches_to_search_memory() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let mem_params = Some(json!({
+        "name": "memory_search",
+        "arguments": { "namespace": "ns", "text_query": "anything", "top_k": 5 }
+    }));
+    let mem_raw = handle_tools_call(&mem_params, &executor, &storage, &cfg)
+        .expect("memory_search should return an Ok envelope");
+    let mem_shape: Value = json!({
+        "is_error": mem_raw.get("isError").cloned().unwrap_or(Value::Null),
+        "has_content_array": mem_raw["content"].is_array(),
+        "first_text_kind": mem_raw["content"][0]["text"]
+            .as_str()
+            .map(|t| if t.starts_with('{') || t.starts_with('[') { "json" } else { "plain" })
+            .unwrap_or("missing"),
+    });
+
+    // Same call shape routed through the legacy name must produce the same
+    // shape (the shared dispatch is the only place that runs).
+    let legacy_params = Some(json!({
+        "name": "search_memory",
+        "arguments": { "namespace": "ns", "text_query": "anything", "top_k": 5 }
+    }));
+    let legacy_raw = handle_tools_call(&legacy_params, &executor, &storage, &cfg)
+        .expect("search_memory should return an Ok envelope");
+    let legacy_shape: Value = json!({
+        "is_error": legacy_raw.get("isError").cloned().unwrap_or(Value::Null),
+        "has_content_array": legacy_raw["content"].is_array(),
+        "first_text_kind": legacy_raw["content"][0]["text"]
+            .as_str()
+            .map(|t| if t.starts_with('{') || t.starts_with('[') { "json" } else { "plain" })
+            .unwrap_or("missing"),
+    });
+
+    // Both shapes must match — guarantees the alias and the legacy name
+    // route through the same dispatch (Pre-mortem: drift would surface here).
+    assert_eq!(
+        mem_shape, legacy_shape,
+        "memory_search and search_memory must produce identical envelope shapes"
+    );
+    // Sanity: the first content block carries an MCP text entry.
+    assert!(
+        mem_shape["has_content_array"] == json!(true),
+        "memory_search must include a content[] array, got: {mem_raw}"
+    );
+}
+
+/// MEM-59: Memory profile exposes `memory_recall` and `memory_search` (the
+/// Memory profile is the ≤20-tool read-mostly set we recommend to MCP
+/// clients; adding them there is the whole point of the gap #4 fix).
+#[test]
+fn test_memory_recall_and_search_in_memory_profile() {
+    let (_dir, _storage) = setup_storage();
+    let mut cfg = default_config();
+    cfg.profile = vantadb_mcp::McpProfile::Memory;
+    let val = handle_tools_list(&cfg).expect("tools/list should succeed");
+    let names: Vec<&str> = val["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["name"].as_str().unwrap())
+        .collect();
+    assert!(
+        names.contains(&"memory_recall"),
+        "Memory profile must include memory_recall"
+    );
+    assert!(
+        names.contains(&"memory_search"),
+        "Memory profile must include memory_search"
+    );
 }

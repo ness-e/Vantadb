@@ -274,6 +274,63 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
             }
         },
         {
+            "name": "memory_recall",
+            "description": "MEM-59: high-level recall that mirrors vanta-memory's auto-recall hook (MEM-18) over the public MCP surface. Runs keyword/embedding/hybrid search over L1 records visible under the given scope (session/agent/team), ranks with the same D38 dual-pool + RRF logic, and returns the structured hits plus the prepended context block. Read-only; idempotent; does not require a session_key (clients pick scope explicitly).",
+            "annotations": {
+                "title": "Memory Recall",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string", "description": "Raw query text (same shape as the auto-recall hook's user_text)" },
+                    "scope": { "type": "string", "enum": ["session", "agent", "team"], "description": "Cross-session reach of the L1 recall pool (D22). Default: agent." },
+                    "top_k": { "type": "number", "description": "Maximum memories returned, default 5 (RecallConfig::default)" }
+                },
+                "required": ["query"]
+            },
+            "outputSchema": {
+                "type": "object",
+                "description": "{prepend_context, recalled: [{content, score, type}], effective_mode}"
+            }
+        },
+        {
+            "name": "memory_search",
+            "description": "MEM-59: semantic alias of search_memory with the canonical agent-friendly name (mem0/Letta parity). Same wire shape and same engine path as search_memory; both tools share the same dispatch so behavior cannot diverge.",
+            "annotations": {
+                "title": "Memory Search",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string" },
+                    "query_vector": { "type": "array", "items": {"type": "number"} },
+                    "text_query": { "type": "string" },
+                    "top_k": { "type": "number", "description": "Top K hits, default 10" },
+                    "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
+                    "explain": { "type": "boolean" },
+                    "filters": { "type": "object" },
+                    "search_profile": { "type": "object", "properties": {
+                        "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
+                        "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
+                        "candidate_k": { "type": "number", "description": "Per-channel candidate budget (1..max_candidate_k, default core)" }
+                    }, "description": "Optional search profile (MEM-01): mode forces the retrieval channel (keyword/vector/hybrid); rrf_k/candidate_k tune RRF. Wire format matches the native API and the IQL PROFILE clause." }
+                },
+                "required": ["namespace"]
+            },
+            "outputSchema": {
+                "type": "array",
+                "description": "Hits array (structuredContent mirrors the JSON text content)"
+            }
+        },
+        {
             "name": "search_semantic",
             "description": "Raw semantic vector search directly in the HNSW index.",
             "annotations": {
@@ -965,6 +1022,8 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
         "memory_supersede",
         "search_semantic",
         "search_memory",
+        "memory_search",
+        "memory_recall",
         "search_with_method",
         "search_multi",
         "query_iql",
@@ -1511,22 +1570,103 @@ pub fn handle_tools_call(
             }
         }
 
-        "search_memory" => {
-            let namespace = args["namespace"]
-                .as_str()
-                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
-            validate_identifier(namespace, "namespace", config.max_namespace_length)
-                .map_err(|e| e.to_json())?;
+        "search_memory" => dispatch_search_memory(args, config, storage),
+        // MEM-59: agent-friendly alias of search_memory — same wire shape,
+        // same engine path. Delegates to the shared dispatch so the two
+        // tools cannot diverge.
+        "memory_search" => dispatch_search_memory(args, config, storage),
 
-            let request = match parse_search_request(namespace, args, config, storage)? {
-                ParsedSearchRequest::Ready(req) => req,
-                ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
+        // MEM-59: high-level recall — thin wrapper over vanta-memory's
+        // auto-recall hook (MEM-18). Same D38 dual-pool + RRF ranking, same
+        // scope semantics; the MCP client picks scope explicitly and we do
+        // not require a session_key (clients do not own internal sessions).
+        "memory_recall" => {
+            use vanta_memory::core::hooks::{
+                perform_auto_recall, AutoRecallParams, RecallConfig, RecallMode, RecallScope,
+            };
+
+            let query = args["query"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'query'").to_json())?;
+            if query.trim().is_empty() {
+                return Ok(error_content("Recall rejected: 'query' must be non-empty"));
+            }
+            if query.len() > config.max_payload_length {
+                return Ok(error_content(format!(
+                    "Recall rejected: 'query' exceeds maximum length of {} bytes",
+                    config.max_payload_length
+                )));
+            }
+
+            let scope = match args.get("scope").and_then(Value::as_str) {
+                None | Some("agent") => RecallScope::Agent,
+                Some("session") => RecallScope::Session,
+                Some("team") => RecallScope::Team,
+                Some(other) => {
+                    return Ok(error_content(format!(
+                        "Recall rejected: unknown scope '{other}' — supported: session, agent, team"
+                    )));
+                }
+            };
+
+            // top_k: capped against config.max_top_k so a giant value cannot
+            // materialize an unbounded response (same guard as search_memory).
+            let raw_top_k = args["top_k"].as_u64().unwrap_or(5);
+            let top_k = (raw_top_k as usize).min(config.max_top_k).max(1);
+
+            let config_recall = RecallConfig {
+                mode: RecallMode::Hybrid, // degrades to keyword without an embed hook (D38)
+                scope,
+                max_results: top_k,
+                min_overlap: 1,
+                max_chars_per_memory: None,
+                max_total_recall_chars: None,
+            };
+            let params = AutoRecallParams {
+                user_text: query,
+                // External clients do not own internal session keys; the
+                // auto-recall hook's session-scoped reads fall through to
+                // the cross-session scope path when scope != Session.
+                session_key: "mcp",
+                isolation: Some(
+                    vanta_memory::core::profile::profile_sync::ProfileIsolation::default(),
+                ),
+                config: config_recall,
             };
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
-            match embedded.search(request) {
-                Ok(hits) => Ok(text_content_structured(&hits)),
-                Err(e) => Ok(error_content(format!("Search Error: {}", e))),
+            match perform_auto_recall(&embedded, params, None) {
+                Ok(Some(result)) => {
+                    let recalled: Vec<Value> = result
+                        .recalled_memories
+                        .into_iter()
+                        .map(|m| {
+                            json!({
+                                "content": m.content,
+                                "score": m.score,
+                                "type": m.memory_type,
+                            })
+                        })
+                        .collect();
+                    let mode_str = match result.effective_mode {
+                        RecallMode::Keyword => "keyword",
+                        RecallMode::Embedding => "embedding",
+                        RecallMode::Hybrid => "hybrid",
+                    };
+                    let envelope = json!({
+                        "prepend_context": result.prepend_context,
+                        "recalled": recalled,
+                        "effective_mode": mode_str,
+                    });
+                    Ok(text_content(serialize_content(&envelope)))
+                }
+                Ok(None) => Ok(text_content(serialize_content(&json!({
+                    "prepend_context": null,
+                    "recalled": [],
+                    "effective_mode": "keyword",
+                    "message": "No relevant memories, persona, or scenes found."
+                })))),
+                Err(e) => Ok(error_content(format!("Recall Error: {e}"))),
             }
         }
 
@@ -2686,6 +2826,32 @@ fn parse_direction(val: &Value) -> Result<vantadb::graph::TraversalDirection, Va
 enum ParsedSearchRequest {
     Ready(vantadb::sdk::VantaMemorySearchRequest),
     Rejected(Value),
+}
+
+/// MEM-59: shared dispatch for `search_memory` and the agent-friendly
+/// `memory_search` alias. Same wire shape, same engine path — both tools
+/// reuse this so they cannot drift.
+fn dispatch_search_memory(
+    args: &Value,
+    config: &McpConfig,
+    storage: &Arc<StorageEngine>,
+) -> Result<Value, Value> {
+    let namespace = args["namespace"]
+        .as_str()
+        .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+    validate_identifier(namespace, "namespace", config.max_namespace_length)
+        .map_err(|e| e.to_json())?;
+
+    let request = match parse_search_request(namespace, args, config, storage)? {
+        ParsedSearchRequest::Ready(req) => req,
+        ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
+    };
+
+    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    match embedded.search(request) {
+        Ok(hits) => Ok(text_content_structured(&hits)),
+        Err(e) => Ok(error_content(format!("Search Error: {}", e))),
+    }
 }
 
 /// MCP-24: shared parsing for `search_memory` / `search_with_method` /
