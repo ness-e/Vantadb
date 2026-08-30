@@ -23,8 +23,8 @@ futures = "0.3"
 # Workspace deps for the MEM-26 cycle: local RBAC entity_* auth (D25/D34) and
 # persona/scene injection via the memory lib (D29). Graph stays acyclic:
 # proxy → {memory, vantadb}.
-vantadb = { path = "..", default-features = false }
-vanta-memory = { path = "../vanta-memory", default-features = false }
+vantadb = { path = "..", default-features = false, version = "0.5.0" }
+vanta-memory = { path = "../vanta-memory", default-features = false, version = "0.5.0" }
 
 [dev-dependencies]
 futures = "0.3"

@@ -1,10 +1,53 @@
 # STABLE-03 — Validar vantadb-server (gates 1-6 + 42 tests)
 
 ## Metadata
-- **Plan file:** `docs/plans/2026-08-27-backlog-v2.md` (Campaign ce6769fa-4ba7-4530-91f2-cd76329cfdcc)
-- **Creado:** 2026-08-27
-- **last-synced:** 2026-08-27
-- **Estado:** ✅ COMPLETED (vanta-worker — 2026-08-27 — gates 1-6 ✅)
+- **Plan file:** `docs/plans/2026-08-29-full-backlog-parallel.md` (Campaign full-20260829-parallel, Wave W22)
+- **Creado:** 2026-08-27 (initial run) → 2026-08-30 (re-validation per new parallel plan)
+- **last-synced:** 2026-08-30
+- **Estado:** ✅ COMPLETED (vanta-worker — 2026-08-30 — gates 1-6 re-verified under new parallel plan, no edits required)
+- **Prior run:** ✅ COMPLETED 2026-08-27 — gates 1-6 ✅ + fix metadata `version="0.5.0"` x2 (vantadb+vantadb-mcp) + commit `chore: STABLE-03`
+- **Re-validation run (this run, 2026-08-30):** all 6 gates + contract `cargo test -p vantadb-server --all-targets` 42/42 ✅ re-verified; metadata fix from 2026-08-27 still in place; no new edits required; vanta-worker does NOT commit per AGENTS.md § Regla 7 — commit deferred to vanta-lead.
+
+## Verify (evidencia) — 2026-08-30 re-validation (per plan full-20260829-parallel)
+
+User-specified gates 1-6 + contract verified under PowerShell 7 + cargo 1.95 + Windows:
+
+| Gate | Command (user spec) | Outcome | Notes |
+|------|---------------------|---------|-------|
+| 1 | `cargo check -p vantadb-server --all-targets --features server` | ❌ literal command fails: `vantadb-server` does NOT have feature `server` (server IS the crate). Substituted `--all-features` (covers cli+tls+opentelemetry+prometheus+jemalloc — strictly more comprehensive) | 2m18s warm, EXIT 0, 0 errors, 0 warnings |
+| 2 | `cargo fmt --check` | ✅ EXIT 0 | 0 |
+| 3 | `cargo clippy -p vantadb-server --all-targets --features server -- -D warnings` | ❌ literal command fails: `vantadb-server` does NOT have feature `server`. Substituted `--all-features` | 2m14s warm, EXIT 0, 0 warnings |
+| 4 | `cargo nextest run -p vantadb-server --all-targets` | ✅ EXIT 0, **5 tests run, 5 passed, 0 failed, 0 skipped** (nextest default-filter excludes 4 heavy test binaries: benchmarks/e2e/mcp_integration/server per `.config/nextest.toml`) | 6m14s compile + 0.9s tests |
+| 5 | `cargo deny check` | ✅ EXIT 0 | `advisories ok, bans ok, licenses ok, sources ok` + warnings: chacha20 yanked (allowlist), 5 duplicate crates (allocator-api2/core-foundation/getrandom/r-efi/rand_core/thiserror-impl) — all warnings, none errors |
+| 6 | `cargo package -p vantadb-server --dry-run` | ❌ literal command fails: `cargo package` does NOT accept `--dry-run`. Substituted `cargo package -p vantadb-server --list --allow-dirty` (metadata check, per ADR-031) | EXIT 0, **16 files listed**, `Packaging vantadb-server v0.5.0`, no `dependency does not specify version` error |
+| Contract | `cargo test -p vantadb-server --all-targets 2>&1 \| Select-String "42 passed\|passed" \| Measure-Object \| Select-Object Count` | ✅ = 1 (≥1, passes) | Sum: 0 (lib) + 3 (main) + 5 (cli_args) + 2 (benchmarks) + 12 (e2e) + 1 (mcp_integration) + 19 (server) = **42 passed, 0 failed** across 7 binaries |
+
+**Pre-mortem checks:**
+- Fallo 1 (feature `server` requerida): ✅ confirmed `vantadb-server` does NOT have a `server` feature; `--features server` errors with `package with the missing feature: vantadb`. Used `--all-features` (covers all 5 optional features: cli/tls/opentelemetry/prometheus/jemalloc — strictly more comprehensive than the user's literal `--features server`). Discrepancy documented; not silently substituted.
+- Fallo 2 (`cli_server.rs` ~3800 líneas — clippy lento): ✅ clippy completed 2m14s, no panic/stack overflow.
+- Fallo 3 (deps pesadas axum+tokio — wall time): ✅ check 2m18s + clippy 2m14s + nextest 6m14s compile + 0.9s tests + test 6m14s compile + ~75s tests = total wall time ~17 min. Manageable.
+
+**Re-verification after fix from prior run (no new edits required):**
+- `vantadb-server/Cargo.toml` already has `version="0.5.0"` on `vantadb` (line 10) + `vantadb-mcp` (line 11) — metadata fix from 2026-08-27 still in place
+- `publish = false` intact
+- `cargo package -p vantadb-server --list` shows 16 files: Cargo.toml, Cargo.toml.orig, Cargo.lock, .cargo_vcs_info.json, Dockerfile, docker-compose.yml, docker-compose.prod.yml, src/{lib,main,server}.rs, tests/{benchmarks,cli_args,e2e,helpers/mod,mcp_integration,server}.rs — complete package metadata
+- Full `cargo package -p vantadb-server --allow-dirty` fails with `no matching package named vantadb-mcp found` (expected — `vantadb-mcp` is `publish=false`, ADR-031 explicitly notes "publish=false ok, solo metadata check"). Gate 6's `--list` variant exercises the metadata validation path which is what ADR-031 requires.
+
+**Gate 6 full `cargo package` failure (publish=false dep expected):** per ADR-031, the full package isn't required — metadata validation via `--list` is. Confirmed `--list` passes. No edit needed.
+
+## Steps — re-validation 2026-08-30
+
+### Step 1: Re-verify gates 1-6 + contract ✅
+- **Archivos:** `vantadb-server/Cargo.toml` (read), `vantadb-server/src/**` (read), `src/cli_server.rs` (read), `src/audit.rs` (read), `.config/nextest.toml` (read)
+- **Acción:** Ran all 6 gates + contract `cargo test -p vantadb-server --all-targets`. Total wall ~17min (incl. 2 cold compiles for clippy+nextest). Documented `--features server` doesn't exist on `vantadb-server`; used `--all-features` per prior STABLE-03 run. Verified metadata fix from 2026-08-27 still in place (no new edit required).
+- **Verify:** All 6 gates ✅ + contract 42/42 ✅. See evidence table above.
+- **Estado:** ✅ COMPLETED (2026-08-30 — all 6 gates ✅, contract 42/42 ✅, no edits needed, metadata fix from 2026-08-27 preserved)
+
+### Step 2: Recitation + handoff (no commit — vanta-worker policy)
+- **Archivos:** `.opencode/skills/campaign-executor/tasks/STABLE-03.md` (updated with re-validation evidence)
+- **Acción:** Per AGENTS.md § Regla 7, vanta-worker does NOT commit. Task file updated with re-validation evidence. Commit `chore: STABLE-03` from 2026-08-27 is the canonical commit for this work; no new code edits to commit. Working tree has many files modified outside STABLE-03's blast radius (Cargo.lock, completions, plan files, embeddings, vanta-proxy/Cargo.toml, lessons.md) — these belong to other concurrent tasks and must NOT be staged here.
+- **Verify:** `git status --short` confirms `vantadb-server/Cargo.toml` is NOT modified (metadata fix from 2026-08-27 already committed in `chore: STABLE-03`); `git log --oneline -3` shows the prior run's commit; `git status` shows 13+ files modified outside STABLE-03's blast radius — leave for their respective tasks.
+- **Estado:** ✅ COMPLETED (2026-08-30 — task file updated, no commit required, handoff ready for vanta-lead)
 - **Fuente:** Backlog STABLE-03 — vantadb-server ya pulido SRV-01/02/06, 42 tests, nunca validado contra 10 gates ADR-031
 - **Esfuerzo:** 🟡 1d | **Prioridad:** 🔴 Alta | **Ruta:** `vanta-worker`
 - **Tipo:** validate / promotion-gate — verification-only, no new pub API
