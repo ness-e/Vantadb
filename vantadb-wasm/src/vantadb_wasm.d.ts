@@ -348,6 +348,10 @@ export interface OperationalMetrics {
     jemalloc_resident_bytes?: string;
     jemalloc_mapped_bytes?: string;
     jemalloc_retained_bytes?: string;
+    /** Cumulative count of NaN/Inf→0.0 sanitizations applied to outgoing
+     *  vector/explanation payloads (WSM-12). Non-zero means upstream data
+     *  contained non-finite floats — investigate the embedding/score source. */
+    nan_sanitization_count: string;
 }
 
 /** Report returned by import / bulk-import operations. */
@@ -574,9 +578,12 @@ export class VantaDB {
 
     /**
      * Search nodes by raw vector without namespace scoping.
-     * Returns one `{node_id, score}` entry per result (u128 ids as decimal strings).
+     * Returns one `{node_id, distance}` entry per result (u128 ids as decimal strings).
+     * `distance` is a **lower-is-better** raw L2 / cosine distance (mirrors `VantaSearchHit.distance`
+     * in the Rust core). For higher-is-better relevance scores, use `search()` instead.
+     * See `docs/api/WASM_API.md` for the full score-vs-distance convention (WSM-10).
      */
-    search_vector(vector: Float32Array | number[], top_k: number): { node_id: string; score: number }[];
+    search_vector(vector: Float32Array | number[], top_k: number): { node_id: string; distance: number }[];
 
     /**
      * Search namespace-scoped memory records by vector similarity from an

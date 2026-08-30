@@ -7,7 +7,23 @@
 //! to WebAssembly targets. It also includes an optional OPFS persistence layer and
 //! a SIMD-accelerated cosine distance helper.
 
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
+/// Global counter of NaN/Inf→0.0 sanitizations applied to outgoing WASM data.
+///
+/// WSM-12 (research-vantadb-wasm-20260825 H-15): Float32Array / JSON cannot
+/// represent NaN or Infinity, so the WASM glue coerces them silently. This
+/// counter makes the silent data alteration observable via
+/// `operational_metrics().nan_sanitization_count`. Accumulated (not reset) so
+/// the value reflects the lifetime of the WASM instance.
+static NAN_SANITIZATION_COUNT: AtomicU64 = AtomicU64::new(0);
+
+/// Increment the sanitization counter by `n` (typically 1, but vector coercion
+/// passes the count of replaced elements in a single call).
+#[inline]
+fn record_nan_sanitization(n: u64) {
+    NAN_SANITIZATION_COUNT.fetch_add(n, Ordering::Relaxed);
+}
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
@@ -242,6 +258,10 @@ struct JsOperationalMetrics {
     jemalloc_resident_bytes: Option<String>,
     jemalloc_mapped_bytes: Option<String>,
     jemalloc_retained_bytes: Option<String>,
+    /// Cumulative count of NaN/Inf→0.0 sanitizations applied to outgoing
+    /// vector/explanation payloads (WSM-12). Non-zero is a signal that
+    /// upstream data (embeddings, scores) contains non-finite floats.
+    nan_sanitization_count: String,
 }
 
 impl From<VantaOperationalMetrics> for JsOperationalMetrics {
@@ -284,6 +304,8 @@ impl From<VantaOperationalMetrics> for JsOperationalMetrics {
             jemalloc_resident_bytes: m.jemalloc_resident_bytes.map(|v| v.to_string()),
             jemalloc_mapped_bytes: m.jemalloc_mapped_bytes.map(|v| v.to_string()),
             jemalloc_retained_bytes: m.jemalloc_retained_bytes.map(|v| v.to_string()),
+            // WSM-12: pull from WASM-local counter (not core snapshot).
+            nan_sanitization_count: NAN_SANITIZATION_COUNT.load(Ordering::Relaxed).to_string(),
         }
     }
 }
@@ -1180,10 +1202,12 @@ impl VantaDB {
             let mut sanitized = explanation.clone();
             if sanitized.score.is_nan() || sanitized.score.is_infinite() {
                 sanitized.score = 0.0;
+                record_nan_sanitization(1);
             }
             for term in &mut sanitized.bm25_terms {
                 if term.contribution.is_nan() || term.contribution.is_infinite() {
                     term.contribution = 0.0;
+                    record_nan_sanitization(1);
                 }
             }
             if let Ok(expl_js) = serde_wasm_bindgen::to_value(&sanitized) {
@@ -1230,6 +1254,11 @@ impl VantaDB {
     }
 
     /// Search nodes by raw vector without namespace scoping.
+    ///
+    /// Returns one `{node_id, distance}` entry per result (u128 ids as decimal strings).
+    /// The `distance` field is a **lower-is-better** raw L2 / cosine distance, mirroring
+    /// `VantaSearchHit.distance` in the Rust core. See `docs/api/WASM_API.md` for the
+    /// full score-vs-distance convention across the 3 transports (WSM-10).
     pub fn search_vector(&self, vector: Vec<f32>, top_k: usize) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
         if vector.len() > MAX_F32_VEC_LEN {
@@ -1247,7 +1276,7 @@ impl VantaDB {
         for hit in hits {
             let obj = js_sys::Object::new();
             js_sys::Reflect::set(&obj, &"node_id".into(), &hit.node_id.to_string().into()).ok();
-            js_sys::Reflect::set(&obj, &"score".into(), &(hit.distance as f64).into()).ok();
+            js_sys::Reflect::set(&obj, &"distance".into(), &(hit.distance as f64).into()).ok();
             arr.push(&obj);
         }
         Ok(arr.into())
@@ -2259,16 +2288,25 @@ fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
         // into a Float32Array instead of letting serde_wasm_bindgen build a
         // JS number[] element-by-element (one Reflect call + alloc per f32).
         // This is the hot path hit on every search/list/put record.
+        //
+        // WSM-12: count replaced elements in a single fetch_add to keep the
+        // hot path branch-light. NaN/Inf from upstream embeddings is the bug
+        // signal we want to surface via `operational_metrics()`.
+        let mut sanitized_hits: u64 = 0;
         let sanitized: Vec<f32> = vector
             .iter()
             .map(|x| {
                 if x.is_nan() || x.is_infinite() {
+                    sanitized_hits += 1;
                     0.0
                 } else {
                     *x
                 }
             })
             .collect();
+        if sanitized_hits > 0 {
+            record_nan_sanitization(sanitized_hits);
+        }
         let arr = js_sys::Float32Array::new_with_length(sanitized.len() as u32);
         arr.copy_from(&sanitized);
         js_sys::Reflect::set(&obj, &"vector".into(), &arr).ok();
@@ -2552,6 +2590,29 @@ mod tests {
         db.compact_wal().unwrap();
         let freed = db.compact_layout().unwrap();
         assert_eq!(freed, 0);
+    }
+
+    // ── WSM-12: NaN/Inf sanitization counter ──
+
+    #[test]
+    fn test_nan_sanitization_counter_accumulates() {
+        // The counter is process-wide; capture the baseline so the assertion
+        // doesn't flake when other tests in the same process bump it.
+        let baseline = NAN_SANITIZATION_COUNT.load(Ordering::Relaxed);
+        record_nan_sanitization(1);
+        record_nan_sanitization(4);
+        let after = NAN_SANITIZATION_COUNT.load(Ordering::Relaxed);
+        assert_eq!(after, baseline + 5);
+        // Counter is never reset (except by WASM instance lifetime); verify
+        // monotonic accumulation rather than the exact value.
+        assert!(after >= baseline + 5);
+    }
+
+    #[test]
+    fn test_record_nan_sanitization_zero_is_noop() {
+        let before = NAN_SANITIZATION_COUNT.load(Ordering::Relaxed);
+        record_nan_sanitization(0);
+        assert_eq!(NAN_SANITIZATION_COUNT.load(Ordering::Relaxed), before);
     }
 
     // ── ERR-024: u128 node id round-trip ──
