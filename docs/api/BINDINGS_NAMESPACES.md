@@ -21,7 +21,16 @@
 
 | Capability | WASM | TS | Python |
 |---|---|---|---|
-| `supersede(namespace, old_key, new_key)` | ❌ | ❌ | ✅ |
+| `supersede(namespace, old_key, new_key)` | ✅ | ❌ | ✅ |
+| `count(namespace, filter?)` | ✅ | ❌ | ✅ |
+| `similar_to_key(namespace, key, top_k)` | ✅ | ❌ | ✅ |
+| `remove_edge(source_id, target_id, label)` | ✅ | ❌ | ✅ |
+| `search_multi(namespaces, request)` | ✅ | ✅ | ❌ |
+| `sparse_vector` on `put()` / `put_batch()` | ✅ | ✅ | ✅ |
+| `exclude_superseded` on `search()` | ✅ | ✅ | ✅ |
+| `exclude_superseded` on `list()` | ✅ (WSM-06) | ✅ | ❌ |
+| `filter_ops` on `search()` | ❌ (core limitation: flat `filters` only) | ❌ | ❌ |
+| `search_profile` on `search()` | ❌ (advanced, internal `None`) | ❌ | ❌ |
 | Node CRUD by explicit id (`insert_node`/`get_node`/`delete_node`) | ✅ | ✅ | ⚠️ via `insert`/`get`/`delete` (`id: u128`) |
 | `graph_page_rank` / `graph_degree_centrality` | ❌ (has `graph_degree`) | ❌ (has `graphDegree`) | ✅ both |
 | `delete_by_filter` / `search_vector` / `audit_text_index_deep` / `export_namespace_filtered` / `import_records` | ✅ | ✅ | ⚠️ `delete_by_filter` ✅; `search_vector` / `audit_text_index_deep` / `export_namespace_filtered` / `import_records` ❌ |
@@ -32,22 +41,26 @@
 
 ⚠️ **Naming hazard:** `get`/`delete` are memory-record ops (namespace+key) in WASM/TS but **node-level ops (`id: u128`, graph domain)** in Python. Sub-client design must not blindly mirror names across SDKs.
 
-## WASM (`vantadb-wasm/src/lib.rs`) — 43 pub fns
+## WASM (`vantadb-wasm/src/lib.rs`) — 47 pub fns
 
 | Method | Domain | Notes |
 |---|---|---|
 | `new` | system | constructor |
 | `open` | system | constructor |
 | `close` | system | lifecycle |
-| `put` | memory | |
-| `put_batch` | memory | |
+| `put` | memory | supports `sparse_vector` (WSM-06) |
+| `put_batch` | memory | supports `sparse_vector` (WSM-06) |
 | `get` | memory | namespace+key |
 | `delete` | memory | namespace+key |
-| `delete_by_filter` | memory | |
-| `list` | memory | |
+| `delete_by_filter` | memory | full operator `filter_ops` |
+| `list` | memory | supports `exclude_superseded` (WSM-06) |
 | `list_namespaces` | memory | |
-| `search` | memory | hybrid request |
+| `search` | memory | hybrid request; supports `exclude_superseded` |
 | `search_vector` | memory | pure ANN |
+| `search_multi` | memory | cross-namespace hybrid search |
+| `similar_to_key` | memory | vector search from existing key |
+| `count` | memory | optional operator filter |
+| `supersede` | memory | mark record as superseded |
 | `explain_memory_search` | memory | explain plan |
 | `generate_snippet` | memory | text highlight over payload |
 | `purge_expired` | memory | TTL housekeeping |
@@ -55,6 +68,7 @@
 | `get_node` | graph | |
 | `delete_node` | graph | |
 | `add_edge` | graph | |
+| `remove_edge` | graph | |
 | `graph_bfs` | graph | |
 | `graph_dfs` | graph | |
 | `graph_topological_sort` | graph | |
@@ -80,7 +94,7 @@
 | `bulk_import` | system | portability |
 | `bulk_import_bytes` | system | portability |
 
-**Totals:** memory 12 · graph 10 · system 21 = 43 ✔
+**Totals:** memory 15 · graph 11 · system 21 = 47 ✔
 
 ## TypeScript (`vantadb-ts/src/vantadb.ts`) — 38 public methods
 

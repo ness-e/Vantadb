@@ -121,6 +121,9 @@ struct ListOptions {
     limit: usize,
     #[serde(default, deserialize_with = "deserialize_cursor")]
     cursor: Option<usize>,
+    /// Hide superseded records from the listing (consistency with `search`).
+    #[serde(default)]
+    exclude_superseded: bool,
 }
 
 fn default_limit() -> usize {
@@ -1148,7 +1151,7 @@ impl VantaDB {
             filter_ops: None,
             limit: opts.limit,
             cursor: opts.cursor,
-            exclude_superseded: false,
+            exclude_superseded: opts.exclude_superseded,
         };
         let page = self.inner.list(namespace, vanta_opts).map_err(to_js_err)?;
         let obj = js_sys::Object::new();
