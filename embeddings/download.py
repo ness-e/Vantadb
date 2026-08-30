@@ -9,7 +9,8 @@ Usage:
   python embeddings/download.py --check          # valida manifest sin red
   python embeddings/download.py --help
 
-Contrato EMB-01: huggingface_hub lazy, --only, --skip-exception, --check
+Contrato EMB-01: huggingface_hub lazy, --only, --skip-exception, --check,
+fallback de rev stale (404 -> resolver main), lock acumulativo.
 """
 from __future__ import annotations
 
@@ -27,6 +28,26 @@ ALLOW_PATTERNS = ["*.json", "*.txt", "tokenizer*", "onnx/*", "*.safetensors", "*
 
 def load_manifest() -> dict:
     return json.loads(MANIFEST.read_text(encoding="utf-8"))
+
+
+def write_manifest(manifest: dict) -> None:
+    """Escribe manifest.json preservando formato (indent=2 + trailing newline)."""
+    MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def merge_lock(new_entries: dict) -> dict:
+    """Lock acumulativo: lee lock previo, merge por id (reemplaza si duplicado)."""
+    existing: list[dict] = []
+    if LOCK.exists():
+        try:
+            prev = json.loads(LOCK.read_text(encoding="utf-8"))
+            existing = prev.get("models", [])
+        except Exception:
+            existing = []
+    by_id = {e["id"]: e for e in existing}
+    for e in new_entries["models"]:
+        by_id[e["id"]] = e
+    return {"version": new_entries["version"], "models": list(by_id.values())}
 
 
 def parse_args() -> argparse.Namespace:
@@ -139,16 +160,22 @@ def main() -> int:
 
     # lazy import huggingface_hub solo cuando se necesita descargar
     try:
-        from huggingface_hub import snapshot_download  # type: ignore
+        from huggingface_hub import HfApi, snapshot_download  # type: ignore
     except ImportError:
         print("[error] huggingface_hub no instalado. Instala con: pip install huggingface_hub", file=sys.stderr)
         return 1
+    api = HfApi()
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     for m in targets:
         repo, rev, mid = m["repo"], m["rev"], m["id"]
         local_dir = MODELS_DIR / mid
+        # si ya está descargado en disco, skip (idempotente)
+        if local_dir.exists() and any(local_dir.rglob("*.onnx")) and any(local_dir.rglob("*.safetensors") or local_dir.rglob("*.bin")):
+            print(f"[skip] {mid} ya descargado en {local_dir}")
+            continue
         print(f"[download] {mid} <- {repo}@{rev} -> {local_dir}")
+        used_rev = rev
         try:
             snapshot_download(
                 repo_id=repo,
@@ -156,18 +183,42 @@ def main() -> int:
                 local_dir=str(local_dir),
                 allow_patterns=ALLOW_PATTERNS,
             )
-            # si el repo no trae onnx/ y no es excepción, avisar para optimum
-            onnx_path = local_dir / (m["onnx"] or "")
-            if m["onnx"] and not onnx_path.exists():
-                print(f"[warn] {mid}: onnx no encontrado en HF ({m['onnx']}); exporta con: optimum-cli export onnx --model {repo} {local_dir}/onnx/", file=sys.stderr)
         except Exception as e:
-            print(f"[error] fallo {mid}: {e}", file=sys.stderr)
-            return 1
+            err = str(e)
+            # 404 "Revision Not Found" -> rev pinneado stale; resolver main y reintentar
+            if "Revision Not Found" in err or "Invalid rev id" in err or "404" in err:
+                try:
+                    actual = api.repo_info(repo, repo_type="model").sha
+                    actual_short = actual[:7]
+                    print(f"[warn] {mid}: rev pinneado '{rev}' stale, fallback a main = {actual_short}")
+                    used_rev = actual_short
+                    snapshot_download(
+                        repo_id=repo,
+                        revision=actual,
+                        local_dir=str(local_dir),
+                        allow_patterns=ALLOW_PATTERNS,
+                    )
+                    # parchear manifest.json con el rev real para próximas corridas
+                    m["rev"] = actual_short
+                    write_manifest(manifest)
+                    print(f"[manifest] {mid}.rev actualizado a {actual_short}")
+                except Exception as e2:
+                    print(f"[error] {mid}: fallback falló: {e2}", file=sys.stderr)
+                    return 1
+            else:
+                print(f"[error] {mid}: {e}", file=sys.stderr)
+                return 1
+        # actualizar rev usado en manifest si difiere del pinneado original
+        m["rev"] = used_rev
+        # si el repo no trae onnx/ y no es excepción, avisar para optimum
+        onnx_path = local_dir / (m["onnx"] or "")
+        if m["onnx"] and not onnx_path.exists():
+            print(f"[warn] {mid}: onnx no encontrado en HF ({m['onnx']}); exporta con: optimum-cli export onnx --model {repo} {local_dir}/onnx/", file=sys.stderr)
 
-    # escribe manifest.lock con shas resueltos (simplified: rev + repo)
-    lock = {"version": manifest["version"], "models": [{"id": m["id"], "repo": m["repo"], "rev": m["rev"]} for m in targets]}
+    # manifest.lock acumulativo: merge con lock previo (key=id), reemplaza si mismo id
+    lock = merge_lock({"version": manifest["version"], "models": [{"id": m["id"], "repo": m["repo"], "rev": m["rev"]} for m in targets]})
     LOCK.write_text(json.dumps(lock, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"[lock] escrito {LOCK} ({len(targets)} modelos)")
+    print(f"[lock] escrito {LOCK} ({len(lock['models'])} modelos acumulados)")
     return 0
 
 

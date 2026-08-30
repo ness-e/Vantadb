@@ -1,5 +1,20 @@
 {
   "version": 1,
-  "locked": [],
-  "_note": "vacío hasta primera descarga — download.py escribe shas aquí (commitable)"
+  "models": [
+    {
+      "id": "all-MiniLM-L6-v2",
+      "repo": "sentence-transformers/all-MiniLM-L6-v2",
+      "rev": "1110a24"
+    },
+    {
+      "id": "paraphrase-multilingual-MiniLM-L12-v2",
+      "repo": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+      "rev": "e8f8c21"
+    },
+    {
+      "id": "multilingual-e5-small",
+      "repo": "intfloat/multilingual-e5-small",
+      "rev": "614241f"
+    }
+  ]
 }
