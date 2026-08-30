@@ -312,8 +312,8 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo clippy -p vantadb -- -D warnings 2>&1 | Measure-Object Count` ==0 (sin duplicación) AND `scripts/validate-docs-coverage.ps1` 0 gaps
 - **Task file:** `.opencode/skills/campaign-executor/tasks/FIND-38.md`
-- **Estado:** ⬜ PENDING
-- **Cynefin:** 🟨 Complicado
+- **Estado:** ✅ COMPLETED (2026-08-29T21:45) — refactor interno `pub(crate)` consolidado: tabla declarativa `RESERVED_FIELDS` reemplaza 10 `fields.remove(FIELD_*)` paralelos a las 9 `let x = get_*_field(...)`. +19/-10 LOC. 1961/1961 tests OK, 0 warnings clippy. Staged para vanta-lead.
+- **Cynefin:** 🟨 Complicado → Resuelto (refactor aditivo sin breaking changes; signature `pub(crate) fn get_string_field/get_u64_field` preservada)
 
 ### Task W5-2: FIND-43 — Ciclo CacheWarmer builder recursivo
 
@@ -340,8 +340,10 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo check -p vantadb-server --all-targets 2>&1 | Select-String "warning" | Measure-Object Count` ==0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MOD-15.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-29 — sincronización por vanta-worker; código ya commiteado 2026-08-25 por vanta-lead vía commit 6f9bc400)
 - **Cynefin:** 🟦 Obvio
+- **Verify 2026-08-29:** `Select-String -Path "Cargo.toml" -Pattern "sysinfo.*=\s*\[\]"` Count=0 ✅; `pub mod middleware` 0 matches ✅; commit 6f9bc400 presente en develop con 11 archivos modificados (middleware.rs eliminado, lib.rs reducido, main.rs comentado, helpers documentado, 3 sitios refactorizados); task file ya marca ✅ COMPLETED.
+- **Nota:** `cargo check -p vantadb-server --all-targets` actualmente falla con error E0061 en `tests/mcp_integration.rs:26` — `handle_tools_list()` ahora requiere `&McpConfig` (cambio de MCP-36, commit ca4eef6d posterior a MOD-15). Test roto NO pertenece a MOD-15; requiere ticket separado.
 
 ### Task W6-1: SRV-05 — RBAC scoping por namespace
 

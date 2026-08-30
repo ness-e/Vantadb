@@ -333,6 +333,22 @@ fn memory_record_from_node_inner(
         .map(|(key, value)| (key.clone(), value.clone().into()))
         .collect();
 
+    // ponytail: the set of reserved field names is declared once and used both
+    // to strip them from `metadata` below and to document which keys the
+    // helpers consume above. Adding a new reserved field is a single edit.
+    const RESERVED_FIELDS: &[&str] = &[
+        FIELD_NAMESPACE,
+        FIELD_KEY,
+        FIELD_PAYLOAD,
+        FIELD_CREATED_AT_MS,
+        FIELD_UPDATED_AT_MS,
+        FIELD_VERSION,
+        FIELD_EXPIRES_AT_MS,
+        FIELD_SUPERSEDED_BY,
+        FIELD_SUPERSEDED_AT_MS,
+        SPARSE_VECTOR_EXT_KEY,
+    ];
+
     let namespace = get_string_field(&fields, FIELD_NAMESPACE)?;
     let key = get_string_field(&fields, FIELD_KEY)?;
     let payload = get_string_field(&fields, FIELD_PAYLOAD)?;
@@ -343,16 +359,9 @@ fn memory_record_from_node_inner(
     let superseded_by = get_string_field(&fields, FIELD_SUPERSEDED_BY);
     let superseded_at_ms = get_u64_field(&fields, FIELD_SUPERSEDED_AT_MS);
 
-    fields.remove(FIELD_NAMESPACE);
-    fields.remove(FIELD_KEY);
-    fields.remove(FIELD_PAYLOAD);
-    fields.remove(FIELD_CREATED_AT_MS);
-    fields.remove(FIELD_UPDATED_AT_MS);
-    fields.remove(FIELD_VERSION);
-    fields.remove(FIELD_EXPIRES_AT_MS);
-    fields.remove(FIELD_SUPERSEDED_BY);
-    fields.remove(FIELD_SUPERSEDED_AT_MS);
-    fields.remove(SPARSE_VECTOR_EXT_KEY);
+    for reserved in RESERVED_FIELDS {
+        fields.remove(*reserved);
+    }
 
     // Lazy TTL eviction: if expires_at_ms is set and the deadline
     // has passed, the record is treated as if it no longer exists.
